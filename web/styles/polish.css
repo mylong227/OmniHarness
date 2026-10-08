@@ -1093,6 +1093,186 @@ pre.json {
 }
 
 /* =========================================================================
+   提问卡（可作答）—— 输入框正上方的**唯一作答入口**（2026-10-08）
+   ---------------------------------------------------------------------
+   背景：对话流里的提问记录只呈现内容（不给「可点」的错觉），真正的作答控件在这里。
+   口径：选项是可聚焦的 radio/checkbox（触控目标 ≥44px、hover 与选中态可分辨），
+   提交前要求逐题作答，另有「全部跳过」显式出口，倒计时提示超时后会按「未作答」继续。
+   ========================================================================= */
+.qask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 14px 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 14px;
+}
+.qask-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qask-progress {
+  font-size: 12px;
+  color: var(--dim);
+}
+.qask-timer {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--warn);
+}
+.qask-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+}
+.qask-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qask-eyebrow {
+  font-size: 11px;
+  color: var(--dim);
+}
+.qask-question {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.qask-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qask-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.qask-option:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.qask-option.is-checked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-2));
+}
+.qask-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.qask-mark {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.qask-mark.is-box {
+  border-radius: 5px;
+}
+.qask-mark-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.qask-option.is-checked .qask-mark {
+  border-color: var(--accent);
+}
+.qask-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.qask-option-label {
+  color: var(--text);
+}
+.qask-option-desc {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--dim);
+}
+.qask-custom {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.qask-custom:focus {
+  border-color: var(--accent);
+}
+.qask-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.qask-hint {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.qask-error {
+  font-size: 11.5px;
+  color: var(--err);
+}
+.qask-skip {
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.qask-skip:hover:not(:disabled) {
+  color: var(--text);
+}
+.qask-submit {
+  min-height: 34px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.qask-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* =========================================================================
    空 / 加载 / 错误 三态（2026-10-07 统一口径）
    ---------------------------------------------------------------------
    三种态在同一产品里必须**一眼分得开**，而原先它们都只是"一行灰字"：

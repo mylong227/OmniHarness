@@ -100,9 +100,11 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 .question-header { font-size:12px; color:var(--dim); }
 .question-text { font-size:13px; color:var(--text); }
 .question-options { display:flex; flex-direction:column; gap:5px; margin-top:4px; }
-.question-option { display:flex; flex-direction:column; align-items:flex-start; gap:2px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text); font-size:12px; cursor:not-allowed; opacity:.7; }
+.question-option { display:flex; flex-direction:column; align-items:flex-start; gap:2px; background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:6px 10px; color:var(--text); font-size:12px; }
 .question-option .opt-desc { font-size:11px; color:var(--dim); }
+/* 提问记录里的说明：只在真有提问等待作答时出现（作答入口是输入框上方的 .qask 卡）。 */
 .question-note { font-size:11px; color:var(--dim); margin-top:4px; }
+.question-note.pending { color:var(--accent, var(--warn)); font-size:12px; }
 
 /* ---------- 输入区（Codex 式悬浮圆角容器） ---------- */
 /* ---------- 底部输入区（Codex 风格：切换器 + 附件 + 文本） ---------- */

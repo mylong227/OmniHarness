@@ -15,22 +15,23 @@
 > WebSocket = **帧层**（`wsFrameCodec` / `wsConnection`，同在 `src/server/transport/` 下）。文档旧口径里
 > 「HTTP+SSE」指的就是这一对端点，别再另起名字。
 >
-> **覆盖面提示**：本文件只覆盖**核心 turn / approval 面**（下方 7 个方法与 `thread.event` 通知）。
+> **覆盖面提示**：本文件只覆盖**核心 turn / approval / question 面**（下方 8 个方法与 `thread.event` 通知）。
 > UI/工作台侧的 RPC——如 `modes.set`、`sessions.list` 的 `workspace` 过滤、`plugins.reload`、
 > `config.get`——由 `src/server/core/` 下的处理器文件（`appServer.ts`、`appServerHandlers.ts`、
 > `appServerSurfaceHandlers.ts`）直接注册，**不在**本文件与单源 schema 内；查它们请直读注册处或 Web 侧调用点。
 
 ## 方法一览
 
-| 方法               | 说明                                             |
-| ------------------ | ------------------------------------------------ |
-| `threads.create`   | 创建线程并执行任务                               |
-| `threads.continue` | 续跑线程                                         |
-| `threads.fork`     | 分叉线程                                         |
-| `threads.get`      | 获取线程事件                                     |
-| `threads.rewind`   | 回退线程（截断到指定事件，重生成的服务端真回退） |
-| `turns.run`        | 运行回合（线程已存在则续跑）                     |
-| `approval.respond` | 响应审批上行                                     |
+| 方法               | 说明                                                |
+| ------------------ | --------------------------------------------------- |
+| `threads.create`   | 创建线程并执行任务                                  |
+| `threads.continue` | 续跑线程                                            |
+| `threads.fork`     | 分叉线程                                            |
+| `threads.get`      | 获取线程事件                                        |
+| `threads.rewind`   | 回退线程（截断到指定事件，重生成的服务端真回退）    |
+| `turns.run`        | 运行回合（线程已存在则续跑）                        |
+| `approval.respond` | 响应审批上行                                        |
+| `question.respond` | 响应提问上行（提交 ask_user / plan_present 的作答） |
 
 ## 方法详情
 
@@ -170,3 +171,26 @@
 | 字段 | 类型    | 必填 | 说明     |
 | ---- | ------- | ---- | -------- |
 | `ok` | boolean | 否   | 是否成功 |
+
+### question.respond
+
+响应提问上行（提交 `ask_user` / `plan_present` 的作答）
+
+> **配对的通知**：服务端在工具提问时下发 `question.request`
+> （`{ requestId, sessionId, questions, timeoutMs }`），客户端作答后调本方法送达。
+> 等待上限（缺省 300s，`OMNI_QUESTION_UPLINK_TIMEOUT_MS` 可覆盖）到点、或客户端全部断开时，
+> 服务端按「未拿到回答」继续（fail-soft，与无人值守默认同文案），**不会永久挂起回合**。
+
+**参数**
+
+| 字段        | 类型   | 必填 | 说明                                                         |
+| ----------- | ------ | ---- | ------------------------------------------------------------ |
+| `requestId` | string | 是   | 提问请求 ID                                                  |
+| `answers`   | array  | 是   | 作答数组：每项 `{ id, selected: string[], custom?: string }` |
+
+**结果**
+
+| 字段    | 类型    | 必填 | 说明                                                        |
+| ------- | ------- | ---- | ----------------------------------------------------------- |
+| `ok`    | boolean | 否   | 是否受理                                                    |
+| `error` | string  | 否   | 拒因（未知请求 / 答案不合法；被拒时挂起保留，可改正后重提） |

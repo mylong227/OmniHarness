@@ -18,7 +18,9 @@ import { LineTransport } from '../server/transport/lineTransport.js';
 import { HttpServer, HttpBridgeTransport } from '../server/transport/httpServer.js';
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.js';
 import { Metrics } from '../server/services/metrics.js';
+import type { AuditSink } from '../server/services/auditSink.js';
 import { AppServer } from '../server/core/appServer.js';
+import { ServerEventBridge } from '../server/core/serverEventBridge.js';
 import { DoctorRunner } from './doctorRunner.js';
 import {
   OidcClient,
@@ -39,6 +41,7 @@ import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/ind
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
 import { ArgParser, CliDefaults } from './argParser.js';
 import type { CliArgs } from './argParser.js';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 import { CliBuildConfig } from './cliBuildConfig.js';
 import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.js';
 import { CliArgReader } from './cliArgReader.js';
@@ -448,6 +451,42 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
+   * serve 的上行前置装配：传输 → 指标 → 上行桥 → 配置（把**提问上行端口**注入 `userResponder`）。
+   *
+   * 为什么这几步必须绑在一起、且必须在配置构建**之前**：`ask_user` / `plan_present` 在
+   * `ConfigFactory.build` 期就捕获了 `userResponder`（`registerAgentTools`），而提问上行端口由
+   * 本桥提供。顺序反了（或干脆不接），serve 的提问只会落到 `ConsoleUserResponder`（在服务端终端里
+   * 问人）或 `DefaultUserResponder`（直接放弃作答）——**Web 端无论哪种都答不了**：
+   * 用户看得见提问卡、却没有任何提交入口，回合只能干等（2026-10-08 用户报障）。
+   *
+   * 为什么单独成方法：`runServe` 的函数体已贴铁律上限（`check.mjs` 体量闸），按本仓惯例
+   * **按职责搬出**而不是放宽阈值。
+   *
+   * public 而非 protected：**供单测直接断言接线**（配置里的回答器必须是本桥的提问端口，而不是
+   * `ConsoleUserResponder`/`DefaultUserResponder`）——与 `displayConfigOf` 同一取舍。
+   * @param args 解析后的 CLI 参数（配置装配用；workspace 已定为启动目录）
+   * @param auth 已装配的服务端鉴权门禁（undefined 表示不开鉴权）
+   * @param audit 审计 sink（与本方法返回的桥共用同一实例，避免两处各自开一份）
+   * @returns 传输、指标、上行桥与已注入提问端口的解析配置
+   */
+  public async buildServeUpstream(
+    args: CliArgs,
+    auth: EnterpriseAuth | undefined,
+    audit: AuditSink | undefined,
+  ): Promise<{
+    bridge: HttpBridgeTransport;
+    metrics: Metrics;
+    events: ServerEventBridge;
+    config: ResolvedConfig;
+  }> {
+    const bridge = new HttpBridgeTransport(auth);
+    const metrics = new Metrics();
+    const events = new ServerEventBridge({ transport: bridge, metrics, audit });
+    const config = await this.buildConfig(args, { userResponder: events.questionPort() });
+    return { bridge, metrics, events, config };
+  }
+
+  /**
    * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
    * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
@@ -500,7 +539,6 @@ export class CliServerCmds extends CliBuildConfig {
     args.workspace = wsRoot;
     const restoreEgress = this.applyNetworkGuard(args);
     try {
-      const config = await this.buildConfig(args);
       // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
       // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
       let auth: EnterpriseAuth | undefined;
@@ -509,11 +547,13 @@ export class CliServerCmds extends CliBuildConfig {
         if (typeof built === 'number') return built;
         auth = built;
       }
-      const bridge = new HttpBridgeTransport(auth);
-      const metrics = new Metrics();
+      const audit = this.createAudit(serveArgs);
+      const upstream = await this.buildServeUpstream(args, auth, audit);
+      const { bridge, metrics, events, config } = upstream;
       // serve 模式默认不启用「上行总开关」：默认档走配置的规则审批端口（安全工具自动放行，
       // 危险工具按规则裁决），避免每次都弹框；「审批」档由 config.update(approval=ask) 经
       // resolveApprovals 强制上行端口（approvalPort）显式触发弹框，与 uplink 总开关解耦。
+      // 注意：**提问**不在这条总开关之下——提问不是门禁，Web 端必须能作答（见 buildServeUpstream）。
       const uplink = false;
       const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
       const pluginsDir =
@@ -524,9 +564,12 @@ export class CliServerCmds extends CliBuildConfig {
       const app = new AppServer({
         config: { ...config, live },
         transport: bridge,
+        // 复用同一份上行桥：`question.respond` 的处理器挂在同一个实例上，否则（各自新建）
+        // 客户端作答会送到一张**没有登记过请求**的挂起表里，答案静默丢失。
+        eventBridge: events,
         approvalUplink: uplink,
         metrics,
-        audit: this.createAudit(serveArgs),
+        audit,
         registry: this.createRegistry(serveArgs, pluginsDir),
         // (F4) 治理台（Pro）与审计中台（Team）按档位可用；无授权 ⇒ core 档并给可读拒因。
         entitlements: LicenseSource.resolve({ env: process.env }),

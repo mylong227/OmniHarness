@@ -65,6 +65,7 @@ import { CryptoVault } from '../adapters/vault/cryptoVault.js';
 import type { CliArgs } from './argParser.js';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 import type { ExtraTool } from '../ports/tool/extraTool.js';
+import type { UserResponder } from '../ports/runtime/userResponder.js';
 
 /**
  * F3 凭据水合的内置默认名列表。
@@ -274,9 +275,14 @@ export class CliBuildConfig {
   /**
    * 装配运行时配置（端口即插即用）。
    * @param args 解析后的 CLI 参数。
+   * @param overrides 组合根注入的端口覆盖（当前只有 `userResponder`：serve 要把「提问」接到
+   *   Web 上行通道，而该通道的桥持有传输、**只能在配置构建之后/之外**存在——故由调用方传入）。
    * @returns 已完成全部端口装配（模型 / 存储 / 审批 / 沙箱 / MCP 桥接等）的解析配置。
    */
-  protected async buildConfig(args: CliArgs): Promise<ResolvedConfig> {
+  protected async buildConfig(
+    args: CliArgs,
+    overrides: { readonly userResponder?: UserResponder } = {},
+  ): Promise<ResolvedConfig> {
     if (args.native && !new NativeKernel().available()) {
       process.stderr.write(
         '⚠️ --native 已请求但原生内核不可用（请先 npm run native:build），已回退 TS 路径\n',
@@ -287,6 +293,10 @@ export class CliBuildConfig {
     const model = this.buildModel(args);
     const config = ConfigFactory.build({
       workspaceRoot: args.workspace,
+      // serve 的提问上行端口：`ask_user` / `plan_present` 在 ConfigFactory.build 期就捕获了
+      // `userResponder`（`registerAgentTools`），所以必须在**这里**注入；漏了它，Web 端就只剩
+      // 「只读提问卡」，用户看得见问题却没有提交入口（2026-10-08 用户报障）。
+      ...(overrides.userResponder !== undefined ? { userResponder: overrides.userResponder } : {}),
       ssrfPolicy: args.ssrfPolicy, // 配置文件 → CLI → 组合根；不在此透传则 A2A 拿不到策略表
       // V2：默认步数 16→32——16 在真实任务上频繁跑满无果（2026-09-08 真机复现）；LoopGuard 已兜住空转风险。
       maxSteps: args.maxSteps ?? 32,

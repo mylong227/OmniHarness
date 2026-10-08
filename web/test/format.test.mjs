@@ -135,19 +135,28 @@ test('diffView 逐行染 add/del/ctx 且保留原始行首符号', () => {
   );
 });
 
-test('questionView 渲染 header/text/options，选项按钮恒 disabled', () => {
+test('questionView 把 header/text/options 渲染为只读内容（选项不再伪装成可点按钮）', () => {
   const node = questionView([{ header: '范围', question: '选哪个？', options: [{ label: 'A', description: '说明A' }] }]);
   assert.equal(clsOf(node), 'question-list');
   const item = kids(node)[0];
   assert.equal(clsOf(item), 'question-item');
   assert.deepEqual(kids(item).map(clsOf), ['question-header', 'question-text', 'question-options']);
-  const button = kids(kids(item)[2])[0];
-  assert.equal(button.type, 'button');
-  assert.equal(button.props.disabled, true);
-  assert.equal(button.props.title, '当前环境自动跳过提问');
-  assert.deepEqual(kids(button).map(clsOf), ['opt-label', 'opt-desc']);
-  // 尾部的 note 恒存在
-  assert.equal(clsOf(kids(node).at(-1)), 'question-note');
+  const option = kids(kids(item)[2])[0];
+  // 2026-10-08 纠错：此前是 `disabled` 的 <button> + 「当前环境自动跳过提问」——
+  // 看起来能点、实际点不动，且说明与事实不符（serve 下是真人在答）。选项现在只是内容。
+  assert.equal(option.type, 'div');
+  assert.equal(option.props.disabled, undefined);
+  assert.equal(option.props.title, undefined);
+  assert.deepEqual(kids(option).map(clsOf), ['opt-label', 'opt-desc']);
+  // 没有待作答时**不出现**说明（旧版恒有一句与事实不符的「已自动返回默认值」）。
+  assert.equal(kids(node).length, 1);
+});
+
+test('questionView：有提问等待作答时给出指向提问卡的指引', () => {
+  const node = questionView([{ question: '选哪个？' }], { pending: true });
+  const note = kids(node).at(-1);
+  assert.equal(clsOf(note), 'question-note pending');
+  assert.match(allText(note).join(''), /请在下方提问卡/);
 });
 
 test('questionView 支持非对象提问与无选项场景（不渲染 question-options）', () => {

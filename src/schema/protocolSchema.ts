@@ -142,5 +142,21 @@ export const protocolSchema: ProtocolSchema = {
       },
       result: { ok: { type: 'boolean', description: '是否成功' } },
     },
+    {
+      name: 'question.respond',
+      description: '响应提问上行（提交 ask_user / plan_present 的作答）',
+      params: {
+        requestId: { type: 'string', required: true, description: '提问请求 ID' },
+        answers: {
+          type: 'array',
+          required: true,
+          description: '作答数组：每项 { id, selected: string[], custom?: string }',
+        },
+      },
+      result: {
+        ok: { type: 'boolean', description: '是否成功' },
+        error: { type: 'string', description: '失败原因（未知请求 / 答案不合法；挂起保留可重提）' },
+      },
+    },
   ],
 };

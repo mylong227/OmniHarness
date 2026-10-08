@@ -21,6 +21,8 @@ import type {
   GraphDone,
   GraphProgress,
   GraphRunState,
+  QuestionAnswerSubmission,
+  QuestionRequest,
   SseEnvelope,
   ThreadEvent,
 } from '../../types/models.js';
@@ -61,6 +63,12 @@ export interface AppState {
   currentThreadId: string | null;
   detailEvent: ThreadEvent | null;
   approval: ApprovalRequest | null;
+  /**
+   * 待作答的提问（服务端 `question.request` 上行；null 表示当前没有）。
+   *
+   * 与 `approval` 同构：都是「服务端停下来等人回答」的状态，只是提问要收的是结构化作答。
+   */
+  question: QuestionRequest | null;
   fileView: FileView | null;
   /**
    * 代码查看器已打开的文件标签集合（`openFile` 追加、`closeOpenFile` 移除；
@@ -306,6 +314,10 @@ export class AppController {
         case 'approval.request':
           this.host.patch({ approval: params as unknown as ApprovalRequest });
           break;
+        case 'question.request':
+          // 提问上行：卡片由该通知驱动（**不**依赖对话流里的 question 事件——事件端口可能不接 Web）。
+          this.host.patch({ question: params as unknown as QuestionRequest });
+          break;
         case 'memory.changed':
           this.host.patch((s) => ({ memoryReloadKey: s.memoryReloadKey + 1 }));
           break;
@@ -412,6 +424,51 @@ export class AppController {
     } catch (e) {
       this.services.toast('审批响应失败：' + (e as Error).message, 'err');
     }
+  }
+
+  /**
+   * 提交提问作答：把作答送回等待中的 `ask_user`（`question.respond`）。
+   *
+   * 三种结果分开对待（**都不能乐观关闭卡片**，那正是用户以为「提交了」而回合还在等的成因）：
+   * - RPC 抛错 ⇒ 没送到，保留卡片让用户重试；
+   * - `{ ok: false, error: 'unknown_request' }` ⇒ 这次提问已经结束（超时/已被断连收尾/已作答过），
+   *   卡片收掉并如实说明，避免留下一个点了永远报错的死卡；
+   * - 其它 `{ ok: false }` ⇒ 送到了但被服务端校验拒绝（题 id / 选项标签 / 单选多选 / 长度），
+   *   挂起仍保留，用户可以改正后重提。
+   * @param answers 逐题作答（`selected` 必须是该题提供过的选项标签）
+   * @returns 无
+   */
+  public async answerQuestion(answers: QuestionAnswerSubmission[]): Promise<void> {
+    const request = this.host.getState().question;
+    if (!request) return;
+    try {
+      const ack = await this.services.api.respondQuestion(request.requestId, answers);
+      if (!ack.ok) {
+        if (ack.error === 'unknown_request') {
+          this.host.patch({ question: null });
+          this.showToast('这次提问已经结束（超时或已作答），作答未送达', 'err');
+          return;
+        }
+        this.showToast('作答未被接受：' + (ack.error ?? '未知原因'), 'err');
+        return;
+      }
+      this.host.patch({ question: null });
+      this.showToast('回答已提交', 'ok');
+    } catch (e) {
+      this.showToast('作答提交失败：' + (e as Error).message, 'err');
+    }
+  }
+
+  /**
+   * 提问等待到期（客户端倒计时归零）：服务端在**同一上限**按「未拿到回答」继续，
+   * 这里只负责收起卡片并如实告知，避免留下一个「点了没反应」的死卡。
+   * @param requestId 到期的那次提问 id（只收掉自己那次，防止竞态下误收新提问）
+   * @returns 无
+   */
+  public expireQuestion(requestId: string): void {
+    if (this.host.getState().question?.requestId !== requestId) return;
+    this.host.patch({ question: null });
+    this.showToast('提问等待超时，已按「未作答」继续', 'info');
   }
 
   /**

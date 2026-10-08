@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
@@ -144,6 +144,9 @@ export class AppServer extends AppServerGovernanceHandlers {
       };
     });
     this.handlers.set('approval.respond', (params) => this.respondApproval(params));
+    // 提问上行（2026-10-08）：浏览器里的提问卡作答经此送达等待中的 ask_user / plan_present。
+    // 在此之前 Web 端只有「只读提问卡」——用户看得见问题却没有任何提交入口，回合就此卡死。
+    this.handlers.set('question.respond', (params) => this.respondQuestion(params));
     this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
     this.handlers.set('config.update', (params) => Promise.resolve(this.updateConfig(params)));
     this.handlers.set('model.catalog', () => Promise.resolve(this.modelCatalog.catalog()));
@@ -512,15 +515,6 @@ export class AppServer extends AppServerGovernanceHandlers {
   }
 
   /**
-   * 响应审批上行（approval.respond）：委托事件桥把决定送达等待中的审批方。
-   * @param params `{ requestId, decision }` — 审批请求标识与批准/拒绝决定
-   * @returns 事件桥处理结果（是否成功送达）
-   */
-  protected async respondApproval(params: Record<string, unknown>): Promise<unknown> {
-    return this.events.respondApproval(params);
-  }
-
-  /**
    * 审计查询 RPC：读取服务端审计 sink 并应用过滤条件返回事件数组。
    * @param params `{ since?, until?, type?, session?, actor?, limit? }`
    * @returns 过滤后的事件数组（未注入 audit 时为空）
@@ -657,6 +651,11 @@ export class AppServer extends AppServerGovernanceHandlers {
     void new WorkflowRunner(ports, {
       maxConcurrency: def.maxConcurrency,
       signal: handle.signal,
+      // 运行存档（2026-10-08）：serve 发起的图运行同样落盘到
+      // `<workspace>/.omniharness/graph-runs/<runId>.jsonl`，并用**台账 runId** 作为存档 id——
+      // 这样 `graph.status`/通知里的 id 与「可续跑的 runId」是同一个，用户不必在两套 id 之间对照。
+      persist: true,
+      runId,
       onNodeUpdate: (update) => {
         const node = state.nodes[update.id];
         if (node !== undefined) {

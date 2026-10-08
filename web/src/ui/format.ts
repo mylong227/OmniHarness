@@ -131,26 +131,31 @@ export function jsonView(obj: unknown): ReactElement {
 }
 
 /**
- * 模型向用户提问的只读渲染（当前环境自动返回默认值，UI 先展示问题内容）。
+ * 模型向用户提问的**对话流记录**渲染（提问的作答面是输入框上方的 `QuestionCard`）。
+ *
+ * 2026-10-08 纠错（用户报障「提问内容有了但是选择却无法提交」）：此前这里把选项渲染成
+ * `disabled` 按钮 + 一句「当前非交互式环境，已自动返回默认值继续执行」的说明，于是
+ * **看起来能点、实际点不动，而且说明与事实不符**（serve 下的提问是真人可答的）。
+ * 现在：选项只作**内容**呈现（普通元素，不给可点的错觉），说明只在真的有提问等待时出现，
+ * 并明确指向唯一的作答入口。
  * @param questions 提问数组，或单个提问对象 / 字符串。
- * @returns 提问清单元素，选项按钮恒为 disabled（非交互式环境）。
+ * @param options `pending` 为 true 表示服务端正等待这次提问的作答。
+ * @returns 提问清单元素（只读记录；作答在 `QuestionCard`）。
  */
-export function questionView(questions: unknown): ReactElement {
+export function questionView(
+  questions: unknown,
+  options: { pending?: boolean } = {},
+): ReactElement {
   const items = Array.isArray(questions) ? questions : [questions];
   // 选项列表：key 由外层传入前缀，避免同层兄弟节点 key 冲突。
-  const optionList = (options: Record<string, string>[], keyPrefix: string): ReactElement =>
+  const optionList = (options_: Record<string, string>[], keyPrefix: string): ReactElement =>
     React.createElement(
       'div',
       { className: 'question-options' },
-      ...options.map((o, j) =>
+      ...options_.map((o, j) =>
         React.createElement(
-          'button',
-          {
-            key: `${keyPrefix}-o-${j}`,
-            className: 'question-option',
-            disabled: true,
-            title: '当前环境自动跳过提问',
-          },
+          'div',
+          { key: `${keyPrefix}-o-${j}`, className: 'question-option' },
           React.createElement('span', { className: 'opt-label' }, esc(o.label ?? '')),
           o.description ? React.createElement('span', { className: 'opt-desc' }, esc(o.description)) : null,
         ),
@@ -164,17 +169,23 @@ export function questionView(questions: unknown): ReactElement {
       const header = rec ? String(rec.header ?? '') : '';
       const text = rec ? String(rec.question ?? '') : String(q);
       const rawOptions: unknown = rec ? rec.options : undefined;
-      const options = Array.isArray(rawOptions) ? (rawOptions as Record<string, string>[]) : [];
+      const options_ = Array.isArray(rawOptions) ? (rawOptions as Record<string, string>[]) : [];
       const key = `q-${i}`;
       return React.createElement(
         'div',
         { key, className: 'question-item' },
         header ? React.createElement('div', { className: 'question-header' }, esc(header)) : null,
         React.createElement('div', { className: 'question-text' }, esc(text)),
-        options.length > 0 ? optionList(options, key) : null,
+        options_.length > 0 ? optionList(options_, key) : null,
       );
     }),
-    React.createElement('div', { className: 'question-note' }, '当前非交互式环境，已自动返回默认值继续执行。'),
+    options.pending === true
+      ? React.createElement(
+          'div',
+          { className: 'question-note pending' },
+          '等待你的回答：请在下方提问卡中选择或填写后提交。',
+        )
+      : null,
   );
 }
 

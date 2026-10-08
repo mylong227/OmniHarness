@@ -208,4 +208,25 @@ export class AppServerHandlers extends AppServerBase {
       return { ok: true, loaded };
     });
   }
+
+  /**
+   * 响应审批上行（approval.respond）：委托事件桥把决定送达等待中的审批方。
+   * @param params `{ requestId, decision }` — 审批请求标识与批准/拒绝决定
+   * @returns 事件桥处理结果（是否成功送达）
+   */
+  protected async respondApproval(params: Record<string, unknown>): Promise<unknown> {
+    return this.events.respondApproval(params);
+  }
+
+  /**
+   * 响应提问上行（question.respond）：把用户在 Web 提问卡上的作答送达等待中的 `ask_user`。
+   *
+   * 与 {@link respondApproval} 同一取舍：两者都只是「转交事件桥」的一行，放在本层而不是
+   * `appServer.ts`（那个文件已贴「上帝类」体量闸）——同族的上行响应收在同一个类里。
+   * @param params `{ requestId, answers }` — 提问请求标识与作答数组
+   * @returns `{ ok: true }`，或 `{ ok: false, error }`（未知请求 / 答案不合法，挂起保留）
+   */
+  protected async respondQuestion(params: Record<string, unknown>): Promise<unknown> {
+    return this.events.respondQuestion(params);
+  }
 }
