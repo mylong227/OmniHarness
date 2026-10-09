@@ -298,11 +298,20 @@ export function parseHunks(patch: string): DiffHunk[] {
 }
 
 /** 相对时间（ISO 时间戳 → 「刚刚 / N 分钟前 / …」；无效输入返回空串）。 */
-export function timeAgo(iso?: string): string {
+/**
+ * 相对时间（「刚刚」/「3 分钟前」/「2 小时前」/「5 天前」）。
+ *
+ * `now` 可注入是**判据需要**：会话行现在内联显示相对时间，而"用墙钟算相对时间"的判据在
+ * 毫秒跨界时会偶发假红（本仓 §8.0 的仪器教训）。注入受控时刻后同一输入恒同输出。
+ * @param iso ISO 时间串（缺省 / 不可解析时返回空串，调用方据此不渲染这一格）
+ * @param now 参照时刻（毫秒；缺省墙钟）
+ * @returns 相对时间文案
+ */
+export function timeAgo(iso?: string, now: number = Date.now()): string {
   if (!iso) return '';
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return '';
-  const s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  const s = Math.max(0, Math.floor((now - t) / 1000));
   if (s < 60) return '刚刚';
   if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
   if (s < 86400) return Math.floor(s / 3600) + ' 小时前';

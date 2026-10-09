@@ -1,4 +1,5 @@
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
 import type { KvPort } from '../../ports/memory/kv.js';
 
 /** SQLite KV 适配器（node:sqlite）：kv 表持久化，可替换 JSON 文件。 */
@@ -13,8 +14,47 @@ export class SqliteKv implements KvPort {
    * @param filePath SQLite 数据库文件路径（不存在则自动创建）。
    */
   public constructor(filePath: string) {
-    this.db = new DatabaseSync(filePath);
+    this.db = new (SqliteKv.loadDatabaseSync())(filePath);
     this.db.exec('CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)');
+  }
+
+  /**
+   * 惰性加载 `node:sqlite`（与 `SqliteStorage.loadDatabaseSync` 同一口径）。
+   *
+   * ## 为什么必须惰性（2026-10-08 易用性轮实测）
+   *
+   * 原先本文件顶层是 `import { DatabaseSync } from 'node:sqlite'`，而 `src/adapters/index.ts`
+   * 这条 barrel 会把它**静态**带进 CLI 的装配链（`cliServerCmds` → `adapters/index` → 本文件）。
+   * 于是**每一条**命令（`doctor` / `session list` / 甚至 `kv list --kv-adapter memory`）都会先
+   * 在 stderr 打一行：
+   *
+   * ```
+   * (node:12345) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+   * ```
+   *
+   * 对客户而言这就是"一启动就报错"——而它既不是错误，也不该在**没用到 sqlite** 时出现。
+   * 同类文件 `sqliteStorage.ts` 早已是这个写法（并写明了 Node 20 兼容铁律），本文件漏了，
+   * 而 `kvStoreFactory.ts` 的注释还写着"sqlite 后端**懒加载**"——**声明与实现不一致**，
+   * 本行修的就是这条不一致：懒加载从"文档里的说法"变成"代码里的事实"。
+   * @returns node:sqlite 的 DatabaseSync 类；模块不可用时抛出带修复建议的错误。
+   */
+  private static loadDatabaseSync(): typeof DatabaseSync {
+    try {
+      // CJS require 返回模块命名空间对象（{ DatabaseSync }），不是类本身——
+      // 直接 new 模块对象会炸「not a constructor」（与 SqliteStorage 同一处实测结论）。
+      const mod = createRequire(import.meta.url)('node:sqlite') as {
+        DatabaseSync: typeof DatabaseSync;
+      };
+      if (typeof mod?.DatabaseSync !== 'function') {
+        throw new Error('node:sqlite 未导出 DatabaseSync');
+      }
+      return mod.DatabaseSync;
+    } catch {
+      throw new Error(
+        'SqliteKv 需要 node:sqlite 内置模块（Node 22+）。' +
+          '当前 Node 版本不可用；请改用 --kv-adapter json-file 或升级 Node。',
+      );
+    }
   }
 
   /** 读取键值；不存在返回 undefined。

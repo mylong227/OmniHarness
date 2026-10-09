@@ -1,4 +1,4 @@
-﻿// 左栏的模块级渲染函数：会话行 / 任务卡视图 / 分组列表视图 / 项目条 / 文件树。
+// 左栏的模块级渲染函数：会话行 / 任务卡视图 / 分组列表视图 / 项目条 / 文件树。
 //
 // 从 SessionPanel 抽出（原文件 457 行实现逼近 500 行上限，且这里全是纯渲染、无状态）：
 // 每个函数只吃一个 ctx（状态 + 回调），不持有任何状态、不发任何请求，故可被 SessionPanel
@@ -14,6 +14,7 @@ import type { SessionEntry } from '../shared.js';
 import { emptyState } from '../format.js';
 import { icon } from '../models/Icon.js';
 import { timeAgo } from '../textUtils.js';
+import { SessionRowMeta } from '../models/SessionRowMeta.js';
 
 /** 每组默认展示条数。 */
 export const PAGE = 10;
@@ -212,11 +213,33 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
 }
 
 /**
+ * 行内相对时间（分组视图共用；无 `updatedAt` 时返回 null ⇒ 调用点不留空占位）。
+ *
+ * 为什么要有它（2026-10-08 易用性轮真机取证）：默认的「按项目分组」视图里一行只有截断标题，
+ * 同一句提示词用过两次就出现两条**完全同名**的行，而唯一能区分它们的"最近活动时间"只在
+ * 非默认的卡片视图里才有。补上这一格后，"找到刚才那条对话"不再需要逐条点进去试。
+ * @param s 会话条目
+ * @param now 参照时刻（毫秒）
+ * @returns 时间节点；不可得时为 null
+ */
+export function renderSessionTime(s: SessionEntry, now: number): ReactElement | null {
+  const when = SessionRowMeta.inlineTime(s, now);
+  if (when === '') return null;
+  // 文本同时进 aria-label：读屏用户与"悬停不方便"的场景拿得到同一信息。
+  return (
+    <span className="session-time" aria-label={'最近活动 ' + when}>
+      {when}
+    </span>
+  );
+}
+
+/**
  * 并行任务卡视图：running 徽章来自服务端 activeTurns 真实运行态（非前端猜测）。
  * @param ctx 列表上下文
+ * @param now 参照时刻（毫秒；单测注入以获得确定性）
  * @returns 任务卡列表节点
  */
-export function renderCardsView(ctx: ListCtx): ReactElement {
+export function renderCardsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
     return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，任务卡会显示在这里。');
@@ -232,7 +255,7 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
             (s.running ? ' running' : '') +
             (s.id === ctx.draggingId ? ' dragging' : '')
           }
-          title={s.id}
+          title={SessionRowMeta.hoverTitle(s, now)}
           data-session-id={s.id}
           draggable={ctx.onDragStart !== undefined}
           onDragStart={() => ctx.onDragStart?.(s.id)}
@@ -265,7 +288,7 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
           <div className="tc-meta">
             <span>{s.turns ?? 0} 回合</span>
             <span>·</span>
-            <span>{timeAgo(s.updatedAt)}</span>
+            <span>{timeAgo(s.updatedAt, now)}</span>
             {s.workspace ? (
               <span className="tc-ws" title={s.workspace}>
                 {PathJoiner.basename(s.workspace)}
@@ -283,7 +306,7 @@ export function renderCardsView(ctx: ListCtx): ReactElement {
  * @param ctx 列表上下文
  * @returns 分组列表节点
  */
-export function renderGroupsView(ctx: ListCtx): ReactElement {
+export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
     return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
@@ -335,11 +358,12 @@ export function renderGroupsView(ctx: ListCtx): ReactElement {
                       e.preventDefault();
                       ctx.onContextMenu(s.id, e.clientX, e.clientY);
                     }}
-                    title={s.id}
+                    title={SessionRowMeta.hoverTitle(s, now)}
                     data-session-id={s.id}
                   >
                     <span className="drag-handle" data-drag-handle="1" title="拖拽排序" aria-hidden="true">⠿</span>
                     {renderSessionBody(s, ctx)}
+                    {renderSessionTime(s, now)}
                   </div>
                 ))}
                 {rest > 0 ? (
@@ -411,11 +435,12 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
                       e.preventDefault();
                       ctx.onContextMenu(s.id, e.clientX, e.clientY);
                     }}
-                    title={s.id}
+                    title={SessionRowMeta.hoverTitle(s, now)}
                     data-session-id={s.id}
                   >
                     <span className="drag-handle" data-drag-handle="1" title="拖拽排序" aria-hidden="true">⠿</span>
                     {renderSessionBody(s, ctx)}
+                    {renderSessionTime(s, now)}
                   </div>
                 ))}
                 {rest > 0 ? (

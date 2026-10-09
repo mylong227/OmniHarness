@@ -84,6 +84,15 @@ export class CliHelp {
   private readonly title: string;
   /** 用法行（`用法: omniharness exec …`）。 */
   private readonly usageLine: string;
+  /**
+   * 「快速开始」段（可缺省；2026-10-08 易用性轮新增）。
+   *
+   * 动机：`omniharness`（无参数）与 `--help` 打印的是**同一份 100+ 行参考手册**——
+   * 第一次用的人看到的是一堵旗标墙，而他要的只是"从哪开始"。本段把四条最短路径
+   * （起工作台 / 跑一次任务 / 零额度试跑 / 环境诊断）放在**最前面**，参考手册原样留在下面。
+   * 文案同样在 `defaults/cliHelp.json`（改文案不改代码）。
+   */
+  private readonly quickStart: readonly string[];
   /** 子命令清单。 */
   private readonly commands: readonly HelpEntry[];
   /** 选项段小标题（`选项:`）。 */
@@ -102,6 +111,7 @@ export class CliHelp {
     this.title = this.requireText(root['title'], 'title');
     this.usageLine = this.requireText(root['usageLine'], 'usageLine');
     this.optionsTitle = this.requireText(root['optionsTitle'], 'optionsTitle');
+    this.quickStart = this.parseQuickStart(root['quickStart']);
     this.commands = this.parseEntries(root['commands'], 'commands');
     this.options = this.parseEntries(root['options'], 'options');
   }
@@ -111,7 +121,12 @@ export class CliHelp {
    * @returns 帮助文本。
    */
   public render(): string {
-    const lines = [this.title, this.usageLine];
+    const lines = [this.title, this.usageLine, ...this.quickStart];
+    if (this.quickStart.length > 0) {
+      // 空行分隔：没有它时「快速开始」的最后一行会与命令段的第一个子命令黏在一起，
+      // 而这两段是**不同性质**的内容（入门路径 vs 全量参考）——一眼分开才能各看各的。
+      lines.push('');
+    }
     for (const entry of this.commands) {
       lines.push(this.lineOf(COMMAND_INDENT, entry));
     }
@@ -163,6 +178,25 @@ export class CliHelp {
         ? entry.spec.padEnd(padTo)
         : `${entry.spec}${' '.repeat(MIN_GAP)}`;
     return `${' '.repeat(indent)}${left}${entry.description}`;
+  }
+
+  /**
+   * 解析「快速开始」段（**可缺省**；缺省即不渲染该段，历史行为逐字不变）。
+   * @param raw 原始值（undefined / 字符串数组）
+   * @returns 段落行（已解析占位符）；缺省时为空数组
+   * @throws Error 存在但不是字符串数组、或含空行时抛出
+   */
+  private parseQuickStart(raw: unknown): readonly string[] {
+    if (raw === undefined) {
+      return [];
+    }
+    if (!Array.isArray(raw)) {
+      throw new Error('defaults/cliHelp.json 的 quickStart 应为字符串数组');
+    }
+    return raw.map((item, index) => {
+      const at = `quickStart[${index}]`;
+      return this.resolve(this.requireText(item, at), at);
+    });
   }
 
   /**

@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CliHelp, HELP_ENUM_SOURCES, cliHelp } from '../../src/cli/cliHelp.js';
-import { FLAG_ENUM_VALUES, FLAG_TABLE } from '../../src/cli/cliFlagTable.js';
+import { FLAG_ENUM_VALUES, FLAG_TABLE, CliFlagTable } from '../../src/cli/cliFlagTable.js';
 import { STORAGE_ADAPTERS } from '../../src/cli/cliEnums.js';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
@@ -32,20 +32,35 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '.
  */
 const UNDOCUMENTED_BASELINE: readonly string[] = [];
 
-test('① 结构与排版：标题 / 用法 / 命令 / 选项，描述列统一为 36', () => {
+test('① 结构与排版：标题 / 用法 / 快速开始 / 命令 / 选项，描述列统一为 36', () => {
   const lines = cliHelp.render().split('\n');
   assert.strictEqual(lines[0], 'OmniHarness exec');
   assert.match(lines[1] ?? '', /^用法: omniharness exec/);
   assert.ok(lines.includes('选项:'), '应有选项段标题');
   const data = JSON.parse(readFileSync(join(repoRoot, 'defaults', 'cliHelp.json'), 'utf8')) as {
+    quickStart?: string[];
     commands: { usage: string; description: string }[];
     options: { spec: string; description: string }[];
   };
-  // 行数 = 标题 + 用法 + 命令 + 选项标题 + 选项 + 结尾空行
+  // 行数 = 标题 + 用法 + 快速开始 + 分隔空行 + 命令 + 选项标题 + 选项 + 结尾空行
+  // （快速开始段缺省时既无内容也无分隔空行，历史行为逐字不变）
+  const quickLen = data.quickStart?.length ?? 0;
   assert.strictEqual(
     lines.length,
-    3 + data.commands.length + data.options.length + 1,
+    3 + quickLen + (quickLen > 0 ? 1 : 0) + data.commands.length + data.options.length + 1,
     '渲染行数必须与数据条目数一致（无丢行、无凭空补行）',
+  );
+  // 「快速开始」段必须真的在**参考手册之前**——它的全部价值就在于"先看到从哪开始"
+  assert.match(lines[2] ?? '', /^快速开始/, '快速开始段的标题必须在用法行之后、命令之前');
+  const firstCommandIndex = 2 + quickLen + (quickLen > 0 ? 1 : 0);
+  assert.match(
+    lines[firstCommandIndex] ?? '',
+    /^ {6}/,
+    '快速开始段（含分隔空行）之后应是命令段（缩进 6）',
+  );
+  assert.ok(
+    lines.findIndex((l) => l.includes('快速开始')) < lines.findIndex((l) => l.includes('选项:')),
+    '快速开始段必须在选项段之前',
   );
   // 排版：描述列恰为 36（spec 过长时留 3 空格）——旧数组是手工对齐，参差不齐
   const resolve = (text: string): string =>
@@ -148,6 +163,35 @@ test('⑤ 新增旗标必须文档化：未文档化集合等于冻结基线（�
     [...UNDOCUMENTED_BASELINE].sort(),
     '新增旗标必须写进 defaults/cliHelp.json（或显式追加到基线并说明理由）',
   );
+});
+
+test('⑦ 快速开始段必须存在、够用，且不得宣传不存在的旗标（防"帮助漂了"）', () => {
+  // 这段的全部价值是"第一次用的人先看到从哪开始"，所以它①不能消失、②不能只剩一行、
+  // ③写在里面的旗标必须真被 CLI 认识（与判据④同源：帮助不得宣传不存在的旗标）。
+  const data = JSON.parse(readFileSync(join(repoRoot, 'defaults', 'cliHelp.json'), 'utf8')) as {
+    quickStart?: string[];
+  };
+  const block = data.quickStart ?? [];
+  assert.ok(block.length >= 4, `快速开始段太短（${block.length} 行）⇒ 又变回了"一堵旗标墙"`);
+  const text = block.join('\n');
+  assert.match(text, /快速开始/, '必须有一行说明"这是什么"');
+  // 四条最短路径：起工作台 / 跑任务 / 零额度试跑 / 诊断
+  for (const [name, re] of [
+    ['起工作台', /npm start/],
+    ['跑一次任务', /omniharness "/],
+    ['零额度试跑', /--mock/],
+    ['环境诊断', /doctor/],
+  ] as const) {
+    assert.match(text, re, `快速开始段缺少「${name}」这条最短路径`);
+  }
+  // 缩进格式：每一条路径自成一行且带缩进（渲染时才能与选项段一眼分开）
+  const indented = block.filter((l) => /^ {2}\S/.test(l));
+  assert.ok(indented.length >= 3, `快速开始段应至少 3 条带缩进的路径，实际 ${indented.length}`);
+  // 幽灵旗标：段里出现的每个 `--flag` 都必须被 CLI 认识
+  const flags = [...text.matchAll(/(?<![\w-])--[a-z][a-z0-9-]*/g)].map((m) => m[0]);
+  assert.ok(flags.length > 0, '快速开始段应当提到至少一个真实旗标');
+  const ghost = flags.filter((flag) => !CliFlagTable.isKnownFlag(flag));
+  assert.deepStrictEqual(ghost, [], `快速开始段宣传了不存在的旗标：${ghost.join(' / ')}`);
 });
 
 test('⑥ 渲染确定性：同数据恒同输出，且帮助源数据随包发布', () => {

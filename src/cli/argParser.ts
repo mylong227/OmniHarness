@@ -17,6 +17,7 @@ import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
 import type { RbacConfig } from '../ports/config/rbacConfig.js';
 import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
 import { cliHelp } from './cliHelp.js';
+import { FlagSuggestion } from './flagSuggestion.js';
 
 export * from './cliEnums.js';
 export { CliFlagTable } from './cliFlagTable.js';
@@ -371,10 +372,9 @@ export class ArgParser {
           // 子命令 / 装配层自解析的旗标：本层不消费（其读取器在各自子命令里），但**认识**它。
           continue;
         }
-        throw new Error(
-          `未知旗标 ${arg}（本 CLI 不认识它；用 --help 查看全部旗标。` +
-            `若 prompt 本身以 - 开头，请用 --prompt 传递或写在 \`--\` 之后）`,
-        );
+        // 已知旗标清单**由调用方注入**（而不是让 flagSuggestion 反向 import cliFlagTable）：
+        // 那会把它拖进架构门禁白名单环①，把 4 成员的环撑成 5 成员 ⇒ 门禁报"新增环"。
+        throw new Error(FlagSuggestion.unknownFlagMessage(arg, CliFlagTable.knownFlagNames()));
       }
     }
     const positional = this.collectPositional(argv);
