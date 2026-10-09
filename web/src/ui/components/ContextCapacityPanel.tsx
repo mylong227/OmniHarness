@@ -37,6 +37,15 @@ export interface ContextCapacityPanelProps {
    * 持续轮询**，让数字在长回合里跟着走（2026-10-07 用户报「不会实时计算显示刷新」）。
    */
   busy?: boolean;
+  /**
+   * 容量数据代数（事件流里 `model` 事件的条数，见 `ContextUsageView.revisionOf`）。
+   *
+   * **变化即取数**：容量快照是每次模型调用产生的，代数一变就说明有新数据可看 —— 面板因此
+   * 不必等定时器（2026-10-09 用户报「不能实时同步数据」；后端那半是"读到的是落盘快照、
+   * 回合头一两秒根本没有" —— 修在 `Agent.eventsOf`，前端这半是"取数时机晚于数据产生"）。
+   * 定时器保留为**兜底**（例如代数没变但底层时间敏感字段需要刷新时）。
+   */
+  revision?: number;
   /** 配额档位切换提示。 */
   onToast: (msg: string, kind?: 'info' | 'err') => void;
 }
@@ -47,7 +56,7 @@ export interface ContextCapacityPanelProps {
  * @returns 容量面板节点
  */
 export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactElement {
-  const { threadId, api, onToast, busy } = props;
+  const { threadId, api, onToast, busy, revision } = props;
   const [open, setOpen] = React.useState<boolean>(false);
   const [usage, setUsage] = React.useState<ContextUsageReport | undefined>(undefined);
   const [quota, setQuota] = React.useState<QuotaStatus | undefined>(undefined);
@@ -94,8 +103,12 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     return () => window.removeEventListener('click', close);
   }, [open]);
 
-  // 取数：展开时拉容量与配额；收起 / 切换会话 / 回合忙闲变化 / 实时轮询 tick 变化时重新拉。
-  // `busy` 与 `tick` 都是**刷新信号**（用量快照在回合推进中才产生，见上面的实时轮询）。
+  // 取数：展开时拉容量与配额；收起 / 切换会话 / 回合忙闲变化 / **容量数据代数变化** /
+  // 实时轮询 tick 变化时重新拉。
+  // `busy` / `revision` / `tick` 都是**刷新信号**：`revision` 是"数据真的变了"（每次模型调用 +1，
+  // 一到就取，见 props 说明），`tick` 是"可能变了"（忙时定时兜底）。
+  // 三者都是**数字/布尔**——不是对象、不是回调：对象身份每渲染都变，会把本 effect 变成
+  // 「每渲染重拉一次」（2026-10-06 实测：面板打开 6 秒内打了 23 次 /rpc）。
   // 卸载或收起即置 alive=false，杜绝迟到回写。
   React.useEffect(() => {
     if (!open) return undefined;
@@ -125,7 +138,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     return () => {
       alive = false;
     };
-  }, [open, threadId, busy, tick]);
+  }, [open, threadId, busy, tick, revision]);
 
   /** 触发按钮：阻断冒泡后切换展开态。 */
   const toggle = (e: React.MouseEvent): void => {

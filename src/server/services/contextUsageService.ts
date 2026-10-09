@@ -57,8 +57,14 @@ export interface ContextUsageReport {
 
 /** 上下文容量服务依赖。 */
 export interface ContextUsageDeps {
-  /** 会话事件回放（拿事件日志经 `Agent.replay`）。 */
-  readonly replay: (threadId: string) => Promise<readonly SessionEvent[]>;
+  /**
+   * 会话事件**纯读**入口（`Agent.eventsOf`）。
+   *
+   * **不能接 `Agent.replay`**（2026-10-09 修）：那条路会①把整段历史重新广播给所有客户端，
+   * 而本服务在回合进行中被每 2s 轮询一次；②读的是 write-behind 落盘（回合头一两秒盘上为空），
+   * 于是面板在用户最想看的时候显示 `0/…` 全零。两条都实测过。
+   */
+  readonly events: (threadId: string) => Promise<readonly SessionEvent[]>;
   /** 本轮可见工具（`ToolPort.listDirect ?? list`）。 */
   readonly tools: () => readonly ToolDefinition[];
   /** 基础常驻系统片段（`config.fragments`）。 */
@@ -105,7 +111,7 @@ export class ContextUsageService {
     }
     let events: readonly SessionEvent[];
     try {
-      events = await this.deps.replay(threadId);
+      events = await this.deps.events(threadId);
     } catch {
       // 会话不存在 / 存档不可读：返回空报告，UI 显示「尚无数据」，绝不让面板报错阻断会话。
       return this.emptyReport(threadId, windowTokens);

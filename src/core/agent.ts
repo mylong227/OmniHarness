@@ -47,6 +47,16 @@ export class Agent implements AgentPort {
       readonly cancel: CancellationToken;
       readonly persister: EventPersister;
       readonly rewinder: (size: number) => Promise<void>;
+      /**
+       * 本会话**内存事实源**的事件快照读取器（零副作用）。
+       *
+       * 为什么必须挂在登记项上（2026-10-09）：`replay()` 读的是 `storage.load`，而落盘是
+       * **write-behind（延迟 200ms、按步 schedule）** ⇒ 回合刚起的头一两秒盘上是空的。
+       * 容量面板正是在"回合进行中"打开看的，于是拿到 `source:'empty'` 的 `0/…` 全零报告
+       * （真机实测：t≈0.8s / 1.6s 两次采样都是 `0/12.8万`，缓存命中显示 `—`）。
+       * 只读消费者要的是"此刻的真实事件流"，那就必须读内存这一份。
+       */
+      readonly events: () => readonly SessionEvent[];
     }
   >();
   /**
@@ -169,6 +179,7 @@ export class Agent implements AgentPort {
       readonly cancel: CancellationToken;
       readonly persister: EventPersister;
       readonly rewinder: (size: number) => Promise<void>;
+      readonly events: () => readonly SessionEvent[];
     };
     readonly bindRunner: (runner: TurnRunner) => void;
   } {
@@ -180,6 +191,8 @@ export class Agent implements AgentPort {
       // 检查点回滚的内存侧通路（2026-10-03 修 P1）：没有它，`rollback` 只改磁盘，
       // 运行中会话的下一步 write-behind 会把回滚原样覆盖回去。
       rewinder: this.registerRewinder(sessionId, recorder, persister, () => live.runner),
+      // 只读消费者的**实时**事件源（与持久化器共用同一个 eventLog，但不动盘、不广播）。
+      events: (): readonly SessionEvent[] => eventLog.all(),
     };
     return {
       entry,
@@ -268,12 +281,41 @@ export class Agent implements AgentPort {
   }
 
   /**
+   * 读取会话事件（**纯读、零副作用**）——只读消费者（容量面板 / trace 自省 / 变更面板 /
+   * 回退服务）一律走这一条。
+   *
+   * ## 与 `replay` 的分工（2026-10-09 修，此前两者是同一个函数）
+   *
+   * `replay` 做两件事：① 读事件；② **把全部历史重新广播到事件总线**（供"客户端要重建视图"的
+   * 路径）。而上面那几个消费者只想要 ① —— 它们此前却在调 `replay`，于是：
+   *   · **读的是磁盘**（write-behind，回合头一两秒盘上为空）⇒ 容量面板在回合进行中显示全零；
+   *   · **每调一次就把整段历史重播一遍**：容量面板在忙时每 2s 调一次 `context.usage`，
+   *     实测每次调用都在 /events 上多出重播事件（正对照已证明 SSE 通路是活的）。
+   *
+   * 换成这个纯读入口后，两个毛病一起消失：**在跑会话读内存事实源**（实时、无延迟），
+   * 且**不碰事件总线**（不再自己给自己刷屏）。
+   * @param sessionId 会话 ID。
+   * @returns 事件数组（在跑会话取自内存；否则取存档；不存在的会话为空数组）。
+   */
+  public async eventsOf(sessionId: string): Promise<readonly SessionEvent[]> {
+    const live = this.runningSessions.get(sessionId);
+    if (live !== undefined) {
+      return live.events();
+    }
+    return this.runtime.storage.load(sessionId);
+  }
+
+  /**
    * 回放会话：加载并广播全部历史事件。
+   *
+   * **只给"客户端要通过事件流重建视图"的路径用**（`sessions.loadThread` 对应的服务端入口、
+   * CLI `--replay`）；只读查询请用 {@link eventsOf}——把只读查询接到这里，等于每次查询都把
+   * 整段历史重播给所有客户端。
    * @param sessionId 要回放的会话 ID。
    * @returns 按原始顺序排列的全部历史事件（同时已逐条经事件总线广播）。
    */
   public async replay(sessionId: string): Promise<readonly SessionEvent[]> {
-    const events = await this.runtime.storage.load(sessionId);
+    const events = await this.eventsOf(sessionId);
     for (const event of events) {
       this.runtime.events.emit(event);
     }

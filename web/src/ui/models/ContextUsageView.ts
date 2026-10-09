@@ -33,6 +33,24 @@ export class ContextUsageView {
   private readonly report: ContextUsageReport;
 
   /**
+   * 容量数据代数 = 事件流里 `model` 事件的条数（2026-10-09）。
+   *
+   * **为什么需要它**：容量快照是每次模型调用写一条 `model` 事件产生的，而面板原先只靠
+   * 「打开 / 换会话 / 忙闲翻转」+ 忙时 2s 定时器取数 —— 于是最短也要等一个定时器周期才看到
+   * 新数字。把它做成**代数**（纯函数、与 React 无关）后，面板可以「`model` 事件一到就取数」，
+   * 定时器退化为兜底。每步只变一次 ⇒ 不会退化成"每渲染重拉"（那次事故见组件的依赖说明）。
+   * @param events 会话事件流（只需 `type` 字段）
+   * @returns `model` 事件条数（单调不减）
+   */
+  public static revisionOf(events: readonly { readonly type?: string }[]): number {
+    let count = 0;
+    for (const event of events) {
+      if (event.type === 'model') count += 1;
+    }
+    return count;
+  }
+
+  /**
    * @param report 后端 `context.usage` 报告
    */
   public constructor(report: ContextUsageReport) {

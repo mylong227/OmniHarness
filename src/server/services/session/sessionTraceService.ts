@@ -5,8 +5,11 @@
  * `adapters/telemetry/readonlyTraceReader.ts`（只读投影实现）写了、有单测，却**没有任何生产接线点**
  * ——agent 想自查「我刚做了什么」没有可达入口。本服务是那段接线的落点：
  *
- * - 事件来源注入（`replay`）：服务端注入 `Agent.replay`（实时运行态），CLI 注入
- *   `SessionEventReader`（落盘存档），两条入口共用**同一个端口实现**（{@link ReadonlyTraceReader}）；
+ * - 事件来源注入（`events`）：服务端注入 `Agent.eventsOf`（在跑会话取内存事实源、其余取存档，
+ *   **纯读、不广播**），CLI 注入 `SessionEventReader`（落盘存档），两条入口共用**同一个端口实现**
+ *   （{@link ReadonlyTraceReader}）；
+ *   （2026-10-09 订正：此前服务端注入的是 `Agent.replay`，那条路会把整段历史重新广播给所有客户端——
+ *   只读自省"顺手广播一遍历史"是 2026-10-09 与容量面板同批查出的缺陷，见 `Agent.eventsOf` 的说明。）
  * - 只读保证不变：条目由读取器深拷贝 + 冻结后返回，调用方无法借道改历史；
  * - fail-soft：事件源抛错（存储瞬断等）时返回带 `error` 的空快照，绝不把异常抛给自省调用方。
  */
@@ -19,8 +22,8 @@ import type {
   TraceReadResult,
 } from '../../../ports/intelligence/traceIntrospection.js';
 
-/** 会话事件源（服务端为 Agent.replay，CLI 为存档读取器）。 */
-export interface SessionTraceReplay {
+/** 会话事件源（服务端为 `Agent.eventsOf`，CLI 为存档读取器）——**纯读**，不得有广播等写侧效应。 */
+export interface SessionTraceEvents {
   /**
    * 取某会话的事件流。
    * @param sessionId 会话 id
@@ -31,13 +34,13 @@ export interface SessionTraceReplay {
 
 /** SessionTraceService 依赖。 */
 export interface SessionTraceServiceDeps {
-  /** 会话事件源（getter 注入；通常为 `(id) => agent.replay(id)`）。 */
-  readonly replay: SessionTraceReplay;
+  /** 会话事件源（getter 注入；通常为 `(id) => agent.eventsOf(id)`）。 */
+  readonly events: SessionTraceEvents;
   /**
    * 会话存在性判定（须为真判定）。
    *
    * 为什么必须显式注入：会话存储端口只有 `load()`，而它对**不存在的会话**与**零事件的会话**
-   * 一律返回空数组（`JsonlStorage` / `SqliteStorage` 都是这个契约，服务端 `Agent.replay` 亦然）。
+   * 一律返回空数组（`JsonlStorage` / `SqliteStorage` 都是这个契约，服务端 `Agent.eventsOf` 亦然）。
    * 没有本判定，服务只能把两者混为一谈，正是「有实现、无接线」要消灭的那类含糊。
    * 缺省为恒真（事件源自身报错时仍由 load 的 fail-soft 分支兜住）。
    */
@@ -66,7 +69,7 @@ export class SessionTraceService {
   /** 单次读取默认条数（与端口默认一致）。 */
   private static readonly DEFAULT_LIMIT = 20;
   /** 事件源。 */
-  private readonly replay: SessionTraceReplay;
+  private readonly events: SessionTraceEvents;
   /** 会话存在性判定（真判定；缺省恒真）。 */
   private readonly exists: (sessionId: string) => Promise<boolean>;
   /** 失败记录器。 */
@@ -80,7 +83,7 @@ export class SessionTraceService {
    * @param deps 事件源、存在性判定与失败记录器
    */
   public constructor(deps: SessionTraceServiceDeps) {
-    this.replay = deps.replay;
+    this.events = deps.events;
     this.exists = deps.exists ?? (async () => true);
     this.logError = deps.logError ?? (() => undefined);
   }
@@ -96,7 +99,7 @@ export class SessionTraceService {
         return 0;
       }
       const cell: TraceCell = this.cells.get(sessionId) ?? { events: [] };
-      const events = await this.replay(sessionId);
+      const events = await this.events(sessionId);
       cell.events = events;
       // 只有真读到事件流（哪怕为空数组 = 会话存在但无事件）才登记缓存：
       // 未登记的会话在 read() 里如实报「未找到」，不会被误当成「读到了 0 条」。

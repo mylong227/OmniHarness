@@ -63,10 +63,12 @@ export class AppServer extends AppServerGovernanceHandlers {
       storage: options.config.storage,
       workspaceRoot: options.workspaceRoot,
     });
-    // T4.5 接线：只读 trace 自省的事件源取运行时 agent 的 replay（同一事实源，纯读不写）；
+    // T4.5 接线：只读 trace 自省的事件源取运行时 agent 的 eventsOf（同一事实源，**真·纯读不写**）。
+    // 2026-10-09 订正：此前接的是 `replay`，而它会**把整段历史重新广播给所有客户端** —— 注释写着
+    // 「纯读不写」、实现却在写事件总线，正是「声明与实现不一致」那一类缺陷。
     // 存在性判定另走事件日志存档（storage.load 对不存在的会话也回空数组，不足以区分「无此会话」）。
     this.trace = new SessionTraceService({
-      replay: (sessionId) => this.runtime.agent().replay(sessionId),
+      events: (sessionId) => this.runtime.agent().eventsOf(sessionId),
       exists: (sessionId) =>
         options.traceSessionExists === undefined
           ? this.sessionTraceExists(sessionId)
@@ -77,7 +79,7 @@ export class AppServer extends AppServerGovernanceHandlers {
     // 会话回退（`threads.rewind`）：读 / 写都指向**唯一事实源**（storage），
     // 运行态判定复用 runTurn 维护的 activeTurns（运行中拒绝回退，避免两处写盘互相覆盖）。
     this.rewinder = new SessionRewindService({
-      replay: (sessionId) => this.runtime.agent().replay(sessionId),
+      events: (sessionId) => this.runtime.agent().eventsOf(sessionId),
       save: (sessionId, events) => this.options.config.storage.save(sessionId, events),
       isRunning: (sessionId) => this.activeTurns.has(sessionId),
     });

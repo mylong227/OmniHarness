@@ -45,11 +45,15 @@ describe('容量面板：回合进行中必须实时刷新（用户报「不会�
     assert.match(src, /clearInterval\(timer\)/, '收起 / 卸载必须摘掉定时器（否则留下后台心跳）');
   });
 
-  it('取数 effect 依赖刷新计数 tick（轮询才能真的把数字刷上去）', () => {
+  it('取数 effect 依赖刷新计数 tick 与容量数据代数 revision（两者都必须真的刷上去）', () => {
+    // 2026-10-09 追加 `revision`（`model` 事件条数，见 ContextUsageView.revisionOf）：
+    // 容量快照每次模型调用产生一次 ⇒ 代数一到就取数，定时器 `tick` 退化为兜底。
+    // 这两条合起来才拦得住用户报的两种「数字冻住」：定时器漏了 ⇒ 长回合中途不刷；
+    // 代数漏了 ⇒ 新快照已产生却要干等一个定时器周期（实测差 1.4s vs 3.0s）。
     assert.match(
       src,
-      /\}, \[open, threadId, busy, tick\]\);/,
-      '取数必须依赖 tick；只依赖 open/threadId/busy 时轮询形同虚设（这正是用户报的"不刷新"）',
+      /\}, \[open, threadId, busy, tick, revision\]\);/,
+      '取数必须依赖 tick 与 revision；只依赖 open/threadId/busy 时轮询与事件驱动都形同虚设',
     );
   });
 

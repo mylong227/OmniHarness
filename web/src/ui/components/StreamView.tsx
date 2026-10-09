@@ -35,6 +35,7 @@ import {
 import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
 import { StarterTasks } from '../models/StarterTasks.js';
+import { ContextUsageView } from '../models/ContextUsageView.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
@@ -709,6 +710,9 @@ export function StreamView(props: StreamViewProps): ReactElement {
         disabled={disabled}
         busy={busy}
         activeTool={activeTool}
+        // 容量数据代数：`model` 事件条数。容量快照就是每次模型调用产生的，代数一变就说明有新数据
+        // —— 面板据此**立刻**取数，而不是干等 2s 定时器（用户报的「不能实时同步」）。
+        contextRevision={ContextUsageView.revisionOf(events)}
         api={api}
         onStop={onStop}
       />
