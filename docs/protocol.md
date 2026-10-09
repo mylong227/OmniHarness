@@ -19,6 +19,9 @@
 > UI/工作台侧的 RPC——如 `modes.set`、`sessions.list` 的 `workspace` 过滤、`plugins.reload`、
 > `config.get`——由 `src/server/core/` 下的处理器文件（`appServer.ts`、`appServerHandlers.ts`、
 > `appServerSurfaceHandlers.ts`）直接注册，**不在**本文件与单源 schema 内；查它们请直读注册处或 Web 侧调用点。
+> 例：图运行一族 `graph.list` / `graph.get` / `graph.save` / `graph.delete` / `graph.run` / `graph.status` /
+> **`graph.resume`**（续跑：从该运行的存档读回规格、复用已完成步骤，其余重跑）都在
+> `appServer.ts#registerGraphHandlers` 注册，进度经 SSE `graph.progress` / `graph.done` 主动推送。
 
 ## 方法一览
 
