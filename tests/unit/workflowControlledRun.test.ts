@@ -27,6 +27,7 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
 import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
 import { WorkflowRunner } from '../../src/autonomy/workflowRunner.js';
 import { WorkflowRunLog } from '../../src/autonomy/workflowRunLog.js';
+import { WorkflowRunLock } from '../../src/autonomy/workflowRunLock.js';
 import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.js';
 import type { WorkflowDef } from '../../src/ports/autonomy/workflowDef.js';
 import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
@@ -345,6 +346,30 @@ describe('断点续跑（persist + resume）', () => {
       );
       const text = readFileSync(log.pathOf(first.runId), 'utf8');
       assert.match(text, /"id":"B","status":"done","attempt":3/, '重跑记为第 3 次尝试');
+    });
+  });
+
+  it('该运行已被另一进程持锁 ⇒ 续跑 fail-closed 拒绝（不许并发写同一份日志）', async () => {
+    await withWorkspace(async (root) => {
+      const model = new SwitchableModel();
+      const first = await new WorkflowRunner(makePorts(model, root), { persist: true }).run(DEF);
+      // 模拟「另一个进程正持有该运行」：本进程先持锁，此时再续跑必须被拒。
+      // （锁是不可重入的：同 pid 也算占用——这一点正是「同进程内两次续跑」的挡板。）
+      const lock = new WorkflowRunLock(root);
+      lock.acquire(first.runId);
+      await assert.rejects(
+        () => new WorkflowRunner(makePorts(model, root), { persist: true }).resume(first.runId),
+        /正被另一进程续跑/,
+      );
+      lock.release(first.runId);
+      const after = await new WorkflowRunner(makePorts(model, root), { persist: true }).resume(
+        first.runId,
+      );
+      assert.strictEqual(after.ok, true, '锁释放后应能正常续跑');
+      assert.ok(
+        !new WorkflowRunLock(root).isHeld(first.runId),
+        '续跑结束（含异常路径）必须释放锁，否则该 runId 会被永久锁死',
+      );
     });
   });
 

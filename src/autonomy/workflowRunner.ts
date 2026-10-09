@@ -2,6 +2,7 @@
 import { WorkflowCycleError } from './workflowCycleError.js';
 import { WorkflowGuard } from './workflowGuard.js';
 import { WorkflowRunLog } from './workflowRunLog.js';
+import { WorkflowRunLock } from './workflowRunLock.js';
 import { WorkflowSpecError } from './workflowSpecError.js';
 import { WorkflowStepStatuses } from './workflowStepStatuses.js';
 
@@ -152,8 +153,15 @@ export class WorkflowRunner {
     const log =
       this.options.persist === true ? new WorkflowRunLog(this.ports.workspaceRoot) : undefined;
     const runId = this.options.runId ?? WorkflowRunLog.newRunId(def.name);
-    log?.create(def, runId, maxConcurrency);
-    return this.schedule(def, runId, maxConcurrency, log, undefined);
+    // 持久化才需要锁：不落盘就没有「两份日志交错」这回事。
+    const lock = log === undefined ? undefined : new WorkflowRunLock(this.ports.workspaceRoot);
+    lock?.acquire(runId);
+    try {
+      log?.create(def, runId, maxConcurrency);
+      return await this.schedule(def, runId, maxConcurrency, log, undefined);
+    } finally {
+      lock?.release(runId);
+    }
   }
 
   /**
@@ -187,7 +195,37 @@ export class WorkflowRunner {
         `runId「${runId}」记录的规格与本次传入的 spec 不一致：拒绝续跑（避免把两次不同定义的产出拼在一起）`,
       );
     }
-    return this.schedule(def, runId, replay.header.maxConcurrency, log, replay);
+    return this.scheduleGuarded(def, runId, replay.header.maxConcurrency, log, replay);
+  }
+
+  /**
+   * 加锁执行续跑（**跨进程互斥**），并保证退出时释放。
+   *
+   * 与 `run()` 一样只在持久化路径上加锁；区别是续跑**必须**加锁——它正是「另一个进程可能也在续同一份」
+   * 的场景（两个 CLI / CLI 与 serve 并存）。
+   *
+   * @param def 工作流定义（来自存档）。
+   * @param runId 运行 id。
+   * @param maxConcurrency 生效并发上限。
+   * @param log 运行日志。
+   * @param replay 回放状态。
+   * @returns 工作流整体结果。
+   * @throws WorkflowSpecError 另一存活进程正持有该运行（含持锁 pid/host/时刻）时抛出。
+   */
+  private async scheduleGuarded(
+    def: WorkflowDef,
+    runId: string,
+    maxConcurrency: number,
+    log: WorkflowRunLog,
+    replay: WorkflowRunReplay,
+  ): Promise<WorkflowResult> {
+    const lock = new WorkflowRunLock(this.ports.workspaceRoot);
+    lock.acquire(runId);
+    try {
+      return await this.schedule(def, runId, maxConcurrency, log, replay);
+    } finally {
+      lock.release(runId);
+    }
   }
 
   /**
