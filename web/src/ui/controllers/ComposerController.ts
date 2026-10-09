@@ -221,6 +221,30 @@ export class ComposerController {
   }
 
   /**
+   * 把一段文本**填进输入框**（不发送），并聚焦，等用户改完自己回车。
+   *
+   * 用途：中栏空态的「快速开始」示例任务（2026-10-08 易用性轮）。为什么是"填入"而不是
+   * "直接发送"：入门示例是**给人改的模板**（"读一下 README.md" 里的文件名通常要换成自己的），
+   * 而且直接发送会**立刻消耗真实额度**——第一次点按钮就花钱，对客户是惊吓不是引导。
+   *
+   * 与 `editLastUser` 共用同一条回填通道（`composerSeed` + 单调 `nonce`）：nonce 递增保证
+   * 「连续点同一个示例两次」也能各自触发一次回填（否则第二次文本与上次相同，Composer 不会响应）。
+   * @param text 要填入输入框的文本
+   * @returns 无
+   */
+  public seedDraft(text: string): void {
+    const trimmed = text.trim();
+    if (trimmed === '') {
+      // fail-closed：空文本不写状态（否则用户看到"点了没反应"，却查不出原因）。
+      this.services.toast('示例内容为空，已忽略', 'err');
+      return;
+    }
+    this.host.patch((s) => ({
+      composerSeed: { text: trimmed, nonce: (s.composerSeed?.nonce ?? 0) + 1 },
+    }));
+  }
+
+  /**
    * 编辑重发：把末条用户消息填回底部输入框并聚焦，用户改完直接回车即走既有提交通路重发。
    * 不新造 RPC——重发本身完全复用 send（turns.run）。
    * @returns 无

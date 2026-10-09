@@ -488,6 +488,113 @@ svg {
 .session.active .session-label {
   color: var(--text);
 }
+
+/* 会话行内联的「最近活动时间」（2026-10-08 可读性轮）。
+   两个分组视图共用；hover 时用 opacity **让位**给重命名 / 复制 / 删除按钮——
+   不用 display:none 是因为那会让标题宽度在悬停瞬间跳变（行内重排比"看不见时间"更烦人），
+   opacity 保留占位 ⇒ 悬停前后零位移。 */
+.session-time {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.session:hover .session-time {
+  opacity: 0;
+}
+
+/* 空态「快速开始」示例任务（2026-10-08 易用性轮）。
+   原先空态只有一句"下达任务后…会发生什么"，没说"我该输入什么"——学习成本的最大来源
+   不是功能复杂，而是第一句话不知道怎么写。四条示例各覆盖一条核心通路，点一下填进输入框。
+   分两列（窄屏一列）：四张卡竖排在 640px 高的中栏里会把"等待任务"挤到顶部之外，
+   而这一屏的主要信息恰恰是那行标题与四个入口要**同屏**。 */
+.starter-tasks {
+  margin-top: 18px;
+  max-width: 460px;
+}
+.starter-title {
+  font-size: 12px;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+.starter-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.starter-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.starter-task:hover {
+  border-color: var(--brand);
+  background: var(--panel-2);
+}
+.starter-task:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.starter-ico {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--brand);
+}
+.starter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .starter-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 会话行的操作按钮（重命名 / 复制 / 删除）改为**覆盖层**：不悬停时不再占位。
+   真机实测（2026-10-08，248px 侧栏）：三个按钮以 opacity:0 常驻占位 **86px**，
+   而标题只剩 73–91px（约 6 个字）——标题是客户找会话的第一线索，却被"看不见的按钮"挤掉。
+   改成绝对定位后标题拿回这 86px，18–35px 的时间格也放得下：
+   既知道「哪条是刚才那条」，又不必牺牲标题预览。
+   覆盖层必须自带底（否则与标题尾巴糊在一起）：左缘用渐变过渡，右侧取行态自身的底色。 */
+.session,
+.task-card {
+  position: relative;
+}
+.task-card .tc-top {
+  position: relative;
+}
+.session .session-actions,
+.task-card .session-actions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-left: 10px;
+  border-radius: 6px;
+}
+.session .session-actions {
+  background: linear-gradient(90deg, transparent, var(--panel) 10px);
+}
+.session.active .session-actions {
+  background: linear-gradient(90deg, transparent, var(--panel-2) 10px);
+}
+.task-card .tc-top .session-actions {
+  background: linear-gradient(90deg, transparent, var(--panel) 10px);
+}
 .session-act {
   border-radius: 6px;
   display: inline-flex;

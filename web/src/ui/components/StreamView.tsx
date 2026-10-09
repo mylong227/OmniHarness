@@ -34,6 +34,7 @@ import {
 } from '../format.js';
 import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
+import { StarterTasks } from '../models/StarterTasks.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
@@ -108,6 +109,13 @@ export interface StreamViewProps {
   onOpenTab?: (key: string) => void;
   /** 加载历史会话（AddMenu 搜索命中为聊天时）。 */
   onLoadThread?: (id: string) => void;
+  /**
+   * 把一段文本填进底部输入框（空态「快速开始」示例用；实现见 `ComposerController.seedDraft`）。
+   *
+   * 刻意**不是** `onSend`：示例是给人改的模板，且直接发送会立刻消耗真实额度——
+   * 第一次点按钮就花钱，对客户是惊吓不是引导。缺省时示例区不渲染（组件仍可用）。
+   */
+  onUseStarter?: (text: string) => void;
   /** 回合进行中——为真时显示思考/工具过程，结束后隐藏只留结果。 */
   busy?: boolean;
   /** 当前正在调用的工具名（无则显示"思考中"），透传给 Composer 状态条。 */
@@ -399,6 +407,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onApplyMode,
     onOpenTab,
     onLoadThread,
+    onUseStarter,
     busy,
     activeTool,
     question,
@@ -603,7 +612,35 @@ export function StreamView(props: StreamViewProps): ReactElement {
           onScroll={onScroll}
         >
           {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
-            emptyState(icon('message', { size: 20 }), '等待任务', '下达任务后，模型推理、工具调用与结果将在此实时呈现。')
+            <div className="empty illu starter-empty">
+              <div className="illu-icon">{icon('message', { size: 20 })}</div>
+              <div className="illu-text">等待任务</div>
+              <div className="illu-hint">下达任务后，模型推理、工具调用与结果将在此实时呈现。</div>
+              {onUseStarter === undefined ? null : (
+                // 「快速开始」：只说"这里会发生什么"是不够的——新客户卡在"第一句话怎么写"。
+                // 四条示例各覆盖一条核心通路（读文件 / 跑命令 / 搜索 / 写代码），点一下填进输入框。
+                <div className="starter-tasks">
+                  <div className="starter-title">试试这些（点一下填进输入框，可改后再发）</div>
+                  <div className="starter-list">
+                    {StarterTasks.list().map((t) => (
+                      <button
+                        key={t.label}
+                        type="button"
+                        className="starter-task"
+                        // 悬停给完整任务描述：按钮上的标签是"能力名"，客户要看到真会发出去的那句话。
+                        title={t.prompt}
+                        onClick={() => onUseStarter(t.prompt)}
+                      >
+                        <span className="starter-ico" aria-hidden="true">
+                          {icon(t.icon, { size: 14 })}
+                        </span>
+                        <span className="starter-label">{t.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="stream-inner">
               {win.padTop > 0 ? (
