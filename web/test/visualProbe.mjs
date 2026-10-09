@@ -141,6 +141,23 @@ function probeResults() {
       { id: 'probe-dag-1', name: 'sample-research', stepCount: 4 },
       { id: 'probe-dag-2', name: 'release-checklist', stepCount: 6 },
     ],
+    // 运行返回的 runId 必须与下面 graph.progress 推送的 runId 一致：运行态按 runId 建键
+    // （`applyGraphProgress` 用 `p.runId` 取/建运行），两边不一致时推来的进度会落进**另一个**运行，
+    // 探针就只看到「芯片存在」而看不到任何真实状态（这正是本夹具此前的假绿形态，2026-10-08 修）。
+    'graph.run': { runId: 'probe-run-1', nodeCount: 4 },
+    // 续跑：服务端沿用同一 runId（本场景点「续跑」后据此断言卡片复位成「运行中…」）。
+    'graph.resume': { runId: 'probe-run-1', nodeCount: 4 },
+    'graph.status': {
+      runId: 'probe-run-1',
+      defName: 'sample-research',
+      done: false,
+      nodes: [
+        { id: 'plan', status: 'done' },
+        { id: 'a', status: 'done' },
+        { id: 'b', status: 'running' },
+        { id: 'merge', status: 'pending' },
+      ],
+    },
     // 形状必须与 MemoryListResult 一致（`{count, facts}`）——`facts` 缺了会在渲染期读
     // `undefined.length` 抛错，被 RenderErrorBoundary 接住后整棵树被卸载（探针里表现为
     // "后面的面板按钮全都找不到"）。
@@ -348,25 +365,86 @@ const STATES = [
     // 编排**运行态**（`graph-runs`）：静态面板图只能看到编辑器，看不到"节点跑起来"的观感
     // （running 呼吸圈 / done / failed 三态芯片）。走"载入示例 → 运行"这条用户真会走的通路。
     open: async (cdp) => {
-      const clicked = await cdp.evaluate(
-        `(function(){ var b=[].slice.call(document.querySelectorAll('.rail-btn')).filter(function(x){return x.getAttribute('aria-label')==='编排';})[0]; if(!b) return false; b.click(); return true; })()`,
+      const clicked = await openPaneByLabel(cdp, '编排');
+      if (!clicked) return false;
+      // 按**可见文本**点击（位置式选择器在壳层重构后必然失配：`.pm-head .ghost:nth-child(2)`
+      // 与 `.row button.send:last-child` 都依赖元素顺序，改一次布局就静默点错/点空）。
+      const clickText = async (label, sel) =>
+        (await cdp.evaluate(
+          `(function(){ var b=[].slice.call(document.querySelectorAll(${JSON.stringify(sel)})).filter(function(x){ return x.textContent.trim()===${JSON.stringify(label)}; })[0]; if(!b) return false; b.click(); return true; })()`,
+        )) === true;
+      if (!(await clickText('载入示例', 'button'))) {
+        emit({ kind: 'graph-run-step', step: '载入示例', ok: false });
+        return false;
+      }
+      await new Promise((r) => setTimeout(r, 200));
+      if (!(await clickText('运行', 'button'))) {
+        emit({ kind: 'graph-run-step', step: '运行', ok: false });
+        return false;
+      }
+      // 运行态卡片由 SSE 的 graph.progress 汇总注入。**载荷形状必须是服务端真实形状**：
+      // 逐节点 `{ runId, id, status, … }`（`AppReducers.applyGraphProgress` 读 `p.id`）。
+      // 这里曾推过一批 `{ runId, defName, nodes:[…] }`——`p.id` 为 undefined ⇒ 芯片带 undefined 状态，
+      // `.graph-node` 照样存在（断言通过），但「节点跑起来」这条其实一点没被验到（假绿）。
+      // 先等运行卡片出现（onRunStart 写状态），否则推来的进度无处落账。
+      if (!(await cdp.waitFor("!!document.querySelector('#graphStatus .graph-card')", 500))) {
+        emit({ kind: 'graph-run-step', step: '运行卡片', ok: false });
+        return false;
+      }
+      for (const node of [
+        { id: 'plan', status: 'done' },
+        { id: 'a', status: 'done' },
+        { id: 'b', status: 'running' },
+        { id: 'merge', status: 'pending' },
+      ]) {
+        await cdp.push({ method: 'graph.progress', params: { runId: 'probe-run-1', ...node } });
+      }
+      // 断言必须是「真实状态类被渲染」：只看 `.graph-node` 存在的话，上面那种假绿又会通过。
+      if (
+        !(await cdp.waitFor(
+          "!!document.querySelector('.graph-node.running') && !!document.querySelector('.graph-node.done')",
+          500,
+        ))
+      ) {
+        emit({
+          kind: 'graph-run-step',
+          step: '节点状态',
+          ok: false,
+          chips: await cdp.evaluate(
+            "[].slice.call(document.querySelectorAll('.graph-node')).map(function(x){return x.className;})",
+          ),
+        });
+        return false;
+      }
+      // 失败收尾 ⇒ 卡片转「存在失败步骤」并出现**续跑入口**（这是 2026-10-08 新增的用户面能力）。
+      await cdp.push({ method: 'graph.done', params: { runId: 'probe-run-1', ok: false, blackboard: {} } });
+      if (!(await cdp.waitFor("!!document.querySelector('.btn-resume')", 500))) {
+        emit({ kind: 'graph-run-step', step: '续跑按钮', ok: false });
+        return false;
+      }
+      // 点续跑：走 graph.resume → onRunStart 复位 ⇒ 卡片回到「运行中…」且按钮消失。
+      const btnThere = await cdp.evaluate("!!document.querySelector('.btn-resume')");
+      await cdp.click('.btn-resume');
+      const reset = await cdp.waitFor(
+        "(function(){var b=document.querySelector('.btn-resume');var f=document.querySelector('#graphStatus .saved');return !b && !!f && /运行中/.test(f.textContent||'');})()",
+        800,
       );
-      if (clicked !== true) return false;
-      // 载入示例（填好草稿）→ 运行（发出 graph.run，假后端给 runId）。
-      await cdp.click('.pm-head .ghost:nth-child(2)');
-      await new Promise((r) => setTimeout(r, 160));
-      await cdp.click('.row button.send:last-child');
-      // 运行态卡片由 SSE 的 graph.progress 汇总注入——推一条，让节点芯片有状态可看。
-      await cdp.push({
-        method: 'graph.progress',
-        params: { runId: 'probe-run-1', defName: 'sample-research', nodes: [
-          { id: 'plan', status: 'done' },
-          { id: 'a', status: 'done' },
-          { id: 'b', status: 'running' },
-          { id: 'merge', status: 'pending' },
-        ] },
-      });
-      return cdp.waitFor("!!document.querySelector('.graph-node')", 400);
+      if (!reset) {
+        emit({
+          kind: 'graph-run-step',
+          step: '续跑复位',
+          ok: false,
+          btnThere,
+          btnStill: await cdp.evaluate("!!document.querySelector('.btn-resume')"),
+          foot: await cdp.evaluate(
+            "(function(){var f=document.querySelector('#graphStatus .saved');return f?f.textContent:null;})()",
+          ),
+          toasts: await cdp.evaluate(
+            "[].slice.call(document.querySelectorAll('.toast,.toast-item,.toast-msg')).map(function(x){return x.textContent.trim();})",
+          ),
+        });
+      }
+      return reset;
     },
   },
   {
@@ -395,7 +473,7 @@ const STATES = [
   },
 ];
 
-/** 面板清单：[rail 按钮 aria-label, 文件名后缀]。 */
+/** 面板清单：[面板标签, 文件名后缀]。 */
 const PANES = [
   ['工具', 'tools'],
   ['指标', 'metrics'],
@@ -407,6 +485,40 @@ const PANES = [
   ['钻取', 'detail'],
   ['回滚', 'rollback'],
 ];
+
+/**
+ * 通过**现役**入口打开一个面板：桌面端的唯一常驻入口是 `PanelPicker` 菜单
+ * （原 `NavRail` 竖条已随壳层重构移除，`.rail-btn` 不再存在——2026-10-08 实测：
+ * 探针仍点 `.rail-btn` ⇒ 全部面板图与依赖面板的交互态一起报「未找到面板按钮」，属**假红**）。
+ * @param cdp CDP 会话
+ * @param label 面板标签（如「编排」）
+ * @returns 是否成功打开
+ */
+async function openPaneByLabel(cdp, label) {
+  // 先等入口按钮出现（重载后挂载有先后，直接点会点空 ⇒ 假红）。
+  if (!(await cdp.waitFor("!!document.querySelector('.pp-btn')", 1500))) return false;
+  /**
+   * 走一遍「展开菜单 → 按标签点项」。
+   * 注意：只有菜单**未展开**时才点按钮——已展开时再点会收起，随后就找不到菜单项了（首帧竞态）。
+   * @returns 是否成功选中该面板
+   */
+  const pickOnce = async () => {
+    await cdp.evaluate(
+      "(function(){ var b=document.querySelector('.pp-btn'); if(b && b.getAttribute('aria-expanded')!=='true') b.click(); return true; })()",
+    );
+    // 菜单是点击后挂载的：等它真的出现（固定的 150ms 在某些主题/首帧下不够）。
+    if (!(await cdp.waitFor("!!document.querySelector('.pp-menu .pp-item')", 800))) return false;
+    return (
+      (await cdp.evaluate(
+        `(function(){ var hit=[].slice.call(document.querySelectorAll('.pp-item')).filter(function(x){ var l=x.querySelector('.pp-label'); return !!l && l.textContent.trim()===${JSON.stringify(label)}; })[0]; if(!hit) return false; hit.click(); return true; })()`,
+      )) === true
+    );
+  };
+  if (await pickOnce()) return true;
+  // 一次重试：首帧竞态下偶发失败（2026-10-08 全量跑测实测 dark/graph 一次），重试即稳。
+  await new Promise((r) => setTimeout(r, 150));
+  return pickOnce();
+}
 
 /**
  * 把页面推进到"有会话 + 有事件流"的渲染态（与 virtualProbe 同源的操作序列）。
@@ -525,11 +637,9 @@ async function main() {
           await seedSession(cdp);
           await cdp.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
           if (label) {
-            const clicked = await cdp.evaluate(
-              `(function(){ var b=[].slice.call(document.querySelectorAll('.rail-btn')).filter(function(x){return x.getAttribute('aria-label')===${JSON.stringify(label)};})[0]; if(!b) return false; b.click(); return true; })()`,
-            );
-            if (clicked !== true) {
-              failures.push(`${theme}/${key}: 未找到面板按钮 ${label}`);
+            const clicked = await openPaneByLabel(cdp, label);
+            if (!clicked) {
+              failures.push(`${theme}/${key}: 打开面板失败 ${label}`);
               continue;
             }
           } else {

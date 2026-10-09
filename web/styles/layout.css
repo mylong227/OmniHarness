@@ -212,6 +212,9 @@
 .graph-node.skipped .dot { background:#888; }
 @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
 .graph-card .btn-run { margin-left:auto; }
+/* 续跑按钮（2026-10-08）：只在「已结束但未成功」的运行卡片上出现，与「运行」按钮同样靠右。 */
+.graph-card .btn-resume { margin-left:auto; }
+.graph-card .pc-ver { font-family:var(--mono, monospace); opacity:.7; }
 .mem-row { display:grid; grid-template-columns:1fr auto; grid-template-areas:"text actions" "meta actions"; gap:2px 10px; padding:9px 11px; border:1px solid var(--border); border-radius:9px; background:var(--panel); margin-bottom:8px; }
 .mem-text { grid-area:text; font-size:13px; line-height:1.4; }
 .mem-meta { grid-area:meta; display:flex; gap:8px; align-items:center; font-size:11px; color:var(--dim); flex-wrap:wrap; margin-top:3px; }
