@@ -30,3 +30,20 @@ test('GraphRunRegistry：超出上限淘汰最旧运行时，其取消信号必�
   assert.ok(newest, '最新运行必须存在');
   assert.strictEqual(newest.signal.aborted, false);
 });
+
+test('GraphRunRegistry：同一 runId 的在飞运行不许被第二次续跑覆盖（fail-closed）', () => {
+  const reg = new GraphRunRegistry();
+  const first = reg.begin(sampleDef(), undefined, undefined, 'run_reuse_1');
+  assert.strictEqual(first.runId, 'run_reuse_1', '续跑必须沿用同一个 runId');
+
+  // 还没 release（仍在飞）就再续一次：必须拒绝——否则 runs/aborts 被覆盖 ⇒ 取消句柄丢失，
+  // 且两个 runner 会并发追加同一份运行日志（行交错，存档不可信）。
+  assert.throws(() => reg.begin(sampleDef(), undefined, undefined, 'run_reuse_1'), /正在续跑中/);
+  assert.strictEqual(reg.get('run_reuse_1')?.done, false, '被拒绝的请求不得改动既有台账');
+
+  // 释放（= 该运行已结束）后允许再次续跑。
+  reg.release('run_reuse_1');
+  const second = reg.begin(sampleDef(), undefined, undefined, 'run_reuse_1');
+  assert.strictEqual(second.runId, 'run_reuse_1');
+  assert.strictEqual(second.signal.aborted, false);
+});

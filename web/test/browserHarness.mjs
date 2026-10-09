@@ -557,6 +557,13 @@ export class CdpSession {
 
   /** 真实鼠标点击（CDP Input，证明操作回环可达 app）。Input 域在新版 Chrome 默认开启，无需 Input.enable。 */
   async click(selector) {
+    // 先把目标滚进视口再量坐标（2026-10-08 实测的真陷阱）：CDP 点击用的是**真实鼠标坐标**，
+    // 元素在视口外时 `getBoundingClientRect()` 给出的 y 落在窗口之外 ⇒ 事件打在空白处，
+    // 表现是「点了没反应」——探针会把它误报成「功能没接线」。编排面板底部的续跑按钮就是这样被漏掉的。
+    await this.evaluate(
+      `(function(){ var el = document.querySelector(${JSON.stringify(selector)}); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' }); return !!el; })()`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
     const c = await this._center(selector);
     if (!c) throw new Error('CDP 点击目标未找到: ' + selector);
     await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c.x, y: c.y, button: 'left', clickCount: 1 });

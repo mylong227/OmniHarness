@@ -62,6 +62,15 @@ export class GraphRunRegistry {
     reuseRunId?: string,
   ): GraphRunHandle {
     const runId = reuseRunId ?? Id.id('run');
+    // 续跑的唯一性闸门（2026-10-08）：同一个 runId 只允许**一个**在飞运行。两次 `graph.resume`
+    // 并发打到同一个 runId 的后果不是「跑两遍」这么轻：台账里 `runs`/`aborts` 会被后者覆盖
+    // ⇒ 前者的取消句柄丢失（`turns.abort` 再也掐不断它），且两个 runner 会**并发追加同一个
+    // 运行日志文件**（行交错 ⇒ 存档不可信）。故 fail-closed 拒绝，并给出可执行提示。
+    if (reuseRunId !== undefined && this.aborts.has(reuseRunId)) {
+      throw new Error(
+        `该运行正在续跑中：${reuseRunId}（请等它结束再续，或改用 graph.status 查看进度）`,
+      );
+    }
     const state: GraphRunState = {
       runId,
       defId,

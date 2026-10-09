@@ -2137,9 +2137,47 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
   原 `fold` 仍把该步当 `done` **复用旧产出**——那是把「上一次尝试的结论」当成「当前事实」，而那次重跑可能已经改过工作区。
   已修：**新的 `step.start` 作废该步此前的终态与产出**，续跑必须重跑；可信终态只认最后一条 `step.end`。
 
-#### 10.3.2 仍存的诚实边界
+#### 10.3.2 Web 端续跑入口（本轮补齐）与**一条订正**
+
+- **订正（我先前写错并已改正）**：本节曾写「前端仍无图界面 / 全仓 `web/src` 搜不到消费者」——**这是假的**。
+  实际早有一条完整消费链：`GraphTab.tsx`（`listGraphs`/`saveGraph`/`runGraph`/`runGraphById`/`getGraph`/`deleteGraph`）、
+  `GraphController.ts`（`onRunStart` / `applyGraphProgress` / `applyGraphDone` / SSE 断开时的 `graphStatus` 轮询）、
+  以及 `App.ts` 的 `case 'graph'` + `PanelRegistry`/`Router`/`AppReducers` 三处登记，且服务端经 SSE 主动广播
+  `graph.progress`（逐节点）/`graph.done`（`httpBridgeTransport.send` 无 id 即 `broadcast`）。
+  **真实缺口只有一个**：`resumeGraph` 没有 UI 调用点（RPC 与客户端方法都在，界面里没有入口）。
+  - **错因（值得记）**：我用 PowerShell 的 `-Path web\src\**\*.ts` 通配做检索，而它**不会真正递归** ⇒ 漏掉
+    `web/src/ui/**` 下的组件与控制器，据此下了「没有任何消费者」的结论并写进文档。**检索一律用 ripgrep（`grep` 工具）**，
+    不要用 PowerShell 通配当递归。
+- **本轮实际改了什么（用户面）**：`GraphTab` 的运行卡片在**已结束且未成功**时出现「续跑」按钮（运行中/已成功不显示，
+  显示了只会误导）；点击走 `api.resumeGraph(runId)` → 复用既有 `onRunStart` 复位通道（同一 runId ⇒ 进度订阅不分叉）；
+  在途禁用防重复提交；失败如实 toast。卡片同时露出 runId（它既是 `graph.status` 的键，也是 CLI `--resume-run` / 模型工具 `resume` 的入参）。
+- **服务端配套的 fail-closed 闸门**：同一 runId 的在飞运行**不许被第二次续跑覆盖**（`GraphRunRegistry.begin` 抛错）。
+  否则 `runs`/`aborts` 被覆盖 ⇒ 取消句柄丢失（`turns.abort` 掐不断），且两个 runner 会**并发追加同一份运行日志**（行交错，存档不可信）。
+  判据：`tests/unit/graphRunRegistry.test.ts`（在飞拒绝 / release 后放行）。
+- **判据**：`web/test/graphResumeUi.test.mjs`（3 例：未结束/已成功不出按钮；点击发 `graph.resume` 且走 `onRunStart` 复位；失败如实 toast 且不复位）。
+
+#### 10.3.3 真机（真 Chrome + 真 serve）验证与**探针夹具的三处修复**
+
+跑法：`node web/test/visualProbe.mjs --panes=graph`、`node scripts/realUiScenario.mjs --only=B`。过程中修掉三处**夹具自身**的缺陷
+（都不修的话，要么假绿、要么把产品误报成坏的）：
+
+1. **入口已废弃**：探针仍点 `.rail-btn`（`aria-label==='编排'`）——`NavRail` 早已随壳层重构移除，12 个面板的常驻入口是
+   `PanelPicker` 菜单（`.pp-btn` → `.pp-item`）。后果：**全部面板截图与依赖面板的交互态一起报「未找到面板按钮」**（假红）。
+   已改走现役入口（`openPaneByLabel`）。
+2. **载荷形状错 ⇒ 假绿**：`graph-run` 场景推的是 `{ runId, defName, nodes:[…] }`，而真实形状是**逐节点** `{ runId, id, status, … }`
+   （`AppReducers.applyGraphProgress` 读 `p.id`）。原样推批次载荷时 `p.id` 为 undefined ⇒ 芯片带 undefined 状态但 `.graph-node` 照样存在，
+   断言「有芯片」自然通过，而「节点跑起来」一点没验到。已改逐节点推送，并断言**真实状态类**（`.graph-node.running` + `.graph-node.done`）。
+3. **坐标点击未滚入视口 ⇒ 点空**：`CdpSession.click` 用 CDP 的真实鼠标坐标，元素在视口外时量到的 y 落在窗口之外，事件打在空白处
+   （表现是「点了没反应」，极易被误报成「功能没接线」）。已在 `click()` 里先 `scrollIntoView` 再量坐标。
+   本轮新增的「续跑」按钮位于编排面板底部，正是被这条漏掉的。
+
+**结果**：`visualProbe --panes=graph` ⇒ 26 张截图、**零失败**（含「载入示例 → 运行 → 真实逐节点 progress → 失败收尾 → 出现续跑按钮 → 点击复位」全链路）；
+`realUiScenario --only=B` ⇒ **3/3 绿**，其中「面板菜单齐全（≥12）」与「逐个打开 12 个面板都能渲染且零控制台错误」两条，
+把原先钉 `.tab[role=tab] >= 12` 的**旧壳层口径**（标签条现在只显示已打开的标签，启动时 1 个 ⇒ 该断言恒红）改钉到 `PanelPicker` 菜单上，判据反而更强。
+
+#### 10.3.4 仍存的诚实边界
 
 - **续跑会重跑未完成步骤 ⇒ 有副作用的步骤可能重复执行**：作者需自行声明 `writes` 并判断重跑是否安全（本层不做幂等推断，也无法从工具契约推出）。
-- **前端仍无图界面**（2026-10-08 实测）：`web/src/core/ApiClient.ts` 有 `runGraph`/`runGraphById`/`graphStatus`，本轮又补上 `resumeGraph`（含 `web/test/graphResumeClient.test.mjs` 判据），
-  但**没有任何组件调用它们**（全仓 `web/src` 里搜不到消费者）⇒ 终端用户在 Web 上既不能发起图运行、也不能续跑。要可用得先建图面板（属**新功能**，不是补一条缝），本轮未做、也未声称可用。
+- **跨进程并发续跑未加文件锁**：同一 runId 的重复续跑已由 serve 台账 fail-closed 拒绝（RPC 路径），但**两个 CLI 进程**同时 `--resume-run` 同一 runId
+  仍可能并发追加同一份日志。本轮未加文件锁（需要跨进程锁语义与超时回收，属独立议题）。
 - **`docs/protocol.md` 未列 `graph.*`**：该文档整体不含图相关 RPC（既有 `graph.run`/`graph.status` 也不在），本轮未单方面补 `graph.resume` 以免造成「只登记一个」的新不一致。

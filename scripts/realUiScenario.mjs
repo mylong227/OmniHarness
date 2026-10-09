@@ -252,34 +252,48 @@ async function main() {
       );
     }
 
-    // ---- B 导航与页签 ----
-    const tabCount = await cdp.evaluate("document.querySelectorAll('.tab[role=tab]').length");
-    record('B', '右栏页签齐全（≥12）', Number(tabCount) >= 12, `实际 ${String(tabCount)} 个`);
+    // ---- B 导航与面板 ----
+    // 口径订正（2026-10-08 实测）：右栏标签条在壳层重构后只显示**已打开的标签**（启动时 1 个），
+    // 12 个面板的常驻入口变成了 `PanelPicker` 菜单。原断言钉 `.tab[role=tab]` ≥12 ⇒ 重构后恒红
+    // （属判据没跟着设计走，而不是产品坏了）。现在改钉菜单项数，并把「逐个切换都能渲染」照旧保留。
+    await cdp.evaluate(
+      "(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return !!b; })()",
+    );
+    await new Promise((tick) => setTimeout(tick, 250));
+    const menuItems = await cdp.evaluate("document.querySelectorAll('.pp-menu .pp-item').length");
+    const menuLabels = await cdp.evaluate(
+      "Array.from(document.querySelectorAll('.pp-menu .pp-item .pp-label')).map(function(e){return e.textContent.trim();})",
+    );
+    await cdp.evaluate(
+      "(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return !!b; })()",
+    );
+    record('B', '面板菜单齐全（≥12）', Number(menuItems) >= 12, `实际 ${String(menuItems)} 个`);
     if (on('B')) {
       cdp.clearDiagnostics();
-      const tabs = await cdp.evaluate(
-        "Array.from(document.querySelectorAll('.tab[role=tab]')).map(function(e){return e.innerText.trim();})",
-      );
       const broken = [];
-      for (const label of tabs) {
+      for (const label of Array.isArray(menuLabels) ? menuLabels : []) {
         await cdp.evaluate(
-          `(function(){var t=Array.from(document.querySelectorAll('.tab[role=tab]')).filter(function(e){return e.innerText.trim()===${JSON.stringify(label)}})[0]; if(t) t.click(); })()`,
+          "(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return !!b; })()",
+        );
+        await new Promise((tick) => setTimeout(tick, 120));
+        const picked = await cdp.evaluate(
+          `(function(){ var hit=Array.from(document.querySelectorAll('.pp-menu .pp-item')).filter(function(x){ var l=x.querySelector('.pp-label'); return !!l && l.textContent.trim()===${JSON.stringify(label)}; })[0]; if(!hit) return false; hit.click(); return true; })()`,
         );
         await new Promise((tick) => setTimeout(tick, 350));
         const rendered = await cdp.evaluate(
           "(document.querySelector('.col.right .pane.active')||{innerText:''}).innerText.trim().length",
         );
-        if (Number(rendered) < 2) broken.push(`${label}(空)`);
+        if (picked !== true || Number(rendered) < 2) broken.push(`${label}(空)`);
       }
       const diagAfter = cdp.diagnostics();
       const errs = diagAfter.console.filter((c) => /error/i.test(String(c.type)));
       record(
         'B',
-        `逐个切换 ${String(tabs.length)} 个页签：都能渲染且有内容、期间零控制台错误`,
+        `逐个打开 ${String(Array.isArray(menuLabels) ? menuLabels.length : 0)} 个面板：都能渲染且有内容、期间零控制台错误`,
         broken.length === 0 && errs.length === 0 && diagAfter.exceptions.length === 0,
-        `空页签=${broken.join('/')}｜错误=${JSON.stringify(errs.slice(0, 2))}`,
+        `空面板=${broken.join('/')}｜错误=${JSON.stringify(errs.slice(0, 2))}`,
       );
-      await cdp.screenshot(join(shotDir, 'tabs.png'));
+      await cdp.screenshot(join(shotDir, 'panels.png'));
     }
 
     // ---- C SSE 状态 ----
