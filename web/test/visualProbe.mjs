@@ -422,11 +422,33 @@ const STATES = [
         emit({ kind: 'graph-run-step', step: '续跑按钮', ok: false });
         return false;
       }
-      // 点续跑：走 graph.resume → onRunStart 复位 ⇒ 卡片回到「运行中…」且按钮消失。
+      // 状态栏芯片是**降低学习成本**的主入口（不必先学会「全部面板 → 编排」的导航）：
+      // 与卡片按钮同源（同一控制器方法），故这里两条都要在，并点**芯片**验证它真的通。
+      if (!(await cdp.waitFor("!!document.querySelector('.cs-resume')", 500))) {
+        emit({
+          kind: 'graph-run-step',
+          step: '状态栏续跑芯片',
+          ok: false,
+          statusBar: await cdp.evaluate(
+            "(function(){var s=document.querySelector('.chat-status');return s?s.textContent:null;})()",
+          ),
+        });
+        return false;
+      }
+      // 留档「续跑入口可见」这一刻：点击之后按钮按设计消失（卡片复位成运行中），
+      // 事后光看截图无法知道它长在哪、什么条件下出现，故在点击前单独截一张
+      // （先滚进视口，否则面板停在顶部、按钮在折叠线以下拍不到）。
+      await cdp.evaluate(
+        "(function(){ var b=document.querySelector('.btn-resume'); if(b && b.scrollIntoView) b.scrollIntoView({ block: 'center' }); return true; })()",
+      );
+      await new Promise((r) => setTimeout(r, 60));
+      await cdp.screenshot(join(ARCHIVE, `graph-resume-entry-${Date.now()}.png`));
+      // 点**状态栏芯片**续跑：走 graph.resume → 控制器乐观复位 ⇒ 卡片回到「运行中…」、
+      // 两个入口（卡片按钮 + 状态栏芯片）一起消失。
       const btnThere = await cdp.evaluate("!!document.querySelector('.btn-resume')");
-      await cdp.click('.btn-resume');
+      await cdp.click('.cs-resume');
       const reset = await cdp.waitFor(
-        "(function(){var b=document.querySelector('.btn-resume');var f=document.querySelector('#graphStatus .saved');return !b && !!f && /运行中/.test(f.textContent||'');})()",
+        "(function(){var b=document.querySelector('.btn-resume');var c=document.querySelector('.cs-resume');var f=document.querySelector('#graphStatus .saved');return !b && !c && !!f && /运行中/.test(f.textContent||'');})()",
         800,
       );
       if (!reset) {
