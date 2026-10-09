@@ -1,4 +1,4 @@
-/**
+﻿/**
  * trace 子命令（TraceCommand）——只读自省「我刚做了什么」的 CLI 入口。
  *
  * 事故口径（2026-09-19 入口可达性审计）：`ports/intelligence/traceIntrospection.ts`（端口）与
@@ -87,7 +87,7 @@ export class TraceCommand {
     const storageDir = SessionStorageLocation.resolve(workspace, reader.value('--storage-dir'));
     const source = this.createReader(storageDir);
     const service = new SessionTraceService({
-      replay: (id) => source.load(id),
+      events: (id) => source.load(id),
       // 存档读取器对「文件缺失」与「零事件」都回空数组，故存在性判定取「能否读出事件」。
       exists: async (id) => (await source.load(id)).length > 0,
     });

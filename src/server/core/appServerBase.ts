@@ -1,4 +1,4 @@
-import { ConfigFactory } from '../../config/configFactory.js';
+﻿import { ConfigFactory } from '../../config/configFactory.js';
 import { ConfigRebase } from '../../config/configRebase.js';
 import { SandboxManager, type SandboxProfile } from '../../adapters/sandbox/sandboxManager.js';
 import type { PluginManager } from '../../plugin/pluginManager.js';
@@ -96,7 +96,7 @@ export class AppServerBase {
     this.workspaceChanges = new WorkspaceChanges({
       workspaceRoot,
       threadIds: () => this.threads.keys(),
-      replay: (threadId) => this.runtime.agent().replay(threadId),
+      events: (threadId) => this.runtime.agent().eventsOf(threadId),
     });
     this.events =
       options.eventBridge ??

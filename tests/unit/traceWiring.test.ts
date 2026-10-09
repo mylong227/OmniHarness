@@ -1,4 +1,4 @@
-/**
+﻿/**
  * T4.5 接线单测：只读 trace 自省从「有实现、无接线」变成「production 可达」。
  *
  * 事故口径（2026-09-19 入口可达性审计）：`ports/intelligence/traceIntrospection.ts` 与
@@ -173,7 +173,7 @@ test('SessionEventReader：真读 .jsonl 并解析为会话事件；坏行非法
 });
 
 test('SessionTraceService：已加载会话返回冻结条目（新在前），并支持 kind 过滤', async () => {
-  const service = new SessionTraceService({ replay: async () => SAMPLE });
+  const service = new SessionTraceService({ events: async () => SAMPLE });
   assert.strictEqual(await service.load('s-trace'), 3, 'load 应返回事件条数');
 
   const recent = service.read({ session: 's-trace', limit: 2 });
@@ -199,7 +199,7 @@ test('SessionTraceService：已加载会话返回冻结条目（新在前），�
 });
 
 test('SessionTraceService：未知会话 / 空 sessionId / 事件源抛错均给出 error 且不抛异常', async () => {
-  const service = new SessionTraceService({ replay: async () => SAMPLE });
+  const service = new SessionTraceService({ events: async () => SAMPLE });
   const unknown = service.read({ session: 'nope' });
   assert.strictEqual(unknown.count, 0);
   assert.match(unknown.error ?? '', /未找到/);
@@ -208,7 +208,7 @@ test('SessionTraceService：未知会话 / 空 sessionId / 事件源抛错均给
   assert.match(empty.error ?? '', /sessionId/);
 
   const broken = new SessionTraceService({
-    replay: async () => {
+    events: async () => {
       throw new Error('storage blip');
     },
   });

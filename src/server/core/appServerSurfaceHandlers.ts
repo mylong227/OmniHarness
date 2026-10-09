@@ -48,7 +48,7 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     const workspaceRoot = (): string => this.configStore.workspace();
     this.windows = new ContextWindowCatalog(this.envWindow());
     this.contextUsage = new ContextUsageService({
-      replay: (threadId) => this.runtime.agent().replay(threadId),
+      events: (threadId) => this.runtime.agent().eventsOf(threadId),
       tools: () => this.visibleTools(),
       baseFragments: () => this.options.config.fragments ?? [],
       model: () => this.options.config.model.name,

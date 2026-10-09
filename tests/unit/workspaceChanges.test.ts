@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.js';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -36,12 +36,12 @@ function turnDiff(diff: string): SessionEvent {
 function build(
   ws: string,
   threadIds: readonly string[],
-  replay: () => Promise<readonly SessionEvent[]>,
+  events: () => Promise<readonly SessionEvent[]>,
 ): WorkspaceChanges {
   return new WorkspaceChanges({
     workspaceRoot: () => ws,
     threadIds: () => threadIds,
-    replay,
+    events,
   });
 }
 

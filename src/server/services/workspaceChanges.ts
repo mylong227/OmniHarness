@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+﻿import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { SessionEvent } from '../../ports/runtime/event.js';
 import { AsyncChildProcess } from '../../util/asyncChildProcess.js';
@@ -18,7 +18,7 @@ export interface WorkspaceChangesDeps {
   /** 已知线程 id 集合（非 git 回退时遍历）。 */
   readonly threadIds: () => Iterable<string>;
   /** 回放某线程的全部事件（非 git 回退时读 turn_diff）。 */
-  readonly replay: (threadId: string) => Promise<readonly SessionEvent[]>;
+  readonly events: (threadId: string) => Promise<readonly SessionEvent[]>;
 }
 
 /**
@@ -34,7 +34,7 @@ export class WorkspaceChanges {
   /** 已知线程 id 集合（非 git 回退时遍历）。 */
   private readonly threadIds: () => Iterable<string>;
   /** 回放某线程的全部事件（非 git 回退时读 turn_diff）。 */
-  private readonly replay: (threadId: string) => Promise<readonly SessionEvent[]>;
+  private readonly events: (threadId: string) => Promise<readonly SessionEvent[]>;
 
   /**
    * @param deps 工作区根 + 线程枚举 + 事件回放
@@ -42,7 +42,7 @@ export class WorkspaceChanges {
   public constructor(deps: WorkspaceChangesDeps) {
     this.workspaceRoot = deps.workspaceRoot;
     this.threadIds = deps.threadIds;
-    this.replay = deps.replay;
+    this.events = deps.events;
   }
 
   /**
@@ -146,7 +146,7 @@ export class WorkspaceChanges {
     for (const threadId of this.threadIds()) {
       let events: readonly SessionEvent[] = [];
       try {
-        events = await this.replay(threadId);
+        events = await this.events(threadId);
       } catch {
         continue;
       }

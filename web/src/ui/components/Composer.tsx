@@ -91,6 +91,11 @@ export interface ComposerProps {
   busy?: boolean;
   /** 当前正在调用的工具名（无则显示"思考中"）。 */
   activeTool?: string | null;
+  /**
+   * 容量数据代数（`model` 事件条数，由 StreamView 用 `ContextUsageView.revisionOf` 算出）：
+   * 透传给容量面板，做到「新快照一到就取数」而不是干等定时器。
+   */
+  contextRevision?: number;
 }
 
 /** @mention 补全态。 */
@@ -194,6 +199,7 @@ export function Composer(props: ComposerProps): ReactElement {
     disabled,
     busy,
     activeTool,
+    contextRevision,
   } = props;
   const [attachments, setAttachments] = React.useState<AttachmentDraft[]>([]);
   const [filePickerOpen, setFilePickerOpen] = React.useState<boolean>(false);
@@ -487,6 +493,8 @@ export function Composer(props: ComposerProps): ReactElement {
               threadId={threadId ?? ''}
               api={api}
               busy={busy === true}
+              // 容量数据代数（model 事件条数）：新快照一到就取数，而不是等 2s 定时器。
+              {...(contextRevision !== undefined ? { revision: contextRevision } : {})}
               // 用 useCallback 稳定引用：内联箭头会让**每次父渲染都是新函数**，把子组件里"按依赖取数"的
               // effect 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc）。
               onToast={toastStable}

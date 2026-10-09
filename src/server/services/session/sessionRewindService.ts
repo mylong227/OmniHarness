@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 会话回退服务：把持久化事件流截断到指定事件（**重生成的服务端真回退**）。
  *
  * 为什么必须有服务端回退：前端 `regenerate()` 此前只截断**视图层**事件列表再重发，
@@ -15,7 +15,7 @@ import type { SessionEvent } from '../../../ports/runtime/event.js';
 /** 回退依赖（注入以避免直接持有存储/运行时）。 */
 export interface SessionRewindDeps {
   /** 读取会话事件（与 `threads.get` 同一事实源）。 */
-  readonly replay: (sessionId: string) => Promise<readonly SessionEvent[]>;
+  readonly events: (sessionId: string) => Promise<readonly SessionEvent[]>;
   /** 写回截断后的事件流。 */
   readonly save: (sessionId: string, events: readonly SessionEvent[]) => Promise<void>;
   /** 该会话是否有回合在跑。 */
@@ -56,7 +56,7 @@ export class SessionRewindService {
     if (this.deps.isRunning(sessionId)) {
       return { ok: false, error: '该会话有回合正在运行：请先中止再回退' };
     }
-    const events = await this.deps.replay(sessionId);
+    const events = await this.deps.events(sessionId);
     if (events.length === 0) {
       return { ok: false, error: `会话不存在或没有事件：${sessionId}` };
     }

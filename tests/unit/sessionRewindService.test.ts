@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 会话回退服务单测（重生成的服务端真回退）。
  *
  * 缺口口径：前端 `regenerate()` 此前只截断视图层事件再重发，服务端 jsonl 里那一轮仍在
@@ -23,7 +23,7 @@ const ev = (id: string, type: SessionEvent['type'] = 'user'): SessionEvent => ({
 function makeDeps(events: readonly SessionEvent[], running = false) {
   const saved: { sessionId: string; events: readonly SessionEvent[] }[] = [];
   const deps = {
-    replay: async (): Promise<readonly SessionEvent[]> => events,
+    events: async (): Promise<readonly SessionEvent[]> => events,
     save: async (sessionId: string, kept: readonly SessionEvent[]): Promise<void> => {
       saved.push({ sessionId, events: kept });
     },

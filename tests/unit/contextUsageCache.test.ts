@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 上下文容量服务的**缓存命中统计**语义测试（缺口 B：让命中率不是摆设）。
  *
  * 六个断言簇，逐条对应「这个数字会被用错」的具体方式：
@@ -47,7 +47,7 @@ function service(events: readonly SessionEvent[], withSnapshot: boolean): Contex
     ? [...events, event('model', { usage: { promptTokens: 1 }, context: SNAPSHOT })]
     : [...events];
   return new ContextUsageService({
-    replay: async () => replayEvents,
+    events: async () => replayEvents,
     tools: (): readonly ToolDefinition[] => [],
     baseFragments: () => [],
     model: () => 'deepseek-chat',
@@ -177,7 +177,7 @@ test('无任何上报缓存的调用：calls=0 且 hitRate 缺省（UI 显示「
 
 test('回放抛错：降级为 empty 报告且缓存统计全零（绝不抛错打断会话）', async () => {
   const svc = new ContextUsageService({
-    replay: async () => {
+    events: async () => {
       throw new Error('archive unreadable');
     },
     tools: () => [],
@@ -192,7 +192,7 @@ test('回放抛错：降级为 empty 报告且缓存统计全零（绝不抛错�
 test('空会话 id：直接返回 empty 报告，不触发回放', async () => {
   let replayed = 0;
   const svc = new ContextUsageService({
-    replay: async () => {
+    events: async () => {
       replayed += 1;
       return [];
     },
