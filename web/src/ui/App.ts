@@ -118,7 +118,12 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
     case 'plugins':
       return React.createElement(PluginsTab, null);
     case 'graph':
-      return React.createElement(GraphTab, { graphRuns: s.graphRuns, onRunStart: ctrl.graph.onRunStart });
+      return React.createElement(GraphTab, {
+        graphRuns: s.graphRuns,
+        onRunStart: ctrl.graph.onRunStart,
+        // 续跑实现只有一处（控制器），面板卡片与状态栏芯片共用。
+        onResume: ctrl.graph.resumeRun,
+      });
     case 'memory':
       return React.createElement(MemoryTab, { reloadKey: s.memoryReloadKey });
     case 'profiles':
@@ -218,10 +223,17 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         permission: s.permission,
         threadId: s.currentThreadId,
         onToast: ctrl.showToast,
+        // 编排未跑完时状态栏出现一键续跑（与「编排」面板卡片共用 ctrl.graph.resumeRun）——
+        // 用户不必先学会「全部面板 → 编排」的导航才知道有东西没跑完。
+        graphRuns: s.graphRuns,
+        onGraphResume: ctrl.graph.resumeRun,
         onApplyMode: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) =>
           ctrl.sessions.applyModes(patch),
         onOpenTab: ctrl.openPane,
         onLoadThread: ctrl.sessions.loadThread,
+        // 空态「快速开始」示例 → 填进输入框（**不是**直接发送：示例是给人改的模板，
+        // 且直接发送会立刻消耗真实额度）。实现与「编辑重发」共用同一条回填通道。
+        onUseStarter: ctrl.composer.seedDraft,
         onModelChange: ctrl.composer.changeModel,
         onReasoningChange: ctrl.composer.changeReasoning,
         onPermissionChange: ctrl.composer.changePermission,

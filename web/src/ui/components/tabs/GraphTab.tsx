@@ -21,6 +21,12 @@ export interface GraphTabProps {
   graphRuns: Record<string, GraphRunState>;
   /** 运行启动回调（App 记录 runId → 名称映射）。 */
   onRunStart: (runId: string, name: string) => void;
+  /**
+   * 续跑回调（App 注入 `GraphController.resumeRun`；**与状态栏芯片同一实现**）。
+   *
+   * 组件不自己发 RPC：控制器负责乐观复位、失败复原与提示，避免两处各写一套续跑逻辑。
+   */
+  onResume: (runId: string, name: string) => void;
 }
 
 const SAMPLE = {
@@ -45,10 +51,14 @@ interface StoredActions {
 
 /** 运行卡片所需的回调（续跑）。 */
 interface RunActions {
-  /** 续跑该次运行（服务端复用已完成步骤的产出）。 */
+  /**
+   * 续跑该次运行（服务端复用已完成步骤的产出）。
+   *
+   * 实现只有一处（`GraphController.resumeRun`，状态栏芯片也用同一实现）：组件不再自己发 RPC、
+   * 也不再自己管「在途禁用」——控制器做**乐观复位**（按钮立刻消失），失败再复原并如实报错，
+   * 从根上消掉连点窗口，也避免两处各写一套状态。
+   */
   onResume: (runId: string, name: string) => void;
-  /** 该次运行的续跑请求是否在途（在途则按钮禁用，防重复提交）。 */
-  resuming: boolean;
 }
 
 /**
@@ -73,14 +83,21 @@ function renderRun(r: GraphRunState, actions: RunActions): ReactElement {
   ) : (
     <div className="saved">运行中…</div>
   );
+  // 按钮文案自己说清「会发生什么」（2026-10-08 交互改进）：只写「续跑」的话，用户不知道
+  // 它会不会把整张图重跑一遍（那正是最贵的担心）；给出「跳过已完成 N 步」就直接回答了这个问题。
+  const doneCount = r.nodes.filter((n) => n.status === 'done').length;
+  const restCount = Math.max(0, r.nodes.length - doneCount);
   const resume = r.done && !r.ok ? (
     <button
       className="ghost btn-resume"
-      disabled={actions.resuming === true}
-      title="复用已完成步骤的产出，只重跑未完成的步骤"
+      title={
+        restCount > 0
+          ? `复用已完成 ${doneCount} 步的产出，只重跑剩下 ${restCount} 步（runId 不变，进度实时刷新）`
+          : '复用已完成步骤的产出，只重跑未完成的步骤'
+      }
       onClick={() => actions.onResume(r.runId, r.defName)}
     >
-      {actions.resuming === true ? '续跑中…' : '续跑'}
+      {r.nodes.length > 0 ? `续跑（跳过已完成 ${doneCount} 步）` : '续跑'}
     </button>
   ) : null;
   const bb = r.blackboard ? (
@@ -144,13 +161,11 @@ function renderStoredGraph(g: GraphSummary, actions: StoredActions): ReactElemen
  * @returns 编排面板节点
  */
 export function GraphTab(props: GraphTabProps): ReactElement {
-  const { graphRuns, onRunStart } = props;
+  const { graphRuns, onRunStart, onResume } = props;
   const { api, toast, dialog } = useApp();
   const [graphs, setGraphs] = React.useState<GraphSummary[]>([]);
   const [name, setName] = React.useState<string>('');
   const [steps, setSteps] = React.useState<StepDraft[]>([]);
-  /** 在途的续跑请求（runId → 是否在途）：用于禁用按钮，防重复提交。 */
-  const [resuming, setResuming] = React.useState<Record<string, boolean>>({});
 
   /** 拉取已存图列表。 */
   const load = async (): Promise<void> => {
@@ -257,28 +272,6 @@ export function GraphTab(props: GraphTabProps): ReactElement {
       onRunStart(res.runId, gname);
     } catch (e) {
       toast('运行失败：' + (e as Error).message, 'err');
-    }
-  };
-
-  /**
-   * 续跑一次已结束但未成功的运行（`graph.resume`）。
-   *
-   * 为什么复用 `onRunStart` 而不是新写一条状态通道：续跑在**服务端**沿用同一个 runId，
-   * 客户端要做的只是「把这次运行复位成运行中并重新订阅进度」——那正是 `onRunStart` 的既有语义
-   * （置初始态 + SSE 断开时回退轮询）。走同一条通道，两种启动方式就不会各自漂移。
-   * @param runId 运行 id
-   * @param gname 编排定义名（用于复位后的卡片标题）
-   */
-  const resumeRun = async (runId: string, gname: string): Promise<void> => {
-    setResuming((prev) => ({ ...prev, [runId]: true }));
-    try {
-      const res = await api.resumeGraph(runId);
-      onRunStart(res.runId, gname);
-      toast('已续跑：' + res.runId, 'ok');
-    } catch (e) {
-      toast('续跑失败：' + (e as Error).message, 'err');
-    } finally {
-      setResuming((prev) => ({ ...prev, [runId]: false }));
     }
   };
 
@@ -417,7 +410,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
           {Object.keys(graphRuns).length === 0
             ? null
             : Object.values(graphRuns).map((r) =>
-                renderRun(r, { onResume: resumeRun, resuming: resuming[r.runId] === true }),
+                renderRun(r, { onResume }),
               )}
         </div>
       </div>

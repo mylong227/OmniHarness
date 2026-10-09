@@ -37,6 +37,7 @@ import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
 import { StreamModelCache } from '../models/StreamModelCache.js';
 import { Composer } from './Composer.js';
+import { GraphResumeChip } from './GraphResumeChip.js';
 import { QuestionCard } from './QuestionCard.js';
 import { ToolCallCard } from './stream/ToolCallCard.js';
 import { ReasoningBlock } from './stream/ReasoningBlock.js';
@@ -44,7 +45,7 @@ import { ProcessCluster } from './stream/ProcessCluster.js';
 import { AssistantCard } from './stream/AssistantCard.js';
 import { UserCard } from './stream/UserCard.js';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
-import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission } from '../../types/models.js';
+import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.js';
 import type { ComposerSeed, LiveInput } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 import type { ToolResultView } from '../shared.js';
@@ -134,6 +135,15 @@ export interface StreamViewProps {
   streamState?: 'open' | 'connecting' | 'closed';
   /** 模型适配器摘要（状态栏左段，如 `openai · gpt-4o`）。 */
   adapter?: string;
+  /**
+   * 编排运行态（可选）：有「已结束但未成功」的运行时，状态栏会出现一键续跑芯片。
+   *
+   * 放在状态栏而不是只放「编排」面板里，是为了降低学习成本（2026-10-08 用户反馈）：
+   * 用户不必先学会「全部面板 → 编排」这套导航，低头就能看见「有东西没跑完 + 一键续跑」。
+   */
+  graphRuns?: Record<string, GraphRunState>;
+  /** 续跑回调（与「编排」面板卡片共用同一实现 `GraphController.resumeRun`）。 */
+  onGraphResume?: (runId: string, name: string) => void;
   /** 打开左栏抽屉（仅窄屏渲染的汉堡按钮）。 */
   onToggleLeft?: () => void;
   /** 切换右栏（桌面=收起/展开面板；移动=抽屉）。 */
@@ -402,6 +412,8 @@ export function StreamView(props: StreamViewProps): ReactElement {
     sessionTitle,
     streamState,
     adapter,
+    graphRuns,
+    onGraphResume,
     onToggleLeft,
     onToggleRight,
     rightCollapsed,
@@ -667,6 +679,9 @@ export function StreamView(props: StreamViewProps): ReactElement {
       <div className="chat-status">
         <span className="cs-item">{adapter === undefined || adapter === '' ? '…' : adapter}</span>
         <span className="flex-spacer" aria-hidden="true"></span>
+        {graphRuns === undefined || onGraphResume === undefined ? null : (
+          <GraphResumeChip runs={graphRuns} onResume={onGraphResume} />
+        )}
         <span className="cs-item">{String(events.length)} 条事件</span>
         {streamState === undefined ? null : (
           <span className={'cs-item cs-conn ' + streamState}>
