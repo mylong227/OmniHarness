@@ -43,6 +43,9 @@ export const PANELS: readonly PanelEntry[] = [
   { key: 'settings', label: '设置', icon: 'gear' },
   { key: 'plugins', label: '插件', icon: 'package' },
   { key: 'diagnostics', label: '诊断', icon: 'ruler' },
+  // Web 交付（2026-10-11）：审计事件与只读 trace 自省——两条都是**已有 RPC 缺入口**。
+  { key: 'audit', label: '审计', icon: 'shield-alert' },
+  { key: 'trace', label: 'Trace', icon: 'search' },
 ];
 
 /**

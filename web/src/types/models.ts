@@ -435,3 +435,39 @@ export interface DoctorReportLike {
   /** 不合格项清单（面板必须逐条显示，不得折叠成一句"有问题"）。 */
   issues: string[];
 }
+
+/**
+ * `audit.query` 的面板契约（服务端 `AuditEvent` 的子集，2026-10-11 Web 交付）。
+ *
+ * 返回体是**判别联合**：`{ok:true, events}` 或 `{ok:false, reason}`（未接线）。
+ * 面板必须区分二者——空数组只能读成"审计无记录"。
+ */
+export interface AuditEventLike {
+  ts?: string;
+  type: string;
+  sessionId?: string;
+  actor?: string;
+  seq?: number;
+  hash?: string;
+}
+
+/** `audit.query` 的返回体。 */
+export type AuditQueryResult =
+  | { ok: true; events: AuditEventLike[] }
+  | { ok: false; reason: string };
+
+/** 一条只读 trace 条目（服务端 `TraceEntry` 同形）。 */
+export interface TraceEntryLike {
+  seq: number;
+  at: string;
+  kind: string;
+  summary: string;
+}
+
+/** `trace.read` 的返回体（`error` 非空表示会话不存在 / 存档不可读）。 */
+export interface TraceReadResultLike {
+  session: string;
+  entries: TraceEntryLike[];
+  count: number;
+  error?: string;
+}

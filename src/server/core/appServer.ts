@@ -9,8 +9,6 @@ import type { WorkflowDef } from '../../autonomy/workflowTypes.js';
 import { jsonRpc } from './jsonRpc.js';
 import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
 import { Id } from '../../util/id.js';
-import { AuditExporter, type AuditQuery } from '../services/auditExporter.js';
-import type { AuditEvent } from '../services/auditSink.js';
 import { AppServerObservabilityHandlers } from './appServerObservabilityHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
 import { providerPresets } from '../services/providerPresets.js';
@@ -18,13 +16,8 @@ import { RepoPathGuard } from '../services/repoPathGuard.js';
 import { DiffReview } from '../services/diffReview.js';
 import { DiffCommentStore } from '../services/diffCommentStore.js';
 import { SessionCheckpoints } from '../services/session/sessionCheckpoints.js';
-import { SessionTraceService } from '../services/session/sessionTraceService.js';
 import { SessionRewindService } from '../services/session/sessionRewindService.js';
 import type { SessionRewindOutcome } from '../services/session/sessionRewindService.js';
-import type {
-  TraceReadRequest,
-  TraceReadResult,
-} from '../../ports/intelligence/traceIntrospection.js';
 
 export type { AppServerOptions } from './appServerState.js';
 
@@ -43,8 +36,6 @@ export class AppServer extends AppServerObservabilityHandlers {
   private readonly diffComments: DiffCommentStore;
   /** 会话检查点服务：检查点创建、列表与回滚。 */
   private readonly checkpoints: SessionCheckpoints;
-  /** 只读 trace 自省服务：把会话事件流投影为冻结条目（`trace.read` RPC 的后端）。 */
-  private readonly trace: SessionTraceService;
   /** 会话回退服务：把持久化事件流截断到指定事件（`threads.rewind` RPC 的后端）。 */
   private readonly rewinder: SessionRewindService;
 
@@ -67,14 +58,6 @@ export class AppServer extends AppServerObservabilityHandlers {
     // 2026-10-09 订正：此前接的是 `replay`，而它会**把整段历史重新广播给所有客户端** —— 注释写着
     // 「纯读不写」、实现却在写事件总线，正是「声明与实现不一致」那一类缺陷。
     // 存在性判定另走事件日志存档（storage.load 对不存在的会话也回空数组，不足以区分「无此会话」）。
-    this.trace = new SessionTraceService({
-      events: (sessionId) => this.runtime.agent().eventsOf(sessionId),
-      exists: (sessionId) =>
-        options.traceSessionExists === undefined
-          ? this.sessionTraceExists(sessionId)
-          : options.traceSessionExists(sessionId),
-      logError: (message) => process.stderr.write(`[omniharness] ${message}\n`),
-    });
     this.registerHandlers();
     // 会话回退（`threads.rewind`）：读 / 写都指向**唯一事实源**（storage），
     // 运行态判定复用 runTurn 维护的 activeTurns（运行中拒绝回退，避免两处写盘互相覆盖）。
@@ -522,91 +505,6 @@ export class AppServer extends AppServerObservabilityHandlers {
     } finally {
       this.activeTurns.delete(threadId);
     }
-  }
-
-  /**
-   * 审计查询 RPC：读取服务端审计 sink 并应用过滤条件返回事件数组。
-   * @param params `{ since?, until?, type?, session?, actor?, limit? }`
-   * @returns 过滤后的事件数组（未注入 audit 时为空）
-   */
-  protected queryAuditRpc(params: Record<string, unknown>): AuditEvent[] {
-    const sink = this.options.audit;
-    if (sink === undefined) return [];
-    const str = (v: unknown): string | undefined =>
-      typeof v === 'string' && v.length > 0 ? v : undefined;
-    const num = (v: unknown): number | undefined => {
-      if (typeof v === 'number' && Number.isFinite(v)) return v;
-      if (typeof v === 'string' && /^\d+$/.test(v)) return Number(v);
-      return undefined;
-    };
-    const query: AuditQuery = {
-      since: str(params['since']),
-      until: str(params['until']),
-      type: str(params['type']),
-      session: str(params['session']),
-      actor: str(params['actor']),
-      limit: num(params['limit']),
-    };
-    return AuditExporter.queryAudit(sink.read(), query);
-  }
-
-  /**
-   * 只读 trace 自省 RPC（T4.5）：先按会话把事件流加载进只读投影器，再取冻结条目返回。
-   *
-   * 只读保证：返回条目由 `ReadonlyTraceReader` 深拷贝 + `Object.freeze`，调用方拿到的只是快照；
-   * 本 RPC 无任何写方法，agent 无法借道篡改自己的历史。fail-soft：会话不存在或事件源读取失败时
-   * 回 `{ entries: [], count: 0, error }`，不抛 RPC 错误打断消费方。
-   * @param params `{ sessionId, kind?, limit? }` — 目标会话与可选类别/条数过滤
-   * @returns 冻结 trace 条目快照（新在前）+ 计数 + 失败原因
-   */
-  protected async readTraceRpc(params: Record<string, unknown>): Promise<TraceReadResult> {
-    const request = AppServer.traceRequest(params);
-    await this.trace.load(request.session);
-    return this.trace.read(request);
-  }
-
-  /**
-   * 会话事件是否存在于存档（jsonl 目录或 sqlite 库）。
-   *
-   * 为什么不用 `storage.load()` 判定：它对不存在的会话与零事件会话都返回空数组，
-   * 无法区分「没有这个会话」与「这个会话还没有事件」。这里按存储后端的物理形态判定：
-   * 文件后端看 `<location>/<id>.jsonl`，sqlite 看库内该会话行；内存后端无可判定处，
-   * 回落到事件日志已在内存中的会话集合（`threads` 登记过的线程）。
-   * 未知 / 不可判定一律返回 true（宁多报也不误判「会话不存在」）。
-   * @param sessionId 会话 id
-   * @returns 该会话的事件存档是否存在
-   */
-  private async sessionTraceExists(sessionId: string): Promise<boolean> {
-    if (sessionId.length === 0) {
-      return false;
-    }
-    // 存档目录 / sqlite 库能枚举会话：以归档列表为唯一判据（file 后端读 .jsonl，sqlite 读库内行）。
-    if (this.options.config.storage.location !== undefined) {
-      // `'*'`：存在性判定必须看**全量**存档——会话可能属于别的工作区，按当前工作区过滤会让
-      // "按 id 打开历史会话"在跨项目时 404（见 SessionArchive.list 的作用域语义）。
-      const list = await this.sessionArchive.list(true, '*');
-      const sessions = (list as { sessions?: readonly { sessionId: string }[] }).sessions ?? [];
-      return sessions.some((entry) => entry.sessionId === sessionId);
-    }
-    // 内存后端无可枚举的物理存档：以已登记的线程 + 已加载的 trace 缓存为准（宁宽不误报）。
-    return this.threads.has(sessionId) || this.trace.has(sessionId);
-  }
-
-  /**
-   * 解析 trace.read 参数（宽松：非法值按缺省处理，会话 id 原样透传以便如实报错）。
-   * @param params RPC 原始参数
-   * @returns 规范化后的 trace 查询（session 必填，limit/kind 可缺省）
-   */
-  private static traceRequest(params: Record<string, unknown>): TraceReadRequest {
-    const rawSession = params['sessionId'];
-    const session = typeof rawSession === 'string' ? rawSession : '';
-    const kind = typeof params['kind'] === 'string' ? params['kind'] : undefined;
-    const limit = typeof params['limit'] === 'number' ? params['limit'] : undefined;
-    return {
-      session,
-      ...(kind !== undefined ? { kind } : {}),
-      ...(limit !== undefined ? { limit } : {}),
-    };
   }
 
   /**

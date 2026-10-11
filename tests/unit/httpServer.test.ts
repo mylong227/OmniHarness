@@ -171,22 +171,25 @@ test('HTTP：审批上行经 SSE 发出', async () => {
   }
 });
 
-test('RPC：audit.query 返回服务端审计事件（可按类型过滤）', async () => {
+test('RPC：audit.query 返回服务端审计事件（可按类型过滤），且**未接线与无记录可区分**', async () => {
   const auditFile = join(tmpdir(), `audit-rpc-test-${Date.now()}.log`);
   const sink = new AuditSink({ path: auditFile });
   sink.record({ type: 'tool_call', sessionId: 's1' });
   sink.record({ type: 'approval', sessionId: 's1' });
   const { server, base } = await startTestServer(false, sink);
   try {
+    // 2026-10-11：返回体改为判别联合 `{ok:true, events}`（未接线时 `{ok:false, reason}`）——
+    // 此前未接线回 `[]`，面板只能渲染成"审计无记录"，而真相是"没装 sink"。
     const all = (await rpc(base, 'audit.query', {})) as unknown as {
-      result: Array<{ type: string }>;
+      result: { ok: boolean; events: Array<{ type: string }> };
     };
-    assert.strictEqual(all.result.length, 2);
+    assert.strictEqual(all.result.ok, true, '接了 sink 必须 ok:true');
+    assert.strictEqual(all.result.events.length, 2);
     const onlyTool = (await rpc(base, 'audit.query', { type: 'tool_call' })) as unknown as {
-      result: Array<{ type: string }>;
+      result: { ok: boolean; events: Array<{ type: string }> };
     };
-    assert.strictEqual(onlyTool.result.length, 1);
-    assert.strictEqual(onlyTool.result[0]?.type, 'tool_call');
+    assert.strictEqual(onlyTool.result.events.length, 1);
+    assert.strictEqual(onlyTool.result.events[0]?.type, 'tool_call');
   } finally {
     await server.close();
   }

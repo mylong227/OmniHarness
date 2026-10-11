@@ -163,6 +163,15 @@ test('③ 注入后：ok:true + 原样回传报告，且 workspaceRoot 透传到
   assert.deepStrictEqual(seen, [undefined, { workspaceRoot: '/tmp/probe' }]);
 });
 
+test('⑤ audit.query：未接线时**显式报错**（不得回空数组冒充"审计无记录"）', async () => {
+  const server = makeServer();
+  const result = (await call(server, 'audit.query')) as { ok: boolean; reason?: string };
+  assert.strictEqual(result.ok, false, '未注入 audit sink 必须 ok:false');
+  assert.match(String(result.reason), /未接线/u, '必须给出可读原因');
+  // 反面对照：**不得**回 events:[] —— 空数组会被面板读成"审计无记录"。
+  assert.strictEqual('events' in result, false, '未接线时不得带 events 字段');
+});
+
 test('④ serve 组合根注入的 doctor 实现与 `omniharness doctor` 命令**同一个**（附正对照）', () => {
   const source = readFileSync(join(REPO_ROOT, 'src/cli/cliServerCmds.ts'), 'utf8');
   assert.match(

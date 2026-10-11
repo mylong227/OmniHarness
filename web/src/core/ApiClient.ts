@@ -212,6 +212,38 @@ export class ApiClient {
   > {
     return this.rpc('doctor.report', workspaceRoot === undefined ? {} : { workspaceRoot });
   }
+
+  /**
+   * 审计事件查询（只读，2026-10-11 Web 交付）。
+   *
+   * 返回体是**判别联合**：`ok:false` 表示服务端**未接线 audit sink**，面板必须如实显示"未接线"，
+   * **不得**把空数组渲染成"审计无记录"。
+   * @param params 过滤条件（时间窗 / 类型 / 会话 / actor / 条数上限）
+   * @returns `{ok:true, events}` 或 `{ok:false, reason}`
+   */
+  public auditQuery(params: {
+    since?: string;
+    until?: string;
+    type?: string;
+    session?: string;
+    actor?: string;
+    limit?: number;
+  }): Promise<import('../types/models.js').AuditQueryResult> {
+    return this.rpc('audit.query', params);
+  }
+
+  /**
+   * 只读 trace 自省（T4.5，2026-10-11 Web 交付）：取某会话的冻结条目快照。
+   * @param params 会话 id + 可选条数上限 / 类别过滤
+   * @returns `{session, entries, count, error?}`
+   */
+  public traceRead(params: {
+    session: string;
+    limit?: number;
+    kind?: string;
+  }): Promise<import('../types/models.js').TraceReadResultLike> {
+    return this.rpc('trace.read', params);
+  }
   /**
    * 全部会话存档列表（含工作区标记），供按项目收纳。running = 服务端真实运行态。
    * @param opts `includeArchived=false` 时服务端**跳过归档文件的逐个扫描**（快速路径）
