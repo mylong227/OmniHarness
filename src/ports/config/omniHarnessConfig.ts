@@ -6,7 +6,7 @@ import type { EventPort } from '../runtime/eventPort.js';
 import type { ToolPort } from '../tool/tool.js';
 import type { ExtraTool } from '../tool/extraTool.js';
 import type { SpillPort } from '../memory/spill.js';
-import type { WorkerRegistry } from '../../worker/workerRegistry.js';
+import type { WorkerRegistryPort } from '../worker/workerRegistryPort.js';
 import type { UserResponder } from '../runtime/userResponder.js';
 import type { TodoPort } from '../runtime/todo.js';
 import type { PlanPort } from '../runtime/plan.js';
@@ -104,7 +104,7 @@ export interface OmniHarnessConfig {
    * 超限按 LRU 淘汰（`read` 命中即续命）。
    */
   readonly spillMaxRings?: number | undefined;
-  readonly workers?: WorkerRegistry | undefined;
+  readonly workers?: WorkerRegistryPort | undefined;
   /** 子智能体最大派生深度（默认 2：允许 1 层子智能体，depth >= 该值即拒绝）。 */
   readonly subagentMaxDepth?: number | undefined;
   /** 子智能体并发上限（默认 4）。 */

@@ -75,23 +75,20 @@ const PORTS_CLASS_WL = new Set([]);
 // 存量白名单：本规则原先只枚举 6 个层（core/adapters/config/composition/context/search），
 // `spark/ skill/ security/ server/ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的
 // ports→实现层 边**完全不可见**（2026-10-06 自述的边界）。2026-10-11 动态全枚举后这些存量边首次现形
-// （21 条），**同日做了真收口**：
+// （21 条），**同日全部真收口，白名单清空**：
 //   · 14 条属「类型早已在 `ports/**`，端口却绕道实现文件的再导出桶去取」（G25 记录的同一类老毛病）
 //     ⇒ 改直连（skill×5 / plugin / subagent / a2a / native×2 / toolOutputTrust / lineTransport /
 //     auditSink / mcpProtocol）；
-//   · 2 条属 `SsrfPolicy` 只是 `ResolvedSsrfPolicy` 的空扩展 ⇒ 直接引用端口层那个类型。
-// **剩余 5 条**才是真正"类型住在实现文件里"的边，且都要**先有新端口接口**（spark×2 / workerRegistry /
-// skillRegistry / rlvrLoop）：正确修法是造 `ports/**` 接口 + 把纯类型模块搬进端口层（属独立一片，
-// 见看板登记）。故此处只剩这 5 条冻结项，**按批递减**。
-const PORTS_IMPL_WL = new Set([
-  // 组合根/配置面持有实现类实例的字段（需端口接口才能收口）。
-  'ports/composition/omniHarnessRuntime->spark/sparkController',
-  'ports/config/resolvedConfig->spark/sparkController',
-  'ports/config/omniHarnessConfig->worker/workerRegistry',
-  'ports/config/resolvedConfig->skill/skillRegistry',
-  // 演化控制器的 RLVR 主循环（同上）。
-  'ports/runtime/evolution/evolutionControllerOptions->evolution/rlvrLoop',
-]);
+//   · 2 条属 `SsrfPolicy` 只是 `ResolvedSsrfPolicy` 的空扩展 ⇒ 直接引用端口层那个类型；
+//   · 5 条是真正"类型住在实现文件里"的边 ⇒ **搬类型 + 造端口接口**：
+//     `TrustTier`→`ports/security/trustTier.ts`；`Worker/WorkerRequest/WorkerResult`→
+//     `ports/worker/worker.ts` + `WorkerRegistryPort`；`SkillRetrieveHit`→`ports/skill/skillRetrieveHit.ts`
+//     + `SkillRegistryPort`；`SparkControllerPort`；`RlvrLoopPort`（`CodeCandidate`/`RlvrSampleContext`/
+//     `RlvrRoundResult` → `ports/runtime/evolution/*`）。
+// 实现类一律**结构性满足**新端口接口（TS 结构化类型），故注入处零改动；原文件保留同名再导出，
+// 公共 API 面不变。
+// **不接受新增冻结项**：本集合故意为空——再出现 ports→实现层 边就是真违规，必须当场收口。
+const PORTS_IMPL_WL = new Set([]);
 
 /**
  * **基础层**：`ports/**` 允许依赖的共享底座（错误类型、通用工具）。

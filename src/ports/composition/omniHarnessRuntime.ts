@@ -24,7 +24,7 @@ import type { EmbeddingPort } from '../model/embedding.js';
 import type { EvolutionController } from '../runtime/evolution.js';
 import type { BudgetDegradeSignal } from '../model/budgetDegrade.js';
 import type { CompletionGateFactory } from '../runtime/completionGate.js';
-import type { SparkController } from '../../spark/sparkController.js';
+import type { SparkControllerPort } from '../spark/sparkControllerPort.js';
 import type { A2aServer, A2aClient } from '../../a2a/index.js';
 import type { A2aTransport } from '../a2a/a2aTransport.js';
 
@@ -102,7 +102,7 @@ export interface OmniHarnessRuntime {
    */
   readonly completionGateFactory?: CompletionGateFactory | undefined;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务末跑 燧-3/燧-4 调谐/冲刷；缺省 undefined，零破坏。 */
-  readonly spark?: SparkController | undefined;
+  readonly spark?: SparkControllerPort | undefined;
   /** (U6) A2A 互操作：启用时本端起 A2aServer（监听）并构造 A2aClient，server 任务处理器跑子 agent 完成对等委托。缺省 undefined，零破坏。 */
   a2a?: {
     /** A2A 服务端（监听对等委托）。 */

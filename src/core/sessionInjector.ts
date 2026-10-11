@@ -2,7 +2,7 @@ import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
 import type { MemoryFact } from '../ports/memory/longTermMemory.js';
 import type { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import type { SessionRecorder } from './sessionRecorder.js';
-import type { SkillRegistry } from '../skill/skillRegistry.js';
+import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.js';
 import { SkillSparsifier } from '../skill/skillSparsifier.js';
 
 /**
@@ -26,7 +26,7 @@ const SKILL_SPARSE_MIN_KEEP = 3;
  */
 export interface SessionInjectorDeps {
   /** 技能注册表（缺省 = 不注入技能）。 */
-  readonly skills?: SkillRegistry | undefined;
+  readonly skills?: SkillRegistryPort | undefined;
   /** 长期记忆端口（缺省 = primer 无数据可注入）。 */
   readonly longTermMemory?: LongTermMemoryPort | undefined;
 }
@@ -52,7 +52,7 @@ export interface SessionInjectorDeps {
  */
 export class SessionInjector {
   /** 技能注册表（缺省 = 不注入技能）。 */
-  private readonly skills: SkillRegistry | undefined;
+  private readonly skills: SkillRegistryPort | undefined;
   /** 长期记忆端口（primer 数据来源）。 */
   private readonly longTermMemory: LongTermMemoryPort | undefined;
   /** T5.4 技能稀疏化器（预算/豁免判据见 `SkillSparsifier`；确定性，无随机源）。 */

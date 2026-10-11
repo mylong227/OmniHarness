@@ -3,7 +3,8 @@ import type { ToolContext } from '../ports/tool/tool.js';
 import type { ImageContent, FileAttachment } from '../ports/model/model.js';
 
 import type { EvolutionController, PromotionVerdict } from '../ports/runtime/evolution.js';
-import type { SparkController, SparkCycleReport } from '../spark/sparkController.js';
+import type { SparkCycleReport } from '../spark/sparkController.js';
+import type { SparkControllerPort } from '../ports/spark/sparkControllerPort.js';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
 import { SessionRecorder } from './sessionRecorder.js';
 import { SessionInjector } from './sessionInjector.js';
@@ -632,7 +633,7 @@ export class Agent implements AgentPort {
    * @returns 无返回值。
    */
   private async runSparkIfEnabled(sessionId: string): Promise<void> {
-    const spark: SparkController | undefined = this.runtime.spark;
+    const spark: SparkControllerPort | undefined = this.runtime.spark;
     if (spark === undefined || !spark.autoRun) {
       return;
     }

@@ -1,4 +1,4 @@
-﻿import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.js';
+import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.js';
 
 import { NativeBackend } from '../native/nativeBackend.js';
 import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.js';
@@ -16,7 +16,7 @@ import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.
 import { DormantExecutorActivation } from '../evolution/dormantExecutorActivation.js';
 import { TwistDiscoveryEngine } from '../evolution/twistDiscoveryEngine.js';
 import { MoireComposer } from '../skill/moireComposer.js';
-import { SkillRegistry } from '../skill/skillRegistry.js';
+import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.js';
 import type { Skill, MoireOptions } from '../skill/skill.js';
 import type { PromotionLedgerPort, SkillRestorePlan } from '../ports/runtime/evolution.js';
 import { join } from 'node:path';
@@ -261,7 +261,7 @@ export class Runtime {
    * @param plan 台账产出的还原计划
    * @returns 无返回值（void）
    */
-  private static applySkillRestore(registry: SkillRegistry, plan: SkillRestorePlan): void {
+  private static applySkillRestore(registry: SkillRegistryPort, plan: SkillRestorePlan): void {
     const currentNames = registry.list().map((s) => s.name);
     const targetNames = new Set(plan.skills.map((s) => s.name));
     for (const skill of plan.skills) {

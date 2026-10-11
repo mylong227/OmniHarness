@@ -2,6 +2,7 @@ import type { DiscoveryEngine } from './discoveryEngine.js';
 import type { EvolutionGate } from './evolutionGate.js';
 import type { Candidate } from './candidate.js';
 import type { AuditSinkLike } from '../supervisor.js';
+import type { RlvrLoopPort } from './rlvrLoopPort.js';
 
 /** 进化控制器选项。 */
 export interface EvolutionControllerOptions {
@@ -21,10 +22,14 @@ export interface EvolutionControllerOptions {
   /**
    * (U4 升格) RLVR 阶段：每个过门禁的候选再跑一轮 sample-filter-replay，仅「绿」样本才晋升。
    * 缺省 undefined → 退化为原「门禁→晋升」单次闭环，零破坏。需由调用方注入 `RlvrLoop` 实例。
+   *
+   * 2026-10-11：`loop` 的**类型**改为端口契约 {@link RlvrLoopPort}（此前用内联 `import(...)`
+   * **类型查询**直接引用实现类 —— 即 `architectureGate` 的 `ports→实现层` 禁边）。
+   * 实现类结构性满足该接口，注入处零改动。
    */
   readonly rlvr?: {
     /** RLVR 主循环（采样→可验证奖励打分→绿样本进回放缓冲）。 */
-    readonly loop: import('../../../evolution/rlvrLoop.js').RlvrLoop;
+    readonly loop: RlvrLoopPort;
     /** 从进化候选抽取 RLVR prompt；返回 undefined = 跳过该候选的 RLVR 阶段。 */
     readonly promptFor: (candidate: Candidate) => string | undefined;
   };

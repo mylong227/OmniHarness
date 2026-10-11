@@ -25,7 +25,7 @@ import type { AgentIdentityPort } from '../runtime/agentIdentity.js';
 import type { ToolInputSink } from '../tool/toolInputSink.js';
 import type { EmbeddingPort } from '../model/embedding.js';
 import type { EvolutionController } from '../runtime/evolution.js';
-import type { SparkController } from '../../spark/sparkController.js';
+import type { SparkControllerPort } from '../spark/sparkControllerPort.js';
 import type { MemoryAnnealer } from '../memory/memoryAnnealing.js';
 import type { CosmicWebPort } from '../memory/cosmicWeb.js';
 import type { QECEncoderPort } from '../intelligence/qec/qecEncoderPort.js';
@@ -38,7 +38,7 @@ import type { ElementComposerPort } from '../intelligence/elementComposer/elemen
 import type { SymmetryBreakingPort } from '../intelligence/symmetryBreaking/symmetryBreakingPort.js';
 import type { ConfinementPort } from '../runtime/confinement/confinementPort.js';
 import type { CapabilityStack } from './capabilityStack.js';
-import type { SkillRegistry } from '../../skill/skillRegistry.js';
+import type { SkillRegistryPort } from '../skill/skillRegistryPort.js';
 
 /**
  * 已解析配置契约（端口注入版）。
@@ -111,7 +111,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   /** 进化闭环控制器（P1，可选）：注入后 Agent 任务完成后可在 fail-closed 门禁下跑发现→评估→晋升；缺省不启用，零破坏。 */
   readonly evolution?: EvolutionController | undefined;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务完成后可在 fail-closed 下跑 燧-3/燧-4 调谐/冲刷/(D) 退火/(E) 宇宙网/QEC/免疫；缺省不启用，零破坏。 */
-  readonly spark?: SparkController | undefined;
+  readonly spark?: SparkControllerPort | undefined;
   /** (D) 热方程记忆退火器（memoryAnnealing.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
   readonly annealer?: MemoryAnnealer | undefined;
   /** (E, I-P1-2) 宇宙网记忆端口（U1 默认开时即 ResonantField 单一状态源，实现 CosmicWebPort，注入 spark）；缺省 undefined，零破坏。 */
@@ -125,7 +125,7 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   /** (P2, I-P2-3) 粒子滤波信念引擎（belief 启用且 algorithm 含 particle-filter 时构造并注入 spark）；缺省 undefined，零破坏。 */
   readonly particleFilter?: MetacognitionPort | undefined;
   /** (P2, I-P2-4/5) 受种技能注册表：CRISPR 编辑面 / 相变固化组合解析面；同时可注入 Agent 增强技能匹配。 */
-  readonly skillRegistry: SkillRegistry;
+  readonly skillRegistry: SkillRegistryPort;
   /** (P2, I-P2-4) CRISPR 精确技能编辑器（skillEditing.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */
   readonly crispr?: CRISPRSkillEditorPort | undefined;
   /** (P2, I-P2-5) 相变固化器（capabilityCrystallization.enabled 时构造并注入 spark）；缺省 undefined，零破坏。 */

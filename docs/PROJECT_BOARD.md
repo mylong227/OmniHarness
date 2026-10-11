@@ -2317,15 +2317,70 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
 新脚本 `scripts/buildDist.mjs`：tsc→`dist.next`+资产 → **换入**（优先 rename 真原子；被占用即回滚 +
 退化为覆盖同步）→ 清 `dist.old`。实测：① tsc 失败 ⇒ **dist 完好**、退出码 2；② 成功 ⇒ `✓ 已原子换入 dist`。
 
-#### ⑤ 架构门禁 `ports→实现层`：21 条存量边**真收口到 5 条**
+#### ⑤ 架构门禁 `ports→实现层`：21 条存量边**全部真收口，白名单清空**
 
-14 条属"类型早在 `ports/**`、端口却绕道实现文件的再导出桶"（G25 同型老毛病）⇒ 改直连；
-1 条真搬移（`TrustTier` → `ports/security/trustTier.ts`）；2 条属 `SsrfPolicy` 只是
-`ResolvedSsrfPolicy` 的空扩展 ⇒ 直接引用端口层类型。白名单 **21 → 5**，`--strict` 通过。
-**剩余 5 条**（spark×2 / workerRegistry / skillRegistry / rlvrLoop）需先造端口接口 + 搬纯类型模块
-（`Worker`/`RlvrSampleContext`/`SkillRetrieveHit`）——记为下一批，不靠白名单糊过去。
+14 条属"类型早在 `ports/**`、端口却绕道实现文件的再导出桶"（G25 同型老毛病）⇒ 改直连；2 条属
+`SsrfPolicy` 只是 `ResolvedSsrfPolicy` 的空扩展 ⇒ 直接引用端口层类型；**5 条搬类型 + 造端口接口**：
+`TrustTier` → `ports/security/trustTier.ts`；`Worker`/`WorkerRequest`/`WorkerResult` →
+`ports/worker/worker.ts` + `WorkerRegistryPort`；`SkillRetrieveHit` → `ports/skill/skillRetrieveHit.ts`
 
-#### ⑥ 本批自己踩的坑（记档防再犯）
+- `SkillRegistryPort`；`SparkControllerPort`；`RlvrLoopPort`（`CodeCandidate`/`RlvrSampleContext`/
+  `RlvrRoundResult` → `ports/runtime/evolution/*`）。实现类**结构性满足**新接口 ⇒ 注入处零改动；
+  原文件保留同名再导出（公共 API 面不变）；消费方声明随之改到端口契约。
+
+白名单 **21 → 0**、`--strict` 通过；`architectureGateLayers.test.ts` 新增 **④ 正对照**（临时在
+`src/ports/` 造一条探针禁边 ⇒ 门禁必须当场红并点名，删后恢复绿）——证明"空白名单"不是"没规则"。
+`docs/ARCHITECTURE_SPEC.md` §2 同步为「21/21 收口、不接受新增冻结项」；端口目录 31 → 32（新增 `worker`）。
+
+#### ⑥ CI 接线：把"开关"从文件里接到流水线上（不可满足的三项显式登记）
+
+`test` 作业打开 `OMNI_REQUIRE_SHARP=1`/`OMNI_REQUIRE_LICENSE=1`（本地实测：打开后 23/23 全跑、0 skip）；
+`wasm` 作业打开 `OMNI_REQUIRE_WASM=1` **并真跑**三个 wasm 单测文件（只挂环境变量不算接线）。
+`ci.yml` 末尾新增「CI 不可满足的开关」登记段并逐条给理由：`OMNI_REQUIRE_NATIVE`（`nativeBuild.mjs`
+是 Windows-GNU 专用：`.dll → .node`、rustup GNU 路径、依赖 git-bash MinGW ⇒ 托管 runner 产不出同名
+产物，属**构建面尚未跨平台**，属独立一片）、`OMNI_REQUIRE_DSH`（PATH 无 `dsh`）、`OMNI_REQUIRE_LAYAPY`
+（CI 不下载权重）。判据 `requireSwitches.test.ts` **⑤/⑤b** 把这份登记变成**可执行契约**（附变异正对照）。
+
+#### ⑦ **受阻登记**：8 个出货族的真实单价（目标第 2 项）——本环境够不到可引用来源
+
+要求是"查公开价目并注明来源"，实测逐条受阻（**不是"懒得查"**）：
+
+| 目标                                                                | 结果                                                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `platform.openai.com/docs/pricing`（GPT-4.1）                       | **HTTP 403**（Cloudflare 拦截："you have been blocked"）                                    |
+| `docs.claude.com/.../pricing`（Claude 3.5 Haiku）                   | 跨域跳转链 `platform.claude.com` → `www.anthropic.com` → `claude.com`，工具不跟随           |
+| `ai.google.dev/gemini-api/docs/pricing`（Gemini 2.5）               | `fetch failed`（网络不可达）                                                                |
+| `raw.githubusercontent.com/BerriAI/litellm/...json`（多族聚合价目） | `fetch failed`                                                                              |
+| `platform.kimi.ai/docs/pricing/chat`（Kimi K2）                     | **HTTP 200 但价格表格不在可提取文本里**（两种语言、含模型指南页均只有标题，表格由 JS 渲染） |
+
+结论：**单价一项受阻**，故仍留在 `UNPRICED_DEFAULT_FAMILIES`（该登记会让运行期经
+`BudgetSnapshot.unpricedModels` 与 `budget_status` **如实自报"本次估算走兜底价"**，不会静默低估）。
+要销账需要：能读到公开价目页正文的环境（或人工把价格与出处贴进来）。**不猜数字**——猜出来的价
+比"显式未定价"更危险（本轮之前的注释已写明：兜底价对高端档偏低 3–5×，会让硬预算熔断过晚）。
+
+#### ⑧ 本轮新抓到的三个真问题（证据在手，**未修完**，按目标要求如实登记）
+
+1. **`omniharness <未知顶层子命令>` 会挂死**（不是退出码 2）。实测
+   `node dist/src/cli/exec.js bogus-subcommand-xyz` 与 `definitely-not-a-subcommand` 均在 20s 时被我
+   带硬超时的 spawn 探针强杀（两次都可复现）；输出只有一行 bundle 警告。而既有判据
+   "未知子命令 ⇒ 退出码 2" 只覆盖**二级**子命令（`session bogus` / `kv bogus` / …，见
+   `cliDataCmds.test.ts`）。⇒ **顶层未知命令既缺判据、行为又是挂死**。下一步：在分发入口对未知顶层
+   命令即时退出 2 + 用法提示，并补一条**顶层**判据（带超时上限）。
+2. **CLI 子命令启动 ~2s**：`--version` 0.12s，而"只该打印用法"的路径平均 2.1s（6 次 spawn 合计
+   12.7s）⇒ 用法/枚举校验发生在**重模块加载之后**。既是 DX 问题，也是 `cliDataCmds` 撞 120s
+   文件预算的根因（本轮先用拆文件解掉预算，未解根因）。
+3. **`rewindCompactionCursor` 的 ~3% 偶发**（本轮在 `coverage:check` 的全量跑里复现 1 次；隔离单跑
+   2/2 全绿）。这次**拿到了具体读数**，不再是"未归因"：失败消息为
+   `回滚后的最后一次请求里仍有 SUMMARY_SENTINEL_ALPHA（任务请求 10 条 / 辅助请求 2 条 /
+共捕获 12 条 / 折叠点系统事件 1 条 / 末条任务请求 71 字符）`，命中处正文是
+   `[{"role":"system","content":"SUMMARY_SENTINEL_ALPHA_v1（若干次 shell 调用）"}]`，
+   且失败日志里同一回合出现**两次** `compaction.done`。
+   ⇒ 收窄后的假设：**回滚之后又跑了一次折叠**，那次请求体只剩"被折叠的历史"（不含压缩器提示词），
+   于是被按任务请求统计，同时折叠点事件被重新写入。下一步：在 `runSession` 里把每次压缩的 `messages`
+   与压缩器提示词位置一起 dump，判定是"分类漏了这一形态"还是**产品侧真的重折了回滚后的历史**（后者是真缺陷）。
+   **不先改判据**——那会把真缺陷涂成绿。
+
+#### ⑨ 本批自己踩的坑（记档防再犯）
 
 Windows PowerShell 的 `Set-Content -Encoding utf8` **会写 BOM**，`package.json` 一带 BOM 就让
 `check.mjs` 的 `JSON.parse` 崩（报错既不点明 BOM、也不点明文件），连带 **4 条判据变红**；

@@ -233,6 +233,31 @@ function listIncludedFiles() {
   return out.sort();
 }
 
+/**
+ * 产物是否为**纯类型模块**（编译后没有任何可执行语句）。
+ *
+ * 为什么必须把它从清点里排除（2026-10-11 实测的必要性）：`export interface` / `export type` 编译后
+ * 只剩 `export {};` —— 它**没有可执行行**，所以 Node 覆盖率报告**永远不可能**列出它。
+ * "'一行都没执行过'"对这类文件是**无意义读数**，不是"缺判据"；把它们逐条登记进清点基线，
+ * 只会让那份基线退化成"类型文件清单"（本批新增 9 个纯类型端口模块时实测到这一点）。
+ *
+ * 判据**从严**：只要出现任何一条非空、非注释、且不是 `export {};` / `export type …` /
+ * `import type …` / sourceMappingURL 的语句，就仍按"可执行产物"处理（照旧进清点与逐文件棘轮）。
+ * @param abs 产物绝对路径。
+ * @returns 无任何可执行语句时为 true。
+ */
+function isTypeOnlyArtifact(abs) {
+  for (const raw of readFileSync(abs, 'utf8').split('\n')) {
+    const line = raw.trim();
+    if (line === '' || line.startsWith('//') || line.startsWith('/*') || line.startsWith('*'))
+      continue;
+    if (line === 'export {};' || line === 'export {}') continue;
+    if (/^export\s+type\s/u.test(line) || /^import\s+type\s/u.test(line)) continue;
+    return false;
+  }
+  return true;
+}
+
 const { all, files } = parseCoverage(loadReport());
 // 基线**缺失即阻断**：静默退化成 `{}` 会让逐文件棘轮消失（只剩"新文件 30% 下限"）⇒
 // 所有存量回归一次性合法化，而输出仍是「✓ 覆盖率达标」。本仓纪律与此一致：
@@ -470,7 +495,15 @@ const includedFiles = listIncludedFiles();
 const reportedSet = new Set(files.keys());
 // 口径自证：报告里出现产物之外的文件 ⇒ include 口径与清点口径已漂移，此时"缺失"读数不可信。
 const outsideReport = [...reportedSet].filter((f) => !f.startsWith('src/'));
-const missingFiles = includedFiles.filter((f) => !reportedSet.has(f));
+// 纯类型模块（编译产物无可执行语句）单列：它们**不可能**出现在覆盖率报告里，属"读数无意义"而非"缺判据"。
+const missingRaw = includedFiles.filter((f) => !reportedSet.has(f));
+const typeOnlyArtifacts = [];
+const missingFiles = [];
+for (const f of missingRaw) {
+  const abs = join(root, 'dist', f);
+  if (existsSync(abs) && isTypeOnlyArtifact(abs)) typeOnlyArtifacts.push(f);
+  else missingFiles.push(f);
+}
 const inventoryRaw = existsSync(inventoryBaselinePath)
   ? JSON.parse(readFileSync(inventoryBaselinePath, 'utf8'))
   : {};
@@ -495,7 +528,11 @@ if (!Array.isArray(inventoryPlatform)) {
   console.log(
     `ℹ️  覆盖率文件清点：产物 ${includedFiles.length} 个 ｜ 进报告 ${reportedSet.size} 个 ｜ ` +
       `一行都没执行过 ${missingFiles.length} 个（${process.platform} 基线 ${inventoryPlatform.length} ｜ ` +
-      `新增 ${inventoryNew.length} ｜ 已清偿 ${inventoryCleared}${inventoryCleared > 0 ? '，可 --dump-inventory 收紧' : ''}）`,
+      `新增 ${inventoryNew.length} ｜ 已清偿 ${inventoryCleared}${inventoryCleared > 0 ? '，可 --dump-inventory 收紧' : ''}）` +
+      (typeOnlyArtifacts.length > 0
+        ? `\n    （另有 ${typeOnlyArtifacts.length} 个**纯类型模块**：编译产物只剩 ` +
+          '`export {};`，无可执行行 ⇒ 不可能进覆盖率报告，不计入清点基线）'
+        : ''),
   );
 }
 

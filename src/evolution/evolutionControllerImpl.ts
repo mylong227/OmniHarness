@@ -19,12 +19,12 @@ import type {
   EvolutionGate,
   PromotionVerdict,
 } from '../ports/runtime/evolution.js';
-import type { RlvrLoop } from './rlvrLoop.js';
+import type { RlvrLoopPort } from '../ports/runtime/evolution/rlvrLoopPort.js';
 
 /** RLVR 阶段配置（U4 升格）：每个过门禁的候选再跑一轮 sample-filter-replay。 */
 export interface RlvrStage {
   /** RLVR 主循环（采样→可验证奖励打分→绿样本进回放缓冲）。 */
-  readonly loop: RlvrLoop;
+  readonly loop: RlvrLoopPort;
   /**
    * 从进化候选抽取 RLVR prompt（如「为这个技能生成一段实现代码」）。
    * 返回 undefined = 跳过该候选的 RLVR 阶段（直接按门禁结果晋升）。

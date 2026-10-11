@@ -1,5 +1,5 @@
 import { ParallelMap } from '../util/concurrency/parallelMap.js';
-import type { WorkerRegistry } from './workerRegistry.js';
+import type { WorkerRegistryPort } from '../ports/worker/workerRegistryPort.js';
 import type { WorkerResult } from './worker.js';
 
 /**
@@ -19,7 +19,7 @@ export class WorkerOrchestrator {
   /**
    * @param registry worker 注册表（按名取 worker，未注册名经其抛错）
    */
-  public constructor(private readonly registry: WorkerRegistry) {}
+  public constructor(private readonly registry: WorkerRegistryPort) {}
 
   /**
    * 分发单个任务。

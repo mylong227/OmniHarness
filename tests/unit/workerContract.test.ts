@@ -36,10 +36,24 @@ import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.js';
 import type { Worker, WorkerRequest, WorkerResult } from '../../src/worker/worker.js';
 import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
 
-/** 契约源文件路径（由测试文件位置解析，不依赖 cwd）。 */
-const CONTRACT_SOURCE = fileURLToPath(new URL('../../../src/worker/worker.ts', import.meta.url));
+/**
+ * 契约源文件路径（由测试文件位置解析，不依赖 cwd）。
+ *
+ * 2026-10-11：三个接口已外迁 `ports/worker/worker.ts`（`ports/config/omniHarnessConfig.ts`
+ * 需要该契约，而端口不得反向依赖实现文件）⇒ 判据的**检体**随契约走；原 `src/worker/worker.ts`
+ * 变成桶再导出，`CONTRACT_BARREL_*` 继续钉住"公共 API 面没变、仍是纯类型"。
+ */
+const CONTRACT_SOURCE = fileURLToPath(
+  new URL('../../../src/ports/worker/worker.ts', import.meta.url),
+);
 /** 契约编译产物路径。 */
-const CONTRACT_DIST = fileURLToPath(new URL('../../src/worker/worker.js', import.meta.url));
+const CONTRACT_DIST = fileURLToPath(new URL('../../src/ports/worker/worker.js', import.meta.url));
+/** 原实现层路径（现在是再导出桶）。 */
+const CONTRACT_BARREL_SOURCE = fileURLToPath(
+  new URL('../../../src/worker/worker.ts', import.meta.url),
+);
+/** 原实现层产物（必须仍是 `export {};`）。 */
+const CONTRACT_BARREL_DIST = fileURLToPath(new URL('../../src/worker/worker.js', import.meta.url));
 
 /** 去掉块注释（判据只看声明，避免把文档里的 `{@link X}` 当语法）。 */
 function stripComments(source: string): string {
@@ -207,18 +221,34 @@ test('①-正对照：同一检查器在**已知坏输入**下必须报违规（
 });
 
 test('② 契约模块是纯类型模块：dist 产物恒为 `export {};`（"零执行行"是事实而非漏测）', () => {
-  const compiled = readFileSync(CONTRACT_DIST, 'utf8');
-  const statements = compiled
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '' && !line.startsWith('//# sourceMappingURL'));
-  assert.deepStrictEqual(
-    statements,
-    ['export {};'],
-    '契约模块产出了可执行语句 ⇒ 应改判为"必须测"的运行时模块，而不是继续当纯类型',
-  );
+  for (const [label, dist] of [
+    ['端口层契约', CONTRACT_DIST],
+    ['实现层再导出桶', CONTRACT_BARREL_DIST],
+  ] as const) {
+    const compiled = readFileSync(dist, 'utf8');
+    const statements = compiled
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '' && !line.startsWith('//# sourceMappingURL'));
+    assert.deepStrictEqual(
+      statements,
+      ['export {};'],
+      `${label}产出了可执行语句 ⇒ 应改判为"必须测"的运行时模块，而不是继续当纯类型`,
+    );
+  }
   // 与源码级判据一致：不得有运行时导出。
   assert.deepStrictEqual(contractViolations(readFileSync(CONTRACT_SOURCE, 'utf8')), []);
+  // 再导出桶：**只有** `export type … from`（不得长出值导出、也不得自留第二份声明）。
+  const barrel = readFileSync(CONTRACT_BARREL_SOURCE, 'utf8');
+  const barrelStatements = stripComments(barrel)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
+  assert.deepStrictEqual(
+    barrelStatements,
+    ["export type { Worker, WorkerRequest, WorkerResult } from '../ports/worker/worker.js';"],
+    '实现层文件必须退化为**单行再导出**（自留第二份声明 = 双真源，值导出 = 公共 API 面变了）',
+  );
 });
 
 test('③ 取消下传链：DelegateTool → WorkerOrchestrator → Worker.run 必须收到**同一个** AbortSignal', async () => {

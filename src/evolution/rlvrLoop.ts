@@ -11,34 +11,16 @@
  *
  * 无第三方依赖。
  */
+import type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.js';
+import type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.js';
+import type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.js';
 
-/** 一个待验证的代码候选（由采样器产出）。 */
-export interface CodeCandidate {
-  /** 候选唯一 id。 */
-  readonly id: string;
-  /** 候选代码（待编译/测试验证）。 */
-  readonly code: string;
-  /** 任意诊断元信息。 */
-  readonly meta?: Readonly<Record<string, unknown>>;
-}
-
-/**
- * 采样上下文（S5 分桶口径的工况来源）：把「这个 prompt 属于哪个工况」从候选透传到采样产物。
- *
- * 为什么必须显式透传：分桶覆盖率按候选来源算子分桶，而奖励面的对象是采样产物
- * （`CodeCandidate`）——不把来源带进来，分桶键只能靠猜 prompt 文本（口径漂移）。
- */
-export interface RlvrSampleContext {
-  /** 候选来源算子（如 `twist:a+b`）；分桶键取其前缀。 */
-  readonly source?: string | undefined;
-  /**
-   * **历史失败原因**（E3+ 回填）：会被拼进采样 prompt 的失败原因段，供模型"别重犯"。
-   *
-   * 数据来源是既有 replay buffer / 失败模式挖掘器（`FailurePatternMiner` 的提案摘要），
-   * 不需要新通道；为空或缺省 ⇒ prompt **原文透传**（不出现空标题段）。
-   */
-  readonly failureReasons?: readonly string[] | undefined;
-}
+// 2026-10-11：三个纯类型契约已外迁端口层（`ports/runtime/evolution/*`）——
+// `ports/runtime/evolution/evolutionControllerOptions.ts` 要用它们表达配置面，而端口不得反向依赖
+// 实现文件。此处导入供本文件实现使用，并再导出以维持公共 API 面零改动（6 个消费方无需改）。
+export type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.js';
+export type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.js';
+export type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.js';
 
 /** 采样器：对给定 prompt 产出第 index 个候选（返回 undefined = 采样池耗尽）。 */
 export interface RlvrSampler {
@@ -75,16 +57,6 @@ export interface RlvrLoopOptions {
   readonly samplesPerPrompt?: number | undefined;
   /** 最低保留阈值（默认 0：仅保留 reward>0 的绿样本；>0 时取 r≥阈值）。 */
   readonly minReward?: number | undefined;
-}
-
-/** 单轮 RLVR 结果。 */
-export interface RlvrRoundResult {
-  /** 本轮回放缓冲新增的绿样本数。 */
-  readonly kept: number;
-  /** 本轮最佳候选（按奖励），无绿样本则为 undefined。 */
-  readonly best: { readonly candidate: CodeCandidate; readonly reward: number } | undefined;
-  /** 本轮回放缓冲累计大小。 */
-  readonly bufferSize: number;
 }
 
 /**

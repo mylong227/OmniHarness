@@ -76,7 +76,7 @@
 诚实边界：退化路径（覆盖同步）**不是**原子——那需要"没有进程占用 dist"，而被占用时不存在既原子又成功
 的做法（Windows 语义）。
 
-## ⑤ 架构门禁 `ports→实现层`：21 条存量边**真收口到 5 条**
+## ⑤ 架构门禁 `ports→实现层`：21 条存量边**全部真收口，白名单清空**
 
 上一轮我只是把动态全枚举首次现形的 21 条边冻进白名单（那是"看得见"，不是"修好"）。本批做真收口：
 
@@ -84,17 +84,41 @@
   ⇒ 改直连：`skill`×5、`plugin/pluginApplyContext`、`subagent/subagentTypes`、`a2a/a2aProtocol`、
   `native/nativeBackend`×2、`security/toolOutputTrust`、`server/transport/lineTransport`、
   `server/services/auditSink`、`mcp/mcpProtocol`——这些实现文件本来就只是 `export type … from '…ports…'`。
-- **1 条是真搬移**：`TrustTier` 原声明在 `security/toolOutputTrust.ts`，而端口要用它表达"外部内容
-  信任档"的配置面 ⇒ 新建 `ports/security/trustTier.ts`，原文件改为导入 + 再导出（调用点零改动）。
+- **5 条搬类型 + 造端口接口**（真正"类型住在实现文件里"的边）：`TrustTier`→`ports/security/trustTier.ts`；`Worker`/`WorkerRequest`/`WorkerResult`→`ports/worker/worker.ts` + `WorkerRegistryPort`；`SkillRetrieveHit`→`ports/skill/skillRetrieveHit.ts` + `SkillRegistryPort`；`SparkControllerPort`；`RlvrLoopPort`（`CodeCandidate`/`RlvrSampleContext`/`RlvrRoundResult` → `ports/runtime/evolution/*`）。
 - **2 条属类型别名空转**：`SsrfPolicy` 只是 `ResolvedSsrfPolicy`（已在 ports）的空扩展
   ⇒ 两个端口直接引用端口层那个类型。
 
-白名单随之 **21 → 5**（`architectureGateLayers.test.ts` 的"白名单不得有死条目"判据盯着），`--strict` 通过。
-**剩余 5 条**（spark×2 / workerRegistry / skillRegistry / rlvrLoop）是真正"类型住在实现文件里"的边，
-各有前置：需先造 `ports/**` 接口，并把 `Worker` / `RlvrSampleContext` / `SkillRetrieveHit` 等纯类型模块
-搬进端口层——记为**下一批**，不再靠"白名单里有交代"糊过去。
+白名单随之 **21 → 0，`--strict` 通过**。`architectureGateLayers.test.ts` 新增 **④ 正对照**：临时在
+`src/ports/` 下造一条 `ports→实现层` 探针边 ⇒ 门禁必须当场红并**点名该边**，删除后恢复绿
+（证明"空白名单"≠"没规则"）。说明书 §2 同步为「21/21 全部收口、不接受新增冻结项」；
+消费方（`SessionInjector` / `ConfigToolRegistry` / `WorkerOrchestrator` / `core/agent` /
+`composition/runtime` / `evolutionControllerImpl`）的**声明**随之改到端口契约。
 
-## ⑥ 顺带：`check.mjs` 的 JSON 读取改为**容忍 BOM**
+## ⑥ "跳过即假绿"接进 CI，并把不可满足的三项**显式登记**
+
+- `test` 作业打开 `OMNI_REQUIRE_SHARP=1` / `OMNI_REQUIRE_LICENSE=1`（三平台 runner 经 `npm install` 都装
+  `sharp`；许可签发链纯 Ed25519、无外部依赖），本地实测开关打开后 **23/23 全跑、0 skip**。
+- `wasm` 作业打开 `OMNI_REQUIRE_WASM=1` **并真跑**那三个 wasm 单测文件（只挂环境变量不算接线）。
+- `ci.yml` 末尾新增「**CI 不可满足的开关**」登记段，逐条给理由：`OMNI_REQUIRE_NATIVE`
+  （`nativeBuild.mjs` 是 Windows-GNU 专用：`.dll → .node`、rustup GNU 工具链路径、依赖 git-bash
+  MinGW 环境 ⇒ 托管 runner 跑不出同名产物，属**构建面尚未跨平台**）、`OMNI_REQUIRE_DSH`（PATH 无 `dsh`）、
+  `OMNI_REQUIRE_LAYAPY`（CI 不下载 Laya 权重）。
+- `tests/unit/requireSwitches.test.ts` 新增 **⑤/⑤b**：每个开关要么接线、要么登记原因（附变异正对照：
+  删掉 `OMNI_REQUIRE_SHARP` 的接线必须被检出）；wasm 作业必须真跑那三个文件 ⇒「装了开关却没接进 CI」
+  这种半成品状态**无法再悄悄存在**。
+
+## ⑦ 覆盖率"文件清点"判据的**口径校准**：纯类型模块不再需要逐条登记
+
+搬类型到端口层时新增了 9 个 `ports/**` 模块，它们全是 `export interface` ⇒ 编译产物只剩 `export {};`，
+**不可能**被 Node 覆盖率报告列出。旧口径会把它们判成"9 个新增的、一行都没执行过的产物"，
+要求逐条冻结进 `coverageInventoryBaseline.json` —— 那会把清点基线退化成"类型文件清单"。
+
+现按**可执行性**分类：产物的每一行若都是空行/注释/`export {};`/`export type …`/`import type …`，
+则记为**纯类型模块**，单列一行提示、**不计入清点基线**；只要出现任何一条真实语句就照旧纳入清点与棘轮
+（判据从严，不是放宽）。同时给清点输出加上"另有 N 个纯类型模块"的显式读数，
+避免下次有人把它误读成"漏统计"。
+
+## ⑧ 顺带：`check.mjs` 的 JSON 读取改为**容忍 BOM**
 
 本批自己踩了一次：Windows PowerShell 的 `Set-Content -Encoding utf8` 会给文件加 BOM，`package.json`
 一带 BOM，`check.mjs` 的 `JSON.parse` 直接抛 `SyntaxError: Unexpected token '\ufeff'`——报错既不点明

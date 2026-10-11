@@ -138,3 +138,53 @@ test('④ 仓库根判定自洽（防 `tests/**` 扫描面静默塌缩）', () =
   assert.ok(statSync(testsDir).isDirectory(), `tests 目录不存在：${testsDir}`);
   assert.ok(testSources().includes('tests/helpers/requireEnv.ts'), '扫描面应含机制实现文件本身');
 });
+
+/** CI 工作流原文（判据⑤的检体）。 */
+function ciWorkflow(): string {
+  return readFileSync(join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+}
+
+/** 从给定的 ci.yml 文本里算出「既没接线、也没登记原因」的开关。 */
+function unwiredSwitches(ci: string): string[] {
+  const blockAt = ci.indexOf('CI 不可满足的开关');
+  const block = blockAt < 0 ? '' : ci.slice(blockAt);
+  return Object.keys(REQUIRE_SWITCHES).filter(
+    (name) => !new RegExp(`${name}:`, 'u').test(ci) && !block.includes(name),
+  );
+}
+
+test('⑤ CI 接线：每个开关要么在 ci.yml 里打开，要么登记「CI 不可满足」的原因', () => {
+  const ci = ciWorkflow();
+  assert.ok(
+    ci.includes('CI 不可满足的开关'),
+    'ci.yml 缺「CI 不可满足的开关」登记段 —— 没这段就无法区分"没接线"与"接了但环境不具备"',
+  );
+  const unwired = unwiredSwitches(ci);
+  assert.deepStrictEqual(
+    unwired,
+    [],
+    `这些开关既没接进 CI、也没登记不可满足的原因 ⇒ "装了开关却没接进 CI"= 假绿仍在：\n${unwired.join('\n')}`,
+  );
+
+  // **正对照**：把某条接线删掉，同一函数必须能检出来（否则"零违规"可能只是函数恒空）。
+  const mutated = ci.replace(/OMNI_REQUIRE_SHARP: '1'/, '');
+  assert.notStrictEqual(mutated, ci, '正对照变异未命中 ⇒ 判据锚点漂了，先修本判据');
+  assert.ok(
+    unwiredSwitches(mutated).includes('OMNI_REQUIRE_SHARP'),
+    '删掉 OMNI_REQUIRE_SHARP 的接线却检不出来 ⇒ 判据⑤是恒真断言',
+  );
+});
+
+test('⑤b wasm 作业的接线必须**真跑**那三个单测（挂个环境变量不算接线）', () => {
+  const ci = ciWorkflow();
+  const wasmAt = ci.indexOf('\n  wasm:');
+  assert.ok(wasmAt > 0, 'ci.yml 里找不到 wasm 作业');
+  const wasmJob = ci.slice(wasmAt);
+  assert.match(wasmJob, /OMNI_REQUIRE_WASM: '1'/, 'wasm 作业必须打开 OMNI_REQUIRE_WASM');
+  for (const file of ['wasmKernelE2E', 'wasmSkillPack', 'wasmResourceLimits']) {
+    assert.ok(
+      wasmJob.includes(`${file}.test.js`),
+      `wasm 作业必须真跑 ${file}.test.js —— 只设环境变量而不跑该文件，开关等于没接`,
+    );
+  }
+});

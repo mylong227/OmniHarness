@@ -48,6 +48,7 @@ import { PostWriteDiagnosticsPort } from '../adapters/tool/verify/postWriteDiagn
 import { ShellTestCommandRunner } from '../adapters/tool/verify/shellTestCommandRunner.js';
 import { DelegateTool } from '../adapters/tool/workflow/delegateTool.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
+import type { WorkerRegistryPort } from '../ports/worker/workerRegistryPort.js';
 import { WorkerOrchestrator } from '../worker/workerOrchestrator.js';
 import { SimpleWorker } from '../worker/simpleWorker.js';
 import { SubagentOrchestrator } from '../subagent/subagentOrchestrator.js';
@@ -92,7 +93,7 @@ export class ConfigToolRegistry {
   public static registerCoreTools(
     registry: RegistryToolPort,
     seed: SubagentPortSeed,
-    workers: WorkerRegistry | undefined,
+    workers: WorkerRegistryPort | undefined,
     planning: {
       readonly todo: TodoPort;
       readonly plan: PlanPort;
@@ -454,7 +455,7 @@ export class ConfigToolRegistry {
   public static defaultTools(
     seed: SubagentPortSeed,
     extraTools: readonly ExtraTool[] | undefined,
-    workers: WorkerRegistry | undefined,
+    workers: WorkerRegistryPort | undefined,
     planning: {
       readonly todo: TodoPort;
       readonly plan: PlanPort;

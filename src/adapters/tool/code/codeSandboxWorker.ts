@@ -16,6 +16,7 @@
  */
 
 import { parentPort, workerData } from 'node:worker_threads';
+import { PendingRequests } from '../../../util/concurrency/pendingRequests.js';
 
 /** 宿主下发的初始化数据。 */
 interface SandboxInit {
@@ -43,22 +44,24 @@ class CodeSandboxWorker {
   public static async main(port: NonNullable<typeof parentPort>, code: string): Promise<void> {
     const logs: string[] = [];
     let seq = 0;
-    const pending = new Map<number, (message: CallResultMessage) => void>();
+    // 2026-10-11：本处原为**第 7 个自建 pending 表**（`new Map<number, resolve>` + 手写 delete），
+    // 是审计 §3.5「pending/超时/id 关联重复」那一族里最后漏掉的一个。改用唯一实现
+    // `util/concurrency/pendingRequests`（不设超时：本 worker 的寿命由宿主 `terminate()` 决定，
+    // 线程一死 Promise 随之消失，无需自己的超时/断开通道）。
+    const pending = new PendingRequests<number, CallResultMessage>();
     port.on('message', (message: CallResultMessage): void => {
       if (message.kind !== 'result') {
         return;
       }
-      const resolve = pending.get(message.seq);
-      if (resolve !== undefined) {
-        pending.delete(message.seq);
-        resolve(message);
-      }
+      const handlers = pending.take(message.seq);
+      handlers?.resolve(message);
     });
     const call = async (name: string, args: Record<string, unknown>): Promise<string> => {
       seq += 1;
       const current = seq;
       const reply = new Promise<CallResultMessage>((resolve) => {
-        pending.set(current, resolve);
+        // 先登记再发送（`register` 的契约）：回包可能早于登记 ⇒ 否则会丢包并永久挂住。
+        pending.register(current, { resolve });
       });
       port.postMessage({ kind: 'call', seq: current, name, args: args ?? {} });
       const message = await reply;

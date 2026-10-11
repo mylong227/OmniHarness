@@ -33,7 +33,12 @@
  * @maturityEvidence tests/unit/skillRetriever.test.ts
  */
 import { Bm25Index } from '../search/bm25Index.js';
+import type { SkillRetrieveHit } from '../ports/skill/skillRetrieveHit.js';
 import type { Skill } from './skill.js';
+
+// 2026-10-11：检索结果类型已外迁 `ports/skill/skillRetrieveHit.ts`（端口契约要用它表达
+// `rankForPrompt` 的返回面）。此处导入供本文件使用、并再导出以维持公共 API 面零改动。
+export type { SkillRetrieveHit } from '../ports/skill/skillRetrieveHit.js';
 
 /** 检索选项。 */
 export interface SkillRetrieveOptions {
@@ -41,14 +46,6 @@ export interface SkillRetrieveOptions {
   readonly topK?: number;
   /** 得分下限：低于此值视为不相关，直接不返回（默认 0）。 */
   readonly minScore?: number;
-}
-
-/** 单条检索结果。 */
-export interface SkillRetrieveHit {
-  /** 命中的技能。 */
-  readonly skill: Skill;
-  /** BM25 得分（越高越相关；可能为负，取决于实现）。 */
-  readonly score: number;
 }
 
 /**

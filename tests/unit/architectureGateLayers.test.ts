@@ -20,7 +20,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -82,9 +82,18 @@ test('② 门禁打印的层数必须等于磁盘实况（脚本自述不算证�
 
 test('③ 白名单不得有死条目：每条 id 都必须仍然存在于实际违规里', () => {
   const source = read('scripts/architectureGate.mjs');
-  const block = /const PORTS_IMPL_WL = new Set\(\[([\s\S]*?)\]\);/.exec(source)?.[1] ?? '';
+  const match = /const PORTS_IMPL_WL = new Set\(\[([\s\S]*?)\]\);/.exec(source);
+  assert.ok(match !== null, '找不到 PORTS_IMPL_WL 声明 ⇒ 判据没在检真实对象（先查正则/变量名）');
+  const block = match[1] ?? '';
   const whitelisted = [...block.matchAll(/'([^']+->[^']+)'/g)].map((m) => m[1] ?? '');
-  assert.ok(whitelisted.length > 0, '白名单解析为空 ⇒ 本判据空转（先查解析正则）');
+  // **允许清空**（21 条全部真收口后就是空集），但"空"必须是真的空集合，而不是解析失效：
+  if (whitelisted.length === 0) {
+    assert.strictEqual(
+      block.trim(),
+      '',
+      `白名单块非空却解析不出 id ⇒ 解析正则失效：${block.trim()}`,
+    );
+  }
   const { out } = runGate();
   const section = out.slice(out.indexOf('[3.5]'), out.indexOf('[5]'));
   const reported = new Set(
@@ -97,4 +106,39 @@ test('③ 白名单不得有死条目：每条 id 都必须仍然存在于实际
     `这些白名单条目已不再违规（多半是 ports 依赖已收口）⇒ 必须从 PORTS_IMPL_WL 删掉，` +
       `否则"存量债务"数字虚高、棘轮失真：\n${dead.join('\n')}`,
   );
+  // 空白名单时更强的一条：实际违规必须也是 0，否则说明有边既没被白名单覆盖、也没让门禁失败。
+  if (whitelisted.length === 0) {
+    assert.strictEqual(
+      reported.size,
+      0,
+      `白名单已清空但仍有未收口的边：${[...reported].join(', ')}`,
+    );
+  }
+});
+
+test('④ 正对照：临时造一条 ports→实现层 禁边，门禁必须**当场红**（空白名单不等于没规则）', () => {
+  const probe = join(REPO_ROOT, 'src', 'ports', 'runtime', '__archProbe.ts');
+  writeFileSync(
+    probe,
+    "import type { WorkerResult } from '../../worker/worker.js';\n\n/** 正对照探针（用完即删）。 */\nexport type Probe = WorkerResult;\n",
+    'utf8',
+  );
+  try {
+    const { out, code } = runGate();
+    assert.notStrictEqual(
+      code,
+      0,
+      '造了 ports→实现层 禁边却不红 ⇒ 规则失效或空白名单把新增一并吞了',
+    );
+    assert.match(
+      out,
+      /ports\/runtime\/__archProbe->worker\/worker/,
+      `门禁必须点名这条新边（否则红的原因不是它）：\n${out.slice(0, 800)}`,
+    );
+  } finally {
+    rmSync(probe, { force: true });
+  }
+  // 收尾自证：探针删除后门禁必须恢复绿（排除"探针残留导致的假绿/假红"）。
+  const after = runGate();
+  assert.strictEqual(after.code, 0, `探针已删但门禁仍红：\n${after.out.slice(0, 800)}`);
 });
