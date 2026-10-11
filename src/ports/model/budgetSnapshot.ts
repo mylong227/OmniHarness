@@ -28,4 +28,13 @@ export interface BudgetSnapshot {
   readonly exceeded: boolean;
   /** 是否建议降级（P5）= 已越软阈值但尚未硬熔断。 */
   readonly degradeSuggested: boolean;
+  /**
+   * 本次记账里**未命中价目表**、按兜底价估算过的模型名（升序去重；空数组 = 全部命中价目表）。
+   *
+   * 判读方式：非空即表示 `spentUsd` 的**单价部分不可信**——兜底价（1.0/3.0，USD/百万 token）
+   * 与真实单价可差数倍，且方向不定（高端档偏低 ⇒ 硬预算熔断过晚；廉价档偏高 ⇒ 熔断过早）。
+   * 本字段不是"出错"，而是把"估算基于兜底价"这件事**从无声变成可见**：调用方应据此把
+   * 成本数字标注为估算，或在关键场景补上真实价目（`routePricing` 的用户自定义表）。
+   */
+  readonly unpricedModels: readonly string[];
 }

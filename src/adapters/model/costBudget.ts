@@ -2,7 +2,8 @@ import type { ModelUsage, RoutePrice } from '../../ports/model/model.js';
 import { BudgetExceededError } from '../../ports/model/model.js';
 import type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.js';
 import type { CostBudgetPort } from '../../ports/model/costBudgetPort.js';
-import { DEFAULT_FALLBACK_PRICE } from './routePricing.js';
+import type { PriceResolution, PriceSource } from './routePricing.js';
+import { DEFAULT_FALLBACK_PRICE, RoutePricing } from './routePricing.js';
 
 /**
  * @beta
@@ -48,6 +49,14 @@ export class CostBudget implements CostBudgetPort {
   private softFlag = false;
   /** 软阈值比例（已归一化到 (0,1]）。 */
   public readonly softRatio: number;
+  /**
+   * 记账期间**未命中价目表**（按兜底价估算）的模型名，升序去重。
+   *
+   * 为什么必须记：兜底价与真实单价可差数倍，且方向不定（对 Anthropic 档偏低、对国产廉价档偏高）
+   * ⇒ 成本硬预算的熔断点会随之偏移。此前这件事**完全是无声的**：`priceFor` 悄悄返回兜底价，
+   * 快照里看不出"这次估算不可信"。现由快照自报（见 {@link BudgetSnapshot.unpricedModels}）。
+   */
+  private readonly unpricedModelNames = new Set<string>();
 
   public constructor(
     /** 硬预算上限（USD）。 */
@@ -73,19 +82,30 @@ export class CostBudget implements CostBudgetPort {
    * @returns 命中的定价；无任何命中时返回兜底价（保证永不返回 undefined）。
    */
   public priceFor(model: string): RoutePrice {
-    const exact = this.pricing.get(model);
-    if (exact !== undefined) {
-      return exact;
-    }
-    let best: RoutePrice | undefined;
-    let bestLen = -1;
-    for (const [key, price] of this.pricing) {
-      if (model.startsWith(key) && key.length > bestLen) {
-        best = price;
-        bestLen = key.length;
-      }
-    }
-    return best ?? this.fallback;
+    return this.priceResolution(model).price;
+  }
+
+  /** 定价来源（`exact` / `prefix` / `fallback`）——消费面据此判断"本次估算是否可信"。
+   * @param model 模型标识。
+   * @returns 命中来源。
+   */
+  public priceSourceFor(model: string): PriceSource {
+    return this.priceResolution(model).source;
+  }
+
+  /** 本次记账里按兜底价估算过的模型名（升序去重；空数组 = 全部命中价目表）。
+   * @returns 模型名列表。
+   */
+  public get unpricedModels(): readonly string[] {
+    return [...this.unpricedModelNames].sort();
+  }
+
+  /** 定价解析的唯一入口（匹配规则在 `RoutePricing.resolve`，此处只补本实例的价目与兜底价）。
+   * @param model 模型标识。
+   * @returns 价格、命中的键与来源。
+   */
+  private priceResolution(model: string): PriceResolution {
+    return RoutePricing.resolve(model, this.pricing, this.fallback);
   }
 
   /** 记录一次模型调用的用量并累计成本（缓存命中按缓存价折抵，P5）；越阈值则置位标记并回调。
@@ -96,7 +116,11 @@ export class CostBudget implements CostBudgetPort {
   public record(model: string, usage: ModelUsage): void {
     this.promptTokens += usage.promptTokens;
     this.completionTokens += usage.completionTokens;
-    const price = this.priceFor(model);
+    const resolution = this.priceResolution(model);
+    const price = resolution.price;
+    if (resolution.source === 'fallback') {
+      this.unpricedModelNames.add(model);
+    }
     const cached = CostBudget.clampCached(usage.cachedPromptTokens, usage.promptTokens);
     this.cachedTokens += cached;
     const uncached = usage.promptTokens - cached;
@@ -211,6 +235,7 @@ export class CostBudget implements CostBudgetPort {
       softExceeded: this.softFlag,
       exceeded: this.exceededFlag,
       degradeSuggested: this.degradeSuggested,
+      unpricedModels: this.unpricedModels,
     };
   }
 
