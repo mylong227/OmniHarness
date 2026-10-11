@@ -1,0 +1,86 @@
+﻿
+> @mylong227/omniharness@0.2.0 coverage:check
+> node scripts/coverageGate.mjs
+
+聚合行覆盖率: 92.08%   阈值: 80%
+ℹ️ 环境：native/omni_napi.node 在场（按冻结基线棘轮）；平台 win32；bash 存根/不可用
+ℹ️  29 个文件按**宿主相关下限**校验（非冻结值，原因见 coverageEnvDependent.json）：
+    src/adapters/memory/fileLongTermMemory.js  87.76%（宿主相关下限 86%）
+    src/adapters/memory/insightEtchingEngine.js  96.53%（宿主相关下限 95%）
+    src/adapters/sandbox/dangerousCommands.js  88.89%（宿主相关下限 87%）
+    src/adapters/storage/jsonlStorage.js  96.74%（宿主相关下限 95%）
+    src/adapters/storage/memoryStorage.js  95.45%（宿主相关下限 94%）
+    src/adapters/storage/sqliteStorage.js  87.5%（宿主相关下限 86%）
+    src/adapters/tool/code/codeInterpreter.js  91.67%（宿主相关下限 90%）
+    src/adapters/tool/plan/planPresentTool.js  88.89%（宿主相关下限 87%）
+    src/adapters/tool/shell/shellInteractiveExecutor.js  33.08%（宿主相关下限 32%）
+    src/adapters/tool/workflow/subagentTool.js  94.17%（宿主相关下限 93%）
+    src/adapters/vault/cryptoVault.js  95.05%（宿主相关下限 94%）
+    src/composition/runtime.js  90.6%（宿主相关下限 89%）
+    src/context/contextCompactor.js  96.97%（宿主相关下限 93%）
+    src/context/repoMap/repoMapContextEngine.js  88.89%（宿主相关下限 87%）
+    src/core/sessionRecorder.js  92.83%（宿主相关下限 91%）
+    src/core/toolGate.js  93.2%（宿主相关下限 92%）
+    src/daemon/daemonController.js  72.5%（宿主相关下限 71%）
+    src/mcp/mcpConnector.js  90.32%（宿主相关下限 89%）
+    src/plugin/pluginLoader.js  94.06%（宿主相关下限 82%）
+    src/plugin/pluginManager.js  95.57%（宿主相关下限 94%）
+    src/plugin/registrySourcesShared.js  48.45%（宿主相关下限 47%）
+    src/server/services/auditSink.js  90.08%（宿主相关下限 89%）
+    src/server/services/diffReview.js  77.71%（宿主相关下限 76%）
+    src/server/services/modelCatalogService.js  92.31%（宿主相关下限 91%）
+    src/server/transport/wsConnection.js  93.73%（宿主相关下限 84%）
+    src/subagent/subagentOrchestrator.js  84.62%（宿主相关下限 83%）
+    src/util/eigenspectrum.js  92.44%（宿主相关下限 91%）
+    src/worker/cliWorker.js  96.9%（宿主相关下限 96%）
+    src/worker/dshWorker.js  85.71%（宿主相关下限 66%）
+ℹ️  36 个文件低于基线但在 2.5 点度量漂移容差内（改测试文件集合会推动这类抖动，不阻断）：
+    src/adapters/lsp/lspJsonRpcConnection.js  84.9%（基线 85.07%，差 0.17 点）
+    src/adapters/model/requestStallGuard.js  98.31%（基线 100%，差 1.69 点）
+    src/adapters/plan/memoryPlan.js  92.11%（基线 92.16%，差 0.05 点）
+    src/adapters/retrieval/bm25MemoryIndex.js  95.79%（基线 97.26%，差 1.47 点）
+    src/adapters/tool/fs/fileLineWindow.js  99.27%（基线 100%，差 0.73 点）
+    src/adapters/tool/fs/grepTool.js  93.91%（基线 94.29%，差 0.38 点）
+    src/adapters/tool/meta/sketchWriteTool.js  60.16%（基线 60.32%，差 0.16 点）
+    src/adapters/tool/shell/backgroundJobRegistry.js  92.13%（基线 92.89%，差 0.76 点）
+    src/adapters/tool/shell/shellProcessRunner.js  92.83%（基线 93.26%，差 0.43 点）
+    src/adapters/tool/shell/shellTool.js  89.49%（基线 89.62%，差 0.13 点）
+    src/adapters/tool/verify/selfVerifyingToolPort.js  96.71%（基线 99.03%，差 2.32 点）
+    src/adapters/tool/workflow/runGoalTool.js  97.3%（基线 98.04%，差 0.74 点）
+    src/cli/cliHelp.js  98.25%（基线 98.97%，差 0.72 点）
+    src/cli/cliMcpCmds.js  37.19%（基线 37.5%，差 0.31 点）
+    src/cli/cliServerCmds.js  47.66%（基线 47.98%，差 0.32 点）
+    src/cli/doctorRunner.js  97.91%（基线 98.31%，差 0.40 点）
+    src/cli/exec.js  83.52%（基线 85.96%，差 2.44 点）
+    src/cli/storeCommand.js  62.1%（基线 63.64%，差 1.54 点）
+    src/config/configFactory.js  91.82%（基线 92.67%，差 0.85 点）
+    src/config/configToolRegistry.js  95.64%（基线 97.45%，差 1.81 点）
+    src/config/memoryStackAssembler.js  97.66%（基线 97.87%，差 0.21 点）
+    src/core/checkpointManager.js  96.12%（基线 96.9%，差 0.78 点）
+    src/core/loop/eventPersister.js  98.97%（基线 100%，差 1.03 点）
+    src/core/loop/loopGuard.js  95.47%（基线 96.54%，差 1.07 点）
+    src/core/toolExposurePlanner.js  98.88%（基线 99.49%，差 0.61 点）
+    src/core/turnDiffTracker.js  98.25%（基线 100%，差 1.75 点）
+    src/evolution/rlvrLoop.js  97.83%（基线 98.1%，差 0.27 点）
+    src/mcp/mcpStdioTransport.js  95.59%（基线 95.92%，差 0.33 点）
+    src/server/core/agentRuntimeHost.js  96.95%（基线 97.4%，差 0.45 点）
+    src/server/core/appServer.js  71.14%（基线 73.17%，差 2.03 点）
+    src/server/services/fsExplorer.js  95.43%（基线 96.6%，差 1.17 点）
+    src/server/services/workspaceChanges.js  94.05%（基线 95.04%，差 0.99 点）
+    src/server/transport/httpServer.js  81.62%（基线 83.33%，差 1.71 点）
+    src/server/transport/serverAuthGuard.js  98.46%（基线 100%，差 1.54 点）
+    src/spark/sparkController.js  97.8%（基线 100%，差 2.20 点）
+    src/util/concurrency/circuitBreaker.js  96.92%（基线 97.16%，差 0.24 点）
+ℹ️  8 个文件覆盖率高于基线（可运行 --dump-baseline 收紧基线）：
+    src/adapters/model/anthropicModel.js  94.33%（基线 93.99%）
+    src/adapters/model/llamaCppModel.js  94.04%（基线 93.87%）
+    src/adapters/model/openAiCompatibleModel.js  85.51%（基线 85.19%）
+    src/adapters/model/responsesModel.js  94.41%（基线 94.23%）
+    src/adapters/tool/code/codeSandboxWorker.js  93.07%（基线 92.86%）
+    src/cli/execCli.js  71.79%（基线 71.18%）
+    src/config/configError.js  93.75%（基线 93.37%）
+    src/config/permissionConfigValidator.js  100%（基线 98.47%）
+ℹ️  覆盖率文件清点：产物 1059 个 ｜ 进报告 657 个 ｜ 一行都没执行过 7 个（win32 基线 7 ｜ 新增 0 ｜ 已清偿 0）
+    （另有 395 个**纯类型模块**：编译产物只剩 `export {};`，无可执行行 ⇒ 不可能进覆盖率报告，不计入清点基线）
+✓ 覆盖率达标（聚合 92.08% ≥ 80%；657 个文件无超容差回退，36 个在漂移容差内）
+COV_EXIT=0

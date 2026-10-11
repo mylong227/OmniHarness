@@ -27,6 +27,7 @@ const VALID_PANES: ReadonlySet<string> = new Set([
   'diagnostics',
   'audit',
   'trace',
+  'permission',
 ]);
 
 /** 默认路由（首屏 / 无 hash 时）。 */

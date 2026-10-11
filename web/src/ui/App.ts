@@ -37,6 +37,7 @@ import { GovernanceTab } from './components/tabs/GovernanceTab.js';
 import { DiagnosticsTab } from './components/tabs/DiagnosticsTab.js';
 import { AuditTab } from './components/tabs/AuditTab.js';
 import { TraceTab } from './components/tabs/TraceTab.js';
+import { PermissionTab } from './components/tabs/PermissionTab.js';
 import { SessionsScope } from './models/SessionsScope.js';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
@@ -122,6 +123,9 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
       return React.createElement(AuditTab, null);
     case 'trace':
       return React.createElement(TraceTab, { sessionId: s.currentThreadId });
+    case 'permission':
+      // Web 交付：参数级权限规则编辑器（写盘走 config.update，服务端严格校验）。
+      return React.createElement(PermissionTab, null);
     case 'rollback':
       return React.createElement(RollbackTab, { sessionId: s.currentThreadId, onRolledBack: ctrl.sessions.loadThread });
     case 'settings':

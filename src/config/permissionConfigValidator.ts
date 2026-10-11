@@ -128,6 +128,16 @@ export class PermissionConfigValidator {
     if (unknown !== undefined) {
       return `permission.rules[${index}] 含未知配置项 "${unknown}"`;
     }
+    // `decision` **必填**（2026-10-11 修）：类型契约 `ApprovalRule.decision` 一直是必填，
+    // 而运行期校验此前对缺失值放行 ⇒ 写进配置的 `{toolName:'shell'}` 会被 `RuleApproval` 读成
+    // `decisions=[undefined]`，三条分支全不命中 ⇒ **规则静默不生效**（用户以为配了限制，实际什么都没发生）。
+    // 这正是本仓反复记录的"配了但从不生效"形态，故在写入路径上 fail-closed 拦截。
+    if (rule['decision'] === undefined) {
+      return (
+        `permission.rules[${index}] 缺 decision（必填：allow | deny | ask）` +
+        '；没有它这条规则不会生效（会被静默忽略）'
+      );
+    }
     const decisionError = this.checkDecision(rule.decision, `permission.rules[${index}].decision`);
     if (decisionError !== undefined) {
       return decisionError;

@@ -2477,6 +2477,34 @@ Responses `reasoning:{effort}`、Anthropic `thinking:{enabled,budget_tokens}`、
 `crossProviderReasoning.test.ts` 7 例（含 `max_tokens > budget` 不变量、预算严格递增、枚举对账）。
 受影响的既有模型判据 10 文件 74 例 **全绿无回归**；门禁 10 项 + 类型层 + 编码标准增量**全绿**。
 
+### 8.13 第 5 轮：Web 交付 5/6（审计 / Trace / 权限编辑器）+ 又抓到"配了但从不生效"
+
+#### `audit.query` 未接线时回空数组 ⇒ 空数组被读成"审计无记录"
+
+`queryAuditRpc` 此前 `if (sink === undefined) return []`。面板拿到空数组只能渲染成"审计无记录"，
+而真相是"服务端根本没装审计 sink"（与上一轮 `doctor.report` 同类）。改判别联合
+`{ok:true, events}` / `{ok:false, reason}`，既有 RPC 判据同步升级为断言判别字段。
+
+#### 缺 `decision` 的权限规则被接受、运行期被静默忽略
+
+做权限编辑器**之前**先实测写入路径（`ConfigError.normalizeConfig`）：四类非法里三类能拦，
+唯独**缺 `decision` 放行**。后果链：`checkDecision` 对 `undefined` 放行 ⇒
+`RuleApproval.matchingDecisions` 产出 `decisions=[undefined]` ⇒ `deny/ask/allow` 三条分支全不命中
+⇒ **规则静默不生效**（用户以为配了限制）。而类型契约 `ApprovalRule.decision` 一直必填
+—— 又一处"声明强于实现"。已在写入路径 fail-closed 拦截，消息点明字段、合法取值与后果
+（"没有它这条规则不会生效"），判据把**编译期必填**与**运行期拦截**并列钉死。
+
+#### 三个新入口（Web 交付已达 5/6）
+
+- **审计面板**：链序号 `#seq`（无 seq 显式写"未入链"）、未接线与"无匹配"**可区分**；
+- **Trace 面板**：空会话**不猜**、`error`（会话不存在）与"无匹配条目"**可区分**、回显条数与过滤条件；
+- **权限编辑器**：拒绝时原样显示服务端原因、**不做乐观更新**、合法取值与 **deny 优先**语义写在界面上、
+  空串字段不落盘。
+
+顺带按门禁要求把 audit/trace 的只读读路径整族（含 `trace` 服务字段）搬进
+`appServerObservabilityHandlers.ts` —— `appServer.ts` 因新增判别联合越过上帝类阈值（719 行），
+**处置是分层，不是放宽口径**。
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。

@@ -1,0 +1,47 @@
+feat(Web 交付): 权限规则编辑器（5/6 入口）+ 修掉"缺 decision 的规则静默不生效"
+
+目标第 (7) 项做到第 5 个入口。做编辑器**之前**先实测了写入路径的校验强度，当场抓到一个真缺陷。
+
+## ① 真缺陷：缺 `decision` 的权限规则**通过校验**，且运行期被静默忽略
+
+实测（`ConfigError.normalizeConfig`，即服务端写盘走的同一条校验链）：
+
+| 候选 | 修前 | 修后 |
+| --- | --- | --- |
+| `{decision:'allow', commandRegex:'^rm'}` | 拦（未知字段） | 拦 |
+| `{decision:'permit'}` | 拦（非法枚举） | 拦 |
+| `{decision:'allow', toolName:7}` | 拦（类型错） | 拦 |
+| **`{toolName:'shell'}`（缺 decision）** | **放行** | **拦** |
+
+后果链条：`PermissionConfigValidator.checkDecision` 对 `undefined` 放行 ⇒ 规则可入配置；
+消费方 `RuleApproval.matchingDecisions` 只是 `map(rule => rule.decision)` ⇒ `decisions=[undefined]`，
+`deny/ask/allow` 三条分支全不命中 ⇒ **规则静默不生效**。用户以为"我给 shell 加了限制"，
+实际什么都没发生——正是本仓反复记录的"配了但从不生效"。而**类型契约 `ApprovalRule.decision`
+一直是必填**，故这是"声明强于实现"。
+修法：写入路径 fail-closed 拦截，错误消息点名字段、给出合法取值、并说明"不会生效（会被静默忽略）"。
+
+## ② 权限编辑器（写盘入口，标准比只读面板更高）
+
+- `PermissionTab.tsx`：规则列表 + 增删改 + 保存；`decision` 三档下拉；`toolName/commandPrefix/commandGlob` 输入。
+- 三条纪律都有判据：**拒绝时原样显示服务端原因**（含 `rules[0]` 下标与字段名，不折叠成"保存失败"）；
+  **不做乐观更新**（被拒后保留用户输入、不显示"已保存"；无改动时保存按钮禁用）；
+  **合法取值写在界面上**（三档裁决 + 四个字段名 + "缺 decision 会被拒" + "**deny 优先**"聚合语义，
+  避免用户以为"后写覆盖先写"）。
+- 纯逻辑抽成可单测的 `rulesOf()` / `toWireRules()`：读回缺字段补空串；写出**省略空串字段**
+  （否则服务端判"应为非空字符串"，把本可合法的规则拒掉）。
+
+## 判据
+
+- `tests/unit/permissionWritePath.test.ts`（4 例）：缺 decision 被**写入路径**拦下且消息点明后果、
+  完整规则/空规则集/只改默认裁决均放行（正对照）、其余三类非法仍拦、
+  **类型契约与运行期校验一致**（编译期 `Assignable<{toolName}, ApprovalRule> extends false` + 运行期拦截）。
+- `web/test/permissionTab.test.mjs`（5 例）：拒绝原因原样显示、成功才显示已保存、
+  dirty 才可保存、合法取值与 deny 优先写在界面上、`rulesOf/toWireRules` 语义（含"空串不得落盘"正对照）、
+  入口已注册。
+- 既有 web 面板形状守卫 15 → 16 并把新 key 纳入逐条比对；受影响的 9 个配置类判据 71 例全绿（无夹具依赖旧行为）。
+
+## 验证
+
+- Web 套件 **396/396 全绿**；配置类判据 71/71；`tsc`（含 web）无错；架构门禁 `--strict`、
+  ports→实现层 0、依赖环新增 0、成熟度门禁通过；门禁 10 项 + 类型层 + 编码标准增量 **全绿**。
+- 覆盖率门禁见本次 `coverage:check`。
