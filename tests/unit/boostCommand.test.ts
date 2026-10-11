@@ -1,4 +1,4 @@
-/**
+﻿/**
  * `boost` 子命令判据（2026-10-10）：把「探针归档与跨次比对」与「按改动挑门禁子集」纳入 harness 后，
  * 钉住它们**口径**层面的行为——退出码语义、默认跑集、比对分类、门禁挑选的保守性。
  *
@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BoostProbes, PROBES_DIR, type BoostProbeRun } from '../../src/cli/boostProbes.js';
 import { BoostCommand } from '../../src/cli/boostCommand.js';
+import { BoostGateSurface, GATE_SURFACE } from '../../src/cli/boostGateSurface.js';
 
 /**
  * 造一个临时仓库根（用完即删）。
@@ -189,49 +190,54 @@ const REAL_GATES = gates([
   ['eslint-typed', 'typed'],
 ]);
 
-test('④ 纯文档改动：只跑兜底集 + doc-links，绝不跑 eslint/tsc', () => {
+test('④ 纯文档改动：只跑密钥面与死链面，不跑 eslint/tsc（判定由取证过的表面声明驱动）', () => {
   const d = BoostCommand.decide(REAL_GATES, ['docs/guide.md', 'README.md'], 'fast');
   assert.strictEqual(d.fallback, null);
-  assert.ok(d.selected.includes('doc-links'));
-  assert.ok(d.selected.includes('iron-law'), '兜底集必须常驻');
-  assert.ok(!d.selected.includes('eslint'), '文档改动不该跑 eslint');
-  assert.ok(!d.selected.includes('tsc'), 'fast 层本就不含 tsc');
-  assert.strictEqual(d.selected.length, 6);
+  assert.deepStrictEqual([...d.selected].sort(), ['doc-links', 'secrets']);
+  assert.ok(!d.selected.includes('eslint'), '文档不在 eslint 的判定面内');
+  assert.ok(!d.selected.includes('iron-law'), '文档不在 iron-law 的判定面内');
   assert.strictEqual(d.inTier, 10);
   assert.strictEqual(d.allGates, 12);
+  assert.match(d.reasons['eslint'] ?? '', /不在其判定面内/);
 });
 
-test('④ 源码改动：带上 eslint/tsc/top-level-fn/wiring 等判定面', () => {
+test('④ 源码改动：命中 eslint/tsc/top-level-fn/wiring/arch/iron-law/maturity', () => {
   const d = BoostCommand.decide(REAL_GATES, ['src/core/agent.ts'], 'all');
-  for (const id of ['eslint', 'tsc', 'eslint-typed', 'top-level-fn', 'wiring']) {
+  for (const id of [
+    'eslint',
+    'tsc',
+    'eslint-typed',
+    'top-level-fn',
+    'wiring',
+    'arch',
+    'iron-law',
+    'maturity',
+    'standard-delta',
+    'secrets',
+  ]) {
     assert.ok(d.selected.includes(id), `源码改动应跑 ${id}`);
   }
   assert.strictEqual(d.fallback, null);
 });
 
-test('④ 未知文件类型 ⇒ 转全量（不猜）', () => {
+test('④ 未知文件类型：只有全路径面（secrets）命中，其余不跑——不靠"猜"', () => {
   const d = BoostCommand.decide(REAL_GATES, ['weird.unknownext'], 'fast');
-  assert.notStrictEqual(d.fallback, null);
-  assert.deepStrictEqual(d.unmatched, ['weird.unknownext']);
-  assert.strictEqual(d.selected.length, 10, '转全量 ⇒ 该层全部');
+  // secrets 的输入面是 `**`（实测零 fs 读取、全经 git 子进程）⇒ 它必然命中；
+  // 其它门禁都有**取证过的**窄表面，故本次改动确实与它们无关。
+  assert.deepStrictEqual(d.selected, ['secrets']);
+  assert.strictEqual(d.fallback, null);
 });
 
-test('④ 改判据自身（门禁脚本/探针/配置面）⇒ 转全量', () => {
-  for (const path of [
-    'scripts/runGates.mjs',
-    'tools/probes/recallHitrate.mjs',
-    'tests/unit/x.test.ts',
-    'package.json',
-    'tsconfig.json',
-    '.gitignore',
-  ]) {
-    const d = BoostCommand.decide(REAL_GATES, [path], 'fast');
-    assert.notStrictEqual(d.fallback, null, `${path} 应触发全量`);
-    assert.strictEqual(d.selected.length, 10);
-  }
+test('④ 改判据自身的输入面（门禁脚本/依赖白名单/配置）⇒ 命中相应门禁', () => {
+  // `scripts/checkFuncBaseline.json` 是 iron-law 的取证输入面之一 ⇒ 必须跑 iron-law。
+  const iron = BoostCommand.decide(REAL_GATES, ['scripts/checkFuncBaseline.json'], 'fast');
+  assert.ok(iron.selected.includes('iron-law'));
+  // 配置面不在任何窄表面内 ⇒ 只有 secrets（全路径面）。
+  const cfg = BoostCommand.decide(REAL_GATES, ['omniharness.json'], 'fast');
+  assert.deepStrictEqual(cfg.selected, ['secrets']);
 });
 
-test('④ 上游新增门禁（本表不可达）⇒ 转全量并点名是哪一条', () => {
+test('④ 上游新增门禁（表面表里没有它）⇒ 转全量并点名是哪一条', () => {
   const withNewGate = gates([
     ...REAL_GATES.map((g) => [g.id, g.tier] as [string, string]),
     ['brand-new-gate', 'fast'],
@@ -239,25 +245,62 @@ test('④ 上游新增门禁（本表不可达）⇒ 转全量并点名是哪一
   const d = BoostCommand.decide(withNewGate, ['docs/guide.md'], 'fast');
   assert.notStrictEqual(d.fallback, null);
   assert.match(d.fallback ?? '', /brand-new-gate/);
+  assert.ok(d.unmatched.includes('brand-new-gate'));
+  assert.strictEqual(d.selected.length, 11, '转全量 ⇒ 该层全部（含新门禁）');
 });
 
-test('④ 该层选空 ⇒ 转该层全量，绝不打印成"通过"', () => {
-  // typed 层与纯文档改动无交集 ⇒ 必须转 typed 全量，而不是"跑了 0 条也算过"。
-  const d = BoostCommand.decide(REAL_GATES, ['docs/guide.md'], 'typed');
-  assert.strictEqual(d.selected.length, 2);
-  assert.match(d.fallback ?? '', /选中 0 条/);
+test('④ 表面表必须覆盖上游**当前**全部门禁（漏一条即红，逼出补声明）', () => {
+  const live = new BoostCommand(process.cwd()).readGates();
+  assert.ok(live.length > 0, '读不出上游门禁清单，判据无法成立');
+  const missing = live.filter((g) => GATE_SURFACE[g.id] === undefined).map((g) => g.id);
+  assert.deepStrictEqual(
+    missing,
+    [],
+    `上游有门禁未登记进 boostGateSurface.ts：${missing.join(', ')}。` +
+      '这不是崩溃，而是"它永远跑"——请取证后补声明，别让它长期停在兜底态。',
+  );
 });
 
-test('④ 无改动：只跑兜底集，且不声称覆盖了别的判定面', () => {
+test('④ 表面表里不得有指向已消失门禁的僵尸条目', () => {
+  const live = new BoostCommand(process.cwd()).readGates();
+  const ids = new Set(live.map((g) => g.id));
+  const zombie = Object.keys(GATE_SURFACE).filter((id) => !ids.has(id));
+  assert.deepStrictEqual(
+    zombie,
+    [],
+    `boostGateSurface.ts 里有上游已不存在的门禁：${zombie.join(', ')}`,
+  );
+});
+
+test('④ glob 匹配语义：`**/` 吞零层目录、`*` 不跨 `/`、`?` 单字符', () => {
+  assert.ok(BoostGateSurface.matches('src/**/*.ts', 'src/a.ts'), '**/ 必须能匹配零层目录');
+  assert.ok(BoostGateSurface.matches('src/**/*.ts', 'src/x/y/a.ts'));
+  assert.ok(!BoostGateSurface.matches('src/*.ts', 'src/x/a.ts'), '* 不得跨 /');
+  assert.ok(BoostGateSurface.matches('src/*.ts', 'src/a.ts'));
+  assert.ok(BoostGateSurface.matches('**', 'anything/at/all.txt'), '全路径面必须匹配任意路径');
+  assert.ok(BoostGateSurface.matches('docs/**', 'docs/adr/0001.md'));
+  assert.ok(!BoostGateSurface.matches('docs/**', 'src/a.ts'));
+});
+
+test('④ 未取证的门禁永不跳过（fail-closed 闸门）+ 声明字段完整性', () => {
+  assert.strictEqual(
+    BoostGateSurface.skippabilityOf('a-gate-that-does-not-exist').skippable,
+    false,
+  );
+  for (const [id, decl] of Object.entries(GATE_SURFACE)) {
+    assert.notStrictEqual(decl.audited, '', `${id} 的声明必须有实测取证结论（否则它永不跳过）`);
+    assert.ok((decl.inputs?.length ?? 0) > 0, `${id} 必须声明判定输入`);
+    assert.ok(decl.why.length > 0, `${id} 必须说明"为什么是这些路径"`);
+  }
+  assert.strictEqual(BoostGateSurface.skippabilityOf('eslint').skippable, true);
+});
+
+test('④ 无改动：选中 0 条 ⇒ 转该层全量，绝不伪装成"没改动所以不用跑"', () => {
   const d = BoostCommand.decide(REAL_GATES, [], 'fast');
-  assert.strictEqual(d.fallback, null);
-  assert.deepStrictEqual(d.selected, [
-    'node-engine',
-    'iron-law',
-    'maturity',
-    'standard-delta',
-    'arch',
-  ]);
-  assert.match(d.reasons['eslint'] ?? '', /不在该门禁的判定面上/);
-  assert.match(d.reasons['tsc'] ?? '', /不在本次层/);
+  // 注意：`secrets` 的输入面是"本次提交的全部内容"——没有改动时它**也不命中**，
+  // 于是该层选中 0 条。此处必须转全量：否则"没有改动"会变成"跳过一切"，
+  // 而这恰恰是最危险的静默形态（历史缺陷：零门禁 + 打印通过）。
+  assert.match(d.fallback ?? '', /选中 0 条/);
+  assert.strictEqual(d.selected.length, 10);
+  assert.match(d.reasons['eslint'] ?? '', /全量：分类被放弃/);
 });
