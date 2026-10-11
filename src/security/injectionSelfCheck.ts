@@ -30,19 +30,15 @@ const SNAPSHOT_NAME = 'injection-snapshot';
 /** 来源信任级全集（`ToolOutputTrust` 的 `TrustTier`；快照校验用，避免反向依赖实现类）。 */
 const TRUST_TIERS = ['external', 'file', 'local', 'memory', 'unknown'] as const;
 
-/** doctor 可直接消费的自检摘要（全部为纯量 + 一条口径注记）。 */
-export interface InjectionSelfCheckSummary {
-  /** 快照用例总数。 */
-  readonly cases: number;
-  /** 检测率 recall = TP / (TP + FN)，越高越好。 */
-  readonly recall: number;
-  /** 误报率 FP / (FP + TN)，越低越好。 */
-  readonly falsePositiveRate: number;
-  /** 精度 TP / (TP + FP)，越高越好。 */
-  readonly precision: number;
-  /** 口径注记（逐字转述，防「离线代理数字被当真实攻击统计」）。 */
-  readonly basis: string;
-}
+/**
+ * doctor 可直接消费的自检摘要（全部为纯量 + 一条口径注记）。
+ *
+ * 2026-10-11：类型已外迁 `ports/observability/injectionSelfCheckSummary.ts`（`doctor.report` 的
+ * 契约要进端口层），此处导入供本文件使用、并再导出以维持公共 API 面零改动。
+ */
+import type { InjectionSelfCheckSummary } from '../ports/observability/injectionSelfCheckSummary.js';
+
+export type { InjectionSelfCheckSummary } from '../ports/observability/injectionSelfCheckSummary.js';
 
 /**
  * 注入护栏离线自检：从内建 curated 快照构造，对生产护栏逐例扫描并产出摘要。

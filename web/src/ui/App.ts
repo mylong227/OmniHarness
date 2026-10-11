@@ -34,6 +34,7 @@ import { FileTab } from './components/tabs/FileTab.js';
 import { DetailTab } from './components/tabs/DetailTab.js';
 import { RollbackTab } from './components/tabs/RollbackTab.js';
 import { GovernanceTab } from './components/tabs/GovernanceTab.js';
+import { DiagnosticsTab } from './components/tabs/DiagnosticsTab.js';
 import { SessionsScope } from './models/SessionsScope.js';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
@@ -111,6 +112,9 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
     case 'governance':
       // (F2 治理台) 晋升台账逐行独立复核 + 回滚锚点；不依赖会话（治理数据按工作区取）。
       return React.createElement(GovernanceTab, null);
+    case 'diagnostics':
+      // Web 交付：daemon 运行态 + doctor 报告（两个只读入口合成一屏）。
+      return React.createElement(DiagnosticsTab, null);
     case 'rollback':
       return React.createElement(RollbackTab, { sessionId: s.currentThreadId, onRolledBack: ctrl.sessions.loadThread });
     case 'settings':

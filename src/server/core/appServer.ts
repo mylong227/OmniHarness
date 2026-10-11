@@ -11,7 +11,7 @@ import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
 import { Id } from '../../util/id.js';
 import { AuditExporter, type AuditQuery } from '../services/auditExporter.js';
 import type { AuditEvent } from '../services/auditSink.js';
-import { AppServerGovernanceHandlers } from './appServerGovernanceHandlers.js';
+import { AppServerObservabilityHandlers } from './appServerObservabilityHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
 import { providerPresets } from '../services/providerPresets.js';
 import { RepoPathGuard } from '../services/repoPathGuard.js';
@@ -36,7 +36,7 @@ export type { AppServerOptions } from './appServerState.js';
  * `SessionCheckpoints`（会话检查点）、`RepoPathGuard`（路径安全）。服务在构造期装配一次，
  * 每个 RPC 调用零额外构造开销。
  */
-export class AppServer extends AppServerGovernanceHandlers {
+export class AppServer extends AppServerObservabilityHandlers {
   /** git 差异审查服务：hunk/file 级 stage/revert（changes.* RPC 的后端）。 */
   private readonly diffReview: DiffReview;
   /** 差异行级评论存储：评论的增删查持久化。 */
@@ -165,6 +165,7 @@ export class AppServer extends AppServerGovernanceHandlers {
     this.handlers.set('audit.query', (params) => Promise.resolve(this.queryAuditRpc(params)));
     // T4.5：只读 trace 自省 RPC（agent 自查「我刚做了什么」，无写方法，不可借道改历史）。
     this.handlers.set('trace.read', (params) => this.readTraceRpc(params));
+    this.registerObservabilityHandlers();
     this.registerCheckpointHandlers();
     this.registerReviewHandlers();
     this.registerSessionHandlers();

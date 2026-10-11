@@ -191,6 +191,28 @@ export class ApiClient {
     return this.rpc('workspace.list', {});
   }
   /**
+   * daemon 运行态（只读，2026-10-11 Web 交付）：与 `omniharness daemon status` **同一事实源**
+   * （服务端用同一个 `DaemonController`、同一默认 pid 文件 `~/.omniharness/daemon.pid`）。
+   * @returns `{running, pid?}`；未运行时 `running:false` 且无 pid。
+   */
+  public daemonStatus(): Promise<{ running: boolean; pid?: number }> {
+    return this.rpc('daemon.status', {});
+  }
+  /**
+   * 环境诊断报告（只读，2026-10-11 Web 交付）。
+   *
+   * 注意返回体是**判别联合**：`ok:false` 表示服务端**未接线**（serve 未注入实现），
+   * 面板必须如实显示"未接线"，**不得**把它渲染成"一切正常"。
+   * @param workspaceRoot 可选工作区（缺省由服务端取自身工作区）。
+   * @returns `{ok:true, report}` 或 `{ok:false, reason}`。
+   */
+  public doctorReport(workspaceRoot?: string): Promise<
+    | { ok: true; report: import('../types/models.js').DoctorReportLike }
+    | { ok: false; reason: string }
+  > {
+    return this.rpc('doctor.report', workspaceRoot === undefined ? {} : { workspaceRoot });
+  }
+  /**
    * 全部会话存档列表（含工作区标记），供按项目收纳。running = 服务端真实运行态。
    * @param opts `includeArchived=false` 时服务端**跳过归档文件的逐个扫描**（快速路径）
    * @returns 存档目录与有序会话列表

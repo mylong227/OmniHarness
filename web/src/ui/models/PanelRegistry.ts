@@ -42,6 +42,7 @@ export const PANELS: readonly PanelEntry[] = [
   { key: 'detail', label: '钻取', icon: 'search' },
   { key: 'settings', label: '设置', icon: 'gear' },
   { key: 'plugins', label: '插件', icon: 'package' },
+  { key: 'diagnostics', label: '诊断', icon: 'ruler' },
 ];
 
 /**

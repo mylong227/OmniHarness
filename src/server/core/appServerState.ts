@@ -6,6 +6,7 @@ import type { PluginRegistry } from '../../plugin/pluginRegistry.js';
 import type { Transport } from '../transport/lineTransport.js';
 import type { Metrics } from '../services/metrics.js';
 import type { AuditSink } from '../services/auditSink.js';
+import type { DoctorOptions, DoctorReport } from '../../ports/observability/doctorReport.js';
 import type { GraphNodeStatus } from '../../autonomy/workflowRunner.js';
 import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
 import type { ServerEventBridge } from './serverEventBridge.js';
@@ -59,6 +60,18 @@ export interface AppServerOptions {
    * 嵌入方（测试 / 自定义存储）可注入精确判定，避免 trace.read 把两者混为一谈。
    */
   readonly traceSessionExists?: ((sessionId: string) => Promise<boolean>) | undefined;
+  /**
+   * `doctor` 诊断报告的**注入点**（2026-10-11，Web 交付项）。
+   *
+   * 为什么注入而不是 server 直接 import 实现：`DoctorRunner` 住在 CLI 层，而 `cli → server` 已存在
+   * —— 反向依赖会形成依赖环（架构门禁 `[5]` 新增环即红）。故契约类型进端口层
+   * （`ports/observability/doctorReport.ts`），实现由组合根（`cliServerCmds` 的 serve 路径）注入。
+   *
+   * **未注入时 `doctor.report` 如实报错**（`{ok:false, reason:'doctor 未接线'}`），
+   * 绝不返回空报告冒充"检查通过"——那是本仓反复记录的"看着绿"形态。
+   */
+  readonly doctorReport?:
+    ((options?: DoctorOptions) => DoctorReport | Promise<DoctorReport>) | undefined;
 }
 
 /** 始终放行的审批端口（autoApprove / approval=auto 时使用）。 */

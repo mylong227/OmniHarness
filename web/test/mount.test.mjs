@@ -177,9 +177,10 @@ function collect(vnode, pred, out = []) {
 
 const isTag = (name) => (n) => n.type === name;
 
-test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 12 个面板', () => {
+test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 13 个面板', () => {
   // 2026-10-07 壳层重构：原 NavRail（9 常驻图标 + 「更多面板」兜底）收编为右栏的 PanelPicker
-  // ——12 个功能面板不再常驻占位，全部收进这一个菜单（截图式三栏壳的"收起来"）。
+  // ——功能面板不再常驻占位，全部收进这一个菜单（截图式三栏壳的"收起来"）。
+  // 2026-10-11：新增 `diagnostics` ⇒ 12 → 13。
   const closed = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} });
   const closedBtns = collect(closed, isTag('button'));
   assert.strictEqual(closedBtns.length, 1, '闭合态必须只有 1 个触发按钮');
@@ -190,9 +191,9 @@ test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开
   // 函数组件：第 0 个 hook 即 useState(open)，预设 true 渲染展开态。
   const open = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} }, { 0: true });
   const items = collect(open, (n) => n.props.role === 'menuitem');
-  assert.strictEqual(items.length, 12, '菜单必须罗列注册表全部 12 个面板');
+  assert.strictEqual(items.length, 13, '菜单必须罗列注册表全部 13 个面板');
   const labels = items.map((b) => b.props['aria-label'] ?? collect(b, isTag('span')).map((s) => s.children).flat().join(''));
-  for (const l of ['工具', '指标', '设置', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件']) {
+  for (const l of ['工具', '指标', '设置', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件', '诊断']) {
     assert.ok(collect(open, isTag('span')).some((s) => (s.children ?? []).includes(l)), `菜单应含面板：${l}`);
   }
 });
@@ -204,11 +205,31 @@ test('PanelPicker：激活面板在菜单中高亮（active class 唯一）', ()
   assert.strictEqual(actives.length, 1, 'active class 必须有且仅有 1 个');
 });
 
-test('面板注册表：12 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {
-  // 2026-10-07 壳层重构后，注册表是 12 个面板的唯一事实源：PanelPicker 菜单渲染 PANELS 全集，
+test('面板注册表：13 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {
+  // 2026-10-07 壳层重构后，注册表是面板清单的唯一事实源：PanelPicker 菜单渲染 PANELS 全集，
   // Router 的合法 pane 集合与它对齐 ⇒ "任何面板都必须有入口"由本用例机械核对。
+  // 2026-10-11：新增 `diagnostics`（Web 交付项：daemon 运行态 + doctor 报告）⇒ 12 → 13，
+  // 且**逐条**比对 key 集合（只改数字等于放弃"清单齐全"这半条判据）。
   const { PANELS, panelOf } = await import('../dist/ui/models/PanelRegistry.js');
-  assert.strictEqual(PANELS.length, 12, '注册表必须是 12 个面板');
+  assert.deepStrictEqual(
+    PANELS.map((p) => p.key),
+    [
+      'tools',
+      'changes',
+      'file',
+      'metrics',
+      'graph',
+      'memory',
+      'profiles',
+      'governance',
+      'rollback',
+      'detail',
+      'settings',
+      'plugins',
+      'diagnostics',
+    ],
+    '注册表必须恰好是这 13 个面板（顺序即菜单渲染顺序）',
+  );
   const keys = PANELS.map((p) => p.key);
   assert.strictEqual(new Set(keys).size, keys.length, 'key 不得重复');
   for (const p of PANELS) {

@@ -50,10 +50,10 @@ src/cli/**  src/server/**  （Web 工作台在 web/**）
 - `[5] 依赖环（Tarjan SCC）——新增环即红，环缩小放行`
 - `[4] 目录平铺告警（直接 .ts > 30，非阻断）`
 
-**端口子目录（32，与磁盘一致）**：`a2a`、`approval`、`asset`、`autonomy`、`capability`、`composition`、`config`、
+**端口子目录（33，与磁盘一致）**：`a2a`、`approval`、`asset`、`autonomy`、`capability`、`composition`、`config`、
 `context`、`core`、`daemon`、`decision`、`enterprise`、`genesis`、`intelligence`、`license`、`mcp`、`media`、
-`memory`、`model`、`native`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、`subagent`、
-`tool`、`tui`、`util`、`worker`。
+`memory`、`model`、`native`、`observability`、`plugin`、`runtime`、`sdk`、`security`、`server`、`skill`、`spark`、
+`subagent`、`tool`、`tui`、`util`、`worker`。
 
 ## 3. 核心数据流（一回合）
 

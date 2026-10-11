@@ -406,3 +406,32 @@ export interface SessionModes {
   planMode: boolean;
   sketchMode: boolean;
 }
+
+/**
+ * `doctor.report` 的面板契约（**服务端报告的子集**，2026-10-11 Web 交付）。
+ *
+ * 为什么不直接复用服务端类型：Web 只经 RPC 消费 JSON，且 `web/tsconfig.json` 不跨到 `src/`；
+ * 故这里只声明**面板真正会渲染的字段**。字段名与服务端
+ * `src/ports/observability/doctorReport.ts` 逐字一致（判据 `web/test/diagnosticsTab.test.mjs`
+ * 会核对本类型与面板用到的字段名）。
+ */
+export interface DoctorReportLike {
+  /** Node 版本。 */
+  nodeVersion: string;
+  /** 配置文件检查。 */
+  config: { exists: boolean; valid: boolean; error?: string };
+  /** 安全边界（实际隔离到什么程度）。 */
+  security: {
+    isolationLevel: 'L2' | 'L3';
+    isolationBasis: string;
+    sandboxProfile: string;
+    kernelEnforced: boolean;
+    shellEgressGuarded: boolean;
+  };
+  /** 插件目录是否可读。 */
+  pluginsDirReadable: boolean;
+  /** 权限清单是否可读。 */
+  permissionsManifestReadable: boolean;
+  /** 不合格项清单（面板必须逐条显示，不得折叠成一句"有问题"）。 */
+  issues: string[];
+}

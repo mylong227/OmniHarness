@@ -79,6 +79,10 @@ export class CliServerCmds extends CliBuildConfig {
       workspaceRoot: process.cwd(),
       // (F4) 治理台按档位可用：权益来自本机授权（OMNI_LICENSE*）；无授权 ⇒ core 档。
       entitlements: LicenseSource.resolve({ env: process.env }),
+      // Web 交付（2026-10-11）：`doctor.report` RPC 的实现由组合根注入 —— `DoctorRunner` 住在 CLI 层，
+      // 而 `cli → server` 已存在，反向 import 会成环。这里注入**同一个实现**（与 `omniharness doctor`
+      // 命令逐字同源），面板因此不会看到与 CLI 不一致的诊断结论。
+      doctorReport: (options) => DoctorRunner.runDoctor(options ?? {}),
     });
     await app.loadPlugins();
     return new Promise(() => undefined);

@@ -24,6 +24,7 @@ const VALID_PANES: ReadonlySet<string> = new Set([
   'detail',
   'rollback',
   'governance',
+  'diagnostics',
 ]);
 
 /** 默认路由（首屏 / 无 hash 时）。 */
