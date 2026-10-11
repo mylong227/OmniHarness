@@ -9,7 +9,7 @@ import type {
   ModelUsage,
   StreamCallbacks,
 } from '../../ports/model/model.js';
-import { ModelCallError } from '../../ports/model/model.js';
+import { ModelHttpErrors } from './modelHttpErrors.js';
 import { ModelRequestGuard } from './modelRequestGuard.js';
 import { log } from '../../util/logger.js';
 import { RequestStallGuard } from './requestStallGuard.js';
@@ -58,7 +58,8 @@ export class LlamaCppModel implements ModelPort {
 
   /** 非流式生成。
    * @param request 模型请求（消息与工具规格）。
-   * @returns 解析后的统一输出（文本、工具调用与 token 用量）；非 2xx 时抛出结构化 ModelCallError。
+   * @returns 解析后的统一输出（文本、工具调用与 token 用量）；非 2xx 时抛出结构化模型调用错误
+   *          （由 `ModelHttpErrors.from` 构造，与其它协议共用同一套状态码分类与 `Retry-After` 解析）。
    */
   public async generate(request: ModelRequest): Promise<ModelOutput> {
     const guard = this.guard.open(request);
@@ -69,7 +70,7 @@ export class LlamaCppModel implements ModelPort {
       );
       guard?.touch();
       if (!response.ok) {
-        throw this.httpError(response, '本地模型请求失败');
+        throw await ModelHttpErrors.from(response, '本地模型请求失败');
       }
       const body = (await response.json()) as OllamaChatResponse;
       return this.parseOutput(body);
@@ -117,7 +118,7 @@ export class LlamaCppModel implements ModelPort {
     );
     guard?.touch();
     if (!response.ok) {
-      throw this.httpError(response, '本地模型流式请求失败');
+      throw await ModelHttpErrors.from(response, '本地模型流式请求失败');
     }
     const body = response.body;
     if (body === null) {
@@ -518,17 +519,6 @@ export class LlamaCppModel implements ModelPort {
     const prompt = chunk.prompt_eval_count ?? prev?.promptTokens ?? 0;
     const completion = chunk.eval_count ?? prev?.completionTokens ?? 0;
     return { promptTokens: prompt, completionTokens: completion, totalTokens: prompt + completion };
-  }
-
-  /** 非 2xx 转结构化错误（5xx / 429 标可重试）。
-   * @param response fetch 返回的非 2xx 响应。
-   * @param label 错误消息前缀（区分普通生成与流式生成）。
-   * @returns 携带 status 与 retryable 标记的 ModelCallError（不抛出，由调用方决定）。
-   */
-  private httpError(response: Response, label: string): ModelCallError {
-    const status = response.status;
-    const retryable = status === 429 || (status >= 500 && status <= 599);
-    return new ModelCallError(`${label}: HTTP ${status}`, { status, retryable });
   }
 }
 

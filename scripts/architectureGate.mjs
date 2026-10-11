@@ -67,23 +67,79 @@ const ADAPTERS_TO_CORE_WL = new Set([]);
 // 原路径仅保留 `export ... from` 再导出，公共 API 面不变）。
 // 空集合 = 「新增即红」：此后 src/ports/** 出现任何 class 声明都会阻断提交。
 const PORTS_CLASS_WL = new Set([]);
-// ports→实现层（core/adapters/config）：**新增规则（2026-09-22）**。
+// ports→实现层：**新增规则（2026-09-22）**，2026-10-11 把覆盖补全（原只认 6 个硬编码前缀）。
 // 为什么需要：原三条规则只覆盖 core↔adapters 与 ports 的「第三方裸导入 / class 声明」，
 // 于是 `ports/runtime/agent.ts` 曾长期 `import type { OmniHarnessRuntime } from '…/core/runtime.js'`
-// ——端口契约被绑死在 core 具体类型上，而门禁「看不见」。现由 AgentFactoryPort 的**类型参数**解绑，
-// 存量归零 ⇒ 本规则同样「新增即红」。
-const PORTS_IMPL_WL = new Set([]);
+// ——端口契约被绑死在 core 具体类型上，而门禁「看不见」。
+//
+// 存量白名单：本规则原先只枚举 6 个层（core/adapters/config/composition/context/search），
+// `spark/ skill/ security/ server/ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的
+// ports→实现层 边**完全不可见**（2026-10-06 自述的边界）。2026-10-11 动态全枚举后，这些存量边
+// 首次现形：**一次性登记在此（冻结-递减），按批递减**。它们全是 `import type` 的类型契约
+// （类型住在实现文件里，正确修法是把类型搬进 `ports/**`，即 G25/G25-b 那一套，属独立一片）。
+const PORTS_IMPL_WL = new Set([
+  // 组合根契约：运行时/配置的端口文件反向引用实现类型。
+  'ports/composition/omniHarnessRuntime->native/nativeBackend',
+  'ports/composition/omniHarnessRuntime->spark/sparkController',
+  'ports/composition/omniHarnessRuntime->a2a/a2aProtocol',
+  'ports/config/omniHarnessConfig->worker/workerRegistry',
+  'ports/config/omniHarnessConfig->security/toolOutputTrust',
+  'ports/config/omniHarnessConfig->skill/skill',
+  'ports/config/resolvedConfig->spark/sparkController',
+  'ports/config/resolvedConfig->skill/skillRegistry',
+  'ports/config/subagentPortSeed->subagent/subagentTypes',
+  // 工具/协议契约。
+  'ports/mcp/mcpServerOptions->server/transport/lineTransport',
+  'ports/mcp/mcpServerOptions->mcp/mcpProtocol',
+  'ports/plugin/plugin->plugin/pluginApplyContext',
+  // 演化/技能契约（ADR-0008 一族）。
+  'ports/runtime/evolution/candidate->skill/skill',
+  'ports/runtime/evolution/evolutionControllerOptions->evolution/rlvrLoop',
+  'ports/runtime/evolution/promotionLedger->skill/skill',
+  'ports/runtime/skill->skill/skill',
+  'ports/runtime/skillEdit/crisprEditSpec->skill/skill',
+  // 安全/监督契约。
+  'ports/runtime/sandbox/networkEgressOptions->security/ssrfPolicy',
+  'ports/runtime/supervisor/auditSinkLike->server/services/auditSink',
+  'ports/security/ssrfOptions->security/ssrfPolicy',
+  'ports/subagent/subagentPortsShape->native/nativeBackend',
+]);
 
 /**
- * 本规则认定的「实现层」——**显式枚举**，不是"除 ports 外的一切"。
+ * **基础层**：`ports/**` 允许依赖的共享底座（错误类型、通用工具）。
  *
- * 2026-10-06 复核登记的**能力边界**（别把它读成"ports 不再依赖任何实现层"）：新增目录**不会**
- * 自动纳入；已知未被覆盖、且**现存** ports→实现层 边的层有 `spark/` `skill/` `security/`
- * `server/` `evolution/` `util/` `subagent/` `mcp/` `worker/`（逐条 file:line 见
- * `docs/PROJECT_BOARD.md` 第五十七轮 ④）。未一次性纳入的原因：那会把存量边全部判红，
- * 须先做一轮 ports 依赖收口（属独立一片）。本规则当前保证的是**已枚举层**的存量归零 + 新增即红。
+ * 为什么要有这一档：动态全枚举若把 `errors/` `util/` 也当实现层，会立刻产生 5 条"违规"，
+ * 而它们不是违规——`ports/model/model.ts` 再导出 `ModelCallError`、`ports/memory/**` 用
+ * `util/eigenspectrum`（本板已认定它是**共享数学基础设施**，不是某条实现路径的私有物）。
+ * 把"允许"显式写出来，比靠硬编码 6 个前缀来**意外允许**它更诚实。
  */
-const IMPL_LAYERS = ['core/', 'adapters/', 'config/', 'composition/', 'context/', 'search/'];
+const FOUNDATION_LAYERS = ['errors/', 'util/'];
+
+/**
+ * 本规则认定的「实现层」= `src/` 下**除 `ports/` 与基础层之外的全部顶层目录**（**动态枚举**，2026-10-11 改）。
+ *
+ * 为什么从静态枚举改成动态（原实现的能力边界它自己已自述）：原先硬编码 6 个前缀，于是上面
+ * 白名单里那些层的 ports→实现层 边**完全不可见**，且**将来新增目录也不会自动纳入**——
+ * 一条「端口只依赖契约」的铁律，实际只覆盖了 6 个层，而日志标签只列 3 个前缀，读起来像"已全覆盖"。
+ * 动态枚举把覆盖补全：新目录**自动纳入**（新增即红），不再依赖有人记得改脚本。
+ *
+ * 与 `--strict` 的关系：白名单内 21 条存量边**不**参与 `--strict` 的"白名单必须为空"断言
+ * （同依赖环的先例：环的阻断由"新增"承担）——否则本规则要么无法开全枚举、要么 CI 恒红。
+ */
+const IMPL_LAYERS = fs
+  .readdirSync(root, { withFileTypes: true })
+  .filter(
+    (e) =>
+      e.isDirectory() &&
+      !['ports', ...FOUNDATION_LAYERS.map((l) => l.replace(/\/$/, ''))].includes(e.name),
+  )
+  .map((e) => `${e.name}/`)
+  .sort();
+if (IMPL_LAYERS.length === 0) {
+  // 空枚举 = 规则空转（本仓"0 项=通过"的同一形态）⇒ 显式失败，绝不静默通过。
+  console.error('❌ 架构门禁失败：实现层枚举为空（src/ 目录结构异常）⇒ ports→实现层规则无从判定。');
+  process.exit(1);
+}
 
 // ---- 4. 判定 ----
 const caViolations = [];
@@ -251,10 +307,24 @@ console.log(`\n[3] ports 纯度（第三方裸导入 / class 实现，白名单�
 if (portsClassViolations.length === 0) console.log('  (无)');
 else portsClassViolations.forEach((v) => console.log(fmt(v) + v.id));
 console.log(
-  `\n[3.5] ports→实现层（core/adapters/config，白名单 ${PORTS_IMPL_WL.size}）——端口只依赖契约：`,
+  `\n[3.5] ports→实现层（动态全枚举，基础层 errors/util 除外；${String(IMPL_LAYERS.length)} 个层；白名单 ${PORTS_IMPL_WL.size}）——端口只依赖契约：`,
 );
 if (portsImplViolations.length === 0) console.log('  (无)');
 else portsImplViolations.forEach((v) => console.log(fmt(v) + v.id));
+// 存量债务按层计数：白名单不参与 --strict，但**必须看得见**——否则"白名单里有交代"会掩盖
+// "某个层的 ports 契约正在持续腐化"（本仓对这种"有登记、看不见"的形态很警惕）。
+if (portsImplViolations.length > 0) {
+  const byLayer = new Map();
+  for (const v of portsImplViolations) {
+    const layer = v.id.split('->')[1]?.split('/')[0] ?? '(未知)';
+    byLayer.set(layer, (byLayer.get(layer) ?? 0) + 1);
+  }
+  const rows = [...byLayer.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([layer, n]) => `${layer}×${n}`)
+    .join(' ');
+  console.log(`  存量债务按目标层：${rows}`);
+}
 console.log(
   `\n[5] 依赖环（Tarjan SCC，白名单成员 ${CYCLE_WL_MEMBERS.size}）——新增环即红，环缩小放行：`,
 );
@@ -296,22 +366,16 @@ if (newCount > 0) {
   );
   exitCode = 1;
 } else if (
-  // 注意：这里**故意不含** cycleViolations——CI 的 `gate` job 跑的就是 `--strict`，
-  // 而存量 5 组环在清偿前必然存在，纳入即让 CI 恒红。环的阻断由上面的 newCount 承担（新增即红），
-  // 待白名单成员清偿为空后，再把 cycleViolations.length 加进本条件、与「环存量清零」一并生效。
+  // 注意：这里**故意不含** cycleViolations 与 portsImplViolations——CI 的 `gate` job 跑的就是 `--strict`，
+  // 而「存量 5 组环」与「ports→实现层的 21 条已登记类型契约」在清偿前必然存在，纳入即让 CI 恒红。
+  // 两者的阻断都由上面的 newCount 承担（**新增即红**）；白名单清零后再把它们加进本条件。
+  // （portsImpl 于 2026-10-11 动态全枚举时首次现形并登记，语义与环一致。）
   STRICT &&
-  caViolations.length +
-    acViolations.length +
-    portsClassViolations.length +
-    portsImplViolations.length >
-    0
+  caViolations.length + acViolations.length + portsClassViolations.length > 0
 ) {
   console.error(
     `\n❌ 架构门禁失败（--strict）：仍有 ${
-      caViolations.length +
-      acViolations.length +
-      portsClassViolations.length +
-      portsImplViolations.length
+      caViolations.length + acViolations.length + portsClassViolations.length
     } 条白名单内存量违规未清偿。`,
   );
   exitCode = 1;

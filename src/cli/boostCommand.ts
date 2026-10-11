@@ -34,7 +34,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import {
   BoostProbes,
   PROBES_DIR,
@@ -131,7 +131,25 @@ export class BoostCommand {
    * @returns 仓库根相对路径。
    */
   private rel(abs: string): string {
-    return relative(this.root, abs).replaceAll('\\', '/');
+    const r = relative(this.root, abs).replaceAll('\\', '/');
+    // 归档根被 `--boost-dir` 指到仓库外时，`relative` 会产出 `../../..` 这类越界串——
+    // 打印它既不可读、也无法直接粘进命令。越界就如实给绝对路径。
+    return r.startsWith('..') ? abs.replaceAll('\\', '/') : r;
+  }
+
+  /**
+   * 把 `--boost-dir DIR` 解析为绝对路径：**绝对路径原样用，相对路径相对仓库根**。
+   *
+   * 单一实现（原先三处各自 `join(this.root, outDir)`，绝对路径会被拼成
+   * `D:\repo\C:\Users\…` 这种既不存在也不可读的路径——2026-10-11 由新增的 CLI 判据当场抓到：
+   * `--boost-dir <绝对临时目录>` 报 `ENOENT: mkdir 'D:\…\C:\Users\…'`）。
+   * @param dir 命令行给的目录（`undefined` 表示用默认相对路径）。
+   * @param fallbackRel 默认相对路径（相对仓库根）。
+   * @returns 绝对路径。
+   */
+  private outDirAbs(dir: string | undefined, fallbackRel: string): string {
+    const raw = dir ?? fallbackRel;
+    return isAbsolute(raw) ? raw : join(this.root, raw);
   }
 
   /**
@@ -140,9 +158,7 @@ export class BoostCommand {
    * @returns 归档根绝对路径。
    */
   private outRoot(options: BoostOptions): string {
-    return options.outDir === undefined
-      ? join(this.root, DEFAULT_OUT_DIR)
-      : join(this.root, options.outDir);
+    return this.outDirAbs(options.outDir, DEFAULT_OUT_DIR);
   }
 
   /**
@@ -520,7 +536,7 @@ export class BoostCommand {
         process.stdout.write(`  ${g.id.padEnd(16)} ${decision.reasons[g.id] ?? ''}\n`);
     }
     if (options.outDir !== undefined) {
-      const target = join(this.root, options.outDir, 'gate-decision.json');
+      const target = join(this.outDirAbs(options.outDir, DEFAULT_OUT_DIR), 'gate-decision.json');
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(
         target,
@@ -620,8 +636,12 @@ export class BoostCommand {
    */
   public runSurfaceAudit(options: BoostOptions): number {
     const auditor = new BoostSurfaceAudit(this.root);
+    // 落点解析收成一处：`--boost-dir` 是**绝对路径**时必须原样用（2026-10-11 由新增的 CLI 判据抓到：
+    // 旧实现把它拼成 `D:\repo\C:\Users\…` ⇒ ENOENT）。
     const snapshotRel =
-      options.outDir === undefined ? SURFACE_SNAPSHOT_REL : `${options.outDir}/gate-surface.json`;
+      options.outDir === undefined
+        ? join(this.root, SURFACE_SNAPSHOT_REL)
+        : join(this.outDirAbs(options.outDir, DEFAULT_OUT_DIR), 'gate-surface.json');
     // `--boost-run` 在这里的语义 = **确认已重新取证**（把当前脚本哈希记为基线）。
     // 默认不写快照：否则一次临时改动会把基线毒化，之后永远报"过期"（症状与"工具坏了"一样）。
     const report = auditor.audit(snapshotRel, options.run);

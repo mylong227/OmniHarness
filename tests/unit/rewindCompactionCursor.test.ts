@@ -14,6 +14,25 @@
  * 原因是压缩器面对"`previous` 与当前消息列表不一致"时会安全重折，陈旧游标不导致旧摘要泄漏。
  * 故：本文件的定位是**回归守卫**（回滚不残留旧摘要、不崩、日志确实被截断），
  * 而"L4 显式对齐是否必要"**未被独立证明**，另立 G1b-c2 去找能观测到差异的夹具（见 changeset）。
+ *
+ * ## 2026-10-11 定性：那条偶发红是**仪器误判**，不是产品缺陷
+ *
+ * 现象：端到端对照的**实验组**断言偶发红（隔离跑 11 次 1 次、并发多测试进程时 1 次；
+ * 纯 CPU 负载 25 次与安静 20 次均 0 次），消息恒为"回滚后的最后一次请求里仍有哨兵"。
+ *
+ * 取证（一次性探针，未入库）：打印 `CapturingModel` 真正收到的请求体后可见——
+ * ① 请求体只有 `{role, content}` 文本，**工具名/调用 id 一次都不出现**（运行时另生成 id，
+ *    且本夹具的 `compactionMaxTokens=30` 会把工具轮整体折叠掉）；② **回合末的"记忆抽取器"请求
+ *    里带着整段"对话片段"**，其中就含折叠后的旧摘要（哨兵）——见 `src/adapters/memory/memoryExtractor.ts:170`
+ *    的提示词 `你是从对话中抽取"长期记忆"的抽取器…`。
+ *
+ * 根因：旧过滤器 `lastTaskBody` 只排除**压缩器**请求（按 `对话历史压缩器`），于是**抽取器请求被当成"任务请求"**；
+ * 而抽取器在回合末触发，它是否恰好排在最后取决于时序 ⇒ 偶发红。**与回滚是否真的截断无关。**
+ *
+ * 处置：辅助请求过滤器改为**按标记集合排除**（压缩器 + 记忆抽取器），并加一条**仪器自证**
+ * （必须真的过滤掉至少一条辅助请求，否则说明过滤器没干活、判据可能又在把辅助请求当任务请求）。
+ * **诚实边界**：若将来出现第三种"落在最后"的辅助调用，本判据会假红——失败消息里的自证
+ * （任务/辅助条数 + 命中片段）用于一眼分辨，届时把它的提示词前缀加进 `AUXILIARY_PROMPT_MARKS` 即可。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -41,22 +60,18 @@ const COMPACTOR_PROMPT_MARK = '对话历史压缩器';
 /** 摘要哨兵：出现在折叠摘要里 ⇒ "旧摘要还在不在请求里"的观测点。 */
 const SUMMARY_SENTINEL = 'SUMMARY_SENTINEL_ALPHA';
 
+/** 记忆抽取器请求的提示词特征（`src/adapters/memory/memoryExtractor.ts:170` 的开头）。 */
+const MEMORY_EXTRACTOR_PROMPT_MARK = '你是从对话中抽取';
+
 /**
- * 取"最后一次**任务**请求"（排除压缩器自己的摘要请求）。
+ * **辅助请求**（非任务请求）的提示词特征集合：它们的正文里会**合理地**出现旧摘要，
+ * 故必须从"任务请求"里排除，否则会把"抽取器正在读旧内容"误读成"回滚没截断"。
  *
- * 为什么必须排除：`bodies` 记录模型收到的**每一个**请求，其中包含压缩器的摘要请求；
- * 而摘要请求的正文就是"待压缩的对话历史"——它**当然**含旧摘要。压缩是异步触发的，
- * 因此"最后一条被捕获的请求"偶尔会是摘要请求而不是任务请求（本判据原先直接取 `bodies.at(-1)`，
- * 于是把"压缩器正在摘要旧内容"误读成"回滚没截断"）。
- *
- * 诚实边界：本次会话 5 轮全量中观测到 1 次该失败，**8 次隔离 + 3 次加载复现均未命中**。
- * 故此处的改动消除的是一个**已识别的时序假设**，而**不声称**已证明它就是那次失败的成因。
- * @param bodies 捕获到的请求体
- * @returns 最后一次任务请求体（无任务请求时为空串）
+ * 历史（保留旧文，勿无声改写）：原先只有一个 `lastTaskBody(bodies)`，只按压缩器标记排除。
+ * 2026-10-11 定性出：**记忆抽取器**请求（回合末触发）同样带旧摘要，于是它被当成任务请求 ⇒
+ * ~3% 偶发假红（详见文件头）。现改为按集合排除，并加仪器自证（见主判据）。
  */
-function lastTaskBody(bodies: readonly string[]): string {
-  return [...bodies].reverse().find((body) => !body.includes(COMPACTOR_PROMPT_MARK)) ?? '';
-}
+const AUXILIARY_PROMPT_MARKS = [COMPACTOR_PROMPT_MARK, MEMORY_EXTRACTOR_PROMPT_MARK];
 
 /**
  * 记录模型实际收到的请求体，并对压缩器的摘要请求返回带序号哨兵的摘要。
@@ -181,39 +196,72 @@ async function runSession(withRollback: boolean): Promise<{
   };
 }
 
-test('端到端对照：回滚后最后一次请求不再带旧摘要（日志被截断，不残留折叠点）', async () => {
+test('端到端对照：回滚后不再带旧摘要（日志被截断，不残留折叠点）', async () => {
   const control = await runSession(false);
   const rolledBack = await runSession(true);
 
-  // **控制组**：不回滚 ⇒ 折叠摘要一直留在历史里 ⇒ 最后一次请求必须还能看到哨兵。
+  /**
+   * 拆出**任务请求**：排除全部辅助请求（压缩器、记忆抽取器——见 `AUXILIARY_PROMPT_MARKS`）。
+   *
+   * 为什么必须按**集合**排除而不是只排除压缩器（2026-10-11 定性）：记忆抽取器在回合末触发，
+   * 它的请求正文就是整段"对话片段"，**含折叠后的旧摘要**；只排除压缩器时它会被当成任务请求，
+   * 于是"抽取器正在读旧内容"被误读成"回滚没截断" ⇒ ~3% 偶发假红。详见文件头。
+   * @param bodies 捕获到的请求体
+   * @returns 任务请求体（保持捕获顺序）
+   */
+  function taskBodies(bodies: readonly string[]): string[] {
+    return bodies.filter((body) => !AUXILIARY_PROMPT_MARKS.some((mark) => body.includes(mark)));
+  }
+
+  /** 辅助请求（压缩器 / 记忆抽取器）。 */
+  function auxiliaryBodies(bodies: readonly string[]): string[] {
+    return bodies.filter((body) => AUXILIARY_PROMPT_MARKS.some((mark) => body.includes(mark)));
+  }
+
+  // **仪器自证**：过滤器必须真的排除了东西，且**两类辅助请求都要真的出现过**——
+  // 尤其是记忆抽取器：它正是 2026-10-11 定性出的误判来源（旧过滤器只排压缩器 ⇒ 抽取器被当任务请求）。
+  // 若某类辅助请求在本夹具里压根不触发，这条会先红，而不是让"最后一次任务请求"的读数悄悄失真。
+  for (const [label, run] of [
+    ['控制组', control],
+    ['实验组', rolledBack],
+  ] as const) {
+    for (const mark of AUXILIARY_PROMPT_MARKS) {
+      assert.ok(
+        run.bodies.some((body) => body.includes(mark)),
+        `${label}：本次捕获里没有出现辅助请求「${mark}」⇒ 本夹具已不再触发它，` +
+          `辅助过滤器的覆盖面需要重新核对（捕获 ${String(run.bodies.length)} 条）`,
+      );
+    }
+  }
+
+  // **控制组**：不回滚 ⇒ 折叠摘要一直留在历史里 ⇒ 最后一次任务请求必须还能看到哨兵。
   // 这条不成立，说明观测面看不见压缩，"主判据的没有"就毫无意义。
   assert.ok(
     control.bodies.some((body) => body.includes(SUMMARY_SENTINEL)),
     `控制组（不回滚）里从未出现折叠摘要 ⇒ 观测面无效（请求数 ${String(control.bodies.length)}）`,
   );
-  const controlLast = lastTaskBody(control.bodies);
-  assert.ok(controlLast.length > 0, '控制组必须至少有一次任务请求（否则下面的断言是空转）');
+  const controlTasks = taskBodies(control.bodies);
+  assert.ok(controlTasks.length > 0, '控制组必须至少有一次任务请求（否则下面的断言是空转）');
+  const controlLast = controlTasks[controlTasks.length - 1] ?? '';
   assert.ok(
     controlLast.includes(SUMMARY_SENTINEL),
     '控制组的**最后一次任务请求**里应仍带着折叠摘要（不回滚就没有理由丢掉它）',
   );
 
-  // **主判据**：回滚之后，最后一次请求里不得再有折叠摘要。
+  // **主判据**：回滚之后，最后一次任务请求里不得再有折叠摘要。
   assert.ok(
     rolledBack.bodies.some((body) => body.includes(SUMMARY_SENTINEL)),
     '实验组里也出现过折叠摘要（否则"回滚后没有"只是因为压根没压缩过）',
   );
-  const rolledBackLast = lastTaskBody(rolledBack.bodies);
-  // **防空转**：若过滤后为空串，下面的 "不包含" 会恒真 —— 那等于判据自己失灵还报绿。
+  const rolledBackTasks = taskBodies(rolledBack.bodies);
+  // **防空转**：过滤后为空 ⇒ 下面的"不包含"恒真，那等于判据自己失灵还报绿。
   assert.ok(
-    rolledBackLast.length > 0,
-    `必须至少有一次任务请求（实际捕获 ${String(rolledBack.bodies.length)} 条，全部是压缩请求？）`,
+    rolledBackTasks.length > 0,
+    `必须至少有一次任务请求（实际捕获 ${String(rolledBack.bodies.length)} 条，全部是辅助请求？）`,
   );
+  const rolledBackLast = rolledBackTasks[rolledBackTasks.length - 1] ?? '';
   for (const needle of [SUMMARY_SENTINEL, COMPACTION_MARKER]) {
-    // 失败时**自证**：把命中处前后各 120 字打进消息。本判据的失败是偶发的（2026-10-11 实测
-    // 隔离跑 11 次中 1 次红），若只报"仍有哨兵"，事后无法区分三种成因：
-    // ① 折叠摘要真被带进请求（产品竞态）；② 命中的是压缩器请求（过滤失效）；
-    // ③ 命中的是**回滚之前**的最后一条任务请求（回滚后没再发请求）。片段能把它们分开。
+    // 失败时**自证**：把命中处前后各 120 字打进消息，用于区分"真残留"与"未分类的辅助请求"。
     const hit = rolledBackLast.indexOf(needle);
     const excerpt =
       hit < 0
@@ -222,7 +270,8 @@ test('端到端对照：回滚后最后一次请求不再带旧摘要（日志�
     assert.ok(
       hit < 0,
       `回滚后的最后一次请求里仍有 ${needle} ⇒ 回滚没把折叠点截掉` +
-        `（捕获 ${String(rolledBack.bodies.length)} 条请求 / 折叠点系统事件 ${String(rolledBack.markerEvents)} 条 / ` +
+        `（任务请求 ${String(rolledBackTasks.length)} 条 / 辅助请求 ${String(auxiliaryBodies(rolledBack.bodies).length)} 条 / ` +
+        `共捕获 ${String(rolledBack.bodies.length)} 条 / 折叠点系统事件 ${String(rolledBack.markerEvents)} 条 / ` +
         `末条任务请求 ${String(rolledBackLast.length)} 字符）\n      命中处：${excerpt}`,
     );
   }

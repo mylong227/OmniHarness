@@ -109,7 +109,7 @@ test('⑤ 架构门禁规则标签逐条等于架构门禁实际打印的标签'
     '[1] core→adapters 违规',
     '[2] adapters→core 违规',
     '[3] ports 纯度（第三方裸导入 / class 实现',
-    '[3.5] ports→实现层（core/adapters/config',
+    '[3.5] ports→实现层（动态全枚举，基础层 errors/util 除外',
     '[5] 依赖环（Tarjan SCC',
     '[4] 目录平铺告警（直接 .ts > 30，非阻断）',
   ];
