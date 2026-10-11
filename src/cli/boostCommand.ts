@@ -1,4 +1,4 @@
-/**
+﻿/**
  * `boost` 子命令 —— 把「探针读数」与「门禁挑选」纳入 harness 自身（不再依赖任何仓库外的脚本）。
  *
  * ## 回答什么问题
@@ -43,6 +43,7 @@ import {
   type BoostProbeRecord,
   type BoostProbeRun,
 } from './boostProbes.js';
+import { BoostGateSurface } from './boostGateSurface.js';
 
 /** 归档根（仓库内、运行时产物；与 `.omniharness/` 同类，不入库）。 */
 const DEFAULT_OUT_DIR = join('.omniharness', 'boost');
@@ -52,98 +53,6 @@ const GATES_SCRIPT = 'scripts/runGates.mjs';
 
 /** 单探针超时缺省值（30 分钟：够 `semanticHybridRecall` 首跑拉权重 + 千文件索引）。 */
 const DEFAULT_PROBE_TIMEOUT_MS = 1_800_000;
-
-/**
- * 任何改动下都可能变红的门禁（**永不跳过**）。
- *
- * 逐个理由（不是"顺手加的"）：
- *  - `node-engine`：校验 `engines.node` 下限；改 `package.json` 会影响，而它本身极便宜；
- *  - `iron-law`：`scripts/check.mjs --strict` 扫全仓铁律，任何新文件都可能踩线；
- *  - `maturity`：L2/L3 声明须有测试证据（还会顺 `@maturityEvidence` 读 `tests/**`）；
- *  - `standard-delta`：**"禁止本次提交新增违规"**——跳过它等于对本次改动不做标准判定；
- *  - `arch`：`core↔adapters` 冻结白名单 + ports 纯度，任何新增 `.ts` 都可能新增违规。
- */
-const ALWAYS_GATES: readonly string[] = [
-  'node-engine',
-  'iron-law',
-  'maturity',
-  'standard-delta',
-  'arch',
-];
-
-/** 探针侧的元数据/纯逻辑/类型统一由 `boostProbes.ts` 提供（本文件只做编排）。 */
-export type { BoostDiffEntry, BoostProbeRecord, BoostProbeRun };
-
-/** 单条改动分类规则。 */
-interface BoostRule {
-  /** 路径正则（对**正斜杠**形式匹配）。 */
-  readonly match: RegExp;
-  /** 命中即转全量（该路径会让"子集保守性"本身失效）。 */
-  readonly full?: boolean;
-  /** 该路径**额外**需要的门禁（兜底集不必重复）。 */
-  readonly gates?: readonly string[];
-  /** 人类可读理由。 */
-  readonly why: string;
-}
-
-/**
- * 改动分类规则表（**按顺序匹配，先命中者胜**）。
- *
- * `full=true` 的几类理由：改它们等于改**判据本身**（门禁脚本、探针语料、测试夹具、CI、
- * 依赖与配置面）。宁可不省，不可漏判。
- */
-const RULES: readonly BoostRule[] = [
-  { match: /^scripts\//, full: true, why: '门禁脚本/钩子包装本身，改它等于改判据' },
-  { match: /^tools\/probes\//, full: true, why: '探针是判据的语料，改语料即改读数' },
-  { match: /^tests\//, full: true, why: '测试夹具是成熟度门禁的证据来源' },
-  { match: /^eval-data\//, full: true, why: '外部语料，门禁与探针都会读' },
-  { match: /^crates\/|^native\/|^Cargo\.(toml|lock)$/, full: true, why: 'Rust 原生内核与绑定' },
-  { match: /^\.github\//, full: true, why: 'CI 工作流自身' },
-  {
-    match: /^\.gitignore$|^\.gitattributes$/,
-    full: true,
-    why: '决定哪些文件进仓库，影响全部门禁的可见输入',
-  },
-  {
-    match:
-      /(^|\/)(package(-lock)?\.json|tsconfig(\..+)?\.json|eslint\.(typed\.)?config\.(mjs|d\.mts)|\.prettierrc\.json|\.prettierignore|dependency-allowlist\.json|omniharness\.json(\.example)?|\.gitleaks\.toml|config\.example\.yaml|\.nvmrc)$/,
-    full: true,
-    why: '配置/依赖/忽略面：会改变门禁的扫描面与判定域',
-  },
-  {
-    match: /^src\/.*\.tsx?$/,
-    gates: ['eslint', 'tsc', 'eslint-typed', 'top-level-fn', 'wiring'],
-    why: '源码：ESLint + 类型层 + 顶层 function；可能改接线',
-  },
-  {
-    match: /^web\/.*\.(ts|tsx)$/,
-    gates: ['eslint', 'tsc', 'eslint-typed'],
-    why: '前端源码：同源码但不受顶层 function 规则约束（UI 例外）',
-  },
-  { match: /\.(ts|tsx|mts|cts)$/, gates: ['eslint', 'tsc', 'eslint-typed'], why: '其它位置的 TS' },
-  { match: /\.(md|mdx)$/, gates: ['doc-links'], why: '文档：只可能造成死链，进不了代码门禁的判据' },
-  {
-    match: /\.(mjs|cjs|js)$/,
-    full: true,
-    why: 'JS 脚本无类型/顶层 function 判据可依赖，保守转全量',
-  },
-  {
-    match: /\.(json|ya?ml|toml|ini)$/,
-    gates: ['secrets'],
-    why: '数据/配置类：无代码判据，只剩密钥面',
-  },
-  {
-    match: /\.(png|jpg|jpeg|gif|webp|svg|ico|pdf|woff2?|ttf|onnx|bin|node|wasm|tgz)$/,
-    gates: ['secrets'],
-    why: '二进制资源：只做密钥扫描',
-  },
-  { match: /\.(txt|css|html)$/, gates: ['secrets'], why: '文本资源（非文档）：仅密钥面' },
-  {
-    match: /(^|\/)(LICENSE|NOTICE|THIRD_PARTY_ASSETS\.md)$/,
-    gates: ['doc-links'],
-    why: '许可与第三方说明：文档类',
-  },
-];
 
 /** 一条门禁的定义（**来自 `runGates.mjs --list` 的现场输出**）。 */
 export interface BoostGateInfo {
@@ -316,6 +225,9 @@ export class BoostCommand {
 
   /**
    * 按改动挑选门禁子集（**纯函数**：便于机械验证）。
+   *
+   * 判定完全由 `boostGateSurface.ts` 的**取证过**的表面声明驱动：改动碰到某门禁的任一输入 ⇒ 必须跑；
+   * 未声明或未取证 ⇒ 永不跳过。本函数只做"选谁"，不做"猜它的输入是什么"。
    * @param gates 全部门禁（现场读出）。
    * @param files 改动文件（仓库根相对，正斜杠）。
    * @param tier 目标层。
@@ -326,63 +238,42 @@ export class BoostCommand {
     files: readonly string[],
     tier: string,
   ): BoostGateDecision {
-    const extra = new Set<string>();
-    const unmatched: string[] = [];
-    let fallback: string | null = null;
-    for (const raw of files) {
-      const f = raw.replaceAll('\\', '/');
-      const rule = RULES.find((r) => r.match.test(f));
-      if (rule === undefined) {
-        unmatched.push(f);
-        continue;
-      }
-      if (rule.full === true) {
-        fallback ??= `${f} ⇒ ${rule.why}`;
-        continue;
-      }
-      for (const id of rule.gates ?? []) extra.add(id);
-    }
-    if (unmatched.length > 0 && fallback === null) {
-      fallback = `有 ${String(unmatched.length)} 个文件的类型未被规则表登记（例：${unmatched[0] ?? ''}）⇒ 不猜，转全量`;
-    }
-    // 双向核对：上游新增的门禁若本表不可达，**不猜**（否则新判据会被静默跳过）。
-    const reachable = new Set(ALWAYS_GATES);
-    for (const r of RULES) for (const id of r.gates ?? []) reachable.add(id);
-    const unreachable = gates.filter((g) => !reachable.has(g.id)).map((g) => g.id);
-    if (unreachable.length > 0) {
-      fallback ??= `上游新增了规则表覆盖不到的门禁 ${unreachable.join(', ')} ⇒ 转全量`;
-    }
+    const normalized = files.map((f) => f.replaceAll('\\', '/'));
     const tierWanted = new Set(tier === 'all' ? ['fast', 'typed'] : [tier]);
     const inTierGates = gates.filter((g) => tierWanted.has(g.tier));
-    let full = fallback !== null;
-    const pick = (): readonly string[] =>
-      gates
-        .filter(
-          (g) => tierWanted.has(g.tier) && (full || ALWAYS_GATES.includes(g.id) || extra.has(g.id)),
-        )
-        .map((g) => g.id);
-    let selected = pick();
+    /** 逐条门禁的命中情况（不可跳过者一律 hit=true，见 `touchesSurface`）。 */
+    const touched = new Map(
+      gates.map((g) => [g.id, BoostGateSurface.touches(g.id, normalized)] as const),
+    );
+    const undeclared = gates.filter((g) => !touched.get(g.id)?.skippable).map((g) => g.id);
+    const hitInTier = inTierGates.filter((g) => touched.get(g.id)?.hit === true);
+    let fallback: string | null = null;
+    if (undeclared.length > 0) {
+      // 表面表没有它、或声明尚未取证 ⇒ 无法证明其输入与改动无关。此时**整轮转全量**：
+      // 与"只让它自己跑"相比更保守，且把"该补声明"这件事顶到眼前（而不是静默兜住）。
+      fallback = `有 ${String(undeclared.length)} 条门禁的输入未取证（${undeclared.join(', ')}）⇒ 不猜，转全量`;
+    }
     // 该层选空 = 本次改动在该层没有判据可跑：**不能**当成"通过"（历史缺陷：`--only=<别的层>`
     // 曾零门禁 + 打印通过）。转该层全量，让"没得跑"变成"跑全"。
-    if (selected.length === 0 && inTierGates.length > 0) {
-      fallback = `在 ${tier} 层选中 0 条（本次改动与该层判据无交集）⇒ 转该层全量`;
-      full = true;
-      selected = pick();
+    if (fallback === null && hitInTier.length === 0 && inTierGates.length > 0) {
+      fallback = `在 ${tier} 层没有任何门禁的判定输入被碰到（选中 0 条）⇒ 转该层全量`;
     }
+    const selected = fallback === null ? hitInTier.map((g) => g.id) : inTierGates.map((g) => g.id);
     const reasons: Record<string, string> = {};
     for (const g of gates) {
+      const t = touched.get(g.id);
       if (!tierWanted.has(g.tier)) reasons[g.id] = `不在本次层（--tier=${tier}）`;
-      else if (full) reasons[g.id] = '全量：分类被放弃（见兜底原因）';
-      else if (ALWAYS_GATES.includes(g.id))
-        reasons[g.id] = '兜底集：任何改动都可能由"本次提交内容"触发';
-      else if (extra.has(g.id)) reasons[g.id] = '被改动类型触发';
-      else reasons[g.id] = '本次改动文件不在该门禁的判定面上（类型已登记，未触发兜底）';
+      else if (fallback !== null) reasons[g.id] = '全量：分类被放弃（见兜底原因）';
+      else if (!t?.skippable) reasons[g.id] = `不可跳过：${t?.why ?? '未取证'}`;
+      else if (t.hit) {
+        reasons[g.id] = `改动碰到其判定输入（${t.hits.join(' ') || '—'}）｜ ${t.why}`;
+      } else reasons[g.id] = `本次改动不在其判定面内（已取证）｜ ${t.why}`;
     }
     return {
       selected,
       reasons,
       fallback,
-      unmatched,
+      unmatched: undeclared,
       inTier: inTierGates.length,
       allGates: gates.length,
     };
