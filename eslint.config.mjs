@@ -30,6 +30,15 @@ export default tseslint.config(
       '.tmpcheck/**',
       '**/*.mjs',
       '**/*.cjs',
+      // vendored 运行时物料与构建产物（2026-10-09 实测补入）：
+      // `third-party/**` 是本机 Python venv（laya/torch/transformers 等），`target/**` 是 Rust 构建产物
+      // （`.gitignore:53` 已忽略）。两者都不是本仓维护的源码，但此前**未**列入 ignores ⇒
+      // `eslint .` 会进去 walk 4932 个目录、最终只命中 **2** 个 `.js`（都在 site-packages 内、0 条 message），
+      // 而 `eslint .` 单跑实测 **39.8s**，是 fast 层（10 条门禁合计 ~60s）里最大的一笔。
+      // 与上面 `eval-data/**`（上游 vendored jQuery 被当本仓源码 lint）是同一条理由，属同一类误伤。
+      // 判据：加这两条前后，eslint 的**被检查文件集**除这 2 个 vendored 文件外完全一致（实测 1781 → 1779）。
+      'third-party/**',
+      'target/**',
     ],
   },
   {
