@@ -56,7 +56,7 @@
     "start": "node scripts/startAll.mjs",
     "dev": "node scripts/devAll.mjs",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
-    "build": "node scripts/cleanDist.mjs dist && tsc && node scripts/copyAssets.mjs",
+    "build": "node scripts/buildDist.mjs",
     "web:build": "node scripts/cleanDist.mjs web/dist && tsc -p web/tsconfig.json",
     "web:watch": "tsc -p web/tsconfig.json --watch",
     "web:test": "npm run web:build && node --test --test-timeout=60000 \"web/test/**/*.test.mjs\"",

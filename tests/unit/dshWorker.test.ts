@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 import { dshWorker } from '../../src/worker/dshWorker.js';
 import { WorkerRegistry } from '../../src/worker/workerRegistry.js';
 import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.js';
@@ -15,8 +16,17 @@ const dshReady =
     })
   ).status === 0;
 
-/** 跳过原因（未装 dsh 时）。 */
-const skipReason = dshReady ? false : '本机未安装 dsh，跳过真实二进制联调';
+/**
+ * 跳过原因（未装 dsh 时）。
+ *
+ * 2026-10-11：接 `OMNI_REQUIRE_DSH` 开关——本文件 3 条用例在缺 dsh 时**全跳**（净 0 通过 0 失败），
+ * 那是典型的"看着绿其实没跑"；在声明"dsh 必须在场"的环境里改为失败。
+ */
+const skipReason = RequireEnv.skipUnless(
+  'OMNI_REQUIRE_DSH',
+  dshReady,
+  '本机未安装 dsh，跳过真实二进制联调',
+);
 
 test(
   'dsh worker：真实二进制执行成功（配置转储，离线可跑）',

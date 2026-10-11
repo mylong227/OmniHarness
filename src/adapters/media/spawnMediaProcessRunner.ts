@@ -9,6 +9,49 @@ import type {
 const MAX_STDERR_BYTES = 256 * 1024;
 
 /**
+ * 已启动子进程里本执行器真正用到的最小面（`ChildProcess` 的窄化）。
+ *
+ * 存在的理由：本类的**判定**（超时真杀、输出截断、ENOENT 不炸宿主、收尾清理）全都
+ * 发生在事件回调里，只有能注入替身进程才可判——而 `ChildProcess` 是个巨型接口，
+ * 单测无法构造。窄化后替身只需实现这 4 个成员。
+ */
+export interface SpawnedMediaChild {
+  /** stdout 数据流（本类只订阅 `data`）。 */
+  readonly stdout: { on(event: 'data', listener: (chunk: Buffer) => void): unknown };
+  /** stderr 数据流（本类只订阅 `data`）。 */
+  readonly stderr: { on(event: 'data', listener: (chunk: Buffer) => void): unknown };
+  /**
+   * 订阅进程事件。
+   *
+   * @param event 事件名（`error` / `close`）。
+   * @param listener 事件回调。
+   * @returns 无返回值（实现多返回 `this`，本类不依赖）。
+   */
+  on(event: 'error', listener: (error: Error) => void): unknown;
+  on(event: 'close', listener: (code: number | null) => void): unknown;
+  /**
+   * 终止进程（超时与取消两条路径都用它）。
+   *
+   * @returns 无返回值（实现多返回是否成功，本类不依赖）。
+   */
+  kill(): void;
+}
+
+/** 子进程启动函数（注入缝）：缺省即 `node:child_process.spawn`。 */
+export type MediaChildSpawner = (command: string, args: readonly string[]) => SpawnedMediaChild;
+
+/**
+ * 缺省启动实现：真的是 `node:child_process.spawn`，启动参数与本次改造前**逐字一致**
+ * （`stdio: ['ignore', 'pipe', 'pipe']` + `windowsHide: true`）。
+ *
+ * @param command 可执行文件路径（绝对路径或 PATH 中的名字）。
+ * @param args 参数数组（**不经 shell**）。
+ * @returns 已启动的子进程。
+ */
+const spawnRealChild: MediaChildSpawner = (command, args) =>
+  spawn(command, [...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+
+/**
  * 基于 `child_process.spawn` 的媒体子进程执行器（生产实现）。
  *
  * ## 三条硬约束（都对应真实事故形态）
@@ -26,6 +69,16 @@ const MAX_STDERR_BYTES = 256 * 1024;
  * stdin 一律置 `ignore`：ffmpeg 在 stdin 被占用时会读它（`-nostdin` 之外的第二道保险）。
  */
 export class SpawnMediaProcessRunner implements MediaProcessRunner {
+  /** 子进程启动函数（注入缝）；缺省即真实 `node:child_process.spawn`。 */
+  private readonly spawnChild: MediaChildSpawner;
+
+  /**
+   * @param spawnChild 子进程启动函数；省略时使用真实 `node:child_process.spawn`。
+   */
+  public constructor(spawnChild: MediaChildSpawner = spawnRealChild) {
+    this.spawnChild = spawnChild;
+  }
+
   /**
    * 执行一条受控子进程。
    *
@@ -41,10 +94,7 @@ export class SpawnMediaProcessRunner implements MediaProcessRunner {
       let truncated = false;
       let timedOut = false;
       let settled = false;
-      const child = spawn(request.command, [...request.args], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
+      const child = this.spawnChild(request.command, [...request.args]);
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill();

@@ -7,6 +7,21 @@ export class SqliteKv implements KvPort {
   /** 端口名：SQLite 后端标识，与 KvPort 契约的适配器命名空间一致。 */
   public readonly name = 'sqlite';
 
+  /**
+   * `node:sqlite` 模块加载器（**可注入的缝**，缺省 = 真实 `createRequire`）。
+   *
+   * 为什么要这个缝：本类的两条失败路径（模块抛错 / 模块未导出 `DatabaseSync`）在**装了 Node 22
+   * 的环境里不可达**，于是"模块不可用时给出可行动建议"这条能力没有任何判据——2026-10-11 它一度
+   * 被当成"不可达的防御分支"直接改写覆盖率冻结值（那是纸面处置）。加缝后两条路径都能被真实触发：
+   * 判据把本字段换成替身，**走的就是下面 `loadDatabaseSync` 的原逻辑**（不是包一层）。
+   *
+   * 只在同进程内的判据里替换，判据结束即恢复（node:test 同文件内用例串行，无并发污染）。
+   * @param specifier 模块说明符（本类只传 `'node:sqlite'`）。
+   * @returns 模块命名空间对象。
+   */
+  public static requireImpl: (specifier: string) => unknown = (specifier) =>
+    createRequire(import.meta.url)(specifier);
+
   /** 底层 SQLite 数据库连接（kv 表：key 主键 + value 文本）。 */
   private readonly db: DatabaseSync;
 
@@ -42,7 +57,8 @@ export class SqliteKv implements KvPort {
     try {
       // CJS require 返回模块命名空间对象（{ DatabaseSync }），不是类本身——
       // 直接 new 模块对象会炸「not a constructor」（与 SqliteStorage 同一处实测结论）。
-      const mod = createRequire(import.meta.url)('node:sqlite') as {
+      // 走可注入的 `requireImpl`（缺省即真实 createRequire）⇒ 判据能真实触发下面两条失败路径。
+      const mod = SqliteKv.requireImpl('node:sqlite') as {
         DatabaseSync: typeof DatabaseSync;
       };
       if (typeof mod?.DatabaseSync !== 'function') {
@@ -116,7 +132,11 @@ export class SqliteKv implements KvPort {
     const rows = this.db
       .prepare('SELECT key, value FROM kv WHERE key LIKE ? ORDER BY key')
       .all(`${prefix}%`) as { key: string; value: string }[];
-    return rows;
+    // node:sqlite 返回的行是 **null 原型对象**（`[Object: null prototype]`）；照原样外传会让
+    // 「同一端口、不同后端」返回**形状不同**的东西：`assert.deepStrictEqual` 直接不等、
+    // `instanceof Object` 为 false。此处归一成普通对象，使 sqlite 与 json-file 两后端形状一致
+    // （2026-10-11 由新增判据 `sqliteKvFailurePaths.test.ts` 当场抓到并钉住）。
+    return rows.map((row) => ({ key: row.key, value: row.value }));
   }
 
   /** 关闭底层 SQLite 数据库连接，释放文件句柄。

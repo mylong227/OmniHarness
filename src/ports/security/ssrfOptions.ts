@@ -1,4 +1,4 @@
-import type { SsrfPolicy } from '../../security/ssrfPolicy.js';
+﻿import type { ResolvedSsrfPolicy } from './ssrfPolicy.js';
 
 /** SSRF 校验选项。 */
 export interface SsrfOptions {
@@ -11,7 +11,7 @@ export interface SsrfOptions {
    * DEFAULT_SSRF_POLICY（见 security/ssrfPolicy）。
    * 由组合根从配置解析后注入（`resolveSsrfPolicy(config.ssrfPolicy)`）。
    */
-  readonly policy?: SsrfPolicy | undefined;
+  readonly policy?: ResolvedSsrfPolicy | undefined;
   /** 是否做 DNS 解析后二次判定（默认 false：解析有网络开销且引入 TOCTOU 窗口）。 */
   readonly resolveDns?: boolean;
 }

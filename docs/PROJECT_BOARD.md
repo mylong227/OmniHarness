@@ -2269,6 +2269,71 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
 已逐行就地补销账（保留旧文 + `✅ 日期 销账` 与复核依据）；`nativeBuild.mjs`/`maturityAnnotate.mjs` 两处
 **本轮未见原文**，按部分销账处理。教训：未修登记存在系统性滞后，下次检索前先看销账标记。
 
+### 8.10 「真修」批：撤销纸面处置 + 121 条真判据 + 构建原子化 + 门禁收口（2026-10-11 同日）
+
+用户口径：「**全部修干净，不要出现假修**」。故本批先把上一轮**自己留下的纸面处置**翻出来重做。
+
+#### ① 撤销纸面处置：`sqliteKv` 那条"不可达分支"其实是**没缝**
+
+- 上一轮我把它的覆盖率冻结值 100 → 95.41（理由：懒加载重构带来本环境不可达的防御分支）。
+  **那是纸面处置**——错误文案是真实能力，删了不会红。
+- 现给 `SqliteKv.requireImpl` 一个**可注入的缝**（缺省 `createRequire`），判据把加载器换替身，
+  **走的是 `loadDatabaseSync` 原逻辑**。判据 4 例；**正对照**：把文案改成 `boom` ⇒ ②③ 立刻变红。
+  行/分支/函数均 **100%** ⇒ **棘轮恢复 100**，并删掉 envDependent 里那条改写说明。
+- **顺带真缺陷**：`SqliteKv.list()` 原样外传 node:sqlite 的 **null 原型行对象**，而端口契约是
+  `{key,value}` ⇒ 同一端口两个后端**形状不同**（`deepStrictEqual` 不等、`instanceof Object` 为 false）。已归一化并钉住。
+
+#### ② "跳过即假绿"全部装开关（10 文件）+ 机制判据
+
+14 个含 skip 的文件里 **10 个无开关**（缺 `.node`/wasm 产物/`sharp`/Laya 权重/`dsh` 时 CI 看着绿其实没跑）。
+新增 `tests/helpers/requireEnv.ts`（单一实现）+ 7 个开关；两条机制判据（三种语义自证 + 全仓清点
+
+- 开关表无死条目 + 扫描面不塌缩）。
+  **清点当场又抓出一处**：`tests/unit/sandboxElevatedReal.test.ts` 是**无条件 skip**（任何环境都不跑）——
+  解除后实测**三条断言全通过** ⇒ 它本来就该跑，现为真判据（文件头写明：它断言的是**决策面**，
+  内核强制仍依赖真机特权）。
+
+#### ③ 测试盲区 Top10 全部补真判据（10 文件 / 121 条 / 54 条变异全红）
+
+| 文件                            | 行覆盖 改前→改后                                      | 变异正对照                                                                |
+| ------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------- |
+| `processTreeKiller`             | 63.64% → **100%**                                     | 3 处 ⇒ 5 条红                                                             |
+| `quotaStore`                    | 53.54% → **100%**                                     | 14 条 ⇒ 14/14 红                                                          |
+| `jsonlWriter`                   | 12.50% → **100%**                                     | 同上                                                                      |
+| `frameSceneSelector`            | 27.27% → **100%**                                     | 21 条 ⇒ 21/21 红                                                          |
+| `spawnMediaProcessRunner`       | 29.13% → **100%**                                     | 同上                                                                      |
+| `lspDiagnosticsCollector`       | 82.18% → **98.14%**（残留为类型系统逼出的不可达分支） | 19 条 ⇒ 19/19 红（含定时器 `unref` 铁律的**源码级**红证）                 |
+| `turnDirectiveComposer`         | 80.39%/分支 37.5% → **100%**                          | 同上（含 8 组合"不得暗示已获授权"）                                       |
+| `sdkMcpConnector`               | 15.86% → **100% 行**                                  | 逐条验红                                                                  |
+| `worker.ts` / `approvalRule.ts` | 零可执行行（编译产物 `export {};`）                   | **不假报覆盖**，改用结构 + 编译器级（`@ts-expect-error`）+ 消费者实跑判据 |
+
+注入缝一律可选、缺省行为逐字不变。**顺带修掉一个真缺口**：`WorkerOrchestrator.delegateAll` 无 `signal`
+形参 ⇒ 批量委派不可取消（与单条链路不一致）；已补并加判据（**诚实登记**：该方法目前无生产调用者）。
+
+#### ④ `npm run build` 改为"先建暂存再换入"（不再先删 dist）
+
+实测故障：serve 占着 `dist` 时旧顺序在 `cleanDist` **删到一半**抛 `ENOTEMPTY` ⇒ 留"半删的 dist"
+（`--version` 能跑、`doctor` 报 `Cannot find module dist/src/core/agent.js`），而 tsc 从未开始。
+新脚本 `scripts/buildDist.mjs`：tsc→`dist.next`+资产 → **换入**（优先 rename 真原子；被占用即回滚 +
+退化为覆盖同步）→ 清 `dist.old`。实测：① tsc 失败 ⇒ **dist 完好**、退出码 2；② 成功 ⇒ `✓ 已原子换入 dist`。
+
+#### ⑤ 架构门禁 `ports→实现层`：21 条存量边**真收口到 5 条**
+
+14 条属"类型早在 `ports/**`、端口却绕道实现文件的再导出桶"（G25 同型老毛病）⇒ 改直连；
+1 条真搬移（`TrustTier` → `ports/security/trustTier.ts`）；2 条属 `SsrfPolicy` 只是
+`ResolvedSsrfPolicy` 的空扩展 ⇒ 直接引用端口层类型。白名单 **21 → 5**，`--strict` 通过。
+**剩余 5 条**（spark×2 / workerRegistry / skillRegistry / rlvrLoop）需先造端口接口 + 搬纯类型模块
+（`Worker`/`RlvrSampleContext`/`SkillRetrieveHit`）——记为下一批，不靠白名单糊过去。
+
+#### ⑥ 本批自己踩的坑（记档防再犯）
+
+Windows PowerShell 的 `Set-Content -Encoding utf8` **会写 BOM**，`package.json` 一带 BOM 就让
+`check.mjs` 的 `JSON.parse` 崩（报错既不点明 BOM、也不点明文件），连带 **4 条判据变红**；
+用 `Substring(1)` 手工剥 BOM 又**多剥了一个字符**（把 `docs/ARCHITECTURE_SPEC.md` 标题的 `#` 吃掉，
+判据①当场红）。处置：① `check.mjs` 新增 `readJson()`（剥 BOM 后 parse）替换全部 6 处 JSON 读取点
+——与 `src/config/configFile.ts` 的既有口径一致；② 剥 BOM 一律用**字节级**判断（读首三字节），
+不要用"去掉第一个字符"。
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。

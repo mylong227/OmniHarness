@@ -42,16 +42,24 @@ export class WorkerOrchestrator {
    * {@link ParallelMap} 有界均衡并行——各 worker 是**独立子进程**，彼此无共享可变状态，
    * 故并行安全；结果仍与 `tasks` **严格同序**。
    *
+   * **取消（2026-10-11 补齐）**：`signal` 逐任务透传给 {@link WorkerOrchestrator.delegate}，
+   * 与单条委派同一条取消链。此前本方法**没有** `signal` 形参、内部调用也不传 ⇒
+   * 「批量委派不可取消」：用户中止回合后，已派出去的子进程仍会跑完，与
+   * `DelegateTool → delegate → Worker.run` 那条已验证可杀的链路行为不一致。
    * @param tasks 委派任务清单
    * @param workspaceRoot 子进程工作目录（全部任务共用）
    * @param concurrency 并发上限（默认 1=串行）
+   * @param signal 取消信号（可选；中止后各任务就地收敛为「已被取消」）
    * @returns 与任务清单顺序一一对应的结果数组
    */
   public async delegateAll(
     tasks: readonly DelegateTask[],
     workspaceRoot: string,
     concurrency = 1,
+    signal?: AbortSignal | undefined,
   ): Promise<readonly WorkerResult[]> {
-    return new ParallelMap(concurrency).map(tasks, (task) => this.delegate(task, workspaceRoot));
+    return new ParallelMap(concurrency).map(tasks, (task) =>
+      this.delegate(task, workspaceRoot, signal),
+    );
   }
 }

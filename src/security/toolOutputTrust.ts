@@ -34,8 +34,15 @@
  */
 import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 
-/** 工具输出来源信任级（越不可信越敏感）。 */
-export type TrustTier = 'external' | 'file' | 'local' | 'memory' | 'unknown';
+/**
+ * 工具输出来源信任级（越不可信越敏感）。
+ *
+ * 2026-10-11：类型已外迁 `ports/security/trustTier.ts`（端口层要用它表达"外部内容信任档"的配置面），
+ * 此处**导入**供本文件的类使用、并再导出以维持公共 API 面零改动。
+ */
+import type { TrustTier } from '../ports/security/trustTier.js';
+
+export type { TrustTier } from '../ports/security/trustTier.js';
 
 /** 工具输出来源信任级判定器（纯静态，无状态）。 */
 export class ToolOutputTrust {

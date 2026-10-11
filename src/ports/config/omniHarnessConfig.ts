@@ -19,14 +19,14 @@ import type { EvolutionController } from '../runtime/evolution.js';
 import type { SelfVerifyConfig } from './selfVerifyConfig.js';
 import type { DecisionEngineConfig } from './decisionEngineConfig.js';
 import type { EnforcementMode } from '../security/enforcementMode.js';
-import type { TrustTier } from '../../security/toolOutputTrust.js';
+import type { TrustTier } from '../security/trustTier.js';
 import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.js';
 import type { CapabilityConfig } from './capabilityConfig.js';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.js';
 import type { RbacConfig } from './rbacConfig.js';
 import type { RuntimeTelemetryPort } from '../runtime/runtimeTelemetry.js';
 import type { RegimeSignals } from '../genesis/regimeSignals.js';
-import type { Skill } from '../../skill/skill.js';
+import type { Skill } from '../skill/skill.js';
 import type { LspServerConfig } from '../tool/lsp.js';
 import type { ModelRouterConfig } from './modelRouterConfig.js';
 

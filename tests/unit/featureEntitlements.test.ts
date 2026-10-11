@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { FeatureEntitlements } from '../../src/license/featureEntitlements.js';
 import { LicenseEngine } from '../../src/license/licenseEngine.js';
 import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 
 /** 采集到的一条事件。 */
 interface Captured {
@@ -104,8 +105,16 @@ test('F4 · 无授权：Pro/Team/Enterprise 功能全拒（no-license），core 
 
 test('F4 · 档位不足：Pro 拿不到 Team 的功能（tier-too-low），Team 拿不到 Enterprise 的', (t) => {
   const pro = entitlementsOf('pro');
-  if (pro.tier !== 'pro') {
-    t.skip('本环境无法走完整签发链（issue API 形状不同）');
+  // 2026-10-11：接 `OMNI_REQUIRE_LICENSE` 开关——"签发链形状不同 ⇒ 静默跳过"属"看着绿其实没跑"，
+  // 声明许可链必须在场时改为失败（不再只 skip）。
+  if (
+    !RequireEnv.guardUnless(
+      t,
+      'OMNI_REQUIRE_LICENSE',
+      pro.tier === 'pro',
+      '本环境无法走完整签发链（issue API 形状不同）',
+    )
+  ) {
     return;
   }
   assert.strictEqual(pro.allowed('governance-console'), true, 'Pro 应有治理台');

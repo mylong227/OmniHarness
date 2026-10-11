@@ -22,6 +22,7 @@ import { resolve } from 'node:path';
 import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.js';
 import { IsolationLadderFactory } from '../../src/adapters/isolation/isolationLadderFactory.js';
 import type { IsolationRequest } from '../../src/ports/runtime/isolation.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 
 /**
  * 最小 `WebAssembly` 类型面（主 tsconfig 的 `lib` 只有 ES2024，@types/node 也不声明它；
@@ -99,9 +100,20 @@ function requestOf(
 
 test('Wave C E2E：真 wasm 内核（omni_wasm.wasm）在 wasm 档应答 JSON-RPC，且零 import', async (t) => {
   const bytes = loadArtifact();
-  if (bytes === undefined) {
-    t.skip(`缺 wasm 产物，先执行：${BUILD_CMD}`);
+  // 2026-10-11：接 `OMNI_REQUIRE_WASM` 开关——CI 的 wasm 作业**会**构建该产物，
+  // 那里声明"必须在场"后，缺产物即失败（否则 4 个 wasm 单测在 CI 上静默跳过 = 看着绿）。
+  if (
+    !RequireEnv.guardUnless(
+      t,
+      'OMNI_REQUIRE_WASM',
+      bytes !== undefined,
+      `缺 wasm 产物，先执行：${BUILD_CMD}`,
+    )
+  ) {
     return;
+  }
+  if (bytes === undefined) {
+    return; // 类型收窄（guardUnless 已保证此分支不可达）
   }
   // ① 零 import：这是"默认拒绝全部 import"能同时跑真内核的前提，故显式断言（不是默认假设）。
   const module = new wasmApi.Module(bytes);

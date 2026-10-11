@@ -24,6 +24,21 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * 读 JSON（**容忍 UTF-8 BOM**）。
+ *
+ * 为什么需要：Windows 上的编辑器 / PowerShell 的 `Set-Content -Encoding utf8` 会给文件写 BOM，
+ * 而 `JSON.parse` 遇到 BOM 抛的是 `SyntaxError: Unexpected token '﻿'` —— 报错既不点明
+ * "这是 BOM"、也不点明"哪个文件"，极容易被误判成"JSON 语法写坏了"。本仓配置层
+ * （`src/config/configFile.ts`）早已容忍 BOM，门禁脚本这一侧此前没有（2026-10-11 实测踩到：
+ * `package.json` 被写入 BOM ⇒ `check.mjs` 直接崩，连带 4 条判据变红）。
+ * @param file 文件路径
+ * @returns 解析后的 JSON
+ */
+function readJson(file) {
+  return JSON.parse(readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+}
 const SRC = join(ROOT, 'src');
 // 2026-09-12 决策（D1，见 docs/REFACTOR_BOARD_2026-09-12.md）：上限 400 → 800。
 // 理由：架构稳定优先于机械拆文件；歧义职责靠「解耦/目录归属/注释」治，不靠切行数。
@@ -49,7 +64,7 @@ const blockingRules = new Set([
 const ALLOWLIST_PATH = join(ROOT, 'dependency-allowlist.json');
 function loadAllowlist() {
   try {
-    return JSON.parse(readFileSync(ALLOWLIST_PATH, 'utf8'));
+    return readJson(ALLOWLIST_PATH);
   } catch {
     // 清单缺失本身即阻断：没有清单就无法判定任何依赖是否合规。
     add('依赖准入清单', 'dependency-allowlist.json', '清单文件缺失或不可解析，无法判定依赖合规性');
@@ -115,9 +130,7 @@ const allowlist = allowlistDoc?.allowlist ?? {};
  * 顶层静态 import 的依赖一律不得进此集合，否则等于绕过体积门禁。
  */
 const optionalDeps = new Set(
-  Object.keys(
-    JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).optionalDependencies ?? {},
-  ),
+  Object.keys(readJson(join(ROOT, 'package.json')).optionalDependencies ?? {}),
 );
 const allowedLicenses = new Set(allowlistDoc?.allowedLicenses ?? []);
 const forbiddenLayers = (allowlistDoc?.forbiddenLayers ?? ['src/ports', 'src/core']).map((p) =>
@@ -151,7 +164,7 @@ function isForbiddenLayer(file) {
 // ---- 1) 依赖准入清单 + 字段完整 + 许可证合规 ----
 function checkDependencyAdmission() {
   const pkgPath = join(ROOT, 'package.json');
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  const pkg = readJson(pkgPath);
   const deps = { ...(pkg.dependencies ?? {}), ...(pkg.optionalDependencies ?? {}) };
   const names = Object.keys(deps);
 
@@ -205,7 +218,7 @@ function checkDependencySize() {
     const pkgJsonPath = join(dir, 'package.json');
     let installed = null;
     try {
-      installed = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+      installed = readJson(pkgJsonPath);
     } catch {
       continue; // 未安装则跳过实测（CI install 后自动生效）
     }
@@ -342,7 +355,7 @@ function checkUnusedDependencies() {
   const pkgPath = join(ROOT, 'package.json');
   let pkg;
   try {
-    pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+    pkg = readJson(pkgPath);
   } catch {
     return;
   }
@@ -437,7 +450,7 @@ function largeFunctionsOf(file, src) {
 /** 载入存量基线（`文件 → 函数名 → 体行数`）；缺失即视为空基线（更严，不是更松）。 */
 function loadFuncBaseline() {
   try {
-    return JSON.parse(readFileSync(FUNC_BASELINE_PATH, 'utf8'));
+    return readJson(FUNC_BASELINE_PATH);
   } catch {
     return {};
   }

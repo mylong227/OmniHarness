@@ -1,11 +1,11 @@
 import type { ToolContext, ToolPort } from '../tool/tool.js';
-import type { Transport } from '../../server/transport/lineTransport.js';
+import type { Transport } from '../server/transport.js';
 import type {
   McpServerInfo,
   McpResourceDescriptor,
   McpResourceContent,
   McpPromptDescriptor,
-} from '../../mcp/mcpProtocol.js';
+} from '../mcp/mcpProtocolTypes.js';
 import type { ToolGatePort } from '../runtime/toolGatePort.js';
 
 /**

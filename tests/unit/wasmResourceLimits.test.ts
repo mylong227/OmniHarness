@@ -20,6 +20,7 @@ import {
   WasmMemoryLimits,
 } from '../../src/adapters/isolation/wasmMemoryLimits.js';
 import type { IsolationRequest } from '../../src/ports/runtime/isolation.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 
 /**
  * 造段字节。
@@ -307,10 +308,14 @@ test('资源上限⑤：真实内核在**默认上限**下仍跑通（上限不�
     'release',
     'omni_wasm.wasm',
   );
-  if (!existsSync(artifact)) {
-    t.skip(
+  if (
+    !RequireEnv.guardUnless(
+      t,
+      'OMNI_REQUIRE_WASM',
+      existsSync(artifact),
       '缺 wasm 产物，先执行：cargo build --release --target wasm32-unknown-unknown -p omni-wasm',
-    );
+    )
+  ) {
     return;
   }
   const bytes = readFileSync(artifact);
