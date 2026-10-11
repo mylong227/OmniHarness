@@ -152,7 +152,8 @@ export class CliDataCmds extends CliMcpCmds {
         '用法: omniharness boost probe [list] [--boost-probe NAME] [--boost-arg VALUE] [--boost-network]\n' +
           '      [--boost-diff] [--boost-dir DIR] [--boost-timeout-ms N]\n' +
           '       omniharness boost gate [--boost-mode staged|worktree] [--boost-tier fast|typed|all]\n' +
-          '      [--boost-run] [--boost-explain] [--boost-dir DIR]\n',
+          '      [--boost-run] [--boost-explain] [--boost-dir DIR]\n' +
+          '       omniharness boost audit-surface [--boost-run] [--boost-dir DIR]\n',
       );
       return 2;
     }
@@ -167,7 +168,7 @@ export class CliDataCmds extends CliMcpCmds {
   private readBoostOptions(args: readonly string[]): BoostOptions | null {
     const reader = new CliArgReader(args);
     const action = reader.at(0) ?? 'probe';
-    if (action !== 'probe' && action !== 'gate') return null;
+    if (action !== 'probe' && action !== 'gate' && action !== 'audit-surface') return null;
     const tier = reader.value('--boost-tier') ?? 'fast';
     if (!['fast', 'typed', 'all'].includes(tier)) return null;
     const mode = reader.value('--boost-mode') ?? 'staged';

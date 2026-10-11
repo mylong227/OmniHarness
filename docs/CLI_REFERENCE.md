@@ -58,6 +58,7 @@
 | `capability …`                               | 能力注册表（协议能力声明与查询）                                                        |
 | `boost probe [list]`                         | 探针统一归档 + 跨次比对（只读 `tools/probes/`；`exit 0/1/3` = 通过/仪器坏/判据类结论）  |
 | `boost gate`                                 | 按改动挑门禁子集（清单现场读自 `scripts/runGates.mjs`；默认不执行，`--boost-run` 才跑） |
+| `boost audit-surface`                        | 输入表面声明的静态取证（入口脚本一变即判声明过期；只覆盖 `scripts/` 下的门禁入口）      |
 
 ### 数据、凭据与治理
 

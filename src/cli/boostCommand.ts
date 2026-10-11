@@ -1,4 +1,4 @@
-﻿/**
+/**
  * `boost` 子命令 —— 把「探针读数」与「门禁挑选」纳入 harness 自身（不再依赖任何仓库外的脚本）。
  *
  * ## 回答什么问题
@@ -44,6 +44,7 @@ import {
   type BoostProbeRun,
 } from './boostProbes.js';
 import { BoostGateSurface } from './boostGateSurface.js';
+import { BoostSurfaceAudit, SURFACE_SNAPSHOT_REL } from './boostSurfaceAudit.js';
 
 /** 归档根（仓库内、运行时产物；与 `.omniharness/` 同类，不入库）。 */
 const DEFAULT_OUT_DIR = join('.omniharness', 'boost');
@@ -610,6 +611,68 @@ export class BoostCommand {
   }
 
   /**
+   * 处理 `boost audit-surface`（静态取证：声明的输入表面是否还配得上当前实现）。
+   *
+   * 它补的是 `boostGateSurface.ts` 的死穴：声明一旦过期，上层会**放心地跳过一条其实需要的门禁**
+   * （假阴性）。故只要入口脚本内容变了，对应声明一律按"过期"报出，而不是"大概没事"。
+   * @param options 选项（取 `outDir` 决定快照落点）。
+   * @returns 进程退出码：3 = 需重新取证；0 = 无问题；2 = 读不出门禁清单。
+   */
+  public runSurfaceAudit(options: BoostOptions): number {
+    const auditor = new BoostSurfaceAudit(this.root);
+    const snapshotRel =
+      options.outDir === undefined ? SURFACE_SNAPSHOT_REL : `${options.outDir}/gate-surface.json`;
+    // `--boost-run` 在这里的语义 = **确认已重新取证**（把当前脚本哈希记为基线）。
+    // 默认不写快照：否则一次临时改动会把基线毒化，之后永远报"过期"（症状与"工具坏了"一样）。
+    const report = auditor.audit(snapshotRel, options.run);
+    if (report.findings.length === 0) {
+      process.stderr.write(
+        '✗ 读不出门禁清单（scripts/runGates.mjs --list 失败或输出格式变了）。\n',
+      );
+      return 2;
+    }
+    process.stdout.write(
+      `omniharness boost audit-surface ｜ 声明取证日 ${report.declaredAuditDate}` +
+        ` ｜ ${report.hasBaseline ? '与上次审计比对' : '首次审计（无基线，按"新"处理）'}\n\n`,
+    );
+    for (const f of report.findings) {
+      const mark = f.needsReaudit ? '需重新取证' : f.fingerprintable ? 'ok        ' : '不可指纹  ';
+      process.stdout.write(
+        `  ${mark} ${f.id.padEnd(16)} ${f.script ?? '(入口在 node_modules 或由参数决定)'}\n`,
+      );
+      if (f.needsReaudit || !f.fingerprintable || f.unmentioned.length > 0) {
+        process.stdout.write(`             ↳ ${f.reason}\n`);
+      }
+    }
+    const blind = report.findings.filter((f) => !f.fingerprintable).map((f) => f.id);
+    if (blind.length > 0) {
+      process.stdout.write(
+        `\n  ⚠ 这些门禁的入口**不在 scripts/ 下**（多为 node_modules 里的工具，argv 非脚本路径）：\n` +
+          `    ${blind.join(', ')}\n` +
+          '    ⇒ 本工具对它们**没有视野**：它们配置面一变，声明不会被判过期。判读时按"未覆盖"看待。\n',
+      );
+    }
+    if (report.zombie.length > 0) {
+      process.stdout.write(
+        `\n  ⚠ 声明表里有上游已不存在的门禁（僵尸条目）：${report.zombie.join(', ')}\n` +
+          '    ⇒ 删掉它们，否则"表里有交代"会掩盖"上游把门禁改名/删掉"这件事。\n',
+      );
+    }
+    process.stdout.write(
+      `\n小结：${String(report.findings.length)} 条门禁 ｜ 需重新取证 ${String(report.needsReauditCount)} 条` +
+        ` ｜ 快照 ${snapshotRel}${report.wroteSnapshot ? '（本次已更新）' : '（本次未更新：确认重新取证后加 --boost-run）'}\n`,
+    );
+    if (report.exitCode !== 0) {
+      process.stdout.write(
+        '\n（退出码 3 = **声明需要重新取证**，不是崩溃：请重做一次真跑取证，再更新\n' +
+          '  boostGateSurface.ts 里对应条目的 `audited` 字段。本工具**不做**系统级文件访问追踪\n' +
+          '  （win32 上不可构造），故它只保证"过期会被看见"，不保证"新出现的读取会被自动发现"。）\n',
+      );
+    }
+    return report.exitCode;
+  }
+
+  /**
    * 命令入口。
    * @param options 选项（`action` 决定走 `probe` 还是 `gate`）。
    * @returns 进程退出码。
@@ -617,8 +680,10 @@ export class BoostCommand {
   public run(options: BoostOptions): number {
     if (options.action === 'probe') return this.runProbe(options);
     if (options.action === 'gate') return this.runGate(options);
+    if (options.action === 'audit-surface') return this.runSurfaceAudit(options);
     process.stderr.write(
-      `✗ 未知的 boost 子动作 "${options.action}"；可用：probe（探针归档与比对）、gate（按改动挑门禁子集）。\n`,
+      `✗ 未知的 boost 子动作 "${options.action}"；可用：probe（探针归档与比对）、` +
+        'gate（按改动挑门禁子集）、audit-surface（输入表面声明的静态取证）。\n',
     );
     return 2;
   }
