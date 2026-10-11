@@ -84,6 +84,10 @@
     {
       "usage": "omniharness boost gate [--boost-mode staged|worktree] [--boost-tier fast|typed|all] [--boost-run] [--boost-explain] [--boost-dir DIR]",
       "description": "按改动挑门禁子集（清单现场读自 runGates.mjs；未执行时退出码 3）"
+    },
+    {
+      "usage": "omniharness boost audit-surface [--boost-run] [--boost-dir DIR]",
+      "description": "输入表面声明的静态取证：入口脚本一变即判声明过期（退出码 3；--boost-run 记新基线）"
     }
   ],
   "optionsTitle": "选项:",
