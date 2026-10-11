@@ -10,6 +10,7 @@
  * 所有 `this.` 调用指向本类或祖先的成员，绝不依赖任何尚未存在的符号。
  */
 
+import { CliCredentialBuild } from './cliCredentialBuild.js';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,9 +59,6 @@ import type { LspServerConfig } from '../ports/tool/lsp.js';
 import { ToolLoader } from './toolLoader.js';
 import { CliArgReader } from './cliArgReader.js';
 import { CliEventPort } from './cliEventPort.js';
-import { KvStoreFactory } from './kvStoreFactory.js';
-import { CredentialResolver } from '../config/credentialResolver.js';
-import { CryptoVault } from '../adapters/vault/cryptoVault.js';
 import type { CliArgs } from './argParser.js';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
 import type { ExtraTool } from '../ports/tool/extraTool.js';
@@ -73,7 +71,6 @@ import type { EventPort } from '../ports/runtime/eventPort.js';
  * 取值即「模型适配器在缺 `--api-key` 时读取的环境变量」（见 {@link CliBuildConfig.buildModel}
  * 与 `ConfigBuilder.buildRouter`），因此水合这几个名字即可让整个生产凭据链获得保险库回退源。
  */
-const DEFAULT_CREDENTIAL_NAMES: readonly string[] = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY'];
 
 /**
  * 凭据水合所需的参数子集（窄接口）。
@@ -81,18 +78,9 @@ const DEFAULT_CREDENTIAL_NAMES: readonly string[] = ['OPENAI_API_KEY', 'ANTHROPI
  * 只声明水合真正读的字段，不依赖整个 {@link CliArgs}：既让 `CliArgs` 可直接传入（结构兼容），
  * 也让调用点与单测无需伪造二十余个必填字段。
  */
-export interface CredentialHydrationArgs {
-  /** 是否开启水合（**缺省关** = 零行为变更）。 */
-  readonly vaultHydrate?: boolean | undefined;
-  /** 要水合的凭据名；省略时用内置默认名列表。 */
-  readonly vaultHydrateNames?: readonly string[] | undefined;
-  /** 保险库主密钥文件（主密钥优先取环境变量 `OMNIHARNESS_VAULT_KEY`）。 */
-  readonly vaultKeyFile?: string | undefined;
-  /** 密文 KV 后端（默认 json-file，与 `vault` 子命令同一默认）。 */
-  readonly kvAdapter?: 'memory' | 'json-file' | 'sqlite' | undefined;
-  /** 密文 KV 落盘路径。 */
-  readonly kvFile?: string | undefined;
-}
+// 2026-10-11：CredentialHydrationArgs 随凭据构造方法一并外移到 CliCredentialBuild 层，
+// 此处再导出以维持既有调用点（含判据里的 ProbeBuildConfig）零改动。
+export type { CredentialHydrationArgs } from './cliCredentialBuild.js';
 
 /**
  * 出站守卫选项：白名单 + 配置化 SSRF 策略表（缺省回落内置默认档；非法条目在配置加载期已被拒）。
@@ -106,7 +94,7 @@ const egressOptions = (allowed: string[], args: CliArgs): NetworkEgressOptions =
 });
 
 /** ExecCli 继承链根基类：共享接线与配置装配。 */
-export class CliBuildConfig {
+export class CliBuildConfig extends CliCredentialBuild {
   /** 当前活动的 MCP 网关（执行结束后由调用方内联关闭子进程，避免网关残留占端口）。 */
   protected gateway: McpGateway | undefined;
 
@@ -230,46 +218,6 @@ export class CliBuildConfig {
     return () => {
       globalThis.fetch = original;
     };
-  }
-
-  /**
-   * F3 凭据水合：把加密保险库中的凭据接进生产凭据链。
-   *
-   * 背景：`VaultPort`（CryptoVault）此前只被 `vault` 子命令使用，而模型适配器与模型路由
-   * 都硬读 `process.env`——保险库里存的凭据在生产路径上无人读取。本方法补上这段接线：
-   * **环境变量优先、保险库回退**（仅填充未设置项，绝不覆盖显式配置）。
-   *
-   * 缺省（未开 `--vault-hydrate`）直接返回空名单 = **零行为变更**。保险库读取失败时上抛
-   * （fail-closed：显式要求水合却读不动，不得静默降级成「凭据不存在」）。
-   *
-   * @param args 水合参数子集（vaultHydrate / vaultHydrateNames / vaultKeyFile / kvAdapter / kvFile）。
-   * @returns 实际被水合的凭据名列表（未开启水合、缺少主密钥来源或保险库无命中时为空）。
-   */
-  protected async hydrateCredentials(args: CredentialHydrationArgs): Promise<readonly string[]> {
-    if (args.vaultHydrate !== true) {
-      return [];
-    }
-    // 无主密钥来源时 CryptoVault 只会在内存里随机生成密钥：既读不到既有密文，还可能凭空
-    // 落下新的密钥文件。此处显式跳过并说明，避免「静默水合 0 项」被误读成「保险库是空的」。
-    const keyFromEnv = process.env.OMNIHARNESS_VAULT_KEY;
-    if ((keyFromEnv === undefined || keyFromEnv.length === 0) && args.vaultKeyFile === undefined) {
-      process.stderr.write(
-        '⚠️ --vault-hydrate 缺少主密钥来源（请设 OMNIHARNESS_VAULT_KEY 或 --vault-key-file），已跳过水合\n',
-      );
-      return [];
-    }
-    const kv = await new KvStoreFactory().createFor(args.kvAdapter, args.kvFile);
-    const vault = new CryptoVault({ kv, keyFile: args.vaultKeyFile });
-    try {
-      const names = args.vaultHydrateNames ?? DEFAULT_CREDENTIAL_NAMES;
-      const filled = await new CredentialResolver(vault).hydrateEnv(names);
-      if (filled.length > 0) {
-        process.stderr.write(`🔐 已从凭据保险库水合 ${filled.length} 项: ${filled.join(', ')}\n`);
-      }
-      return filled;
-    } finally {
-      await vault.close();
-    }
   }
 
   /**

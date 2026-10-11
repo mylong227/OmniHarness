@@ -47,6 +47,7 @@ export const PANELS: readonly PanelEntry[] = [
   { key: 'audit', label: '审计', icon: 'shield-alert' },
   { key: 'trace', label: 'Trace', icon: 'search' },
   { key: 'permission', label: '权限', icon: 'shield' },
+  { key: 'vault', label: '凭据', icon: 'archive' },
 ];
 
 /**

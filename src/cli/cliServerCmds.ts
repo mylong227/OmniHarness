@@ -501,6 +501,36 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
+   * 按命名插件集 profile 收敛运行时插件集（serve 启动后的一步；G-E 5.1）。
+   *
+   * 为什么抽出来：runServe 的方法体已顶到铁律的 80 行上限（基线 132 行），而 Web 交付还要往
+   * 构造处加注入项。处置是按职责外移这一步（自洽的一步：查 profile → 应用 → 提示/告警），
+   * 而不是把上限往上挪。
+   *
+   * @param app 已构造的服务端。
+   * @param name 插件集名（未配置时 undefined/空串 ⇒ 不做任何事）。
+   * @param workspaceRoot 工作区根（profile 存储在该工作区的 .omniharness 下）。
+   * @returns 无返回值。
+   */
+  protected async applyPluginProfile(
+    app: AppServer,
+    name: string | undefined,
+    workspaceRoot: string,
+  ): Promise<void> {
+    if (name === undefined || name.length === 0) {
+      return;
+    }
+    const store = new PluginProfileStore(workspaceRoot);
+    const profile = store.get(name);
+    if (profile === undefined) {
+      process.stderr.write(`[warn] 未找到插件集 profile: ${name}\n`);
+      return;
+    }
+    await app.applyPluginProfile(profile);
+    process.stdout.write(`已应用插件集 profile: ${name}\n`);
+  }
+
+  /**
    * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
    * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
@@ -592,21 +622,20 @@ export class CliServerCmds extends CliBuildConfig {
         configPath,
         pluginsDir,
         workspaceRoot: wsRoot,
+        // Web 交付（2026-10-11 修）：**stdio 路径接了 doctor，serve 路径却漏了** ——
+        // 而 Web UI 连的正是 serve，于是真机上诊断面板只会回"未接线"（本地跑 stdio 却一切正常）。
+        // 两条组合根必须注入同一个实现（判据 observabilityRpc.test.ts ⑥ 机械核对两处都在）。
+        doctorReport: (options) => DoctorRunner.runDoctor(options ?? {}),
+        // 凭据保险库（vault.list/set/delete 的后端）：无主密钥来源时不注入，面板如实显示"未接线"。
+        vault: await this.buildServeVault(args),
       });
       await app.loadPlugins();
-      // G-E 5.1：启动后若指定插件集 profile，把运行时插件集收敛为该命名组合。
-      const pluginProfileName =
-        this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile ?? undefined;
-      if (pluginProfileName !== undefined && pluginProfileName.length > 0) {
-        const store = new PluginProfileStore(wsRoot);
-        const profile = store.get(pluginProfileName);
-        if (profile === undefined) {
-          process.stderr.write(`[warn] 未找到插件集 profile: ${pluginProfileName}\n`);
-        } else {
-          await app.applyPluginProfile(profile);
-          process.stdout.write(`已应用插件集 profile: ${pluginProfileName}\n`);
-        }
-      }
+      // G-E 5.1：插件集收敛（按职责抽成方法：runServe 体量已顶到铁律上限，外移而不是放宽）。
+      await this.applyPluginProfile(
+        app,
+        this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile,
+        wsRoot,
+      );
       const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
       // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
       // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。

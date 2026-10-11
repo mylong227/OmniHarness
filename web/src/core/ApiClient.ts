@@ -233,6 +233,36 @@ export class ApiClient {
   }
 
   /**
+   * 保险库凭据名列表（只读名字，**不含值**；2026-10-11 Web 交付）。
+   * @returns `{ok:true, names}` 或 `{ok:false, reason}`（未接线）
+   */
+  public vaultList(): Promise<import('../types/models.js').VaultListResult> {
+    return this.rpc('vault.list', {});
+  }
+
+  /**
+   * 写入（或覆盖）一项凭据。**单向**：服务端不提供读回接口。
+   * @param name 凭据名
+   * @param secret 凭据值（只上行，不回显）
+   * @returns `{ok:true, name}` 或 `{ok:false, reason}`
+   */
+  public vaultSet(
+    name: string,
+    secret: string,
+  ): Promise<import('../types/models.js').VaultWriteResult> {
+    return this.rpc('vault.set', { name, secret });
+  }
+
+  /**
+   * 删除一项凭据。
+   * @param name 凭据名
+   * @returns `{ok:true, name, removed}`（removed=false 表示本来就没有）或 `{ok:false, reason}`
+   */
+  public vaultDelete(name: string): Promise<import('../types/models.js').VaultWriteResult> {
+    return this.rpc('vault.delete', { name });
+  }
+
+  /**
    * 只读 trace 自省（T4.5，2026-10-11 Web 交付）：取某会话的冻结条目快照。
    * @param params 会话 id + 可选条数上限 / 类别过滤
    * @returns `{session, entries, count, error?}`

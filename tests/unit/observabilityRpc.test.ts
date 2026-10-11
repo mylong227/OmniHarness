@@ -174,11 +174,17 @@ test('⑤ audit.query：未接线时**显式报错**（不得回空数组冒充"
 
 test('④ serve 组合根注入的 doctor 实现与 `omniharness doctor` 命令**同一个**（附正对照）', () => {
   const source = readFileSync(join(REPO_ROOT, 'src/cli/cliServerCmds.ts'), 'utf8');
-  assert.match(
-    source,
-    /doctorReport:\s*\(options\)\s*=>\s*DoctorRunner\.runDoctor\(/u,
-    'serve 必须注入 DoctorRunner.runDoctor（与 doctor 命令同源）',
-  );
+  /**
+   * 统计注入点数量。
+   *
+   * 为什么用**计数**而不是 `match`/`doesNotMatch`：注入点从 1 处变成 2 处（stdio + serve）后，
+   * `String.replace` 只换第一处，旧写法的"变异后不再匹配"就假红了。计数式对"有几处"天然不敏感。
+   * @param text 待统计源码
+   * @returns 注入点数量
+   */
+  const injections = (text: string): number =>
+    [...text.matchAll(/doctorReport:\s*\(options\)\s*=>\s*DoctorRunner\.runDoctor\(/gu)].length;
+  assert.ok(injections(source) >= 1, '必须注入 DoctorRunner.runDoctor（与 doctor 命令同源）');
   // 同文件里 `doctor` 命令也走同一个静态方法——两处都在同一文件，可直接反查。
   assert.match(
     source,
@@ -186,12 +192,11 @@ test('④ serve 组合根注入的 doctor 实现与 `omniharness doctor` 命令*
     'doctor 命令的实现应仍是同一个',
   );
 
-  // **正对照**：换成一个"另一个实现"必须被检出。
-  const mutated = source.replace('DoctorRunner.runDoctor(', 'FakeDoctor.runDoctor(');
-  assert.notStrictEqual(mutated, source, '正对照变异未命中 ⇒ 判据锚点漂了');
-  assert.doesNotMatch(
-    mutated,
-    /doctorReport:\s*\(options\)\s*=>\s*DoctorRunner\.runDoctor\(/u,
-    '换成另一个实现却检不出来 ⇒ 判据④恒真',
+  // **正对照**：把**全部**注入点换成"另一个实现"后计数必须归零（否则判据④恒真）。
+  const mutated = source.replaceAll(
+    /doctorReport:\s*\(options\)\s*=>\s*DoctorRunner\.runDoctor\(/gu,
+    'FakeDoctor.runDoctor(',
   );
+  assert.notStrictEqual(mutated, source, '正对照变异未命中 ⇒ 判据锚点漂了');
+  assert.strictEqual(injections(mutated), 0, '换成另一个实现却检不出来 ⇒ 判据④恒真');
 });

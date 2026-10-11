@@ -7,6 +7,7 @@ import type { Transport } from '../transport/lineTransport.js';
 import type { Metrics } from '../services/metrics.js';
 import type { AuditSink } from '../services/auditSink.js';
 import type { DoctorOptions, DoctorReport } from '../../ports/observability/doctorReport.js';
+import type { VaultPort } from '../../ports/memory/vault.js';
 import type { GraphNodeStatus } from '../../autonomy/workflowRunner.js';
 import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
 import type { ServerEventBridge } from './serverEventBridge.js';
@@ -72,6 +73,14 @@ export interface AppServerOptions {
    */
   readonly doctorReport?:
     ((options?: DoctorOptions) => DoctorReport | Promise<DoctorReport>) | undefined;
+  /**
+   * 凭据保险库（`vault.list` / `vault.set` / `vault.delete` 的后端；2026-10-11 Web 交付项）。
+   *
+   * 注入而非自建：主密钥来源（`OMNIHARNESS_VAULT_KEY` / 密钥文件）与底层 KV 由组合根决定；
+   * 服务端自建会在**无主密钥**时随机生成内存密钥（既读不到既有密文，还可能凭空落一个新密钥文件）。
+   * 未注入时三条 RPC 一律回 `{ok:false, reason:'vault 未接线…'}`，**不**装作"保险库是空的"。
+   */
+  readonly vault?: VaultPort | undefined;
 }
 
 /** 始终放行的审批端口（autoApprove / approval=auto 时使用）。 */

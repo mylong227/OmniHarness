@@ -471,3 +471,14 @@ export interface TraceReadResultLike {
   count: number;
   error?: string;
 }
+
+/**
+ * `vault.list` 的返回体（2026-10-11 Web 交付）。**只含名字，绝不含值**——
+ * 凭据不回读给浏览器（服务端故意没有 `vault.get`）。
+ */
+export type VaultListResult = { ok: true; names: string[] } | { ok: false; reason: string };
+
+/** `vault.set` / `vault.delete` 的返回体。 */
+export type VaultWriteResult =
+  | { ok: true; name: string; removed?: boolean }
+  | { ok: false; reason: string };
