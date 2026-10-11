@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { NativeBackend } from '../../src/native/nativeBackend.js';
 import { TokenEstimator } from '../../src/context/tokenEstimator.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 
 const messages = Array.from({ length: 40 }, (_unused, index) => ({
   content: `第 ${index} 条：混合 Mixed 文本 token estimate 测试，含中文与 English words. `.repeat(
@@ -13,9 +14,13 @@ const messages = Array.from({ length: 40 }, (_unused, index) => ({
 }));
 
 // 顶层探测一次，供原生依赖用例用 test({ skip }) 真跳过（旧写法 `if undefined return` 会虚增通过计数）。
+// 2026-10-11：接 `OMNI_REQUIRE_NATIVE` 开关（声明"原生必须在场"时，缺 .node 必须失败而非静默跳过）。
 const nativeEstimator = NativeBackend.tryCreate();
-const nativeSkip =
-  nativeEstimator === undefined ? '原生内核不可用（请先 npm run native:build）' : false;
+const nativeSkip = RequireEnv.skipUnless(
+  'OMNI_REQUIRE_NATIVE',
+  nativeEstimator !== undefined,
+  '原生内核不可用（请先 npm run native:build）',
+);
 
 test('native estimateTokens 与 JS estimateMessages 逐位一致', { skip: nativeSkip }, () => {
   const est = new TokenEstimator();

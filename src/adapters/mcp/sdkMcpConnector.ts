@@ -30,6 +30,22 @@ export interface SdkMcpConnectorOptions {
 }
 
 /**
+ * 传输工厂注入缝（**可选**，缺省一律用官方 SDK 传输，缺省行为逐字不变）。
+ *
+ * 存在理由：本连接器的两条真实路径（stdio 的 `command` 校验 / 远端 HTTP→SSE 回落）若不注入，
+ * 判据只能靠**起真子进程或发真网络请求**才可断言——那等于没有判据。注入后"缺 command 必须拒绝"、
+ * "远端失败必须回落 SSE 且如实记录"、"握手失败必须关闭底层传输（不泄漏）"都能在进程内证伪。
+ */
+export interface SdkMcpConnectorDeps {
+  /** stdio 传输工厂（缺省 `new StdioClientTransport(parameters)`）。 */
+  readonly createStdioTransport?: ((parameters: StdioServerParameters) => Transport) | undefined;
+  /** Streamable HTTP 传输工厂（缺省 `new StreamableHTTPClientTransport(target)`）。 */
+  readonly createStreamableHttpTransport?: ((target: URL) => Transport) | undefined;
+  /** SSE 传输工厂（缺省 `new SSEClientTransport(target)`）。 */
+  readonly createSseTransport?: ((target: URL) => Transport) | undefined;
+}
+
+/**
  * 官方 SDK MCP 连接器：stdio / 远端 url 二形态，握手失败抛错并关闭底层资源。
  */
 export class SdkMcpConnector implements McpConnectorPort {
@@ -38,8 +54,12 @@ export class SdkMcpConnector implements McpConnectorPort {
 
   /**
    * @param options 客户端元数据（缺省 omniharness）。
+   * @param deps 传输工厂注入缝（缺省全走官方 SDK 传输）。
    */
-  public constructor(private readonly options: SdkMcpConnectorOptions = {}) {}
+  public constructor(
+    private readonly options: SdkMcpConnectorOptions = {},
+    private readonly deps: SdkMcpConnectorDeps = {},
+  ) {}
 
   /**
    * 建立连接（握手成功返回，失败关闭底层资源并抛出）。
@@ -58,9 +78,9 @@ export class SdkMcpConnector implements McpConnectorPort {
       timeoutMs,
     };
     if (server.url !== undefined) {
-      return await SdkMcpConnector.connectRemote(server, clientOptions);
+      return await SdkMcpConnector.connectRemote(server, clientOptions, this.deps);
     }
-    return await SdkMcpConnector.connectStdio(server, clientOptions);
+    return await SdkMcpConnector.connectStdio(server, clientOptions, this.deps);
   }
 
   /**
@@ -68,11 +88,13 @@ export class SdkMcpConnector implements McpConnectorPort {
    *
    * @param server 服务器配置（必须含 command）。
    * @param clientOptions 客户端选项。
+   * @param deps 传输工厂注入缝（缺省用 `StdioClientTransport`）。
    * @returns 连接句柄。
    */
   private static async connectStdio(
     server: McpServerConfig,
     clientOptions: SdkMcpClientOptions,
+    deps: SdkMcpConnectorDeps,
   ): Promise<McpConnectionHandle> {
     if (server.command === undefined) {
       throw new Error(`MCP 服务器 "${server.name}" 缺 command（stdio 形态必填）`);
@@ -88,7 +110,11 @@ export class SdkMcpConnector implements McpConnectorPort {
     if (server.cwd !== undefined) {
       parameters.cwd = server.cwd;
     }
-    const transport = new StdioClientTransport(parameters);
+    const createTransport = deps.createStdioTransport;
+    const transport: Transport =
+      createTransport === undefined
+        ? new StdioClientTransport(parameters)
+        : createTransport(parameters);
     try {
       const client = await SdkMcpClientAdapter.connect(transport, clientOptions);
       const info = await client.initialize();
@@ -111,11 +137,13 @@ export class SdkMcpConnector implements McpConnectorPort {
    *
    * @param server 服务器配置（必须含 http/https url）。
    * @param clientOptions 客户端选项。
+   * @param deps 传输工厂注入缝（缺省用官方 HTTP / SSE 传输）。
    * @returns 连接句柄。
    */
   private static async connectRemote(
     server: McpServerConfig,
     clientOptions: SdkMcpClientOptions,
+    deps: SdkMcpConnectorDeps,
   ): Promise<McpConnectionHandle> {
     const url = server.url;
     if (!/^https?:\/\//i.test(url ?? '')) {
@@ -124,12 +152,16 @@ export class SdkMcpConnector implements McpConnectorPort {
       );
     }
     const target = new URL(url as string);
+    const createHttp = deps.createStreamableHttpTransport;
+    const createSse = deps.createSseTransport;
     try {
       return await SdkMcpConnector.connectWith(
         // SDK 自身的 StreamableHTTP 类型在 exactOptionalPropertyTypes 下与 Transport 接口
         // 存在已知的属性型变摩擦（sessionId: string | undefined vs sessionId?: string），
         // 与运行时行为无关，此处按官方继承关系显式收口。
-        () => new StreamableHTTPClientTransport(target) as unknown as Transport,
+        createHttp === undefined
+          ? () => new StreamableHTTPClientTransport(target) as unknown as Transport
+          : () => createHttp(target),
         clientOptions,
       );
     } catch (streamableError) {
@@ -139,7 +171,9 @@ export class SdkMcpConnector implements McpConnectorPort {
           streamableError instanceof Error ? streamableError.message : String(streamableError),
       });
       return await SdkMcpConnector.connectWith(
-        () => new SSEClientTransport(target) as unknown as Transport,
+        createSse === undefined
+          ? () => new SSEClientTransport(target) as unknown as Transport
+          : () => createSse(target),
         clientOptions,
       );
     }

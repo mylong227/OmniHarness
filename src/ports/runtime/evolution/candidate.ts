@@ -1,4 +1,4 @@
-import type { Skill } from '../../../skill/skill.js';
+import type { Skill } from '../../skill/skill.js';
 
 /** 候选能力（待评估晋升者）：一个组合/发现的技能 + 其来源与诊断元信息。 */
 export interface Candidate {

@@ -6,7 +6,7 @@ import type { StoragePort } from '../memory/storage.js';
 import type { SpillPort } from '../memory/spill.js';
 import type { ToolPort } from '../tool/tool.js';
 import type { EscalationPort } from '../runtime/escalation.js';
-import type { NativeToolRunner } from '../../native/nativeBackend.js';
+import type { NativeToolRunner } from '../native/nativeToolRunner.js';
 import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.js';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
 import type { PlanPort } from '../runtime/plan.js';

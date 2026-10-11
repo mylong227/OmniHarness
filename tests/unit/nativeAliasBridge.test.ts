@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, delimiter } from 'node:path';
 import { NativeBackend } from '../../src/native/nativeBackend.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 import type { ToolCall } from '../../src/ports/tool/tool.js';
 
 // #72：native shell.run 经 OS 沙箱包装为 `omni-cli sandbox run`，需 omni-cli 在 PATH。
@@ -62,11 +63,18 @@ const addonStale = ((): string | false => {
     : false;
 })();
 
-const shellSkip = nativeUnavailable
+const shellSkipSource: string | false = nativeUnavailable
   ? '原生内核不可用（请先 npm run native:build）'
   : !omniCliOnPath
     ? 'omni-cli 不在 PATH，无法验证 shell.run OS 沙箱包装（见 #72 备注）'
     : addonStale;
+// 三种原因都属「原生侧能力不在场」⇒ 统一挂在 `OMNI_REQUIRE_NATIVE` 下：
+// 声明"原生必须在场"的环境里，缺 .node / 缺 omni-cli / 产物过期都必须**失败**而不是静默跳过。
+const shellSkip = RequireEnv.skipUnless(
+  'OMNI_REQUIRE_NATIVE',
+  shellSkipSource === false,
+  String(shellSkipSource),
+);
 
 function call(name: string, args: Record<string, unknown>, id = 'c1'): ToolCall {
   return { id, name, arguments: args } as ToolCall;
@@ -80,7 +88,13 @@ test('shell 经别名桥路由到 shell.run 真实执行', { skip: shellSkip }, 
 
 test(
   'read_file / write_file 经别名桥路由到 fs.read_file / fs.write_file',
-  { skip: nativeUnavailable ? '原生内核不可用（请先 npm run native:build）' : false },
+  {
+    skip: RequireEnv.skipUnless(
+      'OMNI_REQUIRE_NATIVE',
+      !nativeUnavailable,
+      '原生内核不可用（请先 npm run native:build）',
+    ),
+  },
   () => {
     // 内核 fs 根 = 进程 cwd；用绝对路径落于 cwd 之下，确保 within() 沙箱校验通过。
     const cwd = process.cwd();
@@ -104,7 +118,13 @@ test(
 
 test(
   '未知工具仍返回业务拒绝（不抛错、不静默当成原生工具执行）',
-  { skip: nativeUnavailable ? '原生内核不可用（请先 npm run native:build）' : false },
+  {
+    skip: RequireEnv.skipUnless(
+      'OMNI_REQUIRE_NATIVE',
+      !nativeUnavailable,
+      '原生内核不可用（请先 npm run native:build）',
+    ),
+  },
   () => {
     // 内核对未知工具判为业务拒绝（ok:false, rejected=true）→ 不抛错；
     // 若内核以异常表达拒绝亦属「未静默执行」，两种都算通过。

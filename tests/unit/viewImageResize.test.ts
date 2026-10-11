@@ -18,12 +18,25 @@ import type {
   ImageResizeRequest,
   ImageResizerPort,
 } from '../../src/ports/media/imageResizer.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 import type { ToolContext } from '../../src/ports/tool/tool.js';
 
 /** sharp 是否可用（决定第二组用例是否 skip；import 失败即视为不可用）。 */
 const hasSharp: boolean = await import('sharp').then(
   () => true,
   () => false,
+);
+
+/**
+ * sharp 组用例的 skip 选项。
+ *
+ * 2026-10-11：接 `OMNI_REQUIRE_SHARP` 开关——`sharp` 是 optionalDependency，省略安装时
+ * "真实实现路径"整组静默跳过（本仓当年就因此让缩放能力长期没有实证）。声明必须在场时改为失败。
+ */
+const sharpSkip = RequireEnv.skipUnless(
+  'OMNI_REQUIRE_SHARP',
+  hasSharp,
+  'sharp 未安装（optionalDependencies 被省略）',
 );
 
 /** 工具上下文（workspaceRoot 由用例注入）。 */
@@ -138,49 +151,45 @@ test('未装配缩放端口：行为与历史一致', async () => {
   }
 });
 
-test(
-  'sharp 真实实现：大 PNG 被收敛进长边与字节双预算',
-  { skip: hasSharp ? false : 'sharp 未安装（optionalDependencies 被省略）' },
-  async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'imgresize-sharp-'));
-    try {
-      // 真随机噪声 PNG：不可压缩，2400×1600 的 RGBA 编码后必然超过 5MiB，
-      // 能同时触发「长边超限」与「单帧字节超限 → 逐步再缩」两条路径。
-      // （测试只依赖「超预算」这一事实，不依赖具体字节；前置断言兜底。）
-      const width = 2400;
-      const height = 1600;
-      const noise = randomFillSync(Buffer.alloc(width * height * 4));
-      const sharp = await import('sharp');
-      const factory = sharp.default ?? (sharp as unknown as typeof sharp.default);
-      const bigPng = await factory(noise, { raw: { width, height, channels: 4 } })
-        .png()
-        .toBuffer();
-      assert.ok(bigPng.byteLength > 5 * 1024 * 1024, '测试前置：源图必须真超预算');
-      await writeFile(join(dir, 'noise.png'), bigPng);
+test('sharp 真实实现：大 PNG 被收敛进长边与字节双预算', { skip: sharpSkip }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'imgresize-sharp-'));
+  try {
+    // 真随机噪声 PNG：不可压缩，2400×1600 的 RGBA 编码后必然超过 5MiB，
+    // 能同时触发「长边超限」与「单帧字节超限 → 逐步再缩」两条路径。
+    // （测试只依赖「超预算」这一事实，不依赖具体字节；前置断言兜底。）
+    const width = 2400;
+    const height = 1600;
+    const noise = randomFillSync(Buffer.alloc(width * height * 4));
+    const sharp = await import('sharp');
+    const factory = sharp.default ?? (sharp as unknown as typeof sharp.default);
+    const bigPng = await factory(noise, { raw: { width, height, channels: 4 } })
+      .png()
+      .toBuffer();
+    assert.ok(bigPng.byteLength > 5 * 1024 * 1024, '测试前置：源图必须真超预算');
+    await writeFile(join(dir, 'noise.png'), bigPng);
 
-      const tool = new ViewImageTool(dir, new SharpImageResizer());
-      const result = await tool.handle(
-        { id: 'c1', name: 'view_image', arguments: { path: 'noise.png' } },
-        ctxOf(dir),
-      );
-      assert.strictEqual(result.ok, true);
-      assert.ok(result.output?.includes('已收敛'), '必须如实告知缩过');
-      const attachment = result.files?.[0];
-      assert.strictEqual(attachment?.mediaType, 'image/png');
-      const bytes = Buffer.from(attachment?.data ?? '', 'base64');
-      assert.ok(bytes.byteLength <= 5 * 1024 * 1024, '交付字节必须 ≤ 单图上限');
-      assert.ok(bytes.byteLength < bigPng.byteLength, '交付字节必须小于原图');
-      // base64 头两个字节即 PNG 魔数，交叉验证交付的是合法 PNG。
-      assert.strictEqual(attachment?.data?.slice(0, 8), 'iVBORw0K');
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
-  },
-);
+    const tool = new ViewImageTool(dir, new SharpImageResizer());
+    const result = await tool.handle(
+      { id: 'c1', name: 'view_image', arguments: { path: 'noise.png' } },
+      ctxOf(dir),
+    );
+    assert.strictEqual(result.ok, true);
+    assert.ok(result.output?.includes('已收敛'), '必须如实告知缩过');
+    const attachment = result.files?.[0];
+    assert.strictEqual(attachment?.mediaType, 'image/png');
+    const bytes = Buffer.from(attachment?.data ?? '', 'base64');
+    assert.ok(bytes.byteLength <= 5 * 1024 * 1024, '交付字节必须 ≤ 单图上限');
+    assert.ok(bytes.byteLength < bigPng.byteLength, '交付字节必须小于原图');
+    // base64 头两个字节即 PNG 魔数，交叉验证交付的是合法 PNG。
+    assert.strictEqual(attachment?.data?.slice(0, 8), 'iVBORw0K');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
 
 test(
   'sharp 真实实现：达标小图原样透传（resized:false 不触碰字节）',
-  { skip: hasSharp ? false : 'sharp 未安装（optionalDependencies 被省略）' },
+  { skip: sharpSkip },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'imgresize-sharp-'));
     try {

@@ -12,6 +12,37 @@
 import type { LspDiagnostic, LspDiagnosticSeverity } from '../../ports/tool/lsp.js';
 import { LspUri } from './lspUri.js';
 
+/** 定时器句柄（不透明；缺省实现即 Node `setTimeout` 的返回值）。 */
+export type DiagnosticsTimerHandle = ReturnType<typeof setTimeout>;
+
+/**
+ * 定时器注入缝（缺省实现直接转发全局 `setTimeout` / `clearTimeout`，**行为逐字不变**）。
+ *
+ * 为什么留缝：「定时器必须被 `clear()` / 超时路径清理」是本仓铁律，而在缺省实现下
+ * 清理动作**不可从外部观察**——清没清都只影响一个拿不到的句柄。注入记录式定时器后，
+ * 判据才能区分「真清理了」与「恰好没出事」；注入本身不改变任何默认路径的行为。
+ */
+export interface DiagnosticsTimers {
+  /**
+   * 登记到点回调。
+   * @param handler 到点回调
+   * @param timeoutMs 等待窗口毫秒数
+   * @returns 可交给 {@link DiagnosticsTimers.cancel} 的句柄
+   */
+  readonly schedule: (handler: () => void, timeoutMs: number) => DiagnosticsTimerHandle;
+  /**
+   * 清理句柄。
+   * @param handle {@link DiagnosticsTimers.schedule} 返回的句柄
+   */
+  readonly cancel: (handle: DiagnosticsTimerHandle) => void;
+}
+
+/** 缺省定时器：全局 `setTimeout` / `clearTimeout`（`schedule` **刻意不 `unref()`**，见类注释）。 */
+const DEFAULT_TIMERS: DiagnosticsTimers = {
+  schedule: (handler, timeoutMs) => setTimeout(handler, timeoutMs),
+  cancel: (handle) => clearTimeout(handle),
+};
+
 /** 等待推送诊断的登记项。 */
 interface DiagnosticsWaiter {
   /** 关注的文件绝对路径。 */
@@ -19,7 +50,7 @@ interface DiagnosticsWaiter {
   /** 收到推送时回调 true。 */
   readonly resolve: (received: boolean) => void;
   /** 超时定时器（**刻意不 `unref()`**）。 */
-  readonly timer: ReturnType<typeof setTimeout>;
+  readonly timer: DiagnosticsTimerHandle;
 }
 
 /** 诊断收集器：订阅 `publishDiagnostics` 推送 → 归一化 → 缓存 → 唤醒等待者。 */
@@ -41,6 +72,16 @@ export class LspDiagnosticsCollector {
 
   /** 等待某文件推送诊断的登记项。 */
   private readonly waiters: DiagnosticsWaiter[] = [];
+
+  /** 定时器实现（缺省为全局定时器；注入缝仅用于单测观察清理行为）。 */
+  private readonly timers: DiagnosticsTimers;
+
+  /**
+   * @param timers 定时器实现（缺省即全局 `setTimeout` / `clearTimeout`，行为不变）
+   */
+  public constructor(timers: DiagnosticsTimers = DEFAULT_TIMERS) {
+    this.timers = timers;
+  }
 
   /**
    * 接收一条服务器通知；仅消费诊断推送。
@@ -77,7 +118,7 @@ export class LspDiagnosticsCollector {
       const entry: DiagnosticsWaiter = {
         file,
         resolve: (received: boolean) => resolve(received),
-        timer: setTimeout(() => {
+        timer: this.timers.schedule(() => {
           this.removeWaiter(entry);
           resolve(false);
         }, timeoutMs),
@@ -108,7 +149,7 @@ export class LspDiagnosticsCollector {
       if (waiter === undefined) {
         continue;
       }
-      clearTimeout(waiter.timer);
+      this.timers.cancel(waiter.timer);
       waiter.resolve(false);
     }
   }
@@ -141,7 +182,7 @@ export class LspDiagnosticsCollector {
         continue;
       }
       this.waiters.splice(i, 1);
-      clearTimeout(waiter.timer);
+      this.timers.cancel(waiter.timer);
       waiter.resolve(true);
     }
   }

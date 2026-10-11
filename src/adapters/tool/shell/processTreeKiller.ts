@@ -20,6 +20,24 @@ import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { log } from '../../../util/logger.js';
 
+/**
+ * 注入缝（**仅供判据**）：三个键全部可选，缺省即本文件原本的 `process.platform` /
+ * `process.kill` / `execFileSync` / `spawn`，故不传 `opts` 时行为逐字不变。
+ *
+ * 只留这一个缝，是为了让「分平台回退分支」在本机（win32）也可判真伪：
+ * 没有它，POSIX 组杀与 EPERM/ESRCH 回退只能靠读代码相信。
+ */
+export interface ProcessTreeKillerOptions {
+  /** 平台标识（缺省 `process.platform`）。 */
+  readonly platform?: string;
+  /** 单进程/进程组终止实现（缺省 `process.kill`）。 */
+  readonly kill?: (pid: number, signal: NodeJS.Signals | number) => boolean;
+  /** 同步执行器（缺省 `execFileSync`），仅 Windows `killPid` 分支使用。 */
+  readonly exec?: typeof execFileSync;
+  /** 异步 spawn（缺省 `spawn`），仅 Windows `kill` 分支使用。 */
+  readonly spawn?: typeof spawn;
+}
+
 /** 子进程树终止器。 */
 export class ProcessTreeKiller {
   /** 同步 taskkill 的上限（毫秒）：超时即放弃（进程可能已退出）。 */
@@ -28,9 +46,10 @@ export class ProcessTreeKiller {
   /**
    * 终止一棵进程树（幂等；进程已退出或权限不足时静默回退）。
    * @param child 待终止的子进程（其 `pid` 可能已回收/为空）。
+   * @param opts 注入缝（缺省即真实平台与真实系统调用）。
    * @returns 无返回值。
    */
-  public static kill(child: ChildProcess): void {
+  public static kill(child: ChildProcess, opts: ProcessTreeKillerOptions = {}): void {
     const pid = child.pid;
     if (pid === undefined) {
       // 尚未 spawn 成功（无 pid）：只能走单进程 kill（此时通常也无实体）。
@@ -41,13 +60,14 @@ export class ProcessTreeKiller {
       }
       return;
     }
-    if (process.platform === 'win32') {
-      ProcessTreeKiller.killTreeWindows(pid, child);
+    if ((opts.platform ?? process.platform) === 'win32') {
+      ProcessTreeKiller.killTreeWindows(pid, child, opts);
       return;
     }
+    const kill = opts.kill ?? process.kill;
     try {
       // 负 pid = 进程组（spawn 默认让子进程成为组长）；成功即整组被终结。
-      process.kill(-pid, 'SIGKILL');
+      kill(-pid, 'SIGKILL');
     } catch (error) {
       log.debug('shell.killTree.groupFailed', { pid, error: String(error) });
       try {
@@ -64,15 +84,16 @@ export class ProcessTreeKiller {
    * 与 {@link ProcessTreeKiller.kill} 同一分平台策略；只持有 pid 的调用方（后台作业注册表）
    * 原先用 `process.kill(pid,'SIGTERM')` —— Windows 上那只终结外壳，真正的载荷树会继续跑。
    * @param pid 目标进程 pid。
+   * @param opts 注入缝（缺省即真实平台与真实系统调用）。
    * @returns 无返回值（失败静默，与 `kill` 同一取舍）。
    */
-  public static killPid(pid: number): void {
-    if (process.platform === 'win32') {
+  public static killPid(pid: number, opts: ProcessTreeKillerOptions = {}): void {
+    if ((opts.platform ?? process.platform) === 'win32') {
       try {
         // **同步**执行：`kill` 的调用方（后台作业注册表）紧接着就可能清理工作目录/日志文件，
         // 异步 taskkill 会让「已开启的子进程句柄」多存活一小段时间 ⇒ 调用方 `rmdir` 撞 EBUSY。
         // 终止属收尾路径，阻塞几十毫秒可接受，换来的是「kill 返回即已死」的可依赖语义。
-        execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+        (opts.exec ?? execFileSync)('taskkill', ['/PID', String(pid), '/T', '/F'], {
           stdio: 'ignore',
           timeout: ProcessTreeKiller.TASKKILL_TIMEOUT_MS,
         });
@@ -81,12 +102,13 @@ export class ProcessTreeKiller {
       }
       return;
     }
+    const kill = opts.kill ?? process.kill;
     try {
       // detached 子进程是会话组长 ⇒ 负 pid 即整组。
-      process.kill(-pid, 'SIGKILL');
+      kill(-pid, 'SIGKILL');
     } catch {
       try {
-        process.kill(pid, 'SIGKILL');
+        kill(pid, 'SIGKILL');
       } catch {
         /* 已退出 */
       }
@@ -97,11 +119,16 @@ export class ProcessTreeKiller {
    * Windows：`taskkill /T /F` 连带后代；失败回退单进程 kill。
    * @param pid 直接子进程 pid。
    * @param child 子进程句柄（回退用）。
+   * @param opts 注入缝。
    * @returns 无返回值。
    */
-  private static killTreeWindows(pid: number, child: ChildProcess): void {
+  private static killTreeWindows(
+    pid: number,
+    child: ChildProcess,
+    opts: ProcessTreeKillerOptions,
+  ): void {
     try {
-      const killer = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], {
+      const killer = (opts.spawn ?? spawn)('taskkill', ['/PID', String(pid), '/T', '/F'], {
         stdio: 'ignore',
         windowsHide: true,
       });

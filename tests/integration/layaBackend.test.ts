@@ -22,6 +22,7 @@ import { LayaPaths } from '../../src/adapters/laya/layaPaths.js';
 import { DecisionEngineResolver } from '../../src/config/decisionEngineResolver.js';
 import { CliDecisionEngineFlags } from '../../src/cli/cliDecisionEngineFlags.js';
 import { CliDefaults } from '../../src/cli/argParser.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
 
 /** 项目内解释器（零配置解析：环境变量 → 项目内 venv → 兜底）。 */
@@ -29,10 +30,22 @@ const venvPython = LayaPaths.pythonPath(process.cwd());
 /** 项目内权重目录（空串 = 未安装）。 */
 const localModelDir = LayaPaths.modelDir(process.cwd());
 /** 缺环境即 skip 的原因（false = 照跑）。 */
-const SKIP: string | false =
+const SKIP_REASON: string | false =
   existsSync(venvPython) && localModelDir.length > 0
     ? false
     : `项目内未安装 Laya 运行时（解释器 ${venvPython} / 权重 ${localModelDir.length > 0 ? localModelDir : '(缺失)'}）——见 THIRD_PARTY_ASSETS.md 的重建步骤`;
+
+/**
+ * 本文件 5 条真前向判据的 skip 选项。
+ *
+ * 2026-10-11：接 `OMNI_REQUIRE_LAYAPY` 开关。该文件头自己写过"旧版『需外部 venv 就整例 skip』
+ * 正是缺陷得以长期隐形的原因之一"——现在有能力在声明"Laya 必须在场"的环境里把它变成失败。
+ */
+const SKIP = RequireEnv.skipUnless(
+  'OMNI_REQUIRE_LAYAPY',
+  SKIP_REASON === false,
+  String(SKIP_REASON),
+);
 
 /**
  * 用「CLI 生产入口的默认决策引擎段」构造适配器（即默认配置下的真实装配路径）。

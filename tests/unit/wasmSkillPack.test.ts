@@ -34,6 +34,7 @@ import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentId
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
 import { SkillRegistry } from '../../src/skill/skillRegistry.js';
 import type { CapabilityRecord } from '../../src/ports/capability.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 
 /** 真 wasm 产物路径（与 `wasmKernelE2E` 同一份；缺则相关用例跳过并打印构建命令）。 */
 const ARTIFACT = resolve(
@@ -211,8 +212,15 @@ test('Wave C 冒烟载荷同源：entry/input/fuel 取自资产体；缺 entry �
 });
 
 test('Wave C 端到端装包：真 wasm 产物装进注册表；**篡改模块即拒装**（跑不起来就装不上）', async (t) => {
-  if (!existsSync(ARTIFACT)) {
-    t.skip(`缺 wasm 产物，先执行：${BUILD_CMD}`);
+  // 2026-10-11：接 `OMNI_REQUIRE_WASM`（CI 的 wasm 作业会构建该产物，那里声明必须在场 ⇒ 缺即失败）。
+  if (
+    !RequireEnv.guardUnless(
+      t,
+      'OMNI_REQUIRE_WASM',
+      existsSync(ARTIFACT),
+      `缺 wasm 产物，先执行：${BUILD_CMD}`,
+    )
+  ) {
     return;
   }
   const moduleBytes = readFileSync(ARTIFACT);

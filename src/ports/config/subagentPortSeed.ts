@@ -9,7 +9,7 @@
 
 import type { MediaStack } from '../media/mediaStack.js';
 import type { SubagentPortsShape } from '../subagent/subagentPortsShape.js';
-import type { SubagentOptions } from '../../subagent/subagentTypes.js';
+import type { SubagentOptions } from '../subagent/subagentOptions.js';
 
 /** 子智能体端口种子（缺 tools，待注册表构造完成后回填）。 */
 export type SubagentPortSeed = Omit<SubagentPortsShape, 'tools'> & {

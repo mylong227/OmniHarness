@@ -16,15 +16,19 @@
  *   未跟踪草稿（如 `sortingAlgorithms.ts.bak`）带进 `dist`。
  * - 保持 `src` 内相对目录结构。
  *
- * 用法：`node scripts/copyAssets.mjs`（默认 `src` → `dist/src`）。
+ * 用法：`node scripts/copyAssets.mjs [DIST_ROOT]`（默认 `src` → `dist/src`；
+ * 传 `dist.next` 即镜像进暂存目录，供 `scripts/buildDist.mjs` 的原子构建使用）。
  */
 import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'src');
-const DST = join(ROOT, 'dist', 'src');
+/** 产物根：可经首个位置参数覆盖（相对仓库根或绝对路径）。 */
+const DIST_ROOT =
+  process.argv[2] === undefined ? join(ROOT, 'dist') : resolve(ROOT, process.argv[2]);
+const DST = join(DIST_ROOT, 'src');
 
 /** 草稿/备份后缀（不拷贝，避免把未跟踪草稿带进 dist）。 */
 const SKIP_SUFFIXES = ['.bak', '.tmp', '.swp', '.orig'];

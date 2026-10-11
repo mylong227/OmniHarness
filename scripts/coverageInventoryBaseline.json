@@ -1,7 +1,6 @@
 {
   "platforms": {
     "win32": [
-      "src/adapters/approval/approvalRule.js",
       "src/adapters/media/mediaProcessRunner.js",
       "src/adapters/tool/toolHandler.js",
       "src/adapters/tool/verify/testCommandRunner.js",
@@ -332,6 +331,7 @@
       "src/ports/security/ssrfOptions.js",
       "src/ports/security/ssrfPolicy.js",
       "src/ports/security/ssrfPolicyConfig.js",
+      "src/ports/security/trustTier.js",
       "src/ports/server/auditEvent.js",
       "src/ports/server/auditFormat.js",
       "src/ports/server/auditQuery.js",

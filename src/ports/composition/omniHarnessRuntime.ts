@@ -18,7 +18,7 @@ import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
 import type { CosmicWebPort } from '../memory/cosmicWeb.js';
 import type { MemoryExtractorPort } from '../memory/memoryExtractor.js';
 import type { ContainerPort } from '../runtime/containerPort.js';
-import type { NativeToolRunner } from '../../native/nativeBackend.js';
+import type { NativeToolRunner } from '../native/nativeToolRunner.js';
 import type { ToolInputSink } from '../tool/toolInputSink.js';
 import type { EmbeddingPort } from '../model/embedding.js';
 import type { EvolutionController } from '../runtime/evolution.js';
@@ -26,7 +26,7 @@ import type { BudgetDegradeSignal } from '../model/budgetDegrade.js';
 import type { CompletionGateFactory } from '../runtime/completionGate.js';
 import type { SparkController } from '../../spark/sparkController.js';
 import type { A2aServer, A2aClient } from '../../a2a/index.js';
-import type { A2aTransport } from '../../a2a/a2aProtocol.js';
+import type { A2aTransport } from '../a2a/a2aTransport.js';
 
 /**
  * OmniHarness 运行时契约（端口注入版）。

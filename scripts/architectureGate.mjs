@@ -74,35 +74,23 @@ const PORTS_CLASS_WL = new Set([]);
 //
 // 存量白名单：本规则原先只枚举 6 个层（core/adapters/config/composition/context/search），
 // `spark/ skill/ security/ server/ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的
-// ports→实现层 边**完全不可见**（2026-10-06 自述的边界）。2026-10-11 动态全枚举后，这些存量边
-// 首次现形：**一次性登记在此（冻结-递减），按批递减**。它们全是 `import type` 的类型契约
-// （类型住在实现文件里，正确修法是把类型搬进 `ports/**`，即 G25/G25-b 那一套，属独立一片）。
+// ports→实现层 边**完全不可见**（2026-10-06 自述的边界）。2026-10-11 动态全枚举后这些存量边首次现形
+// （21 条），**同日做了真收口**：
+//   · 14 条属「类型早已在 `ports/**`，端口却绕道实现文件的再导出桶去取」（G25 记录的同一类老毛病）
+//     ⇒ 改直连（skill×5 / plugin / subagent / a2a / native×2 / toolOutputTrust / lineTransport /
+//     auditSink / mcpProtocol）；
+//   · 2 条属 `SsrfPolicy` 只是 `ResolvedSsrfPolicy` 的空扩展 ⇒ 直接引用端口层那个类型。
+// **剩余 5 条**才是真正"类型住在实现文件里"的边，且都要**先有新端口接口**（spark×2 / workerRegistry /
+// skillRegistry / rlvrLoop）：正确修法是造 `ports/**` 接口 + 把纯类型模块搬进端口层（属独立一片，
+// 见看板登记）。故此处只剩这 5 条冻结项，**按批递减**。
 const PORTS_IMPL_WL = new Set([
-  // 组合根契约：运行时/配置的端口文件反向引用实现类型。
-  'ports/composition/omniHarnessRuntime->native/nativeBackend',
+  // 组合根/配置面持有实现类实例的字段（需端口接口才能收口）。
   'ports/composition/omniHarnessRuntime->spark/sparkController',
-  'ports/composition/omniHarnessRuntime->a2a/a2aProtocol',
-  'ports/config/omniHarnessConfig->worker/workerRegistry',
-  'ports/config/omniHarnessConfig->security/toolOutputTrust',
-  'ports/config/omniHarnessConfig->skill/skill',
   'ports/config/resolvedConfig->spark/sparkController',
+  'ports/config/omniHarnessConfig->worker/workerRegistry',
   'ports/config/resolvedConfig->skill/skillRegistry',
-  'ports/config/subagentPortSeed->subagent/subagentTypes',
-  // 工具/协议契约。
-  'ports/mcp/mcpServerOptions->server/transport/lineTransport',
-  'ports/mcp/mcpServerOptions->mcp/mcpProtocol',
-  'ports/plugin/plugin->plugin/pluginApplyContext',
-  // 演化/技能契约（ADR-0008 一族）。
-  'ports/runtime/evolution/candidate->skill/skill',
+  // 演化控制器的 RLVR 主循环（同上）。
   'ports/runtime/evolution/evolutionControllerOptions->evolution/rlvrLoop',
-  'ports/runtime/evolution/promotionLedger->skill/skill',
-  'ports/runtime/skill->skill/skill',
-  'ports/runtime/skillEdit/crisprEditSpec->skill/skill',
-  // 安全/监督契约。
-  'ports/runtime/sandbox/networkEgressOptions->security/ssrfPolicy',
-  'ports/runtime/supervisor/auditSinkLike->server/services/auditSink',
-  'ports/security/ssrfOptions->security/ssrfPolicy',
-  'ports/subagent/subagentPortsShape->native/nativeBackend',
 ]);
 
 /**

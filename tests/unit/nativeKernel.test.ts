@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { NativeKernel, NativeKernelUnavailableError } from '../../src/native/nativeKernel.js';
+import { RequireEnv } from '../helpers/requireEnv.js';
 
 /**
  * #65 FFI 下沉：原生内核（N-API / .node）方法面测试。
@@ -8,9 +9,17 @@ import { NativeKernel, NativeKernelUnavailableError } from '../../src/native/nat
  *
  * 注意：改用 `test({ skip })` 真跳过，使 skip 可被统计——旧写法 `if (undefined) return`
  * 会让用例被记成「通过」而非「跳过」，虚增通过计数（静默假绿）。
+ *
+ * 2026-10-11：skip 接上 `OMNI_REQUIRE_NATIVE` 开关——在"原生内核必须在场"的环境里
+ * （本机已 `npm run native:build`，或将来 CI 真构建 .node 的作业）缺 .node 时**失败**，
+ * 而不是继续静默跳过（本文件的 8 条含 `approval.check` 审批语义，跳过等于审批面零判据）。
  */
 const kernelAvailable = new NativeKernel().available();
-const skipWhenUnbuilt = kernelAvailable ? false : '内核未构建（npm run native:build）';
+const skipWhenUnbuilt = RequireEnv.skipUnless(
+  'OMNI_REQUIRE_NATIVE',
+  kernelAvailable,
+  '内核未构建（npm run native:build）',
+);
 
 function loadKernel(): NativeKernel {
   return new NativeKernel();
