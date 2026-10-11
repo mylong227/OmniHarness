@@ -5,6 +5,7 @@ import type {
   ModelOutput,
   ModelPort,
   ModelRequest,
+  ModelResponseFormat,
   ModelToolCallRef,
   ModelToolSpec,
   ModelUsage,
@@ -20,6 +21,8 @@ import { ModelRequestGuard } from './modelRequestGuard.js';
 import { RequestStallGuard } from './requestStallGuard.js';
 import { ModelHttpErrors } from './modelHttpErrors.js';
 import { sseParser } from './sseParser.js';
+import { ModelResponseFormats } from './modelResponseFormats.js';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
 
 /** Anthropic 模型配置。 */
 export interface AnthropicModelConfig {
@@ -73,7 +76,7 @@ export class AnthropicModel implements ModelPort {
         throw await ModelHttpErrors.from(response, 'Anthropic 请求失败');
       }
       const body = (await response.json()) as AnthropicResponse;
-      return this.parseOutput(body);
+      return this.parseOutput(body, request.responseFormat);
     } catch (error) {
       throw this.guard.wrap(error, guard, 'Anthropic 模型请求');
     } finally {
@@ -160,7 +163,15 @@ export class AnthropicModel implements ModelPort {
     return {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify(this.wireBody(system, messages, request.tools)),
+      body: JSON.stringify(
+        this.wireBody(
+          system,
+          messages,
+          request.tools,
+          request.responseFormat,
+          request.reasoningEffort,
+        ),
+      ),
       // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
       // S2：改为守卫的组合信号（空闲超时 ∪ 调用方取消），二者任一触发都中断在飞请求。
       ...(guard !== undefined
@@ -186,11 +197,21 @@ export class AnthropicModel implements ModelPort {
     system: string | undefined,
     messages: readonly AnthropicWireMessage[],
     tools: readonly ModelToolSpec[],
+    format?: ModelResponseFormat,
+    effort?: string,
   ): Record<string, unknown> {
     const plan = this.cacheBreakpoints.plan(messages, system !== undefined);
+    // 结构化输出（2026-10-11）：Anthropic **没有** response_format 一类字段，等价实现是
+    // 「注入一个 input_schema=schema 的工具 + tool_choice 强制它」。见 ModelResponseFormats。
+    const forced = ModelResponseFormats.toAnthropicForcedTool(format);
+    const wireTools = this.toTools(tools);
+    // 推理强度（2026-10-11）：Anthropic 用 `thinking:{type:'enabled',budget_tokens}`，
+    // 且**硬约束 max_tokens > budget_tokens** —— 故这里同时抬高 max_tokens（见 ModelReasoningEfforts）。
+    const thinking = ModelReasoningEfforts.toAnthropic(effort);
     return {
       model: this.config.model,
-      max_tokens: this.config.maxTokens ?? 4096,
+      max_tokens: ModelReasoningEfforts.anthropicMaxTokens(effort, this.config.maxTokens),
+      ...(thinking === undefined ? {} : thinking),
       // V2.1（C10 prompt caching）：system 作为独立 text block 并打上 ephemeral
       // 缓存断点——system 前缀跨回合稳定（不变内容 + 追加），命中缓存可省重复
       // 计费 token。Anthropic 专属字段；system 缺省时保持原行为（不带该字段）。
@@ -200,7 +221,8 @@ export class AnthropicModel implements ModelPort {
           }
         : {}),
       messages: plan.messages,
-      tools: this.toTools(tools),
+      tools: forced === undefined ? wireTools : [...wireTools, forced.tool],
+      ...(forced === undefined ? {} : { tool_choice: forced.toolChoice }),
     };
   }
 
@@ -307,16 +329,34 @@ export class AnthropicModel implements ModelPort {
 
   /** 解析响应。
    * @param body wire 层 JSON 响应。
+   * @param format 本次请求的结构化输出意图（用于把**强制工具**的 `input` 转回文本内容）。
    * @returns 统一模型输出：text 块拼接、tool_use 块转工具调用引用、usage 按缓存口径合成；
    *          各段为空/缺失时对应字段不出现在输出中。
    */
-  private parseOutput(body: AnthropicResponse): ModelOutput {
+  private parseOutput(body: AnthropicResponse, format?: ModelResponseFormat): ModelOutput {
     const text = body.content
       .filter((block) => block.type === 'text')
       .map((block) => block.text)
       .join('');
+    // 结构化输出（2026-10-11）：Anthropic 侧我们**自己注入**了强制工具（见 wireBody）——
+    // 那条 tool_use 不是用户工具调用，必须转成 JSON 文本内容并**从 toolCalls 里剔除**：
+    // 否则 harness 会去执行一个名叫 `structured_output` / schema 名的"工具"（不存在 ⇒ 失败），
+    // 而调用方想要的结构化文本永远拿不到。
+    const forced = ModelResponseFormats.toAnthropicForcedTool(format);
+    const forcedName = forced === undefined ? undefined : String(forced.tool['name']);
+    const forcedBlock =
+      forcedName === undefined
+        ? undefined
+        : body.content.find(
+            (block): block is ToolUseBlock =>
+              block.type === 'tool_use' && block.name === forcedName,
+          );
+    const structuredText = forcedBlock === undefined ? '' : JSON.stringify(forcedBlock.input ?? {});
     const toolCalls = body.content
-      .filter((block): block is ToolUseBlock => block.type === 'tool_use')
+      .filter(
+        (block): block is ToolUseBlock =>
+          block.type === 'tool_use' && !(forcedName !== undefined && block.name === forcedName),
+      )
       .map((block) => ({
         id: block.id,
         name: block.name,
@@ -328,8 +368,9 @@ export class AnthropicModel implements ModelPort {
       toolCalls?: readonly ModelToolCallRef[];
       usage?: ModelUsage;
     } = {};
-    if (text !== '') {
-      output.text = text;
+    const mergedText = `${text}${structuredText}`;
+    if (mergedText !== '') {
+      output.text = mergedText;
     }
     if (toolCalls.length > 0) {
       output.toolCalls = toolCalls;

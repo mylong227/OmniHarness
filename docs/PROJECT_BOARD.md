@@ -2444,6 +2444,39 @@ Windows PowerShell 的 `Set-Content -Encoding utf8` **会写 BOM**，`package.js
    新增 `cachedEmbeddingPortContract.test.ts`（3 例：preload/flush 仅在实现侧存在时透出 + 命中不得调内层，
    附"换角色即换缓存键"正对照）⇒ 覆盖率回到 **97.50%**（仅剩一处防御性 `continue` 不可达）。
 
+### 8.12 第 3 轮：目标 (6) 三项新能力全部落地（结构化输出 / 跨 provider reasoning / 缓存分因）
+
+#### 结构化输出（JSON Schema）：根因是**契约缺字段**
+
+`ModelRequest` 里根本没有结构化输出的位置 ⇒ 五条通路（OpenAI 兼容 / Responses / Anthropic /
+Ollama / mock）零支持，"让模型吐 JSON"只能靠提示词 + `JSON.parse` 撞运气。修法：
+`ports/model/modelResponseFormat.ts`（三态）+ `ModelRequest.responseFormat?`（缺省＝纯文本，旧行为逐字不变）
+
+- `adapters/model/modelResponseFormats.ts` 单一映射（Chat `response_format` / Responses `text.format` /
+  Anthropic **单工具强制** / Ollama `format`）。两个容易漏的点已闭环：
+  ① 不合规的 OpenAI 格式名在**构造请求体**时即抛（fail-closed，不留给端点 400）；
+  ② Anthropic 的强制 `tool_use` 必须**转回 JSON 文本并从 `toolCalls` 剔除**——否则 harness 会去执行
+  一个不存在的"工具"，而调用方永远拿不到结构化文本。mock 也支持（按 `required` 造占位值）⇒ 无 Key 可端到端验证。
+
+#### 跨 provider reasoning 档：三条通路此前**完全忽略**该意图
+
+实测：`reasoningEffort` 只在 OpenAI 兼容通路透传；Responses / Anthropic / Ollama 完全忽略 ⇒
+用户设了档位在那三家上**等于什么都没发生**。现收进 `adapters/model/modelReasoningEfforts.ts`：
+Responses `reasoning:{effort}`、Anthropic `thinking:{enabled,budget_tokens}`、Ollama `think`（布尔）。
+两条硬约束：Anthropic 的 `max_tokens > budget_tokens`（同时抬高 max_tokens，配置更大时保留配置值）；
+未登记档位在 Anthropic 侧 **fail-closed**（换算不出具体预算就报错，不猜数字）。
+
+**修完当场发现自己引入的集成缺陷**：配置枚举有 **7 档**（`none|minimal|low|medium|high|xhigh|max`），
+初版映射只覆盖 4 档 ⇒ 用户设**合法**的 `xhigh` 会让 Anthropic 通路抛错。已补全（`none` = 不下发 thinking），
+并加判据 ③-b：**从 `configError.ts` 逐字读出枚举**要求映射全覆盖（附正对照）——这类"两侧枚举漂移"
+正是本仓反复记录的形态。
+
+#### 判据与验证
+
+`structuredOutput.test.ts` 9 例（含"旧行为不变：纯文本/缺省不发该字段"与"真工具不被误伤"正对照）、
+`crossProviderReasoning.test.ts` 7 例（含 `max_tokens > budget` 不变量、预算严格递增、枚举对账）。
+受影响的既有模型判据 10 文件 74 例 **全绿无回归**；门禁 10 项 + 类型层 + 编码标准增量**全绿**。
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。

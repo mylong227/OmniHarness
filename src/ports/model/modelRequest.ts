@@ -1,10 +1,18 @@
 import type { ModelMessage } from './modelMessage.js';
+import type { ModelResponseFormat } from './modelResponseFormat.js';
 import type { ModelToolSpec } from './modelToolSpec.js';
 
 /** 模型请求。 */
 export interface ModelRequest {
   readonly messages: readonly ModelMessage[];
   readonly tools: readonly ModelToolSpec[];
+  /**
+   * 结构化输出意图（可选，2026-10-11）：缺省＝纯文本（与旧行为逐字一致）。
+   *
+   * 各适配器把它落到各自上游的正确字段（见 {@link ModelResponseFormat} 的形态表）；
+   * Anthropic 无原生字段，用「单工具强制」等价实现。
+   */
+  readonly responseFormat?: ModelResponseFormat | undefined;
   /** 推理强度（可选，#B6）：透传为 OpenAI reasoning_effort 等，未设则后端按模型默认。 */
   readonly reasoningEffort?: string | undefined;
   /**

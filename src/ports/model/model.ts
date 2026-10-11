@@ -6,6 +6,12 @@ export type { FileAttachment } from './fileAttachment.js';
 export type { ModelMessage } from './modelMessage.js';
 export type { ModelToolSpec } from './modelToolSpec.js';
 export type { ModelRequest } from './modelRequest.js';
+export type {
+  JsonObjectResponseFormat,
+  JsonSchemaResponseFormat,
+  ModelResponseFormat,
+  TextResponseFormat,
+} from './modelResponseFormat.js';
 export type { ModelToolCallRef } from './modelToolCallRef.js';
 export type { ModelOutput } from './modelOutput.js';
 export type { ModelUsage } from './modelUsage.js';

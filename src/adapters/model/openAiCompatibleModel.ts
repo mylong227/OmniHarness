@@ -20,6 +20,8 @@ import {
 } from './modelRequestGuard.js';
 import { log } from '../../util/logger.js';
 import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.js';
+import { ModelResponseFormats } from './modelResponseFormats.js';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
 
 // 空闲超时的库级默认与覆盖环境变量**单一来源**在 `modelRequestGuard`（四个适配器共用）：
 // 这里只做再导出，保持既有公开 API 不变（测试与下游按此名引用）。
@@ -293,14 +295,23 @@ export class OpenAiCompatibleModel implements ModelPort {
     // 返回 HTTP 400（unknown variant，2026-09-06 实测）。非空时尊重调用方显式意图直接透传：
     // 是否真的支持由端点决定，适配器不做模型名猜测（此前用 reasoner/thinking/r1 正则门禁
     // 会误拦用户显式请求，导致"非空 reasoning_effort 透传"失败）。
-    const effort = request.reasoningEffort;
-    if (typeof effort === 'string' && effort !== '') {
-      body.reasoning_effort = effort;
+    // 推理强度透传（#B6 原语义保留）：映射收在 ModelReasoningEfforts（单一实现），
+    // 不再在本文件里手写条件——否则"哪条通路支持 reasoning"又要各自维护一遍。
+    const reasoning = ModelReasoningEfforts.toOpenAiChat(request.reasoningEffort);
+    if (reasoning !== undefined) {
+      Object.assign(body, reasoning);
     }
     // 采样温度透传：仅在显式提供数值时发送（含 0——0 是合法且本次基准最需要的贪婪解码，
     // 故判据是 `typeof === 'number'` 而非真值判断，否则温度 0 会被静默丢弃）。
     if (typeof request.temperature === 'number') {
       body.temperature = request.temperature;
+    }
+    // 结构化输出（2026-10-11）：OpenAI Chat Completions 的 `response_format`。
+    // 三条落点：json-schema → `{type:'json_schema', json_schema:{name, schema[, strict]}}`；
+    // json-object → `{type:'json_object'}`；text / 缺省 → **不发该字段**（与旧行为逐字一致）。
+    const responseFormat = ModelResponseFormats.toOpenAiChat(request.responseFormat);
+    if (responseFormat !== undefined) {
+      body.response_format = responseFormat;
     }
     return body;
   }

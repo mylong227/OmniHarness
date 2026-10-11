@@ -13,6 +13,8 @@ import { RequestStallGuard } from './requestStallGuard.js';
 import { ModelHttpErrors } from './modelHttpErrors.js';
 import { sseParser, type SseEvent } from './sseParser.js';
 import { log } from '../../util/logger.js';
+import { ModelResponseFormats } from './modelResponseFormats.js';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
 
 /**
  * @beta
@@ -226,6 +228,17 @@ export class ResponsesModel implements ModelPort {
     };
     if (instructions !== '') {
       body['instructions'] = instructions;
+    }
+    // 结构化输出（2026-10-11）：Responses API 走 `text.format`（**不是** Chat Completions 的
+    // `response_format`）——两处字段名不同，正是本仓把映射收进 ModelResponseFormats 的原因。
+    // 推理强度（2026-10-11）：Responses 走 `reasoning: {effort}` —— 此前本通路**完全忽略**该意图。
+    const reasoning = ModelReasoningEfforts.toResponses(request.reasoningEffort);
+    if (reasoning !== undefined) {
+      Object.assign(body, reasoning);
+    }
+    const text = ModelResponseFormats.toResponsesText(request.responseFormat);
+    if (text !== undefined) {
+      body['text'] = text;
     }
     return body;
   }

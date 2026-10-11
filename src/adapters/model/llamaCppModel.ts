@@ -13,6 +13,8 @@ import { ModelHttpErrors } from './modelHttpErrors.js';
 import { ModelRequestGuard } from './modelRequestGuard.js';
 import { log } from '../../util/logger.js';
 import { RequestStallGuard } from './requestStallGuard.js';
+import { ModelResponseFormats } from './modelResponseFormats.js';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
 
 /**
  * @beta
@@ -210,6 +212,17 @@ export class LlamaCppModel implements ModelPort {
     };
     if (tools !== undefined) {
       body.tools = tools;
+    }
+    // 结构化输出（2026-10-11）：Ollama（本通路的上游）用 `format` 字段承载 ——
+    // 完整 JSON Schema 或字符串 `'json'`。纯文本 / 缺省时不发该字段（旧行为逐字不变）。
+    // 推理强度（2026-10-11）：Ollama 的 HTTP 面只有布尔 `think` —— 此前本通路**完全忽略**该意图。
+    const think = ModelReasoningEfforts.toOllama(request.reasoningEffort);
+    if (think !== undefined) {
+      Object.assign(body, think);
+    }
+    const format = ModelResponseFormats.toOllamaFormat(request.responseFormat);
+    if (format !== undefined) {
+      body.format = format;
     }
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.config.apiKey !== undefined) {
