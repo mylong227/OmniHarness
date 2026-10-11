@@ -218,6 +218,26 @@ test('端到端对照：回滚后不再带旧摘要（日志被截断，不残�
     return bodies.filter((body) => AUXILIARY_PROMPT_MARKS.some((mark) => body.includes(mark)));
   }
 
+  /**
+   * 全部捕获体的**分类表**（2026-10-11 补）。
+   *
+   * 为什么加：本判据的已知假红形态是"**第三种**落在最后的辅助调用"（见文件头诚实边界）——
+   * 旧失败消息只给条数与命中片段，看不出那条体到底是谁。把每条体的
+   * 「序号 / 字数 / 命中的标记 / 开头 48 字」一次列出，下次复现即可**一眼**判定是仪器漏了标记、
+   * 还是产品真的把旧摘要送进了任务请求。
+   * @param bodies 捕获到的请求体。
+   * @returns 多行分类表。
+   */
+  function classify(bodies: readonly string[]): string {
+    return bodies
+      .map((body, index) => {
+        const marks = AUXILIARY_PROMPT_MARKS.filter((mark) => body.includes(mark)).join(',');
+        const kind = marks === '' ? '任务?' : `辅助(${marks})`;
+        return `        [${String(index)}] ${String(body.length)} 字 ${kind} ｜ ${body.slice(0, 48).replace(/\s+/gu, ' ')}`;
+      })
+      .join('\n');
+  }
+
   // **仪器自证**：过滤器必须真的排除了东西，且**两类辅助请求都要真的出现过**——
   // 尤其是记忆抽取器：它正是 2026-10-11 定性出的误判来源（旧过滤器只排压缩器 ⇒ 抽取器被当任务请求）。
   // 若某类辅助请求在本夹具里压根不触发，这条会先红，而不是让"最后一次任务请求"的读数悄悄失真。
@@ -272,7 +292,8 @@ test('端到端对照：回滚后不再带旧摘要（日志被截断，不残�
       `回滚后的最后一次请求里仍有 ${needle} ⇒ 回滚没把折叠点截掉` +
         `（任务请求 ${String(rolledBackTasks.length)} 条 / 辅助请求 ${String(auxiliaryBodies(rolledBack.bodies).length)} 条 / ` +
         `共捕获 ${String(rolledBack.bodies.length)} 条 / 折叠点系统事件 ${String(rolledBack.markerEvents)} 条 / ` +
-        `末条任务请求 ${String(rolledBackLast.length)} 字符）\n      命中处：${excerpt}`,
+        `末条任务请求 ${String(rolledBackLast.length)} 字符）\n      命中处：${excerpt}\n` +
+        `      实验组全部捕获体（判断是"仪器漏标记"还是"产品真泄漏"）：\n${classify(rolledBack.bodies)}`,
     );
   }
 

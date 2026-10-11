@@ -24,6 +24,7 @@
  */
 
 import { log } from '../util/logger.js';
+import { CacheMissAttributionAnalyst, type CacheMissCause } from './cacheMissAttributionAnalyst.js';
 
 /** 判定缓存命中率坍塌所需的**最少**调用数（低于此数不判定，避免小样本噪声）。 */
 export const MIN_CALLS_FOR_JUDGEMENT = 5;
@@ -47,6 +48,18 @@ export interface CacheHitRateSample {
   readonly calls: number;
   /** 平均命中率（0–100，一位小数）；无上报调用时缺省。 */
   readonly hitRate?: number | undefined;
+  /**
+   * 可选分因信号（2026-10-11「缓存命中率分因」）：给出时才做归因，缺省不猜。
+   * 见 {@link CacheMissAttributionAnalyst.attribute}——`cachedPromptTokens` 为 `undefined`
+   * 时判 `not-reported`（"没读数"≠"没命中"）。
+   */
+  readonly cachedPromptTokensReported?: number | undefined;
+  /** 相邻请求公共前缀占比（0–1）；缺省＝未知。 */
+  readonly prefixReuseRatio?: number | undefined;
+  /** 距上次请求间隔（毫秒）；缺省＝未知。 */
+  readonly gapMs?: number | undefined;
+  /** provider 缓存 TTL（毫秒）；缺省取分因器的默认值。 */
+  readonly ttlMs?: number | undefined;
 }
 
 /** 坍塌判定的结果（用于日志与单测断言，不做业务分支）。 */
@@ -63,6 +76,10 @@ export interface CacheHitRateBreach {
   readonly threshold: number;
   /** 可直接作日志字段的事件名。 */
   readonly event: string;
+  /** 未命中分因（2026-10-11）：把"0%"变成可行动结论；无信号时按 `cachedPromptTokens` 推断。 */
+  readonly cause: CacheMissCause;
+  /** 分因的一句话理由（含具体数字）。 */
+  readonly reason: string;
 }
 
 /**
@@ -103,6 +120,17 @@ export class CacheHitRateWatch {
     if (sample.promptTokens <= 0) return undefined;
     if (sample.calls < MIN_CALLS_FOR_JUDGEMENT) return undefined;
     if (hitRate >= this.threshold) return undefined;
+    // 分因：只把**已知**的信号传下去。`cachedPromptTokensReported` 缺省时传 `undefined`
+    // ⇒ 分因器判 `not-reported`（"端点没给字段"）——这正是最该与"缓存全没命中"区分开的那一类。
+    const attribution = CacheMissAttributionAnalyst.attribute({
+      cachedPromptTokens: sample.cachedPromptTokensReported,
+      promptTokens: sample.promptTokens,
+      ...(sample.prefixReuseRatio !== undefined
+        ? { prefixReuseRatio: sample.prefixReuseRatio }
+        : {}),
+      ...(sample.gapMs !== undefined ? { gapMs: sample.gapMs } : {}),
+      ...(sample.ttlMs !== undefined ? { ttlMs: sample.ttlMs } : {}),
+    });
     return {
       hitRate,
       promptTokens: sample.promptTokens,
@@ -110,6 +138,8 @@ export class CacheHitRateWatch {
       calls: sample.calls,
       threshold: this.threshold,
       event: LOW_HIT_RATE_EVENT,
+      cause: attribution.cause,
+      reason: attribution.reason,
     };
   }
 
@@ -130,6 +160,9 @@ export class CacheHitRateWatch {
         cachedPromptTokens: breach.cachedPromptTokens,
         calls: breach.calls,
         threshold: breach.threshold,
+        // 分因（2026-10-11）：把"0%"变成可行动结论——日志里直接给 cause + 一句话理由。
+        cause: breach.cause,
+        reason: breach.reason,
       });
     } catch {
       // 观测路径 fail-soft：sink 抛错（stderr 关闭 / 自定义 sink 故障）不得影响调用方。

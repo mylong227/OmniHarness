@@ -2358,17 +2358,22 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
 要销账需要：能读到公开价目页正文的环境（或人工把价格与出处贴进来）。**不猜数字**——猜出来的价
 比"显式未定价"更危险（本轮之前的注释已写明：兜底价对高端档偏低 3–5×，会让硬预算熔断过晚）。
 
-#### ⑧ 本轮新抓到的三个真问题（证据在手，**未修完**，按目标要求如实登记）
+#### ⑧ 本轮新抓到的三个问题（一条已**推翻**、两条待修）
 
-1. **`omniharness <未知顶层子命令>` 会挂死**（不是退出码 2）。实测
-   `node dist/src/cli/exec.js bogus-subcommand-xyz` 与 `definitely-not-a-subcommand` 均在 20s 时被我
-   带硬超时的 spawn 探针强杀（两次都可复现）；输出只有一行 bundle 警告。而既有判据
-   "未知子命令 ⇒ 退出码 2" 只覆盖**二级**子命令（`session bogus` / `kv bogus` / …，见
-   `cliDataCmds.test.ts`）。⇒ **顶层未知命令既缺判据、行为又是挂死**。下一步：在分发入口对未知顶层
-   命令即时退出 2 + 用法提示，并补一条**顶层**判据（带超时上限）。
-2. **CLI 子命令启动 ~2s**：`--version` 0.12s，而"只该打印用法"的路径平均 2.1s（6 次 spawn 合计
-   12.7s）⇒ 用法/枚举校验发生在**重模块加载之后**。既是 DX 问题，也是 `cliDataCmds` 撞 120s
-   文件预算的根因（本轮先用拆文件解掉预算，未解根因）。
+1. ~~**`omniharness <未知顶层子命令>` 会挂死**（不是退出码 2）~~ **✅ 2026-10-11 当场推翻（保留旧文）**。
+   旧结论错在**没先读契约**：`omniharness --help` 的"快速开始"里写着
+   `omniharness "列出当前目录的 .md 文件并总结"` —— **裸位置参数本来就是 prompt**（设计如此），
+   `execCli.run()` 里那一长串 `argv[0] === '…'` 之后落到 agent 路径是**正确**行为。
+   而"20s 被杀"也不是挂死：带硬超时的 spawn 探针实测 —— `--mock 你好` **30.7s 正常退出 0**；
+   `bogus-subcommand-xyz` 用**真模型**跑了 >150s 仍在做 `read_file`/`list_dir`/`grep`（长回合）。
+   ⇒ 这条**不是缺陷**，已从待修项移除。
+   _教训（比结论值钱）_：我把"带超时的探针被强杀"直接读成了"挂死"，而没有先分辨
+   "**进程在干活**"与"**进程卡住**"——两者在被杀那一刻的观测面完全相同。以后凡"疑似挂死"，
+   先看有没有事件流输出（本次 `session.start` + `tool_call` 一直在涨）。
+2. **CLI 子命令启动 ~2s**：`--version` 0.12s、`--help`/`-h` 0.13s（exec.ts 的快路径），而
+   `session bogus` 一类**非法二级子命令**平均 2.1s（6 次 spawn 合计 12.7s）⇒ 用法/枚举校验发生在
+   **重模块加载之后**。既是 DX 问题，也是 `cliDataCmds` 撞 120s 文件预算的根因
+   （本轮先用拆文件解掉预算，未解根因）。
 3. **`rewindCompactionCursor` 的 ~3% 偶发**（本轮在 `coverage:check` 的全量跑里复现 1 次；隔离单跑
    2/2 全绿）。这次**拿到了具体读数**，不再是"未归因"：失败消息为
    `回滚后的最后一次请求里仍有 SUMMARY_SENTINEL_ALPHA（任务请求 10 条 / 辅助请求 2 条 /
@@ -2388,6 +2393,56 @@ Windows PowerShell 的 `Set-Content -Encoding utf8` **会写 BOM**，`package.js
 判据①当场红）。处置：① `check.mjs` 新增 `readJson()`（剥 BOM 后 parse）替换全部 6 处 JSON 读取点
 ——与 `src/config/configFile.ts` 的既有口径一致；② 剥 BOM 一律用**字节级**判断（读首三字节），
 不要用"去掉第一个字符"。
+
+### 8.11 第 2 轮：配置键出口（F9）+ 缓存命中率分因 + 一条错误登记被推翻
+
+#### F9 配置键出口：从"不被支持"到"可用：… + 出口"
+
+`ConfigError.knownConfigKeys()` 新增为合法键**唯一出口**；未知键报错带上合法键（前 12 项 + 总数 +
+指向 `omniharness.json.example`）；`loadBundlePatchLayer` 的告警不再 `catch {}` 吞原因 ——
+现在带 `；原因：<底层 ConfigError 原文>`，于是"未知键 / 枚举越界 / 类型错"三类**可分辨**。
+判据 `configKeySurface.test.ts` 3 例，并立了一条**新契约**：示例配置的每个顶层键都必须被
+`normalizeConfig` 接受（照抄示例不能再踩"未知配置项"）。**变异正对照**：撤掉出口 ⇒ ②③ 红；
+撤掉告警原因 ⇒ ③ 红；还原后 3/3 绿。
+
+#### 缓存命中率分因：把"0%"变成可行动结论
+
+新增 `observability/cacheMissAttribution.ts`：六因（`hit` / `not-reported` / `cold-start` /
+`prefix-rewrite` / `ttl-expired` / `unknown`），**固定优先级**（`not-reported` 最先 —— 否则"端点没给字段"
+会被引导成"去改提示词"；`prefix-rewrite` 早于 `ttl-expired` —— 前缀断了 TTL 再新鲜也不命中）。
+`attributeFromTexts` 复用 `PrefixStability.prefixReuse`（唯一实现，防面板/治理口径漂移）。
+**接入真实消费方**：`CacheHitRateWatch` 的 breach 新增 `cause`/`reason`，warn 日志同时写出两者。
+判据 6 例（逐因 + **换信号必须换因**的正对照 + 优先级 + 边界"恰好等于阈值不得误判" + 证据 JSON 安全）。
+**诚实边界**：会话面板（`ContextUsageReport.cache`）**尚未**带分因——它手上没有前缀/间隔信号，
+需要 UI/RPC 侧把信号接进来（属"Web 交付"那片，未做）。
+
+#### 推翻一条错误登记（保留旧文 + 推翻依据）
+
+见 §8.10⑧ 第 1 条：`omniharness <未知顶层子命令>` **不是挂死**，裸位置参数按文档就是 prompt；
+且"20s 被杀"实为真模型长回合（>150s 仍在 `read_file`/`list_dir`/`grep`）。已划掉。
+另排除一条嫌疑：`.omniharness/bundle-patches/*` 遗留**不会**影响 `rewindCompactionCursor` 判据
+（该判据走 `ConfigFactory.build`，bundle 补丁层只在 CLI 的 `loadLayered` 里读）。
+该偶发 40 次隔离跑未复现（只在全量并发下出现）⇒ 已给失败消息补**全部捕获体分类表**，
+下次复现即可一眼判定"仪器漏标记"还是"产品真泄漏"。
+
+#### 同轮修掉的两处**门禁/测试基础设施**真缺陷（都会在 CI 上复现）
+
+1. **覆盖率门禁自杀于 `ENOBUFS`**：`execFileSync` 未设 `maxBuffer`（Node 缺省 1MB），而门禁要捕获
+   **整套 TAP** ⇒ 套件一长大就 `spawnSync … ENOBUFS`，且被报成"**测试可能根本没跑起来**"
+   （把"门禁读不下输出"伪装成"测试没启动"）。处置：抽出 `scripts/lib/childRunFailure.mjs`
+   （`MAX_CAPTURE_BYTES=64MB` + `classifyRunFailure`；独立成模块才**可判据化**——门禁 import 即执行），
+   门禁显式传 `maxBuffer`，`capture-overflow` 走**另一套**文案与处置。判据 `coverageCaptureBudget.test.ts` 3 例。
+2. **`headless.test.ts` 撞 120s 文件预算**（插桩 76s / 全量并发超限）。根因**量化**：CLI 的 agent 路径
+   默认开语义检索，4 条真 agent 回合每次 spawn 都要加载嵌入模型与索引 ⇒ **67.7s → 23.4s**（关掉后），
+   插桩下 **76s → 34s**。处置：该文件每处 spawn 带 `env: CHILD_ENV`（`OMNI_SEMANTIC_RECALL=0`）；
+   并把 `applyCliRetrievalDefaults()` 从 `run()` 开头收窄到 **agent 路径**。
+   **诚实边界**：收窄**不会**让子命令变快（`boost probe list` 1.67s → 1.72s；那 ~2s 是命令继承链加载，
+   另立登记）。判据 `cliRetrievalScoping.test.ts` 2 例（各带合成坏输入正对照）。
+3. **由此暴露的一条覆盖口径事实**（值得记住）：**测试 spawn 的 CLI 子进程覆盖会并进报告** ——
+   关掉检索后 `cachedEmbeddingPort.js` 从 97.5% 掉到 93.75%（preload 透传那三行原本是 CLI 回合
+   "顺手"覆盖的）。处置**不是下调基线**，而是把该装饰器的能力透传契约**显式判据化**：
+   新增 `cachedEmbeddingPortContract.test.ts`（3 例：preload/flush 仅在实现侧存在时透出 + 命中不得调内层，
+   附"换角色即换缓存键"正对照）⇒ 覆盖率回到 **97.50%**（仅剩一处防御性 `continue` 不可达）。
 
 ## 9. 本板如何追加条目
 

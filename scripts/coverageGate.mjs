@@ -44,6 +44,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAX_CAPTURE_BYTES, classifyRunFailure } from './lib/childRunFailure.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const baselinePath = join(root, 'scripts', 'coverageBaseline.json');
@@ -111,6 +112,11 @@ function loadReport() {
       encoding: 'utf8',
       shell: true,
       stdio: ['ignore', 'pipe', 'inherit'],
+      // 2026-10-11：**必须显式给足**。此前没设 ⇒ 用 Node 默认 1MB，套件全量 TAP 输出一超线就
+      // `spawnSync … ENOBUFS`，而 catch 把它报成"测试可能根本没跑起来"（把"捕获缓冲不够"伪装成
+      // "测试没启动"，与 2026-10-06 那次"把运维故障伪装成用例失败"同一形态）。本仓全量套件的
+      // TAP 输出已接近 1MB 量级，故给 64MB 上限并在下面**如实分类**。
+      maxBuffer: MAX_CAPTURE_BYTES,
     });
   } catch (e) {
     // 分类而非一律归因：**测试没跑起来**（npm 不在 PATH / spawn 失败 / OOM / 汇总前崩溃）
@@ -138,12 +144,23 @@ function loadReport() {
       }
     }
     if (printed.length === 0) {
-      console.error(
-        '✗ 覆盖率门禁终止：**测试可能根本没跑起来**（被捕获输出里没有任何 TAP 失败行）。',
-      );
+      const kind = classifyRunFailure(e);
+      if (kind === 'capture-overflow') {
+        console.error(
+          `✗ 覆盖率门禁终止：**捕获缓冲不足**（spawnSync ENOBUFS，上限 ${String(MAX_CAPTURE_BYTES)} 字节）。`,
+        );
+        console.error(
+          '  这不是"测试没跑起来"，也不是用例失败——是门禁读不下子进程的完整输出。' +
+            '处置：把本脚本的 maxBuffer 调大（或减少套件的 stdout 噪声）。',
+        );
+      } else {
+        console.error(
+          '✗ 覆盖率门禁终止：**测试可能根本没跑起来**（被捕获输出里没有任何 TAP 失败行）。',
+        );
+      }
       console.error(
         `  退出码=${String((e && e.status) ?? '(无)')}｜信号=${String((e && e.signal) ?? '(无)')}｜` +
-          `原因=${String((e && e.message) ?? e).slice(0, 300)}`,
+          `分类=${kind}｜原因=${String((e && e.message) ?? e).slice(0, 300)}`,
       );
       if (err.trim() !== '') {
         console.error('  子进程 stderr（前 20 行）：');
@@ -258,6 +275,29 @@ function isTypeOnlyArtifact(abs) {
   return true;
 }
 
+/**
+ * 把"没进覆盖率报告"的产物分成两类：**可执行但没跑过**（真缺口，进清点基线）与
+ * **纯类型模块**（无可执行行，读数无意义，不进基线）。
+ *
+ * **单一来源**：报告分支与 `--dump-inventory` 分支必须用同一份判定 —— 否则收紧基线时会把
+ * 纯类型模块又当成"新增未覆盖"拦下来（2026-10-11 实测：dump 分支漏了这道过滤，报"多出 9 个"，
+ * 而那 9 个全是本批新增的纯类型端口模块）。
+ * @param includedFiles `listIncludedFiles()` 的结果。
+ * @param reportedSet 覆盖率报告里出现过的文件集合。
+ * @returns `{ missing, typeOnly }`（`missing` = 需要进清点基线的可执行产物）。
+ */
+function classifyMissingArtifacts(includedFiles, reportedSet) {
+  const typeOnly = [];
+  const missing = [];
+  for (const f of includedFiles) {
+    if (reportedSet.has(f)) continue;
+    const abs = join(root, 'dist', f);
+    if (existsSync(abs) && isTypeOnlyArtifact(abs)) typeOnly.push(f);
+    else missing.push(f);
+  }
+  return { missing, typeOnly };
+}
+
 const { all, files } = parseCoverage(loadReport());
 // 基线**缺失即阻断**：静默退化成 `{}` 会让逐文件棘轮消失（只剩"新文件 30% 下限"）⇒
 // 所有存量回归一次性合法化，而输出仍是「✓ 覆盖率达标」。本仓纪律与此一致：
@@ -348,7 +388,7 @@ if (args.includes('--dump-inventory')) {
   const oldSet = new Set(old);
   const included = listIncludedFiles();
   const reported = new Set(files.keys());
-  const missing = included.filter((f) => !reported.has(f));
+  const { missing, typeOnly } = classifyMissingArtifacts(included, reported);
   const added = missing.filter((f) => !oldSet.has(f));
   const cleared = old.filter((f) => !missing.includes(f));
   if (added.length > 0 && !force) {
@@ -370,6 +410,7 @@ if (args.includes('--dump-inventory')) {
   console.log(
     `已写入文件清点基线（${process.platform}）：scripts/coverageInventoryBaseline.json` +
       `（产物 ${included.length} 个 ｜ 未进报告 ${missing.length} 个` +
+      `${typeOnly.length > 0 ? `（另有 ${typeOnly.length} 个纯类型模块不计入）` : ''}` +
       `${added.length > 0 ? ` ｜ 本次新增登记 ${added.length} 个` : ''}` +
       `${cleared.length > 0 ? ` ｜ 已清偿 ${cleared.length} 个` : ''}）`,
   );
@@ -496,14 +537,11 @@ const reportedSet = new Set(files.keys());
 // 口径自证：报告里出现产物之外的文件 ⇒ include 口径与清点口径已漂移，此时"缺失"读数不可信。
 const outsideReport = [...reportedSet].filter((f) => !f.startsWith('src/'));
 // 纯类型模块（编译产物无可执行语句）单列：它们**不可能**出现在覆盖率报告里，属"读数无意义"而非"缺判据"。
-const missingRaw = includedFiles.filter((f) => !reportedSet.has(f));
-const typeOnlyArtifacts = [];
-const missingFiles = [];
-for (const f of missingRaw) {
-  const abs = join(root, 'dist', f);
-  if (existsSync(abs) && isTypeOnlyArtifact(abs)) typeOnlyArtifacts.push(f);
-  else missingFiles.push(f);
-}
+// 与 `--dump-inventory` 分支共用同一份判定（`classifyMissingArtifacts`）——口径不许分叉。
+const { missing: missingFiles, typeOnly: typeOnlyArtifacts } = classifyMissingArtifacts(
+  includedFiles,
+  reportedSet,
+);
 const inventoryRaw = existsSync(inventoryBaselinePath)
   ? JSON.parse(readFileSync(inventoryBaselinePath, 'utf8'))
   : {};

@@ -118,7 +118,7 @@ test('无分母 / 无命中率静默：promptTokens=0 或 hitRate 缺省不判�
   );
 });
 
-test('坍塌判定：返回四个数字 + 生效阈值 + 事件名', () => {
+test('坍塌判定：返回四个数字 + 生效阈值 + 事件名 + **分因**（2026-10-11 增补）', () => {
   const watch = new CacheHitRateWatch(60);
   const breach = watch.evaluate({
     promptTokens: 10_000,
@@ -127,6 +127,8 @@ test('坍塌判定：返回四个数字 + 生效阈值 + 事件名', () => {
     hitRate: 20,
   });
   assert.ok(breach !== undefined);
+  // 分因字段：样例**没给** `cachedPromptTokensReported` ⇒ 判 `not-reported`
+  // （"端点没上报"≠"缓存全没命中"；这条正是分因器要区分的第一类）。
   assert.deepStrictEqual(breach, {
     hitRate: 20,
     promptTokens: 10_000,
@@ -134,7 +136,30 @@ test('坍塌判定：返回四个数字 + 生效阈值 + 事件名', () => {
     calls: 7,
     threshold: 60,
     event: LOW_HIT_RATE_EVENT,
+    cause: 'not-reported',
+    reason: '端点未上报缓存字段（cachedPromptTokens 缺省）⇒ 显示 0% 是假读数，先确认端点/字段',
   });
+});
+
+test('分因穿透：给了前缀/间隔信号时，breach 的 cause 必须随之变化（不是恒为 not-reported）', () => {
+  const watch = new CacheHitRateWatch(60);
+  const base = { promptTokens: 10_000, cachedPromptTokens: 0, calls: 7, hitRate: 0 };
+  // ① 上报了 0 命中 + 前缀被打断 ⇒ prefix-rewrite
+  const rewritten = watch.evaluate({
+    ...base,
+    cachedPromptTokensReported: 0,
+    prefixReuseRatio: 0.2,
+    gapMs: 1_000,
+  });
+  assert.strictEqual(rewritten?.cause, 'prefix-rewrite', rewritten?.reason);
+  // ② 同一条样例，只把前缀复用率抬到阈值之上 ⇒ 应变成 ttl-expired（证明①不是恒真）
+  const expired = watch.evaluate({
+    ...base,
+    cachedPromptTokensReported: 0,
+    prefixReuseRatio: 0.99,
+    gapMs: 10 * 60_000,
+  });
+  assert.strictEqual(expired?.cause, 'ttl-expired', expired?.reason);
 });
 
 test('落日志：坍塌时写出 warn 级结构化日志，字段含四个数字与阈值', () => {

@@ -211,6 +211,35 @@ export class ConfigError extends OmniError {
     );
   }
 
+  /**
+   * 合法配置键的**唯一出口**（F9，2026-10-11）。
+   *
+   * 为什么需要它：此前"配置里某个键不被支持"的报错只有一句
+   * `未知配置项 "x"（标准名 "x" 不被支持）` —— 用户拿不到**任何**可行动的出口，
+   * 只能去翻源码；而 bundle 补丁层的告警更糟：`catch {}` 把原因整个吞掉，只剩
+   * "忽略非法配置项: x"。本方法把 `KNOWN_KEYS` 暴露为公开面，供报错文案、诊断与判据共用
+   * （**单一来源**：清单仍只在本文件的 `KNOWN_KEYS` 里维护一处）。
+   * @returns 升序的合法键数组（拷贝，调用方改不动清单）。
+   */
+  public static knownConfigKeys(): readonly string[] {
+    return [...KNOWN_KEYS].sort();
+  }
+
+  /**
+   * 合法键的**有界**提示文案（供报错与告警复用）。
+   *
+   * 有界的原因：键表有数十项，塞进一行启动告警会淹掉真正有用的那句。故只列前
+   * {@link LEGAL_KEY_HINT_LIMIT} 项 + 总数 + 一个**真能跑**的出口（仓库内那份示例配置
+   * 逐键合法，已被判据钉住：示例里的每个键都必须被 `normalizeConfig` 接受）。
+   * @returns 单行提示（形如 `可用：a / b / …（共 N 项，完整清单见 omniharness.json.example）`）。
+   */
+  private static legalKeysHint(): string {
+    const keys = ConfigError.knownConfigKeys();
+    const head = keys.slice(0, LEGAL_KEY_HINT_LIMIT).join(' / ');
+    const more = keys.length > LEGAL_KEY_HINT_LIMIT ? ' / …' : '';
+    return `可用：${head}${more}（共 ${String(keys.length)} 项，完整清单见 omniharness.json.example）`;
+  }
+
   /** 把任意层原始对象归一化为标准 FileConfig（别名映射 + 类型/枚举校验 + 未知 key 拦截）。 */
   public static normalizeConfig(raw: Record<string, unknown>): FileConfig {
     const out: Record<string, unknown> = {};
@@ -220,7 +249,10 @@ export class ConfigError extends OmniError {
       }
       const key = KEY_ALIASES[rawKey] ?? rawKey;
       if (!KNOWN_KEYS.has(key)) {
-        throw new ConfigError(`未知配置项 "${rawKey}"（标准名 "${key}" 不被支持）`);
+        // 报错必须**可行动**：点名非法键 + 给出合法键出口（此前只有前半句，用户无处可查）。
+        throw new ConfigError(
+          `未知配置项 "${rawKey}"（标准名 "${key}" 不被支持）；${ConfigError.legalKeysHint()}`,
+        );
       }
       out[key] = value;
     }
@@ -396,12 +428,17 @@ export class ConfigError extends OmniError {
           continue;
         }
         // 逐 key 归一化校验：合法则应用，非法（未知 key / 类型错 / 枚举越界）跳过并告警。
+        //
+        // F9（2026-10-11）：告警必须说出**为什么**被跳过 —— 此前这里是 `catch {}`，把原因整个吞掉，
+        // 只剩"忽略非法配置项: x"，用户既不知道是拼错了键、还是类型/枚举不对，也拿不到合法键出口。
+        // 现在把底层 `ConfigError` 的原文接上去（未知键那条已自带合法键清单）。
         try {
           const single = ConfigError.normalizeConfig({ [patch.key]: patch.value });
           out[patch.key] = (single as Record<string, unknown>)[patch.key];
-        } catch {
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
           process.stderr.write(
-            `[omniharness] bundle 补丁层忽略非法配置项: ${patch.key}（来自 ${file}）\n`,
+            `[omniharness] bundle 补丁层忽略非法配置项: ${patch.key}（来自 ${file}）；原因：${reason}\n`,
           );
         }
       }
@@ -487,6 +524,12 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   // 只能编程注入；而编程注入的部署里 mode 从没被打开过 ⇒ 引擎恒不构造。这一段补齐配置面。
   'decisionEngine',
 ]);
+
+/**
+ * 合法键提示里最多列几项（F9）：键表有数十项，全塞进一行启动告警会淹掉真正有用的那句；
+ * 故只列前 N 项 + 总数 + 示例配置出口（示例里的键逐条合法，由判据钉住）。
+ */
+const LEGAL_KEY_HINT_LIMIT = 12;
 
 /** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
 const KEY_ALIASES: Readonly<Record<string, string>> = {

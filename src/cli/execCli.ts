@@ -66,7 +66,6 @@ export class ExecCli extends CliAgentCmds {
    * @returns 进程退出码：子命令各自决定；exec 主路径成功 0、用法错误 2、执行异常 1。
    */
   public async run(argv: readonly string[]): Promise<number> {
-    this.applyCliRetrievalDefaults();
     if (argv.includes('--version') || argv.includes('-V')) {
       process.stdout.write(`omniharness ${(await import('../version.js')).API_VERSION}\n`);
       return 0;
@@ -151,6 +150,17 @@ export class ExecCli extends CliAgentCmds {
     }
     if (argv[0] === 'evolution') return this.runEvolution(argv.slice(1));
     if (argv[0] === 'capability') return this.runCapability(argv.slice(1));
+    // 检索默认档**只对真正的 agent 路径**生效（2026-10-11 收窄：此前它在 `run()` 开头无条件调用）。
+    //
+    // **实测边界（别把收益说大）**：挪到这里**不会**让非 agent 子命令变快——`boost probe list`
+    // 改前 1.67s、改后 1.72s（那 ~2s 是整条命令继承链的加载与配置分层，与本变量无关，已另立登记项）。
+    // 它换来的是**影响面**：`kv` / `session` / 用法提示这类根本不碰检索的路径，不再顺手把一个
+    // 进程级默认打开（该默认只对检索栈有意义）。agent 路径语义**完全不变**：仍默认开，
+    // 原注释里的两关判定依据、三重安全垫与 `OMNI_SEMANTIC_RECALL=0` 的关闭权全部保留。
+    //
+    // 真正省时间的是**测试侧显式关闭**：`headless.test.ts`（4 条真 agent 回合走 CLI 子进程）
+    // 实测 67.7s → 23.4s（`OMNI_SEMANTIC_RECALL=0`），并因此在覆盖率插桩 + 全量并发下撞过 120s 文件预算。
+    this.applyCliRetrievalDefaults();
     let restoreEgress: () => void = () => {};
     try {
       const defaults = this.loadDefaults(argv);
