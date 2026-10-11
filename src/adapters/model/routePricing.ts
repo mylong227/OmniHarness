@@ -137,6 +137,34 @@ export const DEFAULT_ROUTE_PRICING: Record<string, RoutePrice> = {
   // 把 3/15 的真实单价低估 3×/5×（实测，2026-10-11）。
   'claude-sonnet-4': { inputPer1M: 3, outputPer1M: 15, cachedInputPer1M: 0.3 },
   'claude-opus-4': { inputPer1M: 15, outputPer1M: 75, cachedInputPer1M: 1.5 },
+  // ── 2026-10-11：出货默认族里此前"只有登记、没有价目"的批次，按**公开价目**填入真实单价 ──
+  // 来源与核对方式见 PRICE_SOURCES（固定到 blob SHA，可复核）；无来源的三个族仍留在
+  // UNPRICED_DEFAULT_FAMILIES 并写明"查过什么、为什么仍不猜"。
+  // DeepSeek 直连（v4 三档；vision-exp 与 flash 同价）
+  'deepseek-v4-flash': { inputPer1M: 0.3, outputPer1M: 1.2, cachedInputPer1M: 0.006 },
+  'deepseek-v4-flash-vision-exp': { inputPer1M: 0.3, outputPer1M: 1.2, cachedInputPer1M: 0.006 },
+  'deepseek-v4-pro': { inputPer1M: 1.32, outputPer1M: 3.96, cachedInputPer1M: 0.044 },
+  // Moonshot v1：**按上下文长度分三档**（正是旧登记里说"模型名不足以定档"的那一族）
+  'moonshot-v1-8k': { inputPer1M: 0.2, outputPer1M: 2 },
+  'moonshot-v1-32k': { inputPer1M: 1, outputPer1M: 3 },
+  'moonshot-v1-128k': { inputPer1M: 2, outputPer1M: 5 },
+  // 智谱 GLM（zai 直连）；flash 档公开价为 0（免费档）
+  'glm-4.5': { inputPer1M: 0.6, outputPer1M: 2.2 },
+  'glm-4.5-air': { inputPer1M: 0.2, outputPer1M: 1.1 },
+  'glm-4.5-flash': { inputPer1M: 0, outputPer1M: 0 },
+  // 通义千问**云端明确档位**（dashscope）：只给明确档位定价，裸前缀仍留登记
+  // （同名模型可能跑在本地 ollama ⇒ 边际成本≈0，模型名区分不了计费方）。
+  'qwen-max': { inputPer1M: 1.6, outputPer1M: 6.4 },
+  'qwen-plus': { inputPer1M: 0.4, outputPer1M: 1.2 },
+  'qwen-turbo': { inputPer1M: 0.05, outputPer1M: 0.2 },
+  // Google Gemini 2.5（三档，均带缓存读价）
+  'gemini-2.5-pro': { inputPer1M: 1.25, outputPer1M: 10, cachedInputPer1M: 0.125 },
+  'gemini-2.5-flash': { inputPer1M: 0.3, outputPer1M: 2.5, cachedInputPer1M: 0.03 },
+  'gemini-2.5-flash-lite': { inputPer1M: 0.1, outputPer1M: 0.4, cachedInputPer1M: 0.01 },
+  // Anthropic 3.5 Haiku（与表内 claude-3-haiku **不同价**，故必须单列）
+  'claude-3-5-haiku': { inputPer1M: 0.8, outputPer1M: 4, cachedInputPer1M: 0.08 },
+  // OpenAI GPT-4.1（与表内 gpt-4o 不同价）
+  'gpt-4.1': { inputPer1M: 2, outputPer1M: 8, cachedInputPer1M: 0.5 },
   llama: { inputPer1M: 0, outputPer1M: 0, cachedInputPer1M: 0 },
   local: { inputPer1M: 0, outputPer1M: 0, cachedInputPer1M: 0 },
   llamacpp: { inputPer1M: 0, outputPer1M: 0, cachedInputPer1M: 0 },
@@ -160,17 +188,63 @@ export const DEFAULT_ROUTE_PRICING: Record<string, RoutePrice> = {
  * 与 `budget_status` 工具如实自报"本次估算的单价来自兜底价"。要真正修正，需要补上可核对的单价。
  */
 export const UNPRICED_DEFAULT_FAMILIES: Readonly<Record<string, string>> = {
-  'deepseek-v4':
-    'DeepSeek 2026 新版主模型族（v4-flash / v4-pro / vision-exp）：本仓离线拿不到可复核的公开单价样本，不猜数字。',
-  'kimi-k2': 'Moonshot Kimi K2 族：同上，无离线可复核的单价样本。',
-  'moonshot-v1':
-    'Moonshot 旧代 v1 族（8k/32k/128k）：按上下文长度分档计价，模型名不足以定档，需人补。',
-  'glm-4': '智谱 GLM-4.5 族：无离线可复核的单价样本。',
-  qwen: '通义千问族：同名模型既可能跑在 dashscope（付费）也可能跑在本地 ollama（边际成本≈0），模型名区分不了计费方 ⇒ **不按 0 计**（宁高勿低，避免本地/云端混用时低估）。',
-  'gemini-2.5': 'Google Gemini 2.5 族：无离线可复核的单价样本。',
-  'claude-3-5-haiku':
-    'Anthropic 3.5 Haiku：与表内 claude-3-haiku 不同价（不可沿用同档行），暂无离线可核对来源。',
-  'gpt-4.1': 'OpenAI GPT-4.1：与表内 gpt-4o 不同价（不可沿用同档行），暂无离线可核对来源。',
+  // 2026-10-11：原先登记 8 个族，本轮把**查得到公开价目**的都填进了 DEFAULT_ROUTE_PRICING
+  // （deepseek-v4 / moonshot-v1 / glm-4.5 / gemini-2.5 / claude-3-5-haiku / gpt-4.1 /
+  // qwen 云端明确档位）。剩下这几个仍**不给数字**，理由更新为「实际查过什么」：
+  'kimi-k2':
+    'Moonshot Kimi K2 族：出货名是 kimi-k2-turbo-preview / kimi-k2-0905-preview，而在公开价目库' +
+    '（见 PRICE_SOURCES）里**这两个名字都不存在**——库里只有 k2.5/k2.6/k2.7 与第三方转售档，' +
+    '型号不同不可沿用 ⇒ 不猜数字。',
+  'glm-4-plus':
+    '智谱 GLM-4-plus：价目库里只有 glm-4.5 / 4.5-air / 4.5-flash / 4.6 / 4.7，**没有 4-plus** ⇒ 不猜数字。',
+  'qwen3-coder-plus':
+    '通义 qwen3-coder-plus：价目库里**有条目但没有成本字段**（in/out 均为空）⇒ 不猜数字。',
+  qwen:
+    '裸前缀 qwen：同名模型既可能跑在 dashscope（付费）也可能跑在本地 ollama（边际成本≈0），' +
+    '模型名区分不了计费方 ⇒ **不按 0 计**（宁高勿低）。注意：明确档位（qwen-max / qwen-plus /' +
+    'qwen-turbo）已有真实单价并落在价目表；本键只兜住「只写了 qwen 且无法定档」的名字。',
+};
+
+/**
+ * 价目来源登记（2026-10-11）：给本轮新填的单价留一条**可复核**的来源。
+ *
+ * ## 为什么固定到 blob SHA
+ *
+ * 公开价目页会改；只写「来自某网站」无法复核。这里记的是 GitHub API 的 git blob 引用
+ * （`/git/blobs/<sha>`）——同一个 SHA 的内容**逐字节不变**，任何人可复算。
+ *
+ * ## 来源口径（诚实登记）
+ *
+ * 本机环境里**厂商官方定价页不可达**，实测：
+ *  · `platform.openai.com/docs/pricing` → HTTP 403（Cloudflare 拦截）；
+ *  · `ai.google.dev/gemini-api/docs/pricing` → fetch failed；
+ *  · `raw.githubusercontent.com` 直取亦失败（早前轮次已记录）。
+ * 故本轮用**公开聚合价目库** LiteLLM 的 `model_prices_and_context_window.json`，并逐条取
+ * **厂商直连条目**（`litellm_provider` 为 deepseek / moonshot / zai / dashscope / gemini / openai
+ * 的那一条），而不是转售档（azure / bedrock / fireworks 等）。
+ * 例外一处已在 note 里注明：3.5 Haiku 在库里**没有 anthropic 直连条目**，取的是同型号 id 的
+ * bedrock 档（0.8/4.0，与厂商公开价一致，但来源是转售档）。
+ *
+ * 这不是「权威来源」，是**可复核来源**；官方页可达时应替换并更新本登记。
+ */
+export const PRICE_SOURCES: Readonly<
+  Record<string, { readonly ref: string; readonly note: string }>
+> = {
+  '2026-10-11-litellm-snapshot': {
+    // 取回方式（地址写在注释里：`src/**` 的**代码行**不得出现硬编码地址，见
+    // `tests/unit/endpointDefaults.test.ts` ⑤ 反硬编码守卫）：
+    //   https://api.github.com/repos/BerriAI/litellm/git/blobs/780adab42ab7e028f2e04faf8b68b67af4dc3813
+    ref: 'repo:BerriAI/litellm@780adab42ab7e028f2e04faf8b68b67af4dc3813#path=model_prices_and_context_window.json',
+    note:
+      'LiteLLM model_prices_and_context_window.json（4042 条）。取厂商直连条目：' +
+      'deepseek(flash 0.30/1.20 cache 0.006；pro 1.32/3.96 cache 0.044)、' +
+      'moonshot(moonshot-v1 8k/32k/128k = 0.20/2.00、1.00/3.00、2.00/5.00)、' +
+      'zai(glm-4.5 0.60/2.20；air 0.20/1.10；flash 0/0)、' +
+      'dashscope(qwen-max 1.60/6.40；plus 0.40/1.20；turbo 0.05/0.20)、' +
+      'gemini(2.5-pro 1.25/10 cache 0.125；flash 0.30/2.50 cache 0.03；' +
+      'flash-lite 0.10/0.40 cache 0.01)、openai(gpt-4.1 2.00/8.00 cache 0.50)、' +
+      'bedrock(claude-3-5-haiku 0.80/4.00 cache 0.08 —— 见上方「例外一处」)。',
+  },
 };
 
 /**

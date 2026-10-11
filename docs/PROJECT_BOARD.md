@@ -2623,6 +2623,46 @@ Responses `reasoning:{effort}`、Anthropic `thinking:{enabled,budget_tokens}`、
 **验证**：顺序 10 次 + 并发 8 次 = **18 跑 0 红**，且 8 个并发样本读数完全一致
 （`事件=5 / 折叠点总=0`）——修前同样口径会偶发红。
 
+### 8.16 第 8 轮：定价这项**从"受阻"变成"真填"**（8 个出货默认族 → 17 个键有真实单价）
+
+#### 为什么之前受阻，这次怎么绕出来的
+
+前几轮登记为受阻：厂商官方定价页在本机不可达（`platform.openai.com/docs/pricing` → HTTP 403
+Cloudflare；`ai.google.dev/gemini-api/docs/pricing` → fetch failed；`raw.githubusercontent.com` 直取失败）。
+本轮发现 **`api.github.com` 可用**，而公开聚合价目库 LiteLLM 的价目文件就在 GitHub 上 ⇒ 用
+**git blob API** 取到全文（2.6 MB / 4042 条），并**逐条取厂商直连条目**（`litellm_provider` =
+deepseek / moonshot / zai / dashscope / gemini / openai），不用转售档。
+
+**填入的 17 个键**（USD / 百万 token；表内值即此）：DeepSeek v4 三档（flash/vision-exp 0.30-1.20-cache 0.006、
+pro 1.32-3.96-cache 0.044）、Moonshot v1 三档（0.20/2.00、1.00/3.00、2.00/5.00）、
+GLM-4.5 三档（0.60/2.20、0.20/1.10、0/0）、qwen 云端三档（1.60/6.40、0.40/1.20、0.05/0.20）、
+Gemini 2.5 三档（1.25/10-cache 0.125、0.30/2.50-cache 0.03、0.10/0.40-cache 0.01）、
+`claude-3-5-haiku`（0.80/4.00-cache 0.08）、`gpt-4.1`（2.00/8.00-cache 0.50）。
+
+**仍不给数字的 4 个键**（理由改为"实际查过什么"）：`kimi-k2`（出货名 `kimi-k2-turbo-preview` /
+`-0905-preview` 在库里**不存在**，只有 k2.5+/转售档）、`glm-4-plus`（库里只有 4.5/4.6/4.7）、
+`qwen3-coder-plus`（有条目**但无成本字段**）、裸前缀 `qwen`（可能跑本地 ollama ⇒ 不按 0 计；
+明确档位已单独定价）。
+
+#### 来源做成**可复核登记**（不是"来自某网站"）
+
+新增 `PRICE_SOURCES`：**坐标式引用** `repo:BerriAI/litellm@<40位SHA>#path=...`，
+取回 URL 写在**注释**里。为什么不是 URL 字面量：`tests/unit/endpointDefaults.test.ts` ⑤
+**反硬编码守卫**禁止 `src/**` 代码行出现硬编码地址（地址属于 `defaults/`）——守卫没错，
+故改用坐标式引用，守卫与本轮判据**都**通过。
+
+**诚实边界**：这是**可复核来源**而非权威来源（官方页仍不可达，实测错误已登记在注释与 changeset）；
+唯一例外是 3.5 Haiku——库里**没有 anthropic 直连条目**，取的是同型号 id 的 bedrock 档
+（0.80/4.00，与厂商公开价一致但来源是转售档），已在 note 里单独注明。
+
+#### 判据
+
+新增 `tests/unit/routePriceSources.test.ts`（5 例）：来源坐标必须固定到 40 位 SHA **且 ref 不得含地址**
+（与守卫同一条纪律）、note 必须写明"厂商直连/例外"并记下那处例外、**17 个键必须精确命中**
+（名字写错就静默落兜底价 ⇒ 等于没填）、登记理由须点明"查过什么"、正对照（拼错一个键必须被同一测量挑出）。
+既有 `routePricingDefaults.test.ts` ⑥ 例全绿；判据⑤/⑥ 的样本从已定价的 `deepseek-v4-flash`
+换成仍无来源的 `kimi-k2-turbo-preview`（样本失效则判据本身失真）。
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。
