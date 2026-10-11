@@ -169,6 +169,19 @@ export class CliDataCmds extends CliMcpCmds {
     const reader = new CliArgReader(args);
     const action = reader.at(0) ?? 'probe';
     if (action !== 'probe' && action !== 'gate' && action !== 'audit-surface') return null;
+    // 位置参数**只认** `probe list`（帮助文本里就是这么写的：`boost probe [list] …`）；其余一律用法错误。
+    //
+    // 旧实现在这里静默忽略位置参数 ⇒ `boost probe list` 被当成 `boost probe` **跑完全部 6 个探针**
+    // （2026-10-11 实测 70 秒，且探针可能有网络/归档副作用），而调用方以为自己只是要看清单——
+    // 正是本仓反复治的"拼错/写错 = 静默做了别的事"。真正的开关当时是 `--boost-list`，帮助里没提它。
+    //
+    // 只在"该 token 不是旗标"时按位置参数判定（`at()` 是**裸下标**，第 2 个 token 常常是旗标本身，
+    // 例如 `boost probe --boost-list`；把旗标误当位置参数会让正常用法被拒）。
+    const positional = reader.at(1);
+    const isList = action === 'probe' && positional === 'list';
+    if (positional !== undefined && !positional.startsWith('-') && !isList) return null;
+    const trailing = reader.at(2);
+    if (isList && trailing !== undefined && !trailing.startsWith('-')) return null;
     const tier = reader.value('--boost-tier') ?? 'fast';
     if (!['fast', 'typed', 'all'].includes(tier)) return null;
     const mode = reader.value('--boost-mode') ?? 'staged';
@@ -178,7 +191,8 @@ export class CliDataCmds extends CliMcpCmds {
     const probes = this.splitCsv(reader.value('--boost-probe'));
     return {
       action,
-      list: reader.has('--boost-list'),
+      // 两种写法等价：位置参数 `list`（帮助口径）与 `--boost-list`（旗标口径，历史保留）。
+      list: reader.has('--boost-list') || isList,
       probes,
       args: reader.values('--boost-arg'),
       network: reader.has('--boost-network'),

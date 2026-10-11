@@ -47,6 +47,11 @@ interface StreamState {
 /**
  * @beta
  * OpenAI Responses API 原生适配器：instructions 独立字段 + 扁平工具 + previous_response_id 服务端续接。
+ *
+ * **能力边界（如实声明）**：本通路的 wire 序列化只覆盖**文本与工具调用**；
+ * `ModelMessage.images` / `.files` 发不出去，运行期由 {@link ResponsesModel.warnDroppedAttachments}
+ * 记 `model.responses.attachments_dropped` 告警（**不静默、也不发空占位**）。
+ * 需要多模态请用 `openai` / `anthropic` 适配器。
  */
 export class ResponsesModel implements ModelPort {
   /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
@@ -211,6 +216,7 @@ export class ResponsesModel implements ModelPort {
    * @returns Responses API 请求体：model/input/tools/store，外加 instructions（非空时）。
    */
   private bodyOf(request: ModelRequest): Record<string, unknown> {
+    this.warnDroppedAttachments(request.messages);
     const { instructions, input } = this.splitSystem(request.messages);
     const body: Record<string, unknown> = {
       model: this.config.model,
@@ -222,6 +228,39 @@ export class ResponsesModel implements ModelPort {
       body['instructions'] = instructions;
     }
     return body;
+  }
+
+  /**
+   * 附件（图像 / 文件）在本通路上**发不出去**——显式告警，绝不静默。
+   *
+   * 为什么要有它（2026-10-11 取证）：`splitSystem` 把每条消息投影成 `{role, content}`，
+   * 而 `ModelMessage.images` / `.files` 根本不在投影里 ⇒ 用户在会话里贴的图会**无声消失**，
+   * 模型照着纯文本作答，而调用方以为图已经发出去了。同仓 `llamaCppModel` 至少记一条 debug，
+   * 这里连 debug 都没有——属"声明与实现不一致"（`viewImageTool` 只声明 openai/anthropic 支持，
+   * 说明边界本来是清楚的，但**没有任何运行期信号**）。
+   *
+   * 处置口径：**不改协议序列化**（本仓纪律：无真实样本不推断 Responses 的多模态 wire 格式），
+   * 只把"丢了什么、该换哪条通路"如实报出来。要真正支持，须先取得该 API 的可复核样本。
+   * @param messages 即将发出的消息列表。
+   * @returns 无返回值。
+   */
+  private warnDroppedAttachments(messages: readonly ModelRequest['messages'][number][]): void {
+    let images = 0;
+    let files = 0;
+    for (const message of messages) {
+      images += message.images?.length ?? 0;
+      files += message.files?.length ?? 0;
+    }
+    if (images === 0 && files === 0) {
+      return;
+    }
+    log.warn('model.responses.attachments_dropped', {
+      images,
+      files,
+      hint:
+        'Responses 通路只序列化文本与工具调用；多模态附件请改用 openai 或 anthropic 适配器' +
+        '（本适配器**不**发送空占位，以免模型以为收到了附件）',
+    });
   }
 
   /**

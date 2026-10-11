@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 门禁**输入表面**的静态取证与"声明失效"检测 —— 回答
  * 「`boostGateSurface.ts` 里的声明，还配得上当前这份门禁实现吗」。
  *
@@ -38,7 +38,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { GATE_SURFACE, SURFACE_AUDIT_DATE } from './boostGateSurface.js';
 
 /** 审计快照的默认落点（仓库根相对；与探针归档同属运行时产物）。 */
@@ -313,7 +313,7 @@ export class BoostSurfaceAudit {
     snapshotRel: string = SURFACE_SNAPSHOT_REL,
   ): { version: number; hashes: Record<string, string> } | null {
     try {
-      const parsed = JSON.parse(readFileSync(join(this.root, snapshotRel), 'utf8')) as {
+      const parsed = JSON.parse(readFileSync(resolve(this.root, snapshotRel), 'utf8')) as {
         version?: number;
         hashes?: Record<string, string>;
       };
@@ -335,7 +335,7 @@ export class BoostSurfaceAudit {
     for (const f of findings) {
       if (f.script !== null && f.hash !== null) hashes[f.script] = f.hash;
     }
-    const target = join(this.root, snapshotRel);
+    const target = resolve(this.root, snapshotRel);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(
       target,

@@ -47,6 +47,14 @@ export interface ShellToolOptions {
    * 未注入时零行为变更（与改造前逐字一致）。
    */
   readonly ledger?: FileContentLedger | undefined;
+  /**
+   * 进程执行器（可选）：缺省用真实 `ShellProcessRunner`。
+   *
+   * **为什么需要这个缝**：`outcome.consoleFallback === true` 这条分支只在 Windows 受限令牌
+   * 沙箱下、子进程在 DLL 初始化阶段死掉时才出现（2026-10-07 真实事故），正常环境里**不可达**
+   * ⇒ 它上报的「命令实际启动了两次」这条诚实提示无法落判据。注入后即可确定性地验证该上报。
+   */
+  readonly runner?: Pick<ShellProcessRunner, 'run'>;
 }
 
 /**
@@ -81,8 +89,8 @@ export class ShellTool {
 
   /** 子进程输出解码器（处理 GBK/UTF-8 等编码容错）。 */
   private readonly decoder = new OutputDecoder();
-  /** 子进程执行器（spawn 显式 argv）。 */
-  private readonly runner = new ShellProcessRunner();
+  /** 子进程执行器（spawn 显式 argv；可经选项注入替身，见 {@link ShellToolOptions.runner}）。 */
+  private readonly runner: Pick<ShellProcessRunner, 'run'>;
   /** 工具层命令策略。 */
   private readonly policy: ShellCommandPolicy;
   /** 单条命令默认超时（毫秒）。 */
@@ -110,6 +118,7 @@ export class ShellTool {
    * @param options shell 工具选项（超时/缓冲/长度上限、可选裁决器、策略与后台作业注册表，全有默认）。
    */
   public constructor(options: ShellToolOptions = {}) {
+    this.runner = options.runner ?? new ShellProcessRunner();
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxTimeoutMs = Math.max(
       ShellTool.MIN_TIMEOUT_MS,

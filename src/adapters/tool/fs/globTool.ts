@@ -53,8 +53,17 @@ export class GlobTool {
 
   /**
    * @param workspaceRoot 工作区根目录（搜索范围与路径白名单基准）。
+   * @param walkMaxFiles 遍历文件数上限（可选；缺省用 `WorkspaceFileWalker` 的默认值）。
+   *
+   * **为什么需要这个缝**：本工具的「截断 + 零命中 ⇒ fail-loud」分支只在**超大工作区**才可达
+   * （2026-10-06 是在真实仓库里偶发撞到的：`third-party/` 近 2 万文件把上限吃满，根本没走到 `src/`）。
+   * 没有这个缝，那条判据就只能靠"真实仓库偶发命中"，无法落库；有了它，判据可以用
+   * 「3 个文件的工作区 + 上限 1」确定性地构造出来。
    */
-  public constructor(private readonly workspaceRoot: string) {}
+  public constructor(
+    private readonly workspaceRoot: string,
+    private readonly walkMaxFiles?: number,
+  ) {}
 
   /**
    * 执行查找。
@@ -83,6 +92,7 @@ export class GlobTool {
     // 带目录前缀的模式（`src/**/*.ts`）与限定子目录叠加时，仍按工作区相对路径匹配，
     // 保证「pattern 的写法」与「结果里的路径」是同一坐标系（否则模型会拿到无法直接使用的相对路径）。
     const walk = await new WorkspaceFileWalker(root, {
+      ...(this.walkMaxFiles === undefined ? {} : { maxFiles: this.walkMaxFiles }),
       ...(call.arguments['include_hidden'] === true ? { includeHidden: true } : {}),
     }).list();
     const matched = walk.files.filter(
