@@ -22,7 +22,9 @@ export class BudgetStatusTool {
     description:
       '查询本次会话的模型调用成本预算状态：硬预算上限（USD）、已花费、剩余、输入/输出 token 累计、' +
       '命中提示缓存折抵的金额、软阈值（建议降级）与是否已熔断。' +
-      'degradeSuggested 为 true 时表示已接近上限，应主动收敛用量（少调用、精简输出、缩小检索范围）。',
+      'degradeSuggested 为 true 时表示已接近上限，应主动收敛用量（少调用、精简输出、缩小检索范围）。' +
+      'unpricedModels 非空表示这些模型没有价目、花费是按兜底价估算的（可能与真实账单差数倍），' +
+      '此时不应把 spentUsd 当成精确花费。',
     parameters: {
       type: 'object',
       properties: {},
@@ -57,6 +59,11 @@ export class BudgetStatusTool {
           softExceeded: snap.softExceeded,
           degradeSuggested: snap.degradeSuggested,
           exceeded: snap.exceeded,
+          unpricedModels: snap.unpricedModels,
+          pricingNote:
+            snap.unpricedModels.length === 0
+              ? '全部调用命中价目表，花费按已知单价累计。'
+              : `这些模型没有价目，花费按兜底价（1.0/3.0 USD per 1M）估算，可能与真实账单差数倍：${snap.unpricedModels.join(', ')}`,
         },
         null,
         2,

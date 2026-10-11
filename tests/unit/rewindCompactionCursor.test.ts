@@ -210,9 +210,20 @@ test('端到端对照：回滚后最后一次请求不再带旧摘要（日志�
     `必须至少有一次任务请求（实际捕获 ${String(rolledBack.bodies.length)} 条，全部是压缩请求？）`,
   );
   for (const needle of [SUMMARY_SENTINEL, COMPACTION_MARKER]) {
+    // 失败时**自证**：把命中处前后各 120 字打进消息。本判据的失败是偶发的（2026-10-11 实测
+    // 隔离跑 11 次中 1 次红），若只报"仍有哨兵"，事后无法区分三种成因：
+    // ① 折叠摘要真被带进请求（产品竞态）；② 命中的是压缩器请求（过滤失效）；
+    // ③ 命中的是**回滚之前**的最后一条任务请求（回滚后没再发请求）。片段能把它们分开。
+    const hit = rolledBackLast.indexOf(needle);
+    const excerpt =
+      hit < 0
+        ? '（未命中，不应到这里）'
+        : `…${rolledBackLast.slice(Math.max(0, hit - 120), hit + needle.length + 120)}…`;
     assert.ok(
-      !rolledBackLast.includes(needle),
-      `回滚后的最后一次请求里仍有 ${needle} ⇒ 回滚没把折叠点截掉`,
+      hit < 0,
+      `回滚后的最后一次请求里仍有 ${needle} ⇒ 回滚没把折叠点截掉` +
+        `（捕获 ${String(rolledBack.bodies.length)} 条请求 / 折叠点系统事件 ${String(rolledBack.markerEvents)} 条 / ` +
+        `末条任务请求 ${String(rolledBackLast.length)} 字符）\n      命中处：${excerpt}`,
     );
   }
 

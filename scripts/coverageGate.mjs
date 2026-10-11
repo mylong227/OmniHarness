@@ -41,13 +41,23 @@
  * 测试未全绿时直接阻断（覆盖率数字无意义）——`--from-file` 模式跳过该检查。
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const baselinePath = join(root, 'scripts', 'coverageBaseline.json');
 const envDependentPath = join(root, 'scripts', 'coverageEnvDependent.json');
+/**
+ * 「文件清点」基线（按平台分列）。
+ *
+ * 为什么需要它（2026-10-11 实测缺口）：本门禁的主循环是 `for (const [file, pct] of files)`，
+ * 而 Node 的覆盖率报告**只列它插桩过的文件**——一个模块若一行都没执行过（从未被任何测试 import，
+ * 或只导出类型而无可执行语句），它在报告里**根本不出现** ⇒ 逐文件棘轮、`NEW<30%` 下限
+ * 两条分支**都触不到它**。后果：新增一个没人测的模块，门禁照样全绿（本仓"0 项=通过"族的新变体）。
+ * 清点基线把"已知未进报告"的集合冻结下来，**新增**一个就红。
+ */
+const inventoryBaselinePath = join(root, 'scripts', 'coverageInventoryBaseline.json');
 const args = process.argv.slice(2);
 const flagValue = (name) => {
   const i = args.indexOf(name);
@@ -190,6 +200,39 @@ function parseCoverage(text) {
   return { all, files };
 }
 
+/**
+ * 列出 `--test-coverage-include` 口径覆盖到的**全部**产物文件（`dist/src/**\/*.js`）。
+ *
+ * 口径必须与 `package.json` 的 coverage 脚本一致：那边 include 是 `dist/src/**\/*.js`，
+ * 故这里递归收集 `dist/src` 下的每个 `.js`（含根层文件——`**\/` 在 Node 的 glob 里可匹配零层）。
+ * 返回路径**去掉 `dist/` 前缀**，与 `parseCoverage` 的键口径一致（报告行写作 `src/...`）——
+ * 两处若不一致，清点会把全部产物都算成"没进报告"（首版实测：1042/1042）。
+ * 若与 include 口径漂移，本清点会报"某文件没进报告"的假红，故另有一条**口径自证**：
+ * 报告键必须落在这个集合里（报告里出现产物之外的文件 ⇒ 口径不一致，直接红）。
+ * @returns 仓库相对路径（`/` 分隔，升序）。
+ */
+function listIncludedFiles() {
+  const base = join(root, 'dist', 'src');
+  if (!existsSync(base)) {
+    console.error(`✗ 文件清点需要构建产物目录，但它不存在：${base}`);
+    console.error('  清点要回答的是"哪些产物一行都没执行过"，缺了产物集合就无从判定。');
+    console.error('  ⇒ 先 `npm run build`（或至少 `npx tsc`）再跑本门禁。');
+    process.exit(2);
+  }
+  const out = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const abs = join(dir, entry.name);
+      if (entry.isDirectory()) walk(abs);
+      else if (entry.name.endsWith('.js')) {
+        out.push(relative(join(root, 'dist'), abs).split(sep).join('/'));
+      }
+    }
+  };
+  walk(base);
+  return out.sort();
+}
+
 const { all, files } = parseCoverage(loadReport());
 // 基线**缺失即阻断**：静默退化成 `{}` 会让逐文件棘轮消失（只剩"新文件 30% 下限"）⇒
 // 所有存量回归一次性合法化，而输出仍是「✓ 覆盖率达标」。本仓纪律与此一致：
@@ -264,6 +307,50 @@ if (args.includes('--dump-baseline')) {
     console.log(
       `  棘轮保留 ${kept.length} 个文件的旧（更高）基线，未随本次较低实测值下调：${kept.join(', ')}`,
     );
+  }
+  process.exit(0);
+}
+
+if (args.includes('--dump-inventory')) {
+  // **棘轮语义**（与 --dump-baseline 同口径）：收紧（少登记）随意；**扩张**必须显式 `--force`。
+  // 扩张意味着"又有一个文件一行都没执行过"，那本该先问"为什么没有判据"，而不是顺手登记进去。
+  const force = args.includes('--force');
+  const raw = existsSync(inventoryBaselinePath)
+    ? JSON.parse(readFileSync(inventoryBaselinePath, 'utf8'))
+    : {};
+  const platforms = raw.platforms ?? {};
+  const old = Array.isArray(platforms[process.platform]) ? platforms[process.platform] : [];
+  const oldSet = new Set(old);
+  const included = listIncludedFiles();
+  const reported = new Set(files.keys());
+  const missing = included.filter((f) => !reported.has(f));
+  const added = missing.filter((f) => !oldSet.has(f));
+  const cleared = old.filter((f) => !missing.includes(f));
+  if (added.length > 0 && !force) {
+    console.error(
+      `✗ 本次清点比 ${process.platform} 基线**多出 ${added.length} 个"没进覆盖率报告"的文件**：`,
+    );
+    for (const f of added) console.error(`    ${f}`);
+    console.error('  "多出"= 这些文件本次一行都没执行过（没有任何判据碰到它们）。');
+    console.error('  首选是给它们补判据；确属设计（例如只导出类型的模块）才登记，且必须显式：');
+    console.error(`    node scripts/coverageGate.mjs --from-file <报告> --dump-inventory --force`);
+    console.error('  并在提交信息里写明"为什么这个文件无法被覆盖"。');
+    process.exit(1);
+  }
+  writeFileSync(
+    inventoryBaselinePath,
+    `${JSON.stringify({ ...raw, platforms: { ...platforms, [process.platform]: missing } }, null, 2)}\n`,
+    'utf8',
+  );
+  console.log(
+    `已写入文件清点基线（${process.platform}）：scripts/coverageInventoryBaseline.json` +
+      `（产物 ${included.length} 个 ｜ 未进报告 ${missing.length} 个` +
+      `${added.length > 0 ? ` ｜ 本次新增登记 ${added.length} 个` : ''}` +
+      `${cleared.length > 0 ? ` ｜ 已清偿 ${cleared.length} 个` : ''}）`,
+  );
+  if (added.length > 0) {
+    console.log('  本次**新增登记**（这些是"已知未覆盖"，不是"没问题"）：');
+    for (const f of added) console.log(`    ${f}`);
   }
   process.exit(0);
 }
@@ -378,6 +465,48 @@ if (improved.length > 0) {
   if (improved.length > 10) console.log(`    …共 ${improved.length} 个`);
 }
 
+// ---- 文件清点（2026-10-11）：报告**没列到**的产物，逐文件棘轮与新增下限都看不见它们 ----
+const includedFiles = listIncludedFiles();
+const reportedSet = new Set(files.keys());
+// 口径自证：报告里出现产物之外的文件 ⇒ include 口径与清点口径已漂移，此时"缺失"读数不可信。
+const outsideReport = [...reportedSet].filter((f) => !f.startsWith('src/'));
+const missingFiles = includedFiles.filter((f) => !reportedSet.has(f));
+const inventoryRaw = existsSync(inventoryBaselinePath)
+  ? JSON.parse(readFileSync(inventoryBaselinePath, 'utf8'))
+  : {};
+const inventoryPlatform = inventoryRaw.platforms?.[process.platform];
+const inventoryNew = [];
+let inventoryCleared = 0;
+if (!Array.isArray(inventoryPlatform)) {
+  // 该平台还没有基线：**如实报告，不假装通过**（也不可能凭空造出其它平台的文件清单）。
+  console.log(
+    `⚠️  ${process.platform} 没有「覆盖率文件清点」基线 ⇒ 本平台只报告不阻断：` +
+      `产物 ${includedFiles.length} 个，其中 ${missingFiles.length} 个一行都没执行过（报告里不出现）。`,
+  );
+  console.log(
+    '    建立基线：node scripts/coverageGate.mjs --from-file <报告> --dump-inventory（首次须 --force）',
+  );
+} else {
+  const inventorySet = new Set(inventoryPlatform);
+  const missingSet = new Set(missingFiles);
+  for (const f of missingFiles) if (!inventorySet.has(f)) inventoryNew.push(f);
+  // 「已清偿」= 基线里登记过、本次却不再缺失：或是已进报告（补了判据），或是文件已删（减法）。
+  inventoryCleared = inventoryPlatform.filter((f) => !missingSet.has(f)).length;
+  console.log(
+    `ℹ️  覆盖率文件清点：产物 ${includedFiles.length} 个 ｜ 进报告 ${reportedSet.size} 个 ｜ ` +
+      `一行都没执行过 ${missingFiles.length} 个（${process.platform} 基线 ${inventoryPlatform.length} ｜ ` +
+      `新增 ${inventoryNew.length} ｜ 已清偿 ${inventoryCleared}${inventoryCleared > 0 ? '，可 --dump-inventory 收紧' : ''}）`,
+  );
+}
+
+if (outsideReport.length > 0) {
+  console.error(
+    `✗ 清点口径不一致：报告里有 ${outsideReport.length} 个文件不落在 dist/src 下（例：${outsideReport
+      .slice(0, 3)
+      .join(', ')}）⇒ 先对齐 package.json 的 --test-coverage-include 与 listIncludedFiles()。`,
+  );
+}
+
 if (newLow.length > 0) {
   console.error(`✗ 新增文件行覆盖率低于 ${newFileFloor}%（${newLow.length} 个）：`);
   for (const row of newLow) console.error(`    ${row}`);
@@ -390,14 +519,29 @@ if (regressions.length > 0) {
   for (const row of regressions) console.error(`    ${row}`);
 }
 
-if (regressions.length > 0 || newLow.length > 0) {
+if (inventoryNew.length > 0) {
   console.error(
-    `  说明：本门禁按文件冻结基线（棘轮）——低于基线超过 ${DRIFT_TOLERANCE} 点即红；新增低覆盖文件即红。`,
+    `✗ 有 ${inventoryNew.length} 个产物**一行都没执行过**且不在清点基线里（逐文件棘轮与新增下限都看不见它们）：`,
+  );
+  for (const row of inventoryNew) console.error(`    ${row}`);
+  console.error('  首选是给它们补判据（哪怕只是一个 import + 一次调用）；确属设计才登记：');
+  console.error('    node scripts/coverageGate.mjs --from-file <报告> --dump-inventory --force');
+}
+
+if (
+  regressions.length > 0 ||
+  newLow.length > 0 ||
+  inventoryNew.length > 0 ||
+  outsideReport.length > 0
+) {
+  console.error(
+    `  说明：本门禁按文件冻结基线（棘轮）——低于基线超过 ${DRIFT_TOLERANCE} 点即红；新增低覆盖文件即红；` +
+      '新增"没进报告"的产物即红（见 coverageInventoryBaseline.json）。',
   );
   process.exit(1);
 }
 console.log(
   `✓ 覆盖率达标（聚合 ${all}% ≥ ${threshold}%；${files.size} 个文件无超容差回退${
     drifted.length > 0 ? `，${drifted.length} 个在漂移容差内` : ''
-  }）`,
+  }${Array.isArray(inventoryPlatform) ? '' : '；⚠️ 本平台文件清点基线未建立，仅报告'}）`,
 );
