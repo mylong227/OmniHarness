@@ -141,6 +141,11 @@ export class ExecCli extends CliAgentCmds {
     if (argv[0] === 'sdk') {
       return this.runSdk(argv.slice(1));
     }
+    // boost（2026-10-10）：把「探针归档/跨次比对」与「按改动挑门禁子集」纳入 harness 自身。
+    // 只读 `tools/probes/` 与 `scripts/runGates.mjs`，**不改**它们（门禁清单仍只认那一份实现）。
+    if (argv[0] === 'boost') {
+      return this.runBoost(argv.slice(1));
+    }
     if (argv[0] === 'auth') {
       return this.runAuth(argv.slice(1));
     }
