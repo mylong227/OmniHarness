@@ -1,0 +1,57 @@
+perf(CLI 启动): 子命令启动 1729ms → ~860ms（−50%）+ 偶发判据的定位仪器
+
+目标第 (9) 项「CLI 子命令启动 ~2s」真修（不是登记了事）；另给 `rewindCompactionCursor` 偶发补定位仪器。
+
+## ① CLI 子命令启动：`kv list` 1729ms → 中位数 ~860ms
+
+**先用 `--cpu-prof` 定位**（不是猜）：CPU 采样窗口里几乎全是 **ESM 解析/编译**
+（`getPackageScopeConfig` 439ms、`compileSourceTextModule` 209ms + 大量 stat/open/read），
+而我们自己的模块自身耗时 ≈ 0 —— 即"加载了过多模块"，不是业务逻辑慢。
+
+**逐层量模块导入**找到成本落点：继承链是**单继承**
+（`CliCredentialBuild ← CliBuildConfig ← CliServerCmds ← CliMcpCmds ← CliDataCmds ← CliCompareCmds
+← CliNativeCmds ← CliAgentCmds ← ExecCli`），于是**每个**子命令都要为整链的顶层值导入付解析成本。
+实测最贵的四个：
+
+| 位置 | 依赖 | 净成本 |
+| --- | --- | --- |
+| `cliBuildConfig` | `configFactory` | ~580 ms |
+| `cliBuildConfig` | `sdkPreferredMcpConnector` | ~480 ms |
+| `cliCompareCmds` | `Agent` + `Runtime` + `configFactory` | ~1.2 s |
+| `cliMcpCmds` | 同上（`sdkPreferredMcpConnector` 等） | ~480 ms |
+
+**修法**：这四个位置的重依赖**只在特定方法里用到** ⇒ 改成方法内 `await import(...)`
+（调用方零改动；只有真正走到那些方法的命令才付这份成本）。另把 `cliServerCmds` 的
+`AppServer` / `HttpServer` / `ServerEventBridge` 值导入改为类型导入 + 构造处动态导入。
+
+**结果**（同机、同口径）：`cliBuildConfig` 模块导入 1262 → 252 ms；`cliServerCmds` 1547 → 567 ms；
+`kv list` 1729 → 中位数 **859 ms**（`--version` 恒 ~120 ms）。
+
+**诚实边界**：**没有**打破单继承链本身（那是"组合替代继承"的大改，仍是登记在案的后续项）
+⇒ `kv list` 仍有 ~0.86 s，其中 ~0.55 s 是链基部 `cliServerCmds` 自身的模块图。
+
+## ② 判据：`tests/unit/cliStartupBudget.test.ts`（3 例）
+
+- **结构**：四个重依赖**不得**恢复成顶层值导入（附正对照：样例顶层导入必须被正则命中，
+  而 `await import(...)` 写法不得被判红）；
+- **运行期**：用**相对量**（`kv list / --version` ≤ 10）而不是绝对秒数 —— 首版用 1500ms 绝对预算，
+  在 28 个 CLI 判据并发跑时**假红**（机器被压满，两条命令同步上浮到 1528/218ms）。
+  这与本仓看板口径一致：「耗时预算按并发墙钟或相对量，别用绝对秒数」。
+  修前比值 ~12.3 / 修后 ~7.3；
+- **正对照**：`--version` 必须快于 `kv list`，否则说明判据只是在量 Node 冷启动。
+
+## ③ `rewindCompactionCursor` 偶发：补定位仪器（未假称修好）
+
+该判据偶发红有两种完全不同的成因（① 回滚没截断 ② 回滚后**重新折叠**了一次），
+而旧消息只有"折叠点总数"，分不出二者。现补：折叠点**下标序列**、检查点/回滚事件位置、
+"切点后折叠点数"、捕获条数，并支持 `OMNI_FLAKE_DIAG=1` 打印一行读数；失败消息也带上这些读数。
+
+复现尝试：**16 次并发**跑该判据 —— **0 红** ⇒ 触发条件不是普通 CPU 竞争（需全量套件+插桩的时序）。
+本轮**不假称修好**，把新证据（8 条只含摘要的微小请求、辅助请求仅 2 条，与旧登记的"第三种辅助调用"形态不同）
+与下一步（记录控制组/实验组的回合数与压缩次数，比对红绿两次差异）写进看板。
+
+## 验证
+
+- CLI 相关判据 **177/177**（在 28 文件并发下）；`tsc`（含 web）无错；探针/`requireSwitches` 未受影响。
+- 门禁 10 项 + 类型层 + 编码标准增量 **全绿**；架构门禁 `--strict`、ports→实现层 0、依赖环新增 0。
+- 覆盖率门禁见本次 `coverage:check`。

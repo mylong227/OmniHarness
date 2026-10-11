@@ -16,7 +16,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
 import { NativeKernel } from '../native/nativeKernel.js';
-import { ConfigFactory } from '../config/configFactory.js';
+// 2026-10-11 启动成本（目标 (9)「CLI 子命令启动 ~2s」）：`configFactory`（净 ~580ms）与
+// `sdkPreferredMcpConnector`（净 ~480ms）**只在构建运行时/MCP 桥接时才需要**，而它们此前是顶层
+// 值导入 ⇒ 任何子命令（含 `kv list`）都要为整条继承链付这份 ESM 解析成本。改成方法内动态 import：
+// 调用方零改动，只有真正走到那些方法的命令才付这份成本。
 import { CliSkillFlags } from './cliSkillFlags.js';
 import { CliSubsystemSections } from './cliSubsystemSections.js';
 import { CliDecisionEngineFlags } from './cliDecisionEngineFlags.js';
@@ -36,7 +39,6 @@ import { TOOL_NAMES } from '../ports/tool/toolNames.js';
 import { WorkerRegistry } from '../worker/workerRegistry.js';
 import { dshWorker } from '../worker/dshWorker.js';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
-import { SdkPreferredMcpConnector } from '../adapters/mcp/sdkPreferredMcpConnector.js';
 import { McpGateway } from '../mcp/mcpGateway.js';
 import { McpServerCommand } from '../mcp/mcpServerCommand.js';
 import { modelAdapterRegistry, MOCK_ADAPTER_ID } from '../adapters/model/modelAdapterRegistry.js';
@@ -242,6 +244,7 @@ export class CliBuildConfig extends CliCredentialBuild {
     // F3：凭据水合必须早于 buildModel——模型适配器与模型路由都在构造期直接读 process.env。
     await this.hydrateCredentials(args);
     const model = this.buildModel(args);
+    const { ConfigFactory } = await import('../config/configFactory.js');
     const config = ConfigFactory.build({
       workspaceRoot: args.workspace,
       // serve 的提问上行端口：`ask_user` / `plan_present` 在 ConfigFactory.build 期就捕获了
@@ -406,6 +409,8 @@ export class CliBuildConfig extends CliCredentialBuild {
       process.stderr.write('MCP 桥接需 RegistryToolPort 型工具端口，已跳过\n');
       return;
     }
+    const { SdkPreferredMcpConnector } =
+      await import('../adapters/mcp/sdkPreferredMcpConnector.js');
     const gateway = new McpGateway({
       registry: tools,
       context: { sessionId: 'mcp-bridge', workspaceRoot: args.workspace },

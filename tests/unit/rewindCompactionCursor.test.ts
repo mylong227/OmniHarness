@@ -115,13 +115,31 @@ class CapturingModel implements ModelPort {
 /**
  * 构造脚本；`withRollback` 是控制组与实验组的**唯一差异**。
  *
- * 检查点放在第 2 步之后（而非开头）：回滚后仍留一段非空历史，才谈得上"回滚后还要不要折叠"。
+ * ## 检查点的位置（2026-10-11 定案，修偶发）
+ *
+ * 原先放在「第 2 步之后」，理由是想让回滚后仍留一段非空历史。但**第 1 步的输出就有 600 字符**
+ * （≈150 token，预算是 30）⇒ 压缩必然在**检查点之前**触发，而"折叠发生在检查点前还是后"取决于
+ * 回合/事件的时序 ⇒ 判据偶发红（实测读数：`折叠点位置 [8] / 检查点位置 9` —— 折叠点紧贴检查点之前，
+ * 于是回滚到该检查点**合法地**保留了那段摘要，判据却按"必须消失"断言）。
+ *
+ * 现改为**把检查点放在第一个大步之前**：这样任何折叠都必然发生在检查点**之后** ⇒ 回滚截断时
+ * 折叠点必定被截掉，判据的强断言（回滚后不得残留折叠点）才是**确定成立**的。
+ * 回滚后仍留非空历史（首条 user + 检查点步 + 回滚步 + 收尾步），原意图不变。
+ * 判据侧另有前置条件断言 `rolledBack.markersBeforeCheckpoint === 0` 把这条前提钉死。
+ *
  * @param withRollback 是否包含 checkpoint + rollback 两步。
  * @returns 脚本步。
  */
 function buildScript(withRollback: boolean): readonly ScriptStep[] {
   const big = 'x'.repeat(600);
   const steps: ScriptStep[] = [];
+  if (withRollback) {
+    // 检查点**先于**任何大输出 ⇒ 折叠必然在其后（见上方说明）。
+    steps.push({
+      text: '打个检查点',
+      toolCalls: [{ id: 'c-cp', name: TOOL_NAMES.checkpoint, arguments: { label: 'cp1' } }],
+    });
+  }
   for (let i = 0; i < 6; i += 1) {
     steps.push({
       text: `第 ${String(i + 1)} 步`,
@@ -135,12 +153,6 @@ function buildScript(withRollback: boolean): readonly ScriptStep[] {
         },
       ],
     });
-    if (withRollback && i === 1) {
-      steps.push({
-        text: '打个检查点',
-        toolCalls: [{ id: 'c-cp', name: TOOL_NAMES.checkpoint, arguments: { label: 'cp1' } }],
-      });
-    }
   }
   if (withRollback) {
     steps.push({
@@ -162,13 +174,31 @@ function buildScript(withRollback: boolean): readonly ScriptStep[] {
 
 /**
  * 跑一遍会话。
+ *
+ * 2026-10-11 加仪器（偶发归因用）：除总数外，还记录**折叠点相对回滚事件的位置**与**回合数**。
+ * 为什么必须记：该判据的偶发红有两种完全不同的成因——① 回滚没截断（标记都在回滚**之前**的位置上
+ * 仍出现在末条请求里）② 回滚后**重新折叠**了一次（标记出现在回滚**之后**）。旧消息只有总数
+ * （`markerEvents`），二者都表现为 1，无法区分。设 `OMNI_FLAKE_DIAG=1` 时打印一行读数。
+ *
  * @param withRollback 脚本是否含回滚两步。
- * @returns 捕获到的请求体、事件类型序列、折叠点事件数。
+ * @returns 捕获到的请求体、事件类型序列、折叠点计数（总数 / 回滚前后）与回滚位置。
  */
 async function runSession(withRollback: boolean): Promise<{
   readonly bodies: readonly string[];
   readonly eventTypes: readonly string[];
   readonly markerEvents: number;
+  readonly markersBeforeRewind: number;
+  readonly markersAfterRewind: number;
+  /** 检查点事件**之前**的折叠点数（前置条件：必须为 0）。 */
+  readonly markersBeforeCheckpoint: number;
+  /** 切点（检查点事件）之后的折叠点数：>0 即"回滚后重新折叠过"。 */
+  readonly markersAfterCheckpoint: number;
+  /** 折叠点系统事件在事件序列中的下标（定位用）。 */
+  readonly markerIndexes: readonly number[];
+  /** 检查点事件下标（-1 ＝ 已被截掉）。 */
+  readonly checkpointIndex: number;
+  readonly rewindIndex: number;
+  readonly turns: number;
 }> {
   process.env.OMNI_REPO_MAP = '0';
   const capturing = new CapturingModel(new ScriptedModel(buildScript(withRollback), '收尾完成'));
@@ -184,15 +214,63 @@ async function runSession(withRollback: boolean): Promise<{
     compactionMaxTokens: 30,
   });
   const result = await new Agent(Runtime.createRuntime(config)).runTask('长会话：请一直跑下去');
-  const markerEvents = result.events.filter(
-    (event) =>
+  /** 折叠点系统事件的下标。 */
+  const markerIndexes: number[] = [];
+  result.events.forEach((event, index) => {
+    if (
       event.type === 'system' &&
-      String((event.payload as { content?: unknown }).content ?? '').startsWith(COMPACTION_MARKER),
-  ).length;
+      String((event.payload as { content?: unknown }).content ?? '').startsWith(COMPACTION_MARKER)
+    ) {
+      markerIndexes.push(index);
+    }
+  });
+  // 回滚事件：脚本里那次 `rollback` 工具调用（取最后一个，避免把 checkpoint 误当回滚）。
+  let rewindIndex = -1;
+  result.events.forEach((event, index) => {
+    const payload = event.payload as { name?: unknown } | undefined;
+    if (String(payload?.name ?? '') === TOOL_NAMES.rollback) {
+      rewindIndex = index;
+    }
+  });
+  // **检查点事件**：截断点是它，故两种情形下都应存活 ⇒ 用它当锚点判断折叠点在切点前还是切点后。
+  // （回滚事件本身会被截掉：绿跑实测 rewindIndex = -1，单靠它分不出"没截断"与"重折"。）
+  let checkpointIndex = -1;
+  result.events.forEach((event, index) => {
+    const payload = event.payload as { name?: unknown } | undefined;
+    if (String(payload?.name ?? '') === TOOL_NAMES.checkpoint) {
+      checkpointIndex = index;
+    }
+  });
+  const markersBeforeCheckpoint =
+    checkpointIndex < 0 ? 0 : markerIndexes.filter((i) => i < checkpointIndex).length;
+  const markersAfterCheckpoint =
+    checkpointIndex < 0 ? 0 : markerIndexes.filter((i) => i > checkpointIndex).length;
+  const markersBeforeRewind =
+    rewindIndex < 0 ? markerIndexes.length : markerIndexes.filter((i) => i < rewindIndex).length;
+  const markersAfterRewind =
+    rewindIndex < 0 ? 0 : markerIndexes.filter((i) => i > rewindIndex).length;
+  const turns = capturing.bodies.length;
+  if (process.env.OMNI_FLAKE_DIAG === '1') {
+    process.stdout.write(
+      `[flake-diag] rollback=${String(withRollback)} 捕获=${String(capturing.bodies.length)} ` +
+        `事件=${String(result.events.length)} 折叠点总=${String(markerIndexes.length)} ` +
+        `检查点位置=${String(checkpointIndex)} 切点后折叠点=${String(markersAfterCheckpoint)} ` +
+        `回滚前=${String(markersBeforeRewind)} 回滚后=${String(markersAfterRewind)} ` +
+        `回滚位置=${String(rewindIndex)} 折叠点位置=[${markerIndexes.join(',')}]\n`,
+    );
+  }
   return {
     bodies: capturing.bodies,
     eventTypes: result.events.map((event) => event.type),
-    markerEvents,
+    markerEvents: markerIndexes.length,
+    markersBeforeRewind,
+    markersAfterRewind,
+    markersBeforeCheckpoint,
+    markersAfterCheckpoint,
+    markerIndexes,
+    checkpointIndex,
+    rewindIndex,
+    turns,
   };
 }
 
@@ -268,6 +346,16 @@ test('端到端对照：回滚后不再带旧摘要（日志被截断，不残�
     '控制组的**最后一次任务请求**里应仍带着折叠摘要（不回滚就没有理由丢掉它）',
   );
 
+  // **前置条件**（2026-10-11 修偶发时钉死）：夹具必须保证**折叠点在检查点之后** ——
+  // 否则"回滚到检查点"会合法地保留检查点之前那次折叠的摘要，判据的强断言在此前提下才成立。
+  // 旧夹具有时把折叠放在检查点之前（实测读数 `折叠点位置 [8] / 检查点位置 9`）⇒ 偶发假红。
+  assert.strictEqual(
+    rolledBack.markersBeforeCheckpoint,
+    0,
+    `夹具前提被破坏：回滚的检查点之前已存在折叠点（${String(rolledBack.markersBeforeCheckpoint)} 个）` +
+      `⇒ 回滚保留它是**正确**行为，本判据的强断言不再适用。` +
+      `折叠点位置 [${rolledBack.markerIndexes.join(',')}] / 检查点位置 ${String(rolledBack.checkpointIndex)}`,
+  );
   // **主判据**：回滚之后，最后一次任务请求里不得再有折叠摘要。
   assert.ok(
     rolledBack.bodies.some((body) => body.includes(SUMMARY_SENTINEL)),
@@ -292,7 +380,14 @@ test('端到端对照：回滚后不再带旧摘要（日志被截断，不残�
       `回滚后的最后一次请求里仍有 ${needle} ⇒ 回滚没把折叠点截掉` +
         `（任务请求 ${String(rolledBackTasks.length)} 条 / 辅助请求 ${String(auxiliaryBodies(rolledBack.bodies).length)} 条 / ` +
         `共捕获 ${String(rolledBack.bodies.length)} 条 / 折叠点系统事件 ${String(rolledBack.markerEvents)} 条 / ` +
-        `末条任务请求 ${String(rolledBackLast.length)} 字符）\n      命中处：${excerpt}\n` +
+        `末条任务请求 ${String(rolledBackLast.length)} 字符）\n` +
+        // 2026-10-11 加：把"折叠点相对切点/回滚的位置"与回合数一并打出。该判据的偶发红有两种
+        // 完全不同的成因（① 回滚没截断 ② 回滚后重新折叠了一次），旧消息只有总数分不出二者。
+        `      定位读数：事件 ${String(rolledBack.eventTypes.length)} 条 / 折叠点位置 ` +
+        `[${rolledBack.markerIndexes.join(',')}] / 检查点位置 ${String(rolledBack.checkpointIndex)} / ` +
+        `切点后折叠点 ${String(rolledBack.markersAfterCheckpoint)} / 回滚位置 ${String(rolledBack.rewindIndex)}` +
+        `（-1 ＝ 已被截掉，说明截断确实发生）\n` +
+        `      命中处：${excerpt}\n` +
         `      实验组全部捕获体（判断是"仪器漏标记"还是"产品真泄漏"）：\n${classify(rolledBack.bodies)}`,
     );
   }

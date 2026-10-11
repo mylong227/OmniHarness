@@ -14,13 +14,13 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { LineTransport } from '../server/transport/lineTransport.js';
-import { HttpServer, HttpBridgeTransport } from '../server/transport/httpServer.js';
+import { HttpBridgeTransport } from '../server/transport/httpServer.js';
+import type { HttpServer } from '../server/transport/httpServer.js';
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.js';
 import { Metrics } from '../server/services/metrics.js';
 import type { AuditSink } from '../server/services/auditSink.js';
-import { AppServer } from '../server/core/appServer.js';
-import { ServerEventBridge } from '../server/core/serverEventBridge.js';
+import type { AppServer } from '../server/core/appServer.js';
+import type { ServerEventBridge } from '../server/core/serverEventBridge.js';
 import { DoctorRunner } from './doctorRunner.js';
 import {
   OidcClient,
@@ -61,6 +61,7 @@ export class CliServerCmds extends CliBuildConfig {
       return 2;
     }
     const config = await this.buildConfig(args);
+    const { LineTransport } = await import('../server/transport/lineTransport.js');
     const transport = new LineTransport(
       (onLine) => {
         const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -70,6 +71,7 @@ export class CliServerCmds extends CliBuildConfig {
     );
     const pluginsDir =
       this.flagValue(serverArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
+    const { AppServer } = await import('../server/core/appServer.js');
     const app = new AppServer({
       config,
       transport,
@@ -488,6 +490,7 @@ export class CliServerCmds extends CliBuildConfig {
   }> {
     const bridge = new HttpBridgeTransport(auth);
     const metrics = new Metrics();
+    const { ServerEventBridge } = await import('../server/core/serverEventBridge.js');
     const events = new ServerEventBridge({ transport: bridge, metrics, audit });
     const config = await this.buildConfig(args, {
       userResponder: events.questionPort(),
@@ -605,6 +608,7 @@ export class CliServerCmds extends CliBuildConfig {
       // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
       // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
       const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
+      const { AppServer } = await import('../server/core/appServer.js');
       const app = new AppServer({
         config: { ...config, live },
         transport: bridge,
@@ -643,6 +647,7 @@ export class CliServerCmds extends CliBuildConfig {
         (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
       const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
       ServerAuthGuard.assertBindSafe(serveHost, serveToken);
+      const { HttpServer } = await import('../server/transport/httpServer.js');
       const server = new HttpServer({
         app,
         bridge,

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * cliCompareCmds.ts —— ExecCli 命令簇（god-class 拆分 · 第 4.5/6 层）。
  *
  * 承载 A/B 模型对比子命令簇：compare / compareSide / buildCompareConfig。
@@ -6,14 +6,6 @@
  * 继承自 CliDataCmds（故可复用其全部 build* / flagValue 助手），并被 CliNativeCmds 继承。
  */
 
-import { Agent } from '../core/agent.js';
-import { Runtime } from '../composition/runtime.js';
-import { ConfigFactory } from '../config/configFactory.js';
-
-import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../adapters/event/silentEventPort.js';
-import { AutoApproval } from '../adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../adapters/sandbox/passthroughSandbox.js';
 import { CliDefaults, MODEL_ADAPTERS, CliFlagTable } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import { CliDataCmds } from './cliDataCmds.js';
@@ -59,6 +51,13 @@ export class CliCompareCmds extends CliDataCmds {
     prompt: string,
   ): Promise<{ modelName: string; durationMs: number; finalText?: string | undefined }> {
     const config = await this.buildCompareConfig(args, suffix);
+    // 2026-10-11 启动成本（目标 (9)「CLI 子命令启动 ~2s」）：`Agent` + `Runtime` + `configFactory`
+    // 合计净 ~1.2s，而 compare 是**冷门命令族**；顶层值导入让**每个**子命令（含 `kv list`）都付这份
+    // ESM 解析成本 ⇒ 改成走到这里才加载。调用方零改动。
+    const [{ Agent }, { Runtime }] = await Promise.all([
+      import('../core/agent.js'),
+      import('../composition/runtime.js'),
+    ]);
     const agent = new Agent(Runtime.createRuntime(config));
     const startedAt = Date.now();
     const result = await agent.runTask(prompt);
@@ -90,6 +89,19 @@ export class CliCompareCmds extends CliDataCmds {
       apiKey,
       model,
     };
+    const [
+      { ConfigFactory },
+      { MemoryStorage },
+      { SilentEventPort },
+      { AutoApproval },
+      { PassthroughSandbox },
+    ] = await Promise.all([
+      import('../config/configFactory.js'),
+      import('../adapters/storage/memoryStorage.js'),
+      import('../adapters/event/silentEventPort.js'),
+      import('../adapters/approval/autoApproval.js'),
+      import('../adapters/sandbox/passthroughSandbox.js'),
+    ]);
     return ConfigFactory.build({
       workspaceRoot: process.cwd(),
       maxSteps: 16,

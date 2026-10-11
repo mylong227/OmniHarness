@@ -5,10 +5,6 @@
  * 继承自 CliServerCmds，可调用全部上游共享接线与配置装配助手。
  */
 
-import { McpServeRunner } from '../adapters/mcp/mcpServeRunner.js';
-import { SdkPreferredMcpConnector } from '../adapters/mcp/sdkPreferredMcpConnector.js';
-import { McpServerCommand } from '../mcp/mcpServerCommand.js';
-import { ToolGate } from '../core/toolGate.js';
 import { ArgParser } from './argParser.js';
 import { CliServerCmds } from './cliServerCmds.js';
 
@@ -59,6 +55,7 @@ export class CliMcpCmds extends CliServerCmds {
     const config = await this.buildConfig(cliArgs);
     const sessionId = 'mcp';
     const context = { sessionId, workspaceRoot: cliArgs.workspace };
+    const { ToolGate } = await import('../core/toolGate.js');
     const gate = new ToolGate(
       config.approvals,
       config.sandbox,
@@ -68,6 +65,7 @@ export class CliMcpCmds extends CliServerCmds {
       config.elevatedSandbox,
     );
     // 模式选择经 stderr 如实上报（stdout 是 MCP 协议通道，不得混入提示）。
+    const { McpServeRunner } = await import('../adapters/mcp/mcpServeRunner.js');
     return new McpServeRunner().run(
       {
         tools: config.tools,
@@ -96,6 +94,10 @@ export class CliMcpCmds extends CliServerCmds {
       return 2;
     }
     // 客户端方向走官方 SDK 优先（协议协商 + 远端 url 支持）；失败回落手写并打到 stderr。
+    const [{ SdkPreferredMcpConnector }, { McpServerCommand }] = await Promise.all([
+      import('../adapters/mcp/sdkPreferredMcpConnector.js'),
+      import('../mcp/mcpServerCommand.js'),
+    ]);
     const connection = await new SdkPreferredMcpConnector().connect(
       McpServerCommand.parseMcpServerSpec(spec),
     );
@@ -128,6 +130,10 @@ export class CliMcpCmds extends CliServerCmds {
       );
       return 2;
     }
+    const [{ SdkPreferredMcpConnector }, { McpServerCommand }] = await Promise.all([
+      import('../adapters/mcp/sdkPreferredMcpConnector.js'),
+      import('../mcp/mcpServerCommand.js'),
+    ]);
     const connection = await new SdkPreferredMcpConnector().connect(
       McpServerCommand.parseMcpServerSpec(spec),
     );
