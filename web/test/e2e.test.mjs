@@ -1,4 +1,4 @@
-﻿// D3：UI e2e 冒烟（无第三方依赖路线，**不引入 playwright**）。
+// D3：UI e2e 冒烟（无第三方依赖路线，**不引入 playwright**）。
 //
 // 依赖准入约束：playwright / puppeteer 体积与传递依赖远超本项目依赖预算（默认 2MB / 20 个传递依赖），
 // 且 E1 已确立「CDP 驱动本机已装浏览器」的运行时无第三方依赖路线。故此处直接复用本机 Chrome/Edge：
@@ -42,6 +42,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -244,7 +245,8 @@ function parseResult(dom) {
 test('UI e2e：发任务 → 审批 → 流式 → 产物（headless 浏览器 + 假后端）', async (t) => {
   const browser = findBrowser();
   if (!browser) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+      t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
     return;
   }
 

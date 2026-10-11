@@ -1,4 +1,4 @@
-﻿// 响应式溢出探针（无第三方依赖，真实浏览器）：测量 OmniHarness Web UI 在 640px / 1280px 视口下
+// 响应式溢出探针（无第三方依赖，真实浏览器）：测量 OmniHarness Web UI 在 640px / 1280px 视口下
 // 是否出现横向溢出，并给出具体越界元素。
 //
 // 路线与 e2e-cdp.test.mjs 完全同源（复用 ./browserHarness.mjs）：
@@ -36,6 +36,7 @@ import {
   CdpSession,
   WEB_ROOT_PATH,
 } from './browserHarness.mjs';
+import { requireBrowser } from './browserSwitch.mjs';
 
 const STUB_NAME = '_responsive-probe-stub.html';
 const HEIGHT = 900;
@@ -152,7 +153,7 @@ async function startupDiagnosis(err, port, proc) {
 export function measureScript() {
   return `(function(){
   var W = document.documentElement.clientWidth;
-  var AREAS = ['.rail', '.tabs', '.col.right', '.col.left', '.composer-input', '.composer-input textarea'];
+  var AREAS = ['.rail', '.tabs', '.col.right', '.col.left', '.col.center', '.composer', '.composer-bar', '.composer-input', '.composer-input textarea'];
 
   function pathOf(el){
     var parts = [];
@@ -377,11 +378,12 @@ async function main() {
   const browser = findBrowser();
   if (!browser) {
     process.stdout.write('SKIP: browser not found\n');
-    return 0;
+    // OMNI_REQUIRE_BROWSER=1：探针也不得静默跳过（CI 的 web job 已置该开关）。
+    return requireBrowser() ? 1 : 0;
   }
   if (typeof globalThis.WebSocket !== 'function') {
     process.stdout.write('SKIP: Node 缺全局 WebSocket（需 Node >= 22）\n');
-    return 0;
+    return requireBrowser() ? 1 : 0;
   }
 
   const externalWs = process.env.OMNI_PROBE_WS || '';
@@ -443,7 +445,12 @@ async function main() {
       { width: 640, drawers: 'closed', cls: null },
       { width: 640, drawers: 'left-open', cls: ['col left', 'open'] },
       { width: 640, drawers: 'right-open', cls: ['col right', 'open'] },
+      { width: 1000, drawers: 'closed', cls: null },
       { width: 1280, drawers: 'closed', cls: null },
+      // F8（看板 §8.5「未修两条」之一）：两栏同时展开时中栏被压到 ~320px。
+      // 断言式判据在 web/test/narrowReflow.test.mjs（带正对照）；这里补探针档位。
+      { width: 1000, drawers: 'both-open', cls: ['col left', 'open', 'col right', 'open'] },
+      { width: 1280, drawers: 'both-open', cls: ['col left', 'open', 'col right', 'open'] },
     ];
 
     const verdicts = [];
@@ -464,6 +471,12 @@ async function main() {
           var want = ${JSON.stringify(state.cls ? state.cls[0] : null)};
           if (want === 'col left' && l) l.className = 'col left open';
           if (want === 'col right' && r) r.className = 'col right open';
+          // 两栏同时展开（F8 档）：布尔值插值成字面量——页面里没有 state 变量（本文件上方
+          // 注释已警告过同类错误：Node 侧变量直接写进页面就是 ReferenceError）。
+          if (${String(state.cls !== null && state.cls.length > 3)}) {
+            if (l) l.className = 'col left open';
+            if (r) r.className = 'col right open';
+          }
           return true;
         })()`,
       );

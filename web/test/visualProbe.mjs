@@ -23,6 +23,7 @@ import { mkdtempSync, rmSync, mkdirSync, existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -568,11 +569,12 @@ async function main() {
   const browser = findBrowser();
   if (!browser) {
     process.stdout.write('SKIP: browser not found\n');
-    return 0;
+    // OMNI_REQUIRE_BROWSER=1：探针也不得静默跳过（CI 的 web job 已置该开关）。
+    return requireBrowser() ? 1 : 0;
   }
   if (typeof globalThis.WebSocket !== 'function') {
     process.stdout.write('SKIP: Node 缺全局 WebSocket（需 Node >= 22）\n');
-    return 0;
+    return requireBrowser() ? 1 : 0;
   }
   const wantPanes = listArg('panes', PANES.map((p) => p[1]));
   const wantThemes = listArg('themes', ['dark', 'light']);

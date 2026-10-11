@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer as createNetServer } from 'node:net';
+import { requireBrowser } from './browserSwitch.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');
@@ -38,7 +39,18 @@ const BROWSER_CANDIDATES = [
 ].filter((p) => p !== '');
 
 /** 选择本机可用浏览器；无则 null。 @returns 可执行文件绝对路径或 null */
+/**
+ * 选择本机可用浏览器；无则 null。
+ *
+ * `OMNI_BROWSER_NONE=1` 是**测试钩子**（2026-10-11）：本机永远有 Chrome 时，"没有浏览器"这条分支
+ * 从来跑不到 ⇒ `OMNI_REQUIRE_BROWSER` 开关的**失败路径**等于没验过。钩子让判据能端到端构造该场景
+ * （见 `web/test/browserSwitch.test.mjs` ④：关掉开关应 skip、打开开关必须失败）。
+ * @returns 可执行文件绝对路径或 null
+ */
 export function findBrowser() {
+  if (process.env.OMNI_BROWSER_NONE === '1') {
+    return null;
+  }
   for (const candidate of BROWSER_CANDIDATES) {
     if (existsSync(candidate)) return candidate;
   }
@@ -638,10 +650,16 @@ export const WEB_ROOT_PATH = WEB_ROOT;
 export async function openStubSession(t, options = {}) {
   const browser = findBrowser();
   if (browser === null) {
+    if (requireBrowser()) {
+      throw new Error('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+    }
     t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
     return null;
   }
   if (typeof globalThis.WebSocket !== 'function') {
+    if (requireBrowser()) {
+      throw new Error('OMNI_REQUIRE_BROWSER=1 要求必须跑，但 Node 缺全局 WebSocket');
+    }
     t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
     return null;
   }

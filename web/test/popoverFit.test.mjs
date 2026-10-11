@@ -24,6 +24,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -116,11 +117,13 @@ async function openCapPanel(cdp) {
 test('输入区弹层：三档视口下完整可见 + 形状不符时降级展示（不卸载工作台）', { timeout: 120_000 }, async (t) => {
   const browser = findBrowser();
   if (browser === null) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+      t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
     return;
   }
   if (typeof globalThis.WebSocket !== 'function') {
-    t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但 Node 缺全局 WebSocket');
+      t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
     return;
   }
 

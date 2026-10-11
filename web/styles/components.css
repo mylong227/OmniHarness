@@ -491,6 +491,26 @@ select:focus-visible,
 @media (max-width: 1280px) {
   .col.right { max-width: 42vw; }
   .col.left { max-width: 34vw; }
+  /* F8 窄栏重排（2026-10-11，看板 §8.5「未修两条」之一）：
+     两栏展开时中栏会被压到 ~320px（1000px 视口实测 clientW 319），而输入条两半
+     （左：添加菜单 + 附件 + 权限档 98px；右：容量 105px + 推理档 65px + 模型档 112px）
+     此前**各自不换行** ⇒ 整条 `.composer-bar` 的最小内容宽 368px > 可用 235px ⇒ 中栏横向溢出
+     （`.col center` scrollWidth 397 > clientWidth 319）。
+     处置是**断点重排**（看板登记的原话）：两半各自允许换行、收紧控件最大宽与边距。
+     不按"列宽"用容器查询的原因：`.col.center` 加 `container-type` 会带上 `contain: layout`，
+     从而把中栏内 `position: fixed` 的浮层（文件选择器 / 命令面板等）的包含块从视口改成中栏
+     —— 那会把弹层裁进窄列，正是本仓反复修过的另一类缺陷。 */
+  .composer { margin: 0 8px 8px; padding: 8px 10px; }
+  .composer-bar { gap: 6px; }
+  .composer-bar-left,
+  .composer-bar-right {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  /* 右侧靠 auto 外边距推到行尾；换行后不再强推，避免把最后一行撑宽。 */
+  .composer-bar-right { margin-left: auto; }
+  .composer .ctl-sel { max-width: 96px; }
+  .composer .cap { max-width: 96px; }
 }
 /* 窄窗（≤880px）：左右栏已切成抽屉，这里收敛固定宽度浮层与内边距。 */
 @media (max-width: 880px) {

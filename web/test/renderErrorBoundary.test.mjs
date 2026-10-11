@@ -24,6 +24,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -78,11 +79,13 @@ function readCrash(cdp) {
 test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白）；对照组不误报', { timeout: 120_000 }, async (t) => {
   const browser = findBrowser();
   if (browser === null) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+      t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
     return;
   }
   if (typeof globalThis.WebSocket !== 'function') {
-    t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但 Node 缺全局 WebSocket');
+      t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
     return;
   }
 

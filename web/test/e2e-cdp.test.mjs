@@ -1,4 +1,4 @@
-﻿// E1：浏览器验证 / computer use（CDP 路线，无第三方依赖）。
+// E1：浏览器验证 / computer use（CDP 路线，无第三方依赖）。
 //
 // 可证伪验收（同 board E1 行）：CDP 驱动本机已装浏览器做「截图 → 视觉核对 → 操作回环」一例。
 // 本例用 Node 22 内置 WebSocket 直连 Chrome DevTools Protocol，全程不引入任何浏览器自动化库：
@@ -16,6 +16,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -33,11 +34,13 @@ const STUB_NAME = '_e2e-stub-cdp.html';
 test('E1 CDP：截图 → 视觉核对 → 操作回环（本机 Chrome，无第三方依赖）', async (t) => {
   const browser = findBrowser();
   if (!browser) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+      t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
     return;
   }
   if (typeof globalThis.WebSocket !== 'function') {
-    t.skip('Node 缺全局 WebSocket（需 Node >= 22）');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但 Node 缺全局 WebSocket');
+      t.skip('Node 缺全局 WebSocket（需 Node >= 22）');
     return;
   }
 

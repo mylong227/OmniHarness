@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   getFreePort,
@@ -82,7 +83,8 @@ async function until(fn, timeoutMs, label) {
 test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会留下 10 个子进程）', { timeout: 120_000 }, async (t) => {
   const browser = findBrowser();
   if (!browser) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+      t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
     return;
   }
 

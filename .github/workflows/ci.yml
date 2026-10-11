@@ -76,6 +76,12 @@ jobs:
       # 等新功能全靠本地肉眼 review。现把 web 类型检查 + 单测纳入红线，回归即红。
       - run: npm run web:build
       - run: npm run web:test
+        env:
+          # `OMNI_REQUIRE_BROWSER=1`（2026-10-11）：web 侧**8 个**浏览器类判据此前可静默跳过
+          # （`tests/**` 有强制开关清点，web/test/** 却不在扫描面内）。现 web 侧全部接上同一开关，
+          # 且由 `tests/unit/requireSwitches.test.ts` ② 机械核对。CI runner 自带 Chrome，
+          # 故这里把 skip 升级为**失败**——缺浏览器即红，而不是看着绿。
+          OMNI_REQUIRE_BROWSER: '1'
       # 浏览器存在性**显式断言**：`web:test` 里的 e2e-cdp 与 test 作业里的「真 serve + 真 SPA + 结构基线」
       # 都设计成「无浏览器则 skip」（本机开发友好）。但 CI 上不能让它静默跳过——否则这些门禁会**看着绿、
       # 实际没跑**（假绿）。这一步就是防它降级：runner 无浏览器即红，并打印找过的候选路径。

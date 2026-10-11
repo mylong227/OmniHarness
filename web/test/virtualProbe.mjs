@@ -1,4 +1,4 @@
-﻿// 逐块真实高度 —— 真机探针（无第三方依赖，真实浏览器）：把 OmniHarness Web UI 在一台真 Chrome 里
+// 逐块真实高度 —— 真机探针（无第三方依赖，真实浏览器）：把 OmniHarness Web UI 在一台真 Chrome 里
 // 推成一個「长短不一」的长会话，验证：
 //   1) 虚拟窗口确实生效（data-rendered-count 远小于 data-total-count，DOM 里只挂有限个 .sw-block）；
 //   2) 滚动条总高来自「真实高度累加」而非 index×估算（scrollHeight 与 N×88 明显不同）；
@@ -14,6 +14,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -69,11 +70,12 @@ async function main() {
   const browser = findBrowser();
   if (!browser) {
     process.stdout.write('SKIP: browser not found\n');
-    return 0;
+    // OMNI_REQUIRE_BROWSER=1：探针也不得静默跳过（CI 的 web job 已置该开关）。
+    return requireBrowser() ? 1 : 0;
   }
   if (typeof globalThis.WebSocket !== 'function') {
     process.stdout.write('SKIP: Node 缺全局 WebSocket（需 Node >= 22）\n');
-    return 0;
+    return requireBrowser() ? 1 : 0;
   }
   const externalWs = process.env.OMNI_PROBE_WS || '';
   const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB_NAME}`]: stubHtmlCdp() });

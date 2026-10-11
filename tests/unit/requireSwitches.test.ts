@@ -31,24 +31,37 @@ import {
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-/** 递归收集 `tests/**` 下的 .ts（非 .d.ts）。 */
+/**
+ * 递归收集 `tests/**` 下的 .ts（非 .d.ts）**以及 `web/test/**` 下的 .mjs**。
+ *
+ * 2026-10-11（F8 那轮补的洞）：扫描面此前只有 `tests/**` ⇒ **web 侧的浏览器类判据不在管辖内**，
+ * 它们可以 `t.skip('未找到本机 Chrome/Edge')` 静默跳过而没人管——正是"跳过即假绿"。
+ * 现把 web 侧一并纳入；机制实现自身（`browserSwitch.mjs`）豁免。
+ * @returns 相对仓库根的路径列表（升序）
+ */
 function testSources(): string[] {
   const out: string[] = [];
-  const walk = (dir: string): void => {
+  const walk = (dir: string, accept: (name: string) => boolean): void => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const abs = join(dir, entry.name);
-      if (entry.isDirectory()) walk(abs);
-      else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+      if (entry.isDirectory()) walk(abs, accept);
+      else if (accept(entry.name)) {
         out.push(relative(REPO_ROOT, abs).split(sep).join('/'));
       }
     }
   };
-  walk(join(REPO_ROOT, 'tests'));
+  walk(join(REPO_ROOT, 'tests'), (name) => name.endsWith('.ts') && !name.endsWith('.d.ts'));
+  walk(join(REPO_ROOT, 'web', 'test'), (name) => name.endsWith('.mjs'));
   return out.sort();
 }
 
-/** 判定"这一行是不是一个跳过点"（两种既有写法：`t.skip(` 与 `{ skip: … }`）。 */
-const SKIP_PATTERN = /\bt\.skip\(|\{\s*skip:|\)\s*,\s*\{\s*skip:/;
+/**
+ * 判定"这一行是不是一个跳过点"。
+ *
+ * 三种既有写法：`t.skip(` / `{ skip: … }` / 探针的 `SKIP: ` 文本 + `return 0`
+ * （探针不是 node:test 文件，跳过表现为打印 SKIP 后正常退出）。
+ */
+const SKIP_PATTERN = /\bt\.skip\(|\{\s*skip:|\)\s*,\s*\{\s*skip:|SKIP: /;
 
 /** 非测试的助手实现（它自己含 `t.skip(` 调用，是机制的实现而非跳过点）。 */
 const HELPER_IMPL = 'tests/helpers/requireEnv.ts';
@@ -93,13 +106,19 @@ test('② 全仓清点：每个 skip 点所在的文件必须接上开关，或�
   const offenders: string[] = [];
   let scanned = 0;
   let skipFiles = 0;
+  let webSkipFiles = 0;
   for (const rel of testSources()) {
     scanned += 1;
     if (rel === HELPER_IMPL) continue;
     const text = readFileSync(join(REPO_ROOT, rel), 'utf8');
     if (!SKIP_PATTERN.test(text)) continue;
     skipFiles += 1;
-    const hasSwitch = /OMNI_REQUIRE_[A-Z_]+/.test(text);
+    if (rel.startsWith('web/test/')) webSkipFiles += 1;
+    // 开关的三种合法写法：TS 侧常量名、web 侧的 `requireBrowser()`、或显式 `skipReasonFor(`。
+    const hasSwitch =
+      /OMNI_REQUIRE_[A-Z_]+/.test(text) ||
+      /requireBrowser\(\)/.test(text) ||
+      /skipReasonFor\(/.test(text);
     const exempt: readonly string[] = PLATFORM_SKIP_EXEMPT_FILES;
     if (!hasSwitch && !exempt.includes(rel)) {
       offenders.push(rel);
@@ -108,15 +127,20 @@ test('② 全仓清点：每个 skip 点所在的文件必须接上开关，或�
   // 仪器自证：扫描面必须非空，且确实扫到了 skip 点（否则"零违规"只是因为没扫到东西）
   assert.ok(scanned >= 50, `扫描面过小（${String(scanned)} 个测试源文件）⇒ 判据没覆盖真实仓库`);
   assert.ok(skipFiles >= 8, `只扫到 ${String(skipFiles)} 个含 skip 的文件 ⇒ 判据的识别面可能失效`);
+  // 2026-10-11：web 侧必须**真的**在扫描面内（首版只管 tests/** ⇒ 8 个 web 文件静默跳过无人管）。
+  assert.ok(
+    webSkipFiles >= 6,
+    `只扫到 ${String(webSkipFiles)} 个含 skip 的 web 文件 ⇒ web/test 的扫描面可能失效`,
+  );
   assert.deepStrictEqual(
     offenders,
     [],
-    `这些文件的跳过**没有开关**（缺环境即静默不跑 = 看着绿）⇒ 接上 RequireEnv，` +
+    `这些文件的跳过**没有开关**（缺环境即静默不跑 = 看着绿）⇒ 接上 RequireEnv / browserSwitch，` +
       `或说明它为什么不属"能力缺失"并加进 PLATFORM_SKIP_EXEMPT_FILES：\n${offenders.join('\n')}`,
   );
   process.stdout.write(
-    `[skip 清点] 扫描 ${String(scanned)} 个测试源文件 ｜ 含 skip 点 ${String(skipFiles)} 个文件 ｜ ` +
-      `豁免 ${String(PLATFORM_SKIP_EXEMPT_FILES.length)} 个 ｜ 无开关 0 个\n`,
+    `[skip 清点] 扫描 ${String(scanned)} 个测试源文件 ｜ 含 skip 点 ${String(skipFiles)} 个文件` +
+      `（其中 web ${String(webSkipFiles)} 个）｜ 豁免 ${String(PLATFORM_SKIP_EXEMPT_FILES.length)} 个 ｜ 无开关 0 个\n`,
   );
 });
 

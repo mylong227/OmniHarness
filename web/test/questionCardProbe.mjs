@@ -17,6 +17,7 @@ import test from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { requireBrowser } from './browserSwitch.mjs';
 import {
   findBrowser,
   serveStatic,
@@ -55,11 +56,13 @@ const QUESTION_REQUEST = {
 test('CDP：提问卡在真浏览器里可见可点，提交发出 question.respond 且载荷含所选标签', async (t) => {
   const browser = findBrowser();
   if (!browser) {
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
+      t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 指定浏览器可执行文件后重跑');
     return;
   }
   if (typeof globalThis.WebSocket !== 'function') {
-    t.skip('Node 缺全局 WebSocket（需 Node >= 22）');
+    if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但 Node 缺全局 WebSocket');
+      t.skip('Node 缺全局 WebSocket（需 Node >= 22）');
     return;
   }
 
