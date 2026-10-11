@@ -1,4 +1,4 @@
-﻿/**
+/**
  * `boost` 子命令判据（2026-10-10）：把「探针归档与跨次比对」与「按改动挑门禁子集」纳入 harness 后，
  * 钉住它们**口径**层面的行为——退出码语义、默认跑集、比对分类、门禁挑选的保守性。
  *
@@ -280,6 +280,30 @@ test('④ glob 匹配语义：`**/` 吞零层目录、`*` 不跨 `/`、`?` 单�
   assert.ok(BoostGateSurface.matches('**', 'anything/at/all.txt'), '全路径面必须匹配任意路径');
   assert.ok(BoostGateSurface.matches('docs/**', 'docs/adr/0001.md'));
   assert.ok(!BoostGateSurface.matches('docs/**', 'src/a.ts'));
+  // 扩展名是判据的一部分：`.tsx` 不能被 `*.ts` 的面收进来（否则会"跑多了"，虽不致命但会让口径失真）。
+  assert.ok(!BoostGateSurface.matches('src/**/*.ts', 'src/a.tsx'));
+  // 前缀必须整段相同：`srcfoo/a.ts` 不是 `src/` 下的文件。
+  assert.ok(!BoostGateSurface.matches('src/**/*.ts', 'srcfoo/a.ts'));
+  // `?` 只吃一个非 `/` 字符。
+  assert.ok(BoostGateSurface.matches('src/?.ts', 'src/a.ts'));
+  assert.ok(!BoostGateSurface.matches('src/?.ts', 'src/ab.ts'));
+});
+
+test('④ 取证过的表面必须体现在判定上：web/** 只命中 eslint 而不命中 tsc', () => {
+  // 依据：tsconfig.json 的 include 只有 src/tests/examples 三棵树，`web/**` 由 web/tsconfig.json 单独构建。
+  // 这是"argv 写 src 但表面更宽/更窄"这类推理陷阱的镜像：此处是**更窄**，同样必须由取证而非直觉决定。
+  const d = BoostCommand.decide(REAL_GATES, ['web/src/app.ts'], 'all');
+  assert.ok(d.selected.includes('eslint'), 'web 在前端由 eslint 覆盖');
+  assert.ok(!d.selected.includes('tsc'), 'tsc 的 include 不含 web/**');
+  assert.ok(!d.selected.includes('eslint-typed'), 'eslint-typed 的判定面等于 tsc 的三棵树');
+  assert.strictEqual(d.fallback, null);
+});
+
+test('④ 新增文件同样触发（"文件还不存在所以不算改动"是漏洞，不是理由）', () => {
+  const d = BoostCommand.decide(REAL_GATES, ['src/cli/brandNewFile.ts'], 'fast');
+  for (const id of ['iron-law', 'arch', 'top-level-fn', 'eslint', 'standard-delta']) {
+    assert.ok(d.selected.includes(id), `新增 .ts 必须触发 ${id}`);
+  }
 });
 
 test('④ 未取证的门禁永不跳过（fail-closed 闸门）+ 声明字段完整性', () => {

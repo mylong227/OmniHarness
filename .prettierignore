@@ -35,3 +35,8 @@ target/
 # 本机外部产物（非本仓库生成）：Chrome profile/注册表备份，含二进制与锁定文件，Prettier 扫描即报错。
 chrome-hijack-backup/
 
+# （2026-10-10 移除）曾有一条 `project/.out/`：那是 `omni-boost` 独立子项目时期的生成物目录。
+# 该子项目已按用户口径**并入 harness 本体**（`src/cli/boost*.ts`，归档落在 `.omniharness/boost/`，
+# 上面已整体忽略），`project/` 目录已删除 ⇒ 该条成为指向不存在路径的死配置，一并撤掉。
+# 教训留档：临时脚手架的忽略规则要跟脚手架一起清，否则仓库里长期留着"指向空气的配置"。
+
