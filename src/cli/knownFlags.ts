@@ -29,6 +29,8 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   // 装配层在 parseArgs 之前自行扫描（runServe）。注意 `--config` / `--profile` / `--tool`
   // **已在 VALUE_FLAGS**（那本就是"取值型旗标"清单），故不在此重复——判据②会拒绝重复登记。
   '--auth-required',
+  // serve 的端口接管（显式请求；仅当占用者确认是 OmniHarness serve 时才终止它）。
+  '--take-port',
   // serve / server
   '--port',
   '--dir',

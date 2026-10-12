@@ -2663,6 +2663,46 @@ Gemini 2.5 三档（1.25/10-cache 0.125、0.30/2.50-cache 0.03、0.10/0.40-cache
 既有 `routePricingDefaults.test.ts` ⑥ 例全绿；判据⑤/⑥ 的样本从已定价的 `deepseek-v4-flash`
 换成仍无来源的 `kimi-k2-turbo-preview`（样本失效则判据本身失真）。
 
+### 8.17 后续轮：`serve` 端口冲突从"一句 EADDRINUSE"改成**可行动诊断 + 显式接管**
+
+#### 现象与根因
+
+用户 `npm start` 反复只看到 `listen EADDRINUSE: address already in use 127.0.0.1:8787`。
+排查：占住端口的是一个 **2026-10-09 启动、后台活了 ~48 小时**的旧 `serve`（PID 16988）；
+`POST /rpc {"method":"daemon.status"}` 回 `-32601 方法不存在` ⇒ 它跑的是**本次会话之前的代码**
+（该进程同时是早前 `npm run build` 报 `ENOTEMPTY` 的元凶）。
+
+根因不是端口配置，而是**报错不可行动**：用户既不知道占用者是谁，也不知道有哪几条路。
+
+#### 修法
+
+1. `/healthz` 健康体加 `pid`（跨平台零依赖即可认出"是不是另一个 OmniHarness serve、是哪一个"）。
+2. 新增 `src/cli/servePortConflict.ts`：`probe()` 三分类（`omni`/`foreign`/`free`）、
+   `advice()` 给三条出路（换端口 / 停掉该 PID / `--take-port`）、
+   `takeOver()` **只在确认自家人 + 正整数 PID 时**终止并等端口释放。分类 **fail-closed**：
+   有响应但形状不符（缺 pid / status≠ok / 非 JSON / 4xx）一律 `foreign`。
+3. `serve` 绑定失败时打印「原始错误 + 可行动提示」；`--take-port`（新旗标，已登记 `knownFlags`）
+   显式接管后重试一次绑定。**默认绝不杀任何进程**（退出码 1）。
+4. 顺带按铁律外移 `runHttpServe()`（"起服务并常驻到退出"那一自洽收尾段）：加完诊断后 `runServe` 体
+   135 行 > 基线 132，外移后 **111 行**（不放宽上限）。
+
+#### 判据（并当场抓到两个真问题）
+
+- `tests/unit/servePortConflict.test.ts`（4 例）：三分类与 fail-closed（4 种冒名响应 + 非 JSON + 4xx）、
+  提示必须给三条出路且**对别人的进程不提接管**、`takeOver` 只对自家人动手且**拒绝路径绝不调 kill**
+  （用"杀手间谍"验证）、接线正对照。
+- `tests/unit/servePortConflictE2E.test.ts`（1 例，真起进程）：A 占端口 → B 同端口失败且点名 PID、
+  A **仍活着** → C 带 `--take-port` 接管成功且 A 已退出 → 占用者是普通 HTTP 服务时即便带 `--take-port`
+  也**拒绝接管**并如实报"非本程序的进程"。
+- 判据抓到的真问题：① `/healthz` 回非 JSON 时首版因 `json()` 抛错落进"空闲"分支（实为有人占用）；
+  ② 首版提示把原始错误吞了（用户搜不到 `EADDRINUSE`）。两者均已修。
+
+#### 关于"旧进程为何能活 48 小时"（未修的边界，如实登记）
+
+`serve` 本身没有守护/自清机制：终端被关或父进程消失后，它仍作为独立进程常驻（这是"常驻服务"的正常语义）。
+本轮修的是"**再遇到时不再卡住**"，不是"让常驻进程自动消失"——后者需要引入 PID 文件/单例锁策略，
+属独立决策（`DaemonController` 已有 pid 文件那套，可用于 `serve`，但会改变现有启动语义）。
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。

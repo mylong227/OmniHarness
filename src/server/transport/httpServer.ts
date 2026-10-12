@@ -42,6 +42,16 @@ export interface HealthStatus {
   /** 进程已运行秒数。 */
   readonly uptimeSeconds: number;
   /**
+   * 进程 PID（2026-10-11 加）。
+   *
+   * 为什么健康体里要带 PID：`serve` 绑定端口失败（`EADDRINUSE`）时，调用方需要一个**跨平台**的办法
+   * 认出"占着这个端口的是不是另一个 OmniHarness serve、是哪一个"。原先只能看 Node 那句
+   * `listen EADDRINUSE`，用户既不知道占用者是谁、也不知道该怎么让路——实测就是这么卡住的
+   * （旧 serve 在后台活了 48 小时，每次 `npm start` 都只回一句 EADDRINUSE）。
+   * 有 PID 后既可以给出可行动的提示，也能让显式接管（`--take-port`）**只杀确认是自己人**的进程。
+   */
+  readonly pid: number;
+  /**
    * 各组件检查结果。`app` 与 `bridge` 是**核心项**，决定 `status`；
    * `webDir`/`metrics` 仅为诊断信息，缺失不影响就绪判定（属可选能力）。
    */
@@ -237,6 +247,8 @@ export class HttpServer {
     const body: HealthStatus = {
       status: ok ? 'ok' : 'degraded',
       uptimeSeconds: Math.round((Date.now() - this.startedAt) / 1000),
+      // PID 供"端口占用者是谁"的诊断与显式接管用（见 HealthStatus.pid 的说明）。
+      pid: process.pid,
       checks,
     };
     response.writeHead(ok ? 200 : 503, { 'Content-Type': 'application/json' });

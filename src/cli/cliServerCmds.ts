@@ -33,22 +33,21 @@ import { OpenIdClientFlow } from '../adapters/enterprise/openIdClientFlow.js';
 import type { OidcFlowPort } from '../ports/enterprise/oidcFlow.js';
 import { CodeGenerator } from '../schema/codeGenerator.js';
 import { protocolSchema } from '../schema/protocolSchema.js';
-import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
-import { DaemonController } from '../daemon/daemonController.js';
 import { configFile } from '../config/configFile.js';
 import type { FileConfig } from '../config/configFile.js';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.js';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
-import { ArgParser, CliDefaults } from './argParser.js';
+import { ArgParser } from './argParser.js';
 import type { CliArgs } from './argParser.js';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
-import { CliBuildConfig } from './cliBuildConfig.js';
 import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.js';
 import { CliArgReader } from './cliArgReader.js';
 import { ServeWorkspace } from './serveWorkspace.js';
+import { ServePortConflict } from './servePortConflict.js';
+import { CliIdentityDaemonCmds } from './cliIdentityDaemonCmds.js';
 
 /** 服务端 / 身份 / 后台类子命令。 */
-export class CliServerCmds extends CliBuildConfig {
+export class CliServerCmds extends CliIdentityDaemonCmds {
   /**
    * 启动 stdio app-server（常驻，复用全部端口参数）。
    * @param serverArgs 子命令参数（经 parseArgs 全量解析为运行时配置）。
@@ -265,131 +264,6 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
-   * Agent 密码学身份（#S33）：generate/show/sign/verify，本地 Ed25519，零外部依赖。
-   * @param args 子命令参数（首 token 为子动作，--private-key / --payload / --signature 按动作取用）。
-   * @returns 进程退出码：子动作未知或身份未配置为 2/1，验签失败为 1，成功为 0。
-   */
-  protected async runIdentity(args: readonly string[]): Promise<number> {
-    const sub = args[0];
-    if (sub !== 'generate' && sub !== 'show' && sub !== 'sign' && sub !== 'verify') {
-      process.stdout.write(
-        '用法: omniharness identity <generate|show|sign|verify> [--private-key PKCS8_B64] [--runtime-id ID] [--payload STR] [--signature B64]\n',
-      );
-      return 2;
-    }
-    if (sub === 'generate') {
-      const material = Ed25519AgentIdentity.generateAgentKeyMaterial();
-      process.stdout.write(`${JSON.stringify(material)}\n`);
-      return 0;
-    }
-    const cliArgs =
-      ArgParser.parseArgs(['--prompt', 'identity-placeholder', ...args]) ?? CliDefaults;
-    const config = await this.buildConfig(cliArgs);
-    const privateKey = this.flagValue(args, '--private-key');
-    const runtimeId = this.flagValue(args, '--runtime-id');
-    const identity =
-      config.identity ??
-      (privateKey !== undefined
-        ? new Ed25519AgentIdentity({ privateKeyPkcs8Base64: privateKey, agentRuntimeId: runtimeId })
-        : undefined);
-    if (identity === undefined) {
-      process.stdout.write(
-        'identity 未配置：用 --private-key PKCS8_B64 指定密钥，或在配置中声明 agentIdentity\n',
-      );
-      return 1;
-    }
-    if (sub === 'show') {
-      process.stdout.write(
-        `${JSON.stringify({ agent_runtime_id: identity.runtimeId(), public_key_ssh: identity.publicKeySsh() })}\n`,
-      );
-      return 0;
-    }
-    const payload = this.flagValue(args, '--payload') ?? '';
-    if (sub === 'sign') {
-      process.stdout.write(`${JSON.stringify({ signature: identity.sign(payload) })}\n`);
-      return 0;
-    }
-    const signature = this.flagValue(args, '--signature') ?? '';
-    const valid = identity.verify(payload, signature);
-    process.stdout.write(`${JSON.stringify({ valid })}\n`);
-    return valid ? 0 : 1;
-  }
-
-  /**
-   * daemon start|stop|status：常驻后台 serve（PID 文件管理，多会话由 serve 承接）。
-   * @param daemonArgs 子命令参数（首 token 为子动作 stop / status，缺省视为 start；start 支持 --port 与透传 serve 的参数）。
-   * @returns 进程退出码（各分支恒为 0）。
-   */
-  protected async runDaemon(daemonArgs: readonly string[]): Promise<number> {
-    const controller = new DaemonController();
-    const sub = daemonArgs[0];
-    if (sub === 'stop') {
-      const ok = controller.stop();
-      process.stdout.write(ok ? 'daemon 已停止\n' : 'daemon 未运行\n');
-      return 0;
-    }
-    if (sub === 'status') {
-      const st = controller.status();
-      process.stdout.write(st.running ? `daemon 运行中 (pid ${st.pid})\n` : 'daemon 未运行\n');
-      return 0;
-    }
-    // 默认 start：解析 --port 与透传给 serve 的参数。
-    const rest = daemonArgs.slice(1);
-    let port = 8787;
-    const serveArgs: string[] = [];
-    for (let i = 0; i < rest.length; i += 1) {
-      if (rest[i] === '--port') {
-        const p = Number.parseInt(rest[i + 1] ?? '', 10);
-        if (!Number.isNaN(p)) port = p;
-        i += 1;
-      } else {
-        serveArgs.push(rest[i] ?? '');
-      }
-    }
-    const pid = controller.start(serveArgs, port);
-    // **必须报实际绑定地址**，不能写 `localhost`：服务端默认只绑 `127.0.0.1`（`ServerAuthGuard.DEFAULT_HOST`，
-    // 见其文件头"默认只绑回环"），而 Windows 上 `localhost` 常先解析到 `::1` ⇒ 用户/脚本拿到这个 URL 会
-    // **间歇性拒连**（本仓 httpServer 判据踩过同一个坑：看着能用、偶发连不上，最难查的一类）。
-    process.stdout.write(
-      `daemon 已启动 (pid ${pid})，UI: http://${ServerAuthGuard.DEFAULT_HOST}:${port}\n`,
-    );
-    return 0;
-  }
-
-  /**
-   * 分层加载 serve 的配置（用户级 → 项目级 → profile → bundle → 环境变量）。
-   *
-   * 抽成独立方法有两个原因：① `runServe` 的函数体已贴近门禁基线；② 分层顺序（尤其「用户级必须生效」）
-   * 是**可单测**的行为——单测注入 `userHomedir` 即可在临时目录里造出两层配置并断言合并结果，
-   * 而直接调 `runServe` 要真绑端口、真起服务，成本高且易 flake。
-   *
-   * **为什么必须 `loadLayered` 而不是「向上找第一份 + 单文件 load」**（2026-09-27 验收实测的缺陷）：
-   * 旧写法只读**项目级那一份**，于是用户级 `~/.omniharness/omniharness.json` 里的配置
-   * （`modelAdapter` / `providerKeys` / `model` / `reasoning`）被**静默忽略**——UI 上 `config.get`
-   * 报 `modelAdapter: mock`，而用户明明配了真实 provider 与凭据；`dsh exec` 走的是 loadLayered
-   * （`execCli.loadDefaults`），于是同一个仓库里「一次性运行用真模型、Web UI 用 mock」这种自相矛盾
-   * 的表现会长期无人发现。回归见 `tests/unit/serveConfigLayering.test.ts`。
-   * @param wsRoot 工作区根（项目级配置从这里向上查找）。
-   * @param configPath 项目级配置路径（`--config` 显式指定或 `find` 结果）。
-   * @param profile `--profile` 指定的配置 profile 名（缺省 undefined＝不叠加 profile 层）。
-   * @param userHomedir 用户级配置的家目录（缺省 `os.homedir()`；测试隔离注入用）。
-   * @returns 分层合并后的配置（严格校验：非法即抛 `ConfigError`，由入口 fail-closed 退出）。
-   */
-  public static loadServeConfig(
-    wsRoot: string,
-    configPath: string,
-    profile?: string,
-    userHomedir?: string,
-  ): FileConfig {
-    return configFile.loadLayered({
-      workspace: wsRoot,
-      configPath,
-      ...(profile !== undefined ? { profile } : {}),
-      ...(userHomedir !== undefined ? { userHomedir } : {}),
-    });
-  }
-
-  /**
    * 组装 serve 的「显示配置」（供 UI 展示运行口径）。
    *
    * 优先级刻意是「已落盘文件值 → CLI 传入 → 内置默认」：重启后 UI 显示必须与后端**实际所用**一致
@@ -534,6 +408,68 @@ export class CliServerCmds extends CliBuildConfig {
   }
 
   /**
+   * 启动 HTTP 服务；端口被占时给**可行动**的诊断，并在显式要求下接管。
+   *
+   * 为什么单独成方法（而不是写在 `runServe` 里）：`runServe` 的方法体已顶到铁律上限
+   * （见 `applyPluginProfile` 的说明），这里再塞十几行就会越线；且"端口冲突怎么办"本身是一件事，
+   * 抽出来也便于判据直接覆盖。
+   *
+   * 行为：
+   *  · 正常绑定 ⇒ `{ok:true, port}`；
+   *  · `EADDRINUSE` ⇒ 问占用者的 `/healthz`（跨平台、零依赖），把三条出路打在 stderr 上：
+   *    换端口 / 停掉那个 PID / `--take-port` **显式**接管（仅当占用者确认是 OmniHarness serve）；
+   *  · `--take-port` 且确认是自己人 ⇒ 终止它、等端口释放、重试一次绑定；仍失败则如实报错。
+   * 其他监听错误（如 `EACCES`）原样上抛，不在这里吞。
+   *
+   * @param server 已构造的 HTTP 服务。
+   * @param port 期望端口。
+   * @param takePort 是否允许接管（`--take-port`）。
+   * @returns 成功时为实际端口；失败时为可读错误与退出码。
+   */
+  protected async startHttpServer(
+    server: HttpServer,
+    port: number,
+    takePort: boolean,
+  ): Promise<
+    { readonly ok: true; readonly port: number } | { readonly ok: false; readonly code: number }
+  > {
+    try {
+      return { ok: true, port: await server.start(port) };
+    } catch (error) {
+      const code = (error as { code?: unknown }).code;
+      if (code !== 'EADDRINUSE') {
+        throw error;
+      }
+      const holder = await ServePortConflict.probe(port);
+      // **保留原始错误**：用户与搜索引擎认的是 `EADDRINUSE` 这个词，只打自己的建议会让人搜不到。
+      // （首版只打建议，端到端判据当场要求补回。）
+      process.stderr.write(
+        `omniharness: 启动失败：${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.stderr.write(`${ServePortConflict.advice(port, holder)}\n`);
+      if (!takePort || holder.kind !== 'omni') {
+        return { ok: false, code: 1 };
+      }
+      process.stderr.write(`--take-port：正在终止占用者 PID ${String(holder.pid ?? '?')}…\n`);
+      if (!(await ServePortConflict.takeOver(port, holder))) {
+        process.stderr.write(
+          `--take-port：端口 ${String(port)} 仍被占用，已放弃（不重试第三次）。\n`,
+        );
+        return { ok: false, code: 1 };
+      }
+      try {
+        return { ok: true, port: await server.start(port) };
+      } catch (retryError) {
+        process.stderr.write(
+          `--take-port：接管后仍无法绑定端口 ${String(port)}：` +
+            `${retryError instanceof Error ? retryError.message : String(retryError)}\n`,
+        );
+        return { ok: false, code: 1 };
+      }
+    }
+  }
+
+  /**
    * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
    * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
@@ -640,34 +576,60 @@ export class CliServerCmds extends CliBuildConfig {
         this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile,
         wsRoot,
       );
-      const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
-      // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
-      // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
-      const serveHost =
-        (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
-      const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
-      ServerAuthGuard.assertBindSafe(serveHost, serveToken);
-      const { HttpServer } = await import('../server/transport/httpServer.js');
-      const server = new HttpServer({
-        app,
-        bridge,
-        webDir,
-        metrics,
-        workspaceRoot: () => app.effectiveWorkspace(),
-        host: serveHost,
-        authToken: serveToken,
-      });
-      const port = this.flagNumber(serveArgs, '--port') ?? 8787;
-      const actual = await server.start(port);
-      const authNote =
-        serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
-      process.stdout.write(`OmniHarness UI: http://${serveHost}:${actual} ${authNote}\n`);
-      return CliServerCmds.awaitShutdown(server);
+      // 起 HTTP 服务并常驻到退出（绑定地址/令牌、端口冲突诊断与按需接管、打印 UI 地址）。
+      // 抽成方法的原因：runServe 体量顶到铁律基线（见 applyPluginProfile 的说明）。
+      return await this.runHttpServe(app, bridge, metrics, serveArgs);
     } finally {
       // 退出（含 Ctrl-C / SIGTERM / 早期 return）复原全局 fetch 包装并关闭 MCP 网关子进程（补齐 serve 路径不变量）。
       restoreEgress();
       this.closeGateway();
     }
+  }
+
+  /**
+   * 起 HTTP 服务并常驻到退出：算 webDir、定绑定地址与令牌、绑端口（冲突则诊断/按需接管）、打印 UI 地址。
+   *
+   * 为什么单独成方法：`runServe` 的方法体已顶到铁律的 80 行上限（基线 132 行）；本轮加"端口冲突
+   * 诊断与接管"后又越线，故按职责外移这一自洽的收尾段（而不是把上限往上挪）。
+   *
+   * @param app 已构造并装好插件的服务端。
+   * @param bridge 事件上行桥（HTTP 与 WS 共用）。
+   * @param metrics 指标收集器。
+   * @param serveArgs 子命令参数（读 `--port` / `--take-port`）。
+   * @returns 进程退出码（常驻期间不返回）。
+   */
+  protected async runHttpServe(
+    app: AppServer,
+    bridge: HttpBridgeTransport,
+    metrics: Metrics,
+    serveArgs: readonly string[],
+  ): Promise<number> {
+    const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
+    // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
+    // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
+    const serveHost =
+      (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
+    const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
+    ServerAuthGuard.assertBindSafe(serveHost, serveToken);
+    const { HttpServer } = await import('../server/transport/httpServer.js');
+    const server = new HttpServer({
+      app,
+      bridge,
+      webDir,
+      metrics,
+      workspaceRoot: () => app.effectiveWorkspace(),
+      host: serveHost,
+      authToken: serveToken,
+    });
+    const port = this.flagNumber(serveArgs, '--port') ?? 8787;
+    const binding = await this.startHttpServer(server, port, serveArgs.includes('--take-port'));
+    if (binding.ok !== true) {
+      return binding.code;
+    }
+    const authNote =
+      serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
+    process.stdout.write(`OmniHarness UI: http://${serveHost}:${binding.port} ${authNote}\n`);
+    return CliServerCmds.awaitShutdown(server);
   }
 
   /**
