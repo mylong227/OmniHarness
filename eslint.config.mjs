@@ -9,6 +9,14 @@ export default tseslint.config(
   {
     ignores: [
       'dist/**',
+      // 构建「原子换入」的备份/中间目录（`scripts/buildDist.mjs`）：换入成功后会尽力删 `dist.old`，
+      // 但目录被占用时删不掉（2026-10-13 实测 25MB / 4874 文件，被安全删除钩子以
+      // SAFE_DELETE_BULK_CONFIRM_REQUIRED 拦下）。而 `'dist/**'` **不匹配** `dist.old/**`
+      // ⇒ 里面的 `.d.ts` 被当本仓源码 lint：实测 **2733 条** `explicit-member-accessibility`
+      // error，直接把 pre-commit 打红、提交全被挡住。构建产物不是本仓维护源码，与下方
+      // `eval-data/**`（上游 vendored jQuery）同一条理由。
+      'dist.old/**',
+      'dist.next/**',
       'node_modules/**',
       'coverage/**',
       'native/**',

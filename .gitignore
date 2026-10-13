@@ -53,6 +53,12 @@ target/
 **/target/
 *.node
 
+# 构建「原子换入」的中间与备份目录（`scripts/buildDist.mjs`）：换入成功后会尽力删掉，
+# 但目录被占用时常删不掉（实测 25MB / 4874 文件），而 `dist/` **不匹配** `dist.old/`
+# ⇒ 残留会让工作树永远显示未跟踪。这俩是**可再生的上一版副本**，一律不入库。
+dist.old/
+dist.next/
+
 # Editors and operating systems
 .idea/
 .vscode/
