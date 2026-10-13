@@ -1,6 +1,11 @@
 // 助手消息卡：生成中做字符级渐进揭示（内容为真实文本，非伪造 token），
 // 附附件 chip、外部链接卡片与一键复制。点击正文里的文件路径链接在右侧面板打开。
 //
+// 长报告收敛（2026-10-13 用户反馈）：回合结束后的长篇报告不再整篇平铺——
+// 默认收折为「简报卡」（标题 + 字数 + 前几行预览），「展开全文」就地铺开文档式排版，
+// 点击卡片本身仍走钻取（右侧面板对 assistant 事件有文档视图）。生成中（busy）不收折，
+// 流式正文照常完整呈现；收尾时刻才收敛，与「结果收尾为文件的形式」的口径一致。
+//
 // 函数组件范式：揭示器实例跨渲染保持（useRef 惰性初始化），
 // 「文本 / busy / animate 变化即重启」与「卸载即停止」分别由两个 effect 承接。
 
@@ -11,7 +16,9 @@ import { extractUrls } from '../../textUtils.js';
 import { TextRevealer } from '../../models/TextRevealer.js';
 import { ClipboardCopier } from '../../models/ClipboardCopier.js';
 import { AttachmentChips } from './AttachmentChips.js';
+import { CollapsibleDoc } from './CollapsibleDoc.js';
 import { ExternalLinkCards } from './ExternalLinkCards.js';
+import { LongContentCollapser } from '../../models/LongContentCollapser.js';
 import type { ThreadEvent, FileAttachment } from '../../../types/models.js';
 
 /** AssistantCard 组件的入参。 */
@@ -54,6 +61,9 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
   const { ev, busy, animate, onOpenFile, onRegenerate, schedule } = props;
   const [shown, setShown] = React.useState<string>('');
   const full = (ev.payload?.content as string) || '';
+  // 收折判定与渲染统一走 LongContentCollapser / CollapsibleDoc（阈值与摘要在模型层可单测）。
+  // 这里只算一个布尔：收折时跳过揭示动画（见下）。
+  const folded = busy !== true && LongContentCollapser.shouldCollapse(full);
 
   // 揭示器跨渲染复用（构造只发生一次，等价原 class 的「生命周期内复用」）。
   // **不在这里兜 `schedule ?? setTimeout`**：把宿主函数直接塞进去会诱发
@@ -65,9 +75,12 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
   }
 
   // 文本 / busy / animate 任一变化即重启揭示（依赖写全；不比对 prev）。
+  // 收折为简报卡时揭示没有输出面，直接不启动（省一轮逐字动画开销）；
+  // 展开后的 `renderMarkdown(shown || full)` 有 full 兜底，显示不会缺内容。
   React.useEffect(() => {
+    if (folded) return;
     revealerRef.current?.start(full, animate !== false && busy === true);
-  }, [full, busy, animate]);
+  }, [full, busy, animate, folded]);
 
   // 卸载即停止揭示（清理对称）。
   React.useEffect(() => () => revealerRef.current?.stop(), []);
@@ -117,8 +130,14 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
         ) : null}
       </div>
       <div className={'card ' + ev.type}>
+        {/* 长内容默认收起为简报卡（2026-10-13 用户反馈：数千字报告整段平铺糊满一屏）。
+            仅对**最终卡片**生效：生成中（busy）正文还在长，收起会跟揭示动画打架。 */}
         <div className="content" spellCheck="false" onClick={onContentClick}>
-          {renderMarkdown(shown || full)}
+          {busy !== true && LongContentCollapser.shouldCollapse(full) ? (
+            <CollapsibleDoc content={full} />
+          ) : (
+            renderMarkdown(shown || full)
+          )}
         </div>
         <AttachmentChips files={p.files as FileAttachment[] | undefined} />
         <ExternalLinkCards urls={extractUrls(full)} />

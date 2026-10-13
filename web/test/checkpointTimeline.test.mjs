@@ -219,7 +219,13 @@ function setupTab() {
   return { vnode, calls };
 }
 
-test('RollbackTab：按天分组渲染、徽标区分「含文件快照 / 仅对话」、最新点有标记', () => {
+test('RollbackTab：按天分组渲染、徽标区分「含文件快照 / 仅对话」、最新点有标记', (t) => {
+  // 钉住时钟到**本地正午**：组件内部 `new Date()` 与桩数据的 Date.now 同读这块假时钟，
+  // 「5 / 30 分钟前」两个检查点必然与 now 同属一天，且相对时间档位确定。
+  // 之前按真实时钟推（now - 5/30min），在 00:00–00:35 之间跑会跨午夜分到两天 —— 随机红。
+  const noon = new Date();
+  noon.setHours(12, 0, 0, 0);
+  t.mock.timers.enable({ apis: ['Date'], now: noon.getTime() });
   const { vnode } = setupTab();
   const dayTitles = collect(vnode, (n) => n.props.className === 'cp-day-title');
   assert.strictEqual(dayTitles.length, 1, '两个检查点（5 / 30 分钟前）同属一天');

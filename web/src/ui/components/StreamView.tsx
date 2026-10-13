@@ -47,6 +47,8 @@ import { ProcessCluster } from './stream/ProcessCluster.js';
 import { AssistantCard } from './stream/AssistantCard.js';
 import { UserCard } from './stream/UserCard.js';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
+import { CompactionNote } from '../models/CompactionNote.js';
+import { NumberFormatter } from '../models/NumberFormatter.js';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.js';
 import type { ComposerSeed, LiveInput } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
@@ -265,12 +267,33 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           </div>
         </details>
       );
-    case 'system':
+    case 'system': {
+      const sysContent = (p.content as string) || '';
+      const compaction = CompactionNote.parse(sysContent);
+      if (compaction !== null) {
+        // 压缩游标事件（OMNI_COMPACTION_V1）：摘要动辄数千字，平铺会糊满一屏
+        // （2026-10-13 用户反馈）。收纳成一行简报，点击展开摘要全文；
+        // 点击阻断冒泡——details 的开合不应顺带触发外层的事件钻取。
+        return node(
+          <details
+            className="sysnote-fold"
+            spellCheck="false"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+          >
+            <summary className="sysnote-fold__summary">
+              — 上下文已压缩 · 游标 upTo={String(compaction.upTo)} · 摘要约{' '}
+              {NumberFormatter.abbrev(compaction.summary.length)} 字 · 点击查看 —
+            </summary>
+            <div className="sysnote-fold__body">{esc(compaction.summary)}</div>
+          </details>,
+        );
+      }
       return node(
         <div className="sysnote" spellCheck="false">
-          — {esc((p.content as string) || '')} —
+          — {esc(sysContent)} —
         </div>,
       );
+    }
     case 'todo':
       return node(
         <>

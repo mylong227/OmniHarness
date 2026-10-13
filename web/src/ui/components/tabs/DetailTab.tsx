@@ -1,8 +1,10 @@
 ﻿// 钻取面板：展示从事件流点击选中的事件——类型、摘要与完整结构化 payload。
+// 会话消息（user/assistant）额外提供「文档视图」：正文按 markdown 排版呈现，
+// 对齐「详情以文件的形式排版布局」的结果展示口径（2026-10-13 用户反馈）。
 // 纯展示组件（函数组件范式）：选中事件由 props 注入，无内部状态、无副作用。
 
 import { React } from '../../deps.js';
-import { badge, jsonView, detailSummary, timeOf, esc, emptyState } from '../../format.js';
+import { badge, jsonView, detailSummary, timeOf, esc, emptyState, renderMarkdown } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';
 
@@ -28,6 +30,8 @@ export function DetailTab(props: DetailTabProps): ReactElement {
   }
   const ev = detailEvent;
   const p = ev.payload || {};
+  // 会话消息的正文走 markdown 文档视图（文件式排版）；其余事件没有「正文」可排版。
+  const content = (ev.type === 'assistant' || ev.type === 'user') && typeof p.content === 'string' ? p.content : '';
   return (
     <div>
       <div className="detail-head">
@@ -35,6 +39,12 @@ export function DetailTab(props: DetailTabProps): ReactElement {
         <span className="time">{timeOf(ev.timestamp)}</span>
       </div>
       <div className="detail-sum">{esc(detailSummary(ev, p))}</div>
+      {content === '' ? null : (
+        <div className="detail-section">
+          <div className="detail-h">全文（文档视图）</div>
+          <div className="doc-view">{renderMarkdown(content)}</div>
+        </div>
+      )}
       <div className="detail-section">
         <div className="detail-h">完整 payload</div>
         {jsonView(p)}

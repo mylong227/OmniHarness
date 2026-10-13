@@ -60,6 +60,9 @@
 .detail-sum { color:var(--text); font-size:14px; margin-bottom:12px; line-height:1.5; word-break:break-word; }
 .detail-section { margin-top:10px; }
 .detail-h { font-size:11px; color:var(--dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
+/* 钻取面板：会话消息的「文档视图」（详情以文件的形式排版布局，2026-10-13 用户反馈）。
+   容器只管框与滚动，排版全部交给内部 .md-content 的 markdown 管线。 */
+.doc-view { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; max-height:72vh; overflow:auto; }
 #detailView .empty { margin-top:24px; }
 .content { white-space:pre-wrap; word-break:break-word; }
 details.reasoning { background:var(--panel); border:1px dashed var(--border); border-radius:9px; padding:8px 12px; }
@@ -88,6 +91,39 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 .process-cluster > summary:hover { color:var(--text); }
 .process-cluster-body { padding:4px 0 4px 16px; border-left:1px dashed var(--border); margin:6px 0 4px 6px; }
 .sysnote { text-align:center; color:var(--dim); font-size:12px; padding:4px; }
+
+/* ---- 长内容简报卡（2026-10-13）：数千字回复默认收起，点击展开全文 ---- */
+/* 简报卡沿用助手气泡底色（--panel-2），渐隐掩码必须同底色，否则会盖出一块色差。 */
+.doc-fold { display:flex; flex-direction:column; gap:8px; }
+.doc-fold__head { display:flex; align-items:center; gap:7px; min-height:26px; }
+.doc-fold__ico { color:var(--dim); display:inline-flex; flex:none; }
+.doc-fold__title { font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.doc-fold__meta { font-size:11px; color:var(--dim); flex:none; }
+.doc-fold__toggle {
+  margin-left:auto; flex:none; background:transparent; border:1px solid var(--border);
+  color:var(--accent-2, var(--dim)); border-radius:7px; padding:2px 10px; cursor:pointer; font-size:11px;
+}
+.doc-fold__toggle:hover { color:var(--text); border-color:var(--dim); }
+/* 收起态预览：文本层已截断（前几行/几字），这里再给高度上限 + 渐隐掩码双保险，
+   掩码高度盖住裁切边缘即可——太高会把真实预览内容也糊掉。 */
+.doc-fold__preview { position:relative; max-height:360px; overflow:hidden; }
+.doc-fold__preview::after {
+  content:''; position:absolute; left:0; right:0; bottom:0; height:56px;
+  background:linear-gradient(to bottom, transparent, var(--panel-2)); pointer-events:none;
+}
+.doc-fold--open .doc-fold__preview { max-height:none; overflow:visible; }
+.doc-fold--open .doc-fold__preview::after { content:none; }
+
+/* ---- 压缩游标事件收纳（2026-10-13）：摘要默认一行，点击展开全文 ---- */
+.sysnote-fold { text-align:center; color:var(--dim); font-size:12px; }
+.sysnote-fold__summary { cursor:pointer; list-style:none; padding:4px; }
+.sysnote-fold__summary::-webkit-details-marker { display:none; }
+.sysnote-fold__summary:hover { color:var(--text); }
+.sysnote-fold__body {
+  margin-top:6px; text-align:left; white-space:pre-wrap; word-break:break-word;
+  background:var(--panel); border:1px dashed var(--border); border-radius:8px;
+  padding:8px 12px; max-height:280px; overflow:auto; color:var(--dim);
+}
 .todo-item { display:flex; gap:8px; align-items:center; font-size:13px; padding:2px 0; }
 .todo-dot { width:8px; height:8px; border-radius:50%; background:var(--dim); }
 .todo-dot.done { background:var(--ok); } .todo-dot.doing { background:var(--warn); }
