@@ -13,6 +13,7 @@
 import { CryptoVault } from '../adapters/vault/cryptoVault.js';
 import { CredentialResolver } from '../config/credentialResolver.js';
 import { KvStoreFactory } from './kvStoreFactory.js';
+import { VaultKeyDefaults } from './vaultKeyDefaults.js';
 import type { VaultPort } from '../ports/memory/vault.js';
 
 /** 凭据水合所需的最小参数集（原属 cliBuildConfig，随方法一并外移）。 */
@@ -35,26 +36,33 @@ const DEFAULT_CREDENTIAL_NAMES: readonly string[] = ['OPENAI_API_KEY', 'ANTHROPI
 /** 凭据构造根类。 */
 export class CliCredentialBuild {
   /**
-   * 构造 serve（Web UI）用的凭据保险库；**无主密钥来源时返回 undefined**（不注入）。
+   * 构造 serve（Web UI）用的凭据保险库。
    *
-   * 为什么不无脑 new 一个：`CryptoVault` 在没有主密钥时会**随机生成内存密钥**——那既读不到既有密文，
-   * 又可能凭空落一个新的密钥文件。若把它注入服务端，Web 面板会显示一个"能用但读到空"的保险库，
-   * 用户会以为凭据丢了。故此处显式判定：有来源（环境变量或 `--vault-key-file`）才注入，
-   * 否则留空 —— 面板会如实显示"未接线"并提示怎么开（`{ok:false, reason}`，与 doctor/audit 同源）。
+   * 2026-10-11 改口径：**默认就有主密钥来源**（用户级默认密钥文件 `~/.omniharness/vault.key`，
+   * 首次使用时生成，0600）。此前"没设环境变量也没给 `--vault-key-file`"时这里**拒绝注入**并打印
+   * `凭据保险库未接线` —— 因为 `CryptoVault` 在无密钥文件配置时会用**内存随机密钥**且不落盘，
+   * 注入进去只会得到一个"能用但永远读空"的保险库（写下的密文进程一退就永久读不回）。
+   * 现在默认密钥文件把这个 footgun 去掉了，于是可以正常接线，启动横幅也如实报**密钥来源**。
+   *
+   * 优先级：`OMNIHARNESS_VAULT_KEY` > `--vault-key-file` > 默认密钥文件。
+   * 显式关闭：`OMNIHARNESS_VAULT=0`（不建任何密钥文件；Web 端如实显示"未接线"）。
    *
    * @param args 已解析参数（取 `vaultKeyFile` / `kvAdapter` / `kvFile`）。
-   * @returns 凭据端口；无主密钥来源时为 undefined。
+   * @returns 凭据端口；被显式关闭时为 undefined。
    */
   protected async buildServeVault(args: CredentialHydrationArgs): Promise<VaultPort | undefined> {
-    const keyFromEnv = process.env.OMNIHARNESS_VAULT_KEY;
-    if ((keyFromEnv === undefined || keyFromEnv.length === 0) && args.vaultKeyFile === undefined) {
+    if (VaultKeyDefaults.disabledByEnv()) {
       process.stderr.write(
-        'ℹ️ 凭据保险库未接线（设 OMNIHARNESS_VAULT_KEY 或 --vault-key-file 后重启即可在 Web 端管理）\n',
+        'ℹ️ 凭据保险库已按 OMNIHARNESS_VAULT=0 关闭（Web 端会如实显示未接线，且不会创建密钥文件）\n',
       );
       return undefined;
     }
+    const keyFile = VaultKeyDefaults.resolveKeyFile(args.vaultKeyFile);
+    process.stderr.write(
+      `🔐 凭据保险库已接线：主密钥来自${VaultKeyDefaults.describeSource(args.vaultKeyFile)}\n`,
+    );
     const kv = await new KvStoreFactory().createFor(args.kvAdapter, args.kvFile);
-    return new CryptoVault({ kv, keyFile: args.vaultKeyFile });
+    return new CryptoVault({ kv, keyFile });
   }
 
   /**
@@ -67,24 +75,31 @@ export class CliCredentialBuild {
    * 缺省（未开 `--vault-hydrate`）直接返回空名单 = **零行为变更**。保险库读取失败时上抛
    * （fail-closed：显式要求水合却读不动，不得静默降级成「凭据不存在」）。
    *
+   * 2026-10-12 口径变更（修掉一处**半接线**）：此前这里要求「环境变量或 `--vault-key-file`
+   * 二选一」，否则跳过——而 `buildServeVault` 已随默认密钥文件（`VaultKeyDefaults`）默认接线，
+   * 于是同一进程里出现两种口径：`serve` 能读写保险库，`--vault-hydrate` 却一句「缺少主密钥
+   * 来源」跳过了事（实测：保险库里就存着 `OPENAI_API_KEY` 也照样跳过）。现在两边共用同一套
+   * 主密钥来源解析；`OMNIHARNESS_VAULT=0` 一并跳过。
+   *
    * @param args 水合参数子集（vaultHydrate / vaultHydrateNames / vaultKeyFile / kvAdapter / kvFile）。
-   * @returns 实际被水合的凭据名列表（未开启水合、缺少主密钥来源或保险库无命中时为空）。
+   * @returns 实际被水合的凭据名列表（未开启水合、保险库被关闭或无命中时为空）。
+   * @throws 保险库读取失败时上抛（含主密钥来源，便于判「是不是密钥换了」）。
    */
   protected async hydrateCredentials(args: CredentialHydrationArgs): Promise<readonly string[]> {
     if (args.vaultHydrate !== true) {
       return [];
     }
-    // 无主密钥来源时 CryptoVault 只会在内存里随机生成密钥：既读不到既有密文，还可能凭空
-    // 落下新的密钥文件。此处显式跳过并说明，避免「静默水合 0 项」被误读成「保险库是空的」。
-    const keyFromEnv = process.env.OMNIHARNESS_VAULT_KEY;
-    if ((keyFromEnv === undefined || keyFromEnv.length === 0) && args.vaultKeyFile === undefined) {
+    if (VaultKeyDefaults.disabledByEnv()) {
       process.stderr.write(
-        '⚠️ --vault-hydrate 缺少主密钥来源（请设 OMNIHARNESS_VAULT_KEY 或 --vault-key-file），已跳过水合\n',
+        'ℹ️ --vault-hydrate 已按 OMNIHARNESS_VAULT=0 跳过（该开关关闭了整个凭据保险库）\n',
       );
       return [];
     }
+    // 与 buildServeVault 共用同一套解析：无显式 --vault-key-file 时落到用户级默认密钥文件，
+    // 否则这里会退化成 `keyFile: undefined` ⇒ CryptoVault 用内存随机密钥 ⇒ 永远读空（半接线）。
+    const keyFile = VaultKeyDefaults.resolveKeyFile(args.vaultKeyFile);
     const kv = await new KvStoreFactory().createFor(args.kvAdapter, args.kvFile);
-    const vault = new CryptoVault({ kv, keyFile: args.vaultKeyFile });
+    const vault = new CryptoVault({ kv, keyFile });
     try {
       const names = args.vaultHydrateNames ?? DEFAULT_CREDENTIAL_NAMES;
       const filled = await new CredentialResolver(vault).hydrateEnv(names);
@@ -92,6 +107,14 @@ export class CliCredentialBuild {
         process.stderr.write(`🔐 已从凭据保险库水合 ${filled.length} 项: ${filled.join(', ')}\n`);
       }
       return filled;
+    } catch (error) {
+      // fail-closed 不变，但把密码学真相翻成人话：换主密钥后旧密文本就不可读，宁可报错也不冒充"没存过"。
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `--vault-hydrate 读取凭据失败（在此停住，不静默降级为"凭据不存在"）：主密钥来自` +
+          `${VaultKeyDefaults.describeSource(args.vaultKeyFile)}；换了密钥来源后，` +
+          `先前用别的密钥写下的密文必然解不开（GCM 认证失败）。原始错误：${detail}`,
+      );
     } finally {
       await vault.close();
     }

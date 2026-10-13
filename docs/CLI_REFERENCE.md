@@ -118,6 +118,7 @@
 | `--storage-adapter memory\|jsonl\|sqlite` / `--storage-dir DIR`          | 存储端口（默认 `jsonl` → `~/.omniharness/sessions`）              |
 | `--spill-adapter memory\|file` / `--spill-bytes N` / `--spill-preview N` | 大输出外溢策略                                                    |
 | `--memory-encrypt` / `--memory-key-file PATH`                            | 长期记忆落盘加密（AES-256-GCM，默认关）                           |
+| `--vault-key-file PATH`（默认 `~/.omniharness/vault.key`）               | 主密钥文件（首次使用时生成 0600）；`OMNIHARNESS_VAULT=0` 关闭     |
 | `--skills FILE.json`                                                     | 受种技能包（可重复；与配置 `skills` 合并，**同名以旗标为准**）    |
 | `--tool FILE`                                                            | 加载自定义工具模块（可重复）                                      |
 | `--mcp-server NAME=COMMAND`                                              | 桥接外部 MCP 服务器（工具名前缀 `NAME__`）                        |

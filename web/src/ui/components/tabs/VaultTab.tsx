@@ -9,8 +9,9 @@
  *
  * 1. **只渲染名字**：数据来自 `vault.list`（契约就是"只回名字"），面板里不存在"取回值"的路径；
  * 2. **输入框是单向的**：写入成功后**立即清空**密码输入框（既不回显也不保留在组件状态里）；
- * 3. **未接线如实说**：`ok:false` ⇒ 显示原因与开启方式（设 `OMNIHARNESS_VAULT_KEY` 或
- *    `--vault-key-file`），**不得**渲染成"保险库为空"（那会被读成"我的凭据丢了"）。
+ * 3. **未接线如实说**：`ok:false` ⇒ 显示原因与开启方式（多半是 `OMNIHARNESS_VAULT=0` 把保险库
+ *    整个关掉了；serve 默认就接线 `~/.omniharness/vault.key`），**不得**渲染成"保险库为空"
+ *    （那会被读成"我的凭据丢了"）。
  *
  * @returns 保险库面板节点
  */
@@ -100,8 +101,11 @@ export function VaultTab(): ReactElement {
         {notice !== null ? <p className="ok">{notice}</p> : null}
         {data !== null && !data.ok ? (
           // 未接线必须直说 + 给出开启方式（不得渲染成"保险库为空"）。
+          // 默认口径下 serve 本身就接线（用户级密钥文件 ~/.omniharness/vault.key），
+          // 所以这里最常见的原因是 OMNIHARNESS_VAULT=0 被显式关闭。
           <p className="err">
-            未接线：{data.reason}（设 OMNIHARNESS_VAULT_KEY 或 --vault-key-file 后重启 serve）
+            未接线：{data.reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自
+            ~/.omniharness/vault.key）
           </p>
         ) : data !== null && data.ok ? (
           data.names.length === 0 ? (

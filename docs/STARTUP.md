@@ -159,6 +159,7 @@ curl -s -X POST http://127.0.0.1:8787/rpc \
 | ------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | 会话存档                 | `~/.omniharness/sessions/*.jsonl`                   | **全局**目录，按每条记录里的 `workspace` 标记归属；UI 会话区可切「本项目 / 全部项目」 |
 | 用户级配置（**含凭据**） | `~/.omniharness/omniharness.json`                   | `providerKeys` / `apiKey` / 默认模型 / **当前项目**（`workspace`、`workspaces`）      |
+| 保险库主密钥（默认）     | `~/.omniharness/vault.key`                          | 首次使用时生成，权限 0600；`OMNIHARNESS_VAULT=0` 可整体关闭凭据保险库                 |
 | 项目级配置               | `<项目>/omniharness.json`                           | 项目设置；**不要放凭据**                                                              |
 | 插件                     | `~/.omniharness/plugins/`（或 `serve --dir`）       | 见 [`PLUGIN_GUIDE.md`](PLUGIN_GUIDE.md)                                               |
 | 大输出外溢               | `<工作区>/.omniharness/spill`（默认 `file` 适配器） | `--spill-adapter memory` 可改                                                         |

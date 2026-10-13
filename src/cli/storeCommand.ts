@@ -10,6 +10,7 @@
  */
 
 import { CryptoVault } from '../adapters/vault/cryptoVault.js';
+import { VaultKeyDefaults } from './vaultKeyDefaults.js';
 import { EnvVault } from '../adapters/vault/envVault.js';
 import type { VaultPort } from '../ports/memory/vault.js';
 import { ArgParser } from './argParser.js';
@@ -111,7 +112,10 @@ export class StoreCommand {
     if (backend !== 'crypto') {
       throw new Error(`非法 --vault-backend：${backend}（可选: crypto | env）`);
     }
-    const keyFile = reader.value('--vault-key-file');
+    // 2026-10-11：默认主密钥文件（`~/.omniharness/vault.key`，首次使用时生成，0600）。
+    // 修之前"没给 --vault-key-file 也没设环境变量"时 CryptoVault 走**内存随机密钥**且不落盘
+    // ⇒ 当次 `vault set` 看着成功，进程一退密文**永久读不回**（实测 footgun）。
+    const keyFile = VaultKeyDefaults.resolveKeyFile(reader.value('--vault-key-file'));
     const kv = await this.kvFactory.create(args);
     return new CryptoVault({ kv, keyFile });
   }

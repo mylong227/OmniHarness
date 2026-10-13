@@ -2703,6 +2703,67 @@ Gemini 2.5 三档（1.25/10-cache 0.125、0.30/2.50-cache 0.03、0.10/0.40-cache
 本轮修的是"**再遇到时不再卡住**"，不是"让常驻进程自动消失"——后者需要引入 PID 文件/单例锁策略，
 属独立决策（`DaemonController` 已有 pid 文件那套，可用于 `serve`，但会改变现有启动语义）。
 
+### 8.18 凭据保险库**默认主密钥文件** + 修掉一处「半接线」（代码 2026-10-11/12 完成，2026-10-13 归档入账）
+
+> **登记说明（诚实前置）**：这批改动在完成当天（10-11/10-12）**留在工作区未提交、未登记**：源码改了、
+> `dist/` 也按它构建过（启动横幅那行 `🔐 凭据保险库已接线…` 就是它），但 git 里查不到、本板与变更集里
+> 也没有条目。2026-10-13 归档时补上（变更集 `.changeset/vault-default-key-file.md` + 本条）。
+
+#### 根因（实测 footgun，不是理论担心）
+
+`CryptoVault` 的主密钥来源三档：环境变量 → 密钥文件 → **内存随机**。第三档在 `keyFile` 未配置时**不落盘**
+⇒ `vault set` 当次看着成功，**进程一退密钥随之消失，写下的密文永久读不回**（GCM 认证失败）。
+serve 侧因此**拒绝注入保险库**（注入进去只会显示"能用但永远读空"，用户会以为凭据丢了），
+启动横幅于是常驻 `ℹ️ 凭据保险库未接线（设 OMNIHARNESS_VAULT_KEY 或 --vault-key-file …）`——
+等于"Web 端凭据管理"默认不可用。
+
+#### 新口径
+
+无显式来源时用**用户级默认密钥文件** `~/.omniharness/vault.key`（首次使用时生成，权限 0600，
+与 `--vault-key-file` 同规格）。优先级 **`OMNIHARNESS_VAULT_KEY` > 显式 `--vault-key-file` > 默认密钥文件**；
+彻底关闭（不建任何密钥文件、Web 端如实显示未接线）：**`OMNIHARNESS_VAULT=0`**。
+
+#### 改动（`src/cli/vaultKeyDefaults.ts` 为新文件，纯解析/纯函数）
+
+- `VaultKeyDefaults.resolveKeyFile / disabledByEnv / describeSource`：来源解析、关闭开关、人可读描述（**不含密钥内容**）；
+- `cliCredentialBuild.ts`：`buildServeVault` 默认接线且启动横幅如实报来源；`hydrateCredentials` **与 serve 共用同一套解析**；
+  读取失败时上抛并把密码学真相翻成人话（**点名主密钥来源** + 说明"换了密钥来源后旧密文必然解不开"）；
+- `storeCommand.ts`：`vault set/get` 走同一套解析（此前只读 `--vault-key-file` 字面值）；
+- `VaultTab.tsx`：未接线提示改指向 `OMNIHARNESS_VAULT=0` / 默认密钥文件位置。
+- 文档补口：`docs/CLI_REFERENCE.md` §「工作区、配置与存储」补 `--vault-key-file` 行（**此前全仓文档零处记载该旗标**）。
+
+#### 修掉的一处「半接线」（本批最值得记的一条）
+
+`--vault-hydrate` 当时仍按旧口径判"环境变量或 `--vault-key-file` 二选一"，否则跳过——而 serve 已随默认密钥文件
+默认接线 ⇒ **同一进程两种口径**：serve 能读写保险库，水合却以"缺少主密钥来源"一句跳过（保险库里就存着
+`OPENAI_API_KEY` 也照样跳过）。现两边共用同一解析；`OMNIHARNESS_VAULT=0` 一并跳过。
+
+#### 判据与实测（2026-10-13 本机复核）
+
+- `tests/unit/vaultKeyDefaults.test.ts`（新，7 例，**全绿**）：默认路径/显式优先/来源描述不带密钥；
+  **跨进程持久化**（真起 CLI 子进程，临时 HOME：A `set` → B `get` 必须取回）；正对照（换 HOME 后读不回，
+  且**不得返回错误明文**）；环境变量优先（换密钥必报错、同密钥必读回）；`OMNIHARNESS_VAULT=0` 不建密钥文件；
+  `--vault-hydrate` 默认真能水合；`OMNIHARNESS_VAULT=0` 下水合**如实说明跳过**。其中②⑥标注"修前必红"。
+- `tests/unit/cliCredentialHydration.test.ts`（6 例，**全绿**；2 例改口径）：新增"不得再因无显式主密钥来源短路"的
+  源码断言 + 一条**变异正对照**（把共用解析整体换掉仍须检得出，证明断言不恒真）。
+- `web/test/vaultTab.test.mjs`：未接线提示必须指向 `OMNIHARNESS_VAULT=0` / 默认密钥文件（`npm run web:test` **406/406** 全绿）。
+- 门禁：`fast` **10/10**、`typed` **2/2**（2026-10-13 实跑）。
+
+#### 归档时发现并修掉的一枚**变异探针**残留
+
+工作区里躺着 `const keyFile = args.vaultKeyFile; // MUTATION-PROBE`（`cliCredentialBuild.ts:98`）——
+它把"两边共用同一套来源解析"这处修复**恰好打回原形**（`keyFile: undefined` ⇒ CryptoVault 用内存随机密钥 ⇒ 永远读空）。
+**先跑判据取证**：`cliCredentialHydration.test.ts` 第 3 例当场红（`'水合必须与 serve 走同一套主密钥来源解析'`），
+⇒ 判据不恒真、探针确实是活残留；还原为 `VaultKeyDefaults.resolveKeyFile(args.vaultKeyFile)` 后 **6/6 转绿**。
+（这正是 §9.1 第 3 条"变异后判据仍绿时先查变异是否落地"的反向用例：**变异落地了，判据就该红**。）
+
+#### 迁移注意（诚实登记）
+
+以前用"内存随机密钥"写下的密文**本来就不可恢复**（密钥从未落盘）。换到默认密钥文件后，读那些条目会**明确报错**
+（fail-closed），而**不会**返回错误明文——刻意如此：宁可报错，也不让调用方拿到错误的凭据。
+
+---
+
 ## 9. 本板如何追加条目
 
 1. 只追加「已复核事实」：命令 + 日期 + 结果；或「已确证缺陷」：定位（file:line）+ 复现逻辑 + 暂缓理由。

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CliBuildConfig } from '../../src/cli/cliBuildConfig.js';
@@ -88,16 +88,40 @@ test('装配链：未开 --vault-hydrate 时零行为变更（不建保险库、
   }
 });
 
-test('装配链：开了水合但缺主密钥来源时显式跳过（不抛错、不落任何文件）', async () => {
+test('装配链：开了水合但无显式密钥来源时走**用户级默认密钥文件**（2026-10-12 改口径）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'omni-hydrate-nokey-'));
-  const kvFile = join(dir, 'vault.json');
   try {
     await withCleanEnv(['OMNIHARNESS_VAULT_KEY', 'OPENAI_API_KEY'], async () => {
-      const filled = await new ProbeBuildConfig().hydrate({ vaultHydrate: true, kvFile });
-      assert.deepStrictEqual(filled, []);
+      const filled = await new ProbeBuildConfig().hydrate({ vaultHydrate: true });
+      assert.deepStrictEqual(filled, [], '空保险库 ⇒ 零命中（不得捏造凭据）');
       assert.strictEqual(process.env.OPENAI_API_KEY, undefined);
-      // CryptoVault 在无密钥来源时会「自动生成并持久化」密钥文件——该路径必须先被拦住。
-      assert.deepStrictEqual(readdirSync(dir), []);
+
+      // 旧口径（2026-10-12 前）在这里**直接 return []**：那时担心 CryptoVault 落到内存随机密钥、
+      // 既读不到既有密文又凭空写文件。默认密钥文件上线后这个短路就成了半接线——serve 侧按新口径
+      // 读写保险库，`--vault-hydrate` 却仍以"缺少主密钥来源"跳过（真跑一遍即可复现）。
+      // ⇒ 本判据钉的是"不许再短路"：源码里不得出现那条无条件跳过分支。
+      const source = readFileSync(join(process.cwd(), 'src/cli/cliCredentialBuild.ts'), 'utf8');
+      assert.doesNotMatch(
+        source,
+        /缺少主密钥来源/u,
+        'hydrateCredentials 不得再因"无显式主密钥来源"而短路（半接线）',
+      );
+      assert.match(
+        source,
+        /hydrateCredentials[\s\S]{0,600}?VaultKeyDefaults\.resolveKeyFile/u,
+        '水合必须与 serve 走同一套主密钥来源解析',
+      );
+      // 正对照：把"解析主密钥"换成一个不存在的调用却仍检不出 ⇒ 上面的断言是空的。
+      // 必须**全部**替换：`serve` 与水合两处都走这个解析，只替换一处时另一处仍在 ⇒ 变异不落地。
+      const mutated = source
+        .split('VaultKeyDefaults.resolveKeyFile(args.vaultKeyFile)')
+        .join('undefinedKeyFile(args.vaultKeyFile)');
+      assert.notStrictEqual(mutated, source, '正对照变异未落地');
+      assert.doesNotMatch(
+        mutated,
+        /hydrateCredentials[\s\S]{0,600}?VaultKeyDefaults\.resolveKeyFile/u,
+        '去掉共用解析却检不出来 ⇒ 本判据恒真',
+      );
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -171,8 +195,15 @@ test('装配链：保险库主密钥错误时上抛（fail-closed，不静默降
       await writer.close();
       // 用不同主密钥打开同一份密文：GCM 认证失败，必须抛出而非返回「凭据不存在」。
       const probe = new ProbeBuildConfig();
-      await assert.rejects(() =>
-        probe.hydrate({ vaultHydrate: true, vaultKeyFile: otherKeyFile, kvFile }),
+      await assert.rejects(
+        () => probe.hydrate({ vaultHydrate: true, vaultKeyFile: otherKeyFile, kvFile }),
+        // 2026-10-12：抛出时必须带上"主密钥来自哪里"——否则用户只看到一句 GCM 报错，
+        // 判断不出是「密钥换了」还是「凭据没存过」。
+        (error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          return message.includes('主密钥来自') && message.includes(otherKeyFile);
+        },
+        '失败消息必须可行动（点明主密钥来源 + 换密钥后旧密文本就解不开）',
       );
       assert.strictEqual(process.env.OPENAI_API_KEY, undefined);
     });

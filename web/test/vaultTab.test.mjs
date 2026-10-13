@@ -84,7 +84,10 @@ test('① 未接线 ⇒ 显示原因 + 开启方式，不得渲染成"保险库�
   const text = texts(renderSeeded({ 0: { ok: false, reason: 'vault 未接线（serve 组合根未注入 vault）' } })).join('');
   assert.match(text, /未接线/u);
   assert.match(text, /serve 组合根未注入 vault/u, '必须带出服务端原因');
-  assert.match(text, /OMNIHARNESS_VAULT_KEY/u, '必须给出开启方式（否则用户不知道怎么办）');
+  // 2026-10-12：默认口径下 serve 本来就接线（用户级密钥文件），所以"未接线"最常见的原因是
+  // OMNIHARNESS_VAULT=0 被显式关闭 ⇒ 提示必须指向这条出路，而不是让人去设环境变量/给旗标。
+  assert.match(text, /OMNIHARNESS_VAULT/u, '必须给出可行动的开启/恢复线索');
+  assert.match(text, /OMNIHARNESS_VAULT=0|\.omniharness/u, '必须点名关闭开关或默认密钥文件位置');
   assert.doesNotMatch(text, /保险库为空/u, '未接线不得说"保险库为空"（会被读成凭据丢了）');
 });
 
