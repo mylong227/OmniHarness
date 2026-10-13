@@ -11,3 +11,10 @@
 # 规则：GitHub 官方推荐写法。`text=auto` 让 Git 自动判定文本/二进制；`eol=lf` 强制文本文件
 # 检出为 LF（二进制文件不受影响，Git 自动识别）。
 * text=auto eol=lf
+
+# Windows 批处理的例外（2026-10-13，双击一键启动 `start.cmd`）：
+# `.bat` / `.cmd` 的解析器（cmd.exe）按字节读行，**LF 单换行会让 `goto`/标签跳转不可靠**，
+# 而这类文件只在 Windows 上运行、也只由 Windows 工具链消费 ⇒ 唯一合理的口径是 CRLF 落地。
+# 若沿用上面的 `eol=lf`，仓库里存 LF、检出也是 LF，双击就踩这个坑。
+*.cmd text eol=crlf
+*.bat text eol=crlf

@@ -17,6 +17,7 @@
  * npm start -- --port 9000      # 透传任意 serve 参数
  * npm start -- --mock           # 零 API Key 的 mock 演示
  * npm start -- --workspace D:/work/新项目
+ * npm start -- --open           # 另加：等服务真的就绪后自动打开浏览器
  * npm run dev                   # 构建一次后：serve + 前端 tsc --watch（改前端自动重编，刷新即可）
  * ```
  *
@@ -26,11 +27,24 @@
  * - **Ctrl+C 能停**：前台运行，收到 SIGINT 直接把子进程一起收走（Windows 上 node 会转发给同一控制台进程组）。
  * - **失败即停**：任一步非零退出码立即中止，绝不"构建失败还起服务"（那只会让人对着旧产物调 bug）。
  * - **零第三方依赖**：只用 `node:child_process`，与本仓"依赖按准入"的口径一致。
+ * - **`--open` 是"就绪后"打开而不是"起了就"打开**：判据走 `/readyz`（不是恒 200 的 `/healthz`），
+ *   且**端口上是别人**时坚决不开浏览器（否则会把别人的页面当成本项目的工作台）；
+ *   纯逻辑在 `scripts/lib/launchReadiness.mjs`，由 `tests/unit/launchReadiness.test.ts` 钉住。
+ * - **退出码要说人话**：区分"按了 Ctrl+C"与"失败退出"（Windows 双击场景里这是唯一线索）。
  */
 import { spawnSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  browserOpenCommand,
+  classifyReadyProbe,
+  describeReadyOutcome,
+  describeServeExit,
+  readinessUrl,
+  resolveServePort,
+  waitForReady,
+} from './lib/launchReadiness.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SERVE_ENTRY = join(REPO, 'dist', 'src', 'cli', 'exec.js');
@@ -61,9 +75,63 @@ function runNpm(script) {
   }
 }
 
+/**
+ * 探测一次就绪端点。
+ *
+ * 超时刻意压到 1s：探针跑在**本地回环**上，秒级无响应就说明"还没起来"，
+ * 没必要让每次轮询都拖长——3 分钟总预算里要留足重试次数。
+ * @param url 就绪探针地址。
+ * @returns 分类标签（`classifyReadyProbe` 的取值）。
+ */
+async function probeOnce(url) {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+    const bodyText = await response.text().catch(() => '');
+    return classifyReadyProbe({ statusCode: response.status, bodyText });
+  } catch (error) {
+    return classifyReadyProbe({ error });
+  }
+}
+
+/**
+ * 等待服务就绪并打开浏览器（`--open`）。
+ *
+ * 打印一律**如实**：没就绪就说没就绪，端口被别人占就说是别人占的——"静默什么都不做"
+ * 比"没打开浏览器"更难排查（用户只会以为双击没生效）。
+ * @param port 监听端口。
+ * @returns 无返回值（fire-and-forget，绝不阻塞服务进程）。
+ */
+async function openWhenReady(port) {
+  const url = readinessUrl(port);
+  const result = await waitForReady({ probe: () => probeOnce(url) });
+  process.stdout.write(`\n${describeReadyOutcome(result.outcome, port)}\n`);
+  if (result.outcome !== 'ready' && result.outcome !== 'guarded') {
+    return;
+  }
+  const page = `http://127.0.0.1:${String(port)}`;
+  // `OMNI_NO_OPEN=1` 只压住**弹窗**这一步，不压住"等待 + 如实报告就绪"：
+  // 无人值守里真正想要的是"起来了没"这个事实，而不是窗口。
+  if (process.env.OMNI_NO_OPEN === '1') {
+    process.stdout.write(`[omniharness] OMNI_NO_OPEN=1 ⇒ 已就绪但未打开浏览器：${page}\n`);
+    return;
+  }
+  const opener = browserOpenCommand(process.platform, page);
+  if (opener === null) {
+    process.stdout.write(`[omniharness] 本平台不支持自动打开浏览器，请手动访问 ${page}\n`);
+    return;
+  }
+  const child = spawn(opener.command, opener.args, { stdio: 'ignore' });
+  child.on('error', (error) => {
+    process.stderr.write(`[omniharness] 打开浏览器失败：${error.message}（请手动访问 ${page}）\n`);
+  });
+}
+
 const args = process.argv.slice(2);
 const skipBuild = args.includes('--no-build');
-const serveArgs = args.filter((a) => a !== '--no-build');
+const openBrowser = args.includes('--open');
+// `--open` / `--no-build` 是**本脚本**的旗标，绝不能透传给 serve：serve 对未知旗标是 fail-closed 退出，
+// 透过去就是"启动器自己的便利功能把它自己打死"。
+const serveArgs = args.filter((a) => a !== '--no-build' && a !== '--open');
 
 if (!skipBuild) {
   runNpm('build');
@@ -78,7 +146,13 @@ const child = spawn(process.execPath, [SERVE_ENTRY, 'serve', ...serveArgs], {
   cwd: process.cwd(),
   stdio: 'inherit',
 });
-child.on('exit', (code) => process.exit(code ?? 0));
+if (openBrowser) {
+  void openWhenReady(resolveServePort(serveArgs));
+}
+child.on('exit', (code) => {
+  process.stdout.write(`\n${describeServeExit(code)}\n`);
+  process.exit(code ?? 0);
+});
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => child.kill(sig));
 }

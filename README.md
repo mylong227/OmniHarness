@@ -34,8 +34,12 @@ npm start -- --mock                 # 明确用 mock（零额度）
 npm start -- --workspace ~/work/proj  # 指定工作区（详见下文"项目固定在本机"）
 npm start -- --approval rules       # 审批策略：read 放行、rm/del 拒绝、其余按规则
 npm start -- --auto-approve         # 跳过审批弹窗（危险：任何工具直接放行）
+npm start -- --open                 # 就绪后自动打开浏览器（无人值守用 OMNI_NO_OPEN=1 压住弹窗）
 npm run dev                         # 前端开发回路：serve + tsc --watch（改前端刷新即见）
 ```
+
+> **Windows 用户**：也可以直接**双击仓库根的 [`start.cmd`](start.cmd)**——等于 `npm start -- --open`，
+> 外加 Node 版本前置检查、「就绪后才开浏览器」（端口上是别人的进程时坚决不开）与"窗口不闪退"。
 
 **为什么是这三步**：本仓前端**没有打包器、也没有 dev server**——`web/index.html` 直接用
 `<script type="module">` 加载 `web/dist/main.js`，而那由 `tsc -p web/tsconfig.json` 产出。
