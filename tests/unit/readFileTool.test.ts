@@ -137,3 +137,47 @@ test('ReadFileTool：目录明确拒绝（stat 先于读取）', async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('ReadFileTool：文件不存在时返回可行动的人话而非裸 ENOENT（2026-10-13 修）', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-read-'));
+  try {
+    const result = await tool.handle(
+      { id: 'c1', name: 'read_file', arguments: { path: 'README.md' } },
+      { sessionId: 's1', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, false);
+    // 文案指向可行动的下一步，且**不得**泄漏 Node 原始错误与绝对路径。
+    assert.match(result.error ?? '', /文件不存在.*README\.md/);
+    assert.match(result.error ?? '', /list_dir|glob|write_file/);
+    assert.doesNotMatch(result.error ?? '', /ENOENT/);
+    assert.doesNotMatch(result.error ?? '', /no such file or directory/i);
+    assert.doesNotMatch(
+      result.error ?? '',
+      new RegExp(join(dir, 'README.md').replace(/\\/g, '\\\\')),
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('ReadFileTool：无权限读取给出人话提示', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omniharness-read-'));
+  try {
+    const target = join(dir, 'secret.txt');
+    await writeFile(target, 'x', 'utf8');
+    // 模拟权限错误：不真改 ACL（Windows 下脆弱），直接向 failure 分支注入一个类 Node 错误。
+    const fakeError = Object.assign(new Error("EPERM: operation not permitted, stat 'X'"), {
+      code: 'EPERM',
+    });
+    const failure = (
+      tool as unknown as {
+        failure: (callId: string, relative: string, error: unknown) => { error: string };
+      }
+    ).failure.bind(tool);
+    const result = failure('c1', 'secret.txt', fakeError);
+    assert.match(result.error, /无权限读取.*secret\.txt/);
+    assert.doesNotMatch(result.error, /EPERM/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

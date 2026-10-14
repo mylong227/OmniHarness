@@ -127,7 +127,7 @@ export class ReadFileTool {
       }
       return { callId: call.id, ok: true, output: this.render(relative, window) };
     } catch (error) {
-      return this.failure(call.id, error);
+      return this.failure(call.id, relative, error);
     }
   }
 
@@ -147,12 +147,36 @@ export class ReadFileTool {
   }
 
   /** 构造失败结果。
+   *
+   * 2026-10-13 修：此前把 Node 原始错误**裸透传**——`stat` 一个不存在的文件就抛
+   * `ENOENT: no such file or directory, stat 'D:\work\…\README.md'`，带着绝对路径直接
+   * 打红 UI（实测截图）。现与 editFileTool.readError 同口径：ENOENT 转成对模型可行动的
+   * 人话（指向 list_dir / glob 确认文件名、write_file 新建），其余错误仍原样保留细节。
+   *
    * @param callId 工具调用 ID。
+   * @param relative 目标文件相对路径（用于组织人话文案）。
    * @param error 抛出的错误（Error 或任意值）。
    * @returns ok=false 的工具结果（错误消息已提取）。
    */
-  private failure(callId: string, error: unknown): ToolResult {
+  private failure(callId: string, relative: string, error: unknown): ToolResult {
     const detail = error instanceof Error ? error.message : String(error);
+    if (/ENOENT|no such file/i.test(detail)) {
+      return {
+        callId,
+        ok: false,
+        error:
+          `文件不存在: ${relative}（工作区内没有这个文件）。` +
+          '可用 list_dir 或 glob 确认实际文件名（注意大小写与扩展名）；' +
+          '若是新文件请先用 write_file 创建。',
+      };
+    }
+    if (/EACCES|EPERM|permission denied/i.test(detail)) {
+      return {
+        callId,
+        ok: false,
+        error: `无权限读取: ${relative}（操作系统拒绝访问）。可尝试用 shell 确认文件属性。`,
+      };
+    }
     return { callId, ok: false, error: detail };
   }
 
