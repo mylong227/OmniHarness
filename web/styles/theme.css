@@ -36,7 +36,7 @@
 }
 
 * { box-sizing:border-box; margin:0; padding:0; }
-html, body { height:100%; }
+html, body { height:100%; overflow:hidden; }
 body {
   background:var(--bg); color:var(--text);
   font:13.5px/1.55 system-ui,"Segoe UI",-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
@@ -64,7 +64,12 @@ button, .btn, .iconbtn, .session, .tab, .tool-item, .tree .node, .card, .tool, .
 :focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
 .composer textarea:focus-visible, .form input:focus-visible, .form select:focus-visible { outline:none; }
 
-.app { display:grid; grid-template-rows:1fr; height:100vh; }
+/* 工作台根：行高用 minmax(0,1fr) 锁死视口——`1fr` 的最小尺寸是 auto，矮视口 + 长侧栏内容会把
+   轨道顶破 100vh ⇒ 文档整体可滚，任何滚轮都把整页滚走（2026-10-14 用户报「滚动导致整个页面
+   完全被滚上去」，实测视口 400px 时文档 433px、元凶是左栏 ws-list/session 的最小内容高度）。
+   行高锁定后，高内容一律由各栏自己的 overflow:auto 内部消化；overflow:hidden 兜底，
+   页面级滚动在本应用里永远不是期望行为。 */
+.app { display:grid; grid-template-rows:minmax(0,1fr); height:100vh; overflow:hidden; }
 
 /* =========================================================================
    全局原生控件主题化（兜底层）
