@@ -563,18 +563,27 @@ export class Agent implements AgentPort {
 
   /**
    * 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。
+   *
+   * **2026-10-14 修（压缩阈值与真实窗口脱钩）**：默认档此前恒为固定 8000 token——128k 窗口的
+   * 模型在用量 ~6k 时就触发折叠，且 `keepRecent=6` 会把刚读的文件内容整体折进摘要；摘要塌陷
+   * （真机实测「摘要 13 字」）后模型每步失忆，无限重启探索循环（sess_mv88ycm7_1 实证：
+   * `read_file` 循环 20+ 次，用户三次催促「修复」都到不了写工具）。现默认阈值 = 0.8×真实窗口
+   * （env `OMNI_CONTEXT_WINDOW` → 模型名目录 → 缺省 128k，与容量面板同源）；仅当用户**显式**
+   * 配置 `compactionMaxTokens` 时维持固定阈值契约（既有测试基线不漂移）。
    * @returns 配置好压缩阈值与（可选）原生 token 估算器的 ContextCompactor。
    */
   private buildCompactor(): ContextCompactor {
-    const envWindow = Number(process.env.OMNI_CONTEXT_WINDOW);
     const compactor = new ContextCompactor(this.runtime.model, {
       maxTokens: this.runtime.config.compactionMaxTokens ?? DEFAULT_MAX_TOKENS,
       keepRecent: this.runtime.config.compactionKeepRecent ?? DEFAULT_KEEP_RECENT,
       // P2（打磨）：确定性无损收缩显式透传（配置缺省即 true），杜绝「声明未接线」死旋钮。
       deterministicShrink: this.runtime.config.compactionDeterministicShrink ?? true,
-      // V2：真实窗口 token 数（env OMNI_CONTEXT_WINDOW）提供时，阈值 = floor(0.8×window)，
-      // 对齐 codex/dsh 的「按窗口百分比触发压缩」策略；未提供时维持固定阈值行为。
-      ...(Number.isFinite(envWindow) && envWindow > 0 ? { contextWindowTokens: envWindow } : {}),
+      // V2→V3：真实窗口 token 数优先于固定 maxTokens（compactor 内 0.8×window 取阈值）。
+      // 显式配置 `compactionMaxTokens` = 用户钉死压缩预算 ⇒ 不传窗口，维持固定阈值行为；
+      // 未配置时挂 `resolveContextWindow()`（env OMNI_CONTEXT_WINDOW 优先，目录表兜底，恒为正）。
+      ...(this.runtime.config.compactionMaxTokens === undefined
+        ? { contextWindowTokens: this.resolveContextWindow() }
+        : {}),
     });
     // G8（2026-10-03）：token 记账**默认走 TS**，原生下沉改为显式开启。
     //
