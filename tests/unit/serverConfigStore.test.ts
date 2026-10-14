@@ -14,7 +14,9 @@ import { ProviderPresets } from '../../src/server/services/providerPresets.js';
  * 用户级配置；不注入就会读写**真实**的 `~/.omniharness/omniharness.json`——既污染开发机，
  * 也让断言被真实配置里的项目列表带偏（非封闭测试）。
  */
-function withStore<T>(fn: (ws: string, store: ServerConfigStore) => T | Promise<T>): Promise<T> {
+function withStore<T>(
+  fn: (ws: string, store: ServerConfigStore, home: string) => T | Promise<T>,
+): Promise<T> {
   const ws = mkdtempSync(join(tmpdir(), 'cfg-store-'));
   const home = mkdtempSync(join(tmpdir(), 'cfg-store-home-'));
   const store = new ServerConfigStore({
@@ -25,7 +27,7 @@ function withStore<T>(fn: (ws: string, store: ServerConfigStore) => T | Promise<
     onChanged: () => {},
     userHomedir: home,
   });
-  return Promise.resolve(fn(ws, store)).finally(() => {
+  return Promise.resolve(fn(ws, store, home)).finally(() => {
     rmSync(ws, { recursive: true, force: true });
     rmSync(home, { recursive: true, force: true });
   });
@@ -53,9 +55,9 @@ test('ServerConfigStore.update：autoApprove 生效并随摘要回传', async ()
 });
 
 test('ServerConfigStore.update：`null` 显式清除覆盖，且不会从旧文件里被复活', async () => {
-  await withStore(async (ws, store) => {
+  await withStore(async (_ws, store, home) => {
+    const savedPath = join(home, '.omniharness', configFile.FILE_NAME);
     await store.update({ baseUrl: 'https://proxy.example/v1' });
-    const savedPath = join(ws, 'omniharness.json');
     assert.match(configFile.load(savedPath).baseUrl ?? '', /proxy\.example/, '先写入覆盖');
 
     await store.update({ baseUrl: null });
@@ -89,12 +91,19 @@ test('ServerConfigStore.update：approval / modelAdapter 覆盖可被读取', as
   });
 });
 
-test('ServerConfigStore.update：覆盖字段实时并入 fileConfig 并落盘', async () => {
-  await withStore(async (ws, store) => {
+test('ServerConfigStore.update：覆盖字段实时并入 fileConfig 并落盘到用户级', async () => {
+  await withStore(async (ws, store, home) => {
+    const projectPath = join(ws, configFile.FILE_NAME);
+    const userPath = join(home, '.omniharness', configFile.FILE_NAME);
     await store.update({ model: 'm-1' });
     assert.strictEqual(store.fileConfig().model, 'm-1');
-    assert.ok(existsSync(join(ws, configFile.FILE_NAME)), '应写出项目配置文件');
-    assert.strictEqual(configFile.load(join(ws, configFile.FILE_NAME)).model, 'm-1');
+    assert.ok(existsSync(userPath), '应写出用户级配置文件');
+    assert.strictEqual(configFile.load(userPath).model, 'm-1');
+    assert.strictEqual(
+      configFile.load(projectPath).model,
+      undefined,
+      '项目文件只读不写——设置不得再落回工作区目录',
+    );
   });
 });
 
@@ -127,19 +136,77 @@ test('ServerConfigStore.commitWorkspaceSwitch：旧工作区一并收编进列�
   });
 });
 
-test('ServerConfigStore：未提供 configPath 时按工作区推断落盘路径', async () => {
-  await withStore((ws, store) => {
+test('ServerConfigStore.persist：写路径恒为用户级文件（不随工作区/启动目录漂移）', async () => {
+  await withStore(async (ws, store, home) => {
     store.persist();
-    assert.ok(existsSync(join(ws, configFile.FILE_NAME)));
+    assert.ok(existsSync(join(home, '.omniharness', configFile.FILE_NAME)));
+    assert.ok(!existsSync(join(ws, configFile.FILE_NAME)), '项目目录不得被写出新配置文件');
+  });
+});
+
+test('ServerConfigStore.update：凭据只落用户级，绝不进项目文件', async () => {
+  await withStore(async (ws, store, home) => {
+    const projectPath = join(ws, configFile.FILE_NAME);
+    const userPath = join(home, '.omniharness', configFile.FILE_NAME);
+    await store.update({ apiKey: 'sk-top-secret', providerKeys: { deepseek: 'sk-ds-secret' } });
+
+    const userFile = configFile.load(userPath);
+    assert.strictEqual(userFile.apiKey, 'sk-top-secret', 'apiKey 必须落用户级');
+    assert.strictEqual(userFile.providerKeys?.['deepseek'], 'sk-ds-secret');
+    const projectFile = configFile.load(projectPath);
+    assert.strictEqual(projectFile.apiKey, undefined, '项目文件绝不能出现 apiKey');
+    assert.strictEqual(projectFile.providerKeys, undefined, '项目文件绝不能出现 providerKeys');
+
+    // 运行时读取（分层合并）仍可见
+    assert.strictEqual(store.fileConfig().apiKey, 'sk-top-secret');
+  });
+});
+
+test('ServerConfigStore.update：换工作区后凭据依旧可见（重启重置回归）', async () => {
+  await withStore(async (ws, store, home) => {
+    await store.update({ providerKeys: { deepseek: 'sk-ds-secret' } });
+    // 模拟重启后工作区解析到另一个目录：换一份 displayConfig（新工作区、同一用户级 home）。
+    const ws2 = mkdtempSync(join(tmpdir(), 'cfg-store-ws2-'));
+    try {
+      const reborn = new ServerConfigStore({
+        displayConfig: { workspace: ws2 },
+        configPath: join(ws2, 'omniharness.json'),
+        autoApprove: false,
+        probeProvider: async () => {},
+        onChanged: () => {},
+        userHomedir: home,
+      });
+      assert.strictEqual(
+        reborn.fileConfig().providerKeys?.['deepseek'],
+        'sk-ds-secret',
+        '重启换工作区后 Key 必须仍然生效',
+      );
+    } finally {
+      rmSync(ws2, { recursive: true, force: true });
+    }
+  });
+});
+
+test('ServerConfigStore.update：`null` 清除凭据从用户级文件删除，且不复活', async () => {
+  await withStore(async (ws, store, home) => {
+    await store.update({ providerKeys: { deepseek: 'sk-ds-secret' } });
+    await store.update({ providerKeys: null });
+    const userPath = join(home, '.omniharness', configFile.FILE_NAME);
+    assert.strictEqual(
+      configFile.load(userPath).providerKeys,
+      undefined,
+      '清除后用户级落盘结果里也必须消失',
+    );
+    assert.strictEqual(store.fileConfig().providerKeys, undefined);
   });
 });
 
 test('ServerConfigStore.update：permission 规则可持久化，非法规则 fail-closed', async () => {
-  await withStore(async (ws, store) => {
+  await withStore(async (ws, store, home) => {
     await store.update({
       permission: { rules: [{ toolName: 'shell', commandGlob: '*curl *', decision: 'deny' }] },
     });
-    const persisted = configFile.load(join(ws, configFile.FILE_NAME));
+    const persisted = configFile.load(join(home, '.omniharness', configFile.FILE_NAME));
     assert.strictEqual(persisted.permission?.rules?.[0]?.commandGlob, '*curl *');
     // 非法裁决经 normalizeConfig 拒绝（fail-closed），不得静默落盘
     await assert.rejects(

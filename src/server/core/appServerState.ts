@@ -97,8 +97,9 @@ export const RULES_DEFAULT: ApprovalPort = {
 
 /**
  * config.update 允许持久化到配置文件的字段。
- * apiKey/providerKeys 可经此通道写入（落盘本地 omniharness.json，与手改文件等价），
- * 但 config.get 回传一律打码——凭据原文永不返回 UI，防泄露。
+ * 写路径**恒为用户级** ~/.omniharness/omniharness.json（2026-10-13 用户口径："都固定保存到该目录下"
+ * ——曾因落项目级、重启换工作区而「设置被重置」），与手改用户级文件等价；
+ * config.get 回传对 apiKey/providerKeys 一律打码——凭据原文永不返回 UI，防泄露。
  * workspace/mcpServers 仍不由此通道写入（防篡改工作区与 MCP 面）。
  */
 export const PERSISTABLE_KEYS: readonly string[] = [

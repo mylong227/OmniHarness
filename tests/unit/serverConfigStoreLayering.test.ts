@@ -17,7 +17,7 @@
  * | --- | --- |
  * | ① | 用户级 `providerKeys` 必须在 `fileConfig()` 里可见（修复前 undefined） |
  * | ② | 仅用户级有 Key 时，`ModelCatalogService.resolveOverride()` 必须**能造出真适配器**而不是抛错 |
- * | ③ | 写路径**不得**把用户级凭据复制进项目文件（读分层、写仍只落项目层） |
+ * | ③ | 写路径：凭据只落**用户级**文件且合并既有内容；项目文件一律不出现 providerKeys（2026-10-13 换契约：落项目层会在重启换工作区后「被重置」） |
  * | ④ | `config.get()` 摘要里凭据一律打码（原文绝不回传 UI） |
  */
 import { test } from 'node:test';
@@ -95,18 +95,28 @@ test('② 仅用户级有 Key 时，运行时模型重建必须成功（不得�
   }
 });
 
-test('③ 写路径只落项目层：用户级凭据不得被复制进项目文件', async () => {
+test('③ 写路径只落用户级：凭据进用户级文件、绝不进项目文件（2026-10-13 换契约）', async () => {
   const { home, project, store, configPath } = fixture();
   try {
     await store.update({ setProviderKey: { vendor: 'deepseek', key: 'sk-project-layer-0003' } });
+    // 项目文件：一律不得出现 providerKeys（旧版把 Key 落这里，重启换工作区就「被重置」）。
     const persisted = JSON.parse(readFileSync(configPath, 'utf8')) as {
       providerKeys?: Record<string, string>;
     };
-    assert.strictEqual(persisted.providerKeys?.['deepseek'], 'sk-project-layer-0003');
     assert.strictEqual(
-      persisted.providerKeys?.['openai'],
+      persisted.providerKeys,
       undefined,
-      '用户级的 openai Key 被复制进了项目文件（读分层不等于可以把用户级内容写进项目层）',
+      '项目文件不得承载凭据（重启解析到别的工作区就读不到了）',
+    );
+    // 用户级文件：新 Key 落地，且**既有**用户级 Key 不被整文件覆盖丢掉。
+    const userFile = JSON.parse(
+      readFileSync(join(home, '.omniharness', 'omniharness.json'), 'utf8'),
+    ) as { providerKeys?: Record<string, string> };
+    assert.strictEqual(userFile.providerKeys?.['deepseek'], 'sk-project-layer-0003');
+    assert.strictEqual(
+      userFile.providerKeys?.['openai'],
+      'sk-user-layer-openai-0002',
+      '写用户级必须合并既有内容，不能把用户手写的其他 Key 冲掉',
     );
     assert.ok(
       !readFileSync(configPath, 'utf8').includes(USER_KEY),
