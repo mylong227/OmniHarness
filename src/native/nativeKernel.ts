@@ -118,6 +118,27 @@ export class NativeKernel {
   }
 
   /**
+   * 内核当前生效的 fs 沙箱根（真实读取内核态，非缓存）。
+   *
+   * 为什么必须有它（2026-10-13「内核根跑偏」）：内核以进程级全局静态存活（OnceLock），进程 cwd
+   * 只在首次初始化读一次；宿主切换工作区后内核根不会自己跟上——宿主必须先 `getRoot()` 对账、
+   * 对不上再 `setWorkspaceRoot()` 纠偏。
+   * @returns 内核当前根（旧版内核无此方法时 `call` 抛错，由调用方容错降级）。
+   */
+  public getRoot(): string {
+    return String(this.call('root.get').root ?? '');
+  }
+
+  /**
+   * 把内核 fs 白名单根与策略沙箱根切到指定目录（fail-closed：非存在目录内核侧拒绝）。
+   * @param root 新工作区根（绝对路径）。
+   * @returns 无返回值。
+   */
+  public setWorkspaceRoot(root: string): void {
+    this.call('root.set', { root });
+  }
+
+  /**
    * 内核注册的工具元数据（native 含 shell.run，共 7 个）。
    * @returns 工具元描述数组（名称、参数 schema 等）。
    */

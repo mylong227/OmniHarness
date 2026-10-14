@@ -138,9 +138,13 @@ export class StepToolExecutor {
       }
       // FFI 热路径（#66）：pre 之后才真正执行；**仅「原生执行本身失败」**才回退下方 JS 路径
       //（门禁已通过、pre 已执行一次，回退时不重复跑 pre）。记录/钩子失败不算原生执行失败。
+      // 根对账（2026-10-13「内核根跑偏」）：内核是进程级全局静态，工作区切换后根不会自己跟上
+      // ——执行前先对齐到本回合的工作区根（旧内核无 root.* 时实现方静默降级，行为同旧版）；
+      // 对齐失败抛错走 catch → 回退 JS（其根恒正确），绝不拿错误根的结果糊弄模型。
       if (this.deps.native !== undefined) {
         let nativeResult: ToolResult | undefined;
         try {
+          this.deps.native.syncWorkspaceRoot?.(context.workspaceRoot);
           nativeResult = this.deps.native.runTool(call);
         } catch {
           log.debug('tool.native.fallback', { tool: call.name, callId: call.id });

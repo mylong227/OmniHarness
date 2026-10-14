@@ -25,11 +25,24 @@ fn native_root() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
 }
 
+/// 当前生效的沙箱根（2026-10-13「内核根跑偏」修复）：初值 = 进程 cwd，可经 `root.set` 运行时
+/// 改写。为什么不能只靠 `native_root()`：它每次都读进程 cwd，而宿主（serve）切换工作区**不改
+/// 变进程 cwd**——内核必须显式跟随宿主的工作区语义，否则 fs.* 永远落在启动目录。
+static ROOT: OnceLock<Mutex<PathBuf>> = OnceLock::new();
+
+/// 读当前根（未初始化时以进程 cwd 播种）。
+fn current_root() -> PathBuf {
+    ROOT.get_or_init(|| Mutex::new(native_root()))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
 fn kernel() -> MutexGuard<'static, AgentLoop> {
     KERNEL
         .get_or_init(|| {
             let mut k = AgentLoop::new();
-            k.register_builtins(native_root());
+            k.register_builtins(current_root());
             Mutex::new(k)
         })
         .lock()
@@ -38,7 +51,7 @@ fn kernel() -> MutexGuard<'static, AgentLoop> {
 
 fn session() -> MutexGuard<'static, Session> {
     SESSION
-        .get_or_init(|| Mutex::new(Session::standard("native-session", native_root())))
+        .get_or_init(|| Mutex::new(Session::standard("native-session", current_root())))
         .lock()
         .unwrap_or_else(|e| e.into_inner())
 }
@@ -93,9 +106,47 @@ fn dispatch(req: &str) -> String {
         "context.render" => handle_context_render(),
         "context.estimate" => handle_context_estimate(&v),
         "approval.check" => handle_approval_check(&v),
+        "root.get" => handle_root_get(),
+        "root.set" => handle_root_set(&v),
         "ping" => json!({ "ok": true, "pong": true, "native": true }).to_string(),
         _ => err_json(&format!("未知方法: {}", method)),
     }
+}
+
+/// 处理 root.get：回当前生效沙箱根（宿主对账用——对不上才需要 root.set）。
+fn handle_root_get() -> String {
+    json!({ "ok": true, "root": current_root().to_string_lossy() }).to_string()
+}
+
+/// 处理 root.set：把内核态（KERNEL 的 fs 工具白名单根 + SESSION 的策略沙箱根）切到新根。
+///
+/// fail-closed：根必须是非空且真实存在的目录。三步顺序有讲究——先记 ROOT（此后 kernel()/
+/// session() 的**惰性初始化**也用新根），再重建两者；ROOT 的锁在重建前释放，避免与
+/// KERNEL/SESSION 的锁嵌套（虽是不同互斥量，保持「持锁最短」的纪律）。
+fn handle_root_set(v: &serde_json::Value) -> String {
+    let root = v
+        .get("params")
+        .and_then(|p| p.get("root"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    if root.is_empty() {
+        return err_json("root 不能为空");
+    }
+    let path = PathBuf::from(&root);
+    if !path.is_dir() {
+        return err_json(&format!("root 不是存在的目录: {root}"));
+    }
+    {
+        let mut cur = ROOT
+            .get_or_init(|| Mutex::new(native_root()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        *cur = path.clone();
+    }
+    kernel().register_builtins(path.clone());
+    session().set_workspace_root(path);
+    json!({ "ok": true, "root": root }).to_string()
 }
 
 /// 处理 session.submit：提交一条 Submission 并驱动状态机，返回出站 Op 列表。

@@ -329,7 +329,20 @@ impl Tool for ListDirTool {
 /// 内置工具：shell.run。执行外部命令（wasm 构建下不可用）。
 /// 危险工具：不设白名单，执行任意命令，必须配合 审批 + 策略沙箱 + OS 沙箱 使用。
 /// 命令若被 OS 级沙箱包装，`command` 参数已由执行链替换为包装后的命令行。
-pub struct ShellRunTool;
+///
+/// `cwd` = 注册时给定的工作区根（2026-10-13「内核根跑偏」收尾）：子进程 cwd 跟随它，
+/// 使相对路径命令与 fs.* 同落一个根——此前子进程 cwd = 宿主进程 cwd（启动目录），
+/// 工作区切换后 fs.* 已跟根而 shell 命令仍落旧目录，同一回合作业面再次分裂。
+pub struct ShellRunTool {
+    cwd: std::path::PathBuf,
+}
+
+impl ShellRunTool {
+    /// 以指定工作区根构造（`register_builtins(root)` 传入，`Session::set_workspace_root` 切根时重注册即跟随）。
+    pub fn new(cwd: impl Into<std::path::PathBuf>) -> Self {
+        Self { cwd: cwd.into() }
+    }
+}
 
 impl Tool for ShellRunTool {
     fn name(&self) -> &str {
@@ -339,7 +352,7 @@ impl Tool for ShellRunTool {
         let Some(command) = arg_str(&args, "command") else {
             return ToolResult::err("缺少 command 参数");
         };
-        let output = run_shell(&command);
+        let output = run_shell_in(&command, &self.cwd);
         match output {
             Ok(text) => ToolResult::ok(text),
             Err(e) => ToolResult::err(format!("执行失败: {}", e)),
@@ -408,24 +421,26 @@ fn decode_output(bytes: &[u8]) -> String {
     }
 }
 
-/// 以系统 shell 执行命令并捕获输出（Windows: cmd /C；其余: sh -c）。
+/// 以系统 shell 执行命令并捕获输出（Windows: cmd /C；其余: sh -c），子进程 cwd = `cwd`。
 #[cfg(not(target_arch = "wasm32"))]
-fn run_shell(command: &str) -> std::io::Result<String> {
+fn run_shell_in(command: &str, cwd: &std::path::Path) -> std::io::Result<String> {
     #[cfg(windows)]
     let output = if let Some(inner) =
         command.strip_prefix(crate::restricted_token::RESTRICTED_COMMAND_PREFIX)
     {
         // OS 沙箱包装：以进程内受限令牌 + Job Object 直拉命令（不依赖 omni-cli 外部二进制）。
         // 受限令牌由启动器构造期创建、调用方无法绕过——fail-closed。
-        run_restricted_capture(inner)?
+        run_restricted_capture(inner, cwd)?
     } else {
         std::process::Command::new("cmd")
             .args(["/C", command])
+            .current_dir(cwd)
             .output()?
     };
     #[cfg(not(windows))]
     let output = std::process::Command::new("sh")
         .args(["-c", command])
+        .current_dir(cwd)
         .output()?;
 
     let stdout = decode_output(&output.stdout);
@@ -445,16 +460,19 @@ fn run_shell(command: &str) -> std::io::Result<String> {
 
 /// 以进程内受限令牌 + Job Object 拉起命令并回传输出（A4：去掉 omni-cli 依赖）。
 /// 启动器创建失败即返回 Err（fail-closed，绝不回退到无限制 cmd /C）。
-/// 返回 `Output` 以复用 run_shell 后续统一的成功/退出码处理。
+/// 返回 `Output` 以复用 run_shell_in 后续统一的成功/退出码处理。
 #[cfg(windows)]
-fn run_restricted_capture(command: &str) -> std::io::Result<std::process::Output> {
+fn run_restricted_capture(
+    command: &str,
+    cwd: &std::path::Path,
+) -> std::io::Result<std::process::Output> {
     use std::os::windows::process::ExitStatusExt;
     let launcher =
         crate::restricted_token::RestrictedProcessLauncher::new().map_err(std::io::Error::other)?;
     let (out, code) = launcher
-        .run_capture(command)
+        .run_capture(command, Some(cwd))
         .map_err(std::io::Error::other)?;
-    // 仅回传原始字节 + 退出码；成败前缀（"exit N:"）与解码统一由 run_shell 处理，
+    // 仅回传原始字节 + 退出码；成败前缀（"exit N:"）与解码统一由 run_shell_in 处理，
     // 与 cmd /C 分支完全一致，避免此处二次编码导致中文乱码。
     Ok(std::process::Output {
         status: ExitStatusExt::from_raw(code),
@@ -465,7 +483,7 @@ fn run_restricted_capture(command: &str) -> std::io::Result<std::process::Output
 
 /// wasm 构建：无外部进程能力。
 #[cfg(target_arch = "wasm32")]
-fn run_shell(_command: &str) -> std::io::Result<String> {
+fn run_shell_in(_command: &str, _cwd: &std::path::Path) -> std::io::Result<String> {
     Err(std::io::Error::new(
         std::io::ErrorKind::Unsupported,
         "wasm 环境不支持 shell.run",
@@ -640,7 +658,7 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn shell_run_executes_command() {
-        let tool = ShellRunTool;
+        let tool = ShellRunTool::new(std::env::temp_dir());
         let res = tool.call(serde_json::json!({ "command": "echo omni-shell-ok" }));
         assert!(res.ok, "命令应执行成功: {:?}", res.error);
         assert!(
@@ -650,5 +668,27 @@ mod tests {
         );
         let bad = tool.call(serde_json::json!({}));
         assert!(!bad.ok, "缺参数应报错");
+    }
+
+    /// 回归（2026-10-13「内核根跑偏」收尾）：shell.run 子进程 cwd 必须落在构造时给定的根。
+    /// 此前子进程 cwd = 宿主进程 cwd（启动目录），fs.* 跟根而 shell 命令仍落旧目录。
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn shell_run_cwd_follows_workspace_root() {
+        let ws = std::env::temp_dir().join(format!("omni-shell-cwd-{}", std::process::id()));
+        std::fs::create_dir_all(&ws).unwrap();
+        // 唯一目录名出现在输出里即可证明子进程 cwd 正确（cmd 的 `cd` / sh 的 `pwd` 打印当前目录）。
+        let tool = ShellRunTool::new(&ws);
+        #[cfg(windows)]
+        let res = tool.call(serde_json::json!({ "command": "cd" }));
+        #[cfg(not(windows))]
+        let res = tool.call(serde_json::json!({ "command": "pwd" }));
+        assert!(res.ok, "cd 应执行成功: {:?}", res.error);
+        assert!(
+            res.output.contains("omni-shell-cwd"),
+            "子进程 cwd 应为注册根 {ws:?}，实际输出: {:?}",
+            res.output
+        );
+        let _ = std::fs::remove_dir_all(ws);
     }
 }

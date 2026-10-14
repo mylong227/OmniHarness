@@ -69,6 +69,20 @@ impl Session {
         session
     }
 
+    /// 运行时改换工作区根（2026-10-13「内核根跑偏」修复的内核侧入口）。
+    ///
+    /// native 内核以全局静态存活于宿主进程（`OnceLock`），进程 cwd 只在首次初始化时读一次；
+    /// 宿主（serve）此后切换工作区，内核若不跟随，`fs.*` 就永远落在**启动目录**那棵树
+    /// （真机症状：工作区里问"当前目录有什么"，列回的是宿主仓库的 tsconfig.json/crates）。
+    /// 本方法重注册全部内置工具（`register` 按 HashMap 名字**替换**，幂等）并替换策略沙箱，
+    /// 使 fs 白名单根与策略沙箱根一并切到新根。审批规则与上下文历史**不动**（切换工作区
+    /// 不等于重置会话）。
+    pub fn set_workspace_root(&mut self, workspace_root: impl Into<PathBuf>) {
+        let root = workspace_root.into();
+        self.agent_mut().register_builtins(root.clone());
+        self.sandbox = Some(Box::new(PolicySandbox::new(root)));
+    }
+
     /// 会话 ID。
     pub fn id(&self) -> &str {
         &self.id
@@ -410,4 +424,64 @@ fn sandbox_action_for(name: &str, args: &serde_json::Value) -> Option<SandboxAct
         });
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::queue::Submission;
+
+    /// 建一个带标记文件的临时目录，返回其路径。
+    fn temp_ws(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "omni-session-root-{tag}-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// 列一次 fs.list_dir "." 的输出文本。
+    fn list_root(s: &mut Session, call_id: &str) -> String {
+        s.submit(Submission::ToolCall {
+            call_id: call_id.to_string(),
+            name: "fs.list_dir".to_string(),
+            args: serde_json::json!({ "path": "." }),
+        });
+        s.run_until_idle();
+        s.drain_ops()
+            .iter()
+            .find_map(|op| match op {
+                Op::ToolResult { call_id: c, output, .. } if c == call_id => {
+                    Some(output.clone())
+                }
+                _ => None,
+            })
+            .unwrap_or_default()
+    }
+
+    /// 回归（2026-10-13「内核根跑偏」）：set_workspace_root 后 fs.* 必须落新根。
+    /// 真机症状：工作区里问"当前目录有什么"，列回的是宿主启动目录的树。
+    #[test]
+    fn set_workspace_root_redirects_fs_tools() {
+        let ws_a = temp_ws("a");
+        let ws_b = temp_ws("b");
+        std::fs::write(ws_a.join("marker-a.txt"), "a").unwrap();
+        std::fs::write(ws_b.join("marker-b.txt"), "b").unwrap();
+
+        let mut s = Session::standard("t", &ws_a);
+        let out_a = list_root(&mut s, "call-a");
+        assert!(out_a.contains("marker-a.txt"), "初根应列出 ws_a：{out_a}");
+
+        s.set_workspace_root(&ws_b);
+        let out_b = list_root(&mut s, "call-b");
+        assert!(out_b.contains("marker-b.txt"), "切根后应列出 ws_b：{out_b}");
+        assert!(
+            !out_b.contains("marker-a.txt"),
+            "切根后不得再看到旧根内容：{out_b}"
+        );
+
+        let _ = std::fs::remove_dir_all(ws_a);
+        let _ = std::fs::remove_dir_all(ws_b);
+    }
 }

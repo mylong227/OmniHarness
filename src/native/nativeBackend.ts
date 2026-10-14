@@ -9,6 +9,7 @@ import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
 import type { NativeToolRunner } from '../ports/native/nativeToolRunner.js';
 import type { NativeDecision } from './nativeKernel.js';
 import { NativeKernel } from './nativeKernel.js';
+import { log } from '../util/logger.js';
 
 export type { NativeToolRunner } from '../ports/native/nativeToolRunner.js';
 
@@ -37,6 +38,9 @@ const TOOL_NAME_ALIASES: Readonly<Record<string, string>> = {
  * 原生后端：Rust 内核 in-process 执行工具。
  */
 export class NativeBackend implements NativeToolRunner {
+  /** 内核是否支持 root.* 方法（旧 .node 不支持：首次探测失败即置 false，永不再试）。 */
+  private rootApiSupported = true;
+
   /**
    * 私有构造：统一经 {@link tryCreate} 装配。
    * @param kernel 已就绪的内核客户端（参数属性，实例字段 `kernel`）
@@ -58,6 +62,41 @@ export class NativeBackend implements NativeToolRunner {
       return undefined;
     }
     return new NativeBackend(kernel);
+  }
+
+  /**
+   * 执行前把内核根对齐到期望的工作区根（2026-10-13「内核根跑偏」守门）。
+   *
+   * 缺陷原委：内核是**进程级全局静态**（OnceLock），进程 cwd 只在首次初始化读一次；serve 切换
+   * 工作区只重基 JS 工具，内核根纹丝不动 ⇒ `fs.*` 经原生路径永远落在**启动目录**（真机：工作区
+   * 里 `list_dir .` 列回宿主仓库的 tsconfig.json/crates；而内核失败的调用回退 JS 反而正确——
+   * 两种输出格式混在同一回合，即用户截图所见）。故每次原生工具执行前先对账：根不一致就
+   * `root.set` 纠偏。
+   *
+   * 容错：旧版 .node 没有 `root.get`/`root.set` 方法（未知方法错误）——记一次告警后置
+   * {@link rootApiSupported}＝false 永不再试，保持原生加速与旧版行为逐字节一致（JS 回退仍兜底）。
+   * 对账通过后 `runTool` 才会走内核；根对不齐且纠偏失败时抛错 → 调用方回退 JS（fail-closed 落到
+   * 正确的根，绝不拿错误根的结果糊弄模型）。
+   * @param expected 期望的工作区根（ToolContext.workspaceRoot）。
+   * @returns 无返回值。
+   */
+  public syncWorkspaceRoot(expected: string): void {
+    if (!this.rootApiSupported) {
+      return;
+    }
+    try {
+      const current = this.kernel.getRoot();
+      if (current !== expected) {
+        this.kernel.setWorkspaceRoot(expected);
+        log.info('native.root.synced', { from: current, to: expected });
+      }
+    } catch (error) {
+      this.rootApiSupported = false;
+      log.warn('native.root.unsupported', {
+        error: error instanceof Error ? error.message : String(error),
+        hint: '旧版 omni_napi.node 无 root.* 方法——请 npm run native:build 重建内核',
+      });
+    }
   }
 
   /** 经 Rust 内核走 审批→沙箱→执行 全链。

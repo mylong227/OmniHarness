@@ -28,6 +28,7 @@ impl AgentLoop {
     }
 
     /// 注册标准内置工具集。文件类工具以 `root` 为沙箱白名单根目录。
+    /// shell.run 的子进程 cwd 同样取 `root`（2026-10-13：与 fs.* 同根，切根重注册即跟随）。
     pub fn register_builtins(&mut self, root: impl Into<PathBuf>) {
         let root = root.into();
         self.register(Box::new(EchoTool));
@@ -35,9 +36,9 @@ impl AgentLoop {
         self.register(Box::new(MathEvalTool));
         self.register(Box::new(ReadFileTool::new(root.clone())));
         self.register(Box::new(WriteFileTool::new(root.clone())));
-        self.register(Box::new(ListDirTool::new(root)));
+        self.register(Box::new(ListDirTool::new(root.clone())));
         #[cfg(not(target_arch = "wasm32"))]
-        self.register(Box::new(ShellRunTool));
+        self.register(Box::new(ShellRunTool::new(root)));
     }
 
     /// 列出全部已注册工具元数据（供自省 / TS 生成 ToolSpec / 权限判定）。

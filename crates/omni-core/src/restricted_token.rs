@@ -117,7 +117,14 @@ impl RestrictedProcessLauncher {
     /// 避免跨线程传递 HANDLE 的 Send 问题（HANDLE 是裸指针 `*mut c_void` 不满足 Send）。
     /// 只回传**原始字节**：最终解码交给调用方的 `decode_output`（与 `cmd /C` 分支一致，
     /// 避免此处先按 OEM 解码再被二次解码导致中文乱码）。
-    pub fn run_capture(&self, command: &str) -> Result<(Vec<u8>, u32), String> {
+    ///
+    /// `current_dir`：子进程工作目录（2026-10-13「内核根跑偏」收尾）——`None` 继承宿主 cwd
+    /// （与旧版一致），`Some(root)` 时 shell 命令的相对路径落在该根（经 `lpCurrentDirectory` 下传）。
+    pub fn run_capture(
+        &self,
+        command: &str,
+        current_dir: Option<&std::path::Path>,
+    ) -> Result<(Vec<u8>, u32), String> {
         use windows_sys::Win32::Foundation::{
             CloseHandle, GetLastError, SetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT,
             INVALID_HANDLE_VALUE,
@@ -129,6 +136,7 @@ impl RestrictedProcessLauncher {
             CreateProcessAsUserW, GetExitCodeProcess, TerminateProcess, WaitForSingleObject,
             INFINITE, PROCESS_INFORMATION, STARTF_USESTDHANDLES, STARTUPINFOW,
         };
+        use std::os::windows::ffi::OsStrExt;
 
         // 可继承管道：父进程读，子进程继承写端。单管道即可（stderr 经 2>&1 合并）。
         let mut sa: SECURITY_ATTRIBUTES = unsafe { std::mem::zeroed() };
@@ -156,6 +164,18 @@ impl RestrictedProcessLauncher {
         startup.hStdError = out_write;
         let mut proc_info: PROCESS_INFORMATION = unsafe { std::mem::zeroed() };
 
+        // lpCurrentDirectory：Some(root) → 宽字符缓冲（带 NUL 终止）；None → null（继承宿主 cwd）。
+        let dir_wide: Option<Vec<u16>> = current_dir.map(|dir| {
+            dir.as_os_str()
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<u16>>()
+        });
+        let dir_ptr: *const u16 = match &dir_wide {
+            Some(buf) => buf.as_ptr(),
+            None => std::ptr::null(),
+        };
+
         let ok = unsafe {
             CreateProcessAsUserW(
                 self.token,
@@ -166,7 +186,7 @@ impl RestrictedProcessLauncher {
                 1,
                 0,
                 std::ptr::null(),
-                std::ptr::null(),
+                dir_ptr,
                 &startup,
                 &mut proc_info,
             )

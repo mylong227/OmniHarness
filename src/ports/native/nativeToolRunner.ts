@@ -11,4 +11,10 @@ export interface NativeToolRunner {
   runTool(call: ToolCall): ToolResult;
   /** 经 Rust 内核批量估算消息 token 数（单次 FFI 往返）。可选，缺省回退 JS。 */
   estimateTokens?(messages: readonly { content: string }[]): number;
+  /**
+   * 执行前把内核 fs 沙箱根对齐到期望的工作区根（2026-10-13「内核根跑偏」守门）。
+   * 可选：stub 实现可不提供（调用点以 `?.` 调用）。内核无 root.* 方法（旧 .node）时实现方
+   * 应**静默降级**（记一次告警后不再重试），保持原生加速可用——与旧版行为逐字节一致。
+   */
+  syncWorkspaceRoot?(expected: string): void;
 }
