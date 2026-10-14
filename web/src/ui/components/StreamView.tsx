@@ -181,6 +181,8 @@ interface EventCtx {
   toolCallIds: ReadonlySet<string>;
   /** 是否正有提问等待作答（对话流里的提问卡据此给出「去下方提问卡作答」的指引）。 */
   questionPending: boolean;
+  /** 回合刚收尾（1.5s 内）：过程簇挂载瞬间的「回闪」高亮。历史加载恒 false。 */
+  clusterFresh: boolean;
 }
 
 /**
@@ -241,7 +243,9 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
         />,
       );
     case 'reasoning':
-      return <ReasoningBlock key={ev.id} ev={ev} />;
+      // busy 时该 reasoning 事件正在流式增长 ⇒ 渲染实时「正在思考」面板（live）；
+      // 回合结束（busy=false）后它由 ProcessCluster 渲染，ctx.busy 必为 false ⇒ 折叠摘要。
+      return <ReasoningBlock key={ev.id} ev={ev} live={ctx.busy === true} />;
     case 'tool_call':
       return (
         <ToolCallCard
@@ -380,6 +384,7 @@ function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: 
         block={b}
         onEventClick={ctx.onEventClick}
         busy={ctx.busy}
+        fresh={ctx.clusterFresh}
         renderEvent={(ev) => renderEventNode(ev, ctx)}
       />
     );
@@ -469,6 +474,17 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const lastPadTopRef = React.useRef<number>(0);
   /** 测量回填计数器：索引变化后置位触发一次重渲染，随后实测稳定即停。 */
   const [measureTick, setMeasureTick] = React.useState<number>(0);
+  /** 回合收尾时刻（busy true→false）：过程簇此刻挂载，给它一次「回闪」高亮，
+   *  提示「刚才的思考/工具过程已收纳在此」。0=无；历史加载不经此路径（恒 0，不闪）。 */
+  const [settledAt, setSettledAt] = React.useState<number>(0);
+  const prevBusyRef = React.useRef<boolean | undefined>(busy);
+  React.useEffect(() => {
+    if (prevBusyRef.current === true && busy !== true) setSettledAt(Date.now());
+    prevBusyRef.current = busy;
+  }, [busy]);
+  // 收尾后 1.5s 内视为「刚收尾」。回闪动画只播一次（CSS animation 无 forwards，
+  // 播完自动回落透明底），类名残留无副作用。
+  const clusterFresh = settledAt !== 0 && busy !== true && Date.now() - settledAt < 1500;
   /**
    * 空洞修复的方式：**多渲染块，绝不移动用户的滚动位置**（粘性，直到用户下次滚动才复位）。
    *
@@ -525,6 +541,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     finalizedStreamText: finalizedStreamText ?? '',
     toolCallIds,
     questionPending: question != null,
+    clusterFresh,
   };
   const streaming = streamText ?? '';
   // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。

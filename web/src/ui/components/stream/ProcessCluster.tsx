@@ -17,6 +17,8 @@ export interface ProcessClusterProps {
   onEventClick: (ev: ThreadEvent) => void;
   /** 回合是否进行中（进行中默认展开，便于观察）。 */
   busy?: boolean;
+  /** 回合刚收尾（busy true→false 的 1.5s 内）：挂载瞬间播一次「回闪」高亮（2026-10-14）。 */
+  fresh?: boolean;
   /** 渲染单个子事件的回调（由 StreamView 注入，避免循环依赖）。 */
   renderEvent: (ev: ThreadEvent) => ReactElement | null;
 }
@@ -27,7 +29,7 @@ export interface ProcessClusterProps {
  * @returns 过程折叠块节点
  */
 export function ProcessCluster(props: ProcessClusterProps): ReactElement {
-  const { block, busy, renderEvent } = props;
+  const { block, busy, fresh, renderEvent } = props;
   const [userToggled, setUserToggled] = React.useState<boolean>(false);
   const detailsRef = React.useRef<HTMLDetailsElement | null>(null);
   const isOpen = busy === true;
@@ -47,7 +49,7 @@ export function ProcessCluster(props: ProcessClusterProps): ReactElement {
   const text = processSummary(block.events);
   return (
     <details
-      className="ev process-cluster"
+      className={'ev process-cluster' + (fresh ? ' cluster-fresh' : '')}
       ref={(el: HTMLDetailsElement | null) => {
         detailsRef.current = el;
       }}
