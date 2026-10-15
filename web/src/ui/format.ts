@@ -4,6 +4,7 @@
 import { React } from './deps.js';
 import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.js';
 import { icon } from './models/Icon.js';
+import { parseTurnDiffFiles, turnDiffTotals } from './models/TurnDiffFiles.js';
 import type { IconName } from './models/Icon.js';
 import type { ThreadEvent } from '../types/models.js';
 
@@ -315,8 +316,12 @@ export function detailSummary(
       return ((p.questions as unknown[]) ? (p.questions as unknown[]).length : 0) + ' 个提问';
     case 'todo':
       return '待办 ' + ((p.todos as unknown[]) || []).length + ' 项';
-    case 'turn_diff':
-      return '本回合变更（' + ((p.diff as string) || '').split('\n').length + ' 行）';
+    case 'turn_diff': {
+      const files = parseTurnDiffFiles((p.diff as string) || '');
+      if (files.length === 0) return '本回合无文件变更';
+      const totals = turnDiffTotals(files);
+      return `已编辑 ${files.length} 个文件（+${totals.added} −${totals.deleted}）`;
+    }
     default:
       return ev.type + ' 事件';
   }

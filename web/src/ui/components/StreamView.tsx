@@ -26,7 +26,6 @@ import {
   badge,
   jsonView,
   todoView,
-  diffView,
   timeOf,
   emptyState,
   esc,
@@ -47,6 +46,7 @@ import { ProcessCluster } from './stream/ProcessCluster.js';
 import { AssistantCard } from './stream/AssistantCard.js';
 import { UserCard } from './stream/UserCard.js';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
+import { TurnDiffCard } from './stream/TurnDiffCard.js';
 import { CompactionNote } from '../models/CompactionNote.js';
 import { NumberFormatter } from '../models/NumberFormatter.js';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.js';
@@ -320,10 +320,11 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
         </>,
       );
     case 'turn_diff':
+      // 回合变更卡片（对标 Codex「Edited N files」）：按文件列出 + 每文件增删统计。
       return node(
         <>
           <div className="head">{badge('turn_diff')}</div>
-          <div className="diff">{diffView((p.diff as string) || '')}</div>
+          <TurnDiffCard diff={(p.diff as string) || ''} />
         </>,
       );
     case 'session_meta':

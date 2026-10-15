@@ -134,6 +134,25 @@ pre.json { background:var(--bg-elev); border:1px solid var(--border); border-rad
 .diff .add { background:rgba(78,201,122,.1); color:var(--ok); display:block; padding:0 8px; white-space:pre; }
 .diff .del { background:rgba(240,97,109,.1); color:var(--err); display:block; padding:0 8px; white-space:pre; }
 .diff .ctx { color:var(--dim); display:block; padding:0 8px; white-space:pre; }
+/* 回合变更卡片（对标 Codex「Edited N files」）：文件清单 + 每文件增删统计。 */
+.turn-diff-card { border:1px solid var(--border); border-radius:8px; background:var(--panel); overflow:hidden; }
+.turn-diff-card .tdc-head { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--border); flex-wrap:nowrap; }
+.turn-diff-card .tdc-title { font-weight:600; font-size:12.5px; white-space:nowrap; }
+.turn-diff-card .tdc-total { font-family:var(--mono); font-size:12px; color:var(--dim); }
+.turn-diff-card .tdc-total .add { color:var(--ok); }
+.turn-diff-card .tdc-total .del { color:var(--err); }
+.turn-diff-card .tdc-toggle { margin-left:auto; border:none; background:none; color:var(--dim); font-size:12px; cursor:pointer; padding:2px 6px; border-radius:6px; }
+.turn-diff-card .tdc-toggle:hover { background:var(--hover); color:var(--text); }
+.turn-diff-card .tdc-file { border-bottom:1px solid var(--border); }
+.turn-diff-card .tdc-file:last-child { border-bottom:none; }
+.turn-diff-card .tdc-row { display:flex; width:100%; align-items:center; gap:10px; padding:6px 10px; border:none; background:none; cursor:pointer; font:inherit; text-align:left; }
+.turn-diff-card .tdc-row:hover { background:var(--hover); }
+.turn-diff-card .tdc-path { font-family:var(--mono); font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.turn-diff-card .tdc-stat { margin-left:auto; font-family:var(--mono); font-size:12px; white-space:nowrap; }
+.turn-diff-card .tdc-stat .add { color:var(--ok); }
+.turn-diff-card .tdc-stat .del { color:var(--err); }
+.turn-diff-card .tdc-body { max-height:320px; overflow:auto; border-top:1px dashed var(--border); }
+.turn-diff-card .tdc-body .diff { border:none; border-radius:0; max-height:none; }
 .question-list { display:flex; flex-direction:column; gap:10px; }
 .question-item { display:flex; flex-direction:column; gap:5px; }
 .question-header { font-size:12px; color:var(--dim); }
