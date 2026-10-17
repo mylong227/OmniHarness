@@ -22,7 +22,8 @@
   "files": [
     "dist/src",
     "defaults",
-    "web",
+    "web/dist",
+    "web/index.html",
     "docs",
     "examples",
     "LICENSE",
