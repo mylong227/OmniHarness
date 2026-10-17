@@ -43,23 +43,26 @@ test('① 宿主页必须自带站点图标（否则浏览器回退请求 /favic
   );
 });
 
-test('② 宿主页引用的本地资源必须真实存在且非空（防"标签在、文件没了"的静默降级）', () => {
+test('② 宿主页只引用一个模块入口，且它真实存在、非空', () => {
   const source = html();
   const refs = [...source.matchAll(/(?:href|src)=["']([^"']+)["']/gi)]
     .map((m) => m[1])
     .filter((url) => !/^(https?:|data:|mailto:|#|\/\/)/i.test(url));
-  assert.ok(refs.length >= 5, `宿主页引用的本地资源太少（${refs.length}），解析可能失效`);
-  for (const url of refs) {
-    const clean = url.split('?')[0];
-    if (clean === '') continue;
-    // 2026-10-17 迁移到 Vite 后，宿主页的本地资源只有两类：
-    //   ① `./styles/*.css` —— 源码相对 `web/` 根，直接存在；
-    //   ② `./src/main.ts`   —— 源码入口，直接存在。
-    // vendor 目录已删除（依赖全部改成 npm import），因此不再需要 `web/vendor/` 候选。
-    // 保留 `web/dist/` 候选是为"构建后 index.html 被就地改写"这类未来情形留余地。
-    const candidates = [join(WEB_ROOT, clean), join(WEB_ROOT, 'dist', clean)];
-    const hit = candidates.find((p) => existsSync(p));
-    assert.ok(hit !== undefined, `index.html 引用了不存在的资源：${clean}（已试 ${candidates.length} 个位置）`);
-    assert.ok(statSync(hit).size > 0, `index.html 引用的资源是空文件：${clean}`);
-  }
+
+  // 2026-10-17 第二轮标准化：样式已从 index.html 的 20 条 `<link>` 移入 `src/main.ts` 的
+  // import（标准 Vite 做法），所以宿主页现在**只有一条**本地引用 —— 那个模块入口。
+  //
+  // 判据因此从"资源 ≥5 条且都存在"改成"**恰好一条，且就是那个入口**"：
+  //   · 原来那半句防的是"标签在、文件被删"，现在对应的风险是"入口路径写错"；
+  //   · 样式是否齐全由 `a11yContrast.test.mjs` 的孤儿样式表判据负责（它扫 main.ts 的 import）；
+  //   · 资源是否真的产出（assets/*）由 `vendorFreePipeline.test.mjs` 负责。
+  // 三条判据各管一段，不再用"数量下限"这种间接信号。
+  assert.equal(refs.length, 1, `宿主页应恰好引用一个本地资源（入口模块），实为 ${String(refs.length)} 个：${refs.join(', ')}`);
+  const entry = refs[0];
+  assert.equal(entry, './src/main.ts', '宿主页引用的唯一本地资源必须是源码入口 ./src/main.ts');
+
+  const clean = entry.split('?')[0];
+  const hit = [join(WEB_ROOT, clean), join(WEB_ROOT, 'dist', clean)].find((p) => existsSync(p));
+  assert.ok(hit !== undefined, `入口模块不存在：${clean}`);
+  assert.ok(statSync(hit).size > 0, `入口模块是空文件：${clean}`);
 });

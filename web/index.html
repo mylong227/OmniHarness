@@ -25,36 +25,8 @@
     本地 node_modules、不连 CDN —— 离线可用；2026-10-17 起 `web/vendor/` 已删除。
     协议不变：POST /rpc（JSON-RPC 2.0）+ GET /events（SSE 推送）。
   -->
-  <!-- ===== 样式表：加载顺序 = 级联顺序，不得重排 =====
-       分层：theme(基础 token/reset/原生控件) → layout(骨架) → components(可复用组件)
-       → chat(对话流基础) → tokens(字体族补充) → base(全局底子：滚动条/选区/焦点)
-       → polish-*(各功能区打磨) → overlays(浮层) → resilience(错误边界/无障碍)
-       → shell(三栏壳层) → refine-*(视觉精修) → minimal(单色极简体系：唯一视觉事实源)。
-       每份文件头注明职能；单独去掉某一层即回到该层之前的观感（回滚成本 = 一行）。
-        注：highlight.css 2026-10-17 起移到**最后**，因为单色语法色要覆盖前面的语法色基线
-        （原先是覆盖 vendor 的 GitHub 彩虹主题；该 vendor 主题与整个 vendor 目录均已删除，
-        单色语法色由 styles/highlight.css 自己定义）。 -->
-  <link rel="stylesheet" href="./styles/theme.css?v=22">
-  <link rel="stylesheet" href="./styles/layout.css?v=22">
-  <link rel="stylesheet" href="./styles/components.css?v=22">
-  <link rel="stylesheet" href="./styles/chat.css?v=22">
-  <link rel="stylesheet" href="./styles/tokens.css?v=22">
-  <link rel="stylesheet" href="./styles/base.css?v=22">
-  <link rel="stylesheet" href="./styles/polish-shell.css?v=22">
-  <link rel="stylesheet" href="./styles/polish-chat.css?v=22">
-  <link rel="stylesheet" href="./styles/polish-composer.css?v=22">
-  <link rel="stylesheet" href="./styles/polish-panels.css?v=22">
-  <link rel="stylesheet" href="./styles/overlays.css?v=22">
-  <link rel="stylesheet" href="./styles/resilience.css?v=22">
-  <link rel="stylesheet" href="./styles/shell.css?v=22">
-  <link rel="stylesheet" href="./styles/refine-surfaces.css?v=22">
-  <link rel="stylesheet" href="./styles/refine-rhythm.css?v=22">
-  <link rel="stylesheet" href="./styles/refine-overlays.css?v=22">
-  <link rel="stylesheet" href="./styles/refine-native.css?v=22">
-  <link rel="stylesheet" href="./styles/refine-density.css?v=22">
-  <link rel="stylesheet" href="./styles/minimal.css?v=22">
-  <!-- 单色语法高亮：必须排在 minimal 之后才能盖住其语法色基线（见上）。 -->
-  <link rel="stylesheet" href="./styles/highlight.css?v=22">
+  <!-- 样式表现在由 `src/main.ts` 统一 import（标准 Vite 做法），
+       级联顺序 = import 顺序，见该文件的分组注释。此处不再手挂 <link>。 -->
   <!-- 主题持久化：必须在 paint 之前同步读取 localStorage 并设到 <html data-theme="...">。
        否则 React mount 完成后才设 data-theme 会闪一下 dark（CSS 默认）→ 再切 light，
        用户会感觉"刷新等于没设置"。这里 raw 内联，零依赖，文件大小 < 0.5KB（2026-09-08）。 -->

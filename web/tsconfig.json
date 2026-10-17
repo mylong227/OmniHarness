@@ -23,12 +23,17 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowJs": false,
-    // JSX：源码里 60 个 .tsx 用 JSX 语法，由 Vite（@vitejs/plugin-react / esbuild）转换。
-    // 这里保留 `react` + 显式 factory，是为了让**类型层**与既有 `React.createElement` 写法一致
-    //（`deps.ts` 导出的 React 宏）；运行时不经过 tsc。
-    "jsx": "react",
-    "jsxFactory": "React.createElement",
-    "jsxFragmentFactory": "React.Fragment",
+    // JSX：**自动运行时（react/jsx-runtime）—— 标准 Vite React 项目配置**。
+    //
+    // 迁移说明（2026-10-17 第二轮标准化）：此前是 `"jsx": "react"` + 显式
+    // `jsxFactory: "React.createElement"`（classic 运行时），那是零打包器时代为了让
+    // `tsc` 直出可运行代码而选的——JSX 会编译成 `React.createElement(...)`，于是**每个
+    // 含 JSX 的文件都必须把 React 带进作用域**。
+    //
+    // 改成 `react-jsx` 后：JSX 编译为 `import { jsx } from 'react/jsx-runtime'`，
+    // 文件不再需要为 JSX 单独引入 React（只在自己调用 hooks 时才引入）。
+    // 这也是 React 17+ 的官方推荐形态，且与 `@vitejs/plugin-react` 的默认行为一致。
+    "jsx": "react-jsx",
     // 允许模块内引用全局 `React` 类型：`deps.ts` 的测试桩分支与 `reactGlobals.d.ts` 的
     // 全局类型提升都依赖它（官方 @types/react 以 `export as namespace React` 声明该全局）。
     "allowUmdGlobalAccess": true,

@@ -169,23 +169,30 @@ function baseSelector(selector) {
 }
 
 /**
- * 样式表清单与顺序：从 index.html 的 <link> 解析——**加载顺序 = 浏览器级联顺序**。
+ * 样式表清单与顺序：从 **`src/main.ts` 的 import 语句**解析——import 顺序 = 打包后级联顺序。
  *
- * 为什么不能再用 readdirSync 的字母序：同名 token / 同选择器规则都是「后者胜」，
+ * 为什么不再从 index.html 的 `<link>` 解析（2026-10-17 第二轮标准化）：
+ *   样式已改为在入口 `src/main.ts` 里 `import '../styles/*.css'`（标准 Vite 做法，
+ *   由 Vite 打包成单条 `assets/*.css` 并在产物 HTML 注入一条 `<link>`）。
+ *   于是"加载顺序"的事实源从 HTML 移到了 `main.ts` 的 import 顺序 —— 判据跟着搬，
+ *   断言内容（顺序正确 + 无孤儿文件）一个字没改。
+ *
+ * 为什么不能用 readdirSync 的字母序：同名 token / 同选择器规则都是「后者胜」，
  * 2026-10-16 起 CSS 按功能拆成多份文件，字母序 ≠ 级联序（如 polish-shell 在 refine-* 之前、
  * minimal 最后），按字母序合并会算出与浏览器不同的"有效声明"。
- * 这里顺带把「styles/ 下的 .css 必须全部被 index.html 引用」钉成契约——
- * 防止"文件写了忘了挂 <link>"的静默失效。
+ *
+ * 顺带把「styles/ 下的 .css 必须全部被入口 import」钉成契约——防止
+ * "文件写了忘了 import"的静默失效（此前对应的是"忘了挂 <link>"）。
  */
-const INDEX_HTML = readFileSync(join(STYLE_DIR, '..', 'index.html'), 'utf8');
+const ENTRY_TS = readFileSync(join(STYLE_DIR, '..', 'src', 'main.ts'), 'utf8');
 const LINKED_FILES = [
-  ...INDEX_HTML.matchAll(/href=["']\.\/styles\/([^"']+?)\.css(?:\?[^"']*)?["']/g),
+  ...ENTRY_TS.matchAll(/import\s+['"]\.\.\/styles\/([^'"]+?)\.css['"]/g),
 ].map((m) => `${m[1]}.css`);
 const DISK_FILES = readdirSync(STYLE_DIR).filter((f) => f.endsWith('.css'));
 const FILES = LINKED_FILES.filter((f) => DISK_FILES.includes(f));
 const ALL_RULES = FILES.flatMap((f) => parseRules(readCss(f)));
 /**
- * 主题 token 表：按 index.html 加载顺序合并**全部**样式表的 token 块。
+ * 主题 token 表：按 `main.ts` 的 import 顺序合并**全部**样式表的 token 块。
  *
  * 为什么是全部文件而不是写死清单：token 自 2026-10-16 起分散在 theme.css（基础）与
  * tokens.css（语义/动效追加层）等多份文件；写死清单必然随拆分漂移（写 ['theme.css',
@@ -202,14 +209,14 @@ const THEMES = (() => {
   return merged;
 })();
 
-test('styles/ 下的 .css 必须全部被 index.html 引用（防"文件在、链接没挂"的静默失效）', () => {
+test('styles/ 下的 .css 必须全部被入口 main.ts import（防"文件在、没被引用"的静默失效）', () => {
   const orphan = DISK_FILES.filter((f) => !LINKED_FILES.includes(f));
   assert.deepStrictEqual(
     orphan,
     [],
-    '未被 index.html 引用的孤儿样式表（若确属弃用请删除文件，不要留尸）：\n' + orphan.join('\n'),
+    '未被入口 main.ts import 的孤儿样式表（若确属弃用请删除文件，不要留尸）：\n' + orphan.join('\n'),
   );
-  assert.ok(FILES.length >= 10, `样式表数量异常（${FILES.length}），index.html 解析可能失效`);
+  assert.ok(FILES.length >= 10, `样式表数量异常（${FILES.length}），main.ts 解析可能失效`);
 });
 
 /**

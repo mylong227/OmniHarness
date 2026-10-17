@@ -19,6 +19,7 @@
 // 需要 DOM 的（浏览器行为）本来就走真实 Chrome CDP 探针，不靠 jsdom 模拟。
 
 import { defineConfig } from 'vitest/config';
+import { resolve } from 'node:path';
 import { jsToTsResolver } from './scripts/vitePluginJsToTs.js';
 
 export default defineConfig({
@@ -50,8 +51,15 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // 迁移已完成（测试全部 import `../src/...`），不需要 `/dist/` → `/src/` 的兜底映射；
-      // 保留一个空对象以示"这里曾经有映射"，同时避免 vitest 报 unknown key 警告。
+      // 自动 JSX 运行时 → 测试垫片。
+      //
+      // `web/tsconfig.json` 用 `jsx: "react-jsx"`（标准 Vite React 配置）。生产侧没问题，
+      // 但 25 个零 DOM 组件判据依赖 `hooksStub` 的"纯数据 vnode"——它们只在 classic
+      // 运行时（JSX → `React.createElement`）下成立。这个别名把 `jsx()/jsxs()` 也导到桩上，
+      // 于是两种运行时下判据拿到的都是同一棵纯数据树。
+      // 详见 `web/test/jsxRuntimeStub.mjs` 的头注释。
+      'react/jsx-runtime': resolve(import.meta.dirname, 'web/test/jsxRuntimeStub.mjs'),
+      'react/jsx-dev-runtime': resolve(import.meta.dirname, 'web/test/jsxRuntimeStub.mjs'),
     },
   },
 });
