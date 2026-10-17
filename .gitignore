@@ -7,8 +7,16 @@ dist/
 .wheelhouse*/
 .venv/
 venv/
-# 真机截图存档（virtualProbe 输出，存盘留档但不进仓库）
-web/archive/*.png
+# 真机截图存档（visualProbe / virtualProbe 输出）：**整个目录不进仓库**。
+#
+# 2026-10-17 从 `web/archive/*.png` 升级为整个目录，并把这批历史文件从**全部提交**里抹除
+# （本地删 1204 文件 / 117.5 MB；远端经 filter-repo 重写，仓库 146.5 → 61.7 MB）。原因：
+#   · 探针每跑一次就产出几十张 PNG，累积到 1204 个文件时已占仓库体积的绝大部分；
+#   · 它们只是**本机肉眼复核的临时留档**，没有任何代码/文档消费（全仓零引用）；
+#   · 唯一非 PNG 的 `index-classic.html` 是 P5.6 双实现归档时的旧入口，服务端只托管
+#     `index.html`，同样零引用（要查阅：`git show <重写前的提交>:web/archive/index-classic.html`）。
+# 需要当面评审截图时**直接看磁盘文件**即可（探针照常写这个目录，只是不入库）。
+web/archive/
 
 # Credentials and machine-local Codex configuration
 .env
