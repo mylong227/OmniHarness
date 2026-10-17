@@ -19,8 +19,8 @@
 //
 // 直跑：node --test web/test/renderErrorBoundary.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { test } from 'vitest';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,23 +38,61 @@ import {
 } from './browserHarness.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CRASH_JS = join(HERE, '..', 'dist', 'ui', 'components', 'SessionPanel.js');
 const OK_PAGE = '_boundary-ok.html';
 const CRASH_PAGE = '_boundary-crash.html';
-const NEEDLE = 'export function SessionPanel(props) {';
 const INJECTED = '注入的渲染错误（错误边界用例）';
+/** Vite 单 bundle 后的产物目录（`dist/ui/components/*.js` 已不再存在）。 */
+const ASSETS_DIR = join(HERE, '..', 'dist', 'assets');
 
 /**
- * 造一个「一渲染就抛错」的 SessionPanel 模块源码。
- * @returns {string} 打过补丁的模块源码。
+ * 在 bundle 里定位 `SessionPanel` 的函数体锚点。
+ *
+ * 为什么不能写死名字：Vite 会压缩标识符（`SessionPanel` → `Ov`）。
+ * 但 `vite.config.ts` 开了 esbuild 的 `keepNames`，压缩后会紧跟一句
+ * `l(Ov,"SessionPanel")` —— **函数名以字符串形式保留**。据此反查出标识符 `<ident>`，
+ * 再往 `function <ident>(` 后面插入 throw，就能真实制造"该组件一渲染就抛错"。
+ * @param src bundle 源码
+ * @returns 注入锚点；找不到时 null
+ */
+function findPanelAnchor(src) {
+  for (const m of src.matchAll(/([A-Za-z_$][\w$]*)\(\s*([A-Za-z_$][\w$]*)\s*,\s*"SessionPanel"\s*\)/g)) {
+    const needle = `function ${m[2]}(`;
+    const fnAt = src.indexOf(needle);
+    if (fnAt < 0) continue;
+    // ⚠️ 必须定位到**函数体的 `{`**，不是参数括号。
+    // 压缩后的签名是 `function Ov(u){`：`needle` 只覆盖到 `(`，若直接在 needle 之后插入，
+    // 会把参数列表切成 `(throw new Error(...)u)` ⇒ bundle 语法错误
+    // （实测症状：注入组 `#root` 长度 0，连错误边界都没机会渲染）。
+    const bodyAt = src.indexOf('{', fnAt + needle.length);
+    if (bodyAt < 0) continue;
+    const insertAt = bodyAt + 1;
+    return { prefix: src.slice(0, insertAt), suffix: src.slice(insertAt) };
+  }
+  return null;
+}
+
+/**
+ * 造一个「一渲染就抛错」的 SessionPanel（返回补丁后的 bundle 与其请求路径）。
+ *
+ * 迁移说明（2026-10-17 Vite 化）：此前读 `dist/ui/components/SessionPanel.js` 独立模块，
+ * 在 `export function SessionPanel(props) {` 后插 throw。单 bundle 后该文件不存在，
+ * 改为在 bundle 上注入。**判据本身未改**：仍要求降级面板出现、显示真实错误消息、
+ * 组件栈指到 `SessionPanel`、有重载/复制出口、现场写进 sessionStorage。
+ * @returns {{code: string, url: string}} 补丁源码与它相对站点根的路径
  */
 function patchedCrashModule() {
-  const src = readFileSync(CRASH_JS, 'utf8');
+  const bundle = readdirSync(ASSETS_DIR).find((f) => /^index-.*\.js$/.test(f));
+  assert.ok(bundle !== undefined, `夹具失效：${ASSETS_DIR} 下找不到 Vite 入口 bundle（index-*.js）`);
+  const src = readFileSync(join(ASSETS_DIR, bundle), 'utf8');
+  const anchor = findPanelAnchor(src);
   assert.ok(
-    src.includes(NEEDLE),
-    `夹具失效：${CRASH_JS} 里找不到锚点「${NEEDLE}」（构建产物形态变了，请同步本测试）`,
+    anchor !== null,
+    '夹具失效：bundle 里找不到 SessionPanel 的 keepNames 锚点（形如 `X(Y,"SessionPanel")`）——' +
+      '若已关闭 vite.config.ts 的 esbuild.keepNames，请恢复（错误边界面板依赖组件名）',
   );
-  return src.replace(NEEDLE, `${NEEDLE}\n    throw new Error('${INJECTED}');`);
+  // 插在 `{` 之后：`function Ov(u){` + `throw new Error('…');` + 原有 `const{...}`
+  const code = anchor.prefix + `throw new Error('${INJECTED}');` + anchor.suffix;
+  return { code, url: `/dist/assets/${bundle}` };
 }
 
 /** 读取降级面板与现场。 @param {object} cdp CDP 会话。 @returns {Promise<object>} 度量。 */
@@ -89,16 +127,20 @@ test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白
     return;
   }
 
-  // 两个静态服务器（对照组用未打补丁的产物、注入组用打补丁的 SessionPanel），但**只起一次 Chrome**：
+  // 两个静态服务器（对照组用未打补丁的产物、注入组用打补丁的 bundle），但**只起一次 Chrome**：
   // 服务器很便宜，Chrome 启动才是并行档里的瓶颈（实测两 Chrome → 被挤过 30s 预算）。
+  //
+  // 2026-10-17 Vite 化：补丁对象从"独立模块 SessionPanel.js"变成"入口 bundle index-*.js"。
+  // 注意两边**不能**共用一个路由表：对照组必须读到磁盘上的真 bundle（不起内存路由），
+  // 注入组才用内存路由覆盖它。若把两条都塞进同一张表，对照组就会被补丁污染 → 误报"错误边界失效"。
   const html = stubHtmlCdp();
+  const crash = patchedCrashModule();
   const controlServer = await serveStatic(WEB_ROOT_PATH, {
     [`/${OK_PAGE}`]: html,
-    '/dist/ui/components/SessionPanel.js': readFileSync(CRASH_JS, 'utf8'),
   });
   const crashServer = await serveStatic(WEB_ROOT_PATH, {
     [`/${CRASH_PAGE}`]: html,
-    '/dist/ui/components/SessionPanel.js': patchedCrashModule(),
+    [crash.url]: crash.code,
   });
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-crash-'));
   const port = await getFreePort();

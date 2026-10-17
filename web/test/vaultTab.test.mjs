@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 凭据保险库面板判据（Web 交付第 6 个入口，2026-10-11）。
  *
  * ## 判据要钉死什么（凭据面，标准最高）
@@ -13,16 +13,16 @@
  */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { VaultTab } = await import('../dist/ui/components/tabs/VaultTab.js');
-const { PANELS } = await import('../dist/ui/models/PanelRegistry.js');
-const { parseHash } = await import('../dist/core/Router.js');
+const { VaultTab } = await import('../src/ui/components/tabs/VaultTab.js');
+const { PANELS } = await import('../src/ui/models/PanelRegistry.js');
+const { parseHash } = await import('../src/core/Router.js');
 
 /**
  * 渲染一次组件（hook 序：0=data 1=error 2=notice 3=loading 4=name 5=secret）。

@@ -1,4 +1,4 @@
-// 回合流式缓冲（`models/TurnStreamBuffer.ts`）的语义判据。
+﻿// 回合流式缓冲（`models/TurnStreamBuffer.ts`）的语义判据。
 //
 // ## 这一条防的是什么
 //
@@ -11,9 +11,9 @@
 // 节流本身（有界频率 / 首字不延迟 / 假时钟驱动）已由 `longSessionPerf.test.mjs` 覆盖，此处不重复；
 // 这里只钉"生命周期"这一层——那正是本类存在的理由。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { TurnStreamBuffer } = await import('../dist/ui/models/TurnStreamBuffer.js');
+const { TurnStreamBuffer } = await import('../src/ui/models/TurnStreamBuffer.js');
 
 test('① 落点即时收到增量：push 之后 write 被调用（首字不延迟的语义由节流器保证）', () => {
   // 注意：只 push **一次**。连续两次 push 会各刷一次（首个增量"立即出"，第二次因距今 <50ms

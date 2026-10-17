@@ -1,4 +1,4 @@
-// 可访问性契约测试（B4/B5 的语义面）：对渲染树断言 role / aria-selected / aria-label / aria-live 的
+﻿// 可访问性契约测试（B4/B5 的语义面）：对渲染树断言 role / aria-selected / aria-label / aria-live 的
 // 存在与关键属性值，且「结构性角色必须成套出现」（tablist↔tab↔tabpanel、listbox↔option、
 // dialog↔aria-modal、labelledby↔真实 id）。零 DOM 桩，用法与 web/test/mount.test.mjs 同源。
 //
@@ -8,26 +8,26 @@
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { RightPanel } = await import('../dist/ui/components/RightPanel.js');
-const { PanelPicker } = await import('../dist/ui/components/PanelPicker.js');
-const { SidebarHeader } = await import('../dist/ui/components/SidebarHeader.js');
-const { SidebarFooter } = await import('../dist/ui/components/SidebarFooter.js');
-const { ChatHeader } = await import('../dist/ui/components/ChatHeader.js');
-const { FileModal } = await import('../dist/ui/components/FileModal.js');
+const { RightPanel } = await import('../src/ui/components/RightPanel.js');
+const { PanelPicker } = await import('../src/ui/components/PanelPicker.js');
+const { SidebarHeader } = await import('../src/ui/components/SidebarHeader.js');
+const { SidebarFooter } = await import('../src/ui/components/SidebarFooter.js');
+const { ChatHeader } = await import('../src/ui/components/ChatHeader.js');
+const { FileModal } = await import('../src/ui/components/FileModal.js');
 const { StreamingAssistantCard } =
-  await import('../dist/ui/components/stream/StreamingAssistantCard.js');
-const { SearchResults } = await import('../dist/ui/components/SearchResults.js');
-const { DialogHost } = await import('../dist/ui/components/DialogHost.js');
-const { ApprovalModal } = await import('../dist/ui/components/ApprovalModal.js');
-const { ChangesTab } = await import('../dist/ui/components/tabs/ChangesTab.js');
-const { SessionPanel } = await import('../dist/ui/components/SessionPanel.js');
-const { SearchHitGrouper } = await import('../dist/ui/models/SearchHitGrouper.js');
+  await import('../src/ui/components/stream/StreamingAssistantCard.js');
+const { SearchResults } = await import('../src/ui/components/SearchResults.js');
+const { DialogHost } = await import('../src/ui/components/DialogHost.js');
+const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.js');
+const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.js');
+const { SessionPanel } = await import('../src/ui/components/SessionPanel.js');
+const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.js');
 
 /** 最近一次渲染的组件（不同组件的 hook 序不同，跨组件必须清空槽位）。 */
 let lastRendered = null;

@@ -1,4 +1,4 @@
-// 虚拟化「空洞修复」算术门禁（零 DOM、确定性）。
+﻿// 虚拟化「空洞修复」算术门禁（零 DOM、确定性）。
 //
 // ## 缺陷形态（2026-09-27 用户报「滚到该区域没有任何显示」）
 //
@@ -27,9 +27,9 @@
 //
 // 直跑：node --test web/test/streamWindowAnchor.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { StreamWindow } = await import('../dist/ui/models/StreamWindow.js');
+const { StreamWindow } = await import('../src/ui/models/StreamWindow.js');
 
 test('覆盖率：完整覆盖为 1，锚点为空为 0', () => {
   const anchors = [{ index: 0, top: 100, bottom: 700 }];

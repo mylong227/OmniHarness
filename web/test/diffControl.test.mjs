@@ -1,19 +1,19 @@
-// F6 diff accept/reject 闭环：前端接线契约测试。
+﻿// F6 diff accept/reject 闭环：前端接线契约测试。
 // 上半：ApiClient 的 stageFile / revertFile / stageHunk / revertHunk 调用正确的 changes.* RPC。
 // 下半：ChangesTab 在零 DOM 桩里真跑一遍「点 hunk/stage → 调 RPC → 刷新清单 → 提示」闭环，
 // 坐实「hunk / 文件级接受（stage）与拒绝（revert）联动真实写入」在 UI 这一侧也成立。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
-const { ApiClient } = await import('../dist/core/ApiClient.js');
+const { ApiClient } = await import('../src/core/ApiClient.js');
 
 // ChangesTab 走 useApp()（React.createContext）与 deps.js，先种运行时桩再动态加载组件。
 const runtime = createRuntime();
 runtime.install();
-const { ChangesTab } = await import('../dist/ui/components/tabs/ChangesTab.js');
+const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.js');
 
 /** 捕获一次 RPC 调用（method + params）。 */
 async function captureRpc(fn) {

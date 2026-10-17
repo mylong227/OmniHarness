@@ -1,4 +1,4 @@
-// 长内容收起判定 + 压缩游标事件解析的纯逻辑单测（零 DOM 桩）。
+﻿// 长内容收起判定 + 压缩游标事件解析的纯逻辑单测（零 DOM 桩）。
 //
 // 钉住的判据：
 //  1) 阈值边界：短内容不收、字符/行数任一超限即收（双阈值各验一侧）；
@@ -9,10 +9,10 @@
 // 直跑方式（先 npm run web:build）：node web/test/longContentCollapser.test.mjs
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { LongContentCollapser } = await import('../dist/ui/models/LongContentCollapser.js');
-const { CompactionNote } = await import('../dist/ui/models/CompactionNote.js');
+const { LongContentCollapser } = await import('../src/ui/models/LongContentCollapser.js');
+const { CompactionNote } = await import('../src/ui/models/CompactionNote.js');
 
 const CHARS = LongContentCollapser.COLLAPSE_CHARS;
 const LINES = LongContentCollapser.COLLAPSE_LINES;

@@ -160,7 +160,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 | `tests/**/*.ts` | **501**  | **75,400**  |
 | `web/src/**`    | **115**  | **17,648**  |
 
-**运行时依赖（5）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`、`jose@6.2.12`、`openid-client@^6.8.8`（A.5 第四项 · 2026-10-05 准入：OIDC 授权码流，2 传递依赖 ≈550 KB，自研 `LegacyOidcFlow` 同端口回退，见看板第五十三/五十四轮）。
+**运行时依赖（7）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`、`jose@6.2.12`、`openid-client@^6.8.8`（A.5 第四项 · 2026-10-05 准入：OIDC 授权码流，2 传递依赖 ≈550 KB，自研 `LegacyOidcFlow` 同端口回退，见看板第五十三/五十四轮）、`react@^18.3.1`、`react-dom@^18.3.1`（2026-10-17 准入：Web 工作台从「零打包器 + UMD 全局」迁移到标准 Vite + React 项目，唯一收口点是 `web/src/ui/deps.ts`，回退路径为 Preact 或原 UMD 形态，均不改组件文件）。
 **可选依赖（2）**：`@huggingface/transformers`（本地嵌入）、`sharp`（图像）。
 **原生内核**：Rust crate（可选；**TS 为默认路径**——原生记账实测比 TS 慢 4.5–6.7×，见报告 §3.8）。
 

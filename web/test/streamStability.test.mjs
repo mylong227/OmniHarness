@@ -1,4 +1,4 @@
-// 对话区稳定性门禁（真浏览器 + CDP + 一条源码级守卫）：
+﻿// 对话区稳定性门禁（真浏览器 + CDP + 一条源码级守卫）：
 //   ① SSE 徽标三态：瞬时抖动显示「重连中」（黄），**不闪红「断开」**；超过宽限期才判「断开」；
 //   ② 重连成功必须清掉宽限定时器（不能在 4s 后把已经恢复的连接刷成断开）；
 //   ③ 源码守卫：`.ev` 不得再挂入场动画（虚拟化列表会反复重挂块 ⇒ 动画重放 ⇒ 对话区一直闪）。
@@ -14,7 +14,7 @@
 //
 // 直跑：node --test web/test/streamStability.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';

@@ -1,4 +1,4 @@
-// 提问卡的**真实浏览器**验收（2026-10-08 用户报障）：在真 Chrome 里「推一条 question.request → 点选项 → 点提交」，
+﻿// 提问卡的**真实浏览器**验收（2026-10-08 用户报障）：在真 Chrome 里「推一条 question.request → 点选项 → 点提交」，
 // 断言 RPC 真的发出去了、载荷就是用户点的那一项。
 //
 // 为什么除了零 DOM 单测还要这一层：`questionCard.test.mjs` 判的是 vnode 结构与回调，判不了
@@ -13,7 +13,7 @@
 // 需要留图复核时设 OMNI_QASK_SHOT=<路径>，本探针会把提问卡截图写到该路径。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

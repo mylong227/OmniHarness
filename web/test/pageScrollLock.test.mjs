@@ -1,4 +1,4 @@
-// 页面级滚动锁死门禁（真浏览器 + CDP）：无论视口多矮，文档**不得**可滚。
+﻿// 页面级滚动锁死门禁（真浏览器 + CDP）：无论视口多矮，文档**不得**可滚。
 //
 // ## 缺陷形态（2026-10-14 用户报「滚动会导致整个页面完全被滚上去」+ 截图：侧栏/顶栏/输入框
 // 全部被滚出视口，只剩输入框悬在页面顶部与一片空黑）
@@ -16,7 +16,7 @@
 //
 // 直跑：node --test web/test/pageScrollLock.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { openStubSession } from './browserHarness.mjs';
 
 test('页面级滚动锁死：任何视口高度文档都不可滚，高内容由栏内滚动消化', async (t) => {

@@ -1,4 +1,4 @@
-// 模型选择弹窗的档位逻辑单测：验证「进度条口径」的强度阶梯。
+﻿// 模型选择弹窗的档位逻辑单测：验证「进度条口径」的强度阶梯。
 //
 // 为什么单开一份而不是塞进 uiModels.test.mjs：这里检验的是**顺序语义**——
 // 进度条把档位画成填充比例，顺序即读数，顺序错了整条进度就是错的。
@@ -7,8 +7,8 @@
 // 全部为纯逻辑，node 直跑 web/dist 编译产物。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { ComposerOptions } from '../dist/ui/models/ComposerOptions.js';
+import { test } from 'vitest';
+import { ComposerOptions } from '../src/ui/models/ComposerOptions.js';
 
 test('ladder：厂商下发的顺序即强度序（不得被内置表重排）', () => {
   // deepseek 风格：none → max，且不含 minimal/xhigh。

@@ -1,4 +1,4 @@
-// 空态「快速开始」示例任务的判据（2026-10-08 易用性轮）。
+﻿// 空态「快速开始」示例任务的判据（2026-10-08 易用性轮）。
 //
 // ## 被改的形态（真机截图取证）
 //
@@ -21,7 +21,7 @@
 // | ⑤ | `seedDraft` 行为：空文本 fail-closed、nonce 单调递增（连点同一示例也能回填） | 不递增 nonce ⇒ 第二次点同一个示例没反应 |
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,8 +32,8 @@ const WEB_ROOT = resolve(HERE, '..');
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩（与 controllerBindings.test.mjs 同一口径）。
 createRuntime().install();
-const { StarterTasks } = await import('../dist/ui/models/StarterTasks.js');
-const { ComposerController } = await import('../dist/ui/controllers/ComposerController.js');
+const { StarterTasks } = await import('../src/ui/models/StarterTasks.js');
+const { ComposerController } = await import('../src/ui/controllers/ComposerController.js');
 
 test('① 每条示例都能直接发送（无占位符）且长度可控', () => {
   const items = StarterTasks.list();

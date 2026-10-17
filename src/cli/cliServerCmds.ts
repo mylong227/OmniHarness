@@ -617,7 +617,20 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     metrics: Metrics,
     serveArgs: readonly string[],
   ): Promise<number> {
-    const webDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
+    // 静态根：**优先 `web/dist`（Vite 构建产物），无产物时回落 `web/`（源码目录）**。
+    //
+    // 为什么这样解析（2026-10-17 迁移到 Vite 后的取舍）：
+    //   · 前端现在是标准 Vite 项目：源码在 `web/`（index.html + src/ + styles/），
+    //     构建产物在 `web/dist/`（index.html + assets/*）；
+    //   · 生产/发布必须托管**产物**（源码目录里没有 assets，且不该暴露 .ts）；
+    //   · 但 `npm run dev` 走 Vite dev server，此时可能没有 dist（或它是旧的），
+    //     落回 `web/` 能让"直接 serve 未构建的仓库"仍然给出可解释的行为——
+    //     页面会因缺 `assets/` 而白屏，但至少 index.html 能取到，便于判断"是不是没构建"。
+    //
+    // 判据：`tests/unit/webDirResolution.test.ts`。
+    const webRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../web');
+    const webDist = join(webRoot, 'dist');
+    const webDir = existsSync(join(webDist, 'index.html')) ? webDist : webRoot;
     // 绑定地址与令牌：默认只绑回环；非回环必须配令牌（ServerAuthGuard.assertBindSafe 会在
     // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
     const serveHost =

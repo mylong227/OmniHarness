@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 审计面板 + Trace 自省面板判据（Web 交付项，2026-10-11）。
  *
  * ## 判据要钉死什么（两条都围绕"没有 ≠ 正常"）
@@ -18,16 +18,16 @@
  */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { AuditTab } = await import('../dist/ui/components/tabs/AuditTab.js');
-const { TraceTab } = await import('../dist/ui/components/tabs/TraceTab.js');
-const { PANELS } = await import('../dist/ui/models/PanelRegistry.js');
-const { parseHash } = await import('../dist/core/Router.js');
+const { AuditTab } = await import('../src/ui/components/tabs/AuditTab.js');
+const { TraceTab } = await import('../src/ui/components/tabs/TraceTab.js');
+const { PANELS } = await import('../src/ui/models/PanelRegistry.js');
+const { parseHash } = await import('../src/core/Router.js');
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。

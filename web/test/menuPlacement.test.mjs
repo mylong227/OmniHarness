@@ -1,4 +1,4 @@
-// 右键菜单**贴边翻转**门禁（零 DOM、确定性）：菜单任何情况下都必须完整落在视口内。
+﻿// 右键菜单**贴边翻转**门禁（零 DOM、确定性）：菜单任何情况下都必须完整落在视口内。
 //
 // ## 缺陷形态（2026-09-27 用户点名）
 //
@@ -8,9 +8,9 @@
 //
 // 直跑：node --test web/test/menuPlacement.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { MenuPlacement } = await import('../dist/ui/models/MenuPlacement.js');
+const { MenuPlacement } = await import('../src/ui/models/MenuPlacement.js');
 
 /** 视口（常见尺寸）。 */
 const VIEW = { w: 1280, h: 800 };

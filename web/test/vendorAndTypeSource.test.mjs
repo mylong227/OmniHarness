@@ -1,4 +1,4 @@
-// G11（2026-10-03 第九轮）：**web 运行时依赖与类型层来源**的契约守卫。
+﻿// G11（2026-10-03 第九轮）：**web 运行时依赖与类型层来源**的契约守卫。
 //
 // ## 这个文件防的是两件已经在报告里写错/将要发生的事
 //
@@ -18,7 +18,7 @@
 //
 // 风格：与其它 web 测试一致，直读仓库文件做契约断言（不依赖浏览器）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,19 +39,40 @@ function scriptSources() {
 
 test('index.html 必须加载 markdown 渲染路径真实依赖的 vendor 脚本（highlight.js 不是死负载）', () => {
   const sources = scriptSources().join('\n');
+  // 2026-10-17 迁移到 Vite 后：**React / ReactDOM 不再走 UMD `<script>`** ——
+  // 它们是 npm 依赖，由 `src/ui/deps.ts` import、由 Vite 打进 bundle。
+  // 因此这条判据只约束"仍需以 UMD 全局注入"的三个库；React 的存在性改由下一条判据守。
   for (const need of [
-    'vendor/react.production.min.js',
-    'vendor/react-dom.production.min.js',
-    'vendor/markdown-it.min.js',
-    'vendor/katex.min.js',
+    // 2026-10-17 迁移到 Vite：publicDir = web/vendor/ 会把内容**平铺到产物根**，
+    // 因此宿主页改用根相对引用（./markdown-it.min.js 而非 ./vendor/...）。
+    // 判据意图不变：这三个库仍必须以 UMD 全局注入（markdown.ts 运行时特性检测）。
+    'markdown-it.min.js',
+    'katex.min.js',
     // 关键一条：复核结论是它**在用**（见文件头），因此必须在列。
-    'vendor/highlight.min.js',
+    'highlight.min.js',
   ]) {
     assert.ok(
       sources.includes(need),
       `index.html 未加载 ${need}：它被运行时代码真实依赖，删掉会造成静默功能退化`,
     );
   }
+  // 反向约束：React 不得再以 UMD 脚本出现（否则就是"两套 React 运行时"，
+  // 会出现 hooks 失效、context 读不到这类极难查的问题）。
+  assert.ok(
+    !sources.includes('vendor/react.production.min.js'),
+    'index.html 不得再加载 React UMD 脚本：React 已改为 npm 依赖（避免双实例）',
+  );
+  assert.ok(
+    !sources.includes('vendor/react-dom.production.min.js'),
+    'index.html 不得再加载 ReactDOM UMD 脚本：同上',
+  );
+});
+
+test('React 来自 npm 依赖（不是 UMD 全局）：deps.ts 必须 import 而非读 window', () => {
+  const deps = read('web/src/ui/deps.ts');
+  assert.match(deps, /from 'react'/, 'deps.ts 必须直接 import react（Vite 负责解析裸标识符）');
+  assert.match(deps, /from 'react-dom\/client'/, 'createRoot 必须来自 react-dom/client（React 18 唯一合法入口）');
+  assert.match(deps, /MergedReactDOM|RealReactDOMClient/, 'ReactDOM 必须合并 client 入口，否则 createRoot 告警');
 });
 
 test('markdown 渲染路径确实调用 highlight.js（删 vendor 脚本会让代码块失色）', () => {

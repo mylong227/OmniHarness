@@ -1,6 +1,6 @@
 ﻿// web 纯函数单测（node --test，无第三方依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
 // 回应审计 P0「web 0 测试文件」。运行：npm run web:test（先 web:build 编译到 dist）。
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   describeToolCall,
@@ -14,7 +14,7 @@ import {
   timeAgo,
   truncate,
   argSummary,
-} from '../dist/ui/textUtils.js';
+} from '../src/ui/textUtils.js';
 
 test('describeToolCall 映射已知工具为人话动作', () => {
   assert.equal(describeToolCall('write_file', { path: 'examples/index.js' }), '写入 examples/index.js');

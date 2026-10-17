@@ -1,8 +1,8 @@
-// 领域模型单测：验证「业务逻辑抽成 class」后的纯逻辑正确性（零 React 依赖，node 直跑）。
+﻿// 领域模型单测：验证「业务逻辑抽成 class」后的纯逻辑正确性（零 React 依赖，node 直跑）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { CommandPaletteModel } from '../dist/ui/models/CommandPaletteModel.js';
-import { CheckpointNamer, TimestampFormatter } from '../dist/ui/models/checkpoint.js';
+import { test } from 'vitest';
+import { CommandPaletteModel } from '../src/ui/models/CommandPaletteModel.js';
+import { CheckpointNamer, TimestampFormatter } from '../src/ui/models/checkpoint.js';
 
 const CMDS = [
   { id: '1', label: '打开面板：工具', hint: 'Ctrl+1', group: '面板', run: () => {} },

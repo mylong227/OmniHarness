@@ -40,6 +40,8 @@ function readJson(file) {
   return JSON.parse(readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
 }
 const SRC = join(ROOT, 'src');
+/** 前端源码根（标准 Vite 项目：web/src，含 .tsx）。 */
+const WEB_SRC = join(ROOT, 'web', 'src');
 // 2026-09-12 决策（D1，见 docs/REFACTOR_BOARD_2026-09-12.md）：上限 400 → 800。
 // 理由：架构稳定优先于机械拆文件；歧义职责靠「解耦/目录归属/注释」治，不靠切行数。
 const MAX_FILE_LINES = 810;
@@ -517,6 +519,21 @@ function main() {
     checkFilename(f);
     checkFileLength(f, src);
     checkLargeFunctions(f, src);
+  }
+  // 4) 前端**只跑「第三方导入准入」这一条**（2026-10-17 迁移到标准 Vite 项目后新增）。
+  //
+  // 为什么必须单独扫 `web/src`：前端依赖（react / react-dom）现在由
+  // `web/src/ui/deps.ts` 从 npm 导入（不再有 UMD vendor）。只扫 `src/**` 会导致
+  // 「未使用的已装依赖」把 react/react-dom 判成"未见导入"⇒ 误红，
+  // 而「第三方导入须准入」对前端永不生效 ⇒ 加未登记依赖不会被拦（假绿，更危险）。
+  //
+  // 为什么**只**跑 import 准入、不套后三条：`checkFilename` / `checkFileLength` /
+  // `checkLargeFunctions` 是**服务端代码规范**。React 组件天然是 PascalCase 文件名、
+  // 单文件数百行、组件函数很长 —— 直接套过去实测产生 180 处误报，且与"依赖是否登记"无关。
+  // 前端的体量与复杂度约束走 ESLint / review，不在这里重复。
+  for (const f of walk(WEB_SRC)) {
+    if (!(f.endsWith('.ts') || f.endsWith('.tsx')) || f.endsWith('.d.ts')) continue;
+    checkImports(f, readFileSync(f, 'utf8'));
   }
   checkUnusedDependencies(); // 4) 未使用的已装依赖（报告级）
 

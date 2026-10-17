@@ -1,4 +1,4 @@
-// 「交互控件上的图形一律走自研图标集，不得用 emoji」的机械判据。
+﻿// 「交互控件上的图形一律走自研图标集，不得用 emoji」的机械判据。
 //
 // ## 为什么需要门禁而不是靠人记
 //
@@ -14,7 +14,7 @@
 //   （进度、方向、状态结论），不是可交互控件的图形。这条界线不靠感觉：下面的 EXEMPT 逐项列出。
 // · **允许**：注释与文档里的符号（`//` 与 `/* */` 内的内容不参与判定）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 

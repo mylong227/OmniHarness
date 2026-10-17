@@ -1,9 +1,9 @@
-// 全局快捷键解析器单测（零 DOM 依赖）：锁死「按键 → 动作」映射，并验证文案与绑定同源。
+﻿// 全局快捷键解析器单测（零 DOM 依赖）：锁死「按键 → 动作」映射，并验证文案与绑定同源。
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { KeyboardShortcuts } from '../dist/ui/models/KeyboardShortcuts.js';
+import { test } from 'vitest';
+import { KeyboardShortcuts } from '../src/ui/models/KeyboardShortcuts.js';
 
 const ks = new KeyboardShortcuts();
 

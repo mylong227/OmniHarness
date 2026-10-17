@@ -1,4 +1,4 @@
-// 左栏「拖拽排序 + 归档」算术与接线门禁（零 DOM、确定性）。
+﻿// 左栏「拖拽排序 + 归档」算术与接线门禁（零 DOM、确定性）。
 //
 // ## 覆盖什么
 //
@@ -8,10 +8,10 @@
 //
 // 直跑：node --test web/test/sessionOrder.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { SessionOrder } = await import('../dist/ui/models/SessionOrder.js');
-const { SessionGrouper } = await import('../dist/ui/models/SessionGrouper.js');
+const { SessionOrder } = await import('../src/ui/models/SessionOrder.js');
+const { SessionGrouper } = await import('../src/ui/models/SessionGrouper.js');
 
 /** 造一条会话。 */
 function row(id, updatedAt = '', archived = false) {

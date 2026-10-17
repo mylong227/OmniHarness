@@ -1,4 +1,4 @@
-// 删除会话的**列表刷新**门禁（零 DOM、真 reducer）：用户报「删除并未刷新」+「删除失败: session_not_found」。
+﻿// 删除会话的**列表刷新**门禁（零 DOM、真 reducer）：用户报「删除并未刷新」+「删除失败: session_not_found」。
 //
 // ## 缺陷形态（2026-09-27 截图）
 //
@@ -16,13 +16,13 @@
 //
 // 直跑：node --test web/test/sessionDeleteRefresh.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 // deps.js / highlight.js 在模块顶层读 window，须先种零 DOM 桩（与 controllerBindings.test.mjs 同一口径）。
 createRuntime().install();
-const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
-const { AppReducers } = await import('../dist/ui/controllers/AppReducers.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.js');
+const { AppReducers } = await import('../src/ui/controllers/AppReducers.js');
 
 /** 造一个最小 host/services 环境：reducers 用**真实现**（缺陷就出在 mergeSessions 的契约上）。
  *  注意 `listSessions` 的线格式是 `sessionId`（refreshSessions 用它做 id），不是 `id`。 */

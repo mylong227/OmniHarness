@@ -1,4 +1,4 @@
-// 会话搜索升级（A3）：服务端 search.all 的分组/确定性排序/高亮，以及 ↑↓/Enter 与「无输入不打远端」。
+﻿// 会话搜索升级（A3）：服务端 search.all 的分组/确定性排序/高亮，以及 ↑↓/Enter 与「无输入不打远端」。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 //
 // 关键口径：
@@ -7,15 +7,15 @@
 //   · 组件层用 scheduleSearch 注入「同步执行」的调度器，把防抖变成可断言行为（而不是等 220ms 碰运气）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
-const { SearchHitGrouper } = await import('../dist/ui/models/SearchHitGrouper.js');
-const { SessionSearch } = await import('../dist/ui/models/SessionSearch.js');
-const { SessionPanel } = await import('../dist/ui/components/SessionPanel.js');
-const { SearchResults } = await import('../dist/ui/components/SearchResults.js');
+const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.js');
+const { SessionSearch } = await import('../src/ui/models/SessionSearch.js');
+const { SessionPanel } = await import('../src/ui/components/SessionPanel.js');
+const { SearchResults } = await import('../src/ui/components/SearchResults.js');
 
 /** 会话命中（故意乱序，用于验证排序确实由前端定序）。 */
 const CHATS = [

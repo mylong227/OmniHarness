@@ -1,12 +1,12 @@
-// 通知纯函数契约测试：为 formatProfilePluginToast 上护栏。
+﻿// 通知纯函数契约测试：为 formatProfilePluginToast 上护栏。
 // 纯函数、无副作用、无 DOM 依赖，直接 import 编译产物即可运行。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { formatProfilePluginToast } = await import('../dist/ui/notify.js');
+const { formatProfilePluginToast } = await import('../src/ui/notify.js');
 
 test('profile.error 转错误 toast', () => {
   const r = formatProfilePluginToast('profile.error', { name: 'web', error: '权限不足' });

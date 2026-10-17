@@ -1,4 +1,4 @@
-// 长会话性能与稳定性回归护栏（虚拟化 / 流式节流 / 贴底策略）。
+﻿// 长会话性能与稳定性回归护栏（虚拟化 / 流式节流 / 贴底策略）。
 //
 // 零 DOM 桩：不加载真实 React/ReactDOM，用 hooksStub 的函数组件运行时驱动 StreamView()，
 // 对产出的 vnode 树断言「实际渲染的块数」；StreamThrottle 用注入的确定性假时钟驱动，
@@ -7,16 +7,16 @@
 // 直跑方式（先 npm run web:build）：node web/test/longSessionPerf.test.mjs
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
 const runtime = createRuntime();
 runtime.install();
 
-const { StreamView } = await import('../dist/ui/components/StreamView.js');
-const { StreamWindow } = await import('../dist/ui/models/StreamWindow.js');
-const { StreamThrottle } = await import('../dist/ui/models/StreamThrottle.js');
+const { StreamView } = await import('../src/ui/components/StreamView.js');
+const { StreamWindow } = await import('../src/ui/models/StreamWindow.js');
+const { StreamThrottle } = await import('../src/ui/models/StreamThrottle.js');
 
 /** 默认口径（与 StreamWindow 的缺省值一致，测试里显式复述以便口径变化时立刻暴露）。 */
 const ITEM_HEIGHT = 88;

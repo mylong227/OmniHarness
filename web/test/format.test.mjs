@@ -1,10 +1,10 @@
-// 渲染纯函数契约测试（P5.5 / D6）：为 format.ts 与 highlight.ts 的 htm→createElement 改写上护栏。
+﻿// 渲染纯函数契约测试（P5.5 / D6）：为 format.ts 与 highlight.ts 的 htm→createElement 改写上护栏。
 // 手法与 mount.test.mjs 一致——预置 window 桩 + fakeReact 收集 vnode，不触 DOM、不加载真实 React。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
 /** createElement 桩：产出纯数据 vnode {type, props, children}，不触 DOM。 */
 const fakeReact = {
@@ -18,8 +18,8 @@ const noop = () => {};
 globalThis.window = { React: fakeReact, ReactDOM: {}, addEventListener: noop, removeEventListener: noop };
 
 const { esc, badge, timeOf, emptyState, emptyNote, jsonView, questionView, permChip, todoView, diffView, renderMarkdown } =
-  await import('../dist/ui/format.js');
-const { highlightCode } = await import('../dist/ui/highlight.js');
+  await import('../src/ui/format.js');
+const { highlightCode } = await import('../src/ui/highlight.js');
 
 /** 展平直接子节点：过滤掉 null/false（React 会忽略）与非元素（纯文本）项。 */
 function kids(vnode) {

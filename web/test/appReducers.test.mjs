@@ -1,4 +1,4 @@
-// 应用控制器纯归约器测试（D6 护栏 + C3 拆分安全网）。
+﻿// 应用控制器纯归约器测试（D6 护栏 + C3 拆分安全网）。
 // 零 DOM 依赖：直接对拍 ./controllers/AppReducers.js 的各个纯方法输出，锁死「状态变换」语义，
 // 保证把 App 的 69 个 hook 抽到 AppController + 子控制器后行为不变。
 // 覆盖：事件累加、工具结果/增量合并、graph 进度/完成/轮询、会话合并、
@@ -7,9 +7,9 @@
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { AppReducers } from '../dist/ui/controllers/AppReducers.js';
-import { KeyboardShortcuts } from '../dist/ui/models/KeyboardShortcuts.js';
+import { test } from 'vitest';
+import { AppReducers } from '../src/ui/controllers/AppReducers.js';
+import { KeyboardShortcuts } from '../src/ui/models/KeyboardShortcuts.js';
 
 const r = new AppReducers();
 

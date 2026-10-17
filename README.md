@@ -1,4 +1,4 @@
-# OmniHarness
+﻿# OmniHarness
 
 > **通用 Agent Harness**：TypeScript 主体（CLI / Web 工作台 / 编排）+ Rust 原生内核（可选）。
 > 一句话定位：**把"让模型在真实机器上干活"这件事做成可控、可审计、fail-closed 的工程底座**。
@@ -35,17 +35,28 @@ npm start -- --workspace ~/work/proj  # 指定工作区（详见下文"项目固
 npm start -- --approval rules       # 审批策略：read 放行、rm/del 拒绝、其余按规则
 npm start -- --auto-approve         # 跳过审批弹窗（危险：任何工具直接放行）
 npm start -- --open                 # 就绪后自动打开浏览器（无人值守用 OMNI_NO_OPEN=1 压住弹窗）
-npm run dev                         # 前端开发回路：serve + tsc --watch（改前端刷新即见）
+npm run dev                         # 前端开发回路：后端 serve + Vite dev server（HMR）
 ```
 
 > **Windows 用户**：也可以直接**双击仓库根的 [`start.cmd`](start.cmd)**——等于 `npm start -- --open`，
 > 外加 Node 版本前置检查、「就绪后才开浏览器」（端口上是别人的进程时坚决不开）与"窗口不闪退"。
 
-**为什么是这三步**：本仓前端**没有打包器、也没有 dev server**——`web/index.html` 直接用
-`<script type="module">` 加载 `web/dist/main.js`，而那由 `tsc -p web/tsconfig.json` 产出。
-所以"把工作台跑起来"必然是 **① 编服务端（`dist/`）+ ② 编前端（`web/dist/`）+ ③ 起 `serve`（静态资源取自仓库 `web/`）**。
-少任何一步的典型症状是**页面能打开但一片空白**（缺 `web/dist`）——那种"看起来像 bug 的缺失构建"最耗时间，
-故本仓把它固化成一个入口 `npm start`（实现在 [`scripts/startAll.mjs`](scripts/startAll.mjs)）。
+**前端是标准 Vite + React 项目**（2026-10-17 从「零打包器 + React UMD 全局」迁移而来）：
+`web/index.html` 是 Vite 入口，源码在 `web/src/`（`.ts`/`.tsx`），依赖（React 18、markdown-it、
+KaTeX、highlight.js）来自 `node_modules` 与 `web/vendor/`，**全部本地、零网络依赖**。
+
+| 命令                | 做什么                                                                  | 产物           |
+| ------------------- | ----------------------------------------------------------------------- | -------------- |
+| `npm run web:dev`   | Vite dev server（默认 5173）+ HMR，`/rpc` `/events` `/files` 代理到后端 | 内存中，不落盘 |
+| `npm run web:build` | `vite build` → 单 bundle（`web/dist/assets/*.js`，带 hash）             | `web/dist/`    |
+
+所以"把工作台跑起来"是 **① 编服务端（`dist/`）+ ② 编前端（`web/dist/`）+ ③ 起 `serve`
+（静态资源取 `web/dist/`）**。少任何一步的典型症状是**页面能打开但一片空白**（缺 `web/dist`）——
+那种"看起来像 bug 的缺失构建"最耗时间，故本仓把它固化成一个入口 `npm start`
+（实现在 [`scripts/startAll.mjs`](scripts/startAll.mjs)）。
+**开发时改前端请用 `npm run dev` 并访问 Vite 的地址（5173）**，那才有热更新；
+后端 `serve` 托管的是**已构建**页面，改源码不会反映到它上面。
+
 完整规范（前置条件、判定"起没起来"、停止/重启、故障排查）见 **[`docs/STARTUP.md`](docs/STARTUP.md)**。
 
 > 想完全手敲（等价于 `npm start`）：
@@ -345,10 +356,11 @@ src/
   cli/            CLI（exec / serve / goal / workflow / …）
   server/         HTTP+SSE 服务端与 JSON-RPC 处理器
 web/
-  index.html      工作台宿主页（零打包器，直接加载 web/dist/main.js）
-  src/            前端源码（React，tsc 编译到 web/dist）
-  styles/ vendor/ 样式与离线内置依赖（React/KaTeX/highlight）
-  test/           前端判据（node --test）
+  index.html      Vite 入口页（npm run web:build 生成 web/dist/index.html）
+  src/            React 源码（.ts/.tsx，Vite 打包到 web/dist）
+  styles/         样式表（加载顺序=级联顺序，见 index.html 注释）
+  vendor/         离线内置 UMD 依赖（markdown-it/KaTeX/highlight；publicDir 平铺到产物根）
+  test/           前端判据（vitest run）
 tests/
   unit/           单元与契约判据（npm test）
   integration/    真 serve + 真 SPA + 真 Chrome 的端到端（npm run test:integration）

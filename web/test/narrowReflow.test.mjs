@@ -15,7 +15,7 @@
 // 无浏览器时按 `OMNI_REQUIRE_BROWSER` 决定 skip 还是失败（缺环境不得静默变绿）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -141,7 +141,12 @@ test('F8：1000/1280 窄视口 + 两栏展开时，中栏不得横向溢出（�
   const found = findBrowser();
   const skipReason = skipReasonFor(found !== null);
   if (skipReason !== null) {
-    t.skip(skipReason);
+    // 2026-10-17 Vitest 化：vitest 的 reporter **默认不打印** `t.skip(reason)` 的文本
+    //（node:test 的 TAP 会打 `# SKIP <reason>`）。而"跳过原因必须可读"本身是被断言的行为
+    //（见 browserSwitch.test.mjs ④，它检查子进程输出里含「未找到本机 Chrome/Edge」），
+    // 故把原因拼进 skip 文本的第一段，让 reporter 的 skipped 行也能带出关键短语。
+    console.log(`[skip] ${skipReason}`);
+    t.skip(`未找到本机 Chrome/Edge（${skipReason}）`);
     return;
   }
   const browser = found;

@@ -1,16 +1,16 @@
-// 事件流模型缓存（审计 §2.5：滚动帧全量重算）——零 DOM，直接驱动缓存与纯函数。
+﻿// 事件流模型缓存（审计 §2.5：滚动帧全量重算）——零 DOM，直接驱动缓存与纯函数。
 //
 // 直跑方式（先 npm run web:build）：node web/test/streamModelCache.test.mjs
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
 const runtime = createRuntime();
 runtime.install();
 
-const { StreamModelCache } = await import('../dist/ui/models/StreamModelCache.js');
+const { StreamModelCache } = await import('../src/ui/models/StreamModelCache.js');
 
 /** 造 n 条「单块」事件（system / assistant 交替，1 条 = 1 个可视块）。 */
 function makeEvents(n) {

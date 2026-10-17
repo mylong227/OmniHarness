@@ -1,11 +1,11 @@
-// F4 中断 / 重生成 / 编辑重发：前端接线契约测试。
+﻿// F4 中断 / 重生成 / 编辑重发：前端接线契约测试。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { ApiClient } = await import('../dist/core/ApiClient.js');
-const { ComposerController } = await import('../dist/ui/controllers/ComposerController.js');
+const { ApiClient } = await import('../src/core/ApiClient.js');
+const { ComposerController } = await import('../src/ui/controllers/ComposerController.js');
 
 /** 一个可控的延迟（用于模拟「回合仍在飞」）。 */
 function deferred() {
@@ -363,7 +363,7 @@ test('editLastUser：无用户消息时仅轻提示', () => {
 test('SessionController.appendTextDelta：回合结束后到达的迟到增量不残留流式缓冲', async () => {
   // SessionController 经 highlight → deps 读 window（UMD 全局），故先种最小桩再动态加载。
   globalThis.window = globalThis.window ?? { React: { createElement: () => ({}) } };
-  const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
+  const { SessionController } = await import('../src/ui/controllers/SessionController.js');
   const { host, state } = makeHost([], { busy: true });
   const services = {
     api: {},
@@ -389,7 +389,7 @@ test('回合进行中点「新建」：收尾不得把旧会话拽回视图（�
   // 根因：`send` 收尾**无条件**写回 currentThreadId + navigate，而 SSE 仍在推该回合的事件
   // （事件不带 threadId，客户端无从分辨）。
   globalThis.window = globalThis.window ?? { React: { createElement: () => ({}) } };
-  const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
+  const { SessionController } = await import('../src/ui/controllers/SessionController.js');
   const { host, state } = makeHost([{ id: 'u1', type: 'user', payload: { content: '旧' } }], {
     currentThreadId: 't-old',
     busy: true,
@@ -407,7 +407,7 @@ test('回合进行中点「新建」：收尾不得把旧会话拽回视图（�
   const sessions = new SessionController(host, services);
   const ctrl = makeController(host, services.api);
   // 让 ComposerController 用真 SessionController（才走得上代数契约）
-  const real = new (await import('../dist/ui/controllers/ComposerController.js')).ComposerController(
+  const real = new (await import('../src/ui/controllers/ComposerController.js')).ComposerController(
     host,
     services,
     sessions,

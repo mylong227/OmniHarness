@@ -1,4 +1,4 @@
-// 判据：弹层互斥（同屏只能有一个弹层打开）。
+﻿// 判据：弹层互斥（同屏只能有一个弹层打开）。
 //
 // 覆盖的缺陷（2026-10-17 用户实测）：输入区四个弹层（`+` 添加菜单 / 请求批准 / 模型与强度 /
 // 上下文容量）各自用 `useState(open)` 管自己，**互不知情**。用户先点「+」再点「请求批准」，
@@ -12,10 +12,10 @@
 // 直跑 web/dist（npm run web:build），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
 const { claimPopover, releasePopover, closeCurrentPopover, currentPopoverId } = await import(
-  '../dist/ui/models/PopoverStack.js'
+  '../src/ui/models/PopoverStack.js'
 );
 
 /** 造一个可观察的句柄。 */

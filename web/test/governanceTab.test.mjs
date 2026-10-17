@@ -1,4 +1,4 @@
-/**
+﻿/**
  * F2 治理台面板判据（`GovernanceTab` + 面板注册）。
  *
  * ## 判据要钉死什么
@@ -14,15 +14,15 @@
  */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { GovernanceTab } = await import('../dist/ui/components/tabs/GovernanceTab.js');
-const { RightPanel } = await import('../dist/ui/components/RightPanel.js');
-const { parseHash } = await import('../dist/core/Router.js');
+const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.js');
+const { RightPanel } = await import('../src/ui/components/RightPanel.js');
+const { parseHash } = await import('../src/core/Router.js');
 
 let lastRendered = null;
 

@@ -1,4 +1,4 @@
-// 输入区弹层两件事的门禁（真浏览器 + CDP，**一个文件只起一次 Chrome / 一个服务器**）：
+﻿// 输入区弹层两件事的门禁（真浏览器 + CDP，**一个文件只起一次 Chrome / 一个服务器**）：
 //   ① 形状不符时弹层降级展示，而不是把整个工作台卸载（旧版服务端 ⇒ RPC 回落成 `{}`）；
 //   ② 600/800/1280 三档视口下弹层完整可见（不越视口、也不被任何裁切祖先切掉）。
 //
@@ -20,7 +20,7 @@
 //
 // 无浏览器时显式 skip（不伪装通过）；可用 OMNI_CHROME_PATH 指定。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

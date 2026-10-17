@@ -37,8 +37,8 @@
 //      这里改为 until() 轮询「发送键回来且停止键消失」，把「回合收敛」本身变成一条显式断言。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { test } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -64,7 +64,18 @@ const STUB_NAME = '_e2e-stub.html';
  * @returns {string} 完整 HTML 文本
  */
 function stubHtml() {
-  const index = readFileSync(INDEX_HTML, 'utf8');
+  // 2026-10-17 Vite 化：宿主页取**构建产物** `web/dist/index.html`，并注入 `<base href="/dist/">`。
+  //
+  // 为什么不能再读 `web/index.html`：它是 Vite 的**源码入口**（`<script type="module"
+  // src="./src/main.ts">`），而本判据用 `serveStatic` 托管静态文件、不跑 Vite 转译管线 ⇒
+  // 模块 404 ⇒ `#root` 为空（实测：`rootHtmlLen:0`、`hasReact:"undefined"`）。
+  // `<base>` 是因为产物里的资源是相对路径（`./assets/*`），而 stub 页挂在站点根，
+  // 必须锚到 `/dist/` 才能解析到产物目录。
+  const distIndex = join(WEB_ROOT, 'dist', 'index.html');
+  const index = readFileSync(existsSync(distIndex) ? distIndex : INDEX_HTML, 'utf8').replace(
+    '<head>',
+    '<head>\n  <base href="/dist/">',
+  );
   const injected = [
     '<script>',
     '(function(){',

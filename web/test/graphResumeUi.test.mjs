@@ -1,4 +1,4 @@
-// 「编排」面板的**续跑入口**判据（2026-10-08）。
+﻿// 「编排」面板的**续跑入口**判据（2026-10-08）。
 //
 // 契约（2026-10-08 交互改进后）：组件**不再自己发 RPC**——续跑实现只有一处
 // （`GraphController.resumeRun`，状态栏芯片也用同一实现），组件通过 `onResume` 上抛。
@@ -10,13 +10,13 @@
 // 手法与 mount.test.mjs / questionCard.test.mjs 一致：零 DOM 桩 + hooksStub 的 hook 槽位运行时。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { GraphTab } = await import('../dist/ui/components/tabs/GraphTab.js');
+const { GraphTab } = await import('../src/ui/components/tabs/GraphTab.js');
 
 /**
  * 递归展开函数组件节点（零 DOM 环境里 createElement 不会实例化子组件）。

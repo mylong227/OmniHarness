@@ -1,4 +1,4 @@
-// 会话隔离与工具卡状态判据（2026-10-07 用户两张截图）。
+﻿// 会话隔离与工具卡状态判据（2026-10-07 用户两张截图）。
 //
 // 截图 1 标注：「非本会话的信息，却因为我切换会话就显示过来了」——切会话后，**另一个会话**正在跑的
 // 工具卡（写入文件·进行中）出现在当前视图里。
@@ -9,7 +9,7 @@
 // ② 卡片状态只来自实时 `tool_result` 通知，而 `loadThread` 把 `toolResults` 清成 `{}` ⇒ 历史会话的
 //    工具卡永远等不到结果（它的结果事件在 `items` 里躺着，却没人拿去重建状态）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

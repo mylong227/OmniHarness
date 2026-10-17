@@ -1,4 +1,4 @@
-// 中栏虚拟化「滚动空洞」门禁（真浏览器 + CDP）：跳转式滚动下，视口**必须**被已渲染块覆盖。
+﻿// 中栏虚拟化「滚动空洞」门禁（真浏览器 + CDP）：跳转式滚动下，视口**必须**被已渲染块覆盖。
 //
 // ## 缺陷形态（2026-09-27 用户报「滚动到该区域就没有任何显示，再往下滚又出现」+ 截图空白区）
 //
@@ -35,7 +35,7 @@
 //
 // 直跑：node --test web/test/streamScrollCoverage.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { openStubSession } from './browserHarness.mjs';
 
 /** 长块正文（约 720 字）：制造「估算 88px vs 真实几百 px」的高度失配。 */

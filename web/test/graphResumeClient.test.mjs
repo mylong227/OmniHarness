@@ -1,4 +1,4 @@
-// 图运行「续跑」的客户端接线契约测试（2026-10-08）。
+﻿// 图运行「续跑」的客户端接线契约测试（2026-10-08）。
 // 直跑 web/dist（先 npm run web:build 编译），node --test web/test/graphResumeClient.test.mjs。
 //
 // 为什么单独钉这条：服务端 2026-10-08 新增 graph.resume RPC（从运行存档读回规格、复用已完成步骤），
@@ -6,9 +6,9 @@
 // 避免只加了个名字、参数拼错却没人发现（本仓「声明了但没接线」是最高频缺陷形态）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { ApiClient } = await import('../dist/core/ApiClient.js');
+const { ApiClient } = await import('../src/core/ApiClient.js');
 
 /**
  * 打桩 fetch：记录一次调用并返回给定 JSON-RPC 响应。

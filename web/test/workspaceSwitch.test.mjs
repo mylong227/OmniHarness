@@ -1,4 +1,4 @@
-// 工作区切换的**列表与视图**收口门禁（真控制器 + 真 reducer，零 DOM）。
+﻿// 工作区切换的**列表与视图**收口门禁（真控制器 + 真 reducer，零 DOM）。
 //
 // ## 缺陷形态（2026-10-07 用户报「切换不同的工作区，会话列表还是显示之前的会话」）
 //
@@ -14,12 +14,12 @@
 //
 // 直跑：node --test web/test/workspaceSwitch.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 createRuntime().install();
-const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
-const { AppReducers } = await import('../dist/ui/controllers/AppReducers.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.js');
+const { AppReducers } = await import('../src/ui/controllers/AppReducers.js');
 
 test('onWorkspaceSwitched：列表换新工作区响应（旧项目消失、归档保留），视图清空', async () => {
   const toasts = [];

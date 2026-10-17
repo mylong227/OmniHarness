@@ -1,4 +1,4 @@
-// 提问卡（QuestionCard）的交互契约测试：这是「用户到底能不能提交作答」的唯一判据面。
+﻿// 提问卡（QuestionCard）的交互契约测试：这是「用户到底能不能提交作答」的唯一判据面。
 //
 // 背景（2026-10-08 用户报障）：Web 端此前的提问只有只读卡（选项恒 disabled、无提交入口），
 // 用户看得见问题却答不了。本测试钉住三件事：
@@ -9,13 +9,13 @@
 // 手法与 mount.test.mjs 一致：零 DOM 桩 + hooksStub 的 hook 槽位运行时，不加载真实 React。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { QuestionCard } = await import('../dist/ui/components/QuestionCard.js');
+const { QuestionCard } = await import('../src/ui/components/QuestionCard.js');
 
 /** 两题样本：q1 单选、q2 多选。 */
 const REQUEST = {

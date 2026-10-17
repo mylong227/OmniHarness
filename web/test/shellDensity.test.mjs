@@ -1,4 +1,4 @@
-// 壳层「占地方」判据（2026-10-07 用户报障，真机复现 + 结构守卫）。
+﻿// 壳层「占地方」判据（2026-10-07 用户报障，真机复现 + 结构守卫）。
 //
 // ## 用户报的两件事
 //
@@ -22,7 +22,7 @@
 //
 // 直跑：node --test web/test/shellDensity.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

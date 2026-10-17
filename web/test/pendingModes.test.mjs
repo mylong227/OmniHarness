@@ -1,4 +1,4 @@
-// 会话模式的「建会话前先暂存」时序：真机报错「模式切换失败：modes.set 需要 threadId」的回归判据。
+﻿// 会话模式的「建会话前先暂存」时序：真机报错「模式切换失败：modes.set 需要 threadId」的回归判据。
 //
 // ## 现场（2026-10-06 用户截图）
 //
@@ -10,7 +10,7 @@
 // 控制器 `SessionController.applyModes` 统一决策：有会话 ⇒ 立刻 `modes.set`；
 // 没会话 ⇒ **暂存**，等会话出现（`ComposerController` 拿到 `res.threadId` 后）自动落盘。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
 // 控制器链会经 `deps.js` 摸 `window`（React UMD 宿主）。node 下给个最小壳即可——
 // 本判据考的是**时序**（暂存 / 落盘），与 DOM 无关。
@@ -20,8 +20,8 @@ globalThis.window = globalThis.window ?? {
   removeEventListener: () => undefined,
 };
 
-const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
-const { PendingModes } = await import('../dist/ui/models/PendingModes.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.js');
+const { PendingModes } = await import('../src/ui/models/PendingModes.js');
 
 /**
  * 构造状态宿主桩（patch 真写状态，getState 返回最新）。

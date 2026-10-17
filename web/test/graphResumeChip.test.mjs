@@ -1,4 +1,4 @@
-// 状态栏「续跑」芯片的判据（2026-10-08 交互改进）。
+﻿// 状态栏「续跑」芯片的判据（2026-10-08 交互改进）。
 //
 // 为什么要这条判据：芯片是**降低学习成本**的主要手段——用户不必先学会「全部面板 → 编排」这套导航，
 // 低头就能看见「有东西没跑完 + 一键续跑」。它必须满足三条：
@@ -7,13 +7,13 @@
 //   ③ 点击把 (runId, name) 交给回调（实现只有一处：GraphController.resumeRun）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { GraphResumeChip } = await import('../dist/ui/components/GraphResumeChip.js');
+const { GraphResumeChip } = await import('../src/ui/components/GraphResumeChip.js');
 
 /**
  * 渲染一次芯片（零 DOM 桩：函数组件直接调用）。

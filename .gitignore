@@ -1,4 +1,4 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -149,3 +149,8 @@ third-party/swebench-repos/
 # 删除提交之后，若本机某个检查点/同步工具再把它写回磁盘，这条规则保证它只是**未跟踪垃圾**：
 # 不会再进索引被误提交。需要查阅这份旧表用：`git show <commit>:web/styles/polish.css`。
 web/styles/polish.css
+
+# 前端构建产物（Vite）：`web/dist/` 由 `npm run web:build` 生成，不入库。
+# 说明：第 6 行的 `dist/`（无前导斜杠）本就能匹配任意层级的 dist 目录；
+# 这里显式写明，一是让"web/dist 是产物"在文件里可查，二是防将来有人把它改成 `/dist/`。
+web/dist/

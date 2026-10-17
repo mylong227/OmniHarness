@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 诊断面板判据（Web 交付项：`daemon status` + `doctor 面板`，2026-10-11）。
  *
  * ## 判据要钉死什么（全部围绕"别把没有读成正常"）
@@ -17,16 +17,16 @@
  */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { DiagnosticsTab } = await import('../dist/ui/components/tabs/DiagnosticsTab.js');
-const { PANELS } = await import('../dist/ui/models/PanelRegistry.js');
-const { parseHash } = await import('../dist/core/Router.js');
+const { DiagnosticsTab } = await import('../src/ui/components/tabs/DiagnosticsTab.js');
+const { PANELS } = await import('../src/ui/models/PanelRegistry.js');
+const { parseHash } = await import('../src/core/Router.js');
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。

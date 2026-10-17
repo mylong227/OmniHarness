@@ -1,11 +1,11 @@
-// 原生阻塞弹窗回归护栏（D4）：web/src 内不得再出现 window.confirm / window.prompt / window.alert。
+﻿// 原生阻塞弹窗回归护栏（D4）：web/src 内不得再出现 window.confirm / window.prompt / window.alert。
 //
 // 为什么用「源码扫描」而不是渲染断言：原生弹窗在零 DOM 测试环境里根本不会被触发，
 // 只有扫描调用点才能拦住「以后有人又写回 window.confirm」这类回退。
 // 匹配前先剥掉注释，避免文档里提到这些 API 造成假阳性。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 

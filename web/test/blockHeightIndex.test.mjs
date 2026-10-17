@@ -1,4 +1,4 @@
-// 逐块真实高度模型回归护栏（BlockHeightIndex + StreamWindow.computeWithHeights）。
+﻿// 逐块真实高度模型回归护栏（BlockHeightIndex + StreamWindow.computeWithHeights）。
 //
 // 零 DOM 桩：纯算术可确定性单测，任何机器结果一致。证明三件事：
 //  1) 未测块回落估算、亚像素防抖、[min,max] 裁剪、失效裁剪都正确；
@@ -8,10 +8,10 @@
 // 直跑方式（先 npm run web:build）：node web/test/blockHeightIndex.test.mjs
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { BlockHeightIndex } = await import('../dist/ui/models/BlockHeightIndex.js');
-const { StreamWindow, DEFAULT_ITEM_HEIGHT } = await import('../dist/ui/models/StreamWindow.js');
+const { BlockHeightIndex } = await import('../src/ui/models/BlockHeightIndex.js');
+const { StreamWindow, DEFAULT_ITEM_HEIGHT } = await import('../src/ui/models/StreamWindow.js');
 
 /** 默认口径（与 StreamWindow 缺省值一致，测试里显式复述以便口径变化时立刻暴露）。 */
 const ITEM_HEIGHT = DEFAULT_ITEM_HEIGHT;

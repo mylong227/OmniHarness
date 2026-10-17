@@ -1,13 +1,13 @@
-// F8 路由 / 深链：Router 纯函数 + RouteBinding 接线契约测试。
+﻿// F8 路由 / 深链：Router 纯函数 + RouteBinding 接线契约测试。
 // 验证 parseHash / toHash 往返、非法面板回落、navigate 写入 hash，
 // 以及 RouteBinding 的「初始深链还原 / 订阅前进后退 / 退订 / 相同路由立即收口」。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { parseHash, toHash, navigate, isValidPane } = await import('../dist/core/Router.js');
-const { RouteBinding } = await import('../dist/ui/controllers/RouteBinding.js');
+const { parseHash, toHash, navigate, isValidPane } = await import('../src/core/Router.js');
+const { RouteBinding } = await import('../src/ui/controllers/RouteBinding.js');
 
 /** 设置全局 location（node 默认无 location）。 */
 function withHash(hash) {

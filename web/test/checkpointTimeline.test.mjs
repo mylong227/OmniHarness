@@ -1,18 +1,18 @@
-// 检查点时间线（A2）：按天分组 / 相对时间 / 徽标 / 最新标记，以及回滚面板的键盘可达与确认闭环。
+﻿// 检查点时间线（A2）：按天分组 / 相对时间 / 徽标 / 最新标记，以及回滚面板的键盘可达与确认闭环。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 //
 // 时间基准一律注入（now），不用 Date.now()：相对时间是输入的函数，混进真实时钟会让测试
 // 在跨分钟/跨天时随机变红（测试一旦随机红，团队就会去关掉它）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { afterEach, test, vi } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
-const { CheckpointTimeline } = await import('../dist/ui/models/CheckpointTimeline.js');
-const { TimestampFormatter } = await import('../dist/ui/models/checkpoint.js');
-const { RollbackTab } = await import('../dist/ui/components/tabs/RollbackTab.js');
+const { CheckpointTimeline } = await import('../src/ui/models/CheckpointTimeline.js');
+const { TimestampFormatter } = await import('../src/ui/models/checkpoint.js');
+const { RollbackTab } = await import('../src/ui/components/tabs/RollbackTab.js');
 
 /** 本地时间构造（dayKey 用本地日期，用 UTC 串会把测试绑死在某个时区）。 */
 function at(y, m, d, hh = 0, mm = 0) {
@@ -225,7 +225,13 @@ test('RollbackTab：按天分组渲染、徽标区分「含文件快照 / 仅对
   // 之前按真实时钟推（now - 5/30min），在 00:00–00:35 之间跑会跨午夜分到两天 —— 随机红。
   const noon = new Date();
   noon.setHours(12, 0, 0, 0);
-  t.mock.timers.enable({ apis: ['Date'], now: noon.getTime() });
+  // 迁移说明（2026-10-17 Vitest 化）：node:test 的 t.mock.timers.enable({ apis: [Date] }) 在 Vitest 下不存在。
+  // 等价写法是 vi.useFakeTimers({ toFake: [Date] }) 加 vi.setSystemTime(...) —— 都作用于全局时钟。
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(noon);
+  // 假时钟必须在用例结束复原：Vitest 的假时钟不随用例自动失效，
+  // 会污染同文件后续用例（它们也在同进程里跑）。
+  t.onTestFinished(() => { vi.useRealTimers(); });
   const { vnode } = setupTab();
   const dayTitles = collect(vnode, (n) => n.props.className === 'cp-day-title');
   assert.strictEqual(dayTitles.length, 1, '两个检查点（5 / 30 分钟前）同属一天');

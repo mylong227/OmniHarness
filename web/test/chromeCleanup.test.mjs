@@ -1,4 +1,4 @@
-// 浏览器子进程**树**终止回归（2026-09-27 实测的孤儿进程泄漏）。
+﻿// 浏览器子进程**树**终止回归（2026-09-27 实测的孤儿进程泄漏）。
 //
 // ## 缺陷形态（真实，非假想）
 //
@@ -18,7 +18,7 @@
 //
 // 无浏览器时显式 skip（不伪装通过）；可用 OMNI_CHROME_PATH 指定。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

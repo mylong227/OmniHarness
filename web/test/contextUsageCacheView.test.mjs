@@ -1,4 +1,4 @@
-// 上下文容量面板的缓存展示语义单测（缺口 B 的 UI 侧护栏）。
+﻿// 上下文容量面板的缓存展示语义单测（缺口 B 的 UI 侧护栏）。
 //
 // 背景：命中率是「实测值」——它只统计**上报了缓存字段**的模型调用（Σ cached / Σ prompt）。
 // 这带来两个必须被锁死的展示语义，否则面板会把「没有数据」和「命中率为 0」混为一谈：
@@ -8,8 +8,8 @@
 //
 // 全部为纯逻辑，node 直跑 web/dist 编译产物。
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { ContextUsageView } from '../dist/ui/models/ContextUsageView.js';
+import { test } from 'vitest';
+import { ContextUsageView } from '../src/ui/models/ContextUsageView.js';
 
 /**
  * 造一份最小可用的 context.usage 报告。

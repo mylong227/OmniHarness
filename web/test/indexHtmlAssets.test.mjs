@@ -11,7 +11,7 @@
 //    功能静默降级，例如 markdown 代码高亮与数学排版整段失效）。这里对 `href/src` 的相对路径做存在性
 //    与大小断言；外部 URL（http/https/data/mailto）不在此列。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -52,8 +52,13 @@ test('② 宿主页引用的本地资源必须真实存在且非空（防"标签
   for (const url of refs) {
     const clean = url.split('?')[0];
     if (clean === '') continue;
-    const abs = join(WEB_ROOT, clean);
-    assert.ok(existsSync(abs), `index.html 引用了不存在的资源：${clean}`);
-    assert.ok(statSync(abs).size > 0, `index.html 引用的资源是空文件：${clean}`);
+    // 2026-10-17 迁移到 Vite 后的两条解析规则：
+    //   ① `./styles/*.css`、`./src/main.ts`：相对 `web/` 根；
+    //   ② `./markdown-it.min.js` 这类**根相对静态资源**：由 `publicDir`（`web/vendor/`）
+    //      平铺进产物根，故源文件在 `web/vendor/` 下 —— 不认这条会把"文件明明在"判成缺失。
+    const candidates = [join(WEB_ROOT, clean), join(WEB_ROOT, 'vendor', clean)];
+    const hit = candidates.find((p) => existsSync(p));
+    assert.ok(hit !== undefined, `index.html 引用了不存在的资源：${clean}（已试 ${candidates.length} 个位置）`);
+    assert.ok(statSync(hit).size > 0, `index.html 引用的资源是空文件：${clean}`);
   }
 });

@@ -1,4 +1,4 @@
-﻿// 共享浏览器验证工具（E1 CDP 路线；**无第三方依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
+// 共享浏览器验证工具（E1 CDP 路线；**无第三方依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
 //
 // 与 D3 的 UI e2e（`web/test/e2e.test.mjs`）**同一传输**：复用本机已装 Chrome/Edge，
 // 用无第三方依赖 Node http 静态服务托管 web/，并注入假 /rpc + 假 /events 使前端在确定性假后端下渲染。
@@ -223,9 +223,23 @@ function injectedBody() {
  * @returns {string} 完整 HTML 文本
  */
 export function stubHtmlCdp() {
-  const index = readFileSync(INDEX_HTML, 'utf8');
+  // 2026-10-17 迁移到 Vite 后：宿主页必须取**构建产物** `web/dist/index.html`。
+  //
+  // 为什么不能再用 `web/index.html`：它是 Vite 的**源码入口**（`<script type="module"
+  // src="./src/main.ts">`），需要 Vite 转译；探针用 `serveStatic` 托管静态文件、不跑转译管线，
+  // 于是模块 404 ⇒ 页面白屏 ⇒ 所有浏览器判据拿到 null。实测形态正是
+  // `{"leftWidth":null,"centerWidth":null,...}`，看起来像"左栏没渲染"，实为没加载。
+  //
+  // 两个必要处理：
+  //   ① 宿主改读 `dist/index.html`（Vite 已转译 + 单 bundle）；
+  //   ② 注入 `<base href="/dist/">` —— 产物里的资源是**相对路径**（`./assets/*`，
+  //      为支持子路径部署），而 stub 页挂在站点根（`/_xxx.html`），
+  //      相对解析会指向 `/assets/*`（实测 404）。加 `<base>` 后一律解析到 `/dist/assets/*`。
+  const distIndex = join(WEB_ROOT, 'dist', 'index.html');
+  const index = readFileSync(existsSync(distIndex) ? distIndex : INDEX_HTML, 'utf8');
+  const withBase = index.replace('<head>', '<head>\n  <base href="/dist/">');
   const injected = '<script>\n' + injectedBody() + '\n</script>';
-  return index.replace('<div id="root"></div>', '<div id="root"></div>\n' + injected);
+  return withBase.replace('<div id="root"></div>', '<div id="root"></div>\n' + injected);
 }
 
 /** 取一个空闲本地端口（供 Chrome `--remote-debugging-port` 使用）。 @returns {Promise<number>} */

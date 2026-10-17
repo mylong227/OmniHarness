@@ -1,4 +1,4 @@
-// 流式节流接线测试：`StreamThrottle` 真的接在 `SessionController.appendTextDelta` 上，
+﻿// 流式节流接线测试：`StreamThrottle` 真的接在 `SessionController.appendTextDelta` 上，
 // 且「高频增量 → 有界刷新」与「收尾零丢失」两条不变量在**接线后**依然成立。
 //
 // 为什么单独一个文件：`longSessionPerf.test.mjs` 验的是节流器本身的纯逻辑；本文件验的是
@@ -6,14 +6,14 @@
 // 直跑：node web/test/streamThrottleWiring.test.mjs（需先 npm run web:build）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 // `deps.js` 在模块顶层读 `window`（SessionController 经 highlight.js 间接引入它），
 // 故必须先种零 DOM 桩再动态 import 编译产物——与 mount.test.mjs 同一口径。
 createRuntime().install();
 
-const { SessionController } = await import('../dist/ui/controllers/SessionController.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.js');
 
 /** 造一个记录 patch 次数的状态宿主（streamText 真累积）。 */
 function makeHost(initial = {}) {

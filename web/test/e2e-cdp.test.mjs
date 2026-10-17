@@ -1,4 +1,4 @@
-// E1：浏览器验证 / computer use（CDP 路线，无第三方依赖）。
+﻿// E1：浏览器验证 / computer use（CDP 路线，无第三方依赖）。
 //
 // 可证伪验收（同 board E1 行）：CDP 驱动本机已装浏览器做「截图 → 视觉核对 → 操作回环」一例。
 // 本例用 Node 22 内置 WebSocket 直连 Chrome DevTools Protocol，全程不引入任何浏览器自动化库：
@@ -12,7 +12,7 @@
 // 无浏览器时显式 skip（不伪装通过）；可用 OMNI_CHROME_PATH 指定浏览器。调试：OMNI_E2E_VERBOSE=1。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -57,9 +57,10 @@
     "dev": "node scripts/devAll.mjs",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
     "build": "node scripts/buildDist.mjs",
-    "web:build": "node scripts/cleanDist.mjs web/dist && tsc -p web/tsconfig.json",
-    "web:watch": "tsc -p web/tsconfig.json --watch",
-    "web:test": "npm run web:build && node --test --test-timeout=60000 \"web/test/**/*.test.mjs\"",
+    "web:build": "vite build",
+    "web:dev": "vite",
+    "web:watch": "vite build --watch",
+    "web:test": "npm run web:build && vitest run",
     "prepare": "tsc",
     "prepublishOnly": "npm run build && npm run web:build",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
@@ -113,17 +114,23 @@
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.39.4",
     "eslint-plugin-unused-imports": "^4.4.1",
+    "jsdom": "^25.0.1",
     "prettier": "^3.9.6",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.69.0"
+    "typescript-eslint": "^8.69.0",
+    "vite": "^6.4.4",
+    "vitest": "^2.1.9"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.0",
     "croner": "10.0.1",
     "jose": "6.2.12",
     "openid-client": "^6.8.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "zod": "^4.6.4"
   },
   "optionalDependencies": {

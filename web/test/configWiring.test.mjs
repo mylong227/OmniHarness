@@ -1,4 +1,4 @@
-// F5 配置 UI 收敛：设置模型（SettingsModel）↔ config.get / config.update 接线契约。
+﻿// F5 配置 UI 收敛：设置模型（SettingsModel）↔ config.get / config.update 接线契约。
 //
 // 2026-10-17 迁移说明：本文件原先把 `SettingsTab` 组件渲染成 vnode 再模拟 onChange。
 // 设置面板重构成模态后，读写逻辑搬进了 `models/SettingsModel.ts`（零 React），
@@ -13,9 +13,9 @@
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { SettingsModel, SETTINGS_FIELDS } = await import('../dist/ui/models/SettingsModel.js');
+const { SettingsModel, SETTINGS_FIELDS } = await import('../src/ui/models/SettingsModel.js');
 
 /** 让排队的 promise 全部落地（含 await 链上的多跳）。 */
 async function flush() {

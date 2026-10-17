@@ -1,4 +1,4 @@
-// 变更页键盘评审（A1）：模型层按键解析 + 组件层真实 keydown → 选中移动 / stage / revert / 评论 / 帮助。
+﻿// 变更页键盘评审（A1）：模型层按键解析 + 组件层真实 keydown → 选中移动 / stage / revert / 评论 / 帮助。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 //
 // 断言口径（避免「测了个寂寞」）：
@@ -7,14 +7,14 @@
 //   · 输入框内：同一次按键换成 TEXTAREA 目标，RPC 必须一次都不发。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
-const { ReviewKeyboard } = await import('../dist/ui/models/ReviewKeyboard.js');
-const { ReviewCursor } = await import('../dist/ui/models/ReviewCursor.js');
-const { ChangesTab } = await import('../dist/ui/components/tabs/ChangesTab.js');
+const { ReviewKeyboard } = await import('../src/ui/models/ReviewKeyboard.js');
+const { ReviewCursor } = await import('../src/ui/models/ReviewCursor.js');
+const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.js');
 
 /** 三块 hunk 的 git patch（单块不够验「移动」：一移动就夹到 0，测不出位移）。 */
 const PATCH = [

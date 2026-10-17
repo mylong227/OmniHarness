@@ -1,11 +1,11 @@
-// 组件挂载契约测试（P5.5）：无第三方依赖 DOM 桩——不加载真实 React/ReactDOM，
+﻿// 组件挂载契约测试（P5.5）：无第三方依赖 DOM 桩——不加载真实 React/ReactDOM，
 // 用「预置 window 桩 + createElement 收集」驱动 class 组件的 render()，对元素树做断言。
 // 覆盖面：组件可实例化、render 产出合法 vnode 树、关键 UI 契约（文案/回调接线）不变。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
@@ -40,15 +40,15 @@ function renderOf(Component, props, statePatch) {
   return runtime.render(Component, props, statePatch);
 }
 
-const { AddMenu } = await import('../dist/ui/components/AddMenu.js');
-const { ContextCapacityPanel } = await import('../dist/ui/components/ContextCapacityPanel.js');
-const { PermissionPicker } = await import('../dist/ui/components/PermissionPicker.js');
-const { TreeNode } = await import('../dist/ui/components/TreeNode.js');
-const { PanelPicker } = await import('../dist/ui/components/PanelPicker.js');
-const { Toast } = await import('../dist/ui/components/Toast.js');
-const { WorkIndicator } = await import('../dist/ui/components/WorkIndicator.js');
-const { ApprovalModal } = await import('../dist/ui/components/ApprovalModal.js');
-const { DialogHost } = await import('../dist/ui/components/DialogHost.js');
+const { AddMenu } = await import('../src/ui/components/AddMenu.js');
+const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.js');
+const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.js');
+const { TreeNode } = await import('../src/ui/components/TreeNode.js');
+const { PanelPicker } = await import('../src/ui/components/PanelPicker.js');
+const { Toast } = await import('../src/ui/components/Toast.js');
+const { WorkIndicator } = await import('../src/ui/components/WorkIndicator.js');
+const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.js');
+const { DialogHost } = await import('../src/ui/components/DialogHost.js');
 
 /** 遍历 vnode 树：对每个节点调用 visit（跳过字符串/数字叶子）。 */
 function walk(vnode, visit) {
@@ -220,7 +220,7 @@ test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据�
   // 2026-10-17：`settings` 移出（17 → 16）。它不是"看某个东西的状态"的面板，而是"改全局配置"，
   //   现为左栏页脚按钮 + 居中模态（components/SettingsModal.tsx）。逐条比对时把它删掉，
   //   并在下方显式断言"注册表里不得再有 settings"——否则它会以"未知 pane"的形式静默落回默认面板。
-  const { PANELS, panelOf } = await import('../dist/ui/models/PanelRegistry.js');
+  const { PANELS, panelOf } = await import('../src/ui/models/PanelRegistry.js');
   assert.deepStrictEqual(
     PANELS.map((p) => p.key),
     [
@@ -326,7 +326,7 @@ test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完�
 });
 
 test('StreamView 契约：事件流容器是 role=log + aria-live=polite 的播报区', async () => {
-  const { StreamView } = await import('../dist/ui/components/StreamView.js');
+  const { StreamView } = await import('../src/ui/components/StreamView.js');
   const vnode = renderOf(StreamView, {
     events: [],
     toolResults: {},

@@ -1,4 +1,4 @@
-// 目录 / 文件选择器对 `fs.browse` 回包形状的**fail-closed** 判据。
+﻿// 目录 / 文件选择器对 `fs.browse` 回包形状的**fail-closed** 判据。
 //
 // ## 现场（2026-10-07 视觉探针真机实测）
 //
@@ -13,14 +13,14 @@
 // 判据在**渲染树**上做（与 mount/a11y 系列同源的 zero-DOM 桩）：不依赖真浏览器，跑得快、
 // 且能精确断言"渲染期不抛错 + 出现错误文案"。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { FolderPicker } = await import('../dist/ui/components/FolderPicker.js');
-const { FilePicker } = await import('../dist/ui/components/FilePicker.js');
+const { FolderPicker } = await import('../src/ui/components/FolderPicker.js');
+const { FilePicker } = await import('../src/ui/components/FilePicker.js');
 
 /** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
 function collect(vnode, pred, out = []) {

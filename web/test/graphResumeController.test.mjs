@@ -1,4 +1,4 @@
-// 续跑**唯一实现**（`GraphController.resumeRun`）的判据（2026-10-08）。
+﻿// 续跑**唯一实现**（`GraphController.resumeRun`）的判据（2026-10-08）。
 //
 // 为什么钉在控制器：交互改进后「编排面板卡片」与「状态栏芯片」共用这一个方法，
 // 它承担了三条容易写错、写错了很难发现的行为：
@@ -10,14 +10,14 @@
 // 手法：零 DOM 桩 + 手写 host/services（与 controllerBindings.test.mjs 同款）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
 
-const { GraphController } = await import('../dist/ui/controllers/GraphController.js');
-const { AppReducers } = await import('../dist/ui/controllers/AppReducers.js');
+const { GraphController } = await import('../src/ui/controllers/GraphController.js');
+const { AppReducers } = await import('../src/ui/controllers/AppReducers.js');
 
 /**
  * 造一个可观测的控制器宿主与服务。

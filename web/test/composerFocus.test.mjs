@@ -1,4 +1,4 @@
-// 判据：输入区的**焦点可见性归谁**，以及"框里不再套框"这条外观契约。
+﻿// 判据：输入区的**焦点可见性归谁**，以及"框里不再套框"这条外观契约。
 //
 // 为什么需要它（2026-10-17 的教训）：
 //   输入区的焦点信号在一天内被搬了三次，每次都是"用户看图才发现"，而且我前两轮在
@@ -18,7 +18,7 @@
 // 变更这里之前先读 `web/styles/minimal.css` §6 的三次校正记录。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 

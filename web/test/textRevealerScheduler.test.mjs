@@ -1,4 +1,4 @@
-// 渐进揭示器的调度契约：**注入的调度器必须以裸函数调用**。
+﻿// 渐进揭示器的调度契约：**注入的调度器必须以裸函数调用**。
 //
 // ## 为什么有这条判据（2026-10-06 真机崩溃）
 //
@@ -14,9 +14,9 @@
 // 本判据改为断言**调用时的 receiver**：正常应是 `undefined`（ESM 严格模式下的裸调用），
 // 若哪天又变回 `this.schedule(...)`，receiver 就成了实例 ⇒ 判据红（与浏览器同一条失效条件）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { TextRevealer } = await import('../dist/ui/models/TextRevealer.js');
+const { TextRevealer } = await import('../src/ui/models/TextRevealer.js');
 
 /** 长文本（超过 SHORT_TEXT=240 才走动画路径）。 */
 const LONG = 'x'.repeat(500);

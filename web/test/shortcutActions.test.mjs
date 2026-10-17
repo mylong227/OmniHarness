@@ -1,9 +1,9 @@
-// 快捷键执行器单测（零 DOM 依赖）：锁死「动作 → 回调」映射。
+﻿// 快捷键执行器单测（零 DOM 依赖）：锁死「动作 → 回调」映射。
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { ShortcutActions } from '../dist/ui/controllers/ShortcutActions.js';
+import { test } from 'vitest';
+import { ShortcutActions } from '../src/ui/controllers/ShortcutActions.js';
 
 /** 构造记录调用的桩回调集合。 */
 const makeHandlers = () => {

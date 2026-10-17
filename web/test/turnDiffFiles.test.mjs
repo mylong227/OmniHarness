@@ -1,10 +1,10 @@
-// 回合变更文件清单解析器契约测试（对标 Codex「Edited N files」卡片的数据面）。
+﻿// 回合变更文件清单解析器契约测试（对标 Codex「Edited N files」卡片的数据面）。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/turnDiffFiles.test.mjs 直跑。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { parseTurnDiffFiles, turnDiffTotals } = await import('../dist/ui/models/TurnDiffFiles.js');
+const { parseTurnDiffFiles, turnDiffTotals } = await import('../src/ui/models/TurnDiffFiles.js');
 
 /** 双文件样例：一个改写、一个新建（新建文件 before 为空 ⇒ 全为 + 行）。 */
 const TWO_FILES = [

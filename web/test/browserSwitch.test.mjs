@@ -16,7 +16,7 @@
  */
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,16 +28,21 @@ const REPO_ROOT = join(HERE, '..', '..');
 
 /** 在给定环境下真跑一个浏览器类判据。 */
 function runNarrowJudge(env) {
-  // 必须剥掉 node 给「测试子进程」设的环境变量：`node --test` 在 NODE_TEST_CONTEXT 存在时
-  // 不再输出完整 TAP 摘要 ⇒ 子进程的 skip/fail 就看不出来了（本判据第一次跑就栽在这）。
+  // 2026-10-17 Vitest 化：判据文件已改为 `import { test } from 'vitest'`，
+  // 子进程必须用 vitest 跑 —— 继续用 `node --test` 会报
+  // `Vitest failed to access its internal state`（子进程里没有 vitest 运行时）。
+  // 输出格式也随之从 TAP 变为 vitest reporter。
+  //
+  // 仍清理 `NODE_TEST_CONTEXT` / `NODE_OPTIONS`：它们是父测试进程的上下文，传给子进程只会制造噪声。
   const clean = { ...process.env, OMNI_BROWSER_NONE: '1', ...env };
   delete clean.NODE_TEST_CONTEXT;
   delete clean.NODE_OPTIONS;
-  return spawnSync(
-    process.execPath,
-    ['--test', '--test-timeout=60000', join(HERE, 'narrowReflow.test.mjs')],
-    { cwd: REPO_ROOT, encoding: 'utf8', env: clean },
-  );
+  const vitestBin = join(REPO_ROOT, 'node_modules', 'vitest', 'vitest.mjs');
+  return spawnSync(process.execPath, [vitestBin, 'run', join(HERE, 'narrowReflow.test.mjs')], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    env: clean,
+  });
 }
 
 test('① 有浏览器 ⇒ 不跳过（首版把"未设开关"当成跳过，本机有 Chrome 也照跳）', () => {
@@ -82,11 +87,13 @@ test('③ 缺浏览器且 OMNI_REQUIRE_BROWSER=1 ⇒ 不跳过（交给断言失
 });
 
 test('④ 端到端：真跑判据 —— 开关关 ⇒ 子进程 skip 且 exit 0；开关开 ⇒ 子进程失败', () => {
-  // 注意：node:test 的 TAP 摘要可能走 stderr（不是我们的契约），故断言一律用**合并流**。
+  // 注意：输出摘要可能走 stderr（不是我们的契约），故断言一律用**合并流**。
+  // 2026-10-17 Vitest 化：断言从 TAP 口径（`# skipped 1`）改为 vitest 口径（`N skipped`）。
+  // 判据意图未变：开关关 ⇒ **显式跳过且退出码 0**（不是假装通过）；开关开 ⇒ 非 0 且原因可读。
   const off = runNarrowJudge({});
   const offAll = `${off.stdout}\n${off.stderr}`;
   assert.strictEqual(off.status, 0, `开关关时应正常结束（跳过）:\n${offAll}`);
-  assert.match(offAll, /# skipped 1/u, '开关关时子进程应显式跳过 1 例（而不是假装通过）');
+  assert.match(offAll, /\b1 skipped\b/u, '开关关时子进程应显式跳过 1 例（而不是假装通过）');
   assert.match(offAll, /未找到本机 Chrome\/Edge/u, '跳过原因应可读');
 
   const on = runNarrowJudge({ OMNI_REQUIRE_BROWSER: '1' });

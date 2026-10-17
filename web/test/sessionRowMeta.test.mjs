@@ -1,4 +1,4 @@
-// 会话行可读性判据（2026-10-08 易用性轮）。
+﻿// 会话行可读性判据（2026-10-08 易用性轮）。
 //
 // ## 被改的形态（真机截图取证）
 //
@@ -17,11 +17,11 @@
 // | ④ | 悬停时时间格**保留占位**（opacity 让位，而非 display:none） | 改成 display:none ⇒ 标题宽度在悬停瞬间跳变 |
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SessionRowMeta } from '../dist/ui/models/SessionRowMeta.js';
+import { SessionRowMeta } from '../src/ui/models/SessionRowMeta.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');

@@ -1,4 +1,4 @@
-// 文件夹选择器按键判定的门禁（纯逻辑，零 DOM）。
+﻿// 文件夹选择器按键判定的门禁（纯逻辑，零 DOM）。
 //
 // ## 缺陷形态（2026-10-07 用户报「新建文件夹不能改名，输入就直接退出了新建文件夹」）
 //
@@ -12,11 +12,11 @@
 //
 // 直跑：node --test web/test/pickerKeys.test.mjs（模型零依赖，无需构建也可跑，但统一先 web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 createRuntime().install();
-const { PickerKeys } = await import('../dist/ui/models/PickerKeys.js');
+const { PickerKeys } = await import('../src/ui/models/PickerKeys.js');
 
 test('普通输入键在新建态不产生任何指令（「一输入就退出新建」的回归判据）', () => {
   for (const key of ['a', 'Z', '1', '-', '中文', ' ', 'Backspace', 'ArrowLeft', 'Tab']) {

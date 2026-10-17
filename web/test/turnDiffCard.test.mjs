@@ -1,10 +1,10 @@
-// 回合变更卡片（TurnDiffCard）真浏览器验证：注入 user/assistant/turn_diff 事件流，
+﻿// 回合变更卡片（TurnDiffCard）真浏览器验证：注入 user/assistant/turn_diff 事件流，
 // 断言卡片按文件列出 + 每文件增删统计 + 点击展开 diff 正文，并截图供人眼复核。
 //
 // 直跑：node --test web/test/turnDiffCard.test.mjs（需先 npm run web:build）。
 // 截图落盘路径可用 env OMNI_TURN_DIFF_SHOT 覆盖（默认写到 .workbuddy/ 下，不入库）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { openStubSession } from './browserHarness.mjs';
 
 /** 三文件样例 diff：改写 / 新建 / 删改混合，覆盖三种增删形态。 */

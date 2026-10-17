@@ -1,4 +1,4 @@
-// 视图挂载状态（**视图代数**）的语义判据：`models/ViewAttachment.ts`。
+﻿// 视图挂载状态（**视图代数**）的语义判据：`models/ViewAttachment.ts`。
 //
 // ## 这一条防的是什么（两处都真机踩过）
 //
@@ -12,9 +12,9 @@
 // 判据只测模型本身（纯数据，零 DOM、零 React）：不引 dist 的控制器，避免把"接线"与"语义"两件事
 // 混在一个用例里——接线的回归判据在 turnControl.test.mjs（真会话 + 真控制器）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { ViewAttachment } = await import('../dist/ui/models/ViewAttachment.js');
+const { ViewAttachment } = await import('../src/ui/models/ViewAttachment.js');
 
 test('① 默认挂载：全新实例必须收事件（刷新 / 深链 / 首次挂载都不能丢）', () => {
   const view = new ViewAttachment();

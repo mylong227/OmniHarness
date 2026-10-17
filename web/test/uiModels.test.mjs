@@ -1,17 +1,17 @@
-// 领域模型单测（第二组）：验证批次 2–4 抽取出的零 React 业务类。
+﻿// 领域模型单测（第二组）：验证批次 2–4 抽取出的零 React 业务类。
 // 全部为纯逻辑，node 直跑 web/dist 编译产物。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { FileKindClassifier } from '../dist/ui/models/FileKindClassifier.js';
-import { NumberFormatter } from '../dist/ui/models/NumberFormatter.js';
-import { ImportanceStars } from '../dist/ui/models/ImportanceStars.js';
-import { PathJoiner } from '../dist/ui/models/PathJoiner.js';
-import { FileIconResolver } from '../dist/ui/models/FileIconResolver.js';
-import { FileSizeFormatter } from '../dist/ui/models/FileSizeFormatter.js';
-import { ProviderStatusResolver } from '../dist/ui/models/ProviderStatus.js';
-import { GraphDefBuilder } from '../dist/ui/models/GraphDefBuilder.js';
-import { ComposerDraft } from '../dist/ui/models/ComposerDraft.js';
+import { test } from 'vitest';
+import { FileKindClassifier } from '../src/ui/models/FileKindClassifier.js';
+import { NumberFormatter } from '../src/ui/models/NumberFormatter.js';
+import { ImportanceStars } from '../src/ui/models/ImportanceStars.js';
+import { PathJoiner } from '../src/ui/models/PathJoiner.js';
+import { FileIconResolver } from '../src/ui/models/FileIconResolver.js';
+import { FileSizeFormatter } from '../src/ui/models/FileSizeFormatter.js';
+import { ProviderStatusResolver } from '../src/ui/models/ProviderStatus.js';
+import { GraphDefBuilder } from '../src/ui/models/GraphDefBuilder.js';
+import { ComposerDraft } from '../src/ui/models/ComposerDraft.js';
 
 test('FileKindClassifier 分类代码 / markdown / 纯文本', () => {
   assert.equal(FileKindClassifier.classify('ts'), 'code');

@@ -5,9 +5,9 @@
 //
 // 直跑：node --test web/test/sessionTimeGrouping.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
-const { SessionGrouper } = await import('../dist/ui/models/SessionGrouper.js');
+const { SessionGrouper } = await import('../src/ui/models/SessionGrouper.js');
 
 /** 造一条会话（只需 id 与 updatedAt 参与分桶）。 */
 function row(id, updatedAt) {

@@ -1,4 +1,4 @@
-// 设置面板结构契约：字段声明（SETTINGS_FIELDS）与分栏声明（SETTINGS_TABS）的一致性。
+﻿// 设置面板结构契约：字段声明（SETTINGS_FIELDS）与分栏声明（SETTINGS_TABS）的一致性。
 //
 // 为什么值得单测：设置面板的**单一事实源**是 `SettingsModel` 里的两份声明数组，
 // 组件只是把它渲染出来。这带来一种新风险——声明本身可能自相矛盾（字段指向不存在的分栏、
@@ -8,10 +8,10 @@
 // 直跑 web/dist，node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 
 const { SETTINGS_FIELDS, SETTINGS_TABS, CATALOG_KEYS, SettingsModel } = await import(
-  '../dist/ui/models/SettingsModel.js'
+  '../src/ui/models/SettingsModel.js'
 );
 
 test('每个字段都归属一个已声明的分栏（不留孤儿字段）', () => {

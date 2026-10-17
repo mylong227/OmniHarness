@@ -1,4 +1,4 @@
-// i18n 词条完整性门禁（纯静态扫描，零浏览器依赖）：
+﻿// i18n 词条完整性门禁（纯静态扫描，零浏览器依赖）：
 //
 // 判据一：web/src 源码里每个 `t('…')` / `t("…")` **字面量键**都必须能在 en 词条分片
 //         （web/src/ui/i18n/en/*.ts）里找到同键条目——缺词条时 en 语言会静默回落中文，
@@ -12,7 +12,7 @@
 //
 // 直跑：node --test web/test/i18nCoverage.test.mjs（无需构建）。
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';

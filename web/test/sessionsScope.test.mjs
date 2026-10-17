@@ -1,11 +1,11 @@
-// 会话显示范围（当前项目 / 全部项目）的本机偏好：解析、写回、翻转、RPC 参数映射。
+﻿// 会话显示范围（当前项目 / 全部项目）的本机偏好：解析、写回、翻转、RPC 参数映射。
 //
 // 为什么把它单独测：这个开关就是"我的项目数据去哪了"的答案——存档在全局目录、按项目标记归属，
 // 缺省只显示当前项目（防淹没），但**必须**能一键看到全部。偏好读写出错时不得影响功能，
 // 故非法值/隐私模式一律回落 `current`。
 import assert from 'node:assert/strict';
-import test from 'node:test';
-import { SessionsScope } from '../dist/ui/models/SessionsScope.js';
+import { test } from 'vitest';
+import { SessionsScope } from '../src/ui/models/SessionsScope.js';
 
 /** 装一个最小 localStorage（Node 无 DOM）。 */
 function withStorage(initial) {

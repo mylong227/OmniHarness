@@ -1,4 +1,4 @@
-// a11y 对比度门禁（D1）：对 web/styles 做「前景 × 背景」对比度体检，按 WCAG 2.1 AA 判定。
+﻿// a11y 对比度门禁（D1）：对 web/styles 做「前景 × 背景」对比度体检，按 WCAG 2.1 AA 判定。
 //
 // 为什么用门禁而不是人眼看一遍：
 //   主题是双套（dark / light）且颜色全走 CSS 变量，改一个 token 的代价是「另一套主题下某个
@@ -23,7 +23,7 @@
 //     单段回复容器高度 46px＝2 行，正常应为 1 行 ≈23px）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
