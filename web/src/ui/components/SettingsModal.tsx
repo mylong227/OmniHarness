@@ -21,12 +21,17 @@
 //
 // role="dialog" + aria-modal + aria-label；Esc 关闭；关闭按钮有 aria-label；
 // 分栏导航是 role="tablist" + role="tab"（aria-selected）——不靠颜色表达选中。
+//
+// **焦点陷阱（2026-10-17 补）**：打开时把焦点移进模态、Tab/Shift+Tab 在框内绕圈、
+// 关闭时把焦点还给打开它的那个元素。此前只有 aria-modal 而没有真的圈住焦点，
+// Tab 能走到背后的会话列表上——那是 WCAG 2.4.3 的实质缺陷（详见 models/focusTrap.ts）。
 
 import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { useApp } from '../context.js';
 import { emptyNote } from '../format.js';
 import { t, type Locale } from '../i18n/i18n.js';
+import { focusableWithin, trapTab } from '../models/focusTrap.js';
 import {
   SettingsModel,
   SETTINGS_FIELDS,
@@ -143,15 +148,46 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
     };
   }, [open, settings]);
 
-  // Esc 关闭：挂 window 而非容器，避免焦点在输入框里时按键丢失。
+  /** 模态根元素（焦点陷阱的作用域；同时是可聚焦兜底目标，见下方 tabIndex）。 */
+  const dialogRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Esc 关闭 + Tab 圈定焦点：挂 window 而非容器，避免焦点在输入框里时按键丢失。
+  //
+  // 为什么 Tab 也在这里处理：一旦焦点跑出模态（例如打开瞬间焦点还在背后按钮上），
+  // 容器上的 onKeyDown 就收不到事件了。挂 window 才能把它**拉回来**。
   React.useEffect(() => {
     if (!open) return undefined;
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === ESC) onClose();
+      if (e.key === ESC) {
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab') {
+        // trapTab 只在"需要绕回"或"焦点在框外"时返回 true；中间位置交给浏览器自然移动。
+        if (trapTab(dialogRef.current, e.shiftKey)) e.preventDefault();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
+
+  // 打开把焦点移进模态、关闭还给原来的元素。
+  //
+  // 为什么用 rAF 延后一帧：首次打开时内容（厂商目录、分栏正文）是异步挂载的，
+  // effect 运行的这一刻可能还没有任何可聚焦子元素；此时退而聚焦容器本身。
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const opener = document.activeElement as HTMLElement | null;
+    const id = requestAnimationFrame(() => {
+      const first = focusableWithin(dialogRef.current)[0];
+      (first ?? dialogRef.current)?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(id);
+      // 归还焦点：opener 可能已被卸载（例如打开它的按钮所在面板关了），故先查 isConnected。
+      if (opener !== null && opener.isConnected) opener.focus();
+    };
+  }, [open]);
 
   // 厂商栏状态（纯 UI）：草稿 / 检测结果 / 模型选择 / 忙碌标记 / 目录。
   const [providers, setProviders] = React.useState<ProviderPreset[]>([]);
@@ -159,7 +195,38 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [probes, setProbes] = React.useState<Record<string, ProviderProbeResult>>({});
   const [modelSel, setModelSel] = React.useState<Record<string, string>>({});
-  const [busy, setBusy] = React.useState<string>('');
+  // 忙碌标记**按厂商分开**（`{ [providerId]: 'key' | 'probe' | 'enable' }`）。
+  //
+  // ⚠️ 2026-10-17 修一个真实的串台缺陷：此前是单个字符串 `'<id>:<kind>'`，后果有两个——
+  //   ① `ProviderCard` 只做 `disabled = busy !== ''`，于是 A 厂商在检测时**所有厂商**的
+  //      保存/检测/启用按钮一起变灰（用户会以为界面卡死）；
+  //   ② A 完成时 `setBusy('')` 会把 B 刚点下的转圈一起清掉，B 的操作看起来"没反应"。
+  // 改成按 id 记录后，每个厂商只影响自己那一张卡，且各操作的收尾只清自己那把键。
+  const [busyById, setBusyById] = React.useState<Record<string, string>>({});
+
+  /**
+   * 标记某厂商正在执行某操作。
+   * @param id 厂商 id
+   * @param kind 操作种类（key / probe / enable）
+   * @returns 无
+   */
+  const markBusy = (id: string, kind: string): void => {
+    setBusyById((prev) => ({ ...prev, [id]: kind }));
+  };
+
+  /**
+   * 清掉某厂商的忙碌标记（**只清自己那把键**，不影响其它厂商）。
+   * @param id 厂商 id
+   * @returns 无
+   */
+  const clearBusy = (id: string): void => {
+    setBusyById((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
 
   /** 拉厂商目录与生效配置（失败静默保留上一帧）。 */
@@ -218,7 +285,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
       toast(t('请输入 API Key'), 'err');
       return;
     }
-    setBusy(p.id + ':key');
+    markBusy(p.id, 'key');
     try {
       await api.updateConfig({ setProviderKey: { vendor: p.id, key } });
       setDrafts((prev) => ({ ...prev, [p.id]: '' }));
@@ -228,13 +295,13 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
     } catch (e) {
       toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
-      setBusy('');
+      clearBusy(p.id);
     }
   };
 
   /** 连通检测：真实请求厂商端点，拿回实测模型清单。 */
   const probe = async (p: ProviderPreset): Promise<void> => {
-    setBusy(p.id + ':probe');
+    markBusy(p.id, 'probe');
     try {
       const r = await api.probeModels(p.id);
       const result = r.providers[0];
@@ -250,7 +317,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
     } catch (e) {
       toast(t('检测失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
-      setBusy('');
+      clearBusy(p.id);
     }
   };
 
@@ -262,7 +329,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
       toast(t('没有可用模型，请先检测'), 'err');
       return;
     }
-    setBusy(p.id + ':enable');
+    markBusy(p.id, 'enable');
     try {
       await api.updateConfig({ enableProvider: p.id, model });
       toast(t('{name} 已启用（模型 {model}），下一条消息即生效', { name: p.label, model }), 'ok');
@@ -274,7 +341,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
     } catch (e) {
       toast(t('启用失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
-      setBusy('');
+      clearBusy(p.id);
     }
   };
 
@@ -384,7 +451,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
                         maskedKey={maskedKeys[p.id]}
                         probe={probes[p.id]}
                         draft={drafts[p.id] ?? ''}
-                        busy={busy}
+                        busy={busyById[p.id] ?? ''}
                         active={isActive(p)}
                         selectedModel={selectedModelOf(p, probes[p.id]?.models ?? [])}
                         onDraft={(v) => setDrafts((prev) => ({ ...prev, [p.id]: v }))}
@@ -546,7 +613,15 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="sp" role="dialog" aria-modal="true" aria-label={t('设置')}>
+      <div
+        className="sp"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('设置')}
+        ref={dialogRef}
+        // tabIndex=-1：不参与 Tab 序列，但允许被程序性聚焦（框内无可聚焦元素时兜底）。
+        tabIndex={-1}
+      >
         <div className="sp-top">
           <span className="sp-top-title">
             {icon('gear', { size: 14 })}

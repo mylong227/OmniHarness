@@ -3227,3 +3227,88 @@ serve 台账只挡**进程内**重复续跑，而 CLI 可以同时开两个进�
 - **锁只在同主机/本地文件系统语义下成立**：跨主机共享目录（NFS/SMB）上的 `wx` 独占与 PID 判活都不保证，届时只能靠年龄上限兜底（本轮未在共享盘上实测）。
 - **`docs/protocol.md` 不逐个登记 `graph.*`**：该文档**明文声明**「其余 RPC 直读注册处、不在本文件与单源 schema 内」，
   故不是漏登记；本轮在该指针处补上了图运行一族的名字（含 `graph.resume`）以便检索。
+
+---
+
+## 11. 前端迁移为标准 Vite + React 项目（2026-10-17，六轮）
+
+**动机**：用户提出「前端是 React 实现的，为什么还有一个 index.html 文件…为啥不是标准 react 前端项目形式呢？」
+复核确认：`web/` 当时是「零打包器 + `tsc` 直出原生 ESM + React UMD 全局」——`web/dist/main.js` 由 `tsc` 逐文件
+编译，`index.html` 用 `<script src="./vendor/react.production.min.js">` 注入 UMD，再由一个 `deps.ts` 从
+`window.React` 取出来用。那套形态在 2026-10 之前是**刻意选择**（零构建步骤、离线可用），但它有真实代价：
+无 HMR、无 tree-shaking、每个模块一次请求、且"React 从 window 取"与主流 React 工程的心智模型不一致。
+
+**结论：全部对齐标准 Vite + React + TypeScript 项目。** 分六轮落地，每轮都以「web 测试全绿 + 门禁 + 真机探针」为界。
+
+### 11.1 迁移清单（逐项对齐标准）
+
+| 维度       | 迁移前                                       | 现状                                                                   |
+| ---------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| 构建       | `tsc -p web/tsconfig.json` 直出 158 个 ESM   | `vite build` → `web/dist`，**单 bundle 带 hash**（1030 KB）            |
+| 开发       | `tsc --watch` + 刷新                         | **Vite dev server + HMR**（`/rpc` `/events` `/files` 代理到后端）      |
+| 依赖       | UMD 文件放 `web/vendor/`，`<script>` 注入    | **全部 npm**（react / react-dom / markdown-it / katex / highlight.js） |
+| React 取用 | `deps.ts` 从 `window.React` 取               | `import * as React from 'react'`（**间接层已删除**）                   |
+| JSX        | classic（`jsxFactory: React.createElement`） | **自动运行时 `react-jsx`**                                             |
+| 样式       | `index.html` 里 20 条 `<link>`               | **入口 `web/src/main.ts` import**，单条 CSS 产物                       |
+| 测试       | `node --test` + 编译产物                     | **Vitest**（81 文件 / 481 例），测试直接 import 源码                   |
+| 类型       | `tsc` 兼作构建                               | `tsc --noEmit`（`moduleResolution: bundler`），构建只由 Vite 负责      |
+
+### 11.2 六轮各自的实质内容
+
+1. **Vite 骨架**：`vite.config.ts`（root=`web`、outDir=`web/dist`、`base:'./'`、`keepNames`、dev proxy）、
+   `vitest.config.ts`、`jsToTs` 插件（仓库写 `.js` 说明符但源码是 `.ts`）；130 处测试 import 从 `../dist/` 改到 `../src/`；
+   79 个判据从 `node:test` 迁到 Vitest。
+2. **删 `web/vendor`**：markdown-it / KaTeX / highlight.js 改 npm import（highlight 用 `lib/common` 子集——
+   全量入口会让 bundle 多 800 KB，而原 vendor 那个 121 KB 文件本身就是 common 构建）；KaTeX 字体随 Vite 进 `assets/`；
+   新增 `vendorFreePipeline` 判据（断言三个库真进了包、字体产出、产物不含旧 UMD）。
+3. **自动 JSX 运行时** + **CSS 入口 import**：前者打破了一个隐含前提（25 个零 DOM 判据依赖
+   "JSX → `React.createElement`" 才能收集纯数据 vnode），补了 `web/test/jsxRuntimeStub.mjs` 把 `jsx/jsxs`
+   转回桩；后者把样式的事实源从 HTML 移到 `main.ts`，两条判据（`a11yContrast` / `indexHtmlAssets`）跟着换来源。
+4. **删 `deps.ts`**（最后一处非标准）：68 个源文件改直接 import；测试侧用 vitest 的 `resolve.alias`
+   把 `react` 指到 `hooksStub`，`hooksStub` 升级为"可被当作 react 模块"（模块级 current runtime + 15 个具名导出转发，
+   补 `useSyncExternalStore`，无人安装时惰性自建）。
+5. **设置模态焦点陷阱**（真实 a11y 缺陷）：见 11.3。
+6. **文档与账目**：`AGENTS.md` 前端段整段重写（旧描述"没有打包器、也没有 dev server"会误导后续会话）、
+   `STARTUP.md` / `README.md` / `ARCHITECTURE_SPEC.md` / `CODE_STANDARD.md` 同步。
+
+### 11.3 顺手修掉的两个真实缺陷（都不是迁移引入的）
+
+**① 设置模态没有焦点陷阱**（WCAG 2.4.3）。此前只有 `role="dialog"` + `aria-modal` + Esc，
+Tab 会一路走出模态落到左栏会话列表上——`aria-modal` 只告诉辅助技术"别管背后"，**不会**替你关住焦点。
+新增 `web/src/ui/models/focusTrap.ts`（绕圈计算抽成纯函数 `nextTabIndex`，DOM 半段查可见可聚焦元素）
+
+- 打开移入焦点 / 关闭归还给触发器。
+
+**② 厂商卡的忙碌标记串台**。`busy` 原是单个字符串 `'<id>:<kind>'`，而 `ProviderCard` 只做
+`disabled = busy !== ''` ⇒ A 厂商检测时**所有厂商**按钮一起变灰；且 A 完成时 `setBusy('')` 会把 B 的转圈清掉。
+改为按厂商 id 记录（`Record<string, string>`），各操作只清自己那把键。
+
+### 11.4 判据（命令 + 实测结果）
+
+| 项                                      | 结果                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------- |
+| `npx vitest run`                        | **81 文件 / 481 例全绿**                                                        |
+| `node --test dist/tests/unit/*.test.js` | 3427 tests / 3421 pass / 0 fail（6 skip，与基线一致）                           |
+| `npx tsc --noEmit`（双端）              | 通过                                                                            |
+| `node scripts/runGates.mjs`（fast）     | 通过                                                                            |
+| `node scripts/check.mjs`                | 零违规（扫描 1067 个 TS 文件）                                                  |
+| 真机 serve                              | 产物 2 个资源全 200；页面挂载、三栏齐全、CSS 生效                               |
+| 焦点陷阱（真 Chrome）                   | 37 个可聚焦元素，Tab 20 次 / Shift+Tab 5 次**零逃逸**，Esc 关闭且焦点回到触发器 |
+
+**新判据都做了正负对照**（按 §9.1 第 3 条：新判据必须能对已知坏输入变红）：
+
+- `vendorAndTypeSource` 的全量扫描：注入一行 `globalThis.window.React` ⇒ 立刻红，回滚恢复绿；
+- `modalFocusTrap`：临时拆掉 Tab 分支 ⇒ 第 8 次 Tab 就跑到左栏（红），装上后零逃逸。
+
+### 11.5 遗留与边界（诚实登记）
+
+- **`focusTrap` 的 DOM 半段只有真机判据**：`focusableWithin` / `trapTab` 依赖 `document`，本仓 node 环境无真 DOM，
+  纯函数部分（`nextTabIndex`）有 9 条零 DOM 判据，接线部分由 `modalFocusTrap`（真 Chrome）覆盖。
+- **`DialogHost` 仍是手写 refs 圈定**：它只有 2-3 个可聚焦元素，改造收益低，本轮未动（口径不同但都成立）。
+- **`web/styles/` 里仍有约 40 处休眠的旧彩色字面量**（`layout.css` / `chat.css`），已被 `minimal.css` 全覆盖 ⇒
+  不影响渲染。未删原因：删除属纯视觉改动，需要逐屏比对，收益低于风险；若要清理应作为独立的「视觉回归」任务。
+- **`web/vendor` 会被本机外部工具反复还原到磁盘**（本会话实测 ≥3 次，`web/styles/polish.css` 同现象）。
+  现在它**未被跟踪 + 被 `.gitignore` 挡住 + `publicDir` 已移除** ⇒ 惰性无害；判据断言的是"未被跟踪 / 未进产物 / 未被引用"
+  而不是"磁盘上不存在"（后者只会制造看环境而红的假红）。
+- **`deps.ts` 的删除曾被静默撤销一次**（`git add -A` + 外部还原的组合导致 staged 删除消失），
+  已用 `git rm` 重做并在提交前复核 `git diff --cached`；教训写入该提交说明。
