@@ -7,7 +7,6 @@
 // 「已保存」提示由 state 驱动 + useRef 持有的定时器自动消隐（卸载时清理对称）。
 
 import * as React from 'react';
-import { icon } from '../../models/Icon.js';
 import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';
 import type { Config, Profile } from '../../../types/models.js';

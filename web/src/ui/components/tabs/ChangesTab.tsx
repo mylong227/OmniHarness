@@ -73,8 +73,13 @@ export function ChangesTab(): ReactElement {
   /** 行内评论草稿锚点。 */
   const [draft, setDraft] = React.useState<CommentAnchor | null>(null);
   const [draftText, setDraftText] = React.useState<string>('');
-  /** 选中块序号的渲染镜像（权威值在 ReviewCursor）。 */
-  const [selected, setSelected] = React.useState<number>(-1);
+  /**
+   * 选中块序号的**重渲染触发器**（权威值在 `ReviewCursor`）。
+   *
+   * 值本身不参与渲染（渲染用 `cursor.sync(...)` 的结果），这里只需要"改动它就能触发重渲染"，
+   * 故解构时丢掉第一项——保留一个没人读的 `selected` 变量只会让人以为它才是权威值。
+   */
+  const [, setSelected] = React.useState<number>(-1);
   /** 快捷键帮助是否展开（渲染镜像）。 */
   const [help, setHelp] = React.useState<boolean>(false);
   /**

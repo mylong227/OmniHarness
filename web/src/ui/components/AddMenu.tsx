@@ -89,7 +89,6 @@ function renderSection(section: AddMenuSection, onItem: (id: string) => void): R
  */
 export function AddMenu(props: AddMenuProps): ReactElement {
   const { threadId, api, onAttach, onToast, onOpenTab, onOpenFile, onLoadThread } = props;
-  const applyMode = props.onApplyMode;
   const { dialog } = useApp();
   const [open, setOpen] = React.useState<boolean>(false);
   const [goal, setGoal] = React.useState<string>('');

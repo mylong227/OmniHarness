@@ -375,8 +375,22 @@ export function App(): ReactElement {
 export function mountApp(container: Element): void {
   // 最外层套**渲染错误边界**：渲染期抛错若无人接管，React 会卸载整棵树 ⇒ 用户看到全黑空白页
   // （2026-09-27 两次报障即此形态）。有边界则降级为可读错误面板 + 原地重试，并留存现场。
+  // 层次：StrictMode（最外）→ RenderErrorBoundary → App。
+  //
+  // 为什么套 **StrictMode**（标准 Vite React 模板的默认形态，2026-10-17 补）：
+  //   它在**开发**态故意让状态更新函数与 effect 跑两遍，从而暴露三类只有并发渲染才会犯的错——
+  //   副作用没清理、effect 依赖写漏、在渲染期做副作用。这些错误在生产态表现为偶发的
+  //   "数据重复加载 / 监听器泄漏"，极难复现；开着 StrictMode 时一写就露。
+  //   生产构建里它是**空操作**（不双跑），故不影响线上行为与包体积（gzip 后 < 10 字节）。
+  //
+  // 为什么放在**错误边界外面**：边界若自己抛错，StrictMode 不接错误，不该被当成兜底手段；
+  //   而边界放里层才能既接住 App 的错、又让自己处在双跑检验之外（边界本不该有副作用）。
   createRoot(container).render(
-    React.createElement(RenderErrorBoundary, null, React.createElement(App, null)),
+    React.createElement(
+      React.StrictMode,
+      null,
+      React.createElement(RenderErrorBoundary, null, React.createElement(App, null)),
+    ),
   );
 }
 

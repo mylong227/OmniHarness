@@ -185,6 +185,38 @@ test('web/vendor 未被跟踪、未进产物、未被引用（依赖统一走 np
   );
 });
 
+test('标准 Vite 工程的三个必备件：vite-env.d.ts / StrictMode / .tsx 纳入 lint', () => {
+  // ① `vite-env.d.ts` —— CSS 副作用导入、`import.meta.env`、资源后缀的类型来源。
+  //    缺了它，`import '../styles/theme.css'`（本仓 20 条）在类型层无处可依。
+  const envDts = join(WEB_ROOT, 'src', 'vite-env.d.ts');
+  assert.ok(existsSync(envDts), 'web/src/vite-env.d.ts 必须存在（标准 Vite 工程必备）');
+  assert.match(
+    readFileSync(envDts, 'utf8'),
+    /\/\/\/ <reference types="vite\/client" \/>/u,
+    'vite-env.d.ts 必须显式引用 vite/client（web/tsconfig 的 types:[] 不会自动带进来）',
+  );
+
+  // ② StrictMode —— 开发态双跑，逼出"副作用没清理 / 依赖写漏"这类只在并发渲染下犯的错。
+  assert.match(
+    read('web/src/ui/App.ts'),
+    /React\.StrictMode/u,
+    'mountApp 必须把树包进 React.StrictMode（标准 React 模板默认形态）',
+  );
+  // 桩必须跟着有：否则 createElement(undefined) 会造出 type=undefined 的节点，
+  // 表现是"挂载了但什么都没渲染"（已踩过一次）。
+  const stub = read('web/test/hooksStub.mjs');
+  assert.match(stub, /export const StrictMode =/u, 'hooksStub 必须导出 StrictMode（react 模块替身要完整）');
+
+  // ③ `.tsx` 必须纳入 lint —— 2026-10-17 之前只写了 `**/*.ts`，
+  //    60 个组件文件（约 116 KB）从未被 lint，属于"整层代码在门禁之外"。
+  const eslintCfg = read('eslint.config.mjs');
+  assert.match(
+    eslintCfg,
+    /files: \['\*\*\/\*\.ts', '\*\*\/\*\.tsx'\]/u,
+    "eslint 配置必须同时覆盖 **/*.ts 与 **/*.tsx（否则组件层不受任何 lint 约束）",
+  );
+});
+
 test('类型层来自官方包：手写垫片不得回归，且官方类型仍在 devDependencies', () => {
   assert.ok(
     !existsSync(join(WEB_ROOT, 'src/types/react-shim.d.ts')),

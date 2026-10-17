@@ -9,7 +9,7 @@
 // 「语言分类」判据复用 FileKindClassifier（零 React，可单测）。
 
 import * as React from 'react';
-import { highlightCode, langOf } from '../../highlight.js';
+import { langOf } from '../../highlight.js';
 import { renderMarkdown, emptyState } from '../../format.js';
 import type { FileView } from '../../shared.js';
 import { FileKindClassifier } from '../../models/FileKindClassifier.js';

@@ -26,8 +26,6 @@ import {
   badge,
   jsonView,
   todoView,
-  timeOf,
-  emptyState,
   esc,
   questionView,
 } from '../format.js';

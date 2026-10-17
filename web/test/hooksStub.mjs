@@ -70,6 +70,15 @@ export function createRuntime() {
     },
     Fragment: STUB_FRAGMENT,
     /**
+     * 桩版 StrictMode：**直通**（渲染时当作一个普通包裹层）。
+     *
+     * 为什么必须有：`mountApp` 现在把树包进 `React.StrictMode`。桩若没有这个成员，
+     * `createElement(undefined, ...)` 会造出 type=undefined 的节点，判据里看不到 App 的内容
+     *（表现是"挂载了但什么都没渲染"，很难第一时间联想到 StrictMode）。
+     * 真实 StrictMode 的"双跑"语义在零 DOM 桩里没有意义，故此处只保证可渲染。
+     */
+    StrictMode: STUB_STRICTMODE,
+    /**
      * 桩版 createContext：只要 Provider/Consumer 形状存在即可。
      * @returns 上下文桩
      */
@@ -299,6 +308,9 @@ export function createRuntime() {
 /** Fragment 的稳定符号（stub 与"react 模块导出"共用同一个，避免身份比较假红）。 */
 const STUB_FRAGMENT = Symbol('Fragment');
 
+/** StrictMode 的稳定符号（同上；桩里只作直通包裹层，不做双跑）。 */
+const STUB_STRICTMODE = Symbol('StrictMode');
+
 /** 当前生效的 runtime（由 `createRuntime()` 设置）。 */
 let currentRuntime = null;
 
@@ -325,6 +337,9 @@ export function createElement(...args) {
 
 /** Fragment（稳定符号）。 */
 export const Fragment = STUB_FRAGMENT;
+
+/** StrictMode（稳定符号，直通渲染）。 */
+export const StrictMode = STUB_STRICTMODE;
 
 /** 桩版 useState（转发）。 */
 export function useState(...args) {

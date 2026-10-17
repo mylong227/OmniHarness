@@ -50,7 +50,13 @@ export default tseslint.config(
     ],
   },
   {
-    files: ['**/*.ts'],
+    // `.tsx` 必须一起纳入（2026-10-17 修）：此前只写了 `**/*.ts`，于是 **60 个组件文件
+    //（约 116 KB）从未被 lint 过**——ESLint 对它们的原话是
+    // `File ignored because no matching configuration was supplied`。
+    // 后果不是"少几条提示"，而是整整一层代码（UI 组件）在规范门禁之外：
+    // 未使用导入、未使用状态、遗留别名都无人发现。首次纳入时暴露出 12 条真实死代码，
+    // 已当场清干净（0 error / 0 warning），此后任何新增都会立刻被 pre-commit 挡住。
+    files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',

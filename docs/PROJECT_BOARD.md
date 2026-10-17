@@ -3312,3 +3312,32 @@ Tab 会一路走出模态落到左栏会话列表上——`aria-modal` 只告诉
   而不是"磁盘上不存在"（后者只会制造看环境而红的假红）。
 - **`deps.ts` 的删除曾被静默撤销一次**（`git add -A` + 外部还原的组合导致 staged 删除消失），
   已用 `git rm` 重做并在提交前复核 `git diff --cached`；教训写入该提交说明。
+
+### 11.6 标准工程形态的最后三项（2026-10-17，第七轮）
+
+对照标准 Vite + React + TypeScript 工程逐项体检，又补了三处：
+
+| 项              | 之前                                                                                            | 现在                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `vite-env.d.ts` | **不存在** —— CSS 副作用导入（`main.ts` 里 20 条）、`import.meta.env`、资源后缀在类型层无处可依 | 已补，显式 `/// <reference types="vite/client" />`（`web/tsconfig.json` 的 `types: []` 不会自动带进来） |
+| `StrictMode`    | **未使用** —— 开发态不双跑，副作用没清理 / effect 依赖写漏这类错只能到线上偶发时才发现          | `mountApp` 已按标准模板包一层，位于错误边界**外**（层次：StrictMode → RenderErrorBoundary → App）       |
+| ESLint 覆盖     | 只写了 `**/*.ts` ⇒ **60 个 `.tsx` 组件文件（约 116 KB）从未被 lint**                            | 已纳入 `**/*.tsx`；首次纳入暴露 **12 条真实死代码**（未使用导入/状态/遗留别名），已全部清掉             |
+
+**为什么第三条最要紧**：它不是"少几条提示"，而是**整整一层代码（UI 组件）在规范门禁之外**。
+ESLint 对这些文件的原话是 `File ignored because no matching configuration was supplied`——
+静默跳过，不报错，所以一直没人发现。用"注入违规探针"才验出来：`.ts` 里的 `any` 立刻报错，
+`.tsx` 里同样写法却完全无声。
+
+**12 条死代码的类型**（都已修，无一条是误报）：
+`AddMenu` 遗留的 `const applyMode = props.onApplyMode`（代码实际用的是 `props.onApplyMode`）；
+`StreamView` 未使用的 `timeOf`/`emptyState`；`AssistantCard` 未使用的 `esc`；
+`ChangesTab` 的 `selected`（值不参与渲染，只需 setter 触发重渲染 ⇒ 改 `const [, setSelected]`）；
+`FileTab` 未使用的 `highlightCode`；`SettingsTab` 未使用的 `icon`。
+
+**判据**：`vendorAndTypeSource` 新增一条，同时钉住三件事（`vite-env.d.ts` 存在且引用 `vite/client`、
+`mountApp` 含 `React.StrictMode`、`eslint.config.mjs` 的 `files` 同时含 `.ts` 与 `.tsx`）。
+`hooksStub` 也补了 `StrictMode`（稳定符号 + 具名导出）——桩缺这个成员会造出 `type=undefined` 的节点，
+表现是"挂载了但什么都没渲染"，已踩过一次。
+
+**实测**：`npx eslint . --max-warnings=0` 全仓 0 问题；Vitest **82 文件 / 483 例全绿**；
+双端 `tsc --noEmit` 通过；真机（新产物）挂载正常、三栏齐全、**零未捕获异常 / 零控制台错误**。
