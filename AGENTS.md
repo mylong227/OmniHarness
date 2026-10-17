@@ -12,22 +12,38 @@
 - `scripts/git-hooks/pre-push`（经 `core.hooksPath` 激活）会**硬拦**推往该误建仓库的尝试；
   推往其它非本账号仓库默认只告警。确需临时放行：`OMNI_ALLOW_FOREIGN_PUSH=1 git push ...`；
   要连非本账号目标一起硬拦：`OMNI_STRICT_PUSH=1`。
-- **镜像 TLS 故障时的推送旁路（2026-10-06 实测有效）**：ghproxy 偶发证书错误
-  （`SEC_E_CERT_EXPIRED` / `SEC_E_WRONG_PRINCIPAL`，隔几分钟可能自愈）。镜像证书是
-  「隔几分钟可能自愈」级别的故障，故只旁路不改配置——直连 github.com 历史 1/3 成功率，
-  重试即可。**不能**用 `git -c url...insteadOf` 旁路：remote.origin.pushurl 本身就是镜像 URL
-  （不参与重写），且 pushInsteadOf 优先于 insteadOf。有效写法是**最长前缀身份重写 + 显式 URL**：
-  `git -c url."https://github.com/mylong227".pushInsteadOf=https://github.com/mylong227 push https://github.com/mylong227/OmniHarness.git main`
+- **推送必须走直连，镜像只用于读**（2026-10-17 实测，纠正了此前本条里的错误说法）：
+  - `git push origin main` **必失败**：`origin` 的 fetch/push URL 都是 `ghproxy.net`，而镜像的
+    POST **不转发授权头** ⇒ `remote: Invalid username or token. Password authentication is not supported`。
+    换成经镜像的 URL 也救不回来。
+  - 本机**没有**全局 `pushInsteadOf` 镜像规则（`git config --global --get-regexp 'url\..*insteadOf'`
+    为空），所以不必也不要用 `-c url...pushInsteadOf=` 去"绕过"——那样反而把目标改写成
+    `https://github.com/mylong227` 这种不被 git 信任的 URL 形式。
+    （2026-10-06 曾把这条 `-c` 写法记成"有效旁路"，2026-10-17 复测证伪：它只在极少数情况下碰巧成功，
+    失败时分别报 `stale info` 或 `Invalid username or token`。已删除该说法，别再照抄。）
+  - **有效写法**（直连 github.com，浏览器能打开即说明通路在）：
+    ```bash
+    git push https://github.com/mylong227/OmniHarness.git main
+    ```
+    首次会走**浏览器/设备授权弹窗**，授权一次后本次会话内多次推送都不必再点；直连是间歇性的，
+    失败就等几秒重试（实测常 1～3 次内成功）。
+  - **改写历史后**必须 `--force-with-lease`，且**lease 值要显式给远端真实哈希**——本机没有
+    `refs/remotes/origin/main` 或它已过期时，裸 `--force-with-lease` 会一直报
+    `! [rejected] main -> main (stale info)`：
+    ```bash
+    H=$(git ls-remote https://github.com/mylong227/OmniHarness.git refs/heads/main | cut -f1)
+    git push --force-with-lease=main:$H https://github.com/mylong227/OmniHarness.git main
+    ```
 - **提交前自检**：`git remote -v` 应只看到 `origin → mylong227/OmniHarness`。看不到别的远程属正常（已清理）。
 
 ## 本机网络与凭据（实测，别再重复探测）
 
-| 事实                                                                                       | 影响 / 对策                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `github.com:443` **间歇可通**（实测 1/3 成功），`api.github.com` **稳定可通**              | 直连不可靠。**已两层兜住**：① 本仓 `origin` 的 pushurl 固定为 ghproxy 镜像；② **全局 `~/.gitconfig` 已改为推送也走镜像**（`url."https://ghproxy.net/https://github.com/".pushInsteadOf`；原来那条把推送改回直连的 no-op 规则已删除）⇒ 本机所有仓库 fetch/push 均经镜像。回滚：`git config --global --unset url."https://ghproxy.net/https://github.com/".pushInsteadOf`，再加回 `url."https://github.com/".pushInsteadOf=https://github.com/` |
-| 本机**没有任何代理/VPN**（无代理进程、无本地代理端口、系统代理关闭）                       | 不要花时间「找代理」「通过镜像打开登录页」——镜像只放行公开缓存页，`/settings/access` 与 `/login` 实测 404                                                                                                                                                                                                                                                                                                                                     |
-| 浏览器（Chrome）可打开 github.com；**CLI 与浏览器通路不同**                                | 需要在网页上操作时用浏览器；需要推代码时用镜像地址                                                                                                                                                                                                                                                                                                                                                                                            |
-| git 凭据 = 已存于 Windows 凭据管理器的 `mylong227` OAuth token（`gho_`，scopes 含 `repo`） | 不存在「token 范围不够」问题；请勿引导用户重配 token                                                                                                                                                                                                                                                                                                                                                                                          |
+| 事实                                                                                | 影响 / 对策                                                                                                                                        |
+| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github.com:443` **间歇可通**，`ghproxy.net:443` 稳定可通                           | **读走镜像、写走直连**（见上节）：fetch 用 `origin`（镜像）稳；push 必须直连真实 URL，失败重试即可。**镜像不可用于推送**——它不转发授权头，必然 401 |
+| 本机**没有任何代理/VPN**（无代理进程、无本地代理端口、系统代理关闭）                | 不要花时间「找代理」「通过镜像打开登录页」——镜像只放行公开缓存页，`/settings/access` 与 `/login` 实测 404                                          |
+| 浏览器（Chrome）可打开 github.com；推送授权也走浏览器                               | 需要网页操作时用浏览器；首次直连推送会弹授权，**用户在网页上点一次即可**，之后同会话内免重复授权                                                   |
+| git 凭据 = Windows 凭据管理器的 `mylong227` OAuth token（`gho_`，scopes 含 `repo`） | 不存在「token 范围不够」问题；请勿引导用户重配 token。也**不要**在推送前设 `GIT_TERMINAL_PROMPT=0`——它会掐掉授权弹窗（报 `User cancelled dialog`） |
 
 ## 权限事实（避免误判）
 

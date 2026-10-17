@@ -250,19 +250,27 @@
   letter-spacing: 0.09em;
 }
 
-/* 一等行动「新会话」：反白实心块（全页最多两处反白之一）。 */
+/* 「新会话」：**不用反白实心**（2026-10-17 用户：「太亮了，整体的色彩构图不协调」）。
+ *
+ * 改前是 `background: var(--accent)` —— 深色主题下 `--accent` 就是**纯白**，于是左栏顶部
+ * 摆着一块 248×36 的纯白，成了整屏最亮的东西；而它只是"新建"，不是"当前状态"。
+ * 反白实心在本体系里的语义是**状态标识**（当前会话行、当前页签的小标记），
+ * 用在普通按钮上会让强调失去稀缺性，也会和下方同色的「当前会话」行抢层级。
+ *
+ * 现在用 `--panel-2` 底 + `--border-soft` 边 + `--text` 字：比侧栏底色高一级、比反白低一级，
+ * 与输入区控件同一套明度语言。 */
 .new-chat {
-  background: var(--accent);
-  color: var(--ink-fg);
-  border: 1px solid transparent;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-soft);
   border-radius: var(--r-sm);
   font-weight: 550;
 }
 .new-chat:hover {
-  background: var(--accent);
-  color: var(--ink-fg);
-  border-color: transparent;
-  opacity: 0.88;
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--border);
+  opacity: 1;
 }
 .new-chat .nc-ico {
   color: inherit;
@@ -599,7 +607,12 @@
   color: var(--faint);
 }
 
-/* 主行动（发送）：反白实心圆，全页仅此一处圆形实心——形状本身就是「按这里」。 */
+/* 主行动（发送）：**唯一保留的反白实心**，且只作为小圆点存在（2026-10-17）。
+ *
+ * 为什么它保留而「新会话」改掉：这里需要一个**一眼可辨的主行动**，而 32px 的圆形实心
+ * 面积很小、不构成大色块；用户反馈的"太亮"来自左栏那块 248×36 的纯白与它同色叠加后
+ * 整屏出现两个同等强度的白块。把大面积那个降级后，这一处就成了唯一的落点，
+ * 强调重新变得稀缺 —— 形状（圆）+ 明度（反白）双重标记，也满足"语义不靠颜色单独承载"。 */
 .send.round {
   background: var(--accent);
   color: var(--ink-fg);
@@ -613,6 +626,8 @@
   filter: none;
   transform: none;
 }
+/* 禁用态：**不再用反白**（空输入框时最常见的就是这个状态——一个白点会很扎眼）。
+   用 `--panel-2` 底 + `--border-soft` 边 + `--dim` 图标：可见、可辨"不可点"、但不出挑。 */
 .send.round:disabled {
   background: var(--panel-2);
   color: var(--dim);
