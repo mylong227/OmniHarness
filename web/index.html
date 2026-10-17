@@ -34,30 +34,30 @@
        覆盖 vendor 的 GitHub 主题；同日删除了 ./vendor/highlight-github-dark.min.css 这条
        <link>（它是 15 种色相的彩虹配色，且在两套主题下都加载 ⇒ 浅色主题里的代码块一直
        是暗底彩字）。单色语法色由 styles/highlight.css 自己定义，不再需要 vendor 主题。 -->
-  <link rel="stylesheet" href="./styles/theme.css?v=20">
-  <link rel="stylesheet" href="./styles/layout.css?v=20">
-  <link rel="stylesheet" href="./styles/components.css?v=20">
-  <link rel="stylesheet" href="./styles/chat.css?v=20">
-  <link rel="stylesheet" href="./styles/tokens.css?v=20">
-  <link rel="stylesheet" href="./styles/base.css?v=20">
-  <link rel="stylesheet" href="./styles/polish-shell.css?v=20">
-  <link rel="stylesheet" href="./styles/polish-chat.css?v=20">
-  <link rel="stylesheet" href="./styles/polish-composer.css?v=20">
-  <link rel="stylesheet" href="./styles/polish-panels.css?v=20">
-  <link rel="stylesheet" href="./styles/overlays.css?v=20">
-  <link rel="stylesheet" href="./styles/resilience.css?v=20">
-  <link rel="stylesheet" href="./styles/shell.css?v=20">
-  <link rel="stylesheet" href="./styles/refine-surfaces.css?v=20">
-  <link rel="stylesheet" href="./styles/refine-rhythm.css?v=20">
-  <link rel="stylesheet" href="./styles/refine-overlays.css?v=20">
-  <link rel="stylesheet" href="./styles/refine-native.css?v=20">
-  <link rel="stylesheet" href="./styles/refine-density.css?v=20">
-  <link rel="stylesheet" href="./styles/minimal.css?v=20">
+  <link rel="stylesheet" href="./styles/theme.css?v=22">
+  <link rel="stylesheet" href="./styles/layout.css?v=22">
+  <link rel="stylesheet" href="./styles/components.css?v=22">
+  <link rel="stylesheet" href="./styles/chat.css?v=22">
+  <link rel="stylesheet" href="./styles/tokens.css?v=22">
+  <link rel="stylesheet" href="./styles/base.css?v=22">
+  <link rel="stylesheet" href="./styles/polish-shell.css?v=22">
+  <link rel="stylesheet" href="./styles/polish-chat.css?v=22">
+  <link rel="stylesheet" href="./styles/polish-composer.css?v=22">
+  <link rel="stylesheet" href="./styles/polish-panels.css?v=22">
+  <link rel="stylesheet" href="./styles/overlays.css?v=22">
+  <link rel="stylesheet" href="./styles/resilience.css?v=22">
+  <link rel="stylesheet" href="./styles/shell.css?v=22">
+  <link rel="stylesheet" href="./styles/refine-surfaces.css?v=22">
+  <link rel="stylesheet" href="./styles/refine-rhythm.css?v=22">
+  <link rel="stylesheet" href="./styles/refine-overlays.css?v=22">
+  <link rel="stylesheet" href="./styles/refine-native.css?v=22">
+  <link rel="stylesheet" href="./styles/refine-density.css?v=22">
+  <link rel="stylesheet" href="./styles/minimal.css?v=22">
   <!-- 成熟依赖（离线内置，零网络）：KaTeX 数学排版。
        与 React 同以 UMD 全局方式注入，由 markdown.ts 在渲染回复时消费。 -->
   <link rel="stylesheet" href="./vendor/katex.min.css?v=1">
   <!-- 单色语法高亮：必须排在 minimal 与 vendor 之后才能盖住 vendor 主题（见上）。 -->
-  <link rel="stylesheet" href="./styles/highlight.css?v=20">
+  <link rel="stylesheet" href="./styles/highlight.css?v=22">
   <!-- 主题持久化：必须在 paint 之前同步读取 localStorage 并设到 <html data-theme="...">。
        否则 React mount 完成后才设 data-theme 会闪一下 dark（CSS 默认）→ 再切 light，
        用户会感觉"刷新等于没设置"。这里 raw 内联，零依赖，文件大小 < 0.5KB（2026-09-08）。 -->

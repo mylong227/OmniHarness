@@ -929,25 +929,37 @@
   background: var(--panel-2);
   color: var(--text);
 }
-/* 菜单里的「当前项」：反白块（与侧栏当前会话同一语言）。 */
-.cmdk-item.active,
+/* 菜单/列表里的「当前项」：**专门的选中底色 + 左缘墨标 + 加粗标题**，不做纯白反白。
+ *
+ * 2026-10-17 修正（用户截图：「太白亮了导致文字看不清楚」）：
+ *   这里原先是 `background: var(--accent)` —— 深色下就是纯白实心。对**单行导航项**
+ *   尚可，但它们当中包含 `.dd-item`（权限档位选择器），那是 **340px 宽、两行文字**的容器：
+ *   标题靠反白变黑可读，可描述 `.perm-desc` 仍按旧层取 `--dim` ⇒ **白底浅灰字**，几乎看不见。
+ *   语义上也不对：反白实心表示"当前状态"（当前会话行、当前页签），
+ *   而"当前档位"只是列表里的一个选中项，旁边还有四项档位要读。
+ *
+ * 两轮修正才到位，过程值得留痕：
+ *   ① 先改成 `--panel-2` 底 → 文字可读了，但**选中项看不出来**：实测
+ *      `--panel-2`(#252525) 对菜单底 `--panel`(#161616) 只有 **1.18:1**（浅色 1.11:1）。
+ *   ② 再引入专用 `--panel-sel`（深色 #3a3a3a / 浅色 #d4d4d4，对菜单底约 1.9:1 / 1.5:1）
+ *      + 左缘 2px 墨标 + 标题加粗 —— 三者叠加，选中态"一眼可见"且文字全部可读。
+ *   注意**不要**再给 `.perm-desc` 单独设色：深底上 `--dim` 本来就够（6:1），
+ *   多一层覆盖只会让下一个改这块的人找不到真相。 */
 .dd-item.active,
-.pp-item.active,
-.cap-pop .cap-row.active {
-  background: var(--accent);
-  color: var(--ink-fg);
+.cmdk-item.active,
+.pp-item.active {
+  background: var(--panel-sel);
+  color: var(--text);
   border-color: transparent;
+  box-shadow: inset 2px 0 0 var(--accent);
 }
-.cmdk-item.active *,
-.pp-item.active * {
-  color: inherit;
+.dd-item.active .perm-name,
+.cmdk-item.active .cmdk-title,
+.pp-item.active .pp-title {
+  font-weight: 600;
 }
-/* ⚠️ 反白块里的**图标**必须逐个点名：图标类（.pp-ico / .dd-ico / .rail-icon / .addmenu-item-ico）
-   在旧层里都被单独设过 `color: var(--accent)` 或 `--dim`，权重 (0,3,0) 高于上面的
-   `.pp-item.active *`（(0,2,0)）⇒ 会留在原地。真机探针实测：`pp-item.active` 的图标是
-   `rgb(255,255,255)` 压在 `rgb(255,255,255)` 的白块上（1:1，完全不可见）。
-   规律：**只要容器被反白，任何被点名设色的后代都要显式覆盖**——这是本轮第二次踩，
-   所以在这里集中列全，别再逐个发现。 */
+/* 反白块里的**图标**仍需逐个点名：容器若在别处被改成反白（或将来改回），
+   图标类在旧层里被单独设过色，权重更高会留在原地。保留这条以维持既有防护。 */
 .pp-item.active .pp-ico,
 .dd-item.active .dd-ico,
 .addmenu-item.active .addmenu-item-ico,
@@ -1884,14 +1896,20 @@ body,
 .switch input:not(:checked)::after {
   background: var(--dim);
 }
-/* 会话 / 事件 / 导航的「当前」标记：一律反白实心，不用彩色左侧细线或内阴影。 */
+/* 会话 / 事件 / 导航的「当前」标记：**整块反白**，不用内阴影。
+ *
+ * ⚠️ 注意这里的取舍（2026-10-17）：菜单项（`.dd-item` / `.pp-item` / `.cmdk-item`）
+ * 已改为"亮一档灰底 + 左缘 2px 实心标"（见 §8 前段），而 `.dd-item` 曾是**反白实心**，
+ * 结果一个 340px 宽、两行文字的权限项被刷成纯白，描述文字（`--dim`）直接读不清。
+ * 现按容器性质分开：
+ *   · 单行导航项（会话行 / 竖条按钮 / 任务卡 / 设置导航）→ 反白实心，靠整块识别；
+ *   · 菜单项（多行、含描述）→ 灰底 + 左缘标记，保证文字可读。
+ * 两者都**不用彩色内阴影**，左缘标记用的是 `--accent`（单色世界里的"墨"）。
+ */
 .session.active,
 .rail-btn.active,
 .task-card.active,
-.dd-item.active,
-.addmenu-item.active,
-.sr-item.active,
-.pp-item.active {
+.sr-item.active {
   box-shadow: none;
 }
 /* 过滤器的唯一合法用途是 hover 提亮，而单色下提亮应当由明度 token 表达；

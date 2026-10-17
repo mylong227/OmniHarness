@@ -390,6 +390,15 @@ const STATES = [
     key: 'permission',
     open: async (cdp) => {
       await cdp.click('.dd.perm');
+      // 顺带打印 active 项的计算样式：这条态的验收问题是"当前档位看得见吗"，
+      // 而"看得见"的判据就是底/字色确实区分开了（曾经的反白块让描述文字不可读）。
+      const probe = await cdp.evaluate(
+        "(function(){var a=document.querySelector('.dd-item.active');if(!a)return 'no-active';" +
+          'var cs=getComputedStyle(a);var n=a.querySelector(".perm-name");var d=a.querySelector(".perm-desc");' +
+          'return JSON.stringify({bg:cs.backgroundColor,color:cs.color,shadow:cs.boxShadow,' +
+          'name:n?getComputedStyle(n).color:null,desc:d?getComputedStyle(d).color:null});})()',
+      );
+      console.log('[permission] active 项 → ' + probe);
       return cdp.evaluate("!!document.querySelector('.dd-menu.wide')");
     },
   },
