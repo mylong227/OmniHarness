@@ -1,4 +1,4 @@
-import type { LspPosition } from './lspPosition.js';
+import type { LspPosition } from './lspPosition.ts';
 
 /**
  * @beta

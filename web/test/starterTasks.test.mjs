@@ -32,8 +32,8 @@ const WEB_ROOT = resolve(HERE, '..');
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩（与 controllerBindings.test.mjs 同一口径）。
 createRuntime().install();
-const { StarterTasks } = await import('../src/ui/models/StarterTasks.js');
-const { ComposerController } = await import('../src/ui/controllers/ComposerController.js');
+const { StarterTasks } = await import('../src/ui/models/StarterTasks.ts');
+const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
 test('① 每条示例都能直接发送（无占位符）且长度可控', () => {
   const items = StarterTasks.list();

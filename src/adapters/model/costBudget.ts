@@ -1,9 +1,9 @@
-import type { ModelUsage, RoutePrice } from '../../ports/model/model.js';
-import { BudgetExceededError } from '../../ports/model/model.js';
-import type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.js';
-import type { CostBudgetPort } from '../../ports/model/costBudgetPort.js';
-import type { PriceResolution, PriceSource } from './routePricing.js';
-import { DEFAULT_FALLBACK_PRICE, RoutePricing } from './routePricing.js';
+import type { ModelUsage, RoutePrice } from '../../ports/model/model.ts';
+import { BudgetExceededError } from '../../ports/model/model.ts';
+import type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.ts';
+import type { CostBudgetPort } from '../../ports/model/costBudgetPort.ts';
+import type { PriceResolution, PriceSource } from './routePricing.ts';
+import { DEFAULT_FALLBACK_PRICE, RoutePricing } from './routePricing.ts';
 
 /**
  * @beta
@@ -279,5 +279,5 @@ export class CostBudget implements CostBudgetPort {
 }
 
 // `BudgetSnapshot` / `CostBudgetPort` 契约已外迁至 ports 层，此处仅再导出以维持公共 API 面零改动。
-export type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.js';
-export type { CostBudgetPort } from '../../ports/model/costBudgetPort.js';
+export type { BudgetSnapshot } from '../../ports/model/budgetSnapshot.ts';
+export type { CostBudgetPort } from '../../ports/model/costBudgetPort.ts';

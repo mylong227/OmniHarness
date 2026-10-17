@@ -1,7 +1,7 @@
 // 权限档位模型：后端 `approval.tiers` 的展示层 + 离线兜底。
 // 零 React 依赖，node 环境可直接单测。
 
-import type { ApprovalTier } from '../../types/models.js';
+import type { ApprovalTier } from '../../types/models.ts';
 
 /**
  * 离线兜底档位表。

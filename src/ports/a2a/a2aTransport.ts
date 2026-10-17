@@ -1,4 +1,4 @@
-import type { RpcMessage } from '../server/rpcMessage.js';
+import type { RpcMessage } from '../server/rpcMessage.ts';
 
 /** 传输层抽象（A2A 自包含，不耦合 server 实现）。 */
 export interface A2aTransport {

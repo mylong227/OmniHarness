@@ -28,7 +28,7 @@ import type {
   CronNextRun,
   CronSchedulePort,
   CronValidation,
-} from '../../ports/daemon/cronSchedule.js';
+} from '../../ports/daemon/cronSchedule.ts';
 
 /** 编译缓存硬上限（超出按插入序淘汰）。 */
 const MAX_CACHE_ENTRIES = 128;

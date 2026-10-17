@@ -18,14 +18,14 @@
  * @maturityEvidence tests/unit/isolationLadder.test.ts
  */
 import { Script, createContext } from 'node:vm';
-import { ISOLATION_LEVEL_ORDER } from '../../ports/capability.js';
-import type { IsolationLevel } from '../../ports/capability.js';
+import { ISOLATION_LEVEL_ORDER } from '../../ports/capability.ts';
+import type { IsolationLevel } from '../../ports/capability.ts';
 import type {
   IsolationDenial,
   IsolationPort,
   IsolationRequest,
   IsolationResult,
-} from '../../ports/runtime/isolation.js';
+} from '../../ports/runtime/isolation.ts';
 
 /** 默认 vm 超时（同步段；与插件沙箱同量级）。 */
 const DEFAULT_TIMEOUT_MS = 5_000;

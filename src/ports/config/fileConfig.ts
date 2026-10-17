@@ -1,14 +1,14 @@
-﻿import type { ModelAdapterId } from '../model/modelAdapterId.js';
-import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.js';
-import type { RbacConfig } from './rbacConfig.js';
-import type { SkillEntry } from '../skill/skillEntry.js';
-import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.js';
-import type { FileMcpServer } from './fileMcpServer.js';
-import type { PermissionConfig } from './permissionConfig.js';
-import type { ProviderPresetConfig } from './providerPresetConfig.js';
-import type { ModelRouterConfig } from './modelRouterConfig.js';
-import type { CapabilityConfig } from './capabilityConfig.js';
-import type { DecisionEngineConfig } from './decisionEngineConfig.js';
+﻿import type { ModelAdapterId } from '../model/modelAdapterId.ts';
+import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.ts';
+import type { RbacConfig } from './rbacConfig.ts';
+import type { SkillEntry } from '../skill/skillEntry.ts';
+import type { MediaAnalysisConfig } from '../media/mediaAnalysisConfig.ts';
+import type { FileMcpServer } from './fileMcpServer.ts';
+import type { PermissionConfig } from './permissionConfig.ts';
+import type { ProviderPresetConfig } from './providerPresetConfig.ts';
+import type { ModelRouterConfig } from './modelRouterConfig.ts';
+import type { CapabilityConfig } from './capabilityConfig.ts';
+import type { DecisionEngineConfig } from './decisionEngineConfig.ts';
 
 /**
  * 配置文件内容（omniharness.json，端口选择）。

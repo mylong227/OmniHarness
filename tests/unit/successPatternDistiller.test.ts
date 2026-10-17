@@ -19,10 +19,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SuccessPatternDistiller } from '../../src/evolution/successPatternDistiller.js';
-import { SignalIngestor } from '../../src/evolution/signalIngestor.js';
-import { WorkflowTemplateSchema } from '../../src/capability/schemas/workflowTemplateSchema.js';
-import type { EvolutionSignal } from '../../src/ports/runtime/evolution.js';
+import { SuccessPatternDistiller } from '../../src/evolution/successPatternDistiller.ts';
+import { SignalIngestor } from '../../src/evolution/signalIngestor.ts';
+import { WorkflowTemplateSchema } from '../../src/capability/schemas/workflowTemplateSchema.ts';
+import type { EvolutionSignal } from '../../src/ports/runtime/evolution.ts';
 
 /**
  * 造一条成功信号。

@@ -1,16 +1,16 @@
-import type { ApprovalPort } from '../runtime/approval.js';
-import type { EventPort } from '../runtime/eventPort.js';
-import type { SandboxPort } from '../runtime/sandbox.js';
-import type { SpillPort } from '../memory/spill.js';
-import type { RetrievalPort } from '../intelligence/retrieval.js';
-import type { EscalationPort } from '../runtime/escalation.js';
-import type { TodoPort } from '../runtime/todo.js';
-import type { PlanPort } from '../runtime/plan.js';
-import type { UserResponder } from '../runtime/userResponder.js';
-import type { ToolHookRunnerPort } from '../tool/toolHookRunnerPort.js';
-import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.js';
-import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.js';
-import type { TurnDiffTrackerPort } from '../runtime/turnDiffTracker.js';
+import type { ApprovalPort } from '../runtime/approval.ts';
+import type { EventPort } from '../runtime/eventPort.ts';
+import type { SandboxPort } from '../runtime/sandbox.ts';
+import type { SpillPort } from '../memory/spill.ts';
+import type { RetrievalPort } from '../intelligence/retrieval.ts';
+import type { EscalationPort } from '../runtime/escalation.ts';
+import type { TodoPort } from '../runtime/todo.ts';
+import type { PlanPort } from '../runtime/plan.ts';
+import type { UserResponder } from '../runtime/userResponder.ts';
+import type { ToolHookRunnerPort } from '../tool/toolHookRunnerPort.ts';
+import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.ts';
+import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts';
+import type { TurnDiffTrackerPort } from '../runtime/turnDiffTracker.ts';
 
 /**
  * 基础设施端口切片（G25 收尾，2026-10-04 第三十轮搬入 ports）。

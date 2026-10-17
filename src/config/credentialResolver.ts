@@ -1,4 +1,4 @@
-import type { VaultPort } from '../ports/memory/vault.js';
+import type { VaultPort } from '../ports/memory/vault.ts';
 
 /**
  * 凭据解析器（F3）：把「进程环境变量」与「加密凭据保险库」接成统一的凭据解析链。

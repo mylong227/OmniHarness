@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import type { ToolResult } from '../../ports/tool/tool.js';
-import type { ToolHookContext, ToolHooks } from '../../ports/tool/toolHook.js';
-import type { TurnDiffTrackerPort } from '../../ports/runtime/turnDiffTracker.js';
-import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
+import type { ToolResult } from '../../ports/tool/tool.ts';
+import type { ToolHookContext, ToolHooks } from '../../ports/tool/toolHook.ts';
+import type { TurnDiffTrackerPort } from '../../ports/runtime/turnDiffTracker.ts';
+import { TOOL_NAMES } from '../../ports/tool/toolNames.ts';
 
 /** 参与变更追踪的写类工具：参数带 `path`，可精确定位目标文件。 */
 export const TRACKED_WRITE_TOOLS: ReadonlySet<string> = new Set([

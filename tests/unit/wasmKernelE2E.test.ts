@@ -19,10 +19,10 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.js';
-import { IsolationLadderFactory } from '../../src/adapters/isolation/isolationLadderFactory.js';
-import type { IsolationRequest } from '../../src/ports/runtime/isolation.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
+import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';
+import { IsolationLadderFactory } from '../../src/adapters/isolation/isolationLadderFactory.ts';
+import type { IsolationRequest } from '../../src/ports/runtime/isolation.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /**
  * 最小 `WebAssembly` 类型面（主 tsconfig 的 `lib` 只有 ES2024，@types/node 也不声明它；

@@ -1,8 +1,8 @@
-import type { FileConfig } from '../../config/configFile.js';
-import type { ModelPort } from '../../ports/model/model.js';
-import { providerPresets, type ProviderPreset } from './providerPresets.js';
-import { ProviderProbe } from './providerProbe.js';
-import { SsrfPolicy } from '../../security/ssrfPolicy.js';
+import type { FileConfig } from '../../config/configFile.ts';
+import type { ModelPort } from '../../ports/model/model.ts';
+import { providerPresets, type ProviderPreset } from './providerPresets.ts';
+import { ProviderProbe } from './providerProbe.ts';
+import { SsrfPolicy } from '../../security/ssrfPolicy.ts';
 
 /** 单厂商实测缓存项。 */
 export interface ProviderProbeCacheEntry {

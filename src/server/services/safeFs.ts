@@ -11,7 +11,7 @@
 // 现改为复用 {@link WorkspaceGuard.resolveSafe}：词法判定 + realpath 判定两层一致。
 import { closeSync, openSync, readSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { WorkspaceGuard } from '../../util/workspaceGuard.js';
+import { WorkspaceGuard } from '../../util/workspaceGuard.ts';
 
 /**
  * 单文件读取硬上限（字节）：64 MiB。

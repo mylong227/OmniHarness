@@ -2,8 +2,8 @@
 // 与 KeyboardShortcuts（纯解析）配对——解析与执行分离，二者均可独立单测。
 // 回调由组合根注入，本类不直接依赖任何控制器，避免出现反向依赖。
 
-import type { ShortcutAction } from '../models/KeyboardShortcuts.js';
-import { MethodBinder } from './methodBinder.js';
+import type { ShortcutAction } from '../models/KeyboardShortcuts.ts';
+import { MethodBinder } from './methodBinder.ts';
 
 /** 快捷键动作的执行回调集合（由组合根注入）。 */
 export interface ShortcutHandlers {

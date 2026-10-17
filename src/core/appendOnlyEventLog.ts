@@ -1,6 +1,6 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { FileAttachment } from '../ports/model/model.js';
-import { eventFactory } from './eventFactory.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { FileAttachment } from '../ports/model/model.ts';
+import { eventFactory } from './eventFactory.ts';
 
 /** 追加型事件日志：只能追加，不可修改（模型所见即所记）。 */
 export class AppendOnlyEventLog {

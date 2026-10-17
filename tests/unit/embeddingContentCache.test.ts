@@ -16,10 +16,10 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.js';
-import { SemanticIndexCache } from '../../src/context/semanticIndexCache.js';
-import { RecallKnobs } from '../../src/context/recallKnobs.js';
-import type { Embedding, EmbedOptions, EmbeddingPort } from '../../src/ports/model/embedding.js';
+import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.ts';
+import { SemanticIndexCache } from '../../src/context/semanticIndexCache.ts';
+import { RecallKnobs } from '../../src/context/recallKnobs.ts';
+import type { Embedding, EmbedOptions, EmbeddingPort } from '../../src/ports/model/embedding.ts';
 
 /**
  * 计数型确定性假嵌入端口：向量由文本字符和推出（同文本恒同向量，不同文本可区分）。

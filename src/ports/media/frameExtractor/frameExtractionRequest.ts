@@ -1,4 +1,4 @@
-import type { FrameSelectionPolicy, MediaProbeInfo } from '../mediaTypes.js';
+import type { FrameSelectionPolicy, MediaProbeInfo } from '../mediaTypes.ts';
 
 /** 帧提取请求。 */
 export interface FrameExtractionRequest {

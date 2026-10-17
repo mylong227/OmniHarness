@@ -4,15 +4,15 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { MemoryStackAssembler } from '../../src/config/memoryStackAssembler.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
+import { MemoryStackAssembler } from '../../src/config/memoryStackAssembler.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../src/ports/memory/longTermMemory.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
+} from '../../src/ports/memory/longTermMemory.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
 
 /** 最小长期记忆桩：内存数组 + 固定标识（用于验证「注入优先」）。 */
 class StubMemory implements LongTermMemoryPort {

@@ -40,15 +40,15 @@ function renderOf(Component, props, statePatch) {
   return runtime.render(Component, props, statePatch);
 }
 
-const { AddMenu } = await import('../src/ui/components/AddMenu.js');
-const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.js');
-const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.js');
-const { TreeNode } = await import('../src/ui/components/TreeNode.js');
-const { PanelPicker } = await import('../src/ui/components/PanelPicker.js');
-const { Toast } = await import('../src/ui/components/Toast.js');
-const { WorkIndicator } = await import('../src/ui/components/WorkIndicator.js');
-const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.js');
-const { DialogHost } = await import('../src/ui/components/DialogHost.js');
+const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
+const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.tsx');
+const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.tsx');
+const { TreeNode } = await import('../src/ui/components/TreeNode.tsx');
+const { PanelPicker } = await import('../src/ui/components/PanelPicker.tsx');
+const { Toast } = await import('../src/ui/components/Toast.tsx');
+const { WorkIndicator } = await import('../src/ui/components/WorkIndicator.tsx');
+const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.tsx');
+const { DialogHost } = await import('../src/ui/components/DialogHost.tsx');
 
 /** 遍历 vnode 树：对每个节点调用 visit（跳过字符串/数字叶子）。 */
 function walk(vnode, visit) {
@@ -220,7 +220,7 @@ test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据�
   // 2026-10-17：`settings` 移出（17 → 16）。它不是"看某个东西的状态"的面板，而是"改全局配置"，
   //   现为左栏页脚按钮 + 居中模态（components/SettingsModal.tsx）。逐条比对时把它删掉，
   //   并在下方显式断言"注册表里不得再有 settings"——否则它会以"未知 pane"的形式静默落回默认面板。
-  const { PANELS, panelOf } = await import('../src/ui/models/PanelRegistry.js');
+  const { PANELS, panelOf } = await import('../src/ui/models/PanelRegistry.ts');
   assert.deepStrictEqual(
     PANELS.map((p) => p.key),
     [
@@ -326,7 +326,7 @@ test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完�
 });
 
 test('StreamView 契约：事件流容器是 role=log + aria-live=polite 的播报区', async () => {
-  const { StreamView } = await import('../src/ui/components/StreamView.js');
+  const { StreamView } = await import('../src/ui/components/StreamView.tsx');
   const vnode = renderOf(StreamView, {
     events: [],
     toolResults: {},

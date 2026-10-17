@@ -1,7 +1,7 @@
 // 文件图标：按 mediaType 选择图标，供文件选择器与附件列表展示。
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
 
-import type { IconName } from './Icon.js';
+import type { IconName } from './Icon.ts';
 
 /** 文件图标解析器。 */
 export class FileIconResolver {

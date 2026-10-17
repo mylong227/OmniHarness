@@ -8,7 +8,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { ApiClient } = await import('../src/core/ApiClient.js');
+const { ApiClient } = await import('../src/core/ApiClient.ts');
 
 /**
  * 打桩 fetch：记录一次调用并返回给定 JSON-RPC 响应。

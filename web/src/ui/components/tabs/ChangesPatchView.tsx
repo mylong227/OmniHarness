@@ -8,11 +8,11 @@
 // 与鼠标点击共用同一条选中通道（点块头即选中，键盘移动即高亮）。
 
 import * as React from 'react';
-import { parseDiffRows, type DiffRow } from '../../textUtils.js';
-import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.js';
-import { icon } from '../../models/Icon.js';
-import { emptyNote } from '../../format.js';
-import { t } from '../../i18n/i18n.js';
+import { parseDiffRows, type DiffRow } from '../../textUtils.ts';
+import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.ts';
+import { icon } from '../../models/Icon.ts';
+import { emptyNote } from '../../format.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** 单文件变更行。 */
 export interface ChangeFile {

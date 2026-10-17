@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
-import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.js';
-import type { Worker, WorkerRequest, WorkerResult } from './worker.js';
+import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.ts';
+import type { Worker, WorkerRequest, WorkerResult } from './worker.ts';
 
 /**
  * @beta

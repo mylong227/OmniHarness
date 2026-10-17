@@ -21,16 +21,16 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { TestCommandRunner } from './testCommandRunner.js';
-import { StackFrameParser } from './stackFrameParser.js';
-import { TestFailureDigest } from './testFailureDigest.js';
-import type { SelfVerifyPolicy } from './selfVerifyPolicy.js';
-import type { DecisionEngine } from '../../../ports/decision/decisionEngine.js';
-import type { DecisionTracePort } from '../../../ports/decision/decisionTrace.js';
-import { VerdictTracer } from './verdictTracer.js';
+} from '../../../ports/tool/tool.ts';
+import type { TestCommandRunner } from './testCommandRunner.ts';
+import { StackFrameParser } from './stackFrameParser.ts';
+import { TestFailureDigest } from './testFailureDigest.ts';
+import type { SelfVerifyPolicy } from './selfVerifyPolicy.ts';
+import type { DecisionEngine } from '../../../ports/decision/decisionEngine.ts';
+import type { DecisionTracePort } from '../../../ports/decision/decisionTrace.ts';
+import { VerdictTracer } from './verdictTracer.ts';
 
-import type { VerdictObservation, VerdictObserver } from './verdictTypes.js';
+import type { VerdictObservation, VerdictObserver } from './verdictTypes.ts';
 // verdict 观测类型已抽至 `./verdictTypes.ts`（中性模块），以打断
 // `selfVerifyingToolPort ↔ verdictTracer` 循环依赖（架构门禁 [5]）。
 export type { VerdictObservation, VerdictObserver };

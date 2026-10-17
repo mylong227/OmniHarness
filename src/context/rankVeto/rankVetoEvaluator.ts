@@ -61,9 +61,9 @@
  * @maturityEvidence tests/unit/rankVeto.test.ts
  */
 
-import { RankVetoOverlap } from './rankVetoOverlap.js';
-import { RankVetoSpectrum } from './rankVetoSpectrum.js';
-import type { StructuralDiagnostics, VetoGraph } from './rankVetoSpectrum.js';
+import { RankVetoOverlap } from './rankVetoOverlap.ts';
+import { RankVetoSpectrum } from './rankVetoSpectrum.ts';
+import type { StructuralDiagnostics, VetoGraph } from './rankVetoSpectrum.ts';
 
 /** 否决阈值集合。 */
 export interface VetoThresholds {

@@ -1,11 +1,11 @@
 // 输入区「+」添加菜单的展示模型：把菜单结构拼成纯数据，组件层只负责渲染与按 id 分派动作。
 // 零 React 依赖，node 环境可直接单测。
 
-import type { AgentCatalogEntry, PluginManifest, SearchHit } from '../../types/models.js';
+import type { AgentCatalogEntry, PluginManifest, SearchHit } from '../../types/models.ts';
 // 图标名的**唯一事实源**在 models/Icon.ts（`IconName`）；这里只 import 类型（`import type` 编译期即擦除，
 // 不会把 Icon.ts 的运行时依赖（它现在 import react）拖进模型层，单测仍可在纯 node 下直接跑）。
-import type { IconName } from './Icon.js';
-import { t } from '../i18n/i18n.js';
+import type { IconName } from './Icon.ts';
+import { t } from '../i18n/i18n.ts';
 
 /**
  * 菜单图标名（= 图标集里的合法名字，见 models/Icon.ts）。

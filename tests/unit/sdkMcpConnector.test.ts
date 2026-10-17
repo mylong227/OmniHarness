@@ -32,8 +32,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SdkMcpConnector } from '../../src/adapters/mcp/sdkMcpConnector.js';
-import type { McpConnectorPort } from '../../src/ports/mcp/mcpConnectorPort.js';
+import { SdkMcpConnector } from '../../src/adapters/mcp/sdkMcpConnector.ts';
+import type { McpConnectorPort } from '../../src/ports/mcp/mcpConnectorPort.ts';
 
 import {
   FakeTransport,
@@ -44,7 +44,7 @@ import {
   remoteServer,
   settle,
   stdioServer,
-} from '../helpers/scriptedServer.js';
+} from '../helpers/scriptedServer.ts';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 
 test('① 客户端元数据：缺省 omniharness/0.1.0、注入则用注入值，且真的到达 initialize 请求', async () => {

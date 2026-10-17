@@ -10,17 +10,17 @@
  * @maturityEvidence tests/unit/rlvr.test.ts
  */
 import { unlinkSync, writeFileSync } from 'node:fs';
-import { AsyncChildProcess } from '../util/asyncChildProcess.js';
+import { AsyncChildProcess } from '../util/asyncChildProcess.ts';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Candidate } from '../ports/runtime/evolution.js';
+import type { Candidate } from '../ports/runtime/evolution.ts';
 import {
   FailClosedEvolutionGate,
   type FailClosedEvolutionGateOptions,
-} from './failClosedEvolutionGate.js';
-import type { BenchmarkFn } from './failClosedEvolutionGate.js';
-import type { CodeCandidate } from './rlvrLoop.js';
-import type { RewardVerdict } from './rewardCoverageMeter.js';
+} from './failClosedEvolutionGate.ts';
+import type { BenchmarkFn } from './failClosedEvolutionGate.ts';
+import type { CodeCandidate } from './rlvrLoop.ts';
+import type { RewardVerdict } from './rewardCoverageMeter.ts';
 
 /**
  * VerifiableRewardFn —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

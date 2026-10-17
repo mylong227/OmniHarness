@@ -10,17 +10,17 @@
 // 「文本 / busy / animate 变化即重启」与「卸载即停止」分别由两个 effect 承接。
 
 import * as React from 'react';
-import { badge, timeOf, renderMarkdown } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import { extractUrls } from '../../textUtils.js';
-import { TextRevealer } from '../../models/TextRevealer.js';
-import { ClipboardCopier } from '../../models/ClipboardCopier.js';
-import { AttachmentChips } from './AttachmentChips.js';
-import { CollapsibleDoc } from './CollapsibleDoc.js';
-import { ExternalLinkCards } from './ExternalLinkCards.js';
-import { LongContentCollapser } from '../../models/LongContentCollapser.js';
-import type { ThreadEvent, FileAttachment } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { badge, timeOf, renderMarkdown } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import { extractUrls } from '../../textUtils.ts';
+import { TextRevealer } from '../../models/TextRevealer.ts';
+import { ClipboardCopier } from '../../models/ClipboardCopier.ts';
+import { AttachmentChips } from './AttachmentChips.tsx';
+import { CollapsibleDoc } from './CollapsibleDoc.tsx';
+import { ExternalLinkCards } from './ExternalLinkCards.tsx';
+import { LongContentCollapser } from '../../models/LongContentCollapser.ts';
+import type { ThreadEvent, FileAttachment } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** AssistantCard 组件的入参。 */
 export interface AssistantCardProps {

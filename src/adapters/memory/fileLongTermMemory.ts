@@ -11,12 +11,12 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../ports/memory/longTermMemory.js';
-import { Bm25Index } from '../../search/bm25Index.js';
-import { TimeDecay, type ScoredFact } from './timeDecay.js';
-import type { TextCodec } from './aesGcmTextCodec.js';
-import { ArrayAt } from '../../util/arrayAt.js';
-import { log } from '../../util/logger.js';
+} from '../../ports/memory/longTermMemory.ts';
+import { Bm25Index } from '../../search/bm25Index.ts';
+import { TimeDecay, type ScoredFact } from './timeDecay.ts';
+import type { TextCodec } from './aesGcmTextCodec.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
+import { log } from '../../util/logger.ts';
 
 /**
  * @beta

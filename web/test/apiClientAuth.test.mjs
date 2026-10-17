@@ -1,7 +1,7 @@
 ﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ApiClient } from '../src/core/ApiClient.js';
-import { authToken } from '../src/core/authToken.js';
+import { ApiClient } from '../src/core/ApiClient.ts';
+import { authToken } from '../src/core/authToken.ts';
 
 /** 用最小桩替换全局 fetch，捕获 URL 与请求头，并返回合法 JSON-RPC 响应。 */
 function stubFetch(body) {

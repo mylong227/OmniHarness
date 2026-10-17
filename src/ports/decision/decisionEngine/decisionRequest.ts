@@ -1,4 +1,4 @@
-import type { DecisionQuestion } from './decisionQuestion.js';
+import type { DecisionQuestion } from './decisionQuestion.ts';
 
 /** 一次决策请求（待判断的 state + 问题集）。 */
 export interface DecisionRequest {

@@ -1,4 +1,4 @@
-import type { Skill } from './skill.js';
+import type { Skill } from './skill.ts';
 
 /**
  * **声明式技能子集**：配置文件 / CLI 可注入的字段。

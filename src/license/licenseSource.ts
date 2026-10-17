@@ -23,10 +23,10 @@
  */
 import { readFileSync, statSync } from 'node:fs';
 
-import { LicenseEngine } from './licenseEngine.js';
-import { FeatureEntitlements } from './featureEntitlements.js';
-import { log } from '../util/logger.js';
-import type { EntitlementObserver } from './featureEntitlements.js';
+import { LicenseEngine } from './licenseEngine.ts';
+import { FeatureEntitlements } from './featureEntitlements.ts';
+import { log } from '../util/logger.ts';
+import type { EntitlementObserver } from './featureEntitlements.ts';
 
 /** 内联 license 的环境变量名。 */
 export const LICENSE_ENV_TEXT = 'OMNI_LICENSE';

@@ -26,13 +26,13 @@
  * @maturityEvidence tests/unit/licenseEngine.test.ts
  */
 import { createHash } from 'node:crypto';
-import type { LicenseTier } from '../ports/license/licenseTier.js';
-import { log } from '../util/logger.js';
+import type { LicenseTier } from '../ports/license/licenseTier.ts';
+import { log } from '../util/logger.ts';
 import { arch, cpus, hostname, platform } from 'node:os';
-import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
+import { Ed25519PublicKey } from '../util/ed25519PublicKey.ts';
 
 /** 档位（由低到高；`core` 永远可用）。 */
-export type { LicenseTier } from '../ports/license/licenseTier.js';
+export type { LicenseTier } from '../ports/license/licenseTier.ts';
 
 /** License 正文（**被签名**的部分；键序在规范化时固定）。 */
 export interface LicensePayload {

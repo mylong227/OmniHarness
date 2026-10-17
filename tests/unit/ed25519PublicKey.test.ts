@@ -9,8 +9,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { Ed25519PublicKey } from '../../src/util/ed25519PublicKey.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+import { Ed25519PublicKey } from '../../src/util/ed25519PublicKey.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
 
 test('Ed25519PublicKey：合法 ssh-ed25519 公钥可解码并验签通过（正对照）', () => {
   const signer = new Ed25519AgentIdentity({ agentRuntimeId: 'signer' });

@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { LoopGuard } from '../../src/core/loop/loopGuard.js';
+import { LoopGuard } from '../../src/core/loop/loopGuard.ts';
 
 /** 构造一次 edit 调用。 */
 function edit(path: string, newString: string) {

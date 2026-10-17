@@ -20,9 +20,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ConfigError } from '../../src/config/configError.js';
-import { PermissionConfigValidator } from '../../src/config/permissionConfigValidator.js';
-import type { ApprovalRule } from '../../src/adapters/approval/approvalRule.js';
+import { ConfigError } from '../../src/config/configError.ts';
+import { PermissionConfigValidator } from '../../src/config/permissionConfigValidator.ts';
+import type { ApprovalRule } from '../../src/adapters/approval/approvalRule.ts';
 
 /** 走**写入路径**校验一条 permission 段，返回错误消息（通过时为 undefined）。 */
 function writePathError(permission: unknown): string | undefined {

@@ -1,3 +1,3 @@
-export type { AnomalyAlert } from './immune/anomalyAlert.js';
-export type { ImmuneSelfReport } from './immune/immuneSelfReport.js';
-export type { ImmuneMonitorPort } from './immune/immuneMonitorPort.js';
+export type { AnomalyAlert } from './immune/anomalyAlert.ts';
+export type { ImmuneSelfReport } from './immune/immuneSelfReport.ts';
+export type { ImmuneMonitorPort } from './immune/immuneMonitorPort.ts';

@@ -3,11 +3,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ProviderPresets } from '../../src/server/services/providerPresets.js';
-import { ProviderProbe } from '../../src/server/services/providerProbe.js';
-import { ConfigError } from '../../src/config/configError.js';
-import { SsrfPolicy } from '../../src/security/ssrfPolicy.js';
-import { SsrfGuard } from '../../src/security/ssrfGuard.js';
+import { ProviderPresets } from '../../src/server/services/providerPresets.ts';
+import { ProviderProbe } from '../../src/server/services/providerProbe.ts';
+import { ConfigError } from '../../src/config/configError.ts';
+import { SsrfPolicy } from '../../src/security/ssrfPolicy.ts';
+import { SsrfGuard } from '../../src/security/ssrfGuard.ts';
 
 test('maskKey：保留前 3 后 4，短 Key 全打码', () => {
   assert.strictEqual(ProviderPresets.maskKey('sk-1234567890abcdef'), 'sk-****cdef'); // omniharness:fake-secret（测试夹具假密钥）

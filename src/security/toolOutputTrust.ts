@@ -32,7 +32,7 @@
  * 工具名来自 `ports/tool/toolNames.ts`（单一来源）；本模块在 `security/`，故另需 `ports/` 与 `util/`
  * 两个公共层依赖（见 `ARCHITECTURE_SPEC.md` §2 的目录归属表）。
  */
-import { TOOL_NAMES } from '../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 
 /**
  * 工具输出来源信任级（越不可信越敏感）。
@@ -40,9 +40,9 @@ import { TOOL_NAMES } from '../ports/tool/toolNames.js';
  * 2026-10-11：类型已外迁 `ports/security/trustTier.ts`（端口层要用它表达"外部内容信任档"的配置面），
  * 此处**导入**供本文件的类使用、并再导出以维持公共 API 面零改动。
  */
-import type { TrustTier } from '../ports/security/trustTier.js';
+import type { TrustTier } from '../ports/security/trustTier.ts';
 
-export type { TrustTier } from '../ports/security/trustTier.js';
+export type { TrustTier } from '../ports/security/trustTier.ts';
 
 /** 工具输出来源信任级判定器（纯静态，无状态）。 */
 export class ToolOutputTrust {

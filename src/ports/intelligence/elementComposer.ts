@@ -8,6 +8,6 @@
  * fail-closed：未知元素 → 抛错（配置错误）；价不互补 → 返回 undefined（组合不合法）。
  */
 
-export type { ElementDef } from './elementComposer/elementDef.js';
-export type { CompoundCapability } from './elementComposer/compoundCapability.js';
-export type { ElementComposerPort } from './elementComposer/elementComposerPort.js';
+export type { ElementDef } from './elementComposer/elementDef.ts';
+export type { CompoundCapability } from './elementComposer/compoundCapability.ts';
+export type { ElementComposerPort } from './elementComposer/elementComposerPort.ts';

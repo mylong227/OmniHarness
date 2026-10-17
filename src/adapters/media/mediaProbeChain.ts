@@ -1,5 +1,5 @@
-import type { MediaProbePort } from '../../ports/media/mediaProbe.js';
-import type { MediaProbeInfo } from '../../ports/media/mediaTypes.js';
+import type { MediaProbePort } from '../../ports/media/mediaProbe.ts';
+import type { MediaProbeInfo } from '../../ports/media/mediaTypes.ts';
 
 /**
  * 探测链：按顺序尝试多个探测实现，取**第一个能给出关键信息的**结果。

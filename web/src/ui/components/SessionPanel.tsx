@@ -11,29 +11,29 @@
 // 由 models/SessionSearch 承担；↑/↓ 选中、Enter 打开走输入框的 combobox 语义。
 
 import * as React from 'react';
-import { useApp } from '../context.js';
-import { FolderPicker } from './FolderPicker.js';
-import { SidebarHeader } from './SidebarHeader.js';
-import { SidebarFooter } from './SidebarFooter.js';
-import { SearchResults, SEARCH_LIST_ID } from './SearchResults.js';
-import { SessionSearch } from '../models/SessionSearch.js';
-import type { SearchGroup } from '../models/SearchHitGrouper.js';
+import { useApp } from '../context.ts';
+import { FolderPicker } from './FolderPicker.tsx';
+import { SidebarHeader } from './SidebarHeader.tsx';
+import { SidebarFooter } from './SidebarFooter.tsx';
+import { SearchResults, SEARCH_LIST_ID } from './SearchResults.tsx';
+import { SessionSearch } from '../models/SessionSearch.ts';
+import type { SearchGroup } from '../models/SearchHitGrouper.ts';
 import {
   renderCardsView,
   renderGroupsView,
   renderProjectsView,
   renderTimeGroupsView,
   renderTreeView,
-} from './SessionViews.js';
-import type { ListCtx, RowCtx } from './SessionViews.js';
-import { PathJoiner } from '../models/PathJoiner.js';
-import { MenuPlacement } from '../models/MenuPlacement.js';
-import { SessionOrder } from '../models/SessionOrder.js';
-import { icon } from '../models/Icon.js';
-import type { FsNode } from '../../types/models.js';
-import type { SearchHit } from '../../types/models.js';
-import type { SessionEntry } from '../shared.js';
-import { t } from '../i18n/i18n.js';
+} from './SessionViews.tsx';
+import type { ListCtx, RowCtx } from './SessionViews.tsx';
+import { PathJoiner } from '../models/PathJoiner.ts';
+import { MenuPlacement } from '../models/MenuPlacement.ts';
+import { SessionOrder } from '../models/SessionOrder.ts';
+import { icon } from '../models/Icon.ts';
+import type { FsNode } from '../../types/models.ts';
+import type { SearchHit } from '../../types/models.ts';
+import type { SessionEntry } from '../shared.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** SessionPanel 组件的入参。 */
 export interface SessionPanelProps {

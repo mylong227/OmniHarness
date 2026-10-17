@@ -1,10 +1,10 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { Plugin } from './plugin.js';
-import type { PluginManifest } from './manifest.js';
-import type { PluginManager } from './pluginManager.js';
-import { Sandbox } from './sandbox.js';
+import type { Plugin } from './plugin.ts';
+import type { PluginManifest } from './manifest.ts';
+import type { PluginManager } from './pluginManager.ts';
+import { Sandbox } from './sandbox.ts';
 
 /**
  * PluginLoader — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

@@ -22,11 +22,11 @@
  * @maturityEvidence tests/unit/appServerGovernance.test.ts
  */
 import { join } from 'node:path';
-import { HashChainPromotionLedger } from '../../evolution/hashChainPromotionLedger.js';
-import { FeatureEntitlements } from '../../license/featureEntitlements.js';
-import { PromotionHistoryService } from '../../governance/promotionHistoryService.js';
-import type { PromotionHistoryView } from '../../governance/promotionHistoryService.js';
-import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.js';
+import { HashChainPromotionLedger } from '../../evolution/hashChainPromotionLedger.ts';
+import { FeatureEntitlements } from '../../license/featureEntitlements.ts';
+import { PromotionHistoryService } from '../../governance/promotionHistoryService.ts';
+import type { PromotionHistoryView } from '../../governance/promotionHistoryService.ts';
+import { AppServerSurfaceHandlers } from './appServerSurfaceHandlers.ts';
 
 /** 默认台账目录（与 CLI / 组合根同一口径：`<workspace>/.omniharness/evolution`）。 */
 const LEDGER_DIR = join('.omniharness', 'evolution');
@@ -36,7 +36,7 @@ export class AppServerGovernanceHandlers extends AppServerSurfaceHandlers {
   /**
    * @param options 服务端选项（与基座同一份，装配期只读使用）
    */
-  public constructor(options: import('./appServerState.js').AppServerOptions) {
+  public constructor(options: import('./appServerState.ts').AppServerOptions) {
     super(options);
   }
 

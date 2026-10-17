@@ -1,11 +1,11 @@
-import { SkillRegistry } from '../skill/skillRegistry.js';
-import { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
-import { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
-import { ElementComposer } from '../adapters/skill/elementComposer.js';
-import { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
-import { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import { SkillRegistry } from '../skill/skillRegistry.ts';
+import { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.ts';
+import { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.ts';
+import { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.ts';
+import { ElementComposer } from '../adapters/skill/elementComposer.ts';
+import { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.ts';
+import { ConfinementEngine } from '../adapters/monitoring/confinementEngine.ts';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
 
 /**
  * SkillStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

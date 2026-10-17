@@ -1,5 +1,5 @@
-import type { ContainerPort } from '../ports/runtime/containerPort.js';
-import type { ServiceKeyLike } from '../ports/runtime/serviceKeyLike.js';
+import type { ContainerPort } from '../ports/runtime/containerPort.ts';
+import type { ServiceKeyLike } from '../ports/runtime/serviceKeyLike.ts';
 
 /** 服务容器：注册/覆盖/获取任意端口实现（定制接入的入口）。 */
 export class Container implements ContainerPort {
@@ -111,4 +111,4 @@ export class Container implements ContainerPort {
   }
 }
 
-export type { ContainerPort } from '../ports/runtime/containerPort.js';
+export type { ContainerPort } from '../ports/runtime/containerPort.ts';

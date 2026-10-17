@@ -7,25 +7,25 @@
  * 这是「上下文效率碾压」这一可证伪命题的真实落地模块，不依赖任何外部服务。
  */
 
-import { Bm25Index } from '../search/bm25Index.js';
-import { RepoMap, type SymbolNode } from './repoMap/repoMap.js';
-import { CorpusFileParser } from './corpusFileParser.js';
-import { CorpusCollector, type CollectedCorpus } from './corpusCollector.js';
-import { EventLoopYield } from '../util/async/eventLoopYield.js';
-import type { CorpusFileArtifact } from './corpusFileArtifact.js';
-import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.js';
-import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.js';
-import { FileReranker } from './fileReranker.js';
-import { CandidateSearch } from './queryStages/candidateSearch.js';
-import { SeedFusion } from './queryStages/seedFusion.js';
-import { SymbolFileFusion } from './queryStages/symbolFileFusion.js';
-import { PerFileSymbolView } from './queryStages/perFileSymbolView.js';
-import { log } from '../util/logger.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import { RepoMap, type SymbolNode } from './repoMap/repoMap.ts';
+import { CorpusFileParser } from './corpusFileParser.ts';
+import { CorpusCollector, type CollectedCorpus } from './corpusCollector.ts';
+import { EventLoopYield } from '../util/async/eventLoopYield.ts';
+import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../util/eigenspectrum.ts';
+import { CodeGraphIndex, type CodeGraph } from './codeGraphIndex.ts';
+import { FileReranker } from './fileReranker.ts';
+import { CandidateSearch } from './queryStages/candidateSearch.ts';
+import { SeedFusion } from './queryStages/seedFusion.ts';
+import { SymbolFileFusion } from './queryStages/symbolFileFusion.ts';
+import { PerFileSymbolView } from './queryStages/perFileSymbolView.ts';
+import { log } from '../util/logger.ts';
 
-export type { WalkLimits, WalkOutcome } from './corpusWalker.js';
+export type { WalkLimits, WalkOutcome } from './corpusWalker.ts';
 
-import { CorpusWalker } from './corpusWalker.js';
-import type { WalkLimits, WalkOutcome } from './corpusWalker.js';
+import { CorpusWalker } from './corpusWalker.ts';
+import type { WalkLimits, WalkOutcome } from './corpusWalker.ts';
 
 /**
  * ContextEngine 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

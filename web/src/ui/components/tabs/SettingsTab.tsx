@@ -7,11 +7,11 @@
 // 「已保存」提示由 state 驱动 + useRef 持有的定时器自动消隐（卸载时清理对称）。
 
 import * as React from 'react';
-import { emptyNote } from '../../format.js';
-import { useApp } from '../../context.js';
-import type { Config, Profile } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
-import { ModelProviders } from './ModelProviders.js';
+import { emptyNote } from '../../format.ts';
+import { useApp } from '../../context.ts';
+import type { Config, Profile } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
+import { ModelProviders } from './ModelProviders.tsx';
 
 /** 纵向留白。React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
 const SPACER: Record<string, string> = { height: '10px' };

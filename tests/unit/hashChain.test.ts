@@ -17,9 +17,9 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HashChain } from '../../src/util/hashChain.js';
-import { AuditSink } from '../../src/server/services/auditSink.js';
-import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.js';
+import { HashChain } from '../../src/util/hashChain.ts';
+import { AuditSink } from '../../src/server/services/auditSink.ts';
+import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

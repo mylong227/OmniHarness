@@ -1,4 +1,4 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type {
@@ -6,10 +6,10 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
-import { FileContentLedger } from './fileContentLedger.js';
+} from '../../../ports/tool/tool.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
+import { FileContentLedger } from './fileContentLedger.ts';
 
 /** 写文件工具：仅限工作区内，覆盖前自动备份 .bak（可审计）。 */
 export class WriteFileTool {

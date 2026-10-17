@@ -22,7 +22,7 @@ import {
   adversarialOverlap,
   anchorTokensOf,
   contentTokensOf,
-} from '../fixtures/recallQueries.js';
+} from '../fixtures/recallQueries.ts';
 
 test('① 结构完整：字段非空且查询文本不重复', () => {
   const seen = new Set();

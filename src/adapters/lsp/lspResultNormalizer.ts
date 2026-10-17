@@ -18,8 +18,8 @@
  *    越界坐标原样返回（是否合法由调用方/服务器判定，猜测会掩盖真实错误）。
  * 2. **不认识的形状一律剔除**：宁可少给一条位置，也不抛错中断整批结果。
  */
-import type { LspLocation } from '../../ports/tool/lsp.js';
-import { LspUri } from './lspUri.js';
+import type { LspLocation } from '../../ports/tool/lsp.ts';
+import { LspUri } from './lspUri.ts';
 
 /** 扩展名 → LSP `languageId` 查表（未收录的回退 `plaintext`）。 */
 const LANGUAGE_IDS: Readonly<Record<string, string>> = {

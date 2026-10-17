@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileAsync } from '../helpers/childProcess.js';
+import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditExporter } from '../../src/server/services/auditExporter.js';
-import { AuditSink, type AuditEvent } from '../../src/server/services/auditSink.js';
+import { AuditExporter } from '../../src/server/services/auditExporter.ts';
+import { AuditSink, type AuditEvent } from '../../src/server/services/auditSink.ts';
 
 const sample: AuditEvent[] = [
   {

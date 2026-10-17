@@ -6,7 +6,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ToolOutputTrust } from '../../src/security/toolOutputTrust.js';
+import { ToolOutputTrust } from '../../src/security/toolOutputTrust.ts';
 
 test('fromToolName：公网抓取类工具 → external', () => {
   assert.strictEqual(ToolOutputTrust.fromToolName('web_search'), 'external');

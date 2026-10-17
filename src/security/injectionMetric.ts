@@ -18,13 +18,13 @@
  *
  * 聚合细节见 `InjectionSnapshotAggregator`；本模块只做「逐例扫描 + 编排」。
  */
-import { PromptInjectionGuard } from './promptInjectionGuard.js';
+import { PromptInjectionGuard } from './promptInjectionGuard.ts';
 import {
   InjectionSnapshotAggregator,
   type CaseOutcome,
   type InjectionCase,
   type SnapshotReport,
-} from './injectionSnapshotAggregator.js';
+} from './injectionSnapshotAggregator.ts';
 
 /**
  * InjectionMetric —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -54,4 +54,4 @@ export type {
   InjectionCase,
   SnapshotReport,
   SourceStat,
-} from './injectionSnapshotAggregator.js';
+} from './injectionSnapshotAggregator.ts';

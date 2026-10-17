@@ -39,7 +39,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { GATE_SURFACE, SURFACE_AUDIT_DATE } from './boostGateSurface.js';
+import { GATE_SURFACE, SURFACE_AUDIT_DATE } from './boostGateSurface.ts';
 
 /** 审计快照的默认落点（仓库根相对；与探针归档同属运行时产物）。 */
 export const SURFACE_SNAPSHOT_REL = '.omniharness/boost/gate-surface.json';

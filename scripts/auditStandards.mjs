@@ -46,7 +46,9 @@ for (const f of files) {
     let spec = m[2];
     if (!spec.startsWith('.')) continue;
     let resolved = path.posix.normalize(path.posix.join(path.posix.dirname(key(f)), spec));
-    resolved = resolved.replace(/\.js$/, '').replace(/\/index$/, '');
+    // 2026-10-17 起相对导入写真实后缀（.ts/.tsx），emit 前的 specifier 也是这些后缀；
+    // 模块 key 统一去掉任意一种源文件后缀（.js 兼容旧产物引用）。
+    resolved = resolved.replace(/\.(tsx?|js)$/, '').replace(/\/index$/, '');
     fanIn.set(resolved, (fanIn.get(resolved) || 0) + 1);
     targets.push(resolved);
   }
@@ -847,13 +849,16 @@ if (process.argv.includes('--maturity')) {
     for (const rel of existing) {
       const p = path.resolve(process.cwd(), rel);
       const text = fs.readFileSync(p, 'utf8');
-      if (new RegExp(`${esc}\\.js`).test(text)) return false; // 直接 import 了本模块
-      // 经 re-export 导入也算覆盖（如测试 import 适配器，适配器再 `export { X } from './x.js'`）。
-      const reExportOf = new RegExp(`export\\s*\\{[^}]*\\}\\s*from\\s*['"][^'"]*${esc}\\.js['"]`);
-      const specRe = /from\s+['"]([^'"]+\.js)['"]/g;
+      // 2026-10-17 起导入约定为真实后缀 `.ts`（此前是 `.js`）；两种都认，向后兼容旧证据。
+      if (new RegExp(`${esc}\\.(ts|js)`).test(text)) return false; // 直接 import 了本模块
+      // 经 re-export 导入也算覆盖（如测试 import 适配器，适配器再 `export { X } from './x.ts'`）。
+      const reExportOf = new RegExp(
+        `export\\s*\\{[^}]*\\}\\s*from\\s*['"][^'"]*${esc}\\.(ts|js)['"]`,
+      );
+      const specRe = /from\s+['"]([^'"]+\.(?:ts|js))['"]/g;
       let m;
       while ((m = specRe.exec(text)) !== null) {
-        // 测试按 ESM 规范 import '.js'，磁盘上实际是 '.ts'——解析后须换后缀才能命中。
+        // 测试 import 的 specifier 统一解析到磁盘上的 .ts 源文件（.js 仍按旧约定回落）。
         const target = path.resolve(path.dirname(p), m[1]).replace(/\.js$/, '.ts');
         if (!fs.existsSync(target)) continue;
         if (reExportOf.test(fs.readFileSync(target, 'utf8'))) return false;

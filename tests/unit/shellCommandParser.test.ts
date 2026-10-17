@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ShellCommandParser } from '../../src/adapters/tool/shell/shellCommandParser.js';
+import { ShellCommandParser } from '../../src/adapters/tool/shell/shellCommandParser.ts';
 
 const parser = new ShellCommandParser();
 

@@ -1,6 +1,6 @@
-import type { FileAttachment, ImageContent } from '../../model/model.js';
-import type { AgentResult } from './agentResult.js';
-import type { SessionEvent } from '../event.js';
+import type { FileAttachment, ImageContent } from '../../model/model.ts';
+import type { AgentResult } from './agentResult.ts';
+import type { SessionEvent } from '../event.ts';
 
 /**
  * Agent 主循环端口：建会话 → 记录输入 → 跑回合 → 持久化，对外暴露任务执行能力。

@@ -1,7 +1,7 @@
-import type { PolicyRule } from './policyRule.js';
-import type { PolicyFacts } from './policyFacts.js';
-import type { PolicyEffect } from './policyEffect.js';
-import type { PolicyDecision } from './policyDecision.js';
+import type { PolicyRule } from './policyRule.ts';
+import type { PolicyFacts } from './policyFacts.ts';
+import type { PolicyEffect } from './policyEffect.ts';
+import type { PolicyDecision } from './policyDecision.ts';
 
 /**
  * @beta

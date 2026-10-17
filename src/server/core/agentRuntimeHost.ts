@@ -1,19 +1,19 @@
-import type { ApprovalPort } from '../../ports/runtime/approval.js';
-import type { EventPort } from '../../ports/runtime/eventPort.js';
-import type { ModelPort } from '../../ports/model/model.js';
+import type { ApprovalPort } from '../../ports/runtime/approval.ts';
+import type { EventPort } from '../../ports/runtime/eventPort.ts';
+import type { ModelPort } from '../../ports/model/model.ts';
 
-import type { SkillRegistry } from '../../skill/skillRegistry.js';
-import type { SupervisorPort } from '../../ports/runtime/supervisor.js';
-import { Runtime } from '../../composition/runtime.js';
-import { Agent } from '../../core/agent.js';
-import { GraphStore } from '../../autonomy/graphStore.js';
-import { SubagentPorts } from '../../subagent/subagentPorts.js';
+import type { SkillRegistry } from '../../skill/skillRegistry.ts';
+import type { SupervisorPort } from '../../ports/runtime/supervisor.ts';
+import { Runtime } from '../../composition/runtime.ts';
+import { Agent } from '../../core/agent.ts';
+import { GraphStore } from '../../autonomy/graphStore.ts';
+import { SubagentPorts } from '../../subagent/subagentPorts.ts';
 
-import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from './appServerState.js';
-import { PlanApproval } from '../../adapters/approval/planApproval.js';
-import { ServerNoopSupervisor } from './serverNoopSupervisor.js';
-import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
-import type { SubagentPortsShape } from '../../ports/subagent/subagentPortsShape.js';
+import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from './appServerState.ts';
+import { PlanApproval } from '../../adapters/approval/planApproval.ts';
+import { ServerNoopSupervisor } from './serverNoopSupervisor.ts';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.ts';
+import type { SubagentPortsShape } from '../../ports/subagent/subagentPortsShape.ts';
 
 /** Agent/图运行时宿主依赖。 */
 export interface AgentRuntimeDeps {

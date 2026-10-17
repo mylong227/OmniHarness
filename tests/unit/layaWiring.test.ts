@@ -14,15 +14,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.js';
-import { LayaPaths } from '../../src/adapters/laya/layaPaths.js';
-import { DecisionEngineResolver } from '../../src/config/decisionEngineResolver.js';
-import { CliDecisionEngineFlags } from '../../src/cli/cliDecisionEngineFlags.js';
-import { CliDefaults } from '../../src/cli/argParser.js';
-import type { CliArgs } from '../../src/cli/argParser.js';
-import { ConfigError } from '../../src/config/configError.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import type { DecisionEngineConfig } from '../../src/ports/config/decisionEngineConfig.js';
+import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.ts';
+import { LayaPaths } from '../../src/adapters/laya/layaPaths.ts';
+import { DecisionEngineResolver } from '../../src/config/decisionEngineResolver.ts';
+import { CliDecisionEngineFlags } from '../../src/cli/cliDecisionEngineFlags.ts';
+import { CliDefaults } from '../../src/cli/argParser.ts';
+import type { CliArgs } from '../../src/cli/argParser.ts';
+import { ConfigError } from '../../src/config/configError.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import type { DecisionEngineConfig } from '../../src/ports/config/decisionEngineConfig.ts';
 
 const resolver = new DecisionEngineResolver();
 

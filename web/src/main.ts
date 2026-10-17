@@ -36,7 +36,7 @@ import '../styles/refine-density.css';
 import '../styles/minimal.css'; // 单色极简体系：唯一视觉事实源
 import '../styles/highlight.css'; // **必须最后**：单色语法色要盖住前面的基线
 
-import { mountApp } from './ui/App.js';
+import { mountApp } from './ui/App.ts';
 
 const root = document.getElementById('root');
 if (root) {

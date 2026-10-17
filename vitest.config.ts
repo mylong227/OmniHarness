@@ -20,11 +20,10 @@
 
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'node:path';
-import { jsToTsResolver } from './scripts/vitePluginJsToTs.js';
 
 export default defineConfig({
-  // 把源码里的 .js 相对 import 解析到 .ts/.tsx（见插件头注释）。
-  plugins: [jsToTsResolver()],
+  // 源码相对导入已统一写真实后缀 `.ts`/`.tsx`（2026-10-17），Vite 按字面即可解析，
+  // 旧的 `.js → .ts` 回落插件（scripts/vitePluginJsToTs.ts）已删除。
   test: {
     include: ['web/test/**/*.test.mjs'],
     // 浏览器探针类测试（真 Chrome）耗时长，给足超时。

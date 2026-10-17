@@ -27,7 +27,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DEFAULT_VAULT_KEY_FILE, VaultKeyDefaults } from '../../src/cli/vaultKeyDefaults.js';
+import { DEFAULT_VAULT_KEY_FILE, VaultKeyDefaults } from '../../src/cli/vaultKeyDefaults.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();

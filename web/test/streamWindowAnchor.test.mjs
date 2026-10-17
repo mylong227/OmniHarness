@@ -29,7 +29,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { StreamWindow } = await import('../src/ui/models/StreamWindow.js');
+const { StreamWindow } = await import('../src/ui/models/StreamWindow.ts');
 
 test('覆盖率：完整覆盖为 1，锚点为空为 0', () => {
   const anchors = [{ index: 0, top: 100, bottom: 700 }];

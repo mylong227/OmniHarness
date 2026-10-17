@@ -1,4 +1,4 @@
-import type { ModelMessage, ModelPort } from '../ports/model/model.js';
+import type { ModelMessage, ModelPort } from '../ports/model/model.ts';
 
 /**
  * @beta

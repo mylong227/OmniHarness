@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../../omniError.js';
+import { OmniError, ErrorCode } from '../../omniError.ts';
 
 export class EgressBlockedError extends OmniError {
   /** 被拒绝的 URL。 */

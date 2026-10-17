@@ -1,5 +1,5 @@
 import { Script, createContext } from 'node:vm';
-import type { Plugin, PluginApplyContext } from './plugin.js';
+import type { Plugin, PluginApplyContext } from './plugin.ts';
 
 /**
  * Sandbox 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

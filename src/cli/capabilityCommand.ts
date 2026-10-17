@@ -26,9 +26,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { AssetPackPort, RegistryMetadata } from '../ports/asset.js';
-import type { CapabilityStack } from '../ports/config/capabilityStack.js';
-import { CliArgReader } from './cliArgReader.js';
+import type { AssetPackPort, RegistryMetadata } from '../ports/asset.ts';
+import type { CapabilityStack } from '../ports/config/capabilityStack.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 用法提示。 */
 const USAGE =

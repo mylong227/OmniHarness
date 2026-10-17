@@ -12,7 +12,7 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../ports/tool/tool.js';
+} from '../../ports/tool/tool.ts';
 
 /**
  * 门禁的最窄结构契约（= `ToolGate.gate` 的形状）。

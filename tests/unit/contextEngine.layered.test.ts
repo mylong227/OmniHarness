@@ -14,7 +14,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ContextEngine } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
 
 /** fib.ts：含 fibonacci / fibSequence（被查询词法命中）。 */
 const FIB_TS = [

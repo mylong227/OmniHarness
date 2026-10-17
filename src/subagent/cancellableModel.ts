@@ -3,8 +3,8 @@ import type {
   ModelPort,
   ModelRequest,
   StreamCallbacks,
-} from '../ports/model/model.js';
-import { CancelledError, type CancelReason } from '../core/loop/cancelledError.js';
+} from '../ports/model/model.ts';
+import { CancelledError, type CancelReason } from '../core/loop/cancelledError.ts';
 
 /**
  * CancellableModel —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

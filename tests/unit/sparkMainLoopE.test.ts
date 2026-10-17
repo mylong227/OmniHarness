@@ -10,17 +10,17 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import { SparkController } from '../../src/spark/sparkController.js';
-import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.js';
-import { QECEncoder } from '../../src/adapters/memory/qecEncoder.js';
-import { ImmuneMonitor } from '../../src/adapters/monitoring/immuneMonitor.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ScriptedModel } from '../../src/core/scriptedModel.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { SparkController } from '../../src/spark/sparkController.ts';
+import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.ts';
+import { QECEncoder } from '../../src/adapters/memory/qecEncoder.ts';
+import { ImmuneMonitor } from '../../src/adapters/monitoring/immuneMonitor.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ScriptedModel } from '../../src/core/scriptedModel.ts';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

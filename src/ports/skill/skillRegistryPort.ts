@@ -1,7 +1,7 @@
-import type { MoireMeta } from './moireMeta.js';
-import type { MoireOptions } from './moireOptions.js';
-import type { Skill } from './skill.js';
-import type { SkillRetrieveHit } from './skillRetrieveHit.js';
+import type { MoireMeta } from './moireMeta.ts';
+import type { MoireOptions } from './moireOptions.ts';
+import type { Skill } from './skill.ts';
+import type { SkillRetrieveHit } from './skillRetrieveHit.ts';
 
 /**
  * @beta

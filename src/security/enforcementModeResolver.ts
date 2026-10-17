@@ -21,9 +21,9 @@
  * 因为「参数写错」若静默退化成「全放行」，就把配置错误变成了安全失效。
  */
 
-import type { EnforcementMode } from '../ports/security/enforcementMode.js';
+import type { EnforcementMode } from '../ports/security/enforcementMode.ts';
 
-export type { EnforcementMode } from '../ports/security/enforcementMode.js';
+export type { EnforcementMode } from '../ports/security/enforcementMode.ts';
 
 /**
  * 生效模式解析器（纯函数、无状态、无第三方依赖）。

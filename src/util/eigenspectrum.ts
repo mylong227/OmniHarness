@@ -1,5 +1,5 @@
-import { ArrayAt } from './arrayAt.js';
-import type { Spectrum } from '../ports/util/spectrum.js';
+import { ArrayAt } from './arrayAt.ts';
+import type { Spectrum } from '../ports/util/spectrum.ts';
 /**
  * 频率域本征谱工具（燧-3 共振寻址底座）。无第三方依赖。
  *
@@ -128,7 +128,7 @@ export class EigenSpectrum {
 }
 
 /** 一条归一化频谱（契约唯一声明见 `src/ports/util/spectrum.ts`；此处为原路径再导出，调用点零改动）。 */
-export type { Spectrum } from '../ports/util/spectrum.js';
+export type { Spectrum } from '../ports/util/spectrum.ts';
 
 // ---- 门面兼容：保留原导出名，委托默认实例 ----
 const eigenSpectrumEngine = new EigenSpectrum();

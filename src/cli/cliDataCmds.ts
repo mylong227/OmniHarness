@@ -13,18 +13,18 @@
  * 从而协作者不依赖命令继承链，可独立测试。方法签名与退出码保持与原实现一致，`execImpl` 分发点零改动。
  */
 
-import { CliMcpCmds } from './cliMcpCmds.js';
-import { SessionCommand } from './sessionCommand.js';
-import { PluginCommand } from './pluginCommand.js';
-import { ProfileCommand } from './profileCommand.js';
-import { LicenseSource } from '../license/licenseSource.js';
-import { BundleCommand } from './bundleCommand.js';
-import { AuditCommand } from './auditCommand.js';
-import { StoreCommand } from './storeCommand.js';
-import { TraceCommand } from './traceCommand.js';
-import { SdkCommand } from './sdkCommand.js';
-import { BoostCommand, BOOST_PROBE_TIMEOUT_MS, type BoostOptions } from './boostCommand.js';
-import { CliArgReader } from './cliArgReader.js';
+import { CliMcpCmds } from './cliMcpCmds.ts';
+import { SessionCommand } from './sessionCommand.ts';
+import { PluginCommand } from './pluginCommand.ts';
+import { ProfileCommand } from './profileCommand.ts';
+import { LicenseSource } from '../license/licenseSource.ts';
+import { BundleCommand } from './bundleCommand.ts';
+import { AuditCommand } from './auditCommand.ts';
+import { StoreCommand } from './storeCommand.ts';
+import { TraceCommand } from './traceCommand.ts';
+import { SdkCommand } from './sdkCommand.ts';
+import { BoostCommand, BOOST_PROBE_TIMEOUT_MS, type BoostOptions } from './boostCommand.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 数据 / 存储 / 插件类子命令（薄分发门面）。 */
 export class CliDataCmds extends CliMcpCmds {

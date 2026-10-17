@@ -6,7 +6,7 @@
 // 剩下的 DOM 接线由真机判据（`a11yKeyboard` / e2e）覆盖。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { nextTabIndex } from '../src/ui/models/focusTrap.js';
+import { nextTabIndex } from '../src/ui/models/focusTrap.ts';
 
 test('nextTabIndex：正向从当前走到下一个', () => {
   assert.equal(nextTabIndex(3, 0, false), 1);

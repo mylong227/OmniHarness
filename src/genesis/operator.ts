@@ -18,7 +18,7 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
-import { type Cost, type Monoid, emptyCost, Algebra } from './algebra.js';
+import { type Cost, type Monoid, emptyCost, Algebra } from './algebra.ts';
 
 /**
  * OperatorFn —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

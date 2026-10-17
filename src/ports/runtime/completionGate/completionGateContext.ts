@@ -1,5 +1,5 @@
-import type { ToolPort } from '../../tool/tool.js';
-import type { CompletionGateSelfVerifyConfig } from './completionGateSelfVerifyConfig.js';
+import type { ToolPort } from '../../tool/tool.ts';
+import type { CompletionGateSelfVerifyConfig } from './completionGateSelfVerifyConfig.ts';
 
 /**
  * 装配闸门所需的最小运行期事实（只有这三项，端口不绑死 `ResolvedConfig`）。

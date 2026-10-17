@@ -14,8 +14,8 @@
  * @maturity L1 — 分桶/冻结/复活判据钉死（含变异判据）；桶语义依赖调用方声明
  * @maturityEvidence tests/unit/evolutionKernel.test.ts
  */
-import type { ArchivedCandidate, CandidateArchivePort } from '../ports/runtime/evolution.js';
-import type { Candidate } from '../ports/runtime/evolution.js';
+import type { ArchivedCandidate, CandidateArchivePort } from '../ports/runtime/evolution.ts';
+import type { Candidate } from '../ports/runtime/evolution.ts';
 
 /** 永久退役冻结 reason（约定值：reviveFor 不复活，见模块注释）。 */
 const RETIRED_REASON = 'promoted';

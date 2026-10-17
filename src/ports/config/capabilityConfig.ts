@@ -1,5 +1,5 @@
-import type { IsolationLevel } from '../capability/isolationLevel.js';
-import type { TrustTier } from '../capability/trustTier.js';
+import type { IsolationLevel } from '../capability/isolationLevel.ts';
+import type { TrustTier } from '../capability/trustTier.ts';
 
 /**
  * 统一资产协议配置段（Wave B · ADR-0009）。

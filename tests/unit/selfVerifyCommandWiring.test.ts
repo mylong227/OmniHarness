@@ -14,16 +14,16 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.js';
-import type { ToolContext } from '../../src/ports/tool/tool.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
+import type { ToolContext } from '../../src/ports/tool/tool.ts';
 
 /** 回灌信号（命令必然失败并打印它）。 */
 const MARKER = 'SELFVERIFY_MARKER';

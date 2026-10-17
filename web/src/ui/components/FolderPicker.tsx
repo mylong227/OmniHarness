@@ -6,11 +6,11 @@
 // 渲染分支下沉为模块级函数（零组件耦合）；Esc 监听依赖 create.creating，handler 恒读最新值。
 
 import * as React from 'react';
-import { PathJoiner } from '../models/PathJoiner.js';
-import { PickerKeys } from '../models/PickerKeys.js';
-import { icon } from '../models/Icon.js';
-import type { ApiClient } from '../../core/ApiClient.js';
-import { t } from '../i18n/i18n.js';
+import { PathJoiner } from '../models/PathJoiner.ts';
+import { PickerKeys } from '../models/PickerKeys.ts';
+import { icon } from '../models/Icon.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** fs.browse 的两级返回形态。 */
 type BrowseResult =

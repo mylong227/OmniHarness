@@ -1,11 +1,11 @@
 import { resolve } from 'node:path';
 import { strict as assert } from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
-import { LspUri } from '../../src/adapters/lsp/lspUri.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
+import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
+import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 
 // 测试从项目根运行，mock 服务器为源码级 .mjs（不被 tsc 编译），故相对于项目根定位。
 const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');

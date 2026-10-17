@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 造一条最小合法会话事件。 */
 function evt(id: string): SessionEvent {

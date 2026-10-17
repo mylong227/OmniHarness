@@ -1,18 +1,18 @@
-import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
-import { SubagentToolScope } from './subagentToolScope.js';
-import { log } from '../util/logger.js';
-import { Id } from '../util/id.js';
-import { SubagentRunner } from './subagentRunner.js';
-import { WorktreeOps, type Worktree } from './worktreeOps.js';
+import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.ts';
+import { SubagentToolScope } from './subagentToolScope.ts';
+import { log } from '../util/logger.ts';
+import { Id } from '../util/id.ts';
+import { SubagentRunner } from './subagentRunner.ts';
+import { WorktreeOps, type Worktree } from './worktreeOps.ts';
 
-import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.js';
+import type { SubagentOptions, SubagentRequest, SubagentResult } from './subagentTypes.ts';
 import {
   CANCELLED_BY_PARENT_MESSAGE,
   DEFAULT_MAX_CONCURRENCY,
   DEFAULT_MAX_DEPTH,
   DEFAULT_SUBAGENT_MAX_STEPS,
-} from './subagentTypes.js';
-import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
+} from './subagentTypes.ts';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.ts';
 
 /**
  * @beta

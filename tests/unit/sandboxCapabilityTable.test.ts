@@ -8,8 +8,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SandboxCapabilityTable } from '../../src/adapters/sandbox/sandboxCapabilityTable.js';
-import type { SandboxCapabilityEntry } from '../../src/adapters/sandbox/sandboxCapabilityTable.js';
+import { SandboxCapabilityTable } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';
+import type { SandboxCapabilityEntry } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';
 
 /** 取一条条目（不存在即测试失败）。 */
 const entryOf = (

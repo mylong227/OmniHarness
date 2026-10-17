@@ -2,7 +2,7 @@ import type {
   EscalationDecision,
   EscalationPort,
   EscalationRequest,
-} from '../../ports/runtime/escalation.js';
+} from '../../ports/runtime/escalation.ts';
 
 /** 自动升级审批选项。 */
 export interface AutoEscalationOptions {

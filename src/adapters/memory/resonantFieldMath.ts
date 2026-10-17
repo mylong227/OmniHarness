@@ -3,7 +3,7 @@
  *
  * 原 resonantFieldEngine.ts 的两个顶层内部纯函数迁入此处，避免 ResonantFieldEngine 上帝类越线（成员数红线）。
  */
-import type { Spectrum } from '../../util/eigenspectrum.js';
+import type { Spectrum } from '../../util/eigenspectrum.ts';
 
 /** 共振场纯函数工具（无状态，供 ResonantFieldEngine 调用）。 */
 export class ResonantFieldMath {

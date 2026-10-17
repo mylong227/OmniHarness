@@ -1,8 +1,8 @@
-import type { CliArgs } from './argParser.js';
-import { McpServerCommand } from '../mcp/mcpServerCommand.js';
-import type { ModelRouterConfig } from '../config/configFile.js';
-import { KNOWN_EXTRA_FLAGS } from './knownFlags.js';
-import { VALUE_FLAGS } from './cliValueFlags.js';
+import type { CliArgs } from './argParser.ts';
+import { McpServerCommand } from '../mcp/mcpServerCommand.ts';
+import type { ModelRouterConfig } from '../config/configFile.ts';
+import { KNOWN_EXTRA_FLAGS } from './knownFlags.ts';
+import { VALUE_FLAGS } from './cliValueFlags.ts';
 import {
   MODEL_ADAPTERS,
   STORAGE_ADAPTERS,
@@ -19,7 +19,7 @@ import {
   BUDGET_ON_EXCEED,
   ENFORCEMENT_MODES,
   DECISION_ENGINE_MODES,
-} from './cliEnums.js';
+} from './cliEnums.ts';
 
 /**
  * 取值受枚举约束的旗标 → 允许值清单。

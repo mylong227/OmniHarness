@@ -1,4 +1,4 @@
-import type { Skill } from '../../skill/skill.js';
+import type { Skill } from '../../skill/skill.ts';
 
 /**
  * 台账条目动作。

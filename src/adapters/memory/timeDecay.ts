@@ -1,4 +1,4 @@
-import type { MemoryFact } from '../../ports/memory/longTermMemory.js';
+import type { MemoryFact } from '../../ports/memory/longTermMemory.ts';
 
 /**
  * TimeDecay —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

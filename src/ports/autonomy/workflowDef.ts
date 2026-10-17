@@ -1,4 +1,4 @@
-import type { WorkflowStep } from './workflowStep.js';
+import type { WorkflowStep } from './workflowStep.ts';
 
 /**
  * 工作流定义（DAG）。

@@ -1,4 +1,4 @@
-import type { AnnealStepReport } from './annealStepReport.js';
+import type { AnnealStepReport } from './annealStepReport.ts';
 
 /** 记忆退火器端口。 */
 export interface MemoryAnnealer {

@@ -1,12 +1,12 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { ToolIndex } from '../../../search/toolIndex.js';
-import type { ToolDiscoveryPort } from '../../../ports/tool/toolDiscoveryPort.js';
+} from '../../../ports/tool/tool.ts';
+import { ToolIndex } from '../../../search/toolIndex.ts';
+import type { ToolDiscoveryPort } from '../../../ports/tool/toolDiscoveryPort.ts';
 
 /** tool_search 默认返回工具数上限。 */
 const DEFAULT_LIMIT = 5;

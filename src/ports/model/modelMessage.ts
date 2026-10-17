@@ -1,6 +1,6 @@
-import type { ImageContent } from './imageContent.js';
-import type { FileAttachment } from './fileAttachment.js';
-import type { ModelToolCallRef } from './modelToolCallRef.js';
+import type { ImageContent } from './imageContent.ts';
+import type { FileAttachment } from './fileAttachment.ts';
+import type { ModelToolCallRef } from './modelToolCallRef.ts';
 
 /** 模型消息（OpenAI 兼容最小子集）。 */
 export interface ModelMessage {

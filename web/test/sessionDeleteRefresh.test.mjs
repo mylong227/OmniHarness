@@ -21,8 +21,8 @@ import { createRuntime } from './hooksStub.mjs';
 
 // deps.js / highlight.js 在模块顶层读 window，须先种零 DOM 桩（与 controllerBindings.test.mjs 同一口径）。
 createRuntime().install();
-const { SessionController } = await import('../src/ui/controllers/SessionController.js');
-const { AppReducers } = await import('../src/ui/controllers/AppReducers.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
+const { AppReducers } = await import('../src/ui/controllers/AppReducers.ts');
 
 /** 造一个最小 host/services 环境：reducers 用**真实现**（缺陷就出在 mergeSessions 的契约上）。
  *  注意 `listSessions` 的线格式是 `sessionId`（refreshSessions 用它做 id），不是 `id`。 */

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoPathGuard } from '../../src/server/services/repoPathGuard.js';
+import { RepoPathGuard } from '../../src/server/services/repoPathGuard.ts';
 
 function withWorkspace<T>(fn: (ws: string, guard: RepoPathGuard) => T): T {
   const ws = mkdtempSync(join(tmpdir(), 'repo-guard-'));

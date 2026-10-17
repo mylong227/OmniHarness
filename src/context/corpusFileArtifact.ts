@@ -1,4 +1,4 @@
-import type { SymbolNode } from './repoMap/repoMap.js';
+import type { SymbolNode } from './repoMap/repoMap.ts';
 
 /**
  * 单个文件的**解析产物**（增量重建的最小复用单元）。

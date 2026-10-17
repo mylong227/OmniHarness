@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { SettingsModel, SETTINGS_FIELDS } = await import('../src/ui/models/SettingsModel.js');
+const { SettingsModel, SETTINGS_FIELDS } = await import('../src/ui/models/SettingsModel.ts');
 
 /** 让排队的 promise 全部落地（含 await 链上的多跳）。 */
 async function flush() {

@@ -1,5 +1,5 @@
-import type { FileConfig } from './configFile.js';
-import { providerPresets } from './providerPresets.js';
+import type { FileConfig } from './configFile.ts';
+import { providerPresets } from './providerPresets.ts';
 
 /**
  * `providerPresets` 配置段严格校验（fail-closed，2026-09-22 第二轮）。

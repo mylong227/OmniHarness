@@ -18,8 +18,8 @@
  * 定向收窄交给 `TestCommandNarrower`（各自一类、各自可单测）。
  */
 import { extname } from 'node:path';
-import { SelfVerifyCommandDetector } from './selfVerifyCommandDetector.js';
-import { TestCommandNarrower } from './testCommandNarrower.js';
+import { SelfVerifyCommandDetector } from './selfVerifyCommandDetector.ts';
+import { TestCommandNarrower } from './testCommandNarrower.ts';
 
 /** 策略的可选覆盖项（缺省取保守默认值）。 */
 export interface SelfVerifyPolicyOptions {

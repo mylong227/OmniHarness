@@ -12,10 +12,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ArchiveCurator } from '../../src/evolution/archiveCurator.js';
-import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.js';
-import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.js';
-import type { PromotionVerdict } from '../../src/ports/runtime/evolution.js';
+import { ArchiveCurator } from '../../src/evolution/archiveCurator.ts';
+import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.ts';
+import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.ts';
+import type { PromotionVerdict } from '../../src/ports/runtime/evolution.ts';
 
 /**
  * 造一条被拒裁决（只关心 candidate/source/score）。

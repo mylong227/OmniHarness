@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ServerEventBridge } from '../../src/server/core/serverEventBridge.js';
-import type { Transport } from '../../src/server/transport/lineTransport.js';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { ServerEventBridge } from '../../src/server/core/serverEventBridge.ts';
+import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 记录下行消息的传输桩。 */
 class RecordingTransport implements Transport {

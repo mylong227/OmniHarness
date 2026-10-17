@@ -16,14 +16,14 @@ export type {
   McpPromptDescriptor,
   McpCapabilities,
   McpInitializeResult,
-} from '../ports/mcp/mcpProtocolTypes.js';
+} from '../ports/mcp/mcpProtocolTypes.ts';
 
 import {
   type McpCallToolResult,
   type McpInitializeResult,
   type McpServerInfo,
   type McpTextContent,
-} from '../ports/mcp/mcpProtocolTypes.js';
+} from '../ports/mcp/mcpProtocolTypes.ts';
 
 /**
  * @beta

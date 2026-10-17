@@ -10,10 +10,10 @@
 // 纯展示组件：决策通过回调上抛，自身不保存业务状态。
 
 import * as React from 'react';
-import { jsonView } from '../format.js';
-import { icon } from '../models/Icon.js';
-import type { ApprovalRequest } from '../../types/models.js';
-import { t } from '../i18n/i18n.js';
+import { jsonView } from '../format.ts';
+import { icon } from '../models/Icon.ts';
+import type { ApprovalRequest } from '../../types/models.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** ApprovalModal 组件的入参。 */
 export interface ApprovalModalProps {

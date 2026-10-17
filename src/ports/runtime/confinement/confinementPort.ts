@@ -1,6 +1,6 @@
-import type { CapabilityCharge } from './capabilityCharge.js';
-import type { BoundCapability } from './boundCapability.js';
-import type { ConfinementVerdict } from './confinementVerdict.js';
+import type { CapabilityCharge } from './capabilityCharge.ts';
+import type { BoundCapability } from './boundCapability.ts';
+import type { ConfinementVerdict } from './confinementVerdict.ts';
 
 /** 禁闭色荷端口。 */
 export interface ConfinementPort {

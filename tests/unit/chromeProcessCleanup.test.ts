@@ -16,7 +16,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ChromeProcess } from '../../src/adapters/browser/chromeProcess.js';
+import { ChromeProcess } from '../../src/adapters/browser/chromeProcess.ts';
 
 test('ChromeProcess：启动失败必须回收——再次 launch 不得报「已在启动中」', async () => {
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-chrome-cleanup-'));

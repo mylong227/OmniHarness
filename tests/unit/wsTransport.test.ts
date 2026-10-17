@@ -1,15 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HttpServer, HttpBridgeTransport } from '../../src/server/transport/httpServer.js';
-import { AppServer } from '../../src/server/core/appServer.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+import { HttpServer, HttpBridgeTransport } from '../../src/server/transport/httpServer.ts';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 import { resolve } from 'node:path';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 起测试服务。 */
 async function startServer(): Promise<{ server: HttpServer; port: number }> {

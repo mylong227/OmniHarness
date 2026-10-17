@@ -19,9 +19,9 @@ import test from 'node:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EndpointDefaults, endpointDefaults } from '../../src/util/endpointDefaults.js';
-import { BrowserAvailability } from '../../src/adapters/browser/browserAvailability.js';
-import { DEFAULT_REGISTRY_URL } from '../../src/plugin/registrySourcesShared.js';
+import { EndpointDefaults, endpointDefaults } from '../../src/util/endpointDefaults.ts';
+import { BrowserAvailability } from '../../src/adapters/browser/browserAvailability.ts';
+import { DEFAULT_REGISTRY_URL } from '../../src/plugin/registrySourcesShared.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

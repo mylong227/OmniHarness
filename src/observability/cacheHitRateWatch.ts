@@ -23,8 +23,8 @@
  *  设成 20% 则要等成本几乎全损才报，设成 80% 会让所有正当会话常年飘红。
  */
 
-import { log } from '../util/logger.js';
-import { CacheMissAttributionAnalyst, type CacheMissCause } from './cacheMissAttributionAnalyst.js';
+import { log } from '../util/logger.ts';
+import { CacheMissAttributionAnalyst, type CacheMissCause } from './cacheMissAttributionAnalyst.ts';
 
 /** 判定缓存命中率坍塌所需的**最少**调用数（低于此数不判定，避免小样本噪声）。 */
 export const MIN_CALLS_FOR_JUDGEMENT = 5;

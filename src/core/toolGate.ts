@@ -1,8 +1,8 @@
-import type { ApprovalPort } from '../ports/runtime/approval.js';
-import type { SupervisorPort } from '../ports/runtime/supervisor.js';
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../ports/runtime/sandbox.js';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.js';
-import type { RolePolicyPort } from '../ports/security/rolePolicy.js';
+import type { ApprovalPort } from '../ports/runtime/approval.ts';
+import type { SupervisorPort } from '../ports/runtime/supervisor.ts';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../ports/runtime/sandbox.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import type { RolePolicyPort } from '../ports/security/rolePolicy.ts';
 /**
  * 提权沙箱默认 fail-closed：未显式注入 elevatedSandbox 时一律拒绝升级，绝不静默全放行
  * （防御性兜底，防止手动/测试构造 ToolGate 漏注入时把提权重试变成沙箱绕过）。
@@ -18,10 +18,10 @@ const FAIL_CLOSED_ELEVATED_SANDBOX: SandboxPort = {
     };
   },
 };
-import type { PlanPort } from '../ports/runtime/plan.js';
-import type { ToolCall, ToolResult } from '../ports/tool/tool.js';
-import type { EscalationPort } from '../ports/runtime/escalation.js';
-import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
+import type { PlanPort } from '../ports/runtime/plan.ts';
+import type { ToolCall, ToolResult } from '../ports/tool/tool.ts';
+import type { EscalationPort } from '../ports/runtime/escalation.ts';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
 
 /**
  * @beta
@@ -254,4 +254,4 @@ export class ToolGate implements ToolGatePort {
   }
 }
 
-export type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
+export type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';

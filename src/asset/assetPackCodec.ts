@@ -22,10 +22,10 @@
  * @maturityEvidence tests/unit/assetPackCodec.test.ts
  */
 import { verify as cryptoVerify, type KeyObject } from 'node:crypto';
-import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
-import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
-import type { AssetPackManifest, PackPublisher } from '../ports/asset.js';
-import { Zip } from '../plugin/zip.js';
+import { Ed25519PublicKey } from '../util/ed25519PublicKey.ts';
+import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.ts';
+import type { AssetPackManifest, PackPublisher } from '../ports/asset.ts';
+import { Zip } from '../plugin/zip.ts';
 
 /** 包内清单条目名（与插件包的 `bundle.json` 语义隔离）。 */
 export const ASSET_PACK_ENTRY = 'asset-pack.json';

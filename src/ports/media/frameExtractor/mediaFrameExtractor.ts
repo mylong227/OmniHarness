@@ -1,6 +1,6 @@
-import type { FrameExtractionRequest } from './frameExtractionRequest.js';
-import type { FrameExtractionResult } from './frameExtractionResult.js';
-import type { MediaKind } from '../mediaTypes.js';
+import type { FrameExtractionRequest } from './frameExtractionRequest.ts';
+import type { FrameExtractionResult } from './frameExtractionResult.ts';
+import type { MediaKind } from '../mediaTypes.ts';
 
 /**
  * 帧提取器端口：把「一个媒体源」变成「若干张带时间戳的帧」。

@@ -1,10 +1,10 @@
 import { strict as assert } from 'node:assert/strict';
 import { test } from 'node:test';
-import { TurnDirectiveComposer } from '../../src/server/services/turnDirectiveComposer.js';
+import { TurnDirectiveComposer } from '../../src/server/services/turnDirectiveComposer.ts';
 import {
   EMPTY_SESSION_MODES,
   type SessionModes,
-} from '../../src/server/services/session/sessionModeStore.js';
+} from '../../src/server/services/session/sessionModeStore.ts';
 
 const composer = new TurnDirectiveComposer();
 

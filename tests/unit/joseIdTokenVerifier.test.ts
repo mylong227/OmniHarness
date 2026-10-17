@@ -19,10 +19,10 @@ import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';
 import { generateKeyPair, exportJWK, SignJWT, type JWK } from 'jose';
 
-import { JoseIdTokenVerifier } from '../../src/adapters/enterprise/joseIdTokenVerifier.js';
-import { LegacyIdTokenVerifier } from '../../src/adapters/enterprise/legacyIdTokenVerifier.js';
-import { EnterpriseAuth } from '../../src/enterprise/oidcClient.js';
-import type { IdTokenVerifierPort } from '../../src/ports/enterprise/idTokenVerifier.js';
+import { JoseIdTokenVerifier } from '../../src/adapters/enterprise/joseIdTokenVerifier.ts';
+import { LegacyIdTokenVerifier } from '../../src/adapters/enterprise/legacyIdTokenVerifier.ts';
+import { EnterpriseAuth } from '../../src/enterprise/oidcClient.ts';
+import type { IdTokenVerifierPort } from '../../src/ports/enterprise/idTokenVerifier.ts';
 
 /** 私钥类型：**从 jose 的 generateKeyPair 反推**（v6 起不再导出 `KeyLike`，不手抄避免漂移）。 */
 type PrivateKey = Awaited<ReturnType<typeof generateKeyPair>>['privateKey'];

@@ -19,22 +19,22 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { WasmSkillSchema } from '../../src/capability/schemas/wasmSkillSchema.js';
-import { WasmSkillPack } from '../../src/asset/wasmSkillPack.js';
-import { AssetPackCodec } from '../../src/asset/assetPackCodec.js';
-import { AssetPackInstaller } from '../../src/asset/assetPackInstaller.js';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.js';
-import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.js';
-import { IsolationLadderFactory } from '../../src/adapters/isolation/isolationLadderFactory.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
+import { WasmSkillSchema } from '../../src/capability/schemas/wasmSkillSchema.ts';
+import { WasmSkillPack } from '../../src/asset/wasmSkillPack.ts';
+import { AssetPackCodec } from '../../src/asset/assetPackCodec.ts';
+import { AssetPackInstaller } from '../../src/asset/assetPackInstaller.ts';
+import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
+import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';
+import { IsolationLadderFactory } from '../../src/adapters/isolation/isolationLadderFactory.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import type { CapabilityRecord } from '../../src/ports/capability.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import type { CapabilityRecord } from '../../src/ports/capability.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /** 真 wasm 产物路径（与 `wasmKernelE2E` 同一份；缺则相关用例跳过并打印构建命令）。 */
 const ARTIFACT = resolve(

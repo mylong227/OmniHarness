@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
-import type { ModelRequest, StreamCallbacks, ToolInputDelta } from '../../src/ports/model/model.js';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import type { ModelRequest, StreamCallbacks, ToolInputDelta } from '../../src/ports/model/model.ts';
 
 /** 把文本包装为可读流（SSE 主体）。 */
 function streamOf(text: string): ReadableStream<Uint8Array> {

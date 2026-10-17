@@ -1,5 +1,5 @@
-import type { QECReport } from './qecReport.js';
-import type { QECStatus } from './qecStatus.js';
+import type { QECReport } from './qecReport.ts';
+import type { QECStatus } from './qecStatus.ts';
 
 /** QEC 编码器端口。 */
 export interface QECEncoderPort {

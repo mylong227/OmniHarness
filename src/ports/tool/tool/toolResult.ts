@@ -1,4 +1,4 @@
-import type { FileAttachment } from '../../model/model.js';
+import type { FileAttachment } from '../../model/model.ts';
 
 /** 工具执行结果。 */
 export interface ToolResult {

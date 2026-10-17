@@ -7,17 +7,17 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Agent } from '../../src/core/agent.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { TokenAttribution, INITIAL_BUCKET } from '../../src/observability/tokenAttribution.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { Agent } from '../../src/core/agent.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { TokenAttribution, INITIAL_BUCKET } from '../../src/observability/tokenAttribution.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 捕获型事件端口替身：保留运行时真发出的全部事件（供归因投影）。 */
 class CapturingEventPort implements EventPort {

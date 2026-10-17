@@ -12,10 +12,10 @@ import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
-const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.js');
-const { SessionSearch } = await import('../src/ui/models/SessionSearch.js');
-const { SessionPanel } = await import('../src/ui/components/SessionPanel.js');
-const { SearchResults } = await import('../src/ui/components/SearchResults.js');
+const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.ts');
+const { SessionSearch } = await import('../src/ui/models/SessionSearch.ts');
+const { SessionPanel } = await import('../src/ui/components/SessionPanel.tsx');
+const { SearchResults } = await import('../src/ui/components/SearchResults.tsx');
 
 /** 会话命中（故意乱序，用于验证排序确实由前端定序）。 */
 const CHATS = [

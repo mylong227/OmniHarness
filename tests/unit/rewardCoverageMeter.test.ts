@@ -13,7 +13,7 @@ import {
   RewardCoverageMeter,
   RewardCoverageReport,
   COVERAGE_THRESHOLD,
-} from '../../src/evolution/rewardCoverageMeter.js';
+} from '../../src/evolution/rewardCoverageMeter.ts';
 
 test('① 区分真判负与不可验证：verified-fail ≠ unverifiable:no-command', async () => {
   const outcomes: Array<{ cmd: string | undefined; status: number | null }> = [

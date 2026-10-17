@@ -31,11 +31,11 @@
  */
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
-import { log } from '../util/logger.js';
-import { PluginBundler } from './pluginBundler.js';
-import { BundleCodec } from './bundleCodec.js';
-import type { BundleManifest } from './pluginBundler.js';
+import { Ed25519PublicKey } from '../util/ed25519PublicKey.ts';
+import { log } from '../util/logger.ts';
+import { PluginBundler } from './pluginBundler.ts';
+import { BundleCodec } from './bundleCodec.ts';
+import type { BundleManifest } from './pluginBundler.ts';
 
 /** 私有源拒绝的**可机读拒因码**（§12.1-4）。 */
 export type SkillSourceDenialCode =

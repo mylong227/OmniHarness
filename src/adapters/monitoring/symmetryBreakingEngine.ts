@@ -15,7 +15,7 @@ import type {
   SymmetryBreakingPort,
   SymmetryBreakReport,
   UsageSample,
-} from '../../ports/intelligence/symmetryBreaking.js';
+} from '../../ports/intelligence/symmetryBreaking.ts';
 
 export interface SymmetryBreakingOptions {
   /** 破缺阈值（ρ 越此值即破缺，默认 0.6）。 */

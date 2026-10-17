@@ -1,17 +1,17 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // stepRunner × native 后端集成测试（#67）：验证 --approval/--sandbox 门禁在 native 与 JS 路径下行为一致。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort, ModelOutput } from '../../src/ports/model/model.js';
-import type { ToolPort, ToolCall } from '../../src/ports/tool/tool.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
-import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { ModelPort, ModelOutput } from '../../src/ports/model/model.ts';
+import type { ToolPort, ToolCall } from '../../src/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
+import type { NativeToolRunner } from '../../src/native/nativeBackend.ts';
 
 function recorderFor(sessionId: string): SessionRecorder {
   return new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);

@@ -1,4 +1,4 @@
-import type { Charge } from './charge.js';
+import type { Charge } from './charge.ts';
 
 /** 带色荷的能力。 */
 export interface CapabilityCharge {

@@ -1,15 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BudgetedModel } from '../../src/adapters/model/budgetedModel.js';
-import { CostBudget } from '../../src/adapters/model/costBudget.js';
-import { RoutePricing } from '../../src/adapters/model/routePricing.js';
-import { BudgetExceededError } from '../../src/ports/model/model.js';
+import { BudgetedModel } from '../../src/adapters/model/budgetedModel.ts';
+import { CostBudget } from '../../src/adapters/model/costBudget.ts';
+import { RoutePricing } from '../../src/adapters/model/routePricing.ts';
+import { BudgetExceededError } from '../../src/ports/model/model.ts';
 import type {
   ModelPort,
   ModelOutput,
   ModelRequest,
   StreamCallbacks,
-} from '../../src/ports/model/model.js';
+} from '../../src/ports/model/model.ts';
 
 function fakeModel(returns: ModelOutput, calls: { n: number }): ModelPort {
   return {

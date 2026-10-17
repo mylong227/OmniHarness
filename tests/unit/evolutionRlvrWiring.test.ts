@@ -23,19 +23,19 @@ import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { RlvrController } from '../../src/evolution/rlvrController.js';
-import { VerifiableReward } from '../../src/evolution/verifiableReward.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { MoireComposer } from '../../src/skill/moireComposer.js';
-import type { ModelPort } from '../../src/ports/model/model.js';
-import type { Skill } from '../../src/skill/skill.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { RlvrController } from '../../src/evolution/rlvrController.ts';
+import { VerifiableReward } from '../../src/evolution/verifiableReward.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { MoireComposer } from '../../src/skill/moireComposer.ts';
+import type { ModelPort } from '../../src/ports/model/model.ts';
+import type { Skill } from '../../src/skill/skill.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 
 /**
  * 可验证奖励命令：用「跑本测试的 node 本体」做语法检查，避免依赖 PATH（hermetic）。

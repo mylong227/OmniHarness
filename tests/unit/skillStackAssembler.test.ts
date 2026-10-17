@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SkillStackAssembler } from '../../src/config/skillStackAssembler.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import type { Skill } from '../../src/skill/skill.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
+import { SkillStackAssembler } from '../../src/config/skillStackAssembler.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import type { Skill } from '../../src/skill/skill.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
 
 /** 构造最小可解析配置（mock 适配器，无网络）。 */
 function base(over: Partial<OmniHarnessConfig> = {}): OmniHarnessConfig {

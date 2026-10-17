@@ -11,12 +11,12 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
-import { PrefixStability } from '../../src/context/prefixStability.js';
-import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
-import type { ModelMessage } from '../../src/ports/model/model.js';
+import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
+import { PrefixStability } from '../../src/context/prefixStability.ts';
+import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.ts';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
+import type { ModelMessage } from '../../src/ports/model/model.ts';
 
 /** repo-map 注入内容哨兵（用于定位其在消息列表中的下标）。 */
 const REPOMAP_SENTINEL = '# REPOMAP_TAIL_SENTINEL';

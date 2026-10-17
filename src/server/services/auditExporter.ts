@@ -1,20 +1,20 @@
 import crypto from 'node:crypto';
-import type { AuditChainReport, AuditEvent } from './auditSink.js';
-import type { AuditQuery } from '../../ports/server/auditQuery.js';
-import type { AuditFormat } from '../../ports/server/auditFormat.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+import type { AuditChainReport, AuditEvent } from './auditSink.ts';
+import type { AuditQuery } from '../../ports/server/auditQuery.ts';
+import type { AuditFormat } from '../../ports/server/auditFormat.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /**
  * @beta
  * 审计导出查询条件（全字段可选；未给则不过滤）。
  */
-export type { AuditQuery } from '../../ports/server/auditQuery.js';
+export type { AuditQuery } from '../../ports/server/auditQuery.ts';
 
 /**
  * @beta
  * 导出格式。
  */
-export type { AuditFormat } from '../../ports/server/auditFormat.js';
+export type { AuditFormat } from '../../ports/server/auditFormat.ts';
 
 /**
  * 审计导出器。

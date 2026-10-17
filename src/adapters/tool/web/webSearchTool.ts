@@ -1,5 +1,5 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js'
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../../ports/tool/tool.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts'
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../../ports/tool/tool.ts';
 
 /** 网络搜索工具选项（注入真实搜索实现，保持无第三方依赖）。 */
 export interface WebSearchToolOptions {

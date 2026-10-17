@@ -15,35 +15,35 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { RlvrController } from '../../src/evolution/rlvrController.js';
-import { EvolutionKernel } from '../../src/evolution/evolutionKernel.js';
-import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.js';
-import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.js';
-import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { DormantExecutorActivation } from '../../src/evolution/dormantExecutorActivation.js';
-import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.js';
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { MoireComposer } from '../../src/skill/moireComposer.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort } from '../../src/ports/model/model.js';
-import type { Skill } from '../../src/skill/skill.js';
-import type { EvolutionController, PromotionVerdict } from '../../src/ports/runtime/evolution.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { RlvrController } from '../../src/evolution/rlvrController.ts';
+import { EvolutionKernel } from '../../src/evolution/evolutionKernel.ts';
+import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.ts';
+import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.ts';
+import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { DormantExecutorActivation } from '../../src/evolution/dormantExecutorActivation.ts';
+import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.ts';
+import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { MoireComposer } from '../../src/skill/moireComposer.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { ModelPort } from '../../src/ports/model/model.ts';
+import type { Skill } from '../../src/skill/skill.ts';
+import type { EvolutionController, PromotionVerdict } from '../../src/ports/runtime/evolution.ts';
 import type {
   RuntimeObservation,
   RuntimeTelemetryInput,
   RuntimeTelemetryPort,
   TelemetryChainReport,
-} from '../../src/ports/runtime/runtimeTelemetry.js';
+} from '../../src/ports/runtime/runtimeTelemetry.ts';
 
 /** 可验证奖励命令（hermetic：用本测试进程的 node 做 `--check` 语法检查）。 */
 const VERIFY_COMMAND = `"${process.execPath}" --check %CODE_FILE%`;

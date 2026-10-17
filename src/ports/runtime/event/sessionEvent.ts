@@ -1,4 +1,4 @@
-import type { EventType } from './eventType.js';
+import type { EventType } from './eventType.ts';
 
 /** 会话事件：模型所见即所记的唯一事实源。 */
 export interface SessionEvent {

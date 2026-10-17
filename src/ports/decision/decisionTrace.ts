@@ -9,5 +9,5 @@
  * （与决策引擎「质量信号非安全边界」取向一致）。
  */
 
-export type { DecisionTrace } from './decisionTrace/decisionTrace.js';
-export type { DecisionTracePort } from './decisionTrace/decisionTracePort.js';
+export type { DecisionTrace } from './decisionTrace/decisionTrace.ts';
+export type { DecisionTracePort } from './decisionTrace/decisionTracePort.ts';

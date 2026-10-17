@@ -9,7 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FileScratchpad } from '../../src/adapters/memory/fileScratchpad.js';
+import { FileScratchpad } from '../../src/adapters/memory/fileScratchpad.ts';
 
 function tmpWs(): string {
   return mkdtempSync(join(tmpdir(), 'omni-scratch-'));

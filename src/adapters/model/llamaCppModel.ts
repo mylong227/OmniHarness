@@ -8,13 +8,13 @@ import type {
   ModelToolSpec,
   ModelUsage,
   StreamCallbacks,
-} from '../../ports/model/model.js';
-import { ModelHttpErrors } from './modelHttpErrors.js';
-import { ModelRequestGuard } from './modelRequestGuard.js';
-import { log } from '../../util/logger.js';
-import { RequestStallGuard } from './requestStallGuard.js';
-import { ModelResponseFormats } from './modelResponseFormats.js';
-import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
+} from '../../ports/model/model.ts';
+import { ModelHttpErrors } from './modelHttpErrors.ts';
+import { ModelRequestGuard } from './modelRequestGuard.ts';
+import { log } from '../../util/logger.ts';
+import { RequestStallGuard } from './requestStallGuard.ts';
+import { ModelResponseFormats } from './modelResponseFormats.ts';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
 
 /**
  * @beta

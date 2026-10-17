@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionArchive } from '../../src/server/services/session/sessionArchive.js';
+import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
 
 // 本文件考的是**扫描 / 排序 / 归档 / 用量**，与工作区作用域无关 —— 故所有 `list` 调用显式传 `'*'`
 // （缺省作用域是"当前工作区"，这些夹具的 workspaceRoot 与 fixture 的 workspace 标记并不相同）。

@@ -14,13 +14,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.js';
+import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';
 import {
   WASM_PAGE_BYTES,
   WasmMemoryLimits,
-} from '../../src/adapters/isolation/wasmMemoryLimits.js';
-import type { IsolationRequest } from '../../src/ports/runtime/isolation.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
+} from '../../src/adapters/isolation/wasmMemoryLimits.ts';
+import type { IsolationRequest } from '../../src/ports/runtime/isolation.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /**
  * 造段字节。

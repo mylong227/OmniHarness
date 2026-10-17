@@ -1,7 +1,7 @@
 // 附件图标与草稿构建：Composer 附件区用（与文件浏览器的图标语义略有差异，故独立成类）。
 
-import type { FileAttachment } from '../../types/models.js';
-import type { IconName } from './Icon.js';
+import type { FileAttachment } from '../../types/models.ts';
+import type { IconName } from './Icon.ts';
 
 /** 本地草稿附件（含预览 URL，仅前端使用）。 */
 export interface AttachmentDraft extends FileAttachment {

@@ -2,10 +2,10 @@
 // 承接原 useAppController 中 onRunStart / pollRun / graph.progress / graph.done 相关回调，
 // 经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
-import type { AppHost, AppServices } from './AppController.js';
-import type { GraphDone, GraphProgress } from '../../types/models.js';
-import { MethodBinder } from './methodBinder.js';
-import { t } from '../i18n/i18n.js';
+import type { AppHost, AppServices } from './AppController.ts';
+import type { GraphDone, GraphProgress } from '../../types/models.ts';
+import { MethodBinder } from './methodBinder.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** graph 运行态控制器：单一职责，仅供 App 组合使用。 */
 export class GraphController {

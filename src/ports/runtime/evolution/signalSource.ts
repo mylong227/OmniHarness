@@ -1,4 +1,4 @@
-import type { TelemetryProvenance } from '../runtimeTelemetry/telemetryProvenance.js';
+import type { TelemetryProvenance } from '../runtimeTelemetry/telemetryProvenance.ts';
 
 /**
  * 进化信号种类。

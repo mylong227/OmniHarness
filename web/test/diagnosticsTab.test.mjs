@@ -24,9 +24,9 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { DiagnosticsTab } = await import('../src/ui/components/tabs/DiagnosticsTab.js');
-const { PANELS } = await import('../src/ui/models/PanelRegistry.js');
-const { parseHash } = await import('../src/core/Router.js');
+const { DiagnosticsTab } = await import('../src/ui/components/tabs/DiagnosticsTab.tsx');
+const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
+const { parseHash } = await import('../src/core/Router.ts');
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。

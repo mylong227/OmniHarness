@@ -93,7 +93,7 @@ test('React 直接从 npm 包 import：deps.ts 间接层已彻底删除', () => 
   assert.match(
     read('web/src/ui/App.ts'),
     /from 'react-dom\/client'/,
-    'createRoot 必须来自 react-dom/client（React 18 唯一合法入口）',
+    'createRoot 必须来自 react-dom/client（React 18+ 唯一合法入口）',
   );
 
   // 反向：整个 web/src 里不得再出现「读 window.React」或「引用 deps.js」。
@@ -234,7 +234,8 @@ test('类型层来自官方包：手写垫片不得回归，且官方类型仍�
     '@types/react 必须在 devDependencies（运行时依赖预算不变，类型只在开发期）',
   );
   assert.ok(
-    /^\^18\./.test(pkg.devDependencies['@types/react']),
-    `@types/react 大版本必须与运行时 vendor 的 React 18 对齐，实为 ${String(pkg.devDependencies['@types/react'])}`,
+    /^\^19\./.test(pkg.devDependencies['@types/react']),
+    // 2026-10-17 起 React 升 19（vendor UMD 早已删除，类型大版本只与 npm 运行时对齐）。
+    `@types/react 大版本必须与 npm 运行时 React 19 对齐，实为 ${String(pkg.devDependencies['@types/react'])}`,
   );
 });

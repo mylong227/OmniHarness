@@ -12,9 +12,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { HttpA2aServerTransport } from '../../src/a2a/httpA2aTransport.js';
-import { WsA2aServerTransport, WsA2aTransport, A2A_WS_PATH } from '../../src/a2a/wsA2aTransport.js';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
+import { HttpA2aServerTransport } from '../../src/a2a/httpA2aTransport.ts';
+import { WsA2aServerTransport, WsA2aTransport, A2A_WS_PATH } from '../../src/a2a/wsA2aTransport.ts';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
 
 /** 从 JSON-RPC 请求里取出用于回显的业务标记（测试专用字段）。 */
 function tagOf(message: RpcMessage): string {

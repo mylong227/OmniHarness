@@ -17,18 +17,18 @@ import test from 'node:test';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES, type ToolName } from '../../src/ports/tool/toolNames.js';
-import { MUTATING_TOOLS } from '../../src/core/toolGate.js';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES, type ToolName } from '../../src/ports/tool/toolNames.ts';
+import { MUTATING_TOOLS } from '../../src/core/toolGate.ts';
 import {
   LSP_STATUS_TOOL_NAME,
   LSP_WORKSPACE_SYMBOLS_TOOL_NAME,
-} from '../../src/adapters/lsp/lspToolNames.js';
-import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.js';
-import { RUN_WORKFLOW_TOOL_NAME } from '../../src/autonomy/workflowToolNames.js';
-import { POLICY_EVAL_TOOL_NAME } from '../../src/adapters/tool/meta/policyEvalTool.js';
-import { AGENT_IDENTITY_TOOL_NAME } from '../../src/adapters/tool/meta/agentIdentityTool.js';
-import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.js';
-import { TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.js';
+} from '../../src/adapters/lsp/lspToolNames.ts';
+import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.ts';
+import { RUN_WORKFLOW_TOOL_NAME } from '../../src/autonomy/workflowToolNames.ts';
+import { POLICY_EVAL_TOOL_NAME } from '../../src/adapters/tool/meta/policyEvalTool.ts';
+import { AGENT_IDENTITY_TOOL_NAME } from '../../src/adapters/tool/meta/agentIdentityTool.ts';
+import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.ts';
+import { TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

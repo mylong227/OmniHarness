@@ -1,19 +1,19 @@
-import { ImageStreamSplitter } from '../../media/imageStreamSplitter.js';
-import { MediaFrameBudget } from '../../media/frameEncoder.js';
-import { MediaFrameSampler } from '../../media/mediaFrameSampler.js';
-import { ImageProbe } from '../../util/imageProbe.js';
+import { ImageStreamSplitter } from '../../media/imageStreamSplitter.ts';
+import { MediaFrameBudget } from '../../media/frameEncoder.ts';
+import { MediaFrameSampler } from '../../media/mediaFrameSampler.ts';
+import { ImageProbe } from '../../util/imageProbe.ts';
 import type {
   FrameExtractionRequest,
   FrameExtractionResult,
   MediaFrameExtractor,
-} from '../../ports/media/frameExtractor.js';
-import type { MediaFrame, MediaKind, MediaProbeInfo } from '../../ports/media/mediaTypes.js';
-import type { MediaProbePort } from '../../ports/media/mediaProbe.js';
-import type { FfmpegLocator } from './ffmpegLocator.js';
-import type { MediaProcessOutcome, MediaProcessRunner } from './mediaProcessRunner.js';
-import type { VideoFrameFormat } from '../../ports/media/mediaTypes/videoFrameFormat.js';
+} from '../../ports/media/frameExtractor.ts';
+import type { MediaFrame, MediaKind, MediaProbeInfo } from '../../ports/media/mediaTypes.ts';
+import type { MediaProbePort } from '../../ports/media/mediaProbe.ts';
+import type { FfmpegLocator } from './ffmpegLocator.ts';
+import type { MediaProcessOutcome, MediaProcessRunner } from './mediaProcessRunner.ts';
+import type { VideoFrameFormat } from '../../ports/media/mediaTypes/videoFrameFormat.ts';
 
-export type { VideoFrameFormat } from '../../ports/media/mediaTypes/videoFrameFormat.js';
+export type { VideoFrameFormat } from '../../ports/media/mediaTypes/videoFrameFormat.ts';
 
 /** showinfo 的帧信息行（真实输出见 `tests/unit/frameTimestampParser.test.ts` 的样本）。 */
 const SHOWINFO_ENTRY = /(?:^|\s)n:\s*(\d+)\s+pts:\s*(-?\d+)\s+pts_time:(\S+)/g;

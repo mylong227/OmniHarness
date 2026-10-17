@@ -1,4 +1,4 @@
-import type { TraceEntry } from './traceEntry.js';
+import type { TraceEntry } from './traceEntry.ts';
 
 /**
  * trace 读取结果：只读条目 + 计数 + 失败原因（fail-soft，不抛错给调用方）。

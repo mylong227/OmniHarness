@@ -11,15 +11,15 @@
  * 默认不启用 ⇒ 完全沿用既有行为，零回归。
  */
 
-import type { SparkCycleReport } from '../spark/sparkController.js';
-import { Ledger } from './ledger.js';
+import type { SparkCycleReport } from '../spark/sparkController.ts';
+import { Ledger } from './ledger.ts';
 import {
   type HarnessState,
   type RegimeSignals,
   type SparkEngines,
   HARNESS_OPERATORS,
   Operators,
-} from './operators.js';
+} from './operators.ts';
 
 /** 算子名 → SparkCycleReport 字段（同构映射）。 */
 const REPORT_FIELD: Readonly<Record<string, keyof SparkCycleReport>> = {

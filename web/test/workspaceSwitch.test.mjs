@@ -18,8 +18,8 @@ import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 createRuntime().install();
-const { SessionController } = await import('../src/ui/controllers/SessionController.js');
-const { AppReducers } = await import('../src/ui/controllers/AppReducers.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
+const { AppReducers } = await import('../src/ui/controllers/AppReducers.ts');
 
 test('onWorkspaceSwitched：列表换新工作区响应（旧项目消失、归档保留），视图清空', async () => {
   const toasts = [];

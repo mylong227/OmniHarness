@@ -2,7 +2,7 @@
 // 零 React 依赖，直跑 web/dist。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { ArtifactResolver } from '../src/ui/models/ArtifactResolver.js';
+import { ArtifactResolver } from '../src/ui/models/ArtifactResolver.ts';
 
 test('write_file：取 path 字段，kind=file，name 为末段', () => {
   const info = ArtifactResolver.fromTool('write_file', { path: 'src/demo.ts', content: 'x' });

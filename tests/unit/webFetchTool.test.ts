@@ -3,9 +3,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { WebFetchTool } from '../../src/adapters/tool/web/webFetchTool.js';
-import type { FetchedDocument } from '../../src/adapters/tool/web/webFetchTool.js';
-import type { ToolContext } from '../../src/ports/tool/tool.js';
+import { WebFetchTool } from '../../src/adapters/tool/web/webFetchTool.ts';
+import type { FetchedDocument } from '../../src/adapters/tool/web/webFetchTool.ts';
+import type { ToolContext } from '../../src/ports/tool/tool.ts';
 
 /** 工具上下文（web_fetch 不依赖工作区，取占位值）。 */
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: '/repo' };

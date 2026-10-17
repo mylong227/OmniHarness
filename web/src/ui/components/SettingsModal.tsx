@@ -27,20 +27,20 @@
 // Tab 能走到背后的会话列表上——那是 WCAG 2.4.3 的实质缺陷（详见 models/focusTrap.ts）。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.js';
-import { useApp } from '../context.js';
-import { emptyNote } from '../format.js';
-import { t, type Locale } from '../i18n/i18n.js';
-import { focusableWithin, trapTab } from '../models/focusTrap.js';
+import { icon } from '../models/Icon.ts';
+import { useApp } from '../context.ts';
+import { emptyNote } from '../format.ts';
+import { t, type Locale } from '../i18n/i18n.ts';
+import { focusableWithin, trapTab } from '../models/focusTrap.ts';
 import {
   SettingsModel,
   SETTINGS_FIELDS,
   SETTINGS_TABS,
   type SettingsTabKey,
   type SettingsField,
-} from '../models/SettingsModel.js';
-import { ProviderCard } from './settings/ProviderCard.js';
-import type { ProviderPreset, ProviderProbeResult, Config, Profile } from '../../types/models.js';
+} from '../models/SettingsModel.ts';
+import { ProviderCard } from './settings/ProviderCard.tsx';
+import type { ProviderPreset, ProviderProbeResult, Config, Profile } from '../../types/models.ts';
 
 /** 关闭键。 */
 const ESC = 'Escape';

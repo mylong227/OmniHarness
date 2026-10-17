@@ -7,7 +7,7 @@
  *
  * 口径不变：出站 JSON-RPC 由 `ScriptedServer` 脚本化应答，握手仍走**真 SDK `Client`**。
  */
-import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.js';
+import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.ts';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 

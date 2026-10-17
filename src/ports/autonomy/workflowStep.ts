@@ -1,4 +1,4 @@
-import type { WorkflowStepGuard } from './workflowStepGuard.js';
+import type { WorkflowStepGuard } from './workflowStepGuard.ts';
 
 /**
  * 工作流单步定义（DAG 节点）。

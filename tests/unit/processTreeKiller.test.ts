@@ -16,7 +16,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { ProcessTreeKiller } from '../../src/adapters/tool/shell/processTreeKiller.js';
+import { ProcessTreeKiller } from '../../src/adapters/tool/shell/processTreeKiller.ts';
 
 /** 真子进程：长眠一小段后自然退出（真 pid、真内核进程对象）。 */
 const spawnSleeper = (): ChildProcess =>

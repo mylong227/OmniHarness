@@ -1,4 +1,4 @@
-import { ArrayAt } from './arrayAt.js';
+import { ArrayAt } from './arrayAt.ts';
 /**
  * 命令规范化（对标 codex `command_canonicalization.rs`）。
  *

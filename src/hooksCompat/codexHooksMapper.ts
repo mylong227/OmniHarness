@@ -1,5 +1,5 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { HookEventEnvelope } from './formats.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { HookEventEnvelope } from './formats.ts';
 
 /**
  * codex-claude hooks 事件格式映射。

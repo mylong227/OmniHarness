@@ -99,8 +99,8 @@
  * @maturityEvidence tests/unit/fileReranker.test.ts
  */
 
-import type { IndexedCorpus } from './contextEngine.js';
-import { FileRerankIndex } from './fileRerankIndex.js';
+import type { IndexedCorpus } from './contextEngine.ts';
+import { FileRerankIndex } from './fileRerankIndex.ts';
 
 /** 重排输入。 */
 export interface FileRerankInput {

@@ -19,8 +19,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FlagSuggestion } from '../../src/cli/flagSuggestion.js';
-import { CliFlagTable } from '../../src/cli/cliFlagTable.js';
+import { FlagSuggestion } from '../../src/cli/flagSuggestion.ts';
+import { CliFlagTable } from '../../src/cli/cliFlagTable.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

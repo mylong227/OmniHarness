@@ -1,13 +1,13 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import { HashChain } from '../../util/hashChain.js';
+import { HashChain } from '../../util/hashChain.ts';
 import type {
   RuntimeObservation,
   RuntimeTelemetryInput,
   RuntimeTelemetryPort,
   TelemetryChainReport,
-} from '../../ports/runtime/runtimeTelemetry.js';
+} from '../../ports/runtime/runtimeTelemetry.ts';
 
 /**
  * 分隔符：隔离 prev 与正文。

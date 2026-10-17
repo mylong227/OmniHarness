@@ -2,14 +2,14 @@ import { accessSync, existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { NetworkEgressGuard } from '../adapters/sandbox/networkEgressGuard.js';
-import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.js';
-import { ToolOutputTrust } from '../security/toolOutputTrust.js';
+import { NetworkEgressGuard } from '../adapters/sandbox/networkEgressGuard.ts';
+import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.ts';
+import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
 import {
   InjectionSelfCheck,
   type InjectionSelfCheckSummary,
-} from '../security/injectionSelfCheck.js';
-import type { SandboxCapabilityEntry } from '../adapters/sandbox/sandboxCapabilityTable.js';
+} from '../security/injectionSelfCheck.ts';
+import type { SandboxCapabilityEntry } from '../adapters/sandbox/sandboxCapabilityTable.ts';
 
 /** 由**内核**强制隔离的 profile（其余为纯 TS 策略类：passthrough / policy / restricted）。 */
 const KERNEL_ENFORCED_PROFILES: ReadonlySet<string> = new Set([
@@ -32,7 +32,7 @@ import type {
   DoctorReport,
   SandboxStatus,
   SecurityBoundary,
-} from '../ports/observability/doctorReport.js';
+} from '../ports/observability/doctorReport.ts';
 
 export type {
   ConfigStatus,
@@ -40,7 +40,7 @@ export type {
   DoctorReport,
   SandboxStatus,
   SecurityBoundary,
-} from '../ports/observability/doctorReport.js';
+} from '../ports/observability/doctorReport.ts';
 
 /**
  * 运行环境诊断器：原是模块级纯函数，后归拢为 `DoctorRunner` 静态方法族，

@@ -1,6 +1,6 @@
-import { ALL_PERMISSIONS } from './permission.js';
-import type { PluginPermission } from './permission.js';
-import { PermissionDeniedError } from './permissionDeniedError.js';
+import { ALL_PERMISSIONS } from './permission.ts';
+import type { PluginPermission } from './permission.ts';
+import { PermissionDeniedError } from './permissionDeniedError.ts';
 
 /**
  * @beta
@@ -66,4 +66,4 @@ export class PermissionGate {
   }
 }
 
-export { PermissionDeniedError } from './permissionDeniedError.js';
+export { PermissionDeniedError } from './permissionDeniedError.ts';

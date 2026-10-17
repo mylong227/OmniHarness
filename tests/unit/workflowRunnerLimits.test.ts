@@ -7,22 +7,22 @@
 //     （把「这一步没吐文本」误判为「这一步失败了」，并传染全部下游）。
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.js';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import { WorkflowRunner } from '../../src/autonomy/workflowRunner.js';
-import { ConcurrencyLimiter } from '../../src/util/concurrency/concurrencyLimiter.js';
-import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.js';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.ts';
+import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
+import { WorkflowRunner } from '../../src/autonomy/workflowRunner.ts';
+import { ConcurrencyLimiter } from '../../src/util/concurrency/concurrencyLimiter.ts';
+import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.ts';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
 
 /** 探针观察结果：settle / reject / 超时（= 永久挂起）。 */
 type Outcome<T> =

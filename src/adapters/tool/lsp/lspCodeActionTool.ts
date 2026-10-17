@@ -3,10 +3,10 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LspCodeAction, LspPort } from '../../../ports/tool/lsp.js';
-import { LSP_CODE_ACTION_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
-import { LspToolsShared } from './lspToolsShared.js';
+} from '../../../ports/tool/tool.ts';
+import type { LspCodeAction, LspPort } from '../../../ports/tool/lsp.ts';
+import { LSP_CODE_ACTION_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.ts';
+import { LspToolsShared } from './lspToolsShared.ts';
 
 /** 单条编辑文本在渲染时的截断长度（重构编辑可达数万字符，全渲染会吃光上下文）。 */
 const MAX_TEXT_CHARS = 400;

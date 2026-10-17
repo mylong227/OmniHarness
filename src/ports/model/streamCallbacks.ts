@@ -1,4 +1,4 @@
-import type { ToolInputDelta } from './toolInputDelta.js';
+import type { ToolInputDelta } from './toolInputDelta.ts';
 
 /** 模型流式回调。 */
 export interface StreamCallbacks {

@@ -1,5 +1,5 @@
-import { MediaFormatError } from '../errors/mediaFormatError.js';
-import type { GifLzwResult } from './gifTypes.js';
+import { MediaFormatError } from '../errors/mediaFormatError.ts';
+import type { GifLzwResult } from './gifTypes.ts';
 
 /** LZW 码表上限（GIF 规范固定 12 位码）。 */
 const MAX_CODE = 4096;

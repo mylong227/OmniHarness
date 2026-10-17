@@ -5,7 +5,7 @@
 // 打开会话前要判断"它是不是当前项目的"，而会话存档里的标记历史上出现过 `D:\x` / `D:/x` / 大小写变体
 // 三种拼写；字面量比较会把同一个项目判成两个，于是"切过去"这一步被漏掉、会话就串到别的项目里显示。
 // 服务端口径见 `src/util/workspaceIdentity.ts`（那边多一条跑测目录折叠，web 侧不需要）。
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /** 工作区路径归一与比较。 */
 export class WorkspacePath {

@@ -8,9 +8,9 @@ import {
 } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
-import { WorkflowSpecError } from './workflowSpecError.js';
-import type { WorkflowDef } from '../ports/autonomy/workflowDef.js';
-import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.js';
+import { WorkflowSpecError } from './workflowSpecError.ts';
+import type { WorkflowDef } from '../ports/autonomy/workflowDef.ts';
+import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 
 /** 运行日志目录（位于工作区 `.omniharness` 下，与图定义目录同级）。 */
 const RUN_DIR = '.omniharness/graph-runs';

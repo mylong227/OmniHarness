@@ -3,6 +3,18 @@
 本文件由仓库的 projectInstructions 加载器自动读取并注入上下文（`AGENTS.md` 优先于 `CLAUDE.md`）。
 只写「不写就会重复踩坑」的事，不复制进度（进度以 `docs/PROJECT_BOARD.md` 为准）。
 
+## 导入约定（2026-10-17 起，前后端统一）
+
+- **相对导入一律写真实源文件后缀 `.ts`/`.tsx`**，不再写 `.js`。新代码照此写；
+  断言「源码 import 形态」的判据/脚本也按 `.ts` 匹配（如需兼容可两种后缀都认）。
+- 机制：根 tsconfig 开了 **`rewriteRelativeImportExtensions`**（TS 5.7+）——源码 `.ts` 后缀在
+  emit 时自动重写回 `.js`，dist 产物仍是标准 ESM；web tsconfig（noEmit）用 `allowImportingTsExtensions`。
+- **别再给 Vite/Vitest 加 `.js → .ts` 回落插件**（`scripts/vitePluginJsToTs.ts` 已删）。
+- **有意保留 `.js` 的三类位置**（不要"顺手统一"掉）：注释/文档里的描述、测试夹具里的假文件名、
+  指向 dist 编译产物或真实 `.js` 文件的**运行时路径字符串**（如 `dist/src/cli/exec.js`）。
+- 断言导入形态的结构判据若仍匹配 `.js` 会**静默退化或假红**——改导入约定时必须同步排查
+  `tests/unit/` 里所有对源码做文本断言的判据（本轮实例：`cliStartupBudget` 的变异探针、`crashGuard ⑦`）。
+
 ## 推送目标：只有一个，且已固定
 
 **唯一归属仓库：`mylong227/OmniHarness`**（远端名 `origin`，已设为 `remote.pushDefault`，`main` 跟踪 `origin/main`）。

@@ -2,7 +2,7 @@ import type {
   MediaProcessOutcome,
   MediaProcessRequest,
   MediaProcessRunner,
-} from './mediaProcessRunner.js';
+} from './mediaProcessRunner.ts';
 
 /** 缺省最大并发子进程数（单支媒体栈共享一个执行器，故这是「整支栈」的 ffmpeg 家族并发上限）。 */
 const DEFAULT_MAX_CONCURRENT = 4;

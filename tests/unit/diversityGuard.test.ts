@@ -7,8 +7,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { DiversityGuard } from '../../src/evolution/diversityGuard.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { DiversityGuard } from '../../src/evolution/diversityGuard.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 function skill(name: string, instructions: string, tags?: readonly string[]): Skill {
   return { name, instructions, ...(tags ? { tags } : {}) } as Skill;

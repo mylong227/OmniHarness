@@ -15,8 +15,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { UiBaseline } from '../integration/uiBaseline.js';
-import type { UiSnapshot } from '../integration/uiBaseline.js';
+import { UiBaseline } from '../integration/uiBaseline.ts';
+import type { UiSnapshot } from '../integration/uiBaseline.ts';
 
 /** 造一份基线快照。 */
 function snapshot(overrides: Partial<UiSnapshot> = {}): UiSnapshot {

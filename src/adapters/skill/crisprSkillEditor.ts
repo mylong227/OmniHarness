@@ -13,15 +13,15 @@
  * @maturity L0 — 技能改写；非基因编辑
  * @maturityEvidence tests/unit/crispr.test.ts
  */
-import type { Skill } from '../../skill/skill.js';
-import type { SkillPort } from '../../ports/runtime/skill.js';
-import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
-import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
+import type { Skill } from '../../skill/skill.ts';
+import type { SkillPort } from '../../ports/runtime/skill.ts';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
+import type { AuditSinkLike } from '../../ports/runtime/supervisor.ts';
 import type {
   CRISPRSkillEditorPort,
   CrisprEditReport,
   CrisprEditSpec,
-} from '../../ports/runtime/skillEdit.js';
+} from '../../ports/runtime/skillEdit.ts';
 
 /** CRISPRSkillEditor 选项。 */
 export interface CRISPRSkillEditorOptions {

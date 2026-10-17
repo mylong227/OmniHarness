@@ -1,4 +1,4 @@
-import type { ToolCall, ToolResult } from '../tool/tool.js';
+import type { ToolCall, ToolResult } from '../tool/tool.ts';
 
 /**
  * @beta

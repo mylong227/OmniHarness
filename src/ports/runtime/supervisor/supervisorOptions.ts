@@ -1,4 +1,4 @@
-import type { AuditSinkLike } from './auditSinkLike.js';
+import type { AuditSinkLike } from './auditSinkLike.ts';
 
 /** 监督内核选项（全部带默认值，零配置可用）。 */
 export interface SupervisorOptions {

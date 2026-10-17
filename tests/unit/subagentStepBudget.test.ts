@@ -18,13 +18,13 @@ import { describe, it } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { DEFAULT_SUBAGENT_MAX_STEPS } from '../../src/subagent/subagentTypes.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { DEFAULT_SUBAGENT_MAX_STEPS } from '../../src/subagent/subagentTypes.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
 
 // 关掉 repo-map 注入：本文件只测步数预算接线，索引整个仓库既慢又与断言无关。
 process.env.OMNI_REPO_MAP = '0';

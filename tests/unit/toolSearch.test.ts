@@ -1,30 +1,30 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Bm25Index } from '../../src/search/bm25Index.js';
-import { ToolIndex } from '../../src/search/toolIndex.js';
-import { ToolDiscovery } from '../../src/search/toolDiscovery.js';
-import { ToolSearchTool } from '../../src/adapters/tool/meta/toolSearchTool.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { ToolGate } from '../../src/core/toolGate.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
+import { Bm25Index } from '../../src/search/bm25Index.ts';
+import { ToolIndex } from '../../src/search/toolIndex.ts';
+import { ToolDiscovery } from '../../src/search/toolDiscovery.ts';
+import { ToolSearchTool } from '../../src/adapters/tool/meta/toolSearchTool.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../src/ports/tool/tool.js';
+} from '../../src/ports/tool/tool.ts';
 import type {
   ModelOutput,
   ModelPort,
   ModelRequest,
   ModelToolSpec,
-} from '../../src/ports/model/model.js';
+} from '../../src/ports/model/model.ts';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 const call = (name: string, args: Record<string, unknown>): ToolCall => ({

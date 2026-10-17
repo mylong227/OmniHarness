@@ -32,7 +32,7 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { UiBaseline } from './uiBaseline.js';
+import { UiBaseline } from './uiBaseline.ts';
 
 /** 浏览器测试脚手架（源码级 `.mjs`，不被 tsc 编译，故按项目根定位动态 import）。 */
 const HARNESS_URL = pathToFileURL(resolve(process.cwd(), 'web/test/browserHarness.mjs')).href;

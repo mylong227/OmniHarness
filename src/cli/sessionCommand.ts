@@ -6,8 +6,8 @@
 
 import { join } from 'node:path';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { CliArgReader } from './cliArgReader.js';
-import { SessionStorageLocation } from '../util/sessionStorageLocation.js';
+import { CliArgReader } from './cliArgReader.ts';
+import { SessionStorageLocation } from '../util/sessionStorageLocation.ts';
 
 /** session 子命令：列出工作区会话日志文件（session list），输出 id / 事件数 / 修改时间摘要。 */
 export class SessionCommand {

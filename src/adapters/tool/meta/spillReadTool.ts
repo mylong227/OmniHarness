@@ -1,11 +1,11 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
-import type { SpillPort } from '../../../ports/memory/spill.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
+import type { SpillPort } from '../../../ports/memory/spill.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
+} from '../../../ports/tool/tool.ts';
 
 /**
  * @beta

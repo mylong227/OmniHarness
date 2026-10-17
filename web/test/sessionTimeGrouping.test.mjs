@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { SessionGrouper } = await import('../src/ui/models/SessionGrouper.js');
+const { SessionGrouper } = await import('../src/ui/models/SessionGrouper.ts');
 
 /** 造一条会话（只需 id 与 updatedAt 参与分桶）。 */
 function row(id, updatedAt) {

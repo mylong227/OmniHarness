@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PatchApplier } from '../../src/adapters/tool/fs/patchApplier.js';
-import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.js';
+import { PatchApplier } from '../../src/adapters/tool/fs/patchApplier.ts';
+import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.ts';
 
 /**
  * fs 工具上下文：根**必须与工具自身的根一致**。

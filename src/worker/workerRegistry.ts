@@ -1,4 +1,4 @@
-import type { Worker } from './worker.js';
+import type { Worker } from './worker.ts';
 
 /**
  * @beta

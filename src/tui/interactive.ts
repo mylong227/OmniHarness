@@ -6,7 +6,7 @@
  */
 import { createInterface, type Interface } from 'node:readline';
 import type { Writable } from 'node:stream';
-import { TuiRenderer, type TuiEvent } from './tuiRenderer.js';
+import { TuiRenderer, type TuiEvent } from './tuiRenderer.ts';
 
 /**
  * Interactive —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

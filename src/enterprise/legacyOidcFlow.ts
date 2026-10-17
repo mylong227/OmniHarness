@@ -19,9 +19,9 @@ import type {
   OidcFlowPort,
   PkcePair,
   TokenSet,
-} from '../ports/enterprise/oidcFlow.js';
-import type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.js';
-import { OidcClient } from './oidcClient.js';
+} from '../ports/enterprise/oidcFlow.ts';
+import type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.ts';
+import { OidcClient } from './oidcClient.ts';
 
 /**
  * 自研 OIDC 流程族的端口适配器：方法一一委托既有 `OidcClient` 实例，零行为变更。

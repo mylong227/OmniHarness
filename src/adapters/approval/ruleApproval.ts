@@ -2,9 +2,9 @@ import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../ports/runtime/approval.js';
-import type { ApprovalRule, ApprovalRuleDecision } from './approvalRule.js';
-import { commandGlob, type CommandGlob } from './commandGlob.js';
+} from '../../ports/runtime/approval.ts';
+import type { ApprovalRule, ApprovalRuleDecision } from './approvalRule.ts';
+import { commandGlob, type CommandGlob } from './commandGlob.ts';
 
 /** 规则审批选项。 */
 export interface RuleApprovalOptions {

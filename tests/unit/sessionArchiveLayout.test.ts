@@ -21,9 +21,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionArchiveLayout } from '../../src/util/sessionArchiveLayout.js';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.js';
-import { SessionArchive } from '../../src/server/services/session/sessionArchive.js';
+import { SessionArchiveLayout } from '../../src/util/sessionArchiveLayout.ts';
+import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
+import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T | Promise<T>): Promise<T> | T {

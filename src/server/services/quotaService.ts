@@ -1,7 +1,7 @@
-import { LocalDay } from '../../util/localDay.js';
-import { QuotaPlans, type QuotaPlan } from './quotaPlans.js';
-import type { QuotaStore } from './quotaStore.js';
-import type { SessionArchive } from './session/sessionArchive.js';
+import { LocalDay } from '../../util/localDay.ts';
+import { QuotaPlans, type QuotaPlan } from './quotaPlans.ts';
+import type { QuotaStore } from './quotaStore.ts';
+import type { SessionArchive } from './session/sessionArchive.ts';
 
 /** 单个模型的当日配额行。 */
 export interface QuotaModelRow {

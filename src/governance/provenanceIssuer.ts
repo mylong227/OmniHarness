@@ -20,10 +20,10 @@
  * @maturity L1 — 逐条可重算 / 篡改可检出 / 未证来源如实标注 / 链断即无效 / 无信任根不谎报 判据钉死
  * @maturityEvidence tests/unit/provenanceCertificate.test.ts
  */
-import { log } from '../util/logger.js';
-import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
-import { Ed25519PublicKey } from '../util/ed25519PublicKey.js';
-import type { PromotionLedgerEntry, PromotionLedgerPort } from '../ports/runtime/evolution.js';
+import { log } from '../util/logger.ts';
+import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.ts';
+import { Ed25519PublicKey } from '../util/ed25519PublicKey.ts';
+import type { PromotionLedgerEntry, PromotionLedgerPort } from '../ports/runtime/evolution.ts';
 
 /** 签发方身份（只要求两件；`Ed25519AgentIdentity` 直接满足）。 */
 export interface ProvenanceIssuerIdentity {

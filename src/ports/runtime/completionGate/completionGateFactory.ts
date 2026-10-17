@@ -1,5 +1,5 @@
-import type { CompletionGateContext } from './completionGateContext.js';
-import type { CompletionGate } from './completionGate.js';
+import type { CompletionGateContext } from './completionGateContext.ts';
+import type { CompletionGate } from './completionGate.ts';
 
 /**
  * 闸门工厂端口：由组合根注入实现，core 只调用不实现。

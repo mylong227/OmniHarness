@@ -1,8 +1,8 @@
 // 厂商状态判定：把「探测结果 / 是否保存过 Key / 当前配置」折算成一行状态文案与状态点颜色。
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
 
-import type { ProviderPreset, ProviderProbeResult } from '../../types/models.js';
-import { t } from '../i18n/i18n.js';
+import type { ProviderPreset, ProviderProbeResult } from '../../types/models.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 厂商状态快照。 */
 export interface ProviderStatus {

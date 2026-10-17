@@ -8,24 +8,24 @@
 
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { configFile } from '../config/configFile.js';
-import { Agent } from '../core/agent.js';
-import type { AgentResult } from '../core/agent.js';
-import { Runtime } from '../composition/runtime.js';
-import { GoalRunner } from '../autonomy/goalRunner.js';
-import { GoalChecker } from '../autonomy/goalChecker.js';
-import { WorkflowRunner } from '../autonomy/workflowRunner.js';
-import type { WorkflowDef } from '../autonomy/workflowTypes.js';
-import { SubagentPorts } from '../subagent/subagentPorts.js';
-import { RoutineScheduler } from '../daemon/routineScheduler.js';
-import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/routineScheduler.js';
-import { Interactive } from '../tui/interactive.js';
-import { TuiAgentBridge } from '../tui/tuiAgentBridge.js';
-import type { TuiEvent } from '../tui/tuiRenderer.js';
-import { ArgParser, CliDefaults } from './argParser.js';
-import { CronerSchedule } from '../adapters/schedule/cronerSchedule.js';
-import type { CliArgs } from './argParser.js';
-import { CliNativeCmds } from './cliNativeCmds.js';
+import { configFile } from '../config/configFile.ts';
+import { Agent } from '../core/agent.ts';
+import type { AgentResult } from '../core/agent.ts';
+import { Runtime } from '../composition/runtime.ts';
+import { GoalRunner } from '../autonomy/goalRunner.ts';
+import { GoalChecker } from '../autonomy/goalChecker.ts';
+import { WorkflowRunner } from '../autonomy/workflowRunner.ts';
+import type { WorkflowDef } from '../autonomy/workflowTypes.ts';
+import { SubagentPorts } from '../subagent/subagentPorts.ts';
+import { RoutineScheduler } from '../daemon/routineScheduler.ts';
+import type { Routine, RoutineSchedule, RoutineModelAdapter } from '../daemon/routineScheduler.ts';
+import { Interactive } from '../tui/interactive.ts';
+import { TuiAgentBridge } from '../tui/tuiAgentBridge.ts';
+import type { TuiEvent } from '../tui/tuiRenderer.ts';
+import { ArgParser, CliDefaults } from './argParser.ts';
+import { CronerSchedule } from '../adapters/schedule/cronerSchedule.ts';
+import type { CliArgs } from './argParser.ts';
+import { CliNativeCmds } from './cliNativeCmds.ts';
 
 /** 自主 / 编排 / 交互类子命令。 */
 export class CliAgentCmds extends CliNativeCmds {
@@ -39,7 +39,7 @@ export class CliAgentCmds extends CliNativeCmds {
     agent: Agent,
     args: CliArgs,
   ): Promise<{
-    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    events: readonly import('../ports/runtime/event.ts').SessionEvent[];
     summary: unknown;
   }> {
     if (args.replayId !== undefined) {
@@ -65,7 +65,7 @@ export class CliAgentCmds extends CliNativeCmds {
     agent: Agent,
     args: CliArgs,
   ): Promise<{
-    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    events: readonly import('../ports/runtime/event.ts').SessionEvent[];
     summary: unknown;
   }> {
     const result = await agent.runTask(args.prompt);
@@ -82,7 +82,7 @@ export class CliAgentCmds extends CliNativeCmds {
     agent: Agent,
     args: CliArgs,
   ): Promise<{
-    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    events: readonly import('../ports/runtime/event.ts').SessionEvent[];
     summary: unknown;
   }> {
     const result = await agent.resume(args.resumeId!, args.prompt);
@@ -99,7 +99,7 @@ export class CliAgentCmds extends CliNativeCmds {
     agent: Agent,
     args: CliArgs,
   ): Promise<{
-    events: readonly import('../ports/runtime/event.js').SessionEvent[];
+    events: readonly import('../ports/runtime/event.ts').SessionEvent[];
     summary: unknown;
   }> {
     const result = await agent.fork(args.forkId!, args.prompt);

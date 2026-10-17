@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { ConfigError } from '../../src/config/configError.js';
-import { configFile, type FileConfig } from '../../src/config/configFile.js';
-import { profileLoader } from '../../src/config/profileLoader.js';
+import { ConfigError } from '../../src/config/configError.ts';
+import { configFile, type FileConfig } from '../../src/config/configFile.ts';
+import { profileLoader } from '../../src/config/profileLoader.ts';
 
 describe('configLayer: 别名归一化', () => {
   it('下划线/连字符别名归一为标准 key', () => {

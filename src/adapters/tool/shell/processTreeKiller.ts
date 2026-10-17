@@ -18,7 +18,7 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { log } from '../../../util/logger.js';
+import { log } from '../../../util/logger.ts';
 
 /**
  * 注入缝（**仅供判据**）：三个键全部可选，缺省即本文件原本的 `process.platform` /

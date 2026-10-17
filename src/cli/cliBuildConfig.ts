@@ -10,62 +10,62 @@
  * 所有 `this.` 调用指向本类或祖先的成员，绝不依赖任何尚未存在的符号。
  */
 
-import { CliCredentialBuild } from './cliCredentialBuild.js';
+import { CliCredentialBuild } from './cliCredentialBuild.ts';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readFile } from 'node:fs/promises';
-import { NativeKernel } from '../native/nativeKernel.js';
+import { NativeKernel } from '../native/nativeKernel.ts';
 // 2026-10-11 启动成本（目标 (9)「CLI 子命令启动 ~2s」）：`configFactory`（净 ~580ms）与
 // `sdkPreferredMcpConnector`（净 ~480ms）**只在构建运行时/MCP 桥接时才需要**，而它们此前是顶层
 // 值导入 ⇒ 任何子命令（含 `kv list`）都要为整条继承链付这份 ESM 解析成本。改成方法内动态 import：
 // 调用方零改动，只有真正走到那些方法的命令才付这份成本。
-import { CliSkillFlags } from './cliSkillFlags.js';
-import { CliSubsystemSections } from './cliSubsystemSections.js';
-import { CliDecisionEngineFlags } from './cliDecisionEngineFlags.js';
-import { DefaultPromptFragments } from '../config/defaultPromptFragments.js';
+import { CliSkillFlags } from './cliSkillFlags.ts';
+import { CliSubsystemSections } from './cliSubsystemSections.ts';
+import { CliDecisionEngineFlags } from './cliDecisionEngineFlags.ts';
+import { DefaultPromptFragments } from '../config/defaultPromptFragments.ts';
 
-import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
-import { PluginRegistry } from '../plugin/pluginRegistry.js';
-import { AuditSink } from '../server/services/auditSink.js';
+import { ConsoleLiveView } from '../adapters/live/consoleLiveView.ts';
+import { PluginRegistry } from '../plugin/pluginRegistry.ts';
+import { AuditSink } from '../server/services/auditSink.ts';
 import {
   NetworkEgressGuard,
   type NetworkEgressOptions,
-} from '../adapters/sandbox/networkEgressGuard.js';
-import { SsrfPolicy } from '../security/ssrfPolicy.js';
-import { EnforcementModeResolver } from '../security/enforcementModeResolver.js';
-import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.js';
-import { TOOL_NAMES } from '../ports/tool/toolNames.js';
-import { WorkerRegistry } from '../worker/workerRegistry.js';
-import { dshWorker } from '../worker/dshWorker.js';
-import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
-import { McpGateway } from '../mcp/mcpGateway.js';
-import { McpServerCommand } from '../mcp/mcpServerCommand.js';
-import { modelAdapterRegistry, MOCK_ADAPTER_ID } from '../adapters/model/modelAdapterRegistry.js';
-import { storageFactory, type StorageHandle } from './storageFactory.js';
-import { AutoApproval } from '../adapters/approval/autoApproval.js';
-import { DenyApproval } from '../adapters/approval/denyApproval.js';
-import { RuleApproval } from '../adapters/approval/ruleApproval.js';
-import { GuardianApproval } from '../adapters/approval/guardianApproval.js';
-import { PlanApproval } from '../adapters/approval/planApproval.js';
-import type { ApprovalRule } from '../adapters/approval/approvalRule.js';
-import { dangerousCommands } from '../adapters/sandbox/dangerousCommands.js';
-import { SandboxManager } from '../adapters/sandbox/sandboxManager.js';
-import { DenyEscalation } from '../adapters/escalation/denyEscalation.js';
-import { AskEscalation } from '../adapters/escalation/askEscalation.js';
-import { AutoEscalation } from '../adapters/escalation/autoEscalation.js';
-import type { EscalationRequest, EscalationDecision } from '../ports/runtime/escalation.js';
-import type { ModelPort } from '../ports/model/model.js';
-import type { ModelRouterConfig } from '../config/configFile.js';
-import type { LspServerConfig } from '../ports/tool/lsp.js';
-import { ToolLoader } from './toolLoader.js';
-import { CliArgReader } from './cliArgReader.js';
-import { CliEventPort } from './cliEventPort.js';
-import type { CliArgs } from './argParser.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
-import type { ExtraTool } from '../ports/tool/extraTool.js';
-import type { UserResponder } from '../ports/runtime/userResponder.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
+} from '../adapters/sandbox/networkEgressGuard.ts';
+import { SsrfPolicy } from '../security/ssrfPolicy.ts';
+import { EnforcementModeResolver } from '../security/enforcementModeResolver.ts';
+import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.ts';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import { WorkerRegistry } from '../worker/workerRegistry.ts';
+import { dshWorker } from '../worker/dshWorker.ts';
+import { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
+import { McpGateway } from '../mcp/mcpGateway.ts';
+import { McpServerCommand } from '../mcp/mcpServerCommand.ts';
+import { modelAdapterRegistry, MOCK_ADAPTER_ID } from '../adapters/model/modelAdapterRegistry.ts';
+import { storageFactory, type StorageHandle } from './storageFactory.ts';
+import { AutoApproval } from '../adapters/approval/autoApproval.ts';
+import { DenyApproval } from '../adapters/approval/denyApproval.ts';
+import { RuleApproval } from '../adapters/approval/ruleApproval.ts';
+import { GuardianApproval } from '../adapters/approval/guardianApproval.ts';
+import { PlanApproval } from '../adapters/approval/planApproval.ts';
+import type { ApprovalRule } from '../adapters/approval/approvalRule.ts';
+import { dangerousCommands } from '../adapters/sandbox/dangerousCommands.ts';
+import { SandboxManager } from '../adapters/sandbox/sandboxManager.ts';
+import { DenyEscalation } from '../adapters/escalation/denyEscalation.ts';
+import { AskEscalation } from '../adapters/escalation/askEscalation.ts';
+import { AutoEscalation } from '../adapters/escalation/autoEscalation.ts';
+import type { EscalationRequest, EscalationDecision } from '../ports/runtime/escalation.ts';
+import type { ModelPort } from '../ports/model/model.ts';
+import type { ModelRouterConfig } from '../config/configFile.ts';
+import type { LspServerConfig } from '../ports/tool/lsp.ts';
+import { ToolLoader } from './toolLoader.ts';
+import { CliArgReader } from './cliArgReader.ts';
+import { CliEventPort } from './cliEventPort.ts';
+import type { CliArgs } from './argParser.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
+import type { ExtraTool } from '../ports/tool/extraTool.ts';
+import type { UserResponder } from '../ports/runtime/userResponder.ts';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
 
 /**
  * F3 凭据水合的内置默认名列表。
@@ -82,7 +82,7 @@ import type { EventPort } from '../ports/runtime/eventPort.js';
  */
 // 2026-10-11：CredentialHydrationArgs 随凭据构造方法一并外移到 CliCredentialBuild 层，
 // 此处再导出以维持既有调用点（含判据里的 ProbeBuildConfig）零改动。
-export type { CredentialHydrationArgs } from './cliCredentialBuild.js';
+export type { CredentialHydrationArgs } from './cliCredentialBuild.ts';
 
 /**
  * 出站守卫选项：白名单 + 配置化 SSRF 策略表（缺省回落内置默认档；非法条目在配置加载期已被拒）。
@@ -244,7 +244,7 @@ export class CliBuildConfig extends CliCredentialBuild {
     // F3：凭据水合必须早于 buildModel——模型适配器与模型路由都在构造期直接读 process.env。
     await this.hydrateCredentials(args);
     const model = this.buildModel(args);
-    const { ConfigFactory } = await import('../config/configFactory.js');
+    const { ConfigFactory } = await import('../config/configFactory.ts');
     const config = ConfigFactory.build({
       workspaceRoot: args.workspace,
       // serve 的提问上行端口：`ask_user` / `plan_present` 在 ConfigFactory.build 期就捕获了
@@ -412,7 +412,7 @@ export class CliBuildConfig extends CliCredentialBuild {
       return;
     }
     const { SdkPreferredMcpConnector } =
-      await import('../adapters/mcp/sdkPreferredMcpConnector.js');
+      await import('../adapters/mcp/sdkPreferredMcpConnector.ts');
     const gateway = new McpGateway({
       registry: tools,
       context: { sessionId: 'mcp-bridge', workspaceRoot: args.workspace },

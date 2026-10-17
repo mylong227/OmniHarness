@@ -8,9 +8,9 @@
 //
 // 组件只做两件事：把 setQuery/key 事件转发进来，把 onUpdate 得到的最新快照渲染出去。
 
-import { SearchHitGrouper } from './SearchHitGrouper.js';
-import type { SearchGroup } from './SearchHitGrouper.js';
-import type { SearchHit } from '../../types/models.js';
+import { SearchHitGrouper } from './SearchHitGrouper.ts';
+import type { SearchGroup } from './SearchHitGrouper.ts';
+import type { SearchHit } from '../../types/models.ts';
 
 /** 远端搜索返回结构（与 ApiClient.searchAll 对齐）。 */
 export interface SearchAllResult {

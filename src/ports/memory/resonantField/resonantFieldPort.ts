@@ -1,7 +1,7 @@
-import type { MemoryFact } from '../longTermMemory.js';
-import type { ResonantHit } from '../resonantMemory.js';
-import type { WebConsolidationReport } from '../cosmicWeb.js';
-import type { Spectrum } from '../../../util/eigenspectrum.js';
+import type { MemoryFact } from '../longTermMemory.ts';
+import type { ResonantHit } from '../resonantMemory.ts';
+import type { WebConsolidationReport } from '../cosmicWeb.ts';
+import type { Spectrum } from '../../../util/eigenspectrum.ts';
 
 /**
  * 共振场端口：场查询 + 坍缩 + 调谐 的统一接口。

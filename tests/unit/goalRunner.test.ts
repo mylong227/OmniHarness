@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { AgentResult } from '../../src/ports/runtime/agent.js';
-import type { AgentPort } from '../../src/ports/runtime/agent.js';
-import { GoalRunner } from '../../src/autonomy/goalRunner.js';
-import { GoalChecker } from '../../src/autonomy/goalChecker.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { AgentResult } from '../../src/ports/runtime/agent.ts';
+import type { AgentPort } from '../../src/ports/runtime/agent.ts';
+import { GoalRunner } from '../../src/autonomy/goalRunner.ts';
+import { GoalChecker } from '../../src/autonomy/goalChecker.ts';
 
 /** 返回固定达成判定的模型桩（用于驱动 GoalRunner 的判定器）。 */
 class VerdictModel implements ModelPort {

@@ -1,4 +1,4 @@
-import { PathTraversalError } from './pathTraversalError.js';
+import { PathTraversalError } from './pathTraversalError.ts';
 import { realpathSync, existsSync } from 'node:fs';
 import { resolve, sep, dirname } from 'node:path';
 

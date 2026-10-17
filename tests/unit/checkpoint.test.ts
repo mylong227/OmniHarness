@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CheckpointManager } from '../../src/core/checkpointManager.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { CheckpointManager } from '../../src/core/checkpointManager.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 构造若干事件，便于断言回滚后事件被精确恢复。 */
 function events(n: number, sessionId: string): SessionEvent[] {
@@ -136,7 +136,7 @@ test('checkpoint：合法 label 仍可用（不过度收紧）', async () => {
 });
 
 test('checkpoint 工具层：模型可控的 label 被白名单拒绝（纵深防御第一道）', async () => {
-  const { CheckpointTool } = await import('../../src/adapters/tool/git/checkpointTool.js');
+  const { CheckpointTool } = await import('../../src/adapters/tool/git/checkpointTool.ts');
   const storage = new MemoryStorage();
   const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
   const handler = CheckpointTool.makeCheckpointHandler(mgr);

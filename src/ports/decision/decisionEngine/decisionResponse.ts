@@ -1,4 +1,4 @@
-import type { DecisionAnswer } from './decisionAnswer.js';
+import type { DecisionAnswer } from './decisionAnswer.ts';
 
 /** 决策响应。 */
 export interface DecisionResponse {

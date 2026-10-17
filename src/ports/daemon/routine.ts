@@ -1,5 +1,5 @@
-import type { RoutineModelAdapter } from './routineModelAdapter.js';
-import type { RoutineSchedule } from './routineSchedule.js';
+import type { RoutineModelAdapter } from './routineModelAdapter.ts';
+import type { RoutineSchedule } from './routineSchedule.ts';
 
 /**
  * @beta

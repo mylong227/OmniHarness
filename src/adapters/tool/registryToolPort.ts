@@ -4,8 +4,8 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../ports/tool/tool.js';
-import type { ToolHandler } from './toolHandler.js';
+} from '../../ports/tool/tool.ts';
+import type { ToolHandler } from './toolHandler.ts';
 
 /** 已注册工具：定义 + 处理函数。 */
 interface RegisteredTool {

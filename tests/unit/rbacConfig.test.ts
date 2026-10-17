@@ -16,18 +16,18 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigError } from '../../src/config/configError.js';
-import { RbacConfigValidator } from '../../src/config/rbacConfigValidator.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { RbacPolicy } from '../../src/security/rbacPolicy.js';
-import { ToolGate } from '../../src/core/toolGate.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { FileConfig } from '../../src/ports/config/fileConfig.js';
-import type { ToolCall } from '../../src/ports/tool/tool.js';
+import { ConfigError } from '../../src/config/configError.ts';
+import { RbacConfigValidator } from '../../src/config/rbacConfigValidator.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { RbacPolicy } from '../../src/security/rbacPolicy.ts';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { FileConfig } from '../../src/ports/config/fileConfig.ts';
+import type { ToolCall } from '../../src/ports/tool/tool.ts';
 
 /**
  * 把一个文件配置写盘并跑严格校验+构建（模拟真实加载路径）。

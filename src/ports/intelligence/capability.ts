@@ -7,6 +7,6 @@
  * （fail-closed）。
  */
 
-export type { FrozenCapability } from './capability/frozenCapability.js';
-export type { CrystallizationReport } from './capability/crystallizationReport.js';
-export type { CapabilityCrystallizerPort } from './capability/capabilityCrystallizerPort.js';
+export type { FrozenCapability } from './capability/frozenCapability.ts';
+export type { CrystallizationReport } from './capability/crystallizationReport.ts';
+export type { CapabilityCrystallizerPort } from './capability/capabilityCrystallizerPort.ts';

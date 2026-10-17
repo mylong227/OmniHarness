@@ -10,9 +10,9 @@
  * 本文件已退化为桶：6 个接口各自独立成文件于 `./insightEtching/`，调用点零改动。
  */
 
-export type { EtchBranch } from './insightEtching/etchBranch.js';
-export type { EtchEvent } from './insightEtching/etchEvent.js';
-export type { EtchNode } from './insightEtching/etchNode.js';
-export type { EtchTrace } from './insightEtching/etchTrace.js';
-export type { EtchConduction } from './insightEtching/etchConduction.js';
-export type { InsightEtchingPort } from './insightEtching/insightEtchingPort.js';
+export type { EtchBranch } from './insightEtching/etchBranch.ts';
+export type { EtchEvent } from './insightEtching/etchEvent.ts';
+export type { EtchNode } from './insightEtching/etchNode.ts';
+export type { EtchTrace } from './insightEtching/etchTrace.ts';
+export type { EtchConduction } from './insightEtching/etchConduction.ts';
+export type { InsightEtchingPort } from './insightEtching/insightEtchingPort.ts';

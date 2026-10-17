@@ -1,6 +1,6 @@
-import type { EtchEvent } from './etchEvent.js';
-import type { EtchTrace } from './etchTrace.js';
-import type { EtchConduction } from './etchConduction.js';
+import type { EtchEvent } from './etchEvent.ts';
+import type { EtchTrace } from './etchTrace.ts';
+import type { EtchConduction } from './etchConduction.ts';
 
 /** 刻蚀记忆端口。 */
 export interface InsightEtchingPort {

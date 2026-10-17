@@ -1,7 +1,7 @@
 import type { Writable } from 'node:stream';
-import type { ToolInputDelta } from '../../ports/model/model.js';
-import type { ToolInputSink } from '../../ports/tool/toolInputSink.js';
-import { TuiRenderer } from '../../tui/tuiRenderer.js';
+import type { ToolInputDelta } from '../../ports/model/model.ts';
+import type { ToolInputSink } from '../../ports/tool/toolInputSink.ts';
+import { TuiRenderer } from '../../tui/tuiRenderer.ts';
 
 /**
  * @beta

@@ -1,5 +1,5 @@
-import { MUTATING_TOOLS } from '../core/toolGate.js';
-import type { SubagentRequest } from './subagentTypes.js';
+import { MUTATING_TOOLS } from '../core/toolGate.ts';
+import type { SubagentRequest } from './subagentTypes.ts';
 
 /**
  * @beta

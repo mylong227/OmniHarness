@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../omniError.js';
+import { OmniError, ErrorCode } from '../omniError.ts';
 
 /**
  * 模型调用错误（结构化，便于重试决策；#M6）。

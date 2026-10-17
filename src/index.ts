@@ -39,27 +39,27 @@ export type {
   ToolResult,
   LongTermMemoryPort,
   MemoryFact,
-} from './ports/index.js';
+} from './ports/index.ts';
 
 // @public 核心
-export { Agent } from './core/agent.js';
-export type { AgentResult } from './core/agent.js';
-export { AppendOnlyEventLog } from './core/appendOnlyEventLog.js';
-export { Container } from './core/container.js';
-export { Runtime, ServiceKeys } from './composition/runtime.js';
-export type { OmniHarnessRuntime } from './composition/runtime.js';
-export { SessionRecorder } from './core/sessionRecorder.js';
-export { StepRunner } from './core/stepRunner.js';
-export { TurnRunner } from './core/turnRunner.js';
+export { Agent } from './core/agent.ts';
+export type { AgentResult } from './core/agent.ts';
+export { AppendOnlyEventLog } from './core/appendOnlyEventLog.ts';
+export { Container } from './core/container.ts';
+export { Runtime, ServiceKeys } from './composition/runtime.ts';
+export type { OmniHarnessRuntime } from './composition/runtime.ts';
+export { SessionRecorder } from './core/sessionRecorder.ts';
+export { StepRunner } from './core/stepRunner.ts';
+export { TurnRunner } from './core/turnRunner.ts';
 
 // @public 配置
-export { ConfigFactory } from './config/configFactory.js';
-export type { ExtraTool, OmniHarnessConfig } from './config/configFactory.js';
+export { ConfigFactory } from './config/configFactory.ts';
+export type { ExtraTool, OmniHarnessConfig } from './config/configFactory.ts';
 // 配置分层（#G6：多层合并 + profile 覆盖 + key 别名归一化 + 严格校验）
-export { ConfigFile } from './config/configFile.js';
-export type { FileConfig, FileMcpServer, LayeredOptions } from './config/configFile.js';
-export { ProfileLoader } from './config/profileLoader.js';
-export { ConfigError } from './config/configError.js';
+export { ConfigFile } from './config/configFile.ts';
+export type { FileConfig, FileMcpServer, LayeredOptions } from './config/configFile.ts';
+export { ProfileLoader } from './config/profileLoader.ts';
+export { ConfigError } from './config/configError.ts';
 
 // @public 适配器（各端口默认实现）
 export {
@@ -91,62 +91,62 @@ export {
   ConsoleLiveView,
   CompositeLiveView,
   WebLiveView,
-} from './adapters/index.js';
-export type { LiveBroadcaster } from './adapters/live/webLiveView.js';
-export type { OpenAiCompatibleConfig } from './adapters/model/openAiCompatibleModel.js';
-export { LlamaCppModel } from './adapters/model/llamaCppModel.js';
-export type { LlamaCppConfig } from './adapters/model/llamaCppModel.js';
-export { NetworkEgressGuard, EgressBlockedError } from './adapters/sandbox/networkEgressGuard.js';
-export { DaemonController } from './daemon/daemonController.js';
-export { RoutineScheduler } from './daemon/routineScheduler.js';
-export type { Routine, RoutineSchedule, RoutineModelAdapter } from './daemon/routineScheduler.js';
-export { ResponsesModel } from './adapters/model/responsesModel.js';
-export type { ResponsesConfig } from './adapters/model/responsesModel.js';
-export { RetryingModel, DEFAULT_RETRY_POLICY } from './adapters/model/retryingModel.js';
-export type { RetryPolicy, DelayFn } from './adapters/model/retryingModel.js';
-export { BudgetedModel } from './adapters/model/budgetedModel.js';
-export { CostBudget } from './adapters/model/costBudget.js';
-export type { BudgetSnapshot } from './adapters/model/costBudget.js';
+} from './adapters/index.ts';
+export type { LiveBroadcaster } from './adapters/live/webLiveView.ts';
+export type { OpenAiCompatibleConfig } from './adapters/model/openAiCompatibleModel.ts';
+export { LlamaCppModel } from './adapters/model/llamaCppModel.ts';
+export type { LlamaCppConfig } from './adapters/model/llamaCppModel.ts';
+export { NetworkEgressGuard, EgressBlockedError } from './adapters/sandbox/networkEgressGuard.ts';
+export { DaemonController } from './daemon/daemonController.ts';
+export { RoutineScheduler } from './daemon/routineScheduler.ts';
+export type { Routine, RoutineSchedule, RoutineModelAdapter } from './daemon/routineScheduler.ts';
+export { ResponsesModel } from './adapters/model/responsesModel.ts';
+export type { ResponsesConfig } from './adapters/model/responsesModel.ts';
+export { RetryingModel, DEFAULT_RETRY_POLICY } from './adapters/model/retryingModel.ts';
+export type { RetryPolicy, DelayFn } from './adapters/model/retryingModel.ts';
+export { BudgetedModel } from './adapters/model/budgetedModel.ts';
+export { CostBudget } from './adapters/model/costBudget.ts';
+export type { BudgetSnapshot } from './adapters/model/costBudget.ts';
 export {
   RoutePricing,
   DEFAULT_ROUTE_PRICING,
   DEFAULT_FALLBACK_PRICE,
-} from './adapters/model/routePricing.js';
-export type { ToolHandler } from './adapters/tool/toolHandler.js';
+} from './adapters/model/routePricing.ts';
+export type { ToolHandler } from './adapters/tool/toolHandler.ts';
 
 // @public hooks 兼容层（codex-claude / claude-code 事件格式映射）
-export { CodexHooksMapper } from './hooksCompat/codexHooksMapper.js';
-export { ClaudeCodeHooksMapper } from './hooksCompat/claudeCodeHooksMapper.js';
-export { HooksCompatAdapter } from './hooksCompat/hooksCompatAdapter.js';
-export type { HookEventEnvelope, HookConsumer } from './hooksCompat/formats.js';
+export { CodexHooksMapper } from './hooksCompat/codexHooksMapper.ts';
+export { ClaudeCodeHooksMapper } from './hooksCompat/claudeCodeHooksMapper.ts';
+export { HooksCompatAdapter } from './hooksCompat/hooksCompatAdapter.ts';
+export type { HookEventEnvelope, HookConsumer } from './hooksCompat/formats.ts';
 
 // @public 上下文 / 工具
-export { ContextAssembler } from './context/contextAssembler.js';
-export { TokenEstimator } from './context/tokenEstimator.js';
-export { ContextCompactor } from './context/contextCompactor.js';
-export type { CompactionOptions, CompactionResult } from './context/contextCompactor.js';
+export { ContextAssembler } from './context/contextAssembler.ts';
+export { TokenEstimator } from './context/tokenEstimator.ts';
+export { ContextCompactor } from './context/contextCompactor.ts';
+export type { CompactionOptions, CompactionResult } from './context/contextCompactor.ts';
 // Spill：超大工具输出外溢（#74）
-export { SpillPolicy } from './context/spillPolicy.js';
-export type { SpillPolicyOptions } from './context/spillPolicy.js';
-export { ToolResultSpiller } from './context/toolResultSpiller.js';
-export type { SpillerOptions } from './context/toolResultSpiller.js';
-export { FileSpill } from './adapters/spill/fileSpill.js';
-export { MemorySpill } from './adapters/spill/memorySpill.js';
-export { SpillReadTool } from './adapters/tool/meta/spillReadTool.js';
-export { WorkspaceGuard, PathTraversalError } from './util/workspaceGuard.js';
-export { OutputDecoder } from './util/outputDecoder.js';
+export { SpillPolicy } from './context/spillPolicy.ts';
+export type { SpillPolicyOptions } from './context/spillPolicy.ts';
+export { ToolResultSpiller } from './context/toolResultSpiller.ts';
+export type { SpillerOptions } from './context/toolResultSpiller.ts';
+export { FileSpill } from './adapters/spill/fileSpill.ts';
+export { MemorySpill } from './adapters/spill/memorySpill.ts';
+export { SpillReadTool } from './adapters/tool/meta/spillReadTool.ts';
+export { WorkspaceGuard, PathTraversalError } from './util/workspaceGuard.ts';
+export { OutputDecoder } from './util/outputDecoder.ts';
 
 // @public 插件系统（cordis-lite）
-export { PluginManager } from './plugin/pluginManager.js';
-export type { Plugin, PluginApplyContext, PluginMeta } from './plugin/plugin.js';
-export { PermissionGate, PermissionDeniedError } from './plugin/permissionGate.js';
-export type { PermissionDecision } from './plugin/permissionGate.js';
-export type { PluginPermission } from './plugin/permission.js';
-export { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, Permission } from './plugin/permission.js';
+export { PluginManager } from './plugin/pluginManager.ts';
+export type { Plugin, PluginApplyContext, PluginMeta } from './plugin/plugin.ts';
+export { PermissionGate, PermissionDeniedError } from './plugin/permissionGate.ts';
+export type { PermissionDecision } from './plugin/permissionGate.ts';
+export type { PluginPermission } from './plugin/permission.ts';
+export { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, Permission } from './plugin/permission.ts';
 
 // @public 门禁 / PTC 代码执行
-export { ToolGate } from './core/toolGate.js';
-export { SupervisorKernel } from './supervisor/supervisorKernel.js';
+export { ToolGate } from './core/toolGate.ts';
+export { SupervisorKernel } from './supervisor/supervisorKernel.ts';
 export type {
   SupervisorPort,
   SupervisorOptions,
@@ -154,65 +154,65 @@ export type {
   HealthSnapshot,
   HealthEntry,
   AuditSinkLike,
-} from './ports/runtime/supervisor.js';
+} from './ports/runtime/supervisor.ts';
 
 // @public 燧-3 共振寻址 / 燧-4 涡环包（发明层 S+ 原语；共振寻址由 U1 统一基板 ResonantFieldEngine 承载）
-export { ResonantFieldEngine } from './adapters/memory/resonantFieldEngine.js';
-export type { ResonantFieldOptions, ResonantFieldPort } from './ports/memory/resonantField.js';
+export { ResonantFieldEngine } from './adapters/memory/resonantFieldEngine.ts';
+export type { ResonantFieldOptions, ResonantFieldPort } from './ports/memory/resonantField.ts';
 export {
   VortexRingPacket,
   VortexRingSpillAdapter,
-} from './adapters/spill/vortexRingSpillAdapter.js';
-export { SparkController } from './spark/sparkController.js';
-export type { SparkCycleReport, SparkControllerOptions } from './spark/sparkController.js';
+} from './adapters/spill/vortexRingSpillAdapter.ts';
+export { SparkController } from './spark/sparkController.ts';
+export type { SparkCycleReport, SparkControllerOptions } from './spark/sparkController.ts';
 // @public (D) 热方程记忆重加权 / 退火调度（知识基础算子）
-export { HeatEquationAnnealer } from './adapters/memory/heatEquationAnnealer.js';
-export type { HeatAnnealerOptions } from './adapters/memory/heatEquationAnnealer.js';
-export type { MemoryAnnealer, AnnealStepReport } from './ports/memory/memoryAnnealing.js';
+export { HeatEquationAnnealer } from './adapters/memory/heatEquationAnnealer.ts';
+export type { HeatAnnealerOptions } from './adapters/memory/heatEquationAnnealer.ts';
+export type { MemoryAnnealer, AnnealStepReport } from './ports/memory/memoryAnnealing.ts';
 // @public (E) 宇宙网记忆 / QEC 记忆 / 免疫异常监控（发明层 S+ 原语，I-P1-2/3/5）
-export type { CosmicWebPort, WebConsolidationReport } from './ports/memory/cosmicWeb.js';
-export { QECEncoder } from './adapters/memory/qecEncoder.js';
-export type { QECOptions } from './adapters/memory/qecEncoder.js';
-export type { QECEncoderPort, QECStatus, QECReport } from './ports/intelligence/qec.js';
-export { ImmuneMonitor } from './adapters/monitoring/immuneMonitor.js';
-export type { ImmuneMonitorOptions } from './adapters/monitoring/immuneMonitor.js';
+export type { CosmicWebPort, WebConsolidationReport } from './ports/memory/cosmicWeb.ts';
+export { QECEncoder } from './adapters/memory/qecEncoder.ts';
+export type { QECOptions } from './adapters/memory/qecEncoder.ts';
+export type { QECEncoderPort, QECStatus, QECReport } from './ports/intelligence/qec.ts';
+export { ImmuneMonitor } from './adapters/monitoring/immuneMonitor.ts';
+export type { ImmuneMonitorOptions } from './adapters/monitoring/immuneMonitor.ts';
 export type {
   ImmuneMonitorPort,
   AnomalyAlert,
   ImmuneSelfReport,
-} from './ports/intelligence/immune.js';
+} from './ports/intelligence/immune.ts';
 // @public (P2) 信念·组合·拓扑 — 自然梯度信念 / 粒子滤波信念（I-P2-2/3，信息几何）
-export { NaturalGradientBelief } from './adapters/belief/naturalGradientBelief.js';
-export type { NaturalGradientOptions } from './adapters/belief/naturalGradientBelief.js';
-export { ParticleFilterBelief } from './adapters/belief/particleFilterBelief.js';
-export type { ParticleFilterOptions } from './adapters/belief/particleFilterBelief.js';
+export { NaturalGradientBelief } from './adapters/belief/naturalGradientBelief.ts';
+export type { NaturalGradientOptions } from './adapters/belief/naturalGradientBelief.ts';
+export { ParticleFilterBelief } from './adapters/belief/particleFilterBelief.ts';
+export type { ParticleFilterOptions } from './adapters/belief/particleFilterBelief.ts';
 export type {
   MetacognitionPort,
   BeliefSnapshot,
   BeliefUpdateReport,
   BeliefKlComponent,
-} from './ports/intelligence/metacognition.js';
-export { EigenSpectrum, type Spectrum } from './util/eigenspectrum.js';
+} from './ports/intelligence/metacognition.ts';
+export { EigenSpectrum, type Spectrum } from './util/eigenspectrum.ts';
 
 // @public (P2) 组合·拓扑 — CRISPR 精确技能编辑（I-P2-4）+ 相变固化（I-P2-5）
-export { CRISPRSkillEditor } from './adapters/skill/crisprSkillEditor.js';
-export type { CRISPRSkillEditorOptions } from './adapters/skill/crisprSkillEditor.js';
+export { CRISPRSkillEditor } from './adapters/skill/crisprSkillEditor.ts';
+export type { CRISPRSkillEditorOptions } from './adapters/skill/crisprSkillEditor.ts';
 export type {
   CRISPRSkillEditorPort,
   CrisprEditSpec,
   CrisprEditReport,
-} from './ports/runtime/skillEdit.js';
-export { CapabilityCrystallizer } from './adapters/skill/capabilityCrystallizer.js';
-export type { CapabilityCrystallizerOptions } from './adapters/skill/capabilityCrystallizer.js';
+} from './ports/runtime/skillEdit.ts';
+export { CapabilityCrystallizer } from './adapters/skill/capabilityCrystallizer.ts';
+export type { CapabilityCrystallizerOptions } from './adapters/skill/capabilityCrystallizer.ts';
 export type {
   CapabilityCrystallizerPort,
   CrystallizationReport,
   FrozenCapability,
-} from './ports/intelligence/capability.js';
+} from './ports/intelligence/capability.ts';
 
 // @public (P3) 高原创试点 — 刻蚀记忆 / 元素组合基元 / 对称破缺 / 禁闭色荷（I-P3-1~4）
-export { InsightEtchingEngine } from './adapters/memory/insightEtchingEngine.js';
-export type { InsightEtchingOptions } from './adapters/memory/insightEtchingEngine.js';
+export { InsightEtchingEngine } from './adapters/memory/insightEtchingEngine.ts';
+export type { InsightEtchingOptions } from './adapters/memory/insightEtchingEngine.ts';
 export type {
   InsightEtchingPort,
   EtchEvent,
@@ -220,45 +220,45 @@ export type {
   EtchNode,
   EtchConduction,
   EtchBranch,
-} from './ports/memory/insightEtching.js';
-export { ElementComposer } from './adapters/skill/elementComposer.js';
+} from './ports/memory/insightEtching.ts';
+export { ElementComposer } from './adapters/skill/elementComposer.ts';
 export type {
   ElementComposerPort,
   ElementDef,
   CompoundCapability,
-} from './ports/intelligence/elementComposer.js';
-export { SymmetryBreakingEngine } from './adapters/monitoring/symmetryBreakingEngine.js';
-export type { SymmetryBreakingOptions } from './adapters/monitoring/symmetryBreakingEngine.js';
+} from './ports/intelligence/elementComposer.ts';
+export { SymmetryBreakingEngine } from './adapters/monitoring/symmetryBreakingEngine.ts';
+export type { SymmetryBreakingOptions } from './adapters/monitoring/symmetryBreakingEngine.ts';
 export type {
   SymmetryBreakingPort,
   SymmetryBreakReport,
   SymmetryState,
   UsageSample,
-} from './ports/intelligence/symmetryBreaking.js';
-export { ConfinementEngine } from './adapters/monitoring/confinementEngine.js';
-export type { ConfinementOptions } from './adapters/monitoring/confinementEngine.js';
+} from './ports/intelligence/symmetryBreaking.ts';
+export { ConfinementEngine } from './adapters/monitoring/confinementEngine.ts';
+export type { ConfinementOptions } from './adapters/monitoring/confinementEngine.ts';
 export type {
   ConfinementPort,
   CapabilityCharge,
   BoundCapability,
   ConfinementVerdict,
   Charge,
-} from './ports/runtime/confinement.js';
+} from './ports/runtime/confinement.ts';
 
 // @public 进化闭环（P1：发现 → 评估 → 晋升，fail-closed）
-export { FailClosedEvolutionGate } from './evolution/failClosedEvolutionGate.js';
+export { FailClosedEvolutionGate } from './evolution/failClosedEvolutionGate.ts';
 export type {
   BenchmarkFn,
   SafetyCheck,
   FailClosedEvolutionGateOptions,
-} from './evolution/failClosedEvolutionGate.js';
-export { TwistDiscoveryEngine } from './evolution/twistDiscoveryEngine.js';
-export type { TwistDiscoveryOptions } from './evolution/twistDiscoveryEngine.js';
-export { EvolutionControllerImpl } from './evolution/evolutionControllerImpl.js';
-export { RlvrController } from './evolution/rlvrController.js';
-export type { RlvrEvolutionOptions, RlvrEvolutionBundle } from './evolution/rlvrController.js';
-export type { VerifiableRewardFn } from './evolution/verifiableReward.js';
-export { Benchmark } from './evolution/benchmark.js';
+} from './evolution/failClosedEvolutionGate.ts';
+export { TwistDiscoveryEngine } from './evolution/twistDiscoveryEngine.ts';
+export type { TwistDiscoveryOptions } from './evolution/twistDiscoveryEngine.ts';
+export { EvolutionControllerImpl } from './evolution/evolutionControllerImpl.ts';
+export { RlvrController } from './evolution/rlvrController.ts';
+export type { RlvrEvolutionOptions, RlvrEvolutionBundle } from './evolution/rlvrController.ts';
+export type { VerifiableRewardFn } from './evolution/verifiableReward.ts';
+export { Benchmark } from './evolution/benchmark.ts';
 export type {
   Candidate,
   PromotionVerdict,
@@ -266,53 +266,53 @@ export type {
   DiscoveryEngine,
   EvolutionController,
   EvolutionControllerOptions,
-} from './ports/runtime/evolution.js';
-export { CodeInterpreter } from './adapters/tool/code/codeInterpreter.js';
-export type { CodeInterpreterDeps, CodeRunResult } from './adapters/tool/code/codeInterpreter.js';
-export { CodeExecutorTool } from './adapters/tool/code/codeExecutorTool.js';
-export type { CodeExecutorOptions } from './adapters/tool/code/codeExecutorTool.js';
+} from './ports/runtime/evolution.ts';
+export { CodeInterpreter } from './adapters/tool/code/codeInterpreter.ts';
+export type { CodeInterpreterDeps, CodeRunResult } from './adapters/tool/code/codeInterpreter.ts';
+export { CodeExecutorTool } from './adapters/tool/code/codeExecutorTool.ts';
+export type { CodeExecutorOptions } from './adapters/tool/code/codeExecutorTool.ts';
 
 // @public Skills 系统
-export type { Skill } from './skill/skill.js';
-export { SkillRegistry } from './skill/skillRegistry.js';
+export type { Skill } from './skill/skill.ts';
+export { SkillRegistry } from './skill/skillRegistry.ts';
 
 // @public app-server / 协议
-export { JsonRpc } from './server/core/jsonRpc.js';
+export { JsonRpc } from './server/core/jsonRpc.ts';
 export type {
   RpcError,
   RpcMessage,
   RpcNotification,
   RpcRequest,
   RpcResponse,
-} from './server/core/jsonRpc.js';
-export { LineTransport } from './server/transport/lineTransport.js';
-export type { Transport } from './server/transport/lineTransport.js';
-export { AppServer } from './server/core/appServer.js';
-export type { AppServerOptions } from './server/core/appServer.js';
+} from './server/core/jsonRpc.ts';
+export { LineTransport } from './server/transport/lineTransport.ts';
+export type { Transport } from './server/transport/lineTransport.ts';
+export { AppServer } from './server/core/appServer.ts';
+export type { AppServerOptions } from './server/core/appServer.ts';
 
 // @public 单源 schema / SDK 生成
-export { protocolSchema } from './schema/protocolSchema.js';
+export { protocolSchema } from './schema/protocolSchema.ts';
 export type {
   FieldSchema,
   FieldType,
   MethodSchema,
   ProtocolSchema,
-} from './schema/protocolSchema.js';
-export { CodeGenerator } from './schema/codeGenerator.js';
+} from './schema/protocolSchema.ts';
+export { CodeGenerator } from './schema/codeGenerator.ts';
 
 // @public 跨 harness worker 编排
-export type { Worker, WorkerRequest, WorkerResult } from './worker/worker.js';
-export { CliWorker } from './worker/cliWorker.js';
-export type { CliWorkerOptions } from './worker/cliWorker.js';
-export { SimpleWorker } from './worker/simpleWorker.js';
-export { DshWorker } from './worker/dshWorker.js';
-export { WorkerRegistry } from './worker/workerRegistry.js';
-export { WorkerOrchestrator } from './worker/workerOrchestrator.js';
-export type { DelegateTask } from './worker/workerOrchestrator.js';
-export { DelegateTool } from './adapters/tool/workflow/delegateTool.js';
+export type { Worker, WorkerRequest, WorkerResult } from './worker/worker.ts';
+export { CliWorker } from './worker/cliWorker.ts';
+export type { CliWorkerOptions } from './worker/cliWorker.ts';
+export { SimpleWorker } from './worker/simpleWorker.ts';
+export { DshWorker } from './worker/dshWorker.ts';
+export { WorkerRegistry } from './worker/workerRegistry.ts';
+export { WorkerOrchestrator } from './worker/workerOrchestrator.ts';
+export type { DelegateTask } from './worker/workerOrchestrator.ts';
+export { DelegateTool } from './adapters/tool/workflow/delegateTool.ts';
 
 // @public MCP 网关（对外暴露工具 / 桥接外部 MCP 服务器）
-export { McpProtocol } from './mcp/mcpProtocol.js';
+export { McpProtocol } from './mcp/mcpProtocol.ts';
 export type {
   McpCallToolResult,
   McpCapabilities,
@@ -321,28 +321,28 @@ export type {
   McpServerInfo,
   McpTextContent,
   McpToolDescriptor,
-} from './mcp/mcpProtocol.js';
-export { McpToolMapper } from './mcp/mcpToolMapper.js';
-export { McpServer } from './mcp/mcpServer.js';
-export type { McpServerOptions } from './mcp/mcpServer.js';
-export { McpClient } from './mcp/mcpClient.js';
-export type { McpClientOptions } from './mcp/mcpClient.js';
-export { McpStdioTransport } from './mcp/mcpStdioTransport.js';
-export type { McpStdioHandle, McpStdioServerOptions } from './mcp/mcpStdioTransport.js';
-export { McpConnector } from './mcp/mcpConnector.js';
-export type { McpConnection, McpConnectorOptions } from './mcp/mcpConnector.js';
-export { McpGateway } from './mcp/mcpGateway.js';
-export type { McpBridgeResult, McpGatewayOptions, McpServerConfig } from './mcp/mcpGateway.js';
-export { McpServerCommand } from './mcp/mcpServerCommand.js';
+} from './mcp/mcpProtocol.ts';
+export { McpToolMapper } from './mcp/mcpToolMapper.ts';
+export { McpServer } from './mcp/mcpServer.ts';
+export type { McpServerOptions } from './mcp/mcpServer.ts';
+export { McpClient } from './mcp/mcpClient.ts';
+export type { McpClientOptions } from './mcp/mcpClient.ts';
+export { McpStdioTransport } from './mcp/mcpStdioTransport.ts';
+export type { McpStdioHandle, McpStdioServerOptions } from './mcp/mcpStdioTransport.ts';
+export { McpConnector } from './mcp/mcpConnector.ts';
+export type { McpConnection, McpConnectorOptions } from './mcp/mcpConnector.ts';
+export { McpGateway } from './mcp/mcpGateway.ts';
+export type { McpBridgeResult, McpGatewayOptions, McpServerConfig } from './mcp/mcpGateway.ts';
+export { McpServerCommand } from './mcp/mcpServerCommand.ts';
 
 // @public 原生内核（FFI 下沉 #65：Node 进程内直调 Rust 内核，N-API / .node）
-export { NativeKernel, NativeKernelUnavailableError } from './native/index.js';
-export type { NativeDecision } from './native/index.js';
-export { NativeBackend } from './native/index.js';
-export type { NativeToolRunner } from './native/index.js';
+export { NativeKernel, NativeKernelUnavailableError } from './native/index.ts';
+export type { NativeDecision } from './native/index.ts';
+export { NativeBackend } from './native/index.ts';
+export type { NativeToolRunner } from './native/index.ts';
 
 // @public 企业管控（D2：SSO / 合规导出）
-export { EnterpriseAuth, OidcClient } from './enterprise/index.js';
+export { EnterpriseAuth, OidcClient } from './enterprise/index.ts';
 export type {
   OidcProviderConfig,
   OidcDiscovery,
@@ -351,24 +351,24 @@ export type {
   Jwk,
   JwtParts,
   AuthState,
-} from './enterprise/index.js';
-export { AuditExporter } from './server/services/auditExporter.js';
-export type { ComplianceReport, ComplianceReportMeta } from './server/services/auditExporter.js';
+} from './enterprise/index.ts';
+export { AuditExporter } from './server/services/auditExporter.ts';
+export type { ComplianceReport, ComplianceReportMeta } from './server/services/auditExporter.ts';
 
 // @public 版本契约（API 版本锚点，见 docs/API_STABILITY.md）
-export { API_VERSION } from './version.js';
-export type { ApiVersion } from './version.js';
+export { API_VERSION } from './version.ts';
+export type { ApiVersion } from './version.ts';
 
 // @public 长期运行遥测（P4, I-P4-3：回填基座 + 闭环参数收紧）
-export { JsonlRuntimeTelemetry } from './adapters/telemetry/jsonlRuntimeTelemetry.js';
-export type { JsonlRuntimeTelemetryOptions } from './adapters/telemetry/jsonlRuntimeTelemetry.js';
+export { JsonlRuntimeTelemetry } from './adapters/telemetry/jsonlRuntimeTelemetry.ts';
+export type { JsonlRuntimeTelemetryOptions } from './adapters/telemetry/jsonlRuntimeTelemetry.ts';
 export type {
   RuntimeObservation,
   RuntimeTelemetryPort,
   TelemetryChainReport,
   TelemetryKind,
   TelemetryProvenance,
-} from './ports/runtime/runtimeTelemetry.js';
+} from './ports/runtime/runtimeTelemetry.ts';
 
 // @public 太初数学内核（Genesis Core）：可推演代数态射 + 多模态 + 自适应
 // 统一内核——把能耗/成本建模为交换幺半群、算子的指称语义、记账不变量账本、
@@ -394,7 +394,7 @@ export {
   pruneOperator,
   type GenesisState,
   type Regime,
-} from './genesis/index.js';
+} from './genesis/index.ts';
 
 // @public 上下文效率层（自研 · 无第三方依赖）：确定性压缩 + 前缀稳定性治理（KV 缓存命中率根因变量）
 export {
@@ -410,4 +410,4 @@ export {
   type CompressStageMetric,
   type CompressReport,
   type CompressResult,
-} from './context/index.js';
+} from './context/index.ts';

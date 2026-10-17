@@ -1,25 +1,25 @@
 import { open, stat } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
-import { MediaSniffer } from '../../../media/mediaSniffer.js';
-import { RoutingFrameExtractor } from '../../media/routingFrameExtractor.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
+import { MediaSniffer } from '../../../media/mediaSniffer.ts';
+import { RoutingFrameExtractor } from '../../media/routingFrameExtractor.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { FileAttachment } from '../../../ports/model/model.js';
-import type { MediaFrameExtractor } from '../../../ports/media/frameExtractor.js';
+} from '../../../ports/tool/tool.ts';
+import type { FileAttachment } from '../../../ports/model/model.ts';
+import type { MediaFrameExtractor } from '../../../ports/media/frameExtractor.ts';
 import type {
   FrameSelectionPolicy,
   FrameStrategy,
   MediaFrame,
   MediaProbeInfo,
-} from '../../../ports/media/mediaTypes.js';
-import type { ResolvedMediaOptions } from '../../../config/mediaConfigResolver.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
+} from '../../../ports/media/mediaTypes.ts';
+import type { ResolvedMediaOptions } from '../../../config/mediaConfigResolver.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
 
 /** 嗅探所需的文件头字节数（足以覆盖所有魔数与图片头）。 */
 const HEAD_BYTES = 64 * 1024;

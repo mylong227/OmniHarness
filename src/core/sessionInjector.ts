@@ -1,9 +1,9 @@
-import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import type { MemoryFact } from '../ports/memory/longTermMemory.js';
-import type { AppendOnlyEventLog } from './appendOnlyEventLog.js';
-import type { SessionRecorder } from './sessionRecorder.js';
-import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.js';
-import { SkillSparsifier } from '../skill/skillSparsifier.js';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
+import type { MemoryFact } from '../ports/memory/longTermMemory.ts';
+import type { AppendOnlyEventLog } from './appendOnlyEventLog.ts';
+import type { SessionRecorder } from './sessionRecorder.ts';
+import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.ts';
+import { SkillSparsifier } from '../skill/skillSparsifier.ts';
 
 /**
  * 长期记忆 primer 产物的内容特征前缀（与 `injectMemoryPrimer` 拼出的开场文本同源）。

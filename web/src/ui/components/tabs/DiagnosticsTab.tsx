@@ -18,11 +18,11 @@
  */
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 负责解析裸标识符）。
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { icon } from '../../models/Icon.js';
+import { useApp } from '../../context.ts';
+import { icon } from '../../models/Icon.ts';
 import type { ReactElement } from 'react';
-import type { DoctorReportLike } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import type { DoctorReportLike } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** `daemon.status` 的返回形状。 */
 interface DaemonStatus {

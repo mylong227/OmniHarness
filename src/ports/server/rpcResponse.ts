@@ -1,4 +1,4 @@
-import type { RpcError } from './rpcError.js';
+import type { RpcError } from './rpcError.ts';
 
 /** JSON-RPC 2.0 响应。 */
 export interface RpcResponse {

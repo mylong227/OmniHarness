@@ -8,7 +8,7 @@
 // 语言状态：模块级单例 + 订阅通知（LayoutController.setLocale 经 App 状态触发全树重渲染，
 // 本订阅供未来非 React 场景使用）；持久化 localStorage('omni-locale')，挂载时 initLocale 恢复。
 
-import { EN } from './en/index.js';
+import { EN } from './en/index.ts';
 
 /** 支持的语言。 */
 export type Locale = 'zh' | 'en';

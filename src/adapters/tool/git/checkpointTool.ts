@@ -1,14 +1,14 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
-import type { CheckpointManagerPort } from '../../../ports/runtime/checkpointManager.js';
-import type { RegistryToolPort } from '../registryToolPort.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
+import type { CheckpointManagerPort } from '../../../ports/runtime/checkpointManager.ts';
+import type { RegistryToolPort } from '../registryToolPort.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { ToolHandler } from '../toolHandler.js';
-import { rollbackDefinition, RollbackTool } from './rollbackTool.js';
+} from '../../../ports/tool/tool.ts';
+import type { ToolHandler } from '../toolHandler.ts';
+import { rollbackDefinition, RollbackTool } from './rollbackTool.ts';
 
 /**
  * CheckpointTool —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

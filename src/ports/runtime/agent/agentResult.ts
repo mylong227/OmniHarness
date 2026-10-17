@@ -1,5 +1,5 @@
-import type { SessionEvent } from '../event.js';
-import type { VerificationState } from '../completionGate/verificationState.js';
+import type { SessionEvent } from '../event.ts';
+import type { VerificationState } from '../completionGate/verificationState.ts';
 
 /** Agent 单次任务的运行结果。 */
 export interface AgentResult {

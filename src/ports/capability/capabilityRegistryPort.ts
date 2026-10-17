@@ -12,10 +12,10 @@
  * 档位纪律：`patch` 只允许把信任档/隔离档**朝更严方向**移动（全序见 `TRUST_TIER_ORDER` /
  * `ISOLATION_LEVEL_ORDER`）；放宽请求抛错而非静默忽略。
  */
-import type { SkillPort } from '../runtime/skill.js';
-import type { CapabilityRecord } from './capabilityRecord.js';
-import type { IsolationLevel } from './isolationLevel.js';
-import type { TrustTier } from './trustTier.js';
+import type { SkillPort } from '../runtime/skill.ts';
+import type { CapabilityRecord } from './capabilityRecord.ts';
+import type { IsolationLevel } from './isolationLevel.ts';
+import type { TrustTier } from './trustTier.ts';
 
 /** 治理状态补丁（只允许收紧；`state` 可转到任何合法状态）。 */
 export interface GovernancePatch {

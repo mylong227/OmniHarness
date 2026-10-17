@@ -3,8 +3,8 @@ import type {
   CapabilitySchemaRegistryPort,
   IsolationLevel,
   TrustTier,
-} from '../capability.js';
-import type { EvaluatorPort } from '../runtime/evolution.js';
+} from '../capability.ts';
+import type { EvaluatorPort } from '../runtime/evolution.ts';
 
 /**
  * 统一资产协议切片（Wave B · ADR-0009）：L1 层装配产物，并入 `ResolvedConfig`。

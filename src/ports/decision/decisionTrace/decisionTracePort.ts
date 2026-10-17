@@ -1,4 +1,4 @@
-import type { DecisionTrace } from './decisionTrace.js';
+import type { DecisionTrace } from './decisionTrace.ts';
 
 /** 决策 trace 端口：消费一条配对样本。 */
 export interface DecisionTracePort {

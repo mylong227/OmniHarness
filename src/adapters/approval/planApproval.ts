@@ -1,9 +1,9 @@
-import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../ports/tool/toolNames.ts';
 import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../ports/runtime/approval.js';
+} from '../../ports/runtime/approval.ts';
 
 /**
  * 规划模式（plan）审批适配器。

@@ -15,9 +15,9 @@
  *  - 无状态，可安全复用同一实例。
  */
 
-import { MemoryStorage } from '../adapters/storage/memoryStorage.js';
-import { JsonlStorage } from '../adapters/storage/jsonlStorage.js';
-import type { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
+import { MemoryStorage } from '../adapters/storage/memoryStorage.ts';
+import { JsonlStorage } from '../adapters/storage/jsonlStorage.ts';
+import type { SqliteStorage } from '../adapters/storage/sqliteStorage.ts';
 
 /** 存储端口句柄（工厂产出的三种后端之一）。 */
 export type StorageHandle = MemoryStorage | JsonlStorage | SqliteStorage;
@@ -41,7 +41,7 @@ export class StorageFactory {
       return new JsonlStorage(dir ?? process.cwd());
     }
     if (adapter === 'sqlite') {
-      const { SqliteStorage } = await import('../adapters/storage/sqliteStorage.js');
+      const { SqliteStorage } = await import('../adapters/storage/sqliteStorage.ts');
       return new SqliteStorage(dir ?? DEFAULT_SQLITE_FILE);
     }
     return new MemoryStorage();

@@ -15,8 +15,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { ApiClient } = await import('../src/core/ApiClient.js');
-const { ComposerController } = await import('../src/ui/controllers/ComposerController.js');
+const { ApiClient } = await import('../src/core/ApiClient.ts');
+const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
 /** 用给定响应冒充 fetch，返回 ApiClient.rpc 抛出的错误消息（不抛则返回 null）。 */
 async function rpcError(res) {

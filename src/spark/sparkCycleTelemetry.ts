@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { RuntimeTelemetryPort } from '../ports/runtime/runtimeTelemetry.js';
-import type { SparkCycleReport } from './sparkController.js';
+import type { RuntimeTelemetryPort } from '../ports/runtime/runtimeTelemetry.ts';
+import type { SparkCycleReport } from './sparkController.ts';
 
 /**
  * 燧内核「长期运行遥测」发射器：把一轮 `SparkCycleReport` 按已启用引擎摊成生产观测落盘。

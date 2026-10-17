@@ -1,7 +1,7 @@
-import { McpClient } from './mcpClient.js';
-import { mcpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.js';
-import type { McpConnectionHandle, McpConnectorPort } from '../ports/mcp/mcpConnectorPort.js';
-import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.js';
+import { McpClient } from './mcpClient.ts';
+import { mcpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.ts';
+import type { McpConnectionHandle, McpConnectorPort } from '../ports/mcp/mcpConnectorPort.ts';
+import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
 
 /**
  * @beta

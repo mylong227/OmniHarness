@@ -7,8 +7,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { CdpClient } from '../../src/adapters/browser/cdpClient.js';
-import type { WebSocketLike } from '../../src/adapters/browser/cdpClient.js';
+import { CdpClient } from '../../src/adapters/browser/cdpClient.ts';
+import type { WebSocketLike } from '../../src/adapters/browser/cdpClient.ts';
 
 /** 可控的假 WebSocket：手动派发事件，便于精确模拟「连接中途断开」。 */
 class FakeSocket implements WebSocketLike {

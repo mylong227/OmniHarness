@@ -8,7 +8,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PtyCapability } from '../../src/adapters/tool/shell/ptyCapability.js';
+import { PtyCapability } from '../../src/adapters/tool/shell/ptyCapability.ts';
 
 test('分级：有 script 时优先真 PTY 包装（即使父进程没有 TTY）', () => {
   const report = PtyCapability.detect({ platform: 'linux', hasTty: false, scriptAvailable: true });

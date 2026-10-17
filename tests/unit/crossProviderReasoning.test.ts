@@ -20,12 +20,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.js';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.js';
-import { ModelReasoningEfforts } from '../../src/adapters/model/modelReasoningEfforts.js';
-import type { ModelRequest } from '../../src/ports/model/model.js';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
+import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
+import { ModelReasoningEfforts } from '../../src/adapters/model/modelReasoningEfforts.ts';
+import type { ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 仓库根（判据在 `dist/tests/unit/`，源码按 cwd 读）。 */
 const REPO_ROOT = process.cwd();

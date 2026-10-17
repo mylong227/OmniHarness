@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { DiskCachedEmbeddingAdapter } from '../../src/adapters/embedding/diskCachedEmbeddingAdapter.js';
-import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.js';
-import type { EmbedOptions } from '../../src/ports/model/embedding/embedOptions.js';
+import { DiskCachedEmbeddingAdapter } from '../../src/adapters/embedding/diskCachedEmbeddingAdapter.ts';
+import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.ts';
+import type { EmbedOptions } from '../../src/ports/model/embedding/embedOptions.ts';
 
 /** 确定性假嵌入端口：向量 = 文本长度铺满维度，并记录调用次数（用于断言「有没有回源」）。 */
 class FakeEmbedding implements EmbeddingPort {

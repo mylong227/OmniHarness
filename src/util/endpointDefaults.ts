@@ -1,5 +1,5 @@
-import { builtinDefaults } from './builtinDefaults.js';
-import type { ResolvedAdapterDefaults } from '../ports/util/resolvedAdapterDefaults.js';
+import { builtinDefaults } from './builtinDefaults.ts';
+import type { ResolvedAdapterDefaults } from '../ports/util/resolvedAdapterDefaults.ts';
 
 /** 单个模型适配器的兜底端点与凭据来源（`defaults/endpoints.json` 的记录形状）。 */
 export interface ModelAdapterDefaults {
@@ -33,7 +33,7 @@ export interface ServiceEndpointDefaults {
   readonly notes?: string;
 }
 
-export type { ResolvedAdapterDefaults } from '../ports/util/resolvedAdapterDefaults.js';
+export type { ResolvedAdapterDefaults } from '../ports/util/resolvedAdapterDefaults.ts';
 
 /** 适配器记录允许的 key 全集。 */
 const ADAPTER_KEYS: ReadonlySet<string> = new Set([

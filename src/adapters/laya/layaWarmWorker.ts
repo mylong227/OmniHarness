@@ -21,12 +21,12 @@
  */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { PendingRequests } from '../../util/concurrency/pendingRequests.js';
-import type { PendingTimeout } from '../../ports/util/pendingTimeout.js';
-import { LayaJsonlFramer } from './layaJsonlFramer.js';
-import { LayaProcessLiveness } from './layaProcessLiveness.js';
-import { LayaReadyWaiters } from './layaReadyWaiters.js';
-import type { LayaBridgeResponse, LayaWireQuestion } from './layaQuestionTranslator.js';
+import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
+import type { PendingTimeout } from '../../ports/util/pendingTimeout.ts';
+import { LayaJsonlFramer } from './layaJsonlFramer.ts';
+import { LayaProcessLiveness } from './layaProcessLiveness.ts';
+import { LayaReadyWaiters } from './layaReadyWaiters.ts';
+import type { LayaBridgeResponse, LayaWireQuestion } from './layaQuestionTranslator.ts';
 
 /** 常驻进程配置。 */
 export interface LayaWarmWorkerOptions {

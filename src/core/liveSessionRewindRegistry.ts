@@ -1,5 +1,5 @@
-import type { LiveSessionRewindPort } from '../ports/runtime/liveSessionRewindPort.js';
-import { log } from '../util/logger.js';
+import type { LiveSessionRewindPort } from '../ports/runtime/liveSessionRewindPort.ts';
+import { log } from '../util/logger.ts';
 
 /**
  * 在跑会话的事件流回卷登记表（进程级）。

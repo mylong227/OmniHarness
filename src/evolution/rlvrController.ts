@@ -20,32 +20,32 @@
  * @maturity L1 — RLVR 闭环在；Echo Trap 防护未证
  * @maturityEvidence tests/unit/evolutionRlvr.test.ts
  */
-import type { Candidate } from '../ports/runtime/evolution.js';
-import type { ModelPort } from '../ports/model/model.js';
-import type { Skill, MoireOptions } from '../skill/skill.js';
-import { FailClosedEvolutionGate } from './failClosedEvolutionGate.js';
-import type { BenchmarkFn } from './failClosedEvolutionGate.js';
+import type { Candidate } from '../ports/runtime/evolution.ts';
+import type { ModelPort } from '../ports/model/model.ts';
+import type { Skill, MoireOptions } from '../skill/skill.ts';
+import { FailClosedEvolutionGate } from './failClosedEvolutionGate.ts';
+import type { BenchmarkFn } from './failClosedEvolutionGate.ts';
 
-import { Benchmark } from './benchmark.js';
+import { Benchmark } from './benchmark.ts';
 
-import { TwistDiscoveryEngine } from './twistDiscoveryEngine.js';
-import { EvolutionControllerImpl } from './evolutionControllerImpl.js';
+import { TwistDiscoveryEngine } from './twistDiscoveryEngine.ts';
+import { EvolutionControllerImpl } from './evolutionControllerImpl.ts';
 import type {
   DiscoveryEngine,
   EvolutionController,
   PromotionVerdict,
-} from '../ports/runtime/evolution.js';
-import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.js';
-import type { RlvrSampler, ReplayBuffer, CodeCandidate, RlvrSampleContext } from './rlvrLoop.js';
-import { VerifiableReward } from './verifiableReward.js';
-import { CascadeReward } from './cascadeReward.js';
-import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.js';
-import type { CoverageMeter, CoverageReportSurface } from './rewardCoverageMeter.js';
-import { BucketedCoverageMeter } from './bucketedCoverageMeter.js';
-import { PromotionAdmission } from './promotionAdmission.js';
-import type { AdmissionResult } from './promotionAdmission.js';
-import { log } from '../util/logger.js';
-import { ArrayAt } from '../util/arrayAt.js';
+} from '../ports/runtime/evolution.ts';
+import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.ts';
+import type { RlvrSampler, ReplayBuffer, CodeCandidate, RlvrSampleContext } from './rlvrLoop.ts';
+import { VerifiableReward } from './verifiableReward.ts';
+import { CascadeReward } from './cascadeReward.ts';
+import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.ts';
+import type { CoverageMeter, CoverageReportSurface } from './rewardCoverageMeter.ts';
+import { BucketedCoverageMeter } from './bucketedCoverageMeter.ts';
+import { PromotionAdmission } from './promotionAdmission.ts';
+import type { AdmissionResult } from './promotionAdmission.ts';
+import { log } from '../util/logger.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * RlvrController 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

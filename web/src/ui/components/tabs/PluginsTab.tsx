@@ -5,11 +5,11 @@
 // （load 显式接收 query 参数，不依赖渲染快照）；卡片渲染下沉为模块级函数。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { permChip, emptyState } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { PluginManifest, PluginSearchEntry } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { useApp } from '../../context.ts';
+import { permChip, emptyState } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { PluginManifest, PluginSearchEntry } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** 搜索输入防抖延迟（ms）。 */
 const DEBOUNCE_MS = 200;

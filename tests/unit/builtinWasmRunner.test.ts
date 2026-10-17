@@ -22,9 +22,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.js';
-import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.js';
-import type { IsolationRequest } from '../../src/ports/runtime/isolation.js';
+import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';
+import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.ts';
+import type { IsolationRequest } from '../../src/ports/runtime/isolation.ts';
 
 /**
  * 组装一个 wasm 模块。
@@ -263,7 +263,7 @@ test('J8 阶梯集成：未注入执行器 ⇒ wasm 档仍 fail-closed；注入�
 
 test('J8 生产装配：工厂产出的阶梯 wasm 档可达，且越界/超预算仍被拒（接线不放松隔离）', async () => {
   const { IsolationLadderFactory } =
-    await import('../../src/adapters/isolation/isolationLadderFactory.js');
+    await import('../../src/adapters/isolation/isolationLadderFactory.ts');
   const ladder = IsolationLadderFactory.builtin();
   // ① 可达：漏注入是"声明了 wasm 的包被静默拒装"的根因，症状与真实越界极像，故必须显式断言。
   assert.strictEqual(ladder.available('wasm'), true);

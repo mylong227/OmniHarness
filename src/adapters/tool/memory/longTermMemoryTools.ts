@@ -1,2 +1,2 @@
-export { RememberTool } from './rememberTool.js';
-export { RecallTool } from './recallTool.js';
+export { RememberTool } from './rememberTool.ts';
+export { RecallTool } from './recallTool.ts';

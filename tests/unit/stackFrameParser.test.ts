@@ -3,7 +3,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StackFrameParser } from '../../src/adapters/tool/verify/stackFrameParser.js';
+import { StackFrameParser } from '../../src/adapters/tool/verify/stackFrameParser.ts';
 
 test('Node/Jest 风格：at fn (file:line:col) 解析为 文件:行', () => {
   const raw = ['not ok 1 - 用例', '    at Object.<anonymous> (src/a/b.ts:12:34)'].join('\n');

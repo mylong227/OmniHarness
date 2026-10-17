@@ -1,4 +1,4 @@
-import { CliWorker } from './cliWorker.js';
+import { CliWorker } from './cliWorker.ts';
 
 /**
  * @beta

@@ -6,7 +6,7 @@
  * 单测）此前经本路径导入，门面转发可让它们零改动收敛到新来源；`maskKey` 是与目录无关的
  * 凭据打码工具，继续留在这里，避免为一个函数新开一个模块。
  */
-import { providerPresets, type ProviderPreset } from '../../config/providerPresets.js';
+import { providerPresets, type ProviderPreset } from '../../config/providerPresets.ts';
 
 /**
  * ProviderPresets —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -32,5 +32,5 @@ export class ProviderPresets {
   }
 }
 
-export { PROVIDER_PRESETS, providerPresets } from '../../config/providerPresets.js';
-export type { ProviderPreset } from '../../config/providerPresets.js';
+export { PROVIDER_PRESETS, providerPresets } from '../../config/providerPresets.ts';
+export type { ProviderPreset } from '../../config/providerPresets.ts';

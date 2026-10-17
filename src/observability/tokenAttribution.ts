@@ -1,5 +1,5 @@
-import type { ModelUsage } from '../ports/model/model.js';
-import type { SessionEvent } from '../ports/runtime/event.js';
+import type { ModelUsage } from '../ports/model/model.ts';
+import type { SessionEvent } from '../ports/runtime/event.ts';
 
 /**
  * 归因桶键：某次模型调用之前**没有任何工具调用**（首轮 / 纯文本轮 / 收尾轮）时使用。

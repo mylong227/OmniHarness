@@ -1,6 +1,6 @@
-import type { ModelRequest } from './modelRequest.js';
-import type { ModelOutput } from './modelOutput.js';
-import type { StreamCallbacks } from './streamCallbacks.js';
+import type { ModelRequest } from './modelRequest.ts';
+import type { ModelOutput } from './modelOutput.ts';
+import type { StreamCallbacks } from './streamCallbacks.ts';
 
 /** 模型端口：任意 AI（OpenAI 兼容 / Anthropic / 本地 / 自研）的统一插口。 */
 export interface ModelPort {

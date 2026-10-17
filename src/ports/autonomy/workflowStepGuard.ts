@@ -1,4 +1,4 @@
-import type { WorkflowStepStatus } from './workflowStepStatus.js';
+import type { WorkflowStepStatus } from './workflowStepStatus.ts';
 
 /**
  * 步骤的**受控执行条件**（`when`）：声明「仅当某个已依赖步骤处于某终态时才执行本步」。

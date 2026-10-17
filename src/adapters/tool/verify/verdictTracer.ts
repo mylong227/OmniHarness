@@ -6,10 +6,10 @@
  * fail-open 取向：预判引擎不可用 / 抛错、trace 落盘失败，一律静默跳过，绝不阻断主流程
  * （与护栏 fail-closed 取向不同——这里是质量信号、非安全边界）。
  */
-import type { ToolCall, ToolContext } from '../../../ports/tool/tool.js';
-import type { DecisionEngine, DecisionResponse } from '../../../ports/decision/decisionEngine.js';
-import type { DecisionTracePort } from '../../../ports/decision/decisionTrace.js';
-import type { VerdictObserver } from './verdictTypes.js';
+import type { ToolCall, ToolContext } from '../../../ports/tool/tool.ts';
+import type { DecisionEngine, DecisionResponse } from '../../../ports/decision/decisionEngine.ts';
+import type { DecisionTracePort } from '../../../ports/decision/decisionTrace.ts';
+import type { VerdictObserver } from './verdictTypes.ts';
 
 /** verdict 采集装配项（全部由组合根经自验证装饰器透传）。 */
 export interface VerdictTracerWiring {

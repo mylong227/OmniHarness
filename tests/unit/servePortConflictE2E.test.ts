@@ -20,7 +20,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ServeInstance } from '../../src/cli/serveInstance.js';
+import { ServeInstance } from '../../src/cli/serveInstance.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();

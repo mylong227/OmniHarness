@@ -9,14 +9,14 @@
 // 随 effect 清理（H3 对称）。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.js';
-import { useApp } from '../context.js';
-import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.js';
-import { PendingModes } from '../models/PendingModes.js';
-import { claimPopover, releasePopover } from '../models/PopoverStack.js';
-import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.js';
-import type { ApiClient } from '../../core/ApiClient.js';
-import { t } from '../i18n/i18n.js';
+import { icon } from '../models/Icon.ts';
+import { useApp } from '../context.ts';
+import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.ts';
+import { PendingModes } from '../models/PendingModes.ts';
+import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 搜索防抖时长（ms）。 */
 const SEARCH_DEBOUNCE_MS = 250;

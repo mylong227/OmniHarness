@@ -22,8 +22,8 @@
  * `off` 一律返回 `undefined`（不写 `partial` ⇒ 引擎不装配、零行为），而不是写一个 `{mode:'off'}`。
  */
 
-import type { CliArgs } from './argParser.js';
-import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
+import type { CliArgs } from './argParser.ts';
+import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.ts';
 
 /** 生产入口默认档位：只观测、不改行为（详见类注释「为什么默认 shadow」）。 */
 const DEFAULT_MODE: DecisionEngineConfig['mode'] = 'shadow';

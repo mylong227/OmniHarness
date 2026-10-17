@@ -1,5 +1,5 @@
-import type { UsageSample } from './usageSample.js';
-import type { SymmetryBreakReport } from './symmetryBreakReport.js';
+import type { UsageSample } from './usageSample.ts';
+import type { SymmetryBreakReport } from './symmetryBreakReport.ts';
 
 /** 对称破缺端口。 */
 export interface SymmetryBreakingPort {

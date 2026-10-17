@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import {
   ProjectInstructions,
   MAX_INSTRUCTIONS_CACHE_KEYS,
-} from '../../src/context/projectInstructions.js';
+} from '../../src/context/projectInstructions.ts';
 
 let root: string;
 let home: string;

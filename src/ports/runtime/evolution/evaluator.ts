@@ -10,8 +10,8 @@
  *   （**没验过不得冒充验过**——覆盖率诚实性是同一件事）；
  * - 评估器**绝不改资产本体**：它只出判据，`fitness` 的写入由注册表/调用方决定（单一写者）。
  */
-import type { CapabilityRecord } from '../../capability/capabilityRecord.js';
-import type { RewardVerdict } from './rewardVerdict.js';
+import type { CapabilityRecord } from '../../capability/capabilityRecord.ts';
+import type { RewardVerdict } from './rewardVerdict.ts';
 
 /** 评估器端口：把一件资产量成一个判据明细。 */
 export interface EvaluatorPort {

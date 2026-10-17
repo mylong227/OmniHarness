@@ -3,16 +3,16 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
+} from '../../../ports/tool/tool.ts';
 
-import type { AgentFactoryPort } from '../../../ports/runtime/agent.js';
-import { subagentRuntimeFactory } from '../../../subagent/subagentRuntimeFactory.js';
-import { SubagentEventBridge } from '../../../subagent/subagentEventBridge.js';
-import { ToolSubset } from '../../../subagent/toolSubset.js';
-import { GoalRunner, type GoalRunnerOptions } from '../../../autonomy/goalRunner.js';
-import { GoalChecker } from '../../../autonomy/goalChecker.js';
-import { RUN_GOAL_TOOL_NAME } from '../../../autonomy/goalToolNames.js';
-import type { SubagentPortsShape } from '../../../ports/subagent/subagentPortsShape.js';
+import type { AgentFactoryPort } from '../../../ports/runtime/agent.ts';
+import { subagentRuntimeFactory } from '../../../subagent/subagentRuntimeFactory.ts';
+import { SubagentEventBridge } from '../../../subagent/subagentEventBridge.ts';
+import { ToolSubset } from '../../../subagent/toolSubset.ts';
+import { GoalRunner, type GoalRunnerOptions } from '../../../autonomy/goalRunner.ts';
+import { GoalChecker } from '../../../autonomy/goalChecker.ts';
+import { RUN_GOAL_TOOL_NAME } from '../../../autonomy/goalToolNames.ts';
+import type { SubagentPortsShape } from '../../../ports/subagent/subagentPortsShape.ts';
 
 /** 模型面 run_goal 工具：派生一个进程内自主目标循环完成子目标。 */
 export class RunGoalTool {

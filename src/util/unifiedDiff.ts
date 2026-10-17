@@ -1,4 +1,4 @@
-import { ArrayAt } from './arrayAt.js';
+import { ArrayAt } from './arrayAt.ts';
 /**
  * 行级 unified diff（无第三方依赖，对标 codex diff 渲染）。
  *

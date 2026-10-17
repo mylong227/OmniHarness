@@ -1,22 +1,22 @@
-import type { ApprovalPort } from '../ports/runtime/approval.js';
-import type { SandboxPort } from '../ports/runtime/sandbox.js';
-import type { ToolPort } from '../ports/tool/tool.js';
-import type { ModelPort } from '../ports/model/model.js';
-import type { EscalationPort } from '../ports/runtime/escalation.js';
-import type { EmbeddingPort } from '../ports/model/embedding.js';
-import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
-import type { EnforcementMode } from '../security/enforcementModeResolver.js';
-import type { TrustTier } from '../security/toolOutputTrust.js';
-import type { RepoMapContextEnginePort } from '../ports/context/repoMapContextEnginePort.js';
-import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.js';
-import type { ContextCompactor } from '../context/contextCompactor.js';
-import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
-import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';
-import type { SessionRecorder } from './sessionRecorder.js';
-import type { NativeToolRunner } from '../native/nativeBackend.js';
-import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.js';
-import type { ToolInputSink } from '../ports/tool/toolInputSink.js';
-import type { SupervisorPort } from '../ports/runtime/supervisor.js';
+import type { ApprovalPort } from '../ports/runtime/approval.ts';
+import type { SandboxPort } from '../ports/runtime/sandbox.ts';
+import type { ToolPort } from '../ports/tool/tool.ts';
+import type { ModelPort } from '../ports/model/model.ts';
+import type { EscalationPort } from '../ports/runtime/escalation.ts';
+import type { EmbeddingPort } from '../ports/model/embedding.ts';
+import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.ts';
+import type { EnforcementMode } from '../security/enforcementModeResolver.ts';
+import type { TrustTier } from '../security/toolOutputTrust.ts';
+import type { RepoMapContextEnginePort } from '../ports/context/repoMapContextEnginePort.ts';
+import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.ts';
+import type { ContextCompactor } from '../context/contextCompactor.ts';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
+import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.ts';
+import type { SessionRecorder } from './sessionRecorder.ts';
+import type { NativeToolRunner } from '../native/nativeBackend.ts';
+import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.ts';
+import type { ToolInputSink } from '../ports/tool/toolInputSink.ts';
+import type { SupervisorPort } from '../ports/runtime/supervisor.ts';
 
 /**
  * 单步运行依赖（全部来自端口）。

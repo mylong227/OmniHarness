@@ -9,9 +9,9 @@
  *
  * 纯函数、无第三方依赖、确定性、可单测。EvolutionGate 默认即注入此基准。
  */
-import type { Skill } from '../skill/skill.js';
-import { MoireComposer } from '../skill/moireComposer.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import type { Skill } from '../skill/skill.ts';
+import { MoireComposer } from '../skill/moireComposer.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * BenchmarkFn 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

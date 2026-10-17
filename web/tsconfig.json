@@ -13,6 +13,10 @@
     // Vite 用 bundler 解析（支持 `exports` 子路径，如 `highlight.js/lib/common`）；
     // `node`（classic）解析不到这类子路径。
     "moduleResolution": "bundler",
+    // 导入约定与后端统一：相对导入写真实源文件后缀（`.ts`/`.tsx`）。
+    // 本工程 `noEmit: true`（构建由 Vite 负责），所以用 `allowImportingTsExtensions`
+    // 放行该写法；后端走 `rewriteRelativeImportExtensions`（见根 tsconfig 注释）。
+    "allowImportingTsExtensions": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "noEmit": true,
     "strict": true,

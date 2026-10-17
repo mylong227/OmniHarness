@@ -23,8 +23,8 @@
 import type {
   RuntimeObservation,
   RuntimeTelemetryPort,
-} from '../ports/runtime/runtimeTelemetry.js';
-import type { EvolutionSignal, EvolutionSignalSourcePort } from '../ports/runtime/evolution.js';
+} from '../ports/runtime/runtimeTelemetry.ts';
+import type { EvolutionSignal, EvolutionSignalSourcePort } from '../ports/runtime/evolution.ts';
 
 /** 信号采集器选项。 */
 export interface EvolutionSignalCollectorOptions {

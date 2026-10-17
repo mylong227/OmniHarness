@@ -14,17 +14,17 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CapabilityCommand } from '../../src/cli/capabilityCommand.js';
-import { AssetPackCodec } from '../../src/asset/assetPackCodec.js';
-import { AssetPackInstaller } from '../../src/asset/assetPackInstaller.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import type { AssetPackManifest, PackAssetEntry } from '../../src/ports/asset.js';
-import type { CapabilityRegistryPort } from '../../src/ports/capability.js';
-import type { CapabilityStack } from '../../src/ports/config/capabilityStack.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { CapabilityCommand } from '../../src/cli/capabilityCommand.ts';
+import { AssetPackCodec } from '../../src/asset/assetPackCodec.ts';
+import { AssetPackInstaller } from '../../src/asset/assetPackInstaller.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import type { AssetPackManifest, PackAssetEntry } from '../../src/ports/asset.ts';
+import type { CapabilityRegistryPort } from '../../src/ports/capability.ts';
+import type { CapabilityStack } from '../../src/ports/config/capabilityStack.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 采集 stdout/stderr（命令协作者按 CLI 契约写这两条流）。

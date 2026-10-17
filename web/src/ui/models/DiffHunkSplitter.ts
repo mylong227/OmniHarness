@@ -1,7 +1,7 @@
 // diff 分块：把 patch 文本切成可供「块级 stage / 丢弃」的 hunk 片段。
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
 
-import { parseHunks } from '../textUtils.js';
+import { parseHunks } from '../textUtils.ts';
 
 /** 一个 hunk 片段（@@ 头 + 正文行）。 */
 export interface HunkPart {

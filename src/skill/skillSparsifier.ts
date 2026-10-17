@@ -11,7 +11,7 @@
  * @maturity L1 — 命中强度评分是显式规则（可逐项复算）；「噪声下降且强命中保留」由测试断言
  * @maturityEvidence tests/unit/skillSparsifier.test.ts
  */
-import type { Skill } from './skill.js';
+import type { Skill } from './skill.ts';
 
 /** 稀疏化选项。 */
 export interface SkillSparseOptions {

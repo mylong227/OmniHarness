@@ -1,4 +1,4 @@
-import type { ContextCategoryKey } from './contextCategoryKey.js';
+import type { ContextCategoryKey } from './contextCategoryKey.ts';
 
 /**
  * 一次模型请求的上下文占用快照（随 `model` 事件落日志，供 UI 容量面板读取**实测值**）。

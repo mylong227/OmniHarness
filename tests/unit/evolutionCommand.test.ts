@@ -14,10 +14,10 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { EvolutionCommand } from '../../src/cli/evolutionCommand.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { ConfigError } from '../../src/config/configError.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { EvolutionCommand } from '../../src/cli/evolutionCommand.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { ConfigError } from '../../src/config/configError.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 造技能。

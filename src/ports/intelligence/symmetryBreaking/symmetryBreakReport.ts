@@ -1,4 +1,4 @@
-import type { SymmetryState } from './symmetryState.js';
+import type { SymmetryState } from './symmetryState.ts';
 
 /** 对称破缺快照报告（能力相变可观测）。 */
 export interface SymmetryBreakReport {

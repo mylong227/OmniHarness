@@ -11,9 +11,9 @@
  * - `enforce`：命中即拒（fail-closed），错误文案带「策略拒绝」前缀便于上层辨识。
  */
 
-import type { ShellCommandPlan } from './shellCommandParser.js';
-import { ShellCommandParser } from './shellCommandParser.js';
-import { log } from '../../../util/logger.js';
+import type { ShellCommandPlan } from './shellCommandParser.ts';
+import { ShellCommandParser } from './shellCommandParser.ts';
+import { log } from '../../../util/logger.ts';
 
 /** 裁决模式。 */
 export type ShellPolicyMode = 'audit' | 'enforce';

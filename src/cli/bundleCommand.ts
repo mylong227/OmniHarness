@@ -11,19 +11,19 @@
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
-import { FeatureEntitlements } from '../license/featureEntitlements.js';
-import type { EntitlementPort } from '../ports/license/entitlement.js';
-import { PluginBundler } from '../plugin/pluginBundler.js';
-import { PrivateSkillSource } from '../plugin/privateSkillSource.js';
-import { BundleCodec } from '../plugin/bundleCodec.js';
-import { PackGrader } from '../plugin/packGrader.js';
-import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.js';
-import { ArgParser } from './argParser.js';
-import { CliArgReader } from './cliArgReader.js';
-import type { PackCapability } from '../plugin/packStaticScanner.js';
-import type { SandboxLegVerdict } from '../plugin/packGrader.js';
-import type { PluginRegistryFactory } from './pluginCommand.js';
+import { PluginProfileStore } from '../plugin/pluginProfileStore.ts';
+import { FeatureEntitlements } from '../license/featureEntitlements.ts';
+import type { EntitlementPort } from '../ports/license/entitlement.ts';
+import { PluginBundler } from '../plugin/pluginBundler.ts';
+import { PrivateSkillSource } from '../plugin/privateSkillSource.ts';
+import { BundleCodec } from '../plugin/bundleCodec.ts';
+import { PackGrader } from '../plugin/packGrader.ts';
+import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.ts';
+import { ArgParser } from './argParser.ts';
+import { CliArgReader } from './cliArgReader.ts';
+import type { PackCapability } from '../plugin/packStaticScanner.ts';
+import type { SandboxLegVerdict } from '../plugin/packGrader.ts';
+import type { PluginRegistryFactory } from './pluginCommand.ts';
 
 /** bundle 用法提示。 */
 const USAGE =

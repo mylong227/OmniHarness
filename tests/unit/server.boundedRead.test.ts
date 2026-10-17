@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SafeFs } from '../../src/server/services/safeFs.js';
-import { AuditSink } from '../../src/server/services/auditSink.js';
+import { SafeFs } from '../../src/server/services/safeFs.ts';
+import { AuditSink } from '../../src/server/services/auditSink.ts';
 
 test('SafeFs.safeReadFile 整文件读：返回完整内容与真实大小', () => {
   const dir = mkdtempSync(join(tmpdir(), 'safeFs-'));

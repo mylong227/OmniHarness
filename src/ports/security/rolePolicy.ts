@@ -14,7 +14,7 @@
  * - **拒必须带可读原因**：点名角色、工具、以及**缺什么**（沿 G5 判据风格：拒绝条件要能直接进 UI/日志归因）。
  */
 
-import type { ToolCall } from '../tool/tool.js';
+import type { ToolCall } from '../tool/tool.ts';
 
 /** 角色名（实现侧给默认表；字符串便于配置注入自定义角色）。 */
 export type RoleName = string;

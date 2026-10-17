@@ -1,19 +1,19 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { OutputDecoder } from '../../../util/outputDecoder.js';
-import { log } from '../../../util/logger.js';
-import { ShellCommandPolicy } from './shellCommandPolicy.js';
-import { ShellProcessRunner } from './shellProcessRunner.js';
-import type { ShellRunOutcome } from './shellProcessRunner.js';
-import type { BackgroundJobRegistry } from './backgroundJobRegistry.js';
-import { StackFrameParser } from '../verify/stackFrameParser.js';
-import type { FileContentLedger } from '../fs/fileContentLedger.js';
-import { SHELL_DEFAULT_MAX_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS } from './shellTimeouts.js';
+} from '../../../ports/tool/tool.ts';
+import { OutputDecoder } from '../../../util/outputDecoder.ts';
+import { log } from '../../../util/logger.ts';
+import { ShellCommandPolicy } from './shellCommandPolicy.ts';
+import { ShellProcessRunner } from './shellProcessRunner.ts';
+import type { ShellRunOutcome } from './shellProcessRunner.ts';
+import type { BackgroundJobRegistry } from './backgroundJobRegistry.ts';
+import { StackFrameParser } from '../verify/stackFrameParser.ts';
+import type { FileContentLedger } from '../fs/fileContentLedger.ts';
+import { SHELL_DEFAULT_MAX_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS } from './shellTimeouts.ts';
 
 /** shell 工具可选项。 */
 export interface ShellToolOptions {

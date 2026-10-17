@@ -1,4 +1,4 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -6,11 +6,11 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { FileContentLedger } from './fileContentLedger.js';
-import { FileLineWindow } from './fileLineWindow.js';
-import type { LineWindowResult } from './fileLineWindow.js';
+} from '../../../ports/tool/tool.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { FileContentLedger } from './fileContentLedger.ts';
+import { FileLineWindow } from './fileLineWindow.ts';
+import type { LineWindowResult } from './fileLineWindow.ts';
 
 /** 读入内存的字节硬上限（64 MiB；2026-10-03 修，审计 T1）：此前 readFile 无任何上界，
  *  模型对巨型日志/构建产物调 read_file 可能把数 GB 灌进内存（OOM）。与 grepTool 的

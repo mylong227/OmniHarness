@@ -14,7 +14,7 @@ import {
   timeAgo,
   truncate,
   argSummary,
-} from '../src/ui/textUtils.js';
+} from '../src/ui/textUtils.ts';
 
 test('describeToolCall 映射已知工具为人话动作', () => {
   assert.equal(describeToolCall('write_file', { path: 'examples/index.js' }), '写入 examples/index.js');

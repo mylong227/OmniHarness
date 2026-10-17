@@ -13,9 +13,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.js';
-import { Benchmark } from '../../src/evolution/benchmark.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
+import { Benchmark } from '../../src/evolution/benchmark.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 造一个最小合法技能。

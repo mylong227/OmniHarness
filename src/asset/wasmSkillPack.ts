@@ -19,13 +19,13 @@
  * @maturity L1 — 造包往返 / 冒烟载荷与资产体同源 / 缺入口不冒充 / 非 wasm 技能返回 undefined 判据钉死
  * @maturityEvidence tests/unit/wasmSkillPack.test.ts
  */
-import { AssetPackCodec } from './assetPackCodec.js';
-import type { PackSigningIdentity } from './assetPackCodec.js';
-import { WasmSkillSchema } from '../capability/schemas/wasmSkillSchema.js';
-import type { WasmSkillAsset } from '../capability/schemas/wasmSkillSchema.js';
-import type { AssetPackManifest, PackAssetEntry } from '../ports/asset/assetPack.js';
-import type { CapabilityRecord } from '../ports/capability.js';
-import type { IsolationPayload } from '../ports/runtime/isolation.js';
+import { AssetPackCodec } from './assetPackCodec.ts';
+import type { PackSigningIdentity } from './assetPackCodec.ts';
+import { WasmSkillSchema } from '../capability/schemas/wasmSkillSchema.ts';
+import type { WasmSkillAsset } from '../capability/schemas/wasmSkillSchema.ts';
+import type { AssetPackManifest, PackAssetEntry } from '../ports/asset/assetPack.ts';
+import type { CapabilityRecord } from '../ports/capability.ts';
+import type { IsolationPayload } from '../ports/runtime/isolation.ts';
 
 /** 冒烟/运行共用的默认入参（`ping` 是最小闭环：证明宿主写内存 → 调用 → 读回 → 释放可用）。 */
 const DEFAULT_INPUT = '{"jsonrpc":"2.0","id":1,"method":"ping"}';

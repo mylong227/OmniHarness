@@ -14,8 +14,8 @@
  */
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { ShellInvocation } from './shellInvocation.js';
-import { ProcessTreeKiller } from './processTreeKiller.js';
+import { ShellInvocation } from './shellInvocation.ts';
+import { ProcessTreeKiller } from './processTreeKiller.ts';
 
 /** 单次交互式执行参数。 */
 export interface InteractiveRunOptions {

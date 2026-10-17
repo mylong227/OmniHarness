@@ -15,9 +15,9 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ContextEngine } from '../../src/context/contextEngine.js';
-import { FileRerankIndex } from '../../src/context/fileRerankIndex.js';
-import { ContentStopWords } from '../../src/context/contentStopWords.js';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
+import { FileRerankIndex } from '../../src/context/fileRerankIndex.ts';
+import { ContentStopWords } from '../../src/context/contentStopWords.ts';
 
 /** 夹具：把「文件内容 → 临时语料」的搭建收口，避免各用例重复写盘逻辑。 */
 class Fixture {

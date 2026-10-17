@@ -26,7 +26,7 @@ import {
   ServePortConflict,
   type PortHolder,
   type ServePortConflictDeps,
-} from '../../src/cli/servePortConflict.js';
+} from '../../src/cli/servePortConflict.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();

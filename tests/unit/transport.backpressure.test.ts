@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Duplex } from 'node:stream';
 import type { ServerResponse } from 'node:http';
-import { WsConnection } from '../../src/server/transport/wsConnection.js';
-import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.js';
+import { WsConnection } from '../../src/server/transport/wsConnection.ts';
+import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.ts';
 
 /** 假 TCP socket：可控制 `write` 返回值以模拟背压，并暴露 drain 触发。 */
 class FakeSocket {

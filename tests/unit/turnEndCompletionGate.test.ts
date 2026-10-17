@@ -16,21 +16,21 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { TurnCompletionGateFactory } from '../../src/adapters/tool/verify/turnCompletionGateFactory.js';
-import { TurnEndCompletionGate } from '../../src/adapters/tool/verify/turnEndCompletionGate.js';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort } from '../../src/ports/model/model.js';
+import { TurnCompletionGateFactory } from '../../src/adapters/tool/verify/turnCompletionGateFactory.ts';
+import { TurnEndCompletionGate } from '../../src/adapters/tool/verify/turnEndCompletionGate.ts';
+import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { ModelPort } from '../../src/ports/model/model.ts';
 import type {
   TestCommandRunner,
   TestRunOutcome,
-} from '../../src/adapters/tool/verify/testCommandRunner.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
+} from '../../src/adapters/tool/verify/testCommandRunner.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
 
 /** 最小工具端口桩（不含 lastFailure ⇒ 走 turn-end 分支）。 */
 const plainTools: ToolPort = {

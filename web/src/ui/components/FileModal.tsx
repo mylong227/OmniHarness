@@ -2,8 +2,8 @@
 // 纯展示组件（函数组件范式）：关闭通过回调上抛，无内部状态、无副作用。
 
 import * as React from 'react';
-import type { FileView } from '../shared.js';
-import { t } from '../i18n/i18n.js';
+import type { FileView } from '../shared.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** FileModal 组件的入参。 */
 export interface FileModalProps {

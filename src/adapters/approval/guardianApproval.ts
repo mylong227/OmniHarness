@@ -2,9 +2,9 @@ import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../ports/runtime/approval.js';
-import type { ModelPort } from '../../ports/model/model.js';
-import { guardianPrompt } from './guardianPrompt.js';
+} from '../../ports/runtime/approval.ts';
+import type { ModelPort } from '../../ports/model/model.ts';
+import { guardianPrompt } from './guardianPrompt.ts';
 
 /** Guardian 审批选项。 */
 export interface GuardianApprovalOptions {

@@ -1,5 +1,5 @@
-import type { MemoryFact } from './memoryFact.js';
-import type { MemoryFactPatch } from './memoryFactPatch.js';
+import type { MemoryFact } from './memoryFact.ts';
+import type { MemoryFactPatch } from './memoryFactPatch.ts';
 
 /**
  * 长期记忆端口：跨会话持久化的「durable fact」存储与召回。

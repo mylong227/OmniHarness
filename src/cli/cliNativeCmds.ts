@@ -10,11 +10,11 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync } from 'node:fs';
-import { NativeKernel } from '../native/nativeKernel.js';
-import { RuleApproval } from '../adapters/approval/ruleApproval.js';
-import type { LspPort } from '../ports/tool/lsp.js';
-import { ArgParser, CliDefaults } from './argParser.js';
-import { CliCompareCmds } from './cliCompareCmds.js';
+import { NativeKernel } from '../native/nativeKernel.ts';
+import { RuleApproval } from '../adapters/approval/ruleApproval.ts';
+import type { LspPort } from '../ports/tool/lsp.ts';
+import { ArgParser, CliDefaults } from './argParser.ts';
+import { CliCompareCmds } from './cliCompareCmds.ts';
 
 /** 原生内核 / LSP 类子命令。 */
 export class CliNativeCmds extends CliCompareCmds {

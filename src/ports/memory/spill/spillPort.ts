@@ -1,4 +1,4 @@
-import type { SpillHandle } from './spillHandle.js';
+import type { SpillHandle } from './spillHandle.ts';
 
 /**
  * 外溢端口：把超大工具输出移出模型上下文，只留有界预览 + 定位符。

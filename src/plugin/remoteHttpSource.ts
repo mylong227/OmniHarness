@@ -1,9 +1,9 @@
-import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.js';
+import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.ts';
 import {
   RegistrySourcesShared,
   type RemoteFetcher,
   type RegistrySource,
-} from './registrySourcesShared.js';
+} from './registrySourcesShared.ts';
 
 /**
  * @beta

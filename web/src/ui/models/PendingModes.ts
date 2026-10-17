@@ -10,7 +10,7 @@
 // （见 SessionController.applyModes / flushPendingModes）。本文件只负责"补丁怎么合并、是否为空"，
 // 让那段时序逻辑无需碰 React 即可单测。
 
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /** 会话模式补丁（与 RPC `modes.set` 的字段一一对应）。 */
 export interface SessionModePatch {

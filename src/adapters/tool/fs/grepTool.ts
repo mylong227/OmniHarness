@@ -1,4 +1,4 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -6,10 +6,10 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { GlobMatcher } from '../../../util/globMatcher.js';
-import { WorkspaceFileWalker } from '../../../util/workspaceFileWalker.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
+} from '../../../ports/tool/tool.ts';
+import { GlobMatcher } from '../../../util/globMatcher.ts';
+import { WorkspaceFileWalker } from '../../../util/workspaceFileWalker.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
 
 /** 输出模式。 */
 type OutputMode = 'content' | 'files_with_matches' | 'count';

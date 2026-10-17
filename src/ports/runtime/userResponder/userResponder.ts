@@ -1,6 +1,6 @@
-import type { AskQuestion } from './askQuestion.js';
-import type { AskAnswer } from './askAnswer.js';
-import type { AskContext } from './askContext.js';
+import type { AskQuestion } from './askQuestion.ts';
+import type { AskAnswer } from './askAnswer.ts';
+import type { AskContext } from './askContext.ts';
 
 /**
  * @beta

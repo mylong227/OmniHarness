@@ -1,3 +1,3 @@
-export type { FrameExtractionRequest } from './frameExtractor/frameExtractionRequest.js';
-export type { FrameExtractionResult } from './frameExtractor/frameExtractionResult.js';
-export type { MediaFrameExtractor } from './frameExtractor/mediaFrameExtractor.js';
+export type { FrameExtractionRequest } from './frameExtractor/frameExtractionRequest.ts';
+export type { FrameExtractionResult } from './frameExtractor/frameExtractionResult.ts';
+export type { MediaFrameExtractor } from './frameExtractor/mediaFrameExtractor.ts';

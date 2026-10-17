@@ -33,7 +33,7 @@
  * 相关度判据是**词法启发式**（英文按词边界、中文按子串），是**粗略代理**而非语义理解；
  * 其价值由 `evals/tool-exposure-ab.mjs` 的 token 对照数字度量，**不宣称能力提升**。
  */
-import { TOOL_NAMES } from '../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 
 /** 工具类别：一组语义相近的工具 + 触发它的中英文关键词。 */
 export interface ToolCategory {

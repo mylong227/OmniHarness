@@ -16,8 +16,8 @@
  * 事件（`Page.loadEventFired` 等）走 {@link CdpClient.on}，与请求共用同一条连接。
  */
 
-import { endpointDefaults } from '../../util/endpointDefaults.js';
-import { PendingRequests } from '../../util/concurrency/pendingRequests.js';
+import { endpointDefaults } from '../../util/endpointDefaults.ts';
+import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
 
 /** 事件监听器。 */
 type EventListener = (params: unknown) => void;

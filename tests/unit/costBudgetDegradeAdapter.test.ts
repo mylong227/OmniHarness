@@ -9,8 +9,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CostBudget } from '../../src/adapters/model/costBudget.js';
-import { CostBudgetDegradeAdapter } from '../../src/adapters/model/costBudgetDegradeAdapter.js';
+import { CostBudget } from '../../src/adapters/model/costBudget.ts';
+import { CostBudgetDegradeAdapter } from '../../src/adapters/model/costBudgetDegradeAdapter.ts';
 
 /** 构造一个可驱动软/硬阈值的预算实例（pricing 1 美元/token，便于精确触发）。 */
 const makeBudget = (): CostBudget =>

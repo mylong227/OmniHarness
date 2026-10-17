@@ -5,17 +5,17 @@
 // SSE 路由、主题 / 面板 / 抽屉 / 布局 / 审批、context value 与命令集。
 // 行为与旧版 useAppController 内联实现逐字节等价。
 
-import { ApiClient } from '../../core/ApiClient.js';
-import type { AppRoute } from '../../core/Router.js';
-import { EventStream } from '../../core/EventStream.js';
-import { RouteBinding } from './RouteBinding.js';
-import { LayoutController } from './LayoutController.js';
-import { MethodBinder } from './methodBinder.js';
-import { ToastService } from '../../core/ToastService.js';
-import type { ToastKind } from '../../core/ToastService.js';
-import { DialogService } from '../../core/DialogService.js';
-import type { DialogState } from '../../core/DialogService.js';
-import type { AppContextValue } from '../context.js';
+import { ApiClient } from '../../core/ApiClient.ts';
+import type { AppRoute } from '../../core/Router.ts';
+import { EventStream } from '../../core/EventStream.ts';
+import { RouteBinding } from './RouteBinding.ts';
+import { LayoutController } from './LayoutController.ts';
+import { MethodBinder } from './methodBinder.ts';
+import { ToastService } from '../../core/ToastService.ts';
+import type { ToastKind } from '../../core/ToastService.ts';
+import { DialogService } from '../../core/DialogService.ts';
+import type { DialogState } from '../../core/DialogService.ts';
+import type { AppContextValue } from '../context.ts';
 import type {
   ApprovalRequest,
   GraphDone,
@@ -25,22 +25,22 @@ import type {
   QuestionRequest,
   SseEnvelope,
   ThreadEvent,
-} from '../../types/models.js';
-import type { CommandItem } from '../components/CommandPalette.js';
-import type { SettingsTabKey } from '../models/SettingsModel.js';
-import type { Locale } from '../i18n/i18n.js';
-import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
-import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.js';
-import type { ComposerSeed } from '../shared.js';
-import { AppReducers } from './AppReducers.js';
-import { formatProfilePluginToast } from '../notify.js';
-import { SessionController } from './SessionController.js';
-import { ComposerController } from './ComposerController.js';
-import { GraphController } from './GraphController.js';
-import { FileController } from './FileController.js';
-import { SettingsController } from './SettingsController.js';
-import { ShortcutActions } from './ShortcutActions.js';
-import { t } from '../i18n/i18n.js';
+} from '../../types/models.ts';
+import type { CommandItem } from '../components/CommandPalette.tsx';
+import type { SettingsTabKey } from '../models/SettingsModel.ts';
+import type { Locale } from '../i18n/i18n.ts';
+import { KeyboardShortcuts } from '../models/KeyboardShortcuts.ts';
+import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.ts';
+import type { ComposerSeed } from '../shared.ts';
+import { AppReducers } from './AppReducers.ts';
+import { formatProfilePluginToast } from '../notify.ts';
+import { SessionController } from './SessionController.ts';
+import { ComposerController } from './ComposerController.ts';
+import { GraphController } from './GraphController.ts';
+import { FileController } from './FileController.ts';
+import { SettingsController } from './SettingsController.ts';
+import { ShortcutActions } from './ShortcutActions.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 应用根组件的全部 UI 状态（原 useAppController 的各 useState 合集）。 */
 export interface AppState {

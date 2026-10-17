@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GlobMatcher } from '../../src/util/globMatcher.js';
+import { GlobMatcher } from '../../src/util/globMatcher.ts';
 
 test('GlobMatcher：不含 / 的模式按基名匹配（任意深度）', () => {
   const matcher = new GlobMatcher('*.ts');

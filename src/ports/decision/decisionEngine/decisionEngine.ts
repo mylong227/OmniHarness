@@ -1,5 +1,5 @@
-import type { DecisionRequest } from './decisionRequest.js';
-import type { DecisionResponse } from './decisionResponse.js';
+import type { DecisionRequest } from './decisionRequest.ts';
+import type { DecisionResponse } from './decisionResponse.ts';
 
 /**
  * 决策引擎端口：System-1 类型化判断（替代 LLM 长推理做高频结构化决策）。

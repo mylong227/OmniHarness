@@ -9,8 +9,8 @@
  * 有界等待一旦 unref，一旦「除该计时器外无其他句柄」事件循环就提前排空，到点也不触发 ⇒
  * 守卫在被需要的那一刻静默失效。这里靠 `clear()` / 超时路径显式清理，不靠 unref。
  */
-import type { LspDiagnostic, LspDiagnosticSeverity } from '../../ports/tool/lsp.js';
-import { LspUri } from './lspUri.js';
+import type { LspDiagnostic, LspDiagnosticSeverity } from '../../ports/tool/lsp.ts';
+import { LspUri } from './lspUri.ts';
 
 /** 定时器句柄（不透明；缺省实现即 Node `setTimeout` 的返回值）。 */
 export type DiagnosticsTimerHandle = ReturnType<typeof setTimeout>;

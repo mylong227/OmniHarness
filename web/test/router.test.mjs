@@ -6,8 +6,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { parseHash, toHash, navigate, isValidPane } = await import('../src/core/Router.js');
-const { RouteBinding } = await import('../src/ui/controllers/RouteBinding.js');
+const { parseHash, toHash, navigate, isValidPane } = await import('../src/core/Router.ts');
+const { RouteBinding } = await import('../src/ui/controllers/RouteBinding.ts');
 
 /** 设置全局 location（node 默认无 location）。 */
 function withHash(hash) {

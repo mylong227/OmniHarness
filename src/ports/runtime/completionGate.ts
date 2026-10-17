@@ -20,8 +20,8 @@
  * 本文件已退化为桶：4 个接口各自独立成文件于 `./completionGate/`，调用点零改动。
  */
 
-export type { CompletionGate } from './completionGate/completionGate.js';
-export type { CompletionGateContext } from './completionGate/completionGateContext.js';
-export type { CompletionGateSelfVerifyConfig } from './completionGate/completionGateSelfVerifyConfig.js';
-export type { CompletionGateFactory } from './completionGate/completionGateFactory.js';
-export type { VerificationState } from './completionGate/verificationState.js';
+export type { CompletionGate } from './completionGate/completionGate.ts';
+export type { CompletionGateContext } from './completionGate/completionGateContext.ts';
+export type { CompletionGateSelfVerifyConfig } from './completionGate/completionGateSelfVerifyConfig.ts';
+export type { CompletionGateFactory } from './completionGate/completionGateFactory.ts';
+export type { VerificationState } from './completionGate/verificationState.ts';

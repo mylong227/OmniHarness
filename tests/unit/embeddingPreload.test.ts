@@ -16,11 +16,11 @@ import {
   TransformersEmbeddingAdapter,
   type TransformersModuleLoader,
   type TransformersModuleLike,
-} from '../../src/adapters/embedding/transformersEmbeddingAdapter.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+} from '../../src/adapters/embedding/transformersEmbeddingAdapter.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 
 /** 假 loader 的观测状态。 */
 interface LoaderState {

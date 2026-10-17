@@ -2,8 +2,8 @@ import type {
   FrameExtractionRequest,
   FrameExtractionResult,
   MediaFrameExtractor,
-} from '../../ports/media/frameExtractor.js';
-import type { MediaKind } from '../../ports/media/mediaTypes.js';
+} from '../../ports/media/frameExtractor.ts';
+import type { MediaKind } from '../../ports/media/mediaTypes.ts';
 
 /**
  * 帧提取路由：按媒体大类把请求分发给具备对应能力的实现。

@@ -21,9 +21,9 @@
 import type {
   CompletionGate,
   CompletionGateContext,
-} from '../../../ports/runtime/completionGate.js';
-import { SelfVerifyPolicy } from './selfVerifyPolicy.js';
-import { TurnEndCompletionGate } from './turnEndCompletionGate.js';
+} from '../../../ports/runtime/completionGate.ts';
+import { SelfVerifyPolicy } from './selfVerifyPolicy.ts';
+import { TurnEndCompletionGate } from './turnEndCompletionGate.ts';
 
 /**
  * 完成闸门装配工厂（无状态），实现端口 {@link CompletionGateFactory}。

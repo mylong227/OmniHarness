@@ -1,4 +1,4 @@
-import type { ModelAdapterId } from '../model/modelAdapterId.js';
+import type { ModelAdapterId } from '../model/modelAdapterId.ts';
 
 /**
  * @beta

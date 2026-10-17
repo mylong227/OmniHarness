@@ -10,7 +10,7 @@
  * 本文件已退化为桶：4 个接口各自独立成文件于 `./symmetryBreaking/`，调用点零改动。
  */
 
-export type { SymmetryState } from './symmetryBreaking/symmetryState.js';
-export type { UsageSample } from './symmetryBreaking/usageSample.js';
-export type { SymmetryBreakReport } from './symmetryBreaking/symmetryBreakReport.js';
-export type { SymmetryBreakingPort } from './symmetryBreaking/symmetryBreakingPort.js';
+export type { SymmetryState } from './symmetryBreaking/symmetryState.ts';
+export type { UsageSample } from './symmetryBreaking/usageSample.ts';
+export type { SymmetryBreakReport } from './symmetryBreaking/symmetryBreakReport.ts';
+export type { SymmetryBreakingPort } from './symmetryBreaking/symmetryBreakingPort.ts';

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { EventPersister } from '../../src/core/loop/eventPersister.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { StoragePort } from '../../src/ports/memory/storage.js';
+import { EventPersister } from '../../src/core/loop/eventPersister.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { StoragePort } from '../../src/ports/memory/storage.ts';
 
 /** 造一条最小合法会话事件。 */
 function evt(id: string): SessionEvent {

@@ -1,4 +1,4 @@
-﻿import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+﻿import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // Agent loop 审计回归测试（2026-09-08）。
 //
 // 背景：连续多轮「模型 400 / 无结果 / 疑似死循环」的表象修复后，对主循环做一次
@@ -13,24 +13,24 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Agent } from '../../src/core/agent.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { TurnRunner } from '../../src/core/turnRunner.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
-import type { ToolCall, ToolPort } from '../../src/ports/tool/tool.js';
-import type { StoragePort } from '../../src/ports/memory/storage.js';
+import { Agent } from '../../src/core/agent.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { TurnRunner } from '../../src/core/turnRunner.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
+import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
+import type { ToolCall, ToolPort } from '../../src/ports/tool/tool.ts';
+import type { StoragePort } from '../../src/ports/memory/storage.ts';
 
 // 关掉 repo-map 注入：本文件只审计主循环控制流，不希望索引整个仓库（慢且与断言无关）。
 // node:test 每个测试文件独立进程，此处设置不会污染其它套件。

@@ -2,7 +2,7 @@
 // 函数组件范式：计时起点用 useRef，周期刷新用 useState + 空依赖 effect（清理函数对称清掉 interval）。
 
 import * as React from 'react';
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /** WorkIndicator 组件的入参。 */
 export interface WorkIndicatorProps {

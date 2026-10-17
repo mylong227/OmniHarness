@@ -1,4 +1,4 @@
-import type { TodoStatus } from './todoStatus.js';
+import type { TodoStatus } from './todoStatus.ts';
 
 /**
  * @beta

@@ -1,5 +1,5 @@
-import type { BeliefSnapshot } from './beliefSnapshot.js';
-import type { BeliefKlComponent } from './beliefKlComponent.js';
+import type { BeliefSnapshot } from './beliefSnapshot.ts';
+import type { BeliefKlComponent } from './beliefKlComponent.ts';
 
 /** 一次信念更新的可审计报告。 */
 export interface BeliefUpdateReport {

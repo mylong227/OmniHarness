@@ -16,9 +16,9 @@
  *  - dispose() 停止定时器（回合结束时调用，防止定时器泄漏）。
  */
 
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { StoragePort } from '../../ports/memory/storage.js';
-import { log } from '../../util/logger.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { StoragePort } from '../../ports/memory/storage.ts';
+import { log } from '../../util/logger.ts';
 
 export interface EventPersisterOptions {
   /** write-behind 批量延迟（ms），默认 200。0 = 禁用定时器（仅显式 flush）。 */

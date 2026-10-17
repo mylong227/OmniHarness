@@ -15,9 +15,9 @@
  * 让关联符号的分值沿边传播，再按文件聚合重排。
  */
 
-import { Bm25Index } from '../search/bm25Index.js';
-import type { SymbolNode } from './repoMap/repoMap.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import type { SymbolNode } from './repoMap/repoMap.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * CodeGraphIndex 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

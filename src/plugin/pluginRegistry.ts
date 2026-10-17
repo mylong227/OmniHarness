@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.js';
-import { BUNDLED_PLUGINS, type BundledPlugin } from './bundledRegistry.js';
+import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.ts';
+import { BUNDLED_PLUGINS, type BundledPlugin } from './bundledRegistry.ts';
 import {
   DEFAULT_REGISTRY_URL,
   RegistrySourcesShared,
@@ -11,9 +11,9 @@ import {
   BundledSource,
   FileRegistrySource,
   RemoteHttpSource,
-} from './registrySources.js';
+} from './registrySources.ts';
 
-export * from './registrySources.js';
+export * from './registrySources.ts';
 
 /**
  * @beta

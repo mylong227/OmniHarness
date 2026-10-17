@@ -1,7 +1,7 @@
-import type { ToolDefinition } from './toolDefinition.js';
-import type { ToolCall } from './toolCall.js';
-import type { ToolContext } from './toolContext.js';
-import type { ToolResult } from './toolResult.js';
+import type { ToolDefinition } from './toolDefinition.ts';
+import type { ToolCall } from './toolCall.ts';
+import type { ToolContext } from './toolContext.ts';
+import type { ToolResult } from './toolResult.ts';
 
 /** 工具端口：一切工具能力（内置/外部服务/自定义）的统一插口。 */
 export interface ToolPort {

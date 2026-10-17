@@ -2,7 +2,7 @@
 // 「打开文件」的标签集合合并（同路径去重 + 后开刷新内容 + 上限淘汰最旧）与关闭后的激活回落。
 // SessionController 只做状态搬运，判定规则全部收在这里——规则一旦要改（比如上限数），只动这一处。
 
-import type { FileView } from '../shared.js';
+import type { FileView } from '../shared.ts';
 
 /** 同屏保留的文件标签上限：超过即淘汰最旧的未激活标签（防长会话把标签条挤爆）。 */
 const MAX_OPEN_FILES = 8;

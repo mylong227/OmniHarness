@@ -10,7 +10,7 @@
  * 并证明：经 buildStablePrompt 规范化后，同一逻辑状态的所有抖变体 reuse ≡ 1。
  */
 
-import { Canonical } from './canonical.js';
+import { Canonical } from './canonical.ts';
 
 /**
  * 前缀稳定性度量器。

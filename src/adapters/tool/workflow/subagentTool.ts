@@ -1,12 +1,12 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { SubagentOrchestrator } from '../../../subagent/subagentOrchestrator.js';
-import type { SubagentResult } from '../../../subagent/subagentTypes.js';
+} from '../../../ports/tool/tool.ts';
+import type { SubagentOrchestrator } from '../../../subagent/subagentOrchestrator.ts';
+import type { SubagentResult } from '../../../subagent/subagentTypes.ts';
 
 /** 主会话派生子智能体时所在的深度（第一层子智能体为 1）。 */
 const ROOT_DEPTH = 1;

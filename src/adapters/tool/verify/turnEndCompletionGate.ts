@@ -18,12 +18,12 @@
  * 「验证通过」。现由 {@link TestCountParser} 识别**显式零测试证据**并拦截（详见 `unverifiedOf`）。
  */
 
-import { SelfVerifyPolicy } from './selfVerifyPolicy.js';
-import { TestCountParser } from './testCountParser.js';
-import { TestFailureDigest } from './testFailureDigest.js';
-import { StackFrameParser } from './stackFrameParser.js';
-import { ShellTestCommandRunner } from './shellTestCommandRunner.js';
-import type { TestCommandRunner } from './testCommandRunner.js';
+import { SelfVerifyPolicy } from './selfVerifyPolicy.ts';
+import { TestCountParser } from './testCountParser.ts';
+import { TestFailureDigest } from './testFailureDigest.ts';
+import { StackFrameParser } from './stackFrameParser.ts';
+import { ShellTestCommandRunner } from './shellTestCommandRunner.ts';
+import type { TestCommandRunner } from './testCommandRunner.ts';
 
 /** 构造依赖。 */
 export interface TurnEndCompletionGateDeps {

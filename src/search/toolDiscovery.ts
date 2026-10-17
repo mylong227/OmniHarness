@@ -1,5 +1,5 @@
-import type { ToolDefinition } from '../ports/tool/tool.js';
-import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.js';
+import type { ToolDefinition } from '../ports/tool/tool.ts';
+import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.ts';
 
 /**
  * @beta

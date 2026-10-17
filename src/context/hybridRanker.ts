@@ -15,11 +15,11 @@
  *  - 图信号异常一律 fail-closed 跳过第四路，绝不崩主流程。
  */
 
-import type { IndexedCorpus } from './contextEngine.js';
-import type { SymbolNode } from './repoMap/repoMap.js';
-import { SemanticIndex, type RecallHit } from './semanticIndex.js';
-import { CodeReferenceGraph } from './codeReferenceGraph.js';
-import type { RecallKnobs } from './recallKnobs.js';
+import type { IndexedCorpus } from './contextEngine.ts';
+import type { SymbolNode } from './repoMap/repoMap.ts';
+import { SemanticIndex, type RecallHit } from './semanticIndex.ts';
+import { CodeReferenceGraph } from './codeReferenceGraph.ts';
+import type { RecallKnobs } from './recallKnobs.ts';
 
 /** 融合排序结果：入选文件（rel 路径，按融合分降序）与符号（已截断到预算）。 */
 export interface RankedRepoMap {

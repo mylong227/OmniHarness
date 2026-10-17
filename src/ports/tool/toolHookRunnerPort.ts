@@ -1,5 +1,5 @@
-import type { ToolResult } from './tool.js';
-import type { ToolHookContext, ToolHooks } from './toolHook.js';
+import type { ToolResult } from './tool.ts';
+import type { ToolHookContext, ToolHooks } from './toolHook.ts';
 
 /**
  * @beta

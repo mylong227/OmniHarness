@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.js';
+import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
 
 /** 造一个临时仓库目录（含给定 package.json 内容；null 表示不写文件）。 */
 const makeRepo = (pkg: string | null): string => {

@@ -1,4 +1,4 @@
-import type { TodoItem } from './todoItem.js';
+import type { TodoItem } from './todoItem.ts';
 
 /**
  * @beta

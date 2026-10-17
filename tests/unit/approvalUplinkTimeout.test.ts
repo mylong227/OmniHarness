@@ -16,13 +16,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import type { ServerResponse } from 'node:http';
-import { ServerEventBridge } from '../../src/server/core/serverEventBridge.js';
-import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.js';
-import { LineTransport } from '../../src/server/transport/lineTransport.js';
-import type { Transport } from '../../src/server/transport/lineTransport.js';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { ApprovalRequest } from '../../src/ports/runtime/approval.js';
-import type { WsConnection } from '../../src/server/transport/wsConnection.js';
+import { ServerEventBridge } from '../../src/server/core/serverEventBridge.ts';
+import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.ts';
+import { LineTransport } from '../../src/server/transport/lineTransport.ts';
+import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { ApprovalRequest } from '../../src/ports/runtime/approval.ts';
+import type { WsConnection } from '../../src/server/transport/wsConnection.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 

@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../omniError.js';
+import { OmniError, ErrorCode } from '../omniError.ts';
 
 /**
  * 成本预算耗尽错误（#S29）：硬预算熔断时抛出，fail-closed 阻止后续模型调用。

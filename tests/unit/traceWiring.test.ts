@@ -13,20 +13,20 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionEventReader } from '../../src/adapters/telemetry/sessionEventReader.js';
-import { SessionTraceService } from '../../src/server/services/session/sessionTraceService.js';
-import type { TraceReadResult } from '../../src/ports/intelligence/traceIntrospection.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { Transport } from '../../src/server/transport/lineTransport.js';
-import { AppServer } from '../../src/server/core/appServer.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { SessionEventReader } from '../../src/adapters/telemetry/sessionEventReader.ts';
+import { SessionTraceService } from '../../src/server/services/session/sessionTraceService.ts';
+import type { TraceReadResult } from '../../src/ports/intelligence/traceIntrospection.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 造一条会话事件（只填本测试关心的字段）。 */
 const ev = (

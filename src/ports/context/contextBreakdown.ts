@@ -1,4 +1,4 @@
-import type { ContextBreakdownRow } from './contextBreakdownRow.js';
+import type { ContextBreakdownRow } from './contextBreakdownRow.ts';
 
 /** 估算结果。 */
 export interface ContextBreakdown {

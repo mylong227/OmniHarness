@@ -1,26 +1,26 @@
-import type { McpServerConfig } from '../mcp/mcpGateway.js';
-import type { SkillEntry } from '../skill/skill.js';
+import type { McpServerConfig } from '../mcp/mcpGateway.ts';
+import type { SkillEntry } from '../skill/skill.ts';
 import type {
   FileConfig,
   ModelRouterConfig,
   PermissionRuleConfig,
   PermissionRuleDecision,
   SsrfPolicyConfig,
-} from '../config/configFile.js';
-import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.js';
-import { SessionStorageLocation } from '../util/sessionStorageLocation.js';
-import { ArrayAt } from '../util/arrayAt.js';
-import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.js';
-import type { ModelAdapterId } from '../ports/model/modelAdapterId.js';
-import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.js';
-import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
-import type { RbacConfig } from '../ports/config/rbacConfig.js';
-import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
-import { cliHelp } from './cliHelp.js';
-import { FlagSuggestion } from './flagSuggestion.js';
+} from '../config/configFile.ts';
+import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from './cliFlagTable.ts';
+import { SessionStorageLocation } from '../util/sessionStorageLocation.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
+import { providerPresets, type ProviderPreset } from '../server/services/providerPresets.ts';
+import type { ModelAdapterId } from '../ports/model/modelAdapterId.ts';
+import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.ts';
+import type { CapabilityConfig } from '../ports/config/capabilityConfig.ts';
+import type { RbacConfig } from '../ports/config/rbacConfig.ts';
+import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.ts';
+import { cliHelp } from './cliHelp.ts';
+import { FlagSuggestion } from './flagSuggestion.ts';
 
-export * from './cliEnums.js';
-export { CliFlagTable } from './cliFlagTable.js';
+export * from './cliEnums.ts';
+export { CliFlagTable } from './cliFlagTable.ts';
 
 /** CLI 参数（DTO：先组装后消费）。 */
 export interface CliArgs {

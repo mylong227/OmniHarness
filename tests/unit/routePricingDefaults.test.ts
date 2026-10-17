@@ -27,14 +27,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { CostBudget } from '../../src/adapters/model/costBudget.js';
-import { BudgetStatusTool } from '../../src/adapters/tool/meta/budgetStatusTool.js';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { CostBudget } from '../../src/adapters/model/costBudget.ts';
+import { BudgetStatusTool } from '../../src/adapters/tool/meta/budgetStatusTool.ts';
 import {
   DEFAULT_FALLBACK_PRICE,
   RoutePricing,
   UNPRICED_DEFAULT_FAMILIES,
-} from '../../src/adapters/model/routePricing.js';
+} from '../../src/adapters/model/routePricing.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

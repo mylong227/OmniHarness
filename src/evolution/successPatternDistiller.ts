@@ -26,11 +26,11 @@
  * @maturity L1 — 双源对称（掐断任一半边 ⇒ 对应候选恒 0）/ production 门禁 / 不蒸馏工具输出 / 有界 判据钉死
  * @maturityEvidence tests/unit/successPatternDistiller.test.ts
  */
-import type { EvolutionSignal } from '../ports/runtime/evolution.js';
+import type { EvolutionSignal } from '../ports/runtime/evolution.ts';
 import type {
   WorkflowStep,
   WorkflowTemplate,
-} from '../capability/schemas/workflowTemplateSchema.js';
+} from '../capability/schemas/workflowTemplateSchema.ts';
 
 /** 蒸馏出的工作流模板候选（进 L1 注册表前的形状）。 */
 export interface WorkflowTemplateCandidate {

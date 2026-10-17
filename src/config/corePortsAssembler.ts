@@ -1,25 +1,25 @@
-import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
-import { TraceExporterAssembly } from '../observability/traceExporterAssembly.js';
-import { PolicySandbox } from '../adapters/sandbox/policySandbox.js';
-import { DenyEscalation } from '../adapters/escalation/denyEscalation.js';
-import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
-import { MemoryTodo } from '../adapters/todo/memoryTodo.js';
-import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
-import { ToolResultSpiller } from '../context/toolResultSpiller.js';
-import { TurnDiffTracker } from '../core/turnDiffTracker.js';
-import { ToolDiscovery } from '../search/toolDiscovery.js';
+import { ConsoleEventPort } from '../adapters/event/consoleEventPort.ts';
+import { TraceExporterAssembly } from '../observability/traceExporterAssembly.ts';
+import { PolicySandbox } from '../adapters/sandbox/policySandbox.ts';
+import { DenyEscalation } from '../adapters/escalation/denyEscalation.ts';
+import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.ts';
+import { MemoryTodo } from '../adapters/todo/memoryTodo.ts';
+import { MemoryPlan } from '../adapters/plan/memoryPlan.ts';
+import { ToolResultSpiller } from '../context/toolResultSpiller.ts';
+import { TurnDiffTracker } from '../core/turnDiffTracker.ts';
+import { ToolDiscovery } from '../search/toolDiscovery.ts';
 import {
   VortexRingPacket,
   VortexRingSpillAdapter,
   DEFAULT_SPILL_MAX_RINGS,
-} from '../adapters/spill/vortexRingSpillAdapter.js';
+} from '../adapters/spill/vortexRingSpillAdapter.ts';
 
-import { ConfigBuilder } from './configBuilder.js';
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
-import type { CorePorts } from '../ports/config/corePorts.js';
+import { ConfigBuilder } from './configBuilder.ts';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
+import type { CorePorts } from '../ports/config/corePorts.ts';
 
 /** 原 `CorePorts` 声明已搬入 `ports/config/corePorts.ts`（G25 收尾，契约归 ports）；此处桶再导出保持公共 API 面不变。 */
-export type { CorePorts } from '../ports/config/corePorts.js';
+export type { CorePorts } from '../ports/config/corePorts.ts';
 
 /**
  * CorePortsAssembler —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

@@ -1,17 +1,17 @@
-import type { ResonantMemoryPort } from '../memory/resonantMemory/resonantMemoryPort.js';
-import type { MemoryAnnealer } from '../memory/memoryAnnealing/memoryAnnealer.js';
-import type { CosmicWebPort } from '../memory/cosmicWeb/cosmicWebPort.js';
-import type { ImmuneMonitorPort } from '../intelligence/immune/immuneMonitorPort.js';
-import type { MetacognitionPort } from '../intelligence/metacognition/metacognitionPort.js';
-import type { QECEncoderPort } from '../intelligence/qec/qecEncoderPort.js';
-import type { CRISPRSkillEditorPort } from '../runtime/skillEdit/crisprSkillEditorPort.js';
-import type { CapabilityCrystallizerPort } from '../intelligence/capability/capabilityCrystallizerPort.js';
-import type { InsightEtchingPort } from '../memory/insightEtching/insightEtchingPort.js';
-import type { ElementComposerPort } from '../intelligence/elementComposer/elementComposerPort.js';
-import type { SymmetryBreakingPort } from '../intelligence/symmetryBreaking/symmetryBreakingPort.js';
-import type { ConfinementPort } from '../runtime/confinement/confinementPort.js';
-import type { CapabilityCharge } from '../runtime/confinement/capabilityCharge.js';
-import type { VortexRingSpillAdapterPort } from '../memory/spill/vortexRingSpillAdapterPort.js';
+import type { ResonantMemoryPort } from '../memory/resonantMemory/resonantMemoryPort.ts';
+import type { MemoryAnnealer } from '../memory/memoryAnnealing/memoryAnnealer.ts';
+import type { CosmicWebPort } from '../memory/cosmicWeb/cosmicWebPort.ts';
+import type { ImmuneMonitorPort } from '../intelligence/immune/immuneMonitorPort.ts';
+import type { MetacognitionPort } from '../intelligence/metacognition/metacognitionPort.ts';
+import type { QECEncoderPort } from '../intelligence/qec/qecEncoderPort.ts';
+import type { CRISPRSkillEditorPort } from '../runtime/skillEdit/crisprSkillEditorPort.ts';
+import type { CapabilityCrystallizerPort } from '../intelligence/capability/capabilityCrystallizerPort.ts';
+import type { InsightEtchingPort } from '../memory/insightEtching/insightEtchingPort.ts';
+import type { ElementComposerPort } from '../intelligence/elementComposer/elementComposerPort.ts';
+import type { SymmetryBreakingPort } from '../intelligence/symmetryBreaking/symmetryBreakingPort.ts';
+import type { ConfinementPort } from '../runtime/confinement/confinementPort.ts';
+import type { CapabilityCharge } from '../runtime/confinement/capabilityCharge.ts';
+import type { VortexRingSpillAdapterPort } from '../memory/spill/vortexRingSpillAdapterPort.ts';
 
 /**
  * @beta

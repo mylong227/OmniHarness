@@ -1,4 +1,4 @@
-import type { RetrievalDoc } from './retrievalDoc.js';
+import type { RetrievalDoc } from './retrievalDoc.ts';
 
 /**
  * @beta

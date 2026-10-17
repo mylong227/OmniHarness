@@ -13,8 +13,8 @@
  * 2. 任一资产过不了其类型的 `validate` ⇒ **整包拒**（不留部分安装）；
  * 3. 无台账 ⇒ **拒装**（无账不生效，与 Wave A/B 同一条纪律）。
  */
-import type { IsolationLevel } from '../capability/isolationLevel.js';
-import type { TrustTier } from '../capability/trustTier.js';
+import type { IsolationLevel } from '../capability/isolationLevel.ts';
+import type { TrustTier } from '../capability/trustTier.ts';
 
 /** 资产包内的一条资产（本体 + 可选治理请求）。 */
 export interface PackAssetEntry {

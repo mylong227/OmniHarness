@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.js';
+import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
 
 const req = (toolName: string) => ({
   sessionId: 's1',

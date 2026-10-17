@@ -31,18 +31,18 @@ import type {
   PromotionLedgerPort,
   PromotionVerdict,
   SkillRestorePlan,
-} from '../ports/runtime/evolution.js';
-import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.js';
-import type { Skill } from '../skill/skill.js';
-import { SignalIngestor } from './signalIngestor.js';
-import { SuccessPatternDistiller } from './successPatternDistiller.js';
-import type { SignalRouteOutcome } from './signalIngestor.js';
-import { ArchiveCurator } from './archiveCurator.js';
-import type { ArchiveUpdateOutcome } from './archiveCurator.js';
-import type { DormantExecutorActivation } from './dormantExecutorActivation.js';
-import type { ExecutorActivationReport } from './dormantExecutorActivation.js';
-import type { EliteReentryDiscovery } from './eliteReentryDiscovery.js';
-import { log } from '../util/logger.js';
+} from '../ports/runtime/evolution.ts';
+import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.ts';
+import type { Skill } from '../skill/skill.ts';
+import { SignalIngestor } from './signalIngestor.ts';
+import { SuccessPatternDistiller } from './successPatternDistiller.ts';
+import type { SignalRouteOutcome } from './signalIngestor.ts';
+import { ArchiveCurator } from './archiveCurator.ts';
+import type { ArchiveUpdateOutcome } from './archiveCurator.ts';
+import type { DormantExecutorActivation } from './dormantExecutorActivation.ts';
+import type { ExecutorActivationReport } from './dormantExecutorActivation.ts';
+import type { EliteReentryDiscovery } from './eliteReentryDiscovery.ts';
+import { log } from '../util/logger.ts';
 
 /** 一轮 Kernel 体检报告（ring ⑦ 观测面）。 */
 export interface EvolutionKernelReport {

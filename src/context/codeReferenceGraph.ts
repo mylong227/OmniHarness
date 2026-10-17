@@ -28,11 +28,11 @@
  *   方向写反且已被实测证伪（谱隙 0.31、稳态远非均匀）；真机理是查询不敏感型常量偏置
  * @maturityEvidence tests/unit/codeReferenceGraph.test.ts
  */
-import { CodeGraphIndex } from './codeGraphIndex.js';
-import type { CodeGraph } from './codeGraphIndex.js';
-import { Bm25Index } from '../search/bm25Index.js';
-import type { IndexedCorpus } from './contextEngine.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import { CodeGraphIndex } from './codeGraphIndex.ts';
+import type { CodeGraph } from './codeGraphIndex.ts';
+import { Bm25Index } from '../search/bm25Index.ts';
+import type { IndexedCorpus } from './contextEngine.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * CodeReferenceGraph — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

@@ -10,8 +10,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { BlockHeightIndex } = await import('../src/ui/models/BlockHeightIndex.js');
-const { StreamWindow, DEFAULT_ITEM_HEIGHT } = await import('../src/ui/models/StreamWindow.js');
+const { BlockHeightIndex } = await import('../src/ui/models/BlockHeightIndex.ts');
+const { StreamWindow, DEFAULT_ITEM_HEIGHT } = await import('../src/ui/models/StreamWindow.ts');
 
 /** 默认口径（与 StreamWindow 缺省值一致，测试里显式复述以便口径变化时立刻暴露）。 */
 const ITEM_HEIGHT = DEFAULT_ITEM_HEIGHT;

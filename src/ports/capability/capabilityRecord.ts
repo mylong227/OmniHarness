@@ -10,8 +10,8 @@
  * - `governance`：信任档 / 隔离档 / 状态 / 最近一次状态变化的台账序号——**任何变更必须留台账**
  *   （波次的「无台账不生效」纪律）。
  */
-import type { IsolationLevel } from './isolationLevel.js';
-import type { TrustTier } from './trustTier.js';
+import type { IsolationLevel } from './isolationLevel.ts';
+import type { TrustTier } from './trustTier.ts';
 
 /** 溯源（资产从哪来）。 */
 export interface CapabilityLineage {

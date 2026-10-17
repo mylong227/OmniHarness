@@ -4,8 +4,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CodeReferenceGraph, MAX_CACHED_ROOTS } from '../../src/context/codeReferenceGraph.js';
-import type { IndexedCorpus } from '../../src/context/contextEngine.js';
+import { CodeReferenceGraph, MAX_CACHED_ROOTS } from '../../src/context/codeReferenceGraph.ts';
+import type { IndexedCorpus } from '../../src/context/contextEngine.ts';
 
 // 最小合成语料：3 文件、3 符号，其中 registerTool / execPolicy 互为罕见共享引用，
 // config 属噪声名（不参与罕见互引）不应连边。

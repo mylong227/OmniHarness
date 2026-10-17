@@ -4,11 +4,11 @@
 // 「挂载装载 + reloadKey 变化重载」合为一个依赖 reloadKey 的 effect；行渲染下沉为模块级函数。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { emptyState } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { Profile, ActivePlugins } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { useApp } from '../../context.ts';
+import { emptyState } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { Profile, ActivePlugins } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** ProfilesTab 组件的入参。 */
 export interface ProfilesTabProps {

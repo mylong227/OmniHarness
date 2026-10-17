@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Id } from '../../util/id.js';
-import type { RepoPathGuard } from './repoPathGuard.js';
+import { Id } from '../../util/id.ts';
+import type { RepoPathGuard } from './repoPathGuard.ts';
 
 /** diff 行内评论记录（锚定 文件 + 行号 + 侧别），持久化在工作区 .omni/diff-comments.json。 */
 export interface DiffCommentRecord {

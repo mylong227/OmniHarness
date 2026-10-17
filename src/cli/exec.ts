@@ -17,8 +17,8 @@
 
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { API_VERSION } from '../version.js';
-import { ArgParser } from './argParser.js';
+import { API_VERSION } from '../version.ts';
+import { ArgParser } from './argParser.ts';
 
 /**
  * Exec 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -58,9 +58,9 @@ export class Exec {
     // 为什么必须兜全局：`void promise` 在本仓很常见（后台任务、事件桥、插件注册），
     // 漏掉 `.catch` 的第 N 个照样能把进程带走；逐点补 catch 治标不治本。
     const [{ CrashGuard }, { log }, { ExecLocal }] = await Promise.all([
-      import('./crashGuard.js'),
-      import('../util/logger.js'),
-      import('./execLocal.js'),
+      import('./crashGuard.ts'),
+      import('../util/logger.ts'),
+      import('./execLocal.ts'),
     ]);
     CrashGuard.install({
       proc: process,
@@ -86,7 +86,7 @@ export class Exec {
       process.exitCode = localCode;
       return;
     }
-    const { ExecCli } = await import('./execCli.js');
+    const { ExecCli } = await import('./execCli.ts');
     process.exitCode = await new ExecCli().run(argv);
   }
 }

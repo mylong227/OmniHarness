@@ -15,24 +15,24 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { RlvrController, RlvrEvolutionController } from '../../src/evolution/rlvrController.js';
-import { PromotionAdmission } from '../../src/evolution/promotionAdmission.js';
-import { DiversityGuard } from '../../src/evolution/diversityGuard.js';
-import { RewardCoverageMeter } from '../../src/evolution/rewardCoverageMeter.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { RlvrController, RlvrEvolutionController } from '../../src/evolution/rlvrController.ts';
+import { PromotionAdmission } from '../../src/evolution/promotionAdmission.ts';
+import { DiversityGuard } from '../../src/evolution/diversityGuard.ts';
+import { RewardCoverageMeter } from '../../src/evolution/rewardCoverageMeter.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 import type {
   Candidate,
   EvolutionController,
   PromotionVerdict,
-} from '../../src/ports/runtime/evolution.js';
-import type { Skill } from '../../src/skill/skill.js';
+} from '../../src/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /** 恒绿的可验证命令（用跑本测试的 node 本体，免 PATH 依赖；无 %CODE_FILE% ⇒ 只看退出码）。 */
 const GREEN_COMMAND = `"${process.execPath}" --version`;

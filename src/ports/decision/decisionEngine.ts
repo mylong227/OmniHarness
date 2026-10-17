@@ -12,9 +12,9 @@
  * 本文件已退化为桶：6 个接口各自独立成文件于 `./decisionEngine/`，调用点零改动。
  */
 
-export type { DecisionKind } from './decisionEngine/decisionKind.js';
-export type { DecisionQuestion } from './decisionEngine/decisionQuestion.js';
-export type { DecisionAnswer } from './decisionEngine/decisionAnswer.js';
-export type { DecisionRequest } from './decisionEngine/decisionRequest.js';
-export type { DecisionResponse } from './decisionEngine/decisionResponse.js';
-export type { DecisionEngine } from './decisionEngine/decisionEngine.js';
+export type { DecisionKind } from './decisionEngine/decisionKind.ts';
+export type { DecisionQuestion } from './decisionEngine/decisionQuestion.ts';
+export type { DecisionAnswer } from './decisionEngine/decisionAnswer.ts';
+export type { DecisionRequest } from './decisionEngine/decisionRequest.ts';
+export type { DecisionResponse } from './decisionEngine/decisionResponse.ts';
+export type { DecisionEngine } from './decisionEngine/decisionEngine.ts';

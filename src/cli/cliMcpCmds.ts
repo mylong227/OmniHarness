@@ -5,8 +5,8 @@
  * 继承自 CliServerCmds，可调用全部上游共享接线与配置装配助手。
  */
 
-import { ArgParser } from './argParser.js';
-import { CliServerCmds } from './cliServerCmds.js';
+import { ArgParser } from './argParser.ts';
+import { CliServerCmds } from './cliServerCmds.ts';
 
 /** MCP 网关子命令。 */
 export class CliMcpCmds extends CliServerCmds {
@@ -55,7 +55,7 @@ export class CliMcpCmds extends CliServerCmds {
     const config = await this.buildConfig(cliArgs);
     const sessionId = 'mcp';
     const context = { sessionId, workspaceRoot: cliArgs.workspace };
-    const { ToolGate } = await import('../core/toolGate.js');
+    const { ToolGate } = await import('../core/toolGate.ts');
     const gate = new ToolGate(
       config.approvals,
       config.sandbox,
@@ -65,7 +65,7 @@ export class CliMcpCmds extends CliServerCmds {
       config.elevatedSandbox,
     );
     // 模式选择经 stderr 如实上报（stdout 是 MCP 协议通道，不得混入提示）。
-    const { McpServeRunner } = await import('../adapters/mcp/mcpServeRunner.js');
+    const { McpServeRunner } = await import('../adapters/mcp/mcpServeRunner.ts');
     return new McpServeRunner().run(
       {
         tools: config.tools,
@@ -95,8 +95,8 @@ export class CliMcpCmds extends CliServerCmds {
     }
     // 客户端方向走官方 SDK 优先（协议协商 + 远端 url 支持）；失败回落手写并打到 stderr。
     const [{ SdkPreferredMcpConnector }, { McpServerCommand }] = await Promise.all([
-      import('../adapters/mcp/sdkPreferredMcpConnector.js'),
-      import('../mcp/mcpServerCommand.js'),
+      import('../adapters/mcp/sdkPreferredMcpConnector.ts'),
+      import('../mcp/mcpServerCommand.ts'),
     ]);
     const connection = await new SdkPreferredMcpConnector().connect(
       McpServerCommand.parseMcpServerSpec(spec),
@@ -131,8 +131,8 @@ export class CliMcpCmds extends CliServerCmds {
       return 2;
     }
     const [{ SdkPreferredMcpConnector }, { McpServerCommand }] = await Promise.all([
-      import('../adapters/mcp/sdkPreferredMcpConnector.js'),
-      import('../mcp/mcpServerCommand.js'),
+      import('../adapters/mcp/sdkPreferredMcpConnector.ts'),
+      import('../mcp/mcpServerCommand.ts'),
     ]);
     const connection = await new SdkPreferredMcpConnector().connect(
       McpServerCommand.parseMcpServerSpec(spec),

@@ -1,5 +1,5 @@
-import type { EscalationRequest } from './escalationRequest.js';
-import type { EscalationDecision } from './escalationDecision.js';
+import type { EscalationRequest } from './escalationRequest.ts';
+import type { EscalationDecision } from './escalationDecision.ts';
 
 /** 升级审批端口：沙箱危险动作被拒时，裁决是否提权重试（fail-closed 由调用方保证）。 */
 export interface EscalationPort {

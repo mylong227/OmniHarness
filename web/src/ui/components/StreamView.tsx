@@ -18,40 +18,40 @@
 // 可断言信号：根节点 data-virtual / data-rendered-count / data-total-count / data-event-count。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.js';
-import { ChatHeader } from './ChatHeader.js';
-import type { ChatViewKind } from './ChatHeader.js';
-import { TraceView } from './TraceView.js';
+import { icon } from '../models/Icon.ts';
+import { ChatHeader } from './ChatHeader.tsx';
+import type { ChatViewKind } from './ChatHeader.tsx';
+import { TraceView } from './TraceView.tsx';
 import {
   badge,
   jsonView,
   todoView,
   esc,
   questionView,
-} from '../format.js';
-import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.js';
-import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.js';
-import { StarterTasks } from '../models/StarterTasks.js';
-import { ContextUsageView } from '../models/ContextUsageView.js';
-import { BlockHeightIndex } from '../models/BlockHeightIndex.js';
-import { StreamModelCache } from '../models/StreamModelCache.js';
-import { Composer } from './Composer.js';
-import { GraphResumeChip } from './GraphResumeChip.js';
-import { QuestionCard } from './QuestionCard.js';
-import { ToolCallCard } from './stream/ToolCallCard.js';
-import { ReasoningBlock } from './stream/ReasoningBlock.js';
-import { ProcessCluster } from './stream/ProcessCluster.js';
-import { AssistantCard } from './stream/AssistantCard.js';
-import { UserCard } from './stream/UserCard.js';
-import { StreamingAssistantCard } from './stream/StreamingAssistantCard.js';
-import { TurnDiffCard } from './stream/TurnDiffCard.js';
-import { CompactionNote } from '../models/CompactionNote.js';
-import { NumberFormatter } from '../models/NumberFormatter.js';
-import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.js';
-import type { ComposerSeed, LiveInput } from '../shared.js';
-import type { ApiClient } from '../../core/ApiClient.js';
-import type { ToolResultView } from '../shared.js';
-import { t } from '../i18n/i18n.js';
+} from '../format.ts';
+import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.ts';
+import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.ts';
+import { StarterTasks } from '../models/StarterTasks.ts';
+import { ContextUsageView } from '../models/ContextUsageView.ts';
+import { BlockHeightIndex } from '../models/BlockHeightIndex.ts';
+import { StreamModelCache } from '../models/StreamModelCache.ts';
+import { Composer } from './Composer.tsx';
+import { GraphResumeChip } from './GraphResumeChip.tsx';
+import { QuestionCard } from './QuestionCard.tsx';
+import { ToolCallCard } from './stream/ToolCallCard.tsx';
+import { ReasoningBlock } from './stream/ReasoningBlock.tsx';
+import { ProcessCluster } from './stream/ProcessCluster.tsx';
+import { AssistantCard } from './stream/AssistantCard.tsx';
+import { UserCard } from './stream/UserCard.tsx';
+import { StreamingAssistantCard } from './stream/StreamingAssistantCard.tsx';
+import { TurnDiffCard } from './stream/TurnDiffCard.tsx';
+import { CompactionNote } from '../models/CompactionNote.ts';
+import { NumberFormatter } from '../models/NumberFormatter.ts';
+import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.ts';
+import type { ComposerSeed, LiveInput } from '../shared.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import type { ToolResultView } from '../shared.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 兼容旧引用路径：本类型已下沉到 shared，此处保留再导出。 */
 export type { ToolResultView };

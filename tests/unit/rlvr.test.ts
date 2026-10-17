@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Candidate } from '../../src/ports/runtime/evolution.js';
-import type { Skill } from '../../src/skill/skill.js';
-import { VerifiableReward } from '../../src/evolution/verifiableReward.js';
+import type { Candidate } from '../../src/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/skill/skill.ts';
+import { VerifiableReward } from '../../src/evolution/verifiableReward.ts';
 import {
   RlvrLoop,
   InMemoryReplayBuffer,
   type CodeCandidate,
   type RlvrSampler,
-} from '../../src/evolution/rlvrLoop.js';
+} from '../../src/evolution/rlvrLoop.ts';
 
 function stubCandidate(source: string, meta: Record<string, unknown> = {}): Candidate {
   const skill = { name: `s-${source}`, description: 'stub' } as unknown as Skill;

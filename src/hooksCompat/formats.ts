@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
 
 /**
  * 外部 hooks 事件信封（codex-claude / claude-code 通用最小字段）。

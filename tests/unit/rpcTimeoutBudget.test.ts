@@ -22,8 +22,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.js';
-import type { RpcMessage, RpcRequest } from '../../src/server/core/jsonRpc.js';
+import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.ts';
+import type { RpcMessage, RpcRequest } from '../../src/server/core/jsonRpc.ts';
 
 test('① 预算映射：长任务方法走长预算，普通方法仍 60s，未知方法按普通处理', () => {
   assert.strictEqual(

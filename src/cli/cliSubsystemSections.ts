@@ -20,8 +20,8 @@
  * 存在但为空的配置对象，进而以为「用户配了这个子系统」）。
  */
 
-import type { CliArgs } from './argParser.js';
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import type { CliArgs } from './argParser.ts';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
 
 /** 可选子系统段映射器（无状态，纯函数式）。 */
 export class CliSubsystemSections {

@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../omniError.js';
+import { OmniError, ErrorCode } from '../omniError.ts';
 
 /**
  * 下游故障熔断开路错误（F3）：某条依赖连续失败达阈值后进入开路冷却期，

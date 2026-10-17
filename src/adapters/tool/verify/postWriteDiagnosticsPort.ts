@@ -22,11 +22,11 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LspDiagnosticReport } from '../../../ports/tool/lsp.js';
-import { LspDiagnosticsRenderer } from '../lsp/lspDiagnosticsRenderer.js';
-import { MutationTargets } from './mutationTargets.js';
-import { SelfVerifyPolicy } from './selfVerifyPolicy.js';
+} from '../../../ports/tool/tool.ts';
+import type { LspDiagnosticReport } from '../../../ports/tool/lsp.ts';
+import { LspDiagnosticsRenderer } from '../lsp/lspDiagnosticsRenderer.ts';
+import { MutationTargets } from './mutationTargets.ts';
+import { SelfVerifyPolicy } from './selfVerifyPolicy.ts';
 
 /** 单次最多检查的目标文件数。 */
 const MAX_CHECKED_FILES = 3;

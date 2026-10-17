@@ -1,5 +1,5 @@
-import type { ModelUsage, RoutePrice } from './model.js';
-import type { BudgetSnapshot } from './budgetSnapshot.js';
+import type { ModelUsage, RoutePrice } from './model.ts';
+import type { BudgetSnapshot } from './budgetSnapshot.ts';
 
 /**
  * @beta

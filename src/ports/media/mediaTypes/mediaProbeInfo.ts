@@ -1,4 +1,4 @@
-import type { MediaKind } from './mediaKind.js';
+import type { MediaKind } from './mediaKind.ts';
 
 /** 媒体元数据（`probe` 的产物）。 */
 export interface MediaProbeInfo {

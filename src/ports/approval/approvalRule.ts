@@ -1,4 +1,4 @@
-import type { ApprovalRuleDecision } from './approvalRuleDecision.js';
+import type { ApprovalRuleDecision } from './approvalRuleDecision.ts';
 
 /** 审批规则：工具级 + 命令约束（前缀或 glob）。 */
 export interface ApprovalRule {

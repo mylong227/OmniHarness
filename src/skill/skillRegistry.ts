@@ -1,8 +1,8 @@
-import type { SkillPort, MoireOptions } from '../ports/runtime/skill.js';
-import type { MoireMeta } from './skill.js';
-import type { Skill } from './skill.js';
-import { MoireComposer } from './moireComposer.js';
-import { SkillRetriever, type SkillRetrieveHit } from './skillRetriever.js';
+import type { SkillPort, MoireOptions } from '../ports/runtime/skill.ts';
+import type { MoireMeta } from './skill.ts';
+import type { Skill } from './skill.ts';
+import { MoireComposer } from './moireComposer.ts';
+import { SkillRetriever, type SkillRetrieveHit } from './skillRetriever.ts';
 
 /** 相关性选择的预算与阈值（默认值即出厂口径，构造可覆盖）。 */
 export interface SkillSelectOptions {

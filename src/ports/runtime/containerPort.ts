@@ -1,4 +1,4 @@
-import type { ServiceKeyLike } from './serviceKeyLike.js';
+import type { ServiceKeyLike } from './serviceKeyLike.ts';
 
 /**
  * @beta

@@ -1,4 +1,4 @@
-import type { AskOption } from './askOption.js';
+import type { AskOption } from './askOption.ts';
 
 /**
  * @beta

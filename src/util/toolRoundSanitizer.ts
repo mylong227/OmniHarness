@@ -1,5 +1,5 @@
-import type { ModelMessage } from '../ports/model/model.js';
-import { ArrayAt } from './arrayAt.js';
+import type { ModelMessage } from '../ports/model/model.ts';
+import { ArrayAt } from './arrayAt.ts';
 
 /**
  * ToolRoundSanitizer —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

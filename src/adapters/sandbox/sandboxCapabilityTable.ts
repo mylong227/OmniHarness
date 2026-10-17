@@ -17,12 +17,12 @@
  */
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { LinuxLandlockSandbox } from './linuxLandlockSandbox.js';
-import type { LandlockProbeReport } from './linuxLandlockSandbox.js';
-import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.js';
-import type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.js';
+import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
+import type { LandlockProbeReport } from './linuxLandlockSandbox.ts';
+import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
+import type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.ts';
 
-export type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.js';
+export type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.ts';
 
 /** 能力表输入（全部可注入，便于跨平台确定性单测）。 */
 export interface SandboxCapabilityInput {

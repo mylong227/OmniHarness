@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { KeyboardShortcuts } from '../src/ui/models/KeyboardShortcuts.js';
+import { KeyboardShortcuts } from '../src/ui/models/KeyboardShortcuts.ts';
 
 const ks = new KeyboardShortcuts();
 

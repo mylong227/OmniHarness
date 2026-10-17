@@ -1,8 +1,8 @@
 import { isIP } from 'node:net';
 import { lookup } from 'node:dns/promises';
-import { IpAddress } from '../util/ipAddress.js';
-import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from './ssrfPolicy.js';
-import type { SsrfOptions } from '../ports/security/ssrfOptions.js';
+import { IpAddress } from '../util/ipAddress.ts';
+import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from './ssrfPolicy.ts';
+import type { SsrfOptions } from '../ports/security/ssrfOptions.ts';
 
 /**
  * SSRF 防护：拦截私有/保留网段与云元数据端点的访问。
@@ -20,7 +20,7 @@ import type { SsrfOptions } from '../ports/security/ssrfOptions.js';
  * providerProbe.ts、tests/unit/ssrfGuard.test.ts）无需改动。
  */
 
-export type { SsrfOptions } from '../ports/security/ssrfOptions.js';
+export type { SsrfOptions } from '../ports/security/ssrfOptions.ts';
 
 /** SSRF 拦截原因。 */
 export type SsrfVerdict =

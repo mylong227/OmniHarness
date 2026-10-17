@@ -10,15 +10,15 @@
  * 使"架构适应力强"成为运行时真实行为（见 sparkBridge.ts）。
  */
 
-import { type Cost, emptyCost, Algebra } from './algebra.js';
-import { type Regime } from './regimeCost.js';
-import { type ModalityKind } from './modalityPort.js';
-import type { AnnealStepReport } from '../ports/memory/memoryAnnealing.js';
-import type { BeliefUpdateReport } from '../ports/intelligence/metacognition.js';
-import type { EtchConduction } from '../ports/memory/insightEtching.js';
-import type { ConfinementVerdict } from '../ports/runtime/confinement.js';
-import type { RegimeSignals } from '../ports/genesis/regimeSignals.js';
-import type { SparkEngines } from '../ports/genesis/sparkEngines.js';
+import { type Cost, emptyCost, Algebra } from './algebra.ts';
+import { type Regime } from './regimeCost.ts';
+import { type ModalityKind } from './modalityPort.ts';
+import type { AnnealStepReport } from '../ports/memory/memoryAnnealing.ts';
+import type { BeliefUpdateReport } from '../ports/intelligence/metacognition.ts';
+import type { EtchConduction } from '../ports/memory/insightEtching.ts';
+import type { ConfinementVerdict } from '../ports/runtime/confinement.ts';
+import type { RegimeSignals } from '../ports/genesis/regimeSignals.ts';
+import type { SparkEngines } from '../ports/genesis/sparkEngines.ts';
 
 /**
  * Operators 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
@@ -119,11 +119,11 @@ export interface HarnessState {
   readonly successRate: number;
 }
 
-export type { RegimeSignals } from '../ports/genesis/regimeSignals.js';
+export type { RegimeSignals } from '../ports/genesis/regimeSignals.ts';
 
 // `SparkEngines` 契约已外迁至 `ports/genesis/sparkEngines.ts`（字段统一为 ports 层引擎端口，
 // 不再引用 `adapters/*` 具体实现）；此处仅再导出以维持公共 API 面零改动。
-export type { SparkEngines } from '../ports/genesis/sparkEngines.js';
+export type { SparkEngines } from '../ports/genesis/sparkEngines.ts';
 
 /** 算子执行结果（统一代数形态）。 */
 export interface HarnessOperatorResult {

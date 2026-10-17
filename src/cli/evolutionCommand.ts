@@ -22,16 +22,16 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
-import { PromotionHistoryService } from '../governance/promotionHistoryService.js';
-import { ProvenanceIssuer } from '../governance/provenanceIssuer.js';
+import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.ts';
+import { PromotionHistoryService } from '../governance/promotionHistoryService.ts';
+import { ProvenanceIssuer } from '../governance/provenanceIssuer.ts';
 import type {
   ProvenanceCertificate,
   ProvenanceIssuerIdentity,
-} from '../governance/provenanceIssuer.js';
-import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.js';
-import type { PromotionLedgerEntry, SkillRestorePlan } from '../ports/runtime/evolution.js';
-import { CliArgReader } from './cliArgReader.js';
+} from '../governance/provenanceIssuer.ts';
+import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.ts';
+import type { PromotionLedgerEntry, SkillRestorePlan } from '../ports/runtime/evolution.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 默认台账目录（与组合根同一口径：`<workspace>/.omniharness/evolution`）。 */
 const DEFAULT_LEDGER_DIR = join('.omniharness', 'evolution');

@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Agent } from '../../src/core/agent.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+import { Agent } from '../../src/core/agent.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 
 /** 构造 Agent（内存存储）。 */
 function buildAgent(storage: MemoryStorage | JsonlStorage): Agent {

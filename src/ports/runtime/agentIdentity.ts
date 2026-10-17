@@ -9,6 +9,6 @@
  * 无第三方依赖：仅用 Node 内置 `node:crypto`（Ed25519 原生支持），不引入任何运行时包。
  */
 
-export type { AgentIdentityClaims } from './agentIdentity/agentIdentityClaims.js';
-export type { AgentIdentityConfig } from './agentIdentity/agentIdentityConfig.js';
-export type { AgentIdentityPort } from './agentIdentity/agentIdentityPort.js';
+export type { AgentIdentityClaims } from './agentIdentity/agentIdentityClaims.ts';
+export type { AgentIdentityConfig } from './agentIdentity/agentIdentityConfig.ts';
+export type { AgentIdentityPort } from './agentIdentity/agentIdentityPort.ts';

@@ -45,10 +45,10 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { Embedding, EmbeddingPort } from '../../ports/model/embedding.js';
-import type { EmbedOptions } from '../../ports/model/embedding/embedOptions.js';
-import type { EmbeddingPreloadOutcome } from '../../ports/model/embedding/embeddingPreloadOutcome.js';
-import { log } from '../../util/logger.js';
+import type { Embedding, EmbeddingPort } from '../../ports/model/embedding.ts';
+import type { EmbedOptions } from '../../ports/model/embedding/embedOptions.ts';
+import type { EmbeddingPreloadOutcome } from '../../ports/model/embedding/embeddingPreloadOutcome.ts';
+import { log } from '../../util/logger.ts';
 
 /** 构造选项。 */
 export interface DiskCachedEmbeddingOptions {

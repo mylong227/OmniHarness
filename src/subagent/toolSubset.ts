@@ -4,7 +4,7 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../ports/tool/tool.js';
+} from '../ports/tool/tool.ts';
 
 /**
  * @beta

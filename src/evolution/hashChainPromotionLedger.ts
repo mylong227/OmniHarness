@@ -24,16 +24,16 @@
  */
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { HashChain } from '../util/hashChain.js';
-import { log } from '../util/logger.js';
-import type { Skill } from '../skill/skill.js';
+import { HashChain } from '../util/hashChain.ts';
+import { log } from '../util/logger.ts';
+import type { Skill } from '../skill/skill.ts';
 import type {
   PromotionLedgerEntry,
   PromotionLedgerPort,
   PromotionLedgerVerifyReport,
   PromotionRecord,
   SkillRestorePlan,
-} from '../ports/runtime/evolution.js';
+} from '../ports/runtime/evolution.ts';
 
 /** 链分隔符（见模块注释：与审计 NUL / 遥测空格刻意区分）。 */
 const SEP = '|';

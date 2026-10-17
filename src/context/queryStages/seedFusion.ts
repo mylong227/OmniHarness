@@ -4,8 +4,8 @@
  * 从 `ContextEngine.query` 原样迁出（逻辑逐字等价，仅结构化入参/出参）。
  * 两路信号各自归一化加权：BM25 0.6 / 共振 0.4（同符号取 max）。
  */
-import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../../util/eigenspectrum.js';
-import type { ScoredId } from './candidateSearch.js';
+import { EigenSpectrum, RESONANCE_BINS, type Spectrum } from '../../util/eigenspectrum.ts';
+import type { ScoredId } from './candidateSearch.ts';
 
 /** 种子阶段所需的语料切片（结构化子集）。 */
 export interface SeedCorpusView {

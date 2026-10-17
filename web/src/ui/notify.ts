@@ -4,8 +4,8 @@
 // plugin.loadError）或只触发静默刷新（profile.applied），用户无从得知成败。
 // 抽出为纯函数，便于在 AppController 路由时调用，也便于单元测试（无副作用、无外部依赖）。
 
-import type { ToastKind } from '../core/ToastService.js';
-import { t } from './i18n/i18n.js';
+import type { ToastKind } from '../core/ToastService.ts';
+import { t } from './i18n/i18n.ts';
 
 /** 一条通知的呈现形态：文案 + 级别。 */
 export interface ProfilePluginToast {

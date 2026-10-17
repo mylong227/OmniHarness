@@ -1,4 +1,4 @@
-import type { ContainerPort } from '../runtime/containerPort.js';
+import type { ContainerPort } from '../runtime/containerPort.ts';
 
 /**
  * @beta

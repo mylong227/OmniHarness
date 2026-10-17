@@ -5,7 +5,7 @@
 // 同一个查询在不同时刻可能给出不同顺序（目录项顺序、并发写入都会影响），
 // 而 UI 列表顺序抖动会让「↑↓ 选中 + Enter 打开」变成一场赌博——同输入必须恒同序。
 
-import type { SearchHit } from '../../types/models.js';
+import type { SearchHit } from '../../types/models.ts';
 
 /** 一组搜索结果。 */
 export interface SearchGroup {

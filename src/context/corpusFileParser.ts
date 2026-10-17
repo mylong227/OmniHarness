@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { Bm25Index } from '../search/bm25Index.js';
-import { RepoMap, type SymbolNode } from './repoMap/repoMap.js';
-import type { CorpusFileArtifact } from './corpusFileArtifact.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import { RepoMap, type SymbolNode } from './repoMap/repoMap.ts';
+import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
 
 /** 一次文件解析的产出（词项与符号；不含路径无关的装配信息）。 */
 export interface ParsedCorpusFile {

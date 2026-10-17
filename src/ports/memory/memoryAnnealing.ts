@@ -7,5 +7,5 @@
  * 低温时冻结，即"退火"。几何/向量范式在代数上不支持此算子（市面唯一）。
  */
 
-export type { AnnealStepReport } from './memoryAnnealing/annealStepReport.js';
-export type { MemoryAnnealer } from './memoryAnnealing/memoryAnnealer.js';
+export type { AnnealStepReport } from './memoryAnnealing/annealStepReport.ts';
+export type { MemoryAnnealer } from './memoryAnnealing/memoryAnnealer.ts';

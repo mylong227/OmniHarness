@@ -1,4 +1,4 @@
-import type { ToolParametersSchema } from './toolParametersSchema.js';
+import type { ToolParametersSchema } from './toolParametersSchema.ts';
 
 /** 工具定义：名称 + 描述 + 参数约束。 */
 export interface ToolDefinition {

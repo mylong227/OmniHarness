@@ -10,12 +10,12 @@
  *   - regime：自适应元控制器（按工况重配置管线的压缩映射，可证收敛）
  */
 
-export * from './algebra.js';
-export * from './mathutil.js';
-export * from './modalityPort.js';
-export * from './operator.js';
-export * from './ledger.js';
-export * from './regimeCost.js';
-export * from './operators.js';
-export * from './genesisSparkBridge.js';
-export * from './multimodalBridge.js';
+export * from './algebra.ts';
+export * from './mathutil.ts';
+export * from './modalityPort.ts';
+export * from './operator.ts';
+export * from './ledger.ts';
+export * from './regimeCost.ts';
+export * from './operators.ts';
+export * from './genesisSparkBridge.ts';
+export * from './multimodalBridge.ts';

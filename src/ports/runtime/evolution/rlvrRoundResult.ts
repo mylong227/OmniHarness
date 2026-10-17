@@ -1,4 +1,4 @@
-import type { CodeCandidate } from './codeCandidate.js';
+import type { CodeCandidate } from './codeCandidate.ts';
 
 /**
  * @beta

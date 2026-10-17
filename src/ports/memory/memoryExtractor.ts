@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../runtime/event.js';
+import type { SessionEvent } from '../runtime/event.ts';
 
 /**
  * @beta

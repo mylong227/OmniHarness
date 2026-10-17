@@ -2,19 +2,19 @@
 // 流式重试 fail-fast + 熔断不把取消计为故障 + SSE CRLF 分帧 + 退避可取消。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModelHttpErrors } from '../../src/adapters/model/modelHttpErrors.js';
-import { SseParser } from '../../src/adapters/model/sseParser.js';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
-import { RetryingModel, DEFAULT_RETRY_POLICY } from '../../src/adapters/model/retryingModel.js';
-import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.js';
-import { ModelCallError } from '../../src/ports/model/model.js';
+import { ModelHttpErrors } from '../../src/adapters/model/modelHttpErrors.ts';
+import { SseParser } from '../../src/adapters/model/sseParser.ts';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import { RetryingModel, DEFAULT_RETRY_POLICY } from '../../src/adapters/model/retryingModel.ts';
+import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.ts';
+import { ModelCallError } from '../../src/ports/model/model.ts';
 import type {
   ModelPort,
   ModelRequest,
   ModelOutput,
   StreamCallbacks,
-} from '../../src/ports/model/model.js';
+} from '../../src/ports/model/model.ts';
 
 /**
  * 临时替换全局 fetch。

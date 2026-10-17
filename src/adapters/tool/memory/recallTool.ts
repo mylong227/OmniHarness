@@ -1,11 +1,11 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LongTermMemoryPort } from '../../../ports/memory/longTermMemory.js';
+} from '../../../ports/tool/tool.ts';
+import type { LongTermMemoryPort } from '../../../ports/memory/longTermMemory.ts';
 
 /** 默认召回条数。 */
 const DEFAULT_RECALL_LIMIT = 5;

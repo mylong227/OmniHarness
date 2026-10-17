@@ -21,13 +21,13 @@
  * @see ./rankVetoEvaluator.ts
  */
 
-export { RankVetoOverlap } from './rankVetoOverlap.js';
-export { RankVetoSpectrum } from './rankVetoSpectrum.js';
-export type { StructuralDiagnostics, VetoGraph } from './rankVetoSpectrum.js';
-export { DEFAULT_VETO_THRESHOLDS, RankVetoEvaluator } from './rankVetoEvaluator.js';
+export { RankVetoOverlap } from './rankVetoOverlap.ts';
+export { RankVetoSpectrum } from './rankVetoSpectrum.ts';
+export type { StructuralDiagnostics, VetoGraph } from './rankVetoSpectrum.ts';
+export { DEFAULT_VETO_THRESHOLDS, RankVetoEvaluator } from './rankVetoEvaluator.ts';
 export type {
   RankVetoInput,
   RankVetoReport,
   VetoMetrics,
   VetoThresholds,
-} from './rankVetoEvaluator.js';
+} from './rankVetoEvaluator.ts';

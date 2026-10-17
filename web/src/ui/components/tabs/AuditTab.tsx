@@ -17,11 +17,11 @@
  */
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 解析裸标识符）。
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { timeOf } from '../../format.js';
+import { useApp } from '../../context.ts';
+import { timeOf } from '../../format.ts';
 import type { ReactElement } from 'react';
-import type { AuditQueryResult } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import type { AuditQueryResult } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** 审计面板：过滤 + 列表。 */
 export function AuditTab(): ReactElement {

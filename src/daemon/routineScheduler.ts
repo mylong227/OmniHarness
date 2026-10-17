@@ -20,10 +20,10 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
-import type { Routine } from '../ports/daemon/routine.js';
-import type { RoutineModelAdapter } from '../ports/daemon/routineModelAdapter.js';
-import type { RoutineSchedule } from '../ports/daemon/routineSchedule.js';
-import type { CronSchedulePort } from '../ports/daemon/cronSchedule.js';
+import type { Routine } from '../ports/daemon/routine.ts';
+import type { RoutineModelAdapter } from '../ports/daemon/routineModelAdapter.ts';
+import type { RoutineSchedule } from '../ports/daemon/routineSchedule.ts';
+import type { CronSchedulePort } from '../ports/daemon/cronSchedule.ts';
 
 /**
  * 定时任务相关契约（唯一声明见 `src/ports/daemon/`：`routine.ts` / `routineModelAdapter.ts` /

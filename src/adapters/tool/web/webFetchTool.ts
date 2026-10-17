@@ -15,14 +15,14 @@
  * - `timeout_ms` 默认 30s 且有上限，避免挂在一个不回的服务器上；
  * - 非 HTML 内容（JSON / 纯文本）原样返回，不做转换。
  */
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js'
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts'
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { HtmlToText } from '../../../util/htmlToText.js';
+} from '../../../ports/tool/tool.ts';
+import { HtmlToText } from '../../../util/htmlToText.ts';
 
 /** 单次抓取的响应体默认上限（字节）。 */
 const DEFAULT_MAX_BYTES = 200_000;

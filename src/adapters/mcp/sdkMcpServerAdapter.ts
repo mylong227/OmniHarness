@@ -27,7 +27,7 @@ import type {
   ToolCall,
   ToolResult,
   ToolContext,
-} from '../../ports/tool/tool.js';
+} from '../../ports/tool/tool.ts';
 
 /** SDK 服务端元数据（握手时上报）。 */
 export interface SdkServerInfo {

@@ -25,9 +25,9 @@ import {
   LICENSE_ENV_PUBLIC_KEY,
   LICENSE_ENV_TEXT,
   LicenseSource,
-} from '../../src/license/licenseSource.js';
-import { LicenseEngine } from '../../src/license/licenseEngine.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+} from '../../src/license/licenseSource.ts';
+import { LicenseEngine } from '../../src/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
 
 /** 采集到的事件。 */
 interface Captured {

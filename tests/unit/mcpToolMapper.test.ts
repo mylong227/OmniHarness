@@ -3,9 +3,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { McpToolMapper, mcpToolMapper } from '../../src/mcp/mcpToolMapper.js';
-import type { ToolDefinition } from '../../src/ports/tool/tool.js';
-import type { McpToolDescriptor } from '../../src/mcp/mcpProtocol.js';
+import { McpToolMapper, mcpToolMapper } from '../../src/mcp/mcpToolMapper.ts';
+import type { ToolDefinition } from '../../src/ports/tool/tool.ts';
+import type { McpToolDescriptor } from '../../src/mcp/mcpProtocol.ts';
 
 /** 构造一个正常本地工具定义。 */
 function normalDefinition(name: string): ToolDefinition {

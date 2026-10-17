@@ -9,10 +9,10 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { PolicyEffect, PolicyPort, PolicyRule } from '../../../ports/runtime/policy.js';
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
-import { SafePolicyEvaluator } from '../../policy/safePolicyEvaluator.js';
+} from '../../../ports/tool/tool.ts';
+import type { PolicyEffect, PolicyPort, PolicyRule } from '../../../ports/runtime/policy.ts';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
+import { SafePolicyEvaluator } from '../../policy/safePolicyEvaluator.ts';
 
 /**
  * @beta

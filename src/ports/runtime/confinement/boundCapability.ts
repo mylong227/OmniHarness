@@ -1,4 +1,4 @@
-import type { Charge } from './charge.js';
+import type { Charge } from './charge.ts';
 
 /** 两能力束缚后的单态能力。 */
 export interface BoundCapability {

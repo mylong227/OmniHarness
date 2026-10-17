@@ -91,13 +91,16 @@ test('④ 端到端：真跑判据 —— 开关关 ⇒ 子进程 skip 且 exit 
   // 2026-10-17 Vitest 化：断言从 TAP 口径（`# skipped 1`）改为 vitest 口径（`N skipped`）。
   // 判据意图未变：开关关 ⇒ **显式跳过且退出码 0**（不是假装通过）；开关开 ⇒ 非 0 且原因可读。
   const off = runNarrowJudge({});
-  const offAll = `${off.stdout}\n${off.stderr}`;
+  // vitest 汇总行带 ANSI 色码（`Tests \e[33m1 skipped\e[39m`）：`[33m` 的尾字符 `m` 会吞掉
+  // `\b` 词边界 ⇒ 必须先剥离 ANSI 再做文本断言（否则本判据在本机永红）。
+  const stripAnsi = (text) => text.replace(/\u001B\[[0-9;]*m/gu, '');
+  const offAll = stripAnsi(`${off.stdout}\n${off.stderr}`);
   assert.strictEqual(off.status, 0, `开关关时应正常结束（跳过）:\n${offAll}`);
   assert.match(offAll, /\b1 skipped\b/u, '开关关时子进程应显式跳过 1 例（而不是假装通过）');
   assert.match(offAll, /未找到本机 Chrome\/Edge/u, '跳过原因应可读');
 
   const on = runNarrowJudge({ OMNI_REQUIRE_BROWSER: '1' });
-  const onAll = `${on.stdout}\n${on.stderr}`;
+  const onAll = stripAnsi(`${on.stdout}\n${on.stderr}`);
   assert.notStrictEqual(
     on.status,
     0,

@@ -10,12 +10,12 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { log } from '../../util/logger.js';
-import { HashChain } from '../../util/hashChain.js';
+import { log } from '../../util/logger.ts';
+import { HashChain } from '../../util/hashChain.ts';
 
-import type { AuditEvent } from '../../ports/server/auditEvent.js';
+import type { AuditEvent } from '../../ports/server/auditEvent.ts';
 
-export type { AuditEvent } from '../../ports/server/auditEvent.js';
+export type { AuditEvent } from '../../ports/server/auditEvent.ts';
 
 /**
  * @beta

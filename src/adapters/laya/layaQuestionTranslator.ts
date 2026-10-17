@@ -7,7 +7,7 @@
  * 翻译是**六边形适配器的本职**：端口用第三方-free 的 `kind`，Laya 线格式用 `type`；
  * 两边各自演化时只改这里，不动端口、也不动调用方。
  */
-import type { DecisionAnswer, DecisionQuestion } from '../../ports/decision/decisionEngine.js';
+import type { DecisionAnswer, DecisionQuestion } from '../../ports/decision/decisionEngine.ts';
 
 /** Laya 线格式问题（`type` 而非端口的 `kind`；criteria 形状随 type 变化）。 */
 export type LayaWireQuestion = Readonly<Record<string, unknown>>;

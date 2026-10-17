@@ -13,32 +13,32 @@
 // 附件条 / @补全弹层的渲染下沉为模块级纯函数。
 
 import * as React from 'react';
-import { ModelPicker } from './ModelPicker.js';
-import { FilePicker } from './FilePicker.js';
-import { WorkIndicator } from './WorkIndicator.js';
-import { AddMenu } from './AddMenu.js';
-import { PermissionPicker } from './PermissionPicker.js';
-import { ContextCapacityPanel } from './ContextCapacityPanel.js';
-import { MentionResolver } from '../models/MentionResolver.js';
-import { ComposerDraft } from '../models/ComposerDraft.js';
-import { FileTreeFlattener } from '../models/FileTreeFlattener.js';
-import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
-import { icon } from '../models/Icon.js';
+import { ModelPicker } from './ModelPicker.tsx';
+import { FilePicker } from './FilePicker.tsx';
+import { WorkIndicator } from './WorkIndicator.tsx';
+import { AddMenu } from './AddMenu.tsx';
+import { PermissionPicker } from './PermissionPicker.tsx';
+import { ContextCapacityPanel } from './ContextCapacityPanel.tsx';
+import { MentionResolver } from '../models/MentionResolver.ts';
+import { ComposerDraft } from '../models/ComposerDraft.ts';
+import { FileTreeFlattener } from '../models/FileTreeFlattener.ts';
+import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
+import { icon } from '../models/Icon.ts';
 import {
   SpeechRecognitionFactory,
   SpeechTranscript,
   type SpeechRecognitionLike,
-} from '../models/SpeechRecognitionFactory.js';
+} from '../models/SpeechRecognitionFactory.ts';
 import {
   AttachmentDraftFactory,
   AttachmentIcon,
   type AttachmentDraft,
   type RemoteFile,
-} from '../models/AttachmentIcon.js';
-import type { FileAttachment } from '../../types/models.js';
-import type { ComposerSeed } from '../shared.js';
-import type { ApiClient } from '../../core/ApiClient.js';
-import { t } from '../i18n/i18n.js';
+} from '../models/AttachmentIcon.ts';
+import type { FileAttachment } from '../../types/models.ts';
+import type { ComposerSeed } from '../shared.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import { t } from '../i18n/i18n.ts';
 
 const PICKER_ERR_BOX: Record<string, string> = { margin: '6px 14px 0' };
 

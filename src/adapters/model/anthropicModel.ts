@@ -10,19 +10,19 @@ import type {
   ModelToolSpec,
   ModelUsage,
   StreamCallbacks,
-} from '../../ports/model/model.js';
+} from '../../ports/model/model.ts';
 import {
   AnthropicCacheBreakpoints,
   type AnthropicWireBlock,
   type AnthropicWireMessage,
-} from './anthropicCacheBreakpoints.js';
-import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
-import { ModelRequestGuard } from './modelRequestGuard.js';
-import { RequestStallGuard } from './requestStallGuard.js';
-import { ModelHttpErrors } from './modelHttpErrors.js';
-import { sseParser } from './sseParser.js';
-import { ModelResponseFormats } from './modelResponseFormats.js';
-import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
+} from './anthropicCacheBreakpoints.ts';
+import { PromptCacheUsageReader } from './promptCacheUsageReader.ts';
+import { ModelRequestGuard } from './modelRequestGuard.ts';
+import { RequestStallGuard } from './requestStallGuard.ts';
+import { ModelHttpErrors } from './modelHttpErrors.ts';
+import { sseParser } from './sseParser.ts';
+import { ModelResponseFormats } from './modelResponseFormats.ts';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
 
 /** Anthropic 模型配置。 */
 export interface AnthropicModelConfig {

@@ -9,13 +9,13 @@
  *   vault get|set|del|list [--name N] [--value V] [--vault-backend crypto|env] [--kv-* ...] [--vault-key-file PATH]
  */
 
-import { CryptoVault } from '../adapters/vault/cryptoVault.js';
-import { VaultKeyDefaults } from './vaultKeyDefaults.js';
-import { EnvVault } from '../adapters/vault/envVault.js';
-import type { VaultPort } from '../ports/memory/vault.js';
-import { ArgParser } from './argParser.js';
-import { CliArgReader } from './cliArgReader.js';
-import { KvStoreFactory, type KvHandle } from './kvStoreFactory.js';
+import { CryptoVault } from '../adapters/vault/cryptoVault.ts';
+import { VaultKeyDefaults } from './vaultKeyDefaults.ts';
+import { EnvVault } from '../adapters/vault/envVault.ts';
+import type { VaultPort } from '../ports/memory/vault.ts';
+import { ArgParser } from './argParser.ts';
+import { CliArgReader } from './cliArgReader.ts';
+import { KvStoreFactory, type KvHandle } from './kvStoreFactory.ts';
 
 /** kv 用法提示。 */
 const KV_USAGE =

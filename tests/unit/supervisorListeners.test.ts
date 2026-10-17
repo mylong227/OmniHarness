@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SupervisorKernel } from '../../src/supervisor/supervisorKernel.js';
+import { SupervisorKernel } from '../../src/supervisor/supervisorKernel.ts';
 
 /**
  * 订阅者上限：与 src/supervisor/supervisorKernel.ts 的模块级 const MAX_LISTENERS 对齐。

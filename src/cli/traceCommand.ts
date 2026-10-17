@@ -10,15 +10,15 @@
  * 存储后端说明：读的是 jsonl 存档（与 `session list --storage-dir` 同一口径）；memory/sqlite
  * 后端不落该目录时如实报告「会话未找到或无 trace」，不伪造条目。
  */
-import { SessionEventReader } from '../adapters/telemetry/sessionEventReader.js';
-import { SessionStorageLocation } from '../util/sessionStorageLocation.js';
-import { SessionTraceService } from '../server/services/session/sessionTraceService.js';
+import { SessionEventReader } from '../adapters/telemetry/sessionEventReader.ts';
+import { SessionStorageLocation } from '../util/sessionStorageLocation.ts';
+import { SessionTraceService } from '../server/services/session/sessionTraceService.ts';
 import type {
   TraceEntry,
   TraceReadRequest,
   TraceReadResult,
-} from '../ports/intelligence/traceIntrospection.js';
-import { CliArgReader } from './cliArgReader.js';
+} from '../ports/intelligence/traceIntrospection.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 用法提示。 */
 const USAGE =

@@ -24,8 +24,8 @@ import type {
   OidcFlowPort,
   PkcePair,
   TokenSet,
-} from '../../ports/enterprise/oidcFlow.js';
-import type { OidcProviderConfig } from '../../ports/enterprise/oidcProviderConfig.js';
+} from '../../ports/enterprise/oidcFlow.ts';
+import type { OidcProviderConfig } from '../../ports/enterprise/oidcProviderConfig.ts';
 import {
   allowInsecureRequests,
   authorizationCodeGrant,

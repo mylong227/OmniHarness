@@ -11,8 +11,8 @@
  * - **台账语义显式化**：该类型的变更走哪条链、快照粒度是全表还是单资产，由类型声明，
  *   注册表按声明执行（而不是让每个调用点各自猜）。
  */
-import type { IsolationLevel } from './isolationLevel.js';
-import type { TrustTier } from './trustTier.js';
+import type { IsolationLevel } from './isolationLevel.ts';
+import type { TrustTier } from './trustTier.ts';
 
 /**
  * 资产级基准函数：资产 → 0..1 得分。

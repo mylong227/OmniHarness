@@ -8,21 +8,21 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AppServer } from '../../src/server/core/appServer.js';
-import { ServerEventBridge } from '../../src/server/core/serverEventBridge.js';
-import { type RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { Transport } from '../../src/server/transport/lineTransport.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import { CliServerCmds } from '../../src/cli/cliServerCmds.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { ServerEventBridge } from '../../src/server/core/serverEventBridge.ts';
+import { type RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { CliServerCmds } from '../../src/cli/cliServerCmds.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 

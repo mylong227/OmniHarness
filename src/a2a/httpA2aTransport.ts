@@ -9,13 +9,13 @@
  * 无第三方依赖（仅 node:http / node:fetch）。鉴权由 A2aServer + AgentIdentityPort 负责。
  */
 import http from 'node:http';
-import type { RpcMessage } from '../server/core/jsonRpc.js';
-import { jsonRpc } from '../server/core/jsonRpc.js';
-import type { A2aTransport } from './a2aProtocol.js';
-import { SsrfGuard } from '../security/ssrfGuard.js';
-import type { SsrfOptions } from '../security/ssrfGuard.js';
-import { log } from '../util/logger.js';
-import { LimitEnv } from '../util/limitEnv.js';
+import type { RpcMessage } from '../server/core/jsonRpc.ts';
+import { jsonRpc } from '../server/core/jsonRpc.ts';
+import type { A2aTransport } from './a2aProtocol.ts';
+import { SsrfGuard } from '../security/ssrfGuard.ts';
+import type { SsrfOptions } from '../security/ssrfGuard.ts';
+import { log } from '../util/logger.ts';
+import { LimitEnv } from '../util/limitEnv.ts';
 
 /** 客户端 HTTP 传输：向对端端点发请求，响应经 onMessage 回传。 */
 export class HttpA2aTransport implements A2aTransport {

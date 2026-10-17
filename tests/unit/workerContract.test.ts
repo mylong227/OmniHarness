@@ -29,12 +29,12 @@ import { getEventListeners } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { CliWorker } from '../../src/worker/cliWorker.js';
-import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.js';
-import { WorkerRegistry } from '../../src/worker/workerRegistry.js';
-import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.js';
-import type { Worker, WorkerRequest, WorkerResult } from '../../src/worker/worker.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
+import { CliWorker } from '../../src/worker/cliWorker.ts';
+import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
+import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
+import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.ts';
+import type { Worker, WorkerRequest, WorkerResult } from '../../src/worker/worker.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
 
 /**
  * 契约源文件路径（由测试文件位置解析，不依赖 cwd）。
@@ -246,7 +246,8 @@ test('② 契约模块是纯类型模块：dist 产物恒为 `export {};`（"零
     .filter((line) => line !== '');
   assert.deepStrictEqual(
     barrelStatements,
-    ["export type { Worker, WorkerRequest, WorkerResult } from '../ports/worker/worker.js';"],
+    // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据跟新。
+    ["export type { Worker, WorkerRequest, WorkerResult } from '../ports/worker/worker.ts';"],
     '实现层文件必须退化为**单行再导出**（自留第二份声明 = 双真源，值导出 = 公共 API 面变了）',
   );
 });

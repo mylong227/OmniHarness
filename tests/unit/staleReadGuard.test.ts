@@ -9,11 +9,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileContentLedger } from '../../src/adapters/tool/fs/fileContentLedger.js';
-import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.js';
-import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.js';
-import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.js';
-import type { ToolContext } from '../../src/ports/tool/tool.js';
+import { FileContentLedger } from '../../src/adapters/tool/fs/fileContentLedger.ts';
+import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.ts';
+import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.ts';
+import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.ts';
+import type { ToolContext } from '../../src/ports/tool/tool.ts';
 
 /** 工具上下文（workspaceRoot 由各用例注入）。 */
 const ctxOf = (root: string): ToolContext => ({ sessionId: 's1', workspaceRoot: root });

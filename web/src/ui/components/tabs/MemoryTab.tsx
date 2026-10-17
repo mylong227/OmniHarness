@@ -5,12 +5,12 @@
 // 星级渲染继续复用 ImportanceStars（零 React 依赖，可单测），行渲染下沉为模块级函数。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { ImportanceStars } from '../../models/ImportanceStars.js';
-import { icon } from '../../models/Icon.js';
-import { emptyState } from '../../format.js';
-import type { MemoryFact } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { useApp } from '../../context.ts';
+import { ImportanceStars } from '../../models/ImportanceStars.ts';
+import { icon } from '../../models/Icon.ts';
+import { emptyState } from '../../format.ts';
+import type { MemoryFact } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** MemoryTab 组件的入参。 */
 export interface MemoryTabProps {

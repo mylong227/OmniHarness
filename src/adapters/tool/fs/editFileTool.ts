@@ -1,4 +1,4 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type {
@@ -6,12 +6,12 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
-import { FileContentLedger } from './fileContentLedger.js';
-import { StringReplaceEditor } from './stringReplaceEditor.js';
-import type { StringReplaceOutcome } from './stringReplaceEditor.js';
+} from '../../../ports/tool/tool.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
+import { FileContentLedger } from './fileContentLedger.ts';
+import { StringReplaceEditor } from './stringReplaceEditor.ts';
+import type { StringReplaceOutcome } from './stringReplaceEditor.ts';
 
 /** 输出预览最多回显的行数（够模型确认改对了，又不至于把上下文撑大）。 */
 const MAX_PREVIEW_LINES = 6;

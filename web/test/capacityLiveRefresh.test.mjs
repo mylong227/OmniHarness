@@ -30,7 +30,7 @@ const WEB_ROOT = resolve(HERE, '..');
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩。
 createRuntime().install();
-const { ContextUsageView } = await import('../src/ui/models/ContextUsageView.js');
+const { ContextUsageView } = await import('../src/ui/models/ContextUsageView.ts');
 
 test('① 代数只数 model 事件：增量与存储形态的事件都不算数', () => {
   assert.equal(ContextUsageView.revisionOf([]), 0);

@@ -10,9 +10,9 @@
 
 import * as React from 'react';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
-import { CommandPaletteModel } from '../models/CommandPaletteModel.js';
-import type { CommandItem } from '../models/CommandPaletteModel.js';
-import { t } from '../i18n/i18n.js';
+import { CommandPaletteModel } from '../models/CommandPaletteModel.ts';
+import type { CommandItem } from '../models/CommandPaletteModel.ts';
+import { t } from '../i18n/i18n.ts';
 
 export type { CommandItem };
 

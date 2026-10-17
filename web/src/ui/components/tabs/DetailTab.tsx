@@ -4,10 +4,10 @@
 // 纯展示组件（函数组件范式）：选中事件由 props 注入，无内部状态、无副作用。
 
 import * as React from 'react';
-import { badge, jsonView, detailSummary, timeOf, esc, emptyState, renderMarkdown } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { ThreadEvent } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { badge, jsonView, detailSummary, timeOf, esc, emptyState, renderMarkdown } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { ThreadEvent } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** DetailTab 组件的入参。 */
 export interface DetailTabProps {

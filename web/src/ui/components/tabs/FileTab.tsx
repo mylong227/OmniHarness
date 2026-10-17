@@ -9,13 +9,13 @@
 // 「语言分类」判据复用 FileKindClassifier（零 React，可单测）。
 
 import * as React from 'react';
-import { langOf } from '../../highlight.js';
-import { renderMarkdown, emptyState } from '../../format.js';
-import type { FileView } from '../../shared.js';
-import { FileKindClassifier } from '../../models/FileKindClassifier.js';
-import { CodeSurface } from '../CodeSurface.js';
-import { icon } from '../../models/Icon.js';
-import { t } from '../../i18n/i18n.js';
+import { langOf } from '../../highlight.ts';
+import { renderMarkdown, emptyState } from '../../format.ts';
+import type { FileView } from '../../shared.ts';
+import { FileKindClassifier } from '../../models/FileKindClassifier.ts';
+import { CodeSurface } from '../CodeSurface.tsx';
+import { icon } from '../../models/Icon.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** FileTab 组件的入参。 */
 export interface FileTabProps {

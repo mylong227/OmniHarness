@@ -1,7 +1,7 @@
 ﻿import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import { AsyncChildProcess } from '../../util/asyncChildProcess.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import { AsyncChildProcess } from '../../util/asyncChildProcess.ts';
 
 /** 单文件变更统计。 */
 interface ChangeStat {

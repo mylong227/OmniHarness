@@ -5,19 +5,19 @@
  * 分层合并发生在文件配置层，端口对象的装配仍在 ConfigFactory 内进行。
  */
 
-import type { FileConfig } from './configFile.js';
-import type { SkillEntry } from '../skill/skill.js';
-import { MODEL_ADAPTER_IDS } from '../ports/model/modelAdapterId.js';
-import { OmniError, ErrorCode } from '../omniError.js';
+import type { FileConfig } from './configFile.ts';
+import type { SkillEntry } from '../skill/skill.ts';
+import { MODEL_ADAPTER_IDS } from '../ports/model/modelAdapterId.ts';
+import { OmniError, ErrorCode } from '../omniError.ts';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { permissionConfigValidator } from './permissionConfigValidator.js';
-import { ssrfPolicyValidator } from './ssrfPolicyValidator.js';
-import { providerPresetValidator } from './providerPresetValidator.js';
-import { mediaConfigValidator } from './mediaConfigValidator.js';
-import { CapabilityConfigValidator } from './capabilityConfigValidator.js';
-import { RbacConfigValidator } from './rbacConfigValidator.js';
-import { decisionEngineConfigValidator } from './decisionEngineConfigValidator.js';
+import { permissionConfigValidator } from './permissionConfigValidator.ts';
+import { ssrfPolicyValidator } from './ssrfPolicyValidator.ts';
+import { providerPresetValidator } from './providerPresetValidator.ts';
+import { mediaConfigValidator } from './mediaConfigValidator.ts';
+import { CapabilityConfigValidator } from './capabilityConfigValidator.ts';
+import { RbacConfigValidator } from './rbacConfigValidator.ts';
+import { decisionEngineConfigValidator } from './decisionEngineConfigValidator.ts';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {

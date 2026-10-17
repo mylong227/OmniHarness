@@ -12,8 +12,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.js';
-import type { CapabilitySchema } from '../../src/ports/capability.js';
+import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
+import type { CapabilitySchema } from '../../src/ports/capability.ts';
 
 /**
  * 造一个「只关心 kind」的桩类型描述符。

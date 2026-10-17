@@ -9,14 +9,14 @@
 } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import type { Metrics } from '../metrics.js';
-import type { LocalDay } from '../../../util/localDay.js';
-import { SessionSidecars } from './sessionSidecars.js';
-import { SessionRanking } from './sessionRanking.js';
-import { SessionArchiveLayout } from '../../../util/sessionArchiveLayout.js';
-import { log } from '../../../util/logger.js';
-import { SessionFileScanner } from './sessionFileScanner.js';
-import { WorkspaceIdentity } from '../../../util/workspaceIdentity.js';
+import type { Metrics } from '../metrics.ts';
+import type { LocalDay } from '../../../util/localDay.ts';
+import { SessionSidecars } from './sessionSidecars.ts';
+import { SessionRanking } from './sessionRanking.ts';
+import { SessionArchiveLayout } from '../../../util/sessionArchiveLayout.ts';
+import { log } from '../../../util/logger.ts';
+import { SessionFileScanner } from './sessionFileScanner.ts';
+import { WorkspaceIdentity } from '../../../util/workspaceIdentity.ts';
 
 /** 会话存档默认子目录（相对工作区）。 */
 const DEFAULT_SESSIONS_DIR = '.omniharness/sessions';

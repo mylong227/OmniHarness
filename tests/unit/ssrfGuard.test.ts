@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { SsrfGuard } from '../../src/security/ssrfGuard.js';
+import { SsrfGuard } from '../../src/security/ssrfGuard.ts';
 
 describe('SSRF 防护', () => {
   it('云元数据地址一律拦截（默认策略下也不放行）', async () => {

@@ -15,15 +15,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.js';
-import { CliDecisionEngineFlags } from '../../src/cli/cliDecisionEngineFlags.js';
-import { CliDefaults } from '../../src/cli/argParser.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
+import { CliDecisionEngineFlags } from '../../src/cli/cliDecisionEngineFlags.ts';
+import { CliDefaults } from '../../src/cli/argParser.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 
 /**
  * 造最小可用未解析配置。

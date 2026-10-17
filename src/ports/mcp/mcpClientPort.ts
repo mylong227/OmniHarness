@@ -19,7 +19,7 @@ import type {
   McpResourceContent,
   McpResourceDescriptor,
   McpToolDescriptor,
-} from './mcpProtocolTypes.js';
+} from './mcpProtocolTypes.ts';
 
 /**
  * @beta

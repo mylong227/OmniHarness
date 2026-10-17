@@ -1,4 +1,4 @@
-import type { ServiceKeyLike } from '../ports/runtime/serviceKeyLike.js';
+import type { ServiceKeyLike } from '../ports/runtime/serviceKeyLike.ts';
 
 /**
  * **泛型服务令牌**（TS2/G26，2026-10-03 第十三轮）：把一个键与"该键下的值类型"绑定。

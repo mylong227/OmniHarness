@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PluginProfileStore, type PluginProfile } from '../../src/plugin/pluginProfileStore.js';
-import type { PluginManager } from '../../src/plugin/pluginManager.js';
-import type { PluginRegistry } from '../../src/plugin/pluginRegistry.js';
+import { PluginProfileStore, type PluginProfile } from '../../src/plugin/pluginProfileStore.ts';
+import type { PluginManager } from '../../src/plugin/pluginManager.ts';
+import type { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
 
 test('sanitizeProfileName 归一化', () => {
   assert.strictEqual(PluginProfileStore.sanitizeProfileName('My Profile! @v2'), 'my-profile-v2');

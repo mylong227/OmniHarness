@@ -6,13 +6,13 @@
  */
 
 import { writeFileSync } from 'node:fs';
-import { AuditSink, type AuditEvent } from '../server/services/auditSink.js';
+import { AuditSink, type AuditEvent } from '../server/services/auditSink.ts';
 import {
   AuditExporter,
   type AuditFormat,
   type AuditQuery,
-} from '../server/services/auditExporter.js';
-import { CliArgReader } from './cliArgReader.js';
+} from '../server/services/auditExporter.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 用法提示。 */
 const USAGE =

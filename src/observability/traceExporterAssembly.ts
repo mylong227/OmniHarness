@@ -9,14 +9,14 @@
  * - `OTEL_EXPORTER_OTLP_ENDPOINT`（业界标准名）：设了才启用；例 `http://127.0.0.1:4318/v1/traces`；
  * - `OMNI_OTLP_SERVICE_NAME`：可选，`service.name` 资源属性（缺省 `omniharness`）。
  */
-import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
 import {
   NoopTraceExporter,
   OtlpTraceExporter,
   type TraceExporterPort,
-} from './otlpTraceExporter.js';
-import { TraceCollectingEventPort } from './traceCollectingEventPort.js';
-import { TraceSpanBuilder } from './traceSpanBuilder.js';
+} from './otlpTraceExporter.ts';
+import { TraceCollectingEventPort } from './traceCollectingEventPort.ts';
+import { TraceSpanBuilder } from './traceSpanBuilder.ts';
 
 /** trace 装配器（纯静态）。 */
 export class TraceExporterAssembly {

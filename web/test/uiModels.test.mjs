@@ -3,15 +3,15 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { FileKindClassifier } from '../src/ui/models/FileKindClassifier.js';
-import { NumberFormatter } from '../src/ui/models/NumberFormatter.js';
-import { ImportanceStars } from '../src/ui/models/ImportanceStars.js';
-import { PathJoiner } from '../src/ui/models/PathJoiner.js';
-import { FileIconResolver } from '../src/ui/models/FileIconResolver.js';
-import { FileSizeFormatter } from '../src/ui/models/FileSizeFormatter.js';
-import { ProviderStatusResolver } from '../src/ui/models/ProviderStatus.js';
-import { GraphDefBuilder } from '../src/ui/models/GraphDefBuilder.js';
-import { ComposerDraft } from '../src/ui/models/ComposerDraft.js';
+import { FileKindClassifier } from '../src/ui/models/FileKindClassifier.ts';
+import { NumberFormatter } from '../src/ui/models/NumberFormatter.ts';
+import { ImportanceStars } from '../src/ui/models/ImportanceStars.ts';
+import { PathJoiner } from '../src/ui/models/PathJoiner.ts';
+import { FileIconResolver } from '../src/ui/models/FileIconResolver.ts';
+import { FileSizeFormatter } from '../src/ui/models/FileSizeFormatter.ts';
+import { ProviderStatusResolver } from '../src/ui/models/ProviderStatus.ts';
+import { GraphDefBuilder } from '../src/ui/models/GraphDefBuilder.ts';
+import { ComposerDraft } from '../src/ui/models/ComposerDraft.ts';
 
 test('FileKindClassifier 分类代码 / markdown / 纯文本', () => {
   assert.equal(FileKindClassifier.classify('ts'), 'code');

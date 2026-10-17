@@ -1,4 +1,4 @@
-import type { Candidate } from './candidate.js';
+import type { Candidate } from './candidate.ts';
 
 /**
  * 发现引擎（沙箱有界探索）：在 discoveryBudget 硬上限内生成候选能力。

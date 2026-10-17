@@ -20,8 +20,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GlobTool } from '../../src/adapters/tool/fs/globTool.js';
-import type { ToolContext } from '../../src/ports/tool/tool.js';
+import { GlobTool } from '../../src/adapters/tool/fs/globTool.ts';
+import type { ToolContext } from '../../src/ports/tool/tool.ts';
 
 /**
  * 造一个含 3 个 `.ts` 文件的小工作区。

@@ -1,14 +1,14 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { PlanPort } from '../../../ports/runtime/plan.js';
-import type { EventPort } from '../../../ports/runtime/eventPort.js';
-import type { UserResponder } from '../../../ports/runtime/userResponder.js';
-import type { EventFactoryPort } from '../../../ports/runtime/eventFactory.js';
+} from '../../../ports/tool/tool.ts';
+import type { PlanPort } from '../../../ports/runtime/plan.ts';
+import type { EventPort } from '../../../ports/runtime/eventPort.ts';
+import type { UserResponder } from '../../../ports/runtime/userResponder.ts';
+import type { EventFactoryPort } from '../../../ports/runtime/eventFactory.ts';
 
 /**
  * @beta

@@ -11,10 +11,10 @@
  *  - 纯解析、无 IO、无状态副作用（只读 env），可单测。
  */
 
-import type { RepoMapContextOptions } from '../ports/context/repoMapContextOptions.js';
+import type { RepoMapContextOptions } from '../ports/context/repoMapContextOptions.ts';
 
 /** 原 RepoMapContextOptions 声明已搬入 ports/context（G25 收尾）；此处桶再导出保持公共 API 面不变。 */
-export type { RepoMapContextOptions } from '../ports/context/repoMapContextOptions.js';
+export type { RepoMapContextOptions } from '../ports/context/repoMapContextOptions.ts';
 
 /** 混合检索的只读旋钮集合（构造即快照，见类注释）。 */
 export class RecallKnobs {

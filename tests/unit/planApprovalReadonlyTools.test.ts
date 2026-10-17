@@ -20,7 +20,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.js';
+import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
 import {
   LSP_GO_TO_DEFINITION_TOOL_NAME,
   LSP_FIND_REFERENCES_TOOL_NAME,
@@ -30,7 +30,7 @@ import {
   LSP_DOCUMENT_SYMBOLS_TOOL_NAME,
   LSP_CODE_ACTION_TOOL_NAME,
   LSP_WORKSPACE_SYMBOLS_TOOL_NAME,
-} from '../../src/adapters/lsp/lspToolNames.js';
+} from '../../src/adapters/lsp/lspToolNames.ts';
 
 /** 构造审批请求（plan 审批只读 toolName）。 */
 const req = (toolName: string): { sessionId: string; toolName: string; target: string } => ({

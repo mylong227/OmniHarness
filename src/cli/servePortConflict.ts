@@ -22,7 +22,7 @@
  * 真起服务的端到端接线另有一条判据（`servePortConflictE2E.test.ts`）。
  */
 
-import { ServeInstance, type ServeInstanceRecord } from './serveInstance.js';
+import { ServeInstance, type ServeInstanceRecord } from './serveInstance.ts';
 
 /** 端口占用者分类。 */
 export type PortHolderKind = 'free' | 'omni' | 'foreign';

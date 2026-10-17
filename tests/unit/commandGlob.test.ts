@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CommandGlob, commandGlob } from '../../src/adapters/approval/commandGlob.js';
+import { CommandGlob, commandGlob } from '../../src/adapters/approval/commandGlob.ts';
 
 test('glob：精确匹配整串（非子串）', () => {
   assert.strictEqual(commandGlob.matches('rm -rf', 'rm -rf'), true);

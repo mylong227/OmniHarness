@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert/strict';
 import { test } from 'node:test';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import type { AgentIdentityPort } from '../../src/ports/runtime/agentIdentity.js';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import type { AgentIdentityPort } from '../../src/ports/runtime/agentIdentity.ts';
 
 function make(port?: AgentIdentityPort): AgentIdentityPort {
   return port ?? new Ed25519AgentIdentity({ agentRuntimeId: 'test-runtime' });

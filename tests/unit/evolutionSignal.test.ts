@@ -11,19 +11,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.js';
-import { FailurePatternMiner } from '../../src/evolution/failurePatternMiner.js';
-import type { FailureRecord } from '../../src/evolution/failurePatternMiner.js';
-import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.ts';
+import { FailurePatternMiner } from '../../src/evolution/failurePatternMiner.ts';
+import type { FailureRecord } from '../../src/evolution/failurePatternMiner.ts';
+import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 import type {
   RuntimeObservation,
   RuntimeTelemetryInput,
   RuntimeTelemetryPort,
   TelemetryChainReport,
-} from '../../src/ports/runtime/runtimeTelemetry.js';
-import type { EvolutionSignal } from '../../src/ports/runtime/evolution.js';
+} from '../../src/ports/runtime/runtimeTelemetry.ts';
+import type { EvolutionSignal } from '../../src/ports/runtime/evolution.ts';
 
 /** 固定时间戳（确定性）。 */
 const TS = '2026-10-04T00:00:00.000Z';

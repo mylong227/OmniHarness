@@ -7,18 +7,18 @@
  *
  * 无第三方依赖（仅 server/jsonRpc + a2aProtocol）。
  */
-import type { RpcMessage } from '../server/core/jsonRpc.js';
-import { jsonRpc } from '../server/core/jsonRpc.js';
-import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
+import type { RpcMessage } from '../server/core/jsonRpc.ts';
+import { jsonRpc } from '../server/core/jsonRpc.ts';
+import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.ts';
 import type {
   A2aCapability,
   A2aCapabilityDeclaration,
   A2aTransport,
   DelegateRequest,
   DelegateResult,
-} from './a2aProtocol.js';
-import { A2A_CAPABILITIES_DECLARE, A2A_TASK_DELEGATE } from './a2aProtocol.js';
-import { PendingRequests } from '../util/concurrency/pendingRequests.js';
+} from './a2aProtocol.ts';
+import { A2A_CAPABILITIES_DECLARE, A2A_TASK_DELEGATE } from './a2aProtocol.ts';
+import { PendingRequests } from '../util/concurrency/pendingRequests.ts';
 
 /** 委托/声明调用超时（ms）。 */
 const DEFAULT_TIMEOUT_MS = 60_000;

@@ -12,10 +12,10 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { WorkflowGuard } from '../../src/autonomy/workflowGuard.js';
-import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.js';
-import type { WorkflowStep } from '../../src/ports/autonomy/workflowStep.js';
-import type { WorkflowStepStatus } from '../../src/ports/autonomy/workflowStepStatus.js';
+import { WorkflowGuard } from '../../src/autonomy/workflowGuard.ts';
+import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.ts';
+import type { WorkflowStep } from '../../src/ports/autonomy/workflowStep.ts';
+import type { WorkflowStepStatus } from '../../src/ports/autonomy/workflowStepStatus.ts';
 
 /** 构造「A → B」两步，B 的条件由用例给出。 */
 function twoSteps(guard: WorkflowStep['when']): readonly WorkflowStep[] {

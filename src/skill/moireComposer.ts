@@ -8,8 +8,8 @@
  *
  * @beta
  */
-import type { MoireMeta, MoireOptions, Skill } from './skill.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import type { MoireMeta, MoireOptions, Skill } from './skill.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 interface Resolved {
   n: number;

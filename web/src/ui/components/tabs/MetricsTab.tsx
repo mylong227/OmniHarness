@@ -6,11 +6,11 @@
 // 数字缩写继续复用 NumberFormatter（零 React，可单测）。
 
 import * as React from 'react';
-import { emptyNote } from '../../format.js';
-import { useApp } from '../../context.js';
-import { NumberFormatter } from '../../models/NumberFormatter.js';
-import type { Metrics } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { emptyNote } from '../../format.ts';
+import { useApp } from '../../context.ts';
+import { NumberFormatter } from '../../models/NumberFormatter.ts';
+import type { Metrics } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** 纵向留白。React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
 const SPACER: Record<string, string> = { height: '14px' };

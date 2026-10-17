@@ -11,10 +11,10 @@
 import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { configFile } from '../config/configFile.js';
-import { ArgParser } from './argParser.js';
-import { CliArgReader } from './cliArgReader.js';
-import { PortablePath } from '../util/portablePath.js';
+import { configFile } from '../config/configFile.ts';
+import { ArgParser } from './argParser.ts';
+import { CliArgReader } from './cliArgReader.ts';
+import { PortablePath } from '../util/portablePath.ts';
 
 /**
  * serve 的工作区解析器（无状态，纯静态）：显式旗标 > 本机固定项目 > 启动目录。

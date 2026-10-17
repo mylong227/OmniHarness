@@ -8,8 +8,8 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { LinuxLandlockSandbox } from '../../src/adapters/sandbox/linuxLandlockSandbox.js';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
+import { LinuxLandlockSandbox } from '../../src/adapters/sandbox/linuxLandlockSandbox.ts';
+import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
 
 /** Linux + 已启用 Landlock 内核 + 可执行 helper 的完整可用输入。 */
 const AVAILABLE = {

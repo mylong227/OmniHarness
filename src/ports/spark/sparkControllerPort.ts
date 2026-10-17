@@ -1,4 +1,4 @@
-import type { SparkCycleReport } from './sparkCycleReport.js';
+import type { SparkCycleReport } from './sparkCycleReport.ts';
 
 /**
  * @beta

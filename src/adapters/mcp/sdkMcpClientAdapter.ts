@@ -19,7 +19,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { Implementation, ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { McpClientPort } from '../../ports/mcp/mcpClientPort.js';
+import type { McpClientPort } from '../../ports/mcp/mcpClientPort.ts';
 import type {
   McpCallToolResult,
   McpContentBlock,
@@ -29,9 +29,9 @@ import type {
   McpResourceContent,
   McpResourceDescriptor,
   McpToolDescriptor,
-} from '../../ports/mcp/mcpProtocolTypes.js';
-import { McpContentBlocks } from '../../mcp/mcpContentBlocks.js';
-import { log } from '../../util/logger.js';
+} from '../../ports/mcp/mcpProtocolTypes.ts';
+import { McpContentBlocks } from '../../mcp/mcpContentBlocks.ts';
+import { log } from '../../util/logger.ts';
 
 /** 客户端适配器选项。 */
 export interface SdkMcpClientOptions {

@@ -2,7 +2,7 @@ import type {
   EscalationDecision,
   EscalationPort,
   EscalationRequest,
-} from '../../ports/runtime/escalation.js';
+} from '../../ports/runtime/escalation.ts';
 
 /** 永不升级适配器：fail-closed 默认端口，被拒即终止（保持既有安全行为，无第三方依赖）。 */
 export class DenyEscalation implements EscalationPort {

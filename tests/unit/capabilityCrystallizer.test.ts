@@ -2,9 +2,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Skill } from '../../src/skill/skill.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.js';
+import type { Skill } from '../../src/skill/skill.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.ts';
 
 const a: Skill = { name: 'a', description: 'A', instructions: '做 A。' };
 const b: Skill = { name: 'b', description: 'B', instructions: '做 B。' };

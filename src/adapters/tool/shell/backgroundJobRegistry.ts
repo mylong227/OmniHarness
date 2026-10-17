@@ -16,10 +16,10 @@
 import { spawn } from 'node:child_process';
 import { closeSync, fstatSync, mkdirSync, openSync, readSync } from 'node:fs';
 import { join } from 'node:path';
-import { ShellInvocation } from './shellInvocation.js';
-import { ShellProcessRunner } from './shellProcessRunner.js';
-import { ProcessTreeKiller } from './processTreeKiller.js';
-import { log } from '../../../util/logger.js';
+import { ShellInvocation } from './shellInvocation.ts';
+import { ShellProcessRunner } from './shellProcessRunner.ts';
+import { ProcessTreeKiller } from './processTreeKiller.ts';
+import { log } from '../../../util/logger.ts';
 
 /** 单个后台作业的可观测状态。 */
 export interface BackgroundJob {

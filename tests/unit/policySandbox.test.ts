@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
+import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.ts';
 
 /** 测试用工作区。 */
 const root = 'D:/omni/workspace';

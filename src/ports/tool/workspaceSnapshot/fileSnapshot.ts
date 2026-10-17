@@ -1,4 +1,4 @@
-import type { FileSnapshotEntry } from './fileSnapshotEntry.js';
+import type { FileSnapshotEntry } from './fileSnapshotEntry.ts';
 
 /** 工作区文件快照（可序列化）。 */
 export interface FileSnapshot {

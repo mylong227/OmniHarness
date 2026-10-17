@@ -2,24 +2,24 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../ports/memory/longTermMemory.js';
-import { WorkflowRunner } from '../../autonomy/workflowRunner.js';
-import { WorkflowRunLog } from '../../autonomy/workflowRunLog.js';
-import type { WorkflowDef } from '../../autonomy/workflowTypes.js';
-import { jsonRpc } from './jsonRpc.js';
-import type { ImageContent, FileAttachment } from '../../ports/model/model.js';
-import { Id } from '../../util/id.js';
-import { AppServerVaultHandlers } from './appServerVaultHandlers.js';
-import type { AppServerOptions } from './appServerState.js';
-import { providerPresets } from '../services/providerPresets.js';
-import { RepoPathGuard } from '../services/repoPathGuard.js';
-import { DiffReview } from '../services/diffReview.js';
-import { DiffCommentStore } from '../services/diffCommentStore.js';
-import { SessionCheckpoints } from '../services/session/sessionCheckpoints.js';
-import { SessionRewindService } from '../services/session/sessionRewindService.js';
-import type { SessionRewindOutcome } from '../services/session/sessionRewindService.js';
+} from '../../ports/memory/longTermMemory.ts';
+import { WorkflowRunner } from '../../autonomy/workflowRunner.ts';
+import { WorkflowRunLog } from '../../autonomy/workflowRunLog.ts';
+import type { WorkflowDef } from '../../autonomy/workflowTypes.ts';
+import { jsonRpc } from './jsonRpc.ts';
+import type { ImageContent, FileAttachment } from '../../ports/model/model.ts';
+import { Id } from '../../util/id.ts';
+import { AppServerVaultHandlers } from './appServerVaultHandlers.ts';
+import type { AppServerOptions } from './appServerState.ts';
+import { providerPresets } from '../services/providerPresets.ts';
+import { RepoPathGuard } from '../services/repoPathGuard.ts';
+import { DiffReview } from '../services/diffReview.ts';
+import { DiffCommentStore } from '../services/diffCommentStore.ts';
+import { SessionCheckpoints } from '../services/session/sessionCheckpoints.ts';
+import { SessionRewindService } from '../services/session/sessionRewindService.ts';
+import type { SessionRewindOutcome } from '../services/session/sessionRewindService.ts';
 
-export type { AppServerOptions } from './appServerState.js';
+export type { AppServerOptions } from './appServerState.ts';
 
 /**
  * app-server：JSON-RPC 原语（threads/turns/items）+ 事件推送 + 审批上行。

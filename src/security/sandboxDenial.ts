@@ -7,8 +7,8 @@
  * 故类实现落在这里，`ports/runtime/sandboxDenial.ts` 只保留 `RuntimeFailure` 契约。
  * 纯领域逻辑、零适配器依赖（仍然可被 core 直接消费）。
  */
-import type { SandboxDenialCategory } from '../ports/runtime/sandbox.js';
-import type { RuntimeFailure } from '../ports/runtime/sandboxDenial.js';
+import type { SandboxDenialCategory } from '../ports/runtime/sandbox.ts';
+import type { RuntimeFailure } from '../ports/runtime/sandboxDenial.ts';
 
 /** OS 沙箱拒绝的典型签名（stderr/信息关键字）。移植自 Codex sandboxing/src/denial.rs 思路。 */
 const SANDBOX_DENIAL_PATTERNS: readonly RegExp[] = [

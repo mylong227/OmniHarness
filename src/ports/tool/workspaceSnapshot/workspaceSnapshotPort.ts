@@ -1,4 +1,4 @@
-import type { FileSnapshot } from './fileSnapshot.js';
+import type { FileSnapshot } from './fileSnapshot.ts';
 
 /** 工作区快照端口。 */
 export interface WorkspaceSnapshotPort {

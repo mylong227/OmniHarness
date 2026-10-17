@@ -34,18 +34,18 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Agent } from '../../src/core/agent.js';
-import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.js';
-import { PrefixStability } from '../../src/context/prefixStability.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import { RecordingModel } from '../helpers/recordingModel.js';
-import type { ModelMessage } from '../../src/ports/model/model.js';
+import { Agent } from '../../src/core/agent.ts';
+import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.ts';
+import { PrefixStability } from '../../src/context/prefixStability.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { RecordingModel } from '../helpers/recordingModel.ts';
+import type { ModelMessage } from '../../src/ports/model/model.ts';
 
 /** repo-map 动态段的头部标记（出现在首条消息即视为"动态段被挪到了前面"）。 */
 const REPO_MAP_HEADER = '# Repo Map';

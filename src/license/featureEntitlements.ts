@@ -19,15 +19,15 @@
  * @maturity L1 — 无授权拒 / 档位不足拒 / 过期降级 / 未知功能拒 / 事件口径 判据钉死
  * @maturityEvidence tests/unit/featureEntitlements.test.ts
  */
-import { LicenseEngine } from './licenseEngine.js';
-import { log } from '../util/logger.js';
-import type { LicenseVerdict } from './licenseEngine.js';
+import { LicenseEngine } from './licenseEngine.ts';
+import { log } from '../util/logger.ts';
+import type { LicenseVerdict } from './licenseEngine.ts';
 import type {
   EntitlementDecision,
   EntitlementDenialCode,
   EntitlementPort,
-} from '../ports/license/entitlement.js';
-import type { LicenseTier } from '../ports/license/licenseTier.js';
+} from '../ports/license/entitlement.ts';
+import type { LicenseTier } from '../ports/license/licenseTier.ts';
 
 /** 观测回调（缺省写共享 logger；判据注入采集器以钉死事件口径）。 */
 export type EntitlementObserver = (event: string, fields: Record<string, unknown>) => void;

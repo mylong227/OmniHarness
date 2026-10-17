@@ -1,4 +1,4 @@
-import type { KvPort } from '../../ports/memory/kv.js';
+import type { KvPort } from '../../ports/memory/kv.ts';
 
 /** 内存 KV 适配器：进程内 Map，不持久化（测试 / 默认）。 */
 export class MemoryKv implements KvPort {

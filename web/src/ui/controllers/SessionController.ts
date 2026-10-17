@@ -2,17 +2,17 @@
 // 承接原 useAppController 中与会话、事件流、工具结果、文件预览、钻取、抽屉相关的回调，
 // 一律经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
-import type { AppHost, AppServices } from './AppController.js';
-import type { ThreadEvent } from '../../types/models.js';
-import type { SessionEntry, ToolItem } from '../shared.js';
-import { TurnStreamBuffer } from '../models/TurnStreamBuffer.js';
-import { SessionsScope } from '../models/SessionsScope.js';
-import { DeferredModes } from '../models/DeferredModes.js';
-import { ViewAttachment } from '../models/ViewAttachment.js';
-import { SessionProjectBinding } from '../models/SessionProjectBinding.js';
-import type { SessionModePatch } from '../models/PendingModes.js';
-import { MethodBinder } from './methodBinder.js';
-import { t } from '../i18n/i18n.js';
+import type { AppHost, AppServices } from './AppController.ts';
+import type { ThreadEvent } from '../../types/models.ts';
+import type { SessionEntry, ToolItem } from '../shared.ts';
+import { TurnStreamBuffer } from '../models/TurnStreamBuffer.ts';
+import { SessionsScope } from '../models/SessionsScope.ts';
+import { DeferredModes } from '../models/DeferredModes.ts';
+import { ViewAttachment } from '../models/ViewAttachment.ts';
+import { SessionProjectBinding } from '../models/SessionProjectBinding.ts';
+import type { SessionModePatch } from '../models/PendingModes.ts';
+import { MethodBinder } from './methodBinder.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
 export class SessionController {

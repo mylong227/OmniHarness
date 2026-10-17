@@ -1,4 +1,4 @@
-import type { DecisionKind } from './decisionKind.js';
+import type { DecisionKind } from './decisionKind.ts';
 
 /** 单题定义（参考 Laya 的 questions 字典项）。 */
 export interface DecisionQuestion {

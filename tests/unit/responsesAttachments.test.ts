@@ -16,8 +16,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.js';
-import type { ModelRequest } from '../../src/ports/model/model.js';
+import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
+import type { ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 最小合法请求（适配器只要求 messages/tools 存在）。 */
 const REQUEST: ModelRequest = { messages: [{ role: 'user', content: 'hi' }], tools: [] };

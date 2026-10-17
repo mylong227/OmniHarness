@@ -19,28 +19,28 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StepToolExecutor } from '../../src/core/stepToolExecutor.js';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import { ContextAssembler } from '../../src/context/contextAssembler.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
-import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
-import type { ModelPort } from '../../src/ports/model/model.js';
+import { StepToolExecutor } from '../../src/core/stepToolExecutor.ts';
+import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
+import { ContextAssembler } from '../../src/context/contextAssembler.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import type { NativeToolRunner } from '../../src/native/nativeBackend.ts';
+import type { ModelPort } from '../../src/ports/model/model.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { ToolHookContext } from '../../src/ports/tool/toolHook.js';
-import { eventFactory } from '../../src/core/eventFactory.js';
+} from '../../src/ports/tool/tool.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { ToolHookContext } from '../../src/ports/tool/toolHook.ts';
+import { eventFactory } from '../../src/core/eventFactory.ts';
 
 /** 记录被真执行的工具调用名的替身端口（可配置某个工具名抛错）。 */
 class RecordingTools implements ToolPort {

@@ -6,15 +6,15 @@ import type {
   ModelToolSpec,
   ModelUsage,
   StreamCallbacks,
-} from '../../ports/model/model.js';
-import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
-import { ModelRequestGuard } from './modelRequestGuard.js';
-import { RequestStallGuard } from './requestStallGuard.js';
-import { ModelHttpErrors } from './modelHttpErrors.js';
-import { sseParser, type SseEvent } from './sseParser.js';
-import { log } from '../../util/logger.js';
-import { ModelResponseFormats } from './modelResponseFormats.js';
-import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
+} from '../../ports/model/model.ts';
+import { PromptCacheUsageReader } from './promptCacheUsageReader.ts';
+import { ModelRequestGuard } from './modelRequestGuard.ts';
+import { RequestStallGuard } from './requestStallGuard.ts';
+import { ModelHttpErrors } from './modelHttpErrors.ts';
+import { sseParser, type SseEvent } from './sseParser.ts';
+import { log } from '../../util/logger.ts';
+import { ModelResponseFormats } from './modelResponseFormats.ts';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
 
 /**
  * @beta

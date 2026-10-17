@@ -10,8 +10,8 @@
  *  - 全程 fail-closed：嵌入失败 → 调用方据此回退 BM25-only，绝不崩主流程。
  */
 
-import type { Embedding, EmbeddingPort } from '../ports/model/embedding.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import type { Embedding, EmbeddingPort } from '../ports/model/embedding.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /** 可嵌入的文档单元（符号或文件）。 */
 export interface RecallItem {

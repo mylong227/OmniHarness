@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Metrics } from '../../src/server/services/metrics.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { Metrics } from '../../src/server/services/metrics.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 构造事件。 */
 function event(type: SessionEvent['type'], sessionId = 's1'): SessionEvent {

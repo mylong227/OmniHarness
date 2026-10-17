@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
 
 /**
  * Linux 内核命名空间隔离后端（`unshare -rm`，A1 的无第三方依赖替代）。

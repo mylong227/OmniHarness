@@ -16,10 +16,10 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
-import { SdkMcpClientAdapter, type SdkMcpClientOptions } from './sdkMcpClientAdapter.js';
-import type { McpConnectionHandle, McpConnectorPort } from '../../ports/mcp/mcpConnectorPort.js';
-import type { McpServerConfig } from '../../ports/mcp/mcpServerConfig.js';
-import { log } from '../../util/logger.js';
+import { SdkMcpClientAdapter, type SdkMcpClientOptions } from './sdkMcpClientAdapter.ts';
+import type { McpConnectionHandle, McpConnectorPort } from '../../ports/mcp/mcpConnectorPort.ts';
+import type { McpServerConfig } from '../../ports/mcp/mcpServerConfig.ts';
+import { log } from '../../util/logger.ts';
 
 /** 连接器选项（客户端元数据）。 */
 export interface SdkMcpConnectorOptions {

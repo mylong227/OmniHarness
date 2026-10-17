@@ -5,17 +5,17 @@
 // 与将来任何宿主复用；会话过滤（filterSessions）也在此，供本地即时过滤与单测共用。
 
 import * as React from 'react';
-import { TreeNode } from './TreeNode.js';
-import { SessionGrouper } from '../models/SessionGrouper.js';
-import { PathJoiner } from '../models/PathJoiner.js';
-import { WorkspacePath } from '../models/WorkspacePath.js';
-import type { FsNode } from '../../types/models.js';
-import type { SessionEntry } from '../shared.js';
-import { emptyState } from '../format.js';
-import { icon } from '../models/Icon.js';
-import { timeAgo } from '../textUtils.js';
-import { SessionRowMeta } from '../models/SessionRowMeta.js';
-import { t } from '../i18n/i18n.js';
+import { TreeNode } from './TreeNode.tsx';
+import { SessionGrouper } from '../models/SessionGrouper.ts';
+import { PathJoiner } from '../models/PathJoiner.ts';
+import { WorkspacePath } from '../models/WorkspacePath.ts';
+import type { FsNode } from '../../types/models.ts';
+import type { SessionEntry } from '../shared.ts';
+import { emptyState } from '../format.ts';
+import { icon } from '../models/Icon.ts';
+import { timeAgo } from '../textUtils.ts';
+import { SessionRowMeta } from '../models/SessionRowMeta.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 每组默认展示条数。 */
 export const PAGE = 10;

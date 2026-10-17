@@ -1,4 +1,4 @@
-import type { ScratchpadNote } from './scratchpadNote.js';
+import type { ScratchpadNote } from './scratchpadNote.ts';
 
 /**
  * Scratchpad 端口（T3.4 · 重置点 + 交接物）。

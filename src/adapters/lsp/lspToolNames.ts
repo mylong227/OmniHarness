@@ -6,7 +6,7 @@
  * 本模块保留原有导出名，既有调用点零改动，但工具标识在全仓只声明一次——
  * 此前策略表（如 plan 模式只读白名单）另写一份 `lsp_*` 字面量，漏改即静默误拦。
  */
-import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../ports/tool/toolNames.ts';
 
 /**
  * @beta

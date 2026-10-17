@@ -1,20 +1,20 @@
-import { FfmpegFrameExtractor } from '../adapters/media/ffmpegFrameExtractor.js';
-import { FfmpegLocator } from '../adapters/media/ffmpegLocator.js';
-import { FfmpegStderrMediaProbe } from '../adapters/media/ffmpegStderrMediaProbe.js';
-import { FfprobeMediaProbe } from '../adapters/media/ffprobeMediaProbe.js';
-import { GifFrameExtractor } from '../adapters/media/gifFrameExtractor.js';
-import { MediaProbeChain } from '../adapters/media/mediaProbeChain.js';
-import { PathBinaryResolver } from '../adapters/media/pathBinaryResolver.js';
-import { RoutingFrameExtractor } from '../adapters/media/routingFrameExtractor.js';
-import { BoundedMediaProcessRunner } from '../adapters/media/boundedMediaProcessRunner.js';
-import { SpawnMediaProcessRunner } from '../adapters/media/spawnMediaProcessRunner.js';
-import { FrameEncoder } from '../media/frameEncoder.js';
-import { MediaConfigResolver } from './mediaConfigResolver.js';
-import type { MediaAnalysisConfig } from './mediaConfigResolver.js';
-import type { MediaStack } from '../ports/media/mediaStack.js';
+import { FfmpegFrameExtractor } from '../adapters/media/ffmpegFrameExtractor.ts';
+import { FfmpegLocator } from '../adapters/media/ffmpegLocator.ts';
+import { FfmpegStderrMediaProbe } from '../adapters/media/ffmpegStderrMediaProbe.ts';
+import { FfprobeMediaProbe } from '../adapters/media/ffprobeMediaProbe.ts';
+import { GifFrameExtractor } from '../adapters/media/gifFrameExtractor.ts';
+import { MediaProbeChain } from '../adapters/media/mediaProbeChain.ts';
+import { PathBinaryResolver } from '../adapters/media/pathBinaryResolver.ts';
+import { RoutingFrameExtractor } from '../adapters/media/routingFrameExtractor.ts';
+import { BoundedMediaProcessRunner } from '../adapters/media/boundedMediaProcessRunner.ts';
+import { SpawnMediaProcessRunner } from '../adapters/media/spawnMediaProcessRunner.ts';
+import { FrameEncoder } from '../media/frameEncoder.ts';
+import { MediaConfigResolver } from './mediaConfigResolver.ts';
+import type { MediaAnalysisConfig } from './mediaConfigResolver.ts';
+import type { MediaStack } from '../ports/media/mediaStack.ts';
 
-export type { MediaStack } from '../ports/media/mediaStack.js';
-import { LimitEnv } from '../util/limitEnv.js';
+export type { MediaStack } from '../ports/media/mediaStack.ts';
+import { LimitEnv } from '../util/limitEnv.ts';
 
 /** 二进制定位验证超时（毫秒）：`-version` 是毫秒级动作，10s 已是极宽松上界。 */
 const VERIFY_TIMEOUT_MS = 10_000;

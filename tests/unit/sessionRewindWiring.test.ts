@@ -10,17 +10,17 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AppServer } from '../../src/server/core/appServer.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { Transport } from '../../src/server/transport/lineTransport.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 回退结果形（与 `threads.rewind` 的 result 一致）。 */
 interface RewindResult {

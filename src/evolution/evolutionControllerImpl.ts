@@ -18,8 +18,8 @@ import type {
   EvolutionControllerOptions,
   EvolutionGate,
   PromotionVerdict,
-} from '../ports/runtime/evolution.js';
-import type { RlvrLoopPort } from '../ports/runtime/evolution/rlvrLoopPort.js';
+} from '../ports/runtime/evolution.ts';
+import type { RlvrLoopPort } from '../ports/runtime/evolution/rlvrLoopPort.ts';
 
 /** RLVR 阶段配置（U4 升格）：每个过门禁的候选再跑一轮 sample-filter-replay。 */
 export interface RlvrStage {

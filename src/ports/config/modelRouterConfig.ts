@@ -1,4 +1,4 @@
-import type { ModelRouterEntryConfig } from './modelRouterEntryConfig.js';
+import type { ModelRouterEntryConfig } from './modelRouterEntryConfig.ts';
 
 /**
  * 模型路由配置（#B4）。

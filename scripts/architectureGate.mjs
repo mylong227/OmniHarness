@@ -50,9 +50,10 @@ for (const f of files) {
   while ((m = re.exec(src))) {
     const spec = m[2];
     if (!spec.startsWith('.')) continue;
+    // 2026-10-17 起源码导入写真实后缀（.ts/.tsx）；模块 key 统一去后缀（.js 兼容旧引用）。
     const to = path.posix
       .normalize(path.posix.join(path.posix.dirname(key(f)), spec))
-      .replace(/\.js$/, '')
+      .replace(/\.(tsx?|js)$/, '')
       .replace(/\/index$/, '');
     edges.push({ from: key(f), to });
   }

@@ -23,8 +23,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
-import { ExperimentalPaths } from '../../src/context/experimentalPaths.js';
-import { ContextEngine } from '../../src/context/contextEngine.js';
+import { ExperimentalPaths } from '../../src/context/experimentalPaths.ts';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
 
 const ROOT = process.cwd();
 

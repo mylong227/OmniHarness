@@ -43,10 +43,10 @@
  * @maturityEvidence tests/unit/repoMapPayload.test.ts
  */
 
-import { RepoMap, type SymbolNode } from './repoMap.js';
-import { Bm25Index } from '../../search/bm25Index.js';
-import { ContentStopWords } from '../contentStopWords.js';
-import type { IndexedCorpus } from '../contextEngine.js';
+import { RepoMap, type SymbolNode } from './repoMap.ts';
+import { Bm25Index } from '../../search/bm25Index.ts';
+import { ContentStopWords } from '../contentStopWords.ts';
+import type { IndexedCorpus } from '../contextEngine.ts';
 
 /** 每档最多给几个「命中符号名」（防止单文件符号过多把尾部档也撑大）。 */
 const NAME_TIER_MAX_SYMBOLS = 3;

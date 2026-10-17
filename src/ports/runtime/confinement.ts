@@ -13,8 +13,8 @@
  * 本文件已退化为桶：5 个接口各自独立成文件于 `./confinement/`，调用点零改动。
  */
 
-export type { Charge } from './confinement/charge.js';
-export type { CapabilityCharge } from './confinement/capabilityCharge.js';
-export type { BoundCapability } from './confinement/boundCapability.js';
-export type { ConfinementVerdict } from './confinement/confinementVerdict.js';
-export type { ConfinementPort } from './confinement/confinementPort.js';
+export type { Charge } from './confinement/charge.ts';
+export type { CapabilityCharge } from './confinement/capabilityCharge.ts';
+export type { BoundCapability } from './confinement/boundCapability.ts';
+export type { ConfinementVerdict } from './confinement/confinementVerdict.ts';
+export type { ConfinementPort } from './confinement/confinementPort.ts';

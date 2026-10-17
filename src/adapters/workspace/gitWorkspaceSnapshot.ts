@@ -5,7 +5,7 @@ import type {
   FileSnapshot,
   FileSnapshotEntry,
   WorkspaceSnapshotPort,
-} from '../../ports/tool/workspaceSnapshot.js';
+} from '../../ports/tool/workspaceSnapshot.ts';
 
 /**
  * 基于 git 工作树差异的工作区快照适配器。

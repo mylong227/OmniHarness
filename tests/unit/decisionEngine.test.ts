@@ -16,12 +16,12 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.js';
+import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.ts';
 import type {
   DecisionEngine,
   DecisionRequest,
   DecisionResponse,
-} from '../../src/ports/decision/decisionEngine.js';
+} from '../../src/ports/decision/decisionEngine.ts';
 
 /** 一定不存在的解释器路径（用于锁 fail-open，不依赖机器是否装有 Python）。 */
 const MISSING_PYTHON = 'this-python-does-not-exist-xyz';

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CliWorker } from '../../src/worker/cliWorker.js';
-import { SimpleWorker } from '../../src/worker/simpleWorker.js';
-import { WorkerRegistry } from '../../src/worker/workerRegistry.js';
-import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.js';
-import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.js';
+import { CliWorker } from '../../src/worker/cliWorker.ts';
+import { SimpleWorker } from '../../src/worker/simpleWorker.ts';
+import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
+import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
+import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.ts';
 
 /** 测试上下文。 */
 const context = { sessionId: 's1', workspaceRoot: process.cwd() };

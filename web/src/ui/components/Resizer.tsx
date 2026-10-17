@@ -5,7 +5,7 @@
 // 既避免每次 props 变化重挂监听，也不受陈旧闭包影响（H5）。
 
 import * as React from 'react';
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /** Resizer 组件的入参。 */
 export interface ResizerProps {

@@ -1,11 +1,11 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
 import type {
   ImageContent,
   FileAttachment,
   ModelMessage,
   ModelToolCallRef,
-} from '../ports/model/model.js';
-import { COMPACTION_MARKER } from './contextCompactor.js';
+} from '../ports/model/model.ts';
+import { COMPACTION_MARKER } from './contextCompactor.ts';
 
 /** 上下文组装器：固定碎片（world_state）+ 事件日志投影 → 模型消息（model-visible means logged）。 */
 export class ContextAssembler {

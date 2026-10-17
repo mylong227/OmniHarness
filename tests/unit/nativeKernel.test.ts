@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NativeKernel, NativeKernelUnavailableError } from '../../src/native/nativeKernel.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
+import { NativeKernel, NativeKernelUnavailableError } from '../../src/native/nativeKernel.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /**
  * #65 FFI 下沉：原生内核（N-API / .node）方法面测试。

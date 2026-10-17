@@ -15,8 +15,8 @@ import type {
   EtchNode,
   EtchConduction,
   EtchBranch,
-} from '../../ports/memory/insightEtching.js';
-import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
+} from '../../ports/memory/insightEtching.ts';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
 
 export interface InsightEtchingOptions {
   /** 共振阈值（conduct 命中下限，默认 0.4）。 */

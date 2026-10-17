@@ -10,8 +10,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { SessionOrder } = await import('../src/ui/models/SessionOrder.js');
-const { SessionGrouper } = await import('../src/ui/models/SessionGrouper.js');
+const { SessionOrder } = await import('../src/ui/models/SessionOrder.ts');
+const { SessionGrouper } = await import('../src/ui/models/SessionGrouper.ts');
 
 /** 造一条会话。 */
 function row(id, updatedAt = '', archived = false) {

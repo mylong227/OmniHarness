@@ -11,8 +11,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { LongContentCollapser } = await import('../src/ui/models/LongContentCollapser.js');
-const { CompactionNote } = await import('../src/ui/models/CompactionNote.js');
+const { LongContentCollapser } = await import('../src/ui/models/LongContentCollapser.ts');
+const { CompactionNote } = await import('../src/ui/models/CompactionNote.ts');
 
 const CHARS = LongContentCollapser.COLLAPSE_CHARS;
 const LINES = LongContentCollapser.COLLAPSE_LINES;

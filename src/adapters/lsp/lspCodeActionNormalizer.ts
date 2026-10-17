@@ -19,8 +19,8 @@
  * 2. **有界**：操作数与每条操作的编辑数都封顶。语言服务器在超大文件上给出的
  *    重构编辑可达数万条，全量渲染会瞬间吃光上下文。
  */
-import type { LspCodeAction, LspRange, LspTextEdit } from '../../ports/tool/lsp.js';
-import { LspUri } from './lspUri.js';
+import type { LspCodeAction, LspRange, LspTextEdit } from '../../ports/tool/lsp.ts';
+import { LspUri } from './lspUri.ts';
 
 /** 最多保留的操作数。 */
 const MAX_ACTIONS = 50;

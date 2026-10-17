@@ -2,9 +2,9 @@ import { strict as assert } from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import type { ApprovalRule } from '../../src/adapters/approval/approvalRule.js';
-import type { FileConfig } from '../../src/config/configFile.js';
-import { PermissionConfigValidator } from '../../src/config/permissionConfigValidator.js';
+import type { ApprovalRule } from '../../src/adapters/approval/approvalRule.ts';
+import type { FileConfig } from '../../src/config/configFile.ts';
+import { PermissionConfigValidator } from '../../src/config/permissionConfigValidator.ts';
 
 /**
  * `src/adapters/approval/approvalRule.ts` 是**纯类型门面**：全文件只有两条 `export type ... from`，
@@ -150,8 +150,9 @@ test('结构：门面只从 ports/approval 转发两条类型，不自建第二�
     .map((line) => line.trim())
     .filter((line) => line.startsWith('export'));
   assert.deepEqual(exportLines, [
-    "export type { ApprovalRuleDecision } from '../../ports/approval/approvalRuleDecision.js';",
-    "export type { ApprovalRule } from '../../ports/approval/approvalRule.js';",
+    // 2026-10-17 起源码相对导入写真实后缀 `.ts`（与前端统一），判据跟新。
+    "export type { ApprovalRuleDecision } from '../../ports/approval/approvalRuleDecision.ts';",
+    "export type { ApprovalRule } from '../../ports/approval/approvalRule.ts';",
   ]);
   // 门面里不得自建 interface / class / 值导出：那会在适配器层长出第二份契约定义（双真源）。
   assert.doesNotMatch(source, /^(export )?(interface|class|const|function|enum)\s/m);

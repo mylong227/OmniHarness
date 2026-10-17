@@ -9,7 +9,7 @@
 // 解耦方式与 ToastService 一致：服务只做「请求 → 订阅槽」，由 App 绑定到 React 状态后
 // 交给 DialogHost 渲染，组件无需把对话框塞进自己的子树。
 
-import { t } from '../ui/i18n/i18n.js';
+import { t } from '../ui/i18n/i18n.ts';
 
 /** 对话框种类。 */
 export type DialogKind = 'confirm' | 'prompt';

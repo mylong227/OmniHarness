@@ -10,9 +10,9 @@ import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
-const { CheckpointTimeline } = await import('../src/ui/models/CheckpointTimeline.js');
-const { TimestampFormatter } = await import('../src/ui/models/checkpoint.js');
-const { RollbackTab } = await import('../src/ui/components/tabs/RollbackTab.js');
+const { CheckpointTimeline } = await import('../src/ui/models/CheckpointTimeline.ts');
+const { TimestampFormatter } = await import('../src/ui/models/checkpoint.ts');
+const { RollbackTab } = await import('../src/ui/components/tabs/RollbackTab.tsx');
 
 /** 本地时间构造（dayKey 用本地日期，用 UTC 串会把测试绑死在某个时区）。 */
 function at(y, m, d, hh = 0, mm = 0) {

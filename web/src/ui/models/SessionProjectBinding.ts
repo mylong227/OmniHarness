@@ -8,10 +8,10 @@
 //
 // 抽成独立类而不是留在控制器里：`SessionController` 已被编码标准门禁盯着（方法数/行数上限），
 // 且这条策略本身是可独立单测的（依赖只有"取会话列表 + 切项目 + 提示"三件事）。
-import type { ApiClient } from '../../core/ApiClient.js';
-import type { AppHost } from '../controllers/AppController.js';
-import { WorkspacePath } from './WorkspacePath.js';
-import { t } from '../i18n/i18n.js';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import type { AppHost } from '../controllers/AppController.ts';
+import { WorkspacePath } from './WorkspacePath.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 对齐所需的最小依赖（全部为取值器/回调，便于测试注入）。 */
 export interface SessionProjectBindingDeps {

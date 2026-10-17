@@ -1,15 +1,15 @@
-import { HttpBridgeTransport } from './httpBridgeTransport.js';
+import { HttpBridgeTransport } from './httpBridgeTransport.ts';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
-import type { AppServer } from '../core/appServer.js';
-import { type RpcRequest } from '../core/jsonRpc.js';
-import { WsServer } from './wsConnection.js';
-import { ServerAuthGuard } from './serverAuthGuard.js';
-import type { Metrics } from '../services/metrics.js';
-import { log, Logger } from '../../util/logger.js';
-import { SafeFs } from '../services/safeFs.js';
+import type { AppServer } from '../core/appServer.ts';
+import { type RpcRequest } from '../core/jsonRpc.ts';
+import { WsServer } from './wsConnection.ts';
+import { ServerAuthGuard } from './serverAuthGuard.ts';
+import type { Metrics } from '../services/metrics.ts';
+import { log, Logger } from '../../util/logger.ts';
+import { SafeFs } from '../services/safeFs.ts';
 
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
 

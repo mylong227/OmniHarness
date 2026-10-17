@@ -6,6 +6,6 @@
  * （见 `ARCHITECTURE_SPEC.md` §2）⇒ 只有端口层能被所有消费方合法引用。
  */
 
-export { MODEL_ADAPTER_IDS } from './modelAdapterId/modelAdapterIds.js';
-export type { ModelAdapterId } from './modelAdapterId/modelAdapterId.js';
-export type { ProviderAdapterId } from './modelAdapterId/providerAdapterId.js';
+export { MODEL_ADAPTER_IDS } from './modelAdapterId/modelAdapterIds.ts';
+export type { ModelAdapterId } from './modelAdapterId/modelAdapterId.ts';
+export type { ProviderAdapterId } from './modelAdapterId/providerAdapterId.ts';

@@ -17,9 +17,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { RlvrLoop } from '../../src/evolution/rlvrLoop.js';
-import { InMemoryReplayBuffer } from '../../src/evolution/inMemoryReplayBuffer.js';
-import type { CodeCandidate, RlvrSampleContext } from '../../src/evolution/rlvrLoop.js';
+import { RlvrLoop } from '../../src/evolution/rlvrLoop.ts';
+import { InMemoryReplayBuffer } from '../../src/evolution/inMemoryReplayBuffer.ts';
+import type { CodeCandidate, RlvrSampleContext } from '../../src/evolution/rlvrLoop.ts';
 
 test('E3+ 口径①：无回填 ⇒ 采样 prompt 与原 prompt 逐字节相同（不得留空段）', () => {
   const prompt = '实现一个失败重试装饰器';

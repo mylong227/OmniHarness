@@ -1,7 +1,7 @@
 import { join, relative } from 'node:path';
-import { Bm25Index } from '../search/bm25Index.js';
-import type { IndexedCorpus } from './contextEngine.js';
-import type { LspLocation, LspPort } from '../ports/tool/lsp.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import type { IndexedCorpus } from './contextEngine.ts';
+import type { LspLocation, LspPort } from '../ports/tool/lsp.ts';
 
 /** LSP 候选源产出的命中 id（与 {@link HybridRanker} 的输入同口径）。 */
 export interface LspCandidateIds {

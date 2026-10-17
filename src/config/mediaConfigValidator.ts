@@ -24,7 +24,7 @@
  * 本模块因此无需 import `configError.ts` 的值，从根上避免 `configError ↔ 本模块` 的循环依赖。
  */
 
-import type { FileConfig } from './configFile.js';
+import type { FileConfig } from './configFile.ts';
 
 /** `media` 段允许的 key 全集（新增配置项必须同时加到 `MediaAnalysisConfig` 与本表）。 */
 const MEDIA_KEYS: ReadonlySet<string> = new Set([

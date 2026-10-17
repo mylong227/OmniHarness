@@ -1,4 +1,4 @@
-import type { PermissionRuleDecision } from './permissionRuleDecision.js';
+import type { PermissionRuleDecision } from './permissionRuleDecision.ts';
 
 /**
  * 单条权限规则（配置文件形态）：工具级 + 命令级（前缀或 glob）约束。

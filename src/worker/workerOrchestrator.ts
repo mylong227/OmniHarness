@@ -1,6 +1,6 @@
-import { ParallelMap } from '../util/concurrency/parallelMap.js';
-import type { WorkerRegistryPort } from '../ports/worker/workerRegistryPort.js';
-import type { WorkerResult } from './worker.js';
+import { ParallelMap } from '../util/concurrency/parallelMap.ts';
+import type { WorkerRegistryPort } from '../ports/worker/workerRegistryPort.ts';
+import type { WorkerResult } from './worker.ts';
 
 /**
  * @beta

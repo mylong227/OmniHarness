@@ -1,8 +1,8 @@
-import { PluginLoader } from '../../plugin/pluginLoader.js';
-import { PluginProfileStore, type PluginProfile } from '../../plugin/pluginProfileStore.js';
-import { PluginBundler } from '../../plugin/pluginBundler.js';
-import { jsonRpc } from './jsonRpc.js';
-import { AppServerBase } from './appServerBase.js';
+import { PluginLoader } from '../../plugin/pluginLoader.ts';
+import { PluginProfileStore, type PluginProfile } from '../../plugin/pluginProfileStore.ts';
+import { PluginBundler } from '../../plugin/pluginBundler.ts';
+import { jsonRpc } from './jsonRpc.ts';
+import { AppServerBase } from './appServerBase.ts';
 
 /**
  * AppServer 后半段处理器：插件集 Profile / Bundle 发布单元 / 插件市场。

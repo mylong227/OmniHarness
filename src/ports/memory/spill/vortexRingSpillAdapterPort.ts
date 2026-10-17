@@ -1,4 +1,4 @@
-import type { SpillPort } from './spillPort.js';
+import type { SpillPort } from './spillPort.ts';
 
 /**
  * @beta

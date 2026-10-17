@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CliBuildConfig } from '../../src/cli/cliBuildConfig.js';
-import type { CredentialHydrationArgs } from '../../src/cli/cliBuildConfig.js';
-import { CryptoVault } from '../../src/adapters/vault/cryptoVault.js';
-import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.js';
+import { CliBuildConfig } from '../../src/cli/cliBuildConfig.ts';
+import type { CredentialHydrationArgs } from '../../src/cli/cliBuildConfig.ts';
+import { CryptoVault } from '../../src/adapters/vault/cryptoVault.ts';
+import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.ts';
 
 /** 暴露受保护装配钩子的测试子类（只做可见性提升，不改变任何行为）。 */
 class ProbeBuildConfig extends CliBuildConfig {

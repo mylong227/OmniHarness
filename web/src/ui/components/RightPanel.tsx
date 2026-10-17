@@ -8,10 +8,10 @@
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
 import * as React from 'react';
-import { PanelPicker } from './PanelPicker.js';
-import { panelOf } from '../models/PanelRegistry.js';
-import type { FileView } from '../shared.js';
-import { t } from '../i18n/i18n.js';
+import { PanelPicker } from './PanelPicker.tsx';
+import { panelOf } from '../models/PanelRegistry.ts';
+import type { FileView } from '../shared.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 右栏面板内容容器 id（标签的 aria-controls 指向它）。 */
 const PANE_ID = 'right-pane';

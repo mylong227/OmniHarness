@@ -42,9 +42,9 @@ import {
   type BoostDiffEntry,
   type BoostProbeRecord,
   type BoostProbeRun,
-} from './boostProbes.js';
-import { BoostGateSurface } from './boostGateSurface.js';
-import { BoostSurfaceAudit, SURFACE_SNAPSHOT_REL } from './boostSurfaceAudit.js';
+} from './boostProbes.ts';
+import { BoostGateSurface } from './boostGateSurface.ts';
+import { BoostSurfaceAudit, SURFACE_SNAPSHOT_REL } from './boostSurfaceAudit.ts';
 
 /** 归档根（仓库内、运行时产物；与 `.omniharness/` 同类，不入库）。 */
 const DEFAULT_OUT_DIR = join('.omniharness', 'boost');

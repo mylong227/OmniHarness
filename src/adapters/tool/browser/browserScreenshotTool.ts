@@ -19,7 +19,7 @@
  * 本工具**写文件**（PNG 落盘），故归 `file_write`：进 `MUTATING_TOOLS`、
  * **不**进 `planApproval` 只读白名单——plan 模式下应当被拦，这与其他写类工具一致。
  */
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import type {
@@ -27,17 +27,17 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { FileAttachment } from '../../../ports/model/model.js';
-import type { ScreenshotRequest, ScreenshotResult } from '../../browser/browserSession.js';
-import { BrowserSession } from '../../browser/browserSession.js';
-import { BrowserAvailability } from '../../browser/browserAvailability.js';
+} from '../../../ports/tool/tool.ts';
+import type { FileAttachment } from '../../../ports/model/model.ts';
+import type { ScreenshotRequest, ScreenshotResult } from '../../browser/browserSession.ts';
+import { BrowserSession } from '../../browser/browserSession.ts';
+import { BrowserAvailability } from '../../browser/browserAvailability.ts';
 import type {
   BrowserAvailabilityInput,
   BrowserAvailabilityReport,
-} from '../../browser/browserAvailability.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
+} from '../../browser/browserAvailability.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
 
 /** 会话接缝：只暴露本工具要用的两个方法，便于测试注入假实现（不真起浏览器）。 */
 export interface ScreenshotSession {

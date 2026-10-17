@@ -1,16 +1,16 @@
-import type { ToolDefinition } from '../../ports/tool/tool.js';
-import { AppServerHandlers } from './appServerHandlers.js';
-import type { AppServerOptions } from './appServerState.js';
-import { ApprovalTierCatalog } from '../services/approvalTierCatalog.js';
-import { AgentCatalogService } from '../services/agentCatalogService.js';
-import { ContextUsageService } from '../services/contextUsageService.js';
-import { SessionWorkspaceAssigner } from '../services/session/sessionWorkspaceAssigner.js';
-import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
-import { QuotaService } from '../services/quotaService.js';
-import { QuotaStore } from '../services/quotaStore.js';
-import { SessionModeStore } from '../services/session/sessionModeStore.js';
-import { TurnDirectiveComposer } from '../services/turnDirectiveComposer.js';
-import { WorkspaceSearchService } from '../services/workspaceSearchService.js';
+import type { ToolDefinition } from '../../ports/tool/tool.ts';
+import { AppServerHandlers } from './appServerHandlers.ts';
+import type { AppServerOptions } from './appServerState.ts';
+import { ApprovalTierCatalog } from '../services/approvalTierCatalog.ts';
+import { AgentCatalogService } from '../services/agentCatalogService.ts';
+import { ContextUsageService } from '../services/contextUsageService.ts';
+import { SessionWorkspaceAssigner } from '../services/session/sessionWorkspaceAssigner.ts';
+import { ContextWindowCatalog } from '../../context/contextWindowCatalog.ts';
+import { QuotaService } from '../services/quotaService.ts';
+import { QuotaStore } from '../services/quotaStore.ts';
+import { SessionModeStore } from '../services/session/sessionModeStore.ts';
+import { TurnDirectiveComposer } from '../services/turnDirectiveComposer.ts';
+import { WorkspaceSearchService } from '../services/workspaceSearchService.ts';
 
 /**
  * AppServer 的「工作台界面能力」处理器：为 UI 的上下文容量面板、添加菜单与权限面板提供 RPC。

@@ -1,8 +1,8 @@
-import type { DiscoveryEngine } from './discoveryEngine.js';
-import type { EvolutionGate } from './evolutionGate.js';
-import type { Candidate } from './candidate.js';
-import type { AuditSinkLike } from '../supervisor.js';
-import type { RlvrLoopPort } from './rlvrLoopPort.js';
+import type { DiscoveryEngine } from './discoveryEngine.ts';
+import type { EvolutionGate } from './evolutionGate.ts';
+import type { Candidate } from './candidate.ts';
+import type { AuditSinkLike } from '../supervisor.ts';
+import type { RlvrLoopPort } from './rlvrLoopPort.ts';
 
 /** 进化控制器选项。 */
 export interface EvolutionControllerOptions {

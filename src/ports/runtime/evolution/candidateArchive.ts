@@ -1,4 +1,4 @@
-import type { Candidate } from './candidate.js';
+import type { Candidate } from './candidate.ts';
 
 /**
  * 档案条目：入档候选 + 其工况桶 + 冻结状态。

@@ -1,4 +1,4 @@
-import type { GifColorTableRef, GifDisposalMethod, GifImageSpec } from './gifTypes.js';
+import type { GifColorTableRef, GifDisposalMethod, GifImageSpec } from './gifTypes.ts';
 
 /** 隔行的 4 遍行序（起始行 + 步长）——GIF 规范 附录 的固定顺序。 */
 const INTERLACE_PASSES: readonly { readonly start: number; readonly step: number }[] = [

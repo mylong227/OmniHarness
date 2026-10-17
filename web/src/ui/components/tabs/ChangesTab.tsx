@@ -9,22 +9,22 @@
 // 选中序号的**权威副本**在 models/ReviewCursor（state 仅作渲染镜像，理由见该文件）。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { statusBadge } from '../../textUtils.js';
-import { icon } from '../../models/Icon.js';
-import { emptyNote, emptyState } from '../../format.js';
-import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.js';
-import { ReviewCursor } from '../../models/ReviewCursor.js';
-import { ReviewKeyboard } from '../../models/ReviewKeyboard.js';
-import type { ReviewKeyLike } from '../../models/ReviewKeyboard.js';
+import { useApp } from '../../context.ts';
+import { statusBadge } from '../../textUtils.ts';
+import { icon } from '../../models/Icon.ts';
+import { emptyNote, emptyState } from '../../format.ts';
+import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.ts';
+import { ReviewCursor } from '../../models/ReviewCursor.ts';
+import { ReviewKeyboard } from '../../models/ReviewKeyboard.ts';
+import type { ReviewKeyLike } from '../../models/ReviewKeyboard.ts';
 import {
   renderChangesPatch,
   firstAnchorOfHunk,
   type ChangeFile,
   type CommentAnchor,
   type DiffComment,
-} from './ChangesPatchView.js';
-import { t } from '../../i18n/i18n.js';
+} from './ChangesPatchView.tsx';
+import { t } from '../../i18n/i18n.ts';
 
 /** 变更清单响应。 */
 interface ChangesData {

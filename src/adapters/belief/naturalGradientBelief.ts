@@ -6,9 +6,9 @@ import type {
   MetacognitionPort,
   BeliefSnapshot,
   BeliefUpdateReport,
-} from '../../ports/intelligence/metacognition.js';
-import { BeliefMath } from '../../util/beliefMath.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+} from '../../ports/intelligence/metacognition.ts';
+import { BeliefMath } from '../../util/beliefMath.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /** 自然梯度信念选项（fail-closed 边界夹紧）。 */
 export interface NaturalGradientOptions {

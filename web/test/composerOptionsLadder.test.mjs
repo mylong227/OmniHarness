@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { ComposerOptions } from '../src/ui/models/ComposerOptions.js';
+import { ComposerOptions } from '../src/ui/models/ComposerOptions.ts';
 
 test('ladder：厂商下发的顺序即强度序（不得被内置表重排）', () => {
   // deepseek 风格：none → max，且不含 minimal/xhigh。

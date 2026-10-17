@@ -1,8 +1,8 @@
-import type { MediaProbePort } from '../../ports/media/mediaProbe.js';
-import type { MediaProbeInfo } from '../../ports/media/mediaTypes.js';
-import { FfprobeJsonParser } from '../../media/ffprobeJsonParser.js';
-import type { FfmpegLocator } from './ffmpegLocator.js';
-import type { MediaProcessRunner } from './mediaProcessRunner.js';
+import type { MediaProbePort } from '../../ports/media/mediaProbe.ts';
+import type { MediaProbeInfo } from '../../ports/media/mediaTypes.ts';
+import { FfprobeJsonParser } from '../../media/ffprobeJsonParser.ts';
+import type { FfmpegLocator } from './ffmpegLocator.ts';
+import type { MediaProcessRunner } from './mediaProcessRunner.ts';
 
 /** 探测超时（毫秒）：探测必须远快于抽帧，久等即视为不可用。 */
 const PROBE_TIMEOUT_MS = 20_000;

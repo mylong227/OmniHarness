@@ -15,9 +15,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.js';
-import { PrefixStability } from '../../src/context/prefixStability.js';
-import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.js';
+import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
+import { PrefixStability } from '../../src/context/prefixStability.ts';
+import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 固定系统片段（短：模拟 `world_state`）。 */
 const FIXED = '你是 OmniHarness 的 AI 助手，运行在用户工作区中。直接、高效地完成用户任务。';

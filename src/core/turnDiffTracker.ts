@@ -1,5 +1,5 @@
-import { UnifiedDiff } from '../util/unifiedDiff.js';
-import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.js';
+import { UnifiedDiff } from '../util/unifiedDiff.ts';
+import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.ts';
 
 /**
  * 回合级变更追踪（对标 codex `turn_diff_tracker.rs`）。

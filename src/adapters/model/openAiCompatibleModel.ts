@@ -7,21 +7,21 @@ import type {
   ModelToolSpec,
   ModelUsage,
   StreamCallbacks,
-} from '../../ports/model/model.js';
-import { ModelCallError } from '../../ports/model/model.js';
-import { PromptCacheUsageReader } from './promptCacheUsageReader.js';
-import { ModelHttpErrors } from './modelHttpErrors.js';
-import { sseParser } from './sseParser.js';
-import { RequestStallGuard } from './requestStallGuard.js';
+} from '../../ports/model/model.ts';
+import { ModelCallError } from '../../ports/model/model.ts';
+import { PromptCacheUsageReader } from './promptCacheUsageReader.ts';
+import { ModelHttpErrors } from './modelHttpErrors.ts';
+import { sseParser } from './sseParser.ts';
+import { RequestStallGuard } from './requestStallGuard.ts';
 import {
   DEFAULT_REQUEST_TIMEOUT_MS,
   REQUEST_TIMEOUT_ENV_KEY,
   ModelRequestGuard,
-} from './modelRequestGuard.js';
-import { log } from '../../util/logger.js';
-import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.js';
-import { ModelResponseFormats } from './modelResponseFormats.js';
-import { ModelReasoningEfforts } from './modelReasoningEfforts.js';
+} from './modelRequestGuard.ts';
+import { log } from '../../util/logger.ts';
+import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.ts';
+import { ModelResponseFormats } from './modelResponseFormats.ts';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
 
 // 空闲超时的库级默认与覆盖环境变量**单一来源**在 `modelRequestGuard`（四个适配器共用）：
 // 这里只做再导出，保持既有公开 API 不变（测试与下游按此名引用）。

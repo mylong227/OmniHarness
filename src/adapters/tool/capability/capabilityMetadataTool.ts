@@ -19,15 +19,15 @@
  * @maturity L1 — 只读分类 / 与 CLI 同源 / 未启用如实拒 / 未注册类型如实拒 判据钉死
  * @maturityEvidence tests/unit/capabilityMetadataLoopback.test.ts
  */
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
-import type { CapabilityStack } from '../../../ports/config/capabilityStack.js';
-import type { RegistryMetadata } from '../../../ports/asset.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
+import type { CapabilityStack } from '../../../ports/config/capabilityStack.ts';
+import type { RegistryMetadata } from '../../../ports/asset.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
+} from '../../../ports/tool/tool.ts';
 
 /**
  * 取资产协议切片（由组合根注入：`ConfigFactory` 在装配工具集时把已装配的切片交给它）。

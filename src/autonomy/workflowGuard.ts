@@ -1,8 +1,8 @@
-﻿import { WorkflowSpecError } from './workflowSpecError.js';
-import { WorkflowStepStatuses } from './workflowStepStatuses.js';
-import type { WorkflowStepGuard } from '../ports/autonomy/workflowStepGuard.js';
-import type { WorkflowStep } from '../ports/autonomy/workflowStep.js';
-import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.js';
+﻿import { WorkflowSpecError } from './workflowSpecError.ts';
+import { WorkflowStepStatuses } from './workflowStepStatuses.ts';
+import type { WorkflowStepGuard } from '../ports/autonomy/workflowStepGuard.ts';
+import type { WorkflowStep } from '../ports/autonomy/workflowStep.ts';
+import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 
 /** 条件裁决结果。 */
 export interface WorkflowGuardVerdict {

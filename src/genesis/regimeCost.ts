@@ -17,11 +17,11 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
-import { type Cost, Algebra, emptyCost } from './algebra.js';
-import { type ModalityKind } from './modalityPort.js';
-import { type OperatorFn, type OperatorResult, Operator } from './operator.js';
+import { type Cost, Algebra, emptyCost } from './algebra.ts';
+import { type ModalityKind } from './modalityPort.ts';
+import { type OperatorFn, type OperatorResult, Operator } from './operator.ts';
 
-import { Mathutil } from './mathutil.js';
+import { Mathutil } from './mathutil.ts';
 
 /**
  * RegimeCost 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

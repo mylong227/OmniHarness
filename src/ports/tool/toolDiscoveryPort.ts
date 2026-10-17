@@ -1,4 +1,4 @@
-import type { ToolDefinition } from './tool.js';
+import type { ToolDefinition } from './tool.ts';
 
 /**
  * 工具发现寄存器端口（G25 收尾，2026-10-04 第三十轮）。

@@ -7,9 +7,9 @@
  * 仅当 `config.decisionEngine.mode !== 'off'` 时构造 `LayaDecisionEngine`；`off` / 缺省
  * 返回 `undefined`（不装配，零行为——与 `selfVerify` 同模式）。
  */
-import type { DecisionEngine } from '../ports/decision/decisionEngine.js';
-import { LayaDecisionEngine } from '../adapters/laya/layaDecisionEngine.js';
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import type { DecisionEngine } from '../ports/decision/decisionEngine.ts';
+import { LayaDecisionEngine } from '../adapters/laya/layaDecisionEngine.ts';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
 
 /**
  * 决策引擎解析器：组合根里「配置 → 决策引擎适配器」的唯一构造点。

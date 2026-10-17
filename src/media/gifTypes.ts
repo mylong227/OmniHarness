@@ -14,7 +14,7 @@
  * - `2` 还原为背景（本实现＝清空为透明）
  * - `3` 还原为上一帧绘制前的状态
  */
-import type { GifDecodedFrame } from '../ports/media/gifDecodedFrame.js';
+import type { GifDecodedFrame } from '../ports/media/gifDecodedFrame.ts';
 
 export type GifDisposalMethod = 0 | 1 | 2 | 3;
 
@@ -61,11 +61,11 @@ export interface GifColorTableRef {
   writeRgba(target: Uint8Array, offset: number, index: number): void;
 }
 
-export type { GifDecodedFrame } from '../ports/media/gifDecodedFrame.js';
+export type { GifDecodedFrame } from '../ports/media/gifDecodedFrame.ts';
 
-export type { GifFrameTiming } from '../ports/media/gifFrameTiming.js';
+export type { GifFrameTiming } from '../ports/media/gifFrameTiming.ts';
 
-export type { GifAnimation } from '../ports/media/gifAnimation.js';
+export type { GifAnimation } from '../ports/media/gifAnimation.ts';
 
 /** LZW 解码结果。 */
 export interface GifLzwResult {

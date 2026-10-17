@@ -9,7 +9,7 @@
 //
 // 零 React 依赖（只导出纯数据），可直接在 node 下单测；图标名来自 `models/Icon.ts` 的 `IconName`。
 
-import type { IconName } from './Icon.js';
+import type { IconName } from './Icon.ts';
 
 /** 右栏面板条目。 */
 export interface PanelEntry {

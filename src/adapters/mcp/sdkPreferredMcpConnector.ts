@@ -12,10 +12,10 @@
  * 回退不是 forever：手写 `src/mcp/*` 按 allowlist exitPlan 保留为资产，
  * SDK 停更时组合根切回 `connector: mcpConnector` 即回到历史行为。
  */
-import { SdkMcpConnector } from './sdkMcpConnector.js';
-import { mcpConnector } from '../../mcp/mcpConnector.js';
-import type { McpConnectionHandle, McpConnectorPort } from '../../ports/mcp/mcpConnectorPort.js';
-import type { McpServerConfig } from '../../ports/mcp/mcpServerConfig.js';
+import { SdkMcpConnector } from './sdkMcpConnector.ts';
+import { mcpConnector } from '../../mcp/mcpConnector.ts';
+import type { McpConnectionHandle, McpConnectorPort } from '../../ports/mcp/mcpConnectorPort.ts';
+import type { McpServerConfig } from '../../ports/mcp/mcpServerConfig.ts';
 
 /** 依赖注入（可测试性：单测注入假连接器验证三条路径）。 */
 export interface SdkPreferredMcpConnectorDeps {

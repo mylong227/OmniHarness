@@ -13,9 +13,9 @@
  *    （与 StepRunner 既有行为对齐）。
  */
 
-import type { ToolCall, ToolResult } from '../../ports/tool/tool.js';
-import { ArrayAt } from '../../util/arrayAt.js';
-import { MUTATING_TOOLS } from '../toolGate.js';
+import type { ToolCall, ToolResult } from '../../ports/tool/tool.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
+import { MUTATING_TOOLS } from '../toolGate.ts';
 
 /** 工具调用执行器（StepRunner.runToolCall 的抽象，保持签名稳定）。 */
 export type ToolExecutor = (call: ToolCall) => Promise<ToolResult>;

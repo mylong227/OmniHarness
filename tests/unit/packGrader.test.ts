@@ -16,9 +16,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { PackGrader } from '../../src/plugin/packGrader.js';
-import { PackStaticScanner } from '../../src/plugin/packStaticScanner.js';
-import type { PackCapability } from '../../src/plugin/packStaticScanner.js';
+import { PackGrader } from '../../src/plugin/packGrader.ts';
+import { PackStaticScanner } from '../../src/plugin/packStaticScanner.ts';
+import type { PackCapability } from '../../src/plugin/packStaticScanner.ts';
 
 /**
  * 造包内文件表。

@@ -5,7 +5,7 @@ import {
   DEFAULT_EMBEDDING_PRESET,
   MODEL_PRESETS,
   TransformersEmbeddingAdapter,
-} from '../../src/adapters/embedding/transformersEmbeddingAdapter.js';
+} from '../../src/adapters/embedding/transformersEmbeddingAdapter.ts';
 
 test('预设表含 minilm、三个 e5 变体与 gte-large，且 e5 带前缀模式', () => {
   const presets = TransformersEmbeddingAdapter.listModelPresets();

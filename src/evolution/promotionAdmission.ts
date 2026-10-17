@@ -18,12 +18,12 @@
  * 候选改写成晋升（门禁/RLVR 的安全语义不可被准入层绕过）。
  */
 
-import type { Candidate, PromotionVerdict } from '../ports/runtime/evolution.js';
-import type { Skill } from '../skill/skill.js';
-import { AnnealedAcceptance } from './annealedAcceptance.js';
-import { DiversityGuard } from './diversityGuard.js';
-import { FailurePatternMiner } from './failurePatternMiner.js';
-import type { FailureRecord, ImprovementProposal } from './failurePatternMiner.js';
+import type { Candidate, PromotionVerdict } from '../ports/runtime/evolution.ts';
+import type { Skill } from '../skill/skill.ts';
+import { AnnealedAcceptance } from './annealedAcceptance.ts';
+import { DiversityGuard } from './diversityGuard.ts';
+import { FailurePatternMiner } from './failurePatternMiner.ts';
+import type { FailureRecord, ImprovementProposal } from './failurePatternMiner.ts';
 
 /** 准入层剔除记录（审计用：哪一级闸、依据是什么）。 */
 export interface AdmissionRejection {

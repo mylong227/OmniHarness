@@ -1,5 +1,5 @@
-import type { PlanDraft } from './planDraft.js';
-import type { PlanStatus } from './planStatus.js';
+import type { PlanDraft } from './planDraft.ts';
+import type { PlanStatus } from './planStatus.ts';
 
 /**
  * @beta

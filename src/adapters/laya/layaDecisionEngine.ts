@@ -25,26 +25,26 @@
  *   热路径单次约 0.4s（noul/choice/score 三原语均有真实数值，见看板「Laya 接线修复」一节）。
  * @maturityEvidence tests/unit/decisionEngine.test.ts, tests/unit/layaWiring.test.ts, tests/unit/layaWarmWorker.test.ts, tests/unit/layaPaths.test.ts, tests/unit/selfVerifyVerdictProbe.test.ts, tests/integration/layaBackend.test.ts
  */
-import { log } from '../../util/logger.js';
+import { log } from '../../util/logger.ts';
 import type {
   DecisionEngine,
   DecisionRequest,
   DecisionResponse,
-} from '../../ports/decision/decisionEngine.js';
+} from '../../ports/decision/decisionEngine.ts';
 import {
   LayaEngineConfig,
   type LayaDecisionEngineOptions,
   type LayaEngineResolution,
-} from './layaEngineConfig.js';
+} from './layaEngineConfig.ts';
 import {
   LayaQuestionTranslator,
   type LayaBridgeResponse,
   type LayaWireQuestion,
-} from './layaQuestionTranslator.js';
-import { LayaOneShotBridge } from './layaOneShotBridge.js';
-import { LayaWarmWorker } from './layaWarmWorker.js';
+} from './layaQuestionTranslator.ts';
+import { LayaOneShotBridge } from './layaOneShotBridge.ts';
+import { LayaWarmWorker } from './layaWarmWorker.ts';
 
-export type { LayaDecisionEngineOptions, LayaEngineResolution } from './layaEngineConfig.js';
+export type { LayaDecisionEngineOptions, LayaEngineResolution } from './layaEngineConfig.ts';
 
 /**
  * Laya 决策引擎：本地 Python `laya` 包桥的编排者（热进程优先、单发回退、全程 fail-open）。

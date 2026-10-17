@@ -3,11 +3,11 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import type { VaultPort } from '../../src/ports/memory/vault.js';
-import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.js';
-import { MemoryKv } from '../../src/adapters/kv/memoryKv.js';
-import { CryptoVault } from '../../src/adapters/vault/cryptoVault.js';
-import { EnvVault } from '../../src/adapters/vault/envVault.js';
+import type { VaultPort } from '../../src/ports/memory/vault.ts';
+import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.ts';
+import { MemoryKv } from '../../src/adapters/kv/memoryKv.ts';
+import { CryptoVault } from '../../src/adapters/vault/cryptoVault.ts';
+import { EnvVault } from '../../src/adapters/vault/envVault.ts';
 
 /** 全后端通用的 Vault 契约测试。 */
 async function runVaultContract(vault: VaultPort): Promise<void> {

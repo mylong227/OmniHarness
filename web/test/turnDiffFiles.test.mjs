@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { parseTurnDiffFiles, turnDiffTotals } = await import('../src/ui/models/TurnDiffFiles.js');
+const { parseTurnDiffFiles, turnDiffTotals } = await import('../src/ui/models/TurnDiffFiles.ts');
 
 /** 双文件样例：一个改写、一个新建（新建文件 before 为空 ⇒ 全为 + 行）。 */
 const TWO_FILES = [

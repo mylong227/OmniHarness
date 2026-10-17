@@ -8,6 +8,6 @@
  * instructions 的本征谱比对，取共振最强者（精确名优先于语义匹配）。
  */
 
-export type { CrisprEditSpec } from './skillEdit/crisprEditSpec.js';
-export type { CrisprEditReport } from './skillEdit/crisprEditReport.js';
-export type { CRISPRSkillEditorPort } from './skillEdit/crisprSkillEditorPort.js';
+export type { CrisprEditSpec } from './skillEdit/crisprEditSpec.ts';
+export type { CrisprEditReport } from './skillEdit/crisprEditReport.ts';
+export type { CRISPRSkillEditorPort } from './skillEdit/crisprSkillEditorPort.ts';

@@ -22,8 +22,8 @@ import type {
   LspSymbol,
   LspSymbolKind,
   LspWorkspaceSymbol,
-} from '../../ports/tool/lsp.js';
-import { LspUri } from './lspUri.js';
+} from '../../ports/tool/lsp.ts';
+import { LspUri } from './lspUri.ts';
 
 /** LSP `SymbolKind` 数值 → 人类可读名（未收录的数值回落 `symbol#<n>`）。 */
 const SYMBOL_KIND_NAMES: Readonly<Record<number, LspSymbolKind>> = {

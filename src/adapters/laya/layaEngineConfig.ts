@@ -13,7 +13,7 @@
  */
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LayaPaths } from './layaPaths.js';
+import { LayaPaths } from './layaPaths.ts';
 
 /** Laya 适配器配置（全部可选；缺省即「零配置可用」）。 */
 export interface LayaDecisionEngineOptions {

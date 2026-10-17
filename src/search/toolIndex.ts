@@ -1,5 +1,5 @@
-import type { ToolDefinition } from '../ports/tool/tool.js';
-import { Bm25Index } from './bm25Index.js';
+import type { ToolDefinition } from '../ports/tool/tool.ts';
+import { Bm25Index } from './bm25Index.ts';
 
 /**
  * @beta

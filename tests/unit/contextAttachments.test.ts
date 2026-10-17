@@ -6,9 +6,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ContextAssembler } from '../../src/context/contextAssembler.js';
-import { eventFactory } from '../../src/core/eventFactory.js';
-import type { FileAttachment } from '../../src/ports/model/model.js';
+import { ContextAssembler } from '../../src/context/contextAssembler.ts';
+import { eventFactory } from '../../src/core/eventFactory.ts';
+import type { FileAttachment } from '../../src/ports/model/model.ts';
 
 /** 一份图片附件。 */
 const image: FileAttachment = { name: 'shot.png', mediaType: 'image/png', data: 'AAAA' };

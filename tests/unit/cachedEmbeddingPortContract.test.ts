@@ -15,10 +15,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CachedEmbeddingPort } from '../../src/context/cachedEmbeddingPort.js';
-import { EmbeddingContentCache } from '../../src/context/embeddingContentCache.js';
-import type { EmbeddingPort } from '../../src/ports/model/embedding/embeddingPort.js';
-import type { EmbeddingPreloadOutcome } from '../../src/ports/model/embedding/embeddingPreloadOutcome.js';
+import { CachedEmbeddingPort } from '../../src/context/cachedEmbeddingPort.ts';
+import { EmbeddingContentCache } from '../../src/context/embeddingContentCache.ts';
+import type { EmbeddingPort } from '../../src/ports/model/embedding/embeddingPort.ts';
+import type { EmbeddingPreloadOutcome } from '../../src/ports/model/embedding/embeddingPreloadOutcome.ts';
 
 /** 记录调用的假内层端口（可选能力按需给出）。 */
 class FakeInner implements EmbeddingPort {

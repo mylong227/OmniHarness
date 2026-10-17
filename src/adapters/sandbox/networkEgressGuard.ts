@@ -15,12 +15,12 @@
  *   白名单只表达「允许的公网主机」，不能用来放行内网地址（防 SSRF 打元数据服务）。
  */
 import { isIP } from 'node:net';
-import { EgressBlockedError } from './egressBlockedError.js';
-import { IpAddress } from '../../util/ipAddress.js';
-import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from '../../security/ssrfPolicy.js';
-import type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEgressOptions.js';
+import { EgressBlockedError } from './egressBlockedError.ts';
+import { IpAddress } from '../../util/ipAddress.ts';
+import { DEFAULT_SSRF_POLICY, type SsrfPolicy } from '../../security/ssrfPolicy.ts';
+import type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEgressOptions.ts';
 
-export type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEgressOptions.js';
+export type { NetworkEgressOptions } from '../../ports/runtime/sandbox/networkEgressOptions.ts';
 
 /** 主机是否命中私有/链路本地网段（SSRF 高危）。 */
 

@@ -4,23 +4,23 @@ import type {
   SandboxAction,
   SandboxDecision,
   SandboxPort,
-} from '../../src/ports/runtime/sandbox.js';
-import type { ToolCall } from '../../src/ports/tool/tool.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
-import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.js';
-import { UnsupportedSandbox } from '../../src/adapters/sandbox/unsupportedSandbox.js';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
-import { SandboxDenial } from '../../src/security/sandboxDenial.js';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
-import { AskEscalation } from '../../src/adapters/escalation/askEscalation.js';
-import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
-import { ToolGate } from '../../src/core/toolGate.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
+} from '../../src/ports/runtime/sandbox.ts';
+import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.ts';
+import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.ts';
+import { UnsupportedSandbox } from '../../src/adapters/sandbox/unsupportedSandbox.ts';
+import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
+import { SandboxDenial } from '../../src/security/sandboxDenial.ts';
+import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
+import { AskEscalation } from '../../src/adapters/escalation/askEscalation.ts';
+import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 
 /** 一律拒绝的测试沙箱（用于确定性验证升级闭环）。 */
 class DenyingSandbox implements SandboxPort {

@@ -1,16 +1,16 @@
-import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.js';
-import { ToolGate, MUTATING_TOOLS } from './toolGate.js';
-import type { ToolGatePort } from '../ports/runtime/toolGatePort.js';
-import { ToolScheduler } from './loop/toolScheduler.js';
-import { SandboxDenial } from '../security/sandboxDenial.js';
-import { PromptInjectionGuard } from '../security/promptInjectionGuard.js';
+import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.ts';
+import { ToolGate, MUTATING_TOOLS } from './toolGate.ts';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
+import { ToolScheduler } from './loop/toolScheduler.ts';
+import { SandboxDenial } from '../security/sandboxDenial.ts';
+import { PromptInjectionGuard } from '../security/promptInjectionGuard.ts';
 import {
   EnforcementModeResolver,
   type EnforcementMode,
-} from '../security/enforcementModeResolver.js';
-import { ToolOutputTrust } from '../security/toolOutputTrust.js';
-import { log } from '../util/logger.js';
-import type { StepRunnerDeps } from './stepTypes.js';
+} from '../security/enforcementModeResolver.ts';
+import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
+import { log } from '../util/logger.ts';
+import type { StepRunnerDeps } from './stepTypes.ts';
 
 /**
  * 单步「工具执行」协作者（从 `StepRunner` 按职责缝抽出，P6.3 上帝类收口）。

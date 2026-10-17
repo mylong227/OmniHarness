@@ -1,4 +1,4 @@
-import type { PluginPermission } from './pluginPermission.js';
+import type { PluginPermission } from './pluginPermission.ts';
 
 /**
  * @beta

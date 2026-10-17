@@ -6,8 +6,8 @@
  * ⇒ 形成配置子环（架构门禁 [5]）。类型是**契约**，契约住 ports 是六边形的第一原则。
  */
 
-import type { MediaFrameExtractor } from './frameExtractor.js';
-import type { ResolvedMediaOptions } from './resolvedMediaOptions.js';
+import type { MediaFrameExtractor } from './frameExtractor.ts';
+import type { ResolvedMediaOptions } from './resolvedMediaOptions.ts';
 
 /** 已装配的媒体抽帧栈（抽帧器 + 解析后的媒体选项）。 */
 export interface MediaStack {

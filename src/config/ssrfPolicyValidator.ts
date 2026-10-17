@@ -8,8 +8,8 @@
  * 本模块因此无需 import `configError.ts` 的值，从根上避免 `configError ↔ 本模块` 的循环依赖。
  */
 
-import type { FileConfig } from './configFile.js';
-import { SsrfPolicy } from '../security/ssrfPolicy.js';
+import type { FileConfig } from './configFile.ts';
+import { SsrfPolicy } from '../security/ssrfPolicy.ts';
 
 /** `ssrfPolicy` 段允许的 key 全集。 */
 const SSRF_POLICY_KEYS: ReadonlySet<string> = new Set([

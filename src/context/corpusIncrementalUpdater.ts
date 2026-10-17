@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Bm25Index } from '../search/bm25Index.js';
-import { CorpusFileParser } from './corpusFileParser.js';
-import type { CorpusFileArtifact } from './corpusFileArtifact.js';
-import type { IndexedCorpus, IndexOptions } from './contextEngine.js';
-import type { SymbolNode } from './repoMap/repoMap.js';
-import { log } from '../util/logger.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import { CorpusFileParser } from './corpusFileParser.ts';
+import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import type { IndexedCorpus, IndexOptions } from './contextEngine.ts';
+import type { SymbolNode } from './repoMap/repoMap.ts';
+import { log } from '../util/logger.ts';
 
 /** 一次增量更新的产出。 */
 export interface CorpusUpdate {

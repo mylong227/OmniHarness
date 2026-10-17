@@ -1,9 +1,9 @@
 // 上下文容量面板的展示模型：把后端报告映射成「标题 + 行 + 缓存行」的纯视图数据。
 // 零 React 依赖，node 环境可直接单测。
 
-import type { ContextUsageReport, ContextUsageRow } from '../../types/models.js';
-import { TokenScaleFormatter } from './TokenScaleFormatter.js';
-import { t } from '../i18n/i18n.js';
+import type { ContextUsageReport, ContextUsageRow } from '../../types/models.ts';
+import { TokenScaleFormatter } from './TokenScaleFormatter.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 单行视图数据。 */
 export interface ContextUsageRowView {

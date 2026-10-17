@@ -1,4 +1,4 @@
-import { ArrayAt } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.ts';
 /**
  * 审批档位目录：审批等级的唯一事实源（后端定语义，UI 只做展示）。
  *

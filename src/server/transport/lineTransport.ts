@@ -1,7 +1,7 @@
-import type { RpcMessage } from '../../ports/server/rpcMessage.js';
-import type { Transport } from '../../ports/server/transport.js';
+import type { RpcMessage } from '../../ports/server/rpcMessage.ts';
+import type { Transport } from '../../ports/server/transport.ts';
 
-export type { Transport } from '../../ports/server/transport.js';
+export type { Transport } from '../../ports/server/transport.ts';
 
 /** 行式 JSON 传输（stdio / 管道通用）。 */
 export class LineTransport implements Transport {

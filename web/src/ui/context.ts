@@ -2,10 +2,10 @@
 // 各 Tab 与面板通过 useApp() 取用，避免逐层透传 props。
 
 import * as React from 'react';
-import type { ApiClient } from '../core/ApiClient.js';
-import type { ToastKind } from '../core/ToastService.js';
-import type { DialogService } from '../core/DialogService.js';
-import { t } from './i18n/i18n.js';
+import type { ApiClient } from '../core/ApiClient.ts';
+import type { ToastKind } from '../core/ToastService.ts';
+import type { DialogService } from '../core/DialogService.ts';
+import { t } from './i18n/i18n.ts';
 
 export interface AppContextValue {
   api: ApiClient;

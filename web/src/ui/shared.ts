@@ -1,6 +1,6 @@
 // 组件层共享的 UI 状态类型（与后端协议无关，仅描述前端渲染所需的结构）。
 
-import type { GraphRunState, ThreadEvent } from '../types/models.js';
+import type { GraphRunState, ThreadEvent } from '../types/models.ts';
 
 export interface ToolItem {
   callId: string;

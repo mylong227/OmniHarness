@@ -1,4 +1,4 @@
-import { log } from './logger.js';
+import { log } from './logger.ts';
 
 /**
  * 环境变量整数限制读取器（fail-safe）。

@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { configFile, type FileConfig } from '../../config/configFile.js';
-import { PortablePath } from '../../util/portablePath.js';
+import { configFile, type FileConfig } from '../../config/configFile.ts';
+import { PortablePath } from '../../util/portablePath.ts';
 
 /**
  * 用户级配置（`~/.omniharness/omniharness.json`）的专属读写通道：本机运行态 + 私密凭据。

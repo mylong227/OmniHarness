@@ -1,4 +1,4 @@
-import type { ModelResponseFormat } from '../../ports/model/modelResponseFormat.js';
+import type { ModelResponseFormat } from '../../ports/model/modelResponseFormat.ts';
 
 /**
  * 结构化输出的**上游线体映射**（单一实现，2026-10-11）。

@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { FileConfig } from '../config/configFile.js';
-import type { PluginManager } from './pluginManager.js';
-import type { PluginRegistry } from './pluginRegistry.js';
-import { PluginLoader } from './pluginLoader.js';
-import type { PluginProfile } from '../ports/plugin/pluginProfile.js';
-import type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.js';
+import type { FileConfig } from '../config/configFile.ts';
+import type { PluginManager } from './pluginManager.ts';
+import type { PluginRegistry } from './pluginRegistry.ts';
+import { PluginLoader } from './pluginLoader.ts';
+import type { PluginProfile } from '../ports/plugin/pluginProfile.ts';
+import type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.ts';
 
 /**
  * @beta
@@ -15,7 +15,7 @@ import type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.js';
  * 此处是**命名插件组合**：一份 profile = 一串插件名，激活后即把 Agent 的运行时插件集
  * 收敛为该集合，实现「一条命令切换编码/研究模式插件集」。
  */
-export type { PluginProfile } from '../ports/plugin/pluginProfile.js';
+export type { PluginProfile } from '../ports/plugin/pluginProfile.ts';
 
 /**
  * @beta
@@ -32,7 +32,7 @@ export interface PluginProfileSummary {
  * @beta
  * 激活结果。
  */
-export type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.js';
+export type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.ts';
 
 /**
  * @beta

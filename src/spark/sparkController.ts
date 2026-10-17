@@ -1,28 +1,28 @@
-import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
-import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
-import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
-import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
-import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { ImmuneMonitorPort } from '../ports/intelligence/immune.js';
-import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
-import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
-import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
-import type { EtchConduction } from '../ports/memory/insightEtching.js';
-import type { ElementComposer } from '../adapters/skill/elementComposer.js';
-import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
-import type { SymmetryBreakReport } from '../ports/intelligence/symmetryBreaking.js';
-import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { CapabilityCharge } from '../ports/runtime/confinement.js';
-import type { RuntimeTelemetryPort } from '../ports/runtime/runtimeTelemetry.js';
-import { GenesisSparkBridge } from '../genesis/genesisSparkBridge.js';
-import type { RegimeSignals } from '../genesis/operators.js';
-import { SparkEngineSet } from './sparkEngineSet.js';
-import { SparkCycleTelemetry } from './sparkCycleTelemetry.js';
-import type { SparkCycleReport } from '../ports/spark/sparkCycleReport.js';
+import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.ts';
+import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.ts';
+import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.ts';
+import type { CosmicWebPort } from '../ports/memory/cosmicWeb.ts';
+import type { QECEncoder } from '../adapters/memory/qecEncoder.ts';
+import type { ImmuneMonitorPort } from '../ports/intelligence/immune.ts';
+import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.ts';
+import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.ts';
+import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.ts';
+import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.ts';
+import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.ts';
+import type { EtchConduction } from '../ports/memory/insightEtching.ts';
+import type { ElementComposer } from '../adapters/skill/elementComposer.ts';
+import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.ts';
+import type { SymmetryBreakReport } from '../ports/intelligence/symmetryBreaking.ts';
+import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.ts';
+import type { CapabilityCharge } from '../ports/runtime/confinement.ts';
+import type { RuntimeTelemetryPort } from '../ports/runtime/runtimeTelemetry.ts';
+import { GenesisSparkBridge } from '../genesis/genesisSparkBridge.ts';
+import type { RegimeSignals } from '../genesis/operators.ts';
+import { SparkEngineSet } from './sparkEngineSet.ts';
+import { SparkCycleTelemetry } from './sparkCycleTelemetry.ts';
+import type { SparkCycleReport } from '../ports/spark/sparkCycleReport.ts';
 
-export type { SparkCycleReport } from '../ports/spark/sparkCycleReport.js';
+export type { SparkCycleReport } from '../ports/spark/sparkCycleReport.ts';
 
 /** 燧内核控制器选项。 */
 export interface SparkControllerOptions {

@@ -18,10 +18,10 @@
 // 清单长到需要筛选时再加回来——那时它才有存在理由。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.js';
-import { ComposerOptions } from '../models/ComposerOptions.js';
-import { claimPopover, releasePopover } from '../models/PopoverStack.js';
-import { t } from '../i18n/i18n.js';
+import { icon } from '../models/Icon.ts';
+import { ComposerOptions } from '../models/ComposerOptions.ts';
+import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 本弹层在互斥控制器里的身份。 */
 const POPOVER_ID = 'model';

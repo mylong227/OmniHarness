@@ -1,10 +1,10 @@
-import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../ports/tool/toolNames.ts';
 import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../ports/runtime/approval.js';
-import { CommandCanonicalizer } from '../../util/commandCanonicalizer.js';
+} from '../../ports/runtime/approval.ts';
+import { CommandCanonicalizer } from '../../util/commandCanonicalizer.ts';
 
 /** 审批缓存选项。 */
 export interface CachedApprovalOptions {

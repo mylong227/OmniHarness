@@ -5,7 +5,7 @@
 // `ApprovalTierCatalog`、`PermissionTierModel` 的兜底表构成同一句话的第三份副本。现在悬浮提示
 // 直接读档位表的 `description`（见 `PermissionPicker`）。
 
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /** 下拉项。 */
 export interface OptionItem {

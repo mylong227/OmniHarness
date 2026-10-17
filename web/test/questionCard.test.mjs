@@ -15,7 +15,7 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { QuestionCard } = await import('../src/ui/components/QuestionCard.js');
+const { QuestionCard } = await import('../src/ui/components/QuestionCard.tsx');
 
 /** 两题样本：q1 单选、q2 多选。 */
 const REQUEST = {

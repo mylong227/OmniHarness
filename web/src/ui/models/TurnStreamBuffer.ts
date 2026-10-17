@@ -18,7 +18,7 @@
 //
 // 纯逻辑、零 React、零 DOM：`patch` 由调用方注入，可直接在 node 下用假时钟单测。
 
-import { StreamThrottle } from './StreamThrottle.js';
+import { StreamThrottle } from './StreamThrottle.ts';
 
 /** 写入一段已刷出的增量文本（由调用方决定写进哪份状态）。 */
 export type StreamWrite = (text: string) => void;

@@ -19,8 +19,8 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { FolderPicker } = await import('../src/ui/components/FolderPicker.js');
-const { FilePicker } = await import('../src/ui/components/FilePicker.js');
+const { FolderPicker } = await import('../src/ui/components/FolderPicker.tsx');
+const { FilePicker } = await import('../src/ui/components/FilePicker.tsx');
 
 /** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
 function collect(vnode, pred, out = []) {

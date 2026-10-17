@@ -8,12 +8,12 @@
  * - **fail-soft**：provider 抛错（存储瞬断等）回空快照，不阻断自省调用方。
  * - 事件源以 getter 注入（`() => readonly SessionEvent[]`）：跟随 recorder 的实时视图。
  */
-import type { SessionEvent } from '../../ports/runtime/event.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
 import type {
   TraceEntry,
   TraceIntrospectionPort,
-} from '../../ports/intelligence/traceIntrospection.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+} from '../../ports/intelligence/traceIntrospection.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /** 带源下标的事件（seq 语义的载体：下标属于**源事件流**，与过滤无关）。 */
 interface IndexedEvent {

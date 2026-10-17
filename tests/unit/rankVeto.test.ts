@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RankVetoEvaluator, RankVetoOverlap } from '../../src/context/rankVeto/index.js';
+import { RankVetoEvaluator, RankVetoOverlap } from '../../src/context/rankVeto/index.ts';
 
 /** 构造无向完全图 K_n。 */
 function completeGraph(n: number): { n: number; adj: Array<Array<[number, number]>> } {

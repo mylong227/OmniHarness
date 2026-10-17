@@ -9,8 +9,8 @@
 // 现由依赖 request 的单个 effect 承接（挂载即有待决请求的情形也一并覆盖）。
 
 import * as React from 'react';
-import { useApp } from '../context.js';
-import type { DialogRequest, DialogState } from '../../core/DialogService.js';
+import { useApp } from '../context.ts';
+import type { DialogRequest, DialogState } from '../../core/DialogService.ts';
 
 /** DialogHost 组件的入参。 */
 export interface DialogHostProps {

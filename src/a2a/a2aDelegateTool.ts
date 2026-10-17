@@ -21,9 +21,9 @@
  * 本端只负责如实转述。
  */
 import { randomUUID } from 'node:crypto';
-import { TOOL_NAMES } from '../ports/tool/toolNames.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../ports/tool/tool.js';
-import type { A2aClient } from './a2aClient.js';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../ports/tool/tool.ts';
+import type { A2aClient } from './a2aClient.ts';
 
 /**
  * A2A 委托工具：把自包含子任务委托给对等 agent，等待执行结果并转述。

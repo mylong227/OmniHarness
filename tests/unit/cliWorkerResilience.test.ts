@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CliWorker } from '../../src/worker/cliWorker.js';
+import { CliWorker } from '../../src/worker/cliWorker.ts';
 
 /** 只睡不返回的子进程（用本进程的 node 可执行文件，无需外部依赖）。 */
 function sleeperWorker(timeoutMs: number): CliWorker {

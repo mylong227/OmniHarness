@@ -32,13 +32,13 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { RbacPolicy } from '../../src/security/rbacPolicy.js';
-import { LicenseEngine } from '../../src/license/licenseEngine.js';
-import { PrivateSkillSource } from '../../src/plugin/privateSkillSource.js';
-import { PackGrader } from '../../src/plugin/packGrader.js';
-import { ProvenanceIssuer } from '../../src/governance/provenanceIssuer.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
+import { RbacPolicy } from '../../src/security/rbacPolicy.ts';
+import { LicenseEngine } from '../../src/license/licenseEngine.ts';
+import { PrivateSkillSource } from '../../src/plugin/privateSkillSource.ts';
+import { PackGrader } from '../../src/plugin/packGrader.ts';
+import { ProvenanceIssuer } from '../../src/governance/provenanceIssuer.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
 
 /** 采集到的一条结构化事件。 */
 interface Captured {

@@ -1,5 +1,5 @@
-import type { Candidate } from './candidate.js';
-import type { PromotionVerdict } from './promotionVerdict.js';
+import type { Candidate } from './candidate.ts';
+import type { PromotionVerdict } from './promotionVerdict.ts';
 
 /**
  * 进化门禁（fail-closed 评估 + 晋升）。

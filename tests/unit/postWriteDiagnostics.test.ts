@@ -3,11 +3,11 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PostWriteDiagnosticsPort } from '../../src/adapters/tool/verify/postWriteDiagnosticsPort.js';
-import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.js';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.js';
-import type { LspDiagnostic, LspDiagnosticReport } from '../../src/ports/tool/lsp.js';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
+import { PostWriteDiagnosticsPort } from '../../src/adapters/tool/verify/postWriteDiagnosticsPort.ts';
+import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.ts';
+import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+import type { LspDiagnostic, LspDiagnosticReport } from '../../src/ports/tool/lsp.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
 
 /** 内层端口替身（固定返回给定结果）。 */
 const innerPort = (result: ToolResult): ToolPort => ({

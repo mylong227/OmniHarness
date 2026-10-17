@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModelCatalogService } from '../../src/server/services/modelCatalogService.js';
-import { PROVIDER_PRESETS } from '../../src/server/services/providerPresets.js';
-import type { FileConfig } from '../../src/config/configFile.js';
+import { ModelCatalogService } from '../../src/server/services/modelCatalogService.ts';
+import { PROVIDER_PRESETS } from '../../src/server/services/providerPresets.ts';
+import type { FileConfig } from '../../src/config/configFile.ts';
 
 /** 取一个需要 Key 的远程预设（用其 baseUrl 精确匹配 active 判定）。 */
 const remotePreset = PROVIDER_PRESETS.find((p) => p.needsKey);

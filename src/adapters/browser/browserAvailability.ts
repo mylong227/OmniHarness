@@ -16,9 +16,9 @@
  * 探测输入全部可注入（定位函数、端点自检函数、环境变量表），故单测**不需要真浏览器、
  * 也不需要真 CDP 端点**；探测本身**不 spawn 任何进程**。
  */
-import { ChromeLocator } from './chromeLocator.js';
-import type { ChromeLocatorOptions, ChromeLookup } from './chromeLocator.js';
-import { endpointDefaults } from '../../util/endpointDefaults.js';
+import { ChromeLocator } from './chromeLocator.ts';
+import type { ChromeLocatorOptions, ChromeLookup } from './chromeLocator.ts';
+import { endpointDefaults } from '../../util/endpointDefaults.ts';
 
 /** 浏览器截图不可用的类别（决定给模型的可执行建议）。 */
 export type BrowserUnavailableKind =

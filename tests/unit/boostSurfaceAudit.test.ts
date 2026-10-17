@@ -15,8 +15,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { BoostSurfaceAudit, SURFACE_SNAPSHOT_VERSION } from '../../src/cli/boostSurfaceAudit.js';
-import { GATE_SURFACE } from '../../src/cli/boostGateSurface.js';
+import { BoostSurfaceAudit, SURFACE_SNAPSHOT_VERSION } from '../../src/cli/boostSurfaceAudit.ts';
+import { GATE_SURFACE } from '../../src/cli/boostGateSurface.ts';
 
 /**
  * 造一个含假 `runGates.mjs` 的临时仓库根。

@@ -9,9 +9,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WorkflowLayerPolicy } from '../../src/autonomy/workflowLayerPolicy.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import type { WorkflowStep } from '../../src/ports/autonomy/workflowStep.js';
+import { WorkflowLayerPolicy } from '../../src/autonomy/workflowLayerPolicy.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import type { WorkflowStep } from '../../src/ports/autonomy/workflowStep.ts';
 
 /**
  * 造一个最小步骤。

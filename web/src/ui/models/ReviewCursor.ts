@@ -4,8 +4,8 @@
 // 每次按键都从渲染快照读序号会漏掉前一次移动（实测：连按 3 次 j 只前进 1 格）。
 // 故由本对象持有权威值，组件把它镜像进 state 仅用于渲染；两者不一致时以本对象为准。
 
-import { ReviewKeyboard } from './ReviewKeyboard.js';
-import type { ReviewAction } from './ReviewKeyboard.js';
+import { ReviewKeyboard } from './ReviewKeyboard.ts';
+import type { ReviewAction } from './ReviewKeyboard.ts';
 
 /** 变更审查游标状态机（零 React 依赖，可直测）。 */
 export class ReviewCursor {

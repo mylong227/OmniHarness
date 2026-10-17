@@ -1,4 +1,4 @@
-import type { TodoItem, TodoPort } from '../../ports/runtime/todo.js';
+import type { TodoItem, TodoPort } from '../../ports/runtime/todo.ts';
 
 /**
  * 内存待办端口：**按会话分桶**的整表快照，last-write-wins。

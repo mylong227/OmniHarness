@@ -1,2 +1,2 @@
-export type { VortexRing } from './vortexRing/vortexRing.js';
-export type { VortexRingPort } from './vortexRing/vortexRingPort.js';
+export type { VortexRing } from './vortexRing/vortexRing.ts';
+export type { VortexRingPort } from './vortexRing/vortexRingPort.ts';

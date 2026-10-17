@@ -304,14 +304,27 @@ if (failed === 0 && hookMode) {
         console.error(`[${prefix}] ✗ 缺少 ${bin}（请先 npm install）`);
         process.exit(1);
       }
-      const r = spawnSync(process.execPath, [bin, '--write', ...files], {
+      // **分批调用**（2026-10-17）：1526 个暂存文件一次性传给 prettier 时，命令行长度
+      // 超出 Windows CreateProcess 上限（~32K 字符），spawnSync 直接启动失败（E2BIG），
+      // `r.status` 为 null ⇒ `?? 1` 静默 exit(1)——大提交的 pre-commit 必炸且无任何报错。
+      // 按 200 个/批拆分，语义不变（prettier 逐文件写盘，分批与单次等价）。
+      for (let i = 0; i < files.length; i += 200) {
+        const chunk = files.slice(i, i + 200);
+        const r = spawnSync(process.execPath, [bin, '--write', ...chunk], {
+          cwd: ROOT,
+          stdio: 'inherit',
+        });
+        if ((r.status ?? 1) !== 0) process.exit(r.status ?? 1);
+      }
+    }
+    // `git add` 同理：1500+ 路径单次传参也会撞 Windows 命令行上限，同样分批。
+    for (let i = 0; i < files.length; i += 200) {
+      const add = spawnSync('git', ['add', ...files.slice(i, i + 200)], {
         cwd: ROOT,
         stdio: 'inherit',
       });
-      if ((r.status ?? 1) !== 0) process.exit(r.status ?? 1);
+      if ((add.status ?? 1) !== 0) process.exit(add.status ?? 1);
     }
-    const add = spawnSync('git', ['add', ...files], { cwd: ROOT, stdio: 'inherit' });
-    if ((add.status ?? 1) !== 0) process.exit(add.status ?? 1);
   }
 }
 

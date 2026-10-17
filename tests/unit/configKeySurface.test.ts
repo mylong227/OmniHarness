@@ -20,7 +20,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ConfigError } from '../../src/config/configError.js';
+import { ConfigError } from '../../src/config/configError.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

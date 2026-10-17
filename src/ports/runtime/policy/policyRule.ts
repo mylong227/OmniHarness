@@ -1,4 +1,4 @@
-import type { PolicyEffect } from './policyEffect.js';
+import type { PolicyEffect } from './policyEffect.ts';
 
 /**
  * @beta

@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { InjectionMetric, type InjectionCase } from '../../src/security/injectionMetric.js';
+import { InjectionMetric, type InjectionCase } from '../../src/security/injectionMetric.ts';
 
 const near = (a: number, b: number, eps = 1e-9): boolean => Math.abs(a - b) < eps;
 

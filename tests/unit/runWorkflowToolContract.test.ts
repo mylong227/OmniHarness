@@ -11,19 +11,19 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
+import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
+import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
 
 /** 收集型事件端口。 */
 class RecordingEvents implements EventPort {

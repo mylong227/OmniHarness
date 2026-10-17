@@ -20,8 +20,8 @@
 
 import { lstatSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import { EventLoopYield } from '../util/async/eventLoopYield.js';
-import { WorkspaceFileWalker } from '../util/workspaceFileWalker.js';
+import { EventLoopYield } from '../util/async/eventLoopYield.ts';
+import { WorkspaceFileWalker } from '../util/workspaceFileWalker.ts';
 
 /** 语料遍历的上限（三个上限共同把索引内存钉死，见 {@link CorpusWalker.walk}）。 */
 export interface WalkLimits {

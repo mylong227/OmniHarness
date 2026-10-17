@@ -1,28 +1,28 @@
-﻿import { TOOL_NAMES } from '../ports/tool/toolNames.js';
-import { WorkflowCycleError } from './workflowCycleError.js';
-import { WorkflowGuard } from './workflowGuard.js';
-import { WorkflowRunLog } from './workflowRunLog.js';
-import { WorkflowRunLock } from './workflowRunLock.js';
-import { WorkflowSpecError } from './workflowSpecError.js';
-import { WorkflowStepStatuses } from './workflowStepStatuses.js';
+﻿import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import { WorkflowCycleError } from './workflowCycleError.ts';
+import { WorkflowGuard } from './workflowGuard.ts';
+import { WorkflowRunLog } from './workflowRunLog.ts';
+import { WorkflowRunLock } from './workflowRunLock.ts';
+import { WorkflowSpecError } from './workflowSpecError.ts';
+import { WorkflowStepStatuses } from './workflowStepStatuses.ts';
 
-import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
-import { Agent } from '../core/agent.js';
-import { log } from '../util/logger.js';
-import { WorkflowLayerPolicy } from './workflowLayerPolicy.js';
-import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.js';
-import { SubagentEventBridge } from '../subagent/subagentEventBridge.js';
-import { ToolSubset } from '../subagent/toolSubset.js';
-import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.js';
+import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.ts';
+import { Agent } from '../core/agent.ts';
+import { log } from '../util/logger.ts';
+import { WorkflowLayerPolicy } from './workflowLayerPolicy.ts';
+import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.ts';
+import { SubagentEventBridge } from '../subagent/subagentEventBridge.ts';
+import { ToolSubset } from '../subagent/toolSubset.ts';
+import { ConcurrencyLimiter } from '../util/concurrency/concurrencyLimiter.ts';
 import type {
   WorkflowDef,
   WorkflowResult,
   WorkflowStep,
   WorkflowStepResult,
-} from './workflowTypes.js';
-import type { WorkflowRunReplay } from './workflowRunLog.js';
-import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.js';
-import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.js';
+} from './workflowTypes.ts';
+import type { WorkflowRunReplay } from './workflowRunLog.ts';
+import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
+import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.ts';
 
 /**
  * @beta
@@ -35,10 +35,10 @@ export const DEFAULT_WORKFLOW_CONCURRENCY = 4;
  * 工作流 DAG 中存在环。
  */
 
-import type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.js';
-import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
+import type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.ts';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.ts';
 
-export type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.js';
+export type { GraphNodeStatus } from '../ports/autonomy/graphNodeStatus.ts';
 
 /**
  * @beta

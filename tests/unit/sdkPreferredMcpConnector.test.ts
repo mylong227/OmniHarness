@@ -9,15 +9,15 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SdkPreferredMcpConnector } from '../../src/adapters/mcp/sdkPreferredMcpConnector.js';
-import { McpServerCommand } from '../../src/mcp/mcpServerCommand.js';
+import { SdkPreferredMcpConnector } from '../../src/adapters/mcp/sdkPreferredMcpConnector.ts';
+import { McpServerCommand } from '../../src/mcp/mcpServerCommand.ts';
 import type {
   McpConnectionHandle,
   McpConnectorPort,
-} from '../../src/ports/mcp/mcpConnectorPort.js';
-import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.js';
-import type { McpInitializeResult } from '../../src/ports/mcp/mcpProtocolTypes.js';
-import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.js';
+} from '../../src/ports/mcp/mcpConnectorPort.ts';
+import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.ts';
+import type { McpInitializeResult } from '../../src/ports/mcp/mcpProtocolTypes.ts';
+import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.ts';
 
 /** 固定握手结果。 */
 const handshake: McpInitializeResult = {

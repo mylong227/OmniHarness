@@ -13,7 +13,7 @@ import { createRuntime } from './hooksStub.mjs';
 // 故必须先种零 DOM 桩再动态 import 编译产物——与 mount.test.mjs 同一口径。
 createRuntime().install();
 
-const { SessionController } = await import('../src/ui/controllers/SessionController.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
 
 /** 造一个记录 patch 次数的状态宿主（streamText 真累积）。 */
 function makeHost(initial = {}) {

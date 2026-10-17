@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { MenuPlacement } = await import('../src/ui/models/MenuPlacement.js');
+const { MenuPlacement } = await import('../src/ui/models/MenuPlacement.ts');
 
 /** 视口（常见尺寸）。 */
 const VIEW = { w: 1280, h: 800 };

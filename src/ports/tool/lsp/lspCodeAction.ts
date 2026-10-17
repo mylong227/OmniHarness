@@ -1,4 +1,4 @@
-import type { LspTextEdit } from './lspTextEdit.js';
+import type { LspTextEdit } from './lspTextEdit.ts';
 
 /**
  * @beta

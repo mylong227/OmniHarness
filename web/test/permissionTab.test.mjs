@@ -21,10 +21,10 @@ const runtime = createRuntime();
 runtime.install();
 
 const { PermissionTab, rulesOf, toWireRules } = await import(
-  '../src/ui/components/tabs/PermissionTab.js'
+  '../src/ui/components/tabs/PermissionTab.tsx'
 );
-const { PANELS } = await import('../src/ui/models/PanelRegistry.js');
-const { parseHash } = await import('../src/core/Router.js');
+const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
+const { parseHash } = await import('../src/core/Router.ts');
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。

@@ -16,7 +16,7 @@
  * 本仓已分别有 `PrefixStability.prefixReuse`（前缀复用率）与 `CacheHitRateWatch`（坍塌告警）——
  * 缺的正是把两者**合成一句可行动结论**的这一层。判定优先级见 {@link CacheMissAttributionAnalyst.attribute}。
  */
-import { PrefixStability } from '../context/prefixStability.js';
+import { PrefixStability } from '../context/prefixStability.ts';
 
 /**
  * 缓存未命中的分因。

@@ -1,4 +1,4 @@
-import type { VideoFrameFormat } from './mediaTypes/videoFrameFormat.js';
+import type { VideoFrameFormat } from './mediaTypes/videoFrameFormat.ts';
 
 /** 解析后的媒体选项（全部字段有值，可直接消费）。 */
 export interface ResolvedMediaOptions {

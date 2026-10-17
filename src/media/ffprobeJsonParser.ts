@@ -1,4 +1,4 @@
-import type { MediaStreamFacts } from './mediaStreamFacts.js';
+import type { MediaStreamFacts } from './mediaStreamFacts.ts';
 
 /** 帧率分数字符串（如 `30000/1001`）。 */
 const FRACTION = /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/;

@@ -1,4 +1,4 @@
-import type { CheckpointMeta } from './checkpointMeta.js';
+import type { CheckpointMeta } from './checkpointMeta.ts';
 
 /**
  * 检查点管理器端口（P1 解耦）。

@@ -7,8 +7,8 @@ import type {
   ModelOutput,
   ModelRequest,
   SessionEvent,
-} from '../../src/ports/index.js';
-import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.js';
+} from '../../src/ports/index.ts';
+import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';
 
 /** 内存版长期记忆桩。 */
 function stubStore(): LongTermMemoryPort {

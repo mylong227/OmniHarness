@@ -1,4 +1,4 @@
-import type { MediaProbeInfo } from './mediaTypes.js';
+import type { MediaProbeInfo } from './mediaTypes.ts';
 
 /**
  * 媒体探测端口：只读元数据，不解码像素。

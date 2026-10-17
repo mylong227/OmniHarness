@@ -1,5 +1,5 @@
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { EventPort } from '../../ports/runtime/eventPort.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { EventPort } from '../../ports/runtime/eventPort.ts';
 
 /** 控制台事件端口：事件流向 stdout（观测/调试）。 */
 export class ConsoleEventPort implements EventPort {

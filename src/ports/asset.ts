@@ -10,4 +10,4 @@ export type {
   PackAssetEntry,
   PackPublisher,
   RegistryMetadata,
-} from './asset/assetPack.js';
+} from './asset/assetPack.ts';

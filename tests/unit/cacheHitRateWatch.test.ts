@@ -15,7 +15,7 @@ import {
   LOW_HIT_RATE_ENV_KEY,
   LOW_HIT_RATE_EVENT,
   MIN_CALLS_FOR_JUDGEMENT,
-} from '../../src/observability/cacheHitRateWatch.js';
+} from '../../src/observability/cacheHitRateWatch.ts';
 
 /** 采集 warn 日志行（临时接管 process.stderr.write，结束即还原）。 */
 function captureStderr<T>(fn: () => T): { readonly lines: string[]; readonly result: T } {

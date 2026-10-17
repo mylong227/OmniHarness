@@ -4,10 +4,10 @@
  * 从 `ContextEngine.query` 原样迁出（逻辑逐字等价，仅结构化入参/出参）。
  * 文件混合分口径：max(文件BM25, 0.7×最强符号分, 0.5×层化图分)。
  */
-import { CodeGraphIndex, type CodeGraph } from '../codeGraphIndex.js';
-import type { SymbolNode } from '../repoMap/repoMap.js';
-import type { ScoredId } from './candidateSearch.js';
-import { LayeredGraphFusion } from './layeredGraphFusion.js';
+import { CodeGraphIndex, type CodeGraph } from '../codeGraphIndex.ts';
+import type { SymbolNode } from '../repoMap/repoMap.ts';
+import type { ScoredId } from './candidateSearch.ts';
+import { LayeredGraphFusion } from './layeredGraphFusion.ts';
 
 /** 融合阶段所需的语料切片（结构化子集）。 */
 export interface FusionCorpusView {

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, symlinkSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkspaceGuard, PathTraversalError } from '../../src/util/workspaceGuard.js';
+import { WorkspaceGuard, PathTraversalError } from '../../src/util/workspaceGuard.ts';
 
 /** 测试用工作区。 */
 const root = 'D:/omniharness/workspace';

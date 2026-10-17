@@ -24,23 +24,23 @@ import { fileURLToPath } from 'node:url';
 import {
   MOCK_ADAPTER_ID,
   modelAdapterRegistry,
-} from '../../src/adapters/model/modelAdapterRegistry.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.js';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.js';
-import { MODEL_ADAPTERS } from '../../src/cli/cliEnums.js';
-import { storageFactory, DEFAULT_SQLITE_FILE } from '../../src/cli/storageFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.js';
-import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.js';
-import { ConfigError } from '../../src/config/configError.js';
+} from '../../src/adapters/model/modelAdapterRegistry.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
+import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
+import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
+import { MODEL_ADAPTERS } from '../../src/cli/cliEnums.ts';
+import { storageFactory, DEFAULT_SQLITE_FILE } from '../../src/cli/storageFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
+import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.ts';
+import { ConfigError } from '../../src/config/configError.ts';
 
-import { ProviderProbe } from '../../src/server/services/providerProbe.js';
-import { ConfigBuilder } from '../../src/config/configBuilder.js';
-import { endpointDefaults } from '../../src/util/endpointDefaults.js';
-import { providerPresets } from '../../src/config/providerPresets.js';
+import { ProviderProbe } from '../../src/server/services/providerProbe.ts';
+import { ConfigBuilder } from '../../src/config/configBuilder.ts';
+import { endpointDefaults } from '../../src/util/endpointDefaults.ts';
+import { providerPresets } from '../../src/config/providerPresets.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

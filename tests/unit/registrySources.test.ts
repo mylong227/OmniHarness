@@ -7,19 +7,19 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { LocalDirSource } from '../../src/plugin/localDirSource.js';
-import { BundledSource } from '../../src/plugin/bundledSource.js';
-import { RemoteHttpSource } from '../../src/plugin/remoteHttpSource.js';
-import { FileRegistrySource } from '../../src/plugin/fileRegistrySource.js';
+import { LocalDirSource } from '../../src/plugin/localDirSource.ts';
+import { BundledSource } from '../../src/plugin/bundledSource.ts';
+import { RemoteHttpSource } from '../../src/plugin/remoteHttpSource.ts';
+import { FileRegistrySource } from '../../src/plugin/fileRegistrySource.ts';
 import {
   DEFAULT_REGISTRY_URL,
   RegistrySourcesShared,
-} from '../../src/plugin/registrySourcesShared.js';
+} from '../../src/plugin/registrySourcesShared.ts';
 // 桶文件（registrySources.ts）同时导出上述四类，单独覆盖一次确保再导出面不腐坏。
 import {
   LocalDirSource as BarreledLocal,
   BundledSource as BarreledBundled,
-} from '../../src/plugin/registrySources.js';
+} from '../../src/plugin/registrySources.ts';
 
 /** 在临时目录内跑断言，结束后清理（异步感知：待回调完成后才删除目录）。 */
 async function withDir<T>(fn: (dir: string) => Promise<T>): Promise<T> {

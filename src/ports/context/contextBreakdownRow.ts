@@ -1,4 +1,4 @@
-import type { ContextCategoryKey } from '../model/model.js';
+import type { ContextCategoryKey } from '../model/model.ts';
 
 /** 单行分类占比。 */
 export interface ContextBreakdownRow {

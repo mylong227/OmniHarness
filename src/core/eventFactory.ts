@@ -1,12 +1,12 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
 import type {
   ImageContent,
   FileAttachment,
   ModelContextSnapshot,
   ModelUsage,
-} from '../ports/model/model.js';
-import type { EventFactoryPort } from '../ports/runtime/eventFactory.js';
-import { Id } from '../util/id.js';
+} from '../ports/model/model.ts';
+import type { EventFactoryPort } from '../ports/runtime/eventFactory.ts';
+import { Id } from '../util/id.ts';
 
 /**
  * 事件工厂：统一构造各类会话事件，保证结构一致。

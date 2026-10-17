@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert/strict';
 import { test } from 'node:test';
-import { SafePolicyEvaluator } from '../../src/adapters/policy/safePolicyEvaluator.js';
-import type { PolicyFacts, PolicyRule } from '../../src/ports/runtime/policy.js';
+import { SafePolicyEvaluator } from '../../src/adapters/policy/safePolicyEvaluator.ts';
+import type { PolicyFacts, PolicyRule } from '../../src/ports/runtime/policy.ts';
 
 const ev = new SafePolicyEvaluator();
 

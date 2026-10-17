@@ -1,4 +1,4 @@
-import type { EtchBranch } from './etchBranch.js';
+import type { EtchBranch } from './etchBranch.ts';
 
 /** 一次顿悟事件（待刻蚀）。 */
 export interface EtchEvent {

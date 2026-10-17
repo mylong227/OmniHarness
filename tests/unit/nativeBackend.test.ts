@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // FFI 接入真实 agent 循环（#66）：StepRunner 原生路由 + JS 自动回退。
 //
 // 用 stub NativeToolRunner 解耦 .node 产物，不依赖 native:build。覆盖三态：
@@ -7,17 +7,17 @@ import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEn
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import type { ModelPort } from '../../src/ports/model/model.js';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
-import { NativeBackend } from '../../src/native/nativeBackend.js';
-import type { NativeToolRunner } from '../../src/native/nativeBackend.js';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import type { ModelPort } from '../../src/ports/model/model.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
+import { NativeBackend } from '../../src/native/nativeBackend.ts';
+import type { NativeToolRunner } from '../../src/native/nativeBackend.ts';
 
 /** 捕获事件端口：收集 recorder 广播的全部事件，便于断言。 */
 function capturePort(): { port: EventPort; events: SessionEvent[] } {

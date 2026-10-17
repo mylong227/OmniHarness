@@ -20,7 +20,7 @@
  * @maturityEvidence tests/unit/toolSearch.test.ts
  */
 
-import { ArrayAt } from '../util/arrayAt.js';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * @beta

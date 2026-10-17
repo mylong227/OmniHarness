@@ -1,10 +1,10 @@
-﻿export type { WorkflowStep } from '../ports/autonomy/workflowStep.js';
-export type { WorkflowStepGuard } from '../ports/autonomy/workflowStepGuard.js';
-export type { WorkflowDef } from '../ports/autonomy/workflowDef.js';
-export { WorkflowStepStatuses } from './workflowStepStatuses.js';
-export type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.js';
+﻿export type { WorkflowStep } from '../ports/autonomy/workflowStep.ts';
+export type { WorkflowStepGuard } from '../ports/autonomy/workflowStepGuard.ts';
+export type { WorkflowDef } from '../ports/autonomy/workflowDef.ts';
+export { WorkflowStepStatuses } from './workflowStepStatuses.ts';
+export type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 
-import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.js';
+import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 
 /**
  * @beta

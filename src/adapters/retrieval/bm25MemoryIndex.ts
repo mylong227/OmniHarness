@@ -2,8 +2,8 @@ import type {
   RetrievalDoc,
   RetrievalHit,
   RetrievalPort,
-} from '../../ports/intelligence/retrieval.js';
-import { Bm25Index } from '../../search/bm25Index.js';
+} from '../../ports/intelligence/retrieval.ts';
+import { Bm25Index } from '../../search/bm25Index.ts';
 
 /**
  * @beta

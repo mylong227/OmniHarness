@@ -4,8 +4,8 @@
  * 复用既有 shell 执行能力（零新增依赖、零新进程语义）：把 `ShellRunOutcome` 的
  * `Buffer` 输出解码为文本，并只保留回环需要的三要素（退出码 / 输出 / 超时）。
  */
-import { ShellProcessRunner } from '../shell/shellProcessRunner.js';
-import type { TestCommandRunner, TestRunOutcome } from './testCommandRunner.js';
+import { ShellProcessRunner } from '../shell/shellProcessRunner.ts';
+import type { TestCommandRunner, TestRunOutcome } from './testCommandRunner.ts';
 
 /** 合并 stdout 与 stderr 的文本视图（截断标记由 runner 的 overflowed 语义承担）。 */
 export class ShellTestCommandRunner implements TestCommandRunner {

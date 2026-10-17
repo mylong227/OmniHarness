@@ -13,14 +13,14 @@
  * - 只读保证不变：条目由读取器深拷贝 + 冻结后返回，调用方无法借道改历史；
  * - fail-soft：事件源抛错（存储瞬断等）时返回带 `error` 的空快照，绝不把异常抛给自省调用方。
  */
-import { ReadonlyTraceReader } from '../../../adapters/telemetry/readonlyTraceReader.js';
-import type { SessionEvent } from '../../../ports/runtime/event.js';
+import { ReadonlyTraceReader } from '../../../adapters/telemetry/readonlyTraceReader.ts';
+import type { SessionEvent } from '../../../ports/runtime/event.ts';
 import type {
   TraceEntry,
   TraceFilter,
   TraceReadRequest,
   TraceReadResult,
-} from '../../../ports/intelligence/traceIntrospection.js';
+} from '../../../ports/intelligence/traceIntrospection.ts';
 
 /** 会话事件源（服务端为 `Agent.eventsOf`，CLI 为存档读取器）——**纯读**，不得有广播等写侧效应。 */
 export interface SessionTraceEvents {

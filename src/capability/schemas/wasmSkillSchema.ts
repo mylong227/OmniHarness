@@ -24,7 +24,7 @@ import type {
   CapabilitySchema,
   EvalContext,
   SchemaValidation,
-} from '../../ports/capability.js';
+} from '../../ports/capability.ts';
 
 /** wasm 技能资产体。 */
 export interface WasmSkillAsset {

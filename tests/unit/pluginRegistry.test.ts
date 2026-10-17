@@ -9,12 +9,12 @@ import {
   LocalDirSource,
   PluginRegistry,
   RemoteHttpSource,
-} from '../../src/plugin/pluginRegistry.js';
-import { Manifest, type PluginManifest } from '../../src/plugin/manifest.js';
-import { Container } from '../../src/core/container.js';
-import { PermissionDeniedError, PermissionGate } from '../../src/plugin/permissionGate.js';
-import { PluginManager } from '../../src/plugin/pluginManager.js';
-import type { Plugin } from '../../src/plugin/plugin.js';
+} from '../../src/plugin/pluginRegistry.ts';
+import { Manifest, type PluginManifest } from '../../src/plugin/manifest.ts';
+import { Container } from '../../src/core/container.ts';
+import { PermissionDeniedError, PermissionGate } from '../../src/plugin/permissionGate.ts';
+import { PluginManager } from '../../src/plugin/pluginManager.ts';
+import type { Plugin } from '../../src/plugin/plugin.ts';
 
 /** 示范插件源码（安装后须可被 import 加载）。 */
 const SAMPLE_SOURCE = `export default {

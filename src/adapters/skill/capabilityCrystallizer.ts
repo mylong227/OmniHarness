@@ -17,15 +17,15 @@
  * @maturity L0 — 「结晶」目前是阈值固化，非成核动力学
  * @maturityEvidence tests/unit/capabilityCrystallizer.test.ts
  */
-import type { Skill } from '../../skill/skill.js';
-import type { SkillPort, MoireOptions } from '../../ports/runtime/skill.js';
-import { MoireComposer } from '../../skill/moireComposer.js';
+import type { Skill } from '../../skill/skill.ts';
+import type { SkillPort, MoireOptions } from '../../ports/runtime/skill.ts';
+import { MoireComposer } from '../../skill/moireComposer.ts';
 import type {
   CapabilityCrystallizerPort,
   CrystallizationReport,
   FrozenCapability,
-} from '../../ports/intelligence/capability.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+} from '../../ports/intelligence/capability.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /** 相变固化器选项。 */
 export interface CapabilityCrystallizerOptions {

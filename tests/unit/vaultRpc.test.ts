@@ -17,14 +17,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { AppServer } from '../../src/server/core/appServer.js';
-import { AppServerVaultHandlers } from '../../src/server/core/appServerVaultHandlers.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { VaultPort } from '../../src/ports/memory/vault.js';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { AppServerVaultHandlers } from '../../src/server/core/appServerVaultHandlers.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { VaultPort } from '../../src/ports/memory/vault.ts';
 
 /** 仓库根（判据在 `dist/tests/unit/`，源码按 cwd 读）。 */
 const REPO_ROOT = process.cwd();

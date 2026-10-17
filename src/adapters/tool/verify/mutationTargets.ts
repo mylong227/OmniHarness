@@ -10,8 +10,8 @@
  * 本类把「目标路径」与「新增内容」两个问题的答案收敛到一处，
  * 让装饰器不再依赖「调用方恰好按某种写法传参」。
  */
-import { PatchApplier } from '../fs/patchApplier.js';
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { PatchApplier } from '../fs/patchApplier.ts';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 
 /** 会改动工作区文件的工具（与 `core/toolGate.ts` 的 `MUTATING_TOOLS` 语义不同：此处只含落盘工具）。 */
 export class MutationTargets {

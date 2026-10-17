@@ -1,5 +1,5 @@
-import type { ToolHookContext } from './toolHookContext.js';
-import type { ToolResult } from '../tool.js';
+import type { ToolHookContext } from './toolHookContext.ts';
+import type { ToolResult } from '../tool.ts';
 
 /**
  * 工具钩子端口（P1 解耦）。

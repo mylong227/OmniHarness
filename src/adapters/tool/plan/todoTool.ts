@@ -1,2 +1,2 @@
-export { TodoWriteTool } from './todoWriteTool.js';
-export { TodoReadTool } from './todoReadTool.js';
+export { TodoWriteTool } from './todoWriteTool.ts';
+export { TodoReadTool } from './todoReadTool.ts';

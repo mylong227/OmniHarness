@@ -9,15 +9,15 @@
 // 命名与时间戳格式化继续复用 models/checkpoint 的零 React 类；分组/相对时间见 models/CheckpointTimeline。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
+import { useApp } from '../../context.ts';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
-import { CheckpointNamer } from '../../models/checkpoint.js';
-import { CheckpointTimeline } from '../../models/CheckpointTimeline.js';
-import { icon } from '../../models/Icon.js';
-import { emptyNote, emptyState } from '../../format.js';
-import type { CheckpointMeta } from '../../models/checkpoint.js';
-import type { TimelineDay, TimelineEntry } from '../../models/CheckpointTimeline.js';
-import { t } from '../../i18n/i18n.js';
+import { CheckpointNamer } from '../../models/checkpoint.ts';
+import { CheckpointTimeline } from '../../models/CheckpointTimeline.ts';
+import { icon } from '../../models/Icon.ts';
+import { emptyNote, emptyState } from '../../format.ts';
+import type { CheckpointMeta } from '../../models/checkpoint.ts';
+import type { TimelineDay, TimelineEntry } from '../../models/CheckpointTimeline.ts';
+import { t } from '../../i18n/i18n.ts';
 
 export type { CheckpointMeta, TimelineEntry, TimelineDay };
 

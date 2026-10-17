@@ -13,9 +13,9 @@
  * 未闭合的调用（有 call 无 result，例如进程被杀）**不产出 span**：宁可少一条，也不伪造结束时间。
  */
 import { randomBytes } from 'node:crypto';
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { OtlpAttributeValue, Span } from './otlpTraceExporter.js';
-import { GEN_AI_KEYS, GEN_AI_OPERATIONS, LEGACY_KEYS } from './genAiSemconv.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { OtlpAttributeValue, Span } from './otlpTraceExporter.ts';
+import { GEN_AI_KEYS, GEN_AI_OPERATIONS, LEGACY_KEYS } from './genAiSemconv.ts';
 
 /** 构造器可选项。 */
 export interface TraceSpanBuilderOptions {

@@ -15,11 +15,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { BundleCommand } from '../../src/cli/bundleCommand.js';
-import { PluginBundler } from '../../src/plugin/pluginBundler.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import { FeatureEntitlements } from '../../src/license/featureEntitlements.js';
-import { LicenseEngine } from '../../src/license/licenseEngine.js';
+import { BundleCommand } from '../../src/cli/bundleCommand.ts';
+import { PluginBundler } from '../../src/plugin/pluginBundler.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { FeatureEntitlements } from '../../src/license/featureEntitlements.ts';
+import { LicenseEngine } from '../../src/license/licenseEngine.ts';
 
 /**
  * 造 Team 档权益（私有技能源属 Team，§6.1）。

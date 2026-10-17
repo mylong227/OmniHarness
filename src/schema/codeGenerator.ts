@@ -1,4 +1,4 @@
-import type { FieldSchema, MethodSchema, ProtocolSchema } from './protocolSchema.js';
+import type { FieldSchema, MethodSchema, ProtocolSchema } from './protocolSchema.ts';
 
 /**
  * @beta

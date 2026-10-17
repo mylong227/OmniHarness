@@ -1,5 +1,5 @@
-import { MUTATING_TOOLS } from '../core/toolGate.js';
-import type { WorkflowStep } from './workflowTypes.js';
+import { MUTATING_TOOLS } from '../core/toolGate.ts';
+import type { WorkflowStep } from './workflowTypes.ts';
 
 /**
  * @beta

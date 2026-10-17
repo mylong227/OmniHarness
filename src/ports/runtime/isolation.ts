@@ -19,8 +19,8 @@
  * 2. **只可收紧**：请求比资产声明更松 ⇒ `downgrade-not-allowed`（放宽必须由组合根显式配置）；
  * 3. **逃逸即拒**（`escape`）：受限上下文里能触达宿主能力（`require` / `process` / …）⇒ 拒执行并记因。
  */
-import type { IsolationLevel } from '../capability/isolationLevel.js';
-import type { CapabilityRecord } from '../capability/capabilityRecord.js';
+import type { IsolationLevel } from '../capability/isolationLevel.ts';
+import type { CapabilityRecord } from '../capability/capabilityRecord.ts';
 
 /** 隔离执行请求的载荷（三型；见模块注释「为什么载荷要分派」）。 */
 export type IsolationPayload<T> =

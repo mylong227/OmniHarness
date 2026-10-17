@@ -22,10 +22,10 @@
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 负责解析裸标识符；
 // 整页会因模块解析失败而完全不挂载；web e2e 正是靠这一条把这类错误挡在提交前）。
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { icon } from '../../models/Icon.js';
+import { useApp } from '../../context.ts';
+import { icon } from '../../models/Icon.ts';
 import type { ReactElement } from 'react';
-import { t } from '../../i18n/i18n.js';
+import { t } from '../../i18n/i18n.ts';
 
 /** 治理台一行的形状（与服务端 `PromotionHistoryRow` 同形）。 */
 interface GovernanceRow {

@@ -16,14 +16,14 @@
  * @maturity L1 — 校验正/负例与「评估尺与门禁同源」判据钉死（含去掉校验即红的变异）
  * @maturityEvidence tests/unit/skillSchema.test.ts
  */
-import { Benchmark } from '../../evolution/benchmark.js';
+import { Benchmark } from '../../evolution/benchmark.ts';
 import type {
   AssetBenchmark,
   CapabilitySchema,
   EvalContext,
   SchemaValidation,
-} from '../../ports/capability.js';
-import type { Skill } from '../../skill/skill.js';
+} from '../../ports/capability.ts';
+import type { Skill } from '../../skill/skill.ts';
 
 /** 技能能力场边长（与门禁默认基准同口径：见 `RlvrController.DEFAULT_MOIRE_FIELD_SIZE` 的实测依据）。 */
 const SKILL_FIELD_SIZE = 64;

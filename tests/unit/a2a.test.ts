@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { A2aTransport } from '../../src/a2a/a2aProtocol.js';
-import { A2aClient } from '../../src/a2a/a2aClient.js';
-import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.js';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { A2aTransport } from '../../src/a2a/a2aProtocol.ts';
+import { A2aClient } from '../../src/a2a/a2aClient.ts';
+import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.ts';
 import type {
   AgentIdentityPort,
   AgentIdentityClaims,
-} from '../../src/ports/runtime/agentIdentity.js';
-import type { DelegateRequest, DelegateResult } from '../../src/a2a/a2aProtocol.js';
+} from '../../src/ports/runtime/agentIdentity.ts';
+import type { DelegateRequest, DelegateResult } from '../../src/a2a/a2aProtocol.ts';
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements A2aTransport {

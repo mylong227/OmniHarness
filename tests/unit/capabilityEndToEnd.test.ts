@@ -12,20 +12,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.js';
-import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.js';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.js';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.js';
+import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.ts';
+import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';
+import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
 import {
   WorkflowTemplateSchema,
   type WorkflowTemplate,
-} from '../../src/capability/schemas/workflowTemplateSchema.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
-import { MoireComposer } from '../../src/skill/moireComposer.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import type { CapabilityRecord } from '../../src/ports/capability.js';
-import type { Skill } from '../../src/skill/skill.js';
+} from '../../src/capability/schemas/workflowTemplateSchema.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
+import { MoireComposer } from '../../src/skill/moireComposer.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import type { CapabilityRecord } from '../../src/ports/capability.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 造一个合法工作流模板。

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Container } from '../../src/core/container.js';
+import { Container } from '../../src/core/container.ts';
 
 test('容器：注册与获取', () => {
   const container = new Container();

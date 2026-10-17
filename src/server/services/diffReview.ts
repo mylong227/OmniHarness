@@ -1,5 +1,5 @@
-import type { RepoPathGuard } from './repoPathGuard.js';
-import { AsyncChildProcess } from '../../util/asyncChildProcess.js';
+import type { RepoPathGuard } from './repoPathGuard.ts';
+import { AsyncChildProcess } from '../../util/asyncChildProcess.ts';
 
 /** DiffReview 构造选项。 */
 export interface DiffReviewOptions {

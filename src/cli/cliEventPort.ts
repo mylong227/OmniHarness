@@ -1,8 +1,8 @@
-import { ConsoleEventPort } from '../adapters/event/consoleEventPort.js';
-import { SilentEventPort } from '../adapters/event/silentEventPort.js';
-import { CompositeEventPort } from '../adapters/event/compositeEventPort.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
-import type { CliArgs } from './argParser.js';
+import { ConsoleEventPort } from '../adapters/event/consoleEventPort.ts';
+import { SilentEventPort } from '../adapters/event/silentEventPort.ts';
+import { CompositeEventPort } from '../adapters/event/compositeEventPort.ts';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
+import type { CliArgs } from './argParser.ts';
 
 /**
  * `--events` 到事件端口的解析（+ 调用方注入的**追加出口**）。

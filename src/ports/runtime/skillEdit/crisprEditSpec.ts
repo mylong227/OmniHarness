@@ -1,4 +1,4 @@
-import type { Skill } from '../../skill/skill.js';
+import type { Skill } from '../../skill/skill.ts';
 
 /** CRISPR 编辑规格。 */
 export interface CrisprEditSpec {

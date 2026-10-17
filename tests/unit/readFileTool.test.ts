@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ReadFileTool } from '../../src/adapters/tool/fs/readFileTool.js';
+import { ReadFileTool } from '../../src/adapters/tool/fs/readFileTool.ts';
 
 const tool = new ReadFileTool();
 

@@ -24,10 +24,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ToolExposurePlanner } from '../../src/core/toolExposurePlanner.js';
-import type { ToolCategory } from '../../src/core/toolExposurePlanner.js';
-import { McpServer } from '../../src/mcp/mcpServer.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
+import { ToolExposurePlanner } from '../../src/core/toolExposurePlanner.ts';
+import type { ToolCategory } from '../../src/core/toolExposurePlanner.ts';
+import { McpServer } from '../../src/mcp/mcpServer.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
 
 /**
  * 最小类别表：`exec` 登记 `shell`；`audit` 登记 `audit_query` 但**关键词与任务文本不相交**。

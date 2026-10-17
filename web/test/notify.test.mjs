@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { formatProfilePluginToast } = await import('../src/ui/notify.js');
+const { formatProfilePluginToast } = await import('../src/ui/notify.ts');
 
 test('profile.error 转错误 toast', () => {
   const r = formatProfilePluginToast('profile.error', { name: 'web', error: '权限不足' });

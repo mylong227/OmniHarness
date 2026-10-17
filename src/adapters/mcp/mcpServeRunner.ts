@@ -13,12 +13,12 @@
  * 门禁不因换实现而丢失：SDK 路径的工具端口先经 {@link GatedToolPort} 包装，审批 + 沙箱语义与手写一致。
  */
 import { createInterface } from 'node:readline';
-import { McpServer, type McpServerOptions } from '../../mcp/mcpServer.js';
-import { LineTransport } from '../../server/transport/lineTransport.js';
-import type { ToolContext, ToolPort } from '../../ports/tool/tool.js';
-import { GatedToolPort, type ToolGateLike } from './gatedToolPort.js';
-import { McpSdkProbe, type McpSdkProbeResult } from './mcpSdkProbe.js';
-import { SdkMcpServerAdapter, type SdkServerInfo } from './sdkMcpServerAdapter.js';
+import { McpServer, type McpServerOptions } from '../../mcp/mcpServer.ts';
+import { LineTransport } from '../../server/transport/lineTransport.ts';
+import type { ToolContext, ToolPort } from '../../ports/tool/tool.ts';
+import { GatedToolPort, type ToolGateLike } from './gatedToolPort.ts';
+import { McpSdkProbe, type McpSdkProbeResult } from './mcpSdkProbe.ts';
+import { SdkMcpServerAdapter, type SdkServerInfo } from './sdkMcpServerAdapter.ts';
 
 /** 手写回退服务器的门禁类型（与手写 `McpServerOptions.gate` 同源，避免适配器反向依赖 core）。 */
 type FallbackGate = McpServerOptions['gate'];

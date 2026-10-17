@@ -1,28 +1,28 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { profileLoader } from './profileLoader.js';
-import type { SsrfPolicyConfig } from '../security/ssrfPolicy.js';
-import { ConfigError } from './configError.js';
+import { profileLoader } from './profileLoader.ts';
+import type { SsrfPolicyConfig } from '../security/ssrfPolicy.ts';
+import { ConfigError } from './configError.ts';
 
-export type { FileMcpServer } from '../ports/config/fileMcpServer.js';
+export type { FileMcpServer } from '../ports/config/fileMcpServer.ts';
 
-export type { PermissionRuleDecision } from '../ports/config/permissionRuleDecision.js';
+export type { PermissionRuleDecision } from '../ports/config/permissionRuleDecision.ts';
 
-export type { PermissionRuleConfig } from '../ports/config/permissionRuleConfig.js';
+export type { PermissionRuleConfig } from '../ports/config/permissionRuleConfig.ts';
 
-export type { PermissionConfig } from '../ports/config/permissionConfig.js';
+export type { PermissionConfig } from '../ports/config/permissionConfig.ts';
 
 export type { SsrfPolicyConfig };
 
-export type { ProviderPresetConfig } from '../ports/config/providerPresetConfig.js';
+export type { ProviderPresetConfig } from '../ports/config/providerPresetConfig.ts';
 
-import type { FileConfig } from '../ports/config/fileConfig.js';
+import type { FileConfig } from '../ports/config/fileConfig.ts';
 export type { FileConfig };
 
-export type { ModelRouterEntryConfig } from '../ports/config/modelRouterEntryConfig.js';
+export type { ModelRouterEntryConfig } from '../ports/config/modelRouterEntryConfig.ts';
 
-export type { ModelRouterConfig } from '../ports/config/modelRouterConfig.js';
+export type { ModelRouterConfig } from '../ports/config/modelRouterConfig.ts';
 
 /** loadLayered 的参数。 */
 export interface LayeredOptions {

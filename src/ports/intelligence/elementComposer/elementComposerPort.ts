@@ -1,5 +1,5 @@
-import type { CompoundCapability } from './compoundCapability.js';
-import type { ElementDef } from './elementDef.js';
+import type { CompoundCapability } from './compoundCapability.ts';
+import type { ElementDef } from './elementDef.ts';
 
 /** 元素组合基元端口。 */
 export interface ElementComposerPort {

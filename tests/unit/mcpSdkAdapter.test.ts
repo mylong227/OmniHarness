@@ -7,14 +7,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SdkMcpServerAdapter } from '../../src/adapters/mcp/sdkMcpServerAdapter.js';
+import { SdkMcpServerAdapter } from '../../src/adapters/mcp/sdkMcpServerAdapter.ts';
 import type {
   ToolPort,
   ToolDefinition,
   ToolCall,
   ToolResult,
   ToolContext,
-} from '../../src/ports/tool/tool.js';
+} from '../../src/ports/tool/tool.ts';
 
 /**
  * 测试用内存工具端口桩：记录调用、支持注入失败工具（失败映射验收）。

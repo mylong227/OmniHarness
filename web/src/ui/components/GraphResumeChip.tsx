@@ -6,8 +6,8 @@
 // 纯展示组件（函数组件范式）：状态由父注入，点击回调上抛，无副作用。
 
 import * as React from 'react';
-import { t } from '../i18n/i18n.js';
-import type { GraphRunState } from '../../types/models.js';
+import { t } from '../i18n/i18n.ts';
+import type { GraphRunState } from '../../types/models.ts';
 
 /** 状态栏续跑入口的入参。 */
 export interface GraphResumeChipProps {

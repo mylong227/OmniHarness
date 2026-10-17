@@ -21,7 +21,7 @@
 //   ③ 文案用**客户的语言**（"跑一下这条命令看看输出"），不写工具名（`read_file`）——
 //      工具名是本产品的内部术语，出现在第一屏等于把学习成本推给客户。
 
-import type { IconName } from './Icon.js';
+import type { IconName } from './Icon.ts';
 
 /** 一条入门示例。 */
 export interface StarterTask {

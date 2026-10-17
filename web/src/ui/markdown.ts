@@ -35,8 +35,8 @@ import katex from 'katex';
 import hljs from 'highlight.js/lib/common';
 
 import * as React from 'react';
-import { ClipboardCopier } from './models/ClipboardCopier.js';
-import { t } from './i18n/i18n.js';
+import { ClipboardCopier } from './models/ClipboardCopier.ts';
+import { t } from './i18n/i18n.ts';
 
 /** markdown-it 单条 token 的最小接口（避免引入 any / 第三方类型）。 */
 interface MdToken {

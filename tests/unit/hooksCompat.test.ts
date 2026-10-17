@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import { CodexHooksMapper } from '../../src/hooksCompat/codexHooksMapper.js';
-import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooksMapper.js';
-import { HooksCompatAdapter } from '../../src/hooksCompat/hooksCompatAdapter.js';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { CodexHooksMapper } from '../../src/hooksCompat/codexHooksMapper.ts';
+import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooksMapper.ts';
+import { HooksCompatAdapter } from '../../src/hooksCompat/hooksCompatAdapter.ts';
 
 /** 构造测试事件。 */
 function ev(type: SessionEvent['type'], payload: unknown): SessionEvent {

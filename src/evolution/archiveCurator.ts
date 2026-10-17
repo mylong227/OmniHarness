@@ -17,8 +17,8 @@ import type {
   Candidate,
   CandidateArchivePort,
   PromotionVerdict,
-} from '../ports/runtime/evolution.js';
-import type { EliteReentryDiscovery } from './eliteReentryDiscovery.js';
+} from '../ports/runtime/evolution.ts';
+import type { EliteReentryDiscovery } from './eliteReentryDiscovery.ts';
 
 /** 复核次数超限后的冻结 reason（退役申报，观测可辨）。 */
 const RETIRE_AFTER_RECHECKS = 'rejected:rechecks-exhausted';

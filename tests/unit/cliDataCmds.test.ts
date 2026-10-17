@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runCli } from '../helpers/cliRunner.js';
+import { runCli } from '../helpers/cliRunner.ts';
 
 // CLI 子进程驱动见 `tests/helpers/cliRunner.ts`（2026-10-11 抽出，供本文件与 cliBoostCmds 共用）。
 

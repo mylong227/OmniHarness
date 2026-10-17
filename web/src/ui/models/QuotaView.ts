@@ -1,9 +1,9 @@
 // 「今日余额」块的展示模型：档位徽标 + 重置时刻 + 各模型配额行。
 // 零 React 依赖，node 环境可直接单测。
 
-import type { QuotaStatus } from '../../types/models.js';
-import { TokenScaleFormatter } from './TokenScaleFormatter.js';
-import { t } from '../i18n/i18n.js';
+import type { QuotaStatus } from '../../types/models.ts';
+import { TokenScaleFormatter } from './TokenScaleFormatter.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 单个模型的配额行视图。 */
 export interface QuotaRowView {

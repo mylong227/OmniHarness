@@ -1,4 +1,4 @@
-﻿import type { ResolvedSsrfPolicy } from './ssrfPolicy.js';
+﻿import type { ResolvedSsrfPolicy } from './ssrfPolicy.ts';
 
 /** SSRF 校验选项。 */
 export interface SsrfOptions {

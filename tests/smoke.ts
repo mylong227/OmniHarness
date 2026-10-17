@@ -1,19 +1,19 @@
 ﻿import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Agent } from '../src/core/agent.js';
-import { Runtime } from '../src/composition/runtime.js';
-import { ConfigFactory } from '../src/config/configFactory.js';
-import { MockModel } from '../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../src/adapters/storage/memoryStorage.js';
-import { JsonlStorage } from '../src/adapters/storage/jsonlStorage.js';
-import { DenyApproval } from '../src/adapters/approval/denyApproval.js';
-import { AutoApproval } from '../src/adapters/approval/autoApproval.js';
-import { SilentEventPort } from '../src/adapters/event/silentEventPort.js';
-import { PassthroughSandbox } from '../src/adapters/sandbox/passthroughSandbox.js';
-import { RegistryToolPort } from '../src/adapters/tool/registryToolPort.js';
-import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../src/ports/tool/tool.js';
-import { works } from './assert.js';
+import { Agent } from '../src/core/agent.ts';
+import { Runtime } from '../src/composition/runtime.ts';
+import { ConfigFactory } from '../src/config/configFactory.ts';
+import { MockModel } from '../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../src/adapters/storage/memoryStorage.ts';
+import { JsonlStorage } from '../src/adapters/storage/jsonlStorage.ts';
+import { DenyApproval } from '../src/adapters/approval/denyApproval.ts';
+import { AutoApproval } from '../src/adapters/approval/autoApproval.ts';
+import { SilentEventPort } from '../src/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../src/adapters/sandbox/passthroughSandbox.ts';
+import { RegistryToolPort } from '../src/adapters/tool/registryToolPort.ts';
+import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../src/ports/tool/tool.ts';
+import { works } from './assert.ts';
 
 /** 冒烟测试：端口-适配器架构下多种组合必须全部走通。 */
 async function runSmoke(): Promise<void> {

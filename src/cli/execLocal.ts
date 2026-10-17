@@ -25,7 +25,7 @@
  * 这**不是**"组合替代继承"的全部：链基那 6 个类仍是单继承（本次只是让**链顶**不再被本地命令加载）。
  * 进一步的收益要按层拆（每层一个可独立加载的分发），属独立一片，已在看板 §8.22 登记。
  */
-import { CliDataCmds } from './cliDataCmds.js';
+import { CliDataCmds } from './cliDataCmds.ts';
 
 /** 本地/低依赖子命令的分发层（链基半段）。 */
 export class ExecLocal extends CliDataCmds {

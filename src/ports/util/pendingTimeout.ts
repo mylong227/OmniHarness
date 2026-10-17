@@ -1,4 +1,4 @@
-import type { PendingHandlers } from './pendingHandlers.js';
+import type { PendingHandlers } from './pendingHandlers.ts';
 
 /**
  * 可选超时：到点后表**先移出条目并清定时器**，再把处理器交给 `onTimeout`，

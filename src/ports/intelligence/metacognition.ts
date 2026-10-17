@@ -12,7 +12,7 @@
  * 本文件已退化为桶：4 个接口各自独立成文件于 `./metacognition/`，调用点零改动。
  */
 
-export type { BeliefSnapshot } from './metacognition/beliefSnapshot.js';
-export type { BeliefKlComponent } from './metacognition/beliefKlComponent.js';
-export type { BeliefUpdateReport } from './metacognition/beliefUpdateReport.js';
-export type { MetacognitionPort } from './metacognition/metacognitionPort.js';
+export type { BeliefSnapshot } from './metacognition/beliefSnapshot.ts';
+export type { BeliefKlComponent } from './metacognition/beliefKlComponent.ts';
+export type { BeliefUpdateReport } from './metacognition/beliefUpdateReport.ts';
+export type { MetacognitionPort } from './metacognition/metacognitionPort.ts';

@@ -14,9 +14,9 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { RoutineScheduler } from '../../src/daemon/routineScheduler.js';
-import { CronerSchedule } from '../../src/adapters/schedule/cronerSchedule.js';
-import type { Routine } from '../../src/ports/daemon/routine.js';
+import { RoutineScheduler } from '../../src/daemon/routineScheduler.ts';
+import { CronerSchedule } from '../../src/adapters/schedule/cronerSchedule.ts';
+import type { Routine } from '../../src/ports/daemon/routine.ts';
 
 /**
  * 在临时目录里写一份 routines.json 并造调度器。

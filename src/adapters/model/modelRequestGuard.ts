@@ -13,9 +13,9 @@
  * 即重置 —— 「慢但有进展」的长推理不会被误杀，只有「连续静默超过阈值」才中止。
  */
 
-import type { ModelRequest } from '../../ports/model/model.js';
-import { ModelCallError } from '../../ports/model/model.js';
-import { RequestStallGuard } from './requestStallGuard.js';
+import type { ModelRequest } from '../../ports/model/model.ts';
+import { ModelCallError } from '../../ports/model/model.ts';
+import { RequestStallGuard } from './requestStallGuard.ts';
 
 /** 库级默认的模型请求**空闲**超时（毫秒）：连续 5 分钟无任何数据即中止；`<=0` 表示关闭。 */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 300_000;

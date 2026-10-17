@@ -10,7 +10,7 @@
  * 本文件已退化为桶：4 个接口各自独立成文件于 `./embedding/`，调用点零改动。
  */
 
-export type { Embedding } from './embedding/embedding.js';
-export type { EmbedOptions } from './embedding/embedOptions.js';
-export type { EmbeddingPreloadOutcome } from './embedding/embeddingPreloadOutcome.js';
-export type { EmbeddingPort } from './embedding/embeddingPort.js';
+export type { Embedding } from './embedding/embedding.ts';
+export type { EmbedOptions } from './embedding/embedOptions.ts';
+export type { EmbeddingPreloadOutcome } from './embedding/embeddingPreloadOutcome.ts';
+export type { EmbeddingPort } from './embedding/embeddingPort.ts';

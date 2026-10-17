@@ -1,9 +1,9 @@
-import type { LspLocation } from './lspLocation.js';
-import type { LspDiagnosticReport } from './lspDiagnosticReport.js';
-import type { LspSymbol } from './lspSymbol.js';
-import type { LspRange } from './lspRange.js';
-import type { LspCodeAction } from './lspCodeAction.js';
-import type { LspWorkspaceSymbol } from './lspWorkspaceSymbol.js';
+import type { LspLocation } from './lspLocation.ts';
+import type { LspDiagnosticReport } from './lspDiagnosticReport.ts';
+import type { LspSymbol } from './lspSymbol.ts';
+import type { LspRange } from './lspRange.ts';
+import type { LspCodeAction } from './lspCodeAction.ts';
+import type { LspWorkspaceSymbol } from './lspWorkspaceSymbol.ts';
 
 /**
  * @beta

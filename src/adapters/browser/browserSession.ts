@@ -16,12 +16,12 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ChromeLocator } from './chromeLocator.js';
-import type { ChromeLocatorOptions, ChromeLookup } from './chromeLocator.js';
-import { ChromeProcess } from './chromeProcess.js';
-import type { ChromeLaunchResult, ChromeProcessOptions } from './chromeProcess.js';
-import { CdpClient } from './cdpClient.js';
-import { ImageProbe } from '../../util/imageProbe.js';
+import { ChromeLocator } from './chromeLocator.ts';
+import type { ChromeLocatorOptions, ChromeLookup } from './chromeLocator.ts';
+import { ChromeProcess } from './chromeProcess.ts';
+import type { ChromeLaunchResult, ChromeProcessOptions } from './chromeProcess.ts';
+import { CdpClient } from './cdpClient.ts';
+import { ImageProbe } from '../../util/imageProbe.ts';
 
 /**
  * 浏览器进程最小面：`ChromeProcess` 结构化满足；测试可注入假实现（不真起浏览器）。

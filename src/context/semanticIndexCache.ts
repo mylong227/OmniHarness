@@ -10,14 +10,14 @@
  *  - 存 Promise 以便并发请求复用同一次构建；构建失败缓存 null，下次重新尝试（仍 fail-closed）。
  */
 
-import type { EmbeddingPort } from '../ports/model/embedding.js';
-import type { IndexedCorpus } from './contextEngine.js';
-import { SemanticIndex, type RecallItem } from './semanticIndex.js';
-import { EmbeddingContentCache, type EmbeddingCacheStats } from './embeddingContentCache.js';
-import { CachedEmbeddingPort } from './cachedEmbeddingPort.js';
-import type { RecallKnobs } from './recallKnobs.js';
-import { ArrayAt } from '../util/arrayAt.js';
-import { log } from '../util/logger.js';
+import type { EmbeddingPort } from '../ports/model/embedding.ts';
+import type { IndexedCorpus } from './contextEngine.ts';
+import { SemanticIndex, type RecallItem } from './semanticIndex.ts';
+import { EmbeddingContentCache, type EmbeddingCacheStats } from './embeddingContentCache.ts';
+import { CachedEmbeddingPort } from './cachedEmbeddingPort.ts';
+import type { RecallKnobs } from './recallKnobs.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
+import { log } from '../util/logger.ts';
 
 /** 全文文件文档最大字符数（约 8K token 内，留余量；ALiBi 可外推但质量在训练窗口内最佳）。 */
 const FULL_FILE_DOC_MAX_CHARS = 8000;

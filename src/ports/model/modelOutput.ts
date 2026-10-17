@@ -1,5 +1,5 @@
-import type { ModelToolCallRef } from './modelToolCallRef.js';
-import type { ModelUsage } from './modelUsage.js';
+import type { ModelToolCallRef } from './modelToolCallRef.ts';
+import type { ModelUsage } from './modelUsage.ts';
 
 /** 模型输出：推理 / 文本 / 工具调用。 */
 export interface ModelOutput {

@@ -18,7 +18,7 @@
  *
  * @beta 属 P0 内核升级子系统，接口仍可能微调。
  */
-import { log } from '../util/logger.js';
+import { log } from '../util/logger.ts';
 import type {
   AuditSinkLike,
   HealthEntry,
@@ -26,7 +26,7 @@ import type {
   SafeMode,
   SupervisorOptions,
   SupervisorPort,
-} from '../ports/runtime/supervisor.js';
+} from '../ports/runtime/supervisor.ts';
 
 const DEFAULT_WINDOW = 32;
 const DEFAULT_DEGRADE = 0.25;

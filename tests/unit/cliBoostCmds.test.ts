@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runCli } from '../helpers/cliRunner.js';
+import { runCli } from '../helpers/cliRunner.ts';
 
 /**
  * `boost` 子命令分发判据（2026-10-11 从 `cliDataCmds.test.ts` 拆出）。

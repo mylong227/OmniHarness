@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MoireComposer } from '../../src/skill/moireComposer.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { MoireComposer } from '../../src/skill/moireComposer.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 const A: Skill = {
   name: 'dataExtract',

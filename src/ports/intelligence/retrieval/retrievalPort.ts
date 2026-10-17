@@ -1,5 +1,5 @@
-import type { RetrievalDoc } from './retrievalDoc.js';
-import type { RetrievalHit } from './retrievalHit.js';
+import type { RetrievalDoc } from './retrievalDoc.ts';
+import type { RetrievalHit } from './retrievalHit.ts';
 
 /**
  * @beta

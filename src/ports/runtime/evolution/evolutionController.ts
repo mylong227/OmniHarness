@@ -1,5 +1,5 @@
-import type { Candidate } from './candidate.js';
-import type { PromotionVerdict } from './promotionVerdict.js';
+import type { Candidate } from './candidate.ts';
+import type { PromotionVerdict } from './promotionVerdict.ts';
 
 /** 进化控制器：编排 发现 → 评估 → 晋升 一轮闭环。 */
 export interface EvolutionController {

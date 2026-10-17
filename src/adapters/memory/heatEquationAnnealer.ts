@@ -2,10 +2,10 @@
  * @maturity L2 — 真做扩散步；冷却调度的最优性未证
  * @maturityEvidence tests/unit/heatAnnealer.test.ts
  */
-import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.js';
-import type { MemoryAnnealer, AnnealStepReport } from '../../ports/memory/memoryAnnealing.js';
-import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+import type { LongTermMemoryPort } from '../../ports/memory/longTermMemory.ts';
+import type { MemoryAnnealer, AnnealStepReport } from '../../ports/memory/memoryAnnealing.ts';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /** 退火器选项（全部有保守默认；fail-closed 边界均夹紧）。 */
 export interface HeatAnnealerOptions {

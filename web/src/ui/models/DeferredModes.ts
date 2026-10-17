@@ -11,7 +11,7 @@
 // 独立性：本类只依赖一个 `modesSet(threadId, patch)` 调用口（构造注入），因此既能被控制器复用，
 // 也能在 node 里用桩穷举时序（见 `web/test/pendingModes.test.mjs`）。
 
-import { PendingModes, type SessionModePatch } from './PendingModes.js';
+import { PendingModes, type SessionModePatch } from './PendingModes.ts';
 
 /** 落盘调用口（与 `ApiClient.modesSet` 同形）。 */
 export type ModesSetter = (threadId: string, patch: SessionModePatch) => Promise<unknown>;

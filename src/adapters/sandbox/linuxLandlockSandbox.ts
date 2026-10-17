@@ -22,7 +22,7 @@
  */
 import { accessSync, constants } from 'node:fs';
 import { release } from 'node:os';
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
 
 /** Landlock 探测结论（能力自述的原始依据）。 */
 export interface LandlockProbeReport {

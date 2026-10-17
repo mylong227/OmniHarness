@@ -1,4 +1,4 @@
-import type { SandboxProfile } from './sandboxProfile.js';
+import type { SandboxProfile } from './sandboxProfile.ts';
 
 /** 单个后端的能力自述。 */
 export interface SandboxCapabilityEntry {

@@ -6,7 +6,7 @@
  * 继承自 CliBuildConfig，可调用其全部共享接线与配置装配助手。
  */
 
-import { LicenseSource } from '../license/licenseSource.js';
+import { LicenseSource } from '../license/licenseSource.ts';
 import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -14,39 +14,39 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
-import { HttpBridgeTransport } from '../server/transport/httpServer.js';
-import type { HttpServer } from '../server/transport/httpServer.js';
-import { ServerAuthGuard } from '../server/transport/serverAuthGuard.js';
-import { Metrics } from '../server/services/metrics.js';
-import type { AuditSink } from '../server/services/auditSink.js';
-import type { AppServer } from '../server/core/appServer.js';
-import type { ServerEventBridge } from '../server/core/serverEventBridge.js';
-import { DoctorRunner } from './doctorRunner.js';
-import { ServeInstance } from './serveInstance.js';
-import { API_VERSION } from '../version.js';
+import { HttpBridgeTransport } from '../server/transport/httpServer.ts';
+import type { HttpServer } from '../server/transport/httpServer.ts';
+import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
+import { Metrics } from '../server/services/metrics.ts';
+import type { AuditSink } from '../server/services/auditSink.ts';
+import type { AppServer } from '../server/core/appServer.ts';
+import type { ServerEventBridge } from '../server/core/serverEventBridge.ts';
+import { DoctorRunner } from './doctorRunner.ts';
+import { ServeInstance } from './serveInstance.ts';
+import { API_VERSION } from '../version.ts';
 import {
   OidcClient,
   EnterpriseAuth,
   type OidcProviderConfig,
   type AuthState,
   type OidcDiscovery,
-} from '../enterprise/index.js';
-import { OpenIdClientFlow } from '../adapters/enterprise/openIdClientFlow.js';
-import type { OidcFlowPort } from '../ports/enterprise/oidcFlow.js';
-import { CodeGenerator } from '../schema/codeGenerator.js';
-import { protocolSchema } from '../schema/protocolSchema.js';
-import { configFile } from '../config/configFile.js';
-import type { FileConfig } from '../config/configFile.js';
-import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.js';
-import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
-import { ArgParser } from './argParser.js';
-import type { CliArgs } from './argParser.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
-import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.js';
-import { CliArgReader } from './cliArgReader.js';
-import { ServeWorkspace } from './serveWorkspace.js';
-import { ServePortConflict } from './servePortConflict.js';
-import { CliIdentityDaemonCmds } from './cliIdentityDaemonCmds.js';
+} from '../enterprise/index.ts';
+import { OpenIdClientFlow } from '../adapters/enterprise/openIdClientFlow.ts';
+import type { OidcFlowPort } from '../ports/enterprise/oidcFlow.ts';
+import { CodeGenerator } from '../schema/codeGenerator.ts';
+import { protocolSchema } from '../schema/protocolSchema.ts';
+import { configFile } from '../config/configFile.ts';
+import type { FileConfig } from '../config/configFile.ts';
+import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.ts';
+import { PluginProfileStore } from '../plugin/pluginProfileStore.ts';
+import { ArgParser } from './argParser.ts';
+import type { CliArgs } from './argParser.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
+import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.ts';
+import { CliArgReader } from './cliArgReader.ts';
+import { ServeWorkspace } from './serveWorkspace.ts';
+import { ServePortConflict } from './servePortConflict.ts';
+import { CliIdentityDaemonCmds } from './cliIdentityDaemonCmds.ts';
 
 /** 服务端 / 身份 / 后台类子命令。 */
 export class CliServerCmds extends CliIdentityDaemonCmds {
@@ -62,7 +62,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       return 2;
     }
     const config = await this.buildConfig(args);
-    const { LineTransport } = await import('../server/transport/lineTransport.js');
+    const { LineTransport } = await import('../server/transport/lineTransport.ts');
     const transport = new LineTransport(
       (onLine) => {
         const readline = createInterface({ input: process.stdin, crlfDelay: Infinity });
@@ -72,7 +72,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     );
     const pluginsDir =
       this.flagValue(serverArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
-    const { AppServer } = await import('../server/core/appServer.js');
+    const { AppServer } = await import('../server/core/appServer.ts');
     const app = new AppServer({
       config,
       transport,
@@ -366,7 +366,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
   }> {
     const bridge = new HttpBridgeTransport(auth);
     const metrics = new Metrics();
-    const { ServerEventBridge } = await import('../server/core/serverEventBridge.js');
+    const { ServerEventBridge } = await import('../server/core/serverEventBridge.ts');
     const events = new ServerEventBridge({ transport: bridge, metrics, audit });
     const config = await this.buildConfig(args, {
       userResponder: events.questionPort(),
@@ -557,7 +557,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
       // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
       const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
-      const { AppServer } = await import('../server/core/appServer.js');
+      const { AppServer } = await import('../server/core/appServer.ts');
       const app = new AppServer({
         config: { ...config, live },
         transport: bridge,
@@ -637,7 +637,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
     const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
     ServerAuthGuard.assertBindSafe(serveHost, serveToken);
-    const { HttpServer } = await import('../server/transport/httpServer.js');
+    const { HttpServer } = await import('../server/transport/httpServer.ts');
     const server = new HttpServer({
       app,
       bridge,

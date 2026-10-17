@@ -1,21 +1,21 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // StepRunner × 流式路径 × Web 推送 集成测试（#B3 web 端到端）：
 // StepRunner 走 stream → live(CompositeLiveView 内含 WebLiveView) → 经 bridge.notify 推送 thread.tool_input。
 // 证明「核心循环 stream 增量 → 广播给 Web UI」链路真实闭环，而非仅单元正确。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.js';
-import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.js';
-import type { ModelPort, ModelOutput } from '../../src/ports/model/model.js';
-import type { ToolCall } from '../../src/ports/tool/tool.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.ts';
+import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.ts';
+import type { ModelPort, ModelOutput } from '../../src/ports/model/model.ts';
+import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
 
 const echoTool: ToolCall = { id: 'c1', name: 'shell.run', arguments: { command: 'echo hi' } };
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };

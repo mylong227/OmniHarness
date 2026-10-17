@@ -1,4 +1,4 @@
-import type { Candidate } from './candidate.js';
+import type { Candidate } from './candidate.ts';
 
 /** 晋升/隔离裁决（fail-closed 可读）。 */
 export interface PromotionVerdict {

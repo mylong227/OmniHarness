@@ -10,8 +10,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
-import type { ModelRequest, ModelMessage } from '../../src/ports/model/model.js';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import type { ModelRequest, ModelMessage } from '../../src/ports/model/model.ts';
 
 /** 捕获端点句柄。 */
 interface CaptureServer {

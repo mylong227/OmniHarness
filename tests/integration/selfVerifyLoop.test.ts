@@ -14,11 +14,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ConfigToolRegistry } from '../../src/config/configToolRegistry.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.js';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.js';
-import type { ToolCall, ToolContext, ToolPort } from '../../src/ports/tool/tool.js';
+import { ConfigToolRegistry } from '../../src/config/configToolRegistry.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.ts';
+import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+import type { ToolCall, ToolContext, ToolPort } from '../../src/ports/tool/tool.ts';
 
 /** 失败夹具的测试脚本：`src.js` 含 BROKEN 即非零退出并打印 node --test 风格的失败行。 */
 const CHECK_SCRIPT = [

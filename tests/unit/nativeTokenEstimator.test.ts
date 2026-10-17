@@ -3,9 +3,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NativeBackend } from '../../src/native/nativeBackend.js';
-import { TokenEstimator } from '../../src/context/tokenEstimator.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
+import { NativeBackend } from '../../src/native/nativeBackend.ts';
+import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
 
 const messages = Array.from({ length: 40 }, (_unused, index) => ({
   content: `第 ${index} 条：混合 Mixed 文本 token estimate 测试，含中文与 English words. `.repeat(

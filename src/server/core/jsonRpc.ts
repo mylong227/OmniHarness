@@ -1,13 +1,13 @@
-import type { RpcRequest } from '../../ports/server/rpcRequest.js';
-import type { RpcResponse } from '../../ports/server/rpcResponse.js';
-import type { RpcNotification } from '../../ports/server/rpcNotification.js';
-import type { RpcMessage } from '../../ports/server/rpcMessage.js';
+import type { RpcRequest } from '../../ports/server/rpcRequest.ts';
+import type { RpcResponse } from '../../ports/server/rpcResponse.ts';
+import type { RpcNotification } from '../../ports/server/rpcNotification.ts';
+import type { RpcMessage } from '../../ports/server/rpcMessage.ts';
 
-export type { RpcRequest } from '../../ports/server/rpcRequest.js';
-export type { RpcResponse } from '../../ports/server/rpcResponse.js';
-export type { RpcNotification } from '../../ports/server/rpcNotification.js';
-export type { RpcError } from '../../ports/server/rpcError.js';
-export type { RpcMessage } from '../../ports/server/rpcMessage.js';
+export type { RpcRequest } from '../../ports/server/rpcRequest.ts';
+export type { RpcResponse } from '../../ports/server/rpcResponse.ts';
+export type { RpcNotification } from '../../ports/server/rpcNotification.ts';
+export type { RpcError } from '../../ports/server/rpcError.ts';
+export type { RpcMessage } from '../../ports/server/rpcMessage.ts';
 
 /**
  * JSON-RPC 协议工具。

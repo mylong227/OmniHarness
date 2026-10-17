@@ -12,9 +12,9 @@
  * 本文件已退化为桶：6 个接口各自独立成文件于 `./runtimeTelemetry/`，调用点零改动。
  */
 
-export type { TelemetryProvenance } from './runtimeTelemetry/telemetryProvenance.js';
-export type { TelemetryKind } from './runtimeTelemetry/telemetryKind.js';
-export type { RuntimeObservation } from './runtimeTelemetry/runtimeObservation.js';
-export type { TelemetryChainReport } from './runtimeTelemetry/telemetryChainReport.js';
-export type { RuntimeTelemetryInput } from './runtimeTelemetry/runtimeTelemetryInput.js';
-export type { RuntimeTelemetryPort } from './runtimeTelemetry/runtimeTelemetryPort.js';
+export type { TelemetryProvenance } from './runtimeTelemetry/telemetryProvenance.ts';
+export type { TelemetryKind } from './runtimeTelemetry/telemetryKind.ts';
+export type { RuntimeObservation } from './runtimeTelemetry/runtimeObservation.ts';
+export type { TelemetryChainReport } from './runtimeTelemetry/telemetryChainReport.ts';
+export type { RuntimeTelemetryInput } from './runtimeTelemetry/runtimeTelemetryInput.ts';
+export type { RuntimeTelemetryPort } from './runtimeTelemetry/runtimeTelemetryPort.ts';

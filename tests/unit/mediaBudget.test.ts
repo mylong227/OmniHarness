@@ -10,10 +10,10 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FrameEncoder, MediaFrameBudget } from '../../src/media/frameEncoder.js';
-import { MediaFrameSampler } from '../../src/media/mediaFrameSampler.js';
-import type { MediaFrame } from '../../src/ports/media/mediaTypes.js';
-import type { RasterImage } from '../../src/media/rasterTypes.js';
+import { FrameEncoder, MediaFrameBudget } from '../../src/media/frameEncoder.ts';
+import { MediaFrameSampler } from '../../src/media/mediaFrameSampler.ts';
+import type { MediaFrame } from '../../src/ports/media/mediaTypes.ts';
+import type { RasterImage } from '../../src/media/rasterTypes.ts';
 
 /**
  * 构造一张确定的可压缩栅格（棋盘格，边界多 ⇒ 过滤/压缩效果真实）。

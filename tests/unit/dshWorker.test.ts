@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSyncAsync } from '../helpers/childProcess.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
-import { dshWorker } from '../../src/worker/dshWorker.js';
-import { WorkerRegistry } from '../../src/worker/workerRegistry.js';
-import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.js';
+import { spawnSyncAsync } from '../helpers/childProcess.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
+import { dshWorker } from '../../src/worker/dshWorker.ts';
+import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
+import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
 
 /** 真实二进制联调的前置条件：本机装有 dsh。 */
 const dshReady =

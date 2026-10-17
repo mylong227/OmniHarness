@@ -9,9 +9,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EnforcementModeResolver } from '../../src/security/enforcementModeResolver.js';
-import { PromptInjectionGuard } from '../../src/security/promptInjectionGuard.js';
-import type { ToolResult } from '../../src/ports/tool/tool.js';
+import { EnforcementModeResolver } from '../../src/security/enforcementModeResolver.ts';
+import { PromptInjectionGuard } from '../../src/security/promptInjectionGuard.ts';
+import type { ToolResult } from '../../src/ports/tool/tool.ts';
 
 const result: ToolResult = { callId: 'c1', ok: true, output: '原文' };
 

@@ -1,9 +1,9 @@
-import type { ToolCall } from '../ports/tool/tool.js';
-import type { McpServerOptions } from '../ports/mcp/mcpServerOptions.js';
-import { Id } from '../util/id.js';
-import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/core/jsonRpc.js';
-import { McpProtocol, mcpProtocol } from './mcpProtocol.js';
-import { mcpToolMapper } from './mcpToolMapper.js';
+import type { ToolCall } from '../ports/tool/tool.ts';
+import type { McpServerOptions } from '../ports/mcp/mcpServerOptions.ts';
+import { Id } from '../util/id.ts';
+import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/core/jsonRpc.ts';
+import { McpProtocol, mcpProtocol } from './mcpProtocol.ts';
+import { mcpToolMapper } from './mcpToolMapper.ts';
 
 /**
  * @beta
@@ -168,4 +168,4 @@ export class McpServer {
 
 // `McpServerOptions` / `ResourcePort` / `PromptPort` 的契约已外迁至 `ports/mcp/mcpServerOptions.ts`，
 // 此处仅再导出以维持既有公共 API 面（`index.ts`、`mcpServeRunner.ts`、`mcp.test.ts` 等调用点零改动）。
-export type { McpServerOptions, ResourcePort, PromptPort } from '../ports/mcp/mcpServerOptions.js';
+export type { McpServerOptions, ResourcePort, PromptPort } from '../ports/mcp/mcpServerOptions.ts';

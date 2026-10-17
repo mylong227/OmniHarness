@@ -4,9 +4,9 @@
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
 import * as React from 'react';
-import { esc } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import { hostOf } from '../../textUtils.js';
+import { esc } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import { hostOf } from '../../textUtils.ts';
 
 /** ExternalLinkCards 组件的入参。 */
 export interface ExternalLinkCardsProps {

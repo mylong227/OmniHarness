@@ -72,7 +72,7 @@ test('回环地址：本仓服务对外输出的 URL 不得写 localhost（Windo
 });
 
 test('回环地址：服务端默认绑定常量存在且为回环 IPv4（判据依赖它，不能悄悄改）', async () => {
-  const { ServerAuthGuard } = await import('../../src/server/transport/serverAuthGuard.js');
+  const { ServerAuthGuard } = await import('../../src/server/transport/serverAuthGuard.ts');
   assert.strictEqual(
     ServerAuthGuard.DEFAULT_HOST,
     '127.0.0.1',

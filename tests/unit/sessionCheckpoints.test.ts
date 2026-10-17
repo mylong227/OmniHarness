@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SessionCheckpoints } from '../../src/server/services/session/sessionCheckpoints.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
+import { SessionCheckpoints } from '../../src/server/services/session/sessionCheckpoints.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 
 function make(): SessionCheckpoints {
   return new SessionCheckpoints({ storage: new MemoryStorage() });

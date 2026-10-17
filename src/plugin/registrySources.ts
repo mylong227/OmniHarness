@@ -1,5 +1,5 @@
-export * from './registrySourcesShared.js';
-export { LocalDirSource } from './localDirSource.js';
-export { BundledSource } from './bundledSource.js';
-export { RemoteHttpSource } from './remoteHttpSource.js';
-export { FileRegistrySource } from './fileRegistrySource.js';
+export * from './registrySourcesShared.ts';
+export { LocalDirSource } from './localDirSource.ts';
+export { BundledSource } from './bundledSource.ts';
+export { RemoteHttpSource } from './remoteHttpSource.ts';
+export { FileRegistrySource } from './fileRegistrySource.ts';

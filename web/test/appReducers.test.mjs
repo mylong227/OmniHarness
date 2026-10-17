@@ -8,8 +8,8 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { AppReducers } from '../src/ui/controllers/AppReducers.js';
-import { KeyboardShortcuts } from '../src/ui/models/KeyboardShortcuts.js';
+import { AppReducers } from '../src/ui/controllers/AppReducers.ts';
+import { KeyboardShortcuts } from '../src/ui/models/KeyboardShortcuts.ts';
 
 const r = new AppReducers();
 

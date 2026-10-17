@@ -7,9 +7,9 @@
 // （可脱离 React 单测）。解析不出任何文件段（如 diff 为空）时退回原始 diff 呈现，不白屏。
 
 import * as React from 'react';
-import { parseTurnDiffFiles, turnDiffTotals } from '../../models/TurnDiffFiles.js';
-import { diffView } from '../../format.js';
-import { t } from '../../i18n/i18n.js';
+import { parseTurnDiffFiles, turnDiffTotals } from '../../models/TurnDiffFiles.ts';
+import { diffView } from '../../format.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** TurnDiffCard 入参。 */
 export interface TurnDiffCardProps {

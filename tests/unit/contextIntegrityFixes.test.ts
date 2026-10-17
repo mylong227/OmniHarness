@@ -18,18 +18,18 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SemanticIndexCache } from '../../src/context/semanticIndexCache.js';
-import { RecallKnobs } from '../../src/context/recallKnobs.js';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import { DeterministicCompressor } from '../../src/context/deterministicCompressor.js';
-import { ContextCompactor, COMPACTION_MARKER } from '../../src/context/contextCompactor.js';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
-import type { ModelMessage, ModelPort } from '../../src/ports/model/model.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { SpillHandle, SpillPort } from '../../src/ports/memory/spill.js';
+import { SemanticIndexCache } from '../../src/context/semanticIndexCache.ts';
+import { RecallKnobs } from '../../src/context/recallKnobs.ts';
+import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
+import { DeterministicCompressor } from '../../src/context/deterministicCompressor.ts';
+import { ContextCompactor, COMPACTION_MARKER } from '../../src/context/contextCompactor.ts';
+import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
+import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import type { ModelMessage, ModelPort } from '../../src/ports/model/model.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { SpillHandle, SpillPort } from '../../src/ports/memory/spill.ts';
 
 /**
  * 取私有缓存表（探针需要直接观察键留存，生产代码无公开迭代口）。

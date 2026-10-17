@@ -1,19 +1,19 @@
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { ModelContextSnapshot } from '../../ports/model/model.js';
-import type { ToolDefinition } from '../../ports/tool/tool.js';
-import { ContextAssembler } from '../../context/contextAssembler.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { ModelContextSnapshot } from '../../ports/model/model.ts';
+import type { ToolDefinition } from '../../ports/tool/tool.ts';
+import { ContextAssembler } from '../../context/contextAssembler.ts';
 import {
   ContextBreakdownEstimator,
   type ContextBreakdown,
   type ContextBreakdownRow,
-} from '../../context/contextBreakdownEstimator.js';
-import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
-import { CacheHitRateWatch } from '../../observability/cacheHitRateWatch.js';
+} from '../../context/contextBreakdownEstimator.ts';
+import { ContextWindowCatalog } from '../../context/contextWindowCatalog.ts';
+import { CacheHitRateWatch } from '../../observability/cacheHitRateWatch.ts';
 import {
   CacheMissAttributionAnalyst,
   type CacheMissAttribution,
   type CacheMissCause,
-} from '../../observability/cacheMissAttributionAnalyst.js';
+} from '../../observability/cacheMissAttributionAnalyst.ts';
 
 /** 单条**上报了缓存字段**的调用样本（`cacheStat` 内部备料用；不进公共 API 面）。 */
 interface CacheCallSample {

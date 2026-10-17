@@ -8,10 +8,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SubagentToolScope } from '../../src/subagent/subagentToolScope.js';
-import { MUTATING_TOOLS } from '../../src/core/toolGate.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import type { SubagentRequest } from '../../src/subagent/subagentTypes.js';
+import { SubagentToolScope } from '../../src/subagent/subagentToolScope.ts';
+import { MUTATING_TOOLS } from '../../src/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import type { SubagentRequest } from '../../src/subagent/subagentTypes.ts';
 
 /**
  * 造一个最小子任务请求。

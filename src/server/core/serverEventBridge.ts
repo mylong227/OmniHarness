@@ -1,24 +1,24 @@
-import { jsonRpc } from './jsonRpc.js';
-import type { Transport } from '../transport/lineTransport.js';
-import type { Metrics } from '../services/metrics.js';
-import type { AuditSink } from '../services/auditSink.js';
-import { Id } from '../../util/id.js';
-import { log } from '../../util/logger.js';
+import { jsonRpc } from './jsonRpc.ts';
+import type { Transport } from '../transport/lineTransport.ts';
+import type { Metrics } from '../services/metrics.ts';
+import type { AuditSink } from '../services/auditSink.ts';
+import { Id } from '../../util/id.ts';
+import { log } from '../../util/logger.ts';
 import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../ports/runtime/approval.js';
+} from '../../ports/runtime/approval.ts';
 import type {
   AskAnswer,
   AskContext,
   AskQuestion,
   UserResponder,
-} from '../../ports/runtime/userResponder.js';
-import { DefaultUserResponder } from '../../adapters/user/defaultUserResponder.js';
-import { QuestionAnswers } from './questionAnswers.js';
-import type { EventPort } from '../../ports/runtime/eventPort.js';
-import { PendingRequests, type PendingTimeout } from '../../util/concurrency/pendingRequests.js';
+} from '../../ports/runtime/userResponder.ts';
+import { DefaultUserResponder } from '../../adapters/user/defaultUserResponder.ts';
+import { QuestionAnswers } from './questionAnswers.ts';
+import type { EventPort } from '../../ports/runtime/eventPort.ts';
+import { PendingRequests, type PendingTimeout } from '../../util/concurrency/pendingRequests.ts';
 
 /** 审批上行缺省等待上限（毫秒）：超时按 deny 兑现（fail-closed）。 */
 const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;

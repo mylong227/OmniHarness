@@ -30,15 +30,15 @@
  * @maturity L1 — 三角色矩阵 / 未知角色与未登记工具 fail-closed / 拒绝优先 / 原因可读 判据钉死
  * @maturityEvidence tests/unit/rbacPolicy.test.ts
  */
-import { log } from '../util/logger.js';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.js';
-import type { ToolCall } from '../ports/tool/tool.js';
+import { log } from '../util/logger.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import type { ToolCall } from '../ports/tool/tool.ts';
 import type {
   RoleDecision,
   RoleDenialCode,
   RoleName,
   RolePolicyPort,
-} from '../ports/security/rolePolicy.js';
+} from '../ports/security/rolePolicy.ts';
 
 /** 角色规格（可被配置覆盖/扩展）。 */
 export interface RoleSpec {

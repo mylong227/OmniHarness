@@ -11,15 +11,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { BucketedCoverageMeter } from '../../src/evolution/bucketedCoverageMeter.js';
+import { BucketedCoverageMeter } from '../../src/evolution/bucketedCoverageMeter.ts';
 import {
   RewardCoverageMeter,
   COVERAGE_THRESHOLD,
-} from '../../src/evolution/rewardCoverageMeter.js';
-import type { RewardVerdict } from '../../src/evolution/rewardCoverageMeter.js';
-import { RlvrEvolutionController, RlvrController } from '../../src/evolution/rlvrController.js';
-import { PromotionAdmission } from '../../src/evolution/promotionAdmission.js';
-import type { EvolutionController, PromotionVerdict } from '../../src/ports/runtime/evolution.js';
+} from '../../src/evolution/rewardCoverageMeter.ts';
+import type { RewardVerdict } from '../../src/evolution/rewardCoverageMeter.ts';
+import { RlvrEvolutionController, RlvrController } from '../../src/evolution/rlvrController.ts';
+import { PromotionAdmission } from '../../src/evolution/promotionAdmission.ts';
+import type { EvolutionController, PromotionVerdict } from '../../src/ports/runtime/evolution.ts';
 
 /**
  * 造采样候选（带工况来源的 `meta.source`）。

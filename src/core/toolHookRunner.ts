@@ -1,6 +1,6 @@
-import type { ToolResult } from '../ports/tool/tool.js';
-import type { ToolHookContext, ToolHooks } from '../ports/tool/toolHook.js';
-import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';
+import type { ToolResult } from '../ports/tool/tool.ts';
+import type { ToolHookContext, ToolHooks } from '../ports/tool/toolHook.ts';
+import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.ts';
 
 /** 工具钩子运行器：pre 依序、post 逆序（策略插件可拦截/改写/记录，权限即插件）。 */
 export class ToolHookRunner implements ToolHookRunnerPort {
@@ -47,4 +47,4 @@ export class ToolHookRunner implements ToolHookRunnerPort {
   }
 }
 
-export type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.js';
+export type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.ts';

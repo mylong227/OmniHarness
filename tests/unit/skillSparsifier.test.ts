@@ -8,8 +8,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SkillSparsifier } from '../../src/skill/skillSparsifier.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { SkillSparsifier } from '../../src/skill/skillSparsifier.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 function skill(name: string, tags?: readonly string[]): Skill {
   return {

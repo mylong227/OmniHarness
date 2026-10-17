@@ -3,8 +3,8 @@ import type {
   EmbedOptions,
   EmbeddingPort,
   EmbeddingPreloadOutcome,
-} from '../ports/model/embedding.js';
-import type { EmbeddingContentCache } from './embeddingContentCache.js';
+} from '../ports/model/embedding.ts';
+import type { EmbeddingContentCache } from './embeddingContentCache.ts';
 
 /**
  * 装饰 `EmbeddingPort`：按**内容**复用向量，只把未命中的文本交给内层端口。

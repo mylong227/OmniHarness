@@ -1,20 +1,20 @@
-import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
-import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
-import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
-import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
-import type { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import type { ImmuneMonitorPort } from '../ports/intelligence/immune.js';
-import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
-import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.js';
-import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.js';
-import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.js';
-import type { ElementComposer } from '../adapters/skill/elementComposer.js';
-import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.js';
-import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.js';
-import type { CapabilityCharge } from '../ports/runtime/confinement.js';
-import type { SparkEngines } from '../genesis/operators.js';
-import type { SparkControllerOptions } from './sparkController.js';
+import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.ts';
+import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.ts';
+import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.ts';
+import type { CosmicWebPort } from '../ports/memory/cosmicWeb.ts';
+import type { QECEncoder } from '../adapters/memory/qecEncoder.ts';
+import type { ImmuneMonitorPort } from '../ports/intelligence/immune.ts';
+import type { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.ts';
+import type { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.ts';
+import type { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.ts';
+import type { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.ts';
+import type { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.ts';
+import type { ElementComposer } from '../adapters/skill/elementComposer.ts';
+import type { SymmetryBreakingEngine } from '../adapters/monitoring/symmetryBreakingEngine.ts';
+import type { ConfinementEngine } from '../adapters/monitoring/confinementEngine.ts';
+import type { CapabilityCharge } from '../ports/runtime/confinement.ts';
+import type { SparkEngines } from '../genesis/operators.ts';
+import type { SparkControllerOptions } from './sparkController.ts';
 
 /**
  * 燧内核「一组可选引擎」的聚合值对象。

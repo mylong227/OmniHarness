@@ -5,7 +5,7 @@
 // 与 omni-wasm 同一套 JSON-RPC 面，但 native 具备完整系统 API（真实时钟/进程/
 // RestrictedToken OS 沙箱/shell.run 真执行）。
 
-import { NativeKernelUnavailableError } from './nativeKernelUnavailableError.js';
+import { NativeKernelUnavailableError } from './nativeKernelUnavailableError.ts';
 import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';

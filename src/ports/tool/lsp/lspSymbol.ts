@@ -1,5 +1,5 @@
-import type { LspSymbolKind } from './lspSymbolKind.js';
-import type { LspRange } from './lspRange.js';
+import type { LspSymbolKind } from './lspSymbolKind.ts';
+import type { LspRange } from './lspRange.ts';
 
 /**
  * @beta

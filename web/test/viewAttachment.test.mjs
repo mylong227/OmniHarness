@@ -14,7 +14,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { ViewAttachment } = await import('../src/ui/models/ViewAttachment.js');
+const { ViewAttachment } = await import('../src/ui/models/ViewAttachment.ts');
 
 test('① 默认挂载：全新实例必须收事件（刷新 / 深链 / 首次挂载都不能丢）', () => {
   const view = new ViewAttachment();

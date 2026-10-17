@@ -1,10 +1,10 @@
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { configFile, type FileConfig } from '../../config/configFile.js';
-import { ConfigError } from '../../config/configError.js';
-import { PERSISTABLE_KEYS } from '../core/appServerState.js';
-import { ProviderPresets, type ProviderPreset } from './providerPresets.js';
-import { UserLevelConfigStore } from './userLevelConfigStore.js';
+import { configFile, type FileConfig } from '../../config/configFile.ts';
+import { ConfigError } from '../../config/configError.ts';
+import { PERSISTABLE_KEYS } from '../core/appServerState.ts';
+import { ProviderPresets, type ProviderPreset } from './providerPresets.ts';
+import { UserLevelConfigStore } from './userLevelConfigStore.ts';
 
 /** 配置存储依赖。 */
 export interface ServerConfigStoreDeps {

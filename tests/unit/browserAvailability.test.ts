@@ -11,15 +11,15 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BrowserAvailability } from '../../src/adapters/browser/browserAvailability.js';
-import { BrowserScreenshotTool } from '../../src/adapters/tool/browser/browserScreenshotTool.js';
-import type { ChromeLookup } from '../../src/adapters/browser/chromeLocator.js';
-import type { ScreenshotSession } from '../../src/adapters/tool/browser/browserScreenshotTool.js';
+import { BrowserAvailability } from '../../src/adapters/browser/browserAvailability.ts';
+import { BrowserScreenshotTool } from '../../src/adapters/tool/browser/browserScreenshotTool.ts';
+import type { ChromeLookup } from '../../src/adapters/browser/chromeLocator.ts';
+import type { ScreenshotSession } from '../../src/adapters/tool/browser/browserScreenshotTool.ts';
 import type {
   ScreenshotRequest,
   ScreenshotResult,
-} from '../../src/adapters/browser/browserSession.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
+} from '../../src/adapters/browser/browserSession.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
 
 /** 定位结果：命中。 */
 const found = (path = '/fake/chrome'): ChromeLookup => ({ executable: path, searched: [path] });

@@ -12,7 +12,7 @@
  * @maturity L1 — 重入通道接线真实（判据钉死）；重入复核的增益未验证
  * @maturityEvidence tests/unit/evolutionKernel.test.ts
  */
-import type { Candidate, DiscoveryEngine } from '../ports/runtime/evolution.js';
+import type { Candidate, DiscoveryEngine } from '../ports/runtime/evolution.ts';
 
 /** 精英重入发现引擎选项。 */
 export interface EliteReentryDiscoveryOptions {

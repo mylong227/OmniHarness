@@ -8,8 +8,8 @@
  * 调用方传**结构化切片**（`SearchCorpusView`）而不是 `IndexedCorpus` 本体：
  * 阶段文件不反向依赖 contextEngine，避免新增依赖环（架构门禁对新增类型环阻断）。
  */
-import { Bm25Index } from '../../search/bm25Index.js';
-import { ContentStopWords } from '../contentStopWords.js';
+import { Bm25Index } from '../../search/bm25Index.ts';
+import { ContentStopWords } from '../contentStopWords.ts';
 
 /** 语料级文档频率缓存（同一语料重复查询零重算；键即调用方传入的语料实例）。 */
 const DF_CACHE = new WeakMap<object, Map<string, number>>();

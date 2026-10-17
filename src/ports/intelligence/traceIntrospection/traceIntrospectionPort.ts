@@ -1,4 +1,4 @@
-import type { TraceEntry } from './traceEntry.js';
+import type { TraceEntry } from './traceEntry.ts';
 
 /** 只读自省 trace 端口（无任何写方法）。 */
 export interface TraceIntrospectionPort {

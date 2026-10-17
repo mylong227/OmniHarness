@@ -11,7 +11,7 @@
  * @maturity L1 — 指纹与配额是显式规则；「N 轮适应度改善且多样性不塌缩」由测试断言
  * @maturityEvidence tests/unit/diversityGuard.test.ts
  */
-import type { Skill } from '../skill/skill.js';
+import type { Skill } from '../skill/skill.ts';
 
 /** 多样性守卫选项。 */
 export interface DiversityGuardOptions {

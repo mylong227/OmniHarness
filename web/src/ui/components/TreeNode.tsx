@@ -2,7 +2,7 @@
 // 函数组件范式：递归渲染保持不变（函数组件可自引用），展开态用 useState。
 
 import * as React from 'react';
-import type { FsNode } from '../../types/models.js';
+import type { FsNode } from '../../types/models.ts';
 
 /** TreeNode 组件的入参。 */
 export interface TreeNodeProps {

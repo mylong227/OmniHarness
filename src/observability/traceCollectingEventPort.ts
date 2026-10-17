@@ -12,10 +12,10 @@
  *
  * 未配置端点时不该构造本类：装配层（{@link TraceExporterAssembly}）会保持原端口不变。
  */
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
-import type { TraceExporterPort } from './otlpTraceExporter.js';
-import { TraceSpanBuilder } from './traceSpanBuilder.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
+import type { TraceExporterPort } from './otlpTraceExporter.ts';
+import { TraceSpanBuilder } from './traceSpanBuilder.ts';
 
 /** 装饰器选项。 */
 export interface TraceCollectingOptions {

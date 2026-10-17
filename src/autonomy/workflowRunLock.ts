@@ -10,7 +10,7 @@ import {
 } from 'node:fs';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowSpecError } from './workflowSpecError.js';
+import { WorkflowSpecError } from './workflowSpecError.ts';
 
 /** 运行目录（与运行日志同目录，锁文件与 `<runId>.jsonl` 并排）。 */
 const RUN_DIR = '.omniharness/graph-runs';

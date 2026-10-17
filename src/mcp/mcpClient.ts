@@ -1,7 +1,7 @@
-import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.js';
-import type { Transport } from '../server/transport/lineTransport.js';
-import { McpProtocol } from './mcpProtocol.js';
-import { McpContentBlocks } from './mcpContentBlocks.js';
+import { jsonRpc, type RpcMessage, type RpcResponse } from '../server/core/jsonRpc.ts';
+import type { Transport } from '../server/transport/lineTransport.ts';
+import { McpProtocol } from './mcpProtocol.ts';
+import { McpContentBlocks } from './mcpContentBlocks.ts';
 import type {
   McpCallToolResult,
   McpInitializeResult,
@@ -9,10 +9,10 @@ import type {
   McpResourceContent,
   McpResourceDescriptor,
   McpToolDescriptor,
-} from '../ports/mcp/mcpProtocolTypes.js';
-import type { McpClientPort } from '../ports/mcp/mcpClientPort.js';
-import { log } from '../util/logger.js';
-import { PendingRequests } from '../util/concurrency/pendingRequests.js';
+} from '../ports/mcp/mcpProtocolTypes.ts';
+import type { McpClientPort } from '../ports/mcp/mcpClientPort.ts';
+import { log } from '../util/logger.ts';
+import { PendingRequests } from '../util/concurrency/pendingRequests.ts';
 
 /**
  * @beta

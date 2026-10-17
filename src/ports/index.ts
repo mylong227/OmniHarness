@@ -1,4 +1,4 @@
-export type { EventType, SessionEvent } from './runtime/event.js';
+export type { EventType, SessionEvent } from './runtime/event.ts';
 export type {
   ToolCall,
   ToolContext,
@@ -6,7 +6,7 @@ export type {
   ToolParametersSchema,
   ToolPort,
   ToolResult,
-} from './tool/tool.js';
+} from './tool/tool.ts';
 export type {
   ModelMessage,
   ModelOutput,
@@ -16,33 +16,33 @@ export type {
   ModelToolSpec,
   ModelUsage,
   RoutePrice,
-} from './model/model.js';
-export { ModelCallError, BudgetExceededError } from './model/model.js';
-export type { BudgetDegradeSignal } from './model/budgetDegrade.js';
-export type { StoragePort } from './memory/storage.js';
-export type { KvPort } from './memory/kv.js';
-export type { VaultPort } from './memory/vault.js';
-export type { EventPort } from './runtime/eventPort.js';
-export type { ToolInputSink } from './tool/toolInputSink.js';
+} from './model/model.ts';
+export { ModelCallError, BudgetExceededError } from './model/model.ts';
+export type { BudgetDegradeSignal } from './model/budgetDegrade.ts';
+export type { StoragePort } from './memory/storage.ts';
+export type { KvPort } from './memory/kv.ts';
+export type { VaultPort } from './memory/vault.ts';
+export type { EventPort } from './runtime/eventPort.ts';
+export type { ToolInputSink } from './tool/toolInputSink.ts';
 export type {
   SandboxAction,
   SandboxDecision,
   SandboxPort,
   SandboxDenialCategory,
-} from './runtime/sandbox.js';
-export type { ApprovalDecision, ApprovalPort, ApprovalRequest } from './runtime/approval.js';
+} from './runtime/sandbox.ts';
+export type { ApprovalDecision, ApprovalPort, ApprovalRequest } from './runtime/approval.ts';
 export type {
   EscalationDecision,
   EscalationDeniedBy,
   EscalationPort,
   EscalationRequest,
-} from './runtime/escalation.js';
-export type { SpillHandle, SpillPort } from './memory/spill.js';
-export type { VortexRing, VortexRingPort } from './intelligence/vortexRing.js';
-export type { ResonantHit, ResonantMemoryPort } from './memory/resonantMemory.js';
-export type { ResonantFieldPort, ResonantFieldOptions } from './memory/resonantField.js';
-export type { LongTermMemoryPort, MemoryFact } from './memory/longTermMemory.js';
-export type { SkillPort, MoireOptions } from './runtime/skill.js';
+} from './runtime/escalation.ts';
+export type { SpillHandle, SpillPort } from './memory/spill.ts';
+export type { VortexRing, VortexRingPort } from './intelligence/vortexRing.ts';
+export type { ResonantHit, ResonantMemoryPort } from './memory/resonantMemory.ts';
+export type { ResonantFieldPort, ResonantFieldOptions } from './memory/resonantField.ts';
+export type { LongTermMemoryPort, MemoryFact } from './memory/longTermMemory.ts';
+export type { SkillPort, MoireOptions } from './runtime/skill.ts';
 export type {
   SupervisorPort,
   SupervisorOptions,
@@ -50,7 +50,7 @@ export type {
   HealthSnapshot,
   HealthEntry,
   AuditSinkLike,
-} from './runtime/supervisor.js';
+} from './runtime/supervisor.ts';
 export type {
   Candidate,
   PromotionVerdict,
@@ -58,4 +58,4 @@ export type {
   DiscoveryEngine,
   EvolutionController,
   EvolutionControllerOptions,
-} from './runtime/evolution.js';
+} from './runtime/evolution.ts';

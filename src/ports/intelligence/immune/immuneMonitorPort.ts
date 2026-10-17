@@ -1,5 +1,5 @@
-import type { AnomalyAlert } from './anomalyAlert.js';
-import type { ImmuneSelfReport } from './immuneSelfReport.js';
+import type { AnomalyAlert } from './anomalyAlert.ts';
+import type { ImmuneSelfReport } from './immuneSelfReport.ts';
 
 /**
  * 免疫异常监控端口（Immune Monitoring，I-P1-5）。S+ 发明层。

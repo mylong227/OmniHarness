@@ -8,22 +8,22 @@
  *
  * 无第三方依赖。
  */
-import type { RpcMessage } from '../server/core/jsonRpc.js';
-import { jsonRpc } from '../server/core/jsonRpc.js';
-import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
+import type { RpcMessage } from '../server/core/jsonRpc.ts';
+import { jsonRpc } from '../server/core/jsonRpc.ts';
+import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.ts';
 import type {
   A2aCapabilityDeclaration,
   A2aTransport,
   DelegateRequest,
   DelegateResult,
-} from './a2aProtocol.js';
+} from './a2aProtocol.ts';
 import {
   A2A_CAPABILITIES_DECLARE,
   A2A_ERROR_INVALID,
   A2A_ERROR_METHOD_NOT_FOUND,
   A2A_ERROR_UNAUTHORIZED,
   A2A_TASK_DELEGATE,
-} from './a2aProtocol.js';
+} from './a2aProtocol.ts';
 
 /** 断言头的 `AgentAssertion ` 前缀（`AgentIdentityPort.authorizationHeader()` 的直接产物形态）。 */
 const ASSERTION_PREFIX = 'AgentAssertion ';

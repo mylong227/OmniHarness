@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { ContextEngine } from '../../src/context/contextEngine.js';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
 
 /** 建临时语料根。 */
 const makeRoot = (): string => mkdtempSync(join(tmpdir(), 'omni-corpus-'));

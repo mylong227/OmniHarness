@@ -18,9 +18,9 @@
  */
 import { readFileSync } from 'node:fs';
 
-import type { SkillEntry } from '../skill/skill.js';
-import { ConfigError } from '../config/configError.js';
-import type { CliArgs } from './argParser.js';
+import type { SkillEntry } from '../skill/skill.ts';
+import { ConfigError } from '../config/configError.ts';
+import type { CliArgs } from './argParser.ts';
 
 /** `--skills` 技能包解析器（纯静态工具类）。 */
 export class CliSkillFlags {

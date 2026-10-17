@@ -12,18 +12,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ConfigError } from '../../src/config/configError.js';
-import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { CliSubsystemSections } from '../../src/cli/cliSubsystemSections.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { ConfigError } from '../../src/config/configError.ts';
+import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { CliSubsystemSections } from '../../src/cli/cliSubsystemSections.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 造最小可用未解析配置。

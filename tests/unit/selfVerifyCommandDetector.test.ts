@@ -11,8 +11,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { SelfVerifyCommandDetector } from '../../src/adapters/tool/verify/selfVerifyCommandDetector.js';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.js';
+import { SelfVerifyCommandDetector } from '../../src/adapters/tool/verify/selfVerifyCommandDetector.ts';
+import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
 
 /**
  * 造一个临时仓库（按相对路径写入文件，目录自动创建）。

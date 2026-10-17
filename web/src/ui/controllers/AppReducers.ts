@@ -10,11 +10,11 @@ import type {
   GraphRunState,
   GraphStatusResult,
   ThreadEvent,
-} from '../../types/models.js';
-import type { CommandItem } from '../components/CommandPalette.js';
-import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
-import type { LiveInput, SessionEntry, ToolItem, ToolResultView } from '../shared.js';
-import { t } from '../i18n/i18n.js';
+} from '../../types/models.ts';
+import type { CommandItem } from '../components/CommandPalette.tsx';
+import { KeyboardShortcuts } from '../models/KeyboardShortcuts.ts';
+import type { LiveInput, SessionEntry, ToolItem, ToolResultView } from '../shared.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 命令面板回调依赖（buildCommands 所需）。 */
 export interface CommandDeps {

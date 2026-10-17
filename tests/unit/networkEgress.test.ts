@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   NetworkEgressGuard,
   EgressBlockedError,
-} from '../../src/adapters/sandbox/networkEgressGuard.js';
+} from '../../src/adapters/sandbox/networkEgressGuard.ts';
 
 test('parseAllowList：逗号分隔去空白，空串返回空数组', () => {
   assert.deepStrictEqual(NetworkEgressGuard.parseAllowList('example.com, api.example.com'), [

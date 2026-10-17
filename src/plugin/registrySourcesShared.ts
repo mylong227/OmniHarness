@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { get } from 'node:https';
 import type { IncomingMessage } from 'node:http';
-import { type PluginDescriptor, type PluginManifest } from './manifest.js';
-import { endpointDefaults } from '../util/endpointDefaults.js';
-import { LimitEnv } from '../util/limitEnv.js';
+import { type PluginDescriptor, type PluginManifest } from './manifest.ts';
+import { endpointDefaults } from '../util/endpointDefaults.ts';
+import { LimitEnv } from '../util/limitEnv.ts';
 
 /**
  * RegistrySourcesShared —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

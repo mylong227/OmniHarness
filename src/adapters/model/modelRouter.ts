@@ -4,15 +4,15 @@ import type {
   ModelPort,
   ModelRequest,
   StreamCallbacks,
-} from '../../ports/model/model.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+} from '../../ports/model/model.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
-import type { RouterEntry } from '../../ports/model/routerEntry.js';
-import type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.js';
+import type { RouterEntry } from '../../ports/model/routerEntry.ts';
+import type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.ts';
 
-export type { RouterEntry } from '../../ports/model/routerEntry.js';
-export type { RouterStrategy } from '../../ports/model/routerStrategy.js';
-export type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.js';
+export type { RouterEntry } from '../../ports/model/routerEntry.ts';
+export type { RouterStrategy } from '../../ports/model/routerStrategy.ts';
+export type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.ts';
 
 /** 「写/实现」类任务关键词（不区分大小写）。 */
 const BY_TASK_CODE_PATTERN = /代码|实现|写|code|implement/i;

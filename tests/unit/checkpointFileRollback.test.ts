@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileAsync } from '../helpers/childProcess.js';
+import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CheckpointManager } from '../../src/core/checkpointManager.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { GitWorkspaceSnapshot } from '../../src/adapters/workspace/gitWorkspaceSnapshot.js';
+import { CheckpointManager } from '../../src/core/checkpointManager.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { GitWorkspaceSnapshot } from '../../src/adapters/workspace/gitWorkspaceSnapshot.ts';
 
 /** 在临时目录初始化 git 仓库并提交一个基线文件。 */
 async function initRepo(): Promise<string> {

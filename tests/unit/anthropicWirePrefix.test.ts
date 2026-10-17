@@ -24,9 +24,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import { PrefixStability } from '../../src/context/prefixStability.js';
-import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.js';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
+import { PrefixStability } from '../../src/context/prefixStability.ts';
+import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 固定系统片段（短：模拟 `world_state`，故意让它占比小）。 */
 const FIXED = '你是 OmniHarness 的 AI 助手，运行在用户工作区中。直接、高效地完成用户任务。';

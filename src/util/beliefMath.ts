@@ -3,7 +3,7 @@
  * 供 `naturalGradient.ts` 与 `particleFilter.ts` 复用，避免公式在两处发散。
  */
 
-import type { BeliefKlComponent } from '../ports/intelligence/metacognition.js';
+import type { BeliefKlComponent } from '../ports/intelligence/metacognition.ts';
 
 /**
  * BeliefMath —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

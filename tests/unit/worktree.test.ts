@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSyncAsync, execFileAsync } from '../helpers/childProcess.js';
+import { spawnSyncAsync, execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorktreeOps } from '../../src/subagent/worktreeOps.js';
+import { WorktreeOps } from '../../src/subagent/worktreeOps.ts';
 
 /** 探测 git 是否可用。 */
 const gitAvailable = (await spawnSyncAsync('git', ['--version'], { stdio: 'ignore' })).status === 0;

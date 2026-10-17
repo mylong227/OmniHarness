@@ -1,4 +1,4 @@
-import type { EtchNode } from './etchNode.js';
+import type { EtchNode } from './etchNode.ts';
 
 /** 一条已刻蚀的 trace（永久留存的分形刻痕）。 */
 export interface EtchTrace {

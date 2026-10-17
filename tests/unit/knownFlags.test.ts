@@ -22,8 +22,8 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.js';
-import { KNOWN_EXTRA_FLAGS } from '../../src/cli/cliFlagTable.js';
+import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.ts';
+import { KNOWN_EXTRA_FLAGS } from '../../src/cli/cliFlagTable.ts';
 
 const ROOT = process.cwd();
 const CLI_DIR = join(ROOT, 'src', 'cli');

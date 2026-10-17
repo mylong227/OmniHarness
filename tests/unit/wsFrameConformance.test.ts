@@ -19,8 +19,8 @@ import assert from 'node:assert/strict';
 import { Duplex } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 
-import { WsConnection } from '../../src/server/transport/wsConnection.js';
-import { WsFrameCodec } from '../../src/server/transport/wsFrameCodec.js';
+import { WsConnection } from '../../src/server/transport/wsConnection.ts';
+import { WsFrameCodec } from '../../src/server/transport/wsFrameCodec.ts';
 
 /** 假 socket：`inbound` 喂原始字节（可读侧），`written` 收集本端写出的字节（可写侧）。 */
 class FakeSocket extends Duplex {

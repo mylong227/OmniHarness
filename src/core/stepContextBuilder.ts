@@ -1,15 +1,15 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { ModelMessage } from '../ports/model/model.js';
-import type { ToolDefinition } from '../ports/tool/tool.js';
-import { ContextAssembler } from '../context/contextAssembler.js';
-import { PrefixStability } from '../context/prefixStability.js';
-import { ProjectInstructions } from '../context/projectInstructions.js';
-import { type CompactionState, ContextCompactor } from '../context/contextCompactor.js';
-import type { RequestOverhead } from '../context/contextCompactor.js';
-import type { StepRunnerDeps } from './stepTypes.js';
-import { ToolExposurePlanner } from './toolExposurePlanner.js';
-import { log } from '../util/logger.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { ModelMessage } from '../ports/model/model.ts';
+import type { ToolDefinition } from '../ports/tool/tool.ts';
+import { ContextAssembler } from '../context/contextAssembler.ts';
+import { PrefixStability } from '../context/prefixStability.ts';
+import { ProjectInstructions } from '../context/projectInstructions.ts';
+import { type CompactionState, ContextCompactor } from '../context/contextCompactor.ts';
+import type { RequestOverhead } from '../context/contextCompactor.ts';
+import type { StepRunnerDeps } from './stepTypes.ts';
+import { ToolExposurePlanner } from './toolExposurePlanner.ts';
+import { log } from '../util/logger.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * P5 自动降档时的载荷形态（`payloadShape`）——**只保留 Top-1 的完整符号大纲**，其余命中文件

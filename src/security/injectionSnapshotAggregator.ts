@@ -9,7 +9,7 @@
  * - TP = 恶意且被拦截；FN = 恶意且放行；FP = 良性且被拦截；TN = 良性且放行。
  * - recall = TP/(TP+FN)；falsePositiveRate = FP/(FP+TN)；precision = TP/(TP+FP)。
  */
-import { ToolOutputTrust, type TrustTier } from './toolOutputTrust.js';
+import { ToolOutputTrust, type TrustTier } from './toolOutputTrust.ts';
 
 /** 单条注入用例（来自离线快照）。 */
 export interface InjectionCase {

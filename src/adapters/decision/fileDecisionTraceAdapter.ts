@@ -8,7 +8,7 @@
  */
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { DecisionTrace, DecisionTracePort } from '../../ports/decision/decisionTrace.js';
+import type { DecisionTrace, DecisionTracePort } from '../../ports/decision/decisionTrace.ts';
 
 /** 默认 trace 根目录名（相对 workspaceRoot，位于 .omniharness 下，通常被 gitignore）。 */
 const TRACE_DIR_NAME = '.omniharness/decision-traces';

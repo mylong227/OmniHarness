@@ -1,19 +1,19 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.js';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import { WorkflowRunner, WorkflowCycleError } from '../../src/autonomy/workflowRunner.js';
-import type { WorkflowStep } from '../../src/autonomy/workflowTypes.js';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.js';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
+import { WorkflowRunner, WorkflowCycleError } from '../../src/autonomy/workflowRunner.ts';
+import type { WorkflowStep } from '../../src/autonomy/workflowTypes.ts';
+import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
 
 /** 回显模型：返回最后一条 user 消息内容（便于验证依赖注入——下游步骤 prompt 含上游产出）。 */
 class EchoModel implements ModelPort {

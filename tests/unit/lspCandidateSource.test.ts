@@ -17,10 +17,10 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ContextEngine } from '../../src/context/contextEngine.js';
-import type { IndexedCorpus } from '../../src/context/contextEngine.js';
-import { LspCandidateSource } from '../../src/context/lspCandidateSource.js';
-import type { LspLocation, LspPort } from '../../src/ports/tool/lsp.js';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
+import type { IndexedCorpus } from '../../src/context/contextEngine.ts';
+import { LspCandidateSource } from '../../src/context/lspCandidateSource.ts';
+import type { LspLocation, LspPort } from '../../src/ports/tool/lsp.ts';
 
 /** 夹具：把「文件内容 → 临时语料」的搭建收口（与 fileReranker.test.ts 同口径）。 */
 class Fixture {

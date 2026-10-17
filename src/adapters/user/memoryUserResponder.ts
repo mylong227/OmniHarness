@@ -1,4 +1,4 @@
-import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/runtime/userResponder.js';
+import type { AskAnswer, AskQuestion, UserResponder } from '../../ports/runtime/userResponder.ts';
 
 /** 测试/依赖注入用：按问题 id 预置答案，缺失则回空选择。 */
 export class MemoryUserResponder implements UserResponder {

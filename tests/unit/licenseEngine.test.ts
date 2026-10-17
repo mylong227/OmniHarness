@@ -17,9 +17,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { LicenseEngine } from '../../src/license/licenseEngine.js';
-import type { LicensePayload } from '../../src/license/licenseEngine.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+import { LicenseEngine } from '../../src/license/licenseEngine.ts';
+import type { LicensePayload } from '../../src/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
 
 /** 固定"当前时刻"（判据确定性；不读墙钟）。 */
 const NOW = Date.parse('2026-10-04T00:00:00.000Z');

@@ -1,5 +1,5 @@
-export { EnterpriseAuth, OidcClient } from './oidcClient.js';
-export { LegacyOidcFlow } from './legacyOidcFlow.js';
+export { EnterpriseAuth, OidcClient } from './oidcClient.ts';
+export { LegacyOidcFlow } from './legacyOidcFlow.ts';
 export type {
   OidcProviderConfig,
   OidcDiscovery,
@@ -8,5 +8,5 @@ export type {
   Jwk,
   JwtParts,
   AuthState,
-} from './oidcClient.js';
-export type { OidcFlowPort } from '../ports/enterprise/oidcFlow.js';
+} from './oidcClient.ts';
+export type { OidcFlowPort } from '../ports/enterprise/oidcFlow.ts';

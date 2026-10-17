@@ -3,13 +3,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.js';
-import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.js';
+import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
 import type {
   TestCommandRunner,
   TestRunOutcome,
-} from '../../src/adapters/tool/verify/testCommandRunner.js';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
+} from '../../src/adapters/tool/verify/testCommandRunner.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
 
 /** 内层端口替身（固定返回写成功）。 */
 const innerPort: ToolPort = {

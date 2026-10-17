@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TokenEstimator } from '../../src/context/tokenEstimator.js';
-import { TokenCountCache } from '../../src/context/tokenCountCache.js';
+import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
+import { TokenCountCache } from '../../src/context/tokenCountCache.ts';
 
 /** 一批覆盖中英混排、emoji、空串与长文本的样本。 */
 function samples(): string[] {

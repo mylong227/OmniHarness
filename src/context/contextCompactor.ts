@@ -1,11 +1,11 @@
-import type { ModelMessage, ModelPort } from '../ports/model/model.js';
-import type { ToolDefinition } from '../ports/tool/tool.js';
-import type { CompactionState } from '../ports/context/compactionState.js';
-import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.js';
-import { DeterministicCompressor } from './deterministicCompressor.js';
-import { log } from '../util/logger.js';
-import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.js';
-import { ArrayAt } from '../util/arrayAt.js';
+import type { ModelMessage, ModelPort } from '../ports/model/model.ts';
+import type { ToolDefinition } from '../ports/tool/tool.ts';
+import type { CompactionState } from '../ports/context/compactionState.ts';
+import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.ts';
+import { DeterministicCompressor } from './deterministicCompressor.ts';
+import { log } from '../util/logger.ts';
+import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * 每请求的**固定开销**（不随消息增删变化，但确实占用同一 token 预算）。
@@ -66,7 +66,7 @@ export interface ShrinkReport {
   readonly ratio: number;
 }
 
-export type { CompactionState } from '../ports/context/compactionState.js';
+export type { CompactionState } from '../ports/context/compactionState.ts';
 
 /** 上下文压缩结果。 */
 export interface CompactionResult {

@@ -1,5 +1,5 @@
-import type { LspRange } from './lspRange.js';
-import type { LspDiagnosticSeverity } from './lspDiagnosticSeverity.js';
+import type { LspRange } from './lspRange.ts';
+import type { LspDiagnosticSeverity } from './lspDiagnosticSeverity.ts';
 
 /**
  * @beta

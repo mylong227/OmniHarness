@@ -18,11 +18,11 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
-import type { BudgetDegradeSignal } from '../../src/ports/model/budgetDegrade.js';
-import type { EmbeddingPort } from '../../src/ports/model/embedding.js';
+import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
+import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
+import type { BudgetDegradeSignal } from '../../src/ports/model/budgetDegrade.ts';
+import type { EmbeddingPort } from '../../src/ports/model/embedding.ts';
 
 /** 一次 repo-map 调用的观测记录。 */
 interface Call {

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CacheHitRateCollector } from '../../src/observability/cacheHitRateCollector.js';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.js';
-import { RepoMapMemo } from '../../src/context/repoMap/repoMapMemo.js';
+import { CacheHitRateCollector } from '../../src/observability/cacheHitRateCollector.ts';
+import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
+import { RepoMapMemo } from '../../src/context/repoMap/repoMapMemo.ts';
 
 test('CacheHitRateCollector: 无样本时命中率记 0 且 samples 为 0（区分「没被调用」与「命中率 0」）', () => {
   const c = new CacheHitRateCollector();

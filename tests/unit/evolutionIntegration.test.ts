@@ -10,21 +10,21 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Skill } from '../../src/skill/skill.js';
-import { MoireComposer } from '../../src/skill/moireComposer.js';
-import { Benchmark } from '../../src/evolution/benchmark.js';
-import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.js';
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.js';
-import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.js';
-import { Agent } from '../../src/core/agent.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ScriptedModel } from '../../src/core/scriptedModel.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
+import type { Skill } from '../../src/skill/skill.ts';
+import { MoireComposer } from '../../src/skill/moireComposer.ts';
+import { Benchmark } from '../../src/evolution/benchmark.ts';
+import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.ts';
+import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
+import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.ts';
+import { Agent } from '../../src/core/agent.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ScriptedModel } from '../../src/core/scriptedModel.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
 
 const N = 64;
 

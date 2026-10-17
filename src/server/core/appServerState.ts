@@ -1,16 +1,16 @@
-import type { ApprovalPort } from '../../ports/runtime/approval.js';
-import type { EntitlementPort } from '../../ports/license/entitlement.js';
+import type { ApprovalPort } from '../../ports/runtime/approval.ts';
+import type { EntitlementPort } from '../../ports/license/entitlement.ts';
 
-import type { SkillRegistry } from '../../skill/skillRegistry.js';
-import type { PluginRegistry } from '../../plugin/pluginRegistry.js';
-import type { Transport } from '../transport/lineTransport.js';
-import type { Metrics } from '../services/metrics.js';
-import type { AuditSink } from '../services/auditSink.js';
-import type { DoctorOptions, DoctorReport } from '../../ports/observability/doctorReport.js';
-import type { VaultPort } from '../../ports/memory/vault.js';
-import type { GraphNodeStatus } from '../../autonomy/workflowRunner.js';
-import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
-import type { ServerEventBridge } from './serverEventBridge.js';
+import type { SkillRegistry } from '../../skill/skillRegistry.ts';
+import type { PluginRegistry } from '../../plugin/pluginRegistry.ts';
+import type { Transport } from '../transport/lineTransport.ts';
+import type { Metrics } from '../services/metrics.ts';
+import type { AuditSink } from '../services/auditSink.ts';
+import type { DoctorOptions, DoctorReport } from '../../ports/observability/doctorReport.ts';
+import type { VaultPort } from '../../ports/memory/vault.ts';
+import type { GraphNodeStatus } from '../../autonomy/workflowRunner.ts';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.ts';
+import type { ServerEventBridge } from './serverEventBridge.ts';
 
 /** AppServer 选项。 */
 export interface AppServerOptions {

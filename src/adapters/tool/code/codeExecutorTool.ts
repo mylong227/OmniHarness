@@ -1,12 +1,12 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { CodeInterpreter } from './codeInterpreter.js';
+} from '../../../ports/tool/tool.ts';
+import { CodeInterpreter } from './codeInterpreter.ts';
 
 /**
  * @beta

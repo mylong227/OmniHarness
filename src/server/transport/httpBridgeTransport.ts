@@ -1,10 +1,10 @@
 import { type ServerResponse } from 'node:http';
-import { jsonRpc, type RpcMessage, type RpcRequest } from '../core/jsonRpc.js';
-import type { Transport } from './lineTransport.js';
-import { type WsConnection } from './wsConnection.js';
-import { SseBackpressureGuard } from './sseBackpressureGuard.js';
-import { EnterpriseAuth } from '../../enterprise/index.js';
-import { PendingRequests } from '../../util/concurrency/pendingRequests.js';
+import { jsonRpc, type RpcMessage, type RpcRequest } from '../core/jsonRpc.ts';
+import type { Transport } from './lineTransport.ts';
+import { type WsConnection } from './wsConnection.ts';
+import { SseBackpressureGuard } from './sseBackpressureGuard.ts';
+import { EnterpriseAuth } from '../../enterprise/index.ts';
+import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
 
 /** 传输层超时预算覆写（仅供单测注入；生产用类常量）。 */
 export interface HttpBridgeTimeouts {

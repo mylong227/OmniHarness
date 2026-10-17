@@ -8,10 +8,10 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ImageStreamSplitter } from '../../src/media/imageStreamSplitter.js';
-import { PngEncoder } from '../../src/media/pngEncoder.js';
-import { MediaSniffer } from '../../src/media/mediaSniffer.js';
-import type { RasterImage } from '../../src/media/rasterTypes.js';
+import { ImageStreamSplitter } from '../../src/media/imageStreamSplitter.ts';
+import { PngEncoder } from '../../src/media/pngEncoder.ts';
+import { MediaSniffer } from '../../src/media/mediaSniffer.ts';
+import type { RasterImage } from '../../src/media/rasterTypes.ts';
 
 /**
  * 构造纯色栅格。

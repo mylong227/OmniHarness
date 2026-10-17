@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
 const { claimPopover, releasePopover, closeCurrentPopover, currentPopoverId } = await import(
-  '../src/ui/models/PopoverStack.js'
+  '../src/ui/models/PopoverStack.ts'
 );
 
 /** 造一个可观察的句柄。 */

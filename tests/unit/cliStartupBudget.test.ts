@@ -82,7 +82,8 @@ test('① 结构：重依赖不得在这些 CLI 层里恢复成顶层值导入�
   const checks: readonly { file: string; pattern: RegExp; why: string }[] = [
     {
       file: 'src/cli/cliBuildConfig.ts',
-      pattern: /^import \{ ConfigFactory \} from '\.\.\/config\/configFactory\.js';$/gmu,
+      // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据正则跟新（否则该条退化为恒真）。
+      pattern: /^import \{ ConfigFactory \} from '\.\.\/config\/configFactory\.ts';$/gmu,
       why: 'ConfigFactory 净 ~580ms，而它只在 buildConfig 里用 ⇒ 必须留在方法内动态 import',
     },
     {
@@ -110,11 +111,11 @@ test('① 结构：重依赖不得在这些 CLI 层里恢复成顶层值导入�
   }
 
   // **正对照**：把一条顶层导入塞回去必须被检出（否则上面四条可能恒真——比如路径写错）。
-  const sample = "import { ConfigFactory } from '../config/configFactory.js';\n";
+  const sample = "import { ConfigFactory } from '../config/configFactory.ts';\n";
   const hits = [...sample.matchAll(checks[0]!.pattern)].length;
   assert.strictEqual(hits, 1, '正对照：样例顶层导入必须能被该正则命中');
   // 动态导入写法**不得**被误判（它是本轮的修法）。
-  const dynamic = "const { ConfigFactory } = await import('../config/configFactory.js');\n";
+  const dynamic = "const { ConfigFactory } = await import('../config/configFactory.ts');\n";
   assert.strictEqual([...dynamic.matchAll(checks[0]!.pattern)].length, 0, '动态导入不得被判红');
 });
 
@@ -122,7 +123,7 @@ test('①-b 结构：`exec.ts` 必须先试链基分发，且**不得静态 impo
   const execSource = readFileSync(join(REPO_ROOT, 'src/cli/exec.ts'), 'utf8');
   assert.match(
     execSource,
-    /import\('\.\/execLocal\.js'\)/u,
+    /import\('\.\/execLocal\.ts'\)/u,
     'exec.ts 必须动态加载链基分发层（execLocal）——它才是本地命令少加载 ~280ms 的那一步',
   );
   assert.match(
@@ -132,12 +133,12 @@ test('①-b 结构：`exec.ts` 必须先试链基分发，且**不得静态 impo
   );
   assert.doesNotMatch(
     execSource,
-    /^import .*from '\.\/execCli\.js';$/gmu,
+    /^import .*from '\.\/execCli\.ts';$/gmu,
     'exec.ts 不得静态 import 链顶（execCli）——那会把整条链拉回每一条命令的冷启动路径',
   );
   assert.match(
     execSource,
-    /await import\('\.\/execCli\.js'\)/u,
+    /await import\('\.\/execCli\.ts'\)/u,
     '链顶必须在链基不认识该命令时才被动态加载',
   );
 
@@ -150,19 +151,19 @@ test('①-b 结构：`exec.ts` 必须先试链基分发，且**不得静态 impo
   );
   assert.doesNotMatch(
     localSource,
-    /from '\.\/execCli\.js'|from '\.\.\/core\/agent\.js'|from '\.\.\/composition\/runtime\.js'/u,
+    /from '\.\/execCli\.ts'|from '\.\.\/core\/agent\.ts'|from '\.\.\/composition\/runtime\.ts'/u,
     '链基分发层不得引入链顶/Agent/Runtime（那会让"先试链基"变成"其实还是整链"）',
   );
 
   // **正对照**：把 exec.ts 的一句改成静态 import ⇒ 上面的 doesNotMatch 必须抓得到（否则恒真）。
   const mutated = execSource.replace(
-    "import('./execLocal.js'),",
-    "import('./execLocal.js'),\nimport { ExecCli } from './execCli.js';",
+    "import('./execLocal.ts'),",
+    "import('./execLocal.ts'),\nimport { ExecCli } from './execCli.ts';",
   );
   assert.notStrictEqual(mutated, execSource, '正对照变异未落地');
   assert.match(
     mutated,
-    /^import .*from '\.\/execCli\.js';$/gmu,
+    /^import .*from '\.\/execCli\.ts';$/gmu,
     '把链顶改成静态 import 后必须能被检出 ⇒ 否则①-b 恒真',
   );
 });

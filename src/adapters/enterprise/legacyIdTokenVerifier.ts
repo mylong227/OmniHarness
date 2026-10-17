@@ -19,12 +19,12 @@
  * @maturity L1 — 与 jose 实现对同一输入的差分结论（含三类已知边界）判据钉死
  * @maturityEvidence tests/unit/joseIdTokenVerifier.test.ts
  */
-import { OidcClient } from '../../enterprise/oidcClient.js';
+import { OidcClient } from '../../enterprise/oidcClient.ts';
 import type {
   IdTokenVerification,
   IdTokenVerificationRequest,
   IdTokenVerifierPort,
-} from '../../ports/enterprise/idTokenVerifier.js';
+} from '../../ports/enterprise/idTokenVerifier.ts';
 
 /** 自研实现只接受这一种算法（差分判据据此断言窄面）。 */
 const LEGACY_ALGORITHMS: readonly string[] = ['RS256'];

@@ -1,9 +1,9 @@
 // 视图布局 / 主题偏好控制器（从 AppController 抽离，避免越过 25 方法的上帝类红线）。
 // 单一职责：主题切换、左右面板开合、面板宽度持久化、首屏偏好恢复。全部经 AppHost.patch 驱动状态。
 
-import type { AppHost } from './AppController.js';
-import { MethodBinder } from './methodBinder.js';
-import { setLocale as applyLocale, t, type Locale } from '../i18n/i18n.js';
+import type { AppHost } from './AppController.ts';
+import { MethodBinder } from './methodBinder.ts';
+import { setLocale as applyLocale, t, type Locale } from '../i18n/i18n.ts';
 
 /** 布局 / 主题偏好控制器。 */
 export class LayoutController {

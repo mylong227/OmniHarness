@@ -13,8 +13,8 @@
  * discovery / PKCE / 授权 URL / 换码四件事；**不含** id_token 签名校验（已有
  * `IdTokenVerifierPort` + `jose` 承接）、**不含** CLI 中间态持久化（应用语义，留在自研资产）。
  */
-import type { OidcDiscovery } from './oidcDiscovery.js';
-import type { OidcProviderConfig } from './oidcProviderConfig.js';
+import type { OidcDiscovery } from './oidcDiscovery.ts';
+import type { OidcProviderConfig } from './oidcProviderConfig.ts';
 
 export type { OidcDiscovery, OidcProviderConfig };
 

@@ -33,7 +33,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Readable } from 'node:stream';
 
-import { ProcessTreeKiller } from '../tool/shell/processTreeKiller.js';
+import { ProcessTreeKiller } from '../tool/shell/processTreeKiller.ts';
 
 /** 本类启动的子进程形态：stdin 忽略、stdout/stderr 为管道。 */
 type ChromeChild = ChildProcessByStdio<null, Readable, Readable>;

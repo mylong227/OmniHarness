@@ -1,4 +1,4 @@
-import type { AnomalyAlert } from './anomalyAlert.js';
+import type { AnomalyAlert } from './anomalyAlert.ts';
 
 /** 免疫自检报告。 */
 export interface ImmuneSelfReport {

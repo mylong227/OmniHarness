@@ -1,16 +1,16 @@
 ﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Agent } from '../../src/core/agent.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { CheckpointManager } from '../../src/core/checkpointManager.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { Agent } from '../../src/core/agent.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { CheckpointManager } from '../../src/core/checkpointManager.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 用固定端口组合构造 Agent（端到端，真实 IO）。 */
 function buildAgent(approvals: AutoApproval | PlanApproval): Agent {

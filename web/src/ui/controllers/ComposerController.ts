@@ -2,12 +2,12 @@
 // 承接原 useAppController 中 send / changeModel / changeReasoning / changePermission 回调，
 // 经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
-import type { AppHost, AppServices } from './AppController.js';
-import type { FileAttachment, ThreadEvent } from '../../types/models.js';
-import type { ToolResultView } from '../shared.js';
-import type { SessionController } from './SessionController.js';
-import { MethodBinder } from './methodBinder.js';
-import { t } from '../i18n/i18n.js';
+import type { AppHost, AppServices } from './AppController.ts';
+import type { FileAttachment, ThreadEvent } from '../../types/models.ts';
+import type { ToolResultView } from '../shared.ts';
+import type { SessionController } from './SessionController.ts';
+import { MethodBinder } from './methodBinder.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
 export class ComposerController {

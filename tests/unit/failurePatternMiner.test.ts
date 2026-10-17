@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {
   FailurePatternMiner,
   type FailureRecord,
-} from '../../src/evolution/failurePatternMiner.js';
+} from '../../src/evolution/failurePatternMiner.ts';
 
 const RECORDS: readonly FailureRecord[] = [
   {

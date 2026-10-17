@@ -12,7 +12,7 @@
 //   ② 现场写进 sessionStorage（`omni-last-render-error`，含组件栈），用户一句话就能把真因带回来；
 //   ③ 点「重试」可原地恢复渲染（清掉边界态重挂子树），不必丢掉当前会话。
 import * as React from 'react';
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /** 边界状态。 */
 interface RenderErrorBoundaryState {

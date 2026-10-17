@@ -22,9 +22,9 @@ import { setTimeout as delay } from 'node:timers/promises';
 import {
   SpawnMediaProcessRunner,
   type MediaChildSpawner,
-} from '../../src/adapters/media/spawnMediaProcessRunner.js';
-import type { SpawnedMediaChild } from '../../src/adapters/media/spawnMediaProcessRunner.js';
-import type { MediaProcessRequest } from '../../src/adapters/media/mediaProcessRunner.js';
+} from '../../src/adapters/media/spawnMediaProcessRunner.ts';
+import type { SpawnedMediaChild } from '../../src/adapters/media/spawnMediaProcessRunner.ts';
+import type { MediaProcessRequest } from '../../src/adapters/media/mediaProcessRunner.ts';
 
 /** stderr 上限的独立复算值（与实现常量同值；用来断言「确实被截到 256 KiB」）。 */
 const EXPECTED_STDERR_LIMIT = 256 * 1024;

@@ -31,14 +31,14 @@
  * @maturityEvidence tests/unit/builtinWasmRunner.test.ts
  */
 import { Worker } from 'node:worker_threads';
-import { log } from '../../util/logger.js';
-import { WASM_PAGE_BYTES, WasmMemoryLimits } from './wasmMemoryLimits.js';
+import { log } from '../../util/logger.ts';
+import { WASM_PAGE_BYTES, WasmMemoryLimits } from './wasmMemoryLimits.ts';
 import type {
   IsolationDenial,
   IsolationRequest,
   IsolationResult,
-} from '../../ports/runtime/isolation.js';
-import type { BuiltinWasmWorkerMessage } from './builtinWasmWorker.js';
+} from '../../ports/runtime/isolation.ts';
+import type { BuiltinWasmWorkerMessage } from './builtinWasmWorker.ts';
 
 /** wasm 执行器选项。 */
 export interface BuiltinWasmRunnerOptions {

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import { resolve } from 'node:path';
-import { ServerAuthGuard } from '../../src/server/transport/serverAuthGuard.js';
+import { ServerAuthGuard } from '../../src/server/transport/serverAuthGuard.ts';
 
 /** 造一条最小请求对象（只带守卫关心的字段）。 */
 const req = (url: string, authorization?: string): IncomingMessage =>
@@ -63,19 +63,19 @@ async function startRealServer(
   authToken?: string,
   host?: string,
 ): Promise<{
-  server: import('../../src/server/transport/httpServer.js').HttpServer;
+  server: import('../../src/server/transport/httpServer.ts').HttpServer;
   port: number;
 }> {
   const { HttpServer, HttpBridgeTransport } =
-    await import('../../src/server/transport/httpServer.js');
-  const { AppServer } = await import('../../src/server/core/appServer.js');
-  const { ConfigFactory } = await import('../../src/config/configFactory.js');
-  const { MockModel } = await import('../../src/adapters/model/mockModel.js');
-  const { MemoryStorage } = await import('../../src/adapters/storage/memoryStorage.js');
-  const { SilentEventPort } = await import('../../src/adapters/event/silentEventPort.js');
-  const { AutoApproval } = await import('../../src/adapters/approval/autoApproval.js');
-  const { PassthroughSandbox } = await import('../../src/adapters/sandbox/passthroughSandbox.js');
-  const { tempWorkspace } = await import('../helpers/tempWorkspace.js');
+    await import('../../src/server/transport/httpServer.ts');
+  const { AppServer } = await import('../../src/server/core/appServer.ts');
+  const { ConfigFactory } = await import('../../src/config/configFactory.ts');
+  const { MockModel } = await import('../../src/adapters/model/mockModel.ts');
+  const { MemoryStorage } = await import('../../src/adapters/storage/memoryStorage.ts');
+  const { SilentEventPort } = await import('../../src/adapters/event/silentEventPort.ts');
+  const { AutoApproval } = await import('../../src/adapters/approval/autoApproval.ts');
+  const { PassthroughSandbox } = await import('../../src/adapters/sandbox/passthroughSandbox.ts');
+  const { tempWorkspace } = await import('../helpers/tempWorkspace.ts');
 
   const config = ConfigFactory.build({
     workspaceRoot: tempWorkspace(),

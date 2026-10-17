@@ -17,9 +17,9 @@
 // 本模块把「悬停该显示什么」「行内该补什么」抽成纯函数，两个分组视图共用，
 // 判据见 `web/test/sessionRowMeta.test.mjs`。
 
-import type { SessionEntry } from '../shared.js';
-import { timeAgo } from '../textUtils.js';
-import { t } from '../i18n/i18n.js';
+import type { SessionEntry } from '../shared.ts';
+import { timeAgo } from '../textUtils.ts';
+import { t } from '../i18n/i18n.ts';
 
 /**
  * 会话行的可读性文案：悬停给什么、行内补什么。纯静态、零 React / 零 DOM。

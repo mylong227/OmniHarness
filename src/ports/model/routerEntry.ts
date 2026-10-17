@@ -1,4 +1,4 @@
-import type { ModelPort } from './model.js';
+import type { ModelPort } from './model.ts';
 
 /** 路由条目：一个底层模型适配器 + 其标识与定价。 */
 export interface RouterEntry {

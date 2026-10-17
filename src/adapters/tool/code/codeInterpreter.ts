@@ -1,5 +1,5 @@
 import { Worker } from 'node:worker_threads';
-import type { ToolCall, ToolResult } from '../../../ports/tool/tool.js';
+import type { ToolCall, ToolResult } from '../../../ports/tool/tool.ts';
 
 /**
  * @beta

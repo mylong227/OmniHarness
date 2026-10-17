@@ -16,7 +16,7 @@
  */
 
 import { parentPort, workerData } from 'node:worker_threads';
-import { PendingRequests } from '../../../util/concurrency/pendingRequests.js';
+import { PendingRequests } from '../../../util/concurrency/pendingRequests.ts';
 
 /** 宿主下发的初始化数据。 */
 interface SandboxInit {

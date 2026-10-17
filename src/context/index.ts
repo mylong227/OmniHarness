@@ -6,6 +6,6 @@
  * 本层提供纯算法替代：确定性压缩 + 前缀稳定性治理，二者均可机械证明。
  */
 
-export * from './canonical.js';
-export * from './prefixStability.js';
-export * from './deterministicCompressor.js';
+export * from './canonical.ts';
+export * from './prefixStability.ts';
+export * from './deterministicCompressor.ts';

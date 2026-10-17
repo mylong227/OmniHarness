@@ -8,9 +8,9 @@
  */
 
 import { join } from 'node:path';
-import { configFile } from '../config/configFile.js';
-import { PluginProfileStore } from '../plugin/pluginProfileStore.js';
-import { CliArgReader } from './cliArgReader.js';
+import { configFile } from '../config/configFile.ts';
+import { PluginProfileStore } from '../plugin/pluginProfileStore.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** profile 用法提示。 */
 const USAGE =

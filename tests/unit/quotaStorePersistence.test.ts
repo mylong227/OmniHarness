@@ -26,7 +26,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { QuotaStore } from '../../src/server/services/quotaStore.js';
+import { QuotaStore } from '../../src/server/services/quotaStore.ts';
 
 /** 缺省基础日预算（与 quotaStore.ts 的 DEFAULT_DAILY_TOKENS 对齐，独立写死以免同源同错）。 */
 const DEFAULT_TOKENS = 1_000_000;

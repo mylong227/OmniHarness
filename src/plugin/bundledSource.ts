@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
-import { Manifest, type PluginDescriptor } from './manifest.js';
-import { type BundledPlugin } from './bundledRegistry.js';
-import type { RegistrySource } from './registrySourcesShared.js';
+import { Manifest, type PluginDescriptor } from './manifest.ts';
+import { type BundledPlugin } from './bundledRegistry.ts';
+import type { RegistrySource } from './registrySourcesShared.ts';
 
 /**
  * @beta

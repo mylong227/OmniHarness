@@ -1,4 +1,4 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import type {
@@ -6,13 +6,13 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
-import { log } from '../../../util/logger.js';
-import { FileContentLedger } from './fileContentLedger.js';
-import { PatchApplier } from './patchApplier.js';
-import type { FilePatch } from './patchApplier.js';
+} from '../../../ports/tool/tool.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
+import { log } from '../../../util/logger.ts';
+import { FileContentLedger } from './fileContentLedger.ts';
+import { PatchApplier } from './patchApplier.ts';
+import type { FilePatch } from './patchApplier.ts';
 
 /**
  * 应用补丁工具：unified diff 写入工作区文件。

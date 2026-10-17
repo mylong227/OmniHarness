@@ -46,8 +46,8 @@ const GROUPS = {
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩（与 streamThrottleWiring.test.mjs 同一口径）。
 createRuntime().install();
-const { SessionController } = await import('../src/ui/controllers/SessionController.js');
-const { LayoutController } = await import('../src/ui/controllers/LayoutController.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
+const { LayoutController } = await import('../src/ui/controllers/LayoutController.ts');
 
 /**
  * 取出 App.ts 里以**裸引用**（后面不跟 `(`）传出的控制器方法名。
@@ -157,7 +157,7 @@ test('②-b 行为：文件控制器的 openFile 脱离实例调用也必须到�
     },
     getState: () => state,
   };
-  const { FileController } = await import('../src/ui/controllers/FileController.js');
+  const { FileController } = await import('../src/ui/controllers/FileController.ts');
   const ctrl = new FileController(host, services);
   const openFile = ctrl.openFile; // 脱离实例（等价于把裸引用交给子组件后由它调用）
   await openFile('src/a.ts');

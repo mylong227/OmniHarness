@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
 const { SETTINGS_FIELDS, SETTINGS_TABS, CATALOG_KEYS, SettingsModel } = await import(
-  '../src/ui/models/SettingsModel.js'
+  '../src/ui/models/SettingsModel.ts'
 );
 
 test('每个字段都归属一个已声明的分栏（不留孤儿字段）', () => {

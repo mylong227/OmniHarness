@@ -3341,3 +3341,45 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 
 **实测**：`npx eslint . --max-warnings=0` 全仓 0 问题；Vitest **82 文件 / 483 例全绿**；
 双端 `tsc --noEmit` 通过；真机（新产物）挂载正常、三栏齐全、**零未捕获异常 / 零控制台错误**。
+
+## 12. 导入约定统一 `.ts` 后缀 + React 19（2026-10-17，第七轮）
+
+### 12.1 改了什么
+
+前后端导入约定统一为**相对导入一律写真实源文件后缀（`.ts`/`.tsx`）**，React 同步升 19：
+
+| 项                               | 之前                                                                    | 现在                                                                                                                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 后端 `src/`+`tests/`+`examples/` | `.js` 后缀约定（Node ESM 编译后形态）                                   | **6484 处 → `.ts`**、104 处 → `.tsx`（按文件系统逐个解析改写，不盲替；17 处注释/dist 运行时路径保留 `.js`）                                                           |
+| 前端 `web/src`                   | 同上（靠 `vitePluginJsToTs` 回落插件解析）                              | `.ts`/`.tsx` 真实后缀；**回落插件已删除**（不再需要）                                                                                                                 |
+| emit                             | `.ts` 后缀无解（tsc 不允许 emit 该写法）                                | 根 tsconfig 启用 **`rewriteRelativeImportExtensions`**（TS 5.7+）：源码写 `.ts`、产物写 `.js`，两件事同时成立；web tsconfig 用 `allowImportingTsExtensions`（noEmit） |
+| React                            | 18.3.1 + @types 18                                                      | **19.3.1 + @types 19**（无 `defaultProps`/字符串 ref/legacy API 用法，`createRoot` 挂载不变）                                                                         |
+| 审计脚本                         | `auditStandards`/`auditInterfaces`/`architectureGate` 只认 `.js` 导入边 | 模块 key 归一化改为剥 `.ts/.tsx/.js`，名义证据检测两种后缀都认                                                                                                        |
+
+**判据同步跟新**（否则断言旧源码形态的判据退化为恒真或假红）：`approvalRuleContract` / `cliStartupBudget`（含变异正对照的探针串）/ `crashGuard ⑦` / `configCycleDisbanded` / `workerContract ②` / `architectureSpec ②`（`docs/ARCHITECTURE_SPEC.md` 依赖清单 react@^19.2.0）/ `vendorAndTypeSource`（@types 对齐 ^19）。
+
+### 12.2 判据（命令 + 实测结果，2026-10-17）
+
+| 项                                                | 结果                                                                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`（双端 tsc --noEmit）          | 通过                                                                                                                    |
+| `npm run build`（tsc emit）                       | dist 产物 specifier 已重写为 `.js`，`import('./dist/src/a2a/index.js')` 运行时可加载                                    |
+| `node --test dist/tests/unit/*.test.js`           | 3424 tests / **3415 pass / 1 fail**（fail 为 §11 已登记的 shellTool 会话取消，**HEAD 同样红**，环境性存量，与本轮无关） |
+| `npx vitest run`                                  | **82 文件 / 483 例全绿**                                                                                                |
+| `npm run web:build`                               | 单 bundle 1127 KB（低于 1200 KB 告警线）                                                                                |
+| `node scripts/runGates.mjs`（fast + typed）       | 通过                                                                                                                    |
+| `audit:standard` / `audit:maturity` / `arch:gate` | 退出码全 0                                                                                                              |
+
+### 12.3 顺手修掉的存量缺陷（本轮发现）
+
+- **`browserSwitch` ④ 永红**（2026-10-17 vitest 化当天引入，与本轮无关）：子进程 vitest 汇总行带
+  ANSI 色码（`Tests \e[33m1 skipped\e[39m`），`[33m` 的尾字符 `m` 吞掉 `\b1 skipped\b` 的词边界。
+  现已先剥 ANSI 再断言（`stripAnsi`），判据意图不变。
+
+### 12.4 诚实边界
+
+- 17 处 `.js` **有意保留**：注释描述、测试夹具里的假文件名、指向 dist 编译产物的运行时路径字符串——
+  这些不是导入，改了反而错。
+- 指向真实 `.js` 文件（node_modules / dist / fixture）的导入不受影响，按字面解析。
+- shellTool 会话取消（§11.5 已登记）在 HEAD 与本轮同样红：子进程 spawn 后 `started.txt` 不落盘，
+  疑与本机沙箱/Defender 相关，待独立排查。

@@ -18,10 +18,10 @@
  * 桥只做「事件 → 渲染事件」的映射与多轮衔接，不新增任何模型语义；`question`（审批提问）
  * 只是渲染，答复仍走既有的 userResponder 装配（与 exec 同口径）。
  */
-import type { EventPort } from '../ports/runtime/eventPort.js';
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { TuiEvent } from '../ports/tui/tuiEvent.js';
-import type { TuiTaskRunner } from '../ports/tui/tuiTaskRunner.js';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { TuiEvent } from '../ports/tui/tuiEvent.ts';
+import type { TuiTaskRunner } from '../ports/tui/tuiTaskRunner.ts';
 
 /** 单条文本载荷的展示截断上限（字符）：TUI 行不是日志文件，超长正文以省略号收尾。 */
 const TEXT_LIMIT = 400;

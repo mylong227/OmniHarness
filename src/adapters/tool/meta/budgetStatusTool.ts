@@ -1,11 +1,11 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { CostBudget } from '../../model/costBudget.js';
+} from '../../../ports/tool/tool.ts';
+import type { CostBudget } from '../../model/costBudget.ts';
 
 /**
  * 成本预算状态工具（#S29 / P5）：让模型随时自查当前花费 / 剩余 / token 累计 / 缓存折抵 /

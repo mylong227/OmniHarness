@@ -1,20 +1,20 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
 import type {
   RetrievalDoc,
   RetrievalPort,
   RetrievalRole,
-} from '../ports/intelligence/retrieval.js';
+} from '../ports/intelligence/retrieval.ts';
 import type {
   ImageContent,
   FileAttachment,
   ModelContextSnapshot,
   ModelUsage,
-} from '../ports/model/model.js';
-import { AppendOnlyEventLog } from './appendOnlyEventLog.js';
-import { eventFactory } from './eventFactory.js';
-import { ArrayAt } from '../util/arrayAt.js';
-import { log } from '../util/logger.js';
+} from '../ports/model/model.ts';
+import { AppendOnlyEventLog } from './appendOnlyEventLog.ts';
+import { eventFactory } from './eventFactory.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
+import { log } from '../util/logger.ts';
 
 /** 会话记录器：统一"写入日志 + 广播事件"，保证可观测性不遗漏。 */
 export class SessionRecorder {

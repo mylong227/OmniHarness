@@ -11,7 +11,7 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { WorkspaceIdentity } from '../../src/util/workspaceIdentity.js';
+import { WorkspaceIdentity } from '../../src/util/workspaceIdentity.ts';
 
 describe('WorkspaceIdentity：同一项目的多种拼写必须归一为同一身份', () => {
   it('分隔符 / 盘符大小写 / 尾分隔符 / 重复分隔符', () => {

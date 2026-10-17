@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ToolGate } from '../../src/core/toolGate.js';
-import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.js';
-import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.js';
-import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.ts';
+import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.ts';
+import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 
 /**
  * P2 缺口跟踪测试：提权升级（escalate → elevatedSandbox 复核）的真实沙箱行为。

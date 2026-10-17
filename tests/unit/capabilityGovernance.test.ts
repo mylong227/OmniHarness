@@ -12,13 +12,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.js';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.js';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import type { CapabilityRecord } from '../../src/ports/capability.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';
+import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import type { CapabilityRecord } from '../../src/ports/capability.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 造一条技能资产记录。

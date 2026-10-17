@@ -1,6 +1,6 @@
 import { dirname, join } from 'node:path';
-import type { MediaProcessRunner } from './mediaProcessRunner.js';
-import type { PathBinaryResolver } from './pathBinaryResolver.js';
+import type { MediaProcessRunner } from './mediaProcessRunner.ts';
+import type { PathBinaryResolver } from './pathBinaryResolver.ts';
 
 /** 定位结果。 */
 export interface FfmpegLocation {

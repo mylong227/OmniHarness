@@ -5,7 +5,7 @@
 // 故非法值/隐私模式一律回落 `current`。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { SessionsScope } from '../src/ui/models/SessionsScope.js';
+import { SessionsScope } from '../src/ui/models/SessionsScope.ts';
 
 /** 装一个最小 localStorage（Node 无 DOM）。 */
 function withStorage(initial) {

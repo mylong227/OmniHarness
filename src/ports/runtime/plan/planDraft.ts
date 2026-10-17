@@ -1,4 +1,4 @@
-import type { PlanStep } from './planStep.js';
+import type { PlanStep } from './planStep.ts';
 
 /**
  * @beta

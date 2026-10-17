@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // #OBS-9：步数耗尽兜底回归测试。
 //
 // 复现场景（2026-09-08 真机）：模型持续调用工具（探索/检索）而从不输出文本，
@@ -11,20 +11,20 @@ import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEn
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { TurnRunner } from '../../src/core/turnRunner.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { TurnRunner } from '../../src/core/turnRunner.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 import type {
   ModelPort,
   ModelOutput,
   ModelRequest,
   ModelToolCallRef,
-} from '../../src/ports/model/model.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
+} from '../../src/ports/model/model.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
 
 function recorderFor(sessionId: string): SessionRecorder {
   return new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);

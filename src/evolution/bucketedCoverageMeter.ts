@@ -16,13 +16,13 @@
  * @maturity L1 — 分桶取最差的闸判据钉死（含「去分桶即漏放」的变异判据）；分桶收益未统计
  * @maturityEvidence tests/unit/bucketedCoverageMeter.test.ts
  */
-import { RewardCoverageMeter } from './rewardCoverageMeter.js';
+import { RewardCoverageMeter } from './rewardCoverageMeter.ts';
 import type {
   CoverageMeter,
   CoverageReportSurface,
   RewardCoverageReport,
   RewardVerdict,
-} from './rewardCoverageMeter.js';
+} from './rewardCoverageMeter.ts';
 
 /** 工况桶键派生（缺省 {@link BucketedCoverageMeter.sourceBucket}）。 */
 export type CoverageBucketKey = (candidate: unknown) => string;

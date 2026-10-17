@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { FileDecisionTraceAdapter } from '../../src/adapters/decision/fileDecisionTraceAdapter.js';
-import type { DecisionTrace } from '../../src/ports/decision/decisionTrace.js';
+import { FileDecisionTraceAdapter } from '../../src/adapters/decision/fileDecisionTraceAdapter.ts';
+import type { DecisionTrace } from '../../src/ports/decision/decisionTrace.ts';
 
 /** 创建一个独立临时工作区根（避免并发测试互相污染分片文件）。 */
 const makeRoot = (): string => mkdtempSync(join(tmpdir(), 'omni-trace-'));

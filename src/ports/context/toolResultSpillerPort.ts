@@ -1,4 +1,4 @@
-import type { ToolResult } from '../tool/tool.js';
+import type { ToolResult } from '../tool/tool.ts';
 
 /**
  * 工具结果外溢器端口（G25 收尾，2026-10-04 第三十轮）。

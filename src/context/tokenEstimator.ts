@@ -1,4 +1,4 @@
-import { TokenCountCache, type TokenCountCacheStats } from './tokenCountCache.js';
+import { TokenCountCache, type TokenCountCacheStats } from './tokenCountCache.ts';
 
 /**
  * 计数缓存的**最小文本长度**（UTF-16 码元）。

@@ -11,9 +11,9 @@
  * 本文件已退化为桶：6 个接口各自独立成文件于 `./supervisor/`，调用点零改动。
  */
 
-export type { SafeMode } from './supervisor/safeMode.js';
-export type { HealthEntry } from './supervisor/healthEntry.js';
-export type { HealthSnapshot } from './supervisor/healthSnapshot.js';
-export type { AuditSinkLike } from './supervisor/auditSinkLike.js';
-export type { SupervisorOptions } from './supervisor/supervisorOptions.js';
-export type { SupervisorPort } from './supervisor/supervisorPort.js';
+export type { SafeMode } from './supervisor/safeMode.ts';
+export type { HealthEntry } from './supervisor/healthEntry.ts';
+export type { HealthSnapshot } from './supervisor/healthSnapshot.ts';
+export type { AuditSinkLike } from './supervisor/auditSinkLike.ts';
+export type { SupervisorOptions } from './supervisor/supervisorOptions.ts';
+export type { SupervisorPort } from './supervisor/supervisorPort.ts';

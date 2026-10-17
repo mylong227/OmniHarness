@@ -1,29 +1,29 @@
-import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.js';
+import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.ts';
 
-import { NativeBackend } from '../native/nativeBackend.js';
-import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.js';
-import { SupervisorKernel } from '../supervisor/supervisorKernel.js';
-import { RbacPolicy } from '../security/rbacPolicy.js';
-import type { SupervisorPort } from '../ports/runtime/supervisor.js';
-import type { EvolutionController } from '../ports/runtime/evolution.js';
-import { Container } from '../core/container.js';
-import { RlvrController } from '../evolution/rlvrController.js';
-import { EvolutionKernel } from '../evolution/evolutionKernel.js';
-import { EvolutionSignalCollector } from '../evolution/evolutionSignalCollector.js';
-import { BucketedCandidateArchive } from '../evolution/bucketedCandidateArchive.js';
-import { EliteReentryDiscovery } from '../evolution/eliteReentryDiscovery.js';
-import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
-import { DormantExecutorActivation } from '../evolution/dormantExecutorActivation.js';
-import { TwistDiscoveryEngine } from '../evolution/twistDiscoveryEngine.js';
-import { MoireComposer } from '../skill/moireComposer.js';
-import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.js';
-import type { Skill, MoireOptions } from '../skill/skill.js';
-import type { PromotionLedgerPort, SkillRestorePlan } from '../ports/runtime/evolution.js';
+import { NativeBackend } from '../native/nativeBackend.ts';
+import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.ts';
+import { SupervisorKernel } from '../supervisor/supervisorKernel.ts';
+import { RbacPolicy } from '../security/rbacPolicy.ts';
+import type { SupervisorPort } from '../ports/runtime/supervisor.ts';
+import type { EvolutionController } from '../ports/runtime/evolution.ts';
+import { Container } from '../core/container.ts';
+import { RlvrController } from '../evolution/rlvrController.ts';
+import { EvolutionKernel } from '../evolution/evolutionKernel.ts';
+import { EvolutionSignalCollector } from '../evolution/evolutionSignalCollector.ts';
+import { BucketedCandidateArchive } from '../evolution/bucketedCandidateArchive.ts';
+import { EliteReentryDiscovery } from '../evolution/eliteReentryDiscovery.ts';
+import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.ts';
+import { DormantExecutorActivation } from '../evolution/dormantExecutorActivation.ts';
+import { TwistDiscoveryEngine } from '../evolution/twistDiscoveryEngine.ts';
+import { MoireComposer } from '../skill/moireComposer.ts';
+import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.ts';
+import type { Skill, MoireOptions } from '../skill/skill.ts';
+import type { PromotionLedgerPort, SkillRestorePlan } from '../ports/runtime/evolution.ts';
 import { join } from 'node:path';
-import { A2aTaskExecutor } from '../a2a/a2aTaskExecutor.js';
-import { A2aDelegateTool } from '../a2a/a2aDelegateTool.js';
-import { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
-import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.js';
+import { A2aTaskExecutor } from '../a2a/a2aTaskExecutor.ts';
+import { A2aDelegateTool } from '../a2a/a2aDelegateTool.ts';
+import { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
+import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.ts';
 import {
   A2aServer,
   A2aClient,
@@ -31,11 +31,11 @@ import {
   HttpA2aServerTransport,
   WsA2aTransport,
   WsA2aServerTransport,
-} from '../a2a/index.js';
-import type { A2aTransport } from '../a2a/a2aProtocol.js';
-import { ServiceKeys } from './serviceKeys.js';
-import { SsrfPolicy } from '../security/ssrfPolicy.js';
-import { log } from '../util/logger.js';
+} from '../a2a/index.ts';
+import type { A2aTransport } from '../a2a/a2aProtocol.ts';
+import { ServiceKeys } from './serviceKeys.ts';
+import { SsrfPolicy } from '../security/ssrfPolicy.ts';
+import { log } from '../util/logger.ts';
 
 /**
  * Runtime —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -316,8 +316,8 @@ export class Runtime {
 // 保持既有公共 API：`ServiceKeys` 定义已下沉到 `./serviceKeys.js`（为打断组合根↔子代理的真值环），
 // 此处再导出，使 `src/index.ts` 等既有调用点零改动。
 export { ServiceKeys };
-import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
 export type { OmniHarnessRuntime };
 
 /** OmniHarness运行时：装配全部端口 + 注册进容器（供自定义扩展查询）。 */

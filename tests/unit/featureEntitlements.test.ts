@@ -15,10 +15,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { FeatureEntitlements } from '../../src/license/featureEntitlements.js';
-import { LicenseEngine } from '../../src/license/licenseEngine.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import { RequireEnv } from '../helpers/requireEnv.js';
+import { FeatureEntitlements } from '../../src/license/featureEntitlements.ts';
+import { LicenseEngine } from '../../src/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /** 采集到的一条事件。 */
 interface Captured {

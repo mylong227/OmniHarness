@@ -1,11 +1,11 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { PlanPort } from '../../../ports/runtime/plan.js';
+} from '../../../ports/tool/tool.ts';
+import type { PlanPort } from '../../../ports/runtime/plan.ts';
 
 /**
  * @beta

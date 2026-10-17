@@ -1,9 +1,9 @@
-import { SparkController } from '../spark/sparkController.js';
-import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.js';
+import { SparkController } from '../spark/sparkController.ts';
+import type { VortexRingSpillAdapter } from '../adapters/spill/vortexRingSpillAdapter.ts';
 
-import type { MemoryStackAssembly } from './memoryStackAssembler.js';
-import type { SkillStack } from './skillStackAssembler.js';
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import type { MemoryStackAssembly } from './memoryStackAssembler.ts';
+import type { SkillStack } from './skillStackAssembler.ts';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
 
 /**
  * SparkAssembler 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

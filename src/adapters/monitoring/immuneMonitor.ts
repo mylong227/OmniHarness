@@ -6,9 +6,9 @@ import type {
   ImmuneMonitorPort,
   AnomalyAlert,
   ImmuneSelfReport,
-} from '../../ports/intelligence/immune.js';
-import type { AuditSinkLike } from '../../ports/runtime/supervisor.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+} from '../../ports/intelligence/immune.ts';
+import type { AuditSinkLike } from '../../ports/runtime/supervisor.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /** 免疫监控选项（fail-closed 边界夹紧）。 */
 export interface ImmuneMonitorOptions {

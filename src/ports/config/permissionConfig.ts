@@ -1,5 +1,5 @@
-import type { PermissionRuleConfig } from './permissionRuleConfig.js';
-import type { PermissionRuleDecision } from './permissionRuleDecision.js';
+import type { PermissionRuleConfig } from './permissionRuleConfig.ts';
+import type { PermissionRuleDecision } from './permissionRuleDecision.ts';
 
 /**
  * 权限配置段（omniharness.json 的 `permission` 字段）。

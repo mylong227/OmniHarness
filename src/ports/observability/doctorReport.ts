@@ -9,8 +9,8 @@
  * 判据 `tests/unit/doctorReportContract.test.ts` 会**逐字比对**本文件与 CLI 侧的再导出，
  * 防两侧漂移（本文件首版就是手抄错了 `SandboxStatus` 的字段名，被 tsc 当场抓到）。
  */
-import type { InjectionSelfCheckSummary } from './injectionSelfCheckSummary.js';
-import type { SandboxCapabilityEntry } from '../runtime/sandbox/sandboxCapabilityEntry.js';
+import type { InjectionSelfCheckSummary } from './injectionSelfCheckSummary.ts';
+import type { SandboxCapabilityEntry } from '../runtime/sandbox/sandboxCapabilityEntry.ts';
 
 /** doctor 选项：工作区根与显式配置文件路径。 */
 export interface DoctorOptions {

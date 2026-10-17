@@ -3,9 +3,9 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LspPort } from '../../../ports/tool/lsp.js';
-import { LSP_STATUS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
+} from '../../../ports/tool/tool.ts';
+import type { LspPort } from '../../../ports/tool/lsp.ts';
+import { LSP_STATUS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.ts';
 
 /**
  * @beta

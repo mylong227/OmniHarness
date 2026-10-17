@@ -1,10 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { LineTransport, type Transport } from '../server/transport/lineTransport.js';
-import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.js';
-import { log } from '../util/logger.js';
+import { LineTransport, type Transport } from '../server/transport/lineTransport.ts';
+import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.ts';
+import { log } from '../util/logger.ts';
 
-import type { McpStdioServerOptions } from '../ports/mcp/mcpStdioServerOptions.js';
+import type { McpStdioServerOptions } from '../ports/mcp/mcpStdioServerOptions.ts';
 export type { McpStdioServerOptions };
 
 /**

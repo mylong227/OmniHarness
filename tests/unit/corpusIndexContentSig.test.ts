@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, utimesSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.js';
+import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
 
 /**
  * 造一个最小可索引的工作区（`ContextEngine` 只认 `.ts` / `.js` / `.py`）。

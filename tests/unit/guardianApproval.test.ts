@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GuardianApproval } from '../../src/adapters/approval/guardianApproval.js';
-import type { ApprovalRequest } from '../../src/ports/runtime/approval.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import { dangerousCommands } from '../../src/adapters/sandbox/dangerousCommands.js';
+import { GuardianApproval } from '../../src/adapters/approval/guardianApproval.ts';
+import type { ApprovalRequest } from '../../src/ports/runtime/approval.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { dangerousCommands } from '../../src/adapters/sandbox/dangerousCommands.ts';
 
 /** 构造固定输出的假模型。 */
 function fakeModel(behavior: () => ModelOutput): ModelPort {

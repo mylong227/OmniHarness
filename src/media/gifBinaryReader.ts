@@ -1,4 +1,4 @@
-import { MediaFormatError } from '../errors/mediaFormatError.js';
+import { MediaFormatError } from '../errors/mediaFormatError.ts';
 
 /**
  * GIF 字节游标读取器：小端整数、定长字符串、数据子块。

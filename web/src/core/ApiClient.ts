@@ -1,7 +1,7 @@
 // 面向对象的服务层：封装与后端的所有 JSON-RPC 2.0 通信与 /metrics 拉取。
 // 组件层只依赖本类，不直接 fetch，便于替换与单测。
 
-import { authToken } from './authToken.js';
+import { authToken } from './authToken.ts';
 import type {
   Config,
   FileAttachment,
@@ -26,8 +26,8 @@ import type {
   ThreadGetResult,
   TurnRunResult,
   QuestionAnswerSubmission,
-} from '../types/models.js';
-import { t } from '../ui/i18n/i18n.js';
+} from '../types/models.ts';
+import { t } from '../ui/i18n/i18n.ts';
 
 interface JsonRpcError {
   code: number;
@@ -160,7 +160,7 @@ export class ApiClient {
   }
   /** 厂商目录（#模型接入页）：服务端单一下发，含当前厂商与其可用模型 + 该厂商合法 reasoning_effort 档位。 */
   public modelCatalog(): Promise<{
-    providers: import('../types/models.js').ProviderPreset[];
+    providers: import('../types/models.ts').ProviderPreset[];
     active?: {
       id: string;
       label: string;
@@ -184,7 +184,7 @@ export class ApiClient {
     return this.rpc('usage.stats', {});
   }
   /** 厂商连通探测：真实请求 /models，返回实测状态与模型清单。 */
-  public probeModels(provider?: string): Promise<{ providers: import('../types/models.js').ProviderProbeResult[] }> {
+  public probeModels(provider?: string): Promise<{ providers: import('../types/models.ts').ProviderProbeResult[] }> {
     return this.rpc('model.probe', provider ? { provider } : {});
   }
   /** 工作区列表（当前 + 已添加项目）。 */
@@ -208,7 +208,7 @@ export class ApiClient {
    * @returns `{ok:true, report}` 或 `{ok:false, reason}`。
    */
   public doctorReport(workspaceRoot?: string): Promise<
-    | { ok: true; report: import('../types/models.js').DoctorReportLike }
+    | { ok: true; report: import('../types/models.ts').DoctorReportLike }
     | { ok: false; reason: string }
   > {
     return this.rpc('doctor.report', workspaceRoot === undefined ? {} : { workspaceRoot });
@@ -229,7 +229,7 @@ export class ApiClient {
     session?: string;
     actor?: string;
     limit?: number;
-  }): Promise<import('../types/models.js').AuditQueryResult> {
+  }): Promise<import('../types/models.ts').AuditQueryResult> {
     return this.rpc('audit.query', params);
   }
 
@@ -237,7 +237,7 @@ export class ApiClient {
    * 保险库凭据名列表（只读名字，**不含值**；2026-10-11 Web 交付）。
    * @returns `{ok:true, names}` 或 `{ok:false, reason}`（未接线）
    */
-  public vaultList(): Promise<import('../types/models.js').VaultListResult> {
+  public vaultList(): Promise<import('../types/models.ts').VaultListResult> {
     return this.rpc('vault.list', {});
   }
 
@@ -250,7 +250,7 @@ export class ApiClient {
   public vaultSet(
     name: string,
     secret: string,
-  ): Promise<import('../types/models.js').VaultWriteResult> {
+  ): Promise<import('../types/models.ts').VaultWriteResult> {
     return this.rpc('vault.set', { name, secret });
   }
 
@@ -259,7 +259,7 @@ export class ApiClient {
    * @param name 凭据名
    * @returns `{ok:true, name, removed}`（removed=false 表示本来就没有）或 `{ok:false, reason}`
    */
-  public vaultDelete(name: string): Promise<import('../types/models.js').VaultWriteResult> {
+  public vaultDelete(name: string): Promise<import('../types/models.ts').VaultWriteResult> {
     return this.rpc('vault.delete', { name });
   }
 
@@ -272,7 +272,7 @@ export class ApiClient {
     session: string;
     limit?: number;
     kind?: string;
-  }): Promise<import('../types/models.js').TraceReadResultLike> {
+  }): Promise<import('../types/models.ts').TraceReadResultLike> {
     return this.rpc('trace.read', params);
   }
   /**
@@ -586,7 +586,7 @@ export class ApiClient {
   // 一组 RPC 支撑三块 UI：上下文容量面板、输入区「+」添加菜单、权限档位面板。
 
   /** 上下文容量报告：六类 token 分解 + 窗口占比 + 提示缓存命中率。 */
-  public contextUsage(threadId: string): Promise<import('../types/models.js').ContextUsageReport> {
+  public contextUsage(threadId: string): Promise<import('../types/models.ts').ContextUsageReport> {
     return this.rpc('context.usage', { threadId });
   }
   /** 当前模型与解析出的上下文窗口大小（容量面板标题用）。 */
@@ -594,40 +594,40 @@ export class ApiClient {
     return this.rpc('context.window', {});
   }
   /** 今日余额（本地日内预算）× 各模型配额。 */
-  public quotaGet(): Promise<import('../types/models.js').QuotaStatus> {
+  public quotaGet(): Promise<import('../types/models.ts').QuotaStatus> {
     return this.rpc('quota.get', {});
   }
   /** 调整配额档位与基础日预算。 */
   public quotaSet(patch: {
     plan?: string;
     dailyTokens?: number;
-  }): Promise<import('../types/models.js').QuotaStatus> {
+  }): Promise<import('../types/models.ts').QuotaStatus> {
     return this.rpc('quota.set', patch);
   }
   /** 读当前会话的模式（目标 / 计划 / 绘图）。 */
-  public modesGet(threadId: string): Promise<import('../types/models.js').SessionModes> {
+  public modesGet(threadId: string): Promise<import('../types/models.ts').SessionModes> {
     return this.rpc('modes.get', { threadId });
   }
   /** 更新会话模式；传空串 / false 即清除该项。 */
   public modesSet(
     threadId: string,
     patch: { goal?: string; planMode?: boolean; sketchMode?: boolean },
-  ): Promise<import('../types/models.js').SessionModes> {
+  ): Promise<import('../types/models.ts').SessionModes> {
     return this.rpc('modes.set', { threadId, ...patch });
   }
   /** 审批档位表（后端单一来源，含描述与风险级别）。 */
-  public approvalTiers(): Promise<{ tiers: import('../types/models.js').ApprovalTier[] }> {
+  public approvalTiers(): Promise<{ tiers: import('../types/models.ts').ApprovalTier[] }> {
     return this.rpc('approval.tiers', {});
   }
   /** 可选智能体清单（内置角色 + 编排图 + 插件）。 */
-  public agentsList(): Promise<{ agents: import('../types/models.js').AgentCatalogEntry[] }> {
+  public agentsList(): Promise<{ agents: import('../types/models.ts').AgentCatalogEntry[] }> {
     return this.rpc('agents.list', {});
   }
   /** 一条查询同时搜工作区文件与历史会话。 */
   public searchAll(
     query: string,
     limit?: number,
-  ): Promise<{ files: import('../types/models.js').SearchHit[]; chats: import('../types/models.js').SearchHit[] }> {
+  ): Promise<{ files: import('../types/models.ts').SearchHit[]; chats: import('../types/models.ts').SearchHit[] }> {
     return this.rpc('search.all', limit === undefined ? { query } : { query, limit });
   }
 }

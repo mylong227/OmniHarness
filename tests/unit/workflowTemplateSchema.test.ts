@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import {
   WorkflowTemplateSchema,
   type WorkflowTemplate,
-} from '../../src/capability/schemas/workflowTemplateSchema.js';
+} from '../../src/capability/schemas/workflowTemplateSchema.ts';
 
 /**
  * 造一个合法模板。

@@ -1,5 +1,5 @@
-import type { ThreadEvent } from '../../types/models.js';
-import { buildDisplayBlocks, collectToolCallIds, type DisplayBlock } from '../textUtils.js';
+import type { ThreadEvent } from '../../types/models.ts';
+import { buildDisplayBlocks, collectToolCallIds, type DisplayBlock } from '../textUtils.ts';
 
 /**
  * 事件流的**渲染输入模型**（块 / 键 / 末条 id / 本轮工具调用 id）。

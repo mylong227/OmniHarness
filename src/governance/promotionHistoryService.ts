@@ -25,7 +25,7 @@
  * @maturity L1 — 逐行独立重算（篡改/断链/删行三类可检出）+ 快照锚点列表 判据钉死
  * @maturityEvidence tests/unit/promotionHistoryService.test.ts
  */
-import type { PromotionLedgerEntry, PromotionLedgerPort } from '../ports/runtime/evolution.js';
+import type { PromotionLedgerEntry, PromotionLedgerPort } from '../ports/runtime/evolution.ts';
 
 /** 治理台要展示的一行（含**该行自己的**复核结论）。 */
 export interface PromotionHistoryRow {

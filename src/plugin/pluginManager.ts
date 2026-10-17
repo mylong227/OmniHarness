@@ -1,8 +1,8 @@
-import type { Container } from '../core/container.js';
-import type { Plugin, PluginApplyContext } from './plugin.js';
-import type { PermissionGate } from './permissionGate.js';
-import type { ToolPort } from '../ports/tool/tool.js';
-import { log } from '../util/logger.js';
+import type { Container } from '../core/container.ts';
+import type { Plugin, PluginApplyContext } from './plugin.ts';
+import type { PermissionGate } from './permissionGate.ts';
+import type { ToolPort } from '../ports/tool/tool.ts';
+import { log } from '../util/logger.ts';
 
 /**
  * @beta

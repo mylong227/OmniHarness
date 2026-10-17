@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionArchive } from '../../src/server/services/session/sessionArchive.js';
+import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
 
 /** 本工作区路径。 */
 const THIS_WS = process.platform === 'win32' ? 'C:\\tmp\\proj-this' : '/tmp/proj-this';

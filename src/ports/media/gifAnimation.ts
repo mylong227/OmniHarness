@@ -1,5 +1,5 @@
-import type { GifFrameTiming } from './gifFrameTiming.js';
-import type { GifDecodedFrame } from './gifDecodedFrame.js';
+import type { GifFrameTiming } from './gifFrameTiming.ts';
+import type { GifDecodedFrame } from './gifDecodedFrame.ts';
 
 /** 解码结果（含完整的结构统计，供探测与采样使用）。 */
 export interface GifAnimation {

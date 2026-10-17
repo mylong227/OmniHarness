@@ -18,10 +18,10 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PromptCacheUsageReader } from '../../src/adapters/model/promptCacheUsageReader.js';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.js';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
-import type { ModelRequest } from '../../src/ports/model/model.js';
+import { PromptCacheUsageReader } from '../../src/adapters/model/promptCacheUsageReader.ts';
+import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
+import type { ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 最小合法请求（适配器只要求 messages/tools 存在）。 */
 const REQUEST: ModelRequest = { messages: [{ role: 'user', content: 'hi' }], tools: [] };

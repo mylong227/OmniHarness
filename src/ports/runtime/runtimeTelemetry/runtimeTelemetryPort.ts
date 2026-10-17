@@ -1,6 +1,6 @@
-import type { RuntimeTelemetryInput } from './runtimeTelemetryInput.js';
-import type { RuntimeObservation } from './runtimeObservation.js';
-import type { TelemetryChainReport } from './telemetryChainReport.js';
+import type { RuntimeTelemetryInput } from './runtimeTelemetryInput.ts';
+import type { RuntimeObservation } from './runtimeObservation.ts';
+import type { TelemetryChainReport } from './telemetryChainReport.ts';
 
 /** 长期运行遥测端口：append-only 落盘 + 哈希链防篡改。 */
 export interface RuntimeTelemetryPort {

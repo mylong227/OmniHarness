@@ -1,4 +1,4 @@
-import type { TraceFilter } from './traceFilter.js';
+import type { TraceFilter } from './traceFilter.ts';
 
 /**
  * trace 读取查询（会话 + 过滤条件）。

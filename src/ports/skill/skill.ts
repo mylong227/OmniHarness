@@ -1,4 +1,4 @@
-import type { MoireMeta } from './moireMeta.js';
+import type { MoireMeta } from './moireMeta.ts';
 
 /**
  * @beta

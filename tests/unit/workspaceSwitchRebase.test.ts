@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AppServerBase } from '../../src/server/core/appServerBase.js';
+import { AppServerBase } from '../../src/server/core/appServerBase.ts';
 
 /** 仓库根（`dist/tests/unit` → 上溯三级）；源码级判据必须读**源码**而不是编译产物。 */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

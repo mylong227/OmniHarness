@@ -8,13 +8,13 @@ import {
   A2aTaskExecutor,
   type A2aAgentRunner,
   type SubagentBuilder,
-} from '../../src/a2a/a2aTaskExecutor.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { MUTATING_TOOLS } from '../../src/core/toolGate.js';
-import type { OmniHarnessRuntime } from '../../src/composition/runtime.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { DelegateRequest } from '../../src/a2a/a2aProtocol.js';
+} from '../../src/a2a/a2aTaskExecutor.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { MUTATING_TOOLS } from '../../src/core/toolGate.ts';
+import type { OmniHarnessRuntime } from '../../src/composition/runtime.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { DelegateRequest } from '../../src/a2a/a2aProtocol.ts';
 
 /** 构造含 read/write/shell 三类工具的基端口（write/shell 属 MUTATING_TOOLS）。 */
 function baseTools(): RegistryToolPort {

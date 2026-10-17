@@ -14,8 +14,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoMapEngineProvider } from '../../src/context/repoMap/repoMapEngineProvider.js';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { RepoMapEngineProvider } from '../../src/context/repoMap/repoMapEngineProvider.ts';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 
 /**
  * 造一个最小可索引工作区（`ContextEngine` 只认 .ts/.js/.py）。

@@ -2,9 +2,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Skill } from '../../src/skill/skill.js';
-import { SkillRegistry } from '../../src/skill/skillRegistry.js';
-import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.js';
+import type { Skill } from '../../src/skill/skill.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.ts';
 
 const skillA: Skill = {
   name: 'dataClean',

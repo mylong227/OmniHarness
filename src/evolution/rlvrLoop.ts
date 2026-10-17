@@ -11,16 +11,16 @@
  *
  * 无第三方依赖。
  */
-import type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.js';
-import type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.js';
-import type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.js';
+import type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.ts';
+import type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.ts';
+import type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.ts';
 
 // 2026-10-11：三个纯类型契约已外迁端口层（`ports/runtime/evolution/*`）——
 // `ports/runtime/evolution/evolutionControllerOptions.ts` 要用它们表达配置面，而端口不得反向依赖
 // 实现文件。此处导入供本文件实现使用，并再导出以维持公共 API 面零改动（6 个消费方无需改）。
-export type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.js';
-export type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.js';
-export type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.js';
+export type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.ts';
+export type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.ts';
+export type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.ts';
 
 /** 采样器：对给定 prompt 产出第 index 个候选（返回 undefined = 采样池耗尽）。 */
 export interface RlvrSampler {
@@ -155,4 +155,4 @@ export class RlvrLoop {
   }
 }
 
-export { InMemoryReplayBuffer } from './inMemoryReplayBuffer.js';
+export { InMemoryReplayBuffer } from './inMemoryReplayBuffer.ts';

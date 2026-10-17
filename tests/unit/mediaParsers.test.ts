@@ -10,8 +10,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FfmpegStderrParser } from '../../src/media/ffmpegStderrParser.js';
-import { FfprobeJsonParser } from '../../src/media/ffprobeJsonParser.js';
+import { FfmpegStderrParser } from '../../src/media/ffmpegStderrParser.ts';
+import { FfprobeJsonParser } from '../../src/media/ffprobeJsonParser.ts';
 
 /** 真实 ffmpeg stderr（节选：输入摘要 + 视频流行；来自本机 ffmpeg 对 cuts.mp4 的 `-i`）。 */
 const REAL_STDERR = `ffmpeg version 7.1-full_build Copyright (c) 2000-2024 the FFmpeg developers

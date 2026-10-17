@@ -1,4 +1,4 @@
-import type { CodeCandidate, ReplayBuffer } from './rlvrLoop.js';
+import type { CodeCandidate, ReplayBuffer } from './rlvrLoop.ts';
 
 /** 内存回放缓冲（带容量上限，超出按 FIFO 丢弃最旧）。 */
 export class InMemoryReplayBuffer implements ReplayBuffer {

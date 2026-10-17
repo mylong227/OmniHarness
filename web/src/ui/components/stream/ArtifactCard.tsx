@@ -3,11 +3,11 @@
 // 纯展示组件（函数组件范式）：状态由 props 注入。
 
 import * as React from 'react';
-import { esc } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { IconName } from '../../models/Icon.js';
-import type { ArtifactInfo, ArtifactKind } from '../../models/ArtifactResolver.js';
-import { t } from '../../i18n/i18n.js';
+import { esc } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { IconName } from '../../models/Icon.ts';
+import type { ArtifactInfo, ArtifactKind } from '../../models/ArtifactResolver.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** ArtifactCard 组件的入参。 */
 export interface ArtifactCardProps {

@@ -21,9 +21,9 @@
  */
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 解析裸标识符）。
 import * as React from 'react';
-import { useApp } from '../../context.js';
+import { useApp } from '../../context.ts';
 import type { ReactElement } from 'react';
-import { t } from '../../i18n/i18n.js';
+import { t } from '../../i18n/i18n.ts';
 
 /** 一条可编辑规则（与服务端 `ApprovalRule` 字段同形；`decision` 必填）。 */
 interface EditableRule {

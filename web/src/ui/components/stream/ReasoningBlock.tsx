@@ -10,10 +10,10 @@
 // 函数组件范式：仅一个展开态 + 一个计时器，用 useState/useRef/useEffect 承接。
 
 import * as React from 'react';
-import { esc } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { ThreadEvent } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { esc } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { ThreadEvent } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** ReasoningBlock 组件的入参。 */
 export interface ReasoningBlockProps {

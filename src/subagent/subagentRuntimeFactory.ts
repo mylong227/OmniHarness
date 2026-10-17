@@ -1,28 +1,28 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { EventPort } from '../ports/runtime/eventPort.js';
-import type { ToolPort } from '../ports/tool/tool.js';
-import type { ModelPort } from '../ports/model/model.js';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
+import type { ToolPort } from '../ports/tool/tool.ts';
+import type { ModelPort } from '../ports/model/model.ts';
 
-import type { StoragePort } from '../ports/memory/storage.js';
-import { Container } from '../core/container.js';
-import { ServiceKeys } from '../composition/serviceKeys.js';
-import { ToolGate } from '../core/toolGate.js';
+import type { StoragePort } from '../ports/memory/storage.ts';
+import { Container } from '../core/container.ts';
+import { ServiceKeys } from '../composition/serviceKeys.ts';
+import { ToolGate } from '../core/toolGate.ts';
 
-import { ToolDiscovery } from '../search/toolDiscovery.js';
-import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.js';
-import { SkillRegistry } from '../skill/skillRegistry.js';
-import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.js';
-import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
-import { MemoryTodo } from '../adapters/todo/memoryTodo.js';
-import { MemoryPlan } from '../adapters/plan/memoryPlan.js';
-import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.js';
-import { JsonlStorage } from '../adapters/storage/jsonlStorage.js';
-import { SqliteStorage } from '../adapters/storage/sqliteStorage.js';
-import { CancellableModel } from './cancellableModel.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
-import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.js';
-import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
+import { ToolDiscovery } from '../search/toolDiscovery.ts';
+import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.ts';
+import { SkillRegistry } from '../skill/skillRegistry.ts';
+import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.ts';
+import { FileScratchpad } from '../adapters/memory/fileScratchpad.ts';
+import { MemoryTodo } from '../adapters/todo/memoryTodo.ts';
+import { MemoryPlan } from '../adapters/plan/memoryPlan.ts';
+import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.ts';
+import { JsonlStorage } from '../adapters/storage/jsonlStorage.ts';
+import { SqliteStorage } from '../adapters/storage/sqliteStorage.ts';
+import { CancellableModel } from './cancellableModel.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
+import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.ts';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.ts';
 
 /**
  * @beta

@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
-import type { ToolDefinition, ToolPort } from '../ports/tool/tool.js';
-import type { ExtraTool } from '../ports/tool/extraTool.js';
+import type { ToolDefinition, ToolPort } from '../ports/tool/tool.ts';
+import type { ExtraTool } from '../ports/tool/extraTool.ts';
 
 /**
  * 自定义工具加载器：从模块文件加载定制工具（定制接入专用插口）。

@@ -1,4 +1,4 @@
-import { ArrayAt } from '../../util/arrayAt.js';
+import { ArrayAt } from '../../util/arrayAt.ts';
 /**
  * RankVetoSpectrum — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
  */

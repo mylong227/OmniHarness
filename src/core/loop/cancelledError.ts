@@ -1,7 +1,7 @@
-import type { CancelReason } from '../../ports/core/cancelReason.js';
+import type { CancelReason } from '../../ports/core/cancelReason.ts';
 
 /** 取消原因分类（契约唯一声明见 `src/ports/core/cancelReason.ts`；此处为原路径再导出，调用点零改动）。 */
-export type { CancelReason } from '../../ports/core/cancelReason.js';
+export type { CancelReason } from '../../ports/core/cancelReason.ts';
 
 /** 取消异常：throwIfAborted 抛出，catch 侧可精确识别「取消」与一般错误。 */
 export class CancelledError extends Error {

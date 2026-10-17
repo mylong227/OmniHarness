@@ -26,9 +26,9 @@
  * @maturity L1 — 生产装配后 wasm 档可达且越界仍被拒 / 未注入档位仍 fail-closed 判据钉死
  * @maturityEvidence tests/unit/builtinWasmRunner.test.ts
  */
-import { BuiltinWasmRunner } from './builtinWasmRunner.js';
-import { IsolationLadder } from './isolationLadder.js';
-import type { IsolationLadderOptions } from './isolationLadder.js';
+import { BuiltinWasmRunner } from './builtinWasmRunner.ts';
+import { IsolationLadder } from './isolationLadder.ts';
+import type { IsolationLadderOptions } from './isolationLadder.ts';
 
 /** 隔离阶梯装配工厂。 */
 export class IsolationLadderFactory {

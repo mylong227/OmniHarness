@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.js';
-import { CodeExecutorTool } from '../../src/adapters/tool/code/codeExecutorTool.js';
-import { ToolGate } from '../../src/core/toolGate.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.ts';
+import { CodeExecutorTool } from '../../src/adapters/tool/code/codeExecutorTool.ts';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 测试上下文。 */
 const context: ToolContext = { sessionId: 's1', workspaceRoot: tempWorkspace() };

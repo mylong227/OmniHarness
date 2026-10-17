@@ -15,18 +15,18 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { A2aDelegateTool } from '../../src/a2a/a2aDelegateTool.js';
-import { A2aClient } from '../../src/a2a/a2aClient.js';
-import { A2A_TASK_DELEGATE } from '../../src/a2a/a2aProtocol.js';
-import type { A2aTransport } from '../../src/ports/a2a/a2aTransport.js';
-import type { RpcMessage } from '../../src/ports/server/rpcMessage.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
+import { A2aDelegateTool } from '../../src/a2a/a2aDelegateTool.ts';
+import { A2aClient } from '../../src/a2a/a2aClient.ts';
+import { A2A_TASK_DELEGATE } from '../../src/a2a/a2aProtocol.ts';
+import type { A2aTransport } from '../../src/ports/a2a/a2aTransport.ts';
+import type { RpcMessage } from '../../src/ports/server/rpcMessage.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 
 /** 假对端：捕获发送的请求，按 method 回 canned 响应（经 onMessage 回注）。 */
 class FakePeerTransport implements A2aTransport {

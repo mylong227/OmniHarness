@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TurnDiffTracker } from '../../src/core/turnDiffTracker.js';
-import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.js';
-import { ToolHookRunner } from '../../src/core/toolHookRunner.js';
-import type { ToolHookContext } from '../../src/ports/tool/toolHook.js';
-import type { ToolResult } from '../../src/ports/tool/tool.js';
+import { TurnDiffTracker } from '../../src/core/turnDiffTracker.ts';
+import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.ts';
+import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
+import type { ToolHookContext } from '../../src/ports/tool/toolHook.ts';
+import type { ToolResult } from '../../src/ports/tool/tool.ts';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

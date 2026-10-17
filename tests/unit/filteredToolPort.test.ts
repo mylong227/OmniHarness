@@ -4,9 +4,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FilteredToolPort } from '../../src/core/filteredToolPort.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.js';
+import { FilteredToolPort } from '../../src/core/filteredToolPort.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
 
 /** 构造含 read/write 两类工具的基端口。 */
 function base(): RegistryToolPort {

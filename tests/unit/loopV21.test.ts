@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { TurnRunner } from '../../src/core/turnRunner.js';
-import type { StepOutcome } from '../../src/core/stepRunner.js';
-import type { ModelUsage } from '../../src/ports/model/model.js';
-import { BudgetExceededError } from '../../src/ports/model/model.js';
-import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.js';
-import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.js';
-import type { ToolInputDelta } from '../../src/ports/model/model.js';
+import { TurnRunner } from '../../src/core/turnRunner.ts';
+import type { StepOutcome } from '../../src/core/stepRunner.ts';
+import type { ModelUsage } from '../../src/ports/model/model.ts';
+import { BudgetExceededError } from '../../src/ports/model/model.ts';
+import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.ts';
+import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.ts';
+import type { ToolInputDelta } from '../../src/ports/model/model.ts';
 
 /** 假记录器：仅实现 TurnRunner 用到的面。 */
 function fakeRecorder() {

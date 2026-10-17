@@ -14,10 +14,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.js';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.js';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.js';
-import type { CapabilityRecord, CapabilitySchema } from '../../src/ports/capability.js';
+import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.ts';
+import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
+import type { CapabilityRecord, CapabilitySchema } from '../../src/ports/capability.ts';
 
 /**
  * 造一条资产记录。

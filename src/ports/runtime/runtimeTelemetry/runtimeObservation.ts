@@ -1,5 +1,5 @@
-import type { TelemetryKind } from './telemetryKind.js';
-import type { TelemetryProvenance } from './telemetryProvenance.js';
+import type { TelemetryKind } from './telemetryKind.ts';
+import type { TelemetryProvenance } from './telemetryProvenance.ts';
 
 /** 单条长期运行观测。 */
 export interface RuntimeObservation {

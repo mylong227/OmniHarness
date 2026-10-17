@@ -15,7 +15,7 @@
  * 2. **安全与完整性永不上闸**：`audit verify`（哈希链复核）、门禁输出、拒因本身**不属于任何档位**。
  *    把"验证治理链条"做成付费能力，等于把可审计性变成商业模式——本仓明确不这么做（见文档 §6.1 口径）。
  */
-import type { LicenseTier } from './licenseTier.js';
+import type { LicenseTier } from './licenseTier.ts';
 
 /** 权益拒绝的**可机读码**（§12.1-4）。 */
 export type EntitlementDenialCode = 'no-license' | 'tier-too-low' | 'expired' | 'feature-unknown';

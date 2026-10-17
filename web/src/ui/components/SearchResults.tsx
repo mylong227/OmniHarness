@@ -4,10 +4,10 @@
 // 本组件只负责把「选中项」画出来，保证键盘高亮与 Enter 打开的是同一项（aria-activedescendant 指向它）。
 
 import * as React from 'react';
-import { SearchHitGrouper } from '../models/SearchHitGrouper.js';
-import type { SearchGroup } from '../models/SearchHitGrouper.js';
-import type { SearchHit } from '../../types/models.js';
-import { t } from '../i18n/i18n.js';
+import { SearchHitGrouper } from '../models/SearchHitGrouper.ts';
+import type { SearchGroup } from '../models/SearchHitGrouper.ts';
+import type { SearchHit } from '../../types/models.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** SearchResults 组件的入参。 */
 export interface SearchResultsProps {

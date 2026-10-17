@@ -25,9 +25,9 @@ import type {
   EmbeddingPort,
   EmbeddingPreloadOutcome,
   EmbedOptions,
-} from '../../ports/model/embedding.js';
+} from '../../ports/model/embedding.ts';
 import type { FeatureExtractionPipeline } from '@huggingface/transformers';
-import { log } from '../../util/logger.js';
+import { log } from '../../util/logger.ts';
 
 /** 模型前缀模式：决定 embed 时是否、如何注入查询/文档不对称前缀。 */
 type PrefixMode = 'none' | 'e5';

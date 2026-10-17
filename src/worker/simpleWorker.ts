@@ -1,4 +1,4 @@
-import type { Worker, WorkerRequest, WorkerResult } from './worker.js';
+import type { Worker, WorkerRequest, WorkerResult } from './worker.ts';
 
 /**
  * @beta

@@ -11,8 +11,8 @@
  * 本文件已退化为桶：5 个接口各自独立成文件于 `./policy/`，调用点零改动。
  */
 
-export type { PolicyEffect } from './policy/policyEffect.js';
-export type { PolicyFacts } from './policy/policyFacts.js';
-export type { PolicyRule } from './policy/policyRule.js';
-export type { PolicyDecision } from './policy/policyDecision.js';
-export type { PolicyPort } from './policy/policyPort.js';
+export type { PolicyEffect } from './policy/policyEffect.ts';
+export type { PolicyFacts } from './policy/policyFacts.ts';
+export type { PolicyRule } from './policy/policyRule.ts';
+export type { PolicyDecision } from './policy/policyDecision.ts';
+export type { PolicyPort } from './policy/policyPort.ts';

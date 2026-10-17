@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileAsync } from '../helpers/childProcess.js';
+import { execFileAsync } from '../helpers/childProcess.ts';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { writeFileSync, rmSync } from 'node:fs';

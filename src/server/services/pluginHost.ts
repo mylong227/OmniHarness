@@ -1,18 +1,18 @@
-import { Container } from '../../core/container.js';
-import { ServiceKeys } from '../../composition/runtime.js';
-import { PluginManager } from '../../plugin/pluginManager.js';
-import { PluginLoader } from '../../plugin/pluginLoader.js';
-import { PermissionGate } from '../../plugin/permissionGate.js';
-import { ALL_PERMISSIONS } from '../../plugin/permission.js';
+import { Container } from '../../core/container.ts';
+import { ServiceKeys } from '../../composition/runtime.ts';
+import { PluginManager } from '../../plugin/pluginManager.ts';
+import { PluginLoader } from '../../plugin/pluginLoader.ts';
+import { PermissionGate } from '../../plugin/permissionGate.ts';
+import { ALL_PERMISSIONS } from '../../plugin/permission.ts';
 import {
   PluginProfileStore,
   type PluginProfile,
   type ApplyProfileResult,
-} from '../../plugin/pluginProfileStore.js';
-import type { PluginRegistry } from '../../plugin/pluginRegistry.js';
-import { jsonRpc } from '../core/jsonRpc.js';
-import type { Transport } from '../transport/lineTransport.js';
-import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
+} from '../../plugin/pluginProfileStore.ts';
+import type { PluginRegistry } from '../../plugin/pluginRegistry.ts';
+import { jsonRpc } from '../core/jsonRpc.ts';
+import type { Transport } from '../transport/lineTransport.ts';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.ts';
 
 /** 插件宿主依赖。 */
 export interface PluginHostDeps {

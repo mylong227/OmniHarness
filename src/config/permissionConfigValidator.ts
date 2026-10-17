@@ -10,7 +10,7 @@
  * `configError ↔ permissionConfigValidator` 的模块级循环依赖。抛错由注册方完成。
  */
 
-import type { FileConfig } from './configFile.js';
+import type { FileConfig } from './configFile.ts';
 
 /** `permission` 段允许的 key 全集。 */
 const PERMISSION_KEYS: ReadonlySet<string> = new Set(['rules', 'defaultDecision']);

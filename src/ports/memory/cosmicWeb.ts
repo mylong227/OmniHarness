@@ -9,5 +9,5 @@
  * 几何/向量范式在代数上不支持此自组织（市面唯一）。
  */
 
-export type { WebConsolidationReport } from './cosmicWeb/webConsolidationReport.js';
-export type { CosmicWebPort } from './cosmicWeb/cosmicWebPort.js';
+export type { WebConsolidationReport } from './cosmicWeb/webConsolidationReport.ts';
+export type { CosmicWebPort } from './cosmicWeb/cosmicWebPort.ts';

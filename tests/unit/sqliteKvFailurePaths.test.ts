@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SqliteKv } from '../../src/adapters/kv/sqliteKv.js';
+import { SqliteKv } from '../../src/adapters/kv/sqliteKv.ts';
 
 /**
  * 在替换了 `SqliteKv.requireImpl` 的窗口内跑一段断言，结束即恢复。

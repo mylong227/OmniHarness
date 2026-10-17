@@ -1,6 +1,6 @@
-import type { Embedding } from './embedding.js';
-import type { EmbedOptions } from './embedOptions.js';
-import type { EmbeddingPreloadOutcome } from './embeddingPreloadOutcome.js';
+import type { Embedding } from './embedding.ts';
+import type { EmbedOptions } from './embedOptions.ts';
+import type { EmbeddingPreloadOutcome } from './embeddingPreloadOutcome.ts';
 
 /**
  * 嵌入端口：把文本映射为稠密向量，用于语义召回（补 BM25 的词法盲区）。

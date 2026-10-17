@@ -13,9 +13,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BoostProbes, PROBES_DIR, type BoostProbeRun } from '../../src/cli/boostProbes.js';
-import { BoostCommand } from '../../src/cli/boostCommand.js';
-import { BoostGateSurface, GATE_SURFACE } from '../../src/cli/boostGateSurface.js';
+import { BoostProbes, PROBES_DIR, type BoostProbeRun } from '../../src/cli/boostProbes.ts';
+import { BoostCommand } from '../../src/cli/boostCommand.ts';
+import { BoostGateSurface, GATE_SURFACE } from '../../src/cli/boostGateSurface.ts';
 
 /**
  * 造一个临时仓库根（用完即删）。

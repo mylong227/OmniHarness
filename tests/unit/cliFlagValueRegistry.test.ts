@@ -12,9 +12,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CliDefaults, ArgParser } from '../../src/cli/argParser.js';
-import type { CliArgs } from '../../src/cli/argParser.js';
-import { FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.js';
+import { CliDefaults, ArgParser } from '../../src/cli/argParser.ts';
+import type { CliArgs } from '../../src/cli/argParser.ts';
+import { FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.ts';
 
 /** 占位取值：非空且非数字，能触发枚举/数字旗标的校验分支。 */
 const PLACEHOLDER = 'PLACEHOLDER_VALUE';

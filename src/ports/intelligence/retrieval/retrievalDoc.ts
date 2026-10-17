@@ -1,4 +1,4 @@
-import type { RetrievalRole } from './retrievalRole.js';
+import type { RetrievalRole } from './retrievalRole.ts';
 
 /**
  * @beta

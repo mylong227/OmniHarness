@@ -22,7 +22,7 @@ import type {
   CapabilitySchema,
   EvalContext,
   SchemaValidation,
-} from '../../ports/capability.js';
+} from '../../ports/capability.ts';
 
 /** 模板步骤（声明式：动作 + 依赖 + 产出）。 */
 export interface WorkflowStep {

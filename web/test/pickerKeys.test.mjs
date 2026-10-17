@@ -16,7 +16,7 @@ import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
 createRuntime().install();
-const { PickerKeys } = await import('../src/ui/models/PickerKeys.js');
+const { PickerKeys } = await import('../src/ui/models/PickerKeys.ts');
 
 test('普通输入键在新建态不产生任何指令（「一输入就退出新建」的回归判据）', () => {
   for (const key of ['a', 'Z', '1', '-', '中文', ' ', 'Backspace', 'ArrowLeft', 'Tab']) {

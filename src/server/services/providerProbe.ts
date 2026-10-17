@@ -3,13 +3,13 @@
  * probe：拿配置好的 Key 真实请求厂商 /models 端点（不可用时回退 1-token chat 探测），
  * 返回实测连通状态与真实模型清单——「有 Key 支持接多少显示多少」的数据来源。
  */
-import type { ModelPort } from '../../ports/model/model.js';
-import { modelAdapterRegistry } from '../../adapters/model/modelAdapterRegistry.js';
-import { ConfigError } from '../../config/configError.js';
-import type { ProviderPreset } from './providerPresets.js';
-import { SsrfGuard } from '../../security/ssrfGuard.js';
-import type { SsrfPolicy } from '../../security/ssrfPolicy.js';
-import { Retry } from '../../util/concurrency/retry.js';
+import type { ModelPort } from '../../ports/model/model.ts';
+import { modelAdapterRegistry } from '../../adapters/model/modelAdapterRegistry.ts';
+import { ConfigError } from '../../config/configError.ts';
+import type { ProviderPreset } from './providerPresets.ts';
+import { SsrfGuard } from '../../security/ssrfGuard.ts';
+import type { SsrfPolicy } from '../../security/ssrfPolicy.ts';
+import { Retry } from '../../util/concurrency/retry.ts';
 
 /**
  * ProviderProbe 相关纯函数工具（C7 收口：原顶层内部函数迁入）。

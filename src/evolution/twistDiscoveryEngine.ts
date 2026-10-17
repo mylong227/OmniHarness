@@ -11,14 +11,14 @@
  * @maturity L1 — 失败模式挖掘在；是否真产出被门禁采纳的改进未量化
  * @maturityEvidence tests/unit/discoveryEngine.test.ts
  */
-import type { Skill, MoireOptions } from '../skill/skill.js';
+import type { Skill, MoireOptions } from '../skill/skill.ts';
 import type {
   Candidate,
   DiscoveryEngine,
   EvolutionContext,
   OperatorPort,
-} from '../ports/runtime/evolution.js';
-import { ArrayAt } from '../util/arrayAt.js';
+} from '../ports/runtime/evolution.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
 
 /** TwistDiscoveryEngine 选项。 */
 export interface TwistDiscoveryOptions {

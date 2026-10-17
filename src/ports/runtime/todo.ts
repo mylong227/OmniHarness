@@ -6,6 +6,6 @@
  * 全量替换列表，UI/模型用 `todo_read` 取最新快照。用于长任务进度可控性。
  */
 
-export type { TodoStatus } from './todo/todoStatus.js';
-export type { TodoItem } from './todo/todoItem.js';
-export type { TodoPort } from './todo/todoPort.js';
+export type { TodoStatus } from './todo/todoStatus.ts';
+export type { TodoItem } from './todo/todoItem.ts';
+export type { TodoPort } from './todo/todoPort.ts';

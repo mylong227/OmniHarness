@@ -1,25 +1,25 @@
 import { join } from 'node:path';
 
-import type { ModelPort } from '../ports/model/model.js';
-import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import type { CosmicWebPort } from '../ports/memory/cosmicWeb.js';
-import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.js';
-import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.js';
+import type { ModelPort } from '../ports/model/model.ts';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
+import type { CosmicWebPort } from '../ports/memory/cosmicWeb.ts';
+import type { ResonantMemoryPort } from '../ports/memory/resonantMemory.ts';
+import type { MemoryAnnealer } from '../ports/memory/memoryAnnealing.ts';
 
-import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.js';
-import { MemoryExtractor } from '../adapters/memory/memoryExtractor.js';
-import { AesGcmTextCodec } from '../adapters/memory/aesGcmTextCodec.js';
-import { ResonantFieldEngine } from '../adapters/memory/resonantFieldEngine.js';
-import { HeatEquationAnnealer } from '../adapters/memory/heatEquationAnnealer.js';
-import { QECEncoder } from '../adapters/memory/qecEncoder.js';
-import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.js';
-import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.js';
-import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.js';
-import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.js';
-import type { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.js';
-import { FileScratchpad } from '../adapters/memory/fileScratchpad.js';
-import type { ScratchpadPort } from '../ports/memory/scratchpad.js';
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
+import { FileLongTermMemory } from '../adapters/memory/fileLongTermMemory.ts';
+import { MemoryExtractor } from '../adapters/memory/memoryExtractor.ts';
+import { AesGcmTextCodec } from '../adapters/memory/aesGcmTextCodec.ts';
+import { ResonantFieldEngine } from '../adapters/memory/resonantFieldEngine.ts';
+import { HeatEquationAnnealer } from '../adapters/memory/heatEquationAnnealer.ts';
+import { QECEncoder } from '../adapters/memory/qecEncoder.ts';
+import { ImmuneMonitor } from '../adapters/monitoring/immuneMonitor.ts';
+import { NaturalGradientBelief } from '../adapters/belief/naturalGradientBelief.ts';
+import { ParticleFilterBelief } from '../adapters/belief/particleFilterBelief.ts';
+import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.ts';
+import type { RepoMapContextEngine } from '../context/repoMap/repoMapContextEngine.ts';
+import { FileScratchpad } from '../adapters/memory/fileScratchpad.ts';
+import type { ScratchpadPort } from '../ports/memory/scratchpad.ts';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
 
 /**
  * MemoryStackAssembler — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

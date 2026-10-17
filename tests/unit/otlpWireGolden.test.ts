@@ -22,10 +22,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.js';
-import { OtlpTraceExporter } from '../../src/observability/otlpTraceExporter.js';
-import type { Span } from '../../src/observability/otlpTraceExporter.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.ts';
+import { OtlpTraceExporter } from '../../src/observability/otlpTraceExporter.ts';
+import type { Span } from '../../src/observability/otlpTraceExporter.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /**
  * golden 哈希（线格式契约的指纹）。

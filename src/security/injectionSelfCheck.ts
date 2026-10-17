@@ -19,10 +19,10 @@
  * 结构校验 fail-closed：快照缺失 / JSON 非法 / 用例缺字段 / id 重复一律抛错，
  * 由 doctor 转成问题项——绝不静默输出空报告冒充「检查通过」。
  */
-import { builtinDefaults } from '../util/builtinDefaults.js';
-import { InjectionMetric } from './injectionMetric.js';
-import type { InjectionCase, SnapshotReport } from './injectionSnapshotAggregator.js';
-import type { TrustTier } from './toolOutputTrust.js';
+import { builtinDefaults } from '../util/builtinDefaults.ts';
+import { InjectionMetric } from './injectionMetric.ts';
+import type { InjectionCase, SnapshotReport } from './injectionSnapshotAggregator.ts';
+import type { TrustTier } from './toolOutputTrust.ts';
 
 /** 快照文件在 `defaults/` 下的数据名（`BuiltinDefaults.json` 口径，I6 门禁据此强制随包发布）。 */
 const SNAPSHOT_NAME = 'injection-snapshot';
@@ -36,9 +36,9 @@ const TRUST_TIERS = ['external', 'file', 'local', 'memory', 'unknown'] as const;
  * 2026-10-11：类型已外迁 `ports/observability/injectionSelfCheckSummary.ts`（`doctor.report` 的
  * 契约要进端口层），此处导入供本文件使用、并再导出以维持公共 API 面零改动。
  */
-import type { InjectionSelfCheckSummary } from '../ports/observability/injectionSelfCheckSummary.js';
+import type { InjectionSelfCheckSummary } from '../ports/observability/injectionSelfCheckSummary.ts';
 
-export type { InjectionSelfCheckSummary } from '../ports/observability/injectionSelfCheckSummary.js';
+export type { InjectionSelfCheckSummary } from '../ports/observability/injectionSelfCheckSummary.ts';
 
 /**
  * 注入护栏离线自检：从内建 curated 快照构造，对生产护栏逐例扫描并产出摘要。

@@ -1,6 +1,6 @@
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
-import { dangerousCommands } from './dangerousCommands.js';
-import { WorkspaceGuard } from '../../util/workspaceGuard.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { dangerousCommands } from './dangerousCommands.ts';
+import { WorkspaceGuard } from '../../util/workspaceGuard.ts';
 
 /** 受限沙箱选项（G4：restricted profile = 强化策略后端）。 */
 export interface RestrictedSandboxOptions {

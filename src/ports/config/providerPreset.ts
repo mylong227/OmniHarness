@@ -1,4 +1,4 @@
-import type { ProviderPresetConfig } from './providerPresetConfig.js';
+import type { ProviderPresetConfig } from './providerPresetConfig.ts';
 
 /**
  * 厂商预设（运行时视图）：与 `defaults/providers.json` 记录、`providerPresets` 配置段同形。

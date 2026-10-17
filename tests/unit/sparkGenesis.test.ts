@@ -7,12 +7,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SparkController } from '../../src/spark/sparkController.js';
-import { GenesisSparkBridge } from '../../src/genesis/genesisSparkBridge.js';
-import { Ledger } from '../../src/genesis/ledger.js';
-import type { MemoryAnnealer } from '../../src/ports/memory/memoryAnnealing.js';
-import type { AnnealStepReport } from '../../src/ports/memory/memoryAnnealing.js';
-import type { RegimeSignals } from '../../src/genesis/operators.js';
+import { SparkController } from '../../src/spark/sparkController.ts';
+import { GenesisSparkBridge } from '../../src/genesis/genesisSparkBridge.ts';
+import { Ledger } from '../../src/genesis/ledger.ts';
+import type { MemoryAnnealer } from '../../src/ports/memory/memoryAnnealing.ts';
+import type { AnnealStepReport } from '../../src/ports/memory/memoryAnnealing.ts';
+import type { RegimeSignals } from '../../src/genesis/operators.ts';
 
 const fakeAnneal = (): AnnealStepReport => ({
   step: 1,

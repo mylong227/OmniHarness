@@ -20,9 +20,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.js';
-import type { CapabilityRecord } from '../../src/ports/capability.js';
-import type { IsolationLevel } from '../../src/ports/capability.js';
+import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.ts';
+import type { CapabilityRecord } from '../../src/ports/capability.ts';
+import type { IsolationLevel } from '../../src/ports/capability.ts';
 
 /**
  * 造一条资产记录（档位可指定）。

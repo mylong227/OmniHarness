@@ -1,8 +1,8 @@
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { EventPort } from '../ports/runtime/eventPort.js';
-import type { HookConsumer } from './formats.js';
-import { CodexHooksMapper } from './codexHooksMapper.js';
-import { ClaudeCodeHooksMapper } from './claudeCodeHooksMapper.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { EventPort } from '../ports/runtime/eventPort.ts';
+import type { HookConsumer } from './formats.ts';
+import { CodexHooksMapper } from './codexHooksMapper.ts';
+import { ClaudeCodeHooksMapper } from './claudeCodeHooksMapper.ts';
 
 /**
  * hooks 兼容层适配器（实现 EventPort）。

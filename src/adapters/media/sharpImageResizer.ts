@@ -23,7 +23,7 @@ import type {
   ImageResizeOutcome,
   ImageResizeRequest,
   ImageResizerPort,
-} from '../../ports/media/imageResizer.js';
+} from '../../ports/media/imageResizer.ts';
 
 /** sharp 工厂类型（sharp 默认导出的可调用形态：`sharp(buffer) => Sharp 实例`）。 */
 type SharpFactory = typeof Sharp;

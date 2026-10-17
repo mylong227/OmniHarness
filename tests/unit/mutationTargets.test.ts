@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.js';
+import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.ts';
 
 test('MutationTargets.of：write_file / edit 取显式 path', () => {
   assert.deepStrictEqual([...MutationTargets.of('write_file', { path: 'src/a.ts' })], ['src/a.ts']);

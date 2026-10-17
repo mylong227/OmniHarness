@@ -1,4 +1,4 @@
-import type { GifColorTableRef } from './gifTypes.js';
+import type { GifColorTableRef } from './gifTypes.ts';
 
 /**
  * GIF 颜色表（调色板）：把 0–255 的索引映射成 RGB。

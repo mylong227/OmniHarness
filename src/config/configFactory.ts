@@ -1,50 +1,50 @@
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
-import { CostBudget, DEFAULT_SOFT_RATIO } from '../adapters/model/costBudget.js';
-import { CostBudgetDegradeAdapter } from '../adapters/model/costBudgetDegradeAdapter.js';
-import { EnforcementModeResolver } from '../security/enforcementModeResolver.js';
-import { RoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.js';
-import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.js';
-import { log } from '../util/logger.js';
-import { ConsoleLiveView } from '../adapters/live/consoleLiveView.js';
-import { CompositeLiveView } from '../adapters/live/compositeLiveView.js';
-import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.js';
-import { DiskCachedEmbeddingAdapter } from '../adapters/embedding/diskCachedEmbeddingAdapter.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
+import { CostBudget, DEFAULT_SOFT_RATIO } from '../adapters/model/costBudget.ts';
+import { CostBudgetDegradeAdapter } from '../adapters/model/costBudgetDegradeAdapter.ts';
+import { EnforcementModeResolver } from '../security/enforcementModeResolver.ts';
+import { RoutePricing, DEFAULT_FALLBACK_PRICE } from '../adapters/model/routePricing.ts';
+import type { BudgetDegradeSignal } from '../ports/model/budgetDegrade.ts';
+import { log } from '../util/logger.ts';
+import { ConsoleLiveView } from '../adapters/live/consoleLiveView.ts';
+import { CompositeLiveView } from '../adapters/live/compositeLiveView.ts';
+import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.ts';
+import { DiskCachedEmbeddingAdapter } from '../adapters/embedding/diskCachedEmbeddingAdapter.ts';
 
-import type { EmbeddingPort } from '../ports/model/embedding.js';
-import type { ToolPort } from '../ports/tool/tool.js';
-import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.js';
+import type { EmbeddingPort } from '../ports/model/embedding.ts';
+import type { ToolPort } from '../ports/tool/tool.ts';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
+import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.ts';
 
-import type { LspPort } from '../ports/tool/lsp.js';
-import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.js';
+import type { LspPort } from '../ports/tool/lsp.ts';
+import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.ts';
 
-import { ConfigBuilder } from './configBuilder.js';
-import { ConfigToolRegistry } from './configToolRegistry.js';
-import { BuiltinDefaults } from '../util/builtinDefaults.js';
+import { ConfigBuilder } from './configBuilder.ts';
+import { ConfigToolRegistry } from './configToolRegistry.ts';
+import { BuiltinDefaults } from '../util/builtinDefaults.ts';
 import { mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.js';
-import { DecisionEngineResolver } from './decisionEngineResolver.js';
-import { FileDecisionTraceAdapter } from '../adapters/decision/fileDecisionTraceAdapter.js';
-import { CorePortsAssembler } from './corePortsAssembler.js';
-import type { CorePorts } from './corePortsAssembler.js';
-import { MemoryStackAssembler } from './memoryStackAssembler.js';
-import { SkillStackAssembler } from './skillStackAssembler.js';
-import { SparkAssembler } from './sparkAssembler.js';
-import { CapabilityStackAssembler } from './capabilityStackAssembler.js';
-import { CapabilityMetadataTool } from '../adapters/tool/capability/capabilityMetadataTool.js';
-import type { ToolCall, ToolContext, ToolResult } from '../ports/tool/tool.js';
+import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.ts';
+import { DecisionEngineResolver } from './decisionEngineResolver.ts';
+import { FileDecisionTraceAdapter } from '../adapters/decision/fileDecisionTraceAdapter.ts';
+import { CorePortsAssembler } from './corePortsAssembler.ts';
+import type { CorePorts } from './corePortsAssembler.ts';
+import { MemoryStackAssembler } from './memoryStackAssembler.ts';
+import { SkillStackAssembler } from './skillStackAssembler.ts';
+import { SparkAssembler } from './sparkAssembler.ts';
+import { CapabilityStackAssembler } from './capabilityStackAssembler.ts';
+import { CapabilityMetadataTool } from '../adapters/tool/capability/capabilityMetadataTool.ts';
+import type { ToolCall, ToolContext, ToolResult } from '../ports/tool/tool.ts';
 
-export type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
-export type { SelfVerifyConfig } from '../ports/config/selfVerifyConfig.js';
-export type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
-import type { CapabilityStack } from '../ports/config/capabilityStack.js';
-import type { SkillRegistry } from '../skill/skillRegistry.js';
+export type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
+export type { SelfVerifyConfig } from '../ports/config/selfVerifyConfig.ts';
+export type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
+import type { CapabilityStack } from '../ports/config/capabilityStack.ts';
+import type { SkillRegistry } from '../skill/skillRegistry.ts';
 export type { ResolvedConfig };
-export type { SubagentPortSeed } from '../ports/config/subagentPortSeed.js';
-import type { SubagentPortSeed } from '../ports/config/subagentPortSeed.js';
+export type { SubagentPortSeed } from '../ports/config/subagentPortSeed.ts';
+import type { SubagentPortSeed } from '../ports/config/subagentPortSeed.ts';
 
 /**
  * 配置装配器（组合根）：填默认端口，未注入的用内置实现。
@@ -556,7 +556,7 @@ export class ConfigFactory {
   }
 }
 
-export type { ExtraTool } from '../ports/tool/extraTool.js';
+export type { ExtraTool } from '../ports/tool/extraTool.ts';
 
 // 成本预算（#S29）：设正数硬预算时构造单例，`BudgetedModel` 与 `budget_status` 工具共享
 // （含子代同一实例）。非正数 / 未设置即关闭。

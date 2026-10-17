@@ -13,7 +13,7 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { GraphResumeChip } = await import('../src/ui/components/GraphResumeChip.js');
+const { GraphResumeChip } = await import('../src/ui/components/GraphResumeChip.tsx');
 
 /**
  * 渲染一次芯片（零 DOM 桩：函数组件直接调用）。

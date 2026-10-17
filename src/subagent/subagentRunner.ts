@@ -1,13 +1,13 @@
-import type { ToolPort } from '../ports/tool/tool.js';
-import type { AgentResult } from '../core/agent.js';
-import { Agent } from '../core/agent.js';
-import { SubagentEventBridge } from './subagentEventBridge.js';
-import { subagentRuntimeFactory } from './subagentRuntimeFactory.js';
-import { ToolSubset } from './toolSubset.js';
-import { SUBAGENT_TOOL_NAME } from './subagentTypes.js';
+import type { ToolPort } from '../ports/tool/tool.ts';
+import type { AgentResult } from '../core/agent.ts';
+import { Agent } from '../core/agent.ts';
+import { SubagentEventBridge } from './subagentEventBridge.ts';
+import { subagentRuntimeFactory } from './subagentRuntimeFactory.ts';
+import { ToolSubset } from './toolSubset.ts';
+import { SUBAGENT_TOOL_NAME } from './subagentTypes.ts';
 
-import type { SubagentRequest, SubagentResult } from './subagentTypes.js';
-import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.js';
+import type { SubagentRequest, SubagentResult } from './subagentTypes.ts';
+import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.ts';
 
 /**
  * @beta

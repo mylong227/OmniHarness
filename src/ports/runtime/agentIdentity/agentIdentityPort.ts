@@ -1,4 +1,4 @@
-import type { AgentIdentityClaims } from './agentIdentityClaims.js';
+import type { AgentIdentityClaims } from './agentIdentityClaims.ts';
 
 /**
  * @beta

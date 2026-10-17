@@ -7,15 +7,15 @@ export type {
   A2aCapabilityDeclaration,
   DelegateRequest,
   DelegateResult,
-} from './a2aProtocol.js';
+} from './a2aProtocol.ts';
 export {
   A2A_CAPABILITIES_DECLARE,
   A2A_TASK_DELEGATE,
   A2A_ERROR_INVALID,
   A2A_ERROR_UNAUTHORIZED,
   A2A_ERROR_METHOD_NOT_FOUND,
-} from './a2aProtocol.js';
-export { A2aClient } from './a2aClient.js';
-export { A2aServer, type TaskHandler } from './a2aServer.js';
-export { HttpA2aTransport, HttpA2aServerTransport } from './httpA2aTransport.js';
-export { WsA2aTransport, WsA2aServerTransport, A2A_WS_PATH } from './wsA2aTransport.js';
+} from './a2aProtocol.ts';
+export { A2aClient } from './a2aClient.ts';
+export { A2aServer, type TaskHandler } from './a2aServer.ts';
+export { HttpA2aTransport, HttpA2aServerTransport } from './httpA2aTransport.ts';
+export { WsA2aTransport, WsA2aServerTransport, A2A_WS_PATH } from './wsA2aTransport.ts';

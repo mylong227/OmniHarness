@@ -1,5 +1,5 @@
-import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
-import { Id } from '../../util/id.js';
+import type { SpillHandle, SpillPort } from '../../ports/memory/spill.ts';
+import { Id } from '../../util/id.ts';
 
 /**
  * @beta

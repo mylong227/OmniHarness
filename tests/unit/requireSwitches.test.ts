@@ -26,7 +26,7 @@ import {
   REQUIRE_SWITCHES,
   RequireEnv,
   type RequireSwitch,
-} from '../helpers/requireEnv.js';
+} from '../helpers/requireEnv.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

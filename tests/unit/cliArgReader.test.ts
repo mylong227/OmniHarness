@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CliArgReader } from '../../src/cli/cliArgReader.js';
+import { CliArgReader } from '../../src/cli/cliArgReader.ts';
 
 test('CliArgReader.value：取标志后的第一个值；缺失或尾部无值返回 undefined', () => {
   const r = new CliArgReader(['a', '--key', 'K', '--tail']);

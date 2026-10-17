@@ -10,7 +10,7 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { StreamModelCache } = await import('../src/ui/models/StreamModelCache.js');
+const { StreamModelCache } = await import('../src/ui/models/StreamModelCache.ts');
 
 /** 造 n 条「单块」事件（system / assistant 交替，1 条 = 1 个可视块）。 */
 function makeEvents(n) {

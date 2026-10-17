@@ -11,7 +11,7 @@
  * - **输出必须带 lineage**：候选的 `source` 就是它的出身（`twist:a+b` / `crispr` / `pack:install`），
  *   资产入册时由注册表写入 `CapabilityRecord.lineage`——溯源不是可选项（Ω-2 恒等式的一半）。
  */
-import type { Candidate } from './candidate.js';
+import type { Candidate } from './candidate.ts';
 
 /** 算子调度上下文（按工况取算子 / 读预算）。 */
 export interface EvolutionContext {

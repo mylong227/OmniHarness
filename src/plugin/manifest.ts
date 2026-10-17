@@ -1,5 +1,5 @@
-import { DANGEROUS_PERMISSIONS, Permission, type PluginPermission } from './permission.js';
-import type { PluginManifest } from '../ports/plugin/pluginManifest.js';
+import { DANGEROUS_PERMISSIONS, Permission, type PluginPermission } from './permission.ts';
+import type { PluginManifest } from '../ports/plugin/pluginManifest.ts';
 
 /**
  * Manifest —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -53,7 +53,7 @@ export class Manifest {
  * 吸收 DeepSeek Harness 的插件元数据思想，但字段自研、不引入 dsh 依赖。
  * 清单声明的权限必须在 `ALL_PERMISSIONS` 白名单内，否则安装/加载阶段 fail-closed 拒绝。
  */
-export type { PluginManifest } from '../ports/plugin/pluginManifest.js';
+export type { PluginManifest } from '../ports/plugin/pluginManifest.ts';
 
 /**
  * @beta

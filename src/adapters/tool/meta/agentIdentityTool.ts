@@ -9,9 +9,9 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { AgentIdentityPort } from '../../../ports/runtime/agentIdentity.js';
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+} from '../../../ports/tool/tool.ts';
+import type { AgentIdentityPort } from '../../../ports/runtime/agentIdentity.ts';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 
 /**
  * @beta

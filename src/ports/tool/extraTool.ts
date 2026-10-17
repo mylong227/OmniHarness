@@ -1,5 +1,5 @@
-import type { ToolDefinition } from './tool/toolDefinition.js';
-import type { ToolHandler } from './toolHandler.js';
+import type { ToolDefinition } from './tool/toolDefinition.ts';
+import type { ToolHandler } from './toolHandler.ts';
 
 /** 额外自定义工具（定制接入专用插口）。 */
 export interface ExtraTool {

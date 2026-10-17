@@ -1,4 +1,4 @@
-import type { AgentPort } from './agentPort.js';
+import type { AgentPort } from './agentPort.ts';
 
 /**
  * Agent 工厂端口：组合根（config/）注入，按运行时构造 {@link AgentPort} 实例。

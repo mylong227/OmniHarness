@@ -13,12 +13,12 @@
  * @maturity L1 — 双源路由接线真实（两侧各有端到端判据 + 掐断任一半边对应候选恒 0 的红线判据）
  * @maturityEvidence tests/unit/signalIngestor.test.ts
  */
-import type { EvolutionSignal } from '../ports/runtime/evolution.js';
-import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.js';
-import { FailurePatternMiner } from './failurePatternMiner.js';
-import type { FailureRecord, ImprovementProposal } from './failurePatternMiner.js';
-import { SuccessPatternDistiller } from './successPatternDistiller.js';
-import type { WorkflowTemplateCandidate } from './successPatternDistiller.js';
+import type { EvolutionSignal } from '../ports/runtime/evolution.ts';
+import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.ts';
+import { FailurePatternMiner } from './failurePatternMiner.ts';
+import type { FailureRecord, ImprovementProposal } from './failurePatternMiner.ts';
+import { SuccessPatternDistiller } from './successPatternDistiller.ts';
+import type { WorkflowTemplateCandidate } from './successPatternDistiller.ts';
 
 /** 信号路由结果（Kernel 体检报告数据源）。 */
 export interface SignalRouteOutcome {

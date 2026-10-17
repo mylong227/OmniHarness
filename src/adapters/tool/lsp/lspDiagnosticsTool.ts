@@ -3,10 +3,10 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LspPort } from '../../../ports/tool/lsp.js';
-import { LSP_DIAGNOSTICS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
-import { LspDiagnosticsRenderer } from './lspDiagnosticsRenderer.js';
+} from '../../../ports/tool/tool.ts';
+import type { LspPort } from '../../../ports/tool/lsp.ts';
+import { LSP_DIAGNOSTICS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.ts';
+import { LspDiagnosticsRenderer } from './lspDiagnosticsRenderer.ts';
 
 /**
  * 模型面工具：取文档诊断（编译 / 类型错误）。

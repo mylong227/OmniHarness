@@ -1,4 +1,4 @@
-﻿import type { ResolvedSsrfPolicy } from '../../security/ssrfPolicy.js';
+﻿import type { ResolvedSsrfPolicy } from '../../security/ssrfPolicy.ts';
 
 /** 网络外联守卫配置。 */
 export interface NetworkEgressOptions {

@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sseParser } from '../../src/adapters/model/sseParser.js';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
+import { sseParser } from '../../src/adapters/model/sseParser.ts';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
 import {
   DEFAULT_REQUEST_TIMEOUT_MS,
   OpenAiCompatibleModel,
   REQUEST_TIMEOUT_ENV_KEY,
-} from '../../src/adapters/model/openAiCompatibleModel.js';
-import { ModelCallError } from '../../src/ports/model/model.js';
-import type { ModelRequest } from '../../src/ports/model/model.js';
+} from '../../src/adapters/model/openAiCompatibleModel.ts';
+import { ModelCallError } from '../../src/ports/model/model.ts';
+import type { ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 把文本包装为流。 */
 function streamOf(text: string): ReadableStream<Uint8Array> {

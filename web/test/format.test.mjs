@@ -20,8 +20,8 @@ globalThis.window = { React: fakeReact, ReactDOM: {}, addEventListener: noop, re
 const {
   esc, badge, timeOf, emptyState, emptyNote, jsonView, questionView, permChip, todoView, diffView,
   renderMarkdown, legacyRenderMarkdown,
-} = await import('../src/ui/format.js');
-const { highlightCode } = await import('../src/ui/highlight.js');
+} = await import('../src/ui/format.ts');
+const { highlightCode } = await import('../src/ui/highlight.ts');
 
 /** 展平直接子节点：过滤掉 null/false（React 会忽略）与非元素（纯文本）项。 */
 function kids(vnode) {

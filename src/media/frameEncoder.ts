@@ -1,7 +1,7 @@
-import type { MediaFrame } from '../ports/media/mediaTypes.js';
-import type { RasterImage } from './rasterTypes.js';
-import { PngEncoder } from './pngEncoder.js';
-import { RasterScaler } from './rasterScaler.js';
+import type { MediaFrame } from '../ports/media/mediaTypes.ts';
+import type { RasterImage } from './rasterTypes.ts';
+import { PngEncoder } from './pngEncoder.ts';
+import { RasterScaler } from './rasterScaler.ts';
 
 /** 单帧缩放的最小长边：再小就已经看不清内容，宁可丢弃并如实告知。 */
 const MIN_DIMENSION = 96;

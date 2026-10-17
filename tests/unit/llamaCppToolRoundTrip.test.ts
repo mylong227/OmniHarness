@@ -16,8 +16,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.js';
-import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.js';
+import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
+import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 捕获一次请求体后返回固定响应。 */
 async function captureBody(messages: readonly ModelMessage[]): Promise<Record<string, unknown>> {

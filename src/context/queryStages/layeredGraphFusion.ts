@@ -6,10 +6,10 @@
  * 词法命中信号 → −9.1pp。改为把图扩散分并入 fileScore 的 max，图只负责「捞回靠关联符号
  * 但无词法命中」的文件，文件 BM25 始终为地板项（绝不被静默丢弃）。
  */
-import { CodeGraphIndex, type CodeGraph } from '../codeGraphIndex.js';
-import { LayeredCodeGraph } from '../layeredCodeGraph.js';
-import type { SymbolNode } from '../repoMap/repoMap.js';
-import type { ScoredId } from './candidateSearch.js';
+import { CodeGraphIndex, type CodeGraph } from '../codeGraphIndex.ts';
+import { LayeredCodeGraph } from '../layeredCodeGraph.ts';
+import type { SymbolNode } from '../repoMap/repoMap.ts';
+import type { ScoredId } from './candidateSearch.ts';
 
 /** 层化图阶段所需的语料切片（结构化子集）。 */
 export interface LayeredCorpusView {

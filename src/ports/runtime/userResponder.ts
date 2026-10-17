@@ -7,8 +7,8 @@
  * 本文件已退化为桶：各接口各自独立成文件于 `./userResponder/`，调用点零改动。
  */
 
-export type { AskOption } from './userResponder/askOption.js';
-export type { AskQuestion } from './userResponder/askQuestion.js';
-export type { AskAnswer } from './userResponder/askAnswer.js';
-export type { AskContext } from './userResponder/askContext.js';
-export type { UserResponder } from './userResponder/userResponder.js';
+export type { AskOption } from './userResponder/askOption.ts';
+export type { AskQuestion } from './userResponder/askQuestion.ts';
+export type { AskAnswer } from './userResponder/askAnswer.ts';
+export type { AskContext } from './userResponder/askContext.ts';
+export type { UserResponder } from './userResponder/userResponder.ts';

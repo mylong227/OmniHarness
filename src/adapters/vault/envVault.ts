@@ -1,4 +1,4 @@
-import type { VaultPort } from '../../ports/memory/vault.js';
+import type { VaultPort } from '../../ports/memory/vault.ts';
 
 /**
  * 环境变量凭据适配器：直接读进程环境变量，写操作记录到内存（不落盘）。

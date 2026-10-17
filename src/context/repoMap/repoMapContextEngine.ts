@@ -57,32 +57,32 @@
  * 单例 `repoMapContextEngine` 的薄包装；新调用方应直接用引擎实例。
  */
 
-import { ContextEngine, type IndexedCorpus } from '../contextEngine.js';
-import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.js';
-import { Bm25Index } from '../../search/bm25Index.js';
-import type { RecallItem } from '../semanticIndex.js';
-import { CodeReferenceGraph } from '../codeReferenceGraph.js';
-import { ExperimentalPaths } from '../experimentalPaths.js';
-import type { EmbeddingPort } from '../../ports/model/embedding.js';
-import { RecallKnobs } from '../recallKnobs.js';
-import type { RepoMapContextOptions } from '../../ports/context/repoMapContextOptions.js';
-import type { RepoMapContextEnginePort } from '../../ports/context/repoMapContextEnginePort.js';
-import { CorpusIndexCache } from '../corpusIndexCache.js';
-import { SemanticIndexCache } from '../semanticIndexCache.js';
-import { HybridRanker, type RankedRepoMap } from '../hybridRanker.js';
-import { FileReranker } from '../fileReranker.js';
-import { RepoMapMemo } from './repoMapMemo.js';
-import { LspCandidateSource, type LspCandidateSourceOptions } from '../lspCandidateSource.js';
-import type { LspPort } from '../../ports/tool/lsp.js';
+import { ContextEngine, type IndexedCorpus } from '../contextEngine.ts';
+import { RepoMapPayload, type RepoMapPayloadPlan } from './repoMapPayload.ts';
+import { Bm25Index } from '../../search/bm25Index.ts';
+import type { RecallItem } from '../semanticIndex.ts';
+import { CodeReferenceGraph } from '../codeReferenceGraph.ts';
+import { ExperimentalPaths } from '../experimentalPaths.ts';
+import type { EmbeddingPort } from '../../ports/model/embedding.ts';
+import { RecallKnobs } from '../recallKnobs.ts';
+import type { RepoMapContextOptions } from '../../ports/context/repoMapContextOptions.ts';
+import type { RepoMapContextEnginePort } from '../../ports/context/repoMapContextEnginePort.ts';
+import { CorpusIndexCache } from '../corpusIndexCache.ts';
+import { SemanticIndexCache } from '../semanticIndexCache.ts';
+import { HybridRanker, type RankedRepoMap } from '../hybridRanker.ts';
+import { FileReranker } from '../fileReranker.ts';
+import { RepoMapMemo } from './repoMapMemo.ts';
+import { LspCandidateSource, type LspCandidateSourceOptions } from '../lspCandidateSource.ts';
+import type { LspPort } from '../../ports/tool/lsp.ts';
 import {
   CacheHitRateCollector,
   type CacheHitStats,
-} from '../../observability/cacheHitRateCollector.js';
-import { log } from '../../util/logger.js';
+} from '../../observability/cacheHitRateCollector.ts';
+import { log } from '../../util/logger.ts';
 
 // 公开符号再导出（保持原 `repoMapContext.ts` 的对外 API 表面不变）。
-export type { RepoMapContextOptions } from '../../ports/context/repoMapContextOptions.js';
-export { CHUNK_BODY_MAX_LINES } from '../semanticIndexCache.js';
+export type { RepoMapContextOptions } from '../../ports/context/repoMapContextOptions.ts';
+export { CHUNK_BODY_MAX_LINES } from '../semanticIndexCache.ts';
 
 /** BM25 检索的候选数：符号路 / 文件路各取多少再交给融合。 */
 const BM25_SYM_CANDIDATES = 60;

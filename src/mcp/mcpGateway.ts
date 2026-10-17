@@ -1,13 +1,13 @@
-import type { ToolContext, ToolResult } from '../ports/tool/tool.js';
-import type { RegistryToolPort } from '../adapters/tool/registryToolPort.js';
-import type { McpClientPort } from '../ports/mcp/mcpClientPort.js';
-import type { McpConnectorPort, McpConnectionHandle } from '../ports/mcp/mcpConnectorPort.js';
-import { mcpConnector } from './mcpConnector.js';
-import { mcpToolMapper } from './mcpToolMapper.js';
-import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.js';
-import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.js';
+import type { ToolContext, ToolResult } from '../ports/tool/tool.ts';
+import type { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
+import type { McpClientPort } from '../ports/mcp/mcpClientPort.ts';
+import type { McpConnectorPort, McpConnectionHandle } from '../ports/mcp/mcpConnectorPort.ts';
+import { mcpConnector } from './mcpConnector.ts';
+import { mcpToolMapper } from './mcpToolMapper.ts';
+import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.ts';
+import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
 
-export type { McpServerConfig } from '../ports/mcp/mcpServerConfig.js';
+export type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
 
 /**
  * @beta

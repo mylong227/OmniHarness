@@ -13,15 +13,15 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { Agent } from '../../src/core/agent.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { Agent } from '../../src/core/agent.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 技能注入产物的特征前缀（与 SkillRegistry.render 同源）。 */
 const SKILL_MARKER = '# 技能：';

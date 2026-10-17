@@ -1,4 +1,4 @@
-import type { RuntimeObservation } from './runtimeObservation.js';
+import type { RuntimeObservation } from './runtimeObservation.ts';
 
 /** 记录输入：`ts` 可选（未提供时由 sink 生成当前时间）。 */
 export type RuntimeTelemetryInput = Omit<RuntimeObservation, 'seq' | 'prev' | 'hash' | 'ts'> & {

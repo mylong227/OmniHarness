@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { SafeFs } from './safeFs.js';
+import { SafeFs } from './safeFs.ts';
 
 /** 工作区树/文件读取依赖：工作区根以 getter 注入，支持运行时切换工作区后仍取最新根。 */
 export interface WorkspaceTreeDeps {

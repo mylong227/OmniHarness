@@ -17,15 +17,15 @@
  * @maturity L1 — 两条只读 RPC 与 CLI 同源 / 未接线如实报错 / workspaceRoot 透传 判据钉死
  * @maturityEvidence tests/unit/observabilityRpc.test.ts
  */
-import { DaemonController } from '../../daemon/daemonController.js';
-import { AppServerGovernanceHandlers } from './appServerGovernanceHandlers.js';
-import { SessionTraceService } from '../services/session/sessionTraceService.js';
-import type { AuditEvent } from '../services/auditSink.js';
-import { AuditExporter, type AuditQuery } from '../services/auditExporter.js';
+import { DaemonController } from '../../daemon/daemonController.ts';
+import { AppServerGovernanceHandlers } from './appServerGovernanceHandlers.ts';
+import { SessionTraceService } from '../services/session/sessionTraceService.ts';
+import type { AuditEvent } from '../services/auditSink.ts';
+import { AuditExporter, type AuditQuery } from '../services/auditExporter.ts';
 import type {
   TraceReadRequest,
   TraceReadResult,
-} from '../../ports/intelligence/traceIntrospection.js';
+} from '../../ports/intelligence/traceIntrospection.ts';
 
 /** 只读可观测处理器层。 */
 export class AppServerObservabilityHandlers extends AppServerGovernanceHandlers {
@@ -35,7 +35,7 @@ export class AppServerObservabilityHandlers extends AppServerGovernanceHandlers 
   /**
    * @param options 服务端选项（与基座同一份，装配期只读使用）
    */
-  public constructor(options: import('./appServerState.js').AppServerOptions) {
+  public constructor(options: import('./appServerState.ts').AppServerOptions) {
     super(options);
     this.trace = new SessionTraceService({
       events: (sessionId) => this.runtime.agent().eventsOf(sessionId),

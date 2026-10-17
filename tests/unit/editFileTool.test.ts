@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.js';
+import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.ts';
 
 /**
  * fs 工具上下文：根**必须与工具自身的根一致**。

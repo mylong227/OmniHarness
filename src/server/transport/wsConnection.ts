@@ -1,6 +1,6 @@
 ﻿import { createHash } from 'node:crypto';
-import { WsFrameCodec } from './wsFrameCodec.js';
-import type { WsParsedFrame } from './wsFrameCodec.js';
+import { WsFrameCodec } from './wsFrameCodec.ts';
+import type { WsParsedFrame } from './wsFrameCodec.ts';
 import type { Duplex } from 'node:stream';
 import type { IncomingMessage, Server } from 'node:http';
 

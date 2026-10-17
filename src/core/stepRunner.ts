@@ -1,21 +1,21 @@
-import type { ToolContext, ToolCall, ToolDefinition } from '../ports/tool/tool.js';
+import type { ToolContext, ToolCall, ToolDefinition } from '../ports/tool/tool.ts';
 import type {
   ModelContextSnapshot,
   ModelMessage,
   ModelPort,
   ModelUsage,
-} from '../ports/model/model.js';
-import { ContextBreakdownEstimator } from '../context/contextBreakdownEstimator.js';
-import { StepContextBuilder } from './stepContextBuilder.js';
-import { StepToolExecutor } from './stepToolExecutor.js';
-import type { StepRunnerDeps, StepOutcome } from './stepTypes.js';
-import { log } from '../util/logger.js';
+} from '../ports/model/model.ts';
+import { ContextBreakdownEstimator } from '../context/contextBreakdownEstimator.ts';
+import { StepContextBuilder } from './stepContextBuilder.ts';
+import { StepToolExecutor } from './stepToolExecutor.ts';
+import type { StepRunnerDeps, StepOutcome } from './stepTypes.ts';
+import { log } from '../util/logger.ts';
 
 /** 单步运行依赖（全部来自端口）。定义已迁至 `stepTypes.ts`，此处再导出以稳定公共 API。 */
-export type { StepRunnerDeps } from './stepTypes.js';
+export type { StepRunnerDeps } from './stepTypes.ts';
 
 /** 单步结果类型：产出了文本 / 发起了工具调用 / 空响应。 */
-export type { StepOutcome } from './stepTypes.js';
+export type { StepOutcome } from './stepTypes.ts';
 
 /**
  * 单步执行器：一次模型请求 + 经 审批→沙箱→执行 链路的工具调用。

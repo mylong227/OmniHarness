@@ -1,5 +1,5 @@
-import type { SessionEvent } from '../runtime/event.js';
-import type { VerificationState } from '../runtime/completionGate/verificationState.js';
+import type { SessionEvent } from '../runtime/event.ts';
+import type { VerificationState } from '../runtime/completionGate/verificationState.ts';
 
 /**
  * @beta

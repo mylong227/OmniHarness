@@ -3,7 +3,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HtmlToText } from '../../src/util/htmlToText.js';
+import { HtmlToText } from '../../src/util/htmlToText.ts';
 
 test('整块丢弃 script/style 的内容', () => {
   const html = '<p>正文</p><script>var a=1;function b(){}</script><style>.x{color:red}</style>';

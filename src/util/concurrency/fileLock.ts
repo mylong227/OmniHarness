@@ -32,7 +32,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { hostname } from 'node:os';
-import { LockCompromisedError } from './lockCompromisedError.js';
+import { LockCompromisedError } from './lockCompromisedError.ts';
 
 /** 自旋等待与租约参数。 */
 export interface FileLockOptions {

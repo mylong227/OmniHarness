@@ -1,11 +1,11 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { RetrievalPort } from '../../../ports/intelligence/retrieval.js';
+} from '../../../ports/tool/tool.ts';
+import type { RetrievalPort } from '../../../ports/intelligence/retrieval.ts';
 
 /** memory_search 默认返回片段数上限。 */
 const DEFAULT_LIMIT = 5;

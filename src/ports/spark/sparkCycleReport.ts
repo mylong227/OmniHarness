@@ -1,12 +1,12 @@
-import type { AnnealStepReport } from '../memory/memoryAnnealing.js';
-import type { WebConsolidationReport } from '../memory/cosmicWeb.js';
-import type { QECReport } from '../intelligence/qec.js';
-import type { ImmuneSelfReport } from '../intelligence/immune.js';
-import type { BeliefUpdateReport } from '../intelligence/metacognition.js';
-import type { CrisprEditReport } from '../runtime/skillEdit.js';
-import type { CrystallizationReport } from '../intelligence/capability.js';
-import type { SymmetryBreakReport } from '../intelligence/symmetryBreaking.js';
-import type { ConfinementVerdict } from '../runtime/confinement.js';
+import type { AnnealStepReport } from '../memory/memoryAnnealing.ts';
+import type { WebConsolidationReport } from '../memory/cosmicWeb.ts';
+import type { QECReport } from '../intelligence/qec.ts';
+import type { ImmuneSelfReport } from '../intelligence/immune.ts';
+import type { BeliefUpdateReport } from '../intelligence/metacognition.ts';
+import type { CrisprEditReport } from '../runtime/skillEdit.ts';
+import type { CrystallizationReport } from '../intelligence/capability.ts';
+import type { SymmetryBreakReport } from '../intelligence/symmetryBreaking.ts';
+import type { ConfinementVerdict } from '../runtime/confinement.ts';
 
 /** 燧内核一轮调谐/冲刷/退火/宇宙网/QEC/免疫/信念的报告。 */
 export interface SparkCycleReport {

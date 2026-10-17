@@ -1,18 +1,18 @@
-import type { ToolContext } from '../ports/tool/tool.js';
-import type { CompletionGate, VerificationState } from '../ports/runtime/completionGate.js';
-import { BudgetExceededError } from '../ports/model/model.js';
-import type { StepRunner, StepOutcome } from './stepRunner.js';
-import type { SessionRecorder } from './sessionRecorder.js';
-import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.js';
-import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.js';
-import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.js';
-import { LoopGuard, type LoopDecision } from './loop/loopGuard.js';
-import type { EventPersister } from './loop/eventPersister.js';
-import { log } from '../util/logger.js';
+import type { ToolContext } from '../ports/tool/tool.ts';
+import type { CompletionGate, VerificationState } from '../ports/runtime/completionGate.ts';
+import { BudgetExceededError } from '../ports/model/model.ts';
+import type { StepRunner, StepOutcome } from './stepRunner.ts';
+import type { SessionRecorder } from './sessionRecorder.ts';
+import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.ts';
+import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
+import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.ts';
+import { LoopGuard, type LoopDecision } from './loop/loopGuard.ts';
+import type { EventPersister } from './loop/eventPersister.ts';
+import { log } from '../util/logger.ts';
 
 // 完成闸门契约已下沉到 `ports/runtime/completionGate.ts`（2026-09-27，修架构违规：契约留在 core
 // 会逼适配器 import core）。此处原路径**继续导出**，保持既有公共 API 面不变。
-export type { CompletionGate } from '../ports/runtime/completionGate.js';
+export type { CompletionGate } from '../ports/runtime/completionGate.ts';
 
 /** 回合运行结果。 */
 export interface TurnOutcome {

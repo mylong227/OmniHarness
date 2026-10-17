@@ -16,8 +16,8 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { GraphController } = await import('../src/ui/controllers/GraphController.js');
-const { AppReducers } = await import('../src/ui/controllers/AppReducers.js');
+const { GraphController } = await import('../src/ui/controllers/GraphController.ts');
+const { AppReducers } = await import('../src/ui/controllers/AppReducers.ts');
 
 /**
  * 造一个可观测的控制器宿主与服务。

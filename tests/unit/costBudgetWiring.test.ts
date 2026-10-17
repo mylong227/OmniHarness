@@ -7,13 +7,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { CostBudget } from '../../src/adapters/model/costBudget.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { CostBudget } from '../../src/adapters/model/costBudget.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /**
  * 构造最小可用配置基线（必填四项 + 静默事件端口；其余走默认实现）。

@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSyncAsync } from '../helpers/childProcess.js';
+import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DiffReview } from '../../src/server/services/diffReview.js';
-import { RepoPathGuard } from '../../src/server/services/repoPathGuard.js';
+import { DiffReview } from '../../src/server/services/diffReview.ts';
+import { RepoPathGuard } from '../../src/server/services/repoPathGuard.ts';
 
 const gitAvailable =
   (await spawnSyncAsync('git', ['--version'], { encoding: 'utf8' })).status === 0;

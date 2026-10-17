@@ -1,4 +1,4 @@
-import type { ProviderAdapterId } from '../model/modelAdapterId.js';
+import type { ProviderAdapterId } from '../model/modelAdapterId.ts';
 
 /**
  * 单个大模型厂商预设（配置文件形态，与随包发布的 `defaults/providers.json` 记录**同形**）。

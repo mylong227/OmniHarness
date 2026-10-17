@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { TextRevealer } = await import('../src/ui/models/TextRevealer.js');
+const { TextRevealer } = await import('../src/ui/models/TextRevealer.ts');
 
 /** 长文本（超过 SHORT_TEXT=240 才走动画路径）。 */
 const LONG = 'x'.repeat(500);

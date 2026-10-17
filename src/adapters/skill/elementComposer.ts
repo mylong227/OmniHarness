@@ -11,8 +11,8 @@ import type {
   ElementComposerPort,
   ElementDef,
   CompoundCapability,
-} from '../../ports/intelligence/elementComposer.js';
-import { ArrayAt } from '../../util/arrayAt.js';
+} from '../../ports/intelligence/elementComposer.ts';
+import { ArrayAt } from '../../util/arrayAt.ts';
 
 /** 默认元素周期表（有限基元集，valence 互补即合法组合）。 */
 const DEFAULT_TABLE: readonly ElementDef[] = [

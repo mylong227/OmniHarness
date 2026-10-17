@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.js';
+import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.ts';
 
 function mockBroadcaster(): { bc: LiveBroadcaster; calls: { method: string; params: unknown }[] } {
   const calls: { method: string; params: unknown }[] = [];

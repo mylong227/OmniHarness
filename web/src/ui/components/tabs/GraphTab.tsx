@@ -6,12 +6,12 @@
 // 运行卡片与已存图卡片下沉为模块级渲染函数。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { GraphDefBuilder, type StepDraft } from '../../models/GraphDefBuilder.js';
-import { emptyState } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { GraphRunState, GraphSummary } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { useApp } from '../../context.ts';
+import { GraphDefBuilder, type StepDraft } from '../../models/GraphDefBuilder.ts';
+import { emptyState } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { GraphRunState, GraphSummary } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
 const BLACKBOARD_BOX: Record<string, string> = { marginTop: '6px' };

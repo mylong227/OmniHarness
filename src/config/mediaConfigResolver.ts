@@ -1,9 +1,9 @@
-import type { MediaAnalysisConfig } from '../ports/media/mediaAnalysisConfig.js';
-import type { ResolvedMediaOptions } from '../ports/media/resolvedMediaOptions.js';
+import type { MediaAnalysisConfig } from '../ports/media/mediaAnalysisConfig.ts';
+import type { ResolvedMediaOptions } from '../ports/media/resolvedMediaOptions.ts';
 
-export type { MediaAnalysisConfig } from '../ports/media/mediaAnalysisConfig.js';
+export type { MediaAnalysisConfig } from '../ports/media/mediaAnalysisConfig.ts';
 
-export type { ResolvedMediaOptions } from '../ports/media/resolvedMediaOptions.js';
+export type { ResolvedMediaOptions } from '../ports/media/resolvedMediaOptions.ts';
 
 /** 默认值（也是文档口径：配置项缺省即为这些值）。 */
 const DEFAULTS = {

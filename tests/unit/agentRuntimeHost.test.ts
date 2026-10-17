@@ -1,16 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AgentRuntimeHost } from '../../src/server/core/agentRuntimeHost.js';
-import { ServerNoopSupervisor } from '../../src/server/core/serverNoopSupervisor.js';
-import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/server/core/appServerState.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import type { ResolvedConfig } from '../../src/config/configFactory.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { AgentRuntimeHost } from '../../src/server/core/agentRuntimeHost.ts';
+import { ServerNoopSupervisor } from '../../src/server/core/serverNoopSupervisor.ts';
+import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/server/core/appServerState.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import type { ResolvedConfig } from '../../src/config/configFactory.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 构造生产级解析配置（mock 适配器，无网络）。 */
 function buildConfig(approvals?: ApprovalPort): ResolvedConfig {

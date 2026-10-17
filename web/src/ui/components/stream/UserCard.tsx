@@ -4,10 +4,10 @@
 // 函数组件范式：无内部 state，纯展示 + 一个回调。
 
 import * as React from 'react';
-import { badge, timeOf, esc } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { ThreadEvent } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { badge, timeOf, esc } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { ThreadEvent } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** UserCard 组件的入参。 */
 export interface UserCardProps {

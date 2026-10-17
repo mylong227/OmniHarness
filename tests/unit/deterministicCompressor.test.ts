@@ -4,7 +4,7 @@ import {
   DeterministicCompressor,
   type ContextSegment,
   type CompressOptions,
-} from '../../src/context/deterministicCompressor.js';
+} from '../../src/context/deterministicCompressor.ts';
 
 function seg(
   kind: ContextSegment['kind'],

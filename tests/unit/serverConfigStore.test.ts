@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ServerConfigStore } from '../../src/server/services/serverConfigStore.js';
-import { configFile } from '../../src/config/configFile.js';
-import { ProviderPresets } from '../../src/server/services/providerPresets.js';
+import { ServerConfigStore } from '../../src/server/services/serverConfigStore.ts';
+import { configFile } from '../../src/config/configFile.ts';
+import { ProviderPresets } from '../../src/server/services/providerPresets.ts';
 
 /**
  * 在临时工作区内构造配置存储并执行。

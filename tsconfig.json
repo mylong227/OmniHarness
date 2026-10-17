@@ -3,6 +3,12 @@
     "target": "ES2024",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    // 导入约定（2026-10-17 起）：**相对导入一律写真实源文件后缀 `.ts`**（前后端统一，
+    // 与 Vite 前端同构）。emit 时由该旗标把 `.ts`/`.tsx` 重写回 `.js`，dist 产物仍是
+    // 标准 ESM —— 这正是 TS 5.7 引入 `rewriteRelativeImportExtensions` 的目的：
+    // 「源码写 .ts 后缀，产物写 .js 后缀」两件事同时成立，不再需要 `.js` 后缀约定。
+    // 指向真实 `.js`（如编译产物、node_modules）的导入不受影响，按字面保留。
+    "rewriteRelativeImportExtensions": true,
     "lib": ["ES2024"],
     "rootDir": ".",
     "outDir": "dist",

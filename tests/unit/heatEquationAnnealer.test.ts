@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { HeatEquationAnnealer } from '../../src/adapters/memory/heatEquationAnnealer.js';
-import type { MemoryFact, LongTermMemoryPort } from '../../src/ports/memory/longTermMemory.js';
+import { HeatEquationAnnealer } from '../../src/adapters/memory/heatEquationAnnealer.ts';
+import type { MemoryFact, LongTermMemoryPort } from '../../src/ports/memory/longTermMemory.ts';
 
 test('S13：退火一步只落盘一次（批量入口），不再逐条整文件重写', () => {
   // 回归（2026-09-26 审计 S13）：退火器一步会更新上千条事实的重要性，而 update 每次都做

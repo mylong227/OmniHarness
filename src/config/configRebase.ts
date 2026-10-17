@@ -1,5 +1,5 @@
-import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
 /**
  * 配置重基（组合根资产）：把一份**已解析**配置里的「声明式字段」原样搬到新的工作区根上。
  *

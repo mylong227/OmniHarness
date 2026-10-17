@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ShellProcessRunner } from '../../src/adapters/tool/shell/shellProcessRunner.js';
-import type { ShellRunOptions } from '../../src/adapters/tool/shell/shellProcessRunner.js';
+import { ShellProcessRunner } from '../../src/adapters/tool/shell/shellProcessRunner.ts';
+import type { ShellRunOptions } from '../../src/adapters/tool/shell/shellProcessRunner.ts';
 
 const runner = new ShellProcessRunner();
 

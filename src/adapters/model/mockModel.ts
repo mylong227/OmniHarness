@@ -1,10 +1,10 @@
-import { TOOL_NAMES } from '../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../ports/tool/toolNames.ts';
 import type {
   ModelOutput,
   ModelPort,
   ModelRequest,
   ModelResponseFormat,
-} from '../../ports/model/model.js';
+} from '../../ports/model/model.ts';
 
 /** 演示用模型适配器：第一步返回工具调用，后续返回最终文本（无需 API Key）。 */
 export class MockModel implements ModelPort {

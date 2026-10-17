@@ -3,9 +3,9 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LspWorkspaceSymbol, LspPort } from '../../../ports/tool/lsp.js';
-import { LSP_WORKSPACE_SYMBOLS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.js';
+} from '../../../ports/tool/tool.ts';
+import type { LspWorkspaceSymbol, LspPort } from '../../../ports/tool/lsp.ts';
+import { LSP_WORKSPACE_SYMBOLS_TOOL_NAME } from '../../../adapters/lsp/lspToolNames.ts';
 
 /** 未知种类在归一化后的名字形态（`symbol#12`）与其家族前缀。 */
 const UNKNOWN_KIND_PREFIX = 'symbol#';

@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import type { FileSnapshot } from '../ports/tool/workspaceSnapshot.js';
+import type { FileSnapshot } from '../ports/tool/workspaceSnapshot.ts';
 
 /**
  * SnapshotFileIo —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

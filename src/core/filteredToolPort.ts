@@ -4,7 +4,7 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../ports/tool/tool.js';
+} from '../ports/tool/tool.ts';
 
 /**
  * 受限工具端口：在基端口之上按谓词过滤工具视图。

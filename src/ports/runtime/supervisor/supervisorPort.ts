@@ -1,5 +1,5 @@
-import type { SafeMode } from './safeMode.js';
-import type { HealthSnapshot } from './healthSnapshot.js';
+import type { SafeMode } from './safeMode.ts';
+import type { HealthSnapshot } from './healthSnapshot.ts';
 
 /** 监督内核端口。 */
 export interface SupervisorPort {

@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { LongTermMemoryPort, MemoryFact } from '../../ports/memory/longTermMemory.js';
-import type { ModelPort, ModelRequest } from '../../ports/model/model.js';
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { MemoryExtractorPort } from '../../ports/memory/memoryExtractor.js';
-import { log } from '../../util/logger.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../ports/memory/longTermMemory.ts';
+import type { ModelPort, ModelRequest } from '../../ports/model/model.ts';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { MemoryExtractorPort } from '../../ports/memory/memoryExtractor.ts';
+import { log } from '../../util/logger.ts';
 
 /**
  * @beta

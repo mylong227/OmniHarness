@@ -25,9 +25,9 @@
  * @maturity L1 — 短路与口径一致性判据钉死（spawn 次数 = 0 断言）；净省成本未实测
  * @maturityEvidence tests/unit/cascadeReward.test.ts
  */
-import type { CodeCandidate } from './rlvrLoop.js';
-import type { RewardVerdict } from './rewardCoverageMeter.js';
-import { log } from '../util/logger.js';
+import type { CodeCandidate } from './rlvrLoop.ts';
+import type { RewardVerdict } from './rewardCoverageMeter.ts';
+import { log } from '../util/logger.ts';
 
 /** 静态预检项：纯函数、零成本。返回 `undefined` = 通过；返回规则名 = 短路否决。 */
 export type StaticCheck = (candidate: CodeCandidate) => string | undefined;

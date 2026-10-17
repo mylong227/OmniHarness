@@ -20,9 +20,9 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { VaultTab } = await import('../src/ui/components/tabs/VaultTab.js');
-const { PANELS } = await import('../src/ui/models/PanelRegistry.js');
-const { parseHash } = await import('../src/core/Router.js');
+const { VaultTab } = await import('../src/ui/components/tabs/VaultTab.tsx');
+const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
+const { parseHash } = await import('../src/core/Router.ts');
 
 /**
  * 渲染一次组件（hook 序：0=data 1=error 2=notice 3=loading 4=name 5=secret）。

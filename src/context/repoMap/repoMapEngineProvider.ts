@@ -1,4 +1,4 @@
-import { RepoMapContextEngine } from './repoMapContextEngine.js';
+import { RepoMapContextEngine } from './repoMapContextEngine.ts';
 
 /**
  * repo-map 引擎的进程级提供者（唯一实例持有者）。

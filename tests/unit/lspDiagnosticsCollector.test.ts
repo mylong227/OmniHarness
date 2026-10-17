@@ -6,8 +6,8 @@ import {
   LspDiagnosticsCollector,
   type DiagnosticsTimerHandle,
   type DiagnosticsTimers,
-} from '../../src/adapters/lsp/lspDiagnosticsCollector.js';
-import { LspUri } from '../../src/adapters/lsp/lspUri.js';
+} from '../../src/adapters/lsp/lspDiagnosticsCollector.ts';
+import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
 
 /**
  * 记录式假定时器。

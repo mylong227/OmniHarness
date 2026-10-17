@@ -1,22 +1,22 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { TodoWriteTool, TodoReadTool } from '../../src/adapters/tool/plan/todoTool.js';
-import { AskUserTool } from '../../src/adapters/tool/plan/askUserTool.js';
+import { TodoWriteTool, TodoReadTool } from '../../src/adapters/tool/plan/todoTool.ts';
+import { AskUserTool } from '../../src/adapters/tool/plan/askUserTool.ts';
 import {
   PlanWriteTool,
   PlanPresentTool,
   PlanReadTool,
-} from '../../src/adapters/tool/plan/planTool.js';
-import { MemoryTodo } from '../../src/adapters/todo/memoryTodo.js';
-import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.js';
-import { MemoryUserResponder } from '../../src/adapters/user/memoryUserResponder.js';
-import { DefaultUserResponder } from '../../src/adapters/user/defaultUserResponder.js';
-import { ToolGate } from '../../src/core/toolGate.js';
-import { eventFactory } from '../../src/core/eventFactory.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
-import type { AskAnswer } from '../../src/ports/runtime/userResponder.js';
+} from '../../src/adapters/tool/plan/planTool.ts';
+import { MemoryTodo } from '../../src/adapters/todo/memoryTodo.ts';
+import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.ts';
+import { MemoryUserResponder } from '../../src/adapters/user/memoryUserResponder.ts';
+import { DefaultUserResponder } from '../../src/adapters/user/defaultUserResponder.ts';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import { eventFactory } from '../../src/core/eventFactory.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import type { AskAnswer } from '../../src/ports/runtime/userResponder.ts';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 const call = (name: string, args: Record<string, unknown>): ToolCall => ({

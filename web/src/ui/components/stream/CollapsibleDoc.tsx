@@ -7,11 +7,11 @@
 // 纯展示组件（函数组件范式）：唯一内部状态是展开态；判定逻辑在 LongContentCollapser（可单测）。
 
 import * as React from 'react';
-import { renderMarkdown } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import { LongContentCollapser } from '../../models/LongContentCollapser.js';
-import { NumberFormatter } from '../../models/NumberFormatter.js';
-import { t } from '../../i18n/i18n.js';
+import { renderMarkdown } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import { LongContentCollapser } from '../../models/LongContentCollapser.ts';
+import { NumberFormatter } from '../../models/NumberFormatter.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** CollapsibleDoc 组件的入参。 */
 export interface CollapsibleDocProps {

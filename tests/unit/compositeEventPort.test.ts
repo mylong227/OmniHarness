@@ -7,11 +7,11 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CompositeEventPort } from '../../src/adapters/event/compositeEventPort.js';
-import { CliEventPort } from '../../src/cli/cliEventPort.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { CliArgs } from '../../src/cli/argParser.js';
+import { CompositeEventPort } from '../../src/adapters/event/compositeEventPort.ts';
+import { CliEventPort } from '../../src/cli/cliEventPort.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { CliArgs } from '../../src/cli/argParser.ts';
 
 /** 一个事件样本（字段足够表达类型即可）。 */
 const EVENT = {

@@ -1,4 +1,4 @@
-import type { Skill } from './skill.js';
+import type { Skill } from './skill.ts';
 
 /**
  * @beta

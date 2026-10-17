@@ -1,15 +1,15 @@
 import { readFile, stat } from 'node:fs/promises';
-import { GifDecoder } from '../../media/gifDecoder.js';
-import { FrameEncoder, MediaFrameBudget } from '../../media/frameEncoder.js';
-import { FrameSceneSelector } from '../../media/frameSceneSelector.js';
-import { MediaFrameSampler } from '../../media/mediaFrameSampler.js';
-import type { GifAnimation, GifFrameTiming } from '../../media/gifTypes.js';
+import { GifDecoder } from '../../media/gifDecoder.ts';
+import { FrameEncoder, MediaFrameBudget } from '../../media/frameEncoder.ts';
+import { FrameSceneSelector } from '../../media/frameSceneSelector.ts';
+import { MediaFrameSampler } from '../../media/mediaFrameSampler.ts';
+import type { GifAnimation, GifFrameTiming } from '../../media/gifTypes.ts';
 import type {
   FrameExtractionRequest,
   FrameExtractionResult,
   MediaFrameExtractor,
-} from '../../ports/media/frameExtractor.js';
-import type { MediaFrame, MediaKind, MediaProbeInfo } from '../../ports/media/mediaTypes.js';
+} from '../../ports/media/frameExtractor.ts';
+import type { MediaFrame, MediaKind, MediaProbeInfo } from '../../ports/media/mediaTypes.ts';
 
 /** 结构扫描的帧数硬上限：病态/恶意 GIF 不得把扫描变成无限循环。 */
 const STRUCTURE_FRAME_CAP = 100_000;

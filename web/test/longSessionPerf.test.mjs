@@ -14,9 +14,9 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { StreamView } = await import('../src/ui/components/StreamView.js');
-const { StreamWindow } = await import('../src/ui/models/StreamWindow.js');
-const { StreamThrottle } = await import('../src/ui/models/StreamThrottle.js');
+const { StreamView } = await import('../src/ui/components/StreamView.tsx');
+const { StreamWindow } = await import('../src/ui/models/StreamWindow.ts');
+const { StreamThrottle } = await import('../src/ui/models/StreamThrottle.ts');
 
 /** 默认口径（与 StreamWindow 的缺省值一致，测试里显式复述以便口径变化时立刻暴露）。 */
 const ITEM_HEIGHT = 88;

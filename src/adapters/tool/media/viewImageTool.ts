@@ -15,7 +15,7 @@
  * - 超大图片：装配了缩放端口（sharp 适配器）时按「长边 + 单图字节」预算收敛后再交付
  *   （并如实说明缩过）；未装配或缩放不可行时**拒绝而不是静默压缩**。
  */
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve } from 'node:path';
 import type {
@@ -23,12 +23,12 @@ import type {
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { FileAttachment } from '../../../ports/model/model.js';
-import type { ImageResizeOutcome, ImageResizerPort } from '../../../ports/media/imageResizer.js';
-import { ImageProbe } from '../../../util/imageProbe.js';
-import { WorkspaceGuard } from '../../../util/workspaceGuard.js';
-import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.js';
+} from '../../../ports/tool/tool.ts';
+import type { FileAttachment } from '../../../ports/model/model.ts';
+import type { ImageResizeOutcome, ImageResizerPort } from '../../../ports/media/imageResizer.ts';
+import { ImageProbe } from '../../../util/imageProbe.ts';
+import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
 
 /** 单张图片的字节上限：5 MiB（base64 后约 6.7 MiB，是常见端点单图上限之内的保守值）。 */
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;

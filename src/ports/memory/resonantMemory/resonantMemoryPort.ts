@@ -1,5 +1,5 @@
-import type { Spectrum } from '../../../util/eigenspectrum.js';
-import type { ResonantHit } from './resonantHit.js';
+import type { Spectrum } from '../../../util/eigenspectrum.ts';
+import type { ResonantHit } from './resonantHit.ts';
 
 /**
  * 燧-3 共振寻址端口（Resonant Addressing）：检索不靠指针/向量相似度，

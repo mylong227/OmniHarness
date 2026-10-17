@@ -1,5 +1,5 @@
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { StoragePort } from '../../ports/memory/storage.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { StoragePort } from '../../ports/memory/storage.ts';
 
 /** 内存存储适配器：会话事件仅存于进程内（不落盘）。 */
 export class MemoryStorage implements StoragePort {

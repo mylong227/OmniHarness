@@ -1,5 +1,5 @@
-import type { PluginMeta } from './pluginMeta.js';
-import type { PluginApplyContext } from '../plugin/pluginApplyContext.js';
+import type { PluginMeta } from './pluginMeta.ts';
+import type { PluginApplyContext } from '../plugin/pluginApplyContext.ts';
 
 /**
  * @beta

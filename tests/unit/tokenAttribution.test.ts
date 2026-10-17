@@ -6,8 +6,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TokenAttribution, INITIAL_BUCKET } from '../../src/observability/tokenAttribution.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { TokenAttribution, INITIAL_BUCKET } from '../../src/observability/tokenAttribution.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /**
  * 构造一条事件。

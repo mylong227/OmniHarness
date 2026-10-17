@@ -15,13 +15,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_SSRF_POLICY, SsrfPolicy } from '../../src/security/ssrfPolicy.js';
-import { SsrfGuard } from '../../src/security/ssrfGuard.js';
-import { NetworkEgressGuard } from '../../src/adapters/sandbox/networkEgressGuard.js';
-import { ssrfPolicyValidator } from '../../src/config/ssrfPolicyValidator.js';
-import { BuiltinDefaults, builtinDefaults } from '../../src/util/builtinDefaults.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import type { FileConfig } from '../../src/config/configFile.js';
+import { DEFAULT_SSRF_POLICY, SsrfPolicy } from '../../src/security/ssrfPolicy.ts';
+import { SsrfGuard } from '../../src/security/ssrfGuard.ts';
+import { NetworkEgressGuard } from '../../src/adapters/sandbox/networkEgressGuard.ts';
+import { ssrfPolicyValidator } from '../../src/config/ssrfPolicyValidator.ts';
+import { BuiltinDefaults, builtinDefaults } from '../../src/util/builtinDefaults.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import type { FileConfig } from '../../src/config/configFile.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

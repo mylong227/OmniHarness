@@ -10,7 +10,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TestCommandNarrower } from '../../src/adapters/tool/verify/testCommandNarrower.js';
+import { TestCommandNarrower } from '../../src/adapters/tool/verify/testCommandNarrower.ts';
 
 /**
  * 收窄的简写。

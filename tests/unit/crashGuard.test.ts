@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { CrashGuard, type CrashGuardTarget, type CrashReport } from '../../src/cli/crashGuard.js';
+import { CrashGuard, type CrashGuardTarget, type CrashReport } from '../../src/cli/crashGuard.ts';
 
 /** 记录型假进程：只实现护栏用到的 `on` / `exit`。 */
 class FakeProcess implements CrashGuardTarget {
@@ -187,7 +187,8 @@ test('⑦ 接线守卫：CLI 入口必须真的安装护栏（防「声明未接
     /CrashGuard\.install\(/,
     'exec.ts 必须安装 CrashGuard（§22.7 第 5 条的接线点）',
   );
-  assert.match(src, /import\('\.\/crashGuard\.js'\)/, '护栏须走动态 import（不得拖慢快速路径）');
+  // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据跟新。
+  assert.match(src, /import\('\.\/crashGuard\.ts'\)/, '护栏须走动态 import（不得拖慢快速路径）');
   // 护栏自身不得有安装副作用：库调用方 import 它不应改变进程行为（故不得出现入口判定）。
   const guard = readFileSync(join(root, 'src', 'cli', 'crashGuard.ts'), 'utf8');
   assert.ok(!/isEntry/.test(guard), 'crashGuard.ts 只应声明能力，不得自我安装');

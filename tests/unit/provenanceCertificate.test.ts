@@ -20,11 +20,11 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ProvenanceIssuer } from '../../src/governance/provenanceIssuer.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
-import type { ProvenanceCertificate } from '../../src/governance/provenanceIssuer.js';
-import type { Skill } from '../../src/ports/skill/skill.js';
+import { ProvenanceIssuer } from '../../src/governance/provenanceIssuer.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import type { ProvenanceCertificate } from '../../src/governance/provenanceIssuer.ts';
+import type { Skill } from '../../src/ports/skill/skill.ts';
 
 /** 签发方身份（真密钥）。 */
 const ISSUER = new Ed25519AgentIdentity({ agentRuntimeId: 'lineage-issuer' });

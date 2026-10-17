@@ -8,8 +8,8 @@
  * 使用者会以为「隔离档已收紧」，实际跑的是默认档——这正是本仓反复登记的「声明未接入」形态，
  * 且落在**安全档位**上，代价最高。
  */
-import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.js';
-import type { FileConfig } from '../ports/config/fileConfig.js';
+import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.ts';
+import type { FileConfig } from '../ports/config/fileConfig.ts';
 
 /** 允许的 `capability` 子键（拼错即报错）。 */
 const CAPABILITY_KEYS: ReadonlySet<string> = new Set(['enabled', 'sources', 'isolationDefaults']);

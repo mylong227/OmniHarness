@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.js';
+import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = join(__dirname, '..', '..', 'src');

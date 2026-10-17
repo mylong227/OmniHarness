@@ -12,9 +12,9 @@ import { createRuntime } from './hooksStub.mjs';
 
 const runtime = createRuntime();
 runtime.install();
-const { ReviewKeyboard } = await import('../src/ui/models/ReviewKeyboard.js');
-const { ReviewCursor } = await import('../src/ui/models/ReviewCursor.js');
-const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.js');
+const { ReviewKeyboard } = await import('../src/ui/models/ReviewKeyboard.ts');
+const { ReviewCursor } = await import('../src/ui/models/ReviewCursor.ts');
+const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
 
 /** 三块 hunk 的 git patch（单块不够验「移动」：一移动就夹到 0，测不出位移）。 */
 const PATCH = [

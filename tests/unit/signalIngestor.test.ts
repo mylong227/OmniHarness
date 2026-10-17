@@ -13,9 +13,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SignalIngestor } from '../../src/evolution/signalIngestor.js';
-import type { CapabilityCrystallizerPort } from '../../src/ports/intelligence/capability.js';
-import type { EvolutionSignal } from '../../src/ports/runtime/evolution.js';
+import { SignalIngestor } from '../../src/evolution/signalIngestor.ts';
+import type { CapabilityCrystallizerPort } from '../../src/ports/intelligence/capability.ts';
+import type { EvolutionSignal } from '../../src/ports/runtime/evolution.ts';
 
 /**
  * 造一条失败信号（kind='cycle'，location 决定挖掘器签名域）。

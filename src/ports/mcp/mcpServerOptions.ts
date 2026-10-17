@@ -1,12 +1,12 @@
-import type { ToolContext, ToolPort } from '../tool/tool.js';
-import type { Transport } from '../server/transport.js';
+import type { ToolContext, ToolPort } from '../tool/tool.ts';
+import type { Transport } from '../server/transport.ts';
 import type {
   McpServerInfo,
   McpResourceDescriptor,
   McpResourceContent,
   McpPromptDescriptor,
-} from '../mcp/mcpProtocolTypes.js';
-import type { ToolGatePort } from '../runtime/toolGatePort.js';
+} from '../mcp/mcpProtocolTypes.ts';
+import type { ToolGatePort } from '../runtime/toolGatePort.ts';
 
 /**
  * @beta

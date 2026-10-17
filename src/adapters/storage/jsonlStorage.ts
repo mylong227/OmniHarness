@@ -1,9 +1,9 @@
 import { appendFile, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { StoragePort } from '../../ports/memory/storage.js';
-import { log } from '../../util/logger.js';
-import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { StoragePort } from '../../ports/memory/storage.ts';
+import { log } from '../../util/logger.ts';
+import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.ts';
 
 /** JSONL 文件存储适配器：每个会话一个 .jsonl 文件（可观测、可回放）。 */
 export class JsonlStorage implements StoragePort {

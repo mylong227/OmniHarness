@@ -1,4 +1,4 @@
-import { ShellInvocation } from '../adapters/tool/shell/shellInvocation.js';
+import { ShellInvocation } from '../adapters/tool/shell/shellInvocation.ts';
 
 /**
  * 默认系统提示片段（组合根资产）：CLI / 服务端共用的常驻指令。

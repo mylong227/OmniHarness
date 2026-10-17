@@ -1,4 +1,4 @@
-import type { RasterImage } from './rasterTypes.js';
+import type { RasterImage } from './rasterTypes.ts';
 
 /**
  * RGBA 光栅缩放器（盒式滤波 / 面积平均，纯 TS）。

@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { CorpusFileParser } from './corpusFileParser.js';
-import type { CorpusFileArtifact } from './corpusFileArtifact.js';
-import type { SymbolNode } from './repoMap/repoMap.js';
+import { CorpusFileParser } from './corpusFileParser.ts';
+import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import type { SymbolNode } from './repoMap/repoMap.ts';
 
 /**
  * 单文件记录（与 `ContextEngine` 内部 `FileRecord` **结构相同**）。

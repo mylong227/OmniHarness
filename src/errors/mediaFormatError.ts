@@ -1,4 +1,4 @@
-import { ErrorCode, OmniError } from '../omniError.js';
+import { ErrorCode, OmniError } from '../omniError.ts';
 
 /**
  * 媒体格式错误：字节流不符合容器规范（GIF 块结构非法、LZW 码流损坏、调色板越界等）。

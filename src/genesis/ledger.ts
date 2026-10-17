@@ -14,7 +14,7 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
-import { type Cost, emptyCost, Algebra } from './algebra.js';
+import { type Cost, emptyCost, Algebra } from './algebra.ts';
 
 /** 成本账本实例：以 pending/recorded/committed 三列维护成本流水，并给出记账闭合判定。 */
 export class Ledger {

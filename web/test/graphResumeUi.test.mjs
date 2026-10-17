@@ -16,7 +16,7 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { GraphTab } = await import('../src/ui/components/tabs/GraphTab.js');
+const { GraphTab } = await import('../src/ui/components/tabs/GraphTab.tsx');
 
 /**
  * 递归展开函数组件节点（零 DOM 环境里 createElement 不会实例化子组件）。

@@ -11,19 +11,19 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SpillPolicy } from '../../src/context/spillPolicy.js';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.js';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.js';
-import { FileSpill } from '../../src/adapters/spill/fileSpill.js';
+import { SpillPolicy } from '../../src/context/spillPolicy.ts';
+import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
+import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
+import { FileSpill } from '../../src/adapters/spill/fileSpill.ts';
 import {
   VortexRingPacket,
   VortexRingSpillAdapter,
-} from '../../src/adapters/spill/vortexRingSpillAdapter.js';
-import { SpillReadTool } from '../../src/adapters/tool/meta/spillReadTool.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import type { ToolResult } from '../../src/ports/tool/tool.js';
+} from '../../src/adapters/spill/vortexRingSpillAdapter.ts';
+import { SpillReadTool } from '../../src/adapters/tool/meta/spillReadTool.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import type { ToolResult } from '../../src/ports/tool/tool.ts';
 
 /** 构造成功的大输出工具结果。 */
 function bigResult(output: string, callId = 'c1'): ToolResult {

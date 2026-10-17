@@ -1,4 +1,4 @@
-import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.js';
+import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 
 /**
  * 工作流步骤终态的**判定与显示**工具（无状态）。

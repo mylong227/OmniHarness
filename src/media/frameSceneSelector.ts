@@ -1,4 +1,4 @@
-import type { GifDecodedFrame } from './gifTypes.js';
+import type { GifDecodedFrame } from './gifTypes.ts';
 
 /**
  * 判定「像素是否变化」的单像素通道差之和阈值（RGB 各通道差的绝对值之和）。

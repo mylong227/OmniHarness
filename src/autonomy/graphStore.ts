@@ -8,8 +8,8 @@ import {
   rmSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import type { WorkflowDef } from './workflowTypes.js';
-import { WorkflowRunner } from './workflowRunner.js';
+import type { WorkflowDef } from './workflowTypes.ts';
+import { WorkflowRunner } from './workflowRunner.ts';
 
 /** 图存储目录名（位于工作区 .omniharness 下）。 */
 const GRAPH_DIR = '.omniharness/graphs';
@@ -17,9 +17,9 @@ const GRAPH_DIR = '.omniharness/graphs';
 /** 单图文件体积上限：超此大小的图文件拒绝整文件读入内存（fail-closed，避免病态大文件 OOM）。 */
 const MAX_GRAPH_BYTES = 4 * 1024 * 1024;
 
-import type { GraphSummary } from '../ports/autonomy/graphSummary.js';
+import type { GraphSummary } from '../ports/autonomy/graphSummary.ts';
 
-export type { GraphSummary } from '../ports/autonomy/graphSummary.js';
+export type { GraphSummary } from '../ports/autonomy/graphSummary.ts';
 
 /**
  * @beta

@@ -32,13 +32,13 @@
  *   CI95 [19.23, 57.69]pp、留出折 0/40 为负），据此接入生产注入路径。
  * @maturityEvidence tests/unit/skillRetriever.test.ts
  */
-import { Bm25Index } from '../search/bm25Index.js';
-import type { SkillRetrieveHit } from '../ports/skill/skillRetrieveHit.js';
-import type { Skill } from './skill.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import type { SkillRetrieveHit } from '../ports/skill/skillRetrieveHit.ts';
+import type { Skill } from './skill.ts';
 
 // 2026-10-11：检索结果类型已外迁 `ports/skill/skillRetrieveHit.ts`（端口契约要用它表达
 // `rankForPrompt` 的返回面）。此处导入供本文件使用、并再导出以维持公共 API 面零改动。
-export type { SkillRetrieveHit } from '../ports/skill/skillRetrieveHit.js';
+export type { SkillRetrieveHit } from '../ports/skill/skillRetrieveHit.ts';
 
 /** 检索选项。 */
 export interface SkillRetrieveOptions {

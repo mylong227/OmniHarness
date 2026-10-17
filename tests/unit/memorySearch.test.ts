@@ -1,21 +1,21 @@
 ﻿import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.js';
-import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { Agent } from '../../src/core/agent.js';
+import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.ts';
+import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { Agent } from '../../src/core/agent.ts';
 import type {
   RetrievalDoc,
   RetrievalHit,
   RetrievalPort,
-} from '../../src/ports/intelligence/retrieval.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
+} from '../../src/ports/intelligence/retrieval.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 

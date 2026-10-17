@@ -1,5 +1,5 @@
-import type { CostBudget } from './costBudget.js';
-import type { BudgetDegradeSignal } from '../../ports/model/budgetDegrade.js';
+import type { CostBudget } from './costBudget.ts';
+import type { BudgetDegradeSignal } from '../../ports/model/budgetDegrade.ts';
 
 /**
  * `CostBudget` → `BudgetDegradeSignal` 的薄桥接适配器（P5 自动降档）。

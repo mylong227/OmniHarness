@@ -19,8 +19,8 @@
  * @maturityEvidence tests/unit/licenseCommand.test.ts
  */
 import { readFileSync } from 'node:fs';
-import { LicenseEngine } from '../license/licenseEngine.js';
-import { CliArgReader } from './cliArgReader.js';
+import { LicenseEngine } from '../license/licenseEngine.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 用法提示。 */
 const USAGE =

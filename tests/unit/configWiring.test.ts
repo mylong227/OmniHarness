@@ -10,7 +10,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSyncAsync } from '../helpers/childProcess.js';
+import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

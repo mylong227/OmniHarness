@@ -69,14 +69,15 @@ test('① 两个契约类型住在 ports，且是纯声明（无第三方、无 
 });
 
 test('② 原位置仍再导出同名类型（公开 API 面不变）', () => {
+  // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据正则跟新。
   assert.match(
     read('src/config/configFactory.ts'),
-    /export type \{ SubagentPortSeed \} from '\.\.\/ports\/config\/subagentPortSeed\.js'/,
+    /export type \{ SubagentPortSeed \} from '\.\.\/ports\/config\/subagentPortSeed\.ts'/,
     'configFactory 必须再导出 SubagentPortSeed（否则是破坏性 API 变更）',
   );
   assert.match(
     read('src/config/mediaStackAssembler.ts'),
-    /export type \{ MediaStack \} from '\.\.\/ports\/media\/mediaStack\.js'/,
+    /export type \{ MediaStack \} from '\.\.\/ports\/media\/mediaStack\.ts'/,
     'mediaStackAssembler 必须再导出 MediaStack（否则是破坏性 API 变更）',
   );
 });
@@ -85,12 +86,12 @@ test('③ 拆环的关键回边不得复活：两个装配文件不得再 import
   for (const rel of ['src/config/configBuilder.ts', 'src/config/configToolRegistry.ts']) {
     const text = read(rel);
     assert.ok(
-      !/from '\.\/configFactory\.js'/.test(text),
+      !/from '\.\/configFactory\.ts'/.test(text),
       `${rel} 又反向 import 了 configFactory ⇒ 配置子环复活（类型应放 ports，不放实现文件）`,
     );
     assert.match(
       text,
-      /from '\.\.\/ports\/config\/subagentPortSeed\.js'/,
+      /from '\.\.\/ports\/config\/subagentPortSeed\.ts'/,
       `${rel} 应从 ports 直连 SubagentPortSeed`,
     );
   }

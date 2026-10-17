@@ -1,8 +1,8 @@
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { SpillHandle, SpillPort } from '../../ports/memory/spill.js';
-import { Id } from '../../util/id.js';
-import { log } from '../../util/logger.js';
+import type { SpillHandle, SpillPort } from '../../ports/memory/spill.ts';
+import { Id } from '../../util/id.ts';
+import { log } from '../../util/logger.ts';
 
 /** 合法外溢 ID（防目录穿越：id 会被拼进文件路径）。 */
 const SAFE_ID = /^[A-Za-z0-9_-]+$/;

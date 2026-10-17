@@ -13,7 +13,7 @@
  * @maturityEvidence tests/unit/rewardCoverageMeter.test.ts
  */
 
-import type { RewardVerdict } from '../ports/runtime/evolution/rewardVerdict.js';
+import type { RewardVerdict } from '../ports/runtime/evolution/rewardVerdict.ts';
 
 /**
  * 单个样本的奖励判定明细（Wave B 起定义在端口层：`ports/runtime/evolution/rewardVerdict.ts`）。

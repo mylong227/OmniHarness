@@ -35,19 +35,19 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Agent } from '../../src/core/agent.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { ScriptedModel } from '../../src/core/scriptedModel.js';
-import type { ScriptStep } from '../../src/core/scriptedModel.js';
-import { LiveSessionRewindRegistry } from '../../src/core/liveSessionRewindRegistry.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { Agent } from '../../src/core/agent.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { ScriptedModel } from '../../src/core/scriptedModel.ts';
+import type { ScriptStep } from '../../src/core/scriptedModel.ts';
+import { LiveSessionRewindRegistry } from '../../src/core/liveSessionRewindRegistry.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 压缩游标事件前缀（`ContextCompactor` 的折叠点标记）。 */
 const COMPACTION_MARKER = 'OMNI_COMPACTION_V1';

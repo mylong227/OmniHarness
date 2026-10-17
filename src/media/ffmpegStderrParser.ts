@@ -1,4 +1,4 @@
-import type { MediaStreamFacts } from './mediaStreamFacts.js';
+import type { MediaStreamFacts } from './mediaStreamFacts.ts';
 
 /** 输入行：`Input #0, mov,mp4,..., from 'x.mp4':`（格式名本身含逗号，故用「到 , from 为止」的贪婪边界）。 */
 const INPUT_LINE = /^Input #\d+,\s*(.+?),\s*from\s/;

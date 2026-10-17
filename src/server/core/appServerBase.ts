@@ -1,23 +1,23 @@
-﻿import { ConfigFactory } from '../../config/configFactory.js';
-import { ConfigRebase } from '../../config/configRebase.js';
-import { SandboxManager, type SandboxProfile } from '../../adapters/sandbox/sandboxManager.js';
-import type { PluginManager } from '../../plugin/pluginManager.js';
-import type { PluginProfile, ApplyProfileResult } from '../../plugin/pluginProfileStore.js';
-import type { SupervisorPort } from '../../ports/runtime/supervisor.js';
-import { jsonRpc, type RpcMessage } from './jsonRpc.js';
-import type { AppServerOptions } from './appServerState.js';
-import { GraphRunRegistry } from './graphRunRegistry.js';
-import { ServerConfigStore } from '../services/serverConfigStore.js';
-import { FsExplorer } from '../services/fsExplorer.js';
-import { WorkspaceTree } from '../services/workspaceTree.js';
-import { SessionArchive } from '../services/session/sessionArchive.js';
-import { WorkspaceChanges } from '../services/workspaceChanges.js';
-import { ModelCatalogService } from '../services/modelCatalogService.js';
-import { PluginHost } from '../services/pluginHost.js';
-import { ServerEventBridge } from './serverEventBridge.js';
-import { AgentRuntimeHost } from './agentRuntimeHost.js';
-import type { ResolvedConfig } from '../../ports/config/resolvedConfig.js';
-import { log } from '../../util/logger.js';
+﻿import { ConfigFactory } from '../../config/configFactory.ts';
+import { ConfigRebase } from '../../config/configRebase.ts';
+import { SandboxManager, type SandboxProfile } from '../../adapters/sandbox/sandboxManager.ts';
+import type { PluginManager } from '../../plugin/pluginManager.ts';
+import type { PluginProfile, ApplyProfileResult } from '../../plugin/pluginProfileStore.ts';
+import type { SupervisorPort } from '../../ports/runtime/supervisor.ts';
+import { jsonRpc, type RpcMessage } from './jsonRpc.ts';
+import type { AppServerOptions } from './appServerState.ts';
+import { GraphRunRegistry } from './graphRunRegistry.ts';
+import { ServerConfigStore } from '../services/serverConfigStore.ts';
+import { FsExplorer } from '../services/fsExplorer.ts';
+import { WorkspaceTree } from '../services/workspaceTree.ts';
+import { SessionArchive } from '../services/session/sessionArchive.ts';
+import { WorkspaceChanges } from '../services/workspaceChanges.ts';
+import { ModelCatalogService } from '../services/modelCatalogService.ts';
+import { PluginHost } from '../services/pluginHost.ts';
+import { ServerEventBridge } from './serverEventBridge.ts';
+import { AgentRuntimeHost } from './agentRuntimeHost.ts';
+import type { ResolvedConfig } from '../../ports/config/resolvedConfig.ts';
+import { log } from '../../util/logger.ts';
 
 /**
  * AppServer 共享基座：**组合根 + 方法调度**。

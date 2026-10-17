@@ -8,10 +8,10 @@
  *  - 无状态，可安全复用同一实例。
  */
 
-import { MemoryKv } from '../adapters/kv/memoryKv.js';
-import { JsonFileKv } from '../adapters/kv/jsonFileKv.js';
-import type { SqliteKv } from '../adapters/kv/sqliteKv.js';
-import { CliArgReader } from './cliArgReader.js';
+import { MemoryKv } from '../adapters/kv/memoryKv.ts';
+import { JsonFileKv } from '../adapters/kv/jsonFileKv.ts';
+import type { SqliteKv } from '../adapters/kv/sqliteKv.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** KV 端口句柄（工厂产出的三种后端之一）。 */
 export type KvHandle = MemoryKv | JsonFileKv | SqliteKv;
@@ -51,7 +51,7 @@ export class KvStoreFactory {
       return new MemoryKv();
     }
     if (adapter === 'sqlite') {
-      const { SqliteKv } = await import('../adapters/kv/sqliteKv.js');
+      const { SqliteKv } = await import('../adapters/kv/sqliteKv.ts');
       return new SqliteKv(file ?? DEFAULT_SQLITE_FILE);
     }
     throw new Error(`非法 --kv-adapter：${adapter}（可选: memory | json-file | sqlite）`);

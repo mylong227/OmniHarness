@@ -24,11 +24,11 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { ContextEngine, type IndexedCorpus } from './contextEngine.js';
-import { CorpusFileParser } from './corpusFileParser.js';
-import { CorpusIncrementalUpdater } from './corpusIncrementalUpdater.js';
-import type { CorpusFileArtifact } from './corpusFileArtifact.js';
-import { log } from '../util/logger.js';
+import { ContextEngine, type IndexedCorpus } from './contextEngine.ts';
+import { CorpusFileParser } from './corpusFileParser.ts';
+import { CorpusIncrementalUpdater } from './corpusIncrementalUpdater.ts';
+import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import { log } from '../util/logger.ts';
 
 /** 缓存条目：语料 + 索引时间戳 + 文件内容签名（用于 TTL 失效与内容增量复用）。 */
 interface CacheEntry {

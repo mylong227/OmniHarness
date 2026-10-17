@@ -13,16 +13,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.js';
-import { TurnRunner, type CompletionGate } from '../../src/core/turnRunner.js';
-import { SessionRecorder } from '../../src/core/sessionRecorder.js';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.js';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.js';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
+import { StepRunner } from '../../src/core/stepRunner.ts';
+import { TurnRunner, type CompletionGate } from '../../src/core/turnRunner.ts';
+import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
+import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };
 const sandboxOk: SandboxPort = { name: 'ok', check: async () => ({ allowed: true }) };

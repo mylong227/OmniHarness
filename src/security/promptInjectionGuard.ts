@@ -16,9 +16,9 @@
  * 与 P4 之前的行为**逐字等价**（既有调用方零行为变更）。
  */
 
-import type { ToolResult } from '../ports/tool/tool.js';
-import type { EnforcementMode } from './enforcementModeResolver.js';
-import { ToolOutputTrust, type TrustTier } from './toolOutputTrust.js';
+import type { ToolResult } from '../ports/tool/tool.ts';
+import type { EnforcementMode } from './enforcementModeResolver.ts';
+import { ToolOutputTrust, type TrustTier } from './toolOutputTrust.ts';
 
 /**
  * PromptInjectionGuard —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。

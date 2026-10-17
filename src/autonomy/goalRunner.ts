@@ -1,6 +1,6 @@
-import type { AgentPort, AgentResult } from '../ports/runtime/agent.js';
-import { GoalChecker } from './goalChecker.js';
-import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
+import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
+import { GoalChecker } from './goalChecker.ts';
+import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.ts';
 
 /**
  * @beta
@@ -8,9 +8,9 @@ import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.js';
  */
 export const DEFAULT_GOAL_MAX_ITERATIONS = 10;
 
-import type { GoalRunnerOptions } from '../ports/autonomy/goalRunnerOptions.js';
+import type { GoalRunnerOptions } from '../ports/autonomy/goalRunnerOptions.ts';
 
-export type { GoalRunnerOptions } from '../ports/autonomy/goalRunnerOptions.js';
+export type { GoalRunnerOptions } from '../ports/autonomy/goalRunnerOptions.ts';
 
 /**
  * @beta

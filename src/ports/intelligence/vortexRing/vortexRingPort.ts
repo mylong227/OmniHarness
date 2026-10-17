@@ -1,4 +1,4 @@
-import type { VortexRing } from './vortexRing.js';
+import type { VortexRing } from './vortexRing.ts';
 
 /**
  * 燧-4 涡环包端口：解决长程依赖里"信息被沿途稀释/污染"。

@@ -19,17 +19,17 @@
  * @maturity L1 — 装配面判据钉死（关时零切片 / 开时三件齐 + 档位下限只收紧）
  * @maturityEvidence tests/unit/capabilityAssembly.test.ts
  */
-import { CapabilityEvaluator } from '../capability/capabilityEvaluator.js';
-import { CapabilityRegistry } from '../capability/capabilityRegistry.js';
-import { CapabilitySchemaRegistry } from '../capability/capabilitySchemaRegistry.js';
-import { SkillSchema } from '../capability/schemas/skillSchema.js';
-import { WorkflowTemplateSchema } from '../capability/schemas/workflowTemplateSchema.js';
-import { WasmSkillSchema } from '../capability/schemas/wasmSkillSchema.js';
-import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.js';
-import type { IsolationLevel, TrustTier } from '../ports/capability.js';
-import type { CapabilityConfig } from '../ports/config/capabilityConfig.js';
-import type { CapabilityStack } from '../ports/config/capabilityStack.js';
-import type { SkillRegistry } from '../skill/skillRegistry.js';
+import { CapabilityEvaluator } from '../capability/capabilityEvaluator.ts';
+import { CapabilityRegistry } from '../capability/capabilityRegistry.ts';
+import { CapabilitySchemaRegistry } from '../capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../capability/schemas/skillSchema.ts';
+import { WorkflowTemplateSchema } from '../capability/schemas/workflowTemplateSchema.ts';
+import { WasmSkillSchema } from '../capability/schemas/wasmSkillSchema.ts';
+import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.ts';
+import type { IsolationLevel, TrustTier } from '../ports/capability.ts';
+import type { CapabilityConfig } from '../ports/config/capabilityConfig.ts';
+import type { CapabilityStack } from '../ports/config/capabilityStack.ts';
+import type { SkillRegistry } from '../skill/skillRegistry.ts';
 
 export type { CapabilityStack };
 

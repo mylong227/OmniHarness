@@ -20,7 +20,7 @@
  * @maturity L1 — 三个 RPC 的语义、不回读、不泄露值、未接线如实报错 判据钉死
  * @maturityEvidence tests/unit/vaultRpc.test.ts
  */
-import { AppServerObservabilityHandlers } from './appServerObservabilityHandlers.js';
+import { AppServerObservabilityHandlers } from './appServerObservabilityHandlers.ts';
 
 /** 凭据保险库处理器层。 */
 export class AppServerVaultHandlers extends AppServerObservabilityHandlers {

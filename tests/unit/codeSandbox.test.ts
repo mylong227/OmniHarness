@@ -12,8 +12,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.js';
-import type { ToolCall } from '../../src/ports/tool/tool.js';
+import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.ts';
+import type { ToolCall } from '../../src/ports/tool/tool.ts';
 
 /** 构造只认 `echo` 的 execute 后端（记录收到的调用）。 */
 function echoBackend(seen: ToolCall[]) {

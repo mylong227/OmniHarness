@@ -23,10 +23,10 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { SdkMcpClientAdapter } from '../../src/adapters/mcp/sdkMcpClientAdapter.js';
-import { McpGateway } from '../../src/mcp/mcpGateway.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.js';
+import { SdkMcpClientAdapter } from '../../src/adapters/mcp/sdkMcpClientAdapter.ts';
+import { McpGateway } from '../../src/mcp/mcpGateway.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.ts';
 
 /** 夹具脚本（编译产物）路径。 */
 function fixturePath(): string {

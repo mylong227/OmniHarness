@@ -14,12 +14,12 @@ import { strict as assert } from 'node:assert/strict';
 import { before, describe, test } from 'node:test';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.js';
-import { LspUri } from '../../src/adapters/lsp/lspUri.js';
-import { LspSymbolNormalizer } from '../../src/adapters/lsp/lspSymbolNormalizer.js';
-import { LspWorkspaceSymbolsTool } from '../../src/adapters/tool/lsp/lspWorkspaceSymbolsTool.js';
-import type { LspPort, LspWorkspaceSymbol } from '../../src/ports/tool/lsp.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
+import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
+import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
+import { LspSymbolNormalizer } from '../../src/adapters/lsp/lspSymbolNormalizer.ts';
+import { LspWorkspaceSymbolsTool } from '../../src/adapters/tool/lsp/lspWorkspaceSymbolsTool.ts';
+import type { LspPort, LspWorkspaceSymbol } from '../../src/ports/tool/lsp.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
 
 /** mock 服务器（源码级 .mjs，不被 tsc 编译，故相对项目根定位）。 */
 const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');

@@ -1,16 +1,16 @@
-import type { ApprovalPort } from '../runtime/approval.js';
-import type { EventPort } from '../runtime/eventPort.js';
-import type { ModelPort } from '../model/model.js';
-import type { SandboxPort } from '../runtime/sandbox.js';
-import type { StoragePort } from '../memory/storage.js';
-import type { SpillPort } from '../memory/spill.js';
-import type { ToolPort } from '../tool/tool.js';
-import type { EscalationPort } from '../runtime/escalation.js';
-import type { NativeToolRunner } from '../native/nativeToolRunner.js';
-import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.js';
-import type { LongTermMemoryPort } from '../memory/longTermMemory.js';
-import type { PlanPort } from '../runtime/plan.js';
-import type { SupervisorPort } from '../runtime/supervisor.js';
+import type { ApprovalPort } from '../runtime/approval.ts';
+import type { EventPort } from '../runtime/eventPort.ts';
+import type { ModelPort } from '../model/model.ts';
+import type { SandboxPort } from '../runtime/sandbox.ts';
+import type { StoragePort } from '../memory/storage.ts';
+import type { SpillPort } from '../memory/spill.ts';
+import type { ToolPort } from '../tool/tool.ts';
+import type { EscalationPort } from '../runtime/escalation.ts';
+import type { NativeToolRunner } from '../native/nativeToolRunner.ts';
+import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts';
+import type { LongTermMemoryPort } from '../memory/longTermMemory.ts';
+import type { PlanPort } from '../runtime/plan.ts';
+import type { SupervisorPort } from '../runtime/supervisor.ts';
 
 /**
  * @beta

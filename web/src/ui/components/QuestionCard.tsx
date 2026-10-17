@@ -8,13 +8,13 @@
 // 纯视图组件：不直接 fetch，RPC 经 onSubmit 回调上抛。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.js';
+import { icon } from '../models/Icon.ts';
 import type {
   AskQuestionItem,
   QuestionAnswerSubmission,
   QuestionRequest,
-} from '../../types/models.js';
-import { t } from '../i18n/i18n.js';
+} from '../../types/models.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 倒计时步长（毫秒）。 */
 const TICK_MS = 1000;

@@ -17,7 +17,7 @@
  * @maturityEvidence tests/unit/genesis.test.ts
  */
 
-import { Mathutil } from './mathutil.js';
+import { Mathutil } from './mathutil.ts';
 
 /** 模态种类。扩展种类不影响既有代数定律。 */
 export type ModalityKind = 'text' | 'image' | 'audio' | 'video' | 'tensor' | 'none';

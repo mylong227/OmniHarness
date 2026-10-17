@@ -1,4 +1,4 @@
-import type { McpContentBlock } from '../ports/mcp/mcpProtocolTypes.js';
+import type { McpContentBlock } from '../ports/mcp/mcpProtocolTypes.ts';
 
 /**
  * MCP 内容块的**归一化**（G10/T3，2026-10-03 第十五轮）。

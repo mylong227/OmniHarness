@@ -7,7 +7,7 @@
  *
  * 诚实优先（与端口注释一致）：`stale` **绝不**渲染成「通过」，必须写明「这不代表没有错误」。
  */
-import type { LspDiagnostic, LspDiagnosticReport } from '../../../ports/tool/lsp.js';
+import type { LspDiagnostic, LspDiagnosticReport } from '../../../ports/tool/lsp.ts';
 
 /** 单次回传的诊断条数上限（防一个坏文件把上下文刷满）。 */
 export const MAX_RENDERED_DIAGNOSTICS = 50;

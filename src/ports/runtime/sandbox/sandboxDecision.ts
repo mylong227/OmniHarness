@@ -1,4 +1,4 @@
-import type { SandboxDenialCategory } from './sandboxDenialCategory.js';
+import type { SandboxDenialCategory } from './sandboxDenialCategory.ts';
 
 /** 沙箱裁决。 */
 export interface SandboxDecision {

@@ -22,10 +22,10 @@
  * - 非法条目（坏 CIDR、空字符串、含空白的域名）⇒ **抛错**（fail-closed），不静默丢弃——
  *   静默丢弃会让人以为「配上了」，实际护栏比预期更松。
  */
-import { builtinDefaults } from '../util/builtinDefaults.js';
-import { IpAddress } from '../util/ipAddress.js';
-import type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.js';
-import type { ResolvedSsrfPolicy } from '../ports/security/ssrfPolicy.js';
+import { builtinDefaults } from '../util/builtinDefaults.ts';
+import { IpAddress } from '../util/ipAddress.ts';
+import type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.ts';
+import type { ResolvedSsrfPolicy } from '../ports/security/ssrfPolicy.ts';
 
 /**
  * SsrfPolicy —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -127,8 +127,8 @@ export interface SsrfPolicy extends ResolvedSsrfPolicy {}
  * 配置文件中 `ssrfPolicy` 段的形状（原始 JSON 值，未校验）。
  * 三个字段均可缺省（缺省即回落默认表）。
  */
-export type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.js';
-export type { ResolvedSsrfPolicy } from '../ports/security/ssrfPolicy.js';
+export type { SsrfPolicyConfig } from '../ports/security/ssrfPolicyConfig.ts';
+export type { ResolvedSsrfPolicy } from '../ports/security/ssrfPolicy.ts';
 
 /**
  * `defaults/ssrf.json` 的原始内容（模块加载期读出，缺失/残缺即抛错）。

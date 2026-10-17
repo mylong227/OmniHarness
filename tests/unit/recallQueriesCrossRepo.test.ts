@@ -27,8 +27,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CROSS_REPO_CORPORA } from '../fixtures/recallQueriesCrossRepo.js';
-import { adversarialOverlap, contentTokensOf } from '../fixtures/recallQueries.js';
+import { CROSS_REPO_CORPORA } from '../fixtures/recallQueriesCrossRepo.ts';
+import { adversarialOverlap, contentTokensOf } from '../fixtures/recallQueries.ts';
 
 /** 每仓最少查询条数（当前均为 12；低于此值说明集合被静默削过）。 */
 const MIN_QUERIES_PER_CORPUS = 12;

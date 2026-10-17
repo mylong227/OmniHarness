@@ -1,4 +1,4 @@
-import type { LspRange } from './lspRange.js';
+import type { LspRange } from './lspRange.ts';
 
 /**
  * @beta

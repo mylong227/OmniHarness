@@ -1,5 +1,5 @@
-import type { ToolDefinition } from '../ports/tool/tool.js';
-import type { McpInputSchema, McpToolDescriptor } from './mcpProtocol.js';
+import type { ToolDefinition } from '../ports/tool/tool.ts';
+import type { McpInputSchema, McpToolDescriptor } from './mcpProtocol.ts';
 
 /** 提示注入指令特征（英文 + 中文，聚焦无歧义短语，降低对正常工具描述的误伤）。 */
 const MCP_INJECTION_PATTERNS: readonly RegExp[] = [

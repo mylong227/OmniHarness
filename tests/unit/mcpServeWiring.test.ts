@@ -10,21 +10,21 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { GatedToolPort } from '../../src/adapters/mcp/gatedToolPort.js';
-import { McpSdkProbe, type McpSdkProbeResult } from '../../src/adapters/mcp/mcpSdkProbe.js';
-import { McpServeRunner, type McpServeOptions } from '../../src/adapters/mcp/mcpServeRunner.js';
+import { GatedToolPort } from '../../src/adapters/mcp/gatedToolPort.ts';
+import { McpSdkProbe, type McpSdkProbeResult } from '../../src/adapters/mcp/mcpSdkProbe.ts';
+import { McpServeRunner, type McpServeOptions } from '../../src/adapters/mcp/mcpServeRunner.ts';
 import {
   SdkMcpServerAdapter,
   type SdkServerInfo,
-} from '../../src/adapters/mcp/sdkMcpServerAdapter.js';
+} from '../../src/adapters/mcp/sdkMcpServerAdapter.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.js';
-import type { ToolGate } from '../../src/core/toolGate.js';
+} from '../../src/ports/tool/tool.ts';
+import type { ToolGate } from '../../src/core/toolGate.ts';
 
 /** 测试用工具端口：记录调用，供断言「SDK 工具集真到 ToolPort」。 */
 class FakeToolPort implements ToolPort {

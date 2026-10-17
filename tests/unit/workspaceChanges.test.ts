@@ -1,11 +1,11 @@
 ﻿import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSyncAsync } from '../helpers/childProcess.js';
+import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkspaceChanges } from '../../src/server/services/workspaceChanges.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { WorkspaceChanges } from '../../src/server/services/workspaceChanges.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 const gitAvailable =
   (await spawnSyncAsync('git', ['--version'], { encoding: 'utf8' })).status === 0;

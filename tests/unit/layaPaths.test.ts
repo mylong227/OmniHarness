@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LayaPaths } from '../../src/adapters/laya/layaPaths.js';
+import { LayaPaths } from '../../src/adapters/laya/layaPaths.ts';
 
 /** 解释器环境变量名（与实现同源；测的是行为不是字面量）。 */
 const PYTHON_ENV = 'LAYA_PYTHON_BIN';

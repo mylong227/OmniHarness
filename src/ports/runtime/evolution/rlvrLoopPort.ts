@@ -1,5 +1,5 @@
-import type { RlvrRoundResult } from './rlvrRoundResult.js';
-import type { RlvrSampleContext } from './rlvrSampleContext.js';
+import type { RlvrRoundResult } from './rlvrRoundResult.ts';
+import type { RlvrSampleContext } from './rlvrSampleContext.ts';
 
 /**
  * @beta

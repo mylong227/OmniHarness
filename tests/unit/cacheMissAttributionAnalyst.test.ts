@@ -8,8 +8,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PrefixStability } from '../../src/context/prefixStability.js';
-import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.js';
+import { PrefixStability } from '../../src/context/prefixStability.ts';
+import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.ts';
 
 const { attribute, attributeFromTexts, DEFAULT_PROMPT_CACHE_TTL_MS, PREFIX_REUSE_FLOOR } =
   CacheMissAttributionAnalyst;

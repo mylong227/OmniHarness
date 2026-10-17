@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileAsync } from '../helpers/childProcess.js';
+import { execFileAsync } from '../helpers/childProcess.ts';
 import { resolve } from 'node:path';
 
 /** CLI 入口路径。 */

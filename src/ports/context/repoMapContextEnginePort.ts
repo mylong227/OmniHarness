@@ -1,5 +1,5 @@
-import type { EmbeddingPort } from '../model/embedding.js';
-import type { RepoMapContextOptions } from './repoMapContextOptions.js';
+import type { EmbeddingPort } from '../model/embedding.ts';
+import type { RepoMapContextOptions } from './repoMapContextOptions.ts';
 
 /**
  * repo-map 上下文引擎端口（G25 收尾，2026-10-04 第三十轮）。

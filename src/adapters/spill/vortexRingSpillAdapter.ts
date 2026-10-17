@@ -1,7 +1,7 @@
-import type { SpillHandle } from '../../ports/memory/spill.js';
-import type { VortexRingSpillAdapterPort } from '../../ports/memory/spill/vortexRingSpillAdapterPort.js';
-import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.js';
-import { log } from '../../util/logger.js';
+import type { SpillHandle } from '../../ports/memory/spill.ts';
+import type { VortexRingSpillAdapterPort } from '../../ports/memory/spill/vortexRingSpillAdapterPort.ts';
+import type { VortexRing, VortexRingPort } from '../../ports/intelligence/vortexRing.ts';
+import { log } from '../../util/logger.ts';
 
 /** 进程内环包元信息的默认保留上限（个）。 */
 export const DEFAULT_SPILL_MAX_RINGS = 256;
@@ -110,4 +110,4 @@ export class VortexRingSpillAdapter implements VortexRingSpillAdapterPort {
   }
 }
 
-export { VortexRingPacket } from './vortexRingPacket.js';
+export { VortexRingPacket } from './vortexRingPacket.ts';

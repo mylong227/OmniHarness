@@ -27,9 +27,9 @@
  * @maturity L1 — A/B/C 三档可达 / 未声明能力一票 C / 沙箱失败一票 C / 缺腿 fail-closed / 确定性 判据钉死
  * @maturityEvidence tests/unit/packGrader.test.ts
  */
-import { log } from '../util/logger.js';
-import { PackStaticScanner } from './packStaticScanner.js';
-import type { PackCapability, PackFinding, PackScanReport } from './packStaticScanner.js';
+import { log } from '../util/logger.ts';
+import { PackStaticScanner } from './packStaticScanner.ts';
+import type { PackCapability, PackFinding, PackScanReport } from './packStaticScanner.ts';
 
 /** 评级拒因的**可机读码**（§12.1-4）。 */
 export type PackGradeCode =

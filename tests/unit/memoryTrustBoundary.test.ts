@@ -22,11 +22,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.js';
-import { ScriptedModel } from '../../src/core/scriptedModel.js';
-import type { ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
+import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';
+import { ScriptedModel } from '../../src/core/scriptedModel.ts';
+import type { ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
 
 /**
  * 内存版长期记忆桩（与 `memoryExtractor.test.ts` 同款，避免引入文件落盘依赖）。

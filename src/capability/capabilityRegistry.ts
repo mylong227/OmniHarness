@@ -25,19 +25,19 @@
  * @maturity L1 — 绞杀者等价（J6，逐位对照 + 变异自证）与注册口/治理 fail-closed 判据钉死
  * @maturityEvidence tests/unit/capabilityRegistry.test.ts
  */
-import type { PromotionLedgerPort } from '../ports/runtime/evolution.js';
-import type { MoireMeta } from '../ports/skill/moireMeta.js';
-import type { MoireOptions } from '../ports/skill/moireOptions.js';
-import type { Skill } from '../ports/skill/skill.js';
+import type { PromotionLedgerPort } from '../ports/runtime/evolution.ts';
+import type { MoireMeta } from '../ports/skill/moireMeta.ts';
+import type { MoireOptions } from '../ports/skill/moireOptions.ts';
+import type { Skill } from '../ports/skill/skill.ts';
 import type {
   CapabilityRecord,
   CapabilitySchemaRegistryPort,
   CapabilityRegistryPort,
   GovernancePatch,
-} from '../ports/capability.js';
-import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.js';
-import type { SkillRetrieveHit } from '../skill/skillRetriever.js';
-import { SkillRegistry } from '../skill/skillRegistry.js';
+} from '../ports/capability.ts';
+import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.ts';
+import type { SkillRetrieveHit } from '../skill/skillRetriever.ts';
+import { SkillRegistry } from '../skill/skillRegistry.ts';
 
 /** 注册表装配项。 */
 export interface CapabilityRegistryOptions {

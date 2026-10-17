@@ -8,12 +8,12 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { createRuntime } from './hooksStub.mjs';
 
-const { ApiClient } = await import('../src/core/ApiClient.js');
+const { ApiClient } = await import('../src/core/ApiClient.ts');
 
 // ChangesTab 走 useApp()（React.createContext）与 deps.js，先种运行时桩再动态加载组件。
 const runtime = createRuntime();
 runtime.install();
-const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.js');
+const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
 
 /** 捕获一次 RPC 调用（method + params）。 */
 async function captureRpc(fn) {

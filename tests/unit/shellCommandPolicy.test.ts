@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.js';
+import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.ts';
 
 describe('shellCommandPolicy 工具层裁决', () => {
   it('默认 audit 模式：一切命令放行（零行为变更，含管道与命令替换）', () => {

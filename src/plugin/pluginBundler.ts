@@ -10,9 +10,9 @@ import {
   chmodSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { Zip, type ZipEntry } from './zip.js';
-import type { PluginProfile } from './pluginProfileStore.js';
-import type { PluginRegistry } from './pluginRegistry.js';
+import { Zip, type ZipEntry } from './zip.ts';
+import type { PluginProfile } from './pluginProfileStore.ts';
+import type { PluginRegistry } from './pluginRegistry.ts';
 
 /**
  * Bundle 发布单元（G-E 5.2/5.3，对标 dsh 可 patch 插件叠层 + 发布单元）。

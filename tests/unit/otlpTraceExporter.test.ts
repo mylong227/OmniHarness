@@ -4,7 +4,7 @@ import {
   OtlpTraceExporter,
   NoopTraceExporter,
   type Span,
-} from '../../src/observability/otlpTraceExporter.js';
+} from '../../src/observability/otlpTraceExporter.ts';
 
 const span: Span = {
   traceId: 't1',

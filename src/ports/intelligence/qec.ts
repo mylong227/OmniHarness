@@ -7,6 +7,6 @@
  * 代数上无此"可校验纠错"维度（市面唯一）。
  */
 
-export type { QECStatus } from './qec/qecStatus.js';
-export type { QECReport } from './qec/qecReport.js';
-export type { QECEncoderPort } from './qec/qecEncoderPort.js';
+export type { QECStatus } from './qec/qecStatus.ts';
+export type { QECReport } from './qec/qecReport.ts';
+export type { QECEncoderPort } from './qec/qecEncoderPort.ts';

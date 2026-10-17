@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RepoMap, type SymbolNode } from '../../src/context/repoMap/repoMap.js';
+import { RepoMap, type SymbolNode } from '../../src/context/repoMap/repoMap.ts';
 
 /** 按种类过滤符号。 */
 const ofKind = (nodes: readonly SymbolNode[], kind: string): SymbolNode[] =>

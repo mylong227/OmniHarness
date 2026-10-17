@@ -1,5 +1,5 @@
-import type { ToolInputDelta } from '../../ports/model/model.js';
-import type { ToolInputSink } from '../../ports/tool/toolInputSink.js';
+import type { ToolInputDelta } from '../../ports/model/model.ts';
+import type { ToolInputSink } from '../../ports/tool/toolInputSink.ts';
 
 /**
  * @beta

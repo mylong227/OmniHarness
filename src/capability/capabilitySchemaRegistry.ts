@@ -11,7 +11,7 @@
  * @maturity L1 — 注册/查询/确定性列举的行为判据钉死（含两条 fail-closed 的变异）
  * @maturityEvidence tests/unit/capabilitySchemaRegistry.test.ts
  */
-import type { CapabilitySchema, CapabilitySchemaRegistryPort } from '../ports/capability.js';
+import type { CapabilitySchema, CapabilitySchemaRegistryPort } from '../ports/capability.ts';
 
 /** 资产类型注册表：类型键 → 描述符（唯一权威）。 */
 export class CapabilitySchemaRegistry implements CapabilitySchemaRegistryPort {

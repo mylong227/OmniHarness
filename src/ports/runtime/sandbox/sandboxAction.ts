@@ -1,4 +1,4 @@
-import type { SandboxActionKind } from './sandboxActionKind.js';
+import type { SandboxActionKind } from './sandboxActionKind.ts';
 
 /** 沙箱待裁决动作。 */
 export interface SandboxAction {

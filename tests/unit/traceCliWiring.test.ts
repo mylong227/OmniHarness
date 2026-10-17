@@ -14,10 +14,10 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { TraceCommand } from '../../src/cli/traceCommand.js';
-import { CliDefaults } from '../../src/cli/argParser.js';
-import { SessionStorageLocation } from '../../src/util/sessionStorageLocation.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { TraceCommand } from '../../src/cli/traceCommand.ts';
+import { CliDefaults } from '../../src/cli/argParser.ts';
+import { SessionStorageLocation } from '../../src/util/sessionStorageLocation.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 造一条会话事件。 */
 const ev = (type: SessionEvent['type'], payload: unknown, at: string): SessionEvent => ({

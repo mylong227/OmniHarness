@@ -1,4 +1,4 @@
-import type { Plugin } from '../../src/plugin/plugin.js';
+import type { Plugin } from '../../src/plugin/plugin.ts';
 
 /** 声明需要 proc.exec 权限的测试插件。 */
 const plugin: Plugin = {

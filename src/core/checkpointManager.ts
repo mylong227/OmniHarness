@@ -1,14 +1,14 @@
 import { join, resolve, sep } from 'node:path';
-import type { SessionEvent } from '../ports/runtime/event.js';
-import type { StoragePort } from '../ports/memory/storage.js';
-import type { WorkspaceSnapshotPort } from '../ports/tool/workspaceSnapshot.js';
+import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { StoragePort } from '../ports/memory/storage.ts';
+import type { WorkspaceSnapshotPort } from '../ports/tool/workspaceSnapshot.ts';
 import {
   type CheckpointMeta,
   type CheckpointManagerPort,
-} from '../ports/runtime/checkpointManager.js';
-import type { LiveSessionRewindPort } from '../ports/runtime/liveSessionRewindPort.js';
-import { SnapshotFileIo } from './snapshotFileIo.js';
-import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.js';
+} from '../ports/runtime/checkpointManager.ts';
+import type { LiveSessionRewindPort } from '../ports/runtime/liveSessionRewindPort.ts';
+import { SnapshotFileIo } from './snapshotFileIo.ts';
+import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.ts';
 
 /** 检查点管理器选项。 */
 export interface CheckpointOptions {

@@ -20,9 +20,9 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.js');
-const { RightPanel } = await import('../src/ui/components/RightPanel.js');
-const { parseHash } = await import('../src/core/Router.js');
+const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.tsx');
+const { RightPanel } = await import('../src/ui/components/RightPanel.tsx');
+const { parseHash } = await import('../src/core/Router.ts');
 
 let lastRendered = null;
 

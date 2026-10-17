@@ -1,7 +1,7 @@
 ﻿// 会话分组：把扁平会话列表按「所属工作区」折叠成分组，并决定分组展示顺序。
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
 
-import { WorkspacePath } from './WorkspacePath.js';
+import { WorkspacePath } from './WorkspacePath.ts';
 
 /** 无工作区标记的历史会话归入此键（升级前创建的会话）。 */
 export const EARLY_KEY = '__early__';

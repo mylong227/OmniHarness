@@ -1,4 +1,4 @@
-import { builtinDefaults } from '../util/builtinDefaults.js';
+import { builtinDefaults } from '../util/builtinDefaults.ts';
 import {
   A2A_TRANSPORTS,
   APPROVAL_ASKS,
@@ -15,7 +15,7 @@ import {
   SANDBOX_PROFILES,
   SPILL_ADAPTERS,
   STORAGE_ADAPTERS,
-} from './cliEnums.js';
+} from './cliEnums.ts';
 
 /**
  * 帮助文本里可引用的枚举源（占位符名 → 取值清单）。

@@ -8,9 +8,9 @@
  * MCP 网关（mcpGateway）不应关心这个分叉——它只吃本端口，由组合根决定注入哪个实现
  * （生产注入「SDK 优先、手写回退」的偏好连接器，测试注入手写实现）。
  */
-import type { McpClientPort } from './mcpClientPort.js';
-import type { McpInitializeResult } from './mcpProtocolTypes.js';
-import type { McpServerConfig } from './mcpServerConfig.js';
+import type { McpClientPort } from './mcpClientPort.ts';
+import type { McpInitializeResult } from './mcpProtocolTypes.ts';
+import type { McpServerConfig } from './mcpServerConfig.ts';
 
 /**
  * @beta

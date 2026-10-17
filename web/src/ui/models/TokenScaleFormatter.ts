@@ -1,5 +1,5 @@
 // token 数量与人读比例的格式化：纯逻辑、零 React 依赖，node 环境可直接单测。
-import { t } from '../i18n/i18n.js';
+import { t } from '../i18n/i18n.ts';
 
 /**
  * token 数量 / 百分比格式化器。

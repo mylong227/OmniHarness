@@ -22,7 +22,7 @@ import {
   PRICE_SOURCES,
   RoutePricing,
   UNPRICED_DEFAULT_FAMILIES,
-} from '../../src/adapters/model/routePricing.js';
+} from '../../src/adapters/model/routePricing.ts';
 
 /** 本轮按公开价目填入的键（与 routePricing.ts 里的注释批次一致）。 */
 const PRICED_THIS_ROUND: readonly string[] = [

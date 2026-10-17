@@ -17,10 +17,10 @@
  */
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 解析裸标识符）。
 import * as React from 'react';
-import { useApp } from '../../context.js';
+import { useApp } from '../../context.ts';
 import type { ReactElement } from 'react';
-import type { VaultListResult } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import type { VaultListResult } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** 保险库面板。 */
 export function VaultTab(): ReactElement {

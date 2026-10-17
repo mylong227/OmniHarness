@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../omniError.js';
+import { OmniError, ErrorCode } from '../omniError.ts';
 
 /**
  * 工作流 DAG 不合法（依赖关系无法拓扑排序 / id 重复 / 依赖悬空）。

@@ -6,10 +6,10 @@
  * 继承自 CliDataCmds（故可复用其全部 build* / flagValue 助手），并被 CliNativeCmds 继承。
  */
 
-import { CliDefaults, MODEL_ADAPTERS, CliFlagTable } from './argParser.js';
-import type { CliArgs } from './argParser.js';
-import { CliDataCmds } from './cliDataCmds.js';
-import type { ResolvedConfig } from '../ports/config/resolvedConfig.js';
+import { CliDefaults, MODEL_ADAPTERS, CliFlagTable } from './argParser.ts';
+import type { CliArgs } from './argParser.ts';
+import { CliDataCmds } from './cliDataCmds.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
 
 /** A/B 模型对比类子命令。 */
 export class CliCompareCmds extends CliDataCmds {
@@ -55,8 +55,8 @@ export class CliCompareCmds extends CliDataCmds {
     // 合计净 ~1.2s，而 compare 是**冷门命令族**；顶层值导入让**每个**子命令（含 `kv list`）都付这份
     // ESM 解析成本 ⇒ 改成走到这里才加载。调用方零改动。
     const [{ Agent }, { Runtime }] = await Promise.all([
-      import('../core/agent.js'),
-      import('../composition/runtime.js'),
+      import('../core/agent.ts'),
+      import('../composition/runtime.ts'),
     ]);
     const agent = new Agent(Runtime.createRuntime(config));
     const startedAt = Date.now();
@@ -96,11 +96,11 @@ export class CliCompareCmds extends CliDataCmds {
       { AutoApproval },
       { PassthroughSandbox },
     ] = await Promise.all([
-      import('../config/configFactory.js'),
-      import('../adapters/storage/memoryStorage.js'),
-      import('../adapters/event/silentEventPort.js'),
-      import('../adapters/approval/autoApproval.js'),
-      import('../adapters/sandbox/passthroughSandbox.js'),
+      import('../config/configFactory.ts'),
+      import('../adapters/storage/memoryStorage.ts'),
+      import('../adapters/event/silentEventPort.ts'),
+      import('../adapters/approval/autoApproval.ts'),
+      import('../adapters/sandbox/passthroughSandbox.ts'),
     ]);
     return ConfigFactory.build({
       workspaceRoot: process.cwd(),

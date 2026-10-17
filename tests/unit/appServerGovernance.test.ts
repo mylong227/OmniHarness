@@ -17,18 +17,18 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { AppServer } from '../../src/server/core/appServer.js';
-import { AppServerGovernanceHandlers } from '../../src/server/core/appServerGovernanceHandlers.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import type { Skill } from '../../src/ports/skill/skill.js';
-import { FeatureEntitlements } from '../../src/license/featureEntitlements.js';
-import { LicenseEngine } from '../../src/license/licenseEngine.js';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.js';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { AppServerGovernanceHandlers } from '../../src/server/core/appServerGovernanceHandlers.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import type { Skill } from '../../src/ports/skill/skill.ts';
+import { FeatureEntitlements } from '../../src/license/featureEntitlements.ts';
+import { LicenseEngine } from '../../src/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
 
 /**
  * 造一份**真实签名**的 Pro 授权权益（治理台属 Pro，§6.1）。

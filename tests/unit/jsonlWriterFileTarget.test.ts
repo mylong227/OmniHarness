@@ -21,8 +21,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { JsonlWriter } from '../../src/output/jsonlWriter.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { JsonlWriter } from '../../src/output/jsonlWriter.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /**
  * 造一条会话事件（字段固定，便于逐字节比对）。

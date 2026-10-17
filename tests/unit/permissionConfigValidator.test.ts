@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ConfigError } from '../../src/config/configError.js';
+import { ConfigError } from '../../src/config/configError.ts';
 
 describe('permission 段：严格校验（fail-closed）', () => {
   it('合法规则通过（含 commandGlob）', () => {

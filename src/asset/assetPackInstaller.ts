@@ -22,7 +22,7 @@
  * @maturity L1 — J9 三类全拒 + 整包原子 + 档位只收紧 + 无台账拒装 判据钉死
  * @maturityEvidence tests/unit/assetPackInstaller.test.ts
  */
-import { AssetPackCodec } from './assetPackCodec.js';
+import { AssetPackCodec } from './assetPackCodec.ts';
 import type {
   AssetPackInstallRequest,
   AssetPackManifest,
@@ -30,17 +30,17 @@ import type {
   InstallReport,
   PackAssetEntry,
   RegistryMetadata,
-} from '../ports/asset.js';
-import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.js';
+} from '../ports/asset.ts';
+import { ISOLATION_LEVEL_ORDER, TRUST_TIER_ORDER } from '../ports/capability.ts';
 import type {
   CapabilityRecord,
   CapabilityRegistryPort,
   CapabilitySchemaRegistryPort,
   IsolationLevel,
   TrustTier,
-} from '../ports/capability.js';
-import type { PromotionLedgerPort } from '../ports/runtime/evolution.js';
-import type { IsolationPayload, IsolationPort } from '../ports/runtime/isolation.js';
+} from '../ports/capability.ts';
+import type { PromotionLedgerPort } from '../ports/runtime/evolution.ts';
+import type { IsolationPayload, IsolationPort } from '../ports/runtime/isolation.ts';
 
 /** 装配项。 */
 export interface AssetPackInstallerOptions {

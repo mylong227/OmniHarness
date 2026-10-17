@@ -1,7 +1,7 @@
 import { deflateSync } from 'node:zlib';
-import { Crc32 } from './crc32.js';
-import { PngFilterSelector } from './pngFilterSelector.js';
-import type { RasterImage } from './rasterTypes.js';
+import { Crc32 } from './crc32.ts';
+import { PngFilterSelector } from './pngFilterSelector.ts';
+import type { RasterImage } from './rasterTypes.ts';
 
 /** PNG 文件签名（8 字节）。 */
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);

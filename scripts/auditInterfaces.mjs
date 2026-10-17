@@ -64,12 +64,14 @@ function walk(dir, out) {
   return out;
 }
 
-/** 把相对 specifier 解析为仓库内的真实文件（`.js` → `.ts`、目录 → `index.ts`）。 */
+/** 把相对 specifier 解析为仓库内的真实文件（`.ts`/`.js` 后缀都认，目录 → `index.ts`）。 */
 function resolveSpecifier(fromFile, spec) {
   if (!spec.startsWith('.')) return undefined;
   const base = path.resolve(path.dirname(fromFile), spec).split(path.sep).join('/');
   const cands = [];
+  // 2026-10-17 起导入约定写真实后缀 `.ts`，直接命中；`.js` 保留为旧约定回落。
   if (base.endsWith('.js')) cands.push(base.slice(0, -3) + '.ts');
+  if (base.endsWith('.ts') || base.endsWith('.tsx')) cands.push(base);
   cands.push(base + '.ts', base + '/index.ts');
   return cands.find((c) => fs.existsSync(c));
 }

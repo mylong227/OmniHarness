@@ -2,10 +2,10 @@
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
 import * as React from 'react';
-import { esc } from '../../format.js';
-import { FileIconResolver } from '../../models/FileIconResolver.js';
-import { icon } from '../../models/Icon.js';
-import type { FileAttachment } from '../../../types/models.js';
+import { esc } from '../../format.ts';
+import { FileIconResolver } from '../../models/FileIconResolver.ts';
+import { icon } from '../../models/Icon.ts';
+import type { FileAttachment } from '../../../types/models.ts';
 
 /** AttachmentChips 组件的入参。 */
 export interface AttachmentChipsProps {

@@ -18,10 +18,10 @@
  * @maturity L1 — 两条转正路径的端到端判据钉死（差异测试拦截/回滚、固化加法式与密度归零）
  * @maturityEvidence tests/unit/dormantExecutorActivation.test.ts
  */
-import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.js';
-import type { CRISPRSkillEditorPort, CrisprEditSpec } from '../ports/runtime/skillEdit.js';
-import type { Skill } from '../skill/skill.js';
-import type { ImprovementProposal } from './failurePatternMiner.js';
+import type { CapabilityCrystallizerPort } from '../ports/intelligence/capability.ts';
+import type { CRISPRSkillEditorPort, CrisprEditSpec } from '../ports/runtime/skillEdit.ts';
+import type { Skill } from '../skill/skill.ts';
+import type { ImprovementProposal } from './failurePatternMiner.ts';
 
 /** 防再犯条款标记（幂等锚点：已带此标记的 instructions 不再重复追加）。 */
 const GUARD_MARKER = '【防再犯】';

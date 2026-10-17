@@ -18,24 +18,24 @@
  *
  * 能力分级由 {@link PtyCapability} 单点负责，本类只做「校验 → 裁决 → 分级 → 执行 → 如实回传」。
  */
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import { log } from '../../../util/logger.js';
-import { ShellCommandPolicy } from './shellCommandPolicy.js';
-import { PtyCapability } from './ptyCapability.js';
-import type { PtyProbe, PtyReport } from './ptyCapability.js';
-import { ShellInteractiveExecutor } from './shellInteractiveExecutor.js';
-import type { InteractiveRunOutcome } from './shellInteractiveExecutor.js';
+} from '../../../ports/tool/tool.ts';
+import { log } from '../../../util/logger.ts';
+import { ShellCommandPolicy } from './shellCommandPolicy.ts';
+import { PtyCapability } from './ptyCapability.ts';
+import type { PtyProbe, PtyReport } from './ptyCapability.ts';
+import { ShellInteractiveExecutor } from './shellInteractiveExecutor.ts';
+import type { InteractiveRunOutcome } from './shellInteractiveExecutor.ts';
 import {
   SHELL_INTERACTIVE_DEFAULT_TIMEOUT_MS,
   SHELL_INTERACTIVE_MAX_TIMEOUT_MS,
   SHELL_MIN_TIMEOUT_MS,
-} from './shellTimeouts.js';
+} from './shellTimeouts.ts';
 
 /** `shell_interactive` 工具选项。 */
 export interface ShellInteractiveToolOptions {

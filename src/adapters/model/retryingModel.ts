@@ -3,8 +3,8 @@ import type {
   ModelPort,
   ModelRequest,
   StreamCallbacks,
-} from '../../ports/model/model.js';
-import { ModelCallError } from '../../ports/model/model.js';
+} from '../../ports/model/model.ts';
+import { ModelCallError } from '../../ports/model/model.ts';
 
 /**
  * @beta

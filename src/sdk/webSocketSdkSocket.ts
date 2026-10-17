@@ -1,4 +1,4 @@
-import type { SdkSocket } from '../ports/sdk/sdkSocket.js';
+import type { SdkSocket } from '../ports/sdk/sdkSocket.ts';
 
 /** 最小 WebSocket 结构（与 WHATWG WebSocket 兼容，便于注入）。 */
 export interface MinimalWebSocket {
@@ -10,7 +10,7 @@ export interface MinimalWebSocket {
   onerror: ((event: unknown) => void) | null;
 }
 
-export type { SdkSocket } from '../ports/sdk/sdkSocket.js';
+export type { SdkSocket } from '../ports/sdk/sdkSocket.ts';
 
 /** WebSocket 传输实现（Node 22 全局 WebSocket / 浏览器同源）。 */
 export class WebSocketSdkSocket implements SdkSocket {

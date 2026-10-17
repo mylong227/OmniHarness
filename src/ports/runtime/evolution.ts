@@ -15,18 +15,18 @@
  * （GEE Kernel v1 · ADR-0008 新增三契约：信号源 / 候选档案 / 晋升台账。）
  */
 
-export type { Candidate } from './evolution/candidate.js';
-export type { PromotionVerdict } from './evolution/promotionVerdict.js';
-export type { EvolutionGate } from './evolution/evolutionGate.js';
-export type { DiscoveryEngine } from './evolution/discoveryEngine.js';
-export type { EvolutionControllerOptions } from './evolution/evolutionControllerOptions.js';
-export type { EvolutionController } from './evolution/evolutionController.js';
+export type { Candidate } from './evolution/candidate.ts';
+export type { PromotionVerdict } from './evolution/promotionVerdict.ts';
+export type { EvolutionGate } from './evolution/evolutionGate.ts';
+export type { DiscoveryEngine } from './evolution/discoveryEngine.ts';
+export type { EvolutionControllerOptions } from './evolution/evolutionControllerOptions.ts';
+export type { EvolutionController } from './evolution/evolutionController.ts';
 export type {
   EvolutionSignal,
   EvolutionSignalKind,
   EvolutionSignalSourcePort,
-} from './evolution/signalSource.js';
-export type { CandidateArchivePort, ArchivedCandidate } from './evolution/candidateArchive.js';
+} from './evolution/signalSource.ts';
+export type { CandidateArchivePort, ArchivedCandidate } from './evolution/candidateArchive.ts';
 export type {
   PromotionLedgerPort,
   PromotionLedgerEntry,
@@ -34,7 +34,7 @@ export type {
   PromotionLedgerVerifyReport,
   PromotionRecord,
   SkillRestorePlan,
-} from './evolution/promotionLedger.js';
-export type { RewardVerdict } from './evolution/rewardVerdict.js';
-export type { OperatorPort, EvolutionContext } from './evolution/operator.js';
-export type { EvaluatorPort } from './evolution/evaluator.js';
+} from './evolution/promotionLedger.ts';
+export type { RewardVerdict } from './evolution/rewardVerdict.ts';
+export type { OperatorPort, EvolutionContext } from './evolution/operator.ts';
+export type { EvaluatorPort } from './evolution/evaluator.ts';

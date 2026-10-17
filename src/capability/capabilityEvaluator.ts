@@ -21,8 +21,8 @@ import type {
   CapabilityRecord,
   CapabilitySchemaRegistryPort,
   EvalContext,
-} from '../ports/capability.js';
-import type { EvaluatorPort, RewardVerdict } from '../ports/runtime/evolution.js';
+} from '../ports/capability.ts';
+import type { EvaluatorPort, RewardVerdict } from '../ports/runtime/evolution.ts';
 
 /** 评估器选项。 */
 export interface CapabilityEvaluatorOptions {

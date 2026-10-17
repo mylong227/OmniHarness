@@ -7,8 +7,8 @@
  * 本文件已退化为桶：5 个接口各自独立成文件于 `./plan/`，调用点零改动。
  */
 
-export type { PlanStatus } from './plan/planStatus.js';
-export type { PlanStep } from './plan/planStep.js';
-export type { PlanDraft } from './plan/planDraft.js';
-export type { PlanState } from './plan/planState.js';
-export type { PlanPort } from './plan/planPort.js';
+export type { PlanStatus } from './plan/planStatus.ts';
+export type { PlanStep } from './plan/planStep.ts';
+export type { PlanDraft } from './plan/planDraft.ts';
+export type { PlanState } from './plan/planState.ts';
+export type { PlanPort } from './plan/planPort.ts';

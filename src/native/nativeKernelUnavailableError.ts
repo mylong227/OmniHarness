@@ -1,4 +1,4 @@
-import { OmniError, ErrorCode } from '../omniError.js';
+import { OmniError, ErrorCode } from '../omniError.ts';
 
 export class NativeKernelUnavailableError extends OmniError {
   public constructor(message: string) {

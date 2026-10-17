@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Embedding } from '../ports/model/embedding.js';
+import type { Embedding } from '../ports/model/embedding.ts';
 
 /** 缓存统计。 */
 export interface EmbeddingCacheStats {

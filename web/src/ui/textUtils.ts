@@ -2,8 +2,8 @@
 // 抽离出来便于在 node --test 下直接单测（web 此前 0 测试文件，审计 P0）。
 // 注意：本文件不得 import 'react'（纯文本工具，保持零 React 依赖才能在任何环境直接加载）。
 
-import type { ThreadEvent } from '../types/models.js';
-import { t } from './i18n/i18n.js';
+import type { ThreadEvent } from '../types/models.ts';
+import { t } from './i18n/i18n.ts';
 
 /** 截断长字符串到指定字符数（按 UTF-16 单元），超长末尾加省略号。 */
 export function truncate(s: string, n: number): string {

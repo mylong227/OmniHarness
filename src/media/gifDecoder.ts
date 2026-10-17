@@ -1,8 +1,8 @@
-import { MediaFormatError } from '../errors/mediaFormatError.js';
-import { GifBinaryReader } from './gifBinaryReader.js';
-import { GifColorTable } from './gifColorTable.js';
-import { GifFrameCompositor } from './gifFrameCompositor.js';
-import { GifLzwDecoder } from './gifLzwDecoder.js';
+import { MediaFormatError } from '../errors/mediaFormatError.ts';
+import { GifBinaryReader } from './gifBinaryReader.ts';
+import { GifColorTable } from './gifColorTable.ts';
+import { GifFrameCompositor } from './gifFrameCompositor.ts';
+import { GifLzwDecoder } from './gifLzwDecoder.ts';
 import type {
   GifAnimation,
   GifDecodeOptions,
@@ -10,7 +10,7 @@ import type {
   GifDisposalMethod,
   GifFrameTiming,
   GifImageSpec,
-} from './gifTypes.js';
+} from './gifTypes.ts';
 
 /** 块标记：扩展块。 */
 const MARKER_EXTENSION = 0x21;

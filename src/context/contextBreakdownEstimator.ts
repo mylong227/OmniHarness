@@ -2,17 +2,17 @@ import type {
   ContextCategoryKey,
   ModelContextSnapshot,
   ModelMessage,
-} from '../ports/model/model.js';
-import type { ToolDefinition } from '../ports/tool/tool.js';
-import type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.js';
-import type { ContextBreakdown } from '../ports/context/contextBreakdown.js';
-import { TokenEstimator } from './tokenEstimator.js';
+} from '../ports/model/model.ts';
+import type { ToolDefinition } from '../ports/tool/tool.ts';
+import type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.ts';
+import type { ContextBreakdown } from '../ports/context/contextBreakdown.ts';
+import { TokenEstimator } from './tokenEstimator.ts';
 
 /**
  * 分类键与快照类型定义在 `ports/model.ts`（模型域词汇，事件快照与 UI 协议共用），
  * 此处再导出，使上下文域的调用点只需 import 本模块。
  */
-export type { ContextCategoryKey, ModelContextSnapshot } from '../ports/model/model.js';
+export type { ContextCategoryKey, ModelContextSnapshot } from '../ports/model/model.ts';
 
 /** 分类元数据（键 → 展示名）。 */
 export interface ContextCategoryMeta {
@@ -40,7 +40,7 @@ const MCP_NAME_SEPARATOR = '__';
 /** 技能注入片段的前缀（与 `SkillRegistry.render` 的首行严格一致）。 */
 const SKILL_MARKER = '# 技能：';
 
-export type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.js';
+export type { ContextBreakdownRow } from '../ports/context/contextBreakdownRow.ts';
 
 /** 估算输入。 */
 export interface ContextBreakdownInput {
@@ -54,7 +54,7 @@ export interface ContextBreakdownInput {
   readonly windowTokens: number;
 }
 
-export type { ContextBreakdown } from '../ports/context/contextBreakdown.js';
+export type { ContextBreakdown } from '../ports/context/contextBreakdown.ts';
 
 /**
  * 上下文容量分解器。

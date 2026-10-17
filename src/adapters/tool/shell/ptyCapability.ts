@@ -21,7 +21,7 @@
  */
 import { existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
-import { ShellInvocation } from './shellInvocation.js';
+import { ShellInvocation } from './shellInvocation.ts';
 
 /** PTY 能力等级（按优先级从高到低）。 */
 export type PtyMode = 'pty-wrapper' | 'inherit' | 'unavailable';

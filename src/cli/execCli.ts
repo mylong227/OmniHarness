@@ -16,24 +16,24 @@
  *   `--version` / `--help` 等无需执行引擎的路径不再加载本文件。
  */
 
-import { AsyncChildProcess } from '../util/asyncChildProcess.js';
+import { AsyncChildProcess } from '../util/asyncChildProcess.ts';
 import { join } from 'node:path';
-import { Agent } from '../core/agent.js';
-import { Runtime } from '../composition/runtime.js';
-import { JsonlWriter } from '../output/jsonlWriter.js';
-import type { CliArgs } from './argParser.js';
-import { ArgParser } from './argParser.js';
-import { CliAgentCmds } from './cliAgentCmds.js';
-import { ExecLocal } from './execLocal.js';
-import { EvolutionCommand } from './evolutionCommand.js';
-import { CapabilityCommand } from './capabilityCommand.js';
-import { LicenseCommand } from './licenseCommand.js';
-import { AssetPackInstaller } from '../asset/assetPackInstaller.js';
-import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.js';
-import { WasmSkillPack } from '../asset/wasmSkillPack.js';
-import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.js';
-import type { AssetPackPort } from '../ports/asset.js';
-import type { CapabilityStack } from '../ports/config/capabilityStack.js';
+import { Agent } from '../core/agent.ts';
+import { Runtime } from '../composition/runtime.ts';
+import { JsonlWriter } from '../output/jsonlWriter.ts';
+import type { CliArgs } from './argParser.ts';
+import { ArgParser } from './argParser.ts';
+import { CliAgentCmds } from './cliAgentCmds.ts';
+import { ExecLocal } from './execLocal.ts';
+import { EvolutionCommand } from './evolutionCommand.ts';
+import { CapabilityCommand } from './capabilityCommand.ts';
+import { LicenseCommand } from './licenseCommand.ts';
+import { AssetPackInstaller } from '../asset/assetPackInstaller.ts';
+import { IsolationLadderFactory } from '../adapters/isolation/isolationLadderFactory.ts';
+import { WasmSkillPack } from '../asset/wasmSkillPack.ts';
+import { HashChainPromotionLedger } from '../evolution/hashChainPromotionLedger.ts';
+import type { AssetPackPort } from '../ports/asset.ts';
+import type { CapabilityStack } from '../ports/config/capabilityStack.ts';
 
 /** 可报告体检的进化控制器（Kernel 与 RLVR 控制器都实现 `report()`；`EvolutionController` 端口未声明它）。 */
 interface ReportableController {
@@ -82,7 +82,7 @@ export class ExecCli extends CliAgentCmds {
    */
   public async run(argv: readonly string[]): Promise<number> {
     if (argv.includes('--version') || argv.includes('-V')) {
-      process.stdout.write(`omniharness ${(await import('../version.js')).API_VERSION}\n`);
+      process.stdout.write(`omniharness ${(await import('../version.ts')).API_VERSION}\n`);
       return 0;
     }
     // 链基半段：不碰 Agent/Runtime（`exec.ts` 若已直接走过这一层，这里会立刻返回同一个结论）。
@@ -186,7 +186,7 @@ export class ExecCli extends CliAgentCmds {
    */
   private async emitRunOutcome(
     result: {
-      readonly events: readonly import('../ports/runtime/event.js').SessionEvent[];
+      readonly events: readonly import('../ports/runtime/event.ts').SessionEvent[];
       readonly summary: unknown;
     },
     args: CliArgs,

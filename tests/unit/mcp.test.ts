@@ -1,20 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.js';
-import type { Transport } from '../../src/server/transport/lineTransport.js';
-import { McpServer } from '../../src/mcp/mcpServer.js';
-import { McpClient } from '../../src/mcp/mcpClient.js';
-import { McpGateway } from '../../src/mcp/mcpGateway.js';
-import { McpProtocol } from '../../src/mcp/mcpProtocol.js';
-import { mcpToolMapper } from '../../src/mcp/mcpToolMapper.js';
-import { McpServerCommand } from '../../src/mcp/mcpServerCommand.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import { DenyApproval } from '../../src/adapters/approval/denyApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { ToolGate } from '../../src/core/toolGate.js';
-import type { ResourcePort, PromptPort } from '../../src/mcp/mcpServer.js';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.js';
+import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import { McpServer } from '../../src/mcp/mcpServer.ts';
+import { McpClient } from '../../src/mcp/mcpClient.ts';
+import { McpGateway } from '../../src/mcp/mcpGateway.ts';
+import { McpProtocol } from '../../src/mcp/mcpProtocol.ts';
+import { mcpToolMapper } from '../../src/mcp/mcpToolMapper.ts';
+import { McpServerCommand } from '../../src/mcp/mcpServerCommand.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { ToolGate } from '../../src/core/toolGate.ts';
+import type { ResourcePort, PromptPort } from '../../src/mcp/mcpServer.ts';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.ts';
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements Transport {

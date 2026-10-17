@@ -9,7 +9,7 @@
 // 全部为纯逻辑，node 直跑 web/dist 编译产物。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { ContextUsageView } from '../src/ui/models/ContextUsageView.js';
+import { ContextUsageView } from '../src/ui/models/ContextUsageView.ts';
 
 /**
  * 造一份最小可用的 context.usage 报告。

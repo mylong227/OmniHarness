@@ -1,4 +1,4 @@
-import type { TuiEventKind } from './tuiEventKind.js';
+import type { TuiEventKind } from './tuiEventKind.ts';
 
 /**
  * @beta

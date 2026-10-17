@@ -18,19 +18,19 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Agent } from '../../src/core/agent.js';
-import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.js';
-import { PrefixStability } from '../../src/context/prefixStability.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import { RecordingModel } from '../helpers/recordingModel.js';
-import type { EventPort } from '../../src/ports/runtime/eventPort.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
+import { Agent } from '../../src/core/agent.ts';
+import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.ts';
+import { PrefixStability } from '../../src/context/prefixStability.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { RecordingModel } from '../helpers/recordingModel.ts';
+import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 快照里本判据关心的那一个字段（只为类型收窄，不复制端口契约）。 */
 interface SnapshotWithPrefix {

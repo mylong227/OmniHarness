@@ -19,10 +19,10 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ContextEngine } from '../../src/context/contextEngine.js';
-import type { IndexedCorpus } from '../../src/context/contextEngine.js';
-import { FileReranker } from '../../src/context/fileReranker.js';
-import { FileRerankIndex } from '../../src/context/fileRerankIndex.js';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
+import type { IndexedCorpus } from '../../src/context/contextEngine.ts';
+import { FileReranker } from '../../src/context/fileReranker.ts';
+import { FileRerankIndex } from '../../src/context/fileRerankIndex.ts';
 
 /** 夹具：把「文件内容 → 临时语料」的搭建收口。 */
 class Fixture {

@@ -1,5 +1,5 @@
-import type { BeliefSnapshot } from './beliefSnapshot.js';
-import type { BeliefUpdateReport } from './beliefUpdateReport.js';
+import type { BeliefSnapshot } from './beliefSnapshot.ts';
+import type { BeliefUpdateReport } from './beliefUpdateReport.ts';
 
 /** 元认知信念端口（P2 · I-P2-2 自然梯度信念 / I-P2-3 粒子滤波信念 共用）。 */
 export interface MetacognitionPort {

@@ -1,4 +1,4 @@
-import type { ModelAdapterId } from './modelAdapterId.js';
+import type { ModelAdapterId } from './modelAdapterId.ts';
 
 /**
  * 厂商预设可用的适配器子集：`mock` 不连任何端点、`llamacpp` 是本地原生协议，

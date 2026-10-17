@@ -23,8 +23,8 @@
  * 本文件已退化为桶：5 个接口各自独立成文件于 `./mediaTypes/`，调用点零改动。
  */
 
-export type { MediaKind } from './mediaTypes/mediaKind.js';
-export type { FrameStrategy } from './mediaTypes/frameStrategy.js';
-export type { MediaProbeInfo } from './mediaTypes/mediaProbeInfo.js';
-export type { MediaFrame } from './mediaTypes/mediaFrame.js';
-export type { FrameSelectionPolicy } from './mediaTypes/frameSelectionPolicy.js';
+export type { MediaKind } from './mediaTypes/mediaKind.ts';
+export type { FrameStrategy } from './mediaTypes/frameStrategy.ts';
+export type { MediaProbeInfo } from './mediaTypes/mediaProbeInfo.ts';
+export type { MediaFrame } from './mediaTypes/mediaFrame.ts';
+export type { FrameSelectionPolicy } from './mediaTypes/frameSelectionPolicy.ts';

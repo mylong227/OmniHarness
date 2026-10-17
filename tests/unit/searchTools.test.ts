@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GrepTool } from '../../src/adapters/tool/fs/grepTool.js';
-import { GlobTool } from '../../src/adapters/tool/fs/globTool.js';
+import { GrepTool } from '../../src/adapters/tool/fs/grepTool.ts';
+import { GlobTool } from '../../src/adapters/tool/fs/globTool.ts';
 
 /** 在临时目录里铺一棵小工作区树，返回根目录。 */
 const makeWorkspace = async (): Promise<string> => {

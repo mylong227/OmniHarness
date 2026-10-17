@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import { GoalChecker } from '../../src/autonomy/goalChecker.js';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { GoalChecker } from '../../src/autonomy/goalChecker.ts';
 
 /** 返回固定文本的模型桩。 */
 class ScriptModel implements ModelPort {

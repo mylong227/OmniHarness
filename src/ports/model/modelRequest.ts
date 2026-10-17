@@ -1,6 +1,6 @@
-import type { ModelMessage } from './modelMessage.js';
-import type { ModelResponseFormat } from './modelResponseFormat.js';
-import type { ModelToolSpec } from './modelToolSpec.js';
+import type { ModelMessage } from './modelMessage.ts';
+import type { ModelResponseFormat } from './modelResponseFormat.ts';
+import type { ModelToolSpec } from './modelToolSpec.ts';
 
 /** 模型请求。 */
 export interface ModelRequest {

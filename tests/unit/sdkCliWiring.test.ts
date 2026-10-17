@@ -12,19 +12,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { SdkCommand } from '../../src/cli/sdkCommand.js';
-import type { SdkSocket } from '../../src/sdk/webSocketSdkSocket.js';
-import { WebSocketSdkSocket } from '../../src/sdk/webSocketSdkSocket.js';
-import { SdkClient } from '../../src/sdk/sdkClient.js';
-import { AppServer } from '../../src/server/core/appServer.js';
-import { HttpBridgeTransport, HttpServer } from '../../src/server/transport/httpServer.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MockModel } from '../../src/adapters/model/mockModel.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { tempWorkspace } from '../helpers/tempWorkspace.js';
+import { SdkCommand } from '../../src/cli/sdkCommand.ts';
+import type { SdkSocket } from '../../src/sdk/webSocketSdkSocket.ts';
+import { WebSocketSdkSocket } from '../../src/sdk/webSocketSdkSocket.ts';
+import { SdkClient } from '../../src/sdk/sdkClient.ts';
+import { AppServer } from '../../src/server/core/appServer.ts';
+import { HttpBridgeTransport, HttpServer } from '../../src/server/transport/httpServer.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 假 socket：记录出站帧，并按需回一个 JSON-RPC 响应。 */
 class FakeSocket implements SdkSocket {

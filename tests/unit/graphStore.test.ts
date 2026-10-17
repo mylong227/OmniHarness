@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GraphStore } from '../../src/autonomy/graphStore.js';
-import type { WorkflowDef } from '../../src/autonomy/workflowTypes.js';
+import { GraphStore } from '../../src/autonomy/graphStore.ts';
+import type { WorkflowDef } from '../../src/autonomy/workflowTypes.ts';
 
 function makeStore(): GraphStore {
   const root = mkdtempSync(join(tmpdir(), 'oh-graph-'));

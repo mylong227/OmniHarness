@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
-import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.js';
+import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.ts';
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf)

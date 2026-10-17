@@ -48,5 +48,5 @@ export interface SubagentRequest {
   readonly signal?: AbortSignal | undefined;
 }
 
-export type { SubagentOptions } from '../ports/subagent/subagentOptions.js';
-export type { SubagentResult } from '../ports/subagent/subagentResult.js';
+export type { SubagentOptions } from '../ports/subagent/subagentOptions.ts';
+export type { SubagentResult } from '../ports/subagent/subagentResult.ts';

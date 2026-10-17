@@ -3,10 +3,10 @@
 // 「状态 → 中文」的纯映射下沉为模块级函数（零 React 依赖，可单测）。
 
 import * as React from 'react';
-import { emptyState } from '../../format.js';
-import { icon } from '../../models/Icon.js';
-import type { ToolItem } from '../../shared.js';
-import { t } from '../../i18n/i18n.js';
+import { emptyState } from '../../format.ts';
+import { icon } from '../../models/Icon.ts';
+import type { ToolItem } from '../../shared.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** ToolsTab 组件的入参。 */
 export interface ToolsTabProps {

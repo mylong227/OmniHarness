@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { TurnStreamBuffer } = await import('../src/ui/models/TurnStreamBuffer.js');
+const { TurnStreamBuffer } = await import('../src/ui/models/TurnStreamBuffer.ts');
 
 test('① 落点即时收到增量：push 之后 write 被调用（首字不延迟的语义由节流器保证）', () => {
   // 注意：只 push **一次**。连续两次 push 会各刷一次（首个增量"立即出"，第二次因距今 <50ms

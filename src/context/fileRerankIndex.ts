@@ -17,10 +17,10 @@
  * @maturityEvidence tests/unit/fileRerankIndex.test.ts
  */
 
-import { Bm25Index } from '../search/bm25Index.js';
-import type { SymbolNode } from './repoMap/repoMap.js';
-import type { IndexedCorpus } from './contextEngine.js';
-import { ContentStopWords } from './contentStopWords.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import type { SymbolNode } from './repoMap/repoMap.ts';
+import type { IndexedCorpus } from './contextEngine.ts';
+import { ContentStopWords } from './contentStopWords.ts';
 
 /**
  * 单个语料的惰性视图：文件 → 声明符号，以及文件 → 符号名词集（按需填充）。

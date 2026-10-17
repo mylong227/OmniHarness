@@ -6,7 +6,7 @@
 // 因此每条规则都配一条正例、以及一条会误命的**反例**。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { QuotaPlans, QUOTA_DEFAULT_ID } from '../../src/server/services/quotaPlans.js';
+import { QuotaPlans, QUOTA_DEFAULT_ID } from '../../src/server/services/quotaPlans.ts';
 
 /**
  * 造一个档位目录。

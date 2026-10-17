@@ -9,16 +9,16 @@
 
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Container } from '../core/container.js';
-import { PluginManager } from '../plugin/pluginManager.js';
-import { Manifest } from '../plugin/manifest.js';
-import { PermissionGate, PermissionDeniedError } from '../plugin/permissionGate.js';
-import { Permission } from '../plugin/permission.js';
-import type { PluginPermission } from '../plugin/permission.js';
-import type { Plugin } from '../plugin/plugin.js';
-import type { PluginRegistry } from '../plugin/pluginRegistry.js';
-import { ArgParser } from './argParser.js';
-import { CliArgReader } from './cliArgReader.js';
+import { Container } from '../core/container.ts';
+import { PluginManager } from '../plugin/pluginManager.ts';
+import { Manifest } from '../plugin/manifest.ts';
+import { PermissionGate, PermissionDeniedError } from '../plugin/permissionGate.ts';
+import { Permission } from '../plugin/permission.ts';
+import type { PluginPermission } from '../plugin/permission.ts';
+import type { Plugin } from '../plugin/plugin.ts';
+import type { PluginRegistry } from '../plugin/pluginRegistry.ts';
+import { ArgParser } from './argParser.ts';
+import { CliArgReader } from './cliArgReader.ts';
 
 /** 构造插件注册表的工厂（由命令继承链注入，避免命令类依赖继承链）。 */
 export type PluginRegistryFactory = (

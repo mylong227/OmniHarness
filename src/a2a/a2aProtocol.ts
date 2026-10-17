@@ -8,7 +8,7 @@
  * 无第三方依赖（仅复用 server/jsonRpc 消息类型）。
  */
 
-export type { A2aTransport } from '../ports/a2a/a2aTransport.js';
+export type { A2aTransport } from '../ports/a2a/a2aTransport.ts';
 
 /** 能力声明方法名。 */
 export const A2A_CAPABILITIES_DECLARE = 'capabilities.declare';

@@ -11,10 +11,10 @@
 // 颜色只做明度差，不引入色相 —— 见 DESIGN_SYSTEM §2.4。
 
 import * as React from 'react';
-import { icon } from '../../models/Icon.js';
-import { ProviderStatusResolver } from '../../models/ProviderStatus.js';
-import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { icon } from '../../models/Icon.ts';
+import { ProviderStatusResolver } from '../../models/ProviderStatus.ts';
+import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** ProviderCard 组件的入参。 */
 export interface ProviderCardProps {

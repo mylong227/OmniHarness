@@ -17,9 +17,9 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CliHelp, HELP_ENUM_SOURCES, cliHelp } from '../../src/cli/cliHelp.js';
-import { FLAG_ENUM_VALUES, FLAG_TABLE, CliFlagTable } from '../../src/cli/cliFlagTable.js';
-import { STORAGE_ADAPTERS } from '../../src/cli/cliEnums.js';
+import { CliHelp, HELP_ENUM_SOURCES, cliHelp } from '../../src/cli/cliHelp.ts';
+import { FLAG_ENUM_VALUES, FLAG_TABLE, CliFlagTable } from '../../src/cli/cliFlagTable.ts';
+import { STORAGE_ADAPTERS } from '../../src/cli/cliEnums.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

@@ -8,7 +8,7 @@
 import { dirname, join } from 'node:path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
-import type { ScratchpadNote, ScratchpadPort } from '../../ports/memory/scratchpad.js';
+import type { ScratchpadNote, ScratchpadPort } from '../../ports/memory/scratchpad.ts';
 
 const FILE = 'scratchpad.json';
 const DIR = '.omniharness';

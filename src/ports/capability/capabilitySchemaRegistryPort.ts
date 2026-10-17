@@ -5,7 +5,7 @@
  * - 重复 `kind` 注册 ⇒ 抛错（同一类型键只能有一个权威描述符，静默覆盖会让已入库资产的校验口径变形）；
  * - 未注册 `kind` 查询 ⇒ 抛错（调用方拿到 `undefined` 极易顺势「跳过校验」，那是 J7 漏洞的温床）。
  */
-import type { CapabilitySchema } from './capabilitySchema.js';
+import type { CapabilitySchema } from './capabilitySchema.ts';
 
 /** 资产类型注册表。 */
 export interface CapabilitySchemaRegistryPort {

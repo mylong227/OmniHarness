@@ -1,6 +1,6 @@
-import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.js';
-import { dangerousCommands } from './dangerousCommands.js';
-import { WorkspaceGuard } from '../../util/workspaceGuard.js';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { dangerousCommands } from './dangerousCommands.ts';
+import { WorkspaceGuard } from '../../util/workspaceGuard.ts';
 
 /** 策略沙箱选项。 */
 export interface PolicySandboxOptions {

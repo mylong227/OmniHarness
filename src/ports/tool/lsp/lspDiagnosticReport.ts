@@ -1,4 +1,4 @@
-import type { LspDiagnostic } from './lspDiagnostic.js';
+import type { LspDiagnostic } from './lspDiagnostic.ts';
 
 /**
  * @beta

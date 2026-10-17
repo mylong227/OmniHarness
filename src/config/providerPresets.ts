@@ -1,6 +1,6 @@
-import { builtinDefaults } from '../util/builtinDefaults.js';
-import type { ProviderPresetConfig } from '../ports/config/providerPresetConfig.js';
-import type { ProviderPreset } from '../ports/config/providerPreset.js';
+import { builtinDefaults } from '../util/builtinDefaults.ts';
+import type { ProviderPresetConfig } from '../ports/config/providerPresetConfig.ts';
+import type { ProviderPreset } from '../ports/config/providerPreset.ts';
 export type { ProviderPreset };
 
 /** 单条预设允许出现的 key 全集（多余 key 一律拒绝——拼错字段会被静默忽略才最危险）。 */

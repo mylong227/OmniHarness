@@ -3,7 +3,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { ShortcutActions } from '../src/ui/controllers/ShortcutActions.js';
+import { ShortcutActions } from '../src/ui/controllers/ShortcutActions.ts';
 
 /** 构造记录调用的桩回调集合。 */
 const makeHandlers = () => {

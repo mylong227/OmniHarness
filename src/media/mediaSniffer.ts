@@ -1,5 +1,5 @@
-import { ImageProbe } from '../util/imageProbe.js';
-import type { MediaKind, MediaProbeInfo } from '../ports/media/mediaTypes.js';
+import { ImageProbe } from '../util/imageProbe.ts';
+import type { MediaKind, MediaProbeInfo } from '../ports/media/mediaTypes.ts';
 
 /** 视频容器魔数（`ascii` 为 true 时按 ASCII 比较，否则按十六进制字节比较）。 */
 const VIDEO_SIGNATURES: readonly {

@@ -20,7 +20,7 @@
  * **不适用**：CPU 密集（Node 单线程，需 `worker_threads`）；存在共享可变状态的任务（须串行）。
  */
 
-import { ConcurrencyLimiter } from './concurrencyLimiter.js';
+import { ConcurrencyLimiter } from './concurrencyLimiter.ts';
 
 /**
  * 有界均衡并行映射器。

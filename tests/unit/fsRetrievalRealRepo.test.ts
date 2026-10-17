@@ -24,9 +24,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GrepTool } from '../../src/adapters/tool/fs/grepTool.js';
-import { GlobTool } from '../../src/adapters/tool/fs/globTool.js';
-import { WorkspaceFileWalker } from '../../src/util/workspaceFileWalker.js';
+import { GrepTool } from '../../src/adapters/tool/fs/grepTool.ts';
+import { GlobTool } from '../../src/adapters/tool/fs/globTool.ts';
+import { WorkspaceFileWalker } from '../../src/util/workspaceFileWalker.ts';
 
 /** 仓库根（测试固定从仓库根运行）。 */
 const ROOT = process.cwd();

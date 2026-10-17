@@ -9,13 +9,13 @@
 // 拉数用 alive 标志避免卸载后回写。
 
 import * as React from 'react';
-import { ContextUsageView } from '../models/ContextUsageView.js';
-import { QuotaView } from '../models/QuotaView.js';
-import { icon } from '../models/Icon.js';
-import { claimPopover, releasePopover } from '../models/PopoverStack.js';
-import { t } from '../i18n/i18n.js';
-import type { ContextUsageReport, QuotaStatus } from '../../types/models.js';
-import type { ApiClient } from '../../core/ApiClient.js';
+import { ContextUsageView } from '../models/ContextUsageView.ts';
+import { QuotaView } from '../models/QuotaView.ts';
+import { icon } from '../models/Icon.ts';
+import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { t } from '../i18n/i18n.ts';
+import type { ContextUsageReport, QuotaStatus } from '../../types/models.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
 
 /**
  * 面板打开且回合进行中时的实时刷新间隔（毫秒）。

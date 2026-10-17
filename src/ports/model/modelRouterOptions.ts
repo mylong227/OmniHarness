@@ -1,5 +1,5 @@
-import type { RouterEntry } from './routerEntry.js';
-import type { RouterStrategy } from './routerStrategy.js';
+import type { RouterEntry } from './routerEntry.ts';
+import type { RouterStrategy } from './routerStrategy.ts';
 
 /** ModelRouter 构造参数。 */
 export interface ModelRouterOptions {

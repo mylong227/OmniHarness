@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { OidcClient, type OidcProviderConfig } from '../../src/enterprise/oidcClient.js';
-import { OidcFixture } from './oidcFixture.js';
+import { OidcClient, type OidcProviderConfig } from '../../src/enterprise/oidcClient.ts';
+import { OidcFixture } from './oidcFixture.ts';
 
 /**
  * F4 更优解验证套件：用无第三方依赖本地 IdP（`OidcFixture`，真实 HTTP + 真实 RS256）

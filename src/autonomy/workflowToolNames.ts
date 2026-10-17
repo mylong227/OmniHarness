@@ -4,7 +4,7 @@
  *
  * 值来自 `ports/tool/toolNames.ts`（工具名单一来源）：导出名不变，名字只声明一次。
  */
-import { TOOL_NAMES } from '../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 
 /**
  * @beta

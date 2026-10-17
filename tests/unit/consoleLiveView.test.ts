@@ -2,8 +2,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Writable } from 'node:stream';
-import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.js';
-import { TuiRenderer } from '../../src/tui/tuiRenderer.js';
+import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.ts';
+import { TuiRenderer } from '../../src/tui/tuiRenderer.ts';
 
 /** 内存可写流（模拟 TTY），便于断言渲染输出。 */
 class MemStream {

@@ -5,9 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.js';
-import { EigenSpectrum } from '../../src/util/eigenspectrum.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.ts';
+import { EigenSpectrum } from '../../src/util/eigenspectrum.ts';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

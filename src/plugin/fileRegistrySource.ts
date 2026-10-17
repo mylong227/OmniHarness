@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.js';
-import type { RegistrySource } from './registrySourcesShared.js';
+import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.ts';
+import type { RegistrySource } from './registrySourcesShared.ts';
 
 /**
  * @beta

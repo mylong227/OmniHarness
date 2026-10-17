@@ -64,10 +64,10 @@
  * @maturityEvidence tests/unit/layeredCodeGraph.test.ts
  */
 
-import { Bm25Index } from '../search/bm25Index.js';
-import { NOISE_NAMES, CodeGraphIndex } from './codeGraphIndex.js';
-import type { CodeGraph, GraphSource } from './codeGraphIndex.js';
-import type { SymbolNode } from './repoMap/repoMap.js';
+import { Bm25Index } from '../search/bm25Index.ts';
+import { NOISE_NAMES, CodeGraphIndex } from './codeGraphIndex.ts';
+import type { CodeGraph, GraphSource } from './codeGraphIndex.ts';
+import type { SymbolNode } from './repoMap/repoMap.ts';
 
 /**
  * LayeredCodeGraph — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。

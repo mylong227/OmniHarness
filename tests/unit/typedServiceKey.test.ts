@@ -21,11 +21,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { Container } from '../../src/core/container.js';
-import { ServiceKey } from '../../src/core/serviceKey.js';
-import { ServiceKeys } from '../../src/composition/serviceKeys.js';
-import type { ToolPort } from '../../src/ports/tool/tool.js';
-import type { ModelPort } from '../../src/ports/model/model.js';
+import { Container } from '../../src/core/container.ts';
+import { ServiceKey } from '../../src/core/serviceKey.ts';
+import { ServiceKeys } from '../../src/composition/serviceKeys.ts';
+import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import type { ModelPort } from '../../src/ports/model/model.ts';
 
 /** 假的工具端口（只为类型与身份比对，不实现任何真实工具语义）。 */
 const fakeTools = { name: 'fake-tools' } as unknown as ToolPort;

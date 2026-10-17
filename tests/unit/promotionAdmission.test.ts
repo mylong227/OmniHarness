@@ -9,12 +9,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AnnealedAcceptance } from '../../src/evolution/annealedAcceptance.js';
-import { DiversityGuard } from '../../src/evolution/diversityGuard.js';
-import { FailurePatternMiner } from '../../src/evolution/failurePatternMiner.js';
-import { PromotionAdmission } from '../../src/evolution/promotionAdmission.js';
-import type { Candidate, PromotionVerdict } from '../../src/ports/runtime/evolution.js';
-import type { Skill } from '../../src/skill/skill.js';
+import { AnnealedAcceptance } from '../../src/evolution/annealedAcceptance.ts';
+import { DiversityGuard } from '../../src/evolution/diversityGuard.ts';
+import { FailurePatternMiner } from '../../src/evolution/failurePatternMiner.ts';
+import { PromotionAdmission } from '../../src/evolution/promotionAdmission.ts';
+import type { Candidate, PromotionVerdict } from '../../src/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/skill/skill.ts';
 
 /**
  * 构造技能（默认同 instructions ⇒ 同指纹 ⇒ 互为 Echo 副本）。

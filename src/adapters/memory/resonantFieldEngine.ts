@@ -21,13 +21,13 @@ import type {
   LongTermMemoryPort,
   MemoryFact,
   MemoryFactPatch,
-} from '../../ports/memory/longTermMemory.js';
-import type { ResonantHit, ResonantMemoryPort } from '../../ports/memory/resonantMemory.js';
-import type { CosmicWebPort, WebConsolidationReport } from '../../ports/memory/cosmicWeb.js';
-import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/memory/resonantField.js';
-import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.js';
-import { TimeDecay, type ScoredFact } from './timeDecay.js';
-import { ResonantFieldMath } from './resonantFieldMath.js';
+} from '../../ports/memory/longTermMemory.ts';
+import type { ResonantHit, ResonantMemoryPort } from '../../ports/memory/resonantMemory.ts';
+import type { CosmicWebPort, WebConsolidationReport } from '../../ports/memory/cosmicWeb.ts';
+import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/memory/resonantField.ts';
+import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
+import { TimeDecay, type ScoredFact } from './timeDecay.ts';
+import { ResonantFieldMath } from './resonantFieldMath.ts';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
 interface Cluster {

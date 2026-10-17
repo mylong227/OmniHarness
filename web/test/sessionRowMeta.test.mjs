@@ -21,7 +21,7 @@ import { test } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SessionRowMeta } from '../src/ui/models/SessionRowMeta.js';
+import { SessionRowMeta } from '../src/ui/models/SessionRowMeta.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');

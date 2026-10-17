@@ -24,10 +24,10 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ServeWorkspace } from '../../src/cli/serveWorkspace.js';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { PortablePath } from '../../src/util/portablePath.js';
-import { ServerConfigStore } from '../../src/server/services/serverConfigStore.js';
+import { ServeWorkspace } from '../../src/cli/serveWorkspace.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { PortablePath } from '../../src/util/portablePath.ts';
+import { ServerConfigStore } from '../../src/server/services/serverConfigStore.ts';
 
 /** `serveRootOf` 的分隔符恒为 `/`（PortablePath 口径）；比较前统一，避免平台差异造成假红。 */
 const norm = (p: string): string => p.replace(/\\/g, '/');

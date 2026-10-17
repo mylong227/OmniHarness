@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.js';
-import { RememberTool, RecallTool } from '../../src/adapters/tool/memory/longTermMemoryTools.js';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { RememberTool, RecallTool } from '../../src/adapters/tool/memory/longTermMemoryTools.ts';
 
 /** 内存版长期记忆桩（不落盘，专供工具测试）。 */
 function stubStore(): LongTermMemoryPort {

@@ -1,12 +1,12 @@
-import { TOOL_NAMES } from '../../../ports/tool/toolNames.js';
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import { randomUUID } from 'node:crypto';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../../ports/tool/tool.js';
-import type { LongTermMemoryPort } from '../../../ports/memory/longTermMemory.js';
+} from '../../../ports/tool/tool.ts';
+import type { LongTermMemoryPort } from '../../../ports/memory/longTermMemory.ts';
 
 /**
  * 长期记忆写入工具（#S28）：模型显式沉淀一条跨会话持久的 durable fact

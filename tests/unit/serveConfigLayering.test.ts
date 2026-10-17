@@ -17,8 +17,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CliServerCmds } from '../../src/cli/cliServerCmds.js';
-import { ArgParser } from '../../src/cli/argParser.js';
+import { CliServerCmds } from '../../src/cli/cliServerCmds.ts';
+import { ArgParser } from '../../src/cli/argParser.ts';
 
 /** 造一个临时家目录，写入用户级 `~/.omniharness/omniharness.json`。 */
 function makeHome(cfg: Record<string, unknown>): string {

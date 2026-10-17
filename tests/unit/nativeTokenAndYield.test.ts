@@ -25,9 +25,9 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NativeTokenAccounting } from '../../src/core/nativeTokenAccounting.js';
-import { ContextEngine } from '../../src/context/contextEngine.js';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.js';
+import { NativeTokenAccounting } from '../../src/core/nativeTokenAccounting.ts';
+import { ContextEngine } from '../../src/context/contextEngine.ts';
+import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

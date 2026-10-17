@@ -1,11 +1,11 @@
-import type { SessionEvent } from '../event.js';
-import type { TodoSnapshotEntry } from './todoSnapshotEntry.js';
+import type { SessionEvent } from '../event.ts';
+import type { TodoSnapshotEntry } from './todoSnapshotEntry.ts';
 import type {
   ImageContent,
   FileAttachment,
   ModelContextSnapshot,
   ModelUsage,
-} from '../../model/model.js';
+} from '../../model/model.ts';
 
 /**
  * 事件工厂端口（P1 解耦）。

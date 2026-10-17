@@ -10,9 +10,9 @@
  * 但 `Modality` 代数（fuse/align）不变（见 modality.ts）。
  */
 
-import type { ModelMessage } from '../ports/model/model.js';
-import type { RetrievalPort, RetrievalDoc } from '../ports/intelligence/retrieval.js';
-import { type Modality, ModalityPort } from './modalityPort.js';
+import type { ModelMessage } from '../ports/model/model.ts';
+import type { RetrievalPort, RetrievalDoc } from '../ports/intelligence/retrieval.ts';
+import { type Modality, ModalityPort } from './modalityPort.ts';
 
 /**
  * 多模态桥接器。

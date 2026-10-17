@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileAsync } from '../helpers/childProcess.js';
+import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ArgParser, CliDefaults } from '../../src/cli/argParser.js';
-import { configFile } from '../../src/config/configFile.js';
+import { ArgParser, CliDefaults } from '../../src/cli/argParser.ts';
+import { configFile } from '../../src/config/configFile.ts';
 
 /** CLI 入口路径。 */
 const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');

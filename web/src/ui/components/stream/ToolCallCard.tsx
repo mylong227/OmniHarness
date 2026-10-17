@@ -3,14 +3,14 @@
 // 函数组件范式：仅一个展开态。
 
 import * as React from 'react';
-import { jsonView, timeOf, esc } from '../../format.js';
-import { truncate, describeToolCall } from '../../textUtils.js';
-import { ArtifactResolver } from '../../models/ArtifactResolver.js';
-import { icon } from '../../models/Icon.js';
-import { ArtifactCard } from './ArtifactCard.js';
-import type { ThreadEvent } from '../../../types/models.js';
-import type { ToolResultView } from '../StreamView.js';
-import { t } from '../../i18n/i18n.js';
+import { jsonView, timeOf, esc } from '../../format.ts';
+import { truncate, describeToolCall } from '../../textUtils.ts';
+import { ArtifactResolver } from '../../models/ArtifactResolver.ts';
+import { icon } from '../../models/Icon.ts';
+import { ArtifactCard } from './ArtifactCard.tsx';
+import type { ThreadEvent } from '../../../types/models.ts';
+import type { ToolResultView } from '../StreamView.tsx';
+import { t } from '../../i18n/i18n.ts';
 
 /** ToolCallCard 组件的入参。 */
 export interface ToolCallCardProps {

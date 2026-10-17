@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { TestCountParser } from '../../src/adapters/tool/verify/testCountParser.js';
+import { TestCountParser } from '../../src/adapters/tool/verify/testCountParser.ts';
 
 test('① node --test：正常汇总解析出 total/passed/failed，且无零测试证据', () => {
   const output = ['# tests 12', '# suites 3', '# pass 11', '# fail 1', '# duration_ms 42'].join(

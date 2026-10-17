@@ -12,8 +12,8 @@
  */
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.js';
-import type { SessionEvent } from '../../ports/runtime/event.js';
+import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.ts';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
 
 /** 合法的会话 id 形态（与 `SessionArchive.resolveSessionFile` 同一口径）。 */
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;

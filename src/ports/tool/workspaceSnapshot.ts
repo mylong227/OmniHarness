@@ -5,6 +5,6 @@
  * 不触碰无关文件，也不对整棵树执行 `git checkout`（符合沙箱安全铁律：禁用大规模 `git checkout -- .`）。
  */
 
-export type { FileSnapshotEntry } from './workspaceSnapshot/fileSnapshotEntry.js';
-export type { FileSnapshot } from './workspaceSnapshot/fileSnapshot.js';
-export type { WorkspaceSnapshotPort } from './workspaceSnapshot/workspaceSnapshotPort.js';
+export type { FileSnapshotEntry } from './workspaceSnapshot/fileSnapshotEntry.ts';
+export type { FileSnapshot } from './workspaceSnapshot/fileSnapshot.ts';
+export type { WorkspaceSnapshotPort } from './workspaceSnapshot/workspaceSnapshotPort.ts';

@@ -16,8 +16,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CronerSchedule } from '../../src/adapters/schedule/cronerSchedule.js';
-import { RoutineScheduler } from '../../src/daemon/routineScheduler.js';
+import { CronerSchedule } from '../../src/adapters/schedule/cronerSchedule.ts';
+import { RoutineScheduler } from '../../src/daemon/routineScheduler.ts';
 
 /** 固定参照时刻（避免判据随墙钟漂移）。 */
 const T0 = Date.parse('2026-10-04T00:00:00.000Z');

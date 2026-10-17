@@ -8,13 +8,13 @@ import type {
   LspServerConfig,
   LspSymbol,
   LspWorkspaceSymbol,
-} from '../../ports/tool/lsp.js';
-import { LspUri } from '../../adapters/lsp/lspUri.js';
-import { LspJsonRpcConnection } from './lspJsonRpcConnection.js';
-import { LspDiagnosticsCollector } from './lspDiagnosticsCollector.js';
-import { LspSymbolNormalizer } from './lspSymbolNormalizer.js';
-import { LspCodeActionNormalizer } from './lspCodeActionNormalizer.js';
-import { LspResultNormalizer } from './lspResultNormalizer.js';
+} from '../../ports/tool/lsp.ts';
+import { LspUri } from '../../adapters/lsp/lspUri.ts';
+import { LspJsonRpcConnection } from './lspJsonRpcConnection.ts';
+import { LspDiagnosticsCollector } from './lspDiagnosticsCollector.ts';
+import { LspSymbolNormalizer } from './lspSymbolNormalizer.ts';
+import { LspCodeActionNormalizer } from './lspCodeActionNormalizer.ts';
+import { LspResultNormalizer } from './lspResultNormalizer.ts';
 
 /** 适配器可选项。 */
 export interface LspProcessAdapterOptions {

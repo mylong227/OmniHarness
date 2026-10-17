@@ -1,4 +1,4 @@
-import type { VideoFrameFormat } from './mediaTypes/videoFrameFormat.js';
+import type { VideoFrameFormat } from './mediaTypes/videoFrameFormat.ts';
 
 /** 媒体分析配置（`OmniHarnessConfig.media`，全部可选，缺省用下表的默认值）。 */
 export interface MediaAnalysisConfig {

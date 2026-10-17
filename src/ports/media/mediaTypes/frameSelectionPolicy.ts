@@ -1,4 +1,4 @@
-import type { FrameStrategy } from './frameStrategy.js';
+import type { FrameStrategy } from './frameStrategy.ts';
 
 /** 帧提取的采样与预算约束（全部有默认值，见 `MediaConfigResolver`）。 */
 export interface FrameSelectionPolicy {

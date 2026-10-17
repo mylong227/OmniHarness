@@ -10,7 +10,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ToolExposurePlanner, type ToolCategory } from '../../src/core/toolExposurePlanner.js';
+import { ToolExposurePlanner, type ToolCategory } from '../../src/core/toolExposurePlanner.ts';
 
 /** 精简类别表：两条类别 + 一个故意不登记的工具，便于断言边界。 */
 const CATEGORIES: readonly ToolCategory[] = [

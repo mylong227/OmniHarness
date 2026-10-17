@@ -10,8 +10,8 @@
  * 本文件已退化为桶：5 个接口各自独立成文件于 `./traceIntrospection/`，调用点零改动。
  */
 
-export type { TraceEntry } from './traceIntrospection/traceEntry.js';
-export type { TraceFilter } from './traceIntrospection/traceFilter.js';
-export type { TraceReadRequest } from './traceIntrospection/traceReadRequest.js';
-export type { TraceReadResult } from './traceIntrospection/traceReadResult.js';
-export type { TraceIntrospectionPort } from './traceIntrospection/traceIntrospectionPort.js';
+export type { TraceEntry } from './traceIntrospection/traceEntry.ts';
+export type { TraceFilter } from './traceIntrospection/traceFilter.ts';
+export type { TraceReadRequest } from './traceIntrospection/traceReadRequest.ts';
+export type { TraceReadResult } from './traceIntrospection/traceReadResult.ts';
+export type { TraceIntrospectionPort } from './traceIntrospection/traceIntrospectionPort.ts';

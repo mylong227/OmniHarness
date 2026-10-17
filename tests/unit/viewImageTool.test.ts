@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ViewImageTool } from '../../src/adapters/tool/media/viewImageTool.js';
-import type { ToolContext } from '../../src/ports/tool/tool.js';
+import { ViewImageTool } from '../../src/adapters/tool/media/viewImageTool.ts';
+import type { ToolContext } from '../../src/ports/tool/tool.ts';
 
 /**
  * 构造最小 PNG 字节（魔数 + IHDR 尺寸），用于离线测试。

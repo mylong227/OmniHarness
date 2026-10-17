@@ -2,12 +2,12 @@
 // 组件层调用这些函数，既保持视觉一致（复用同一套 CSS class），又避免直接操作 DOM。
 
 import * as React from 'react';
-import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.js';
-import { icon } from './models/Icon.js';
-import { parseTurnDiffFiles, turnDiffTotals } from './models/TurnDiffFiles.js';
-import type { IconName } from './models/Icon.js';
-import type { ThreadEvent } from '../types/models.js';
-import { t } from './i18n/i18n.js';
+import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.ts';
+import { icon } from './models/Icon.ts';
+import { parseTurnDiffFiles, turnDiffTotals } from './models/TurnDiffFiles.ts';
+import type { IconName } from './models/Icon.ts';
+import type { ThreadEvent } from '../types/models.ts';
+import { t } from './i18n/i18n.ts';
 
 /**
  * HTML 转义：把 `& < > " '` 五个字符转成实体。

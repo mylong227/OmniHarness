@@ -1,5 +1,5 @@
-import type { CrystallizationReport } from './crystallizationReport.js';
-import type { FrozenCapability } from './frozenCapability.js';
+import type { CrystallizationReport } from './crystallizationReport.ts';
+import type { FrozenCapability } from './frozenCapability.ts';
 
 /** 相变固化器端口（接 SkillPort，把常用组合冻结为原生能力）。 */
 export interface CapabilityCrystallizerPort {

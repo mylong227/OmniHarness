@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { log } from '../util/logger.js';
+import { log } from '../util/logger.ts';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

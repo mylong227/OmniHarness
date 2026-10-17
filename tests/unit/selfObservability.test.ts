@@ -28,10 +28,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { OtlpTraceExporter, type Span } from '../../src/observability/otlpTraceExporter.js';
-import { TokenAttribution } from '../../src/observability/tokenAttribution.js';
-import { spawnSyncAsync } from '../helpers/childProcess.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { OtlpTraceExporter, type Span } from '../../src/observability/otlpTraceExporter.ts';
+import { TokenAttribution } from '../../src/observability/tokenAttribution.ts';
+import { spawnSyncAsync } from '../helpers/childProcess.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');

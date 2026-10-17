@@ -1,10 +1,10 @@
-import type { ModelPort } from '../../ports/model/model.js';
-import { MODEL_ADAPTER_IDS, type ModelAdapterId } from '../../ports/model/modelAdapterId.js';
-import { MockModel } from './mockModel.js';
-import { OpenAiCompatibleModel } from './openAiCompatibleModel.js';
-import { AnthropicModel } from './anthropicModel.js';
-import { ResponsesModel } from './responsesModel.js';
-import { LlamaCppModel } from './llamaCppModel.js';
+import type { ModelPort } from '../../ports/model/model.ts';
+import { MODEL_ADAPTER_IDS, type ModelAdapterId } from '../../ports/model/modelAdapterId.ts';
+import { MockModel } from './mockModel.ts';
+import { OpenAiCompatibleModel } from './openAiCompatibleModel.ts';
+import { AnthropicModel } from './anthropicModel.ts';
+import { ResponsesModel } from './responsesModel.ts';
+import { LlamaCppModel } from './llamaCppModel.ts';
 
 /** 构造一个模型适配器所需的配置（三种 OpenAI 系适配器共用同一形状）。 */
 export interface ModelAdapterConfig {

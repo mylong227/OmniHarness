@@ -15,15 +15,15 @@
 //
 // 与既有子控制器（sessions / composer / graph / files / layout）同级，由 AppController 组合根装配。
 
-import type { Locale } from '../i18n/i18n.js';
-import type { SettingsTabKey } from '../models/SettingsModel.js';
-import type { ApiClient } from '../../core/ApiClient.js';
-import { MethodBinder } from './methodBinder.js';
+import type { Locale } from '../i18n/i18n.ts';
+import type { SettingsTabKey } from '../models/SettingsModel.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import { MethodBinder } from './methodBinder.ts';
 // `AppHost` 定义在 AppController 里。这里用 `import type`——它会被**完全擦除**，
 // 因此不构成 AppController ⇄ SettingsController 的运行时循环（既有 ComposerController /
 // FileController 同款做法）。
-import type { AppHost } from './AppController.js';
-import type { LayoutController } from './LayoutController.js';
+import type { AppHost } from './AppController.ts';
+import type { LayoutController } from './LayoutController.ts';
 
 /** SettingsController 的依赖。 */
 export interface SettingsControllerDeps {

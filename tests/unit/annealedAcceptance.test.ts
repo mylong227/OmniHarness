@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AnnealedAcceptance } from '../../src/evolution/annealedAcceptance.js';
+import { AnnealedAcceptance } from '../../src/evolution/annealedAcceptance.ts';
 
 test('① 优解/平解恒接受，概率恒 1', () => {
   const a = new AnnealedAcceptance({ seed: 7 });

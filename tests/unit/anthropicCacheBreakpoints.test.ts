@@ -8,14 +8,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.js';
+import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
 import {
   ANTHROPIC_MAX_CACHE_BREAKPOINTS,
   AnthropicCacheBreakpoints,
   type AnthropicWireBlock,
   type AnthropicWireMessage,
-} from '../../src/adapters/model/anthropicCacheBreakpoints.js';
-import type { ModelRequest } from '../../src/ports/model/model.js';
+} from '../../src/adapters/model/anthropicCacheBreakpoints.ts';
+import type { ModelRequest } from '../../src/ports/model/model.ts';
 
 const planner = new AnthropicCacheBreakpoints();
 

@@ -8,8 +8,8 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditSink } from '../../src/server/services/auditSink.js';
-import { AuditExporter } from '../../src/server/services/auditExporter.js';
+import { AuditSink } from '../../src/server/services/auditSink.ts';
+import { AuditExporter } from '../../src/server/services/auditExporter.ts';
 
 /** 建临时审计文件（每次唯一，避免跨运行互相污染）。 */
 function tmpFile(tag: string): string {

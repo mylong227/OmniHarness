@@ -3,7 +3,7 @@ import type {
   MediaProcessOutcome,
   MediaProcessRequest,
   MediaProcessRunner,
-} from './mediaProcessRunner.js';
+} from './mediaProcessRunner.ts';
 
 /** stderr 保留上限（人类可读的探测信息；超出只影响诊断细节，不影响判定）。 */
 const MAX_STDERR_BYTES = 256 * 1024;

@@ -5,10 +5,10 @@
 // （用 state 记录「已接管」，effect 依赖显式列出，不比对 prev、不死循环）。
 
 import * as React from 'react';
-import { esc } from '../../format.js';
-import { processSummary, type ProcessBlock } from '../../textUtils.js';
-import type { ThreadEvent } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { esc } from '../../format.ts';
+import { processSummary, type ProcessBlock } from '../../textUtils.ts';
+import type { ThreadEvent } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** ProcessCluster 组件的入参。 */
 export interface ProcessClusterProps {

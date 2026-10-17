@@ -1,4 +1,4 @@
-import type { EscalationDeniedBy } from './escalationDeniedBy.js';
+import type { EscalationDeniedBy } from './escalationDeniedBy.ts';
 
 /** 升级审批请求：携带被拒动作与原因，供裁决器判断是否可提权重试。 */
 export interface EscalationRequest {

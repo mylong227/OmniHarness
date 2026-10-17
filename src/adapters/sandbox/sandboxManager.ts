@@ -1,15 +1,15 @@
-import type { SandboxPort } from '../../ports/runtime/sandbox.js';
-import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.js';
-import { PassthroughSandbox } from './passthroughSandbox.js';
-import { PolicySandbox } from './policySandbox.js';
-import { RestrictedSandbox } from './restrictedSandbox.js';
-import { UnsupportedSandbox } from './unsupportedSandbox.js';
-import { LinuxBwrapSandbox } from './linuxBwrapSandbox.js';
-import { LinuxUnshareSandbox } from './linuxUnshareSandbox.js';
-import { LinuxLandlockSandbox } from './linuxLandlockSandbox.js';
-import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.js';
+import type { SandboxPort } from '../../ports/runtime/sandbox.ts';
+import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
+import { PassthroughSandbox } from './passthroughSandbox.ts';
+import { PolicySandbox } from './policySandbox.ts';
+import { RestrictedSandbox } from './restrictedSandbox.ts';
+import { UnsupportedSandbox } from './unsupportedSandbox.ts';
+import { LinuxBwrapSandbox } from './linuxBwrapSandbox.ts';
+import { LinuxUnshareSandbox } from './linuxUnshareSandbox.ts';
+import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
+import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
 
-export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.js';
+export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
 
 /**
  * 沙箱多后端注册表（G4）：按 profile 名选后端，新后端即插即用。

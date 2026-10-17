@@ -1,5 +1,5 @@
-import type { CrisprEditReport } from './crisprEditReport.js';
-import type { CrisprEditSpec } from './crisprEditSpec.js';
+import type { CrisprEditReport } from './crisprEditReport.ts';
+import type { CrisprEditSpec } from './crisprEditSpec.ts';
 
 /** CRISPR 精确技能编辑器端口。 */
 export interface CRISPRSkillEditorPort {

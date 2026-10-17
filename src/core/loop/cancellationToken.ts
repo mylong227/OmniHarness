@@ -1,4 +1,4 @@
-import { CancelledError, type CancelReason } from './cancelledError.js';
+import { CancelledError, type CancelReason } from './cancelledError.ts';
 
 /**
  * CancellationToken（Agent Loop V2，对标 codex CancellationToken 树思想，无第三方依赖）。
@@ -156,4 +156,4 @@ export class CancellationToken {
   }
 }
 
-export { CancelledError } from './cancelledError.js';
+export { CancelledError } from './cancelledError.ts';

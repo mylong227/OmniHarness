@@ -27,12 +27,12 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.js';
-import { EventPersister } from '../../src/core/loop/eventPersister.js';
-import type { StoragePort } from '../../src/ports/memory/storage.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.ts';
+import { EventPersister } from '../../src/core/loop/eventPersister.ts';
+import type { StoragePort } from '../../src/ports/memory/storage.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /**
  * 造一条事件。

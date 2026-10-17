@@ -22,10 +22,10 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { FileLock } from '../../../util/concurrency/fileLock.js';
-import { log } from '../../../util/logger.js';
+import { FileLock } from '../../../util/concurrency/fileLock.ts';
+import { log } from '../../../util/logger.ts';
 // 排序模型（显式名次 + 新会话置顶）单独成文件：本文件只管侧车文件的读写。
-import { SessionRanking, type OrderDoc } from './sessionRanking.js';
+import { SessionRanking, type OrderDoc } from './sessionRanking.ts';
 
 /** 乐观并发「读—改—写」的重试轮数（每轮都重读，故并发写会收敛而不是互相覆盖）。 */
 const UPDATE_RETRIES = 8;

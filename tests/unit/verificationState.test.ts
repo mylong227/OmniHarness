@@ -24,17 +24,17 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Agent } from '../../src/core/agent.js';
-import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { Runtime } from '../../src/composition/runtime.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { TurnCompletionGateFactory } from '../../src/adapters/tool/verify/turnCompletionGateFactory.js';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.js';
-import type { SessionEvent } from '../../src/ports/runtime/event.js';
+import { Agent } from '../../src/core/agent.ts';
+import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { Runtime } from '../../src/composition/runtime.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { TurnCompletionGateFactory } from '../../src/adapters/tool/verify/turnCompletionGateFactory.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /**
  * 造一个带测试命令的工作区（`check.js` 的退出码决定"验证"通过与否）。

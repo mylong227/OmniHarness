@@ -1,4 +1,4 @@
-import type { SessionEvent } from './event.js';
+import type { SessionEvent } from './event.ts';
 
 /** 事件端口：观测/审计/轨迹系统的统一插口。 */
 export interface EventPort {

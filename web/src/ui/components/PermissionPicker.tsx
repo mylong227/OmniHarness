@@ -6,12 +6,12 @@
 // 档位数据由 PermissionTierModel 包装（含离线兜底），组件自身只负责渲染与分派 onPick。
 
 import * as React from 'react';
-import { PermissionTierModel } from '../models/PermissionTierModel.js';
-import { claimPopover, releasePopover } from '../models/PopoverStack.js';
-import { icon } from '../models/Icon.js';
-import { t } from '../i18n/i18n.js';
-import type { ApprovalTier } from '../../types/models.js';
-import type { ApiClient } from '../../core/ApiClient.js';
+import { PermissionTierModel } from '../models/PermissionTierModel.ts';
+import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { icon } from '../models/Icon.ts';
+import { t } from '../i18n/i18n.ts';
+import type { ApprovalTier } from '../../types/models.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
 
 /** 本弹层在互斥控制器里的身份。 */
 const POPOVER_ID = 'permission';

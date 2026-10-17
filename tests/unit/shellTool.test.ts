@@ -4,16 +4,16 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ShellTool } from '../../src/adapters/tool/shell/shellTool.js';
-import { ShellInteractiveTool } from '../../src/adapters/tool/shell/shellInteractiveTool.js';
+import { ShellTool } from '../../src/adapters/tool/shell/shellTool.ts';
+import { ShellInteractiveTool } from '../../src/adapters/tool/shell/shellInteractiveTool.ts';
 import {
   SHELL_DEFAULT_MAX_TIMEOUT_MS,
   SHELL_INTERACTIVE_DEFAULT_TIMEOUT_MS,
   SHELL_INTERACTIVE_MAX_TIMEOUT_MS,
   SHELL_MIN_TIMEOUT_MS,
-} from '../../src/adapters/tool/shell/shellTimeouts.js';
-import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.js';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.js';
+} from '../../src/adapters/tool/shell/shellTimeouts.ts';
+import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.ts';
+import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
 
 function call(command: string): ToolCall {
   return { id: 'c1', name: 'shell', arguments: { command } };

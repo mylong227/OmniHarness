@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ArgParser } from '../../src/cli/argParser.js';
-import { KvStoreFactory } from '../../src/cli/kvStoreFactory.js';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.js';
-import type { SandboxProfile } from '../../src/adapters/sandbox/sandboxManager.js';
+import { ArgParser } from '../../src/cli/argParser.ts';
+import { KvStoreFactory } from '../../src/cli/kvStoreFactory.ts';
+import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
+import type { SandboxProfile } from '../../src/adapters/sandbox/sandboxManager.ts';
 
 /** 临时工作区（避免测试依赖真实 cwd）。 */
 function testRoot(): string {

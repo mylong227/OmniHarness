@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Container } from '../../src/core/container.js';
-import { PluginManager } from '../../src/plugin/pluginManager.js';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.js';
-import type { Plugin, PluginApplyContext } from '../../src/plugin/plugin.js';
-import type { ToolDefinition } from '../../src/ports/tool/tool.js';
-import type { ToolHandler } from '../../src/adapters/tool/toolHandler.js';
+import { Container } from '../../src/core/container.ts';
+import { PluginManager } from '../../src/plugin/pluginManager.ts';
+import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import type { Plugin, PluginApplyContext } from '../../src/plugin/plugin.ts';
+import type { ToolDefinition } from '../../src/ports/tool/tool.ts';
+import type { ToolHandler } from '../../src/adapters/tool/toolHandler.ts';
 
 /** 记录调用序列。 */
 interface Trace {

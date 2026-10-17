@@ -11,9 +11,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { CodeGraphIndex } from '../../src/context/codeGraphIndex.js';
-import { LayeredCodeGraph } from '../../src/context/layeredCodeGraph.js';
-import type { SymbolNode } from '../../src/context/repoMap/repoMap.js';
+import { CodeGraphIndex } from '../../src/context/codeGraphIndex.ts';
+import { LayeredCodeGraph } from '../../src/context/layeredCodeGraph.ts';
+import type { SymbolNode } from '../../src/context/repoMap/repoMap.ts';
 
 /** 构造符号节点的测试夹具。 */
 function sym(file: string, line: number, name: string, signature: string): SymbolNode {

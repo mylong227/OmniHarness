@@ -3,12 +3,12 @@
 // 职责：readFs 读取并写入 fileView、维护代码查看器的文件标签集合（openFiles，规则在
 // models/FileTabs.ts）、标签切换与关闭的激活回落。全部经 AppHost.patch 驱动状态。
 
-import type { AppHost, AppServices } from './AppController.js';
-import { langOf } from '../highlight.js';
-import { FileTabs } from '../models/FileTabs.js';
-import type { FileView } from '../shared.js';
-import { MethodBinder } from './methodBinder.js';
-import { t } from '../i18n/i18n.js';
+import type { AppHost, AppServices } from './AppController.ts';
+import { langOf } from '../highlight.ts';
+import { FileTabs } from '../models/FileTabs.ts';
+import type { FileView } from '../shared.ts';
+import { MethodBinder } from './methodBinder.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 文件预览 / 代码查看器控制器：单一职责，仅供 App 组合使用。 */
 export class FileController {

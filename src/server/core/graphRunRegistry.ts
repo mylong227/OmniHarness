@@ -12,9 +12,9 @@
  * 把上帝类推过代码行阈值。
  */
 
-import { Id } from '../../util/id.js';
-import type { WorkflowDef } from '../../autonomy/workflowTypes.js';
-import type { GraphRunState } from './appServerState.js';
+import { Id } from '../../util/id.ts';
+import type { WorkflowDef } from '../../autonomy/workflowTypes.ts';
+import type { GraphRunState } from './appServerState.ts';
 
 /** 一次图运行的登记结果。 */
 export interface GraphRunHandle {

@@ -18,8 +18,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LayaWarmWorker } from '../../src/adapters/laya/layaWarmWorker.js';
-import type { LayaWireQuestion } from '../../src/adapters/laya/layaQuestionTranslator.js';
+import { LayaWarmWorker } from '../../src/adapters/laya/layaWarmWorker.ts';
+import type { LayaWireQuestion } from '../../src/adapters/laya/layaQuestionTranslator.ts';
 
 /** 替身进程源码：与 `laya_infer.py --serve` 的线协议同构（`probe` / `warmup` / 推理三型）。 */
 const FAKE_WORKER_SOURCE = `

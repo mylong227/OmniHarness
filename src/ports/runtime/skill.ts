@@ -8,12 +8,12 @@
  * 端口却绕道实现文件去取它们 —— 这正是 `architectureGate` 的 `ports→实现层` 规则要拦的形状，
  * 也是本仓 G25 记录的同一类"类型已在 ports、调用点却绕道"的老毛病。
  */
-import type { MoireMeta } from '../skill/moireMeta.js';
-import type { MoireOptions } from '../skill/moireOptions.js';
-import type { Skill } from '../skill/skill.js';
+import type { MoireMeta } from '../skill/moireMeta.ts';
+import type { MoireOptions } from '../skill/moireOptions.ts';
+import type { Skill } from '../skill/skill.ts';
 
-export type { MoireMeta } from '../skill/moireMeta.js';
-export type { MoireOptions } from '../skill/moireOptions.js';
+export type { MoireMeta } from '../skill/moireMeta.ts';
+export type { MoireOptions } from '../skill/moireOptions.ts';
 
 export interface SkillPort {
   /** 注册技能；重名即抛错。 */

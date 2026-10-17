@@ -1,4 +1,4 @@
-import type { MediaFrame, MediaProbeInfo } from '../mediaTypes.js';
+import type { MediaFrame, MediaProbeInfo } from '../mediaTypes.ts';
 
 /** 帧提取结果。 */
 export interface FrameExtractionResult {

@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionWorkspaceAssigner } from '../../src/server/services/session/sessionWorkspaceAssigner.js';
+import { SessionWorkspaceAssigner } from '../../src/server/services/session/sessionWorkspaceAssigner.ts';
 
 const dirs: string[] = [];
 

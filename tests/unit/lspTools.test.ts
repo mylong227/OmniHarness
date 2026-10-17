@@ -1,12 +1,12 @@
 import { strict as assert } from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import type { LspLocation, LspPort } from '../../src/ports/tool/lsp.js';
+import type { LspLocation, LspPort } from '../../src/ports/tool/lsp.ts';
 import {
   LspFindReferencesTool,
   LspGoToDefinitionTool,
   LspHoverTool,
   LspStatusTool,
-} from '../../src/adapters/tool/lsp/lspTools.js';
+} from '../../src/adapters/tool/lsp/lspTools.ts';
 
 const SAMPLE: LspLocation = {
   uri: '/proj/src/x.ts',

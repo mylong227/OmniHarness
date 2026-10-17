@@ -15,13 +15,13 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import type { Duplex } from 'node:stream';
 import type { IncomingMessage } from 'node:http';
-import type { RpcMessage } from '../server/core/jsonRpc.js';
-import { jsonRpc } from '../server/core/jsonRpc.js';
-import { WsConnection } from '../server/transport/wsConnection.js';
-import type { A2aTransport } from './a2aProtocol.js';
-import { SsrfGuard } from '../security/ssrfGuard.js';
-import type { SsrfOptions } from '../security/ssrfGuard.js';
-import { log } from '../util/logger.js';
+import type { RpcMessage } from '../server/core/jsonRpc.ts';
+import { jsonRpc } from '../server/core/jsonRpc.ts';
+import { WsConnection } from '../server/transport/wsConnection.ts';
+import type { A2aTransport } from './a2aProtocol.ts';
+import { SsrfGuard } from '../security/ssrfGuard.ts';
+import type { SsrfOptions } from '../security/ssrfGuard.ts';
+import { log } from '../util/logger.ts';
 
 /** 服务端监听路径（与 HTTP 的 `/a2a` 区分，避免与 appServer 的 `/ws` 冲突）。 */
 export const A2A_WS_PATH = '/a2a-ws';

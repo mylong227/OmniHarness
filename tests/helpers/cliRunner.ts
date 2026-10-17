@@ -1,4 +1,4 @@
-import { spawnSyncAsync } from './childProcess.js';
+import { spawnSyncAsync } from './childProcess.ts';
 import { resolve } from 'node:path';
 
 /**

@@ -1,5 +1,5 @@
-import { ModelCallError } from '../../errors/modelCallError.js';
-import { log } from '../../util/logger.js';
+import { ModelCallError } from '../../errors/modelCallError.ts';
+import { log } from '../../util/logger.ts';
 
 /**
  * 非流式/流式 HTTP 错误 → 结构化 `ModelCallError` 的共享映射器（2026-10-03 修，审计 D1/D3）。

@@ -5,13 +5,13 @@
 // 函数组件范式：无内部状态；行渲染下沉为模块级纯函数（与 StreamView 同款写法）。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.js';
-import type { IconName } from '../models/Icon.js';
-import { describeToolCall } from '../textUtils.js';
-import { timeOf } from '../format.js';
-import { t } from '../i18n/i18n.js';
-import type { ThreadEvent } from '../../types/models.js';
-import type { LiveInput, ToolResultView } from '../shared.js';
+import { icon } from '../models/Icon.ts';
+import type { IconName } from '../models/Icon.ts';
+import { describeToolCall } from '../textUtils.ts';
+import { timeOf } from '../format.ts';
+import { t } from '../i18n/i18n.ts';
+import type { ThreadEvent } from '../../types/models.ts';
+import type { LiveInput, ToolResultView } from '../shared.ts';
 
 /** TraceView 组件的入参。 */
 export interface TraceViewProps {

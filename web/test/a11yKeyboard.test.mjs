@@ -14,20 +14,20 @@ import { createRuntime } from './hooksStub.mjs';
 const runtime = createRuntime();
 runtime.install();
 
-const { RightPanel } = await import('../src/ui/components/RightPanel.js');
-const { PanelPicker } = await import('../src/ui/components/PanelPicker.js');
-const { SidebarHeader } = await import('../src/ui/components/SidebarHeader.js');
-const { SidebarFooter } = await import('../src/ui/components/SidebarFooter.js');
-const { ChatHeader } = await import('../src/ui/components/ChatHeader.js');
-const { FileModal } = await import('../src/ui/components/FileModal.js');
+const { RightPanel } = await import('../src/ui/components/RightPanel.tsx');
+const { PanelPicker } = await import('../src/ui/components/PanelPicker.tsx');
+const { SidebarHeader } = await import('../src/ui/components/SidebarHeader.tsx');
+const { SidebarFooter } = await import('../src/ui/components/SidebarFooter.tsx');
+const { ChatHeader } = await import('../src/ui/components/ChatHeader.tsx');
+const { FileModal } = await import('../src/ui/components/FileModal.tsx');
 const { StreamingAssistantCard } =
-  await import('../src/ui/components/stream/StreamingAssistantCard.js');
-const { SearchResults } = await import('../src/ui/components/SearchResults.js');
-const { DialogHost } = await import('../src/ui/components/DialogHost.js');
-const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.js');
-const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.js');
-const { SessionPanel } = await import('../src/ui/components/SessionPanel.js');
-const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.js');
+  await import('../src/ui/components/stream/StreamingAssistantCard.tsx');
+const { SearchResults } = await import('../src/ui/components/SearchResults.tsx');
+const { DialogHost } = await import('../src/ui/components/DialogHost.tsx');
+const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.tsx');
+const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
+const { SessionPanel } = await import('../src/ui/components/SessionPanel.tsx');
+const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.ts');
 
 /** 最近一次渲染的组件（不同组件的 hook 序不同，跨组件必须清空槽位）。 */
 let lastRendered = null;

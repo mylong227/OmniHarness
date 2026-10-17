@@ -9,17 +9,17 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SparkController } from '../../src/spark/sparkController.js';
-import { InsightEtchingEngine } from '../../src/adapters/memory/insightEtchingEngine.js';
-import { ElementComposer } from '../../src/adapters/skill/elementComposer.js';
-import { SymmetryBreakingEngine } from '../../src/adapters/monitoring/symmetryBreakingEngine.js';
-import { ConfinementEngine } from '../../src/adapters/monitoring/confinementEngine.js';
-import { ConfigFactory } from '../../src/config/configFactory.js';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.js';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.js';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.js';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.js';
-import { ScriptedModel } from '../../src/core/scriptedModel.js';
+import { SparkController } from '../../src/spark/sparkController.ts';
+import { InsightEtchingEngine } from '../../src/adapters/memory/insightEtchingEngine.ts';
+import { ElementComposer } from '../../src/adapters/skill/elementComposer.ts';
+import { SymmetryBreakingEngine } from '../../src/adapters/monitoring/symmetryBreakingEngine.ts';
+import { ConfinementEngine } from '../../src/adapters/monitoring/confinementEngine.ts';
+import { ConfigFactory } from '../../src/config/configFactory.ts';
+import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ScriptedModel } from '../../src/core/scriptedModel.ts';
 
 function tmpWs(): string {
   return mkdtempSync(join(tmpdir(), 'omni-p3-'));

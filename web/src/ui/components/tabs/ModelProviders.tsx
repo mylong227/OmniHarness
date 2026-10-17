@@ -6,10 +6,10 @@
 // （零 React，可单测）；样式常量与新值对不变，卡片渲染下沉为模块级函数。
 
 import * as React from 'react';
-import { useApp } from '../../context.js';
-import { ProviderStatusResolver } from '../../models/ProviderStatus.js';
-import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.js';
-import { t } from '../../i18n/i18n.js';
+import { useApp } from '../../context.ts';
+import { ProviderStatusResolver } from '../../models/ProviderStatus.ts';
+import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.ts';
+import { t } from '../../i18n/i18n.ts';
 
 /** 状态点样式。 */
 const DOT: Record<string, string> = {

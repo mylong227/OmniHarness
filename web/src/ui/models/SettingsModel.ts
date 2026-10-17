@@ -15,8 +15,8 @@
 //   ③ 分栏（TAB）：字段归到哪一屏，负责"去哪找"
 //   一个键只出现在一个字段里；一个字段只属于一个分栏。断言钉在 web/test/settingsPane.test.mjs。
 
-import type { Config } from '../../types/models.js';
-import { t } from '../i18n/i18n.js';
+import type { Config } from '../../types/models.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 设置分栏 key。 */
 export type SettingsTabKey = 'model' | 'runtime' | 'permission' | 'appearance' | 'profiles';

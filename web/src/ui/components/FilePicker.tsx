@@ -8,12 +8,12 @@
 // 图标 / 体积 / 路径拼接继续复用 models/ 下的零 React 类。
 
 import * as React from 'react';
-import { PathJoiner } from '../models/PathJoiner.js';
-import { FileIconResolver } from '../models/FileIconResolver.js';
-import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
-import { icon } from '../models/Icon.js';
-import type { ApiClient } from '../../core/ApiClient.js';
-import { t } from '../i18n/i18n.js';
+import { PathJoiner } from '../models/PathJoiner.ts';
+import { FileIconResolver } from '../models/FileIconResolver.ts';
+import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
+import { icon } from '../models/Icon.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 目录中的单个文件条目。 */
 interface FsFile {

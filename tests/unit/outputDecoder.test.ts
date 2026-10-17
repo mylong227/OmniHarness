@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OutputDecoder } from '../../src/util/outputDecoder.js';
+import { OutputDecoder } from '../../src/util/outputDecoder.ts';
 
 test('输出解码：UTF-8 文本正常解码', () => {
   const decoder = new OutputDecoder();

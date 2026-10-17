@@ -1,8 +1,8 @@
 // 面向对象的服务层：封装 GET /events 的 SSE 长连接。以回调（而非全局事件）对外暴露，
 // 由 App 统一路由到对应的状态更新，避免 vanilla 版散落的隐式耦合。
 
-import type { SseEnvelope } from '../types/models.js';
-import { authToken } from './authToken.js';
+import type { SseEnvelope } from '../types/models.ts';
+import { authToken } from './authToken.ts';
 
 export class EventStream {
   private es: EventSource | null = null;

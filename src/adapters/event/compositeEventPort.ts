@@ -1,6 +1,6 @@
-import type { SessionEvent } from '../../ports/runtime/event.js';
-import type { EventPort } from '../../ports/runtime/eventPort.js';
-import { log } from '../../util/logger.js';
+import type { SessionEvent } from '../../ports/runtime/event.ts';
+import type { EventPort } from '../../ports/runtime/eventPort.ts';
+import { log } from '../../util/logger.ts';
 
 /**
  * 事件端口**扇出**：同一条会话事件按序送给多个出口。

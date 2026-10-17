@@ -20,8 +20,8 @@ globalThis.window = globalThis.window ?? {
   removeEventListener: () => undefined,
 };
 
-const { SessionController } = await import('../src/ui/controllers/SessionController.js');
-const { PendingModes } = await import('../src/ui/models/PendingModes.js');
+const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
+const { PendingModes } = await import('../src/ui/models/PendingModes.ts');
 
 /**
  * 构造状态宿主桩（patch 真写状态，getState 返回最新）。

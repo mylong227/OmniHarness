@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CircuitBreakingModel } from '../../src/adapters/model/circuitBreakingModel.js';
-import { RetryingModel } from '../../src/adapters/model/retryingModel.js';
-import { CircuitOpenError } from '../../src/errors/circuitOpenError.js';
-import { ModelCallError } from '../../src/ports/model/model.js';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.js';
-import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.js';
+import { CircuitBreakingModel } from '../../src/adapters/model/circuitBreakingModel.ts';
+import { RetryingModel } from '../../src/adapters/model/retryingModel.ts';
+import { CircuitOpenError } from '../../src/errors/circuitOpenError.ts';
+import { ModelCallError } from '../../src/ports/model/model.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.ts';
 
 /** 可计数、可控抛错的假模型。 */
 class CountingModel implements ModelPort {

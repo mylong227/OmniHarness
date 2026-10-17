@@ -1,4 +1,4 @@
-import type { ApprovalRequest } from '../../ports/runtime/approval.js';
+import type { ApprovalRequest } from '../../ports/runtime/approval.ts';
 
 /** Guardian 审查提示构建器：把审批请求转成 LLM 可判的提示词。 */
 export class GuardianPrompt {
