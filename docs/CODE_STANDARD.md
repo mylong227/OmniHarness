@@ -207,7 +207,8 @@ import（如把桩数据 `const bm25 = [{id:'b'}]` 当覆盖）的，列为「�
 
 ## 10. 例外与豁免
 
-- 第三方 vendored 代码（`web/vendor/**`）不适用本标准。
+- 第三方 vendored 代码不适用本标准。**本仓现已无 vendored 目录**（`web/vendor/**` 于
+  2026-10-17 随 Vite 迁移删除，所有前端依赖改为 npm 包）；若未来再 vendor 进来，本条复用。
 - 渲染用 `web/src/types/*.d.ts` 手写 shim：同样纳入规范（已补显式修饰符、去 `any`）。
 - 并行会话占用中的热区文件（`core/stepRunner.ts`、`core/turnRunner.ts`、`adapters/live/**`、
   `ports/toolInputSink.ts`）在 eslint 中以覆盖块暂缓 `explicit-member-accessibility`，待其收口后纳入。

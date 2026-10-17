@@ -17,12 +17,13 @@
     href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,serif' text-anchor='middle' fill='%230a0a0a'%3E%CE%A9%3C/text%3E%3C/svg%3E"
   >
   <!--
-    React 工作台宿主页。架构：原生 ES Module，零打包器、零网络依赖。
-      - web/vendor/  React / ReactDOM（UMD，本地内置，离线可用；htm 已不再使用）
-      - web/dist/    web/src/*.ts 经 tsc 编译产出的原生 ESM（`npm run web:build`）
-      - web/styles/  从原内联 <style> 抽离的样式表
+    React 工作台宿主页。架构：标准 Vite + React + TypeScript 项目（零网络依赖）。
+      - web/src/     前端源码（.ts / .tsx），入口 `src/main.ts`
+      - web/dist/    Vite 构建产物（`npm run web:build`）：index.html + assets/*
+      - web/styles/  样式表（从原内联 <style> 抽离；加载顺序 = 级联顺序）
+    依赖全部来自 npm（react / react-dom / markdown-it / katex / highlight.js），
+    本地 node_modules、不连 CDN —— 离线可用；2026-10-17 起 `web/vendor/` 已删除。
     协议不变：POST /rpc（JSON-RPC 2.0）+ GET /events（SSE 推送）。
-    回退版（原 vanilla 单文件实现）：./index-classic.html
   -->
   <!-- ===== 样式表：加载顺序 = 级联顺序，不得重排 =====
        分层：theme(基础 token/reset/原生控件) → layout(骨架) → components(可复用组件)
@@ -30,10 +31,9 @@
        → polish-*(各功能区打磨) → overlays(浮层) → resilience(错误边界/无障碍)
        → shell(三栏壳层) → refine-*(视觉精修) → minimal(单色极简体系：唯一视觉事实源)。
        每份文件头注明职能；单独去掉某一层即回到该层之前的观感（回滚成本 = 一行）。
-       注：highlight.css 2026-10-17 起移到**最后**（在 vendor 之后），因为单色语法色需要
-       覆盖 vendor 的 GitHub 主题；同日删除了 ./vendor/highlight-github-dark.min.css 这条
-       <link>（它是 15 种色相的彩虹配色，且在两套主题下都加载 ⇒ 浅色主题里的代码块一直
-       是暗底彩字）。单色语法色由 styles/highlight.css 自己定义，不再需要 vendor 主题。 -->
+        注：highlight.css 2026-10-17 起移到**最后**，因为单色语法色要覆盖前面的语法色基线
+        （原先是覆盖 vendor 的 GitHub 彩虹主题；该 vendor 主题与整个 vendor 目录均已删除，
+        单色语法色由 styles/highlight.css 自己定义）。 -->
   <link rel="stylesheet" href="./styles/theme.css?v=22">
   <link rel="stylesheet" href="./styles/layout.css?v=22">
   <link rel="stylesheet" href="./styles/components.css?v=22">
@@ -53,10 +53,7 @@
   <link rel="stylesheet" href="./styles/refine-native.css?v=22">
   <link rel="stylesheet" href="./styles/refine-density.css?v=22">
   <link rel="stylesheet" href="./styles/minimal.css?v=22">
-  <!-- 成熟依赖（离线内置，零网络）：KaTeX 数学排版。
-       与 React 同以 UMD 全局方式注入，由 markdown.ts 在渲染回复时消费。 -->
-  <link rel="stylesheet" href="./katex.min.css">
-  <!-- 单色语法高亮：必须排在 minimal 与 vendor 之后才能盖住 vendor 主题（见上）。 -->
+  <!-- 单色语法高亮：必须排在 minimal 之后才能盖住其语法色基线（见上）。 -->
   <link rel="stylesheet" href="./styles/highlight.css?v=22">
   <!-- 主题持久化：必须在 paint 之前同步读取 localStorage 并设到 <html data-theme="...">。
        否则 React mount 完成后才设 data-theme 会闪一下 dark（CSS 默认）→ 再切 light，
@@ -72,16 +69,10 @@
 </head>
 <body>
   <div id="root"></div>
-  <!-- 标准 Vite SPA 入口：由 Vite 处理 TS/TSX、解析裸标识符（`react` 等）、打包与 HMR。
-       迁移说明（2026-10-17）：此处原先是两段 UMD `<script>`（react / react-dom）+ 一条
-       `import('./dist/main.js?v=时间戳')`。迁移到 Vite 后：
-         · React 不再是 UMD 全局，改由 `src/ui/deps.ts` 从 npm 包 import；
-         · 入口变成 `src/main.ts`，开发时由 dev server 直接编译，生产由 `vite build` 打成 bundle。
-       仍保留的 UMD vendor 只有 markdown-it / KaTeX / highlight.js —— 它们由 `markdown.ts`
-       运行时特性检测读取（缺任一即回落到手写渲染器），后续阶段会一并改为 npm 依赖。 -->
-  <script src="./markdown-it.min.js"></script>
-  <script src="./katex.min.js"></script>
-  <script src="./highlight.min.js"></script>
+  <!-- 标准 Vite SPA 入口：由 Vite 处理 TS/TSX、解析裸标识符（react / katex / highlight.js 等）、
+       打包与 HMR。全部依赖都是 npm 包，**没有任何 UMD `<script>`**（2026-10-17 完成最后一步：
+       markdown-it / KaTeX / highlight.js 也改为 npm import，`web/vendor/` 已整体删除；
+       KaTeX 的 CSS 由 `src/ui/markdown.ts` import，字体自动进 `assets/`）。 -->
   <script type="module" src="./src/main.ts"></script>
 </body>
 </html>

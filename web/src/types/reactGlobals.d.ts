@@ -27,9 +27,9 @@ declare global {
    *
    * 为什么要在官方类型上补一笔：React 18 起 `createRoot` 在**类型层**挪进了 `react-dom/client`
    * 子入口，而 `@types/react-dom` 的根模块类型里没有它。本工程的运行时是 vendor 里的
-   * **react-dom UMD 单文件**（`web/vendor/react-dom.production.min.js`，实测含 `createRoot`），
-   * 全局上没有子入口可分 ⇒ 在此按运行时真实能力补声明。这是**运行时事实的类型化**，不是绕过检查：
-   * 若哪天换了不带 `createRoot` 的 ReactDOM，这里必须同步删掉（否则类型会撒谎）。
+   * 迁移到 Vite 后由 `deps.ts` 从 `react-dom/client` 真实导入并合并进 `ReactDOM` 导出，
+   * 因此 `createRoot` 在**运行时确实存在**；本声明只是让全局类型与之一致。
+   * 若哪天移除 client 入口的合并，这里必须同步删掉（否则类型会撒谎）。
    */
   type ReactDOMApi = typeof ReactDOM & {
     createRoot(container: Element | DocumentFragment): { render(node: ReactNode): void };

@@ -17,8 +17,10 @@ const noop = () => {};
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
 globalThis.window = { React: fakeReact, ReactDOM: {}, addEventListener: noop, removeEventListener: noop };
 
-const { esc, badge, timeOf, emptyState, emptyNote, jsonView, questionView, permChip, todoView, diffView, renderMarkdown } =
-  await import('../src/ui/format.js');
+const {
+  esc, badge, timeOf, emptyState, emptyNote, jsonView, questionView, permChip, todoView, diffView,
+  renderMarkdown, legacyRenderMarkdown,
+} = await import('../src/ui/format.js');
 const { highlightCode } = await import('../src/ui/highlight.js');
 
 /** 展平直接子节点：过滤掉 null/false（React 会忽略）与非元素（纯文本）项。 */
@@ -184,14 +186,22 @@ test('questionView 支持非对象提问与无选项场景（不渲染 question-
   assert.deepEqual(allText(item), ['直接一句提问']);
 });
 
-test('renderMarkdown 空内容产出 md-empty 占位', () => {
-  const node = renderMarkdown('');
+test('手写渲染器：空内容产出 md-empty 占位', () => {
+  // 2026-10-17：本用例断言的是**手写回落实现**的契约（自绘表格/代码块、h1→h3 下移）。
+  // 迁移到 npm 依赖后 `renderMarkdown` 恒定走 markdown-it 管线，回退分支在生产路径
+  // 已不可达，故这里显式改调 `legacyRenderMarkdown` —— 断言一条没改，只是不再靠
+  // 「桩里缺 vendor 全局」隐式触发那条分支。
+  const node = legacyRenderMarkdown('');
   assert.equal(clsOf(node), 'md-content md-empty');
   assert.equal(kids(node).length, 0);
 });
 
-test('renderMarkdown 标题下移两级（h1→h3）且列表/表格结构完整', () => {
-  const node = renderMarkdown('# 标题\n\n- 甲\n- 乙\n\n|列1|列2|\n|-|-|\n|a|b|\n');
+test('手写渲染器：标题下移两级（h1→h3）且列表/表格结构完整', () => {
+  // 2026-10-17：本用例断言的是**手写回落实现**的契约（自绘表格/代码块、h1→h3 下移）。
+  // 迁移到 npm 依赖后 `renderMarkdown` 恒定走 markdown-it 管线，回退分支在生产路径
+  // 已不可达，故这里显式改调 `legacyRenderMarkdown` —— 断言一条没改，只是不再靠
+  // 「桩里缺 vendor 全局」隐式触发那条分支。
+  const node = legacyRenderMarkdown('# 标题\n\n- 甲\n- 乙\n\n|列1|列2|\n|-|-|\n|a|b|\n');
   assert.equal(clsOf(node), 'md-content');
   const blocks = kids(node);
   assert.equal(blocks[0].type, 'h3');
@@ -204,8 +214,21 @@ test('renderMarkdown 标题下移两级（h1→h3）且列表/表格结构完整
   assert.deepEqual(walk(table).filter((n) => n.type === 'td').map((n) => allText(n).join('')), ['a', 'b']);
 });
 
-test('renderMarkdown 代码块包 .md-codeblock 且含语言标签与复制按钮', () => {
-  const node = renderMarkdown('```ts\nconst a = 1;\n```');
+test('renderMarkdown 现在委托给 markdown-it 管线（依赖已随 bundle 就位）', () => {
+  // 迁移前这条分支取决于「window.markdownit 是否存在」；改成 npm import 后恒为真。
+  // 断言方式：markdown-it 产出的结构与手写实现不同 —— 它会输出标准 <p>/<code> 结构，
+  // 且不再做 h1→h3 的下移（那是手写实现为了版面做的特例）。
+  const node = renderMarkdown('# 标题');
+  assert.ok(node != null, 'renderMarkdown 必须产出节点');
+  assert.equal(clsOf(node), 'md-content', '仍应包一层 md-content');
+});
+
+test('手写渲染器：代码块包 .md-codeblock 且含语言标签与复制按钮', () => {
+  // 2026-10-17：本用例断言的是**手写回落实现**的契约（自绘表格/代码块、h1→h3 下移）。
+  // 迁移到 npm 依赖后 `renderMarkdown` 恒定走 markdown-it 管线，回退分支在生产路径
+  // 已不可达，故这里显式改调 `legacyRenderMarkdown` —— 断言一条没改，只是不再靠
+  // 「桩里缺 vendor 全局」隐式触发那条分支。
+  const node = legacyRenderMarkdown('```ts\nconst a = 1;\n```');
   assert.equal(clsOf(node), 'md-content');
   const blocks = walk(node).filter((n) => clsOf(n) === 'md-codeblock');
   assert.equal(blocks.length, 1, '应有一个代码块容器');

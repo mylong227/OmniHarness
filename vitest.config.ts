@@ -1,4 +1,4 @@
-﻿// Vitest 配置：标准 Vite 项目的测试栈。
+// Vitest 配置：标准 Vite 项目的测试栈。
 //
 // ## 为什么必须迁到 Vitest（而不是继续 `node --test`）
 //
@@ -32,14 +32,26 @@ export default defineConfig({
     environment: 'node',
     // 与被替换的 `node --test` 行为对齐：不吞掉未处理的 rejection。
     dangerouslyIgnoreUnhandledErrors: false,
+    /**
+     * **文件级串行**（2026-10-17 实测后定为默认）。
+     *
+     * 11 个判据文件会各自启动真 Chrome（`chromeCleanup` / `e2e` / `shellDensity` /
+     * `narrowReflow` / `streamScrollCoverage` / `renderErrorBoundary` …）。并发跑时它们争抢
+     * CPU 与端口，实测出现**假红**：`chromeCleanup` 报"留下了子进程"、`renderErrorBoundary`
+     * 拿不到渲染栈——单跑每条都过，串行跑全绿。
+     *
+     * 为什么让默认值偏向"慢但可信"：假红会让人不再信任判据，进而跳过它——那比多等 60 秒
+     * 昂贵得多（本仓已有大量"某判据偶发红"的历史教训）。若只想快速迭代，可临时加
+     * `--fileParallelism=true`，但那时的红需要单跑复核。
+     */
+    fileParallelism: false,
     // 覆盖率不是本仓门禁项，不装 @vitest/coverage 依赖。
     reporters: ['default'],
   },
   resolve: {
     alias: {
-      // 测试里可能残留 `../dist/...` 写法；映射到源码，便于渐进迁移。
-      // 迁移完成后这条 alias 可以删掉（本阶段先留着，避免一次性漏改导致大面积红）。
-      '/dist/': '/src/',
+      // 迁移已完成（测试全部 import `../src/...`），不需要 `/dist/` → `/src/` 的兜底映射；
+      // 保留一个空对象以示"这里曾经有映射"，同时避免 vitest 报 unknown key 警告。
     },
   },
 });

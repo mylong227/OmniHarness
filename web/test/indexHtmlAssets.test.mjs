@@ -52,11 +52,12 @@ test('② 宿主页引用的本地资源必须真实存在且非空（防"标签
   for (const url of refs) {
     const clean = url.split('?')[0];
     if (clean === '') continue;
-    // 2026-10-17 迁移到 Vite 后的两条解析规则：
-    //   ① `./styles/*.css`、`./src/main.ts`：相对 `web/` 根；
-    //   ② `./markdown-it.min.js` 这类**根相对静态资源**：由 `publicDir`（`web/vendor/`）
-    //      平铺进产物根，故源文件在 `web/vendor/` 下 —— 不认这条会把"文件明明在"判成缺失。
-    const candidates = [join(WEB_ROOT, clean), join(WEB_ROOT, 'vendor', clean)];
+    // 2026-10-17 迁移到 Vite 后，宿主页的本地资源只有两类：
+    //   ① `./styles/*.css` —— 源码相对 `web/` 根，直接存在；
+    //   ② `./src/main.ts`   —— 源码入口，直接存在。
+    // vendor 目录已删除（依赖全部改成 npm import），因此不再需要 `web/vendor/` 候选。
+    // 保留 `web/dist/` 候选是为"构建后 index.html 被就地改写"这类未来情形留余地。
+    const candidates = [join(WEB_ROOT, clean), join(WEB_ROOT, 'dist', clean)];
     const hit = candidates.find((p) => existsSync(p));
     assert.ok(hit !== undefined, `index.html 引用了不存在的资源：${clean}（已试 ${candidates.length} 个位置）`);
     assert.ok(statSync(hit).size > 0, `index.html 引用的资源是空文件：${clean}`);

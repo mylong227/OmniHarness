@@ -33,16 +33,6 @@ export default defineConfig({
   // React 插件：负责 JSX 转换与 Fast Refresh（开发期改组件不丢状态、不整页刷新）。
   // 源码里既有 JSX 语法（60 个 .tsx），也有 `React.createElement`（`deps.ts` 导出的宏调用）。
   plugins: [react()],
-  // publicDir：**`web/vendor/` 直接作为公开目录**，内容平铺到产物根。
-  //
-  // 为什么不再维护 `web/public/vendor` 副本：那会造成两份同源文件（一份给 dev、一份给 build），
-  // 迟早漂移。单一来源后：`web/vendor/markdown-it.min.js` → `web/dist/markdown-it.min.js`，
-  // `index.html` 用根相对 `./markdown-it.min.js` 引用（dev 与 build 同一条路径）。
-  //
-  // 为什么这些库不走打包：`markdown.ts` 做**运行时特性检测**（`window.markdownit` 等），
-  // 缺任一即回落到手写渲染器。交给 Rollup 打包会丢失全局注入、契约随之改变 ——
-  // 那是后续阶段单独评估的迁移，不混在"换构建器"这一步。
-  publicDir: resolve(import.meta.dirname, 'web', 'vendor'),
   build: {
     // 标准 Vite 产物目录：`web/dist/`（相对 root=web/）。
     //
@@ -65,7 +55,18 @@ export default defineConfig({
     //   · 生产报错上报同样依赖这个。
     // 实测：默认压缩下 bundle 里 `SessionPanel` 出现 0 次；开启后保留。
     minify: 'esbuild',
-    rollupOptions: {},
+    /**
+     * 体积警告阈值：**1200 KB**（默认 500 KB）。
+     *
+     * 为什么调高：这是**单 bundle** 的产物（目标明确要求 Vite 默认单 bundle，不做 manualChunks）。
+     * 单 bundle 必然把 react(147KB) + markdown-it(120KB) + katex(266KB) + highlight-common(120KB)
+     * 与应用代码合进一个文件，实测约 1030 KB —— 与迁移前的**总传输量**基本持平
+     *（此前是 app 464KB + markdown-it 121KB + katex 275KB + highlight 121KB，共 4 个文件）。
+     *
+     * 为什么不直接消警告或调成 Infinity：那会让阈值失去意义。1200 KB 是"当前实测 + 约 15% 余量"，
+     * 一旦依赖或应用代码膨胀越过它，构建会重新警告 —— 那才是需要有人看一眼的时刻。
+     */
+    chunkSizeWarningLimit: 1200,
   },
   // esbuild 选项在此层生效（`build.minify` 用的是同一套）。
   esbuild: {

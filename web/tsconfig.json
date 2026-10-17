@@ -1,11 +1,20 @@
 {
+  // 前端 tsconfig（2026-10-17 Vite 迁移后）：**只做类型检查，不产出任何文件**。
+  //
+  // 为什么不再有 rootDir / outDir / sourceMap / noEmitOnError：
+  //   迁移前 `outDir: "dist"` 是真实产物路径（`tsc -p web/tsconfig.json` 直出 158 个原生 ESM）。
+  //   现在构建由 Vite 负责（`npm run web:build` → `web/dist`），`tsc` 的唯一职责是
+  //   `--noEmit` 类型检查 —— 两条命令同时写 `web/dist` 只会互相覆盖。
+  //   保留 `outDir` 还会带来一个真实风险：有人误跑 `tsc -p web/tsconfig.json` 后，
+  //   一堆陈旧 `.js` 会散落进源码树（`src/**` 旁边），而 Vite 解析 `./x.js` 时会优先命中它们。
   "compilerOptions": {
     "target": "ES2020",
     "module": "ES2020",
-    "moduleResolution": "node",
+    // Vite 用 bundler 解析（支持 `exports` 子路径，如 `highlight.js/lib/common`）；
+    // `node`（classic）解析不到这类子路径。
+    "moduleResolution": "bundler",
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "rootDir": "src",
-    "outDir": "dist",
+    "noEmit": true,
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
@@ -13,17 +22,18 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": false,
-    "sourceMap": true,
-    "noEmitOnError": false,
     "allowJs": false,
-    // JSX：零打包器下由 tsc 直接把 JSX 编译为 React.createElement（React 由 UMD 全局经 deps.js 注入）。
+    // JSX：源码里 60 个 .tsx 用 JSX 语法，由 Vite（@vitejs/plugin-react / esbuild）转换。
+    // 这里保留 `react` + 显式 factory，是为了让**类型层**与既有 `React.createElement` 写法一致
+    //（`deps.ts` 导出的 React 宏）；运行时不经过 tsc。
     "jsx": "react",
     "jsxFactory": "React.createElement",
     "jsxFragmentFactory": "React.Fragment",
-    // UMD 全局访问：web/src 是 ESM 模块，却引用全局 `React`（运行时由 vendor UMD 提供）。
-    // 官方 @types/react 以 `export as namespace React` 声明该全局，此开关允许在模块内引用它。
-    "allowUmdGlobalAccess": true
+    // 允许模块内引用全局 `React` 类型：`deps.ts` 的测试桩分支与 `reactGlobals.d.ts` 的
+    // 全局类型提升都依赖它（官方 @types/react 以 `export as namespace React` 声明该全局）。
+    "allowUmdGlobalAccess": true,
+    // 无 ES 内置 polyfill 需求（目标浏览器都支持 ES2020），但需要 DOM 与迭代器类型。
+    "types": []
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

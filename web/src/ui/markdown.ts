@@ -1,4 +1,4 @@
-// 成熟依赖加持的 Markdown 渲染器（回复模式 / 会话模式核心展示层）。
+﻿// 成熟依赖加持的 Markdown 渲染器（回复模式 / 会话模式核心展示层）。
 //
 // 设计取舍（回应「不要求无第三方依赖，善用成熟知识代替从零造轮子」）：
 //   - 解析交给 markdown-it（与 deepseek-harness 的 micromark 同代成熟方案），
@@ -12,8 +12,27 @@
 //   - highlight.js 的结果（先转义源码再包 span，绝不注入用户输入）。
 //   => 整体不弱于原「零 innerHTML」安全姿态（用户内容仍不可注入）。
 //
-// 渐进迁移：若三个 UMD 全局未就绪（如单测桩环境），`renderMarkdown` 回落到 format.ts 的
-// 手写实现，保证旧契约测试与无依赖部署继续可用。
+// ## 2026-10-17：从 UMD 全局改为 npm import（随 Vite 迁移一并完成）
+//
+// 迁移前这三个库以 UMD `<script>` 注入 `window.markdownit / window.katex / window.hljs`，
+// 本文件再做运行时特性检测（缺任一即回落到 `format.ts` 的手写渲染器）。
+// 现在改为**标准 npm import + Vite 打包**，`web/vendor/` 因此可以整体删除。
+//
+// 关于回落路径：`markdownLibsReady()` 仍保留，但打包后的依赖**不存在"加载失败"这种运行时态**
+// （要么构建期就失败、要么一定在）。所以它现在恒为 true —— 手写实现
+// （`format.ts` 的 `legacyRenderMarkdown`）按 `docs/DEPENDENCY_POLICY.md` 的
+// 「既有手写实现保留为资产与回退路径」继续存在并有独立判据，只是生产路径不再会走到它。
+//
+// `katex/dist/katex.min.css` 由本文件 import：Vite 会把它打进产物的 CSS bundle，
+// 字体文件自动走 `assets/`（不再需要手抄 `web/vendor/fonts/`）。
+import 'katex/dist/katex.min.css';
+import markdownit from 'markdown-it';
+import katex from 'katex';
+// highlight.js 用 **common 子集**（36 种常用语言）而不是全量（190+）：
+// 全量会让 bundle 从 464KB 涨到 1.85MB，而原 vendor 的 highlight.min.js（121KB）
+// 本身就是 common 构建 —— 换入口不改变既有观感，只是别再引入它没有的体积。
+// 判据：web/test/markdownLibs.test.mjs 断言常用语言仍在列。
+import hljs from 'highlight.js/lib/common';
 
 import { React } from './deps.js';
 import { ClipboardCopier } from './models/ClipboardCopier.js';
@@ -84,25 +103,26 @@ interface HljsApi {
   highlightAuto(code: string): { value: string };
 }
 
-interface VendorGlobals {
-  markdownit?: () => MarkdownItInstance;
-  katex?: KatexApi;
-  hljs?: HljsApi;
-}
+/** markdown-it 构造器签名（npm 包默认导出即工厂函数）。 */
+type MarkdownItFactory = (options?: Record<string, unknown>) => MarkdownItInstance;
 
-/** 读取已注入的 UMD 全局（index.html 按序加载 markdown-it / katex / highlight.js）。 */
-function vendor(): VendorGlobals {
-  const w = (typeof window !== 'undefined' ? window : ({} as Record<string, never>)) as unknown as VendorGlobals;
-  return w;
-}
+/** 三个依赖的绑定（2026-10-17 起来自 npm import，不再是 UMD 全局）。 */
+const libs = {
+  markdownit: markdownit as unknown as MarkdownItFactory,
+  katex: katex as unknown as KatexApi,
+  hljs: hljs as unknown as HljsApi,
+};
 
 /**
- * 三个成熟依赖是否全部就绪。缺任一则回落到手写渲染器，保证无回归。
- * @returns 是否可启用 markdown-it + KaTeX + highlight.js 管线。
+ * 三个成熟依赖是否全部就绪。
+ *
+ * 迁移到 npm import 后**恒为 true**：打包产物的依赖不存在"运行时缺失"这一态
+ * （要么构建期就失败，要么一定在）。保留这个函数是为了不动 `format.ts` 的调用形态，
+ * 也让「未来若要重新引入可选/懒加载依赖」有一个现成的收口点。
+ * @returns 恒 true（依赖已随 bundle 就位）。
  */
 export function markdownLibsReady(): boolean {
-  const v = vendor();
-  return Boolean(v.markdownit) && Boolean(v.katex) && Boolean(v.hljs);
+  return libs.markdownit !== undefined && libs.katex !== undefined && libs.hljs !== undefined;
 }
 
 /**
@@ -129,19 +149,17 @@ export function handleCodeblockCopyClick(e: MouseEvent): void {
   }, 1400);
 }
 
-/** 模块级单例缓存：首次用到时才构造（避免单测桩里访问未定义全局）。 */
+/** 模块级单例缓存：首次用到时才构造（配置一次、渲染多次）。 */
 let mdCache: MarkdownItInstance | null = null;
 
 /** 构造并缓存配置好的 markdown-it 实例（含数学插件与代码高亮）。 */
 function getMd(): MarkdownItInstance {
-  const v = vendor();
   if (mdCache !== null) return mdCache;
-  const md = (v.markdownit as NonNullable<VendorGlobals['markdownit']>)();
+  const md = libs.markdownit();
 
   // 代码高亮：优先按语言高亮，未知语言走自动识别。输出受信任（hljs 先转义后加色）。
   md.set({
     highlight: (str: string, lang: string): string => {
-      const hljs = v.hljs as NonNullable<VendorGlobals['hljs']>;
       const esc = (s: string): string => md.utils.escapeHtml(s);
       try {
         if (lang && hljs.getLanguage(lang)) {
@@ -216,7 +234,6 @@ function getMd(): MarkdownItInstance {
     { alt: [] } as unknown,
   );
 
-  const katex = v.katex as NonNullable<VendorGlobals['katex']>;
 
   // ---- 渲染：数学交 KaTeX ----
   md.renderer.rules.math_inline = (tokens: MdToken[], idx: number): string => {

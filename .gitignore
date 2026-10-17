@@ -154,3 +154,13 @@ web/styles/polish.css
 # 说明：第 6 行的 `dist/`（无前导斜杠）本就能匹配任意层级的 dist 目录；
 # 这里显式写明，一是让"web/dist 是产物"在文件里可查，二是防将来有人把它改成 `/dist/`。
 web/dist/
+
+# 旧 UMD 依赖目录（2026-10-17 随 Vite 迁移**整体删除**：react / markdown-it / katex / highlight.js
+# 全部改为 npm import）。
+#
+# 为什么给一个"已删除"的目录写忽略规则：它在历史上会因下面这类原因回来 ——
+#   · 有人照旧文档执行构建，把 UMD 文件又拷回来；
+#   · 工作区检查点/同步工具恢复文件树（本仓 `web/styles/polish.css` 有过同类经历）。
+# 一旦回来，`web/test/vendorAndTypeSource.test.mjs` 会立刻报红（它断言该目录必须不存在），
+# 但至少不会有人把它提交进去、也不会再被当成运行时依赖。
+web/vendor/

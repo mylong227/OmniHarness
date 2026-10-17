@@ -134,6 +134,37 @@
       "exitPlan": "与 react 同进退：换 Preact 时由 preact/compat 承接；回退 UMD 方案时一并回退。",
       "maxInstallKb": 8192,
       "maxTransitiveDeps": 2
+    },
+    "markdown-it": {
+      "reason": "助手回复的 Markdown 渲染（GFM 表格/任务列表/嵌套列表/行内 HTML 转义）此前由 web/src/ui/format.ts 的手写解析器承担，实测在 25 种常见输入上有 11 种结构偏差 （表格对齐、嵌套列表缩进、围栏代码块信息串）。手写一个符合 CommonMark 的解析器边际成本极高，而 markdown-it 是本领域事实标准（CommonMark 100% 通过），按 DEPENDENCY_POLICY §1.1「自研边际成本显著高于引入」准入。2026-10-17 起随 Vite 迁移改为 npm import（此前是 web/vendor 里的 UMD 文件）。",
+      "capability": "CommonMark + GFM 解析：表格、任务列表、嵌套列表、围栏代码块（可挂 highlight 回调）、HTML 转义（html:false，用户内容不可注入）。仅经 web/src/ui/markdown.ts 消费，渲染结果一律以 React 元素输出（不 innerHTML 用户内容）。",
+      "license": "MIT",
+      "approvedAt": "2026-10-17",
+      "layer": "web/src/ui",
+      "exitPlan": "若该包停更：web/src/ui/format.ts 的手写渲染器（legacyRenderMarkdown）完整保留为回退资产、有独立判据，切回只需把 renderMarkdown 改调它（一行）；届时能力面收窄为平铺段落/简单列表。另一条路径是换 marked/micromark（同代方案，API 差异集中在 markdown.ts 一个文件）。",
+      "maxInstallKb": 4096,
+      "maxTransitiveDeps": 8,
+      "budgetOverrideReason": "实测 2073 KB，超出初设的 1MB：markdown-it 自带完整 CommonMark 规则表与实体表，且 node_modules 里同时含 ESM/CJS 两种入口（打包后只有一份）。这是\"不手写解析器\"的必然代价，且为报告级预算（不影响默认安装体积的关键路径判断）。"
+    },
+    "katex": {
+      "reason": "数学公式排版（行内 $...$ 与块级 $$...$$）是助手回复的常见内容（论文、算法、统计）。手写 TeX 布局需要实现断行、伸缩定界符、上下标栈、字体度量，属于\"不该手写\"的量级；KaTeX 是同步渲染、无 MathJax 那样的异步测量延迟，且 deeply-harness 亦用同一方案。2026-10-17 起随 Vite 迁移改为 npm import，CSS 由源码 import（字体随 Vite 进 assets/）。",
+      "capability": "TeX → HTML+CSS 同步排版：行内/块级公式、`throwOnError:false` 时降级为红色原文而非抛错。仅经 web/src/ui/markdown.ts 消费；输出为 KaTeX 自己生成的受信任 HTML。",
+      "license": "MIT",
+      "approvedAt": "2026-10-17",
+      "layer": "web/src/ui",
+      "exitPlan": "若该包停更：markdown.ts 里数学分两条 ruler（inline/block），删掉这两段即回到\"公式原样文本\"——不会崩，只是不排版。替代方案 MathJax（体积更大、异步）或 temml。",
+      "maxInstallKb": 4096,
+      "maxTransitiveDeps": 4
+    },
+    "highlight.js": {
+      "reason": "代码块语法着色。手写分词器（web/src/ui/highlight.ts）只覆盖 18 种 token 规则、对 190+ 语言不可能维护；而代码块是助手回复里最高频的结构化内容，无色会明显降低可读性。选 highlight.js 而非 Shiki：Shiki 需要构建期加载 TextMate 语法与 wasm，与本仓\"零网络依赖 + 单 bundle\"不变量冲突（ARCHITECTURE_UPGRADE §3.10 已评估并否决）。2026-10-17 起随 Vite 迁移改为 npm import，**用 lib/common 子集**（36 种常用语言）——全量入口会让 bundle 多 800KB，而迁移前 web/vendor 里那个 121KB 的文件本身就是 common 构建。",
+      "capability": "代码块着色：`getLanguage` 判断语言是否已知、`highlight` 按语言着色、`highlightAuto` 自动识别。仅经 web/src/ui/markdown.ts 消费（作为 markdown-it 的 highlight 回调）。侧栏文件预览的着色走自研 web/src/ui/highlight.ts，与本依赖互不替代。",
+      "license": "BSD-3-Clause",
+      "approvedAt": "2026-10-17",
+      "layer": "web/src/ui",
+      "exitPlan": "若该包停更：web/src/ui/highlight.ts 的自研分词器保留为回退资产——把 markdown.ts 的highlight 回调改指向它即可（同 token 类名，CSS 不用动），能力面收窄为 18 条规则覆盖的语言。",
+      "maxInstallKb": 8192,
+      "maxTransitiveDeps": 4
     }
   },
   "entryTemplate": {

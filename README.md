@@ -43,7 +43,7 @@ npm run dev                         # 前端开发回路：后端 serve + Vite d
 
 **前端是标准 Vite + React 项目**（2026-10-17 从「零打包器 + React UMD 全局」迁移而来）：
 `web/index.html` 是 Vite 入口，源码在 `web/src/`（`.ts`/`.tsx`），依赖（React 18、markdown-it、
-KaTeX、highlight.js）来自 `node_modules` 与 `web/vendor/`，**全部本地、零网络依赖**。
+KaTeX、highlight.js）全部来自 `node_modules`，**本地、零网络依赖**（`web/vendor/` 已于 2026-10-17 随 Vite 迁移整体删除）。
 
 | 命令                | 做什么                                                                  | 产物           |
 | ------------------- | ----------------------------------------------------------------------- | -------------- |
@@ -359,7 +359,6 @@ web/
   index.html      Vite 入口页（npm run web:build 生成 web/dist/index.html）
   src/            React 源码（.ts/.tsx，Vite 打包到 web/dist）
   styles/         样式表（加载顺序=级联顺序，见 index.html 注释）
-  vendor/         离线内置 UMD 依赖（markdown-it/KaTeX/highlight；publicDir 平铺到产物根）
   test/           前端判据（vitest run）
 tests/
   unit/           单元与契约判据（npm test）

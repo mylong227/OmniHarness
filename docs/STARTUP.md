@@ -49,13 +49,16 @@ npm start -- --open                    # 就绪后自动打开浏览器（双击
 
 ## 2. 为什么"一键"必须存在（本仓的构建形态）
 
-本仓前端**没有打包器、也没有 dev server**：
+前端是**标准 Vite + React + TypeScript 项目**（2026-10-17 从「零打包器」迁移）：
 
-- `web/index.html` 用原生 ES Module 直接加载 **`web/dist/main.js`**（URL 带时间戳防旧缓存）；
-- `web/dist/**` 由 **`npm run web:build`**（`tsc -p web/tsconfig.json`）产出；
-- `serve` 的静态资源取自**仓库 `web/` 目录**。
+- 源码在 `web/src/`（`.ts` / `.tsx`），宿主页 `web/index.html` 是 Vite 的入口；
+- **`web/dist/**` 由 `npm run web:build`（`vite build`）产出** —— 单页多 chunk（vendor 拆分）；
+- `serve` 的静态资源取自 **`web/dist/`**（`src/cli/cliServerCmds.ts` 优先解析该目录；
+  无产物时回落 `web/`，那时会因缺 `assets/` 而白屏——这正是"忘记构建"的可辨形态）；
+- 开发时用 **Vite dev server + HMR**（`npm run web:dev` / `npm run dev`），
+  它把 `/rpc` `/events` `/files` 代理到后端，**访问 5173 而不是后端端口**。
 
-因此"把工作台跑起来"必然是三件事：
+因此"把工作台（生产形态）跑起来"必然是三件事：
 
 | 步  | 做什么               | 命令                              | 漏掉的症状                              |
 | --- | -------------------- | --------------------------------- | --------------------------------------- |
@@ -110,11 +113,13 @@ npm start -- --no-build
 ### 3.3 前端开发回路（改前端不用重启后端）
 
 ```bash
-npm run dev                     # 构建一次 → serve + 前端 tsc --watch
+npm run dev                     # 构建一次 → 后端 serve + Vite dev server（HMR）
 npm run dev -- --port 9000      # 参数透传
 ```
 
-- 改 `web/src/**` → watch 自动重编 `web/dist/**` → **刷新浏览器**即见（无需重启 serve）。
+- 改 `web/src/**` → Vite **热更新**（HMR，不丢组件状态，无需刷新、无需重启 serve）。
+- **访问 Vite 的地址**（默认 `http://localhost:5173`）：它代理 `/rpc` `/events` `/files` 到后端。
+  后端 `serve` 托管的是**已构建**页面，改源码不会反映到它上面（除非重跑 `npm run web:build`）。
 - 改 `src/**`（后端）**不在**本回路内：需重新 `npm run build` 并重启（serve 是常驻进程，不会替换已加载的 JS）。
 
 ### 3.4 后台常驻（无人值守）
@@ -238,7 +243,7 @@ curl -s -X POST http://127.0.0.1:8787/rpc \
 
 | 症状                                                   | 多半原因                                            | 处置                                                                 |
 | ------------------------------------------------------ | --------------------------------------------------- | -------------------------------------------------------------------- |
-| 页面白屏 / 控制台 `main.js 404`                        | 漏了 `npm run web:build`                            | `npm run web:build` 后刷新（或直接 `npm start`）                     |
+| 页面白屏 / 控制台 `assets/index-*.js 404`              | 漏了 `npm run web:build`                            | `npm run web:build` 后刷新（或直接 `npm start`）                     |
 | 双击 `start.cmd` 后浏览器没打开，但服务其实在跑        | 等待就绪超时，或端口上是**别的进程**                | 看窗口里最后一行结论（会明说哪一种）；换端口 `start.cmd --port 9000` |
 | 双击 `start.cmd` 窗口**一闪而过**、连 `[X]` 都没有     | 该文件被检出成了 LF（批处理的 `goto`/标签跳转不稳） | 确认 `.gitattributes` 的 `*.cmd text eol=crlf` 生效后重新检出该文件  |
 | `EADDRINUSE`                                           | 端口被占                                            | `npm start -- --port 9000`                                           |

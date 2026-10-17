@@ -5,6 +5,7 @@
 // 旧形态（零打包器时代）：UI 代码**不得** `import ... from 'react'`——浏览器解析不了裸标识符，
 // 运行时只能靠 `index.html` 用 `<script src="vendor/react.production.min.js">` 注入 UMD 全局，
 // 本文件再从 `window.React` 取出来再导出。
+// （`web/vendor/` 已于 2026-10-17 删除，React 现在直接从 npm 包 import。）
 //
 // 现在由 Vite 解析裸标识符并打包，所以**标准写法就是直接 import**：
 //   · 生产构建：Vite 把 react 打进 bundle（`web/dist/assets/*.js`）；

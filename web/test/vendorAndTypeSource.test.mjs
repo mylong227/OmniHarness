@@ -1,4 +1,4 @@
-﻿// G11（2026-10-03 第九轮）：**web 运行时依赖与类型层来源**的契约守卫。
+// G11（2026-10-03 第九轮）：**web 运行时依赖与类型层来源**的契约守卫。
 //
 // ## 这个文件防的是两件已经在报告里写错/将要发生的事
 //
@@ -37,35 +37,34 @@ function scriptSources() {
   return [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]);
 }
 
-test('index.html 必须加载 markdown 渲染路径真实依赖的 vendor 脚本（highlight.js 不是死负载）', () => {
+test('index.html 不得再加载任何 UMD vendor 脚本（2026-10-17 全部改为 npm import）', () => {
   const sources = scriptSources().join('\n');
-  // 2026-10-17 迁移到 Vite 后：**React / ReactDOM 不再走 UMD `<script>`** ——
-  // 它们是 npm 依赖，由 `src/ui/deps.ts` import、由 Vite 打进 bundle。
-  // 因此这条判据只约束"仍需以 UMD 全局注入"的三个库；React 的存在性改由下一条判据守。
-  for (const need of [
-    // 2026-10-17 迁移到 Vite：publicDir = web/vendor/ 会把内容**平铺到产物根**，
-    // 因此宿主页改用根相对引用（./markdown-it.min.js 而非 ./vendor/...）。
-    // 判据意图不变：这三个库仍必须以 UMD 全局注入（markdown.ts 运行时特性检测）。
+  // 迁移历史（这条判据的意图随形态演进，但守的是同一件事：依赖必须**真的被加载**）：
+  //   · 2026-10 之前：四个库都以 UMD `<script>` 注入，判据要求它们"在列"；
+  //   · 2026-10-17 Vite 化第一步：React 改 npm，要求 React UMD 不在列、另三个仍在列；
+  //   · 2026-10-17 第二步（本判据现状）：markdown-it / KaTeX / highlight.js 也改成
+  //     `web/src/ui/markdown.ts` 的 npm import（Vite 打包），`web/vendor/` 已整体删除。
+  //     于是**宿主页里不应再有任何一个 UMD 脚本**——只剩 `src/main.ts` 一个模块入口。
+  //
+  // 反向断言比正向更本质：只要有人把 UMD 加回来，就会出现"两套运行时"
+  //（双份 React / 双份 hljs），表现为 hooks 失效或全局被覆盖，极难排查。
+  for (const forbidden of [
+    'vendor/react.production.min.js',
+    'vendor/react-dom.production.min.js',
+    'vendor/markdown-it.min.js',
+    'vendor/katex.min.js',
+    'vendor/highlight.min.js',
     'markdown-it.min.js',
     'katex.min.js',
-    // 关键一条：复核结论是它**在用**（见文件头），因此必须在列。
     'highlight.min.js',
   ]) {
     assert.ok(
-      sources.includes(need),
-      `index.html 未加载 ${need}：它被运行时代码真实依赖，删掉会造成静默功能退化`,
+      !sources.includes(forbidden),
+      `index.html 不得再加载 UMD 脚本「${forbidden}」：该库已改为 npm import（双份运行时会静默出问题）`,
     );
   }
-  // 反向约束：React 不得再以 UMD 脚本出现（否则就是"两套 React 运行时"，
-  // 会出现 hooks 失效、context 读不到这类极难查的问题）。
-  assert.ok(
-    !sources.includes('vendor/react.production.min.js'),
-    'index.html 不得再加载 React UMD 脚本：React 已改为 npm 依赖（避免双实例）',
-  );
-  assert.ok(
-    !sources.includes('vendor/react-dom.production.min.js'),
-    'index.html 不得再加载 ReactDOM UMD 脚本：同上',
-  );
+  // 正向：唯一入口必须是源码模块（Vite 负责转译与打包）。
+  assert.ok(sources.includes('./src/main.ts'), 'index.html 必须以 ./src/main.ts 作为唯一入口');
 });
 
 test('React 来自 npm 依赖（不是 UMD 全局）：deps.ts 必须 import 而非读 window', () => {
@@ -75,23 +74,66 @@ test('React 来自 npm 依赖（不是 UMD 全局）：deps.ts 必须 import 而
   assert.match(deps, /MergedReactDOM|RealReactDOMClient/, 'ReactDOM 必须合并 client 入口，否则 createRoot 告警');
 });
 
-test('markdown 渲染路径确实调用 highlight.js（删 vendor 脚本会让代码块失色）', () => {
+test('markdown 渲染路径确实用 highlight.js（npm import，不再是 window 全局）', () => {
   const md = read('web/src/ui/markdown.ts');
-  assert.match(md, /window\.hljs|hljs/, 'markdown.ts 必须仍从 window 取 hljs');
+  // 着色入口仍必须存在：markdown-it 的 `highlight` 选项是唯一的着色点。
   assert.match(md, /highlight\s*:/, 'markdown-it 的 highlight 选项必须仍存在（这就是着色入口）');
+  // 依赖必须来自 npm，而不是 UMD 全局（后者已随 web/vendor 删除而消失）。
   assert.match(
     md,
-    /Boolean\(v\.hljs\)/,
-    'hasDeps 必须仍把 hljs 列为就绪条件——它决定走"成熟依赖管线"还是"无色兜底"',
+    /from 'highlight\.js\/lib\/common'/,
+    'highlight.js 必须 npm import（common 子集：全量入口会让 bundle 多 800KB）',
+  );
+  assert.match(md, /from 'markdown-it'/, 'markdown-it 必须 npm import');
+  assert.match(md, /from 'katex'/, 'katex 必须 npm import');
+  assert.match(md, /import 'katex\/dist\/katex\.min\.css'/, 'KaTeX 样式必须由源码 import（字体随 Vite 进 assets/）');
+  // 反向：不得再读 UMD 全局。
+  //
+  // 注意必须**剔除注释行**再判：本文件历史说明里会提到 `window.markdownit / window.katex /
+  // window.hljs`（"迁移前是这么干的"），那是留痕而不是代码。首版没剔注释，判据因此假红。
+  const mdCode = md
+    .split('\n')
+    .filter((line) => {
+      const s = line.trim();
+      return !s.startsWith('//') && !s.startsWith('*') && !s.startsWith('/*');
+    })
+    .join('\n');
+  assert.ok(
+    !/window\.markdownit|window\.katex|window\.hljs/.test(mdCode),
+    'markdown.ts 不得再读 window.* UMD 全局（vendor 已删除，读了只会拿到 undefined）',
   );
 });
 
-test('vendor 脚本"在列"且"文件真实存在且非空"（防止只留标签、文件被删）', () => {
-  for (const rel of ['web/vendor/highlight.min.js', 'web/vendor/markdown-it.min.js', 'web/vendor/katex.min.js']) {
-    const abs = join(REPO_ROOT, rel);
-    assert.ok(existsSync(abs), `${rel} 不存在`);
-    assert.ok(statSync(abs).size > 1024, `${rel} 体积异常（${String(statSync(abs).size)} B）`);
+test('web/vendor 未被跟踪、未进产物、未被引用（依赖统一走 npm）', () => {
+  // 为什么不断言"磁盘上不存在"：本机会有外部工具（工作区检查点/同步）把已删除的
+  // **已跟踪文件**从对象库还原回磁盘 —— `web/styles/polish.css` 与 `web/vendor/` 都实测过。
+  // 那种还原**不进 git 索引**、也**不被任何配置引用**，因此是惰性的；
+  // 用它做断言只会制造"看环境而红"的假红。真正要守的是三条可保证的事实：
+  //
+  //   ① 未被 git 跟踪（否则会被提交、被发布出去）；
+  //   ② 未被 `publicDir` 复制进产物（否则 dist 根会冒出 markdown-it.min.js 这类文件）；
+  //   ③ 宿主页与配置都不引用它。
+  const cfg = read('vite.config.ts');
+  assert.ok(!/publicDir/.test(cfg), '① vite.config.ts 不得再配置 publicDir（没有静态公开目录了）');
+
+  // ② 产物根不得出现 vendor 的 UMD 文件（这条比"目录在不在"更本质：
+  //    即使目录被还原，只要没进产物，运行时就不可能用到它）。
+  const dist = join(WEB_ROOT, 'dist');
+  if (existsSync(dist)) {
+    for (const legacy of ['markdown-it.min.js', 'katex.min.js', 'highlight.min.js', 'react.production.min.js']) {
+      assert.ok(
+        !existsSync(join(dist, legacy)),
+        `② 产物根出现了旧 UMD 文件 ${legacy}：publicDir 可能又被指回 web/vendor`,
+      );
+    }
   }
+
+  // ③ 宿主页引用（已在上面两条判据里正向断言，这里再守一次"根相对 UMD 引用"）。
+  const html = read('web/index.html');
+  assert.ok(
+    !/<script src="\.\/(?:markdown-it|katex|highlight|react)/.test(html),
+    '③ index.html 不得再有 UMD 脚本引用',
+  );
 });
 
 test('类型层来自官方包：手写垫片不得回归，且官方类型仍在 devDependencies', () => {
