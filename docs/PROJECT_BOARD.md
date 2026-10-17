@@ -3383,3 +3383,18 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 - 指向真实 `.js` 文件（node_modules / dist / fixture）的导入不受影响，按字面解析。
 - shellTool 会话取消（§11.5 已登记）在 HEAD 与本轮同样红：子进程 spawn 后 `started.txt` 不落盘，
   疑与本机沙箱/Defender 相关，待独立排查。
+
+## 13. 标准工程体检收尾（2026-10-17，第八轮）
+
+对照「标准 Vite + React + TypeScript 工程」全仓体检（CI/.nvmrc/start.cmd/changesets/jsdom/eslint 配置类型声明均核实为现行或有真实消费者），修正三处：
+
+| 项                          | 处置                                                                                    | 证据                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `config.example.yaml`       | **删除**。跑分/评测子系统 2026-10-03 已整体移除（§7），src/scripts/tests 零 yaml 加载器 | 全仓 grep 零引用；docLinkCheck 无新增死链                            |
+| npm 发包面过宽              | `files` 的 `web` → `web/dist` + `web/index.html`                                        | npm pack 实测 3676 → 3402 文件（web/src 160 + web/test 93 不再进包） |
+| `.tmp-newcred.mjs` 被误跟踪 | **删除**。`.gitignore` 注释声称"均已 git rm"但它实际仍在库里                            | 本提交 `delete mode` 记录                                            |
+
+**仅存的两项结构性分叉（sized，待决策）**：
+
+1. **后端测试栈**：538 个 `tests/unit/*.test.ts` 用 `node:test` + 跑 `dist`（构建产物）；前端已 vitest 直跑源码。试点实测：vitest 不接管 `node:test` 注册（「No test suite found」），web 侧当年是 538→0 全量换导入。迁移 = 538 文件换 `import { test } from 'vitest'` + 73 个进程/dist 耦合判据适配（46 个判据 spawn `dist/` 产物 ⇒ 即便迁移后 `npm test` 仍需先构建）+ 3415 例全量复验 + CI `coverage:check`（`dist/tests/unit/*.test.js` 通配）改造。
+2. **web/test 语言**：93 个 `.mjs`（标准 Vite 项目测试用 TS）。纯改名无收益——web tsconfig 只 typecheck `src/**`，`.ts` 化却不纳入 typecheck 反而制造"假类型安全"；纳入 typecheck 则要先清 93 个松散 JS 的类型债。应与第 1 项同轮决策（目标形态：全仓 vitest + TS 判据 + 源码直跑）。
