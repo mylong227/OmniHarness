@@ -7,7 +7,7 @@
 // 块级键盘评审（j/k/a/r）的可见锚点：被选中的 `@@` 头挂 `.hunk-head.selected` 与 aria-current，
 // 与鼠标点击共用同一条选中通道（点块头即选中，键盘移动即高亮）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { parseDiffRows, type DiffRow } from '../../textUtils.js';
 import { DiffHunkSplitter } from '../../models/DiffHunkSplitter.js';
 import { icon } from '../../models/Icon.js';

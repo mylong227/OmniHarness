@@ -16,8 +16,8 @@
  *
  * @returns trace 面板节点
  */
-// 零打包器：React 由 deps.js 从 UMD 全局取（不得 import 裸标识符 'react'）。
-import { React } from '../../deps.js';
+// 标准 React 项目写法：`import * as React from 'react'`（Vite 解析裸标识符）。
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { timeOf } from '../../format.js';
 import type { ReactElement } from 'react';

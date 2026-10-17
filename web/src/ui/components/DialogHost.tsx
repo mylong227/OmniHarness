@@ -8,7 +8,7 @@
 // 「请求变化 → 重置输入值并把焦点交给默认控件」原由 componentDidMount/Update 两处调用同一方法，
 // 现由依赖 request 的单个 effect 承接（挂载即有待决请求的情形也一并覆盖）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { useApp } from '../context.js';
 import type { DialogRequest, DialogState } from '../../core/DialogService.js';
 

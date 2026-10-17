@@ -1,7 +1,7 @@
 // 工作状态条：回合进行中显示动画 + 当前动作 + 已耗时，让「看不见的等待」变成「看得见的干活」。
 // 函数组件范式：计时起点用 useRef，周期刷新用 useState + 空依赖 effect（清理函数对称清掉 interval）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { t } from '../i18n/i18n.js';
 
 /** WorkIndicator 组件的入参。 */

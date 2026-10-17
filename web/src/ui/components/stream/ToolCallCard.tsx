@@ -2,7 +2,7 @@
 // 失败时把 error 摘要直接显示在行尾（不折叠）——沙箱拒绝 / 路径越界等根因不该被藏起来。
 // 函数组件范式：仅一个展开态。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { jsonView, timeOf, esc } from '../../format.js';
 import { truncate, describeToolCall } from '../../textUtils.js';
 import { ArtifactResolver } from '../../models/ArtifactResolver.js';

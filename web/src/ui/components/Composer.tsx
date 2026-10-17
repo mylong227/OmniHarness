@@ -12,7 +12,7 @@
 // 卸载时停录音的清理由空依赖 effect 承接（原 componentWillUnmount）；
 // 附件条 / @补全弹层的渲染下沉为模块级纯函数。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { ModelPicker } from './ModelPicker.js';
 import { FilePicker } from './FilePicker.js';
 import { WorkIndicator } from './WorkIndicator.js';

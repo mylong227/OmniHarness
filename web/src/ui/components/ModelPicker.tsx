@@ -17,7 +17,7 @@
 // 筛选框却让每次打开都多出一次"忽略它 / 先输字"的决策，还占掉列表上方一整行。
 // 清单长到需要筛选时再加回来——那时它才有存在理由。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { ComposerOptions } from '../models/ComposerOptions.js';
 import { claimPopover, releasePopover } from '../models/PopoverStack.js';

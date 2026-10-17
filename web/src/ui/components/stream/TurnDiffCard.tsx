@@ -6,7 +6,7 @@
 // 数据来自 turn_diff 事件 payload.diff（整回合 unified diff），解析走纯模型 TurnDiffFiles
 // （可脱离 React 单测）。解析不出任何文件段（如 diff 为空）时退回原始 diff 呈现，不白屏。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { parseTurnDiffFiles, turnDiffTotals } from '../../models/TurnDiffFiles.js';
 import { diffView } from '../../format.js';
 import { t } from '../../i18n/i18n.js';

@@ -22,7 +22,7 @@
 // role="dialog" + aria-modal + aria-label；Esc 关闭；关闭按钮有 aria-label；
 // 分栏导航是 role="tablist" + role="tab"（aria-selected）——不靠颜色表达选中。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { useApp } from '../context.js';
 import { emptyNote } from '../format.js';

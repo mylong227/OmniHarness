@@ -9,7 +9,7 @@
 // 函数组件范式：揭示器实例跨渲染保持（useRef 惰性初始化），
 // 「文本 / busy / animate 变化即重启」与「卸载即停止」分别由两个 effect 承接。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { badge, timeOf, esc, renderMarkdown } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import { extractUrls } from '../../textUtils.js';

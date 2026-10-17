@@ -6,7 +6,7 @@
 // 表单主体为非受控（useRef 保存 DOM 引用，含 select 的 Map 引用），加载后回填 DOM 值；
 // 「已保存」提示由 state 驱动 + useRef 持有的定时器自动消隐（卸载时清理对称）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { icon } from '../../models/Icon.js';
 import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';

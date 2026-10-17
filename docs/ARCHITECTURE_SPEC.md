@@ -160,7 +160,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 | `tests/**/*.ts` | **501**  | **75,400**  |
 | `web/src/**`    | **115**  | **17,648**  |
 
-**运行时依赖（10）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`、`jose@6.2.12`、`openid-client@^6.8.8`（A.5 第四项 · 2026-10-05 准入：OIDC 授权码流，2 传递依赖 ≈550 KB，自研 `LegacyOidcFlow` 同端口回退，见看板第五十三/五十四轮）、`react@^18.3.1`、`react-dom@^18.3.1`（2026-10-17 准入：Web 工作台从「零打包器 + UMD 全局」迁移到标准 Vite + React 项目，唯一收口点是 `web/src/ui/deps.ts`，回退路径为 Preact 或原 UMD 形态，均不改组件文件）、`markdown-it@^14.3.3`、`katex@^0.16.47`、`highlight.js@^11.12.0`（2026-10-17 准入：Markdown 渲染管线的三个成熟依赖，同日从 `web/vendor` 的 UMD 文件改为 npm import，`web/vendor/` 随之整体删除；回退路径是 `web/src/ui/format.ts` 的手写渲染器与 `web/src/ui/highlight.ts` 的自研分词器，均保留为资产并有独立判据）。
+**运行时依赖（10）**：`@modelcontextprotocol/sdk@^1.32.0`、`zod@^4.6.4`、`croner@10.0.1`、`jose@6.2.12`、`openid-client@^6.8.8`（A.5 第四项 · 2026-10-05 准入：OIDC 授权码流，2 传递依赖 ≈550 KB，自研 `LegacyOidcFlow` 同端口回退，见看板第五十三/五十四轮）、`react@^18.3.1`、`react-dom@^18.3.1`（2026-10-17 准入：Web 工作台从「零打包器 + UMD 全局」迁移到标准 Vite + React 项目；组件一律 `import * as React from 'react'`（原先那层「从 window 取 UMD 全局」的 React 取用收口模块已删除），测试侧改由 vitest 的 `resolve.alias` 把 `react` 指到测试桩。回退路径为 Preact（JSX 层面兼容，不改组件文件））、`markdown-it@^14.3.3`、`katex@^0.16.47`、`highlight.js@^11.12.0`（2026-10-17 准入：Markdown 渲染管线的三个成熟依赖，同日从 `web/vendor` 的 UMD 文件改为 npm import，`web/vendor/` 随之整体删除；回退路径是 `web/src/ui/format.ts` 的手写渲染器与 `web/src/ui/highlight.ts` 的自研分词器，均保留为资产并有独立判据）。
 **可选依赖（2）**：`@huggingface/transformers`（本地嵌入）、`sharp`（图像）。
 **原生内核**：Rust crate（可选；**TS 为默认路径**——原生记账实测比 TS 慢 4.5–6.7×，见报告 §3.8）。
 

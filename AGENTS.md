@@ -64,11 +64,21 @@
 
 - `npm start`（`scripts/startAll.mjs`）= **构建服务端 + 构建前端 + 起 HTTP UI**，一步到位；
   参数透传：`npm start -- --port 9000`。
-- `npm run dev`（`scripts/devAll.mjs`）= 构建一次后 serve + 前端 `tsc --watch`（改前端不必重启 serve）。
-- 前端**没有打包器、也没有 dev server**：`web/index.html` 用原生 ES Module 直接加载 `web/dist/main.js`
-  （由 `npm run web:build` 产出，URL 带时间戳防旧缓存）。
-  ⇒ **只 `npm run build` 而漏 `npm run web:build`，页面必定白屏**——不是「样式没生效」，是入口文件根本不存在；
-  排查白屏第一步：看 `web/dist/main.js` 在不在。
+- `npm run dev`（`scripts/devAll.mjs`）= 构建一次后 serve + **Vite dev server**（HMR）。
+  改前端**热更新**、不必重启；但**要访问 Vite 的地址**（默认 `http://localhost:5173`，它把
+  `/rpc` `/events` `/files` 代理到后端），而不是后端端口。
+- 前端是**标准 Vite + React + TypeScript 项目**（2026-10-17 从「零打包器 + tsc 直出 ESM + React UMD 全局」
+  迁移而来，**旧的架构描述已作废**，别按旧记忆行事）：
+  - 入口 `web/src/main.ts`（也是样式的 import 处），产物 `web/dist/`（`npm run web:build` = `vite build`，
+    单 bundle 带 hash）；
+  - 依赖全部 npm（react / react-dom / markdown-it / katex / highlight.js），**无 `web/vendor/`、无 UMD `<script>`**；
+  - UI 一律 `import * as React from 'react'`，**没有 `deps.ts` 间接层**（已删除；测试侧由 vitest 的
+    `resolve.alias` 把 `react` 指到 `web/test/hooksStub.mjs`）。
+    ⇒ 白屏排查顺序：`web/dist/index.html` 在不在 → 它引用的 `assets/index-*.js` 在不在（serve 优先托管
+    `web/dist`，无产物时回落 `web/`，那就必然白屏）。
+- **前端判据单独一条命令**：`npm run web:test`（先 `vite build` 再 `vitest run`；真 Chrome 判据需要产物）。
+  `vitest.config.ts` 已设 `fileParallelism: false` —— 11 个判据各自起真 Chrome，并发会互相抢资源产生**假红**，
+  别为了快把它改回并行。
 
 ## 本机配置与工作区解析
 

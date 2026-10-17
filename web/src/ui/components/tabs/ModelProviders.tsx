@@ -5,7 +5,7 @@
 // 函数组件范式：七份 state 各用 useState；状态判定继续复用 ProviderStatusResolver
 // （零 React，可单测）；样式常量与新值对不变，卡片渲染下沉为模块级函数。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { ProviderStatusResolver } from '../../models/ProviderStatus.js';
 import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.js';

@@ -8,7 +8,7 @@
 // 行 / 评论 / 草稿 / patch 视图下沉为 ChangesPatchView 的模块级渲染函数（经 ReviewCtx 传参）。
 // 选中序号的**权威副本**在 models/ReviewCursor（state 仅作渲染镜像，理由见该文件）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { statusBadge } from '../../textUtils.js';
 import { icon } from '../../models/Icon.js';

@@ -11,7 +11,7 @@
 //   ① 页面不再空白 —— 错误消息 + 「重试」/「重新加载」按钮就在屏幕上；
 //   ② 现场写进 sessionStorage（`omni-last-render-error`，含组件栈），用户一句话就能把真因带回来；
 //   ③ 点「重试」可原地恢复渲染（清掉边界态重挂子树），不必丢掉当前会话。
-import { React } from '../deps.js';
+import * as React from 'react';
 import { t } from '../i18n/i18n.js';
 
 /** 边界状态。 */

@@ -5,7 +5,7 @@
 // 函数组件范式：原「九份扁平 state」按语义收成三组（浏览数据 / 加载态 / 新建态），
 // 渲染分支下沉为模块级函数（零组件耦合）；Esc 监听依赖 create.creating，handler 恒读最新值。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { PathJoiner } from '../models/PathJoiner.js';
 import { PickerKeys } from '../models/PickerKeys.js';
 import { icon } from '../models/Icon.js';

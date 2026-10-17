@@ -1,7 +1,7 @@
 // 文件预览弹窗：点击文件树节点时在 App 层置位 fileView，本组件负责展示。
 // 纯展示组件（函数组件范式）：关闭通过回调上抛，无内部状态、无副作用。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import type { FileView } from '../shared.js';
 import { t } from '../i18n/i18n.js';
 

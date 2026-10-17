@@ -15,7 +15,7 @@
 // 可读名字一律由外层容器（按钮 `aria-label` / 文案）提供。故按钮上的图标不会污染 a11y 名字。
 // 判据：web/test/a11yKeyboard.test.mjs（NavRail 9 项、每个纯图标按钮都有 aria-label）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 
 /** 图标名（新增图标时同步加到这里，拼错即编译期报错）。 */
 export type IconName =

@@ -8,7 +8,7 @@
 // 「打开即重置 + 下一帧聚焦」由依赖 open 的 effect 承接（原实现需 componentDidUpdate
 // 比对 prev.open）；聚焦定时器在清理函数里销毁（H3 对称）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CommandPaletteModel } from '../models/CommandPaletteModel.js';
 import type { CommandItem } from '../models/CommandPaletteModel.js';

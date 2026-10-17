@@ -34,7 +34,7 @@ import katex from 'katex';
 // 判据：web/test/markdownLibs.test.mjs 断言常用语言仍在列。
 import hljs from 'highlight.js/lib/common';
 
-import { React } from './deps.js';
+import * as React from 'react';
 import { ClipboardCopier } from './models/ClipboardCopier.js';
 import { t } from './i18n/i18n.js';
 

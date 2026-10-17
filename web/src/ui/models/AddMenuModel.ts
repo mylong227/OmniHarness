@@ -3,7 +3,7 @@
 
 import type { AgentCatalogEntry, PluginManifest, SearchHit } from '../../types/models.js';
 // 图标名的**唯一事实源**在 models/Icon.ts（`IconName`）；这里只 import 类型（`import type` 编译期即擦除，
-// 不会把 Icon.ts 的运行时依赖（deps.js 的 UMD 全局 React）拖进模型层，单测仍可在纯 node 下直接跑）。
+// 不会把 Icon.ts 的运行时依赖（它现在 import react）拖进模型层，单测仍可在纯 node 下直接跑）。
 import type { IconName } from './Icon.js';
 import { t } from '../i18n/i18n.js';
 

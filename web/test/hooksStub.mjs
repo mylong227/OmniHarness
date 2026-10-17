@@ -68,7 +68,7 @@ export function createRuntime() {
     createElement(type, props, ...children) {
       return { type, props: props ?? {}, children };
     },
-    Fragment: Symbol('Fragment'),
+    Fragment: STUB_FRAGMENT,
     /**
      * 桩版 createContext：只要 Provider/Consumer 形状存在即可。
      * @returns 上下文桩
@@ -174,6 +174,19 @@ export function createRuntime() {
     useContext() {
       return appContext;
     },
+    /**
+     * 桩版 useSyncExternalStore：**直接取快照**（零 DOM 下没有订阅时机）。
+     *
+     * 为什么必须补：`SettingsModal` 用它订阅 `SettingsModel`（1 处调用）。缺了它，
+     * 只要某个判据渲染到设置模态就会 `undefined is not a function`。
+     * @param _subscribe 订阅函数（本桩不调用）
+     * @param getSnapshot 取快照
+     * @returns 快照值
+     */
+    useSyncExternalStore(_subscribe, getSnapshot) {
+      cursor++;
+      return getSnapshot();
+    },
   };
 
   const ReactDOM = { createRoot: () => ({ render() {} }) };
@@ -181,7 +194,7 @@ export function createRuntime() {
   /** 简易 localStorage 桩（组件内如需持久化偏好时不炸）。 */
   const store = new Map();
 
-  return {
+  const runtime = {
     React,
     ReactDOM,
     appContext,
@@ -260,4 +273,120 @@ export function createRuntime() {
       seeds = null;
     },
   };
+  // 设为"当前 runtime"：react 模块替身的所有具名导出都转发到它（见文件末尾）。
+  currentRuntime = runtime;
+  return runtime;
+}
+
+// ============================================================================
+// 作为 **react 模块替身** 导出（2026-10-17，`deps.ts` 移除后）
+// ----------------------------------------------------------------------------
+// 迁移前 UI 代码从 `src/ui/deps.ts` 取 React，而 `deps.ts` 读 `window.React` ——
+// 那是零打包器 + UMD 时代的收口点，也是本仓最后一处「非标准 React 项目」的形态。
+// 现在 UI 直接 `import * as React from 'react'`，测试侧由 `vitest.config.ts` 的
+// `resolve.alias` 把 `react` 指到本文件，于是：
+//
+//   `import * as React from 'react'`  →  拿到下面这些具名导出  →  转发到当前 runtime 的桩
+//
+// 为什么用"模块级 current runtime"而不是每个判据文件写 `vi.mock`：`vi.mock` 的工厂
+// 会被提升到文件顶部、拿不到测试里的闭包变量，26 个文件都要各自绕一遍；
+// 而 `createRuntime()` 本来就在每个判据里调用，让它顺手把自己设为"当前 runtime"最省事。
+//
+// ⚠️ `install()` 必须保留：它除了注入 React，还负责 `window` 上的 localStorage /
+// timer / 事件监听桩 —— 组件里真实用到了它们。
+// ============================================================================
+
+/** Fragment 的稳定符号（stub 与"react 模块导出"共用同一个，避免身份比较假红）。 */
+const STUB_FRAGMENT = Symbol('Fragment');
+
+/** 当前生效的 runtime（由 `createRuntime()` 设置）。 */
+let currentRuntime = null;
+
+/**
+ * 取当前 runtime 的桩 React；**没有人安装时惰性自建一个**。
+ *
+ * 为什么允许惰性自建：并非所有判据都显式调用 `createRuntime()`。
+ * 例如 `format.test.mjs` 只渲染纯函数产出的 vnode（`esc` / `badge` / `jsonView`…），
+ * 从不触 hook，历史上它自己手搓了一个 `fakeReact` 挂在 `window.React` 上。
+ * `deps.ts` 删除后那条通路没了 —— 若这里直接抛错，17 条本来与 React 无关的判据会一起红。
+ * 惰性自建让"只想调一下纯函数"的判据零成本继续工作，而需要控制 hook 槽位的判据
+ * 仍然自己调 `createRuntime()` 覆盖它。
+ * @returns 桩 React 对象
+ */
+function currentReact() {
+  if (currentRuntime === null) currentRuntime = createRuntime();
+  return currentRuntime.React;
+}
+
+/** 桩版 createElement（转发到当前 runtime）。 */
+export function createElement(...args) {
+  return currentReact().createElement(...args);
+}
+
+/** Fragment（稳定符号）。 */
+export const Fragment = STUB_FRAGMENT;
+
+/** 桩版 useState（转发）。 */
+export function useState(...args) {
+  return currentReact().useState(...args);
+}
+
+/** 桩版 useReducer（转发）。 */
+export function useReducer(...args) {
+  return currentReact().useReducer(...args);
+}
+
+/** 桩版 useRef（转发）。 */
+export function useRef(...args) {
+  return currentReact().useRef(...args);
+}
+
+/** 桩版 useEffect（转发）。 */
+export function useEffect(...args) {
+  return currentReact().useEffect(...args);
+}
+
+/** 桩版 useLayoutEffect（转发）。 */
+export function useLayoutEffect(...args) {
+  return currentReact().useLayoutEffect(...args);
+}
+
+/** 桩版 useMemo（转发）。 */
+export function useMemo(...args) {
+  return currentReact().useMemo(...args);
+}
+
+/** 桩版 useCallback（转发）。 */
+export function useCallback(...args) {
+  return currentReact().useCallback(...args);
+}
+
+/** 桩版 useContext（转发）。 */
+export function useContext(...args) {
+  return currentReact().useContext(...args);
+}
+
+/** 桩版 useSyncExternalStore（转发）。 */
+export function useSyncExternalStore(...args) {
+  return currentReact().useSyncExternalStore(...args);
+}
+
+/** 桩版 createContext（转发）。 */
+export function createContext(...args) {
+  return currentReact().createContext(...args);
+}
+
+/** 桩版 memo（转发）。 */
+export function memo(...args) {
+  return currentReact().memo(...args);
+}
+
+/** 桩版 createRef（转发）。 */
+export function createRef(...args) {
+  return currentReact().createRef(...args);
+}
+
+/** 桩版 Component 基类（转发）。 */
+export function Component(...args) {
+  return currentReact().Component(...args);
 }

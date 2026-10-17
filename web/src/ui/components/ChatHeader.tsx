@@ -3,7 +3,7 @@
 // 视图切换是组件内局部状态吗——不是：视图由父组件（StreamView）持有，切到「轨迹」要换整个流区。
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { t } from '../i18n/i18n.js';
 

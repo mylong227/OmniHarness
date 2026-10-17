@@ -8,7 +8,7 @@
 // 「打开即拉数 + 挂外部点击监听」由依赖 open 的单个 effect 承接，搜索防抖定时器由 useRef 持有，
 // 随 effect 清理（H3 对称）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { useApp } from '../context.js';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.js';

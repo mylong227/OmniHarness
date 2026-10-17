@@ -10,7 +10,7 @@
 // （会话 + 工作区文件，分组展示、命中高亮/截断）。关键字为空时**不**打远端；防抖与乱序丢弃
 // 由 models/SessionSearch 承担；↑/↓ 选中、Enter 打开走输入框的 combobox 语义。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { useApp } from '../context.js';
 import { FolderPicker } from './FolderPicker.js';
 import { SidebarHeader } from './SidebarHeader.js';

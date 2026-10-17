@@ -3,7 +3,7 @@
 // 只覆盖常见语言（js/ts/json/md/css/html/shell/python/yaml），未识别语言退化为纯文本。
 // 安全：始终先 esc() 再包 span，绝不直接注入原文（与项目「不用 innerHTML」铁律一致）。
 
-import { React } from './deps.js';
+import * as React from 'react';
 
 type Tok =
   | { t: 'comment'; v: string }

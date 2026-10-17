@@ -3,7 +3,7 @@
 // 纯展示组件（函数组件范式）：无状态、无副作用、不发起请求；键盘由输入框（combobox）承接，
 // 本组件只负责把「选中项」画出来，保证键盘高亮与 Enter 打开的是同一项（aria-activedescendant 指向它）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { SearchHitGrouper } from '../models/SearchHitGrouper.js';
 import type { SearchGroup } from '../models/SearchHitGrouper.js';
 import type { SearchHit } from '../../types/models.js';

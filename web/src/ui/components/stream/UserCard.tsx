@@ -3,7 +3,7 @@
 // 重发复用既有提交通路（turns.run），不新造 RPC，也不再维护第二套内联编辑器。
 // 函数组件范式：无内部 state，纯展示 + 一个回调。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { badge, timeOf, esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';

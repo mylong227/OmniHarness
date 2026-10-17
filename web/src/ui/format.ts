@@ -1,7 +1,7 @@
 // 纯函数工具层：vanilla 版中散落的字符串拼接与 innerHTML 注入，统一改写为返回 React 元素的纯函数。
 // 组件层调用这些函数，既保持视觉一致（复用同一套 CSS class），又避免直接操作 DOM。
 
-import { React } from './deps.js';
+import * as React from 'react';
 import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.js';
 import { icon } from './models/Icon.js';
 import { parseTurnDiffFiles, turnDiffTotals } from './models/TurnDiffFiles.js';

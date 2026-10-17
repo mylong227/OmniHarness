@@ -9,7 +9,7 @@
 // 原 componentDidMount + componentDidUpdate 的 focusDefault 合为一个依赖 approval 的 effect。
 // 纯展示组件：决策通过回调上抛，自身不保存业务状态。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { jsonView } from '../format.js';
 import { icon } from '../models/Icon.js';
 import type { ApprovalRequest } from '../../types/models.js';

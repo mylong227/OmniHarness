@@ -5,7 +5,7 @@
 // 并用 alive 标志避免卸载后回写（原实现依赖 componentWillUnmount 清定时器）。
 // 数字缩写继续复用 NumberFormatter（零 React，可单测）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';
 import { NumberFormatter } from '../../models/NumberFormatter.js';

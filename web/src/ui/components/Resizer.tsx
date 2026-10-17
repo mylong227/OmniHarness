@@ -4,7 +4,7 @@
 // window 监听在空依赖 effect 里挂一次、清理函数里摘掉；handler 经「最新值 ref」读取 props，
 // 既避免每次 props 变化重挂监听，也不受陈旧闭包影响（H5）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { t } from '../i18n/i18n.js';
 
 /** Resizer 组件的入参。 */

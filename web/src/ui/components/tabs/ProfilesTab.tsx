@@ -3,7 +3,7 @@
 // 函数组件范式：配置集列表与当前激活插件集各一个 useState；表单三处输入为非受控（useRef 读写）；
 // 「挂载装载 + reloadKey 变化重载」合为一个依赖 reloadKey 的 effect；行渲染下沉为模块级函数。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';

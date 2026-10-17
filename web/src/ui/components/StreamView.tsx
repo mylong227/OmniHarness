@@ -17,7 +17,7 @@
 // 贴底策略：只在「此前处于底部」时才把新事件拉到屏内；用户上滚后一律保持 scrollTop 不变。
 // 可断言信号：根节点 data-virtual / data-rendered-count / data-total-count / data-event-count。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { ChatHeader } from './ChatHeader.js';
 import type { ChatViewKind } from './ChatHeader.js';

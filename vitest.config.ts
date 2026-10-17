@@ -50,16 +50,25 @@ export default defineConfig({
     reporters: ['default'],
   },
   resolve: {
-    alias: {
-      // 自动 JSX 运行时 → 测试垫片。
-      //
-      // `web/tsconfig.json` 用 `jsx: "react-jsx"`（标准 Vite React 配置）。生产侧没问题，
-      // 但 25 个零 DOM 组件判据依赖 `hooksStub` 的"纯数据 vnode"——它们只在 classic
-      // 运行时（JSX → `React.createElement`）下成立。这个别名把 `jsx()/jsxs()` 也导到桩上，
-      // 于是两种运行时下判据拿到的都是同一棵纯数据树。
-      // 详见 `web/test/jsxRuntimeStub.mjs` 的头注释。
-      'react/jsx-runtime': resolve(import.meta.dirname, 'web/test/jsxRuntimeStub.mjs'),
-      'react/jsx-dev-runtime': resolve(import.meta.dirname, 'web/test/jsxRuntimeStub.mjs'),
-    },
+    // 用**正则锚定**的数组形式，不能用对象形式。
+    //
+    // 对象形式 `{ react: ... }` 在 Vite 里是**前缀匹配**，会把 `react/jsx-dev-runtime`、
+    // `react-dom` 这类子路径一起改写（实测报 `Cannot find module 'react/jsx-dev-runtime'`）。
+    // 用 `/^react$/` 精确锚定，子路径各自单独处理。
+    alias: [
+      // `react` → 测试桩（2026-10-17，`deps.ts` 删除后）。
+      // UI 现在直接 `import * as React from 'react'`；测试侧把该模块换成 hooksStub，
+      // 它导出同名 API 并转发到"当前 runtime"，零 DOM 判据照旧工作。
+      { find: /^react$/, replacement: resolve(import.meta.dirname, 'web/test/hooksStub.mjs') },
+      // 自动 JSX 运行时 → 垫片（把 jsx/jsxs 也导到桩上），详见 `web/test/jsxRuntimeStub.mjs`。
+      {
+        find: /^react\/jsx-runtime$/,
+        replacement: resolve(import.meta.dirname, 'web/test/jsxRuntimeStub.mjs'),
+      },
+      {
+        find: /^react\/jsx-dev-runtime$/,
+        replacement: resolve(import.meta.dirname, 'web/test/jsxRuntimeStub.mjs'),
+      },
+    ],
   },
 });

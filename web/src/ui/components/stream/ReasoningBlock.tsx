@@ -9,7 +9,7 @@
 //
 // 函数组件范式：仅一个展开态 + 一个计时器，用 useState/useRef/useEffect 承接。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';

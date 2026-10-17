@@ -2,7 +2,7 @@
 // 纯展示组件（函数组件范式）：列表数据由 props 注入，无内部状态、无副作用。
 // 「状态 → 中文」的纯映射下沉为模块级函数（零 React 依赖，可单测）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ToolItem } from '../../shared.js';

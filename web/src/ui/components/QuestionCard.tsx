@@ -7,7 +7,7 @@
 // 状态归属：作答草稿留在本组件（随卡片卸载丢弃），「有没有待作答的提问」由 AppController 持有。
 // 纯视图组件：不直接 fetch，RPC 经 onSubmit 回调上抛。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import type {
   AskQuestionItem,

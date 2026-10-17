@@ -4,7 +4,7 @@
 // 「挂载装载 + reloadKey 变化重载」合为一个依赖 reloadKey 的 effect（语义等价）；
 // 星级渲染继续复用 ImportanceStars（零 React 依赖，可单测），行渲染下沉为模块级函数。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { ImportanceStars } from '../../models/ImportanceStars.js';
 import { icon } from '../../models/Icon.js';

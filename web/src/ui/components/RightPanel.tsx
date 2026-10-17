@@ -7,7 +7,7 @@
 // tabindex，左右方向键移动）——与旧标签条同一套契约，采集脚本按 [role="tab"] 采集的口径不变。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { PanelPicker } from './PanelPicker.js';
 import { panelOf } from '../models/PanelRegistry.js';
 import type { FileView } from '../shared.js';

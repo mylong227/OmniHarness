@@ -3,7 +3,7 @@
 // 对齐「详情以文件的形式排版布局」的结果展示口径（2026-10-13 用户反馈）。
 // 纯展示组件（函数组件范式）：选中事件由 props 注入，无内部状态、无副作用。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { badge, jsonView, detailSummary, timeOf, esc, emptyState, renderMarkdown } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';

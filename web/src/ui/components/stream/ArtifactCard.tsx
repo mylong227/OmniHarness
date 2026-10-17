@@ -2,7 +2,7 @@
 // 点击文件名或「打开」在右侧代码面板预览（语法高亮），下载直跳 /files。
 // 纯展示组件（函数组件范式）：状态由 props 注入。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { IconName } from '../../models/Icon.js';

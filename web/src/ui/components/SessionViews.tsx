@@ -4,7 +4,7 @@
 // 每个函数只吃一个 ctx（状态 + 回调），不持有任何状态、不发任何请求，故可被 SessionPanel
 // 与将来任何宿主复用；会话过滤（filterSessions）也在此，供本地即时过滤与单测共用。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { TreeNode } from './TreeNode.js';
 import { SessionGrouper } from '../models/SessionGrouper.js';
 import { PathJoiner } from '../models/PathJoiner.js';

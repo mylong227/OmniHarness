@@ -5,7 +5,7 @@
 // 依赖明确的 effect 承接（原实现需手写 componentDidUpdate 比对 prevState）。
 // 档位数据由 PermissionTierModel 包装（含离线兜底），组件自身只负责渲染与分派 onPick。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { PermissionTierModel } from '../models/PermissionTierModel.js';
 import { claimPopover, releasePopover } from '../models/PopoverStack.js';
 import { icon } from '../models/Icon.js';

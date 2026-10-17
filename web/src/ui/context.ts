@@ -1,7 +1,7 @@
 // 应用上下文：把核心服务（ApiClient / ToastService）通过 React Context 注入组件树，
 // 各 Tab 与面板通过 useApp() 取用，避免逐层透传 props。
 
-import { React } from './deps.js';
+import * as React from 'react';
 import type { ApiClient } from '../core/ApiClient.js';
 import type { ToastKind } from '../core/ToastService.js';
 import type { DialogService } from '../core/DialogService.js';

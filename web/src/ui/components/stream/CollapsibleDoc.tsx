@@ -6,7 +6,7 @@
 //
 // 纯展示组件（函数组件范式）：唯一内部状态是展开态；判定逻辑在 LongContentCollapser（可单测）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { renderMarkdown } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import { LongContentCollapser } from '../../models/LongContentCollapser.js';

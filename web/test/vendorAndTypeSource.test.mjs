@@ -19,7 +19,7 @@
 // 风格：与其它 web 测试一致，直读仓库文件做契约断言（不依赖浏览器）。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -67,11 +67,60 @@ test('index.html 不得再加载任何 UMD vendor 脚本（2026-10-17 全部改�
   assert.ok(sources.includes('./src/main.ts'), 'index.html 必须以 ./src/main.ts 作为唯一入口');
 });
 
-test('React 来自 npm 依赖（不是 UMD 全局）：deps.ts 必须 import 而非读 window', () => {
-  const deps = read('web/src/ui/deps.ts');
-  assert.match(deps, /from 'react'/, 'deps.ts 必须直接 import react（Vite 负责解析裸标识符）');
-  assert.match(deps, /from 'react-dom\/client'/, 'createRoot 必须来自 react-dom/client（React 18 唯一合法入口）');
-  assert.match(deps, /MergedReactDOM|RealReactDOMClient/, 'ReactDOM 必须合并 client 入口，否则 createRoot 告警');
+test('React 直接从 npm 包 import：deps.ts 间接层已彻底删除', () => {
+  // 2026-10-17 第三轮：`web/src/ui/deps.ts` 已删除。
+  //
+  // 它曾是「零打包器 + UMD 全局」时代的收口点：从 `window.React` 取 UMD 全局再导出，
+  // 附带一个 `injected()` 分支给测试注入桩。迁移到 Vite 后这两件事都不需要了——
+  // UI 直接 `import * as React from 'react'`，测试侧由 vitest 的 `resolve.alias`
+  // 把 `react` 指到 `web/test/hooksStub.mjs`（不再靠全局注入）。
+  //
+  // 这条判据因此从"deps.ts 必须 import"翻转为"deps.ts 必须不存在"，并守住新形态。
+  assert.ok(
+    !existsSync(join(WEB_ROOT, 'src', 'ui', 'deps.ts')),
+    'deps.ts 间接层不得回归：UI 应直接 import react（否则就是两套 React 取用方式）',
+  );
+
+  // 抽样三个层级，确认都走标准写法（而不是漏改的 deps 导入）。
+  for (const rel of ['web/src/ui/App.ts', 'web/src/ui/components/RightPanel.tsx', 'web/src/main.ts']) {
+    const src = read(rel);
+    assert.ok(
+      !/deps\.js/.test(src),
+      `${rel} 仍在引用已删除的 deps.js`,
+    );
+  }
+  assert.match(read('web/src/ui/App.ts'), /import \* as React from 'react'/, 'App.ts 必须直接 import react');
+  assert.match(
+    read('web/src/ui/App.ts'),
+    /from 'react-dom\/client'/,
+    'createRoot 必须来自 react-dom/client（React 18 唯一合法入口）',
+  );
+
+  // 反向：整个 web/src 里不得再出现「读 window.React」或「引用 deps.js」。
+  // 这两者是同一种退化的两面——只要有一个文件绕回全局注入，就会出现两套 React 取用方式，
+  // 表现为 hooks 失效或 context 读不到（极难查）。全量扫，不抽查。
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.tsx?$/u.test(entry.name)) {
+        const src = readFileSync(full, 'utf8');
+        // 只看代码，不看注释里的历史说明。
+        const code = src
+          .split('\n')
+          .filter((line) => {
+            const s = line.trim();
+            return !s.startsWith('//') && !s.startsWith('*') && !s.startsWith('/*');
+          })
+          .join('\n');
+        if (/window\.React|deps\.js/u.test(code)) offenders.push(full.replace(WEB_ROOT, 'web'));
+      }
+    }
+  };
+  walk(join(WEB_ROOT, 'src'));
+  assert.deepEqual(offenders, [], `这些文件仍走全局注入 / 已删除的 deps.js：\n${offenders.join('\n')}`);
 });
 
 test('markdown 渲染路径确实用 highlight.js（npm import，不再是 window 全局）', () => {

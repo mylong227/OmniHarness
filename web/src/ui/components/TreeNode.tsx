@@ -1,7 +1,7 @@
 // 文件树节点：目录节点自己管理展开态（惰性，展开时才渲染子节点）；文件节点点击即打开。
 // 函数组件范式：递归渲染保持不变（函数组件可自引用），展开态用 useState。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import type { FsNode } from '../../types/models.js';
 
 /** TreeNode 组件的入参。 */

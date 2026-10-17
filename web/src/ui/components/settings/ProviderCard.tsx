@@ -10,7 +10,7 @@
 // 单色口径：状态用**字形 + 明度**表达（● 已启用 / ○ 未启用 / ✓ 已保存 Key / ! 检测失败），
 // 颜色只做明度差，不引入色相 —— 见 DESIGN_SYSTEM §2.4。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { icon } from '../../models/Icon.js';
 import { ProviderStatusResolver } from '../../models/ProviderStatus.js';
 import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.js';

@@ -4,7 +4,7 @@
 //
 // 函数组件范式：只一个"菜单展开态"；展开期间才挂外部点击监听（与 NavRail 旧写法同款，不另起一套）。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { icon } from '../models/Icon.js';
 import { PANELS } from '../models/PanelRegistry.js';
 import { t } from '../i18n/i18n.js';

@@ -8,7 +8,7 @@
 // 原 componentDidMount + componentDidUpdate 的「会话切换即重拉」合为一个依赖 sessionId 的 effect。
 // 命名与时间戳格式化继续复用 models/checkpoint 的零 React 类；分组/相对时间见 models/CheckpointTimeline。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CheckpointNamer } from '../../models/checkpoint.js';

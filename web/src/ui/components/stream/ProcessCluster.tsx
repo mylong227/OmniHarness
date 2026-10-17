@@ -4,7 +4,7 @@
 // #OBS-13：用户手动开合后即「接管」，后续 busy 变化不再覆盖用户意图
 // （用 state 记录「已接管」，effect 依赖显式列出，不比对 prev、不死循环）。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { esc } from '../../format.js';
 import { processSummary, type ProcessBlock } from '../../textUtils.js';
 import type { ThreadEvent } from '../../../types/models.js';

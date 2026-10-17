@@ -7,7 +7,7 @@
 // 浏览数据 / 加载态分两组 state；排序与各渲染分支下沉为模块级纯函数。
 // 图标 / 体积 / 路径拼接继续复用 models/ 下的零 React 类。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { PathJoiner } from '../models/PathJoiner.js';
 import { FileIconResolver } from '../models/FileIconResolver.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';

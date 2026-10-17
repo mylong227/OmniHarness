@@ -5,7 +5,7 @@
 // 保持不可变更新；图定义构建与状态类名继续复用 GraphDefBuilder（零 React，可单测）；
 // 运行卡片与已存图卡片下沉为模块级渲染函数。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { GraphDefBuilder, type StepDraft } from '../../models/GraphDefBuilder.js';
 import { emptyState } from '../../format.js';

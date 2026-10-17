@@ -11,7 +11,7 @@
 //
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { badge, renderMarkdown } from '../../format.js';
 import { t } from '../../i18n/i18n.js';
 

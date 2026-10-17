@@ -4,7 +4,7 @@
 // 「输入时重排定时器」，定时器句柄存 useRef，卸载时清理，语义等价且无闭包陷阱
 // （load 显式接收 query 参数，不依赖渲染快照）；卡片渲染下沉为模块级函数。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { useApp } from '../../context.js';
 import { permChip, emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';

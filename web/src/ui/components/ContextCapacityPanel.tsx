@@ -8,7 +8,7 @@
 // 由两个依赖 open 的 effect 承接（原实现需 componentDidUpdate 比对 prevState.open），
 // 拉数用 alive 标志避免卸载后回写。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 import { ContextUsageView } from '../models/ContextUsageView.js';
 import { QuotaView } from '../models/QuotaView.js';
 import { icon } from '../models/Icon.js';

@@ -3,7 +3,7 @@
 // 不做 OG 抓取（需后端代理 + 缓存 + 隐私边界），纯卡片样式已足以让链接不被忽略。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import { hostOf } from '../../textUtils.js';

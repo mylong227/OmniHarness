@@ -7,7 +7,8 @@
 // 控制器只构造一次（useRef 惰性初始化），host 桥接到「稳定的 setState + 最新状态 ref」，
 // 故 patch 永不读到陈旧快照（H5）；挂载启动 / 卸载清理由依赖 [controller] 的 effect 承接。
 
-import { React, ReactDOM } from './deps.js';
+import * as React from 'react';
+import { createRoot } from 'react-dom/client';
 import { AppContext } from './context.js';
 import { AppController } from './controllers/AppController.js';
 import type { AppHost, AppState } from './controllers/AppController.js';
@@ -374,7 +375,7 @@ export function App(): ReactElement {
 export function mountApp(container: Element): void {
   // 最外层套**渲染错误边界**：渲染期抛错若无人接管，React 会卸载整棵树 ⇒ 用户看到全黑空白页
   // （2026-09-27 两次报障即此形态）。有边界则降级为可读错误面板 + 原地重试，并留存现场。
-  ReactDOM.createRoot(container).render(
+  createRoot(container).render(
     React.createElement(RenderErrorBoundary, null, React.createElement(App, null)),
   );
 }

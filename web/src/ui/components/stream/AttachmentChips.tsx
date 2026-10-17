@@ -1,7 +1,7 @@
 ﻿// 附件 chip：用户/助手消息携带的文件以内联 chip 展示。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
-import { React } from '../../deps.js';
+import * as React from 'react';
 import { esc } from '../../format.js';
 import { FileIconResolver } from '../../models/FileIconResolver.js';
 import { icon } from '../../models/Icon.js';

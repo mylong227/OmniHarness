@@ -1,6 +1,6 @@
 // 纯函数工具层（零 React / 零 DOM 依赖）：对话流与变更面板的文本/结构计算逻辑。
 // 抽离出来便于在 node --test 下直接单测（web 此前 0 测试文件，审计 P0）。
-// 注意：本文件不得 import '../deps.js'（它依赖浏览器全局 React），否则无法在 node 下加载。
+// 注意：本文件不得 import 'react'（纯文本工具，保持零 React 依赖才能在任何环境直接加载）。
 
 import type { ThreadEvent } from '../types/models.js';
 import { t } from './i18n/i18n.js';

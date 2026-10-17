@@ -6,7 +6,7 @@
 // （原实现需要手写 componentDidUpdate 比对 prevState，现在由 deps 语义天然表达）。
 // 触发按钮 onClick 里 e.stopPropagation() 会同样阻断原生冒泡，故不会「刚开就被外部点击关掉」。
 
-import { React } from '../deps.js';
+import * as React from 'react';
 
 /** 下拉项。 */
 export interface DropdownOption {
