@@ -17,6 +17,7 @@
 
 import { React } from './deps.js';
 import { ClipboardCopier } from './models/ClipboardCopier.js';
+import { t } from './i18n/i18n.js';
 
 /** markdown-it 单条 token 的最小接口（避免引入 any / 第三方类型）。 */
 interface MdToken {
@@ -119,8 +120,8 @@ export function handleCodeblockCopyClick(e: MouseEvent): void {
   const codeEl = block ? (block.querySelector('pre code') ?? block.querySelector('pre')) : null;
   const text = codeEl?.textContent ?? '';
   void ClipboardCopier.copy(text);
-  const original = btn.textContent ?? '复制';
-  btn.textContent = '已复制';
+  const original = btn.textContent ?? t('复制');
+  btn.textContent = t('已复制');
   btn.classList.add('md-codeblock__copy--done');
   setTimeout(() => {
     btn.textContent = original;
@@ -296,7 +297,7 @@ function getMd(): MarkdownItInstance {
       '<div class="md-codeblock">' +
       '<div class="md-codeblock__bar">' +
       '<span class="md-codeblock__lang">' + langLabel + '</span>' +
-      '<button type="button" class="md-codeblock__copy">复制</button>' +
+      '<button type="button" class="md-codeblock__copy">' + t('复制') + '</button>' +
       '</div>' +
       inner +
       '</div>'

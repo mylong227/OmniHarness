@@ -252,8 +252,10 @@ export class CliBuildConfig extends CliCredentialBuild {
       // 「只读提问卡」，用户看得见问题却没有提交入口（2026-10-08 用户报障）。
       ...(overrides.userResponder !== undefined ? { userResponder: overrides.userResponder } : {}),
       ssrfPolicy: args.ssrfPolicy, // 配置文件 → CLI → 组合根；不在此透传则 A2A 拿不到策略表
-      // V2：默认步数 16→32——16 在真实任务上频繁跑满无果（2026-09-08 真机复现）；LoopGuard 已兜住空转风险。
-      maxSteps: args.maxSteps ?? 32,
+      // 0 = 不限（缺省）。这个默认值历史上被抬过两次（16→32→48）来救「探索烧满、写入没跑」，
+      // 但根因是**拿步数当终止条件**；现改为按任务完成/预算/行为护栏终止（2026-10-15）。
+      // ⚠️ 此处 `??` 实际不可达：CliArgs.maxSteps 非可选，缺省值由 argParser 的 CliDefaults 决定——两处必须同步改。
+      maxSteps: args.maxSteps ?? 0,
       // (#B6) 推理强度：此前该键**只由服务端**透传，CLI 路径缺映射 ⇒ `omniharness.json` 的 `reasoning`
       // 与 `OMNIHARNESS_REASONING` 在 CLI 上被静默丢弃（I5a 抓出的第十处「声明未接线」）。此处补齐。
       reasoning: args.reasoning,

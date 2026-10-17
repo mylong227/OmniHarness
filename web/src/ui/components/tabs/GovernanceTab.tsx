@@ -25,6 +25,7 @@ import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { icon } from '../../models/Icon.js';
 import type { ReactElement } from 'react';
+import { t } from '../../i18n/i18n.js';
 
 /** 治理台一行的形状（与服务端 `PromotionHistoryRow` 同形）。 */
 interface GovernanceRow {
@@ -89,26 +90,26 @@ export function GovernanceTab(): ReactElement {
     void refresh();
   }, [refresh]);
 
-  if (loading) return <div className="governance-tab">载入晋升台账…</div>;
+  if (loading) return <div className="governance-tab">{t('载入晋升台账…')}</div>;
   if (error !== null) {
     return (
       <div className="governance-tab">
-        <p className="err">读取治理数据失败：{error}</p>
+        <p className="err">{t('读取治理数据失败：{msg}', { msg: error })}</p>
         <button type="button" onClick={() => void refresh()}>
-          重试
+          {t('重试')}
         </button>
       </div>
     );
   }
-  if (data === null) return <div className="governance-tab">暂无治理数据。</div>;
+  if (data === null) return <div className="governance-tab">{t('暂无治理数据。')}</div>;
   if (!data.available) {
     // 读不出来要**直说**：空列表会被误读成"没有晋升记录"。
     return (
       <div className="governance-tab">
         <p className="err">{data.reason}</p>
-        <p className="hint">台账尚未产生时可忽略；若已产生过晋升，请检查工作区 .omniharness/evolution。</p>
+        <p className="hint">{t('台账尚未产生时可忽略；若已产生过晋升，请检查工作区 .omniharness/evolution。')}</p>
         <button type="button" onClick={() => void refresh()}>
-          重试
+          {t('重试')}
         </button>
       </div>
     );
@@ -118,17 +119,19 @@ export function GovernanceTab(): ReactElement {
   return (
     <div className="governance-tab">
       <header className="row">
-        <strong>进化治理</strong>
+        <strong>{t('进化治理')}</strong>
         <span className={summary.verified === summary.total ? 'ok' : 'err'}>
-          独立复核通过 {summary.verified} / {summary.total}
-          {summary.firstFailureSeq === undefined ? '' : `（首个失败 #${summary.firstFailureSeq}）`}
+          {t('独立复核通过 {verified} / {total}', { verified: summary.verified, total: summary.total })}
+          {summary.firstFailureSeq === undefined
+            ? ''
+            : t('（首个失败 #{seq}）', { seq: summary.firstFailureSeq })}
         </span>
         <button type="button" onClick={() => void refresh()}>
-          刷新
+          {t('刷新')}
         </button>
       </header>
       {rows.length === 0 ? (
-        <p className="hint">台账为空：还没有晋升记录（进化默认关，属预期状态）。</p>
+        <p className="hint">{t('台账为空：还没有晋升记录（进化默认关，属预期状态）。')}</p>
       ) : (
         <ul className="governance-rows">
           {rows.map((row) => (
@@ -153,20 +156,24 @@ export function GovernanceTab(): ReactElement {
         </ul>
       )}
       <section className="rollback-targets">
-        <strong>可回滚快照</strong>
+        <strong>{t('可回滚快照')}</strong>
         {rollbackTargets.length === 0 ? (
-          <p className="hint">（无）</p>
+          <p className="hint">{t('（无）')}</p>
         ) : (
           <ul>
             {rollbackTargets.map((target) => (
               <li key={target.seq}>
-                #{target.seq}（{target.skillCount} 技能，{target.ts}）
+                {t('#{seq}（{count} 技能，{ts}）', {
+                  seq: target.seq,
+                  count: target.skillCount,
+                  ts: target.ts,
+                })}
               </li>
             ))}
           </ul>
         )}
         <p className="hint">
-          回滚是治理动作，需显式确认：`omniharness evolution rollback --seq &lt;N&gt; --yes`
+          {t('回滚是治理动作，需显式确认：`omniharness evolution rollback --seq <N> --yes`')}
         </p>
       </section>
     </div>

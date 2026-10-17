@@ -1,13 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { QUOTA_DEFAULT_ID, QuotaPlans } from './quotaPlans.js';
 
 /**
  * 配额设置（落盘字段，全部可选——缺失即用缺省值）。
+ *
+ * ⚠️ **`plan` 已不在其中**（2026-10-17）：档位改为按当前模型自动识别
+ * （见 `quotaPlans.ts` 的 `QuotaPlans.forModel`），不再落盘、不再可写。
+ * 旧版本的 `quota.json` 里可能仍有 `"plan"` 字段——`read()` 会忽略它，
+ * 下一次 `write()` 落盘时该字段自然消失（不做迁移脚本：它是死数据，留着无害）。
  */
 export interface QuotaSettings {
-  /** 档位 id（见 {@link QuotaPlans}）。 */
-  readonly plan: string;
   /** 基础日 token 预算（倍率乘算前的基数）。 */
   readonly dailyTokens: number;
 }
@@ -44,16 +46,12 @@ export class QuotaStore {
    */
   public read(): QuotaSettings {
     const raw = this.readRaw();
-    const plan =
-      typeof raw['plan'] === 'string' && new QuotaPlans().isValid(raw['plan'])
-        ? raw['plan']
-        : QUOTA_DEFAULT_ID;
     const daily = raw['dailyTokens'];
     const dailyTokens =
       typeof daily === 'number' && Number.isFinite(daily) && daily > 0
         ? Math.floor(daily)
         : DEFAULT_DAILY_TOKENS;
-    return { plan, dailyTokens };
+    return { dailyTokens };
   }
 
   /**
@@ -61,17 +59,10 @@ export class QuotaStore {
    *
    * @param patch 待更新字段（未提供的字段保持原值）
    * @returns 落盘后的完整设置
-   * @throws 档位 id 非法或日预算非正数时抛错（fail-closed：不把非法值写进磁盘）
+   * @throws 日预算非正数时抛错（fail-closed：不把非法值写进磁盘）
    */
   public write(patch: Partial<QuotaSettings>): QuotaSettings {
     const current = this.read();
-    let plan = current.plan;
-    if (patch.plan !== undefined) {
-      if (!new QuotaPlans().isValid(patch.plan)) {
-        throw new Error('未知配额档位: ' + patch.plan);
-      }
-      plan = patch.plan;
-    }
     let dailyTokens = current.dailyTokens;
     if (patch.dailyTokens !== undefined) {
       if (!Number.isFinite(patch.dailyTokens) || patch.dailyTokens <= 0) {
@@ -79,7 +70,7 @@ export class QuotaStore {
       }
       dailyTokens = Math.floor(patch.dailyTokens);
     }
-    const next: QuotaSettings = { plan, dailyTokens };
+    const next: QuotaSettings = { dailyTokens };
     const file = this.filePath();
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, JSON.stringify(next, null, 2) + '\n', 'utf8');

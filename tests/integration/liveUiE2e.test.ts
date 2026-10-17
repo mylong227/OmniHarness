@@ -208,6 +208,18 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
     assert.ok(dom.rootLen > 500, `#root 渲染内容过少（len=${dom.rootLen}）`);
 
     // ---- 结构基线（视觉回归的可复现判据；见 uiBaseline.ts 里「为什么不用像素」）----
+    // 面板入口已随壳层重构收进 `PanelPicker` 菜单（旧左竖条 `NavRail` 已删除，旧的
+    // `railItems` 因此恒为 0 = 假绿）⇒ **先真实展开菜单再采集**，并在此处自证"菜单真的开了"：
+    // 采到空数组会让 panelMenuItems 那条判据整体退化，必须在这里就红。
+    await cdp.click('.pp-btn');
+    const menuOpen = await cdp.waitFor(
+      "document.querySelectorAll('.pp-menu .pp-item').length >= 12",
+      8_000,
+    );
+    assert.ok(
+      menuOpen,
+      '面板菜单（PanelPicker）必须能展开且至少 12 个入口 —— 采不到入口会让结构基线退化成假绿',
+    );
     const baselinePath = resolve(process.cwd(), 'tests/integration/uiBaseline.json');
     const snapshot = await UiBaseline.capture(cdp);
     if (process.env['OMNI_UI_BASELINE_UPDATE'] === '1') {
@@ -224,6 +236,12 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
         `UI 结构相对基线有变化（有意改动请用 OMNI_UI_BASELINE_UPDATE=1 重写基线并提交）：\n  - ${verdict.diffs.join('\n  - ')}`,
       );
     }
+    // 收起菜单：后面还要真实输入并点发送，浮层残留在屏幕上会干扰真实坐标点击。
+    await cdp.click('.pp-btn');
+    assert.ok(
+      await cdp.waitFor("!document.querySelector('.pp-menu .pp-item')", 5_000),
+      '面板菜单必须能收起（浮层残留会挡住后续的真实点击）',
+    );
 
     // ---- 全链路：输入 → 发送 → 回合跑完 → UI 更新 ----
     const before = (await cdp.evaluate('document.body.innerText.length')) as number;

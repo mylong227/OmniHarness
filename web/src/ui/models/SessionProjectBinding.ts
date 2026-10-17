@@ -11,6 +11,7 @@
 import type { ApiClient } from '../../core/ApiClient.js';
 import type { AppHost } from '../controllers/AppController.js';
 import { WorkspacePath } from './WorkspacePath.js';
+import { t } from '../i18n/i18n.js';
 
 /** 对齐所需的最小依赖（全部为取值器/回调，便于测试注入）。 */
 export interface SessionProjectBindingDeps {
@@ -48,7 +49,7 @@ export class SessionProjectBinding {
       const current = workspaces.current ?? '';
       if (owner === '' || WorkspacePath.same(owner, current)) return false;
       await deps.api.switchWorkspace(owner);
-      deps.toast('已切到该会话所属项目：' + WorkspacePath.label(owner));
+      deps.toast(t('已切到该会话所属项目：{name}', { name: WorkspacePath.label(owner) }));
       return true;
     } catch {
       return false;

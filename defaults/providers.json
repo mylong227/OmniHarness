@@ -16,17 +16,11 @@
       "label": "Moonshot Kimi",
       "adapter": "openai",
       "baseUrl": "https://api.moonshot.cn/v1",
-      "defaultModel": "kimi-k2-turbo-preview",
+      "defaultModel": "kimi-k2.6",
       "needsKey": true,
-      "models": [
-        "kimi-k2-turbo-preview",
-        "kimi-k2-0905-preview",
-        "moonshot-v1-8k",
-        "moonshot-v1-32k",
-        "moonshot-v1-128k"
-      ],
+      "models": ["kimi-k2.6", "kimi-k2.7-code", "kimi-k3"],
       "reasoningEffort": ["low", "medium", "high"],
-      "notes": "Kimi K2 thinking effort 档位（厂商文档 3 档）。"
+      "notes": "2026-10-15 迁移：原预设的 5 个型号（kimi-k2-turbo-preview / kimi-k2-0905-preview / moonshot-v1-8k/32k/128k）**已被厂商全部下线**（k2 系列 2026-05-25、moonshot-v1 系列 2026-08-31，见厂商模型列表页），继续出货等于给用户一个必然失败的默认模型。现役型号取 kimi-k2.6（默认，0.95/4.00 美元每百万 token）+ kimi-k2.7-code（编码档）+ kimi-k3（旗舰档）；三者均有厂商直连单价。高速档 kimi-k2.7-code-highspeed 因**厂商直连价目缺失**（聚合库只有转售档）暂不进预设。reasoning effort 仍为厂商文档 3 档。"
     },
     {
       "id": "zhipu",

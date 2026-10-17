@@ -21,6 +21,7 @@ import { useApp } from '../../context.js';
 import { timeOf } from '../../format.js';
 import type { ReactElement } from 'react';
 import type { AuditQueryResult } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** 审计面板：过滤 + 列表。 */
 export function AuditTab(): ReactElement {
@@ -49,13 +50,13 @@ export function AuditTab(): ReactElement {
     void refresh();
   }, [refresh]);
 
-  if (loading) return <div className="audit-tab">载入审计事件…</div>;
+  if (loading) return <div className="audit-tab">{t('载入审计事件…')}</div>;
   if (error !== null) {
     return (
       <div className="audit-tab">
-        <p className="err">读取审计数据失败：{error}</p>
+        <p className="err">{t('读取审计数据失败：{msg}', { msg: error })}</p>
         <button type="button" onClick={() => void refresh()}>
-          重试
+          {t('重试')}
         </button>
       </div>
     );
@@ -63,37 +64,37 @@ export function AuditTab(): ReactElement {
   return (
     <div className="audit-tab">
       <div className="detail-section">
-        <div className="detail-h">过滤</div>
+        <div className="detail-h">{t('过滤')}</div>
         <label>
-          类型
+          {t('类型')}
           <input
             type="text"
             value={typeFilter}
-            placeholder="如 tool_call（留空＝全部）"
+            placeholder={t('如 tool_call（留空＝全部）')}
             onChange={(e: { target: { value: string } }) => setTypeFilter(e.target.value)}
           />
         </label>
         <button type="button" onClick={() => void refresh()}>
-          查询
+          {t('查询')}
         </button>
-        {typeFilter !== '' ? <span className="hint">当前过滤类型：{typeFilter}</span> : null}
+        {typeFilter !== '' ? <span className="hint">{t('当前过滤类型：{type}', { type: typeFilter })}</span> : null}
       </div>
 
       {data !== null && !data.ok ? (
         // 纪律①：未接线必须直说——不得退化成"无记录"。
-        <p className="err">未接线：{data.reason}</p>
+        <p className="err">{t('未接线：{reason}', { reason: data.reason })}</p>
       ) : data !== null && data.ok ? (
         data.events.length === 0 ? (
-          <p className="hint">本次查询无匹配事件（审计 sink 已接线）。</p>
+          <p className="hint">{t('本次查询无匹配事件（审计 sink 已接线）。')}</p>
         ) : (
           <div className="detail-section">
-            <div className="detail-h">事件（{data.events.length}）</div>
+            <div className="detail-h">{t('事件（{count}）', { count: data.events.length })}</div>
             <ul>
               {data.events.map((event, index) => (
                 <li key={`${String(index)}-${event.type}-${String(event.seq ?? '')}`}>
-                  {event.seq === undefined ? '（未入链）' : `#${String(event.seq)}`} ·{' '}
-                  {event.ts === undefined ? '（无时间戳）' : timeOf(Date.parse(event.ts))} · {event.type}
-                  {event.sessionId === undefined ? '' : ` · 会话 ${event.sessionId}`}
+                  {event.seq === undefined ? t('（未入链）') : `#${String(event.seq)}`} ·{' '}
+                  {event.ts === undefined ? t('（无时间戳）') : timeOf(Date.parse(event.ts))} · {event.type}
+                  {event.sessionId === undefined ? '' : ` · ${t('会话 {id}', { id: event.sessionId })}`}
                   {event.actor === undefined ? '' : ` · ${event.actor}`}
                 </li>
               ))}
@@ -101,7 +102,7 @@ export function AuditTab(): ReactElement {
           </div>
         )
       ) : (
-        <p className="hint">暂无审计数据。</p>
+        <p className="hint">{t('暂无审计数据。')}</p>
       )}
     </div>
   );

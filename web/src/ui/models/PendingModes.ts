@@ -10,6 +10,8 @@
 // （见 SessionController.applyModes / flushPendingModes）。本文件只负责"补丁怎么合并、是否为空"，
 // 让那段时序逻辑无需碰 React 即可单测。
 
+import { t } from '../i18n/i18n.js';
+
 /** 会话模式补丁（与 RPC `modes.set` 的字段一一对应）。 */
 export interface SessionModePatch {
   /** 持续目标（空串＝清除）。 */
@@ -50,6 +52,6 @@ export class PendingModes {
    * @returns 一行中文提示。
    */
   public static deferredHint(): string {
-    return '尚未创建会话：该模式已记录，发送第一条消息后自动生效';
+    return t('尚未创建会话：该模式已记录，发送第一条消息后自动生效');
   }
 }

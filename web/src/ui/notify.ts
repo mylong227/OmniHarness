@@ -5,6 +5,7 @@
 // 抽出为纯函数，便于在 AppController 路由时调用，也便于单元测试（无副作用、无外部依赖）。
 
 import type { ToastKind } from '../core/ToastService.js';
+import { t } from './i18n/i18n.js';
 
 /** 一条通知的呈现形态：文案 + 级别。 */
 export interface ProfilePluginToast {
@@ -29,28 +30,31 @@ export interface ProfilePluginToast {
  */
 export function formatProfilePluginToast(method: string, params: Record<string, unknown>): ProfilePluginToast | null {
   const name = typeof params['name'] === 'string' ? (params['name'] as string) : undefined;
-  const error = typeof params['error'] === 'string' ? (params['error'] as string) : '未知错误';
+  const error = typeof params['error'] === 'string' ? (params['error'] as string) : t('未知错误');
   const names = Array.isArray(params['names'])
     ? (params['names'] as unknown[]).filter((n): n is string => typeof n === 'string')
     : [];
   const reloaded = params['reloaded'] === true;
   switch (method) {
     case 'profile.error':
-      return { message: `插件集「${name ?? '未知'}」应用失败：${error}`, kind: 'err' };
+      return { message: t('插件集「{name}」应用失败：{error}', { name: name ?? t('未知'), error }), kind: 'err' };
     case 'plugin.loadError':
       return {
-        message: name !== undefined ? `插件「${name}」加载失败：${error}` : `插件加载失败：${error}`,
+        message:
+          name !== undefined
+            ? t('插件「{name}」加载失败：{error}', { name, error })
+            : t('插件加载失败：{error}', { error }),
         kind: 'err',
       };
     case 'plugin.loaded':
       return {
         message: reloaded
-          ? `已重新加载插件：${names.join('、')}`
-          : `已加载插件：${names.join('、')}`,
+          ? t('已重新加载插件：{names}', { names: names.join('、') })
+          : t('已加载插件：{names}', { names: names.join('、') }),
         kind: 'ok',
       };
     case 'profile.applied':
-      return { message: `已应用插件集「${name ?? '未知'}」`, kind: 'ok' };
+      return { message: t('已应用插件集「{name}」', { name: name ?? t('未知') }), kind: 'ok' };
     default:
       return null;
   }

@@ -62,20 +62,20 @@
 
 ### 数据、凭据与治理
 
-| 子命令                                                                          | 作用                                              |
-| ------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `session list`                                                                  | 会话列表（`--storage-dir` 指定存档目录）          |
-| `trace read --session ID`                                                       | 只读自省会话 trace（冻结条目，不可借道改历史）    |
-| `audit export [--compliance]`                                                   | 审计导出 / 合规报告（含完整性哈希）               |
-| `kv get\|set\|del\|list`                                                        | 通用键值存储                                      |
-| `vault get\|set\|del\|list`                                                     | 凭据保险库（AES-256-GCM）                         |
-| `identity generate\|show\|sign\|verify`                                         | 密码学身份（Ed25519，零依赖）                     |
-| `license …`                                                                     | 许可证校验与签名资产包（见 ADR-0011）             |
-| `schema [--out-ts/--out-py/--out-md]`                                           | 单源 schema 导出                                  |
-| `compare`                                                                       | A/B 模型对比                                      |
-| `doctor`                                                                        | 环境诊断（沙箱后端可达性、依赖、配置）            |
-| `evolution …`                                                                   | 进化闭环（RLVR / GEE Kernel 编排）                |
-| `native info\|ping\|tools\|approval\|session-submit\|context\|tool-call\|bench` | 进程内直调 Rust 内核（需 `npm run native:build`） |
+| 子命令                                                                          | 作用                                                                                                                                  |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `session list`                                                                  | 会话列表（`--storage-dir` 指定存档目录）                                                                                              |
+| `trace read --session ID`                                                       | 只读自省会话 trace（冻结条目，不可借道改历史）                                                                                        |
+| `audit export [--compliance]`                                                   | 审计导出 / 合规报告（含完整性哈希）                                                                                                   |
+| `kv get\|set\|del\|list`                                                        | 通用键值存储                                                                                                                          |
+| `vault get\|set\|del\|list`                                                     | 凭据保险库（AES-256-GCM）                                                                                                             |
+| `identity generate\|show\|sign\|verify`                                         | 密码学身份（Ed25519，零依赖）                                                                                                         |
+| `license …`                                                                     | 许可证校验与签名资产包（见 ADR-0011）                                                                                                 |
+| `schema [--out-ts/--out-py/--out-md]`                                           | 单源 schema 导出                                                                                                                      |
+| `compare`                                                                       | A/B 模型对比                                                                                                                          |
+| `doctor`                                                                        | 环境诊断（沙箱后端可达性、依赖、配置）；**有问题项即以退出码 1 退出**（0＝`[OK] 未发现健康问题`），便于 `doctor && 下一步` 与 CI 察觉 |
+| `evolution …`                                                                   | 进化闭环（RLVR / GEE Kernel 编排）                                                                                                    |
+| `native info\|ping\|tools\|approval\|session-submit\|context\|tool-call\|bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                                                                                     |
 
 > **没有** `eval` 子命令（跑分/对外评测子系统已移除；历史评测数字只在 git 历史与归档文档里）。
 
@@ -127,22 +127,23 @@
 
 ### 会话与输出
 
-| 旗标                                                                             | 说明                                                               |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `-p, --print` / `--output-format text\|json`                                     | headless 执行与输出格式（json = `{ok,sessionId,steps,finalText}`） |
-| `--resume ID` / `--fork ID` / `--replay ID`                                      | 续跑 / 分叉 / 回放                                                 |
-| `--output FILE`                                                                  | 事件 JSONL 输出文件                                                |
-| `--events console\|silent`                                                       | 事件端口（默认 console，进度走 stderr）                            |
-| `--stream-text`                                                                  | 流式打印模型文本增量（默认关）                                     |
-| `--auto-commit`                                                                  | 执行后用 git 自动提交变更（需处于 git 仓库）                       |
-| `--native`                                                                       | 启用 FFI 原生后端（默认开启；不可用自动回退 TS）                   |
-| `--subagent-max-depth N` / `--subagent-concurrency N` / `--subagent-max-steps N` | 子智能体编排上限                                                   |
-| `--self-verify` / `--no-self-verify`                                             | 写源码后自动跑受限测试并回灌失败摘要（默认开）                     |
-| `--decision-engine off\|shadow\|enforce` / `--no-decision-engine`                | Laya 本地决策引擎（默认 `shadow` 观测档）；解释器与权重零配置解析  |
-| `--decision-engine-python PATH`                                                  | 决策引擎的 Python 解释器（须装有 `laya`/`torch`；覆盖自动探测）    |
-| `--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http\|ws]`               | A2A 互操作（默认关）                                               |
-| `--evolution-rlvr …` / `--evolution-kernel`                                      | RLVR 进化闭环 / GEE Kernel 编排（默认关）                          |
-| `--version, -V`                                                                  | 打印 `API_VERSION` 并退出                                          |
+| 旗标                                                                             | 说明                                                                         |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `-p, --print` / `--output-format text\|json`                                     | headless 执行与输出格式（json = `{ok,sessionId,steps,finalText}`）           |
+| `--resume ID` / `--fork ID` / `--replay ID`                                      | 续跑 / 分叉 / 回放                                                           |
+| `--output FILE`                                                                  | 事件 JSONL 输出文件                                                          |
+| `--events console\|silent`                                                       | 事件端口（默认 console，进度走 stderr）                                      |
+| `--stream-text`                                                                  | 流式打印模型文本增量（默认关）                                               |
+| `--auto-commit`                                                                  | 执行后用 git 自动提交变更（需处于 git 仓库）                                 |
+| `--native`                                                                       | 启用 FFI 原生后端（默认开启；不可用自动回退 TS）                             |
+| `--max-steps N`                                                                  | 本回合步数上限：**不传 = 0 = 不限**（终止以任务完成为准；预算/行为护栏兜底） |
+| `--subagent-max-depth N` / `--subagent-concurrency N` / `--subagent-max-steps N` | 子智能体编排上限（`--subagent-max-steps` 同为 0 = 不限）                     |
+| `--self-verify` / `--no-self-verify`                                             | 写源码后自动跑受限测试并回灌失败摘要（默认开）                               |
+| `--decision-engine off\|shadow\|enforce` / `--no-decision-engine`                | Laya 本地决策引擎（默认 `shadow` 观测档）；解释器与权重零配置解析            |
+| `--decision-engine-python PATH`                                                  | 决策引擎的 Python 解释器（须装有 `laya`/`torch`；覆盖自动探测）              |
+| `--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http\|ws]`               | A2A 互操作（默认关）                                                         |
+| `--evolution-rlvr …` / `--evolution-kernel`                                      | RLVR 进化闭环 / GEE Kernel 编排（默认关）                                    |
+| `--version, -V`                                                                  | 打印 `API_VERSION` 并退出                                                    |
 
 ---
 

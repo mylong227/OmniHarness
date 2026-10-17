@@ -9,6 +9,7 @@ import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import { ProviderStatusResolver } from '../../models/ProviderStatus.js';
 import type { ProviderPreset, ProviderProbeResult } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** 状态点样式。 */
 const DOT: Record<string, string> = {
@@ -87,7 +88,7 @@ function renderCard(p: ProviderPreset, ctx: CardCtx): ReactElement {
     <div key={p.id} style={active ? CARD_ACTIVE : CARD}>
       <div style={ROW}>
         <strong>{p.label}</strong>
-        {active ? <span style={ACTIVE_TAG}>● 当前使用</span> : null}
+        {active ? <span style={ACTIVE_TAG}>{t('● 当前使用')}</span> : null}
         <span style={HINT}>{p.baseUrl}</span>
       </div>
       <div style={{ ...ROW, marginTop: '8px' }}>
@@ -98,15 +99,15 @@ function renderCard(p: ProviderPreset, ctx: CardCtx): ReactElement {
         <input
           type="password"
           style={INPUT}
-          placeholder={hasKey ? `已保存 ${ctx.maskedKeys[p.id]}，输入新值覆盖` : '输入 API Key'}
+          placeholder={hasKey ? t('已保存 {key}，输入新值覆盖', { key: ctx.maskedKeys[p.id] }) : t('输入 API Key')}
           value={ctx.drafts[p.id] ?? ''}
           onInput={(e: React.SyntheticEvent) => ctx.onDraft(p.id, (e.target as HTMLInputElement).value)}
         />
         <button className="ghost" disabled={ctx.busy !== ''} onClick={() => ctx.onSaveKey(p)}>
-          保存 Key
+          {t('保存 Key')}
         </button>
         <button className="ghost" disabled={ctx.busy !== ''} onClick={() => ctx.onProbe(p)}>
-          检测
+          {t('检测')}
         </button>
       </div>
       {probeResult?.ok && models.length > 0 ? (
@@ -127,16 +128,16 @@ function renderCard(p: ProviderPreset, ctx: CardCtx): ReactElement {
             disabled={ctx.busy !== '' || !selectedModel}
             onClick={() => ctx.onEnable(p)}
           >
-            启用此厂商
+            {t('启用此厂商')}
           </button>
         </div>
       ) : (
         <div style={{ ...HINT, marginTop: '6px' }}>
           {probeResult && !probeResult.ok
-            ? `检测未通过：${probeResult.error ?? '未知原因'}（保存有效 Key 后重试）`
+            ? t('检测未通过：{reason}（保存有效 Key 后重试）', { reason: probeResult.error ?? t('未知原因') })
             : hasKey
-              ? '已保存 Key，点「检测」拉取真实可用模型清单'
-              : '未配置 Key：保存 Key → 检测 → 启用后才会显示可用模型'}
+              ? t('已保存 Key，点「检测」拉取真实可用模型清单')
+              : t('未配置 Key：保存 Key → 检测 → 启用后才会显示可用模型')}
         </div>
       )}
     </div>
@@ -214,18 +215,18 @@ export function ModelProviders(): ReactElement {
   const saveKey = async (p: ProviderPreset): Promise<void> => {
     const key = (drafts[p.id] ?? '').trim();
     if (key === '' && maskedKeys[p.id] === undefined) {
-      toast('请输入 API Key', 'err');
+      toast(t('请输入 API Key'), 'err');
       return;
     }
     setBusy(p.id + ':key');
     try {
       await api.updateConfig({ setProviderKey: { vendor: p.id, key } });
       setDrafts((prev) => ({ ...prev, [p.id]: '' }));
-      toast(`${p.label} Key 已保存（服务端打码存储）`, 'ok');
+      toast(t('{label} Key 已保存（服务端打码存储）', { label: p.label }), 'ok');
       reload();
       refreshModelCatalog?.();
     } catch (e) {
-      toast('保存失败：' + (e as Error).message, 'err');
+      toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
       setBusy('');
     }
@@ -243,7 +244,11 @@ export function ModelProviders(): ReactElement {
       setProbes((prev) => ({ ...prev, [p.id]: result }));
       if (result.ok) {
         toast(
-          `${p.label} 连通（${result.models.length} 个模型，来源 ${result.source}）`,
+          t('{label} 连通（{count} 个模型，来源 {source}）', {
+            label: p.label,
+            count: result.models.length,
+            source: result.source,
+          }),
           'ok',
         );
         const keep =
@@ -253,10 +258,10 @@ export function ModelProviders(): ReactElement {
         setModelSel((prev) => ({ ...prev, [p.id]: keep ?? p.defaultModel }));
         refreshModelCatalog?.();
       } else {
-        toast(`${p.label} 不可用：${result.error ?? '未知原因'}`, 'err');
+        toast(t('{label} 不可用：{reason}', { label: p.label, reason: result.error ?? t('未知原因') }), 'err');
       }
     } catch (e) {
-      toast('检测失败：' + (e as Error).message, 'err');
+      toast(t('检测失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
       setBusy('');
     }
@@ -272,17 +277,17 @@ export function ModelProviders(): ReactElement {
       modelSel[p.id] ??
       (isActive(p) && active.model && models.includes(active.model) ? active.model : models[0]);
     if (!model) {
-      toast('没有可用模型，请先检测', 'err');
+      toast(t('没有可用模型，请先检测'), 'err');
       return;
     }
     setBusy(p.id + ':enable');
     try {
       await api.updateConfig({ enableProvider: p.id, model });
-      toast(`${p.label} 已启用（模型 ${model}），下一条消息即生效`, 'ok');
+      toast(t('{label} 已启用（模型 {model}），下一条消息即生效', { label: p.label, model }), 'ok');
       reload();
       refreshModelCatalog?.();
     } catch (e) {
-      toast('启用失败：' + (e as Error).message, 'err');
+      toast(t('启用失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
       setBusy('');
     }
@@ -304,9 +309,9 @@ export function ModelProviders(): ReactElement {
 
   return (
     <div>
-      <h3 style={{ margin: '4px 0 8px' }}>模型接入</h3>
+      <h3 style={{ margin: '4px 0 8px' }}>{t('模型接入')}</h3>
       <div style={HINT}>
-        填 Key → 保存 → 检测（真实请求厂商端点）→ 启用。有 Key 支持接多少显示多少；凭据服务端打码存储，UI 不回显原文。
+        {t('填 Key → 保存 → 检测（真实请求厂商端点）→ 启用。有 Key 支持接多少显示多少；凭据服务端打码存储，UI 不回显原文。')}
       </div>
       <div style={{ marginTop: '10px' }}>{providers.map((p) => renderCard(p, ctx))}</div>
     </div>

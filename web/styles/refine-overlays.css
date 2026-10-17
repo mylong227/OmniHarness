@@ -1,0 +1,245 @@
+﻿/* =========================================================================
+   OmniHarness Web UI — 精修·浮层：统一圆角 / 内距 / 阴影，修顶头溢出
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish2.css §5，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   5. 浮层：统一圆角/内距/阴影，并修「菜单里出现两个 logo」式的顶头溢出
+   ========================================================================= */
+/* 面板、菜单统一 12px 圆角与 6px 内距；项高 ≥28px（触控与误点）。 */
+.dd-menu,
+.ws-switch-menu,
+.addmenu-pop,
+.cap-pop,
+.mention-pop,
+.pp-menu,
+.rail-menu,
+.row-menu,
+.cmdk {
+  border-radius: 12px;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
+  padding: 6px;
+}
+.dd-item,
+.addmenu-item,
+.pp-item,
+.rail-menu-item,
+.row-menu button,
+.fp-item,
+.ws-project {
+  min-height: 28px;
+  border-radius: 8px;
+}
+.dd-item {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+/* 选中：底色 + 品牌色左标（3px 圆角条不是「彩色左边框装饰」，而是**选中语义**）。 */
+.dd-item.active,
+.addmenu-item.active {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--text);
+  box-shadow: none;
+}
+.dd-item.active::before,
+.addmenu-item.active::before {
+  content: none;
+}
+.perm-item.risk-high,
+.perm-item.full {
+  box-shadow: none;
+}
+.perm-item.full {
+  background: color-mix(in srgb, var(--err) 10%, transparent);
+}
+.perm-item.full .perm-name,
+.perm-item.full .perm-badge {
+  color: var(--err);
+}
+.perm-item.full .perm-badge {
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+  background: transparent;
+  border-radius: 999px;
+  padding: 1px 4px;
+}
+/* 权限档位菜单要容得下「名称 + 说明」两行，不能被容器裁掉末项。 */
+.dd-menu.wide {
+  min-width: 300px;
+  padding: 6px;
+}
+.perm-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+/* 添加菜单：分组用小标题 + 更大组间距，项与项之间靠留白而非分隔线。 */
+.addmenu-pop {
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(66vh, 520px);
+}
+.addmenu-scroll {
+  padding: 2px 4px 4px;
+}
+.addmenu-sec {
+  margin-bottom: 8px;
+}
+.addmenu-sec:last-child {
+  margin-bottom: 2px;
+}
+.addmenu-sec-title {
+  padding: 8px 10px 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  text-transform: none;
+}
+.addmenu-item {
+  padding: 7px 10px;
+  gap: 10px;
+}
+.addmenu-search {
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.addmenu-input {
+  background: var(--panel-2);
+  border-color: var(--hairline);
+}
+
+/* 命令面板：输入行原本紧贴弹层上缘（无内距），结果列表却有 6px ⇒ 顶头溢出。
+   这里把输入框内缩进容器，并给列表上下对称内距。 */
+.cmdk {
+  padding: 0;
+  overflow: hidden;
+}
+.cmdk-input {
+  border-bottom: 1px solid var(--hairline);
+  padding: 15px 18px;
+  font-size: 14.5px;
+  background: transparent;
+}
+.cmdk-input::placeholder {
+  color: var(--dim);
+}
+.cmdk-list {
+  padding: 8px;
+  max-height: 52vh;
+}
+.cmdk-group-title {
+  padding: 10px 12px 5px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.cmdk-item {
+  padding: 9px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.cmdk-item.active {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+}
+.cmdk-hint {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.cmdk-backdrop {
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  backdrop-filter: none;
+  padding-top: 14vh;
+}
+
+/* 模态遮罩：用主题底色而不是纯黑，浅色主题下不再是「黑幕」。 */
+.overlay {
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  backdrop-filter: none;
+}
+.fp-overlay {
+  background: color-mix(in srgb, var(--bg) 68%, transparent);
+  backdrop-filter: none;
+}
+.modal,
+.fp-modal {
+  border-radius: 16px;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
+  padding: 22px 24px;
+}
+.fp-modal {
+  padding: 0;
+}
+/* 审批弹窗的按钮行：三档决策排一行，危险的在左、允许在右，并让「始终允许」靠左收尾，
+   不再让「更改权限」单独占一行贴在右下角（位置与视觉重量都对不上）。 */
+.modal .actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.modal .actions .allow,
+.modal .actions .deny,
+.modal .actions .always {
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+.modal .actions .always {
+  background: transparent;
+  border-color: var(--border-soft);
+  color: var(--text);
+  margin-right: auto;
+}
+.modal .actions .always:hover {
+  border-color: var(--border-strong);
+  background: var(--panel-2);
+}
+.modal .actions .deny {
+  background: transparent;
+  border-color: var(--err);
+  color: var(--err);
+}
+.modal .actions .deny:hover {
+  background: color-mix(in srgb, var(--err) 14%, transparent);
+}
+.modal .actions .allow {
+  background: var(--ok);
+  color: var(--on-ok);
+}
+.modal .actions .allow:hover {
+  background: color-mix(in srgb, var(--ok) 88%, var(--text));
+}
+.approval-change-perm {
+  text-align: left;
+  padding: 10px 2px 0;
+}
+.approval-change-perm .link {
+  color: var(--brand);
+  font-size: 12px;
+}
+.fp-head {
+  padding: 16px 18px 10px;
+}
+.fp-list {
+  padding: 6px 12px;
+}
+.fp-item {
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.fp-actions {
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* 抽屉遮罩：同上，深色渐变近黑，浅色不再是黑幕。 */
+.drawer-backdrop {
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  backdrop-filter: none;
+}
+
+/* =========================================================================

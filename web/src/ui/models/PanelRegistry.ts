@@ -22,12 +22,18 @@ export interface PanelEntry {
 }
 
 /**
- * 12 个面板，顺序即**「全部面板」菜单的渲染顺序**。
+ * 功能面板清单，顺序即**「全部面板」菜单的渲染顺序**。
  *
  * 顺序口径（按"当前在做什么"串起来）：**工作 → 观察 → 编排 → 排障 → 配置**：
  *   工具/变更（手上这摊活）· 文件（内容）· 指标（运行观察）· 编排（多步流程）·
- *   记忆/配置集（上下文与预设）· 治理/回滚（审计与撤销）· 钻取（单事件深挖）· 设置/插件（改配置）。
+ *   记忆/配置集（上下文与预设）· 治理/回滚（审计与撤销）· 钻取（单事件深挖）· 插件（扩展）。
  * 若哪天菜单要另排顺序，请新增显式的 `order` 字段，而不是再抄一份清单。
+ *
+ * ⚠️ **设置不在这里**（2026-10-17 移除）。它原先与这些面板并列，但语义不同：
+ * 这些面板都是"看某个东西的状态"，而设置是"改全局配置"。把配置混进监控面板列表，
+ * 等于让用户在一个为「读」设计的容器里做「写」；而且入口埋在选择器里，找一次要点两步。
+ * 现在设置是**左栏页脚的按钮 + 居中模态**（`components/SettingsModal.tsx`），
+ * 与面板注册表彻底解耦。要加回面板列表前先读那段组件的头注释。
  */
 export const PANELS: readonly PanelEntry[] = [
   { key: 'tools', label: '工具', icon: 'wrench' },
@@ -40,7 +46,6 @@ export const PANELS: readonly PanelEntry[] = [
   { key: 'governance', label: '治理', icon: 'shield' },
   { key: 'rollback', label: '回滚', icon: 'rewind' },
   { key: 'detail', label: '钻取', icon: 'search' },
-  { key: 'settings', label: '设置', icon: 'gear' },
   { key: 'plugins', label: '插件', icon: 'package' },
   { key: 'diagnostics', label: '诊断', icon: 'ruler' },
   // Web 交付（2026-10-11）：审计事件与只读 trace 自省——两条都是**已有 RPC 缺入口**。

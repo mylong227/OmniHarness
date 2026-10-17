@@ -10,6 +10,7 @@ import { ImportanceStars } from '../../models/ImportanceStars.js';
 import { icon } from '../../models/Icon.js';
 import { emptyState } from '../../format.js';
 import type { MemoryFact } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** MemoryTab 组件的入参。 */
 export interface MemoryTabProps {
@@ -35,9 +36,9 @@ function renderRow(f: MemoryFact, actions: RowActions): ReactElement {
   const topic = f.topic ? <span className="badge">{f.topic}</span> : null;
   const src =
     f.source === 'consolidated' ? (
-      <span className="badge b-reasoning">蒸馏</span>
+      <span className="badge b-reasoning">{t('蒸馏')}</span>
     ) : (
-      <span className="badge b-tool_call">手动</span>
+      <span className="badge b-tool_call">{t('手动')}</span>
     );
   return (
     <div className="mem-row" key={f.id} data-id={f.id}>
@@ -50,10 +51,10 @@ function renderRow(f: MemoryFact, actions: RowActions): ReactElement {
       </div>
       <div className="mem-actions">
         <button className="ghost" onClick={() => actions.onEdit(f)}>
-          编辑
+          {t('编辑')}
         </button>
         <button className="ghost" onClick={() => actions.onDelete(f.id)}>
-          删除
+          {t('删除')}
         </button>
       </div>
     </div>
@@ -84,7 +85,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
       setCount(r.count);
       setFacts(r.facts);
     } catch (e) {
-      toast('加载失败：' + (e as Error).message, 'err');
+      toast(t('加载失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -105,7 +106,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
       setCount(r.count);
       setFacts(r.results);
     } catch (e) {
-      toast('检索失败：' + (e as Error).message, 'err');
+      toast(t('检索失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -132,7 +133,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
   const save = async (): Promise<void> => {
     const text = textRef.current ? textRef.current.value.trim() : '';
     if (!text) {
-      toast('请填写事实', 'err');
+      toast(t('请填写事实'), 'err');
       return;
     }
     const topic = topicRef.current ? topicRef.current.value.trim() || undefined : undefined;
@@ -140,11 +141,11 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
     try {
       if (editingId) await api.updateMemory({ id: editingId, text, topic, importance });
       else await api.addMemory({ text, topic, importance });
-      toast(editingId ? '已更新记忆' : '已保存记忆', 'ok');
+      toast(editingId ? t('已更新记忆') : t('已保存记忆'), 'ok');
       reset();
       await load();
     } catch (e) {
-      toast('保存失败：' + (e as Error).message, 'err');
+      toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -153,18 +154,18 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
    * @param id 记忆 id
    */
   const del = async (id: string): Promise<void> => {
-    const ok = await dialog.confirm('确认删除这条记忆？', {
-      title: '删除记忆',
-      confirmLabel: '删除',
+    const ok = await dialog.confirm(t('确认删除这条记忆？'), {
+      title: t('删除记忆'),
+      confirmLabel: t('删除'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteMemory(id);
-      toast('已删除', 'ok');
+      toast(t('已删除'), 'ok');
       await load();
     } catch (e) {
-      toast('删除失败：' + (e as Error).message, 'err');
+      toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -173,42 +174,42 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
       <div className="pm-head">
         <input
           type="text"
-          placeholder="检索长期记忆（自然语言）…"
+          placeholder={t('检索长期记忆（自然语言）…')}
           value={query}
           onInput={(e: React.SyntheticEvent) => setQuery((e.target as HTMLInputElement).value)}
         />
         <button className="ghost" onClick={() => void search()}>
-          检索
+          {t('检索')}
         </button>
         <button className="ghost" onClick={() => void load()}>
-          刷新
+          {t('刷新')}
         </button>
       </div>
       <div className="pm-section">
-        <div className="pm-title">新增 / 编辑记忆</div>
+        <div className="pm-title">{t('新增 / 编辑记忆')}</div>
         <div className="form">
           <label>
-            事实
+            {t('事实')}
             <input
               type="text"
               ref={(el: HTMLInputElement | null) => {
                 textRef.current = el;
               }}
-              placeholder="如：用户要求所有 TS 文件用 camelCase"
+              placeholder={t('如：用户要求所有 TS 文件用 camelCase')}
             />
           </label>
           <label>
-            主题
+            {t('主题')}
             <input
               type="text"
               ref={(el: HTMLInputElement | null) => {
                 topicRef.current = el;
               }}
-              placeholder="编码规范 / 项目约定 / 环境"
+              placeholder={t('编码规范 / 项目约定 / 环境')}
             />
           </label>
           <label>
-            重要度
+            {t('重要度')}
             <select
               ref={(el: HTMLSelectElement | null) => {
                 impRef.current = el;
@@ -225,23 +226,23 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
           </label>
           <div className="row">
             <button className="send" onClick={() => void save()}>
-              {editingId ? '保存修改' : '保存'}
+              {editingId ? t('保存修改') : t('保存')}
             </button>
             {editingId ? (
               <button className="ghost" onClick={reset}>
-                取消编辑
+                {t('取消编辑')}
               </button>
             ) : null}
           </div>
         </div>
       </div>
       <div className="pm-section">
-        <div className="pm-title">已存记忆（{count}）</div>
+        <div className="pm-title">{t('已存记忆（{count}）', { count })}</div>
         {facts.length === 0 ? (
           emptyState(
             icon('brain', { size: 20 }),
-            '暂无记忆',
-            '上方填入事实后点「保存」，或在会话中由模型自动沉淀。',
+            t('暂无记忆'),
+            t('上方填入事实后点「保存」，或在会话中由模型自动沉淀。'),
           )
         ) : (
           facts.map((f) =>

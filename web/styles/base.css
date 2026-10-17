@@ -1,0 +1,126 @@
+/* =========================================================================
+   OmniHarness Web UI — 全局底子：排版 / 滚动条 / 选区 / 焦点环 / 原生控件兜底
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish.css §2，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   2. 全局底子：字体、排版细节、滚动条、选区、焦点环
+   ========================================================================= */
+body {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  letter-spacing: 0.005em;
+  /* 2026-10-17 单色重设计：顶部径向提亮已删除。
+     它原本是页面唯一的「纵深」装饰，而 craft floor 明令禁止装饰性渐变
+     （深色下可见度也极低，等于用一份复杂度买不到观感）。
+     页面纵深改由表面明度阶梯（--bg / --bg-elev / --panel）承担。 */
+}
+[data-theme='light'] body {
+}
+
+/* 中文与长串混排时，换行策略比浏览器默认的 greedy 更耐看（Chrome 117+ / Safari 17+）。 */
+p,
+li,
+.tc-summary,
+.illu-hint,
+.settings-hint {
+  text-wrap: pretty;
+}
+
+/* 会跳动的数字一律等宽数字，防止每次刷新横向抖一下。 */
+.wi-time,
+.time,
+.metric .n,
+.usage-table td,
+.cap-pct,
+.cap-row-pct,
+.change-nums,
+.token-num {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--brand) 34%, transparent);
+  color: var(--text);
+}
+
+/* 细滚动条：默认更隐形，悬停才显形（原先 thumb 常驻 rgba(.13) 在深色里像一道灰杠）。 */
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: padding-box;
+}
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+  background-clip: padding-box;
+}
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.26);
+}
+
+/* 焦点环：两段式（品牌色实环 + 低透明外晕），在密集界面里比单环更容易被眼睛抓住。
+   只写 outline / box-shadow，不碰 color ⇒ 不进入对比度门禁的"前景×背景"判定。 */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+button:focus-visible,
+[role='tab']:focus-visible,
+[role='option']:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--ring);
+}
+/* 容器内会被裁掉外扩环的地方（沿用 components.css 的内缩口径）。 */
+.composer textarea:focus-visible,
+.composer .ctl-sel:focus-visible,
+.session-search:focus-visible,
+.session-rename-input:focus-visible,
+.cmdk-input:focus-visible,
+.addmenu-input:focus-visible,
+.form input:focus-visible,
+.form select:focus-visible {
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+/* 原生控件兜底：把 --radius 交给 8px 栅格，并给 hover 一个确定的描边色。 */
+button {
+  border-radius: var(--radius);
+  font-family: inherit;
+}
+button:not(:disabled):active {
+  transform: translateY(0.5px);
+}
+button:disabled {
+  filter: saturate(0.6);
+}
+input:not([type='checkbox']):not([type='radio']):not([type='range']),
+textarea,
+select {
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+}
+input:not([type='checkbox']):not([type='radio']):not([type='range']):hover,
+textarea:hover {
+  border-color: var(--border-strong);
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--brand);
+}
+

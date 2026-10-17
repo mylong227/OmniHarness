@@ -15,6 +15,7 @@ import type { FileView } from '../../shared.js';
 import { FileKindClassifier } from '../../models/FileKindClassifier.js';
 import { CodeSurface } from '../CodeSurface.js';
 import { icon } from '../../models/Icon.js';
+import { t } from '../../i18n/i18n.js';
 
 /** FileTab 组件的入参。 */
 export interface FileTabProps {
@@ -62,8 +63,8 @@ export function FileTab(props: FileTabProps): ReactElement {
     return (
       emptyState(
         icon('file', { size: 20 }),
-        '还没有打开文件',
-        '在左侧文件树点击文件、或点产物卡片的「打开」，内容会显示在这里。',
+        t('还没有打开文件'),
+        t('在左侧文件树点击文件、或点产物卡片的「打开」，内容会显示在这里。'),
       )
     );
   }

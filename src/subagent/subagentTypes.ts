@@ -23,7 +23,7 @@ export const DEFAULT_MAX_CONCURRENCY = 16;
  * @beta
  * 默认子智能体步数上限（独立于主会话 maxSteps，防单个子任务失控）。
  */
-export const DEFAULT_SUBAGENT_MAX_STEPS = 12;
+export const DEFAULT_SUBAGENT_MAX_STEPS = 0;
 
 /**
  * @beta

@@ -9,6 +9,44 @@ import {
 } from '../../context/contextBreakdownEstimator.js';
 import { ContextWindowCatalog } from '../../context/contextWindowCatalog.js';
 import { CacheHitRateWatch } from '../../observability/cacheHitRateWatch.js';
+import {
+  CacheMissAttributionAnalyst,
+  type CacheMissAttribution,
+  type CacheMissCause,
+} from '../../observability/cacheMissAttributionAnalyst.js';
+
+/** 单条**上报了缓存字段**的调用样本（`cacheStat` 内部备料用；不进公共 API 面）。 */
+interface CacheCallSample {
+  /** 该次调用的输入 token 数（已钳制：`cached ≤ prompt`）。 */
+  readonly promptTokens: number;
+  /** 该次调用命中缓存的 token 数。 */
+  readonly cachedPromptTokens: number;
+  /** 事件时间戳（毫秒）；不可解析时为 NaN（间隔据此判"没有信号"）。 */
+  readonly atMs: number;
+  /** 该条事件快照里的前缀复用率（0–1）；首次请求或旧快照缺省。 */
+  readonly prefixReuseRatio?: number;
+}
+
+/**
+ * **最近一次**上报缓存的调用的未命中分因（会话聚合之外的独立结论）。
+ *
+ * 口径（刻意与 {@link ContextCacheStat} 的聚合数字分开，免得两者被读成同一件事的两种说法）：
+ *  - token 数与信号都取自**同一条** model 事件（该次调用自己的 `usage` + 它自己的前缀复用率），
+ *    不是"聚合 token 配最近一次的信号"——那种混算会产出一句看起来精确、实则对不上的理由；
+ *  - `cause === 'hit'` 只说明**最近一次**命中了，会话整体命中率仍以上面的聚合值为准。
+ */
+export interface ContextCacheLastCall {
+  /** 分因（与日志、分因器同一枚举）。 */
+  readonly cause: CacheMissCause;
+  /** 可直接进面板悬停/日志的**一句话理由**（含具体数字）。 */
+  readonly reason: string;
+  /** 原始证据（`promptTokens` / `cachedPromptTokens` / `prefixReuseRatio` / `gapMs` / `ttlMs`，JSON 安全）。 */
+  readonly evidence: Readonly<Record<string, unknown>>;
+  /** 该次调用的输入 token 数（分因的分母，与聚合值可能不同）。 */
+  readonly promptTokens: number;
+  /** 该次调用命中缓存的 token 数。 */
+  readonly cachedPromptTokens: number;
+}
 
 /** 提示缓存命中统计（当前会话）。 */
 export interface ContextCacheStat {
@@ -24,6 +62,11 @@ export interface ContextCacheStat {
    * 否则「端点没上报」会被读成「缓存完全没命中」。
    */
   readonly hitRate?: number;
+  /**
+   * 最近一次上报缓存的调用的分因（2026-10-15）：把面板上的一个数字变成可行动结论。
+   * **恒有值**（没有上报调用时是 `not-reported`，不会缺省）——调用方因此不必处理 undefined。
+   */
+  readonly lastCall: ContextCacheLastCall;
 }
 
 /** 上下文容量报告（`context.usage` RPC 的返回体，UI 容量面板单一数据源）。 */
@@ -118,7 +161,16 @@ export class ContextUsageService {
     }
     const cache = this.cacheStat(events);
     // 命中率坍塌观测（缺口 C）：只发 warn 级结构化日志，**不阻断**任何业务路径。
-    this.cacheWatch.inspect(cache);
+    // 分因**同源**：把上面算好的 `lastCall` 结论交给观测器，日志与面板因此不会各说各话
+    // （2026-10-15 前这里只传聚合数字，而观测器读的是另一个字段名 ⇒ 日志恒报 "端点未上报"，
+    // 与"确实上报了但命中率低"这一事实相反；判据见 `contextUsageCache.test.ts`）。
+    this.cacheWatch.inspect({
+      promptTokens: cache.promptTokens,
+      cachedPromptTokens: cache.cachedPromptTokens,
+      calls: cache.calls,
+      ...(cache.hitRate !== undefined ? { hitRate: cache.hitRate } : {}),
+      attribution: { cause: cache.lastCall.cause, reason: cache.lastCall.reason },
+    });
     const snapshot = this.latestSnapshot(events);
     if (snapshot !== undefined) {
       const breakdown = this.breakdown.breakdownOf(snapshot);
@@ -208,13 +260,24 @@ export class ContextUsageService {
    *  - `cachedPromptTokens > promptTokens`（端点脏值）在该条内**钳制到 promptTokens**，
    *    使命中率天然 ≤100%，无需在除法处再特判。
    *  - `promptTokens` 合计为 0 时 `hitRate` 记 0（不产生 NaN / Infinity）。
+   *
+   * 分因口径（2026-10-15，销掉看板 §8.11 登记的那条遗留）：
+   *  - token 数与信号取自**同一条** model 事件（该次调用的 `usage` + 它自己的
+   *    `context.prefixReuseRatio`）——**不是**"会话聚合 token 配最后一条事件的信号"；
+   *    后者在"最后一次调用没上报"时会张冠李戴，产出一句看着精确、实则对不上的理由。
+   *  - `gapMs` = 最近两次**上报**调用的时间戳之差；时间戳非法或倒序时**不给信号**
+   *    （宁缺勿编——倒序可能来自时钟回拨，编一个数会让分因指向错误的处置）。
+   *  - 没有任何上报调用 ⇒ `not-reported`（"没读数"≠"没命中"），并带 `reportedCalls: 0`，
+   *    使"还没跑过模型调用"与"跑过了但端点不给字段"在理由里可分辨。
    * @param events 会话事件序列。
-   * @returns 缓存命中统计（无上报调用时 calls=0 且 hitRate 缺省）。
+   * @returns 缓存命中统计（无上报调用时 calls=0、hitRate 缺省，`lastCall.cause` 恒有值）。
    */
   private cacheStat(events: readonly SessionEvent[]): ContextCacheStat {
     let promptTokens = 0;
     let cachedPromptTokens = 0;
     let calls = 0;
+    let last: CacheCallSample | undefined;
+    let previous: CacheCallSample | undefined;
     for (const event of events) {
       if (event.type !== 'model') continue;
       const sample = this.cacheSampleOf(event);
@@ -222,16 +285,89 @@ export class ContextUsageService {
       promptTokens += sample.promptTokens;
       cachedPromptTokens += sample.cachedPromptTokens;
       calls += 1;
+      previous = last;
+      const reuse = this.prefixReuseOf(event);
+      last = {
+        ...sample,
+        atMs: Date.parse(event.timestamp),
+        ...(reuse !== undefined ? { prefixReuseRatio: reuse } : {}),
+      };
     }
-    if (calls === 0) {
-      return { promptTokens: 0, cachedPromptTokens: 0, calls: 0 };
-    }
+    const attribution = this.attributeLastCall(last, previous, calls);
     return {
       promptTokens,
       cachedPromptTokens,
       calls,
-      hitRate: promptTokens > 0 ? Math.round((cachedPromptTokens / promptTokens) * 1000) / 10 : 0,
+      ...(calls > 0
+        ? {
+            hitRate:
+              promptTokens > 0 ? Math.round((cachedPromptTokens / promptTokens) * 1000) / 10 : 0,
+          }
+        : {}),
+      lastCall: {
+        cause: attribution.cause,
+        reason: attribution.reason,
+        evidence: attribution.evidence,
+        promptTokens: last?.promptTokens ?? 0,
+        cachedPromptTokens: last?.cachedPromptTokens ?? 0,
+      },
     };
+  }
+
+  /**
+   * 对**最近一次**上报调用分因（复用分因器这一唯一实现，本方法只负责备料）。
+   * @param last 最近一次上报调用；无则为 undefined。
+   * @param previous 上一次上报调用；无则为 undefined。
+   * @param calls 上报调用总数。
+   * @returns 分因结果（结论 + 理由 + 证据）。
+   */
+  private attributeLastCall(
+    last: CacheCallSample | undefined,
+    previous: CacheCallSample | undefined,
+    calls: number,
+  ): CacheMissAttribution {
+    const gapMs = this.gapBetween(previous, last);
+    return CacheMissAttributionAnalyst.attribute({
+      // 无上报调用时**不传**该字段：分因器据此判 `not-reported`，而不是"上报了 0 命中"。
+      ...(last !== undefined ? { cachedPromptTokens: last.cachedPromptTokens } : {}),
+      promptTokens: last?.promptTokens ?? 0,
+      hasPreviousRequest: calls > 1,
+      reportedCalls: calls,
+      ...(last?.prefixReuseRatio !== undefined ? { prefixReuseRatio: last.prefixReuseRatio } : {}),
+      ...(gapMs !== undefined ? { gapMs } : {}),
+    });
+  }
+
+  /**
+   * 两次上报调用之间的间隔（毫秒）。
+   * @param previous 较早的一次；无则 undefined。
+   * @param last 较晚的一次；无则 undefined。
+   * @returns 非负间隔；任一时间戳缺失/非法/倒序时 undefined（不编数）。
+   */
+  private gapBetween(
+    previous: CacheCallSample | undefined,
+    last: CacheCallSample | undefined,
+  ): number | undefined {
+    if (previous === undefined || last === undefined) return undefined;
+    if (!Number.isFinite(previous.atMs) || !Number.isFinite(last.atMs)) return undefined;
+    const gap = last.atMs - previous.atMs;
+    return gap >= 0 ? gap : undefined;
+  }
+
+  /**
+   * 读该条 model 事件快照里的前缀复用率。
+   *
+   * 只认 `[0,1]` 的有限数：越界值说明写入侧或日志被污染，此时**当没有信号**
+   * （分因器会说"缺前缀占比"），绝不拿脏值去判"前缀被改写"。
+   * @param event 会话事件（调用方已确认 type === 'model'）。
+   * @returns 复用率；缺字段 / 非有限数 / 越界时 undefined。
+   */
+  private prefixReuseOf(event: SessionEvent): number | undefined {
+    const context = (event.payload as { context?: unknown } | undefined)?.context;
+    if (context === null || typeof context !== 'object') return undefined;
+    const raw = (context as Record<string, unknown>)['prefixReuseRatio'];
+    if (typeof raw !== 'number' || !Number.isFinite(raw) || raw < 0 || raw > 1) return undefined;
+    return raw;
   }
 
   /**
@@ -297,7 +433,8 @@ export class ContextUsageService {
    * 空报告（全零行，保证 UI 渲染路径一致）。
    * @param threadId 会话 id（可为空串）。
    * @param windowTokens 当前模型窗口 token 数。
-   * @param cache 已算出的缓存统计（缺省用全零）。
+   * @param cache 已算出的缓存统计（缺省按"本会话没有任何上报调用"现算一份，
+   *   使 `lastCall.cause` 恒有值——调用方不必处理"分因不存在"这一态）。
    * @returns source='empty' 的容量报告。
    */
   private emptyReport(
@@ -314,7 +451,7 @@ export class ContextUsageService {
         windowTokens,
       }),
       'empty',
-      cache ?? { promptTokens: 0, cachedPromptTokens: 0, calls: 0 },
+      cache ?? this.cacheStat([]),
     );
   }
 }

@@ -53,6 +53,7 @@ import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmis
 import type { ComposerSeed, LiveInput } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 import type { ToolResultView } from '../shared.js';
+import { t } from '../i18n/i18n.js';
 
 /** 兼容旧引用路径：本类型已下沉到 shared，此处保留再导出。 */
 export type { ToolResultView };
@@ -264,7 +265,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           <summary className="tc-line dim">
             <span className="tc-chevron">▸</span>
             <span className="tc-icon">{icon('undo', { size: 14 })}</span>
-            <span className="tc-summary">工具结果（独立事件）</span>
+            <span className="tc-summary">{t('工具结果（独立事件）')}</span>
           </summary>
           <div className="tc-detail">
             <div className="tool-output">{esc(JSON.stringify(p))}</div>
@@ -285,8 +286,10 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
           >
             <summary className="sysnote-fold__summary">
-              — 上下文已压缩 · 游标 upTo={String(compaction.upTo)} · 摘要约{' '}
-              {NumberFormatter.abbrev(compaction.summary.length)} 字 · 点击查看 —
+              {t('— 上下文已压缩 · 游标 upTo={upTo} · 摘要约 {n} 字 · 点击查看 —', {
+                upTo: String(compaction.upTo),
+                n: NumberFormatter.abbrev(compaction.summary.length),
+              })}
             </summary>
             <div className="sysnote-fold__body">{esc(compaction.summary)}</div>
           </details>,
@@ -365,7 +368,7 @@ function renderLiveInputRow(li: LiveInput): ReactElement {
         <span className="tc-chevron">▸</span>
         <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
         <span className="tc-summary tc-action">{esc(describeToolCall(li.name, partialArgs))}</span>
-        <span className="tool-status pending">进行中…</span>
+        <span className="tool-status pending">{t('进行中…')}</span>
       </div>
     </div>
   );
@@ -645,7 +648,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
           role="log"
           aria-live="polite"
           aria-relevant="additions"
-          aria-label="对话事件流"
+          aria-label={t('对话事件流')}
           data-virtual="1"
           data-rendered-count={String(renderedCount)}
           data-total-count={String(totalCount)}
@@ -656,27 +659,27 @@ export function StreamView(props: StreamViewProps): ReactElement {
           {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
             <div className="empty illu starter-empty">
               <div className="illu-icon">{icon('message', { size: 20 })}</div>
-              <div className="illu-text">等待任务</div>
-              <div className="illu-hint">下达任务后，模型推理、工具调用与结果将在此实时呈现。</div>
+              <div className="illu-text">{t('等待任务')}</div>
+              <div className="illu-hint">{t('下达任务后，模型推理、工具调用与结果将在此实时呈现。')}</div>
               {onUseStarter === undefined ? null : (
                 // 「快速开始」：只说"这里会发生什么"是不够的——新客户卡在"第一句话怎么写"。
                 // 四条示例各覆盖一条核心通路（读文件 / 跑命令 / 搜索 / 写代码），点一下填进输入框。
                 <div className="starter-tasks">
-                  <div className="starter-title">试试这些（点一下填进输入框，可改后再发）</div>
+                  <div className="starter-title">{t('试试这些（点一下填进输入框，可改后再发）')}</div>
                   <div className="starter-list">
-                    {StarterTasks.list().map((t) => (
+                    {StarterTasks.list().map((task) => (
                       <button
-                        key={t.label}
+                        key={task.label}
                         type="button"
                         className="starter-task"
                         // 悬停给完整任务描述：按钮上的标签是"能力名"，客户要看到真会发出去的那句话。
-                        title={t.prompt}
-                        onClick={() => onUseStarter(t.prompt)}
+                        title={t(task.prompt)}
+                        onClick={() => onUseStarter(t(task.prompt))}
                       >
                         <span className="starter-ico" aria-hidden="true">
-                          {icon(t.icon, { size: 14 })}
+                          {icon(task.icon, { size: 14 })}
                         </span>
-                        <span className="starter-label">{t.label}</span>
+                        <span className="starter-label">{t(task.label)}</span>
                       </button>
                     ))}
                   </div>
@@ -764,10 +767,10 @@ export function StreamView(props: StreamViewProps): ReactElement {
         {graphRuns === undefined || onGraphResume === undefined ? null : (
           <GraphResumeChip runs={graphRuns} onResume={onGraphResume} />
         )}
-        <span className="cs-item">{String(events.length)} 条事件</span>
+        <span className="cs-item">{t('{n} 条事件', { n: String(events.length) })}</span>
         {streamState === undefined ? null : (
           <span className={'cs-item cs-conn ' + streamState}>
-            {streamState === 'open' ? '已连接' : streamState === 'connecting' ? '重连中' : '断开'}
+            {streamState === 'open' ? t('已连接') : streamState === 'connecting' ? t('重连中') : t('断开')}
           </span>
         )}
       </div>

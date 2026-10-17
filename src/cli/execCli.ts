@@ -24,6 +24,7 @@ import { JsonlWriter } from '../output/jsonlWriter.js';
 import type { CliArgs } from './argParser.js';
 import { ArgParser } from './argParser.js';
 import { CliAgentCmds } from './cliAgentCmds.js';
+import { ExecLocal } from './execLocal.js';
 import { EvolutionCommand } from './evolutionCommand.js';
 import { CapabilityCommand } from './capabilityCommand.js';
 import { LicenseCommand } from './licenseCommand.js';
@@ -49,6 +50,15 @@ const AUDIT_FLAGS: readonly string[] = ['--audit-dir', '--audit-file', '--audit-
 
 /** OmniHarness CLI 命令入口：omniharness exec / server … */
 export class ExecCli extends CliAgentCmds {
+  /**
+   * 链基半段的分发器（**组合，不是继承**）：`server`/`serve`/`schema`/`session`/`plugin`/`profile`/
+   * `bundle`/`doctor`/`mcp`/`kv`/`vault`/`identity`/`daemon`/`audit`/`trace`/`sdk`/`boost`/`auth`。
+   *
+   * 为什么是组合：单继承链是**线性的**，`ExecCli` 必须继承链顶才能拿到 `goal`/`workflow`/`execute`
+   * 等链顶方法；若让它去继承链基（`ExecLocal`）就会丢掉链顶。故这里持有一个实例并按需委托，
+   * 判定只有一份（`ExecLocal.runLocal`），链顶与链基各自拿到自己那段。
+   */
+  private readonly local = new ExecLocal();
   /** evolution 子命令（S7）：status/rollback 自持，cycle 经本层注入的钩子执行。 */
   private readonly evolutionCommand = new EvolutionCommand((request) =>
     this.runEvolutionCycle(request),
@@ -62,6 +72,11 @@ export class ExecCli extends CliAgentCmds {
   );
   /**
    * 执行并返回进程退出码。
+   *
+   * 分两段：**先委托链基半段**（`ExecLocal.runLocal`，`server`/`serve`/`kv`/`vault`/`doctor`… 18 个命令，
+   * 不需要链顶的 `Agent`/`Runtime`），不认识才走本层的链顶命令与默认 agent 路径。
+   * 这样做是为了让 `exec.ts` 能**先加载 `execLocal.js`**（实测比整条链省 ~280ms），
+   * 同时保住"每个命令只有一处实现"（这里是委托，不是复制一份判定）。
    * @param argv 原始命令行参数（不含 node 与脚本入口）。
    * @returns 进程退出码：子命令各自决定；exec 主路径成功 0、用法错误 2、执行异常 1。
    */
@@ -70,46 +85,18 @@ export class ExecCli extends CliAgentCmds {
       process.stdout.write(`omniharness ${(await import('../version.js')).API_VERSION}\n`);
       return 0;
     }
-    if (argv[0] === 'server') {
-      return this.runServer(argv.slice(1));
-    }
-    if (argv[0] === 'serve') {
-      return this.runServe(argv.slice(1));
-    }
-    if (argv[0] === 'schema') {
-      return this.runSchema(argv.slice(1));
-    }
-    if (argv[0] === 'session') {
-      return this.runSession(argv.slice(1));
-    }
-    if (argv[0] === 'plugin') {
-      return this.runPlugin(argv.slice(1));
-    }
-    if (argv[0] === 'profile') {
-      return this.runProfile(argv.slice(1));
-    }
-    if (argv[0] === 'bundle') {
-      return this.runBundle(argv.slice(1));
-    }
-    if (argv[0] === 'doctor') {
-      return this.runDoctor(argv.slice(1));
+    // 链基半段：不碰 Agent/Runtime（`exec.ts` 若已直接走过这一层，这里会立刻返回同一个结论）。
+    const local = await this.local.runLocal(argv);
+    if (local !== undefined) {
+      return local;
     }
     if (argv[0] === 'compare') {
       return this.runCompare(argv.slice(1));
     }
-    if (argv[0] === 'mcp') {
-      return this.runMcp(argv.slice(1));
-    }
-    if (argv[0] === 'license') return this.licenseCommand.run(argv.slice(1));
-    if (argv[0] === 'kv') {
-      return this.runKv(argv.slice(1));
-    }
-    if (argv[0] === 'vault') {
-      return this.runVault(argv.slice(1));
-    }
     if (argv[0] === 'native') {
       return this.runNative(argv.slice(1));
     }
+    if (argv[0] === 'license') return this.licenseCommand.run(argv.slice(1));
     if (argv[0] === 'goal') {
       return this.runGoal(argv.slice(1));
     }
@@ -119,34 +106,11 @@ export class ExecCli extends CliAgentCmds {
     if (argv[0] === 'lsp') {
       return this.runLsp(argv.slice(1));
     }
-    if (argv[0] === 'identity') {
-      return this.runIdentity(argv.slice(1));
-    }
-    if (argv[0] === 'daemon') {
-      return this.runDaemon(argv.slice(1));
-    }
     if (argv[0] === 'routines') {
       return this.runRoutines(argv.slice(1));
     }
     if (argv[0] === 'tui') {
       return this.runTui(argv.slice(1));
-    }
-    if (argv[0] === 'audit') {
-      return this.runAudit(argv.slice(1));
-    }
-    if (argv[0] === 'trace') {
-      return this.runTrace(argv.slice(1));
-    }
-    if (argv[0] === 'sdk') {
-      return this.runSdk(argv.slice(1));
-    }
-    // boost（2026-10-10）：把「探针归档/跨次比对」与「按改动挑门禁子集」纳入 harness 自身。
-    // 只读 `tools/probes/` 与 `scripts/runGates.mjs`，**不改**它们（门禁清单仍只认那一份实现）。
-    if (argv[0] === 'boost') {
-      return this.runBoost(argv.slice(1));
-    }
-    if (argv[0] === 'auth') {
-      return this.runAuth(argv.slice(1));
     }
     if (argv[0] === 'evolution') return this.runEvolution(argv.slice(1));
     if (argv[0] === 'capability') return this.runCapability(argv.slice(1));

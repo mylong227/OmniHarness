@@ -122,10 +122,21 @@ describe('--subagent-max-steps 覆盖 run_workflow 子步', () => {
     }
   });
 
-  it('未配置时子步用默认子代步数（而非主会话 maxSteps）', async () => {
+  it('未配置时子步**不限步数**（策略常量 0 = 不限），要上限必须显式给', () => {
+    // 2026-10-15 口径变更：终止条件是「任务完成」，不是步数配额；子代理与主会话同一口径。
+    // 这里**只钉策略常量、不跑非收敛模型**——不限步数 + 永不收敛的模型会真的跑不完
+    // （那是本策略的已知代价，已在看板登记；需要硬上限时用 `--subagent-max-steps N`）。
+    assert.strictEqual(
+      DEFAULT_SUBAGENT_MAX_STEPS,
+      0,
+      '默认必须是 0 = 不限：历史上 12 的配额造成过「子代理交付不完整却称已完成」（看板第七十六轮实证）',
+    );
+  });
+
+  it('显式 subagentMaxSteps=3 ⇒ 子步受它约束（而非主会话的 8）', async () => {
     const ws = freshWorkspace();
     try {
-      const { model, tools } = buildTools(ws);
+      const { model, tools } = buildTools(ws, 3);
       const result = await tools.execute(
         {
           id: 'c1',
@@ -135,10 +146,11 @@ describe('--subagent-max-steps 覆盖 run_workflow 子步', () => {
         { sessionId: 'parent', workspaceRoot: ws },
       );
       assert.strictEqual(result.ok, true, `工作流应成功，实际: ${result.error ?? ''}`);
+      // 3 步工具调用 + 1 次兜底总结；若误用主会话 maxSteps(8) 则会是 9 次。
       assert.strictEqual(
         model.childCalls,
-        DEFAULT_SUBAGENT_MAX_STEPS + 1,
-        `子步应用默认子代步数 ${DEFAULT_SUBAGENT_MAX_STEPS}（实测 ${model.childCalls} 次）`,
+        4,
+        `子步应受 subagentMaxSteps=3 约束（实测模型调用 ${model.childCalls} 次）`,
       );
     } finally {
       rmSync(ws, { recursive: true, force: true });

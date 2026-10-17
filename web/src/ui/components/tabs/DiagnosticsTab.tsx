@@ -22,6 +22,7 @@ import { useApp } from '../../context.js';
 import { icon } from '../../models/Icon.js';
 import type { ReactElement } from 'react';
 import type { DoctorReportLike } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** `daemon.status` 的返回形状。 */
 interface DaemonStatus {
@@ -67,13 +68,13 @@ export function DiagnosticsTab(): ReactElement {
     void refresh();
   }, [refresh]);
 
-  if (loading) return <div className="diagnostics-tab">正在体检…</div>;
+  if (loading) return <div className="diagnostics-tab">{t('正在体检…')}</div>;
   if (error !== null) {
     return (
       <div className="diagnostics-tab">
-        <p className="err">读取诊断数据失败：{error}</p>
+        <p className="err">{t('读取诊断数据失败：{msg}', { msg: error })}</p>
         <button type="button" onClick={() => void refresh()}>
-          重试
+          {t('重试')}
         </button>
       </div>
     );
@@ -82,43 +83,55 @@ export function DiagnosticsTab(): ReactElement {
   return (
     <div className="diagnostics-tab">
       <div className="detail-section">
-        <div className="detail-h">后台服务（daemon）</div>
+        <div className="detail-h">{t('后台服务（daemon）')}</div>
         {daemon === null || !daemon.running ? (
           // 未运行是**合法状态**，不是错误：如实说"未运行"，不显示成故障也不显示成正常。
-          <p className="hint">未运行（`omniharness daemon start` 可后台常驻）。</p>
+          <p className="hint">{t('未运行（`omniharness daemon start` 可后台常驻）。')}</p>
         ) : (
-          <p>运行中 · PID {daemon.pid}</p>
+          // `I18nParams` 的取值类型是 `string | number`，而 `daemon.pid` 是
+          // `number | undefined`（类型上未运行时就可能缺失）⇒ 必须显式窄化（原为 TS2322）。
+          // 用 `?? '—'` 而不是裸传：真走到这里时 daemon.running 为 true、pid 通常在，
+          // 但给一个占位符总比渲染出字符串 "undefined" 好。
+          <p>{t('运行中 · PID {pid}', { pid: daemon.pid ?? '—' })}</p>
         )}
       </div>
 
       <div className="detail-section">
-        <div className="detail-h">环境诊断（doctor）</div>
+        <div className="detail-h">{t('环境诊断（doctor）')}</div>
         {doctor !== null && !doctor.ok ? (
           // 纪律①：未接线必须直说——**不得**退化成"体检通过"。
-          <p className="err">未接线：{doctor.reason}</p>
+          <p className="err">{t('未接线：{reason}', { reason: doctor.reason })}</p>
         ) : doctor !== null && doctor.ok ? (
           <div>
             <p>
-              Node {doctor.report.nodeVersion} · 配置{' '}
-              {doctor.report.config.valid ? '合法' : `非法（${doctor.report.config.error ?? '未知原因'}）`}
+              Node {doctor.report.nodeVersion} · {t('配置')}{' '}
+              {doctor.report.config.valid
+                ? t('合法')
+                : t('非法（{reason}）', { reason: doctor.report.config.error ?? t('未知原因') })}
             </p>
             <p>
-              隔离档 {doctor.report.security.isolationLevel}
-              {doctor.report.security.kernelEnforced ? '（内核强制）' : '（**无内核强制**）'} · 沙箱档{' '}
+              {t('隔离档 {level}', { level: doctor.report.security.isolationLevel })}
+              {doctor.report.security.kernelEnforced
+                ? t('（内核强制）')
+                : t('（**无内核强制**）')} · {t('沙箱档')}{' '}
               {doctor.report.security.sandboxProfile}
             </p>
             <p className="hint">{doctor.report.security.isolationBasis}</p>
             <p className="hint">
-              shell 出网受守卫约束：{doctor.report.security.shellEgressGuarded ? '是' : '否'} ·
-              插件目录可读：{doctor.report.pluginsDirReadable ? '是' : '否'} · 权限清单可读：
-              {doctor.report.permissionsManifestReadable ? '是' : '否'}
+              {t('shell 出网受守卫约束：')}
+              {doctor.report.security.shellEgressGuarded ? t('是') : t('否')} ·{' '}
+              {t('插件目录可读：')}
+              {doctor.report.pluginsDirReadable ? t('是') : t('否')} · {t('权限清单可读：')}
+              {doctor.report.permissionsManifestReadable ? t('是') : t('否')}
             </p>
             {doctor.report.issues.length === 0 ? (
-              <p>无不合格项。</p>
+              <p>{t('无不合格项。')}</p>
             ) : (
               <div>
                 {/* 纪律②：逐条列出，不折叠成"有问题"。 */}
-                <div className="detail-h">不合格项（{doctor.report.issues.length}）</div>
+                <div className="detail-h">
+                  {t('不合格项（{count}）', { count: doctor.report.issues.length })}
+                </div>
                 <ul>
                   {doctor.report.issues.map((issue, index) => (
                     <li key={`${String(index)}-${issue}`} className="err">
@@ -130,13 +143,15 @@ export function DiagnosticsTab(): ReactElement {
             )}
           </div>
         ) : (
-          <p className="hint">暂无诊断数据。</p>
+          <p className="hint">{t('暂无诊断数据。')}</p>
         )}
         <button type="button" onClick={() => void refresh()}>
-          重新体检
+          {t('重新体检')}
         </button>
       </div>
-      <div className="diagnostics-foot">{icon('ruler', { size: 14 })} 只读视图（不修改任何配置）</div>
+      <div className="diagnostics-foot">
+        {icon('ruler', { size: 14 })} {t('只读视图（不修改任何配置）')}
+      </div>
     </div>
   );
 }

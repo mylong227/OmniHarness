@@ -15,6 +15,7 @@ import { emptyState } from '../format.js';
 import { icon } from '../models/Icon.js';
 import { timeAgo } from '../textUtils.js';
 import { SessionRowMeta } from '../models/SessionRowMeta.js';
+import { t } from '../i18n/i18n.js';
 
 /** 每组默认展示条数。 */
 export const PAGE = 10;
@@ -95,7 +96,7 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
           className="session-rename-input"
           value={ctx.renameValue}
           spellCheck={false}
-          aria-label="会话标题"
+          aria-label={t('会话标题')}
           onChange={(e) => ctx.onRenameInput((e.target as HTMLInputElement).value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') ctx.onCommitRename(s.id);
@@ -105,8 +106,8 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
         />
         <button
           className="session-rename-ok"
-          title="确认"
-          aria-label="确认重命名"
+          title={t('确认')}
+          aria-label={t('确认重命名')}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onCommitRename(s.id);
@@ -116,8 +117,8 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
         </button>
         <button
           className="session-rename-cancel"
-          title="取消"
-          aria-label="取消重命名"
+          title={t('取消')}
+          aria-label={t('取消重命名')}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onCancelRename();
@@ -131,28 +132,28 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
   if (ctx.confirmDeleteId === s.id) {
     return (
       <span className="session-confirm">
-        <span className="session-confirm-text">删除？</span>
+        <span className="session-confirm-text">{t('删除？')}</span>
         <button
           className="session-confirm-ok"
-          title="确认删除"
-          aria-label={'确认删除会话 ' + (s.label || s.id)}
+          title={t('确认删除')}
+          aria-label={t('确认删除会话 {name}', { name: s.label || s.id })}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onCommitDelete(s.id);
           }}
         >
-          删除
+          {t('删除')}
         </button>
         <button
           className="session-confirm-cancel"
-          title="取消"
-          aria-label="取消删除"
+          title={t('取消')}
+          aria-label={t('取消删除')}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onCancelDelete();
           }}
         >
-          取消
+          {t('取消')}
         </button>
       </span>
     );
@@ -163,8 +164,8 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
       <span className="session-actions" onClick={(e) => e.stopPropagation()}>
         <button
           className="session-act"
-          title="重命名"
-          aria-label={'重命名会话 ' + (s.label || s.id)}
+          title={t('重命名')}
+          aria-label={t('重命名会话 {name}', { name: s.label || s.id })}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onStartRename(s);
@@ -174,8 +175,8 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
         </button>
         <button
           className="session-act"
-          title="复制会话"
-          aria-label={'复制会话 ' + (s.label || s.id)}
+          title={t('复制会话')}
+          aria-label={t('复制会话 {name}', { name: s.label || s.id })}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onFork(s.id);
@@ -185,8 +186,8 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
         </button>
         <button
           className="session-act danger"
-          title="删除"
-          aria-label={'删除会话 ' + (s.label || s.id)}
+          title={t('删除')}
+          aria-label={t('删除会话 {name}', { name: s.label || s.id })}
           onClick={(e) => {
             e.stopPropagation();
             ctx.onAskDelete(s.id);
@@ -197,8 +198,10 @@ export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
         {ctx.onArchive === undefined ? null : (
           <button
             className="session-act"
-            title={s.archived === true ? '取消归档' : '归档'}
-            aria-label={(s.archived === true ? '取消归档会话 ' : '归档会话 ') + (s.label || s.id)}
+            title={s.archived === true ? t('取消归档') : t('归档')}
+            aria-label={
+              (s.archived === true ? t('取消归档会话 {name}', { name: s.label || s.id }) : t('归档会话 {name}', { name: s.label || s.id }))
+            }
             onClick={(e) => {
               e.stopPropagation();
               ctx.onArchive?.(s.id, s.archived !== true);
@@ -227,7 +230,7 @@ export function renderSessionTime(s: SessionEntry, now: number): ReactElement | 
   if (when === '') return null;
   // 文本同时进 aria-label：读屏用户与"悬停不方便"的场景拿得到同一信息。
   return (
-    <span className="session-time" aria-label={'最近活动 ' + when}>
+    <span className="session-time" aria-label={t('最近活动 {time}', { time: when })}>
       {when}
     </span>
   );
@@ -242,7 +245,7 @@ export function renderSessionTime(s: SessionEntry, now: number): ReactElement | 
 export function renderCardsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
-    return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，任务卡会显示在这里。');
+    return emptyState(icon('inbox', { size: 20 }), t('暂无会话'), t('新建会话后，任务卡会显示在这里。'));
   }
   return (
     <div className="session-cards">
@@ -275,18 +278,18 @@ export function renderCardsView(ctx: ListCtx, now: number = Date.now()): ReactEl
           }}
         >
           <div className="tc-top">
-            <span className="drag-handle" data-drag-handle="1" title="拖拽排序" aria-hidden="true">
+            <span className="drag-handle" data-drag-handle="1" title={t('拖拽排序')} aria-hidden="true">
               ⠿
             </span>
             <span
               className={'tc-dot' + (s.running === true ? ' on' : '')}
-              title={s.running ? '运行中' : '空闲'}
+              title={s.running ? t('运行中') : t('空闲')}
               aria-hidden="true"
             ></span>
             <span className="tc-label">{renderSessionBody(s, ctx)}</span>
           </div>
           <div className="tc-meta">
-            <span>{s.turns ?? 0} 回合</span>
+            <span>{t('{n} 回合', { n: s.turns ?? 0 })}</span>
             <span>·</span>
             <span>{timeAgo(s.updatedAt, now)}</span>
             {s.workspace ? (
@@ -309,7 +312,7 @@ export function renderCardsView(ctx: ListCtx, now: number = Date.now()): ReactEl
 export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
-    return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
+    return emptyState(icon('inbox', { size: 20 }), t('暂无会话'), t('新建会话后，历史对话会显示在这里，随时可回看。'));
   }
   return (
     <>
@@ -324,12 +327,12 @@ export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactE
           <div className="ws-group" key={g.key}>
             <div
               className="ws-head"
-              title={g.key === '__early__' ? '升级前的历史会话未记录所属项目' : g.key}
+              title={g.key === '__early__' ? t('升级前的历史会话未记录所属项目') : g.key}
               onClick={() => ctx.onToggleGroup(g.key, isCollapsed)}
             >
               <span className="ws-caret">{isCollapsed ? '▸' : '▾'}</span>
               <span>{icon(g.key === WorkspacePath.normalize(ctx.wsPath) ? 'check' : 'folder', { size: 12 })}</span>
-              <span className="ws-name">{g.name}</span>
+              <span className="ws-name">{t(g.name)}</span>
               <span className="ws-count">{g.items.length}</span>
             </div>
             {isCollapsed ? null : (
@@ -361,14 +364,14 @@ export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactE
                     title={SessionRowMeta.hoverTitle(s, now)}
                     data-session-id={s.id}
                   >
-                    <span className="drag-handle" data-drag-handle="1" title="拖拽排序" aria-hidden="true">⠿</span>
+                    <span className="drag-handle" data-drag-handle="1" title={t('拖拽排序')} aria-hidden="true">⠿</span>
                     {renderSessionBody(s, ctx)}
                     {renderSessionTime(s, now)}
                   </div>
                 ))}
                 {rest > 0 ? (
                   <button className="ws-more" onClick={() => ctx.onShowAll(g.key, g.items.length)}>
-                    显示全部 {g.items.length} 条
+                    {t('显示全部 {n} 条', { n: g.items.length })}
                   </button>
                 ) : null}
               </div>
@@ -392,7 +395,7 @@ export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactE
 export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): ReactElement {
   const all = filterSessions(ctx.sessions, ctx.query);
   if (all.length === 0) {
-    return emptyState(icon('inbox', { size: 20 }), '暂无会话', '新建会话后，历史对话会显示在这里，随时可回看。');
+    return emptyState(icon('inbox', { size: 20 }), t('暂无会话'), t('新建会话后，历史对话会显示在这里，随时可回看。'));
   }
   return (
     <>
@@ -406,7 +409,7 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
           <div className="ws-group" key={key}>
             <div className="ws-head" onClick={() => ctx.onToggleGroup(key, isCollapsed)}>
               <span className="ws-caret">{isCollapsed ? '▸' : '▾'}</span>
-              <span className="ws-name">{g.name}</span>
+              <span className="ws-name">{t(g.name)}</span>
               <span className="ws-count">{g.items.length}</span>
             </div>
             {isCollapsed ? null : (
@@ -438,14 +441,14 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
                     title={SessionRowMeta.hoverTitle(s, now)}
                     data-session-id={s.id}
                   >
-                    <span className="drag-handle" data-drag-handle="1" title="拖拽排序" aria-hidden="true">⠿</span>
+                    <span className="drag-handle" data-drag-handle="1" title={t('拖拽排序')} aria-hidden="true">⠿</span>
                     {renderSessionBody(s, ctx)}
                     {renderSessionTime(s, now)}
                   </div>
                 ))}
                 {rest > 0 ? (
                   <button className="ws-more" onClick={() => ctx.onShowAll(key, g.items.length)}>
-                    显示全部 {g.items.length} 条
+                    {t('显示全部 {n} 条', { n: g.items.length })}
                   </button>
                 ) : null}
               </div>
@@ -476,7 +479,7 @@ export function renderProjectsView(
         <div
           key={p}
           className={'ws-project' + (p === wsPath ? ' active' : '')}
-          title={p === wsPath ? '当前工作区' : '点击直接切换到 ' + p}
+          title={p === wsPath ? t('当前工作区') : t('点击直接切换到 {path}', { path: p })}
           onClick={() => onSwitch(p)}
         >
           <span className="ws-project-dot" aria-hidden="true"></span>
@@ -502,10 +505,10 @@ export function renderTreeView(
   onOpenFile: (path: string) => void,
 ): ReactElement {
   if (treeError != null) {
-    return emptyState(icon('folder', { size: 20 }), '文件树不可用', '当前工作区无法读取，或 serve 未在工作区内启动。');
+    return emptyState(icon('folder', { size: 20 }), t('文件树不可用'), t('当前工作区无法读取，或 serve 未在工作区内启动。'));
   }
-  if (!treeLoaded) return <div className="empty">读取中…</div>;
-  if (tree.length === 0) return emptyState(icon('folder', { size: 20 }), '空工作区', '这个目录还没有文件。');
+  if (!treeLoaded) return <div className="empty">{t('读取中…')}</div>;
+  if (tree.length === 0) return emptyState(icon('folder', { size: 20 }), t('空工作区'), t('这个目录还没有文件。'));
   return (
     <div className="tree">
       {tree.map((n) => (

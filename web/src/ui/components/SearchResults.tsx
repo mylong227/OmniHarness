@@ -7,6 +7,7 @@ import { React } from '../deps.js';
 import { SearchHitGrouper } from '../models/SearchHitGrouper.js';
 import type { SearchGroup } from '../models/SearchHitGrouper.js';
 import type { SearchHit } from '../../types/models.js';
+import { t } from '../i18n/i18n.js';
 
 /** SearchResults 组件的入参。 */
 export interface SearchResultsProps {
@@ -53,7 +54,11 @@ export function SearchResults(props: SearchResultsProps): ReactElement | null {
   if (query.trim() === '') return null;
   const flat = SearchHitGrouper.flat(groups);
   const total = flat.length;
-  const status = loading ? '搜索中…' : total === 0 ? '无匹配结果' : `找到 ${total} 条结果`;
+  const status = loading
+    ? t('搜索中…')
+    : total === 0
+      ? t('无匹配结果')
+      : t('找到 {count} 条结果', { count: total });
   return (
     <div className="search-results">
       <div className="sr-status" role="status" aria-live="polite" aria-atomic="true">
@@ -63,7 +68,7 @@ export function SearchResults(props: SearchResultsProps): ReactElement | null {
         className="sr-options"
         id={SEARCH_LIST_ID}
         role="listbox"
-        aria-label="会话与文件搜索结果"
+        aria-label={t('会话与文件搜索结果')}
       >
         {groups.map((g) => (
           <div className="sr-group" key={g.kind} role="group" aria-label={g.title}>

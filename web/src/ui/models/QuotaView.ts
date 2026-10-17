@@ -3,6 +3,7 @@
 
 import type { QuotaStatus } from '../../types/models.js';
 import { TokenScaleFormatter } from './TokenScaleFormatter.js';
+import { t } from '../i18n/i18n.js';
 
 /** 单个模型的配额行视图。 */
 export interface QuotaRowView {
@@ -42,7 +43,7 @@ export class QuotaView {
   public get badgeText(): string {
     if (!this.status.plan.upgraded) return '';
     const ratio = Math.round(this.status.plan.multiplier * 100);
-    return `升级 ${ratio}% 配额`;
+    return t('升级 {n}% 配额', { n: ratio });
   }
 
   /** 总剩余百分比文本。 */
@@ -61,8 +62,8 @@ export class QuotaView {
   /** 基础日预算说明：`基础预算 100万 × 1.5`。 */
   public get budgetHint(): string {
     const base = this.formatter.compact(this.status.dailyTokens);
-    if (!this.status.plan.upgraded) return `基础预算 ${base}/日`;
-    return `基础预算 ${base}/日 × ${this.status.plan.multiplier}`;
+    if (!this.status.plan.upgraded) return t('基础预算 {base}/日', { base });
+    return t('基础预算 {base}/日 × {mult}', { base, mult: this.status.plan.multiplier });
   }
 
   /** 各模型配额行（无模型时为空数组）。 */
@@ -71,7 +72,10 @@ export class QuotaView {
       name: model.name,
       percentText: this.formatter.percent(model.remainingPercent),
       barPercent: this.formatter.clampPercent(model.remainingPercent),
-      title: `已用 ${this.formatter.compact(model.used)} / ${this.formatter.compact(model.limit)} token`,
+      title: t('已用 {used} / {limit} token', {
+        used: this.formatter.compact(model.used),
+        limit: this.formatter.compact(model.limit),
+      }),
       exhausted: model.remainingPercent <= 0,
     }));
   }
@@ -91,8 +95,8 @@ export class QuotaView {
    */
   public get emptyHint(): string {
     return this.status.usedTokens > 0
-      ? '暂无模型级明细（厂商模型清单未就绪；合计用量见上方）'
-      : '暂无模型级配额数据（未连接模型，或厂商模型清单未就绪）';
+      ? t('暂无模型级明细（厂商模型清单未就绪；合计用量见上方）')
+      : t('暂无模型级配额数据（未连接模型，或厂商模型清单未就绪）');
   }
 
   /**
@@ -101,6 +105,6 @@ export class QuotaView {
    * OmniHarness 不代持厂商账单，用户若误以为是账户余额会做出错误的成本判断。
    */
   public get sourceLabel(): string {
-    return '按本地日内 token 预算计算（非厂商账户余额）';
+    return t('按本地日内 token 预算计算（非厂商账户余额）');
   }
 }

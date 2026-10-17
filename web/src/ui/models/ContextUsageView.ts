@@ -3,6 +3,7 @@
 
 import type { ContextUsageReport, ContextUsageRow } from '../../types/models.js';
 import { TokenScaleFormatter } from './TokenScaleFormatter.js';
+import { t } from '../i18n/i18n.js';
 
 /** 单行视图数据。 */
 export interface ContextUsageRowView {
@@ -84,7 +85,46 @@ export class ContextUsageView {
 
   /** 缓存统计的补充说明（`基于 12 次调用`）；无数据时为空串。 */
   public get cacheHint(): string {
-    return this.report.cache.calls > 0 ? `基于 ${this.report.cache.calls} 次调用` : '端点未上报缓存字段';
+    return this.report.cache.calls > 0
+      ? t('基于 {n} 次调用', { n: this.report.cache.calls })
+      : t('端点未上报缓存字段');
+  }
+
+  /**
+   * 分因短标签（行内一句话，如 `前缀被改写`）；**无可行动结论时为空串**。
+   *
+   * 口径（2026-10-15）：
+   *  - 标签描述的是**最近一次**上报调用的结论，故只在有上报调用（`calls > 0`）且非 `hit` 时给；
+   *  - `hit` 不给标签——命中不需要运维动作，给了只会让每次对话都挂一条噪声；
+   *  - 服务端没发 `lastCall`（旧版本）时返回空串：**宁可少说，不得显示 `undefined`**。
+   * @returns 短标签；无分因或命中时为空串。
+   */
+  public get cacheCauseLabel(): string {
+    const cause = this.report.cache.lastCall?.cause;
+    if (cause === undefined || this.report.cache.calls === 0) return '';
+    const labels: Record<string, string> = {
+      'not-reported': t('端点未上报'),
+      'cold-start': t('首次请求'),
+      'prefix-rewrite': t('前缀被改写'),
+      'ttl-expired': t('缓存已过期'),
+      unknown: t('原因不明'),
+    };
+    return labels[cause] ?? '';
+  }
+
+  /**
+   * 缓存行的悬停详情：`基于 N 次调用 · <一句话理由>`。
+   *
+   * 为什么把理由与样本量拼在一起：单看理由里的数字不知道样本多大，单看样本量又不知道原因。
+   * 无上报调用时退化为 {@link cacheHint}（此时理由与 hint 同义，重复一遍只会更长）。
+   * @returns 悬停文案（永不为 `undefined`）。
+   */
+  public get cacheDetail(): string {
+    const reason = this.report.cache.lastCall?.reason;
+    if (this.report.cache.calls === 0 || reason === undefined || reason === '') {
+      return this.cacheHint;
+    }
+    return this.cacheHint + ' · ' + reason;
   }
 
   /**
@@ -93,8 +133,8 @@ export class ContextUsageView {
    * 不标注就会让用户把估算当精确值看。
    */
   public get sourceLabel(): string {
-    if (this.report.source === 'measured') return '实测';
-    if (this.report.source === 'estimated') return '估算';
+    if (this.report.source === 'measured') return t('实测');
+    if (this.report.source === 'estimated') return t('估算');
     return '';
   }
 
@@ -105,7 +145,7 @@ export class ContextUsageView {
 
   /** 工具条数汇总文本：`MCP 4 · 系统 12`。 */
   public get toolSummary(): string {
-    return `MCP ${this.report.mcpToolCount} · 系统 ${this.report.systemToolCount}`;
+    return t('MCP {mcp} · 系统 {sys}', { mcp: this.report.mcpToolCount, sys: this.report.systemToolCount });
   }
 
   /** 单行视图。 */
@@ -116,7 +156,7 @@ export class ContextUsageView {
       tokens: row.tokens,
       percentText: this.formatter.percent(row.percent),
       barPercent: this.formatter.clampPercent(row.percent),
-      title: `${row.label} · ${this.formatter.compact(row.tokens)} token`,
+      title: t('{label} · {n} token', { label: row.label, n: this.formatter.compact(row.tokens) }),
     };
   }
 }

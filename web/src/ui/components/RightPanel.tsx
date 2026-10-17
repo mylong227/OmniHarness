@@ -11,6 +11,7 @@ import { React } from '../deps.js';
 import { PanelPicker } from './PanelPicker.js';
 import { panelOf } from '../models/PanelRegistry.js';
 import type { FileView } from '../shared.js';
+import { t } from '../i18n/i18n.js';
 
 /** 右栏面板内容容器 id（标签的 aria-controls 指向它）。 */
 const PANE_ID = 'right-pane';
@@ -77,8 +78,8 @@ function buildTabs(props: RightPanelProps): TabItem[] {
     if (p !== undefined) {
       items.push({
         key: 'pane:' + p.key,
-        label: p.label,
-        title: p.label + '（点 × 回到文件）',
+        label: t(p.label),
+        title: t(p.label) + t('（点 × 回到文件）'),
         active: true,
         closable: true,
       });
@@ -159,27 +160,27 @@ function tabIdOf(t: TabItem): string {
 }
 
 /** 渲染单个标签：选中态由 active 决定（roving tabindex：只有激活项进 Tab 序列）。 */
-const renderTab = (t: TabItem, i: number): ReactElement => (
+const renderTab = (tab: TabItem, i: number): ReactElement => (
   <div
-    key={t.key}
-    id={tabIdOf(t)}
-      className={'tab' + (t.active ? ' active' : '')}
+    key={tab.key}
+    id={tabIdOf(tab)}
+      className={'tab' + (tab.active ? ' active' : '')}
       role="tab"
-      aria-selected={t.active ? 'true' : 'false'}
+      aria-selected={tab.active ? 'true' : 'false'}
       aria-controls={PANE_ID}
-      title={t.title}
+      title={tab.title}
       tabIndex={i === activeIdx ? 0 : -1}
-      onClick={() => activate(t)}
+      onClick={() => activate(tab)}
       onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, i)}
     >
-      <span className="tab-label">{t.label}</span>
-      {t.closable ? (
+      <span className="tab-label">{tab.label}</span>
+      {tab.closable ? (
         <span
           className="tab-x"
           role="button"
-          aria-label={'关闭 ' + t.label}
+          aria-label={t('关闭 {name}', { name: tab.label })}
           tabIndex={-1}
-          onClick={(e: React.MouseEvent) => closeTab(e, t)}
+          onClick={(e: React.MouseEvent) => closeTab(e, tab)}
         >
           ×
         </span>
@@ -192,18 +193,18 @@ const renderTab = (t: TabItem, i: number): ReactElement => (
   const currentPanel = panelOf(activePane);
   // 路径栏：文件视图显示完整路径，面板视图显示面板组名（注册表顺序段名的人话口径）。
   const pathText =
-    activeFile !== undefined ? activeFile.title : currentPanel !== undefined ? currentPanel.label + ' 面板' : '';
+    activeFile !== undefined ? activeFile.title : currentPanel !== undefined ? t(currentPanel.label) + t(' 面板') : '';
   return (
     <div className={'col right' + (open ? ' open' : '')} style={style}>
-      <div className="tabs rv-tabs" role="tablist" aria-label="文件与面板">
+      <div className="tabs rv-tabs" role="tablist" aria-label={t('文件与面板')}>
         {items.map((t, i) => renderTab(t, i))}
         <span className="flex-spacer" aria-hidden="true"></span>
         <PanelPicker activePane={activePane} onPick={onSelect} />
         {onCollapse === undefined ? null : (
           <button
             className="iconbtn rv-collapse"
-            title="收起功能面板（Ctrl/Cmd+Shift+E）"
-            aria-label="收起功能面板"
+            title={t('收起功能面板（Ctrl/Cmd+Shift+E）')}
+            aria-label={t('收起功能面板')}
             onClick={onCollapse}
           >
             »

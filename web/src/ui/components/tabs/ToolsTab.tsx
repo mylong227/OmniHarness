@@ -6,6 +6,7 @@ import { React } from '../../deps.js';
 import { emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ToolItem } from '../../shared.js';
+import { t } from '../../i18n/i18n.js';
 
 /** ToolsTab 组件的入参。 */
 export interface ToolsTabProps {
@@ -21,8 +22,8 @@ export interface ToolsTabProps {
  * @returns 中文状态文案
  */
 function statusText(status: string): string {
-  if (status === 'ok') return '完成';
-  if (status === 'err') return '失败';
+  if (status === 'ok') return t('完成');
+  if (status === 'err') return t('失败');
   return '…';
 }
 
@@ -36,8 +37,8 @@ export function ToolsTab(props: ToolsTabProps): ReactElement {
   if (toolItems.length === 0) {
     return emptyState(
       icon('wrench', { size: 20 }),
-      '暂无工具调用',
-      '模型执行读文件、运行命令、搜索等工具时，调用与结果会在此汇总。',
+      t('暂无工具调用'),
+      t('模型执行读文件、运行命令、搜索等工具时，调用与结果会在此汇总。'),
     );
   }
   return (

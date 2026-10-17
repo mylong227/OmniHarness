@@ -67,6 +67,12 @@ export interface FileConfig {
   readonly extends?: string;
   readonly escalation?: 'deny' | 'ask' | 'auto';
   /**
+   * 界面语言（Web UI）：zh=中文 / en=English。设置「外观」栏切换后经 config.update 落
+   * 用户级 omniharness.json（与 model/approval 同一维护口径）；浏览器端另有 localStorage
+   * 缓存做首帧快速恢复（挂载后以服务端配置为准回灌）。
+   */
+  readonly locale?: 'zh' | 'en';
+  /**
    * 模型调用熔断（F3）：下游连续失败达阈值即开路，冷却期内快速失败、冷却后半开探测。
    * 缺省开启（与 `modelRetry` 默认开同口径）；`--no-model-circuit-breaker` 可关闭。
    */

@@ -12,6 +12,7 @@ import { ViewAttachment } from '../models/ViewAttachment.js';
 import { SessionProjectBinding } from '../models/SessionProjectBinding.js';
 import type { SessionModePatch } from '../models/PendingModes.js';
 import { MethodBinder } from './methodBinder.js';
+import { t } from '../i18n/i18n.js';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
 export class SessionController {
@@ -231,7 +232,7 @@ export class SessionController {
       // F8：把当前会话写进 hash，支持深链 / 浏览器前进后退。
       this.services.navigate({ threadId: id });
     } catch (e) {
-      this.services.toast('加载会话失败：' + (e as Error).message, 'err');
+      this.services.toast(t('加载会话失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -274,12 +275,12 @@ export class SessionController {
     try {
       const r = await this.services.api.renameSession(id, title);
       if (!r.ok) {
-        this.services.toast('重命名失败：' + (r.error ?? ''), 'err');
+        this.services.toast(t('重命名失败：{msg}', { msg: r.error ?? '' }), 'err');
         return;
       }
       await this.refreshSessions();
     } catch (e) {
-      this.services.toast('重命名失败：' + (e as Error).message, 'err');
+      this.services.toast(t('重命名失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -295,10 +296,12 @@ export class SessionController {
         // 「运行中拒绝删除」是服务端的有意设计（避免删掉正在写盘的会话）——把**下一步动作**一并说清，
         // 否则用户只看到一句「无法删除」不知道该怎么办。
         this.services.toast(
-          '删除失败：' +
-            (r.error === 'session_running'
-              ? '会话正在运行，无法删除（先点「停止」结束本回合再删）'
-              : r.error ?? ''),
+          t('删除失败：{msg}', {
+            msg:
+              r.error === 'session_running'
+                ? t('会话正在运行，无法删除（先点「停止」结束本回合再删）')
+                : r.error ?? '',
+          }),
           'err',
         );
         return;
@@ -310,9 +313,9 @@ export class SessionController {
       this.host.patch((s) => ({ sessions: s.sessions.filter((x) => x.id !== id) }));
       if (this.host.getState().currentThreadId === id) this.newSession();
       await this.refreshSessions();
-      this.services.toast(r.ok ? '会话已删除' : '该会话未落盘，已从列表移除', 'ok');
+      this.services.toast(r.ok ? t('会话已删除') : t('该会话未落盘，已从列表移除'), 'ok');
     } catch (e) {
-      this.services.toast('删除失败：' + (e as Error).message, 'err');
+      this.services.toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -326,13 +329,13 @@ export class SessionController {
     try {
       const r = await this.services.api.archiveSession(id, archived);
       if (!r.ok) {
-        this.services.toast('归档失败：' + (r.error ?? ''), 'err');
+        this.services.toast(t('归档失败：{msg}', { msg: r.error ?? '' }), 'err');
         return;
       }
       await this.refreshSessions();
-      this.services.toast(archived ? '已归档' : '已恢复', 'ok');
+      this.services.toast(archived ? t('已归档') : t('已恢复'), 'ok');
     } catch (e) {
-      this.services.toast('归档失败：' + (e as Error).message, 'err');
+      this.services.toast(t('归档失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -346,7 +349,7 @@ export class SessionController {
     try {
       await this.services.api.reorderSessions(ordered.map((s) => s.id));
     } catch (e) {
-      this.services.toast('排序保存失败：' + (e as Error).message, 'err');
+      this.services.toast(t('排序保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -359,13 +362,13 @@ export class SessionController {
     try {
       const r = await this.services.api.forkSession(id);
       if (!r.ok) {
-        this.services.toast('复制失败：' + (r.error ?? ''), 'err');
+        this.services.toast(t('复制失败：{msg}', { msg: r.error ?? '' }), 'err');
         return;
       }
       await this.refreshSessions();
-      this.services.toast(r.newSessionId ? '已复制为 ' + r.newSessionId : '已复制会话', 'ok');
+      this.services.toast(r.newSessionId ? t('已复制为 {id}', { id: r.newSessionId }) : t('已复制会话'), 'ok');
     } catch (e) {
-      this.services.toast('复制失败：' + (e as Error).message, 'err');
+      this.services.toast(t('复制失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 

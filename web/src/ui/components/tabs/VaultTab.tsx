@@ -20,6 +20,7 @@ import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import type { ReactElement } from 'react';
 import type { VaultListResult } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** 保险库面板。 */
 export function VaultTab(): ReactElement {
@@ -61,7 +62,7 @@ export function VaultTab(): ReactElement {
       }
       setName('');
       setSecret('');
-      setNotice(`已写入 ${result.name}（服务端不回读，值不会在界面上出现）`);
+      setNotice(t('已写入 {name}（服务端不回读，值不会在界面上出现）', { name: result.name }));
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -79,7 +80,7 @@ export function VaultTab(): ReactElement {
           setError(result.reason);
           return;
         }
-        setNotice(result.removed === true ? `已删除 ${target}` : `${target} 本来就不存在`);
+        setNotice(result.removed === true ? t('已删除 {name}', { name: target }) : t('{name} 本来就不存在', { name: target }));
         await refresh();
       } catch (e) {
         setError((e as Error).message);
@@ -88,14 +89,14 @@ export function VaultTab(): ReactElement {
     [api, refresh],
   );
 
-  if (loading) return <div className="vault-tab">载入凭据列表…</div>;
+  if (loading) return <div className="vault-tab">{t('载入凭据列表…')}</div>;
 
   return (
     <div className="vault-tab">
       <div className="detail-section">
-        <div className="detail-h">凭据保险库</div>
+        <div className="detail-h">{t('凭据保险库')}</div>
         <p className="hint">
-          只列出**名字**：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。
+          {t('只列出**名字**：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。')}
         </p>
         {error !== null ? <p className="err">{error}</p> : null}
         {notice !== null ? <p className="ok">{notice}</p> : null}
@@ -104,51 +105,50 @@ export function VaultTab(): ReactElement {
           // 默认口径下 serve 本身就接线（用户级密钥文件 ~/.omniharness/vault.key），
           // 所以这里最常见的原因是 OMNIHARNESS_VAULT=0 被显式关闭。
           <p className="err">
-            未接线：{data.reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自
-            ~/.omniharness/vault.key）
+            {t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 ~/.omniharness/vault.key）', { reason: data.reason })}
           </p>
         ) : data !== null && data.ok ? (
           data.names.length === 0 ? (
-            <p className="hint">保险库为空（已接线，尚无凭据）。</p>
+            <p className="hint">{t('保险库为空（已接线，尚无凭据）。')}</p>
           ) : (
             <ul>
               {data.names.map((item) => (
                 <li key={item}>
                   <span>{item}</span>
                   <button type="button" onClick={() => void remove(item)}>
-                    删除
+                    {t('删除')}
                   </button>
                 </li>
               ))}
             </ul>
           )
         ) : (
-          <p className="hint">暂无数据。</p>
+          <p className="hint">{t('暂无数据。')}</p>
         )}
       </div>
 
       <div className="detail-section">
-        <div className="detail-h">写入 / 覆盖</div>
+        <div className="detail-h">{t('写入 / 覆盖')}</div>
         <label>
-          名称
+          {t('名称')}
           <input
             type="text"
             value={name}
-            placeholder="如 OPENAI_API_KEY"
+            placeholder={t('如 OPENAI_API_KEY')}
             onChange={(e: { target: { value: string } }) => setName(e.target.value)}
           />
         </label>
         <label>
-          凭据
+          {t('凭据')}
           <input
             type="password"
             value={secret}
-            placeholder="写入后即清空，不会回显"
+            placeholder={t('写入后即清空，不会回显')}
             onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
           />
         </label>
         <button type="button" disabled={name.trim() === '' || secret === ''} onClick={() => void save()}>
-          写入
+          {t('写入')}
         </button>
       </div>
     </div>

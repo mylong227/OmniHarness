@@ -7,9 +7,14 @@
 
 import { React } from '../deps.js';
 import { PermissionTierModel } from '../models/PermissionTierModel.js';
+import { claimPopover, releasePopover } from '../models/PopoverStack.js';
 import { icon } from '../models/Icon.js';
+import { t } from '../i18n/i18n.js';
 import type { ApprovalTier } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
+
+/** 本弹层在互斥控制器里的身份。 */
+const POPOVER_ID = 'permission';
 
 /** PermissionPicker 组件的入参。 */
 export interface PermissionPickerProps {
@@ -55,16 +60,27 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
     if (!open) return undefined;
     const close = (): void => setOpen(false);
     window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    // 互斥：登记"我是当前弹层"，被别的弹层顶掉时自动收起（见 PopoverStack 头注释）。
+    claimPopover({ id: POPOVER_ID, close });
+    return () => {
+      window.removeEventListener('click', close);
+      releasePopover(POPOVER_ID);
+    };
   }, [open]);
 
   /**
    * 触发按钮：阻断冒泡后切换展开态。
+   *
+   * 打开前 claim 一次：`stopPropagation` 让全局 click 关不掉**别人**，
+   * 若不主动顶掉，先开的「+」菜单会继续留在屏幕上并被我压住（用户实测到的重叠）。
    * @param e 点击事件
    */
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
-    setOpen((prev) => !prev);
+    const next = !open;
+    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
+    else releasePopover(POPOVER_ID);
+    setOpen(next);
   };
 
   /**
@@ -91,8 +107,8 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
   // 进行悬浮冒泡提示即可，不要占地方」）。说明文字取档位表自身的 description——它与后端
   // `ApprovalTierCatalog` 同源，不再另存一份提示表（旧 `ComposerOptions.permissionHint` 已删：
   // 同一句权限说明存三处是这个仓库最容易漂的地方）。
-  const baseTitle = title ?? 'AI 权限等级';
-  const tip = `${baseTitle}｜${active.label}：${active.description}`;
+  const baseTitle = title ?? t('AI 权限等级');
+  const tip = t('{title}｜{label}：{desc}', { title: baseTitle, label: t(active.label), desc: t(active.description) });
   return (
     <div
       className={'dd perm' + (fullAccess ? ' danger' : '')}
@@ -108,9 +124,9 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
       {fullAccess ? (
         <span
           className="perm-badge"
-          title="完全访问：AI 可不受限制地访问你的文件和互联网"
+          title={t('完全访问：AI 可不受限制地访问你的文件和互联网')}
         >
-          {icon('alert', { size: 12 })} 完全访问
+          {icon('alert', { size: 12 })} {t('完全访问')}
         </span>
       ) : null}
       <span className="dd-caret">▾</span>
@@ -128,12 +144,12 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
               onClick={() => pick(tier.value)}
             >
               <div className="perm-row">
-                <span className="perm-name">{tier.label}</span>
+                <span className="perm-name">{t(tier.label)}</span>
                 {tier.fullAccess ? (
-                  <span className="perm-badge">{icon('alert', { size: 11 })} 完全访问</span>
+                  <span className="perm-badge">{icon('alert', { size: 11 })} {t('完全访问')}</span>
                 ) : null}
               </div>
-              <div className="perm-desc">{tier.description}</div>
+              <div className="perm-desc">{t(tier.description)}</div>
             </div>
           ))}
         </div>

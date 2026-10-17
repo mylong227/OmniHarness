@@ -7,6 +7,7 @@ import { React } from '../../deps.js';
 import { badge, jsonView, detailSummary, timeOf, esc, emptyState, renderMarkdown } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** DetailTab 组件的入参。 */
 export interface DetailTabProps {
@@ -24,8 +25,8 @@ export function DetailTab(props: DetailTabProps): ReactElement {
   if (!detailEvent) {
     return emptyState(
       icon('search', { size: 20 }),
-      '暂无钻取',
-      '在中间事件流点击任意事件卡片，此处展示其类型、摘要与完整 payload。',
+      t('暂无钻取'),
+      t('在中间事件流点击任意事件卡片，此处展示其类型、摘要与完整 payload。'),
     );
   }
   const ev = detailEvent;
@@ -41,12 +42,12 @@ export function DetailTab(props: DetailTabProps): ReactElement {
       <div className="detail-sum">{esc(detailSummary(ev, p))}</div>
       {content === '' ? null : (
         <div className="detail-section">
-          <div className="detail-h">全文（文档视图）</div>
+          <div className="detail-h">{t('全文（文档视图）')}</div>
           <div className="doc-view">{renderMarkdown(content)}</div>
         </div>
       )}
       <div className="detail-section">
-        <div className="detail-h">完整 payload</div>
+        <div className="detail-h">{t('完整 payload')}</div>
         {jsonView(p)}
       </div>
     </div>

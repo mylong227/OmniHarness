@@ -1,0 +1,1891 @@
+/* =========================================================================
+   OmniHarness Web UI — 单色极简设计体系（minimal）· 最后加载
+   -------------------------------------------------------------------------
+   2026-10-17 重写。本文件是**视觉层的唯一设计事实源**：上面所有层只负责结构、
+   几何与行为，颜色、表面、圆角、字阶、按下/选中/焦点的观感全部由这一层定稿。
+   回滚成本 = 删掉 index.html 里的一行 <link>（删掉即回到 2026-10-16 的观感）。
+
+   设计立场（为什么是这样，而不是别的样子）
+   -------------------------------------------------------------------------
+   1) 无彩色。全站只有黑、白、灰（含其 alpha 形态）。没有品牌色、没有红绿黄。
+      一屏之内的信息密度极高（事件流 + 遥测 + 治理），颜色本该是「状态信号」；
+      一旦界面上有 8 种色相，颜色就同时冒充「分类」，信号被稀释成装饰。
+      单色之后，**颜色只剩一个含义：明度差**——越亮越靠前。
+
+   2) 层级靠三样东西，且只有这三样：
+        明度阶梯   bg → panel → panel-2（三档，步距可测）
+        发丝线     1px --hairline，只画在「真的需要断开」的地方
+        留白       4px 栅格，组内紧、组间松
+      不用投影表达层级（投影只属于浮层），不用渐变，不用彩色左边框。
+
+   3) 强调 = 反白。单色世界里最强的「看这里」是前景/背景对调：
+        当前项      .session.active / .chat-tab.active / .rv-tabs .tab.active
+        主行动      .btn.primary / .send.round / .dlg-confirm
+      一屏里反白块应 ≤ 2 处；多了就互相抵消（这正是彩色体系里「品牌色别超过 10%」
+      的同一条纪律，只是换成明度语言）。
+
+   4) 语义靠字形与形状，不靠色相：
+        ok     中性灰 + ✓ 字形（成功是常态，不该抢注意力）
+        err    最高对比（反白/纯白描边）+ 实心块 + ✕
+        warn   中间调 + 虚线描边
+      判据见 docs/DESIGN_SYSTEM.md §2.4；对比度门禁 web/test/a11yContrast.test.mjs
+      照旧全绿（黑/白/灰本身就有最高的对比度余量）。
+   ========================================================================= */
+
+/* =========================================================================
+   1. 几何标尺：圆角 / 间距 / 字阶
+   -------------------------------------------------------------------------
+   圆角只允许 4（微）/ 6（小件）/ 8（控件）/ 12（大表面）/ 999（胶囊）。
+   散落的 5/7/9/10/14/16 一律归一——半径不统一时，界面在 100% 缩放下会「发毛」。
+   ========================================================================= */
+:root {
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-lg: 12px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+
+  /* 字阶：11（微标签）/ 12（次要）/ 12.5（列表）/ 13（UI）/ 13.5（正文）/ 15（面板标题）/ 21（指标） */
+  --fs-micro: 10.5px;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-list: 12.5px;
+  --fs-ui: 13px;
+  --fs-body: 13.5px;
+  --fs-title: 15px;
+  --fs-metric: 21px;
+
+  --sp-1: 4px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 12px;
+  --sp-5: 16px;
+  --sp-6: 20px;
+  --sp-7: 24px;
+}
+
+/* =========================================================================
+   2. 结构面：三栏靠「明度阶梯 + 一条发丝线」立起来
+   -------------------------------------------------------------------------
+   重设计前：左栏 --panel、右栏 --bg-elev、中栏 --bg，三栏底色差 ~4%，
+   加上各层各自的 border-right，栏与栏之间是「双线夹灰缝」，读起来像线框。
+   现在：栏只留一条 1px 分隔线（由 .col 自己给），底色差负责「这里是另一块」。
+   ========================================================================= */
+.col.left {
+  background: var(--bg-elev);
+  border-right: 1px solid var(--hairline);
+}
+.col.center {
+  background: var(--bg);
+  border-right: none;
+}
+.col.right {
+  background: var(--bg-elev);
+  border-left: 1px solid var(--hairline);
+  border-right: none;
+}
+.col:last-child,
+.col.left,
+.col.right {
+  border-color: var(--hairline);
+}
+
+/* 分栏拖拽柄：静止时不画线（四个栏之间四条灰线太吵），hover 出一条反白细线。 */
+.resizer {
+  width: 5px;
+  background: transparent;
+}
+.resizer::after {
+  content: none;
+}
+.resizer:hover,
+.resizer:focus-visible {
+  background: var(--accent);
+}
+
+/* 顶栏：与中栏同底，只靠一条发丝线与内容分开；高度收窄到 40px。
+   原先顶栏 44px + 三条渐变/描边装饰，是页面上最「响」的一条横带。 */
+.topbar {
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+  padding: 0 12px;
+  gap: 10px;
+  min-height: 40px;
+}
+.topbar::after {
+  content: none;
+}
+.brand {
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  gap: 8px;
+}
+.brand small {
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.01em;
+}
+/* 品牌标识（Ω 方块）：反白实心块——全站唯一一处「纯反白 logo」，
+   与主按钮同语言，不需要渐变/发光来提示它是品牌。 */
+.brand .logo,
+.rail-logo,
+.brand .brand-mark,
+.side-brand .brand-mark {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: none;
+  box-shadow: none;
+  border-radius: var(--r-sm);
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+/* 连接状态胶囊：单色下靠「点 + 文案」表达状态，`--ok/--warn/--err` 现在只是明度差。 */
+.pill {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+}
+.pill .dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+}
+.pill.on {
+  border-color: var(--border-soft);
+  color: var(--text);
+}
+.pill.warn {
+  border-style: dashed;
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+/* 图标按钮：无框（框是噪音），hover 落一层表面。 */
+.iconbtn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--dim);
+  border-radius: var(--r-sm);
+  padding: 5px 8px;
+}
+.iconbtn:hover {
+  background: var(--panel-2);
+  border-color: transparent;
+  color: var(--text);
+}
+.iconbtn[aria-pressed='true'],
+.iconbtn.active {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+/* =========================================================================
+   3. 导航竖条：当前项的指示是一条反白实心块
+   ========================================================================= */
+.rail {
+  background: var(--bg);
+  border-right: 1px solid var(--hairline);
+  gap: 2px;
+  padding: 8px 0;
+}
+.rail-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  border: none;
+  box-shadow: none;
+}
+.rail-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+/* 当前面板：反白实心（不是 insetshadow 那条 2px 彩线——它是旧体系里最典型的「彩色左边框」）。
+   `::before` 必须显式 content:none：polish-shell.css 用它画了一条 3px 左缘条，
+   我们的反白块已经表达了「当前」，两者叠加会让左侧多出一道灰边。 */
+.rail-btn.active {
+  background: var(--accent);
+  color: var(--ink-fg);
+  box-shadow: none;
+}
+.rail-btn.active::before {
+  content: none;
+}
+
+/* =========================================================================
+   4. 左栏：项目卡 / 会话行 / 文件树
+   -------------------------------------------------------------------------
+   会话行是左栏最高频的点击目标，所以「当前会话」必须一眼可辨：
+   反白实心块 + 内部所有文字继承反白前景（原先只有 2px 彩色左标 + 一档灰底，
+   在一屏 12 行里几乎看不出来）。
+   ========================================================================= */
+.side-brand,
+.ws-switch {
+  border-bottom: 1px solid var(--hairline);
+}
+.side-sec-head,
+.col-head {
+  background: transparent;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.section-title,
+.pm-title,
+.detail-h {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+}
+
+/* 一等行动「新会话」：反白实心块（全页最多两处反白之一）。 */
+.new-chat {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font-weight: 550;
+}
+.new-chat:hover {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border-color: transparent;
+  opacity: 0.88;
+}
+.new-chat .nc-ico {
+  color: inherit;
+}
+.new-chat:active {
+  transform: none;
+  opacity: 0.8;
+}
+
+.side-item {
+  border-radius: var(--r-sm);
+  color: var(--dim);
+}
+.side-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.session,
+.task-card {
+  border-radius: var(--r-sm);
+  color: var(--dim);
+  border: 1px solid transparent;
+}
+/* 圆角标尺补漏：refine-surfaces 给 `.session, .task-card` 写了 9px，而两者在这里分开声明，
+   上面那条只覆盖到 `.session`/`.task-card` 的组合，9px 会漏在 .task-card 上 ⇒ 显式再钉一次。 */
+.session,
+.task-card,
+.side-item,
+.session-search,
+.chat-tab,
+.pp-item {
+  border-radius: var(--r-sm);
+}
+.session:hover,
+.task-card:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.session.active {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border-color: transparent;
+  box-shadow: none;
+}
+/* 反白块内部的次级文字一律「继承反白前景 + 降透明度」。
+   ⚠️ 2026-10-17 修一个真实可读性缺陷：这里原先只写了 `opacity: .7`，没有压颜色，
+   而 `polish-shell.css` 给 `.session-time` 定的是 `color: var(--dim)`（#a3a3a3）。
+   两条规则同权重（0,2,0），polish-shell 加载更早 ⇒ **它输了**，反而是更早的
+   `color: var(--dim)` 生效——结果当前会话行是**白底上的灰字**（实测 0.7 透明度下
+   几乎读不出来，用户截图里那一格时间就是"看不见文字"）。
+   修法：把 color 也一起压成 inherit（并在下方用更高权重的选择器兜底），
+   次级感只由 opacity 表达——这样深色（白块）与浅色（近黑块）两套都成立。 */
+.session.active *,
+.task-card.active * {
+  color: inherit;
+}
+/* ⚠️ 必须逐类再写一遍：上面的 `.session.active *` 是 (0,2,0)，而 polish-shell.css 里有
+   `.session.active .session-label { color: var(--text) }` 是 (0,3,0) —— 权重更高，会赢。
+   真机探针实测到的后果：深色主题下当前会话行是**白底白字**（标题完全看不见），
+   时间因为没被点名才侥幸拿到 inherit。所以这里把"会被点名的三类"显式覆盖回来。 */
+.session.active .session-label,
+.session.active .session-time,
+.session.active .drag-handle {
+  color: inherit;
+}
+.session.active .session-time,
+.session.active .s-meta,
+.session.active [class*='meta'] {
+  color: inherit;
+  opacity: 0.62;
+}
+/* 当前行里的图标与拖拽柄：原本吃 --dim / --faint，在白块上同样发灰。
+   它们不该比时间更亮，所以统一走 inherit + 同样的降透明度。 */
+.session.active .drag-handle,
+.session.active .si-ico,
+.session.active svg,
+.session.active .session-act {
+  color: inherit;
+  opacity: 0.62;
+}
+.session.active .session-act:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+}
+.session-search {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+.session-search:focus {
+  border-color: var(--accent);
+  box-shadow: none;
+  outline: none;
+}
+.session-act,
+.rv-tabs .tab .tab-x {
+  border-radius: var(--r-xs);
+  color: var(--faint);
+  background: transparent;
+  border-color: transparent;
+}
+.session-act:hover,
+.rv-tabs .tab .tab-x:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.session.active .session-act:hover {
+  background: rgba(0, 0, 0, 0.14);
+  color: inherit;
+}
+.side-foot {
+  border-top: 1px solid var(--hairline);
+}
+
+/* =========================================================================
+   5. 对话流：气泡不做「彩色卡片」，只做「表面的两档差」
+   ========================================================================= */
+.card {
+  background: var(--panel);
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  box-shadow: none;
+}
+.ev.assistant .card {
+  background: var(--panel);
+  border-color: transparent;
+}
+.ev.assistant.streaming-assistant .card {
+  border-color: var(--border-soft);
+}
+/* 用户气泡：反白（单色下「我说的话」与「它说的话」最干净的分野）。 */
+.ev.user .card,
+[data-theme='light'] .ev.user .card {
+  background: var(--accent);
+  color: var(--ink-fg);
+  box-shadow: none;
+}
+.ev.user .card a {
+  color: inherit;
+  text-decoration-color: currentColor;
+}
+.ev.assistant .card {
+  border-radius: var(--r-lg) var(--r-lg) var(--r-lg) var(--r-xs);
+}
+.ev.user .card {
+  border-radius: var(--r-lg) var(--r-lg) var(--r-xs) var(--r-lg);
+}
+
+/* 事件块之间的分隔：一条极淡发丝线，比纯留白更容易「数清有几条」。 */
+.ev + .ev {
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--sp-6);
+}
+.ev .head {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sysnote {
+  color: var(--faint);
+  font-size: var(--fs-sm);
+  border-left: 1px solid var(--hairline);
+  padding-left: var(--sp-4);
+}
+
+/* 工具调用 / 过程簇：机器产物一律等宽 + 中间调，不进卡片的「表面」体系。 */
+.process-cluster {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: transparent;
+}
+.tool-name,
+.tc-line,
+.tool-status,
+.artifact-card,
+.turn-diff {
+  font-family: var(--mono);
+}
+.tool-status {
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--dim);
+  background: transparent;
+  letter-spacing: 0.02em;
+}
+.tool-status.ok {
+  color: var(--ok);
+  border-color: var(--border-soft);
+}
+.tool-status.err {
+  color: var(--err);
+  border-color: var(--err);
+}
+.tool-status.run {
+  color: var(--warn);
+  border-style: dashed;
+  border-color: var(--warn);
+}
+
+/* diff：增/删靠「明度块 + 左缘 Marker」。宽度分两档，因为两者量级不同：
+     .diff .add/.del          整行块，左缘 2px 是**唯一的行长信号**（行首还有 +/- 前缀）
+     .change-badge.add/.del   小徽标（10.5px 字号），2px 会把它压扁 ⇒ 只 1px
+   2026-10-17：徽标这档原本也写 2px，与 `.change-badge` 基础规则的 `1px solid` 冲突
+   （边框宽度取后者、颜色却按本段），实际渲染出「一格实、其余虚」的杂线，现已对齐。 */
+.diff .add,
+.change-badge.add {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--add);
+}
+.diff .add {
+  border-left: 2px solid var(--add);
+}
+.change-badge.add {
+  border-left: 1px solid var(--add);
+}
+.diff .del,
+.change-badge.del {
+  background: rgba(255, 255, 255, 0.11);
+  color: var(--del);
+}
+.diff .del {
+  border-left: 2px solid var(--del);
+}
+.change-badge.del {
+  border-left: 1px solid var(--del);
+}
+[data-theme='light'] .diff .add,
+[data-theme='light'] .change-badge.add {
+  background: rgba(0, 0, 0, 0.05);
+}
+[data-theme='light'] .diff .del,
+[data-theme='light'] .change-badge.del {
+  background: rgba(0, 0, 0, 0.09);
+}
+.diff-row.add {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 2px 0 0 var(--add);
+}
+.diff-row.del {
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 2px 0 0 var(--del);
+}
+[data-theme='light'] .diff-row.add {
+  background: rgba(0, 0, 0, 0.04);
+}
+[data-theme='light'] .diff-row.del {
+  background: rgba(0, 0, 0, 0.07);
+}
+
+/* =========================================================================
+   6. 输入区：一块**圆润的可见面板**，焦点由容器承担（不再有内层描边）
+   -------------------------------------------------------------------------
+   三层历史包袱，逐次校正的过程值得留着，因为每次都是"看图才发现"：
+
+   2026-10-17 ①（用户：「外面的框去掉，输入框的高亮白框太亮了」）
+     当时是两层同心框：`.composer-box` 的 1px 容器描边 + textarea 的 2px 反白焦点环。
+     处置：把**容器描边去掉**，只留 textarea 一个细环。
+
+   2026-10-17 ②（用户：「太方正了」）
+     把 `.composer-box` 圆角提到 20px —— 但**它背景是透明的**，圆角根本不可见 ⇒ 没效果。
+
+   2026-10-17 ③（用户：「聚焦时文本框不要出线输入外框；后面背景框太方正，圆角加大」）
+     看图才定位到真正的成因：屏幕上那圈**直角**细框来自 `.composer` 自己
+     （`border-top: 1px solid --hairline` + `border-radius: 0`），而它里面套着 textarea
+     那个小圆角焦点框 ⇒ 观感是"直角框里再套一个圆角框"，两次反馈其实是同一个病。
+     定案（本段）：
+       · 输入区是**一块可见的圆润面板**：`.composer-box` 给 `--panel` 表面 + 22px 圆角；
+       · `.composer` 自己**不再画任何框**（去掉顶部发丝线、底部两个角也做圆，避免在
+         面板下方又留一条直角横线）；
+       · **textarea 不出任何线**（含聚焦）——焦点改由容器的 `:focus-within` 描边表达，
+         全屏只有一条焦点信号，且它与面板同形（不会出现"两个不同圆角的框"）。
+   ========================================================================= */
+.composer {
+  background: transparent;
+  border-top: none;
+  /* 底部两角圆润：输入区内缩于中栏左右（16px padding），底边在中栏底之上，
+     直角会在面板下方留下一条突兀的横线。顶部保持直角——它与中栏顶边同宽贴合。 */
+  border-radius: 0 0 22px 22px;
+  padding: 10px 16px 14px;
+  /* box-shadow 必须显式清零：polish-composer.css 给 `.composer` 画了
+     `inset 0 1px 0 rgba(255,255,255,.03), 0 10px 30px rgba(0,0,0,.28)`
+     ——它是"浮起的输入卡"时代的遗产。真机探针（web/test/composerProbe.mjs）实测到过它：
+     整条输入区仍在冒一层顶高光 + 投影，这正是"输入框融入不了背景"的成因之一。 */
+  box-shadow: none;
+}
+/* 输入面板：`--panel` 比中栏 `--bg` 亮一档，圆角 22px。
+   探针口径：composer-box 的 bg 应为不透明 --panel、radius 22px、border 默认透明。 */
+.composer-box {
+  background: var(--panel);
+  border: 1px solid transparent;
+  border-radius: 22px;
+  box-shadow: none;
+  gap: var(--sp-3);
+}
+/* hover / focus-within 必须显式再写一次：伪类与元素选择器同权重，
+   上面层里的 `.composer-box:hover { box-shadow: … }`、`shell.css` 的
+   `.composer-box:focus-within { border-color: var(--accent) }` 会按源序赢过基础规则。
+   焦点**由容器描边表达**（`--border-strong`：对 panel 约 2.6:1，够"看得见"但不刺眼）。 */
+.composer-box:hover,
+.composer-box:focus-within {
+  background: var(--panel);
+  border-color: var(--border-strong);
+  box-shadow: none;
+}
+/* 输入卡的历史 hover/focus 投影（polish-composer.css）一并压掉。 */
+.composer:hover,
+.composer:focus-within {
+  box-shadow: none;
+  border-color: transparent;
+}
+/* textarea **不出任何线**（含聚焦）：它现在躺在一块有圆角、有表面的面板里，
+   再叠一圈描边就是"框里套框"——这正是用户两次反馈的那件事。
+   键盘用户仍有焦点信号：上面 `.composer-box:focus-within` 的容器描边。
+   （判据：web/test/a11yKeyboard.test.mjs 的焦点可见性 + 本段注释。） */
+.composer textarea,
+.composer textarea:focus,
+.composer textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
+}
+.composer-input textarea {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 4px 4px 2px;
+  line-height: 1.62;
+}
+.composer-input textarea::placeholder {
+  color: var(--faint);
+}
+
+/* 主行动（发送）：反白实心圆，全页仅此一处圆形实心——形状本身就是「按这里」。 */
+.send.round {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+.send.round:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--ink-fg);
+  opacity: 0.86;
+  filter: none;
+  transform: none;
+}
+.send.round:disabled {
+  background: var(--panel-2);
+  color: var(--dim);
+  border-color: var(--border-soft);
+  opacity: 1;
+}
+.stop.round {
+  background: transparent;
+  border: 1px solid var(--err);
+  color: var(--err);
+}
+.stop.round:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+[data-theme='light'] .stop.round:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* 输入区的 chip（模型 / 推理强度 / 权限档 / 上下文容量）：无色、无框、无底。
+   它们是「可点开的选择器」而不是按钮，靠文案 + 一个 ▾ 表达。
+
+   注意 `.cap` 是上下文容量的**实际类名**（components.css:155 给它画了
+   `background: --panel-2; border: 1px solid --border-soft; border-radius: 9px`）。
+   早先这里只写了 `.cap-trigger`（一个不存在的类名）⇒ 容量入口一直是个带框的灰块，
+   与旁边同样功能的选择器长得不一样。2026-10-17 一并归入无框口径。 */
+.composer .chip,
+.composer .ctl-sel,
+.composer .cap,
+.composer .cap-trigger {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--dim);
+  border-radius: var(--r-lg);
+  font-size: var(--fs-sm);
+}
+.composer .chip:hover,
+.composer .ctl-sel:hover,
+.composer .cap:hover,
+.composer .cap-trigger:hover {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: transparent;
+}
+.composer .ctl-sel:focus-visible,
+.composer .cap:focus-visible,
+.composer .cap-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* 工作状态条：与输入区同语言的细带，不画卡片。 */
+.work-indicator {
+  background: transparent;
+  border-color: var(--hairline);
+  color: var(--dim);
+  border-radius: var(--r-sm);
+  margin: 8px 16px 0;
+  padding: 6px 10px;
+}
+.wi-dot {
+  background: var(--accent);
+}
+
+/* =========================================================================
+   7. 右栏面板：标题条 / 标签条 / 通用密度
+   ========================================================================= */
+.rv-tabs {
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+  gap: 2px;
+  padding: 6px 8px 0;
+}
+.rv-tabs .tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  color: var(--dim);
+  font-size: var(--fs-sm);
+  position: relative;
+}
+.rv-tabs .tab:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+/* 当前标签：与面板同底 + 一条反白下缘线（标签条的经典表达，且不需要颜色）。
+   `box-shadow: none` 是必须的：polish-shell.css 的通用 `.tab.active` 用
+   `inset 0 -2px 0 var(--brand)` 画下缘线，权重低于本选择器但同为 box-shadow 时
+   会与本条叠加成「双线」；这里显式清掉，只留下面那条伪元素。 */
+.rv-tabs .tab.active {
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--hairline);
+  border-bottom-color: var(--panel);
+  box-shadow: none;
+}
+.rv-tabs .tab.active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+}
+.rv-pathbar {
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+.pane {
+  background: transparent;
+}
+.chat-head {
+  background: var(--bg);
+  border-bottom: 1px solid var(--hairline);
+}
+.chat-tabs .chat-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--dim);
+  font-size: var(--fs-sm);
+  position: relative;
+}
+.chat-tab.active {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+  box-shadow: none;
+}
+/* 当前标签的下缘线：shell.css 用 `inset 0 -2px 0` 的 box-shadow 实现，这里改回伪元素 +
+   bottom:-9px 的原位（该值由 shell.css 的 padding 与 tab 高度共同决定，动它会让线离字太远）。 */
+.chat-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -9px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.chat-status {
+  background: var(--bg);
+  border-top: 1px solid var(--hairline);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+/* 面板卡片族：12 个面板共用一套「表面 + 发丝轮廓」，一律无投影。 */
+.plugin-card,
+.mem-row,
+.metric,
+.graph-guide,
+.step-row,
+.cp-item,
+.change-item,
+.review-help,
+.kv,
+.md-codeblock,
+.artifact-card {
+  border-color: var(--hairline);
+  border-radius: var(--r-sm);
+  box-shadow: none;
+}
+.plugin-card,
+.mem-row,
+.metric {
+  background: var(--panel);
+}
+.metric .n {
+  font-size: var(--fs-metric);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.metric .label {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.usage-table th {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.usage-table th,
+.usage-table td {
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* 状态徽标（新增/修改/删除/来源/权限档）：形状 + 文案，不靠色相。
+   旧实现是「彩色描边 + 彩色 12% 底」，同一行三个色块，是整页最花的区域。 */
+.change-badge,
+.src-badge,
+.perm,
+.perm-badge,
+.cp-badge,
+.tr-st {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  color: var(--dim);
+  font-size: var(--fs-micro);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  padding: 1px 6px;
+}
+.change-badge.add,
+.src-badge.loaded,
+.tr-st.ok {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.change-badge.del,
+.perm.danger,
+.perm-badge,
+.tr-st.err {
+  color: var(--text);
+  border-color: var(--text);
+}
+.change-badge.mod,
+.src-badge.remote,
+.tr-st.run {
+  color: var(--dim);
+  border-style: dashed;
+}
+
+/* 进度条 / 容量条：单色实心，超限只换成「实心反白 + 虚线框」。 */
+.cap-bar,
+.cap-row-bar,
+.progress {
+  background: var(--panel-2);
+  border-radius: 999px;
+}
+.cap-bar > i,
+.cap-row-fill,
+.progress > i {
+  background: var(--accent);
+  border-radius: 999px;
+}
+.cap-row-fill.exhausted {
+  background: var(--err);
+}
+
+/* =========================================================================
+   8. 浮层：唯一允许有投影的地方
+   -------------------------------------------------------------------------
+   投影语言统一为：1px 描边 + 一层带偏移的柔化阴影。浮层之内再谈层级时，
+   仍然只用表面阶梯与发丝线，不叠加第二层投影。
+   ========================================================================= */
+.dd-menu,
+.cmdk,
+.pp-menu,
+.rail-menu,
+.ws-switch-menu,
+.addmenu,
+.cap-pop,
+.modal,
+.dlg,
+.row-menu {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  backdrop-filter: none;
+}
+.dd-menu,
+.pp-menu,
+.rail-menu,
+.ws-switch-menu,
+.addmenu,
+.row-menu {
+  border-radius: var(--r-sm);
+}
+.dd-item,
+.pp-item,
+.rail-menu button,
+.ws-switch-menu button,
+.row-menu button,
+.cmdk-item {
+  border-radius: var(--r-xs);
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+}
+.dd-item:hover,
+.pp-item:hover,
+.rail-menu button:hover,
+.ws-switch-menu button:hover,
+.row-menu button:hover,
+.cmdk-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+/* 菜单里的「当前项」：反白块（与侧栏当前会话同一语言）。 */
+.cmdk-item.active,
+.dd-item.active,
+.pp-item.active,
+.cap-pop .cap-row.active {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border-color: transparent;
+}
+.cmdk-item.active *,
+.pp-item.active * {
+  color: inherit;
+}
+/* ⚠️ 反白块里的**图标**必须逐个点名：图标类（.pp-ico / .dd-ico / .rail-icon / .addmenu-item-ico）
+   在旧层里都被单独设过 `color: var(--accent)` 或 `--dim`，权重 (0,3,0) 高于上面的
+   `.pp-item.active *`（(0,2,0)）⇒ 会留在原地。真机探针实测：`pp-item.active` 的图标是
+   `rgb(255,255,255)` 压在 `rgb(255,255,255)` 的白块上（1:1，完全不可见）。
+   规律：**只要容器被反白，任何被点名设色的后代都要显式覆盖**——这是本轮第二次踩，
+   所以在这里集中列全，别再逐个发现。 */
+.pp-item.active .pp-ico,
+.dd-item.active .dd-ico,
+.addmenu-item.active .addmenu-item-ico,
+.rail-btn.active .rail-icon,
+.rail-btn.active svg,
+.cmdk-item.active .cmdk-hint,
+.cmdk-item.active .cmdk-kbd {
+  color: inherit;
+}
+.pp-item.active .pp-title {
+  color: inherit;
+}
+.cmdk-input,
+.addmenu-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  color: var(--text);
+  font-size: var(--fs-body);
+}
+.cmdk-input:focus,
+.addmenu-input:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+.cmdk-hint,
+.cmdk-empty,
+.cmdk-kbd {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+.cmdk-kbd {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xs);
+  font-family: var(--mono);
+  padding: 0 4px;
+}
+/* 模态遮罩：纯黑半透明，不用模糊（模糊是装饰）。 */
+.modal-ovl,
+.ovl,
+.scrim {
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: none;
+}
+[data-theme='light'] .modal-ovl,
+[data-theme='light'] .ovl,
+[data-theme='light'] .scrim {
+  background: rgba(0, 0, 0, 0.32);
+}
+
+/* 对话框：动作按钮三档语言——确认反白、次要用发丝框。 */
+.dlg {
+  box-shadow: var(--shadow-2);
+}
+.dlg .dlg-confirm {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid transparent;
+}
+.dlg .dlg-cancel {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--dim);
+}
+.dlg .dlg-cancel:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* 审批弹窗（DOM 实为 `.modal .actions > .always / .deny / .allow`，见 ApprovalModal.tsx）
+   -------------------------------------------------------------------------
+   单色下三档用**反白强度**排开，而不是红/黄/绿三色按钮——色相在这里最容易造成
+   「颜色 = 后果」的误读：
+     拒绝     最重要（不可逆的那一个）→ 最高对比实心（`--accent` 底 + `--ink-fg` 字）
+     允许一次 主行动                    → 发丝框，hover 落表面
+     始终允许 覆盖面最大                → 最弱：无框文字，hover 才落表面
+   旧世界把 `.allow` 涂成 `--ok`、`.deny` 涂成 `--err`；单色下这两个 token 都是灰，
+   直接沿用会出现「浅底浅字」（真机截图实测：底 #d4d4d4 + 字 #d4d4d4 = 1:1 不可读），
+   所以三档必须**底与字成对**重写。判据：真机截图 + `a11yContrast` 第 2 条。 */
+.modal .actions .deny {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid transparent;
+  font-weight: 600;
+}
+.modal .actions .deny:hover {
+  background: var(--accent);
+  color: var(--ink-fg);
+  opacity: 0.88;
+}
+.modal .actions .allow {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border-soft);
+}
+.modal .actions .allow:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.modal .actions .always {
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid transparent;
+  margin-right: auto;
+}
+.modal .actions .always:hover {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: transparent;
+}
+/* 审批弹窗里的命令回显（`.modal pre`）：机器产物，走等宽 + 代码底。 */
+.modal pre {
+  background: var(--code-bg);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-family: var(--mono);
+}
+
+/* 按钮三档（全站只有这三档，避免「四种按钮语言互相打架」）：
+     primary  反白实心 —— 唯一主行动
+     default  发丝轮廓 —— 表单行、对话框动作
+     ghost    无框，hover 落表面 —— 次要动作、图标钮
+   所有按钮一律无投影、无渐变、无内高光。 */
+button,
+.btn {
+  box-shadow: none;
+  background-image: none;
+}
+.btn.primary,
+[data-theme='dark'] .btn.primary,
+[data-theme='light'] .btn.primary {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid transparent;
+  font-weight: 550;
+}
+.btn.primary:hover,
+[data-theme='dark'] .btn.primary:hover,
+[data-theme='light'] .btn.primary:hover {
+  background: var(--accent);
+  color: var(--ink-fg);
+  opacity: 0.88;
+}
+.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--dim);
+}
+.ghost:hover {
+  background: var(--panel-2);
+  border-color: transparent;
+  color: var(--text);
+}
+button:active,
+.btn:active,
+.ghost:active,
+.iconbtn:active,
+.new-chat:active,
+.side-item:active,
+.session-act:active,
+.pp-item:active,
+.chat-tab:active {
+  transform: none;
+  opacity: 0.82;
+}
+
+/* toast：反白条——页面上唯一「从底部浮起」的东西，反白让它在任何底色上都成立。
+   注意：`.toast.ok` **不再**另给底色——底与字必须成对，一旦只改字色就会落回
+   「近白字配近白底」（对比度门禁实测 1.17:1）。状态区分交给左侧形状标（见下）。 */
+.toast {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid transparent;
+  border-left-width: 4px;
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow);
+}
+.toast.ok {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border-left-color: var(--ink-fg);
+}
+.toast.err {
+  background: var(--ink-fg);
+  color: var(--accent);
+  border-color: var(--border-strong);
+  border-left-color: var(--accent);
+}
+
+.composer .cap-bar,
+.composer .cap-bar-big {
+  border-radius: 999px;
+}
+.composer .cap-bar {
+  background: var(--panel-2);
+}
+.composer .cap-pct {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* —— 模型与推理强度组合选择器（ModelPicker）—— */
+   -------------------------------------------------------------------------
+   为什么单开一节：输入区右侧原先并排两个下拉（推理强度 / 模型），是输入行里最宽的
+   两块 chrome；2026-10-17 合并为一个入口，强度改为**进度条**形态。
+   设计口径与全站一致——层内层级只用「表面阶梯 + 发丝线」，不新增色相：
+     弹层     与其它浮层同一套（--panel + --border + --shadow）
+     当前模型 反白块（与侧栏当前会话、命令面板当前项同一语言）
+     强度进度 已选中的段实心反白，未选中的段是空心刻度槽（明度差即读数）
+   ========================================================================= */
+/* 模型与强度入口：圆角与输入卡同一档（它长在输入卡里，圆角不一致会显得"内角发尖"）。 */
+.mp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-lg);
+  color: var(--dim);
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.mp:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.mp-ico {
+  display: inline-flex;
+  align-items: center;
+}
+.mp-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 18ch;
+}
+/* 强度跟在模型名后面（`DeepSeek-V41-Flash High` 那种读法）：比模型名低一档明度。
+   · 左侧 7px 间距是必需的：两者直接相邻时（实测 label 右缘 688、sub 左缘同点）
+     中文小字会**贴住**西文模型名，极易读成"名字的一部分"。
+   · 颜色用 `--dim` 而不是 `--faint`：faint 与它右边的 caret（▾）同色，
+     两者挨在一起会糊成一块（真机截图看过）；dim 让它读成"信息"，caret 仍是装饰。 */
+.mp-sub {
+  flex: none;
+  margin-left: 7px;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+}
+.mp-caret {
+  color: var(--faint);
+  font-size: 10px;
+}
+.mp-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 60;
+  width: min(340px, calc(100vw - 32px));
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  cursor: default;
+}
+.mp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px 4px;
+}
+.mp-head-title {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.mp-head-sub,
+.mp-head-value {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+}
+.mp-head-value {
+  color: var(--text);
+  font-family: var(--mono);
+}
+/* 2026-10-17：`.mp-search`（模型筛选框）与 `.mp-empty`（无匹配提示）已随筛选功能一并删除。
+   模型清单只有个位数，筛选框让每次打开都多出一次"忽略它 / 先输字"的决策。
+   两个类名不再出现在组件里；若将来清单变长要恢复筛选，从 git 历史取这两条规则即可。 */
+.mp-list {
+  max-height: 216px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.mp-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--fs-list);
+  cursor: pointer;
+}
+.mp-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+/* 当前模型：反白块。子元素一律继承（反白块内的后代必须显式继承，见 §8 的同类教训）。 */
+.mp-item.active,
+.mp-item.active * {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border-color: transparent;
+}
+.mp-item-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mp-item-mark {
+  margin-left: auto;
+  font-family: var(--font-sans);
+  font-size: var(--fs-micro);
+  opacity: 0.72;
+}
+.mp-sep {
+  height: 1px;
+  margin: 6px 4px 2px;
+  background: var(--hairline);
+}
+
+/* —— 强度进度条 ——
+   五段等宽刻度；已选中的段（含其左侧全部）填实心 `--accent`，其余是 `--panel-2` 空槽。
+   读数规则：填充比例 = 强度档位下标 / 总段数，所以**顺序必须是有序阶梯**
+   （顺序由 ComposerOptions.ladder 保证，见那里的注释）。 */
+.mp-ladder {
+  display: flex;
+  gap: 3px;
+  padding: 2px 8px 6px;
+  border-radius: var(--r-sm);
+}
+.mp-ladder:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.mp-step {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  font-family: inherit;
+}
+.mp-step-fill {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--panel-2);
+}
+.mp-step.on .mp-step-fill {
+  background: var(--accent);
+}
+/* 当前档位：在刻度上方再叠一枚短标记（形状差异，不靠颜色——单色体系里颜色没有余量）。 */
+.mp-step.current .mp-step-fill {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+/* 「当前值但不被该模型支持」的档位（换模型后常见）：
+   不参与填充比例，画成虚线刻度 + 警示文案，避免"填满 ⇒ 看起来最强"的误读。 */
+.mp-step.unsupported .mp-step-fill {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--warn);
+}
+.mp-step.unsupported .mp-step-name {
+  color: var(--warn);
+}
+.mp-warn {
+  color: var(--warn);
+  font-family: var(--font-sans);
+  font-size: var(--fs-micro);
+}
+.mp-step-name {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.mp-step.on .mp-step-name {
+  color: var(--dim);
+}
+.mp-step.current .mp-step-name {
+  color: var(--text);
+  font-weight: 600;
+}
+.mp-step:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* =========================================================================
+   8.2 设置模态（SettingsModal）
+   -------------------------------------------------------------------------
+   设置从右栏面板改成居中的**模态**（2026-10-17 用户要求），因此它需要自己的一层
+   chrome：遮罩 + 面板 + 左栏分栏导航 + 右栏内容。设计口径与全站一致：
+     遮罩     纯黑半透明（不用模糊——craft floor 禁止装饰性模糊）
+     面板     --panel 表面 + --border 轮廓 + 一层带偏移的投影（模态是唯一允许投影的层）
+     分栏导航 当前项用**反白块**（与侧栏当前会话、命令面板当前项同一语言）
+   尺寸：min(880px, 92vw) × min(620px, 84vh)——两栏布局（导航 148px + 内容自适应）。
+   ========================================================================= */
+.sp-ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.62);
+}
+[data-theme='light'] .sp-ovl {
+  background: rgba(0, 0, 0, 0.32);
+}
+.sp {
+  display: flex;
+  flex-direction: column;
+  width: min(880px, 92vw);
+  height: min(620px, 84vh);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+.sp-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 10px 12px 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.sp-top-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+.sp-saved {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+/* 提示是「出现 → 自动消隐」，用 opacity 而不是 display：避免出现时整行横向跳动。 */
+.sp-saved.on {
+  opacity: 1;
+  color: var(--dim);
+}
+.sp-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.sp-nav {
+  flex: none;
+  width: 148px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-right: 1px solid var(--hairline);
+  overflow-y: auto;
+}
+.sp-nav-item {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--dim);
+  font-size: var(--fs-ui);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sp-nav-item:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+/* 当前分栏：反白块（单色体系里最强的"你在这里"），子元素不受影响（导航里只有纯文本）。 */
+.sp-nav-item.on {
+  background: var(--accent);
+  color: var(--ink-fg);
+  border-color: transparent;
+  font-weight: 550;
+}
+.sp-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+}
+.sp-sec + .sp-sec {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+.sp-sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.sp-sec-title {
+  color: var(--text);
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+.sp-sec-meta {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+.sp-hint {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.sp-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+.sp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sp-field-label {
+  color: var(--dim);
+  font-size: var(--fs-list);
+}
+.sp-input {
+  width: 100%;
+  padding: 7px 9px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-list);
+  font-family: inherit;
+}
+.sp-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.sp-input::placeholder {
+  color: var(--faint);
+}
+.sp-switch {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sp-kv {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-top: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: var(--fs-list);
+}
+.sp-k {
+  flex: none;
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.sp-v {
+  margin-left: auto;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+/* —— 厂商卡片：可折叠 ——
+   旧实现一次铺满全部厂商（8 张卡片 ⇒ 面板很长）。现在默认只展开"当前生效 / 已配 Key /
+   已检测"的厂商，其余折成一行；展开态由 aria-expanded 表达（不靠颜色）。 */
+.sp-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.sp-card-wrap {
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+.sp-card-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  color: var(--dim);
+  font-size: var(--fs-list);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sp-card-toggle:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.sp-caret {
+  flex: none;
+  width: 10px;
+  color: var(--faint);
+  font-size: 10px;
+}
+.sp-card-toggle-name {
+  color: inherit;
+}
+.sp-mini {
+  padding: 0 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-xs);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+}
+.sp-card {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--hairline);
+}
+/* 当前厂商的标记：**只靠头部那枚「当前」小标签**，不画左缘竖条。
+   2026-10-17 用户反馈「组件前面这个高亮的白色线条很违和」——那时这里是
+   `border-left: 2px solid var(--accent)`，在深色下就是一条**纯白 2px 竖线**，
+   纵贯整张卡片、打断左栏的对齐基线。反白强调留给"整块实心"（侧栏当前会话那样），
+   卡片级标记用文字标签即可（`--accent` 在这里既过量又无信息增量）。 */
+.sp-card.on {
+  background: var(--panel-2);
+}
+.sp-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sp-card-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--fs-list);
+}
+.sp-tag {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+}
+.sp-card-url {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  overflow-wrap: anywhere;
+}
+.sp-card-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+/* 状态点：单色下靠"实心/空心/描边"区分，不靠色相（语义见 DESIGN_SYSTEM §2.4）。 */
+.sp-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+}
+.sp-dot.ok {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.sp-dot.err {
+  background: transparent;
+  border-color: var(--err);
+  box-shadow: inset 0 0 0 2px var(--err);
+}
+.sp-card-statetext {
+  color: var(--dim);
+  font-size: var(--fs-xs);
+}
+.sp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.sp-row .sp-input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+/* —— 分段控件（主题明暗两态）—— */
+.sp-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+}
+.sp-seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-xs);
+  color: var(--dim);
+  font-size: var(--fs-list);
+  font-family: inherit;
+  cursor: pointer;
+}
+.sp-seg-item:hover {
+  color: var(--text);
+}
+.sp-seg-item.on {
+  background: var(--accent);
+  color: var(--ink-fg);
+}
+
+/* =========================================================================
+   9. 状态三态：空 / 加载 / 错误 一眼分得开（形状差异，不是颜色差异）
+   ========================================================================= */
+.empty.illu .illu-text {
+  color: var(--text);
+  font-size: var(--fs-body);
+}
+.empty.illu .illu-hint,
+.empty.note {
+  color: var(--faint);
+}
+.empty.err {
+  color: var(--err);
+  border-left: 2px solid var(--err);
+  padding-left: var(--sp-3);
+}
+
+/* =========================================================================
+   10. 表单与代码：机器产物一律等宽；聚焦只换描边，不给光晕
+   ========================================================================= */
+.form input,
+.form select,
+.form textarea {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+:root {
+  accent-color: var(--accent);
+}
+
+/* 原生选区 / 插入符：单色体系里选区用反白（与「当前项」同一语言）。 */
+::selection {
+  background: var(--accent);
+  color: var(--ink-fg);
+}
+input,
+textarea,
+.md-content input,
+.md-content textarea {
+  caret-color: var(--accent);
+}
+
+/* 代码块与行内代码：表面 + 发丝线，不投影、不渐变。 */
+.md-codeblock pre code {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.62;
+  tab-size: 2;
+}
+.md-content code {
+  background: var(--panel-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xs);
+  font-family: var(--mono);
+  font-size: 0.92em;
+  color: var(--text);
+}
+.md-content blockquote {
+  border-left: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--dim);
+}
+.md-content hr {
+  border-top: 1px solid var(--hairline);
+}
+
+/* =========================================================================
+   11. 禁用 / 加载 / 键盘焦点
+   -------------------------------------------------------------------------
+   单色体系下「禁用」不能用降饱和表达（本来就没有饱和度），只能用降对比：
+   文字落到 --faint、描边落到 --hairline，并且**保留形状**（仍看得见是个控件）。
+   ========================================================================= */
+button:disabled,
+.btn:disabled,
+.btn[disabled],
+.iconbtn:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  opacity: 1;
+  filter: none;
+  cursor: not-allowed;
+}
+/* 单色体系下的「禁用」= 降对比但不降形状：
+   底落到 --panel-2、字落到 --dim、描边落到 --border，控件仍然看得见（只是按不动）。
+   注意这里刻意**不用 opacity**：半透明会把「灰字 + 灰底」压成两档都读不清的中间调，
+   对比度门禁实测只剩 3.45:1（不达 AA）。 */
+button:disabled,
+.btn:disabled,
+.btn[disabled] {
+  background: var(--panel-2);
+  color: var(--dim);
+  border-color: var(--border-soft);
+}
+/* 键盘焦点：反白实环（覆盖上面所有层的彩色环），不给 box-shadow 光晕。
+   这里只列**还有自己描边的控件**：表单输入/下拉、搜索框、命令面板输入、改名输入。
+   `composer textarea` **刻意不在此列**（2026-10-17 三次校正后）——它躺在一块有圆角、
+   有表面的输入面板里，焦点由 `.composer-box:focus-within` 的容器描边表达（见 §6）；
+   在这里再给它一圈就是"框里套框"，那正是用户连续两次反馈要修的东西。
+   键盘用户的焦点可见性因此**没有丢**：信号从内层移到了容器上。 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.session-search:focus-visible,
+.session-rename-input:focus-visible,
+.cmdk-input:focus-visible,
+.addmenu-input:focus-visible,
+.form input:focus-visible,
+.form select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  box-shadow: none;
+}
+
+/* =========================================================================
+   12. 收尾：把「上一代体系」里最后几处彩色/装饰性残留钉死
+   -------------------------------------------------------------------------
+   这些是全站仅剩的硬编码色、装饰渐变与模糊（重设计前逐文件调查的结果，共 11 类）。
+   放在最后统一覆盖，而不是逐个改结构层——结构层里混着历史补丁，改了什么无法复核。
+   ========================================================================= */
+body,
+[data-theme='light'] body {
+  background-image: none;
+}
+/* 装饰性模糊：craft floor 明确「玻璃与模糊不得作为装饰」。
+   涉及 polish-shell.css 的顶栏/侧栏 `backdrop-filter: blur(12px) saturate(1.2)`、
+   overlays/refine-overlays 的浮层背景 6px、components/layout 的遮罩 2px。
+   遮罩改用纯黑半透明（见 §8），不需要模糊来分隔层次。 */
+* {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.att-thumb {
+  background: var(--code-bg);
+}
+/* 开关：单色下「开」= 反白实心，「关」= 描边空槽；滑块用底色（反白块上的"挖空"感）。
+   旧实现里滑块写死 `background:#fff`，浅色主题下在白底上完全看不见。 */
+.switch input {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+}
+.switch input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.switch input::after {
+  background: var(--ink-fg);
+}
+.switch input:not(:checked)::after {
+  background: var(--dim);
+}
+/* 会话 / 事件 / 导航的「当前」标记：一律反白实心，不用彩色左侧细线或内阴影。 */
+.session.active,
+.rail-btn.active,
+.task-card.active,
+.dd-item.active,
+.addmenu-item.active,
+.sr-item.active,
+.pp-item.active {
+  box-shadow: none;
+}
+/* 过滤器的唯一合法用途是 hover 提亮，而单色下提亮应当由明度 token 表达；
+   旧世界用 `filter: brightness()/saturate()` 代替 hover 态，本轮全部改为色值切换。 */
+button:hover,
+.btn:hover,
+.iconbtn:hover,
+.modal .allow:hover,
+.modal .deny:hover,
+.send.round:hover:not(:disabled) {
+  filter: none;
+}

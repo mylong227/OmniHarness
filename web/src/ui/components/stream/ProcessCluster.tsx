@@ -8,6 +8,7 @@ import { React } from '../../deps.js';
 import { esc } from '../../format.js';
 import { processSummary, type ProcessBlock } from '../../textUtils.js';
 import type { ThreadEvent } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** ProcessCluster 组件的入参。 */
 export interface ProcessClusterProps {
@@ -58,12 +59,12 @@ export function ProcessCluster(props: ProcessClusterProps): ReactElement {
     >
       <summary
         className="tc-line dim"
-        title={isOpen ? '过程进行中（自动展开）' : '点击查看执行过程'}
+        title={isOpen ? t('过程进行中（自动展开）') : t('点击查看执行过程')}
       >
         <span className="tc-chevron-cluster"></span>
         <span className="tc-icon">⏵</span>
-        <span className="tc-summary">执行过程 — {esc(text)}</span>
-        <span className="time">{block.events.length} 步</span>
+        <span className="tc-summary">{t('执行过程 — {text}', { text: esc(text) })}</span>
+        <span className="time">{t('{n} 步', { n: block.events.length })}</span>
       </summary>
       <div className="process-cluster-body">{block.events.map((ev) => renderEvent(ev))}</div>
     </details>

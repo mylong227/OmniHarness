@@ -19,6 +19,7 @@
 
 import type { SessionEntry } from '../shared.js';
 import { timeAgo } from '../textUtils.js';
+import { t } from '../i18n/i18n.js';
 
 /**
  * 会话行的可读性文案：悬停给什么、行内补什么。纯静态、零 React / 零 DOM。
@@ -40,7 +41,7 @@ export class SessionRowMeta {
     const parts: string[] = [s.label !== '' ? s.label : s.id];
     const when = timeAgo(s.updatedAt, now);
     if (when !== '') parts.push(when);
-    if (typeof s.turns === 'number') parts.push(`${s.turns} 回合`);
+    if (typeof s.turns === 'number') parts.push(t('{n} 回合', { n: s.turns }));
     // id 只在"标题不是 id"时作为**末位**补充：同一句话被用作多个会话标题时，id 是唯一区分依据。
     if (s.label !== '' && s.label !== s.id) parts.push(s.id);
     return parts.join(' · ');
@@ -62,12 +63,15 @@ export class SessionRowMeta {
    */
   public static inlineTime(s: SessionEntry, now: number = Date.now()): string {
     if (!s.updatedAt) return '';
-    const t = Date.parse(s.updatedAt);
-    if (!Number.isFinite(t)) return '';
-    const seconds = Math.max(0, Math.floor((now - t) / 1000));
-    if (seconds < 60) return '刚刚';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}分`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}小时`;
-    return `${Math.floor(seconds / 86400)}天`;
+    // ⚠️ 变量名不可叫 `t`：本模块 import 了 i18n 的 `t()`，数值 `t` 会遮蔽翻译函数，
+    // 于是下面几行 `t('刚刚')` 全变成"把 Number 当函数调用"（TS2349）。
+    // （此前这里还残留了一个拼错的 `t2`，是同一处编辑手误 ⇒ TS2304。）
+    const ts = Date.parse(s.updatedAt);
+    if (!Number.isFinite(ts)) return '';
+    const seconds = Math.max(0, Math.floor((now - ts) / 1000));
+    if (seconds < 60) return t('刚刚');
+    if (seconds < 3600) return t('{n}分', { n: Math.floor(seconds / 60) });
+    if (seconds < 86400) return t('{n}小时', { n: Math.floor(seconds / 3600) });
+    return t('{n}天', { n: Math.floor(seconds / 86400) });
   }
 }

@@ -5,6 +5,7 @@
 import type { AppHost, AppServices } from './AppController.js';
 import type { GraphDone, GraphProgress } from '../../types/models.js';
 import { MethodBinder } from './methodBinder.js';
+import { t } from '../i18n/i18n.js';
 
 /** graph 运行态控制器：单一职责，仅供 App 组合使用。 */
 export class GraphController {
@@ -61,7 +62,9 @@ export class GraphController {
     if (p.ok === false) {
       const name = this.host.getState().graphRuns[p.runId]?.defName;
       this.services.toast(
-        `编排${name ? `「${name}」` : ''}未全部完成：已完成步骤可复用，点「续跑」只重跑剩下的`,
+        t('编排{name}未全部完成：已完成步骤可复用，点「续跑」只重跑剩下的', {
+          name: name ? `「${name}」` : '',
+        }),
         'err',
       );
     }
@@ -86,13 +89,13 @@ export class GraphController {
     if (!this.services.stream.isOpen) this.pollRun(runId);
     try {
       const res = await this.services.api.resumeGraph(runId);
-      this.services.toast(`已续跑${name ? `「${name}」` : ''}（复用已完成步骤，只重跑剩下的）`, 'ok');
+      this.services.toast(t('已续跑{name}（复用已完成步骤，只重跑剩下的）', { name: name ? `「${name}」` : '' }), 'ok');
       void res;
     } catch (e) {
       this.host.patch((s) =>
         prev === undefined ? s : { graphRuns: { ...s.graphRuns, [runId]: prev } },
       );
-      this.services.toast('续跑失败：' + (e as Error).message, 'err');
+      this.services.toast(t('续跑失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 

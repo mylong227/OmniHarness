@@ -18,7 +18,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SessionRowMeta } from '../dist/ui/models/SessionRowMeta.js';
@@ -111,7 +111,12 @@ test('③ 接线：三个视图共用同一套行渲染，且不再把内部 ID 
 });
 
 test('④ 样式：时间格保留占位、操作按钮不占位（真机像素取证的反向约束）', () => {
-  const css = readFileSync(join(WEB_ROOT, 'styles', 'polish.css'), 'utf8');
+  // CSS 已按功能拆分为多份（2026-10-16）——断言面向「全部样式表的拼接」，
+  // 规则今后在 styles/ 内搬家不再需要改这里。
+  const css = readdirSync(join(WEB_ROOT, 'styles'))
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => readFileSync(join(WEB_ROOT, 'styles', f), 'utf8'))
+    .join('\n');
   const rule = /\.session-time\s*\{[^}]*\}/.exec(css);
   assert.ok(rule !== null, '.session-time 规则必须存在（否则行内时间没有样式，会挤坏标题）');
   assert.match(rule[0], /flex:\s*0 0 auto/, '时间格不得被压缩（会与标题抢宽度）');

@@ -306,6 +306,12 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.subagentConcurrency = CliFlagTable.numberOf(argv, i, '--subagent-concurrency');
     return 1;
   },
+  // 本回合步数上限（2026-10-15 新增）：**不传 = 不限**（终止以任务完成为准）。
+  // 想让某次运行有硬上限（CI / 成本封顶）时显式给。
+  '--max-steps': (a, argv, i) => {
+    a.maxSteps = CliFlagTable.numberOf(argv, i, '--max-steps');
+    return 1;
+  },
   '--subagent-max-steps': (a, argv, i) => {
     a.subagentMaxSteps = CliFlagTable.numberOf(argv, i, '--subagent-max-steps');
     return 1;

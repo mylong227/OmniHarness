@@ -5,9 +5,17 @@
  *
  * 像素 diff 依赖操作系统字体渲染、缩放比、抗锯齿与 GPU——同一份前端在两台机器上就能差出成百上千像素，
  * 这种「基线」只会制造假红，最后被人加白名单绕过（等于没有）。本文件改为**结构快照**：把「界面里
- * 应该有且文案固定」的东西抽成规范化 JSON——右栏页签标签、图标栏条目数、输入区的静态文案与档位按钮、
- * 各处空态文案——逐字段比对。它能抓到的正是真实回归：页签消失/改名、空态文案被改坏、输入区档位丢失、
+ * 应该有且文案固定」的东西抽成规范化 JSON——**面板菜单条目**、页签标签、输入区的静态文案与档位按钮、
+ * 各处空态文案——逐字段比对。它能抓到的正是真实回归：面板入口消失/改名、空态文案被改坏、输入区档位丢失、
  * 挂载后结构塌陷；而对字体/分辨率不敏感，因此**在 CI 里可信**。
+ *
+ * ## 2026-10-15：随壳层重构更新「采什么」
+ *
+ * 第六十九/七十轮把顶栏与左竖条（`NavRail`）删掉，12 个面板入口收进右栏的 `PanelPicker` 菜单。
+ * 旧快照里的 `railItems` 于是**恒为 0**——按本文件自己立的口径（"采到一个永远为空的字段等于什么都没断言"），
+ * 那是**假绿**。故本字段删除，改为采 `panelMenuItems`（`.pp-menu .pp-item` 的可读名）：
+ * 它才是"12 个面板入口还在不在"在现役壳层下的等价契约。菜单由调用方先展开（`liveUiE2e.test.ts`
+ * 用真实点击展开，并在展开失败时**明确报错**而不是采到空数组）。
  *
  * ## 更新基线
  *
@@ -26,10 +34,14 @@ export interface SnapshotSource {
 
 /** 结构快照（字段顺序无关；值都已规范化）。 */
 export interface UiSnapshot {
-  /** 右栏页签标签（`[role="tab"]`，按界面顺序）。 */
+  /**
+   * 面板菜单条目（`PanelPicker` 展开后的 `.pp-item` 可读名，按界面顺序）。
+   *
+   * 调用方负责在采集前把菜单展开（见文件头「随壳层重构更新采什么」）。
+   */
+  readonly panelMenuItems: readonly string[];
+  /** 页签标签（`[role="tab"]`，按界面顺序；含中栏视图页签与右栏已开面板页签）。 */
   readonly tabs: readonly string[];
-  /** 左侧图标栏可点条目数（按钮/链接总数）。 */
-  readonly railItems: number;
   /** 输入区静态文案（占位提示 + 发送按钮标签）。 */
   readonly composer: { readonly placeholder: string; readonly sendLabel: string };
   /**
@@ -51,7 +63,8 @@ export class UiBaseline {
   /**
    * 从页面采集结构快照。
    *
-   * @param cdp CDP 会话（或任何能求值的对象）。
+   * @param cdp CDP 会话（或任何能求值的对象）。**面板菜单需由调用方先展开**，否则
+   *   `panelMenuItems` 为空数组——那会让整条判据退化，故调用方必须自证已展开。
    * @returns 规范化后的快照。
    */
   public static async capture(cdp: SnapshotSource): Promise<UiSnapshot> {
@@ -63,8 +76,11 @@ export class UiBaseline {
       var send = document.querySelector('button.send');
       var empties = all('.empty-state, .empty').map(text).filter(function(t){ return t.length > 0; });
       return {
+        panelMenuItems: all('.pp-menu .pp-item').map(function(item){
+          var l = item.querySelector('.pp-label');
+          return l ? text(l) : text(item);
+        }).filter(function(t){ return t.length > 0; }),
         tabs: all('[role="tab"]').map(label).filter(function(t){ return t.length > 0; }),
-        railItems: document.querySelectorAll('.rail button, .rail a, .rail [role="button"]').length,
         composer: { placeholder: ta ? (ta.getAttribute('placeholder') || '') : '', sendLabel: text(send) },
         composerControls: all('.composer button').map(label).filter(function(t){ return t.length > 0; }),
         emptyStates: empties
@@ -83,8 +99,8 @@ export class UiBaseline {
     const clean = (list: readonly string[] | undefined): readonly string[] =>
       (list ?? []).map((item) => item.replace(/\s+/g, ' ').trim()).filter((item) => item !== '');
     return {
+      panelMenuItems: clean(raw.panelMenuItems),
       tabs: clean(raw.tabs),
-      railItems: Number(raw.railItems ?? 0),
       composer: {
         placeholder: (raw.composer?.placeholder ?? '').replace(/\s+/g, ' ').trim(),
         sendLabel: (raw.composer?.sendLabel ?? '').replace(/\s+/g, ' ').trim(),
@@ -140,12 +156,10 @@ export class UiBaseline {
         `${label} 变化：新增 ${JSON.stringify(added)} / 消失 ${JSON.stringify(removed)}（当前 ${a.length} 项，基线 ${b.length} 项）`,
       );
     };
-    listDiff('右栏页签', now.tabs, was.tabs);
+    listDiff('面板菜单条目', now.panelMenuItems, was.panelMenuItems);
+    listDiff('页签', now.tabs, was.tabs);
     listDiff('输入区控件无障碍名', now.composerControls, was.composerControls);
     listDiff('空态文案', now.emptyStates, was.emptyStates);
-    if (now.railItems !== was.railItems) {
-      diffs.push(`图标栏条目数 ${now.railItems} ≠ 基线 ${was.railItems}`);
-    }
     if (now.composer.placeholder !== was.composer.placeholder) {
       diffs.push(`输入框占位文案变化：${JSON.stringify(now.composer.placeholder)}`);
     }

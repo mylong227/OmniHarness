@@ -7,11 +7,16 @@ import { icon } from './models/Icon.js';
 import { parseTurnDiffFiles, turnDiffTotals } from './models/TurnDiffFiles.js';
 import type { IconName } from './models/Icon.js';
 import type { ThreadEvent } from '../types/models.js';
+import { t } from './i18n/i18n.js';
 
 /**
- * HTML 转义：把 `& < > " '` 五个字符转成实体，供纯文本安全地放进元素子节点。
- * @param s 任意待转义值（非字符串先经 String() 归一化）。
- * @returns 转义后的字符串。
+ * HTML 转义：把 `& < > " '` 五个字符转成实体。
+ *
+ * **只用于「拼 HTML 字符串」的场景**（`markdown.ts` 的 `highlight` 回调把结果交给
+ * markdown-it 拼成 HTML）。React 子节点**不需要**转义——React 自己就把文本转义了，
+ * 再转一次等于把 `"` 变成字面量 `&quot;`，用户看到的是实体而不是引号。
+ * 判定口径：`esc()` 的结果进 `dangerouslySetInnerHTML` / 拼进 HTML 字符串 ⇒ 用；
+ * 作为 `createElement(..., child)` 的子节点或 HTML 属性值 ⇒ **不要用**（React 会转义）。
  */
 export function esc(s: unknown): string {
   return String(s ?? '').replace(/[&<>"']/g, (c) => {
@@ -50,7 +55,7 @@ const BADGE_MAP: Record<string, [string, string]> = {
  */
 export function badge(type: string): ReactElement {
   const m = BADGE_MAP[type] ?? [type, 'b-system'];
-  return React.createElement('span', { className: 'badge ' + m[1] }, m[0]);
+  return React.createElement('span', { className: 'badge ' + m[1] }, t(m[0]));
 }
 
 /**
@@ -118,7 +123,7 @@ export function emptyNote(
     'div',
     { className: 'empty ' + kind },
     opts.icon === undefined ? null : icon(opts.icon, { size: 13 }),
-    esc(text),
+    text,
   );
 }
 
@@ -128,7 +133,7 @@ export function emptyNote(
  * @returns 只读的 JSON 预览元素。
  */
 export function jsonView(obj: unknown): ReactElement {
-  return React.createElement('pre', { className: 'json' }, esc(JSON.stringify(obj, null, 2)));
+  return React.createElement('pre', { className: 'json' }, JSON.stringify(obj, null, 2));
 }
 
 /**
@@ -157,8 +162,8 @@ export function questionView(
         React.createElement(
           'div',
           { key: `${keyPrefix}-o-${j}`, className: 'question-option' },
-          React.createElement('span', { className: 'opt-label' }, esc(o.label ?? '')),
-          o.description ? React.createElement('span', { className: 'opt-desc' }, esc(o.description)) : null,
+          React.createElement('span', { className: 'opt-label' }, o.label ?? ''),
+          o.description ? React.createElement('span', { className: 'opt-desc' }, o.description) : null,
         ),
       ),
     );
@@ -175,8 +180,8 @@ export function questionView(
       return React.createElement(
         'div',
         { key, className: 'question-item' },
-        header ? React.createElement('div', { className: 'question-header' }, esc(header)) : null,
-        React.createElement('div', { className: 'question-text' }, esc(text)),
+        header ? React.createElement('div', { className: 'question-header' }, header) : null,
+        React.createElement('div', { className: 'question-text' }, text),
         options_.length > 0 ? optionList(options_, key) : null,
       );
     }),
@@ -184,7 +189,7 @@ export function questionView(
       ? React.createElement(
           'div',
           { className: 'question-note pending' },
-          '等待你的回答：请在下方提问卡中选择或填写后提交。',
+          t('等待你的回答：请在下方提问卡中选择或填写后提交。'),
         )
       : null,
   );
@@ -216,8 +221,8 @@ export function permChip(p: string): ReactElement {
   const label = PERM_LABELS[p] || p;
   return React.createElement(
     'span',
-    { key: p, className: 'perm' + (danger ? ' danger' : ''), title: esc(p) },
-    esc(label),
+    { key: p, className: 'perm' + (danger ? ' danger' : ''), title: p },
+    t(label),
   );
 }
 
@@ -245,7 +250,7 @@ export function todoView(todos: { status?: string; content?: string }[]): ReactE
         'div',
         { key: `todo-${i}`, className: 'todo-item' },
         React.createElement('span', { className: dotClass(t.status) }),
-        React.createElement('span', null, esc(t.content || '')),
+        React.createElement('span', null, t.content || ''),
       ),
     ),
   );
@@ -267,7 +272,7 @@ export function diffView(diff: string): ReactElement {
     { className: 'diff' },
     ...diff
       .split('\n')
-      .map((line, i) => React.createElement('span', { key: `dl-${i}`, className: lineClass(line) }, esc(line))),
+      .map((line, i) => React.createElement('span', { key: `dl-${i}`, className: lineClass(line) }, line)),
   );
 }
 
@@ -299,31 +304,39 @@ export function detailSummary(
             : p.output != null
               ? p.output
               : p.ok
-                ? '成功'
-                : '失败',
+                ? t('成功')
+                : t('失败'),
         ).slice(0, 140)
       );
     case 'user':
     case 'assistant':
       return ((p.content as string) || '').slice(0, 180);
     case 'reasoning':
-      return '推理轨迹（' + ((p.content as string) || '').length + ' 字）';
+      return t('推理轨迹（{count} 字）', { count: ((p.content as string) || '').length });
     case 'system':
       return (p.content as string) || '';
     case 'plan':
-      return '计划（' + (Array.isArray(p.steps) ? p.steps.length : Object.keys(p).length) + ' 项）';
+      return t('计划（{count} 项）', {
+        count: Array.isArray(p.steps) ? p.steps.length : Object.keys(p).length,
+      });
     case 'question':
-      return ((p.questions as unknown[]) ? (p.questions as unknown[]).length : 0) + ' 个提问';
+      return t('{count} 个提问', {
+        count: (p.questions as unknown[]) ? (p.questions as unknown[]).length : 0,
+      });
     case 'todo':
-      return '待办 ' + ((p.todos as unknown[]) || []).length + ' 项';
+      return t('待办 {count} 项', { count: ((p.todos as unknown[]) || []).length });
     case 'turn_diff': {
       const files = parseTurnDiffFiles((p.diff as string) || '');
-      if (files.length === 0) return '本回合无文件变更';
+      if (files.length === 0) return t('本回合无文件变更');
       const totals = turnDiffTotals(files);
-      return `已编辑 ${files.length} 个文件（+${totals.added} −${totals.deleted}）`;
+      return t('已编辑 {count} 个文件（+{added} −{deleted}）', {
+        count: files.length,
+        added: totals.added,
+        deleted: totals.deleted,
+      });
     }
     default:
-      return ev.type + ' 事件';
+      return t('{type} 事件', { type: ev.type });
   }
 }
 
@@ -571,7 +584,7 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
         React.createElement(
           'button',
           { key: `${key}-copy`, type: 'button', className: 'md-codeblock__copy' },
-          '复制',
+          t('复制'),
         ),
       );
       const pre = React.createElement(

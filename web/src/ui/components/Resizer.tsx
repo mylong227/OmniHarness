@@ -5,6 +5,7 @@
 // 既避免每次 props 变化重挂监听，也不受陈旧闭包影响（H5）。
 
 import { React } from '../deps.js';
+import { t } from '../i18n/i18n.js';
 
 /** Resizer 组件的入参。 */
 export interface ResizerProps {
@@ -79,5 +80,5 @@ export function Resizer(props: ResizerProps): ReactElement {
     document.body.style.userSelect = 'none';
   };
 
-  return <div className={'resizer resizer-' + side} title="拖拽调整宽度" onMouseDown={onMouseDown} />;
+  return <div className={'resizer resizer-' + side} title={t('拖拽调整宽度')} onMouseDown={onMouseDown} />;
 }

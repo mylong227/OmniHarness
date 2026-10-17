@@ -54,6 +54,26 @@ test('runDoctor 对非法配置如实报告（fail-closed，不静默）', () =>
   }
 });
 
+test('exitCode：0 ⇔ 无问题项 / 1 ⇔ 有问题项（合成报告，两台机器都判得动）', () => {
+  // 为什么用**合成报告**而不是"跑一次 doctor 看退出码"：本机健康与否是环境事实
+  //（缺插件目录 / 无 OS 沙箱后端都是合法状态），拿它当判据等于把机器状态写进契约
+  // ——本仓为此假红过一条判据（`cliLocalCommands.test.ts` ①，2026-10-15 修）。
+  const real = DoctorRunner.runDoctor();
+  const clean = { ...real, issues: [] };
+  const dirty = { ...real, issues: ['合成问题：用于钉死映射'] };
+
+  assert.strictEqual(DoctorRunner.exitCode(clean), 0, '没有问题项必须 0');
+  assert.strictEqual(
+    DoctorRunner.exitCode(dirty),
+    1,
+    '有问题项必须非零（否则 `doctor && 下一步` 会把坏环境当好的用）',
+  );
+  // 正对照：同一份报告只改 issues 一个字段 ⇒ 退出码必须跟着变（防"恒 0 或恒 1"的退化实现）。
+  assert.notStrictEqual(DoctorRunner.exitCode(clean), DoctorRunner.exitCode(dirty));
+  // 与真实报告的一致性：真跑出来的报告，退出码必须与它自己的问题清单一致。
+  assert.strictEqual(DoctorRunner.exitCode(real), real.issues.length === 0 ? 0 : 1);
+});
+
 test(
   'isElevated：提权探测成功→true，失败→false（注入探针，不依赖真实 OS）',
   { skip: process.platform !== 'win32' },

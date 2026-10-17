@@ -5,6 +5,7 @@ import type { AgentCatalogEntry, PluginManifest, SearchHit } from '../../types/m
 // 图标名的**唯一事实源**在 models/Icon.ts（`IconName`）；这里只 import 类型（`import type` 编译期即擦除，
 // 不会把 Icon.ts 的运行时依赖（deps.js 的 UMD 全局 React）拖进模型层，单测仍可在纯 node 下直接跑）。
 import type { IconName } from './Icon.js';
+import { t } from '../i18n/i18n.js';
 
 /**
  * 菜单图标名（= 图标集里的合法名字，见 models/Icon.ts）。
@@ -91,12 +92,12 @@ export class AddMenuModel {
   private addSection(): AddMenuSection {
     return {
       id: 'add',
-      title: '添加',
+      title: t('添加'),
       items: [
-        this.item('attach', 'paperclip', '文件和文件夹', '', false),
+        this.item('attach', 'paperclip', t('文件和文件夹'), '', false),
         this.itemFromGoal(),
-        this.toggle('plan', 'bulb', '计划模式', '开启计划模式', this.state.planMode),
-        this.toggle('sketch', 'ruler', '绘图', '绘制草图', this.state.sketchMode),
+        this.toggle('plan', 'bulb', t('计划模式'), t('开启计划模式'), this.state.planMode),
+        this.toggle('sketch', 'ruler', t('绘图'), t('绘制草图'), this.state.sketchMode),
       ],
     };
   }
@@ -107,8 +108,8 @@ export class AddMenuModel {
     return {
       id: 'goal',
       icon: 'goal',
-      label: '目标',
-      hint: goal === '' ? '设置要持续追求的目标' : goal,
+      label: t('目标'),
+      hint: goal === '' ? t('设置要持续追求的目标') : goal,
       active: goal !== '',
       disabled: false,
     };
@@ -117,14 +118,14 @@ export class AddMenuModel {
   /** 「插件」分组。 */
   private pluginSection(): AddMenuSection {
     if (this.state.pluginsLoading) {
-      return { id: 'plugins', title: '插件', items: [this.placeholder('plugins-loading', '正在加载插件…')] };
+      return { id: 'plugins', title: t('插件'), items: [this.placeholder('plugins-loading', t('正在加载插件…'))] };
     }
     if (this.state.plugins.length === 0) {
-      return { id: 'plugins', title: '插件', items: [this.placeholder('plugins-empty', '暂无已安装插件')] };
+      return { id: 'plugins', title: t('插件'), items: [this.placeholder('plugins-empty', t('暂无已安装插件'))] };
     }
     return {
       id: 'plugins',
-      title: '插件',
+      title: t('插件'),
       items: this.state.plugins.map((plugin) => ({
         id: 'plugin:' + plugin.name,
         icon: plugin.loaded === true ? 'plug' : 'package',
@@ -139,14 +140,14 @@ export class AddMenuModel {
   /** 「智能体」分组（内置角色 / 编排图 / 插件三类混排，靠 hint 区分来源）。 */
   private agentSection(): AddMenuSection {
     if (this.state.agentsLoading) {
-      return { id: 'agents', title: '智能体', items: [this.placeholder('agents-loading', '正在加载智能体…')] };
+      return { id: 'agents', title: t('智能体'), items: [this.placeholder('agents-loading', t('正在加载智能体…'))] };
     }
     if (this.state.agents.length === 0) {
-      return { id: 'agents', title: '智能体', items: [this.placeholder('agents-empty', '暂无可用智能体')] };
+      return { id: 'agents', title: t('智能体'), items: [this.placeholder('agents-empty', t('暂无可用智能体'))] };
     }
     return {
       id: 'agents',
-      title: '智能体',
+      title: t('智能体'),
       items: this.state.agents.map((agent) => ({
         id: 'agent:' + agent.id,
         icon: this.agentIcon(agent.kind),
@@ -163,17 +164,17 @@ export class AddMenuModel {
     if (this.state.query.trim() === '') {
       return {
         id: 'search',
-        title: '文件和聊天',
-        items: [this.placeholder('search-hint', '输入内容以搜索文件或聊天')],
+        title: t('文件和聊天'),
+        items: [this.placeholder('search-hint', t('输入内容以搜索文件或聊天'))],
       };
     }
     const hits = [...this.state.files, ...this.state.chats];
     if (hits.length === 0) {
-      return { id: 'search', title: '文件和聊天', items: [this.placeholder('search-empty', '没有匹配的文件或聊天')] };
+      return { id: 'search', title: t('文件和聊天'), items: [this.placeholder('search-empty', t('没有匹配的文件或聊天'))] };
     }
     return {
       id: 'search',
-      title: '文件和聊天',
+      title: t('文件和聊天'),
       items: hits.map((hit) => ({
         id: (hit.kind === 'file' ? 'file:' : 'chat:') + hit.id,
         icon: hit.kind === 'file' ? 'file' : 'message',
@@ -196,7 +197,7 @@ export class AddMenuModel {
       id,
       icon,
       label,
-      hint: on ? hint + '（已开启）' : hint,
+      hint: on ? hint + t('（已开启）') : hint,
       active: on,
       disabled: false,
     };

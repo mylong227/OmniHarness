@@ -11,6 +11,7 @@ import { renderMarkdown } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import { LongContentCollapser } from '../../models/LongContentCollapser.js';
 import { NumberFormatter } from '../../models/NumberFormatter.js';
+import { t } from '../../i18n/i18n.js';
 
 /** CollapsibleDoc 组件的入参。 */
 export interface CollapsibleDocProps {
@@ -47,14 +48,14 @@ export function CollapsibleDoc(props: CollapsibleDocProps): ReactElement {
         <span className="doc-fold__title" title={d.title}>
           {d.title}
         </span>
-        <span className="doc-fold__meta">约 {NumberFormatter.abbrev(d.chars)} 字</span>
+        <span className="doc-fold__meta">{t('约 {n} 字', { n: NumberFormatter.abbrev(d.chars) })}</span>
         <button
           type="button"
           className="doc-fold__toggle"
           aria-expanded={open ? 'true' : 'false'}
           onClick={onToggle}
         >
-          {open ? '收起 ▴' : '展开全文 ▾'}
+          {open ? t('收起 ▴') : t('展开全文 ▾')}
         </button>
       </div>
       {open ? (

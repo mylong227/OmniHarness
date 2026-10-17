@@ -36,6 +36,7 @@ export const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--defer-tools',
   '--guard-prompt-injection-mode',
   '--lsp',
+  '--max-steps',
   '--subagent-max-depth',
   '--subagent-concurrency',
   '--subagent-max-steps',

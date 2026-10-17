@@ -1,0 +1,213 @@
+﻿/* =========================================================================
+   OmniHarness Web UI — 浮层与模态：审批 / 对话框 / 文件夹选择器 / 命令面板 / toast
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish.css §7，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   7. 浮层与模态：审批 / 应用内对话框 / 文件夹选择器 / 命令面板 / toast
+   ========================================================================= */
+.overlay,
+.fp-overlay,
+.cmdk-backdrop {
+  background: rgba(6, 7, 9, 0.62);
+  backdrop-filter: none;
+}
+[data-theme='light'] .overlay,
+[data-theme='light'] .fp-overlay,
+[data-theme='light'] .cmdk-backdrop {
+  background: rgba(0, 0, 0, 0.32);
+}
+.overlay.show {
+  animation: fade-in var(--dur-2) var(--ease);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.modal,
+.fp-modal,
+.dlg {
+  border-radius: 16px;
+  border-color: var(--border-strong);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-2);
+  animation: modal-in var(--dur-2) var(--ease);
+}
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.modal h3 {
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+.modal .meta {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.modal pre {
+  background: var(--code-bg);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text);
+  border-color: var(--border-soft);
+}
+.modal button {
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 12.5px;
+  transition: filter var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.modal .allow {
+  background: var(--ok);
+  color: var(--on-ok);
+}
+.modal .deny {
+  background: var(--err);
+  color: var(--on-err);
+}
+.modal .always {
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+}
+.modal .allow:hover,
+.modal .deny:hover {
+  filter: brightness(1.08);
+}
+.modal .always:hover {
+  border-color: var(--border-strong);
+  background: var(--panel);
+}
+.dlg .dlg-msg {
+  font-size: 12.5px;
+}
+.dlg .dlg-confirm {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+  border: 1px solid color-mix(in srgb, var(--brand) 60%, transparent);
+}
+.dlg .dlg-confirm:hover {
+  background: color-mix(in srgb, var(--brand-bg) 84%, #ffffff);
+}
+.dlg .dlg-confirm.danger {
+  background: var(--danger);
+  color: var(--on-danger);
+  border-color: var(--danger);
+}
+.dlg .dlg-cancel {
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+}
+
+/* 命令面板：更大、更"空"的输入行 + 分组标题 */
+.cmdk {
+  border-radius: 14px;
+  border-color: var(--border-strong);
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-2);
+  animation: modal-in var(--dur-2) var(--ease);
+}
+.cmdk-input {
+  padding: 16px 18px;
+  font-size: 14px;
+  border-bottom-color: var(--border-soft);
+  font-family: var(--font-sans);
+}
+.cmdk-input::placeholder {
+  color: var(--faint);
+}
+.cmdk-group-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 10px 12px 4px;
+}
+.cmdk-item {
+  border-radius: 9px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+}
+.cmdk-item.active {
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.cmdk-hint {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+/* 文件夹 / 文件选择器 */
+.fp-crumb,
+.fp-input {
+  background: var(--code-bg);
+  border-radius: 9px;
+  font-size: 11.5px;
+}
+.fp-item {
+  border-radius: 9px;
+  padding: 8px 10px;
+}
+.fp-item.fp-file.selected {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand) 44%, transparent);
+}
+.fp-item.fp-file .fp-check {
+  border-radius: 6px;
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+}
+.fp-item.fp-file.selected .fp-check {
+  background: var(--brand-bg);
+  border-color: var(--brand-bg);
+  color: var(--brand-on);
+}
+.fp-primary {
+  background: var(--brand-bg);
+  border-color: var(--brand-bg);
+  color: var(--brand-on);
+}
+.fp-primary:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--brand-bg) 84%, #ffffff);
+}
+.fp-btn,
+.fp-new {
+  border-radius: 9px;
+  font-size: 12.5px;
+}
+.fp-new {
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+
+/* toast：底部居中、带图标位、进出有位移 */
+.toast {
+  border-radius: 11px;
+  padding: 10px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-2);
+  border-color: var(--border-strong);
+  transition: opacity var(--dur-2) var(--ease), transform var(--dur-2) var(--ease);
+}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+}
+

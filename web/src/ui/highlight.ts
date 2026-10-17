@@ -327,16 +327,26 @@ function tokenizeHtml(src: string): Tok[] {
   return out;
 }
 
+/**
+ * token 类型 → CSS 类名。
+ *
+ * 2026-10-17 修正（真实缺陷，非改名）：这里原本发 `tok-cmt` / `tok-typ` / `tok-pln`，
+ * 而 `web/styles/highlight.css` 定义的是 `.tok-com` / `.tok-type` / `.tok-plain`
+ * ⇒ 注释、类型、普通文本三类**从来没有拿到颜色**，文件预览的语法高亮一直只对了一半，
+ * 且因为不报错、只是「少了一层色」，长期没人发现（单测也照不到颜色是否真的生效）。
+ * 三个名字已与 CSS 对齐；`highlight.css` 里同时补齐了 `.tok-plain` 的声明。
+ * 再改这里时请一并核对 `web/styles/highlight.css` 的 `.tok-*` 清单。
+ */
 const CLS: Record<Tok['t'], string> = {
-  comment: 'tok-cmt',
+  comment: 'tok-com',
   string: 'tok-str',
   kw: 'tok-kw',
   num: 'tok-num',
   fn: 'tok-fn',
-  type: 'tok-typ',
+  type: 'tok-type',
   prop: 'tok-prop',
   punct: 'tok-pun',
-  plain: 'tok-pln',
+  plain: 'tok-plain',
 };
 
 /**

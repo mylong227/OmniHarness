@@ -22,6 +22,8 @@
  * 真起服务的端到端接线另有一条判据（`servePortConflictE2E.test.ts`）。
  */
 
+import { ServeInstance, type ServeInstanceRecord } from './serveInstance.js';
+
 /** 端口占用者分类。 */
 export type PortHolderKind = 'free' | 'omni' | 'foreign';
 
@@ -113,9 +115,16 @@ export class ServePortConflict {
    * 生成可行动的提示（三条出路一次讲清）。
    * @param port 目标端口。
    * @param holder 占用者信息。
+   * @param record 该端口的**实例记录**（`serve-<port>.pid`，2026-10-15 增；缺省＝无记录）。
+   *   它补的是健康体问不到的那半：**上一个跑在这台机器上的 serve 是谁、什么时候起的、在哪个工作区**。
+   *   给了就如实转述，并**明说与健康体的一致/不一致**——不一致时以健康体为准，绝不替记录圆场。
    * @returns 多行提示文本。
    */
-  public static advice(port: number, holder: PortHolder): string {
+  public static advice(
+    port: number,
+    holder: PortHolder,
+    record?: ServeInstanceRecord | undefined,
+  ): string {
     const head =
       holder.kind === 'omni'
         ? `端口 ${String(port)} 已被**另一个 OmniHarness serve** 占用` +
@@ -125,7 +134,25 @@ export class ServePortConflict {
               : `，已运行 ${String(Math.round(holder.uptimeSeconds / 60))} 分钟`
           }）。`
         : `端口 ${String(port)} 被**非本程序的进程**占用（${holder.detail}）。`;
-    const lines = [head, '三条出路：'];
+    const lines = [head];
+    if (record !== undefined) {
+      const described = ServeInstance.describe(record);
+      if (holder.kind === 'omni' && holder.pid !== undefined && record.pid !== holder.pid) {
+        lines.push(
+          `  ⚠️ 实例记录与健康体**不一致**：记录 ${described}，健康体说占用者是 PID ${String(holder.pid)}` +
+            '（以健康体为准；记录文件可能属于更早的实例）',
+        );
+      } else if (holder.kind === 'omni') {
+        lines.push(`  实例记录：${described}`);
+      } else {
+        lines.push(
+          `  该端口留有实例记录：${described}（但健康体表明占用者不是本程序 ⇒ 以健康体为准）`,
+        );
+      }
+    } else if (holder.kind === 'omni') {
+      lines.push('  该实例没有留下记录文件（旧版本启动，或记录已被清理）');
+    }
+    lines.push('三条出路：');
     lines.push(
       `  ① 换端口启动：omniharness serve --port ${String(port + 1)}（或 npm start -- --port ${String(port + 1)}）`,
     );

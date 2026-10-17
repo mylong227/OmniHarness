@@ -33,6 +33,7 @@ import { icon } from '../models/Icon.js';
 import type { FsNode } from '../../types/models.js';
 import type { SearchHit } from '../../types/models.js';
 import type { SessionEntry } from '../shared.js';
+import { t } from '../i18n/i18n.js';
 
 /** SessionPanel 组件的入参。 */
 export interface SessionPanelProps {
@@ -59,10 +60,12 @@ export interface SessionPanelProps {
   onToggleScope?: () => void;
   /** 当前激活的右栏面板 key（「插件 / 设置」入口的高亮态）。 */
   activePane?: string;
-  /** 打开右栏某面板（插件 / 设置入口与页脚设置行走这里）。 */
+  /** 打开右栏某面板（插件入口等走这里；设置不再走面板，见 onOpenSettings）。 */
   onOpenPane?: (key: string) => void;
   /** 打开命令面板（品牌头的入口按钮；快捷键 Ctrl/Cmd+P 仍可用）。 */
   onOpenPalette?: () => void;
+  /** 打开设置模态（2026-10-17 起设置固定在页脚，见 SidebarFooter 头注释）。 */
+  onOpenSettings?: () => void;
   /** SSE 是否已连接（页脚徽标；单测缺省按已连接渲染）。 */
   connected?: boolean;
   /** SSE 三态（页脚徽标文案 / 配色，见 SidebarFooter）。 */
@@ -98,6 +101,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     activePane,
     onOpenPane,
     onOpenPalette,
+    onOpenSettings,
     connected,
     streamState,
     theme,
@@ -249,7 +253,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       })
       .catch(() => {
         if (alive) {
-          setTreeError('文件树不可用');
+          setTreeError(t('文件树不可用'));
           setTreeLoaded(true);
         }
       });
@@ -327,15 +331,15 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
    */
   const assignToCurrentProject = async (sessionId: string): Promise<void> => {
     if (wsPath === '') {
-      toast('当前项目未知，无法归入', 'err');
+      toast(t('当前项目未知，无法归入'), 'err');
       return;
     }
     try {
       await api.setSessionWorkspace(sessionId, wsPath);
-      toast('已归入当前项目');
+      toast(t('已归入当前项目'));
       onWorkspaceSwitched?.();
     } catch (e) {
-      toast('归入失败：' + (e as Error).message, 'err');
+      toast(t('归入失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -350,7 +354,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       setTreeError(null);
       onWorkspaceSwitched?.();
     } catch (e) {
-      toast('添加失败：' + (e as Error).message, 'err');
+      toast(t('添加失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -368,7 +372,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       setTreeError(null);
       onWorkspaceSwitched?.();
     } catch (e) {
-      toast('切换失败：' + (e as Error).message, 'err');
+      toast(t('切换失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -397,7 +401,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
 
   /** 下一个视图的提示文案（同时作为 aria-label）。 @returns 中文字样 */
   const nextViewTitle = (): string =>
-    view === 'time' ? '切换到按工作区分组' : view === 'ws' ? '切换到任务卡视图' : '切换到时间分组';
+    view === 'time' ? t('切换到按工作区分组') : view === 'ws' ? t('切换到任务卡视图') : t('切换到时间分组');
 
   /** 进入行内重命名：预填当前标签，并清掉其他行内态。 */
   const startRename = (s: SessionEntry): void => {
@@ -533,7 +537,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   };
 
   const listOpen = query.trim() !== '';
-  const wsName = wsPath === '' ? '未选择项目' : PathJoiner.basename(wsPath);
+  const wsName = wsPath === '' ? t('未选择项目') : PathJoiner.basename(wsPath);
   const menuSession = menu === null ? undefined : sessions.find((s) => s.id === menu.id);
 
   /**
@@ -567,30 +571,30 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       <button
         className={rail ? 'new-chat compact' : 'new-chat'}
         onClick={onNew}
-        title="新建会话"
-        aria-label="新建会话"
+        title={t('新建会话')}
+        aria-label={t('新建会话')}
       >
         <span className="nc-ico" aria-hidden="true">
           {icon('plus', { size: 15 })}
         </span>
-        {rail ? null : <span>新会话</span>}
+        {rail ? null : <span>{t('新会话')}</span>}
       </button>
       {/* 插件：截图式侧栏的一等导航项（打开右栏插件面板）。 */}
       <button
         className={'side-item' + (activePane === 'plugins' ? ' active' : '')}
         onClick={() => onOpenPane?.('plugins')}
-        aria-label={activePane === 'plugins' ? '插件（当前页）' : '插件'}
+        aria-label={activePane === 'plugins' ? t('插件（当前页）') : t('插件')}
       >
         <span className="si-ico" aria-hidden="true">
           {icon('plug', { size: 16 })}
         </span>
-        {rail ? null : <span>插件</span>}
+        {rail ? null : <span>{t('插件')}</span>}
       </button>
       {/* 顶部：工作区/项目切换器（Codex 式一等入口）。收成图标条时只留这一个按钮。 */}
       <div className="ws-switch">
         <button
           className="ws-switch-btn"
-          title={wsPath || '选择项目'}
+          title={wsPath || t('选择项目')}
           aria-haspopup="menu"
           aria-expanded={wsMenuOpen ? 'true' : 'false'}
           onClick={() => setWsMenuOpen((v) => !v)}
@@ -612,20 +616,20 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
                 addProject();
               }}
             >
-              + 添加项目
+              {t('+ 添加项目')}
             </button>
           </div>
         ) : null}
       </div>
       {/* 工作区区块头：标题 + 图标簇（搜索 / 范围 / 视图 / 新增项目）；图标条态只留搜索。 */}
       <div className="side-sec-head">
-        <span className="ssh-label">{rail ? null : '工作区'}</span>
+        <span className="ssh-label">{rail ? null : t('工作区')}</span>
         <span className="flex-spacer" aria-hidden="true"></span>
         <span className="ssh-actions">
           <button
             className={'ws-add' + (searchOpen ? ' active' : '')}
-            title={searchOpen ? '收起搜索' : '搜索会话与文件'}
-            aria-label={searchOpen ? '收起搜索' : '搜索会话与文件'}
+            title={searchOpen ? t('收起搜索') : t('搜索会话与文件')}
+            aria-label={searchOpen ? t('收起搜索') : t('搜索会话与文件')}
             aria-expanded={searchOpen ? 'true' : 'false'}
             onClick={toggleSearch}
           >
@@ -638,10 +642,10 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
                   className={'ws-add' + (scopeAll === true ? ' active' : '')}
                   title={
                     scopeAll === true
-                      ? '当前显示**全部项目**的会话（点击只看本项目）'
-                      : '当前只显示**本项目**的会话（点击看全部项目）'
+                      ? t('当前显示**全部项目**的会话（点击只看本项目）')
+                      : t('当前只显示**本项目**的会话（点击看全部项目）')
                   }
-                  aria-label={scopeAll === true ? '切换为只看本项目' : '切换为看全部项目'}
+                  aria-label={scopeAll === true ? t('切换为只看本项目') : t('切换为看全部项目')}
                   aria-pressed={scopeAll === true ? 'true' : 'false'}
                   onClick={onToggleScope}
                 >
@@ -656,7 +660,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               >
                 {icon('columns', { size: 14 })}
               </button>
-              <button className="ws-add" title="添加项目" aria-label="添加项目" onClick={addProject}>
+              <button className="ws-add" title={t('添加项目')} aria-label={t('添加项目')} onClick={addProject}>
                 {icon('plus', { size: 14 })}
               </button>
             </>
@@ -668,11 +672,11 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           <input
             className="session-search"
             ref={searchInputRef}
-            placeholder="搜索会话…"
+            placeholder={t('搜索会话…')}
             value={query}
             spellCheck={false}
             role="combobox"
-            aria-label="搜索会话与文件"
+            aria-label={t('搜索会话与文件')}
             aria-autocomplete="list"
             aria-expanded={listOpen ? 'true' : 'false'}
             aria-controls={SEARCH_LIST_ID}
@@ -721,7 +725,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           }}
         >
           <span className="ws-caret">{treeOpen ? '▾' : '▸'}</span>
-          {rail ? null : <span>文件</span>}
+          {rail ? null : <span>{t('文件')}</span>}
         </button>
       </div>
       {treeOpen ? (
@@ -752,7 +756,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               onSelect(menu.id);
             }}
           >
-            打开
+            {t('打开')}
           </button>
           <button
             role="menuitem"
@@ -761,7 +765,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               startRename(menuSession);
             }}
           >
-            重命名
+            {t('重命名')}
           </button>
           <button
             role="menuitem"
@@ -770,7 +774,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               void onFork(menu.id);
             }}
           >
-            复制为副本
+            {t('复制为副本')}
           </button>
           {/* 排序：不用拖拽也能把会话钉到最前/最后（Codex 式右键菜单的做法）。 */}
           <button
@@ -780,7 +784,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               moveToEdge(menu.id, 'top');
             }}
           >
-            移到顶部
+            {t('移到顶部')}
           </button>
           <button
             role="menuitem"
@@ -789,7 +793,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               moveToEdge(menu.id, 'bottom');
             }}
           >
-            移到底部
+            {t('移到底部')}
           </button>
           <button
             role="menuitem"
@@ -801,7 +805,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               void assignToCurrentProject(menu.id);
             }}
           >
-            归入当前项目
+            {t('归入当前项目')}
           </button>
           <button
             role="menuitem"
@@ -811,7 +815,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               askDelete(menu.id);
             }}
           >
-            删除…
+            {t('删除…')}
           </button>
         </div>
       ) : null}
@@ -821,6 +825,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         streamState={streamState}
         theme={theme ?? 'dark'}
         onToggleTheme={onToggleTheme}
+        onOpenSettings={onOpenSettings}
       />
     </div>
   );

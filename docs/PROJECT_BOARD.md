@@ -2786,6 +2786,300 @@ serve 侧因此**拒绝注入保险库**（注入进去只会显示"能用但永
 以前用"内存随机密钥"写下的密文**本来就不可恢复**（密钥从未落盘）。换到默认密钥文件后，读那些条目会**明确报错**
 （fail-closed），而**不会**返回错误明文——刻意如此：宁可报错，也不让调用方拿到错误的凭据。
 
+### 8.19 第 9 轮：容量面板的缓存分因**真接线**（销 §8.11 遗留）+ 修掉日志「恒报端点未上报」（2026-10-15）
+
+口径：用户点名的唯一剩余项就是 §8.11 末尾那条「会话面板尚未带分因」。做它的时候**当场又抓到一个真缺陷**。
+
+#### ① 遗留的实质：分因器在场，但**逐条信号从没落过盘**
+
+`StepContextBuilder.measurePrefixReuse` 自 2026-10-03 起就在真实请求路径上量前缀复用率，
+但它**只打一条 debug 日志**（`context.prefix_reuse`）⇒ 前缀这一路信号从未进入事件日志，
+`ContextUsageReport.cache` 只有聚合 token 数。于是"命中率低"在面板上永远只是一个数字，
+与 §8.11 想要的可行动结论差着**最后一米**（本仓最常见的"声明未接线"形态之一）。
+
+修法：`ModelContextSnapshot` 新增可选 `prefixReuseRatio`（**只存数值证据**，与既有 `tokens` 同口径），
+由 `StepContextBuilder.prefixReuseRatioOfLastBuild` 交给 `StepRunner.snapshotOf`。
+两条纪律：**首次请求写缺省而不是 0**（0 的含义是"前缀被完全改写"，与"没有基准"完全相反）；
+**先四舍五入再两处共用**（日志与快照逐位一致，否则面板与日志会各说各话）。
+
+#### ② 修掉的真缺陷：日志分因**恒判 `not-reported`**
+
+观测器读的字段是 `cachedPromptTokensReported`，而服务端传的是 `ContextCacheStat`
+（字段名 `cachedPromptTokens`）⇒ 生产路径上该字段**永远是 undefined**，分因器于是恒判
+`not-reported`：明明是"**上报了**、只是没命中"，日志却写"端点未上报缓存字段（…）⇒ 0% 是假读数"。
+**为什么一直没被发现**：§8.11 的判据只钉了 `hitRate/promptTokens/cachedPromptTokens/calls` 四个数字，
+**没钉 `cause`** —— 这正是"判据不钉结论字段 ⇒ 结论字段可以随便错"的又一例。
+
+修法：`CacheHitRateSample` 新增可选 `attribution`，服务把**已经算好的** `lastCall` 结论透传给观测器
+⇒ 面板与日志**同源**，不可能各说一套。回归判据（修前必红）：6 次上报 0 命中 + 最近一次前缀比 0.5
+⇒ 日志 `cause` 必须是 `prefix-rewrite` 而**不是** `not-reported`。
+
+#### ③ 面板结论的口径：`lastCall` 与聚合数字**刻意分开**
+
+`ContextCacheStat` 新增 `lastCall: { cause, reason, evidence, promptTokens, cachedPromptTokens }`：
+
+- token 数与信号取自**同一条** model 事件（该次调用自己的 `usage` + 它自己的前缀比）——
+  **不是**"聚合 token 配最后一条事件的信号"，后者在"最后一次没上报"时会张冠李戴，
+  产出一句看着精确、实则对不上的理由；
+- `gapMs` 取最近两次**上报**调用的时间戳之差；时间戳非法或**倒序**时不给信号（时钟回拨时宁缺勿编）；
+- 额外修掉分因器的两处"说过了头"：缺前缀占比 / 缺间隔时改用
+  `有上报但缺…信号 ⇒ 无法归因（不是"没问题"，是"没测到"）`，不再无条件宣称"前缀稳定"；
+  新增 `reportedCalls: 0`，让"还没跑过模型调用"与"跑过了但端点不给字段"在理由里可分辨。
+
+前端：缓存行显示 `缓存命中 57.8% · 前缀被改写`，悬停给 `基于 N 次调用 · <一句话理由>`；
+`hit` 与无数据**不给标签**（命中不需要运维动作，常驻标签只会变成噪声）；
+旧服务端没发 `lastCall` 时按"没有分因"渲染（**不显示 `undefined`**）。
+
+#### ④ 判据（逐条 + 变异自证）
+
+| 判据                                                            | 钉住什么                                                                                                                                                                                            |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/unit/prefixReuseSnapshot.test.ts`（新，真跑 Agent 回合） | 快照必须带实测值、**首次请求必须缺省**、每条值必须与 `PrefixStability.prefixReuse` 对"上一次实际发出的 messages"算出的值**逐位相同**                                                                |
+| `tests/unit/contextUsageCache.test.ts`（+9 例）                 | 逐因可单独触发（含 `cold-start`/`ttl-expired`/`unknown`/`hit`）、TTL 边界（恰好等于不算过期）、**信号取最近一次上报调用那条事件**（尾随的低比值辅助调用不得被借用）、RPC 字段稳定、**日志分因回归** |
+| `tests/unit/cacheMissAttributionAnalyst.test.ts`（+2 例）       | 缺信号时不得出现"前缀稳定"（附正对照）；`reportedCalls=0` 的理由必须点明 0 次                                                                                                                       |
+| `tests/unit/cacheHitRateWatch.test.ts`（+1 例）                 | 透传结论优先，且**不得改动**坍塌判定用的四个数字（附正对照）                                                                                                                                        |
+| `tests/unit/stepContextBuilderPrefix.test.ts`（+1 例）          | 首建缺省 / 同输入恒 1 / **改写头部必须落到下限之下**（否则面板永远报不出 `prefix-rewrite`）                                                                                                         |
+| `web/test/contextUsageCacheView.test.mjs`（+3 例）              | 标签映射、命中与无数据不给标签、悬停含样本量与理由、**旧服务端缺字段不得渲染 `undefined`**                                                                                                          |
+
+**变异自证（本机实跑）**：① 去掉 `StepRunner` 里的 `prefixReuseRatio` ⇒ 接线判据红；
+② 撤掉观测器的 `attribution` 透传 ⇒ 日志分因回归判据红（`not ok 21/22`，还原后 **44/44 绿**）。
+`web:test` 的该文件 **10/10**；门禁 `fast` **10/10** + `typed` **2/2**。
+
+#### ⑤ 诚实边界
+
+- `lastCall` 说的是**最近一次上报调用**，不是会话聚合；聚合命中率口径（`Σ cached / Σ prompt`）
+  与告警阈值（`OMNI_CACHE_HIT_WARN`）**一字未改**，前端文案也写的是"最近一次"。
+- 辅助调用（回合末记忆抽取等）**不进**统计也不影响该结论；`gapMs` 因而只在两次上报调用之间可算。
+- 旧会话事件里没有前缀比 ⇒ 结论是 `unknown` 且理由明写"缺前缀占比"，
+  **不会**因为"没测到"而报成"前缀稳定"。
+- §8.11 的另一半（"会话累计被冷启动稀释"这一口径问题）**未动**：那属于换口径，需要同时给出两种
+  口径并标注，是独立一轮——本轮只把"面板说得出原因"这条做完。
+
+#### ⑥ 全量验证与本轮**顺手取证的既有红灯**（都不属本轮引入，逐条留档）
+
+- `npm test`（clean 产物）：**3401 例 / 1 失败 / 6 跳过**——唯一失败是下面那条**既有**环境红灯。
+- `npm run web:test`：**418/418**（本轮 +3）；`runGates` `fast` **10/10** + `typed` **2/2**。
+- **真机（真 Chrome + 真 SPA + 桩数据）**：`node web/test/visualProbe.mjs --panes=tools --themes=dark --widths=1280`
+  ⇒ 12 张，容量弹层页脚实测渲染 `MCP 6 · 系统 14    缓存命中 62% · 前缀被改写`
+  （存档 `web/archive/polish-dark-state-capacity-1792070600097.png`，gitignored）。
+  顺带把探针夹具的 `context.usage.cache` 从 `{hitRate:0.62, calls:96}` 补成**真实形状**
+  （`promptTokens/cachedPromptTokens/calls/hitRate/lastCall`）——否则探针永远只走"旧服务端没有分因"的降级分支，
+  截图也就照不出本轮新增的那半句。
+- **既有红灯 A：`cliLocalCommands.test.ts` ① `doctor` 退出码 1**（与本轮无关，已用**洁净树对照**证明）：
+  doctor 如实报了 2 项环境问题——`未检测到可用沙箱后端（bwrap / sandbox-exec / Windows RestrictedToken 均不可用）`
+  与 `插件目录不可读或不存在: ~/.omniharness/plugins`，而该判据断言 exit 0。
+  **对照实验**：`git stash push --include-untracked` ⇒ 重新 `npm run build` ⇒ 同一条判据**同样红**
+  ⇒ 属**本机环境**（无提权令牌 + 无插件目录），不是本轮引入。**未改判据、未改 doctor**：
+  「doctor 发现问题该不该非零退出」是产品口径（它现在是"有问题即 1"），须单独一轮定，先如实登记。
+- **既有红灯 B：`httpServer.test.ts` 的「HTTP：静态页返回 200」偶发**（`fetch failed`，全量并发下 1/2 次命中；
+  隔离单跑 **3/3 绿**）。与 §五 可复现性台账里那条同族（会话早期 `localhost ⇒ ::1` 与并发干扰）。
+  **未声称已根治**——本轮只登记读数与复现条件，不改动该判据。
+- **既有红灯 C：`tests/integration/liveUiE2e.test.js`「UI 结构相对基线有变化」**（`npm run test:integration`：
+  16 例 / 1 失败）。差异全是**壳层改版**留下的：右栏页签 12 → 3、图标栏 9 → 0、空态文案与输入框占位变化
+  ——即第六十九/七十轮的「三栏壳层 + PanelPicker」改版，而集成层那份**冻结 UI 基线没跟着重写**。
+  **对照实验**：`git stash push --include-untracked` ⇒ `npm run build` + `npm run web:build` ⇒ 同一条**同样红**
+  ⇒ 与本轮无关。**未动基线**：`OMNI_UI_BASELINE_UPDATE=1` 重写基线属"承认新壳层为基线"的产品动作，
+  且该判据**不在** §6 的官方门禁口径内（`npm test` / `web:test` / 三闸），须单独一轮决。
+- **上述红灯的现状（同日补记，处置见 §8.20）**：**A 与 C 已修**——A 是**判据**写错了口径
+  （把"本机健康"当成了契约；doctor 的语义本来就是"有问题即非零"），C 是**基线**没随壳层改版重写；
+  **B 仍在**（`httpServer` 静态页的并发偶发，隔离跑 3/3 绿），未声称已根治。收口轮的
+  `npm test` 因此变成 **3411 例 / 0 失败 / 6 跳过**。
+
+### 8.20 第 10 轮：剩余优化项收口（2026-10-15，用户口径「请你完成」）
+
+本轮把上一轮盘点出的**全部剩余项**逐条做完。①–④ 见下（⑤ serve 单实例锁 / ⑥ CLI 组合化另列 §8.21 / §8.22）。
+
+#### ① 仓库根部误提交残留清仓
+
+`.commitmsg-ports`（提交信息草稿）与 `.tmp-newcred.mjs`（一次性改造脚本，文件头自己写着"不入库"）全仓**零引用**，
+已 `git rm`；并按**前缀**补忽略规则（`.commitmsg-*` / `.tmp-*.mjs` / `.tmp-*.txt`）——
+git 历史里已多次出现"chore: 移除误提交的临时文件"同类提交，即"删了还会再犯"，故这次连规则一起收。
+证据：`git check-ignore -v` 三条规则逐条命中；`fast` 门禁 10/10。
+
+#### ② `doctor` 退出码：语义明确化 + 假红判据修正（**语义未变**）
+
+- 实现侧语义（`无问题 0 / 有问题项 1`）**本来就写着**且有另一处判据（`cliSystem.test.ts`：无 key ⇒ 非零）钉着；
+  假的是 `cliLocalCommands.test.ts` ① 那条写死 `exit 0` 的断言——它把"**本机健康**"写进了契约，
+  而缺插件目录、无 OS 沙箱后端都是**合法本机状态**（本机实测两条都命中 ⇒ 必然假红）。
+- 处置：把映射抽成**唯一实现** `DoctorRunner.exitCode(report)`（`cliServerCmds` 改为调用它），
+  ① 改为钉**一致性**（`code 0 ⇔ [OK]` / `code 1 ⇔ [WARN]`），新增确定性反向判据 ①-b（`--config` 指向不存在文件 ⇒ 非零），
+  `doctor.test.ts` 用**合成报告**钉映射两个方向并带正对照（只改 `issues` ⇒ 退出码必须跟着变），
+  `scripts/realRunSmoke.mjs` 里同一处假设一并改正，`docs/CLI_REFERENCE.md` 补上退出码语义（此前全仓文档零处写明）。
+- 复核：`doctor` / `uiBaseline` / `cliLocalCommands` / `cliSystem` **28/28**。
+
+#### ③ 集成层冻结 UI 基线随壳层改版重写（并把一条假绿字段换掉）
+
+- `uiBaseline.json` 还是改版前的快照（12 个右栏页签、`railItems: 9`、带 emoji 空态），
+  而第六十九/七十轮已把入口收进 `PanelPicker` ⇒ `test:integration` 的 `liveUiE2e` 长期红（洁净树对照已证明非本轮引入）。
+- 重写后的快照是**更强**的契约：面板入口从"数 9 个图标"变成 **17 个入口的具名清单**。
+  同时**换掉假绿字段** `railItems`（新壳层下恒为 0）⇒ `panelMenuItems`（`.pp-menu .pp-item` + `.pp-label`），
+  采集前置条件由 `liveUiE2e` 自证（真实点击展开、断言 ≥12 个入口、采完收起并断言收起成功），
+  单测补**选择器漂移守卫**。
+- 复核：`dist/tests/integration/*.test.js` **16/16 绿**（改前 15/16）；`uiBaseline.test.ts` 6/6。
+
+#### ④ 剩余未定价模型键：**查出一个更值钱的缺陷**——出货预设指向**已下线型号**
+
+口径是"有可复核来源就填，没有就更新理由"。按此复核时先撞见一件事：
+
+- **Moonshot 官方模型列表页明文登记**：`kimi-k2` 系列（含出货默认的 `kimi-k2-turbo-preview` /
+  `kimi-k2-0905-preview`）**已于 2026-05-25 下线**，`moonshot-v1-8k/32k/128k` **已于 2026-08-31 下线**；
+  而 `defaults/providers.json` 的 moonshot 预设出货的**正是这 5 个**（默认模型就是 `kimi-k2-turbo-preview`）
+  ⇒ 零配置选该预设**必然失败**。这是"出货的东西不能用"，比"少一个价目数字"严重得多。
+- **处置（显式行为变更）**：预设迁移到现役三型 `kimi-k2.6`（默认）/ `kimi-k2.7-code` / `kimi-k3`，
+  并把这三种的**厂商直连单价**填进价目表（0.95/4.00 cache 0.16、0.95/4.00 cache 0.19、3.00/15.00 cache 0.30）；
+  `kimi-k2` 登记项随之**删除**（登记的前提是"仍在出货"）。
+- **另两键的理由重写为可复核事实**：`glm-4-plus` —— 官方页只给**人民币单档**「5 元/百万」，
+  与表内"USD / 百万且分输入输出"口径不可直接换算（要引入汇率假设且缺输出价）⇒ 仍不猜；
+  `qwen3-coder-plus` —— 聚合库条目**成本字段为空**（`dashscope/…` 与 `…-2025-07-22` 两条皆然），
+  官方计费页 JS 渲染取不到正文 ⇒ 仍不猜。两者都**仍在出货**，故登记保留。
+- **来源登记加一条**（新快照 4125 条 / blob `1cdad96a…`）：**逐项复核 2026-10-11 那 17 个键，数值完全一致**
+  ⇒ 旧条目仍有效；新条目只记"复核结论 + 本轮新增 + 一处边界"（`kimi-k2.7-code-highspeed` 无厂商直连价，
+  不进预设，会前缀命中同族价 ≈0.95/4.00，真价约 1.90/8.00 ⇒ 仍比兜底价更接近，写在 note 里）。
+- **判据**：`routePriceSources` 新增 ③-b（新批次 3 键必须精确命中，附"删键即不再精确"的正对照）并改写 ②
+  （唯一例外 3.5 Haiku 从"每条 note 都要复述"改为"来源登记里必须留痕"——后者在新增批次时会逼新条目讲无关的事，本轮实测撞上）；
+  `routePricingDefaults` ⑤/⑥ 的无价目样本从**已下线**的 `kimi-k2-turbo-preview` 换成仍在出货的 `qwen3-coder-plus`。
+  实跑：三个价目判据 **19/19**，出货模型清点 **37 项**全部落在"有价目 / 有登记"之一。
+- **诚实边界**：**Zhipu / DashScope 预设未动**——官方页只说 GLM-5.x 是"现役核心模型"，**没有**像 Kimi 那样明文写"已下线"，
+  不据猜测迁移（`glm-4.5*` 仍有厂商直连价目且在跑）；`moonshot-v1-*` 旧价目行保留（老配置仍能算钱），只是不再出货。
+
+### 8.21 第 10 轮续：`serve` 实例记录（销 §8.17 的"未修边界"）
+
+§8.17 当时的原话是：「serve 没有守护/自清机制……后者需要引入 PID 文件/单例锁策略，属独立决策」。
+本轮把它收掉，但**没有**去改"常驻服务"的语义，也**没有**引入任何会杀进程的默认行为。
+
+#### 为什么还值得做一个文件（`/healthz` 已经报 pid 了）
+
+因为 `/healthz` 只在**有人应答**时成立：进程已死、端口被别人抢走、或用户不记得上次用哪个端口时，
+健康体什么都问不到。而排障第一问恰恰是"上一个跑在这台机器上的 serve 是谁、什么时候起的、在哪个工作区"。
+
+#### 关键设计（三条纪律都有判据）
+
+- `~/.omniharness/serve-<port>.pid`，**一端口一份**、JSON 自描述、先写临时文件再 `rename` 换入；
+- **只删自己的记录**（`retire` 核对 pid）——顺手删掉别人正在跑的记录比留下陈旧记录更难查
+  （与 `WorkflowRunLock` 的"只删自己的锁"同口径）；
+- **脏记录当"没有记录"**（非法 JSON / 缺字段 / pid 非正整数）；**`isAlive` 把 EPERM 当存活**
+  （权限不足 ≠ 进程不在，否则会把别人的 serve 判死并"接管"）；
+- **只清已死进程的记录**（`sweep`，启动与绑定失败两处调用并如实打印清掉了哪条）——记录不会长期撒谎；
+- 记录**不是锁**：真正的互斥是操作系统的端口绑定，任何自研锁都只会更弱；`--take-port` 的守卫一字未改。
+
+#### 判据与实跑
+
+`serveInstance.test.ts` 6 例（往返 + 8 种脏记录 / 只删自己的 / sweep 两分支 / EPERM 与 ESRCH / advice 四种组合 /
+describe 缺字段不补默认值）；`servePortConflict.test.ts` ⑤ 改为钉"调用形状 + 记录接线"并新增**正对照**
+（删掉 `retire` 调用必须检得出）；`servePortConflictE2E.test.ts` 加了 ①-b/②/③ 三条真进程断言
+（**hermetic**：`HOME`/`USERPROFILE` 指向临时目录，不碰用户真实家目录）。
+
+实跑：`serveInstance` 6/6、`servePortConflict` 5/5、E2E 1/1（真起 3 个 serve）；`fast` 10/10 + `typed` 2/2。
+
+### 8.22 第 10 轮续：CLI **两段加载**（`kv list` 比值 7.3 → **5.3**）与仍未拆的部分
+
+#### 做了什么
+
+`exec.ts` 原先在慢路径上直接 `import('./execCli.js')`，而 `ExecCli` 在单继承链**链顶**
+⇒ 连 `kv list` 这种纯本地命令也要付 `Agent`/`Runtime`/编排栈的 ESM 解析成本。
+本机实测模块导入（含 ~75ms Node 启动）：`cliDataCmds` ≈ 710ms、`execCli` ≈ 990ms ⇒ 链顶 **~280ms**。
+
+修法用一个 ESM 事实：**继承只向上依赖，加载祖先不会加载后代**。新增 `src/cli/execLocal.ts`
+（`ExecLocal extends CliDataCmds`）持有 18 个本地命令的分发；`exec.ts` 先加载它，
+只有链顶命令（`compare`/`native`/`goal`/`workflow`/`tui`/`routines`/`lsp`/`evolution`/`capability`/`license`）
+与默认 agent 路径才加载 `execCli.js`。
+
+**为什么是组合而不是让 `ExecCli` 继承 `ExecLocal`**：单继承链是线性的，`ExecCli` 必须继承链顶才能拿到
+`goal`/`workflow`/`execute`；改去继承链基会**丢掉链顶**（首版这么写过，`tsc` 当场报出一串
+"属性不存在"）。故 `ExecCli` 持有一个 `ExecLocal` 实例并**先委托**，判定**只有一份**。
+
+#### 判据
+
+`cliStartupBudget.test.ts` 新增 ①-b（`exec.ts` 必须动态加载并**真的调用**链基、**不得静态 import** 链顶；
+`execLocal.ts` 不得 import 链顶/`Agent`/`Runtime`；附**正对照**：把链顶改回静态 import 必须被检出）。
+② 的估计量由"3 次中位数"改为"3 次最小值"——**改的是估计量，不是预算（仍 ≤10）**：
+同一份代码在中位数口径下几分钟内给出 **12.41** 与 **4.12**（分子分母同步漂移；本机当时确实有负载），
+而固定装配成本的噪声只会抬高读数 ⇒ 最小值是最少受干扰的估计。
+实跑：`--version` 124ms / `kv list` 657ms ⇒ **比值 5.30**，连跑两次稳定；CLI 七文件 **36/36**。
+
+#### 诚实边界（下一步是什么、怎么验收）
+
+- 链基那 6 个类（`CliCredentialBuild ← CliBuildConfig ← CliIdentityDaemonCmds ← CliServerCmds ←
+CliMcpCmds ← CliDataCmds`）**仍是单继承**；按同样手法**再拆一层**即可继续降（例如把 `daemon`/`identity`
+  单独放到 `ExecLocal` 之下的更薄一层）。本次**没有**做，因为每拆一层都要把该层用到的 `protected`
+  方法显式化，属"组合替代继承"的完整改造。
+- `license` / `capability` / `evolution` 仍走链顶（它们本来就依赖链顶装配），故这三条命令的启动成本未变。
+- 验收口径（下次做时照此判）：**同一台机器、同一命令**的 `kv list / --version` 比值继续下降且不反弹；
+  结构上必须有"该层不被更上层 import"的判据（照 ①-b 的写法），否则拆了也会被后人import 回去。
+
+### 8.23 第 10 轮收官：三套实跑数字 + 一条**环境红灯**的口径修正
+
+**收官实跑（2026-10-15，clean build）**：`npm test` **3411 例 / 0 失败 / 6 跳过**（本轮开始时是 3401/1 失败）；
+`npm run web:test` **425/425**；`tests/integration/**` **16 例 / 16 通过 / 0 跳过 / 0 失败**（Laya 已修复，见下）；
+`runGates` `fast` **10/10** + `typed` **2/2**。§8.19 登记的三条红灯里 **A/C 已修**、B 仍是已知偶发（隔离跑绿）。
+
+#### 环境红灯 D（**已解决**）：Laya venv 的**基础解释器消失** + 判据口径修正
+
+- **现象**：`tests/integration/layaBackend.test.ts` 5 例全红，报 `热进程应在 300s 内完成权重加载`。
+- **取证（决定性，一条命令）**：直接跑那个 venv 解释器 ⇒ 它自报
+  `did not find executable at 'C:\Users\…\.workbuddy\binaries\python\versions\3.13.12\python.exe'`；
+  该目录**已空**（被托管工具清掉），而 venv 里的 `python.exe` 只是**启动器**，本身还在，
+  于是 1.7GB 运行时静默失效（**文件一个不少、就是跑不起来**）。
+- **判据口径修正（真缺陷，长期保留）**：旧 `SKIP_REASON` 只看 `existsSync(python)`——把"文件在"当成了"可用"，
+  环境缺件因此表现为 5 条判据全红（把"我没装好"说成"产品坏了"）。现在真跑一次 `<python> --version`
+  （20s 超时、退出码 0 才算可用），并把不可用的两种形态分别写进 skip 原因；
+  **`OMNI_REQUIRE_LAYAPY=1` 的语义未变**（声明"必须有 Laya"的环境里前提不成立仍然失败）。
+- **运行时修复（本机实做，三步 · 配方已写进 [THIRD_PARTY_ASSETS.md](../THIRD_PARTY_ASSETS.md)）**：
+  ① 取证同上；② `uv python install 3.13`（本机 `uv` 在 `~/.local/bin/uv.exe`，实测下载 21MB / 约 2 分钟）
+  ——**必须同小版本**（venv 内是 cp313 轮子，3.12 的 `python312.dll` 不兼容）；
+  ③ 把解释器整体复制为 `third-party/laya-python/`（61MB，新加 gitignore），把 `pyvenv.cfg` 的
+  `home/executable/command` 三行改指它 —— **为什么复制而不用 uv 的缓存**：那份随时可能被 `uv` 清理，
+  复制进 `third-party/` 后修复不再依赖任何外部状态。
+  **坑（当场踩到）**：`pyvenv.cfg` 含中文用户名，用 `Set-Content -Encoding ascii` 会写成 `C:\Users\???\…`，
+  症状与"文件缺失"一模一样 —— 必须 `[IO.File]::WriteAllText(..., UTF8Encoding($false))`（已写进文档）。
+- **验证（真前向，不是 skip）**：`OMNI_REQUIRE_LAYAPY=1 node --test dist/tests/integration/layaBackend.test.js`
+  ⇒ **5/5 通过**（含 842MB 权重加载与热路径单次秒级）；随后全量集成 **16/16、0 跳过**。
+- 与另外两处同源：doctor 的"发现问题即非零"、`serveInstance` 的"记录必须判活"——
+  都是把**声明**与**可用**分开；本仓的老毛病正是两者混用。
+
+### 8.24 终止条件改为「任务完成」：步数上限缺省 = **不限**（2026-10-15，用户口径）
+
+**用户原话**：_「不应该做步数限制」_、_「合理的是要完成任务结束，而不是限制步数」_。
+
+#### 为什么（实证：配额本身不是病，拿配额当终止条件才是）
+
+`sess_mv9nl59c` 的真实任务（定位重、落盘轻：先读 10+ 文件、跑 tsc，再写修改）把 **48 步配额全烧在读取/检索上**，
+**写入一步没跑**就结束了。此前两轮的处置都是**抬大配额**（16→32→48，`argParser.ts:284` 的注释里还留着这个轨迹），
+但同一形态第三次复发 ⇒ 说明改错了地方。
+
+#### 改了什么
+
+- `CliDefaults.maxSteps` **48 → 0**（0 = 不限），`cliBuildConfig` / `cliCompareCmds` / `ConfigFactory` / `configBuilder` 四处同步；
+- 循环 `while (!(this.maxSteps > 0) || steps < this.maxSteps)` —— 0/`undefined`/负数一律按**不限**处理
+  （`undefined` 也要安全：否则"没配"会变成"一步不跑"）；
+- `DEFAULT_SUBAGENT_MAX_STEPS` **12 → 0**（依据：看板第七十六轮那条"子代理 4 次里 3 次撞 12 步上限，
+  交付不完整却称已完成"）；
+- **`truncated` 语义修正（去掉上限后才暴露的真缺陷）**：原实现是 `steps >= maxSteps` —— 只按步数判。
+  去掉上限后它会让"被预算/熔断掐断的回合"报 `truncated=false`，上层（子代理、工作流步骤）据此把**没做完读成做完了**。
+  现改为按**是否自然收敛**（模型产出结论）判定 ⇒ 预算熔断 / 失控熔断 / 空转止损 / 显式步数上限**都算未完成**。
+  这与端口自己的 JSDoc（"是否未做完（步数耗尽**或失控熔断**）"）原本就一致——实现漂了，判据（此前**零条**钉它）也就没抓到；
+- **显式上限仍可达**：新增 CLI `--max-steps N`（`FLAG_TABLE` + `VALUE_FLAGS` 双登记）、配置 `"maxSteps": N`、
+  环境 `OMNIHARNESS_MAX_STEPS`；并且 `maxSteps: 0` 现在**被配置校验接受**（此前 `NUMBER_FIELDS` 一律要求正数 ⇒ 写 0 会被拒启）；
+- **`finalize` 兜底从"禁止工具、直接给结论"改为可行动交接**：① 先把"已完成但未落盘"的改动逐条写清
+  （文件路径 + 完整内容/补丁），② 再给结论。原提示词是"不要再调用任何工具，也不要说需要更多信息"——
+  它让"探索烧满、写入没跑"这一形态**必然以零落盘收尾**（这正是本次事故的直接机制）。
+
+#### 判据与变异自证
+
+`tests/unit/stepLimitPolicy.test.ts`（新，4 例，真跑 Agent 回合）：① 缺省即不限（主/子代理钉字面量 0）；
+② **60 步**回合缺省下跑完且 `truncated=false`（旧行为 48 步即砍）；③ 显式 `maxSteps: 3` 仍精确截断且 `truncated=true`；
+④ 不限步数下重复调用触发 LoopGuard ⇒ `aborted=true` **且** `truncated=true`。
+**变异**：循环退回 `steps < maxSteps` ⇒ ②④ 红，还原 4/4 绿。
+`subagentStepBudget.test.ts` 第二条改口径（旧例依赖默认 12，新策略下会真的跑不完）：改成钉常量 0 + 一条显式 `=3` 的行为验证。
+铁律门禁同轮抓到 `run()` 体 96→99 行 ⇒ 按惯例**抽手**（`finalTextOf()`）**而不是放宽阈值**。
+
+#### 诚实边界（已知代价）
+
+不限步数后，"模型每步都变、永不产出结论、又绕开 LoopGuard 重复检测"理论上能一直跑；默认没有 token/成本预算时，
+兜底只剩 LoopGuard 行为熔断与用户取消。可用旋钮已列在 changeset 与 `CLI_REFERENCE`：
+`--turn-token-budget` / `--cost-budget-usd` / `--max-steps`，以及 LoopGuard 的 `maxDurationMs`（缺省关闭）。
+按用户口径本次**不**把任何时间/预算上限改成默认开启；若要"默认带时间上限"，是独立一条。
+
 ---
 
 ## 9. 本板如何追加条目

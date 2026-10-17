@@ -45,6 +45,14 @@ const PRICED_THIS_ROUND: readonly string[] = [
   'gpt-4.1',
 ];
 
+/**
+ * 2026-10-15 批次：Moonshot 出货预设迁移到**现役**型号后填入的三个键。
+ *
+ * 为什么单独一批而不是并进上面那 17 个：那 17 个是 2026-10-11 的历史事实（含来源坐标），
+ * 把新键塞进去会让"当时填了什么"变得不可考——本仓的惯例是**旧结论原样保留、新批次另立**。
+ */
+const PRICED_2026_10_15: readonly string[] = ['kimi-k2.6', 'kimi-k2.7-code', 'kimi-k3'];
+
 test('① 来源登记必须固定到 40 位 SHA 的**坐标式**引用（地址不得进代码行）', () => {
   const entries = Object.entries(PRICE_SOURCES);
   assert.ok(entries.length > 0, '来源登记不得为空（空登记 = 数字无出处）');
@@ -71,9 +79,14 @@ test('② 来源 note 必须写明取的是哪一条（厂商直连 / 例外）'
       /厂商直连|例外/u,
       `${key} 的 note 必须点明"厂商直连"或"例外"（防拿转售价冒充厂商价）`,
     );
-    // 本仓唯一的"例外"是 3.5 Haiku（库里无 anthropic 直连条目）⇒ 必须在 note 里说明。
-    assert.match(source.note, /claude-3-5-haiku|Haiku/u, `${key} 的 note 应记下唯一那处例外`);
   }
+  // 本仓唯一的"例外"是 3.5 Haiku（库里无 anthropic 直连条目，取 bedrock 同型号档）。
+  // 钉**它所在的那条**而不是"每条都要提 Haiku"：后者在新增批次时会逼着新条目去复述一件与它无关的事
+  //（2026-10-15 新增 Moonshot 现役型号批次时实测撞上），而历史结论本身仍是必须留痕的。
+  const allNotes = Object.values(PRICE_SOURCES)
+    .map((source) => source.note)
+    .join('\n');
+  assert.match(allNotes, /claude-3-5-haiku|Haiku/u, '来源登记里必须留痕那处唯一例外（3.5 Haiku）');
 });
 
 test('③ 本轮新填的 17 个键必须**精确命中**价目表（不是前缀命中、更不是兜底）', () => {
@@ -91,6 +104,26 @@ test('③ 本轮新填的 17 个键必须**精确命中**价目表（不是前�
     [],
     `这些键没有精确命中价目表（名字写错就会静默落兜底价，等于没填）：\n${wrong.join('\n')}`,
   );
+});
+
+test('③-b 2026-10-15 批次：Moonshot 现役三个键也必须**精确命中**（名字写错即静默落兜底价）', () => {
+  const pricing = RoutePricing.mergeRoutePricing();
+  const wrong = PRICED_2026_10_15.filter(
+    (key) => RoutePricing.resolve(key, pricing, DEFAULT_FALLBACK_PRICE).source !== 'exact',
+  );
+  assert.strictEqual(PRICED_2026_10_15.length, 3, '新批次的键数变了就同步本清单');
+  assert.deepStrictEqual(wrong, [], `这些键没有精确命中价目表：\n${wrong.join('\n')}`);
+  // **正对照**：从表里删掉一个键 ⇒ 同一测量必须不再判它精确命中（否则 ③-b 可能是恒真）。
+  const local = new Map(RoutePricing.mergeRoutePricing());
+  local.delete('kimi-k2.6');
+  assert.notStrictEqual(
+    RoutePricing.resolve('kimi-k2.6', local, DEFAULT_FALLBACK_PRICE).source,
+    'exact',
+    '删掉该键后仍判精确命中 ⇒ ③-b 的测量恒真',
+  );
+  // 另一条**诚实边界**（写进注释，不当判据）：名字**多加后缀**（如 `kimi-k2.6-turbo`）会走前缀命中，
+  // 即"拼错"不会被兜底价接住而是被同族价接住——这是刻意的设计（变体沿用同族价），
+  // 所以判据只能要求"出货名精确命中"，不能要求"任何错名都落兜底"。
 });
 
 test('④ 仍不定价的键：理由必须点明"查过什么"', () => {

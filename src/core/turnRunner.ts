@@ -47,7 +47,7 @@ interface CompletionClaim {
  */
 const MAX_CONSECUTIVE_EMPTY = 3;
 
-/** 回合执行器：0..n 步，直到模型输出文本或步数耗尽。 */
+/** 回合执行器：0..n 步，直到模型输出文本（任务完成）；`maxSteps > 0` 时才额外受步数上限约束。 */
 export class TurnRunner {
   private readonly loopGuard: LoopGuard | undefined;
 
@@ -95,11 +95,14 @@ export class TurnRunner {
     let steps = 0;
     let consecutiveEmpty = 0;
     let aborted = false;
+    /** 是否**由模型产出结论**而结束（自然收敛）；`truncated` 取它的反。 */
+    let converged = false;
     let usageTokens = 0;
     /** 本回合的完成判定状态（闸门是否已用过 + 验证状态）；用对象承载以便抽方法传引用。 */
     /** 本回合的完成判定状态（就地更新；用对象承载以便抽方法传引用）。 */
     const claim: CompletionClaim = { gated: false, verificationState: 'not-run' };
-    while (steps < this.maxSteps) {
+    // 不限步数（0/undefined/负数都按不限处理）：终止由「模型产出结论 / 预算 / 行为护栏 / 取消」决定。
+    while (!(this.maxSteps > 0) || steps < this.maxSteps) {
       // V2.1：成本预算熔断（B5 补全）——BudgetedModel 抛 BudgetExceededError 时
       // 不再让整回合硬崩（异常冒泡 → 用户颗粒无收），而是记录事件、跳出循环，
       // 交由下方 finalize 兜底总结，把已有进展交付给用户。
@@ -144,6 +147,7 @@ export class TurnRunner {
         if ((await this.handleCompletionClaim(claim, context.sessionId, steps)) === 'retry') {
           continue;
         }
+        converged = true;
         break;
       }
       // 'empty'：模型既没给文本也没调工具（空响应/被安全过滤/上游截断）。
@@ -163,25 +167,33 @@ export class TurnRunner {
     // 做一次「无工具」兜底调用强制总结。否则 finalText 为 undefined，用户侧就是
     // 「转了很久没有结果」。判据是「本回合没有文本」而非退出路径——三种退出路径
     // （步数耗尽 / 空转止损 / 失控熔断）都需要兜底；正常收敛不多花这一次调用。
-    let finalText = this.recorder.lastAssistantText();
-    if (
-      (finalText === undefined || finalText.trim() === '') &&
-      typeof this.stepRunner.finalize === 'function'
-    ) {
-      const summary = await this.stepRunner.finalize();
-      if (summary !== undefined && summary.trim() !== '') {
-        finalText = summary;
-      }
-    }
+    const finalText = await this.finalTextOf();
     return this.closeTurn({
       steps,
       usageTokens,
       aborted,
+      // 未自然收敛（预算/失控/空转/步数上限任一）都要如实上报"没做完"。
+      truncated: !converged,
       finalText,
       verificationState: claim.verificationState,
     });
   }
 
+  /**
+   * 取本回合的最终文本（从 `run` 外移：铁律函数体上限，且这段是自洽的一件事）。
+   *
+   * 口径：优先取模型本轮产出的最后一条 assistant 文本；**一条都没有**时（模型一直在调工具、
+   * 连续空响应、或失控熔断）做一次**无工具**的兜底调用（`StepRunner.finalize`），
+   * 强制它把"已完成但未落盘"的改动与结论交接出来——否则用户侧就是"转了很久没有结果"。
+   * @returns 最终文本；兜底也没产出时为 undefined。
+   */
+  private async finalTextOf(): Promise<string | undefined> {
+    const existing = this.recorder.lastAssistantText();
+    if (existing !== undefined && existing.trim() !== '') return existing;
+    if (typeof this.stepRunner.finalize !== 'function') return existing;
+    const summary = await this.stepRunner.finalize();
+    return summary !== undefined && summary.trim() !== '' ? summary : existing;
+  }
   /**
    * 处理「模型宣布完成」这一步：问一次完成闸门，决定回灌重试还是允许收尾。
    *
@@ -226,13 +238,15 @@ export class TurnRunner {
    *
    * 抽出的动因有两层：① `run` 已达函数体上限；② 收尾语义（含「是否被截断」的判定）集中一处，
    * 避免以后再加退出路径时漏带状态。
-   * @param summary 本回合的收尾事实（步数 / token 用量 / 是否熔断 / 最终文本）。
-   * @returns 回合结果（含 `truncated` 标记：步数耗尽即未自然收敛）。
+   * @param summary 本回合的收尾事实（步数 / token 用量 / 是否熔断 / 是否未自然收敛 / 最终文本）。
+   * @returns 回合结果（`truncated` = 未自然收敛：预算熔断 / 失控熔断 / 空转止损 / 显式步数上限任一）。
    */
   private async closeTurn(summary: {
     readonly steps: number;
     readonly usageTokens: number;
     readonly aborted: boolean;
+    /** 是否未自然收敛（预算/失控/空转/步数上限任一）——见调用点与返回值处的口径注释。 */
+    readonly truncated: boolean;
     /** 本回合的验证状态（G3-V2）；`unverified` 不得读成通过。 */
     readonly verificationState?: VerificationState | undefined;
     readonly finalText: string | undefined;
@@ -257,9 +271,11 @@ export class TurnRunner {
       steps: summary.steps,
       finalText: summary.finalText,
       usageTokens: summary.usageTokens,
-      // 步数耗尽 ⇒ 被截断（未自然收敛）：调用方（子代理 / 工作流步骤）据此避免把
-      // 「跑满预算」当成「做完了」（2026-09-26 审计 F10）。
-      truncated: summary.steps >= this.maxSteps,
+      // 「未自然收敛」= 本回合不是由模型产出结论而结束的：显式步数上限、token/成本预算熔断、
+      // LoopGuard 失控熔断、连续空转止损都算。调用方（子代理 / 工作流步骤）据此避免把
+      // 「跑满预算」当成「做完了」（2026-09-26 审计 F10；2026-10-15 去掉步数上限后，
+      // 这条判断不能再只看步数——否则被预算掐断的回合会被读成完成）。
+      truncated: summary.truncated,
       aborted: summary.aborted,
       // G3-V2：验证状态如实上抛（`unverified` 不得被上层读成"验证通过"）。
       verificationState: summary.verificationState,

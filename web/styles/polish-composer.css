@@ -1,0 +1,303 @@
+﻿/* =========================================================================
+   OmniHarness Web UI — 输入区（Composer）打磨：主操作区最实层级
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish.css §5，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   5. 输入区（Composer）：主操作区，给它最实的层级
+   ========================================================================= */
+.composer {
+  margin: 0 16px 16px;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  background: var(--panel);
+  border-color: var(--border-soft);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 30px rgba(0, 0, 0, 0.28);
+  transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+[data-theme='light'] .composer {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07), inset 0 1px 0 var(--hairline);
+}
+/* 聚焦态用 :focus-within —— 整块输入区一起亮，用户视线落到"我要在这里打字"。 */
+.composer:focus-within {
+  border-color: color-mix(in srgb, var(--brand) 48%, var(--border-soft));
+  box-shadow: var(--ring), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+.composer textarea {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  padding: 6px 8px;
+  caret-color: var(--brand);
+}
+.composer-bar {
+  gap: 6px;
+  padding-top: 2px;
+}
+
+/* 切换器（模型 / 推理强度 / 权限 / 添加 / 容量）：统一成同一种"chip 控件"。 */
+.ctl,
+.dd,
+.cap,
+.addmenu-ico {
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+  border-radius: 9px;
+}
+.ctl,
+.dd,
+.cap {
+  padding: 4px 9px;
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.ctl:hover,
+.dd:hover,
+.cap:hover,
+.addmenu:hover .addmenu-ico {
+  background: color-mix(in srgb, var(--panel-2) 60%, var(--panel));
+  border-color: var(--border-strong);
+}
+.ctl-ico,
+.dd-ico,
+.cap-ico {
+  display: inline-flex;
+  align-items: center;
+  color: var(--faint);
+  opacity: 1;
+}
+.ctl-ico svg,
+.dd-ico svg,
+.cap-ico svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.7;
+}
+.dd-caret {
+  color: var(--faint);
+}
+.dd-label,
+.ctl-sel {
+  font-size: 12.5px;
+}
+/* 添加按钮：从 30px 空心方块改成 30px 圆角方块 + 品牌色 hover。 */
+.addmenu-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--dim);
+}
+/* 图标按钮统一 30px 命中区：原先 `.iconbtn.attach`/`.mic` 因 padding 差异高 27px，
+   与 30px 的模型/权限 chip 排在一行时基线不齐（真机实测 589 vs 560 的 y 差）。 */
+.iconbtn.attach,
+.iconbtn.mic {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+}
+.iconbtn.attach:hover,
+.iconbtn.mic:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+}
+.addmenu:hover .addmenu-ico {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border-soft));
+}
+.addmenu-ico svg,
+.iconbtn svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+  display: block;
+}
+
+/* 容量条：品牌色填充 + 语义化耗尽色。 */
+.cap-bar,
+.cap-bar-big,
+.cap-row-bar {
+  background: var(--code-bg);
+  border-radius: 999px;
+}
+.cap-bar-fill,
+.cap-row-fill {
+  background: var(--brand);
+  border-radius: 999px;
+}
+.cap-row-fill.exhausted {
+  background: var(--err);
+}
+
+/* 发送按钮：品牌实心 + 图标；hover 提亮，按下回弹。 */
+.send {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+  border: 1px solid color-mix(in srgb, var(--brand) 60%, transparent);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+[data-theme='dark'] .send,
+[data-theme='dark'] .btn.primary {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+}
+[data-theme='light'] .send,
+[data-theme='light'] .btn.primary {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+}
+.send:hover:not(:disabled),
+[data-theme='dark'] .send:hover:not(:disabled),
+[data-theme='light'] .send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-bg) 84%, #ffffff);
+  color: var(--brand-on);
+  opacity: 1;
+}
+[data-theme='light'] .send:hover:not(:disabled),
+[data-theme='light'] .btn.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-bg) 88%, #000000);
+  color: var(--brand-on);
+}
+.send:disabled {
+  box-shadow: none;
+}
+.stop {
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--err) 12%, transparent);
+}
+.stop:hover {
+  background: color-mix(in srgb, var(--err) 20%, transparent);
+}
+
+/* 附件 chip */
+.att {
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 5px;
+  transition: border-color var(--dur-1) var(--ease);
+}
+.att:hover {
+  border-color: var(--border-strong);
+}
+.att-ico,
+.ev-chip-ico,
+.fp-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--faint);
+}
+.att-ico svg,
+.ev-chip-ico svg,
+.fp-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.6;
+}
+.att-thumb {
+  border-radius: 7px;
+}
+.att-x {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.ev-chip {
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 4px 9px;
+}
+
+/* 浮层（下拉 / 添加菜单 / 容量面板 / @mention）：统一浮起层级 + 一致的进场。
+   注意：进场动画分两族——**贴左/贴边的弹层**只能做 translateY（它们没有水平居中变换），
+   **水平居中的弹层**（`.addmenu-pop` / `.cap-pop` 用 `left:50% + translateX(-50%)`）必须把
+   translateX(-50%) 一起写进关键帧，否则动画会把 `left:50%` 变成"从容器左边缘开始"（可见跳位）。 */
+.dd-menu,
+.addmenu-pop,
+.cap-pop,
+.mention-pop,
+.ws-switch-menu,
+.row-menu {
+  border-radius: 12px;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
+}
+.dd-menu,
+.mention-pop,
+.ws-switch-menu,
+.row-menu {
+  animation: pop-in var(--dur-2) var(--ease);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.addmenu-pop,
+.cap-pop {
+  animation: pop-in-center var(--dur-2) var(--ease);
+}
+@keyframes pop-in-center {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+.dd-item,
+.addmenu-item,
+.mention-item,
+.row-menu button {
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.dd-item.active,
+.addmenu-item.active {
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  box-shadow: none;
+  color: var(--text);
+}
+.addmenu-item-ico {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dim);
+}
+.addmenu-item-ico svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+.addmenu-item-label {
+  font-size: 12.5px;
+}
+.addmenu-item-hint {
+  font-size: 11px;
+  color: var(--faint);
+}
+.addmenu-item-on {
+  color: var(--brand);
+}
+

@@ -1,4 +1,4 @@
-// 应用根组件的「容器」层（C3 拆分，标准 class 方式）：集中持有全部状态、副作用与回调，
+﻿// 应用根组件的「容器」层（C3 拆分，标准 class 方式）：集中持有全部状态、副作用与回调，
 // 供纯视图 App（class 组件）消费。本类为门面 / 组合根——装配 OO 服务层
 // （ApiClient / EventStream / ToastService / AppReducers），按职责拆出子控制器
 // （SessionController / ComposerController / GraphController），自身只负责生命周期接线、
@@ -27,6 +27,8 @@ import type {
   ThreadEvent,
 } from '../../types/models.js';
 import type { CommandItem } from '../components/CommandPalette.js';
+import type { SettingsTabKey } from '../models/SettingsModel.js';
+import type { Locale } from '../i18n/i18n.js';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
 import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.js';
 import type { ComposerSeed } from '../shared.js';
@@ -36,7 +38,9 @@ import { SessionController } from './SessionController.js';
 import { ComposerController } from './ComposerController.js';
 import { GraphController } from './GraphController.js';
 import { FileController } from './FileController.js';
+import { SettingsController } from './SettingsController.js';
 import { ShortcutActions } from './ShortcutActions.js';
+import { t } from '../i18n/i18n.js';
 
 /** 应用根组件的全部 UI 状态（原 useAppController 的各 useState 合集）。 */
 export interface AppState {
@@ -50,6 +54,10 @@ export interface AppState {
   streamState: 'open' | 'connecting' | 'closed';
   adapter: string;
   activePane: string;
+  /** 设置模态是否打开（2026-10-17：设置从右栏面板改为模态）。 */
+  settingsOpen: boolean;
+  /** 设置模态当前分栏（打开时定位，关闭后保留上次选择）。 */
+  settingsTab: SettingsTabKey;
   model: string;
   modelOptions: string[];
   providerLabel: string;
@@ -76,6 +84,8 @@ export interface AppState {
    */
   openFiles: FileView[];
   theme: 'dark' | 'light';
+  /** 界面语言（zh=中文 / en=English；本机偏好恢复与切换见 LayoutController / i18n）。 */
+  locale: Locale;
   leftOpen: boolean;
   rightOpen: boolean;
   /**
@@ -146,6 +156,8 @@ export class AppController {
     files: FileController;
     /** 布局 / 主题偏好控制器（主题切换、面板开合、宽度持久化）。 */
     layout: LayoutController;
+    /** 设置与界面语言控制器（设置模态开合 / 分栏定位 / locale 落盘）。 */
+    settings: SettingsController;
     /** 全局快捷键解析器（无状态）。 */
     keyBindings: KeyboardShortcuts;
     /** 快捷键动作执行器（回调由组合根注入）。 */
@@ -217,12 +229,15 @@ export class AppController {
     const composer = new ComposerController(this.host, this.services, sessions);
     const files = new FileController(this.host, this.services);
     const layout = new LayoutController(this.host);
+    // 设置控制器要吃 layout（语言即时生效走它）与 services.api（落盘到用户级配置）。
+    const settings = new SettingsController(this.host, { layout, api: this.services.api });
     this.children = {
       sessions,
       composer,
       graph,
       files,
       layout,
+      settings,
       keyBindings: new KeyboardShortcuts(),
       shortcuts: new ShortcutActions({
         togglePalette: () => this.host.patch((s) => ({ paletteOpen: !s.paletteOpen })),
@@ -248,6 +263,8 @@ export class AppController {
     this.services.dialogSvc.bind((state: DialogState) => this.host.patch({ dialog: state }));
     this.refreshModelCatalog();
     this.children.layout.initTheme();
+    // 标签页标题也随语言走（index.html 里的静态 <title> 是中文，这里接管为 t() 文案）。
+    document.title = t('OmniHarness 工作台');
     this.services.api
       .getConfig()
       .then((c) => {
@@ -257,6 +274,9 @@ export class AppController {
           reasoning: c.reasoning ? c.reasoning : s.reasoning,
           permission: c.approval ? c.approval : s.permission,
         }));
+        // 界面语言以**服务端配置为准**回灌（localStorage 只做首帧快速恢复的缓存）：
+        // 配置真源是用户级 omniharness.json，跨设备/跨浏览器以它对齐。
+        this.children.settings.applyConfigLocale(c.locale);
       })
       .catch(() => {});
     this.connectStream();
@@ -390,9 +410,17 @@ export class AppController {
     this.routeBinding.navigate({ pane: key });
   }
 
-  /** 打开「设置」面板（审批弹窗「修改权限」复用）。 @returns 无 */
-  public openSettingsPane(): void {
-    this.openPane('settings');
+  /**
+   * 设置子控制器（设置模态开合 / 分栏定位 / 界面语言）。
+   *
+   * 为什么搬出去（2026-10-17）：本类在 HEAD 时是 **25 个成员**——恰好顶在 `CODE_STANDARD`
+   * 上帝类判据的线上（成员 > 25 即违规，且参与增量门禁）；设置这一组一次加了 5 个成员就把它
+   * 推过了线。合并方法名去凑数只是把复杂度藏进参数，所以按"成员真正的主语"归位：
+   * 设置模态与界面语言与「连接 SSE / 路由 / 审批」这些本职无关。
+   * @returns 设置子控制器
+   */
+  public get settings(): SettingsController {
+    return this.children.settings;
   }
 
   /** 打开命令面板。 @returns 无 */
@@ -422,7 +450,7 @@ export class AppController {
       }
       await this.services.api.respondApproval(req.requestId, decision);
     } catch (e) {
-      this.services.toast('审批响应失败：' + (e as Error).message, 'err');
+      this.services.toast(t('审批响应失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -446,16 +474,16 @@ export class AppController {
       if (!ack.ok) {
         if (ack.error === 'unknown_request') {
           this.host.patch({ question: null });
-          this.showToast('这次提问已经结束（超时或已作答），作答未送达', 'err');
+          this.showToast(t('这次提问已经结束（超时或已作答），作答未送达'), 'err');
           return;
         }
-        this.showToast('作答未被接受：' + (ack.error ?? '未知原因'), 'err');
+        this.showToast(t('作答未被接受：{msg}', { msg: ack.error ?? t('未知原因') }), 'err');
         return;
       }
       this.host.patch({ question: null });
-      this.showToast('回答已提交', 'ok');
+      this.showToast(t('回答已提交'), 'ok');
     } catch (e) {
-      this.showToast('作答提交失败：' + (e as Error).message, 'err');
+      this.showToast(t('作答提交失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -468,7 +496,7 @@ export class AppController {
   public expireQuestion(requestId: string): void {
     if (this.host.getState().question?.requestId !== requestId) return;
     this.host.patch({ question: null });
-    this.showToast('提问等待超时，已按「未作答」继续', 'info');
+    this.showToast(t('提问等待超时，已按「未作答」继续'), 'info');
   }
 
   /**
@@ -527,6 +555,7 @@ export class AppController {
       toggleTheme: () => this.children.layout.toggleTheme(),
       toggleLeft: () => this.children.layout.toggleLeft(),
       toggleRight: () => this.children.layout.toggleRight(),
+      openSettings: () => this.children.settings.open(),
     });
   }
 }

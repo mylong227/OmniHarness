@@ -13,6 +13,7 @@
 
 import { React } from '../../deps.js';
 import { badge, renderMarkdown } from '../../format.js';
+import { t } from '../../i18n/i18n.js';
 
 /** StreamingAssistantCard 组件的入参。 */
 export interface StreamingAssistantCardProps {
@@ -29,10 +30,8 @@ const ANNOUNCE_STEP = 100;
  * @returns 状态文案
  */
 function announceText(length: number): string {
-  if (length < ANNOUNCE_STEP) return '助手正在生成回复';
-  return (
-    '助手正在生成回复（已约 ' + String(Math.floor(length / ANNOUNCE_STEP) * ANNOUNCE_STEP) + ' 字）'
-  );
+  if (length < ANNOUNCE_STEP) return t('助手正在生成回复');
+  return t('助手正在生成回复（已约 {n} 字）', { n: Math.floor(length / ANNOUNCE_STEP) * ANNOUNCE_STEP });
 }
 
 /**
@@ -46,7 +45,7 @@ export function StreamingAssistantCard(props: StreamingAssistantCardProps): Reac
     <div className="ev assistant streaming-assistant">
       <div className="head">
         {badge('assistant')}
-        <span className="time">生成中…</span>
+        <span className="time">{t('生成中…')}</span>
       </div>
       <div className="card assistant streaming">
         <div className="content" spellCheck="false" aria-hidden="true">

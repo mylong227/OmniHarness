@@ -12,6 +12,8 @@ import { React } from '../deps.js';
 import { ContextUsageView } from '../models/ContextUsageView.js';
 import { QuotaView } from '../models/QuotaView.js';
 import { icon } from '../models/Icon.js';
+import { claimPopover, releasePopover } from '../models/PopoverStack.js';
+import { t } from '../i18n/i18n.js';
 import type { ContextUsageReport, QuotaStatus } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
 
@@ -22,6 +24,9 @@ import type { ApiClient } from '../../core/ApiClient.js';
  * 而 `context.usage` 每次要回放事件日志，再密就是白烧 IO（面板只在忙时轮询，见下面的 effect）。
  */
 const LIVE_REFRESH_MS = 2000;
+
+/** 本弹层在互斥控制器里的身份。 */
+const POPOVER_ID = 'capacity';
 
 /** ContextCapacityPanel 组件的入参。 */
 export interface ContextCapacityPanelProps {
@@ -100,7 +105,12 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     if (!open) return undefined;
     const close = (): void => setOpen(false);
     window.addEventListener('click', close);
-    return () => window.removeEventListener('click', close);
+    // 互斥：登记"我是当前弹层"，被别的弹层顶掉时自动收起（见 PopoverStack 头注释）。
+    claimPopover({ id: POPOVER_ID, close });
+    return () => {
+      window.removeEventListener('click', close);
+      releasePopover(POPOVER_ID);
+    };
   }, [open]);
 
   // 取数：展开时拉容量与配额；收起 / 切换会话 / 回合忙闲变化 / **容量数据代数变化** /
@@ -129,7 +139,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
           // 每次展开只报一次：否则「失败 ⇒ toast ⇒ 父重渲染 ⇒ 再取数」会自己转起来。
           if (!reportedRef.current) {
             reportedRef.current = true;
-            toastRef.current('容量数据加载失败：' + (e as Error).message, 'err');
+            toastRef.current(t('容量数据加载失败：{msg}', { msg: (e as Error).message }), 'err');
           }
         }
       }
@@ -141,21 +151,13 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
   }, [open, threadId, busy, tick, revision]);
 
   /** 触发按钮：阻断冒泡后切换展开态。 */
+  /** 触发按钮：阻断冒泡后切换展开态。 */
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
-    setOpen((prev) => !prev);
-  };
-
-  /**
-   * 切换配额档位（free/plus/pro）。
-   * @param plan 档位 id
-   * @returns 无
-   */
-  const onPlan = (plan: string): void => {
-    api
-      .quotaSet({ plan })
-      .then((next: QuotaStatus) => setQuota(next))
-      .catch((e: Error) => onToast('配额档位切换失败：' + e.message, 'err'));
+    const next = !open;
+    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
+    else releasePopover(POPOVER_ID);
+    setOpen(next);
   };
 
   const view = usage !== undefined ? new ContextUsageView(usage) : undefined;
@@ -172,8 +174,8 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
       role="button"
       aria-haspopup="dialog"
       aria-expanded={open ? 'true' : 'false'}
-      aria-label="上下文容量"
-      title="上下文容量与今日余额"
+      aria-label={t('上下文容量')}
+      title={t('上下文容量与今日余额')}
       onClick={toggle}
     >
       <span className="cap-ico">{icon('chart', { size: 14 })}</span>
@@ -183,11 +185,11 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
       <span className="cap-pct">{view !== undefined ? view.percentText : '—'}</span>
       {open ? (
         <div className="cap-pop" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-          {loading && !view ? <div className="cap-loading">加载中…</div> : null}
+          {loading && !view ? <div className="cap-loading">{t('加载中…')}</div> : null}
           {view !== undefined ? (
             <div className="cap-section">
               <div className="cap-head">
-                <span className="cap-title">上下文容量</span>
+                <span className="cap-title">{t('上下文容量')}</span>
                 <span className="cap-headline">{view.headline}</span>
                 {view.sourceLabel ? <span className="cap-src">{view.sourceLabel}</span> : null}
               </div>
@@ -207,19 +209,22 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
               </div>
               <div className="cap-foot">
                 <span>{view.toolSummary}</span>
-                <span title={view.cacheHint}>缓存命中 {view.cacheText}</span>
+                <span title={view.cacheDetail}>
+                  {t('缓存命中 {text}', { text: view.cacheText })}
+                  {view.cacheCauseLabel !== '' ? ' · ' + view.cacheCauseLabel : ''}
+                </span>
               </div>
             </div>
           ) : null}
           {quotaView !== undefined ? (
             <div className="cap-section">
               <div className="cap-head">
-                <span className="cap-title">今日余额</span>
+                <span className="cap-title">{t('今日余额')}</span>
                 {quotaView.badgeText ? <span className="cap-badge">{quotaView.badgeText}</span> : null}
               </div>
               <div className="cap-quota-head">
-                <span>剩余 {quotaView.remainingText}</span>
-                <span className="cap-reset">{quotaView.resetText} 重置</span>
+                <span>{t('剩余 {text}', { text: quotaView.remainingText })}</span>
+                <span className="cap-reset">{quotaView.resetText} {t('重置')}</span>
               </div>
               {quotaView.isEmpty ? (
                 <div className="cap-empty">{quotaView.emptyHint}</div>
@@ -243,16 +248,24 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
                 <span>{quotaView.budgetHint}</span>
                 <span className="cap-dim">{quotaView.sourceLabel}</span>
               </div>
-              <div className="cap-plan-row">
-                {['free', 'plus', 'pro'].map((plan) => (
-                  <button
-                    key={plan}
-                    className={'cap-plan' + (quota?.plan.id === plan ? ' active' : '')}
-                    onClick={() => onPlan(plan)}
-                  >
-                    {plan === 'free' ? '免费' : plan === 'plus' ? 'Plus' : 'Pro'}
-                  </button>
-                ))}
+              {/* 档位是**自动识别**的，不再给按钮（2026-10-17 用户要求）。
+                  这里只如实呈现"识别成了哪一档 + 依据"，让用户能判断准不准；
+                  要调额度就去调基础日预算（那才是可调的那个量）。 */}
+              <div className="cap-plan-note">
+                <span className="cap-plan-name">
+                  {t('档位 {name}', { name: quota?.plan.label ?? t('免费') })}
+                  {quota?.plan.multiplier !== undefined && quota.plan.multiplier !== 1
+                    ? ` × ${quota.plan.multiplier}`
+                    : ''}
+                </span>
+                <span className="cap-plan-why">
+                  {quota?.planModel !== undefined && quota.planModel !== ''
+                    ? t('按模型 {model} 自动识别', { model: quota.planModel })
+                    : t('未识别到模型，按缺省档')}
+                  {quota?.planReason !== undefined && quota.planReason !== ''
+                    ? t('（{reason}）', { reason: quota.planReason })
+                    : ''}
+                </span>
               </div>
             </div>
           ) : null}

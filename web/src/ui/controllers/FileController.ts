@@ -8,6 +8,7 @@ import { langOf } from '../highlight.js';
 import { FileTabs } from '../models/FileTabs.js';
 import type { FileView } from '../shared.js';
 import { MethodBinder } from './methodBinder.js';
+import { t } from '../i18n/i18n.js';
 
 /** 文件预览 / 代码查看器控制器：单一职责，仅供 App 组合使用。 */
 export class FileController {
@@ -37,13 +38,17 @@ export class FileController {
   public async openFile(path: string): Promise<void> {
     try {
       const r = await this.services.api.readFs(path);
-      const meta = (r.isBinary ? '二进制文件' : r.truncated ? '已截断（>200KB）' : '') + ' · ' + (r.size ?? 0) + ' 字节';
+      const tag = r.isBinary ? t('二进制文件') : r.truncated ? t('已截断（>200KB）') : '';
+      const meta =
+        tag === ''
+          ? t('{size} 字节', { size: r.size ?? 0 })
+          : t('{tag} · {size} 字节', { tag, size: r.size ?? 0 });
       const view: FileView = {
         // 标题只放文件名：`📄 ` 前缀已废弃（emoji 当图标，见 models/Icon.ts）；
         // 面板自己会用 `icon('file')` 表达"这是一个文件"。
         title: r.path,
         meta: meta.trim(),
-        content: r.isBinary ? '（二进制文件，无法预览）' : r.content || '',
+        content: r.isBinary ? t('（二进制文件，无法预览）') : r.content || '',
         // 依据路径推断语言做语法高亮；二进制不参与。
         lang: r.isBinary ? '' : langOf(r.path),
       };
@@ -55,7 +60,7 @@ export class FileController {
       // 展开右栏与激活面板由路由收口（RouteBinding.apply），避免两处状态各写一遍。
       this.services.navigate({ pane: 'file' });
     } catch (e) {
-      this.services.toast('打开失败：' + (e as Error).message, 'err');
+      this.services.toast(t('打开失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 

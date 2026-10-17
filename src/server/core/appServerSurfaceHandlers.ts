@@ -1,4 +1,4 @@
-﻿import type { ToolDefinition } from '../../ports/tool/tool.js';
+import type { ToolDefinition } from '../../ports/tool/tool.js';
 import { AppServerHandlers } from './appServerHandlers.js';
 import type { AppServerOptions } from './appServerState.js';
 import { ApprovalTierCatalog } from '../services/approvalTierCatalog.js';
@@ -57,6 +57,8 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
       store: new QuotaStore(workspaceRoot),
       usage: this.sessionArchive,
       models: () => this.activeModels(),
+      // 档位由当前模型识别（2026-10-17）：给"正在用的那个"，识别不出来再回落到清单最高档。
+      activeModel: () => this.activeConfigModel(),
     });
     this.modes = new SessionModeStore(workspaceRoot);
     this.directives = new TurnDirectiveComposer();
@@ -98,9 +100,10 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     );
     this.handlers.set('quota.get', async () => this.quota.status());
     this.handlers.set('quota.set', async (params) => {
-      const patch: { plan?: string; dailyTokens?: number } = {};
-      const plan = params['plan'];
-      if (typeof plan === 'string' && plan !== '') patch.plan = plan;
+      const patch: { dailyTokens?: number } = {};
+      // `plan` 不再受理（2026-10-17）：档位由当前模型自动识别（QuotaPlans.forModel）。
+      // 旧客户端若仍传 plan，这里**忽略并照常返回状态**——而不是报错打断它：
+      // 档位本来就不是它能决定的东西，回给它的 status.plan 已经是识别结果。
       const daily = params['dailyTokens'];
       if (typeof daily === 'number') patch.dailyTokens = daily;
       return this.quota.update(patch);
@@ -184,6 +187,16 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     const catalog = this.modelCatalog.catalog() as { active?: { models?: unknown } } | undefined;
     const models = catalog?.active?.models;
     return Array.isArray(models) ? models.filter((m): m is string => typeof m === 'string') : [];
+  }
+
+  /**
+   * 当前 active 配置里的模型名（`model.catalog` 的 `active.model`）——配额档位的识别依据。
+   * @returns 模型名；结构不符 / 缺失时 undefined（调用方回落到清单最高档）
+   */
+  private activeConfigModel(): string | undefined {
+    const catalog = this.modelCatalog.catalog() as { active?: { model?: unknown } } | undefined;
+    const model = catalog?.active?.model;
+    return typeof model === 'string' && model.trim() !== '' ? model : undefined;
   }
 
   /**

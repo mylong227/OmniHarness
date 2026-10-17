@@ -12,6 +12,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.js';
+import { PrefixStability } from '../../src/context/prefixStability.js';
+import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.js';
 import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.js';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.js';
 import type { ModelMessage } from '../../src/ports/model/model.js';
@@ -142,4 +144,44 @@ test('P_prefix：首个 user 事件必须位于 repo-map（尾部）之前', asy
   const repoIdx = lastIndexOfRole(msgs, 'system');
   assert.ok(firstUser >= 0, '应含 user 事件');
   assert.ok(firstUser < repoIdx, '首个 user 事件必须位于 repo-map（尾部）之前');
+});
+
+test('P_prefix：前缀复用率可读、与 PrefixStability 同口径（容量面板分因的信号来源）', async () => {
+  const events: { type: string; payload: { content: string } }[] = [
+    { type: 'user', payload: { content: 'fix the parser bug in src/parser.ts' } },
+  ];
+  const builder = new StepContextBuilder(
+    makeDeps({
+      repoMapEnabled: false,
+      projectInstructionsEnabled: false,
+      recorder: { allEvents: () => events, system: () => undefined },
+    }),
+  );
+  await builder.buildMessages();
+  assert.strictEqual(
+    builder.prefixReuseRatioOfLastBuild,
+    undefined,
+    '首次请求没有可比基准 ⇒ 必须是 undefined；给 0 会被分因器读成"前缀被完全改写"',
+  );
+  const second = await builder.buildMessages();
+  assert.strictEqual(builder.prefixReuseRatioOfLastBuild, 1, '同一输入两次组装 ⇒ 复用率恒为 1');
+
+  // 改写**头部**（首条事件）⇒ 前缀从改动点起分叉，复用率必然落到分因器的下限之下。
+  const head = events[0];
+  assert.ok(head !== undefined);
+  head.payload.content = '完全换一个任务：重写词法器';
+  const third = await builder.buildMessages();
+  const expected = Number(
+    PrefixStability.prefixReuse(JSON.stringify(second), JSON.stringify(third)).toFixed(4),
+  );
+  assert.strictEqual(
+    builder.prefixReuseRatioOfLastBuild,
+    expected,
+    '必须与 PrefixStability.prefixReuse 逐位一致（唯一实现；各写一份必然漂移）',
+  );
+  assert.ok(
+    (builder.prefixReuseRatioOfLastBuild ?? 1) < CacheMissAttributionAnalyst.PREFIX_REUSE_FLOOR,
+    '头部被改写必须让复用率低于下限 —— 否则面板永远报不出 prefix-rewrite',
+  );
+  assert.strictEqual(second.length, third.length, '（前提）消息条数不变，差异只来自首条内容');
 });

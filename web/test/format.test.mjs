@@ -17,7 +17,7 @@ const noop = () => {};
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
 globalThis.window = { React: fakeReact, ReactDOM: {}, addEventListener: noop, removeEventListener: noop };
 
-const { esc, badge, timeOf, emptyState, jsonView, questionView, permChip, todoView, diffView, renderMarkdown } =
+const { esc, badge, timeOf, emptyState, emptyNote, jsonView, questionView, permChip, todoView, diffView, renderMarkdown } =
   await import('../dist/ui/format.js');
 const { highlightCode } = await import('../dist/ui/highlight.js');
 
@@ -73,13 +73,19 @@ test('emptyState 产出三段式插画结构', () => {
   assert.deepEqual(allText(node), ['ICON', '主文案', '副提示']);
 });
 
-test('jsonView 输出转义后的缩进 JSON', () => {
+test('jsonView 输出缩进 JSON 的**原文**（React 子节点不预转义）', () => {
+  // 2026-10-16 纠错：原先这里断言文本里含 `&quot;`，把「双重转义」当成了正确行为。
+  // React 会把子节点的文本自己转义，再 `esc()` 一次等于把 `"` 变成**字面量** `&quot;`——
+  // 真机实测（截图留档）审批弹窗的参数区显示的就是 `&quot;cmd&quot;: &quot;rm -rf …`，
+  // 用户看到的是实体而不是引号。判据改为「原文进 DOM，尖括号与引号都是原字符」。
   const node = jsonView({ a: 1, b: '<x>' });
   assert.equal(node.type, 'pre');
   assert.equal(clsOf(node), 'json');
   const text = allText(node).join('');
-  assert.ok(text.includes('&quot;a&quot;: 1'), '键名应被转义');
-  assert.ok(text.includes('&lt;x&gt;'), '尖括号应被转义');
+  assert.ok(text.includes('"a": 1'), '键名应是原引号，不是 &quot;');
+  assert.ok(!text.includes('&quot;'), '不得出现 HTML 实体（双重转义）');
+  assert.ok(text.includes('<x>'), '尖括号应是原字符，不是 &lt;x&gt;');
+  assert.ok(!text.includes('&lt;'), '不得出现 HTML 实体（双重转义）');
 });
 
 test('permChip 危险权限追加 danger，普通权限不加', () => {
@@ -91,6 +97,19 @@ test('permChip 危险权限追加 danger，普通权限不加', () => {
   assert.equal(clsOf(permChip('kv')), 'perm');
   assert.deepEqual(allText(permChip('kv')), ['键值存储']);
   assert.equal(clsOf(permChip('未在表中的权限')), 'perm');
+});
+
+test('用户可见文本一律不预转义：含 & < > 的真实内容原样进 DOM', () => {
+  // 回归（2026-10-16 真机截图）：`esc()` 曾被误用为「React 子节点的安全转义」，于是
+  // 真实内容里的 `&` `"` `<` 被**双重转义**成 `&amp;` `&quot;` `&lt;` 的字面量并原样显示。
+  // 最容易撞上的两处：① 审批弹窗的 JSON 参数（几乎每个值都带引号）；
+  // ② 空态文案里的路径（`D:\a&b`、`C:\Program Files (x86)` 这类带 & 与括号的路径）。
+  // 判据：这些文本必须原样出现在 vnode 的子节点里（React 会在写入 DOM 时自己转义）。
+  const raw = 'D:\\work&stuff\\<x>\\"q".txt';
+  assert.deepEqual(allText(emptyState('ICON', raw, raw)), ['ICON', raw, raw]);
+  assert.deepEqual(allText(emptyNote(raw)), [raw]);
+  assert.deepEqual(allText(todoView([{ status: 'done', content: raw }])), [raw]);
+  assert.equal(permChip('未在表中的权限').props.title, '未在表中的权限');
 });
 
 test('todoView 按状态给圆点上 done/doing，状态缺失时类名保持带尾空格', () => {
@@ -108,8 +127,7 @@ test('todoView 按状态给圆点上 done/doing，状态缺失时类名保持带
   assert.deepEqual(allText(node), ['已完成', '进行中', '待开始']);
 });
 
-test('todoView 必须认得生产者的状态词（completed / in_progress）', () => {
-  // 回归（2026-09-26 审计 F8）：生产者（ports/runtime/todo.ts 的 TodoStatus）只发
+test('todoView 必须认得生产者的状态词（completed / in_progress）', () => {  // 回归（2026-09-26 审计 F8）：生产者（ports/runtime/todo.ts 的 TodoStatus）只发
   // pending|in_progress|completed，而渲染器原先只认 done/doing ⇒ 所有圆点恒为中性灰，
   // 每个待办的进度在 UI 上不可见（旧单测用错词把该 bug 一并钉死）。
   const node = todoView([

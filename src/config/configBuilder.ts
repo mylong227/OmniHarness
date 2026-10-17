@@ -248,7 +248,7 @@ export class ConfigBuilder {
       spill,
       spiller,
       workspaceRoot: partial.workspaceRoot,
-      maxSteps: partial.maxSteps,
+      maxSteps: partial.maxSteps ?? 0,
       escalation,
       elevatedSandbox,
       longTermMemory,

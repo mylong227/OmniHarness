@@ -16,9 +16,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { ServeInstance } from '../../src/cli/serveInstance.js';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();
@@ -48,17 +50,26 @@ function freePort(): Promise<number> {
  * 起一个 serve 子进程。
  * @param args 子命令参数
  * @param workspace 临时工作区
+ * @param home 临时家目录（**记录文件写在这里**，从而不碰用户真实的 `~/.omniharness`）
  * @returns 子进程与输出累积器
  */
 function startServe(
   args: readonly string[],
   workspace: string,
+  home: string,
 ): { proc: ChildProcess; out: () => string } {
   const proc = spawn(process.execPath, [CLI, 'serve', '--workspace', workspace, ...args], {
     cwd: REPO_ROOT,
     // 与仓内其它 CLI 子进程同一取舍：本判据只关心端口绑定/接管，不需要检索与 repo-map
     // ⇒ 关掉它们，别给同跑的重文件（dshWorker / embeddingPreload / evolutionCommand）添负载。
-    env: { ...process.env, OMNI_REPO_MAP: '0', OMNI_SEMANTIC_RECALL: '0' },
+    // HOME/USERPROFILE 指向临时目录：① 不把实例记录写进用户家目录；② 顺带隔离用户级配置（更 hermetic）。
+    env: {
+      ...process.env,
+      OMNI_REPO_MAP: '0',
+      OMNI_SEMANTIC_RECALL: '0',
+      HOME: home,
+      USERPROFILE: home,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   started.push(proc);
@@ -160,10 +171,11 @@ function alive(pid: number): boolean {
 
 test('端到端：默认只报可行动诊断（不杀），--take-port 才接管；非本程序占用则拒绝接管', async () => {
   const workspace = mkdtempSync(join(tmpdir(), 'omni-port-'));
+  const home = mkdtempSync(join(tmpdir(), 'omni-port-home-'));
   const port = await freePort();
   try {
     // ── ① A 起在目标端口 ──
-    const a = startServe(['--port', String(port)], workspace);
+    const a = startServe(['--port', String(port)], workspace, home);
     const health = await waitHealth(port);
     // **不 skip**：serve 起不来是**真问题**（本判据的前置条件没满足）⇒ 必须红并带上输出。
     // 静默跳过就是"看着绿"；skip 清点判据也会拒收没有开关的 skip（2026-10-11 实测被它抓到）。
@@ -171,8 +183,16 @@ test('端到端：默认只报可行动诊断（不杀），--take-port 才接�
     const pidA = health['pid'] as number;
     assert.ok(alive(pidA), '占用者应存活');
 
+    // ── ①-b 实例记录（2026-10-15）：绑定成功后必须留下自描述记录 ──
+    const recordPath = ServeInstance.pathFor(port, home);
+    assert.ok(existsSync(recordPath), `绑定成功后应写下实例记录：${recordPath}`);
+    const recordA = ServeInstance.read(recordPath);
+    assert.strictEqual(recordA?.pid, pidA, '记录里的 PID 必须就是那个在跑的 serve');
+    assert.strictEqual(recordA?.port, port, '记录必须写明端口（一端口一份文件）');
+    assert.ok((recordA?.startedAt ?? '').length > 0, '记录必须带启动时刻（排障第一问）');
+
     // ── ② 同端口再起一个（不带 --take-port）⇒ 必须失败且给出可行动信息，且**不杀** A ──
-    const b = startServe(['--port', String(port)], workspace);
+    const b = startServe(['--port', String(port)], workspace, home);
     const bExit = await waitExit(b.proc);
     assert.notStrictEqual(bExit.code, 0, `同端口启动应失败：\n${bExit.out}`);
     assert.match(bExit.out, /EADDRINUSE/u, '应保留原始错误码，便于检索');
@@ -180,10 +200,12 @@ test('端到端：默认只报可行动诊断（不杀），--take-port 才接�
     assert.match(bExit.out, new RegExp(String(pidA), 'u'), '提示必须点明占用者 PID');
     assert.match(bExit.out, /--port \d+/u, '必须给出"换端口"的具体命令');
     assert.match(bExit.out, /--take-port/u, '必须给出显式接管这条路');
+    assert.match(bExit.out, /实例记录：/u, '提示必须转述实例记录（启动时刻/工作区）');
+    assert.match(bExit.out, /工作区/u, '记录里最有用的一项是工作区');
     assert.ok(alive(pidA), '默认**绝不**杀占用者（A 必须还活着）');
 
     // ── ③ 带 --take-port ⇒ 接管成功，A 被终止 ──
-    const c = startServe(['--port', String(port), '--take-port'], workspace);
+    const c = startServe(['--port', String(port), '--take-port'], workspace, home);
     const cHealth = await waitHealthChanged(port, pidA);
     assert.ok(cHealth !== null, `--take-port 应接管成功：\n${c.out().slice(-600)}`);
     assert.notStrictEqual(
@@ -195,6 +217,12 @@ test('端到端：默认只报可行动诊断（不杀），--take-port 才接�
       await new Promise((r) => setTimeout(r, 250));
     }
     assert.strictEqual(alive(pidA), false, '接管后旧占用者必须已退出');
+    // 记录必须**换成新持有者**（不是留下旧的那条——那会让下次冲突提示指向一个已死的 PID）。
+    assert.strictEqual(
+      ServeInstance.read(recordPath)?.pid,
+      cHealth?.['pid'],
+      '接管后记录必须归属新实例',
+    );
 
     // ── ④ 占用者不是本程序 ⇒ 即便 --take-port 也拒绝接管 ──
     const foreignPort = await freePort();
@@ -204,7 +232,7 @@ test('端到端：默认只报可行动诊断（不杀），--take-port 才接�
     });
     await new Promise<void>((resolve) => foreign.listen(foreignPort, '127.0.0.1', resolve));
     try {
-      const d = startServe(['--port', String(foreignPort), '--take-port'], workspace);
+      const d = startServe(['--port', String(foreignPort), '--take-port'], workspace, home);
       const dExit = await waitExit(d.proc);
       assert.notStrictEqual(dExit.code, 0, '别人的进程占着 ⇒ 必须失败');
       assert.match(dExit.out, /非本程序的进程/u, '必须如实说明占用者不是自己人');
@@ -223,5 +251,6 @@ test('端到端：默认只报可行动诊断（不杀），--take-port 才接�
       }
     }
     rmSync(workspace, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });

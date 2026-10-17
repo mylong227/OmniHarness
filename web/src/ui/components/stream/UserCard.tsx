@@ -7,6 +7,7 @@ import { React } from '../../deps.js';
 import { badge, timeOf, esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** UserCard 组件的入参。 */
 export interface UserCardProps {
@@ -36,14 +37,14 @@ export function UserCard(props: UserCardProps): ReactElement {
         {canEdit && busy !== true ? (
           <button
             className="msg-act"
-            title="编辑重发：把这条消息填回输入框，改完回车重发"
-            aria-label="编辑重发"
+            title={t('编辑重发：把这条消息填回输入框，改完回车重发')}
+            aria-label={t('编辑重发')}
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
               onEdit();
             }}
           >
-            {icon('pencil', { size: 12 })} 编辑重发
+            {icon('pencil', { size: 12 })} {t('编辑重发')}
           </button>
         ) : null}
       </div>

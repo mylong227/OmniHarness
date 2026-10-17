@@ -10,6 +10,7 @@ import { PathJoiner } from '../models/PathJoiner.js';
 import { PickerKeys } from '../models/PickerKeys.js';
 import { icon } from '../models/Icon.js';
 import type { ApiClient } from '../../core/ApiClient.js';
+import { t } from '../i18n/i18n.js';
 
 /** fs.browse 的两级返回形态。 */
 type BrowseResult =
@@ -71,7 +72,7 @@ function renderDrives(browse: BrowseState, onLoad: (path?: string) => void): Rea
     <>
       <div className="fp-item fp-home" onClick={() => onLoad(home)}>
         <span className="fp-icon">{icon('home', { size: 15 })}</span>
-        <span className="fp-name">{home}（用户目录）</span>
+        <span className="fp-name">{home}{t('（用户目录）')}</span>
       </div>
       {roots.map((r) => (
         <div key={r} className="fp-item" onClick={() => onLoad(r)}>
@@ -97,10 +98,10 @@ function renderDirs(browse: BrowseState, onLoad: (path?: string) => void): React
       {parent !== undefined ? (
         <div className="fp-item fp-up" onClick={() => onLoad(parent)}>
           <span className="fp-icon">{icon('undo', { size: 15 })}</span>
-          <span className="fp-name">..（上级目录）</span>
+          <span className="fp-name">{t('..（上级目录）')}</span>
         </div>
       ) : null}
-      {dirs.length === 0 && parent !== undefined ? <div className="fp-empty">（空目录）</div> : null}
+      {dirs.length === 0 && parent !== undefined ? <div className="fp-empty">{t('（空目录）')}</div> : null}
       {dirs.map((d) => (
         <div key={d} className="fp-item" onClick={() => onLoad(PathJoiner.join(cur, d))}>
           <span className="fp-icon">{icon('folder', { size: 15 })}</span>
@@ -125,12 +126,12 @@ function renderCreateBar(
 ): ReactElement {
   return (
     <div className="fp-create">
-      <span className="fp-create-label">在 {cur ?? ''} 内新建：</span>
+      <span className="fp-create-label">{t('在 {path} 内新建：', { path: cur ?? '' })}</span>
       <div className="fp-create-row">
         <input
           className="fp-input"
           value={state.newName}
-          placeholder="文件夹名称"
+          placeholder={t('文件夹名称')}
           autoFocus
           onFocus={(e: React.FocusEvent<HTMLInputElement>) => e.currentTarget.select()}
           onInput={(e: React.SyntheticEvent) => hooks.onChange((e.target as HTMLInputElement).value)}
@@ -144,10 +145,10 @@ function renderCreateBar(
           }}
         />
         <button className="fp-btn fp-primary" onClick={hooks.onCreate}>
-          创建
+          {t('创建')}
         </button>
         <button className="fp-btn" onClick={hooks.onCancel}>
-          取消
+          {t('取消')}
         </button>
       </div>
       {state.creatingErr ? <div className="fp-err">{state.creatingErr}</div> : null}
@@ -197,7 +198,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
       } else if (r.level === 'dir' && Array.isArray(r.dirs)) {
         setBrowse((prev) => ({ ...prev, cur: r.path, dirs: r.dirs, parent: r.parent }));
       } else {
-        setLoad((prev) => ({ ...prev, error: '目录列表返回格式异常（fs.browse）' }));
+        setLoad((prev) => ({ ...prev, error: t('目录列表返回格式异常（fs.browse）') }));
       }
     } catch (e) {
       setLoad((prev) => ({ ...prev, error: (e as Error).message }));
@@ -235,7 +236,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
 
   /** 进入新建态。 */
   const startCreate = (): void => {
-    setCreate({ creating: true, creatingErr: null, newName: DEFAULT_NEW_NAME });
+    setCreate({ creating: true, creatingErr: null, newName: t(DEFAULT_NEW_NAME) });
   };
 
   /** 取消新建态。 */
@@ -249,7 +250,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     if (target === null) return;
     const name = create.newName.trim();
     if (name === '') {
-      setCreate((prev) => ({ ...prev, creatingErr: '请输入文件夹名称' }));
+      setCreate((prev) => ({ ...prev, creatingErr: t('请输入文件夹名称') }));
       return;
     }
     setCreate((prev) => ({ ...prev, creatingErr: null }));
@@ -267,15 +268,15 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     <div className="fp-overlay" onClick={onCancel}>
       <div className="fp-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div className="fp-head">
-          <span className="fp-title">选择项目文件夹</span>
-          <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>
+          <span className="fp-title">{t('选择项目文件夹')}</span>
+          <button className="fp-close" title={t('关闭 (Esc)')} onClick={onCancel}>
             {icon('x', { size: 14 })}
           </button>
         </div>
 
         <div className="fp-pathbar">
           {cur === null ? (
-            <span className="fp-crumb">此电脑（选择盘符）</span>
+            <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
           ) : (
             <span className="fp-crumb" title={cur}>
               {cur}
@@ -283,11 +284,11 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
           )}
           <button
             className="fp-new"
-            title="在当前目录内新建项目文件夹"
+            title={t('在当前目录内新建项目文件夹')}
             disabled={cur === null || loading}
             onClick={startCreate}
           >
-            新建文件夹
+            {t('新建文件夹')}
           </button>
         </div>
 
@@ -299,7 +300,7 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
                 onCancel: cancelCreate,
               })
             : null}
-          {loading ? <div className="fp-empty">读取中…</div> : null}
+          {loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
           {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
           {!loading && error === null && cur === null ? renderDrives(browse, (p) => void loadDir(p)) : null}
           {!loading && error === null && cur !== null ? renderDirs(browse, (p) => void loadDir(p)) : null}
@@ -307,14 +308,14 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
 
         <div className="fp-actions">
           <button className="fp-btn" onClick={onCancel}>
-            取消
+            {t('取消')}
           </button>
           <button
             className="fp-btn fp-primary"
             disabled={cur === null || loading}
             onClick={confirm}
           >
-            选择此文件夹
+            {t('选择此文件夹')}
           </button>
         </div>
       </div>

@@ -4,6 +4,10 @@
  * 基线机制本身必须可信，否则「视觉回归门禁」会变成两件坏事之一：假红（每次都被绕过）
  * 或假绿（什么都没抓）。故这里逐条钉住：规范化（空白/排序）、逐字段差异描述、读写往返，
  * 以及「有意改动会红、无关抖动不会红」这一对关键性质。
+ *
+ * 2026-10-15 更新：随壳层重构（第六十九/七十轮）把 `railItems` 换成 `panelMenuItems`
+ * ——旧字段在新壳层下**恒为 0**（左竖条已删除），按本机制自己的口径那叫假绿：
+ * 采一个永远不变的值等于什么都没断言。
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,8 +21,8 @@ import type { UiSnapshot } from '../integration/uiBaseline.js';
 /** 造一份基线快照。 */
 function snapshot(overrides: Partial<UiSnapshot> = {}): UiSnapshot {
   return {
-    tabs: ['工具', '变更', '指标'],
-    railItems: 11,
+    panelMenuItems: ['工具', '指标', '设置'],
+    tabs: ['对话', '轨迹'],
     composer: { placeholder: '输入任务，Enter 发送', sendLabel: '发送' },
     composerControls: ['附加图片、视频或文件', '开始语音输入', '发送任务'],
     emptyStates: ['等待任务', '暂无工具调用'],
@@ -28,13 +32,14 @@ function snapshot(overrides: Partial<UiSnapshot> = {}): UiSnapshot {
 
 test('normalize：裁剪空白、剔除空项、空态文案排序（顺序不是契约）', () => {
   const normalized = UiBaseline.normalize({
-    tabs: ['  工具  ', '', '变更'],
-    railItems: 11,
+    panelMenuItems: ['  工具  ', '', '指标'],
+    tabs: ['  对话  ', '', '轨迹'],
     composer: { placeholder: '  输入任务，Enter   发送 ', sendLabel: ' 发送 ' },
     composerControls: ['发送任务', '   '],
     emptyStates: ['暂无工具调用', '等待任务'],
   });
-  assert.deepStrictEqual(normalized.tabs, ['工具', '变更']);
+  assert.deepStrictEqual(normalized.panelMenuItems, ['工具', '指标']);
+  assert.deepStrictEqual(normalized.tabs, ['对话', '轨迹']);
   assert.strictEqual(normalized.composer.placeholder, '输入任务，Enter 发送');
   assert.strictEqual(normalized.composer.sendLabel, '发送');
   assert.deepStrictEqual(normalized.composerControls, ['发送任务']);
@@ -53,25 +58,25 @@ test('compare：一致时为 ok，且空态顺序不同不算差异', () => {
   assert.deepStrictEqual(verdict.diffs, []);
 });
 
-test('compare：逐字段给出人话差异（页签增删 / 控件名丢失 / 文案改动 / 图标栏数量）', () => {
+test('compare：逐字段给出人话差异（面板入口增删 / 页签增删 / 控件名丢失 / 文案改动）', () => {
   const verdict = UiBaseline.compare(
     snapshot({
-      tabs: ['工具', '指标', '回滚'],
+      panelMenuItems: ['工具', '指标', '设置', '记忆'],
+      tabs: ['对话', '轨迹', '工具（点 × 回到文件）'],
       composerControls: ['发送任务'],
       composer: { placeholder: '换个占位', sendLabel: '发送' },
-      railItems: 9,
     }),
     snapshot(),
   );
   assert.strictEqual(verdict.ok, false);
   const joined = verdict.diffs.join('\n');
-  assert.match(joined, /右栏页签 变化：新增 \["回滚"\] \/ 消失 \["变更"\]/);
+  assert.match(joined, /面板菜单条目 变化：新增 \["记忆"\] \/ 消失 \[\]/);
+  assert.match(joined, /页签 变化：新增 \["工具（点 × 回到文件）"\] \/ 消失 \[\]/);
   // 「消失」列表按基线顺序输出，不额外排序——故逐项断言，避免把顺序也当成契约。
   assert.match(joined, /输入区控件无障碍名 变化：新增 \[\] \/ 消失 \[/);
   assert.match(joined, /附加图片、视频或文件/);
   assert.match(joined, /开始语音输入/);
   assert.match(joined, /输入框占位文案变化/);
-  assert.match(joined, /图标栏条目数 9 ≠ 基线 11/);
 });
 
 test('save/load：写入规范化结果且往返稳定（缩进 2 空格 + 结尾换行）', () => {
@@ -94,16 +99,16 @@ test('save/load：写入规范化结果且往返稳定（缩进 2 空格 + 结�
 test('capture：从注入的求值器读取页面结构（不依赖真实浏览器）', async () => {
   const cdp = {
     evaluate: async (): Promise<unknown> => ({
-      tabs: ['工具', ' 变更 '],
-      railItems: 3,
+      panelMenuItems: ['工具', ' 指标 '],
+      tabs: ['对话', ' 轨迹 '],
       composer: { placeholder: ' 输入 ', sendLabel: '发送' },
       composerControls: ['发送任务'],
       emptyStates: ['等待任务'],
     }),
   };
   const captured = await UiBaseline.capture(cdp);
-  assert.deepStrictEqual(captured.tabs, ['工具', '变更']);
-  assert.strictEqual(captured.railItems, 3);
+  assert.deepStrictEqual(captured.panelMenuItems, ['工具', '指标']);
+  assert.deepStrictEqual(captured.tabs, ['对话', '轨迹']);
   assert.strictEqual(captured.composer.placeholder, '输入');
   assert.deepStrictEqual(captured.composerControls, ['发送任务']);
 });
@@ -119,15 +124,21 @@ test('load：基线文件损坏时抛错（不静默当成空基线而放行一�
   }
 });
 
-test('capture 契约：页签来自 [role="tab"]、控件名来自 .composer button（防选择器漂移）', async () => {
+test('capture 契约：面板入口来自 .pp-menu .pp-item、页签来自 [role="tab"]、控件名来自 .composer button（防选择器漂移）', async () => {
   let expression = '';
   const cdp = {
     evaluate: async (js: string): Promise<unknown> => {
       expression = js;
-      return { tabs: [], railItems: 0, composer: { placeholder: '', sendLabel: '' } };
+      return { panelMenuItems: [], tabs: [], composer: { placeholder: '', sendLabel: '' } };
     },
   };
   await UiBaseline.capture(cdp);
+  assert.match(
+    expression,
+    /\.pp-menu \.pp-item/,
+    '面板入口必须按现役 PanelPicker 菜单采集（旧 `.rail` 已随壳层重构删除，采它恒为空）',
+  );
+  assert.match(expression, /\.pp-label/, '入口名必须取 .pp-label（菜单项的可读名）');
   assert.match(expression, /\[role="tab"\]/, '页签必须按 role=tab 采集（实测过的真实选择器）');
   assert.match(expression, /\.composer button/, '输入区控件必须按 .composer button 采集');
   assert.match(expression, /aria-label/, '控件名必须优先取 aria-label（无障碍契约的一部分）');

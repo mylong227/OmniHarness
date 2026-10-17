@@ -44,6 +44,8 @@ export interface Config {
   sandbox?: string;
   escalation?: string;
   autoApprove?: boolean;
+  /** 界面语言（zh/en）：设置「外观」栏切换，随用户级 omniharness.json 持久化。 */
+  locale?: string;
   workspace?: string;
   [key: string]: unknown;
 }
@@ -319,6 +321,26 @@ export interface ContextUsageRow {
   percent: number;
 }
 
+/** 缓存未命中的分因（与后端 `CacheMissCause` 同枚举）。 */
+export type CacheMissCause =
+  | 'hit'
+  | 'not-reported'
+  | 'cold-start'
+  | 'prefix-rewrite'
+  | 'ttl-expired'
+  | 'unknown';
+
+/** 最近一次上报缓存的调用的分因（token 数与信号取自同一条事件）。 */
+export interface ContextCacheLastCall {
+  cause: CacheMissCause;
+  /** 一句话理由（含具体数字，可直接进悬停文案）。 */
+  reason: string;
+  /** 原始证据（JSON 安全）。 */
+  evidence: Record<string, unknown>;
+  promptTokens: number;
+  cachedPromptTokens: number;
+}
+
 /** 提示缓存命中统计。 */
 export interface ContextCacheStat {
   promptTokens: number;
@@ -326,6 +348,11 @@ export interface ContextCacheStat {
   calls: number;
   /** 无任何调用上报缓存字段时为 undefined（UI 显示「—」）。 */
   hitRate?: number;
+  /**
+   * 最近一次上报调用的分因。
+   * **可缺省**：旧服务端不发这个字段，前端必须按"没有分因"渲染（不得显示 `undefined` 文案）。
+   */
+  lastCall?: ContextCacheLastCall;
 }
 
 /** `context.usage` 返回体。 */
@@ -350,7 +377,14 @@ export interface QuotaPlanView {
   label: string;
   multiplier: number;
   upgraded: boolean;
-  fallback: boolean;
+  /**
+   * 是否为缺省档（旧字段，服务端自 2026-10-17 起不再下发）。
+   *
+   * 为什么留成可选而不是删掉：档位改为**按模型自动识别**后，`QuotaPlanView` 的形状变了
+   * （多了 `planReason` / `planModel`、少了 `fallback`），而服务端与前端是分开发布的。
+   * 留成可选让"新前端 + 旧服务端"不至于崩（旧服务端仍会下发 fallback）。
+   */
+  fallback?: boolean;
 }
 
 /** 单模型配额行。 */
@@ -364,6 +398,13 @@ export interface QuotaModelRow {
 /** `quota.get` / `quota.set` 返回体。 */
 export interface QuotaStatus {
   plan: QuotaPlanView;
+  /**
+   * 档位识别依据（服务端 `QuotaPlans.reasonFor`），如「名字里带 pro ⇒ 厂商自己标注的顶配档」。
+   * 面板把它显示在档位旁边——档位不再由用户选择，就必须能解释"为什么是这个档"。
+   */
+  planReason?: string;
+  /** 用于识别档位的代表模型名（未接入厂商时为空串）。 */
+  planModel?: string;
   dailyTokens: number;
   effectiveTokens: number;
   usedTokens: number;

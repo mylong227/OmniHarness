@@ -3,6 +3,7 @@
 
 import { React } from '../deps.js';
 import type { FileView } from '../shared.js';
+import { t } from '../i18n/i18n.js';
 
 /** FileModal 组件的入参。 */
 export interface FileModalProps {
@@ -52,8 +53,8 @@ export function FileModal(props: FileModalProps): ReactElement {
         </div>
         <pre style={CODE_BOX}>{fileView.content}</pre>
         <div className="actions">
-          <button className="always" aria-label="关闭文件预览" onClick={onClose}>
-            关闭
+          <button className="always" aria-label={t('关闭文件预览')} onClick={onClose}>
+            {t('关闭')}
           </button>
         </div>
       </div>

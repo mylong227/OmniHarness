@@ -46,15 +46,21 @@ export class Exec {
       return;
     }
 
-    // 慢路径：真正要执行命令，才加载整条继承链
+    // 慢路径：真正要执行命令，才加载命令行实现。
+    //
+    // **两段加载（2026-10-15）**：本地/低依赖子命令（`kv`/`vault`/`doctor`/`schema`/`session`/`serve`…）
+    // 只需链基半段（`execLocal.js`，实测比整条链省 ~280ms）；只有链顶命令（`compare`/`native`/`goal`/
+    // `workflow`/`tui`/`routines`/`lsp`/`evolution`/`capability`/`license`）与默认 agent 路径才去加载
+    // `execCli.js`。ESM 只加载被 import 的模块，而继承只向上依赖，故"先试链基"不会把链顶带进来。
+    //
     // 进程级护栏（§22.7 第 5 条收口）在**此处**安装而不是文件顶层：顶层静态 import 会让
     // `--version` / `--help` 这两条冷启动快速路径也付出代价（本文件的存在理由就是省这笔）。
     // 为什么必须兜全局：`void promise` 在本仓很常见（后台任务、事件桥、插件注册），
     // 漏掉 `.catch` 的第 N 个照样能把进程带走；逐点补 catch 治标不治本。
-    const [{ CrashGuard }, { log }, { ExecCli }] = await Promise.all([
+    const [{ CrashGuard }, { log }, { ExecLocal }] = await Promise.all([
       import('./crashGuard.js'),
       import('../util/logger.js'),
-      import('./execCli.js'),
+      import('./execLocal.js'),
     ]);
     CrashGuard.install({
       proc: process,
@@ -75,6 +81,12 @@ export class Exec {
         process.exitCode = process.exitCode ?? 1;
       },
     });
+    const localCode = await new ExecLocal().runLocal(argv);
+    if (localCode !== undefined) {
+      process.exitCode = localCode;
+      return;
+    }
+    const { ExecCli } = await import('./execCli.js');
     process.exitCode = await new ExecCli().run(argv);
   }
 }

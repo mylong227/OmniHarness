@@ -6,6 +6,7 @@
 
 import { TimestampFormatter } from './checkpoint.js';
 import type { CheckpointMeta } from './checkpoint.js';
+import { t } from '../i18n/i18n.js';
 
 /** 天毫秒数（分组与「N 天前」共用同一常量，避免两处各写一遍）。 */
 const DAY_MS = 86400000;
@@ -100,14 +101,14 @@ export class CheckpointTimeline {
    * @returns 「刚刚」/「N 分钟前」/「N 小时前」/「N 天前」/ 绝对时间
    */
   public static relative(ts: string, now: Date, locale = 'zh-CN'): string {
-    const t = CheckpointTimeline.parse(ts);
-    if (t === null) return ts;
-    const diffSeconds = Math.floor((now.getTime() - t) / 1000);
-    if (diffSeconds < 60) return '刚刚';
-    if (diffSeconds < 3600) return Math.floor(diffSeconds / 60) + ' 分钟前';
-    if (diffSeconds < DAY_MS / 1000) return Math.floor(diffSeconds / 3600) + ' 小时前';
+    const tsMs = CheckpointTimeline.parse(ts);
+    if (tsMs === null) return ts;
+    const diffSeconds = Math.floor((now.getTime() - tsMs) / 1000);
+    if (diffSeconds < 60) return t('刚刚');
+    if (diffSeconds < 3600) return t('{n} 分钟前', { n: Math.floor(diffSeconds / 60) });
+    if (diffSeconds < DAY_MS / 1000) return t('{n} 小时前', { n: Math.floor(diffSeconds / 3600) });
     const days = Math.floor(diffSeconds / (DAY_MS / 1000));
-    if (days < 7) return days + ' 天前';
+    if (days < 7) return t('{n} 天前', { n: days });
     return TimestampFormatter.format(ts, locale);
   }
 
@@ -128,9 +129,9 @@ export class CheckpointTimeline {
    * @returns 标题文案
    */
   public static dayTitle(key: string, now: Date): string {
-    if (key === 'unknown') return '时间未知';
-    if (key === CheckpointTimeline.dayKey(now)) return '今天';
-    if (key === CheckpointTimeline.dayKey(new Date(now.getTime() - DAY_MS))) return '昨天';
+    if (key === 'unknown') return t('时间未知');
+    if (key === CheckpointTimeline.dayKey(now)) return t('今天');
+    if (key === CheckpointTimeline.dayKey(new Date(now.getTime() - DAY_MS))) return t('昨天');
     return key;
   }
 

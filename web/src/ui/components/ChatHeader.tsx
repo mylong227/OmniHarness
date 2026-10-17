@@ -5,6 +5,7 @@
 
 import { React } from '../deps.js';
 import { icon } from '../models/Icon.js';
+import { t } from '../i18n/i18n.js';
 
 /** 中栏视图（对话流 / 工具轨迹）。 */
 export type ChatViewKind = 'chat' | 'trace';
@@ -45,23 +46,23 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       {onToggleLeft === undefined ? null : (
         <button
           className="iconbtn mob-only"
-          title="会话侧栏"
-          aria-label="打开会话侧栏"
+          title={t('会话侧栏')}
+          aria-label={t('打开会话侧栏')}
           onClick={onToggleLeft}
         >
           {icon('menu', { size: 16 })}
         </button>
       )}
       <div className="chat-title" title={title}>
-        {title === '' ? '新会话' : title}
+        {title === '' ? t('新会话') : title}
       </div>
       {busy ? (
         <span className="chat-busy" role="status">
-          <span className="wi-dot" aria-hidden="true"></span>任务进行中
+          <span className="wi-dot" aria-hidden="true"></span>{t('任务进行中')}
         </span>
       ) : null}
       <span className="flex-spacer" aria-hidden="true"></span>
-      <div className="chat-tabs" role="tablist" aria-label="中栏视图">
+      <div className="chat-tabs" role="tablist" aria-label={t('中栏视图')}>
         {VIEWS.map((v) => (
           <button
             key={v.key}
@@ -70,7 +71,7 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
             className={'chat-tab' + (view === v.key ? ' active' : '')}
             onClick={() => onView(v.key)}
           >
-            {v.label}
+            {t(v.label)}
           </button>
         ))}
       </div>
@@ -78,8 +79,8 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       {onToggleRight === undefined ? null : (
         <button
           className={'iconbtn' + (rightCollapsed ? '' : ' active')}
-          title={rightCollapsed ? '展开功能面板（Ctrl/Cmd+Shift+E）' : '收起功能面板（Ctrl/Cmd+Shift+E）'}
-          aria-label={rightCollapsed ? '展开功能面板' : '收起功能面板'}
+          title={rightCollapsed ? t('展开功能面板（Ctrl/Cmd+Shift+E）') : t('收起功能面板（Ctrl/Cmd+Shift+E）')}
+          aria-label={rightCollapsed ? t('展开功能面板') : t('收起功能面板')}
           aria-pressed={rightCollapsed ? 'false' : 'true'}
           onClick={onToggleRight}
         >

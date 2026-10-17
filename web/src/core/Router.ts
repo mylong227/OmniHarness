@@ -4,7 +4,7 @@
 
 /** 一条路由：右侧激活面板标识 + 当前打开的会话 id（null 表示无）。 */
 export interface AppRoute {
-  /** 右栏面板标识（tools/changes/settings/...）。 */
+  /** 右栏面板标识（tools/changes/file/...；设置不在其中，见 VALID_PANES 注释）。 */
   pane: string;
   /** 当前打开的会话 id；null 表示未打开具体会话。 */
   threadId: string | null;
@@ -15,7 +15,9 @@ const VALID_PANES: ReadonlySet<string> = new Set([
   'tools',
   'metrics',
   'changes',
-  'settings',
+  // 'settings' 已移除（2026-10-17）：设置不再是右栏面板，而是左栏页脚按钮 + 居中模态。
+  // 保留它在合法集合里会让 `#pane=settings` 被解析成"合法但不存在的面板"⇒ 右栏渲染空白，
+  // 而用户以为自己打开的是设置。旧书签现在会安全落回默认面板（tools）。
   'plugins',
   'graph',
   'memory',

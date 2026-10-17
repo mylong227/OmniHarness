@@ -124,8 +124,9 @@ export class StepRunner {
         {
           role: 'user',
           content:
-            '【系统提示】工具调用步数已达上限。请立即基于上文中已经获得的所有信息，' +
-            '直接给出最终答复与结论；不要再请求调用任何工具，也不要说需要更多信息。',
+            '【系统提示】本回合即将结束（预算/行为护栏/显式步数上限之一触发），现在**不要再调用工具**。' +
+            '请按顺序做两件事：① 把**已经完成但尚未落盘**的改动逐条写清——文件路径 + 完整内容或补丁；' +
+            '② 再给出结论与剩余工作。**不要让已做的分析只停留在文字里**：下一步会照这份交接直接落盘。',
         },
       ];
       // 取消信号透传：`finalize` 是「跑满 maxSteps」时的必然路径，恰恰是已经烧完一整轮 token、
@@ -214,7 +215,11 @@ export class StepRunner {
       baseFragmentCount: this.deps.fragments?.length ?? 0,
       windowTokens: this.deps.contextWindowTokens ?? 0,
     });
-    return this.breakdown.snapshotOf(breakdown);
+    const snapshot = this.breakdown.snapshotOf(breakdown);
+    // 前缀复用率随快照一起落日志：它是"缓存为什么没命中"在**本机可控面**上的唯一信号
+    // （容量面板的分因读它）。首次请求没有基准 ⇒ 字段缺省，读取侧必须把"未知"与"0"分开。
+    const reuse = this.contextBuilder.prefixReuseRatioOfLastBuild;
+    return reuse === undefined ? snapshot : { ...snapshot, prefixReuseRatio: reuse };
   }
 
   /**

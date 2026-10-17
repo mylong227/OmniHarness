@@ -9,6 +9,7 @@
 import { React } from '../../deps.js';
 import { parseTurnDiffFiles, turnDiffTotals } from '../../models/TurnDiffFiles.js';
 import { diffView } from '../../format.js';
+import { t } from '../../i18n/i18n.js';
 
 /** TurnDiffCard 入参。 */
 export interface TurnDiffCardProps {
@@ -51,7 +52,7 @@ export function TurnDiffCard(props: TurnDiffCardProps): React.ReactElement {
     React.createElement(
       'div',
       { className: 'tdc-head' },
-      React.createElement('span', { className: 'tdc-title' }, `已编辑 ${files.length} 个文件`),
+      React.createElement('span', { className: 'tdc-title' }, t('已编辑 {n} 个文件', { n: files.length })),
       React.createElement(
         'span',
         { className: 'tdc-total' },
@@ -66,7 +67,7 @@ export function TurnDiffCard(props: TurnDiffCardProps): React.ReactElement {
           onClick: () => setListOpen((v) => !v),
           'aria-expanded': listOpen,
         },
-        listOpen ? '收起文件' : '展开文件',
+        listOpen ? t('收起文件') : t('展开文件'),
       ),
     ),
     // 文件清单：每行「路径 + 增删」，点击展开该文件 diff 正文。

@@ -23,6 +23,7 @@
 import { React } from '../../deps.js';
 import { useApp } from '../../context.js';
 import type { ReactElement } from 'react';
+import { t } from '../../i18n/i18n.js';
 
 /** 一条可编辑规则（与服务端 `ApprovalRule` 字段同形；`decision` 必填）。 */
 interface EditableRule {
@@ -117,7 +118,7 @@ export function PermissionTab(): ReactElement {
     try {
       await api.updateConfig({ permission: { rules: toWireRules(rules) } });
       setSaved(rules);
-      setNotice('已保存（服务端已校验并落盘）');
+      setNotice(t('已保存（服务端已校验并落盘）'));
     } catch (e) {
       // 纪律①：原样显示服务端原因（哪一条、哪个字段、为什么），不折叠成"保存失败"。
       setError((e as Error).message);
@@ -130,24 +131,29 @@ export function PermissionTab(): ReactElement {
     setNotice(null);
   };
 
-  if (loading) return <div className="permission-tab">载入权限规则…</div>;
+  if (loading) return <div className="permission-tab">{t('载入权限规则…')}</div>;
 
   const dirty = saved === null || JSON.stringify(saved) !== JSON.stringify(rules);
 
   return (
     <div className="permission-tab">
       <div className="detail-section">
-        <div className="detail-h">参数级权限规则</div>
+        <div className="detail-h">{t('参数级权限规则')}</div>
         <p className="hint">
-          多条规则同时命中时 <strong>deny 优先</strong>（聚合顺序 deny → ask → allow），不是"后写的覆盖先写的"。
+          {t('多条规则同时命中时 ')}
+          <strong>{t('deny 优先')}</strong>
+          {t('（聚合顺序 deny → ask → allow），不是"后写的覆盖先写的"。')}
         </p>
         <p className="hint">
-          合法裁决：{DECISIONS.join(' | ')}；合法字段：{RULE_FIELDS.join(' / ')}（`decision` 必填 ——
-          缺它的规则会被服务端拒绝，因为它会被运行期静默忽略）。
+          {t('合法裁决：')}
+          {DECISIONS.join(' | ')}
+          {t('；合法字段：')}
+          {RULE_FIELDS.join(' / ')}
+          {t('（`decision` 必填 —— 缺它的规则会被服务端拒绝，因为它会被运行期静默忽略）。')}
         </p>
-        {error !== null ? <p className="err">保存失败：{error}</p> : null}
+        {error !== null ? <p className="err">{t('保存失败：{msg}', { msg: error })}</p> : null}
         {notice !== null ? <p className="ok">{notice}</p> : null}
-        {rules.length === 0 ? <p className="hint">当前没有任何规则（全部走默认裁决）。</p> : null}
+        {rules.length === 0 ? <p className="hint">{t('当前没有任何规则（全部走默认裁决）。')}</p> : null}
         <ul>
           {rules.map((rule, index) => (
             <li key={`rule-${String(index)}`}>
@@ -166,7 +172,7 @@ export function PermissionTab(): ReactElement {
               <input
                 type="text"
                 value={rule.toolName}
-                placeholder="toolName（留空＝任意工具）"
+                placeholder={t('toolName（留空＝任意工具）')}
                 onChange={(e: { target: { value: string } }) =>
                   patchRule(index, { toolName: e.target.value })
                 }
@@ -194,7 +200,7 @@ export function PermissionTab(): ReactElement {
                   setNotice(null);
                 }}
               >
-                删除
+                {t('删除')}
               </button>
             </li>
           ))}
@@ -208,13 +214,13 @@ export function PermissionTab(): ReactElement {
             ])
           }
         >
-          新增规则
+          {t('新增规则')}
         </button>
         <button type="button" disabled={!dirty} onClick={() => void save()}>
-          保存
+          {t('保存')}
         </button>
         <button type="button" onClick={() => void load()}>
-          重新载入
+          {t('重新载入')}
         </button>
       </div>
     </div>

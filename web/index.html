@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
@@ -10,10 +10,11 @@
   <!-- 站点图标：内联 SVG（Ω 标识），零额外请求、零网络依赖。
        为什么必须有它：不声明 favicon 时浏览器会回退请求 `/favicon.ico`，而 serve 没有该路由 ⇒
        每次加载都在控制台留一条 404 错误（2026-10-06 真机 CDP 跑测实测），把"控制台零错误"
-       这条前端健康判据逼成假红。 -->
+       这条前端健康判据逼成假红。
+       单色口径：白底黑字（原为深底蓝字，是全站最后一处彩色）。 -->
   <link
     rel="icon"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101114'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,serif' text-anchor='middle' fill='%237aa2f7'%3E%CE%A9%3C/text%3E%3C/svg%3E"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,serif' text-anchor='middle' fill='%230a0a0a'%3E%CE%A9%3C/text%3E%3C/svg%3E"
   >
   <!--
     React 工作台宿主页。架构：原生 ES Module，零打包器、零网络依赖。
@@ -23,21 +24,40 @@
     协议不变：POST /rpc（JSON-RPC 2.0）+ GET /events（SSE 推送）。
     回退版（原 vanilla 单文件实现）：./index-classic.html
   -->
-  <link rel="stylesheet" href="./styles/theme.css?v=5">
-  <link rel="stylesheet" href="./styles/layout.css?v=5">
-  <link rel="stylesheet" href="./styles/components.css?v=5">
-  <link rel="stylesheet" href="./styles/chat.css?v=7">
-  <link rel="stylesheet" href="./styles/highlight.css?v=4">
-  <!-- 打磨层：必须在上面五份之后（同权重靠后生效），承载设计 token、层级、发丝线、焦点与微交互。
-       设计依据见 docs/DESIGN_SYSTEM.md；去掉这一行即回到打磨前的观感（回滚成本 = 一行）。 -->
-  <link rel="stylesheet" href="./styles/polish.css?v=1">
-  <!-- 壳层重构（截图式三栏）：会话侧栏 / 对话（含轨迹视图与状态栏）/ 代码查看器。
-       只在 polish 之后追加同权重规则；去掉这一行即回到重构前的壳（回滚成本 = 一行）。 -->
-  <link rel="stylesheet" href="./styles/shell.css?v=1">
-  <!-- 成熟依赖（离线内置，零网络）：KaTeX 数学排版 + highlight.js 代码高亮。
+  <!-- ===== 样式表：加载顺序 = 级联顺序，不得重排 =====
+       分层：theme(基础 token/reset/原生控件) → layout(骨架) → components(可复用组件)
+       → chat(对话流基础) → tokens(字体族补充) → base(全局底子：滚动条/选区/焦点)
+       → polish-*(各功能区打磨) → overlays(浮层) → resilience(错误边界/无障碍)
+       → shell(三栏壳层) → refine-*(视觉精修) → minimal(单色极简体系：唯一视觉事实源)。
+       每份文件头注明职能；单独去掉某一层即回到该层之前的观感（回滚成本 = 一行）。
+       注：highlight.css 2026-10-17 起移到**最后**（在 vendor 之后），因为单色语法色需要
+       覆盖 vendor 的 GitHub 主题；同日删除了 ./vendor/highlight-github-dark.min.css 这条
+       <link>（它是 15 种色相的彩虹配色，且在两套主题下都加载 ⇒ 浅色主题里的代码块一直
+       是暗底彩字）。单色语法色由 styles/highlight.css 自己定义，不再需要 vendor 主题。 -->
+  <link rel="stylesheet" href="./styles/theme.css?v=19">
+  <link rel="stylesheet" href="./styles/layout.css?v=19">
+  <link rel="stylesheet" href="./styles/components.css?v=19">
+  <link rel="stylesheet" href="./styles/chat.css?v=19">
+  <link rel="stylesheet" href="./styles/tokens.css?v=19">
+  <link rel="stylesheet" href="./styles/base.css?v=19">
+  <link rel="stylesheet" href="./styles/polish-shell.css?v=19">
+  <link rel="stylesheet" href="./styles/polish-chat.css?v=19">
+  <link rel="stylesheet" href="./styles/polish-composer.css?v=19">
+  <link rel="stylesheet" href="./styles/polish-panels.css?v=19">
+  <link rel="stylesheet" href="./styles/overlays.css?v=19">
+  <link rel="stylesheet" href="./styles/resilience.css?v=19">
+  <link rel="stylesheet" href="./styles/shell.css?v=19">
+  <link rel="stylesheet" href="./styles/refine-surfaces.css?v=19">
+  <link rel="stylesheet" href="./styles/refine-rhythm.css?v=19">
+  <link rel="stylesheet" href="./styles/refine-overlays.css?v=19">
+  <link rel="stylesheet" href="./styles/refine-native.css?v=19">
+  <link rel="stylesheet" href="./styles/refine-density.css?v=19">
+  <link rel="stylesheet" href="./styles/minimal.css?v=19">
+  <!-- 成熟依赖（离线内置，零网络）：KaTeX 数学排版。
        与 React 同以 UMD 全局方式注入，由 markdown.ts 在渲染回复时消费。 -->
   <link rel="stylesheet" href="./vendor/katex.min.css?v=1">
-  <link rel="stylesheet" href="./vendor/highlight-github-dark.min.css?v=1">
+  <!-- 单色语法高亮：必须排在 minimal 与 vendor 之后才能盖住 vendor 主题（见上）。 -->
+  <link rel="stylesheet" href="./styles/highlight.css?v=19">
   <!-- 主题持久化：必须在 paint 之前同步读取 localStorage 并设到 <html data-theme="...">。
        否则 React mount 完成后才设 data-theme 会闪一下 dark（CSS 默认）→ 再切 light，
        用户会感觉"刷新等于没设置"。这里 raw 内联，零依赖，文件大小 < 0.5KB（2026-09-08）。 -->

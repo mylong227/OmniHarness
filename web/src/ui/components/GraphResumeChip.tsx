@@ -6,6 +6,7 @@
 // 纯展示组件（函数组件范式）：状态由父注入，点击回调上抛，无副作用。
 
 import { React } from '../deps.js';
+import { t } from '../i18n/i18n.js';
 import type { GraphRunState } from '../../types/models.js';
 
 /** 状态栏续跑入口的入参。 */
@@ -49,12 +50,12 @@ export function GraphResumeChip(props: GraphResumeChipProps): ReactElement | nul
       className="cs-item cs-resume"
       title={
         rest > 0
-          ? `复用已完成 ${done} 步的产出，只重跑剩下 ${rest} 步（同一运行 id，进度会实时刷新）`
-          : '复用已完成步骤的产出，只重跑未完成的步骤'
+          ? t('复用已完成 {done} 步的产出，只重跑剩下 {rest} 步（同一运行 id，进度会实时刷新）', { done, rest })
+          : t('复用已完成步骤的产出，只重跑未完成的步骤')
       }
       onClick={() => props.onResume(run.runId, run.defName)}
     >
-      ↻ 续跑{run.defName ? `「${run.defName}」` : ''}
+      {t('↻ 续跑')}{run.defName ? t('「{name}」', { name: run.defName }) : ''}
     </button>
   );
 }

@@ -17,8 +17,12 @@ export interface QuotaModelRow {
 
 /** 配额状态报告（`quota.get` / `quota.set` 的返回体）。 */
 export interface QuotaStatus {
-  /** 当前档位。 */
+  /** 当前档位（**由模型自动识别**，见 QuotaPlans.forModel）。 */
   readonly plan: QuotaPlan;
+  /** 档位识别依据（可解释性：面板显示"为什么是这个档"）；无依据时为空串。 */
+  readonly planReason: string;
+  /** 用于识别档位的代表模型名（未接入 / 清单为空时为空串）。 */
+  readonly planModel: string;
   /** 基础日预算（档位倍率乘算前的基数）。 */
   readonly dailyTokens: number;
   /** 生效日额度（基础 × 倍率）。 */
@@ -43,12 +47,19 @@ export interface QuotaStatus {
 
 /** 配额服务依赖。 */
 export interface QuotaDeps {
-  /** 配额设置存储。 */
+  /** 配额设置存储（只存基础日预算；档位已改为自动识别，不再落盘）。 */
   readonly store: QuotaStore;
   /** 会话存档（按日聚合用量）。 */
   readonly usage: SessionArchive;
   /** 当前厂商可用模型清单（`model.catalog` 的 active.models）。 */
   readonly models: () => readonly string[];
+  /**
+   * 当前生效模型（`model.catalog` 的 active.model）。
+   *
+   * 为什么单独给：档位由**代表模型**识别，而"当前生效的那个"优先于"清单里最强的那个"——
+   * 用户正在用的模型才代表他此刻的消耗水平。缺省时回落到清单里的最高档。
+   */
+  readonly activeModel?: () => string | undefined;
   /** 时钟（注入便于单测固定「今天」）；缺省取系统当前时间。 */
   readonly now?: () => Date;
 }
@@ -73,11 +84,20 @@ export class QuotaService {
 
   /**
    * 读当前配额状态。
+   *
+   * 档位不再是配置字段，而是**由代表模型识别**（见 QuotaPlans.forModel / representative）：
+   * 优先当前生效模型，其次清单里识别出的最高档。这样"换模型 ⇒ 额度跟着变"是自动的，
+   * 不会出现"用着旗舰模型却停在免费档"的两处真相。
    * @returns 档位、额度、各模型已用与剩余
    */
   public status(): QuotaStatus {
     const settings = this.deps.store.read();
-    const plan = this.plans.of(settings.plan);
+    const active = this.deps.activeModel?.();
+    const representative =
+      active !== undefined && active.trim() !== ''
+        ? active.trim()
+        : this.plans.representative(this.deps.models());
+    const plan = this.plans.forModel(representative);
     const effectiveTokens = Math.floor(settings.dailyTokens * plan.multiplier);
     const day = this.today();
     const used = this.safeDailyUsage(day);
@@ -96,6 +116,8 @@ export class QuotaService {
     const totalLimit = effectiveTokens * Math.max(1, rows.length);
     return {
       plan,
+      planReason: this.plans.reasonFor(representative),
+      planModel: representative ?? '',
       dailyTokens: settings.dailyTokens,
       effectiveTokens,
       usedTokens: used.total,
@@ -108,17 +130,18 @@ export class QuotaService {
   }
 
   /**
-   * 更新配额设置。
-   * @param params `{ plan?, dailyTokens? }`（未提供字段保持原值）
+   * 更新基础日预算。
+   *
+   * **档位不在可写字段里**（2026-10-17）：它由模型识别，写它没有意义——
+   * 旧实现允许 `quota.set({ plan })`，于是"档位"既是自动识别结果又能被外部改回去，
+   * 两条路径互相覆盖。现在唯一可调的是基础日预算。
+   * @param params `{ dailyTokens? }`（未提供即不变更）
    * @returns 更新后的状态
-   * @throws 档位非法或日预算非正数时抛错（fail-closed，经 RPC 原样回给 UI）
+   * @throws 日预算非正数时抛错（fail-closed，经 RPC 原样回给 UI）
    */
-  public update(params: { readonly plan?: string; readonly dailyTokens?: number }): QuotaStatus {
-    const patch: { plan?: string; dailyTokens?: number } = {};
-    if (params.plan !== undefined) patch.plan = params.plan;
-    if (params.dailyTokens !== undefined) patch.dailyTokens = params.dailyTokens;
-    if (Object.keys(patch).length > 0) {
-      this.deps.store.write(patch);
+  public update(params: { readonly dailyTokens?: number }): QuotaStatus {
+    if (params.dailyTokens !== undefined) {
+      this.deps.store.write({ dailyTokens: params.dailyTokens });
     }
     return this.status();
   }

@@ -12,6 +12,7 @@ import { React } from '../deps.js';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CommandPaletteModel } from '../models/CommandPaletteModel.js';
 import type { CommandItem } from '../models/CommandPaletteModel.js';
+import { t } from '../i18n/i18n.js';
 
 export type { CommandItem };
 
@@ -104,7 +105,7 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
         className="cmdk"
         role="dialog"
         aria-modal="true"
-        aria-label="命令面板"
+        aria-label={t('命令面板')}
         onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
@@ -112,19 +113,19 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
           ref={inputRef}
           className="cmdk-input"
           type="text"
-          placeholder="输入命令或搜索…（↑↓ 选择，Enter 执行，Esc 关闭）"
-          aria-label="命令搜索框"
+          placeholder={t('输入命令或搜索…（↑↓ 选择，Enter 执行，Esc 关闭）')}
+          aria-label={t('命令搜索框')}
           value={query}
           onInput={onQueryInput}
         />
-        <div className="cmdk-list" role="listbox" aria-label="命令列表">
+        <div className="cmdk-list" role="listbox" aria-label={t('命令列表')}>
           {groups.reduce((n, g) => n + g.items.length, 0) === 0 ? (
-            <div className="cmdk-empty">无匹配命令</div>
+            <div className="cmdk-empty">{t('无匹配命令')}</div>
           ) : (
             groups.map((g) => (
-              <div key={g.group} className="cmdk-group" role="group" aria-label={g.group}>
+              <div key={g.group} className="cmdk-group" role="group" aria-label={t(g.group)}>
                 <div className="cmdk-group-title" aria-hidden="true">
-                  {g.group}
+                  {t(g.group)}
                 </div>
                 {g.items.map(({ item, index }) => (
                   <div
@@ -135,7 +136,7 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
                     onMouseEnter={() => setActive(index)}
                     onClick={() => runAt(index)}
                   >
-                    <span className="cmdk-label">{item.label}</span>
+                    <span className="cmdk-label">{t(item.label)}</span>
                     {item.hint ? <span className="cmdk-hint">{item.hint}</span> : null}
                   </div>
                 ))}

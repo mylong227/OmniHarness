@@ -145,7 +145,20 @@ test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 
     /catch \(error\)[\s\S]{0,400}?ServePortConflict\.probe\(port\)/u,
     '绑定失败必须 probe 占用者',
   );
-  assert.match(source, /ServePortConflict\.advice\(port, holder\)/u, '必须把可行动提示打给用户');
+  // 2026-10-15：调用多带了一个实参（实例记录）⇒ 断言随之改为钉"调用形状 + 记录接线"，
+  // 而不是钉死当时的实参个数（后者会让"加了信息"这种改进变成假红）。
+  assert.match(
+    source,
+    /ServePortConflict\.advice\(port, holder,/u,
+    '必须把可行动提示打给用户（并带上实例记录）',
+  );
+  assert.match(source, /ServeInstance\.announce\(/u, '绑定成功后必须写下实例记录');
+  assert.match(source, /ServeInstance\.sweep\(/u, '启动/冲突时必须清扫已死进程留下的陈旧记录');
+  assert.match(
+    source,
+    /ServeInstance\.retire\(instancePath\)/u,
+    '正常退出必须退役记录（只删自己的）',
+  );
   assert.match(source, /ServePortConflict\.takeOver\(port, holder\)/u, '必须实现显式接管');
   assert.match(source, /serveArgs\.includes\('--take-port'\)/u, '接管必须由 --take-port 显式请求');
 
@@ -156,6 +169,12 @@ test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 
     mutated,
     /catch \(error\)[\s\S]{0,400}?ServePortConflict\.probe\(port\)/u,
     '删掉诊断调用却检不出来 ⇒ 判据⑤恒真',
+  );
+  // 第二条正对照（本轮新增的接线）：把退役调用删掉 ⇒ 必须检得出来。
+  assert.doesNotMatch(
+    source.replace('ServeInstance.retire(instancePath)', 'retireNothing(instancePath)'),
+    /ServeInstance\.retire\(instancePath\)/u,
+    '删掉退役调用却检不出来 ⇒ 新增的接线断言恒真',
   );
 
   const flags = readFileSync(join(REPO_ROOT, 'src/cli/knownFlags.ts'), 'utf8');

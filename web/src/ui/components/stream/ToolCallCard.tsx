@@ -10,6 +10,7 @@ import { icon } from '../../models/Icon.js';
 import { ArtifactCard } from './ArtifactCard.js';
 import type { ThreadEvent } from '../../../types/models.js';
 import type { ToolResultView } from '../StreamView.js';
+import { t } from '../../i18n/i18n.js';
 
 /** ToolCallCard 组件的入参。 */
 export interface ToolCallCardProps {
@@ -33,7 +34,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
   const [open, setOpen] = React.useState<boolean>(false);
   const p = ev.payload || {};
   const status = res ? (res.ok ? 'ok' : 'err') : 'pending';
-  const statusText = res ? (res.ok ? '成功' : '失败') : '运行中…';
+  const statusText = res ? (res.ok ? t('成功') : t('失败')) : t('运行中…');
   const toolName = (p.name as string) || 'tool';
   const description = describeToolCall(toolName, p.args);
   const errText = res && !res.ok && res.text ? res.text.replace(/^✗\s*/, '') : '';
@@ -57,7 +58,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
       <div
         className="tc-line"
         onClick={toggle}
-        title={open ? '收起详情' : '点击查看调用详情'}
+        title={open ? t('收起详情') : t('点击查看调用详情')}
       >
         <span className="tc-chevron">{open ? '▾' : '▸'}</span>
         <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
@@ -80,11 +81,11 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
             {res ? (
               <div className="tool-output">{esc(res.text)}</div>
             ) : (
-              <div className="tool-output tc-waiting">等待结果…</div>
+              <div className="tool-output tc-waiting">{t('等待结果…')}</div>
             )}
           </div>
-          <button className="tc-drill" title="在右侧钻取面板查看原始事件" onClick={drill}>
-            ⤢ 在钻取面板查看
+          <button className="tc-drill" title={t('在右侧钻取面板查看原始事件')} onClick={drill}>
+            {t('⤢ 在钻取面板查看')}
           </button>
         </div>
       ) : null}

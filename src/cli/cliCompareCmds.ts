@@ -104,7 +104,7 @@ export class CliCompareCmds extends CliDataCmds {
     ]);
     return ConfigFactory.build({
       workspaceRoot: process.cwd(),
-      maxSteps: 16,
+      maxSteps: 0, // 与 CliDefaults 同步：0 = 不限（终止靠任务完成/预算/行为护栏）
       model: this.buildModel(cliArgs),
       storage: new MemoryStorage(),
       approvals: new AutoApproval(),

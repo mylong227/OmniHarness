@@ -3,6 +3,7 @@
 // 注意：本文件不得 import '../deps.js'（它依赖浏览器全局 React），否则无法在 node 下加载。
 
 import type { ThreadEvent } from '../types/models.js';
+import { t } from './i18n/i18n.js';
 
 /** 截断长字符串到指定字符数（按 UTF-16 单元），超长末尾加省略号。 */
 export function truncate(s: string, n: number): string {
@@ -38,46 +39,46 @@ export function describeToolCall(name: string, args: unknown): string {
   switch (name) {
     case 'write_file': {
       const p = pathOf();
-      return p ? `写入 ${p}` : '写入文件';
+      return p ? t('写入 {path}', { path: p }) : t('写入文件');
     }
     case 'apply_patch': {
       const p = pathOf();
-      return p ? `修改 ${p}` : '修改文件';
+      return p ? t('修改 {path}', { path: p }) : t('修改文件');
     }
     case 'read_file': {
       const p = pathOf();
-      return p ? `读取 ${p}` : '读取文件';
+      return p ? t('读取 {path}', { path: p }) : t('读取文件');
     }
     case 'list_dir': {
       const p = pathOf();
-      return p ? `浏览目录 ${p}` : '浏览目录';
+      return p ? t('浏览目录 {path}', { path: p }) : t('浏览目录');
     }
     case 'shell':
     case 'bash': {
       const cmd = str('command') || str('cmd');
-      return cmd ? `执行命令 ${short(cmd)}` : '执行命令';
+      return cmd ? t('执行命令 {cmd}', { cmd: short(cmd) }) : t('执行命令');
     }
     case 'search':
     case 'grep': {
       const q = str('pattern') || str('query');
-      return q ? `搜索 ${short(q, 48)}` : '搜索代码';
+      return q ? t('搜索 {q}', { q: short(q, 48) }) : t('搜索代码');
     }
     case 'plan_read':
-      return '查看计划';
+      return t('查看计划');
     case 'plan_write':
-      return '更新计划';
+      return t('更新计划');
     case 'plan_present':
-      return '展示计划';
+      return t('展示计划');
     case 'todo_write':
-      return '更新待办';
+      return t('更新待办');
     case 'delegate':
     case 'subagent': {
-      const t = str('task') || str('prompt');
-      return t ? `委派子任务 ${short(t, 48)}` : '委派子任务';
+      const task = str('task') || str('prompt');
+      return task ? t('委派子任务 {task}', { task: short(task, 48) }) : t('委派子任务');
     }
     default: {
       const summary = argSummary(args);
-      return summary ? `${name}（${summary}）` : `调用 ${name}`;
+      return summary ? t('{name}（{summary}）', { name, summary }) : t('调用 {name}', { name });
     }
   }
 }
@@ -231,7 +232,7 @@ export function processSummary(events: readonly ThreadEvent[]): string {
     }
   }
   const parts: string[] = [];
-  if (thinkCount > 0) parts.push(`思考 ${thinkCount} 次`);
+  if (thinkCount > 0) parts.push(t('思考 {n} 次', { n: thinkCount }));
   const grouped = new Set<string>();
   for (const g of ACTION_GROUPS) {
     let n = 0;
@@ -241,21 +242,21 @@ export function processSummary(events: readonly ThreadEvent[]): string {
         grouped.add(name);
       }
     }
-    if (n > 0) parts.push(g.verbs.replace('{n}', String(n)));
+    if (n > 0) parts.push(t(g.verbs, { n }));
   }
   const rest = Array.from(toolCounts.entries())
     .filter(([name]) => !grouped.has(name))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  for (const [name, n] of rest) parts.push(`${name}×${n}`);
-  return parts.length > 0 ? parts.join(' · ') : `${events.length} 个事件`;
+  for (const [name, n] of rest) parts.push(t('{name}×{n}', { name, n }));
+  return parts.length > 0 ? parts.join(' · ') : t('{n} 个事件', { n: events.length });
 }
 
 /** 变更状态 → 中文徽章（ChangesTab 复用）。 */
 export function statusBadge(st: string): { label: string; cls: string } {
-  if (st === '??' || st === 'A') return { label: '新增', cls: 'add' };
-  if (st === 'D') return { label: '删除', cls: 'del' };
-  if (st === 'R') return { label: '重命名', cls: 'ren' };
-  return { label: '修改', cls: 'mod' };
+  if (st === '??' || st === 'A') return { label: t('新增'), cls: 'add' };
+  if (st === 'D') return { label: t('删除'), cls: 'del' };
+  if (st === 'R') return { label: t('重命名'), cls: 'ren' };
+  return { label: t('修改'), cls: 'mod' };
 }
 
 /**
@@ -309,13 +310,16 @@ export function parseHunks(patch: string): DiffHunk[] {
  */
 export function timeAgo(iso?: string, now: number = Date.now()): string {
   if (!iso) return '';
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return '';
-  const s = Math.max(0, Math.floor((now - t) / 1000));
-  if (s < 60) return '刚刚';
-  if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
-  if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
-  return Math.floor(s / 86400) + ' 天前';
+  // ⚠️ 变量名不可叫 `t`：本模块 import 了 i18n 的 `t()`，用一个数值 `t` 接 Date.parse
+  // 会把翻译函数**遮蔽**掉，于是同一个函数体里的 `t('刚刚')` 变成"把 Number 当函数调用"
+  // （TS2349，2026-10-17 实际编译失败）。改名 `ts`（timestamp）后两者互不干扰。
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return '';
+  const s = Math.max(0, Math.floor((now - ts) / 1000));
+  if (s < 60) return t('刚刚');
+  if (s < 3600) return t('{n} 分钟前', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('{n} 小时前', { n: Math.floor(s / 3600) });
+  return t('{n} 天前', { n: Math.floor(s / 86400) });
 }
 
 /** 单行 diff 行（含行号锚点，供行内评论定位）。 */

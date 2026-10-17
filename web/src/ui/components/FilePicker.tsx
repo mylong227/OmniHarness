@@ -13,6 +13,7 @@ import { FileIconResolver } from '../models/FileIconResolver.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
 import { icon } from '../models/Icon.js';
 import type { ApiClient } from '../../core/ApiClient.js';
+import { t } from '../i18n/i18n.js';
 
 /** 目录中的单个文件条目。 */
 interface FsFile {
@@ -84,7 +85,7 @@ function renderDrives(browse: BrowseState, onNavigate: (path: string) => void): 
     <>
       <div className="fp-item fp-home" onClick={() => onNavigate(home)}>
         <span className="fp-icon">{icon('home', { size: 15 })}</span>
-        <span className="fp-name">{home}（用户目录）</span>
+        <span className="fp-name">{home}{t('（用户目录）')}</span>
       </div>
       {roots.map((r) => (
         <div key={r} className="fp-item" onClick={() => onNavigate(r)}>
@@ -118,11 +119,11 @@ function renderDirBody(
       {parent !== undefined ? (
         <div className="fp-item fp-up" onClick={() => onNavigate(parent)}>
           <span className="fp-icon">{icon('undo', { size: 15 })}</span>
-          <span className="fp-name">..（上级目录）</span>
+          <span className="fp-name">{t('..（上级目录）')}</span>
         </div>
       ) : null}
       {dirs.length === 0 && files.length === 0 && parent !== undefined ? (
-        <div className="fp-empty">（空目录）</div>
+        <div className="fp-empty">{t('（空目录）')}</div>
       ) : null}
       {dirs.map((d) => (
         <div
@@ -198,7 +199,7 @@ export function FilePicker(props: FilePickerProps): ReactElement {
           parent: r.parent,
         }));
       } else {
-        setLoad((prev) => ({ ...prev, error: '文件列表返回格式异常（fs.browse）' }));
+        setLoad((prev) => ({ ...prev, error: t('文件列表返回格式异常（fs.browse）') }));
       }
     } catch (e) {
       setLoad((prev) => ({ ...prev, error: (e as Error).message }));
@@ -251,27 +252,27 @@ export function FilePicker(props: FilePickerProps): ReactElement {
     <div className="fp-overlay" onClick={onCancel}>
       <div className="fp-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <div className="fp-head">
-          <span className="fp-title">选择附件文件</span>
-          <button className="fp-close" title="关闭 (Esc)" onClick={onCancel}>
+          <span className="fp-title">{t('选择附件文件')}</span>
+          <button className="fp-close" title={t('关闭 (Esc)')} onClick={onCancel}>
             {icon('x', { size: 14 })}
           </button>
         </div>
 
         <div className="fp-pathbar">
           {cur === null ? (
-            <span className="fp-crumb">此电脑（选择盘符）</span>
+            <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
           ) : (
             <span className="fp-crumb" title={cur}>
               {cur}
             </span>
           )}
           <span className="fp-selected-count">
-            {selectedCount > 0 ? `已选 ${selectedCount} 个` : ''}
+            {selectedCount > 0 ? t('已选 {count} 个', { count: selectedCount }) : ''}
           </span>
         </div>
 
         <div className="fp-list">
-          {loading ? <div className="fp-empty">读取中…</div> : null}
+          {loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
           {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
           {!loading && error === null && cur === null ? renderDrives(browse, navigate) : null}
           {!loading && error === null && cur !== null
@@ -281,14 +282,16 @@ export function FilePicker(props: FilePickerProps): ReactElement {
 
         <div className="fp-actions">
           <button className="fp-btn" onClick={onCancel}>
-            取消
+            {t('取消')}
           </button>
           <button
             className="fp-btn fp-primary"
             disabled={selectedCount === 0}
             onClick={confirm}
           >
-            添加 {selectedCount > 0 ? selectedCount + ' 个文件' : '文件'}
+            {selectedCount > 0
+              ? t('添加 {count} 个文件', { count: selectedCount })
+              : t('添加文件')}
           </button>
         </div>
       </div>

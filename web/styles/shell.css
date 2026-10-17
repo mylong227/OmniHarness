@@ -1,4 +1,4 @@
-/* =========================================================================
+﻿/* =========================================================================
    shell.css —— 截图式三栏壳层（会话侧栏 / 对话 / 代码查看器）
    -------------------------------------------------------------------------
    分层定位：theme.css（token）→ layout/components/chat（结构）→ polish.css（打磨）
@@ -63,7 +63,7 @@
   margin: 2px 12px 8px;
   padding: 9px 12px;
   border-radius: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   background: var(--panel-2);
   color: var(--text);
   font-size: 13.5px;
@@ -174,7 +174,7 @@
 /* 侧栏页脚 */
 .side-foot {
   margin-top: auto;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
   padding: 8px 12px 10px;
   display: flex;
   align-items: center;
@@ -202,7 +202,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 14px 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   flex: none;
 }
 .chat-title {
@@ -219,7 +219,7 @@
   gap: 6px;
   font-size: 12px;
   color: var(--dim);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 999px;
   padding: 2px 9px;
   white-space: nowrap;
@@ -254,32 +254,32 @@
   align-items: center;
   gap: 12px;
   padding: 4px 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-soft);
   font-size: 11px;
   color: var(--dim);
   flex: none;
 }
-.chat-status .cs-conn.open { color: var(--ok, #4cc38a); }
-.chat-status .cs-conn.connecting { color: var(--warn, #e0af68); }
-.chat-status .cs-conn.closed { color: var(--err, #e5484d); }
+.chat-status .cs-conn.open { color: var(--ok); }
+.chat-status .cs-conn.connecting { color: var(--warn); }
+.chat-status .cs-conn.closed { color: var(--err); }
 /* 状态栏的「续跑」芯片：把「有编排没跑完 + 一键接着跑」放在用户一直看得见的地方，
    免得还要先学会「全部面板 → 编排」的导航（2026-10-08 交互改进）。 */
 .chat-status .cs-resume {
   font: inherit;
-  color: var(--brand, #7aa2f7);
+  color: var(--accent);
   background: var(--panel-2, transparent);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 999px;
   padding: 2px 10px;
   cursor: pointer;
 }
-.chat-status .cs-resume:hover { border-color: var(--brand, #7aa2f7); }
-.chat-status .cs-resume:focus-visible { outline: 2px solid var(--brand, #7aa2f7); outline-offset: 1px; }
+.chat-status .cs-resume:hover { border-color: var(--accent); }
+.chat-status .cs-resume:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ---------- 中栏：输入卡片（正文在上 / 控制行在下） ---------- */
 .composer { padding: 8px 14px 6px; flex: none; }
 .composer-box {
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 14px;
   background: var(--panel-2);
   padding: 8px 10px 8px;
@@ -336,7 +336,7 @@
   align-items: center;
   gap: 2px;
   padding: 6px 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   overflow-x: auto;
   scrollbar-width: none;
   min-height: 38px;
@@ -350,7 +350,7 @@
   font-size: 12.5px;
   padding: 7px 10px;
   border-radius: 8px 8px 0 0;
-  border-bottom: 2px solid transparent;
+  border-bottom: 1px solid transparent;
   white-space: nowrap;
   cursor: pointer;
   flex: 0 1 auto;
@@ -381,7 +381,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-soft);
   font-size: 11.5px;
   color: var(--dim);
   flex: none;
@@ -397,7 +397,7 @@
   text-transform: uppercase;
   letter-spacing: 0.8px;
   font-size: 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 4px;
   padding: 1px 5px;
   flex: none;
@@ -422,7 +422,7 @@
   display: flex;
   align-items: stretch;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 10px;
 }
 .code-gutter {
@@ -460,7 +460,7 @@
   min-height: 0;
   overflow: auto;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 6px 14px;
 }
@@ -475,7 +475,7 @@
   z-index: 60;
   min-width: 168px;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-soft);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   padding: 6px;
@@ -534,8 +534,8 @@
   white-space: nowrap;
 }
 .tr-st { flex: none; font-size: 11px; }
-.tr-st.ok { color: var(--ok, #4cc38a); }
-.tr-st.run { color: var(--warn, #e0af68); }
+.tr-st.ok { color: var(--ok); }
+.tr-st.run { color: var(--warn); }
 .tr-time { flex: none; font-size: 11px; color: var(--dim); }
 
 /* ---------- 通用 ---------- */

@@ -27,6 +27,7 @@ import type {
   TurnRunResult,
   QuestionAnswerSubmission,
 } from '../types/models.js';
+import { t } from '../ui/i18n/i18n.js';
 
 interface JsonRpcError {
   code: number;
@@ -75,13 +76,13 @@ export class ApiClient {
       | JsonRpcResponse<T>
       | undefined;
     if (data !== undefined && typeof data.error === 'object' && data.error !== null) {
-      throw new Error(data.error.message || `RPC 错误（code ${data.error.code}）`);
+      throw new Error(data.error.message || t('RPC 错误（code {code}）', { code: data.error.code }));
     }
     if (res.ok === false) {
-      throw new Error(`RPC 请求失败：HTTP ${res.status}`);
+      throw new Error(t('RPC 请求失败：HTTP {status}', { status: res.status }));
     }
     if (data === undefined) {
-      throw new Error('RPC 响应不是合法 JSON');
+      throw new Error(t('RPC 响应不是合法 JSON'));
     }
     return data.result as T;
   }
@@ -93,7 +94,7 @@ export class ApiClient {
    */
   public async fetchMetrics(): Promise<Metrics> {
     const res = await fetch('/metrics', { headers: this.buildHeaders() });
-    if (!res.ok) throw new Error('metrics 请求失败：' + res.status);
+    if (!res.ok) throw new Error(t('metrics 请求失败：{status}', { status: res.status }));
     const text = await res.text();
     const metrics: Metrics = { sessions: 0, eventsByType: {} };
     const labelOf = (line: string, key: string): string | undefined => {

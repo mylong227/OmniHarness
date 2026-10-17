@@ -66,8 +66,16 @@ test('空 hash 回落默认路由（pane=tools, threadId=null）', () => {
 });
 
 test('解析 pane + thread 深链', () => {
+  withHash('#pane=profiles&thread=abc-123');
+  assert.deepEqual(parseHash(), { pane: 'profiles', threadId: 'abc-123' });
+});
+
+test('settings 不再是合法 pane：旧深链安全落回默认面板', () => {
+  // 2026-10-17：设置从右栏面板改为模态（左栏页脚按钮 + 居中模态）。
+  // 旧书签 `#pane=settings` 必须**明确落回 tools**，而不是"解析成合法但渲染空白"——
+  // 后者会让用户以为是面板坏了，实际是入口搬家了。
   withHash('#pane=settings&thread=abc-123');
-  assert.deepEqual(parseHash(), { pane: 'settings', threadId: 'abc-123' });
+  assert.deepEqual(parseHash(), { pane: 'tools', threadId: 'abc-123' });
 });
 
 test('toHash 与 parseHash 往返一致', () => {
@@ -93,7 +101,10 @@ test('navigate 写入 location.hash', () => {
 });
 
 test('isValidPane 仅放行已知面板', () => {
-  assert.equal(isValidPane('settings'), true);
+  assert.equal(isValidPane('profiles'), true);
+  assert.equal(isValidPane('vault'), true);
+  // 设置已改为模态（2026-10-17）：它不再是面板，故不再是合法 pane。
+  assert.equal(isValidPane('settings'), false, 'settings 已移出面板注册表，不该再被放行');
   assert.equal(isValidPane('bogus'), false);
 });
 

@@ -11,6 +11,7 @@ import { GraphDefBuilder, type StepDraft } from '../../models/GraphDefBuilder.js
 import { emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { GraphRunState, GraphSummary } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
 const BLACKBOARD_BOX: Record<string, string> = { marginTop: '6px' };
@@ -79,9 +80,9 @@ function renderRun(r: GraphRunState, actions: RunActions): ReactElement {
     </span>
   ));
   const foot = r.done ? (
-    <div className="saved">{icon(r.ok ? 'check' : 'x', { size: 12 })}{r.ok ? ' 全部完成' : ' 存在失败步骤'}</div>
+    <div className="saved">{icon(r.ok ? 'check' : 'x', { size: 12 })}{r.ok ? t(' 全部完成') : t(' 存在失败步骤')}</div>
   ) : (
-    <div className="saved">运行中…</div>
+    <div className="saved">{t('运行中…')}</div>
   );
   // 按钮文案自己说清「会发生什么」（2026-10-08 交互改进）：只写「续跑」的话，用户不知道
   // 它会不会把整张图重跑一遍（那正是最贵的担心）；给出「跳过已完成 N 步」就直接回答了这个问题。
@@ -92,12 +93,12 @@ function renderRun(r: GraphRunState, actions: RunActions): ReactElement {
       className="ghost btn-resume"
       title={
         restCount > 0
-          ? `复用已完成 ${doneCount} 步的产出，只重跑剩下 ${restCount} 步（runId 不变，进度实时刷新）`
-          : '复用已完成步骤的产出，只重跑未完成的步骤'
+          ? t('复用已完成 {done} 步的产出，只重跑剩下 {rest} 步（runId 不变，进度实时刷新）', { done: doneCount, rest: restCount })
+          : t('复用已完成步骤的产出，只重跑未完成的步骤')
       }
       onClick={() => actions.onResume(r.runId, r.defName)}
     >
-      {r.nodes.length > 0 ? `续跑（跳过已完成 ${doneCount} 步）` : '续跑'}
+      {r.nodes.length > 0 ? t('续跑（跳过已完成 {done} 步）', { done: doneCount }) : t('续跑')}
     </button>
   ) : null;
   const bb = r.blackboard ? (
@@ -137,18 +138,18 @@ function renderStoredGraph(g: GraphSummary, actions: StoredActions): ReactElemen
       <div className="pc-head">
         <span className="pc-name">
           {g.name}
-          <span className="pc-ver">{g.stepCount} 步</span>
+          <span className="pc-ver">{t('{count} 步', { count: g.stepCount })}</span>
         </span>
         <button className="ghost btn-run" onClick={() => actions.onRun(g.id, g.name)}>
-          运行
+          {t('运行')}
         </button>
       </div>
       <div className="pc-foot">
         <button className="ghost" onClick={() => actions.onOpen(g.id)}>
-          打开
+          {t('打开')}
         </button>
         <button className="btn-remove" onClick={() => actions.onDelete(g.id)}>
-          删除
+          {t('删除')}
         </button>
       </div>
     </div>
@@ -172,7 +173,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
     try {
       setGraphs(await api.listGraphs());
     } catch (e) {
-      toast('图列表不可用：' + (e as Error).message, 'err');
+      toast(t('图列表不可用：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -221,7 +222,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
         prompt: s.prompt,
       })),
     );
-    toast('已载入示例（未保存，可点「保存」）', 'info');
+    toast(t('已载入示例（未保存，可点「保存」）'), 'info');
   };
 
   /** 新建：清空图名并给出一行空步骤。 */
@@ -234,15 +235,15 @@ export function GraphTab(props: GraphTabProps): ReactElement {
   const save = async (): Promise<void> => {
     const def = collectDef();
     if (!def.name) {
-      toast('图名不能为空', 'err');
+      toast(t('图名不能为空'), 'err');
       return;
     }
     try {
       const res = await api.saveGraph(def);
-      toast('已保存：' + res.id, 'ok');
+      toast(t('已保存：{id}', { id: res.id }), 'ok');
       await load();
     } catch (e) {
-      toast('保存失败：' + (e as Error).message, 'err');
+      toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -250,14 +251,14 @@ export function GraphTab(props: GraphTabProps): ReactElement {
   const runDef = async (): Promise<void> => {
     const def = collectDef();
     if (!def.name || def.steps.length === 0) {
-      toast('图定义需含 name 与非空 steps', 'err');
+      toast(t('图定义需含 name 与非空 steps'), 'err');
       return;
     }
     try {
       const res = await api.runGraph(def);
       onRunStart(res.runId, def.name);
     } catch (e) {
-      toast('运行失败：' + (e as Error).message, 'err');
+      toast(t('运行失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -271,7 +272,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
       const res = await api.runGraphById(id);
       onRunStart(res.runId, gname);
     } catch (e) {
-      toast('运行失败：' + (e as Error).message, 'err');
+      toast(t('运行失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -291,7 +292,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
         })),
       );
     } catch (e) {
-      toast('打开失败：' + (e as Error).message, 'err');
+      toast(t('打开失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -300,9 +301,9 @@ export function GraphTab(props: GraphTabProps): ReactElement {
    * @param id 图 id
    */
   const delGraph = async (id: string): Promise<void> => {
-    const ok = await dialog.confirm('删除图 ' + id + '？', {
-      title: '删除编排图',
-      confirmLabel: '删除',
+    const ok = await dialog.confirm(t('删除图 {id}？', { id }), {
+      title: t('删除编排图'),
+      confirmLabel: t('删除'),
       danger: true,
     });
     if (!ok) return;
@@ -310,40 +311,57 @@ export function GraphTab(props: GraphTabProps): ReactElement {
       await api.deleteGraph(id);
       await load();
     } catch (e) {
-      toast('删除失败：' + (e as Error).message, 'err');
+      toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
   return (
     <div>
       <div className="graph-guide">
-        <div className="gg-title">{icon('columns', { size: 14 })} 什么是 DAG 编排？</div>
+        <div className="gg-title">{icon('columns', { size: 14 })}{t(' 什么是 DAG 编排？')}</div>
         <div className="gg-text">
-          把一个大任务拆成多个<strong>步骤</strong>，每个步骤是一条独立提示词，AI 按依赖关系并行执行：
-          <b>步骤 id</b> 是步骤名字（如 <code>plan</code>）；<b>依赖</b>填它依赖的步骤 id（如{' '}
-          <code>plan</code> 或 <code>a,b</code>）， 依赖全部完成后该步骤才会开始；
-          <b>提示词</b>是这个步骤要让 AI 做的事。
+          {t('把一个大任务拆成多个')}
+          <strong>{t('步骤')}</strong>
+          {t('，每个步骤是一条独立提示词，AI 按依赖关系并行执行：')}
+          <b>{t('步骤 id')}</b>
+          {t(' 是步骤名字（如 ')}
+          <code>plan</code>
+          {t('）；')}
+          <b>{t('依赖')}</b>
+          {t('填它依赖的步骤 id（如')}
+          {' '}
+          <code>plan</code>
+          {t(' 或 ')}
+          <code>a,b</code>
+          {t('）， 依赖全部完成后该步骤才会开始；')}
+          <b>{t('提示词')}</b>
+          {t('是这个步骤要让 AI 做的事。')}
         </div>
         <div className="gg-flow">
-          快速上手：点「<b>载入示例</b>」看结构 → 点「<b>运行</b>」观察执行 → 改成你的任务 → 「
-          <b>保存</b>」复用
+          {t('快速上手：点「')}
+          <b>{t('载入示例')}</b>
+          {t('」看结构 → 点「')}
+          <b>{t('运行')}</b>
+          {t('」观察执行 → 改成你的任务 → 「')}
+          <b>{t('保存')}</b>
+          {t('」复用')}
         </div>
       </div>
       <div className="pm-head">
         <button className="ghost" onClick={() => void load()}>
-          刷新
+          {t('刷新')}
         </button>
         <button className="ghost" onClick={loadSample}>
-          载入示例
+          {t('载入示例')}
         </button>
         <button className="ghost" onClick={newGraph}>
-          新建
+          {t('新建')}
         </button>
       </div>
       <div className="pm-section">
-        <div className="pm-title">已存图</div>
+        <div className="pm-title">{t('已存图')}</div>
         {graphs.length === 0
-          ? emptyState(icon('columns', { size: 20 }), '暂无已存图', '点「载入示例」或「新建」创建一个 DAG 编排。')
+          ? emptyState(icon('columns', { size: 20 }), t('暂无已存图'), t('点「载入示例」或「新建」创建一个 DAG 编排。'))
           : graphs.map((g) =>
               renderStoredGraph(g, {
                 onRun: (id, gname) => void runById(id, gname),
@@ -353,10 +371,10 @@ export function GraphTab(props: GraphTabProps): ReactElement {
             )}
       </div>
       <div className="pm-section">
-        <div className="pm-title">编辑 / 运行</div>
+        <div className="pm-title">{t('编辑 / 运行')}</div>
         <div className="form">
           <label>
-            图名
+            {t('图名')}
             <input
               type="text"
               value={name}
@@ -369,13 +387,13 @@ export function GraphTab(props: GraphTabProps): ReactElement {
               <div className="step-row">
                 <input
                   className="step-id"
-                  placeholder="步骤 id"
+                  placeholder={t('步骤 id')}
                   value={s.id}
                   onInput={(e: React.SyntheticEvent) => updateStep(i, 'id', (e.target as HTMLInputElement).value)}
                 />
                 <input
                   className="step-dep"
-                  placeholder="依赖(逗号分隔)"
+                  placeholder={t('依赖(逗号分隔)')}
                   value={s.dep}
                   onInput={(e: React.SyntheticEvent) => updateStep(i, 'dep', (e.target as HTMLInputElement).value)}
                 />
@@ -385,7 +403,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
                 <textarea
                   className="step-prompt"
                   rows={2}
-                  placeholder="提示词"
+                  placeholder={t('提示词')}
                   value={s.prompt}
                   onInput={(e: React.SyntheticEvent) =>
                     updateStep(i, 'prompt', (e.target as HTMLTextAreaElement).value)
@@ -395,15 +413,15 @@ export function GraphTab(props: GraphTabProps): ReactElement {
             ))}
           </div>
           <button className="ghost" onClick={addStep}>
-            + 添加步骤
+            {t('+ 添加步骤')}
           </button>
         </div>
         <div className="row">
           <button className="send" onClick={() => void save()}>
-            保存
+            {t('保存')}
           </button>
           <button className="send" onClick={() => void runDef()}>
-            运行
+            {t('运行')}
           </button>
         </div>
         <div id="graphStatus">

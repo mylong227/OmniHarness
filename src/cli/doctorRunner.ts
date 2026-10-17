@@ -367,12 +367,41 @@ export class DoctorRunner {
   }
 
   /**
+   * **退出码语义**（唯一实现，`omniharness doctor` 与判据共用）。
+   *
+   * 口径：`0` = 报告里没有问题项；`1` = 至少一项（`issues` 非空）。
+   *
+   * 为什么有问题要非零：诊断是**排障与 CI 的入口**——「跑了、发现问题、但退出码 0」会让
+   * `doctor && 后续步骤` 这种写法把坏环境当好的继续用，而人只会在输出里看到一行 WARN。
+   * 这也是 `cliSystem.test.ts`（无 key ⇒ 非零）与 F1「过期即降级但不停摆」同一条纪律的另一面：
+   * **能判定的失败必须让调用方判得出来**。
+   *
+   * 反过来，它**不是**"本机必须健康"的判据：缺插件目录 / 无 OS 沙箱后端都是合法本机状态，
+   * 调用方（如 `cliLocalCommands.test.ts`）要断言的是"退出码与报告里的问题清单一致"，
+   * 而不是"退出码恒为 0"。
+   * @param report 诊断报告。
+   * @returns 无问题 0；有问题 1。
+   */
+  public exitCode(report: DoctorReport): number {
+    return report.issues.length === 0 ? 0 : 1;
+  }
+
+  /**
    * 运行环境诊断（门面：委托默认诊断器实例）。
    * @param opts 诊断选项（缺省取 process.cwd()）。
    * @returns 汇总诊断报告。
    */
   public static runDoctor(opts: DoctorOptions = {}): DoctorReport {
     return doctorRunner.runDoctor(opts);
+  }
+
+  /**
+   * 退出码语义（门面：委托默认诊断器实例）。
+   * @param report 诊断报告。
+   * @returns 无问题 0；有问题 1。
+   */
+  public static exitCode(report: DoctorReport): number {
+    return doctorRunner.exitCode(report);
   }
 
   /**

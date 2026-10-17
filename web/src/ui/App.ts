@@ -1,4 +1,4 @@
-// 应用根组件：纯视图层（C3 拆分后的标准写法）。
+﻿// 应用根组件：纯视图层（C3 拆分后的标准写法）。
 // 状态与副作用全部上移到 AppController（组合根 / 门面）+ 子控制器（Session / Composer / Graph），
 // 本组件只负责「状态 → DOM 树」的装配，不含任何业务副作用
 // （回调统一经 controller.* 命名引用，App 状态即唯一数据源）。
@@ -11,6 +11,7 @@ import { React, ReactDOM } from './deps.js';
 import { AppContext } from './context.js';
 import { AppController } from './controllers/AppController.js';
 import type { AppHost, AppState } from './controllers/AppController.js';
+import { getLocale, initLocale, type Locale } from './i18n/i18n.js';
 
 import { RenderErrorBoundary } from './components/RenderErrorBoundary.js';
 import { SessionPanel } from './components/SessionPanel.js';
@@ -25,7 +26,6 @@ import { Resizer } from './components/Resizer.js';
 import { ToolsTab } from './components/tabs/ToolsTab.js';
 import { MetricsTab } from './components/tabs/MetricsTab.js';
 import { ChangesTab } from './components/tabs/ChangesTab.js';
-import { SettingsTab } from './components/tabs/SettingsTab.js';
 import { PluginsTab } from './components/tabs/PluginsTab.js';
 import { GraphTab } from './components/tabs/GraphTab.js';
 import { MemoryTab } from './components/tabs/MemoryTab.js';
@@ -39,6 +39,7 @@ import { AuditTab } from './components/tabs/AuditTab.js';
 import { TraceTab } from './components/tabs/TraceTab.js';
 import { PermissionTab } from './components/tabs/PermissionTab.js';
 import { VaultTab } from './components/tabs/VaultTab.js';
+import { SettingsModal } from './components/SettingsModal.js';
 import { SessionsScope } from './models/SessionsScope.js';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
@@ -46,12 +47,18 @@ type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
 
 /** 根状态初值（与拆分前的 class 构造函数逐字一致）。 */
 function initialState(): AppState {
+  // 语言偏好必须**首帧前**同步恢复：界面文案直接渲染在首帧，挂载后补设会闪一次语言
+  // （与主题不同——主题初值 'dark' 可由 initTheme 在首帧前修正，这里没有第二机会）。
+  initLocale();
   return {
     connected: false,
     // 首屏是「连接中」而不是「断开」：还没连上就报红色断开是假故障（徽标文案见 SidebarFooter）。
     streamState: 'connecting',
     adapter: '',
     activePane: 'tools',
+    // 设置模态默认关闭、默认落在「模型」栏（最常改的一栏）。
+    settingsOpen: false,
+    settingsTab: 'model',
     model: '',
     modelOptions: [],
     providerLabel: '',
@@ -69,6 +76,7 @@ function initialState(): AppState {
     fileView: null,
     openFiles: [],
     theme: 'dark',
+    locale: getLocale(),
     leftOpen: false,
     rightOpen: false,
     // 桌面右栏收起态的本机偏好在 LayoutController.initTheme 里恢复；首屏先展开。
@@ -132,8 +140,9 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
       return React.createElement(VaultTab, null);
     case 'rollback':
       return React.createElement(RollbackTab, { sessionId: s.currentThreadId, onRolledBack: ctrl.sessions.loadThread });
-    case 'settings':
-      return React.createElement(SettingsTab, { theme: s.theme, onToggleTheme: () => ctrl.layout.toggleTheme() });
+    // 'settings' 已**不在此处**（2026-10-17）：设置从右栏面板改成模态，
+    // 见 components/SettingsModal.tsx 与 renderBody 里的挂载点。
+    // 若这里还留着 case，说明有人把设置又塞回了面板列表——那会与模态形成两个真相。
     case 'plugins':
       return React.createElement(PluginsTab, null);
     case 'graph':
@@ -204,6 +213,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         activePane: s.activePane,
         onOpenPane: (key: string) => ctrl.setActivePane(key),
         onOpenPalette: () => ctrl.openPalette(),
+        // 设置固定在左栏页脚（2026-10-17）：它是模态，不再从面板列表进入。
+        onOpenSettings: () => ctrl.settings.open(),
         connected: s.connected,
         streamState: s.streamState,
         theme: s.theme,
@@ -288,7 +299,21 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
     React.createElement(ApprovalModal, {
       approval: s.approval,
       onRespond: ctrl.respondApproval,
-      onChangePermission: ctrl.openSettingsPane,
+      // 「修改权限」直接打开设置的权限栏（原实现打开的是一个已不存在的面板 key）。
+      onChangePermission: ctrl.settings.openPermission,
+    }),
+    React.createElement(SettingsModal, {
+      open: s.settingsOpen,
+      tab: s.settingsTab,
+      theme: s.theme,
+      onToggleTheme: () => ctrl.layout.toggleTheme(),
+      locale: s.locale,
+      onLocaleChange: (l: Locale) => ctrl.settings.setLocale(l),
+      onClose: ctrl.settings.close,
+      onTabChange: ctrl.settings.setTab,
+      // 更重的配置编辑（参数级规则、配置集增删、凭据库）仍走各自的专属面板：
+      // 设置模态负责"常改的几项"，不试图把所有编辑都塞进来。
+      onOpenPanel: (key: string) => ctrl.openPane(key),
     }),
     React.createElement('div', {
       className: 'drawer-backdrop' + (s.leftOpen || s.rightOpen ? ' show' : ''),

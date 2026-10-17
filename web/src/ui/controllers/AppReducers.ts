@@ -14,6 +14,7 @@ import type {
 import type { CommandItem } from '../components/CommandPalette.js';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.js';
 import type { LiveInput, SessionEntry, ToolItem, ToolResultView } from '../shared.js';
+import { t } from '../i18n/i18n.js';
 
 /** 命令面板回调依赖（buildCommands 所需）。 */
 export interface CommandDeps {
@@ -24,6 +25,8 @@ export interface CommandDeps {
   toggleTheme: () => void;
   toggleLeft: () => void;
   toggleRight: () => void;
+  /** 打开设置模态（2026-10-17：设置不再是右栏面板，见 AppReducers.buildCommands 注释）。 */
+  openSettings: () => void;
 }
 
 /** 应用根组件的纯状态归约器：无状态、无 React 依赖，全部为可单测的纯方法。 */
@@ -122,8 +125,8 @@ export class AppReducers {
         : p.output != null
           ? String(p.output)
           : ok
-            ? '✓ 成功'
-            : '✗ 失败';
+            ? t('✓ 成功')
+            : t('✗ 失败');
     return { ...prev, [callId]: { text, ok } };
   }
 
@@ -329,7 +332,6 @@ export class AppReducers {
     const panes: { key: string; label: string }[] = [
       { key: 'tools', label: '工具' },
       { key: 'metrics', label: '指标' },
-      { key: 'settings', label: '设置' },
       { key: 'plugins', label: '插件' },
       { key: 'graph', label: '编排' },
       { key: 'memory', label: '记忆' },
@@ -339,6 +341,8 @@ export class AppReducers {
       { key: 'rollback', label: '回滚' },
       { key: 'file', label: '文件' },
     ];
+    // 设置不在这份面板清单里（2026-10-17）：它是模态，不是右栏面板。
+    // 命令面板里以独立一条「打开设置」呈现，见下方 list.push。
     const list: CommandItem[] = panes.map((p) => ({
       id: 'pane-' + p.key,
       label: '打开面板：' + p.label,
@@ -357,6 +361,14 @@ export class AppReducers {
         run: () => deps.newSession(),
       },
       { id: 'reload-sessions', label: '刷新会话列表', group: '会话', run: () => void deps.refreshSessions() },
+      {
+        id: 'open-settings',
+        label: '打开设置',
+        group: '界面',
+        // 设置改成模态后仍要在命令面板里可达：它是"改配置"的唯一入口，
+        // 而固定入口（左栏页脚按钮）在左栏收起时不可见。
+        run: () => deps.openSettings(),
+      },
       {
         id: 'toggle-theme',
         label: '切换浅色 / 深色主题',

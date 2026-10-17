@@ -1,4 +1,4 @@
-// 输入区「+」添加菜单（对标 ChatGPT 的 + 面板）：分组列出
+﻿// 输入区「+」添加菜单（对标 ChatGPT 的 + 面板）：分组列出
 // 添加（文件·目标·计划模式·绘图）→ 插件 → 智能体 → 文件和聊天。
 // 打开时按真实 RPC 拉取插件 / 智能体 / 会话模式，搜索框输入即触发 search.all。
 //
@@ -13,11 +13,16 @@ import { icon } from '../models/Icon.js';
 import { useApp } from '../context.js';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.js';
 import { PendingModes } from '../models/PendingModes.js';
+import { claimPopover, releasePopover } from '../models/PopoverStack.js';
 import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.js';
 import type { ApiClient } from '../../core/ApiClient.js';
+import { t } from '../i18n/i18n.js';
 
 /** 搜索防抖时长（ms）。 */
 const SEARCH_DEBOUNCE_MS = 250;
+
+/** 本弹层在互斥控制器里的身份。 */
+const POPOVER_ID = 'addmenu';
 
 /** AddMenu 组件的入参。 */
 export interface AddMenuProps {
@@ -106,6 +111,8 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     if (!open) return undefined;
     const close = (): void => setOpen(false);
     window.addEventListener('click', close);
+    // 互斥：登记"我是当前弹层"，被别的弹层顶掉时自动收起（见 PopoverStack 头注释）。
+    claimPopover({ id: POPOVER_ID, close });
     // 没有会话时不发 `modes.get`：模式按会话持久化，此时服务端必然拒（省掉一次注定失败的 RPC）。
     if (threadId !== '') {
       void api
@@ -138,14 +145,24 @@ export function AddMenu(props: AddMenuProps): ReactElement {
       .catch(() => setAgentsLoading(false));
     return () => {
       window.removeEventListener('click', close);
+      releasePopover(POPOVER_ID);
       if (searchTimer.current !== null) clearTimeout(searchTimer.current);
     };
   }, [open, api, threadId]);
 
-  /** 触发按钮：阻断冒泡后切换展开态（阻断后不会被刚挂的外部点击监听立即关掉）。 */
+  /**
+   * 触发按钮：阻断冒泡后切换展开态（阻断后不会被刚挂的外部点击监听立即关掉）。
+   *
+   * 打开前 claim 一次：`stopPropagation` 让全局 click 关不掉**别人**，
+   * 若不主动顶掉，先开的弹层会继续留在屏幕上并被本菜单压住（用户实测到的重叠）。
+   * @param e 点击事件
+   */
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
-    setOpen((prev) => !prev);
+    const next = !open;
+    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
+    else releasePopover(POPOVER_ID);
+    setOpen(next);
   };
 
   /**
@@ -173,16 +190,16 @@ export function AddMenu(props: AddMenuProps): ReactElement {
           : await props.onApplyMode(patch);
       if (outcome === 'deferred') onToast(PendingModes.deferredHint(), 'info');
     } catch (e) {
-      onToast('模式切换失败：' + (e as Error).message, 'err');
+      onToast(t('模式切换失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
   /** 编辑持续目标（经应用内对话框输入）。 @returns 无 */
   const onGoal = async (): Promise<void> => {
-    const input = await dialog.prompt('设置要持续追求的目标（留空清除）：', goal, {
-      title: '持续目标',
-      confirmLabel: '保存',
-      placeholder: '例如：把召回率提到 60%',
+    const input = await dialog.prompt(t('设置要持续追求的目标（留空清除）：'), goal, {
+      title: t('持续目标'),
+      confirmLabel: t('保存'),
+      placeholder: t('例如：把召回率提到 60%'),
     });
     if (input === null) return;
     void toggleMode({ goal: input.trim() });
@@ -245,7 +262,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     }
     if (id.startsWith('agent:')) {
       const agent = agents.find((a) => 'agent:' + a.id === id);
-      onToast('已选择智能体：' + (agent?.name ?? id) + '（载入会话后生效）');
+      onToast(t('已选择智能体：{name}（载入会话后生效）', { name: agent?.name ?? id }));
       setOpen(false);
       return;
     }
@@ -279,7 +296,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
       role="button"
       aria-haspopup="menu"
       aria-expanded={open ? 'true' : 'false'}
-      aria-label="添加"
+      aria-label={t('添加')}
       onClick={toggle}
     >
       <span className="addmenu-ico">＋</span>
@@ -288,16 +305,16 @@ export function AddMenu(props: AddMenuProps): ReactElement {
           <div className="addmenu-search">
             <input
               className="addmenu-input"
-              placeholder="搜索文件或聊天…"
+              placeholder={t('搜索文件或聊天…')}
               value={query}
               onChange={(e: React.SyntheticEvent) => onQuery((e.target as HTMLInputElement).value)}
             />
           </div>
           <div className="addmenu-scroll">
             {sections.map((section) => renderSection(section, onItem))}
-            {searching ? <div className="addmenu-loading">搜索中…</div> : null}
+            {searching ? <div className="addmenu-loading">{t('搜索中…')}</div> : null}
             {files.length === 0 && chats.length === 0 && query.trim() !== '' && !searching ? (
-              <div className="addmenu-loading">没有匹配的文件或聊天</div>
+              <div className="addmenu-loading">{t('没有匹配的文件或聊天')}</div>
             ) : null}
           </div>
         </div>

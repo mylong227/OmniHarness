@@ -16,7 +16,7 @@
  *
  * | # | 判据 | 坏掉的后果 |
  * | --- | --- | --- |
- * | ① | `doctor` 打印诊断报告并 exit 0 | 诊断是排障入口，静默失败等于没有 |
+ * | ① | `doctor` 打印诊断报告，且**退出码与报告里的问题清单一致**（0 ⇔ `[OK] 未发现健康问题`；1 ⇔ `[WARN] 发现`） | 诊断是排障入口，静默失败等于没有；把"本机健康"写进判据则换台机器就假红 |
  * | ② | `schema` 打印协议文档并 exit 0 | SDK/协议面 |
  * | ③ | `identity show` 无密钥 ⇒ **exit 1 + 可读原因**（fail-closed，不假装成功） | 没有身份却看起来能用 |
  * | ④ | `identity generate` → `show --private-key` + `sign`/`verify` **往返成功** | 密钥格式漂移会静默破坏签名 |
@@ -47,11 +47,32 @@ function runCli(args: readonly string[]): { code: number; out: string } {
   return { code: result.status ?? 1, out: `${result.stdout}\n${result.stderr}` };
 }
 
-test('① doctor：打印诊断报告并 exit 0', () => {
+test('① doctor：打印诊断报告，且退出码与报告里的问题清单一致', () => {
   const { code, out } = runCli(['doctor']);
-  assert.strictEqual(code, 0, `doctor 应正常退出：\n${out}`);
   assert.match(out, /OmniHarness 诊断报告/u, '必须打印报告标题');
   assert.match(out, /Node/u, '报告应含 Node 版本一行');
+
+  // **判据是「一致性」，不是「恒为 0」**（2026-10-15 修）：
+  // 缺插件目录、无 OS 沙箱后端都是**合法本机状态**，doctor 的契约是"有问题即非零"
+  //（实现 JSDoc 与 `cliSystem.test.ts`「无 key ⇒ 非零」同源；映射的唯一实现在
+  // `DoctorRunner.exitCode`，其两个分支由 `doctor.test.ts` 用合成报告钉死）。
+  // 旧断言写死 exit 0 ⇒ 在"本机不健康"的机器上必然假红（本机实测：无沙箱后端 + 无插件目录）。
+  const clean = out.includes('[OK] 未发现健康问题');
+  const warn = /\[WARN\] 发现 \d+ 项问题/u.test(out);
+  assert.ok(clean || warn, `报告必须明确收尾（[OK] 或 [WARN] 之一）：\n${out}`);
+  assert.strictEqual(
+    code,
+    clean ? 0 : 1,
+    `退出码必须与报告一致（clean=${String(clean)}）：\n${out}`,
+  );
+});
+
+test('①-b doctor：显式指向不存在的配置 ⇒ 必有配置问题项并非零退出（确定性的「有问题」方向）', () => {
+  const missing = join(REPO_ROOT, '.tmp-does-not-exist-omniharness.json');
+  const { code, out } = runCli(['doctor', '--config', missing]);
+  assert.strictEqual(code, 1, `配置不存在属问题项，必须非零退出：\n${out}`);
+  assert.match(out, /\[WARN\] 发现 \d+ 项问题/u, '问题项必须在报告里点名');
+  assert.match(out, /omniharness\.json/u, '必须说清是配置文件的问题');
 });
 
 test('② schema：打印协议文档并 exit 0', () => {

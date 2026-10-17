@@ -165,6 +165,14 @@ export const DEFAULT_ROUTE_PRICING: Record<string, RoutePrice> = {
   'claude-3-5-haiku': { inputPer1M: 0.8, outputPer1M: 4, cachedInputPer1M: 0.08 },
   // OpenAI GPT-4.1（与表内 gpt-4o 不同价）
   'gpt-4.1': { inputPer1M: 2, outputPer1M: 8, cachedInputPer1M: 0.5 },
+  // ── 2026-10-15：Moonshot 出货预设迁移到**现役**型号后的定价（原 5 个型号已被厂商下线）──
+  // 来源同 PRICE_SOURCES 的第二条快照（厂商直连条目 `moonshot/*`，USD/1M）。
+  // 注：`kimi-k2.7-code` 是 `kimi-k2.7-code-highspeed` 的前缀 ⇒ 未定价的高速档会**前缀命中**这一行
+  // （0.95/4.00，而高速档真价约 1.90/8.00）：比兜底价 1.0/3.0 更接近真价，方向仍是"偏低但更小"，
+  // 已在 PRICE_SOURCES 的 note 里写明这处边界。
+  'kimi-k2.6': { inputPer1M: 0.95, outputPer1M: 4, cachedInputPer1M: 0.16 },
+  'kimi-k2.7-code': { inputPer1M: 0.95, outputPer1M: 4, cachedInputPer1M: 0.19 },
+  'kimi-k3': { inputPer1M: 3, outputPer1M: 15, cachedInputPer1M: 0.3 },
   llama: { inputPer1M: 0, outputPer1M: 0, cachedInputPer1M: 0 },
   local: { inputPer1M: 0, outputPer1M: 0, cachedInputPer1M: 0 },
   llamacpp: { inputPer1M: 0, outputPer1M: 0, cachedInputPer1M: 0 },
@@ -191,14 +199,21 @@ export const UNPRICED_DEFAULT_FAMILIES: Readonly<Record<string, string>> = {
   // 2026-10-11：原先登记 8 个族，本轮把**查得到公开价目**的都填进了 DEFAULT_ROUTE_PRICING
   // （deepseek-v4 / moonshot-v1 / glm-4.5 / gemini-2.5 / claude-3-5-haiku / gpt-4.1 /
   // qwen 云端明确档位）。剩下这几个仍**不给数字**，理由更新为「实际查过什么」：
-  'kimi-k2':
-    'Moonshot Kimi K2 族：出货名是 kimi-k2-turbo-preview / kimi-k2-0905-preview，而在公开价目库' +
-    '（见 PRICE_SOURCES）里**这两个名字都不存在**——库里只有 k2.5/k2.6/k2.7 与第三方转售档，' +
-    '型号不同不可沿用 ⇒ 不猜数字。',
+  //
+  // 2026-10-15 复核：原 `kimi-k2` 登记项**已删除**——厂商模型列表页明文写着 k2 系列
+  // （含 kimi-k2-turbo-preview / kimi-k2-0905-preview）已于 2026-05-25 下线、moonshot-v1 系列
+  // 已于 2026-08-31 下线 ⇒ 它们**不再出货**（`defaults/providers.json` 的 moonshot 预设已迁移到
+  // kimi-k2.6 / kimi-k2.7-code / kimi-k3，三者都有厂商直连单价）。"不定价"的前提是没有现役型号，
+  // 而不是给一个已下线的名字留一条理由——留着会让判据③（登记项必须被出货模型命中）失真。
   'glm-4-plus':
-    '智谱 GLM-4-plus：价目库里只有 glm-4.5 / 4.5-air / 4.5-flash / 4.6 / 4.7，**没有 4-plus** ⇒ 不猜数字。',
+    '智谱 GLM-4-plus：① 官方模型概览页的**现役 9 款核心模型**里没有它（现役为 GLM-5.3 / 5.3-Flash / ' +
+    '5.3-FlashX / 5.2 等），属上一代；② 官方 GLM-4 文档页虽给出「5 元 / 百万 Tokens」，但那是**人民币**' +
+    '且是**单档数字**，而本表口径是 **USD / 百万 token 且分输入与输出**——两者不可直接换算（要引入汇率' +
+    '假设，且缺输出价）⇒ 不猜数字。',
   'qwen3-coder-plus':
-    '通义 qwen3-coder-plus：价目库里**有条目但没有成本字段**（in/out 均为空）⇒ 不猜数字。',
+    '通义 qwen3-coder-plus：聚合价目库（坐标见 PRICE_SOURCES）里**有条目但成本字段为空**' +
+    '（`dashscope/qwen3-coder-plus` 与 `...-2025-07-22` 两条的 in/out 均无值；同一批的 ' +
+    '`qwen3-coder-flash` 亦然）⇒ 库侧没有可用数字，官方 dashscope 计费页为 JS 渲染、本机取不到正文 ⇒ 不猜。',
   qwen:
     '裸前缀 qwen：同名模型既可能跑在 dashscope（付费）也可能跑在本地 ollama（边际成本≈0），' +
     '模型名区分不了计费方 ⇒ **不按 0 计**（宁高勿低）。注意：明确档位（qwen-max / qwen-plus /' +
@@ -244,6 +259,23 @@ export const PRICE_SOURCES: Readonly<
       'gemini(2.5-pro 1.25/10 cache 0.125；flash 0.30/2.50 cache 0.03；' +
       'flash-lite 0.10/0.40 cache 0.01)、openai(gpt-4.1 2.00/8.00 cache 0.50)、' +
       'bedrock(claude-3-5-haiku 0.80/4.00 cache 0.08 —— 见上方「例外一处」)。',
+  },
+  '2026-10-15-litellm-snapshot': {
+    // 取回方式（地址写在注释里：`src/**` 的**代码行**不得出现硬编码地址）：
+    //   https://api.github.com/repos/BerriAI/litellm/git/blobs/1cdad96a076fcf035ce39184a42835ff3ba8fe98
+    ref: 'repo:BerriAI/litellm@1cdad96a076fcf035ce39184a42835ff3ba8fe98#path=model_prices_and_context_window.json',
+    note:
+      'LiteLLM model_prices_and_context_window.json（4125 条；源提交 71e508b65dc4246f059777836f8ebe12f6ecf3a7）。' +
+      '**厂商直连复核**：2026-10-11 那批 17 个键逐项重查，**数值与旧快照完全一致**（deepseek-v4 flash 0.30/1.20 ' +
+      'cache 0.006、pro 1.32/3.96 cache 0.044；moonshot-v1 8k/32k/128k = 0.20/2.00、1.00/3.00、2.00/5.00；' +
+      'zai glm-4.5 0.60/2.20、air 0.20/1.10、flash 0/0；dashscope qwen-max 1.60/6.40、plus 0.40/1.20、' +
+      'turbo 0.05/0.20；gemini 2.5-pro 1.25/10 cache 0.125、flash 0.30/2.50 cache 0.03、flash-lite 0.10/0.40 ' +
+      'cache 0.01；gpt-4.1 2.00/8.00 cache 0.50），故旧条目仍有效、本条目是**复核与新增**。' +
+      '新增三个 Moonshot 现役型号的厂商直连价（`moonshot/*`）：kimi-k2.6 0.95/4.00 cache 0.16、' +
+      'kimi-k2.7-code 0.95/4.00 cache 0.19、kimi-k3 3.00/15.00 cache 0.30。' +
+      '**边界一处**：`kimi-k2.7-code-highspeed` 无厂商直连条目（仅转售档）⇒ 不进预设、不单独定价，' +
+      '它会**前缀命中** kimi-k2.7-code 那一行（真价约 1.90/8.00，故仍属偏低但比兜底价更接近）。' +
+      '**唯一例外仍是 3.5 Haiku**（旧条目已注明：库里无 anthropic 直连条目，取 bedrock 同型号档）。',
   },
 };
 

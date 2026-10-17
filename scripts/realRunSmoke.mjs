@@ -185,10 +185,19 @@ function phaseCore(ws) {
   runCli('--help（按设计 exit 2）', ['--help'], {
     expect: (_o, s) => s === 2 || `期望 exit 2，实际 ${String(s)}`,
   });
-  runCli('doctor（带配置 ⇒ 应 exit 0）', ['doctor'], {
+  // 退出码语义是「有问题即非零」，**不是**「恒为 0」：缺插件目录 / 无 OS 沙箱后端都是合法本机状态
+  //（2026-10-15 修：旧断言写死 exit 0，在没有 OS 沙箱后端的机器上必然误报）。
+  // 这里要的是"报告出来了，且退出码与报告里的问题清单一致"。
+  runCli('doctor（带配置 ⇒ 报告 + 退出码与问题清单一致）', ['doctor'], {
     cwd: ws,
-    expect: (o, s) =>
-      (s === 0 && /诊断报告/.test(o)) || `exit=${String(s)}（报告缺"诊断报告"或有问题项）`,
+    expect: (o, s) => {
+      if (!/诊断报告/.test(o)) return '报告缺"诊断报告"';
+      const clean = o.includes('[OK] 未发现健康问题');
+      const warn = /\[WARN\] 发现 \d+ 项问题/.test(o);
+      if (!clean && !warn) return '报告既没有 [OK] 也没有 [WARN]';
+      const want = clean ? 0 : 1;
+      return s === want || `退出码 ${String(s)} 与报告不一致（应为 ${String(want)}）`;
+    },
   });
   runCli('--dump-config', ['--dump-config', '--prompt', 'x'], {
     cwd: ws,

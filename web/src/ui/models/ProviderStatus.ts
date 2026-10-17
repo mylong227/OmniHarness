@@ -2,6 +2,7 @@
 // 纯静态逻辑、零 React 依赖，便于在 node 环境直接单测。
 
 import type { ProviderPreset, ProviderProbeResult } from '../../types/models.js';
+import { t } from '../i18n/i18n.js';
 
 /** 厂商状态快照。 */
 export interface ProviderStatus {
@@ -32,17 +33,17 @@ export class ProviderStatusResolver {
   ): ProviderStatus {
     if (probe !== undefined) {
       if (probe.ok) {
-        return { dot: COLOR_OK, text: `可用 · ${probe.models.length} 个模型`, ok: true };
+        return { dot: COLOR_OK, text: t('可用 · {n} 个模型', { n: probe.models.length }), ok: true };
       }
       return {
         dot: COLOR_ERR,
-        text: probe.configured ? `不可用 · ${probe.error ?? ''}` : '未配置 Key',
+        text: probe.configured ? t('不可用 · {msg}', { msg: probe.error ?? '' }) : t('未配置 Key'),
         ok: false,
       };
     }
     if (maskedKey !== undefined) {
-      return { dot: COLOR_SAVED, text: `已保存 ${maskedKey}（未实测）`, ok: false };
+      return { dot: COLOR_SAVED, text: t('已保存 {key}（未实测）', { key: maskedKey }), ok: false };
     }
-    return { dot: COLOR_IDLE, text: p.needsKey ? '未配置 Key' : '免 Key', ok: false };
+    return { dot: COLOR_IDLE, text: p.needsKey ? t('未配置 Key') : t('免 Key'), ok: false };
   }
 }

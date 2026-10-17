@@ -10,6 +10,7 @@ import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';
 import { NumberFormatter } from '../../models/NumberFormatter.js';
 import type { Metrics } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** 纵向留白。React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
 const SPACER: Record<string, string> = { height: '14px' };
@@ -69,15 +70,15 @@ export function MetricsTab(): ReactElement {
     };
   }, [api]);
 
-  if (!metrics) return emptyNote('读取中…', { kind: 'note' });
+  if (!metrics) return emptyNote(t('读取中…'), { kind: 'note' });
 
   const et = metrics.eventsByType || {};
   const total = Object.values(et).reduce<number>((a, b) => a + (b as number), 0);
   const cards: [string, string | number][] = [
-    ['会话', metrics.sessions || 0],
-    ['事件', total],
-    ['工具调用', et.tool_call || 0],
-    ['Token 总量', usage ? NumberFormatter.abbrev(usage.total.total) : '—'],
+    [t('会话'), metrics.sessions || 0],
+    [t('事件'), total],
+    [t('工具调用'), et.tool_call || 0],
+    [t('Token 总量'), usage ? NumberFormatter.abbrev(usage.total.total) : '—'],
   ];
   const models = Object.entries(usage?.byModel ?? {}).sort(([, a], [, b]) => b.total - a.total);
 
@@ -93,17 +94,17 @@ export function MetricsTab(): ReactElement {
       </div>
       <div style={SPACER}></div>
 
-      <div className="section-title">Token 消耗统计</div>
+      <div className="section-title">{t('Token 消耗统计')}</div>
       {models.length > 0 ? (
         <>
           <table className="usage-table">
             <thead>
               <tr>
-                <th>模型</th>
-                <th>调用次数</th>
-                <th>输入</th>
-                <th>输出</th>
-                <th>总计</th>
+                <th>{t('模型')}</th>
+                <th>{t('调用次数')}</th>
+                <th>{t('输入')}</th>
+                <th>{t('输出')}</th>
+                <th>{t('总计')}</th>
               </tr>
             </thead>
             <tbody>
@@ -117,7 +118,7 @@ export function MetricsTab(): ReactElement {
                 </tr>
               ))}
               <tr className="total">
-                <td>合计</td>
+                <td>{t('合计')}</td>
                 <td>{usage?.total.calls ?? 0}</td>
                 <td>{NumberFormatter.abbrev(usage?.total.prompt ?? 0)}</td>
                 <td>{NumberFormatter.abbrev(usage?.total.completion ?? 0)}</td>
@@ -126,15 +127,15 @@ export function MetricsTab(): ReactElement {
             </tbody>
           </table>
           <div className="usage-src">
-            数据来源：{usage?.source === 'disk' ? '会话存档（重启不丢）' : '进程内累计（重启清零）'}
+            {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
           </div>
         </>
       ) : (
-        <div className="usage-src">暂无模型调用记录——跑一轮对话后这里会出现统计。</div>
+        <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
       )}
 
       <div style={SPACER}></div>
-      <div className="section-title">事件分布</div>
+      <div className="section-title">{t('事件分布')}</div>
       <div id="metricTypes">
         {Object.keys(et)
           .sort()

@@ -89,7 +89,16 @@ test('④ 接线：点击是「填进输入框」（seedDraft），不是直接�
   assert.match(app, /onUseStarter:\s*ctrl\.composer\.seedDraft/, 'App 必须把示例接到 seedDraft（填入而非发送）');
   const view = readFileSync(join(WEB_ROOT, 'src', 'ui', 'components', 'StreamView.tsx'), 'utf8');
   assert.match(view, /StarterTasks\.list\(\)/, '空态必须渲染示例清单');
-  assert.match(view, /onClick=\{\(\) => onUseStarter\(t\.prompt\)\}/, '点击必须把示例文本交给回填回调');
+  // 2026-10-17 更新（i18n 重构）：示例文案也纳入翻译，回调参数从 `t.prompt` 变成
+  // `t(task.prompt)`，循环变量也从 `t` 改名 `task`（原名与 i18n 的 `t()` 撞名）。
+  // 断言随之放宽到"必须是**从示例取出的 prompt** 经翻译后交给回填回调"，仍钉住两件事：
+  //   ① 回调是 onUseStarter（填进输入框），不是 onSend；
+  //   ② 传的是 prompt 字段，不是 label 或硬编码串。
+  assert.match(
+    view,
+    /onClick=\{\(\) => onUseStarter\(t\(task\.prompt\)\)\}/,
+    '点击必须把示例 prompt（经翻译）交给回填回调 onUseStarter',
+  );
   // 关键反向约束：示例按钮**不得**直接调用 onSend（否则第一次点按钮就消耗真实额度）
   const starterBlock = view.slice(view.indexOf('starter-tasks'), view.indexOf('stream-inner'));
   assert.ok(

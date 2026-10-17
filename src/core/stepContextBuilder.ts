@@ -47,6 +47,8 @@ export class StepContextBuilder {
   private stateRestored = false;
   /** 上一次请求的序列化文本（前缀复用率测量的比对基准；G1b-b）。 */
   private lastSerialized: string | undefined;
+  /** 上一次组装测得的相邻请求前缀复用率（0–1）；首次请求无基准 ⇒ undefined。 */
+  private lastPrefixReuseRatio: number | undefined;
 
   /**
    * @param deps 单步依赖契约（此处消费上下文相关字段：recorder / compactor / fragments /
@@ -148,6 +150,18 @@ export class StepContextBuilder {
   }
 
   /**
+   * 最近一次 {@link buildMessages} 测得的前缀复用率（0–1；首次请求为 undefined）。
+   *
+   * 供 `StepRunner` 写进 `ModelContextSnapshot.prefixReuseRatio` —— 缓存未命中分因
+   * （`CacheMissAttributionAnalyst`）需要这个信号，而它只在请求路径上算得出来。
+   * **只读**：不改任何行为，读取方拿不到就是"没测到"，不得当成 0。
+   * @returns 复用率；无基准（首次请求）或尚未组装过时为 undefined。
+   */
+  public get prefixReuseRatioOfLastBuild(): number | undefined {
+    return this.lastPrefixReuseRatio;
+  }
+
+  /**
    * 量一次**相邻请求的前缀复用率**并记 debug 指标（G1b-b，2026-10-03）。
    *
    * 为什么放在这里：前缀缓存能否命中，取决于相邻两次请求的**序列化前缀是否逐字节相同**——
@@ -155,7 +169,8 @@ export class StepContextBuilder {
    * **只被导出、没有任何生产调用点**（报告 §3.2 发现 6）。本方法把它接进真实请求路径，
    * 且**不改变任何行为**（只测、只记）。
    *
-   * 口径：`reuse = |commonPrefix| / |上次序列化| ∈ [0,1]`；首次请求无可比对象，不记录。
+   * 口径：`reuse = |commonPrefix| / |上次序列化| ∈ [0,1]`；首次请求无可比对象 ⇒ 记为
+   * `undefined`（**不猜 0**——0 的含义是"前缀被完全改写"，与"没基准"完全不是一回事）。
    * @param messages 本轮组装完成、即将发给模型的消息（含尾部动态段）。
    * @returns 无返回值。
    */
@@ -164,10 +179,15 @@ export class StepContextBuilder {
     const previous = this.lastSerialized;
     this.lastSerialized = current;
     if (previous === undefined) {
+      // 显式清空：复用率是"相对上一条请求"的量，没有基准时留着上一步的值就是错读数。
+      this.lastPrefixReuseRatio = undefined;
       return;
     }
+    // 先四舍五入再同时用于日志与快照：两处口径必须逐位一致（否则面板与日志会各说各话）。
+    const reuse = Number(PrefixStability.prefixReuse(previous, current).toFixed(4));
+    this.lastPrefixReuseRatio = reuse;
     log.debug('context.prefix_reuse', {
-      reuse: Number(PrefixStability.prefixReuse(previous, current).toFixed(4)),
+      reuse,
       messages: messages.length,
       previousChars: previous.length,
       currentChars: current.length,

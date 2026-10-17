@@ -32,6 +32,14 @@ resources/symbolic_policy/.omniharness.lock
 # 原生别名桥单测在 cwd 下写入的探针文件（Windows 上 unlink 可能被内核句柄占用而清理失败）。
 .omni-alias-*
 
+# 会话期一次性草稿（2026-10-15）：提交信息草稿与一次性改造脚本曾**被误提交**两次
+# （`.commitmsg-ports`、`.tmp-newcred.mjs`，均已 `git rm`）。它们既不是源码也不是资产，
+# 而且脚本自己就写着"一次性改造（不入库）"——按前缀一律忽略，不再靠"下次注意"。
+# 保留 `.tmp/fulltest.log` 这类**目录内**日志的既有 `*.log` 规则（见下方日志段）。
+.commitmsg-*
+.tmp-*.mjs
+.tmp-*.txt
+
 # Local third-party benchmark material
 # These files remain available to local experiments but are intentionally kept
 # out of Git until their individual redistribution terms are satisfied.
@@ -96,6 +104,11 @@ resources/comfyui_node_reference/
 # 仅开源源码 + 许可随仓库跟踪；获取/重建方式见 THIRD_PARTY_ASSETS.md。
 third-party/laya-model/
 third-party/laya-venv/
+# 2026-10-15：venv 的**基础解释器**也放进本目录（CPython 3.13.16，61MB）。
+# 起因：venv 里的 `Scripts/python.exe` 只是 shim，它读 `pyvenv.cfg` 的 `home=` 去找基础解释器；
+# 原来那份由托管工具放在 `~/.workbuddy/binaries/python/versions/3.13.12`，被清理后**整个运行时静默失效**
+# （文件都在、一跑就报"找不到可执行文件"）。放进仓库自己的 third-party/ 后，修复不再依赖任何外部缓存。
+third-party/laya-python/
 
 # 本机外部产物（非本仓库生成，2026-09-23 发现于工作区根）：Chrome 配置/注册表备份，勿入库。
 chrome-hijack-backup/
@@ -118,3 +131,13 @@ third-party/swebench-repos/
 
 # 上下文效率基准的临时编译产物（run.sh bash+tsc 管线写入）
 .xeval/
+
+# 已删除的旧整份「打磨层」（2026-10-16 按功能拆成 web/styles/polish-*.css：行序未动、内容已搬走）。
+#
+# 为什么要把一个**已删除**的文件写进 .gitignore：2026-10-17 这一天里它在本机自动复活了 6 次，
+# 每次都会让 `web/test/a11yContrast.test.mjs` 的「孤儿样式表」判据变红
+# （styles/ 下有 .css、而 index.html 没引用它）。根因是它此前**仍被 git 跟踪**，
+# 因此任何 `git checkout` / `git stash` 类操作都能把已跟踪文件从对象库恢复回工作区。
+# 删除提交之后，若本机某个检查点/同步工具再把它写回磁盘，这条规则保证它只是**未跟踪垃圾**：
+# 不会再进索引被误提交。需要查阅这份旧表用：`git show <commit>:web/styles/polish.css`。
+web/styles/polish.css

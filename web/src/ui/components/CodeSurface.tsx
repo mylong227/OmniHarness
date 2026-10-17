@@ -9,6 +9,7 @@
 
 import { React } from '../deps.js';
 import { highlightCode } from '../highlight.js';
+import { t } from '../i18n/i18n.js';
 
 /** CodeSurface 组件的入参。 */
 export interface CodeSurfaceProps {
@@ -46,7 +47,7 @@ export function CodeSurface(props: CodeSurfaceProps): ReactElement | null {
   const code = highlightCode(content, lang);
   if (code === null) return null;
   return (
-    <div className="code-scroll" role="region" aria-label="代码内容">
+    <div className="code-scroll" role="region" aria-label={t('代码内容')}>
       <div className="code-gutter">{gutterRows(content)}</div>
       {code}
     </div>

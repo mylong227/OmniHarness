@@ -2,6 +2,7 @@
 // 函数组件范式：计时起点用 useRef，周期刷新用 useState + 空依赖 effect（清理函数对称清掉 interval）。
 
 import { React } from '../deps.js';
+import { t } from '../i18n/i18n.js';
 
 /** WorkIndicator 组件的入参。 */
 export interface WorkIndicatorProps {
@@ -32,14 +33,14 @@ export function WorkIndicator(props: WorkIndicatorProps): ReactElement {
     return () => clearInterval(timer);
   }, []);
 
-  const action = activeTool != null ? '正在调用 ' + activeTool : '思考中';
+  const action = activeTool != null ? t('正在调用 {tool}', { tool: activeTool }) : t('思考中');
   // role=status：忙碌态是异步状态变化，让辅助技术播报「在干什么」；
   // 每秒跳动的计时数字对朗读无信息量，故 aria-hidden 掉，避免每秒打断一次。
   return (
     <div className="work-indicator" role="status" aria-live="polite">
       <span className="wi-dot" aria-hidden="true"></span>
       <span className="wi-text">{action}</span>
-      <span className="wi-time" aria-hidden="true">{elapsed >= 1 ? elapsed + 's' : '刚刚'}</span>
+      <span className="wi-time" aria-hidden="true">{elapsed >= 1 ? elapsed + 's' : t('刚刚')}</span>
     </div>
   );
 }

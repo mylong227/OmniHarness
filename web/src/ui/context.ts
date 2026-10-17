@@ -5,6 +5,7 @@ import { React } from './deps.js';
 import type { ApiClient } from '../core/ApiClient.js';
 import type { ToastKind } from '../core/ToastService.js';
 import type { DialogService } from '../core/DialogService.js';
+import { t } from './i18n/i18n.js';
 
 export interface AppContextValue {
   api: ApiClient;
@@ -19,6 +20,6 @@ export const AppContext = React.createContext<AppContextValue | null>(null);
 
 export function useApp(): AppContextValue {
   const ctx = React.useContext(AppContext);
-  if (!ctx) throw new Error('useApp 必须在 AppContext.Provider 内使用');
+  if (!ctx) throw new Error(t('useApp 必须在 AppContext.Provider 内使用'));
   return ctx;
 }

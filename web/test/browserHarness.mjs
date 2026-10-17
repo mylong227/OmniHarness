@@ -1,4 +1,4 @@
-// 共享浏览器验证工具（E1 CDP 路线；**无第三方依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
+﻿// 共享浏览器验证工具（E1 CDP 路线；**无第三方依赖**，不引入 playwright / puppeteer / ws / CDP 库）。
 //
 // 与 D3 的 UI e2e（`web/test/e2e.test.mjs`）**同一传输**：复用本机已装 Chrome/Edge，
 // 用无第三方依赖 Node http 静态服务托管 web/，并注入假 /rpc + 假 /events 使前端在确定性假后端下渲染。
@@ -128,7 +128,11 @@ function injectedBody() {
     '  var SOURCES = []; window.__SOURCES__ = SOURCES;',
     '  var json = function(o){ return { ok:true, status:200, json:function(){ return Promise.resolve(o); }, text:function(){ return Promise.resolve(JSON.stringify(o)); } }; };',
     '  var results = {',
-    "    'model.catalog': { providers: [], active: { id:'mock', label:'Mock 厂商', defaultModel:'mock-e2e', model:'mock-e2e', models:['mock-e2e'], reasoningEffort:['low','high'] } },",
+    "    'model.catalog': { providers: [], active: { id:'mock', label:'Mock 厂商', defaultModel:'mock-e2e', model:'mock-e2e', models:['mock-e2e'], reasoningEffort:['low','medium','high'] } },",
+    // 夹具自洽性（2026-10-17 修）：`reasoning` 必须**属于**上面的 reasoningEffort，
+    // 否则模型弹窗的进度条会把"当前值"当一个不属于该模型的档位追加在末尾，
+    // 截图里读起来就是"弱 / 强 / 中"这种乱序（不是渲染 bug，是夹具自相矛盾）。
+    // reasoningEffort 的真实形状见 ApiClient.ModelCatalog.reasoningEffort。
     "    'config.get': { modelAdapter:'mock', model:'mock-e2e', reasoning:'medium', approval:'ask' },",
     "    'sessions.list': { dir:'', sessions: [] },",
     "    'workspace.list': { current:'', workspaces: [] },",
@@ -139,7 +143,7 @@ function injectedBody() {
     "    'context.usage': { threadId:'', windowTokens:0, usedTokens:0, percent:0, rows:[], mcpToolCount:0, systemToolCount:0, source:'empty', cache:{ hitRate:0, calls:0 }, collectedAt:'' },",
     // 配额：**形状必须完整**——`QuotaView` 会直接读 `status.plan.upgraded` 与 `status.models.map`，
     // 形状不符（旧版服务端无该方法 ⇒ 回落 `{}`）会在渲染期抛错并把整个工作台卸载（root 清空）。
-    "    'quota.get': { plan:{ id:'free', label:'免费', multiplier:1, upgraded:false, fallback:true }, dailyTokens:1000000, effectiveTokens:1000000, usedTokens:0, remainingPercent:100, models:[], dayKey:'1970-01-01', resetAt:'1970-01-01T23:59:59.999Z', source:'local-budget' },",
+    "    'quota.get': { plan:{ id:'plus', label:'升级', multiplier:1.5, upgraded:true }, planReason:'通用主力命名（chat / standard / base / v<N>）', planModel:'mock-e2e', dailyTokens:1000000, effectiveTokens:1000000, usedTokens:0, remainingPercent:100, models:[], dayKey:'1970-01-01', resetAt:'1970-01-01T23:59:59.999Z', source:'local-budget' },",
     // 添加菜单要这两项（插件/智能体目录）：缺失时旧实现会把 undefined 塞进 state，点＋即整块输入区
     // 崩掉卸载（2026-09-27 实测）⇒ stub 必须给**正确形状**，否则弹层类用例根本测不到渲染。
     "    'plugins.list': { plugins: [] },",

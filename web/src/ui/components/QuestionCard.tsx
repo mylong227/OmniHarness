@@ -14,6 +14,7 @@ import type {
   QuestionAnswerSubmission,
   QuestionRequest,
 } from '../../types/models.js';
+import { t } from '../i18n/i18n.js';
 
 /** 倒计时步长（毫秒）。 */
 const TICK_MS = 1000;
@@ -113,8 +114,8 @@ function QuestionField(props: {
         type="text"
         value={draft.custom}
         disabled={disabled}
-        placeholder={options.length === 0 ? '输入你的回答' : '其他 / 补充说明（可选）'}
-        aria-label={title + ' — 补充说明'}
+        placeholder={options.length === 0 ? t('输入你的回答') : t('其他 / 补充说明（可选）')}
+        aria-label={t('{title} — 补充说明', { title })}
         onChange={(event: React.ChangeEvent<HTMLInputElement>) => onCustom(event.target.value)}
       />
     </div>
@@ -198,7 +199,7 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
   const submit = async (): Promise<void> => {
     const missing = request.questions.findIndex((item) => !answered(drafts[item.id]));
     if (missing >= 0) {
-      setError('第 ' + String(missing + 1) + ' 题还没作答：请选一项或填写补充说明。');
+      setError(t('第 {n} 题还没作答：请选一项或填写补充说明。', { n: missing + 1 }));
       return;
     }
     setBusy(true);
@@ -228,14 +229,14 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
   };
 
   return (
-    <section className="qask" aria-label="待回答的提问">
+    <section className="qask" aria-label={t('待回答的提问')}>
       <header className="qask-head">
-        <span className="badge b-question">提问</span>
+        <span className="badge b-question">{t('提问')}</span>
         <span className="qask-progress">
-          已作答 {String(done)}/{String(total)}
+          {t('已作答 {done}/{total}', { done: String(done), total: String(total) })}
         </span>
         {remaining > 0 ? (
-          <span className="qask-timer">剩余 {String(Math.ceil(remaining / 1000))} 秒</span>
+          <span className="qask-timer">{t('剩余 {n} 秒', { n: String(Math.ceil(remaining / 1000)) })}</span>
         ) : null}
       </header>
       <div className="qask-body">
@@ -253,8 +254,8 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
       <footer className="qask-foot">
         <span className="qask-hint">
           {remaining > 0
-            ? '超时后模型会按「未作答」继续；作答随时可提交。'
-            : '选择或填写后提交。'}
+            ? t('超时后模型会按「未作答」继续；作答随时可提交。')
+            : t('选择或填写后提交。')}
         </span>
         {error === null ? null : (
           <span className="qask-error" role="alert">
@@ -263,7 +264,7 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
         )}
         <span className="flex-spacer" aria-hidden="true"></span>
         <button type="button" className="qask-skip" disabled={busy} onClick={() => void skipAll()}>
-          全部跳过
+          {t('全部跳过')}
         </button>
         <button
           type="button"
@@ -271,7 +272,7 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
           disabled={busy || done < total}
           onClick={() => void submit()}
         >
-          {busy ? '提交中…' : '提交回答'}
+          {busy ? t('提交中…') : t('提交回答')}
         </button>
       </footer>
     </section>

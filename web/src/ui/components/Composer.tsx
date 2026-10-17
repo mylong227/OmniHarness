@@ -13,14 +13,13 @@
 // 附件条 / @补全弹层的渲染下沉为模块级纯函数。
 
 import { React } from '../deps.js';
-import { Dropdown } from './Dropdown.js';
+import { ModelPicker } from './ModelPicker.js';
 import { FilePicker } from './FilePicker.js';
 import { WorkIndicator } from './WorkIndicator.js';
 import { AddMenu } from './AddMenu.js';
 import { PermissionPicker } from './PermissionPicker.js';
 import { ContextCapacityPanel } from './ContextCapacityPanel.js';
 import { MentionResolver } from '../models/MentionResolver.js';
-import { ComposerOptions } from '../models/ComposerOptions.js';
 import { ComposerDraft } from '../models/ComposerDraft.js';
 import { FileTreeFlattener } from '../models/FileTreeFlattener.js';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.js';
@@ -39,6 +38,7 @@ import {
 import type { FileAttachment } from '../../types/models.js';
 import type { ComposerSeed } from '../shared.js';
 import type { ApiClient } from '../../core/ApiClient.js';
+import { t } from '../i18n/i18n.js';
 
 const PICKER_ERR_BOX: Record<string, string> = { margin: '6px 14px 0' };
 
@@ -50,7 +50,7 @@ export interface ComposerProps {
   /** 当前厂商展示名（下拉标题显示「模型 · DeepSeek」）。 */
   providerLabel?: string;
   reasoning: string;
-  /** 当前厂商合法的 reasoning_effort 档位（见 ComposerOptions.reasoning 的三态语义）。 */
+  /** 当前厂商合法的 reasoning_effort 档位（三态语义见 ComposerOptions.reasoning / ladder）。 */
   reasoningOptions?: string[];
   permission: string;
   /** 当前会话 id（目标 / 计划 / 绘图模式按会话持久化；上下文容量报告维度）。 */
@@ -131,7 +131,7 @@ function renderAttachmentsView(
               <span className="att-name">{a.name}</span>
             </div>
           ) : null}
-          <button className="att-x" title="移除" onClick={() => onRemove(a.id)}>
+          <button className="att-x" title={t('移除')} onClick={() => onRemove(a.id)}>
             ×
           </button>
           <span className="att-size">{a.size === undefined ? '' : FileSizeFormatter.human(a.size)}</span>
@@ -150,7 +150,7 @@ function renderAttachmentsView(
 function renderMentionView(mention: MentionState | null, onPick: (p: string) => void): ReactElement | null {
   if (mention === null) return null;
   return (
-    <div className="mention-pop" role="listbox" aria-label="文件引用补全">
+    <div className="mention-pop" role="listbox" aria-label={t('文件引用补全')}>
       {mention.items.map((p, i) => (
         <div
           key={p}
@@ -328,17 +328,22 @@ export function Composer(props: ComposerProps): ReactElement {
     try {
       const r = await api.attachRead(paths);
       if (r.files.length === 0 && r.errors.length > 0) {
-        setPickerErr(r.errors[0]?.error ?? '附件读取失败');
+        setPickerErr(r.errors[0]?.error ?? t('附件读取失败'));
         return;
       }
       const base = 'att' + Date.now();
       const drafts = (r.files as RemoteFile[]).map((f, i) => AttachmentDraftFactory.fromRemote(f, base + '_' + i));
       setAttachments((prev) => [...prev, ...drafts]);
       if (r.errors.length > 0) {
-        setPickerErr(r.errors.length + ' 个文件读取失败：' + r.errors.map((e) => e.error).join('；'));
+        setPickerErr(
+          t('{count} 个文件读取失败：{errors}', {
+            count: r.errors.length,
+            errors: r.errors.map((e) => e.error).join('；'),
+          }),
+        );
       }
     } catch (e) {
-      setPickerErr('附件读取失败：' + (e as Error).message);
+      setPickerErr(t('附件读取失败：{msg}', { msg: (e as Error).message }));
     }
   };
 
@@ -436,7 +441,7 @@ export function Composer(props: ComposerProps): ReactElement {
     <div
       className="composer"
       role="region"
-      aria-label="任务输入区"
+      aria-label={t('任务输入区')}
       onDragOver={(e: React.DragEvent) => e.preventDefault()}
       onDrop={onDrop}
     >
@@ -449,8 +454,8 @@ export function Composer(props: ComposerProps): ReactElement {
             id="prompt"
             rows={2}
             ref={taRef}
-            aria-label="任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件"
-            placeholder="发消息或创建任务，/ 调用指令，@ 文件或对话"
+            aria-label={t('任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件')}
+            placeholder={t('发消息或创建任务，/ 调用指令，@ 文件或对话')}
             onPaste={onPaste}
             onInput={refreshMention}
             onClick={refreshMention}
@@ -477,8 +482,8 @@ export function Composer(props: ComposerProps): ReactElement {
             />
             <button
               className="iconbtn attach"
-              title="粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）"
-              aria-label="附加图片、视频或文件"
+              title={t('粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）')}
+              aria-label={t('附加图片、视频或文件')}
               onClick={() => {
                 setPickerErr(null);
                 setFilePickerOpen(true);
@@ -499,25 +504,23 @@ export function Composer(props: ComposerProps): ReactElement {
               // effect 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc）。
               onToast={toastStable}
             />
-            <Dropdown
-              title="推理强度"
-              icon={icon('flame', { size: 14 })}
-              value={reasoning}
-              options={[{ value: '', label: '推理强度' }, ...ComposerOptions.reasoning(reasoning, reasoningOptions)]}
-              onChange={onReasoningChange}
-            />
-            <Dropdown
-              title={providerLabel ? `模型 · ${providerLabel}` : '模型'}
-              icon={icon('brain', { size: 14 })}
-              value={model}
-              options={ComposerOptions.models(model, modelOptions).map((m) => ({ value: m, label: m }))}
-              onChange={onModelChange}
+            {/* 模型与推理强度合并为一个入口（2026-10-17）：强度不再是输入行里并排的第二个下拉，
+                而是弹窗内的进度条——两者本就是同一个决定的两半，且强度是有序量。
+                原先这里有两个 Dropdown（"推理强度" + "模型"），是输入行最宽的两块 chrome。 */}
+            <ModelPicker
+              model={model}
+              {...(modelOptions !== undefined ? { modelOptions } : {})}
+              reasoning={reasoning}
+              {...(reasoningOptions !== undefined ? { reasoningOptions } : {})}
+              {...(providerLabel ? { providerLabel } : {})}
+              onModelChange={onModelChange}
+              onReasoningChange={onReasoningChange}
             />
             {SpeechRecognitionFactory.supported() ? (
               <button
                 className={'iconbtn mic' + (listening ? ' listening' : '')}
-                title={listening ? '停止语音输入' : '语音输入（中文）'}
-                aria-label={listening ? '停止语音输入' : '开始语音输入'}
+                title={listening ? t('停止语音输入') : t('语音输入（中文）')}
+                aria-label={listening ? t('停止语音输入') : t('开始语音输入')}
                 onClick={toggleVoice}
               >
                 {icon(listening ? 'x' : 'mic', { size: 15 })}
@@ -526,8 +529,8 @@ export function Composer(props: ComposerProps): ReactElement {
             {busy === true ? (
               <button
                 className="stop round"
-                aria-label="停止生成"
-                title="停止生成"
+                aria-label={t('停止生成')}
+                title={t('停止生成')}
                 onClick={() => {
                   onStop?.();
                 }}
@@ -535,7 +538,13 @@ export function Composer(props: ComposerProps): ReactElement {
                 ■
               </button>
             ) : (
-              <button className="send round" disabled={disabled} aria-label="发送任务" title="发送（Enter）" onClick={handleSend}>
+              <button
+                className="send round"
+                disabled={disabled}
+                aria-label={t('发送任务')}
+                title={t('发送（Enter）')}
+                onClick={handleSend}
+              >
                 ↑
               </button>
             )}

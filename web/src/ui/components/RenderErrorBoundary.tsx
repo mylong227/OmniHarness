@@ -12,6 +12,7 @@
 //   ② 现场写进 sessionStorage（`omni-last-render-error`，含组件栈），用户一句话就能把真因带回来；
 //   ③ 点「重试」可原地恢复渲染（清掉边界态重挂子树），不必丢掉当前会话。
 import { React } from '../deps.js';
+import { t } from '../i18n/i18n.js';
 
 /** 边界状态。 */
 interface RenderErrorBoundaryState {
@@ -101,11 +102,11 @@ export class RenderErrorBoundary extends React.Component<
   private copyDetail = (): void => {
     const error = this.state.error;
     const text = [
-      `时间：${new Date().toISOString()}`,
-      `消息：${error?.message ?? ''}`,
-      `栈：${(error?.stack ?? '').split('\n').slice(0, 8).join('\n')}`,
-      `组件栈：${this.state.componentStack}`,
-      `URL：${location.href}`,
+      t('时间：{value}', { value: new Date().toISOString() }),
+      t('消息：{value}', { value: error?.message ?? '' }),
+      t('栈：{value}', { value: (error?.stack ?? '').split('\n').slice(0, 8).join('\n') }),
+      t('组件栈：{value}', { value: this.state.componentStack }),
+      t('URL：{value}', { value: location.href }),
     ].join('\n');
     try {
       void navigator.clipboard.writeText(text).then(
@@ -139,15 +140,15 @@ export class RenderErrorBoundary extends React.Component<
     return React.createElement(
       'div',
       { className: 'crash-panel', role: 'alert' },
-      React.createElement('div', { className: 'crash-title' }, '界面渲染出错'),
+      React.createElement('div', { className: 'crash-title' }, t('界面渲染出错')),
       React.createElement('div', { className: 'crash-msg' }, error.message || String(error)),
       where === ''
         ? null
-        : React.createElement('div', { className: 'crash-where' }, '位置：' + where),
+        : React.createElement('div', { className: 'crash-where' }, t('位置：{where}', { where })),
       React.createElement(
         'div',
         { className: 'crash-hint' },
-        '这是界面自身的渲染异常（不是你的操作问题）。现场已记录，可按「重新加载」继续使用；若反复出现，请点「复制详情」把内容发我。',
+        t('这是界面自身的渲染异常（不是你的操作问题）。现场已记录，可按「重新加载」继续使用；若反复出现，请点「复制详情」把内容发我。'),
       ),
       React.createElement(
         'div',
@@ -155,17 +156,17 @@ export class RenderErrorBoundary extends React.Component<
         React.createElement(
           'button',
           { type: 'button', className: 'crash-retry', onClick: this.reset },
-          '重试',
+          t('重试'),
         ),
         React.createElement(
           'button',
           { type: 'button', className: 'crash-reload', onClick: this.reload },
-          '重新加载',
+          t('重新加载'),
         ),
         React.createElement(
           'button',
           { type: 'button', className: 'crash-copy', onClick: this.copyDetail },
-          this.state.copied ? '已复制' : '复制详情',
+          this.state.copied ? t('已复制') : t('复制详情'),
         ),
       ),
     );

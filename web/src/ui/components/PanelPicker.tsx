@@ -7,6 +7,7 @@
 import { React } from '../deps.js';
 import { icon } from '../models/Icon.js';
 import { PANELS } from '../models/PanelRegistry.js';
+import { t } from '../i18n/i18n.js';
 
 /** PanelPicker 组件的入参。 */
 export interface PanelPickerProps {
@@ -82,8 +83,8 @@ export function PanelPicker(props: PanelPickerProps): ReactElement {
       <button
         ref={btnRef}
         className={'iconbtn pp-btn' + (open ? ' active' : '')}
-        title="全部面板"
-        aria-label="全部面板"
+        title={t('全部面板')}
+        aria-label={t('全部面板')}
         aria-haspopup="menu"
         aria-expanded={open ? 'true' : 'false'}
         onClick={toggle}
@@ -102,7 +103,7 @@ export function PanelPicker(props: PanelPickerProps): ReactElement {
           }
         >
           <div className="pp-title" aria-hidden="true">
-            全部面板
+            {t('全部面板')}
           </div>
           {PANELS.map((p) => (
             <button
@@ -114,7 +115,7 @@ export function PanelPicker(props: PanelPickerProps): ReactElement {
               <span className="pp-ico" aria-hidden="true">
                 {icon(p.icon, { size: 15 })}
               </span>
-              <span className="pp-label">{p.label}</span>
+              <span className="pp-label">{t(p.label)}</span>
             </button>
           ))}
         </div>

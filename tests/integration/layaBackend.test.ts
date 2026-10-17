@@ -12,10 +12,16 @@
  * 3. **覆盖三条原语 + 热进程复用**：noul / choice / score 都验真实数值，
  *    并断言热路径单次 < 5s（实测约 0.4s；单发路径每次 18–62s，是「用不起」的根因）。
  *
- * 缺 venv / 权重时整个文件 skip（fail-open 不应使集成测试变红，真实可用性是环境前提）。
+ * 缺 venv / 权重 / **解释器跑不起来**时整个文件 skip（fail-open 不应使集成测试变红，真实可用性是环境前提）。
+ * 注意「文件存在 ≠ 可用」：venv 里的 `python.exe` 是 **shim**，它指向 `~/.workbuddy/binaries/python/versions/<v>`
+ * 那套被托管的基础解释器——基础解释器被清掉后 shim 仍在，但一跑就报「找不到可执行文件」。
+ * 2026-10-15 本机实测就是这样：`existsSync(python)` 为真、跑起来 exit≠0 ⇒ 旧口径（只看文件在不在）
+ * 会让 5 条真前向判据全红，而真相是**环境缺件**，不是产品坏了（同一测试当天早些时候还全绿）。
+ * 故这里改为**真跑一次 `--version`** 作为前提；`OMNI_REQUIRE_LAYAPY=1` 时该前提不成立仍然失败（CI 口径不变）。
  */
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.js';
 import { LayaPaths } from '../../src/adapters/laya/layaPaths.js';
@@ -29,11 +35,25 @@ import type { OmniHarnessConfig } from '../../src/config/configFactory.js';
 const venvPython = LayaPaths.pythonPath(process.cwd());
 /** 项目内权重目录（空串 = 未安装）。 */
 const localModelDir = LayaPaths.modelDir(process.cwd());
+
+/**
+ * 解释器是否**真的能跑**（而不是"文件在"）。
+ * @param python 解释器路径
+ * @returns 能跑出 `--version` 且退出码 0 为 true
+ */
+function pythonRunnable(python: string): boolean {
+  if (!existsSync(python)) return false;
+  const probe = spawnSync(python, ['--version'], { encoding: 'utf8', timeout: 20_000 });
+  return probe.status === 0;
+}
+
 /** 缺环境即 skip 的原因（false = 照跑）。 */
 const SKIP_REASON: string | false =
-  existsSync(venvPython) && localModelDir.length > 0
+  pythonRunnable(venvPython) && localModelDir.length > 0
     ? false
-    : `项目内未安装 Laya 运行时（解释器 ${venvPython} / 权重 ${localModelDir.length > 0 ? localModelDir : '(缺失)'}）——见 THIRD_PARTY_ASSETS.md 的重建步骤`;
+    : `项目内 Laya 运行时不可用（解释器 ${venvPython} ${
+        existsSync(venvPython) ? '存在但**跑不起来**（venv shim 指向的基础解释器已不在）' : '缺失'
+      } / 权重 ${localModelDir.length > 0 ? localModelDir : '(缺失)'}）——见 THIRD_PARTY_ASSETS.md 的重建步骤`;
 
 /**
  * 本文件 5 条真前向判据的 skip 选项。

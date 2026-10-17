@@ -60,6 +60,14 @@ export interface CacheHitRateSample {
   readonly gapMs?: number | undefined;
   /** provider 缓存 TTL（毫秒）；缺省取分因器的默认值。 */
   readonly ttlMs?: number | undefined;
+  /**
+   * 调用方**已算好**的分因（2026-10-15）。
+   *
+   * 为什么允许透传：容量面板与服务日志必须给出**同一句**结论。面板侧手上有
+   * 「最近一次上报调用自己的 token + 前缀复用率 + 间隔」这些逐条信号，而观测器只拿得到会话聚合数字
+   * ——若两边各自归因，同一场会话会出现两个不同的 `cause`。给了就用它，没给才按下面的原始数字自行归因。
+   */
+  readonly attribution?: { readonly cause: CacheMissCause; readonly reason: string } | undefined;
 }
 
 /** 坍塌判定的结果（用于日志与单测断言，不做业务分支）。 */
@@ -120,17 +128,20 @@ export class CacheHitRateWatch {
     if (sample.promptTokens <= 0) return undefined;
     if (sample.calls < MIN_CALLS_FOR_JUDGEMENT) return undefined;
     if (hitRate >= this.threshold) return undefined;
-    // 分因：只把**已知**的信号传下去。`cachedPromptTokensReported` 缺省时传 `undefined`
-    // ⇒ 分因器判 `not-reported`（"端点没给字段"）——这正是最该与"缓存全没命中"区分开的那一类。
-    const attribution = CacheMissAttributionAnalyst.attribute({
-      cachedPromptTokens: sample.cachedPromptTokensReported,
-      promptTokens: sample.promptTokens,
-      ...(sample.prefixReuseRatio !== undefined
-        ? { prefixReuseRatio: sample.prefixReuseRatio }
-        : {}),
-      ...(sample.gapMs !== undefined ? { gapMs: sample.gapMs } : {}),
-      ...(sample.ttlMs !== undefined ? { ttlMs: sample.ttlMs } : {}),
-    });
+    // 分因：**优先用调用方算好的结论**（面板与日志同源）；没有才按原始数字自行归因——
+    // `cachedPromptTokensReported` 缺省时传 `undefined` ⇒ 分因器判 `not-reported`
+    //（"端点没给字段"），这正是最该与"缓存全没命中"区分开的那一类。
+    const attribution =
+      sample.attribution ??
+      CacheMissAttributionAnalyst.attribute({
+        cachedPromptTokens: sample.cachedPromptTokensReported,
+        promptTokens: sample.promptTokens,
+        ...(sample.prefixReuseRatio !== undefined
+          ? { prefixReuseRatio: sample.prefixReuseRatio }
+          : {}),
+        ...(sample.gapMs !== undefined ? { gapMs: sample.gapMs } : {}),
+        ...(sample.ttlMs !== undefined ? { ttlMs: sample.ttlMs } : {}),
+      });
     return {
       hitRate,
       promptTokens: sample.promptTokens,

@@ -120,6 +120,9 @@ export const PERSISTABLE_KEYS: readonly string[] = [
   // 经 configFile.save → normalizeConfig 严格校验落盘；规则只能收紧（deny）或改默认裁决，
   // 不放宽 sandbox / approval 轴，故纳管风险与既有的 approval/sandbox 同量级。
   'permission',
+  // 界面语言（Web UI 设置「外观」栏）：经 config.update 落用户级 omniharness.json，
+  // 枚举校验（zh/en）见 configError.ts 的 ENUM_VALUES.locale。
+  'locale',
 ];
 
 /** 图运行中单节点状态。 */

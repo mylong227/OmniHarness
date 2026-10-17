@@ -92,6 +92,14 @@ function measure() {
 
 /**
  * 强加「修复前几何」：把当年的窄栏行为写回去（用于正对照）。
+ *
+ * 2026-10-17 更新（原正对照失效，不是判据失效）：
+ *   本条正对照原先靠 `.composer-bar{flex-wrap:nowrap}` + `.starter-tasks` 两项把中栏顶宽。
+ *   当轮把输入区右侧的两个下拉（推理强度 + 模型）合并成一个 `.mp` 之后，**输入条本身变窄了**，
+ *   于是"只强制 nowrap"已经造不出溢出 ⇒ 正对照假红（`测不到溢出 ⇒ 判据没有牙`）。
+ *   修法不是放宽判据，而是让正对照**如实还原修复前的输入条内容**：克隆一份 `.mp`
+ *   当作当年的第二个下拉塞回 bar 里，再强制 nowrap。这样它检验的仍是同一件事
+ *   ——「输入条很宽时，中栏能不能靠换行/收缩化解」——只是不再依赖某个控件的存在。
  * @returns {string} 求值源码
  */
 function forceLegacyGeometry() {
@@ -105,15 +113,26 @@ function forceLegacyGeometry() {
       '.composer-bar{flex-wrap:nowrap !important;}' +
       '.composer-bar-left,.composer-bar-right{flex-wrap:nowrap !important;}';
     document.head.appendChild(s);
+    // 还原"两个下拉并排"的输入条宽度：把当前唯一的 .mp 复制一份作为第二个（不可换行的）控件。
+    var right = document.querySelector('.composer-bar-right');
+    var mp = document.querySelector('.composer-bar-right .mp');
+    if (right && mp) {
+      var clone = mp.cloneNode(true);
+      clone.id = 'legacy-f8-extra-mp';
+      clone.setAttribute('data-legacy-control', '1');
+      right.appendChild(clone);
+    }
     return true;
   })()`;
 }
 
-/** 移除正对照样式。 @returns {string} 求值源码 */
+/** 移除正对照样式与注入节点。 @returns {string} 求值源码 */
 function clearLegacyGeometry() {
   return `(function(){
     var s = document.getElementById('legacy-f8-geometry');
     if (s && s.parentNode) s.parentNode.removeChild(s);
+    var extra = document.getElementById('legacy-f8-extra-mp');
+    if (extra && extra.parentNode) extra.parentNode.removeChild(extra);
     return true;
   })()`;
 }

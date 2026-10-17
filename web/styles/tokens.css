@@ -1,0 +1,19 @@
+/* =========================================================================
+   OmniHarness Web UI — 语义 token 追加层
+   -------------------------------------------------------------------------
+   2026-10-17 单色重写后的分工（避免两处定义同一 token 导致漂移）：
+
+     theme.css   唯一配色事实源：全部颜色、圆角、动效、等宽字体。
+     tokens.css  只放 theme.css 之外**仍被样式表引用**的少量 token。
+
+   本层因此只剩一个 token：--font-sans（theme.css 的 body 用 font: 简写直接写死
+   字体栈，这里把它显式登记成变量，供需要单独指定字体族的组件引用）。
+   新增 token 前先看 theme.css 里有没有同名项——同名即两处漂移。
+   ========================================================================= */
+
+:root,
+[data-theme='dark'],
+[data-theme='light'] {
+  --font-sans: system-ui, 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei',
+    'Helvetica Neue', Arial, sans-serif;
+}

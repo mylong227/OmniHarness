@@ -7,6 +7,7 @@ import type { FileAttachment, ThreadEvent } from '../../types/models.js';
 import type { ToolResultView } from '../shared.js';
 import type { SessionController } from './SessionController.js';
 import { MethodBinder } from './methodBinder.js';
+import { t } from '../i18n/i18n.js';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
 export class ComposerController {
@@ -47,12 +48,12 @@ export class ComposerController {
    */
   public static failureHint(message: string): string {
     if (/RPC 超时|HTTP 5\d\d|RPC 请求失败/.test(message)) {
-      return '。服务端等待超时，回合可能仍在后台继续；可稍候重新打开该会话查看结果，或点「停止」后再发一次。';
+      return t('。服务端等待超时，回合可能仍在后台继续；可稍候重新打开该会话查看结果，或点「停止」后再发一次。');
     }
     if (/中止|abort/i.test(message)) {
-      return '。';
+      return t('。');
     }
-    return '。可尝试切换模型或检查 API Key。';
+    return t('。可尝试切换模型或检查 API Key。');
   }
 
   /**
@@ -130,11 +131,11 @@ export class ComposerController {
       // 用户主动中断已由 stop() 即时收口（含「已中止」提示），此处不再重复报错。
       // 视图已换掉时也不写错误提示：那条报错属于用户已离开的回合，写进去只会让新视图莫名多出一条 system 事件。
       if (!this.abortRequested && this.sessions.viewAttachment.epoch() === epoch) {
-        const msg = (e as Error).message || '未知错误';
+        const msg = (e as Error).message || t('未知错误');
         // 错误不再弹窗阻断，而是写进对话流作为 system 提示 + toast，页面保持可用。
-        this.services.toast('运行失败：' + msg, 'err');
+        this.services.toast(t('运行失败：{msg}', { msg }), 'err');
         this.host.patch((s) => ({
-          events: [...s.events, this.systemNote('运行失败：' + msg + ComposerController.failureHint(msg))],
+          events: [...s.events, this.systemNote(t('运行失败：{msg}{hint}', { msg, hint: ComposerController.failureHint(msg) }))],
         }));
       }
     } finally {
@@ -176,7 +177,7 @@ export class ComposerController {
     this.sessions.flushStream();
     if (aborted && !this.abortNoted) {
       this.abortNoted = true;
-      this.host.patch((s) => ({ events: [...s.events, this.systemNote('已中止（用户中断）。')] }));
+      this.host.patch((s) => ({ events: [...s.events, this.systemNote(t('已中止（用户中断）。'))] }));
     }
     this.host.patch((s) => ({
       busy: false,
@@ -198,21 +199,21 @@ export class ComposerController {
    */
   public async regenerate(): Promise<void> {
     if (this.inFlight) {
-      this.services.toast('正在生成，请先停止后再重生成', 'info');
+      this.services.toast(t('正在生成，请先停止后再重生成'), 'info');
       return;
     }
     const last = this.lastUserMessage();
     if (last === null || last.text.trim() === '') {
-      this.services.toast('没有可重生成的用户消息', 'info');
+      this.services.toast(t('没有可重生成的用户消息'), 'info');
       return;
     }
     const threadId = this.host.getState().currentThreadId;
     if (threadId !== null) {
       const outcome = await this.services.api
         .rewindThread(threadId, last.id)
-        .catch((e: unknown) => ({ ok: false, error: (e as Error).message || '未知错误' }));
+        .catch((e: unknown) => ({ ok: false, error: (e as Error).message || t('未知错误') }));
       if (!outcome.ok) {
-        this.services.toast('重生成失败（服务端未回退）：' + (outcome.error ?? '未知原因'), 'err');
+        this.services.toast(t('重生成失败（服务端未回退）：{reason}', { reason: outcome.error ?? t('未知原因') }), 'err');
         return;
       }
     }
@@ -236,7 +237,7 @@ export class ComposerController {
     const trimmed = text.trim();
     if (trimmed === '') {
       // fail-closed：空文本不写状态（否则用户看到"点了没反应"，却查不出原因）。
-      this.services.toast('示例内容为空，已忽略', 'err');
+      this.services.toast(t('示例内容为空，已忽略'), 'err');
       return;
     }
     this.host.patch((s) => ({
@@ -252,11 +253,11 @@ export class ComposerController {
   public editLastUser(): void {
     const last = this.lastUserMessage();
     if (last === null) {
-      this.services.toast('没有可编辑的用户消息', 'info');
+      this.services.toast(t('没有可编辑的用户消息'), 'info');
       return;
     }
     this.host.patch((s) => ({ composerSeed: { text: last.text, nonce: (s.composerSeed?.nonce ?? 0) + 1 } }));
-    this.services.toast('已填回输入框，编辑后回车重发', 'info');
+    this.services.toast(t('已填回输入框，编辑后回车重发'), 'info');
   }
 
   /**
@@ -334,7 +335,7 @@ export class ComposerController {
     try {
       await this.services.api.updateConfig({ model: v });
     } catch (e) {
-      this.services.toast('切换模型失败：' + (e as Error).message, 'err');
+      this.services.toast(t('切换模型失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -348,7 +349,7 @@ export class ComposerController {
     try {
       await this.services.api.updateConfig({ reasoning: v });
     } catch (e) {
-      this.services.toast('切换推理强度失败：' + (e as Error).message, 'err');
+      this.services.toast(t('切换推理强度失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 
@@ -362,7 +363,7 @@ export class ComposerController {
     try {
       await this.services.api.updateConfig({ approval: v });
     } catch (e) {
-      this.services.toast('切换权限等级失败：' + (e as Error).message, 'err');
+      this.services.toast(t('切换权限等级失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
 }

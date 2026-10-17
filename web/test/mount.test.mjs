@@ -177,10 +177,12 @@ function collect(vnode, pred, out = []) {
 
 const isTag = (name) => (n) => n.type === name;
 
-test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 17 个面板', () => {
+test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 16 个面板', () => {
   // 2026-10-07 壳层重构：原 NavRail（9 常驻图标 + 「更多面板」兜底）收编为右栏的 PanelPicker
   // ——功能面板不再常驻占位，全部收进这一个菜单（截图式三栏壳的"收起来"）。
   // 2026-10-11：新增 `diagnostics` ⇒ 12 → 13。
+  // 2026-10-17：`settings` **移出**注册表（17 → 16）——设置改成左栏页脚按钮 + 居中模态，
+  //   不再是右栏面板。这里同时断言「菜单里不该再出现设置」，否则等于两处入口两个真相。
   const closed = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} });
   const closedBtns = collect(closed, isTag('button'));
   assert.strictEqual(closedBtns.length, 1, '闭合态必须只有 1 个触发按钮');
@@ -191,11 +193,16 @@ test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开
   // 函数组件：第 0 个 hook 即 useState(open)，预设 true 渲染展开态。
   const open = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} }, { 0: true });
   const items = collect(open, (n) => n.props.role === 'menuitem');
-  assert.strictEqual(items.length, 17, '菜单必须罗列注册表全部 17 个面板');
+  assert.strictEqual(items.length, 16, '菜单必须罗列注册表全部 16 个面板');
   const labels = items.map((b) => b.props['aria-label'] ?? collect(b, isTag('span')).map((s) => s.children).flat().join(''));
-  for (const l of ['工具', '指标', '设置', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件', '诊断', '审计', 'Trace', '权限', '凭据']) {
+  for (const l of ['工具', '指标', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件', '诊断', '审计', 'Trace', '权限', '凭据']) {
     assert.ok(collect(open, isTag('span')).some((s) => (s.children ?? []).includes(l)), `菜单应含面板：${l}`);
   }
+  // 「设置」不得再出现在面板菜单里（它现在是模态，入口在左栏页脚）。
+  assert.ok(
+    !collect(open, isTag('span')).some((s) => (s.children ?? []).includes('设置')),
+    '设置已移出面板列表（改为页脚按钮 + 模态），不应再出现在「全部面板」菜单里',
+  );
 });
 
 test('PanelPicker：激活面板在菜单中高亮（active class 唯一）', () => {
@@ -205,11 +212,14 @@ test('PanelPicker：激活面板在菜单中高亮（active class 唯一）', ()
   assert.strictEqual(actives.length, 1, 'active class 必须有且仅有 1 个');
 });
 
-test('面板注册表：17 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {
+test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {
   // 2026-10-07 壳层重构后，注册表是面板清单的唯一事实源：PanelPicker 菜单渲染 PANELS 全集，
   // Router 的合法 pane 集合与它对齐 ⇒ "任何面板都必须有入口"由本用例机械核对。
   // 2026-10-11：新增 `diagnostics`（Web 交付项：daemon 运行态 + doctor 报告）⇒ 12 → 13，
   // 且**逐条**比对 key 集合（只改数字等于放弃"清单齐全"这半条判据）。
+  // 2026-10-17：`settings` 移出（17 → 16）。它不是"看某个东西的状态"的面板，而是"改全局配置"，
+  //   现为左栏页脚按钮 + 居中模态（components/SettingsModal.tsx）。逐条比对时把它删掉，
+  //   并在下方显式断言"注册表里不得再有 settings"——否则它会以"未知 pane"的形式静默落回默认面板。
   const { PANELS, panelOf } = await import('../dist/ui/models/PanelRegistry.js');
   assert.deepStrictEqual(
     PANELS.map((p) => p.key),
@@ -224,7 +234,6 @@ test('面板注册表：17 项齐全、key 唯一（「全部面板」菜单据�
       'governance',
       'rollback',
       'detail',
-      'settings',
       'plugins',
       'diagnostics',
       'audit',
@@ -232,7 +241,11 @@ test('面板注册表：17 项齐全、key 唯一（「全部面板」菜单据�
       'permission',
       'vault',
     ],
-    '注册表必须恰好是这 17 个面板（顺序即菜单渲染顺序）',
+    '注册表必须恰好是这 16 个面板（顺序即菜单渲染顺序）',
+  );
+  assert.ok(
+    panelOf('settings') === undefined,
+    'settings 不得再注册为右栏面板：它已改为模态，注册表里留着它会让 openPane("settings") 静默失效',
   );
   const keys = PANELS.map((p) => p.key);
   assert.strictEqual(new Set(keys).size, keys.length, 'key 不得重复');

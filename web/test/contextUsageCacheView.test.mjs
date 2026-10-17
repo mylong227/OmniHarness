@@ -92,3 +92,73 @@ test('空数据：isEmpty 为真且命中率不谎报为 0%', () => {
   assert.equal(view.isEmpty, true);
   assert.equal(view.cacheText, '—');
 });
+
+/**
+ * 造一份带分因的缓存统计。
+ * @param {object} lastCall 最近一次调用的分因（缺省不带该字段，模拟旧服务端）
+ * @param {object} [over] 其余缓存字段覆盖
+ * @returns {object} cache 对象
+ */
+function cacheWith(lastCall, over = {}) {
+  return {
+    promptTokens: 2000,
+    cachedPromptTokens: 0,
+    calls: 2,
+    hitRate: 0,
+    ...(lastCall === undefined ? {} : { lastCall }),
+    ...over,
+  };
+}
+
+test('分因短标签：可行动的分因给一句话标签，命中与无数据都不给', () => {
+  const label = (cause) =>
+    new ContextUsageView(
+      report({
+        cache: cacheWith({
+          cause,
+          reason: '理由',
+          evidence: {},
+          promptTokens: 1000,
+          cachedPromptTokens: 0,
+        }),
+      }),
+    ).cacheCauseLabel;
+  assert.equal(label('prefix-rewrite'), '前缀被改写');
+  assert.equal(label('ttl-expired'), '缓存已过期');
+  assert.equal(label('cold-start'), '首次请求');
+  assert.equal(label('not-reported'), '端点未上报');
+  assert.equal(label('unknown'), '原因不明');
+  assert.equal(label('hit'), '', '命中不需要运维动作，常驻标签只会变成噪声');
+  assert.equal(
+    new ContextUsageView(report()).cacheCauseLabel,
+    '',
+    '无上报调用（calls=0）不得给标签',
+  );
+});
+
+test('分因详情：悬停文案 = 样本量 + 一句话理由；不得出现 undefined', () => {
+  const view = new ContextUsageView(
+    report({
+      cache: cacheWith({
+        cause: 'prefix-rewrite',
+        reason: '相邻请求公共前缀占比 0.500 < 0.9',
+        evidence: { prefixReuseRatio: 0.5 },
+        promptTokens: 1000,
+        cachedPromptTokens: 0,
+      }),
+    }),
+  );
+  assert.equal(view.cacheDetail, '基于 2 次调用 · 相邻请求公共前缀占比 0.500 < 0.9');
+  assert.equal(view.cacheDetail.includes('undefined'), false);
+  // 无上报调用：退化为原来的 hint（此时"理由"与 hint 同义，重复一遍只会更长）。
+  assert.equal(new ContextUsageView(report()).cacheDetail, '端点未上报缓存字段');
+});
+
+test('旧服务端兼容：没有 lastCall 字段时按「没有分因」渲染（宁少说，不显示 undefined）', () => {
+  const view = new ContextUsageView(
+    report({ cache: { promptTokens: 1000, cachedPromptTokens: 900, calls: 1, hitRate: 90 } }),
+  );
+  assert.equal(view.cacheCauseLabel, '');
+  assert.equal(view.cacheDetail, '基于 1 次调用');
+  assert.equal(view.cacheDetail.includes('undefined'), false);
+});

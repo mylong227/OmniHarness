@@ -9,7 +9,7 @@
   "sandbox": "policy",
   "escalation": "ask",
   "elevatedSandbox": "policy",
-  "maxSteps": 32,
+  "maxSteps": 0,
   "longTermMemoryEncryption": false,
   "longTermMemoryKeyFile": ".omniharness/memory.key",
   "mcpServers": {},

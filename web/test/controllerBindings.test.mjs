@@ -39,6 +39,9 @@ const GROUPS = {
   graph: 'GraphController.ts',
   files: 'FileController.ts',
   layout: 'LayoutController.ts',
+  // 2026-10-17 新增：设置模态与界面语言从 AppController 拆出（上帝类判据的成员数越线），
+  // 它的 close / setTab 同样是**裸引用**传给视图层的，故必须登记在这里接受同一条判据。
+  settings: 'SettingsController.ts',
 };
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩（与 streamThrottleWiring.test.mjs 同一口径）。

@@ -17,6 +17,7 @@ import { icon } from '../../models/Icon.js';
 import { emptyNote, emptyState } from '../../format.js';
 import type { CheckpointMeta } from '../../models/checkpoint.js';
 import type { TimelineDay, TimelineEntry } from '../../models/CheckpointTimeline.js';
+import { t } from '../../i18n/i18n.js';
 
 export type { CheckpointMeta, TimelineEntry, TimelineDay };
 
@@ -50,23 +51,28 @@ function renderEntry(
   busy: boolean,
   onRollback: (label: string) => void,
 ): ReactElement {
-  const snap = e.hasSnapshot ? '含文件快照' : '仅对话';
+  const snap = e.hasSnapshot ? t('含文件快照') : t('仅对话');
   return (
     <div key={e.meta.label} className={'cp-item' + (e.latest ? ' latest' : '')} role="listitem">
       <button
         className="cp-main"
         disabled={busy}
         aria-current={e.latest ? 'true' : undefined}
-        title={'回滚到此检查点（需确认）· ' + e.absolute}
-        aria-label={`回滚到检查点 ${e.meta.label}（${e.relative}，${e.eventCount} 个事件，${snap}）`}
+        title={t('回滚到此检查点（需确认）· {time}', { time: e.absolute })}
+        aria-label={t('回滚到检查点 {label}（{time}，{count} 个事件，{snap}）', {
+          label: e.meta.label,
+          time: e.relative,
+          count: e.eventCount,
+          snap,
+        })}
         onClick={() => onRollback(e.meta.label)}
       >
         <span className="cp-label">{e.meta.label}</span>
         <span className="cp-meta">
           <span className={'cp-badge ' + (e.hasSnapshot ? 'snap' : 'talk')}>{snap}</span>
-          <span className="cp-events">{e.eventCount} 事件</span>
+          <span className="cp-events">{t('{count} 事件', { count: e.eventCount })}</span>
           <span className="cp-time">{e.relative}</span>
-          {e.latest ? <span className="cp-latest">当前最新</span> : null}
+          {e.latest ? <span className="cp-latest">{t('当前最新')}</span> : null}
         </span>
       </button>
     </div>
@@ -87,12 +93,12 @@ function renderTimeline(
 ): ReactElement | null {
   if (days.length === 0) return null;
   return (
-    <div className="cp-timeline" role="list" aria-label="检查点时间线">
+    <div className="cp-timeline" role="list" aria-label={t('检查点时间线')}>
       {days.map((d) => (
         <section className="cp-day" key={d.key}>
           <div className="cp-day-head">
             <span className="cp-day-title">{d.title}</span>
-            <span className="cp-day-count">{d.items.length} 个</span>
+            <span className="cp-day-count">{t('{count} 个', { count: d.items.length })}</span>
           </div>
           {d.items.map((e) => renderEntry(e, busy, onRollback))}
         </section>
@@ -149,11 +155,11 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
     setBusy(true);
     try {
       const r = await api.createCheckpoint(sessionId, name);
-      toast(`已创建检查点：${r.checkpoint.label}`, 'ok');
+      toast(t('已创建检查点：{label}', { label: r.checkpoint.label }), 'ok');
       setLabel('');
       await refresh(sessionId);
     } catch (e) {
-      toast('创建检查点失败：' + (e as Error).message, 'err');
+      toast(t('创建检查点失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
       setBusy(false);
     }
@@ -166,22 +172,22 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
   const rollback = async (target?: string): Promise<void> => {
     if (!sessionId) return;
     const msg = target
-      ? `确认回滚到检查点「${target}」？对话与文件将还原到该点。`
-      : '确认回滚到最近的检查点？';
+      ? t('确认回滚到检查点「{label}」？对话与文件将还原到该点。', { label: target })
+      : t('确认回滚到最近的检查点？');
     const ok = await dialog.confirm(msg, {
-      title: '回滚检查点',
-      confirmLabel: '回滚',
+      title: t('回滚检查点'),
+      confirmLabel: t('回滚'),
       danger: true,
     });
     if (!ok) return;
     setBusy(true);
     try {
       const r = await api.rollbackCheckpoint(sessionId, target);
-      toast(`已回滚到：${r.checkpoint.label}`, 'ok');
+      toast(t('已回滚到：{label}', { label: r.checkpoint.label }), 'ok');
       onRolledBack(sessionId);
       await refresh(sessionId);
     } catch (e) {
-      toast('回滚失败：' + (e as Error).message, 'err');
+      toast(t('回滚失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
       setBusy(false);
     }
@@ -191,8 +197,8 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
     return (
       emptyState(
         icon('rewind', { size: 20 }),
-        '先选择一个会话',
-        '回滚是按会话打的检查点：从左侧选一个会话，再创建或回滚到检查点。',
+        t('先选择一个会话'),
+        t('回滚是按会话打的检查点：从左侧选一个会话，再创建或回滚到检查点。'),
       )
     );
   }
@@ -203,25 +209,25 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
         <input
           className="cmdk-input"
           style={INPUT_STYLE}
-          placeholder="检查点名称（留空自动生成）"
-          aria-label="检查点名称"
+          placeholder={t('检查点名称（留空自动生成）')}
+          aria-label={t('检查点名称')}
           value={label}
           onInput={(e: React.SyntheticEvent) => setLabel((e.target as HTMLInputElement).value)}
         />
         <button className="btn primary" disabled={busy} onClick={() => void create()}>
-          ⎘ 创建检查点
+          {t('⎘ 创建检查点')}
         </button>
         <button className="btn" onClick={() => void refresh(sessionId)}>
-          ↻ 刷新
+          {t('↻ 刷新')}
         </button>
       </div>
-      {loading ? emptyNote('读取中…', { icon: 'rewind' }) : null}
-      {error !== null ? emptyNote('检查点读取失败：' + error, { kind: 'err', icon: 'alert' }) : null}
+      {loading ? emptyNote(t('读取中…'), { icon: 'rewind' }) : null}
+      {error !== null ? emptyNote(t('检查点读取失败：{msg}', { msg: error }), { kind: 'err', icon: 'alert' }) : null}
       {!loading && error === null && list.length === 0 ? (
         emptyState(
           icon('rewind', { size: 20 }),
-          '还没有检查点',
-          '点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。',
+          t('还没有检查点'),
+          t('点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。'),
         )
       ) : null}
       {!loading && list.length > 0

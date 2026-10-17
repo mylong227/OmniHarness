@@ -6,6 +6,7 @@
 //
 // 判定与裁剪收在模型层的原因：阈值是可独立判据的产品决策（多长算长、预览给多少），
 // 组件只消费结论——判定写错时单测直接红，不必拉起组件测试。
+import { t } from '../i18n/i18n.js';
 
 /**
  * 长内容收起判定器：判断一段正文是否应默认收起，并产出简报卡所需的摘要信息。
@@ -79,7 +80,7 @@ export class LongContentCollapser {
    * @returns 标题（≤32 字符）
    */
   private static titleOf(text: string): string {
-    const fallback = '长文内容';
+    const fallback = t('长文内容');
     if (!text) return fallback;
     for (const raw of text.split('\n')) {
       const line = raw

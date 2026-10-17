@@ -10,6 +10,7 @@
 
 import { React } from '../deps.js';
 import { icon } from '../models/Icon.js';
+import { t } from '../i18n/i18n.js';
 
 /** SidebarHeader 组件的入参。 */
 export interface SidebarHeaderProps {
@@ -42,8 +43,8 @@ export function SidebarHeader(props: SidebarHeaderProps): ReactElement {
       {rail || onOpenPalette === undefined ? null : (
         <button
           className="iconbtn"
-          title="命令面板（Ctrl/Cmd+P）"
-          aria-label="打开命令面板"
+          title={t('命令面板（Ctrl/Cmd+P）')}
+          aria-label={t('打开命令面板')}
           onClick={onOpenPalette}
         >
           {icon('command', { size: 16 })}
@@ -51,8 +52,8 @@ export function SidebarHeader(props: SidebarHeaderProps): ReactElement {
       )}
       <button
         className="iconbtn rail-toggle"
-        title={rail ? '展开侧栏（[）' : '收起侧栏（[）'}
-        aria-label={rail ? '展开侧栏' : '收起侧栏'}
+        title={rail ? t('展开侧栏（[）') : t('收起侧栏（[）')}
+        aria-label={rail ? t('展开侧栏') : t('收起侧栏')}
         onClick={onToggleRail}
       >
         {rail ? '»' : '«'}

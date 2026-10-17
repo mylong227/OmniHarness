@@ -265,12 +265,16 @@
       "description": "子智能体最大派生深度（默认 2，即允许 1 层子智能体）"
     },
     {
+      "spec": "--max-steps N",
+      "description": "本回合步数上限：不传 = 0 = 不限（终止以任务完成为准；预算/行为护栏兜底）"
+    },
+    {
       "spec": "--subagent-concurrency N",
       "description": "子智能体并发上限（默认 4）"
     },
     {
       "spec": "--subagent-max-steps N",
-      "description": "单个子智能体步数上限（默认 12）"
+      "description": "单个子智能体步数上限（默认 0 = 不限）"
     },
     {
       "spec": "--plan",

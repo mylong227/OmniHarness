@@ -13,6 +13,7 @@ import { React } from '../deps.js';
 import { jsonView } from '../format.js';
 import { icon } from '../models/Icon.js';
 import type { ApprovalRequest } from '../../types/models.js';
+import { t } from '../i18n/i18n.js';
 
 /** ApprovalModal 组件的入参。 */
 export interface ApprovalModalProps {
@@ -80,10 +81,10 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
         aria-describedby="ap-desc"
       >
         <h3 id="ap-title">
-          {icon('shield-alert', { size: 16 })} 工具审批请求
+          {icon('shield-alert', { size: 16 })} {t('工具审批请求')}
         </h3>
-        <div className="meta">工具：{approval.toolName || '?'}</div>
-        <div className="meta">目标：{approval.target || '—'}</div>
+        <div className="meta">{t('工具：{name}', { name: approval.toolName || '?' })}</div>
+        <div className="meta">{t('目标：{name}', { name: approval.target || '—' })}</div>
         <pre id="ap-desc">{args}</pre>
         <div className="actions">
           <button
@@ -93,7 +94,7 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
             }}
             onClick={() => onRespond('allow', true)}
           >
-            始终允许
+            {t('始终允许')}
           </button>
           <button
             className="deny"
@@ -102,7 +103,7 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
             }}
             onClick={() => onRespond('deny', false)}
           >
-            拒绝
+            {t('拒绝')}
           </button>
           <button
             className="allow"
@@ -111,13 +112,13 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
             }}
             onClick={() => onRespond('allow', false)}
           >
-            允许
+            {t('允许')}
           </button>
         </div>
         {onChangePermission ? (
           <div className="approval-change-perm">
             <button className="link" onClick={onChangePermission}>
-              更改权限
+              {t('更改权限')}
             </button>
           </div>
         ) : null}

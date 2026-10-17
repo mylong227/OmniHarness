@@ -11,6 +11,7 @@ import { icon } from '../../models/Icon.js';
 import { emptyNote } from '../../format.js';
 import { useApp } from '../../context.js';
 import type { Config, Profile } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 import { ModelProviders } from './ModelProviders.js';
 
 /** 纵向留白。React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
@@ -133,13 +134,13 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
     api
       .updateConfig(patch)
       .then(async () => {
-        setSavedHint('已保存');
+        setSavedHint(t('已保存'));
         if (hintRef.current !== null) clearTimeout(hintRef.current);
         hintRef.current = setTimeout(() => setSavedHint(''), HINT_MS);
         await reload();
         if (Object.keys(patch).some((k) => CATALOG_KEYS.includes(k))) refreshModelCatalog?.();
       })
-      .catch((e: Error) => toast('保存失败：' + e.message, 'err'));
+      .catch((e: Error) => toast(t('保存失败：{msg}', { msg: e.message }), 'err'));
   };
 
   /**
@@ -188,10 +189,10 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
     if (id === '') return;
     try {
       await api.applyProfile(id);
-      toast('已应用配置集', 'ok');
+      toast(t('已应用配置集'), 'ok');
       await reloadProfiles();
     } catch (e) {
-      toast('应用配置集失败：' + (e as Error).message, 'err');
+      toast(t('应用配置集失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -205,22 +206,22 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
           margin: '14px 0',
         }}
       />
-      <h3 style={{ margin: '4px 0 8px' }}>运行时设置</h3>
+      <h3 style={{ margin: '4px 0 8px' }}>{t('运行时设置')}</h3>
       <div id="cfgView">
         {cfg ? (
           <div className="kv">
-            <span className="k">工作区</span>
+            <span className="k">{t('工作区')}</span>
             <span className="v">{cfg.workspace || '—'}</span>
           </div>
         ) : (
-          emptyNote('读取中…', { kind: 'note' })
+          emptyNote(t('读取中…'), { kind: 'note' })
         )}
       </div>
       <div style={SPACER}></div>
       <div className="form">
         {SELECTS.map((s) => (
           <label key={s.key as string}>
-            {s.label}
+            {t(s.label)}
             <select
               ref={(el: HTMLSelectElement | null) => {
                 selectRefs.current.set(s.key as string, el);
@@ -236,24 +237,24 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
           </label>
         ))}
         <label>
-          模型名
+          {t('模型名')}
           <input
             type="text"
             ref={(el: HTMLInputElement | null) => {
               modelRef.current = el;
             }}
-            placeholder="如 gpt-4o / deepseek-v4-flash"
+            placeholder={t('如 gpt-4o / deepseek-v4-flash')}
             onChange={onModelChange}
           />
         </label>
         <label>
-          自定义 Base URL
+          {t('自定义 Base URL')}
           <input
             type="text"
             ref={(el: HTMLInputElement | null) => {
               baseUrlRef.current = el;
             }}
-            placeholder="OpenAI 兼容端点（留空＝清除覆盖，回落厂商默认）"
+            placeholder={t('OpenAI 兼容端点（留空＝清除覆盖，回落厂商默认）')}
             value={baseUrl}
             onChange={onBaseUrlChange}
           />
@@ -262,7 +263,7 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
           {savedHint}
         </div>
         <div className="switch">
-          <span>自动审批（免人工确认）</span>
+          <span>{t('自动审批（免人工确认）')}</span>
           <input
             type="checkbox"
             ref={(el: HTMLInputElement | null) => {
@@ -272,20 +273,20 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
           />
         </div>
         <div className="switch">
-          <span>浅色主题</span>
+          <span>{t('浅色主题')}</span>
           <input type="checkbox" checked={theme === 'light'} onChange={onToggleTheme} />
         </div>
       </div>
       <div style={SPACER}></div>
-      <h3 style={{ margin: '4px 0 8px' }}>配置集（Profile）</h3>
+      <h3 style={{ margin: '4px 0 8px' }}>{t('配置集（Profile）')}</h3>
       <div className="form">
         <label>
-          切换配置集
+          {t('切换配置集')}
           <select
             value=""
             onChange={(e: React.SyntheticEvent) => void applyProfile((e.target as HTMLSelectElement).value)}
           >
-            <option value="">选择并应用…</option>
+            <option value="">{t('选择并应用…')}</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -294,8 +295,8 @@ export function SettingsTab(props: SettingsTabProps): ReactElement {
           </select>
         </label>
         <div className="kv">
-          <span className="k">当前生效插件</span>
-          <span className="v">{activePlugins === '' ? '（默认）' : activePlugins}</span>
+          <span className="k">{t('当前生效插件')}</span>
+          <span className="v">{activePlugins === '' ? t('（默认）') : activePlugins}</span>
         </div>
       </div>
     </div>

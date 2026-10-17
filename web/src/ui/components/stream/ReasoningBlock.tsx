@@ -13,6 +13,7 @@ import { React } from '../../deps.js';
 import { esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { ThreadEvent } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** ReasoningBlock 组件的入参。 */
 export interface ReasoningBlockProps {
@@ -34,8 +35,8 @@ const DUR_KEY = 'omni-reason-dur:';
  * @returns 状态文案
  */
 function announceText(length: number): string {
-  if (length < ANNOUNCE_STEP) return '正在思考';
-  return '正在思考（已约 ' + String(Math.floor(length / ANNOUNCE_STEP) * ANNOUNCE_STEP) + ' 字）';
+  if (length < ANNOUNCE_STEP) return t('正在思考');
+  return t('正在思考（已约 {n} 字）', { n: Math.floor(length / ANNOUNCE_STEP) * ANNOUNCE_STEP });
 }
 
 /**
@@ -46,7 +47,7 @@ function announceText(length: number): string {
 function fmtDuration(totalSec: number): string {
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;
-  return m > 0 ? `${m}分${s}秒` : `${s}秒`;
+  return m > 0 ? t('{m}分{s}秒', { m, s }) : t('{s}秒', { s });
 }
 
 /**
@@ -112,14 +113,14 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
           <span className="reason-spinner" aria-hidden="true">
             {icon('thinking', { size: 15 })}
           </span>
-          <span className="reason-live-label">思考中</span>
+          <span className="reason-live-label">{t('思考中')}</span>
           <span className="reason-dots" aria-hidden="true">
             <i></i>
             <i></i>
             <i></i>
           </span>
           <span className="reason-live-timer">{fmtDuration(elapsed)}</span>
-          <span className="reason-live-count">{content.length} 字</span>
+          <span className="reason-live-count">{t('{n} 字', { n: content.length })}</span>
         </div>
         <div className="reason-live-body" aria-hidden="true">
           {esc(settled)}
@@ -141,12 +142,14 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
       <div
         className="tc-line dim"
         onClick={toggle}
-        title={open ? '收起' : '点击查看思考内容'}
+        title={open ? t('收起') : t('点击查看思考内容')}
       >
         <span className="tc-chevron">{open ? '▾' : '▸'}</span>
         <span className="tc-icon">{icon('thinking', { size: 14 })}</span>
         <span className="tc-summary">
-          思考过程{durSec !== null ? ` · ${fmtDuration(durSec)}` : ''} · {content.length} 字
+          {durSec !== null
+            ? t('思考过程 · {dur} · {n} 字', { dur: fmtDuration(durSec), n: content.length })
+            : t('思考过程 · {n} 字', { n: content.length })}
         </span>
       </div>
       {open ? (

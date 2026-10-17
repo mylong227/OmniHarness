@@ -72,8 +72,16 @@ export class ConfigError extends OmniError {
       if (value === undefined) {
         continue;
       }
-      if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-        throw new ConfigError(`"${field}" 应为正数，收到 ${String(value)}`);
+      // 个别字段 0 是**合法语义**（maxSteps：0 = 不限步数），不能按「必须为正数」一刀切。
+      const allowZero = ZERO_ALLOWED_FIELDS.has(field);
+      if (
+        typeof value !== 'number' ||
+        !Number.isFinite(value) ||
+        (allowZero ? value < 0 : value <= 0)
+      ) {
+        throw new ConfigError(
+          `"${field}" 应为${allowZero ? '非负数（0 = 不限）' : '正数'}，收到 ${String(value)}`,
+        );
       }
     }
   }
@@ -468,6 +476,8 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   sandbox: ['passthrough', 'policy', 'restricted', 'landlock', 'seatbelt', 'bwrap', 'unshare'],
   escalation: ['deny', 'ask', 'auto'],
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],
+  // 界面语言（Web UI 设置「外观」栏切换，随配置落用户级 omniharness.json）。
+  locale: ['zh', 'en'],
   // P5：成本预算耗尽行为（'fail' 硬阻断 / 'warn' 软预算仅观测）。
   costBudgetOnExceed: ['fail', 'warn'],
 };
@@ -492,6 +502,9 @@ const NUMBER_FIELDS: ReadonlySet<string> = new Set([
   'costBudgetUsd',
   'costBudgetSoftRatio',
 ]);
+
+/** 允许 **0** 的数值字段（0 有明确语义，不是「没配」）。 */
+const ZERO_ALLOWED_FIELDS: ReadonlySet<string> = new Set(['maxSteps']);
 
 /** 允许的布尔字段。 */
 const BOOLEAN_FIELDS: ReadonlySet<string> = new Set([

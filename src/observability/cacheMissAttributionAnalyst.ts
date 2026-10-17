@@ -11,7 +11,7 @@
  * | `cold-start` | 本会话第一次请求，没有可复用的前序前缀 | 什么都不用做（分母不存在） |
  * | `prefix-rewrite` | 相邻请求的**公共前缀占比**过低 ⇒ 字节级前缀被打断 | **本机可控**：查 `PrefixStability` / `canonical` 的稳定性 |
  * | `ttl-expired` | 距上次请求超过 provider 的缓存 TTL（Anthropic 默认 5min） | 外部条件：缩短间隔或接受不命中 |
- * | `unknown` | 有上报、前缀稳定、间隔也在 TTL 内 | 原因不在本机可控面（端点行为/容量/配额） |
+ * | `unknown` | 有上报，但**信号不全**（缺前缀占比/间隔），或前缀稳定且间隔在 TTL 内 | 先分辨"没测到"与"真没问题"：前者去补信号，后者才轮到端点行为/容量/配额 |
  *
  * 本仓已分别有 `PrefixStability.prefixReuse`（前缀复用率）与 `CacheHitRateWatch`（坍塌告警）——
  * 缺的正是把两者**合成一句可行动结论**的这一层。判定优先级见 {@link CacheMissAttributionAnalyst.attribute}。
@@ -41,6 +41,14 @@ export interface CacheMissSignals {
   readonly ttlMs?: number | undefined;
   /** 本会话此前是否已有请求；缺省按下 `gapMs`/`prefixReuseRatio` 是否存在推断。 */
   readonly hasPreviousRequest?: boolean | undefined;
+  /**
+   * 本会话内**上报了缓存字段**的调用次数（0 = 一次都没有；含"尚无模型调用"）。
+   *
+   * 为什么需要它：`cachedPromptTokens` 缺省时，会话面板原先只能说"端点未上报缓存字段"，
+   * 而"还没跑过任何模型调用"与"跑过了但端点不给字段"是两件事（前者什么都不用做）。
+   * 缺省＝未知（沿用旧文案）。
+   */
+  readonly reportedCalls?: number | undefined;
 }
 
 /** 一次分因结果（结论 + 一句话理由 + 原始证据）。 */
@@ -90,9 +98,12 @@ export class CacheMissAttributionAnalyst {
 
     // ① 端点没上报：这不是"未命中"，是"没有读数"。
     if (cachedPromptTokens === undefined) {
+      const none = signals.reportedCalls === 0;
       return {
         cause: 'not-reported',
-        reason: '端点未上报缓存字段（cachedPromptTokens 缺省）⇒ 显示 0% 是假读数，先确认端点/字段',
+        reason: none
+          ? '本会话尚无任何上报缓存的模型调用（0 次）⇒ 显示 0% 是假读数，先确认端点是否上报该字段'
+          : '端点未上报缓存字段（cachedPromptTokens 缺省）⇒ 显示 0% 是假读数，先确认端点/字段',
         evidence,
       };
     }
@@ -135,7 +146,18 @@ export class CacheMissAttributionAnalyst {
         evidence,
       };
     }
-    // ⑥ 前缀稳定、间隔也在 TTL 内：原因不在本机可控面。
+    // ⑥ 有上报、但**信号不全**时不得冒充"前缀稳定"（那会把"没测到"说成"查过了"）。
+    const missing: string[] = [];
+    if (prefixReuseRatio === undefined) missing.push('前缀占比');
+    if (gapMs === undefined) missing.push('请求间隔');
+    if (missing.length > 0) {
+      return {
+        cause: 'unknown',
+        reason: `有上报但缺${missing.join('与')}信号 ⇒ 无法归因（不是"没问题"，是"没测到"；旧会话快照不含前缀占比）`,
+        evidence,
+      };
+    }
+    // ⑦ 前缀稳定、间隔也在 TTL 内：原因不在本机可控面。
     return {
       cause: 'unknown',
       reason: '有上报且前缀稳定、间隔在 TTL 内 ⇒ 原因不在本机可控面（端点行为/容量/配额）',

@@ -3,6 +3,7 @@
 
 import type { AppHost } from './AppController.js';
 import { MethodBinder } from './methodBinder.js';
+import { setLocale as applyLocale, t, type Locale } from '../i18n/i18n.js';
 
 /** 布局 / 主题偏好控制器。 */
 export class LayoutController {
@@ -71,6 +72,22 @@ export class LayoutController {
       /* 忽略 */
     }
     this.host.patch({ theme: next });
+  }
+
+  /**
+   * 切换界面语言（中文 / English）：i18n 模块态 + localStorage（模块内）+ App 状态（触发全树
+   * 重渲染）三处同步；t() 在渲染期读模块态，故重渲染后文案即刻换语言。
+   *
+   * 只负责"即时生效"；把 locale **持久化到服务端配置**是 SettingsController.setLocale 的
+   * 职责（那是配置写盘，不是布局状态）。
+   * @param l 目标语言
+   * @returns 无
+   */
+  public setLocale(l: Locale): void {
+    applyLocale(l);
+    // 标签页标题同步换语言（挂载首设见 AppController.mount → settings.applyConfigLocale）。
+    document.title = t('OmniHarness 工作台');
+    this.host.patch({ locale: l });
   }
 
   /** 切换左侧会话面板（互斥关闭右侧）。 @returns 无 */

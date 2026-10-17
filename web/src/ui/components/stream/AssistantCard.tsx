@@ -20,6 +20,7 @@ import { CollapsibleDoc } from './CollapsibleDoc.js';
 import { ExternalLinkCards } from './ExternalLinkCards.js';
 import { LongContentCollapser } from '../../models/LongContentCollapser.js';
 import type { ThreadEvent, FileAttachment } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** AssistantCard 组件的入参。 */
 export interface AssistantCardProps {
@@ -118,14 +119,14 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
         {onRegenerate ? (
           <button
             className="msg-act"
-            title="重新生成"
-            aria-label="重新生成"
+            title={t('重新生成')}
+            aria-label={t('重新生成')}
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
               onRegenerate();
             }}
           >
-            ↻ 重新生成
+            {t('↻ 重新生成')}
           </button>
         ) : null}
       </div>
@@ -141,8 +142,8 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
         </div>
         <AttachmentChips files={p.files as FileAttachment[] | undefined} />
         <ExternalLinkCards urls={extractUrls(full)} />
-        <button className="copy-btn" title="复制结果" style={COPY_BTN} onClick={onCopy}>
-          {icon('copy', { size: 13 })} 复制
+        <button className="copy-btn" title={t('复制结果')} style={COPY_BTN} onClick={onCopy}>
+          {icon('copy', { size: 13 })} {t('复制')}
         </button>
       </div>
     </>

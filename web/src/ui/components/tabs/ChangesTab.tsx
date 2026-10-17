@@ -24,6 +24,7 @@ import {
   type CommentAnchor,
   type DiffComment,
 } from './ChangesPatchView.js';
+import { t } from '../../i18n/i18n.js';
 
 /** 变更清单响应。 */
 interface ChangesData {
@@ -140,7 +141,7 @@ export function ChangesTab(): ReactElement {
       const r = await api.listChanges(path);
       setPatch(r.patch ?? '');
     } catch (e) {
-      setPatch('读取失败：' + (e as Error).message);
+      setPatch(t('读取失败：{msg}', { msg: (e as Error).message }));
     } finally {
       setPatchLoading(false);
     }
@@ -191,7 +192,7 @@ export function ChangesTab(): ReactElement {
    * @param path 文件路径
    */
   const stageFile = (path: string): void => {
-    void runOp('sf:' + path, () => api.stageFile(path), '已 stage：' + path, path);
+    void runOp('sf:' + path, () => api.stageFile(path), t('已 stage：{path}', { path }), path);
   };
 
   /**
@@ -199,13 +200,13 @@ export function ChangesTab(): ReactElement {
    * @param path 文件路径
    */
   const revertFile = async (path: string): Promise<void> => {
-    const ok = await dialog.confirm(`丢弃 ${path} 的全部未提交改动？此操作不可恢复。`, {
-      title: '丢弃改动',
-      confirmLabel: '丢弃',
+    const ok = await dialog.confirm(t('丢弃 {path} 的全部未提交改动？此操作不可恢复。', { path }), {
+      title: t('丢弃改动'),
+      confirmLabel: t('丢弃'),
       danger: true,
     });
     if (!ok) return;
-    await runOp('rf:' + path, () => api.revertFile(path), '已还原：' + path, path);
+    await runOp('rf:' + path, () => api.revertFile(path), t('已还原：{path}', { path }), path);
   };
 
   /**
@@ -219,7 +220,7 @@ export function ChangesTab(): ReactElement {
     void runOp(
       'sh:' + path + ':' + idx,
       () => api.stageHunk(path, hunk, isNew),
-      '已 stage 该块',
+      t('已 stage 该块'),
       path,
     );
   };
@@ -231,13 +232,13 @@ export function ChangesTab(): ReactElement {
    * @param idx hunk 序号
    */
   const revertHunk = async (path: string, hunk: string, idx: number): Promise<void> => {
-    const ok = await dialog.confirm('丢弃该改动块？工作区对应行将被还原。', {
-      title: '丢弃改动块',
-      confirmLabel: '丢弃',
+    const ok = await dialog.confirm(t('丢弃该改动块？工作区对应行将被还原。'), {
+      title: t('丢弃改动块'),
+      confirmLabel: t('丢弃'),
       danger: true,
     });
     if (!ok) return;
-    await runOp('rh:' + path + ':' + idx, () => api.revertHunk(path, hunk), '已还原该块', path);
+    await runOp('rh:' + path + ':' + idx, () => api.revertHunk(path, hunk), t('已还原该块'), path);
   };
 
   /** 保存行内评论草稿。 */
@@ -249,7 +250,7 @@ export function ChangesTab(): ReactElement {
       setDraftText('');
       await refreshComments();
     } catch (e) {
-      toast('评论保存失败：' + (e as Error).message, 'err');
+      toast(t('评论保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -262,7 +263,7 @@ export function ChangesTab(): ReactElement {
       await api.deleteDiffComment(id);
       await refreshComments();
     } catch (e) {
-      toast('删除失败：' + (e as Error).message, 'err');
+      toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -298,7 +299,7 @@ export function ChangesTab(): ReactElement {
       return;
     }
     if (count === 0) {
-      if (action !== 'open') toast('先在列表里展开一个文件，再对改动块操作', 'err');
+      if (action !== 'open') toast(t('先在列表里展开一个文件，再对改动块操作'), 'err');
       return;
     }
     // 序号一律从 cursor 读权威值：state 是渲染镜像，同一帧内连按 j 时它还没更新。
@@ -311,11 +312,11 @@ export function ChangesTab(): ReactElement {
       return;
     }
     if (expanded === null || openFile === null) {
-      toast('先在列表里展开一个文件，再对改动块操作', 'err');
+      toast(t('先在列表里展开一个文件，再对改动块操作'), 'err');
       return;
     }
     if (!isGit) {
-      toast('非 git 工作区不支持 stage / 丢弃 / 行内评论', 'err');
+      toast(t('非 git 工作区不支持 stage / 丢弃 / 行内评论'), 'err');
       return;
     }
     const hunk = hunks[idx];
@@ -323,7 +324,7 @@ export function ChangesTab(): ReactElement {
     if (action === 'comment') {
       const anchor = firstAnchorOfHunk(patch, idx, openFile.path);
       if (anchor === null) {
-        toast('该改动块没有可评论的改动行', 'err');
+        toast(t('该改动块没有可评论的改动行'), 'err');
         return;
       }
       setDraft(anchor);
@@ -337,14 +338,14 @@ export function ChangesTab(): ReactElement {
     else if (action === 'reject') void revertHunk(openFile.path, hunkText, idx);
   };
 
-  if (!loaded && data === null) return emptyNote('读取中…', { icon: 'rewind' });
+  if (!loaded && data === null) return emptyNote(t('读取中…'), { icon: 'rewind' });
   if (error !== null) {
     return (
       <div>
-        {emptyState(icon('alert', { size: 20 }), '变更读取失败：' + error, undefined, 'err')}
+        {emptyState(icon('alert', { size: 20 }), t('变更读取失败：{msg}', { msg: error }), undefined, 'err')}
         <div style={RETRY_BOX}>
           <button className="btn" onClick={() => void refresh()}>
-            重试
+            {t('重试')}
           </button>
         </div>
       </div>
@@ -357,28 +358,30 @@ export function ChangesTab(): ReactElement {
       data-review-root="1"
       tabIndex={0}
       role="region"
-      aria-label="变更审查（键盘：j/k 选择 · a 接受 · r 拒绝 · c 评论 · ? 帮助）"
+      aria-label={t('变更审查（键盘：j/k 选择 · a 接受 · r 拒绝 · c 评论 · ? 帮助）')}
       ref={rootRef}
       onKeyDown={onReviewKey}
     >
       <div style={HEAD_ROW}>
         <span style={DIM_TEXT}>
           {isGit
-            ? `Git 工作区${data?.branch ? ' · ' + data.branch : ''} · 支持块级 stage/丢弃 与 行内评论`
-            : '本会话产生的变更（非 git 工作区）'}
+            ? t('Git 工作区{branch} · 支持块级 stage/丢弃 与 行内评论', {
+                branch: data?.branch ? ' · ' + data.branch : '',
+              })
+            : t('本会话产生的变更（非 git 工作区）')}
         </span>
         <button className="btn" onClick={() => void refresh()}>
-          ↻ 刷新
+          {t('↻ 刷新')}
         </button>
       </div>
       <div className="review-hint">
-        键盘：j/k 选择 · a 接受 · r 拒绝 · c 评论 ·{' '}
+        {t('键盘：j/k 选择 · a 接受 · r 拒绝 · c 评论 ·')}{' '}
         <button
           className="rh-toggle"
           aria-expanded={help ? 'true' : 'false'}
           onClick={() => setHelp(cursor.toggleHelp())}
         >
-          ? 帮助
+          {t('? 帮助')}
         </button>
       </div>
       {help ? (
@@ -387,14 +390,14 @@ export function ChangesTab(): ReactElement {
           data-review-help="1"
           role="dialog"
           aria-modal="false"
-          aria-label="变更审查快捷键"
+          aria-label={t('变更审查快捷键')}
         >
-          <div className="rh-head">键盘评审快捷键（输入框内不生效）</div>
+          <div className="rh-head">{t('键盘评审快捷键（输入框内不生效）')}</div>
           <ul className="rh-list">
             {KEY_HELP.map((k) => (
               <li key={k.keys}>
                 <kbd>{k.keys}</kbd>
-                <span>{k.desc}</span>
+                <span>{t(k.desc)}</span>
               </li>
             ))}
           </ul>
@@ -405,12 +408,12 @@ export function ChangesTab(): ReactElement {
               setHelp(false);
             }}
           >
-            关闭（Esc）
+            {t('关闭（Esc）')}
           </button>
         </div>
       ) : null}
       {files.length === 0 ? (
-        <div className="empty">{icon('check', { size: 14 })} 没有变更——工作区很干净。改点东西再来看。</div>
+        <div className="empty">{icon('check', { size: 14 })} {t('没有变更——工作区很干净。改点东西再来看。')}</div>
       ) : (
         <div className="changes-list">
           {files.map((f) => {
@@ -423,7 +426,7 @@ export function ChangesTab(): ReactElement {
                 <div
                   className="change-row"
                   onClick={() => void openPatch(f.path)}
-                  title="点击查看变更内容"
+                  title={t('点击查看变更内容')}
                 >
                   <span className={'change-badge ' + badge.cls}>{badge.label}</span>
                   <span className="change-path">{f.path}</span>

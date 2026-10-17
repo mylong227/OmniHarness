@@ -194,6 +194,13 @@ const API_ONLY_FIELDS = {
 const SERVER_ONLY_FIELDS = {
   workspaces:
     '多工作区列表由服务端消费（serverConfigStore.fileConfig().workspaces 的增删与列表），CLI 只认单一 workspaceRoot',
+  locale:
+    '界面语言由 **Web 层**消费，不是 CLI 装配：config.get 读出 → AppController 的 config 回调里 ' +
+    "`if (c.locale === 'zh' || c.locale === 'en') layout.setLocale(c.locale)`（AppController.ts）→ " +
+    'i18n 的 t() 据此取词；写回走 config.update({ locale })（SettingsModal 的「外观」栏）。' +
+    'I5a 只扫 src/cli/，扫不到 web/ 下的这条消费链，故按本清单登记（与 workspaces 同性质：' +
+    '真被消费、只是不在 CLI 层）。若哪天 locale 改由 CLI 消费（例如 `--locale` 旗标），' +
+    '请删掉本条 —— 反向检查会因为键仍在清单里而报警。',
 };
 /**
  * I7 豁免清单：**仅编程注入可达**的装配门（`partial.X?.enabled`——FileConfig 无键、CLI 无旗标）。

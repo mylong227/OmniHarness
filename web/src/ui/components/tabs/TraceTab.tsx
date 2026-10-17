@@ -22,6 +22,7 @@ import { useApp } from '../../context.js';
 import { timeOf } from '../../format.js';
 import type { ReactElement } from 'react';
 import type { TraceReadResultLike } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** Trace 面板入参。 */
 export interface TraceTabProps {
@@ -71,27 +72,27 @@ export function TraceTab(props: TraceTabProps): ReactElement {
 
   if (sessionId === '') {
     // 不猜会话：空会话时给出明确指引，而不是拿"最近会话"糊一个结果。
-    return <div className="trace-tab">请先选择一个会话（trace 自省按会话读取）。</div>;
+    return <div className="trace-tab">{t('请先选择一个会话（trace 自省按会话读取）。')}</div>;
   }
-  if (loading) return <div className="trace-tab">载入 trace 条目…</div>;
+  if (loading) return <div className="trace-tab">{t('载入 trace 条目…')}</div>;
   if (error !== null) {
     return (
       <div className="trace-tab">
-        <p className="err">读取 trace 失败：{error}</p>
+        <p className="err">{t('读取 trace 失败：{msg}', { msg: error })}</p>
         <button type="button" onClick={() => void refresh()}>
-          重试
+          {t('重试')}
         </button>
       </div>
     );
   }
-  if (data === null) return <div className="trace-tab">暂无 trace 数据。</div>;
+  if (data === null) return <div className="trace-tab">{t('暂无 trace 数据。')}</div>;
   if (data.error !== undefined) {
     // 纪律①：会话不存在 / 存档不可读 ⇒ 直说原因，不显示空列表。
     return (
       <div className="trace-tab">
         <p className="err">{data.error}</p>
         <button type="button" onClick={() => void refresh()}>
-          重试
+          {t('重试')}
         </button>
       </div>
     );
@@ -100,18 +101,18 @@ export function TraceTab(props: TraceTabProps): ReactElement {
   return (
     <div className="trace-tab">
       <div className="detail-section">
-        <div className="detail-h">过滤</div>
+        <div className="detail-h">{t('过滤')}</div>
         <label>
-          类别
+          {t('类别')}
           <input
             type="text"
             value={kindFilter}
-            placeholder="如 tool.call（留空＝全部）"
+            placeholder={t('如 tool.call（留空＝全部）')}
             onChange={(e: { target: { value: string } }) => setKindFilter(e.target.value)}
           />
         </label>
         <label>
-          条数上限
+          {t('条数上限')}
           <input
             type="text"
             value={limit}
@@ -119,15 +120,15 @@ export function TraceTab(props: TraceTabProps): ReactElement {
           />
         </label>
         <button type="button" onClick={() => void refresh()}>
-          查询
+          {t('查询')}
         </button>
         <span className="hint">
-          会话 {data.session} · 本次返回 {data.count} 条
-          {kindFilter === '' ? '' : ` · 类别 ${kindFilter}`}
+          {t('会话 {session} · 本次返回 {count} 条', { session: data.session, count: data.count })}
+          {kindFilter === '' ? '' : t(' · 类别 {kind}', { kind: kindFilter })}
         </span>
       </div>
       {data.entries.length === 0 ? (
-        <p className="hint">本次查询无匹配条目（会话存在但该条件下没有条目）。</p>
+        <p className="hint">{t('本次查询无匹配条目（会话存在但该条件下没有条目）。')}</p>
       ) : (
         <ul>
           {data.entries.map((entry) => (

@@ -69,7 +69,21 @@ function probeResults() {
   const base = Date.UTC(2026, 5, 6, 9, 30, 0);
   const iso = (minutesAgo) => new Date(base - minutesAgo * 60000).toISOString();
   return {
-    'config.get': { modelAdapter: 'probe', model: 'probe-large', reasoning: 'medium', approval: 'ask' },
+    'config.get': { modelAdapter: 'probe', model: 'probe-large', reasoning: 'medium', approval: 'ask', sandbox: 'policy', escalation: 'deny', autoApprove: false, workspace: 'D:\\deepseek\\omniharness', providerKeys: { probe: 'sk-****1234' } },
+    // 设置模态的「模型」栏要渲染厂商卡片（ProviderCard）。夹具必须给全 model.catalog 的
+    // 业务形状，否则设置态截图里只有"读取厂商目录…"空态——那是夹具缺失，不是渲染缺陷。
+    'model.catalog': {
+      providers: [
+        { id: 'probe', label: 'Probe 厂商', adapter: 'probe', baseUrl: 'https://api.probe.test/v1', defaultModel: 'probe-large', needsKey: true, models: ['probe-large', 'probe-small'], reasoningEffort: ['low', 'medium', 'high'] },
+        { id: 'other', label: '未配置厂商', adapter: 'openai', baseUrl: 'https://api.other.test/v1', defaultModel: 'other-mini', needsKey: true, models: [], reasoningEffort: ['minimal', 'low', 'medium'] },
+      ],
+      active: { id: 'probe', label: 'Probe 厂商', defaultModel: 'probe-large', model: 'probe-large', models: ['probe-large', 'probe-small'], reasoningEffort: ['low', 'medium', 'high'] },
+    },
+    'model.probe': {
+      providers: [
+        { id: 'probe', ok: true, models: ['probe-large', 'probe-small'], source: 'probe', error: '' },
+      ],
+    },
     // workspace.list → { current, workspaces: string[] }（**不是**对象数组）。
     'workspace.list': {
       current: 'D:\\deepseek\\omniharness',
@@ -192,13 +206,31 @@ function probeResults() {
       mcpToolCount: 6,
       systemToolCount: 14,
       source: 'probe',
-      cache: { hitRate: 0.62, calls: 96 },
+      cache: {
+        promptTokens: 96000,
+        cachedPromptTokens: 59520,
+        calls: 12,
+        hitRate: 62,
+        // 分因（2026-10-15）：面板缓存行会渲染 `· 前缀被改写`，悬停给理由。
+        // 夹具里必须带它，否则探针永远只走到"旧服务端没有分因"的那条降级分支。
+        lastCall: {
+          cause: 'prefix-rewrite',
+          reason: '相邻请求公共前缀占比 0.732 < 0.9 ⇒ 前缀在字节级被改写（查 PrefixStability / canonical 的稳定性）',
+          evidence: { promptTokens: 8000, cachedPromptTokens: 0, prefixReuseRatio: 0.732, gapMs: 4000, ttlMs: 300000 },
+          promptTokens: 8000,
+          cachedPromptTokens: 0,
+        },
+      },
       collectedAt: iso(1),
     },
     'quota.get': {
-      plan: { id: 'pro', label: 'Pro', multiplier: 2, upgraded: true, fallback: false },
+      // 档位自 2026-10-17 起由模型自动识别：夹具必须给 planReason / planModel，
+      // 否则容量面板里的「档位 … 按模型 … 自动识别」那一行渲染成空（看起来像缺陷，实为夹具缺字段）。
+      plan: { id: 'pro', label: '专业', multiplier: 3, upgraded: true },
+      planReason: '名字里带 pro/max/ultra/premium ⇒ 厂商自己标注的顶配档',
+      planModel: 'probe-large',
       dailyTokens: 2000000,
-      effectiveTokens: 4000000,
+      effectiveTokens: 6000000,
       usedTokens: 508000,
       remainingPercent: 87,
       models: [],
@@ -304,6 +336,40 @@ const STATES = [
     open: async (cdp) => {
       await cdp.click('.dd');
       return cdp.evaluate("!!document.querySelector('.dd-menu')");
+    },
+  },
+  {
+    key: 'modelpicker',
+    // 模型与推理强度合并后的组合弹窗（2026-10-17）：输入行右侧现在只有这一个入口，
+    // 强度是弹窗内的进度条。它是本轮唯一新增的交互面，必须有真机留档。
+    open: async (cdp) => {
+      await cdp.click('.mp');
+      return cdp.evaluate("!!document.querySelector('.mp-menu')");
+    },
+  },
+  {
+    key: 'settings',
+    // 设置模态（2026-10-17）：从右栏面板改为左栏页脚按钮 + 居中模态。
+    // 入口选择器是页脚里 aria-label 为「打开设置」的那个图标按钮（不是 .pp-btn 菜单项）。
+    open: async (cdp) => {
+      await cdp.click('button[aria-label="打开设置"]');
+      return cdp.evaluate("!!document.querySelector('.sp')");
+    },
+  },
+  {
+    key: 'popover-exclusive',
+    // 弹层互斥（2026-10-17 用户实测缺陷）：先点「+」打开添加菜单，再点「请求批准」。
+    // 旧行为：两个弹层都留在屏幕上、后者压住前者 ⇒ "背景色把文字掩盖了看不清"。
+    // 新行为：打开第二个前必须先把第一个关掉 ⇒ 只应看到权限菜单。
+    // 这里**顺带就是断言**：返回 false 时该态记为"未进入"，截图不留存（等于探针帮你判红）。
+    open: async (cdp) => {
+      await cdp.click('.addmenu-ico');
+      const firstOpen = await cdp.evaluate("!!document.querySelector('.addmenu-pop')");
+      if (firstOpen !== true) return false;
+      await cdp.click('.dd.perm');
+      return cdp.evaluate(
+        "(function(){ return !!document.querySelector('.dd-menu') && !document.querySelector('.addmenu-pop'); })()",
+      );
     },
   },
   {
@@ -500,7 +566,6 @@ const STATES = [
 const PANES = [
   ['工具', 'tools'],
   ['指标', 'metrics'],
-  ['设置', 'settings'],
   ['插件', 'plugins'],
   ['编排', 'graph'],
   ['记忆', 'memory'],
@@ -508,6 +573,8 @@ const PANES = [
   ['钻取', 'detail'],
   ['回滚', 'rollback'],
 ];
+// 「设置」已从面板列表移除（2026-10-17）：它改为左栏页脚按钮 + 居中模态，
+// 不再由 PanelPicker 打开。它的留档在 STATES 里以 `settings` 交互态呈现。
 
 /**
  * 通过**现役**入口打开一个面板：桌面端的唯一常驻入口是 `PanelPicker` 菜单
@@ -581,6 +648,14 @@ async function main() {
   const widths = listArg('widths', ['1280', '640']).map(Number);
   // 交互态默认**也**跑（它们在静态截图里是盲区）；用 --no-states 关掉以便快速只看面板。
   const wantStates = !process.argv.includes('--no-states');
+  // --states=a,b：只跑指定交互态（调试单个新交互面时不必等全套 40+ 张）。
+  const stateArg = process.argv.find((a) => a.startsWith('--states='));
+  const stateOnly = stateArg
+    ? stateArg
+        .slice('--states='.length)
+        .split(',')
+        .filter((s) => s !== '')
+    : null;
   const externalWs = process.env.OMNI_PROBE_WS || '';
   const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB_NAME}`]: stubHtmlWithProbeData() });
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-visual-ud-'));
@@ -687,6 +762,7 @@ async function main() {
         // 而它们占用户实际互动的大头。只在第一个宽度截，避免图量爆炸。
         if (width === widths[0] && wantStates) {
           for (const st of STATES) {
+            if (stateOnly !== null && !stateOnly.includes(st.key)) continue;
             await cdp.send('Page.enable');
             await cdp.send('Page.reload', { ignoreCache: true });
             if (!(await cdp.waitMounted(2400))) {

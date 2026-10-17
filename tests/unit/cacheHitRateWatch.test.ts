@@ -206,3 +206,29 @@ test('观测 fail-soft：stderr 写入抛错也不向调用方抛出异常', () 
     process.stderr.write = original;
   }
 });
+
+test('分因透传：调用方算好的结论优先（面板与日志必须同源，不各算一套）', () => {
+  const watch = new CacheHitRateWatch(60);
+  const sample = { promptTokens: 10_000, cachedPromptTokens: 2_000, calls: 7, hitRate: 20 };
+  const passed = watch.evaluate({
+    ...sample,
+    attribution: {
+      cause: 'prefix-rewrite',
+      reason: '相邻请求公共前缀占比 0.500 < 0.9 ⇒ 前缀在字节级被改写（查 PrefixStability）',
+    },
+  });
+  assert.strictEqual(passed?.cause, 'prefix-rewrite');
+  assert.strictEqual(
+    passed?.reason,
+    '相邻请求公共前缀占比 0.500 < 0.9 ⇒ 前缀在字节级被改写（查 PrefixStability）',
+  );
+  // **正对照**：同一条样例不给 attribution ⇒ 落回"按原始数字自行归因"（本样例无字段 ⇒ not-reported），
+  // 证明上面那条不是恒真（不是因为 evaluate 只会回传入值）。
+  const fallback = watch.evaluate({ ...sample });
+  assert.strictEqual(fallback?.cause, 'not-reported');
+  // 数值字段一律以样例为准：分因不得改动坍塌判定用的那四个数字。
+  assert.strictEqual(passed?.promptTokens, 10_000);
+  assert.strictEqual(passed?.cachedPromptTokens, 2_000);
+  assert.strictEqual(passed?.calls, 7);
+  assert.strictEqual(passed?.hitRate, 20);
+});

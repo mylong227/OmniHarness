@@ -1,0 +1,98 @@
+﻿/* =========================================================================
+   OmniHarness Web UI — 错误边界 / 崩溃面板 + 无障碍与降级
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish.css §8 + §9，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   8. 错误边界 / 崩溃面板（深色下原本与普通卡片难以区分）
+   ========================================================================= */
+.crash-panel {
+  border-radius: 16px;
+  border-color: color-mix(in srgb, var(--err) 44%, var(--border-soft));
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-2);
+}
+.crash-title {
+  font-size: 15px;
+}
+.crash-msg {
+  background: var(--code-bg);
+  border-radius: 10px;
+  font-size: 11.5px;
+}
+.crash-retry,
+.crash-reload,
+.crash-copy {
+  border-radius: 9px;
+  font-weight: 600;
+  font-size: 12.5px;
+}
+.crash-reload {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* =========================================================================
+   9. 无障碍与降级
+   ========================================================================= */
+
+/* 高对比度偏好：把发丝线全部换成实色边（Windows 高对比模式下描边常被系统覆盖掉）。 */
+@media (forced-colors: active) {
+  .card,
+  .composer,
+  .metric,
+  .plugin-card,
+  .change-item {
+    border: 1px solid ButtonBorder;
+  }
+  .rail-btn.active::before {
+    background: Highlight;
+  }
+}
+
+/* 减少动效：时长归零，但状态变化仍靠颜色表达（不许"看不见变化"）。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .send:hover:not(:disabled),
+  .dlg .dlg-confirm:hover {
+    filter: none;
+  }
+}
+
+/* 窄窗：中栏左右留白回收、气泡放宽、浮层贴边。 */
+@media (max-width: 880px) {
+  .stream {
+    padding: 14px 12px 4px;
+  }
+  .composer {
+    margin: 0 10px 10px;
+  }
+  .ev.user .card,
+  .ev.assistant .card {
+    max-width: 94%;
+  }
+  .rl-tip,
+  .rail-tip {
+    max-width: calc(100vw - 80px);
+    white-space: normal;
+  }
+}
+@media (max-width: 640px) {
+  .stream-inner {
+    max-width: 100%;
+  }
+  .modal,
+  .fp-modal,
+  .cmdk {
+    border-radius: 14px;
+  }
+}

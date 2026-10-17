@@ -107,3 +107,39 @@ test('⑥ attributeFromTexts 必须复用 PrefixStability.prefixReuse（不得�
   assert.strictEqual(byText.evidence.hasPreviousRequest, undefined);
   assert.strictEqual(byText.cause, 'unknown');
 });
+
+test('⑦ 信号不全时不得冒充「前缀稳定」：没测到 ≠ 没问题', () => {
+  const partial = attribute({
+    promptTokens: 1_000,
+    cachedPromptTokens: 0,
+    hasPreviousRequest: true,
+  });
+  assert.strictEqual(partial.cause, 'unknown');
+  assert.match(partial.reason, /缺前缀占比与请求间隔/u);
+  assert.doesNotMatch(
+    partial.reason,
+    /前缀稳定/u,
+    '没有前缀信号却说"前缀稳定"，就是把"没测到"说成"查过了"——用户会照着这句话排除掉唯一可动的面',
+  );
+  // **正对照**：把两个信号都补上 ⇒ 同一 cause 下换成"真的查过了"的措辞（证明上面那条不是恒真）。
+  const full = attribute({
+    promptTokens: 1_000,
+    cachedPromptTokens: 0,
+    prefixReuseRatio: 0.99,
+    gapMs: 1_000,
+  });
+  assert.strictEqual(full.cause, 'unknown');
+  assert.match(full.reason, /前缀稳定/u);
+});
+
+test('⑧ reportedCalls=0：理由必须说清「本会话 0 次上报」（还没跑过 vs 端点不给字段）', () => {
+  const none = attribute({ promptTokens: 0, reportedCalls: 0 });
+  assert.strictEqual(none.cause, 'not-reported');
+  assert.match(none.reason, /0 次/u);
+  assert.match(none.reason, /假读数/u, '仍要点明 0% 是假读数');
+  // **正对照**：不给次数 ⇒ 沿用"端点未上报"的旧口径（cause 相同、理由不同，两者不可互相顶替）。
+  const unknown = attribute({ promptTokens: 0 });
+  assert.strictEqual(unknown.cause, 'not-reported');
+  assert.match(unknown.reason, /端点未上报缓存字段/u);
+  assert.notStrictEqual(unknown.reason, none.reason);
+});

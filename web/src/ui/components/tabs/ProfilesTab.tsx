@@ -8,6 +8,7 @@ import { useApp } from '../../context.js';
 import { emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { Profile, ActivePlugins } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** ProfilesTab 组件的入参。 */
 export interface ProfilesTabProps {
@@ -42,10 +43,10 @@ function renderRow(p: Profile, actions: RowActions): ReactElement {
       <div className="mem-meta">{plugs}</div>
       <div className="mem-actions">
         <button className="ghost" onClick={() => actions.onApply(p.id)}>
-          应用
+          {t('应用')}
         </button>
         <button className="ghost" onClick={() => actions.onDelete(p.id)}>
-          删除
+          {t('删除')}
         </button>
       </div>
     </div>
@@ -73,7 +74,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
       setProfiles(list || []);
       setActive(act || { plugins: [] });
     } catch (e) {
-      toast('加载失败：' + (e as Error).message, 'err');
+      toast(t('加载失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -86,7 +87,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
   const saveCurrent = async (): Promise<void> => {
     const name = nameRef.current ? nameRef.current.value.trim() : '';
     if (!name) {
-      toast('请填写配置集名称', 'err');
+      toast(t('请填写配置集名称'), 'err');
       return;
     }
     const act = await api.getActiveProfile();
@@ -94,13 +95,13 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
       await api.saveProfile({
         name,
         plugins: act.plugins ?? [],
-        description: '保存于 Web 控制台',
+        description: t('保存于 Web 控制台'),
       });
-      toast('已保存配置集：' + name, 'ok');
+      toast(t('已保存配置集：{name}', { name }), 'ok');
       if (nameRef.current) nameRef.current.value = '';
       await load();
     } catch (e) {
-      toast('保存失败：' + (e as Error).message, 'err');
+      toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -112,18 +113,16 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
     try {
       const r = await api.applyProfile(id);
       toast(
-        '已应用配置集：' +
-          (r.name || id) +
-          '（载入 ' +
-          (r.loaded || []).length +
-          '，停用 ' +
-          (r.unloaded || []).length +
-          '）',
+        t('已应用配置集：{name}（载入 {loaded}，停用 {unloaded}）', {
+          name: r.name || id,
+          loaded: (r.loaded || []).length,
+          unloaded: (r.unloaded || []).length,
+        }),
         'ok',
       );
       await load();
     } catch (e) {
-      toast('应用失败：' + (e as Error).message, 'err');
+      toast(t('应用失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -132,18 +131,18 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
    * @param id 配置集 id
    */
   const delProfile = async (id: string): Promise<void> => {
-    const ok = await dialog.confirm('确认删除该配置集？', {
-      title: '删除配置集',
-      confirmLabel: '删除',
+    const ok = await dialog.confirm(t('确认删除该配置集？'), {
+      title: t('删除配置集'),
+      confirmLabel: t('删除'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteProfile(id);
-      toast('已删除', 'ok');
+      toast(t('已删除'), 'ok');
       await load();
     } catch (e) {
-      toast('删除失败：' + (e as Error).message, 'err');
+      toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -154,9 +153,9 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
     try {
       const r = await api.packBundle(params);
       if (bundleZipRef.current) bundleZipRef.current.value = r.path;
-      toast('已打包：' + r.path, 'ok');
+      toast(t('已打包：{path}', { path: r.path }), 'ok');
     } catch (e) {
-      toast('打包失败：' + (e as Error).message, 'err');
+      toast(t('打包失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -164,21 +163,20 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
   const unpack = async (): Promise<void> => {
     const zip = bundleZipRef.current ? bundleZipRef.current.value.trim() : '';
     if (!zip) {
-      toast('请填写 zip 路径', 'err');
+      toast(t('请填写 zip 路径'), 'err');
       return;
     }
     try {
       const r = await api.unpackBundle(zip);
       toast(
-        '已解包：安装 ' +
-          (r.installed || []).length +
-          ' 个插件' +
-          (r.patchFile ? '，补丁层已写 ' + r.patchFile : ''),
+        r.patchFile
+          ? t('已解包：安装 {count} 个插件，补丁层已写 {path}', { count: (r.installed || []).length, path: r.patchFile })
+          : t('已解包：安装 {count} 个插件', { count: (r.installed || []).length }),
         'ok',
       );
       await load();
     } catch (e) {
-      toast('解包失败：' + (e as Error).message, 'err');
+      toast(t('解包失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
@@ -186,74 +184,74 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
     <div>
       <div className="pm-head">
         <button className="ghost" onClick={() => void load()}>
-          刷新
+          {t('刷新')}
         </button>
         <span className="dim">
-          运行时插件（{active.plugins?.length || 0}）：
+          {t('运行时插件（{count}）：', { count: active.plugins?.length || 0 })}
           {active.plugins?.length ? active.plugins.join(', ') : '—'}
         </span>
       </div>
       <div className="pm-section">
-        <div className="pm-title">已存配置集（{profiles.length}）</div>
+        <div className="pm-title">{t('已存配置集（{count}）', { count: profiles.length })}</div>
         {profiles.length
           ? profiles.map((p) =>
               renderRow(p, { onApply: (id) => void applyProfile(id), onDelete: (id) => void delProfile(id) }),
             )
           : emptyState(
               icon('package', { size: 20 }),
-              '暂无配置集',
-              '在下方「保存当前为配置集」创建，或用 CLI --plugin-profile 指定。',
+              t('暂无配置集'),
+              t('在下方「保存当前为配置集」创建，或用 CLI --plugin-profile 指定。'),
             )}
       </div>
       <div className="pm-section">
-        <div className="pm-title">保存当前运行时为配置集</div>
+        <div className="pm-title">{t('保存当前运行时为配置集')}</div>
         <div className="form">
           <label>
-            名称
+            {t('名称')}
             <input
               type="text"
               ref={(el: HTMLInputElement | null) => {
                 nameRef.current = el;
               }}
-              placeholder="如：minimal / web-dev"
+              placeholder={t('如：minimal / web-dev')}
             />
           </label>
           <div className="row">
             <button className="send" onClick={() => void saveCurrent()}>
-              保存当前为配置集
+              {t('保存当前为配置集')}
             </button>
           </div>
         </div>
       </div>
       <div className="pm-section">
-        <div className="pm-title">Bundle 发布单元（可 patch 插件叠层）</div>
+        <div className="pm-title">{t('Bundle 发布单元（可 patch 插件叠层）')}</div>
         <div className="form">
           <label>
-            配置集（留空=当前激活）
+            {t('配置集（留空=当前激活）')}
             <input
               type="text"
               ref={(el: HTMLInputElement | null) => {
                 bundleProfileRef.current = el;
               }}
-              placeholder="配置集 id 或名称"
+              placeholder={t('配置集 id 或名称')}
             />
           </label>
           <div className="row">
             <button className="ghost" onClick={() => void pack()}>
-              打包 .zip
+              {t('打包 .zip')}
             </button>
             <button className="ghost" onClick={() => void unpack()}>
-              解包 .zip
+              {t('解包 .zip')}
             </button>
           </div>
           <label>
-            解包 zip 路径
+            {t('解包 zip 路径')}
             <input
               type="text"
               ref={(el: HTMLInputElement | null) => {
                 bundleZipRef.current = el;
               }}
-              placeholder=".zip 绝对路径"
+              placeholder={t('.zip 绝对路径')}
             />
           </label>
         </div>

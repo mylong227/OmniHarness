@@ -9,6 +9,7 @@ import { useApp } from '../../context.js';
 import { permChip, emptyState } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { PluginManifest, PluginSearchEntry } from '../../../types/models.js';
+import { t } from '../../i18n/i18n.js';
 
 /** 搜索输入防抖延迟（ms）。 */
 const DEBOUNCE_MS = 200;
@@ -44,23 +45,23 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
         <span className={'src-badge ' + actions.source}>{actions.source}</span>
       </div>
       {m.description ? <div className="pc-desc">{m.description}</div> : null}
-      {m.author ? <div className="pc-meta">作者：{m.author}</div> : null}
+      {m.author ? <div className="pc-meta">{t('作者：{author}', { author: m.author })}</div> : null}
       {perms.length ? <div>{perms}</div> : null}
       <div className="pc-foot">
         {actions.isInstalled ? (
           <span className={'src-badge ' + (m.loaded ? 'loaded' : 'unloaded')}>
-            {m.loaded ? '已加载' : '未加载'}
+            {m.loaded ? t('已加载') : t('未加载')}
           </span>
         ) : null}
         {actions.isInstalled ? (
           <>
-            <span className="pc-installed">{icon('check', { size: 12 })} 已安装</span>
+            <span className="pc-installed">{icon('check', { size: 12 })} {t('已安装')}</span>
             <button
               className="btn-remove"
               disabled={disabled}
               onClick={() => actions.onAction('remove', m.name)}
             >
-              卸载
+              {t('卸载')}
             </button>
           </>
         ) : (
@@ -69,7 +70,7 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
             disabled={disabled}
             onClick={() => actions.onAction('install', m.name)}
           >
-            安装
+            {t('安装')}
           </button>
         )}
       </div>
@@ -134,10 +135,15 @@ export function PluginsTab(): ReactElement {
     try {
       if (kind === 'install') await api.installPlugin(name);
       else await api.removePlugin(name);
-      toast((kind === 'install' ? '已安装 ' : '已卸载 ') + name, 'ok');
+      toast(kind === 'install' ? t('已安装 {name}', { name }) : t('已卸载 {name}', { name }), 'ok');
       await load(query);
     } catch (e) {
-      toast((kind === 'install' ? '安装' : '卸载') + '失败：' + (e as Error).message, 'err');
+      toast(
+        kind === 'install'
+          ? t('安装失败：{msg}', { msg: (e as Error).message })
+          : t('卸载失败：{msg}', { msg: (e as Error).message }),
+        'err',
+      );
     } finally {
       setBusy(null);
     }
@@ -149,11 +155,11 @@ export function PluginsTab(): ReactElement {
     try {
       const res = await api.reloadPlugins();
       if (res && res.ok && res.loaded && res.loaded.length) {
-        toast('已加载 ' + res.loaded.length + ' 个插件', 'ok');
+        toast(t('已加载 {count} 个插件', { count: res.loaded.length }), 'ok');
       }
       await load(query);
     } catch (e) {
-      toast('重新加载失败：' + (e as Error).message, 'err');
+      toast(t('重新加载失败：{msg}', { msg: (e as Error).message }), 'err');
     } finally {
       setBusy(null);
     }
@@ -181,28 +187,28 @@ export function PluginsTab(): ReactElement {
       <div className="pm-head">
         <input
           type="text"
-          placeholder="搜索插件名 / 描述…"
+          placeholder={t('搜索插件名 / 描述…')}
           value={query}
           onInput={onQueryInput}
         />
         <button className="ghost" disabled={busy === '__reload__'} onClick={() => void reload()}>
-          重新加载
+          {t('重新加载')}
         </button>
         <button className="ghost" onClick={() => void load(query)}>
-          刷新
+          {t('刷新')}
         </button>
       </div>
       <div className="pm-section">
-        <div className="pm-title">已安装</div>
+        <div className="pm-title">{t('已安装')}</div>
         {installed.length
           ? installed.map((m) => renderCard(m, cardActions(m.source || 'local', true)))
-          : emptyState(icon('package', { size: 20 }), '尚未安装任何插件', '在下方「可获取」中一键安装内置或远程插件。')}
+          : emptyState(icon('package', { size: 20 }), t('尚未安装任何插件'), t('在下方「可获取」中一键安装内置或远程插件。'))}
       </div>
       <div className="pm-section">
-        <div className="pm-title">可获取（本地 / 内置 / 远程）</div>
+        <div className="pm-title">{t('可获取（本地 / 内置 / 远程）')}</div>
         {available.length
           ? available.map((d) => renderCard(d.manifest, cardActions(d.source, false)))
-          : emptyState(icon('plug', { size: 20 }), '暂无可获取插件', '远程 registry 可能离线；内置示例插件始终可用。')}
+          : emptyState(icon('plug', { size: 20 }), t('暂无可获取插件'), t('远程 registry 可能离线；内置示例插件始终可用。'))}
       </div>
     </div>
   );

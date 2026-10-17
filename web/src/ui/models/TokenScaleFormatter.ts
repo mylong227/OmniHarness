@@ -1,4 +1,5 @@
 // token 数量与人读比例的格式化：纯逻辑、零 React 依赖，node 环境可直接单测。
+import { t } from '../i18n/i18n.js';
 
 /**
  * token 数量 / 百分比格式化器。
@@ -21,10 +22,10 @@ export class TokenScaleFormatter {
   public compact(tokens: number): string {
     const value = this.safe(tokens);
     if (value >= TokenScaleFormatter.YI) {
-      return this.trim(value / TokenScaleFormatter.YI) + '亿';
+      return this.trim(value / TokenScaleFormatter.YI) + t('亿');
     }
     if (value >= TokenScaleFormatter.WAN) {
-      return this.trim(value / TokenScaleFormatter.WAN) + '万';
+      return this.trim(value / TokenScaleFormatter.WAN) + t('万');
     }
     return String(Math.round(value));
   }

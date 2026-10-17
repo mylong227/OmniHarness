@@ -167,13 +167,14 @@ test('⑤ 运行期自报：按兜底价估算的模型必须出现在快照的 
   const usage = { promptTokens: 1000, completionTokens: 100, totalTokens: 1100 };
   const budget = new CostBudget(100, pricing, undefined, undefined, false);
   budget.record('claude-sonnet-4-20250514', usage); // 有价目
-  // 样本用**仍然没有公开来源**的族（2026-10-11：deepseek-v4-flash 已填入真实单价 ⇒ 不能再当样本）。
-  budget.record('kimi-k2-turbo-preview', usage); // 无价目（已登记）
-  budget.record('kimi-k2-turbo-preview', usage); // 重复调用不得重复登记
-  assert.deepStrictEqual(budget.unpricedModels, ['kimi-k2-turbo-preview']);
+  // 样本换成**仍然没有公开来源且仍在出货**的族（2026-10-15：`kimi-k2-turbo-preview` 已随厂商下线
+  // 而移出预设，登记项一并删除 ⇒ 拿它当样本会让判据测一个"已不存在"的形态）。
+  budget.record('qwen3-coder-plus', usage); // 无价目（已登记）
+  budget.record('qwen3-coder-plus', usage); // 重复调用不得重复登记
+  assert.deepStrictEqual(budget.unpricedModels, ['qwen3-coder-plus']);
   assert.strictEqual(budget.priceSourceFor('claude-sonnet-4-20250514'), 'prefix');
-  assert.strictEqual(budget.priceSourceFor('kimi-k2-turbo-preview'), 'fallback');
-  assert.deepStrictEqual(budget.snapshot().unpricedModels, ['kimi-k2-turbo-preview']);
+  assert.strictEqual(budget.priceSourceFor('qwen3-coder-plus'), 'fallback');
+  assert.deepStrictEqual(budget.snapshot().unpricedModels, ['qwen3-coder-plus']);
 
   // 变异自证：全部命中价目时必须为空数组——否则"非空"这件事没有信息量。
   const clean = new CostBudget(100, pricing, undefined, undefined, false);
@@ -186,7 +187,7 @@ test('⑥ 消费面接线：budget_status 必须把"估算基于兜底价"讲出
   const pricing = RoutePricing.mergeRoutePricing();
   const usage = { promptTokens: 100, completionTokens: 10, totalTokens: 110 };
   const budget = new CostBudget(100, pricing, undefined, undefined, false);
-  budget.record('kimi-k2-turbo-preview', usage);
+  budget.record('qwen3-coder-plus', usage);
   const res = await new BudgetStatusTool(budget).handle(
     { id: 'c1', name: 'budget_status', arguments: {} },
     { sessionId: 's', workspaceRoot: '.' },
@@ -195,7 +196,7 @@ test('⑥ 消费面接线：budget_status 必须把"估算基于兜底价"讲出
     unpricedModels: string[];
     pricingNote: string;
   };
-  assert.deepStrictEqual(parsed.unpricedModels, ['kimi-k2-turbo-preview']);
+  assert.deepStrictEqual(parsed.unpricedModels, ['qwen3-coder-plus']);
   assert.ok(
     parsed.pricingNote.includes('兜底价'),
     `提示必须点明"按兜底价估算"，实为：${parsed.pricingNote}`,

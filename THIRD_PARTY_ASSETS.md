@@ -25,6 +25,30 @@ The repository uses the following resources.
 - `third-party/laya/` 存档 laya 开源 Python 包（Apache-2.0，上游 github.com/NandhaKishorM/laya，v0.3.21）的**源码快照**与 `licenses/LICENSE` + `METADATA`，仅作溯源 / 离线审查。运行时仍由 `third-party/laya-venv/` 内 pip 安装的 `laya` 提供，不从此目录加载（避免重复维护两份）。
 - `third-party/laya-model/` 含本地决策引擎权重（`convaiinnovations/laya` checkpoint：`model.safetensors` 842MB + `rl_agent_config.json` + `tokenizer/` + `encoder/`）。**不入库**（gitignore，仓库政策不 bundled 权重）；离线获取：本机 `huggingface.co` 不可达，统一走 `HF_ENDPOINT=https://hf-mirror.com` 镜像，纯 urllib 直连 `hf-mirror.com/resolve/main/<file>` 手动拉取（小文件普通 GET、大文件带 Range 头触发 206；可断点续传），绕开 huggingface_hub 在本机 Windows 的 safe-delete 死结（Xet CAS 经镜像 401）。
 - `third-party/laya-venv/` 为 laya 运行时的 Python venv（torch 2.14+cpu + transformers 5.17 + huggingface_hub 1.33 + laya 0.3.21）。**不入库**（gitignore，机器相关 + 大体积）；重建：`python -m venv third-party/laya-venv` 后 `pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu transformers==5.17 huggingface_hub==1.33 laya==0.3.21`。
+- `third-party/laya-python/` 为 venv 的**基础解释器**（CPython 3.13.16 standalone，61MB，2026-10-15 加入）。**不入库**（gitignore）。
+  为什么需要它：Windows 上 venv 的 `Scripts/python.exe` 只是**启动器**，它读 `pyvenv.cfg` 的 `home=` 去找
+  `python313.dll` 与标准库。原来那份基础解释器由托管工具放在 `~/.workbuddy/binaries/python/versions/3.13.12`，
+  该目录被清理后 **venv 里的文件一个不少、却一跑就报 `did not find executable at …`** ——
+  于是 1.7GB 运行时静默失效（判据表现为 5 条真前向全红）。放进仓库自己的 `third-party/` 后，
+  修复不再依赖任何外部缓存。
+
+  > **2026-10-15 排障与修复配方（实测有效，三步）**
+  >
+  > 1. **取证**：`third-party/laya-venv/Scripts/python.exe --version` ⇒ 报
+  >    `did not find executable at '<home>\python.exe'`，说明 `home=` 指向的基础解释器没了（**文件存在 ≠ 可用**）。
+  > 2. **取一个同小版本的解释器**：`uv python install 3.13`（本机 `uv` 在 `~/.local/bin/uv.exe`；
+  >    实测下载 21MB / 约 2 分钟）。**必须同小版本**（venv 内 torch/transformers 是 cp313 轮子，
+  >    3.12 的 `python312.dll` 不兼容）。也可用官方 3.13 安装包，或直接跳到第 2' 步重建 venv。
+  >    2'. 若要**重建**整只 venv（例如 site-packages 也坏了）：用上一步的解释器
+  >    `python -m venv third-party/laya-venv`，再按本条目上方的 `pip install` 配方装依赖。
+  > 3. **把基础解释器放进仓库并改指过去**（避免再被外部清掉）：把该解释器目录整体复制为
+  >    `third-party/laya-python/`，然后把 `third-party/laya-venv/pyvenv.cfg` 的 `home=` / `executable=` / `command=`
+  >    三行改成指向它，`version = 3.13.16`。
+  >    **坑（本机踩过）**：`pyvenv.cfg` 里含中文用户名，**不能用 `Set-Content -Encoding ascii`**（会把路径写成
+  >    `C:\Users\???\…`，症状与"文件缺失"一模一样）——用 `[IO.File]::WriteAllText($p, $t, [Text.UTF8Encoding]::new($false))`。
+  > 4. **验证**：`third-party/laya-venv/Scripts/python.exe -c "import torch, transformers, laya; print(torch.__version__)"`，
+  >    再跑 `OMNI_REQUIRE_LAYAPY=1 node --test dist/tests/integration/layaBackend.test.js` ⇒ 应 **5/5 真前向通过**
+  >    （首次含 842MB 权重加载，约 13–25s；热路径单次 0.4–1.3s）。
 
   > **2026-10-07 订正（原文曾是错的，留痕以免再犯）**：此处原写「适配器默认 `LAYA_PYTHON_BIN` 指向
   > `third-party/laya-venv/Scripts/python.exe`、`LAYA_MODEL_DIR` 指向 `third-party/laya-model`」——
@@ -60,6 +84,7 @@ The repository uses the following resources.
 | `third-party/laya/`        | laya Python 包源码快照（入库）               | 人工存档                                                                    | 按 upstream 自取                                                    |
 | `third-party/laya-model/`  | laya 决策引擎权重                            | laya 适配器读取                                                             | hf-mirror 手动拉取（见上）                                          |
 | `third-party/laya-venv/`   | laya 运行时 Python venv                      | laya 适配器（零配置探测该路径；`LAYA_PYTHON_BIN` 可覆盖）                   | `python -m venv` + pip（见上）                                      |
+| `third-party/laya-python/` | venv 的**基础解释器**（CPython 3.13.16）     | `laya-venv/Scripts/python.exe` 经 `pyvenv.cfg` 的 `home=` 加载它            | `uv python install 3.13` 后复制过来（见上「三步配方」）             |
 | `third-party/model-cache/` | 嵌入模型 ONNX 权重缓存（e5/minilm/gte/jina） | `@huggingface/transformers`（生产 `configFactory.buildEmbeddingPort` 缺省） | 自动从 HF/hf-mirror 下载；`OMNI_EMBEDDING_CACHE_DIR` 可指回任意位置 |
 | `third-party/vec-cache/`   | 语义检索向量缓存                             | `DiskCachedEmbeddingAdapter`（`OMNI_VEC_CACHE` 可覆盖，生产语义检索路径）   | 随语义索引构建自动重建                                              |
 

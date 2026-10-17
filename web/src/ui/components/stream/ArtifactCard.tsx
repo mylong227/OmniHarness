@@ -7,6 +7,7 @@ import { esc } from '../../format.js';
 import { icon } from '../../models/Icon.js';
 import type { IconName } from '../../models/Icon.js';
 import type { ArtifactInfo, ArtifactKind } from '../../models/ArtifactResolver.js';
+import { t } from '../../i18n/i18n.js';
 
 /** ArtifactCard 组件的入参。 */
 export interface ArtifactCardProps {
@@ -45,21 +46,21 @@ export function ArtifactCard(props: ArtifactCardProps): ReactElement {
           className="artifact-name"
           href="#"
           onClick={handleOpen}
-          title="在右侧面板打开（语法高亮）"
+          title={t('在右侧面板打开（语法高亮）')}
         >
           {esc(info.name)}
         </a>
         <div className="artifact-path">{esc(info.relPath)}</div>
       </div>
-      <a className="artifact-open" href="#" onClick={handleOpen} title="在右侧面板打开">
-        {icon('eye', { size: 13 })} 打开
+      <a className="artifact-open" href="#" onClick={handleOpen} title={t('在右侧面板打开')}>
+        {icon('eye', { size: 13 })} {t('打开')}
       </a>
       <a
         className="artifact-download"
         href={href}
         download={esc(info.name)}
-        title="下载到本地"
-        aria-label="下载产物"
+        title={t('下载到本地')}
+        aria-label={t('下载产物')}
       >
         {icon('download', { size: 13 })}
       </a>

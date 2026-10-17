@@ -9,6 +9,7 @@ import { icon } from '../models/Icon.js';
 import type { IconName } from '../models/Icon.js';
 import { describeToolCall } from '../textUtils.js';
 import { timeOf } from '../format.js';
+import { t } from '../i18n/i18n.js';
 import type { ThreadEvent } from '../../types/models.js';
 import type { LiveInput, ToolResultView } from '../shared.js';
 
@@ -99,12 +100,13 @@ export function TraceView(props: TraceViewProps): ReactElement {
   const rows = collectRows(events, toolResults);
   const running = rows.filter((r) => !r.done).length;
   return (
-    <div className="trace" role="log" aria-label="工具调用轨迹">
+    <div className="trace" role="log" aria-label={t('工具调用轨迹')}>
       <div className="trace-head" aria-hidden="true">
-        共 {String(rows.length)} 次工具调用{running > 0 ? ' · ' + String(running) + ' 次进行中' : ''}
+        {t('共 {count} 次工具调用', { count: rows.length })}
+        {running > 0 ? t(' · {count} 次进行中', { count: running }) : ''}
       </div>
       {rows.length === 0 && liveInputs.length === 0 ? (
-        <div className="trace-empty">本轮还没有工具调用。发起任务后，读取 / 编辑 / 命令会按顺序出现在这里。</div>
+        <div className="trace-empty">{t('本轮还没有工具调用。发起任务后，读取 / 编辑 / 命令会按顺序出现在这里。')}</div>
       ) : (
         <div className="trace-list">
           {rows.map((r) => (
@@ -115,7 +117,7 @@ export function TraceView(props: TraceViewProps): ReactElement {
               <span className="tr-act" title={r.action}>
                 {r.action}
               </span>
-              <span className={r.done ? 'tr-st ok' : 'tr-st run'}>{r.done ? '完成' : '进行中'}</span>
+              <span className={r.done ? 'tr-st ok' : 'tr-st run'}>{r.done ? t('完成') : t('进行中')}</span>
               <span className="tr-time" aria-hidden="true">
                 {r.time}
               </span>
@@ -137,7 +139,7 @@ export function TraceView(props: TraceViewProps): ReactElement {
                   return describeToolCall(li.name, args);
                 })()}
               </span>
-              <span className="tr-st run">进行中</span>
+              <span className="tr-st run">{t('进行中')}</span>
               <span className="tr-time" aria-hidden="true"></span>
             </div>
           ))}

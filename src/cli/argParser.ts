@@ -84,7 +84,7 @@ export interface CliArgs {
   forkId?: string | undefined;
   /** 待回放的历史会话 id（--replay，无需 prompt）。 */
   replayId?: string | undefined;
-  /** 单次任务最大步数（LoopGuard 兜底）。 */
+  /** 单次任务最大步数：**0 = 不限（缺省）**。终止以任务完成为准，正数才按步数截断。 */
   maxSteps: number;
   /** 待桥接的外部 MCP 服务器清单（--mcp-server，可重复）。 */
   mcpServers: McpServerConfig[];
@@ -281,7 +281,12 @@ export const CliDefaults: CliArgs = {
   toolFiles: [],
   prompt: '',
   workspace: process.cwd(),
-  maxSteps: 16,
+  // **0 = 不限**（2026-10-15 产品口径：合理的是把任务做完，而不是限制步数）。
+  // 实证：定位重、落盘轻的任务（先读 10+ 文件/跑 tsc 再写）在 16/32/48 下都会「探索烧满配额、
+  // 修复零落盘」（sess_mv9nl59c）——问题不在配额大小，而在**拿配额当终止条件**。
+  // 终止改为：模型产出结论（完成闸门）/ token 与成本预算 / LoopGuard 行为护栏 / 用户取消。
+  // 需要硬上限时显式给：`--max-steps N` 或配置 `"maxSteps": N`。
+  maxSteps: 0,
   mcpServers: [],
   native: true,
   planMode: false,

@@ -22,6 +22,8 @@ import type { AuditSink } from '../server/services/auditSink.js';
 import type { AppServer } from '../server/core/appServer.js';
 import type { ServerEventBridge } from '../server/core/serverEventBridge.js';
 import { DoctorRunner } from './doctorRunner.js';
+import { ServeInstance } from './serveInstance.js';
+import { API_VERSION } from '../version.js';
 import {
   OidcClient,
   EnterpriseAuth,
@@ -139,13 +141,13 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
   /**
    * 环境诊断：doctor。
    * @param args 子命令参数（--config 指定待检查的配置文件路径）。
-   * @returns 进程退出码：无问题为 0，存在 issue 为 1。
+   * @returns 进程退出码：无问题为 0，存在 issue 为 1（映射见 `DoctorRunner.exitCode`，单一实现）。
    */
   protected async runDoctor(args: readonly string[]): Promise<number> {
     const configPath = this.flagValue(args, '--config');
     const report = DoctorRunner.runDoctor({ configPath });
     DoctorRunner.printDoctor(report);
-    return report.issues.length === 0 ? 0 : 1;
+    return DoctorRunner.exitCode(report);
   }
 
   /**
@@ -446,7 +448,18 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       process.stderr.write(
         `omniharness: 启动失败：${error instanceof Error ? error.message : String(error)}\n`,
       );
-      process.stderr.write(`${ServePortConflict.advice(port, holder)}\n`);
+      // 实例记录（2026-10-15）：先清扫**已死**进程留下的记录（自愈），再把活着的记录交给提示。
+      // 顺序不能反——否则会把一条陈旧记录当成"当前占用者的自述"印给用户。
+      const recordPath = ServeInstance.pathFor(port);
+      const cleaned = ServeInstance.sweep(recordPath);
+      if (cleaned.swept && cleaned.record !== null) {
+        process.stderr.write(
+          `[omniharness] 已清理陈旧实例记录（${ServeInstance.describe(cleaned.record)}）：该进程已不在。\n`,
+        );
+      }
+      process.stderr.write(
+        `${ServePortConflict.advice(port, holder, ServeInstance.read(recordPath) ?? undefined)}\n`,
+      );
       if (!takePort || holder.kind !== 'omni') {
         return { ok: false, code: 1 };
       }
@@ -622,14 +635,31 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       authToken: serveToken,
     });
     const port = this.flagNumber(serveArgs, '--port') ?? 8787;
+    // 启动即清扫本端口的**陈旧**实例记录（进程已不在 ⇒ 删掉并如实说明）：
+    // 这是"陈旧实例可识别"的自愈面——记录不会长期撒谎，也不会在下次冲突提示里冒充当前占用者。
+    const stale = ServeInstance.sweep(ServeInstance.pathFor(port));
+    if (stale.swept && stale.record !== null) {
+      process.stderr.write(
+        `[omniharness] 已清理陈旧实例记录（${ServeInstance.describe(stale.record)}）：该进程已不在。\n`,
+      );
+    }
     const binding = await this.startHttpServer(server, port, serveArgs.includes('--take-port'));
     if (binding.ok !== true) {
       return binding.code;
     }
+    // 绑定成功后才写记录（先写会留下"说要跑但没跑起来"的假记录）。
+    const instancePath = ServeInstance.announce({
+      pid: process.pid,
+      host: serveHost,
+      port: binding.port,
+      startedAt: new Date().toISOString(),
+      workspace: app.effectiveWorkspace(),
+      version: API_VERSION,
+    });
     const authNote =
       serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
     process.stdout.write(`OmniHarness UI: http://${serveHost}:${binding.port} ${authNote}\n`);
-    return CliServerCmds.awaitShutdown(server);
+    return CliServerCmds.awaitShutdown(server, instancePath);
   }
 
   /**
@@ -649,9 +679,10 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
    * 监听套接字、WS/SSE 客户端、MCP/LSP/Chrome/后台作业子进程全部不被关闭，端口要等进程被强杀
    * 才释放（Windows 上孙进程还可能残留）。
    * @param server 已启动的 HTTP 服务。
+   * @param instancePath 本实例的记录文件路径（收尾时**只删自己的**那条记录）。
    * @returns 关闭完成后 resolve（调用方据此正常退出）。
    */
-  private static awaitShutdown(server: HttpServer): Promise<number> {
+  private static awaitShutdown(server: HttpServer, instancePath: string): Promise<number> {
     return new Promise<number>((resolve) => {
       const shutdown = (signal: NodeJS.Signals): void => {
         process.stdout.write(`\n收到 ${signal}，正在关闭服务…\n`);
@@ -659,6 +690,8 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
           .close()
           .catch(() => undefined)
           .finally(() => {
+            // 正常退出即退役记录；异常退出留下的记录由下次启动清扫（见 `ServeInstance.sweep`）。
+            ServeInstance.retire(instancePath);
             resolve(0);
           });
       };
