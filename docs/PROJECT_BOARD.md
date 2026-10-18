@@ -3592,7 +3592,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | 测试定向       | 失败栈帧里的路径直接拼进 shell 命令                                                                                                            | 目标字符白名单，含元字符退回全量                                                            | `testCommandNarrower`                                                                                                       |
 | Diff 审查      | hunk 可夹带 `diff --git` 改守卫外文件；路径可含换行                                                                                            | 只允许一个 `@@`、拒绝补丁头/控制字符                                                        | `diffReview`、`repoPathGuard`                                                                                               |
 | 多文件补丁     | 审批/沙箱只看首个 `+++`，后续文件既不可见也不过沙箱                                                                                            | `targetsOf` 收全部 `---`/`+++`；逐目标检查，任一拒绝整条拒绝                                | `toolGateMultiTarget`                                                                                                       |
-| Windows worker | `shell:true` 把模型可控 task 拼进 cmd，`&` 可直接执行命令                                                                                      | 参数走 JSON 临时文件 + PowerShell `@workerArgs` splat，任务不进命令行解析                   | `workerSystem`                                                                                                              |
+| Windows worker | `shell:true` 把模型可控 task 拼进 cmd，`&` 可直接执行命令                                                                                      | 解析 npm `.cmd` 垫片为 `node <entry.js>` 直接 spawn；解析失败 fail-closed，task 永不进 cmd  | `workerSystem`                                                                                                              |
 | daemon         | stop 树杀后仍存活也删 PID 报成功；start 不探测就报“已启动”                                                                                     | stop 未退出返回 false 且保留 PID；start 观察 800ms 稳定存活，失败抛错                       | `daemon`                                                                                                                    |
 | daemon 身份    | 只按 PID 判存活，陈旧 PID 被复用时会误杀无关进程                                                                                               | PID 文件记录启动时刻，stop 前按平台采集并校验；不匹配/不可校验拒绝 kill                     | `daemon`                                                                                                                    |
 | cron 匹配      | DOM/DOW 一个是 `*` 时仍取并集，`0 9 * * 1` 变成每天触发                                                                                        | 仅两者都受限才取并集；`*` 表示不限制                                                        | `routines`                                                                                                                  |
@@ -3650,13 +3650,10 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
    macOS seatbelt 的「真正限制进程」没有接进执行链；当前是策略裁决 + 应用层校验，不能宣称 OS 隔离。
 2. **服务端默认无令牌**：回环绑定是当前边界；本轮补了 Origin 校验，但同机其它本地进程仍可访问。
    要默认令牌，需要前端拿到令牌的注入通道（cookie/首屏 meta），是独立改造。
-3. **Windows `.cmd` 垫片内部仍有 `%*` 展开面**：`CliWorker` 已不再让 task 进入 cmd，但若被调用的
-   目标本身是 npm `.cmd`（如 dsh），垫片内部的 `%*` 仍可能把 `&` 当第二条命令。彻底修法在外部
-   CLI（stdin / 参数文件 / 直接 node 入口），不能在宿主单方面保证。
-4. **native shell 同步冻结 + 非零退出报成功（已降级规避，Rust 未修）**：`StepToolExecutor` 已禁止
+3. **native shell 同步冻结 + 非零退出报成功（已降级规避，Rust 未修）**：`StepToolExecutor` 已禁止
    把 `shell` 路由到原生后端（强制 JS ShellTool，保留超时/进程树终止/正确退出码）。Rust
    `shell.run` 本身仍无超时/输出上限、`exit 3` 仍 `ok:true`，需改内核 + 后端映射。
-5. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
+4. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
    共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
    vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
    productionGrade/architectureGate 探针/hashChain/evolutionIntegration/a2aDelegate/fileLockCrossProcess/

@@ -1,9 +1,7 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.ts';
 import type { Worker, WorkerRequest, WorkerResult } from './worker.ts';
+import { WindowsShim } from './windowsShim.ts';
 
 /**
  * @beta
@@ -170,26 +168,25 @@ export class CliWorker implements Worker {
     if (this.options.shell !== true || process.platform !== 'win32') {
       return direct();
     }
-    const dir = mkdtempSync(join(tmpdir(), 'omni-cli-worker-'));
-    const payload = join(dir, 'payload.json');
-    writeFileSync(payload, JSON.stringify({ exe: this.options.command, args }), {
-      encoding: 'utf8',
-      mode: 0o600,
-    });
-    const script = [
-      '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)',
-      '$p = Get-Content -Raw -LiteralPath $env:OMNI_CLI_WORKER_PAYLOAD | ConvertFrom-Json',
-      '$workerArgs = @($p.args)',
-      '& $p.exe @workerArgs',
-      'if ($null -eq $LASTEXITCODE) { exit 0 } else { exit $LASTEXITCODE }',
-    ].join('; ');
-    return {
-      command: 'powershell.exe',
-      args: ['-NoProfile', '-NonInteractive', '-Command', script],
-      env: { ...process.env, OMNI_CLI_WORKER_PAYLOAD: payload },
-      shell: false,
-      cleanup: (): void => rmSync(dir, { recursive: true, force: true }),
-    };
+    // Windows npm CLI 常是 `.cmd` 垫片：解析成 `node <entry.js>` 直接 spawn，任务文本
+    // 永远不经过 cmd/`.cmd` 的 `%*` 解析（审查 P0：`&` 注入）。
+    const shim = WindowsShim.resolve(this.options.command);
+    if (shim !== undefined) {
+      return {
+        command: shim.command,
+        args: [...shim.argsPrefix, ...args],
+        env: process.env,
+        shell: false,
+        cleanup: (): void => undefined,
+      };
+    }
+    if (WindowsShim.isBatch(this.options.command)) {
+      throw new Error(
+        `无法安全解析 Windows 批处理命令（拒绝把 task 交给 cmd 解析）：${this.options.command}`,
+      );
+    }
+    // 非批处理（.exe / 裸名但 where 没找到）：直接 spawn，失败由 error 事件如实回报。
+    return direct();
   }
 
   /**

@@ -1,5 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { CliWorker } from '../../src/worker/cliWorker.ts';
 import { SimpleWorker } from '../../src/worker/simpleWorker.ts';
 import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
@@ -31,6 +34,44 @@ test('CliWorker：失败命令返回失败结果', async () => {
   assert.strictEqual(result.ok, false);
   assert.match(result.output, /退出码 3/);
 });
+
+test.skipIf(process.platform !== 'win32')(
+  'CliWorker：npm .cmd 垫片解析成 node 入口，task 不经 cmd 的 %* 解析',
+  async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'omni-worker-shim-'));
+    try {
+      const bin = join(dir, 'pkg', 'bin');
+      mkdirSync(bin, { recursive: true });
+      const entry = join(bin, 'cli.js');
+      writeFileSync(entry, 'console.log(process.argv.slice(2).join("|"));\n', 'utf8');
+      const shim = join(dir, 'demo.cmd');
+      writeFileSync(
+        shim,
+        [
+          '@ECHO OFF',
+          'SETLOCAL',
+          'SET "NODE_EXE=%~dp0\\node.exe"',
+          'IF NOT EXIST "%NODE_EXE%" SET "NODE_EXE=node"',
+          'SET "CLI_JS=%~dp0\\pkg\\bin\\cli.js"',
+          '"%NODE_EXE%" "%CLI_JS%" %*',
+        ].join('\r\n'),
+        'utf8',
+      );
+      const worker = new CliWorker({
+        name: 'shim-demo',
+        command: shim,
+        args: (task) => [task],
+        shell: true,
+      });
+      const task = 'safe&echo INJECTED %PATH%';
+      const result = await worker.run({ task, workspaceRoot: dir });
+      assert.strictEqual(result.ok, true, result.output);
+      assert.strictEqual(result.output.trim(), task, 'task 必须原样作为单个参数到达 JS 入口');
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    }
+  },
+);
 
 test.skipIf(process.platform !== 'win32')(
   'CliWorker：Windows shell:true 不得把 task 里的 & 当命令分隔符（注入回归）',
