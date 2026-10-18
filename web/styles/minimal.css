@@ -1183,25 +1183,25 @@
   color: var(--text);
 }
 /* 菜单/列表里的「当前项」：极淡墨底 + 左缘墨标 + 标题加粗。
-   不用整块实心墨：`.dd-item` 是 340px 宽、两行文字的容器，刷成墨块会压掉描述文字。 */
+   不用整块实心墨：`.dd-item` 是 340px 宽、两行文字的容器，刷成墨块会压掉描述文字。
+
+   例外：「全部面板」菜单（`.pp-item`）**不标当前项**（2026-10-18 用户反馈）。
+   右栏标签条本来就显示当前面板名，菜单第一行再叠淡墨底 + 左缘墨标，在深色主题里看起来
+   像"输入框/选中框"（用户原话「不要这种前面这个中选择样式」）⇒ 这个菜单只区分 hover。 */
 .dd-item.active,
 .cmdk-item.active,
-.pp-item.active,
 .mp-item.active {
   background: var(--accent-soft);
   color: var(--text);
   border-color: transparent;
   box-shadow: inset 2px 0 0 var(--accent);
 }
-.dd-item.active .perm-name,
-.pp-item.active .pp-title {
+.dd-item.active .perm-name {
   font-weight: 600;
 }
-.pp-item.active .pp-ico,
 .dd-item.active .dd-ico,
 .addmenu-item.active .addmenu-item-ico,
-.cmdk-item.active .cmdk-hint,
-.pp-item.active .pp-title {
+.cmdk-item.active .cmdk-hint {
   color: inherit;
 }
 .cmdk-input,
