@@ -70,6 +70,14 @@ export interface AppState {
   liveInputs: LiveInput[];
   sessions: SessionEntry[];
   currentThreadId: string | null;
+  /**
+   * 会话数据版本号：切换会话或回合推进（tool_result / assistant / turn.end 等）后 +1。
+   *
+   * 为什么单独一个计数：面板（指标 / 审计 / 治理 / 回滚 / 记忆…）各自在 effect 里拉数据，
+   * 它们需要「当前会话 + 本回合有新数据」作为重新拉取的信号。直接依赖 events 数组会让
+   * 每个 token 增量都触发全部面板重拉（请求风暴）；这里按 300ms 去抖，只表达「数据可能变了」。
+   */
+  sessionTick: number;
   detailEvent: ThreadEvent | null;
   approval: ApprovalRequest | null;
   /**
@@ -553,6 +561,8 @@ export class AppController {
       toast: (message: string, kind?: ToastKind) => this.showToast(message, kind),
       dialog: this.services.dialogSvc,
       refreshModelCatalog: () => this.refreshModelCatalog(),
+      sessionId: this.host.getState().currentThreadId,
+      sessionTick: this.host.getState().sessionTick,
     };
   }
 

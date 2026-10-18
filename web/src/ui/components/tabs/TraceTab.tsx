@@ -32,7 +32,7 @@ export interface TraceTabProps {
 
 /** Trace 自省面板：只读条目列表。 */
 export function TraceTab(props: TraceTabProps): ReactElement {
-  const { api } = useApp();
+  const { api, sessionTick } = useApp();
   const sessionId = props.sessionId ?? '';
   const [data, setData] = React.useState<TraceReadResultLike | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -68,7 +68,7 @@ export function TraceTab(props: TraceTabProps): ReactElement {
 
   React.useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, sessionTick]);
 
   if (sessionId === '') {
     // 不猜会话：空会话时给出明确指引，而不是拿"最近会话"糊一个结果。

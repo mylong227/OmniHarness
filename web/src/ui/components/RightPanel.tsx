@@ -10,6 +10,8 @@
 import * as React from 'react';
 import { PanelPicker } from './PanelPicker.tsx';
 import { panelOf } from '../models/PanelRegistry.ts';
+import { panelScopeOf } from '../models/PanelScope.ts';
+import { useApp } from '../context.ts';
 import type { FileView } from '../shared.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -205,6 +207,19 @@ const renderTab = (tab: TabItem, i: number): ReactElement => (
   </div>
 );
 
+  const { sessionId, sessionTick } = useApp();
+  const scopeMeta = panelScopeOf(activePane);
+  const scopeText =
+    scopeMeta.scope === 'session'
+      ? sessionId === null
+        ? t('未选择会话')
+        : t('本会话')
+      : scopeMeta.scope === 'workspace'
+        ? t('工作区')
+        : scopeMeta.scope === 'server'
+          ? t('服务端')
+          : t('全局');
+
   const activeFile =
     activePane === 'file' ? (openFiles ?? []).find((f) => f.title === (activeFileTitle ?? null)) : undefined;
   const currentPanel = panelOf(activePane);
@@ -233,9 +248,18 @@ const renderTab = (tab: TabItem, i: number): ReactElement => (
         )}
       </div>
       <div className="rv-pathbar">
-        <span className="rv-path" title={pathText}>
+        <span className="rv-path" title={pathText + '\n' + scopeMeta.hint}>
           {pathText}
         </span>
+        <span className={`scope-chip ${scopeMeta.scope}`}>{scopeText}</span>
+        {scopeMeta.scope === 'session' ? (
+          <span
+            key={sessionTick}
+            className={'live-dot' + (sessionId === null ? '' : ' on')}
+            title={t('数据实时跟随会话（回合推进自动刷新）')}
+            aria-hidden="true"
+          />
+        ) : null}
         <span className="flex-spacer" aria-hidden="true"></span>
         {activeFile !== undefined && activeFile.lang !== '' ? (
           <span className="rv-lang">{activeFile.lang}</span>

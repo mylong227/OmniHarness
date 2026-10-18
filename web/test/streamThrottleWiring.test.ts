@@ -1,4 +1,4 @@
-﻿// 流式节流接线测试：`StreamThrottle` 真的接在 `SessionController.appendTextDelta` 上，
+// 流式节流接线测试：`StreamThrottle` 真的接在 `SessionController.appendTextDelta` 上，
 // 且「高频增量 → 有界刷新」与「收尾零丢失」两条不变量在**接线后**依然成立。
 //
 // 为什么单独一个文件：`longSessionPerf.test.mjs` 验的是节流器本身的纯逻辑；本文件验的是
@@ -69,7 +69,7 @@ test('接线：高频增量被合并成有界刷新次数，且累计文本逐�
 
   for (const delta of deltas) ctrl.appendTextDelta({ text: delta });
   const duringFlight = host.patchCount;
-  ctrl.flushStream();
+  ctrl.streamPhase('flush');
 
   assert.ok(duringFlight <= 5, `500 条增量在飞期间刷新次数应为常数级，实测 ${duringFlight}`);
   assert.strictEqual(state.streamText, expected, 'flush 后累计文本必须与逐条拼接逐字节一致');
@@ -78,13 +78,13 @@ test('接线：高频增量被合并成有界刷新次数，且累计文本逐�
 test('接线：收尾 flush 之后到达的迟到增量一律无效（不复活流式卡片）', () => {
   const { ctrl, host, state } = makeController();
   ctrl.appendTextDelta({ text: '前段' });
-  ctrl.flushStream();
+  ctrl.streamPhase('flush');
   const afterFlush = state.streamText;
 
   // 回合已结束（busy=false）后迟到的增量
   host.patch({ busy: false });
   ctrl.appendTextDelta({ text: '迟到' });
-  ctrl.flushStream();
+  ctrl.streamPhase('flush');
   assert.strictEqual(state.streamText, afterFlush, '停表后的迟到增量不得进入状态');
 });
 
@@ -93,7 +93,7 @@ test('接线：未 flush 的缓冲不会凭空进入状态（节流是有意的�
   ctrl.appendTextDelta({ text: 'a' });
   ctrl.appendTextDelta({ text: 'b' });
   // 首条立即刷出；第二条可能仍在缓冲里——两种中间态都合法，但绝不能丢。
-  ctrl.flushStream();
+  ctrl.streamPhase('flush');
   assert.strictEqual(state.streamText, 'ab');
 });
 

@@ -68,7 +68,7 @@ function renderRow(f: MemoryFact, actions: RowActions): ReactElement {
  */
 export function MemoryTab(props: MemoryTabProps): ReactElement {
   const { reloadKey } = props;
-  const { api, toast, dialog } = useApp();
+  const { api, toast, dialog, sessionTick } = useApp();
   const [facts, setFacts] = React.useState<MemoryFact[]>([]);
   const [count, setCount] = React.useState<number>(0);
   const [query, setQuery] = React.useState<string>('');
@@ -94,7 +94,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
   // 挂载装载 + reloadKey 变化重载（deps 只有 reloadKey，load 只读 ref/闭包外的服务）。
   React.useEffect(() => {
     void load();
-  }, [reloadKey]);
+  }, [reloadKey, sessionTick]);
 
   /** 检索：空查询回落为全量列出。 */
   const search = async (): Promise<void> => {

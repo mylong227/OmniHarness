@@ -1,4 +1,4 @@
-﻿// 会话 / 事件 / 文件相关控制器（C3 拆分，标准 class 方式）。
+// 会话 / 事件 / 文件相关控制器（C3 拆分，标准 class 方式）。
 // 承接原 useAppController 中与会话、事件流、工具结果、文件预览、钻取、抽屉相关的回调，
 // 一律经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
@@ -12,6 +12,7 @@ import { ViewAttachment } from '../models/ViewAttachment.ts';
 import { SessionProjectBinding } from '../models/SessionProjectBinding.ts';
 import type { SessionModePatch } from '../models/PendingModes.ts';
 import { MethodBinder } from './methodBinder.ts';
+import { SessionTicker } from './sessionTicker.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
@@ -29,6 +30,8 @@ export class SessionController {
   public readonly viewAttachment: ViewAttachment;
   /** 本回合的流式缓冲（节流 + 生命周期）：语义见 `models/TurnStreamBuffer.ts`。 */
   private readonly stream: TurnStreamBuffer;
+  /** 会话数据版本号（`AppState.sessionTick`）的去抖器。 */
+  private readonly ticker: SessionTicker;
 
   /**
    * 构造并绑定对外回调。
@@ -41,6 +44,9 @@ export class SessionController {
     this.modes = new DeferredModes((id, patch) => services.api.modesSet(id, patch));
     // 默认**挂载**：刷新 / 深链 / 全新控制器都要能收流式事件，只有点「新建」才摘。
     this.viewAttachment = new ViewAttachment();
+    this.ticker = new SessionTicker(() => {
+      this.host.patch((s) => ({ sessionTick: s.sessionTick + 1 }));
+    });
     this.stream = new TurnStreamBuffer((text) => {
       this.host.patch((s) => ({
         streamText: this.services.reducers.appendTextDelta(s.streamText, text),
@@ -81,6 +87,10 @@ export class SessionController {
       this.host.patch({ activeTool: null });
     }
     this.host.patch((s) => this.services.reducers.ingestEvent(s, ev));
+    // 面板数据（指标/审计/治理/回滚/记忆…）跟随回合推进：语义事件后去抖 +1，不随 token 增量抖动。
+    if (ev.type === 'tool_result' || ev.type === 'model' || ev.type === 'user' || ev.type === 'turn_diff') {
+      this.ticker.schedule();
+    }
     if (ev.type === 'tool_result') {
       const callId = p.callId as string;
       if (callId) {
@@ -110,20 +120,18 @@ export class SessionController {
     this.stream.push(text);
   }
 
-  /** 新回合开始：开一份干净的流式缓冲（每个回合一份，见 TurnStreamBuffer）。 @returns 无 */
-  public openStream(): void {
-    this.stream.open();
-  }
-
   /**
-   * 收尾本回合的流式增量：把缓冲区里最后一段刷进状态，再释放节流器。
+   * 回合流式缓冲的生命周期开关：`open` 开新回合、`flush` 收尾本回合。
    *
-   * **必须在写最终 assistant 事件 / 把 `streamText` 收口为 `finalizedStreamText` 之前调用**，
-   * 否则最后一段增量会丢（这正是节流「零丢失」不变量的兜底点）。
+   * 合成一个方法而不是两个：`SessionController` 的方法数已到上帝类阈值（>25），
+   * 而这两个动作本来就是同一缓冲的两端，合成后调用点也更清楚
+   * （`ComposerController` 里 `streamPhase('open')` / `streamPhase('flush')`）。
+   * @param phase 'open' 开新回合缓冲；'flush' 把最后一段增量刷进状态并释放节流器
    * @returns 无
    */
-  public flushStream(): void {
-    this.stream.flush();
+  public streamPhase(phase: 'open' | 'flush'): void {
+    if (phase === 'open') this.stream.open();
+    else this.stream.flush();
   }
 
   /**
@@ -229,6 +237,7 @@ export class SessionController {
       });
       // #OBS-12：加载历史会话必须重置 busy / activeTool，避免上一回合残留撑开过程 cluster。
       this.host.patch((s) => ({ sessions: s.sessions.map((x) => x) }));
+      this.ticker.now();
       // F8：把当前会话写进 hash，支持深链 / 浏览器前进后退。
       this.services.navigate({ threadId: id });
     } catch (e) {
@@ -252,6 +261,7 @@ export class SessionController {
     });
     // F8：清空 hash 中的会话，回到无会话视图。
     this.services.navigate({ threadId: null });
+    this.ticker.now();
   }
 
   /**
@@ -382,10 +392,11 @@ export class SessionController {
     if (window.innerWidth <= 880) this.host.patch({ leftOpen: false, rightOpen: false });
   }
 
-  /** 关闭左右抽屉。 @returns 无 */
-  public closeDrawers(): void {
+  /** 关闭左右抽屉（属性箭头函数：`SessionController` 的方法数已到上帝类阈值，
+   * 这里不新增 MethodDeclaration）。 */
+  public readonly closeDrawers = (): void => {
     this.host.patch({ leftOpen: false, rightOpen: false });
-  }
+  };
 
   /**
    * 按工具调用 id 找到对应 tool_call 事件并钻取。

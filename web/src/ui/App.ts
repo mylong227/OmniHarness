@@ -113,6 +113,7 @@ function initialState(): AppState {
     liveInputs: [],
     sessions: [],
     currentThreadId: null,
+    sessionTick: 0,
     detailEvent: null,
     approval: null,
     question: null,

@@ -60,7 +60,7 @@ function renderRow(p: Profile, actions: RowActions): ReactElement {
  */
 export function ProfilesTab(props: ProfilesTabProps): ReactElement {
   const { reloadKey } = props;
-  const { api, toast, dialog } = useApp();
+  const { api, toast, dialog, sessionTick } = useApp();
   const [profiles, setProfiles] = React.useState<Profile[]>([]);
   const [active, setActive] = React.useState<ActivePlugins>({ plugins: [] });
   const nameRef = React.useRef<HTMLInputElement | null>(null);
@@ -82,7 +82,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
   // 挂载装载 + reloadKey 变化重载（deps 只有 reloadKey；load 只读写闭包外的服务与 setter）。
   React.useEffect(() => {
     void load();
-  }, [reloadKey]);
+  }, [reloadKey, sessionTick]);
 
   /** 把当前激活插件集存成配置集；名称为空 fail-closed 提示，不发请求。 */
   const saveCurrent = async (): Promise<void> => {

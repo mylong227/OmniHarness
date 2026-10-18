@@ -40,7 +40,7 @@ interface UsageStats {
  * @returns 指标面板节点
  */
 export function MetricsTab(): ReactElement {
-  const { api } = useApp();
+  const { api, sessionId, sessionTick } = useApp();
   const [metrics, setMetrics] = React.useState<Metrics | null>(null);
   const [usage, setUsage] = React.useState<UsageStats | null>(null);
 
@@ -68,13 +68,19 @@ export function MetricsTab(): ReactElement {
       alive = false;
       clearInterval(timer);
     };
-  }, [api]);
+  }, [api, sessionTick]);
 
   if (!metrics) return emptyNote(t('读取中…'), { kind: 'note' });
 
   const et = metrics.eventsByType || {};
   const total = Object.values(et).reduce<number>((a, b) => a + (b as number), 0);
+  // 本会话的两张卡：数据来自 usage.stats 的 per-session 列表，随 sessionTick 实时刷新；
+  // 没选会话（新会话态）显示「—」，不拿全量数字冒充本会话。
+  const currentSession =
+    sessionId === null ? undefined : usage?.sessions.find((s) => s.sessionId === sessionId);
   const cards: [string, string | number][] = [
+    [t('本会话 Token'), currentSession ? NumberFormatter.abbrev(currentSession.total) : '—'],
+    [t('本会话调用'), currentSession ? currentSession.calls : '—'],
     [t('会话'), metrics.sessions || 0],
     [t('事件'), total],
     [t('工具调用'), et.tool_call || 0],

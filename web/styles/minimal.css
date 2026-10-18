@@ -1141,6 +1141,41 @@
     flex-wrap: wrap;
   }
 }
+.scope-chip {
+  flex: none;
+  font-size: 10px;
+  line-height: 16px;
+  padding: 0 7px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.scope-chip.session {
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+.live-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+  opacity: 0.5;
+}
+.live-dot.on {
+  background: var(--ok);
+  opacity: 1;
+  animation: live-pulse 1.2s ease-out;
+}
+@keyframes live-pulse {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
 .rv-pathbar {
   background: transparent;
   border-bottom: 1px solid var(--hairline);

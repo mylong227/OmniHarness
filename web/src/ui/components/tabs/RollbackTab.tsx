@@ -114,7 +114,7 @@ function renderTimeline(
  */
 export function RollbackTab(props: RollbackTabProps): ReactElement {
   const { sessionId, onRolledBack } = props;
-  const { api, toast, dialog } = useApp();
+  const { api, toast, dialog, sessionTick } = useApp();
   const [list, setList] = React.useState<CheckpointMeta[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -146,7 +146,7 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
   // 挂载装载 + 会话切换即重拉（deps 只有 sessionId）。
   React.useEffect(() => {
     void refresh(sessionId);
-  }, [sessionId]);
+  }, [sessionId, sessionTick]);
 
   /** 创建检查点：名称为空则由 CheckpointNamer 生成，建完刷新列表。 */
   const create = async (): Promise<void> => {

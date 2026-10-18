@@ -167,7 +167,7 @@ function renderStoredGraph(g: GraphSummary, actions: StoredActions): ReactElemen
  */
 export function GraphTab(props: GraphTabProps): ReactElement {
   const { graphRuns, onRunStart, onResume } = props;
-  const { api, toast, dialog } = useApp();
+  const { api, toast, dialog, sessionTick } = useApp();
   const [graphs, setGraphs] = React.useState<GraphSummary[]>([]);
   const [name, setName] = React.useState<string>('');
   const [steps, setSteps] = React.useState<StepDraft[]>([]);
@@ -186,7 +186,7 @@ export function GraphTab(props: GraphTabProps): ReactElement {
   // 挂载拉取图列表（[] 有意：只在进入该页时拉一次）。
   React.useEffect(() => {
     void load();
-  }, []);
+  }, [sessionTick]);
 
   /** 追加一个空步骤行。 */
   const addStep = (): void => {

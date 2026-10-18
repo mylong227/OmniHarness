@@ -25,7 +25,7 @@ import { t } from '../../i18n/i18n.ts';
 
 /** 审计面板：过滤 + 列表。 */
 export function AuditTab(): ReactElement {
-  const { api } = useApp();
+  const { api, sessionTick } = useApp();
   const [data, setData] = React.useState<AuditQueryResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -48,7 +48,7 @@ export function AuditTab(): ReactElement {
 
   React.useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, sessionTick]);
 
   if (loading) return <div className="audit-tab">{t('载入审计事件…')}</div>;
   if (error !== null) {

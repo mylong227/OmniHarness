@@ -85,7 +85,7 @@ export class ComposerController {
     // 视图状态对象归 SessionController 所有（摘 / 挂同源，避免两处各改一半），这里只借代数比对。
     const epoch = this.sessions.viewAttachment.attach();
     // 新回合：开一份干净的流式缓冲（上一个回合的残留在 flushStream/discard 时已释放）。
-    this.sessions.openStream();
+    this.sessions.streamPhase('open');
     this.host.patch({ busy: true, activeTool: null, streamText: '', finalizedStreamText: '' });
     try {
       const res = await this.services.api.runTurn(params);
@@ -174,7 +174,7 @@ export class ComposerController {
     // 先收尾流式节流器：把缓冲区里最后一段增量刷进 streamText，再释放（否则最后一段会丢，
     // 且「停止」之后迟到增量可能重新点亮流式卡片）。必须在下面的 patch 之前调用——那个 patch
     // 会读 s.streamText 把它定稿。
-    this.sessions.flushStream();
+    this.sessions.streamPhase('flush');
     if (aborted && !this.abortNoted) {
       this.abortNoted = true;
       this.host.patch((s) => ({ events: [...s.events, this.systemNote(t('已中止（用户中断）。'))] }));

@@ -66,7 +66,7 @@ type GovernanceHistory =
  * @returns 治理面板节点
  */
 export function GovernanceTab(): ReactElement {
-  const { api } = useApp();
+  const { api, sessionTick } = useApp();
   const [data, setData] = React.useState<GovernanceHistory | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -88,7 +88,7 @@ export function GovernanceTab(): ReactElement {
 
   React.useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, sessionTick]);
 
   if (loading) return <div className="governance-tab">{t('载入晋升台账…')}</div>;
   if (error !== null) {

@@ -1,4 +1,4 @@
-﻿// F4 中断 / 重生成 / 编辑重发：前端接线契约测试。
+// F4 中断 / 重生成 / 编辑重发：前端接线契约测试。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
@@ -129,9 +129,8 @@ function makeController(host: HostStub, api: Pick<ApiStub, 'runTurn'>) {
   // loadThread 挂），状态与改动同源；ComposerController 只借用代数做比对。
   const sessions = {
     async refreshSessions() {},
-    flushStream() {},
-    // 新回合开一份干净的流式缓冲（真实现见 models/TurnStreamBuffer.ts）
-    openStream() {},
+    // 流式缓冲生命周期（开新回合 / 收尾刷增量；真实现见 models/TurnStreamBuffer.ts）
+    streamPhase() {},
     // 视图代数契约（2026-10-06）：见 web/src/ui/models/ViewAttachment.ts
     viewAttachment: { attach: () => 0, epoch: () => 0, detached: false },
   };
@@ -331,7 +330,7 @@ test('regenerate：服务端回退失败 ⇒ 不重发、不假装成功（toast
   const ctrl = new ComposerController(
     host as unknown as AppHost,
     services as unknown as AppServices,
-    { async refreshSessions() {}, flushStream() {} } as unknown as SessionController,
+    { async refreshSessions() {}, streamPhase() {} } as unknown as SessionController,
   );
   await ctrl.regenerate();
 
@@ -377,7 +376,7 @@ test('regenerate 无用户消息时仅轻提示、不发起请求', async () => 
   const ctrl = new ComposerController(
     host as unknown as AppHost,
     services as unknown as AppServices,
-    { async refreshSessions() {}, flushStream() {} } as unknown as SessionController,
+    { async refreshSessions() {}, streamPhase() {} } as unknown as SessionController,
   );
   await ctrl.regenerate();
   assert.strictEqual(api.runTurnCalls.length, 0);
@@ -432,7 +431,7 @@ test('editLastUser：无用户消息时仅轻提示', () => {
   const ctrl = new ComposerController(
     host as unknown as AppHost,
     services as unknown as AppServices,
-    { async refreshSessions() {}, flushStream() {} } as unknown as SessionController,
+    { async refreshSessions() {}, streamPhase() {} } as unknown as SessionController,
   );
   ctrl.editLastUser();
   assert.strictEqual(state.composerSeed, null, '无用户消息不得写入回填指令');

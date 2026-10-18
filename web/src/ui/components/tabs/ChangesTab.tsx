@@ -52,7 +52,7 @@ const KEY_HELP: readonly { readonly keys: string; readonly desc: string }[] = [
  * @returns 变更面板节点
  */
 export function ChangesTab(): ReactElement {
-  const { api, toast, dialog } = useApp();
+  const { api, toast, dialog, sessionTick } = useApp();
   const [data, setData] = React.useState<ChangesData | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loaded, setLoaded] = React.useState<boolean>(false);
@@ -115,7 +115,7 @@ export function ChangesTab(): ReactElement {
   React.useEffect(() => {
     void refresh();
     void refreshComments();
-  }, []);
+  }, [sessionTick]);
 
   // 进入变更页即把焦点交给评审区：Tab 之后 j/k/a/r 才生效，屏幕阅读器也据此定位。
   React.useEffect(() => {

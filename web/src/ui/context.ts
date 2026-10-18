@@ -14,6 +14,10 @@ export interface AppContextValue {
   dialog: DialogService;
   /** 重新拉取厂商目录（model.catalog）：检测/启用厂商后调用，Composer 模型下拉即时反映真实可用清单。 */
   refreshModelCatalog?: () => void;
+  /** 当前会话 id（null = 尚未创建会话 / 新会话态）。 */
+  sessionId: string | null;
+  /** 会话数据版本号：切换会话或回合推进后 +1，面板据此重新拉取自己的数据。 */
+  sessionTick: number;
 }
 
 export const AppContext = React.createContext<AppContextValue | null>(null);

@@ -64,7 +64,13 @@ export interface RenderUiOptions {
    * 未提供的成员仍用默认桩。
    */
   readonly app?:
-    | { readonly api?: unknown; readonly toast?: unknown; readonly dialog?: unknown }
+    | {
+        readonly api?: unknown;
+        readonly toast?: unknown;
+        readonly dialog?: unknown;
+        readonly sessionId?: string | null;
+        readonly sessionTick?: number;
+      }
     | undefined;
 }
 
@@ -145,6 +151,8 @@ export function renderUi(
         prompt: () => Promise.resolve(null),
       } as unknown as AppContextValue['dialog']),
     refreshModelCatalog: () => {},
+    sessionId: (options.app?.sessionId as string | null | undefined) ?? null,
+    sessionTick: (options.app?.sessionTick as number | undefined) ?? 0,
     calls,
   };
   const result = render(
