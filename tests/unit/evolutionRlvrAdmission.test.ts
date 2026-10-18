@@ -9,9 +9,9 @@
  *   ③ 覆盖率低于阈值整轮不晋升（fail-closed），且 `honestNote` 给降级措辞。
  */
 
-import { test } from 'vitest';
+import { afterAll, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -55,10 +55,17 @@ function baseSkills(): readonly Skill[] {
   ];
 }
 
-/** 新建临时工作区目录。 */
+/** 新建临时工作区目录（afterAll 统一清理）。 */
+const dirs: string[] = [];
 function workspace(tag: string): string {
-  return mkdtempSync(join(tmpdir(), `omni-${tag}-`));
+  const dir = mkdtempSync(join(tmpdir(), `omni-${tag}-`));
+  dirs.push(dir);
+  return dir;
 }
+
+afterAll(() => {
+  for (const dir of dirs) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+});
 
 /**
  * 构造最小可用配置（仅必需端口，其余走默认）。
