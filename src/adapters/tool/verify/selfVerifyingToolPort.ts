@@ -253,7 +253,7 @@ export class SelfVerifyingToolPort implements ToolPort {
         await this.rememberReflection(call, targets, result);
       }
       if (result.ran && result.passed !== undefined) {
-        await this.recordProcessReward(call, targets, noul, result);
+        await this.recordProcessReward(call, context.sessionId, targets, noul, result);
       }
     }
     // 配对 trace：预判（noul）与真实结果（testRan/testPassed/testExitCode）关联落盘，
@@ -319,6 +319,7 @@ export class SelfVerifyingToolPort implements ToolPort {
    */
   private async recordProcessReward(
     call: ToolCall,
+    sessionId: string,
     targets: readonly string[],
     noul: number | undefined,
     result: RunTestResult,
@@ -327,6 +328,7 @@ export class SelfVerifyingToolPort implements ToolPort {
     if (port === undefined || result.passed === undefined) return;
     try {
       await port.record({
+        sessionId,
         toolName: call.name,
         targets,
         ...(noul === undefined ? {} : { noul }),

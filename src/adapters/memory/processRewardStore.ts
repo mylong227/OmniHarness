@@ -145,6 +145,7 @@ export class ProcessRewardStore implements ProcessRewardPort {
     if (typeof value !== 'object' || value === null) return false;
     const row = value as Partial<StepRewardSample>;
     return (
+      (row.sessionId === undefined || typeof row.sessionId === 'string') &&
       typeof row.toolName === 'string' &&
       Array.isArray(row.targets) &&
       row.targets.every((target) => typeof target === 'string') &&

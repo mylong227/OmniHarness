@@ -8,6 +8,8 @@
 
 /** 一条步骤级奖励样本。 */
 export interface StepRewardSample {
+  /** 会话 id（可选；数据集切分时用于**按会话**隔离，避免泄漏）。 */
+  readonly sessionId?: string | undefined;
   /** 工具名。 */
   readonly toolName: string;
   /** 本次改动目标（工作区相对路径）。 */

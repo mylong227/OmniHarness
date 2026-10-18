@@ -2238,6 +2238,19 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
   「同改动体量才使用的最后 tie-breaker」，不再越过“更小改动”这条确定性信号。
   判据：`tests/integration/layaCandidateRanking.test.ts`（集成，需项目内 Laya venv/权重）。
 
+### 8.7e 2026-10-18：P3 标准 PRM 管线（判别式基线，不是 GenPRM）
+
+- 数据：`ProcessRewardDataset`——只保留有 `noul` 的步骤样本；**按 sessionId 分组切分**，同会话绝不跨
+  train/val/test（无 session 时按目标文件分组）；确定性哈希 + 种子。
+- 训练：`LogisticProcessReward`——特征 `noul / 目标数 / 是否写类`，标准化 + 全批量梯度下降 + L2 +
+  验证集早停；输出 `logistic-prm-v1` JSON。样本 <10 或单一类别 **fail-closed**。
+- 评测：train/val/test 的 AUC/Brier/accuracy；测试集另报 **baseline(noul only)** 与 ΔAUC。
+- CLI：`npm run prm:train -- --input=<step-rewards.jsonl> [--out=model.json]`（先 `npm run build`）。
+- 诚实边界：这是**判别式 PRM 基线**，不是生成式 GenPRM；只校准/组合步骤特征，不替代真实测试，
+  不凭单次脚本宣称任务成功率提升。
+- 判据：`tests/unit/processRewardTraining.test.ts` 3 例（会话无泄漏/训练评测/样本不足 fail-closed）；
+  实跑夹具：train 28 / val 8 / test 4，PRM Brier 0.013 vs baseline 0.035（**合成夹具，只证管线可跑**）。
+
 ### 8.8 三处「判据/护栏失真」已修（2026-10-11，第八十轮口径：先读码取证、再改、每项带正对照）
 
 本轮由一次全量体检发现（命令与读数逐条可复核），三处同属一个形态：**声明与实现不一致，且不一致的方向都是"看着绿"**。

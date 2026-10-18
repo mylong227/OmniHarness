@@ -107,6 +107,7 @@
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
     "probe:laya": "node tools/probes/layaVerdictCalibration.mjs",
+    "prm:train": "node scripts/trainProcessReward.mjs",
     "smoke:real": "node scripts/realRunSmoke.mjs --phase=all",
     "smoke:model": "node scripts/realModelComplexTest.mjs",
     "smoke:ui": "node scripts/realUiScenario.mjs",
