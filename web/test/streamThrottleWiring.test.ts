@@ -7,12 +7,10 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
 import type { AppHost, AppServices } from '../src/ui/controllers/AppController.ts';
 
 // `deps.js` 在模块顶层读 `window`（SessionController 经 highlight.js 间接引入它），
 // 故必须先种零 DOM 桩再动态 import 编译产物——与 mount.test.mjs 同一口径。
-createRuntime().install();
 
 const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
 

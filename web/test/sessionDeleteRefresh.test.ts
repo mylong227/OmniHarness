@@ -17,12 +17,10 @@
 // 直跑：node --test web/test/sessionDeleteRefresh.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
 import type { AppHost, AppServices } from '../src/ui/controllers/AppController.ts';
 import type { SessionEntry } from '../src/ui/shared.ts';
 
 // deps.js / highlight.js 在模块顶层读 window，须先种零 DOM 桩（与 controllerBindings.test.mjs 同一口径）。
-createRuntime().install();
 const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
 const { AppReducers } = await import('../src/ui/controllers/AppReducers.ts');
 

@@ -4,12 +4,9 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
 import type { ThreadEvent } from '../src/types/models.ts';
 
 // deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
-const runtime = createRuntime();
-runtime.install();
 
 const { StreamModelCache } = await import('../src/ui/models/StreamModelCache.ts');
 

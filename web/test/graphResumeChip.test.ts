@@ -6,14 +6,14 @@
 //   ② 有未完成运行时给出人话（含「跳过已完成 N 步」的悬停说明，回答「会不会整张图重跑」）；
 //   ③ 点击把 (runId, name) 交给回调（实现只有一处：GraphController.resumeRun）。
 
+// @vitest-environment jsdom
+
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
+import { fireEvent, renderFacade } from './rtlHarness.ts';
 
-const runtime = createRuntime();
-runtime.install();
 
-const { GraphResumeChip } = await import('../src/ui/components/GraphResumeChip.tsx');
+import { GraphResumeChip } from '../src/ui/components/GraphResumeChip.tsx';
 import type { GraphResumeChipProps } from '../src/ui/components/GraphResumeChip.tsx';
 
 /**
@@ -23,7 +23,10 @@ import type { GraphResumeChipProps } from '../src/ui/components/GraphResumeChip.
  * @returns 渲染结果
  */
 function render(runs: GraphResumeChipProps['runs'], onResume: GraphResumeChipProps['onResume'] = () => {}) {
-  return runtime.render(GraphResumeChip, { runs, onResume });
+  // 真实 React + jsdom 渲染，再快照成外观节点（断言语义与迁移前一致）。
+  return renderFacade(GraphResumeChip as unknown as Parameters<typeof renderFacade>[0], {
+    props: { runs, onResume },
+  }).node;
 }
 
 test('没有未完成的运行 ⇒ 不渲染（不占位、不噪音）', () => {
@@ -77,6 +80,7 @@ test('有未完成的运行 ⇒ 出芯片、说明含步数、点击交给回调
   );
   // 多个失败运行时取**最近**一条（时间前缀 ⇒ 字典序），否则用户会点到很久以前那次。
   // StubVnode.props 是 Record<string, unknown>；芯片必传 onClick，按组件契约收窄（例外 a）
-  (node.props.onClick as () => void)();
+  // 真实 React 下外观节点不携带可调用的事件处理器 —— 用真实点击驱动（也更接近用户行为）。
+  fireEvent.click(node.el);
   assert.deepEqual(clicked, ['wf-20261009T101010-bbbbbb', 'sample-research']);
 });

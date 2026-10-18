@@ -50,23 +50,19 @@ export default [
     },
   },
   {
+    // ## 桩文件项目（迁移期保留）
+    //
+    // 组件判据正在从「手写 React 替身」迁到「真实 React + RTL」。**已迁完的**放在下面的
+    // `web-rtl` 项目里；这里跑**尚未迁移**的那些，仍需要 `react` 别名指向桩。
+    //
+    // 为什么拆两个项目而不是加运行时开关：别名是**模块解析**层面的东西，只能按项目/文件生效。
+    // 运行时"有桩就用桩、没桩就用真 React"的开关虽然能共存，但会让"这段代码到底跑的是哪个
+    // React"变成隐式状态——排查成本远高于两个显式项目。迁移完成后本块整体删除。
     resolve: {
-      // 用**正则锚定**的数组形式，不能用对象形式。
-      //
-      // 对象形式 `{ react: ... }` 在 Vite 里是**前缀匹配**，会把 `react/jsx-dev-runtime`、
-      // `react-dom` 这类子路径一起改写（实测报 `Cannot find module 'react/jsx-dev-runtime'`）。
-      // 用 `/^react$/` 精确锚定，子路径各自单独处理。
+      // 用**正则锚定**的数组形式（对象形式会把 `react/jsx-dev-runtime` 这类子路径一起改写）。
       alias: [
-        // `react` → 测试桩（2026-10-17，`deps.ts` 删除后）。
-        // UI 现在直接 `import * as React from 'react'`；测试侧把该模块换成 hooksStub，
-        // 它导出同名 API 并转发到"当前 runtime"，零 DOM 判据照旧工作。
-        // （2026-10-17 测试栈统一：桩随判据一起 .mjs → .ts。）
         { find: /^react$/, replacement: resolve(ROOT, 'web/test/hooksStub.ts') },
-        // 自动 JSX 运行时 → 垫片（把 jsx/jsxs 也导到桩上），详见 `web/test/jsxRuntimeStub.ts`。
-        {
-          find: /^react\/jsx-runtime$/,
-          replacement: resolve(ROOT, 'web/test/jsxRuntimeStub.ts'),
-        },
+        { find: /^react\/jsx-runtime$/, replacement: resolve(ROOT, 'web/test/jsxRuntimeStub.ts') },
         {
           find: /^react\/jsx-dev-runtime$/,
           replacement: resolve(ROOT, 'web/test/jsxRuntimeStub.ts'),
@@ -76,6 +72,14 @@ export default [
     test: {
       name: 'web',
       include: ['web/test/**/*.test.ts'],
+      // 已迁到 `web-rtl` 的文件必须排除，否则两个项目会各跑一遍（重复执行 + 双份真 Chrome 争抢）。
+      exclude: ['web/test/format.test.ts', 'web/test/graphResumeChip.test.ts'],
+      // 默认 `node`；**组件判据在自己的文件头声明** `// @vitest-environment jsdom`。
+      //
+      // 为什么不整项目切 jsdom（2026-10-18 实测）：13 条真 Chrome 判据会跑坏——它们自己拉起
+      // 浏览器并通过 CDP 驱动，进程内一旦存在 jsdom 的全局 `window`/`document`，
+      // 探针的行为与"没有 DOM 的宿主"不同（e2e / narrowReflow / popoverFit / shellDensity /
+      // monochromeInvariant 等一起红）。环境按**文件**声明，两种判据各用各的宿主。
       environment: 'node',
       // 同上：workspace 项目不继承根配置，超时逐项目声明。
       testTimeout: 120000,
@@ -92,6 +96,22 @@ export default [
        * 昂贵得多（本仓已有大量"某判据偶发红"的历史教训）。若只想快速迭代，可临时加
        * `--fileParallelism=true`，但那时的红需要单跑复核。
        */
+      fileParallelism: false,
+    },
+  },
+
+  {
+    // ## 真实 React + RTL 项目（组件判据迁移目标）
+    //
+    // 不含 `react` 别名 ⇒ 组件真的用 npm 的 React 19；环境由各文件头的
+    // `// @vitest-environment jsdom` 声明（不在项目层强制，避免影响同项目的非 DOM 判据）。
+    // 串行：RTL 渲染比桩慢，并行收益不抵抖动风险。
+    test: {
+      name: 'web-rtl',
+      include: ['web/test/format.test.ts', 'web/test/graphResumeChip.test.ts'],
+      environment: 'jsdom',
+      testTimeout: 120000,
+      hookTimeout: 60000,
       fileParallelism: false,
     },
   },

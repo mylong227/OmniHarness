@@ -15,9 +15,7 @@
 // 直跑：node --test web/test/workspaceSwitch.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
 
-createRuntime().install();
 const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
 const { AppReducers } = await import('../src/ui/controllers/AppReducers.ts');
 import type { AppHost, AppServices } from '../src/ui/controllers/AppController.ts';

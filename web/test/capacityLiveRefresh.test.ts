@@ -23,13 +23,11 @@ import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRuntime } from './hooksStub.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩。
-createRuntime().install();
 const { ContextUsageView } = await import('../src/ui/models/ContextUsageView.ts');
 
 test('① 代数只数 model 事件：增量与存储形态的事件都不算数', () => {

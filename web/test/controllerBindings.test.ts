@@ -25,7 +25,6 @@ import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRuntime } from './hooksStub.ts';
 import type { AppHost, AppServices, AppState } from '../src/ui/controllers/AppController.ts';
 import type { FileView } from '../src/ui/shared.ts';
 
@@ -48,7 +47,6 @@ const GROUPS: Record<string, string> = {
 };
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩（与 streamThrottleWiring.test.mjs 同一口径）。
-createRuntime().install();
 const { SessionController } = await import('../src/ui/controllers/SessionController.ts');
 const { LayoutController } = await import('../src/ui/controllers/LayoutController.ts');
 

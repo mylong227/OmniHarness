@@ -3521,3 +3521,43 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 - `npm test`（新定义）实跑：后端单测 + 前端判据全绿；
 - `npx eslint . --max-warnings=0`、双端 `tsc --noEmit`、`node scripts/runGates.mjs` 均通过；
 - `jsdom` 移除后判据无变化（它从未参与运行时）。
+
+### 15.5 组件测试栈：**已开工**（2026-10-18，双项目过渡形态）
+
+§15.3 原写"不迁 RTL"。用户追问"如果能更好就引入"，于是先做**实测评估**再动手——结论修正了 §15.3 的估算：
+
+| 原判断                                                | 实测                                                                                            |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| "迁 RTL 必须重写每个用例（按 hook 序号摆状态做不到）" | **只有 13 处**真的用了 `statePatch`/`renderSeeded`；其余 25 个文件只是借桩拿 `window`           |
+| "318 处断言都要改写"                                  | 用 **DOM→vnode 外观（`web/test/domFacade.ts`）** 之后，断言**一处不用改**——渲染真了，形状还一样 |
+
+**已落地**：
+
+- `web/test/rtlHarness.ts`：真实 React + jsdom 的渲染入口（`renderFacade` / `renderFacadeAsync` / `renderElement`），
+  注入 `AppContext`（可变的 `appContext`，兼容旧的"渲染前赋 api"写法），`afterEach(cleanup)`；
+- `web/test/domFacade.ts`：把渲染后的 DOM 快照回 `{ type, props, children }`，并提供
+  `kids/clsOf/allText/walk/byClass/byTag`（语义与旧桩逐字一致）。**文本节点原样保留**——
+  折叠空白会打掉"代码块行尾换行必须保留"那条判据（实测踩到）；
+- **两个文件已迁完并全绿**：`format.test.ts`（20 例，109 处断言）、`graphResumeChip.test.ts`（2 例）；
+- `vitest.workspace.ts` 拆成 **`web`（桩）+ `web-rtl`（真实 React）** 两个项目，`include`/`exclude`
+  显式列出已迁文件。**为什么不加"有桩用桩、没桩用真 React"的运行时开关**：那会让"这段代码
+  跑的是哪个 React"变成隐式状态，排查成本高于两个显式项目；迁移完成后 `web` 块整体删除。
+
+**已实测的剩余难点（按类归因，供后续按批次推进）**：
+
+1. **数据种子 → 改为 stub api**（governanceTab / vaultTab / permissionTab / a11yKeyboard / checkpointTimeline）：
+   这些用例用 `renderSeeded({hookIndex: value})` 直接摆"已取到的数据"。真实 React 下应改成
+   **桩 `api.*` 的返回值 + `renderFacadeAsync` 冲一次微任务**——顺带把真实取数路径也测了，是**更强**的判据。
+2. **纯 UI 种子 → 改为交互**（mount 的 AddMenu/PanelPicker "菜单已展开"、DialogHost 输入框预填）：
+   改为 `fireEvent.click(trigger)` / 依赖 `initial` prop。
+3. **异步首帧**（vaultTab / reviewShortcuts）：组件在 effect 里取数，`render` 返回时是"读取中"；
+   必须 `await renderFacadeAsync(...)` 或用 `waitFor`，断言函数要改成 async。
+4. **依赖布局的判据不能进 jsdom**（longSessionPerf 的虚拟化需要真实高度、questionCard 依赖真实事件序列）：
+   它们要么保留零 DOM 桩（可直接喂几何），要么走真 Chrome 判据。
+
+**纪律**：迁移期**不允许**为了变绿而放松断言；`runtime.set/get` 在垫片里**直接抛错**
+（而不是静默返回 undefined），`props.onClick` 不再可调用（改用 `fireEvent`）——把"能力差异"
+变成显式失败，避免测试悄悄失真。
+
+**本轮验证**：`vitest --project web --project web-rtl` ⇒ **82 文件 / 483 例全绿**；
+双端 `tsc --noEmit` exit 0；`eslint . --max-warnings=0` 零问题；`runGates --hook` 通过。

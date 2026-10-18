@@ -11,11 +11,8 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
 import type { AppHost, AppServices } from '../src/ui/controllers/AppController.ts';
 
-const runtime = createRuntime();
-runtime.install();
 
 const { GraphController } = await import('../src/ui/controllers/GraphController.ts');
 const { AppReducers } = await import('../src/ui/controllers/AppReducers.ts');

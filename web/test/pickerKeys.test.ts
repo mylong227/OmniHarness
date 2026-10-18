@@ -13,9 +13,7 @@
 // 直跑：node --test web/test/pickerKeys.test.mjs（模型零依赖，无需构建也可跑，但统一先 web:build）。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
 
-createRuntime().install();
 const { PickerKeys } = await import('../src/ui/models/PickerKeys.ts');
 
 test('普通输入键在新建态不产生任何指令（「一输入就退出新建」的回归判据）', () => {

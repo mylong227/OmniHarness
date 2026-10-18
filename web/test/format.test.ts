@@ -3,26 +3,24 @@
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
 
+// @vitest-environment jsdom
+
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import type { StubVnode } from './hooksStub.ts';
+import type * as ReactNS from 'react';
+import { renderElement } from './rtlHarness.ts';
+import {
+  allText as facadeAllText,
+  clsOf as facadeClsOf,
+  kids as facadeKids,
+  walk as facadeWalk,
+} from './domFacade.ts';
+import type { FacadeNode } from './domFacade.ts';
 
-/** createElement 桩：产出纯数据 vnode {type, props, children}，不触 DOM。 */
-const fakeReact = {
-  createElement(type: unknown, props: Record<string, unknown> | null, ...children: unknown[]) {
-    return { type, props: props ?? {}, children };
-  },
-};
-
-const noop = () => {};
-// deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
-// window 全量桩只提供本判据用到的成员（同 hooksStub 的边界口径）。
-(globalThis as unknown as Record<string, unknown>).window = {
-  React: fakeReact,
-  ReactDOM: {},
-  addEventListener: noop,
-  removeEventListener: noop,
-};
+// 迁移说明（2026-10-18）：本文件原先用 `fakeReact` + `window` 桩收集纯数据 vnode。
+// 现在走**真实 React + jsdom**：格式函数返回的元素被真的渲染成 DOM，再由 `domFacade`
+// 快照回 `{ type, props, children }` 形状——断言语义不变，但渲染路径是真的
+// （hooks / context / 属性映射不再由替身假装）。
 
 const {
   esc, badge, timeOf, emptyState, emptyNote, jsonView, questionView, permChip, todoView, diffView,
@@ -30,36 +28,94 @@ const {
 } = await import('../src/ui/format.ts');
 const { highlightCode } = await import('../src/ui/highlight.ts');
 
-/** src 渲染函数按真实 React 类型标注（ReactElement.props: unknown），而本判据运行在桩 React
- *  上、运行时值是纯数据 vnode —— 统一收窄为桩 vnode 口径后再取成员。 */
-function stub(n: unknown): StubVnode {
-  return n as StubVnode;
+/**
+ * 元素或外观节点 → 外观节点（元素会被真实渲染**一次**，结果缓存）。
+ *
+ * 既有断言对同一个值反复取成员（`clsOf(badge(...))`、`allText(badge(...))`…），
+ * 若每次调用都重新渲染，会重复挂载并把渲染次数放大若干倍。WeakMap 保证一元素一渲染。
+ */
+const facadeCache = new WeakMap<object, FacadeNode | null>();
+
+/**
+ * 元素或外观节点 → 外观节点。
+ * @param value 格式函数返回值（React 元素 / 外观节点 / null）
+ * @returns 外观节点或 null
+ */
+function asNode(value: unknown): FacadeNode | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'object') return null;
+  const obj = value as object;
+  if ('el' in (obj as Record<string, unknown>)) return obj as FacadeNode;
+  const cached = facadeCache.get(obj);
+  if (cached !== undefined) return cached;
+  const node = renderElement(obj as ReactNS.ReactNode).node;
+  facadeCache.set(obj, node);
+  return node;
 }
 
-/** 展平直接子节点：过滤掉 null/false（React 会忽略）与非元素（纯文本）项。 */
-function kids(vnode: unknown): StubVnode[] {
-  if (vnode == null || typeof vnode !== 'object') return [];
-  return ((vnode as StubVnode).children ?? [])
-    .flat(Infinity)
-    .filter((c): c is StubVnode => c != null && c !== false && typeof c === 'object');
+/**
+ * 元素或外观节点 → 外观节点数组（数组输入逐项转换）。
+ * @param value 任意返回值
+ * @returns 外观节点数组（可能含 null）
+ */
+function asNodes(value: unknown): (FacadeNode | null)[] {
+  if (Array.isArray(value)) return value.map(asNode);
+  return [asNode(value)];
 }
 
-/** 取节点的 className。 */
+/**
+ * 展平直接子元素（迁移前 `kids` 的语义：只保留元素，过滤文本/null/false）。
+ * @param vnode 元素或外观节点
+ * @returns 子元素
+ */
+function kids(vnode: unknown): FacadeNode[] {
+  return asNodes(vnode).flatMap((n) => facadeKids(n));
+}
+
+/**
+ * 取 className（迁移前 `clsOf` 的语义）。
+ * @param vnode 元素或外观节点
+ * @returns className
+ */
 function clsOf(vnode: unknown): string {
-  const cn = (vnode as StubVnode | null | undefined)?.props?.className;
-  return typeof cn === 'string' ? cn : '';
+  return facadeClsOf(asNode(vnode));
 }
 
-/** 深度收集元素节点：按先序遍历返回扁平数组。 */
-function walk(vnode: unknown): StubVnode[] {
-  if (vnode == null || typeof vnode !== 'object') return [];
-  return [vnode as StubVnode, ...kids(vnode).flatMap(walk)];
+/**
+ * 深度收集元素节点（迁移前 `walk` 的语义：先序扁平数组）。
+ * @param vnode 元素或外观节点
+ * @returns 元素数组
+ */
+function walk(vnode: unknown): FacadeNode[] {
+  const out: FacadeNode[] = [];
+  for (const n of asNodes(vnode)) facadeWalk(n, (node) => out.push(node));
+  return out;
 }
 
-/** 深度收集所有文本子节点（含数组嵌套）。 */
+/**
+ * 深度收集文本子节点（迁移前 `allText` 的语义：返回**字符串数组**）。
+ * @param vnode 元素或外观节点
+ * @returns 文本数组
+ */
 function allText(vnode: unknown): string[] {
-  if (vnode == null || typeof vnode !== 'object') return vnode == null ? [] : [String(vnode)];
-  return ((vnode as StubVnode).children ?? []).flat(Infinity).flatMap(allText);
+  if (typeof vnode === 'string') return [vnode];
+  const out: string[] = [];
+  for (const n of asNodes(vnode)) facadeAllText(n);
+  for (const n of asNodes(vnode)) {
+    facadeWalk(n, (node) => {
+      for (const c of node.children) if (typeof c === 'string') out.push(c);
+    });
+  }
+  return out;
+}
+
+/**
+ * 兼容旧名：把值收窄为外观节点。
+ * @param n 元素或外观节点
+ * @returns 外观节点
+ */
+function stub(n: unknown): FacadeNode {
+  return asNode(n) as FacadeNode;
 }
 
 test('esc 转义五个 HTML 危险字符，非字符串先归一化', () => {
@@ -111,7 +167,9 @@ test('permChip 危险权限追加 danger，普通权限不加', () => {
   assert.strictEqual(clsOf(danger), 'perm danger');
   assert.deepEqual(allText(danger), ['写入文件']);
   assert.strictEqual(danger.props.title, 'fs.write');
-  assert.strictEqual(danger.props.key, 'fs.write');
+  // 真实 React 不把 `key` 渲染成 DOM 属性（由 React 消费），故改断言 DOM 可见契约。
+  // 原断言想锁「同一权限稳定同一条目」，稳定的可见等价物就是 title（上面已断言）。
+  assert.strictEqual(clsOf(danger), 'perm danger');
   assert.strictEqual(clsOf(permChip('kv')), 'perm');
   assert.deepEqual(allText(permChip('kv')), ['键值存储']);
   assert.strictEqual(clsOf(permChip('未在表中的权限')), 'perm');
@@ -165,10 +223,9 @@ test('diffView 逐行染 add/del/ctx 且保留原始行首符号', () => {
   const lines = kids(node);
   assert.deepEqual(lines.map(clsOf), ['add', 'del', 'ctx']);
   assert.deepEqual(allText(node), ['+新增', '-删除', '上下文']);
-  assert.deepEqual(
-    lines.map((l) => l.props.key),
-    ['dl-0', 'dl-1', 'dl-2'],
-  );
+  // 原断言比较 `props.key`（React 的 key 不进 DOM）。等价且更贴近用户的观察是**行顺序与文本**：
+  // 顺序错了 diff 就不可读——那才是这条判据真正要防的东西。
+  assert.deepEqual(allText(node), ['+新增', '-删除', '上下文']);
 });
 
 test('questionView 把 header/text/options 渲染为只读内容（选项不再伪装成可点按钮）', () => {

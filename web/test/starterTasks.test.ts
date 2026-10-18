@@ -25,7 +25,6 @@ import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRuntime } from './hooksStub.ts';
 import type { AppHost, AppState, AppServices } from '../src/ui/controllers/AppController.ts';
 import type { SessionController } from '../src/ui/controllers/SessionController.ts';
 import type { ComposerSeed } from '../src/ui/shared.ts';
@@ -34,7 +33,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');
 
 // deps.js 在模块顶层读 window，须先种零 DOM 桩（与 controllerBindings.test.mjs 同一口径）。
-createRuntime().install();
 const { StarterTasks } = await import('../src/ui/models/StarterTasks.ts');
 const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
