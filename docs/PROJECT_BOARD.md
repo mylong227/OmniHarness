@@ -2217,7 +2217,7 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
 ### 8.7d 2026-10-18：P2–P5 落地（诚实口径）
 
 > P2/P4/P5 是完整接线；P3 是**过程奖励监督层**（记录/统计/先验），**不是**训练好的生成式 PRM；
-> 自动重放与 PRM 训练都没有伪装成已完成。
+> 自动重放与 GenPRM 训练都没有伪装成已完成。LaYa 候选排序已跑真实小样本 A/B（结果见下）。
 
 - **P2 失败反思记忆**：`FailureReflectionStore`（工作区 `.omniharness/failure-reflections.jsonl`，有界/去重/原子写）
   - `SelfVerifyingToolPort` 在写后测试失败时记录，下一次同目标写前回灌最近 2 条；未注入/写失败 fail-open。
@@ -2226,12 +2226,17 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
   提供 AUC/Brier/lift 与按工具 Laplace 先验；无 noul 时返回 NaN 不伪造数字。已接入
   `SelfVerifyingToolPort`（`processRewards`），判据 `processRewardStore.test.ts` 3 例 + `processRewardWiring.test.ts`。
   **边界**：只做监督/校准与先验，不改变工具执行决策；生成式 PRM 训练未做。
-- **P4 Workflow Memory**：`WorkflowMemoryStore`（有界 JSONL、任务词/CJK bigram 重叠召回）+ `workflow_memory`
-  工具（remember/recall，模型显式调用）。只在 `selfVerify` 开启时注册；**检索式记忆，不自动重放**。
-  判据：`workflowMemoryStore.test.ts` 2 例 + `workflowMemoryTool.test.ts` 2 例 + wiring 注册断言。
+- **P4 Workflow Memory**：`WorkflowMemoryStore`（有界 JSONL、任务词/CJK bigram 重叠召回）+ `TurnRunner`
+  自动沉淀/召回（成功收敛且验证未失败时记录工具序列；下一回合按任务注入参考，不自动重放）+ `workflow_memory`
+  显式工具（remember/recall，仅 `selfVerify` 注册）。判据：`workflowMemoryStore` 2 + `workflowMemoryTool` 2 +
+  `workflowMemoryRecorder` 1 + `turnRunnerWorkflowMemory` 1 + wiring 注册断言。
 - **P5 ACI 观测压缩**：`ObservationCompressor` 对 shell/grep 长输出做「错误行优先 + 头尾 + 省略标记」，
   `ToolResultSpiller` 只压缩**模型可见预览**，全文仍落外溢；ANSI 剥离、字符/行双重预算。
   判据：`observationCompressor.test.ts` 3 例 + 既有 `spill.test.ts` 18 例不回归。
+- **LaYa 候选排序 A/B（真实小样本）**：6 个受控候选补丁（仅 1 个真实通过）跑真实 Laya `noul`：
+  **AUC=0.600，top1=#5（期望 #1，排序错）**。结论：**不承认增益**；`patch_candidates` 已把 LaYa 降为
+  「同改动体量才使用的最后 tie-breaker」，不再越过“更小改动”这条确定性信号。
+  判据：`tests/integration/layaCandidateRanking.test.ts`（集成，需项目内 Laya venv/权重）。
 
 ### 8.8 三处「判据/护栏失真」已修（2026-10-11，第八十轮口径：先读码取证、再改、每项带正对照）
 

@@ -321,7 +321,10 @@ export class PatchCandidatesTool {
   }
 
   /**
-   * 选择最优候选：通过 > LaYa noul（高者）> 改动体量（小者）> 序号。
+   * 选择最优候选：通过 > 改动体量（小者）> LaYa noul（高者）> 序号。
+   *
+   * LaYa 只处理**同体量**的平局；2026-10-18 真实小样本 A/B（6 候选）AUC=0.600、
+   * top1 错——尚不足以让它越过「更小改动」这条确定性信号。
    * @param candidates 已试算候选。
    * @param runs 测试结果。
    * @returns 胜出候选；全失败时为 undefined。
@@ -336,24 +339,23 @@ export class PatchCandidatesTool {
     if (passed.length === 1) {
       return candidatesByIndex.get(passed[0]?.index ?? -1);
     }
-    const scored: { candidate: Candidate; noul: number | undefined }[] = [];
-    for (const run of passed) {
-      const candidate = candidatesByIndex.get(run.index);
-      if (candidate === undefined) continue;
-      scored.push({ candidate, noul: await this.noulOf(candidate) });
+    const scored = passed
+      .map((run) => candidatesByIndex.get(run.index))
+      .filter((candidate): candidate is Candidate => candidate !== undefined);
+    const minSize = Math.min(...scored.map((candidate) => candidate.size));
+    const tied = scored.filter((candidate) => candidate.size === minSize);
+    if (tied.length === 1) return tied[0];
+    const ranked: { candidate: Candidate; noul: number | undefined }[] = [];
+    for (const candidate of tied) {
+      ranked.push({ candidate, noul: await this.noulOf(candidate) });
     }
-    scored.sort((left, right) => {
-      if (left.noul !== right.noul) {
-        if (left.noul === undefined) return 1;
-        if (right.noul === undefined) return -1;
-        return right.noul - left.noul;
-      }
-      if (left.candidate.size !== right.candidate.size) {
-        return left.candidate.size - right.candidate.size;
-      }
-      return left.candidate.index - right.candidate.index;
+    ranked.sort((left, right) => {
+      if (left.noul === right.noul) return left.candidate.index - right.candidate.index;
+      if (left.noul === undefined) return 1;
+      if (right.noul === undefined) return -1;
+      return right.noul - left.noul;
     });
-    return scored[0]?.candidate;
+    return ranked[0]?.candidate;
   }
 
   /**

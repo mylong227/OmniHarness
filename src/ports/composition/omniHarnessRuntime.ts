@@ -13,6 +13,7 @@ import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts'
 import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.ts';
 import type { RetrievalPort } from '../intelligence/retrieval.ts';
 import type { TurnDiffTrackerPort } from '../runtime/turnDiffTracker.ts';
+import type { WorkflowMemoryPort } from '../memory/workflowMemory.ts';
 import type { ToolHookRunnerPort } from '../tool/toolHookRunnerPort.ts';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.ts';
 import type { CosmicWebPort } from '../memory/cosmicWeb.ts';
@@ -75,6 +76,8 @@ export interface OmniHarnessRuntime {
   readonly web?: CosmicWebPort | undefined;
   /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关自动沉淀时非空，回合末由 TurnRunner 调用。 */
   readonly memoryExtractor?: MemoryExtractorPort | undefined;
+  /** Workflow Memory（P4，可选）：成功回合自动沉淀、下一回合按任务召回注入。 */
+  readonly workflowMemory?: WorkflowMemoryPort | undefined;
   /** 服务容器端口（组合根注册中心，供自定义扩展查询）。 */
   readonly container: ContainerPort;
   /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核；内核不可用则置空以回退 TS 路径。 */

@@ -1,6 +1,7 @@
 import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.ts';
 
 import { NativeBackend } from '../native/nativeBackend.ts';
+import { WorkflowMemoryStore } from '../adapters/memory/workflowMemoryStore.ts';
 import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.ts';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.ts';
 import { RbacPolicy } from '../security/rbacPolicy.ts';
@@ -138,6 +139,9 @@ export class Runtime {
       longTermMemory: config.longTermMemory,
       web: config.web,
       memoryExtractor: config.memoryExtractor,
+      // P4：自动 workflow memory（仅自验证开启时启用；成功轨迹沉淀 + 下一回合召回）。
+      workflowMemory:
+        config.selfVerify === undefined ? undefined : new WorkflowMemoryStore(config.workspaceRoot),
       // #B3 web：live 默认组合视图由 ConfigFactory 装配（内置 ConsoleLiveView，TTY 实时刷新）；
       // serve 模式下 CLI 再注入 WebLiveView 广播给 Web UI，实现同一份增量多端呈现。
       // config.live 非空则优先（用户自定义则仅用其，绕过内置组合）。

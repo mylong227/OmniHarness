@@ -6,6 +6,8 @@ import type { SessionRecorder } from './sessionRecorder.ts';
 import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.ts';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
 import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.ts';
+import type { WorkflowMemoryPort } from '../ports/memory/workflowMemory.ts';
+import { WorkflowMemoryRecorder } from './workflowMemoryRecorder.ts';
 import { LoopGuard, type LoopDecision } from './loop/loopGuard.ts';
 import type { EventPersister } from './loop/eventPersister.ts';
 import { log } from '../util/logger.ts';
@@ -82,14 +84,22 @@ export class TurnRunner {
      * 仍有失败则回灌并再给一步（**每回合至多一次**）。缺省 undefined＝不设闸门（旧行为）。
      */
     private readonly completionGate?: CompletionGate,
+    /** Workflow Memory（P4，可选）：成功回合自动沉淀、下一回合按任务召回参考。 */
+    workflowMemory?: WorkflowMemoryPort | undefined,
   ) {
     this.loopGuard = loopGuard;
+    this.workflowRecorder =
+      workflowMemory === undefined ? undefined : new WorkflowMemoryRecorder(workflowMemory);
   }
+
+  /** Workflow Memory 自动沉淀/召回器（未注入为 undefined）。 */
+  private readonly workflowRecorder: WorkflowMemoryRecorder | undefined;
 
   /** 运行一个回合。 */
 
   public async run(context: ToolContext): Promise<TurnOutcome> {
     log.debug('turn.start', { maxSteps: this.maxSteps });
+    const workflow = await this.prepareWorkflow();
     // 标记回合起点：finalText 只认本回合产出的 assistant，避免 resume 时串到历史答案（#OBS-10）。
     this.recorder.markTurnStart();
     let steps = 0;
@@ -168,7 +178,7 @@ export class TurnRunner {
     // 「转了很久没有结果」。判据是「本回合没有文本」而非退出路径——三种退出路径
     // （步数耗尽 / 空转止损 / 失控熔断）都需要兜底；正常收敛不多花这一次调用。
     const finalText = await this.finalTextOf();
-    return this.closeTurn({
+    const outcome = await this.closeTurn({
       steps,
       usageTokens,
       aborted,
@@ -177,6 +187,38 @@ export class TurnRunner {
       finalText,
       verificationState: claim.verificationState,
     });
+    await this.captureWorkflow(workflow.task, workflow.start, outcome);
+    return outcome;
+  }
+
+  /**
+   * 回合开始：按任务召回 workflow 并记事件起点（P4）；未注入即零行为。
+   * @returns 任务文本与事件起点
+   */
+  private async prepareWorkflow(): Promise<{ task?: string; start: number }> {
+    const task = WorkflowMemoryRecorder.taskOf(this.recorder.allEvents());
+    const priming = await this.workflowRecorder?.prime(task);
+    if (priming !== undefined) {
+      this.recorder.system(priming);
+    }
+    return { ...(task === undefined ? {} : { task }), start: this.recorder.allEvents().length };
+  }
+
+  /**
+   * 成功回合自动沉淀 workflow（P4）；失败/截断/未验证即不记，写失败 fail-open。
+   * @param task 本回合任务
+   * @param start 本回合事件起点
+   * @param outcome 回合结果
+   * @returns 无返回值
+   */
+  private async captureWorkflow(
+    task: string | undefined,
+    start: number,
+    outcome: TurnOutcome,
+  ): Promise<void> {
+    const success =
+      !outcome.truncated && outcome.aborted !== true && outcome.verificationState !== 'unverified';
+    await this.workflowRecorder?.capture(task, this.recorder.allEvents().slice(start), success);
   }
 
   /**

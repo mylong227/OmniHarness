@@ -295,6 +295,35 @@ test('多候选：显式 timeout_ms 透传到每候选测试，超时按失败�
   }
 });
 
+test('多候选：体量不同时不调用 LaYa（确定性信号优先）', async () => {
+  const dir = workspace();
+  try {
+    let calls = 0;
+    const engine: DecisionEngine = {
+      name: 'fake-laya',
+      isAvailable: () => true,
+      decide: async () => {
+        calls += 1;
+        return { available: true, answers: { passTest: { noul: 0.9 } } };
+      },
+    };
+    const tool = new PatchCandidatesTool(dir, {
+      policy: POLICY,
+      runner: { run: async () => outcome(0) },
+      decisionEngine: engine,
+    });
+    const result = await tool.handle(call([patch(2), patch(20)]), {
+      sessionId: 's1',
+      workspaceRoot: dir,
+    } as ToolContext);
+    assert.strictEqual(result.ok, true, result.error);
+    assert.strictEqual(calls, 0, '体量可区分时不应为 tie-breaker 付模型成本');
+    assert.strictEqual(currentValue(dir), 2, '应选改动体量更小的候选');
+  } finally {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+});
+
 test('多候选：LaYa noul 只做同分 tie-breaker（不替代真实测试）', async () => {
   const dir = workspace();
   try {

@@ -528,6 +528,8 @@ export class Agent implements AgentPort {
         selfVerify: this.runtime.config.selfVerify,
         workspaceRoot: this.runtime.config.workspaceRoot,
       }),
+      // P4：成功轨迹自动沉淀/下一回合召回；runtime 未注入即零行为。
+      this.runtime.workflowMemory,
     );
   }
 
