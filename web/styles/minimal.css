@@ -535,6 +535,10 @@
 .ev {
   margin-bottom: 22px;
 }
+/* 过程簇本身就是一条小结，不按普通事件留 22px 的大间隔。 */
+.ev.process-cluster {
+  margin-bottom: 10px;
+}
 .ev + .ev {
   border-top: none;
   padding-top: 0;
@@ -632,21 +636,28 @@
 }
 
 /* 过程簇（思考 / 工具调用 / 折叠的过程）：机器产物，等宽 + 中间调，不进卡片体系。 */
+/* 过程簇：不再画外框（2026-10-19 用户「背景框去掉，直接融入本身的背景」）。
+   只保留一行小结 + 左侧虚线的从属关系；间距压到与普通行一致。 */
 .process-cluster {
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
+  border: none;
+  border-radius: 0;
   background: transparent;
+  margin: 2px 0;
 }
 .process-cluster > summary {
   color: var(--dim);
   font-size: var(--fs-sm);
-  padding: 6px 10px;
+  padding: 4px 0;
+  border-radius: 0;
 }
 .process-cluster > summary:hover {
   color: var(--text);
+  background: transparent;
 }
 .process-cluster-body {
   border-left: 1px dashed var(--hairline);
+  padding: 2px 0 2px 12px;
+  margin: 2px 0 2px 4px;
 }
 .tc-line,
 .tool-status,
@@ -1281,6 +1292,27 @@
   color: var(--info);
   border-color: color-mix(in srgb, var(--info) 38%, transparent);
   background: color-mix(in srgb, var(--info) 9%, transparent);
+}
+
+/* 2026-10-19 用户反馈：变更行不要"卡片框"，徽标不要底色。
+   行本身融进面板背景，hover / 选中才落一层极淡表面；徽标只留文字色。 */
+.change-item {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--r-sm);
+}
+.change-item:hover {
+  background: var(--hover);
+}
+.change-item.selected > .change-row {
+  background: var(--hover);
+}
+.change-badge.add,
+.change-badge.del,
+.change-badge.mod,
+.change-badge.ren {
+  background: transparent;
+  border-color: transparent;
 }
 
 /* 进度条 / 容量条：轨道 panel-2，填充墨色；超限换成告警色。 */

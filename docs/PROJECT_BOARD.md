@@ -4119,3 +4119,17 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 - `Composer` 删除独立 `<button className="iconbtn attach">`；
 - 附件入口保留在「＋」菜单（`AddMenu onAttach`），粘贴 / 拖拽文件路径不变；
 - a11y 计数：aria-label 下限 9→8（两枚带 aria-label 的按钮先后移除：页脚主题、回形针）。
+
+### 30. 过程簇与变更清单去卡片化（2026-10-19）
+
+用户反馈两处"背景框"：
+
+1. **执行过程**（`.process-cluster`）外面套着一个描边圆角框，且与上下内容间隔过大。
+   处置：去掉 border / radius / 背景，只保留一行小结 + 左侧虚线从属线；`summary` 内边距
+   6px 10px → 4px 0；与下一个事件间距由 22px 收到 10px；hover 只换文字色，不再刷底。
+2. **变更清单**（`.change-item`）每行一块底 + 描边，"修改"徽标还带色块底。
+   处置：行背景/描边透明，hover / 选中才落一层 `--hover`；四类徽标（新增/删除/修改/重命名）
+   只保留文字色，去掉底色与描边。
+
+验收：注入样例节点读计算样式（cluster border 0 / bg transparent、change-item border transparent、
+badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比度与语义色门禁）。
