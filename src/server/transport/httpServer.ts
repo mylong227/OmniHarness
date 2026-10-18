@@ -346,6 +346,8 @@ export class HttpServer {
       // 仅当本次请求已通过 guard（query token 或已有 cookie）才会走到这里。
       if (relative === 'index.html' && this.options.authToken !== undefined) {
         headers['Set-Cookie'] = ServerAuthGuard.cookieHeader(this.options.authToken);
+        // URL 里带过 ?token=；禁止 Referer 把它带给外部站点。
+        headers['Referrer-Policy'] = 'no-referrer';
       }
       response.writeHead(200, headers);
       response.end(content);

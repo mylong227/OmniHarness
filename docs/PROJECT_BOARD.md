@@ -3672,13 +3672,16 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
   `1daf2136`（判据质量/清理/端口回退）、`c56c8232`（worker/多文件补丁/daemon/OIDC/vm）、
   `17913dff`（OIDC nonce/serve 信号）、`3855cb31`/`1be1251a`（daemon PID 身份）、
   `0803fecd`（RLVR 本轮差分）、`ec929dcb`（bundle Ed25519）、`3412772e`（native shell 降级）、
-  `6050e6a9`（Windows `.cmd` 垫片解析）、`63764866`（OS 沙箱 fail-closed）等。
-- **最终实跑（2026-10-18 14:25）**：
+  `6050e6a9`（Windows `.cmd` 垫片解析）、`63764866`（OS 沙箱 fail-closed）、
+  `96a125e4`（OS 执行包装 + loopback 默认令牌 + Rust shell 修复）、`482f8a8d`（看板收口）。
+- **最终实跑（2026-10-18 15:00）**：
   - `npx vitest run --project node tests/unit/` ⇒ **exit 0（全绿）**；
   - `npx vitest run --project web` ⇒ **83 文件 / 485 例全绿**（`chromeCleanup` 真机树杀亦过）；
   - `npm run typecheck`、`npm run lint`（0 告警）、`npm run gate:typed`（2/12 条）、
     `node scripts/runGates.mjs --hook`（10/12 条）均通过；
+  - Rust：`cargo test -p omni-core --lib --tests` 通过（含 nonzero/timeout 判据）；
+    `npm run native:build` + `npm run native:test` 通过；
   - P0/P1：审计报告与三轮子代理审查中的 P0/P1 已逐条修复或 fail-closed 降级，明细见 §16.1；
-    残余 P2 与需独立工程的边界见 §16.4。
+    四项边界已落地，仅剩测试审计 P2 质量 backlog（§16.4）。
 - 说明：`e2e` 用例末尾有一条「临时 profile 目录 EBUSY，留给 OS 清理」的 stderr；用例本身通过，
   属 Windows 文件锁的收尾噪声，不是断言失败。
