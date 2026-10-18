@@ -47,6 +47,14 @@ export interface RenderUiOptions {
   readonly props?: Record<string, unknown> | undefined;
   /** 按方法名覆盖 api 返回（未覆盖的方法返回 `{}`）。 */
   readonly responses?: Record<string, unknown> | undefined;
+  /**
+   * **首个** api 调用的返回值（不论方法名）。
+   *
+   * 用途：把旧桩的"按 hook 序号预设已取到的数据"改成"让组件真的去取一份数据"。
+   * 多数面板挂载后第一件事就是拉自己那份数据（`vaultList` / `auditQuery` / `listChanges`…），
+   * 所以用"第一次调用给这份载荷"就能复现同一场景，同时**顺带测到真实取数路径**。
+   */
+  readonly firstResponse?: unknown;
   /** 覆盖 toast（默认空实现，但会记录调用）。 */
   readonly onToast?: ((message: string, kind?: string) => void) | undefined;
   /** 覆盖 dialog.confirm 的返回值（默认 true）。 */
@@ -81,13 +89,22 @@ export interface UiRender {
 function makeFakeApi(
   responses: Record<string, unknown> | undefined,
   calls: ApiCall[],
+  firstResponse?: unknown,
 ): AppContextValue['api'] {
+  let firstDone = false;
   const fallback = (method: string) => (...args: unknown[]): Promise<unknown> => {
     calls.push({ method, args });
     const key = Object.prototype.hasOwnProperty.call(responses ?? {}, method) ? method : undefined;
     if (key !== undefined) {
       const v = (responses as Record<string, unknown>)[key];
       return Promise.resolve(typeof v === 'function' ? (v as (...a: unknown[]) => unknown)(...args) : v);
+    }
+    // 首个调用若给了 firstResponse 就用它（见该选项的注释）。
+    if (firstResponse !== undefined && !firstDone) {
+      firstDone = true;
+      return typeof firstResponse === 'function'
+        ? Promise.resolve((firstResponse as (...a: unknown[]) => unknown)(...args))
+        : Promise.resolve(firstResponse);
     }
     return Promise.resolve({});
   };
@@ -113,7 +130,9 @@ export function renderUi(
 ): UiRender {
   const calls: ApiCall[] = [];
   const app: AppContextValue & { calls: ApiCall[] } = {
-    api: (options.app?.api as AppContextValue['api'] | undefined) ?? makeFakeApi(options.responses, calls),
+    api:
+      (options.app?.api as AppContextValue['api'] | undefined) ??
+      makeFakeApi(options.responses, calls, options.firstResponse),
     toast: (options.app?.toast as AppContextValue['toast'] | undefined) ??
       ((message, kind) => {
         options.onToast?.(message, kind);

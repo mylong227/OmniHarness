@@ -73,7 +73,13 @@ export default [
       name: 'web',
       include: ['web/test/**/*.test.ts'],
       // 已迁到 `web-rtl` 的文件必须排除，否则两个项目会各跑一遍（重复执行 + 双份真 Chrome 争抢）。
-      exclude: ['web/test/format.test.ts', 'web/test/graphResumeChip.test.ts'],
+      exclude: [
+        'web/test/auditTraceTabs.test.ts',
+        'web/test/diagnosticsTab.test.ts',
+        'web/test/format.test.ts',
+        'web/test/graphResumeChip.test.ts',
+        'web/test/vaultTab.test.ts',
+      ],
       // 默认 `node`；**组件判据在自己的文件头声明** `// @vitest-environment jsdom`。
       //
       // 为什么不整项目切 jsdom（2026-10-18 实测）：13 条真 Chrome 判据会跑坏——它们自己拉起
@@ -108,7 +114,13 @@ export default [
     // 串行：RTL 渲染比桩慢，并行收益不抵抖动风险。
     test: {
       name: 'web-rtl',
-      include: ['web/test/format.test.ts', 'web/test/graphResumeChip.test.ts'],
+      include: [
+        'web/test/auditTraceTabs.test.ts',
+        'web/test/diagnosticsTab.test.ts',
+        'web/test/format.test.ts',
+        'web/test/graphResumeChip.test.ts',
+        'web/test/vaultTab.test.ts',
+      ],
       environment: 'jsdom',
       testTimeout: 120000,
       hookTimeout: 60000,

@@ -42,7 +42,24 @@ export interface FacadeNode {
  */
 export function toFacade(el: Element): FacadeNode {
   const props: Record<string, unknown> = {};
+  // DOM 里布尔属性是 `disabled=""`，而旧断言按 **React 语义**比 `true`（`props.disabled === true`）。
+  // 这里还原成 `true`：形状对齐 React 的 props 而不是 HTML 的字符串序列化，
+  // 否则每个用例都得改写成 `hasAttribute`（那属于"为了迁框架而改断言"）。
+  const BOOLEAN_ATTRS = new Set([
+    'disabled',
+    'checked',
+    'readonly',
+    'hidden',
+    'selected',
+    'multiple',
+    'open',
+    'required',
+  ]);
   for (const attr of Array.from(el.attributes)) {
+    if (BOOLEAN_ATTRS.has(attr.name)) {
+      props[attr.name] = true;
+      continue;
+    }
     // `class` 统一成 `className`（既有断言读的是 className，与 React 的属性名一致）。
     props[attr.name === 'class' ? 'className' : attr.name] = attr.value;
   }

@@ -17,12 +17,13 @@
  * | ⑦ | 入口已注册：`PANELS` 含 audit/trace，`Router` 认可两个 pane | 漏注册 ⇒ 入口静默落回默认面板 |
  */
 
+// @vitest-environment jsdom
+
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime, type StubRuntime } from './hooksStub.ts';
+import { renderFacadeAsync } from './rtlHarness.ts';
+import { allText as facadeAllText } from './domFacade.ts';
 
-const runtime = createRuntime();
-runtime.install();
 
 const { AuditTab } = await import('../src/ui/components/tabs/AuditTab.tsx');
 const { TraceTab } = await import('../src/ui/components/tabs/TraceTab.tsx');
@@ -36,55 +37,34 @@ const { parseHash } = await import('../src/core/Router.ts');
  * @param seed hook 槽位预设值
  * @returns vnode 树
  */
-function renderSeeded(
-  Component: Parameters<StubRuntime['render']>[0],
-  props: Record<string, unknown>,
-  seed: Record<number, unknown>,
-) {
-  runtime.reset();
-  return runtime.render(Component, props, seed);
-}
-
 /**
- * 收集整棵树的文本叶子（无缝拼接）。
- * @param vnode vnode 树
- * @param out 收集器
- * @returns 文本片段
+ * 渲染组件并等一次取数落地，返回外观节点。
+ *
+ * 迁移说明（2026-10-18）：旧写法用 `seed` 直接摆"已取到的数据"。真实 React 下改成
+ * 让组件真的去取——把种子里的取数结果交给对应 api 方法，顺带覆盖真实取数路径。
+ *
+ * @param Component 组件
+ * @param props 组件属性
+ * @param responses 按 api 方法名给返回值
+ * @returns 外观节点
  */
-function texts(vnode: unknown, out: string[] = []): string[] {
-  if (Array.isArray(vnode)) {
-    for (const node of vnode) texts(node, out);
-    return out;
-  }
-  if (vnode === null || vnode === undefined) return out;
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    out.push(String(vnode));
-    return out;
-  }
-  // 修复笔误：迁移前误写 `typeof node`（在 vitest 的非严格转译下侥幸为 undefined），本分支与
-  // 上一分支语义相同，保留其一即可。
-  texts((vnode as { children?: unknown }).children, out);
-  return out;
+async function renderSeeded(
+  Component: Parameters<typeof renderFacadeAsync>[0],
+  props: Record<string, unknown>,
+  responses: Record<string, unknown>,
+) {
+  const ui = await renderFacadeAsync(Component, { props, responses });
+  return ui.node;
 }
-
-/** AuditTab 的 hook 序：0=data 1=error 2=loading 3=typeFilter。 */
-const AUDIT = { data: 0, error: 1, loading: 2, typeFilter: 3 };
-/** TraceTab 的 hook 序：0=data 1=error 2=loading 3=kindFilter 4=limit。 */
-const TRACE = { data: 0, error: 1, loading: 2, kindFilter: 3, limit: 4 };
 
 /**
  * 渲染审计面板并取文本。
  * @param data audit.query 返回体
  * @returns 面板文本
  */
-function auditText(data: unknown) {
-  const tree = renderSeeded(AuditTab, {}, {
-    [AUDIT.data]: data,
-    [AUDIT.error]: null,
-    [AUDIT.loading]: false,
-    [AUDIT.typeFilter]: '',
-  });
-  return texts(tree).join('');
+async function auditText(data: unknown) {
+  const ui = await renderSeeded(AuditTab, {}, { auditQuery: data });
+  return facadeAllText(ui);
 }
 
 /**
@@ -93,32 +73,26 @@ function auditText(data: unknown) {
  * @param sessionId 会话 id
  * @returns 面板文本
  */
-function traceText(data: unknown, sessionId = 'sess-1') {
-  const tree = renderSeeded(TraceTab, { sessionId }, {
-    [TRACE.data]: data,
-    [TRACE.error]: null,
-    [TRACE.loading]: false,
-    [TRACE.kindFilter]: '',
-    [TRACE.limit]: '20',
-  });
-  return texts(tree).join('');
+async function traceText(data: unknown, sessionId = 'sess-1') {
+  const ui = await renderSeeded(TraceTab, { sessionId }, { traceRead: data });
+  return facadeAllText(ui);
 }
 
-test('① 审计：ok:false（未接线）⇒ 显示"未接线"+原因，且**不得**出现"无匹配事件"', () => {
-  const text = auditText({ ok: false, reason: 'audit 未接线（serve 组合根未注入 audit sink）' });
+test('① 审计：ok:false（未接线）⇒ 显示"未接线"+原因，且**不得**出现"无匹配事件"', async () => {
+  const text = await auditText({ ok: false, reason: 'audit 未接线（serve 组合根未注入 audit sink）' });
   assert.match(text, /未接线/u, '必须显示"未接线"');
   assert.match(text, /未注入 audit sink/u, '必须带出服务端给的原因');
   assert.doesNotMatch(text, /无匹配事件/u, '未接线时不得出现"无匹配事件"（那是把没有读成正常）');
 });
 
-test('② 审计：ok:true + 空事件 ⇒ 明确写"无匹配事件"，与①可区分（正对照）', () => {
-  const text = auditText({ ok: true, events: [] });
+test('② 审计：ok:true + 空事件 ⇒ 明确写"无匹配事件"，与①可区分（正对照）', async () => {
+  const text = await auditText({ ok: true, events: [] });
   assert.match(text, /无匹配事件/u, '真的没有匹配时必须如实说没有匹配');
   assert.doesNotMatch(text, /未接线/u, '已接线时不得说"未接线"');
 });
 
-test('③ 审计：每条显示链序号 #seq；未入链显式写"未入链"', () => {
-  const text = auditText({
+test('③ 审计：每条显示链序号 #seq；未入链显式写"未入链"', async () => {
+  const text = await auditText({
     ok: true,
     events: [
       { ts: '2026-10-11T00:00:00.000Z', type: 'tool_call', sessionId: 's1', seq: 7, hash: 'h' },
@@ -132,24 +106,24 @@ test('③ 审计：每条显示链序号 #seq；未入链显式写"未入链"', 
   assert.match(text, /事件（2）/u, '应给出条数');
 });
 
-test('④ Trace：无会话 ⇒ 提示先选会话（不猜最近会话）', () => {
-  const text = traceText(null, '');
+test('④ Trace：无会话 ⇒ 提示先选会话（不猜最近会话）', async () => {
+  const text = await traceText(null, '');
   assert.match(text, /请先选择一个会话/u, '空会话必须给出明确指引');
   assert.doesNotMatch(text, /载入/u, '无会话时不该进入载入态');
 });
 
-test('⑤ Trace：error 非空 ⇒ 直说原因，**不得**渲染空列表', () => {
-  const text = traceText({ session: 'sess-1', entries: [], count: 0, error: '会话不存在' });
+test('⑤ Trace：error 非空 ⇒ 直说原因，**不得**渲染空列表', async () => {
+  const text = await traceText({ session: 'sess-1', entries: [], count: 0, error: '会话不存在' });
   assert.match(text, /会话不存在/u, '必须原样显示服务端给的原因');
   assert.doesNotMatch(text, /无匹配条目/u, '会话不存在时不得说"无匹配条目"');
 });
 
-test('⑥ Trace：无 error 且 0 条 ⇒ 写"无匹配条目"；正例显示 seq/kind/summary', () => {
-  const empty = traceText({ session: 'sess-1', entries: [], count: 0 });
+test('⑥ Trace：无 error 且 0 条 ⇒ 写"无匹配条目"；正例显示 seq/kind/summary', async () => {
+  const empty = await traceText({ session: 'sess-1', entries: [], count: 0 });
   assert.match(empty, /无匹配条目/u, '会话存在但查询无匹配时必须如实说');
   assert.doesNotMatch(empty, /会话不存在/u, '正对照：不得凭空空报"会话不存在"');
 
-  const filled = traceText({
+  const filled = await traceText({
     session: 'sess-1',
     count: 2,
     entries: [
@@ -163,7 +137,7 @@ test('⑥ Trace：无 error 且 0 条 ⇒ 写"无匹配条目"；正例显示 se
   assert.match(filled, /本次返回 2 条/u, '必须回显条数，避免"只看 2 条"被读成"总共 2 条"');
 });
 
-test('⑦ 入口已注册：PANELS 含 audit/trace，Router 认可两个 pane', () => {
+test('⑦ 入口已注册：PANELS 含 audit/trace，Router 认可两个 pane', async () => {
   for (const key of ['audit', 'trace']) {
     assert.ok(PANELS.some((p) => p.key === key), `PANELS 必须含 ${key}`);
   }

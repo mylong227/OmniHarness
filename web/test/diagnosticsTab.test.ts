@@ -16,57 +16,23 @@
  * 故用**槽位预设**驱动"已加载完成"的状态。
  */
 
+// @vitest-environment jsdom
+
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { createRuntime } from './hooksStub.ts';
+import { renderFacadeAsync } from './rtlHarness.ts';
+import { allText as facadeAllText } from './domFacade.ts';
 
-const runtime = createRuntime();
-runtime.install();
 
 const { DiagnosticsTab } = await import('../src/ui/components/tabs/DiagnosticsTab.tsx');
 const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
 const { parseHash } = await import('../src/core/Router.ts');
-import type { StubVnode } from './hooksStub.ts';
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。
  * @param seed hook 槽位预设值
  * @returns vnode 树
- */
-function renderSeeded(seed: Record<number, unknown> | null) {
-  runtime.reset();
-  return runtime.render(DiagnosticsTab, {}, seed);
-}
-
-/**
- * 收集整棵树的文本叶子（无缝拼接）。
- * @param vnode vnode 树（可能是数组 / 字符串叶子 / 桩 vnode）
- * @param out 收集器
- * @returns 文本片段
- */
-function texts(vnode: unknown, out: string[] = []) {
-  if (Array.isArray(vnode)) {
-    for (const node of vnode) texts(node, out);
-    return out;
-  }
-  if (vnode === null || vnode === undefined) return out;
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    out.push(String(vnode));
-    return out;
-  }
-  // 排除数组 / null / 原始值后，剩下的必然是桩 createElement 产物（StubVnode）
-  texts((vnode as StubVnode).children, out);
-  return out;
-}
-
-/** 组件内 useState 的调用序：0=daemon 1=doctor 2=error 3=loading。 */
-const SLOT = { daemon: 0, doctor: 1, error: 2, loading: 3 };
-
-/**
- * 造一份最小 doctor 报告。
- * @param over 覆盖字段
- * @returns 报告
  */
 function report(over = {}) {
   return {
@@ -87,23 +53,28 @@ function report(over = {}) {
 }
 
 /**
+ * 渲染诊断面板并等一次取数落地。
+ * @param responses 按 api 方法名给返回值（`daemonStatus` / `doctorReport`）
+ * @returns 外观节点
+ */
+async function renderSeeded(responses: Record<string, unknown>) {
+  const ui = await renderFacadeAsync(DiagnosticsTab, { props: {}, responses });
+  return ui.node;
+}
+
+/**
  * 以给定状态渲染并取文本。
  * @param daemon daemon 状态（形状由被测组件的 useState 槽位决定）
  * @param doctor doctor 响应
  * @returns 面板文本
  */
-function textWith(daemon: unknown, doctor: unknown) {
-  const tree = renderSeeded({
-    [SLOT.daemon]: daemon,
-    [SLOT.doctor]: doctor,
-    [SLOT.error]: null,
-    [SLOT.loading]: false,
-  });
-  return texts(tree).join('');
+async function textWith(daemon: unknown, doctor: unknown) {
+  const ui = await renderSeeded({ daemonStatus: daemon, doctorReport: doctor });
+  return facadeAllText(ui);
 }
 
-test('① ApiClient 的方法名与 RPC 名一致（改错名字 ⇒ 面板永远空着而无人知）', () => {
-  const source = readFileSync(new URL('../src/core/ApiClient.ts', import.meta.url), 'utf8');
+test('① ApiClient 的方法名与 RPC 名一致（改错名字 ⇒ 面板永远空着而无人知）', async () => {
+  const source = readFileSync('web/src/core/ApiClient.ts', 'utf8');
   assert.match(source, /this\.rpc\('daemon\.status'/u, 'daemonStatus 必须调 daemon.status');
   assert.match(source, /this\.rpc\('doctor\.report'/u, 'doctorReport 必须调 doctor.report');
   // 正对照：把方法名换掉必须被本检查的谓词识别（防"只要文件里有这串就算过"）。
@@ -112,8 +83,8 @@ test('① ApiClient 的方法名与 RPC 名一致（改错名字 ⇒ 面板永�
   assert.doesNotMatch(mutated, /this\.rpc\('doctor\.report'/u, '改错 RPC 名却检不出来 ⇒ 判据①恒真');
 });
 
-test('② 未接线直说：ok:false ⇒ 显示"未接线"且**不得**出现乐观文案', () => {
-  const text = textWith({ running: false }, {
+test('② 未接线直说：ok:false ⇒ 显示"未接线"且**不得**出现乐观文案', async () => {
+  const text = await textWith({ running: false }, {
     ok: false,
     reason: 'doctor 未接线（serve 组合根未注入 doctorReport）',
   });
@@ -125,9 +96,9 @@ test('② 未接线直说：ok:false ⇒ 显示"未接线"且**不得**出现乐
   assert.match(text, /未运行/u);
 });
 
-test('③ 不合格项逐条可见（不折叠成一句"有问题"），运行中显示 PID', () => {
+test('③ 不合格项逐条可见（不折叠成一句"有问题"），运行中显示 PID', async () => {
   const issues = ['配置文件 JSON 非法', '插件目录不可读', '网络守卫未覆盖 shell'];
-  const text = textWith({ running: true, pid: 4321 }, { ok: true, report: report({ issues }) });
+  const text = await textWith({ running: true, pid: 4321 }, { ok: true, report: report({ issues }) });
   assert.match(text, /PID 4321/u, '运行中必须显示 PID');
   for (const issue of issues) {
     assert.ok(text.includes(issue), `不合格项必须逐条出现：${issue}`);
@@ -136,12 +107,12 @@ test('③ 不合格项逐条可见（不折叠成一句"有问题"），运行�
   assert.match(text, /不合格项（3）/u, '应给出条数');
 });
 
-test('④ 安全边界照实说：无内核强制必须写出来（附 true 的正对照）', () => {
-  const kernelOff = textWith({ running: false }, { ok: true, report: report() });
+test('④ 安全边界照实说：无内核强制必须写出来（附 true 的正对照）', async () => {
+  const kernelOff = await textWith({ running: false }, { ok: true, report: report() });
   assert.match(kernelOff, /L2/u, '隔离档必须显示');
   assert.match(kernelOff, /无内核强制/u, 'kernelEnforced=false 时必须出现"无内核强制"');
 
-  const kernelOn = textWith({ running: false }, {
+  const kernelOn = await textWith({ running: false }, {
     ok: true,
     report: report({
       security: {
@@ -157,12 +128,12 @@ test('④ 安全边界照实说：无内核强制必须写出来（附 true 的�
   assert.doesNotMatch(kernelOn, /无内核强制/u, '正对照：已强制时不得说"无内核强制"');
 });
 
-test('⑤ 无不合格项时才显示"无不合格项"（正对照，防判据②是恒真）', () => {
-  const text = textWith({ running: false }, { ok: true, report: report({ issues: [] }) });
+test('⑤ 无不合格项时才显示"无不合格项"（正对照，防判据②是恒真）', async () => {
+  const text = await textWith({ running: false }, { ok: true, report: report({ issues: [] }) });
   assert.match(text, /无不合格项/u, '真的没问题时必须如实说没问题（否则②的"未接线不显示"就无从区分）');
 });
 
-test('⑥ 入口已注册：PANELS 含 diagnostics，Router 认可 #pane=diagnostics', () => {
+test('⑥ 入口已注册：PANELS 含 diagnostics，Router 认可 #pane=diagnostics', async () => {
   assert.ok(
     PANELS.some((p) => p.key === 'diagnostics'),
     'PANELS 必须含 diagnostics（否则面板选择器里看不到该入口）',

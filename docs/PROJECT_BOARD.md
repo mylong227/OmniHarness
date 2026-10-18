@@ -3561,3 +3561,30 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 
 **本轮验证**：`vitest --project web --project web-rtl` ⇒ **82 文件 / 483 例全绿**；
 双端 `tsc --noEmit` exit 0；`eslint . --max-warnings=0` 零问题；`runGates --hook` 通过。
+
+#### 15.5.1 进展（2026-10-18 本轮结束时的确切状态）
+
+**已迁完并全绿（5 个文件，均在 `web-rtl` 项目）**：
+`format`（20 例）、`graphResumeChip`（2 例）、`vaultTab`（5 例）、`auditTraceTabs`（7 例）、
+`diagnosticsTab`（6 例）。本轮确立并固化了三条可复用的迁移手法：
+
+1. **"按 hook 序号预设数据" → "让组件真的去取"**：harness 的 `firstResponse` / `responses`
+   直接把旧种子交给对应 api 方法（`vaultList` / `auditQuery` / `traceRead` / `daemonStatus` /
+   `doctorReport` …）。判据不但等价，还**顺带覆盖了真实取数路径**（更强）。
+2. **受控输入必须用 `userEvent`**：`fireEvent.change` 在 React 19 下会被回滚成旧值
+   （表现为"填了等于没填"，实测踩到）。
+3. **DOM 语义与 React props 的两处差异**（已在 `domFacade` / 断言里统一）：
+   布尔属性存在即 `true`、缺失即**键不存在**（不是 `false`）；jsdom 下 `import.meta.url`
+   不是 `file:`，读源码要按仓库相对路径。
+
+**仍在 `web` 项目（桩）上、待迁的 12 个文件**，按阻塞类型归类：
+
+| 类型              | 文件                                                                                                                                                              | 需要的改造                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 数据种子 → api    | `a11yKeyboard`（ChangesTab 的 `listChanges`）、`diffControl`、`pickerShapeGuard`（`browseFs`）、`sessionSearch`（`searchAll`）、`governanceTab`（`api.rpc` 4 处） | 换成 `responses[方法名]` + `renderFacadeAsync`（手法已固化，机械度最高） |
+| 纯 UI 种子 → 交互 | `mount`（AddMenu/PanelPicker 菜单展开 ×2、WorkIndicator 计时、DialogHost 预填）                                                                                   | `fireEvent.click(trigger)`、假定时器、或依赖 `initial` prop              |
+| 异步首帧          | `reviewShortcuts`（11 处渲染）、`permissionTab`（`getConfig` + 保存流程）                                                                                         | 用例改 async + `waitFor`；保存流程用真实输入驱动                         |
+| 依赖布局/事件序列 | `longSessionPerf`（虚拟化需要真实高度）、`questionCard`（依赖真实事件序列）、`checkpointTimeline`（纯 UI 状态）、`graphResumeUi`（类型 + 展开参数）               | 保留零 DOM 桩或走真 Chrome；不可强行塞进 jsdom                           |
+
+> 口径：**不要求"一次迁完"**，但要求"每个文件要么全迁、要么全留"——不允许同一文件里混用两套。
+> `web` / `web-rtl` 两个项目是**迁移期的显式分区**（每文件只属于一个项目），迁完后 `web` 块整体删除。
