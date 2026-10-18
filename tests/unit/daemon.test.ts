@@ -31,31 +31,35 @@ test('DaemonController：入口不存在时 start 必须失败，不得写 PID �
   rmSync(pidFile, { recursive: true, force: true });
 });
 
-test('DaemonController：start 写 PID+启动时刻，stop 校验身份后杀掉真实进程', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'omni-daemon-start-'));
-  const entry = join(dir, 'sleeper.mjs');
-  // 入口是真实 node 脚本：忽略 serve 参数、稳定存活到 stop。
-  writeFileSync(entry, 'setTimeout(() => undefined, 60_000);\n', 'utf8');
-  const pidFile = join(dir, 'daemon.pid');
-  const controller = new DaemonController({ pidFile, entry });
-  try {
-    const pid = controller.start([], 18788);
-    const record = JSON.parse(readFileSync(pidFile, 'utf8')) as {
-      pid: number;
-      startedAt?: number;
-    };
-    assert.strictEqual(record.pid, pid);
-    assert.strictEqual(typeof record.startedAt, 'number', '新 PID 文件必须带启动时刻');
-    assert.strictEqual(controller.status().running, true);
-    assert.strictEqual(controller.stop(), true);
-    assert.strictEqual(existsSync(pidFile), false);
-  } finally {
-    controller.stop();
-    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
-  }
-});
+test(
+  'DaemonController：start 写 PID+启动时刻，stop 校验身份后杀掉真实进程',
+  { timeout: 90_000 },
+  () => {
+    const dir = mkdtempSync(join(tmpdir(), 'omni-daemon-start-'));
+    const entry = join(dir, 'sleeper.mjs');
+    // 入口是真实 node 脚本：忽略 serve 参数、稳定存活到 stop。
+    writeFileSync(entry, 'setTimeout(() => undefined, 60_000);\n', 'utf8');
+    const pidFile = join(dir, 'daemon.pid');
+    const controller = new DaemonController({ pidFile, entry });
+    try {
+      const pid = controller.start([], 18788);
+      const record = JSON.parse(readFileSync(pidFile, 'utf8')) as {
+        pid: number;
+        startedAt?: number;
+      };
+      assert.strictEqual(record.pid, pid);
+      assert.strictEqual(typeof record.startedAt, 'number', '新 PID 文件必须带启动时刻');
+      assert.strictEqual(controller.status().running, true);
+      assert.strictEqual(controller.stop(), true);
+      assert.strictEqual(existsSync(pidFile), false);
+    } finally {
+      controller.stop();
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+    }
+  },
+);
 
-test('DaemonController：陈旧 PID 被复用时 stop 不得杀无关进程', async () => {
+test('DaemonController：陈旧 PID 被复用时 stop 不得杀无关进程', { timeout: 90_000 }, async () => {
   const pidFile = tmpPidFile();
   const controller = new DaemonController({ pidFile });
   const child = spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 60000)'], {

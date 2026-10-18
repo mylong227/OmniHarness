@@ -117,7 +117,7 @@ export class DaemonController {
             '-Command',
             `(Get-Process -Id ${String(pid)} -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()`,
           ],
-          { encoding: 'utf8', timeout: 5000, windowsHide: true },
+          { encoding: 'utf8', timeout: 15000, windowsHide: true },
         ).trim();
         const fileTime = Number(out);
         if (!Number.isFinite(fileTime)) return undefined;
@@ -143,7 +143,7 @@ export class DaemonController {
       if (process.platform === 'darwin') {
         const out = execFileSync('ps', ['-p', String(pid), '-o', 'lstart='], {
           encoding: 'utf8',
-          timeout: 5000,
+          timeout: 15000,
         }).trim();
         const ms = Date.parse(out);
         return Number.isFinite(ms) ? ms : undefined;
@@ -152,6 +152,21 @@ export class DaemonController {
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * 带重试的启动时刻采集：全量套件高负载下 PowerShell/WMI 可能单次超时；
+   * 采集不到指纹会让 stop 拒绝执行（宁可失败也不误杀），故给两三次短重试。
+   * @param pid 目标进程 id
+   * @returns 启动时刻毫秒；连续失败时为 undefined
+   */
+  private processStartMsStable(pid: number): number | undefined {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const value = this.processStartMs(pid);
+      if (value !== undefined) return value;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    }
+    return undefined;
   }
 
   /**
@@ -198,7 +213,7 @@ export class DaemonController {
       );
     }
     // 记录 PID + 启动时刻：stop 前据此判断 PID 是否被复用（旧文件只有 pid，兼容保留）。
-    const startedAt = this.processStartMs(pid);
+    const startedAt = this.processStartMsStable(pid);
     writeFileSync(
       this.pidFile,
       JSON.stringify(startedAt === undefined ? { pid } : { pid, startedAt }),
@@ -242,7 +257,7 @@ export class DaemonController {
     // 身份校验：陈旧 PID 文件可能已被系统复用给无关进程。此时**绝不能杀**；能确认不匹配
     // 就清理陈旧文件，读不到启动时刻则保守返回 false（保留文件，避免误判后重启双 daemon）。
     if (record.startedAt !== undefined) {
-      const actual = this.processStartMs(record.pid);
+      const actual = this.processStartMsStable(record.pid);
       if (actual === undefined) {
         log.warn('daemon.pid.unverifiable', { pid: record.pid });
         return false;
