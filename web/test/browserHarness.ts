@@ -320,13 +320,26 @@ export function launchChromeForCdp(browser: string, url: string, userDataDir: st
  * @returns {void}
  */
 export function killChromeTree(child: import('node:child_process').ChildProcess | undefined, userDataDir?: string) {
-  // ① 启动器（可能早已退出；幂等，失败忽略）。
+  // Windows 必须**先** taskkill /T：先 child.kill 会把启动器杀掉，树杀随之失去根，
+  // 残留的 renderer/gpu 只能靠 WMI 标记扫描兜底；而 WMI 在进程多时会超时静默返回空。
+  if (process.platform === 'win32' && child?.pid !== undefined) {
+    try {
+      execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore',
+        timeout: 8000,
+        windowsHide: true,
+      });
+    } catch {
+      /* 启动器可能已退出；下面 child.kill + 标记扫描兜底 */
+    }
+  }
+  // 启动器（可能早已退出；幂等，失败忽略）。
   try {
     child?.kill('SIGKILL');
   } catch {
     /* 已退出 */
   }
-  // ② 真浏览器及其后代：按唯一 user-data-dir 标记扫（见上「为什么不能靠父链」）。
+  // 真浏览器及其后代：按唯一 user-data-dir 标记扫（见上「为什么不能靠父链」）。
   if (typeof userDataDir !== 'string' || userDataDir === '') return;
   for (const pid of chromePidsWithMarker(userDataDir)) {
     if (process.platform === 'win32') {
@@ -364,7 +377,7 @@ function chromePidsWithMarker(marker: string): number[] {
         'Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress';
       const raw = execFileSync('powershell', ['-NoProfile', '-Command', script], {
         encoding: 'utf8',
-        timeout: 15000,
+        timeout: 60000,
         windowsHide: true,
       }).trim();
       if (raw === '') return [];

@@ -1,4 +1,4 @@
-﻿// F5 配置 UI 收敛：设置模型（SettingsModel）↔ config.get / config.update 接线契约。
+// F5 配置 UI 收敛：设置模型（SettingsModel）↔ config.get / config.update 接线契约。
 //
 // 2026-10-17 迁移说明：本文件原先把 `SettingsTab` 组件渲染成 vnode 再模拟 onChange。
 // 设置面板重构成模态后，读写逻辑搬进了 `models/SettingsModel.ts`（零 React），
@@ -13,7 +13,7 @@
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
 
 import assert from 'node:assert/strict';
-import { test } from 'vitest';
+import { test, vi } from 'vitest';
 
 const { SettingsModel, SETTINGS_FIELDS } = await import('../src/ui/models/SettingsModel.ts');
 
@@ -165,18 +165,24 @@ test('⑥ 配置集应用：走 profile.apply 并刷新生效插件回显', asyn
 });
 
 test('⑦ 「已保存」提示会自动消隐（dispose 后不再有挂起定时器）', async () => {
-  const { model } = makeDeps();
-  await model.load();
-  await model.saveField(field('approval'), 'auto');
-  await flush();
-  assert.strictEqual(model.getSnapshot().savedHint, '已保存', '保存成功后闪现提示');
-  model.dispose();
-  // dispose 后再等一会儿不应再触发回调（订阅已清空、定时器已清）。
-  let notified = 0;
-  const unsub = model.subscribe(() => {
-    notified += 1;
-  });
-  await new Promise((r) => setTimeout(r, 20));
-  assert.strictEqual(notified, 0, 'dispose 之后不该再有通知');
-  unsub();
+  // 只 fake setTimeout：flush() 用的是 setImmediate，仍需真实执行。
+  vi.useFakeTimers({ toFake: ['setTimeout'] });
+  try {
+    const { model } = makeDeps();
+    await model.load();
+    let notified = 0;
+    const unsub = model.subscribe(() => {
+      notified += 1;
+    });
+    await model.saveField(field('approval'), 'auto');
+    await flush();
+    assert.strictEqual(model.getSnapshot().savedHint, '已保存', '保存成功后闪现提示');
+    model.dispose();
+    notified = 0;
+    await vi.advanceTimersByTimeAsync(2000);
+    assert.strictEqual(notified, 0, 'dispose 之后不该再有通知（订阅已清、迟到定时器也不得回写）');
+    unsub();
+  } finally {
+    vi.useRealTimers();
+  }
 });

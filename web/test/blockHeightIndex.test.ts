@@ -1,4 +1,4 @@
-﻿// 逐块真实高度模型回归护栏（BlockHeightIndex + StreamWindow.computeWithHeights）。
+// 逐块真实高度模型回归护栏（BlockHeightIndex + StreamWindow.computeWithHeights）。
 //
 // 零 DOM 桩：纯算术可确定性单测，任何机器结果一致。证明三件事：
 //  1) 未测块回落估算、亚像素防抖、[min,max] 裁剪、失效裁剪都正确；
@@ -159,5 +159,10 @@ test('StreamWindow.compute 统一估算路径不被破坏（既有行为复跑�
   // 首屏 padBottom = (总块数 - 末渲染块下标) × 估算高；compute(100,0,600) 末块下标 = 16，故 84×88 = 7392。
   assert.strictEqual(win.padBottom, (100 - win.end) * ITEM_HEIGHT, 'padBottom = (总块数 - 末块下标) × 估算高');
   assert.strictEqual(win.rendered, win.end - win.start);
-  assert.strictEqual(OVERSCAN, OVERSCAN, 'overscan 常量仍可用');
+  // 渲染块数有界（首屏 = 可视块 + 两侧 overscan）——overscan 真正参与计算的可观察结果。
+  assert.strictEqual(
+    win.rendered,
+    Math.ceil(FALLBACK_VIEWPORT / ITEM_HEIGHT) + 1 + OVERSCAN,
+    '首屏渲染块数 = ceil(视口/块高)+1 可视块 + 8 overscan',
+  );
 });

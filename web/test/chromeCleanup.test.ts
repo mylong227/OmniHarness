@@ -1,4 +1,4 @@
-﻿// 浏览器子进程**树**终止回归（2026-09-27 实测的孤儿进程泄漏）。
+// 浏览器子进程**树**终止回归（2026-09-27 实测的孤儿进程泄漏）。
 //
 // ## 缺陷形态（真实，非假想）
 //
@@ -80,7 +80,7 @@ async function until(fn: () => unknown, timeoutMs: number, label: string): Promi
   throw new Error(`超时等待：${label}（最后结果：${JSON.stringify(last)}）`);
 }
 
-test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会留下 10 个子进程）', { timeout: 120_000 }, async (t) => {
+test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会留下 10 个子进程）', { timeout: 180_000 }, async (t) => {
   const browser = findBrowser();
   if (!browser) {
     if (requireBrowser()) assert.fail('OMNI_REQUIRE_BROWSER=1 要求必须跑，但未找到本机 Chrome/Edge');
@@ -96,7 +96,7 @@ test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会
   try {
     await waitForPageWs(port, 'about:blank', 30_000);
     // 等子进程树长起来（渲染/gpu/network 都是启动后才 spawn 的）。
-    await until(() => procsWithMarker(userDataDir).length >= 1, 15_000, 'Chrome 进程就位');
+    await until(() => procsWithMarker(userDataDir).length >= 1, 60_000, 'Chrome 进程就位');
     const live = procsWithMarker(userDataDir);
     // 「启动器 + 真浏览器为子进程」这一结构是 Windows 实测的；POSIX 只要求主进程在线，
     // 避免把平台差异写成断言（那会在 ubuntu CI 上假红）。
@@ -111,7 +111,7 @@ test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会
 
   await until(
     () => procsWithMarker(userDataDir).length === 0,
-    15_000,
+    60_000,
     'killChromeTree 后该 user-data-dir 下不得有 Chrome 残留',
   );
   // 同步终止的附带收益：profile 目录当场可删（此前异步 kill + 锁未释放 ⇒ rmSync 撞 EBUSY）。

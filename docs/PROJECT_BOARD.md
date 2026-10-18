@@ -3568,3 +3568,97 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 **验证（2026-10-18）**：`vitest run --project web` ⇒ **82 文件 / 483 例全绿**（与迁移前同数）；
 双端 `tsc --noEmit`、`eslint . --max-warnings=0`、`node scripts/runGates.mjs --hook` 与
 `--tier=typed` 通过。
+
+---
+
+## 16. 全量代码审查与清理（2026-10-18，第十一轮）
+
+用户口径：「从头到尾，细读全部代码文件，梳理清楚代码，把代码不标准、有问题，全都优化处理干净。」
+本轮做了**行为保持优先**的全量审查：先读 `src/`、`tests/`、`web/src/`、`web/test/`，再按
+「真实缺陷 / 失败面 / 死代码 / 安全边界 / 判据空转」分类修复；每一条都尽量配可失败的判据。
+
+### 16.1 已修的真实缺陷（按影响面）
+
+| 面         | 缺陷                                                              | 修复                                                                             | 判据                                                     |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 上下文压缩 | 无 head 兜底可能丢最新一条；`keepRecent=0` 时 `ArrayAt.at` 越界   | 前导 system + 最新消息保底；直接索引；超预算丢弃写 `compaction.drop.over_budget` | `contextCompactor`                                       |
+| GIF        | 逻辑屏/帧矩形可让 `Buffer.alloc` 一次要 17GB                      | `gifLimits` 硬上限（4096²），解码/合成/LZW 三处 fail-closed                      | `gifDecoder`                                             |
+| 文件锁     | 未持有锁的 `release` 会删别人的锁；fencing token 释放后归零       | 仅 token 匹配才释放；锁外水位文件保证 token 单调                                 | `fileLock`                                               |
+| 异步子进程 | `input` 没写进 stdin；signal 终止被当成成功；输出无上限           | 真写 stdin；`close` 时 `signal!==null` 失败；10 MiB 上限                         | `asyncChildProcess`                                      |
+| 工作区身份 | POSIX 前导 `/` 被 split/join 吃掉                                 | 保留 `/` 与 `//`；根仍为分隔符                                                   | `workspaceIdentity`                                      |
+| Git 快照   | `-z` rename 解析顺序错，产生伪旧路径                              | `new\0old` 正确解析；旧路径记为删除                                              | `checkpointFileRollback`                                 |
+| RBAC       | 运行时 MCP/插件工具不在目录里，一律「未登记」拒绝                 | 目录并入 `config.tools.list()` + `TOOL_NAMES`                                    | `rbacConfig`                                             |
+| `run_code` | 程序内 `call()` 无 supervisor/plan 门禁；可调 `rollback`/递归     | 内层 gate 接 seed 的 plan/supervisor/escalation；禁入治理/递归                   | `codeMode`                                               |
+| 测试定向   | 失败栈帧里的路径直接拼进 shell 命令                               | 目标字符白名单，含元字符退回全量                                                 | `testCommandNarrower`                                    |
+| Diff 审查  | hunk 可夹带 `diff --git` 改守卫外文件；路径可含换行               | 只允许一个 `@@`、拒绝补丁头/控制字符                                             | `diffReview`、`repoPathGuard`                            |
+| 会话归属   | `sessionId` 直接拼文件名，可穿越写任意 `.jsonl`                   | 白名单 + 运行中拒绝                                                              | `sessionAssignWorkspace`                                 |
+| 企业 OIDC  | 只校验 discovery，不校验已装配 Configuration                      | 两路 issuer/endpoints 交叉校验，失败关闭                                         | `oidcFlowContract`                                       |
+| 长期记忆   | `update` 丢 `expiresAt`                                           | 两条更新路径都持久化（含显式清除）                                               | `fileLongTermMemory`                                     |
+| 插件       | 安装清单不写 source，加载器把缺失 source 当本地可信               | 安装器强制写判定来源；未知 source 一律进 VM                                      | `pluginLoader`、`pluginRegistry`                         |
+| 插件包     | canonicalManifest 用 replacer 数组，嵌套字段不在签名内；zip-slip  | 递归稳定序列化；条目路径白名单                                                   | `bundle`                                                 |
+| 插件注册   | `install/remove` 的 name/entry 可穿越                             | 名称/入口白名单                                                                  | `pluginRegistry`                                         |
+| daemon     | 默认入口指向 `daemonController` 自身，永远起不了 serve            | 改为 `cli/exec.js`                                                               | `daemon`                                                 |
+| 崩溃护栏   | rejection 计数无窗口，长跑进程被几小时内的无关 rejection 累积杀掉 | 60s 窗口计数                                                                     | `crashGuard`                                             |
+| 回卷       | 内存回卷失败只 warn 并返回 false，与「没在跑」不可区分            | 失败抛错；`false` 只表示未命中                                                   | `liveSessionRewind`                                      |
+| Agent 收尾 | `dispose` 后全量 persist，旧的在飞写可能后落地                    | `flush → dispose → persist`                                                      | `sessionLifecycle`                                       |
+| StepRunner | 某步无 usage 时沿用上一步用量                                     | 无条件覆盖 `lastUsage`                                                           | `stepLimitPolicy`                                        |
+| 原生根     | 非 unknown-method 的根对齐失败也永久降级，继续用错误根            | 仅 unknown-method 降级，其余抛错回退 JS                                          | `nativeBackend`                                          |
+| 服务端跨源 | 任意网页可向 `127.0.0.1` 发 RPC/WS                                | 有 `Origin` 必须是回环 http(s)，无 Origin（CLI）放行                             | `serverAuthGuard`                                        |
+| Web 凭据   | 空 Key + 已有打码 Key 会把空串发给服务端（=删凭据）               | 空输入=不修改，显式提示                                                          | 源码 + `settingsPane`                                    |
+| Web 转义   | JSX 里调 `esc()`，JSON 的引号显示成 `&quot;`                      | 22 处改为 React 文本/属性直传                                                    | `textEscaping`                                           |
+| Web 路由   | 深链展开右栏但 `rightCollapsed` 仍为 true，点了没反应             | 深链同时复位收起偏好                                                             | `router`                                                 |
+| Web 审批   | 先关卡片再发 RPC，失败后回合永久等待                              | 成功后才收卡片                                                                   | `AppController`                                          |
+| Web 设置   | `dispose` 后迟到的保存仍可创建定时器/回写                         | `disposed` 标志 + 清定时器                                                       | `configWiring`                                           |
+| 判据空转   | `                                                                 |                                                                                  | true`、自比较、假定时器断言、诊断未启动、只杀 chrome.exe | 分别改为真实 DOM/常量断言、行为断言、`startDiagnostics()`、chrome+msedge | `a11yKeyboard`、`blockHeightIndex`、`configWiring`、`visualProbe`、`browserHarness` |
+
+### 16.2 结构/规范清理
+
+- `tsconfig.json` 启用 `noUnusedLocals` / `noUnusedParameters` / `noImplicitReturns`，清掉 41 处
+  未使用字段/参数/导入；两个配置均通过。
+- 抽出并复用重复实现：`JsonObjectFile.readRecord`、`ToolArgumentParser.parse`、`LspPosition.toOneBased`、
+  `ShellChildEnv.clean`、`usePopoverEffect`；删除只写不读的字段与死方法。
+- 空 catch 逐条复核：保留有注释的合法降级，其余补日志或收窄类型。
+- 新增判据：`jsonObjectFile`、`toolArgumentParser`、`lspPosition`、`shellChildEnv`、`asyncChildProcess`、
+  `textEscaping`；扩展 compactor/GIF/记忆/锁/RBAC/快照/`codeMode`/`router` 等。
+- 函数体上限：抽出 `Runtime.rolePolicyOf` 与 `ConfigToolRegistry.codeExecutorGate`，`registerCoreTools`
+  回到 80 行内，`createRuntime` 从 117 行降到 103 行。
+
+### 16.3 验证（本机可复核）
+
+- `npm run typecheck`：双端 `tsc --noEmit` 通过；
+- `npx eslint . --max-warnings=0`：0 告警；
+- `node scripts/runGates.mjs --hook`：通过（含 Prettier/文档链接/铁律/成熟度/覆盖矩阵）；
+- `npx vitest run --project node tests/unit/`：见 §16.5 最终数；
+- `npx vitest run --project web`：见 §16.5 最终数。
+
+### 16.4 仍未修（诚实登记，需架构决策或单独工程）
+
+1. **OS 级沙箱只裁决不落地**（`src/adapters/isolation`）：ports 有 `SandboxPort`，但 Linux landlock /
+   macOS seatbelt 的「真正限制进程」没有接进执行链；当前是策略裁决 + 应用层校验，不能宣称 OS 隔离。
+2. **服务端默认无令牌**：回环绑定是当前边界；本轮补了 Origin 校验，但同机其它本地进程仍可访问。
+   要默认令牌，需要前端拿到令牌的注入通道（cookie/首屏 meta），是独立改造。
+3. **`apply_patch` 多文件**：审批/沙箱只取首个 `+++` 目标；要彻底修需把 `ApprovalRequest`/`SandboxAction`
+   的 `target` 扩成多目标并改所有消费者，不能只改一处。
+4. **Windows `shell:true` worker**：`CliWorker` 的 task 文本经 cmd 拼接，仍有元字符注入面；正确修法
+   是给 dsh 增加 stdin/参数文件入口或实现可靠的 cmd 引号层，需外部 CLI 配合。
+5. **`bundle` 的 Ed25519**：严格档由 `PrivateSkillSource` 验签；`unpackBundle` 本身只验 HMAC，
+   单独调用它不会验 Ed25519。是否要在 bundler 内强制 Ed25519 是产品口径问题。
+6. **崩溃护栏 SIGINT 双注册**：`serve` 与 `CrashGuard` 各自注册，当前靠「重复 exit 无副作用」
+   兜底；要彻底去重需统一信号所有权。
+7. **RLVR 覆盖率跨轮累计**：本轮尝试「每轮出报告后清零」，但 `controller.report().coverage` 与
+   `meter.report().coverage` 的既有契约要求两者一致（清零后 meter 归零、报告仍是上轮值），故回退。
+   正确修法是给度量器加快照/差分（`samplesAtLastCycle`）而不是清空；属独立小工程。
+8. **`tests/unit` 的 a–m / n–z 两批逐文件审查**：本轮受并行子代理数量与上下文预算限制未跑完，
+   其余文件已由定向判据覆盖；不等于「已逐行读完」。
+
+### 16.5 提交与最终数
+
+- 三个本地提交：`51989db9`（内存/数据/注入/路由/凭据）、`f0af09ba`（插件/守护/回卷/跨源）、
+  以及本轮收尾提交（`git log -1`，判据质量 + 文档）。
+- **最终实跑（2026-10-18 12:22）**：
+  - `npx vitest run --project node tests/unit/` ⇒ **exit 0（全绿）**；
+  - `npx vitest run --project web` ⇒ **83 文件 / 485 例全绿**（`chromeCleanup` 真机树杀亦过）；
+  - `npm run typecheck`、`npm run lint`（0 告警）、`npm run gate:typed`（2/12 条）、
+    `node scripts/runGates.mjs --hook` 均通过。
+- 说明：`e2e` 用例末尾有一条「临时 profile 目录 EBUSY，留给 OS 清理」的 stderr；用例本身通过，
+  属 Windows 文件锁的收尾噪声，不是断言失败。

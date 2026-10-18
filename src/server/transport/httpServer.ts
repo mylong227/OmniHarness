@@ -68,6 +68,16 @@ export class HttpServer {
    */
   public static readonly MAX_BODY_BYTES = 8 * 1024 * 1024;
 
+  /**
+   * 浏览器 / undici 明确禁用的端口（WHATWG bad ports 的子集）。
+   *
+   * `listen(0)` 可能分配到这些端口：服务端能 bind，但浏览器 fetch / WebSocket 会直接报
+   * "bad port"，用户看到的是「服务起来了但什么都连不上」。端口 0 时由 {@link start} 重试。
+   */
+  private static readonly BROWSER_BLOCKED_PORTS: ReadonlySet<number> = new Set([
+    4190, 5060, 5061, 6000, 6566, 6665, 6666, 6667, 6668, 6669, 6679, 6697, 10080,
+  ]);
+
   /** node:http 原生服务器实例（承载静态页 / RPC / SSE / WS 升级）。 */
   private readonly server: Server;
   /** WS 服务端：close 时须先强制断开 upgrade 连接，否则 server.close 永不回调。 */
@@ -123,7 +133,26 @@ export class HttpServer {
    * @param port 期望监听的端口（0 表示由操作系统分配）
    * @returns 实际生效的监听端口（port 为 0 时是系统分配值）
    */
-  public start(port: number): Promise<number> {
+  public async start(port: number): Promise<number> {
+    // 端口 0 由 OS 分配，可能落到浏览器/undici 的**禁用端口**（6000、6665–6669、10080…）。
+    // 那种端口上服务能 listen，但浏览器 fetch 会直接报 "bad port"，表现为「服务起来了但请求全失败」。
+    // 只在 port=0 时重试；显式指定端口的调用方应自己看到真实错误，不被静默换端口。
+    for (let attempt = 0; ; attempt += 1) {
+      const actual = await this.listenOnce(port);
+      if (port !== 0 || !HttpServer.BROWSER_BLOCKED_PORTS.has(actual)) return actual;
+      await this.close();
+      if (attempt >= 4) {
+        throw new Error(`连续分配到浏览器禁用端口（最后 ${String(actual)}），拒绝启动`);
+      }
+    }
+  }
+
+  /**
+   * 单次监听。
+   * @param port 监听端口（0 = 系统分配）
+   * @returns 实际监听端口
+   */
+  private listenOnce(port: number): Promise<number> {
     return new Promise((resolve, reject) => {
       const host = this.options.host ?? ServerAuthGuard.DEFAULT_HOST;
       try {

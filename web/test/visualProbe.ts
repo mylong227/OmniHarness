@@ -697,6 +697,9 @@ async function main() {
       }
     }
     cdp = new CdpSession(wsUrl);
+    // 诊断域必须在读取 diagnostics() 之前显式开启；否则容器的 console/network 永远为空
+    // （2026-10-18 审查：整段诊断输出是假绿）。
+    await cdp.startDiagnostics();
     if (!(await cdp.waitMounted(1200))) throw new Error('app 未挂载');
 
     // 布局体检（--measure）：打印关键元素的实测几何。视觉问题里"看起来空/被压扁/被裁掉"

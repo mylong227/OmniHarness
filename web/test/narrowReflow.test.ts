@@ -258,7 +258,7 @@ test('F8：1000/1280 窄视口 + 两栏展开时，中栏不得横向溢出（�
       /* 关闭失败不影响结论 */
     }
     try {
-      if (proc !== undefined) killChromeTree(proc);
+      if (proc !== undefined) killChromeTree(proc, userDataDir);
     } catch {
       /* 同上 */
     }

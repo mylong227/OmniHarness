@@ -13,7 +13,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { fireEvent, renderFacade, renderFacadeAsync } from './rtlHarness.ts';
-import { allText, byTag, facadeOf, walk } from './domFacade.ts';
+import { allText, byTag, clsOf, facadeOf, walk } from './domFacade.ts';
 import type { Facade, FacadeNode } from './domFacade.ts';
 
 const { RightPanel } = await import('../src/ui/components/RightPanel.tsx');
@@ -265,7 +265,8 @@ test('StreamingAssistantCard：正文 aria-hidden，状态区 role=status + poli
   assert.strictEqual(status[0]!.props['aria-atomic'], 'true');
   const hiddenBody = collect(short, (n) => n.props['aria-hidden'] === 'true');
   assert.strictEqual(hiddenBody.length, 1, '逐字增长的正文必须对辅助技术隐藏');
-  assert.ok(collect(hiddenBody[0]!, () => true).length > 0 || true, '正文容器存在即可');
+  assert.strictEqual(clsOf(hiddenBody[0]!), 'content', '隐藏的必须是正文容器');
+  assert.strictEqual(allText(hiddenBody[0]!), '正在', '正文仍要真实渲染（只是对 AT 隐藏）');
 
   const announce = (len: number) => {
     const node = renderFacade(StreamingAssistantCard, { props: { text: 'x'.repeat(len) } }).node;

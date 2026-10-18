@@ -214,6 +214,8 @@ export class SettingsModel {
 
   /** 「已保存」提示的消隐定时器。 */
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
+  /** 是否已 dispose（阻止迟到的异步保存再创建定时器）。 */
+  private disposed = false;
 
   /**
    * @param deps 服务端能力与提示通道
@@ -247,6 +249,7 @@ export class SettingsModel {
    * @returns 无
    */
   public dispose(): void {
+    this.disposed = true;
     if (this.hintTimer !== null) {
       clearTimeout(this.hintTimer);
       this.hintTimer = null;
@@ -397,6 +400,7 @@ export class SettingsModel {
    * @returns 无
    */
   private flashSaved(text: string): void {
+    if (this.disposed) return;
     this.set({ savedHint: text });
     if (this.hintTimer !== null) clearTimeout(this.hintTimer);
     this.hintTimer = setTimeout(() => {
