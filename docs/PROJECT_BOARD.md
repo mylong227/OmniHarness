@@ -2185,6 +2185,18 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
 5. 单发路径超时杀进程**只保证杀掉直接子进程**：`execFile` 的 `timeout` + `SIGKILL` 不会级联到 Python 若自行
    `detach` 出去的孙进程（评审尝试构造该场景未能观测到，故此处记为**未验证**，不宣称已覆盖）。
 
+### 8.7b 2026-10-18：Laya 价值验证探针（先量再扩）
+
+新增入库探针 `tools/probes/layaVerdictCalibration.mjs`：只读 `VerdictTracer` 落盘的配对 trace，
+计算 `noul` 的 **AUC / Brier（相对 base-rate）/ meanP(pass)−meanP(fail) / 五档校准桶**；有效样本
+不足 `--min` 时退出码 3，不输出“看起来有结论”的数字。用途是回答「当前唯一 `noul` 决策点是否值得
+从 shadow 升 enforce、是否值得扩到候选补丁排序」，而不是直接改行为。判据：`probesInRepo.test.ts`
+（登记/四段头注释/`--json`/旗标交叉核对/实跑自检）9 例全绿；合成夹具 4 例验证 AUC=1.000、
+Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
+
+**下一步门槛**：真实 trace 上 AUC ≥ 0.65 且 Brier skill > 0 才考虑 enforce；候选补丁排序需再过
+「有/无 LaYa 排序」的配对 A/B，不能仅凭单点相关系数上线。
+
 ### 8.8 三处「判据/护栏失真」已修（2026-10-11，第八十轮口径：先读码取证、再改、每项带正对照）
 
 本轮由一次全量体检发现（命令与读数逐条可复核），三处同属一个形态：**声明与实现不一致，且不一致的方向都是"看着绿"**。

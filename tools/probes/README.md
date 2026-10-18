@@ -114,6 +114,17 @@ node tools/probes/rerankDiscriminatorAb.mjs 14
 | 实测参考值（2026-10-05） | pooled n=59：BM25 81.4% → 混合 **89.8%**（Δ=+8.5pp，CI95[-1.69, 20.34] 跨 0，折负 0/40）；**4/5 仓提升**（pytest +27.3 / django +16.7 / sphinx +8.3pp）、requests 持平、flask −8.3pp ⇒ **方向性推翻 0.0pp**，但两关不可判定 ⇒「跨仓增益不做量级承诺」维持 |
 | 诚实边界                 | 外部语料为 Python（与本仓 TS 异构），符号抽取覆盖弱于 TS——这是异构场景真实难度；查询集未经第二方独立复核（fixture 原注记）；小语料 BM25 本已 81%，头部空间有限；探针不做默认值裁决，结论只写文档                                                          |
 
+### 9. `layaVerdictCalibration.mjs` —— Laya `noul` 预判的区分力/校准（离线读 trace）
+
+| 项       | 内容                                                                                                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 回答什么 | Laya 的 `noul` 预判是否真有区分力（测试通过样本是否更高分）、能否当概率用（Brier 相对 base-rate）、trace 量是否足以考虑 `enforce`/扩展决策点                                           |
+| 口径     | 只读 `VerdictTracer` 已落盘的配对 trace（`noul` + 真实 `testRan/testPassed`）；AUC、Brier/baseline、meanP(pass)−meanP(fail)、五档校准桶；不重跑模型/测试                               |
+| 前置     | 需要一段带 `decisionEngine`（`shadow` 或 `enforce`）的真实会话产生的 `.jsonl` trace；建议先 `npm run build`                                                                            |
+| 用法     | `node tools/probes/layaVerdictCalibration.mjs --dir=<trace目录> --min=20 --json=out.json`                                                                                              |
+| 退出码   | `0` 有效；`2` 用法/目录错误；`3` 有效配对样本不足（不输出“看起来有结论”的数字）                                                                                                        |
+| 诚实边界 | 只覆盖“写源码后”一个决策点，不能外推工具选择/规划；只有实际跑测试且引擎可用的写入才落盘（选择偏差）；AUC/Brier 只说明这批 trace 上的序/校准，不证明因果增益；升 `enforce` 前仍应做 A/B |
+
 ## 约定（新增探针必须满足）
 
 1. **离线**：不起网络、不调模型、不读用户级配置；只依赖仓库文件 + `dist/**`。
