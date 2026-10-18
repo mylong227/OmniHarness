@@ -264,8 +264,6 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         onOpenSettings: () => ctrl.settings.open(),
         connected: s.connected,
         streamState: s.streamState,
-        theme: s.theme,
-        onToggleTheme: () => ctrl.layout.toggleTheme(),
         open: s.leftOpen,
         style: { width: s.leftWidth + 'px' },
       }),

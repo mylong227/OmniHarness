@@ -165,8 +165,6 @@ test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/em
     renderFacade(SidebarFooter, {
       props: {
         connected: true,
-        theme: 'dark',
-        onToggleTheme: () => {},
         onOpenSettings: () => {},
       },
     }).node,
@@ -353,8 +351,6 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
     renderFacade(SidebarFooter, {
       props: {
         connected: true,
-        theme: 'dark',
-        onToggleTheme: () => {},
         onOpenSettings: () => {},
       },
     }).node,
@@ -389,7 +385,8 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
   // 2026-10-18：关闭「×」改成 aria-hidden 的指针捷径（嵌套交互控件会被 axe 判红），
   // 标签自身仍逐个带 roving tabindex（激活项 0、其余 -1）⇒ 阈值从 ≥3 收到 ≥2。
   assert.ok(numbered.role >= 8, 'role 数量偏低：' + JSON.stringify(numbered));
-  assert.ok(numbered.ariaLabel >= 10, 'aria-label 数量偏低：' + JSON.stringify(numbered));
+  // 2026-10-19：页脚主题切换按钮已移除（改到设置 → 外观），aria-label 少一枚 ⇒ 阈值 10→9。
+  assert.ok(numbered.ariaLabel >= 9, 'aria-label 数量偏低：' + JSON.stringify(numbered));
   assert.ok(numbered.ariaLive >= 1, '必须有 polite 播报区');
   assert.ok(numbered.ariaSelected >= 3, '标签页必须逐个带 aria-selected');
   assert.ok(numbered.tabIndex >= 2, 'roving tabindex / 可聚焦容器必须存在');

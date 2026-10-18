@@ -18,10 +18,6 @@ export interface SidebarFooterProps {
   connected: boolean;
   /** SSE 三态：`connecting` 显示「重连中」，`closed`（宽限期后）才显示「断开」。 */
   streamState?: 'open' | 'connecting' | 'closed';
-  /** 当前主题（决定主题按钮的图标）。 */
-  theme: 'dark' | 'light';
-  /** 切换主题（未提供则不渲染主题按钮）。 */
-  onToggleTheme?: () => void;
   /** 打开设置模态（未提供则不渲染设置按钮）。 */
   onOpenSettings?: () => void;
 }
@@ -32,7 +28,7 @@ export interface SidebarFooterProps {
  * @returns 页脚节点
  */
 export function SidebarFooter(props: SidebarFooterProps): ReactElement {
-  const { connected, theme, onToggleTheme, onOpenSettings } = props;
+  const { connected, onOpenSettings } = props;
   const state = props.streamState ?? (connected ? 'open' : 'closed');
   const label = state === 'open' ? t('已连接') : state === 'connecting' ? t('重连中') : t('断开');
   const pillClass = 'pill' + (state === 'open' ? ' on' : state === 'connecting' ? ' warn' : '');
@@ -50,16 +46,6 @@ export function SidebarFooter(props: SidebarFooterProps): ReactElement {
           onClick={onOpenSettings}
         >
           {icon('gear', { size: 16 })}
-        </button>
-      )}
-      {onToggleTheme === undefined ? null : (
-        <button
-          className="iconbtn"
-          title={t('切换主题')}
-          aria-label={t('切换浅色 / 深色主题')}
-          onClick={onToggleTheme}
-        >
-          {icon(theme === 'light' ? 'moon' : 'sun', { size: 16 })}
         </button>
       )}
     </div>

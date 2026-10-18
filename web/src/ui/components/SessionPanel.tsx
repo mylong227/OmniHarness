@@ -70,10 +70,6 @@ export interface SessionPanelProps {
   connected?: boolean;
   /** SSE 三态（页脚徽标文案 / 配色，见 SidebarFooter）。 */
   streamState?: 'open' | 'connecting' | 'closed';
-  /** 当前主题（页脚主题按钮图标）。 */
-  theme?: 'dark' | 'light';
-  /** 切换主题（未提供则页脚不渲染主题按钮）。 */
-  onToggleTheme?: () => void;
   open: boolean;
   style?: Record<string, string>;
   /** 远端搜索防抖调度注入点（单测传「立即执行」以获得确定性，缺省走 setTimeout）。 */
@@ -104,8 +100,6 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onOpenSettings,
     connected,
     streamState,
-    theme,
-    onToggleTheme,
     open,
     style,
   } = props;
@@ -825,8 +819,6 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       <SidebarFooter
         connected={connected ?? true}
         streamState={streamState}
-        theme={theme ?? 'dark'}
-        onToggleTheme={onToggleTheme}
         onOpenSettings={onOpenSettings}
       />
     </div>
