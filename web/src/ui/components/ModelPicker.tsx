@@ -126,7 +126,13 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
       role="button"
       aria-haspopup="listbox"
       aria-expanded={open ? 'true' : 'false'}
-      aria-label={t('选择模型与推理强度')}
+      // 可访问名必须包含可见文本（模型名 + 强度），否则 axe 报 label-content-name-mismatch：
+      // 屏幕阅读器用户听到的名字与界面上的字对不上（WCAG 2.5.3）。
+      aria-label={
+        reasoningLabel !== ''
+          ? t('模型与推理强度 · {name}', { name: `${label} ${reasoningLabel}` })
+          : t('模型与推理强度 · {name}', { name: label })
+      }
       onClick={toggle}
       onKeyDown={onKeyDown}
     >

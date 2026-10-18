@@ -127,6 +127,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^2.1.9",
+    "axe-core": "^4.14.0",
     "eslint": "^9.39.4",
     "eslint-plugin-unused-imports": "^4.4.1",
     "jsdom": "^25.0.1",

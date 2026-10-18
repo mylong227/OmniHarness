@@ -118,6 +118,14 @@ export function RightPanel(props: RightPanelProps): ReactElement {
    */
   const onTabKey = (e: React.KeyboardEvent, i: number): void => {
     if (items.length === 0) return;
+    const current = items[i];
+    // 键盘关闭：可关闭标签聚焦时按 Delete/Backspace。这是「×」的等价路径
+    //（× 是 aria-hidden 的指针捷径，不能承载可访问名，也就不能进 Tab 序列）。
+    if ((e.key === 'Delete' || e.key === 'Backspace') && current !== undefined && current.closable) {
+      e.preventDefault();
+      closeTab(current);
+      return;
+    }
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
       e.preventDefault();
       const step = e.key === 'ArrowRight' ? 1 : -1;
@@ -148,8 +156,14 @@ export function RightPanel(props: RightPanelProps): ReactElement {
    * @param t 标签条目
    * @returns 无
    */
-  const closeTab = (e: React.MouseEvent, t: TabItem): void => {
-    e.stopPropagation();
+  /**
+   * 关闭一个标签：文件标签走 onCloseFile；面板标签关闭即回文件视图。
+   * @param t 标签条目
+   * @param e 触发事件（可选；有则阻断冒泡，避免先触发标签激活）
+   * @returns 无
+   */
+  const closeTab = (t: TabItem, e?: { stopPropagation(): void }): void => {
+    e?.stopPropagation();
     if (t.key.startsWith('file:')) onCloseFile?.(t.title);
     else onSelect(openFiles !== undefined && openFiles.length > 0 ? 'file' : 'tools');
   };
@@ -161,32 +175,35 @@ function tabIdOf(t: TabItem): string {
 
 /** 渲染单个标签：选中态由 active 决定（roving tabindex：只有激活项进 Tab 序列）。 */
 const renderTab = (tab: TabItem, i: number): ReactElement => (
+  // 关闭「×」是**装饰性指针捷径**（span + aria-hidden，不参与焦点/可访问名）：
+  // 把 role=button / tabindex 塞进 role=tab 会被 axe 判为 nested-interactive；
+  // 键盘用户的等价路径是聚焦标签后按 Delete/Backspace（见 onTabKey 与 aria-keyshortcuts）。
   <div
     key={tab.key}
     id={tabIdOf(tab)}
-      className={'tab' + (tab.active ? ' active' : '')}
-      role="tab"
-      aria-selected={tab.active ? 'true' : 'false'}
-      aria-controls={PANE_ID}
-      title={tab.title}
-      tabIndex={i === activeIdx ? 0 : -1}
-      onClick={() => activate(tab)}
-      onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, i)}
-    >
-      <span className="tab-label">{tab.label}</span>
-      {tab.closable ? (
-        <span
-          className="tab-x"
-          role="button"
-          aria-label={t('关闭 {name}', { name: tab.label })}
-          tabIndex={-1}
-          onClick={(e: React.MouseEvent) => closeTab(e, tab)}
-        >
-          ×
-        </span>
-      ) : null}
-    </div>
-  );
+    className={'tab' + (tab.active ? ' active' : '') + (tab.closable ? ' closable' : '')}
+    role="tab"
+    aria-selected={tab.active ? 'true' : 'false'}
+    aria-controls={PANE_ID}
+    aria-keyshortcuts={tab.closable ? 'Delete' : undefined}
+    title={tab.title}
+    tabIndex={i === activeIdx ? 0 : -1}
+    onClick={() => activate(tab)}
+    onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, i)}
+  >
+    <span className="tab-label">{tab.label}</span>
+    {tab.closable ? (
+      <span
+        className="tab-x"
+        aria-hidden="true"
+        title={t('关闭 {name}', { name: tab.label })}
+        onClick={(e: React.MouseEvent) => closeTab(tab, e)}
+      >
+        ×
+      </span>
+    ) : null}
+  </div>
+);
 
   const activeFile =
     activePane === 'file' ? (openFiles ?? []).find((f) => f.title === (activeFileTitle ?? null)) : undefined;
@@ -196,8 +213,12 @@ const renderTab = (tab: TabItem, i: number): ReactElement => (
     activeFile !== undefined ? activeFile.title : currentPanel !== undefined ? t(currentPanel.label) + t(' 面板') : '';
   return (
     <div className={'col right' + (open ? ' open' : '')} style={style}>
-      <div className="tabs rv-tabs" role="tablist" aria-label={t('文件与面板')}>
-        {items.map((t, i) => renderTab(t, i))}
+      <div className="tabs rv-tabs">
+        {/* tablist 只包标签本身：PanelPicker / 收起按钮不是 tab，放进来会破坏
+            aria-required-children（tablist 的必需子项只有 tab）。 */}
+        <div className="rv-tablist" role="tablist" aria-label={t('文件与面板')}>
+          {items.map((t, i) => renderTab(t, i))}
+        </div>
         <span className="flex-spacer" aria-hidden="true"></span>
         <PanelPicker activePane={activePane} onPick={onSelect} />
         {onCollapse === undefined ? null : (

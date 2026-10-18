@@ -73,7 +73,11 @@ interface RunActions {
  * @returns 运行卡片节点
  */
 function renderRun(r: GraphRunState, actions: RunActions): ReactElement {
-  const chips = r.nodes.map((n) => (
+  // 后端/夹具给的运行态可能缺 `nodes`（2026-10-18：默认桩页面打开本面板时实测
+  // `r.nodes.map is not a function` ⇒ 整个工作台被错误边界卸载）。渲染层做一次规范化：
+  // 缺字段按"还没有节点"处理，坏数据只影响这一张卡片，不拖垮整棵树。
+  const nodes = Array.isArray(r.nodes) ? r.nodes : [];
+  const chips = nodes.map((n) => (
     <span className={'graph-node ' + GraphDefBuilder.statusClass(n.status)} key={n.id}>
       <span className="dot"></span>
       {n.id}
@@ -86,8 +90,8 @@ function renderRun(r: GraphRunState, actions: RunActions): ReactElement {
   );
   // 按钮文案自己说清「会发生什么」（2026-10-08 交互改进）：只写「续跑」的话，用户不知道
   // 它会不会把整张图重跑一遍（那正是最贵的担心）；给出「跳过已完成 N 步」就直接回答了这个问题。
-  const doneCount = r.nodes.filter((n) => n.status === 'done').length;
-  const restCount = Math.max(0, r.nodes.length - doneCount);
+  const doneCount = nodes.filter((n) => n.status === 'done').length;
+  const restCount = Math.max(0, nodes.length - doneCount);
   const resume = r.done && !r.ok ? (
     <button
       className="ghost btn-resume"
@@ -98,7 +102,7 @@ function renderRun(r: GraphRunState, actions: RunActions): ReactElement {
       }
       onClick={() => actions.onResume(r.runId, r.defName)}
     >
-      {r.nodes.length > 0 ? t('续跑（跳过已完成 {done} 步）', { done: doneCount }) : t('续跑')}
+      {nodes.length > 0 ? t('续跑（跳过已完成 {done} 步）', { done: doneCount }) : t('续跑')}
     </button>
   ) : null;
   const bb = r.blackboard ? (
@@ -171,7 +175,9 @@ export function GraphTab(props: GraphTabProps): ReactElement {
   /** 拉取已存图列表。 */
   const load = async (): Promise<void> => {
     try {
-      setGraphs(await api.listGraphs());
+      const listed = await api.listGraphs();
+      // 同理：非数组（桩/异常响应）按空列表处理，别让 .map 抛错。
+      setGraphs(Array.isArray(listed) ? listed : []);
     } catch (e) {
       toast(t('图列表不可用：{msg}', { msg: (e as Error).message }), 'err');
     }

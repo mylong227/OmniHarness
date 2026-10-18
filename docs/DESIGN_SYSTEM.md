@@ -334,3 +334,29 @@ node web/test/visualProbe.ts --panes=changes --themes=dark,light --widths=1280  
 - 上一版的零彩色核验脚本已删除（口径作废，见 §8）；色相纪律由 `colorSystem` 门禁承担。
 - 代码高亮仍是无色相体系。彩色语法是"第二个色彩系统"，在一屏只有一个机器表面的设计里
   会与靛墨抢注意力——如果将来要加，必须先在本文件里定义语法色族，并同步 `colorSystem` 门禁。
+
+---
+
+## 10. 无障碍：从「两条手工判据」到「真实引擎全量审计」（2026-10-18）
+
+此前只有 `a11yContrast`（颜色 4.5:1）与 `a11yKeyboard`（焦点可见 / roving tabindex）两条手工判据。
+它们看不见**结构性缺陷**：tablist 里混入非 tab 子项、交互控件嵌套、按钮可访问名与可见文本不一致。
+本轮引入 **axe-core**（devDependency，MPL-2.0，仅测试期使用、不进入产物）跑 WCAG 2.1 A/AA 审计，
+并修掉它检出的全部 serious/critical：
+
+| 违规（axe id）                           | 根因                                                                                 | 处置                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `aria-required-children`（critical）     | 右栏 `role=tablist` 里同时放了「全部面板」按钮与收起按钮                             | tablist 只包标签（新 `.rv-tablist` 容器）；非 tab 控件移到 tablist 外                                      |
+| `nested-interactive`（serious）          | 关闭「×」是 `role=button` 的 span，嵌在 `role=tab` 里                                | 「×」改为 `aria-hidden` 的指针捷径；键盘关闭 = 聚焦标签后 Delete/Backspace（`aria-keyshortcuts="Delete"`） |
+| `label-content-name-mismatch`（serious） | `.new-chat`（aria-label「新建会话」vs 可见「新会话」）、`.mp`（fixlabel 不含模型名） | 可访问名改为**包含可见文本**（WCAG 2.5.3）                                                                 |
+
+判据 `web/test/a11yAudit.test.ts` 的口径：
+
+- 规则集固定 WCAG 2.1 A/AA（不扫 best-practice，避免把风格建议当缺陷）；
+- 只把 **serious / critical** 判红（moderate/minor 打印观察）；
+- 必须真有 `passes`（否则判据假绿）；
+- 两套主题 × 两个状态（空态 + 设置模态）各扫一次。
+
+> 依赖边界：axe-core 是**测试期 devDependency**，不进 `dependencies`、不进产物，也不受运行时
+> 依赖准入清单（`dependency-allowlist.json`）约束；若将来要换成 `@axe-core/playwright` 等，
+> 只需改 `web/test/a11yAudit.test.ts` 一处。

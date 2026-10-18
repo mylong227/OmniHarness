@@ -61,7 +61,7 @@ function writeSession(dir: string, id: string, workspace: string | undefined, la
 function fixture(): {
   dir: string;
   archive: SessionArchive;
-  ids: (workspace?: string) => string[];
+  ids: (workspace?: string) => Promise<string[]>;
 } {
   const dir = mkdtempSync(join(tmpdir(), 'omni-sess-scope-'));
   writeSession(dir, 'sess_this_1', THIS_WS, '本项目会话');
@@ -72,17 +72,17 @@ function fixture(): {
     storageLocation: () => dir,
     configuredStorageDir: () => undefined,
   });
-  const ids = (workspace?: string): string[] => {
-    const listed = archive.list(false, workspace) as { sessions: { sessionId: string }[] };
+  const ids = async (workspace?: string): Promise<string[]> => {
+    const listed = (await archive.list(false, workspace)) as { sessions: { sessionId: string }[] };
     return listed.sessions.map((s) => s.sessionId).sort();
   };
   return { dir, archive, ids };
 }
 
-test('① 传 workspace：只返回本工作区会话（明确属于别的项目的一条都不许出现）', () => {
+test('① 传 workspace：只返回本工作区会话（明确属于别的项目的一条都不许出现）', async () => {
   const { dir, ids } = fixture();
   try {
-    const got = ids(THIS_WS);
+    const got = await ids(THIS_WS);
     assert.deepStrictEqual(got, ['sess_legacy_1', 'sess_this_1']);
     assert.ok(!got.includes('sess_other_1'), '外部项目的会话漏进了本工作区列表');
   } finally {
@@ -90,22 +90,29 @@ test('① 传 workspace：只返回本工作区会话（明确属于别的项目
   }
 });
 
-test('② 无归属标记的历史会话必须保留（不能因为归不了因就藏起来）', () => {
+test('② 无归属标记的历史会话必须保留（不能因为归不了因就藏起来）', async () => {
   const { dir, ids } = fixture();
   try {
-    assert.ok(ids(THIS_WS).includes('sess_legacy_1'));
-    assert.ok(ids(OTHER_WS).includes('sess_legacy_1'), '换个工作区也该看得到无标记的历史会话');
+    assert.ok((await ids(THIS_WS)).includes('sess_legacy_1'));
+    assert.ok(
+      (await ids(OTHER_WS)).includes('sess_legacy_1'),
+      '换个工作区也该看得到无标记的历史会话',
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test('③ 作用域语义：缺省 = 当前工作区；`*` = 不过滤（跨项目调用方用）', () => {
+test('③ 作用域语义：缺省 = 当前工作区；`*` = 不过滤（跨项目调用方用）', async () => {
   const { dir, ids } = fixture();
   try {
-    assert.deepStrictEqual(ids(), ['sess_legacy_1', 'sess_this_1'], '缺省必须收敛到当前工作区');
     assert.deepStrictEqual(
-      ids('*'),
+      await ids(),
+      ['sess_legacy_1', 'sess_this_1'],
+      '缺省必须收敛到当前工作区',
+    );
+    assert.deepStrictEqual(
+      await ids('*'),
       ['sess_legacy_1', 'sess_other_1', 'sess_this_1'],
       '`*` 必须给出全量（sessionExists / search.all 依赖它看跨项目会话）',
     );

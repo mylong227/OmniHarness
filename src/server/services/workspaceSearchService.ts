@@ -18,12 +18,14 @@ export interface WorkspaceSearchDeps {
   /** 当前工作区根（getter 注入，跟随项目切换）。 */
   readonly workspaceRoot: () => string;
   /** 会话清单（`SessionArchive.list` 的 sessions 字段）。 */
-  readonly chats: () => readonly {
-    readonly sessionId: string;
-    readonly label: string;
-    readonly workspace?: string;
-    readonly updatedAt: string;
-  }[];
+  readonly chats: () => Promise<
+    readonly {
+      readonly sessionId: string;
+      readonly label: string;
+      readonly workspace?: string;
+      readonly updatedAt: string;
+    }[]
+  >;
 }
 
 /** 搜索上限（防御性：避免一次性把上万条路径推给 UI）。 */
@@ -73,16 +75,16 @@ export class WorkspaceSearchService {
    * @param limit 每类命中上限（缺省 {@link MAX_HITS}）
    * @returns `{ files, chats }`：文件按「基名命中优先、路径短优先」排序
    */
-  public search(
+  public async search(
     query: string,
     limit: number = MAX_HITS,
-  ): { files: SearchHit[]; chats: SearchHit[] } {
+  ): Promise<{ files: SearchHit[]; chats: SearchHit[] }> {
     const needle = query.trim().toLowerCase();
     if (needle === '') return { files: [], chats: [] };
     const capped = Math.max(1, Math.min(limit, MAX_HITS));
     return {
       files: this.searchFiles(needle, capped),
-      chats: this.searchChats(needle, capped),
+      chats: await this.searchChats(needle, capped),
     };
   }
 
@@ -144,10 +146,10 @@ export class WorkspaceSearchService {
    * @param limit 返回命中上限
    * @returns 标签命中（大小写不敏感）的会话条目，取清单前 limit 条
    */
-  private searchChats(needle: string, limit: number): SearchHit[] {
-    let sessions: ReturnType<WorkspaceSearchDeps['chats']>;
+  private async searchChats(needle: string, limit: number): Promise<SearchHit[]> {
+    let sessions: Awaited<ReturnType<WorkspaceSearchDeps['chats']>>;
     try {
-      sessions = this.deps.chats();
+      sessions = await this.deps.chats();
     } catch {
       return [];
     }

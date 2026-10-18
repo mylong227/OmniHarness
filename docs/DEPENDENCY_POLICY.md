@@ -102,3 +102,15 @@
 - `optionalDependencies`（**2 个**）：`@huggingface/transformers`（本地语义嵌入）、`sharp`（view_image 大图收敛）——均动态 `import()`，`--omit=optional` 时能力自动降级、体积为 0。
 - allowlist：**7 条登记**（`@huggingface/transformers`、`@modelcontextprotocol/sdk`、`zod`、`sharp`、`croner`、`jose`、`openid-client`；每条含理由 / 能力 / 许可 / 退出计划 / 预算）。**条数与字段以 [`dependency-allowlist.json`](../dependency-allowlist.json) 为准**——文档只报数，不另存一份清单。
 - 手写实现（BM25 / RFC6455 / Ed25519 格式层 / N-API FFI / LCS diff / 手写 MCP）保留为**回退路径与资产**，生产路径按 D10 优先已准入的成熟第三方（见 §1.3 第 3 条的两处实际切换）。
+
+## 7. 测试期依赖（devDependencies）的边界（2026-10-18）
+
+`devDependencies` 不是运行时能力，不进产物、不参与上面的准入清单与许可证门禁；但它们仍受
+「同一台机器上跑测试」的约束，故只在**判据基础设施**里使用，并逐条记录理由：
+
+| 包         | 许可证  | 用途                                                               | 边界                                                                               |
+| ---------- | ------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `axe-core` | MPL-2.0 | `web/test/a11yAudit.test.ts` 在真实 Chrome 里跑 WCAG 2.1 A/AA 审计 | 仅测试期注入页面；不 import 进 `web/src/**`；不进 bundle（`webBundleBudget` 可证） |
+
+> MPL-2.0 是文件级 copyleft：只在测试进程里加载未修改的原包，不修改其源码、不打包分发，
+> 因此不触发源码披露义务。若将来需要分发审计能力，换成 Apache-2.0 的等价实现即可。

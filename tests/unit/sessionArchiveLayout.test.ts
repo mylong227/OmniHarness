@@ -46,8 +46,8 @@ function line(type: string, payload: unknown): string {
   });
 }
 
-test('布局：归档 → 主目录不再有文件、归档目录有；恢复 → 挪回', () => {
-  withTemp((dir) => {
+test('布局：归档 → 主目录不再有文件、归档目录有；恢复 → 挪回', async () => {
+  withTemp(async (dir) => {
     writeFileSync(SessionArchiveLayout.mainFileOf(dir, 'a'), line('user', { content: '甲' }));
     assert.strictEqual(SessionArchiveLayout.archive(dir, 'a'), 'moved');
     assert.strictEqual(existsSync(SessionArchiveLayout.mainFileOf(dir, 'a')), false);
@@ -117,8 +117,8 @@ test('续聊归档会话：save 前先把文件挪回主目录（不劈历史）
   });
 });
 
-test('跨分区回退：rename 抛 EXDEV 时改走「复制 → 校验 → 目标内原子改名 → 删源」', () => {
-  withTemp((dir) => {
+test('跨分区回退：rename 抛 EXDEV 时改走「复制 → 校验 → 目标内原子改名 → 删源」', async () => {
+  withTemp(async (dir) => {
     const src = SessionArchiveLayout.mainFileOf(dir, 'a');
     const dest = SessionArchiveLayout.archivedFileOf(dir, 'a');
     writeFileSync(src, line('user', { content: '甲' }));
@@ -147,8 +147,8 @@ test('跨分区回退：rename 抛 EXDEV 时改走「复制 → 校验 → 目�
   });
 });
 
-test('跨分区回退：校验失败 ⇒ 抛错且不留下目标文件（源消失时宁可失败）', () => {
-  withTemp((dir) => {
+test('跨分区回退：校验失败 ⇒ 抛错且不留下目标文件（源消失时宁可失败）', async () => {
+  withTemp(async (dir) => {
     const src = SessionArchiveLayout.mainFileOf(dir, 'a');
     const dest = SessionArchiveLayout.archivedFileOf(dir, 'a');
     writeFileSync(src, line('user', { content: '甲' }));
@@ -168,8 +168,8 @@ test('跨分区回退：校验失败 ⇒ 抛错且不留下目标文件（源消
   });
 });
 
-test('被打断的跨分区搬运：下次归档按大小清理重复（半截的那份被丢弃）', () => {
-  withTemp((dir) => {
+test('被打断的跨分区搬运：下次归档按大小清理重复（半截的那份被丢弃）', async () => {
+  withTemp(async (dir) => {
     const src = SessionArchiveLayout.mainFileOf(dir, 'a');
     const dest = SessionArchiveLayout.archivedFileOf(dir, 'a');
     writeFileSync(src, line('user', { content: '完整内容' }));
@@ -186,8 +186,8 @@ test('被打断的跨分区搬运：下次归档按大小清理重复（半截�
   });
 });
 
-test('遗留临时文件清理：只清「过期」的（正在搬运的刚创建，不得误删）', () => {
-  withTemp((dir) => {
+test('遗留临时文件清理：只清「过期」的（正在搬运的刚创建，不得误删）', async () => {
+  withTemp(async (dir) => {
     const oldTmp = join(dir, 'a.jsonl.123.tmp');
     const freshTmp = join(dir, 'b.jsonl.456.tmp');
     writeFileSync(oldTmp, '旧');
@@ -201,8 +201,8 @@ test('遗留临时文件清理：只清「过期」的（正在搬运的刚创�
   });
 });
 
-test('接线：列表首读会做一次遗留临时文件清扫（生产里真的会跑，不只是「有这个函数」）', () => {
-  withTemp((dir) => {
+test('接线：列表首读会做一次遗留临时文件清扫（生产里真的会跑，不只是「有这个函数」）', async () => {
+  withTemp(async (dir) => {
     writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
     const stale = join(dir, 'a.jsonl.999.tmp');
     writeFileSync(stale, '半截');
@@ -213,13 +213,13 @@ test('接线：列表首读会做一次遗留临时文件清扫（生产里真�
       storageLocation: () => dir,
       configuredStorageDir: () => undefined,
     });
-    load.list(false);
+    await load.list(false);
     assert.strictEqual(existsSync(stale), false, '列表首读必须顺手清掉过期的遗留临时文件');
   });
 });
 
-test('列表：归档后主目录扫不到、带 includeArchived 能读到且带 archived 标记', () => {
-  withTemp((dir) => {
+test('列表：归档后主目录扫不到、带 includeArchived 能读到且带 archived 标记', async () => {
+  withTemp(async (dir) => {
     writeFileSync(join(dir, 'a.jsonl'), line('user', { content: '甲' }));
     writeFileSync(join(dir, 'b.jsonl'), line('user', { content: '乙' }));
     const load = new SessionArchive({
@@ -228,13 +228,15 @@ test('列表：归档后主目录扫不到、带 includeArchived 能读到且带
       configuredStorageDir: () => undefined,
     });
     assert.deepEqual(load.setArchived('a', true), { ok: true });
-    const fast = load.list(false) as { sessions: { sessionId: string }[] };
+    const fast = (await load.list(false)) as { sessions: { sessionId: string }[] };
     assert.deepEqual(
       fast.sessions.map((s) => s.sessionId),
       ['b'],
       '快速路径不得含归档会话',
     );
-    const full = load.list(true) as { sessions: { sessionId: string; archived: boolean }[] };
+    const full = (await load.list(true)) as {
+      sessions: { sessionId: string; archived: boolean }[];
+    };
     const byId = new Map(full.sessions.map((s) => [s.sessionId, s]));
     assert.strictEqual(byId.get('a')?.archived, true, '归档目录里的会话必须被读出来（可恢复）');
     // 归档会话仍可改名 / 删除（两处路径都要能解析到）

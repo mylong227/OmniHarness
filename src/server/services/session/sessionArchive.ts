@@ -5,8 +5,8 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  statSync,
 } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Metrics } from '../metrics.ts';
@@ -96,32 +96,39 @@ export class SessionArchive {
    * 进程内 metrics（诚实标注来源）。
    * @returns `{ source:'disk'|'live'; dir; byModel; total; sessions }`
    */
-  public usage(): unknown {
+  public async usage(): Promise<unknown> {
     const dir = this.usageDir();
     const byModel = new Map<string, ModelStat>();
     const sessions: { sessionId: string; calls: number; total: number }[] = [];
 
-    if (existsSync(dir)) {
-      for (const name of readdirSync(dir)) {
-        if (!name.endsWith('.jsonl')) continue;
-        const scanned = this.scan.readUsage(join(dir, name));
-        // 逐文件结果并入总表：缓存命中时这里只做 Map 合并，不再碰磁盘。
-        for (const [model, stat] of scanned.byModel) {
-          const prev = byModel.get(model);
-          byModel.set(model, {
-            calls: (prev?.calls ?? 0) + stat.calls,
-            prompt: (prev?.prompt ?? 0) + stat.prompt,
-            completion: (prev?.completion ?? 0) + stat.completion,
-            total: (prev?.total ?? 0) + stat.total,
-          });
-        }
-        if (scanned.calls > 0) {
-          sessions.push({
-            sessionId: name.replace(/\.jsonl$/, ''),
-            calls: scanned.calls,
-            total: scanned.total,
-          });
-        }
+    // 目录读取与逐文件解析全部走异步 IO（2026-10-18）：指标面板刷新时不再按住事件循环。
+    let names: string[] = [];
+    try {
+      if ((await stat(dir)).isDirectory()) names = await readdir(dir);
+    } catch {
+      names = [];
+    }
+    const scannedAll = await Promise.all(
+      names.filter((n) => n.endsWith('.jsonl')).map((name) => this.scan.readUsage(join(dir, name))),
+    );
+    for (const [i, name] of names.filter((n) => n.endsWith('.jsonl')).entries()) {
+      const scanned = scannedAll[i] ?? { calls: 0, total: 0, byModel: new Map() };
+      // 逐文件结果并入总表：缓存命中时这里只做 Map 合并，不再碰磁盘。
+      for (const [model, stat] of scanned.byModel) {
+        const prev = byModel.get(model);
+        byModel.set(model, {
+          calls: (prev?.calls ?? 0) + stat.calls,
+          prompt: (prev?.prompt ?? 0) + stat.prompt,
+          completion: (prev?.completion ?? 0) + stat.completion,
+          total: (prev?.total ?? 0) + stat.total,
+        });
+      }
+      if (scanned.calls > 0) {
+        sessions.push({
+          sessionId: name.replace(/\.jsonl$/, ''),
+          calls: scanned.calls,
+          total: scanned.total,
+        });
       }
     }
 
@@ -168,11 +175,14 @@ export class SessionArchive {
    *   它们无法归因，隐藏等于让用户永远够不到自己的旧数据。
    * @returns `{ dir: string|undefined; sessions: SessionInfo[] }`
    */
-  public list(includeArchived = true, workspace?: unknown): unknown {
+  public async list(includeArchived = true, workspace?: unknown): Promise<unknown> {
     const requested = typeof workspace === 'string' ? workspace : undefined;
     const scope = requested === '*' ? undefined : (requested ?? '') || this.workspaceRoot();
     const dir = this.storageLocation();
-    if (dir === undefined || !existsSync(dir) || !statSync(dir).isDirectory()) {
+    if (dir === undefined) return { dir, sessions: [] };
+    try {
+      if (!(await stat(dir)).isDirectory()) return { dir, sessions: [] };
+    } catch {
       return { dir, sessions: [] };
     }
     // 每次进程生命周期内做一次**遗留临时文件清扫**（跨分区复制被打断留下的 `<dest>.<pid>.tmp`；
@@ -186,47 +196,45 @@ export class SessionArchive {
     const sessions: SessionInfo[] = [];
     const titles = this.sidecars.readTitles();
     const archivedSet = new Set(this.sidecars.readArchived());
-    const push = (file: string, id: string, archived: boolean): void => {
-      const scanned = this.scanSessionFile(file);
-      if (scanned === undefined) return;
-      const parsed = scanned.parsed;
-      // 工作区过滤：有明确归属且**不指向同一个项目** ⇒ 该会话属于别的项目，不进本项目的列表。
-      // 比较走 `WorkspaceIdentity`（归一拼写）：本机实测同一项目曾以 `D:\x` / `D:/x` / 跑测子目录
-      // 三种拼写存在，字面量相等会把它们判成不同项目（用户报「没有按所属项目归类」）。
-      // 无归属标记（undefined）的历史会话一律保留（见 list 的 JSDoc）。
-      if (
-        scope !== undefined &&
-        parsed.workspace !== undefined &&
-        !WorkspaceIdentity.same(parsed.workspace, scope)
-      ) {
-        return;
-      }
-      const t = titles[id];
-      sessions.push({
-        sessionId: id,
-        ...parsed,
-        label: t !== undefined && t !== '' ? t : parsed.label,
-        // mtime 由 scanSessionFile 顺带返回：它已经 stat 过一次，不必再 stat 第二遍。
-        mtimeMs: scanned.mtimeMs,
-        archived,
-      });
-    };
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith('.jsonl')) continue;
-      const id = name.replace(/\.jsonl$/, '');
-      push(join(dir, name), id, archivedSet.has(id));
+    // 工作区过滤：有明确归属且**不指向同一个项目** ⇒ 该会话属于别的项目，不进本项目的列表。
+    // 比较走 `WorkspaceIdentity`（归一拼写）：本机实测同一项目曾以 `D:\x` / `D:/x` / 跑测子目录
+    // 三种拼写存在，字面量相等会把它们判成不同项目（用户报「没有按所属项目归类」）。
+    // 无归属标记（undefined）的历史会话一律保留（见 list 的 JSDoc）。
+
+    // 并发解析（异步 IO 并行），结果按原目录序落表（Promise.all 保序）。
+    // 目录可能在 stat 与 readdir 之间被删（测试/外部清理）：投成空列表，不抛未处理拒绝。
+    let mainNames: string[] = [];
+    try {
+      mainNames = (await readdir(dir)).filter((name) => name.endsWith('.jsonl'));
+    } catch {
+      mainNames = [];
     }
+    const mainRows = await Promise.all(
+      mainNames.map((name) => {
+        const id = name.replace(/\.jsonl$/, '');
+        return this.buildSession(join(dir, name), id, archivedSet.has(id), scope, titles);
+      }),
+    );
+    for (const row of mainRows) if (row !== undefined) sessions.push(row);
     // 归档会话现在住在 `archive/` 子目录里：日常列表（includeArchived=false）**整个目录都不扫**，
     // 连事件流都不解析；「已归档」组按需请求时才读。
     if (includeArchived) {
       const archDir = SessionArchiveLayout.archiveDirOf(dir);
-      if (existsSync(archDir) && statSync(archDir).isDirectory()) {
-        for (const name of readdirSync(archDir)) {
-          if (!name.endsWith('.jsonl')) continue;
-          const id = name.replace(/\.jsonl$/, '');
-          push(join(archDir, name), id, true);
-        }
+      let archNames: string[] = [];
+      try {
+        if ((await stat(archDir)).isDirectory()) archNames = await readdir(archDir);
+      } catch {
+        archNames = [];
       }
+      const archRows = await Promise.all(
+        archNames
+          .filter((name) => name.endsWith('.jsonl'))
+          .map((name) => {
+            const id = name.replace(/\.jsonl$/, '');
+            return this.buildSession(join(archDir, name), id, true, scope, titles);
+          }),
+      );
+      for (const row of archRows) if (row !== undefined) sessions.push(row);
     }
     const doc = this.sidecars.readOrderDoc();
     const keyed = sessions.map((s) => ({
@@ -235,6 +243,47 @@ export class SessionArchive {
     }));
     keyed.sort((a, b) => SessionRanking.compare(a.key, b.key));
     return { dir, sessions: keyed.map((k) => k.s) };
+  }
+
+  /**
+   * 解析单个会话文件并按工作区作用域过滤（`list` 的内层步骤，异步）。
+   * @param file 会话存档绝对路径
+   * @param id 会话 id
+   * @param archived 是否位于归档目录
+   * @param scope 工作区作用域；undefined 表示不过滤
+   * @param titles 自定义标题表（侧车）
+   * @returns 列表条目；文件不可读或不属于该作用域时为 undefined
+   */
+  private async buildSession(
+    file: string,
+    id: string,
+    archived: boolean,
+    scope: string | undefined,
+    titles: Readonly<Record<string, string>>,
+  ): Promise<SessionInfo | undefined> {
+    const scanned = await this.scanSessionFile(file);
+    if (scanned === undefined) return undefined;
+    const parsed = scanned.parsed;
+    // 工作区过滤：有明确归属且**不指向同一个项目** ⇒ 该会话属于别的项目，不进本项目的列表。
+    // 比较走 `WorkspaceIdentity`（归一拼写）：本机实测同一项目曾以 `D:\x` / `D:/x` / 跑测子目录
+    // 三种拼写存在，字面量相等会把它们判成不同项目（用户报「没有按所属项目归类」）。
+    // 无归属标记（undefined）的历史会话一律保留（见 list 的 JSDoc）。
+    if (
+      scope !== undefined &&
+      parsed.workspace !== undefined &&
+      !WorkspaceIdentity.same(parsed.workspace, scope)
+    ) {
+      return undefined;
+    }
+    const t = titles[id];
+    return {
+      sessionId: id,
+      ...parsed,
+      label: t !== undefined && t !== '' ? t : parsed.label,
+      // mtime 由缓存命中/解析时顺带返回：不再第二次 stat。
+      mtimeMs: scanned.mtimeMs,
+      archived,
+    };
   }
 
   /**
@@ -453,13 +502,14 @@ export class SessionArchive {
    * @param file 会话存档绝对路径
    * @returns 摘要 + 文件 mtime；文件不可读时 undefined
    */
-  private scanSessionFile(file: string):
+  private async scanSessionFile(file: string): Promise<
     | {
         parsed: Omit<SessionInfo, 'sessionId' | 'mtimeMs' | 'archived'>;
         mtimeMs: number;
       }
-    | undefined {
-    const hit = this.scan.readSummary(file);
+    | undefined
+  > {
+    const hit = await this.scan.readSummary(file);
     if (hit === undefined) return undefined;
     return { parsed: hit.value, mtimeMs: hit.mtimeMs };
   }

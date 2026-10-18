@@ -386,9 +386,11 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
   process.stdout.write('a11y 计数（5 棵渲染树）:' + JSON.stringify(numbered) + '\n');
   // 2026-10-07 壳层重构后：右栏标签条 = 已打开文件 + 激活面板（不再是常驻 12 项），
   // 绝对数量阈值随之收窄；属性「逐个显式给出」的契约由上面各用例分别钉住。
+  // 2026-10-18：关闭「×」改成 aria-hidden 的指针捷径（嵌套交互控件会被 axe 判红），
+  // 标签自身仍逐个带 roving tabindex（激活项 0、其余 -1）⇒ 阈值从 ≥3 收到 ≥2。
   assert.ok(numbered.role >= 8, 'role 数量偏低：' + JSON.stringify(numbered));
   assert.ok(numbered.ariaLabel >= 10, 'aria-label 数量偏低：' + JSON.stringify(numbered));
   assert.ok(numbered.ariaLive >= 1, '必须有 polite 播报区');
   assert.ok(numbered.ariaSelected >= 3, '标签页必须逐个带 aria-selected');
-  assert.ok(numbered.tabIndex >= 3, 'roving tabindex / 可聚焦容器必须存在');
+  assert.ok(numbered.tabIndex >= 2, 'roving tabindex / 可聚焦容器必须存在');
 });

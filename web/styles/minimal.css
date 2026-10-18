@@ -364,14 +364,14 @@
   outline: none;
 }
 .session-act,
-.rv-tabs .tab .tab-x {
+.rv-tabs .tab-x {
   border-radius: var(--r-xs);
   color: var(--faint);
   background: transparent;
   border-color: transparent;
 }
 .session-act:hover,
-.rv-tabs .tab .tab-x:hover {
+.rv-tabs .tab-x:hover {
   background: var(--hover);
   color: var(--text);
 }
@@ -964,6 +964,46 @@
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
+}
+
+/* 标签条结构（2026-10-18 a11y 修复）：
+   `tablist` 只包标签本身（aria-required-children）；关闭「×」是标签内的 aria-hidden 装饰，
+   只作指针捷径；键盘关闭走标签聚焦后的 Delete/Backspace（见 RightPanel.onTabKey）。 */
+.rv-tablist {
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+}
+.rv-tabs .tab.closable {
+  padding-right: 24px;
+}
+.rv-tabs .tab-x {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--faint);
+  border-radius: var(--r-xs);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.rv-tabs .tab-x:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .rv-tablist {
+    flex-wrap: wrap;
+  }
 }
 .rv-pathbar {
   background: transparent;

@@ -17,7 +17,7 @@
  * 只缓存**解析结果**，不缓存文件内容；返回值是深拷贝过的普通对象/Map，调用方改不到缓存。
  */
 
-import { readFileSync, statSync } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
 import { SessionFileScanner } from './sessionFileScanner.ts';
 
 /** 会话摘要（`list` 需要的字段）。 */
@@ -69,6 +69,8 @@ interface FileStamp {
 class FileParseCache<V> {
   /** 文件路径 → 上次解析结果与它的文件戳。 */
   private readonly entries = new Map<string, { stamp: FileStamp; value: V }>();
+  /** 同一文件的并发加载去重（list 与 usage 可能同时扫到同一个文件）。 */
+  private readonly inflight = new Map<string, Promise<V | undefined>>();
 
   /**
    * @param maxEntries 最多保留的条目数（超过即整体清空重建）
@@ -80,9 +82,9 @@ class FileParseCache<V> {
    * @param file 文件路径
    * @returns 文件戳
    */
-  private static stampOf(file: string): FileStamp | undefined {
+  private static async stampOf(file: string): Promise<FileStamp | undefined> {
     try {
-      const st = statSync(file);
+      const st = await stat(file);
       return { mtimeMs: st.mtimeMs, size: st.size };
     } catch {
       return undefined;
@@ -95,17 +97,30 @@ class FileParseCache<V> {
    * @param load 解析函数（仅在未命中时调用）
    * @returns 解析结果与文件戳；文件不可读或解析失败时为 `undefined`
    */
-  public getOrLoad(
+  public async getOrLoad(
     file: string,
-    load: () => V | undefined,
-  ): { value: V; mtimeMs: number } | undefined {
-    const stamp = FileParseCache.stampOf(file);
+    load: () => Promise<V | undefined>,
+  ): Promise<{ value: V; mtimeMs: number } | undefined> {
+    const stamp = await FileParseCache.stampOf(file);
     if (stamp === undefined) return undefined;
     const hit = this.entries.get(file);
     if (hit !== undefined && hit.stamp.mtimeMs === stamp.mtimeMs && hit.stamp.size === stamp.size) {
       return { value: hit.value, mtimeMs: stamp.mtimeMs };
     }
-    const value = load();
+    // 并发去重：同一文件同时被 list 与 usage 扫到时不重复读盘/解析。
+    const inflight = this.inflight.get(file);
+    let value: V | undefined;
+    if (inflight !== undefined) {
+      value = await inflight;
+    } else {
+      const task = load();
+      this.inflight.set(file, task);
+      try {
+        value = await task;
+      } finally {
+        this.inflight.delete(file);
+      }
+    }
     if (value === undefined) return undefined;
     if (this.entries.size >= this.maxEntries) this.entries.clear();
     this.entries.set(file, { stamp, value });
@@ -128,7 +143,9 @@ export class SessionScanCache {
    * @param file 存档绝对路径
    * @returns 摘要与文件 mtime；不可读时为 `undefined`
    */
-  public readSummary(file: string): { value: SessionSummary; mtimeMs: number } | undefined {
+  public async readSummary(
+    file: string,
+  ): Promise<{ value: SessionSummary; mtimeMs: number } | undefined> {
     return this.listCache.getOrLoad(file, () => SessionScanCache.parseSummary(file));
   }
 
@@ -137,10 +154,9 @@ export class SessionScanCache {
    * @param file 存档绝对路径
    * @returns 用量汇总（不可读时为空表，不抛错）
    */
-  public readUsage(file: string): UsageSummary {
-    return (
-      this.usageCache.getOrLoad(file, () => SessionScanCache.parseUsage(file))?.value ?? EMPTY_USAGE
-    );
+  public async readUsage(file: string): Promise<UsageSummary> {
+    const hit = await this.usageCache.getOrLoad(file, () => SessionScanCache.parseUsage(file));
+    return hit?.value ?? EMPTY_USAGE;
   }
 
   /**
@@ -148,10 +164,10 @@ export class SessionScanCache {
    * @param file 存档绝对路径
    * @returns 摘要；不可读时 `undefined`
    */
-  private static parseSummary(file: string): SessionSummary | undefined {
-    let lines: string[];
+  private static async parseSummary(file: string): Promise<SessionSummary | undefined> {
+    let text: string;
     try {
-      lines = readFileSync(file, 'utf8').split('\n');
+      text = await readFile(file, 'utf8');
     } catch {
       return undefined;
     }
@@ -159,7 +175,7 @@ export class SessionScanCache {
     let label = '';
     let turns = 0;
     let updatedAt = '';
-    for (const line of lines) {
+    for (const line of text.split('\n')) {
       const ev = SessionFileScanner.parseLine(line);
       if (ev === undefined) continue;
       if (ev.type === 'session_meta' && typeof ev.payload?.['workspace'] === 'string') {
@@ -181,17 +197,17 @@ export class SessionScanCache {
    * @param file 存档绝对路径
    * @returns 用量汇总；不可读时 `undefined`
    */
-  private static parseUsage(file: string): UsageSummary | undefined {
-    let lines: string[];
+  private static async parseUsage(file: string): Promise<UsageSummary | undefined> {
+    let text: string;
     try {
-      lines = readFileSync(file, 'utf8').split('\n');
+      text = await readFile(file, 'utf8');
     } catch {
       return undefined;
     }
     const byModel = new Map<string, ModelUsage>();
     let calls = 0;
     let total = 0;
-    for (const line of lines) {
+    for (const line of text.split('\n')) {
       const ev = SessionFileScanner.parseLine(line);
       if (ev?.type !== 'model') continue;
       const usage = ev.payload?.['usage'];

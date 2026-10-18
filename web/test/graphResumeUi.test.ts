@@ -86,3 +86,14 @@ test('节点列表为空（还没收到任何 progress）⇒ 退化为朴素文�
   assert.ok(btn !== undefined);
   assert.strictEqual(allText(btn), '续跑', '没有节点数据时不得显示「跳过已完成 0 步」这类误导文案');
 });
+
+test('坏数据：运行态缺 nodes 时按"没有节点"渲染，不得抛错拖垮整棵树', async () => {
+  // 2026-10-18 实测：默认桩页面打开编排面板时 `r.nodes.map is not a function`，
+  // 错误边界把整个工作台卸载成"界面渲染出错"。渲染层已做规范化，这里钉住它。
+  const { tree } = await mount({
+    bad_1: { runId: 'bad_1', defName: 'demo', done: false },
+  });
+  const btn = resumeButton(tree);
+  assert.strictEqual(btn, undefined, '运行中不显示续跑');
+  assert.ok(allText(tree).length > 0, '面板必须仍能渲染内容');
+});

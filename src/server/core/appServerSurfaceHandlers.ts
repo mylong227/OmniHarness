@@ -225,15 +225,17 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
    * 会话清单（`search.all` 的聊天来源；读取失败返回空表）。
    * @returns 会话摘要数组（sessionId / label / 可选 workspace / updatedAt）。
    */
-  private sessionList(): readonly {
-    sessionId: string;
-    label: string;
-    workspace?: string;
-    updatedAt: string;
-  }[] {
+  private async sessionList(): Promise<
+    readonly {
+      sessionId: string;
+      label: string;
+      workspace?: string;
+      updatedAt: string;
+    }[]
+  > {
     // `'*'`：检索面要看**全量**会话（`search.all` 跨项目可搜），按当前工作区过滤会把搜索结果
     // 静默缩小到一个项目（见 SessionArchive.list 的作用域语义）。
-    const listed = this.sessionArchive.list(true, '*') as {
+    const listed = (await this.sessionArchive.list(true, '*')) as {
       sessions?: readonly {
         sessionId: string;
         label: string;

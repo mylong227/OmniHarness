@@ -572,7 +572,9 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         className={rail ? 'new-chat compact' : 'new-chat'}
         onClick={onNew}
         title={t('新建会话')}
-        aria-label={t('新建会话')}
+        // 可见文本是「新会话」，可访问名必须包含它（WCAG 2.5.3 label-content-name-mismatch）；
+        // 图标条态下文本被隐藏，此时 aria-label 就是唯一可读名字。
+        aria-label={t('新会话')}
       >
         <span className="nc-ico" aria-hidden="true">
           {icon('plus', { size: 15 })}
