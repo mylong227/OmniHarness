@@ -115,7 +115,19 @@ export function GovernanceTab(): ReactElement {
     );
   }
 
-  const { rows, summary, rollbackTargets } = data.view;
+  // 形状归一：view/rows 缺失时按空台账渲染，别让异常响应把整棵树卸载。
+  const view = (
+    data as {
+      view?: {
+        rows?: readonly GovernanceRow[];
+        summary?: { total: number; verified: number; firstFailureSeq?: number };
+        rollbackTargets?: readonly { seq: number; ts: string; skillCount: number }[];
+      };
+    }
+  ).view ?? {};
+  const rows = Array.isArray(view.rows) ? view.rows : [];
+  const summary = view.summary ?? { total: 0, verified: 0, firstFailureSeq: undefined };
+  const rollbackTargets = Array.isArray(view.rollbackTargets) ? view.rollbackTargets : [];
   return (
     <div className="governance-tab">
       <header className="row">

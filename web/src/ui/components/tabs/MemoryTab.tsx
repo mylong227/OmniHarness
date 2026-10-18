@@ -82,8 +82,10 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
   const load = async (): Promise<void> => {
     try {
       const r = await api.listMemory();
-      setCount(r.count);
-      setFacts(r.facts);
+      // 服务端响应做形状归一：acts 缺失/非数组时按空列表处理。
+      // 2026-10-19：桩数据/异常响应曾让 acts.map is not a function 触发错误边界、卸载整棵树。
+      setCount(typeof r.count === 'number' ? r.count : 0);
+      setFacts(Array.isArray(r.facts) ? r.facts : []);
     } catch (e) {
       toast(t('加载失败：{msg}', { msg: (e as Error).message }), 'err');
     }
@@ -103,8 +105,8 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
     }
     try {
       const r = await api.searchMemory(q, 20);
-      setCount(r.count);
-      setFacts(r.results);
+      setCount(typeof r.count === 'number' ? r.count : 0);
+      setFacts(Array.isArray(r.results) ? r.results : []);
     } catch (e) {
       toast(t('检索失败：{msg}', { msg: (e as Error).message }), 'err');
     }

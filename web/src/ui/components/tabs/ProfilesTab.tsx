@@ -1,4 +1,4 @@
-﻿// 插件集 Profile + Bundle：列出 / 应用 / 删除配置集，保存当前运行时为配置集，打包 / 解包发布单元。
+// 插件集 Profile + Bundle：列出 / 应用 / 删除配置集，保存当前运行时为配置集，打包 / 解包发布单元。
 //
 // 函数组件范式：配置集列表与当前激活插件集各一个 useState；表单三处输入为非受控（useRef 读写）；
 // 「挂载装载 + reloadKey 变化重载」合为一个依赖 reloadKey 的 effect；行渲染下沉为模块级函数。
@@ -71,8 +71,9 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
   const load = async (): Promise<void> => {
     try {
       const [list, act] = await Promise.all([api.listProfiles(), api.getActiveProfile()]);
-      setProfiles(list || []);
-      setActive(act || { plugins: [] });
+      // 形状归一（同 MemoryTab）：异常/桩响应可能不是数组，别让 .map 触发错误边界。
+      setProfiles(Array.isArray(list) ? list : []);
+      setActive(act !== null && typeof act === 'object' && Array.isArray(act.plugins) ? act : { plugins: [] });
     } catch (e) {
       toast(t('加载失败：{msg}', { msg: (e as Error).message }), 'err');
     }

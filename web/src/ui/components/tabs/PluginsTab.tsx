@@ -98,10 +98,11 @@ export function PluginsTab(): ReactElement {
    */
   const load = async (q: string): Promise<void> => {
     const [inst, all] = await Promise.all([api.listPlugins(), api.searchPlugins(q)]);
-    const list = inst || [];
+    // 形状归一（同 MemoryTab）：非数组响应按空列表处理，避免 .map 崩溃。
+    const list = Array.isArray(inst) ? inst : [];
     const instSet = new Set(list.map((m) => m.name));
     setInstalled(list);
-    setAvailable((all || []).filter((d) => !instSet.has(d.manifest.name)));
+    setAvailable((Array.isArray(all) ? all : []).filter((d) => !instSet.has(d.manifest.name)));
   };
 
   /**
