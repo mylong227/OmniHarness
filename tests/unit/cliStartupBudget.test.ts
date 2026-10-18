@@ -185,8 +185,12 @@ test('② 运行期：`kv list` 的启动成本用**相对量**约束（比值 �
     `kv list / --version = ${ratio.toFixed(2)} > 10 ⇒ 装配成本回到修前量级（修前 ~12.3 / 两段加载后 ~4–6）`,
   );
   // 绝对值只做病态回归兜底（极宽松，不参与精度判定）。
-  assert.ok(kvList <= 5000, `kv list 启动 ${String(kvList)} ms 异常（>5s）`);
-  assert.ok(version <= 800, `--version 启动 ${String(version)} ms 异常（>0.8s）`);
+  //
+  // 2026-10-18：原先写 `version <= 800`，在全量套件并发跑（几十个进程压机器）时 Node 冷启动本身
+  // 就会超过 800ms ⇒ 假红一次（实测）。本仓口径是"耗时预算按并发墙钟或相对量，别用绝对秒数"，
+  // 这里把兜底放宽到"只有彻底病态才红"的量级：真正要守的是上面的**比值 ≤10**。
+  assert.ok(kvList <= 15000, `kv list 启动 ${String(kvList)} ms 异常（>15s）`);
+  assert.ok(version <= 5000, `--version 启动 ${String(version)} ms 异常（>5s）`);
 });
 
 test('③ 正对照：`--version` 必须快于 `kv list`（否则②只是在量 Node 冷启动）', () => {
