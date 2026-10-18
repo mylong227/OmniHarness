@@ -83,6 +83,9 @@ const DEFAULT_MAX_OUTPUT_BYTES = 8 * 1024 * 1024;
 /** 模块线性内存上限（缺省 256 MiB）：**不占 V8 堆**，故必须单独卡（见 `WasmMemoryLimits`）。 */
 const DEFAULT_MAX_MEMORY_MB = 256;
 
+/** 单次执行时间预算上限（60s）：构造/请求都可传，但不能让调用方要求“无限等”。 */
+const MAX_TIMEOUT_MS = 60_000;
+
 /** 内置 wasm 执行器（可注入 `IsolationLadder` 的 `wasmRunner`）。 */
 export class BuiltinWasmRunner {
   /** 缺省超时（毫秒）。 */
@@ -102,7 +105,7 @@ export class BuiltinWasmRunner {
    * @param opts 缺省超时与堆上限
    */
   public constructor(opts: BuiltinWasmRunnerOptions = {}) {
-    this.timeoutMs = Math.max(1, Math.floor(opts.timeoutMs ?? 2000));
+    this.timeoutMs = Math.min(MAX_TIMEOUT_MS, Math.max(1, Math.floor(opts.timeoutMs ?? 2000)));
     this.maxHeapMb = Math.max(8, Math.floor(opts.maxHeapMb ?? 64));
     this.maxModuleBytes = Math.max(1, Math.floor(opts.maxModuleBytes ?? DEFAULT_MAX_MODULE_BYTES));
     this.maxInputBytes = Math.max(1, Math.floor(opts.maxInputBytes ?? DEFAULT_MAX_INPUT_BYTES));
@@ -172,7 +175,10 @@ export class BuiltinWasmRunner {
         `模块声明内存超限（${String(worst)} > ${String(this.maxMemoryBytes)} 字节）：上限见 maxMemoryMb`,
       );
     }
-    const timeoutMs = Math.max(1, Math.floor(request.timeoutMs ?? this.timeoutMs));
+    const timeoutMs = Math.min(
+      MAX_TIMEOUT_MS,
+      Math.max(1, Math.floor(request.timeoutMs ?? this.timeoutMs)),
+    );
     return this.runInWorker<T>(bytes, entry, timeoutMs, input);
   }
 
