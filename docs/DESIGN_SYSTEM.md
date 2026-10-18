@@ -42,6 +42,10 @@
 >
 > 每一层仍是「回滚成本 = `main.ts` 删一行」。**新增视觉调整优先写进 `minimal.css`**
 > （它是设计事实源），结构层（layout/components/chat/shell）只放几何与行为。
+>
+> 右栏顶栏（`.rv-tabs`）在 `layout.css` 里是 `position: sticky; top: 0`，因此**必须不透明**：
+> 现在写的是 `background: inherit`（随 `.col.right` 底色，深浅主题一致）。背景一旦写回
+> `transparent`，整列滚动时正文会从标签底下透出来（2026-10-19 用户截图复现过）。
 
 ---
 
