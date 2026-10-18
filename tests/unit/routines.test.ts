@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RoutineScheduler } from '../../src/daemon/routineScheduler.ts';
 import type { Routine } from '../../src/daemon/routineScheduler.ts';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -45,6 +45,46 @@ test('matchesCron：解析 * / 范围 / 列表 / 步长', () => {
   // 范围
   assert.strictEqual(RoutineScheduler.matchesCron('1-3 * * * *', utcAt(9, 2)), true);
   assert.strictEqual(RoutineScheduler.matchesCron('1-3 * * * *', utcAt(9, 4)), false);
+  // DOM/DOW 的星号语义：一个 `*` 表示“不限制”，不能把另一个字段的约束 OR 掉。
+  // 2026-01-05 是周一。
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 * * 1', utcAt(9, 0, 5)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 * * 1', utcAt(9, 0, 6)), false);
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 5 * *', utcAt(9, 0, 5)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 5 * *', utcAt(9, 0, 6)), false);
+  // 两者都受限：维持 Vixie cron 的并集语义。
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 5 * 1', utcAt(9, 0, 12)), true);
+  assert.strictEqual(RoutineScheduler.matchesCron('0 9 5 * 1', utcAt(9, 0, 6)), false);
+});
+
+test('存储：routines.json 坏条目被跳过，不炸整个调度', () => {
+  const path = tmpStore();
+  try {
+    writeFileSync(
+      path,
+      JSON.stringify({
+        routines: [
+          { name: 'bad-no-schedule' },
+          {
+            name: 'bad-minutes',
+            prompt: 'x',
+            modelAdapter: 'mock',
+            schedule: { kind: 'interval', minutes: 0 },
+          },
+          routine({ name: 'ok', schedule: { kind: 'interval', minutes: 10 } }),
+        ],
+      }),
+      'utf8',
+    );
+    const scheduler = new RoutineScheduler(path);
+    assert.deepStrictEqual(
+      scheduler.list().map((r) => r.name),
+      ['ok'],
+      '坏条目应被过滤，好条目保留',
+    );
+    assert.strictEqual(scheduler.runDue(Date.now()).length, 1, 'runDue 不得因坏条目抛错');
+  } finally {
+    rmSync(path, { recursive: true, force: true });
+  }
 });
 
 test('RoutineScheduler：interval 到期判定与 lastRun 防重复', () => {

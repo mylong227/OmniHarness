@@ -21,6 +21,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from '
 import { resolve, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import type { Routine } from '../ports/daemon/routine.ts';
+import { log } from '../util/logger.ts';
 import type { RoutineModelAdapter } from '../ports/daemon/routineModelAdapter.ts';
 import type { RoutineSchedule } from '../ports/daemon/routineSchedule.ts';
 import type { CronSchedulePort } from '../ports/daemon/cronSchedule.ts';
@@ -211,7 +212,39 @@ export class RoutineScheduler {
         `定时任务存储损坏（已隔离到 ${quarantine}，未覆盖）：${error instanceof Error ? error.message : String(error)}`,
       );
     }
-    return { routines: Array.isArray(parsed.routines) ? parsed.routines : [] };
+    if (!Array.isArray(parsed.routines)) return { routines: [] };
+    // routines.json 是用户可手改的文件：逐条校验，坏条目跳过并告警，避免
+    // `undefined.schedule` 在 runDue 里炸掉整个调度循环（审查 P2）。
+    const routines = parsed.routines.filter((entry) => RoutineScheduler.isRoutine(entry));
+    if (routines.length !== parsed.routines.length) {
+      log.warn('routine.store.invalid_entries', {
+        skipped: parsed.routines.length - routines.length,
+      });
+    }
+    return { routines };
+  }
+
+  /**
+   * 校验一条持久化任务的最小形状。
+   * @param value 反序列化值
+   * @returns 形状可用时为 true
+   */
+  private static isRoutine(value: unknown): value is Routine {
+    if (typeof value !== 'object' || value === null) return false;
+    const routine = value as Partial<Routine>;
+    if (typeof routine.name !== 'string' || routine.name === '') return false;
+    if (typeof routine.prompt !== 'string') return false;
+    if (typeof routine.modelAdapter !== 'string') return false;
+    if (routine.lastRun !== undefined && !Number.isFinite(routine.lastRun)) return false;
+    const schedule = routine.schedule;
+    if (typeof schedule !== 'object' || schedule === null) return false;
+    if (schedule.kind === 'interval') {
+      return Number.isFinite(schedule.minutes) && schedule.minutes > 0;
+    }
+    if (schedule.kind === 'cron') {
+      return typeof schedule.expr === 'string' && schedule.expr.trim() !== '';
+    }
+    return false;
   }
 
   /**
@@ -305,11 +338,17 @@ export class RoutineScheduler {
     if (!minute.has(parts.minute)) return false;
     if (!hour.has(parts.hour)) return false;
     if (!month.has(parts.month)) return false;
-    // 日/周：cron 约定「日或周命中即触发」（取并集）。
+    // 日/周：cron 约定「日或周命中即触发」，但**仅当两者都受限时**才是并集。
+    // 若其中一个字段是 `*`，它表示“不限制”，不能把另一个字段的约束用 OR 抵掉
+    // （旧实现让 `0 9 * * 1` 每天都命中，2026-10-18 审查 P2）。
+    const domWild = fields[2]?.trim() === '*';
+    const dowWild = fields[4]?.trim() === '*';
     const domHit = dom.has(parts.day);
     const dowHit = dow.has(parts.weekday);
-    if (!domHit && !dowHit) return false;
-    return true;
+    if (domWild && dowWild) return true;
+    if (domWild) return dowHit;
+    if (dowWild) return domHit;
+    return domHit || dowHit;
   }
 
   /**
