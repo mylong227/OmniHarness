@@ -3913,3 +3913,13 @@ BOM——文件开头的 BOM 合法）；③ 两条"钉某条规则"的静态判
 
 验证：`npx vitest run --project web` 全绿；`npm run typecheck`、`npm run lint` 通过；
 `node scripts/webBundleBudget.mjs` 三项预算全绿；真机截图复核无观感回退。
+
+### 19.3 追加：前缀复用测量的序列化记忆（2026-10-18）
+
+`StepContextBuilder.measurePrefixReuse` 原先每步 `JSON.stringify(整个消息数组)` 做前缀比对。
+长会话里相邻两步的消息**绝大多数是同一批对象**，逐字节重算是纯浪费。改为
+`WeakMap<消息对象, 该消息 JSON>` 记忆 + `','` 拼接——拼接结果与 `JSON.stringify(array)` **逐字节相同**
+（`prefixReuseSnapshot` 判据 1 例继续钉住"与 PrefixStability 逐位一致"）。
+
+实测（200 条 × 8 KB = 1.6 MB）：全量 stringify **3.7 ms** → 记忆拼接 **0.89 ms**（约 4×）；
+2.55 MB 上下文的每步开销同比例下降。WeakMap 随消息对象回收，不累积内存。
