@@ -584,6 +584,10 @@ const PANES = [
   ['配置集', 'profiles'],
   ['钻取', 'detail'],
   ['回滚', 'rollback'],
+  ['变更', 'changes'],
+  ['权限', 'permission'],
+  ['凭据', 'vault'],
+  ['审计', 'audit'],
 ];
 // 「设置」已从面板列表移除（2026-10-17）：它改为左栏页脚按钮 + 居中模态，
 // 不再由 PanelPicker 打开。它的留档在 STATES 里以 `settings` 交互态呈现。

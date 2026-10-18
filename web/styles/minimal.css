@@ -253,25 +253,148 @@
   letter-spacing: 0.07em;
 }
 
-/* 「新会话」：墨色描边 + 墨色字（不是实心块）。
-   实心墨块在本体系里只表示"当前/主行动"，新建是**动作**，不该和当前会话抢层级。 */
-.new-chat {
-  background: var(--panel);
+/* 面板内的排版骨架（2026-10-19）：标题行 / 动作行 / 表单字段 / 过滤条 / 规则行。
+   这些面板此前用裸 <button> 拼行，间距、按钮尺寸、输入框宽度各说各话（用户反馈
+   「看着很不舒服」「按钮很夸张」）。统一成一套骨架，面板只负责内容。 */
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pane-head .detail-h {
+  margin: 0;
+}
+.pane-head .btn {
+  margin-left: auto;
+}
+.pane-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.pane-actions .btn.primary {
+  margin-left: auto;
+}
+.panel-note {
+  margin: 0 0 10px;
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.panel-note strong,
+.panel-note code {
   color: var(--text);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--r-md);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.field > span {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.field input {
+  width: 100%;
+}
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-bar input {
+  flex: 1;
+  min-width: 0;
+}
+.filter-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.filter-field > span {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.filter-field input {
+  flex: 1;
+  min-width: 0;
+}
+.rule-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.rule-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.rule-row input,
+.rule-row select {
+  width: 100%;
+  min-width: 0;
+}
+.vault-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.vault-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.vault-list li:last-child {
+  border-bottom: none;
+}
+.vault-list li span {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+/* 「新会话」：安静的一行动作（2026-10-19 用户反馈「背景框太明显」）。
+   之前的 panel 底 + 描边在深色侧栏里是一块明显的方块，与「极简」冲突；
+   现在默认透明、hover 才落一层表面，图标保留品牌色作为唯一的层级提示。 */
+.new-chat {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
   font-weight: 550;
   font-size: var(--fs-ui);
   padding: 8px 12px;
 }
 .new-chat:hover {
-  background: var(--panel);
-  border-color: var(--accent-line);
-  color: var(--accent);
+  background: var(--hover);
+  border-color: transparent;
+  color: var(--text);
   opacity: 1;
 }
 .new-chat .nc-ico {
-  color: inherit;
+  color: var(--accent);
+}
+/* 项目切换器与「新会话」同一层级：默认无框（用户反馈「背景框太明显」），hover 才落表面。
+   之前它是默认 button 的 panel 底 + 描边，在侧栏里像一块常驻的输入框。 */
+.ws-switch-btn {
+  background: transparent;
+  border-color: transparent;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+}
+.ws-switch-btn:hover {
+  background: var(--hover);
+  border-color: transparent;
 }
 .side-item {
   color: var(--dim);
@@ -1313,6 +1436,43 @@ button,
 .btn {
   box-shadow: none;
   background-image: none;
+}
+/* default 档落地（2026-10-19）：发丝轮廓 + 透明底。
+   此前 default 实际继承 theme.css 的 `button { background: var(--panel-2) }`，在深色面板里
+   是一块突兀的深灰方块（用户反馈「按钮很夸张」「背景框太明显」）——三档口径与实现不符。 */
+button {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  color: var(--dim);
+}
+button:hover {
+  background: var(--hover);
+  border-color: var(--border-soft);
+  color: var(--text);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+}
+/* 表单里的按钮不再是"整行大块"：inline-flex、内容宽、28px 高（原 components.css 的
+   `width:100%; text-align:left; margin-bottom:8px` 是列表行时代的遗留，面板里会撑成一条横栏）。 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-height: 28px;
+  margin-bottom: 0;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  text-align: center;
+  border-radius: var(--r-sm);
+  background: transparent;
+}
+.btn:hover {
+  color: var(--text);
 }
 .btn.primary,
 [data-theme='dark'] .btn.primary,

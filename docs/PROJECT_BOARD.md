@@ -4035,3 +4035,23 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
   另外删掉根目录构建日志（`.coverage_run.log` 等，忽略文件）并把 `web/archive` 收敛到最近 4 张截图。
   保留 `resources/**` 与 `third-party/laya/**`：它们在 `THIRD_PARTY_ASSETS.md` 里是**有记录的资产**
   （作者提供的参考工作流 / 上游源码快照），不是无主垃圾。
+
+### 23. 面板与侧栏的视觉收口（2026-10-19）
+
+用户按截图反馈了 5 处"看着不舒服"的地方，逐条修：
+
+| 位置     | 问题                                                                                                 | 处置                                                                                        |
+| -------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 变更面板 | 「↻ 刷新」是整行大块（`.btn` 继承了 `components.css` 里列表行时代的 `width:100%` + `margin-bottom`） | `.btn` 改为 inline-flex / 内容宽 / 28px 高；标题行用新的 `.pane-head`（文字左、按钮右）     |
+| 权限面板 | 三个按钮是裸 `<button>`，吃到 theme 的 panel 底 ⇒ 三块同权重的深色方块挤成一排                       | 规则行改 `.rule-row` 网格、按钮行改 `.pane-actions`（新增/重载为 ghost，保存为 `.primary`） |
+| 凭据面板 | 名称/凭据是行内 label + 输入，按钮被挤到文案中间                                                     | `.field` 标签上置；说明文字与「写入」拆到 `.pane-actions`；列表改 `.vault-list`             |
+| 审计面板 | 「类型 [input] 查询」挤在一行且无对齐                                                                | `.filter-bar` + `.filter-field`：标签定宽、输入占满、查询按钮独立                           |
+| 侧栏     | 「新会话」「项目切换」常驻 panel 底 + 描边，像两块输入框                                             | 两者默认透明/无框，hover 才落一层 `--hover`；「新会话」图标保留品牌色作为唯一层级提示       |
+
+根因是**按钮三档与实现不一致**：`minimal.css` 写着 primary / default / ghost 三档，但 default 实际继承
+`theme.css` 的 `button { background: var(--panel-2) }` ⇒ 全站默认按钮都是"深色实心块"。本轮把 default
+真正落成「发丝轮廓 + 透明底」，并补齐 `.pane-head` / `.pane-actions` / `.field` / `.filter-bar` /
+`.rule-row` / `.vault-list` 一套面板骨架，四个面板只负责内容。
+
+验收：四面板与侧栏的真机截图（暗色，1280）、`vitest web` 86 文件 / 490 例全绿（含 axe WCAG 审计）、
+`i18nCoverage`（新增两枚英文词条）全绿。

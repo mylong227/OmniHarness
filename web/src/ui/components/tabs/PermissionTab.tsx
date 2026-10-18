@@ -139,12 +139,12 @@ export function PermissionTab(): ReactElement {
     <div className="permission-tab">
       <div className="detail-section">
         <div className="detail-h">{t('参数级权限规则')}</div>
-        <p className="hint">
+        <p className="panel-note">
           {t('多条规则同时命中时 ')}
           <strong>{t('deny 优先')}</strong>
           {t('（聚合顺序 deny → ask → allow），不是"后写的覆盖先写的"。')}
         </p>
-        <p className="hint">
+        <p className="panel-note">
           {t('合法裁决：')}
           {DECISIONS.join(' | ')}
           {t('；合法字段：')}
@@ -153,12 +153,13 @@ export function PermissionTab(): ReactElement {
         </p>
         {error !== null ? <p className="err">{t('保存失败：{msg}', { msg: error })}</p> : null}
         {notice !== null ? <p className="ok">{notice}</p> : null}
-        {rules.length === 0 ? <p className="hint">{t('当前没有任何规则（全部走默认裁决）。')}</p> : null}
-        <ul>
+        {rules.length === 0 ? <p className="panel-note">{t('当前没有任何规则（全部走默认裁决）。')}</p> : null}
+        <ul className="rule-list">
           {rules.map((rule, index) => (
-            <li key={`rule-${String(index)}`}>
+            <li className="rule-row" key={`rule-${String(index)}`}>
               <select
                 value={rule.decision}
+                aria-label={t('裁决')}
                 onChange={(e: { target: { value: string } }) =>
                   patchRule(index, { decision: e.target.value as EditableRule['decision'] })
                 }
@@ -172,6 +173,7 @@ export function PermissionTab(): ReactElement {
               <input
                 type="text"
                 value={rule.toolName}
+                aria-label={t('工具名')}
                 placeholder={t('toolName（留空＝任意工具）')}
                 onChange={(e: { target: { value: string } }) =>
                   patchRule(index, { toolName: e.target.value })
@@ -180,6 +182,7 @@ export function PermissionTab(): ReactElement {
               <input
                 type="text"
                 value={rule.commandPrefix}
+                aria-label="commandPrefix"
                 placeholder="commandPrefix"
                 onChange={(e: { target: { value: string } }) =>
                   patchRule(index, { commandPrefix: e.target.value })
@@ -188,6 +191,7 @@ export function PermissionTab(): ReactElement {
               <input
                 type="text"
                 value={rule.commandGlob}
+                aria-label="commandGlob"
                 placeholder="commandGlob"
                 onChange={(e: { target: { value: string } }) =>
                   patchRule(index, { commandGlob: e.target.value })
@@ -195,6 +199,7 @@ export function PermissionTab(): ReactElement {
               />
               <button
                 type="button"
+                className="btn ghost"
                 onClick={() => {
                   setRules(rules.filter((_unused, i) => i !== index));
                   setNotice(null);
@@ -205,23 +210,27 @@ export function PermissionTab(): ReactElement {
             </li>
           ))}
         </ul>
-        <button
-          type="button"
-          onClick={() =>
-            setRules([
-              ...rules,
-              { decision: 'ask', toolName: '', commandPrefix: '', commandGlob: '' },
-            ])
-          }
-        >
-          {t('新增规则')}
-        </button>
-        <button type="button" disabled={!dirty} onClick={() => void save()}>
-          {t('保存')}
-        </button>
-        <button type="button" onClick={() => void load()}>
-          {t('重新载入')}
-        </button>
+        <div className="pane-actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() =>
+              setRules([
+                ...rules,
+                { decision: 'ask', toolName: '', commandPrefix: '', commandGlob: '' },
+              ])
+            }
+          >
+            {t('新增规则')}
+          </button>
+          <span className="flex-spacer"></span>
+          <button type="button" className="btn" onClick={() => void load()}>
+            {t('重新载入')}
+          </button>
+          <button type="button" className="btn primary" disabled={!dirty} onClick={() => void save()}>
+            {t('保存')}
+          </button>
+        </div>
       </div>
     </div>
   );

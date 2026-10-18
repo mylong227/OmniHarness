@@ -33,12 +33,6 @@ interface ChangesData {
   files?: ChangeFile[];
 }
 
-const HEAD_ROW: Record<string, string> = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  marginBottom: '8px',
-};
 const DIM_TEXT: Record<string, string> = { fontSize: '12px', color: 'var(--dim)' };
 const RETRY_BOX: Record<string, string> = { marginTop: '10px' };
 
@@ -367,7 +361,7 @@ export function ChangesTab(): ReactElement {
       ref={rootRef}
       onKeyDown={onReviewKey}
     >
-      <div style={HEAD_ROW}>
+      <div className="pane-head">
         <span style={DIM_TEXT}>
           {isGit
             ? t('Git 工作区{branch} · 支持块级 stage/丢弃 与 行内评论', {

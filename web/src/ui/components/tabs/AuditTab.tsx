@@ -55,7 +55,7 @@ export function AuditTab(): ReactElement {
     return (
       <div className="audit-tab">
         <p className="err">{t('读取审计数据失败：{msg}', { msg: error })}</p>
-        <button type="button" onClick={() => void refresh()}>
+        <button type="button" className="btn" onClick={() => void refresh()}>
           {t('重试')}
         </button>
       </div>
@@ -65,18 +65,20 @@ export function AuditTab(): ReactElement {
     <div className="audit-tab">
       <div className="detail-section">
         <div className="detail-h">{t('过滤')}</div>
-        <label>
-          {t('类型')}
-          <input
-            type="text"
-            value={typeFilter}
-            placeholder={t('如 tool_call（留空＝全部）')}
-            onChange={(e: { target: { value: string } }) => setTypeFilter(e.target.value)}
-          />
-        </label>
-        <button type="button" onClick={() => void refresh()}>
-          {t('查询')}
-        </button>
+        <div className="filter-bar">
+          <label className="filter-field">
+            <span>{t('类型')}</span>
+            <input
+              type="text"
+              value={typeFilter}
+              placeholder={t('如 tool_call（留空＝全部）')}
+              onChange={(e: { target: { value: string } }) => setTypeFilter(e.target.value)}
+            />
+          </label>
+          <button type="button" className="btn" onClick={() => void refresh()}>
+            {t('查询')}
+          </button>
+        </div>
         {typeFilter !== '' ? <span className="hint">{t('当前过滤类型：{type}', { type: typeFilter })}</span> : null}
       </div>
 

@@ -96,7 +96,7 @@ export function VaultTab(): ReactElement {
       <div className="detail-section">
         <div className="detail-h">{t('凭据保险库')}</div>
         <p className="hint">
-          {t('只列出**名字**：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。')}
+          {t('只列出名字：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。')}
         </p>
         {error !== null ? <p className="err">{error}</p> : null}
         {notice !== null ? <p className="ok">{notice}</p> : null}
@@ -111,11 +111,11 @@ export function VaultTab(): ReactElement {
           data.names.length === 0 ? (
             <p className="hint">{t('保险库为空（已接线，尚无凭据）。')}</p>
           ) : (
-            <ul>
+            <ul className="vault-list">
               {data.names.map((item) => (
                 <li key={item}>
                   <span>{item}</span>
-                  <button type="button" onClick={() => void remove(item)}>
+                  <button type="button" className="btn ghost" onClick={() => void remove(item)}>
                     {t('删除')}
                   </button>
                 </li>
@@ -129,27 +129,39 @@ export function VaultTab(): ReactElement {
 
       <div className="detail-section">
         <div className="detail-h">{t('写入 / 覆盖')}</div>
-        <label>
-          {t('名称')}
+        <label className="field">
+          <span>{t('名称')}</span>
           <input
             type="text"
             value={name}
             placeholder={t('如 OPENAI_API_KEY')}
+            autoComplete="off"
             onChange={(e: { target: { value: string } }) => setName(e.target.value)}
           />
         </label>
-        <label>
-          {t('凭据')}
+        <label className="field">
+          <span>{t('凭据')}</span>
           <input
             type="password"
             value={secret}
-            placeholder={t('写入后即清空，不会回显')}
+            placeholder={t('粘贴凭据值')}
+            autoComplete="new-password"
             onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
           />
         </label>
-        <button type="button" disabled={name.trim() === '' || secret === ''} onClick={() => void save()}>
-          {t('写入')}
-        </button>
+        <div className="pane-actions">
+          <span className="panel-note" style={{ margin: 0 }}>
+            {t('写入后即清空，不会回显')}
+          </span>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={name.trim() === '' || secret === ''}
+            onClick={() => void save()}
+          >
+            {t('写入')}
+          </button>
+        </div>
       </div>
     </div>
   );

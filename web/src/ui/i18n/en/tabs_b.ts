@@ -140,6 +140,8 @@ export const EN_TABS_B: Record<string, string> = {
     '(`decision` is required — rules missing it are rejected by the server, since they would be silently ignored at runtime).',
   '当前没有任何规则（全部走默认裁决）。': 'No rules yet (everything falls back to the default decision).',
   'toolName（留空＝任意工具）': 'toolName (empty = any tool)',
+  '裁决': 'Decision',
+  '工具名': 'Tool name',
   '新增规则': 'Add rule',
   '重新载入': 'Reload',
 
@@ -275,8 +277,9 @@ export const EN_TABS_B: Record<string, string> = {
   // VaultTab
   '载入凭据列表…': 'Loading credentials…',
   '凭据保险库': 'Credential vault',
-  '只列出**名字**：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。':
+  '只列出名字：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。':
     'Lists names only: the server offers no API to read values back (credentials are for runtime use only after being written).',
+  '粘贴凭据值': 'Paste the credential value',
   '未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 ~/.omniharness/vault.key）':
     'Not wired: {reason} (if OMNIHARNESS_VAULT=0 was set, remove it and restart serve; the key defaults to ~/.omniharness/vault.key)',
   '保险库为空（已接线，尚无凭据）。': 'The vault is empty (wired up, no credentials yet).',
