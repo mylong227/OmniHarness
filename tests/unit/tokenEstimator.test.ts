@@ -90,3 +90,21 @@ test('Token 估算：accountableText 无附加载荷时逐字等于 content（�
     /^a\u0000b\u0000/,
   );
 });
+
+test('记账文本按消息对象缓存：同一对象复用不重算；原地改写 content 必须重算', () => {
+  const estimator = new TokenEstimator();
+  const message = { role: 'user', content: '甲'.repeat(600) };
+  const first = estimator.estimateMessage(message);
+  const second = estimator.estimateMessage(message);
+  assert.strictEqual(second, first, '同一对象重复估算必须同值');
+
+  // 原地改写（非不可变用法）：长度变化后必须重算，不能返回陈旧计数。
+  message.content = '甲'.repeat(1200);
+  const grown = estimator.estimateMessage(message);
+  assert.ok(grown > first, `content 变长后计数必须变大（${String(first)} → ${String(grown)}）`);
+
+  // 不同对象、相同内容：走文本缓存，数值一致（口径不因对象身份而变）。
+  const twin = { role: 'user', content: '乙'.repeat(700) };
+  const again = { role: 'user', content: '乙'.repeat(700) };
+  assert.strictEqual(estimator.estimateMessage(twin), estimator.estimateMessage(again));
+});

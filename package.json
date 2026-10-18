@@ -62,6 +62,7 @@
     "web:dev": "vite",
     "web:watch": "vite build --watch",
     "web:budget": "node scripts/webBundleBudget.mjs",
+    "perf:context": "node scripts/profileContextHotpath.mjs",
     "web:test": "npm run web:build && vitest run",
     "prepare": "tsc",
     "prepublishOnly": "npm run build && npm run web:build",

@@ -72,6 +72,21 @@ export class TokenEstimator {
   private readonly counts: TokenCountCache;
 
   /**
+   * 消息对象 → 它的记账文本（WeakMap）。
+   *
+   * `--cpu-prof` 实测（2026-10-18）：稳态记账 60 轮里 self time 前两名是
+   * `TokenCountCache.get`（45.7%，`Map.get(8KB 新字符串)` 每次重算字符串哈希）与
+   * `accountableText`（10.5%，每次重新拼接 content + toolCalls + 附件）。
+   * 相邻两步绝大多数消息是同一批对象 ⇒ 用 WeakMap 记忆「记账文本」，只有新增/改写的消息付一次拼接；
+   * 返回同一字符串实例后，V8 缓存的字符串哈希让后续 `Map.get` 只剩指针比较。
+   * WeakMap 随消息对象回收（压缩/替换后旧条目自动消失），不累积内存。
+   */
+  private readonly accountableTexts = new WeakMap<
+    TokenAccountableMessage,
+    { content: string; text: string }
+  >();
+
+  /**
    * @param maxCachedTexts 计数缓存上限（默认 512；`0` = 关闭缓存，行为与改造前逐字一致）。
    */
   public constructor(maxCachedTexts = 512) {
@@ -121,7 +136,22 @@ export class TokenEstimator {
    * @returns 该消息的 token 估算值。
    */
   public estimateMessage(message: TokenAccountableMessage): number {
-    return this.estimate(TokenEstimator.accountableText(message)) + MESSAGE_OVERHEAD_TOKENS;
+    return this.estimate(this.accountableText(message)) + MESSAGE_OVERHEAD_TOKENS;
+  }
+
+  /**
+   * 取一条消息的记账文本（按消息对象缓存，见 {@link accountableTexts}）。
+   * @param message 待估算消息
+   * @returns 参与记账的文本；同一对象恒返回同一字符串实例
+   */
+  private accountableText(message: TokenAccountableMessage): string {
+    const cached = this.accountableTexts.get(message);
+    // 内容串做同一性校验：正常路径上消息不可变（同一实例 ⇒ 指针比较 O(1)）；
+    // 若调用方**原地改写**了 content，长度/实例会变 ⇒ 重算，避免返回陈旧计数。
+    if (cached !== undefined && cached.content === message.content) return cached.text;
+    const text = TokenEstimator.accountableText(message);
+    this.accountableTexts.set(message, { content: message.content, text });
+    return text;
   }
 
   /**

@@ -3976,3 +3976,41 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 | 异步块合计           | 85.6 KB gzip（2 块） | **99.8 KB gzip（10 块，含 8 个面板）**，预算 120 |
 | axe serious/critical | 未审计               | **0（两主题 × 两状态）**                         |
 | 前端判据             | 85 文件 / 488 例     | **86 文件 / 490 例**                             |
+
+---
+
+## 21. 收口最后两点：旧样式层解散 + CPU profile 驱动的记账优化（2026-10-18）
+
+### 21.1 旧「打磨层」正式解散（13 → 11 份样式表）
+
+先量化债务：级联去重后，`legacy-a/b` 里仍有 **1054 条生效声明**，但其中
+**1032 条（97.9%）是各自 `(选择器, 属性)` 的唯一来源**——它们不是在覆盖更早的层，
+而是「只有这里定义了」。也就是说"旧层压新层"的实质债务已在去重那一步清掉，剩下的是**归属问题**。
+
+处置：把 `legacy-a` 正文**逐字**并入 `base.css` 末尾（原位置：base 之后、overlays 之前），
+把 `legacy-b` 正文**逐字**并入 `shell.css` 末尾（原位置：shell 之后、minimal 之前），删除两份文件与
+两行 import。并入后 `legacy-a.css` / `legacy-b.css` 进入 `RETIRED_STYLES`（外部工具若还原它们，
+判据只容忍"存在但未 import"）。
+
+验收不是"看截图差不多"，而是**全量计算样式等价**：`#root` 下 **209 个元素 × 40 个计算属性**
+（几何/颜色/边框/字体/弹性/网格/变换/过渡/层叠），暗色 + 亮色两套主题，快照逐属性 diff **0 条**。
+另外 `a11yContrast`（级联序 / 孤儿 / 退役名单）、`colorSystem`（色相预算 + 真机 token 接线）、
+`composerFocus`、`narrowReflow` 全部保持绿。
+
+### 21.2 CPU profile：把「每步记账」从 4.1 ms 降到 0.6 ms
+
+新增 `scripts/profileContextHotpath.mjs`（300 条消息 / ≈2.5 MB、60 轮稳态）：
+`node --cpu-prof --cpu-prof-dir=.tmp/prof scripts/profileContextHotpath.mjs` 后用 samples/timeDeltas
+聚合 self time。首轮 profile（约 310 ms 采样）前两名：
+
+| self time | 函数                             | 原因                                                                               |
+| --------- | -------------------------------- | ---------------------------------------------------------------------------------- |
+| **45.7%** | `TokenCountCache.get`            | 键是 `accountableText()` **每次新拼接**的 8 KB 字符串 ⇒ `Map.get` 每步重算整串哈希 |
+| **10.5%** | `TokenEstimator.accountableText` | 每步重新拼接 content + toolCalls + 附件                                            |
+
+优化：`TokenEstimator` 用 `WeakMap<消息对象, {content, text}>` 记忆记账文本——相邻两步绝大多数消息是
+同一批对象，只有新增/改写的那几条付拼接成本；返回**同一字符串实例**后，V8 缓存的字符串哈希让
+`Map.get` 只剩指针比较。`content` 同名校验防止调用方原地改写导致陈旧计数（附判据）。
+
+结果：**4.1 ms/轮 → 0.6 ms/轮（6.8×）**；同 profile 下 `get` 从 45.7% 降到 8.6%，
+`accountableText` 不再进前 15。判据：`tokenEstimator` 新增 1 例（同一对象复用 / 原地改写重算 / 不同对象同内容同值）。

@@ -229,12 +229,13 @@ const THEMES: ThemeMap = (() => {
 })();
 
 /**
- * **已折叠退役**的样式表（2026-10-18）：9 个 `polish-*` / `refine-*` 已按加载相位合并进
- * `legacy-a.css` / `legacy-b.css`，磁盘上不应再被 import。
+ * **已折叠退役**的样式表（2026-10-18）：9 个 `polish-*` / `refine-*` 先按加载相位合并进
+ * `legacy-a` / `legacy-b`，随后这两层也**原位并入** `base.css` / `shell.css` 并从入口移除
+ *（并入位置 = 原加载位置，计算样式全量快照 diff 为 0）——磁盘上都不应再被 import。
  *
  * 为什么要有这个名单而不是直接靠"文件不存在"：本机有外部工具把**已删除的已跟踪文件**
- * 从 HEAD 还原回磁盘（`web/vendor/` 实测过）。还原回来的 9 份文件是**旧内容的副本**，
- * 若某天又被 import，它们会与 legacy 文件形成双份规则、打乱级联——所以这里同时做两件事：
+ * 从 HEAD 还原回磁盘（`web/vendor/` 实测过）。还原回来的文件是**旧内容的副本**，
+ * 若某天又被 import，它们会与并入段形成双份规则、打乱级联——所以这里同时做两件事：
  *   ① 容忍它们"存在但未 import"（不把还原误报成孤儿）；
  *   ② 断言它们**不得**出现在 import 列表里（还原不能悄悄回到级联中）。
  */
@@ -248,6 +249,8 @@ const RETIRED_STYLES = [
   'refine-overlays.css',
   'refine-native.css',
   'refine-density.css',
+  'legacy-a.css',
+  'legacy-b.css',
 ];
 
 test('styles/ 下的 .css 必须全部被入口 main.ts import（防"文件在、没被引用"的静默失效）', () => {
@@ -261,7 +264,7 @@ test('styles/ 下的 .css 必须全部被入口 main.ts import（防"文件在�
   assert.deepStrictEqual(
     resurrected,
     [],
-    '已折叠的旧样式表不得再被 import（会与 legacy-a/b 形成双份规则、打乱级联）：\n' +
+    '已折叠的旧样式表不得再被 import（会与 base/shell 里的并入段形成双份规则、打乱级联）：\n' +
       resurrected.join('\n'),
   );
   assert.ok(FILES.length >= 10, `样式表数量异常（${FILES.length}），main.ts 解析可能失效`);
