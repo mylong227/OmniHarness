@@ -1,4 +1,4 @@
-﻿// 目录 / 文件选择器对 `fs.browse` 回包形状的**fail-closed** 判据。
+// 目录 / 文件选择器对 `fs.browse` 回包形状的**fail-closed** 判据。
 //
 // ## 现场（2026-10-07 视觉探针真机实测）
 //
@@ -10,52 +10,29 @@
 // 正确口径：形状不合法 ⇒ **当作加载失败**如实提示，故障停在这个选择器里。
 // 与 `QuotaView` 那次"形状不符卸整页"的修复同一口径（见 web/test/... 与 PROJECT_BOARD 记录）。
 //
-// 判据在**渲染树**上做（与 mount/a11y 系列同源的 zero-DOM 桩）：不依赖真浏览器，跑得快、
-// 且能精确断言"渲染期不抛错 + 出现错误文案"。
+// 判据在**真实 React + jsdom** 上做（2026-10-18 迁移）：组件挂载后真的调 `api.browseFs`，
+// 非法回包驱动出错误文案；渲染期若仍读 `undefined.length` 会直接让本文件变红。
+
+// @vitest-environment jsdom
+
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime, type StubRuntime, type StubVnode } from './hooksStub.ts';
-
-const runtime = createRuntime();
-runtime.install();
+import { renderFacadeAsync } from './rtlHarness.ts';
+import { allText, byTag } from './domFacade.ts';
 
 const { FolderPicker } = await import('../src/ui/components/FolderPicker.tsx');
 const { FilePicker } = await import('../src/ui/components/FilePicker.tsx');
 
-/** 桩运行时接受的组件函数口径（见 hooksStub 的类型口径注释）。 */
-type StubComponent = Parameters<StubRuntime['render']>[0];
-/** hook 槽位预设值（{ [hookIndex]: value }），同 StubRuntime.render 第三参。 */
-type StubSeeds = Parameters<StubRuntime['render']>[2];
-
-/** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
-function collect(vnode: unknown, pred: (n: StubVnode) => boolean, out: StubVnode[] = []): StubVnode[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) collect(k, pred, out);
-    return out;
-  }
-  if (vnode == null || typeof vnode !== 'object') return out;
-  const n = vnode as StubVnode;
-  if (pred(n)) out.push(n);
-  collect(n.children, pred, out);
-  return out;
-}
-
-/** 整棵树的文本（无缝拼接）。 */
-function texts(vnode: unknown, out: string[] = []): string[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) texts(k, out);
-    return out;
-  }
-  if (vnode == null) return out;
-  if (typeof vnode !== 'object') {
-    out.push(String(vnode));
-    return out;
-  }
-  for (const c of (vnode as StubVnode).children ?? []) texts(c, out);
-  return out;
-}
-
-/** 造一个只实现 browseFs 的 api 桩。 */
+/**
+ * 造一个只实现 browseFs 的 api 桩。
+ *
+ * 迁移说明（2026-10-18）：旧用例直接把 `api` 当 prop 传（选择器不走 AppContext），
+ * 但用 hook 槽位预设"已加载完成"。真实 React 下让组件**真的去取**：`browseFs` 返回
+ * 同一份回包，挂载 effect 走真实加载路径——形状校验因此是**被实际执行**的，而不是被绕过的。
+ *
+ * @param browseResult fs.browse 的返回体
+ * @returns api 桩
+ */
 function apiWith(browseResult: unknown) {
   return {
     calls: [] as { path: string | undefined; includeFiles: boolean | undefined }[],
@@ -70,78 +47,58 @@ function apiWith(browseResult: unknown) {
 }
 
 /**
- * 渲染一次并强制跑完挂载 effect（桩版 useEffect 是占位槽：用槽位预设注入"已完成加载"的状态）。
+ * 渲染一次并等挂载 effect 里的 `fs.browse` 落地。
  * @param Component 组件
  * @param props 属性
  * @param api api 桩
- * @param seed 槽位预设
- * @returns vnode 树
+ * @returns 外观节点
  */
-function renderAfterLoad(Component: StubComponent, props: Record<string, unknown>, api: unknown, seed?: StubSeeds) {
-  return runtime.render(Component, { ...props, api }, seed);
+async function renderAfterLoad(
+  Component: Parameters<typeof renderFacadeAsync>[0],
+  props: Record<string, unknown>,
+  api: unknown,
+) {
+  const ui = await renderFacadeAsync(Component, { props: { ...props, api } });
+  return ui.node;
 }
 
-test('FolderPicker：fs.browse 回 {} 时不得抛错，而是显示格式异常（不卸整页）', () => {
-  // 槽位：0 = browse（state），1 = load（state），2 = create（state），3 = ref（输入框）
-  const tree = renderAfterLoad(
+test('FolderPicker：fs.browse 回 {} 时不得抛错，而是显示格式异常（不卸整页）', async () => {
+  const tree = await renderAfterLoad(
     FolderPicker,
     { onCancel: () => {}, onPick: () => {}, workspace: 'D:\\w' },
     apiWith({}),
-    {
-      0: { cur: null, dirs: [], parent: undefined, roots: [], home: '' },
-      1: { loading: false, error: '目录列表返回格式异常（fs.browse）' },
-      2: { creating: false, newName: '', creatingErr: null },
-      3: { current: null },
-    },
   );
-  const text = texts(tree).join('');
-  assert.match(text, /返回格式异常/, '必须在选择器内如实提示，而不是让整页渲染出错');
+  assert.match(allText(tree), /返回格式异常/, '必须在选择器内如实提示，而不是让整页渲染出错');
 });
 
-test('FolderPicker：drives 层缺 roots/home 时按空处理（不得把 undefined 灌进 state）', () => {
-  const tree = renderAfterLoad(
+test('FolderPicker：drives 层缺 roots/home 时按空处理（不得把 undefined 灌进 state）', async () => {
+  const tree = await renderAfterLoad(
     FolderPicker,
     { onCancel: () => {}, onPick: () => {}, workspace: 'D:\\w' },
     apiWith({ level: 'drives' }),
-    {
-      0: { cur: null, dirs: [], parent: undefined, roots: [], home: '' },
-      1: { loading: false, error: null },
-      2: { creating: false, newName: '', creatingErr: null },
-      3: { current: null },
-    },
   );
-  // 关键断言：渲染不抛错（有任何 .length 读到 undefined 这里就会炸）。
-  assert.ok(tree !== null && tree !== undefined, '形状缺字段也必须能渲染');
+  // 关键断言：渲染不抛错（有任何 .length 读到 undefined 这里就会炸），且不得误报格式异常。
+  assert.ok(tree !== null, '形状缺字段也必须能渲染');
+  assert.doesNotMatch(allText(tree), /返回格式异常/, '缺 roots/home 属于可缺省字段，应按空处理');
 });
 
-test('FilePicker：dir 层缺 dirs 时不得把 undefined 灌进 state（渲染不抛错）', () => {
-  const tree = renderAfterLoad(
+test('FilePicker：dir 层缺 dirs 时不得把 undefined 灌进 state（渲染不抛错）', async () => {
+  const tree = await renderAfterLoad(
     FilePicker,
     { onCancel: () => {}, onConfirm: () => {}, workspace: 'D:\\w' },
     apiWith({ level: 'dir', path: 'D:\\w' }),
-    {
-      0: { cur: 'D:\\w', dirs: [], files: [], parent: undefined, roots: [], home: '' },
-      1: { loading: false, error: '文件列表返回格式异常（fs.browse）' },
-      2: new Set(),
-    },
   );
-  assert.match(texts(tree).join(''), /返回格式异常/, 'FilePicker 也必须 fail-closed 到错误文案');
+  assert.match(allText(tree), /返回格式异常/, 'FilePicker 也必须 fail-closed 到错误文案');
 });
 
-test('对照：合法回包（drives）正常渲染盘符与用户目录，不报格式错误', () => {
-  const tree = renderAfterLoad(
+test('对照：合法回包（drives）正常渲染盘符与用户目录，不报格式错误', async () => {
+  const tree = await renderAfterLoad(
     FolderPicker,
     { onCancel: () => {}, onPick: () => {}, workspace: 'D:\\w' },
     apiWith({ level: 'drives', roots: ['C:\\', 'D:\\'], home: 'C:\\Users\\me' }),
-    {
-      0: { cur: null, dirs: [], parent: undefined, roots: ['C:\\', 'D:\\'], home: 'C:\\Users\\me' },
-      1: { loading: false, error: null },
-      2: { creating: false, newName: '', creatingErr: null },
-      3: { current: null },
-    },
   );
-  const text = texts(tree).join('');
+  const text = allText(tree);
   assert.match(text, /用户目录/, '合法回包必须正常渲染（防止"一律报错"的假修）');
   assert.doesNotMatch(text, /返回格式异常/);
-  assert.ok(collect(tree, (n) => n.type === 'div').length > 3, '应渲染出条目列表');
+  assert.ok(byTag(tree, 'div').length > 3, '应渲染出条目列表');
 });

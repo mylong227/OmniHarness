@@ -1,19 +1,23 @@
-﻿// 变更页键盘评审（A1）：模型层按键解析 + 组件层真实 keydown → 选中移动 / stage / revert / 评论 / 帮助。
-// 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
+// 变更页键盘评审（A1）：模型层按键解析 + 组件层真实 keydown → 选中移动 / stage / revert / 评论 / 帮助。
 //
 // 断言口径（避免「测了个寂寞」）：
-//   · 选中移动：既断言 ReviewCursor 的权威序号（hook 槽位 10），也重渲染断言高亮类名跟着走；
+//   · 选中移动：断言渲染出的高亮块头（`aria-current=true` / 文件行 `selected`）真的跟着走；
 //   · a / r：断言真实 RPC 桩被调用且送的是**选中那一块**的 hunk 文本（不是第一块）；
-//   · 输入框内：同一次按键换成 TEXTAREA 目标，RPC 必须一次都不发。
+//   · 输入框内：把按键派发到真实 TEXTAREA / INPUT / contenteditable 目标上，RPC 必须一次都不发。
+//
+// 迁移（2026-10-18）：旧用例用 hook 槽位摆"已展开 + patch"，再直接调 props.onKeyDown。
+// 现在组件真的取数、真的展开，按键走 `fireEvent.keyDown`（React 的真实事件系统）。
+
+// @vitest-environment jsdom
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
-import type { StubVnode } from './hooksStub.ts';
+import userEvent from '@testing-library/user-event';
+import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
+import { allText, byClass, byTag, facadeOf } from './domFacade.ts';
+import type { Facade, FacadeNode } from './domFacade.ts';
 import type { ReviewKeyLike, ReviewTargetLike } from '../src/ui/models/ReviewKeyboard.ts';
 
-const runtime = createRuntime();
-runtime.install();
 const { ReviewKeyboard } = await import('../src/ui/models/ReviewKeyboard.ts');
 const { ReviewCursor } = await import('../src/ui/models/ReviewCursor.ts');
 const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
@@ -41,43 +45,17 @@ const PATCH = [
 
 const FILES = [{ path: 'src/app.ts', status: ' M', additions: 3, deletions: 3 }];
 
-/** hook 槽位（与 ChangesTab 的调用序一一对应）。 */
-const H = {
-  data: 0,
-  error: 1,
-  loaded: 2,
-  expanded: 3,
-  patch: 4,
-  patchLoading: 5,
-  comments: 6,
-  busyAct: 7,
-  draft: 8,
-  draftText: 9,
-  selected: 10,
-  help: 11,
-};
-
 /** 让排队的 promise 全部落地。 */
 async function flush() {
   await new Promise((resolve) => setImmediate(resolve));
 }
 
-/** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
-function collect(vnode: unknown, pred: (n: StubVnode) => boolean, out: StubVnode[] = []): StubVnode[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) collect(k, pred, out);
-    return out;
-  }
-  if (vnode == null || typeof vnode !== 'object') return out;
-  // 遍历的是渲染树（vnode / 文本 / 数组的混合），能走到这里必是对象节点；
-  // 具体是不是 StubVnode 由调用方的谓词保证，故收窄一次。
-  const node = vnode as StubVnode;
-  if (pred(node)) out.push(node);
-  collect(node.children, pred, out);
-  return out;
-}
-
-/** 构造一次按键事件（默认目标是普通 div，即「不在输入框内」）。 */
+/**
+ * 构造一次按键事件（模型层测试用）。
+ * @param key 按键
+ * @param target 事件目标（缺省普通 div）
+ * @returns ReviewKeyLike
+ */
 function keyPress(key: string, target?: ReviewTargetLike): ReviewKeyLike & { preventDefault(): void } {
   return {
     key,
@@ -94,6 +72,8 @@ interface ReviewCalls {
   revertHunk: { path: string; hunk: string }[];
   stageFile: string[];
   revertFile: string[];
+  addDiffComment: { path: string; side: string; line: number; text: string }[];
+  opened: string[];
   confirms: number;
 }
 
@@ -104,25 +84,33 @@ interface ToastCall {
 }
 
 /**
- * 安装 API / 对话框 / toast 桩并渲染一次已展开文件的 ChangesTab。
- * @param overrides 额外覆盖的 hook 槽位（如 help / selected）
- * @param isGit 是否 git 工作区
- * @returns 渲染产物与调用记录
+ * 安装 API / 对话框 / toast 桩，渲染 ChangesTab。
+ *
+ * @param options.isGit 是否 git 工作区
+ * @param options.expand 是否点开文件（true 时等 patch 加载完）
+ * @param options.files 变更清单（收起态用例用两个文件）
+ * @returns 渲染句柄与调用记录
  */
-function setup(overrides: Record<number, unknown> = {}, isGit = true) {
-  const calls: ReviewCalls = { stageHunk: [], revertHunk: [], stageFile: [], revertFile: [], confirms: 0 };
+async function setup(options: { isGit?: boolean; expand?: boolean; files?: unknown[] } = {}) {
+  const isGit = options.isGit ?? true;
+  const files = options.files ?? FILES;
+  const calls: ReviewCalls = {
+    stageHunk: [],
+    revertHunk: [],
+    stageFile: [],
+    revertFile: [],
+    addDiffComment: [],
+    opened: [],
+    confirms: 0,
+  };
   const toasts: ToastCall[] = [];
-  // 桩 api 需带上 StubAppContext.api 的 4 个基础方法（赋值目标形状如此），
-  // 再叠加 ChangesTab 真实用到的变更方法（签名对齐 src ApiClient）。
-  const api = {
-    getConfig: async () => ({}),
-    updateConfig: async () => ({}),
-    listSessions: async () => [],
-    rpc: async () => ({}),
+  const responses: Record<string, unknown> = {
     async listChanges(path?: string) {
-      return path === undefined
-        ? { source: isGit ? 'git' : 'session', branch: 'main', files: FILES }
-        : { source: isGit ? 'git' : 'session', patch: PATCH };
+      if (path === undefined) {
+        return { source: isGit ? 'git' : 'session', branch: 'main', files };
+      }
+      calls.opened.push(path);
+      return { source: isGit ? 'git' : 'session', patch: PATCH };
     },
     async stageHunk(path: string, hunk: string, isNew: boolean) {
       calls.stageHunk.push({ path, hunk, isNew });
@@ -140,62 +128,65 @@ function setup(overrides: Record<number, unknown> = {}, isGit = true) {
       calls.revertFile.push(path);
       return { ok: true };
     },
+    async addDiffComment(path: string, side: string, line: number, text: string) {
+      calls.addDiffComment.push({ path, side, line, text });
+      return { ok: true };
+    },
     async listDiffComments() {
       return { comments: [] };
     },
   };
-  runtime.appContext.api = api;
-  runtime.appContext.toast = (m?: string, k?: string) => {
-    toasts.push({ m, k });
-  };
-  runtime.appContext.dialog = {
-    async confirm() {
-      calls.confirms += 1;
-      return true;
+  const ui = await renderFacadeAsync(ChangesTab, {
+    props: {},
+    responses,
+    onToast: (m, k) => toasts.push({ m, k }),
+    app: {
+      dialog: {
+        async confirm() {
+          calls.confirms += 1;
+          return true;
+        },
+        async prompt() {
+          return null;
+        },
+      },
     },
-    async prompt() {
-      return null;
-    },
-  };
-  runtime.reset();
-  const vnode = runtime.render(
-    ChangesTab,
-    {},
-    {
-      [H.data]: { source: isGit ? 'git' : 'session', branch: 'main', files: FILES },
-      [H.error]: null,
-      [H.loaded]: true,
-      [H.expanded]: 'src/app.ts',
-      [H.patch]: PATCH,
-      [H.patchLoading]: false,
-      [H.comments]: [],
-      [H.busyAct]: null,
-      [H.draft]: null,
-      [H.draftText]: '',
-      ...overrides,
-    },
-  );
-  return { vnode, calls, toasts };
+  });
+  /** 从同一容器取当前渲染树（按键会重渲染）。 */
+  const tree = (): Facade => facadeOf(ui.container.firstElementChild);
+
+  if (options.expand !== false) {
+    const row = byClass(tree(), 'change-row')[0];
+    assert.ok(row !== undefined, '必须渲染改动的文件行');
+    fireEvent.click(row.el);
+    await waitFor(() => {
+      if (byClass(tree(), 'review').length === 0) throw new Error('patch 尚未加载完成');
+    });
+  }
+  return { ui, tree, calls, toasts, responses };
 }
 
-/** 取键盘评审根节点（data-review-root 标记，避免与内部按钮的 onKeyDown 混淆）。 */
-function reviewRoot(vnode: unknown): StubVnode {
-  const root = collect(vnode, (n) => n.props['data-review-root'] === '1')[0];
-  assert.ok(root, '必须渲染 data-review-root 的键盘评审容器');
+/** 取键盘评审根节点（`data-review-root` 标记，避免与内部控件的 keydown 混淆）。 */
+function reviewRoot(tree: Facade): FacadeNode {
+  const root = byTag(tree, 'div').find((n) => n.props['data-review-root'] === '1');
+  assert.ok(root !== undefined, '必须渲染 data-review-root 的键盘评审容器');
   return root;
 }
 
-/** 按一次键（真实调用组件挂的 onKeyDown prop）。 */
-function press(vnode: unknown, key: string, target?: ReviewTargetLike): void {
-  // props 值在桩类型里是 unknown；运行时这里确定是 onKeyDown 回调，收窄后调用。
-  const handler = reviewRoot(vnode).props.onKeyDown as (e: ReviewKeyLike) => void;
-  handler(keyPress(key, target));
+/**
+ * 按一次键（真实 `keydown`，目标默认为评审根节点）。
+ * @param tree 当前渲染树
+ * @param key 按键
+ * @param target 事件目标（缺省评审根）
+ * @returns 无
+ */
+function press(tree: Facade, key: string, target?: Element): void {
+  fireEvent.keyDown(target ?? reviewRoot(tree).el, { key });
 }
 
 /** 当前渲染出的选中块下标（aria-current=true 的块头），无选中返回 -1。 */
-function selectedHunk(vnode: unknown): number {
-  // 用 data-hunk-idx 精确定位块头：className 子串匹配会连 `.hunk-header` 一起收进来。
-  const heads = collect(vnode, (n) => n.props['data-hunk-idx'] !== undefined);
+function selectedHunk(tree: Facade): number {
+  const heads = byTag(tree, 'div').filter((n) => n.props['data-hunk-idx'] !== undefined);
   return heads.findIndex((h) => h.props['aria-current'] === 'true');
 }
 
@@ -262,188 +253,187 @@ test('ReviewCursor：序号权威副本 + 帮助开关（连按不丢步）', ()
 
 // ---- 组件层：真实按键落到真实 RPC ----
 
-test('ChangesTab：初始即选中首块（键盘空间可见，不必先按一次键）', () => {
-  const { vnode } = setup();
-  assert.strictEqual(selectedHunk(vnode), 0);
+test('ChangesTab：初始即选中首块（键盘空间可见，不必先按一次键）', async () => {
+  const { tree } = await setup();
+  assert.strictEqual(selectedHunk(tree()), 0);
 });
 
-test('ChangesTab：j / ArrowDown 把选中推进到下一块，k / ArrowUp 退回（含夹取）', () => {
-  const { vnode } = setup();
-  press(vnode, 'j');
-  assert.strictEqual(runtime.get(H.selected), 1, '权威序号必须前进');
-  let next = runtime.render(ChangesTab, {});
-  assert.strictEqual(selectedHunk(next), 1, '高亮必须跟着走');
+test('ChangesTab：j / ArrowDown 把选中推进到下一块，k / ArrowUp 退回（含夹取）', async () => {
+  const { tree } = await setup();
+  press(tree(), 'j');
+  assert.strictEqual(selectedHunk(tree()), 1, '高亮必须跟着走');
 
-  press(next, 'ArrowDown');
-  next = runtime.render(ChangesTab, {});
-  assert.strictEqual(selectedHunk(next), 2);
+  press(tree(), 'ArrowDown');
+  assert.strictEqual(selectedHunk(tree()), 2);
 
-  press(next, 'j');
-  next = runtime.render(ChangesTab, {});
-  assert.strictEqual(selectedHunk(next), 2, '末尾夹取');
+  press(tree(), 'j');
+  assert.strictEqual(selectedHunk(tree()), 2, '末尾夹取');
 
-  press(next, 'k');
-  next = runtime.render(ChangesTab, {});
-  assert.strictEqual(selectedHunk(next), 1);
+  press(tree(), 'k');
+  assert.strictEqual(selectedHunk(tree()), 1);
 });
 
 test('ChangesTab：a 对**当前选中块**执行 stage（送的是第二块的 hunk 文本）', async () => {
-  const { vnode, calls, toasts } = setup();
-  press(vnode, 'j');
-  press(vnode, 'a');
-  await flush();
+  const { tree, calls, toasts } = await setup();
+  press(tree(), 'j');
+  press(tree(), 'a');
+  await waitFor(() => {
+    if (calls.stageHunk.length !== 1 || toasts.length === 0) throw new Error('stage 尚未完成');
+  });
   assert.strictEqual(calls.stageHunk.length, 1);
-  assert.strictEqual(calls.stageHunk[0].path, 'src/app.ts');
-  assert.match(calls.stageHunk[0].hunk, /^@@ -10,3 \+10,3 @@/, '必须送选中块（第二块）的 @@ 头');
-  assert.match(calls.stageHunk[0].hunk, /\+const d = 3;/);
+  assert.strictEqual(calls.stageHunk[0]!.path, 'src/app.ts');
+  assert.match(calls.stageHunk[0]!.hunk, /^@@ -10,3 \+10,3 @@/, '必须送选中块（第二块）的 @@ 头');
+  assert.match(calls.stageHunk[0]!.hunk, /\+const d = 3;/);
   assert.deepEqual(toasts[0], { m: '已 stage 该块', k: 'ok' });
 });
 
 test('ChangesTab：r 先确认再 revert 选中块（破坏性操作不静默）', async () => {
-  const { vnode, calls, toasts } = setup();
-  press(vnode, 'j');
-  press(vnode, 'j');
-  press(vnode, 'r');
-  await flush();
+  const { tree, calls, toasts } = await setup();
+  press(tree(), 'j');
+  press(tree(), 'j');
+  press(tree(), 'r');
+  await waitFor(() => {
+    if (calls.revertHunk.length !== 1 || toasts.length === 0) throw new Error('revert 尚未完成');
+  });
   assert.strictEqual(calls.confirms, 1, '必须先经 DialogService 确认');
   assert.strictEqual(calls.revertHunk.length, 1);
-  assert.match(calls.revertHunk[0].hunk, /^@@ -20,3 \+20,3 @@/, '必须送第三块');
+  assert.match(calls.revertHunk[0]!.hunk, /^@@ -20,3 \+20,3 @@/, '必须送第三块');
   assert.deepEqual(toasts[0], { m: '已还原该块', k: 'ok' });
 });
 
-test('ChangesTab：c 在选中块的首个改动行开评论草稿', () => {
-  const { vnode } = setup();
-  press(vnode, 'j');
-  press(vnode, 'c');
-  const draft = runtime.get(H.draft);
-  assert.deepEqual(
-    draft,
-    { path: 'src/app.ts', side: 'old', line: 11 },
-    '第二块首个改动行 = 旧文件第 11 行',
-  );
-  const next = runtime.render(ChangesTab, {});
-  const boxes = collect(
-    next,
-    (n) => typeof n.props.className === 'string' && n.props.className.includes('diff-draft'),
-  );
+test('ChangesTab：c 在选中块的首个改动行开评论草稿，保存时送对该行号', async () => {
+  const { tree, calls } = await setup();
+  press(tree(), 'j');
+  press(tree(), 'c');
+  const boxes = byClass(tree(), 'diff-draft');
   assert.strictEqual(boxes.length, 1, '草稿输入框必须真的渲染出来');
+  const textarea = byTag(tree(), 'textarea')[0];
+  assert.ok(textarea !== undefined);
+  assert.strictEqual(textarea.props['aria-label'], '行内评论内容');
+
+  // 保存走真实输入 → 断言回传的锚点就是「第二块首个改动行 = 旧文件第 11 行」。
+  const user = userEvent.setup();
+  await user.type(textarea.el as HTMLElement, '这里要改');
+  const save = byTag(tree(), 'button').find((b) => allText(b) === '保存');
+  assert.ok(save !== undefined, '草稿必须有保存按钮');
+  fireEvent.click(save.el);
+  await waitFor(() => {
+    if (calls.addDiffComment.length !== 1) throw new Error('评论尚未保存');
+  });
+  assert.deepEqual(calls.addDiffComment[0], {
+    path: 'src/app.ts',
+    side: 'old',
+    line: 11,
+    text: '这里要改',
+  });
 });
 
-test('ChangesTab：输入框（TEXTAREA/INPUT）内按 a / r / c 一律不触发任何动作', async () => {
-  const { vnode, calls } = setup();
-  press(vnode, 'a', { tagName: 'TEXTAREA' });
-  press(vnode, 'r', { tagName: 'INPUT' });
-  press(vnode, 'c', { isContentEditable: true });
-  press(vnode, 'j', { tagName: 'TEXTAREA' });
+test('ChangesTab：输入框 / 文本域 / contenteditable 内按 a / r / c 一律不触发任何动作', async () => {
+  const { tree, calls } = await setup();
+  const root = reviewRoot(tree());
+
+  /**
+   * 在评审根内临时插入一个真实控件并派发按键（事件会冒泡到组件的 onKeyDown）。
+   * @param el 控件元素
+   * @param key 按键
+   */
+  const pressOn = (el: HTMLElement, key: string): void => {
+    root.el.appendChild(el);
+    try {
+      fireEvent.keyDown(el, { key });
+    } finally {
+      el.remove();
+    }
+  };
+
+  const textarea = document.createElement('textarea');
+  pressOn(textarea, 'a');
+  pressOn(textarea, 'j');
+
+  const input = document.createElement('input');
+  pressOn(input, 'r');
+
+  const editable = document.createElement('div');
+  editable.setAttribute('contenteditable', 'true');
+  // jsdom 未实现 `isContentEditable`（恒 false），组件按该属性判断"在打字"。
+  // 这里把被测代码真正读取的属性显式补上，模拟浏览器里 contenteditable 元素的形态。
+  Object.defineProperty(editable, 'isContentEditable', { value: true });
+  pressOn(editable, 'c');
+
   await flush();
   assert.strictEqual(calls.stageHunk.length, 0);
   assert.strictEqual(calls.revertHunk.length, 0);
   assert.strictEqual(calls.confirms, 0);
-  assert.strictEqual(runtime.get(H.draft), null, '输入框内不得开评论草稿');
-  assert.strictEqual(runtime.get(H.selected), -1, '输入框内不得移动选中');
+  assert.strictEqual(byClass(tree(), 'diff-draft').length, 0, '输入框内不得开评论草稿');
+  assert.strictEqual(selectedHunk(tree()), 0, '输入框内不得移动选中');
 });
 
-test('ChangesTab：? 开合快捷键帮助，Esc 关闭', () => {
-  const { vnode } = setup();
+test('ChangesTab：? 开合快捷键帮助，Esc 关闭', async () => {
+  const { tree } = await setup();
   assert.strictEqual(
-    collect(vnode, (n) => n.props['data-review-help'] === '1').length,
+    byTag(tree(), 'div').filter((n) => n.props['data-review-help'] === '1').length,
     0,
     '默认不展开',
   );
-  press(vnode, '?');
-  assert.strictEqual(runtime.get(H.help), true);
-  let next = runtime.render(ChangesTab, {});
-  const help = collect(next, (n) => n.props['data-review-help'] === '1');
+  press(tree(), '?');
+  const help = byTag(tree(), 'div').filter((n) => n.props['data-review-help'] === '1');
   assert.strictEqual(help.length, 1, '按 ? 必须渲染帮助面板');
-  assert.strictEqual(help[0].props.role, 'dialog');
-  assert.match(String(help[0].props['aria-label']), /快捷键/);
+  assert.strictEqual(help[0]!.props.role, 'dialog');
+  assert.match(String(help[0]!.props['aria-label']), /快捷键/);
 
-  press(next, '?');
-  next = runtime.render(ChangesTab, {});
+  press(tree(), '?');
   assert.strictEqual(
-    collect(next, (n) => n.props['data-review-help'] === '1').length,
+    byTag(tree(), 'div').filter((n) => n.props['data-review-help'] === '1').length,
     0,
     '再按 ? 收起',
   );
 
-  press(next, '?');
-  next = runtime.render(ChangesTab, {});
-  press(next, 'Escape');
-  next = runtime.render(ChangesTab, {});
+  press(tree(), '?');
+  press(tree(), 'Escape');
   assert.strictEqual(
-    collect(next, (n) => n.props['data-review-help'] === '1').length,
+    byTag(tree(), 'div').filter((n) => n.props['data-review-help'] === '1').length,
     0,
     'Esc 必须能关掉帮助',
   );
 });
 
 test('ChangesTab：非 git 工作区按键评审不产生任何写操作（fail-closed + 提示）', async () => {
-  const { vnode, calls, toasts } = setup({}, false);
-  press(vnode, 'a');
-  press(vnode, 'r');
-  await flush();
+  const { tree, calls, toasts } = await setup({ isGit: false });
+  press(tree(), 'a');
+  press(tree(), 'r');
+  await waitFor(() => {
+    if (toasts.length === 0) throw new Error('尚未给出提示');
+  });
   assert.strictEqual(calls.stageHunk.length, 0);
   assert.strictEqual(calls.revertHunk.length, 0);
   assert.strictEqual(calls.confirms, 0);
-  assert.match(toasts[0].m!, /非 git 工作区/);
-  assert.strictEqual(toasts[0].k, 'err');
+  assert.match(toasts[0]!.m!, /非 git 工作区/);
+  assert.strictEqual(toasts[0]!.k, 'err');
 });
 
 test('ChangesTab：收起态（未展开文件）j/k 在文件清单上移动，Enter 打开选中文件', async () => {
-  const calls = { listChanges: 0 };
-  const opened: string[] = [];
-  // 桩 api 需带上 StubAppContext.api 的 4 个基础方法（赋值目标形状如此），
-  // 再叠加本用例用到的 listChanges / listDiffComments（签名对齐 src ApiClient）。
-  const api = {
-    getConfig: async () => ({}),
-    updateConfig: async () => ({}),
-    listSessions: async () => [],
-    rpc: async () => ({}),
-    async listChanges(path?: string) {
-      calls.listChanges += 1;
-      if (path !== undefined) opened.push(path);
-      return path === undefined
-        ? {
-            source: 'git',
-            files: [
-              { path: 'src/a.ts', status: ' M', additions: 1, deletions: 1 },
-              { path: 'src/b.ts', status: ' M', additions: 1, deletions: 1 },
-            ],
-          }
-        : { source: 'git', patch: PATCH };
-    },
-    async listDiffComments() {
-      return { comments: [] };
-    },
-  };
-  runtime.appContext.api = api;
-  runtime.reset();
-  const vnode = runtime.render(
-    ChangesTab,
-    {},
-    {
-      [H.data]: {
-        source: 'git',
-        files: [
-          { path: 'src/a.ts', status: ' M', additions: 1, deletions: 1 },
-          { path: 'src/b.ts', status: ' M', additions: 1, deletions: 1 },
-        ],
-      },
-      [H.error]: null,
-      [H.loaded]: true,
-      [H.expanded]: null,
-      [H.patch]: '',
-      [H.patchLoading]: false,
-      [H.comments]: [],
-      [H.busyAct]: null,
-      [H.draft]: null,
-      [H.draftText]: '',
-    },
-  );
-  assert.strictEqual(selectedHunk(vnode), -1, '未展开时没有改动块可选中');
-  press(vnode, 'j');
-  assert.strictEqual(runtime.get(H.selected), 1, '文件清单上的选中同样会移动');
-  press(vnode, 'Enter');
-  await flush();
-  assert.deepEqual(opened, ['src/b.ts'], 'Enter 打开的是选中的那个文件');
+  const files = [
+    { path: 'src/a.ts', status: ' M', additions: 1, deletions: 1 },
+    { path: 'src/b.ts', status: ' M', additions: 1, deletions: 1 },
+  ];
+  const { tree, calls } = await setup({ expand: false, files });
+  assert.strictEqual(selectedHunk(tree()), -1, '未展开时没有改动块可选中');
+
+  press(tree(), 'j');
+  const rows = byClass(tree(), 'change-item');
+  const selectedRows = rows.filter((r) => clsOf(r).includes('selected'));
+  assert.strictEqual(selectedRows.length, 1, '文件清单上的选中同样会移动');
+  assert.match(allText(selectedRows[0]!), /src\/b\.ts/, '应选中第二个文件');
+
+  press(tree(), 'Enter');
+  await waitFor(() => {
+    if (!calls.opened.includes('src/b.ts')) throw new Error('尚未打开选中文件');
+  });
+  assert.deepEqual(calls.opened, ['src/b.ts'], 'Enter 打开的是选中的那个文件');
 });
+
+/** 取 className（与 domFacade.clsOf 同语义；本文件只在“文件行选中态”处用到）。 */
+function clsOf(n: FacadeNode): string {
+  const v = n.props['className'];
+  return typeof v === 'string' ? v : '';
+}

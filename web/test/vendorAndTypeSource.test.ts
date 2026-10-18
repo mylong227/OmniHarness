@@ -72,13 +72,45 @@ test('React 直接从 npm 包 import：deps.ts 间接层已彻底删除', () => 
   //
   // 它曾是「零打包器 + UMD 全局」时代的收口点：从 `window.React` 取 UMD 全局再导出，
   // 附带一个 `injected()` 分支给测试注入桩。迁移到 Vite 后这两件事都不需要了——
-  // UI 直接 `import * as React from 'react'`，测试侧由 vitest 的 `resolve.alias`
-  // 把 `react` 指到 `web/test/hooksStub.ts`（不再靠全局注入）。
+  // UI 与测试都直接 `import * as React from 'react'`（2026-10-18 最后一个 react 别名
+  // 垫片也已随组件判据全量迁到 RTL 而删除）。
   //
   // 这条判据因此从"deps.ts 必须 import"翻转为"deps.ts 必须不存在"，并守住新形态。
   assert.ok(
     !existsSync(join(WEB_ROOT, 'src', 'ui', 'deps.ts')),
     'deps.ts 间接层不得回归：UI 应直接 import react（否则就是两套 React 取用方式）',
+  );
+
+  // 组件测试垫片不得回归：hooksStub / jsxRuntimeStub 是「手写 React 替身」时代的遗物，
+  // 现在测试跑真实 React。**不对磁盘存在性做断言**——本机有外部同步工具会把已删除的已跟踪
+  // 文件从对象库还原回磁盘（`web/vendor` 已有同口径注释）；还原出来但没人引用的垫片是惰性的，
+  // 不会造成第二套运行时。真正要守的是：没有任何测试再 import 它们 + workspace 不再配别名。
+  const stubImporters: string[] = [];
+  for (const name of readdirSync(join(WEB_ROOT, 'test'))) {
+    if (!name.endsWith('.test.ts') || name === 'vendorAndTypeSource.test.ts') continue;
+    const src = readFileSync(join(WEB_ROOT, 'test', name), 'utf8');
+    const code = src
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => !line.startsWith('//') && !line.startsWith('*') && !line.startsWith('/*'))
+      .join('\n');
+    if (/from '\.\/(?:hooksStub|jsxRuntimeStub)(?:\.ts)?'/u.test(code)) stubImporters.push(name);
+  }
+  assert.deepEqual(stubImporters, [], `这些测试仍在 import 已删除的 React 垫片：\n${stubImporters.join('\n')}`);
+  const workspace = read('vitest.workspace.ts');
+  // 只看代码行：本文件的历史说明里会提到两个垫片名字（"迁移前是这么干的"），是留痕不是配置。
+  const workspaceCode = workspace
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => !line.startsWith('//'))
+    .join('\n');
+  assert.ok(
+    !/hooksStub|jsxRuntimeStub/u.test(workspaceCode),
+    'vitest.workspace.ts 不得再把 react 别名指到测试桩',
+  );
+  assert.ok(
+    !/find:\s*\/\^react\$/u.test(workspaceCode),
+    'vitest.workspace.ts 不得再给 react 配别名（只保留一套真实 React）',
   );
 
   // 抽样三个层级，确认都走标准写法（而不是漏改的 deps 导入）。
@@ -202,10 +234,6 @@ test('标准 Vite 工程的三个必备件：vite-env.d.ts / StrictMode / .tsx �
     /React\.StrictMode/u,
     'mountApp 必须把树包进 React.StrictMode（标准 React 模板默认形态）',
   );
-  // 桩必须跟着有：否则 createElement(undefined) 会造出 type=undefined 的节点，
-  // 表现是"挂载了但什么都没渲染"（已踩过一次）。
-  const stub = read('web/test/hooksStub.ts');
-  assert.match(stub, /export const StrictMode =/u, 'hooksStub 必须导出 StrictMode（react 模块替身要完整）');
 
   // ③ `.tsx` 必须纳入 lint —— 2026-10-17 之前只写了 `**/*.ts`，
   //    60 个组件文件（约 116 KB）从未被 lint，属于"整层代码在门禁之外"。

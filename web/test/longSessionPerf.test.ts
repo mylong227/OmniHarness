@@ -1,20 +1,22 @@
-﻿// 长会话性能与稳定性回归护栏（虚拟化 / 流式节流 / 贴底策略）。
+// 长会话性能与稳定性回归护栏（虚拟化 / 流式节流 / 贴底策略）。
 //
-// 零 DOM 桩：不加载真实 React/ReactDOM，用 hooksStub 的函数组件运行时驱动 StreamView()，
-// 对产出的 vnode 树断言「实际渲染的块数」；StreamThrottle 用注入的确定性假时钟驱动，
-// 全程无真实计时依赖（不 sleep、不等 rAF），任何机器上结果一致。
-//
-// 直跑方式（先 npm run web:build）：node web/test/longSessionPerf.test.mjs
+// 迁移（2026-10-18）：从零 DOM 桩迁到**真实 React + jsdom**。
+//   · 模型层（StreamWindow / StreamThrottle / 贴底策略）本来就是纯函数，原样保留；
+//   · 虚拟化用真实渲染的 DOM 信号（`data-virtual` / `data-rendered-count`）断言；
+//   · jsdom 没有布局：`clientHeight` 恒 0 ⇒ StreamWindow 走**兜底视口 600px**（组件明确设计好的路径），
+//     块高走估算 88px（`offsetHeight` 恒 0，索引不写入）。滚动用 `scrollTop` 赋值 + `fireEvent.scroll`
+//     驱动真实 `onScroll`，窗口重算因此是**真实代码路径**，而不是手工摆 state。
+//   · 全程无真实计时依赖（不 sleep、不等 rAF），任何机器上结果一致。
+
+// @vitest-environment jsdom
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime, type StubVnode } from './hooksStub.ts';
+import { fireEvent, renderFacade } from './rtlHarness.ts';
+import { byClass, facadeOf, walk } from './domFacade.ts';
+import type { Facade, FacadeNode } from './domFacade.ts';
 import type { ThreadEvent } from '../src/types/models.ts';
 import type { StreamViewProps } from '../src/ui/components/StreamView.tsx';
-
-// deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
-const runtime = createRuntime();
-runtime.install();
 
 const { StreamView } = await import('../src/ui/components/StreamView.tsx');
 const { StreamWindow } = await import('../src/ui/models/StreamWindow.ts');
@@ -60,7 +62,8 @@ function baseProps(events: ThreadEvent[], extra: Partial<StreamViewProps> = {}) 
     model: '',
     reasoning: '',
     permission: '',
-    api: {},
+    // 真实的 StreamView 会渲染 Composer（内含 PermissionPicker），后者挂载即拉档位表。
+    api: { approvalTiers: async () => ({ tiers: [] }) },
     onModelChange: () => {},
     onReasoningChange: () => {},
     onPermissionChange: () => {},
@@ -69,52 +72,43 @@ function baseProps(events: ThreadEvent[], extra: Partial<StreamViewProps> = {}) 
 }
 
 /**
- * 渲染一次 StreamView（清空 hook 槽位，保证与上一个用例互不串味）。
+ * 渲染一次 StreamView。
  * @param events 事件数组
  * @param extra 追加属性
- * @returns vnode 树
+ * @returns 渲染句柄（`tree()` 取当前外观树）
  */
 function renderStream(events: ThreadEvent[], extra: Partial<StreamViewProps> = {}) {
-  runtime.reset();
-  return runtime.render(StreamView, baseProps(events, extra));
+  const ui = renderFacade(StreamView, { props: baseProps(events, extra) });
+  return { ...ui, tree: (): Facade => facadeOf(ui.container.firstElementChild) };
 }
 
-/** 节点谓词口径：入参保证为桩 createElement 产出的 vnode。 */
-type VnodePredicate = (n: StubVnode) => boolean;
-
-/** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
-function collect(vnode: unknown, pred: VnodePredicate, out: StubVnode[] = []): StubVnode[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) collect(k, pred, out);
-    return out;
-  }
-  if (vnode == null || typeof vnode !== 'object') return out;
-  const node = vnode as StubVnode;
-  if (pred(node)) out.push(node);
-  collect(node.children, pred, out);
+/** 深度收集满足谓词的节点。 */
+function collect(node: Facade, pred: (n: FacadeNode) => boolean): FacadeNode[] {
+  const out: FacadeNode[] = [];
+  walk(node, (n) => {
+    if (pred(n)) out.push(n);
+  });
   return out;
 }
 
-/** 统计 vnode 树里的节点总数（字符串 / 数字叶子不计）。 */
-function nodeCount(vnode: unknown): number {
-  if (Array.isArray(vnode)) return vnode.reduce((n, k) => n + nodeCount(k), 0);
-  if (vnode == null || typeof vnode !== 'object') return 0;
-  return 1 + nodeCount((vnode as StubVnode).children);
+/** 统计外观树里的元素节点总数（文本叶子不计）。 */
+function nodeCount(node: Facade): number {
+  return collect(node, () => true).length;
 }
 
 /** 取带 data-virtual 的虚拟化根节点。 */
-function virtualRoot(vnode: unknown): StubVnode | null {
-  return collect(vnode, (n) => (n.props ?? {})['data-virtual'] === '1')[0] ?? null;
+function virtualRoot(node: Facade): FacadeNode | undefined {
+  return collect(node, (n) => n.props['data-virtual'] === '1')[0];
 }
 
 /** 取 role=log 的滚动容器（虚拟化根节点即它）。 */
-function logRoot(vnode: unknown): StubVnode | null {
-  return collect(vnode, (n) => (n.props ?? {}).role === 'log')[0] ?? null;
+function logRoot(node: Facade): FacadeNode | undefined {
+  return collect(node, (n) => n.props.role === 'log')[0];
 }
 
 /** 取某节点的数值型 data 属性。 */
-function dataNum(node: StubVnode, attr: string): number {
-  return Number((node.props ?? {})[attr]);
+function dataNum(node: FacadeNode, attr: string): number {
+  return Number(node.props[attr]);
 }
 
 /**
@@ -165,28 +159,32 @@ function makeClock(start = 0) {
 // ---- a) 消息列表虚拟化：渲染块数与总条数脱钩 ----
 
 test('虚拟化：400 条事件只渲染可视窗口，渲染数远小于总条数', () => {
-  const vnode = renderStream(makeEvents(400));
-  const root = virtualRoot(vnode);
-  assert.ok(root, '虚拟化根节点必须带 data-virtual="1"');
+  const { tree } = renderStream(makeEvents(400));
+  const root = virtualRoot(tree());
+  assert.ok(root !== undefined, '虚拟化根节点必须带 data-virtual="1"');
   assert.strictEqual(root.props['data-virtual'], '1');
   assert.strictEqual(root.props['data-total-count'], '400', '总条数信号必须是 400');
   assert.strictEqual(root.props['data-event-count'], '400');
-  assert.strictEqual(logRoot(vnode), root, '虚拟化根节点即滚动容器（role=log）');
+  assert.strictEqual(
+    logRoot(tree())!.el,
+    root.el,
+    '虚拟化根节点即滚动容器（role=log）',
+  );
 
   const rendered = dataNum(root, 'data-rendered-count');
   assert.ok(rendered > 0, '窗口非空');
   assert.ok(rendered <= RENDER_BOUND, `400 条时渲染块数应 ≤ ${RENDER_BOUND}，实测 ${rendered}`);
   assert.ok(rendered * 10 < 400, `渲染块数应远小于 400，实测 ${rendered}`);
   // 事件块节点数 = 窗口块数（未渲染的块根本不产生 DOM）
-  const evNodes = collect(vnode, (n) => String((n.props ?? {}).className ?? '').startsWith('ev '));
+  const evNodes = collect(tree(), (n) => String(n.props.className ?? '').startsWith('ev '));
   assert.strictEqual(evNodes.length, rendered, '实际事件块节点数必须等于 data-rendered-count');
 });
 
 test('虚拟化：总条数翻倍（400 → 800）渲染数与节点数都不增长（不成正比）', () => {
   const small = renderStream(makeEvents(400));
   const large = renderStream(makeEvents(800));
-  const smallRoot = virtualRoot(small)!;
-  const largeRoot = virtualRoot(large)!;
+  const smallRoot = virtualRoot(small.tree())!;
+  const largeRoot = virtualRoot(large.tree())!;
   assert.strictEqual(smallRoot.props['data-total-count'], '400');
   assert.strictEqual(largeRoot.props['data-total-count'], '800');
 
@@ -198,8 +196,8 @@ test('虚拟化：总条数翻倍（400 → 800）渲染数与节点数都不增
   );
   assert.strictEqual(rendered800, rendered400, '总条数翻倍不得改变渲染块数');
 
-  const nodes400 = nodeCount(small);
-  const nodes800 = nodeCount(large);
+  const nodes400 = nodeCount(small.tree());
+  const nodes800 = nodeCount(large.tree());
   assert.ok(nodes400 < 400, `节点数不得随条数线性增长，400 条实测 ${nodes400}`);
   assert.ok(
     nodes800 <= nodes400 + 4,
@@ -208,18 +206,16 @@ test('虚拟化：总条数翻倍（400 → 800）渲染数与节点数都不增
 });
 
 test('虚拟化：滚动到中段后窗口随 scrollTop 平移，总高仍由占位撑住', () => {
-  const props = baseProps(makeEvents(400));
-  runtime.reset();
-  const first = runtime.render(StreamView, props);
+  const stream = renderStream(makeEvents(400));
+  const first = stream.tree();
   const before = dataNum(virtualRoot(first)!, 'data-rendered-count');
   assert.strictEqual(before <= RENDER_BOUND, true);
 
-  // 模拟真实滚动：stub 的 setState 直接写 hook 槽位，重渲染即得新窗口。
-  const box = { scrollTop: 20000, scrollHeight: 40000, clientHeight: 600 };
-  // 桩 props 不校验形状：onScroll 自 unknown 收窄为可调用（测试桩与被测代码的调用边界）。
-  (logRoot(first)!.props.onScroll as (e: unknown) => void)({ currentTarget: box });
-  const second = runtime.render(StreamView, props);
-  const root = virtualRoot(second)!;
+  // 模拟真实滚动：写 scrollTop 后派发 scroll，组件真实 onScroll 会重算窗口。
+  const box = logRoot(first)!;
+  box.el.scrollTop = 20000;
+  fireEvent.scroll(box.el);
+  const root = virtualRoot(stream.tree())!;
   const after = dataNum(root, 'data-rendered-count');
   // 首屏被列表起点夹住（无上侧 overscan）。computeWithHeights 用二分前缀窗口：首屏可视块数 =
   // ceil(600/88)=7 块（[0,616] 已覆盖 600 视口）+ 8 个下侧 overscan = 15；比 legacy compute 的
@@ -228,9 +224,8 @@ test('虚拟化：滚动到中段后窗口随 scrollTop 平移，总高仍由占
   assert.strictEqual(after, 24, `中段渲染块数应为 24，实测 ${after}`);
   assert.ok(after <= RENDER_BOUND, '滚动到任意位置渲染块数都必须有界');
 
-  const pads = collect(second, (n) => (n.props ?? {}).className === 'stream-pad');
-  // style 是运行时动态属性包：按渲染实现已知形状收窄（StreamView 渲染 pad 时恒带 style.height）。
-  const padTop = pads.map((n) => String(((n.props ?? {}) as { style: { height: unknown } }).style.height))[0];
+  const pads = byClass(stream.tree(), 'stream-pad');
+  const padTop = (pads[0]!.el as HTMLElement).style.height;
   // 中段 scrollTop=20000：起点 = floor(20000/88)-8 = 219，顶部占位 = 219×88，两路径一致（滚动锚定不跳）。
   assert.strictEqual(padTop, 219 * ITEM_HEIGHT + 'px', '顶部占位高度 = 起始块下标 × 估算块高');
   assert.strictEqual(pads.length, 2, '上下各一个占位块');
@@ -339,15 +334,25 @@ test('贴底策略：用户上滚后新增事件不得改变 scrollTop', () => {
   );
 });
 
-test('贴底策略：滚动容器保留 ref 与 onScroll 接线（虚拟化与锚定的驱动源）', () => {
-  const vnode = renderStream(makeEvents(5));
-  const root = logRoot(vnode);
-  assert.ok(root, '必须存在 role=log 的滚动容器');
-  assert.strictEqual(typeof root.props.onScroll, 'function', '滚动必须接线到窗口重算');
-  assert.strictEqual(typeof root.props.ref, 'object', '滚动容器的 ref 必须保留');
-  assert.ok('current' in (root.props.ref as object), 'ref 必须是 React ref 形状');
+test('贴底策略：滚动容器保留接线（onScroll 驱动窗口重算）与 log 语义', () => {
+  const stream = renderStream(makeEvents(400));
+  const root = logRoot(stream.tree());
+  assert.ok(root !== undefined, '必须存在 role=log 的滚动容器');
   assert.strictEqual(root.props['aria-label'], '对话事件流');
   assert.strictEqual(root.props['aria-live'], 'polite');
+
+  // `ref` / `onScroll` 是 React 内部接线，DOM 外观上不可见；用**行为**证明它真的接上了：
+  // 改 scrollTop 后派发 scroll，窗口起点必须真的平移。
+  const before = dataNum(virtualRoot(stream.tree())!, 'data-rendered-count');
+  root.el.scrollTop = 20000;
+  fireEvent.scroll(root.el);
+  const pads = byClass(stream.tree(), 'stream-pad');
+  assert.strictEqual(
+    (pads[0]!.el as HTMLElement).style.height,
+    219 * ITEM_HEIGHT + 'px',
+    'scroll 事件必须驱动窗口重算（onScroll/ref 接线有效）',
+  );
+  assert.strictEqual(before, 15);
 });
 
 test('StreamWindow：占位高度维持滚动条总高比例（padTop + 窗口 + padBottom = 总高）', () => {

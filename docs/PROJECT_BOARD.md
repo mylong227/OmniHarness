@@ -3262,7 +3262,7 @@ serve 台账只挡**进程内**重复续跑，而 CLI 可以同时开两个进�
    全量入口会让 bundle 多 800 KB，而原 vendor 那个 121 KB 文件本身就是 common 构建）；KaTeX 字体随 Vite 进 `assets/`；
    新增 `vendorFreePipeline` 判据（断言三个库真进了包、字体产出、产物不含旧 UMD）。
 3. **自动 JSX 运行时** + **CSS 入口 import**：前者打破了一个隐含前提（25 个零 DOM 判据依赖
-   "JSX → `React.createElement`" 才能收集纯数据 vnode），补了 `web/test/jsxRuntimeStub.ts` 把 `jsx/jsxs`
+   "JSX → `React.createElement`" 才能收集纯数据 vnode），补了 `jsxRuntimeStub`（当时在 `web/test/` 下）把 `jsx/jsxs`
    转回桩；后者把样式的事实源从 HTML 移到 `main.ts`，两条判据（`a11yContrast` / `indexHtmlAssets`）跟着换来源。
 4. **删 `deps.ts`**（最后一处非标准）：68 个源文件改直接 import；测试侧用 vitest 的 `resolve.alias`
    把 `react` 指到 `hooksStub`，`hooksStub` 升级为"可被当作 react 模块"（模块级 current runtime + 15 个具名导出转发，
@@ -3398,6 +3398,7 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 
 1. **后端测试栈** ✅ 已迁 vitest：544 个 `tests/unit` + `tests/integration` 判据从 `node:test`/dist 迁 `import { test } from 'vitest'`（含 spawn `dist/` 产物的 46 个判据仍需先 `npm run build`），源码直跑 `import '../../src/x.ts'`。配套：worker 线程经 `src/util/concurrency/workerEntryUrl.ts` + `--experimental-strip-types` 回落 `.ts`；`mcpSdkProbe` 改逐个解析 REQUIRED 子路径取 package.json（主入口 `dist/cjs/index.js` 缺失必抛）；`vitest.workspace.ts` 双项目（node 并行 / web 串行 + react 别名桩）。`npm test` / `test:integration` / `coverage` 脚本已改指 vitest；**`coverage:check` 的 v8 覆盖率改造已收口**——`scripts/coverageGate.mjs` 改消费 `coverage.reporter=json-summary` 的 `coverage-summary.json`（绝对路径键规整为「src 下的 .ts 相对路径」、聚合只统计被执行文件），`coverageEnvDependent.json` 36 个键 `.js`→`.ts` 重定键，三份基线（`coverageBaseline` / `coverageInventoryBaseline` / `coverageEnvDependent`）按 `src/**` 源码口径一次性重测（属迁移重基线，非回归；提交须写明）。
 2. **web/test 语言** ✅ 93 个 `.mjs` + 11 个辅助文件已转 `.ts` 并纳入 `web/tsconfig.json` strict 类型检查（module 升 ES2022 支持顶层 await）。`vitest.workspace.ts` 的 web 项目 include 指向 `web/test/**/*.test.ts`，react 别名桩同步改名。全仓 `.test.mjs` 引用已 sed 替换。
+   > 2026-10-18 二次收口：**react 别名桩已整体删除**（组件判据全量迁 RTL），当前形态见 §15.5。
 
 > 注：测试栈统一引发的若干根因修复（ASCII 临时目录、liveUiE2e 用户级配置隔离、UI 基线「设置」入口移除）已分别沉淀于 `vitest.workspace.ts` / `tests/integration/liveUiE2e.test.ts` / `tests/integration/uiBaseline.json` 与 `.gitignore`。
 
@@ -3498,8 +3499,11 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 
 ### 15.3 组件测试栈：**记录为有意取舍**，不迁 RTL
 
+> **2026-10-18 更新：本节结论已被 §15.5 取代。** 组件判据已全量迁到真实 React + RTL，
+> 手写垫片与 react 别名均已删除；以下保留的是当时的评估与取舍记录（历史，不再是现状）。
+
 标准 React 项目的组件测试默认是 `@testing-library/react` + jsdom。本仓用的是
-`web/test/hooksStub.ts`（手写 React 替身，产出纯数据 vnode）+ `jsxRuntimeStub.ts`，
+`hooksStub`（手写 React 替身，产出纯数据 vnode）＋ `jsxRuntimeStub`（当时在 `web/test/` 下），
 并由 `vitest.workspace.ts` 把 `react` 别名指向桩。这是本仓最后一处**与主流模板不同**的地方，
 本轮把它从"待办"改为"**有据的取舍**"，理由是实测出来的：
 
@@ -3522,69 +3526,45 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 - `npx eslint . --max-warnings=0`、双端 `tsc --noEmit`、`node scripts/runGates.mjs` 均通过；
 - `jsdom` 移除后判据无变化（它从未参与运行时）。
 
-### 15.5 组件测试栈：**已开工**（2026-10-18，双项目过渡形态）
+### 15.5 组件测试栈：**已收口为唯一一套真实 React 栈**（2026-10-18）
 
-§15.3 原写"不迁 RTL"。用户追问"如果能更好就引入"，于是先做**实测评估**再动手——结论修正了 §15.3 的估算：
+§15.3 曾把"不迁 RTL"记为取舍；本节初版记录了迁移期的双项目形态。本轮把剩余 12 个文件全部迁完、
+删除过渡设施后，前端组件判据**只剩一套方式**：
 
-| 原判断                                                | 实测                                                                                            |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| "迁 RTL 必须重写每个用例（按 hook 序号摆状态做不到）" | **只有 13 处**真的用了 `statePatch`/`renderSeeded`；其余 25 个文件只是借桩拿 `window`           |
-| "318 处断言都要改写"                                  | 用 **DOM→vnode 外观（`web/test/domFacade.ts`）** 之后，断言**一处不用改**——渲染真了，形状还一样 |
+**最终形态**
 
-**已落地**：
+- `vitest.workspace.ts` 只剩 `node` + `web` 两个项目；`web` **没有任何 react 别名**，组件判据跑
+  npm React 19 + `@testing-library/react` + jsdom（文件头声明 `// @vitest-environment jsdom`），
+  真 Chrome 判据仍在同一项目里按文件跑 node 宿主（项目级 environment 保持 node）。
+- 手写 React 垫片（`hooksStub` / `jsxRuntimeStub`，原在 `web/test/` 下）**已删除**；`web-rtl`
+  项目名与 include/exclude 分区已不存在。
+- `web/test/rtlHarness.ts` + `web/test/domFacade.ts` 保留：前者是真渲染入口
+  （`renderUi` / `renderFacade` / `renderFacadeAsync`），后者把真实 DOM 快照回既有
+  `{ type, props, children }` 形状，让既有的 318 处断言无需重写。
+- `web/test/vendorAndTypeSource.test.ts` 新增回归守卫：两个垫片文件不得回归、workspace 不得再配
+  react 别名（只扫代码行，历史注释里的名字不算）。
 
-- `web/test/rtlHarness.ts`：真实 React + jsdom 的渲染入口（`renderFacade` / `renderFacadeAsync` / `renderElement`），
-  注入 `AppContext`（可变的 `appContext`，兼容旧的"渲染前赋 api"写法），`afterEach(cleanup)`；
-- `web/test/domFacade.ts`：把渲染后的 DOM 快照回 `{ type, props, children }`，并提供
-  `kids/clsOf/allText/walk/byClass/byTag`（语义与旧桩逐字一致）。**文本节点原样保留**——
-  折叠空白会打掉"代码块行尾换行必须保留"那条判据（实测踩到）；
-- **两个文件已迁完并全绿**：`format.test.ts`（20 例，109 处断言）、`graphResumeChip.test.ts`（2 例）；
-- `vitest.workspace.ts` 拆成 **`web`（桩）+ `web-rtl`（真实 React）** 两个项目，`include`/`exclude`
-  显式列出已迁文件。**为什么不加"有桩用桩、没桩用真 React"的运行时开关**：那会让"这段代码
-  跑的是哪个 React"变成隐式状态，排查成本高于两个显式项目；迁移完成后 `web` 块整体删除。
+**本轮迁移（12 文件 / 103 例；连同前 5 个文件，累计 17 文件 / 143 例）**
 
-**已实测的剩余难点（按类归因，供后续按批次推进）**：
+| 类型              | 文件                                                                                | 关键改造                                                                                                                                         |
+| ----------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 数据种子 → api    | `a11yKeyboard`、`diffControl`、`pickerShapeGuard`、`sessionSearch`、`governanceTab` | 旧种子变成 `responses[方法名]` + `renderFacadeAsync`；`ChangesTab`/`SessionPanel` 改为**真点击/真输入**驱动，顺带覆盖真实取数路径                |
+| 纯 UI 种子 → 交互 | `mount`                                                                             | 菜单展开改为 `fireEvent.click`；`ContextCapacityPanel` 真取 `contextUsage/quotaGet`；`DialogHost` 预填依赖 `initial`；`WorkIndicator` 不再摆计时 |
+| 异步首帧          | `reviewShortcuts`、`permissionTab`                                                  | 用例改 async + `waitFor`；键盘评审用 `fireEvent.keyDown`；保存流程用真实输入驱动并断言**拒绝后编辑态保留**                                       |
+| 布局 / 事件序列   | `longSessionPerf`、`questionCard`、`checkpointTimeline`、`graphResumeUi`            | `longSessionPerf` 用 jsdom 兜底视口（600px）+ `scrollTop`/`fireEvent.scroll` 驱动真实 `onScroll`；其余三个都是真实交互，无需真 Chrome            |
 
-1. **数据种子 → 改为 stub api**（governanceTab / vaultTab / permissionTab / a11yKeyboard / checkpointTimeline）：
-   这些用例用 `renderSeeded({hookIndex: value})` 直接摆"已取到的数据"。真实 React 下应改成
-   **桩 `api.*` 的返回值 + `renderFacadeAsync` 冲一次微任务**——顺带把真实取数路径也测了，是**更强**的判据。
-2. **纯 UI 种子 → 改为交互**（mount 的 AddMenu/PanelPicker "菜单已展开"、DialogHost 输入框预填）：
-   改为 `fireEvent.click(trigger)` / 依赖 `initial` prop。
-3. **异步首帧**（vaultTab / reviewShortcuts）：组件在 effect 里取数，`render` 返回时是"读取中"；
-   必须 `await renderFacadeAsync(...)` 或用 `waitFor`，断言函数要改成 async。
-4. **依赖布局的判据不能进 jsdom**（longSessionPerf 的虚拟化需要真实高度、questionCard 依赖真实事件序列）：
-   它们要么保留零 DOM 桩（可直接喂几何），要么走真 Chrome 判据。
+**本轮新固化的手法（补充初版三条）**
 
-**纪律**：迁移期**不允许**为了变绿而放松断言；`runtime.set/get` 在垫片里**直接抛错**
-（而不是静默返回 undefined），`props.onClick` 不再可调用（改用 `fireEvent`）——把"能力差异"
-变成显式失败，避免测试悄悄失真。
+1. **受控输入必须用 `userEvent`**（`fireEvent.change` 在 React 19 下会被回滚成旧值）。
+2. **DOM 语义与 React props 的差异**：`aria-checked` / `aria-selected` 是字符串 `'true'/'false'`；
+   `disabled` / `aria-current` 等布尔属性存在即 `true`、缺失即**键不存在**；`tabindex` 在
+   `domFacade` 里归一为 `tabIndex`（本轮补，否则 roving tabindex 断言全变 undefined）。
+3. **effect 现在真的会跑**：组件挂载即取数的用例必须按真实调用补齐 api 面
+   （`modesGet` / `listPlugins` / `agentsList` / `approvalTiers` / `contextUsage` / `quotaGet` …），
+   传 `api: {}` 的旧写法会直接 TypeError。
+4. **jsdom 没有布局**：虚拟化走组件既有的兜底视口；`contenteditable` 的 `isContentEditable`
+   需显式 `Object.defineProperty`（jsdom 恒 false）；`import.meta.url` 不是 `file:`，读源码按仓库相对路径。
 
-**本轮验证**：`vitest --project web --project web-rtl` ⇒ **82 文件 / 483 例全绿**；
-双端 `tsc --noEmit` exit 0；`eslint . --max-warnings=0` 零问题；`runGates --hook` 通过。
-
-#### 15.5.1 进展（2026-10-18 本轮结束时的确切状态）
-
-**已迁完并全绿（5 个文件，均在 `web-rtl` 项目）**：
-`format`（20 例）、`graphResumeChip`（2 例）、`vaultTab`（5 例）、`auditTraceTabs`（7 例）、
-`diagnosticsTab`（6 例）。本轮确立并固化了三条可复用的迁移手法：
-
-1. **"按 hook 序号预设数据" → "让组件真的去取"**：harness 的 `firstResponse` / `responses`
-   直接把旧种子交给对应 api 方法（`vaultList` / `auditQuery` / `traceRead` / `daemonStatus` /
-   `doctorReport` …）。判据不但等价，还**顺带覆盖了真实取数路径**（更强）。
-2. **受控输入必须用 `userEvent`**：`fireEvent.change` 在 React 19 下会被回滚成旧值
-   （表现为"填了等于没填"，实测踩到）。
-3. **DOM 语义与 React props 的两处差异**（已在 `domFacade` / 断言里统一）：
-   布尔属性存在即 `true`、缺失即**键不存在**（不是 `false`）；jsdom 下 `import.meta.url`
-   不是 `file:`，读源码要按仓库相对路径。
-
-**仍在 `web` 项目（桩）上、待迁的 12 个文件**，按阻塞类型归类：
-
-| 类型              | 文件                                                                                                                                                              | 需要的改造                                                               |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| 数据种子 → api    | `a11yKeyboard`（ChangesTab 的 `listChanges`）、`diffControl`、`pickerShapeGuard`（`browseFs`）、`sessionSearch`（`searchAll`）、`governanceTab`（`api.rpc` 4 处） | 换成 `responses[方法名]` + `renderFacadeAsync`（手法已固化，机械度最高） |
-| 纯 UI 种子 → 交互 | `mount`（AddMenu/PanelPicker 菜单展开 ×2、WorkIndicator 计时、DialogHost 预填）                                                                                   | `fireEvent.click(trigger)`、假定时器、或依赖 `initial` prop              |
-| 异步首帧          | `reviewShortcuts`（11 处渲染）、`permissionTab`（`getConfig` + 保存流程）                                                                                         | 用例改 async + `waitFor`；保存流程用真实输入驱动                         |
-| 依赖布局/事件序列 | `longSessionPerf`（虚拟化需要真实高度）、`questionCard`（依赖真实事件序列）、`checkpointTimeline`（纯 UI 状态）、`graphResumeUi`（类型 + 展开参数）               | 保留零 DOM 桩或走真 Chrome；不可强行塞进 jsdom                           |
-
-> 口径：**不要求"一次迁完"**，但要求"每个文件要么全迁、要么全留"——不允许同一文件里混用两套。
-> `web` / `web-rtl` 两个项目是**迁移期的显式分区**（每文件只属于一个项目），迁完后 `web` 块整体删除。
+**验证（2026-10-18）**：`vitest run --project web` ⇒ **82 文件 / 483 例全绿**（与迁移前同数）；
+双端 `tsc --noEmit`、`eslint . --max-warnings=0`、`node scripts/runGates.mjs --hook` 与
+`--tier=typed` 通过。

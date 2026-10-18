@@ -1,17 +1,21 @@
-﻿// 检查点时间线（A2）：按天分组 / 相对时间 / 徽标 / 最新标记，以及回滚面板的键盘可达与确认闭环。
-// 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
+// 检查点时间线（A2）：按天分组 / 相对时间 / 徽标 / 最新标记，以及回滚面板的键盘可达与确认闭环。
 //
 // 时间基准一律注入（now），不用 Date.now()：相对时间是输入的函数，混进真实时钟会让测试
 // 在跨分钟/跨天时随机变红（测试一旦随机红，团队就会去关掉它）。
+//
+// 迁移（2026-10-18）：组件用例从 hook 槽位改为**真实 React + jsdom**——让 RollbackTab 真的调
+// `listCheckpoints`、真的点条目（`fireEvent.click`）、真的走确认框。假时钟仍只 fake `Date`
+// （不动 setTimeout，避免影响 RTL 的微任务/等待）。
+
+// @vitest-environment jsdom
 
 import assert from 'node:assert/strict';
 import { test, vi } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
-import type { StubVnode } from './hooksStub.ts';
+import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
+import { allText, byClass, facadeOf, walk } from './domFacade.ts';
+import type { Facade, FacadeNode } from './domFacade.ts';
 import type { CheckpointMeta } from '../src/ui/models/checkpoint.ts';
 
-const runtime = createRuntime();
-runtime.install();
 const { CheckpointTimeline } = await import('../src/ui/models/CheckpointTimeline.ts');
 const { TimestampFormatter } = await import('../src/ui/models/checkpoint.ts');
 const { RollbackTab } = await import('../src/ui/components/tabs/RollbackTab.tsx');
@@ -34,42 +38,24 @@ function cp(label: string, minutes: number, eventCount: number, hasFileSnapshot:
   return { label, ts: agoIso(minutes), eventCount, hasFileSnapshot };
 }
 
-/** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
-function collect(vnode: unknown, pred: (n: StubVnode) => boolean, out: StubVnode[] = []): StubVnode[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) collect(k, pred, out);
-    return out;
-  }
-  if (vnode == null || typeof vnode !== 'object') return out;
-  // 遍历的是渲染树（vnode / 文本 / 数组的混合），能走到这里必是对象节点；
-  // 具体是不是 StubVnode 由调用方的谓词保证，故收窄一次。
-  const node = vnode as StubVnode;
-  if (pred(node)) out.push(node);
-  collect(node.children, pred, out);
+/**
+ * 深度收集满足谓词的节点。
+ * @param node 外观节点
+ * @param pred 谓词
+ * @returns 命中节点
+ */
+function collect(node: Facade, pred: (n: FacadeNode) => boolean): FacadeNode[] {
+  const out: FacadeNode[] = [];
+  walk(node, (n) => {
+    if (pred(n)) out.push(n);
+  });
   return out;
 }
 
-/** 收集整棵树的文本叶子。 */
-function texts(vnode: unknown, out: string[] = []): string[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) texts(k, out);
-    return out;
-  }
-  if (vnode == null) return out;
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    out.push(String(vnode));
-    return out;
-  }
-  if (typeof vnode !== 'object') return out;
-  // 同 collect：对象节点按 StubVnode 取 children（无 children 时按空处理）。
-  const node = vnode as StubVnode;
-  for (const k of node.children ?? []) texts(k, out);
-  return out;
-}
-
-/** 让排队的 promise 全部落地。 */
-async function flush() {
-  await new Promise((resolve) => setImmediate(resolve));
+/** 取 className（class 词匹配由调用方自行 split）。 */
+function clsOf(n: FacadeNode): string {
+  const v = n.props['className'];
+  return typeof v === 'string' ? v : '';
 }
 
 // ---- 模型层 ----
@@ -183,12 +169,16 @@ interface SetupCalls {
 }
 
 /**
- * 渲染一次回滚面板（桩 api / dialog）。
- * 组件内部的时间基准是真实时钟（`new Date()`），故这里的桩数据也按真实时钟往前推，
- * 相对时间才落在确定的档位上（5 / 30 分钟前）。
- * @returns 渲染产物与调用记录
+ * 渲染一次回滚面板并等检查点列表落地。
+ *
+ * 组件内部的时间基准是真实时钟（`new Date()`），故桩数据也按同一时钟往前推，
+ * 相对时间才落在确定的档位上（5 / 30 分钟前）。需要「同一天」的用例在调用前先把
+ * 系统时钟钉到本地正午。
+ *
+ * @param sessionId 会话 id（null = 无会话）
+ * @returns 渲染句柄与调用记录
  */
-function setupTab(): { vnode: StubVnode; calls: SetupCalls } {
+async function setupTab(sessionId: string | null = 's-1') {
   const calls: SetupCalls = { rollbacks: [], confirms: 0, toasts: [] };
   const realNow = Date.now();
   const minutesAgo = (min: number) => new Date(realNow - min * 60000).toISOString();
@@ -196,26 +186,7 @@ function setupTab(): { vnode: StubVnode; calls: SetupCalls } {
     { label: 'cp-new', ts: minutesAgo(5), eventCount: 12, hasFileSnapshot: true },
     { label: 'cp-old', ts: minutesAgo(30), eventCount: 3, hasFileSnapshot: false },
   ];
-  // 桩 api 需带上 StubAppContext.api 的 4 个基础方法（赋值目标形状如此），
-  // 再叠加本面板真实用到的检查点方法（签名对齐 src ApiClient）。
-  const api = {
-    getConfig: async () => ({}),
-    updateConfig: async () => ({}),
-    listSessions: async () => [],
-    rpc: async () => ({}),
-    async listCheckpoints() {
-      return { checkpoints: list };
-    },
-    async rollbackCheckpoint(sessionId: string, label?: string) {
-      calls.rollbacks.push({ sessionId, label });
-      return { checkpoint: { label: label ?? 'cp-new' } };
-    },
-    async createCheckpoint() {
-      return { checkpoint: { label: 'cp-x' } };
-    },
-  };
-  runtime.appContext.api = api;
-  runtime.appContext.dialog = {
+  const dialog = {
     async confirm() {
       calls.confirms += 1;
       return true;
@@ -224,115 +195,118 @@ function setupTab(): { vnode: StubVnode; calls: SetupCalls } {
       return null;
     },
   };
-  runtime.appContext.toast = (m?: string, k?: string) => {
-    calls.toasts.push({ m, k });
-  };
-  runtime.reset();
-  const vnode = runtime.render(
-    RollbackTab,
-    { sessionId: 's-1', onRolledBack: () => {} },
-    {
-      0: list,
-      1: false,
-      2: null,
-      3: '',
-      4: false,
+  const ui = await renderFacadeAsync(RollbackTab, {
+    props: { sessionId, onRolledBack: () => {} },
+    responses: {
+      listCheckpoints: { checkpoints: list },
+      async rollbackCheckpoint(sid: string, label?: string) {
+        calls.rollbacks.push({ sessionId: sid, label });
+        return { checkpoint: { label: label ?? 'cp-new' } };
+      },
+      createCheckpoint: { checkpoint: { label: 'cp-x' } },
     },
-  );
-  return { vnode, calls };
+    onToast: (m, k) => calls.toasts.push({ m, k }),
+    app: { dialog },
+  });
+  /** 从同一容器取当前渲染树（点击会重渲染）。 */
+  const tree = (): Facade => facadeOf(ui.container.firstElementChild);
+  return { ui, tree, calls, dialog };
 }
 
-test('RollbackTab：按天分组渲染、徽标区分「含文件快照 / 仅对话」、最新点有标记', (t) => {
+/** 取时间线条目按钮（`.cp-main`）。 */
+function entryButtons(tree: Facade): FacadeNode[] {
+  return byClass(tree, 'cp-main');
+}
+
+test('RollbackTab：按天分组渲染、徽标区分「含文件快照 / 仅对话」、最新点有标记', async (t) => {
   // 钉住时钟到**本地正午**：组件内部 `new Date()` 与桩数据的 Date.now 同读这块假时钟，
   // 「5 / 30 分钟前」两个检查点必然与 now 同属一天，且相对时间档位确定。
   // 之前按真实时钟推（now - 5/30min），在 00:00–00:35 之间跑会跨午夜分到两天 —— 随机红。
   const noon = new Date();
   noon.setHours(12, 0, 0, 0);
-  // 迁移说明（2026-10-17 Vitest 化）：node:test 的 t.mock.timers.enable({ apis: [Date] }) 在 Vitest 下不存在。
-  // 等价写法是 vi.useFakeTimers({ toFake: [Date] }) 加 vi.setSystemTime(...) —— 都作用于全局时钟。
+  // Vitest：`vi.useFakeTimers({ toFake: ['Date'] })` 只接管 Date，setTimeout 仍是真的
+  //（RTL 的微任务等待不受影响）。假时钟不随用例自动失效，必须显式复原。
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(noon);
-  // 假时钟必须在用例结束复原：Vitest 的假时钟不随用例自动失效，
-  // 会污染同文件后续用例（它们也在同进程里跑）。
-  t.onTestFinished(() => { vi.useRealTimers(); });
-  const { vnode } = setupTab();
-  const dayTitles = collect(vnode, (n) => n.props.className === 'cp-day-title');
+  t.onTestFinished(() => {
+    vi.useRealTimers();
+  });
+  const { tree } = await setupTab();
+  const dayTitles = collect(tree(), (n) => clsOf(n) === 'cp-day-title');
   assert.strictEqual(dayTitles.length, 1, '两个检查点（5 / 30 分钟前）同属一天');
-  assert.match(texts(dayTitles[0]).join(''), /^(今天|昨天)$/, '分组标题必须是今天/昨天');
+  assert.match(allText(dayTitles[0]!), /^(今天|昨天)$/, '分组标题必须是今天/昨天');
 
   const badgeTexts = collect(
-    vnode,
-    (n) => typeof n.props.className === 'string' && n.props.className.startsWith('cp-badge'),
-  ).map((b) => texts(b).join(''));
+    tree(),
+    (n) => clsOf(n).startsWith('cp-badge'),
+  ).map((b) => allText(b));
   assert.deepStrictEqual(badgeTexts, ['含文件快照', '仅对话']);
 
-  const latest = collect(vnode, (n) => n.props.className === 'cp-latest');
+  const latest = collect(tree(), (n) => clsOf(n) === 'cp-latest');
   assert.strictEqual(latest.length, 1, '最新标记必须唯一');
-  const items = collect(vnode, (n) => String(n.props.className).startsWith('cp-item'));
-  assert.ok(String(items[0].props.className).includes('latest'), '最新标记必须落在最新那条上');
+  const items = collect(tree(), (n) => clsOf(n).startsWith('cp-item'));
+  assert.ok(clsOf(items[0]!).includes('latest'), '最新标记必须落在最新那条上');
 
   // 文本叶子必须无缝拼接：`{e.eventCount} 事件` 是两个兄弟文本节点，用分隔符拼会拆散「12 事件」。
-  const all = texts(vnode).join('');
+  const all = allText(tree());
   assert.match(all, /12 事件/, '条目必须展示事件数');
   assert.match(all, /3 事件/);
   assert.match(all, /5 分钟前/, '条目必须展示相对时间');
   assert.match(all, /30 分钟前/);
 });
 
-test('RollbackTab：条目是 button（Tab 可达），aria-label 含标签/相对时间/事件数/快照', () => {
-  const { vnode } = setupTab();
-  assert.strictEqual(collect(vnode, (n) => n.props.role === 'list').length, 1, '时间线须是 list');
-  const listItems = collect(vnode, (n) => n.props.role === 'listitem');
+test('RollbackTab：条目是 button（Tab 可达），aria-label 含标签/相对时间/事件数/快照', async () => {
+  const { tree } = await setupTab();
+  assert.strictEqual(collect(tree(), (n) => n.props.role === 'list').length, 1, '时间线须是 list');
+  const listItems = collect(tree(), (n) => n.props.role === 'listitem');
   assert.strictEqual(listItems.length, 2);
-  const btns = collect(vnode, (n) => n.type === 'button' && n.props.className === 'cp-main');
+  const btns = entryButtons(tree());
   assert.strictEqual(btns.length, 2, '每条检查点一个可聚焦按钮');
   assert.strictEqual(
-    btns[0].props['aria-label'],
+    btns[0]!.props['aria-label'],
     '回滚到检查点 cp-new（5 分钟前，12 个事件，含文件快照）',
   );
   assert.strictEqual(
-    btns[1].props['aria-label'],
+    btns[1]!.props['aria-label'],
     '回滚到检查点 cp-old（30 分钟前，3 个事件，仅对话）',
   );
-  assert.strictEqual(btns[0].props['aria-current'], 'true', '最新点标 aria-current');
-  assert.strictEqual(btns[1].props['aria-current'], undefined);
-  assert.match(String(btns[0].props.title), /需确认/);
+  assert.strictEqual(btns[0]!.props['aria-current'], 'true', '最新点标 aria-current');
+  assert.strictEqual(btns[1]!.props['aria-current'], undefined);
+  assert.match(String(btns[0]!.props.title), /需确认/);
 });
 
 test('RollbackTab：点条目 / Enter 触发回滚，且必须先经对话框确认', async () => {
-  const { vnode, calls } = setupTab();
-  const btns = collect(
-    vnode,
-    (n) => typeof n.props.className === 'string' && n.props.className === 'cp-main',
-  );
-  // props 值在桩类型里是 unknown；运行时这里确定是 onClick 回调，收窄后调用。
-  (btns[1].props.onClick as () => void)();
-  await flush();
+  const { tree, calls } = await setupTab();
+  const btns = entryButtons(tree());
+  fireEvent.click(btns[1]!.el);
+  await waitFor(() => {
+    if (calls.rollbacks.length !== 1 || calls.toasts.length === 0) throw new Error('回滚尚未完成');
+  });
   assert.strictEqual(calls.confirms, 1, '回滚前必须确认（Enter 与点击同一条路径）');
   assert.deepStrictEqual(calls.rollbacks, [{ sessionId: 's-1', label: 'cp-old' }]);
   assert.deepStrictEqual(calls.toasts[0], { m: '已回滚到：cp-old', k: 'ok' });
 });
 
 test('RollbackTab：确认框被拒绝时不发回滚请求（决策不静默产生）', async () => {
-  const { vnode, calls } = setupTab();
-  runtime.appContext.dialog.confirm = async () => false;
-  const btns = collect(
-    vnode,
-    (n) => typeof n.props.className === 'string' && n.props.className === 'cp-main',
-  );
-  // 同上：运行时确定是 onClick 回调。
-  (btns[0].props.onClick as () => void)();
-  await flush();
+  const { tree, calls, dialog } = await setupTab();
+  dialog.confirm = async () => {
+    calls.confirms += 1;
+    return false;
+  };
+  const btns = entryButtons(tree());
+  fireEvent.click(btns[0]!.el);
+  await waitFor(() => {
+    if (calls.confirms !== 1) throw new Error('确认框尚未被调用');
+  });
   assert.deepStrictEqual(calls.rollbacks, []);
   assert.deepStrictEqual(calls.toasts, []);
 });
 
-test('RollbackTab：无会话时不渲染时间线（fail-closed 到引导文案）', () => {
-  runtime.reset();
-  const vnode = runtime.render(RollbackTab, { sessionId: null, onRolledBack: () => {} });
-  assert.strictEqual(collect(vnode, (n) => n.props.role === 'list').length, 0);
+test('RollbackTab：无会话时不渲染时间线（fail-closed 到引导文案）', async () => {
+  const { tree } = await setupTab(null);
+  assert.strictEqual(collect(tree(), (n) => n.props.role === 'list').length, 0);
   assert.ok(
-    texts(vnode).some((t) => t.includes('先选择一个会话')),
+    allText(tree()).includes('先选择一个会话'),
     '必须给出可操作的引导',
   );
 });

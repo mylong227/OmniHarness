@@ -1,4 +1,4 @@
-﻿/**
+/**
  * F2 治理台面板判据（`GovernanceTab` + 面板注册）。
  *
  * ## 判据要钉死什么
@@ -13,75 +13,29 @@
  *    （漏注册会让 `#pane=governance` 静默落回默认面板）。
  */
 
+// @vitest-environment jsdom
+
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime, type StubRuntime, type StubVnode } from './hooksStub.ts';
-
-const runtime = createRuntime();
-runtime.install();
+import { fireEvent, renderFacadeAsync } from './rtlHarness.ts';
+import { allText, byTag, clsOf, facadeOf, walk } from './domFacade.ts';
+import type { FacadeNode } from './domFacade.ts';
 
 const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.tsx');
 const { RightPanel } = await import('../src/ui/components/RightPanel.tsx');
 const { parseHash } = await import('../src/core/Router.ts');
 
-/** 桩运行时接受的组件函数口径（props 形状由被测组件决定，见 hooksStub 的类型口径注释）。 */
-type StubComponent = Parameters<StubRuntime['render']>[0];
-/** hook 槽位预设值（{ [hookIndex]: value }），同 StubRuntime.render 第三参。 */
-type StubSeeds = Parameters<StubRuntime['render']>[2];
-
-let lastRendered: StubComponent | null = null;
-
-/**
- * 渲染一次组件（函数组件：换组件即清槽位）。
- * @param Component 组件函数
- * @param props 组件属性
- * @param seed hook 槽位预设值（可省略，沿用槽位现值）
- * @returns vnode 树
- */
-function renderOf(Component: StubComponent, props: unknown, seed?: StubSeeds): StubVnode {
-  if (Component !== lastRendered) {
-    runtime.reset();
-    lastRendered = Component;
-  }
-  return runtime.render(Component, props, seed);
-}
-
 /**
  * 深度收集满足谓词的节点。
- * @param vnode vnode 树
+ * @param node 外观节点
  * @param pred 谓词
- * @param out 收集器
  * @returns 命中节点
  */
-function collect(vnode: unknown, pred: (n: StubVnode) => boolean, out: StubVnode[] = []): StubVnode[] {
-  if (Array.isArray(vnode)) {
-    for (const node of vnode) collect(node, pred, out);
-    return out;
-  }
-  if (vnode === null || vnode === undefined || typeof vnode !== 'object') return out;
-  const n = vnode as StubVnode;
-  if (pred(n)) out.push(n);
-  collect(n.children, pred, out);
-  return out;
-}
-
-/**
- * 收集整棵树的文本叶子（无缝拼接）。
- * @param vnode vnode 树
- * @param out 收集器
- * @returns 文本片段
- */
-function texts(vnode: unknown, out: string[] = []): string[] {
-  if (Array.isArray(vnode)) {
-    for (const node of vnode) texts(node, out);
-    return out;
-  }
-  if (vnode === null || vnode === undefined) return out;
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    out.push(String(vnode));
-    return out;
-  }
-  texts((vnode as StubVnode).children, out);
+function collect(node: FacadeNode | null, pred: (n: FacadeNode) => boolean): FacadeNode[] {
+  const out: FacadeNode[] = [];
+  walk(node, (n) => {
+    if (pred(n)) out.push(n);
+  });
   return out;
 }
 
@@ -120,12 +74,25 @@ function viewWithOneFailure() {
   };
 }
 
-test('F2 面板：逐行复核可见（✓/✗ 与原因）+ 汇总 + 回滚锚点，且不提供"点一下就回滚"', () => {
-  // 桩版 `useEffect` 是占位槽（零 DOM 环境无真实提交阶段），故用**槽位预设**驱动渲染后状态：
-  // 槽位 0 = data、1 = error、2 = loading（组件内三个 useState 的调用序）。
-  const tree = renderOf(GovernanceTab, {}, { 0: viewWithOneFailure(), 1: null, 2: false });
+/**
+ * 渲染治理面板并等一次 `governance.history` 取数落地。
+ *
+ * 迁移说明（2026-10-18）：旧写法用 hook 槽位直接摆"已取到的数据"。真实 React 下改成
+ * **让组件真的去取**——槽位 0 变成 `api.rpc('governance.history')` 的返回值，槽位 1（错误）
+ * 变成一次抛错，于是判据不但复现同一场景，还顺带覆盖了真实取数/错误路径。
+ *
+ * @param response `governance.history` 的返回体，或一个抛错的实现
+ * @returns 外观节点
+ */
+async function renderSeeded(response: unknown) {
+  const ui = await renderFacadeAsync(GovernanceTab, { props: {}, responses: { rpc: response } });
+  return ui.node;
+}
 
-  const text = texts(tree).join('');
+test('F2 面板：逐行复核可见（✓/✗ 与原因）+ 汇总 + 回滚锚点，且不提供"点一下就回滚"', async () => {
+  const tree = await renderSeeded(viewWithOneFailure());
+
+  const text = allText(tree);
   assert.match(text, /独立复核通过 1 \/ 2/, '必须给出逐行复核汇总');
   assert.match(text, /首个失败 #2/);
   assert.match(text, /#1/);
@@ -135,12 +102,11 @@ test('F2 面板：逐行复核可见（✓/✗ 与原因）+ 汇总 + 回滚锚�
   // 坏行带 err 类（视觉上显眼）。
   const rowNodes = collect(
     tree,
-    (node) => typeof node.props.className === 'string' && node.props.className.startsWith('row'),
+    (node) => clsOf(node).startsWith('row'),
   );
   assert.ok(rowNodes.length >= 3, `必须渲染出表头与逐行条目，实际 ${String(rowNodes.length)}`);
   assert.ok(
-    // 上一行谓词已确认 className 是 string；桩 props 值类型为 unknown，此处按谓词收窄。
-    rowNodes.some((row) => (row.props.className as string).includes('err')),
+    rowNodes.some((row) => clsOf(row).includes('err')),
     '坏行必须带 err 类',
   );
 
@@ -148,46 +114,59 @@ test('F2 面板：逐行复核可见（✓/✗ 与原因）+ 汇总 + 回滚锚�
   assert.match(text, /可回滚快照/);
   assert.match(text, /#1（2 技能/);
   assert.match(text, /evolution rollback --seq/);
-  const buttons = collect(tree, (node) => typeof node.props.onClick === 'function');
+  // DOM 语义：外观节点不搬事件处理器（见 domFacade 的边界），改用真实 button 元素计数。
+  const buttons = byTag(tree, 'button');
   assert.strictEqual(buttons.length, 1, '面板只应有"刷新"一个按钮（不得提供"点一下就回滚"）');
-  assert.match(texts(buttons[0]).join(''), /刷新/);
+  assert.match(allText(buttons[0]!), /刷新/);
 });
 
-test('F2 面板：台账读不出来 ⇒ 显示原因（**不是**空列表）', () => {
-  const tree = renderOf(GovernanceTab, {}, {
-    0: { available: false, reason: '晋升台账不可用（/tmp/x）：EACCES' },
-    1: null,
-    2: false,
+test('F2 面板：台账读不出来 ⇒ 显示原因（**不是**空列表）', async () => {
+  const tree = await renderSeeded({
+    available: false,
+    reason: '晋升台账不可用（/tmp/x）：EACCES',
   });
-  const text = texts(tree).join('');
+  const text = allText(tree);
   assert.match(text, /晋升台账不可用/, '必须直说读不出来');
   assert.ok(!/暂无治理数据/.test(text), '不得退化成"暂无数据"（那会被误读成没有晋升记录）');
 });
 
-test('F2 面板：rpc 抛错 ⇒ 可读错误 + 重试按钮（不整页白屏）', () => {
-  const tree = renderOf(GovernanceTab, {}, { 0: null, 1: 'boom', 2: false });
-  const text = texts(tree).join('');
+test('F2 面板：rpc 抛错 ⇒ 可读错误 + 重试按钮（不整页白屏）', async () => {
+  const tree = await renderSeeded(() => {
+    throw new Error('boom');
+  });
+  const text = allText(tree);
   assert.match(text, /读取治理数据失败：boom/);
-  const retry = collect(tree, (node) => typeof node.props.onClick === 'function');
+  const retry = byTag(tree, 'button');
   assert.ok(retry.length >= 1, '必须给出重试入口');
 });
 
-test('F2 注册：激活 governance 时 RightPanel 出现其标签，Router 认可该 pane', () => {
+test('F2 注册：激活 governance 时 RightPanel 出现其标签，Router 认可该 pane', async () => {
   // 2026-10-07 壳层重构：右栏标签条不再常驻 12 个面板（收进 PanelPicker 菜单），
   // 但激活某面板时它必须以标签形式出现——这里钉住「治理激活 ⇒ 有治理标签」这条契约。
-  const panel = renderOf(RightPanel, { activePane: 'governance', onSelect: () => {}, open: true });
-  const tabs = collect(panel, (node) => node.props.role === 'tab');
+  const ui = await renderFacadeAsync(RightPanel, {
+    props: { activePane: 'governance', onSelect: () => {}, open: true },
+  });
+  const tabs = collect(ui.node, (node) => node.props.role === 'tab');
   assert.ok(
     tabs.some((tab) => tab.props.id === 'tab-pane-governance'),
     '激活治理面板时 RightPanel 必须渲染其标签（漏注册则永远选不中）',
   );
-  // 全部面板仍可一步到达：标签条右端常驻「全部面板」菜单（renderOf 不下钻子组件，按类型断言）。
-  assert.strictEqual(
-    collect(panel, (node) => typeof node.type === 'function' && node.type.name === 'PanelPicker')
-      .length,
-    1,
-    '右栏必须常驻「全部面板」入口',
+  // 全部面板仍可一步到达：点开标签条右端的「全部面板」菜单，注册表里的 12 项必须都在。
+  // （迁移前按组件类型 `PanelPicker` 断言存在性；真实 React 会把子组件渲染成 DOM，
+  // 这里改成**点击后逐项可见**——比只断言"组件挂上了"更强。）
+  const trigger = byTag(ui.node, 'button').find(
+    (btn) => btn.props['aria-label'] === '全部面板',
   );
+  assert.ok(trigger !== undefined, '右栏必须常驻「全部面板」入口');
+  fireEvent.click(trigger.el);
+  const menu = facadeOf(ui.container.firstElementChild);
+  const items = collect(menu, (node) => node.props.role === 'menuitem');
+  assert.ok(items.length >= 12, `全部面板菜单必须列出注册表条目，实际 ${String(items.length)}`);
+  assert.ok(
+    items.some((item) => allText(item) === '治理'),
+    '治理面板必须可从「全部面板」一步到达',
+  );
+
   const route = parseHash.call(null);
   assert.strictEqual(typeof route, 'object', 'parseHash 可用');
   // `#pane=governance` 必须被认作合法 pane（否则静默落回默认面板）。

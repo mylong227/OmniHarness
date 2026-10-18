@@ -60,8 +60,11 @@ export function toFacade(el: Element): FacadeNode {
       props[attr.name] = true;
       continue;
     }
-    // `class` 统一成 `className`（既有断言读的是 className，与 React 的属性名一致）。
-    props[attr.name === 'class' ? 'className' : attr.name] = attr.value;
+    // `class` 统一成 `className`、`tabindex` 统一成 `tabIndex`（既有断言读的是 React 属性名）。
+    // 其余属性保持 HTML 名：`aria-*` / `data-*` 本来就是小写，不需要翻译。
+    const key =
+      attr.name === 'class' ? 'className' : attr.name === 'tabindex' ? 'tabIndex' : attr.name;
+    props[key] = attr.value;
   }
   const children: (FacadeNode | string)[] = [];
   for (const child of Array.from(el.childNodes)) {

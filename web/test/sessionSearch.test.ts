@@ -1,20 +1,26 @@
-﻿// 会话搜索升级（A3）：服务端 search.all 的分组/确定性排序/高亮，以及 ↑↓/Enter 与「无输入不打远端」。
-// 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
+// 会话搜索升级（A3）：服务端 search.all 的分组/确定性排序/高亮，以及 ↑↓/Enter 与「无输入不打远端」。
 //
 // 关键口径：
 //   · 确定性：把同一批命中打乱顺序喂进去，输出必须逐项一致（同输入恒同序）；
 //   · 无输入不打远端：用桩 api 记录调用次数，空/纯空白关键字必须 0 次；
-//   · 组件层用 scheduleSearch 注入「同步执行」的调度器，把防抖变成可断言行为（而不是等 220ms 碰运气）。
+//   · 组件层用 scheduleSearch 注入「只保留最后一次」的调度器，把防抖变成可断言行为
+//     （而不是等 220ms 碰运气）。
+//
+// 迁移（2026-10-18）：组件用例从「hook 槽位预设 query/结果 + 直接调 props.onChange」改为
+// **真实 React + 真实输入**：`userEvent.type` 驱动受控输入，`scheduleSearch` 手动 flush 控制
+// 防抖时机，`fireEvent.keyDown` 走真实的键盘处理器。断言改为 DOM 语义（aria-* / role / 文案）。
+
+// @vitest-environment jsdom
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
-import type { StubVnode } from './hooksStub.ts';
+import userEvent from '@testing-library/user-event';
+import { act, fireEvent, renderFacade, renderFacadeAsync } from './rtlHarness.ts';
+import { allText, byClass, byTag, clsOf, facadeOf } from './domFacade.ts';
+import type { Facade, FacadeNode } from './domFacade.ts';
 import type { SearchHit } from '../src/types/models.ts';
 import type { SearchAllResult } from '../src/ui/models/SessionSearch.ts';
 
-const runtime = createRuntime();
-runtime.install();
 const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.ts');
 const { SessionSearch } = await import('../src/ui/models/SessionSearch.ts');
 const { SessionPanel } = await import('../src/ui/components/SessionPanel.tsx');
@@ -34,39 +40,6 @@ const FILES: SearchHit[] = [
 /** 让排队的 promise 全部落地。 */
 async function flush() {
   await new Promise((resolve) => setImmediate(resolve));
-}
-
-// 桩产出的 props 是 Record<string, unknown>（见 hooksStub 的类型口径：桩不校验形状）。
-// 判据要直接读写 props 字段并调用回调——这正是「桩↔被测组件」边界，按 hooksStub 同口径放宽为 any。
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TestNode = Omit<StubVnode, 'props'> & { props: Record<string, any> };
-
-/** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
-function collect(vnode: unknown, pred: (n: TestNode) => boolean, out: TestNode[] = []): TestNode[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) collect(k, pred, out);
-    return out;
-  }
-  if (vnode == null || typeof vnode !== 'object') return out;
-  if (pred(vnode as TestNode)) out.push(vnode as TestNode);
-  collect((vnode as TestNode).children, pred, out);
-  return out;
-}
-
-/** 收集整棵树的文本叶子。 */
-function texts(vnode: unknown, out: string[] = []): string[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) texts(k, out);
-    return out;
-  }
-  if (vnode == null) return out;
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    out.push(String(vnode));
-    return out;
-  }
-  if (typeof vnode !== 'object') return out;
-  for (const k of (vnode as TestNode).children ?? []) texts(k, out);
-  return out;
 }
 
 /** 手写调度器：把防抖回调攒起来，由测试显式 flush（确定性，不依赖真实定时器）。 */
@@ -258,39 +231,33 @@ test('SessionSearch：清空关键字即丢弃在途响应与结果', async () =
 
 // ---- 组件层 ----
 
-/** 渲染一次 SessionPanel（槽位跨渲染保持，故无 seed 时沿用上一次状态）。 */
-function renderPanel(props: unknown, seed?: Record<number, unknown>) {
-  return runtime.render(SessionPanel, props, seed);
-}
-
-/** 找到搜索输入框。 */
-function searchInput(vnode: unknown): TestNode {
-  return collect(vnode, (n) => n.props.className === 'session-search')[0];
-}
-
 /**
- * 唤出搜索框并渲染（2026-10-07 壳层重构：截图式侧栏不常驻搜索框，
- * 由「工作区」区块头的放大镜按钮唤出——本帮助函数模拟那一次点击）。
+ * 「只保留最后一次」的调度器。
+ *
+ * 组件只暴露 `scheduleSearch`（不暴露 cancel），所以用「后一次覆盖前一次」模拟防抖重置：
+ * 连打 N 个字符只会留下最后一次回调，`flush()` 后恰好发一次远端请求。
+ * 这与真实 setTimeout 防抖的可观察行为一致，且不需要等真实定时器。
  */
-function openSearch(props: unknown): TestNode {
-  const vnode = renderPanel(props);
-  const toggle = collect(vnode, (n) => n.props['aria-label'] === '搜索会话与文件')[0];
-  assert.ok(toggle, '必须渲染搜索唤出按钮（工作区头的放大镜）');
-  toggle.props.onClick();
-  const next = renderPanel(props);
-  assert.ok(searchInput(next), '唤出后必须渲染搜索框');
-  return next;
+function latestOnlyScheduler() {
+  let pending: (() => void) | null = null;
+  return {
+    schedule(fn: () => void): number {
+      pending = fn;
+      return 1;
+    },
+    flush(): void {
+      const fn = pending;
+      pending = null;
+      fn?.();
+    },
+  };
 }
 
-/**
- * 装配 SessionPanel 桩环境。
- * @returns 渲染/调用记录句柄
- */
-function setupPanel() {
+/** 装配 SessionPanel 的渲染与调用记录。 */
+async function setupPanel() {
   const calls = { searchAll: [] as string[], opened: [] as string[], selected: [] as string[] };
-  // 同 a11yKeyboard：夹具按需整包替换 api（本判据只走 searchAll / listWorkspaces / listFs），
-  // 桩类型不逐一枚举全部 api 方法，故在赋值点经容器收窄（桩↔夹具边界）。
-  (runtime.appContext as { api: Record<string, unknown> }).api = {
+  const sched = latestOnlyScheduler();
+  const responses: Record<string, unknown> = {
     async searchAll(q: string) {
       calls.searchAll.push(q);
       return { files: FILES, chats: CHATS };
@@ -302,7 +269,6 @@ function setupPanel() {
       return { tree: [] };
     },
   };
-  runtime.appContext.toast = () => {};
   const props = {
     sessions: [
       { id: 's-1', label: 'app 图标', workspace: '' },
@@ -317,70 +283,126 @@ function setupPanel() {
     onFork: () => {},
     open: true,
     style: {},
-    // 同步调度：把防抖变成「调用即执行」，测试无需等真实定时器。
-    scheduleSearch: (fn: () => void) => {
-      fn();
-      return 0;
-    },
+    // 同步调度：把防抖变成「flush 即执行」，测试无需等真实定时器。
+    scheduleSearch: (fn: () => void) => sched.schedule(fn),
   };
-  runtime.reset();
-  const vnode = renderPanel(props);
-  return { vnode, calls, props };
+  const ui = await renderFacadeAsync(SessionPanel, { props, responses, onToast: () => {} });
+  /** 从同一容器取当前渲染树（输入/点击都会重渲染）。 */
+  const tree = (): Facade => facadeOf(ui.container.firstElementChild);
+  return { ui, tree, calls, props, responses, sched };
+}
+
+/** 找到搜索输入框（未唤出时为 undefined）。 */
+function searchInput(tree: Facade): FacadeNode | undefined {
+  return byClass(tree, 'session-search')[0];
+}
+
+/**
+ * 唤出搜索框（点「工作区」区块头的放大镜）。
+ *
+ * 2026-10-07 壳层重构：截图式侧栏**不常驻**搜索框，由放大镜按钮唤出。
+ * 旧用例用「渲染一次 → 调 props.onClick → 再渲染一次」模拟；这里直接点真实按钮。
+ *
+ * @param handle setupPanel 的返回值
+ * @returns 唤出后重新取的输入框
+ */
+async function openSearch(handle: Awaited<ReturnType<typeof setupPanel>>): Promise<FacadeNode> {
+  const toggle = byTag(handle.tree(), 'button').find(
+    (btn) => btn.props['aria-label'] === '搜索会话与文件',
+  );
+  assert.ok(toggle !== undefined, '必须渲染搜索唤出按钮（工作区头的放大镜）');
+  fireEvent.click(toggle.el);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const input = searchInput(handle.tree());
+  assert.ok(input !== undefined, '唤出后必须渲染搜索框');
+  return input;
+}
+
+/**
+ * 在输入框里输入关键字（受控输入必须走 userEvent）。
+ * @param input 输入框外观节点
+ * @param text 关键字
+ * @returns 无
+ */
+async function typeQuery(input: FacadeNode, text: string): Promise<void> {
+  const user = userEvent.setup();
+  await user.clear(input.el as HTMLElement);
+  // `user.type` 的按键描述不支持空串（空串只需 clear 已经表达"清空"）。
+  if (text !== '') await user.type(input.el as HTMLElement, text);
+}
+
+/**
+ * flush 防抖并等远端结果落到 DOM。
+ * @param handle setupPanel 的返回值
+ * @returns 无
+ */
+async function runSearch(handle: Awaited<ReturnType<typeof setupPanel>>): Promise<void> {
+  handle.sched.flush();
+  await act(async () => {
+    await flush();
+  });
 }
 
 test('SessionPanel：无输入（含纯空白）时一次远端搜索都不发', async () => {
-  const { calls, props } = setupPanel();
-  const input = searchInput(openSearch(props));
+  const handle = await setupPanel();
+  const input = await openSearch(handle);
   assert.strictEqual(input.props.role, 'combobox');
   assert.strictEqual(input.props['aria-expanded'], 'false', '无关键字时不展开结果');
-  input.props.onChange({ target: { value: '' } });
-  input.props.onChange({ target: { value: '   ' } });
-  await flush();
-  assert.deepStrictEqual(calls.searchAll, [], '空关键字不得打远端');
-  assert.strictEqual(renderPanel(props) && calls.searchAll.length, 0);
+
+  await typeQuery(searchInput(handle.tree())!, '');
+  await typeQuery(searchInput(handle.tree())!, '   ');
+  await runSearch(handle);
+  assert.deepStrictEqual(handle.calls.searchAll, [], '空关键字不得打远端');
+  assert.strictEqual(searchInput(handle.tree())!.props['aria-expanded'], 'false');
 });
 
-/** 是否为带某 class 的元素（按空格切分，避免 `session` 命中 `session-toolbar`）。 */
-function hasClass(node: TestNode, name: string) {
-  return typeof node.props.className === 'string' && node.props.className.split(' ').includes(name);
-}
+test('SessionPanel：有关键字即打 search.all，并把分组结果渲染成 listbox', async () => {
+  const handle = await setupPanel();
+  const input = await openSearch(handle);
+  await typeQuery(input, 'app');
+  await runSearch(handle);
+  assert.deepStrictEqual(handle.calls.searchAll, ['app'], '有输入必须打一次远端搜索');
 
-test('SessionPanel：有关键字即打 search.all，并把分组结果交给 SearchResults', async () => {
-  const { calls, props } = setupPanel();
-  searchInput(openSearch(props)).props.onChange({ target: { value: 'app' } });
-  await flush();
-  assert.deepStrictEqual(calls.searchAll, ['app'], '有输入必须打一次远端搜索');
-
-  const next = renderPanel(props);
-  const sr = collect(next, (n) => n.type === SearchResults);
-  assert.strictEqual(sr.length, 1, '必须渲染搜索结果视图');
+  const tree = handle.tree();
+  const listbox = byTag(tree, 'div').find((n) => n.props.role === 'listbox');
+  assert.ok(listbox !== undefined, '必须渲染搜索结果视图');
+  assert.strictEqual(listbox.props.id, 'session-search-results');
   assert.deepStrictEqual(
-    sr[0].props.groups.map((g: { kind: string }) => g.kind),
-    ['chat', 'file'],
+    byTag(tree, 'div')
+      .filter((n) => n.props.role === 'group')
+      .map((g) => g.props['aria-label']),
+    ['会话', '工作区文件'],
     '会话组在前、文件组在后',
   );
-  assert.strictEqual(sr[0].props.selectedIndex, 0, '结果到达即选中首项');
-  assert.strictEqual(sr[0].props.query, 'app');
-  assert.strictEqual(sr[0].props.loading, false);
+  const options = byTag(tree, 'div').filter((n) => n.props.role === 'option');
+  assert.strictEqual(options.length, 4, '会话 2 + 文件 2');
+  assert.deepStrictEqual(
+    options.map((o) => o.props.id),
+    ['sr-opt-0', 'sr-opt-1', 'sr-opt-2', 'sr-opt-3'],
+  );
 
-  const input = searchInput(next);
-  assert.strictEqual(input.props['aria-expanded'], 'true');
-  assert.strictEqual(input.props['aria-controls'], 'session-search-results');
-  assert.strictEqual(input.props['aria-activedescendant'], 'sr-opt-0');
-  assert.strictEqual(input.props['aria-autocomplete'], 'list');
+  const current = searchInput(tree)!;
+  assert.strictEqual(current.props['aria-expanded'], 'true');
+  assert.strictEqual(current.props['aria-controls'], 'session-search-results');
+  assert.strictEqual(current.props['aria-activedescendant'], 'sr-opt-0');
+  assert.strictEqual(current.props['aria-autocomplete'], 'list');
 });
 
 test('SearchResults：listbox/option 语义 + aria-selected + 命中高亮 + 条数播报', () => {
   const picked: unknown[] = [];
   const groups = SearchHitGrouper.group(FILES, CHATS, 'app');
-  const vnode = runtime.render(SearchResults, {
-    groups,
-    selectedIndex: 0,
-    query: 'app',
-    loading: false,
-    onPick: (hit: unknown) => picked.push(hit),
+  const { node } = renderFacade(SearchResults, {
+    props: {
+      groups,
+      selectedIndex: 0,
+      query: 'app',
+      loading: false,
+      onPick: (hit: unknown) => picked.push(hit),
+    },
   });
-  const options = collect(vnode, (n) => n.props.role === 'option');
+  const options = byTag(node, 'div').filter((n) => n.props.role === 'option');
   assert.strictEqual(options.length, 4, '会话 2 + 文件 2');
   assert.deepStrictEqual(
     options.map((o) => o.props.id),
@@ -390,107 +412,132 @@ test('SearchResults：listbox/option 语义 + aria-selected + 命中高亮 + 条
     options.map((o) => o.props['aria-selected']),
     ['true', 'false', 'false', 'false'],
   );
-  const listbox = collect(vnode, (n) => n.props.role === 'listbox');
-  assert.strictEqual(listbox.length, 1);
-  assert.strictEqual(listbox[0].props.id, 'session-search-results');
+  const listbox = byTag(node, 'div').find((n) => n.props.role === 'listbox')!;
+  assert.strictEqual(listbox.props.id, 'session-search-results');
   assert.deepStrictEqual(
-    collect(vnode, (n) => n.props.role === 'group').map((g) => g.props['aria-label']),
+    byTag(node, 'div')
+      .filter((n) => n.props.role === 'group')
+      .map((g) => g.props['aria-label']),
     ['会话', '工作区文件'],
   );
-  const marks = collect(vnode, (n) => n.type === 'mark');
+  const marks = byTag(node, 'mark');
   assert.ok(marks.length >= 4, '命中片段必须用 mark 高亮（实际 ' + String(marks.length) + ' 处）');
-  assert.ok(
-    texts(vnode).some((t) => t.includes('找到 4 条结果')),
-    '必须播报结果条数',
-  );
-  const status = collect(vnode, (n) => n.props.role === 'status')[0];
+  assert.match(allText(node), /找到 4 条结果/, '必须播报结果条数');
+  const status = byTag(node, 'div').find((n) => n.props.role === 'status');
+  assert.ok(status !== undefined, '必须有 polite 播报区');
   assert.strictEqual(status.props['aria-live'], 'polite');
 
   // 点击走的是 onMouseDown（避免 blur 丢焦点）：必须回传被点中的那一条。
-  options[2].props.onMouseDown({ preventDefault() {} });
+  fireEvent.mouseDown(options[2]!.el);
   assert.deepStrictEqual(picked, [
     { kind: 'file', id: 'src/app.ts', label: 'app.ts', hint: 'src' },
   ]);
 });
 
 test('SearchResults：无关键字整块不渲染（空间还给本地会话列表）', () => {
-  const vnode = runtime.render(SearchResults, {
-    groups: [],
-    selectedIndex: -1,
-    query: '   ',
-    loading: false,
-    onPick: () => {},
+  const { node } = renderFacade(SearchResults, {
+    props: {
+      groups: [],
+      selectedIndex: -1,
+      query: '   ',
+      loading: false,
+      onPick: () => {},
+    },
   });
-  assert.strictEqual(vnode, null);
+  assert.strictEqual(node, null);
 });
 
-test('SessionPanel：本地即时过滤保留（无输入也生效，且与远端结果无关）', () => {
-  const { props } = setupPanel();
-  // 关键字由 hook 槽位（9=query）注入：模拟「输入 app 但远端尚未回」的本地过滤态。
-  const vnode = renderPanel(props, { 9: 'app' });
-  const rows = collect(vnode, (n) => hasClass(n, 'session'));
+/** 是否为带某 class 的元素（按空格切分，避免 `session` 命中 `session-toolbar`）。 */
+function hasClass(node: FacadeNode, name: string) {
+  return clsOf(node).split(' ').includes(name);
+}
+
+test('SessionPanel：本地即时过滤保留（无输入也生效，且与远端结果无关）', async () => {
+  const handle = await setupPanel();
+  const input = await openSearch(handle);
+  // 输入 app 但**不 flush 防抖**：模拟「关键字已生效、远端尚未回」的本地过滤态。
+  await typeQuery(input, 'app');
+  const rows = byClass(handle.tree(), 'session').filter((n) => hasClass(n, 'session'));
   assert.strictEqual(rows.length, 1, '本地过滤必须只留下匹配会话');
-  const other = renderPanel(props, { 9: 'zzz' });
-  assert.ok(
-    texts(other).some((t) => t.includes('暂无会话')),
-    '无匹配时必须落到空态文案',
-  );
+
+  await typeQuery(searchInput(handle.tree())!, 'zzz');
+  assert.match(allText(handle.tree()), /暂无会话/, '无匹配时必须落到空态文案');
 });
 
 test('SessionPanel：↑/↓ 移动选中、Enter 打开会话、再 Enter 打开文件', async () => {
-  const { calls, props } = setupPanel();
-  searchInput(openSearch(props)).props.onChange({ target: { value: 'app' } });
-  await flush();
+  const handle = await setupPanel();
+  const input = await openSearch(handle);
+  await typeQuery(input, 'app');
+  await runSearch(handle);
 
-  let next = renderPanel(props);
-  const down = () => searchInput(next).props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
-  const up = () => searchInput(next).props.onKeyDown({ key: 'ArrowUp', preventDefault() {} });
-  const enter = () => searchInput(next).props.onKeyDown({ key: 'Enter', preventDefault() {} });
+  const key = (k: string) => {
+    fireEvent.keyDown(searchInput(handle.tree())!.el, { key: k });
+  };
 
-  up();
-  next = renderPanel(props);
+  key('ArrowUp');
+  await act(async () => {
+    await Promise.resolve();
+  });
   assert.strictEqual(
-    searchInput(next).props['aria-activedescendant'],
+    searchInput(handle.tree())!.props['aria-activedescendant'],
     'sr-opt-0',
     '首项再按 ↑ 夹取',
   );
 
-  down();
-  next = renderPanel(props);
-  assert.strictEqual(searchInput(next).props['aria-activedescendant'], 'sr-opt-1');
+  key('ArrowDown');
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.strictEqual(searchInput(handle.tree())!.props['aria-activedescendant'], 'sr-opt-1');
 
-  enter();
-  await flush();
-  assert.deepStrictEqual(calls.selected, ['s-2'], 'Enter 打开的是当前选中的会话（第 2 项）');
-  assert.deepStrictEqual(calls.opened, []);
-  assert.deepStrictEqual(calls.searchAll, ['app'], '打开后清空关键字不得再打远端');
+  key('Enter');
+  await act(async () => {
+    await flush();
+  });
+  assert.deepStrictEqual(handle.calls.selected, ['s-2'], 'Enter 打开的是当前选中的会话（第 2 项）');
+  assert.deepStrictEqual(handle.calls.opened, []);
+  assert.deepStrictEqual(handle.calls.searchAll, ['app'], '打开后清空关键字不得再打远端');
+  assert.strictEqual(searchInput(handle.tree())!.props.value, '', '打开后关键字清空');
 
   // 重新搜索 → 下移到第一个文件命中 → Enter 走文件预览
-  next = renderPanel(props);
-  searchInput(next).props.onChange({ target: { value: 'app' } });
-  await flush();
-  next = renderPanel(props);
-  searchInput(next).props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
-  next = renderPanel(props);
-  searchInput(next).props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
-  next = renderPanel(props);
-  assert.strictEqual(searchInput(next).props['aria-activedescendant'], 'sr-opt-2');
-  searchInput(next).props.onKeyDown({ key: 'Enter', preventDefault() {} });
-  await flush();
-  assert.deepStrictEqual(calls.opened, ['src/app.ts'], '文件命中 Enter 必须在右侧预览');
+  await typeQuery(searchInput(handle.tree())!, 'app');
+  await runSearch(handle);
+  key('ArrowDown');
+  await act(async () => {
+    await Promise.resolve();
+  });
+  key('ArrowDown');
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.strictEqual(searchInput(handle.tree())!.props['aria-activedescendant'], 'sr-opt-2');
+  key('Enter');
+  await act(async () => {
+    await flush();
+  });
+  assert.deepStrictEqual(handle.calls.opened, ['src/app.ts'], '文件命中 Enter 必须在右侧预览');
 });
 
 test('SessionPanel：Esc 清空关键字并收起结果（不再打远端）', async () => {
-  const { calls, props } = setupPanel();
-  searchInput(openSearch(props)).props.onChange({ target: { value: 'app' } });
-  await flush();
-  let next = renderPanel(props);
-  assert.strictEqual(collect(next, (n) => n.type === SearchResults).length, 1);
-  searchInput(next).props.onKeyDown({ key: 'Escape', preventDefault() {} });
-  next = renderPanel(props);
-  const sr = collect(next, (n) => n.type === SearchResults)[0];
-  assert.strictEqual(sr.props.query, '', 'Esc 必须清空关键字');
-  assert.deepStrictEqual(sr.props.groups, [], 'Esc 必须收起结果');
-  assert.strictEqual(searchInput(next).props['aria-expanded'], 'false');
-  assert.deepStrictEqual(calls.searchAll, ['app'], 'Esc 后不得补打远端');
+  const handle = await setupPanel();
+  const input = await openSearch(handle);
+  await typeQuery(input, 'app');
+  await runSearch(handle);
+  assert.ok(
+    byTag(handle.tree(), 'div').some((n) => n.props.role === 'listbox'),
+    '输入后必须出现结果列表',
+  );
+
+  fireEvent.keyDown(searchInput(handle.tree())!.el, { key: 'Escape' });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const tree = handle.tree();
+  assert.strictEqual(searchInput(tree)!.props.value, '', 'Esc 必须清空关键字');
+  assert.ok(
+    !byTag(tree, 'div').some((n) => n.props.role === 'listbox'),
+    'Esc 必须收起结果',
+  );
+  assert.strictEqual(searchInput(tree)!.props['aria-expanded'], 'false');
+  assert.deepStrictEqual(handle.calls.searchAll, ['app'], 'Esc 后不得补打远端');
 });

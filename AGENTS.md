@@ -84,8 +84,9 @@
   - 入口 `web/src/main.ts`（也是样式的 import 处），产物 `web/dist/`（`npm run web:build` = `vite build`，
     单 bundle 带 hash）；
   - 依赖全部 npm（react / react-dom / markdown-it / katex / highlight.js），**无 `web/vendor/`、无 UMD `<script>`**；
-  - UI 一律 `import * as React from 'react'`，**没有 `deps.ts` 间接层**（已删除；测试侧由 vitest 的
-    `resolve.alias` 把 `react` 指到 `web/test/hooksStub.ts`）。
+  - UI 一律 `import * as React from 'react'`，**没有 `deps.ts` 间接层**（已删除）；组件判据同样跑
+    **真实 React + @testing-library/react + jsdom**，**没有 react 测试别名/垫片**
+    （`hooksStub.ts` / `jsxRuntimeStub.ts` 已于 2026-10-18 删除，别再把它们加回来）。
   - **白屏排查顺序**：`web/dist/index.html` 在不在 → 它引用的 `assets/index-*.js` 在不在
     （serve 优先托管 `web/dist`；无产物时回落 `web/`，那就必然白屏）。
 - **前端判据单独一条命令**：`npm run web:test`（先 `vite build` 再 `vitest run`；真 Chrome 判据需要产物）。

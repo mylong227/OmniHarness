@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 权限编辑器判据（Web 交付项，2026-10-11）。
  *
  * ## 判据要钉死什么（这是一条**写盘**入口，标准比只读面板更高）
@@ -11,14 +11,20 @@
  * | ④ | 合法取值**写在界面上**（decision 三档 + 四个字段名 + deny 优先语义） | 用户撞 400 才知道合法值（F9 配置键出口同源） |
  * | ⑤ | 空串字段**不落盘**（`toWireRules` 省略空串） | 把空串写进配置 ⇒ 服务端判"应为非空字符串"而拒绝可用规则 |
  * | ⑥ | 入口已注册（PANELS + Router） | 漏注册 ⇒ 入口静默落回默认面板 |
+ *
+ * 迁移（2026-10-18）：旧用例用 hook 槽位摆 rules/saved/error/notice；真实 React 下改成
+ * **让组件真的取配置、真的按保存**（`renderFacadeAsync` + `waitFor`），并补上"拒绝后编辑态仍在"
+ * 这条原来只靠槽位隐含的行为。断言仍读文案 / disabled / aria 契约。
  */
+
+// @vitest-environment jsdom
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
-
-const runtime = createRuntime();
-runtime.install();
+import userEvent from '@testing-library/user-event';
+import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
+import { allText, byTag, facadeOf } from './domFacade.ts';
+import type { Facade, FacadeNode } from './domFacade.ts';
 
 const { PermissionTab, rulesOf, toWireRules } = await import(
   '../src/ui/components/tabs/PermissionTab.tsx'
@@ -27,110 +33,86 @@ const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
 const { parseHash } = await import('../src/core/Router.ts');
 
 /**
- * 渲染一次组件（函数组件：换组件即清槽位）。
- * @param props 组件属性
- * @param seed hook 槽位预设值
- * @returns vnode 树
+ * 渲染权限面板并等首次 `getConfig` 落地。
+ * @param responses 按 api 方法名给返回值（`getConfig` / `updateConfig`）
+ * @returns 渲染句柄
  */
-function renderSeeded(props: Record<string, unknown>, seed: Record<number, unknown>) {
-  runtime.reset();
-  return runtime.render(PermissionTab, props, seed);
+async function renderSeeded(responses: Record<string, unknown>) {
+  const ui = await renderFacadeAsync(PermissionTab, { props: {}, responses });
+  /** 从同一容器取当前渲染树（编辑/保存都会重渲染）。 */
+  const tree = (): Facade => facadeOf(ui.container.firstElementChild);
+  return { ui, tree };
 }
 
-/**
- * 收集整棵树的文本叶子（无缝拼接）。
- * @param vnode vnode 树
- * @param out 收集器
- * @returns 文本片段
- */
-function texts(vnode: unknown, out: string[] = []): string[] {
-  if (Array.isArray(vnode)) {
-    for (const node of vnode) texts(node, out);
-    return out;
-  }
-  if (vnode === null || vnode === undefined) return out;
-  if (typeof vnode === 'string' || typeof vnode === 'number') {
-    out.push(String(vnode));
-    return out;
-  }
-  texts((vnode as { children?: unknown }).children, out);
-  return out;
+/** 取「保存」按钮。 */
+function saveButton(tree: Facade): FacadeNode | undefined {
+  return byTag(tree, 'button').find((b) => allText(b) === '保存');
 }
 
-/** 桩 vnode 的形状（createElement 产物；只声明本判据读写的字段）。 */
-interface TestNode {
-  type?: unknown;
-  props?: Record<string, unknown> & { disabled?: boolean };
-  children?: unknown;
+/** 点「新增规则」（让面板进入 dirty 态）。 */
+function addRule(tree: Facade): void {
+  const btn = byTag(tree, 'button').find((b) => allText(b) === '新增规则');
+  assert.ok(btn !== undefined, '必须有新增规则按钮');
+  fireEvent.click(btn.el);
 }
 
-/**
- * 深度收集满足谓词的节点。
- * @param vnode vnode 树
- * @param pred 谓词
- * @param out 收集器
- * @returns 命中节点
- */
-function collect(vnode: unknown, pred: (n: TestNode) => boolean, out: TestNode[] = []): TestNode[] {
-  if (Array.isArray(vnode)) {
-    for (const node of vnode) collect(node, pred, out);
-    return out;
-  }
-  if (vnode === null || vnode === undefined || typeof vnode !== 'object') return out;
-  const v = vnode as TestNode;
-  if (pred(v)) out.push(v);
-  collect(v.children, pred, out);
-  return out;
-}
-
-/**
- * 以给定状态渲染并取文本（hook 序：0=rules 1=saved 2=error 3=notice 4=loading）。
- * @param state 覆盖的槽位值
- * @returns 面板文本
- */
-function textWith(state: Record<number, unknown> = {}) {
-  const base: Record<number, unknown> = {
-    0: [],
-    1: [],
-    2: null,
-    3: null,
-    4: false,
-  };
-  const tree = renderSeeded({}, { ...base, ...state });
-  return texts(tree).join('');
-}
-
-test('① 服务端拒绝 ⇒ 原样显示原因（哪一条 / 哪个字段 / 为什么）', () => {
-  const text = textWith({
-    2: '配置错误: permission.rules[0] 缺 decision（必填：allow | deny | ask）；没有它这条规则不会生效',
+test('① 服务端拒绝 ⇒ 原样显示原因（哪一条 / 哪个字段 / 为什么），且不乐观更新', async () => {
+  const { tree } = await renderSeeded({
+    getConfig: { permission: { rules: [] } },
+    updateConfig: () => {
+      throw new Error(
+        '配置错误: permission.rules[0] 缺 decision（必填：allow | deny | ask）；没有它这条规则不会生效',
+      );
+    },
   });
+  addRule(tree());
+  const user = userEvent.setup();
+  const toolInput = byTag(tree(), 'input')[0]!;
+  await user.type(toolInput.el as HTMLElement, 'shell');
+  fireEvent.click(saveButton(tree())!.el);
+
+  await waitFor(() => {
+    if (!allText(tree()).includes('保存失败')) throw new Error('保存失败尚未渲染');
+  });
+  const text = allText(tree());
   assert.match(text, /保存失败/u);
   assert.match(text, /rules\[0\]/u, '必须显示到具体规则下标');
   assert.match(text, /缺 decision/u, '必须显示具体字段与原因');
   assert.doesNotMatch(text, /已保存/u, '被拒绝时不得出现"已保存"（纪律②：不做乐观更新）');
+  // 纪律②：拒绝后编辑态保留（用户改了一半的内容不得凭空消失）。
+  assert.ok(
+    byTag(tree(), 'input').some((n) => n.props.value === 'shell'),
+    '拒绝后已输入的规则内容必须保留',
+  );
+  assert.strictEqual(saveButton(tree())!.props.disabled, undefined, '仍有未保存改动，保存按钮应可再点');
 });
 
-test('②/③ 成功才显示"已保存"；且只有 dirty 时才允许保存', () => {
+test('②/③ 成功才显示"已保存"；且只有 dirty 时才允许保存', async () => {
   const savedRules = [{ decision: 'deny', toolName: 'shell', commandPrefix: '', commandGlob: '' }];
-  const clean = renderSeeded({}, { 0: savedRules, 1: savedRules, 2: null, 3: '已保存（服务端已校验并落盘）', 4: false });
-  assert.match(texts(clean).join(''), /已保存/u);
-  const saveBtn = collect(clean, (n) => n.type === 'button' && texts(n).join('') === '保存')[0];
-  assert.ok(saveBtn !== undefined, '必须有保存按钮');
-  assert.strictEqual(saveBtn.props!.disabled, true, '无改动时保存按钮应禁用（避免空写盘）');
-
-  const dirty = renderSeeded({}, {
-    0: [{ decision: 'allow', toolName: '', commandPrefix: '', commandGlob: '' }],
-    1: [],
-    2: null,
-    3: null,
-    4: false,
+  const { tree } = await renderSeeded({
+    getConfig: { permission: { rules: savedRules } },
+    updateConfig: { ok: true },
   });
-  const dirtyBtn = collect(dirty, (n) => n.type === 'button' && texts(n).join('') === '保存')[0];
-  assert.strictEqual(dirtyBtn?.props?.disabled, false, '有改动时必须可保存');
+  // 载入后与 saved 一致 ⇒ 无改动，保存禁用（避免空写盘）。
+  const clean = saveButton(tree());
+  assert.ok(clean !== undefined, '必须有保存按钮');
+  assert.strictEqual(clean.props.disabled, true, '无改动时保存按钮应禁用（避免空写盘）');
+
+  addRule(tree());
+  assert.strictEqual(saveButton(tree())!.props.disabled, undefined, '有改动时必须可保存');
+
+  fireEvent.click(saveButton(tree())!.el);
+  await waitFor(() => {
+    if (!allText(tree()).includes('已保存')) throw new Error('保存成功提示尚未渲染');
+  });
+  assert.match(allText(tree()), /已保存/u);
+  // 保存把编辑态对齐到服务端态 ⇒ 再次禁用（不是"永远可点"）。
+  assert.strictEqual(saveButton(tree())!.props.disabled, true, '保存成功后应回到 clean 态');
 });
 
-test('④ 合法取值与聚合语义写在界面上（F9 配置键出口同源）', () => {
-  const text = textWith();
+test('④ 合法取值与聚合语义写在界面上（F9 配置键出口同源）', async () => {
+  const { tree } = await renderSeeded({ getConfig: { permission: { rules: [] } } });
+  const text = allText(tree());
   assert.match(text, /allow \| deny \| ask/u, '必须列出合法裁决值');
   assert.match(text, /toolName/u);
   assert.match(text, /commandPrefix/u);

@@ -1,20 +1,22 @@
-﻿// F6 diff accept/reject 闭环：前端接线契约测试。
+// F6 diff accept/reject 闭环：前端接线契约测试。
 // 上半：ApiClient 的 stageFile / revertFile / stageHunk / revertHunk 调用正确的 changes.* RPC。
-// 下半：ChangesTab 在零 DOM 桩里真跑一遍「点 hunk/stage → 调 RPC → 刷新清单 → 提示」闭环，
+// 下半：ChangesTab 在**真实 React + jsdom** 里跑一遍「点 hunk/stage → 调 RPC → 刷新清单 → 提示」闭环，
 // 坐实「hunk / 文件级接受（stage）与拒绝（revert）联动真实写入」在 UI 这一侧也成立。
-// 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
+//
+// 迁移（2026-10-18）：旧组件用例用 hook 槽位直接摆"已展开文件 + patch"，并直接调 props.onClick。
+// 现在让组件**真的去取**（listChanges）并**真的点**（fireEvent.click 文件行展开 → 点 hunk 按钮），
+// 断言仍是同一组 RPC 调用/参数/提示——覆盖的路径比迁移前更长。
+
+// @vitest-environment jsdom
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { createRuntime } from './hooksStub.ts';
-import type { StubVnode } from './hooksStub.ts';
+import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
+import { byClass, facadeOf, walk } from './domFacade.ts';
+import type { Facade, FacadeNode } from './domFacade.ts';
 import type { ApiClient as ApiClientClass } from '../src/core/ApiClient.ts';
 
 const { ApiClient } = await import('../src/core/ApiClient.ts');
-
-// ChangesTab 走 useApp()（React.createContext）与 deps.js，先种运行时桩再动态加载组件。
-const runtime = createRuntime();
-runtime.install();
 const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
 
 /** 捕获一次 RPC 调用（method + params）。 */
@@ -77,26 +79,6 @@ const PATCH = [
 
 const FILES = [{ path: 'src/app.ts', status: ' M', additions: 1, deletions: 1 }];
 
-/** 让排队的 promise 全部落地。 */
-async function flush() {
-  await new Promise((resolve) => setImmediate(resolve));
-}
-
-/** 深度收集满足谓词的节点（能进 map 产生的嵌套数组）。 */
-function collect(vnode: unknown, pred: (n: StubVnode) => boolean, out: StubVnode[] = []): StubVnode[] {
-  if (Array.isArray(vnode)) {
-    for (const k of vnode) collect(k, pred, out);
-    return out;
-  }
-  if (vnode == null || typeof vnode !== 'object') return out;
-  // 遍历的是渲染树（vnode / 文本 / 数组的混合），能走到这里必是对象节点；
-  // 具体是不是 StubVnode 由调用方的谓词保证，故收窄一次。
-  const node = vnode as StubVnode;
-  if (pred(node)) out.push(node);
-  collect(node.children, pred, out);
-  return out;
-}
-
 /** renderChangesTab 的调用记录（RPC 计数 / 参数 / toast）。 */
 interface ChangeCalls {
   listChanges: number;
@@ -115,11 +97,16 @@ interface ToastCall {
 }
 
 /**
- * 安装 API / 对话框 / toast 桩并渲染一次已展开文件的 ChangesTab。
+ * 安装 API / 对话框 / toast 桩，渲染 ChangesTab，并**点开文件**等 patch 落地。
+ *
+ * 迁移说明（2026-10-18）：旧用例用 hook 槽位直接摆"已展开 + patch 已加载"，再直接调用
+ * `props.onClick`。真实 React 下这两步都走真实路径：`renderFacadeAsync` 冲掉首次取数，
+ * 再 `fireEvent.click` 文件行触发 `openPatch`，`waitFor` 等到 hunk 按钮出现。
+ *
  * @param isGit 是否 git 工作区
- * @returns 渲染产物、调用记录与 api 桩引用
+ * @returns 渲染句柄、调用记录与可覆写的 responses
  */
-function renderChangesTab(isGit = true) {
+async function renderChangesTab(isGit = true) {
   const calls: ChangeCalls = {
     listChanges: 0,
     stageHunk: [],
@@ -130,13 +117,7 @@ function renderChangesTab(isGit = true) {
     confirms: 0,
   };
   const toasts: ToastCall[] = [];
-  // 桩 api 需带上 StubAppContext.api 的 4 个基础方法（赋值目标形状如此），
-  // 再叠加 ChangesTab 真实用到的变更方法（签名对齐 src ApiClient）。
-  const api = {
-    getConfig: async () => ({}),
-    updateConfig: async () => ({}),
-    listSessions: async () => [],
-    rpc: async () => ({}),
+  const responses: Record<string, unknown> = {
     async listChanges(path?: string) {
       calls.listChanges += 1;
       return path === undefined
@@ -164,62 +145,77 @@ function renderChangesTab(isGit = true) {
       return { comments: [] };
     },
   };
-  runtime.appContext.api = api;
-  runtime.appContext.toast = (m?: string, k?: string) => {
-    toasts.push({ m, k });
-  };
-  runtime.appContext.dialog = {
-    async confirm() {
-      calls.confirms += 1;
-      return true;
+  const ui = await renderFacadeAsync(ChangesTab, {
+    props: {},
+    responses,
+    onToast: (m, k) => toasts.push({ m, k }),
+    app: {
+      dialog: {
+        async confirm() {
+          calls.confirms += 1;
+          return true;
+        },
+        async prompt() {
+          return null;
+        },
+      },
     },
-    async prompt() {
-      return null;
-    },
-  };
-  // hook 槽位：0=data 1=error 2=loaded 3=expanded 4=patch 5=patchLoading
-  //            6=comments 7=busyAct 8=draft 9=draftText
-  runtime.reset();
-  const vnode = runtime.render(
-    ChangesTab,
-    {},
-    {
-      0: { source: isGit ? 'git' : 'session', branch: isGit ? 'main' : undefined, files: FILES },
-      1: null,
-      2: true,
-      3: 'src/app.ts',
-      4: PATCH,
-      5: false,
-      6: [],
-      7: null,
-      8: null,
-      9: '',
-    },
-  );
-  return { vnode, calls, toasts, api };
+  });
+
+  /** 从**同一容器**取当前渲染树（点击会触发重渲染，旧快照会过期）。 */
+  const tree = (): Facade => facadeOf(ui.container.firstElementChild);
+
+  const row = byClass(tree(), 'change-row')[0];
+  assert.ok(row !== undefined, '必须渲染出变更文件行');
+  fireEvent.click(row.el);
+  await waitFor(() => {
+    // 等 patch 视图出现（`.review` 是 renderChangesPatch 的根；非 git 工作区没有 hunk 按钮，
+    // 故不能用按钮存在作为就绪条件）。
+    if (byClass(tree(), 'review').length === 0) throw new Error('patch 尚未加载完成');
+  });
+  return { ui, tree, calls, toasts, responses };
 }
 
-/** 取指定 title 片段的按钮。 */
-function buttonByTitle(vnode: unknown, titlePart: string): StubVnode | null {
-  const btn = collect(
-    vnode,
+/**
+ * 取指定 title 片段的 hunk 按钮。
+ * @param tree 当前渲染树
+ * @param titlePart title 片段
+ * @returns 命中的按钮（未命中为 undefined）
+ */
+function buttonByTitle(tree: Facade, titlePart: string): FacadeNode | undefined {
+  return walkCollect(
+    tree,
     (n) =>
       typeof n.props.className === 'string' &&
       n.props.className.includes('hunk-btn') &&
       String(n.props.title ?? '').includes(titlePart),
   )[0];
-  return btn ?? null;
+}
+
+/**
+ * 深度收集满足谓词的节点。
+ * @param node 外观节点
+ * @param pred 谓词
+ * @returns 命中节点
+ */
+function walkCollect(node: Facade, pred: (n: FacadeNode) => boolean): FacadeNode[] {
+  const out: FacadeNode[] = [];
+  walk(node, (n) => {
+    if (pred(n)) out.push(n);
+  });
+  return out;
 }
 
 test('ChangesTab：hunk「stage」调 changes.stageHunk（含真实 hunk 文本）并刷新清单 + 成功提示', async () => {
-  const { vnode, calls, toasts } = renderChangesTab(true);
-  const stageBtn = buttonByTitle(vnode, 'stage 该改动块');
-  assert.ok(stageBtn, 'git 工作区必须渲染 hunk stage 按钮');
+  const { tree, calls, toasts } = await renderChangesTab(true);
+  const stageBtn = buttonByTitle(tree(), 'stage 该改动块');
+  assert.ok(stageBtn !== undefined, 'git 工作区必须渲染 hunk stage 按钮');
 
   calls.listChanges = 0;
-  // props 值在桩类型里是 unknown；运行时这里确定是 onClick 回调，收窄后调用。
-  (stageBtn.props.onClick as () => void)();
-  await flush();
+  fireEvent.click(stageBtn.el);
+  await waitFor(() => {
+    if (calls.stageHunk.length !== 1 || toasts.length === 0) throw new Error('操作尚未完成');
+  });
 
   assert.strictEqual(calls.stageHunk.length, 1, '必须且只调一次 changes.stageHunk');
   assert.strictEqual(calls.stageHunk[0].path, 'src/app.ts');
@@ -231,14 +227,15 @@ test('ChangesTab：hunk「stage」调 changes.stageHunk（含真实 hunk 文本�
 });
 
 test('ChangesTab：hunk「丢弃」先确认再调 changes.revertHunk 并刷新 + 提示', async () => {
-  const { vnode, calls, toasts } = renderChangesTab(true);
-  const revertBtn = buttonByTitle(vnode, '丢弃该改动块');
-  assert.ok(revertBtn, 'git 工作区必须渲染 hunk 丢弃按钮');
+  const { tree, calls, toasts } = await renderChangesTab(true);
+  const revertBtn = buttonByTitle(tree(), '丢弃该改动块');
+  assert.ok(revertBtn !== undefined, 'git 工作区必须渲染 hunk 丢弃按钮');
 
   calls.listChanges = 0;
-  // 同上：运行时确定是 onClick 回调。
-  (revertBtn.props.onClick as () => void)();
-  await flush();
+  fireEvent.click(revertBtn.el);
+  await waitFor(() => {
+    if (calls.revertHunk.length !== 1 || toasts.length === 0) throw new Error('操作尚未完成');
+  });
 
   assert.strictEqual(calls.confirms, 1, '破坏性操作必须先经 DialogService 确认');
   assert.strictEqual(calls.revertHunk.length, 1);
@@ -249,37 +246,39 @@ test('ChangesTab：hunk「丢弃」先确认再调 changes.revertHunk 并刷新 
 });
 
 test('ChangesTab：文件级「stage 文件」调 changes.stageFile 并刷新', async () => {
-  const { vnode, calls, toasts } = renderChangesTab(true);
-  const fileBtn = buttonByTitle(vnode, 'stage 整个文件');
-  assert.ok(fileBtn, 'git 工作区必须渲染文件级 stage 按钮');
+  const { tree, calls, toasts } = await renderChangesTab(true);
+  const fileBtn = buttonByTitle(tree(), 'stage 整个文件');
+  assert.ok(fileBtn !== undefined, 'git 工作区必须渲染文件级 stage 按钮');
 
   calls.listChanges = 0;
-  // 同上：运行时确定是 onClick 回调。
-  (fileBtn.props.onClick as () => void)();
-  await flush();
+  fireEvent.click(fileBtn.el);
+  await waitFor(() => {
+    if (calls.stageFile.length !== 1 || toasts.length === 0) throw new Error('操作尚未完成');
+  });
 
   assert.deepEqual(calls.stageFile, ['src/app.ts']);
   assert.ok(calls.listChanges >= 1);
   assert.deepEqual(toasts[0], { m: '已 stage：src/app.ts', k: 'ok' });
 });
 
-test('ChangesTab：非 git 工作区不提供 stage / 丢弃（无真实写入可联动）', () => {
-  const { vnode } = renderChangesTab(false);
-  assert.strictEqual(buttonByTitle(vnode, 'stage'), null);
-  assert.strictEqual(buttonByTitle(vnode, '丢弃'), null);
+test('ChangesTab：非 git 工作区不提供 stage / 丢弃（无真实写入可联动）', async () => {
+  const { tree } = await renderChangesTab(false);
+  assert.strictEqual(buttonByTitle(tree(), 'stage'), undefined);
+  assert.strictEqual(buttonByTitle(tree(), '丢弃'), undefined);
 });
 
 test('ChangesTab：操作失败只提示错误、不刷新清单（fail-closed）', async () => {
-  // 经 renderChangesTab 返回的 api 桩引用覆写 stageHunk（与 runtime.appContext.api 是同一对象）。
-  const { vnode, calls, toasts, api } = renderChangesTab(true);
-  api.stageHunk = async () => {
+  const { tree, calls, toasts, responses } = await renderChangesTab(true);
+  responses.stageHunk = async () => {
     throw new Error('hunk 不适用');
   };
-  const stageBtn = buttonByTitle(vnode, 'stage 该改动块');
+  const stageBtn = buttonByTitle(tree(), 'stage 该改动块');
+  assert.ok(stageBtn !== undefined);
   calls.listChanges = 0;
-  // 同上：运行时确定是 onClick 回调。
-  (stageBtn!.props.onClick as () => void)();
-  await flush();
+  fireEvent.click(stageBtn.el);
+  await waitFor(() => {
+    if (toasts.length === 0) throw new Error('错误提示尚未出现');
+  });
   assert.deepEqual(toasts[0], { m: 'hunk 不适用', k: 'err' });
   assert.strictEqual(calls.listChanges, 0, '失败不得假刷新');
 });
