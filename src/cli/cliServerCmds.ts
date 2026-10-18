@@ -193,9 +193,11 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     const discovery = await oidcFlow.discovery(config);
     const pkce = await oidcFlow.generatePkcePair();
     const state = crypto.randomBytes(16).toString('hex');
+    const nonce = crypto.randomBytes(16).toString('hex');
     const authUrl = oidcFlow.authorizationUrl(discovery, config, {
       state,
       codeChallenge: pkce.challenge,
+      nonce,
     });
     const authState: AuthState = {
       issuer,
@@ -204,6 +206,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       redirectUri: config.redirectUri,
       scope: config.scope,
       state,
+      nonce,
       codeVerifier: pkce.verifier,
       createdAt: new Date().toISOString(),
     };
@@ -255,6 +258,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       codeVerifier: st.codeVerifier,
       redirectUri: st.redirectUri,
       state: st.state,
+      expectedNonce: st.nonce,
     });
     const masked = tokens.access_token.slice(0, 6) + '…' + tokens.access_token.slice(-4);
     process.stdout.write(

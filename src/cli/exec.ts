@@ -76,6 +76,9 @@ export class Exec {
         }
         log.error(`${r.kind === 'signal' ? '终止信号' : '未捕获异常'}：${r.message}`, fields);
       },
+      // `serve` 自带 SIGINT/SIGTERM 处理器（要关服务器/冲事件/杀 MCP 子进程）；护栏再注册一份
+      // 会让两条收尾路径并发抢 exit。故 serve 命令把信号所有权留给它，护栏只兜未捕获异常/rejection。
+      signals: !argv.includes('serve'),
       // 收尾：让 stdout/stderr 写干净（护栏最终走 `process.exit`，会截断尚未落盘的写）。
       shutdown: () => {
         process.exitCode = process.exitCode ?? 1;

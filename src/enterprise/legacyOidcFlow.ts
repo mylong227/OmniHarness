@@ -68,7 +68,12 @@ export class LegacyOidcFlow implements OidcFlowPort {
   public authorizationUrl(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
-    params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
+    params: {
+      readonly state: string;
+      readonly codeChallenge: string;
+      readonly scope?: string;
+      readonly nonce?: string;
+    },
   ): string {
     return this.client.buildAuthorizationUrl(discovery, config, params);
   }
@@ -88,6 +93,7 @@ export class LegacyOidcFlow implements OidcFlowPort {
       readonly codeVerifier?: string | undefined;
       readonly redirectUri?: string | undefined;
       readonly state?: string | undefined;
+      readonly expectedNonce?: string | undefined;
       readonly fetchImpl?: typeof fetch;
     },
   ): Promise<TokenSet> {

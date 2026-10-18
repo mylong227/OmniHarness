@@ -11,6 +11,8 @@ export interface AuthState {
   readonly redirectUri?: string | undefined;
   readonly scope?: string | undefined;
   readonly state: string;
+  /** 授权 URL 里的 nonce（回调时校验 id_token.nonce，防重放）。 */
+  readonly nonce?: string | undefined;
   readonly codeVerifier: string;
   readonly createdAt: string;
 }

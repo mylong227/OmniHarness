@@ -77,7 +77,7 @@ test('buildAuthorizationUrl：含授权码流必要参数 + PKCE + nonce', () =>
   const url = OidcClient.buildAuthorizationUrl(
     d,
     { issuer: 'https://idp', clientId: 'cli', redirectUri: 'https://app/cb' },
-    { state: 's1', codeChallenge: 'cc' },
+    { state: 's1', codeChallenge: 'cc', nonce: 'n-1' },
   );
   const u = new URL(url);
   assert.strictEqual(u.searchParams.get('response_type'), 'code');
@@ -86,7 +86,7 @@ test('buildAuthorizationUrl：含授权码流必要参数 + PKCE + nonce', () =>
   assert.strictEqual(u.searchParams.get('code_challenge'), 'cc');
   assert.strictEqual(u.searchParams.get('code_challenge_method'), 'S256');
   assert.strictEqual(u.searchParams.get('state'), 's1');
-  assert.ok(u.searchParams.get('nonce'));
+  assert.strictEqual(u.searchParams.get('nonce'), 'n-1', '调用方给的 nonce 必须原样写进 URL');
 });
 
 test('exchangeCode：POST 正确表单并解析 token 集', async () => {

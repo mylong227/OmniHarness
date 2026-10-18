@@ -84,7 +84,13 @@ export interface OidcFlowPort {
   authorizationUrl(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
-    params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
+    params: {
+      readonly state: string;
+      readonly codeChallenge: string;
+      readonly scope?: string;
+      /** 防重放的 nonce；提供时必须与回调 id_token.nonce 一致。 */
+      readonly nonce?: string;
+    },
   ): string;
   /**
    * 用授权码换取令牌集。
@@ -102,6 +108,8 @@ export interface OidcFlowPort {
       readonly redirectUri?: string | undefined;
       /** 防 CSRF 的 state；提供时第三方实现会与回调参数做一致性校验。 */
       readonly state?: string | undefined;
+      /** 登录时写入授权 URL 的 nonce；提供时第三方实现会校验 id_token.nonce。 */
+      readonly expectedNonce?: string | undefined;
       readonly fetchImpl?: typeof fetch;
     },
   ): Promise<TokenSet>;

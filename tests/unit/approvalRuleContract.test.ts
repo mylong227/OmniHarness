@@ -80,7 +80,7 @@ type ExhaustiveFields<T extends readonly (keyof ApprovalRule)[]> =
   keyof ApprovalRule extends T[number] ? true : never;
 
 /** 编译期钉子：字段清单必须与契约一一对应（不是子集）。 */
-const CONTRACT_FIELDS_EXHAUSTIVE: ExhaustiveFields<typeof CONTRACT_FIELDS> = true;
+export const CONTRACT_FIELDS_EXHAUSTIVE: ExhaustiveFields<typeof CONTRACT_FIELDS> = true;
 
 test('契约形状：必填/封闭/枚举/只读由**类型级正断言**钉住（放宽任一即 tsc 变红）', () => {
   const samples: readonly ApprovalRule[] = [minimalRule, fullRule];
@@ -88,7 +88,8 @@ test('契约形状：必填/封闭/枚举/只读由**类型级正断言**钉住�
   assert.strictEqual(minimalRule.decision, 'allow');
   assert.strictEqual(fullRule.decision, 'deny');
   assert.strictEqual(fullRule.toolName, 'shell');
-  assert.strictEqual(CONTRACT_FIELDS_EXHAUSTIVE, true);
+  // 字段穷尽性已由 `CONTRACT_FIELDS_EXHAUSTIVE` 在**编译期**钉住；运行时再断言该常量恒为 true
+  // 只是重复 tsc 的结论，故删掉（保留上方类型级常量本身）。
   assert.deepEqual(Object.keys(fullRule).sort(), [
     'commandGlob',
     'commandPrefix',

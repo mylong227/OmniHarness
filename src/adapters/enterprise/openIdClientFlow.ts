@@ -143,7 +143,12 @@ export class OpenIdClientFlow implements OidcFlowPort {
   public authorizationUrl(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
-    params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
+    params: {
+      readonly state: string;
+      readonly codeChallenge: string;
+      readonly scope?: string;
+      readonly nonce?: string;
+    },
   ): string {
     const configuration = this.requireConfiguration(config);
     const meta = configuration.serverMetadata();
@@ -161,7 +166,8 @@ export class OpenIdClientFlow implements OidcFlowPort {
       state: params.state,
       code_challenge: params.codeChallenge,
       code_challenge_method: 'S256',
-      nonce: randomNonce(),
+      // 调用方提供 nonce 时必须原样使用（它会把同一个值写进 AuthState 供回调校验）。
+      nonce: params.nonce ?? randomNonce(),
     });
     return url.toString();
   }
@@ -182,6 +188,7 @@ export class OpenIdClientFlow implements OidcFlowPort {
       readonly codeVerifier?: string | undefined;
       readonly redirectUri?: string | undefined;
       readonly state?: string | undefined;
+      readonly expectedNonce?: string | undefined;
       readonly fetchImpl?: typeof fetch;
     },
   ): Promise<TokenSet> {
@@ -212,6 +219,7 @@ export class OpenIdClientFlow implements OidcFlowPort {
         currentUrl,
         {
           ...(params.state !== undefined ? { expectedState: params.state } : {}),
+          ...(params.expectedNonce !== undefined ? { expectedNonce: params.expectedNonce } : {}),
           // openid-client 的字段名是 pkceCodeVerifier（不是 codeVerifier）。
           ...(params.codeVerifier !== undefined ? { pkceCodeVerifier: params.codeVerifier } : {}),
         },

@@ -15,7 +15,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -38,25 +38,29 @@ function read(rel: string): string {
  */
 function runDeltaOn(body: string): { readonly code: number; readonly out: string } {
   const dir = mkdtempSync(join(tmpdir(), 'omni-pg-'));
-  mkdirSync(join(dir, 'src'), { recursive: true });
-  writeFileSync(join(dir, 'src', 'probe.ts'), body, 'utf8');
-  const git = (args: readonly string[]): void => {
-    execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'ignore', 'ignore'] });
-  };
-  git(['init']);
-  git(['config', 'user.email', 'probe@example.com']);
-  git(['config', 'user.name', 'probe']);
-  git(['add', 'src/probe.ts']);
   try {
-    const out = execFileSync('node', [AUDIT, '--delta'], {
-      cwd: dir,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { code: 0, out };
-  } catch (err) {
-    const e = err as { status?: number; stdout?: string; stderr?: string };
-    return { code: e.status ?? 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+    mkdirSync(join(dir, 'src'), { recursive: true });
+    writeFileSync(join(dir, 'src', 'probe.ts'), body, 'utf8');
+    const git = (args: readonly string[]): void => {
+      execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'ignore', 'ignore'] });
+    };
+    git(['init']);
+    git(['config', 'user.email', 'probe@example.com']);
+    git(['config', 'user.name', 'probe']);
+    git(['add', 'src/probe.ts']);
+    try {
+      const out = execFileSync('node', [AUDIT, '--delta'], {
+        cwd: dir,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      return { code: 0, out };
+    } catch (err) {
+      const e = err as { status?: number; stdout?: string; stderr?: string };
+      return { code: e.status ?? 1, out: `${e.stdout ?? ''}${e.stderr ?? ''}` };
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
   }
 }
 

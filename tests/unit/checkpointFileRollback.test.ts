@@ -61,8 +61,7 @@ test('checkpoint 无 snapshotter 时仅回滚事件（向后兼容，hasFileSnap
   const mgr = new CheckpointManager(storage, { workspaceRoot: process.cwd() });
   const meta = await mgr.snapshot('sess2', 'cp');
   assert.strictEqual(meta.hasFileSnapshot, false);
-  await mgr.rollback('sess2', 'cp');
-  assert.ok(true, '纯事件回滚不应抛错');
+  await assert.doesNotReject(() => mgr.rollback('sess2', 'cp'), '纯事件回滚不应抛错');
 });
 
 test('GitWorkspaceSnapshot：rename 不得解析出伪路径；回滚恢复新路径并删除旧路径', async () => {

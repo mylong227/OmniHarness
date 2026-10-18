@@ -168,7 +168,12 @@ export class OidcClient {
   public buildAuthorizationUrl(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
-    params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
+    params: {
+      readonly state: string;
+      readonly codeChallenge: string;
+      readonly scope?: string;
+      readonly nonce?: string;
+    },
   ): string {
     const u = new URL(discovery.authorization_endpoint);
     u.searchParams.set('response_type', 'code');
@@ -178,7 +183,8 @@ export class OidcClient {
     u.searchParams.set('state', params.state);
     u.searchParams.set('code_challenge', params.codeChallenge);
     u.searchParams.set('code_challenge_method', 'S256');
-    u.searchParams.set('nonce', crypto.randomBytes(8).toString('hex'));
+    // 调用方必须把同一个 nonce 持久化到 AuthState 并在回调时校验；缺省生成只用于兼容旧调用。
+    u.searchParams.set('nonce', params.nonce ?? crypto.randomBytes(8).toString('hex'));
     return u.toString();
   }
 
@@ -392,7 +398,12 @@ export class OidcClient {
   public static buildAuthorizationUrl(
     discovery: OidcDiscovery,
     config: OidcProviderConfig,
-    params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
+    params: {
+      readonly state: string;
+      readonly codeChallenge: string;
+      readonly scope?: string;
+      readonly nonce?: string;
+    },
   ): string {
     return oidcClient.buildAuthorizationUrl(discovery, config, params);
   }
