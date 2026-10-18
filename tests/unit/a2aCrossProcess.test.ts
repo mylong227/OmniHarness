@@ -16,11 +16,11 @@
  *   5. 缺省关零破坏：不显式开启时 `a2a` 与 `runtime.a2a` 均为 undefined，且不监听任何端口。
  */
 
-import { test } from 'vitest';
+import { afterAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import net from 'node:net';
@@ -171,9 +171,18 @@ function basePartial(
 }
 
 /** 新建临时工作区目录。 */
+/** 本文件创建的工作区（afterAll 统一清理，避免每次全量留下临时目录）。 */
+const workspaces: string[] = [];
+
 function workspace(tag: string): string {
-  return mkdtempSync(join(tmpdir(), `omni-${tag}-`));
+  const dir = mkdtempSync(join(tmpdir(), `omni-${tag}-`));
+  workspaces.push(dir);
+  return dir;
 }
+
+afterAll(() => {
+  for (const dir of workspaces) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+});
 
 test('E2 跨进程 HTTP：父进程委托 → 子进程真实子代理执行（输出携带子进程 pid）', async () => {
   const peer = await startPeer('http');
