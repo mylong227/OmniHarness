@@ -1,0 +1,565 @@
+/* =========================================================================
+   打磨层 B（refine-*）—— 2026-10-18 由 5 个文件按原顺序折叠
+   加载位置：shell.css 之后、minimal.css 之前（与折叠前逐字相同）
+
+   为什么保留：这些规则是三代打磨的产物，它们**仍然生效**（不是死代码）——
+   折叠只减少文件数，不改任何一条声明。删除它们需要先按选择器做特异性合并，
+   那是另一次有风险的改写（验收口径：计算样式快照逐属性 diff 为空）。
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/refine-surfaces.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+/* 品牌角标：从「渐变 + 内高光 + 品牌描边」三步装饰收回一枚安静的方块。
+   品牌识别靠位置与字形（Ω），不靠发光。 */
+
+/* 顶栏底边渐变发丝线：一条 1px 线被画成渐变，是最典型的「生成式装饰」。 */
+
+/* 分栏拖拽柄：常驻显示一条灰线，四个栏之间太吵；hover 才显形（已有），这里让它更短更细。 */
+.resizer::after {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--hairline);
+}
+.resizer:hover::after {
+  width: 2px;
+  background: var(--brand);
+}
+
+/* =========================================================================
+   3. 表面与层级：靠底色，不靠描边
+   ========================================================================= */
+
+/* 右侧栏用 --bg-elev（最亮/最暗之外的一层），左栏与中栏同底、由发丝线分隔。 */
+
+/* 卡片：去掉描边，改用「表面 + 极淡顶高光」。深色里描边会让界面变成线框图，
+   而底色差本身已经足够表达层级（三栏阶梯见第 1 节）。 */
+.card {
+  border-color: transparent;
+}
+[data-theme='light'] .card {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+.ev.assistant .card {
+  border-color: transparent;
+}
+/* 助手气泡的「内嵌感」靠底色比中栏再深/浅一档；流式态才用虚线表达「临时」。 */
+.ev.assistant.streaming-assistant .card {
+  border-color: color-mix(in srgb, var(--brand) 34%, var(--border));
+}
+
+/* 用户气泡：原实现 底=--accent 字=--ink-fg，浅色主题下底色≈页面底色 ⇒ 气泡不可见。
+   反过来用（底=--ink-fg 字=--accent）两套主题都成立：深色=浅底深字，浅色=深底浅字，
+   与「我」和助手的中性面板气泡一眼分得开。 */
+
+/* 主按钮（发送）：深色下原为「面板灰」，与普通按钮不可分；改为品牌实心，一屏只此一处。 */
+.send.round,
+.send.round:hover,
+.stop.round {
+  border: none;
+}
+/* 选择器权重与 components.css 的 `.btn.primary` 主题规则对齐，才能盖住旧值。 */
+
+/* 对话框确认键沿用中性强调（它是「危险之外的确认」，不该抢品牌色）。 */
+
+/* 输入卡片：气泡去掉描边之后，输入区若也只剩灰底就会「陷进」中栏。
+   给它一层比中栏更实的表面 + 一道发丝轮廓，深色下再添一层极淡顶高光。 */
+
+/* 工作状态条：与输入卡同一体系（同圆角、同内距），不再是一条贴在边上的灰带。 */
+
+/* 侧栏区块头与栏头：原为 14px 内距 + 0.09em 字距的大写标签，在中文界面里两端都不对齐。
+   统一到 16px 内距，与下方列表项的 12px 一起构成 16/12 的左右节奏。 */
+.side-sec-head {
+  margin: 16px 12px 6px;
+}
+.new-chat {
+  margin: 4px 12px 10px;
+  border-color: var(--hairline);
+}
+.side-item {
+  margin: 0 8px;
+  padding: 8px 10px;
+  gap: 10px;
+}
+
+/* 会话行：hover 用 --panel-2（深色下比 --panel 亮一档），选中＝底 + 品牌左标。 */
+.session {
+  margin-bottom: 2px;
+  font-size: 12.5px;
+}
+.session-search {
+  border-color: var(--hairline);
+}
+
+/* 右栏标签条与路径条：与栏头同一条发丝线口径。 */
+.rv-tabs {
+  border-bottom-color: var(--hairline);
+  min-height: 40px;
+}
+.rv-pathbar {
+  border-bottom-color: var(--hairline);
+}
+.chat-head {
+  border-bottom-color: var(--hairline);
+}
+.chat-status {
+  border-top-color: var(--hairline);
+  gap: 14px;
+}
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/refine-rhythm.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+/* 过程簇是「一组工具调用」，组内 2px、组间 10px。 */
+.process-cluster {
+  margin: 10px 0 6px;
+}
+.process-cluster-body .ev {
+  margin-bottom: 2px;
+}
+
+/* Markdown 文档排版：标题上方留白 > 下方；段间距稳定；列表贴住正文。 */
+.md-content h1 {
+  font-size: 19px;
+  line-height: 1.35;
+  margin: 24px 0 10px;
+}
+.md-content h2 {
+  font-size: 16.5px;
+  line-height: 1.4;
+  margin: 22px 0 9px;
+}
+.md-content h3 {
+  font-size: 15px;
+  margin: 22px 0 8px;
+}
+.md-content h4 {
+  font-size: 13.5px;
+  margin: 18px 0 6px;
+}
+.md-content h5,
+.md-content h6 {
+  font-size: 12.5px;
+  margin: 16px 0 6px;
+}
+.md-content > *:first-child {
+  margin-top: 0;
+}
+.md-content > *:last-child {
+  margin-bottom: 0;
+}
+.md-content p {
+  margin: 0 0 12px;
+  line-height: 1.68;
+}
+.md-content ul,
+.md-content ol {
+  margin: 0 0 12px;
+}
+.md-content li {
+  margin: 3px 0;
+}
+.md-content blockquote {
+  margin: 12px 0;
+  padding: 8px 14px;
+  border-left-width: 1px;
+  border-radius: 0 8px 8px 0;
+}
+.md-content hr {
+  border: 0;
+  margin: 22px 0;
+}
+.md-content a:hover {
+  color: var(--text);
+}
+.md-content em {
+  color: var(--dim);
+}
+.md-content .md-table {
+  margin: 14px 0;
+}
+
+/* 正文行高：13.5px 在 1.5 下只有 20.3px 行距，长时间阅读偏挤；1.6 是中文正文的舒适线。 */
+body {
+  line-height: 1.6;
+}
+.md-content,
+.content {
+  line-height: 1.68;
+}
+
+/* 代码块：横向滚动条会**吃掉回复的横向空间**——脚本类仓库里几乎每块代码都被截断。
+   改为自动换行（保留缩进），并给行号/续行一致的 tab-size。 */
+.md-codeblock pre,
+.md-codeblock pre code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.md-codeblock pre code {
+  white-space: inherit;
+  display: block;
+  padding: 12px 14px;
+}
+.md-codeblock {
+  margin: 14px 0;
+}
+.md-codeblock__bar {
+  padding: 6px 12px;
+}
+.md-codeblock__lang {
+  letter-spacing: 0.02em;
+  color: var(--dim);
+}
+
+/* 行内代码：贴住文字基线，不再把行高顶起来。 */
+.md-content code {
+  border-color: var(--hairline);
+  vertical-align: baseline;
+}
+
+/* 工具调用行：名称/状态/耗时三者对齐到同一基线，行高一致。 */
+.tool-status {
+  line-height: 1.5;
+}
+.tc-line {
+  padding: 5px 6px;
+}
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/refine-overlays.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+/* =========================================================================
+   OmniHarness Web UI — 精修·浮层：统一圆角 / 内距 / 阴影，修顶头溢出
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish2.css §5，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   5. 浮层：统一圆角/内距/阴影，并修「菜单里出现两个 logo」式的顶头溢出
+   ========================================================================= */
+/* 面板、菜单统一 12px 圆角与 6px 内距；项高 ≥28px（触控与误点）。 */
+.dd-menu,
+.ws-switch-menu,
+.addmenu-pop,
+.cap-pop,
+.mention-pop,
+.pp-menu,
+.row-menu,
+.cmdk {
+  border-radius: 12px;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
+  padding: 6px;
+}
+.dd-item,
+.addmenu-item,
+.pp-item,
+.row-menu button,
+.fp-item,
+.ws-project {
+  min-height: 28px;
+  border-radius: 8px;
+}
+.dd-item {
+  padding: 6px 10px;
+  font-size: 12.5px;
+}
+/* 选中：底色 + 品牌色左标（3px 圆角条不是「彩色左边框装饰」，而是**选中语义**）。 */
+.dd-item.active,
+.addmenu-item.active {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--text);
+  box-shadow: none;
+}
+.dd-item.active::before,
+.addmenu-item.active::before {
+  content: none;
+}
+.perm-item.risk-high,
+.perm-item.full {
+  box-shadow: none;
+}
+.perm-item.full {
+  background: color-mix(in srgb, var(--err) 10%, transparent);
+}
+.perm-item.full .perm-name,
+.perm-item.full .perm-badge {
+  color: var(--err);
+}
+.perm-item.full .perm-badge {
+  border-color: color-mix(in srgb, var(--err) 45%, transparent);
+  background: transparent;
+  border-radius: 999px;
+  padding: 1px 4px;
+}
+/* 权限档位菜单要容得下「名称 + 说明」两行，不能被容器裁掉末项。 */
+.dd-menu.wide {
+  min-width: 300px;
+  padding: 6px;
+}
+.perm-desc {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+/* 添加菜单：分组用小标题 + 更大组间距，项与项之间靠留白而非分隔线。 */
+.addmenu-pop {
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(66vh, 520px);
+}
+.addmenu-scroll {
+  padding: 2px 4px 4px;
+}
+.addmenu-sec {
+  margin-bottom: 8px;
+}
+.addmenu-sec:last-child {
+  margin-bottom: 2px;
+}
+.addmenu-sec-title {
+  padding: 8px 10px 4px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  text-transform: none;
+}
+.addmenu-item {
+  padding: 7px 10px;
+  gap: 10px;
+}
+.addmenu-search {
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.addmenu-input {
+  border-color: var(--hairline);
+}
+
+/* 命令面板：输入行原本紧贴弹层上缘（无内距），结果列表却有 6px ⇒ 顶头溢出。
+   这里把输入框内缩进容器，并给列表上下对称内距。 */
+.cmdk {
+  padding: 0;
+  overflow: hidden;
+}
+.cmdk-input {
+  padding: 15px 18px;
+}
+.cmdk-input::placeholder {
+  color: var(--dim);
+}
+.cmdk-list {
+  padding: 8px;
+  max-height: 52vh;
+}
+.cmdk-group-title {
+  padding: 10px 12px 5px;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+}
+.cmdk-item {
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.cmdk-backdrop {
+  background: color-mix(in srgb, var(--bg) 62%, transparent);
+  backdrop-filter: none;
+  padding-top: 14vh;
+}
+
+/* 模态遮罩：用主题底色而不是纯黑，浅色主题下不再是「黑幕」。 */
+.modal,
+.fp-modal {
+  border-radius: 16px;
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-2);
+  padding: 22px 24px;
+}
+.fp-modal {
+  padding: 0;
+}
+/* 审批弹窗的按钮行：三档决策排一行，危险的在左、允许在右，并让「始终允许」靠左收尾，
+   不再让「更改权限」单独占一行贴在右下角（位置与视觉重量都对不上）。 */
+.modal .actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.modal .actions .allow,
+.modal .actions .deny,
+.modal .actions .always {
+  border-radius: 9px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.modal .actions .always {
+  border-color: var(--border-soft);
+}
+.modal .actions .deny {
+  border-color: var(--err);
+}
+.approval-change-perm {
+  text-align: left;
+  padding: 10px 2px 0;
+}
+.approval-change-perm .link {
+  color: var(--brand);
+  font-size: 12px;
+}
+.fp-head {
+  padding: 16px 18px 10px;
+}
+.fp-list {
+  padding: 6px 12px;
+}
+.fp-item {
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.fp-actions {
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--hairline);
+}
+
+/* 抽屉遮罩：同上，深色渐变近黑，浅色不再是黑幕。 */
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/refine-native.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+/* 滚动条：默认隐形，悬停才显形；宽度收到 10px 且不占布局（用透明边框做内缩）。 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 26%, transparent);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+* {
+  scrollbar-color: color-mix(in srgb, var(--text) 16%, transparent) transparent;
+}
+
+/* 键盘焦点环：品牌色实环，容器内做内缩（沿用既有内缩口径，避免被 overflow 裁掉）。 */
+:focus-visible {
+  border-radius: 8px;
+}
+
+/* 浮层与列表容器内的滚动条：不占位、不画轨道——菜单里一条常驻灰杠比「能看见滚动位置」更吵。 */
+.dd-menu,
+.addmenu-scroll,
+.cap-pop,
+.cmdk-list,
+.pp-menu,
+.ws-switch-menu {
+  scrollbar-width: none;
+}
+.dd-menu::-webkit-scrollbar,
+.addmenu-scroll::-webkit-scrollbar,
+.cap-pop::-webkit-scrollbar,
+.cmdk-list::-webkit-scrollbar,
+.pp-menu::-webkit-scrollbar,
+.ws-switch-menu::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+/* 复选框 / 单选：用 accent-color 跟随品牌色，并统一为 14px 方形命中区。 */
+input[type='checkbox'],
+input[type='radio'] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+/* =========================================================================
+   7. 动效：一个统一的缓动与时长，且默认已可见（无入场大动画）
+   ========================================================================= */
+:root,
+[data-theme='dark'],
+[data-theme='light'] {
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-1: 130ms;
+  --dur-2: 190ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 状态变化仍必须可见：靠颜色而非位移。 */
+  .send.round:hover,
+  .btn.primary:hover {
+    transform: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/refine-density.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+/* =========================================================================
+   OmniHarness Web UI — 精修·面板通用密度：右栏 12 面板共用内距与标题节奏
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish2.css §8，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   8. 面板通用密度：12 个右栏面板共用同一套内距与标题节奏
+   ========================================================================= */
+.pane {
+  padding: 14px 16px;
+}
+.col-head {
+  padding: 11px 16px;
+}
+.section-title,
+.pm-title,
+.detail-h {
+  margin: 2px 0 10px;
+}
+.pm-section {
+  margin-bottom: 20px;
+}
+.plugin-card,
+.mem-row {
+  padding: 12px 14px;
+}
+.metric {
+  padding: 12px 14px;
+}
+.kv {
+  padding: 8px 0;
+  border-bottom-color: var(--hairline);
+}
+.usage-table th,
+.usage-table td {
+  padding: 8px 10px;
+  border-bottom-color: var(--hairline);
+}
+.usage-table th {
+  text-transform: none;
+}
+.empty.illu {
+  gap: 10px;
+  padding: 48px 20px;
+}
+.empty.illu .illu-hint {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.empty.note {
+  padding: 14px 4px;
+}

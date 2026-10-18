@@ -31,6 +31,8 @@ import { icon } from '../models/Icon.ts';
 import { useApp } from '../context.ts';
 import { emptyNote } from '../format.ts';
 import { t, type Locale } from '../i18n/i18n.ts';
+import type { IconName } from '../models/Icon.ts';
+import type { ThemePreference } from '../models/ThemePreference.ts';
 import { focusableWithin, trapTab } from '../models/focusTrap.ts';
 import {
   SettingsModel,
@@ -44,6 +46,16 @@ import type { ProviderPreset, ProviderProbeResult, Config, Profile } from '../..
 
 /** 关闭键。 */
 const ESC = 'Escape';
+
+/**
+ * 主题三态（外观栏）。顺序：跟随系统 → 深色 → 浅色。
+ * 跟随系统放第一档，因为它是最"默认"的选择；两档明暗是显式锁定。
+ */
+const THEME_PREFS: readonly { key: ThemePreference; icon: IconName; label: string }[] = [
+  { key: 'system', icon: 'monitor', label: '跟随系统' },
+  { key: 'dark', icon: 'moon', label: '深色' },
+  { key: 'light', icon: 'sun', label: '浅色' },
+];
 
 /**
  * 模型未就绪时的稳定空快照。
@@ -66,10 +78,12 @@ export interface SettingsModalProps {
   open: boolean;
   /** 打开时的初始分栏（含「从审批弹窗跳权限」这条路径）。 */
   tab: SettingsTabKey;
-  /** 当前主题。 */
+  /** 当前主题（用于分段控件的图标与"实际生效"提示）。 */
   theme: 'dark' | 'light';
-  /** 切换主题。 */
-  onToggleTheme: () => void;
+  /** 主题偏好（system / dark / light）。 */
+  themePref: ThemePreference;
+  /** 设置主题偏好。 */
+  onThemePrefChange: (pref: ThemePreference) => void;
   /** 当前界面语言。 */
   locale: Locale;
   /** 切换界面语言。 */
@@ -112,7 +126,7 @@ function createModel(ctx: {
  * @returns 模态节点（open=false 时为 null）
  */
 export function SettingsModal(props: SettingsModalProps): ReactElement | null {
-  const { open, tab, theme, locale, onClose, onTabChange } = props;
+  const { open, tab, theme, themePref, locale, onClose, onTabChange } = props;
   const { api, toast, refreshModelCatalog } = useApp();
 
   // 惰性单例：模型只在首次打开时构造（关掉再开不重建，避免重复拉配置）。
@@ -520,29 +534,42 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
     </>
   );
 
-  /** 「外观」栏：主题（明暗两态用反白块表达，不靠色相）+ 语言（与主题同面板，用户口径）。 */
+  /**
+   * 「外观」栏：主题三态（跟随系统 / 深色 / 浅色）+ 语言。
+   *
+   * 为什么是三态而不是一个明暗开关（2026-10-18）：桌面工具默认该跟着系统走
+   * （系统在日落切暗色时，工具不该还刺眼）。显式选明/暗 = 锁定；选跟随 = 重新交给系统。
+   * 当前实际生效的那一档由 `theme` 决定（系统模式下它会随系统变化）。
+   */
   const renderAppearanceTab = (): ReactElement => (
     <>
       <div className="sp-sec">
         <h3 className="sp-sec-title">{t('主题')}</h3>
         <div className="sp-seg" role="radiogroup" aria-label={t('主题')}>
-          {(['dark', 'light'] as const).map((m) => (
+          {THEME_PREFS.map((p) => (
             <button
-              key={m}
+              key={p.key}
               type="button"
               role="radio"
-              aria-checked={theme === m ? 'true' : 'false'}
-              className={'sp-seg-item' + (theme === m ? ' on' : '')}
+              aria-checked={themePref === p.key ? 'true' : 'false'}
+              className={'sp-seg-item' + (themePref === p.key ? ' on' : '')}
               onClick={() => {
-                if (theme !== m) props.onToggleTheme();
+                if (themePref !== p.key) props.onThemePrefChange(p.key);
               }}
             >
-              {icon(m === 'dark' ? 'moon' : 'sun', { size: 13 })}
-              {m === 'dark' ? t('深色') : t('浅色')}
+              {icon(p.icon, { size: 13 })}
+              {t(p.label)}
             </button>
           ))}
         </div>
-        <p className="sp-hint">{t('两套主题共用同一组 token（黑/白/灰），只交换明度方向；切换后立即生效并记住选择。')}</p>
+        <p className="sp-hint">
+          {themePref === 'system'
+            ? t('界面跟随系统的浅色 / 深色设置，系统切换时自动跟随。当前：') +
+              (theme === 'light' ? t('浅色') : t('深色'))
+            : t('已锁定为') +
+              (theme === 'light' ? t('浅色') : t('深色')) +
+              t('；选「跟随系统」可重新交给系统决定。')}
+        </p>
       </div>
       <div className="sp-sec">
         <h3 className="sp-sec-title">{t('语言')}</h3>

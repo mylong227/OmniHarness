@@ -1,4 +1,4 @@
-﻿// 判据：输入区的**焦点可见性归谁**，以及"框里不再套框"这条外观契约。
+// 判据：输入区的**焦点可见性归谁**，以及"框里不再套框"这条外观契约。
 //
 // 为什么需要它（2026-10-17 的教训）：
 //   输入区的焦点信号在一天内被搬了三次，每次都是"用户看图才发现"，而且我前两轮在
@@ -60,14 +60,39 @@ test('① 输入区 textarea 不出描边（含聚焦）——防"框里套框"�
   assert.match(rule.selector, /:focus-visible/, '规则必须显式覆盖 :focus-visible');
 });
 
+/**
+ * 取输入卡「聚焦时」的那条规则：优先独立的 `:focus-within` 规则，
+ * 其次兼容旧写法（`:hover` 与 `:focus-within` 写在同一组选择器里）。
+ * @returns 规则或 null
+ */
+function focusRule(): { selector: string; decls: string } | null {
+  return declsOf('.composer-box:focus-within') ?? declsOf('.composer-box:hover', [':focus-within']);
+}
+
+/**
+ * 取输入卡在聚焦时使用的描边 token 名（如 `--accent`）。
+ *
+ * 2026-10-18「纸与墨」重设计后，焦点色从灰阶的 `--border-strong` 换成签名色
+ * `--accent`：低饱和体系里灰描边与静息态只差一档，聚焦这件事需要**色相**参与。
+ * 判据因此改成「必须是某个不透明的颜色 token」，并把它交给 ③ 去算实际对比度——
+ * 口径没有放松（仍然要求 ≥3:1），只是不再写死 token 名。
+ * @returns token 名（含 `--` 前缀）；规则里不是 var() 时返回 null
+ */
+function focusBorderToken(): string | null {
+  const rule = focusRule();
+  if (rule === null) return null;
+  const m = /border-color:\s*var\((--[a-z0-9-]+)\)/i.exec(rule.decls);
+  return m === null ? null : m[1];
+}
+
 test('② 焦点信号由容器承担：.composer-box:focus-within 必须有可见描边', () => {
-  const rule = declsOf('.composer-box:hover', [':focus-within']);
-  assert.ok(rule !== null, 'minimal.css 必须有 .composer-box:hover / :focus-within 规则');
-  assert.match(rule.selector, /:focus-within/, '该规则必须同时管 :focus-within');
-  assert.match(
-    rule.decls,
-    /border-color:\s*var\(--border-strong\)/,
-    '容器在聚焦时必须把描边换成可见色（键盘用户的唯一焦点信号）',
+  const rule = focusRule();
+  assert.ok(rule !== null, 'minimal.css 必须有 .composer-box:focus-within（或与 :hover 合并的）规则');
+  assert.match(rule.selector, /:focus-within/, '该规则必须管 :focus-within');
+  const token = focusBorderToken();
+  assert.ok(
+    token !== null,
+    '容器在聚焦时必须把描边换成颜色 token（键盘用户的唯一焦点信号）：' + rule.decls,
   );
   // 反面对照：若这里写成 transparent（把信号删掉），上一条断言就变红。
   assert.ok(
@@ -124,13 +149,16 @@ test('③ 焦点描边的对比度 ≥3:1（两套主题，WCAG 2.2 2.4.13）', 
   }
   for (const theme of ['dark', 'light']) {
     const t = themeTokens(theme);
-    const fg = hex(t['border-strong']);
+    // 验的是**样式里实际用的那个 token**（②已断言它必须存在），避免"判据盯 A、样式用 B"。
+    const token = focusBorderToken();
+    assert.ok(token !== null, '先跑 ②：聚焦描边必须是颜色 token');
+    const fg = hex(t[token.replace(/^--/, '')]);
     const bg = hex(t['panel']);
-    assert.ok(fg !== null && bg !== null, `${theme} 主题必须有 --border-strong 与 --panel`);
+    assert.ok(fg !== null && bg !== null, `${theme} 主题必须有 ${token} 与 --panel`);
     const r = ratio(fg, bg);
     assert.ok(
       r >= 3,
-      `${theme}：焦点描边 --border-strong 对 --panel 只有 ${r.toFixed(2)}:1（要求 ≥3:1）`,
+      `${theme}：焦点描边 ${token} 对 --panel 只有 ${r.toFixed(2)}:1（要求 ≥3:1）`,
     );
   }
 });

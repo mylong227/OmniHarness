@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN" data-theme="dark">
 <head>
   <meta charset="utf-8">
@@ -11,10 +11,11 @@
        为什么必须有它：不声明 favicon 时浏览器会回退请求 `/favicon.ico`，而 serve 没有该路由 ⇒
        每次加载都在控制台留一条 404 错误（2026-10-06 真机 CDP 跑测实测），把"控制台零错误"
        这条前端健康判据逼成假红。
-       单色口径：白底黑字（原为深底蓝字，是全站最后一处彩色）。 -->
+       单色口径：白底黑字（原为深底蓝字，是全站最后一处彩色）。
+       2026-10-18「纸与墨」：底改靛墨、字改纸白，与左栏品牌墨块同源。 -->
   <link
     rel="icon"
-    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,serif' text-anchor='middle' fill='%230a0a0a'%3E%CE%A9%3C/text%3E%3C/svg%3E"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233d4a86'/%3E%3Ctext x='16' y='23' font-size='19' font-family='Georgia,serif' text-anchor='middle' fill='%23fdfcf9'%3E%CE%A9%3C/text%3E%3C/svg%3E"
   >
   <!--
     React 工作台宿主页。架构：标准 Vite + React + TypeScript 项目（零网络依赖）。
@@ -27,14 +28,23 @@
   -->
   <!-- 样式表现在由 `src/main.ts` 统一 import（标准 Vite 做法），
        级联顺序 = import 顺序，见该文件的分组注释。此处不再手挂 <link>。 -->
-  <!-- 主题持久化：必须在 paint 之前同步读取 localStorage 并设到 <html data-theme="...">。
-       否则 React mount 完成后才设 data-theme 会闪一下 dark（CSS 默认）→ 再切 light，
-       用户会感觉"刷新等于没设置"。这里 raw 内联，零依赖，文件大小 < 0.5KB（2026-09-08）。 -->
+  <!-- 主题持久化：必须在 paint 之前同步解析出 data-theme。
+       否则 React mount 完成后才设 data-theme 会闪一下默认主题再切换，
+       用户会感觉"刷新等于没设置"。这里 raw 内联，零依赖（2026-09-08）。
+       2026-10-18：默认改为**跟随系统**——没有存过偏好的用户按 prefers-color-scheme
+       取首屏（系统是浅色就别先给一帧深色），存过 dark / light 的照旧锁定。 -->
   <script>
     (function () {
       try {
-        var t = localStorage.getItem('omni-theme');
-        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+        var raw = localStorage.getItem('omni-theme');
+        var pref = raw === 'dark' || raw === 'light' || raw === 'system' ? raw : 'system';
+        var mode =
+          pref === 'system'
+            ? window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark'
+            : pref;
+        document.documentElement.setAttribute('data-theme', mode);
       } catch (_) { /* ignore (private mode etc.) */ }
     })();
   </script>

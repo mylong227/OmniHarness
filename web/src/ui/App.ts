@@ -1,4 +1,4 @@
-﻿// 应用根组件：纯视图层（C3 拆分后的标准写法）。
+// 应用根组件：纯视图层（C3 拆分后的标准写法）。
 // 状态与副作用全部上移到 AppController（组合根 / 门面）+ 子控制器（Session / Composer / Graph），
 // 本组件只负责「状态 → DOM 树」的装配，不含任何业务副作用
 // （回调统一经 controller.* 命名引用，App 状态即唯一数据源）。
@@ -13,6 +13,7 @@ import { AppContext } from './context.ts';
 import { AppController } from './controllers/AppController.ts';
 import type { AppHost, AppState } from './controllers/AppController.ts';
 import { getLocale, initLocale, type Locale } from './i18n/i18n.ts';
+import type { ThemePreference } from './models/ThemePreference.ts';
 
 import { RenderErrorBoundary } from './components/RenderErrorBoundary.tsx';
 import { SessionPanel } from './components/SessionPanel.tsx';
@@ -28,17 +29,21 @@ import { ToolsTab } from './components/tabs/ToolsTab.tsx';
 import { MetricsTab } from './components/tabs/MetricsTab.tsx';
 import { ChangesTab } from './components/tabs/ChangesTab.tsx';
 import { PluginsTab } from './components/tabs/PluginsTab.tsx';
+import { FileTab } from './components/tabs/FileTab.tsx';
+import { DetailTab } from './components/tabs/DetailTab.tsx';
+import { TraceTab } from './components/tabs/TraceTab.tsx';
+import { PermissionTab } from './components/tabs/PermissionTab.tsx';
+// 少见面板**保持静态导入**（2026-10-18 试过 React.lazy，已回退）：
+// 实测收益只有入口 gzip −8.7 KB，代价是首次点开这些面板时 Suspense fallback（"加载中…"）
+// 在真机/探针里持续 200–300 ms——右栏出现空白/加载态比 8.7 KB 更伤体验。
+// 面板按需加载若要重做，正确做法是"空闲期预取 + 打开时零等待"，而不是直接 lazy。
 import { GraphTab } from './components/tabs/GraphTab.tsx';
 import { MemoryTab } from './components/tabs/MemoryTab.tsx';
 import { ProfilesTab } from './components/tabs/ProfilesTab.tsx';
-import { FileTab } from './components/tabs/FileTab.tsx';
-import { DetailTab } from './components/tabs/DetailTab.tsx';
 import { RollbackTab } from './components/tabs/RollbackTab.tsx';
 import { GovernanceTab } from './components/tabs/GovernanceTab.tsx';
 import { DiagnosticsTab } from './components/tabs/DiagnosticsTab.tsx';
 import { AuditTab } from './components/tabs/AuditTab.tsx';
-import { TraceTab } from './components/tabs/TraceTab.tsx';
-import { PermissionTab } from './components/tabs/PermissionTab.tsx';
 import { VaultTab } from './components/tabs/VaultTab.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
 import { SessionsScope } from './models/SessionsScope.ts';
@@ -77,6 +82,9 @@ function initialState(): AppState {
     fileView: null,
     openFiles: [],
     theme: 'dark',
+    // 主题偏好初值：`system`（跟随系统）。真正的解析在 LayoutController.initTheme 完成，
+    // 首帧前的 data-theme 由 index.html 的内联脚本按 prefers-color-scheme 设好。
+    themePref: 'system',
     locale: getLocale(),
     leftOpen: false,
     rightOpen: false,
@@ -294,6 +302,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
           onCollapse: () => ctrl.layout.toggleRight(),
           style: { width: s.rightWidth + 'px' },
         },
+        // 按需加载的面板在这里落地：首次打开时 chunk 还没到，先给一行"加载中"，
+        // 不让右栏出现空白（空白会被误读成"这个面板坏了"）。
         pane,
       ),
     ),
@@ -307,7 +317,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
       open: s.settingsOpen,
       tab: s.settingsTab,
       theme: s.theme,
-      onToggleTheme: () => ctrl.layout.toggleTheme(),
+      themePref: s.themePref,
+      onThemePrefChange: (pref: ThemePreference) => ctrl.layout.setThemePref(pref),
       locale: s.locale,
       onLocaleChange: (l: Locale) => ctrl.settings.setLocale(l),
       onClose: ctrl.settings.close,

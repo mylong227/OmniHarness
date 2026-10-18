@@ -1304,7 +1304,7 @@
 > | "0 项 = 通过"族其余三条                                                               | `architectureGate` 不打印文件数、`auditStandards --maturity` 0 声明仍通过、`apiStability` 0 export 仍通过                                                          | 需为每条定"合理下限"，避免变成脆判据——独立一片<br>**✅ 2026-10-11 销账**：三条均已判红——`architectureGate` 打印扫描面且 0 文件 exit 1（`:300`）、`auditStandards --maturity` 0 声明 exit 1（`:878`）、`apiStability` 0 export exit 1（`:62-68`）                                                    |
 > | `nativeBuild.mjs` / `maturityAnnotate.mjs` / `copyAssets.mjs` / `auditInterfaces.mjs` | 分别：拷贝失败归因误导（真因常是产物不存在）、`--apply` 已写盘却打印"未改动任何文件"、`throwIfNoError` 选项名拼错致"跳过"分支不可达、注释指向**不存在**的 `--gate` | 均在低流量脚本的消息/死分支层面，不影响判定结果<br>**⚠️ 部分销账（2026-10-11）**：`auditInterfaces.mjs:32-33` 与 `copyAssets.mjs:63` 已订正（本轮复核原文）；`nativeBuild.mjs` / `maturityAnnotate.mjs` 两处**本轮未见原文**，保持未修登记                                                          |
 > | `CliArgs.profile` 死声明 + `parseArgs` 对未知旗标静默 `continue`                      | 前者声明后从不赋值/读取（`--profile` 走装配层自解析）；后者是①②③里所有"拼错 = 无效"的**共同放大器**                                                                | 改成"未知旗标即报错"是行为变更，会打到所有子命令与自定义旗标面，须单独一轮评估<br>**✅ 2026-10-11 销账**：字段已删（`argParser.ts:114` 留删除说明）、未知旗标已 fail-closed 且给拼写建议（`argParser.ts:366-378`）⇒ "拼错 = 无效"的共同放大器已拆                                                   |
-> | 冻结死链基线里的**过期路径**                                                          | `ARCHITECTURE_UPGRADE_2026-10.md` 的 M1 行仍写 `scripts/memoryLiftProbe.mjs`（G21 入库后早已移到 `tools/probes/`），被当成"已知死链"**冻结**而非修                 | **已修**：订正路径 + `--update` 收紧死链基线 **12 → 11**（门禁自述"已清偿 ⇒ --update 收紧"）。另一条 `PROJECT_BOARD.md -> scripts/memoryLiftProbe.mjs` 属历史轮次原文，按"保留旧文"**不动**，留在基线里                                                                                             |
+> | 冻结死链基线里的**过期路径**                                                          | `ARCHITECTURE_UPGRADE_2026-10.md` 的 M1 行仍写 `memoryLiftProbe` 探针（已删除）（G21 入库后早已移到 `tools/probes/`），被当成"已知死链"**冻结**而非修              | **已修**：订正路径 + `--update` 收紧死链基线 **12 → 11**（门禁自述"已清偿 ⇒ --update 收紧"）。另一条 `PROJECT_BOARD.md -> scripts/memoryLiftProbe.mjs` 属历史轮次原文，按"保留旧文"**不动**，留在基线里                                                                                             |
 >
 > ⑤ **验证口径**：clean build **2923 例，0 失败，0 cancelled，4 跳过**（净增 7 例：`probesInRepo` ⑧⑨、
 > `gateTiering` ⑧、`cliEnumValidation` 3 例、`headless` 1 例）。**如实登记一条**：本轮首跑曾出现
@@ -1798,7 +1798,7 @@
   ⚠️ **吞吐数字已订正（2026-10-03 第五轮复测）**：原写"180–320 texts/s"**复现不出**——用 256 条 ≈90 字符文本、
   e5-small-v2 量化档、batch 8/32 复测为 **26.1 / 29.7 texts/s**（另有独立调研测得 ~50 texts/s，差异来自文本长度与批构成）。
   ⇒ **吞吐是文本长度与批的强函数，任何单点数字必须连同方法一并引用**；此前的 180–320 属错误记录。
-  当时的可复现脚本为 `evals/semantic-e2e-real.mjs`（**该脚本已于同日随跑分子系统删除**，故下表数字**不再可复跑**，
+  当时的可复现脚本为 `semantic-e2e-real` 脚本（已随跑分子系统删除）（**该脚本已于同日随跑分子系统删除**，故下表数字**不再可复跑**，
   仅作当次实测留档；语料是复制到临时目录的 `src/` 有界子集，60 文件 / 1108 条待编码）：
 
   | 段  | 场景                        | 编码条数 | 耗时  |
@@ -1866,16 +1866,16 @@ npm run rust:test      # cargo test --workspace
 
 **已删除（87 个入库文件 + 本机 2.3 GB 级运行产物）**：
 
-| 路径                                                                            | 文件数 | 说明                                                                             |
-| ------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
-| `benchmark/`                                                                    | 6      | 效率基准 / 六属性自检 / 参数收紧闭环 / telemetry 配置                            |
-| `evals/`                                                                        | 51     | 召回、重排、语义桥、爬虫、BM25、工具暴露等测量脚本与报告                         |
-| `python/`                                                                       | 3      | SWE-bench 容器内的 OmniHarness 运行器                                            |
-| `scripts/*.py`                                                                  | 16     | ComfyBench / GenEval / GenEval2 / KRIS-Bench / ReasonEdit / WISE 的 run+evaluate |
-| `tests/bench/`                                                                  | 4      | 该目录下的微基准（compaction / nativeVsJs / tokenEstNative / agentTask）         |
-| `BENCHMARKS.md` + `docs/SWEBENCH_*.md`(4) + `docs/ZERO_COST_CAPABILITY_EVAL.md` | 6      | 对外跑分口径与交接文档                                                           |
-| `requirements.txt`                                                              | 1      | 上述评测栈（含 GenEval2/CUDA 轮子）的 Python 依赖                                |
-| `eval-data/`（**本机，gitignored**）                                            | 0      | SWE-bench/Terminal-bench 运行产物：克隆仓库、testlogs、56.7 MB 向量缓存等        |
+| 路径                                                                                   | 文件数 | 说明                                                                             |
+| -------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| `benchmark/`                                                                           | 6      | 效率基准 / 六属性自检 / 参数收紧闭环 / telemetry 配置                            |
+| `evals/`                                                                               | 51     | 召回、重排、语义桥、爬虫、BM25、工具暴露等测量脚本与报告                         |
+| `python/`                                                                              | 3      | SWE-bench 容器内的 OmniHarness 运行器                                            |
+| `scripts/*.py`                                                                         | 16     | ComfyBench / GenEval / GenEval2 / KRIS-Bench / ReasonEdit / WISE 的 run+evaluate |
+| `tests/bench/`                                                                         | 4      | 该目录下的微基准（compaction / nativeVsJs / tokenEstNative / agentTask）         |
+| `BENCHMARKS.md` + `docs/SWEBENCH_*.md`(4) + `ZERO_COST_CAPABILITY_EVAL` 文档（已删除） | 6      | 对外跑分口径与交接文档                                                           |
+| `requirements.txt`                                                                     | 1      | 上述评测栈（含 GenEval2/CUDA 轮子）的 Python 依赖                                |
+| `eval-data/`（**本机，gitignored**）                                                   | 0      | SWE-bench/Terminal-bench 运行产物：克隆仓库、testlogs、56.7 MB 向量缓存等        |
 
 **配套同步（缺一即红，逐项已做）**：
 
@@ -2052,7 +2052,7 @@ sqlite 走 `INSERT OR REPLACE`（**不再 DELETE 全桶**）；`EventPersister.w
 
 > **文档死链基线说明（2026-10-03 第五轮）**：基线由 89 处更新为 **96 处**（`testCountParser` 已成真并已收紧），曾新增的 7 条来自
 > `docs/ARCHITECTURE_UPGRADE_2026-10.md` 的**升级提案里的待建路径**
-> （`scripts/memoryLiftProbe.mjs`、`tests/unit/{eventPersisterAppend,memoryTrustBoundary,subagentWriteGate,toolSchedulerReadyOrder,testCountParser,genAiSemconvConformance}.test.ts`）。
+> （`memoryLiftProbe` 探针（已删除）、`tests/unit/{eventPersisterAppend,memoryTrustBoundary,subagentWriteGate,toolSchedulerReadyOrder,testCountParser,genAiSemconvConformance}.test.ts`）。
 > 它们是有意引用（提案的判据落点），按 `docLinkCheck` 的既定流程 `--update` 纳入基线；
 > **实现这些提案后应收紧基线**（`--update` 会同时清掉已存在的路径）。
 
@@ -3751,3 +3751,165 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
     四项边界已落地，仅剩测试审计 P2 质量 backlog（§16.4）。
 - 说明：`e2e` 用例末尾有一条「临时 profile 目录 EBUSY，留给 OS 清理」的 stderr；用例本身通过，
   属 Windows 文件锁的收尾噪声，不是断言失败。
+
+---
+
+## 17. Web 前端「纸与墨」重设计（2026-10-18，第十二轮）
+
+**触发**：用户要求「按照 skill 全面修改前端的使用体验，极简设计，色彩构图需要舒适」。
+经确认的三条口径：① 克制中性色 + **一个签名色**（不是零色相，也不是多色体系）；
+② 保持三栏骨架，只重做视觉与交互细节；③ 默认主题**跟随系统**。
+
+### 17.1 换了什么（Replace，不是打磨）
+
+| 层        | 改动                                                                                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 配色      | 纯黑/纯白 → 石墨 `#17191c` / 纸白 `#f8f7f4`；新增靛墨签名色（dark `#a8b4e8` / light `#3d4a86`）与四个低饱和语义色族（鼠尾草绿/茜红/琥珀/雾蓝）。全部落在 `web/styles/theme.css`，仍是唯一配色事实源 |
+| 对话流    | 助手消息**去掉卡片**（纸面直排）；用户消息改为 8% 墨色淡底气泡；消息之间的分隔线删除，改用 22px 留白；`.stream-inner` 行宽 880 → 800                                                                |
+| 输入区    | 单层 panel 表面 + 22px 圆角 + 发丝描边；hover 只提"控件边界"一档，**聚焦**才换墨色描边 + 一圈极淡外晕；`+ / 附件 / 权限 / 容量 / 模型` 统一为无框 chip                                              |
+| 徽标      | 灰底灰字 → 12% 语义色底 + 同色字 + 40% 描边（新增/修改/删除/重命名终于可区分）                                                                                                                      |
+| 侧栏/面板 | 当前项统一为"极淡墨底 + 左缘 2px 墨标"；`.session` 行高 34px；设置模态当前分栏同款                                                                                                                  |
+| 字阶      | 正文 13.5/1.6 → **14.5px / 1.7**；圆角标尺改为 6/8/10/14/18；投影只留给浮层                                                                                                                         |
+| 主题      | `omni-theme` 支持 `system` 三态（`web/src/ui/models/ThemePreference.ts`）；`index.html` 首帧前按 `prefers-color-scheme` 取值；设置·外观栏改为三档分段控件                                           |
+| 技术债    | `layout.css` / `chat.css` 里 45 处历史色字面量**全部换成语义 token**（DESIGN_SYSTEM §9.1 记的那笔债，本轮清偿）                                                                                     |
+
+### 17.2 判据变化（诚实登记：这是口径变更，不是"放宽"）
+
+- **删除** 旧的「单色不变量」判据（`monochromeInvariant`，"任何可见颜色必须是灰阶"；文件已删，
+  内容可查 git 历史）——新世界有意带色，该判据会把正确设计判红。
+- **新增** `web/test/colorSystem.test.ts`（3 例）：
+  ① 静态扫描 `theme.css` 之外的所有样式表，**不得出现带色相的字面量**（通道极差 >24 即违规）；
+  ② 两套主题 token 齐备、签名色与语义色在明暗下必须不同；
+  ③ 真 Chrome：`--accent` / `--ok` / `--add` / `--del` / `--bg` 的解析值必须真的落在
+  `.send.round` / `.pill .dot` / `.change-badge` / `body` 上（防"定义了 token 但组件没吃"）。
+- 改了 3 条既有判据的**实现口径**（意图不变，均有注释说明）：
+  `composerFocus` ②③ 焦点色从写死 `--border-strong` 改为"实际使用的任意颜色 token，且 ≥3:1"；
+  `narrowReflow` 的正对照改为钉死"不可收缩的 420px 控制组"（重设计后输入条全部可收缩，
+  只强制 nowrap 已造不出溢出 ⇒ 旧正对照假红）。
+- 零彩色核验脚本的"平均彩度 <0.03"口径**作废**（有意带色的界面必然高于它），该脚本已于
+  2026-10-18 删除；色相纪律改由 `colorSystem.test.ts` 承担。
+
+### 17.3 实跑结论（2026-10-18 19:12，本机）
+
+- `npx vitest run --project web` ⇒ **83 文件 / 487 例全绿**（`colorSystem` 3 例含真 Chrome；
+  `chromeCleanup` 真机树杀 53.9s 亦过）。
+- `node web/test/responsiveProbe.ts --full` ⇒ 640/1000/1280 三档 `overflow=false`、
+  `offendingCount=0`（含左右抽屉三态）。
+- `npm run web:build` ⇒ 单 bundle `index-*.js` + `index-*.css` 构建通过。
+- 真机截图（`web/archive/`，dark/light × 1280/1000/640 × 面板/浮层/模态）：
+  `polish-*-stream-1280-1792322005356.png`（含第一条用户气泡）、
+  `polish-*-state-settings-1792321360734.png`、`polish-dark-state-approval-*`、
+  `polish-light-state-modelpicker-*` 等。
+
+### 17.4 已知边界
+
+- `polish-*.css` / `refine-*.css` 两代打磨层的几何仍生效（有意保留，避免本轮同时动几何）；
+  其中的中性半透明高光不违反色相门禁，删文件属下一步清理。
+- 代码高亮仍是无色相体系（彩色语法会与靛墨抢注意力）；若将来要加，需先在
+  `DESIGN_SYSTEM.md` 定义语法色族并同步 `colorSystem` 门禁。
+- 窄中栏（322px）下输入条会分成两行、容量条只留图标、模型名截断到 14ch——这是刻意的让位顺序，
+  见 `minimal.css §6` 注释。
+
+---
+
+## 18. 全仓优化收口（2026-10-18，第十三轮）：首屏体积 / 死代码 / 后端 IO / 样式分层
+
+**触发**：用户要求「按顺序全部前后端的问题全部收掉」。按 W1→W2→W3 三波执行，每步都带实测。
+
+### 18.1 W1 · 低风险清理
+
+| 项                  | 处置                                                                                                                                                                      | 实测                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| highlight.js 语言集 | `lib/common`（36 种，291 KB 原始）→ `lib/core` + 显式注册 18 种                                                                                                           | 入口 JS **−52 KB 原始 / −27.5 KB gzip**     |
+| 死组件              | 删 `Dropdown.tsx`（110 行）、`FileModal.tsx`（62 行，仅测试引用）、`tabs/SettingsTab.tsx`（303 行）                                                                       | −475 行；`a11yKeyboard` 移除 FileModal 用例 |
+| 死 CSS              | 51 条整规则 + 分组选择器里的死段（rail 导航条、topbar、旧设置、`.ctl-*`、`.hunk-summary/chip` 等 35 个类）                                                                | CSS **−7.25 KB 原始**                       |
+| 首屏体积门禁        | 新增 `scripts/webBundleBudget.mjs` + `scripts/webBundleBudget.json`（入口 JS ≤300 KB gzip、CSS ≤40 KB gzip；异步块单列不计预算）；接入 CI web job 与 `npm run web:budget` | 防回潮                                      |
+| 探针归档            | `web/archive/` 139 张残留截图 → 12 张                                                                                                                                     | 14 MB → 1 MB                                |
+| CI 配额             | PR 只跑 Linux，push main 才跑三平台矩阵（文件头记着 2000 分/月被烧尽）                                                                                                    | PR 用量 −2/3                                |
+
+### 18.2 W2 · 结构性收益
+
+| 项              | 处置                                                                                                                                             | 实测                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| KaTeX 懒加载    | 静态 `import katex` + CSS → 首次遇到公式时 `import('katex')`；公式先出**占位**（转义 TeX 源码），chunk 到位后 `upgradeMathInDocument()` 原地替换 | 入口 1050→**784 KB**（gzip 345.5→**266.6**，**−79 KB gzip**）；异步块 266 KB / 79.6 KB gzip |
+| 懒加载判据      | 新增 `web/test/mathLazy.test.ts`：入口 chunk 不含 `KaTeX` 实现、公式最终变 `.katex`、不残留占位                                                  | 3 条断言（真 Chrome）                                                                       |
+| 后端 RPC 异步化 | `FsExplorer.browse/mkdir/readAttachments` 全部改 `fs/promises`；26 个盘符并发探测；`fs.*`/`attach.read` handler 去掉多余 `Promise.resolve` 包装  | 大目录/网络盘不再按住事件循环；10 例判据迁移为 `await`/`assert.rejects`                     |
+| 会话列表缓存    | `SessionArchive.scanSessionFile` 按 `(mtimeMs, size)` 缓存解析结果（有界 4096 条），并去掉重复 `stat`                                            | 本机 134 会话/1.6 MB：**47.5 ms → 4.9 ms**（热路径 ~10×）                                   |
+
+### 18.3 W3 · 收敛与工程
+
+| 项           | 处置                                                                                                                                                                                                               | 实测/证据                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| 样式分层     | 9 个 `polish-*`/`refine-*` **按加载相位**折叠为 `legacy-a.css` / `legacy-b.css`（级联顺序逐字不变）                                                                                                                | 20 → 13 份样式表；`git show HEAD` 版本按同规则清理后与折叠文件**正文逐字一致**（`verifyMerge` 证明） |
+| 外部还原防护 | 本机有外部工具把已删除的已跟踪文件（含已退役判据）还原回磁盘 ⇒ ① `vitest.workspace` 排除已退役的 `monochromeInvariant`；② `a11yContrast` 增加 `RETIRED_STYLES` 名单：容忍"存在但未 import"，并**禁止**它们再进级联 | 两次还原后仍全绿                                                                                     |
+| 测试分层     | 新增 `npm run test:fast`（纯单元，无需构建）与 `npm run test:slow`（集成 + 前端）                                                                                                                                  | `npm test` 语义不变                                                                                  |
+| 面板按需加载 | **试做后回退**：`React.lazy` 8 个少见面板实测只省入口 gzip −8.7 KB，而首次打开会出现 200–300 ms「加载中…」fallback（真机/探针可见）                                                                                | 回退理由与"正确做法（空闲预取）"写在 `App.ts` 注释                                                   |
+
+### 18.4 最终数字（本机，2026-10-18 21:35）
+
+| 指标               | 优化前                    | 优化后                              |
+| ------------------ | ------------------------- | ----------------------------------- |
+| 入口 JS            | 1102 KB / gzip **373 KB** | **766 KB / gzip 260.5 KB**（−30%）  |
+| 入口 CSS           | 190 KB / gzip 36 KB       | **155.5 KB / gzip 26.9 KB**（−25%） |
+| 样式表文件数       | 20                        | **13**（9 个旧层折叠为 2）          |
+| 死组件 / 死规则    | 3 文件 475 行 / 67 条     | **0 / 0**（仅数据驱动类名保留）     |
+| 会话列表（134 个） | 47.5 ms 同步              | **4.9 ms**（热路径）                |
+| `web/archive`      | 139 张 / 14 MB            | 12 张 / 1 MB                        |
+
+### 18.5 验证与已知边界
+
+- `npx vitest run --project web` ⇒ **84 文件 / 487 例全绿**（含新增 `mathLazy`；`chromeCleanup` 真机树杀）。
+- `npx vitest run --project node tests/unit/` ⇒ 556 文件 / 3520 例：**554 文件通过、1 跳过**；
+  唯一失败 `daemon.test.ts` 在**并行满载**下偶发（单跑 6/6 通过），属既有 flake，与本轮改动无关。
+- `npm run typecheck`、`npm run lint`、`scripts/runGates.mjs --hook`（fast 层 10/12）通过。
+- 边界：`legacy-a/b` 里的规则**仍然生效**（折叠只减文件数）；继续删需要按特异性合并，验收必须用
+  计算样式快照 diff。面板按需加载回退原因见 §18.3。外部还原工具会周期性还原已删除的已跟踪文件，
+  真正的"删除"要等这些路径被提交后才会消失。
+
+### 18.6 收尾时发现并修掉的两处门禁误伤
+
+- `eslint.config.mjs` 未排除 `web/dist/**`：KaTeX 拆成异步 chunk 后，该 chunk 里的上游
+  `eslint-disable` 注释引用了本仓未安装的规则 ⇒ 三条「Rule definition not found」把 pre-commit 打红。
+- 同文件未排除 `.tmp/**`：本轮用 esbuild 做包体分析时落的 `.tmp/esb.js`（2.9 MB 开发包）被当源码 lint，
+  同样报那三条。两处都是「构建产物/探针产物不是本仓源码」，与既有的 `dist.old/**`、`.tmpcheck/**` 同一条理由。
+
+---
+
+## 19. 收尾：把「剩余问题」逐条收干净（2026-10-18，第十四轮）
+
+承接 §18 的「仍剩余」清单，逐条处置：
+
+| 剩余项                                | 处置                                                                                                        | 证据                                                                                        |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `SessionArchive.usage()` 每次全量重扫 | 加同款 `(mtimeMs, size)` 缓存；逐文件结果以**副本**返回（防调用方污染缓存）                                 | 13 例判据（新增「追加 model 事件后 calls/total 必须更新」）                                 |
+| `daemon.test.ts` 并行满载偶发红       | 就绪观察窗口 `probeMs` 可注入（产品默认仍 800ms，判据用 5s）                                                | 该文件单跑 6/6、全量并行也绿                                                                |
+| 异步 chunk 无体积预算                 | `webBundleBudget` 增加 `asyncKb`（当前 120 KB 预算 / 实测 85.6 KB）                                         | 预算输出三行：入口 JS / 入口 CSS / 异步块                                                   |
+| 文档 8 处历史死链                     | 全部改写成「名称 +（已删除）」的非路径表述，基线**归零**                                                    | `docLinkCheck`：死链 0（基线 0）                                                            |
+| `checkMonochrome.py` 作废但仍在仓     | **删除**；DESIGN_SYSTEM / PROJECT_BOARD 的说明同步改为"已删除"                                              | `docLinkCheck` 无新增死链                                                                   |
+| 死 i18n 词条                          | 保留（多数与 SettingsModal/CodeSurface 共用），只清掉**指向已删组件**的分片注释                             | i18n 覆盖判据仍绿                                                                           |
+| CSS 727 条被覆盖声明                  | 级联去重：删 **1420 条声明 / 302 条空规则**（同选择器 + 同 at-rule 上下文 + 重要性不更高 ⇒ 数学上永不生效） | CSS 原始 232.7 → 185.9 KB（**−20.1%**）；入口 CSS 155.5 → 120 KB（gzip 26.9 → **22.3 KB**） |
+
+### 19.1 去重验收时挖出的真 bug：BOM 静默吞规则
+
+计算样式快照在去重后报 `.composer` margin 14px→8px。追查发现：折叠 `polish-*`/`refine-*` 时按原样拼接，
+其中若干文件**开头带 BOM**，拼接后 BOM 落到文件中段；esbuild 转义成 `\feff`，浏览器把它当成
+非法 prelude 的开头，**把紧随其后的整条规则（含声明块）静默丢掉**——本例丢的是 legacy-a 里
+`.composer { margin: 0 16px 16px; … }`。
+
+处置：① 清掉 legacy-a/b 中的 U+FEFF；② 新增 `web/test/cssSourceHygiene.test.ts`（只查**文件中间**的
+BOM——文件开头的 BOM 合法）；③ 两条"钉某条规则"的静态判据改为取级联胜出者（`.session-time`
+取最后一条、`.ev` 在全部样式表里查）：契约不变，只是不再假设规则住在哪个文件。
+
+### 19.2 最终数字
+
+| 指标          | 本轮开始前            | 现在                                  |
+| ------------- | --------------------- | ------------------------------------- |
+| 入口 JS       | 1102 KB / gzip 373 KB | **766 KB / gzip 260.5 KB**            |
+| 入口 CSS      | 190 KB / gzip 36 KB   | **120 KB / gzip 22.3 KB**             |
+| KaTeX（异步） | 打进首屏              | 异步块 85.6 KB gzip（首次用公式才拉） |
+| 样式表        | 20 份                 | **13 份**（9 个旧层折叠为 2）         |
+| 文档死链      | 8 处（基线）          | **0 处（基线 0）**                    |
+| 前端判据      | 83 文件 / 487 例      | **85 文件 / 488 例**                  |
+
+验证：`npx vitest run --project web` 全绿；`npm run typecheck`、`npm run lint` 通过；
+`node scripts/webBundleBudget.mjs` 三项预算全绿；真机截图复核无观感回退。

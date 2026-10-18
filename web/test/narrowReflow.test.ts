@@ -121,13 +121,19 @@ function forceLegacyGeometry() {
     var s = document.createElement('style');
     s.id = 'legacy-f8-geometry';
     // 修复前的有效几何：空态块固定 460px 上限且列表恒两列；输入条不换行。
+    // 2026-10-18（纸与墨重设计）：输入条里的控件已全部可收缩（.composer-bar-left/right
+    // 与 .cap / .mp 都写了 min-width:0 + flex-shrink），只强制 nowrap 已经**造不出
+    // 溢出** ⇒ 正对照假红。修法不是放宽判据，而是如实还原修复前那两个"宽 200px、
+    // 不可收缩"的下拉：给克隆出来的 .mp 钉死 flex-basis（不可收缩的 flex 子项才会把
+    // 中栏顶宽）。判据检验的仍是同一件事——「输入条很宽时，中栏会不会横向溢出」。
     s.textContent =
       '.starter-tasks{max-width:460px !important;}' +
       '.starter-list{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}' +
       '.composer-bar{flex-wrap:nowrap !important;}' +
-      '.composer-bar-left,.composer-bar-right{flex-wrap:nowrap !important;}';
+      '.composer-bar-left,.composer-bar-right{flex-wrap:nowrap !important;}' +
+      '.composer-bar-right{flex:0 0 420px !important;}';
     document.head.appendChild(s);
-    // 还原"两个下拉并排"的输入条宽度：把当前唯一的 .mp 复制一份作为第二个（不可换行的）控件。
+    // 还原"两个下拉并排"的输入条宽度：把当前唯一的 .mp 复制一份作为第二个（不可收缩的）控件。
     var right = document.querySelector('.composer-bar-right');
     var mp = document.querySelector('.composer-bar-right .mp');
     if (right && mp) {

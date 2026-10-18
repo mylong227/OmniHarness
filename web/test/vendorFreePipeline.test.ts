@@ -44,24 +44,46 @@ test('产物里三条渲染管线齐全、KaTeX 样式与字体就位、web/vend
   const allCss = cssChunks.map((c) => c.text).join('\n');
   const fonts = readdirSync(ASSETS).filter((f) => /^KaTeX_/.test(f)).length;
 
-  // 单 bundle（目标要求"Vite 默认单 bundle"）：恰好 1 个入口 JS。
-  // 若变成多个，说明有人加了 manualChunks 或引入了动态 import 分包 —— 那会改变部署形态
-  //（每个 chunk 都要 200，多一个就多一个 404 面），值得有人确认一次。
-  assert.strictEqual(jsChunks.length, 1, `产物应为单 bundle，实为 ${String(jsChunks.length)} 个 JS 文件`);
+  // 单入口 bundle（目标要求"Vite 默认单 bundle"）：恰好 1 个 `index-*.js` 入口。
+  // 2026-10-18：KaTeX 改成**动态 import**后，产物会多出一个 `katex-*.js` 异步块——
+  // 这是刻意的（首屏不背 266 KB 的公式引擎），故从"恰好 1 个 JS"放宽为"恰好 1 个入口"。
+  const entryJs = jsChunks.filter((c) => /^index-.*\.js$/.test(c.name));
+  const katexChunks = jsChunks.filter((c) => /^katex-.*\.js$/.test(c.name));
+  assert.strictEqual(
+    entryJs.length,
+    1,
+    `入口应为单个 index-*.js，实为 ${String(entryJs.length)} 个入口`,
+  );
+  assert.strictEqual(
+    katexChunks.length,
+    1,
+    `KaTeX 应拆成 1 个异步块（懒加载），实为 ${String(katexChunks.length)} 个`,
+  );
   // 三个库的指纹（任一缺失即"构建过了但库没进包"）。
   assert.match(allJs, /escapeHtml|fence/i, 'markdown-it 未进入 bundle');
-  assert.match(allJs, /katex/i, 'KaTeX 未进入 bundle');
+  assert.match(allJs, /KaTeX/i, 'KaTeX 未进入 bundle（异步块也算）');
   assert.match(allJs, /hljs/, 'highlight.js 未进入 bundle');
-  // KaTeX 样式与字体（此前是手抄的 web/vendor/katex.min.css + fonts/）。
+  // 懒加载的判据：**入口块里不能有 KaTeX 的实现**（大写 "KaTeX" 只出现在其错误文案与类名里；
+  // 入口只会出现异步 chunk 的文件名 `katex-*.js`，那是小写）。
+  const entryText = entryJs[0]?.text ?? '';
+  assert.doesNotMatch(
+    entryText,
+    /KaTeX/,
+    'KaTeX 实现又被打回入口块：首屏会多背 266 KB（应为动态 import）',
+  );
+  assert.ok(
+    (katexChunks[0]?.text.length ?? 0) > 200_000,
+    'KaTeX 异步块异常偏小，可能没把引擎打进去',
+  );
+  // KaTeX 样式与字体（此前是手抄的 web/vendor/katex.min.css + fonts/）。CSS 由入口 + 异步块共同组成。
   assert.match(allCss, /\.katex/, 'KaTeX 样式未进入 CSS bundle：公式会渲染成无样式 span');
   assert.match(allCss, /KaTeX_[A-Za-z]+-Regular[^)]*\.woff2/, 'KaTeX 字体未被产物 CSS 引用');
   assert.ok(fonts >= 20, `KaTeX 字体文件过少（${String(fonts)} 个）`);
-  // 体积预算（单 bundle 必然 >500KB，故阈值在 vite.config 里写死为 1200KB）。
-  // 这里守的是"别悄悄翻倍"：1.03MB → 2MB 这类回归会被抓住。
-  const bundleBytes = jsChunks[0].text.length;
+  // 入口体积预算：KaTeX 拆走后从 ~1030 KB 降到 ~780 KB；这里守"别悄悄长回去"。
+  const bundleBytes = entryText.length;
   assert.ok(
-    bundleBytes < 1_400_000,
-    `单 bundle 体积 ${String(Math.round(bundleBytes / 1024))}KB 超出预算（约 1030KB + 余量）`,
+    bundleBytes < 900_000,
+    `入口 chunk 体积 ${String(Math.round(bundleBytes / 1024))}KB 超出预算（约 780KB + 余量）`,
   );
   // vendor 必须已彻底消失，且宿主页不再引用它。
   //

@@ -16,6 +16,7 @@ import { SessionRanking } from './sessionRanking.ts';
 import { SessionArchiveLayout } from '../../../util/sessionArchiveLayout.ts';
 import { log } from '../../../util/logger.ts';
 import { SessionFileScanner } from './sessionFileScanner.ts';
+import { SessionScanCache } from './sessionScanCache.ts';
 import { WorkspaceIdentity } from '../../../util/workspaceIdentity.ts';
 
 /** 会话存档默认子目录（相对工作区）。 */
@@ -86,6 +87,9 @@ export class SessionArchive {
     this.sidecars = new SessionSidecars(() => this.storageLocation());
   }
 
+  /** 逐文件解析 + 有界缓存（list 摘要与 usage 统计共用；实现见 {@link SessionScanCache}）。 */
+  private readonly scan = new SessionScanCache();
+
   /**
    * Token 消耗统计 RPC：扫描会话存储目录（每会话一个 .jsonl）聚合 type='model' 事件，
    * 按模型与会话分组返回调用次数 / prompt / completion / total。磁盘无数据时回退
@@ -100,7 +104,17 @@ export class SessionArchive {
     if (existsSync(dir)) {
       for (const name of readdirSync(dir)) {
         if (!name.endsWith('.jsonl')) continue;
-        const scanned = this.scanUsageFile(join(dir, name), byModel);
+        const scanned = this.scan.readUsage(join(dir, name));
+        // 逐文件结果并入总表：缓存命中时这里只做 Map 合并，不再碰磁盘。
+        for (const [model, stat] of scanned.byModel) {
+          const prev = byModel.get(model);
+          byModel.set(model, {
+            calls: (prev?.calls ?? 0) + stat.calls,
+            prompt: (prev?.prompt ?? 0) + stat.prompt,
+            completion: (prev?.completion ?? 0) + stat.completion,
+            total: (prev?.total ?? 0) + stat.total,
+          });
+        }
         if (scanned.calls > 0) {
           sessions.push({
             sessionId: name.replace(/\.jsonl$/, ''),
@@ -173,8 +187,9 @@ export class SessionArchive {
     const titles = this.sidecars.readTitles();
     const archivedSet = new Set(this.sidecars.readArchived());
     const push = (file: string, id: string, archived: boolean): void => {
-      const parsed = this.scanSessionFile(file);
-      if (parsed === undefined) return;
+      const scanned = this.scanSessionFile(file);
+      if (scanned === undefined) return;
+      const parsed = scanned.parsed;
       // 工作区过滤：有明确归属且**不指向同一个项目** ⇒ 该会话属于别的项目，不进本项目的列表。
       // 比较走 `WorkspaceIdentity`（归一拼写）：本机实测同一项目曾以 `D:\x` / `D:/x` / 跑测子目录
       // 三种拼写存在，字面量相等会把它们判成不同项目（用户报「没有按所属项目归类」）。
@@ -191,7 +206,8 @@ export class SessionArchive {
         sessionId: id,
         ...parsed,
         label: t !== undefined && t !== '' ? t : parsed.label,
-        mtimeMs: SessionFileScanner.mtimeOf(file),
+        // mtime 由 scanSessionFile 顺带返回：它已经 stat 过一次，不必再 stat 第二遍。
+        mtimeMs: scanned.mtimeMs,
         archived,
       });
     };
@@ -430,90 +446,22 @@ export class SessionArchive {
   }
 
   /**
-   * 扫描单个存档的 model 事件，累加进 byModel，返回本文件 calls/total。
-   * @param file 存档文件路径。
-   * @param byModel 模型统计表（原地累加）。
-   * @returns 本文件的调用次数与 token 总量（不可读时全零）。
+   * 解析单个会话存档的摘要（工作区 / 标题 / 轮数 / 更新时间）。
+   *
+   * 解析与 `(mtimeMs,size)` 缓存都在 {@link SessionScanCache} 里：`list()` 每次刷新都要扫全部
+   * 会话文件，本机 134 个会话实测 47.5 ms / 次；命中缓存后只剩 stat（约 5 ms）。
+   * @param file 会话存档绝对路径
+   * @returns 摘要 + 文件 mtime；文件不可读时 undefined
    */
-  private scanUsageFile(
-    file: string,
-    byModel: Map<string, ModelStat>,
-  ): { calls: number; total: number } {
-    let lines: string[] = [];
-    try {
-      lines = readFileSync(file, 'utf8').split('\n');
-    } catch {
-      return { calls: 0, total: 0 };
-    }
-    let calls = 0;
-    let total = 0;
-    for (const line of lines) {
-      const ev = SessionFileScanner.parseLine(line);
-      if (ev?.type !== 'model') continue;
-      const usage = ev.payload?.['usage'];
-      if (usage === undefined) continue;
-      const rec = usage as Record<string, unknown>;
-      const p = Number(rec['promptTokens'] ?? 0);
-      const c = Number(rec['completionTokens'] ?? 0);
-      const model = ev.payload?.['model'];
-      SessionArchive.bump(byModel, typeof model === 'string' ? model : 'unknown', p, c);
-      calls += 1;
-      total += p + c;
-    }
-    return { calls, total };
-  }
-
-  /**
-   * 解析单个存档的 session_meta/user 事件；文件不可读返回 undefined。
-   * @param file 存档文件路径。
-   * @returns 工作区标记、标签（首条用户消息前 80 字）、回合数与最后更新时间；不可读时 undefined。
-   */
-  private scanSessionFile(
-    file: string,
-  ): Omit<SessionInfo, 'sessionId' | 'mtimeMs' | 'archived'> | undefined {
-    let lines: string[] = [];
-    try {
-      lines = readFileSync(file, 'utf8').split('\n');
-    } catch {
-      return undefined;
-    }
-    let workspace: string | undefined;
-    let label = '';
-    let turns = 0;
-    let updatedAt = '';
-    for (const line of lines) {
-      const ev = SessionFileScanner.parseLine(line);
-      if (ev === undefined) continue;
-      if (ev.type === 'session_meta' && typeof ev.payload?.['workspace'] === 'string') {
-        workspace = ev.payload['workspace'] as string;
-      } else if (ev.type === 'user') {
-        if (label === '') {
-          const content = ev.payload?.['content'];
-          if (typeof content === 'string') label = content.slice(0, 80);
-        }
-        turns += 1;
+  private scanSessionFile(file: string):
+    | {
+        parsed: Omit<SessionInfo, 'sessionId' | 'mtimeMs' | 'archived'>;
+        mtimeMs: number;
       }
-      if (typeof ev.timestamp === 'string') updatedAt = ev.timestamp;
-    }
-    return { workspace, label, turns, updatedAt };
-  }
-
-  /**
-   * 累加某模型的 token 统计（不可变更新）。
-   * @param map 模型统计表（原地累加）
-   * @param model 模型名
-   * @param p prompt token 数
-   * @param c completion token 数
-   * @returns 无返回值（map 原地累加）
-   */
-  private static bump(map: Map<string, ModelStat>, model: string, p: number, c: number): void {
-    const prev = map.get(model) ?? { calls: 0, prompt: 0, completion: 0, total: 0 };
-    map.set(model, {
-      calls: prev.calls + 1,
-      prompt: prev.prompt + p,
-      completion: prev.completion + c,
-      total: prev.total + p + c,
-    });
+    | undefined {
+    const hit = this.scan.readSummary(file);
+    if (hit === undefined) return undefined;
+    return { parsed: hit.value, mtimeMs: hit.mtimeMs };
   }
 
   /**

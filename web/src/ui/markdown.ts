@@ -23,16 +23,63 @@
 // （`format.ts` 的 `legacyRenderMarkdown`）按 `docs/DEPENDENCY_POLICY.md` 的
 // 「既有手写实现保留为资产与回退路径」继续存在并有独立判据，只是生产路径不再会走到它。
 //
-// `katex/dist/katex.min.css` 由本文件 import：Vite 会把它打进产物的 CSS bundle，
-// 字体文件自动走 `assets/`（不再需要手抄 `web/vendor/fonts/`）。
-import 'katex/dist/katex.min.css';
+// `katex` 与它的样式**不再静态 import**（2026-10-18，首屏体积优化）：
+// KaTeX 是 266 KB min / 75 KB gzip，而数学公式在对话里是低频内容——静态引入等于让
+// 每个用户都为"也许会用到的公式"付首屏解析代价。现在改成**首次遇到 `$…$` / `$$…$$` 时**
+// 才 `import('katex')`（Vite 会拆成独立异步 chunk，含 CSS 与字体）。
+//
+// 公式在库到位前先渲染成**占位元素**（`<span class="md-math" data-tex="…">`，内容是转义后的
+// TeX 源码，读起来像等宽文本），库到位后由 `upgradeMathInDocument()` 原地替换成排版结果。
+// 这样：① 消息流不会被异步加载阻塞；② 无公式的会话永不下载 KaTeX；③ 渲染顺序不变。
 import markdownit from 'markdown-it';
-import katex from 'katex';
-// highlight.js 用 **common 子集**（36 种常用语言）而不是全量（190+）：
-// 全量会让 bundle 从 464KB 涨到 1.85MB，而原 vendor 的 highlight.min.js（121KB）
-// 本身就是 common 构建 —— 换入口不改变既有观感，只是别再引入它没有的体积。
-// 判据：web/test/markdownLibs.test.mjs 断言常用语言仍在列。
-import hljs from 'highlight.js/lib/common';
+// highlight.js 用 **core + 显式注册的语言子集**（2026-10-18 起，18 种）：
+//
+//   · `lib/common` 是 36 种语言的打包入口，实测 **291 KB 原始 / 94 KB gzip**；
+//     全量入口更大（+800 KB），而代理产出的代码其实集中在下面这 18 种里。
+//   · 未注册的语言**不会报错**：`getLanguage()` 返回 undefined ⇒ 回落到 `highlightAuto()`
+//     （自动识别只在已注册集合里挑，所以冷门语言会退化成"不精确但不坏"的着色）。
+//   · 加一门语言的成本约 5–25 KB 原始（gzip 2–8 KB）：在下方 import 一行 + `registerLanguage` 一行。
+//     2026-10-18 刻意**没有**注册 csharp / kotlin / php / ruby：四门合计约 61 KB 原始，
+//     而本仓产出的上下文里它们极少出现；需要时按上面两行加回即可（判据会随语言表同步）。
+//   · 判据：`web/test/vendorAndTypeSource.test.ts` 断言"core + 注册表"，并检查关键语言在列。
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import c from 'highlight.js/lib/languages/c';
+import cpp from 'highlight.js/lib/languages/cpp';
+import css from 'highlight.js/lib/languages/css';
+import diff from 'highlight.js/lib/languages/diff';
+import go from 'highlight.js/lib/languages/go';
+import ini from 'highlight.js/lib/languages/ini';
+import java from 'highlight.js/lib/languages/java';
+import javascript from 'highlight.js/lib/languages/javascript';
+import json from 'highlight.js/lib/languages/json';
+import markdown from 'highlight.js/lib/languages/markdown';
+import python from 'highlight.js/lib/languages/python';
+import rust from 'highlight.js/lib/languages/rust';
+import shell from 'highlight.js/lib/languages/shell';
+import sql from 'highlight.js/lib/languages/sql';
+import typescript from 'highlight.js/lib/languages/typescript';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
+
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('c', c);
+hljs.registerLanguage('cpp', cpp);
+hljs.registerLanguage('css', css);
+hljs.registerLanguage('diff', diff);
+hljs.registerLanguage('go', go);
+hljs.registerLanguage('ini', ini);
+hljs.registerLanguage('java', java);
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('markdown', markdown);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('shell', shell);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('yaml', yaml);
 
 import * as React from 'react';
 import { ClipboardCopier } from './models/ClipboardCopier.ts';
@@ -106,23 +153,73 @@ interface HljsApi {
 /** markdown-it 构造器签名（npm 包默认导出即工厂函数）。 */
 type MarkdownItFactory = (options?: Record<string, unknown>) => MarkdownItInstance;
 
-/** 三个依赖的绑定（2026-10-17 起来自 npm import，不再是 UMD 全局）。 */
+/** 三个依赖的绑定（markdown-it / highlight.js 静态；KaTeX 见下方懒加载状态）。 */
 const libs = {
   markdownit: markdownit as unknown as MarkdownItFactory,
-  katex: katex as unknown as KatexApi,
   hljs: hljs as unknown as HljsApi,
 };
 
 /**
+ * KaTeX 的懒加载状态（2026-10-18）：
+ *   · `katexApi` 就位前，公式渲染成占位元素；
+ *   · `katexLoading` 保证只发一次动态 import（流式渲染会反复经过同一条规则）；
+ *   · 失败只记 debug（不抛）：公式退化成等宽源码，对话其余部分照常。
+ */
+let katexApi: KatexApi | undefined;
+let katexLoading = false;
+
+/** 触发 KaTeX 的异步加载（幂等）。 */
+function requestKatex(): void {
+  if (katexApi !== undefined || katexLoading) return;
+  katexLoading = true;
+  void Promise.all([import('katex'), import('katex/dist/katex.min.css')])
+    .then(([mod]) => {
+      katexApi = (mod.default ?? mod) as unknown as KatexApi;
+      upgradeMathInDocument();
+    })
+    .catch(() => {
+      // 加载失败保持占位（源码可读），下次有公式时可以重试。
+      katexLoading = false;
+    });
+}
+
+/**
+ * 把文档里所有公式占位替换成 KaTeX 排版结果（库到位后调用一次）。
+ *
+ * 为什么扫全文档而不是只扫新渲染的节点：占位可能在**多个容器**里（消息流、详情面板、
+ * 折叠文档），而加载回调只有一个；统一扫一遍最简单，且占位数量通常是个位数。
+ * @returns 无返回值。
+ */
+function upgradeMathInDocument(): void {
+  if (katexApi === undefined || typeof document === 'undefined') return;
+  const nodes = document.querySelectorAll<HTMLElement>('.md-math[data-display]');
+  for (const node of nodes) {
+    const tex = node.textContent ?? '';
+    const display = node.getAttribute('data-display') === '1';
+    try {
+      const html = katexApi.renderToString(tex, { displayMode: display, throwOnError: false });
+      if (display) {
+        const block = node.closest('.md-math-block') ?? node;
+        block.outerHTML = '<div class="md-math-block">' + html + '</div>';
+      } else {
+        node.outerHTML = html;
+      }
+    } catch {
+      // 单条公式失败就保留占位文本（已转义，安全）。
+    }
+  }
+}
+
+/**
  * 三个成熟依赖是否全部就绪。
  *
- * 迁移到 npm import 后**恒为 true**：打包产物的依赖不存在"运行时缺失"这一态
- * （要么构建期就失败，要么一定在）。保留这个函数是为了不动 `format.ts` 的调用形态，
- * 也让「未来若要重新引入可选/懒加载依赖」有一个现成的收口点。
- * @returns 恒 true（依赖已随 bundle 就位）。
+ * KaTeX 自 2026-10-18 起是**懒加载**的，因此这里只要求「静态那两项」存在：
+ * 数学渲染在库到位前走占位、到位后原地升级，主渲染管线不需要等它。
+ * 保留这个函数是为了不动 `format.ts` 的调用形态。
+ * @returns 恒 true（markdown-it / highlight.js 已随 bundle 就位）。
  */
 export function markdownLibsReady(): boolean {
-  return libs.markdownit !== undefined && libs.katex !== undefined && libs.hljs !== undefined;
+  return libs.markdownit !== undefined && libs.hljs !== undefined;
 }
 
 /**
@@ -235,25 +332,31 @@ function getMd(): MarkdownItInstance {
   );
 
 
-  // ---- 渲染：数学交 KaTeX ----
+  // ---- 渲染：数学交 KaTeX（懒加载；库未到位时先出占位，到位后原地升级） ----
+  /** 数学统一入口：库就绪 ⇒ 直接排版；未就绪 ⇒ 占位 + 触发一次异步加载。 */
+  const renderMath = (tex: string, display: boolean): string => {
+    if (katexApi === undefined) {
+      requestKatex();
+      const body = md.utils.escapeHtml(tex);
+      const span = '<span class="md-math" data-display="' + (display ? '1' : '0') + '">' + body + '</span>';
+      return display ? '<div class="md-math-block">' + span + '</div>' : span;
+    }
+    try {
+      const html = katexApi.renderToString(tex, { displayMode: display, throwOnError: false });
+      return display ? '<div class="md-math-block">' + html + '</div>' : html;
+    } catch {
+      return display ? '<pre>' + md.utils.escapeHtml(tex) + '</pre>' : md.utils.escapeHtml(tex);
+    }
+  };
   md.renderer.rules.math_inline = (tokens: MdToken[], idx: number): string => {
     const token = tokens[idx];
     if (!token) return '';
-    try {
-      return katex.renderToString(token.content, { displayMode: false, throwOnError: false });
-    } catch {
-      return md.utils.escapeHtml(token.content);
-    }
+    return renderMath(token.content, false);
   };
   md.renderer.rules.math_block = (tokens: MdToken[], idx: number): string => {
     const token = tokens[idx];
     if (!token) return '';
-    try {
-      const html = katex.renderToString(token.content, { displayMode: true, throwOnError: false });
-      return '<div class="md-math-block">' + html + '</div>';
-    } catch {
-      return '<pre>' + md.utils.escapeHtml(token.content) + '</pre>';
-    }
+    return renderMath(token.content, true);
   };
 
   // ---- 链接按「文件路径 / 外链」分流（保留右侧面板开文件体验） ----

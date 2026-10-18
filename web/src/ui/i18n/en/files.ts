@@ -1,4 +1,4 @@
-// en 词条分片：文件区（FilePicker/FolderPicker/FileModal/CodeSurface/SearchResults 及文件模型）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
+// en 词条分片：文件区（FilePicker/FolderPicker/CodeSurface/SearchResults 及文件模型）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_FILES: Record<string, string> = {
   // FilePicker / FolderPicker 共用
   '（用户目录）': ' (home directory)',
@@ -25,7 +25,7 @@ export const EN_FILES: Record<string, string> = {
   '在当前目录内新建项目文件夹': 'Create a new project folder in the current directory',
   '新建文件夹': 'New folder',
   '选择此文件夹': 'Select this folder',
-  // FileModal / CodeSurface
+  // CodeSurface（FileModal 组件已于 2026-10-18 删除）
   '关闭文件预览': 'Close file preview',
   '关闭': 'Close',
   '代码内容': 'Code content',

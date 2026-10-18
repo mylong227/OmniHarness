@@ -4,6 +4,12 @@ export const EN_SETTINGS: Record<string, string> = {
   主题: 'Theme',
   深色: 'Dark',
   浅色: 'Light',
+  跟随系统: 'Follow system',
+  '界面跟随系统的浅色 / 深色设置，系统切换时自动跟随。当前：':
+    'Follows the system light/dark setting and updates live. Now: ',
+  '已锁定为': 'Locked to ',
+  '；选「跟随系统」可重新交给系统决定。':
+    '. Choose “Follow system” to hand the decision back to the system.',
   '两套主题共用同一组 token（黑/白/灰），只交换明度方向；切换后立即生效并记住选择。':
     'Both themes share one token set (black/white/gray) with inverted lightness direction; changes apply instantly and are remembered.',
   语言: 'Language',

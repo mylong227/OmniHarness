@@ -1,4 +1,4 @@
-﻿// a11y 对比度门禁（D1）：对 web/styles 做「前景 × 背景」对比度体检，按 WCAG 2.1 AA 判定。
+// a11y 对比度门禁（D1）：对 web/styles 做「前景 × 背景」对比度体检，按 WCAG 2.1 AA 判定。
 //
 // 为什么用门禁而不是人眼看一遍：
 //   主题是双套（dark / light）且颜色全走 CSS 变量，改一个 token 的代价是「另一套主题下某个
@@ -228,12 +228,41 @@ const THEMES: ThemeMap = (() => {
   return merged;
 })();
 
+/**
+ * **已折叠退役**的样式表（2026-10-18）：9 个 `polish-*` / `refine-*` 已按加载相位合并进
+ * `legacy-a.css` / `legacy-b.css`，磁盘上不应再被 import。
+ *
+ * 为什么要有这个名单而不是直接靠"文件不存在"：本机有外部工具把**已删除的已跟踪文件**
+ * 从 HEAD 还原回磁盘（`web/vendor/` 实测过）。还原回来的 9 份文件是**旧内容的副本**，
+ * 若某天又被 import，它们会与 legacy 文件形成双份规则、打乱级联——所以这里同时做两件事：
+ *   ① 容忍它们"存在但未 import"（不把还原误报成孤儿）；
+ *   ② 断言它们**不得**出现在 import 列表里（还原不能悄悄回到级联中）。
+ */
+const RETIRED_STYLES = [
+  'polish-shell.css',
+  'polish-chat.css',
+  'polish-composer.css',
+  'polish-panels.css',
+  'refine-surfaces.css',
+  'refine-rhythm.css',
+  'refine-overlays.css',
+  'refine-native.css',
+  'refine-density.css',
+];
+
 test('styles/ 下的 .css 必须全部被入口 main.ts import（防"文件在、没被引用"的静默失效）', () => {
-  const orphan = DISK_FILES.filter((f) => !LINKED_FILES.includes(f));
+  const orphan = DISK_FILES.filter((f) => !LINKED_FILES.includes(f) && !RETIRED_STYLES.includes(f));
   assert.deepStrictEqual(
     orphan,
     [],
     '未被入口 main.ts import 的孤儿样式表（若确属弃用请删除文件，不要留尸）：\n' + orphan.join('\n'),
+  );
+  const resurrected = RETIRED_STYLES.filter((f) => LINKED_FILES.includes(f));
+  assert.deepStrictEqual(
+    resurrected,
+    [],
+    '已折叠的旧样式表不得再被 import（会与 legacy-a/b 形成双份规则、打乱级联）：\n' +
+      resurrected.join('\n'),
   );
   assert.ok(FILES.length >= 10, `样式表数量异常（${FILES.length}），main.ts 解析可能失效`);
 });

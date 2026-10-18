@@ -251,11 +251,11 @@ Agent.runEvolutionIfEnabled ──▶ kernel.cycle()
 > 基线说明：本节列出的适配器/crate 路径均为**规划产物**（文件尚不存在），已按 `check:doc-links`
 > 既定出路（`--update`）纳入死链基线；对应文件落地后应再跑 `--update` 收紧回真实验证。
 
-| 依赖                                        | 落点                                                                | 退出答案                                                                          |
-| ------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `openid-client` + `jose`（MIT）             | `src/adapters/enterprise/oidcSdkClient.ts` 实现既有 enterprise 端口 | 停更 ⇒ 删该适配器，自研 `oidcClient.ts`（保留为回退资产）即时顶上，0 个调用点改动 |
-| `wasmtime`（Apache-2.0+LLVM 例外，Rust 侧） | 新 crate `omni-wasmrt`，经既有 `omni-napi` 手写胶水暴露             | 停更 ⇒ 换 wasmer 或独立 sidecar 进程；IsolationPort 的 wasm 档实现换文件          |
-| `croner`（MIT）                             | `src/adapters/daemon/cronerSchedule.ts`                             | 停更 ⇒ 自研 cron 解析（保留）顶上                                                 |
+| 依赖                                        | 落点                                                          | 退出答案                                                                          |
+| ------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `openid-client` + `jose`（MIT）             | `oidcSdkClient` 适配器（已自研替换） 实现既有 enterprise 端口 | 停更 ⇒ 删该适配器，自研 `oidcClient.ts`（保留为回退资产）即时顶上，0 个调用点改动 |
+| `wasmtime`（Apache-2.0+LLVM 例外，Rust 侧） | 新 crate `omni-wasmrt`，经既有 `omni-napi` 手写胶水暴露       | 停更 ⇒ 换 wasmer 或独立 sidecar 进程；IsolationPort 的 wasm 档实现换文件          |
+| `croner`（MIT）                             | `cronerSchedule` 适配器（已自研替换）                         | 停更 ⇒ 自研 cron 解析（保留）顶上                                                 |
 
 准入手续：`dependency-allowlist.json` 登记（reason/capability/license/**exitPlan**）→ `npm install --save`
 → `npm run check` 阻断验证 → 提交附增益与退出说明。**未办手续前它们不是已引入依赖。**

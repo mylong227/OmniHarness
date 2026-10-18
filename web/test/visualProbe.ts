@@ -759,8 +759,13 @@ async function main() {
             }
           } else {
             // 对话主体图：滚到出现工具簇的位置（首屏更有信息量）。
+            // `OMNI_PROBE_SCROLL=top` 改为停在顶部——用来复核「第一条用户消息 / 空态首屏」
+            // 这类只在滚动位置 0 才看得见的观感（默认位置会把它滚出视口）。
+            const atTop = process.env.OMNI_PROBE_SCROLL === 'top';
             await cdp.evaluate(
-              "(function(){ var s=document.querySelector('.stream'); if(s){ s.scrollTop = Math.max(0, s.scrollHeight*0.42); s.dispatchEvent(new Event('scroll')); } })()",
+              atTop
+                ? "(function(){ var s=document.querySelector('.stream'); if(s){ s.scrollTop = 0; s.dispatchEvent(new Event('scroll')); } })()"
+                : "(function(){ var s=document.querySelector('.stream'); if(s){ s.scrollTop = Math.max(0, s.scrollHeight*0.42); s.dispatchEvent(new Event('scroll')); } })()",
             );
           }
           await new Promise((r) => setTimeout(r, 180));

@@ -4,11 +4,21 @@
 import type { AppHost } from './AppController.ts';
 import { MethodBinder } from './methodBinder.ts';
 import { setLocale as applyLocale, t, type Locale } from '../i18n/i18n.ts';
+import {
+  applyTheme,
+  readThemePreference,
+  resolveTheme,
+  watchSystemTheme,
+  type ThemePreference,
+} from '../models/ThemePreference.ts';
 
 /** 布局 / 主题偏好控制器。 */
 export class LayoutController {
   /** 状态宿主（App 组件）。 */
   private readonly host: AppHost;
+
+  /** 系统主题订阅的取消函数（偏好不是 `system` 时为 null）。 */
+  private unwatchSystem: (() => void) | null = null;
 
   /**
    * 构造。
@@ -23,23 +33,18 @@ export class LayoutController {
   }
 
   /**
-   * 从 localStorage 恢复主题 / 模型清单 / 面板宽度（挂载时调用一次）。
+   * 从 localStorage 恢复主题偏好 / 模型清单 / 面板宽度（挂载时调用一次）。
+   *
+   * 主题默认**跟随系统**（2026-10-18）：从未选择过的用户按 `prefers-color-scheme` 取首屏，
+   * 且不把"猜出来的结果"当成用户选择写回。首帧前的取值由 `index.html` 的内联脚本完成，
+   * 这里负责把同一结果同步进 React 状态、并挂上系统主题的订阅。
    * @returns 无
    */
   public initTheme(): void {
-    let theme: 'dark' | 'light' = 'dark';
-    try {
-      theme = (localStorage.getItem('omni-theme') || 'dark') === 'light' ? 'light' : 'dark';
-    } catch {
-      /* 忽略 */
-    }
-    document.documentElement.setAttribute('data-theme', theme);
-    try {
-      localStorage.setItem('omni-theme', theme);
-    } catch {
-      /* 忽略 */
-    }
-    this.host.patch({ theme });
+    const pref = readThemePreference();
+    const theme = applyTheme(pref);
+    if (pref === 'system') this.watchSystem();
+    this.host.patch({ theme, themePref: pref });
     try {
       const cachedOptions = localStorage.getItem('omni-model-options');
       const cachedLabel = localStorage.getItem('omni-provider-label');
@@ -60,18 +65,44 @@ export class LayoutController {
   }
 
   /**
-   * 切换浅色 / 深色主题（同步写 document 属性与 localStorage）。
+   * 设置主题偏好（系统 / 深色 / 浅色三态，持久化并立即生效）。
+   *
+   * 偏好为 `system` 时挂上系统主题订阅：系统在日落切换到暗色时界面跟着走；
+   * 一旦用户显式选了明/暗，就取消订阅（锁定选择，不再被系统覆盖）。
+   * @param pref 目标偏好
+   * @returns 无
+   */
+  public setThemePref(pref: ThemePreference): void {
+    const theme = applyTheme(pref);
+    if (pref === 'system') {
+      this.watchSystem();
+    } else if (this.unwatchSystem !== null) {
+      this.unwatchSystem();
+      this.unwatchSystem = null;
+    }
+    this.host.patch({ theme, themePref: pref });
+  }
+
+  /**
+   * 页脚/中栏按钮的「明暗互换」：始终写成显式偏好（这本身就是一次用户选择）。
    * @returns 无
    */
   public toggleTheme(): void {
-    const next: 'dark' | 'light' = this.host.getState().theme === 'light' ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', next);
-    try {
-      localStorage.setItem('omni-theme', next);
-    } catch {
-      /* 忽略 */
-    }
-    this.host.patch({ theme: next });
+    this.setThemePref(this.host.getState().theme === 'light' ? 'dark' : 'light');
+  }
+
+  /**
+   * 挂上系统主题订阅（幂等：已在订阅中则什么都不做）。
+   * @returns 无
+   */
+  private watchSystem(): void {
+    if (this.unwatchSystem !== null) return;
+    this.unwatchSystem = watchSystemTheme(() => {
+      if (this.host.getState().themePref !== 'system') return;
+      const theme = resolveTheme('system');
+      document.documentElement.setAttribute('data-theme', theme);
+      this.host.patch({ theme });
+    });
   }
 
   /**

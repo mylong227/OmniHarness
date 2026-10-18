@@ -1,175 +1,197 @@
 /* =========================================================================
-  OmniHarness Web UI — 主题基础层：CSS 变量、reset、滚动条、过渡、焦点环，
-  以及全局原生控件兜底（button/input/textarea/select/ghost）。须最先加载。
+  OmniHarness Web UI — 主题基础层：配色 token、reset、原生控件兜底、原生表面
+  全站唯一配色事实源。必须最先加载。
 
   ---------------------------------------------------------------------------
-  单色体系（2026-10-17 重写）：本文件是全站唯一配色事实源。
-  除黑、白、灰（含其 alpha 形态）外，不允许出现任何色相——红/绿/黄/蓝一律没有。
-  语义不靠色相，靠**明度对比 + 字形 + 形状**表达（成功=中性、失败=最高对比反白、
-  告警=中间调），详见 docs/DESIGN_SYSTEM.md §2。
+  2026-10-18 · 「纸与墨」重设计（Redesign · Replace）
+  ---------------------------------------------------------------------------
+  上一版是**零色相**的纯黑/纯白单色体系。它在纪律上成立（层级只靠明度），
+  但真实长时间使用下来有两件事不舒服：
 
-  层级：三层表面（bg / panel / panel-2）+ 两条描边（hairline / border）。
-  深浅主题互为镜像：暗色从纯黑往上提，浅色从纯白往下压，中段取值同构。
+    ① 底色太极端。纯 #000 的暗色与纯 #fff 的亮色在暗环境/亮环境里都在"顶眼睛"，
+       而且 #fff 上的 #0a0a0a 正文对比 19.8:1，远超阅读所需的舒适区。
+    ② 没有色彩构图。全站只剩明度时，界面的"温度"为零：当前项、主行动、错误、
+       成功全都靠字形和加粗去猜。用户的原话是「色彩构图需要舒适」。
+
+  这一版因此换掉整个视觉世界，只保留交互与结构：
+
+    · **底**：中性色带极轻的冷调（暗色是石墨，亮色是纸白），不再是纯黑纯白。
+      暗色 #17191c / 亮色 #f8f7f4 —— 都在 sRGB 上留了一档"呼吸"，
+      正文对比落在 15–16:1（清晰但不刺眼）。
+    · **一个签名色**：靛墨（dark #a8b4e8 / light #3d4a86）。它是纸上的墨，
+      只承担四种语义：主行动、当前/选中、链接、焦点。全站不出现第二个品牌色。
+    · **语义色恢复色相，但全部低饱和**：成功=鼠尾草绿、失败=茜红、告警=琥珀、
+      信息=雾蓝。它们只在"需要被区分"的地方出现（状态徽标、diff、告警条），
+      从不铺满整块表面。
+    · **层级仍只有三件事**：表面阶梯（bg → panel → panel-2）、发丝线、留白。
+      投影只留给"真的浮起来"的东西（菜单、模态、toast）。
+
+  为什么是靛墨而不是常见的科技蓝：靛墨（iron-gall ink）是纸面书写史上最老的
+  深色墨，偏紫的冷调与暖中性底形成"暖底冷墨"的张力，在低饱和下依然有色彩感，
+  却不会像 #3b82f6 那样把界面变成仪表盘。
+
+  两套主题是**同一套语言的两种光照**，不是两套配色：
+  同名 token 在两套里语义一致（`--accent` 永远是"墨"、`--text` 永远是最强正文），
+  所以任何组件都不需要写 `[data-theme]` 分支。
+
+  判据：web/test/a11yContrast.test.ts（对比度 ≥4.5:1）、
+       web/test/colorSystem.test.ts（色相预算：只允许声明的四个色族）。
   ========================================================================= */
 
 :root,
 [data-theme='dark'] {
-  /* —— 表面阶梯：0 / 3.9% / 8.6% / 14.5% 白度，步距均匀且都读得出来 —— */
-  --bg: #000000;
-  --bg-elev: #0a0a0a;
-  --panel: #161616;
-  --panel-2: #252525;
-  /* 菜单里"选中项"的底色：比 --panel-2 再亮一档（#3a3a3a）。
-     为什么需要专门的 token：选中项与菜单底只差一档时（--panel-2 对 --panel 仅 1.18:1），
-     真机截图里几乎看不出哪一项是当前档位。选中态必须"一眼可见"，
-     否则用户会以为选择没生效（2026-10-17 实测）。 */
-  --panel-sel: #3a3a3a;
-  --code-bg: #050505;
+  color-scheme: dark;
 
-  /* —— 描边三档（2026-10-17 二次校正：先按 3:1 统一，结果"处处是框、全都变重"） ——
-     一整套界面只需要**两种**线，外加 hover 增量：
-       --hairline     1.10:1  栏内分隔（列表行、区块之间）——「呼吸」，不画格子
-       --border-soft  1.43:1  容器边缘（卡片 / 输入卡 / 代码块 / 面板 / 浮层）——**默认这一档**
-       --border       3.55:1  只留给「必须能辨认出边界」的地方：表单控件、主按钮、浮层轮廓、
-                              徽标；承担 WCAG 1.4.11 的 3:1 义务
-       --border-strong        hover / 聚焦的增量提示
-     为什么默认档降到 1.43:1：这是用户反馈「很多组件边框都粗了」的根因——上一版把
-     `--border` 一口气从 1.33:1 提到 3.55:1，于是连卡片、输入卡、气泡这类**装饰性容器**
-     也吃到了 3:1 的线，满屏都是框。3:1 的义务只对「控件边界」成立（用户要能看出这里
-     可以输入/点击），对「容器边缘」不成立——容器的层级由表面明度阶梯表达。 */
-  --hairline: #1f1f1f;
-  --border-soft: #333333;
-  --border: #6e6e6e;
-  --border-strong: #7a7a7a;
+  /* —— 表面阶梯：石墨 → 卡片 → 悬停 ——
+     暗色里"更亮 = 更靠前"。中栏（对话）是 bg，左右栏是 bg-elev（后退一档），
+     卡片/输入面板是 panel（前进一档）。三级落差都在 1.2:1 上下：看得见，但不成块。 */
+  --bg: #17191c;
+  --bg-elev: #121417;
+  --panel: #1e2126;
+  --panel-2: #282c32;
+  /* 菜单/列表的「当前项」底色：比 --panel-2 再亮一档，选中态才能一眼看出。 */
+  --panel-sel: #343a43;
+  --code-bg: #101215;
 
-  /* —— 文本：21:1 / 8.3:1 / 4.6:1 三档，faint 仅限装饰 —— */
-  --text: #ffffff;
-  --dim: #a3a3a3;
-  --faint: #8a8a8a;
+  /* —— 描边三档（职责固定，不要混用）——
+       --hairline     栏内分隔 / 列表行：只"断开"，不画格子（约 1.1:1）
+       --border-soft  容器边缘：卡片、输入卡、浮层（约 1.4:1）
+       --border       控件边界：表单、按钮、徽标（≥3:1，承担 WCAG 1.4.11）
+       --border-strong hover / 聚焦的增量（≥3:1 对 panel） */
+  --hairline: #262b31;
+  --border-soft: #353b43;
+  --border: #6b7480;
+  --border-strong: #8b95a3;
 
-  /* —— 反白强调（「墨水」） ——
-     单色体系里「强调」= 与底最大对比的前景色，而它同时承担两种角色：
-       · 作**底色**时：实心块（主按钮 / 当前会话 / 用户气泡 / 导航当前项）
-       · 作**字色**时：焦点环、选中态文字、链接、进度条（`var(--accent)` 在这些位置就是最亮/最暗的那一档）
-     两个角色取值相同（深色=白、浅色=近黑），所以只需要一对 token：
-       `--accent`  这档墨色本身
-       `--ink-fg`  落在墨色块上的前景（深色 #0a0a0a / 浅色 #ffffff）
-     历史坑（2026-10-17 修）：旧实现里 `--accent-fg` 才是底色、`--accent` 才是字色，
-     而浅色主题下这对取值与深色相反 ⇒ refine-surfaces 里「底 = --accent-fg / 字 = --accent」
-     这句注释在浅色下等于「白底白字」，用户气泡与页面同色、等于没有气泡。现已统一。 */
-  --accent: #ffffff;
-  --ink-fg: #0a0a0a;
-  --accent-2: #d4d4d4;
-  --brand: #ffffff;
-  --brand-bg: #ffffff;
-  --brand-on: #0a0a0a;
-  --user: #e5e5e5;
+  /* —— 文本：正文 / 次要 / 装饰 ——
+     15.3:1 / 8.3:1 / 5.9:1（on --bg）。正文不再拉到 21:1：
+     那是纯白配纯黑才有的读数，长时间阅读会发光。 */
+  --text: #eceef2;
+  --dim: #aab2bd;
+  --faint: #8d96a2;
 
-  /* —— 语义明度阶梯：失败最亮（反白块）、成功中性、告警居中 —— */
-  --ok: #d4d4d4;
-  --err: #ffffff;
-  --warn: #a3a3a3;
-  --danger: #ffffff;
-  --info: #d4d4d4;
-  --add: #c9c9c9;
-  --del: #ffffff;
+  /* —— 签名色：靛墨 ——
+     `--accent` 同时是"墨"（可作底色、可作字色）：作底色时配 `--ink-fg`，
+     作字色时直接落在任何表面阶梯上（8.4–9.1:1）。
+     `--accent-2` 是按下/hover 的加深档，`--accent-soft` / `--accent-line`
+     是选中底的"墨色极淡渲染"——它们让选中态带一点色温，而不是又一块灰。 */
+  --accent: #a8b4e8;
+  --accent-2: #c2cbf1;
+  --ink-fg: #14161c;
+  --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 38%, transparent);
+  --brand: #a8b4e8;
+  --brand-bg: #a8b4e8;
+  --brand-on: #14161c;
+  --user: #a8b4e8;
 
-  /* —— 语义底之上的前景 —— */
-  --on-ok: #0a0a0a;
-  --on-err: #0a0a0a;
-  --on-danger: #0a0a0a;
-  --toast-ok: #ededed;
-  --toast-err: #ffffff;
-  --toast-ok-border: #3d3d3d;
-  --toast-err-border: #6b6b6b;
+  /* —— 语义色：低饱和、只做"信号"，不做"装饰" ——
+     暗色下取中高明度（8:1 上下），保证落在任何表面上都能读。 */
+  --ok: #8fbf9f;
+  --err: #e89a92;
+  --warn: #d4b06a;
+  --danger: #e89a92;
+  --info: #9fb3d9;
+  --add: #8fbf9f;
+  --del: #e89a92;
 
-  --hover: rgba(255, 255, 255, 0.06);
+  /* 语义色之上的前景（实心徽标/条带用）。 */
+  --on-ok: #101413;
+  --on-err: #1a1212;
+  --on-danger: #1a1212;
+  --toast-ok: #e6efe9;
+  --toast-err: #f3e6e4;
+  --toast-ok-border: #4a5a52;
+  --toast-err-border: #6b4a46;
 
-  /* —— 浮起：偏移 + 柔化模糊（零偏移光晕是装饰，不是深度） —— */
-  --shadow: 0 12px 40px rgba(0, 0, 0, 0.66), 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-1: 0 6px 18px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 24px 56px rgba(0, 0, 0, 0.72), 0 2px 8px rgba(0, 0, 0, 0.5);
+  /* 悬浮态：一层几乎不可见的提亮，只在"可点"的东西上出现。 */
+  --hover: rgba(236, 238, 242, 0.055);
+  --hover-strong: rgba(236, 238, 242, 0.1);
+
+  /* —— 浮起：偏移 + 柔化，两层（接触阴影 + 环境阴影）——
+     只给菜单、模态、toast、命令面板。卡片/输入框永远不投影。 */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.34), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.4), 0 24px 56px rgba(0, 0, 0, 0.55);
+  --shadow: var(--shadow-1);
   --hairline-top: none;
-  --ring: 0 0 0 3px rgba(255, 255, 255, 0.22);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 26%, transparent);
 
-  --radius: 8px;
-  --radius-sm: 6px;
-  --radius-lg: 12px;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 14px;
   --space: 12px;
 
   --mono: 'JetBrains Mono', 'Cascadia Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
   --font-mono: var(--mono);
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --dur-1: 130ms;
-  --dur-2: 190ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 [data-theme='light'] {
-  /* 镜像的镜像：纯白底，往下压出同样四档。 */
-  --bg: #ffffff;
-  --bg-elev: #fafafa;
-  --panel: #f2f2f2;
-  --panel-2: #e6e6e6;
-  /* 浅色方向相反：选中要比菜单底**更暗**才读得出来（深色模式下是更亮）。 */
-  --panel-sel: #d4d4d4;
-  --code-bg: #f7f7f7;
+  color-scheme: light;
 
-  /* 浅色同一套三档：#e8e8e8 1.09:1 分隔 / #c9c9c9 1.48:1 容器边缘 /
-     #767676 4.06:1 控件边界（对 --panel）。 */
-  --hairline: #e8e8e8;
-  --border-soft: #c9c9c9;
-  --border: #767676;
-  --border-strong: #5a5a5a;
+  /* 纸白：比纯白低 2% 明度，卡片反而比纸更白（真正的"纸上有卡片"）。 */
+  --bg: #f8f7f4;
+  --bg-elev: #f1f0ec;
+  --panel: #fdfcf9;
+  --panel-2: #e9e8e3;
+  --panel-sel: #dde2e7;
+  --code-bg: #f4f4f2;
 
-  --text: #0a0a0a;
-  --dim: #545454;
-  --faint: #6b6b6b;
+  --hairline: #e4e4e0;
+  --border-soft: #d5d6d1;
+  --border: #7d838c;
+  --border-strong: #5d646d;
 
-  /* 同一档墨色在浅色下取近黑；`--ink-fg` 反过来是白。 */
-  --accent: #0a0a0a;
-  --ink-fg: #ffffff;
-  --accent-2: #3d3d3d;
-  --brand: #0a0a0a;
-  --brand-bg: #0a0a0a;
-  --brand-on: #ffffff;
-  --user: #0a0a0a;
+  --text: #1a1d21;
+  --dim: #565d66;
+  --faint: #5f666f;
 
-  --ok: #3d3d3d;
-  --err: #000000;
-  --warn: #545454;
-  --danger: #000000;
-  --info: #3d3d3d;
-  --add: #3d3d3d;
-  --del: #000000;
+  /* 同一档墨色在纸面上取深靛：8.1:1（on panel），作实心底时配纸白字。 */
+  --accent: #3d4a86;
+  --accent-2: #2f3a6e;
+  --ink-fg: #fdfcf9;
+  --accent-soft: color-mix(in srgb, var(--accent) 9%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 30%, transparent);
+  --brand: #3d4a86;
+  --brand-bg: #3d4a86;
+  --brand-on: #fdfcf9;
+  --user: #3d4a86;
 
-  --on-ok: #ffffff;
-  --on-err: #ffffff;
-  --on-danger: #ffffff;
-  --toast-ok: #262626;
-  --toast-err: #000000;
-  --toast-ok-border: #bdbdbd;
-  --toast-err-border: #8a8a8a;
+  --ok: #3a7150;
+  --err: #a6362f;
+  --warn: #7d5a1c;
+  --danger: #a6362f;
+  --info: #3f5680;
+  --add: #3a7150;
+  --del: #a6362f;
 
-  --hover: rgba(0, 0, 0, 0.05);
+  --on-ok: #fdfcf9;
+  --on-err: #fdfcf9;
+  --on-danger: #fdfcf9;
+  --toast-ok: #1f3a2a;
+  --toast-err: #3a1614;
+  --toast-ok-border: #8fae9c;
+  --toast-err-border: #b08a86;
 
-  --shadow: 0 12px 32px rgba(0, 0, 0, 0.13), 0 1px 3px rgba(0, 0, 0, 0.07);
-  --shadow-1: 0 4px 14px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-2: 0 20px 48px rgba(0, 0, 0, 0.17), 0 2px 8px rgba(0, 0, 0, 0.08);
+  --hover: rgba(26, 29, 33, 0.045);
+  --hover-strong: rgba(26, 29, 33, 0.085);
+
+  --shadow-1: 0 1px 2px rgba(38, 40, 46, 0.06), 0 6px 16px rgba(38, 40, 46, 0.08);
+  --shadow-2: 0 2px 6px rgba(38, 40, 46, 0.08), 0 24px 56px rgba(38, 40, 46, 0.14);
+  --shadow: var(--shadow-1);
   --hairline-top: none;
-  --ring: 0 0 0 3px rgba(0, 0, 0, 0.18);
+  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 
-  --radius: 8px;
-  --radius-sm: 6px;
-  --radius-lg: 12px;
+  --radius: 10px;
+  --radius-sm: 8px;
+  --radius-lg: 14px;
   --space: 12px;
 
   --mono: 'JetBrains Mono', 'Cascadia Mono', ui-monospace, SFMono-Regular, Menlo, Consolas,
     monospace;
   --font-mono: var(--mono);
-  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --dur-1: 130ms;
-  --dur-2: 190ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -185,45 +207,24 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font: 13.5px/1.6 system-ui, 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei',
+  /* 正文 14.5px / 1.7：比上一版（13.5 / 1.6）放宽半档。
+     行高 1.7 是中文正文的舒适区；字距轻微收紧，避免 14px 下西文发散。 */
+  font: 14.5px/1.7 system-ui, 'Segoe UI', -apple-system, 'PingFang SC', 'Microsoft YaHei',
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
-/* 细滚动条：静止时几乎隐形，悬停才显形（常驻灰杠在密集界面里最吵）。 */
+/* 滚动条：静止时几乎隐形，悬停才显形（常驻灰杠在密集界面里最吵）。 */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-soft) transparent;
-}
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  border: 3px solid transparent;
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
-  background-clip: padding-box;
-}
-[data-theme='light'] ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.16);
-  border: 3px solid transparent;
-  background-clip: padding-box;
-}
-[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-  background-clip: padding-box;
-}
 
-/* 统一的交互过渡：只给颜色与描边，不给位移与投影（动效不是装饰）。 */
+/* 统一过渡：只给颜色与描边。位移与投影不进这套过渡（动效不是装饰）。 */
 button,
 .btn,
 .iconbtn,
@@ -236,30 +237,17 @@ button,
 .plugin-card,
 .mem-row,
 .graph-node,
-.graph-card,
-.rail-btn {
+.graph-card {
   transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease),
     color var(--dur-1) var(--ease);
 }
 
-/* 键盘焦点环：实心反白环 + 极淡外晕，密集界面里比单环更容易被眼睛抓住。
-   只写 outline / box-shadow，不碰 color ⇒ 不进对比度门禁的「前景×背景」判定。 */
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 6px;
-}
-.composer textarea:focus-visible,
-.form input:focus-visible,
-.form select:focus-visible {
-  outline: none;
-}
+/* 键盘焦点：2px 墨色环 + 一圈极淡外晕。密集界面里双环比单环更容易被眼睛抓住，
+   且外晕用 accent 的透明度表达，两种主题下都成立。 */
 
-/* 工作台根：行高用 minmax(0,1fr) 锁死视口——`1fr` 的最小尺寸是 auto，矮视口 + 长侧栏内容会把
-   轨道顶破 100vh ⇒ 文档整体可滚，任何滚轮都把整页滚走（2026-10-14 用户报「滚动导致整个页面
-   完全被滚上去」，实测视口 400px 时文档 433px、元凶是左栏 ws-list/session 的最小内容高度）。
-   行高锁定后，高内容一律由各栏自己的 overflow:auto 内部消化；overflow:hidden 兜底，
-   页面级滚动在本应用里永远不是期望行为。 */
+/* 工作台根：行高用 minmax(0,1fr) 锁死视口——`1fr` 的最小尺寸是 auto，矮视口 + 长侧栏内容会
+   把轨道顶破 100vh ⇒ 文档整体可滚，任何滚轮都把整页滚走。
+   行高锁定后，高内容一律由各栏自己的 overflow:auto 内部消化。 */
 .app {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -270,39 +258,30 @@ button,
 /* =========================================================================
    全局原生控件主题化（兜底层）
    修「裸 button/input/select/textarea 白底黑字」：所有未带 class 的原生控件
-   一律吃主题变量；已带 class 的组件（.btn/.ctl-sel/.form 等）specificity 更高不受影响。
-   单色口径：原生控件一律「表面 + 发丝轮廓」，hover 只提亮描边，不给彩色焦点。
+   一律吃主题变量；已带 class 的组件（.btn/.ctl-sel/.form 等）specificity 更高。
    ========================================================================= */
 button {
   background: var(--panel-2);
   border: 1px solid var(--border-soft);
   color: var(--text);
-  border-radius: var(--radius);
   padding: 6px 13px;
   cursor: pointer;
   font-size: 13px;
-  font-family: inherit;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 button:hover {
   border-color: var(--border-strong);
   background: var(--hover);
 }
-button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
 input:not([type='checkbox']):not([type='radio']):not([type='range']),
 textarea,
 select {
-  background: var(--panel-2);
   border: 1px solid var(--border-soft);
   color: var(--text);
-  border-radius: var(--radius);
   padding: 7px 10px;
   font-size: 13px;
   font-family: inherit;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 input::placeholder,
 textarea::placeholder {
@@ -312,7 +291,6 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--accent);
 }
 select option,
 select optgroup {
@@ -320,19 +298,12 @@ select optgroup {
   color: var(--text);
 }
 
-/* ghost 次级按钮（此前只有 .mem-actions .ghost 修饰，基础样式缺失导致裸奔） */
+/* ghost 次级按钮 */
 .ghost {
-  background: transparent;
   border: 1px solid var(--border-soft);
-  color: var(--dim);
   border-radius: var(--radius);
   padding: 5px 12px;
   cursor: pointer;
   font-size: 12.5px;
   font-family: inherit;
-}
-.ghost:hover {
-  color: var(--text);
-  background: var(--panel-2);
-  border-color: var(--border-strong);
 }

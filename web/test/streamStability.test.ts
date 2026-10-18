@@ -1,4 +1,4 @@
-﻿// 对话区稳定性门禁（真浏览器 + CDP + 一条源码级守卫）：
+// 对话区稳定性门禁（真浏览器 + CDP + 一条源码级守卫）：
 //   ① SSE 徽标三态：瞬时抖动显示「重连中」（黄），**不闪红「断开」**；超过宽限期才判「断开」；
 //   ② 重连成功必须清掉宽限定时器（不能在 4s 后把已经恢复的连接刷成断开）；
 //   ③ 源码守卫：`.ev` 不得再挂入场动画（虚拟化列表会反复重挂块 ⇒ 动画重放 ⇒ 对话区一直闪）。
@@ -15,7 +15,7 @@
 // 直跑：node --test web/test/streamStability.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -53,13 +53,22 @@ function readBadge(cdp: CdpSession): Promise<{ text: string; cls: string; source
 
 test('SSE 徽标三态（重连中不闪红）+ .ev 不得再有入场动画', { timeout: 60_000 }, async (t) => {
   // ③ 源码守卫：先做无第三方依赖的那条（不依赖浏览器）。
-  const css = readFileSync(CHAT_CSS, 'utf8');
-  const evRule = /(^|\n)\.ev\s*\{([^}]*)\}/.exec(css);
-  assert.ok(evRule !== null, 'chat.css 里找不到 .ev 规则（口径变了，请同步本测试）');
-  assert.ok(
-    !/animation\s*:/.test(evRule[2]),
-    '.ev 不得挂入场动画：中栏是虚拟化列表，块会反复重挂 ⇒ 动画重放 ⇒ 对话区一直闪（曾用 animation:fade）',
-  );
+  //
+  // 2026-10-18：级联去重把 chat.css 里只剩 `margin-bottom` 的 `.ev` 规则**整条删掉了**
+  //（它的声明被 minimal.css 的 `.ev` 完全覆盖，永不生效）。判据改为在**全部样式表**里
+  // 找 `.ev` 的最终定义——契约没变（`.ev` 不得挂入场动画），只是不再钉死某个文件。
+  const allCss = readdirSync(dirname(CHAT_CSS))
+    .filter((f) => f.endsWith('.css'))
+    .map((f) => readFileSync(join(dirname(CHAT_CSS), f), 'utf8'))
+    .join('\n');
+  const evRules = [...allCss.matchAll(/(^|\n)\.ev\s*\{([^}]*)\}/g)];
+  assert.ok(evRules.length > 0, '样式表里找不到 .ev 规则（口径变了，请同步本测试）');
+  for (const evRule of evRules) {
+    assert.ok(
+      !/animation\s*:/.test(evRule[2]),
+      '.ev 不得挂入场动画：中栏是虚拟化列表，块会反复重挂 ⇒ 动画重放 ⇒ 对话区一直闪（曾用 animation:fade）',
+    );
+  }
 
   const browser = findBrowser();
   if (browser === null) {

@@ -158,11 +158,11 @@ export class AppServer extends AppServerVaultHandlers {
     this.handlers.set('changes.list', (params) =>
       Promise.resolve(this.workspaceChanges.list(params)),
     );
-    this.handlers.set('fs.browse', (params) => Promise.resolve(this.fsExplorer.browse(params)));
-    this.handlers.set('fs.mkdir', (params) => Promise.resolve(this.fsExplorer.mkdir(params)));
-    this.handlers.set('attach.read', (params) =>
-      Promise.resolve(this.fsExplorer.readAttachments(params)),
-    );
+    // fs.* / attach.read 自 2026-10-18 起是**异步 IO**（不再 `*Sync` 堵事件循环）：
+    // handler 直接返回 Promise，不再套 Promise.resolve 这层多余包装。
+    this.handlers.set('fs.browse', (params) => this.fsExplorer.browse(params));
+    this.handlers.set('fs.mkdir', (params) => this.fsExplorer.mkdir(params));
+    this.handlers.set('attach.read', (params) => this.fsExplorer.readAttachments(params));
     this.registerPluginHandlers();
     this.registerGraphHandlers();
     this.registerMemoryHandlers();

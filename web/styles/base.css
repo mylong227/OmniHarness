@@ -11,7 +11,6 @@
 body {
   font-family: var(--font-sans);
   font-size: 13.5px;
-  line-height: 1.6;
   letter-spacing: 0.005em;
   /* 2026-10-17 单色重设计：顶部径向提亮已删除。
      它原本是页面唯一的「纵深」装饰，而 craft floor 明令禁止装饰性渐变
@@ -25,8 +24,7 @@ body {
 p,
 li,
 .tc-summary,
-.illu-hint,
-.settings-hint {
+.illu-hint {
   text-wrap: pretty;
 }
 
@@ -37,25 +35,11 @@ li,
 .usage-table td,
 .cap-pct,
 .cap-row-pct,
-.change-nums,
-.token-num {
+.change-nums {
   font-variant-numeric: tabular-nums;
 }
 
-::selection {
-  background: color-mix(in srgb, var(--brand) 34%, transparent);
-  color: var(--text);
-}
-
 /* 细滚动条：默认更隐形，悬停才显形（原先 thumb 常驻 rgba(.13) 在深色里像一道灰杠）。 */
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
-  background-clip: padding-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
-  background-clip: padding-box;
-}
 [data-theme='light'] ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.14);
   background-clip: padding-box;
@@ -66,11 +50,6 @@ li,
 
 /* 焦点环：两段式（品牌色实环 + 低透明外晕），在密集界面里比单环更容易被眼睛抓住。
    只写 outline / box-shadow，不碰 color ⇒ 不进入对比度门禁的"前景×背景"判定。 */
-:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-  border-radius: 6px;
-}
 button:focus-visible,
 [role='tab']:focus-visible,
 [role='option']:focus-visible,
@@ -85,7 +64,6 @@ a:focus-visible {
 }
 /* 容器内会被裁掉外扩环的地方（沿用 components.css 的内缩口径）。 */
 .composer textarea:focus-visible,
-.composer .ctl-sel:focus-visible,
 .session-search:focus-visible,
 .session-rename-input:focus-visible,
 .cmdk-input:focus-visible,
@@ -93,7 +71,6 @@ a:focus-visible {
 .form input:focus-visible,
 .form select:focus-visible {
   outline-offset: -2px;
-  box-shadow: none;
 }
 
 /* 原生控件兜底：把 --radius 交给 8px 栅格，并给 hover 一个确定的描边色。 */
@@ -103,9 +80,6 @@ button {
 }
 button:not(:disabled):active {
   transform: translateY(0.5px);
-}
-button:disabled {
-  filter: saturate(0.6);
 }
 input:not([type='checkbox']):not([type='radio']):not([type='range']),
 textarea,

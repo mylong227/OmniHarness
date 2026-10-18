@@ -172,3 +172,6 @@ web/dist/
 # 一旦回来，`web/test/vendorAndTypeSource.test.mjs` 会立刻报红（它断言该目录必须不存在），
 # 但至少不会有人把它提交进去、也不会再被当成运行时依赖。
 web/vendor/
+
+# Windows 文件权限诊断的输出目录（scripts 由 diagnose-windows-sandbox-acl 写入，含回滚脚本）
+.acl-recovery/

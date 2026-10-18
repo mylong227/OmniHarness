@@ -21,20 +21,13 @@ import '../styles/components.css'; // 可复用组件
 import '../styles/chat.css'; // 对话流基础
 import '../styles/tokens.css'; // 字体族补充
 import '../styles/base.css'; // 全局底子：滚动条 / 选区 / 焦点
-import '../styles/polish-shell.css'; // 各功能区打磨
-import '../styles/polish-chat.css';
-import '../styles/polish-composer.css';
-import '../styles/polish-panels.css';
+import '../styles/legacy-a.css'; // 打磨层 A（原 polish-*，2026-10-18 按相位折叠）
 import '../styles/overlays.css'; // 浮层
 import '../styles/resilience.css'; // 错误边界 / 无障碍
 import '../styles/shell.css'; // 三栏壳层
-import '../styles/refine-surfaces.css'; // 视觉精修
-import '../styles/refine-rhythm.css';
-import '../styles/refine-overlays.css';
-import '../styles/refine-native.css';
-import '../styles/refine-density.css';
-import '../styles/minimal.css'; // 单色极简体系：唯一视觉事实源
-import '../styles/highlight.css'; // **必须最后**：单色语法色要盖住前面的基线
+import '../styles/legacy-b.css'; // 打磨层 B（原 refine-*，2026-10-18 按相位折叠）
+import '../styles/minimal.css'; // 「纸与墨」设计体系：唯一视觉事实源
+import '../styles/highlight.css'; // **必须最后**：语法色要盖住前面的基线
 
 import { mountApp } from './ui/App.ts';
 

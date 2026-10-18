@@ -17,6 +17,13 @@ export default tseslint.config(
       // `eval-data/**`（上游 vendored jQuery）同一条理由。
       'dist.old/**',
       'dist.next/**',
+      // Web 端构建产物（`npm run web:build` → `web/dist/assets/*.js`）。
+      // 2026-10-18 实测：KaTeX 拆成异步 chunk 后，那个 chunk 里带着上游的 `eslint-disable`
+      // 注释（引用了本仓没装的规则）⇒ `eslint .` 报「Definition for rule ... was not found」
+      // 三条，pre-commit 直接红。构建产物不是本仓维护的源码，和 `dist/**` 同一条理由。
+      'web/dist/**',
+      // 真机截图/探针产物（`web/archive/`，`.gitignore` 已忽略）：不是源码。
+      'web/archive/**',
       'node_modules/**',
       'coverage/**',
       'native/**',
@@ -36,6 +43,10 @@ export default tseslint.config(
       // 追踪过也不该入库），里面的 bad.js 之类故意写坏的探针文件会以 Parsing error
       // 把 lint 门禁染红（2026-10-02 pre-commit 实测）。不是本仓库维护的源码 ⇒ 显式排除。
       '.tmpcheck/**',
+      // `.tmp/` 同源问题（2026-10-18 实测）：探针/打包分析脚本会在这里落 `esb.js`（esbuild 产出的
+      // 2.9 MB 开发包，内含上游 `eslint-disable` 注释）⇒ 三条「Rule definition not found」把门禁打红。
+      // 该目录已在 `.gitignore` 里，但不是源码，必须在这里也排除（ESLint 不读 gitignore）。
+      '.tmp/**',
       '**/*.mjs',
       '**/*.cjs',
       // vendored 运行时物料与构建产物（2026-10-09 实测补入）：

@@ -32,6 +32,7 @@ export type IconName =
   | 'command'
   | 'sun'
   | 'moon'
+  | 'monitor'
   | 'search'
   | 'folder'
   | 'folder-open'
@@ -138,6 +139,14 @@ const SHAPES: Readonly<Record<IconName, IconShape>> = {
     paths: ['M12 2v2', 'M12 20v2', 'M2 12h2', 'M20 12h2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'],
   },
   moon: { paths: ['M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z'] },
+  /* 显示器：设置里「跟随系统」这一档的图标（不是"科技感"装饰，是"交给系统"的动作隐喻）。 */
+  monitor: {
+    paths: [
+      'M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+      'M9 21h6',
+      'M12 17v4',
+    ],
+  },
   search: { paths: ['M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0z', 'M21 21l-4.3-4.3'] },
   folder: { paths: ['M3 8a2 2 0 0 1 2-2h3.6l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'] },
   'folder-open': { paths: ['M4 19V6a2 2 0 0 1 2-2h3.2l1.8 2H17a2 2 0 0 1 2 2v1', 'M3 19l2.4-7h15L18 19z'] },

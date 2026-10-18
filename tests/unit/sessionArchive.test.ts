@@ -62,6 +62,40 @@ test('SessionArchive.usage：聚合磁盘 model 事件为 byModel 与 per-sessio
   });
 });
 
+test('SessionArchive.usage：缓存按 mtime 失效——追加 model 事件后重新统计，不得读到旧值', () => {
+  withTemp((dir) => {
+    const file = join(dir, 's1.jsonl');
+    writeFileSync(
+      file,
+      line('model', { model: 'm', usage: { promptTokens: 1, completionTokens: 1 } }),
+    );
+    const archive = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    const first = archive.usage() as { total: { calls: number; total: number } };
+    assert.strictEqual(first.total.calls, 1);
+    assert.strictEqual(first.total.total, 2);
+
+    // 追加一条 model 事件（同一次会话继续对话）：mtime/size 变化 ⇒ 缓存必须失效。
+    writeFileSync(
+      file,
+      [
+        line('model', { model: 'm', usage: { promptTokens: 1, completionTokens: 1 } }),
+        line('model', { model: 'm', usage: { promptTokens: 10, completionTokens: 5 } }),
+      ].join('\n'),
+    );
+    const second = archive.usage() as { total: { calls: number; total: number } };
+    assert.strictEqual(second.total.calls, 2, '追加事件后 calls 必须变成 2（缓存未失效会仍是 1）');
+    assert.strictEqual(
+      second.total.total,
+      17,
+      '追加事件后 total 必须是 2 + 15（缓存未失效会仍是 2）',
+    );
+  });
+});
+
 test('SessionArchive.usage：磁盘无数据时回退 live 且指标为空', () => {
   withTemp((dir) => {
     const load = new SessionArchive({

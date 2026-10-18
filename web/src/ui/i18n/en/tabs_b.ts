@@ -226,7 +226,7 @@ export const EN_TABS_B: Record<string, string> = {
   '点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。':
     'Click "Create checkpoint" to save a safety net first; then you can roll back conversation and code with one click.',
 
-  // SettingsTab
+  // 设置模态的运行时/权限字段（原 SettingsTab 面板已于 2026-10-18 删除）
   '模型适配器': 'Model adapter',
   '审批模式': 'Approval mode',
   '沙箱': 'Sandbox',

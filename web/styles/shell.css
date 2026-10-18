@@ -13,14 +13,11 @@
 .col.left.side {
   display: flex;
   flex-direction: column;
-  background: var(--panel);
 }
 
 .side-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 12px 8px;
   /* 品牌行必须能收缩：否则「字标 + 命令面板 + 收起」的总宽会超过列宽（实测 284px vs 248px），
      把**收起按钮挤出左栏可视区** ⇒ 用户「左栏收不起来」（2026-10-07 实测：按钮中心点命中隔壁中栏）。 */
   min-width: 0;
@@ -31,20 +28,14 @@
 .side-brand .brand-mark {
   width: 26px;
   height: 26px;
-  border-radius: 8px;
-  background: var(--brand-bg);
-  color: var(--brand-on);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
   font-size: 15px;
   flex: none;
 }
 .side-wordmark {
   font-size: 15px;
-  font-weight: 650;
-  letter-spacing: 0.2px;
   display: inline-flex;
   align-items: baseline;
   gap: 6px;
@@ -60,45 +51,27 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 2px 12px 8px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-soft);
-  background: var(--panel-2);
-  color: var(--text);
-  font-size: 13.5px;
-  font-weight: 600;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
-}
-.new-chat:hover {
-  background: var(--hover, rgba(255, 255, 255, 0.05));
-  border-color: var(--accent);
 }
 .new-chat.compact {
   margin: 2px 10px 8px;
   padding: 8px 0;
   justify-content: center;
 }
-.new-chat .nc-ico { display: inline-flex; color: var(--brand); }
+.new-chat .nc-ico { display: inline-flex; }
 
 /* 侧栏一等导航项（插件 / 设置） */
 .side-item {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin: 0 12px;
-  padding: 7px 10px;
-  border-radius: 9px;
   border: none;
   background: transparent;
-  color: var(--dim);
   font-size: 13px;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.side-item:hover { background: var(--panel-2); color: var(--text); }
 .side-item.active { background: var(--panel-2); color: var(--text); }
 .side-item .si-ico { display: inline-flex; }
 
@@ -107,7 +80,6 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  margin: 12px 12px 4px;
   min-height: 26px;
 }
 .side-sec-head .ssh-label {
@@ -174,8 +146,6 @@
 /* 侧栏页脚 */
 .side-foot {
   margin-top: auto;
-  border-top: 1px solid var(--border-soft);
-  padding: 8px 12px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -184,9 +154,6 @@
 .side-foot .pill { font-size: 11.5px; }
 
 /* ---------- 面板划分（用户实测"面板要能进行划分"）：三栏各用一层底色 + 发丝线分隔 ---------- */
-.col.left.side { background: var(--panel); }
-.col.center { background: var(--bg); }
-.col.right { background: var(--bg-elev); }
 
 /* 桌面端收起右栏（面板菜单旁的「»」或中栏头的面板按钮 / Ctrl+Cmd+Shift+E）；窄屏抽屉不受影响。 */
 @media (min-width: 881px) {
@@ -200,15 +167,9 @@
 .chat-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px 8px;
-  border-bottom: 1px solid var(--border-soft);
   flex: none;
 }
 .chat-title {
-  font-size: 14px;
-  font-weight: 650;
-  max-width: 34ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -217,12 +178,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: var(--dim);
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   padding: 2px 9px;
-  white-space: nowrap;
 }
 .chat-tabs { display: inline-flex; gap: 2px; }
 .chat-tab {
@@ -231,37 +189,16 @@
   color: var(--dim);
   font-size: 13px;
   padding: 5px 10px;
-  border-radius: 7px;
   cursor: pointer;
   position: relative;
-}
-.chat-tab:hover { color: var(--text); background: var(--panel-2); }
-.chat-tab.active { color: var(--text); }
-.chat-tab.active::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -9px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--brand);
 }
 .chat-head .iconbtn.active { color: var(--brand); background: var(--panel-2); }
 
 .chat-status {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 14px;
-  border-top: 1px solid var(--border-soft);
-  font-size: 11px;
-  color: var(--dim);
   flex: none;
 }
-.chat-status .cs-conn.open { color: var(--ok); }
-.chat-status .cs-conn.connecting { color: var(--warn); }
-.chat-status .cs-conn.closed { color: var(--err); }
 /* 状态栏的「续跑」芯片：把「有编排没跑完 + 一键接着跑」放在用户一直看得见的地方，
    免得还要先学会「全部面板 → 编排」的导航（2026-10-08 交互改进）。 */
 .chat-status .cs-resume {
@@ -277,46 +214,26 @@
 .chat-status .cs-resume:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* ---------- 中栏：输入卡片（正文在上 / 控制行在下） ---------- */
-.composer { padding: 8px 14px 6px; flex: none; }
+.composer { flex: none; }
 .composer-box {
-  border: 1px solid var(--border-soft);
-  border-radius: 14px;
-  background: var(--panel-2);
-  padding: 8px 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
 }
-.composer-box:focus-within { border-color: var(--accent); }
 .composer-input { position: relative; }
 .composer-input textarea {
   width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--text);
   resize: none;
   outline: none;
-  font-size: 13.5px;
-  line-height: 1.55;
-  padding: 4px 6px;
 }
 .composer-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 .composer-bar-left,
-.composer-bar-right { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.composer-bar-right { margin-left: auto; }
+.composer-bar-right { display: flex; align-items: center; gap: 6px; }
 .send.round,
 .stop.round {
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
   border-radius: 999px;
-  border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -324,22 +241,17 @@
   font-weight: 700;
   cursor: pointer;
 }
-.send.round { background: var(--brand-bg); color: var(--brand-on); }
 .send.round:hover { filter: brightness(1.12); }
-.send.round:disabled { opacity: 0.45; cursor: not-allowed; }
-.stop.round { background: var(--err); color: var(--on-err); font-size: 10px; }
+.send.round:disabled { cursor: not-allowed; }
+.stop.round { font-size: 10px; }
 
 /* ---------- 右栏：代码查看器 ---------- */
 .col.right { display: flex; flex-direction: column; }
 .rv-tabs {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 6px 8px 0;
-  border-bottom: 1px solid var(--border-soft);
   overflow-x: auto;
   scrollbar-width: none;
-  min-height: 38px;
   flex: none;
 }
 .rv-tabs::-webkit-scrollbar { display: none; }
@@ -347,10 +259,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
-  padding: 7px 10px;
-  border-radius: 8px 8px 0 0;
-  border-bottom: 1px solid transparent;
   white-space: nowrap;
   cursor: pointer;
   flex: 0 1 auto;
@@ -362,28 +270,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rv-tabs .tab:hover { background: var(--panel-2); color: var(--text); }
-.rv-tabs .tab.active { border-bottom-color: var(--accent); color: var(--text); background: var(--panel-2); }
 .rv-tabs .tab .tab-x {
   width: 16px;
   height: 16px;
-  border-radius: 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--dim);
   font-size: 12px;
 }
-.rv-tabs .tab .tab-x:hover { background: var(--hover, rgba(255, 255, 255, 0.08)); color: var(--text); }
 
 .rv-pathbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 12px;
-  border-bottom: 1px solid var(--border-soft);
-  font-size: 11.5px;
-  color: var(--dim);
   flex: none;
 }
 .rv-path {
@@ -474,11 +373,6 @@
   right: 0;
   z-index: 60;
   min-width: 168px;
-  background: var(--panel);
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
-  padding: 6px;
   display: flex;
   flex-direction: column;
 }
@@ -492,19 +386,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: none;
-  background: transparent;
-  color: var(--text);
   font-size: 12.5px;
   padding: 6px 8px;
-  border-radius: 7px;
   cursor: pointer;
   text-align: left;
 }
-.pp-item:hover { background: var(--panel-2); }
-.pp-item.active { background: var(--panel-2); color: var(--accent); }
 .pp-item .pp-ico { display: inline-flex; color: var(--dim); }
-.pp-item.active .pp-ico { color: var(--accent); }
 
 /* ---------- 轨迹视图 ---------- */
 .trace {
@@ -533,9 +420,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tr-st { flex: none; font-size: 11px; }
-.tr-st.ok { color: var(--ok); }
-.tr-st.run { color: var(--warn); }
+.tr-st { flex: none; }
 .tr-time { flex: none; font-size: 11px; color: var(--dim); }
 
 /* ---------- 通用 ---------- */

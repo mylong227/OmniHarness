@@ -1,0 +1,1454 @@
+/* =========================================================================
+   打磨层 A（polish-*）—— 2026-10-18 由 4 个文件按原顺序折叠
+   加载位置：base.css 之后、overlays.css 之前（与折叠前逐字相同）
+
+   为什么保留：这些规则是三代打磨的产物，它们**仍然生效**（不是死代码）——
+   折叠只减少文件数，不改任何一条声明。删除它们需要先按选择器做特异性合并，
+   那是另一次有风险的改写（验收口径：计算样式快照逐属性 diff 为空）。
+   ========================================================================= */
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/polish-shell.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+/* =========================================================================
+   OmniHarness Web UI — 壳层打磨：顶栏 / 左栏 / 导航竖条 / 中右栏
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish.css §3，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   3. 外壳：顶栏 / 左栏 / 导航竖条 / 中栏 / 右栏
+   ========================================================================= */
+
+/* 图标盒：自研 SVG 图标在 flex / grid 里会被压扁（flex 子项默认 `min-width:auto` + 可收缩，
+   实测 19px 图标被压成约 8px 宽的竖条 ⇒ 视觉上像几个空方块，完全看不出图标）。
+   `flex:none` 是对这类"图标被容器挤压"的通用护栏：图标永远按自身尺寸渲染，由调用方控制尺寸。 */
+svg {
+  flex: none;
+}
+.tc-icon svg,
+.artifact-card .artifact-icon svg,
+.att-ico svg,
+.ev-chip-ico svg,
+.fp-icon svg,
+.dd-ico svg,
+.cap-ico svg,
+.addmenu-ico svg,
+.addmenu-item-ico svg,
+.empty.illu .illu-icon svg,
+.iconbtn svg,
+.send svg,
+.stop svg,
+.perm-badge svg,
+.md-codeblock__copy svg,
+.copy-btn svg,
+.link-cards-head svg {
+  display: block;
+  flex: none;
+}
+
+/* 消息卡悬浮操作（编辑重发 / 重新生成）：低调、靠右、不挤占正文。 */
+.msg-act {
+  padding: 2px 9px;
+  font-size: 11px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+/* 图标 + 文本的横排容器：统一 gap 与基线（否则 SVG 会按基线对齐、把行高顶起来）。 */
+.link-cards-head,
+.perm-badge,
+.copy-btn,
+.artifact-open,
+.artifact-download,
+.md-codeblock__copy,
+.msg-act,
+.attach,
+.mic {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 复制结果按钮：从"内联样式 + emoji"收进 token 体系（hover 才显形，避免常驻抢视线）。 */
+.copy-btn {
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  font-size: 11px;
+  font-family: inherit;
+  padding: 3px 9px;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.copy-btn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* ---- 顶栏：玻璃感 + 品牌标识（原先是"白方块 + 文字"） ---- */
+
+.brand {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  font-size: 13.5px;
+}
+.brand .brand-mark {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  font-size: 13px;
+  line-height: 1;
+}
+.brand small {
+  color: var(--dim);
+  font-size: 11.5px;
+  font-family: var(--font-mono);
+  padding-left: 8px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border-soft);
+}
+
+/* 状态胶囊：带状态点呼吸；只在"连接中"呼吸（稳定态不闪，减少无意义动效）。 */
+.pill {
+  border-color: var(--border-soft);
+}
+.pill .dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 16%, transparent);
+}
+.pill.warn .dot {
+  animation: pill-pulse 1.6s var(--ease) infinite;
+}
+@keyframes pill-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* 顶栏图标按钮：方形 30px 命中区（原先是宽窄不一的胶囊，视觉重量不等）。 */
+/* 主题开关带文字，退回胶囊形态。 */
+
+/* ---- 左栏 ---- */
+.col-head {
+  border-bottom-color: var(--hairline);
+  line-height: 1.5;
+}
+.col.right .col-head {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* 工作区切换器（左栏一等入口）：做成"当前项目卡"。 */
+.ws-switch-btn {
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.ws-switch-icon {
+  color: var(--brand);
+  display: inline-flex;
+  align-items: center;
+}
+.ws-project {
+  padding: 6px 9px;
+  font-size: 12.5px;
+}
+.ws-project.active {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  color: var(--text);
+}
+.ws-project-dot {
+  width: 5px;
+  height: 5px;
+}
+.ws-project.active .ws-project-dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+/* 区块标题：小号大写字 + 发丝分隔，替代原先的裸文字。 */
+.sec-toggle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 3px 5px;
+}
+.sec-toggle:hover {
+  color: var(--text);
+}
+
+/* 搜索框：内嵌放大镜留白（图标由组件渲染为 .session-search-icon 时生效，缺省不占位）。 */
+
+/* 会话行：hover 有底、选中靠"品牌色左标 + 提亮底"，不再用 2px 硬左边框。 */
+.session {
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.session.active {
+  border-left: none;
+}
+
+/* 会话行内联的「最近活动时间」（2026-10-08 可读性轮）。
+   两个分组视图共用；hover 时用 opacity **让位**给重命名 / 复制 / 删除按钮——
+   不用 display:none 是因为那会让标题宽度在悬停瞬间跳变（行内重排比"看不见时间"更烦人），
+   opacity 保留占位 ⇒ 悬停前后零位移。 */
+.session-time {
+  margin-left: 6px;
+  line-height: 1;
+  white-space: nowrap;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.session:hover .session-time {
+  opacity: 0;
+}
+
+/* 空态「快速开始」示例任务（2026-10-08 易用性轮）。
+   原先空态只有一句"下达任务后…会发生什么"，没说"我该输入什么"——学习成本的最大来源
+   不是功能复杂，而是第一句话不知道怎么写。四条示例各覆盖一条核心通路，点一下填进输入框。
+   分两列（窄屏一列）：四张卡竖排在 640px 高的中栏里会把"等待任务"挤到顶部之外，
+   而这一屏的主要信息恰恰是那行标题与四个入口要**同屏**。 */
+.starter-tasks {
+  margin-top: 18px;
+  max-width: 460px;
+}
+.starter-title {
+  font-size: 12px;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+.starter-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.starter-task {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.starter-task:hover {
+  border-color: var(--brand);
+  background: var(--panel-2);
+}
+.starter-task:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.starter-ico {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--brand);
+}
+.starter-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .starter-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 会话行的操作按钮（重命名 / 复制 / 删除）改为**覆盖层**：不悬停时不再占位。
+   真机实测（2026-10-08，248px 侧栏）：三个按钮以 opacity:0 常驻占位 **86px**，
+   而标题只剩 73–91px（约 6 个字）——标题是客户找会话的第一线索，却被"看不见的按钮"挤掉。
+   改成绝对定位后标题拿回这 86px，18–35px 的时间格也放得下：
+   既知道「哪条是刚才那条」，又不必牺牲标题预览。
+   覆盖层必须自带底（否则与标题尾巴糊在一起）：左缘用渐变过渡，右侧取行态自身的底色。 */
+.session,
+.task-card {
+  position: relative;
+}
+.task-card .tc-top {
+  position: relative;
+}
+.session .session-actions,
+.task-card .session-actions {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-left: 10px;
+  border-radius: 6px;
+}
+.session .session-actions {
+  background: var(--panel);
+}
+.session.active .session-actions {
+  background: var(--panel-2);
+}
+.task-card .tc-top .session-actions {
+  background: var(--panel);
+}
+.session-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+}
+
+/* 分组头（按工作区分组） */
+.ws-head {
+  border-radius: 7px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.ws-head:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* ---- 导航竖条 ---- */
+.rail {
+  width: 58px;
+  border-right-color: var(--hairline);
+}
+
+/* 更多面板：竖条底部的兜底入口。菜单向右弹出（不挤 rail 宽度），列出全部 12 个面板。 */
+
+/* ---- 中栏对话流 ---- */
+
+/* ---- 右栏标签条（窄窗才显示） ---- */
+.tabs {
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom-color: var(--hairline);
+  background: var(--bg-elev);
+}
+.tab {
+  border-radius: 8px;
+  padding: 6px 4px;
+  font-size: 12px;
+  color: var(--faint);
+}
+.tab:hover {
+  color: var(--text);
+  background: var(--panel);
+}
+.tab.active {
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--brand);
+}
+
+/* 分栏拖拽条：默认隐形、hover 才显形（原先常驻一条灰线，四栏之间太吵）。 */
+.resizer::after {
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.resizer:hover::after {
+  opacity: 1;
+}
+.resizer:active::after {
+  opacity: 1;
+  background: var(--brand);
+}
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/polish-chat.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+.badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 9px;
+  border: 1px solid transparent;
+}
+.b-user {
+  border-color: var(--border-soft);
+}
+.b-assistant {
+  border-color: color-mix(in srgb, var(--ok) 26%, transparent);
+}
+.b-reasoning {
+  border-color: var(--border-soft);
+}
+.b-tool_call {
+  border-color: color-mix(in srgb, var(--warn) 26%, transparent);
+}
+.b-tool_result {
+  border-color: var(--border-soft);
+}
+.b-system {
+  border-color: var(--border-soft);
+}
+
+/* 卡片：发丝线 + 一层极淡的顶高光，替代阴影（深色下阴影看不见）。 */
+
+/* 气泡：用户侧近白实体（与深色底形成最强对比，一眼分得清"我"和"它"）。 */
+/* 流式卡片：虚线 + 呼吸边，明确"这是临时正文"，与已落成卡片区分。 */
+.ev.assistant.streaming-assistant .card {
+  border-style: dashed;
+}
+.stream-caret {
+  width: 2px;
+  height: 15px;
+  margin-left: 4px;
+  border-radius: 1px;
+  background: var(--brand);
+}
+
+/* 工具调用行：图标 + 等宽工具名 + 状态胶囊，hover 才给底（过程区保持安静）。 */
+.tc-line {
+  gap: 9px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  transition: background var(--dur-1) var(--ease);
+}
+.tc-line:hover {
+  background: var(--panel);
+  color: var(--text);
+}
+.tc-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--faint);
+}
+.tc-icon svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+  stroke-width: 1.7;
+}
+.tc-line:hover .tc-icon {
+  color: var(--brand);
+}
+.tc-chevron {
+  font-size: 9px;
+  color: var(--faint);
+}
+.tool-status {
+  font-weight: 600;
+}
+.tc-summary {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.tc-summary.tc-action {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+}
+
+/* 过程簇：折叠头做成"一行小结"，左侧竖发丝线表示从属关系。 */
+.process-cluster > summary {
+  border-radius: 7px;
+  transition: background var(--dur-1) var(--ease);
+}
+.process-cluster > summary:hover {
+  background: var(--panel);
+}
+.process-cluster-body {
+  padding-left: 14px;
+  margin-left: 8px;
+}
+
+/* 思考块：虚线 + 斜体摘要，与"事实性内容"区分。 */
+details.reasoning,
+.reason-body {
+  border-color: var(--border-soft);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.reason-body {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--dim);
+  line-height: 1.65;
+}
+details.reasoning summary {
+  color: var(--dim);
+}
+details.reasoning summary:hover {
+  color: var(--text);
+}
+
+/* 工具错误摘要：用语义 token，浅色主题不再是"白底浅红"。 */
+.tc-error {
+  border-left: 2px solid var(--err);
+  border-radius: 0 6px 6px 0;
+  font-size: 12px;
+  padding: 4px 10px;
+  margin-left: 20px;
+}
+
+/* 系统提示行：两侧发丝线夹住居中说明（比裸灰字更像"旁白"）。 */
+.sysnote {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sysnote::before,
+.sysnote::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+/* JSON 预览 / 工具输出：机器产物统一进 --code-bg。 */
+pre.json,
+.tool-output,
+.file-content {
+  background: var(--code-bg);
+  border-color: var(--border-soft);
+  border-radius: 9px;
+}
+pre.json {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.55;
+}
+.tool-output.collapsed::after {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  text-align: center;
+  padding: 10px 0 2px;
+}
+
+/* 内联代码 / 代码块：内联用"底 + 发丝边"，代码块用工具条 + 圆角 10px。 */
+.md-content pre {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.md-content pre code {
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  display: block;
+}
+.md-codeblock__bar {
+  border-bottom-color: var(--border-soft);
+}
+.md-codeblock__lang {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+.md-codeblock__copy {
+  border-radius: 6px;
+  font-size: 10.5px;
+  padding: 3px 9px;
+}
+.md-codeblock__copy:hover {
+  border-color: var(--border-strong);
+  background: var(--panel);
+}
+
+/* 标题：等宽大写字 + 左侧品牌色短标，建立"文档小节"而不是"营销大标题"。 */
+.md-content h3,
+.md-content h4,
+.md-content h5 {
+  letter-spacing: -0.005em;
+}
+.md-content .md-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.md-content .md-table th,
+.md-content .md-table td {
+  border: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
+.md-content .md-table th {
+  background: var(--panel-2);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.md-content .md-table tr:last-child td {
+  border-bottom: 0;
+}
+.md-content .md-table tr:nth-child(even) td {
+  background: transparent;
+}
+.md-content .md-table td {
+  color: var(--text);
+}
+
+/* diff 视图：加/删行用语义色，上下文行更暗，整体等宽不透气。 */
+.diff {
+  border-color: var(--border-soft);
+  line-height: 1.6;
+}
+
+/* 待办 / 提问 / 待确认选项 */
+.todo-item {
+  font-size: 12.5px;
+  padding: 3px 0;
+}
+.todo-dot {
+  width: 7px;
+  height: 7px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+}
+.todo-dot.done {
+  background: var(--ok);
+}
+.todo-dot.doing {
+  background: var(--warn);
+}
+.question-option {
+  border-radius: 9px;
+  background: var(--panel-2);
+  padding: 8px 11px;
+}
+.question-option .opt-label {
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+/* =========================================================================
+   提问卡（可作答）—— 输入框正上方的**唯一作答入口**（2026-10-08）
+   ---------------------------------------------------------------------
+   背景：对话流里的提问记录只呈现内容（不给「可点」的错觉），真正的作答控件在这里。
+   口径：选项是可聚焦的 radio/checkbox（触控目标 ≥44px、hover 与选中态可分辨），
+   提交前要求逐题作答，另有「全部跳过」显式出口，倒计时提示超时后会按「未作答」继续。
+   ========================================================================= */
+.qask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 14px 8px;
+  padding: 12px 14px;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border-soft));
+  border-radius: 14px;
+}
+.qask-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.qask-progress {
+  font-size: 12px;
+  color: var(--dim);
+}
+.qask-timer {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--warn);
+}
+.qask-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+}
+.qask-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qask-eyebrow {
+  font-size: 11px;
+  color: var(--dim);
+}
+.qask-question {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.qask-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.qask-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 9px 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.qask-option:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-soft));
+}
+.qask-option.is-checked {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-2));
+}
+.qask-option:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.qask-mark {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid var(--border-soft);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.qask-mark.is-box {
+  border-radius: 5px;
+}
+.qask-mark-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.qask-option.is-checked .qask-mark {
+  border-color: var(--accent);
+}
+.qask-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.qask-option-label {
+  color: var(--text);
+}
+.qask-option-desc {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--dim);
+}
+.qask-custom {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.qask-custom:focus {
+  border-color: var(--accent);
+}
+.qask-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.qask-hint {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.qask-error {
+  font-size: 11.5px;
+  color: var(--err);
+}
+.qask-skip {
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.qask-skip:hover:not(:disabled) {
+  color: var(--text);
+}
+.qask-submit {
+  min-height: 34px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: var(--ink-fg);
+  border: 1px solid var(--accent);
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.qask-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* =========================================================================
+   空 / 加载 / 错误 三态（2026-10-07 统一口径）
+   ---------------------------------------------------------------------
+   三种态在同一产品里必须**一眼分得开**，而原先它们都只是"一行灰字"：
+     · `.empty`（默认）      —— 基础文案（多为"读取中…"这类过程提示）
+     · `.empty.note`         —— 状态结论 / 说明（与默认同观感，图标 + 文案横排）
+     · `.empty.illu`         —— 真·空态：图标槽 + 主文案 + 指引（列表空且需要引导）
+     · `.empty.err`          —— 加载失败：红色 + 警示图标（与"没数据"必须能区分）
+   竖直留白也分档：illu 最松（48px）、note/默认 紧凑（18px）、err 24px。
+   ========================================================================= */
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--dim);
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: center;
+  padding: 18px 12px;
+}
+.empty.note,
+.empty.err {
+  padding: 16px 12px;
+}
+.empty svg {
+  flex: none;
+}
+.empty.illu {
+  flex-direction: column;
+}
+/* 失败态：整块走错误色（图标槽 / 主文案 / 指引一起），与"没有内容"一眼分开。 */
+.empty.illu.err .illu-icon {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 32%, var(--border-soft));
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+}
+.empty.illu.err .illu-text {
+  color: var(--err);
+}
+/* 空态里的行动按钮（如"重试"）：收敛成与空态同宽的次级按钮。 */
+.empty .action {
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+}
+.empty .action .btn {
+  width: auto;
+  margin-bottom: 0;
+  padding: 6px 14px;
+}
+.empty.illu .illu-icon {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--dim);
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  opacity: 1;
+  font-size: 20px;
+}
+.empty.illu .illu-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.5;
+}
+.empty.illu .illu-hint {
+  max-width: 260px;
+  text-align: center;
+}
+
+/* 产物卡片 / 外链卡片 */
+.artifact-card {
+  background: var(--panel);
+  padding: 8px 11px;
+  margin-left: 20px;
+}
+.artifact-card .artifact-icon {
+  display: inline-flex;
+  color: var(--faint);
+}
+.artifact-card .artifact-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.6;
+}
+.artifact-card .artifact-open:hover,
+.artifact-card .artifact-download:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+.link-card {
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+.link-card:hover {
+  background: var(--panel-2);
+}
+.link-card .link-card-host {
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border-soft));
+  color: var(--brand);
+  border-radius: 5px;
+}
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/polish-composer.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+
+/* =========================================================================
+   OmniHarness Web UI — 输入区（Composer）打磨：主操作区最实层级
+   ---------------------------------------------------------------------
+   来源：CSS 按功能拆分（2026-10-16）。本段原属 polish.css §5，行序未动，
+   级联语义与拆分前逐字节等价（index.html 按 same-order 依序加载）。
+   ========================================================================= */
+
+/* =========================================================================
+   5. 输入区（Composer）：主操作区，给它最实的层级
+   ========================================================================= */
+.composer {
+  margin: 0 16px 16px;
+  border-color: var(--border-soft);
+  transition: border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
+}
+[data-theme='light'] .composer {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07), inset 0 1px 0 var(--hairline);
+}
+/* 聚焦态用 :focus-within —— 整块输入区一起亮，用户视线落到"我要在这里打字"。 */
+.composer textarea {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.6;
+  padding: 6px 8px;
+  caret-color: var(--brand);
+}
+.composer-bar {
+  padding-top: 2px;
+}
+
+/* 切换器（模型 / 推理强度 / 权限 / 添加 / 容量）：统一成同一种"chip 控件"。 */
+.dd,
+.cap,
+.addmenu-ico {
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+  border-radius: 9px;
+}
+.dd,
+.cap {
+  padding: 4px 9px;
+  transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+.dd:hover,
+.cap:hover,
+.addmenu:hover .addmenu-ico {
+  background: color-mix(in srgb, var(--panel-2) 60%, var(--panel));
+  border-color: var(--border-strong);
+}
+.dd-ico,
+.cap-ico {
+  display: inline-flex;
+  align-items: center;
+  color: var(--faint);
+  opacity: 1;
+}
+.dd-ico svg,
+.cap-ico svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.7;
+}
+.dd-caret {
+  color: var(--faint);
+}
+.dd-label {
+  font-size: 12.5px;
+}
+/* 添加按钮：从 30px 空心方块改成 30px 圆角方块 + 品牌色 hover。 */
+.addmenu-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--dim);
+}
+/* 图标按钮统一 30px 命中区：原先 `.iconbtn.attach`/`.mic` 因 padding 差异高 27px，
+   与 30px 的模型/权限 chip 排在一行时基线不齐（真机实测 589 vs 560 的 y 差）。 */
+.iconbtn.attach,
+.iconbtn.mic {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+}
+.iconbtn.attach:hover,
+.iconbtn.mic:hover {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--border-soft);
+}
+.addmenu:hover .addmenu-ico {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border-soft));
+}
+.addmenu-ico svg,
+.iconbtn svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+  display: block;
+}
+
+/* 容量条：品牌色填充 + 语义化耗尽色。 */
+.cap-bar,
+.cap-bar-big,
+.cap-row-bar {
+  background: var(--code-bg);
+  border-radius: 999px;
+}
+.cap-bar-fill,
+.cap-row-fill {
+  background: var(--brand);
+  border-radius: 999px;
+}
+
+/* 发送按钮：品牌实心 + 图标；hover 提亮，按下回弹。 */
+.send {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+  border: 1px solid color-mix(in srgb, var(--brand) 60%, transparent);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+[data-theme='dark'] .send,
+[data-theme='dark'] .btn.primary {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+}
+[data-theme='light'] .send,
+[data-theme='light'] .btn.primary {
+  background: var(--brand-bg);
+  color: var(--brand-on);
+}
+.send:hover:not(:disabled),
+[data-theme='dark'] .send:hover:not(:disabled),
+[data-theme='light'] .send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-bg) 84%, #ffffff);
+  color: var(--brand-on);
+  opacity: 1;
+}
+[data-theme='light'] .send:hover:not(:disabled),
+[data-theme='light'] .btn.primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand-bg) 88%, #000000);
+  color: var(--brand-on);
+}
+.send:disabled {
+  box-shadow: none;
+}
+.stop {
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--err) 12%, transparent);
+}
+.stop:hover {
+  background: color-mix(in srgb, var(--err) 20%, transparent);
+}
+
+/* 附件 chip */
+.att {
+  border-radius: 10px;
+  background: var(--panel-2);
+  padding: 5px;
+  transition: border-color var(--dur-1) var(--ease);
+}
+.att:hover {
+  border-color: var(--border-strong);
+}
+.att-ico,
+.ev-chip-ico,
+.fp-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--faint);
+}
+.att-ico svg,
+.ev-chip-ico svg,
+.fp-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.6;
+}
+.att-thumb {
+  border-radius: 7px;
+}
+.att-x {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--bg-elev);
+  transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.ev-chip {
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 4px 9px;
+}
+
+/* 浮层（下拉 / 添加菜单 / 容量面板 / @mention）：统一浮起层级 + 一致的进场。
+   注意：进场动画分两族——**贴左/贴边的弹层**只能做 translateY（它们没有水平居中变换），
+   **水平居中的弹层**（`.addmenu-pop` / `.cap-pop` 用 `left:50% + translateX(-50%)`）必须把
+   translateX(-50%) 一起写进关键帧，否则动画会把 `left:50%` 变成"从容器左边缘开始"（可见跳位）。 */
+.dd-menu,
+.mention-pop,
+.ws-switch-menu,
+.row-menu {
+  animation: pop-in var(--dur-2) var(--ease);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.addmenu-pop,
+.cap-pop {
+  animation: pop-in-center var(--dur-2) var(--ease);
+}
+@keyframes pop-in-center {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+.dd-item,
+.addmenu-item,
+.mention-item,
+.row-menu button {
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+.addmenu-item-ico {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dim);
+}
+.addmenu-item-ico svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.6;
+}
+.addmenu-item-label {
+  font-size: 12.5px;
+}
+.addmenu-item-hint {
+  font-size: 11px;
+  color: var(--faint);
+}
+.addmenu-item-on {
+  color: var(--brand);
+}
+
+/* -------------------------------------------------------------------------
+   源文件：web/styles/polish-panels.css（已折叠进本文件）
+   ------------------------------------------------------------------------- */
+.metric .n {
+  line-height: 1.15;
+}
+.metric .l {
+  font-size: 10.5px;
+  color: var(--faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.kv {
+  font-size: 12.5px;
+}
+.kv .v {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.usage-table td {
+  font-size: 12px;
+}
+.usage-table tr.total td {
+  border-top: 1px solid var(--border-strong);
+}
+
+/* 插件市场空态：给"暂无插件"这类区块一条可见的容器边界，避免整块空白页观感。 */
+.pm-section .empty.illu {
+  padding: 26px 14px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 55%, transparent);
+}
+.pm-section .empty.illu .illu-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+/* 变更列表：文件行为可点卡片，徽标是"标签"而不是"彩色块"。 */
+.change-item {
+  background: var(--panel);
+}
+.change-row {
+  padding: 8px 11px;
+  font-size: 12.5px;
+}
+.change-row:hover {
+  background: var(--panel-2);
+}
+.change-badge {
+  font-weight: 700;
+}
+.change-path {
+  font-size: 11.5px;
+}
+
+/* hunk 审查：hunk 头做成"分组条"，选中态用品牌色。 */
+.hunk-head {
+  border-left: 1px solid var(--border-strong);
+  background: var(--panel-2);
+  padding: 4px 10px;
+  border-radius: 0 8px 8px 0;
+  margin-top: 8px;
+}
+.hunk-head.selected {
+  border-left-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+}
+.hunk-btn {
+  border-radius: 6px;
+  font-size: 10.5px;
+  padding: 2.5px 9px;
+}
+.hunk-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--brand) 12%, transparent);
+  border-color: var(--brand);
+}
+.diff-rows {
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+.line-cmt {
+  border-radius: 5px;
+  color: var(--faint);
+}
+.diff-comment {
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 26%, transparent);
+}
+.diff-draft textarea {
+  background: var(--code-bg);
+  border-radius: 8px;
+}
+
+/* 插件 / 记忆 / 配置集卡片 */
+.plugin-card,
+.mem-row,
+.cp-item,
+.review-help,
+.graph-guide,
+.step-row,
+.file-content,
+.file-md-scroll {
+  border-radius: 12px;
+  border-color: var(--border-soft);
+  background: var(--panel);
+}
+.plugin-card:hover,
+.mem-row:hover {
+  border-color: var(--border-strong);
+}
+.plugin-card .pc-name {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.plugin-card .pc-ver {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+.src-badge {
+  font-weight: 600;
+}
+/* 危险权限：浅色主题下必须换深色前景（历史上这里是 2.03:1 的真实缺陷）。 */
+[data-theme='light'] .perm.danger {
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 34%, var(--border-soft));
+}
+.btn-install,
+.btn-remove {
+  border-radius: 8px;
+  font-size: 11.5px;
+  padding: 4.5px 14px;
+}
+.btn-install:hover {
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+.btn-remove:hover {
+  background: color-mix(in srgb, var(--err) 10%, transparent);
+}
+.pc-installed {
+  font-size: 11.5px;
+}
+.mem-imp {
+  letter-spacing: 0.08em;
+}
+.mem-text {
+  font-size: 12.5px;
+}
+.mem-meta {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+/* 检查点时间线 */
+.cp-day-head {
+  font-size: 10.5px;
+  color: var(--faint);
+  letter-spacing: 0.08em;
+}
+.cp-item.latest {
+  border-color: color-mix(in srgb, var(--brand) 46%, var(--border-soft));
+}
+.cp-main {
+  padding: 8px 11px;
+}
+.cp-main:hover:not(:disabled) {
+  background: var(--panel-2);
+}
+.cp-label {
+  font-size: 12px;
+}
+.cp-latest {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--border-soft));
+  border-radius: 999px;
+  padding: 0 7px;
+}
+
+/* DAG 编排：节点是状态芯片，跑动时有呼吸光晕而不是整块变色。 */
+.graph-node {
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 5px 11px;
+}
+.graph-node.running {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 14%, transparent);
+}
+.graph-guide code {
+  background: var(--code-bg);
+  font-size: 11px;
+}
+#graphJson {
+  background: var(--code-bg);
+  border-radius: 9px;
+  font-size: 11.5px;
+}
+
+/* 开关：选中态用品牌色，把手加一点阴影。 */
+.switch input {
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+}
+.switch input::after {
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.switch input:checked::after {
+  left: 18px;
+}
+
+/* 表单 */
+.form label {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.form select,
+.form input[type='text'] {
+  background: var(--code-bg);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+.saved {
+  color: var(--ok);
+  font-size: 11.5px;
+}
+
+/* 工作状态条：跑动时的"心跳"条，靠左侧品牌色脉冲而不是整条高亮。 */
+.work-indicator {
+  font-size: 11.5px;
+  position: relative;
+  overflow: hidden;
+}
+.work-indicator::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--brand);
+  animation: wi-sweep 1.8s var(--ease) infinite;
+}
+@keyframes wi-sweep {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}

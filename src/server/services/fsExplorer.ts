@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { access, mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -50,16 +50,16 @@ export class FsExplorer {
    * @param params `{ path?: string; includeFiles?: boolean }`
    * @returns 盘符层 `{ level:'drives', roots, home }` 或目录层 `{ level:'dir', path, parent?, dirs, files? }`
    */
-  public browse(params: Record<string, unknown>): unknown {
+  public async browse(params: Record<string, unknown>): Promise<unknown> {
     const raw = params['path'];
     const includeFiles = params['includeFiles'] === true;
     if (typeof raw !== 'string' || raw.trim() === '') {
-      return this.drives();
+      return await this.drives();
     }
     const target = resolve(raw.trim());
     let entries: Dirent[];
     try {
-      entries = readdirSync(target, { withFileTypes: true });
+      entries = await readdir(target, { withFileTypes: true });
     } catch (e) {
       throw new Error(`无法读取目录 ${target}：${(e as Error).message}`);
     }
@@ -81,7 +81,7 @@ export class FsExplorer {
       dirs,
     };
     if (includeFiles) {
-      result.files = this.listFiles(entries, target);
+      result.files = await this.listFiles(entries, target);
     }
     return result;
   }
@@ -93,7 +93,7 @@ export class FsExplorer {
    * @param params `{ parent: string; name: string }`
    * @returns `{ path: string }` 新目录绝对路径
    */
-  public mkdir(params: Record<string, unknown>): unknown {
+  public async mkdir(params: Record<string, unknown>): Promise<unknown> {
     const parentRaw = params['parent'];
     const nameRaw = params['name'];
     if (typeof parentRaw !== 'string' || parentRaw.trim() === '') {
@@ -107,14 +107,20 @@ export class FsExplorer {
       throw new Error('非法的文件夹名称：' + nameRaw);
     }
     const parent = resolve(parentRaw.trim());
-    if (!existsSync(parent) || !statSync(parent).isDirectory()) {
+    const parentOk = await stat(parent)
+      .then((st) => st.isDirectory())
+      .catch(() => false);
+    if (!parentOk) {
       throw new Error('父目录不存在：' + parent);
     }
     const target = join(parent, name);
-    if (existsSync(target)) {
+    const exists = await access(target)
+      .then(() => true)
+      .catch(() => false);
+    if (exists) {
       throw new Error('该文件夹已存在：' + target);
     }
-    mkdirSync(target, { recursive: false });
+    await mkdir(target, { recursive: false });
     return { path: target };
   }
 
@@ -127,7 +133,7 @@ export class FsExplorer {
    * @param params `{ paths: unknown }` 期望为字符串路径数组
    * @returns `{ files: AttachedFile[]; errors: { path:string; error:string }[] }`
    */
-  public readAttachments(params: Record<string, unknown>): unknown {
+  public async readAttachments(params: Record<string, unknown>): Promise<unknown> {
     const paths = params['paths'];
     if (!Array.isArray(paths) || paths.length === 0) {
       throw new Error('paths 必须是非空数组');
@@ -141,14 +147,14 @@ export class FsExplorer {
     for (const p of paths) {
       // 总量闸：先看 stat 再读盘，超限即整条 RPC 失败（fail-closed）——部分返回会让调用方
       // 以为「附件齐了」而实际被静默截断。
-      const probe = FsExplorer.sizeOf(p);
+      const probe = await FsExplorer.sizeOf(p);
       if (probe !== undefined && totalBytes + probe > MAX_ATTACH_TOTAL_BYTES) {
         throw new Error(
           `附件总大小超过 ${String(MAX_ATTACH_TOTAL_BYTES / 1024 / 1024)}MB 限制` +
             `（已累计 ${String(Math.round(totalBytes / 1024 / 1024))}MB，本项 ${String(Math.round(probe / 1024 / 1024))}MB）`,
         );
       }
-      const one = this.readOne(p);
+      const one = await this.readOne(p);
       if ('error' in one) {
         errors.push({ path: one.path, error: one.error });
       } else {
@@ -164,12 +170,12 @@ export class FsExplorer {
    * @param value 路径条目（期望字符串）。
    * @returns 字节数；不可判定时 undefined（由 readOne 自行给出精确错误）。
    */
-  private static sizeOf(value: unknown): number | undefined {
+  private static async sizeOf(value: unknown): Promise<number | undefined> {
     if (typeof value !== 'string' || value.trim() === '') {
       return undefined;
     }
     try {
-      const st = statSync(resolve(value.trim()));
+      const st = await stat(resolve(value.trim()));
       return st.isFile() ? st.size : undefined;
     } catch {
       return undefined;
@@ -178,15 +184,25 @@ export class FsExplorer {
 
   /**
    * 盘符层响应：存在的盘符 + 用户目录。
+   *
+   * 26 个盘符并发探测（`Promise.all`）：同步版每次 `existsSync` 都要一次系统调用，
+   * 在网络盘/慢盘上会把事件循环按住几十毫秒；并发探测把这段等待交给 IO。
    * @returns `{ level:'drives', roots, home }`；roots 为 A:–Z: 中实际存在的盘符
    */
-  private drives(): unknown {
-    const roots: string[] = [];
-    for (let i = 65; i <= 90; i += 1) {
-      const letter = `${String.fromCharCode(i)}:\\`;
-      if (existsSync(letter)) roots.push(letter);
-    }
-    return { level: 'drives' as const, roots, home: homedir() };
+  private async drives(): Promise<unknown> {
+    const letters = Array.from({ length: 26 }, (_v, i) => `${String.fromCharCode(65 + i)}:\\`);
+    const checked = await Promise.all(
+      letters.map((letter) =>
+        access(letter)
+          .then(() => letter)
+          .catch(() => null),
+      ),
+    );
+    return {
+      level: 'drives' as const,
+      roots: checked.filter((x): x is string => x !== null),
+      home: homedir(),
+    };
   }
 
   /**
@@ -195,21 +211,25 @@ export class FsExplorer {
    * @param target 目录绝对路径（与文件名拼接做 stat）
    * @returns 文件名、大小与推断 mediaType 的清单
    */
-  private listFiles(
+  private async listFiles(
     entries: readonly Dirent[],
     target: string,
-  ): { name: string; size: number; mediaType: string }[] {
-    const files: { name: string; size: number; mediaType: string }[] = [];
-    for (const e of entries) {
-      if (!e.isFile()) continue;
-      let st;
-      try {
-        st = statSync(join(target, e.name));
-      } catch {
-        continue;
-      }
-      files.push({ name: e.name, size: st.size, mediaType: FsExplorer.inferMediaType(e.name) });
-    }
+  ): Promise<{ name: string; size: number; mediaType: string }[]> {
+    const rows = await Promise.all(
+      entries
+        .filter((e) => e.isFile())
+        .map(async (e) => {
+          try {
+            const st = await stat(join(target, e.name));
+            return { name: e.name, size: st.size, mediaType: FsExplorer.inferMediaType(e.name) };
+          } catch {
+            return null;
+          }
+        }),
+    );
+    const files = rows.filter(
+      (r): r is { name: string; size: number; mediaType: string } => r !== null,
+    );
     files.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }));
     return files;
   }
@@ -219,14 +239,16 @@ export class FsExplorer {
    * @param value 单个路径条目（期望字符串，其他类型按无效路径处理）
    * @returns 成功时 `{ file }`（含 base64 数据与附件种类）；失败时 `{ path, error }`，不抛错
    */
-  private readOne(value: unknown): { file: AttachedFile } | { path: string; error: string } {
+  private async readOne(
+    value: unknown,
+  ): Promise<{ file: AttachedFile } | { path: string; error: string }> {
     if (typeof value !== 'string' || value.trim() === '') {
       return { path: String(value), error: '路径无效' };
     }
     const target = resolve(value.trim());
     let st;
     try {
-      st = statSync(target);
+      st = await stat(target);
     } catch (e) {
       return { path: target, error: '文件不存在或不可访问：' + (e as Error).message };
     }
@@ -243,7 +265,7 @@ export class FsExplorer {
     }
     let buf: Buffer;
     try {
-      buf = readFileSync(target);
+      buf = await readFile(target);
     } catch (e) {
       return { path: target, error: '读取失败：' + (e as Error).message };
     }

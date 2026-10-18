@@ -39,15 +39,21 @@ export class DaemonController {
   private readonly pidFile: string;
   /** serve 入口脚本路径（后台进程以它重新拉起）。 */
   private readonly entry: string;
+  /** 就绪观察窗口（毫秒，默认 800；见构造函数注释）。 */
+  private readonly probeMs: number;
 
   /**
    * 创建控制器。
-   * @param opts 可选项（pidFile 与入口路径，缺省按用户主目录与当前模块推导）
+   * @param opts 可选项（pidFile / 入口路径 / 就绪观察窗口，缺省按用户主目录与当前模块推导）
    */
-  public constructor(opts?: { pidFile?: string; entry?: string }) {
+  public constructor(opts?: { pidFile?: string; entry?: string; probeMs?: number }) {
     const home = homedir();
     this.pidFile = opts?.pidFile ?? resolve(home, '.omniharness', 'daemon.pid');
     this.entry = opts?.entry ?? DaemonController.defaultEntry();
+    // 就绪观察窗口抽成可注入项的唯一原因是**判据可确定性**：满载机器上"入口不存在 ⇒
+    // 子进程立刻退出"可能要 >800ms 才被调度到，同步窗口一到就判存活 ⇒ 测试偶发红
+    // （2026-10-18 全量并行实测一次）。产品默认值不变，测试传更大的窗口。
+    this.probeMs = opts?.probeMs ?? 800;
   }
 
   /**
@@ -207,7 +213,7 @@ export class DaemonController {
     }
     // 就绪探测：入口不存在/端口被占时子进程会立刻退出，旧实现照样写 PID 并让 CLI
     // 打印“已启动”（用户按假成功继续连 UI）。这里给一个很短的存活窗口，失败即抛错。
-    if (!this.waitForAlive(pid, 800)) {
+    if (!this.waitForAlive(pid, this.probeMs)) {
       throw new Error(
         `daemon 启动失败：子进程 ${String(pid)} 启动后立即退出（检查入口是否存在、端口是否被占用）`,
       );

@@ -246,12 +246,12 @@ Terminal-Bench/评测子系统且**生产代码零引用**（逐名 grep 确认�
 
 **提案**
 
-| #   | 提案                                   | 判据（离线无 key）                                                                                                                    | 人日 |
-| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| L1  | **会话持久化加"追加通道"**（消写放大） | 新增 `tests/unit/eventPersisterAppend.test.ts` + 本地基准：追加路径与全量路径 `load()` **逐条深相等**、size 近似线性、P95 不随 N 增长 | 4–6  |
-| L2  | **工具结果加"就绪（ready）"旁路事件**  | `tests/unit/toolSchedulerReadyOrder.test.ts`：假 executor 让第 3 个先 resolve ⇒ 就绪顺序=完成顺序、`results[]` 仍 model 顺序          | 2–3  |
-| L3  | **取消原因保真 + 子令牌可释放**        | 补 `cancelPropagation.test.ts`（现零覆盖）：父 `cancel('shutdown')` ⇒ 所有后代 reason 正确；`child()` 1000 次后 `children.size===0`   | 1–2  |
-| L4  | **回滚时复位压缩游标**（对应发现 2）   | 挂在既有 `sessionRewindService.test.ts`：回滚后游标取自截断后日志、送出的消息不含指向已移除事件的折叠标记                             | 1–2  |
+| #   | 提案                                   | 判据（离线无 key）                                                                                                                        | 人日 |
+| --- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| L1  | **会话持久化加"追加通道"**（消写放大） | 新增 `eventPersisterAppend` 判据（已随子系统删除） + 本地基准：追加路径与全量路径 `load()` **逐条深相等**、size 近似线性、P95 不随 N 增长 | 4–6  |
+| L2  | **工具结果加"就绪（ready）"旁路事件**  | `toolSchedulerReadyOrder` 判据（已删除）：假 executor 让第 3 个先 resolve ⇒ 就绪顺序=完成顺序、`results[]` 仍 model 顺序                  | 2–3  |
+| L3  | **取消原因保真 + 子令牌可释放**        | 补 `cancelPropagation.test.ts`（现零覆盖）：父 `cancel('shutdown')` ⇒ 所有后代 reason 正确；`child()` 1000 次后 `children.size===0`       | 1–2  |
+| L4  | **回滚时复位压缩游标**（对应发现 2）   | 挂在既有 `sessionRewindService.test.ts`：回滚后游标取自截断后日志、送出的消息不含指向已移除事件的折叠标记                                 | 1–2  |
 
 **不建议采纳**：照搬 LangGraph 式"每 superstep 全量快照 checkpointer"（官方自认 checkpoint 无界增长并建议 prune；
 本仓"追加日志 + 压缩游标"更省，叠加会放大写放大）；引入 `update_state` 式**可逆就地回滚**（LangGraph 的 `update_state`
@@ -452,12 +452,12 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 
 **提案**
 
-| #   | 提案                                       | 动机/要点                                                                 | 判据（离线无 key）                                                                      | 人日 |
-| --- | ------------------------------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | ---- |
-| S1  | **`isolatedWrite` fail-closed 门禁**       | 子代理工具视图剔除写类工具；父级授权写工具时明确拒绝而非静默丢弃          | 新增 `tests/unit/subagentWriteGate.test.ts`：视图不含 write/edit；带写工具时 `ok:false` | 1.5  |
-| S2  | **worktree 产出改"持久化 + 引用"而非删除** | 对齐 Anthropic"artifact systems 回传轻量引用"；比合并便宜且规避并行写冲突 | 现有 `worktree.test.ts:80-90`（worktree 内写文件）改为断言**清理后可取回 patch**        | 2.5  |
-| S3  | **`run_workflow` 隔离语义显式化**          | docstring 与实际相反；同层同文件写入应 fail-closed 或复用 worktree        | `tests/unit/workflowRunnerLimits.test.ts` 增：同层两步写同一文件 ⇒ 拒绝                 | 2    |
-| S4  | **`maxDepth` 接上 CLI**                    | 目前只有 `--subagent-concurrency`/`--subagent-max-steps`，深度用户改不动  | CLI 参数解析单测                                                                        | 0.5  |
+| #   | 提案                                       | 动机/要点                                                                 | 判据（离线无 key）                                                                  | 人日 |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---- |
+| S1  | **`isolatedWrite` fail-closed 门禁**       | 子代理工具视图剔除写类工具；父级授权写工具时明确拒绝而非静默丢弃          | 新增 `subagentWriteGate` 判据（已删除）：视图不含 write/edit；带写工具时 `ok:false` | 1.5  |
+| S2  | **worktree 产出改"持久化 + 引用"而非删除** | 对齐 Anthropic"artifact systems 回传轻量引用"；比合并便宜且规避并行写冲突 | 现有 `worktree.test.ts:80-90`（worktree 内写文件）改为断言**清理后可取回 patch**    | 2.5  |
+| S3  | **`run_workflow` 隔离语义显式化**          | docstring 与实际相反；同层同文件写入应 fail-closed 或复用 worktree        | `tests/unit/workflowRunnerLimits.test.ts` 增：同层两步写同一文件 ⇒ 拒绝             | 2    |
+| S4  | **`maxDepth` 接上 CLI**                    | 目前只有 `--subagent-concurrency`/`--subagent-max-steps`，深度用户改不动  | CLI 参数解析单测                                                                    | 0.5  |
 
 **不建议采纳**：并行写入型子代理（多写者 swarm）（Cognition 两篇一致反对 + C 编译器覆盖事故 + MAST inter-agent misalignment）；
 按 A2A v1.0 全量重写 `src/a2a/**`（单人维护、无第三方消费者；**低成本替代**：把文档/命名从"A2A 互操作"改为"私有 JSON-RPC 委托协议"，

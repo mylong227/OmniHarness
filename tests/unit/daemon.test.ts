@@ -25,6 +25,9 @@ test('DaemonController：入口不存在时 start 必须失败，不得写 PID �
   const controller = new DaemonController({
     pidFile,
     entry: join(tmpdir(), 'omni-daemon-no-such-entry.js'),
+    // 就绪窗口放大到 5s：判据要验的是"子进程退出即抛错"，不是"800ms 内必被调度到"。
+    // 满载并行时默认 800ms 会让这条偶发红（2026-10-18 实测），那是调度延迟不是产品缺陷。
+    probeMs: 5000,
   });
   assert.throws(() => controller.start([], 18787), /立即退出/u);
   assert.strictEqual(existsSync(pidFile), false, '启动失败不得留下 PID 文件');

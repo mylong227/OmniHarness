@@ -47,21 +47,10 @@
   .change-item {
     border: 1px solid ButtonBorder;
   }
-  .rail-btn.active::before {
-    background: Highlight;
-  }
 }
 
 /* 减少动效：时长归零，但状态变化仍靠颜色表达（不许"看不见变化"）。 */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
   .send:hover:not(:disabled),
   .dlg .dlg-confirm:hover {
     filter: none;
@@ -79,11 +68,6 @@
   .ev.user .card,
   .ev.assistant .card {
     max-width: 94%;
-  }
-  .rl-tip,
-  .rail-tip {
-    max-width: calc(100vw - 80px);
-    white-space: normal;
   }
 }
 @media (max-width: 640px) {

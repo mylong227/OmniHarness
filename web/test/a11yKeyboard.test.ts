@@ -21,7 +21,6 @@ const { PanelPicker } = await import('../src/ui/components/PanelPicker.tsx');
 const { SidebarHeader } = await import('../src/ui/components/SidebarHeader.tsx');
 const { SidebarFooter } = await import('../src/ui/components/SidebarFooter.tsx');
 const { ChatHeader } = await import('../src/ui/components/ChatHeader.tsx');
-const { FileModal } = await import('../src/ui/components/FileModal.tsx');
 const { StreamingAssistantCard } =
   await import('../src/ui/components/stream/StreamingAssistantCard.tsx');
 const { SearchResults } = await import('../src/ui/components/SearchResults.tsx');
@@ -199,33 +198,6 @@ test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/em
 
 // ---- 模态：dialog 语义成套 ----
 
-test('FileModal：role=dialog + aria-modal + labelledby/describedby 都指向真实元素', () => {
-  const hidden = renderFacade(FileModal, {
-    props: { fileView: null, onClose: () => {} },
-  }).node;
-  assert.strictEqual(
-    collect(hidden, (n) => n.props.role === 'dialog').length,
-    0,
-    '隐藏态不得留对话框',
-  );
-
-  const { node } = renderFacade(FileModal, {
-    props: {
-      fileView: { title: 'FileModal.tsx', meta: 'tsx · 2KB', content: 'const a = 1;' },
-      onClose: () => {},
-    },
-  });
-  const dialogs = collect(node, (n) => n.props.role === 'dialog');
-  assert.strictEqual(dialogs.length, 1);
-  assert.strictEqual(dialogs[0]!.props['aria-modal'], 'true');
-  assert.strictEqual(byId(node, dialogs[0]!.props['aria-labelledby']).length, 1);
-  assert.strictEqual(byId(node, dialogs[0]!.props['aria-describedby']).length, 1);
-  assert.ok(
-    byTag(node, 'button').every((b) => typeof b.props['aria-label'] === 'string'),
-    '模态内按钮必须都有可读名字',
-  );
-});
-
 test('DialogHost / ApprovalModal 的既有 dialog 语义未被改坏（回归护栏）', () => {
   const base = {
     kind: 'confirm',
@@ -397,12 +369,7 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
         onToggleRight: () => {},
       },
     }).node,
-    renderFacade(FileModal, {
-      props: {
-        fileView: { title: 'a.ts', meta: 'ts', content: 'x' },
-        onClose: () => {},
-      },
-    }).node,
+
     renderFacade(StreamingAssistantCard, { props: { text: '正在' } }).node,
   ];
   const all = trees.flatMap((t) => collect(t, () => true));

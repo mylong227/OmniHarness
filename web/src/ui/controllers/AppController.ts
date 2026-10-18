@@ -28,6 +28,7 @@ import type {
 } from '../../types/models.ts';
 import type { CommandItem } from '../components/CommandPalette.tsx';
 import type { SettingsTabKey } from '../models/SettingsModel.ts';
+import type { ThemePreference } from '../models/ThemePreference.ts';
 import type { Locale } from '../i18n/i18n.ts';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.ts';
 import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.ts';
@@ -83,7 +84,15 @@ export interface AppState {
    * 合并 / 关闭规则见 `models/FileTabs.ts`）。`fileView` 永远指向其中激活的一个（或 null）。
    */
   openFiles: FileView[];
+  /** 解析后的实际主题（落在 `<html data-theme>` 上的值）。 */
   theme: 'dark' | 'light';
+  /**
+   * 主题偏好（`system` / `dark` / `light`）。
+   *
+   * 与 `theme` 分开：`theme` 是"现在渲染成什么"，偏好是"用户希望怎么决定"。
+   * 偏好为 `system` 时 `theme` 会随系统主题实时变化（见 LayoutController.watchSystem）。
+   */
+  themePref: ThemePreference;
   /** 界面语言（zh=中文 / en=English；本机偏好恢复与切换见 LayoutController / i18n）。 */
   locale: Locale;
   leftOpen: boolean;

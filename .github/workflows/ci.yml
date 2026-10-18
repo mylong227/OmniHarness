@@ -75,6 +75,9 @@ jobs:
       # 此前 web 零门禁：7 处 window.alert 无人管、2 个 a11y 标记、命令面板 / 回滚 / 增量流式
       # 等新功能全靠本地肉眼 review。现把 web 类型检查 + 单测纳入红线，回归即红。
       - run: npm run web:build
+      # 首屏体积预算（2026-10-18）：gzip 后 JS / CSS 分别设上限，超了红。
+      # 预算值在 `scripts/webBundleBudget.json`（改数字即可收紧，逻辑不动）。
+      - run: npm run web:budget
       - run: npm run web:test
         env:
           # `OMNI_REQUIRE_BROWSER=1`（2026-10-11）：web 侧**8 个**浏览器类判据此前可静默跳过
@@ -103,7 +106,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # 2026-10-18 配额瘦身：**PR 只跑 Linux**，push 到 main 才跑三平台真机。
+        # 依据：本文件头记着私有仓 2000 分/月被 8-job×3-OS 矩阵几天烧尽、136 个 run 0 绿。
+        # 真机差异（路径/大小写/信号）在合并前的那次 main 运行里仍会被覆盖，不是放弃验证。
+        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest","macos-latest","windows-latest"]') }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4

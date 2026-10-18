@@ -1,4 +1,4 @@
-// en 词条分片：零散组件（AddMenu/Dropdown/Pickers/WorkIndicator/RightPanel 等）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
+// en 词条分片：零散组件（AddMenu/Pickers/WorkIndicator/RightPanel 等）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_MISC: Record<string, string> = {
   // AddMenu.tsx
   '添加': 'Add',

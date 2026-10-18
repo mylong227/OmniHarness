@@ -60,6 +60,19 @@ export default [
     test: {
       name: 'web',
       include: ['web/test/**/*.test.ts'],
+      // **已退役判据**（2026-10-18）：单色体系的"所有颜色必须是灰阶"不变量已被
+      // `colorSystem.test.ts`（色相预算 + token 接线）取代。
+      //
+      // 为什么要显式排除而不是只删文件：本机有外部工具会把**已删除的已跟踪文件**从 HEAD
+      // 还原回磁盘（`web/vendor/` 与 `polish.css` 都实测过，`vendorAndTypeSource.test.ts`
+      // 的注释里也有同一现象）。判据文件被还原后会被 include 收进来，跑出一个"正确设计被判红"
+      // 的假失败。排除是幂等的：文件在或不在，结果都一致。
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.{idea,git,cache,output,temp}/**',
+        'web/test/monochromeInvariant.test.ts',
+      ],
       // 默认 `node`；**组件判据在自己的文件头声明** `// @vitest-environment jsdom`。
       //
       // 为什么不整项目切 jsdom（2026-10-18 实测）：13 条真 Chrome 判据会跑坏——它们自己拉起
