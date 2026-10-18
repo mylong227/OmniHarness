@@ -45,12 +45,21 @@ test('ChromeProcess：启动失败必须回收——再次 launch 不得报「�
   }
 });
 
-test('ChromeProcess：kill 幂等（未启动 / 重复调用都不抛）', () => {
+test('ChromeProcess：kill 幂等（未启动 / 重复调用都不抛）', async () => {
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-chrome-cleanup-'));
   try {
     const proc = new ChromeProcess({ executable: process.execPath, userDataDir });
     proc.kill();
     proc.kill();
+    // 更强的契约：kill 不能把实例毒化成“已在启动中”，后续 launch 必须给出真实失败。
+    await assert.rejects(
+      () => proc.launch(),
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        assert.ok(!message.includes('已在启动中'), `kill 后 launch 被毒化：「${message}」`);
+        return true;
+      },
+    );
   } finally {
     rmSync(userDataDir, { recursive: true, force: true });
   }

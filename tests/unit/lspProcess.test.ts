@@ -74,10 +74,14 @@ describe('LspProcessAdapter（进程级 JSON-RPC 接线）', () => {
     }
   });
 
-  test('shutdown 幂等（重复调用不抛）', async () => {
+  test('shutdown 幂等（重复调用不抛），且之后仍可重新启动', async () => {
     const a = adapter();
     await a.definition('/some/file.ts', 1, 1);
     await a.shutdown();
+    await a.shutdown();
+    // kill 只清连接，不应把实例永久毒化：下一次请求必须能重新拉起并成功。
+    const locs = await a.definition('/some/file.ts', 1, 1);
+    assert.strictEqual(locs.length, 1, 'shutdown 后重新请求应重新启动 LSP 并返回结果');
     await a.shutdown();
   });
 });
