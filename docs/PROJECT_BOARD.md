@@ -4064,3 +4064,13 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 
 处置：删除全部 **选中/当前** 的左缘墨标，只保留极淡墨底（`.session.active`、菜单当前项、
 设置模态当前分栏）。保留的两处 2px 左缘都是**语义**而非选中态：diff 行（新增/删除）与错误提示。
+
+### 25. 右栏 sticky 顶栏不透明化（2026-10-19）
+
+用户截图：右栏文件预览滚动后，正文从「research-report.md」标签底下穿过去，标题与正文叠在一起。
+根因：`.tabs` 在 `layout.css` 里是 `position: sticky; top:0`，而 `minimal.css` 把 `.rv-tabs` 的
+背景设成 `transparent` ⇒ 整列滚动时正文从顶栏上方经过时**透出来**。
+
+处置：`.rv-tabs { background: inherit; }`（取 `.col.right` 的底色，深浅主题都成立）。
+验收：真实 serve + 真 Chrome 打开 README.md，滚动右栏 320px 后，标签栏中心点的 topmost 元素
+是 `.rv-tabs` 本身（`tabsBg` 不再是 transparent），截图无正文穿透。

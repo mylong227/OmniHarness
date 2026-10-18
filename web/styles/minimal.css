@@ -1050,7 +1050,10 @@
    7. 右栏面板：标签条 / 卡片 / 徽标 / 指标
    ========================================================================= */
 .rv-tabs {
-  background: transparent;
+  /* 必须不透明：.tabs 是 sticky（layout.css），右栏整列可滚动；透明顶栏会让正文
+     从标签底下穿过去（用户截图：文件标题与正文叠在一起）。
+     inherit = 与 .col.right 同底色，深浅主题都成立。 */
+  background: inherit;
   border-bottom: 1px solid var(--hairline);
   gap: 2px;
   padding: 8px 10px 0;
