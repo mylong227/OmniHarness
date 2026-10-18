@@ -3603,6 +3603,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | 长期记忆       | `update` 丢 `expiresAt`                                                                                                                        | 两条更新路径都持久化（含显式清除）                                                          | `fileLongTermMemory`                                                                                                        |
 | 插件           | 安装清单不写 source，加载器把缺失 source 当本地可信                                                                                            | 安装器强制写判定来源；未知 source 一律进 VM                                                 | `pluginLoader`、`pluginRegistry`                                                                                            |
 | 插件包         | canonicalManifest 用 replacer 数组，嵌套字段不在签名内；zip-slip                                                                               | 递归稳定序列化；条目路径白名单                                                              | `bundle`                                                                                                                    |
+| bundle Ed25519 | `unpackBundle` 只验 HMAC，单独调用可绕过严格档验签                                                                                             | 清单带 `signatureEd25519` 即用内嵌 `publisherPublicKey` 自校验，篡改/缺公钥即拒             | `bundle`                                                                                                                    |
 | 插件注册       | `install/remove` 的 name/entry 可穿越                                                                                                          | 名称/入口白名单                                                                             | `pluginRegistry`                                                                                                            |
 | daemon         | 默认入口指向 `daemonController` 自身，永远起不了 serve                                                                                         | 改为 `cli/exec.js`                                                                          | `daemon`                                                                                                                    |
 | 崩溃护栏       | rejection 计数无窗口，长跑进程被几小时内的无关 rejection 累积杀掉                                                                              | 60s 窗口计数                                                                                | `crashGuard`                                                                                                                |
@@ -3649,11 +3650,9 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 3. **Windows `.cmd` 垫片内部仍有 `%*` 展开面**：`CliWorker` 已不再让 task 进入 cmd，但若被调用的
    目标本身是 npm `.cmd`（如 dsh），垫片内部的 `%*` 仍可能把 `&` 当第二条命令。彻底修法在外部
    CLI（stdin / 参数文件 / 直接 node 入口），不能在宿主单方面保证。
-4. **`bundle` 的 Ed25519**：严格档由 `PrivateSkillSource` 验签；`unpackBundle` 本身只验 HMAC，
-   单独调用它不会验 Ed25519。是否要在 bundler 内强制 Ed25519 是产品口径问题。
-5. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
+4. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
    `ok:true`。需改 Rust 内核 + 原生后端映射，不能在 TS 侧单点修。
-6. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
+5. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
    共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
    vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
    productionGrade/architectureGate 探针/hashChain/evolutionIntegration/a2aDelegate/fileLockCrossProcess/

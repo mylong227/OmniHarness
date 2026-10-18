@@ -11,6 +11,7 @@ import {
 } from 'node:fs';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 import { Zip, type ZipEntry } from './zip.ts';
+import { Ed25519PublicKey } from '../util/ed25519PublicKey.ts';
 import type { PluginProfile } from './pluginProfileStore.ts';
 import type { PluginRegistry } from './pluginRegistry.ts';
 
@@ -324,6 +325,23 @@ export class PluginBundler {
       const expected = this.signManifest(manifest, key);
       if (expected !== manifest.signature) {
         throw new Error('bundle 签名校验失败（可能被篡改）');
+      }
+    }
+    // Ed25519 是**自包含**的（公钥在清单里）：一旦包声明了签名，任何解包路径都必须验，
+    // 不能只在严格档的 PrivateSkillSource 里验——否则单独调 unpackBundle 就是绕过闸门。
+    if (manifest.signatureEd25519 !== undefined) {
+      const publicKey = manifest.publisherPublicKey;
+      if (typeof publicKey !== 'string' || publicKey === '') {
+        throw new Error('bundle 带 Ed25519 签名但缺少 publisherPublicKey');
+      }
+      if (
+        !Ed25519PublicKey.verify(
+          PluginBundler.canonicalManifestOf(manifest),
+          manifest.signatureEd25519,
+          publicKey,
+        )
+      ) {
+        throw new Error('bundle Ed25519 签名校验失败（可能被篡改）');
       }
     }
 

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PluginBundler } from '../../src/plugin/pluginBundler.ts';
 import { Zip } from '../../src/plugin/zip.ts';
+import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
 import type { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
 import type { PluginProfile } from '../../src/plugin/pluginProfileStore.ts';
 
@@ -109,6 +110,40 @@ test('unpackBundle 拒绝 zip-slip 条目（不得写出 pluginsDir 之外）', 
       /zip-slip/u,
     );
     assert.strictEqual(existsSync(join(base, 'evil.txt')), false, '不得在 pluginsDir 之外落文件');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('unpackBundle：Ed25519 签名必须自校验（篡改即拒，不依赖调用方先验）', async () => {
+  const base = mkdtempSync(join(tmpdir(), 'ohb-ed-'));
+  try {
+    const pluginsDir = join(base, 'plugins');
+    const workspaceDir = join(base, 'ws');
+    mkdirSync(pluginsDir, { recursive: true });
+    mkdirSync(workspaceDir, { recursive: true });
+    const identity = new Ed25519AgentIdentity({ agentRuntimeId: 'bundle-test' });
+    const unsigned = {
+      name: 'signed',
+      version: '1.0.0',
+      plugins: [],
+      patches: [],
+      publisherPublicKey: identity.publicKeySsh(),
+    };
+    const signatureEd25519 = identity.sign(PluginBundler.canonicalManifestOf(unsigned));
+    const manifest = { ...unsigned, name: 'evil', signatureEd25519 };
+    const zipPath = join(base, 'tampered.ohb');
+    writeFileSync(
+      zipPath,
+      Zip.zipStore([
+        { name: 'bundle.json', data: Buffer.from(JSON.stringify(manifest), 'utf8') },
+        { name: 'plugins/x/index.js', data: Buffer.from('export default {};', 'utf8') },
+      ]),
+    );
+    await assert.rejects(
+      () => PluginBundler.unpackBundle({ zipPath, pluginsDir, workspaceDir }),
+      /Ed25519 签名校验失败/u,
+    );
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
