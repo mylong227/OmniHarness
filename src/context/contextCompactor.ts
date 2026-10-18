@@ -5,7 +5,6 @@ import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.t
 import { DeterministicCompressor } from './deterministicCompressor.ts';
 import { log } from '../util/logger.ts';
 import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
-import { ArrayAt } from '../util/arrayAt.ts';
 
 /**
  * 每请求的**固定开销**（不随消息增删变化，但确实占用同一 token 预算）。
@@ -442,14 +441,40 @@ export class ContextCompactor {
     readonly messages: readonly ModelMessage[];
     readonly dropped: number;
   } {
-    let current = ToolRoundSanitizer.sanitizeToolRounds(messages);
+    const sanitized = ToolRoundSanitizer.sanitizeToolRounds(messages);
+    // 保序丢最旧，但**永不动前导 system 段**：它是系统提示/安全约束，丢了会让模型
+    // 在"没有规则"的状态下继续跑（见调用处注释）。同时保留最后一条（最新事实），
+    // 避免预算极紧时把用户刚说的话也丢掉。
+    const prefixCount = ContextCompactor.leadingSystemCount(sanitized);
+    const prefix = sanitized.slice(0, prefixCount);
+    let body = sanitized.slice(prefixCount);
     let dropped = 0;
-    while (current.length > 1 && this.estimator.estimateMessages(current) > budget) {
-      const before = current.length;
-      current = ToolRoundSanitizer.sanitizeToolRounds(current.slice(1));
-      dropped += before - current.length;
+    while (body.length > 1 && this.estimator.estimateMessages([...prefix, ...body]) > budget) {
+      const before = body.length;
+      body = ToolRoundSanitizer.sanitizeToolRounds(body.slice(1));
+      dropped += before - body.length;
+    }
+    const current = [...prefix, ...body];
+    if (this.estimator.estimateMessages(current) > budget) {
+      // 只剩「system 前缀 + 最新一条」仍超预算：不再牺牲二者中的任何一个（安全约束与
+      // 最新事实都必须留），但如实留痕，便于发现预算配置本身不合理。
+      log.warn('compaction.drop.over_budget', {
+        messages: current.length,
+        systemMessages: prefix.length,
+      });
     }
     return { messages: current, dropped };
+  }
+
+  /**
+   * 前导连续 system 消息的条数（兜底丢弃时必须整段保留）。
+   * @param messages 消息数组
+   * @returns 前导 system 段长度
+   */
+  private static leadingSystemCount(messages: readonly ModelMessage[]): number {
+    let count = 0;
+    while (messages[count]?.role === 'system') count += 1;
+    return count;
   }
 
   /**
@@ -509,7 +534,10 @@ export class ContextCompactor {
   private static roundAlignedBoundary(messages: readonly ModelMessage[], start: number): number {
     let headEnd = Math.max(0, Math.min(start, messages.length));
     while (headEnd > 0) {
-      const message = ArrayAt.at(messages, headEnd);
+      // 直接下标读取：`ArrayAt.at` 在 headEnd === messages.length（keepRecent=0 的合法配置）
+      // 时会抛 RangeError，把「不保留最近消息」变成整个压缩流程失败。这里用越界即 undefined
+      // 的普通读取，让下面的守卫真正生效。
+      const message = messages[headEnd];
       if (message === undefined) {
         break;
       }

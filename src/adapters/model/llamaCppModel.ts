@@ -15,6 +15,7 @@ import { log } from '../../util/logger.ts';
 import { RequestStallGuard } from './requestStallGuard.ts';
 import { ModelResponseFormats } from './modelResponseFormats.ts';
 import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
+import { ToolArgumentParser } from './toolArgumentParser.ts';
 
 /**
  * @beta
@@ -396,7 +397,7 @@ export class LlamaCppModel implements ModelPort {
       seen.set(name, count + 1);
       const args =
         typeof call.function.arguments === 'string'
-          ? this.parseArguments(call.function.arguments)
+          ? ToolArgumentParser.parse(call.function.arguments)
           : call.function.arguments;
       return { id: count === 0 ? name : `${name}#${String(count + 1)}`, name, arguments: args };
     });
@@ -491,30 +492,10 @@ export class LlamaCppModel implements ModelPort {
       const args =
         entry.partial === undefined
           ? entry.arguments
-          : this.parseArguments(entry.partial === '' ? '{}' : entry.partial);
+          : ToolArgumentParser.parse(entry.partial === '' ? '{}' : entry.partial);
       out.push({ id: entry.id, name: entry.name, arguments: args });
     }
     return out;
-  }
-
-  /** 解析工具参数 JSON（容错：非法则回退空对象）。
-   * @param raw wire 层返回的参数 JSON 字符串。
-   * @returns 解析出的参数对象；JSON 非法或不是对象时返回空对象（不抛错）。
-   */
-  private parseArguments(raw: string): Record<string, unknown> {
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return typeof parsed === 'object' && parsed !== null
-        ? (parsed as Record<string, unknown>)
-        : {};
-    } catch {
-      // 静默 {} 会让工具带空参数执行且根因不可归因（审计 D5），必须留痕。
-      log.warn('model.tool_arguments.invalid_json', {
-        raw: raw.slice(0, 200),
-        rawLength: raw.length,
-      });
-      return {};
-    }
   }
 
   /** 从流式片段顶层提取 usage（Ollama 在 done 段返回 prompt_eval_count / eval_count）。

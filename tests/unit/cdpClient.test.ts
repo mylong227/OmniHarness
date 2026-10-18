@@ -112,7 +112,7 @@ class FakeSocket implements WebSocketLike {
 const connected = (): { client: CdpClient; socket: FakeSocket } => {
   const socket = new FakeSocket();
   const client = new CdpClient({ webSocket: () => socket, timeoutMs: 1000 });
-  const _ready = client.connect('ws://127.0.0.1:9/devtools/browser/x');
+  void client.connect('ws://127.0.0.1:9/devtools/browser/x');
   socket.emit('open', {});
   return { client, socket };
 };

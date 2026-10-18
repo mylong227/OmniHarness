@@ -1,4 +1,4 @@
-﻿import {
+import {
   appendFileSync,
   copyFileSync,
   existsSync,
@@ -535,18 +535,5 @@ export class SessionArchive {
       total.total += m.total;
     }
     return total;
-  }
-
-  /**
-   * 文件 mtime（毫秒）；消失竞态回退 0。
-   * @param file 文件路径
-   * @returns 修改时间毫秒；消失竞态回退 0
-   */
-  private static mtimeOf(file: string): number {
-    try {
-      return statSync(file).mtimeMs;
-    } catch {
-      return 0;
-    }
   }
 }

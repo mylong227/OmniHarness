@@ -163,7 +163,7 @@ test('ServerConfigStore.update：凭据只落用户级，绝不进项目文件',
 });
 
 test('ServerConfigStore.update：换工作区后凭据依旧可见（重启重置回归）', async () => {
-  await withStore(async (ws, store, home) => {
+  await withStore(async (_ws, store, home) => {
     await store.update({ providerKeys: { deepseek: 'sk-ds-secret' } });
     // 模拟重启后工作区解析到另一个目录：换一份 displayConfig（新工作区、同一用户级 home）。
     const ws2 = mkdtempSync(join(tmpdir(), 'cfg-store-ws2-'));
@@ -188,7 +188,7 @@ test('ServerConfigStore.update：换工作区后凭据依旧可见（重启重�
 });
 
 test('ServerConfigStore.update：`null` 清除凭据从用户级文件删除，且不复活', async () => {
-  await withStore(async (ws, store, home) => {
+  await withStore(async (_ws, store, home) => {
     await store.update({ providerKeys: { deepseek: 'sk-ds-secret' } });
     await store.update({ providerKeys: null });
     const userPath = join(home, '.omniharness', configFile.FILE_NAME);
@@ -202,7 +202,7 @@ test('ServerConfigStore.update：`null` 清除凭据从用户级文件删除，�
 });
 
 test('ServerConfigStore.update：permission 规则可持久化，非法规则 fail-closed', async () => {
-  await withStore(async (ws, store, home) => {
+  await withStore(async (_ws, store, home) => {
     await store.update({
       permission: { rules: [{ toolName: 'shell', commandGlob: '*curl *', decision: 'deny' }] },
     });

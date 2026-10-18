@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.ts';
 import { CodeExecutorTool } from '../../src/adapters/tool/code/codeExecutorTool.ts';
 import { ToolGate } from '../../src/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
@@ -87,6 +88,36 @@ test('CodeExecutorTool：程序内调用经门禁执行', async () => {
   const result = await coder.handle({ id: 'c1', name: 'run_code', arguments: { code } }, context);
   assert.strictEqual(result.ok, true);
   assert.match(result.output ?? '', /拿到: ptc/);
+});
+
+test('CodeExecutorTool：程序内不得调用治理入口 / 递归 run_code（内层门禁无 RBAC 角色）', async () => {
+  const registry = registryWith();
+  registry.register(
+    {
+      name: TOOL_NAMES.rollback,
+      description: '治理回滚',
+      parameters: { type: 'object', properties: {} },
+    },
+    async (call: ToolCall) => ({ callId: call.id, ok: true, output: '不该执行' }),
+  );
+  const coder = new CodeExecutorTool({
+    // 门禁全放行：证明拦截来自 run_code 自身的治理/递归禁入清单，而不是审批拒绝。
+    gate: new ToolGate(new AutoApproval(), new PassthroughSandbox()),
+    tools: registry,
+  });
+  const rollback = await coder.handle(
+    { id: 'c1', name: 'run_code', arguments: { code: `await call('rollback', {});` } },
+    context,
+  );
+  assert.strictEqual(rollback.ok, false);
+  assert.match(rollback.output ?? '', /不得调用治理\/递归入口/u);
+
+  const recurse = await coder.handle(
+    { id: 'c2', name: 'run_code', arguments: { code: `await call('run_code', { code: '1' });` } },
+    context,
+  );
+  assert.strictEqual(recurse.ok, false);
+  assert.match(recurse.output ?? '', /不得调用治理\/递归入口/u);
 });
 
 test('CodeExecutorTool：审批拒绝时程序内调用被拦截', async () => {

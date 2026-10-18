@@ -1,4 +1,4 @@
-﻿// 成熟依赖加持的 Markdown 渲染器（回复模式 / 会话模式核心展示层）。
+// 成熟依赖加持的 Markdown 渲染器（回复模式 / 会话模式核心展示层）。
 //
 // 设计取舍（回应「不要求无第三方依赖，善用成熟知识代替从零造轮子」）：
 //   - 解析交给 markdown-it（与 deepseek-harness 的 micromark 同代成熟方案），
@@ -293,7 +293,7 @@ function getMd(): MarkdownItInstance {
 
   // ---- 代码块包工具条：语言标签 + 一键复制（对标 deepseek-harness 回复观感） ----
   const defaultFence = (md.renderer.rules.fence ??
-    ((tokens: MdToken[], idx: number, opts: unknown, env: unknown, self: MdSelf): string =>
+    ((tokens: MdToken[], idx: number, opts: unknown, _env: unknown, self: MdSelf): string =>
       self.renderToken(tokens, idx, opts))) as MdRenderRule;
 
   md.renderer.rules.fence = (

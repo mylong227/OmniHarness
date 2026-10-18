@@ -8,7 +8,6 @@
 // 函数组件范式：「按语言渲染正文」下沉为模块级函数（纯渲染分支）；
 // 「语言分类」判据复用 FileKindClassifier（零 React，可单测）。
 
-import * as React from 'react';
 import { langOf } from '../../highlight.ts';
 import { renderMarkdown, emptyState } from '../../format.ts';
 import type { FileView } from '../../shared.ts';

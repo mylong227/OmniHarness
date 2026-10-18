@@ -59,6 +59,17 @@ test('F3 角色矩阵：viewer 只读 / editor 可写不可治理 / admin 全放
   }
 });
 
+test('toolCatalog 覆盖运行时注册工具：mcp / 插件工具不再被判"未登记"（admin 可调用）', () => {
+  const runtimeTool = 'mcp__demo__echo';
+  const policy = new RbacPolicy({
+    toolCatalog: [...Object.values(TOOL_NAMES), runtimeTool],
+  });
+  assert.deepStrictEqual(policy.decide('admin', callOf(runtimeTool)), { allow: true });
+  // 正对照：不把运行时工具登记进目录时，必须 fail-closed（证明上面的放行来自目录接线）。
+  const without = new RbacPolicy();
+  assert.strictEqual(without.decide('admin', callOf(runtimeTool)).allow, false);
+});
+
 test('F3 fail-closed：未知角色与未登记工具一律拒（不得静默退回默认角色）', () => {
   const policy = new RbacPolicy();
   const unknownRole = policy.decide('superuser', callOf(READ_TOOL));

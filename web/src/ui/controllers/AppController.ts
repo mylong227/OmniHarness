@@ -1,4 +1,4 @@
-﻿// 应用根组件的「容器」层（C3 拆分，标准 class 方式）：集中持有全部状态、副作用与回调，
+// 应用根组件的「容器」层（C3 拆分，标准 class 方式）：集中持有全部状态、副作用与回调，
 // 供纯视图 App（class 组件）消费。本类为门面 / 组合根——装配 OO 服务层
 // （ApiClient / EventStream / ToastService / AppReducers），按职责拆出子控制器
 // （SessionController / ComposerController / GraphController），自身只负责生命周期接线、
@@ -442,13 +442,15 @@ export class AppController {
   public async respondApproval(decision: 'allow' | 'deny', always: boolean): Promise<void> {
     const req = this.host.getState().approval;
     if (!req) return;
-    this.host.patch({ approval: null });
     try {
       if (always) {
         await this.services.api.updateConfig({ autoApprove: true });
         decision = 'allow';
       }
       await this.services.api.respondApproval(req.requestId, decision);
+      // **成功后才收卡片**：与 answerQuestion 同一纪律。先收卡片再发 RPC 会在失败时
+      // 丢掉挂起（回合永久等待），而用户只看到一行 toast。
+      this.host.patch({ approval: null });
     } catch (e) {
       this.services.toast(t('审批响应失败：{msg}', { msg: (e as Error).message }), 'err');
     }

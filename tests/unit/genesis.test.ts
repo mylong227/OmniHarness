@@ -192,7 +192,7 @@ test('plan 收敛到不动点（模态数良基递减）', () => {
   for (let i = 0; i < 20; i++) {
     const before = s.modalities.join(',');
     // 每步显式驱动一次 plan（覆盖判据计算），收敛断言走 adaptOnce。
-    const _op = RegimeCost.plan(RegimeCost.characteristicRegime(s));
+    RegimeCost.plan(RegimeCost.characteristicRegime(s));
     s = RegimeCost.adaptOnce(s, { record: () => {} });
     history.push(before);
     // 一旦连续两步模态构成不变，即到达不动点

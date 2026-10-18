@@ -39,8 +39,6 @@ export class PluginHost {
   private readonly deps: PluginHostDeps;
   /** 插件容器管理器（ensure 后就绪；未启用目录时保持 undefined）。 */
   private pluginManager?: PluginManager;
-  /** 插件加载是否已尝试（幂等保护，避免重复初始化）。 */
-  private ready = false;
   /** 在飞加载 Promise（并发合流，见 `ensure` 注释）。 */
   private readyPromise: Promise<void> | undefined;
 
@@ -87,7 +85,6 @@ export class PluginHost {
    * @returns 加载完成后 resolve，无载荷。
    */
   private async loadOnce(): Promise<void> {
-    this.ready = true;
     const pluginsDir = this.deps.pluginsDir;
     if (pluginsDir === undefined) {
       return;

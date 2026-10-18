@@ -292,3 +292,36 @@ test('差分面：token 响应携带垃圾 id_token ⇒ 第三方拒绝（自带
     idp.server.close();
   }
 });
+
+test('第三方实现：传入的 discovery 与已装配配置不一致 ⇒ fail-closed（不静默换端点）', async () => {
+  const idp = await startMockIdp();
+  try {
+    const cfg = configOf(idp.base);
+    const third = new OpenIdClientFlow({ insecureHttp: true });
+    const doc = await third.discovery(cfg);
+
+    // 换 token_endpoint：端口契约要求按传入文档换码；实现必须拒绝而不是"用缓存里的旧端点继续跑"。
+    await assert.rejects(
+      () =>
+        third.exchangeCode({ ...doc, token_endpoint: `${idp.base}/evil-token` }, cfg, {
+          code: 'good-code',
+        }),
+      /不一致/u,
+      'discovery.token_endpoint 与已装配配置不一致必须拒绝',
+    );
+
+    // 换 authorization_endpoint：授权 URL 同样必须与已装配配置一致。
+    assert.throws(
+      () =>
+        third.authorizationUrl(
+          { ...doc, authorization_endpoint: `${idp.base}/evil-authorize` },
+          cfg,
+          { state: 'st-1', codeChallenge: 'challenge' },
+        ),
+      /不一致/u,
+      'discovery.authorization_endpoint 与已装配配置不一致必须拒绝',
+    );
+  } finally {
+    idp.server.close();
+  }
+});

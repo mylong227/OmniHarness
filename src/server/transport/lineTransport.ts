@@ -12,8 +12,8 @@ export class LineTransport implements Transport {
 
   /** 构造传输（stdin/stdout 或可编程双端）。 */
   public constructor(
-    /** 逐行读取源（收到一行即回调；参数属性，实例字段 `readLine`）。 */
-    private readonly readLine: (onLine: (line: string) => void) => void,
+    /** 逐行读取源（收到一行即回调；只在构造期被消费）。 */
+    readLine: (onLine: (line: string) => void) => void,
     /** 行写出目标（参数属性，实例字段 `writeLine`）。 */
     private readonly writeLine: (line: string) => void,
   ) {

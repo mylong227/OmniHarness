@@ -23,7 +23,7 @@ export class PolicySandbox implements SandboxPort {
   /**
    * @param options 策略沙箱选项（工作区根目录与额外危险模式）。
    */
-  public constructor(private readonly options: PolicySandboxOptions) {
+  public constructor(options: PolicySandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
     this.patterns = [...dangerousCommands.defaults(), ...(options.extraPatterns ?? [])];
   }

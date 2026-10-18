@@ -162,6 +162,9 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   // 放大入口反而最不受控（2026-09-26 审计 X8/F15）。
   TOOL_NAMES.runWorkflow,
   TOOL_NAMES.runGoal,
+  // 代码执行器：程序内可 call("shell"/"write_file"/…) ⇒ 与 shell 同级（落盘/任意命令）。
+  // 漏收会让 plan 模式、监督内核与调度器串行屏障同时失效（2026-10-18 审查 H2）。
+  TOOL_NAMES.runCode,
   // 网页截图落盘 PNG ⇒ 与 write_file 同级。
   TOOL_NAMES.browserScreenshot,
   // 还原工作区文件 + 截断事件流 ⇒ 与 write_file 同级。

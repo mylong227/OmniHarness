@@ -1,4 +1,4 @@
-﻿// 输入区「+」添加菜单（对标 ChatGPT 的 + 面板）：分组列出
+// 输入区「+」添加菜单（对标 ChatGPT 的 + 面板）：分组列出
 // 添加（文件·目标·计划模式·绘图）→ 插件 → 智能体 → 文件和聊天。
 // 打开时按真实 RPC 拉取插件 / 智能体 / 会话模式，搜索框输入即触发 search.all。
 //
@@ -14,6 +14,7 @@ import { useApp } from '../context.ts';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.ts';
 import { PendingModes } from '../models/PendingModes.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { usePopoverEffect } from './usePopoverEffect.ts';
 import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
@@ -105,13 +106,12 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   /** 搜索防抖定时器。 */
   const searchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 打开时：挂外部点击监听，并一次性拉取会话模式 + 插件 + 智能体；收起 / 卸载即摘监听、清防抖。
+  // 打开时：挂外部点击监听（互斥登记同 hook），并一次性拉取会话模式 + 插件 + 智能体。
+  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
+
+  // 打开时取数；收起 / 卸载即清防抖（与弹层生命周期无关，故单独一个 effect）。
   React.useEffect(() => {
     if (!open) return undefined;
-    const close = (): void => setOpen(false);
-    window.addEventListener('click', close);
-    // 互斥：登记"我是当前弹层"，被别的弹层顶掉时自动收起（见 PopoverStack 头注释）。
-    claimPopover({ id: POPOVER_ID, close });
     // 没有会话时不发 `modes.get`：模式按会话持久化，此时服务端必然拒（省掉一次注定失败的 RPC）。
     if (threadId !== '') {
       void api
@@ -143,8 +143,6 @@ export function AddMenu(props: AddMenuProps): ReactElement {
       })
       .catch(() => setAgentsLoading(false));
     return () => {
-      window.removeEventListener('click', close);
-      releasePopover(POPOVER_ID);
       if (searchTimer.current !== null) clearTimeout(searchTimer.current);
     };
   }, [open, api, threadId]);

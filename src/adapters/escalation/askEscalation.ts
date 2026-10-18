@@ -22,7 +22,7 @@ export class AskEscalation implements EscalationPort {
 
   public constructor(
     /** 升级选项：唯一必填项为 askHandler 交互裁决器。 */
-    private readonly options: AskEscalationOptions,
+    options: AskEscalationOptions,
   ) {
     this.askHandler = options.askHandler;
   }

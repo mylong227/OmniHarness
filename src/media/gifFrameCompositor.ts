@@ -1,4 +1,6 @@
+import { MediaFormatError } from '../errors/mediaFormatError.ts';
 import type { GifColorTableRef, GifDisposalMethod, GifImageSpec } from './gifTypes.ts';
+import { GifLimits } from './gifLimits.ts';
 
 /** 隔行的 4 遍行序（起始行 + 步长）——GIF 规范 附录 的固定顺序。 */
 const INTERLACE_PASSES: readonly { readonly start: number; readonly step: number }[] = [
@@ -40,6 +42,11 @@ export class GifFrameCompositor {
     public readonly width: number,
     public readonly height: number,
   ) {
+    if (width === 0 || height === 0 || width * height > GifLimits.MAX_CANVAS_PIXELS) {
+      throw new MediaFormatError(
+        `GIF 画布尺寸非法或过大: ${width}×${height}（上限 ${GifLimits.MAX_CANVAS_PIXELS} 像素）`,
+      );
+    }
     this.canvas = new Uint8Array(width * height * 4);
   }
 

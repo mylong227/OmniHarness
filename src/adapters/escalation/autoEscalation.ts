@@ -22,7 +22,7 @@ export class AutoEscalation implements EscalationPort {
 
   public constructor(
     /** 升级选项（可覆盖默认危险前缀表）。 */
-    private readonly options: AutoEscalationOptions = {},
+    options: AutoEscalationOptions = {},
   ) {
     this.blockPrefixes = options.blockPrefixes ?? ['rm ', 'del ', 'sudo', 'mkfs', 'dd '];
   }

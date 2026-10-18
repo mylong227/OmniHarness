@@ -13,6 +13,7 @@ import { ContextUsageView } from '../models/ContextUsageView.ts';
 import { QuotaView } from '../models/QuotaView.ts';
 import { icon } from '../models/Icon.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { usePopoverEffect } from './usePopoverEffect.ts';
 import { t } from '../i18n/i18n.ts';
 import type { ContextUsageReport, QuotaStatus } from '../../types/models.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
@@ -100,18 +101,8 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     };
   }, [open, busy]);
 
-  // 展开期间才挂外部点击监听；收起或卸载即摘除（H3 清理对称，deps 只有 open）。
-  React.useEffect(() => {
-    if (!open) return undefined;
-    const close = (): void => setOpen(false);
-    window.addEventListener('click', close);
-    // 互斥：登记"我是当前弹层"，被别的弹层顶掉时自动收起（见 PopoverStack 头注释）。
-    claimPopover({ id: POPOVER_ID, close });
-    return () => {
-      window.removeEventListener('click', close);
-      releasePopover(POPOVER_ID);
-    };
-  }, [open]);
+  // 展开期间才挂外部点击监听；收起或卸载即摘除（H3 清理对称）。互斥登记交由同一 hook。
+  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
   // 取数：展开时拉容量与配额；收起 / 切换会话 / 回合忙闲变化 / **容量数据代数变化** /
   // 实时轮询 tick 变化时重新拉。

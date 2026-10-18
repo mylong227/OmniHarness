@@ -26,7 +26,6 @@ import {
   badge,
   jsonView,
   todoView,
-  esc,
   questionView,
 } from '../format.ts';
 import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.ts';
@@ -266,7 +265,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
             <span className="tc-summary">{t('工具结果（独立事件）')}</span>
           </summary>
           <div className="tc-detail">
-            <div className="tool-output">{esc(JSON.stringify(p))}</div>
+            <div className="tool-output">{JSON.stringify(p)}</div>
           </div>
         </details>
       );
@@ -289,13 +288,13 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
                 n: NumberFormatter.abbrev(compaction.summary.length),
               })}
             </summary>
-            <div className="sysnote-fold__body">{esc(compaction.summary)}</div>
+            <div className="sysnote-fold__body">{compaction.summary}</div>
           </details>,
         );
       }
       return node(
         <div className="sysnote" spellCheck="false">
-          — {esc(sysContent)} —
+          — {sysContent} —
         </div>,
       );
     }
@@ -340,7 +339,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           <div className="head">{badge(ev.type)}</div>
           <div className="card">
             <div className="content" spellCheck="false">
-              {esc(JSON.stringify(p))}
+              {JSON.stringify(p)}
             </div>
           </div>
         </>,
@@ -365,7 +364,7 @@ function renderLiveInputRow(li: LiveInput): ReactElement {
       <div className="tc-line">
         <span className="tc-chevron">▸</span>
         <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
-        <span className="tc-summary tc-action">{esc(describeToolCall(li.name, partialArgs))}</span>
+        <span className="tc-summary tc-action">{describeToolCall(li.name, partialArgs)}</span>
         <span className="tool-status pending">{t('进行中…')}</span>
       </div>
     </div>

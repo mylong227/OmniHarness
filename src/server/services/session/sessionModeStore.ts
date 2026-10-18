@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { JsonObjectFile } from '../../../util/jsonObjectFile.ts';
 
 /**
  * 会话级模式（UI「+」菜单里的三个开关）。
@@ -117,15 +118,7 @@ export class SessionModeStore {
    * @returns 会话 id → 模式对象的映射（形状非法或解析失败时为空对象，视为无模式）
    */
   private readAll(): Record<string, unknown> {
-    const file = this.filePath();
-    if (!existsSync(file)) return {};
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'));
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-      return parsed as Record<string, unknown>;
-    } catch {
-      return {};
-    }
+    return JsonObjectFile.readRecord(this.filePath());
   }
 
   /**

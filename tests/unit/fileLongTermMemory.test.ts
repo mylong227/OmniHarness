@@ -56,6 +56,29 @@ describe('FileLongTermMemory（明文）', () => {
     assert.strictEqual(m.count, 0);
   });
 
+  it('update 支持 expiresAt（失效/清除都要落盘，跨重启保留）', () => {
+    const p = tmpFile('exp.jsonl');
+    const m = new FileLongTermMemory(p);
+    m.remember(fact({ id: 'exp' }));
+    const expiresAt = new Date().toISOString();
+
+    assert.strictEqual(m.update('exp', { expiresAt }), true);
+    assert.strictEqual(m.get('exp')?.expiresAt, expiresAt, 'update 必须写入 expiresAt');
+    assert.strictEqual(
+      new FileLongTermMemory(p).get('exp')?.expiresAt,
+      expiresAt,
+      'expiresAt 必须持久化（冲突替代后重启仍不得复活）',
+    );
+
+    assert.strictEqual(m.update('exp', { expiresAt: undefined }), true);
+    assert.strictEqual(m.get('exp')?.expiresAt, undefined, '显式 undefined 必须清除失效时间');
+    assert.strictEqual(
+      new FileLongTermMemory(p).get('exp')?.expiresAt,
+      undefined,
+      '清除也必须落盘',
+    );
+  });
+
   it('reloads after re-open (cross-session persistence)', () => {
     const p = tmpFile('c.jsonl');
     const m1 = new FileLongTermMemory(p);

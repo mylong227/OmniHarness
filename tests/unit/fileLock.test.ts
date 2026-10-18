@@ -42,6 +42,33 @@ test('互斥：持有期间别人抢不到，释放后可抢', () => {
   });
 });
 
+test('未持有时 release 不得删除别人的锁（finally 里无条件 release 的防御）', () => {
+  withTemp((dir) => {
+    const target = join(dir, 'x.json');
+    const holder = new FileLock(target);
+    assert.strictEqual(holder.tryAcquire(), true);
+    // 一个从未拿到锁的实例（token=0）调用 release：不得动磁盘上的锁目录。
+    new FileLock(target).release();
+    assert.strictEqual(existsSync(`${target}.lock`), true, '未持有者 release 不得删除别人的锁');
+    assert.strictEqual(new FileLock(target).tryAcquire(), false, '原持有者的锁仍应有效');
+    holder.release();
+  });
+});
+
+test('fencing token 跨「释放—再获取」单调递增（不恒为 1）', () => {
+  withTemp((dir) => {
+    const target = join(dir, 'x.json');
+    const lock = new FileLock(target);
+    assert.strictEqual(lock.tryAcquire(), true);
+    const first = readTokenOf(target);
+    lock.release();
+    assert.strictEqual(lock.tryAcquire(), true);
+    const second = readTokenOf(target);
+    assert.ok(second > first, `token 必须单调递增（实测 ${first} → ${second}）`);
+    lock.release();
+  });
+});
+
 test('临界区抛错也必须释放（否则一次异常永久锁死写入）', () => {
   withTemp((dir) => {
     const target = join(dir, 'x.json');

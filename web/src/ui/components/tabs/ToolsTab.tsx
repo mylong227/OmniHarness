@@ -1,8 +1,7 @@
-﻿// 工具面板：展示本次会话触发的工具调用清单（名称 + 状态点），点击定位到事件流中的对应卡片。
+// 工具面板：展示本次会话触发的工具调用清单（名称 + 状态点），点击定位到事件流中的对应卡片。
 // 纯展示组件（函数组件范式）：列表数据由 props 注入，无内部状态、无副作用。
 // 「状态 → 中文」的纯映射下沉为模块级函数（零 React 依赖，可单测）。
 
-import * as React from 'react';
 import { emptyState } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { ToolItem } from '../../shared.ts';

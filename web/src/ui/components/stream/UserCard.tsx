@@ -4,7 +4,7 @@
 // 函数组件范式：无内部 state，纯展示 + 一个回调。
 
 import * as React from 'react';
-import { badge, timeOf, esc } from '../../format.ts';
+import { badge, timeOf } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -50,7 +50,7 @@ export function UserCard(props: UserCardProps): ReactElement {
       </div>
       <div className={'card ' + ev.type}>
         <div className="content" spellCheck="false">
-          {esc(text)}
+          {text}
         </div>
       </div>
     </>

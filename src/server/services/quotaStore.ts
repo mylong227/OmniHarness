@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { JsonObjectFile } from '../../util/jsonObjectFile.ts';
 
 /**
  * 配额设置（落盘字段，全部可选——缺失即用缺省值）。
@@ -90,14 +91,6 @@ export class QuotaStore {
    * @returns 原始键值映射（字段级校验与缺省兜底在 {@link QuotaStore.read} 完成）
    */
   private readRaw(): Record<string, unknown> {
-    const file = this.filePath();
-    if (!existsSync(file)) return {};
-    try {
-      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'));
-      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-      return parsed as Record<string, unknown>;
-    } catch {
-      return {};
-    }
+    return JsonObjectFile.readRecord(this.filePath());
   }
 }

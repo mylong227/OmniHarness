@@ -69,6 +69,31 @@ const pixel = (frame: GifDecodedFrame, x: number, y: number): readonly number[] 
   ];
 };
 
+test('逻辑屏尺寸上限：65535×65535 的文件头必须整份拒绝（不得尝试分配 17GB）', () => {
+  const header = Buffer.alloc(14);
+  header.write('GIF89a', 0, 'ascii');
+  header.writeUInt16LE(0xffff, 6);
+  header.writeUInt16LE(0xffff, 8);
+  header[10] = 0; // 无全局颜色表
+  header[13] = 0x3b; // trailer
+  assert.throws(() => GifDecoder.decode(header), /逻辑屏过大/u);
+});
+
+test('帧矩形尺寸上限：小画布 + 65535×65535 帧必须整份拒绝（不得被当成"截断"吞掉）', () => {
+  const bytes = Buffer.alloc(23);
+  bytes.write('GIF89a', 0, 'ascii');
+  bytes.writeUInt16LE(2, 6);
+  bytes.writeUInt16LE(2, 8);
+  bytes[10] = 0;
+  bytes[13] = 0x2c; // image descriptor
+  bytes.writeUInt16LE(0, 14); // left
+  bytes.writeUInt16LE(0, 16); // top
+  bytes.writeUInt16LE(0xffff, 18); // width
+  bytes.writeUInt16LE(0xffff, 20); // height
+  bytes[22] = 0; // packed
+  assert.throws(() => GifDecoder.decode(bytes), /帧过大/u);
+});
+
 test('真实 GIF：嗅探为 animated gif，结构扫描得到 3 帧且时间轴单调递增', () => {
   const info = MediaSniffer.sniff(gifBytes, '.gif');
   assert.strictEqual(info.kind, 'gif');

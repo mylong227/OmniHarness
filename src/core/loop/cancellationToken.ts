@@ -25,7 +25,7 @@ export class CancellationToken {
   /**
    * @param parent 父令牌（可选）：父取消时本令牌级联取消（reason 标记为 'parent'）。
    */
-  public constructor(private readonly parent?: CancellationToken) {
+  public constructor(parent?: CancellationToken) {
     if (parent !== undefined) {
       // 父令牌级联：父取消 → 子同步取消（本令牌一律标 'parent'：父的原始 reason 对它无意义）。
       parent.listen(() => this.cancel('parent'));

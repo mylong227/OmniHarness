@@ -281,8 +281,14 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
   /** 保存某厂商 Key。 */
   const saveKey = async (p: ProviderPreset): Promise<void> => {
     const key = (drafts[p.id] ?? '').trim();
-    if (key === '' && maskedKeys[p.id] === undefined) {
-      toast(t('请输入 API Key'), 'err');
+    if (key === '') {
+      if (maskedKeys[p.id] === undefined) {
+        toast(t('请输入 API Key'), 'err');
+        return;
+      }
+      // 输入框为空且已有打码 Key：**不是清除**。服务端把空串当"删除凭据"，
+      // 直接发请求会静默抹掉已存 Key（2026-10-18 审查 R-01）。
+      toast(t('{name} Key 未修改（输入新值才会覆盖）', { name: p.label }), 'info');
       return;
     }
     markBusy(p.id, 'key');

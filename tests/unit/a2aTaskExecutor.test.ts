@@ -43,7 +43,7 @@ const noopEvents: EventPort = { name: 'noop', emit() {} };
 
 test('受限工具子集：剔除 MUTATING_TOOLS（写类/危险工具不暴露给对等方）', async () => {
   let captured: ToolPort | undefined;
-  const buildSubagent: SubagentBuilder = (ports, tools) => {
+  const buildSubagent: SubagentBuilder = (_ports, tools) => {
     captured = tools;
     return {} as OmniHarnessRuntime;
   };
@@ -60,7 +60,7 @@ test('受限工具子集：剔除 MUTATING_TOOLS（写类/危险工具不暴露�
 
 test('受限工具子集：委托声明 tools 子集取交集（授权外工具不暴露）', async () => {
   let captured: ToolPort | undefined;
-  const buildSubagent: SubagentBuilder = (ports, tools) => {
+  const buildSubagent: SubagentBuilder = (_ports, tools) => {
     captured = tools;
     return {} as OmniHarnessRuntime;
   };

@@ -97,6 +97,7 @@ export const EN_SETTINGS: Record<string, string> = {
   // 保存与提示（SettingsModel / SettingsModal）
   已保存: 'Saved',
   '请输入 API Key': 'Please enter an API key',
+  '{name} Key 未修改（输入新值才会覆盖）': '{name} key unchanged (enter a new value to overwrite)',
   '{name} Key 已保存（服务端打码存储）': '{name} key saved (stored masked on the server)',
   '保存失败：{msg}': 'Save failed: {msg}',
   '{name} 连通（{count} 个模型，来源 {source}）': '{name} connected ({count} models, from {source})',

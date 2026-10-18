@@ -80,6 +80,9 @@ export class RouteBinding {
     this.route = r;
     const patch: Partial<AppState> = { activePane: r.pane };
     // 深链 / 前进后退到达具体面板时展开右栏，便于直接看到目标 tab。
+    // 同时复位桌面端「收起」偏好：`.body.rcollapsed .col.right{display:none}` 会让
+    // rightOpen=true 仍不可见（用户收起过一次后，点文件树/链接全部静默无效）。
+    if (r.pane !== 'tools') patch.rightCollapsed = false;
     if (r.pane !== 'tools') patch.rightOpen = true;
     this.host.patch(patch);
     const cur = this.host.getState().currentThreadId;

@@ -24,6 +24,7 @@ import type {
   LspWorkspaceSymbol,
 } from '../../ports/tool/lsp.ts';
 import { LspUri } from './lspUri.ts';
+import { LspPosition } from './lspPosition.ts';
 
 /** LSP `SymbolKind` 数值 → 人类可读名（未收录的数值回落 `symbol#<n>`）。 */
 const SYMBOL_KIND_NAMES: Readonly<Record<number, LspSymbolKind>> = {
@@ -264,30 +265,9 @@ export class LspSymbolNormalizer {
       return null;
     }
     const range = raw as Record<string, unknown>;
-    const start = LspSymbolNormalizer.toPosition(range['start']);
-    const end = LspSymbolNormalizer.toPosition(range['end']);
+    const start = LspPosition.toOneBased(range['start']);
+    const end = LspPosition.toOneBased(range['end']);
     return start === null || end === null ? null : { start, end };
-  }
-
-  /**
-   * 0-based 位置 → 1-based 位置。
-   *
-   * @param raw 原始位置。
-   * @returns 转换后的位置；形状不合法为 null。
-   */
-  private static toPosition(
-    raw: unknown,
-  ): { readonly line: number; readonly character: number } | null {
-    if (raw === null || typeof raw !== 'object') {
-      return null;
-    }
-    const position = raw as Record<string, unknown>;
-    const line = position['line'];
-    const character = position['character'];
-    if (typeof line !== 'number' || typeof character !== 'number') {
-      return null;
-    }
-    return { line: line + 1, character: character + 1 };
   }
 
   /**

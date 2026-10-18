@@ -4,7 +4,6 @@
 //
 // 函数组件范式：无内部状态；行渲染下沉为模块级纯函数（与 StreamView 同款写法）。
 
-import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import type { IconName } from '../models/Icon.ts';
 import { describeToolCall } from '../textUtils.ts';

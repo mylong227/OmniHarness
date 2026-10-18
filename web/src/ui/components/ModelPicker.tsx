@@ -21,6 +21,7 @@ import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import { ComposerOptions } from '../models/ComposerOptions.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { usePopoverEffect } from './usePopoverEffect.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 本弹层在互斥控制器里的身份。 */
@@ -55,16 +56,7 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
 
   // 展开期间才挂外部点击监听；收起或卸载即摘除（与 Dropdown 同一口径）。
   // 同时登记到互斥控制器：打开本弹层会自动收起其它弹层（见 PopoverStack 头注释）。
-  React.useEffect(() => {
-    if (!open) return undefined;
-    const close = (): void => setOpen(false);
-    window.addEventListener('click', close);
-    claimPopover({ id: POPOVER_ID, close });
-    return () => {
-      window.removeEventListener('click', close);
-      releasePopover(POPOVER_ID);
-    };
-  }, [open]);
+  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
   /** 触发按钮：阻断冒泡后切换展开态（阻断后不会立刻被「外部点击」判定关掉）。 */
   const toggle = (e: React.MouseEvent): void => {

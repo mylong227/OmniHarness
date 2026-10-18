@@ -3,7 +3,6 @@
 // 纯展示组件（函数组件范式）：状态由 props 注入。
 
 import * as React from 'react';
-import { esc } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { IconName } from '../../models/Icon.ts';
 import type { ArtifactInfo, ArtifactKind } from '../../models/ArtifactResolver.ts';
@@ -48,9 +47,9 @@ export function ArtifactCard(props: ArtifactCardProps): ReactElement {
           onClick={handleOpen}
           title={t('在右侧面板打开（语法高亮）')}
         >
-          {esc(info.name)}
+          {info.name}
         </a>
-        <div className="artifact-path">{esc(info.relPath)}</div>
+        <div className="artifact-path">{info.relPath}</div>
       </div>
       <a className="artifact-open" href="#" onClick={handleOpen} title={t('在右侧面板打开')}>
         {icon('eye', { size: 13 })} {t('打开')}
@@ -58,7 +57,7 @@ export function ArtifactCard(props: ArtifactCardProps): ReactElement {
       <a
         className="artifact-download"
         href={href}
-        download={esc(info.name)}
+        download={info.name}
         title={t('下载到本地')}
         aria-label={t('下载产物')}
       >

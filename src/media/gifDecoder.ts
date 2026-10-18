@@ -1,4 +1,13 @@
 import { MediaFormatError } from '../errors/mediaFormatError.ts';
+import { GifLimits } from './gifLimits.ts';
+
+/**
+ * 超出 GIF 解码硬上限（尺寸类）。
+ *
+ * 为什么单独一个类：`scanBlocks` 把**中段损坏**的 `MediaFormatError` 当作"截断"容错，
+ * 但超大尺寸不是损坏，而是必须整份拒绝的输入（否则分配即可 OOM）。本类让它穿透容错层。
+ */
+class GifLimitExceededError extends MediaFormatError {}
 import { GifBinaryReader } from './gifBinaryReader.ts';
 import { GifColorTable } from './gifColorTable.ts';
 import { GifFrameCompositor } from './gifFrameCompositor.ts';
@@ -99,6 +108,14 @@ export class GifDecoder {
     }
     const width = this.reader.readUInt16LE();
     const height = this.reader.readUInt16LE();
+    if (width === 0 || height === 0) {
+      throw new MediaFormatError(`GIF 逻辑屏尺寸非法: ${width}×${height}`);
+    }
+    if (width * height > GifLimits.MAX_CANVAS_PIXELS) {
+      throw new MediaFormatError(
+        `GIF 逻辑屏过大: ${width}×${height}（上限 ${GifLimits.MAX_CANVAS_PIXELS} 像素）`,
+      );
+    }
     const packed = this.reader.readUInt8();
     this.reader.readUInt8(); // 背景色索引：本实现按浏览器语义把画布初始化为全透明，故不使用
     this.reader.readUInt8(); // 像素宽高比：0＝未指定
@@ -164,6 +181,11 @@ export class GifDecoder {
         }
       } catch (error) {
         if (!(error instanceof MediaFormatError)) {
+          throw error;
+        }
+        // 尺寸超限是**整份输入非法**，不是中段损坏：必须穿透容错层，否则调用方只看到
+        // "truncated 的空动画"，会把恶意文件误判成下载不全。
+        if (error instanceof GifLimitExceededError) {
           throw error;
         }
         // 中途损坏 / 截断：已解出的帧照常交付，但不得假装扫描完整。
@@ -273,6 +295,14 @@ export class GifDecoder {
     const top = this.reader.readUInt16LE();
     const width = this.reader.readUInt16LE();
     const height = this.reader.readUInt16LE();
+    if (width === 0 || height === 0) {
+      throw new MediaFormatError(`GIF 帧尺寸非法: ${width}×${height}`);
+    }
+    if (width * height > GifLimits.MAX_FRAME_PIXELS) {
+      throw new GifLimitExceededError(
+        `GIF 帧过大: ${width}×${height}（上限 ${GifLimits.MAX_FRAME_PIXELS} 像素）`,
+      );
+    }
     const packed = this.reader.readUInt8();
     const interlaced = (packed & 0x40) !== 0;
     const tableSize = 2 << (packed & 0x07);

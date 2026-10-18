@@ -11,6 +11,7 @@
  */
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
+import { sep } from 'node:path';
 import { WorkspaceIdentity } from '../../src/util/workspaceIdentity.ts';
 
 describe('WorkspaceIdentity：同一项目的多种拼写必须归一为同一身份', () => {
@@ -43,6 +44,18 @@ describe('WorkspaceIdentity：同一项目的多种拼写必须归一为同一�
       WorkspaceIdentity.normalize('D:\\deepseek\\omniharness\\.omniharness\\probe-1744045509'),
       host,
     );
+  });
+
+  it('POSIX 前导斜杠不得被吃掉（绝对路径 ≠ 同名相对路径；根仍为根）', () => {
+    const absolute = WorkspaceIdentity.normalize('/home/alice/proj');
+    assert.ok(absolute.startsWith(sep), `绝对路径归一后必须仍以分隔符开头：${absolute}`);
+    assert.notStrictEqual(
+      absolute,
+      WorkspaceIdentity.normalize('home/alice/proj'),
+      '绝对路径与同名相对路径不得撞同一身份',
+    );
+    assert.strictEqual(WorkspaceIdentity.normalize('/'), sep, '根目录必须归一为单个分隔符');
+    assert.strictEqual(WorkspaceIdentity.same('/a/b', 'a/b'), false);
   });
 
   it('不同项目不得被判为同一身份；空标记保持"无归属"', () => {

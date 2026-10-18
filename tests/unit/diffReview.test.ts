@@ -83,3 +83,37 @@ test('DiffReview：hunk 文本缺 @@ 头时阶段操作抛错', { skip }, async 
     );
   });
 });
+
+test(
+  'DiffReview：hunk 不得夹带第二条补丁 / 多 @@ 头（防对守卫外文件 git apply）',
+  { skip },
+  async () => {
+    await withRepo(true, async (ws, review) => {
+      writeFileSync(join(ws, 'a.txt'), 'line\n', 'utf8');
+      await review.stageFile({ path: 'a.txt' });
+      const injected = [
+        '@@ -1 +1 @@',
+        '-line',
+        '+changed',
+        'diff --git a/victim.txt b/victim.txt',
+        '--- a/victim.txt',
+        '+++ b/victim.txt',
+        '@@ -1 +1 @@',
+        '-secret',
+        '+pwned',
+      ].join('\n');
+      await assert.rejects(
+        review.stageHunk({ path: 'a.txt', hunk: injected }),
+        /只能包含一个 @@ 头|补丁头/u,
+      );
+      const headerOnly = ['@@ -1 +1 @@', '-line', '+changed', '--- a/victim.txt'].join('\n');
+      await assert.rejects(review.stageHunk({ path: 'a.txt', hunk: headerOnly }), /补丁头/u);
+    });
+  },
+);
+
+test('DiffReview：路径含控制字符（换行）一律拒绝（防补丁头注入）', { skip }, async () => {
+  await withRepo(true, async (_ws, review) => {
+    await assert.rejects(review.stageFile({ path: 'a\nb.txt' }), /控制字符/u);
+  });
+});

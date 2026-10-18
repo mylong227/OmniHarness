@@ -161,6 +161,8 @@ export class FileLongTermMemory implements LongTermMemoryPort {
       ...(patch.importance !== undefined
         ? { importance: Math.min(5, Math.max(1, Math.round(patch.importance))) }
         : {}),
+      // 显式 `expiresAt: undefined` 表示清除失效时间 ⇒ 必须用 `in` 而不是 `!== undefined`。
+      ...('expiresAt' in patch ? { expiresAt: patch.expiresAt } : {}),
     };
     this.persistAll();
     return true;
@@ -191,6 +193,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
         ...(entry.patch.importance !== undefined
           ? { importance: Math.min(5, Math.max(1, Math.round(entry.patch.importance))) }
           : {}),
+        ...('expiresAt' in entry.patch ? { expiresAt: entry.patch.expiresAt } : {}),
       };
       changed += 1;
     }

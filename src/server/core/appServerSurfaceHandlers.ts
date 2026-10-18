@@ -130,13 +130,18 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
     });
     // 把会话**归入指定项目**（侧栏右键「归入当前项目」）：只改存档首行 session_meta.workspace；
     // 目标目录先经 configStore 校验存在（fail-closed），运行中的会话由存档的 runningChecker 拒绝。
-    this.handlers.set('sessions.setWorkspace', async (params) =>
-      SessionWorkspaceAssigner.assign(
+    this.handlers.set('sessions.setWorkspace', async (params) => {
+      const sessionId = this.stringParam(params, 'sessionId');
+      // 运行中的会话不允许改写归属（存档正被 write-behind 追加）；注释与实现必须一致。
+      if (this.activeTurns.has(sessionId)) {
+        throw new Error('会话正在运行，暂不能修改归属（结束后再试）');
+      }
+      return SessionWorkspaceAssigner.assign(
         this.options.config.storage.location ?? '',
-        this.stringParam(params, 'sessionId'),
+        sessionId,
         this.configStore.requireDirectory(this.stringParam(params, 'workspace')),
-      ),
-    );
+      );
+    });
     this.handlers.set('approval.tiers', async () => ({ tiers: this.approvalTiers.all() }));
     this.handlers.set('agents.list', async () => this.agents.list());
     this.handlers.set('search.all', async (params) => {

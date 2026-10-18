@@ -9,7 +9,6 @@
 // 「重连中」不显示红色「断开」的口径与原 TopBar 一致（EventSource 自动重连，抖动报红=假故障）。
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
-import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
 

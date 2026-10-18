@@ -16,7 +16,15 @@ export interface RunProcessOptions extends SpawnOptions {
   readonly encoding?: BufferEncoding | 'buffer';
   /** 喂给子进程 stdin 的内容（`spawn` 接受，类型层补丁）。 */
   readonly input?: string | Buffer | NodeJS.TypedArray;
+  /**
+   * stdout / stderr 各自的最大字节数（默认 10 MiB，与 `spawnSync` 的 maxBuffer 语义对齐）。
+   * 超限即强杀子进程并返回带 `error` 的结果（避免无界输出撑爆堆）。
+   */
+  readonly maxBufferBytes?: number;
 }
+
+/** 默认输出上限（每路）：10 MiB。 */
+const DEFAULT_MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
 /** 与 `spawnSync` 返回结构对齐的结果（Buffer 形态）。 */
 export interface SpawnSyncLikeResult {
@@ -89,13 +97,46 @@ export class AsyncChildProcess {
   ): Promise<SpawnSyncLikeResult> {
     return new Promise<SpawnSyncLikeResult>((resolve) => {
       const useUtf8 = options.encoding === 'utf8';
+      const maxBufferBytes = options.maxBufferBytes ?? DEFAULT_MAX_BUFFER_BYTES;
       const proc = spawn(file, [...args], { ...options, windowsHide: true });
       const out: Array<Buffer | string> = [];
       const err: Array<Buffer | string> = [];
-      proc.stdout?.on('data', (chunk: Buffer | string) => out.push(chunk));
-      proc.stderr?.on('data', (chunk: Buffer | string) => err.push(chunk));
+      let outBytes = 0;
+      let errBytes = 0;
+      let settled = false;
+      /** 只交付第一个终态（`error` 与 `close` 可能先后到达）。 */
+      const finish = (result: SpawnSyncLikeResult): void => {
+        if (settled) return;
+        settled = true;
+        resolve(result);
+      };
+      /** 输出超限：强杀并交付可归因错误（保留已收集的部分输出）。 */
+      const overflow = (stream: 'stdout' | 'stderr'): void => {
+        try {
+          proc.kill('SIGKILL');
+        } catch {
+          /* 进程可能已退出 */
+        }
+        finish({
+          status: null,
+          signal: null,
+          stdout: AsyncChildProcess.mergeChunks(out, useUtf8),
+          stderr: AsyncChildProcess.mergeChunks(err, useUtf8),
+          error: new Error(`${stream} 超过 maxBufferBytes=${String(maxBufferBytes)}`),
+        });
+      };
+      proc.stdout?.on('data', (chunk: Buffer | string) => {
+        out.push(chunk);
+        outBytes += Buffer.byteLength(chunk);
+        if (outBytes > maxBufferBytes) overflow('stdout');
+      });
+      proc.stderr?.on('data', (chunk: Buffer | string) => {
+        err.push(chunk);
+        errBytes += Buffer.byteLength(chunk);
+        if (errBytes > maxBufferBytes) overflow('stderr');
+      });
       proc.on('error', (caught: Error) => {
-        resolve({
+        finish({
           status: null,
           signal: null,
           stdout: AsyncChildProcess.mergeChunks(out, useUtf8),
@@ -104,13 +145,21 @@ export class AsyncChildProcess {
         });
       });
       proc.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
-        resolve({
+        finish({
           status: code,
           signal,
           stdout: AsyncChildProcess.mergeChunks(out, useUtf8),
           stderr: AsyncChildProcess.mergeChunks(err, useUtf8),
         });
       });
+      // `spawn` 不会读 `options.input`：必须自己写 stdin 并关闭（否则等 stdin 的子进程会挂死）。
+      // 没有 input 时也要 end()，与 spawnSync 的「空 stdin 立即 EOF」语义一致。
+      if (proc.stdin !== null) {
+        proc.stdin.on('error', () => {
+          /* 子进程提前退出导致的 EPIPE 由 close/error 统一裁决 */
+        });
+        proc.stdin.end(options.input);
+      }
     });
   }
 
@@ -130,8 +179,14 @@ export class AsyncChildProcess {
   ): Promise<string> {
     const merged: RunProcessOptions = { ...options, encoding: options.encoding ?? 'utf8' };
     const result = await AsyncChildProcess.spawnSyncAsync(file, args, merged);
-    if (result.error !== undefined || (result.status !== null && result.status !== 0)) {
-      const thrown = result.error ?? new Error(`command exited with status ${result.status}`);
+    if (result.error !== undefined || result.signal !== null || result.status !== 0) {
+      const thrown =
+        result.error ??
+        new Error(
+          result.signal !== null
+            ? `command terminated by signal ${result.signal}`
+            : `command exited with status ${String(result.status)}`,
+        );
       Object.assign(thrown, {
         status: result.status,
         signal: result.signal,

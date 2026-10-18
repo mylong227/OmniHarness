@@ -66,7 +66,7 @@ export class RestrictedSandbox implements SandboxPort {
   /**
    * @param options 受限沙箱选项（工作区根目录与额外危险模式）。
    */
-  public constructor(private readonly options: RestrictedSandboxOptions) {
+  public constructor(options: RestrictedSandboxOptions) {
     this.guard = new WorkspaceGuard(options.workspaceRoot);
     this.patterns = [
       ...dangerousCommands.defaults(),

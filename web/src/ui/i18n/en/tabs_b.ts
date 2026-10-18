@@ -114,6 +114,7 @@ export const EN_TABS_B: Record<string, string> = {
   '未配置 Key：保存 Key → 检测 → 启用后才会显示可用模型':
     'No key configured: save key → test → enable to see available models',
   '请输入 API Key': 'Please enter an API key',
+  '{label} Key 未修改（输入新值才会覆盖）': '{label} key unchanged (enter a new value to overwrite)',
   '{label} Key 已保存（服务端打码存储）': '{label} key saved (stored masked on the server)',
   '{label} 连通（{count} 个模型，来源 {source}）': '{label} connected ({count} models, source {source})',
   '{label} 不可用：{reason}': '{label} unavailable: {reason}',

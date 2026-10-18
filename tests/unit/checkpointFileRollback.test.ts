@@ -65,6 +65,34 @@ test('checkpoint 无 snapshotter 时仅回滚事件（向后兼容，hasFileSnap
   assert.ok(true, '纯事件回滚不应抛错');
 });
 
+test('GitWorkspaceSnapshot：rename 不得解析出伪路径；回滚恢复新路径并删除旧路径', async () => {
+  const root = await initRepo();
+  try {
+    await execFileAsync('git', ['mv', 'a.txt', 'c.txt'], { cwd: root });
+    const snap = await new GitWorkspaceSnapshot().capture(root);
+    assert.deepStrictEqual(
+      snap.entries.map((e) => e.relPath).sort(),
+      ['a.txt', 'c.txt'],
+      '只应有新旧两条路径，不得出现由第二个 NUL 片段误解析出的伪路径',
+    );
+    assert.strictEqual(snap.entries.find((e) => e.relPath === 'c.txt')?.content, 'v1');
+    assert.strictEqual(
+      snap.entries.find((e) => e.relPath === 'a.txt')?.content,
+      null,
+      '改名前旧路径在快照时刻已不存在 ⇒ 回滚时必须删除',
+    );
+
+    // 模拟会话期间：旧路径被重新创建、新路径被改写。回滚应回到快照时刻。
+    await writeFile(join(root, 'a.txt'), 'recreated', 'utf8');
+    await writeFile(join(root, 'c.txt'), 'v2', 'utf8');
+    await new GitWorkspaceSnapshot().restore(root, snap);
+    await assert.rejects(() => readFile(join(root, 'a.txt'), 'utf8'), /ENOENT/u);
+    assert.strictEqual(await readFile(join(root, 'c.txt'), 'utf8'), 'v1');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('GitWorkspaceSnapshot：未跟踪文件在快照时刻捕获其磁盘内容（回滚时还原，而非删除）', async () => {
   const root = await initRepo();
   try {

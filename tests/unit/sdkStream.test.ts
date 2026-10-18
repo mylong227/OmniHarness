@@ -21,7 +21,6 @@ class PairSocket implements SdkSocket {
   public readonly sent: string[] = [];
   public peer: PairSocket | undefined;
   private messageHandler: ((text: string) => void) | undefined;
-  private openHandler: (() => void) | undefined;
 
   public send(text: string): void {
     this.sent.push(text);
@@ -33,7 +32,6 @@ class PairSocket implements SdkSocket {
   }
 
   public onOpen(handler: () => void): void {
-    this.openHandler = handler;
     queueMicrotask(handler);
   }
 

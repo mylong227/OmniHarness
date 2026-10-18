@@ -28,6 +28,12 @@ export class SessionWorkspaceAssigner {
     sessionId: string,
     workspace: string,
   ): { ok: boolean; workspace?: string; error?: string } {
+    // sessionId 直接拼进文件名 ⇒ 必须与 SessionArchive 同一条白名单，否则 `..\..\x` 可改写
+    // 存档目录之外的任意 `.jsonl`（2026-10-18 审查：路径穿越）。
+    if (archiveDir.trim() === '') return { ok: false, error: 'invalid_archive_dir' };
+    if (!/^[A-Za-z0-9_-]{1,128}$/u.test(sessionId)) {
+      return { ok: false, error: 'invalid_session_id' };
+    }
     const normalized = WorkspaceIdentity.normalize(workspace);
     if (normalized === '') return { ok: false, error: 'invalid_workspace' };
     const file = join(archiveDir, `${sessionId}.jsonl`);

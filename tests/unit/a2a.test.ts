@@ -98,7 +98,7 @@ test('② 任务委托：handler 执行并返回结果', async () => {
 test('③ fail-closed：无 handler 时委托被拒', async () => {
   const { clientSide, serverSide } = pair();
   // 故意不配 handler：仅构造服务端（构造即完成端口注册副作用），本用例只验证委托被拒。
-  const _server = new A2aServer(serverSide);
+  new A2aServer(serverSide);
   const client = new A2aClient(clientSide);
   await assert.rejects(() => client.delegateTask({ taskId: 't2', task: 'x' }));
   client.close();

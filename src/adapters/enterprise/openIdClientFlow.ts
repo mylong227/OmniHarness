@@ -145,7 +145,16 @@ export class OpenIdClientFlow implements OidcFlowPort {
     config: OidcProviderConfig,
     params: { readonly state: string; readonly codeChallenge: string; readonly scope?: string },
   ): string {
-    const configuration = this.requireConfiguration(discovery.issuer, config);
+    const configuration = this.requireConfiguration(config);
+    const meta = configuration.serverMetadata();
+    // 端口契约把 discovery 作为入参；第三方实现的 Configuration 由本实例 `discovery()` 装配，
+    // 故这里用传入文档做**一致性交叉校验**（fail-closed），而不是静默忽略它。
+    if (
+      meta.issuer !== discovery.issuer ||
+      meta.authorization_endpoint !== discovery.authorization_endpoint
+    ) {
+      throw new Error('OIDC discovery 文档与已装配配置不一致（issuer/authorization_endpoint）');
+    }
     const url = buildAuthorizationUrl(configuration, {
       ...(config.redirectUri !== undefined ? { redirect_uri: config.redirectUri } : {}),
       scope: params.scope ?? config.scope ?? 'openid profile email',
@@ -183,6 +192,12 @@ export class OpenIdClientFlow implements OidcFlowPort {
     }
     if (configuration === undefined) {
       throw new Error('OIDC Configuration 未就绪（discovery 失败或被并发清空）');
+    }
+    const meta = configuration.serverMetadata();
+    // 端口契约：换码以传入 discovery 的 token_endpoint 为准。第三方实现用已装配的
+    // Configuration，故先交叉校验，避免调用方拿到另一份 discovery 时静默换到别的端点。
+    if (meta.issuer !== discovery.issuer || meta.token_endpoint !== discovery.token_endpoint) {
+      throw new Error('OIDC discovery 文档与已装配配置不一致（issuer/token_endpoint）');
     }
     const redirectUri = params.redirectUri ?? config.redirectUri;
     if (redirectUri === undefined) {
@@ -223,12 +238,11 @@ export class OpenIdClientFlow implements OidcFlowPort {
 
   /**
    * 取该 issuer/clientId 对应的 Configuration（须先 discovery）。
-   * @param issuer IdP issuer 标识。
-   * @param config OIDC 提供方配置。
+   * @param config OIDC 提供方配置（缓存键由 config.issuer/clientId 决定）。
    * @returns 已装配的 Configuration。
    */
-  private requireConfiguration(issuer: string, config: OidcProviderConfig): Configuration {
-    const configuration = this.configurations.get(`${issuer}|${config.clientId}`);
+  private requireConfiguration(config: OidcProviderConfig): Configuration {
+    const configuration = this.configurations.get(this.keyOf(config));
     if (configuration === undefined) {
       throw new Error('OpenIdClientFlow：须先调用 discovery(config) 再构造授权 URL');
     }

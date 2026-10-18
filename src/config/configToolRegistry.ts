@@ -83,6 +83,23 @@ import type { ExtraTool } from '../ports/tool/extraTool.ts';
  */
 export class ConfigToolRegistry {
   /**
+   * run_code 内部 call() 的门禁：与 StepRunner 共用同一套计划/监督/提权语义。
+   * @param seed 端口种子（已含 plan / supervisor / escalation / elevatedSandbox）
+   * @returns 内层门禁
+   */
+  private static codeExecutorGate(seed: SubagentPortSeed): ToolGate {
+    return new ToolGate(
+      seed.approvals,
+      seed.sandbox,
+      seed.plan,
+      seed.planMode ?? false,
+      seed.escalation,
+      seed.elevatedSandbox,
+      seed.supervisor,
+    );
+  }
+
+  /**
    * 注册内置 FS / 执行 / 代理工具（shell / shell_job / read / write / edit / list / patch / grep / glob / web_fetch / view_image / code / delegate / spill_read）。
    * @param {RegistryToolPort} registry - registry
    * @param {SubagentPortSeed} seed - seed
@@ -94,7 +111,7 @@ export class ConfigToolRegistry {
     registry: RegistryToolPort,
     seed: SubagentPortSeed,
     workers: WorkerRegistryPort | undefined,
-    planning: {
+    _planning: {
       readonly todo: TodoPort;
       readonly plan: PlanPort;
       readonly userResponder: UserResponder;
@@ -137,14 +154,7 @@ export class ConfigToolRegistry {
     const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot);
     const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
-      gate: new ToolGate(
-        seed.approvals,
-        seed.sandbox,
-        planning.plan,
-        planning.planMode,
-        seed.escalation,
-        seed.elevatedSandbox,
-      ),
+      gate: ConfigToolRegistry.codeExecutorGate(seed),
       tools: registry,
     });
     // `delegate` 只在**真有 worker** 时注册（2026-09-26 审计 F1）：默认配置下它由演示桩

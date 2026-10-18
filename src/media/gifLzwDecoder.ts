@@ -1,4 +1,5 @@
 import { MediaFormatError } from '../errors/mediaFormatError.ts';
+import { GifLimits } from './gifLimits.ts';
 import type { GifLzwResult } from './gifTypes.ts';
 
 /** LZW 码表上限（GIF 规范固定 12 位码）。 */
@@ -61,10 +62,7 @@ export class GifLzwDecoder {
    * @param expectedPixels 期望像素数（帧宽 × 帧高）。
    * @param minCodeSize LZW 最小码长（图像数据首字节）。
    */
-  private constructor(
-    expectedPixels: number,
-    private readonly minCodeSize: number,
-  ) {
+  private constructor(expectedPixels: number, minCodeSize: number) {
     this.output = new Uint8Array(expectedPixels);
     this.clearCode = 1 << minCodeSize;
     this.endCode = this.clearCode + 1;
@@ -90,6 +88,11 @@ export class GifLzwDecoder {
   public static decode(data: Buffer, minCodeSize: number, expectedPixels: number): GifLzwResult {
     if (minCodeSize < MIN_CODE_SIZE_LOWER || minCodeSize > MIN_CODE_SIZE_UPPER) {
       throw new MediaFormatError(`GIF LZW 最小码长非法: ${String(minCodeSize)}（合法区间 2–11）`);
+    }
+    if (expectedPixels < 0 || expectedPixels > GifLimits.MAX_FRAME_PIXELS) {
+      throw new MediaFormatError(
+        `GIF 帧像素数非法或过大: ${String(expectedPixels)}（上限 ${GifLimits.MAX_FRAME_PIXELS}）`,
+      );
     }
     return new GifLzwDecoder(expectedPixels, minCodeSize).run(data);
   }

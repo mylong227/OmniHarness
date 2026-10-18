@@ -22,6 +22,7 @@ import { log } from '../../util/logger.ts';
 import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.ts';
 import { ModelResponseFormats } from './modelResponseFormats.ts';
 import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
+import { ToolArgumentParser } from './toolArgumentParser.ts';
 
 // 空闲超时的库级默认与覆盖环境变量**单一来源**在 `modelRequestGuard`（四个适配器共用）：
 // 这里只做再导出，保持既有公开 API 不变（测试与下游按此名引用）。
@@ -158,7 +159,7 @@ export class OpenAiCompatibleModel implements ModelPort {
         ? defined.map((b) => ({
             id: b.id,
             name: b.name ?? '',
-            arguments: this.parseArguments(b.partial),
+            arguments: ToolArgumentParser.parse(b.partial),
           }))
         : undefined;
     return { text, reasoning, toolCalls, usage: state.usage };
@@ -463,29 +464,8 @@ export class OpenAiCompatibleModel implements ModelPort {
     return {
       id: call.id,
       name: call.function.name,
-      arguments: this.parseArguments(call.function.arguments),
+      arguments: ToolArgumentParser.parse(call.function.arguments),
     };
-  }
-
-  /** 解析工具参数 JSON。
-   * @param raw wire 层返回的参数 JSON 字符串。
-   * @returns 解析出的参数对象；JSON 非法或不是对象时返回空对象（不抛错，保证流不中断）。
-   * 非法时必留 warn（2026-10-03 修，审计 D5）：静默 `{}` 会让工具带空参数执行，
-   * 真实根因（参数被 max_tokens 截断 / 流中断）无任何痕迹。
-   */
-  private parseArguments(raw: string): Record<string, unknown> {
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      return typeof parsed === 'object' && parsed !== null
-        ? (parsed as Record<string, unknown>)
-        : {};
-    } catch {
-      log.warn('model.tool_arguments.invalid_json', {
-        raw: raw.slice(0, 200),
-        rawLength: raw.length,
-      });
-      return {};
-    }
   }
 
   /** 处理流式事件。

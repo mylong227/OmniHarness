@@ -22,6 +22,8 @@ export class RepoPathGuard {
    */
   public resolve(raw: string): string {
     if (raw.length === 0) throw new Error('path 不能为空');
+    // 控制字符（含换行）会把路径注入到补丁头 / 命令行参数里，必须在单点拒绝。
+    if (/[\u0000-\u001f\u007f]/u.test(raw)) throw new Error('路径含控制字符');
     if (isAbsolute(raw) || /^[a-zA-Z]:/.test(raw)) throw new Error('仅接受仓库内相对路径');
     const ws = this.workspaceRoot();
     const abs = resolve(ws, raw);

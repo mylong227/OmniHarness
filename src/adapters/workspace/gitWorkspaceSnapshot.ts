@@ -50,31 +50,59 @@ export class GitWorkspaceSnapshot implements WorkspaceSnapshotPort {
     if (porcelain.length === 0) {
       return [];
     }
-    const parts = porcelain.split('\0').filter((part) => part.length > 0);
+    const parts = porcelain.split('\0');
     const entries: FileSnapshotEntry[] = [];
-    for (const part of parts) {
-      // 行格式：`<XY> <path>`（XY 为 2 字符状态，其后一个空格，再是路径）；
-      // rename/copy 为 `<XY> <old>\0<new>`（路径间以 NUL 分隔）。取首路径即可。
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index] ?? '';
+      if (part.length === 0) continue;
+      // 行格式：`<XY> <path>`（XY 为 2 字符状态，其后一个空格，再是路径）。
       const status = part.slice(0, 2);
-      const relPath = part.slice(3).split('\0')[0] ?? '';
-      if (relPath.length === 0) {
+      const renamed = status.includes('R') || status.includes('C');
+      if (renamed) {
+        // `-z` 的重命名/复制格式（实测）：`XY 新路径\0旧路径\0`。
+        // 旧实现把两个 NUL 片段都当成独立记录，旧路径片段会解析出伪路径（如 `xt`），
+        // restore 时 `rm` 可能删掉工作区里的同名无关文件。
+        const newPath = part.slice(3);
+        const oldPath = parts[++index] ?? '';
+        if (newPath.length > 0) {
+          entries.push(await this.entryFor(root, newPath, 'head'));
+        }
+        if (oldPath.length > 0) {
+          // 快照时刻旧路径已不在（重命名已完成）⇒ 回滚时必须删除它；若磁盘上还在
+          //（未完全落地的重命名），则按实际内容捕获，仍以快照时刻为准。
+          entries.push(await this.entryFor(root, oldPath, 'delete'));
+        }
         continue;
       }
-      if (status[0] === 'D' || status[1] === 'D') {
-        // 删除：快照时刻文件已不在磁盘，回滚目标为 HEAD 版本（重建）。
-        entries.push({ relPath, content: await this.headContent(root, relPath) });
-        continue;
-      }
-      // 其余（M/A/R/C/U/??）：捕获**快照时刻磁盘上的实际内容**，使回滚回到该点状态。
-      try {
-        const content = await readFile(resolve(root, relPath), 'utf8');
-        entries.push({ relPath, content });
-      } catch {
-        // 读取失败（极少数竞态）按 HEAD 重建处理。
-        entries.push({ relPath, content: await this.headContent(root, relPath) });
-      }
+      const relPath = part.slice(3);
+      if (relPath.length === 0) continue;
+      // 删除：快照时刻文件已不在磁盘，回滚目标为 HEAD 版本（重建）；其余状态优先捕获
+      // 快照时刻磁盘上的实际内容（读不到再回退 HEAD）。
+      entries.push(await this.entryFor(root, relPath, 'head'));
     }
     return entries;
+  }
+
+  /**
+   * 为一个路径生成快照条目：优先读快照时刻磁盘内容。
+   * @param root 工作树根目录。
+   * @param relPath 相对路径。
+   * @param missing 磁盘读不到时的语义：`head`＝回退 HEAD 内容；`delete`＝回滚时删除（null）。
+   * @returns 快照条目。
+   */
+  private async entryFor(
+    root: string,
+    relPath: string,
+    missing: 'head' | 'delete',
+  ): Promise<FileSnapshotEntry> {
+    try {
+      return { relPath, content: await readFile(resolve(root, relPath), 'utf8') };
+    } catch {
+      return {
+        relPath,
+        content: missing === 'delete' ? null : await this.headContent(root, relPath),
+      };
+    }
   }
 
   /** 读取文件在 HEAD 的内容；取不到返回 null（视为回滚时删除）。

@@ -8,6 +8,7 @@
 import * as React from 'react';
 import { PermissionTierModel } from '../models/PermissionTierModel.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { usePopoverEffect } from './usePopoverEffect.ts';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
 import type { ApprovalTier } from '../../types/models.ts';
@@ -55,18 +56,8 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
     };
   }, [api]);
 
-  // 展开期间才挂外部点击监听；收起或卸载即摘除（H3 清理对称）。
-  React.useEffect(() => {
-    if (!open) return undefined;
-    const close = (): void => setOpen(false);
-    window.addEventListener('click', close);
-    // 互斥：登记"我是当前弹层"，被别的弹层顶掉时自动收起（见 PopoverStack 头注释）。
-    claimPopover({ id: POPOVER_ID, close });
-    return () => {
-      window.removeEventListener('click', close);
-      releasePopover(POPOVER_ID);
-    };
-  }, [open]);
+  // 展开期间才挂外部点击监听；收起或卸载即摘除（H3 清理对称）。互斥登记交由同一 hook。
+  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
   /**
    * 触发按钮：阻断冒泡后切换展开态。

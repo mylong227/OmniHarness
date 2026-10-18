@@ -8,7 +8,6 @@
 //
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
-import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
 

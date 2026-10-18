@@ -19,6 +19,14 @@ export interface CodeExecutorOptions {
   readonly tools: ToolPort;
   /** 单次执行的硬超时（毫秒，缺省 `CodeInterpreter.DEFAULT_TIMEOUT_MS`）。 */
   readonly timeoutMs?: number | undefined;
+  /**
+   * 程序内**禁止**调用的工具（缺省：治理类 + run_code 自身）。
+   *
+   * 为什么需要：内层门禁拿不到 RBAC 角色（组合根先建工具、后建运行时策略），
+   * 若不在这里硬拦，`editor` 可用 run_code 调 `rollback` 绕过"仅 admin"的治理约束；
+   * 同时禁止递归 run_code，避免程序内无限嵌套执行器。
+   */
+  readonly deniedTools?: readonly string[] | undefined;
 }
 
 /**
@@ -42,8 +50,14 @@ export class CodeExecutorTool {
 
   /** 程序解释器（执行 code 工具提交的程序体）。 */
   private readonly interpreter = new CodeInterpreter();
+  /** 程序内禁止调用的工具（治理类 + 递归入口）。 */
+  private readonly denied: ReadonlySet<string>;
 
-  public constructor(private readonly options: CodeExecutorOptions) {}
+  public constructor(private readonly options: CodeExecutorOptions) {
+    this.denied = new Set(
+      options.deniedTools ?? [TOOL_NAMES.rollback, TOOL_NAMES.checkpoint, TOOL_NAMES.runCode],
+    );
+  }
 
   /**
    * 执行程序。
@@ -68,6 +82,13 @@ export class CodeExecutorTool {
    * @returns 门禁放行后的执行结果；被拒时返回拒绝结果
    */
   private async executeGated(inner: ToolCall, context: ToolContext): Promise<ToolResult> {
+    if (this.denied.has(inner.name)) {
+      return {
+        callId: inner.id,
+        ok: false,
+        error: `run_code 不得调用治理/递归入口 "${inner.name}"（请显式调用，以保留审批与台账）`,
+      };
+    }
     const denied = await this.options.gate.gate(inner, context.sessionId);
     if (denied !== undefined) {
       return denied;

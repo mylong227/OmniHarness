@@ -1,10 +1,9 @@
-﻿// 钻取面板：展示从事件流点击选中的事件——类型、摘要与完整结构化 payload。
+// 钻取面板：展示从事件流点击选中的事件——类型、摘要与完整结构化 payload。
 // 会话消息（user/assistant）额外提供「文档视图」：正文按 markdown 排版呈现，
 // 对齐「详情以文件的形式排版布局」的结果展示口径（2026-10-13 用户反馈）。
 // 纯展示组件（函数组件范式）：选中事件由 props 注入，无内部状态、无副作用。
 
-import * as React from 'react';
-import { badge, jsonView, detailSummary, timeOf, esc, emptyState, renderMarkdown } from '../../format.ts';
+import { badge, jsonView, detailSummary, timeOf, emptyState, renderMarkdown } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -39,7 +38,7 @@ export function DetailTab(props: DetailTabProps): ReactElement {
         {badge(ev.type)}
         <span className="time">{timeOf(ev.timestamp)}</span>
       </div>
-      <div className="detail-sum">{esc(detailSummary(ev, p))}</div>
+      <div className="detail-sum">{detailSummary(ev, p)}</div>
       {content === '' ? null : (
         <div className="detail-section">
           <div className="detail-h">{t('全文（文档视图）')}</div>

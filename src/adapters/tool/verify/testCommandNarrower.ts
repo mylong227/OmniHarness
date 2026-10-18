@@ -38,6 +38,15 @@ export class TestCommandNarrower {
   public static readonly MAX_TARGETS = 8;
 
   /**
+   * 允许出现在目标里的字符（**安全白名单**）。
+   *
+   * 目标来自测试输出里的堆栈帧，属于**不可信输入**；它会被拼进 `sh -c` / `cmd /c` 命令。
+   * 只放行路径字符，任何空白、引号、`$`、反引号、`;`、`&`、`|`、括号等一律拒绝，
+   * 宁可退回全量测试，也不把 shell 元字符送进命令（2026-10-18 审查：命令注入）。
+   */
+  private static readonly SAFE_TARGET = /^[A-Za-z0-9_./\\:@+-]+$/u;
+
+  /**
    * 该路径是否像**测试文件**（定向测试只接受测试文件）。
    *
    * 刻意保守：只认各生态的**命名约定**，不认「在 tests 目录里就是测试」——
@@ -90,7 +99,12 @@ export class TestCommandNarrower {
         continue;
       }
       const target = rule.targetOf(file);
-      if (target !== undefined && target !== '' && !targets.includes(target)) {
+      if (
+        target !== undefined &&
+        target !== '' &&
+        TestCommandNarrower.SAFE_TARGET.test(target) &&
+        !targets.includes(target)
+      ) {
         targets.push(target);
       }
     }

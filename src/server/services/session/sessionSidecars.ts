@@ -142,16 +142,6 @@ export class SessionSidecars {
   }
 
   /**
-   * 写一个「id 数组」侧车。
-   * @param name 文件名
-   * @param ids id 列表
-   * @returns 无返回值。
-   */
-  private writeIdList(name: string, ids: readonly string[]): void {
-    this.writeJson(name, [...ids]);
-  }
-
-  /**
    * 解析侧车 JSON；缺失 / 不可读 / 非法 JSON 返回 undefined（调用方各自回落默认值）。
    * @param name 文件名
    * @returns 解析结果；失败时 undefined

@@ -166,8 +166,24 @@ export class DiffReview {
    * @throws hunk 缺少 `@@` 头时。
    */
   private hunkPatchText(rel: string, hunk: string): string {
-    if (!hunk.includes('@@')) throw new Error('hunk 文本缺少 @@ 头');
-    return `--- a/${rel}\n+++ b/${rel}\n${hunk.replace(/\n+$/, '')}\n`;
+    const normalized = hunk.replace(/\r\n/g, '\n').replace(/\n+$/u, '');
+    const lines = normalized.split('\n');
+    if (!/^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@/u.test(lines[0] ?? '')) {
+      throw new Error('hunk 文本缺少 @@ 头');
+    }
+    // 一个 hunk 文本只允许一个 @@ 头；多段补丁会让 `git apply` 把后面的 `diff --git` 当第二条
+    // 补丁执行（可改守卫范围外的文件）。同理拒绝任何补丁头行。
+    if (lines.filter((line) => line.startsWith('@@')).length !== 1) {
+      throw new Error('hunk 文本只能包含一个 @@ 头（拒绝多段补丁）');
+    }
+    const FORBIDDEN_HEADER =
+      /^(?:diff --git |index [0-9a-f]+\.\.|--- (?:a\/|\/dev\/null)|\+\+\+ (?:b\/|\/dev\/null)|new file mode |deleted file mode |rename (?:from|to) |similarity index |Binary files )/u;
+    for (const line of lines.slice(1)) {
+      if (FORBIDDEN_HEADER.test(line)) {
+        throw new Error('hunk 文本含补丁头（拒绝多文件补丁注入）');
+      }
+    }
+    return `--- a/${rel}\n+++ b/${rel}\n${normalized}\n`;
   }
 
   /**

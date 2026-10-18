@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 会话「归入项目」判据（2026-10-07 用户口径：「各自分离不要出现串项目」的收尾——给未归属会话一个
  * 显式指认入口）。
  *
@@ -9,7 +9,7 @@
  */
 import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionWorkspaceAssigner } from '../../src/server/services/session/sessionWorkspaceAssigner.ts';
@@ -104,5 +104,22 @@ describe('会话归入项目：只改归属标记，历史逐字不动', () => {
       user,
       '拒绝时不得改写文件',
     );
+  });
+});
+
+describe('会话归入项目：sessionId 必须过白名单（防路径穿越）', () => {
+  it('`..` / 斜杠 / 空存档目录一律拒绝，且不得在存档目录之外写出文件', () => {
+    const root = seed('safe', [
+      JSON.stringify({
+        type: 'session_meta',
+        timestamp: '2026-10-07T00:00:00.000Z',
+        payload: { workspace: 'D:/old/project' },
+      }),
+    ]);
+    const outside = join(root, '..', 'evil.jsonl');
+    assert.strictEqual(SessionWorkspaceAssigner.assign(root, '..\\..\\evil', 'D:/w').ok, false);
+    assert.strictEqual(SessionWorkspaceAssigner.assign(root, '../evil', 'D:/w').ok, false);
+    assert.strictEqual(existsSync(outside), false, '不得在存档目录之外写出文件');
+    assert.strictEqual(SessionWorkspaceAssigner.assign('', 'safe', 'D:/w').ok, false);
   });
 });

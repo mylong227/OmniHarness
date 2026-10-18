@@ -5,7 +5,6 @@
 // （用 state 记录「已接管」，effect 依赖显式列出，不比对 prev、不死循环）。
 
 import * as React from 'react';
-import { esc } from '../../format.ts';
 import { processSummary, type ProcessBlock } from '../../textUtils.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -63,7 +62,7 @@ export function ProcessCluster(props: ProcessClusterProps): ReactElement {
       >
         <span className="tc-chevron-cluster"></span>
         <span className="tc-icon">⏵</span>
-        <span className="tc-summary">{t('执行过程 — {text}', { text: esc(text) })}</span>
+        <span className="tc-summary">{t('执行过程 — {text}', { text })}</span>
         <span className="time">{t('{n} 步', { n: block.events.length })}</span>
       </summary>
       <div className="process-cluster-body">{block.events.map((ev) => renderEvent(ev))}</div>

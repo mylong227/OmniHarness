@@ -380,6 +380,20 @@ test('压缩器：head 只剩 system 且超预算 ⇒ 走丢弃兜底并如实�
   );
   // system 提示不得因为"所在段不可折叠"而被优先丢出上下文（保序丢最旧时它在最前，
   // 但最新一条必须留）。
+  const first = result.messages[0];
+  assert.strictEqual(first?.role, 'system', '兜底必须保留前导 system 段');
+  assert.match(String(first?.content), /系统提示/u, '被保留的必须是原始系统提示');
   const last = result.messages[result.messages.length - 1];
   assert.ok(last !== undefined && last.content.includes('a1'), '兜底不得丢最新一条消息');
+});
+
+test('压缩器：keepRecent=0 是合法配置，不得让边界读取抛 RangeError', async () => {
+  const compactor = new ContextCompactor(undefined, { maxTokens: 1, keepRecent: 0 });
+  const messages: ModelMessage[] = [
+    { role: 'system', content: '系统提示' },
+    { role: 'user', content: '最新问题' },
+  ];
+  const result = await compactor.compact(messages);
+  assert.ok(result.messages.length >= 1, '压缩必须返回可用消息');
+  assert.strictEqual(result.messages[0]?.role, 'system', '无 head 可折叠时走兜底，仍保留 system');
 });

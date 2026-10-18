@@ -3,8 +3,6 @@
 // 不做 OG 抓取（需后端代理 + 缓存 + 隐私边界），纯卡片样式已足以让链接不被忽略。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
-import * as React from 'react';
-import { esc } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import { hostOf } from '../../textUtils.ts';
 
@@ -29,8 +27,8 @@ export function ExternalLinkCards(props: ExternalLinkCardsProps): ReactElement |
       </div>
       {urls.map((u) => (
         <a className="link-card" href={u} target="_blank" rel="noopener noreferrer" key={u}>
-          <span className="link-card-host">{esc(hostOf(u))}</span>
-          <span className="link-card-url">{esc(u)}</span>
+          <span className="link-card-host">{hostOf(u)}</span>
+          <span className="link-card-url">{u}</span>
         </a>
       ))}
     </div>

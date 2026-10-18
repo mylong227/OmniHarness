@@ -218,15 +218,6 @@ export class SupervisorKernel implements SupervisorPort {
   // --- 内部 ---
 
   /**
-   * 取指定工具的统计条目；尚无记录时返回空白条目（空窗口、零连续失败），不写入 map。
-   * @param tool 工具名。
-   * @returns 该工具的滑动窗口统计（可能为临时空白条目）。
-   */
-  private statOf(tool: string): ToolStat {
-    return this.stats.get(tool) ?? { window: [], consecutiveFailures: 0 };
-  }
-
-  /**
    * 依据最新统计重算模式（FDIR 分级降级）：任一工具连续失败达 lockAfter 直升 locked；
    * 失败率越 safeThreshold 或危险工具出现失败推到 safe；失败率越 degradeThreshold 推到
    * degraded；多工具并存时取最严。

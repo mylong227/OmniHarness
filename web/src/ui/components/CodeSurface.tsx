@@ -7,7 +7,6 @@
 //
 // 函数组件范式：无内部状态；行号序列为模块级纯函数。
 
-import * as React from 'react';
 import { highlightCode } from '../highlight.ts';
 import { t } from '../i18n/i18n.ts';
 

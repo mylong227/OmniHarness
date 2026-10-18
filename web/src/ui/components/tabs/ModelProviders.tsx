@@ -214,8 +214,13 @@ export function ModelProviders(): ReactElement {
    */
   const saveKey = async (p: ProviderPreset): Promise<void> => {
     const key = (drafts[p.id] ?? '').trim();
-    if (key === '' && maskedKeys[p.id] === undefined) {
-      toast(t('请输入 API Key'), 'err');
+    if (key === '') {
+      if (maskedKeys[p.id] === undefined) {
+        toast(t('请输入 API Key'), 'err');
+        return;
+      }
+      // 空输入 + 已有打码 Key ⇒ 保持原值，绝不把空串发给服务端（那等于删除凭据）。
+      toast(t('{label} Key 未修改（输入新值才会覆盖）', { label: p.label }), 'info');
       return;
     }
     setBusy(p.id + ':key');

@@ -48,10 +48,16 @@ export class WorkspaceIdentity {
     if (!isAbsolute(value)) {
       value = resolve(value);
     }
-    // 折叠重复分隔符 + 去尾分隔符（根目录 `D:\` 除外）。用 split/filter 而不是正则：
+    // 折叠重复分隔符 + 去尾分隔符（根目录除外）。用 split/filter 而不是正则：
     // Windows 分隔符是 `\`，塞进 `new RegExp` 会变成转义符（首版就踩了这个坑，判据当场抓红）。
+    //
+    // **必须保留前导分隔符**：POSIX 的 `/home/a` 若按 split/filter/join 折叠会变成
+    // `home/a`（绝对路径退化成相对路径），从而与同名相对路径撞同一身份——Windows 上
+    // 永远看不到这条缺陷（盘符在 parts[0]，join 回来恰好正确）。
+    const leading = value.startsWith(sep + sep) ? sep + sep : value.startsWith(sep) ? sep : '';
     const parts = value.split(sep).filter((part) => part !== '');
-    value = parts.join(sep);
+    value = leading + parts.join(sep);
+    if (value === '') value = sep; // 纯根（`/` 或 `\`）
     if (/^[a-zA-Z]:$/.test(value)) value += sep; // 纯盘符（`D:`）补根分隔符，避免与相对路径混淆
     return /^[a-zA-Z]:/.test(value) ? value[0]!.toUpperCase() + value.slice(1) : value;
   }

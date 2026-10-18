@@ -4,6 +4,7 @@ import { NativeBackend } from '../native/nativeBackend.ts';
 import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.ts';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.ts';
 import { RbacPolicy } from '../security/rbacPolicy.ts';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import type { SupervisorPort } from '../ports/runtime/supervisor.ts';
 import type { EvolutionController } from '../ports/runtime/evolution.ts';
 import { Container } from '../core/container.ts';
@@ -63,12 +64,7 @@ export class Runtime {
       config.supervisor ?? new SupervisorKernel({ hazardousTools: MUTATING_TOOLS });
     // (F3 RBAC-lite) 角色门禁（第三道门）：仅在配置显式开启时注入——缺省 undefined ⇒ 完全跳过（零行为变更）。
     // 配置校验已保证"开了必给 role"，故这里不需要再兜一层"缺角色怎么办"的隐式默认（那是静默提权的来源）。
-    const rolePolicy =
-      config.rbac?.enabled === true
-        ? new RbacPolicy({
-            ...(config.rbac.roles !== undefined ? { roles: config.rbac.roles } : {}),
-          })
-        : undefined;
+    const rolePolicy = Runtime.rolePolicyOf(config);
     const gate = new ToolGate(
       config.approvals,
       config.sandbox,
@@ -158,6 +154,28 @@ export class Runtime {
     } as OmniHarnessRuntime;
     Runtime.attachA2a(runtime, config);
     return runtime;
+  }
+
+  /**
+   * 按配置装配 RBAC 策略（未开启返回 undefined ⇒ 第三道门不存在）。
+   *
+   * 目录必须包含**运行时实际注册的工具**（MCP / 插件 / 动态工具），否则 RBAC 会把它们
+   * 一律判成"未登记"并拒绝（连 admin 的 `*` 也救不回来）；内建常量仍并入，覆盖当前被
+   * plan 模式过滤掉、但确实已登记的工具。
+   * @param config 已解析配置
+   * @returns 策略实例或 undefined
+   */
+  private static rolePolicyOf(config: ResolvedConfig): RbacPolicy | undefined {
+    if (config.rbac?.enabled !== true) return undefined;
+    return new RbacPolicy({
+      toolCatalog: [
+        ...new Set([
+          ...Object.values(TOOL_NAMES),
+          ...config.tools.list().map((definition) => definition.name),
+        ]),
+      ],
+      ...(config.rbac.roles !== undefined ? { roles: config.rbac.roles } : {}),
+    });
   }
 
   /**

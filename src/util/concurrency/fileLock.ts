@@ -1,4 +1,4 @@
-﻿// **跨进程租约锁**：给「读—改—写」这类不能交错的小文件操作一个互斥区，并按商用做法处理
+// **跨进程租约锁**：给「读—改—写」这类不能交错的小文件操作一个互斥区，并按商用做法处理
 // 「持有者崩了」「锁被抢走」这两件必然会发生的事。
 //
 // ## 为什么不是「mkdir 一下就完事」（调研结论）
@@ -73,6 +73,8 @@ export class FileLock {
   private readonly leaseMs: number;
   /** 本持有者的 token（未持有时为 0）。 */
   private token = 0;
+  /** fencing token 水位文件（在锁目录**之外**，释放后保留）。 */
+  private readonly watermarkPath: string;
 
   /**
    * @param targetPath 被保护的文件路径（锁目录取 `<targetPath>.lock`）
@@ -80,6 +82,7 @@ export class FileLock {
    */
   public constructor(targetPath: string, options: FileLockOptions = {}) {
     this.lockDir = `${targetPath}.lock`;
+    this.watermarkPath = `${this.lockDir}.token`;
     this.sliceMs = options.sliceMs ?? DEFAULT_SLICE_MS;
     this.waitMs = options.waitMs ?? DEFAULT_WAIT_MS;
     this.leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
@@ -100,7 +103,11 @@ export class FileLock {
    * @returns 无返回值。
    */
   public release(): void {
-    if (this.token !== 0 && this.currentToken() !== this.token) {
+    // 从未持有（token=0）时绝不能落到下面的 rmSync：那删的是**当前磁盘上的锁目录**，
+    // 若此刻别人正持有，就把对方的临界区删了。调用方常见的 `finally { lock.release() }`
+    // 在 `tryAcquire()` 失败时正好走这条路径。
+    if (this.token === 0) return;
+    if (this.currentToken() !== this.token) {
       // 锁已被别人接管：删掉就是删别人的锁，故只放弃本地 token。
       this.token = 0;
       return;
@@ -157,7 +164,8 @@ export class FileLock {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false;
       throw err;
     }
-    this.token = this.currentToken() + 1;
+    this.token = FileLock.readTokenNumber(this.watermarkPath) + 1;
+    this.writeWatermark();
     this.writeOwner();
     return true;
   }
@@ -173,7 +181,8 @@ export class FileLock {
     } catch {
       return false; // 别人已经接管 / 锁刚被释放
     }
-    const token = FileLock.readToken(graveyard) + 1;
+    const token =
+      Math.max(FileLock.readToken(graveyard), FileLock.readTokenNumber(this.watermarkPath)) + 1;
     rmSync(graveyard, { recursive: true, force: true });
     try {
       mkdirSync(this.lockDir);
@@ -181,6 +190,7 @@ export class FileLock {
       return false;
     }
     this.token = token;
+    this.writeWatermark();
     this.writeOwner();
     return true;
   }
@@ -200,6 +210,32 @@ export class FileLock {
       }
     }
     return Date.now() - owner.at > this.leaseMs;
+  }
+
+  /**
+   * 读某个 token 水位文件的数值。
+   * @param file 水位文件路径
+   * @returns token；缺失/损坏返回 0
+   */
+  private static readTokenNumber(file: string): number {
+    try {
+      const value = Number.parseInt(readFileSync(file, 'utf8').trim(), 10);
+      return Number.isFinite(value) && value >= 0 ? value : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * 写 token 水位（在锁目录之外，释放后保留 ⇒ 下一次获取仍能单调递增）。
+   * @returns 无返回值。
+   */
+  private writeWatermark(): void {
+    try {
+      writeFileSync(this.watermarkPath, String(this.token) + '\n', 'utf8');
+    } catch {
+      // 水位写不进去时仍以本次 token 持锁；下一次获取可能复用 token，guard 会保守拒绝。
+    }
   }
 
   /**

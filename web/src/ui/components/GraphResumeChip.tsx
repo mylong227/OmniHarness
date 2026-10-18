@@ -5,7 +5,6 @@
 // 的一条带，把「有运行时没跑完 + 一键续跑」放在这里，就不需要先学会导航。
 // 纯展示组件（函数组件范式）：状态由父注入，点击回调上抛，无副作用。
 
-import * as React from 'react';
 import { t } from '../i18n/i18n.ts';
 import type { GraphRunState } from '../../types/models.ts';
 

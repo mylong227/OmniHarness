@@ -40,6 +40,16 @@ type Assert<T extends true> = T;
 /** 类型级可赋值性：`A` 能否赋给 `B`。 */
 type Assignable<A, B> = A extends B ? true : false;
 
+/**
+ * 编译期钉子：缺 `decision` 的形状**不可**赋给契约（放宽成可选即此处编译失败）。
+ *
+ * 导出是为了让「类型级负断言」本身有落脚点：TypeScript 会把未引用的本地类型报为 unused，
+ * 而这里要的正是「求值一次即可」的断言。与运行期判据① 一起看，才算"声明 ≡ 实现"。
+ */
+export type DecisionRequiredOnWritePath = Assert<
+  Assignable<{ toolName: string }, ApprovalRule> extends false ? true : false
+>;
+
 test('① 缺 decision 的规则必须被**写入路径**拦下，且消息点明"不会生效"', () => {
   const error = writePathError({ rules: [{ toolName: 'shell' }] });
   assert.ok(error !== undefined, '缺 decision 必须拦下（否则编辑器能落盘永不生效的规则）');
@@ -74,10 +84,7 @@ test('③ 其余三类非法仍必须拦（未知字段 / 非法枚举 / 类型�
 });
 
 test('④ 类型契约与运行期校验一致：`decision` 两边都是必填（附编译期断言）', () => {
-  // 编译期：缺 decision 的形状**不可**赋给契约（放宽成可选即此处编译失败）。
-  type _DecisionRequired = Assert<
-    Assignable<{ toolName: string }, ApprovalRule> extends false ? true : false
-  >;
+  // 编译期（模块级 `DecisionRequiredOnWritePath`）：缺 decision 的形状不可赋给契约。
   // 运行期：同一形状必须被拦（① 已验）。两处一起看，才算"声明 ≡ 实现"。
   const missing: unknown = { toolName: 'shell' };
   assert.ok(

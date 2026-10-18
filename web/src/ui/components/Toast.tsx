@@ -1,7 +1,6 @@
 // 轻提示：由 App 的 toast 状态驱动渲染，替代 vanilla 版直接操作 DOM 的 toast。
 // 纯展示组件（函数组件范式）：无内部状态、无副作用、无服务依赖。
 
-import * as React from 'react';
 import type { ToastState } from '../shared.ts';
 
 /** Toast 组件的入参。 */

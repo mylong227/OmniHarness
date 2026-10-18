@@ -49,22 +49,22 @@ type WritableKeys<T> = {
 }[keyof T];
 
 /** 钉子①：`decision` 必填——缺少它的形状**不可**赋给契约（改成可选即此处红）。 */
-type _DecisionRequired = Assert<
+export type _DecisionRequired = Assert<
   Assignable<{ toolName: string }, ApprovalRule> extends false ? true : false
 >;
 
 /** 钉子②：取值域封闭为三值——`'permit'` 不可赋给契约（放宽成 `string` 即红）。 */
-type _DecisionEnumClosed = Assert<
+export type _DecisionEnumClosed = Assert<
   Assignable<{ decision: 'permit' }, ApprovalRule> extends false ? true : false
 >;
 
 /** 钉子③：约束字段类型固定为 `string`——`number` 不可赋给契约（放宽成 `string | number` 即红）。 */
-type _ConstraintFieldsAreString = Assert<
+export type _ConstraintFieldsAreString = Assert<
   Assignable<{ decision: 'allow'; toolName: number }, ApprovalRule> extends false ? true : false
 >;
 
 /** 钉子④：契约字段**全部只读**——去掉任一 `readonly` 即可写键非空 ⇒ 红。 */
-type _AllFieldsReadonly = Assert<WritableKeys<ApprovalRule> extends never ? true : false>;
+export type _AllFieldsReadonly = Assert<WritableKeys<ApprovalRule> extends never ? true : false>;
 
 /** 契约字段全集（由下一条类型断言强制与 `keyof ApprovalRule` 完全一致）。 */
 const CONTRACT_FIELDS = ['toolName', 'commandPrefix', 'commandGlob', 'decision'] as const;

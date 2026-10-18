@@ -3,7 +3,7 @@
 // 函数组件范式：仅一个展开态。
 
 import * as React from 'react';
-import { jsonView, timeOf, esc } from '../../format.ts';
+import { jsonView, timeOf } from '../../format.ts';
 import { truncate, describeToolCall } from '../../textUtils.ts';
 import { ArtifactResolver } from '../../models/ArtifactResolver.ts';
 import { icon } from '../../models/Icon.ts';
@@ -62,15 +62,15 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
       >
         <span className="tc-chevron">{open ? '▾' : '▸'}</span>
         <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
-        <span className="tc-summary tc-action" title={esc(toolName)}>
-          {esc(description)}
+        <span className="tc-summary tc-action" title={toolName}>
+          {description}
         </span>
         <span className={'tool-status ' + status}>{statusText}</span>
         <span className="time">{timeOf(ev.timestamp)}</span>
       </div>
       {errText ? (
-        <div className="tc-error" title={esc(errText)}>
-          {icon('alert', { size: 13 })} {esc(truncate(errText, 160))}
+        <div className="tc-error" title={errText}>
+          {icon('alert', { size: 13 })} {truncate(errText, 160)}
         </div>
       ) : null}
       {artifact ? <ArtifactCard info={artifact} onOpen={onOpenFile} /> : null}
@@ -79,7 +79,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
           {p.args ? jsonView(p.args) : null}
           <div className="tool-result">
             {res ? (
-              <div className="tool-output">{esc(res.text)}</div>
+              <div className="tool-output">{res.text}</div>
             ) : (
               <div className="tool-output tc-waiting">{t('等待结果…')}</div>
             )}

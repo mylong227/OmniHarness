@@ -111,3 +111,21 @@ test('收窄：源码与测试混合时只取测试文件，并去重、封顶 8
     TestCommandNarrower.MAX_TARGETS,
   );
 });
+
+test('目标来自不可信堆栈帧：含 shell 元字符时退回全量命令（不得拼进命令行）', () => {
+  for (const evil of [
+    '$(id).test.ts',
+    'a;rm -rf /.test.ts',
+    'a`whoami`.test.ts',
+    'a|cat /etc/passwd.test.ts',
+    'a b.test.ts',
+    'a"quote.test.ts',
+  ]) {
+    assert.strictEqual(narrow('npm test', [evil]), 'npm test', `含元字符的目标必须被拒绝：${evil}`);
+  }
+  // 正对照：同一形态但字符干净的路径仍应被收窄（防"一律拒绝"骗过判据）。
+  assert.strictEqual(
+    narrow('npm test', ['tests/unit/a.test.ts']),
+    'npm test -- tests/unit/a.test.ts',
+  );
+});

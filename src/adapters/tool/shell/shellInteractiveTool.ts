@@ -26,6 +26,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.ts';
 import { log } from '../../../util/logger.ts';
+import { ShellChildEnv } from './shellChildEnv.ts';
 import { ShellCommandPolicy } from './shellCommandPolicy.ts';
 import { PtyCapability } from './ptyCapability.ts';
 import type { PtyProbe, PtyReport } from './ptyCapability.ts';
@@ -174,7 +175,7 @@ export class ShellInteractiveTool {
     try {
       const outcome = await this.executor.run(argv.bin, argv.args, {
         cwd,
-        env: this.childEnv(),
+        env: ShellChildEnv.clean(),
         timeoutMs,
         // 转发会话取消（2026-09-26 审计 S12）：前台 shell 早已透传 `context.signal`，
         // 交互式这条支路漏了 ⇒ 撤销回合也停不下来，命令最长跑到 1 小时上限。
@@ -253,24 +254,6 @@ export class ShellInteractiveTool {
       Math.max(Math.floor(requested), ShellInteractiveTool.MIN_TIMEOUT_MS),
       this.maxTimeoutMs,
     );
-  }
-
-  /**
-   * 构造子进程环境：清除外部注入的 NODE_OPTIONS shim（与 `ShellTool.childEnv` 同一口径，
-   * 否则交互式子进程会被代理的 fs hook 污染而行为不一致）。
-   *
-   * @returns 清理后的环境变量副本。
-   */
-  private childEnv(): NodeJS.ProcessEnv {
-    const rawNodeOptions = process.env['NODE_OPTIONS'] ?? '';
-    const cleanedNodeOptions = rawNodeOptions
-      .split(/\s+/)
-      .filter(
-        (opt) =>
-          opt !== '' && !/node-language-shim\.cjs|node-safe-delete|node-brokered-fs/i.test(opt),
-      )
-      .join(' ');
-    return { ...process.env, NODE_OPTIONS: cleanedNodeOptions };
   }
 
   /**

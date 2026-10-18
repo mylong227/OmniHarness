@@ -8,6 +8,7 @@ import type {
 import { OutputDecoder } from '../../../util/outputDecoder.ts';
 import { log } from '../../../util/logger.ts';
 import { ShellCommandPolicy } from './shellCommandPolicy.ts';
+import { ShellChildEnv } from './shellChildEnv.ts';
 import { ShellProcessRunner } from './shellProcessRunner.ts';
 import type { ShellRunOutcome } from './shellProcessRunner.ts';
 import type { BackgroundJobRegistry } from './backgroundJobRegistry.ts';
@@ -213,7 +214,7 @@ export class ShellTool {
       const timeoutMs = this.effectiveTimeout(call.arguments['timeout_ms']);
       const outcome = await this.runner.run(command, {
         cwd,
-        env: this.childEnv(),
+        env: ShellChildEnv.clean(),
         timeoutMs,
         maxBufferBytes: this.maxBufferBytes,
         pty: usePty,
@@ -265,7 +266,7 @@ export class ShellTool {
       return this.failure(callId, '后台执行未启用（组合根未注入 BackgroundJobRegistry）');
     }
     try {
-      const job = this.jobs.start(command, this.childEnv());
+      const job = this.jobs.start(command, ShellChildEnv.clean());
       return {
         callId,
         ok: true,
@@ -339,25 +340,6 @@ export class ShellTool {
       return this.exitFailure(callId, `命令退出码 ${outcome.exitCode ?? 'unknown'}`, output);
     }
     return { callId, ok: true, output };
-  }
-
-  /**
-   * 构造子进程环境：清除 WorkBuddy/CodeBuddy 注入的 NODE_OPTIONS shim
-   * （如 node-language-shim.cjs），避免子进程被代理的 fs/safe-delete hook 污染，
-   * 导致 tsc 等工具异常 OOM 或行为不一致。
-   *
-   * @returns 清理后的环境变量副本。
-   */
-  private childEnv(): NodeJS.ProcessEnv {
-    const rawNodeOptions = process.env['NODE_OPTIONS'] ?? '';
-    const cleanedNodeOptions = rawNodeOptions
-      .split(/\s+/)
-      .filter(
-        (opt) =>
-          opt !== '' && !/node-language-shim\.cjs|node-safe-delete|node-brokered-fs/i.test(opt),
-      )
-      .join(' ');
-    return { ...process.env, NODE_OPTIONS: cleanedNodeOptions };
   }
 
   /** 组装 stdout/stderr 输出。

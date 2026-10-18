@@ -10,7 +10,6 @@
 // 函数组件范式：仅一个展开态 + 一个计时器，用 useState/useRef/useEffect 承接。
 
 import * as React from 'react';
-import { esc } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -123,9 +122,9 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
           <span className="reason-live-count">{t('{n} 字', { n: content.length })}</span>
         </div>
         <div className="reason-live-body" aria-hidden="true">
-          {esc(settled)}
+          {settled}
           {settled !== '' ? '\n' : ''}
-          <span className="reason-live-tail">{esc(tail)}</span>
+          <span className="reason-live-tail">{tail}</span>
           <span className="reason-caret"></span>
         </div>
         <div className="reason-live-status" role="status" aria-live="polite" aria-atomic="true">
@@ -155,7 +154,7 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
       {open ? (
         <div className="tc-detail">
           <div className="reason-body" spellCheck="false">
-            {esc(content)}
+            {content}
           </div>
         </div>
       ) : null}

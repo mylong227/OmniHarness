@@ -1,4 +1,4 @@
-﻿// F8 路由 / 深链：Router 纯函数 + RouteBinding 接线契约测试。
+// F8 路由 / 深链：Router 纯函数 + RouteBinding 接线契约测试。
 // 验证 parseHash / toHash 往返、非法面板回落、navigate 写入 hash，
 // 以及 RouteBinding 的「初始深链还原 / 订阅前进后退 / 退订 / 相同路由立即收口」。
 // 直跑 web/dist（web:build 编译后），node --test web/test/*.test.mjs。
@@ -122,7 +122,11 @@ test('RouteBinding.start：还原初始深链（展开右栏 + 载入会话）�
   const rb = new RouteBinding(host, (id) => opened.push(id));
   rb.start();
 
-  assert.deepEqual(patches[0], { activePane: 'changes', rightOpen: true }, '深链面板必须落到状态');
+  assert.deepEqual(
+    patches[0],
+    { activePane: 'changes', rightOpen: true, rightCollapsed: false },
+    '深链面板必须落到状态，并复位桌面端收起偏好',
+  );
   assert.deepEqual(opened, ['t-deep'], '深链会话必须触发载入');
   assert.deepEqual(rb.current(), { pane: 'changes', threadId: 't-deep' });
   assert.strictEqual(win.count(), 1, '必须订阅 hashchange（浏览器前进 / 后退）');
@@ -130,7 +134,11 @@ test('RouteBinding.start：还原初始深链（展开右栏 + 载入会话）�
   // 模拟浏览器后退到另一个面板：hash 变化由浏览器派发 hashchange。
   withHash('#pane=memory');
   win.fire();
-  assert.deepEqual(patches[patches.length - 1], { activePane: 'memory', rightOpen: true });
+  assert.deepEqual(patches[patches.length - 1], {
+    activePane: 'memory',
+    rightOpen: true,
+    rightCollapsed: false,
+  });
   assert.deepEqual(opened, ['t-deep'], '无 thread 的路由不得重复载入会话');
 
   rb.stop();
@@ -192,10 +200,18 @@ test('RouteBinding.navigate：写 hash；路由未变时立即收口不等 hashc
   assert.deepEqual(patches, [], '变更路由时不得双写状态');
   withHash('#pane=file');
   win.fire();
-  assert.deepEqual(patches[patches.length - 1], { activePane: 'file', rightOpen: true });
+  assert.deepEqual(patches[patches.length - 1], {
+    activePane: 'file',
+    rightOpen: true,
+    rightCollapsed: false,
+  });
 
   // 目标路由与当前一致：浏览器不派发 hashchange，必须立即收口，否则状态与 hash 脱节。
   patches.length = 0;
   rb.navigate({ pane: 'file' });
-  assert.deepEqual(patches, [{ activePane: 'file', rightOpen: true }], '相同路由必须直接收口');
+  assert.deepEqual(
+    patches,
+    [{ activePane: 'file', rightCollapsed: false, rightOpen: true }],
+    '相同路由必须直接收口',
+  );
 });
