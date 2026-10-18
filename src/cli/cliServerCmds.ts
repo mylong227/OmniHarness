@@ -8,7 +8,7 @@
 
 import { LicenseSource } from '../license/licenseSource.ts';
 import { createInterface } from 'node:readline';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -261,6 +261,12 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       expectedNonce: st.nonce,
     });
     const masked = tokens.access_token.slice(0, 6) + '…' + tokens.access_token.slice(-4);
+    // 换码成功后中间态（client_secret + PKCE verifier）不再需要：立即删除，别留在 home 里等 TTL。
+    try {
+      rmSync(statePath, { force: true });
+    } catch {
+      process.stderr.write(`警告：登录成功但中间态文件未能删除：${statePath}\n`);
+    }
     process.stdout.write(
       `登录成功（access_token ${masked}，token_type ${tokens.token_type}` +
         `${tokens.expires_in !== undefined ? `，有效期 ${tokens.expires_in}s` : ''}）\n` +
