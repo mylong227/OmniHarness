@@ -4055,3 +4055,12 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 
 验收：四面板与侧栏的真机截图（暗色，1280）、`vitest web` 86 文件 / 490 例全绿（含 axe WCAG 审计）、
 `i18nCoverage`（新增两枚英文词条）全绿。
+
+### 24. 统一去掉「前面突出的竖条」（2026-10-19）
+
+用户对光主题的审批档位菜单指出：当前档位左侧有一条突出的竖条，要求"有相同样式的都去掉"。
+它来自 `.dd-item.active` / `.mp-item.active` / `.session.active` / `.sp-nav-item.on` 上的
+`box-shadow: inset 2px 0 0 var(--accent)`（"淡墨底 + 左缘墨标"这套语言）。
+
+处置：删除全部 **选中/当前** 的左缘墨标，只保留极淡墨底（`.session.active`、菜单当前项、
+设置模态当前分栏）。保留的两处 2px 左缘都是**语义**而非选中态：diff 行（新增/删除）与错误提示。

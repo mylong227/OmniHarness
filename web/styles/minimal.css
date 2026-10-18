@@ -427,12 +427,11 @@
   background: var(--hover);
   color: var(--text);
 }
-/* 当前会话：墨色淡底 + 左缘 2px 墨标。比"整行反白"柔和，但仍在一屏十几行里可辨。 */
+/* 当前会话：只留极淡墨底（2026-10-19 用户要求统一去掉左缘那条「突出」的墨标）。 */
 .session.active {
   background: var(--accent-soft);
   color: var(--text);
   border-color: transparent;
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 .session-label {
   font-size: var(--fs-list);
@@ -1317,7 +1316,6 @@
   background: var(--accent-soft);
   color: var(--text);
   border-color: transparent;
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 .dd-item.active .perm-name {
   font-weight: 600;
@@ -1664,7 +1662,6 @@ button:active,
 .mp-item.active {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 .mp-item-name {
   overflow: hidden;
@@ -1835,11 +1832,10 @@ button:active,
   background: var(--hover);
   color: var(--text);
 }
-/* 当前分栏：极淡墨底 + 左缘墨标（与侧栏当前会话同一语言）。 */
+/* 当前分栏：极淡墨底（与侧栏当前会话同一语言；不再加左缘墨标）。 */
 .sp-nav-item.on {
   background: var(--accent-soft);
   color: var(--text);
-  box-shadow: inset 2px 0 0 var(--accent);
   font-weight: 550;
 }
 .sp-content {
