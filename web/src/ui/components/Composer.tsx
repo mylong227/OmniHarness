@@ -480,17 +480,6 @@ export function Composer(props: ComposerProps): ReactElement {
               onOpenFile={(p) => onOpenFile?.(p)}
               onLoadThread={(id) => onLoadThread?.(id)}
             />
-            <button
-              className="iconbtn attach"
-              title={t('粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）')}
-              aria-label={t('附加图片、视频或文件')}
-              onClick={() => {
-                setPickerErr(null);
-                setFilePickerOpen(true);
-              }}
-            >
-              {icon('paperclip', { size: 15 })}
-            </button>
             <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
           </div>
           <div className="composer-bar-right">
