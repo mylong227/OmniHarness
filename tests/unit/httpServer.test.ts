@@ -19,6 +19,7 @@ import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 async function startTestServer(
   approvalUplink = false,
   audit?: AuditSink,
+  authToken?: string,
 ): Promise<{ server: HttpServer; port: number; base: string }> {
   const config = ConfigFactory.build({
     workspaceRoot: tempWorkspace(),
@@ -42,6 +43,7 @@ async function startTestServer(
     bridge,
     webDir: resolve(process.cwd(), 'web'),
     metrics: new Metrics(),
+    authToken,
   });
   const port = await server.start(0);
   // 连**实际绑定地址**（服务端默认绑 127.0.0.1）：Windows 上 `localhost` 常先解析到 `::1`，
@@ -83,6 +85,25 @@ async function collectSse(base: string): Promise<{ events: string[]; abort: () =
   await sleep(100);
   return { events, abort: () => controller.abort() };
 }
+
+test('HTTP：启用令牌时首屏下发 HttpOnly cookie，后续静态资源凭 cookie 可用', async () => {
+  const { server, base } = await startTestServer(false, undefined, 'secret');
+  try {
+    const denied = await fetch(`${base}/`);
+    assert.strictEqual(denied.status, 401, '无 token 的首屏必须拒绝');
+    const first = await fetch(`${base}/?token=secret`);
+    assert.strictEqual(first.status, 200);
+    const setCookie = first.headers.get('set-cookie') ?? '';
+    assert.match(setCookie, /omni_serve_token=secret/u);
+    assert.match(setCookie, /HttpOnly/u);
+    const asset = await fetch(`${base}/`, {
+      headers: { cookie: 'omni_serve_token=secret' },
+    });
+    assert.strictEqual(asset.status, 200, '同源 cookie 必须放行后续静态资源');
+  } finally {
+    await server.close();
+  }
+});
 
 test('HTTP：静态页返回 200', async () => {
   const { server, base } = await startTestServer();

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { PosixShell } from '../../util/posixShell.ts';
 
 /**
  * Linux 内核命名空间隔离后端（`unshare -rm`，A1 的无第三方依赖替代）。
@@ -124,5 +125,15 @@ export class LinuxUnshareSandbox implements SandboxPort {
   public dryRun(command: string, args: readonly string[], workspace: string): string[] {
     void workspace;
     return ['unshare', '-rm', '--map-root-user', '--mount-proc', '--', command, ...args];
+  }
+
+  /**
+   * 把 shell 命令包进 unshare 命名空间：`unshare -rm ... -- /bin/sh -c '<command>'`。
+   * @param command 原始 shell 命令
+   * @param cwd 工作区根（仅作为契约参数；命名空间继承调用方 cwd）
+   * @returns 包装后的命令文本
+   */
+  public wrapCommand(command: string, cwd: string): string {
+    return PosixShell.command(this.dryRun('/bin/sh', ['-c', command], cwd));
   }
 }

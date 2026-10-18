@@ -9,7 +9,7 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { unlinkSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, delimiter } from 'node:path';
@@ -96,9 +96,11 @@ test(
     ),
   },
   () => {
-    // 内核 fs 根 = 进程 cwd；用绝对路径落于 cwd 之下，确保 within() 沙箱校验通过。
+    // 内核 fs 根 = 进程 cwd；放到 cwd 下的 .tmp 子目录，避免往仓库根写临时文件。
     const cwd = process.cwd();
-    const path = join(cwd, `.omni-alias-${process.pid}-${Date.now()}.txt`);
+    const dir = join(cwd, '.tmp', `omni-alias-${process.pid}-${Date.now()}`);
+    const path = join(dir, 'bridge.txt');
+    mkdirSync(dir, { recursive: true });
     try {
       const w = native!.runTool(call('write_file', { path, content: 'bridge-ok' }));
       assert.strictEqual(w.ok, true, 'write_file 应路由到 fs.write_file 并成功');
@@ -107,11 +109,7 @@ test(
       assert.strictEqual(r.ok, true, 'read_file 应路由到 fs.read_file 并成功');
       assert.match(r.output ?? '', /bridge-ok/, '读回内容应一致');
     } finally {
-      try {
-        unlinkSync(path);
-      } catch {
-        /* 忽略清理失败 */
-      }
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
     }
   },
 );

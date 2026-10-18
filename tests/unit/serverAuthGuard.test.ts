@@ -4,10 +4,16 @@ import type { IncomingMessage } from 'node:http';
 import { ServerAuthGuard } from '../../src/server/transport/serverAuthGuard.ts';
 
 /** 构造最小请求桩：只提供 verify 需要的 url 与可选 authorization / origin 头。 */
-function req(url: string, authorization?: string, origin?: string): IncomingMessage {
+function req(
+  url: string,
+  authorization?: string,
+  origin?: string,
+  cookie?: string,
+): IncomingMessage {
   const headers: Record<string, string> = {};
   if (authorization !== undefined) headers['authorization'] = authorization;
   if (origin !== undefined) headers['origin'] = origin;
+  if (cookie !== undefined) headers['cookie'] = cookie;
   return { url, headers } as unknown as IncomingMessage;
 }
 
@@ -16,6 +22,31 @@ test('verify：未启用令牌时一律放行（含带 token 查询参数的 SSE
   assert.strictEqual(guard.enabled, false);
   assert.strictEqual(guard.verify(req('/rpc')), true);
   assert.strictEqual(guard.verify(req('/events?token=whatever')), true);
+});
+
+test('verify：启用令牌 + 首屏下发的 HttpOnly cookie 匹配放行', () => {
+  const guard = new ServerAuthGuard('secret');
+  assert.strictEqual(
+    guard.verify(req('/assets/index.js', undefined, undefined, 'omni_serve_token=secret')),
+    true,
+  );
+  assert.strictEqual(
+    guard.verify(req('/assets/index.js', undefined, undefined, 'omni_serve_token=wrong')),
+    false,
+  );
+  assert.strictEqual(
+    guard.verify(req('/assets/index.js', undefined, undefined, 'other=secret')),
+    false,
+  );
+});
+
+test('generateToken/cookieHeader：高熵令牌 + HttpOnly/SameSite=Strict', () => {
+  const token = ServerAuthGuard.generateToken();
+  assert.match(token, /^[0-9a-f]{64}$/u);
+  const cookie = ServerAuthGuard.cookieHeader(token);
+  assert.match(cookie, /HttpOnly/u);
+  assert.match(cookie, /SameSite=Strict/u);
+  assert.match(cookie, /Path=\//u);
 });
 
 test('verify：启用令牌 + Authorization 头匹配放行', () => {

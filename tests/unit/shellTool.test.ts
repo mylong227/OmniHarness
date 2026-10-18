@@ -327,3 +327,33 @@ describe('shell 工具族超时口径（审计 §3.5：常量各自声明）', (
     assert.ok(ShellInteractiveTool.MAX_TIMEOUT_MS > ShellTool.DEFAULT_MAX_TIMEOUT_MS);
   });
 });
+
+it('OS 沙箱 commandWrapper：策略/裁决看原命令，执行器只收到包装后的命令', async () => {
+  const seen: string[] = [];
+  const tool = new ShellTool({
+    guard: (command) => (command === 'echo hi' ? undefined : '应只裁决原命令'),
+    commandWrapper: (command, cwd) => `bwrap --bind '${cwd}' '${cwd}' -- /bin/sh -c '${command}'`,
+    runner: {
+      run: async (command) => {
+        seen.push(command);
+        return {
+          stdout: Buffer.from('wrapped-ok'),
+          stderr: Buffer.alloc(0),
+          exitCode: 0,
+          signal: null,
+          timedOut: false,
+          overflowed: false,
+          aborted: false,
+        };
+      },
+    },
+  });
+  const result = await tool.handle(call('echo hi'), {
+    sessionId: 's1',
+    workspaceRoot: process.cwd(),
+  });
+  assert.strictEqual(result.ok, true, result.error);
+  assert.strictEqual(seen.length, 1);
+  assert.match(seen[0] ?? '', /^bwrap /u);
+  assert.match(seen[0] ?? '', /'echo hi'$/u);
+});

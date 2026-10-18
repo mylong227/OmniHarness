@@ -147,7 +147,10 @@ test('⑥ 实跑自证：工具暴露探针真能跑通并给出结构正确的�
   assert.ok(report.totalTools > 10, `工具总数异常：${String(report.totalTools)}`);
   assert.ok(report.planMode.rows.length >= 5, 'plan 模式应有多条任务样本');
   for (const row of report.planMode.rows) {
-    assert.ok(row.visible >= 0 && row.visible <= report.totalTools, '可见工具数越界');
+    assert.ok(
+      Number.isInteger(row.visible) && row.visible <= report.totalTools,
+      `可见工具数应为不超过总数的整数：${String(row.visible)}/${String(report.totalTools)}`,
+    );
   }
   assert.ok(
     report.planMode.avgVisible <= report.totalTools,

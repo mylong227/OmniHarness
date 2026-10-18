@@ -18,6 +18,15 @@ test('LinuxBwrapSandbox: bwrap 不可用时 check 返回 allowed:false (fail-clo
   }
 });
 
+test('LinuxBwrapSandbox: wrapCommand 把命令包进 /bin/sh -c 并转义单引号', () => {
+  const sb = new LinuxBwrapSandbox(WORKSPACE);
+  const wrapped = sb.wrapCommand("echo 'x' && echo ok", WORKSPACE);
+  assert.match(wrapped, /^'bwrap' /u);
+  assert.match(wrapped, /--unshare-net/u);
+  assert.match(wrapped, /'\/bin\/sh' '-c'/u);
+  assert.ok(wrapped.includes(`'echo '\\''x'\\'' && echo ok'`), wrapped);
+});
+
 test('LinuxBwrapSandbox: dryRun 生成含 --unshare-net 与 --bind workspace 的命令行', () => {
   const sb = new LinuxBwrapSandbox(WORKSPACE);
   const cmd = sb.dryRun('node', ['script.js'], WORKSPACE);

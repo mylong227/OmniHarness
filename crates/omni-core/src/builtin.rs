@@ -352,9 +352,11 @@ impl Tool for ShellRunTool {
         let Some(command) = arg_str(&args, "command") else {
             return ToolResult::err("缺少 command 参数");
         };
-        let output = run_shell_in(&command, &self.cwd);
+        let timeout_ms = args.get("timeout_ms").and_then(serde_json::Value::as_u64);
+        let output = run_shell_in(&command, &self.cwd, timeout_ms);
         match output {
-            Ok(text) => ToolResult::ok(text),
+            Ok(out) if out.success => ToolResult::ok(out.text),
+            Ok(out) => ToolResult::err(out.text),
             Err(e) => ToolResult::err(format!("执行失败: {}", e)),
         }
     }
@@ -362,7 +364,10 @@ impl Tool for ShellRunTool {
         ToolMeta::new(
             "shell.run",
             "执行外部命令（危险工具，受审批与沙箱多层门禁约束）",
-            param_schema(&[("command", "string", true, "要执行的命令")]),
+            param_schema(&[
+                ("command", "string", true, "要执行的命令"),
+                ("timeout_ms", "number", false, "超时毫秒数（超时即终止并按失败返回）"),
+            ]),
         )
     }
 }
@@ -421,27 +426,42 @@ fn decode_output(bytes: &[u8]) -> String {
     }
 }
 
+/// shell 执行结果（成功/失败与合并输出；失败不再伪装成 `ok`）。
+struct ShellOutcome {
+    text: String,
+    success: bool,
+}
+
 /// 以系统 shell 执行命令并捕获输出（Windows: cmd /C；其余: sh -c），子进程 cwd = `cwd`。
 #[cfg(not(target_arch = "wasm32"))]
-fn run_shell_in(command: &str, cwd: &std::path::Path) -> std::io::Result<String> {
+fn run_shell_in(
+    command: &str,
+    cwd: &std::path::Path,
+    timeout_ms: Option<u64>,
+) -> std::io::Result<ShellOutcome> {
+    let timeout = timeout_ms.map(std::time::Duration::from_millis);
     #[cfg(windows)]
-    let output = if let Some(inner) =
+    let (output, timed_out) = if let Some(inner) =
         command.strip_prefix(crate::restricted_token::RESTRICTED_COMMAND_PREFIX)
     {
-        // OS 沙箱包装：以进程内受限令牌 + Job Object 直拉命令（不依赖 omni-cli 外部二进制）。
-        // 受限令牌由启动器构造期创建、调用方无法绕过——fail-closed。
-        run_restricted_capture(inner, cwd)?
+        // 受限令牌路径由 Job Object 自行限额；这里保持阻塞语义（不接墙钟超时）。
+        (run_restricted_capture(inner, cwd)?, false)
     } else {
-        std::process::Command::new("cmd")
-            .args(["/C", command])
-            .current_dir(cwd)
-            .output()?
+        capture_with_timeout(
+            {
+                let mut cmd = std::process::Command::new("cmd");
+                cmd.args(["/C", command]).current_dir(cwd);
+                cmd
+            },
+            timeout,
+        )?
     };
     #[cfg(not(windows))]
-    let output = std::process::Command::new("sh")
-        .args(["-c", command])
-        .current_dir(cwd)
-        .output()?;
+    let (output, timed_out) = {
+        let mut cmd = std::process::Command::new("sh");
+        cmd.args(["-c", command]).current_dir(cwd);
+        capture_with_timeout(cmd, timeout)?
+    };
 
     let stdout = decode_output(&output.stdout);
     let stderr = decode_output(&output.stderr);
@@ -450,12 +470,103 @@ fn run_shell_in(command: &str, cwd: &std::path::Path) -> std::io::Result<String>
     } else {
         format!("{}\n{}", stdout.trim_end(), stderr.trim_end())
     };
+    if timed_out {
+        return Ok(ShellOutcome {
+            text: format!(
+                "timeout after {}ms: {}",
+                timeout_ms.unwrap_or(0),
+                combined.trim()
+            ),
+            success: false,
+        });
+    }
     if output.status.success() {
-        Ok(combined.trim().to_string())
+        Ok(ShellOutcome {
+            text: combined.trim().to_string(),
+            success: true,
+        })
     } else {
         let code = output.status.code().unwrap_or(-1);
-        Ok(format!("exit {}: {}", code, combined.trim()))
+        Ok(ShellOutcome {
+            text: format!("exit {}: {}", code, combined.trim()),
+            success: false,
+        })
     }
+}
+
+/// 带墙钟超时的子进程捕获：stdout/stderr 由读线程收集，主线程轮询 `try_wait`；
+/// 超时先树杀（Windows taskkill /T；Unix 进程组 kill），再等子进程退出。
+#[cfg(not(target_arch = "wasm32"))]
+fn capture_with_timeout(
+    mut cmd: std::process::Command,
+    timeout: Option<std::time::Duration>,
+) -> std::io::Result<(std::process::Output, bool)> {
+    use std::io::Read;
+    use std::time::Instant;
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+    let mut child = cmd
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
+    let mut stdout_pipe = child.stdout.take().expect("stdout piped");
+    let mut stderr_pipe = child.stderr.take().expect("stderr piped");
+    let stdout_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stdout_pipe.read_to_end(&mut buf);
+        buf
+    });
+    let stderr_thread = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stderr_pipe.read_to_end(&mut buf);
+        buf
+    });
+    let started = Instant::now();
+    let mut timed_out = false;
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if timeout.is_some_and(|limit| started.elapsed() >= limit) {
+            timed_out = true;
+            kill_shell_tree(&mut child);
+            break child.wait()?;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    };
+    let stdout = stdout_thread.join().unwrap_or_default();
+    let stderr = stderr_thread.join().unwrap_or_default();
+    Ok((
+        std::process::Output {
+            status,
+            stdout,
+            stderr,
+        },
+        timed_out,
+    ))
+}
+
+/// 终止 shell 及其后代（超时路径）。
+fn kill_shell_tree(child: &mut std::process::Child) {
+    let pid = child.id();
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+    #[cfg(unix)]
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-KILL", &format!("-{}", pid)])
+            .status();
+    }
+    let _ = child.kill();
 }
 
 /// 以进程内受限令牌 + Job Object 拉起命令并回传输出（A4：去掉 omni-cli 依赖）。
@@ -653,6 +764,43 @@ mod tests {
         assert_eq!(EchoTool.meta().name, "echo");
         assert!(!EchoTool.meta().description.is_empty());
         assert!(MathEvalTool.meta().param_schema.get("expression").is_some());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn shell_nonzero_exit_is_error() {
+        let tool = ShellRunTool::new(std::env::temp_dir());
+        let res = tool.call(serde_json::json!({ "command": "exit 3" }));
+        assert!(!res.ok, "非零退出必须 ok=false");
+        assert!(
+            res.error.as_deref().unwrap_or("").contains("exit 3"),
+            "错误应保留退出码: {:?}",
+            res.error
+        );
+    }
+
+    /// 回归（2026-10-18 审查 P1）：native shell 必须受 timeout_ms 约束，不能冻结宿主。
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn shell_timeout_kills_process() {
+        let tool = ShellRunTool::new(std::env::temp_dir());
+        #[cfg(windows)]
+        let command = "ping -n 20 127.0.0.1 >nul";
+        #[cfg(not(windows))]
+        let command = "sleep 20";
+        let started = std::time::Instant::now();
+        let res = tool.call(serde_json::json!({ "command": command, "timeout_ms": 120 }));
+        assert!(!res.ok, "超时必须 ok=false");
+        assert!(
+            res.error.as_deref().unwrap_or("").contains("timeout"),
+            "错误应点名超时: {:?}",
+            res.error
+        );
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(5),
+            "超时必须在预算附近返回，实际 {:?}",
+            started.elapsed()
+        );
     }
 
     #[cfg(not(target_arch = "wasm32"))]

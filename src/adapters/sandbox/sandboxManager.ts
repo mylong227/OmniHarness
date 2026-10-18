@@ -32,12 +32,7 @@ export class SandboxManager {
    * 命令仍按普通 shell 执行。选择它们不能得到真正的 OS 隔离，故 CLI 必须在启动时拒绝，
    * 而不是让用户以为“开了 bwrap/landlock 就隔离了”（2026-10-18 审查）。
    */
-  public static readonly EXECUTION_UNWIRED: ReadonlySet<SandboxProfile> = new Set([
-    'landlock',
-    'bwrap',
-    'unshare',
-    'seatbelt',
-  ]);
+  public static readonly EXECUTION_UNWIRED: ReadonlySet<SandboxProfile> = new Set<SandboxProfile>();
   /** 后端注册表：profile 名 → 工厂（延迟实例化）。 */
   private readonly backends = new Map<SandboxProfile, () => SandboxPort>();
 

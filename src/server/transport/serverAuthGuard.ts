@@ -10,7 +10,7 @@
  * 3. 配了令牌后，除 `/healthz`（存活探针，不泄露任何数据）外一律要求
  *    `Authorization: Bearer <token>`，HTTP 与 WebSocket 一视同仁。
  */
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
 
 /** 回环地址集合（含 IPv6 简写与 localhost）。 */
@@ -26,6 +26,9 @@ export class ServerAuthGuard {
 
   /** 令牌环境变量名。 */
   public static readonly TOKEN_ENV = 'OMNI_SERVE_TOKEN';
+
+  /** 浏览器同源静态资源/下载使用的会话 cookie 名（HttpOnly，避免把令牌暴露给 JS）。 */
+  public static readonly COOKIE_NAME = 'omni_serve_token';
 
   /** 绑定地址环境变量名。 */
   public static readonly HOST_ENV = 'OMNI_SERVE_HOST';
@@ -47,6 +50,23 @@ export class ServerAuthGuard {
    */
   public get enabled(): boolean {
     return this.token !== '';
+  }
+
+  /**
+   * 生成一个高熵临时令牌（仅供本机 serve 进程使用；重启即失效）。
+   * @returns 64 位十六进制字符串
+   */
+  public static generateToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  /**
+   * 构造首次页面响应下发的会话 cookie（HttpOnly + SameSite=Strict）。
+   * @param token 服务端令牌
+   * @returns Set-Cookie 头值
+   */
+  public static cookieHeader(token: string): string {
+    return `${ServerAuthGuard.COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict`;
   }
 
   /**
@@ -107,6 +127,11 @@ export class ServerAuthGuard {
     if (queryToken !== null && ServerAuthGuard.matches(`Bearer ${queryToken}`, this.token)) {
       return true;
     }
+    // 静态资源/下载/WS 由浏览器自动带同源 cookie；令牌本身仍是 HttpOnly，JS 读不到。
+    const cookieToken = ServerAuthGuard.tokenFromCookie(request);
+    if (cookieToken !== null && ServerAuthGuard.matches(`Bearer ${cookieToken}`, this.token)) {
+      return true;
+    }
     return false;
   }
 
@@ -165,5 +190,22 @@ export class ServerAuthGuard {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * 从 Cookie 头取会话令牌。
+   * @param request 原始请求
+   * @returns 令牌原文；不存在时返回 null
+   */
+  private static tokenFromCookie(request: IncomingMessage): string | null {
+    const header = request.headers.cookie;
+    if (typeof header !== 'string') return null;
+    for (const part of header.split(';')) {
+      const eq = part.indexOf('=');
+      if (eq === -1) continue;
+      if (part.slice(0, eq).trim() !== ServerAuthGuard.COOKIE_NAME) continue;
+      return part.slice(eq + 1).trim();
+    }
+    return null;
   }
 }

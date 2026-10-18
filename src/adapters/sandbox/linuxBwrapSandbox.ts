@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { PosixShell } from '../../util/posixShell.ts';
 
 /**
  * Linux bubblewrap (bwrap) OS 级沙箱后端（A1）。
@@ -108,5 +109,16 @@ export class LinuxBwrapSandbox implements SandboxPort {
       command,
       ...args,
     ];
+  }
+
+  /**
+   * 把 shell 命令包进 bwrap：`bwrap ... -- /bin/sh -c '<command>'`。
+   * 只做 argv → 命令文本的还原；策略/审批仍在外层按原命令执行。
+   * @param command 原始 shell 命令
+   * @param cwd 工作区根（可写 bind 目标）
+   * @returns 包装后的命令文本
+   */
+  public wrapCommand(command: string, cwd: string): string {
+    return PosixShell.command(this.dryRun('/bin/sh', ['-c', command], cwd));
   }
 }

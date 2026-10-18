@@ -1,5 +1,8 @@
 import { execFileSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { PosixShell } from '../../util/posixShell.ts';
 
 /**
  * macOS seatbelt (sandbox-exec) OS 级沙箱后端（A2）。
@@ -121,6 +124,19 @@ export class MacOsSeatbeltSandbox implements SandboxPort {
     profilePath = `${workspace}/.seatbelt.sb`,
   ): string[] {
     return ['sandbox-exec', '-f', profilePath, command, ...args];
+  }
+
+  /**
+   * 把 shell 命令包进 seatbelt：先落盘 profile，再 `sandbox-exec -f ... /bin/sh -c '<cmd>'`。
+   * profile 文件放在工作区内（命令本身可写，但这是 seatbelt 的输入，不能放系统临时目录）。
+   * @param command 原始 shell 命令
+   * @param cwd 工作区根
+   * @returns 包装后的命令文本
+   */
+  public wrapCommand(command: string, cwd: string): string {
+    const profilePath = join(cwd, '.seatbelt.sb');
+    writeFileSync(profilePath, this.profileText(cwd), { encoding: 'utf8', mode: 0o600 });
+    return PosixShell.command(this.dryRun('/bin/sh', ['-c', command], cwd, profilePath));
   }
 
   /** 暴露生成的 .sb profile 文本，便于测试断言隔离意图。

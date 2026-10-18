@@ -3614,8 +3614,9 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | Agent 收尾     | `dispose` 后全量 persist，旧的在飞写可能后落地                                                                                                 | `flush → dispose → persist`                                                                 | `sessionLifecycle`                                                                                                          |
 | StepRunner     | 某步无 usage 时沿用上一步用量                                                                                                                  | 无条件覆盖 `lastUsage`                                                                      | `stepLimitPolicy`                                                                                                           |
 | 原生根         | 非 unknown-method 的根对齐失败也永久降级，继续用错误根                                                                                         | 仅 unknown-method 降级，其余抛错回退 JS                                                     | `nativeBackend`                                                                                                             |
-| OS 沙箱        | bwrap/landlock/seatbelt 只裁决不执行，配置后却无真实隔离                                                                                       | CLI 拒绝未接线 profile 启动；doctor 固定 L2 + `执行包装=未接`                               | `securityBoundary`、`sandboxEscalation`                                                                                     |
-| native shell   | Rust `shell.run` 同步执行、无超时、非零退出报成功                                                                                              | `StepToolExecutor` 禁止 shell 路由到原生后端，强制 JS ShellTool（语义正确）；Rust 待修      | `nativeBackend`                                                                                                             |
+| OS 沙箱        | bwrap/landlock/seatbelt 只裁决不执行，配置后却无真实隔离                                                                                       | 四个后端均实现 `wrapCommand`，ShellTool 按原命令裁决后包进 OS 沙箱；不可用仍 fail-closed    | `securityBoundary`、`sandboxEscalation`                                                                                     |
+| native shell   | Rust `shell.run` 同步执行、无超时、非零退出报成功                                                                                              | Rust 已支持 timeout_ms + 非零 ok:false；生产默认仍走 JS ShellTool 以保留策略/输出上限       | `nativeBackend`                                                                                                             |
+| serve 令牌     | 回环默认无令牌，同机进程可直接访问                                                                                                             | 回环默认生成 32B 临时令牌，首屏 `?token=` 换 HttpOnly cookie；非回环仍强制显式令牌          | `serverAuthGuard`、`httpServer`                                                                                             |
 | 服务端跨源     | 任意网页可向 `127.0.0.1` 发 RPC/WS                                                                                                             | 有 `Origin` 必须是回环 http(s)，无 Origin（CLI）放行                                        | `serverAuthGuard`                                                                                                           |
 | Web 凭据       | 空 Key + 已有打码 Key 会把空串发给服务端（=删凭据）                                                                                            | 空输入=不修改，显式提示                                                                     | 源码 + `settingsPane`                                                                                                       |
 | Web 转义       | JSX 里调 `esc()`，JSON 的引号显示成 `&quot;`                                                                                                   | 22 处改为 React 文本/属性直传                                                               | `textEscaping`                                                                                                              |
@@ -3645,25 +3646,25 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 - `npx vitest run --project node tests/unit/`：见 §16.5 最终数；
 - `npx vitest run --project web`：见 §16.5 最终数。
 
-### 16.4 残余与已接受边界（P0/P1 已清零）
+### 16.4 四项边界已落地 + P2 backlog
 
-> 口径：下列不是“忘了修”，而是**当前边界已 fail-closed / 已降级规避**，或需要独立工程；
-> 报告里的 P0/P1 已逐条修复并附判据，剩余为 P2 质量项。
+> 2026-10-18 用户选择「四项全部落地」后的收口。四项不再是“接受边界”：
+> OS 包装、loopback 默认令牌、Rust native shell 均已实现并附判据；仅剩测试审计的 P2 质量项。
 
-1. **OS 级沙箱执行包装仍未接**（`src/adapters/isolation`）：landlock / bwrap / unshare / seatbelt
-   的「真正限制进程」还没接进执行链。**已 fail-closed**：CLI 拒绝以这些 profile 启动，
-   `doctor` 固定报 L2 + `执行包装=未接`，不再把“二进制可达”谎报成 L3。真正执行隔离需接
-   `ShellProcessRunner` 命令包装，属独立工程。
-2. **服务端默认无令牌（接受边界）**：服务只绑回环；浏览器跨源已被 Origin 校验拦截。
-   同用户本地进程能读同一份配置/工作区，令牌文件也拦不住它 ⇒ 不在当前威胁模型内。要防
-   “同机其它用户”，应改绑定/OS 账户隔离，而不是再加一个同权限可读的令牌。
-3. **native shell 本体（已降级规避）**：`StepToolExecutor` 禁止把 `shell` 路由到原生后端，
-   强制 JS ShellTool；Rust `shell.run` 自身仍无超时/输出上限、`exit 3` 仍 `ok:true`，属
-   原生内核清理项（当前不可从生产路径触达）。
-4. **测试审计 P2 质量项**：`.tmp/review/tests-a-m.md` / `tests-n-z.md` 的 P0/P1 已全部修复
-   （memoryTrustBoundary、flagSuggestion、linuxBwrap、doctor、architectureGate、sandboxRobustness、
-   otlp、toolHooks、retry、vault、worktree、sqlite、safeFs、productionGrade、a2a stop 等）；
-   报告末尾仍有 P2（临时目录、绝对墙钟、只断言不抛错等），按“质量项 backlog”继续，不阻塞主线。
+1. **OS 级沙箱已接执行包装**：`bwrap` / `unshare` / `landlock` / `seatbelt` 后端新增
+   `wrapCommand()`，`ShellTool` 在策略/审批按原命令裁决后把命令包进
+   `bwrap ... /bin/sh -c '<cmd>'` / `unshare ...` / `helper --workspace ... --` /
+   `sandbox-exec -f ...`；`SandboxManager.EXECUTION_UNWIRED` 为空。后端不可用（二进制/内核/
+   helper 缺失）时仍由 `check()` fail-closed，不会退回无隔离执行。
+2. **loopback 默认令牌**：`serve` 未配 `OMNI_SERVE_TOKEN` 时生成 32 字节随机令牌，打印带
+   `?token=` 的 URL；首屏 HTML 下发 `HttpOnly + SameSite=Strict` cookie，后续静态资源、RPC、
+   SSE、下载、WS 自动带鉴权。非回环仍必须显式配令牌。
+3. **Rust native shell 本体已修**：`shell.run` 现在非零退出 `ok:false`（保留退出码），
+   支持 `timeout_ms` 墙钟超时（Windows `taskkill /T`、Unix 进程组 kill），默认/显式超时；
+   新增 Rust 判据 `shell_nonzero_exit_is_error` / `shell_timeout_kills_process`。
+   生产 `StepToolExecutor` 仍默认走 JS ShellTool（保留策略与输出上限），native 路径可用。
+4. **测试审计 P2 backlog**：P0/P1 已全部修复；剩余 P2 为临时目录清理、绝对墙钟、只断言不抛错
+   等质量项（`.tmp/review/tests-a-m.md` / `tests-n-z.md`），不影响主结论。
 
 ### 16.5 提交与最终数
 

@@ -336,12 +336,18 @@ export class HttpServer {
     }
     try {
       const content = await readFile(file);
-      response.writeHead(200, {
+      const headers: Record<string, string> = {
         'Content-Type': this.contentType(file),
         'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
         Pragma: 'no-cache',
         Expires: '0',
-      });
+      };
+      // 首屏 HTML 命中时下发 HttpOnly 会话 cookie，让后续静态资源/下载/WS 自动带鉴权；
+      // 仅当本次请求已通过 guard（query token 或已有 cookie）才会走到这里。
+      if (relative === 'index.html' && this.options.authToken !== undefined) {
+        headers['Set-Cookie'] = ServerAuthGuard.cookieHeader(this.options.authToken);
+      }
+      response.writeHead(200, headers);
       response.end(content);
     } catch {
       response.writeHead(404).end('Not Found');

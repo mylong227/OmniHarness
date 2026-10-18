@@ -56,6 +56,11 @@ export interface ShellToolOptions {
    * ⇒ 它上报的「命令实际启动了两次」这条诚实提示无法落判据。注入后即可确定性地验证该上报。
    */
   readonly runner?: Pick<ShellProcessRunner, 'run'>;
+  /**
+   * OS 沙箱命令包装（可选）：把原始命令文本包成 `bwrap ... /bin/sh -c '<cmd>'` 等。
+   * 只在策略/审批按**原始命令**裁决之后应用；未注入 = 不进行 OS 包装（纯策略档）。
+   */
+  readonly commandWrapper?: ((command: string, cwd: string) => string) | undefined;
 }
 
 /**
@@ -114,6 +119,8 @@ export class ShellTool {
    * 的第三步会拿着陈旧指纹把 shell 的改动静默抹掉。这里只做**保守失效**（宁可少拦不可误拦）。
    */
   private readonly ledger: ShellToolOptions['ledger'];
+  /** OS 沙箱命令包装（未注入时为空，命令按原样执行）。 */
+  private readonly commandWrapper: ShellToolOptions['commandWrapper'];
 
   /**
    * @param options shell 工具选项（超时/缓冲/长度上限、可选裁决器、策略与后台作业注册表，全有默认）。
@@ -131,6 +138,7 @@ export class ShellTool {
     this.policy = options.policy ?? new ShellCommandPolicy();
     this.jobs = options.jobs;
     this.ledger = options.ledger;
+    this.commandWrapper = options.commandWrapper;
   }
 
   /** 工具定义。 */
@@ -202,17 +210,19 @@ export class ShellTool {
       });
     }
 
+    const executable = this.commandWrapper?.(command, cwd ?? process.cwd()) ?? command;
+
     if (call.arguments['background'] === true) {
       // 后台命令同样可能改文件（`npm install` / 代码生成器）；账本一并失效，
       // 否则紧接着的 write_file 会把它的改动静默抹掉（见 `ledger` 字段注释）。
       this.invalidateLedger(command, context.workspaceRoot);
-      return this.startBackground(call.id, command);
+      return this.startBackground(call.id, executable);
     }
 
     const usePty = call.arguments['tty'] === true;
     try {
       const timeoutMs = this.effectiveTimeout(call.arguments['timeout_ms']);
-      const outcome = await this.runner.run(command, {
+      const outcome = await this.runner.run(executable, {
         cwd,
         env: ShellChildEnv.clean(),
         timeoutMs,

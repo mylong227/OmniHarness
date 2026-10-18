@@ -126,7 +126,14 @@ export class ConfigToolRegistry {
     const jobs = new BackgroundJobRegistry(seed.workspaceRoot);
     // 工具族共用同一策略实例：shell / shell_interactive 的裁决口径不漂移。
     const shellPolicy = new ShellCommandPolicy();
-    const shell = new ShellTool({ policy: shellPolicy, jobs, ledger });
+    // OS 级 profile（bwrap/unshare）自带命令包装；策略档没有该方法，保持原样执行。
+    const commandWrapper = seed.sandbox.wrapCommand?.bind(seed.sandbox);
+    const shell = new ShellTool({
+      policy: shellPolicy,
+      jobs,
+      ledger,
+      ...(commandWrapper !== undefined ? { commandWrapper } : {}),
+    });
     // 交互式 / 持久 PTY：TTY 环境下把终端交给命令（`stdio: 'inherit'`），非 TTY 一律 fail-closed
     // 并给出可执行原因——补齐「TUI 类命令拿不到真终端」这条腿（2026-09-19 全量收口）。
     const interactiveShell = new ShellInteractiveTool({ policy: shellPolicy });

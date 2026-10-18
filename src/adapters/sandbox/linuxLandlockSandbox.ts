@@ -23,6 +23,7 @@
 import { accessSync, constants } from 'node:fs';
 import { release } from 'node:os';
 import type { SandboxAction, SandboxDecision, SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { PosixShell } from '../../util/posixShell.ts';
 
 /** Landlock 探测结论（能力自述的原始依据）。 */
 export interface LandlockProbeReport {
@@ -177,6 +178,21 @@ export class LinuxLandlockSandbox implements SandboxPort {
       return [];
     }
     return [report.helperPath, '--workspace', workspace, '--', command, ...args];
+  }
+
+  /**
+   * 把 shell 命令包进 Landlock helper：`helper --workspace <ws> -- /bin/sh -c '<cmd>'`。
+   * helper 不可用时抛错（调用方已由 check() fail-closed，正常路径不会走到）。
+   * @param command 原始 shell 命令
+   * @param cwd 工作区根
+   * @returns 包装后的命令文本
+   */
+  public wrapCommand(command: string, cwd: string): string {
+    const argv = this.dryRun('/bin/sh', ['-c', command], cwd);
+    if (argv.length === 0) {
+      throw new Error('landlock helper 不可用，拒绝执行（fail-closed）');
+    }
+    return PosixShell.command(argv);
   }
 
   /**

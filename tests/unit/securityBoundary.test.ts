@@ -50,7 +50,7 @@ test('① 默认档（policy，纯 TS 策略）必须如实报 L2 且 kernelEnfo
   }
 });
 
-test('② 工作区配 OS 级后端但执行包装未接 ⇒ 必须留在 L2（二进制可达也不得报 L3）', () => {
+test('② bwrap 已接执行包装：真机可达才 L3，否则 L2', () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-sec-'));
   try {
     writeFileSync(join(root, 'omniharness.json'), JSON.stringify({ sandbox: 'bwrap' }), 'utf8');
@@ -60,13 +60,15 @@ test('② 工作区配 OS 级后端但执行包装未接 ⇒ 必须留在 L2（�
       'bwrap',
       '诊断必须读工作区配置，而不是只报缺省',
     );
-    assert.strictEqual(
-      report.security.isolationLevel,
-      'L2',
-      'bwrap 执行包装尚未接线：即使二进制真机可达，也不得宣称 L3 内核隔离',
-    );
-    assert.strictEqual(report.security.kernelEnforced, false);
-    assert.match(report.security.isolationBasis, /执行包装=未接/u);
+    assert.match(report.security.isolationBasis, /执行包装=已接/u);
+    const entry = report.sandboxCapabilities.find((item) => item.profile === 'bwrap');
+    if (entry?.real === true) {
+      assert.strictEqual(report.security.isolationLevel, 'L3');
+      assert.strictEqual(report.security.kernelEnforced, true);
+    } else {
+      assert.strictEqual(report.security.isolationLevel, 'L2');
+      assert.strictEqual(report.security.kernelEnforced, false);
+    }
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

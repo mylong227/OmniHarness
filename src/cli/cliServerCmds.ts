@@ -645,7 +645,15 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     // start() 里拒绝裸奔启动）。两者都可用环境变量覆盖，避免动 CLI 旗标表。
     const serveHost =
       (process.env[ServerAuthGuard.HOST_ENV] ?? '').trim() || ServerAuthGuard.DEFAULT_HOST;
-    const serveToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim() || undefined;
+    const configuredToken = (process.env[ServerAuthGuard.TOKEN_ENV] ?? '').trim();
+    // 回环默认也生成临时令牌：浏览器用打印出的 `?token=` 首屏换取 HttpOnly cookie，
+    // 之后的 RPC/SSE/静态资源/下载都带同一会话；非回环仍必须显式配 OMNI_SERVE_TOKEN。
+    const serveToken =
+      configuredToken !== ''
+        ? configuredToken
+        : ServerAuthGuard.isLoopback(serveHost)
+          ? ServerAuthGuard.generateToken()
+          : undefined;
     ServerAuthGuard.assertBindSafe(serveHost, serveToken);
     const { HttpServer } = await import('../server/transport/httpServer.ts');
     const server = new HttpServer({
@@ -680,8 +688,16 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       version: API_VERSION,
     });
     const authNote =
-      serveToken === undefined ? '（未启用鉴权；仅回环可访问）' : '（已启用 Bearer 鉴权）';
-    process.stdout.write(`OmniHarness UI: http://${serveHost}:${binding.port} ${authNote}\n`);
+      serveToken === undefined
+        ? '（未启用鉴权；仅回环可访问）'
+        : configuredToken !== ''
+          ? '（已启用 Bearer 鉴权）'
+          : '（已启用本机临时令牌；请用下面的带 token URL 打开）';
+    const uiUrl =
+      serveToken === undefined
+        ? `http://${serveHost}:${binding.port}`
+        : `http://${serveHost}:${binding.port}/?token=${encodeURIComponent(serveToken)}`;
+    process.stdout.write(`OmniHarness UI: ${uiUrl} ${authNote}\n`);
     return CliServerCmds.awaitShutdown(server, instancePath);
   }
 
