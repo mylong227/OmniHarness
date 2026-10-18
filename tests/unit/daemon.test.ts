@@ -2,7 +2,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { DaemonController } from '../../src/daemon/daemonController.ts';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,6 +29,58 @@ test('DaemonController：入口不存在时 start 必须失败，不得写 PID �
   assert.throws(() => controller.start([], 18787), /立即退出/u);
   assert.strictEqual(existsSync(pidFile), false, '启动失败不得留下 PID 文件');
   rmSync(pidFile, { recursive: true, force: true });
+});
+
+test('DaemonController：start 写 PID+启动时刻，stop 校验身份后杀掉真实进程', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-daemon-start-'));
+  const entry = join(dir, 'sleeper.mjs');
+  // 入口是真实 node 脚本：忽略 serve 参数、稳定存活到 stop。
+  writeFileSync(entry, 'setTimeout(() => undefined, 60_000);\n', 'utf8');
+  const pidFile = join(dir, 'daemon.pid');
+  const controller = new DaemonController({ pidFile, entry });
+  try {
+    const pid = controller.start([], 18788);
+    const record = JSON.parse(readFileSync(pidFile, 'utf8')) as {
+      pid: number;
+      startedAt?: number;
+    };
+    assert.strictEqual(record.pid, pid);
+    assert.strictEqual(typeof record.startedAt, 'number', '新 PID 文件必须带启动时刻');
+    assert.strictEqual(controller.status().running, true);
+    assert.strictEqual(controller.stop(), true);
+    assert.strictEqual(existsSync(pidFile), false);
+  } finally {
+    controller.stop();
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
+});
+
+test('DaemonController：陈旧 PID 被复用时 stop 不得杀无关进程', async () => {
+  const pidFile = tmpPidFile();
+  const controller = new DaemonController({ pidFile });
+  const child = spawn(process.execPath, ['-e', 'setTimeout(()=>{}, 60000)'], {
+    detached: true,
+    stdio: 'ignore',
+  });
+  child.unref();
+  const pid = child.pid;
+  assert.ok(pid !== undefined, '哑进程应有 pid');
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // 故意写一个不可能匹配的启动时刻（模拟 PID 被复用）。
+    writeFileSync(pidFile, JSON.stringify({ pid, startedAt: 1 }));
+    assert.strictEqual(controller.stop(), false, '身份不匹配必须拒绝 kill');
+    assert.strictEqual(existsSync(pidFile), false, '可确认的陈旧记录应被清理');
+    // 哑进程必须仍活着。
+    assert.doesNotThrow(() => process.kill(pid, 0), '无关进程不得被误杀');
+  } finally {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      /* 已退出 */
+    }
+    rmSync(pidFile, { recursive: true, force: true });
+  }
 });
 
 test('DaemonController：status 探测存活与 PID 文件清理', async () => {

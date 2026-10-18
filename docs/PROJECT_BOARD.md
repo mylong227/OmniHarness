@@ -3594,6 +3594,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | 多文件补丁     | 审批/沙箱只看首个 `+++`，后续文件既不可见也不过沙箱                                                                                            | `targetsOf` 收全部 `---`/`+++`；逐目标检查，任一拒绝整条拒绝                                | `toolGateMultiTarget`                                                                                                       |
 | Windows worker | `shell:true` 把模型可控 task 拼进 cmd，`&` 可直接执行命令                                                                                      | 参数走 JSON 临时文件 + PowerShell `@workerArgs` splat，任务不进命令行解析                   | `workerSystem`                                                                                                              |
 | daemon         | stop 树杀后仍存活也删 PID 报成功；start 不探测就报“已启动”                                                                                     | stop 未退出返回 false 且保留 PID；start 观察 800ms 稳定存活，失败抛错                       | `daemon`                                                                                                                    |
+| daemon 身份    | 只按 PID 判存活，陈旧 PID 被复用时会误杀无关进程                                                                                               | PID 文件记录启动时刻，stop 前按平台采集并校验；不匹配/不可校验拒绝 kill                     | `daemon`                                                                                                                    |
 | OIDC           | 无 exp / 字符串 exp 被当永不过期；中间态凭据默认权限落盘；nonce 生成即丢弃                                                                     | 缺/非数字 exp 拒绝；state 0600、形状校验、10 分钟 TTL；nonce 写入 URL + AuthState，回调校验 | `sso`、`oidcFlowContract`                                                                                                   |
 | vm 隔离        | 返回 Promise 算成功；动态 import 崩宿主；微任务死循环冻结                                                                                      | 拒绝 thenable/动态 import；`microtaskMode: afterEvaluate` 让微任务受 timeout                | `isolationLadder`                                                                                                           |
 | 会话归属       | `sessionId` 直接拼文件名，可穿越写任意 `.jsonl`                                                                                                | 白名单 + 运行中拒绝                                                                         | `sessionAssignWorkspace`                                                                                                    |
@@ -3652,11 +3653,9 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 5. **RLVR 覆盖率跨轮累计**：本轮尝试「每轮出报告后清零」，但 `controller.report().coverage` 与
    `meter.report().coverage` 的既有契约要求两者一致（清零后 meter 归零、报告仍是上轮值），故回退。
    正确修法是给度量器加快照/差分（`samplesAtLastCycle`）而不是清空；属独立小工程。
-6. **daemon 只按 PID 判身份**：陈旧 PID 文件可能把无关进程当 daemon（status/stop 会误报/误杀）。
-   要存进程启动时间或命令行指纹；跨平台实现需单独设计。
-7. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
+6. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
    `ok:true`。需改 Rust 内核 + 原生后端映射，不能在 TS 侧单点修。
-8. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
+7. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
    共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
    vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
    productionGrade/architectureGate 探针/hashChain/evolutionIntegration/a2aDelegate/fileLockCrossProcess/

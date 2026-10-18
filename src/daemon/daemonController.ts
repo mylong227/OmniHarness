@@ -6,11 +6,18 @@
  * - status：探测 PID 文件 + 进程存活（kill(pid,0)）。
  * 多会话由常驻的 serve（AppServer 原生支持多会话）承接——daemon 只负责「常驻」。
  */
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+import { log } from '../util/logger.ts';
+
+/** PID 文件记录：pid + 进程启动时刻（毫秒，尽力采集；旧文件只有 pid）。 */
+interface DaemonRecord {
+  readonly pid: number;
+  readonly startedAt?: number | undefined;
+}
 
 /**
  * @beta
@@ -60,16 +67,91 @@ export class DaemonController {
    * @returns `{ running, pid? }` — 存活时带 PID。
    */
   public status(): DaemonStatus {
-    if (!existsSync(this.pidFile)) {
+    const record = this.readRecord();
+    if (record === undefined) {
       return { running: false };
     }
+    const alive = this.isAlive(record.pid);
+    return { running: alive, pid: alive ? record.pid : undefined };
+  }
+
+  /**
+   * 读 PID 文件（兼容旧版纯数字格式）。
+   * @returns 记录；文件不存在/格式非法时为 undefined。
+   */
+  private readRecord(): DaemonRecord | undefined {
+    if (!existsSync(this.pidFile)) return undefined;
     const raw = readFileSync(this.pidFile, 'utf8').trim();
-    const pid = Number.parseInt(raw, 10);
-    if (Number.isNaN(pid)) {
-      return { running: false };
+    if (raw.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(raw) as { pid?: unknown; startedAt?: unknown };
+        if (typeof parsed.pid === 'number' && Number.isInteger(parsed.pid) && parsed.pid > 0) {
+          return {
+            pid: parsed.pid,
+            ...(typeof parsed.startedAt === 'number' && Number.isFinite(parsed.startedAt)
+              ? { startedAt: parsed.startedAt }
+              : {}),
+          };
+        }
+      } catch {
+        return undefined;
+      }
+      return undefined;
     }
-    const alive = this.isAlive(pid);
-    return { running: alive, pid: alive ? pid : undefined };
+    const pid = Number.parseInt(raw, 10);
+    return Number.isInteger(pid) && pid > 0 ? { pid } : undefined;
+  }
+
+  /**
+   * 采集进程启动时刻（毫秒）。尽力而为：拿不到时返回 undefined，stop 会拒绝盲杀。
+   * @param pid 目标进程 id
+   * @returns 启动时刻毫秒；平台不支持/读取失败时为 undefined
+   */
+  private processStartMs(pid: number): number | undefined {
+    try {
+      if (process.platform === 'win32') {
+        const out = execFileSync(
+          'powershell',
+          [
+            '-NoProfile',
+            '-Command',
+            `(Get-Process -Id ${String(pid)} -ErrorAction Stop).StartTime.ToUniversalTime().ToFileTimeUtc()`,
+          ],
+          { encoding: 'utf8', timeout: 5000, windowsHide: true },
+        ).trim();
+        const fileTime = Number(out);
+        if (!Number.isFinite(fileTime)) return undefined;
+        // FILETIME = 100ns since 1601-01-01；转 Unix epoch 毫秒。
+        return Math.round(fileTime / 10_000 - 11_644_473_600_000);
+      }
+      if (process.platform === 'linux') {
+        const stat = readFileSync(`/proc/${String(pid)}/stat`, 'utf8');
+        const close = stat.lastIndexOf(')');
+        if (close < 0) return undefined;
+        // state 为第 3 字段（index 0），starttime 为第 22 字段（index 19）。
+        const fields = stat
+          .slice(close + 1)
+          .trim()
+          .split(/\s+/u);
+        const ticks = Number(fields[19]);
+        if (!Number.isFinite(ticks)) return undefined;
+        const procStat = readFileSync('/proc/stat', 'utf8');
+        const boot = /^btime (\d+)$/mu.exec(procStat)?.[1];
+        if (boot === undefined) return undefined;
+        return Number(boot) * 1000 + ticks * 10;
+      }
+      if (process.platform === 'darwin') {
+        const out = execFileSync('ps', ['-p', String(pid), '-o', 'lstart='], {
+          encoding: 'utf8',
+          timeout: 5000,
+        }).trim();
+        const ms = Date.parse(out);
+        return Number.isFinite(ms) ? ms : undefined;
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
@@ -115,7 +197,13 @@ export class DaemonController {
         `daemon 启动失败：子进程 ${String(pid)} 启动后立即退出（检查入口是否存在、端口是否被占用）`,
       );
     }
-    writeFileSync(this.pidFile, String(pid), 'utf8');
+    // 记录 PID + 启动时刻：stop 前据此判断 PID 是否被复用（旧文件只有 pid，兼容保留）。
+    const startedAt = this.processStartMs(pid);
+    writeFileSync(
+      this.pidFile,
+      JSON.stringify(startedAt === undefined ? { pid } : { pid, startedAt }),
+      'utf8',
+    );
     return pid;
   }
 
@@ -144,14 +232,32 @@ export class DaemonController {
    * @returns 是否真的停止了一个运行中的进程。
    */
   public stop(): boolean {
-    const st = this.status();
-    if (!st.running || st.pid === undefined) {
+    const record = this.readRecord();
+    if (record === undefined || !this.isAlive(record.pid)) {
       if (existsSync(this.pidFile)) {
         unlinkSync(this.pidFile);
       }
       return false;
     }
-    const pid = st.pid;
+    // 身份校验：陈旧 PID 文件可能已被系统复用给无关进程。此时**绝不能杀**；能确认不匹配
+    // 就清理陈旧文件，读不到启动时刻则保守返回 false（保留文件，避免误判后重启双 daemon）。
+    if (record.startedAt !== undefined) {
+      const actual = this.processStartMs(record.pid);
+      if (actual === undefined) {
+        log.warn('daemon.pid.unverifiable', { pid: record.pid });
+        return false;
+      }
+      if (Math.abs(actual - record.startedAt) > 10_000) {
+        log.warn('daemon.pid.reused', {
+          pid: record.pid,
+          expectedStartedAt: record.startedAt,
+          actualStartedAt: actual,
+        });
+        unlinkSync(this.pidFile);
+        return false;
+      }
+    }
+    const pid = record.pid;
     try {
       process.kill(pid, 'SIGTERM');
     } catch {
