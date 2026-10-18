@@ -9,6 +9,7 @@ import {
   type EnforcementMode,
 } from '../security/enforcementModeResolver.ts';
 import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { log } from '../util/logger.ts';
 import type { StepRunnerDeps } from './stepTypes.ts';
 
@@ -141,7 +142,10 @@ export class StepToolExecutor {
       // 根对账（2026-10-13「内核根跑偏」）：内核是进程级全局静态，工作区切换后根不会自己跟上
       // ——执行前先对齐到本回合的工作区根（旧内核无 root.* 时实现方静默降级，行为同旧版）；
       // 对齐失败抛错走 catch → 回退 JS（其根恒正确），绝不拿错误根的结果糊弄模型。
-      if (this.deps.native !== undefined) {
+      // 原生 shell.run 目前是同步 `Command::output()`：无超时/取消/输出上限，且非零退出被
+      // 映射成 ok:true（Rust 侧 2026-10-18 审查 P1）。在 Rust 修好前**禁止**把 shell 路由到
+      // 原生后端，直接走 JS ShellTool（语义正确、有超时/进程树终止）。
+      if (this.deps.native !== undefined && call.name !== TOOL_NAMES.shell) {
         let nativeResult: ToolResult | undefined;
         try {
           this.deps.native.syncWorkspaceRoot?.(context.workspaceRoot);

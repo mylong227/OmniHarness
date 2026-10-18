@@ -138,6 +138,23 @@ test('native 未注入时：走原有 JS 路径', async () => {
   assert.strictEqual((toolResult!.payload as { output?: string }).output, 'js-ran');
 });
 
+test('native 注入时：shell 仍强制走 JS（原生 shell 无超时/假成功，修复前禁用）', async () => {
+  let nativeCalls = 0;
+  const native: NativeToolRunner = {
+    runTool(call: ToolCall): ToolResult {
+      nativeCalls += 1;
+      return { callId: call.id, ok: true, output: 'native-should-not-run' };
+    },
+  };
+  const { step, jsCalls, emitted } = makeStep('shell', native);
+  await step.run(context);
+
+  assert.strictEqual(nativeCalls, 0, 'shell 不得路由到原生后端');
+  assert.strictEqual(jsCalls.count, 1, 'shell 必须走 JS ShellTool');
+  const toolResult = emitted.find((e) => e.type === 'tool_result');
+  assert.strictEqual((toolResult!.payload as { output?: string }).output, 'js-ran');
+});
+
 test('NativeBackend.tryCreate 不抛错（可用返回后端，不可用返回 undefined）', () => {
   // 不依赖具体内核状态：仅断言返回值是后端或 undefined，且后端具备 runTool。
   const backend = NativeBackend.tryCreate();

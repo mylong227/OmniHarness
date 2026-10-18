@@ -3612,6 +3612,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | Agent 收尾     | `dispose` 后全量 persist，旧的在飞写可能后落地                                                                                                 | `flush → dispose → persist`                                                                 | `sessionLifecycle`                                                                                                          |
 | StepRunner     | 某步无 usage 时沿用上一步用量                                                                                                                  | 无条件覆盖 `lastUsage`                                                                      | `stepLimitPolicy`                                                                                                           |
 | 原生根         | 非 unknown-method 的根对齐失败也永久降级，继续用错误根                                                                                         | 仅 unknown-method 降级，其余抛错回退 JS                                                     | `nativeBackend`                                                                                                             |
+| native shell   | Rust `shell.run` 同步执行、无超时、非零退出报成功                                                                                              | `StepToolExecutor` 禁止 shell 路由到原生后端，强制 JS ShellTool（语义正确）；Rust 待修      | `nativeBackend`                                                                                                             |
 | 服务端跨源     | 任意网页可向 `127.0.0.1` 发 RPC/WS                                                                                                             | 有 `Origin` 必须是回环 http(s)，无 Origin（CLI）放行                                        | `serverAuthGuard`                                                                                                           |
 | Web 凭据       | 空 Key + 已有打码 Key 会把空串发给服务端（=删凭据）                                                                                            | 空输入=不修改，显式提示                                                                     | 源码 + `settingsPane`                                                                                                       |
 | Web 转义       | JSX 里调 `esc()`，JSON 的引号显示成 `&quot;`                                                                                                   | 22 处改为 React 文本/属性直传                                                               | `textEscaping`                                                                                                              |
@@ -3650,8 +3651,9 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 3. **Windows `.cmd` 垫片内部仍有 `%*` 展开面**：`CliWorker` 已不再让 task 进入 cmd，但若被调用的
    目标本身是 npm `.cmd`（如 dsh），垫片内部的 `%*` 仍可能把 `&` 当第二条命令。彻底修法在外部
    CLI（stdin / 参数文件 / 直接 node 入口），不能在宿主单方面保证。
-4. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
-   `ok:true`。需改 Rust 内核 + 原生后端映射，不能在 TS 侧单点修。
+4. **native shell 同步冻结 + 非零退出报成功（已降级规避，Rust 未修）**：`StepToolExecutor` 已禁止
+   把 `shell` 路由到原生后端（强制 JS ShellTool，保留超时/进程树终止/正确退出码）。Rust
+   `shell.run` 本身仍无超时/输出上限、`exit 3` 仍 `ok:true`，需改内核 + 后端映射。
 5. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
    共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
    vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
