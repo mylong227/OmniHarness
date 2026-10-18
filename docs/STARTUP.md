@@ -13,7 +13,7 @@ git clone https://github.com/mylong227/OmniHarness.git
 cd OmniHarness
 npm install
 npm start                 # 构建服务端 + 构建前端 + 起 HTTP 工作台
-# → 浏览器打开 http://127.0.0.1:8787
+# → 打开横幅里的 `?token=` 地址（默认端口 8787；裸地址会 401）
 ```
 
 **就这一条。** 需要换端口 / 换模型 / 指定项目时，参数**原样透传**给 `serve`：
@@ -138,32 +138,55 @@ node dist/src/cli/exec.js daemon stop
 
 ```
 工作区: D:\work\新项目（来自本机固定项目（~/.omniharness/omniharness.json 的 workspace；用 --workspace 可覆盖））
-OmniHarness UI: http://127.0.0.1:8787 （未启用鉴权；仅回环可访问）
+OmniHarness UI: http://127.0.0.1:8787/?token=<一次性令牌> （本机临时令牌；请用这条带 token 的地址打开）
 ```
 
 第一行说明**它到底在操作哪个项目**（解析链：`--workspace` > 本机固定项目 > 启动目录）；
-第二行是**实际绑定地址**——注意它是 `127.0.0.1` 而不是 `localhost`（本机默认只绑回环；
+第二行是**实际绑定地址 + 一次性令牌**——注意它是 `127.0.0.1` 而不是 `localhost`（本机默认只绑回环；
 Windows 上 `localhost` 可能先解析到 `::1` 而连不上，脚本里请用 `127.0.0.1`）。
+
+> **浏览器必须用带 `?token=` 的地址**：首屏那次请求会用它换取 HttpOnly cookie，之后的
+> RPC / SSE / 静态资源都带同一会话；**裸地址返回 401 是设计行为**。`start.cmd` 与
+> `npm start -- --open` 会自动打开横幅里那条地址。令牌每次启动重新生成。
 
 **探活（可复制）**：
 
 ```powershell
-# PowerShell
-(Invoke-WebRequest http://127.0.0.1:8787/ -UseBasicParsing).StatusCode   # 期望 200
+# PowerShell —— 存活探针（公开路径，无需令牌）
+(Invoke-WebRequest http://127.0.0.1:8787/healthz -UseBasicParsing).StatusCode   # 期望 200
+
+# 页面本身要带令牌（token 从启动横幅复制）：
+$t = '<一次性令牌>'
+(Invoke-WebRequest "http://127.0.0.1:8787/?token=$t" -UseBasicParsing -SessionVariable s).StatusCode  # 期望 200
+(Invoke-WebRequest 'http://127.0.0.1:8787/' -UseBasicParsing -WebSession $s).StatusCode               # 期望 200（cookie 已生效）
 ```
 
 ```bash
 # bash
-curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/           # 期望 200
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/healthz        # 期望 200（公开）
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/                # 期望 401（未带令牌，设计如此）
 ```
 
 **JSON-RPC 探活**（确认服务端逻辑通，而不只是静态页）：
 
 ```bash
+# RPC 需要鉴权：把横幅里的令牌填进 <token>（或自己设 OMNI_SERVE_TOKEN 后启动）
 curl -s -X POST http://127.0.0.1:8787/rpc \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer <token>" \
   -d '{"jsonrpc":"2.0","id":1,"method":"config.get","params":{}}'
 ```
+
+### 4.1 鉴权与令牌（401 排查）
+
+- **回环默认生成一次性令牌**：`serve` 绑定 `127.0.0.1` 时用随机 64 位十六进制令牌，启动横幅打印
+  `?token=` 地址；浏览器首屏用它换 HttpOnly cookie（JS 拿不到令牌）。
+- **非回环必须显式配令牌**：`OMNI_SERVE_HOST=0.0.0.0` 且未设 `OMNI_SERVE_TOKEN` 时**拒绝启动**（fail-closed）。
+- **想固定令牌**（脚本/无浏览器客户端）：启动前设 `OMNI_SERVE_TOKEN=...`，之后所有请求带
+  `Authorization: Bearer ...` 即可；横幅仍会打印带该令牌的地址。
+- **`/healthz` 是唯一公开路径**（只回状态与 uptime，不含任何会话/工作区数据）。
+- 出现 401 时先确认三件事：① 是否用**裸地址**打开（改用带 token 的地址）；② 是否换了端口/重启
+  （令牌会重生成）；③ 脚本请求是否带了 `Authorization` 头。
 
 ---
 

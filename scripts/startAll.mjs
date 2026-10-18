@@ -98,17 +98,34 @@ async function probeOnce(url) {
  *
  * 打印一律**如实**：没就绪就说没就绪，端口被别人占就说是别人占的——"静默什么都不做"
  * 比"没打开浏览器"更难排查（用户只会以为双击没生效）。
+ *
+ * **必须打开带 token 的 URL**（2026-10-18 修复）：回环 serve 现在默认生成临时令牌，
+ * 裸 `http://127.0.0.1:PORT` 会直接 401（设计如此）。serve 启动横幅里的
+ * `OmniHarness UI: …?token=…` 是浏览器唯一能凭之换取 HttpOnly cookie 的入口，
+ * 所以这里等横幅出现、把那一行**原样**交给浏览器；拿不到才退回裸 URL 并如实告警。
  * @param port 监听端口。
+ * @param uiUrlRef 已捕获的带 token UI URL（serve 横幅解析结果；未捕获为 undefined）
  * @returns 无返回值（fire-and-forget，绝不阻塞服务进程）。
  */
-async function openWhenReady(port) {
+async function openWhenReady(port, uiUrlRef) {
   const url = readinessUrl(port);
   const result = await waitForReady({ probe: () => probeOnce(url) });
   process.stdout.write(`\n${describeReadyOutcome(result.outcome, port)}\n`);
   if (result.outcome !== 'ready' && result.outcome !== 'guarded') {
     return;
   }
-  const page = `http://127.0.0.1:${String(port)}`;
+  // 横幅可能比"就绪"晚几毫秒（listen 回调里才打印）：最多再等 3s。
+  const deadline = Date.now() + 3000;
+  while (uiUrlRef.value === undefined && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  const page = uiUrlRef.value ?? `http://127.0.0.1:${String(port)}`;
+  if (uiUrlRef.value === undefined) {
+    process.stderr.write(
+      '[omniharness] 未捕获到带 token 的 UI URL：若服务端启用了鉴权，直接打开裸地址会 401。' +
+        '请从上面的 `OmniHarness UI:` 行复制地址。\n',
+    );
+  }
   // `OMNI_NO_OPEN=1` 只压住**弹窗**这一步，不压住"等待 + 如实报告就绪"：
   // 无人值守里真正想要的是"起来了没"这个事实，而不是窗口。
   if (process.env.OMNI_NO_OPEN === '1') {
@@ -144,10 +161,22 @@ if (!skipBuild) {
 process.stdout.write('\n▶ serve（Ctrl+C 停止）\n\n');
 const child = spawn(process.execPath, [SERVE_ENTRY, 'serve', ...serveArgs], {
   cwd: process.cwd(),
-  stdio: 'inherit',
+  // stdout 改成 pipe：需要**边转发边解析**启动横幅里的 `?token=` URL（浏览器唯一可用入口）。
+  // stderr 保持继承（日志/警告原样直出，不参与解析）。
+  stdio: ['inherit', 'pipe', 'inherit'],
+});
+/** serve 横幅里的 UI URL（带临时 token；未捕获前为 undefined）。 */
+const uiUrlRef = { value: undefined };
+child.stdout.on('data', (chunk) => {
+  const text = chunk.toString('utf8');
+  process.stdout.write(text);
+  if (uiUrlRef.value === undefined) {
+    const match = text.match(/https?:\/\/[^\s]+\?token=[0-9a-fA-F]+/u);
+    if (match !== null) uiUrlRef.value = match[0];
+  }
 });
 if (openBrowser) {
-  void openWhenReady(resolveServePort(serveArgs));
+  void openWhenReady(resolveServePort(serveArgs), uiUrlRef);
 }
 child.on('exit', (code) => {
   process.stdout.write(`\n${describeServeExit(code)}\n`);

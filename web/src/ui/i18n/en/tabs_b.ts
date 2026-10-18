@@ -1,4 +1,4 @@
-// en 词条分片：标签页 B（Graph/Memory/Metrics/ModelProviders/Permission/Plugins/Profiles/Rollback/Settings/Tools/Trace/Vault）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
+// en 词条分片：标签页 B（Graph/Memory/Metrics/Permission/Plugins/Profiles/Rollback/Settings/Tools/Trace/Vault）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_TABS_B: Record<string, string> = {
   // GraphTab
   ' 全部完成': ' All steps completed',
@@ -101,7 +101,7 @@ export const EN_TABS_B: Record<string, string> = {
     'No model calls yet — stats appear here after a round of conversation.',
   '事件分布': 'Event distribution',
 
-  // ModelProviders
+  // 设置模态的模型接入字段（原 ModelProviders 组件已于 2026-10-18 删除）
   '● 当前使用': '● In use',
   '已保存 {key}，输入新值覆盖': 'Saved {key}; enter a new value to replace it',
   '输入 API Key': 'Enter API key',

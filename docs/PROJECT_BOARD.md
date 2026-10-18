@@ -4014,3 +4014,24 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 
 结果：**4.1 ms/轮 → 0.6 ms/轮（6.8×）**；同 profile 下 `get` 从 45.7% 降到 8.6%，
 `accountableText` 不再进前 15。判据：`tokenEstimator` 新增 1 例（同一对象复用 / 原地改写重算 / 不同对象同内容同值）。
+
+---
+
+## 22. 文档 / 一键启动 / 仓库清理收口（2026-10-18）
+
+- **README 全量校对**：Web 工作台入口改为「打开横幅里的 `?token=` 地址」；React 18 → **React 19**；
+  「单 bundle」→ 入口 + 按需 chunk；压缩阈值 75% → **80%**（实现是 `window × 0.8`）；
+  右栏 12 → **16 个标签页**（设置已改模态）；规模数字与样式表份数（11）按当期实测重算；
+  补 `test:fast` / `test:slow` / `web:budget` / `perf:context` 入口，诚实清单补 axe 审计边界。
+- **一键启动修复（真 bug）**：回环 `serve` 现在默认生成一次性令牌，裸 `http://127.0.0.1:8787` 会 401；
+  而 `startAll.mjs --open` 原来打开的是裸地址 ⇒ 双击 `start.cmd` 会停在一个 401 页。
+  现改为**边转发边解析** serve 横幅里的 `?token=` URL，就绪后打开该地址（拿不到才退回裸地址并告警）。
+  `STARTUP.md` / `QUICKSTART.md` / `CLI_REFERENCE.md` 同步补「令牌与 401 排查」、探活改用公开的
+  `/healthz`、RPC curl 示例补 `Authorization: Bearer`。
+- **仓库清理**（tracked）：删 `.commitmsg-ports`（提交草稿）、`.acl-recovery/*`（本机 ACL 备份日志，
+  `.gitignore` 已忽略但历史入库）、`docs/近视眼调查报告.md`（与本项目无关）、
+  `vitePluginJsToTs` 回落插件（Vite 迁移后已废弃，AGENTS 早已声明删除）、
+  旧「模型接入」标签页组件（`ModelProviders`，被设置面板 ProviderCard 取代的死组件）。
+  另外删掉根目录构建日志（`.coverage_run.log` 等，忽略文件）并把 `web/archive` 收敛到最近 4 张截图。
+  保留 `resources/**` 与 `third-party/laya/**`：它们在 `THIRD_PARTY_ASSETS.md` 里是**有记录的资产**
+  （作者提供的参考工作流 / 上游源码快照），不是无主垃圾。

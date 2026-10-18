@@ -14,10 +14,11 @@ npm install
 npm start        # = 构建服务端 + 构建前端 + 起 HTTP 工作台
 ```
 
-浏览器打开 **<http://127.0.0.1:8787>**（默认端口；地址一律用 `127.0.0.1`，别用 `localhost`——见 `STARTUP.md` §4）。
+浏览器打开横幅里那条带 `?token=` 的地址（默认端口 8787；地址一律用 `127.0.0.1`，别用 `localhost`）。
+**裸地址会 401**（本机默认一次性令牌，浏览器用 `?token=` 换取 cookie）；`start.cmd` / `npm start -- --open` 会自动打开它。见 `STARTUP.md` §4。
 
-> **为什么不是 `npm run build` 就够**：前端没有打包器，`web/index.html` 直接加载 `web/dist/main.js`，
-> 而那要 `npm run web:build` 才产出。只 build 服务端会**白屏**。`npm start` 把两步都做了。
+> **为什么不是 `npm run build` 就够**：前端是 Vite 构建（`web/src` → `web/dist/assets/*`），
+> 需要 `npm run web:build` 才有产物；只 build 服务端会**白屏**。`npm start` 把两步都做了。
 
 所有命令也可经 `node dist/src/cli/exec.js <子命令>` 运行（`npm i -g` 后可直接用 `omniharness <子命令>`）。
 
@@ -118,12 +119,17 @@ node dist/src/cli/exec.js native info
 ## 5. JSON-RPC 直调（UI 与脚本同一条通道）
 
 ```bash
+# 先取横幅里的令牌（或启动前设 OMNI_SERVE_TOKEN=...），所有 RPC 都要带 Authorization 头。
+TOKEN='<一次性令牌>'
+
 # 记忆：列出全部长期记忆
 curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"jsonrpc":"2.0","id":1,"method":"memory.list","params":{}}'
 
 # 编排：运行已保存的 DAG
 curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"jsonrpc":"2.0","id":2,"method":"graph.run","params":{"id":"demo"}}'
 
 # 插件集：一条命令切换编码/研究模式的插件组合

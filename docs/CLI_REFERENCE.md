@@ -157,11 +157,16 @@ UI 侧高频方法（`config.get` / `config.update` / `sessions.list{workspace}`
 示例：
 
 ```bash
+# 鉴权：回环 serve 默认生成一次性令牌（启动横幅 `?token=`；或启动前设 OMNI_SERVE_TOKEN）。
+TOKEN='<一次性令牌>'
+
 curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"jsonrpc":"2.0","id":1,"method":"config.get","params":{}}'
 
 # 列全部项目的会话（缺省只回当前项目）
 curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $TOKEN" \
   -d '{"jsonrpc":"2.0","id":2,"method":"sessions.list","params":{"workspace":"*"}}'
 ```
 

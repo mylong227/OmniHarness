@@ -207,5 +207,5 @@ BOM 是**编码层**标记而非内容，Windows 上常见写入方都会带它�
 **⑤ 会话存档是全局的**：`~/.omniharness/sessions/*.jsonl`，归属按 `session_meta.payload.workspace` 标记；
 `sessions.list` **缺省只回当前项目**，`workspace:'*'` 才回全部——"别的项目的会话去哪了"先查这条。
 
-**⑥ serve 默认只绑 `127.0.0.1`**：文档与示例 URL 一律写 `http://127.0.0.1:8787`，**不写 `localhost`**——
+**⑥ serve 默认只绑 `127.0.0.1` 并生成一次性令牌**：文档与示例 URL 一律写 `http://127.0.0.1:8787`，**不写 `localhost`**（页面地址带 `?token=` 换 cookie，裸地址 401）——
 Windows 上 `localhost` 可能先解析到 `::1`（IPv6），而服务只监听 IPv4，于是"服务明明起着却连不上"。

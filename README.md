@@ -1,4 +1,4 @@
-﻿# OmniHarness
+# OmniHarness
 
 > **通用 Agent Harness**：TypeScript 主体（CLI / Web 工作台 / 编排）+ Rust 原生内核（可选）。
 > 一句话定位：**把"让模型在真实机器上干活"这件事做成可控、可审计、fail-closed 的工程底座**。
@@ -23,7 +23,7 @@ npm install
 npm start                 # = 构建服务端 + 构建前端 + 起 HTTP 工作台
 ```
 
-浏览器打开 **<http://127.0.0.1:8787>**（默认端口）。第一次跑不需要任何 API Key：
+浏览器打开终端横幅里那条带 `?token=` 的地址（默认端口 8787；**裸地址会 401**——本机默认一次性令牌，`start.cmd` / `npm start -- --open` 会自动打开它）。第一次跑不需要任何 API Key：
 不配模型时用 `mock` 适配器（脚本化响应，离线可跑演示）。
 
 常用变体：
@@ -42,13 +42,13 @@ npm run dev                         # 前端开发回路：后端 serve + Vite d
 > 外加 Node 版本前置检查、「就绪后才开浏览器」（端口上是别人的进程时坚决不开）与"窗口不闪退"。
 
 **前端是标准 Vite + React 项目**（2026-10-17 从「零打包器 + React UMD 全局」迁移而来）：
-`web/index.html` 是 Vite 入口，源码在 `web/src/`（`.ts`/`.tsx`），依赖（React 18、markdown-it、
+`web/index.html` 是 Vite 入口，源码在 `web/src/`（`.ts`/`.tsx`），依赖（React 19、markdown-it、
 KaTeX、highlight.js）全部来自 `node_modules`，**本地、零网络依赖**（`web/vendor/` 已于 2026-10-17 随 Vite 迁移整体删除）。
 
-| 命令                | 做什么                                                                  | 产物           |
-| ------------------- | ----------------------------------------------------------------------- | -------------- |
-| `npm run web:dev`   | Vite dev server（默认 5173）+ HMR，`/rpc` `/events` `/files` 代理到后端 | 内存中，不落盘 |
-| `npm run web:build` | `vite build` → 单 bundle（`web/dist/assets/*.js`，带 hash）             | `web/dist/`    |
+| 命令                | 做什么                                                                     | 产物           |
+| ------------------- | -------------------------------------------------------------------------- | -------------- |
+| `npm run web:dev`   | Vite dev server（默认 5173）+ HMR，`/rpc` `/events` `/files` 代理到后端    | 内存中，不落盘 |
+| `npm run web:build` | `vite build` → 入口 bundle + 按需 chunk（`web/dist/assets/*.js`，带 hash） | `web/dist/`    |
 
 所以"把工作台跑起来"是 **① 编服务端（`dist/`）+ ② 编前端（`web/dist/`）+ ③ 起 `serve`
 （静态资源取 `web/dist/`）**。少任何一步的典型症状是**页面能打开但一片空白**（缺 `web/dist`）——
@@ -96,10 +96,10 @@ OmniHarness 是一个**面向真实机器操作的 Agent Harness**。它不是�
 
 它有两种使用形态，共用同一套内核：
 
-| 形态               | 入口                                  | 适合                                       |
-| ------------------ | ------------------------------------- | ------------------------------------------ |
-| **Web 工作台**     | `npm start` → `http://127.0.0.1:8787` | 可视化看轨迹、审批、指标、插件、记忆、编排 |
-| **CLI / headless** | `node dist/src/cli/exec.js <子命令>`  | 脚本、CI、批处理、可复现跑测               |
+| 形态               | 入口                                                   | 适合                                       |
+| ------------------ | ------------------------------------------------------ | ------------------------------------------ |
+| **Web 工作台**     | `npm start` → 打开横幅里的 `?token=` 地址（默认 8787） | 可视化看轨迹、审批、指标、插件、记忆、编排 |
+| **CLI / headless** | `node dist/src/cli/exec.js <子命令>`                   | 脚本、CI、批处理、可复现跑测               |
 
 ---
 
@@ -118,7 +118,7 @@ OmniHarness 是一个**面向真实机器操作的 Agent Harness**。它不是�
 
 - **纯 TS BM25 + 可选语义召回**（`OMNI_SEMANTIC_RECALL=0` 可关）；召回质量有**带口径**的探针脚本
   （`npm run probe:recall`），跨仓库不承诺同一数字。
-- **上下文压缩**：按 `--context-window` 的 75% 触发，压缩后**游标复位**有明确不变量约束。
+- **上下文压缩**：按 `--context-window` 的 80% 触发，压缩后**游标复位**有明确不变量约束。
 - **大输出外溢**：`--spill-adapter file|memory` + `--spill-bytes` / `--spill-preview`。
 
 ### 2.3 审计与可观测
@@ -174,8 +174,12 @@ npm start
 
 ```
 工作区: D:\work\新项目（来自本机固定项目（~/.omniharness/omniharness.json 的 workspace；用 --workspace 可覆盖））
-OmniHarness UI: http://127.0.0.1:8787 （未启用鉴权；仅回环可访问）
+OmniHarness UI: http://127.0.0.1:8787/?token=<一次性令牌> （本机临时令牌；请用这条带 token 的地址打开）
 ```
+
+> **必须用带 `?token=` 的地址**：回环 serve 默认生成一次性令牌，浏览器用首屏这次请求换取
+> HttpOnly cookie，之后的 RPC / SSE / 静态资源都带同一会话；**裸地址会 401**（这是设计，不是故障）。
+> `start.cmd` 与 `npm start -- --open` 会自动打开横幅里那条带 token 的地址；令牌每次启动重新生成。
 
 ### 3.3 零额度试跑（mock）
 
@@ -254,7 +258,8 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 - 支持**可移植路径**写法：`~/work/proj`、`$HOME/work/proj`、`%USERPROFILE%\work\proj`、相对家目录——
   同一份配置换机器 / 换用户名 / 换盘符仍落到正确目录（见 [`src/util/portablePath.ts`](src/util/portablePath.ts)）。
 - 固定项目路径**不存在**时：回落启动目录并如实说明，**绝不因配置问题启动不起来**。
-- `serve` 默认只绑 `127.0.0.1`（要开鉴权用 `--auth-required` + `--oidc-*`）。
+- `serve` 默认只绑 `127.0.0.1`，并生成**一次性本机令牌**（浏览器用 `?token=` 换取 HttpOnly cookie）；
+  非回环绑定必须显式设 `OMNI_SERVE_TOKEN`（否则拒绝启动）；企业 OIDC 见 `--auth-required` + `--oidc-*`。
 
 ### 4.2 配置损坏时的行为
 
@@ -266,13 +271,13 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 
 ## 5. Web 工作台
 
-启动后 <http://127.0.0.1:8787>。三栏布局：
+启动后打开横幅里那条带 `?token=` 的地址（默认端口 8787）。三栏布局：
 
-| 区域     | 内容                                                                                                                        |
-| -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **左栏** | 项目切换器（📁）、会话列表（搜索 / 时间分组 / 卡片与文件树切换 / 拖拽排序）、工作区文件树                                   |
-| **中栏** | 对话 + 实时轨迹（reasoning / 工具调用树 / Diff / 流式卡片）、底部输入区（模型 / 推理档 / 审批 / 上下文占用 / `+` 添加菜单） |
-| **右栏** | 12 个标签页：工具 · 变更 · 回滚 · 治理 · 指标 · 设置 · 插件 · 编排 · 记忆 · 配置集 · 文件 · 钻取                            |
+| 区域     | 内容                                                                                                                                                    |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **左栏** | 项目切换器（📁）、会话列表（搜索 / 时间分组 / 卡片与文件树切换 / 拖拽排序）、工作区文件树                                                               |
+| **中栏** | 对话 + 实时轨迹（reasoning / 工具调用树 / Diff / 流式卡片）、底部输入区（模型 / 推理档 / 审批 / 上下文占用 / `+` 添加菜单）                             |
+| **右栏** | 16 个标签页（工具 · 变更 · 文件 · 指标 · 编排 · 记忆 · 配置集 · 治理 · 回滚 · 钻取 · 插件 · 诊断 · 审计 · Trace · 权限 · 凭据；设置已改为左栏页脚模态） |
 
 几个容易困惑的点（都已在代码与判据里定死）：
 
@@ -358,7 +363,7 @@ src/
 web/
   index.html      Vite 入口页（npm run web:build 生成 web/dist/index.html）
   src/            React 源码（.ts/.tsx，Vite 打包到 web/dist）
-  styles/         样式表（加载顺序=级联顺序，见 index.html 注释）
+  styles/         样式表（加载顺序=级联顺序，见 src/main.ts 的 import 顺序）
   test/           前端判据（vitest run）
 tests/
   unit/           单元与契约判据（npm test）
@@ -369,8 +374,9 @@ docs/             文档（索引见 docs/README.md；事实源见 docs/PROJECT_
 examples/         插件 / 目录示例
 ```
 
-> 规模（2026-10-06 本机实测，逐文件求和口径）：`src/**/*.ts` **1014 文件 / 114,234 行**；
-> `tests/` 501 文件 / 75,400 行；`web/src` 115 文件 / 17,648 行。数字会漂移，**以看板当期记录为准**。
+> 规模（2026-10-18 本机实测，tracked + 逐文件求和口径）：`src/**/*.ts` **1084 文件 / 126,749 行**；
+> `tests/` 578 文件 / 92,231 行；`web/src` 156 文件 / 25,048 行；样式表 11 份。
+> 数字会漂移，**以看板当期记录为准**。
 
 ---
 
@@ -384,13 +390,16 @@ examples/         插件 / 目录示例
 | **typed（2 项）** | `tsc --noEmit`（含 web）+ typed ESLint                                                                                                  | `npm run gate:typed`              |
 
 其他常用：`npm run lint`、`npm run format:check`、`npm run check:doc-links`、`npm run audit:standard:delta`、
-`npm run audit:maturity`、`npm run install-hooks`（装 git 钩子）。
+`npm run audit:maturity`、`npm run install-hooks`（装 git 钩子）、`npm run web:budget`（入口/异步体积预算）、
+`npm run perf:context`（上下文记账热路径采样，先 `npm run build`）。
 
 ### 9.2 验证层次（越往下越"真"）
 
 | 层次           | 命令                       | 范围                                                                     |
 | -------------- | -------------------------- | ------------------------------------------------------------------------ |
-| 模块           | `npm test`                 | 单元 + 契约判据（数千例）                                                |
+| 模块（全量）   | `npm test`                 | 单元 + 契约 + 前端（数千例，含真 Chrome 判据）                           |
+| 模块（快速）   | `npm run test:fast`        | 纯 node 单元/契约（免构建，日常改后端用）                                |
+| 模块（慢速）   | `npm run test:slow`        | 集成 + 前端（真 serve / 真 Chrome）                                      |
 | 前端           | `npm run web:test`         | 前端逻辑与接线契约                                                       |
 | 进程           | `npm run smoke:real`       | 真进程：起 serve / 跑回合（mock 模型）                                   |
 | 端到端         | `npm run test:integration` | 真 serve + 真 SPA + 真 Chrome（挂载、结构基线、一条 `turns.run` 全链路） |
@@ -414,7 +423,8 @@ examples/         插件 / 目录示例
 
 1. **单机型实测**：所有"真机"结论目前来自一台 Windows 机器；Linux/macOS 未逐项复测。
 2. **真模型单一**：能力跑测主要用 DeepSeek 一家（OpenAI 兼容通道）；多厂商对比未系统化。
-3. **UI 跑测边界**：`smoke:ui` 覆盖 11 条真实场景，但**不覆盖**多标签并发回合、窄屏/移动端、真实 OIDC 登录、插件安装、断线重连。
+3. **UI 跑测边界**：`smoke:ui` 覆盖真实场景，但不覆盖多标签并发回合、窄屏/移动端、真实 OIDC 登录、插件安装、断线重连；
+   无障碍由 axe-core 做 WCAG 2.1 A/AA 自动审计（两主题 × 空态/设置模态），**不等于**完整的人工无障碍验收。
 4. **召回数字**：`probe:recall` 的 hitRate 有口径与 CI 区间，但**跨仓库不承诺**同一数字。
 5. **原生内核**：默认关闭；实测比 TS 慢 4.5–6.7×，仅作可选形态。
 6. **跨机器可移植**：`workspace` 的 `~/…` 模板写法有单元级验证，**未真换一台机器端到端验证**。
