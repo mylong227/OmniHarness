@@ -3468,3 +3468,56 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 
 > 注：`dist/tests/*.js` 里仍有 6 处 `.ts` 说明符，全部位于**测试夹具字符串**内
 > （`"export type { X } from '…ts'"` 这类被引号包住的数据，用于变异探针），不是真导入，运行时无影响。
+
+## 15. 标准工程收尾：移除无消费者的 jsdom、`npm test` 覆盖前端、组件测试栈取舍留档（2026-10-18，第十轮）
+
+### 15.1 移除 `jsdom`（声明了但零消费者）
+
+`jsdom@^25` 在 devDependencies 里待了很久，实际**没有任何消费者**：两个测试项目的
+`environment` 都是 `'node'`，全仓对 jsdom 的唯一提及是一句注释——`web/test/controllerBindings.test.ts`
+写着「故只补最小桩（写属性即可），**不引入 jsdom**」。
+
+按本仓自己的依赖纪律（`docs/DEPENDENCY_POLICY.md`：**未使用的已装依赖即债务**）删除，连带 `package-lock.json`
+同步。删后全量判据不受影响（jsdom 从未参与任何判据的运行时）。
+
+### 15.2 `npm test` 此前**不跑前端**
+
+改前：`test = npm run build && vitest run --project node tests/unit/` —— 只跑后端单测，
+**前端 483 条判据完全在默认测试命令之外**（要单独记得敲 `npm run web:test`）。标准项目里
+`npm test` 应当覆盖整个快测面，这条属于实质差距。
+
+改后：
+
+| 脚本               | 内容                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `test`             | `npm run build && vitest run --project node tests/unit/ && vitest run --project web`（后端单测 + 前端判据） |
+| `test:frontend`    | `npm run web:build && vitest run --project web`（只跑前端，真 Chrome 判据需要产物）                         |
+| `test:integration` | 不变（起真浏览器/真服务的重型判据，单独一条）                                                               |
+
+保留 `npm run build` 前缀的原因：46 个后端判据会 spawn `dist/` 产物做端到端验证，**没有 dist 它们的红是假红**。
+
+### 15.3 组件测试栈：**记录为有意取舍**，不迁 RTL
+
+标准 React 项目的组件测试默认是 `@testing-library/react` + jsdom。本仓用的是
+`web/test/hooksStub.ts`（手写 React 替身，产出纯数据 vnode）+ `jsxRuntimeStub.ts`，
+并由 `vitest.workspace.ts` 把 `react` 别名指向桩。这是本仓最后一处**与主流模板不同**的地方，
+本轮把它从"待办"改为"**有据的取舍**"，理由是实测出来的：
+
+- 规模：28 个判据文件依赖该桩，**318 处**断言直接读 vnode 结构（`kids` / `clsOf` / `walk` / `allText` / `props` / `type`）；
+- **能力差异（决定性）**：桩支持 `renderOf(Component, props, statePatch)`，其中 `statePatch` 是
+  **按 hook 序号预设组件内部状态**（见 `web/test/mount.test.ts`）。真实 React 无法按序号摆弄 state——
+  迁 RTL 就必须把每个用例改写成**用户交互驱动**，而像 `SessionPanel`（147 KB）/`StreamView`（138 KB）
+  这类多 hook 组件，"走到某个分支"靠交互复现既脆弱又冗长；
+- 代价不对称：RTL 的收益是"测可观察行为更真"，但它测的是**浏览器里的真实渲染**——那部分本仓
+  已由 **13 条真 Chrome 判据**覆盖（e2e / focusTrap / monochromeInvariant / shellDensity /
+  narrowReflow / streamScrollCoverage / renderErrorBoundary / popoverFit …），且是同一份生产产物。
+
+结论：**保留零 DOM 判据（快、确定、可摆弄状态）+ 真 Chrome 判据（测真实渲染）的组合**，
+不引入 RTL。若日后仍要完全对齐模板，这是一项独立工程（28 文件 / 318 处断言位点，且需逐个
+设计"用交互替代状态预设"的方案），不应与日常改动混在一起做。
+
+### 15.4 本轮验证
+
+- `npm test`（新定义）实跑：后端单测 + 前端判据全绿；
+- `npx eslint . --max-warnings=0`、双端 `tsc --noEmit`、`node scripts/runGates.mjs` 均通过；
+- `jsdom` 移除后判据无变化（它从未参与运行时）。

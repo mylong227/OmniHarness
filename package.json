@@ -86,7 +86,7 @@
     "release:version": "changeset version",
     "release:publish": "changeset publish",
     "coverage": "vitest run --project node tests/unit/ --coverage.enabled",
-    "test": "npm run build && vitest run --project node tests/unit/",
+    "test": "npm run build && vitest run --project node tests/unit/ && vitest run --project web",
     "test:integration": "npm run build && npm run web:build && vitest run --project node tests/integration/",
     "smoke": "npm run build && node dist/tests/smoke.js",
     "stress": "npm run build && node --expose-gc dist/tests/stress.js",
@@ -108,7 +108,8 @@
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
     "smoke:real": "node scripts/realRunSmoke.mjs --phase=all",
     "smoke:model": "node scripts/realModelComplexTest.mjs",
-    "smoke:ui": "node scripts/realUiScenario.mjs"
+    "smoke:ui": "node scripts/realUiScenario.mjs",
+    "test:frontend": "npm run web:build && vitest run --project web"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
@@ -120,7 +121,6 @@
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.39.4",
     "eslint-plugin-unused-imports": "^4.4.1",
-    "jsdom": "^25.0.1",
     "prettier": "^3.9.6",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.69.0",
