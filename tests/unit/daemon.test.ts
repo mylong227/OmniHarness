@@ -11,6 +11,15 @@ function tmpPidFile(): string {
   return join(dir, 'daemon.pid');
 }
 
+test('DaemonController：默认后台入口是 CLI exec，不是 daemonController 自身', () => {
+  assert.match(
+    DaemonController.defaultEntry(),
+    /[\\/]cli[\\/]exec\.js$/u,
+    '入口必须是 dist/src/cli/exec.js（历史缺陷：指向 daemonController 自身 ⇒ 永远起不了 serve）',
+  );
+  assert.doesNotMatch(DaemonController.defaultEntry(), /daemonController/u);
+});
+
 test('DaemonController：status 探测存活与 PID 文件清理', async () => {
   const pidFile = tmpPidFile();
   const controller = new DaemonController({ pidFile });

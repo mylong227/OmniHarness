@@ -91,11 +91,19 @@ export class NativeBackend implements NativeToolRunner {
         log.info('native.root.synced', { from: current, to: expected });
       }
     } catch (error) {
-      this.rootApiSupported = false;
-      log.warn('native.root.unsupported', {
-        error: error instanceof Error ? error.message : String(error),
-        hint: '旧版 omni_napi.node 无 root.* 方法——请 npm run native:build 重建内核',
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      // 只有「旧内核没有 root.* 方法」才永久降级；根对齐失败（权限/路径被拒）必须抛错，
+      // 让 StepRunner 回退 JS（其根恒正确），绝不能带着**错误内核根**继续执行工具。
+      if (/unknown method|method not found|-32601|not implemented|未实现/iu.test(message)) {
+        this.rootApiSupported = false;
+        log.warn('native.root.unsupported', {
+          error: message,
+          hint: '旧版 omni_napi.node 无 root.* 方法——请 npm run native:build 重建内核',
+        });
+        return;
+      }
+      log.warn('native.root.sync_failed', { expected, error: message });
+      throw new Error(`原生内核工作区根对齐失败（回退 JS 执行）：${message}`);
     }
   }
 

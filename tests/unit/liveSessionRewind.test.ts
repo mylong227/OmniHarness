@@ -299,10 +299,10 @@ test('登记表：unregister 只在身份一致时删除（并发复用 sessionI
   assert.strictEqual(registry.size(), 0);
 });
 
-test('登记表：回卷回调抛错时不吞错（fail-soft 且返回 false，交由调用方处置）', async () => {
+test('登记表：回卷回调抛错时必须抛错（false 只表示未命中在跑会话）', async () => {
   const registry = new LiveSessionRewindRegistry();
   registry.register('s1', async () => {
     throw new Error('内存已损坏');
   });
-  assert.strictEqual(await registry.rewind('s1', 1), false);
+  await assert.rejects(() => registry.rewind('s1', 1), /内存回卷失败/u);
 });

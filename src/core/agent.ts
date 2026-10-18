@@ -387,10 +387,9 @@ export class Agent implements AgentPort {
         // 回卷登记同样按身份反注册（理由同上）：先结束的回合不得摘掉后启动回合的回卷能力。
         this.unregisterRewinder(sessionId, sessionEntry.rewinder);
         // V2：回合内 write-behind 定时器已由 TurnRunner 收尾 flush+dispose；
-        // 此处兜底：无论回合成功还是抛出（模型 500 / 网络中断 / 工具异常 / 取消），
-        // 已产生的事件都必须落盘。旧行为是异常直接冒泡、save 被跳过——用户重进
-        // 会话看到一片空白，等于历史凭空消失。save 自身失败只告警：绝不能用
-        // 持久化错误掩盖原始异常。
+        // 此处兜底：先 flush 在飞写、再停表，最后全量 persist——顺序反了会让更早排队的
+        // 旧快照在 persist 之后落地，把异常回合的历史覆盖成旧版本。
+        await persister.flush();
         persister.dispose();
         persistedAt = eventLog.size();
         await this.persist(sessionId, eventLog.all());

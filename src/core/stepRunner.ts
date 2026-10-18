@@ -75,10 +75,11 @@ export class StepRunner {
     // 模型用量落事件流（#S29 / live 跑分成本计量）；无 usage 静默跳过，绝不臆造。
     // 带上模型名，供服务端 token 统计按模型分组；带上下文快照，供 UI 容量面板读实测分解
     // （快照在 requestModel 内取，与真正送出的 messages/tools 同源，不是事后重算）。
+    // `lastUsage` 必须**无条件覆盖**：某步没有 usage 时若保留上一步的值，TurnRunner 会把它
+    // 重复计入预算（提前熔断/多计费）。
+    this.lastUsage = output.usage;
     if (output.usage !== undefined) {
       this.deps.recorder.usage(output.usage, this.deps.model.name, this.lastContext);
-      // V2.1：缓存本步用量供 TurnRunner 做 token 预算终止（B4）。
-      this.lastUsage = output.usage;
     }
     if (output.toolCalls !== undefined && output.toolCalls.length > 0) {
       this.lastToolCalls = output.toolCalls.map((c) => ({

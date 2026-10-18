@@ -1,4 +1,4 @@
-﻿import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -9,7 +9,7 @@ import {
   copyFileSync,
   chmodSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve, sep } from 'node:path';
 import { Zip, type ZipEntry } from './zip.ts';
 import type { PluginProfile } from './pluginProfileStore.ts';
 import type { PluginRegistry } from './pluginRegistry.ts';
@@ -150,8 +150,34 @@ export class PluginBundler {
    */
   public static canonicalManifestOf(manifest: BundleManifest): string {
     const { signature: _omit, signatureEd25519: _omitEd, ...rest } = manifest;
-    const keys = Object.keys(rest).sort();
-    return JSON.stringify(rest, keys);
+    return PluginBundler.stableStringify(rest);
+  }
+
+  /**
+   * 递归稳定序列化：**每一层**的键都排序，数组保序。
+   *
+   * 为什么不能用 `JSON.stringify(rest, sortedKeys)`：replacer 数组会**递归**裁剪对象键，
+   * 只保留顶层白名单里的同名键 ⇒ `plugins[].from/localPath`、`patches[].key/value` 等
+   * 嵌套字段**完全不在签名覆盖内**（改补丁值仍报 verified）。本方法保留全部嵌套字段，
+   * 只把键序稳定下来。
+   * @param value 任意 JSON 值
+   * @returns 稳定序列化字符串
+   */
+  private static stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+      return '[' + value.map((item) => PluginBundler.stableStringify(item)).join(',') + ']';
+    }
+    if (value !== null && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const parts: string[] = [];
+      for (const key of Object.keys(record).sort()) {
+        const item = record[key];
+        if (item === undefined) continue; // JSON.stringify 会省略 undefined 键
+        parts.push(JSON.stringify(key) + ':' + PluginBundler.stableStringify(item));
+      }
+      return '{' + parts.join(',') + '}';
+    }
+    return JSON.stringify(value) ?? 'null';
   }
 
   /** 用密钥对清单做 HMAC-SHA256。 */
@@ -311,12 +337,21 @@ export class PluginBundler {
       if (rest === '') {
         continue;
       }
-      const sep = rest.indexOf('/');
-      const pluginName = sep === -1 ? rest : rest.slice(0, sep);
+      // zip-slip：`plugins/../../x` 会写出 pluginsDir 之外。条目名来自外部 zip，
+      // 必须按相对路径白名单校验（拒绝绝对路径、`..`、`.` 与反斜杠变体）。
+      if (!PluginBundler.isSafeRelative(rest)) {
+        throw new Error(`bundle 条目路径越界（拒绝 zip-slip）: ${entry.name}`);
+      }
+      const root = resolve(options.pluginsDir);
+      const dest = resolve(root, rest);
+      if (dest !== root && !dest.startsWith(root + sep)) {
+        throw new Error(`bundle 条目路径越界（拒绝 zip-slip）: ${entry.name}`);
+      }
+      const sepIndex = rest.indexOf('/');
+      const pluginName = sepIndex === -1 ? rest : rest.slice(0, sepIndex);
       if (!installed.includes(pluginName)) {
         installed.push(pluginName);
       }
-      const dest = join(options.pluginsDir, rest);
       mkdirSync(join(options.pluginsDir, pluginName), { recursive: true });
       writeFileSync(dest, entry.data);
     }
@@ -332,6 +367,16 @@ export class PluginBundler {
     );
 
     return { manifest, installed, patchFile };
+  }
+
+  /**
+   * 相对路径白名单：拒绝绝对路径、`.`/`..` 段、空段与反斜杠。
+   * @param rel 相对路径（zip 条目去掉 `plugins/` 前缀后的部分）
+   * @returns 安全时为 true
+   */
+  private static isSafeRelative(rel: string): boolean {
+    if (rel === '' || isAbsolute(rel) || rel.includes('\\')) return false;
+    return !rel.split('/').some((part) => part === '' || part === '.' || part === '..');
   }
 
   /** 文件名归一化。 */

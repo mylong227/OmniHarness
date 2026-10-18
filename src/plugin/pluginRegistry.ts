@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.ts';
 import { BUNDLED_PLUGINS, type BundledPlugin } from './bundledRegistry.ts';
 import {
@@ -120,7 +120,10 @@ export class PluginRegistry {
     // 先校验权限，非法即中止（fail-closed），避免落盘半成品。
     Manifest.validateManifestPermissions(descriptor.manifest);
 
-    const target = join(this.options.pluginsDir, descriptor.manifest.name);
+    // 清单来自远程源（可被篡改）：name/entry 直接拼路径 ⇒ 必须先过白名单，否则可写到
+    // pluginsDir 之外（`name: ../evil` 或 `entry: ../../x`）。
+    const pluginName = PluginRegistry.safeName(descriptor.manifest.name);
+    const target = join(this.options.pluginsDir, pluginName);
     if (descriptor.installFrom.kind === 'path') {
       const source = descriptor.installFrom.path;
       if (!existsSync(source)) {
@@ -131,12 +134,16 @@ export class PluginRegistry {
       const buffer = await (this.options.downloader ?? RegistrySourcesShared.httpsBuffer)(
         descriptor.installFrom.url,
       );
-      mkdirSync(target, { recursive: true });
-      writeFileSync(join(target, descriptor.manifest.entry ?? 'index.js'), buffer);
+      const entryRel = PluginRegistry.safeEntry(descriptor.manifest.entry ?? 'index.js');
+      const entryPath = join(target, entryRel);
+      mkdirSync(dirname(entryPath), { recursive: true });
+      writeFileSync(entryPath, buffer);
     }
     writeFileSync(
       join(target, 'omni.plugin.json'),
-      JSON.stringify(descriptor.manifest, null, 2),
+      // 来源必须以**安装器判定**为准写进权威清单：运行期加载器据此决定是否进 VM 沙箱。
+      // 若沿用清单自带字段，远程包只要不写 source 就能被当成本地可信插件（审查 P1-1）。
+      JSON.stringify({ ...descriptor.manifest, source: descriptor.source }, null, 2),
       'utf8',
     );
     this.ensureEsmMarker(target);
@@ -167,11 +174,39 @@ export class PluginRegistry {
     if (isLoaded?.(name) === true) {
       throw new Error(`插件 "${name}" 当前已加载，请先卸载再移除`);
     }
-    const target = join(this.options.pluginsDir, name);
+    const target = join(this.options.pluginsDir, PluginRegistry.safeName(name));
     if (!existsSync(target)) {
       throw new Error(`未安装插件: ${name}`);
     }
     rmSync(target, { recursive: true, force: true });
+  }
+
+  /**
+   * 插件名白名单：只允许字母数字开头、字母数字/点/下划线/连字符，最长 64。
+   * @param name 清单或调用方给的名字
+   * @returns 原名（合法时）
+   */
+  private static safeName(name: string): string {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u.test(name)) {
+      throw new Error(`插件名非法（拒绝路径穿越）: ${JSON.stringify(name)}`);
+    }
+    return name;
+  }
+
+  /**
+   * 安装入口相对路径白名单：拒绝绝对路径、反斜杠与 `..`/`.` 段。
+   * @param entry 清单 entry 字段
+   * @returns 规范化后的相对路径
+   */
+  private static safeEntry(entry: string): string {
+    if (entry === '' || isAbsolute(entry) || entry.includes('\\')) {
+      throw new Error(`插件入口非法（拒绝路径穿越）: ${JSON.stringify(entry)}`);
+    }
+    const parts = entry.split('/');
+    if (parts.some((part) => part === '' || part === '.' || part === '..')) {
+      throw new Error(`插件入口非法（拒绝路径穿越）: ${JSON.stringify(entry)}`);
+    }
+    return parts.join('/');
   }
 
   /**

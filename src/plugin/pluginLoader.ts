@@ -92,14 +92,16 @@ export class PluginLoader {
       const manifest = PluginLoader.readManifest(manifestPath);
       const entryFile = manifest.entry ?? 'index.js';
       try {
-        // 远程源（来自 catalog/远程 registry 的不可信插件）→ 受限 VM 沙箱隔离加载。
-        const plugin: Plugin =
-          manifest.source === 'remote'
-            ? Sandbox.loadPluginCodeInSandbox(
-                readFileSync(join(dir, entryFile), 'utf8'),
-                join(dir, entryFile),
-              )
-            : await PluginLoader.importPlugin(join(dir, entryFile));
+        // 只有**显式声明** bundled/local 的插件才走宿主 import（同源可信）。
+        // `remote` 与**缺失/损坏的 source**一律走受限 VM：清单来自包内可篡改字段，
+        // 「没写 source」不能被当成「本地可信」（2026-10-18 审查 P1-1）。
+        const trusted = manifest.source === 'bundled' || manifest.source === 'local';
+        const plugin: Plugin = trusted
+          ? await PluginLoader.importPlugin(join(dir, entryFile))
+          : Sandbox.loadPluginCodeInSandbox(
+              readFileSync(join(dir, entryFile), 'utf8'),
+              join(dir, entryFile),
+            );
         await manager.register(plugin);
         loaded.push(entry);
       } catch (error) {

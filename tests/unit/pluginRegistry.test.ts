@@ -139,12 +139,20 @@ test('install 复制入口并落盘权威清单与 ESM 标记', async () => {
   ) as PluginManifest;
   assert.strictEqual(onDisk.name, 'demo-a');
   assert.deepStrictEqual(onDisk.permissions, ['fs.read']);
+  assert.strictEqual(onDisk.source, 'bundled', '权威清单必须写入安装器判定的来源');
 
   // 无 package.json 的目录会被 Node 当作 CJS，ESM 标记是 import 成功的前提。
   const marker = JSON.parse(readFileSync(join(target, 'package.json'), 'utf8')) as {
     type?: string;
   };
   assert.strictEqual(marker.type, 'module');
+});
+
+test('remove：插件名必须过白名单（拒绝路径穿越）', async () => {
+  const sandbox = createSandbox();
+  const registry = createRegistry(sandbox);
+  await assert.rejects(() => registry.remove('../outside'), /插件名非法/u);
+  await assert.rejects(() => registry.remove('..\\outside'), /插件名非法/u);
 });
 
 test('list 仅返回已安装插件', async () => {

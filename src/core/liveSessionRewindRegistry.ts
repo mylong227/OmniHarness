@@ -91,14 +91,16 @@ export class LiveSessionRewindRegistry implements LiveSessionRewindPort {
       await rewinder(size);
       return true;
     } catch (error) {
-      // fail-soft 但**不静默**：内存回卷失败意味着磁盘与内存已分叉（下一步落盘可能把回滚覆盖），
-      // 调用方必须能看见，而不是收到一句「回滚成功」。
+      // 端口契约：`false` 只表示「本进程没在跑该会话」，不是「回卷失败」。回卷失败意味着
+      // 磁盘与内存已分叉（下一步落盘可能把回滚覆盖），必须抛错让调用方拒绝报「回滚成功」。
       log.warn('session.rewind.failed', {
         sessionId,
         size,
         error: error instanceof Error ? error.message : String(error),
       });
-      return false;
+      throw new Error(
+        `会话在跑但内存回卷失败（拒绝把回滚报告为成功）：${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

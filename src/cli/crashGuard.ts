@@ -10,9 +10,9 @@
  *
  * ## 口径（三条，刻意不含糊）
  *
- *  1. `unhandledRejection`：**记录 + 继续运行**（计数）。一条浮动 rejection 不该带走整个会话；
- *     但**不做「继续运行绝对安全」的承诺**——故连续达到 `maxRejections`（默认 5）即升级为致命路径，
- *     避免「无限刷屏式带病运行」。
+ *  1. `unhandledRejection`：**记录 + 继续运行**（窗口计数）。一条浮动 rejection 不该带走整个会话；
+ *     但**不做「继续运行绝对安全」的承诺**——故窗口内达到 `maxRejections`（默认 5）即升级为致命路径，
+ *     避免「无限刷屏式带病运行」。窗口（默认 60s）保证长跑进程不会被数小时内互不相关的几条累积杀掉。
  *  2. `uncaughtException`：**记录 + 优雅收尾 + 退出码 1**。抛出点之外的栈已不可信，
  *     继续运行等于带着未知损坏改用户的工作区——这类路径必须 fail-closed。
  *  3. `SIGINT` / `SIGTERM`：**记录 + 优雅收尾 + 退出码 130 / 143**（保留既有 `serve`
@@ -61,7 +61,9 @@ export interface CrashGuardDeps {
   readonly shutdown?: (() => void | Promise<void>) | undefined;
   /** 收尾宽限（毫秒，默认 3000）：超时即强退，避免「收尾自身挂死导致永远退不出去」。 */
   readonly graceMs?: number | undefined;
-  /** 连续浮动 rejection 的容忍上限（默认 5），达标即升级为致命路径。 */
+  /** 浮动 rejection 的统计窗口（毫秒，默认 60000）；窗口外的旧计数不再累计。 */
+  readonly rejectionWindowMs?: number | undefined;
+  /** 窗口内的浮动 rejection 容忍上限（默认 5），达标即升级为致命路径。 */
   readonly maxRejections?: number | undefined;
   /** 是否接管 SIGINT / SIGTERM（默认 true；`serve` 已自带处理器，重复接管无副作用）。 */
   readonly signals?: boolean | undefined;
@@ -74,6 +76,9 @@ const DEFAULT_GRACE_MS = 3000;
 
 /** 默认的浮动 rejection 容忍上限。 */
 const DEFAULT_MAX_REJECTIONS = 5;
+
+/** 默认的浮动 rejection 统计窗口（1 分钟）：窗口外的旧计数不参与致命判定。 */
+const DEFAULT_REJECTION_WINDOW_MS = 60_000;
 
 /** 信号名 → 约定退出码（`128 + signal number`）。 */
 const SIGNAL_EXIT_CODES: Readonly<Record<string, number>> = {
@@ -108,7 +113,9 @@ export class CrashGuard {
     return guard;
   }
 
-  /** 已观察到的浮动 rejection 数。 */
+  /** 最近窗口内的浮动 rejection 时刻（毫秒）。 */
+  private rejectionTimes: number[] = [];
+  /** 已观察到的浮动 rejection 数（窗口内）。 */
   private rejections = 0;
   /** 是否已经走上致命路径（收尾只做一次）。 */
   private fatal = false;
@@ -152,7 +159,11 @@ export class CrashGuard {
    * @returns 无返回值。
    */
   private onRejection(reason: unknown): void {
-    this.rejections += 1;
+    const now = Date.now();
+    const windowMs = this.deps.rejectionWindowMs ?? DEFAULT_REJECTION_WINDOW_MS;
+    this.rejectionTimes = this.rejectionTimes.filter((at) => now - at <= windowMs);
+    this.rejectionTimes.push(now);
+    this.rejections = this.rejectionTimes.length;
     const { message, stack } = describe(reason);
     const limit = this.deps.maxRejections ?? DEFAULT_MAX_REJECTIONS;
     if (this.rejections < limit) {
@@ -161,7 +172,7 @@ export class CrashGuard {
     }
     this.deps.report({
       kind: 'unhandledRejection',
-      message: `连续 ${String(this.rejections)} 条浮动 rejection（上限 ${String(limit)}）⇒ 按致命处理：${message}`,
+      message: `窗口内 ${String(this.rejections)} 条浮动 rejection（上限 ${String(limit)}，窗口 ${String(windowMs)}ms）⇒ 按致命处理：${message}`,
       stack,
       count: this.rejections,
     });

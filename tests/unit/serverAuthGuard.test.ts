@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import type { IncomingMessage } from 'node:http';
 import { ServerAuthGuard } from '../../src/server/transport/serverAuthGuard.ts';
 
-/** 构造最小请求桩：只提供 verify 需要的 url 与可选 authorization 头。 */
-function req(url: string, authorization?: string): IncomingMessage {
-  return {
-    url,
-    headers: authorization === undefined ? {} : { authorization },
-  } as unknown as IncomingMessage;
+/** 构造最小请求桩：只提供 verify 需要的 url 与可选 authorization / origin 头。 */
+function req(url: string, authorization?: string, origin?: string): IncomingMessage {
+  const headers: Record<string, string> = {};
+  if (authorization !== undefined) headers['authorization'] = authorization;
+  if (origin !== undefined) headers['origin'] = origin;
+  return { url, headers } as unknown as IncomingMessage;
 }
 
 test('verify：未启用令牌时一律放行（含带 token 查询参数的 SSE）', () => {
@@ -44,4 +44,16 @@ test('verify：公开路径 /healthz 不受令牌约束', () => {
   const guard = new ServerAuthGuard('secret');
   assert.strictEqual(guard.verify(req('/healthz')), true);
   assert.strictEqual(guard.verify(req('/healthz?token=secret')), true);
+});
+
+test('verify：无令牌时也拒绝跨源浏览器请求（回环 Origin 放行，无 Origin 放行）', () => {
+  const guard = new ServerAuthGuard();
+  assert.strictEqual(guard.verify(req('/rpc', undefined, 'https://evil.example')), false);
+  assert.strictEqual(guard.verify(req('/rpc', undefined, 'null')), false);
+  assert.strictEqual(guard.verify(req('/rpc', undefined, 'http://127.0.0.1:8787')), true);
+  assert.strictEqual(guard.verify(req('/rpc', undefined, 'http://localhost:8787')), true);
+  assert.strictEqual(guard.verify(req('/rpc')), true);
+  // 有令牌也照样做 Origin 校验（纵深防御，不靠"攻击者拿不到令牌"）。
+  const withToken = new ServerAuthGuard('secret');
+  assert.strictEqual(withToken.verify(req('/rpc', 'Bearer secret', 'https://evil.example')), false);
 });

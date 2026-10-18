@@ -40,7 +40,19 @@ export class DaemonController {
   public constructor(opts?: { pidFile?: string; entry?: string }) {
     const home = homedir();
     this.pidFile = opts?.pidFile ?? resolve(home, '.omniharness', 'daemon.pid');
-    this.entry = opts?.entry ?? fileURLToPath(import.meta.url);
+    this.entry = opts?.entry ?? DaemonController.defaultEntry();
+  }
+
+  /**
+   * 默认后台入口：CLI 可执行入口（`dist/src/cli/exec.js`），**不是本文件**。
+   *
+   * 历史缺陷：构造函数曾用 `fileURLToPath(import.meta.url)`（即 daemonController 自身）
+   * 当入口——那个文件没有顶层执行逻辑，`daemon start` 永远起不了 serve，却照样写 PID 并
+   * 打印"已启动"。这里按相对模块位置推导 CLI 入口，并用公开静态方法让判据能钉住。
+   * @returns CLI 入口的绝对路径
+   */
+  public static defaultEntry(): string {
+    return resolve(dirname(fileURLToPath(import.meta.url)), '..', 'cli', 'exec.js');
   }
 
   /**

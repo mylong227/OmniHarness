@@ -84,12 +84,17 @@ export class ServerAuthGuard {
    * @returns 放行时为 true。
    */
   public verify(request: IncomingMessage): boolean {
-    if (!this.enabled) {
-      return true;
-    }
     const url = request.url ?? '/';
     const path = url.split('?')[0] ?? '/';
     if (PUBLIC_PATHS.has(path)) {
+      return true;
+    }
+    // 浏览器跨源防线：本地服务的 RPC/WS 能驱动 agent，任意网页都能向 127.0.0.1 发请求。
+    // 无 Origin（CLI/curl）放行；有 Origin 则必须来自回环页面（http(s)://127.0.0.1 / localhost / [::1]）。
+    if (!ServerAuthGuard.originAllowed(request)) {
+      return false;
+    }
+    if (!this.enabled) {
       return true;
     }
     // 优先 Authorization 头（fetch / WS 走这条）；SSE 的 EventSource 无法设头，
@@ -103,6 +108,26 @@ export class ServerAuthGuard {
       return true;
     }
     return false;
+  }
+
+  /**
+   * 校验请求的 `Origin`（仅在浏览器会带；无 Origin 视为非浏览器客户端）。
+   * @param request 原始请求
+   * @returns 无 Origin 或 Origin 为回环 http(s) 页面时为 true
+   */
+  private static originAllowed(request: IncomingMessage): boolean {
+    const origin = request.headers['origin'];
+    if (origin === undefined) return true;
+    if (typeof origin !== 'string') return false;
+    try {
+      const url = new URL(origin);
+      return (
+        (url.protocol === 'http:' || url.protocol === 'https:') &&
+        ServerAuthGuard.isLoopback(url.hostname)
+      );
+    } catch {
+      return false;
+    }
   }
 
   /**

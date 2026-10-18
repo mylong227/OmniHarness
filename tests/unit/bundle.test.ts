@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PluginBundler } from '../../src/plugin/pluginBundler.ts';
+import { Zip } from '../../src/plugin/zip.ts';
 import type { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
 import type { PluginProfile } from '../../src/plugin/pluginProfileStore.ts';
 
@@ -57,6 +58,57 @@ test('bundle pack → unpack 往返：插件还原 + 补丁层写出', async () 
     const patch = JSON.parse(readFileSync(unpacked.patchFile, 'utf8'));
     assert.strictEqual(patch.patches[0].key, 'maxSteps');
     assert.strictEqual(patch.patches[0].value, 8);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('canonicalManifest 覆盖嵌套字段：改 plugins[].localPath / patches[].value 必须改变签名正文', () => {
+  const base = {
+    name: 'p',
+    version: '1.0.0',
+    plugins: [{ name: 'a', from: 'path' as const, localPath: 'samples/a' }],
+    patches: [{ key: 'approval', value: { mode: 'ask' } }],
+  };
+  const canonical = PluginBundler.canonicalManifestOf(base);
+  assert.strictEqual(
+    PluginBundler.canonicalManifestOf({
+      ...base,
+      plugins: [{ ...base.plugins[0]!, localPath: 'samples/b' }],
+    }),
+    canonical.replace('samples/a', 'samples/b'),
+  );
+  assert.notStrictEqual(
+    PluginBundler.canonicalManifestOf({
+      ...base,
+      patches: [{ key: 'approval', value: { mode: 'deny' } }],
+    }),
+    canonical,
+    '补丁值必须进入签名正文（旧实现用 replacer 数组会把它裁掉）',
+  );
+});
+
+test('unpackBundle 拒绝 zip-slip 条目（不得写出 pluginsDir 之外）', async () => {
+  const base = mkdtempSync(join(tmpdir(), 'ohb-slip-'));
+  try {
+    const pluginsDir = join(base, 'plugins');
+    const workspaceDir = join(base, 'ws');
+    mkdirSync(pluginsDir, { recursive: true });
+    mkdirSync(workspaceDir, { recursive: true });
+    const zipPath = join(base, 'evil.ohb');
+    const manifest = { name: 'evil', version: '1.0.0', plugins: [], patches: [] };
+    writeFileSync(
+      zipPath,
+      Zip.zipStore([
+        { name: 'bundle.json', data: Buffer.from(JSON.stringify(manifest), 'utf8') },
+        { name: 'plugins/../evil.txt', data: Buffer.from('pwned', 'utf8') },
+      ]),
+    );
+    await assert.rejects(
+      () => PluginBundler.unpackBundle({ zipPath, pluginsDir, workspaceDir }),
+      /zip-slip/u,
+    );
+    assert.strictEqual(existsSync(join(base, 'evil.txt')), false, '不得在 pluginsDir 之外落文件');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

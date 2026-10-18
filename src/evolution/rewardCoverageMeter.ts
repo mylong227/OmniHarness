@@ -59,6 +59,8 @@ export interface CoverageMeter {
   }): (candidate: unknown) => Promise<number>;
   /** 出覆盖率体检报告（口径由实现决定）。 */
   report(): CoverageReportSurface;
+  /** 清空本轮样本（每轮 cycle 开始时调用，保证覆盖率是**本轮**口径）。 */
+  reset(): void;
 }
 
 /**

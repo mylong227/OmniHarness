@@ -383,6 +383,10 @@ export class RlvrEvolutionController implements EvolutionController {
    * @returns 重写后的裁决流（被任一闸否决者 promoted=false 且理由注明闸位）
    */
   public async cycle(): Promise<readonly PromotionVerdict[]> {
+    // 覆盖率是**本轮**口径：meter 是长生命周期对象，不重置会让一次早期坏批次永久关死
+    // 晋升（文档却写"本轮覆盖率低则整轮不晋升"）。reset 放在 inner.cycle 之前——本轮
+    // 的样本由 inner.cycle 内的 reward 包装喂入。
+    this.meter.reset();
     const verdicts = await this.inner.cycle();
     const coverage = this.meter.report();
     const admitted = this.admission.admit(verdicts);
