@@ -16,11 +16,11 @@
  * @maturity L1 — 分桶取最差的闸判据钉死（含「去分桶即漏放」的变异判据）；分桶收益未统计
  * @maturityEvidence tests/unit/bucketedCoverageMeter.test.ts
  */
-import { RewardCoverageMeter } from './rewardCoverageMeter.ts';
+import { RewardCoverageMeter, RewardCoverageReport } from './rewardCoverageMeter.ts';
 import type {
   CoverageMeter,
   CoverageReportSurface,
-  RewardCoverageReport,
+  CoverageSnapshot,
   RewardVerdict,
 } from './rewardCoverageMeter.ts';
 
@@ -118,6 +118,46 @@ export class BucketedCoverageMeter implements CoverageMeter {
       })
       .sort((a, b) => a.coverage - b.coverage || (a.bucket < b.bucket ? -1 : 1));
     return new BucketedCoverageReport(this.global.report(), buckets);
+  }
+
+  /**
+   * 当前累计计数快照（全局 + 逐桶）。
+   * @returns 计数快照
+   */
+  public snapshot(): CoverageSnapshot {
+    return {
+      samples: this.global.report().samples,
+      verified: this.global.report().verified,
+      buckets: [...this.meters.entries()].map(([bucket, meter]) => {
+        const report = meter.report();
+        return { bucket, samples: report.samples, verified: report.verified };
+      }),
+    };
+  }
+
+  /**
+   * 自 `since` 以来的分桶覆盖率（轮次差分；不重置累计值）。
+   * @param since 上一轮快照
+   * @returns 本轮分桶覆盖率报告
+   */
+  public reportDelta(since: CoverageSnapshot): BucketedCoverageReport {
+    const now = this.snapshot();
+    const global = new RewardCoverageReport(
+      Math.max(0, now.samples - since.samples),
+      Math.max(0, now.verified - since.verified),
+    );
+    const before = new Map((since.buckets ?? []).map((b) => [b.bucket, b]));
+    const buckets: BucketCoverageEntry[] = [];
+    for (const current of now.buckets ?? []) {
+      const old = before.get(current.bucket);
+      const samples = Math.max(0, current.samples - (old?.samples ?? 0));
+      if (samples === 0) continue;
+      const verified = Math.max(0, current.verified - (old?.verified ?? 0));
+      const report = new RewardCoverageReport(samples, verified);
+      buckets.push({ bucket: current.bucket, samples, coverage: report.coverage, report });
+    }
+    buckets.sort((a, b) => a.coverage - b.coverage || (a.bucket < b.bucket ? -1 : 1));
+    return new BucketedCoverageReport(global, buckets);
   }
 
   /**

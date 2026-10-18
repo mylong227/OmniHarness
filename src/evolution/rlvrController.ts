@@ -40,7 +40,11 @@ import type { RlvrSampler, ReplayBuffer, CodeCandidate, RlvrSampleContext } from
 import { VerifiableReward } from './verifiableReward.ts';
 import { CascadeReward } from './cascadeReward.ts';
 import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.ts';
-import type { CoverageMeter, CoverageReportSurface } from './rewardCoverageMeter.ts';
+import type {
+  CoverageMeter,
+  CoverageReportSurface,
+  CoverageSnapshot,
+} from './rewardCoverageMeter.ts';
 import { BucketedCoverageMeter } from './bucketedCoverageMeter.ts';
 import { PromotionAdmission } from './promotionAdmission.ts';
 import type { AdmissionResult } from './promotionAdmission.ts';
@@ -336,6 +340,8 @@ export class RlvrEvolutionController implements EvolutionController {
   private readonly onPromote?: ((candidate: Candidate) => void) | undefined;
   /** 最近一轮体检报告。 */
   private lastReport: RlvrCycleReport | undefined;
+  /** 上一轮结束时的计量器计数（cycle 用它做**本轮**差分，避免累计覆盖率关死后续晋升）。 */
+  private coverageBaseline: CoverageSnapshot = { samples: 0, verified: 0, buckets: [] };
 
   /**
    * @param opts 内层控制器 / 准入器 / 覆盖率计量器（全局或分桶口径）/ 覆盖率下限 / 晋升回调
@@ -384,7 +390,10 @@ export class RlvrEvolutionController implements EvolutionController {
    */
   public async cycle(): Promise<readonly PromotionVerdict[]> {
     const verdicts = await this.inner.cycle();
-    const coverage = this.meter.report();
+    // 覆盖率按**本轮**差分：meter 是长生命周期对象，直接 report() 会把历史样本算进来，
+    // 一次早期坏批次会永久关死晋升。差分不重置 meter，故 report()/观测仍是累计口径。
+    const coverage = this.meter.reportDelta(this.coverageBaseline);
+    this.coverageBaseline = this.meter.snapshot();
     const admitted = this.admission.admit(verdicts);
     const blocked = coverage.coverage < this.minCoverage;
     const final = blocked ? this.blockByCoverage(admitted.verdicts, coverage) : admitted.verdicts;

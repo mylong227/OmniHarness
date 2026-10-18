@@ -1,4 +1,4 @@
-﻿/**
+/**
  * T5 合流接线测试：把「退火接受 / 多样性闸 / 覆盖率体检 / 失败模式挖掘」钉在**生产装配路径**上。
  *
  * 断言的不是「模块存在」，而是「经生产入口装配出来的控制器确实走了这些闸」：
@@ -204,4 +204,45 @@ test('T5 覆盖率闸：判据不可验证 ⇒ 整轮不晋升（fail-closed）+
   assert.strictEqual(okOut[0]!.promoted, true, '覆盖率达标 ⇒ 放行');
   assert.strictEqual(promoted.length, 1);
   assert.strictEqual(ok.report()!.coverage, 1);
+});
+
+test('覆盖率闸按**本轮**口径：上一轮好样本不得掩盖本轮坏样本', async () => {
+  const verdict: PromotionVerdict = {
+    candidate: { skill: baseSkills()[0]!, source: 'twist:a+b' },
+    promoted: true,
+    score: 0.9,
+    baselineScore: 0,
+    safety: 'pass',
+    reason: '门禁通过',
+  };
+  const inner: EvolutionController = {
+    autoRun: true,
+    evaluate: async () => verdict,
+    cycle: async () => [verdict],
+    budgetUsed: () => ({ generated: 1, maxCandidates: 1 }),
+  };
+  const meter = new RewardCoverageMeter();
+  const controller = new RlvrEvolutionController({
+    inner,
+    admission: new PromotionAdmission(),
+    meter,
+    minCoverage: 0.6,
+  });
+
+  const good = meter.wrap({
+    verify: async () => ({ reward: 1, verifiable: true, reason: 'first-round-green' }),
+  });
+  await good({});
+  assert.strictEqual((await controller.cycle())[0]!.promoted, true, '第一轮绿样本应放行');
+  assert.strictEqual(controller.report()!.coverage, 1);
+
+  const bad = meter.wrap({
+    verify: async () => ({ reward: 0, verifiable: false, reason: 'second-round-unverifiable' }),
+  });
+  await bad({});
+  const second = await controller.cycle();
+  assert.strictEqual(second[0]!.promoted, false, '第二轮只有坏样本，不得被历史好样本救活');
+  assert.match(second[0]!.reason, /覆盖率闸否决晋升/u);
+  assert.strictEqual(controller.report()!.coverage, 0, '报告应反映本轮差分覆盖率');
+  assert.ok(meter.report().coverage > 0, 'meter 仍是累计口径（差分不重置它）');
 });

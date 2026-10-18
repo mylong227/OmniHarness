@@ -3597,6 +3597,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | daemon 身份    | 只按 PID 判存活，陈旧 PID 被复用时会误杀无关进程                                                                                               | PID 文件记录启动时刻，stop 前按平台采集并校验；不匹配/不可校验拒绝 kill                     | `daemon`                                                                                                                    |
 | OIDC           | 无 exp / 字符串 exp 被当永不过期；中间态凭据默认权限落盘；nonce 生成即丢弃                                                                     | 缺/非数字 exp 拒绝；state 0600、形状校验、10 分钟 TTL；nonce 写入 URL + AuthState，回调校验 | `sso`、`oidcFlowContract`                                                                                                   |
 | vm 隔离        | 返回 Promise 算成功；动态 import 崩宿主；微任务死循环冻结                                                                                      | 拒绝 thenable/动态 import；`microtaskMode: afterEvaluate` 让微任务受 timeout                | `isolationLadder`                                                                                                           |
+| RLVR 覆盖率    | meter 跨轮累计，一次早期坏批次永久关死后续晋升                                                                                                 | controller 用 `snapshot`/`reportDelta` 做**本轮**差分；meter 仍保留累计口径                 | `evolutionRlvrAdmission`、`bucketedCoverageMeter`                                                                           |
 | 会话归属       | `sessionId` 直接拼文件名，可穿越写任意 `.jsonl`                                                                                                | 白名单 + 运行中拒绝                                                                         | `sessionAssignWorkspace`                                                                                                    |
 | 企业 OIDC      | 只校验 discovery，不校验已装配 Configuration                                                                                                   | 两路 issuer/endpoints 交叉校验，失败关闭                                                    | `oidcFlowContract`                                                                                                          |
 | 长期记忆       | `update` 丢 `expiresAt`                                                                                                                        | 两条更新路径都持久化（含显式清除）                                                          | `fileLongTermMemory`                                                                                                        |
@@ -3650,12 +3651,9 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
    CLI（stdin / 参数文件 / 直接 node 入口），不能在宿主单方面保证。
 4. **`bundle` 的 Ed25519**：严格档由 `PrivateSkillSource` 验签；`unpackBundle` 本身只验 HMAC，
    单独调用它不会验 Ed25519。是否要在 bundler 内强制 Ed25519 是产品口径问题。
-5. **RLVR 覆盖率跨轮累计**：本轮尝试「每轮出报告后清零」，但 `controller.report().coverage` 与
-   `meter.report().coverage` 的既有契约要求两者一致（清零后 meter 归零、报告仍是上轮值），故回退。
-   正确修法是给度量器加快照/差分（`samplesAtLastCycle`）而不是清空；属独立小工程。
-6. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
+5. **native shell 同步冻结 + 非零退出报成功**：Rust `shell.run` 无超时/输出上限、`exit 3` 仍
    `ok:true`。需改 Rust 内核 + 原生后端映射，不能在 TS 侧单点修。
-7. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
+6. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
    共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
    vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
    productionGrade/architectureGate 探针/hashChain/evolutionIntegration/a2aDelegate/fileLockCrossProcess/

@@ -59,6 +59,24 @@ export interface CoverageMeter {
   }): (candidate: unknown) => Promise<number>;
   /** 出覆盖率体检报告（口径由实现决定）。 */
   report(): CoverageReportSurface;
+  /** 当前累计计数快照（供 `reportDelta` 做轮次差分）。 */
+  snapshot(): CoverageSnapshot;
+  /**
+   * 出“自 `since` 以来”的覆盖率报告；不重置计量器。
+   * @param since 上一轮结束时的 `snapshot()`
+   */
+  reportDelta(since: CoverageSnapshot): CoverageReportSurface;
+}
+
+/** 覆盖率累计计数快照（分桶口径带逐桶计数）。 */
+export interface CoverageSnapshot {
+  readonly samples: number;
+  readonly verified: number;
+  readonly buckets?: readonly {
+    readonly bucket: string;
+    readonly samples: number;
+    readonly verified: number;
+  }[];
 }
 
 /**
@@ -116,6 +134,28 @@ export class RewardCoverageMeter {
   public report(): RewardCoverageReport {
     const verified = this.outcomes.filter((o) => o.verifiable).length;
     return new RewardCoverageReport(this.outcomes.length, verified);
+  }
+
+  /**
+   * 当前累计计数快照。
+   * @returns 样本数 / 可验证数
+   */
+  public snapshot(): CoverageSnapshot {
+    const verified = this.outcomes.filter((o) => o.verifiable).length;
+    return { samples: this.outcomes.length, verified };
+  }
+
+  /**
+   * 自 `since` 以来的覆盖率（轮次差分；不重置累计值）。
+   * @param since 上一轮快照
+   * @returns 本轮覆盖率报告
+   */
+  public reportDelta(since: CoverageSnapshot): RewardCoverageReport {
+    const now = this.snapshot();
+    return new RewardCoverageReport(
+      Math.max(0, now.samples - since.samples),
+      Math.max(0, now.verified - since.verified),
+    );
   }
 
   /**
