@@ -121,4 +121,20 @@ describe('ToolGate：多文件 apply_patch', () => {
       ],
     );
   });
+
+  it('workflow_memory：审批/沙箱目标是工作区内状态文件，不是工具名', async () => {
+    const approvals = new RecordingApproval();
+    const sandbox = new RecordingSandbox();
+    const gate = new ToolGate(approvals, sandbox);
+    const result = await gate.gate(
+      { id: 'c3', name: 'workflow_memory', arguments: { action: 'recall', task: 'x' } },
+      's1',
+    );
+    assert.strictEqual(result, undefined);
+    assert.deepStrictEqual(approvals.targets, ['.omniharness/workflows.jsonl']);
+    assert.deepStrictEqual(
+      sandbox.actions.map((action) => [action.kind, action.target]),
+      [['file_write', '.omniharness/workflows.jsonl']],
+    );
+  });
 });

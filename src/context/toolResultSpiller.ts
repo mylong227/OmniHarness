@@ -2,6 +2,7 @@ import type { SpillPort } from '../ports/memory/spill.ts';
 import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.ts';
 import type { ToolResult } from '../ports/tool/tool.ts';
 import { SpillPolicy, type SpillPolicyOptions } from './spillPolicy.ts';
+import { ObservationCompressor } from './observationCompressor.ts';
 
 /**
  * @beta
@@ -14,6 +15,14 @@ export interface SpillerOptions extends SpillPolicyOptions {
 
 /** 默认豁免：读回工具本身。 */
 const DEFAULT_EXEMPT: readonly string[] = ['spill_read'];
+
+/** 需要「错误优先」压缩预览的工具（命令/搜索输出最容易长且含失败行）。 */
+const COMPRESSED_TOOLS: ReadonlySet<string> = new Set([
+  'shell',
+  'shell_job',
+  'shell_interactive',
+  'grep',
+]);
 
 /**
  * @beta
@@ -41,7 +50,7 @@ export class ToolResultSpiller implements ToolResultSpillerPort {
     }
     const content = target as string;
     const handle = await this.port.spill(content, sessionId);
-    return this.replace(result, this.render(content, handle.id, handle.bytes));
+    return this.replace(result, this.render(content, handle.id, handle.bytes, toolName));
   }
 
   /** 用替代文本替换原输出（保持另一字段原样）。
@@ -68,9 +77,20 @@ export class ToolResultSpiller implements ToolResultSpillerPort {
     };
   }
 
-  /** 渲染给模型的替代文本：有界预览 + 省略量 + 读回指引。 */
-  private render(content: string, spillId: string, bytes: number): string {
-    const preview = this.policy.preview(content);
+  /** 渲染给模型的替代文本：有界预览 + 省略量 + 读回指引。
+   * @param content 原始内容
+   * @param spillId 外溢 id
+   * @param bytes 原始字节数
+   * @param toolName 工具名（决定是否启用错误优先预览）
+   * @returns 模型可见的预览文本
+   */
+  private render(content: string, spillId: string, bytes: number, toolName: string): string {
+    const source = COMPRESSED_TOOLS.has(toolName)
+      ? ObservationCompressor.preview(content, {
+          maxChars: Math.max(2_000, this.policy.preview(content).length),
+        })
+      : content;
+    const preview = this.policy.preview(source);
     const hidden = bytes - this.policy.byteLength(preview);
     return `${preview}\n…（已省略 ${hidden} 字节，完整内容外溢至 spill://${spillId}，用 spill_read 工具传 id 读回）`;
   }

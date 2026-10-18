@@ -28,7 +28,10 @@ import { TestFailureDigest } from './testFailureDigest.ts';
 import type { SelfVerifyPolicy } from './selfVerifyPolicy.ts';
 import type { DecisionEngine } from '../../../ports/decision/decisionEngine.ts';
 import type { DecisionTracePort } from '../../../ports/decision/decisionTrace.ts';
+import type { FailureReflectionPort } from '../../../ports/memory/failureReflection.ts';
+import type { ProcessRewardPort } from '../../../ports/memory/processReward.ts';
 import { VerdictTracer } from './verdictTracer.ts';
+import { MutationTargets } from './mutationTargets.ts';
 
 import type { VerdictObservation, VerdictObserver } from './verdictTypes.ts';
 // verdict 观测类型已抽至 `./verdictTypes.ts`（中性模块），以打断
@@ -79,6 +82,13 @@ export interface SelfVerifyWiring {
   readonly verdictMode?: 'shadow' | 'enforce' | undefined;
   /** 决策 trace 落盘端口（配对样本：noul 预判 vs 真实测试结果）。缺省 undefined（不落盘）。 */
   readonly verdictTrace?: DecisionTracePort | undefined;
+  /**
+   * 可选的失败反思记忆（P2）：失败后记录结构化教训，下次同目标写入前回灌。
+   * 未注入即零行为（与 verdict 同口径）。
+   */
+  readonly reflections?: FailureReflectionPort | undefined;
+  /** 可选的步骤级过程奖励账本（P3）：记录每次写后测试的真实结果，供离线校准。 */
+  readonly processRewards?: ProcessRewardPort | undefined;
 }
 
 /**
@@ -211,6 +221,13 @@ export class SelfVerifyingToolPort implements ToolPort {
     // 决策引擎是质量信号，fail-open：预判不可用/退化时静默跳过，且不替代真实测试真值。
     const { noul, available } = await this.tracer.observe(call, context);
     const notes: string[] = [];
+    const targets = MutationTargets.of(call.name, call.arguments);
+    const prior = await this.recallReflections(targets);
+    if (prior.length > 0) {
+      notes.push(
+        `[历史失败反思] 同一目标上次验证失败：${prior.join('；')}（仅供定位，不是当前真值）`,
+      );
+    }
     if (this.tracer.mode === 'enforce' && noul !== undefined) {
       notes.push(
         `[自验证·Laya预判] System-1 预判本次源码改动会跑通既有测试的概率 p=${noul.toFixed(2)}（仅供参考，不替代真实测试结果）`,
@@ -232,12 +249,94 @@ export class SelfVerifyingToolPort implements ToolPort {
       if (result.note !== undefined) {
         notes.push(result.note);
       }
+      if (result.ran && result.passed === false) {
+        await this.rememberReflection(call, targets, result);
+      }
+      if (result.ran && result.passed !== undefined) {
+        await this.recordProcessReward(call, targets, noul, result);
+      }
     }
     // 配对 trace：预判（noul）与真实结果（testRan/testPassed/testExitCode）关联落盘，
     // 供离线 RLCD 温度校准与借鉴清单项训练。仅当 verdict 引擎启用（verdictMode 非空）时记录，
     // 避免无预判的噪声样本；落盘异常静默（fail-open）。
     this.tracer.emit(call, context, noul, available, testRan, testPassed, testExitCode);
     return notes.length > 0 ? notes.join('\n') : undefined;
+  }
+
+  /**
+   * 召回同目标的失败反思（P2）；未注入/失败时为空（fail-open）。
+   * @param targets 本次改动目标
+   * @returns 可回灌的简短教训
+   */
+  private async recallReflections(targets: readonly string[]): Promise<string[]> {
+    const port = this.wiring.reflections;
+    if (port === undefined || targets.length === 0) return [];
+    try {
+      const entries = await port.recall({ targets, limit: 2 });
+      return entries.map((entry) => {
+        const first = entry.digest.split(/\r?\n/u)[0] ?? '';
+        return `[${entry.toolName} exit=${String(entry.exitCode)}] ${first.slice(0, 240)}`;
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 记录一次失败反思（P2）；未注入/失败时静默（fail-open）。
+   * @param call 工具调用
+   * @param targets 本次改动目标
+   * @param result 测试结果
+   * @returns 无返回值
+   */
+  private async rememberReflection(
+    call: ToolCall,
+    targets: readonly string[],
+    result: RunTestResult,
+  ): Promise<void> {
+    const port = this.wiring.reflections;
+    if (port === undefined || targets.length === 0 || result.note === undefined) return;
+    try {
+      await port.remember({
+        toolName: call.name,
+        targets,
+        command: this.wiring.policy.command,
+        exitCode: result.exitCode ?? null,
+        digest: result.note.slice(0, 1_200),
+      });
+    } catch {
+      // 反思是增强，不是主状态；写失败不得影响工具结果。
+    }
+  }
+
+  /**
+   * 记录步骤级过程奖励样本（P3）；未注入/失败时静默（fail-open）。
+   * @param call 工具调用
+   * @param targets 本次改动目标
+   * @param noul Laya 预判（可选）
+   * @param result 测试结果
+   * @returns 无返回值
+   */
+  private async recordProcessReward(
+    call: ToolCall,
+    targets: readonly string[],
+    noul: number | undefined,
+    result: RunTestResult,
+  ): Promise<void> {
+    const port = this.wiring.processRewards;
+    if (port === undefined || result.passed === undefined) return;
+    try {
+      await port.record({
+        toolName: call.name,
+        targets,
+        ...(noul === undefined ? {} : { noul }),
+        passed: result.passed,
+        exitCode: result.exitCode ?? null,
+        at: new Date(this.wiring.now?.() ?? Date.now()).toISOString(),
+      });
+    } catch {
+      // 过程奖励是监督数据，不是主状态；写失败不得影响工具结果。
+    }
   }
 
   /**

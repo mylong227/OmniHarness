@@ -43,6 +43,10 @@ import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.ts';
 import { MutationTargets } from '../adapters/tool/verify/mutationTargets.ts';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.ts';
 import { PatchCandidatesTool } from '../adapters/tool/fs/patchCandidatesTool.ts';
+import { FailureReflectionStore } from '../adapters/memory/failureReflectionStore.ts';
+import { ProcessRewardStore } from '../adapters/memory/processRewardStore.ts';
+import { WorkflowMemoryTool } from '../adapters/tool/memory/workflowMemoryTool.ts';
+import { WorkflowMemoryStore } from '../adapters/memory/workflowMemoryStore.ts';
 import type { DecisionEngine } from '../ports/decision/decisionEngine.ts';
 import type { DecisionTracePort } from '../ports/decision/decisionTrace.ts';
 import { PostWriteDiagnosticsPort } from '../adapters/tool/verify/postWriteDiagnosticsPort.ts';
@@ -398,6 +402,8 @@ export class ConfigToolRegistry {
         MutationTargets.of(toolName, args).some((path) =>
           SelfVerifyPolicy.isVerifiableTarget(path),
         ),
+      reflections: new FailureReflectionStore(workspaceRoot),
+      processRewards: new ProcessRewardStore(workspaceRoot),
       probeFakeCompletion: async (toolName, args) => {
         const content = MutationTargets.addedText(toolName, args);
         if (content === undefined) {
@@ -509,7 +515,9 @@ export class ConfigToolRegistry {
         policy: selfVerify,
       });
       registry.register(candidates.definition, (call, context) => candidates.handle(call, context));
-      // tool_search 的 BM25 索引在注册补丁候选工具之前已建好；不重建会让它只能直载、搜不到。
+      const workflows = new WorkflowMemoryTool(new WorkflowMemoryStore(seed.workspaceRoot));
+      registry.register(workflows.definition, (call, context) => workflows.handle(call, context));
+      // tool_search 的 BM25 索引在注册补丁候选/工作流记忆之前已建好；不重建会让它们只能直载、搜不到。
       toolIndex.reindex(registry.list());
     }
     for (const extra of extraTools ?? []) {

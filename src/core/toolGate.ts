@@ -219,7 +219,8 @@ export class ToolGate implements ToolGatePort {
     if (
       call.name === TOOL_NAMES.writeFile ||
       call.name === TOOL_NAMES.edit ||
-      call.name === TOOL_NAMES.applyPatch
+      call.name === TOOL_NAMES.applyPatch ||
+      call.name === TOOL_NAMES.workflowMemory
     ) {
       return { kind: 'file_write', target: this.targetOf(call) };
     }
@@ -254,6 +255,9 @@ export class ToolGate implements ToolGatePort {
    */
   private targetsOf(call: ToolCall): string[] {
     const direct = call.arguments['command'] ?? call.arguments['path'] ?? call.arguments['url'];
+    if (call.name === TOOL_NAMES.workflowMemory) {
+      return ['.omniharness/workflows.jsonl'];
+    }
     if (call.name === TOOL_NAMES.applyPatch || call.name === TOOL_NAMES.patchCandidates) {
       const patches = this.patchTextsOf(call);
       const targets: string[] = [];

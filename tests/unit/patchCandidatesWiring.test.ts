@@ -44,12 +44,20 @@ test('patch_candidates：selfVerify 开启时注册；关闭时不注册', () =>
       enabledNames.includes(TOOL_NAMES.patchCandidates),
       `自验证开启时应注册 ${TOOL_NAMES.patchCandidates}，实际：${enabledNames.join(',')}`,
     );
+    assert.ok(
+      enabledNames.includes(TOOL_NAMES.workflowMemory),
+      `自验证开启时应注册 ${TOOL_NAMES.workflowMemory}，实际：${enabledNames.join(',')}`,
+    );
 
     const disabled = ConfigFactory.build({ ...base });
     const disabledNames = disabled.tools.list().map((definition) => definition.name);
     assert.ok(
       !disabledNames.includes(TOOL_NAMES.patchCandidates),
       '未配置自验证时不应注册 patch_candidates（避免多一个只会失败的工具）',
+    );
+    assert.ok(
+      !disabledNames.includes(TOOL_NAMES.workflowMemory),
+      '未配置自验证时不应注册 workflow_memory',
     );
   } finally {
     rmSync(dir, { recursive: true, force: true, maxRetries: 3 });

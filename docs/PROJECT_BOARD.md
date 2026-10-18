@@ -2214,6 +2214,25 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
   测试副作用恢复、非法候选、路径越界、无命令、超时透传/封顶、LaYa tie-breaker）+ `patchCandidatesWiring`
   （注册/不注册 + ConfigFactory 执行 + tool_search 索引重建）+ `toolGateMultiTarget`（所有候选目标过审批/沙箱）。
 
+### 8.7d 2026-10-18：P2–P5 落地（诚实口径）
+
+> P2/P4/P5 是完整接线；P3 是**过程奖励监督层**（记录/统计/先验），**不是**训练好的生成式 PRM；
+> 自动重放与 PRM 训练都没有伪装成已完成。
+
+- **P2 失败反思记忆**：`FailureReflectionStore`（工作区 `.omniharness/failure-reflections.jsonl`，有界/去重/原子写）
+  - `SelfVerifyingToolPort` 在写后测试失败时记录，下一次同目标写前回灌最近 2 条；未注入/写失败 fail-open。
+    判据：`failureReflectionStore.test.ts`（去重/有界/坏行）+ `failureReflectionWiring.test.ts`（第二次写源码真的回灌历史）。
+- **P3 过程奖励监督层**：`ProcessRewardStore` 记录每次「写源码 → 真实测试」的 tool/targets/noul/passed/exit，
+  提供 AUC/Brier/lift 与按工具 Laplace 先验；无 noul 时返回 NaN 不伪造数字。已接入
+  `SelfVerifyingToolPort`（`processRewards`），判据 `processRewardStore.test.ts` 3 例 + `processRewardWiring.test.ts`。
+  **边界**：只做监督/校准与先验，不改变工具执行决策；生成式 PRM 训练未做。
+- **P4 Workflow Memory**：`WorkflowMemoryStore`（有界 JSONL、任务词/CJK bigram 重叠召回）+ `workflow_memory`
+  工具（remember/recall，模型显式调用）。只在 `selfVerify` 开启时注册；**检索式记忆，不自动重放**。
+  判据：`workflowMemoryStore.test.ts` 2 例 + `workflowMemoryTool.test.ts` 2 例 + wiring 注册断言。
+- **P5 ACI 观测压缩**：`ObservationCompressor` 对 shell/grep 长输出做「错误行优先 + 头尾 + 省略标记」，
+  `ToolResultSpiller` 只压缩**模型可见预览**，全文仍落外溢；ANSI 剥离、字符/行双重预算。
+  判据：`observationCompressor.test.ts` 3 例 + 既有 `spill.test.ts` 18 例不回归。
+
 ### 8.8 三处「判据/护栏失真」已修（2026-10-11，第八十轮口径：先读码取证、再改、每项带正对照）
 
 本轮由一次全量体检发现（命令与读数逐条可复核），三处同属一个形态：**声明与实现不一致，且不一致的方向都是"看着绿"**。
