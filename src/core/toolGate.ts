@@ -254,10 +254,10 @@ export class ToolGate implements ToolGatePort {
    */
   private targetsOf(call: ToolCall): string[] {
     const direct = call.arguments['command'] ?? call.arguments['path'] ?? call.arguments['url'];
-    if (call.name === TOOL_NAMES.applyPatch) {
-      const patch = call.arguments['patch'];
-      if (typeof patch === 'string') {
-        const targets: string[] = [];
+    if (call.name === TOOL_NAMES.applyPatch || call.name === TOOL_NAMES.patchCandidates) {
+      const patches = this.patchTextsOf(call);
+      const targets: string[] = [];
+      for (const patch of patches) {
         for (const line of patch.split(/\r?\n/u)) {
           const match = /^(?:\+\+\+|---) (.+)$/u.exec(line);
           if (match === null) continue;
@@ -266,8 +266,8 @@ export class ToolGate implements ToolGatePort {
           const normalized = raw.replace(/^[ab]\//u, '');
           if (!targets.includes(normalized)) targets.push(normalized);
         }
-        if (targets.length > 0) return targets;
       }
+      if (targets.length > 0) return targets;
     }
     if (typeof direct === 'string' && direct !== '') {
       return [direct];
@@ -276,12 +276,28 @@ export class ToolGate implements ToolGatePort {
   }
 
   /**
+   * 取补丁文本（单补丁 / 多候选）。
+   * @param call 工具调用。
+   * @returns 非空补丁文本数组（无则为空）。
+   */
+  private patchTextsOf(call: ToolCall): string[] {
+    if (call.name === TOOL_NAMES.patchCandidates) {
+      const raw = call.arguments['candidates'];
+      return Array.isArray(raw)
+        ? raw.filter((item): item is string => typeof item === 'string')
+        : [];
+    }
+    const patch = call.arguments['patch'];
+    return typeof patch === 'string' ? [patch] : [];
+  }
+
+  /**
    * 按工具类型映射**全部**沙箱动作：多文件补丁每个目标一条，其余工具一条。
    * @param call 工具调用
    * @returns 沙箱动作清单
    */
   private sandboxActionsOf(call: ToolCall): SandboxAction[] {
-    if (call.name !== TOOL_NAMES.applyPatch) {
+    if (call.name !== TOOL_NAMES.applyPatch && call.name !== TOOL_NAMES.patchCandidates) {
       return [this.sandboxActionOf(call)];
     }
     return this.targetsOf(call).map((target) => ({ kind: 'file_write', target }));

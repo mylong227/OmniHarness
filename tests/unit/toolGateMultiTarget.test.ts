@@ -97,4 +97,28 @@ describe('ToolGate：多文件 apply_patch', () => {
       ['gone.txt'],
     );
   });
+
+  it('patch_candidates：审批/沙箱看到所有候选的全部目标', async () => {
+    const approvals = new RecordingApproval();
+    const sandbox = new RecordingSandbox();
+    const gate = new ToolGate(approvals, sandbox);
+    const result = await gate.gate(
+      {
+        id: 'c2',
+        name: 'patch_candidates',
+        arguments: { candidates: [patchOf(['a.txt']), patchOf(['b.txt', 'c.txt'])] },
+      },
+      's1',
+    );
+    assert.strictEqual(result, undefined);
+    assert.deepStrictEqual(approvals.targets, ['a.txt, b.txt, c.txt']);
+    assert.deepStrictEqual(
+      sandbox.actions.map((action) => [action.kind, action.target]),
+      [
+        ['file_write', 'a.txt'],
+        ['file_write', 'b.txt'],
+        ['file_write', 'c.txt'],
+      ],
+    );
+  });
 });

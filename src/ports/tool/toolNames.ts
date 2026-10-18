@@ -42,6 +42,8 @@ export const TOOL_NAMES = {
   edit: 'edit',
   /** 应用 unified diff 补丁。 */
   applyPatch: 'apply_patch',
+  /** 多候选补丁：逐候选跑真实测试，只写回最优。 */
+  patchCandidates: 'patch_candidates',
   /** 前台命令执行。 */
   shell: 'shell',
   /** 后台作业管理（启动/查询/kill）。 */
@@ -154,6 +156,8 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   TOOL_NAMES.writeFile,
   TOOL_NAMES.edit,
   TOOL_NAMES.applyPatch,
+  // 多候选补丁：会临时改盘、跑任意测试命令、最终写回文件 ⇒ 与 apply_patch/shell 同级。
+  TOOL_NAMES.patchCandidates,
   TOOL_NAMES.delegate,
   TOOL_NAMES.subagent,
   // 工作流 / 目标驱动：每一步都会起一个真 Agent 回合，可落盘、可跑命令 ⇒ 与 subagent 同级。

@@ -2197,6 +2197,23 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
 **下一步门槛**：真实 trace 上 AUC ≥ 0.65 且 Brier skill > 0 才考虑 enforce；候选补丁排序需再过
 「有/无 LaYa 排序」的配对 A/B，不能仅凭单点相关系数上线。
 
+### 8.7c 2026-10-18：P1 多候选补丁验证（`patch_candidates`）
+
+新增 `src/adapters/tool/fs/patchCandidatesTool.ts`：模型一次提交 2–3 份 unified diff，工具先全部
+解析/试算，逐候选临时写入工作区 → 跑**真实测试**（命令来自 `SelfVerifyPolicy`，模型不能自带命令）
+→ `finally` 恢复原文件；只把最优候选写回工作区。排序：测试通过 > LaYa `noul` > 改动体量 > 序号；
+全部失败 ⇒ 一个字节都不落盘。
+
+- 安全：路径越界在写盘前拒绝；写类工具进 `MUTATING_TOOL_NAMES`；`ToolGate.targetsOf` /
+  `sandboxActionsOf` 会展开**所有候选的全部目标**做审批展示与沙箱检查。
+- 预算：2–3 候选；每候选一次测试；单次超时 ≤ `SelfVerifyPolicy.timeoutMs`（模型只能调小）；
+  总预算 600s；无可用测试命令时 fail-closed。
+- 装配：仅在 `selfVerify` 非空时注册（避免无测试证据的仓库多一个只会失败的工具）；
+  `ConfigFactory` 实测可执行，且 LaYa 只做同分 tie-breaker。
+- 判据：`tests/unit/patchCandidates.test.ts`（12 例：真实 subprocess 端到端、部分通过、全失败恢复、
+  测试副作用恢复、非法候选、路径越界、无命令、超时透传/封顶、LaYa tie-breaker）+ `patchCandidatesWiring`
+  （注册/不注册 + ConfigFactory 执行 + tool_search 索引重建）+ `toolGateMultiTarget`（所有候选目标过审批/沙箱）。
+
 ### 8.8 三处「判据/护栏失真」已修（2026-10-11，第八十轮口径：先读码取证、再改、每项带正对照）
 
 本轮由一次全量体检发现（命令与读数逐条可复核），三处同属一个形态：**声明与实现不一致，且不一致的方向都是"看着绿"**。

@@ -42,6 +42,7 @@ import { SelfChecklist } from '../core/selfChecklist.ts';
 import { SelfVerifyPolicy } from '../adapters/tool/verify/selfVerifyPolicy.ts';
 import { MutationTargets } from '../adapters/tool/verify/mutationTargets.ts';
 import { SelfVerifyingToolPort } from '../adapters/tool/verify/selfVerifyingToolPort.ts';
+import { PatchCandidatesTool } from '../adapters/tool/fs/patchCandidatesTool.ts';
 import type { DecisionEngine } from '../ports/decision/decisionEngine.ts';
 import type { DecisionTracePort } from '../ports/decision/decisionTrace.ts';
 import { PostWriteDiagnosticsPort } from '../adapters/tool/verify/postWriteDiagnosticsPort.ts';
@@ -501,6 +502,16 @@ export class ConfigToolRegistry {
       retrieval,
     );
     ConfigToolRegistry.registerAuxiliaryTools(registry, seed, longTerm, costBudget, lsp, identity);
+    // 多候选补丁只在自验证开启时注册：它需要可探测/显式测试命令，否则只会多一个失败面。
+    if (selfVerify !== undefined) {
+      const candidates = new PatchCandidatesTool(seed.workspaceRoot, {
+        decisionEngine,
+        policy: selfVerify,
+      });
+      registry.register(candidates.definition, (call, context) => candidates.handle(call, context));
+      // tool_search 的 BM25 索引在注册补丁候选工具之前已建好；不重建会让它只能直载、搜不到。
+      toolIndex.reindex(registry.list());
+    }
     for (const extra of extraTools ?? []) {
       // 显式注入**优先于内置默认**：`web_fetch` / `view_image` 等内置工具允许被调用方整体替换
       // （如换成带鉴权的抓取实现）。故先反注册同名内置再注册，避免撞上 `RegistryToolPort` 的重名拦截。
