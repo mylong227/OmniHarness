@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ExecCli } from '../../src/cli/execCli.ts';
 import { API_VERSION } from '../../src/version.ts';

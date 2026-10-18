@@ -8,7 +8,7 @@
  *    `mvn -Dtest` / `gradle --tests` / `go test <目录>` / `dotnet --filter`），
  *    认不出的命令原样返回（退回全量），**不做瞎猜**。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { TestCommandNarrower } from '../../src/adapters/tool/verify/testCommandNarrower.ts';
 

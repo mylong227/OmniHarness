@@ -9,7 +9,7 @@
  * 3. **缓存语义**：同一语料同一文件重复取词集返回**同一实例**（惰性缓存真的生效）。
  */
 
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -1,7 +1,7 @@
 // MCP 工具 description 提示注入扫描（审计 §30 Gap ③）单元测试。
 // 覆盖：scanToolDescription 双向扫描、toDescriptor/toDefinition 命中注入即拒绝透传。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { McpToolMapper, mcpToolMapper } from '../../src/mcp/mcpToolMapper.ts';
 import type { ToolDefinition } from '../../src/ports/tool/tool.ts';

@@ -6,7 +6,7 @@
  * 注入消息，最终必须序列化为 OpenAI 兼容的 `[text, {type:image_url, image_url:{url:"data:..."}}]`。
  * 只断言内存里的中间结构不够——HTTP 层才是 OpenAI 端点实际收到的东西。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';

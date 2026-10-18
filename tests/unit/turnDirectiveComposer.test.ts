@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { TurnDirectiveComposer } from '../../src/server/services/turnDirectiveComposer.ts';
 import {
   EMPTY_SESSION_MODES,

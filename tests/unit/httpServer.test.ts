@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { HttpServer, HttpBridgeTransport } from '../../src/server/transport/httpServer.ts';
 import { Metrics } from '../../src/server/services/metrics.ts';

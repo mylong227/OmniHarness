@@ -17,7 +17,7 @@
  *   ⑥/⑦ 端到端（经 `createRuntime` 装配的控制器 `cycle()`）：绿样本→晋升，全红→RLVR 否决。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';

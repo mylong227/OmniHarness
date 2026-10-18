@@ -4,7 +4,7 @@
  * 覆盖：触发器门控、失败摘要回灌、通过静默、预算与冷却、假完成探测、
  * fail-open（命令抛错不改变 ok）、ToolPort 透传。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
 import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';

@@ -16,7 +16,7 @@
  *    要么在**显式豁免表**里（平台语义 / 两侧分支都有用例）。新增一个静默跳过 ⇒ 当场红。
  *    另加"开关表不得有死条目"：每个登记的开关都必须真的被某个测试文件引用。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
@@ -29,14 +29,15 @@ import {
 } from '../helpers/requireEnv.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
- * 递归收集 `tests/**` 下的 .ts（非 .d.ts）**以及 `web/test/**` 下的 .mjs**。
+ * 递归收集 `tests/**` 下的 .ts（非 .d.ts）**以及 `web/test/**` 下的 .ts**。
  *
  * 2026-10-11（F8 那轮补的洞）：扫描面此前只有 `tests/**` ⇒ **web 侧的浏览器类判据不在管辖内**，
  * 它们可以 `t.skip('未找到本机 Chrome/Edge')` 静默跳过而没人管——正是"跳过即假绿"。
- * 现把 web 侧一并纳入；机制实现自身（`browserSwitch.mjs`）豁免。
+ * 现把 web 侧一并纳入；机制实现自身（`browserSwitch.ts`）豁免。
+ * 2026-10-17（测试栈统一）：web 判据从 .mjs 迁 .ts，扫描后缀同步改为 `.ts`。
  * @returns 相对仓库根的路径列表（升序）
  */
 function testSources(): string[] {
@@ -51,7 +52,7 @@ function testSources(): string[] {
     }
   };
   walk(join(REPO_ROOT, 'tests'), (name) => name.endsWith('.ts') && !name.endsWith('.d.ts'));
-  walk(join(REPO_ROOT, 'web', 'test'), (name) => name.endsWith('.mjs'));
+  walk(join(REPO_ROOT, 'web', 'test'), (name) => name.endsWith('.ts'));
   return out.sort();
 }
 

@@ -1,6 +1,6 @@
 // WebLiveView 单测（#B3 web）：验证 onToolInput 经 broadcaster.notify 推送 thread.tool_input，
 // 且 id/name 缺失时以 null 上报、partialJson 原样透传。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { WebLiveView, type LiveBroadcaster } from '../../src/adapters/live/webLiveView.ts';

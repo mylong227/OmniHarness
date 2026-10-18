@@ -4,7 +4,7 @@
  * 判据钉法：数值断言取「同一快照经 `InjectionMetric` 直算」为对照（判定单一来源的接线一致性），
  * 并以字面量钉住快照规模（32 例）——快照扩量时此断言会红，提醒同步更新口径注记。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,7 @@ import {
 import { InjectionMetric, type InjectionCase } from '../../src/security/injectionMetric.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const snapshotPath = join(here, '../../../defaults/injection-snapshot.json');
+const snapshotPath = join(here, '../../defaults/injection-snapshot.json');
 const rawSnapshot: unknown = JSON.parse(readFileSync(snapshotPath, 'utf8'));
 
 test('fromBuiltinSnapshot 读随包快照并产出与直算一致的摘要', () => {

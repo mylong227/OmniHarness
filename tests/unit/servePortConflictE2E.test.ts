@@ -12,7 +12,7 @@
  *
  * 判据用临时工作区（`--workspace <tmp>`）避免依赖本机固定项目配置，从而在 CI 上同样可跑。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:http';

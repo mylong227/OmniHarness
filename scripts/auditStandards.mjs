@@ -512,7 +512,20 @@ if (process.argv.includes('--delta')) {
     ]);
     for (const line of out.split('\n')) {
       const f = line.trim();
-      if (f && /\.ts$/.test(f) && !f.endsWith('.d.ts')) staged.push(f);
+      if (!f || !/\.ts$/.test(f) || f.endsWith('.d.ts')) continue;
+      // **作用域必须与完整扫描一致**（`root = 'src'`，见文件头）。
+      //
+      // 2026-10-18 实测的假红：`web/test/*.ts` 从 `.mjs` 改名而来后，被当成"新文件"套上
+      // **产品代码**标准——`browserHarness.ts`（CDP 脚手架，840 行）被判"文件名≠主类名""上帝类"、
+      // 并要求给 10 个一次性小工具方法逐个补 `@param`。那几条对脚手架**不可满足**（除非拆文件，
+      // 那是错的）；而 `evaluate` 的 `any` 还是**必需的动态边界**。
+      //
+      // 标准本来就只管产品代码：完整扫描的 root 是 `src/`。这里改成同一口径——
+      // 产品代码 = `src/**`（后端） + `web/src/**`（前端），
+      // 排除 `tests/**`、`web/test/**`（判据与夹具/脚手架）、`scripts/**`（工具脚本）。
+      const isProductCode = f.startsWith('src/') || f.startsWith('web/src/');
+      if (!isProductCode) continue;
+      staged.push(f);
     }
   } catch (error) {
     // 只有「连 git 都不存在」才是可跳过的情形；其余一律**阻断提交**并打印真实原因。

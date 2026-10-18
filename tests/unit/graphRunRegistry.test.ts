@@ -5,7 +5,7 @@
  * 修复后淘汰最旧一条会先 `abort()` 其取消控制器。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { GraphRunRegistry } from '../../src/server/core/graphRunRegistry.ts';
 import type { WorkflowDef } from '../../src/autonomy/workflowTypes.ts';

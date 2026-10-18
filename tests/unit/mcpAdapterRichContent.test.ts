@@ -18,7 +18,7 @@
  * 为什么不用桩客户端：本项修的是**适配器边界**的丢块，桩客户端会绕过 `contentOf` 的映射逻辑；
  * 走真 stdio 也顺带覆盖 SDK 升级后的传输/握手路径（T1）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,7 @@ import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.ts';
 
 /** 夹具脚本（编译产物）路径。 */
 function fixturePath(): string {
-  return fileURLToPath(new URL('../fixtures/mcpEchoServer.js', import.meta.url));
+  return fileURLToPath(new URL('../../dist/tests/fixtures/mcpEchoServer.js', import.meta.url));
 }
 
 /**
@@ -42,7 +42,7 @@ async function connect(): Promise<SdkMcpClientAdapter> {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [fixturePath()],
-    cwd: join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'),
+    cwd: join(dirname(fileURLToPath(import.meta.url)), '..', '..'),
   });
   return SdkMcpClientAdapter.connect(transport, {
     clientName: 'omni-test',

@@ -13,7 +13,7 @@
  * 同一把尺子用在真实实现上，绿灯才有意义（沿本仓「正对照/仪器自证」纪律）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';

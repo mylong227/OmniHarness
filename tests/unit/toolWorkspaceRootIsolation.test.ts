@@ -19,7 +19,7 @@
  * | ③ | ctx 根为空串时回落装配期根（不是崩、不是拒绝一切） |
  * | ④ | 子代理改动采集必须**排除运行期目录**（`.omni-storage/` 等）——否则 patch 变成会话日志 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

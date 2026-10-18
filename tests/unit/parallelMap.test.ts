@@ -7,7 +7,7 @@
  *  - 均衡：并发 > 1 的墙钟显著低于串行墙钟；
  *  - concurrency=1 与朴素 for-await 等价；非法值归一化为 1。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ParallelMap } from '../../src/util/concurrency/parallelMap.ts';
 

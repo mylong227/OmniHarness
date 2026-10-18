@@ -8,7 +8,7 @@
  * 3. **结构合法**：文件数 ≤ 预算、符号为数组、token 数为正。
  */
 
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

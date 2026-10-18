@@ -4,7 +4,7 @@
  * 这是真实的并发缺陷来源——browser_screenshot 命中所依赖的 CDP 通道一旦在命令中途断开，
  * 若让 pending 的 Promise 悬到 20s 超时，整轮 agent 会被一个坏掉的浏览器拖死。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { CdpClient } from '../../src/adapters/browser/cdpClient.ts';

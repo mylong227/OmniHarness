@@ -4,7 +4,7 @@
 //   ② correct 收紧后验（方差下降、均值落于先验与观测之间），KL 两分量皆正；
 //   ③ KL 逐维之和 = 总量（可审计一致性）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { NaturalGradientBelief } from '../../src/adapters/belief/naturalGradientBelief.ts';
 

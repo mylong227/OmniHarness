@@ -13,7 +13,7 @@
  * 6. **证据可复核**：报告里逐条给出扫描发现（含文件/行号/片段）与差异两侧，不是只给一个字母。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { PackGrader } from '../../src/plugin/packGrader.ts';

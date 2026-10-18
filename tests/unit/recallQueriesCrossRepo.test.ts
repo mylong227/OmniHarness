@@ -24,7 +24,7 @@
  *  - 保留理由：它是**测试数据**（查询集）而非评分设施。若确认不再需要跨仓检索语料，
  *    可把本文件、`fixtures/recallQueriesCrossRepo.ts` 一并删除。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CROSS_REPO_CORPORA } from '../fixtures/recallQueriesCrossRepo.ts';

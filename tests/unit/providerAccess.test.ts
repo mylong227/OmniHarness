@@ -2,7 +2,7 @@
 // Key 打码、providerKeys 配置校验、未配 Key 探测的 fail-closed 路径（零网络依赖）。
 
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { ProviderPresets } from '../../src/server/services/providerPresets.ts';
 import { ProviderProbe } from '../../src/server/services/providerProbe.ts';
 import { ConfigError } from '../../src/config/configError.ts';

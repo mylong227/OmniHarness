@@ -12,7 +12,7 @@
  *    没有 ③，§12.2 的规则同样可能恒绿（本仓历史：判据真空通过过一次又一次）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

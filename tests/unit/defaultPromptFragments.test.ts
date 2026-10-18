@@ -20,7 +20,7 @@
  * | ④ | 缺省参数必须取**当前进程**真实环境（平台与 `ShellInvocation.path()` 同源） |
  * | ⑤ | 仍返回**单片段**（前缀缓存契约：基础片段数不变） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { DefaultPromptFragments } from '../../src/config/defaultPromptFragments.ts';
 import { ShellInvocation } from '../../src/adapters/tool/shell/shellInvocation.ts';

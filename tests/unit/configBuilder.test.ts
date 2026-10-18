@@ -1,7 +1,7 @@
 // F1：配置装配器（ConfigBuilder）单测——此前该模块（337 行）零测试引用。
 // 覆盖各 buildXxx 分支：审批缓存包装 / 模型包装链 / 路由 fail-closed / LSP·身份按需装配 /
 // 外溢后端选择 / 回答器 / 钩子 / 子智能体种子。全部用 mock 适配器与临时工作区，零网络。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

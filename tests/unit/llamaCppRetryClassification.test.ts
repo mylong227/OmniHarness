@@ -14,7 +14,7 @@
  * 用例③把**旧口径**（`429 || 5xx`）当场算一遍并断言它对 408/409 判 false——
  * 即本文件在改动前必红。这不是装饰：它防止将来有人把分类"简化"回窄口径而无人发现。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
 import { ModelHttpErrors } from '../../src/adapters/model/modelHttpErrors.ts';

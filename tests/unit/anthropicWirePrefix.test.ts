@@ -21,7 +21,7 @@
  *
  * 对照量级（同一 fixture）：修复前复用率实测 **17.2%**，修复后 ≥ 90% ⇒ 断言 3 直接区分。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';

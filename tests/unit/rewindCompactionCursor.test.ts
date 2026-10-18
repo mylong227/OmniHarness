@@ -34,7 +34,7 @@
  * **诚实边界**：若将来出现第三种"落在最后"的辅助调用，本判据会假红——失败消息里的自证
  * （任务/辅助条数 + 命中片段）用于一眼分辨，届时把它的提示词前缀加进 `AUXILIARY_PROMPT_MARKS` 即可。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { Agent } from '../../src/core/agent.ts';

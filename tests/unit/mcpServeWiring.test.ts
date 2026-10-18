@@ -8,7 +8,7 @@
  *   ③ SDK 可用但启动失败 → 同样回落并报出失败原因；
  *   ④ 真官方 SDK 探测可加载（诚实探测的证据）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { GatedToolPort } from '../../src/adapters/mcp/gatedToolPort.ts';
 import { McpSdkProbe, type McpSdkProbeResult } from '../../src/adapters/mcp/mcpSdkProbe.ts';

@@ -9,7 +9,7 @@
  * 「子任务失败」的模型面语义相反，所有按 `ok` 分流的消费者（UI/统计/调用方重试/
  * CLI 退出码 `cliAgentCmds.ts`）都会把「整条工作流有步骤失败」当成成功。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';

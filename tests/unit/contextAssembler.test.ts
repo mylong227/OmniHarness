@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ContextAssembler } from '../../src/context/contextAssembler.ts';
 import { EventFactory } from '../../src/core/eventFactory.ts';

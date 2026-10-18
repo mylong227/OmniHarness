@@ -25,7 +25,7 @@
  * 故用一次**子进程**跑一条拒绝并断言 stderr 里的结构化 JSON 行——比"看代码里写了 log"强得多。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';

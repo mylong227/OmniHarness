@@ -96,7 +96,7 @@
 | 接线        | `AppController.connectStream` 的 `switch` 把上述四种 method 统一改为调用 `this.applyProfilePluginToast(msg)`；`applyProfilePluginToast` 委托 `profilePluginToasts(msg, (m,k)=>this.showToast(m,k))`，并保留原有的 `profilesReloadKey` bump（profile 类事件仍触发配置刷新）                                                                                                                                                        |
 | 安全/健壮性 | 所有字段经 `String(... ?? '')` 归一，**永不为 undefined**；`names` 数组 `join('、')`，空则自然落到 `未命名`；无法识别的 method 保持 `no-op`，不影响其他路由                                                                                                                                                                                                                                                                       |
 | 复用        | 直接复用既有 `AppController.showToast`（走 `toastState` + 2.2s 自动隐藏）与 `Toast.tsx`，无新状态/组件                                                                                                                                                                                                                                                                                                                            |
-| 测试        | 新增 `web/test/notify.test.mjs`（契约测试：四类事件 → 正确 message + kind；空字段归一；无法识别 method 不抛错）；纯函数可脱离 DOM 直测                                                                                                                                                                                                                                                                                            |
+| 测试        | 新增 `web/test/notify.test.ts`（契约测试：四类事件 → 正确 message + kind；空字段归一；无法识别 method 不抛错）；纯函数可脱离 DOM 直测                                                                                                                                                                                                                                                                                             |
 | 验收        | `web:build` 0 错误；`eslint` 0 警告；全量 `web/test/**` **118/120**（仅 2 项为 headless-Chrome e2e `E1 CDP`/`UI e2e`，沙箱浏览器环境差异，与本改动无关）；无 `any`                                                                                                                                                                                                                                                                |
 
 ---
@@ -141,7 +141,7 @@
 | 编辑重发     | 抽取 `UserCard` 组件承载用户消息展示 + 内联编辑；仅**最后一条**用户消息显示「✎ 编辑」，提交后回调 `ComposerController.resend(text)` 以编辑文本发起新回合。历史消息分支化（截断后重跑）需后端 `threads.rewind` RPC，本轮未实现，已在审计中明确为后续项。                                                           |
 | 接线         | `StreamView` 新增 `onStop`/`onRegenerate`/`onEditUser` 透传给 `Composer` / `AssistantCard` / `UserCard`；`App.tsx` 透传 `ctrl.composer.stop` / `regenerate` / `resend`。                                                                                                                                          |
 | 样式         | `chat.css` 补 `.stop`（危险色）/`.msg-act`（消息悬浮操作）/`.user-edit*`（内联编辑 textarea + 保存/取消），暗亮主题走语义变量。                                                                                                                                                                                   |
-| 测试         | 新增 `web/test/turnControl.test.mjs`（5 项契约：abortTurn RPC、stop 触发中断、regenerate 取最后用户消息、regenerate 无消息轻提示、resend 发新回合）。                                                                                                                                                             |
+| 测试         | 新增 `web/test/turnControl.test.ts`（5 项契约：abortTurn RPC、stop 触发中断、regenerate 取最后用户消息、regenerate 无消息轻提示、resend 发新回合）。                                                                                                                                                              |
 | 验收         | `web:build` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；根 `tsc --noEmit` 0 错；`audit:standard:delta`/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **123/125**（仅 2 项为 headless-Chrome e2e `E1 CDP`/`UI e2e` 沙箱环境差异，与本改动无关）；无 `any`。 |
 
 ---
@@ -154,15 +154,15 @@
 
 ### 盘点（迁移前实测）
 
-| 项             | 结论                                                                                                                                                                 |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| class 组件总量 | **41 个**（`web/src/ui/components/**`）+ 1 个基类 「ui/base/AppComponent.tsx」                                                                                       |
-| 错误边界豁免   | **0 个** —— 全仓无 `componentDidCatch` / `getDerivedStateFromError`，故**无一个组件需要保留 class**                                                                  |
-| 服务注入       | 基类 `static contextType = AppContext` + `this.api/toast/dialog` → 迁移后统一走 `useApp()`（`web/src/ui/context.ts`，Provider 缺失 fail-closed 抛错，语义不变）      |
-| 根组件         | `web/src/ui/App.ts` 亦为 `class App extends React.Component<P, AppState> implements AppHost`（252 行），单独批次迁移（风险最高：挂载失败即整站白屏）                 |
-| 配套改造①      | `web/test/mount.test.mjs` 直接 `new X(props)` 并注入 `comp.state` —— 函数组件不可 `new`，须改为「直接调用组件函数 + hook 槽位预设」                                  |
-| 配套改造②      | `web/test/noNativeDialogs.test.mjs` 断言 `AppComponent.tsx` 提供 `get dialog()` —— 删基类后须改断言目标                                                              |
-| 新增测试基座   | `web/test/hooksStub.mjs` —— 零依赖最小 Hooks 运行时（按调用序号分配槽位、跨渲染保持、支持预设与 `useApp` 上下文桩），并提供过渡期 `renderOf()` 兼容 class/函数两形态 |
+| 项             | 结论                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| class 组件总量 | **41 个**（`web/src/ui/components/**`）+ 1 个基类 「ui/base/AppComponent.tsx」                                                                                      |
+| 错误边界豁免   | **0 个** —— 全仓无 `componentDidCatch` / `getDerivedStateFromError`，故**无一个组件需要保留 class**                                                                 |
+| 服务注入       | 基类 `static contextType = AppContext` + `this.api/toast/dialog` → 迁移后统一走 `useApp()`（`web/src/ui/context.ts`，Provider 缺失 fail-closed 抛错，语义不变）     |
+| 根组件         | `web/src/ui/App.ts` 亦为 `class App extends React.Component<P, AppState> implements AppHost`（252 行），单独批次迁移（风险最高：挂载失败即整站白屏）                |
+| 配套改造①      | `web/test/mount.test.ts` 直接 `new X(props)` 并注入 `comp.state` —— 函数组件不可 `new`，须改为「直接调用组件函数 + hook 槽位预设」                                  |
+| 配套改造②      | `web/test/noNativeDialogs.test.ts` 断言 `AppComponent.tsx` 提供 `get dialog()` —— 删基类后须改断言目标                                                              |
+| 新增测试基座   | `web/test/hooksStub.ts` —— 零依赖最小 Hooks 运行时（按调用序号分配槽位、跨渲染保持、支持预设与 `useApp` 上下文桩），并提供过渡期 `renderOf()` 兼容 class/函数两形态 |
 
 ### 分批计划（每批 `web:build` + `web:test` + 全门禁全绿后独立提交）
 
@@ -182,7 +182,7 @@
 | 改造     | 10 个组件由 `class X extends AppComponent<P>` + `render()` 改为 `export function X(props: XProps): ReactElement`（`ReactElement \| null` 对应原「可能渲染 null」的 3 件）；Props 接口**逐字保留**（对外契约不变，`App.ts` 调用点零改动）                                        |
 | 逻辑下沉 | `ToolsTab.statusText` 抽为模块级纯函数（零 React 依赖、可单测）；原 `private renderItem/renderTab/handleOpen/handleClose` 改为组件内 `const` 闭包（函数组件天然绑定 `this`，取消 `bind`）                                                                                       |
 | 标准对齐 | 每个 `export interface XxxProps` 字段补 `/** */` 注释；每个组件补含 `@param`/`@returns` 的 JSDoc；返回值显式标注；文件名 = 组件名（R2）；无 `any`、无 `var`                                                                                                                     |
-| 测试     | 新增 `web/test/hooksStub.mjs`；`mount.test.mjs` 顶部改用该运行时（`renderOf()` 兼容两形态），`Toast` 断言由 `new Toast(...).render()` 改为 `renderOf(Toast, {...})`                                                                                                             |
+| 测试     | 新增 `web/test/hooksStub.ts`；`mount.test.mjs` 顶部改用该运行时（`renderOf()` 兼容两形态），`Toast` 断言由 `new Toast(...).render()` 改为 `renderOf(Toast, {...})`                                                                                                              |
 | 验收     | `web:build` 0 错；根 `tsc --noEmit` 0 错；全仓 `eslint . --max-warnings=0` 0 警告；`audit:standard:delta`（无暂存 `.ts`）/`audit:config-wiring`(484)/`arch:gate`/`check --strict`/`audit:maturity` 全绿；全量 `web/test/**` **134/136**（仅 2 项 headless-Chrome e2e 环境差异） |
 
 ### 批2 验收（`stream/` 消息卡片 5 件）
@@ -288,16 +288,16 @@
 回合结束后取样，会看到「■ 停止」键仍在、`work-indicator` 尚存 ⇒ 一度疑似「F4 停止键把 `busy` 卡死、用户再也发不出消息」。**时间序列采样证伪**：`btn50`/`btn200`/`btn700` 全为 `send`，即 **50ms 内已恢复**。
 根因：`busy` 由 `ComposerController` 在 `turns.run` **resolve 之后**才置回 `false`，而 assistant 事件是**同一轮里更早**到达的 ⇒「最终卡片出现」≠「回合已收敛」。原用例在最后一步直接取样，拿到的是**中间态**。
 
-**修法**：`web/test/e2e.test.mjs` 把收敛判定改为 `until()` **轮询**（沿用本文件既有的「按次数收敛、不按墙钟」纪律），并把「回合收敛」本身升为一条显式断言 `composer idle after turn`（断言「发送键回来 **且** 停止键消失」），同时列入「关键路径必在」清单——F4 的停止键从此有了回归护栏。
+**修法**：`web/test/e2e.test.ts` 把收敛判定改为 `until()` **轮询**（沿用本文件既有的「按次数收敛、不按墙钟」纪律），并把「回合收敛」本身升为一条显式断言 `composer idle after turn`（断言「发送键回来 **且** 停止键消失」），同时列入「关键路径必在」清单——F4 的停止键从此有了回归护栏。
 
 ### 修法清单
 
-| #   | 文件                             | 改动                                                                                                                                  |
-| --- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| ①   | `web/styles/chat.css`            | `.md-content` 显式 `white-space:normal` + 成因注释                                                                                    |
-| ②   | `web/src/ui/markdown.ts`         | `markdownRender` 剥掉 markdown-it 的末尾块终止符 `\n`                                                                                 |
-| ③   | `web/test/e2e.test.mjs`          | 收敛改 `until()` 轮询；新增 `composer idle after turn`（并入必在清单）；保留 `streamText`/`streamHtml` 诊断字段；文件头补两处坑的说明 |
-| ④   | `web/test/a11yContrast.test.mjs` | 新增**双向**护栏：`.md-content` 必须 `white-space:normal` **且** `.content` 必须保持 `pre-wrap`                                       |
+| #   | 文件                            | 改动                                                                                                                                  |
+| --- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| ①   | `web/styles/chat.css`           | `.md-content` 显式 `white-space:normal` + 成因注释                                                                                    |
+| ②   | `web/src/ui/markdown.ts`        | `markdownRender` 剥掉 markdown-it 的末尾块终止符 `\n`                                                                                 |
+| ③   | `web/test/e2e.test.ts`          | 收敛改 `until()` 轮询；新增 `composer idle after turn`（并入必在清单）；保留 `streamText`/`streamHtml` 诊断字段；文件头补两处坑的说明 |
+| ④   | `web/test/a11yContrast.test.ts` | 新增**双向**护栏：`.md-content` 必须 `white-space:normal` **且** `.content` 必须保持 `pre-wrap`                                       |
 
 ### 验收
 

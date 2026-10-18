@@ -4,7 +4,7 @@
  * 为什么单测这条：把附件插在 tool 消息之间会破坏 `assistant(tool_calls)` ↔ `tool` 的配对，
  * OpenAI 兼容端点会直接 HTTP 400 —— 这是本通道最容易写错、也最贵的一处。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ContextAssembler } from '../../src/context/contextAssembler.ts';
 import { eventFactory } from '../../src/core/eventFactory.ts';

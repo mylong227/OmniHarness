@@ -10,7 +10,7 @@
  * 必须出现在 `VALUE_FLAGS` 里；新增旗标漏登记即红，无需人工记忆。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CliDefaults, ArgParser } from '../../src/cli/argParser.ts';
 import type { CliArgs } from '../../src/cli/argParser.ts';

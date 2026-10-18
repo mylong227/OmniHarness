@@ -14,7 +14,7 @@
  * 6. **系谱确实写了"从哪来"**：失败签名映射出现在证书里，门禁裁决记录含晋升条目与前置快照锚点。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

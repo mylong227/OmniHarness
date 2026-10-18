@@ -4,7 +4,7 @@ import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEn
 // 用 stub NativeToolRunner 解耦 .node 产物，不依赖 native:build。覆盖三态：
 // ① 原生成功 → recorder 记录原生输出；② 原生抛错 → 回退 JS 执行；③ 原生业务拒绝 → 记 denied。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.ts';

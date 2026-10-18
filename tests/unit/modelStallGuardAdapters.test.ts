@@ -9,7 +9,7 @@
  * 本用例用一个「永远不回包、只在 signal abort 时 reject」的 fetch 桩，对四个适配器逐一带上
  * 空闲阈值，断言：① 请求被有界中止（不是永久挂起）；② 中止被归类为**可重试**的 `ModelCallError`。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';

@@ -9,7 +9,7 @@
  * 本测试用「一条必然失败、且带 marker 的测试命令」做信号：装饰器只在**失败**时回灌摘要
  * （通过时静默），于是「回灌里有没有 marker」就是「这条链到底通没通」的可证伪判据。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

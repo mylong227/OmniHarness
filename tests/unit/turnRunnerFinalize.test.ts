@@ -8,7 +8,7 @@ import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEn
 // 本测试锁定两件事：
 //  1. StepRunner.finalize() 在 tools 为空时能让模型产出文本并入事件流；
 //  2. TurnRunner 仅在「跑满 maxSteps 且无文本」时触发兜底，正常结束不多调一次模型。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.ts';

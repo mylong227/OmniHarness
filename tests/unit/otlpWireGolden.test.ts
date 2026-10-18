@@ -18,7 +18,7 @@
  * 变异自证：删掉任一 legacy 键、把 token 改成 `stringValue`、或改动报文体结构 ⇒ 三条判据分别变红。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 

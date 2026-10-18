@@ -29,7 +29,7 @@
  * | ⑭ | 非文本块保真转述（G10 路径经**连接器**仍成立） | 图片/资源块塌成空文本（G10 回归） |
  * | ⑮ | 远端 JSON-RPC 错误不得被吞成空清单 | "服务器说没有工具"与"服务器报错"混为一谈 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SdkMcpConnector } from '../../src/adapters/mcp/sdkMcpConnector.ts';

@@ -9,7 +9,7 @@
  * - **档位下限只收紧**：配置写更严档 ⇒ 生效；配置想放宽 ⇒ 仍取更严者（放宽没有隐式路径）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ConfigError } from '../../src/config/configError.ts';

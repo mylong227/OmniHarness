@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 import { CodexHooksMapper } from '../../src/hooksCompat/codexHooksMapper.ts';

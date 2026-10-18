@@ -4,7 +4,7 @@
  * 覆盖：单工具/多工具批次归因、`<initial>` 桶、多轮分段、无 usage 如实计数、
  * 重复工具名去重、异常 payload 忽略、占比与排序、总量守恒。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { TokenAttribution, INITIAL_BUCKET } from '../../src/observability/tokenAttribution.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';

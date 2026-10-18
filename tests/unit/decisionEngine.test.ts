@@ -11,7 +11,7 @@
  * 真实后端（项目内 venv + 权重）的端到端验证在 `tests/integration/layaBackend.test.ts`：
  * 那里会真跑 torch 前向，故必须按需跳过而不是放进单元层。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -16,7 +16,7 @@
  *    （合法选项组合，如 `{maxLines: 10}` 而 head/tail 取默认 40）时，截断**保留全部行**
  *    并追加省略标记 ⇒ 文本逐轮变长、幂等与单调同时失效、ratio > 1。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SemanticIndexCache } from '../../src/context/semanticIndexCache.ts';
 import { RecallKnobs } from '../../src/context/recallKnobs.ts';

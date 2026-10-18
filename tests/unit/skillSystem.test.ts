@@ -1,4 +1,4 @@
-﻿import { test } from 'node:test';
+﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
 import type { Skill } from '../../src/skill/skill.ts';

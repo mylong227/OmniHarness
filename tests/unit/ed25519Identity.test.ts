@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
 import type { AgentIdentityPort } from '../../src/ports/runtime/agentIdentity.ts';
 

@@ -6,7 +6,7 @@
  * 另外钉住**优先级**（`not-reported` 必须最先、`prefix-rewrite` 必须早于 `ttl-expired`），
  * 以及两条边界（复用率/间隔**恰好等于**阈值时不得误判）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PrefixStability } from '../../src/context/prefixStability.ts';
 import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.ts';

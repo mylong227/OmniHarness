@@ -1,5 +1,5 @@
 // ConsoleLiveView 渲染测试（#B3 呈现层）：验证工具参数增量在 TTY 下被累积渲染。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Writable } from 'node:stream';
 import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.ts';

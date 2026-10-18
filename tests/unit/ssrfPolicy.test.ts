@@ -9,7 +9,7 @@
  * ③ 非法条目**抛错**而非静默丢弃（静默丢弃会让人以为配上了、实际护栏更松）；
  * ④ 配置段校验器与运行时解析器**同源**（同一份规则，不出现双口径）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -24,7 +24,7 @@ import { ArgParser } from '../../src/cli/argParser.ts';
 import type { FileConfig } from '../../src/config/configFile.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 test('① 默认档与历史逐字一致（零配置行为不变）', () => {
   assert.deepStrictEqual(

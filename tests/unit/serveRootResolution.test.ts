@@ -19,7 +19,7 @@
  * | ⑤ | **写路径**：切换项目只写**用户级**配置；项目文件里**不得**出现 `workspace`/`workspaces`（不随项目上传） |
  * | ⑥ | 切换后**从另一个目录**再起（新实例、同一 userHomedir）⇒ 仍读到被固定的项目 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

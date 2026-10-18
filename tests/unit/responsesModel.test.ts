@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
 import { ModelCallError } from '../../src/ports/model/model.ts';

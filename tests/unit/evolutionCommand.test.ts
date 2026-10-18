@@ -8,7 +8,7 @@
  * - 附加：还原技能包是 `--skills` 能直接吃回去的格式（`{ "skills": [...] }`）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

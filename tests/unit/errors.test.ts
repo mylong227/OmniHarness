@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { OmniError, ErrorCode } from '../../src/omniError.ts';
 import { ConfigError } from '../../src/config/configError.ts';

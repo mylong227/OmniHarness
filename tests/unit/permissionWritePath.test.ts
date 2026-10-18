@@ -18,7 +18,7 @@
  * | ③ | 未知字段 / 非法枚举 / 字段类型错仍必须拦 | 回归 |
  * | ④ | **类型契约与运行期校验一致**：`ApprovalRule` 要求 `decision` 必填（编译期），运行期也必须拦 —— 二者不得各说一套 | 声明强于实现（本仓 G 系列反复记录） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigError } from '../../src/config/configError.ts';
 import { PermissionConfigValidator } from '../../src/config/permissionConfigValidator.ts';

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 

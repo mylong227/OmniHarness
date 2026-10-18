@@ -14,7 +14,7 @@
  * 5. 验签失败 ⇒ 降 core + 带**授权拒因码**留痕；过期 ⇒ 降 core 但走"预期状态"事件。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

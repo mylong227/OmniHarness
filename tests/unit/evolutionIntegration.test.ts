@@ -4,7 +4,7 @@
 //   ② 任务完成后自动跑一轮 发现→评估→晋升；
 //   ③ 达标组合技能被晋升进实时 SkillRegistry（即"燧-1 真正进入循环"）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

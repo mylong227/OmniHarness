@@ -17,7 +17,7 @@
  * 判据用**临时 git 仓库**跑真门禁（`--staged` 走 index），而不是 import 脚本内部函数：
  * 该脚本是"跑一次就判定"的顶层过程，import 即执行，测不到真实路径。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';

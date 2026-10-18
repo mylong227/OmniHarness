@@ -31,14 +31,30 @@
  * ## 用法
  *
  * ```bash
- * node scripts/coverageGate.mjs                    # 跑 npm run coverage 后校验
- * node scripts/coverageGate.mjs --from-file r.txt  # 校验一份已保存的覆盖率输出（CI 归档/离线复核）
- * node scripts/coverageGate.mjs --dump-baseline [--from-file r.txt]   # 收紧基线（棘轮：只升不降）
- * node scripts/coverageGate.mjs --dump-baseline --force               # 显式允许下调（须说明原因）
- * node scripts/coverageGate.mjs --list             # 打印全部文件的覆盖率与基线差
+ * node scripts/coverageGate.mjs                    # 跑 npm run coverage 后校验（消费 .coverage/coverage-summary.json）
+ * node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json  # 校验已生成的 JSON（CI 归档/离线复核/本地重基线）
+ * node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json --dump-baseline   # 收紧基线（棘轮：只升不降）
+ * node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json --dump-baseline --force   # 显式允许下调（须说明原因）
+ * node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json --list           # 打印全部文件的覆盖率与基线差
  * ```
  *
- * 测试未全绿时直接阻断（覆盖率数字无意义）——`--from-file` 模式跳过该检查。
+ * 测试未全绿时直接阻断（覆盖率数字无意义）——`--from-json` 离线模式跳过该检查。
+ *
+ * ## 2026-10-17 测试栈统一后的口径变更（重要）
+ *
+ * 迁移前本门禁解析 `node --test --experimental-test-coverage` 的 **TAP 文本表**（`# file | line %`，
+ * 缩进表目录层级），基线键是编译产物 `dist/src/**\/*.js`。迁移后后端判据走 **vitest v8 覆盖率**，
+ * 直接测**源码** `src/**`，报告是 `coverage.reporter=json-summary` 产出的
+ * `coverage-summary.json`（键为 `src/...ts` 绝对/相对路径，值为 `lines.pct`）。故本脚本相应改为：
+ *   1. 解析 JSON 摘要（不再解析 TAP 文本）；离线复核从 `--from-file`(文本) 改为 `--from-json`(JSON)；
+ *   2. 文件清点从扫描 `dist/src/**\/*.js` 改为扫描 `src` 下的 `.ts` / `.tsx` 源码（纯类型源码判定也改读源码）；
+ *   3. 聚合行覆盖率改为「仅统计**被执行的文件**」（`lines.covered > 0`）——v8 会把 `include` 命中的
+ *      **每一个** `src` 文件都列进报告（未执行者 0%），若把 0% 文件计入分母会让聚合值被未触及文件
+ *      拉到极低而误红；这与迁移前 `node --test` 只插桩「被加载模块」的聚合语义一致。
+ *   4. 三份基线（coverageBaseline / coverageInventoryBaseline / coverageEnvDependent）全部重新按
+ *      `src/...ts` 键 + 本次实测重测——属一次性重基线，提交信息须写明（见 PROJECT_BOARD §13）。
+ * 因为 v8 会把所有 `src` 文件都列进报告（含 0%），旧的「文件没进报告」清点机制天然失效；
+ * 其防御意图（拦下「新增零单测模块」）现由「新文件 < 30% 下限」分支承接（0% 新文件即红）。
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -92,148 +108,129 @@ const TOLERANCE = 0.01;
 const DRIFT_TOLERANCE = 2.5;
 
 /** 取覆盖率输出文本（跑测试，或读已保存报告）。 */
+/**
+ * 取覆盖率 JSON 摘要（跑测试产出，或读已保存的 JSON）。
+ * @returns `{ summary, offline, ranGreen }`：
+ *   - `summary`：解析后的 `coverage-summary.json` 对象；
+ *   - `offline`：`true` 表示来自 `--from-json`（离线模式，跳过「测试须全绿」检查）；
+ *   - `ranGreen`：`false` 表示 `npm run coverage` 实际非零退出（有用例失败）。
+ */
+const COVERAGE_JSON = join(root, '.coverage', 'coverage-summary.json');
+function readJsonAware(p) {
+  const buf = readFileSync(p);
+  let text = buf.toString('utf8');
+  // BOM 兼容：PowerShell `>` 重定向默认写 UTF-16LE，本仓曾踩两次。
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) text = buf.toString('utf16le');
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  return JSON.parse(text);
+}
 function loadReport() {
-  const fromFile = flagValue('--from-file');
-  if (fromFile !== undefined) {
-    if (!existsSync(fromFile)) {
-      console.error(`✗ 报告文件不存在：${fromFile}`);
+  const fromJson = flagValue('--from-json');
+  if (fromJson !== undefined) {
+    if (!existsSync(fromJson)) {
+      console.error(`✗ 覆盖率 JSON 文件不存在：${fromJson}`);
       process.exit(2);
     }
-    // 按 BOM 判定编码：PowerShell 的 `>` 重定向默认写 **UTF-16LE**，按 utf8 读会得到
-    // 交错的 NUL 而完全匹配不到表头（本仓实测踩过两次）⇒ 这里显式兼容。
-    const buf = readFileSync(fromFile);
-    if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return buf.toString('utf16le');
-    const text = buf.toString('utf8');
-    return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+    // 离线模式：直接消费已生成的 JSON，跳过「测试须全绿」检查（CI 归档 / 本地用已生成的报告重基线）。
+    return { summary: readJsonAware(fromJson), offline: true, ranGreen: true };
   }
   try {
-    return execFileSync('npm', ['run', 'coverage'], {
+    execFileSync('npm', ['run', 'coverage'], {
       cwd: root,
       encoding: 'utf8',
       shell: true,
-      stdio: ['ignore', 'pipe', 'inherit'],
-      // 2026-10-11：**必须显式给足**。此前没设 ⇒ 用 Node 默认 1MB，套件全量 TAP 输出一超线就
-      // `spawnSync … ENOBUFS`，而 catch 把它报成"测试可能根本没跑起来"（把"捕获缓冲不够"伪装成
-      // "测试没启动"，与 2026-10-06 那次"把运维故障伪装成用例失败"同一形态）。本仓全量套件的
-      // TAP 输出已接近 1MB 量级，故给 64MB 上限并在下面**如实分类**。
+      // 覆盖率 JSON 才是判据真相源；stdout 仍透传给人看（text reporter），stderr 透传便于排障。
+      stdio: ['ignore', 'inherit', 'inherit'],
       maxBuffer: MAX_CAPTURE_BYTES,
     });
-  } catch (e) {
-    // 分类而非一律归因：**测试没跑起来**（npm 不在 PATH / spawn 失败 / OOM / 汇总前崩溃）
-    // 与**用例失败**是两件事。此前两者共用一句"测试运行未全绿"，把运维故障伪装成用例失败
-    // （2026-10-06 排查发现，与探针"谎报缺少编译产物"同一形态）。TAP 失败行只在**跑起来且有用例失败**
-    // 时才会出现 ⇒ 一行都没有时如实报"可能根本没跑起来"，并透出退出码/信号/真实原因/stderr。
-    //
-    // 2026-09-25 增补（保留）：TAP 失败行默认只在被捕获的 stdout 里（stderr 为空），不透传则
-    // CI 日志只有一句「未全绿」而无从定位（ubuntu 首跑实测踩坑）。此处显式提取 not ok 行。
-    const out = e && typeof e.stdout === 'string' ? e.stdout : '';
-    const err = e && typeof e.stderr === 'string' ? e.stderr : '';
-    const lines = out.split('\n');
-    const printed = [];
-    for (let i = 0; i < lines.length && printed.length < 60; i += 1) {
-      if (!lines[i].trimStart().startsWith('not ok')) continue;
-      printed.push(lines[i].trim());
-      // not ok 块的详情行（error:/expected/actual 等，缩进块）一并透传，直到下一个顶层 TAP 行。
-      // 用 trimStart 判定：嵌套 describe 的失败行带缩进（ubuntu 首跑实证——顶层过滤漏掉内部用例）。
-      for (let j = i + 1; j < lines.length && printed.length < 60; j += 1) {
-        const l = lines[j];
-        const t = l.trimStart();
-        if (t === '' || /^(ok|not ok|#)\b/.test(t)) break;
-        printed.push('    ' + t);
-        i = j;
-      }
-    }
-    if (printed.length === 0) {
-      const kind = classifyRunFailure(e);
-      if (kind === 'capture-overflow') {
-        console.error(
-          `✗ 覆盖率门禁终止：**捕获缓冲不足**（spawnSync ENOBUFS，上限 ${String(MAX_CAPTURE_BYTES)} 字节）。`,
-        );
-        console.error(
-          '  这不是"测试没跑起来"，也不是用例失败——是门禁读不下子进程的完整输出。' +
-            '处置：把本脚本的 maxBuffer 调大（或减少套件的 stdout 噪声）。',
-        );
-      } else {
-        console.error(
-          '✗ 覆盖率门禁终止：**测试可能根本没跑起来**（被捕获输出里没有任何 TAP 失败行）。',
-        );
-      }
+    if (!existsSync(COVERAGE_JSON)) {
+      console.error('✗ 覆盖率 JSON 报告未生成：.coverage/coverage-summary.json');
       console.error(
-        `  退出码=${String((e && e.status) ?? '(无)')}｜信号=${String((e && e.signal) ?? '(无)')}｜` +
-          `分类=${kind}｜原因=${String((e && e.message) ?? e).slice(0, 300)}`,
+        '  `npm run coverage` 跑完了却没写出 JSON——多半是 coverage provider 未装（需 @vitest/coverage-v8）。',
       );
-      if (err.trim() !== '') {
-        console.error('  子进程 stderr（前 20 行）：');
-        for (const l of err.split('\n').slice(0, 20)) console.error(`    ${l}`);
-      }
-      process.exit(1);
+      process.exit(2);
     }
-    console.error('✗ 测试运行未全绿，覆盖率门禁终止。失败用例：');
-    for (const l of printed) console.error('  ' + l);
+    return { summary: readJsonAware(COVERAGE_JSON), offline: false, ranGreen: true };
+  } catch (e) {
+    // 分类而非一律归因：测试没跑起来（npm 不在 PATH / spawn 失败 / OOM / provider 缺失）与
+    // 用例失败是两件事。只要 JSON 已落盘，就仍然返回（由主流程据 ranGreen=false 阻断）；
+    // 连 JSON 都没有 ⇒ 是「测试压根没跑起来」，如实分类后退出。
+    if (existsSync(COVERAGE_JSON)) {
+      return { summary: readJsonAware(COVERAGE_JSON), offline: false, ranGreen: false };
+    }
+    const err = e && typeof e.stderr === 'string' ? e.stderr : '';
+    const kind = classifyRunFailure(e);
+    console.error('✗ 覆盖率门禁终止：**测试可能根本没跑起来**（未生成覆盖率 JSON）。');
+    console.error(
+      `  退出码=${String((e && e.status) ?? '(无)')}｜信号=${String((e && e.signal) ?? '(无)')}｜` +
+        `分类=${kind}｜原因=${String((e && e.message) ?? e).slice(0, 300)}`,
+    );
+    if (err.trim() !== '') {
+      console.error('  子进程 stderr（前 20 行）：');
+      for (const l of err.split('\n').slice(0, 20)) console.error(`    ${l}`);
+    }
     process.exit(1);
   }
 }
 
 /**
- * 解析覆盖率表：目录靠**缩进层级**表达，故按缩进维护目录栈还原完整路径。
- * @param text 覆盖率输出全文。
+ * 解析 vitest v8 的 `coverage-summary.json`。
+ *
+ * 键为各源文件的路径（本机为绝对 Windows 路径如 `D:\...\src\x.ts`，CI 为 `/home/.../src/x.ts`），
+ * 值含 `lines:{total,covered,skipped,pct}` 等。v8 会把 `include` 命中的**每一个** `src` 文件都列进来
+ * （未执行者 `pct:0`），故：
+ *   · 逐文件键统一规整为仓库相对 `src/...ts`（去掉根前缀、统一斜杠）；
+ *   · 聚合行覆盖率**只统计被执行的文件**（`lines.covered > 0`），避免未触及文件把分母拉爆；
+ *     这与迁移前 `node --test` 只插桩「被加载模块」的聚合语义一致。
+ * @param summary JSON 对象。
+ * @param rootDir 仓库根（用于规整绝对路径键）。
  * @returns `{ all, files }`；`files` 为 `仓库相对路径 → 行覆盖率`。
  */
-function parseCoverage(text) {
-  const lines = text.split(/\r?\n/);
-  const start = lines.findIndex((l) => /^#\s*file\s*\|/.test(l));
-  if (start < 0) {
-    console.error('✗ 未能定位覆盖率表头（`# file | line %`）。');
-    process.exit(1);
-  }
+function normalizeKey(key, rootNorm) {
+  let k = key.replace(/\\/g, '/');
+  if (k.toLowerCase().startsWith(rootNorm)) k = k.slice(rootNorm.length).replace(/^\/+/, '');
+  if (!k.startsWith('src/')) return null;
+  return k;
+}
+function parseSummary(summary, rootDir) {
+  const rootNorm = rootDir.replace(/\\/g, '/').toLowerCase();
   const files = new Map();
-  const stack = [];
-  let all;
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? '';
-    if (!line.startsWith('#')) continue;
-    if (line.includes('end of coverage report')) break;
-    const m = /^#( +)([^|]+?)\s*\|(.*)$/.exec(line);
-    if (m === null) continue;
-    const indent = (m[1] ?? '').length;
-    const label = (m[2] ?? '').trim();
-    const cells = (m[3] ?? '').split('|').map((c) => c.trim());
-    const linePct = cells[0] ?? '';
-    if (label === 'all files') {
-      all = Number.parseFloat(linePct);
-      break;
-    }
-    if (/^\d/.test(linePct)) {
-      // 文件行：路径 = 栈中更浅的目录 + 本行文件名；去掉 dist/ 前缀变仓库相对路径。
-      stack.length = indent - 1;
-      const path = [...stack.filter(Boolean), label].join('/').replace(/^dist\//, '');
-      files.set(path, Number.parseFloat(linePct));
-    } else {
-      // 目录行：记录在「当前缩进层级」的位置
-      stack[indent - 1] = label;
-      stack.length = indent;
+  let allCovered = 0;
+  let allTotal = 0;
+  for (const [key, block] of Object.entries(summary)) {
+    if (key === 'total') continue;
+    const rel = normalizeKey(key, rootNorm);
+    if (rel === null) continue;
+    const lines = block && block.lines ? block.lines : { total: 0, covered: 0, pct: 0 };
+    const pct = Number(lines.pct) || 0;
+    files.set(rel, pct);
+    const covered = Number(lines.covered) || 0;
+    if (covered > 0) {
+      allCovered += covered;
+      allTotal += Number(lines.total) || 0;
     }
   }
+  const all = allTotal > 0 ? (allCovered / allTotal) * 100 : 0;
   return { all, files };
 }
 
 /**
- * 列出 `--test-coverage-include` 口径覆盖到的**全部**产物文件（`dist/src/**\/*.js`）。
+ * 列出覆盖率口径覆盖到的**全部**源码文件（`src` 下的 `.ts` / `.tsx`）。
  *
- * 口径必须与 `package.json` 的 coverage 脚本一致：那边 include 是 `dist/src/**\/*.js`，
- * 故这里递归收集 `dist/src` 下的每个 `.js`（含根层文件——`**\/` 在 Node 的 glob 里可匹配零层）。
- * 返回路径**去掉 `dist/` 前缀**，与 `parseCoverage` 的键口径一致（报告行写作 `src/...`）——
- * 两处若不一致，清点会把全部产物都算成"没进报告"（首版实测：1042/1042）。
- * 若与 include 口径漂移，本清点会报"某文件没进报告"的假红，故另有一条**口径自证**：
- * 报告键必须落在这个集合里（报告里出现产物之外的文件 ⇒ 口径不一致，直接红）。
+ * 2026-10-17 测试栈统一后，覆盖率直接测**源码**而非 `dist` 产物：v8 provider 对 `coverage.include=src/**`
+ * 命中的**每一个** `src` 文件都列进报告（未执行者 `pct:0`）。故这里递归收集 `src` 下的每个
+ * `.ts` / `.tsx`（含根层文件）。返回仓库相对路径（`src/...ts`），与 `parseSummary` 的键口径一致。
+ *
+ * 注：v8 会把所有命中文件都列进报告（含 0%），所以 `--dump-inventory` 分支算出的 `missing`
+ * （报告里没出现的文件）在 v8 口径下**恒为空**——「新增零单测模块」的防御改由「新文件 < 30% 下限」
+ * 分支承接。本清点函数保留，作为报告键合法性自证（报告里出现 `src/` 之外文件 ⇒ 口径不一致，直接红）。
  * @returns 仓库相对路径（`/` 分隔，升序）。
  */
 function listIncludedFiles() {
-  const base = join(root, 'dist', 'src');
+  const base = join(root, 'src');
   if (!existsSync(base)) {
-    console.error(`✗ 文件清点需要构建产物目录，但它不存在：${base}`);
-    console.error('  清点要回答的是"哪些产物一行都没执行过"，缺了产物集合就无从判定。');
-    console.error('  ⇒ 先 `npm run build`（或至少 `npx tsc`）再跑本门禁。');
+    console.error(`✗ 文件清点需要源码目录，但它不存在：${base}`);
+    console.error('  清点要回答的是"哪些源文件一行都没执行过"，缺了源码集合就无从判定。');
     process.exit(2);
   }
   const out = [];
@@ -241,8 +238,8 @@ function listIncludedFiles() {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const abs = join(dir, entry.name);
       if (entry.isDirectory()) walk(abs);
-      else if (entry.name.endsWith('.js')) {
-        out.push(relative(join(root, 'dist'), abs).split(sep).join('/'));
+      else if (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) {
+        out.push(relative(root, abs).split(sep).join('/'));
       }
     }
   };
@@ -251,16 +248,16 @@ function listIncludedFiles() {
 }
 
 /**
- * 产物是否为**纯类型模块**（编译后没有任何可执行语句）。
+ * 源码文件是否为**纯类型模块**（没有任何可执行语句）。
  *
- * 为什么必须把它从清点里排除（2026-10-11 实测的必要性）：`export interface` / `export type` 编译后
- * 只剩 `export {};` —— 它**没有可执行行**，所以 Node 覆盖率报告**永远不可能**列出它。
- * "'一行都没执行过'"对这类文件是**无意义读数**，不是"缺判据"；把它们逐条登记进清点基线，
- * 只会让那份基线退化成"类型文件清单"（本批新增 9 个纯类型端口模块时实测到这一点）。
+ * 为什么必须把它从清点里排除：`export interface` / `export type` / 仅 `import type` 的 `.ts`，
+ * 编译后只剩 `export {};`，**没有可执行行**——v8 仍会把它列进报告（0%），但那是**无意义读数**
+ * 而非"缺判据"。把它逐条登记进清点基线只会让基线退化成"类型文件清单"。（本仓 2026-10-11 在
+ * 编译产物口径下实测过同一现象。）
  *
  * 判据**从严**：只要出现任何一条非空、非注释、且不是 `export {};` / `export type …` /
- * `import type …` / sourceMappingURL 的语句，就仍按"可执行产物"处理（照旧进清点与逐文件棘轮）。
- * @param abs 产物绝对路径。
+ * `import type …` 的语句，就仍按"可执行源码"处理（照旧进清点与逐文件棘轮）。
+ * @param abs 源码绝对路径。
  * @returns 无任何可执行语句时为 true。
  */
 function isTypeOnlyArtifact(abs) {
@@ -276,29 +273,39 @@ function isTypeOnlyArtifact(abs) {
 }
 
 /**
- * 把"没进覆盖率报告"的产物分成两类：**可执行但没跑过**（真缺口，进清点基线）与
+ * 把"没进覆盖率报告"的源文件分成两类：**可执行但没跑过**（真缺口，进清点基线）与
  * **纯类型模块**（无可执行行，读数无意义，不进基线）。
  *
- * **单一来源**：报告分支与 `--dump-inventory` 分支必须用同一份判定 —— 否则收紧基线时会把
- * 纯类型模块又当成"新增未覆盖"拦下来（2026-10-11 实测：dump 分支漏了这道过滤，报"多出 9 个"，
- * 而那 9 个全是本批新增的纯类型端口模块）。
+ * 2026-10-17 口径变更：v8 会把 `include` 命中的**每一个** `src` 文件都列进报告（含 0%），
+ * 所以 `missing`（报告里没出现的文件）在 v8 口径下**恒为空**；本函数保留以复用同一份
+ * 类型判定（避免 dump 分支与报告分支口径分叉）。`missing` 为空时清点分支不会误红。
  * @param includedFiles `listIncludedFiles()` 的结果。
  * @param reportedSet 覆盖率报告里出现过的文件集合。
- * @returns `{ missing, typeOnly }`（`missing` = 需要进清点基线的可执行产物）。
+ * @returns `{ missing, typeOnly }`（`missing` = 需要进清点基线的可执行源文件）。
  */
 function classifyMissingArtifacts(includedFiles, reportedSet) {
   const typeOnly = [];
   const missing = [];
   for (const f of includedFiles) {
     if (reportedSet.has(f)) continue;
-    const abs = join(root, 'dist', f);
+    const abs = join(root, f);
     if (existsSync(abs) && isTypeOnlyArtifact(abs)) typeOnly.push(f);
     else missing.push(f);
   }
   return { missing, typeOnly };
 }
 
-const { all, files } = parseCoverage(loadReport());
+const load = loadReport();
+const { all, files } = parseSummary(load.summary, root);
+// 「测试未全绿 ⇒ 覆盖率数字无意义」：默认模式（非离线）下 ranGreen=false 直接阻断。
+// 离线（`--from-json`）模式跳过该检查（CI 归档复核 / 本地用已生成的报告重基线）。
+if (!load.offline && !load.ranGreen) {
+  console.error('✗ 覆盖率门禁终止：测试运行未全绿（npm run coverage 非零退出）。');
+  console.error(
+    '  先用 `npm test` 把失败用例清零，再跑本门禁；或离线用 --from-json 指定已生成的 JSON。',
+  );
+  process.exit(1);
+}
 // 基线**缺失即阻断**：静默退化成 `{}` 会让逐文件棘轮消失（只剩"新文件 30% 下限"）⇒
 // 所有存量回归一次性合法化，而输出仍是「✓ 覆盖率达标」。本仓纪律与此一致：
 // `check.mjs` 对白名单缺失是阻断级、`docLinkCheck` 的基线缺失也 fail-closed（2026-10-06 排查修正）。
@@ -330,7 +337,7 @@ if (files.size === 0) {
 
 // 聚合值守卫：表里没有 `# all files` 行、或该行不是数字时，`all` 会是 undefined/NaN，而
 // `all < threshold` 对 NaN **恒为 false** ⇒ 门禁静默通过并打印「聚合 undefined% ≥ 80%」。
-// 可达路径包括文档化的 `--from-file`（喂手剪过的报告）与 reporter 变更（2026-10-06 排查修正）。
+// 可达路径包括文档化的 `--from-json`（喂已生成的 JSON 报告）与 reporter 变更（2026-10-06 排查修正）。
 if (!Number.isFinite(all)) {
   console.error(`✗ 覆盖率报告缺 'all files' 聚合行（或该行非数字）：all=${String(all)}。`);
   console.error('  阈值判定无法进行 ⇒ fail-closed（不再打印"达标"）。');
@@ -398,7 +405,7 @@ if (args.includes('--dump-inventory')) {
     for (const f of added) console.error(`    ${f}`);
     console.error('  "多出"= 这些文件本次一行都没执行过（没有任何判据碰到它们）。');
     console.error('  首选是给它们补判据；确属设计（例如只导出类型的模块）才登记，且必须显式：');
-    console.error(`    node scripts/coverageGate.mjs --from-file <报告> --dump-inventory --force`);
+    console.error(`    node scripts/coverageGate.mjs --from-json <报告> --dump-inventory --force`);
     console.error('  并在提交信息里写明"为什么这个文件无法被覆盖"。');
     process.exit(1);
   }
@@ -409,7 +416,7 @@ if (args.includes('--dump-inventory')) {
   );
   console.log(
     `已写入文件清点基线（${process.platform}）：scripts/coverageInventoryBaseline.json` +
-      `（产物 ${included.length} 个 ｜ 未进报告 ${missing.length} 个` +
+      `（源文件 ${included.length} 个 ｜ 未进报告 ${missing.length} 个` +
       `${typeOnly.length > 0 ? `（另有 ${typeOnly.length} 个纯类型模块不计入）` : ''}` +
       `${added.length > 0 ? ` ｜ 本次新增登记 ${added.length} 个` : ''}` +
       `${cleared.length > 0 ? ` ｜ 已清偿 ${cleared.length} 个` : ''}）`,
@@ -552,10 +559,10 @@ if (!Array.isArray(inventoryPlatform)) {
   // 该平台还没有基线：**如实报告，不假装通过**（也不可能凭空造出其它平台的文件清单）。
   console.log(
     `⚠️  ${process.platform} 没有「覆盖率文件清点」基线 ⇒ 本平台只报告不阻断：` +
-      `产物 ${includedFiles.length} 个，其中 ${missingFiles.length} 个一行都没执行过（报告里不出现）。`,
+      `源文件 ${includedFiles.length} 个，其中 ${missingFiles.length} 个一行都没执行过（报告里不出现）。`,
   );
   console.log(
-    '    建立基线：node scripts/coverageGate.mjs --from-file <报告> --dump-inventory（首次须 --force）',
+    '    建立基线：node scripts/coverageGate.mjs --from-json <报告> --dump-inventory（首次须 --force）',
   );
 } else {
   const inventorySet = new Set(inventoryPlatform);
@@ -564,7 +571,7 @@ if (!Array.isArray(inventoryPlatform)) {
   // 「已清偿」= 基线里登记过、本次却不再缺失：或是已进报告（补了判据），或是文件已删（减法）。
   inventoryCleared = inventoryPlatform.filter((f) => !missingSet.has(f)).length;
   console.log(
-    `ℹ️  覆盖率文件清点：产物 ${includedFiles.length} 个 ｜ 进报告 ${reportedSet.size} 个 ｜ ` +
+    `ℹ️  覆盖率文件清点：源文件 ${includedFiles.length} 个 ｜ 进报告 ${reportedSet.size} 个 ｜ ` +
       `一行都没执行过 ${missingFiles.length} 个（${process.platform} 基线 ${inventoryPlatform.length} ｜ ` +
       `新增 ${inventoryNew.length} ｜ 已清偿 ${inventoryCleared}${inventoryCleared > 0 ? '，可 --dump-inventory 收紧' : ''}）` +
       (typeOnlyArtifacts.length > 0
@@ -576,7 +583,7 @@ if (!Array.isArray(inventoryPlatform)) {
 
 if (outsideReport.length > 0) {
   console.error(
-    `✗ 清点口径不一致：报告里有 ${outsideReport.length} 个文件不落在 dist/src 下（例：${outsideReport
+    `✗ 清点口径不一致：报告里有 ${outsideReport.length} 个文件不落在 src/ 下（例：${outsideReport
       .slice(0, 3)
       .join(', ')}）⇒ 先对齐 package.json 的 --test-coverage-include 与 listIncludedFiles()。`,
   );
@@ -596,11 +603,11 @@ if (regressions.length > 0) {
 
 if (inventoryNew.length > 0) {
   console.error(
-    `✗ 有 ${inventoryNew.length} 个产物**一行都没执行过**且不在清点基线里（逐文件棘轮与新增下限都看不见它们）：`,
+    `✗ 有 ${inventoryNew.length} 个源文件**一行都没执行过**且不在清点基线里（逐文件棘轮与新增下限都看不见它们）：`,
   );
   for (const row of inventoryNew) console.error(`    ${row}`);
   console.error('  首选是给它们补判据（哪怕只是一个 import + 一次调用）；确属设计才登记：');
-  console.error('    node scripts/coverageGate.mjs --from-file <报告> --dump-inventory --force');
+  console.error('    node scripts/coverageGate.mjs --from-json <报告> --dump-inventory --force');
 }
 
 if (
@@ -611,7 +618,7 @@ if (
 ) {
   console.error(
     `  说明：本门禁按文件冻结基线（棘轮）——低于基线超过 ${DRIFT_TOLERANCE} 点即红；新增低覆盖文件即红；` +
-      '新增"没进报告"的产物即红（见 coverageInventoryBaseline.json）。',
+      '新增"没进报告"的源文件即红（见 coverageInventoryBaseline.json）。',
   );
   process.exit(1);
 }

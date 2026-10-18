@@ -9,7 +9,7 @@
  *
  * 本测试锁死：文件映射 → 装配透传 → 运行时读取，并锁定取值集合与校验器一致（7 档）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

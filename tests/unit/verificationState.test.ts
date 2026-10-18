@@ -18,7 +18,7 @@
  * 写时结论）；要驱动 `turn-end` 闸门（回合末现跑一次命令）必须**不启用写时自验证**、且工作区能探测出
  * 测试命令。故本文件给临时工作区写 `package.json` + 一个必然失败/成功的 `check.js`。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

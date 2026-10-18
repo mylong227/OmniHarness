@@ -2,7 +2,7 @@
 // 覆盖：list() 过滤未放行项；execute() 对未放行项 fail-closed 拒绝（不转发基端口）；
 // listDirect/unregister 委托基端口。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { FilteredToolPort } from '../../src/core/filteredToolPort.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';

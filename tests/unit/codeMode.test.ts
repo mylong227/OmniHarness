@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.ts';
 import { CodeExecutorTool } from '../../src/adapters/tool/code/codeExecutorTool.ts';

@@ -11,7 +11,7 @@
  *
  * 另含一处同批修掉的配置校验缺陷回归：`approval: 'plan'` 曾被校验白名单拒绝（声明支持、校验拒绝）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

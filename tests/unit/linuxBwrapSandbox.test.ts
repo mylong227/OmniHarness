@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { LinuxBwrapSandbox } from '../../src/adapters/sandbox/linuxBwrapSandbox.ts';
 import { MacOsSeatbeltSandbox } from '../../src/adapters/sandbox/macosSeatbeltSandbox.ts';

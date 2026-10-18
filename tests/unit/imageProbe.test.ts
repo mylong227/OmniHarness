@@ -1,7 +1,7 @@
 /**
  * 图片头解析单测（P2-⑬，无第三方依赖：手工构造最小文件头）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ImageProbe } from '../../src/util/imageProbe.ts';
 

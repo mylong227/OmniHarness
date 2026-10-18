@@ -11,7 +11,7 @@
  * 且 `fitnessOf` 在不可验证时**不产伪适应度**（undefined）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.ts';

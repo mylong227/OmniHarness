@@ -1,6 +1,6 @@
 // (P3, I-P3-4) 禁闭色荷端口：多维色荷张量收缩得单态才可暴露；裸能力结构性拒配。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfinementEngine } from '../../src/adapters/monitoring/confinementEngine.ts';
 

@@ -5,7 +5,7 @@
  * （`ConfigFactory.build`）与 **CLI 解析**（`parseArgs`）都能真正打开成本预算，
  * 且缺省不设时零行为变更（`costBudget` 为 undefined）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
 import { ArgParser } from '../../src/cli/argParser.ts';

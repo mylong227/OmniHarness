@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { ToolGate } from '../../src/core/toolGate.ts';
 import { AutoEscalation } from '../../src/adapters/escalation/autoEscalation.ts';
 import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.ts';

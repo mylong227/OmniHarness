@@ -14,7 +14,7 @@
  * 4. **只读**：取视图不改变台账内容（`append/rollback` 计数不变）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

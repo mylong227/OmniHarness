@@ -16,7 +16,7 @@
  *
  * 全部输入都是**自己造的 Buffer**，不依赖任何外部工具或真实媒体文件。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { FrameSceneSelector } from '../../src/media/frameSceneSelector.ts';
 import type { SceneSelectedFrame } from '../../src/media/frameSceneSelector.ts';

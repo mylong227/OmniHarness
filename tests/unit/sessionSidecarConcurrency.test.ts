@@ -13,7 +13,7 @@
 // ② 乐观并发：文档带 `rev`，`updateJson` 只在「读到的 rev 仍是磁盘上的 rev」时提交，否则重读重算
 //    （有界重试）⇒ 并发写收敛，不互相覆盖。
 // 本文件用真文件验证：并发插入不丢、`rev` 单调递增、临时文件不残留、坏文件仍回落默认。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

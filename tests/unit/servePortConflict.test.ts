@@ -17,7 +17,7 @@
  * | ④ | `takeOver` 仅对 `omni` + 正整数 PID 调 kill；`foreign` / 缺 PID ⇒ 返回 false 且 kill **未被调用** | 顺手杀掉无关进程（最危险的一类"修复"） |
  * | ⑤ | 接线：`serve` 路径必须在 `server.start` 失败时调用 `probe`/`advice`，且 `--take-port` 已登记进 knownFlags | 改了模块却没人用（判据全绿而行为未变） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

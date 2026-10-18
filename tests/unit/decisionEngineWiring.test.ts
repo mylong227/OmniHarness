@@ -13,7 +13,7 @@
  *   - `SelfVerifyingToolPort`（唯一消费点）确实拿到了引擎与模式（`verdictReady` / `verdictMode`）；
  *   - `off` / 缺省时零行为（不装配）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
 import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';

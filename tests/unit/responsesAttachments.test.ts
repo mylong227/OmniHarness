@@ -14,7 +14,7 @@
  * 只要求"丢了什么、该换哪条通路"被如实报出来——即这条判据钉的是**可见性**，
  * 不是"必须支持图片"。将来真支持了，判据①应改成"图片进了请求体"，而不是删掉。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
 import type { ModelRequest } from '../../src/ports/model/model.ts';

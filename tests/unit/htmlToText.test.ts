@@ -1,7 +1,7 @@
 /**
  * HTML → 文本单测（web_fetch 的正文提取，无第三方依赖）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { HtmlToText } from '../../src/util/htmlToText.ts';
 

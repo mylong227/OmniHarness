@@ -9,7 +9,7 @@
  *   （防「拒绝 ⇄ 复活」永动空转——复核成本是评估预算的一部分）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ArchiveCurator } from '../../src/evolution/archiveCurator.ts';

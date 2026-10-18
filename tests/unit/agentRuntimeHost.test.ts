@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AgentRuntimeHost } from '../../src/server/core/agentRuntimeHost.ts';
 import { ServerNoopSupervisor } from '../../src/server/core/serverNoopSupervisor.ts';

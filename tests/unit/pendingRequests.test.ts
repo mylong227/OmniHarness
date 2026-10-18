@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { PendingRequests } from '../../src/util/concurrency/pendingRequests.ts';
 
 /** 造一个可断言的收尾通道（记录收到的 resolve/reject）。 */

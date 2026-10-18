@@ -12,7 +12,7 @@
  *   ③ 运行时（`createRuntime` 后 `runtime.config` 读得到）
  *   ④ 消费点（真跑 Agent：`tool_result` 事件里的输出确实被隔离；关掉时**原样放行**）
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

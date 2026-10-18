@@ -14,7 +14,7 @@
 // 立刻回到 13）。判据不该被"文档写多写少"左右，故工作区改为临时空目录：
 // 子代上下文与仓库内容**解耦**，断言重新变成对"用哪一份预算"的确定测量。
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

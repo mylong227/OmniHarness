@@ -17,7 +17,7 @@
  * | ④ | 实跑：未知旗标必须非零退出并给出可读原因（修复前它是静默通过） |
  * | ⑤ | 正对照：`--help` 仍打印用法、已知旗标仍被接受（判据不是"一律拒绝"） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

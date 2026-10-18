@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
@@ -22,7 +22,7 @@ const dshReady =
  * 2026-10-11：接 `OMNI_REQUIRE_DSH` 开关——本文件 3 条用例在缺 dsh 时**全跳**（净 0 通过 0 失败），
  * 那是典型的"看着绿其实没跑"；在声明"dsh 必须在场"的环境里改为失败。
  */
-const skipReason = RequireEnv.skipUnless(
+const skipReason = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_DSH',
   dshReady,
   '本机未安装 dsh，跳过真实二进制联调',

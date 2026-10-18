@@ -6,7 +6,7 @@
  * 2. **三类失败分得开**：未装浏览器 / CDP 端点连不上 / 探测超时，各自给**可执行**补救；
  * 3. **探测不 spawn 进程**：判定只依赖可注入的定位函数与环境变量。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

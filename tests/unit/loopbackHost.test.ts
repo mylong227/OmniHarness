@@ -17,7 +17,7 @@
  * 我们不去规定它绑哪个地址）；本判据只拦「本仓自己启动的服务 + 自己拼的 URL」。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';

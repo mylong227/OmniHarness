@@ -7,7 +7,7 @@
 //  - write_file → fs.write_file（原生沙箱，无需外部依赖）
 //  - 未知工具    → 仍被内核判为业务拒绝，不被静默当成原生工具执行
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { unlinkSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -19,7 +19,7 @@ import type { ToolCall } from '../../src/ports/tool/tool.ts';
 
 // #72：native shell.run 经 OS 沙箱包装为 `omni-cli sandbox run`，需 omni-cli 在 PATH。
 // 模块加载时注入 cargo target bin，模拟真实 --native 部署环境；缺失则跳过 shell 测试。
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 let omniCliOnPath = false;
 for (const profile of ['release', 'debug']) {
   const bin = join(root, 'target', profile);
@@ -70,7 +70,7 @@ const shellSkipSource: string | false = nativeUnavailable
     : addonStale;
 // 三种原因都属「原生侧能力不在场」⇒ 统一挂在 `OMNI_REQUIRE_NATIVE` 下：
 // 声明"原生必须在场"的环境里，缺 .node / 缺 omni-cli / 产物过期都必须**失败**而不是静默跳过。
-const shellSkip = RequireEnv.skipUnless(
+const shellSkip = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_NATIVE',
   shellSkipSource === false,
   String(shellSkipSource),
@@ -89,7 +89,7 @@ test('shell 经别名桥路由到 shell.run 真实执行', { skip: shellSkip }, 
 test(
   'read_file / write_file 经别名桥路由到 fs.read_file / fs.write_file',
   {
-    skip: RequireEnv.skipUnless(
+    skip: RequireEnv.skipUnlessBool(
       'OMNI_REQUIRE_NATIVE',
       !nativeUnavailable,
       '原生内核不可用（请先 npm run native:build）',
@@ -119,7 +119,7 @@ test(
 test(
   '未知工具仍返回业务拒绝（不抛错、不静默当成原生工具执行）',
   {
-    skip: RequireEnv.skipUnless(
+    skip: RequireEnv.skipUnlessBool(
       'OMNI_REQUIRE_NATIVE',
       !nativeUnavailable,
       '原生内核不可用（请先 npm run native:build）',

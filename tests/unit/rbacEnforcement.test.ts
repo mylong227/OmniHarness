@@ -10,7 +10,7 @@
  * 另两条：拒绝原因**可读**（点名角色/工具/缺什么）；**未配置角色策略 ⇒ 逐位不变**（零行为变更）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ToolGate } from '../../src/core/toolGate.ts';

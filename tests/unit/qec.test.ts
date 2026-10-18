@@ -2,7 +2,7 @@
 // 断言：① 干净事实 verify=ok；② 单点 corrupt 可定位并纠正复原；③ 多点 corrupt 标记
 // uncorrectable（绝不静默接受损坏）；④ repairAll 聚合统计。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';

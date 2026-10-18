@@ -3,7 +3,7 @@
  *
  * 只跑**跨平台、无路径依赖**的命令（`echo` / `ping`），避免把本机 node 路径写进用例。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

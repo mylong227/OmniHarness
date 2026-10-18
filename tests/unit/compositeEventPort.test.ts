@@ -5,7 +5,7 @@
  * （客户端断开时 `send` 炸、OTLP 抖动）不得让另一个出口丢事件，更不得把回合打断。这条在真机上
  * 的代价很高（要复现「客户端断开瞬间」），故在这里用两个假出口钉死语义。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CompositeEventPort } from '../../src/adapters/event/compositeEventPort.ts';
 import { CliEventPort } from '../../src/cli/cliEventPort.ts';

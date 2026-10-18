@@ -9,7 +9,7 @@
  *  1. 正常程序照常工作，`call` 与 `log` 桥接不丢；
  *  2. **死循环被执行器有界中止**（到期 terminate Worker），且如实回报超时。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.ts';

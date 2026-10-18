@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ToolScheduler } from '../../src/core/loop/toolScheduler.ts';
 import type { ToolCall, ToolResult } from '../../src/ports/tool/tool.ts';

@@ -4,7 +4,7 @@
 //   ③ fail-closed：验证函数抛错 = 不过；
 //   ④ 同输入重复评估结果稳定（确定性，无隐藏随机源）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

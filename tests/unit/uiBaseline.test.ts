@@ -9,7 +9,7 @@
  * ——旧字段在新壳层下**恒为 0**（左竖条已删除），按本机制自己的口径那叫假绿：
  * 采一个永远不变的值等于什么都没断言。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

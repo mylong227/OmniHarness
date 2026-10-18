@@ -11,7 +11,7 @@
  *    内置公钥等于把"谁能授权"写死在开源代码里。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

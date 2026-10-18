@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import type { SpillPort, SpillHandle } from '../../src/ports/memory/spill.ts';
 import { VortexRingPacket } from '../../src/adapters/spill/vortexRingSpillAdapter.ts';
 

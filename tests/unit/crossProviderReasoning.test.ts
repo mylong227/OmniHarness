@@ -16,7 +16,7 @@
  * | ⑤ | Ollama：`think: true/false`（关档显式 false，未设不发） | 该通路继续静默忽略 |
  * | ⑥ | 单一实现：四家字段字面量只许住在映射模块 | 上游改字段名只会改到一两条 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -10,7 +10,7 @@
  * 真实语料上的增益证据见 `evals/semantic-bridge-ab.mjs`（75.8% → 81.8%，2 捞回 / 0 丢失）。
  */
 
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

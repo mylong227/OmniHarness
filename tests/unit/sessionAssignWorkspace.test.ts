@@ -7,7 +7,7 @@
  * ② 整条没有 `session_meta` 的老存档补写一条（fail-safe：不让它继续"谁都不认"）；
  * ③ 目标为空 / 运行中的会话拒绝改动（fail-closed：不把归属写到一个空路径上，也不动活动事件流）。
  */
-import { describe, it, after } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +29,7 @@ function seed(id: string, lines: readonly string[]): string {
   return root;
 }
 
-after(() => {
+afterAll(() => {
   for (const dir of dirs) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
 });
 

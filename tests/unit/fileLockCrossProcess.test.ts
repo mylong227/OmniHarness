@@ -5,7 +5,7 @@
 // - 子进程用 `--input-type=module -e`，直接 import 编译产物里的 `FileLock`（跑的是同一份实现）；
 // - **不使用管道**（`stdio: 'ignore'`）：结果通过**文件**传递，避免把「管道/沙箱」问题混进被测语义；
 // - 两个子进程同时启动、各自「拿锁 → 读计数 → +1 → 写回 → 释放」，父进程等两者退出后断言计数 = 2。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
-/** 编译产物里的 fileLock 模块 URL（子进程 import 用）。 */
+/** 源码里的 fileLock 模块 URL（子进程 import 用；子进程带 --experimental-strip-types 加载 .ts）。 */
 const LOCK_URL = pathToFileURL(
   join(
     dirname(fileURLToPath(import.meta.url)),
@@ -23,7 +23,7 @@ const LOCK_URL = pathToFileURL(
     'src',
     'util',
     'concurrency',
-    'fileLock.js',
+    'fileLock.ts',
   ),
 ).href;
 
@@ -49,10 +49,14 @@ const ok = lock.withLock((guard) => {
 process.exit(ok ? 0 : 2);
 `;
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
-      stdio: 'ignore',
-      windowsHide: true,
-    });
+    const child = spawn(
+      process.execPath,
+      ['--experimental-strip-types', '--input-type=module', '-e', script],
+      {
+        stdio: 'ignore',
+        windowsHide: true,
+      },
+    );
     child.on('error', reject);
     child.on('exit', (code) => resolve(code ?? -1));
   });

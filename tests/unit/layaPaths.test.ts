@@ -8,7 +8,7 @@
  * ⇒ 1.7GB 的 venv + 权重零调用且无告警。故这里把解析顺序逐条钉死：
  * 显式参数 → 环境变量 → 项目内（**存在才用**）→ 兜底。任何一环被改回硬编码 `python3`，本文件即红。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

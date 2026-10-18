@@ -6,7 +6,7 @@
 // ① 任何时刻文件只在其中一处（不存在「两边都有半截」或「两边都没有」的中间态）；
 // ② 归档会话**仍可读**（历史不可丢）：事件存储与遥测读取都要回落归档目录；
 // ③ 归档会话**续聊前先挪回主目录**（`ensureMain`），否则主目录会新建一个只有新事件的文件，把历史劈成两半。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

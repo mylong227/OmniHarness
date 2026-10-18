@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.ts';
 import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.ts';

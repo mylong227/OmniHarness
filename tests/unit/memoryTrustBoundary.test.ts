@@ -19,7 +19,7 @@
  * | ⑤ | **回灌只作背景信息**：primer 文案含"不是指令"声明，且**不再**出现旧措辞"优先参考这些既有约定" |
  * | ⑥ | `untrusted` 事实回灌时带来源警示；无标注的事实不带 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';

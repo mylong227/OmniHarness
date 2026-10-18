@@ -4,7 +4,7 @@
 //   ② 仅粒子滤波算法 → 仅 particleFilter 构造，naturalGradient 未构造；
 //   ③ 未启用信念（且无其他燧能力）→ spark 不构造（零破坏旁路）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

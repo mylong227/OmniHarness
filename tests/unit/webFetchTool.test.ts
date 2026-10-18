@@ -1,7 +1,7 @@
 /**
  * web_fetch 单测（P2-⑬，无第三方依赖：注入抓取实现，不碰真实网络）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { WebFetchTool } from '../../src/adapters/tool/web/webFetchTool.ts';
 import type { FetchedDocument } from '../../src/adapters/tool/web/webFetchTool.ts';

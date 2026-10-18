@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CliWorker } from '../../src/worker/cliWorker.ts';
 import { SimpleWorker } from '../../src/worker/simpleWorker.ts';

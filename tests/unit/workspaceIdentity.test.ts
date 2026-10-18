@@ -9,7 +9,7 @@
  * 判据钉两件事：① 三种拼写必须归一到同一个身份；② 自动化跑测子目录必须折叠回宿主项目
  * （否则侧栏会冒出十几个"项目"）；③ 空标记保持"无归属"（不许被折叠成 cwd 之类的假项目）。
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { WorkspaceIdentity } from '../../src/util/workspaceIdentity.ts';
 

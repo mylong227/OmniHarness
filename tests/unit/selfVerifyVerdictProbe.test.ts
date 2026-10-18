@@ -8,7 +8,7 @@
  *
  * 关键不变量：verdict 观测**不**进回灌 notes、不阻断主流程（fail-open 质量信号）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   SelfVerifyingToolPort,

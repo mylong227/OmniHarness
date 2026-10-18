@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigRebase } from '../../src/config/configRebase.ts';
 import type { ResolvedConfig } from '../../src/config/configFactory.ts';

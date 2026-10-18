@@ -21,7 +21,7 @@
  *
  * ⑥ 特别重要：追加只能表达"多写"，回滚是"少写"。若回卷误走追加，盘上会留下已被回滚掉的事件。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

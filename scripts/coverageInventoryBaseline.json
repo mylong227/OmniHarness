@@ -1,13 +1,5 @@
 {
   "platforms": {
-    "win32": [
-      "src/genesis/index.js",
-      "src/genesis/multimodalBridge.js",
-      "src/index.js",
-      "src/indexBeta.js",
-      "src/native/index.js",
-      "src/ports/index.js",
-      "src/ports/model/modelAdapterId/modelAdapterId.js"
-    ]
+    "win32": []
   }
 }

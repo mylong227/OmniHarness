@@ -10,7 +10,7 @@
  * hermetic：真实子进程验证用本测试进程的 node 做 `--check` 语法检查（无网络、无外部依赖）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CascadeReward } from '../../src/evolution/cascadeReward.ts';

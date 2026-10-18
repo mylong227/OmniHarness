@@ -7,7 +7,7 @@
  *  - F9：子代理的 `todo_write` 会把**父会话**的清单整表覆盖并向父事件流发通知
  *    （子代 runtime 自建的那份端口从未绑定任何工具，是死对象）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { MemoryTodo } from '../../src/adapters/todo/memoryTodo.ts';

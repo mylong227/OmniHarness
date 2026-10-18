@@ -4,7 +4,7 @@
 //   ③ Echo 种群判塌缩：全同内容 → collapsed=true；
 //   ④ 确定性：同候选序列重复 20 次准入结果完全一致。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { DiversityGuard } from '../../src/evolution/diversityGuard.ts';

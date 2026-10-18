@@ -1,6 +1,6 @@
 import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // stepRunner × native 后端集成测试（#67）：验证 --approval/--sandbox 门禁在 native 与 JS 路径下行为一致。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.ts';

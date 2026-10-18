@@ -2,7 +2,7 @@
 // 自检返回自体规模与最近异常。断言：① 无基线时不报；② 训练后正常样本不报、异常样本告警；
 // ③ 同签名二次出现仍告警（记忆细胞）；④ selfCheck 反映自体规模与最近异常。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ImmuneMonitor } from '../../src/adapters/monitoring/immuneMonitor.ts';

@@ -29,7 +29,7 @@
  * （回卷前逐事件确定一致），模型包装器在**首次摘要调用之后的第一个步骤调用点**触发回卷——
  * 该时刻游标事件必然是日志最后一条（折叠写回与模型调用之间不产生事件），截到该下标即"只删游标"。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

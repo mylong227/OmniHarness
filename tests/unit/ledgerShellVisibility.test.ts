@@ -8,7 +8,7 @@
  * 修法是**保守失效**（宁可少拦不可误拦）：命令文本里出现某条已记账路径的绝对形式或工作区
  * 相对形式，就丢掉该条 —— 丢记录只会让后续写入不再被拦（等价于改造前行为），不会误拦。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 

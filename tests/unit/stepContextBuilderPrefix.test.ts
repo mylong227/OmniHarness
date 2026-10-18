@@ -9,7 +9,7 @@
  * 通过 mock 引擎返回哨兵串、检查 buildMessages 产出消息的 role/位置做断言，
  * 不依赖真实索引/嵌入/文件系统。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
 import { PrefixStability } from '../../src/context/prefixStability.ts';

@@ -12,7 +12,7 @@
  * ③ 正常响应 ⇒ allow，且晚到的超时不会二次兑现；
  * ④ 传输层：SSE/WS 连接关闭确实触发 `setOnAllClientsGone`（只在「有→无」跃迁上触发一次）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import type { ServerResponse } from 'node:http';

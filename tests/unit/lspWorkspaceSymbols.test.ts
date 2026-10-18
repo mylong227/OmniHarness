@@ -11,7 +11,7 @@
  * 全测试**不依赖任何真实语言服务器**：mock 只实现 LSP 最小子集 + workspace/symbol。
  */
 import { strict as assert } from 'node:assert/strict';
-import { before, describe, test } from 'node:test';
+import { beforeAll, describe, test } from 'vitest';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
@@ -51,7 +51,7 @@ interface WorkspaceSymbolPaths {
 /** 断言用的期望路径（`before` 里加载，避免顶层 await 与 CJS 目标之争）。 */
 let PATHS: WorkspaceSymbolPaths;
 
-before(async () => {
+beforeAll(async () => {
   const fixture = (await import(fixtureUrl)) as { WORKSPACE_SYMBOL_PATHS: WorkspaceSymbolPaths };
   PATHS = fixture.WORKSPACE_SYMBOL_PATHS;
 });

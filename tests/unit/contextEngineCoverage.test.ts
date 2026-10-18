@@ -7,7 +7,7 @@
  * `npm run smoke` 跑 7 分钟后 4 GB 堆爆。本文件把「哪些不该进语料」与「上限到了怎么如实回报」
  * 钉成可证伪断言。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

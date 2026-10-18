@@ -18,7 +18,7 @@
  * 不 mock 验签、不 mock zip——否则"拒了"可能只是夹具自己写错了。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

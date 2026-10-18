@@ -11,7 +11,7 @@
  * 4. **空台账是合法状态**：尚未产生晋升 ⇒ `available:true` 且 0 行（不是错误）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

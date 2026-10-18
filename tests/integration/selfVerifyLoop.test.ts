@@ -9,7 +9,7 @@
  * 仓库夹具：临时目录内 `package.json`（`scripts.test = node check.mjs`）+ `check.mjs`
  * （校验 `src.js` 不含 `BROKEN`）。因此本测试同时验证了确定性触发器「仓库有测试症状」。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

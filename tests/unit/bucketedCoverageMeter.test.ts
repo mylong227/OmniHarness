@@ -8,7 +8,7 @@
  * - 附加：探针只求值一次（分桶不让真实验证多跑）/ 桶键派生确定性 / 闸端到端取最差桶。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { BucketedCoverageMeter } from '../../src/evolution/bucketedCoverageMeter.ts';

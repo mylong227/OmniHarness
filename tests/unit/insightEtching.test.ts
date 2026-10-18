@@ -1,6 +1,6 @@
 // (P3, I-P3-1) 利希滕贝格刻蚀记忆：分形分支树刻蚀 + 沿共振刻痕低阻导通 + fail-closed。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { InsightEtchingEngine } from '../../src/adapters/memory/insightEtchingEngine.ts';
 

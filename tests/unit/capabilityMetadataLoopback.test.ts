@@ -16,7 +16,7 @@
  * 4. **fail-closed**：类型未注册 ⇒ `isError` + 可读原因；协议未启用 ⇒ 工具**根本不在清单里**。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CapabilityMetadataTool } from '../../src/adapters/tool/capability/capabilityMetadataTool.ts';

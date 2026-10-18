@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RoutineScheduler } from '../../src/daemon/routineScheduler.ts';
 import type { Routine } from '../../src/daemon/routineScheduler.ts';

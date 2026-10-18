@@ -9,7 +9,9 @@
   //   一堆陈旧 `.js` 会散落进源码树（`src/**` 旁边），而 Vite 解析 `./x.js` 时会优先命中它们。
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ES2020",
+    // ES2022：测试判据大量使用**顶层 await**（`await import('../src/x.ts')` 源码直跑），
+    // ES2020 的 module 目标不支持顶层 await（实测 121 条 TS1378）；ES2022 起原生支持。
+    "module": "ES2022",
     // Vite 用 bundler 解析（支持 `exports` 子路径，如 `highlight.js/lib/common`）；
     // `node`（classic）解析不到这类子路径。
     "moduleResolution": "bundler",
@@ -41,8 +43,11 @@
     // 允许模块内引用全局 `React` 类型：`deps.ts` 的测试桩分支与 `reactGlobals.d.ts` 的
     // 全局类型提升都依赖它（官方 @types/react 以 `export as namespace React` 声明该全局）。
     "allowUmdGlobalAccess": true,
-    // 无 ES 内置 polyfill 需求（目标浏览器都支持 ES2020），但需要 DOM 与迭代器类型。
-    "types": []
+    // 测试判据（web/test/**）会读 node:fs / node:path / 起子进程（真 Chrome harness），
+    // 需要 @types/node；src/** 本身保持纯浏览器代码，不多不少。
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  // 2026-10-17 测试栈统一：判据从 .mjs 转 .ts 后纳入同一份 strict 类型检查
+  // （web/test 93 个文件与 src 同栈，`import '../src/x.ts'` 直跑源码）。
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts"]
 }

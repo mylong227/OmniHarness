@@ -12,7 +12,7 @@
  * 覆盖面说明：真进程组（`spawn({detached:true})`）用例在本机不跑，见测试
  * `POSIX 进程组回退链` 内的分支注释——win32 上 `child.kill(-pid)` 不可用。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';

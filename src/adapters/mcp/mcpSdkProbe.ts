@@ -15,7 +15,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 /** SDK 库名（准入清单声明的落点层为 src/adapters/mcp，见 dependency-allowlist.json）。 */
 const SDK_PACKAGE = '@modelcontextprotocol/sdk';
@@ -100,21 +100,30 @@ export class McpSdkProbe {
   /**
    * 解析 SDK 的 package.json 绝对路径。
    *
-   * 不能用 `import.meta.resolve('@modelcontextprotocol/sdk/package.json')`：SDK 的 exports
-   * 有 `./*` 通配，Node 会把 `package.json` 当子路径重写成 `dist/esm/package.json`（实测该
-   * 文件只是 `{"type":"module"}` 的残件——版本号会取到空）。故从包根入口上溯，取第一个
-   * **`name` 字段等于包名**的 package.json（按内容判定，不按目录名猜作用域包的层级）。
-   * @returns 绝对路径；解析失败（未安装 / 环境无 import.meta.resolve）时 undefined
+   * 不能用 `import.meta.resolve`：① SDK 的 exports 有 `./*` 通配，Node 会把 `package.json`
+   * 当子路径重写成 `dist/esm/package.json`（实测该文件只是 `{"type":"module"}` 的残件——版本号
+   * 会取到空）；② vitest 源码直跑态下 `import.meta.resolve` 拿不到裸说明符的真实路径（2026-10-17
+   * 测试栈统一实测）。
+   *
+   * 也不能 resolve **包主入口**：本机 SDK 的 exports `.` 指向 `dist/cjs/index.js`（CJS 桥件，
+   * 实测不存在——包只发了 ESM），`require.resolve(主入口)` 必抛 MODULE_NOT_FOUND，而 ESM 子路径
+   * 实载完全正常。故逐个尝试**适配器真实用到的子路径**（必存在，见 REQUIRED 实载口径），从首个
+   * 解析成功的落点上溯，取第一个 **`name` 字段等于包名** 的 package.json（按内容判定，不按目录名
+   * 猜作用域包的层级）。
+   * @returns 绝对路径；全部子路径解析失败（未安装）时 undefined
    */
   private static resolvePackageJson(): string | undefined {
-    const meta = import.meta as { resolve?: (specifier: string) => string };
-    if (meta.resolve === undefined) {
-      return undefined;
+    const require = createRequire(import.meta.url);
+    let start: string | undefined;
+    for (const specifier of REQUIRED) {
+      try {
+        start = require.resolve(`${SDK_PACKAGE}/${specifier}`);
+        break;
+      } catch {
+        // 该子路径 CJS 解析失败不影响其它子路径；全部失败才视为未安装。
+      }
     }
-    let start: string;
-    try {
-      start = fileURLToPath(meta.resolve(SDK_PACKAGE));
-    } catch {
+    if (start === undefined) {
       return undefined;
     }
     let dir = dirname(start);

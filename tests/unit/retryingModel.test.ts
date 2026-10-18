@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RetryingModel, DEFAULT_RETRY_POLICY } from '../../src/adapters/model/retryingModel.ts';
 import { ModelCallError } from '../../src/ports/model/model.ts';

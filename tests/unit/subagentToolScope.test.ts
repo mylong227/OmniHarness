@@ -5,7 +5,7 @@
  * 在 **copy 降级档**（git 不可用/失败）下没有 git 可比 ⇒ 改动连 patch 都取不回来。
  * 该档唯一不制造"静默丢失"的做法是**禁写**（fail-closed）。本文件钉住收窄口径。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SubagentToolScope } from '../../src/subagent/subagentToolScope.ts';

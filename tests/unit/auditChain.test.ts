@@ -2,7 +2,7 @@
 // 覆盖：链字段正确性、三类篡改检出（改内容 / 删条目 / 插条目）、跨实例续链、
 //       no-op 安全性、合规报告携带链校验结果。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';

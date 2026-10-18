@@ -23,7 +23,7 @@
  * 判据③的来源是 2026-10-01 审计的真实缺陷（见 `delegateTool.ts` 注释）：`WorkerRequest.signal`
  * 字段与 `CliWorker` 的 kill-tree 都齐了，但父会话 signal **从未被传进来**——字段存在 ≠ 链路通。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { getEventListeners } from 'node:events';
 import { readFileSync } from 'node:fs';
@@ -43,17 +43,19 @@ import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
  * 需要该契约，而端口不得反向依赖实现文件）⇒ 判据的**检体**随契约走；原 `src/worker/worker.ts`
  * 变成桶再导出，`CONTRACT_BARREL_*` 继续钉住"公共 API 面没变、仍是纯类型"。
  */
-const CONTRACT_SOURCE = fileURLToPath(
-  new URL('../../../src/ports/worker/worker.ts', import.meta.url),
+const CONTRACT_SOURCE = fileURLToPath(new URL('../../src/ports/worker/worker.ts', import.meta.url));
+/** 契约编译产物路径（2026-10-17 起判据从源码直跑，dist 路径显式指向编译产物）。 */
+const CONTRACT_DIST = fileURLToPath(
+  new URL('../../dist/src/ports/worker/worker.js', import.meta.url),
 );
-/** 契约编译产物路径。 */
-const CONTRACT_DIST = fileURLToPath(new URL('../../src/ports/worker/worker.js', import.meta.url));
 /** 原实现层路径（现在是再导出桶）。 */
 const CONTRACT_BARREL_SOURCE = fileURLToPath(
-  new URL('../../../src/worker/worker.ts', import.meta.url),
+  new URL('../../src/worker/worker.ts', import.meta.url),
 );
 /** 原实现层产物（必须仍是 `export {};`）。 */
-const CONTRACT_BARREL_DIST = fileURLToPath(new URL('../../src/worker/worker.js', import.meta.url));
+const CONTRACT_BARREL_DIST = fileURLToPath(
+  new URL('../../dist/src/worker/worker.js', import.meta.url),
+);
 
 /** 去掉块注释（判据只看声明，避免把文档里的 `{@link X}` 当语法）。 */
 function stripComments(source: string): string {

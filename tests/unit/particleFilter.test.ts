@@ -4,7 +4,7 @@
 //   ② 离群极远观测 → 不崩溃、快照有限、置信低（fail-closed）；
 //   ③ naturalStep 沿正梯度推粒子 → dim0 均值上升。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilterBelief.ts';
 

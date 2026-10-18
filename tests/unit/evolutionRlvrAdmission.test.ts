@@ -9,7 +9,7 @@
  *   ③ 覆盖率低于阈值整轮不晋升（fail-closed），且 `honestNote` 给降级措辞。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

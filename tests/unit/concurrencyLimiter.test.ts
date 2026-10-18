@@ -8,7 +8,7 @@
  * ② 规模不回归——上万等待者仍能在毫秒级完成（若退回 `shift()` 会显著变慢，但断言取宽松上界，
  *    只作「不炸」的护栏，精确性能数字由 `.omniharness` 内的基准脚本负责）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConcurrencyLimiter } from '../../src/util/concurrency/concurrencyLimiter.ts';
 

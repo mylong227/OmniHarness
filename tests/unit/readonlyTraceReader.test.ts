@@ -4,7 +4,7 @@
 //   ③ byKind 过滤正确且新在前；recent(k) 截断正确；
 //   ④ fail-soft：provider 抛错回空快照不抛错。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ReadonlyTraceReader } from '../../src/adapters/telemetry/readonlyTraceReader.ts';

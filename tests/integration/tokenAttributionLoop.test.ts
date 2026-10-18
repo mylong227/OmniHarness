@@ -5,7 +5,7 @@
  * 捕获**运行时真发出的事件**，再对其做归因投影。断言归因结果与真实 usage 一致——
  * 证明归因消费的是生产事实源，而非自造的假事件。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

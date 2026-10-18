@@ -2,7 +2,7 @@
 // 覆盖：readBounded 对超 MAX_GRAPH_BYTES(4MiB) 的文件 fail-closed 抛错；
 // list() 跳过超大文件（不静默 OOM、不阻断其余）；get() 显式暴露错误。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

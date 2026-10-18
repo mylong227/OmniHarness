@@ -20,7 +20,7 @@
  * | ④ | 异步索引**真的让出**事件循环 | 在异步构建期间 `monitorEventLoopDelay().max ≤ 100 ms` |
  * | ⑤ | `getAsync` 冷启动 ≡ `get`，且第二次命中缓存 | 语义不因让出而改变 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,7 +30,7 @@ import { ContextEngine } from '../../src/context/contextEngine.ts';
 import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 用于构建的子树（规模适中：既触发分块，又不让门禁变慢）。 */
 const SUBTREE = join(REPO_ROOT, 'src', 'search');

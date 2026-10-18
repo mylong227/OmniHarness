@@ -48,6 +48,14 @@ resources/symbolic_policy/.omniharness.lock
 .tmp-*.mjs
 .tmp-*.txt
 
+# vitest node 项目的 ASCII 临时目录（vitest.workspace.ts 注入 TMP/TEMP 的落点）：
+# plugin 判据在这里落盘示范插件再动态 import，Windows 用户名含中文时默认 %TEMP% 会让
+# Vite 加载器 percent-encoding 解析失败 ⇒ 换到仓库内全 ASCII 路径（见 vitest.workspace.ts）。
+.tmp/
+
+# vitest v8 覆盖率 JSON 摘要落点（`coverage` 脚本产出，门禁消费后不入库）。
+.coverage/
+
 # Local third-party benchmark material
 # These files remain available to local experiments but are intentionally kept
 # out of Git until their individual redistribution terms are satisfied.

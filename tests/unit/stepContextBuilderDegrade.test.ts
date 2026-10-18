@@ -16,7 +16,7 @@
  *
  * 通过 mock 引擎记录调用（root/q/opts）做断言，不依赖真实索引/嵌入实现。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
 import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';

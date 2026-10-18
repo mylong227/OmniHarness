@@ -13,7 +13,7 @@
  * ④ 帮助不得宣传不存在的旗标；⑤ 新增旗标必须文档化（存量未文档化冻结）；⑥ 渲染确定性。
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +22,7 @@ import { FLAG_ENUM_VALUES, FLAG_TABLE, CliFlagTable } from '../../src/cli/cliFla
 import { STORAGE_ADAPTERS } from '../../src/cli/cliEnums.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * 存量「在 `FLAG_TABLE` 里但帮助未记载」的旗标（**冻结基线，只增即红**）。

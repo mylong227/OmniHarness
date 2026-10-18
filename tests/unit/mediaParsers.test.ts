@@ -8,7 +8,7 @@
  * 判据的核心是**不猜**：任一字段读不出就给 `undefined`，绝不拿默认值冒充。
  * 时长猜错会让整批帧的时间戳全错，比"未知"更糟。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { FfmpegStderrParser } from '../../src/media/ffmpegStderrParser.ts';
 import { FfprobeJsonParser } from '../../src/media/ffprobeJsonParser.ts';

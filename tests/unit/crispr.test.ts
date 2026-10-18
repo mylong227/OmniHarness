@@ -1,6 +1,6 @@
 // (P2, I-P2-4) CRISPRSkillEditor 单元测试：语义寻址定点 patch + 差异测试回滚（fail-closed）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Skill } from '../../src/skill/skill.ts';
 import { SkillRegistry } from '../../src/skill/skillRegistry.ts';

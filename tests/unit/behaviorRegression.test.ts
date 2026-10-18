@@ -19,7 +19,7 @@
  * **口径**：断言的是"行为是否仍成立"，不是"效果是否更好"。改进类结论仍需自建对照
  * （见 `docs/ARCHITECTURE_UPGRADE_2026-10.md` §4 的 G1b）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -20,7 +20,7 @@
  *    同一个「慢 200ms」的处理器，`turns.run` 拿到 result，`sessions.list` 拿到带真实原因的超时错误。
  *    若把预算退回「一律 60s」的一刀切，③ 第二半仍超时（注入的是 60ms），第一半则不再通过。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.ts';
 import type { RpcMessage, RpcRequest } from '../../src/server/core/jsonRpc.ts';

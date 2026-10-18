@@ -4,7 +4,7 @@
 // 规则表是有序的正则列表，最容易坏的地方是**优先级**——`gpt-4o-mini` 若被 `4o` 那条先吃掉，
 // 一个轻量模型就会拿到 3 倍额度，而这种错误在界面上只表现为"数字偏大"，肉眼查不出来。
 // 因此每条规则都配一条正例、以及一条会误命的**反例**。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { QuotaPlans, QUOTA_DEFAULT_ID } from '../../src/server/services/quotaPlans.ts';
 

@@ -54,7 +54,7 @@
   前端 `ApiClient.abortTurn(threadId)` + `ComposerController.stop()` 传当前 `currentThreadId`（此前从不带 id）。
 - **可证伪验证**：`tests/unit/sessionCancelIsolation.test.ts` 3/3（定向取消只停目标会话 / 不带 id 取消全部 / 未知会话 no-op）；
   **变异验证**：把编译产物改回「一律取消全部」⇒ ①③ 立刻变红（`# fail 2`），还原后复绿；
-  前端 `web/test/turnControl.test.mjs` 增断言「stop 必须传当前 threadId」12/12。
+  前端 `web/test/turnControl.test.ts` 增断言「stop 必须传当前 threadId」12/12。
 
 ### 1.4【本轮已修】审批上行无超时、断连不兑现 ⇒ 回合永久挂起
 
@@ -264,7 +264,7 @@
   工具调用 id 集合」从滚动帧路径移出。
   **实测（本机）**：每帧重算 **147 / 151 / 380 µs**（1000 / 3000 / 10000 事件）→ 命中缓存 **0.1–0.3 µs**。
   失效判据纳入 `length` 是为了兜住「就地 push 同一数组」的写法；残留边界（长度不变的就地内容修改）写在类注释里。
-  回归：`web/test/streamModelCache.test.mjs`（7 例：同输入返回同一对象且只算一次、引用变化重算、
+  回归：`web/test/streamModelCache.test.ts`（7 例：同输入返回同一对象且只算一次、引用变化重算、
   **就地 push 也必须重算**、busy 变化重算、缓存与纯计算逐字段一致、末条 id/工具 id 口径、clear 后计数归零）。
 
 ### 2.6 已核对无问题

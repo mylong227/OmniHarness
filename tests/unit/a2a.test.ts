@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
 import type { A2aTransport } from '../../src/a2a/a2aProtocol.ts';

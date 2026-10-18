@@ -5,7 +5,7 @@
  * 走真实装配（`ConfigFactory.build` → `Runtime.createRuntime` → 真跑 Agent 取 `tool_result` 输出），
  * 与 `guardShadowMode.test.ts` 同口径——只测纯函数式护栏是不够的（历史上多次「模块能跑通但装配没透传」假绿灯）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

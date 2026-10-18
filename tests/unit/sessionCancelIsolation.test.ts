@@ -10,7 +10,7 @@
  * ② 不带 sessionId 时（旧行为 / CLI 单会话）取消全部在跑会话；
  * ③ 会话收尾后登记被清理（无泄漏），且取消一个不存在的会话是 no-op。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

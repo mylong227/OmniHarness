@@ -6,7 +6,7 @@
  * 「模型看到一堆花屏」，不是报错。JPEG 段结构里最短的那条路（`SOS` 之后的熵编码数据）
  * 还专门有两种必须跳过的样本：`FF00`（字节填充）与 `FFD0–FFD7`（重启标记）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ImageStreamSplitter } from '../../src/media/imageStreamSplitter.ts';
 import { PngEncoder } from '../../src/media/pngEncoder.ts';

@@ -11,7 +11,7 @@
  *    规格不一致时**拒绝续跑**（绝不把两份定义的产出拼在一起）；未开启持久化时**零写盘**。
  */
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -10,7 +10,7 @@
  * - 附加：spec 声明的 `evolution.ledger.*` 观测行接线（且观测 fail-open 不连累治理写入）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';

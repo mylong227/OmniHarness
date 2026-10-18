@@ -19,7 +19,7 @@
  * 判据①②是**真实仓库上的行为断言**（不是"函数返回了字符串"这种弱判据）：它们正是本次缺陷的
  * 现场形态——用小夹具永远测不出来，因为夹具里没有"近两万文件的缓存目录"。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

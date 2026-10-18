@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SemanticIndex } from '../../src/context/semanticIndex.ts';
 import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.ts';

@@ -5,7 +5,7 @@
  *  1. 端口语义（无需 sharp）：假实现注入，验证「交付收敛结果 / undefined 走历史行为」两条路；
  *  2. sharp 真实实现（sharp 未安装时整组 skip，跳过原因可见）：验证大图真的被收敛进预算。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { randomFillSync } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -33,7 +33,7 @@ const hasSharp: boolean = await import('sharp').then(
  * 2026-10-11：接 `OMNI_REQUIRE_SHARP` 开关——`sharp` 是 optionalDependency，省略安装时
  * "真实实现路径"整组静默跳过（本仓当年就因此让缩放能力长期没有实证）。声明必须在场时改为失败。
  */
-const sharpSkip = RequireEnv.skipUnless(
+const sharpSkip = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_SHARP',
   hasSharp,
   'sharp 未安装（optionalDependencies 被省略）',

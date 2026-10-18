@@ -16,7 +16,7 @@
  * 唯一豁免：没有「装了 ffmpeg 才跑」的开关——所有判据要么走替身，要么跑一个**必然不存在**
  * 的可执行文件名（两种平台都只会得到 ENOENT，与是否装 ffmpeg 无关）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import {

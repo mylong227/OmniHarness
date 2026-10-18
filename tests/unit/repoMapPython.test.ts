@@ -4,7 +4,7 @@
  * 此前缺口：`async def` 完全抽不到（现代 Python 协程主力形态）、import/from-import
  * 不进符号索引（查询提到模块名时文件无法入候选池）。本文件锁定修复后的契约。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RepoMap, type SymbolNode } from '../../src/context/repoMap/repoMap.ts';
 

@@ -15,7 +15,7 @@
  * ② `PlanApproval.decide({toolName:'view_media'})` 放行；
  * ③ `ToolGate` 对 `view_media` 请求沙箱的动作为 `file_read`，目标取 `path` 参数。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';

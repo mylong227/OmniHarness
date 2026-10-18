@@ -10,7 +10,7 @@
  * 测的是 runner 本身，`workflowRunnerLimits` 测的是并发，都不经过 RPC 装配）。本仓的缺陷家族里
  * 「声明了但没接线」占大头，故补这条端到端判据：RPC → 真图运行 → 真文件 → 读回可续跑。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';

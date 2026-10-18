@@ -11,7 +11,7 @@
  *  7. **最近一次调用的分因**（2026-10-15）：`lastCall` 的 token 与信号取自**同一条**事件，
  *     且"没读数 / 冷启动 / 前缀被改写 / TTL 过期 / 原因不明"必须能被分别触发。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ContextUsageService } from '../../src/server/services/contextUsageService.ts';

@@ -14,7 +14,7 @@
  *
  * 每条都配**正对照**：检测器/断言在"已知坏输入"下必须报违规，否则"'零违规'只是检测器失灵"。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { ConfigError } from '../../src/config/configError.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 示例配置里的顶层键（去掉注释行后解析；解析失败则退回正则取样并如实报案）。 */
 function exampleConfigKeys(): readonly string[] {

@@ -5,7 +5,7 @@
  * agent 执行任意工具（含 `--auto-approve`）⇒ 等于把「无鉴权的远程执行入口」开到局域网。
  * 本文件把修好后的规则钉住：默认回环、非回环必须配令牌、配了令牌则 HTTP 与 WS 都要过门。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { request as httpRequest } from 'node:http';
 import type { IncomingMessage } from 'node:http';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { CircuitOpenError } from '../../src/errors/circuitOpenError.ts';
 import { CircuitBreaker } from '../../src/util/concurrency/circuitBreaker.ts';
 

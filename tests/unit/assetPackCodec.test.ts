@@ -13,7 +13,7 @@
  * ⇒ 签/验双方算不出同一正文，第 1 类「正常包可验签通过」也会红。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AssetPackCodec } from '../../src/asset/assetPackCodec.ts';

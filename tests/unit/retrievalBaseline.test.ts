@@ -22,7 +22,7 @@
  * 另：本文件顺带恢复了随评测子系统一起丢失的**锚点审计**（"锚点必须真的出现在语料里"）——
  * 否则锚点漂移会把"评测集坏了"读成"检索退步了"（`recallQueries.ts` 的文件头记过这个坑）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -32,7 +32,7 @@ import { ContextEngine } from '../../src/context/contextEngine.ts';
 import { RECALL_QUERIES, CORE_RECALL_QUERIES } from '../fixtures/recallQueries.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`，故上溯三级）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 取 Top-K 文件的 K（与基线夹具一致）。 */
 const K = 14;

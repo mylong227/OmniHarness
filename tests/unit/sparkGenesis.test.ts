@@ -5,7 +5,7 @@
  * - 桥异常：回落 legacy（fail-closed）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SparkController } from '../../src/spark/sparkController.ts';
 import { GenesisSparkBridge } from '../../src/genesis/genesisSparkBridge.ts';

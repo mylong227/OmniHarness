@@ -15,7 +15,7 @@
  *      且建议项确实被 `isKnownFlag` 认识（不会建议一个本 CLI 并不认识的旗标）。
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,7 @@ import { FlagSuggestion } from '../../src/cli/flagSuggestion.ts';
 import { CliFlagTable } from '../../src/cli/cliFlagTable.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 判据用的真旗标集合（与生产同一来源，避免测试自己造一份会漂移的清单）。 */
 const KNOWN = CliFlagTable.knownFlagNames();

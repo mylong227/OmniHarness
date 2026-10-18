@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
 import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';

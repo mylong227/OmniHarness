@@ -6,7 +6,7 @@
  * 2. **非目标平台不误报可用**（在 Windows 上不能说 seatbelt/bwrap/unshare 可达）；
  * 3. 不可用项必须给可执行原因，且能被 `doctor` 直接打印出来。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SandboxCapabilityTable } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';
 import type { SandboxCapabilityEntry } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { SafePolicyEvaluator } from '../../src/adapters/policy/safePolicyEvaluator.ts';
 import type { PolicyFacts, PolicyRule } from '../../src/ports/runtime/policy.ts';
 

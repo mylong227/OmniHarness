@@ -4,7 +4,7 @@
 //   ③ 可复现：同种子 + 同事件序列恒同接受序列（20 次重放完全一致）；
 //   ④ 温度单调不升；冷却到低温后劣解几乎不再被接受（收敛性）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AnnealedAcceptance } from '../../src/evolution/annealedAcceptance.ts';

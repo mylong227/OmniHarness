@@ -19,7 +19,7 @@
  * 判据⑤是本判据的灵魂：只会说好话的判据没有价值。本仓已有一条被自己证伪的路径正是"查询不敏感"
  * （每次给不同的文件、但不给对的文件）——随机对照就是在复现那种失败形态。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';

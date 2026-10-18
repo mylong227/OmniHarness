@@ -15,7 +15,7 @@
  * ⑥ 消费点确实走数据（CDP 自检 URL 仍产出 `/json/version`）。
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,7 +24,7 @@ import { BrowserAvailability } from '../../src/adapters/browser/browserAvailabil
 import { DEFAULT_REGISTRY_URL } from '../../src/plugin/registrySourcesShared.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 历史字面量（改造前写在实现里），作为**不可漂移的期望值**保留。 */
 const HISTORICAL_ADAPTERS: Readonly<

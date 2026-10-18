@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { strict as assert } from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { describe, test } from 'vitest';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
 import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
 import { ConfigFactory } from '../../src/config/configFactory.ts';

@@ -10,7 +10,7 @@
  * ③ **配置面可达**：`omniharness.json` 接受 `decisionEngine` 段（此前是「未知配置项」直接拒绝，
  *    于是引擎只能编程注入 —— 而编程注入的部署里 mode 从未被打开），且非法段 fail-closed。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { dirname } from 'node:path';

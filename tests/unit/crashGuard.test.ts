@@ -13,7 +13,7 @@
  *  ⑥ 收尾只做一次（第二次致命事件不再重复收尾）；
  *  ⑦ 接线守卫：`src/cli/exec.ts` 必须真的安装护栏（防「声明未接线」）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -180,7 +180,7 @@ test('⑥ 收尾只做一次：第二条致命事件不再重复收尾', async (
 
 test('⑦ 接线守卫：CLI 入口必须真的安装护栏（防「声明未接线」）', () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const root = join(here, '..', '..', '..');
+  const root = join(here, '..', '..');
   const src = readFileSync(join(root, 'src', 'cli', 'exec.ts'), 'utf8');
   assert.match(
     src,

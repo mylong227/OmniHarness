@@ -8,7 +8,7 @@
 //   ⑤ SparkController 集成：含 annealer 时 cycle 报告 anneal 维度；无燧能力时 ran=false；
 //   ⑥ 主循环接线：仅开 memoryAnnealing 即构造 spark+annealer，cycle 实际重加权记忆。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

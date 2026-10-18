@@ -6,7 +6,7 @@
  * **不可达判据**；且**显式 `selfVerify.command` 也被同一道闸门挡下**。本测试同时覆盖：
  * ① 各生态证据 → 命令；② 优先级（多生态并存时取首个）；③ 显式命令绕过闸门。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

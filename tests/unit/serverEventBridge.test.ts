@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ServerEventBridge } from '../../src/server/core/serverEventBridge.ts';
 import type { Transport } from '../../src/server/transport/lineTransport.ts';

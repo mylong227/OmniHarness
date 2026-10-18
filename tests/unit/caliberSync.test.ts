@@ -19,7 +19,7 @@
  * | ⑥ | 看板 §9 指向 §11（口径从 SSOT 可达，而不是埋在长文档里） |
  * | ⑦ | 文档不得残留已作废的旧阈值（如把行数上限写成 800）——防"改了一处漏一处" |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

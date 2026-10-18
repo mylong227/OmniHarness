@@ -15,7 +15,7 @@
  * ② **反面对照**：`undefined`/`false` ⇒ 两者都不得出现（否则这句话会退化成每次都说的噪声）；
  * ③ 说明必须与退出码/输出**并存**（不是替换掉真实输出）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ShellTool } from '../../src/adapters/tool/shell/shellTool.ts';
 import type { ShellRunOutcome } from '../../src/adapters/tool/shell/shellProcessRunner.ts';

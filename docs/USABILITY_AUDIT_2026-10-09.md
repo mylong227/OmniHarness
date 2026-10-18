@@ -41,7 +41,7 @@
 - **影响**：左栏是**主要导航面**，"找到上次那条对话"在默认视图里做不到，只能逐条点进去试。
 - **修复**：`web/src/ui/models/SessionRowMeta.ts`（新）——悬停给 **完整标题 + 最近活动 + 回合数 + id**，
   三个视图（按项目 / 按时间 / 卡片）共用。缺什么不编什么（`turns` 缺省时不写"0 回合"）。
-- **判据**：`web/test/sessionRowMeta.test.mjs` ①②③（含"标题不得被截断"与"无时间不渲染"）。
+- **判据**：`web/test/sessionRowMeta.test.ts` ①②③（含"标题不得被截断"与"无时间不渲染"）。
 
 ### F2. 默认视图没有任何时间线索 —— **已修**
 
@@ -49,7 +49,7 @@
 - **修复**：两个分组视图的行内右侧加**紧凑**相对时间（`刚刚` / `3分` / `2小时` / `5天`）。
 - **为什么是紧凑形**：这一格是从**标题宽度**里抠出来的。真机实测完整形（`3 分钟前`）会把标题
   从约 14 字压到约 6 字；紧凑形只占 18–35px。悬停文案里给的仍是完整形，信息一点没少。
-- **判据**：`web/test/sessionRowMeta.test.mjs` ②（含"紧凑形必须真的更短"这条反向约束）。
+- **判据**：`web/test/sessionRowMeta.test.ts` ②（含"紧凑形必须真的更短"这条反向约束）。
 
 ### F3. 操作按钮以 `opacity:0` **常驻占位 86px** —— **已修**（本轮最大的宽度回收）
 
@@ -64,7 +64,7 @@
 
 - **修复**：`web/styles/polish.css` —— 操作按钮改为**绝对定位覆盖层**，左缘渐变过渡、右侧取行态底色。
 - **代价与处置**：覆盖层会盖住标题尾巴，故必须自带不透明底（已在样式里显式还上，判据钉住）。
-- **判据**：`web/test/sessionRowMeta.test.mjs` ④（`position:absolute` + 必须有 `background`）。
+- **判据**：`web/test/sessionRowMeta.test.ts` ④（`position:absolute` + 必须有 `background`）。
 
 ### F4. 中栏空态只说"会发生什么"，没说"我该输入什么" —— **已修**
 
@@ -80,7 +80,7 @@
   点一下**填进输入框**（`ComposerController.seedDraft`），可改后再发。
 - **为什么是"填入"而不是"直接发送"**：示例是给人改的模板（文件名通常要换成自己的），
   且直接发送会**立刻消耗真实额度**——第一次点按钮就花钱，对客户是惊吓不是引导。判据把这条钉死。
-- **判据**：`web/test/starterTasks.test.mjs` ①–⑤（含"不得直接 `onSend`"、"不得出现内部工具名
+- **判据**：`web/test/starterTasks.test.ts` ①–⑤（含"不得直接 `onSend`"、"不得出现内部工具名
   `read_file`/`shell`"、"`seedDraft` 空文本 fail-closed + nonce 递增"）。
 - **真机验收**：点第一个示例 ⇒ 输入框内容 =
   `读取工作区里的 README.md，用中文给我 5 行以内的摘要，并指出它最想解决的问题是什么。`，且已聚焦。
@@ -155,7 +155,7 @@
 - **影响**：笔记本电脑（1280/1366 宽）+ 左右栏都展开时，输入区的模型/推理/发送控件会被推到视野外。
 - **为什么本轮不修**：它不是"再挤一挤"能解决的——三栏固定宽度 + 输入条的单行布局在窄中栏下必然溢出，
   正确做法是给输入条做**断点重排**（窄栏时换行/收纳为一级菜单），而这是有独立视觉验收面的改动
-  （`web/test/responsiveProbe.mjs` 覆盖 640px 档），应当单独一轮做并逐档截图核对，不应塞进本轮。
+  （`web/test/responsiveProbe.ts` 覆盖 640px 档），应当单独一轮做并逐档截图核对，不应塞进本轮。
 - **前置**：先定"窄栏时哪些控件降级"的产品口径，再动 CSS。
 
 ### F9. bundle 补丁层的告警反复打印且不可行动 —— **未修（如实登记）**
@@ -173,10 +173,10 @@
 
 | #   | 发现               | 改动                                                                      | 判据（可直跑）                          |
 | --- | ------------------ | ------------------------------------------------------------------------- | --------------------------------------- |
-| 1   | F1 悬停给内部 ID   | `web/src/ui/models/SessionRowMeta.ts`（新）+ `SessionViews.tsx`           | `web/test/sessionRowMeta.test.mjs` ①③   |
-| 2   | F2 默认视图无时间  | 同上（行内紧凑时间，两个分组视图共用）                                    | `web/test/sessionRowMeta.test.mjs` ②    |
-| 3   | F3 按钮虚占 86px   | `web/styles/polish.css`（覆盖层；标题 73→183px）                          | `web/test/sessionRowMeta.test.mjs` ④    |
-| 4   | F4 空态无引导      | `web/src/ui/models/StarterTasks.ts`（新）+ `ComposerController.seedDraft` | `web/test/starterTasks.test.mjs` ①–⑤    |
+| 1   | F1 悬停给内部 ID   | `web/src/ui/models/SessionRowMeta.ts`（新）+ `SessionViews.tsx`           | `web/test/sessionRowMeta.test.ts` ①③    |
+| 2   | F2 默认视图无时间  | 同上（行内紧凑时间，两个分组视图共用）                                    | `web/test/sessionRowMeta.test.ts` ②     |
+| 3   | F3 按钮虚占 86px   | `web/styles/polish.css`（覆盖层；标题 73→183px）                          | `web/test/sessionRowMeta.test.ts` ④     |
+| 4   | F4 空态无引导      | `web/src/ui/models/StarterTasks.ts`（新）+ `ComposerController.seedDraft` | `web/test/starterTasks.test.ts` ①–⑤     |
 | 5   | F5 拼错旗标无建议  | `src/cli/flagSuggestion.ts`（新）+ `argParser` 接线                       | `tests/unit/flagSuggestion.test.ts` ①–⑥ |
 | 6   | F6 sqlite 警告噪声 | `src/adapters/kv/sqliteKv.ts`（真懒加载）                                 | `tests/unit/sqliteLazyLoad.test.ts` ①–③ |
 | 7   | F7 旗标墙          | `defaults/cliHelp.json` + `CliHelp` 渲染                                  | `tests/unit/cliHelp.test.ts` ①⑦         |
@@ -192,7 +192,7 @@
   F9 需要先定"合法配置键"的客户可见出口。把"我没做"写成"环境不允许"是最容易骗过自己的一类虚报。
 - **F1–F3 的观感结论来自真机深色主题 + 1440/1280/1000 三档视口**。浅色主题**已复核**：真机注入
   `omni-theme=light` 后截图（侧栏标题+紧凑时间、空态示例卡、悬停覆盖层底色均正常），并跑了
-  `web/test/visualProbe.mjs`（两主题 × 1280/640 两档，**42 张图存档于 `web/archive/`**）。
+  `web/test/visualProbe.ts`（两主题 × 1280/640 两档，**42 张图存档于 `web/archive/`**）。
   **仍未逐屏复核的是**：640px 档的**真机**行为（探针的 640 档用桩数据）与浅色主题下的**真实悬停**
   覆盖层观感（底色取自行态变量、属性上跟随主题，但只核过静态图）。
 - 本轮**没有**触碰"面向客户的对外材料"（README/官网口径），因此不涉及对外数字口径问题。
@@ -254,7 +254,7 @@ t≈2.9s  busy=n  headline=3974/12.8万 src=实测  cache=缓存命中 53.8%   �
 - `tests/unit/liveEventRead.test.ts`：① 前提（回合停在首次模型调用时**盘上为空**）
   ② `eventsOf` 仍能读到内存事实源 ③ **纯读不广播** ④ 正对照：`replay` 仍逐条广播。
   **变异自证**：把 `eventsOf` 退回"只读盘" ⇒ 判据 ② 当场变红（实测跑过）。
-- `web/test/capacityLiveRefresh.test.mjs`：代数只数 `model` 事件 / 代数真的进了依赖数组 /
+- `web/test/capacityLiveRefresh.test.ts`：代数只数 `model` 事件 / 代数真的进了依赖数组 /
   依赖数组不得含对象或回调（防 2026-10-06「打开 6 秒 23 次 /rpc」复发）/ 链路三层齐全。
 
 ### 关于「缓存命中率不够高」——我**没有**改口径，先测量

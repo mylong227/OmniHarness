@@ -1,4 +1,4 @@
-import { describe, it, before, after } from 'node:test';
+import { afterAll, beforeAll, describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -11,12 +11,12 @@ import {
 let root: string;
 let home: string;
 
-before(async () => {
+beforeAll(async () => {
   root = await mkdtemp(join(tmpdir(), 'omni-instr-'));
   home = await mkdtemp(join(tmpdir(), 'omni-home-'));
 });
 
-after(async () => {
+afterAll(async () => {
   await rm(root, { recursive: true, force: true });
   await rm(home, { recursive: true, force: true });
   ProjectInstructions.clearProjectInstructionsCache();

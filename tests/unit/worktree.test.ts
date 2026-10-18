@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync, execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';

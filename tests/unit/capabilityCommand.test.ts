@@ -8,7 +8,7 @@
  * - 未知子命令 ⇒ 用法 + 退出码 2（不误当主任务执行）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

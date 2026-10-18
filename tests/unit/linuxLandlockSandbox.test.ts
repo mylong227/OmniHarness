@@ -6,7 +6,7 @@
  * 故这里把「内核支持但没 helper」「helper 存在但不可执行」「非 Linux 即使有 helper 也不可用」
  * 这些边界全部钉死。
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { LinuxLandlockSandbox } from '../../src/adapters/sandbox/linuxLandlockSandbox.ts';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';

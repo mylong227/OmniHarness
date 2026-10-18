@@ -14,7 +14,7 @@
  * | ② | **无归属标记**的历史会话（`session_meta` 缺失/无 workspace）必须保留——它们无法归因，隐藏等于让用户够不到旧数据 |
  * | ③ | 不传 workspace ⇒ 语义不变（不过滤）——`sessionExists`、`search.all` 等跨项目调用方不受影响 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

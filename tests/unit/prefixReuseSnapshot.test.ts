@@ -11,7 +11,7 @@
  *  3. **口径一致**：快照里的值必须与 `PrefixStability.prefixReuse`（唯一实现）对该步
  *     "上一次实际发出的 messages"与"本次"算出的值**逐位相同**；否则面板给的理由与真实请求无关。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -110,14 +110,7 @@ async function runTurn(steps: number): Promise<{
   readonly workspace: string;
 }> {
   const workspace = mkdtempSync(join(tmpdir(), 'omni-prefix-snapshot-'));
-  const sourceRoot = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    '..',
-    'src',
-    'context',
-  );
+  const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'context');
   for (const name of readdirSync(sourceRoot).slice(0, 24)) {
     copyFileSync(join(sourceRoot, name), join(workspace, name));
   }

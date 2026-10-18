@@ -4,7 +4,7 @@
  * 覆盖：确定性触发器（仓库须有 `scripts.test` 才启用）、默认预算、覆盖项、
  * 可验证目标扩展名判定、异常路径 fail-closed。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

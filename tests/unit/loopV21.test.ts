@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { TurnRunner } from '../../src/core/turnRunner.ts';

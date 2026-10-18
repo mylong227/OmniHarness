@@ -1,7 +1,7 @@
 // F1：插件 registry 源族单测——LocalDirSource / BundledSource / RemoteHttpSource /
 // FileRegistrySource 此前零测试引用。全部用临时目录与注入 fetcher，零联网：
 // 既验「正常发现」，也验各源的**优雅降级**（远程不可达 / 文件缺失 / JSON 损坏 → 空数组，绝不抛）。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -8,7 +8,7 @@
  *  ③ 比对必须把"数字变了"与"口径变了"分成不同 kind（把换口径当成回归/增益是本仓最贵的事故）；
  *  ④ 门禁挑选必须**保守**：纯文档改动不跑 eslint/tsc；未知文件类型；上游新增门禁 ⇒ 一律转全量。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

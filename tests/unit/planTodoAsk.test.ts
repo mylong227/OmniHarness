@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { TodoWriteTool, TodoReadTool } from '../../src/adapters/tool/plan/todoTool.ts';
 import { AskUserTool } from '../../src/adapters/tool/plan/askUserTool.ts';
 import {

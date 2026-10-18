@@ -15,7 +15,7 @@
  *    提供"这句暗示，改为如实说明它只削减特权；
  *  - `doctor` 增「隔离强度 / 网络守卫覆盖 / 注入护栏」三行，值全部取自上述单一事实来源。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

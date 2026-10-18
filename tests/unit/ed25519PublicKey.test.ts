@@ -6,7 +6,7 @@
  * 会让伪造签名畅通无阻，故这里逐条钉死 fail-closed 面。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { Ed25519PublicKey } from '../../src/util/ed25519PublicKey.ts';

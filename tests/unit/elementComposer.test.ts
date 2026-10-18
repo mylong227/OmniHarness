@@ -1,6 +1,6 @@
 // (P3, I-P3-2) 元素组合基元：有限基元周期表，组合合法 = 价互补（valence 相加为 0）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ElementComposer } from '../../src/adapters/skill/elementComposer.ts';
 

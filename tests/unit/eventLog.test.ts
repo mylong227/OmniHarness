@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
 import { eventFactory } from '../../src/core/eventFactory.ts';

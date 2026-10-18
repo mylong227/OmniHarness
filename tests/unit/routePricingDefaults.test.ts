@@ -22,7 +22,7 @@
  * 判据同时钉住**运行期自报**（`BudgetSnapshot.unpricedModels` + `budget_status`），
  * 因为"清单齐全"与"用户看得见"是两件事：只做前者，估算不可信仍然只在代码里。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -37,7 +37,7 @@ import {
 } from '../../src/adapters/model/routePricing.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 一条出货模型记录（模型 id + 它在哪个文件里出货，便于报错时定位）。 */
 interface ShippedModel {

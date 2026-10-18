@@ -1,6 +1,6 @@
 import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { Bm25Index } from '../../src/search/bm25Index.ts';
 import { ToolIndex } from '../../src/search/toolIndex.ts';
 import { ToolDiscovery } from '../../src/search/toolDiscovery.ts';

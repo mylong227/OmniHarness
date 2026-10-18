@@ -10,7 +10,7 @@
  * CRC-32 另有一条**标准向量**锚定（CRC-32/IEEE，`"123456789"` → `0xCBF43926`），
  * 避免"表算错了但编码/解码都用同一张错表"的假自洽。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Crc32 } from '../../src/media/crc32.ts';
 import { PngEncoder } from '../../src/media/pngEncoder.ts';

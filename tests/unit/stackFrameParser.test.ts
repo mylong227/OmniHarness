@@ -1,7 +1,7 @@
 /**
  * 堆栈帧定位提取单测（P1-⑩，无第三方依赖）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { StackFrameParser } from '../../src/adapters/tool/verify/stackFrameParser.ts';
 

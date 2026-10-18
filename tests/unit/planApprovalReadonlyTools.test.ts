@@ -18,7 +18,7 @@
  * 仓库此前已因同一形态缺陷补过一轮（`docs/TASK_BOARD.md`：「plan 模式只读白名单
  * 漏登记新工具：新增的 grep/glob/lsp_diagnostics 未登记 ⇒ 被 fail-closed 误拒」）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
 import {

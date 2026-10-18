@@ -4,7 +4,7 @@
  * 五项都不是「功能缺失」，而是**静默失效**：调用方以为成功、实际永久挂起或悄悄丢数据。
  * 每项一个可证伪断言。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

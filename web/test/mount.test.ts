@@ -1,0 +1,361 @@
+﻿// 组件挂载契约测试（P5.5）：无第三方依赖 DOM 桩——不加载真实 React/ReactDOM，
+// 用「预置 window 桩 + createElement 收集」驱动 class 组件的 render()，对元素树做断言。
+// 覆盖面：组件可实例化、render 产出合法 vnode 树、关键 UI 契约（文案/回调接线）不变。
+//
+// 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
+
+import assert from 'node:assert/strict';
+import { test } from 'vitest';
+import { createRuntime } from './hooksStub.ts';
+import type { StubRuntime, StubVnode } from './hooksStub.ts';
+
+// deps.js 在模块顶层读 window；先种桩再动态 import 编译产物。
+// 运行时同时支持两种形态：函数组件（直接调用 + hook 槽位）与过渡期的 class 组件（new + render）。
+const runtime = createRuntime();
+runtime.install();
+
+let lastRendered: unknown = null;
+
+/**
+ * 渲染组件一次（兼容函数组件与 class 组件）。
+ * @param Component 组件函数或 class（形态由被测代码决定，按 unknown 收口）
+ * @param props 组件属性
+ * @param statePatch class：浅合并进实例 state；函数组件：按 hook 序号预设值
+ * @returns vnode 树
+ */
+function renderOf(Component: unknown, props?: unknown, statePatch?: Record<number, unknown>): StubVnode {
+  // Function 接口的 prototype 是 any，可安全探测 render 成员（class 组件的特征）。
+  const isClass = typeof Component === 'function' && Component.prototype && Component.prototype.render;
+  if (isClass) {
+    // 过渡期 class 组件分支：isClass 已判定「可 new 且有 render」，具体类形状由被测代码决定，
+    // 在「测试桩与被测代码的调用边界」按最小 class 桩收窄（规则允许的例外 a）。
+    const Klass = Component as new (props?: unknown) => {
+      render: () => unknown;
+      state: Record<string, unknown>;
+    };
+    const inst = new Klass(props);
+    if (statePatch && typeof statePatch === 'object' && !Array.isArray(statePatch)) {
+      inst.state = { ...inst.state, ...statePatch };
+    }
+    return inst.render() as StubVnode;
+  }
+  // 不同组件的 hook 序不同，跨组件渲染必须清空槽位，否则会串味
+  // （前一组件 seed 过的 slot0 会被后一组件当作自己的第一个 useState 读走）。
+  // 同一组件连续渲染则保留槽位，以便「先渲染 → 再 seed → 再渲染」的用例。
+  if (Component !== lastRendered) {
+    runtime.reset();
+    lastRendered = Component;
+  }
+  // 走到这里的必是函数组件；直接复用桩 render 自己的形参类型（不再手写 any）。
+  return runtime.render(Component as Parameters<StubRuntime['render']>[0], props, statePatch);
+}
+
+const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
+const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.tsx');
+const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.tsx');
+const { TreeNode } = await import('../src/ui/components/TreeNode.tsx');
+const { PanelPicker } = await import('../src/ui/components/PanelPicker.tsx');
+const { Toast } = await import('../src/ui/components/Toast.tsx');
+const { WorkIndicator } = await import('../src/ui/components/WorkIndicator.tsx');
+const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.tsx');
+const { DialogHost } = await import('../src/ui/components/DialogHost.tsx');
+
+/** 遍历 vnode 树：对每个节点调用 visit（跳过字符串/数字叶子）。 */
+function walk(vnode: unknown, visit: (n: StubVnode) => void): void {
+  if (vnode == null || typeof vnode !== 'object') return;
+  // 走到这里必是对象节点（vnode）；按 StubVnode 取 children（动态树收窄一次）。
+  const node = vnode as StubVnode;
+  visit(node);
+  const kids = node.children;
+  if (Array.isArray(kids)) for (const k of kids) walk(k, visit);
+  else walk(kids, visit);
+}
+
+/** 把 vnode 树拍平成「type 名 + 文本」序列，便于断言 UI 契约。 */
+function flatten(vnode: unknown): string[] {
+  const out: string[] = [];
+  walk(vnode, (n) => {
+    const name = typeof n.type === 'function' ? n.type.name : String(n.type);
+    out.push(name);
+  });
+  return out;
+}
+
+/** 收集树中的文本叶子。 */
+function texts(vnode: unknown): string[] {
+  const out: string[] = [];
+  walk(vnode, (n) => {
+    for (const k of n.children ?? []) {
+      if (typeof k === 'string' || typeof k === 'number') out.push(String(k));
+    }
+  });
+  return out;
+}
+
+const ADD_MENU_PROPS = {
+  threadId: 't-1',
+  api: {},
+  onAttach: () => {},
+  onToast: () => {},
+  onOpenTab: () => {},
+  onOpenFile: () => {},
+  onLoadThread: () => {},
+};
+
+test('AddMenu：初始即闭合态，render 产出根元素且不抛错（免 bootstrap 路径）', () => {
+  const vnode = renderOf(AddMenu, ADD_MENU_PROPS);
+  assert.ok(vnode, 'render 必须返回元素树');
+  assert.strictEqual(vnode.props['aria-expanded'], 'false', '初始态必须闭合');
+  const types = flatten(vnode);
+  assert.ok(types.length > 0, '元素树非空');
+});
+
+test('AddMenu：闭合态渲染触发器（＋）且 aria 契约正确', () => {
+  const vnode = renderOf(AddMenu, ADD_MENU_PROPS);
+  assert.strictEqual(texts(vnode).join(''), '＋');
+  assert.strictEqual(vnode.props['aria-haspopup'], 'menu');
+  assert.strictEqual(vnode.props['aria-expanded'], 'false');
+});
+
+test('AddMenu：打开态 aria-expanded 翻转（UI 状态契约）', () => {
+  // 函数组件：按 hook 序号预设 open=true（第 0 个 hook 即 useState(open)）。
+  const vnode = renderOf(AddMenu, ADD_MENU_PROPS, { 0: true });
+  assert.strictEqual(vnode.props['aria-expanded'], 'true');
+});
+
+test('ContextCapacityPanel：容量面板 title/aria 契约 + 注入用量不抛错', () => {
+  const props = { threadId: 't-1', api: {}, onToast: () => {} };
+  let vnode = renderOf(ContextCapacityPanel, props);
+  assert.strictEqual(vnode.props.title, '上下文容量与今日余额');
+  assert.strictEqual(vnode.props['aria-label'], '上下文容量');
+  // 注入真实形状的用量/配额快照后仍可渲染（fail-soft：数据缺失显示占位）。
+  // 函数组件：hook 序号 1=usage、2=quota（第 0 个为 useState(open)）。
+  vnode = renderOf(ContextCapacityPanel, props, {
+    1: { windowTokens: 128000, usedTokens: 4096, byKind: {} },
+    2: { plan: 'free', multiplier: 1, dailyTokens: 200000, usedToday: 4096 },
+  });
+  assert.ok(vnode, '注入用量后 render 仍须返回元素树');
+});
+
+test('PermissionPicker：档位标签映射 + 说明只走悬浮提示（rules→默认，2026-10-07 用户「不要占地方」）', () => {
+  const seen: unknown[] = [];
+  const vnode = renderOf(PermissionPicker, {
+    permission: 'rules',
+    onPick: (v: unknown) => seen.push(v),
+    api: {},
+  });
+  // chip 上只留短档位名（「默认」），完整说明进 title / aria-label：既不占输入区版面，又能悬浮查阅。
+  const tip = String(vnode.props['title']);
+  assert.strictEqual(vnode.props['aria-label'], tip, '悬浮提示与无障碍名必须同源，不得各写一套');
+  assert.match(tip, /^AI 权限等级｜默认：/, `悬浮提示必须写明档位名与说明：${tip}`);
+  assert.match(tip, /按规则自动放行安全操作/, '说明文字取档位表 description（单一事实源）');
+  assert.match(texts(vnode).join(''), /默认/);
+  assert.doesNotMatch(texts(vnode).join(''), /按规则自动放行安全操作/, '长说明不得常驻在 chip 上');
+  assert.strictEqual(seen.length, 0, '未交互不触发 onPick');
+});
+
+test('TreeNode：文件树节点渲染名称并保留展开回调（零 DOM 依赖）', () => {
+  const vnode = renderOf(TreeNode, {
+    node: {
+      name: 'src',
+      path: 'src',
+      kind: 'dir',
+      children: [
+        { name: 'a.ts', path: 'src/a.ts', kind: 'file' },
+        { name: 'b.ts', path: 'src/b.ts', kind: 'file' },
+      ],
+    },
+    onOpenFile: () => {},
+  });
+  const t = texts(vnode).join('\n');
+  assert.match(t, /src/, '节点必须渲染名称');
+});
+
+/** 深度收集满足谓词的节点。
+ * 注意：上面的 walk() 遇到「子节点是数组」（如 `{ITEMS.map(...)}` 产生的嵌套数组）会断掉，
+ * a11y 断言需要遍历 `.map` 出来的按钮列表，故此处自带一个能递归数组的收集器。
+ */
+function collect(vnode: unknown, pred: (n: StubVnode) => boolean, out: StubVnode[] = []): StubVnode[] {
+  if (Array.isArray(vnode)) {
+    for (const k of vnode) collect(k, pred, out);
+    return out;
+  }
+  if (vnode == null || typeof vnode !== 'object') return out;
+  // 走到这里必是对象节点（vnode）；具体形状由谓词保证，收窄一次。
+  const node = vnode as StubVnode;
+  if (pred(node)) out.push(node);
+  collect(node.children, pred, out);
+  return out;
+}
+
+/** 谓词：节点 type 等于给定标签名。 */
+const isTag = (name: string) => (n: StubVnode) => n.type === name;
+
+test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 16 个面板', () => {
+  // 2026-10-07 壳层重构：原 NavRail（9 常驻图标 + 「更多面板」兜底）收编为右栏的 PanelPicker
+  // ——功能面板不再常驻占位，全部收进这一个菜单（截图式三栏壳的"收起来"）。
+  // 2026-10-11：新增 `diagnostics` ⇒ 12 → 13。
+  // 2026-10-17：`settings` **移出**注册表（17 → 16）——设置改成左栏页脚按钮 + 居中模态，
+  //   不再是右栏面板。这里同时断言「菜单里不该再出现设置」，否则等于两处入口两个真相。
+  const closed = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} });
+  const closedBtns = collect(closed, isTag('button'));
+  assert.strictEqual(closedBtns.length, 1, '闭合态必须只有 1 个触发按钮');
+  assert.strictEqual(closedBtns[0].props['aria-haspopup'], 'menu');
+  assert.strictEqual(closedBtns[0].props['aria-expanded'], 'false');
+  assert.strictEqual(closedBtns[0].props['aria-label'], '全部面板');
+
+  // 函数组件：第 0 个 hook 即 useState(open)，预设 true 渲染展开态。
+  const open = renderOf(PanelPicker, { activePane: 'tools', onPick: () => {} }, { 0: true });
+  const items = collect(open, (n) => n.props.role === 'menuitem');
+  assert.strictEqual(items.length, 16, '菜单必须罗列注册表全部 16 个面板');
+  for (const l of ['工具', '指标', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件', '诊断', '审计', 'Trace', '权限', '凭据']) {
+    assert.ok(collect(open, isTag('span')).some((s) => (s.children ?? []).includes(l)), `菜单应含面板：${l}`);
+  }
+  // 「设置」不得再出现在面板菜单里（它现在是模态，入口在左栏页脚）。
+  assert.ok(
+    !collect(open, isTag('span')).some((s) => (s.children ?? []).includes('设置')),
+    '设置已移出面板列表（改为页脚按钮 + 模态），不应再出现在「全部面板」菜单里',
+  );
+});
+
+test('PanelPicker：激活面板在菜单中高亮（active class 唯一）', () => {
+  const open = renderOf(PanelPicker, { activePane: 'memory', onPick: () => {} }, { 0: true });
+  const items = collect(open, (n) => n.props.role === 'menuitem');
+  const actives = items.filter((b) => String(b.props.className).includes('active'));
+  assert.strictEqual(actives.length, 1, 'active class 必须有且仅有 1 个');
+});
+
+test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {
+  // 2026-10-07 壳层重构后，注册表是面板清单的唯一事实源：PanelPicker 菜单渲染 PANELS 全集，
+  // Router 的合法 pane 集合与它对齐 ⇒ "任何面板都必须有入口"由本用例机械核对。
+  // 2026-10-11：新增 `diagnostics`（Web 交付项：daemon 运行态 + doctor 报告）⇒ 12 → 13，
+  // 且**逐条**比对 key 集合（只改数字等于放弃"清单齐全"这半条判据）。
+  // 2026-10-17：`settings` 移出（17 → 16）。它不是"看某个东西的状态"的面板，而是"改全局配置"，
+  //   现为左栏页脚按钮 + 居中模态（components/SettingsModal.tsx）。逐条比对时把它删掉，
+  //   并在下方显式断言"注册表里不得再有 settings"——否则它会以"未知 pane"的形式静默落回默认面板。
+  const { PANELS, panelOf } = await import('../src/ui/models/PanelRegistry.ts');
+  assert.deepStrictEqual(
+    PANELS.map((p) => p.key),
+    [
+      'tools',
+      'changes',
+      'file',
+      'metrics',
+      'graph',
+      'memory',
+      'profiles',
+      'governance',
+      'rollback',
+      'detail',
+      'plugins',
+      'diagnostics',
+      'audit',
+      'trace',
+      'permission',
+      'vault',
+    ],
+    '注册表必须恰好是这 16 个面板（顺序即菜单渲染顺序）',
+  );
+  assert.ok(
+    panelOf('settings') === undefined,
+    'settings 不得再注册为右栏面板：它已改为模态，注册表里留着它会让 openPane("settings") 静默失效',
+  );
+  const keys = PANELS.map((p) => p.key);
+  assert.strictEqual(new Set(keys).size, keys.length, 'key 不得重复');
+  for (const p of PANELS) {
+    assert.ok(p.label.length > 0 && p.icon.length > 0, `${p.key} 必须同时有标签与图标`);
+    assert.ok(panelOf(p.key) === p, `${p.key} 必须能被 panelOf 查到（菜单高亮据此判定）`);
+  }
+});
+
+test('Toast：role=status + aria-live=polite + aria-atomic（异步提示不打断朗读）', () => {
+  const vnode = renderOf(Toast, { toast: { message: '已保存', kind: 'ok', visible: true } });
+  assert.strictEqual(vnode.props.role, 'status');
+  assert.strictEqual(vnode.props['aria-live'], 'polite');
+  assert.strictEqual(vnode.props['aria-atomic'], 'true');
+  assert.strictEqual(texts(vnode).join(''), '已保存');
+});
+
+test('WorkIndicator：role=status 播报动作，跳动计时 aria-hidden 防每秒打断', () => {
+  // 函数组件：按 hook 序号预设 elapsed = 7（第 0 个 hook 即 useState(elapsed)）。
+  const vnode = renderOf(WorkIndicator, { activeTool: 'shell' }, { 0: 7 });
+  assert.strictEqual(vnode.props.role, 'status');
+  assert.strictEqual(vnode.props['aria-live'], 'polite');
+  const hidden = collect(vnode, (n) => n.props['aria-hidden'] === 'true');
+  assert.strictEqual(hidden.length, 2, '圆点与计时数字都应 aria-hidden');
+  assert.match(texts(vnode).join('|'), /正在调用 shell/);
+});
+
+test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚点存在', () => {
+  const vnode = renderOf(ApprovalModal, {
+    approval: { requestId: 'r1', toolName: 'shell', target: 'rm -rf /', args: { cmd: 'rm -rf /' } },
+    onRespond: () => {},
+  });
+  const dialogs = collect(vnode, (n) => n.props.role === 'dialog');
+  assert.strictEqual(dialogs.length, 1, '必须产出唯一 role=dialog 的模态框');
+  assert.strictEqual(dialogs[0].props['aria-modal'], 'true');
+  assert.strictEqual(dialogs[0].props['aria-labelledby'], 'ap-title');
+  assert.strictEqual(dialogs[0].props['aria-describedby'], 'ap-desc');
+  assert.strictEqual(collect(vnode, (n) => n.props.id === 'ap-title').length, 1, 'labelledby 必须指向存在的元素');
+  assert.strictEqual(collect(vnode, (n) => n.props.id === 'ap-desc').length, 1, 'describedby 必须指向存在的元素');
+
+  const idle = renderOf(ApprovalModal, { approval: null, onRespond: () => {} });
+  assert.strictEqual(collect(idle, (n) => n.props.role === 'dialog').length, 0, '无请求时不得留可聚焦的对话框');
+});
+
+test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完整 dialog 语义', () => {
+  const hidden = renderOf(DialogHost, { dialog: { request: null } });
+  assert.strictEqual(collect(hidden, (n) => n.props.role === 'dialog').length, 0);
+
+  const base = {
+    kind: 'confirm',
+    title: '丢弃改动',
+    message: '此操作不可恢复',
+    confirmLabel: '丢弃',
+    cancelLabel: '取消',
+    placeholder: '',
+    danger: true,
+    initial: '',
+  };
+  const vnode = renderOf(DialogHost, { dialog: { request: { ...base } } });
+  const dialogs = collect(vnode, (n) => n.props.role === 'dialog');
+  assert.strictEqual(dialogs.length, 1);
+  assert.strictEqual(dialogs[0].props['aria-modal'], 'true');
+  assert.strictEqual(dialogs[0].props['aria-labelledby'], 'dlg-title');
+  assert.strictEqual(dialogs[0].props['aria-describedby'], 'dlg-body');
+  assert.strictEqual(collect(vnode, isTag('input')).length, 0, 'confirm 不该渲染输入框');
+  assert.match(texts(vnode).join('|'), /不可恢复/);
+
+  // prompt：函数组件按 hook 序号预设 text='旧目标'（第 0 个 hook 即 useState(text)）。
+  const promptVnode = renderOf(
+    DialogHost,
+    { dialog: { request: { ...base, kind: 'prompt', initial: '旧目标', placeholder: '例如' } } },
+    { 0: '旧目标' },
+  );
+  const inputs = collect(promptVnode, isTag('input'));
+  assert.strictEqual(inputs.length, 1, 'prompt 必须渲染输入框');
+  assert.strictEqual(inputs[0].props.value, '旧目标');
+  assert.strictEqual(inputs[0].props['aria-label'], '丢弃改动');
+});
+
+test('StreamView 契约：事件流容器是 role=log + aria-live=polite 的播报区', async () => {
+  const { StreamView } = await import('../src/ui/components/StreamView.tsx');
+  const vnode = renderOf(StreamView, {
+    events: [],
+    toolResults: {},
+    liveInputs: [],
+    onEventClick: () => {},
+    onSend: () => {},
+    model: '',
+    reasoning: '',
+    permission: '',
+    api: {},
+    onModelChange: () => {},
+    onReasoningChange: () => {},
+    onPermissionChange: () => {},
+  });
+  const logs = collect(vnode, (n) => n.props.role === 'log');
+  assert.strictEqual(logs.length, 1, '中栏事件流必须是唯一 role=log 播报区');
+  assert.strictEqual(logs[0].props['aria-live'], 'polite');
+  assert.strictEqual(logs[0].props['aria-label'], '对话事件流');
+});

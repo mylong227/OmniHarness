@@ -5,7 +5,7 @@
 //   ③ SparkController 在配置层正确构造 / autoRun 门控；
 //   ④ 任务完成后 autoRun 钩子真触发 燧-3 tune（证明钩子进主循环），且零破坏（关时不动）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

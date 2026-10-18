@@ -11,7 +11,7 @@
  * 由 `evals/probe-lsp-candidates.mjs` 的 offline probe 校验（需配置服务器，本仓不默认开启）。
  */
 
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -10,7 +10,7 @@
  *  2. 最近一次验证通过（或无失败记录）时，闸门**不介入**（正常收敛零行为变更）；
  *  3. 闸门不伪造内容：最终文本仍来自模型。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.ts';

@@ -5,7 +5,7 @@
 //   ④ 确定性：同输入重复稀疏化 20 次结果完全一致（同分按名称字典序，无随机源）；
 //   ⑤ 空输入与单元素边界不抛错。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SkillSparsifier } from '../../src/skill/skillSparsifier.ts';

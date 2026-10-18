@@ -5,7 +5,7 @@
  * 判据钉法：映射断言钉 MockModel 的**字面量脚本**（工具名 shell、最终文本
  * 「任务完成（模拟模型适配器输出）」）——模型脚本变了必须同时更新此处，防止映射静默漂移。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

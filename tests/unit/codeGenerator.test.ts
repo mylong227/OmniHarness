@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CodeGenerator } from '../../src/schema/codeGenerator.ts';
 import { protocolSchema } from '../../src/schema/protocolSchema.ts';

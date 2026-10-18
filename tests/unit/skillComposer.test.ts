@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { MoireComposer } from '../../src/skill/moireComposer.ts';
 import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
 import type { Skill } from '../../src/skill/skill.ts';

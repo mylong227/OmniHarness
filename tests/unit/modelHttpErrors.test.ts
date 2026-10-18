@@ -1,6 +1,6 @@
 // 2026-10-03 审计清偿（D1/D3/D4/D6/D7/D9/D10）：共享 HTTP 错误映射 + 流中错误显式化 +
 // 流式重试 fail-fast + 熔断不把取消计为故障 + SSE CRLF 分帧 + 退避可取消。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ModelHttpErrors } from '../../src/adapters/model/modelHttpErrors.ts';
 import { SseParser } from '../../src/adapters/model/sseParser.ts';

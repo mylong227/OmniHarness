@@ -7,7 +7,7 @@
  *
  * 本用例用一个「只睡不返回」的 node 子进程触发两条路径，断言 `run()` 有界返回且如实报错。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CliWorker } from '../../src/worker/cliWorker.ts';

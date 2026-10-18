@@ -15,7 +15,7 @@
  * | ② | 门禁源码必须显式把 `maxBuffer` 传给 `execFileSync（且预算 ≥ 8MB） | 套件一长大门禁就随机自杀 |
  * | ③ | 门禁对 `capture-overflow` 必须给**不同的**文案（不得仍是"测试可能根本没跑起来"） | 运维读到误导归因 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -92,21 +92,40 @@ test('② 门禁必须显式给足 maxBuffer（≥ 8MB），不得吃缺省的 1
   assert.ok(uses >= 1, '源码里没有 maxBuffer 选项 ⇒ ② 形同虚设');
 });
 
-test('③ 捕获溢出必须给**不同**的文案（不得与"测试没跑起来"混为一谈）', () => {
+test('③ 「没跑起来」必须**分类**而非一律归因（旧版查 capture-overflow 分支，v8 后该模式消失）', () => {
   const source = gateSource();
-  const at = source.indexOf("kind === 'capture-overflow'");
-  assert.ok(at > 0, '门禁没有按分类分支 ⇒ 运维仍会读到误导归因');
-  // 只取 `if (capture-overflow) { … }` 这一段（到 `} else {` 为止）——否则窗口会跨进另一支，
-  // 把"测试可能根本没跑起来"也算进来（首版就是这么误判的：判据自己的取样面先错了）。
-  const elseAt = source.indexOf('} else {', at);
-  assert.ok(elseAt > at, '找不到分类分支的 else 边界 ⇒ 判据取样面不可信');
-  const branch = source.slice(at, elseAt);
-  assert.match(branch, /捕获缓冲不足/u, '溢出分支必须点明"缓冲不足"而不是"测试没跑起来"');
-  assert.match(branch, /maxBuffer/u, '溢出分支应给出可执行的处置（调大 maxBuffer）');
-  assert.doesNotMatch(
-    branch,
-    /测试可能根本没跑起来/u,
-    '溢出分支不得复用"测试可能根本没跑起来"这句（那正是被推翻的误导归因）',
+
+  // ## 这条判据的沿革（2026-10-18 覆盖率迁 v8 时重写）
+  //
+  // 旧断言找的是门禁源码里的 `kind === 'capture-overflow'` 分支：那时门禁用
+  // `execFileSync(..., maxBuffer)` **捕获** coverage 的 stdout，输出超限会 `ENOBUFS`，
+  // 必须有独立文案（"缓冲不足、调大 maxBuffer"），否则运维会把"门禁自己读不下输出"
+  // 误读成"测试没跑起来"。
+  //
+  // 迁到 v8 后 `stdio` 改成 `inherit`（**不再捕获** stdout/stderr，直接透传给人看），
+  // 于是 `maxBuffer` 不再作用于输出、`capture-overflow` 这个失败模式**在覆盖率路径上消失**。
+  // 判据因此改为守**新的等价物**：失败必须带上分类标签——`capture-overflow` / OOM / spawn 失败
+  // 在运维眼里必须是三条可区分的消息，而不是同一条"测试可能根本没跑起来"。
+  //
+  // 断言强度没有放松：旧版要求"溢出分支点明缓冲不足"，新版要求"分类必须真的被算出来并打印"。
+  assert.match(
+    source,
+    /classifyRunFailure\(/u,
+    '门禁必须调用 classifyRunFailure：否则「没跑起来」只能给出统一归因，运维无法区分 ENOBUFS / OOM / spawn 失败',
+  );
+  assert.match(
+    source,
+    /分类=\$/u,
+    '分类结果必须打印给运维（`分类=` 字段）——只算不打印等于没有分类',
+  );
+  // 反向：不得再退回"只给一句统一归因、不带分类"的写法。
+  const crashMsg = source.indexOf('测试可能根本没跑起来');
+  assert.ok(crashMsg > 0, '找不到「没跑起来」的提示文案');
+  const window = source.slice(crashMsg, crashMsg + 600);
+  assert.match(
+    window,
+    /分类=/u,
+    '「没跑起来」提示的邻近代码必须附上分类字段（该提示单独出现时不可区分失败模式）',
   );
 });
 

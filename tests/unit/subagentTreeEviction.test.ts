@@ -1,7 +1,7 @@
 // 子智能体编排器：父子关系表上限淘汰（审计 §30 Gap ⑤）单元测试。
 // 覆盖：link 累积超过 MAX_TREE_ENTRIES(4096) 后淘汰最旧条目，避免跨长时进程无界增长。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.ts';
 import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';

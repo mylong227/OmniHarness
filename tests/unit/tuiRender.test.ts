@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { PassThrough, type Writable } from 'node:stream';
 import { TuiRenderer, type TuiEvent } from '../../src/tui/tuiRenderer.ts';
 import { Interactive } from '../../src/tui/interactive.ts';

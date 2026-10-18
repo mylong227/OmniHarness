@@ -13,14 +13,14 @@
  * ② 已知的 9 个协议客户端**都**引用了它（含本轮新收口的沙箱 worker）；
  * ③ 检测器本身有**正对照**：喂进"改造前那段手写 Map"必须报违规（否则 ② 的"零违规"可能只是检测器失灵）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 唯一实现的路径（相对仓库根）。 */
 const SINGLE_IMPL = 'src/util/concurrency/pendingRequests.ts';

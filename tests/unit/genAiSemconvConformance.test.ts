@@ -20,7 +20,7 @@
  * - **`cache_read` 是 `input_tokens` 的子集**（semconv token-metrics 脚注）：故本仓只发
  *   `gen_ai.usage.input_tokens`（含缓存读的总量），**绝不**让缓存读与输入相加。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.ts';

@@ -9,7 +9,7 @@
  *      正确缺省并标注"与存储层缺省一致"——而写入方用的是用户级目录 ⇒ 默认写入 + 默认读取
  *      **必然找不到会话**。判据自己保护了错误行为，这正是"真实跑测"才能暴露的一类问题）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { describe, test } from 'vitest';
 import type { LspLocation, LspPort } from '../../src/ports/tool/lsp.ts';
 import {
   LspFindReferencesTool,

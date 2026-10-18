@@ -21,7 +21,7 @@
  * | ⑦ | 文档在 `docs/README.md` 与 `docs/llms.txt` 里登记（否则没人找得到） |
  * | ⑧ | 归档副本仍在 `archive/` 且仍带归档横幅（G20 的成果不被回退） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';

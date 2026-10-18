@@ -6,7 +6,7 @@
  * 都会让分数**静默漂移**（召回变差但不报错），所以这里直接与全量重建对拍分数，而不是只看
  * 「命中集合大致相同」。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Bm25Index } from '../../src/search/bm25Index.ts';
 

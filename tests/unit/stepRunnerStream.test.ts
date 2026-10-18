@@ -1,7 +1,7 @@
 import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
 // StepRunner × 流式路径集成测试（#B3 接线）：验证「live 端口 + model.stream」正确转发
 // 工具参数增量，并在不传 live 或模型不支持 stream 时 fail-closed 退回 generate 路径。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { StepRunner } from '../../src/core/stepRunner.ts';

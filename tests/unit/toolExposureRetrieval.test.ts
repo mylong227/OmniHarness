@@ -19,7 +19,7 @@
  * | ⑤ | **fail-safe 不变**：无类别命中 ⇒ 全部可见（检索路不得把它变成"部分可见"） |
  * | ⑥ | **`tools/list` 确定性**：MCP 服务端列举工具按名字升序（与注册顺序无关） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

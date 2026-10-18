@@ -1,4 +1,4 @@
-﻿import { test } from 'node:test';
+﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

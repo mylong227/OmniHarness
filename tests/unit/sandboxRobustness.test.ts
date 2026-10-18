@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.ts';
 import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.ts';
@@ -19,7 +19,7 @@ const HOSTILE_INPUTS: readonly string[] = [
   'rm -rf /',
   'curl http://169.254.169.254/latest/meta-data/',
   '$(sudo mkfs /dev/sda)',
-  '../../../etc/passwd',
+  '../../etc/passwd',
   "'; DROP TABLE users; --",
   'a'.repeat(100_000),
   'C:\\Windows\\System32\\config\\SAM',

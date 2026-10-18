@@ -1,6 +1,6 @@
 // (P3, I-P3-3) 对称破缺算子：以经验密度（使用非对称度）为序参量 ρ，越过阈值 → 对称破缺可观测。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SymmetryBreakingEngine } from '../../src/adapters/monitoring/symmetryBreakingEngine.ts';
 

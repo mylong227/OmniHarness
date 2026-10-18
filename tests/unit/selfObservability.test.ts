@@ -21,7 +21,7 @@
  * | ⑤ | 离线对账脚本：合法事件文件退出码 0、缺失文件退出码 1、无参数退出码 1 |
  * | ⑥ | 归因恒等式（**独立算路**交叉校验）：Σ桶 == 汇总字段，且 Σtotal == prompt + completion |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -34,7 +34,7 @@ import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * 造一条 span。

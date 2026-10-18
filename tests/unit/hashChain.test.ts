@@ -11,7 +11,7 @@
  * `src/**` 不含裸 NUL。
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -22,7 +22,7 @@ import { AuditSink } from '../../src/server/services/auditSink.ts';
 import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 审计链 golden（由重构前的实现取得，重构后必须逐字节一致）。 */
 const AUDIT_GOLDEN = 'd9d430bc3caf97b3716d9ca404e86ba982aea32ec6047f42ec58ff06fb758615';

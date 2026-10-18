@@ -1,4 +1,4 @@
-﻿import { test } from 'node:test';
+﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -9,7 +9,7 @@ import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
 const gitAvailable =
   (await spawnSyncAsync('git', ['--version'], { encoding: 'utf8' })).status === 0;
-const skip = gitAvailable ? false : 'git 不可用，跳过 git 用例';
+const skip = !gitAvailable;
 
 /** 造一段含单文件增删的 unified diff。 */
 const SAMPLE_DIFF = [

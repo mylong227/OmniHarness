@@ -1,7 +1,7 @@
 /**
  * 写后自动诊断回灌单测（P1-⑦ 后半）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PostWriteDiagnosticsPort } from '../../src/adapters/tool/verify/postWriteDiagnosticsPort.ts';
 import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.ts';

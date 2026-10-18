@@ -7,7 +7,7 @@
  *  - `edit-oscillation`：同一文件的**内容指纹**在 ≥1 个中间形态之后重现；
  *  - `edit-thrash`：窗口内同一文件被反复重写超过阈值。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { LoopGuard } from '../../src/core/loop/loopGuard.ts';

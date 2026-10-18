@@ -7,7 +7,7 @@
 // v2 分三层：新会话（上次排序之后出现）置顶 → 用户显式排过的按名次 → 升级前的历史会话垫后。
 //
 // 覆盖：v1 兼容解析、三层排序键、稠密名次（未提交但已登记的会话保序接在后面）。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SessionRanking } from '../../src/server/services/session/sessionRanking.ts';
 

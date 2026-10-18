@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test from 'node:test';
+import { test } from 'vitest';
 import type { VaultPort } from '../../src/ports/memory/vault.ts';
 import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.ts';
 import { MemoryKv } from '../../src/adapters/kv/memoryKv.ts';

@@ -18,7 +18,7 @@
  * 不断言调色板的具体 RGB 值：ffmpeg 允许量化，`red` 可能落地为 `(253,0,0)`；
  * 断言"红分量显著占优"既稳健又足以发现真正的解码错误。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { GifDecoder } from '../../src/media/gifDecoder.ts';
 import { MediaSniffer } from '../../src/media/mediaSniffer.ts';

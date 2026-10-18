@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import { afterEach, beforeEach, describe, it } from 'vitest';
 import { ConfigError } from '../../src/config/configError.ts';
 import { configFile, type FileConfig } from '../../src/config/configFile.ts';
 import { profileLoader } from '../../src/config/profileLoader.ts';

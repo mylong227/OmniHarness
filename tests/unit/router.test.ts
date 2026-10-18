@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ModelRouter } from '../../src/adapters/model/modelRouter.ts';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';

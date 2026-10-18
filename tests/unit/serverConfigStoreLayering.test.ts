@@ -20,7 +20,7 @@
  * | ③ | 写路径：凭据只落**用户级**文件且合并既有内容；项目文件一律不出现 providerKeys（2026-10-13 换契约：落项目层会在重启换工作区后「被重置」） |
  * | ④ | `config.get()` 摘要里凭据一律打码（原文绝不回传 UI） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

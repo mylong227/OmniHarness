@@ -11,7 +11,7 @@
  *   ⑤ 无关写操作（内容没变）必须复用**同一语料对象**（否则下游 memo / 语义缓存白白失效）；
  *   ⑥ 文件集合变化（新增 / 删除）必须拒绝增量并回落到全量。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

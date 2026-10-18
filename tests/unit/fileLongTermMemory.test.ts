@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it, after } from 'node:test';
+import { afterAll, describe, it } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,11 +8,11 @@ import { AesGcmTextCodec } from '../../src/adapters/memory/aesGcmTextCodec.ts';
 import { TimeDecay } from '../../src/adapters/memory/timeDecay.ts';
 import type { MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
 
-// 临时目录在模块加载期急切创建（不可放进 before() 钩子）：钩子若在部分运行器/版本下
+// 临时目录在模块加载期急切创建（不可放进 beforeAll() 钩子）：钩子若在部分运行器/版本下
 // 未执行或失败，dir 会保持空串，tmpFile 退化为相对路径——测试产物（含 .key/.enc）会
 // 静默喷进进程 cwd。急切创建让失败在装载期即响亮暴露，且 tmpFile 恒为绝对路径。
 const dir = mkdtempSync(join(tmpdir(), 'ltm-'));
-after(() => rmSync(dir, { recursive: true, force: true }));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
 function tmpFile(name: string): string {
   return join(dir, name);

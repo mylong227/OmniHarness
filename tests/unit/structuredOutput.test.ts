@@ -22,7 +22,7 @@
  *
  * ③ 与 ⑤ 另配**正对照**（真工具不被误伤 / 非结构化时行为不变）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CheckpointManager } from '../../src/core/checkpointManager.ts';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
@@ -142,7 +142,7 @@ test('checkpoint 工具层：模型可控的 label 被白名单拒绝（纵深�
   const handler = CheckpointTool.makeCheckpointHandler(mgr);
   const ctx = { sessionId: 's_tool', callId: 'c1', workspaceRoot: process.cwd() } as never;
   const bad = await handler(
-    { id: 'c1', name: 'checkpoint', arguments: { label: '../../../../tmp/evil' } },
+    { id: 'c1', name: 'checkpoint', arguments: { label: '../../../tmp/evil' } },
     ctx,
   );
   assert.strictEqual(bad.ok, false);

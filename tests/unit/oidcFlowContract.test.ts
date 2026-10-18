@@ -15,7 +15,7 @@
  * mock IdP 对 PKCE 做**服务端真校验**（S256(code_verifier) 必须等于授权阶段登记的 challenge），
  * 且对「结构性零对照」（坏 code / 错 verifier）必须 400 ⇒ 两实现全绿不能靠放宽 IdP 换来。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';

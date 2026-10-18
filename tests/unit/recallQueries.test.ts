@@ -10,7 +10,7 @@
  * 锚点是否真实存在（GT 非空）需要索引语料，属慢检查，放在
  * `evals/recall-query-audit.mjs`（评测侧门禁，缺失即中止）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   CORE_COUNT,

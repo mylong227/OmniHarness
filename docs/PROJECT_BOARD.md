@@ -568,7 +568,7 @@
 >
 > **判据**：`tests/unit/liveEventRead.test.ts`（4 例：盘上为空的前提 / `eventsOf` 读内存 /
 > **纯读不广播** / 正对照 `replay` 仍广播）——**变异自证**：把 `eventsOf` 退回"只读盘"⇒ 判据②当场变红；
-> `web/test/capacityLiveRefresh.test.mjs`（4 例：代数只数 `model` / 代数真的进依赖数组 /
+> `web/test/capacityLiveRefresh.test.ts`（4 例：代数只数 `model` / 代数真的进依赖数组 /
 > 依赖数组不得含对象或回调（防 2026-10-06「打开 6 秒 23 次 /rpc」复发）/ 链路三层齐全）。
 >
 > **关于「缓存命中率不够高」——本轮只修"读数"，不改口径**：把本机 20 份带缓存数据的会话逐次摊开，
@@ -620,8 +620,8 @@
 > 「新增环」——白名单环①（argParser ↔ cliEnums ↔ cliFlagTable ↔ cliHelp）从 4 成员被撑到 5 成员。
 > 按本仓惯例**拆环而不是放宽白名单**：清单改为调用方注入，`flagSuggestion` 回到叶子模块，并加源码级判据防复发。
 >
-> **判据**：`web/test/sessionRowMeta.test.mjs`（4 例，含"紧凑形必须真的更短"与"操作按钮必须是覆盖层"）、
-> `web/test/starterTasks.test.mjs`（5 例，含"不得直接 `onSend`"、"第一屏不得出现内部工具名"、
+> **判据**：`web/test/sessionRowMeta.test.ts`（4 例，含"紧凑形必须真的更短"与"操作按钮必须是覆盖层"）、
+> `web/test/starterTasks.test.ts`（5 例，含"不得直接 `onSend`"、"第一屏不得出现内部工具名"、
 > `seedDraft` 空文本 fail-closed + nonce 递增）、`tests/unit/flagSuggestion.test.ts`（6 例，含
 > `--work` **不得**被猜成 `--fork` 的真实反例、叶子模块架构约束）、
 > `tests/unit/sqliteLazyLoad.test.ts`（3 例：结构 + 实跑负对照 + sqlite 正对照）、
@@ -703,7 +703,7 @@
 > ④ 顺带（同一次真机目视，用户截图里可见）：右栏「模型接入」卡片被**不可断的长 baseUrl** 撑出右边界
 > （API Key 输入框与「检测」被切）⇒ `HINT` 加 `overflowWrap:anywhere` + `minWidth:0`，卡片回到栏内、按钮不再换行。
 >
-> **判据**：新增 `web/test/shellDensity.test.mjs` 2 例——真 Chrome 1624×1044 下量「收起按钮必须落在左栏可视区内、
+> **判据**：新增 `web/test/shellDensity.test.ts` 2 例——真 Chrome 1624×1044 下量「收起按钮必须落在左栏可视区内、
 > 中心点必须命中它自己、点击后左栏 ≤60px 且中栏变宽 ≥150px、再点能展开回原宽」；源码守卫「输入区不得再有常驻
 > 长文案、悬浮说明必须取档位表 description」。`mount.test.mjs` 的 PermissionPicker 契约按新语义改写
 > （title 与 aria-label 同源、含档位名与说明，长说明不得常驻 chip）。
@@ -754,7 +754,7 @@
 > `models/PickerKeys.ts`（Esc：新建态退新建 / 浏览态关弹窗；Enter 仅新建态确认；**普通键一律放行**；
 > **输入法组合期 `isComposing` 全放行**——顺带修掉组词中按 Enter 会误创建的问题），输入框与 window 监听共用
 > 一份规则；输入框补 `autoFocus + onFocus 全选`（点「新建文件夹」即可直接输入改名，不必先点输入框）。
-> 判据：`web/test/pickerKeys.test.mjs` 4 例（普通键放行 / Esc 两态 / Enter 门控 / IME 组合期），其中
+> 判据：`web/test/pickerKeys.test.ts` 4 例（普通键放行 / Esc 两态 / Enter 门控 / IME 组合期），其中
 > 「字母/数字/Backspace/方向键在新建态返回 null」即本缺陷的回归判据。真机复现原路径核验：新建 → 直接输入
 > 「我的测试项目A」停留新建态且值正确 → Esc 退新建且弹窗保留 → 取消关弹窗。
 >
@@ -821,7 +821,7 @@
 > 不写 currentThreadId / 会话列表 / hash / 最终文本，错误提示也不写（那属于用户已离开的回合）。
 > 修复实测：同一探针 6 秒后仍是 `hash=#pane=tools`、助手卡片 0、空态保留 ✓。
 >
-> **判据（两层，都有牙）**：① Node 层 `web/test/turnControl.test.mjs` 新增用例：`send` 在飞时调 `newSession()`，
+> **判据（两层，都有牙）**：① Node 层 `web/test/turnControl.test.ts` 新增用例：`send` 在飞时调 `newSession()`，
 > 再让 `runTurn` 解析 ⇒ `currentThreadId` 必须仍为 null、不得 navigate 回旧会话、迟到事件/增量不得进视图
 > （自证：去掉守卫即红，报「收尾不得把已被用户放弃的旧会话写回 currentThreadId」；恢复即 13/13 绿）。
 > ② 真机层 `smoke:ui` 新增判据 **L**：真模型回合进行中点新建 ⇒ 回合结束后视图仍为空。
@@ -881,7 +881,7 @@
 >
 > **判据（两层，且都自证有牙）**：
 >
-> - Node 层 `web/test/textRevealerScheduler.test.mjs`（3 例）：**不断言"不抛错"**——node 的 `setTimeout` 不做
+> - Node 层 `web/test/textRevealerScheduler.test.ts`（3 例）：**不断言"不抛错"**——node 的 `setTimeout` 不做
 >   receiver 校验，那样会**假绿**；改为断言**调度器被调用时的 receiver**。自证：把实现改回老写法，判据当场红并打印
 >   「调度器被当方法调用了（receiver=[object Object]）⇒ 浏览器会抛 Illegal invocation」；改回则 3 例绿。
 > - 真机层 `smoke:ui` 新增判据 **J**：在真 Chrome 里 import **已发布**的模块跑一遍动画路径（长文本 + 全局
@@ -977,7 +977,7 @@
 > **模式是增强，任何失败都不许影响回合本身。**
 >
 > **验证**：真 Chrome 实测（`12759`，无会话点「计划模式」）⇒ toast「尚未创建会话：该模式已记录，发送第一条消息后自动生效」、
-> 「模式切换失败」**不再出现**、开关显示为已启用（截图 `.omniharness/ui-shots/mode-deferred.png`）；判据 `web/test/pendingModes.test.mjs` 4 例
+> 「模式切换失败」**不再出现**、开关显示为已启用（截图 `.omniharness/ui-shots/mode-deferred.png`）；判据 `web/test/pendingModes.test.ts` 4 例
 > （暂存不报错 / 会话出现后原样落盘且幂等 / 有会话时立刻落盘 / 合并与空补丁语义）；`npm run web:test` **314/314**。
 >
 > **诚实边界**：只验证到"暂存 + 提示 + 开关状态"；"会话创建后自动落盘"由控制器级判据覆盖（真机端到端需真模型跑一轮回合，本轮未跑）。
@@ -1004,7 +1004,7 @@
 > 判据 `tests/unit/configFileLoad.test.ts`（BOM 可读 + "BOM + 真语法错仍 fail-closed"）。
 >
 > ⑥ **UI：「本项目 ⇄ 全部项目」开关**（`web/src/ui/models/SessionsScope.ts` + 会话区按钮）：会话缺省只列当前项目
-> （避免上千条外来会话淹没），一键即可看全部——真机实测 10 → 30 → 10 行、按钮文案同步翻转。判据 `web/test/sessionsScope.test.mjs` 4 例。
+> （避免上千条外来会话淹没），一键即可看全部——真机实测 10 → 30 → 10 行、按钮文案同步翻转。判据 `web/test/sessionsScope.test.ts` 4 例。
 >
 > ⑦ **三处"误导/污染"一并订正**：① serve 横幅曾谎称"未找到 omniharness.json，将使用内置默认配置（mock 模型）"，
 > 而实测此时仍跑着用户级配置里的真模型 ⇒ 改为只陈述"没有项目级配置"；② **删掉"启动时自动把当前根登记为固定项目"**：
@@ -1043,7 +1043,7 @@
 > | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | 1   | **serve 的 RPC 配置面看不到用户级凭据 ⇒ Web UI 一发真回合就失败**：流里出现「运行失败：配置错误: 厂商 DeepSeek 未配置 API Key，无法启用（fail-closed）」，零会话落盘；而 `dsh exec` 与 serve **启动路径**都正常         | `ServerConfigStore.fileConfig()` 只读**项目级那一份**（`configFile.load`），而 `providerKeys` 的常见放法是**用户级**；`ModelCatalogService.resolveOverride()`（agent 重建取模型端口）正读它 ⇒ fail-closed | `fileConfig()` 改**分层加载**；**读分层、写仍只落项目层**（新增私有 `persistedConfig()` 作落盘合并基准，否则任何一次 `config.update` 会把用户级凭据复制进项目文件）。判据 `tests/unit/serverConfigStoreLayering.test.ts` 4 例（含"用户级 Key 不得进项目文件"与 `config.get` 打码）。修后真机回合跑通：`session.start → tool.call list_dir → tool.call read_file → turn.end hasText`，UI 渲染工具卡与回复 |
 > | 2   | **会话列表不按工作区收敛**：用一个**全新临时工作区**打开 UI，侧栏列出 **1181 条**会话——全是其它项目的真实对话标题（含本轮模型跑测的"这个任务要并行推进…"等），而该项目零会话                                            | 存储目录是**全局**的（`~/.omniharness/sessions`），`sessions.list` 无过滤，UI 又把它们全挂在当前项目节点下                                                                                                | `sessions.list` 缺省按**当前工作区**过滤（显式 `workspace:'*'` 可看全部；**无归属标记**的历史会话一律保留，否则用户够不到旧数据）；`SessionArchive.list(includeArchived, workspace?)` 默认不过滤 ⇒ `sessionExists`/`search.all` 等跨项目调用方零变更。判据 `tests/unit/sessionArchiveWorkspaceScope.test.ts` 3 例 + 真机判据 G（**故意先塞一条"别的项目"的会话夹具**，否则该判据空转）                   |
-> | 3   | **宿主页没声明站点图标**：浏览器回退请求 `/favicon.ico`，serve 无此路由 ⇒ **每次加载都有一条控制台 404 错误**，把"控制台零错误"这条健康判据逼成假红                                                                     | `web/index.html` 只有 `<title>`                                                                                                                                                                           | 内联 SVG（Ω）data URI —— 零额外请求、零网络依赖。判据 `web/test/indexHtmlAssets.test.mjs` 2 例（必须有 `rel="icon"`，且**不得**依赖网络）                                                                                                                                                                                                                                                                |
+> | 3   | **宿主页没声明站点图标**：浏览器回退请求 `/favicon.ico`，serve 无此路由 ⇒ **每次加载都有一条控制台 404 错误**，把"控制台零错误"这条健康判据逼成假红                                                                     | `web/index.html` 只有 `<title>`                                                                                                                                                                           | 内联 SVG（Ω）data URI —— 零额外请求、零网络依赖。判据 `web/test/indexHtmlAssets.test.ts` 2 例（必须有 `rel="icon"`，且**不得**依赖网络）                                                                                                                                                                                                                                                                 |
 > | 4   | **界面显示的"当前工作区"不是实际运行根**：把 serve 起在仓库目录，`config.get` 回的 `workspace` 却是项目配置里落盘的 `D:\work\新项目`（UI 上次切走留下的运行时状态）——运行根本身是对的（第六十轮已钉死），错的是**显示** | `ServerConfigStore.get()` 的合并顺序 `{...displayConfig, ...fileConfig(), ...overrides}` 让项目文件的 `workspace` **盖掉**真实根                                                                          | `get()` 显式回填 `merged['workspace'] = this.workspace()`（UI 显式切换仍以 overrides 优先）；判据 `serverConfigStoreLayering.test.ts` 第 5 例（摘要=运行根，文件层原值仍可读）。与 2026-09-27 的 modelAdapter / reasoning 属**同一类**"显示 ≠ 实际"                                                                                                                                                      |
 >
 > ③ 同时订正一处**门禁落后**：`tests/integration/uiBaseline.json` 没跟上"治理"页签（基线 11 项 vs 实际 12 项），
@@ -2548,7 +2548,7 @@ Responses `reasoning:{effort}`、Anthropic `thinking:{enabled,budget_tokens}`、
 会带上 `contain: layout`，从而把中栏内 `position: fixed` 的浮层（文件选择器 / 命令面板等）的包含块
 从视口改成中栏 —— 弹层会被裁进窄列，正是本仓反复修过的另一类缺陷。故选择断点式重排。
 
-**判据**：`web/test/narrowReflow.test.mjs`（真 Chrome + 真 SPA，断言中栏 `scrollWidth <= clientWidth`）
+**判据**：`web/test/narrowReflow.test.ts`（真 Chrome + 真 SPA，断言中栏 `scrollWidth <= clientWidth`）
 
 - **正对照**：把修复前的几何（`starter-tasks` 固定 460px、输入条不换行）用注入样式强加回去，
   断言同一测量**必须变红** —— 否则"绿"可能只是判据没量到该处。探针
@@ -2558,12 +2558,12 @@ Responses `reasoning:{effort}`、Anthropic `thinking:{enabled,budget_tokens}`、
 
 `tests/**` 的跳过点早有开关清点（缺环境且开关开 ⇒ 失败），但**扫描面此前只有 `tests/**`**
 —— `web/test/**` 的浏览器类判据可以 `t.skip('未找到本机 Chrome/Edge')` 静默跳过而无人管。
-本轮：① 新增 `web/test/browserSwitch.mjs`（与 `requireEnv` 同口径）；② 12 个文件 / 15 处跳过点全部接上；
+本轮：① 新增 `web/test/browserSwitch.ts`（与 `requireEnv` 同口径）；② 12 个文件 / 15 处跳过点全部接上；
 ③ `requireSwitches.test.ts` ② 的扫描面扩到 `web/test/**/*.mjs`（现扫 **627** 个文件，其中 web 12 个含跳过点）；
 ④ CI 的 web job 设 `OMNI_REQUIRE_BROWSER=1`（该 job 本就断言 runner 有浏览器）⇒ CI 上不可能静默跳过。
 
 **开关的失败路径也验了**：本机永远有 Chrome，"没有浏览器"这条分支原本跑不到 ⇒ 加测试钩子
-`OMNI_BROWSER_NONE=1`，`web/test/browserSwitch.test.mjs` ④ 真开子进程跑一个浏览器判据：
+`OMNI_BROWSER_NONE=1`，`web/test/browserSwitch.test.ts` ④ 真开子进程跑一个浏览器判据：
 开关关 ⇒ 子进程 `# skipped 1` 且 exit 0；开关开 ⇒ 子进程**失败**。
 （首版还把"未设开关"直接当跳过 ⇒ 本机有 Chrome 也照跳，被判据①逮住。）
 
@@ -2770,7 +2770,7 @@ serve 侧因此**拒绝注入保险库**（注入进去只会显示"能用但永
   `--vault-hydrate` 默认真能水合；`OMNIHARNESS_VAULT=0` 下水合**如实说明跳过**。其中②⑥标注"修前必红"。
 - `tests/unit/cliCredentialHydration.test.ts`（6 例，**全绿**；2 例改口径）：新增"不得再因无显式主密钥来源短路"的
   源码断言 + 一条**变异正对照**（把共用解析整体换掉仍须检得出，证明断言不恒真）。
-- `web/test/vaultTab.test.mjs`：未接线提示必须指向 `OMNIHARNESS_VAULT=0` / 默认密钥文件（`npm run web:test` **406/406** 全绿）。
+- `web/test/vaultTab.test.ts`：未接线提示必须指向 `OMNIHARNESS_VAULT=0` / 默认密钥文件（`npm run web:test` **406/406** 全绿）。
 - 门禁：`fast` **10/10**、`typed` **2/2**（2026-10-13 实跑）。
 
 #### 归档时发现并修掉的一枚**变异探针**残留
@@ -2839,7 +2839,7 @@ serve 侧因此**拒绝注入保险库**（注入进去只会显示"能用但永
 | `tests/unit/cacheMissAttributionAnalyst.test.ts`（+2 例）       | 缺信号时不得出现"前缀稳定"（附正对照）；`reportedCalls=0` 的理由必须点明 0 次                                                                                                                       |
 | `tests/unit/cacheHitRateWatch.test.ts`（+1 例）                 | 透传结论优先，且**不得改动**坍塌判定用的四个数字（附正对照）                                                                                                                                        |
 | `tests/unit/stepContextBuilderPrefix.test.ts`（+1 例）          | 首建缺省 / 同输入恒 1 / **改写头部必须落到下限之下**（否则面板永远报不出 `prefix-rewrite`）                                                                                                         |
-| `web/test/contextUsageCacheView.test.mjs`（+3 例）              | 标签映射、命中与无数据不给标签、悬停含样本量与理由、**旧服务端缺字段不得渲染 `undefined`**                                                                                                          |
+| `web/test/contextUsageCacheView.test.ts`（+3 例）               | 标签映射、命中与无数据不给标签、悬停含样本量与理由、**旧服务端缺字段不得渲染 `undefined`**                                                                                                          |
 
 **变异自证（本机实跑）**：① 去掉 `StepRunner` 里的 `prefixReuseRatio` ⇒ 接线判据红；
 ② 撤掉观测器的 `attribution` 透传 ⇒ 日志分因回归判据红（`not ok 21/22`，还原后 **44/44 绿**）。
@@ -2859,7 +2859,7 @@ serve 侧因此**拒绝注入保险库**（注入进去只会显示"能用但永
 
 - `npm test`（clean 产物）：**3401 例 / 1 失败 / 6 跳过**——唯一失败是下面那条**既有**环境红灯。
 - `npm run web:test`：**418/418**（本轮 +3）；`runGates` `fast` **10/10** + `typed` **2/2**。
-- **真机（真 Chrome + 真 SPA + 桩数据）**：`node web/test/visualProbe.mjs --panes=tools --themes=dark --widths=1280`
+- **真机（真 Chrome + 真 SPA + 桩数据）**：`node web/test/visualProbe.ts --panes=tools --themes=dark --widths=1280`
   ⇒ 12 张，容量弹层页脚实测渲染 `MCP 6 · 系统 14    缓存命中 62% · 前缀被改写`
   （存档 `web/archive/polish-dark-state-capacity-1792070600097.png`，gitignored）。
   顺带把探针夹具的 `context.usage.cache` 从 `{hitRate:0.62, calls:96}` 补成**真实形状**
@@ -3185,16 +3185,16 @@ CliMcpCmds ← CliDataCmds`）**仍是单继承**；按同样手法**再拆一�
   否则三处各写一套状态迟早漂移。控制器做**乐观复位**（点击后立刻置回「运行中」⇒ 按钮与芯片一起消失，
   从根上消掉连点窗口；服务端对同一 runId 的在飞续跑本就是 fail-closed 拒绝的），RPC 失败则**复原**成未成功并如实报错
   ——绝不把卡片停在「运行中…」假装在跑。
-- **判据**：`web/test/graphResumeController.test.mjs`（5 例：乐观复位 / 失败复原且带回节点 / SSE 断开回退轮询 / SSE 连通不轮询 / 失败提示）、
-  `web/test/graphResumeChip.test.mjs`（2 例：无未完成不渲染 / 点名编排且取最近一条）、
-  `web/test/graphResumeUi.test.mjs`（3 例：未结束与已成功不出按钮 / 文案自解释且交给控制器 / 无节点数据不编造步数）。
+- **判据**：`web/test/graphResumeController.test.ts`（5 例：乐观复位 / 失败复原且带回节点 / SSE 断开回退轮询 / SSE 连通不轮询 / 失败提示）、
+  `web/test/graphResumeChip.test.ts`（2 例：无未完成不渲染 / 点名编排且取最近一条）、
+  `web/test/graphResumeUi.test.ts`（3 例：未结束与已成功不出按钮 / 文案自解释且交给控制器 / 无节点数据不编造步数）。
 - **真机验证**：`visualProbe` 的 `graph-run` 场景现在断言**两个入口同时出现**并**点状态栏芯片**走完整条链路
   （点击后两处入口一起消失、卡片回到「运行中…」），每次跑测还会留档一张「续跑入口可见」的截图
   `web/archive/graph-resume-entry-*.png`（点击后按钮按设计消失，事后光看截图说不清它长在哪）。
 
 #### 10.3.3 真机（真 Chrome + 真 serve）验证与**探针夹具的三处修复**
 
-跑法：`node web/test/visualProbe.mjs --panes=graph`、`node scripts/realUiScenario.mjs --only=B`。过程中修掉三处**夹具自身**的缺陷
+跑法：`node web/test/visualProbe.ts --panes=graph`、`node scripts/realUiScenario.mjs --only=B`。过程中修掉三处**夹具自身**的缺陷
 （都不修的话，要么假绿、要么把产品误报成坏的）：
 
 1. **入口已废弃**：探针仍点 `.rail-btn`（`aria-label==='编排'`）——`NavRail` 早已随壳层重构移除，12 个面板的常驻入口是
@@ -3262,7 +3262,7 @@ serve 台账只挡**进程内**重复续跑，而 CLI 可以同时开两个进�
    全量入口会让 bundle 多 800 KB，而原 vendor 那个 121 KB 文件本身就是 common 构建）；KaTeX 字体随 Vite 进 `assets/`；
    新增 `vendorFreePipeline` 判据（断言三个库真进了包、字体产出、产物不含旧 UMD）。
 3. **自动 JSX 运行时** + **CSS 入口 import**：前者打破了一个隐含前提（25 个零 DOM 判据依赖
-   "JSX → `React.createElement`" 才能收集纯数据 vnode），补了 `web/test/jsxRuntimeStub.mjs` 把 `jsx/jsxs`
+   "JSX → `React.createElement`" 才能收集纯数据 vnode），补了 `web/test/jsxRuntimeStub.ts` 把 `jsx/jsxs`
    转回桩；后者把样式的事实源从 HTML 移到 `main.ts`，两条判据（`a11yContrast` / `indexHtmlAssets`）跟着换来源。
 4. **删 `deps.ts`**（最后一处非标准）：68 个源文件改直接 import；测试侧用 vitest 的 `resolve.alias`
    把 `react` 指到 `hooksStub`，`hooksStub` 升级为"可被当作 react 模块"（模块级 current runtime + 15 个具名导出转发，
@@ -3394,7 +3394,77 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 | npm 发包面过宽              | `files` 的 `web` → `web/dist` + `web/index.html`                                        | npm pack 实测 3676 → 3402 文件（web/src 160 + web/test 93 不再进包） |
 | `.tmp-newcred.mjs` 被误跟踪 | **删除**。`.gitignore` 注释声称"均已 git rm"但它实际仍在库里                            | 本提交 `delete mode` 记录                                            |
 
-**仅存的两项结构性分叉（sized，待决策）**：
+**两项结构性分叉（2026-10-17 测试栈统一已收口，留档注销）**：
 
-1. **后端测试栈**：538 个 `tests/unit/*.test.ts` 用 `node:test` + 跑 `dist`（构建产物）；前端已 vitest 直跑源码。试点实测：vitest 不接管 `node:test` 注册（「No test suite found」），web 侧当年是 538→0 全量换导入。迁移 = 538 文件换 `import { test } from 'vitest'` + 73 个进程/dist 耦合判据适配（46 个判据 spawn `dist/` 产物 ⇒ 即便迁移后 `npm test` 仍需先构建）+ 3415 例全量复验 + CI `coverage:check`（`dist/tests/unit/*.test.js` 通配）改造。
-2. **web/test 语言**：93 个 `.mjs`（标准 Vite 项目测试用 TS）。纯改名无收益——web tsconfig 只 typecheck `src/**`，`.ts` 化却不纳入 typecheck 反而制造"假类型安全"；纳入 typecheck 则要先清 93 个松散 JS 的类型债。应与第 1 项同轮决策（目标形态：全仓 vitest + TS 判据 + 源码直跑）。
+1. **后端测试栈** ✅ 已迁 vitest：544 个 `tests/unit` + `tests/integration` 判据从 `node:test`/dist 迁 `import { test } from 'vitest'`（含 spawn `dist/` 产物的 46 个判据仍需先 `npm run build`），源码直跑 `import '../../src/x.ts'`。配套：worker 线程经 `src/util/concurrency/workerEntryUrl.ts` + `--experimental-strip-types` 回落 `.ts`；`mcpSdkProbe` 改逐个解析 REQUIRED 子路径取 package.json（主入口 `dist/cjs/index.js` 缺失必抛）；`vitest.workspace.ts` 双项目（node 并行 / web 串行 + react 别名桩）。`npm test` / `test:integration` / `coverage` 脚本已改指 vitest；**`coverage:check` 的 v8 覆盖率改造已收口**——`scripts/coverageGate.mjs` 改消费 `coverage.reporter=json-summary` 的 `coverage-summary.json`（绝对路径键规整为「src 下的 .ts 相对路径」、聚合只统计被执行文件），`coverageEnvDependent.json` 36 个键 `.js`→`.ts` 重定键，三份基线（`coverageBaseline` / `coverageInventoryBaseline` / `coverageEnvDependent`）按 `src/**` 源码口径一次性重测（属迁移重基线，非回归；提交须写明）。
+2. **web/test 语言** ✅ 93 个 `.mjs` + 11 个辅助文件已转 `.ts` 并纳入 `web/tsconfig.json` strict 类型检查（module 升 ES2022 支持顶层 await）。`vitest.workspace.ts` 的 web 项目 include 指向 `web/test/**/*.test.ts`，react 别名桩同步改名。全仓 `.test.mjs` 引用已 sed 替换。
+
+> 注：测试栈统一引发的若干根因修复（ASCII 临时目录、liveUiE2e 用户级配置隔离、UI 基线「设置」入口移除）已分别沉淀于 `vitest.workspace.ts` / `tests/integration/liveUiE2e.test.ts` / `tests/integration/uiBaseline.json` 与 `.gitignore`。
+
+## 14. 测试栈统一收尾：残留清理、覆盖率 v8 重基线与若干根因（2026-10-18，第九轮）
+
+§13 记的是"迁完"，本轮把它**跑通并收干净**。逐条都是实测出来的根因，不是猜的。
+
+### 14.1 迁移残留：93 个 `.mjs` 死文件
+
+`web/test/` 下曾**同时存在 93 个 `.mjs` 和 93 个 `.ts`**。`vitest.workspace.ts` 的 web 项目
+`include` 早已是 `web/test/**/*.test.ts`，所以那 93 个 `.mjs` **一行都没跑过**，却仍在仓库里
+（互相 import，看起来"活着"）。删掉后 `web/test` 只剩 `.ts`。
+
+**连带修的真缺陷**：`tests/integration/liveUiE2e.test.ts` 用
+`await import(pathToFileURL('web/test/browserHarness.ts'))` 载入脚手架 —— 那是 `.mjs` 时代的
+唯一办法（源码级 `.mjs` 不被 tsc 编译）。改成 `.ts` 后这条路会**绕过 Vitest 的转换管线**直接交给
+Node，而 Node 不认 `.ts`（`Unknown file extension ".ts"`），且因为写在用例内部，看起来像"脚手架缺依赖"。
+已改为**静态导入** `../../web/test/browserHarness.ts`，顺带删掉两个手写接口（真实模块自带类型）。
+
+### 14.2 `evaluate` 的返回类型：`any` + 定向抑制（不是 `unknown`）
+
+把 CDP 脚手架的 `evaluate` 改成 `Promise<unknown>` 看似更安全，实则强迫**每个**调用点写断言
+（`pageScrollLock` / `turnDiffCard` 直接用结果当具体类型）——几十处无信息量的 `as`，风险一点没减少。
+它是**真动态边界**（形状由调用方表达式决定，与 `JSON.parse` 同类）。故保留 `any` +
+`// eslint-disable-next-line @typescript-eslint/no-explicit-any`（全库该规则仍是 error，只此一处豁免）。
+
+### 14.3 三个环境/配置根因
+
+| 现象                                                                | 根因                                                                                                                                                                                  | 处置                                                                                                                                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 每个被转译的测试文件都打 `Unrecognized target environment "ES2024"` | 根 `tsconfig.target = ES2024`，esbuild 不认这个字符串；**几百行警告把真失败信息淹掉**                                                                                                 | `target` 降 `ES2023`；ES2024 的增量（`Object.groupBy` / `Promise.withResolvers` / `Array.fromAsync`）都是**库特性**、由 `lib: ["ES2024"]` 提供，与 target 无关 ⇒ 零 API 损失 |
+| `layaBackend.test.ts` 整文件级失败（5 用例全 skip），单跑 5/5 通过  | 它在 `beforeAll` 里 spawn Python venv 并**预热模型**（单跑 14.5s），并行时抢 CPU 撞 `hookTimeout: 60000`                                                                              | node 项目 `hookTimeout` → **180s**（钩子慢 ≠ 被测代码慢）                                                                                                                    |
+| `npm run coverage` 跑完却没有 `.coverage/coverage-summary.json`     | `coverage` 配置写在 **workspace 项目**里，`vitest run --project node --coverage.enabled` 时**不生效**：回落到默认 reporter（text+html 落到 `./coverage/`），`json-summary` 根本没产出 | 覆盖率配置移到**根** `vitest.config.ts`；删掉 workspace 里那段不生效的块（留着是"看起来有用"的假配置）                                                                       |
+
+### 14.4 覆盖率重基线（**属迁移重基线，非回归**——按 §13 授权）
+
+provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage-v8`，
+口径变化是**系统性**的：
+
+- 653 个可比文件：**398 下跌 / 9 上涨 / 246 持平**，中位 −1.56 点、均值 −5.44；
+- 跌幅集中在"错误分支多、异步多"的文件（pluginLoader −16.3、mcpConnector −19.1、
+  repoMapContextEngine −22.6、subagentOrchestrator −20.4）；
+- 同期用例数**增加**（3437 通过；迁移前 3421）⇒ 不是测试丢失。
+
+处置（三份基线一次性重测）：
+
+1. `coverageBaseline.json`：**1068 个文件**、键从 `.js` 全部重定为 `.ts`（`--dump-baseline --force`）；
+2. `coverageInventoryBaseline.json`：`--dump-inventory --force`（1068 源文件 / 0 未进报告）；
+3. `coverageEnvDependent.json`：**只对已登记的 29 个宿主相关文件**、按该文件既有规则
+   （实测最低值再留余量，取「当前 − 2」）重推 27 个下限，并把归因写进 `notes`——**不新增登记项**。
+
+**没有被放松的护栏**：逐文件冻结基线（棘轮 + 1 点漂移容差）、新文件 < 30% 阻断、
+`src/**` 文件清点（新增零单测模块即红）。重基线只把"尺子"换成新 provider 的刻度，
+并没有把回归合法化。
+
+### 14.5 本轮实测（命令 + 结果）
+
+| 项                                                           | 结果                                                                       |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `npx vitest run --project node`                              | **543 文件通过 / 1 跳过；3437 例通过 / 6 跳过**                            |
+| `npx vitest run --project web`                               | **82 文件 / 483 例全绿**                                                   |
+| `npm run coverage` + `coverage:check`                        | `✓ 覆盖率达标（聚合 85.03% ≥ 80%；1068 个文件无超容差回退）`               |
+| `npx tsc --noEmit -p tsconfig.json` / `-p web/tsconfig.json` | 双端 exit 0                                                                |
+| `npx eslint . --max-warnings=0`                              | 0 问题                                                                     |
+| `node scripts/runGates.mjs`（fast）                          | 通过                                                                       |
+| `npm run build` + `node dist/src/cli/exec.js --version`      | 构建成功、产物可跑                                                         |
+| 产物 ESM 深检：`import('./dist/src/index.js')`               | barrel **140 个导出**加载成功（等于一次性验证整张模块图的 `.ts→.js` 重写） |
+
+> 注：`dist/tests/*.js` 里仍有 6 处 `.ts` 说明符，全部位于**测试夹具字符串**内
+> （`"export type { X } from '…ts'"` 这类被引号包住的数据，用于变异探针），不是真导入，运行时无影响。

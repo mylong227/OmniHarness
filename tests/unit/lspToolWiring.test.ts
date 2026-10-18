@@ -9,7 +9,7 @@
  * 另一半是**反向**断言：没配 `lspServer` 时这些工具必须**一个都不出现**——
  * 暴露一个注定失败的工具比不暴露更糟（模型会反复重试并浪费上下文）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

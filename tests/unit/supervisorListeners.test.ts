@@ -1,7 +1,7 @@
 // 监督内核：模式转移订阅者上限与去重（审计 §30 Gap ⑤）单元测试。
 // 覆盖：onTransition 重复订阅只保留一份；超过 MAX_LISTENERS(64) 淘汰最旧订阅者，避免无界增长。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SupervisorKernel } from '../../src/supervisor/supervisorKernel.ts';
 

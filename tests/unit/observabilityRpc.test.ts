@@ -16,7 +16,7 @@
  * | ③ | 注入后：`ok:true` + 原样回传报告；`workspaceRoot` 参数**透传到实现** | 面板请求某工作区、实际体检的是另一个 |
  * | ④ | serve 组合根注入的实现与 `omniharness doctor` 命令**同一个** | 面板与 CLI 给出不一致的诊断结论 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

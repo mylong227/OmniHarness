@@ -11,7 +11,7 @@
  * 4. **用法面**：读不出证书文件 ⇒ 退出码 1（不是静默通过）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

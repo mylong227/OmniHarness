@@ -19,7 +19,7 @@
  * ③ 加载器返回**不含 `DatabaseSync`** 的对象 ⇒ 同一文案（覆盖 `typeof !== 'function'` 分支）；
  * ④ 两条路径之后**必须恢复替身**（`finally`），且恢复后构造仍成功（防判据把进程状态弄脏）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

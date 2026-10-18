@@ -10,7 +10,7 @@
  *   ② **预热可观测**：`preload()` 返回「是否真由本次构建 + 耗时」，让冷启动成本成为可读数字；
  *   ③ **失败可恢复**：首次构建失败后**必须**能重试成功——否则一个瞬时故障会把适配器永久瘫痪。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   TransformersEmbeddingAdapter,

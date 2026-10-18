@@ -10,7 +10,7 @@
  * - **生效面**：配置了 `viewer` ⇒ 运行时构造出的门禁**真的**拒绝写类工具（不是"读到了但没用"）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -13,7 +13,7 @@
  * 那会让同一配置在不同机器上行为不同）；三类失败语义分明；编译缓存有硬上限。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CronerSchedule } from '../../src/adapters/schedule/cronerSchedule.ts';

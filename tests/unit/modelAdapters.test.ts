@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { sseParser } from '../../src/adapters/model/sseParser.ts';
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';

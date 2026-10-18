@@ -8,7 +8,7 @@
  *
  * 另锁「默认关」契约：`modeFromEnv` 未显式设 `plan` 时恒为 `off`（零行为变更）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ToolExposurePlanner, type ToolCategory } from '../../src/core/toolExposurePlanner.ts';
 

@@ -6,7 +6,7 @@
 //  - 子代理：直接驱动 SubagentRunner（隔离工作树的创建在编排器层，本机沙箱禁写 tmpdir，
 //    故编排器层只覆盖「已取消即不派生」的 fail-closed 前置判定）。
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
 import type { ToolPort } from '../../src/ports/tool/tool.ts';

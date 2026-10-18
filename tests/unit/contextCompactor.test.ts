@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ContextCompactor } from '../../src/context/contextCompactor.ts';
 import type {

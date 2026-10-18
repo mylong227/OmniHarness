@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { DaemonController } from '../../src/daemon/daemonController.ts';
 import { spawn } from 'node:child_process';

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { TurnDiffTracker } from '../../src/core/turnDiffTracker.ts';
 import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.ts';

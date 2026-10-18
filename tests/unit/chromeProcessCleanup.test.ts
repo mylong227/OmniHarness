@@ -10,7 +10,7 @@
  * 触发失败路径，断言：① 首次启动如实失败；② 失败后 `this.child` 已复位——再次 launch()
  * 得到的是**同一个真实原因**，而不是「浏览器已在启动中」。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

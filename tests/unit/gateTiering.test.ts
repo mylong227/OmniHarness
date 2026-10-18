@@ -18,7 +18,7 @@
  * | ⑦ | 基础 eslint 配置**不含**类型信息（快层之所以快的前提） |
  * | ⑧ | `--only` 点到的门禁**必须真的会跑**：跨层（或任何原因）被静默丢弃即红——`--only=tsc` 曾**零门禁 + 打印通过**、`--only=iron-law,tsc` 曾静默丢掉 tsc |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

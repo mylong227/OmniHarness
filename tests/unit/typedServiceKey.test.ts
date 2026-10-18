@@ -18,7 +18,7 @@
  * `tsc` 会因"未使用的 `@ts-expect-error` 指令"报错 ⇒ 门禁变红。这就是"编译期断言"的可门禁化做法
  * （`npm run typecheck` 是门禁的一部分）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { Container } from '../../src/core/container.ts';

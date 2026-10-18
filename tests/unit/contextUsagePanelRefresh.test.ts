@@ -19,14 +19,14 @@
  * （不推进）；② `usageThreadId` 是服务端类的 protected 逻辑，实例化整台 AppServer 代价过大。
  * 本仓同类接线守卫先例：`web/test/streamWindowAnchor.test.mjs`、`tests/unit/knownFlags.test.ts`。
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** 仓库根（`dist/tests/unit` → 上溯三级）。 */
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PANEL = join(REPO_ROOT, 'web', 'src', 'ui', 'components', 'ContextCapacityPanel.tsx');
 const HANDLERS = join(REPO_ROOT, 'src', 'server', 'core', 'appServerSurfaceHandlers.ts');
 const APP_SERVER = join(REPO_ROOT, 'src', 'server', 'core', 'appServer.ts');

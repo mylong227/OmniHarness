@@ -8,7 +8,7 @@
  * 不注入时，结果必须与既有自研路径**完全一致**（兼容路径没被偷偷改掉）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

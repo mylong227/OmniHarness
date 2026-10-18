@@ -14,7 +14,7 @@
  * | ④ | 仍不定价的键的理由必须点明**查过什么**（含"不猜"/"不存在"语义） | 理由退化成"暂无来源"，看不出真查过 |
  * | ⑤ | 正对照：把某个键从价目表移除后，③ 的同一测量必须变红 | ③ 可能恒真 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {

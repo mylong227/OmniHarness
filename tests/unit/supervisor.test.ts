@@ -1,7 +1,7 @@
 // 航天级监督内核（I-P0-3 / FDIR）单元测试。
 // 覆盖：FDIR 分级降级、危险动作零越权、健康向量入审计哈希链、保守恢复。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

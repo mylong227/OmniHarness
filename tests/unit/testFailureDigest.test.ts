@@ -1,7 +1,7 @@
 /**
  * P3 测试失败摘要提取单测（无第三方依赖）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { TestFailureDigest } from '../../src/adapters/tool/verify/testFailureDigest.ts';
 

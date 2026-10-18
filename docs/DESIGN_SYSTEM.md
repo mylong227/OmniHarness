@@ -1,7 +1,7 @@
 # OmniHarness Web 工作台 —— 设计系统
 
 > 本文是 **Web 前端视觉的唯一事实源**。改样式前先读这里；改完 token 必须回填本文的对照表
-> （漂移时以 `web/test/a11yContrast.test.mjs` 门禁为准，门禁红了就是漂移了）。
+> （漂移时以 `web/test/a11yContrast.test.ts` 门禁为准，门禁红了就是漂移了）。
 >
 > ## 2026-10-17 · 单色极简重设计（Redesign · Replace）
 >
@@ -266,7 +266,7 @@ dark：`--accent: #ffffff` / `--ink-fg: #0a0a0a`；light 反过来。二者对�
 `NavRail` 各写一份清单：变更 / 治理 / 文件 / 详情在标签条里有、在 rail 里没有，而标签条在桌面端
 （≥881px）是 `display:none` ⇒ 桌面用户要看「变更」只能手改 hash 或把窗口压窄到 ≤880px。
 
-现在的结构（判据：`web/test/mount.test.mjs` 的「面板注册表」用例）：
+现在的结构（判据：`web/test/mount.test.ts` 的「面板注册表」用例）：
 
 ```
 PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 与它逐条对齐
@@ -297,7 +297,7 @@ PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 
 
 | 契约                                                      | 判据（哪个测试钉着）                                 |
 | --------------------------------------------------------- | ---------------------------------------------------- |
-| class 名与 DOM 结构                                       | `web/test/mount.test.mjs`、`a11yKeyboard.test.mjs`   |
+| class 名与 DOM 结构                                       | `web/test/mount.test.ts`、`a11yKeyboard.test.mjs`    |
 | 9 个导航项 + 各自 `aria-label` + 图标 `aria-hidden`       | `NavRail` 两条用例                                   |
 | 焦点可见（2px 反白实环，不改文字色）                      | `minimal.css §11` + `a11yKeyboard.test.mjs`          |
 | `.md-content` 显式 `white-space:normal`                   | `a11yContrast.test.mjs` 第 4 条                      |
@@ -306,7 +306,7 @@ PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 
 | 文本对比度 ≥4.5:1（两套主题）                             | `a11yContrast.test.mjs` 第 1–2 条                    |
 | 控件边界对比度 ≥3:1（`--border`，WCAG 1.4.11）            | 本文件 §2.1 的实测值（门禁不查，靠数值复核）         |
 | 宿主页资源真实存在且非空                                  | `indexHtmlAssets.test.mjs`                           |
-| 窄窗（640 / 1280）无横向溢出                              | `web/test/responsiveProbe.mjs`（探针）               |
+| 窄窗（640 / 1280）无横向溢出                              | `web/test/responsiveProbe.ts`（探针）                |
 | `.code-gutter` 与 `.code-scroll .hl-code` 底距相等（5px） | `shell.css` 注释所述的行号对齐契约（改一处要改两处） |
 
 ---
@@ -314,11 +314,11 @@ PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 
 ## 8. 自检清单（交付前跑）
 
 ```bash
-npm run web:build && node --test web/test/a11yContrast.test.mjs   # 颜色门禁（7 例）
+npm run web:build && node --test web/test/a11yContrast.test.ts   # 颜色门禁（7 例）
 npm run web:test                                                  # 427 例组件契约
-node web/test/responsiveProbe.mjs --full                          # 真 Chrome 溢出探针
-node web/test/visualProbe.mjs                                     # 真 Chrome 截图留档（面板 + 交互态）
-node web/test/visualProbe.mjs --measure                           # 关键元素实测几何
+node web/test/responsiveProbe.ts --full                          # 真 Chrome 溢出探针
+node web/test/visualProbe.ts                                     # 真 Chrome 截图留档（面板 + 交互态）
+node web/test/visualProbe.ts --measure                           # 关键元素实测几何
 python scripts/checkMonochrome.py web/archive <截图戳>            # 渲染结果的平均彩度（零彩色核验）
 ```
 

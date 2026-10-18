@@ -4,7 +4,7 @@
  * 覆盖：工具名 → 信任级映射（含大小写/空白归一）、未登记工具回落 `unknown`（fail-closed）、
  * 各档弱证据阈值、中文标签与「不可信」判据。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ToolOutputTrust } from '../../src/security/toolOutputTrust.ts';
 

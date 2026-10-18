@@ -6,7 +6,7 @@
  * 2. fail-closed 文案必须**可执行**（给出下一步），且 Windows / POSIX 分平台说明；
  * 3. argv 构造正确（含单引号转义，防注入），且不可用时**绝不**返回任何 argv。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PtyCapability } from '../../src/adapters/tool/shell/ptyCapability.ts';
 

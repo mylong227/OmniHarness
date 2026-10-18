@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ModelCatalogService } from '../../src/server/services/modelCatalogService.ts';
 import { PROVIDER_PRESETS } from '../../src/server/services/providerPresets.ts';

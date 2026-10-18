@@ -10,7 +10,7 @@
  * 使 `CancelledError.reason` 在生产路径上几乎恒为 `'parent'`（`agent.ts` 的取消信号正是经该桥
  * 交给 `CancellableModel`）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CancellableModel } from '../../src/subagent/cancellableModel.ts';

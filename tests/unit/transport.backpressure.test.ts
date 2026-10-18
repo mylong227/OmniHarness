@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Duplex } from 'node:stream';
 import type { ServerResponse } from 'node:http';

@@ -19,7 +19,7 @@
  * 真实 crate 的端到端编译留给集成演练，不在本文件里。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';

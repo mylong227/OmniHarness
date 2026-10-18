@@ -4,7 +4,7 @@
 //
 // 这是「全局记忆行为变更」的验收闸门：翻默认前必须证明单一状态源真的收敛。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

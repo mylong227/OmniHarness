@@ -10,7 +10,7 @@
  * ② 登记了但没接线 ⇒ 续跑参数被静默忽略、看起来「成功」却重跑了一遍。
  * 故本判据用真 CLI 跑两趟：首跑拿 runId，再 `--resume-run` 复用产出。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';

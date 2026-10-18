@@ -7,7 +7,7 @@
 //  B. 模型返回空输出（既无文本也无工具调用）时回合一步即终止，无重试、无兜底；
 //  C. native（FFI）路径下 pre 钩子在工具**执行之后**才跑，失去拦截/审计语义；
 //  D. 模型抛异常时整个回合的事件不落盘，会话历史丢失。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

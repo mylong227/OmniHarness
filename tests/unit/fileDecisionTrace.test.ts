@@ -3,7 +3,7 @@
  *
  * 覆盖：首次写入创建文件、二次写入追加（不覆盖）、每行是一条合法 JSON 且字段完整、fail-open 不抛错。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';

@@ -2,7 +2,7 @@
 // 覆盖：受限工具子集（剔除写类 / 危险工具 + 委托授权子集取交集）、并发闸门（有界）、
 // 异常收敛为 ok:false。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   A2aTaskExecutor,

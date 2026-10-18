@@ -7,7 +7,7 @@
  * ① 同一组查询的命中 id / 分数 / 次序完全一致；② 分批 `addDocuments` 后 docId 偏移正确；
  * ③ `documentFrequencyOf` / `idf` 口径未漂移。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Bm25Index } from '../../src/search/bm25Index.ts';
 

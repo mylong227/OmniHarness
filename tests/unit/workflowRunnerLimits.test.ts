@@ -6,7 +6,7 @@
 //  2. 「成功但无 finalText」的步骤被并入失败集合 ⇒ 下游被 fail-closed 跳过、整体 ok=false
 //     （把「这一步没吐文本」误判为「这一步失败了」，并传染全部下游）。
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
 import type { ToolPort } from '../../src/ports/tool/tool.ts';

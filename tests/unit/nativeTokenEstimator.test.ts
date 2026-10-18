@@ -1,7 +1,7 @@
 // #70 单测：native（Rust 内核 context.estimate）与 JS（TokenEstimator）token 估算逐位一致。
 // 内核不可用时整体 skip（与 nativeBackend.test.ts 一致，避免 CI 无 .node 时红）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { NativeBackend } from '../../src/native/nativeBackend.ts';
 import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
@@ -16,7 +16,7 @@ const messages = Array.from({ length: 40 }, (_unused, index) => ({
 // 顶层探测一次，供原生依赖用例用 test({ skip }) 真跳过（旧写法 `if undefined return` 会虚增通过计数）。
 // 2026-10-11：接 `OMNI_REQUIRE_NATIVE` 开关（声明"原生必须在场"时，缺 .node 必须失败而非静默跳过）。
 const nativeEstimator = NativeBackend.tryCreate();
-const nativeSkip = RequireEnv.skipUnless(
+const nativeSkip = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_NATIVE',
   nativeEstimator !== undefined,
   '原生内核不可用（请先 npm run native:build）',

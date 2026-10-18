@@ -10,7 +10,7 @@
  *
  * 仪器：假传输实现 `A2aTransport` 端口（不发真网络包），按 method 回 canned JSON-RPC 响应。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

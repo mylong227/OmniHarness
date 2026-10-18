@@ -1,7 +1,7 @@
 /**
  * 自验证「定向测试 + 位置候选」单测（P1-⑨ 后半 / P1-⑩）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
 import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';

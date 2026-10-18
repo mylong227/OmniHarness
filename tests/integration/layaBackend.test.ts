@@ -19,7 +19,7 @@
  * 会让 5 条真前向判据全红，而真相是**环境缺件**，不是产品坏了（同一测试当天早些时候还全绿）。
  * 故这里改为**真跑一次 `--version`** 作为前提；`OMNI_REQUIRE_LAYAPY=1` 时该前提不成立仍然失败（CI 口径不变）。
  */
-import { after, before, test } from 'node:test';
+import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -61,7 +61,7 @@ const SKIP_REASON: string | false =
  * 2026-10-11：接 `OMNI_REQUIRE_LAYAPY` 开关。该文件头自己写过"旧版『需外部 venv 就整例 skip』
  * 正是缺陷得以长期隐形的原因之一"——现在有能力在声明"Laya 必须在场"的环境里把它变成失败。
  */
-const SKIP = RequireEnv.skipUnless(
+const SKIP = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_LAYAPY',
   SKIP_REASON === false,
   String(SKIP_REASON),
@@ -88,14 +88,14 @@ const engine = engineFromDefaultConfig();
  * 显式预热：`warmUp` 会等到权重就绪（而不是让每个 decide 各自撞 1.5s 冷启动预算 fail-open）。
  * 这正是「调用方明确愿意付一次冷启动代价」的场景——默认路径（自验证回环）不会这么做。
  */
-before(async () => {
+beforeAll(async () => {
   if (SKIP === false) {
     const ready = await engine.warmUp(300_000);
     assert.strictEqual(ready, true, '热进程应在 300s 内完成权重加载');
   }
 });
 
-after(() => {
+afterAll(() => {
   engine.dispose();
 });
 

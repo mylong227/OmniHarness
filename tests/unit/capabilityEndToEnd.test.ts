@@ -9,7 +9,7 @@
  * 另判 J7 的第二类型面：**第三种未注册类型**在同一入口被拒——新协议不是只为 skill 开的后门。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.ts';

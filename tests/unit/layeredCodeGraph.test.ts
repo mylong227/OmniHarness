@@ -8,7 +8,7 @@
  *    而笛卡尔积产生的虚假关联（如 `epsilon ↔ betahelper`）被消除。
  */
 
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CodeGraphIndex } from '../../src/context/codeGraphIndex.ts';

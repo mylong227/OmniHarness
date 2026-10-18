@@ -8,7 +8,7 @@
  * 由父进程尝试加锁：必须被拒；子进程退出后（锁没被释放 = 模拟被 kill）父进程必须能**自动接管**
  * ——这一条同时钉住「崩溃后不能永久锁死」，而那正是续跑功能的初衷。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';

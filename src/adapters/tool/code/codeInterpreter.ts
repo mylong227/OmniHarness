@@ -1,4 +1,5 @@
 import { Worker } from 'node:worker_threads';
+import { WorkerEntryUrl } from '../../../util/concurrency/workerEntryUrl.ts';
 import type { ToolCall, ToolResult } from '../../../ports/tool/tool.ts';
 
 /**
@@ -62,7 +63,7 @@ export class CodeInterpreter {
     const logsFromWorker: string[] = [];
     const timeoutMs = this.effectiveTimeout(deps.timeoutMs);
 
-    const worker = new Worker(new URL('./codeSandboxWorker.js', import.meta.url), {
+    const worker = new Worker(WorkerEntryUrl.resolve(import.meta.url, 'codeSandboxWorker'), {
       workerData: { code },
     });
     let timedOut = false;

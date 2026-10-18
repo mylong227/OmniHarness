@@ -3,7 +3,7 @@
 //  - 文件不存在 → 返回空配置 {}（合法空配置，cliSystem.test 依赖此语义）；
 //  - 文件存在但非法 JSON → 抛 ConfigError 暴露，不再静默回退 {} 掩盖错误。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

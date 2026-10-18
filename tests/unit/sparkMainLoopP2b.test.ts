@@ -4,7 +4,7 @@
 //   ② 仅启用相变固化也构造 spark（两算子各自独立触发接线），cycle 报告 crystallizer 维度；
 //   ③ 两者皆不启用 → spark 为 undefined（零破坏旁路）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

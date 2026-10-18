@@ -10,7 +10,7 @@
  *  ③ **视野受限必须自报**：入口不在 `scripts/` 下的门禁（如 argv 指向 node_modules 的 `tsc`）
  *     指纹不到，必须显式标为"不可指纹"而不是假装 ok。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

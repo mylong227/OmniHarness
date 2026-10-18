@@ -22,7 +22,7 @@
  * 探针的价值全在"能跑出数字"，所以判据必须**真的跑一次**。判据⑧⑨是同一纪律的延伸：**仪器必须
  * 回显/校验自己的生效配置**，否则"旗标没生效"与"旋钮无效果"不可区分。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';

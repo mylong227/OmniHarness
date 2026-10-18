@@ -1,4 +1,4 @@
-﻿import { test } from 'node:test';
+﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,17 @@ import { ALL_PERMISSIONS } from '../../src/plugin/permission.ts';
 import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
 import { AppServer } from '../../src/server/core/appServer.ts';
 import { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
+import { ASCII_TMP } from '../../vitest.workspace.ts';
+
+// Windows 本机用户名含中文 ⇒ 默认 %TEMP% 让 vite 对非 ASCII 路径做 percent-encoding 后解析失败
+// （见 vitest.workspace.ts 的 ASCII_TMP 注释）。本判据要在临时目录落盘示范插件再动态 `import()`，
+// 故把 TMP/TEMP **局部**指向仓库内全 ASCII 目录。**不可在 workspace 全局改写**：那会让 vite 的
+// SSR 转换缓存也落到这里，被 WorkBuddy broker fs-shim 以 EPERM 拦截，连带拖垮整批判据。
+mkdirSync(ASCII_TMP, { recursive: true });
+if (process.env['TMP'] !== ASCII_TMP) {
+  process.env['TMP'] = ASCII_TMP;
+  process.env['TEMP'] = ASCII_TMP;
+}
 import type { Transport } from '../../src/server/transport/lineTransport.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 import { ConfigFactory } from '../../src/config/configFactory.ts';

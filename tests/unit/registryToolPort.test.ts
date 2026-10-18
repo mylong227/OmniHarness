@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
 import type { ToolCall, ToolDefinition, ToolResult } from '../../src/ports/tool/tool.ts';

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { NativeKernel, NativeKernelUnavailableError } from '../../src/native/nativeKernel.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
@@ -15,7 +15,7 @@ import { RequireEnv } from '../helpers/requireEnv.ts';
  * 而不是继续静默跳过（本文件的 8 条含 `approval.check` 审批语义，跳过等于审批面零判据）。
  */
 const kernelAvailable = new NativeKernel().available();
-const skipWhenUnbuilt = RequireEnv.skipUnless(
+const skipWhenUnbuilt = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_NATIVE',
   kernelAvailable,
   '内核未构建（npm run native:build）',
@@ -25,14 +25,10 @@ function loadKernel(): NativeKernel {
   return new NativeKernel();
 }
 
-test(
-  'native kernel: 不可用时 fail-closed 抛错（不静默失败）',
-  { skip: kernelAvailable ? '内核已构建，负路径由其余用例覆盖' : false },
-  () => {
-    const kernel = new NativeKernel();
-    assert.throws(() => kernel.ping(), NativeKernelUnavailableError);
-  },
-);
+test('native kernel: 不可用时 fail-closed 抛错（不静默失败）', { skip: kernelAvailable }, () => {
+  const kernel = new NativeKernel();
+  assert.throws(() => kernel.ping(), NativeKernelUnavailableError);
+});
 
 test('native kernel: ping 往返', { skip: skipWhenUnbuilt }, () => {
   const kernel = loadKernel();

@@ -10,7 +10,7 @@
  * 变异自证：让 `validate` 恒返回 ok ⇒ 负例全红；把基准换成别的场边长 ⇒ 同源判据红。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';

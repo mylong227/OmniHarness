@@ -15,7 +15,7 @@
  * ② **反面对照**：不截断的同一模式 ⇒ 仍 `ok:true`（零命中本身不是错误，别过度收紧）；
  * ③ 截断但**有命中** ⇒ 仍 `ok:true`（截断只让"0 命中"不可信，不影响"有命中"的结论）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

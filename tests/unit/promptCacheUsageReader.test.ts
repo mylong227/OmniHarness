@@ -16,7 +16,7 @@
  * `undefined`、后者必须返回 `0`；⑤ 畸形输入一律 fail-soft；⑥⑦ 两条**接线自证**：
  * 真实适配器（stub fetch）必须把命中量填进 `ModelUsage`，否则"读取器有判据"只是自娱自乐。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PromptCacheUsageReader } from '../../src/adapters/model/promptCacheUsageReader.ts';
 import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';

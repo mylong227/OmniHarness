@@ -1,7 +1,7 @@
 // 进化门禁（I-P1-4 保形 fail-closed）单元测试。
 // 覆盖：A/B 实证（组合技能 > 单技能）、默认拒绝兜底、安全检查阻断、审计哈希链入链、控制器闭环晋升。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

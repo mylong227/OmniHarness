@@ -16,7 +16,7 @@
  *   5. 缺省关零破坏：不显式开启时 `a2a` 与 `runtime.a2a` 均为 undefined，且不监听任何端口。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -39,7 +39,7 @@ import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 
 /** 对端夹具脚本路径（dist/tests/fixtures/a2aPeerProcess.js）。 */
 function fixturePath(): string {
-  return fileURLToPath(new URL('../fixtures/a2aPeerProcess.js', import.meta.url));
+  return fileURLToPath(new URL('../../dist/tests/fixtures/a2aPeerProcess.js', import.meta.url));
 }
 
 /** 已拉起的对端进程。 */

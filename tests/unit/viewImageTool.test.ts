@@ -1,7 +1,7 @@
 /**
  * view_image 单测（P2-⑬）：图片本体走 ToolResult.files 附件通道。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

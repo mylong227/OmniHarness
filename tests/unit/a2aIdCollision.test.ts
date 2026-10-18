@@ -9,7 +9,7 @@
  * 修法：入库时把 id 改写成**服务端唯一键**再交给处理回调，回写时按唯一键查表并还原对端原始 id。
  * 本用例用两个独立 HTTP 客户端各发 `id=1`，断言各拿各的响应。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { HttpA2aServerTransport } from '../../src/a2a/httpA2aTransport.ts';

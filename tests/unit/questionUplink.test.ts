@@ -9,7 +9,7 @@
  * ③ 答案校验：题 id / 选项标签 / 单选多选 / 长度任一不合法即拒绝，且**挂起保留**可重提；
  * ④ 断连收尾：`denyAllPending` 一并把挂起提问按 fail-soft 收掉。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AskUserTool } from '../../src/adapters/tool/plan/askUserTool.ts';
 import { eventFactory } from '../../src/core/eventFactory.ts';

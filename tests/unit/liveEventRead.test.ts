@@ -24,7 +24,7 @@
  * | ④ | 正对照：`replay` 仍逐条广播同一份事件（判据不是"把广播删了"） | 绿（保功能） |
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';
 import { ConfigFactory } from '../../src/config/configFactory.ts';

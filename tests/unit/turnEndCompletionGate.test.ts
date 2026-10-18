@@ -10,7 +10,7 @@
  *  2. 显式 `selfVerify.enabled === false` ⇒ 两者皆无（尊重整体退出）；
  *  3. 命令跑不起来（工具链缺失等）⇒ fail-open，不拦收尾。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

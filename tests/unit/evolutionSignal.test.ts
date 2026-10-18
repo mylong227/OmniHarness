@@ -8,7 +8,7 @@
  * - 附加：游标不重复出信号 / constrained 映射 / maxBatch 有界 / 无组合 success 行不产信号。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.ts';

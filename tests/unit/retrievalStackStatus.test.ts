@@ -18,7 +18,7 @@
  * 判据④的口径说明：它不检查"删掉后行为是否等价"（那是 ②③ 与 G1 基线判据的事），只检查
  * **删除的牵连面**——这正是"删除边界"这个说法唯一可机械核验的含义。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';

@@ -12,7 +12,7 @@
  * （`FeatureEntitlements` 不复制 `FEATURE_TIERS`，判据用"表里每个功能都能被解析"间接钉死）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { FeatureEntitlements } from '../../src/license/featureEntitlements.ts';

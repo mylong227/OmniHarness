@@ -24,7 +24,7 @@
  * 变异自证：让导出器把缓存读加进输入 token ⇒ 本判据红；删掉 `tokens.total` ⇒ 红。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { TokenAttribution } from '../../src/observability/tokenAttribution.ts';

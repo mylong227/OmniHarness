@@ -5,7 +5,7 @@
  * 这三条平台路径上，而真机 e2e 只在装了 Chrome 的机器上跑、且一失败就是 EPERM/超时这种不可归因的形态。
  * 本文件把这三条路径变成**确定性单测**：注入假定位、假进程、假 CDP 连接，断言失败原因与资源回收。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { BrowserSession } from '../../src/adapters/browser/browserSession.ts';
 import type { ChromeProcessLike } from '../../src/adapters/browser/browserSession.ts';

@@ -17,7 +17,7 @@
  * 那正是「假装有 wasm 隔离」这种最危险的谎。同理删掉「返回函数即拒」⇒ 对应用例红。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.ts';

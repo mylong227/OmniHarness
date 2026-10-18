@@ -7,14 +7,14 @@
  *   ① 度量确实被打印（证明规则已接线，不是只写在注释里）；
  *   ② 真实仓库当前违约数为 **0**（2026-09-24 已对 31 文件 / 94 行做一次性机器修复，此后不得回归）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * 跑一次全量编码标准审计。

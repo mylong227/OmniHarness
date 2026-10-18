@@ -14,7 +14,7 @@
  * 判据用假 socket 注入**原始字节**：走 `WebSocket` 客户端只能构造合法帧，测不出这些边界。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Duplex } from 'node:stream';
 import { randomBytes } from 'node:crypto';

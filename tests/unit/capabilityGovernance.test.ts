@@ -9,7 +9,7 @@
  * 3. **档位只可收紧不可放宽**——信任档/隔离档按全序只许朝更严走；放宽即抛（不静默忽略）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';

@@ -4,7 +4,7 @@
 //   ② 主循环 QEC 阶段真纠正单点损坏（非空转）；
 //   ③ 仅启用免疫监控也构造 spark（证明三算子各自独立触发接线），cycle 报告 immune 维度。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

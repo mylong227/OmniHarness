@@ -88,6 +88,22 @@ export class RequireEnv {
   }
 
   /**
+   * 形态 A 的 **Vitest 兼容版**：语义与 {@link RequireEnv.skipUnless} 完全一致（含注册期 fail-closed），
+   * 但把 `string | false` 收敛成 **boolean**（Vitest 的 `test()` 的 `skip` 选项只接受 `boolean`），
+   * 这样调用点仍写作 `{ skip: RequireEnv.skipUnlessBool(...) }` 即可通过类型检查。
+   *
+   * 映射：可用 ⇒ `false`（照跑）；不可用且开关打开 ⇒ 仍由 {@link RequireEnv.skipUnless} 内部
+   * `assert.fail` 抛错（fail-closed 不动）；不可用且开关关闭 ⇒ `true`（跳过）。
+   * @param name 开关名。
+   * @param available 能力是否可用。
+   * @param reason 不可用的原因。
+   * @returns `true` 跳过 / `false` 照跑。
+   */
+  public static skipUnlessBool(name: RequireSwitch, available: boolean, reason: string): boolean {
+    return RequireEnv.skipUnless(name, available, reason) !== false;
+  }
+
+  /**
    * 形态 B：测试体开头的守卫（需要 `t.skip` 的场合）。
    * @param t 测试上下文（只需 `skip`）。
    * @param name 开关名。

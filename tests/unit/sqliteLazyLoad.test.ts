@@ -24,7 +24,7 @@
  * | ③ | 实跑正对照：真选 `--kv-adapter sqlite` 时仍能读写 | 证明懒加载没把功能改坏（判据不是"删掉功能"） |
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readdirSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -7,7 +7,7 @@
  *  3. SDK 连接失败（远端 url 形态）⇒ 不回落（手写实现不支持 url），原样抛出真错误；
  *  4. `NAME=URL` spec 解析为 url 形态；`NAME=CMD` 仍解析为 stdio 形态。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SdkPreferredMcpConnector } from '../../src/adapters/mcp/sdkPreferredMcpConnector.ts';
 import { McpServerCommand } from '../../src/mcp/mcpServerCommand.ts';

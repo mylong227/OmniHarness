@@ -9,7 +9,7 @@
  *
  * 本文件对四条逐一给可证伪断言。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { WorkflowRunner, WorkflowCycleError } from '../../src/autonomy/workflowRunner.ts';

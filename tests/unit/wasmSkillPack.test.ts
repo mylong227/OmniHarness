@@ -14,7 +14,7 @@
  * 5. **未注册类型即拒**（J7 回归）：`schemaKind` 不在注册表 ⇒ 拒。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

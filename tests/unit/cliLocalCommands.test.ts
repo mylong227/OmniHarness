@@ -23,7 +23,7 @@
  * | ⑤ | `daemon status` 恒 exit 0 且如实说运行/未运行 | 面板与 CLI 口径分叉 |
  * | ⑥ | `mcp list` 缺 `--server` ⇒ **用法 + exit 2**（误用不得静默） | 误用被当成"空列表" |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';

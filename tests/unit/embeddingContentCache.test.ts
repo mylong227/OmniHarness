@@ -11,7 +11,7 @@
  * 另覆盖：角色分离（query/document 前缀不同不得混用）、代际清扫（内存不随编辑次数增长）、
  * 构建失败不清扫（否则下次重试要从零嵌入）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

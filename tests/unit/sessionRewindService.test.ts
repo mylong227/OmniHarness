@@ -5,7 +5,7 @@
  * ⇒ 「重生成」实际是「接着旧答案再来一轮」，刷新后旧回答还复现。本文件把服务端回退的
  * 规则钉住：只保留到指定事件、拒绝半截写入、运行中拒退、找不到事件拒退。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SessionRewindService } from '../../src/server/services/session/sessionRewindService.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';

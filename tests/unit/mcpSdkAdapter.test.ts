@@ -4,7 +4,7 @@
 //   ③ 工具执行往返：client.callTool → ToolPort.execute → content 文本 = harness 结果；失败映射 isError；
 //   ④ 多实例隔离：两个 adapter 各自注册不同工具，互不串扰。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SdkMcpServerAdapter } from '../../src/adapters/mcp/sdkMcpServerAdapter.ts';

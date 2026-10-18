@@ -11,7 +11,7 @@
  * 故全部引用必须在校验期解析干净，非法即抛（fail-closed）。
  */
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { WorkflowGuard } from '../../src/autonomy/workflowGuard.ts';
 import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.ts';
 import type { WorkflowStep } from '../../src/ports/autonomy/workflowStep.ts';

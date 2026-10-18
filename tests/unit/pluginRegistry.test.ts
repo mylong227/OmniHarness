@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,6 +12,15 @@ import {
 } from '../../src/plugin/pluginRegistry.ts';
 import { Manifest, type PluginManifest } from '../../src/plugin/manifest.ts';
 import { Container } from '../../src/core/container.ts';
+import { ASCII_TMP } from '../../vitest.workspace.ts';
+
+// 同 pluginLoader.test.ts：把 TMP/TEMP **局部**指向仓库内 ASCII 目录，规避 vite 对非 ASCII
+// %TEMP% 的 percent-encoding 解析失败（详情见 vitest.workspace.ts 的 ASCII_TMP 注释）。
+mkdirSync(ASCII_TMP, { recursive: true });
+if (process.env['TMP'] !== ASCII_TMP) {
+  process.env['TMP'] = ASCII_TMP;
+  process.env['TEMP'] = ASCII_TMP;
+}
 import { PermissionDeniedError, PermissionGate } from '../../src/plugin/permissionGate.ts';
 import { PluginManager } from '../../src/plugin/pluginManager.ts';
 import type { Plugin } from '../../src/plugin/plugin.ts';
@@ -242,7 +251,7 @@ test('manifestHasDangerous 标记危险权限声明', () => {
 test('打包示范插件可安装并经权限门禁加载（端到端闭环）', async () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-bundled-'));
   // 测试编译产物位于 dist/tests/unit/，向上三级即仓库根（examples/plugins 所在）。
-  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const registry = new PluginRegistry({
     pluginsDir: join(root, 'plugins'),
     bundledBaseDir: repoRoot,

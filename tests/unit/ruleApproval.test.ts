@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RuleApproval } from '../../src/adapters/approval/ruleApproval.ts';
 import type { ApprovalRequest } from '../../src/ports/runtime/approval.ts';

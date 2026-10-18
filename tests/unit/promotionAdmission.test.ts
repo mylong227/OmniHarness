@@ -6,7 +6,7 @@
  * ⑤ 失败记录升格为改进提案；⑥ 多样性塌缩告警 + 失败登记；⑦ 空输入零破坏。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AnnealedAcceptance } from '../../src/evolution/annealedAcceptance.ts';

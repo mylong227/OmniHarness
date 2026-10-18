@@ -8,7 +8,7 @@
  *  2) `OMNI_RERANK=1` 必须与显式 `rerank: true` **逐字相同**（env 旋钮真的生效）；
  *  3) 在本语料上 opt-in 与默认**产出可区分**（精排把符号 IDF 覆盖高的文件提前——防死旋钮）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

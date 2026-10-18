@@ -8,7 +8,7 @@
  *  ② 逐帧都达标但合计超标 ⇒ 请求体被撑爆（总额超限）；
  *  ③ 总超限时「丢尾部」⇒ 模型永远看不到结尾（而视频结尾往往正是结论所在）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { FrameEncoder, MediaFrameBudget } from '../../src/media/frameEncoder.ts';
 import { MediaFrameSampler } from '../../src/media/mediaFrameSampler.ts';

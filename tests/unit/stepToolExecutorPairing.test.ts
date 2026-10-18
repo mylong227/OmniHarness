@@ -17,7 +17,7 @@
  * `hooks.post`，于是「原生执行成功但 post 钩子抛错」会被误判成「原生执行失败」而
  * **回退到 JS 路径再执行一次**——正是「绝不回退重跑」要防的双写。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { StepToolExecutor } from '../../src/core/stepToolExecutor.ts';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';

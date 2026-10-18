@@ -19,7 +19,7 @@
  * 临时写文件，而套件是**并行**的、检索类判据会索引 `src/`，瞬态文件会造成假红），
  * 故那条按人工核验登记在看板（命令与结果都写在案）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

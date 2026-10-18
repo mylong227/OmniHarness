@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { BudgetStatusTool } from '../../src/adapters/tool/meta/budgetStatusTool.ts';
 import { CostBudget } from '../../src/adapters/model/costBudget.ts';

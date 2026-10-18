@@ -6,7 +6,7 @@
  *  2. **落日志**：坍塌时真的写出 `warn` 级结构化日志（事件名 `model.cache.lowHitRate`），
  *     且**不阻断**调用方——`inspect` 返回值与异常语义都不改变业务结果。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {

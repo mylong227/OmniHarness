@@ -8,7 +8,7 @@
  *   ② 未知会话 / 缺参数 / 事件不属于该会话 一律如实回 `ok:false` + 原因（不抛错、不写盘）；
  *   ③ 无需截断（keepEventId 已是末条）时不写盘（`dropped:0`），避免无意义落盘。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AppServer } from '../../src/server/core/appServer.ts';
 import { ConfigFactory } from '../../src/config/configFactory.ts';

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Container } from '../../src/core/container.ts';
 import { PluginManager } from '../../src/plugin/pluginManager.ts';

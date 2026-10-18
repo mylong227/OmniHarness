@@ -5,7 +5,7 @@
  * （只记录、不改行为），而在 `enforce` 下必须被隔离。若 shadow 也隔离，它就毁了唯一用途
  * ——在生产流量上量真实误报/漏报。此外锁死 D2：非法模式在**装配层**抛错，不静默回落。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

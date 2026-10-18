@@ -16,7 +16,7 @@
  * 模型适配器的 `new` 只允许出现在注册表里。
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { readFileSync, readdirSync, rmSync, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
@@ -43,7 +43,7 @@ import { endpointDefaults } from '../../src/util/endpointDefaults.ts';
 import { providerPresets } from '../../src/config/providerPresets.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 test('① 注册表 ↔ CLI 枚举 ↔ 配置校验白名单：三方一致（曾实测 llamacpp 漏在配置白名单）', () => {
   const registryIds = [...modelAdapterRegistry.ids()].sort();

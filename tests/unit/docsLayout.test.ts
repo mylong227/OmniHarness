@@ -19,7 +19,7 @@
  * 推给读者（尤其 `llms.txt` 是给自动化工具读的）。G20 落地的当天，`docs/README.md` 与 `llms.txt`
  * 都正指向十来个已归档文档——正是这条判据要防的。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';

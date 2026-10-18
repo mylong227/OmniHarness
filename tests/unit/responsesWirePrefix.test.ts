@@ -12,7 +12,7 @@
  *  2. 第 N 步的 input 会话消息（去尾段）必须是第 N+1 步 `input` 的**逐元素前缀**；
  *  3. 整请求体归一化后的前缀复用率 ≥ 0.8（修复前实测 ~20% 量级）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';

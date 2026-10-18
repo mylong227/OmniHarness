@@ -23,7 +23,7 @@
  * 第 ③ 条是本判据的核心：它会因"有人图省事把类型挪回实现文件"而变红（架构门禁 [5] 也会红，
  * 但门禁的输出是全局摘要，这条把**具体成因**钉在文件级，便于下一个人立刻看懂该往哪修）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

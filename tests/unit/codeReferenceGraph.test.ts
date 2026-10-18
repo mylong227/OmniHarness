@@ -2,7 +2,7 @@
  * P5 图信号第四路单测：稀疏引用图构建 + PageRank 中心性 + 查询邻域路由。
  * 纯函数、零模型、确定性，验证「稀疏化过滤」与「邻域不含 seed 自身文件」两个不变量。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CodeReferenceGraph, MAX_CACHED_ROOTS } from '../../src/context/codeReferenceGraph.ts';
 import type { IndexedCorpus } from '../../src/context/contextEngine.ts';

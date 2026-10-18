@@ -9,7 +9,7 @@
  *  - 只认**显式零测试证据**（`# tests 0` / `collected 0 items` / `no tests ran` / `no test files` …）；
  *  - 拿不到汇总行（截断 / 非测试命令如 `tsc --noEmit`）⇒ `zeroEvidence === false`，闸门放行。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { TestCountParser } from '../../src/adapters/tool/verify/testCountParser.ts';

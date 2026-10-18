@@ -31,6 +31,7 @@
  * @maturityEvidence tests/unit/builtinWasmRunner.test.ts
  */
 import { Worker } from 'node:worker_threads';
+import { WorkerEntryUrl } from '../../util/concurrency/workerEntryUrl.ts';
 import { log } from '../../util/logger.ts';
 import { WASM_PAGE_BYTES, WasmMemoryLimits } from './wasmMemoryLimits.ts';
 import type {
@@ -188,7 +189,7 @@ export class BuiltinWasmRunner {
     timeoutMs: number,
     input: string | undefined,
   ): Promise<IsolationResult<T>> {
-    const worker = new Worker(new URL('./builtinWasmWorker.js', import.meta.url), {
+    const worker = new Worker(WorkerEntryUrl.resolve(import.meta.url, 'builtinWasmWorker'), {
       workerData: {
         bytesBase64: Buffer.from(bytes).toString('base64'),
         ...(entry !== undefined ? { entry } : {}),

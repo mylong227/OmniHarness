@@ -1,6 +1,6 @@
 // (P2, I-P2-5) CapabilityCrystallizer 单元测试：经验密度越阈 → 常用组合冻结为原生能力（加法式、fail-closed）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Skill } from '../../src/skill/skill.ts';
 import { SkillRegistry } from '../../src/skill/skillRegistry.ts';

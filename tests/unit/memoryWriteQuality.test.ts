@@ -22,7 +22,7 @@
  * | ⑤ | 纯英文事实（骨架为空）不臆断冲突：值不同则**都留** |
  * | ⑥ | 与 M3 交互：`includeToolOutput` 档下新事实仍标 `untrusted`，去重/替代不改变信任标注 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';

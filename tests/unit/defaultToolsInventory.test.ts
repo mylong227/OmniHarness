@@ -10,7 +10,7 @@
  * （如需要带鉴权的抓取实现）会撞上 `RegistryToolPort` 的重名拦截；
  * 而 `RegistryToolPort` 的类契约本就写明「可注册/替换/扩展」。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
 import type { ExtraTool, OmniHarnessConfig } from '../../src/config/configFactory.ts';

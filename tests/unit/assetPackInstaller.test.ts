@@ -11,7 +11,7 @@
  * 6. **元数据导出**：`metadataFor` 只出公开字段（不含 instructions 明文）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AssetPackCodec } from '../../src/asset/assetPackCodec.ts';

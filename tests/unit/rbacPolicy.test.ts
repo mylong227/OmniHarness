@@ -10,7 +10,7 @@
  * 5. **不另立工具表**：新只读工具自动可用、新写类工具自动被 viewer 拒（用仓库自己的 `MUTATING_TOOL_NAMES` 分类）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { RbacPolicy } from '../../src/security/rbacPolicy.ts';

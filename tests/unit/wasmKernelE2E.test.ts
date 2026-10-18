@@ -14,7 +14,7 @@
  * 缺产物即 `t.skip` 并打印**可执行的**构建命令——绝不用"手工字节"冒充真产物让判据变绿。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -192,7 +192,7 @@ test('Wave C E2E：真 wasm 内核（omni_wasm.wasm）在 wasm 档应答 JSON-RP
 test('Wave C E2E：真产物同样受预算强制（无预算即拒 / 极小预算 ⇒ 超时拒）', async (t) => {
   const bytes = loadArtifact();
   if (bytes === undefined) {
-    t.skip(`缺 wasm 产物，先执行：${BUILD_CMD}`);
+    t.skip(); // 缺 wasm 产物，先执行 BUILD_CMD 构建
     return;
   }
   const runner = new BuiltinWasmRunner({ timeoutMs: 5000 });

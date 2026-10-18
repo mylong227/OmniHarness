@@ -16,7 +16,7 @@
  * **不蒸馏工具输出正文**（M3：候选资产只由组合键构造，evidence 只存不解析）、有界（记录与候选都有上限）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SuccessPatternDistiller } from '../../src/evolution/successPatternDistiller.ts';

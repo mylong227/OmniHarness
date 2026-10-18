@@ -8,14 +8,14 @@
  *   ① 真实仓库审计必须 0（否则说明存在未接线字段）；
  *   ② `--selftest` 必须 0（护栏自身的故障注入用例全部可触发，证明**不是假绿**）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * 跑一次接线完整性门禁。

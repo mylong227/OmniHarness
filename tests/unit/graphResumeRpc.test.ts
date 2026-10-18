@@ -11,7 +11,7 @@
  * 判据用「手工造一份只写了 step.start 的存档」模拟崩溃现场（真崩进程在单测里不可控），
  * 然后走真实 RPC → 真 `WorkflowRunner.resume` → 真文件。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { MacOsSeatbeltSandbox } from '../../src/adapters/sandbox/macosSeatbeltSandbox.ts';
 import type { SandboxAction } from '../../src/ports/runtime/sandbox.ts';

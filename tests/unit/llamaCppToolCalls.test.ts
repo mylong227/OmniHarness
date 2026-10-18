@@ -10,7 +10,7 @@
  * 诚实边界：本机无 ollama 后端，响应样本是**按协议文档构造**的，不是抓包实录；
  * 故只钉「两种 wire 形态都成立」的改进，不发明协议语义。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
 import type {

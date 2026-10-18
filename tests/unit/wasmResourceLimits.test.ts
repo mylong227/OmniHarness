@@ -11,7 +11,7 @@
  * 故必须在**实例化之前**读模块自己的 memory 段（`WasmMemoryLimits`），否则限制形同虚设。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';

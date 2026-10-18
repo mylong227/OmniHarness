@@ -8,7 +8,7 @@
  *   ③ `trace.read` RPC 起真实 AppServer 打一发（复用会话存储 + 只读投影器）；
  *   ④ 只读保证：返回条目冻结、篡改抛错（无法借道改历史）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

@@ -10,7 +10,7 @@
  * 独立判据保证「策略被替换/改坏」时能直接指认，而不是靠编排级判据间接暴露。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { SignalIngestor } from '../../src/evolution/signalIngestor.ts';

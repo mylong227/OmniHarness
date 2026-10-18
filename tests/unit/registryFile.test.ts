@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -57,7 +57,7 @@ test('PluginRegistry：registryFile 接入后，catalog 独占插件出现在 se
   const registry = new PluginRegistry({
     pluginsDir,
     registryFile: catalog,
-    registryBaseDir: resolve(pathDirname(fileURLToPath(import.meta.url)), '../../..'), // 仓库根，demo-notes 真实存在
+    registryBaseDir: resolve(pathDirname(fileURLToPath(import.meta.url)), '..', '..'), // 仓库根，demo-notes 真实存在
     bundledBaseDir: dir,
   });
 

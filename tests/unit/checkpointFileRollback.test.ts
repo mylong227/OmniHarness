@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';

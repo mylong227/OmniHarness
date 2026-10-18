@@ -3,7 +3,7 @@
 // 锁 = `mkdir` 出来的目录（Windows/POSIX 都是原子创建、已存在即失败）。判据：
 // ① 持锁期间别人抢不到；② 释放后能抢到；③ 临界区抛错也释放（否则一次异常锁死侧车写入）；
 // ④ 陈旧锁可被抢占（持有者崩了不能永久卡死）；⑤ 拿不到锁时 `withLock` 返回 false（**降级而不抛错**）。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

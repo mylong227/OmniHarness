@@ -17,7 +17,7 @@
  * ③ **白名单无死条目**（行为）：白名单里每条 id 都必须**仍然存在**于门禁实际报出的违规里——
  *    清偿后忘了删白名单，会让"存量债务"这个数字虚高，也让棘轮失去意义（本仓"基线只许收紧"的同源要求）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -25,7 +25,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
-const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 读文件原文。 */
 function read(rel: string): string {

@@ -13,7 +13,7 @@
  *   ③ 崩溃恢复：进程中途退出时在途请求被兑现为 fail-open（不永久挂起），且下一次请求会自动重启；
  *   ④ 关闭：`dispose()` 后不再重启。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

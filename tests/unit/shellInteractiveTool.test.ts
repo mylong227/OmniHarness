@@ -7,7 +7,7 @@
  * 3. 退出码/信号/超时**如实回传**（不把失败伪装成成功）；
  * 4. 与 shell 工具同口径的校验与裁决（空命令/超长/策略/裁决器）。
  */
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { ShellInteractiveTool } from '../../src/adapters/tool/shell/shellInteractiveTool.ts';
 import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.ts';

@@ -7,7 +7,7 @@
  *  - 软超但未硬熔断 ⇒ true（这正是应降级的窗口）；
  *  - 已硬熔断 ⇒ false（degradeSuggested 在硬熔断后回落）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CostBudget } from '../../src/adapters/model/costBudget.ts';
 import { CostBudgetDegradeAdapter } from '../../src/adapters/model/costBudgetDegradeAdapter.ts';

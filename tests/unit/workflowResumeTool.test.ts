@@ -8,7 +8,7 @@
  * 二选一的校验、续跑提示文本、以及「续跑时用哪一份定义」都只靠代码审查。
  * 本仓的缺陷家族里「声明了但没接线」占大头——模型面入口恰恰是模型唯一能碰到的那一层。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import type { EventPort } from '../../src/ports/runtime/eventPort.ts';

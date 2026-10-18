@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import {
   LspDiagnosticsCollector,
   type DiagnosticsTimerHandle,
@@ -323,7 +323,7 @@ test('铁律：awaitPublish 之后定时器仍引用事件循环（不得对它 
 });
 
 test('铁律：除该定时器外无其他句柄时，事件循环必须撑到超时（子进程实测）', () => {
-  const collectorUrl = new URL('../../src/adapters/lsp/lspDiagnosticsCollector.js', import.meta.url)
+  const collectorUrl = new URL('../../src/adapters/lsp/lspDiagnosticsCollector.ts', import.meta.url)
     .href;
   const script = [
     `const { LspDiagnosticsCollector } = await import(${JSON.stringify(collectorUrl)});`,

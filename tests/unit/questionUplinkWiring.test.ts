@@ -6,7 +6,7 @@
  * 之所以必须单独钉一遍：本次缺陷的形态正是「零件都在、没人接线」（`runServe` 不注入 `userResponder`、
  * AppServer 不注册 `question.respond`），只测端口本身会**全绿而线上照样答不了**。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AppServer } from '../../src/server/core/appServer.ts';
 import { ServerEventBridge } from '../../src/server/core/serverEventBridge.ts';

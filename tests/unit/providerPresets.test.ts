@@ -14,7 +14,7 @@
  * ⑤ 配置段校验器与运行时求解器**同源**（同一批拒绝项）。
  */
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +29,7 @@ import { ConfigError } from '../../src/config/configError.ts';
 import type { FileConfig } from '../../src/config/configFile.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
-const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /**
  * 把任意值断言成厂商预设（供**故意构造非法输入**的用例绕过类型检查）。

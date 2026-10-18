@@ -12,7 +12,7 @@
  * | ⑤ | 空名字 / 空 secret **fail-closed** 拒绝 | 空名字写出按名取不到的孤儿条目；空值静默覆盖有效凭据 |
  * | ⑥ | **两条组合根都要接线**：stdio 与 serve 都必须注入 `doctorReport`（serve 是 Web UI 实际连的那条） | 真机上诊断面板恒回"未接线"，而本地 stdio 跑测一切正常 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

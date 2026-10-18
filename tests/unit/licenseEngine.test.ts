@@ -14,7 +14,7 @@
  * 判据自带正对照：合法 license 必须 `ok:true`（防"全拒"骗过安全判据）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { LicenseEngine } from '../../src/license/licenseEngine.ts';

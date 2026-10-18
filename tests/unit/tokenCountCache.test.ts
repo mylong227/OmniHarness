@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
 import { TokenCountCache } from '../../src/context/tokenCountCache.ts';

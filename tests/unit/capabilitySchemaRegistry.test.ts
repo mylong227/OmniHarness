@@ -9,7 +9,7 @@
  * ⇒ 相应用例必须红（三条都试过，见提交说明）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';

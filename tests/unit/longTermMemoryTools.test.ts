@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
 import { RememberTool, RecallTool } from '../../src/adapters/tool/memory/longTermMemoryTools.ts';
 

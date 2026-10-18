@@ -1,5 +1,5 @@
 ﻿import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.ts';
 import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.ts';
 import { SessionRecorder } from '../../src/core/sessionRecorder.ts';

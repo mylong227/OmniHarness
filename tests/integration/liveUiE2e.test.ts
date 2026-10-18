@@ -24,61 +24,30 @@
  * 需要本机 Chrome/Edge（`OMNI_CHROME_PATH` 可指定）与 Node ≥22 的全局 WebSocket；缺任一则
  * **显式 skip**（打印原因），绝不伪装通过。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { UiBaseline } from './uiBaseline.ts';
 
-/** 浏览器测试脚手架（源码级 `.mjs`，不被 tsc 编译，故按项目根定位动态 import）。 */
-const HARNESS_URL = pathToFileURL(resolve(process.cwd(), 'web/test/browserHarness.mjs')).href;
-
-/** 脚手架里本文件用到的成员（避免为 .mjs 造类型声明文件）。 */
-interface BrowserHarness {
-  /** 找本机浏览器可执行文件；找不到返回 null。 */
-  readonly findBrowser: () => string | null;
-  /** 取一个空闲端口。 */
-  readonly getFreePort: () => Promise<number>;
-  /** 以 `--remote-debugging-port` 起 headless 浏览器。 */
-  readonly launchChromeForCdp: (
-    browser: string,
-    url: string,
-    userDataDir: string,
-    port: number,
-  ) => ChildProcess;
-  /**
-   * 终止**整棵** Chrome 进程树（Windows 上启动器 spawn 完就退出，只 kill 它会留下浏览器及其子进程）。
-   * @param child launchChromeForCdp 的返回值。
-   * @param userDataDir 该次启动的 `--user-data-dir`（唯一标记，用于扫出真浏览器进程）。
-   */
-  readonly killChromeTree: (child: ChildProcess | undefined, userDataDir?: string) => void;
-  /** 等页面 target 的 CDP WebSocket 出现。 */
-  readonly waitForPageWs: (port: number, marker: string, timeoutMs?: number) => Promise<string>;
-  /** CDP 会话。 */
-  readonly CdpSession: new (wsUrl: string) => CdpSessionLike;
-}
-
-/** CDP 会话（本文件用到的子集）。 */
-interface CdpSessionLike {
-  /** 等 app 挂载。 */
-  readonly waitMounted: () => Promise<boolean>;
-  /** 截图写盘，返回字节数。 */
-  readonly screenshot: (path: string) => Promise<number>;
-  /** 求值 JS 表达式。 */
-  readonly evaluate: (expression: string) => Promise<unknown>;
-  /** 往选择器输入文本。 */
-  readonly type: (selector: string, text: string) => Promise<void>;
-  /** 点击选择器。 */
-  readonly click: (selector: string) => Promise<void>;
-  /** 等表达式为真。 */
-  readonly waitFor: (expression: string, timeoutMs?: number) => Promise<boolean>;
-  /** 关闭连接。 */
-  readonly close: () => void;
-}
+// 浏览器测试脚手架：**静态导入**（2026-10-17 迁移后）。
+//
+// 旧写法是 `await import(pathToFileURL(...browserHarness.mjs))`：那时它是源码级 `.mjs`、
+// 不被 tsc 编译，只能按项目根定位再动态 import。迁移到 `.ts` 后这条路走不通——
+// 裸 file URL 会绕过 Vitest 的转换管线直接交给 Node，而 Node 不认 `.ts`
+//（`Unknown file extension ".ts"`，且因为写在用例内部，看起来像"脚手架缺依赖"）。
+// 静态导入由 Vitest 正常转换，顺带让下面两个手写接口变得多余。
+import {
+  CdpSession,
+  findBrowser,
+  getFreePort,
+  killChromeTree,
+  launchChromeForCdp,
+  waitForPageWs,
+} from '../../web/test/browserHarness.ts';
 
 /** 轮询直到谓词为真（返回其值）；超时抛错。 */
 async function until<T>(fn: () => T | Promise<T>, timeoutMs: number, label: string): Promise<T> {
@@ -110,10 +79,17 @@ function requireBrowser(): boolean {
 test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run 全链路', async (t) => {
   if (typeof globalThis.WebSocket !== 'function') {
     if (requireBrowser()) assert.fail('CI 要求真机浏览器，但当前 Node 缺全局 WebSocket（需 ≥22）');
-    t.skip('Node 缺全局 WebSocket（需 Node ≥22）');
+    t.skip(); // Node 缺全局 WebSocket（需 Node ≥22）
     return;
   }
-  const harness = (await import(HARNESS_URL)) as unknown as BrowserHarness;
+  const harness = {
+    CdpSession,
+    findBrowser,
+    getFreePort,
+    killChromeTree,
+    launchChromeForCdp,
+    waitForPageWs,
+  };
   const browser = harness.findBrowser();
   if (browser === null) {
     // 本地开发无浏览器时跳过是友好的；但 CI 上「跳过」等于这条门禁**看着绿、实际没跑**（假绿），
@@ -123,11 +99,14 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
         'CI 要求真机浏览器，但 findBrowser() 未找到可执行文件（设 OMNI_CHROME_PATH 或安装 Chrome）',
       );
     }
-    t.skip('未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑');
+    t.skip(); // 未找到本机 Chrome/Edge；设 OMNI_CHROME_PATH 后重跑
     return;
   }
 
   const workspaceDir = mkdtempSync(join(tmpdir(), 'omni-live-ui-ws-'));
+  // 假家目录：serve 会读用户级 `~/.omniharness/omniharness.json`（真实用户的偏好如 locale 会
+  // 渗入首帧 ⇒ 结构基线误红）。与下方 env.USERPROFILE/HOME 配套，见 spawn 处注释。
+  const fakeHome = mkdtempSync(join(tmpdir(), 'omni-live-ui-home-'));
   const storageDir = mkdtempSync(join(tmpdir(), 'omni-live-ui-sessions-'));
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-live-ui-ud-'));
   const shotDir = mkdtempSync(join(tmpdir(), 'omni-live-ui-shots-'));
@@ -135,7 +114,7 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
   let serverLog = '';
   let server: ChildProcess | undefined;
   let chrome: ChildProcess | undefined;
-  let cdp: CdpSessionLike | undefined;
+  let cdp: CdpSession | undefined;
   try {
     server = spawn(
       process.execPath,
@@ -155,7 +134,14 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
         workspaceDir,
       ],
       // cwd = 临时工作区：既隔离配置（否则仓库 omniharness.json 会覆盖 mock 适配器），也不污染仓库。
-      { cwd: workspaceDir, stdio: ['ignore', 'pipe', 'pipe'] },
+      {
+        cwd: workspaceDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        // **用户级配置隔离**（2026-10-17）：serve 的分层加载会读本机 `~/.omniharness/omniharness.json`，
+        // 用户的真实偏好（实测：locale:'en'）会改道 SPA 首帧语言 ⇒ 结构基线误红。
+        // USERPROFILE/HOME 指向临时空家目录后，用户级/凭据保险库全部落在测试私有目录。
+        env: { ...process.env, USERPROFILE: fakeHome, HOME: fakeHome },
+      },
     );
     server.stdout?.on('data', (chunk) => (serverLog += String(chunk)));
     server.stderr?.on('data', (chunk) => (serverLog += String(chunk)));

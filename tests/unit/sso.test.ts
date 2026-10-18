@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.ts';

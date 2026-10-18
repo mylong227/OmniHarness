@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { EventPersister } from '../../src/core/loop/eventPersister.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 import type { StoragePort } from '../../src/ports/memory/storage.ts';

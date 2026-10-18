@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 
 import { OidcClient, type OidcProviderConfig } from '../../src/enterprise/oidcClient.ts';
 import { OidcFixture } from './oidcFixture.ts';

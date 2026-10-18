@@ -9,7 +9,7 @@
  *  ② 写类工具成功后走 `clear()` 硬删 ⇒ 下一次组装上下文**必然**全量重建，而 `shell` 里跑
  *     `echo` / `git status` 并不改被索引的源码。改为软失效（`invalidate`）后先比内容签名。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

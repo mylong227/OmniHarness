@@ -29,7 +29,7 @@
  * | ② | 运行期：`kv list` 墙钟 ≤ 预算（3 次取中位数） | 结构对了但仍被别的顶层导入拖慢 |
  * | ③ | 正对照：`--version` 必须显著快于 `kv list`（比例），说明测量确实在量"装配成本"而非 Node 启动 | 若两者同速，②可能只是在量 Node 冷启动 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

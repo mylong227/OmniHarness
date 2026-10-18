@@ -8,7 +8,7 @@
  * 与"畸形包可读拒"两类钉死，且**畸形包必须给可读原因**（不是抛异常、也不是当空包）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

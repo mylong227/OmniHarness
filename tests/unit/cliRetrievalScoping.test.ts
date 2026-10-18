@@ -15,7 +15,7 @@
  * 两侧都用**源码级检查 + 合成坏输入正对照**：这类"作用面/接线"约束没有运行时观测口，
  * 但正对照能证明检查器不是恒真。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -18,7 +18,7 @@
  *
  * 判据全在离线机器上真跑（注入 `probe`/`sleep`/`now`，不联网、不真等待）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -4,7 +4,7 @@
 //   ③ ≥1 条改进被采纳：真实登记（证据 = 本会话实际落地的检测器与门禁提交）并出现在台账；
 //   ④ 确定性：同失败流重复挖掘 20 次提案集完全一致。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {

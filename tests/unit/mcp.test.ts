@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
@@ -285,5 +285,5 @@ test('MCP 参数解析：NAME=COMMAND ARGS 拆分正确', () => {
 
 /** 夹具脚本路径（dist/tests/fixtures/mcpEchoServer.js）。 */
 function fixturePath(): string {
-  return fileURLToPath(new URL('../fixtures/mcpEchoServer.js', import.meta.url));
+  return fileURLToPath(new URL('../../dist/tests/fixtures/mcpEchoServer.js', import.meta.url));
 }

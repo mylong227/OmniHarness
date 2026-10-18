@@ -13,7 +13,7 @@
  * 97.5% 掉到 93.75%（缺 preload 透传那三行）——因为**测试 spawn 的 CLI 子进程覆盖也会并进报告**，
  * 那三行原本是 CLI 跑 agent 回合时"顺手"覆盖的。正确处置不是下调基线，而是把这条契约**显式判据化**。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CachedEmbeddingPort } from '../../src/context/cachedEmbeddingPort.ts';
 import { EmbeddingContentCache } from '../../src/context/embeddingContentCache.ts';

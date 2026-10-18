@@ -7,7 +7,7 @@
  *   ② **D2 纪律**：未知字符串**抛错**而非静默回落成 `off`——否则「配置写错」会静默退化成
  *      「护栏失效」，与 `cliEnums.ts`「安全相关枚举必须显式校验」同一纪律。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { EnforcementModeResolver } from '../../src/security/enforcementModeResolver.ts';
 import { PromptInjectionGuard } from '../../src/security/promptInjectionGuard.ts';

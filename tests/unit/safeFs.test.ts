@@ -1,5 +1,5 @@
 // #OBS-11：safeReadFile 单测
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';

@@ -87,10 +87,11 @@ jobs:
       # 实际没跑**（假绿）。这一步就是防它降级：runner 无浏览器即红，并打印找过的候选路径。
       - name: 断言 CI 环境确有浏览器（否则浏览器类门禁会静默 skip）
         run: |
-          node -e "import('./web/test/browserHarness.mjs').then((m)=>{const b=m.findBrowser();if(!b){console.error('CI 缺浏览器：浏览器类门禁（e2e-cdp / 真机 UI 体检 / 结构基线 / 响应式探针）将静默跳过');process.exit(1);}console.log('browser =',b);})"
+          node --experimental-strip-types -e "import('./web/test/browserHarness.ts').then((m)=>{const b=m.findBrowser();if(!b){console.error('CI 缺浏览器：浏览器类门禁（e2e-cdp / 真机 UI 体检 / 结构基线 / 响应式探针）将静默跳过');process.exit(1);}console.log('browser =',b);})"
       # 响应式探针（真 Chrome + CDP，量 640/1280 有无横向溢出）此前只在本地手跑 ⇒ 收进 CI。
+      # 测试栈统一后判据为 .ts，需 `--experimental-strip-types`（Node 22 跑 .ts 必需；22.18+ 起默认开启）。
       - name: 窄窗/中窗横向溢出探针（真 Chrome）
-        run: node web/test/responsiveProbe.mjs
+        run: node --experimental-strip-types web/test/responsiveProbe.ts
 
   test:
     name: 单元测试（含覆盖率门禁 · 跨平台真机）

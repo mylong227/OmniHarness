@@ -6,7 +6,7 @@
  * worktree 隔离**语义相反**。于是同层多个"可能写文件"的步骤并发会互相覆盖同一文件且无冲突检测。
  * 本文件钉住"哪些层必须退化为串行"的判据（保守取向：宁可多串行几层）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { WorkflowLayerPolicy } from '../../src/autonomy/workflowLayerPolicy.ts';

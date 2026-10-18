@@ -8,7 +8,7 @@
 //  - stdout 分支只临时替换 `process.stdout.write` 做捕获，**在同一个同步块内恢复**（不跨 await），
 //    避免污染 node:test 的报告输出；
 //  - 每条判据旁标注「正对照」：说明改坏被测逻辑后它会在哪一步变红（另附实跑的红/绿证据）。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   existsSync,

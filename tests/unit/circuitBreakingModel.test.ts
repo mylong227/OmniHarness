@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { test } from 'vitest';
 import { CircuitBreakingModel } from '../../src/adapters/model/circuitBreakingModel.ts';
 import { RetryingModel } from '../../src/adapters/model/retryingModel.ts';
 import { CircuitOpenError } from '../../src/errors/circuitOpenError.ts';

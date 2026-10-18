@@ -9,7 +9,7 @@
  * 变异自证：把 `validate` 换成恒 `{ok:true}` ⇒ 悬空依赖负例立刻红。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {

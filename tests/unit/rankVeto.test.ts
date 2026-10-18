@@ -5,7 +5,7 @@
  * 而是锁定行为契约——常量路由必须被否决、查询专属路由必须放行、
  * 结构性指标不得单独触发否决、退化输入不崩。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { RankVetoEvaluator, RankVetoOverlap } from '../../src/context/rankVeto/index.ts';
 

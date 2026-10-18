@@ -14,7 +14,7 @@
  * prompt→采样→奖励→回放"这条链路；**不是**真实模型的接受率提升（那需要真实模型与真实失败集）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { RlvrLoop } from '../../src/evolution/rlvrLoop.ts';

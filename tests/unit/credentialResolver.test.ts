@@ -1,4 +1,4 @@
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { CredentialResolver } from '../../src/config/credentialResolver.ts';
 import type { VaultPort } from '../../src/ports/memory/vault.ts';

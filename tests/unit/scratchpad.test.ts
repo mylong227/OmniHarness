@@ -3,7 +3,7 @@
 //   ② 有界性：超过 maxNotes 丢最旧；
 //   ③ fail-soft：文件损坏/空正文一律回空态，绝不抛错阻断主流程。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

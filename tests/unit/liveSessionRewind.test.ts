@@ -11,7 +11,7 @@
  *   ④ 端到端：注册回卷回调后 `rollback` 真的截断内存流，且随后的落盘不会复活全量。
  */
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test } from 'vitest';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
 import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
 import { EventPersister } from '../../src/core/loop/eventPersister.ts';

@@ -9,7 +9,7 @@
  * 修法：以**当前目录为准**——目录里没有的丢弃；仍在的取目录中的**最新定义**（不用陈旧副本）。
  * 本测试锁死这两条，防止回归。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
 import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';

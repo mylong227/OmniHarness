@@ -9,7 +9,7 @@
  * 4. **用法错误 ⇒ 2**；缺 `--source` ⇒ 2。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

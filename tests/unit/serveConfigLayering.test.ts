@@ -11,7 +11,7 @@
  *
  * 本测试锁死：**用户级层必须参与合并，且项目级层优先于用户级**（否则又是一个静默失效）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -114,7 +114,7 @@ test('serve：接线守卫——runServe 必须走 loadServeConfig（防退回�
   const { dirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const here = dirname(fileURLToPath(import.meta.url));
-  const src = readFileSync(join(here, '..', '..', '..', 'src', 'cli', 'cliServerCmds.ts'), 'utf8');
+  const src = readFileSync(join(here, '..', '..', 'src', 'cli', 'cliServerCmds.ts'), 'utf8');
   assert.match(src, /CliServerCmds\.loadServeConfig\(/, 'runServe 必须调用 loadServeConfig');
   assert.ok(
     !/const loadedFile = configFile\.load\(configPath\);/.test(src),

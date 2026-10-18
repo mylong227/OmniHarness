@@ -3,7 +3,7 @@
  *
  * 真机 e2e 单独成测，无浏览器时 `t.skip`，避免污染其它机器；本机（装有 Chrome/Edge）会真起 headless 截一张图。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';

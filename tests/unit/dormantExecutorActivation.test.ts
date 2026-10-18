@@ -8,7 +8,7 @@
  * - 附加：条款幂等（同一失败模式反复出现不撑爆 instructions）/ 单轮提案数有界 / 缺件如实申报。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { DormantExecutorActivation } from '../../src/evolution/dormantExecutorActivation.ts';

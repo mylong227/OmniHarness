@@ -4,7 +4,7 @@
 //   ② 仅启用禁闭色荷也构造 spark（各算子独立触发接线），其余维度 undefined；
 //   ③ 四项皆不启用 → spark 为 undefined（零破坏旁路）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -13,7 +13,7 @@
  * 判据自带**正对照**：同一套夹具在「合法令牌」上必须绿（否则"全拒"也能骗过安全判据）。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';

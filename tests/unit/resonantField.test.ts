@@ -2,7 +2,7 @@
 // ① 近重复事实黏附去重（不新建条目，单一频谱索引）；② 超 Bekenstein 容量界则 RG 坍缩且存储不膨胀；
 // ③ 纤维召回返回共振簇成员；④ resonate 文本探针返回共振事实；⑤ tune 守恒（facts 与 base 一致）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';

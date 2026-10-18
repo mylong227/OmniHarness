@@ -8,7 +8,7 @@
  * 注：文件名原为 `traceWiring.test.ts`；为了让位给 T4.5 只读自省 trace 的接线单测
  * （同名主题、不同子系统），2026-09-19 更名为 `otlpTraceWiring.test.ts`，内容逐字未改。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';

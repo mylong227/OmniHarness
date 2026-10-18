@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
 import type { ToolPort } from '../../src/ports/tool/tool.ts';

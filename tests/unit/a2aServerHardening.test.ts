@@ -6,7 +6,7 @@
  * 修复后：超过 `MAX_BODY_BYTES` 即 413 并销毁连接；读超时释放连接；正常小请求不受影响。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { HttpA2aServerTransport } from '../../src/a2a/index.ts';
 

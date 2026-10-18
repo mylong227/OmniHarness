@@ -27,7 +27,7 @@
  * 其首条消息是一条 user 提示），它们与"组装上下文"不是同一序列，混在一起比会把正常行为读成退化
  * （首版即因此误报）。故按 `messages[0].role === 'system'` 过滤出步循环请求再比对。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { copyFileSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -66,14 +66,7 @@ async function runMultiStep(steps: number): Promise<{
   readonly workspace: string;
 }> {
   const workspace = mkdtempSync(join(tmpdir(), 'omni-prefix-'));
-  const sourceRoot = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    '..',
-    '..',
-    'src',
-    'context',
-  );
+  const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'src', 'context');
   for (const name of readdirSync(sourceRoot).slice(0, 24)) {
     copyFileSync(join(sourceRoot, name), join(workspace, name));
   }

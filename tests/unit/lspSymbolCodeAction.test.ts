@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { strict as assert } from 'node:assert/strict';
-import { after, describe, test } from 'node:test';
+import { afterAll, describe, test } from 'vitest';
 import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
 import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
 import { LspDocumentSymbolsTool } from '../../src/adapters/tool/lsp/lspDocumentSymbolsTool.ts';
@@ -16,7 +16,7 @@ const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');
 /** 一次性工作目录（放被测的「源文件」）。 */
 const workDir = mkdtempSync(join(tmpdir(), 'omni-lsp-sym-'));
 
-after(() => {
+afterAll(() => {
   rmSync(workDir, { recursive: true, force: true });
 });
 

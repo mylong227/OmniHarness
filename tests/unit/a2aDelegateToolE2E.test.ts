@@ -10,7 +10,7 @@
  * ① 真实对端（独立 runtime、独立端口）上，工具调用返回子代理产出；
  * ② 输出可区分（对端固定文本经 MockModel 脚本产出，非本地回声）。
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';

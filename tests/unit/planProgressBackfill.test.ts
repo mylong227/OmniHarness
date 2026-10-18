@@ -8,7 +8,7 @@
  * 修法：计划已 `approved` 且本次草稿的**步骤集合逐字未变**（只有 status 回填等差异）时保持
  * approved；步骤集合变化（增删/改写描述）仍回落 drafting 并要求重新审批。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.ts';

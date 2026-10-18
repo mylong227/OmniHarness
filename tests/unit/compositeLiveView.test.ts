@@ -1,5 +1,5 @@
 // CompositeLiveView 单测（#B3 web）：验证组合 sink 的转发 / addSink / removeSink / 去重。
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.ts';

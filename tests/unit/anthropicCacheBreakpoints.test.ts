@@ -5,7 +5,7 @@
  * （system 与最近轮优先）、极短会话不多打、非文本块不被当选、以及
  * 「第 N 轮发出的消息在第 N+1 轮逐字不变」这一**前缀稳定性**前提。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';

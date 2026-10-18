@@ -18,7 +18,7 @@
  *   ② 真跑 Agent（`runTask` / `resume`）后，**模型真收到的 user 消息**带 `files`
  *   ③ 缺省不传附件时，消息上**不得出现** `files` 键（零行为变更）
  */
-import test from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';

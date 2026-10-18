@@ -11,7 +11,7 @@
  *
  * 全部离线：临时目录 + 注入探针，不真起服务（端到端接线在 `servePortConflictE2E.test.ts`）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

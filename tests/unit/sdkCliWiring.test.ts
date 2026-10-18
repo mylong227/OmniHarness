@@ -9,7 +9,7 @@
  *   ③ 调用失败（缺参数）以退出码 1 拒绝且不静默；
  *   ④ WebSocketSdkSocket 连真实 `HttpServer` 的 /ws 端点打一发（真实传输层证据）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
 import { SdkCommand } from '../../src/cli/sdkCommand.ts';

@@ -9,7 +9,7 @@
  *   发现源保鲜（新技能进池）/ CLI 旗标与配置文件双通道透传。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

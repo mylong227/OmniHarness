@@ -3,7 +3,7 @@
  * 未配置 / 空 / 非整数 / 低于下限 → 安全回退 fallback；合法整数 → 生效。
  */
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { LimitEnv } from '../../src/util/limitEnv.ts';
 

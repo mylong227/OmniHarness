@@ -5,7 +5,7 @@
 //   ④ 确定性：同输入重复体检 20 次报告完全一致；
 //   ⑤ wrap 后数值口径与原 VerifiableRewardFn 兼容（绿=1/失败/异常=0，fail-closed 不变）。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import {

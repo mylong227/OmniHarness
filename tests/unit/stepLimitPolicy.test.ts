@@ -17,7 +17,7 @@
  * | ③ | 显式给上限时**仍按步数截断**且如实标 `truncated` | 有界性彻底消失（CI/成本封顶失效） |
  * | ④ | 不限步数下，**行为护栏熔断也算"没做完"**（`truncated=true`） | 被熔断的回合被上层读成"完成"（假信号） |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

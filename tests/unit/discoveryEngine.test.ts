@@ -1,7 +1,7 @@
 // 发现引擎（P1 进化闭环"发现"段）单元测试。
 // 覆盖：燧-1 组合生成、discoveryBudget 硬上限、预算耗尽返回空、不重复生成。
 
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
 import type { Skill } from '../../src/skill/skill.ts';

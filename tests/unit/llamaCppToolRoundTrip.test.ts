@@ -14,7 +14,7 @@
  *   ③ `images` 内联为纯 base64（剥掉 data URL 前缀）；不可内联的 URL 形式不发假字段；
  *   ④ 纯文本历史逐字段零变化（改造前行为不是「顺带被改掉」）。
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
 import type { ModelMessage, ModelRequest } from '../../src/ports/model/model.ts';

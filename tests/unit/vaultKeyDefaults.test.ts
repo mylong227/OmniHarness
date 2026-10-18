@@ -20,7 +20,7 @@
  * | ⑥ | **`--vault-hydrate` 默认必须真能水合**（真起 CLI 子进程）：别的进程 `vault set` 进去的凭据，带该旗标必须取回 | 半接线：serve 侧已默认接线，水合侧还按旧口径跳过（本判据修前必红） |
  * | ⑦ | `OMNIHARNESS_VAULT=0` ⇒ `--vault-hydrate` 跳过并**如实说明**跳过原因（不得谎称水合成功） | 关掉了却悄悄继续读保险库 |
  */
-import { test } from 'node:test';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
