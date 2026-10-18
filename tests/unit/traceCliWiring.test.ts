@@ -15,7 +15,6 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { TraceCommand } from '../../src/cli/traceCommand.ts';
-import { CliDefaults } from '../../src/cli/argParser.ts';
 import { SessionStorageLocation } from '../../src/util/sessionStorageLocation.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 
@@ -60,12 +59,8 @@ test('trace read：真读存档并输出稳定 seq 的条目（TSV）', async ()
 });
 
 test('④ 缺省存储目录 == 写入方默认（单一事实源；修复前两边不一致 ⇒ 默认写+默认读必失败）', async () => {
-  // 一致性地判据本身：`CliDefaults.storageDir`（写入方）必须等于 `SessionStorageLocation.defaultDir()`。
-  assert.strictEqual(
-    CliDefaults.storageDir,
-    SessionStorageLocation.defaultDir(),
-    '写入方默认目录与 SessionStorageLocation 分家了',
-  );
+  // 不再断言 `CliDefaults.storageDir === SessionStorageLocation.defaultDir()`：前者就是后者的
+  // getter 别名，同源比较恒真。真正的判据是下面的行为面（默认目录写 → 不给 --storage-dir 读得到）。
   // 行为面：把会话放到**默认目录**里，不给 --storage-dir，trace read 必须读得到。
   // 为不污染真实用户目录，用 OMNI_SESSIONS_DIR 把"默认目录"指到临时目录——这正是该环境变量的用途：
   // 一个旋钮同时移动写入方与所有读取方。

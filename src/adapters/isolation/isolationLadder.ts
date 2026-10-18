@@ -236,7 +236,21 @@ export class IsolationLadder implements IsolationPort {
     }
     // 受限全局：不注入 require / process / module / globalThis / fetch（与插件沙箱同口径）。
     const sandbox: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
-    const context = createContext(sandbox);
+    // 动态 import 没有注入回调时会在**返回 Promise 之后**以宿主级错误崩掉进程（审查 P1）。
+    // vm 档的载荷是自求值同步代码，直接拒绝这一类语法，比事后处理未处理 rejection 可靠。
+    if (/\bimport\s*\(/u.test(payload.code)) {
+      return {
+        ok: false,
+        denied: {
+          code: 'payload-unsupported',
+          level: 'vm',
+          reason: 'vm 档禁止动态 import（没有可用的模块回调，且会以未处理 rejection 崩宿主）',
+        },
+      };
+    }
+    // `microtaskMode: afterEvaluate` 让 Promise 微任务也受同一次 timeout 约束：
+    // 否则 `Promise.then(() => { for(;;){} })` 会在 runInContext 返回后永久冻结宿主。
+    const context = createContext(sandbox, { microtaskMode: 'afterEvaluate' });
     try {
       const value = new Script(`(${payload.code}\n)`, {
         filename: payload.filename ?? 'isolation-vm',
@@ -251,6 +265,21 @@ export class IsolationLadder implements IsolationPort {
             level: 'vm',
             reason:
               'vm 载荷必须自求值（写成 `(() => …)()`）：返回函数说明它未被 vm 执行，且跨 realm 调用不受 vm timeout 保护',
+          },
+        };
+      }
+      // Promise（含跨 realm thenable）不是可交付结果：它把执行推迟到 vm timeout 之外。
+      if (
+        value !== null &&
+        (typeof value === 'object' || typeof value === 'function') &&
+        typeof (value as { then?: unknown }).then === 'function'
+      ) {
+        return {
+          ok: false,
+          denied: {
+            code: 'payload-unsupported',
+            level: 'vm',
+            reason: 'vm 载荷返回了 Promise/thenable：异步执行不受 vm timeout 保护，必须返回同步值',
           },
         };
       }

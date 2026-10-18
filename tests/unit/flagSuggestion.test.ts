@@ -127,7 +127,9 @@ test('⑥ 架构约束：flagSuggestion 必须是**叶子模块**（不得反向
   // 环①（argParser ↔ cliEnums ↔ cliFlagTable ↔ cliHelp）从 4 成员**撑到 5 成员** ⇒ 门禁报
   // 「新增环」并中止提交。本判据把"清单由调用方注入"这条约束钉在源码上（门禁的窄化前哨）。
   const src = readFileSync(join(REPO_ROOT, 'src', 'cli', 'flagSuggestion.ts'), 'utf8');
-  const fromCli = [...src.matchAll(/from\s+'\.\/([a-zA-Z]+)\.js'/g)].map((m) => m[1]);
+  // 匹配任意相对导入（含 `.ts`/`.js` 后缀与多行 import）；只认 `.js` 会随导入约定统一为 `.ts`
+  // 而静默退化（2026-10-18 审查：旧正则在该文件当前零 import 时恒为 []，加回 .ts 导入也检不出）。
+  const fromCli = [...src.matchAll(/from\s+'(\.\/[^']+)'/g)].map((m) => m[1]);
   assert.deepStrictEqual(
     fromCli,
     [],

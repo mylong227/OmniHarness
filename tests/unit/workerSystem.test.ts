@@ -32,6 +32,22 @@ test('CliWorker：失败命令返回失败结果', async () => {
   assert.match(result.output, /退出码 3/);
 });
 
+test.skipIf(process.platform !== 'win32')(
+  'CliWorker：Windows shell:true 不得把 task 里的 & 当命令分隔符（注入回归）',
+  async () => {
+    const worker = new CliWorker({
+      name: 'inject-demo',
+      command: process.execPath,
+      args: (task) => ['-e', 'console.log(process.argv[1])', task],
+      shell: true,
+    });
+    const task = 'safe&echo INJECTED %PATH%';
+    const result = await worker.run({ task, workspaceRoot: process.cwd() });
+    assert.strictEqual(result.ok, true, result.output);
+    assert.strictEqual(result.output.trim(), task, 'task 必须原样作为单个参数到达子进程');
+  },
+);
+
 test('WorkerRegistry：注册与选择', () => {
   const registry = new WorkerRegistry();
   registry.register(new SimpleWorker('a'));

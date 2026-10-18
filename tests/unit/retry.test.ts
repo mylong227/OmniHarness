@@ -1,4 +1,4 @@
-import { test } from 'vitest';
+import { test, vi } from 'vitest';
 import assert from 'node:assert/strict';
 import { Retry } from '../../src/util/concurrency/retry.ts';
 
@@ -65,6 +65,14 @@ test('withRetry：超过最大次数抛出最后错误', async () => {
 
 test('backoffMs：指数增长且封顶 maxDelayMs', () => {
   const opts = { baseDelayMs: 100, maxDelayMs: 1000, factor: 2 };
-  assert.ok(Retry.backoffMs(1, opts) <= 1000);
-  assert.ok(Retry.backoffMs(10, opts) <= 1000, '第 10 次退避应被封顶');
+  // 全抖动返回 [0, capped] 的随机值：把 Math.random 固定为 1 才能断言 capped 本身。
+  const spy = vi.spyOn(Math, 'random').mockReturnValue(1);
+  try {
+    assert.strictEqual(Retry.backoffMs(1, opts), 100);
+    assert.strictEqual(Retry.backoffMs(2, opts), 200);
+    assert.strictEqual(Retry.backoffMs(3, opts), 400);
+    assert.strictEqual(Retry.backoffMs(10, opts), 1000, '第 10 次退避应被封顶');
+  } finally {
+    spy.mockRestore();
+  }
 });

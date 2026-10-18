@@ -111,19 +111,20 @@ test('SQLite：写入中途失败必须整体回滚，旧快照不被半截覆�
   }
 });
 
-test('SQLite：单事务批量写入在规模上明显快于逐条自动提交（实测口径）', async () => {
+test('SQLite：500 条批量写入在宽松上界内完成（不做逐条对比）', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'omniharness-'));
   const file = join(dir, 'test.db');
   try {
     const storage = new SqliteStorage(file);
     const batch = events(500);
-    // 预热 + 计时（只断言「够快」的宽松上界：事务化的 500 条应在数十毫秒量级）
+    // 预热 + 计时：只做“没有退化到逐条 fsync 量级”的宽松上界；不宣称与逐条提交的倍数，
+    // 也不用 500ms 这种在并行套件里会抖动的绝对阈值。
     await storage.save('warm', batch);
     const began = Date.now();
     await storage.save('s1', batch);
     const elapsed = Date.now() - began;
     assert.strictEqual((await storage.load('s1')).length, 500);
-    assert.ok(elapsed < 500, `500 事件写入应在 500ms 内完成，实测 ${String(elapsed)}ms`);
+    assert.ok(elapsed < 5000, `500 事件写入应在 5s 内完成，实测 ${String(elapsed)}ms`);
     storage.close();
   } finally {
     try {

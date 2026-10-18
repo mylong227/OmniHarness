@@ -20,6 +20,17 @@ test('DaemonController：默认后台入口是 CLI exec，不是 daemonControlle
   assert.doesNotMatch(DaemonController.defaultEntry(), /daemonController/u);
 });
 
+test('DaemonController：入口不存在时 start 必须失败，不得写 PID 报“已启动”', () => {
+  const pidFile = tmpPidFile();
+  const controller = new DaemonController({
+    pidFile,
+    entry: join(tmpdir(), 'omni-daemon-no-such-entry.js'),
+  });
+  assert.throws(() => controller.start([], 18787), /立即退出/u);
+  assert.strictEqual(existsSync(pidFile), false, '启动失败不得留下 PID 文件');
+  rmSync(pidFile, { recursive: true, force: true });
+});
+
 test('DaemonController：status 探测存活与 PID 文件清理', async () => {
   const pidFile = tmpPidFile();
   const controller = new DaemonController({ pidFile });

@@ -53,7 +53,7 @@ test('EnvVault：契约通过 + 环境变量回退', async () => {
   }
 });
 
-test('CryptoVault(MemoryKv)：契约通过 + 密文不落明文', async () => {
+test('CryptoVault(MemoryKv)：通用契约通过（磁盘密文由 JsonFileKv 用例覆盖）', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'omniharness-vault-'));
   const keyFile = path.join(dir, 'key');
   try {

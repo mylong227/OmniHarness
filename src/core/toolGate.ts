@@ -142,24 +142,28 @@ export class ToolGate implements ToolGatePort {
     const approval = await this.approvals.decide({
       sessionId,
       toolName: call.name,
-      target: this.targetOf(call),
+      // 多文件补丁必须把**全部**目标展示给审批；只显示首个会让用户以为只改一个文件。
+      target: this.targetsOf(call).join(', '),
     });
     if (approval === 'deny') {
       // 审批策略拒绝：不升级（升级会绕过既定策略，违反最小权限）。
       const policyName = this.approvals.name ?? 'approval';
       return `${policyName} 策略拒绝（${call.name}）：当前审批模式不允许该工具（plan mode 仅放行只读白名单；rules 模式按规则裁决；如需放行请切换 approval=auto 或加 --auto-approve）`;
     }
-    const decision = await this.sandbox.check(this.sandboxActionOf(call));
-    if (decision.allowed) {
-      return undefined;
+    // 多文件补丁：每个目标都过沙箱，任何一个拒绝即整条补丁拒绝（不能只检查首个）。
+    for (const action of this.sandboxActionsOf(call)) {
+      const decision = await this.sandbox.check(action);
+      if (decision.allowed) {
+        continue;
+      }
+      // G3/G4 核心：沙箱拒绝 → 咨询升级审批，escalate 且 elevatedSandbox 放行则放行。
+      if (await this.tryEscalate(call, sessionId, decision, action)) {
+        continue;
+      }
+      const cat = decision.category ? `[${decision.category}] ` : '';
+      return `sandbox 拒绝（${call.name}：${action.target}）${cat}${decision.reason ?? '未提供原因'}`;
     }
-    // G3/G4 核心：沙箱拒绝 → 咨询升级审批，escalate 且 elevatedSandbox 放行则放行。
-    if (await this.tryEscalate(call, sessionId, decision)) {
-      return undefined;
-    }
-    const cat = decision.category ? `[${decision.category}] ` : '';
-    const tgt = this.targetOf(call);
-    return `sandbox 拒绝（${call.name}：${tgt}）${cat}${decision.reason ?? '未提供原因'}`;
+    return undefined;
   }
 
   /**
@@ -173,6 +177,7 @@ export class ToolGate implements ToolGatePort {
     call: ToolCall,
     sessionId: string,
     decision: SandboxDecision,
+    action: SandboxAction = this.sandboxActionOf(call),
   ): Promise<boolean> {
     if (this.escalation === undefined) {
       return false;
@@ -180,14 +185,14 @@ export class ToolGate implements ToolGatePort {
     const verdict = await this.escalation.decide({
       sessionId,
       toolName: call.name,
-      target: this.targetOf(call),
+      target: this.targetsOf(call).join(', '),
       reason: decision.reason ?? 'sandbox denied',
       deniedBy: 'sandbox',
     });
     if (verdict !== 'escalate') {
       return false;
     }
-    const elevated = await this.elevatedSandbox.check(this.sandboxActionOf(call));
+    const elevated = await this.elevatedSandbox.check(action);
     return elevated.allowed;
   }
 
@@ -236,21 +241,50 @@ export class ToolGate implements ToolGatePort {
    * @returns command / path / url 参数值，或补丁头目标；均缺失时退化为工具名。
    */
   private targetOf(call: ToolCall): string {
+    return this.targetsOf(call)[0] ?? call.name;
+  }
+
+  /**
+   * 提取**全部**动作目标（多文件补丁的每一段都要过审批展示与沙箱）。
+   *
+   * `+++` 与 `---` 都参与：删除文件时 `+++` 是 `/dev/null`，真实目标是 `---` 一侧；
+   * 新建文件则相反。两侧都收并去重，兼容 `a/`、`b/` 前缀。
+   * @param call 工具调用
+   * @returns 目标清单（至少一个；无任何线索时为工具名）
+   */
+  private targetsOf(call: ToolCall): string[] {
     const direct = call.arguments['command'] ?? call.arguments['path'] ?? call.arguments['url'];
-    if (typeof direct === 'string' && direct !== '') {
-      return direct;
-    }
     if (call.name === TOOL_NAMES.applyPatch) {
       const patch = call.arguments['patch'];
       if (typeof patch === 'string') {
-        const match = /^\+\+\+ (.+)$/m.exec(patch);
-        const path = match?.[1];
-        if (path !== undefined && path !== '/dev/null') {
-          return path.trim().replace(/^[ab]\//, '');
+        const targets: string[] = [];
+        for (const line of patch.split(/\r?\n/u)) {
+          const match = /^(?:\+\+\+|---) (.+)$/u.exec(line);
+          if (match === null) continue;
+          const raw = match[1]?.trim() ?? '';
+          if (raw === '' || raw === '/dev/null') continue;
+          const normalized = raw.replace(/^[ab]\//u, '');
+          if (!targets.includes(normalized)) targets.push(normalized);
         }
+        if (targets.length > 0) return targets;
       }
     }
-    return call.name;
+    if (typeof direct === 'string' && direct !== '') {
+      return [direct];
+    }
+    return [call.name];
+  }
+
+  /**
+   * 按工具类型映射**全部**沙箱动作：多文件补丁每个目标一条，其余工具一条。
+   * @param call 工具调用
+   * @returns 沙箱动作清单
+   */
+  private sandboxActionsOf(call: ToolCall): SandboxAction[] {
+    if (call.name !== TOOL_NAMES.applyPatch) {
+      return [this.sandboxActionOf(call)];
+    }
+    return this.targetsOf(call).map((target) => ({ kind: 'file_write', target }));
   }
 }
 

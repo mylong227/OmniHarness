@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, readFileSync, writeFileSync } from 'node:fs';
 import { ArrayAt } from '../util/arrayAt.ts';
 import type { OidcProviderConfig } from '../ports/enterprise/oidcProviderConfig.ts';
 import type { OidcDiscovery } from '../ports/enterprise/oidcDiscovery.ts';
@@ -79,6 +79,9 @@ export type { AuthState } from '../ports/enterprise/authState.ts';
  * 无隐式状态，同一实例可并发复用（默认实例见文件末尾组合根门面）。
  */
 export class OidcClient {
+  /** 登录中间态的最长存活时间（10 分钟）：超时即拒绝，避免陈旧 state/verifier 长期可用。 */
+  public static readonly AUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
   /**
    * 将字节编码为 base64url（替换 +/ 并去掉填充，JWT 标准字母表）。
    * @param input 待编码的 Buffer 或 UTF-8 字符串。
@@ -270,7 +273,12 @@ export class OidcClient {
           : false;
     if (!okAud) throw new Error('id_token aud 不匹配 client_id');
     const exp = payload['exp'];
-    if (typeof exp === 'number' && Date.now() / 1000 > exp) throw new Error('id_token 已过期');
+    // fail-closed：缺 exp / 字符串 exp 一律拒绝。旧实现只在 `typeof exp === 'number'` 时校验，
+    // 于是 `exp` 缺失或 `'9999999999'` 都被当成“永不过期”的令牌放行（审查 P1）。
+    if (typeof exp !== 'number' || !Number.isFinite(exp)) {
+      throw new Error('id_token 缺少有效的 exp（数字）');
+    }
+    if (Date.now() / 1000 > exp) throw new Error('id_token 已过期');
     if (opts.nonce !== undefined && payload['nonce'] !== opts.nonce)
       throw new Error('id_token nonce 不匹配');
   }
@@ -314,17 +322,43 @@ export class OidcClient {
    * @returns 无返回值。
    */
   public writeAuthState(path: string, state: AuthState): void {
-    writeFileSync(path, JSON.stringify(state, null, 2), 'utf8');
+    // 中间态含 client_secret 与 PKCE code_verifier：按 0600 落盘（Windows 上 chmod 可能无效，
+    // 但至少不主动给 group/other 读权限）。
+    writeFileSync(path, JSON.stringify(state, null, 2), { encoding: 'utf8', mode: 0o600 });
+    try {
+      chmodSync(path, 0o600);
+    } catch {
+      /* Windows / 只读挂载：权限位不可用，不阻断登录 */
+    }
   }
 
   /**
    * @beta
    * 读取 `auth login` 中间态。
    * @param path 中间态 JSON 文件的读取路径。
-   * @returns 反序列化出的认证中间态；文件不存在或 JSON 非法时抛错。
+   * @returns 反序列化出的认证中间态；文件不存在、JSON 非法、形状不符或超过 TTL 时抛错。
    */
   public readAuthState(path: string): AuthState {
-    return JSON.parse(readFileSync(path, 'utf8')) as AuthState;
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
+    if (parsed === null || typeof parsed !== 'object') {
+      throw new Error('auth state 形状非法：不是对象');
+    }
+    const state = parsed as Partial<AuthState>;
+    if (
+      typeof state.issuer !== 'string' ||
+      typeof state.clientId !== 'string' ||
+      typeof state.state !== 'string' ||
+      typeof state.codeVerifier !== 'string' ||
+      typeof state.createdAt !== 'string'
+    ) {
+      throw new Error('auth state 形状非法：缺少 issuer/clientId/state/codeVerifier/createdAt');
+    }
+    const created = Date.parse(state.createdAt);
+    // 中间态只在一次登录跳转内有意义；超过 10 分钟即视为陈旧（防重放/长期落盘）。
+    if (!Number.isFinite(created) || Date.now() - created > OidcClient.AUTH_STATE_TTL_MS) {
+      throw new Error('auth state 已过期（超过 10 分钟），请重新 auth login');
+    }
+    return state as AuthState;
   }
 
   /**

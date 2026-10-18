@@ -13,8 +13,8 @@ test('LinuxBwrapSandbox: bwrap 不可用时 check 返回 allowed:false (fail-clo
     assert.strictEqual(decision.category, 'os');
     assert.match(decision.reason ?? '', /bwrap/);
   } else {
-    // 仅在真实 Linux + bwrap 可用时 allow，仍应遵守受限策略。
-    assert.ok(true);
+    // bwrap 可用：命令放行必须是“无拒绝类别”的允许，而不是任意 true。
+    assert.strictEqual(decision.category, undefined);
   }
 });
 
@@ -34,13 +34,14 @@ test('LinuxBwrapSandbox: dryRun 生成含 --unshare-net 与 --bind workspace 的
 
 test('MacOsSeatbeltSandbox: 非 macOS 平台 check 返回 allowed:false (fail-closed)', async () => {
   const sb = new MacOsSeatbeltSandbox(WORKSPACE);
+  const decision = await sb.check({ kind: 'command', target: 'ls' });
   if (process.platform !== 'darwin') {
-    const decision = await sb.check({ kind: 'command', target: 'ls' });
     assert.strictEqual(decision.allowed, false);
     assert.strictEqual(decision.category, 'os');
     assert.match(decision.reason ?? '', /sandbox-exec/);
   } else {
-    assert.ok(true);
+    // macOS 可用：允许决策不得携带拒绝类别（true 之外的契约）。
+    assert.strictEqual(decision.category, undefined);
   }
 });
 

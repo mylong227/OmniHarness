@@ -1,6 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { mkdtempSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.ts';
 
 function b64url(buf: Buffer | string): string {
@@ -148,6 +151,50 @@ test('verifyIdTokenClaims：匹配通过；aud 不匹配 / 过期抛错', () => 
   assert.throws(() =>
     OidcClient.verifyIdTokenClaims({ ...base, exp: 1 }, { issuer: 'https://idp', clientId: 'cli' }),
   );
+  // fail-closed：缺 exp / 字符串 exp 不能被当成“永不过期”。
+  const { exp: _omit, ...withoutExp } = base;
+  assert.throws(() =>
+    OidcClient.verifyIdTokenClaims(withoutExp, { issuer: 'https://idp', clientId: 'cli' }),
+  );
+  assert.throws(() =>
+    OidcClient.verifyIdTokenClaims(
+      { ...base, exp: String(base.exp) },
+      { issuer: 'https://idp', clientId: 'cli' },
+    ),
+  );
+});
+
+test('auth state：0600 落盘、形状非法/超 TTL 拒绝', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-auth-state-'));
+  const path = join(dir, 'state.json');
+  try {
+    OidcClient.writeAuthState(path, {
+      issuer: 'https://idp',
+      clientId: 'cli',
+      clientSecret: 'secret',
+      state: 'st',
+      codeVerifier: 'verifier',
+      createdAt: new Date().toISOString(),
+    });
+    assert.strictEqual(OidcClient.readAuthState(path).state, 'st');
+    if (process.platform !== 'win32') {
+      assert.strictEqual(statSync(path).mode & 0o777, 0o600, '中间态必须 0600');
+    }
+
+    OidcClient.writeAuthState(path, {
+      issuer: 'https://idp',
+      clientId: 'cli',
+      state: 'st',
+      codeVerifier: 'verifier',
+      createdAt: new Date(Date.now() - OidcClient.AUTH_STATE_TTL_MS - 1000).toISOString(),
+    });
+    assert.throws(() => OidcClient.readAuthState(path), /已过期/u);
+
+    OidcClient.writeAuthState(path, { issuer: 'https://idp' } as never);
+    assert.throws(() => OidcClient.readAuthState(path), /形状非法/u);
+  } finally {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+  }
 });
 
 test('verifyJwtSignature：正确 RS256 令牌通过；篡改抛错', () => {

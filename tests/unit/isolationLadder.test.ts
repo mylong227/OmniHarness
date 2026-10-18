@@ -113,6 +113,54 @@ test('C1 vm 档：触达宿主能力（require）⇒ escape 拒执行', async ()
   }
 });
 
+test('C1 vm 档：Promise/thenable ⇒ 拒（异步执行不受 vm timeout 保护）', async () => {
+  const ladder = new IsolationLadder();
+  const result = await ladder.run({
+    asset: assetAt('vm'),
+    payload: { kind: 'js-source', code: '(() => Promise.resolve(1))()', filename: 'async.js' },
+  });
+  assert.strictEqual(result.ok, false);
+  if (!result.ok) {
+    assert.strictEqual(result.denied.code, 'payload-unsupported');
+    assert.match(result.denied.reason, /Promise\/thenable/u);
+  }
+});
+
+test('C1 vm 档：动态 import ⇒ 拒（避免宿主级未处理 rejection）', async () => {
+  const ladder = new IsolationLadder();
+  const result = await ladder.run({
+    asset: assetAt('vm'),
+    payload: {
+      kind: 'js-source',
+      code: "(() => import('node:fs'))()",
+      filename: 'dyn-import.js',
+    },
+  });
+  assert.strictEqual(result.ok, false);
+  if (!result.ok) {
+    assert.strictEqual(result.denied.code, 'payload-unsupported');
+    assert.match(result.denied.reason, /动态 import/u);
+  }
+});
+
+test('C1 vm 档：微任务死循环也被 timeout 中止（microtaskMode=afterEvaluate）', async () => {
+  const ladder = new IsolationLadder();
+  const result = await ladder.run({
+    asset: assetAt('vm'),
+    payload: {
+      kind: 'js-source',
+      code: '(() => { Promise.resolve().then(() => { while (true) {} }); return 1; })()',
+      filename: 'microtask-spin.js',
+    },
+    timeoutMs: 50,
+  });
+  assert.strictEqual(result.ok, false);
+  if (!result.ok) {
+    assert.strictEqual(result.denied.code, 'timeout');
+    assert.strictEqual(result.denied.level, 'vm');
+  }
+});
+
 test('C1 vm 档：载荷未自求值（返回函数）⇒ 拒（跨 realm 调用不受 vm timeout 保护）', async () => {
   const ladder = new IsolationLadder();
   const result = await ladder.run({

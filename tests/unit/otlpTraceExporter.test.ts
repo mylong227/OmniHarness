@@ -51,7 +51,12 @@ test('OtlpTraceExporter：POST 失败静默丢弃（不反噬业务）', async (
   // 不应抛错。
   await exporter.export([span]);
   await exporter.flush();
-  assert.ok(true);
+  // 不能只断言“没抛”：必须证明失败**被计数**，否则 export 退化成空操作也全绿。
+  const stats = exporter.stats();
+  assert.strictEqual(stats.batchesSent, 0, '失败批次不得计入 sent');
+  assert.strictEqual(stats.batchesDropped, 1, '网络失败必须计为 dropped');
+  assert.strictEqual(stats.spansDropped, 1, '被丢弃的 span 数必须可断言');
+  assert.strictEqual(stats.lastDropReason, 'network');
 });
 
 test('NoopTraceExporter：export/flush 均无操作', async () => {

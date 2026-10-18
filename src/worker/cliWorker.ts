@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ProcessTreeKiller } from '../adapters/tool/shell/processTreeKiller.ts';
 import type { Worker, WorkerRequest, WorkerResult } from './worker.ts';
 
@@ -72,9 +75,11 @@ export class CliWorker implements Worker {
   private spawnOutput(request: WorkerRequest): Promise<string> {
     return new Promise((resolve, reject) => {
       const args = [...this.options.args(request.task, request.workspaceRoot)];
-      const child = spawn(this.options.command, args, {
+      const spec = this.spawnSpec(args);
+      const child = spawn(spec.command, spec.args, {
         cwd: request.workspaceRoot,
-        shell: this.options.shell === true,
+        shell: spec.shell,
+        env: spec.env,
       });
       const chunks: Buffer[] = [];
       let bytes = 0;
@@ -91,6 +96,7 @@ export class CliWorker implements Worker {
       const cleanup = (): void => {
         clearTimeout(timer);
         signal?.removeEventListener('abort', onAbort);
+        spec.cleanup();
       };
       const fail = (message: string): void => {
         if (settled) return;
@@ -128,6 +134,62 @@ export class CliWorker implements Worker {
         else signal.addEventListener('abort', onAbort, { once: true });
       }
     });
+  }
+
+  /**
+   * 构造实际 spawn 形态。
+   *
+   * **为什么 Windows 不再 `shell:true`**：`shell:true` 会把 argv 原样拼进 cmd 命令行，
+   * 模型可控的 task 里一个 `&` 就能执行任意命令，绕过 shell 工具的审批/沙箱（审查 P0）。
+   * 这里改为直接启动 PowerShell，把**参数作为 JSON 数据**从临时文件读入再用 `@workerArgs`
+   * splat 传给目标程序——任务文本从不进入命令行解析。POSIX 的 `shell:true` 同样有注入面，
+   * 而该选项只是为 Windows 的 npm `.cmd` 垫片存在，故非 Windows 一律关 shell 直接 exec。
+   * @param args 目标程序参数（含任务文本）
+   * @returns spawn 参数、环境与临时文件清理函数
+   */
+  private spawnSpec(args: readonly string[]): {
+    command: string;
+    args: string[];
+    env: NodeJS.ProcessEnv;
+    shell: boolean;
+    cleanup: () => void;
+  } {
+    const direct = (): {
+      command: string;
+      args: string[];
+      env: NodeJS.ProcessEnv;
+      shell: boolean;
+      cleanup: () => void;
+    } => ({
+      command: this.options.command,
+      args: [...args],
+      env: process.env,
+      shell: false,
+      cleanup: (): void => undefined,
+    });
+    if (this.options.shell !== true || process.platform !== 'win32') {
+      return direct();
+    }
+    const dir = mkdtempSync(join(tmpdir(), 'omni-cli-worker-'));
+    const payload = join(dir, 'payload.json');
+    writeFileSync(payload, JSON.stringify({ exe: this.options.command, args }), {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
+    const script = [
+      '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)',
+      '$p = Get-Content -Raw -LiteralPath $env:OMNI_CLI_WORKER_PAYLOAD | ConvertFrom-Json',
+      '$workerArgs = @($p.args)',
+      '& $p.exe @workerArgs',
+      'if ($null -eq $LASTEXITCODE) { exit 0 } else { exit $LASTEXITCODE }',
+    ].join('; ');
+    return {
+      command: 'powershell.exe',
+      args: ['-NoProfile', '-NonInteractive', '-Command', script],
+      env: { ...process.env, OMNI_CLI_WORKER_PAYLOAD: payload },
+      shell: false,
+      cleanup: (): void => rmSync(dir, { recursive: true, force: true }),
+    };
   }
 
   /**

@@ -108,8 +108,30 @@ export class DaemonController {
     if (pid === undefined) {
       throw new Error('daemon 启动失败：未能获取子进程 PID');
     }
+    // 就绪探测：入口不存在/端口被占时子进程会立刻退出，旧实现照样写 PID 并让 CLI
+    // 打印“已启动”（用户按假成功继续连 UI）。这里给一个很短的存活窗口，失败即抛错。
+    if (!this.waitForAlive(pid, 800)) {
+      throw new Error(
+        `daemon 启动失败：子进程 ${String(pid)} 启动后立即退出（检查入口是否存在、端口是否被占用）`,
+      );
+    }
     writeFileSync(this.pidFile, String(pid), 'utf8');
     return pid;
+  }
+
+  /**
+   * 等待进程**稳定存活**一个短窗口（同步 sleep；仅 start 的就绪探测用）。
+   * @param pid 目标进程 id
+   * @param timeoutMs 观察窗口毫秒数
+   * @returns 窗口结束时仍存活返回 true；中途退出返回 false
+   */
+  private waitForAlive(pid: number, timeoutMs: number): boolean {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      if (!this.isAlive(pid)) return false;
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+    }
+    return this.isAlive(pid);
   }
 
   /**
@@ -135,9 +157,15 @@ export class DaemonController {
     } catch {
       // 已被回收，忽略。
     }
-    if (!this.waitForExit(pid, DaemonController.STOP_TIMEOUT_MS)) {
+    let exited = this.waitForExit(pid, DaemonController.STOP_TIMEOUT_MS);
+    if (!exited) {
       DaemonController.forceKillTree(pid);
-      this.waitForExit(pid, DaemonController.KILL_TIMEOUT_MS);
+      exited = this.waitForExit(pid, DaemonController.KILL_TIMEOUT_MS);
+    }
+    if (!exited) {
+      // 树杀后仍存活：**不得删 PID 文件、不得报成功**。旧实现无条件 unlink + true，
+      // 用户看到“已停止”，进程仍占端口，下一次 start 又拉第二个 daemon。
+      return false;
     }
     if (existsSync(this.pidFile)) {
       unlinkSync(this.pidFile);

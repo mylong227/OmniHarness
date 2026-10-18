@@ -47,6 +47,9 @@ export const PLATFORM_SKIP_EXEMPT_FILES = [
   'tests/unit/worktree.test.ts',
   'tests/unit/doctor.test.ts',
   'tests/unit/macosSeatbeltSandbox.test.ts',
+  // 符号链接能力由文件系统/沙箱决定（Windows 需开发者模式/权限），不是可安装的“环境开关”；
+  // 该用例无法建链时显式 t.skip()，不会被误记为通过。
+  'tests/unit/safeFs.test.ts',
 ] as const;
 
 /**

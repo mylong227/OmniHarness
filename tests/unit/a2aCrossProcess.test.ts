@@ -1,4 +1,4 @@
-﻿/**
+/**
  * E2：A2A 跨进程实测 + 真实子代理委托链路。
  *
  * 看板 E2 的可证伪验收是两例：
@@ -105,10 +105,18 @@ async function startPeer(transport: 'http' | 'ws', identityKey?: string): Promis
       child,
       port,
       stop: async () => {
-        child.kill();
-        await new Promise<void>((resolve) => {
+        // 子进程可能已自行退出：此时 `once('exit')` 永不触发，旧实现会把用例挂到超时。
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        const exited = new Promise<void>((resolve) => {
           child.once('exit', () => resolve());
         });
+        child.kill();
+        await Promise.race([
+          exited,
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 5000).unref();
+          }),
+        ]);
       },
     };
   } catch (error) {

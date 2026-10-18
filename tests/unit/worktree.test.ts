@@ -151,17 +151,3 @@ test('第六轮：无改动时采集为空（不得凭空产出 patch）', { ski
     rmSync(repo, { recursive: true, force: true });
   }
 });
-
-test('第六轮：无改动时采集为空（不得凭空产出 patch）', { skip: !gitAvailable }, async () => {
-  const repo = await makeRepo(true);
-  try {
-    const wt = await WorktreeOps.createWorktree(repo, 'nochange');
-    const changes = await WorktreeOps.collectChanges(wt.path);
-    assert.deepStrictEqual(changes.files, []);
-    assert.strictEqual(changes.patch, '');
-    assert.strictEqual(changes.truncated, false);
-    await wt.cleanup();
-  } finally {
-    rmSync(repo, { recursive: true, force: true });
-  }
-});

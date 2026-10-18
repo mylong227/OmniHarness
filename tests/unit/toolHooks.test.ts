@@ -28,14 +28,19 @@ test('钩子：pre 依序执行，post 逆序执行', async () => {
 
 test('钩子：空运行器不抛错', async () => {
   const runner = new ToolHookRunner();
+  // await 本身即判据：任一钩子链抛错都会让用例失败；不再用 assert.ok(true) 掩盖。
   await runner.pre(context);
   await runner.post(context, { callId: 'c1', ok: true });
-  assert.ok(true);
 });
 
 test('钩子：只注册 pre 时 post 无副作用', async () => {
   const runner = new ToolHookRunner();
-  runner.add({ pre: () => undefined });
+  let preCalls = 0;
+  runner.add({
+    pre: () => {
+      preCalls += 1;
+    },
+  });
   await runner.post(context, { callId: 'c1', ok: false, error: 'x' });
-  assert.ok(true);
+  assert.strictEqual(preCalls, 0, 'post 不得回调 pre 钩子');
 });

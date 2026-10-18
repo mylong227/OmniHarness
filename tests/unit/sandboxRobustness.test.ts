@@ -51,3 +51,33 @@ test('sandbox[restricted]：危险命令与网络外联在故障注入下仍被�
     false,
   );
 });
+
+test('sandbox[policy/restricted]：恶意命令必须被拒，不能只断言"返回了布尔值"', async () => {
+  for (const box of [
+    new PolicySandbox({ workspaceRoot: ROOT }),
+    new RestrictedSandbox({ workspaceRoot: ROOT }),
+  ]) {
+    for (const command of ['rm -rf /', '$(sudo mkfs /dev/sda)']) {
+      const decision = await box.check({ kind: 'command', target: command });
+      assert.strictEqual(decision.allowed, false, `[${box.name}] 危险命令必须拒绝：${command}`);
+    }
+    // 路径穿越：两种策略后端都必须拒绝（passthrough 的“全放行”是另一条显式契约，不在此列）。
+    const traversal = await box.check({ kind: 'file_read', target: '../../etc/passwd' });
+    assert.strictEqual(traversal.allowed, false, `[${box.name}] 路径穿越必须拒绝`);
+  }
+  // restricted 比 policy 多一条网络外联：同样必须落成 false，而不是“返回了 boolean”。
+  const restricted = new RestrictedSandbox({ workspaceRoot: ROOT });
+  assert.strictEqual(
+    (await restricted.check({ kind: 'command', target: 'curl http://169.254.169.254/' })).allowed,
+    false,
+  );
+});
+
+test('sandbox[passthrough]：显式全放行是既定契约（防止把它误当安全后端）', async () => {
+  const box = new PassthroughSandbox();
+  assert.strictEqual((await box.check({ kind: 'command', target: 'rm -rf /' })).allowed, true);
+  assert.strictEqual(
+    (await box.check({ kind: 'file_read', target: '../../etc/passwd' })).allowed,
+    true,
+  );
+});

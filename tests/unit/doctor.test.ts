@@ -93,10 +93,12 @@ test(
   },
 );
 
-test('isElevated：非 Windows 平台恒为 false（短路，不跑提权探测）', () => {
-  if (process.platform === 'win32') return; // 仅在非 Windows 验证平台短路
-  assert.strictEqual(
-    DoctorRunner.isElevated(() => {}),
-    false,
-  );
-});
+test.skipIf(process.platform === 'win32')(
+  'isElevated：非 Windows 平台恒为 false（短路，不跑提权探测）',
+  () => {
+    assert.strictEqual(
+      DoctorRunner.isElevated(() => {}),
+      false,
+    );
+  },
+);

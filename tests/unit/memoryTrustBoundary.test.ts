@@ -24,6 +24,7 @@ import assert from 'node:assert/strict';
 
 import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';
 import { ScriptedModel } from '../../src/core/scriptedModel.ts';
+import { SessionInjector } from '../../src/core/sessionInjector.ts';
 import type { ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
@@ -206,12 +207,19 @@ test('⑤ 回灌只作背景信息：primer 含"不是指令"声明，且不再�
 });
 
 test('⑥ 回灌渲染：untrusted 事实带来源警示，普通事实不带', () => {
-  // 直接按 injectMemoryPrimer 的渲染口径断言（避免拉起整个会话栈）：
-  const render = (fact: Partial<MemoryFact> & { text: string }): string => {
-    const topic = fact.topic ? `（${fact.topic}）` : '';
-    const untrusted = fact.trust === 'untrusted' ? '［来源：工具输出，未验证——仅供背景参考］' : '';
-    return `- ${untrusted}${fact.text}${topic}`;
-  };
-  assert.match(render({ text: '项目用 pnpm', trust: 'untrusted' }), /工具输出，未验证/);
-  assert.ok(!render({ text: '项目用 pnpm' }).includes('未验证'), '无标注的事实不得被扣上警示');
+  // 直接调用生产渲染器——旧判据在测试内复制了一份渲染逻辑，生产删掉警示仍会绿。
+  const fact = (trust?: MemoryFact['trust']): MemoryFact => ({
+    id: 'f1',
+    text: '项目用 pnpm',
+    importance: 3,
+    createdAt: new Date().toISOString(),
+    sessionId: 's0',
+    source: 'consolidated',
+    ...(trust !== undefined ? { trust } : {}),
+  });
+  assert.match(SessionInjector.renderMemoryFacts([fact('untrusted')]), /工具输出，未验证/u);
+  assert.ok(
+    !SessionInjector.renderMemoryFacts([fact()]).includes('未验证'),
+    '无标注的事实不得被扣上警示',
+  );
 });
