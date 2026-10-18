@@ -4,14 +4,26 @@
 //   ② 任务完成后自动跑一轮 发现→评估→晋升；
 //   ③ 达标组合技能被晋升进实时 SkillRegistry（即"燧-1 真正进入循环"）。
 
-import { test } from 'vitest';
+import { afterAll, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Skill } from '../../src/skill/skill.ts';
 import { MoireComposer } from '../../src/skill/moireComposer.ts';
+
+/** 本文件创建的临时工作区（afterAll 统一清理）。 */
+const dirs: string[] = [];
+function tempWorkspace(tag: string): string {
+  const dir = mkdtempSync(join(tmpdir(), tag));
+  dirs.push(dir);
+  return dir;
+}
+
+afterAll(() => {
+  for (const dir of dirs) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+});
 import { Benchmark } from '../../src/evolution/benchmark.ts';
 import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.ts';
 import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
@@ -67,7 +79,7 @@ test('端到端：evolution 注入 Agent 后，任务完成跑闭环并把达标
     autoRun: true,
   });
 
-  const workspaceRoot = mkdtempSync(join(tmpdir(), 'omni-evoint-'));
+  const workspaceRoot = tempWorkspace('omni-evoint-');
   const config = ConfigFactory.build({
     workspaceRoot,
     maxSteps: 16,
@@ -89,7 +101,7 @@ test('端到端：evolution 注入 Agent 后，任务完成跑闭环并把达标
 });
 
 test('零破坏：未注入 evolution 时 Agent 行为与以往一致（不跑闭环）', async () => {
-  const workspaceRoot = mkdtempSync(join(tmpdir(), 'omni-evoint2-'));
+  const workspaceRoot = tempWorkspace('omni-evoint2-');
   const config = ConfigFactory.build({
     workspaceRoot,
     maxSteps: 16,

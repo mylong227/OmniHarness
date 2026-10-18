@@ -12,7 +12,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { A2aDelegateTool } from '../../src/a2a/a2aDelegateTool.ts';
@@ -165,5 +165,6 @@ test('注册面：a2a.enabled 时 createRuntime 后工具表出现 a2a_delegate'
     assert.ok(runtime.a2a !== undefined, 'runtime.a2a 应已装配');
   } finally {
     runtime.a2a?.transport.close?.();
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }
 });

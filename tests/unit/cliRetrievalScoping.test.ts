@@ -43,6 +43,9 @@ function retrievalScopingViolations(source: string): string[] {
   if (callAt > agentAt) return [];
   // 调用点在兜底分支之前 ⇒ 说明它对所有子命令生效（旧行为）。
   const lastDispatch = source.lastIndexOf("if (argv[0] === '");
+  if (lastDispatch < 0) {
+    return ['找不到子命令分发锚点（if (argv[0] === ...)）⇒ 检查器不能默认合规'];
+  }
   return callAt > lastDispatch
     ? []
     : ['applyCliRetrievalDefaults() 在子命令分发之前被调用（对所有子命令生效）'];
@@ -78,6 +81,12 @@ test('① 生产侧：检索默认档只作用于 agent 路径（附合成坏输
   assert.ok(
     retrievalScopingViolations(legacy).length > 0,
     '把调用挪回开头却检不出来 ⇒ 判据①是恒真断言',
+  );
+  // 锚点缺失（源码结构变了）必须报“找不到锚点”，不能因为 -1 就默认合规。
+  const noAnchor = source.replaceAll("if (argv[0] === '", 'if (false && "');
+  assert.ok(
+    retrievalScopingViolations(noAnchor).some((v) => v.includes('分发锚点')),
+    '子命令分发锚点缺失时检查器不得静默判合规',
   );
 });
 

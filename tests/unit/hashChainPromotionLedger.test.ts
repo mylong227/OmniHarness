@@ -10,9 +10,9 @@
  * - 附加：spec 声明的 `evolution.ledger.*` 观测行接线（且观测 fail-open 不连累治理写入）。
  */
 
-import { test } from 'vitest';
+import { afterAll, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -31,10 +31,17 @@ function skillOf(name: string): Skill {
   return { name, description: `${name} 描述`, instructions: `${name} 步骤`, tags: [name] };
 }
 
-/** 新建临时目录。 */
+/** 新建临时目录（afterAll 统一清理）。 */
+const dirs: string[] = [];
 function workspace(): string {
-  return mkdtempSync(join(tmpdir(), 'omni-ledger-'));
+  const dir = mkdtempSync(join(tmpdir(), 'omni-ledger-'));
+  dirs.push(dir);
+  return dir;
 }
+
+afterAll(() => {
+  for (const dir of dirs) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+});
 
 test('S3 快照/晋升/回滚入链：verify ok、seq 递增、JSONL 落盘与内存链一致', () => {
   const dir = workspace();

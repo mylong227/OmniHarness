@@ -20,7 +20,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,10 +34,10 @@ function read(rel: string): string {
 }
 
 /** 跑一次架构门禁，返回 stdout+stderr 与退出码。 */
-function runGate(): { readonly out: string; readonly code: number } {
+function runGate(cwd: string = REPO_ROOT): { readonly out: string; readonly code: number } {
   try {
     const out = execFileSync('node', [join(REPO_ROOT, 'scripts', 'architectureGate.mjs')], {
-      cwd: REPO_ROOT,
+      cwd,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -117,14 +118,25 @@ test('③ 白名单不得有死条目：每条 id 都必须仍然存在于实际
 });
 
 test('④ 正对照：临时造一条 ports→实现层 禁边，门禁必须**当场红**（空白名单不等于没规则）', () => {
-  const probe = join(REPO_ROOT, 'src', 'ports', 'runtime', '__archProbe.ts');
-  writeFileSync(
-    probe,
-    "import type { WorkerResult } from '../../worker/worker.js';\n\n/** 正对照探针（用完即删）。 */\nexport type Probe = WorkerResult;\n",
-    'utf8',
-  );
+  // 在**临时目录**里造最小 src 树再跑门禁：不往真实 src/ 写探针，避免并行套件看到瞬态禁边、
+  // 以及进程被硬杀时残留探针让门禁长期红（2026-10-18 测试审计 P1）。
+  const dir = mkdtempSync(join(tmpdir(), 'omni-arch-probe-'));
   try {
-    const { out, code } = runGate();
+    const portDir = join(dir, 'src', 'ports', 'runtime');
+    const workerDir = join(dir, 'src', 'worker');
+    mkdirSync(portDir, { recursive: true });
+    mkdirSync(workerDir, { recursive: true });
+    writeFileSync(
+      join(workerDir, 'worker.ts'),
+      '/** 临时实现层（仅用于门禁正对照）。 */\nexport interface WorkerResult { ok: boolean }\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(portDir, '__archProbe.ts'),
+      "import type { WorkerResult } from '../../worker/worker.ts';\n\n/** 正对照探针。 */\nexport type Probe = WorkerResult;\n",
+      'utf8',
+    );
+    const { out, code } = runGate(dir);
     assert.notStrictEqual(
       code,
       0,
@@ -136,9 +148,9 @@ test('④ 正对照：临时造一条 ports→实现层 禁边，门禁必须**�
       `门禁必须点名这条新边（否则红的原因不是它）：\n${out.slice(0, 800)}`,
     );
   } finally {
-    rmSync(probe, { force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }
-  // 收尾自证：探针删除后门禁必须恢复绿（排除"探针残留导致的假绿/假红"）。
+  // 收尾自证：临时树删除后真实仓库门禁必须仍是绿（排除"测试把真实树改脏"）。
   const after = runGate();
-  assert.strictEqual(after.code, 0, `探针已删但门禁仍红：\n${after.out.slice(0, 800)}`);
+  assert.strictEqual(after.code, 0, `真实仓库门禁应保持绿：\n${after.out.slice(0, 800)}`);
 });

@@ -19,7 +19,7 @@
  * 判据⑤是本判据的灵魂：只会说好话的判据没有价值。本仓已有一条被自己证伪的路径正是"查询不敏感"
  * （每次给不同的文件、但不给对的文件）——随机对照就是在复现那种失败形态。
  */
-import { test } from 'vitest';
+import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync } from 'node:fs';
@@ -62,12 +62,16 @@ function runProbe(): ProbeReport {
 
 let report: ProbeReport | undefined;
 
+beforeAll(() => {
+  report = runProbe();
+});
+
+afterAll(() => {
+  // 探针输出在仓库 `.omni-storage` 下：用例结束统一删，避免残留文件污染工作区。
+  rmSync(OUT, { force: true });
+});
+
 test('① 探针可跑通并输出结构完整的报告', () => {
-  try {
-    report = runProbe();
-  } finally {
-    rmSync(OUT, { force: true });
-  }
   assert.ok(report !== undefined, '探针未产出报告');
   assert.strictEqual(report.probe, 'memoryLiftProbe');
   assert.ok(report.budget >= 3, `primer 名额异常：${String(report.budget)}`);

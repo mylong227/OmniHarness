@@ -3659,7 +3659,8 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 8. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
    共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
    vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
-   productionGrade 临时目录等，剩余项按报告继续。
+   productionGrade/architectureGate 探针/hashChain/evolutionIntegration/a2aDelegate/fileLockCrossProcess/
+   cliRetrievalScoping/memoryPrimer 等，剩余项按报告继续。
 
 ### 16.5 提交与最终数
 

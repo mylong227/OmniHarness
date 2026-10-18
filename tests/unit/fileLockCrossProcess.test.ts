@@ -1,4 +1,4 @@
-﻿// **真·跨进程**锁门禁（用户要求「按真实的完成」）：不是同进程里造两个 FileLock 实例，
+// **真·跨进程**锁门禁（用户要求「按真实的完成」）：不是同进程里造两个 FileLock 实例，
 // 而是 `spawn` **两个真的 Node 子进程**去争同一把锁，验证「并发读—改—写一次都不丢」。
 //
 // 为什么这样写：
@@ -93,6 +93,7 @@ test('真·跨进程：两个 Node 进程争同一把锁，10 次自增一次不
 
 test('真·跨进程：拿不到锁的子进程**有界退出**（不无限等、不写坏文件）', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'file-lock-xproc-busy-'));
+  let releaseHeld: (() => void) | undefined;
   try {
     const counter = join(dir, 'counter.json');
     writeFileSync(counter, JSON.stringify({ n: 0 }));
@@ -100,6 +101,7 @@ test('真·跨进程：拿不到锁的子进程**有界退出**（不无限等�
     const { FileLock } = await import('../../src/util/concurrency/fileLock.ts');
     const held = new FileLock(counter, { leaseMs: 30_000 });
     assert.strictEqual(held.tryAcquire(), true);
+    releaseHeld = () => held.release();
     const child = spawn(
       process.execPath,
       [
@@ -120,8 +122,11 @@ process.exit(lock.withLock(() => {}) ? 0 : 3);
       0,
       '拿不到锁的子进程不得改动文件',
     );
-    held.release();
+    releaseHeld?.();
+    releaseHeld = undefined;
   } finally {
+    // 断言失败时也要放锁，否则后续用例/清理会被一张 30s 租约挡住。
+    releaseHeld?.();
     rmSync(dir, { recursive: true, force: true });
   }
 });

@@ -1,6 +1,6 @@
-import { test } from 'vitest';
+import { afterAll, test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ArgParser } from '../../src/cli/argParser.ts';
@@ -8,10 +8,17 @@ import { KvStoreFactory } from '../../src/cli/kvStoreFactory.ts';
 import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
 import type { SandboxProfile } from '../../src/adapters/sandbox/sandboxManager.ts';
 
-/** 临时工作区（避免测试依赖真实 cwd）。 */
+/** 临时工作区（避免测试依赖真实 cwd；afterAll 统一清理）。 */
+const roots: string[] = [];
 function testRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'omni-enum-'));
+  const dir = mkdtempSync(join(tmpdir(), 'omni-enum-'));
+  roots.push(dir);
+  return dir;
 }
+
+afterAll(() => {
+  for (const dir of roots) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
+});
 
 test('非法 --sandbox 抛错而非静默回落 passthrough（fail-open 回归）', () => {
   // 拼错一个字母：修复前会经 `as` 强转穿过类型系统，
