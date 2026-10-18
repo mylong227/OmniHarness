@@ -4074,3 +4074,11 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 处置：`.rv-tabs { background: inherit; }`（取 `.col.right` 的底色，深浅主题都成立）。
 验收：真实 serve + 真 Chrome 打开 README.md，滚动右栏 320px 后，标签栏中心点的 topmost 元素
 是 `.rv-tabs` 本身（`tabsBg` 不再是 transparent），截图无正文穿透。
+
+### 26. 分栏拖拽柄改细（2026-10-19）
+
+用户截图：中栏与右栏之间的拖动条太粗。原实现 hover 时把整条 5px 刷成 `--accent-line`，
+看起来像一条粗竖带。
+
+改为「**6px 热区 + 1px 可见线**」：`.resizer` 本体透明，`::after` 是正中 1px 线，
+静止 `opacity:0`，hover / 键盘聚焦才亮。目标依旧好抓，视觉上只剩一根细线。

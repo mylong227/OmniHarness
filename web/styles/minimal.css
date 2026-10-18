@@ -102,18 +102,29 @@
   border-color: var(--hairline);
 }
 
-/* 分栏拖拽柄：静止时不画线（四条灰线太吵），hover 出一条墨色细线。 */
+/* 分栏拖拽柄：**热区 6px、可见线只有 1px**（2026-10-19 用户「拖动条太粗了，改细」）。
+   之前 hover 把整条 5px 都刷成 accent-line，看起来像一条粗竖带；
+   现在静止不画线，hover / 键盘聚焦才在正中亮一条 1px 墨线——目标好抓、视觉很细。 */
 .resizer {
-  width: 5px;
+  width: 6px;
   background: transparent;
   transition: background var(--dur-1) var(--ease);
 }
 .resizer::after {
-  content: none;
-}
-.resizer:hover,
-.resizer:focus-visible {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
   background: var(--accent-line);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.resizer:hover::after,
+.resizer:focus-visible::after {
+  opacity: 1;
 }
 
 /* 图标按钮：无框（框是噪音），hover 落一层表面。 */
