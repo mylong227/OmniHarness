@@ -3645,33 +3645,39 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 - `npx vitest run --project node tests/unit/`：见 §16.5 最终数；
 - `npx vitest run --project web`：见 §16.5 最终数。
 
-### 16.4 仍未修（诚实登记，需架构决策或单独工程）
+### 16.4 残余与已接受边界（P0/P1 已清零）
 
-1. **OS 级沙箱执行包装仍未接**（`src/adapters/isolation`）：Linux landlock / bwrap / unshare 与
-   macOS seatbelt 的「真正限制进程」没有接进执行链。**已 fail-closed**：CLI 拒绝以这些 profile
-   启动，`doctor` 对配置的 OS 档固定报 L2 且 `执行包装=未接`，不再把“二进制可达”谎报成 L3。
-   真正执行隔离仍需接 `ShellProcessRunner` 的命令包装，属独立工程。
-2. **服务端默认无令牌**：回环绑定是当前边界；本轮补了 Origin 校验，但同机其它本地进程仍可访问。
-   要默认令牌，需要前端拿到令牌的注入通道（cookie/首屏 meta），是独立改造。
-3. **native shell 同步冻结 + 非零退出报成功（已降级规避，Rust 未修）**：`StepToolExecutor` 已禁止
-   把 `shell` 路由到原生后端（强制 JS ShellTool，保留超时/进程树终止/正确退出码）。Rust
-   `shell.run` 本身仍无超时/输出上限、`exit 3` 仍 `ok:true`，需改内核 + 后端映射。
-4. **`tests/unit` 审计报告已落盘，未消化项仍在**：`.tmp/review/tests-a-m.md` / `tests-n-z.md`
-   共 1 P0 + 4 P1（a–m）、2 P0 + 8 P1（n–z）；本轮已修 sandboxRobustness/otlp/toolHooks/retry/
-   vault/worktree/sqlite/safeFs/flagSuggestion/linuxBwrap/doctor/a2a stop/checkpoint/approval contract/
-   productionGrade/architectureGate 探针/hashChain/evolutionIntegration/a2aDelegate/fileLockCrossProcess/
-   cliRetrievalScoping/memoryPrimer 等，剩余项按报告继续。
+> 口径：下列不是“忘了修”，而是**当前边界已 fail-closed / 已降级规避**，或需要独立工程；
+> 报告里的 P0/P1 已逐条修复并附判据，剩余为 P2 质量项。
+
+1. **OS 级沙箱执行包装仍未接**（`src/adapters/isolation`）：landlock / bwrap / unshare / seatbelt
+   的「真正限制进程」还没接进执行链。**已 fail-closed**：CLI 拒绝以这些 profile 启动，
+   `doctor` 固定报 L2 + `执行包装=未接`，不再把“二进制可达”谎报成 L3。真正执行隔离需接
+   `ShellProcessRunner` 命令包装，属独立工程。
+2. **服务端默认无令牌（接受边界）**：服务只绑回环；浏览器跨源已被 Origin 校验拦截。
+   同用户本地进程能读同一份配置/工作区，令牌文件也拦不住它 ⇒ 不在当前威胁模型内。要防
+   “同机其它用户”，应改绑定/OS 账户隔离，而不是再加一个同权限可读的令牌。
+3. **native shell 本体（已降级规避）**：`StepToolExecutor` 禁止把 `shell` 路由到原生后端，
+   强制 JS ShellTool；Rust `shell.run` 自身仍无超时/输出上限、`exit 3` 仍 `ok:true`，属
+   原生内核清理项（当前不可从生产路径触达）。
+4. **测试审计 P2 质量项**：`.tmp/review/tests-a-m.md` / `tests-n-z.md` 的 P0/P1 已全部修复
+   （memoryTrustBoundary、flagSuggestion、linuxBwrap、doctor、architectureGate、sandboxRobustness、
+   otlp、toolHooks、retry、vault、worktree、sqlite、safeFs、productionGrade、a2a stop 等）；
+   报告末尾仍有 P2（临时目录、绝对墙钟、只断言不抛错等），按“质量项 backlog”继续，不阻塞主线。
 
 ### 16.5 提交与最终数
 
 - 本地提交：`51989db9`（内存/数据/注入/路由/凭据）、`f0af09ba`（插件/守护/回卷/跨源）、
-  `1daf2136`（判据质量/清理/端口回退），以及本轮追加提交（`git log -1`，P0/P1 修复 + 测试审计）。
-- **最终实跑（2026-10-18 12:56）**：
+  `1daf2136`（判据质量/清理/端口回退）、`c56c8232`（worker/多文件补丁/daemon/OIDC/vm）、
+  `17913dff`（OIDC nonce/serve 信号）、`3855cb31`/`1be1251a`（daemon PID 身份）、
+  `0803fecd`（RLVR 本轮差分）、`ec929dcb`（bundle Ed25519）、`3412772e`（native shell 降级）、
+  `6050e6a9`（Windows `.cmd` 垫片解析）、`63764866`（OS 沙箱 fail-closed）等。
+- **最终实跑（2026-10-18 14:25）**：
   - `npx vitest run --project node tests/unit/` ⇒ **exit 0（全绿）**；
   - `npx vitest run --project web` ⇒ **83 文件 / 485 例全绿**（`chromeCleanup` 真机树杀亦过）；
-  - 本轮定向 22 文件 ⇒ **132 passed / 2 skipped**（含 Windows worker 注入回归、多文件补丁、
-    vm Promise/微任务、OIDC exp/state、daemon 启动失败）；
   - `npm run typecheck`、`npm run lint`（0 告警）、`npm run gate:typed`（2/12 条）、
-    `node scripts/runGates.mjs --hook` 均通过。
+    `node scripts/runGates.mjs --hook`（10/12 条）均通过；
+  - P0/P1：审计报告与三轮子代理审查中的 P0/P1 已逐条修复或 fail-closed 降级，明细见 §16.1；
+    残余 P2 与需独立工程的边界见 §16.4。
 - 说明：`e2e` 用例末尾有一条「临时 profile 目录 EBUSY，留给 OS 清理」的 stderr；用例本身通过，
   属 Windows 文件锁的收尾噪声，不是断言失败。
