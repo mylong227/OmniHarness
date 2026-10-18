@@ -27,6 +27,17 @@ export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.
  * 并经 `omniharness doctor` 输出——实现存在但无真机证据这件事从此可见、可复现。
  */
 export class SandboxManager {
+  /**
+   * OS 级 profile 的执行包装尚未接进 ShellProcessRunner：这些后端当前只做**裁决**，
+   * 命令仍按普通 shell 执行。选择它们不能得到真正的 OS 隔离，故 CLI 必须在启动时拒绝，
+   * 而不是让用户以为“开了 bwrap/landlock 就隔离了”（2026-10-18 审查）。
+   */
+  public static readonly EXECUTION_UNWIRED: ReadonlySet<SandboxProfile> = new Set([
+    'landlock',
+    'bwrap',
+    'unshare',
+    'seatbelt',
+  ]);
   /** 后端注册表：profile 名 → 工厂（延迟实例化）。 */
   private readonly backends = new Map<SandboxProfile, () => SandboxPort>();
 
@@ -67,5 +78,14 @@ export class SandboxManager {
       return new UnsupportedSandbox(profile, `未知沙箱 profile: ${String(profile)}`);
     }
     return factory();
+  }
+
+  /**
+   * 该 profile 是否属于“只裁决、未接执行包装”的 OS 级后端。
+   * @param profile 沙箱 profile
+   * @returns 未接执行包装时为 true
+   */
+  public static isExecutionUnwired(profile: string): boolean {
+    return (SandboxManager.EXECUTION_UNWIRED as ReadonlySet<string>).has(profile);
   }
 }

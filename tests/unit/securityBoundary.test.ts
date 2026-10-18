@@ -50,7 +50,7 @@ test('① 默认档（policy，纯 TS 策略）必须如实报 L2 且 kernelEnfo
   }
 });
 
-test('② 工作区把档位配成 OS 级后端时，只有"真机可达 + 内核强制"才算 L3', () => {
+test('② 工作区配 OS 级后端但执行包装未接 ⇒ 必须留在 L2（二进制可达也不得报 L3）', () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-sec-'));
   try {
     writeFileSync(join(root, 'omniharness.json'), JSON.stringify({ sandbox: 'bwrap' }), 'utf8');
@@ -60,18 +60,13 @@ test('② 工作区把档位配成 OS 级后端时，只有"真机可达 + 内�
       'bwrap',
       '诊断必须读工作区配置，而不是只报缺省',
     );
-    const entry = report.sandboxCapabilities.find((item) => item.profile === 'bwrap');
-    if (entry?.real === true) {
-      assert.strictEqual(report.security.isolationLevel, 'L3', 'bwrap 真机可达且由内核强制 ⇒ L3');
-    } else {
-      // 本机（Windows）跑不了 bwrap：此时**必须**留在 L2，绝不能因为"配置写了 bwrap"就宣称已隔离。
-      assert.strictEqual(
-        report.security.isolationLevel,
-        'L2',
-        '后端不可达时不得升级隔离档（"配置里写了" ≠ "内核真的在拦"）',
-      );
-      assert.strictEqual(report.security.kernelEnforced, false);
-    }
+    assert.strictEqual(
+      report.security.isolationLevel,
+      'L2',
+      'bwrap 执行包装尚未接线：即使二进制真机可达，也不得宣称 L3 内核隔离',
+    );
+    assert.strictEqual(report.security.kernelEnforced, false);
+    assert.match(report.security.isolationBasis, /执行包装=未接/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

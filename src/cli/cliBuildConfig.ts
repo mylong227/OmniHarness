@@ -562,6 +562,7 @@ export class CliBuildConfig extends CliCredentialBuild {
    * @returns 按 profile 构建的沙箱端口。
    */
   protected buildSandbox(args: CliArgs): ReturnType<SandboxManager['build']> {
+    CliBuildConfig.assertSandboxWired(args.sandbox);
     return new SandboxManager(args.workspace).build(args.sandbox);
   }
 
@@ -571,7 +572,22 @@ export class CliBuildConfig extends CliCredentialBuild {
    * @returns 提权重试时使用的沙箱端口。
    */
   protected buildElevatedSandbox(args: CliArgs): ReturnType<SandboxManager['build']> {
+    CliBuildConfig.assertSandboxWired(args.elevatedSandbox);
     return new SandboxManager(args.workspace).build(args.elevatedSandbox);
+  }
+
+  /**
+   * OS 级 profile 的执行包装未接线时 fail-closed：只裁决不执行等于“以为隔离了，其实没有”。
+   * @param profile 待校验的沙箱 profile
+   * @returns 无返回值（可用时静默通过）
+   */
+  private static assertSandboxWired(profile: CliArgs['sandbox']): void {
+    if (!SandboxManager.isExecutionUnwired(profile)) return;
+    throw new Error(
+      `拒绝以 sandbox=${profile} 启动：该 OS 级后端目前只做裁决、执行包装尚未接线，` +
+        '命令不会真正进入 bwrap/landlock/seatbelt/unshare。请改用 policy/restricted，' +
+        '或等待执行包装接线后再启用。',
+    );
   }
 
   /**

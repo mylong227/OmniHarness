@@ -272,3 +272,16 @@ describe('ConfigFactory 注入 escalation/elevatedSandbox', () => {
     assert.strictEqual(config.elevatedSandbox.name, 'policy');
   });
 });
+
+it('SandboxManager：OS 级 profile 标为“只裁决未接执行包装”，CLI 启动必须拒绝', () => {
+  for (const profile of ['landlock', 'bwrap', 'unshare', 'seatbelt'] as const) {
+    assert.strictEqual(SandboxManager.isExecutionUnwired(profile), true, `${profile} 未接执行包装`);
+  }
+  for (const profile of ['policy', 'restricted', 'passthrough'] as const) {
+    assert.strictEqual(
+      SandboxManager.isExecutionUnwired(profile),
+      false,
+      `${profile} 是纯策略后端，不应被误拦`,
+    );
+  }
+});

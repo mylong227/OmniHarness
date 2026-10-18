@@ -3614,6 +3614,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | Agent 收尾     | `dispose` 后全量 persist，旧的在飞写可能后落地                                                                                                 | `flush → dispose → persist`                                                                 | `sessionLifecycle`                                                                                                          |
 | StepRunner     | 某步无 usage 时沿用上一步用量                                                                                                                  | 无条件覆盖 `lastUsage`                                                                      | `stepLimitPolicy`                                                                                                           |
 | 原生根         | 非 unknown-method 的根对齐失败也永久降级，继续用错误根                                                                                         | 仅 unknown-method 降级，其余抛错回退 JS                                                     | `nativeBackend`                                                                                                             |
+| OS 沙箱        | bwrap/landlock/seatbelt 只裁决不执行，配置后却无真实隔离                                                                                       | CLI 拒绝未接线 profile 启动；doctor 固定 L2 + `执行包装=未接`                               | `securityBoundary`、`sandboxEscalation`                                                                                     |
 | native shell   | Rust `shell.run` 同步执行、无超时、非零退出报成功                                                                                              | `StepToolExecutor` 禁止 shell 路由到原生后端，强制 JS ShellTool（语义正确）；Rust 待修      | `nativeBackend`                                                                                                             |
 | 服务端跨源     | 任意网页可向 `127.0.0.1` 发 RPC/WS                                                                                                             | 有 `Origin` 必须是回环 http(s)，无 Origin（CLI）放行                                        | `serverAuthGuard`                                                                                                           |
 | Web 凭据       | 空 Key + 已有打码 Key 会把空串发给服务端（=删凭据）                                                                                            | 空输入=不修改，显式提示                                                                     | 源码 + `settingsPane`                                                                                                       |
@@ -3646,8 +3647,10 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 
 ### 16.4 仍未修（诚实登记，需架构决策或单独工程）
 
-1. **OS 级沙箱只裁决不落地**（`src/adapters/isolation`）：ports 有 `SandboxPort`，但 Linux landlock /
-   macOS seatbelt 的「真正限制进程」没有接进执行链；当前是策略裁决 + 应用层校验，不能宣称 OS 隔离。
+1. **OS 级沙箱执行包装仍未接**（`src/adapters/isolation`）：Linux landlock / bwrap / unshare 与
+   macOS seatbelt 的「真正限制进程」没有接进执行链。**已 fail-closed**：CLI 拒绝以这些 profile
+   启动，`doctor` 对配置的 OS 档固定报 L2 且 `执行包装=未接`，不再把“二进制可达”谎报成 L3。
+   真正执行隔离仍需接 `ShellProcessRunner` 的命令包装，属独立工程。
 2. **服务端默认无令牌**：回环绑定是当前边界；本轮补了 Origin 校验，但同机其它本地进程仍可访问。
    要默认令牌，需要前端拿到令牌的注入通道（cookie/首屏 meta），是独立改造。
 3. **native shell 同步冻结 + 非零退出报成功（已降级规避，Rust 未修）**：`StepToolExecutor` 已禁止

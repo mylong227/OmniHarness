@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { NetworkEgressGuard } from '../adapters/sandbox/networkEgressGuard.ts';
 import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.ts';
+import { SandboxManager } from '../adapters/sandbox/sandboxManager.ts';
 import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
 import {
   InjectionSelfCheck,
@@ -169,7 +170,11 @@ export class DoctorRunner {
   ): SecurityBoundary {
     const sandboxProfile = this.configuredSandboxProfile(workspaceRoot) ?? 'policy';
     const entry = capabilities.find((item) => item.profile === sandboxProfile);
-    const kernelEnforced = entry?.real === true && KERNEL_ENFORCED_PROFILES.has(sandboxProfile);
+    // 只裁决、未接执行包装的 OS 后端不具备“内核强制”语义；否则会把 bwrap 二进制存在
+    // 误报成 L3 隔离（2026-10-18 审查）。
+    const executionWired = !SandboxManager.isExecutionUnwired(sandboxProfile);
+    const kernelEnforced =
+      executionWired && entry?.real === true && KERNEL_ENFORCED_PROFILES.has(sandboxProfile);
     const windowsNote =
       process.platform === 'win32' && sandbox.restrictedToken
         ? '；Windows 受限令牌只削减特权与资源（restricting-SID 计数为 0），**无**文件/网络拒绝语义'
@@ -177,7 +182,8 @@ export class DoctorRunner {
     return {
       isolationLevel: kernelEnforced ? 'L3' : 'L2',
       isolationBasis:
-        `生效档 ${sandboxProfile}；内核强制=${kernelEnforced ? '是' : '否'}；` +
+        `生效档 ${sandboxProfile}；执行包装=${executionWired ? '已接' : '未接'}；` +
+        `内核强制=${kernelEnforced ? '是' : '否'}；` +
         `后端真机可达=${entry?.real === true ? '是' : '否'}${windowsNote}`,
       sandboxProfile,
       kernelEnforced,
