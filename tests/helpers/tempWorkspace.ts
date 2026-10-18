@@ -14,3 +14,13 @@ export function tempWorkspace(): string {
   shared ??= fs.mkdtempSync(path.join(os.tmpdir(), 'omniharness-test-ws-'));
   return shared;
 }
+
+// 进程退出时清掉共享目录（同步、尽力而为；不让清理失败影响退出码）。
+process.once('exit', () => {
+  if (shared === undefined) return;
+  try {
+    fs.rmSync(shared, { recursive: true, force: true, maxRetries: 3 });
+  } catch {
+    /* OS 临时目录兜底 */
+  }
+});

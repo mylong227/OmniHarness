@@ -12,7 +12,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import net from 'node:net';
@@ -62,6 +62,8 @@ function runtimeWithA2a(
     config,
     close: () => {
       runtime.a2a?.transport.close?.();
+      // 运行时关闭后删除临时工作区，避免全量套件累积 omni-a2a-e2e-*。
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
     },
   };
 }
