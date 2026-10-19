@@ -1,4 +1,4 @@
-﻿// 长内容收起判定 + 压缩游标事件解析的纯逻辑单测（零 DOM 桩）。
+// 长内容收起判定 + 压缩游标事件解析的纯逻辑单测（零 DOM 桩）。
 //
 // 钉住的判据：
 //  1) 阈值边界：短内容不收、字符/行数任一超限即收（双阈值各验一侧）；
@@ -42,6 +42,25 @@ test('digest：预览按行截断且不超字符上限，原文未被改写', ()
   assert.ok(d.preview.length <= LongContentCollapser.PREVIEW_CHARS);
   // 取舍而非改写：预览必须是原文前缀。
   assert.ok(lines.startsWith(d.preview), '预览必须是原文前缀（不补省略号、不改写）');
+});
+
+test('digest：预览在空行处收口，不把超长表格切在表头/分隔行', () => {
+  const rows = Array.from({ length: 20 }, (_, i) => `| a${i} | b${i} |`);
+  const text = [
+    '## 标题',
+    '',
+    '引导段',
+    '',
+    '| 列1 | 列2 |',
+    '|---|---|',
+    ...rows,
+    '',
+    ...Array.from({ length: 30 }, (_, i) => `后续${i}`),
+  ].join('\n');
+  const d = LongContentCollapser.digest(text);
+  assert.ok(text.startsWith(d.preview), '预览必须仍是原文前缀');
+  assert.ok(!d.preview.includes('| 列1 |'), '预览不得从表格中间开始/结束');
+  assert.ok(d.preview.includes('引导段'), '空行前的内容应保留');
 });
 
 test('digest：超长单行触发字符截断双保险', () => {

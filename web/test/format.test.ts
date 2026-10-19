@@ -1,4 +1,4 @@
-﻿// 渲染纯函数契约测试（P5.5 / D6）：为 format.ts 与 highlight.ts 的 htm→createElement 改写上护栏。
+// 渲染纯函数契约测试（P5.5 / D6）：为 format.ts 与 highlight.ts 的 htm→createElement 改写上护栏。
 // 手法与 mount.test.mjs 一致——预置 window 桩 + fakeReact 收集 vnode，不触 DOM、不加载真实 React。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/*.test.mjs 直跑。
@@ -294,6 +294,12 @@ test('renderMarkdown 现在委托给 markdown-it 管线（依赖已随 bundle �
   const node = renderMarkdown('# 标题');
   assert.ok(node != null, 'renderMarkdown 必须产出节点');
   assert.strictEqual(clsOf(node), 'md-content', '仍应包一层 md-content');
+});
+
+test('renderMarkdown：表格带 .md-table 类（否则暗色主题里是一片无边界文本）', () => {
+  const node = renderMarkdown('| 列1 | 列2 |\n|---|---|\n| a | b |\n');
+  const html = (node.props as { dangerouslySetInnerHTML?: { __html: string } }).dangerouslySetInnerHTML?.__html ?? '';
+  assert.match(html, /<table class="md-table">/, 'markdown-it 表格必须补上 .md-table');
 });
 
 test('手写渲染器：代码块包 .md-codeblock 且含语言标签与复制按钮', () => {

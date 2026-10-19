@@ -98,14 +98,27 @@ export class LongContentCollapser {
 
   /**
    * 裁剪预览：先按行截（PREVIEW_LINES），再按字符截（PREVIEW_CHARS）双保险。
+   *
+   * 2026-10-20 修正：**优先在空行（块边界）收口**。此前直接切 14 行，会把一张表格
+   * 切在表头/分隔行附近——预览里只剩表头，看起来像“一大块空白”（用户实测）。
+   * 退到最近空行后，表格 / 围栏代码要么整块不出现，要么完整出现。
    * 只做裁剪，不补省略号——省略号由展示层用渐隐掩码表达（视觉信号比假文本诚实）。
    * @param text 正文
-   * @returns 预览文本
+   * @returns 预览文本（始终是原文前缀）
    */
   private static previewOf(text: string): string {
     if (!text) return '';
-    const byLines = text.split('\n', this.PREVIEW_LINES).join('\n');
-    if (byLines.length <= this.PREVIEW_CHARS) return byLines;
-    return byLines.slice(0, this.PREVIEW_CHARS);
+    const lines = text.split('\n');
+    let end = Math.min(lines.length, this.PREVIEW_LINES);
+    // 从截断点向前找最近的空行：块边界收口，避免表格 / 围栏被切半。
+    for (let i = end - 1; i >= 1; i--) {
+      if ((lines[i] ?? '').trim() === '') {
+        end = i;
+        break;
+      }
+    }
+    let preview = lines.slice(0, end).join('\n');
+    if (preview.length > this.PREVIEW_CHARS) preview = preview.slice(0, this.PREVIEW_CHARS);
+    return preview;
   }
 }

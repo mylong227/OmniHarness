@@ -85,12 +85,15 @@ pre.json { border:1px solid var(--border-soft); padding:8px 10px; margin-top:7px
   color:var(--accent-2, var(--dim)); border-radius:7px; padding:2px 10px; cursor:pointer; font-size:11px;
 }
 .doc-fold__toggle:hover { color:var(--text); border-color:var(--dim); }
-/* 收起态预览：文本层已截断（前几行/几字），这里再给高度上限 + 渐隐掩码双保险，
-   掩码高度盖住裁切边缘即可——太高会把真实预览内容也糊掉。 */
+/* 收起态预览：文本层已截断（前几行/几字），这里再给高度上限 + 渐隐掩码双保险。
+   掩码高度盖住裁切边缘即可——太高会把真实预览内容也糊掉。
+   2026-10-20 修正：此前写的是**实心** `--panel-2`，会把表格/代码的尾部整块盖成
+   「一大块空白」；改成到页面底色 `--bg` 的透明渐变，只做渐隐、不制造色块。 */
 .doc-fold__preview { position:relative; max-height:360px; overflow:hidden; }
 .doc-fold__preview::after {
   content:''; position:absolute; left:0; right:0; bottom:0; height:56px;
-  background:var(--panel-2); pointer-events:none;
+  background:linear-gradient(to bottom, transparent 0%, var(--bg) 88%);
+  pointer-events:none;
 }
 .doc-fold--open .doc-fold__preview { max-height:none; overflow:visible; }
 .doc-fold--open .doc-fold__preview::after { content:none; }

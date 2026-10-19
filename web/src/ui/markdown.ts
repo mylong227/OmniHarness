@@ -87,6 +87,7 @@ import { t } from './i18n/i18n.ts';
 
 /** markdown-it 单条 token 的最小接口（避免引入 any / 第三方类型）。 */
 interface MdToken {
+  type: string;
   content: string;
   markup: string;
   info: string;
@@ -137,6 +138,7 @@ interface MarkdownItInstance {
   utils: { escapeHtml(s: string): string };
   inline: { ruler: { after(before: string, name: string, fn: unknown): void } };
   block: { ruler: { before(before: string, name: string, fn: unknown, opts?: unknown): void } };
+  core: { ruler: { push(name: string, fn: (state: { tokens: MdToken[] }) => void): void } };
   renderer: { rules: Record<string, unknown> };
 }
 
@@ -393,6 +395,15 @@ function getMd(): MarkdownItInstance {
     }
     return defaultLinkOpen(tokens, idx, opts, env, self);
   };
+
+  // ---- 表格：markdown-it 默认输出裸 <table>，补上 .md-table 才能吃到设计系统
+  //      （边框 / 圆角 / 表头底 / 行距）；否则表格在暗色主题里只是一片无边界文本。
+  //      用 core 规则而不是 renderer 规则：table_open 不经过自定义 renderer 时也能生效。
+  md.core.ruler.push('table_class', (state) => {
+    for (const token of state.tokens) {
+      if (token.type === 'table_open') token.attrSet('class', 'md-table');
+    }
+  });
 
   // ---- 代码块包工具条：语言标签 + 一键复制（对标 deepseek-harness 回复观感） ----
   const defaultFence = (md.renderer.rules.fence ??
