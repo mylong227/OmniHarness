@@ -8,6 +8,7 @@
 //
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
+import { BrandMark } from './BrandMark.tsx';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -30,12 +31,16 @@ export function SidebarHeader(props: SidebarHeaderProps): ReactElement {
   const { rail, onToggleRail, onOpenPalette } = props;
   return (
     <div className="side-brand">
-      <span className="brand-mark" aria-hidden="true">
-        Ω
-      </span>
+      <BrandMark />
       {rail ? null : (
         <span className="side-wordmark" title="OmniHarness">
-          OmniHarness
+          <span className="side-wordmark-main">
+            <span className="side-wordmark-text">Omni</span>
+            <span className="side-wordmark-sheen" aria-hidden="true">
+              Omni
+            </span>
+          </span>
+          <span className="side-wordmark-tag">HARNESS</span>
         </span>
       )}
       <span className="flex-spacer" aria-hidden="true"></span>

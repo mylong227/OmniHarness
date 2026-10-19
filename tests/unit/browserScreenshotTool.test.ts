@@ -96,6 +96,52 @@ test('url 缺省 / 协议非法 → ok:false（不抛）', async () => {
   }
 });
 
+test('附件缩放：注入缩放器时交付压缩版（JPEG），落盘仍是原图', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'browshot-'));
+  try {
+    const session = new FakeSession();
+    const compressed = Buffer.from('JPEG-DATA');
+    const resizer = {
+      name: 'fake-resizer',
+      resize: async (request: {
+        readonly preferFormat?: 'jpeg' | 'png';
+        readonly maxDimension: number;
+      }) => {
+        assert.strictEqual(request.preferFormat, 'jpeg', '截图送模型应优先 JPEG');
+        assert.strictEqual(request.maxDimension, 1600, '长边上限 1600');
+        return {
+          bytes: compressed,
+          mediaType: 'image/jpeg',
+          width: 1600,
+          height: 900,
+          resized: true,
+        };
+      },
+    };
+    const tool = new BrowserScreenshotTool(dir, () => session, resizer);
+    const result = await tool.handle(
+      call({ url: 'https://example.com', output_path: 'shot.png' }),
+      ctx(dir),
+    );
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.files?.[0]?.mediaType, 'image/jpeg');
+    assert.match(result.files?.[0]?.name ?? '', /\.jpg$/u);
+    assert.strictEqual(
+      Buffer.from(result.files?.[0]?.data ?? '', 'base64').toString(),
+      'JPEG-DATA',
+      '附件必须是缩放后的字节',
+    );
+    assert.match(result.output ?? '', /压缩版/u, '必须告知模型看到的是压缩版');
+    assert.deepStrictEqual(
+      await readFile(join(dir, 'shot.png')),
+      FAKE_PNG,
+      '落盘原图不得被缩放替身覆盖',
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('视口/等待参数被夹紧到合规区间，缺省用默认', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'browshot-'));
   try {

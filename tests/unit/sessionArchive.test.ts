@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
+import { LocalDay } from '../../src/util/localDay.ts';
 
 // 本文件考的是**扫描 / 排序 / 归档 / 用量**，与工作区作用域无关 —— 故所有 `list` 调用显式传 `'*'`
 // （缺省作用域是"当前工作区"，这些夹具的 workspaceRoot 与 fixture 的 workspace 标记并不相同）。
@@ -23,6 +24,115 @@ async function withTemp<T>(fn: (dir: string) => T | Promise<T>): Promise<T> {
 function line(type: string, payload: unknown, timestamp = '2026-09-11T00:00:00.000Z'): string {
   return JSON.stringify({ id: 'e', type, sessionId: 's', timestamp, payload });
 }
+
+test('SessionArchive.list：mock 会话默认不列出；摘要带有效时长与空闲间隔', async () => {
+  await withTemp(async (dir) => {
+    writeFileSync(
+      join(dir, 'real.jsonl'),
+      [
+        line(
+          'session_meta',
+          { workspace: dir, model: 'deepseek-v4-flash' },
+          '2026-09-11T00:00:00.000Z',
+        ),
+        line('user', { content: '真实任务' }, '2026-09-11T00:00:00.000Z'),
+        line(
+          'model',
+          { model: 'deepseek-v4-flash', usage: { promptTokens: 1, completionTokens: 1 } },
+          '2026-09-11T00:00:10.000Z',
+        ),
+        // 用户离开 1 小时再回来：必须从有效时长里剔除，但计入 idleGaps。
+        line('user', { content: '一小时后回来' }, '2026-09-11T01:00:10.000Z'),
+        line('assistant', { content: 'done' }, '2026-09-11T01:00:15.000Z'),
+      ].join('\n'),
+    );
+    writeFileSync(
+      join(dir, 'mock.jsonl'),
+      [
+        line('session_meta', { workspace: dir }, '2026-09-11T00:00:00.000Z'),
+        line('user', { content: 'hi' }, '2026-09-11T00:00:00.000Z'),
+        line(
+          'tool_call',
+          { callId: 'mock_call_1', name: 'shell', args: { command: 'echo x' } },
+          '2026-09-11T00:00:00.000Z',
+        ),
+        line(
+          'tool_result',
+          { callId: 'mock_call_1', ok: true, output: 'x' },
+          '2026-09-11T00:00:01.000Z',
+        ),
+        line(
+          'assistant',
+          { content: '任务完成（模拟模型适配器输出）' },
+          '2026-09-11T00:00:01.000Z',
+        ),
+      ].join('\n'),
+    );
+    const archive = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    const visible = (await archive.list(true, '*')) as { sessions: { sessionId: string }[] };
+    assert.deepEqual(
+      visible.sessions.map((s) => s.sessionId),
+      ['real'],
+      'mock 会话默认隐藏',
+    );
+
+    const all = (await archive.list(true, '*', true)) as {
+      sessions: { sessionId: string; mock: boolean; activeMs: number; idleGaps: number }[];
+    };
+    assert.deepEqual(
+      all.sessions.map((s) => s.sessionId).sort(),
+      ['mock', 'real'],
+      'includeMock=true 时两者都在',
+    );
+    const real = all.sessions.find((s) => s.sessionId === 'real');
+    assert.strictEqual(real?.mock, false);
+    assert.strictEqual(real?.idleGaps, 1);
+    assert.strictEqual(real?.activeMs, 15_000, '有效时长 = 10s + 5s，不含 1 小时空闲');
+    assert.strictEqual(all.sessions.find((s) => s.sessionId === 'mock')?.mock, true);
+  });
+});
+
+test('SessionArchive.dailyUsage：按文件戳缓存，追加事件后必须失效', async () => {
+  await withTemp(async (dir) => {
+    const file = join(dir, 's1.jsonl');
+    writeFileSync(
+      file,
+      line(
+        'model',
+        { model: 'm', usage: { promptTokens: 10, completionTokens: 5 } },
+        '2026-09-11T00:00:00.000Z',
+      ),
+    );
+    const archive = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    const day = new LocalDay(new Date('2026-09-11T12:00:00'));
+    assert.strictEqual(archive.dailyUsage(day).total, 15);
+    // 同一天追加一条：mtime/size 变化 ⇒ 缓存必须失效（否则「今日用量」永远停在上一次读数）。
+    writeFileSync(
+      file,
+      [
+        line(
+          'model',
+          { model: 'm', usage: { promptTokens: 10, completionTokens: 5 } },
+          '2026-09-11T00:00:00.000Z',
+        ),
+        line(
+          'model',
+          { model: 'm', usage: { promptTokens: 2, completionTokens: 3 } },
+          '2026-09-11T01:00:00.000Z',
+        ),
+      ].join('\n'),
+    );
+    assert.strictEqual(archive.dailyUsage(day).total, 20);
+  });
+});
 
 test('SessionArchive.usage：聚合磁盘 model 事件为 byModel 与 per-session 统计', async () => {
   await withTemp(async (dir) => {

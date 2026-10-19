@@ -106,6 +106,67 @@ test('压缩器：超预算用 LLM 摘要折叠历史', async () => {
   assert.strictEqual(result.messages[0]?.content, '历史摘要内容');
 });
 
+test('压缩器：摘要附带确定性工具台账（按目标聚合、含重复与失败计数）', async () => {
+  // 长会话防重复探索：摘要由模型生成，可能漏掉「已读过哪些文件」；台账由折叠段直接生成。
+  const compactor = new ContextCompactor(
+    fakeModel(() => ({ text: '历史摘要内容' })),
+    {
+      maxTokens: 2500,
+      keepRecent: 2,
+    },
+  );
+  const big = 'A'.repeat(4000);
+  const messages: ModelMessage[] = [
+    { role: 'user', content: '开始排查' },
+    {
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: 'c1', name: 'read_file', arguments: { path: 'src/a.ts' } }],
+    },
+    { role: 'tool', content: big, toolCallId: 'c1' },
+    {
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: 'c2', name: 'read_file', arguments: { path: 'src/a.ts' } }],
+    },
+    { role: 'tool', content: big, toolCallId: 'c2' },
+    {
+      role: 'assistant',
+      content: '',
+      toolCalls: [{ id: 'c3', name: 'shell', arguments: { command: 'npm test' } }],
+    },
+    { role: 'tool', content: `工具执行失败: ${big}`, toolCallId: 'c3' },
+    { role: 'user', content: '继续'.repeat(100) },
+    { role: 'assistant', content: 'ok' },
+  ];
+  const result = await compactor.compact(messages);
+  assert.strictEqual(result.compacted, true);
+  assert.match(result.summary ?? '', /历史摘要内容/);
+  assert.match(result.summary ?? '', /read_file src\/a\.ts ×2/);
+  assert.match(result.summary ?? '', /shell npm test ×1（失败 1 次）/);
+});
+
+test('压缩器：图片按 1600 token/张计入预算（避免压缩偏晚）', async () => {
+  const messages = (withImage: boolean): ModelMessage[] => [
+    { role: 'user', content: 'x'.repeat(1200) },
+    { role: 'assistant', content: 'ok' },
+    {
+      role: 'user',
+      content: 'y'.repeat(1200),
+      ...(withImage ? { files: [{ name: 's.png', mediaType: 'image/png' }] } : {}),
+    },
+  ];
+  const without = new ContextCompactor(undefined, { maxTokens: 2000, keepRecent: 2 });
+  assert.strictEqual((await without.compact(messages(false))).compacted, false, '纯文本未超预算');
+
+  const withImage = new ContextCompactor(undefined, { maxTokens: 2000, keepRecent: 2 });
+  assert.strictEqual(
+    (await withImage.compact(messages(true))).compacted,
+    true,
+    '一张图扣 1600 token 后应触发压缩（此前只算信封，永远不触发）',
+  );
+});
+
 test('压缩器：无模型退化为占位摘要 + 最近消息', async () => {
   const compactor = new ContextCompactor(undefined, { maxTokens: 50, keepRecent: 2 });
   const result = await compactor.compact(longMessages(6));

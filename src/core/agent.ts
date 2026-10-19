@@ -29,6 +29,17 @@ import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime
 const DEFAULT_MAX_TOKENS = 8000;
 const DEFAULT_KEEP_RECENT = 6;
 
+/**
+ * 回合时限默认值：30 分钟软提醒 + 60 分钟硬熔断。
+ *
+ * 为什么要有默认（2026-10-20）：`maxSteps=0`（不设步数上限）且 `OMNI_LOOP_MAX_MS` 默认关闭时，
+ * 一个回合唯一的刹车是「模型自己愿意收尾」。实测 20 分钟级任务已经出现，长会话需要一个
+ * **可预期的最坏情况**。软提醒只注入一条「开始收尾」消息，不打断；硬熔断才终止。
+ * 可用 `OMNI_LOOP_SOFT_MS=0` / `OMNI_LOOP_MAX_MS=0` 分别关闭。
+ */
+const DEFAULT_SOFT_DEADLINE_MS = 30 * 60_000;
+const DEFAULT_HARD_DEADLINE_MS = 60 * 60_000;
+
 // AgentResult 契约已上移至 ports/agent.ts（端口契约），此处 re-export 以保公开 API 稳定。
 export type { AgentResult };
 
@@ -228,7 +239,11 @@ export class Agent implements AgentPort {
     if (mode === 'run') {
       // 归属标记**写归一值**：会话存档是全局的，归属只靠这个字符串；本机实测同一项目曾被写成
       // `D:\x` / `D:/x` / 跑测子目录三种拼写，导致侧栏按项目归类失准（2026-10-07 用户报）。
-      recorder.sessionMeta(WorkspaceIdentity.normalize(this.runtime.config.workspaceRoot));
+      // 同时记模型名：`mock` 会话必须能在列表/统计里被识别出来（本机 152 个会话里 144 个是 mock）。
+      recorder.sessionMeta(
+        WorkspaceIdentity.normalize(this.runtime.config.workspaceRoot),
+        this.runtime.model.name,
+      );
     }
   }
 
@@ -492,6 +507,8 @@ export class Agent implements AgentPort {
       promptInjectionGuardWeakPolicy: this.runtime.config.promptInjectionGuardWeakPolicy,
       promptInjectionGuardThresholds: this.runtime.config.promptInjectionGuardThresholds,
       reasoningEffort: this.runtime.config.reasoning,
+      // 单次输出上限（env 可选）：给长会话一个成本上界；未设则端点默认。
+      maxOutputTokens: Agent.maxOutputTokensFromEnv(),
       // U2：repo-map 上下文注入。默认开；env OMNI_REPO_MAP=0 关闭（不增 config schema，避免破 fail-closed 校验）。
       workspaceRoot: this.runtime.config.workspaceRoot,
       repoMapEnabled: process.env.OMNI_REPO_MAP !== '0',
@@ -505,6 +522,8 @@ export class Agent implements AgentPort {
       signal: cancel.toAbortSignal(),
       // 上下文窗口：容量快照的百分比分母（env OMNI_CONTEXT_WINDOW 优先 → 模型名表 → 缺省）。
       contextWindowTokens: this.resolveContextWindow(),
+      // 外置附件根：相对 path 由 ContextAssembler 按 sessions 目录拼绝对路径水合。
+      attachmentRoot: this.runtime.storage.location,
     });
     return new TurnRunner(
       step,
@@ -671,6 +690,21 @@ export class Agent implements AgentPort {
     }
   }
   /**
+   * 解析 `OMNI_MAX_OUTPUT_TOKENS`（单次响应输出上限）。
+   *
+   * 为什么用 env 而不加 config schema：这是**运维/成本旋钮**，不该进入用户配置文件与
+   * fail-closed 校验面；与 `OMNI_LOOP_SOFT_MS` 同一先例。未设/非法/<=0 一律不设上限。
+   *
+   * @returns 正整数 token 上限；未配置时为 undefined。
+   */
+  private static maxOutputTokensFromEnv(): number | undefined {
+    const raw = process.env.OMNI_MAX_OUTPUT_TOKENS;
+    if (raw === undefined || raw === '') return undefined;
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
+  }
+
+  /**
    * buildLoopGuard — module-level helper moved into Agent.
    * @returns {LoopGuard} - result
    */
@@ -678,11 +712,23 @@ export class Agent implements AgentPort {
     if (process.env.OMNI_LOOPGUARD === '0') {
       // 全量关闭（2026-10-01 审计）：原先只关 maxExactRepeats/cycleWindow，edit 维度的
       // 振荡/抖动检测无门控照跑，`OMNI_LOOPGUARD=0` 承诺的「关闭失控检测」并不成立。
-      return new LoopGuard({ maxExactRepeats: 0, cycleWindow: 0, editChecks: false });
+      // 2026-10-19：新增的结果冗余检测同样必须一起关——否则「全量关闭」又会退化成半关。
+      return new LoopGuard({
+        maxExactRepeats: 0,
+        cycleWindow: 0,
+        editChecks: false,
+        maxRedundantResults: 0,
+      });
     }
-    const maxMs = Number(process.env.OMNI_LOOP_MAX_MS);
+    const maxRaw = process.env.OMNI_LOOP_MAX_MS;
+    const softRaw = process.env.OMNI_LOOP_SOFT_MS;
+    // 「未设置」才用默认；显式 0 = 关闭（旧行为），不能被 Number('0') 的真值判断吞掉。
+    const hard = maxRaw === undefined || maxRaw === '' ? DEFAULT_HARD_DEADLINE_MS : Number(maxRaw);
+    const soft =
+      softRaw === undefined || softRaw === '' ? DEFAULT_SOFT_DEADLINE_MS : Number(softRaw);
     return new LoopGuard({
-      maxDurationMs: Number.isFinite(maxMs) && maxMs > 0 ? maxMs : 0,
+      maxDurationMs: Number.isFinite(hard) && hard > 0 ? hard : 0,
+      softDeadlineMs: Number.isFinite(soft) && soft > 0 ? soft : 0,
     });
   }
 }
@@ -690,8 +736,10 @@ export class Agent implements AgentPort {
 /**
  * V2 失控检测器装配（默认开，零 config schema 变更——沿用 env 开关先例）：
  *  - `OMNI_LOOPGUARD=0` 关闭；
- *  - `OMNI_LOOP_MAX_MS=<毫秒>` 设置会话 wall-clock 上限（超时熔断，默认不设）。
- * 检测策略：同调用重复 ≥3 次 / 循环窗口 8 内周期 ≤4 的 A→B→A→B 模式。
+ *  - `OMNI_LOOP_SOFT_MS=<毫秒>` 软时限（到点劝收尾，默认 30 分钟；0 = 关闭）；
+ *  - `OMNI_LOOP_MAX_MS=<毫秒>` 硬时限（到点熔断，默认 60 分钟；0 = 关闭）。
+ * 检测策略：同调用重复 ≥3 次 / 循环窗口 8 内周期 ≤4 的 A→B→A→B / 同一工具结果重复 ≥4 次
+ * （后者专治长会话里「同一文件反复 read_file、同一目录反复 list_dir」的冗余取回）。
  * 首次触发注入纠偏 user 消息，同一违规连续 2 次才熔断（不误杀长任务）。
  * @returns 按环境变量装配好的 LoopGuard（关闭时为零阈值实例，等效禁用检测）。
  */

@@ -143,6 +143,10 @@ export const DEFAULT_ROUTE_PRICING: Record<string, RoutePrice> = {
   // DeepSeek 直连（v4 三档；vision-exp 与 flash 同价）
   'deepseek-v4-flash': { inputPer1M: 0.3, outputPer1M: 1.2, cachedInputPer1M: 0.006 },
   'deepseek-v4-flash-vision-exp': { inputPer1M: 0.3, outputPer1M: 1.2, cachedInputPer1M: 0.006 },
+  // 2026-10-20：用户配置里实际出现的是 `deepseek-flash`（不带 v4）。它不是 v4-flash 的
+  // 前缀命中对象（`deepseek-v4-flash` 才是），此前落兜底价 1.0/3.0/0.5，把 $0.20 算成 $2.06。
+  // 按同一档位补别名；若将来确实是不同型号，改这一行即可。
+  'deepseek-flash': { inputPer1M: 0.3, outputPer1M: 1.2, cachedInputPer1M: 0.006 },
   'deepseek-v4-pro': { inputPer1M: 1.32, outputPer1M: 3.96, cachedInputPer1M: 0.044 },
   // Moonshot v1：**按上下文长度分三档**（正是旧登记里说"模型名不足以定档"的那一族）
   'moonshot-v1-8k': { inputPer1M: 0.2, outputPer1M: 2 },

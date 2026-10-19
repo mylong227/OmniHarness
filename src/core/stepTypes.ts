@@ -90,6 +90,11 @@ export interface StepRunnerDeps {
   /** 推理强度（#B6，可选）：透传为模型 reasoning_effort；缺省按模型默认。 */
   readonly reasoningEffort?: string | undefined;
   /**
+   * 单次响应输出上限（可选，2026-10-20）：透传为 `max_tokens`。
+   * 由组合根从 env `OMNI_MAX_OUTPUT_TOKENS` 解析；缺省不设（端点默认）。
+   */
+  readonly maxOutputTokens?: number | undefined;
+  /**
    * 工作区根路径（U2）：非空时每步从当前查询推导 repo-map 上下文注入系统消息。
    * 配合 repoMapEnabled（默认开）使用；env OMNI_REPO_MAP=0 由装配层置 false 关闭。
    */
@@ -132,6 +137,11 @@ export interface StepRunnerDeps {
    * 解析后注入。缺省不传时快照仍产出（各类 token 数有效），仅「占窗口百分比」为未知。
    */
   readonly contextWindowTokens?: number | undefined;
+  /**
+   * 外置附件根目录（`StoragePort.location`，即 sessions 目录）：相对路径附件按它水合。
+   * 缺省时只认绝对路径（旧存档兼容）。
+   */
+  readonly attachmentRoot?: string | undefined;
 }
 
 /** 单步结果类型：产出了文本 / 发起了工具调用 / 空响应。 */

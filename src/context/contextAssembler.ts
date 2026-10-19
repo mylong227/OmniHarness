@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type {
   ImageContent,
@@ -16,6 +18,16 @@ export class ContextAssembler {
    * 挤掉后续工具结果所需的上下文预算。
    */
   public static readonly MAX_DIFF_CHARS = 8_000;
+
+  /**
+   * 最近图片附件的**保留预算**（base64 字符数）：700k ≈ 2 张压缩后的 1600px JPEG
+   * （每张约 270k 字符）≈ 1 张未压缩的全尺寸 PNG。
+   *
+   * 为什么是字符数而不是张数：截图体积随分辨率/内容差 5–10 倍，按张数记预算会让「7 张 1200×700」
+   * 与「7 张 2400×1400」占用完全不同的请求体；按字节记账才和真实上传量同口径。
+   * 超过预算的**旧**附件降级为一行文字（保留文件名），最新附件永远保留。
+   */
+  public static readonly IMAGE_ATTACHMENT_BUDGET_CHARS = 700_000;
 
   /**
    * 待 flush 的 assistant 工具调用（跨事件累积）。
@@ -55,7 +67,14 @@ export class ContextAssembler {
    */
   private pendingAttachments: FileAttachment[] = [];
 
-  public constructor(private readonly fragments: readonly string[] = []) {}
+  public constructor(
+    private readonly fragments: readonly string[] = [],
+    /**
+     * 外置附件根目录（`StoragePort.location`，即 sessions 目录）。
+     * `FileAttachment.path` 为相对路径时，按它拼绝对路径水合；缺省时只认绝对路径。
+     */
+    private readonly attachmentRoot?: string,
+  ) {}
 
   /**
    * 组装消息（固定碎片在前，事件投影在后）。
@@ -87,7 +106,55 @@ export class ContextAssembler {
     // 会话不完整（中途崩溃）的异常日志里，此时丢弃比发出"无配对 tool 消息的 assistant(tool_calls)"
     // 更安全（后者发给模型会触发 HTTP 400）。
     this.flushPendingAttachments(messages);
+    ContextAssembler.retainRecentImageAttachments(messages);
     return messages;
+  }
+
+  /**
+   * 只保留**最近的**图片附件，较早的降级为一行文字说明。
+   *
+   * ## 为什么必须做（2026-10-19 鹈鹕会话实测）
+   *
+   * 工具附件会原样进入之后**每一次**请求：该会话 7 张截图（合计 6.2 MiB base64）在 45 次模型
+   * 调用里累计上传 **82.4 MiB**，且越到后面单次请求体越大——第 24/29 次调用的生成耗时 247 s /
+   * 314 s（同一模型在小 prompt 下 84 s 能出 20k token）。附件不是「传一次」，是「每一步都传」。
+   *
+   * 较早的截图对当前决策几乎没有价值（模型看的是最新一版渲染），保留最近 700k 字符（约两张
+   * 压缩截图）即可；被省略的消息**保留文件名**，模型需要时可再用 `view_image`。
+   * 这不改事件日志（存档仍是完整的），只改发给模型的那一份投影。
+   *
+   * @param messages 已组装的消息序列（原地替换过期附件）。
+   */
+  private static retainRecentImageAttachments(messages: ModelMessage[]): void {
+    let kept = 0;
+    let seen = 0;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (message === undefined) continue;
+      const files = message.files ?? [];
+      const images = message.images ?? [];
+      if (files.length === 0 && images.length === 0) continue;
+      const bytes =
+        files.reduce((sum, file) => sum + (file.data?.length ?? 0), 0) +
+        images.reduce((sum, image) => sum + (image.data?.length ?? 0), 0);
+      // 最新一份附件**无条件保留**：即便单张就超预算，也不能让模型看不到当前画面。
+      if (seen === 0 || kept + bytes <= ContextAssembler.IMAGE_ATTACHMENT_BUDGET_CHARS) {
+        seen = 1;
+        kept += bytes;
+        continue;
+      }
+      const names = files
+        .map((file) => file.name)
+        .filter((name) => name !== '')
+        .join('、');
+      const { files: _droppedFiles, images: _droppedImages, ...rest } = message;
+      messages[i] = {
+        ...rest,
+        content:
+          `${message.content}\n（较早的图片附件已省略以节省上下文` +
+          `${names === '' ? '' : `：${names}`}；文件仍在工作区，需要时用 view_image 重新查看）`,
+      };
+    }
   }
 
   /** 按事件类型追加对应消息。
@@ -268,8 +335,51 @@ export class ContextAssembler {
   /** 提取用户消息附带的文件附件（多模态输入扩展，#B5）；无则返回 undefined。 */
   private filesOf(event: SessionEvent): readonly FileAttachment[] | undefined {
     const payload = event.payload as { files?: readonly FileAttachment[] };
-    return payload.files;
+    const files = payload.files;
+    if (files === undefined || files.length === 0) {
+      return files;
+    }
+    return files.map((file) => this.hydrateAttachment(file));
   }
+
+  /**
+   * 把外置附件（只有 `path`）水合成 base64（2026-10-20）。
+   *
+   * 落盘时大附件被 `SessionAttachmentSpiller` 移出 JSONL；回放/续跑时模型仍需要字节，
+   * 故在**投影**这一步按路径读回。路径口径：
+   *  - 相对路径（`attachments/<sha>.<ext>`）⇒ 用 `StoragePort.location` 拼绝对；
+   *  - 绝对路径（旧存档）⇒ 原样使用。
+   * 读失败（文件被清理/移走/跨机器）时保持原样——模型至少还能看到附件信封
+   * （文件名 + MIME），不会因此让整条历史组装失败。
+   *
+   * @param file 附件（可能含 path 无 data）。
+   * @returns 水合后的附件；无需/无法水合时原样返回。
+   */
+  private hydrateAttachment(file: FileAttachment): FileAttachment {
+    if (file.data !== undefined || file.path === undefined) {
+      return file;
+    }
+    const absolute = isAbsolute(file.path)
+      ? file.path
+      : this.attachmentRoot === undefined
+        ? undefined
+        : resolve(this.attachmentRoot, file.path);
+    if (absolute === undefined) {
+      return file;
+    }
+    try {
+      const bytes = readFileSync(absolute);
+      if (bytes.byteLength > ContextAssembler.MAX_HYDRATE_BYTES) {
+        return file;
+      }
+      return { ...file, data: bytes.toString('base64') };
+    } catch {
+      return file;
+    }
+  }
+
+  /** 水合单附件的字节上限：与 `view_image` 的 5 MiB 上限同量级，防止异常大文件撑爆内存。 */
+  private static readonly MAX_HYDRATE_BYTES = 8 * 1024 * 1024;
 
   /**
    * 累积工具结果携带的文件附件（P2-⑬）。

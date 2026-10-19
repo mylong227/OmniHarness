@@ -100,8 +100,14 @@ export class SharpImageResizer implements ImageResizerPort {
         return undefined;
       }
       const longEdge = Math.max(width, height);
+      // `preferFormat` 与源格式不同 ⇒ **即使体积/尺寸没超限也重编码**：调用方要的是「换格式省体积」，
+      // 不是「只在超限时才救急」。截图（PNG，几百 KB）正属于这种：尺寸没超、但 base64 太大。
+      const wantsReencode =
+        request.preferFormat !== undefined && request.preferFormat !== format;
       const oversized =
-        request.bytes.byteLength > request.maxBytes || longEdge > request.maxDimension;
+        request.bytes.byteLength > request.maxBytes ||
+        longEdge > request.maxDimension ||
+        wantsReencode;
       if (!oversized) {
         return {
           bytes: request.bytes,
@@ -121,6 +127,7 @@ export class SharpImageResizer implements ImageResizerPort {
         request.maxDimension,
         request.maxBytes,
         format,
+        request.preferFormat,
       );
     } catch {
       // 解码失败（损坏 / sharp 不认识该格式）⇒ 退化为不缩放。
@@ -139,6 +146,7 @@ export class SharpImageResizer implements ImageResizerPort {
    * @param maxDimension 长边上限（像素）。
    * @param maxBytes 字节上限。
    * @param sourceFormat 源格式（决定输出格式与 MIME）。
+   * @param preferFormat 输出格式偏好（`jpeg` 强制转码；`png` 强制保持 PNG；缺省按源格式）。
    * @returns 编码结果；逐步缩到下限仍超预算时为 `undefined`。
    */
   private static async encodeWithin(
@@ -147,8 +155,14 @@ export class SharpImageResizer implements ImageResizerPort {
     maxDimension: number,
     maxBytes: number,
     sourceFormat: string,
+    preferFormat?: 'jpeg' | 'png',
   ): Promise<ImageResizeOutcome | undefined> {
-    const photographic = PHOTOGRAPHIC_FORMATS.has(sourceFormat);
+    const photographic =
+      preferFormat === 'jpeg'
+        ? true
+        : preferFormat === 'png'
+          ? false
+          : PHOTOGRAPHIC_FORMATS.has(sourceFormat);
     let currentLongEdge = maxDimension;
     for (let attempt = 0; attempt <= MAX_SHRINK_ATTEMPTS; attempt += 1) {
       const pipeline = factory(bytes).rotate().resize({

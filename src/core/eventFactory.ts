@@ -21,6 +21,8 @@ export class EventFactory implements EventFactoryPort {
    * @param content 用户消息文本。
    * @param images 可选图片内容数组（非空才写入 payload）。
    * @param files 可选文件附件数组（非空才写入 payload）。
+   * @param synthetic 是否为 harness 注入的合成 user 消息（nudge 等）：模型仍要看到它，
+   *   但任务文本推导（工具暴露 / repo-map）必须跳过——否则 nudge 会污染「用户意图」。
    * @returns 结构完整的 user 事件（未落盘，由调用方决定去留）。
    */
   public user(
@@ -28,6 +30,7 @@ export class EventFactory implements EventFactoryPort {
     content: string,
     images?: readonly ImageContent[],
     files?: readonly FileAttachment[],
+    synthetic = false,
   ): SessionEvent {
     const payload: Record<string, unknown> = { content };
     if (images !== undefined && images.length > 0) {
@@ -35,6 +38,9 @@ export class EventFactory implements EventFactoryPort {
     }
     if (files !== undefined && files.length > 0) {
       payload['files'] = files;
+    }
+    if (synthetic) {
+      payload['synthetic'] = true;
     }
     return this.base(sessionId, 'user', payload);
   }
@@ -203,10 +209,15 @@ export class EventFactory implements EventFactoryPort {
    * 仅落日志与广播，上下文投影器不消费该类型（不进模型上下文）。
    * @param sessionId 事件归属的会话 ID。
    * @param workspace 创建会话时的工作区根目录。
+   * @param model 创建会话时使用的模型名（可选；`mock` 用于把演示会话与真实会话分开）。
    * @returns 结构完整的 session_meta 事件。
    */
-  public sessionMeta(sessionId: string, workspace: string): SessionEvent {
-    return this.base(sessionId, 'session_meta', { workspace });
+  public sessionMeta(sessionId: string, workspace: string, model?: string): SessionEvent {
+    const payload: Record<string, unknown> = { workspace };
+    if (model !== undefined && model !== '') {
+      payload['model'] = model;
+    }
+    return this.base(sessionId, 'session_meta', payload);
   }
 
   /**

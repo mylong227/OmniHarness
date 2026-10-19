@@ -4,6 +4,7 @@ import type { SessionEvent } from '../../ports/runtime/event.ts';
 import type { StoragePort } from '../../ports/memory/storage.ts';
 import { log } from '../../util/logger.ts';
 import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.ts';
+import { SessionAttachmentSpiller } from './sessionAttachmentSpiller.ts';
 
 /** JSONL 文件存储适配器：每个会话一个 .jsonl 文件（可观测、可回放）。 */
 export class JsonlStorage implements StoragePort {
@@ -11,6 +12,9 @@ export class JsonlStorage implements StoragePort {
   public readonly name = 'jsonl';
   /** 存储目录位置（每个会话一个 `.jsonl` 文件）。 */
   public readonly location: string;
+
+  /** 大附件外置器：落盘副本只留 path，读回时由 ContextAssembler 水合。 */
+  private readonly spiller: SessionAttachmentSpiller;
 
   /**
    * 本实例**上次成功写入**的字节数与条数（追加通道的 O(1) 前缀校验基准）。
@@ -25,6 +29,7 @@ export class JsonlStorage implements StoragePort {
     private readonly directory: string,
   ) {
     this.location = directory;
+    this.spiller = new SessionAttachmentSpiller(directory);
   }
 
   /**
@@ -43,7 +48,10 @@ export class JsonlStorage implements StoragePort {
     await mkdir(this.directory, { recursive: true });
     // 归档冷存储：主目录没有文件但 `archive/` 有 ⇒ 先挪回来，避免把历史劈成两半（新文件只有新事件）。
     SessionArchiveLayout.ensureMain(this.directory, sessionId);
-    const lines = events.map((event) => JSON.stringify(event)).join('\n');
+    const sanitized = await Promise.all(
+      events.map((event) => this.spiller.sanitize(sessionId, event)),
+    );
+    const lines = sanitized.map((event) => JSON.stringify(event)).join('\n');
     const text = `${lines}\n`;
     const tmp = `${file}.tmp`;
     try {
@@ -131,7 +139,10 @@ export class JsonlStorage implements StoragePort {
     if (tail.length === 0) {
       return;
     }
-    const text = `${tail.map((event) => JSON.stringify(event)).join('\n')}\n`;
+    const sanitizedTail = await Promise.all(
+      tail.map((event) => this.spiller.sanitize(sessionId, event)),
+    );
+    const text = `${sanitizedTail.map((event) => JSON.stringify(event)).join('\n')}\n`;
     await appendFile(file, text, 'utf8');
     this.written.set(sessionId, {
       count: events.length,

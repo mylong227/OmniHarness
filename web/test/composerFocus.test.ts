@@ -1,4 +1,5 @@
-// 判据：输入区的**焦点可见性归谁**，以及"框里不再套框"这条外观契约。
+// 判据：输入区的**焦点可见性归谁**，以及"外层发丝框 / 内层输入表面 / textarea 不出第三层框"
+// 这条外观契约（2026-10-20 用户要求外层框四角圆润、顶边轻微可见）。
 //
 // 为什么需要它（2026-10-17 的教训）：
 //   输入区的焦点信号在一天内被搬了三次，每次都是"用户看图才发现"，而且我前两轮在
@@ -179,16 +180,21 @@ test('④ 输入面板是可见的圆润表面（否则"加大圆角"不可见�
   );
 });
 
-test('⑤ 输入区自带的那圈框必须去掉（.composer 不再画整框）', () => {
-  // 历史上这里有一条 `border-top: 1px solid var(--hairline)`，配合 border-radius:0
-  // 形成"直角外框套圆角内框"，正是用户两次反馈要修的东西。
+test('⑤ 输入区外层框是四角圆角的发丝框（暗色下也看得见，不用高亮）', () => {
+  // 2026-10-20 用户口径：外层框要有圆角、顶边在暗色下也轻微可见，但不能用高亮色。
+  // 历史坑：曾经是 `border-top: none` + `border-radius: 0 0 22px 22px`，
+  // 形成"上方缺一条线、上角还是直角"的残缺外框。
   const rule = declsOf('.composer');
   assert.ok(rule !== null, 'minimal.css 必须有 .composer 规则');
-  assert.ok(
-    !/border-top:\s*1px solid var\(--hairline\)/.test(rule.decls),
-    '.composer 不得再画顶部发丝线（会形成直角外框）',
+  assert.match(
+    rule.decls,
+    /border:\s*1px solid var\(--border-soft\)/,
+    '外层框必须用 --border-soft 发丝描边（暗色可见、但不是高亮）',
   );
-  assert.match(rule.decls, /border-top:\s*none/, '.composer 的整框必须显式清零');
+  const radius = /border-radius:\s*(\d+)px/.exec(rule.decls);
+  assert.ok(radius !== null, '外层框必须显式圆角');
+  assert.ok(Number(radius[1]) >= 22, `外层框圆角 ${String(radius?.[1])}px 太小；应四角圆润`);
+  assert.ok(!/border-top:\s*none/.test(rule.decls), '外层框不得去掉顶边（暗色下会缺一条线）');
 });
 
 test('⑥ 样式表引用的 token 都存在（防"描边写成不存在的变量 ⇒ 静默退化"）', () => {

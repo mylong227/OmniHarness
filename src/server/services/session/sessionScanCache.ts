@@ -24,12 +24,26 @@ import { SessionFileScanner } from './sessionFileScanner.ts';
 export interface SessionSummary {
   /** 归属工作区（`session_meta.payload.workspace`；老存档可能没有）。 */
   readonly workspace?: string | undefined;
+  /** 创建会话时记录的模型名（老存档没有；有 `model` 事件时回填）。 */
+  readonly model?: string | undefined;
+  /**
+   * 是否为 mock/演示会话。
+   *
+   * 判据（按可靠性排序）：`session_meta.model === 'mock'` → 工具调用 id 以 `mock_call_` 开头
+   * → assistant 文案含「模拟模型适配器输出」。**不能**用「没有 model 事件」判定：用户只发了
+   * 一句话就取消的会话同样没有 model 事件，把它当 mock 会误伤真实会话。
+   */
+  readonly mock: boolean;
   /** 首条用户消息前 80 字（无自定义标题时作标签）。 */
   readonly label: string;
   /** 用户回合数。 */
   readonly turns: number;
   /** 最后一条事件的时间戳（ISO 字符串；没有则为空串）。 */
   readonly updatedAt: string;
+  /** 有效时长（ms）：首末事件间隔 − 空闲间隔（>5 分钟且后接 user 事件）。 */
+  readonly activeMs: number;
+  /** 被剔除的空闲间隔个数（用户离开后再回来）。 */
+  readonly idleGaps: number;
 }
 
 /** 单个模型的 token 统计。 */
@@ -160,7 +174,11 @@ export class SessionScanCache {
   }
 
   /**
-   * 解析摘要：`session_meta` 的工作区标记 + 首条 `user` 内容 + 最后一个时间戳。
+   * 解析摘要：工作区 / 模型 / mock 标记 / 首条 user / 回合数 / 最后时间戳 / 有效时长。
+   *
+   * 仍然一次整读文件（列表缓存按 `(mtime,size)` 命中，稳态只 stat），但**同一次遍历**把
+   * mock 与有效时长一起算出来，避免为了新字段再扫一遍。
+   *
    * @param file 存档绝对路径
    * @returns 摘要；不可读时 `undefined`
    */
@@ -172,25 +190,78 @@ export class SessionScanCache {
       return undefined;
     }
     let workspace: string | undefined;
+    let model: string | undefined;
     let label = '';
     let turns = 0;
     let updatedAt = '';
+    let mock = false;
+    let firstTs: number | null = null;
+    let prevTs: number | null = null;
+    let idleMs = 0;
+    let idleGaps = 0;
     for (const line of text.split('\n')) {
       const ev = SessionFileScanner.parseLine(line);
       if (ev === undefined) continue;
-      if (ev.type === 'session_meta' && typeof ev.payload?.['workspace'] === 'string') {
-        workspace = ev.payload['workspace'] as string;
+      const payload = ev.payload;
+      if (ev.type === 'session_meta') {
+        if (typeof payload?.['workspace'] === 'string') {
+          workspace = payload['workspace'] as string;
+        }
+        if (typeof payload?.['model'] === 'string') {
+          model = payload['model'] as string;
+          if (model === 'mock') mock = true;
+        }
       } else if (ev.type === 'user') {
         if (label === '') {
-          const content = ev.payload?.['content'];
+          const content = payload?.['content'];
           if (typeof content === 'string') label = content.slice(0, 80);
         }
         turns += 1;
+      } else if (ev.type === 'tool_call') {
+        const callId = payload?.['callId'];
+        if (typeof callId === 'string' && callId.startsWith('mock_call_')) mock = true;
+      } else if (ev.type === 'assistant') {
+        const content = payload?.['content'];
+        if (typeof content === 'string' && content.includes('模拟模型适配器输出')) mock = true;
+      } else if (ev.type === 'model' && model === undefined) {
+        const name = payload?.['model'];
+        if (typeof name === 'string') {
+          model = name;
+          if (name === 'mock') mock = true;
+        }
       }
-      if (typeof ev.timestamp === 'string') updatedAt = ev.timestamp;
+      if (typeof ev.timestamp === 'string') {
+        updatedAt = ev.timestamp;
+        const ts = Date.parse(ev.timestamp);
+        if (Number.isFinite(ts)) {
+          if (firstTs === null) firstTs = ts;
+          if (prevTs !== null) {
+            const gap = ts - prevTs;
+            // 空闲 = 长间隔且间隔之后是用户消息（人离开后再回来）；模型生成延迟不算空闲。
+            if (gap > SessionScanCache.IDLE_GAP_MS && ev.type === 'user') {
+              idleMs += gap;
+              idleGaps += 1;
+            }
+          }
+          prevTs = ts;
+        }
+      }
     }
-    return { workspace, label, turns, updatedAt };
+    const spanMs = firstTs === null || prevTs === null ? 0 : Math.max(0, prevTs - firstTs);
+    return {
+      workspace,
+      ...(model !== undefined ? { model } : {}),
+      mock,
+      label,
+      turns,
+      updatedAt,
+      activeMs: Math.max(0, spanMs - idleMs),
+      idleGaps,
+    };
   }
+
+  /** 判定「用户离开」的最小间隔：5 分钟（与 tools/sessionTelemetry.mjs 同口径）。 */
+  private static readonly IDLE_GAP_MS = 5 * 60 * 1000;
 
   /**
    * 解析用量：聚合 `type='model'` 事件的 `usage.promptTokens/completionTokens`。

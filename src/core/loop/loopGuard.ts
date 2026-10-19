@@ -8,12 +8,31 @@ import { ArrayAt } from '../../util/arrayAt.ts';
  *    nudge（纠偏 user 消息），同一检测器连续触发达上限才升级 abort——避免误杀长任务。
  *  - 参数规范化（LoopBuster 思想）：uuid/timestamp/hash/长随机串掩码后再比较，
  *    防止「同意图不同易变字段」漏检。
+ *  - **结果指纹**（2026-10-19）：只看调用签名会漏掉长会话最常见的一种浪费——同一份内容
+ *    被反复取回（同一文件 `read_file` 34 次、同一目录 `list_dir` 15 次）。这类重复既不连续、
+ *    也不构成短周期，必须按结果内容去重才能发现。
  *  - 只观察、不执行：Guard 是纯决策器，产出结构化决策，由 TurnRunner 决定干预。
  */
 
 /** 失控检测类型。 */
 export type LoopViolationKind =
-  'exact-repeat' | 'cycle' | 'wall-clock' | 'edit-oscillation' | 'edit-thrash';
+  | 'exact-repeat'
+  | 'cycle'
+  | 'wall-clock'
+  | 'soft-deadline'
+  | 'redundant-result'
+  | 'edit-oscillation'
+  | 'edit-thrash';
+
+/** 一步工具结果的观测（`redundant-result` 检测用；只读、不含 callId 以外的内部结构）。 */
+export interface LoopResultObservation {
+  /** 工具名（用于提示文案与去重键）。 */
+  readonly name: string;
+  /** 是否成功；失败结果不参与重复判定（失败重试是合法行为）。 */
+  readonly ok: boolean;
+  /** 结果正文（只比较内容指纹，不保留原文）。 */
+  readonly output: string;
+}
 
 /** 一次观测输入：本步模型产出（空步不观测）。 */
 export interface LoopObservation {
@@ -22,6 +41,13 @@ export interface LoopObservation {
     readonly name: string;
     readonly arguments: Record<string, unknown>;
   }[];
+  /**
+   * 本步工具结果（可选）。给了才会跑 `redundant-result` 检测：
+   * 长会话里最烧钱的一种病是「同一份内容被反复取回」——2026-10-13 真机会话
+   * `sess_mv88ycm7_1` 对同一个文件 `read_file` 34 次、结果指纹完全相同；这类重复
+   * 既不连续（exact-repeat 看不见）也不构成短周期（cycle 看不见），只能靠结果指纹识别。
+   */
+  readonly results?: readonly LoopResultObservation[];
   /** 本步时间戳（ms，供 wall-clock；缺省用内部单调时钟）。 */
   readonly ts?: number;
 }
@@ -39,10 +65,24 @@ export interface LoopGuardOptions {
   readonly cycleWindow?: number;
   /** 最大循环周期长度，默认 4（A→B→A→B 周期 2；A→B→C→A 周期 3）。 */
   readonly maxCyclePeriod?: number;
-  /** 会话 wall-clock 上限（ms），默认 0 = 关闭。 */
+  /** 会话 wall-clock 上限（ms），默认 0 = 关闭。到点直接熔断。 */
   readonly maxDurationMs?: number;
+  /**
+   * 软时限（ms）：到点只注入「开始收尾」nudge，**不熔断**；配合 `maxDurationMs` 形成
+   * 「先劝收尾，再硬停」的两段式。默认 0 = 关闭（由 `Agent` 按 env 装配 30 分钟）。
+   */
+  readonly softDeadlineMs?: number;
   /** 同一检测连续触发多少次升级为 abort，默认 2。 */
   readonly nudgeLimit?: number;
+  /**
+   * 同一「工具 + 结果指纹」在窗口内出现多少次判为冗余取回，默认 4；0 = 关闭。
+   *
+   * 为什么不是 2：读同一文件两次是合法复查（例如改完后确认），3 次已偏多，4 次基本可判定
+   * 模型在**重复获取同一份信息**而没有推进。首次只 nudge（不杀），连续触发才 abort。
+   */
+  readonly maxRedundantResults?: number;
+  /** 结果指纹窗口长度（最近 N 个成功结果），默认 64。 */
+  readonly resultWindow?: number;
   /** 文件维度失控检测（振荡/抖动）开关，默认开。
    *
    * 存在理由（2026-10-01 审计）：`OMNI_LOOPGUARD=0` 只关了 `maxExactRepeats` 与
@@ -58,7 +98,10 @@ const DEFAULTS = {
   cycleWindow: 8,
   maxCyclePeriod: 4,
   maxDurationMs: 0,
+  softDeadlineMs: 0,
   nudgeLimit: 2,
+  maxRedundantResults: 4,
+  resultWindow: 64,
 } as const;
 
 /** 易变字段名（值不同不代表意图不同）。 */
@@ -83,6 +126,10 @@ const NUDGE_TEXT: Record<LoopViolationKind, string> = {
     '【失控预警】检测到你在两个及以上工具之间循环往复（A→B→A→B）。请打破循环：重新评估当前进度，换一条完全不同的路径，或直接总结已有信息给出结论。',
   'wall-clock':
     '【超时预警】本任务运行时间已达上限。请立即基于已获得的信息收尾：给出当前结论与剩余风险说明，不要再开启新的探索。',
+  'soft-deadline':
+    '【时限提醒】本回合已运行较长时间。请开始收尾：优先完成当前这一个改动并验证，把「还可以继续做」的部分列成清单交给用户，不要再开启新的探索或整文件重写。',
+  'redundant-result':
+    '【失控预警】检测到你反复取回**完全相同**的工具结果（同一文件/同一命令已返回过多次）。不要再次调用同一工具：直接用已有结果推进；若确实需要新信息，请换参数、换工具，或先说明还缺什么。',
   'edit-oscillation':
     '【失控预警】检测到你在同一个文件上来回改写（改回先前的内容形态）。请停下来读一遍当前文件，明确你要达成的那一种形态，一次改到位；若两次改动互相矛盾，先说明为什么。',
   'edit-thrash':
@@ -114,8 +161,14 @@ export class LoopGuard {
   private readonly maxCyclePeriod: number;
   /** 会话 wall-clock 上限（ms）；0 = 关闭超时熔断。 */
   private readonly maxDurationMs: number;
+  /** 软时限（ms）：到点只 nudge 收尾；0 = 关闭。 */
+  private readonly softDeadlineMs: number;
   /** 同一检测连续触发多少次升级为 abort（此前只 nudge）。 */
   private readonly nudgeLimit: number;
+  /** 同「工具 + 结果指纹」在窗口内出现多少次判冗余；0 = 关闭。 */
+  private readonly maxRedundantResults: number;
+  /** 结果指纹窗口长度（最近 N 个成功结果）。 */
+  private readonly resultWindow: number;
   /** 文件维度失控检测开关（editChecks=false 时 observeEdits 不跑）。 */
   private readonly editChecks: boolean;
 
@@ -125,6 +178,8 @@ export class LoopGuard {
   private readonly editLog: { readonly file: string; readonly fp: string }[] = [];
   /** 各检测器连续触发计数（nudge 升级 abort 用）。 */
   private readonly streaks = new Map<LoopViolationKind, number>();
+  /** 最近成功结果的「工具 + 内容指纹」序列（`redundant-result` 检测用，窗口有界）。 */
+  private readonly resultLog: string[] = [];
   /** 会话起点：取首次观测的 ts（时间轴由调用方驱动，可测试注入）；无 ts 用挂钟。 */
   private startedAt: number | undefined = undefined;
 
@@ -133,8 +188,11 @@ export class LoopGuard {
     this.cycleWindow = options.cycleWindow ?? DEFAULTS.cycleWindow;
     this.maxCyclePeriod = options.maxCyclePeriod ?? DEFAULTS.maxCyclePeriod;
     this.maxDurationMs = options.maxDurationMs ?? DEFAULTS.maxDurationMs;
+    this.softDeadlineMs = options.softDeadlineMs ?? DEFAULTS.softDeadlineMs;
     this.nudgeLimit = options.nudgeLimit ?? DEFAULTS.nudgeLimit;
     this.editChecks = options.editChecks ?? true;
+    this.maxRedundantResults = options.maxRedundantResults ?? DEFAULTS.maxRedundantResults;
+    this.resultWindow = options.resultWindow ?? DEFAULTS.resultWindow;
   }
 
   /**
@@ -143,13 +201,22 @@ export class LoopGuard {
    * @returns 结构化决策：allow 放行 / nudge 注入纠偏 / abort 熔断（由 TurnRunner 执行）。
    */
   public observe(observation: LoopObservation): LoopDecision {
-    // wall-clock 检测先于模式检测：时间到了必须收尾，无论模式多「健康」。
-    if (this.maxDurationMs > 0) {
+    // 时间维度先于模式检测：先看硬时限（熔断），再看软时限（只劝收尾）。
+    if (this.maxDurationMs > 0 || this.softDeadlineMs > 0) {
       const now = observation.ts ?? Date.now();
       this.startedAt = this.startedAt ?? now;
       const elapsed = now - this.startedAt;
-      if (elapsed >= this.maxDurationMs) {
+      if (this.maxDurationMs > 0 && elapsed >= this.maxDurationMs) {
         return this.decide('wall-clock');
+      }
+      if (this.softDeadlineMs > 0 && elapsed >= this.softDeadlineMs) {
+        // 软时限**不升级为 abort**：它只是提醒模型开始收尾，硬停由 maxDurationMs 负责。
+        // 也不计入 streaks（否则连续两步就会把软提醒变成熔断）。
+        return {
+          kind: 'nudge',
+          violation: 'soft-deadline',
+          message: NUDGE_TEXT['soft-deadline'],
+        };
       }
     }
     // 本步调用统一入序列（一次！exactRepeat 与 cycle 共享同一条历史，
@@ -164,6 +231,13 @@ export class LoopGuard {
     if (this.cycleWindow > 0 && this.hasCycle()) {
       return this.decide('cycle');
     }
+    // 结果维度的冗余取回（长会话主病）：不连续、无短周期，但「同一份内容」被反复拿到。
+    if (this.maxRedundantResults > 0 && observation.results !== undefined) {
+      const redundant = this.observeResults(observation.results);
+      if (redundant !== undefined) {
+        return this.decide(redundant);
+      }
+    }
     // 文件维度的失控（A5）：签名级检测看不见「改了 A 又改回 A」这类振荡，必须另看一眼。
     // editChecks=false（`OMNI_LOOPGUARD=0`）时跳过 —— 全量关闭必须是全量，否则批量
     // codemod 会被 edit 维度误杀且用户找不到关闭开关（2026-10-01 审计）。
@@ -176,6 +250,66 @@ export class LoopGuard {
     // 本步观测健康 → 清零全部连续计数（nudge 只认「连续」违规）。
     this.streaks.clear();
     return { kind: 'allow' };
+  }
+
+  /**
+   * 观测本步**成功结果**，判定是否在反复取回同一份内容。
+   *
+   * 判据：`工具名 + 结果内容指纹` 在最近 {@link resultWindow} 个成功结果里出现
+   * ≥ {@link maxRedundantResults} 次。为什么按内容而不是调用签名：同一文件可以被
+   * `read_file`（带不同 offset/limit）或 `grep` 多次取回，签名不同但结果完全相同；
+   * 而真正推进任务时结果内容必然变化（文件改了、目录变了、搜索命中不同）。
+   *
+   * 边界：失败结果不参与（重试是合法行为）；过短结果不参与（`ok` / `true` 这类噪声）。
+   *
+   * @param results 本步工具结果。
+   * @returns 命中的违规类型；健康返回 undefined。
+   */
+  private observeResults(results: readonly LoopResultObservation[]): LoopViolationKind | undefined {
+    for (const result of results) {
+      if (!result.ok) {
+        continue;
+      }
+      const output = result.output;
+      if (output.length < LoopGuard.REDUNDANT_MIN_CHARS) {
+        continue;
+      }
+      this.resultLog.push(`${result.name}::${LoopGuard.hashText(output)}`);
+    }
+    if (this.resultLog.length > this.resultWindow) {
+      this.resultLog.splice(0, this.resultLog.length - this.resultWindow);
+    }
+    const counts = new Map<string, number>();
+    for (const fp of this.resultLog) {
+      counts.set(fp, (counts.get(fp) ?? 0) + 1);
+    }
+    for (const count of counts.values()) {
+      if (count >= this.maxRedundantResults) {
+        // 触发后清空窗口：否则这 N 条重复会一直留在窗口里，模型哪怕立刻改好，
+        // 下一步仍会「命中」并直接升级 abort —— 守卫变成不可恢复的误杀。
+        // 清空后若模型继续重复，需要再攒 N 次才会再次触发（升级路径仍成立）。
+        this.resultLog.length = 0;
+        return 'redundant-result';
+      }
+    }
+    return undefined;
+  }
+
+  /** 结果指纹最小长度：更短的结果（`ok`、空列表）重复是常态，不参与判定。 */
+  private static readonly REDUNDANT_MIN_CHARS = 64;
+
+  /**
+   * 文本指纹（FNV-1a 32 位）；只用于相等比较，不需要抗碰撞强度。
+   * @param text 结果正文。
+   * @returns 8 位十六进制指纹。
+   */
+  private static hashText(text: string): string {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
   }
 
   /**

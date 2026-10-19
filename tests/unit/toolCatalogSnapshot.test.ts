@@ -164,6 +164,31 @@ test('plan 模式：消费点（effectiveTools）真的按类别裁剪直载集�
   }
 });
 
+test('plan 模式：synthetic user（nudge）不参与任务文本推导', () => {
+  const real = userEvent('跑一下测试');
+  const nudge: SessionEvent = {
+    ...userEvent('【失控预警】读取文件并继续'),
+    payload: { content: '【失控预警】读取文件并继续', synthetic: true },
+  };
+  const deps = {
+    ...makeDepsWithUser(real),
+    recorder: { allEvents: () => [real, nudge] },
+  } as unknown as StepRunnerDeps;
+  const prev = process.env['OMNI_TOOL_EXPOSURE'];
+  process.env['OMNI_TOOL_EXPOSURE'] = 'plan';
+  try {
+    const names = namesOf(deps);
+    assert.ok(names.includes(TOOL_NAMES.shell), '真实任务「测试」应命中 exec');
+    assert.ok(
+      !names.includes(TOOL_NAMES.readFile),
+      'nudge 里的「文件」不得把 files 类别拉进可见集（synthetic 必须被跳过）',
+    );
+  } finally {
+    if (prev === undefined) delete process.env['OMNI_TOOL_EXPOSURE'];
+    else process.env['OMNI_TOOL_EXPOSURE'] = prev;
+  }
+});
+
 test('plan 模式：无类别命中时 fail-safe 全量放行（宁多给不少给）', () => {
   const deps = makeDepsWithUser(userEvent('嗯'));
   const prev = process.env['OMNI_TOOL_EXPOSURE'];

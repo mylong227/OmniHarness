@@ -5,7 +5,7 @@ import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turn
 import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
 import type { ToolHookContext } from '../../src/ports/tool/toolHook.ts';
 import type { ToolResult } from '../../src/ports/tool/tool.ts';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -19,6 +19,75 @@ function okResult(): ToolResult {
   return { callId: 'c1', ok: true, output: '' };
 }
 
+test('classifyShell：单文件删除 / 不可追踪变更 / 只读三分', () => {
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('del _preview_server.js'), {
+    kind: 'delete',
+    path: '_preview_server.js',
+  });
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('del /q "a b.txt"'), {
+    kind: 'delete',
+    path: 'a b.txt',
+  });
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('del *.txt'), { kind: 'mutate' });
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('copy /y a b'), { kind: 'mutate' });
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('node _preview_server.js'), {
+    kind: 'mutate',
+  });
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('node --version'), { kind: 'readonly' });
+  assert.deepStrictEqual(TurnDiffHooks.classifyShell('dir /b'), { kind: 'readonly' });
+});
+
+test('hooks：单文件 shell 删除进入 turn diff（全量删除行）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'turndiff-'));
+  try {
+    writeFileSync(join(dir, 'a.txt'), 'old\n');
+    const tracker = new TurnDiffTracker();
+    const hooks = new TurnDiffHooks(tracker, dir).hooks();
+    const shell = ctx('shell', { command: 'del a.txt' });
+    await hooks.pre?.(shell);
+    unlinkSync(join(dir, 'a.txt')); // 模拟 del 成功
+    await hooks.post?.(shell, okResult());
+    const diff = tracker.getUnifiedDiff();
+    assert.ok(diff !== undefined, '删除必须产出 diff');
+    assert.match(diff!, /^--- a\/a\.txt/m);
+    assert.match(diff!, /^-old/m);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('hooks：不可精确追踪的 shell 变更让整个回合 diff 失效', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'turndiff-'));
+  try {
+    const tracker = new TurnDiffTracker();
+    tracker.noteWrite('a.txt', 'new\n');
+    assert.ok(tracker.isValid);
+    const hooks = new TurnDiffHooks(tracker, dir).hooks();
+    const shell = ctx('shell', { command: 'node _preview_server.js' });
+    await hooks.pre?.(shell);
+    await hooks.post?.(shell, okResult());
+    assert.strictEqual(tracker.isValid, false, '脚本执行可能写盘 ⇒ diff 必须失效');
+    assert.strictEqual(tracker.getUnifiedDiff(), undefined);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('hooks：只读 shell 命令不影响既有 diff', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'turndiff-'));
+  try {
+    const tracker = new TurnDiffTracker();
+    tracker.noteWrite('a.txt', 'new\n');
+    const hooks = new TurnDiffHooks(tracker, dir).hooks();
+    const shell = ctx('shell', { command: 'dir /b' });
+    await hooks.pre?.(shell);
+    await hooks.post?.(shell, okResult());
+    assert.strictEqual(tracker.isValid, true);
+    assert.ok(tracker.getUnifiedDiff()?.includes('+new'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 test('tracker：首次写入基线为 null，产出新建 diff', () => {
   const t = new TurnDiffTracker();
   t.noteWrite('a.txt', 'hello\n');

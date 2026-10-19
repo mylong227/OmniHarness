@@ -183,10 +183,16 @@ export class AppServer extends AppServerVaultHandlers {
   protected registerSessionHandlers(): void {
     this.handlers.set('sessions.list', async (params) => {
       const includeArchived = params['includeArchived'] !== false;
+      // mock/演示会话默认不列出（本机 152 个里 144 个是 mock）；调试时显式传 includeMock:true。
+      const includeMock = params['includeMock'] === true;
       // 工作区收敛（2026-10-06 第六十二轮真机 UI 跑测）：作用域解析收在 `SessionArchive.list` 里
       // （缺省 = 当前工作区；`'*'` = 全部），此处**只透传** params。为什么不在本层算：本类已贴着
       // 「上帝类」的代码行阈值，多出的实现行会被增量门禁拦下（实测过一次）。
-      const r = (await this.sessionArchive.list(includeArchived, params['workspace'])) as {
+      const r = (await this.sessionArchive.list(
+        includeArchived,
+        params['workspace'],
+        includeMock,
+      )) as {
         dir: string;
         sessions: { sessionId: string; running?: boolean }[];
       };

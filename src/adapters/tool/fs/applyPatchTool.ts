@@ -52,6 +52,23 @@ export class ApplyPatchTool {
   private readonly applier = new PatchApplier();
 
   /**
+   * 解析失败时附带的**最小可用格式**。
+   *
+   * 为什么错误里要带示例：模型常凭记忆写 patch，最常见的两种错法是 ①`*** Begin Patch` 这类
+   * 自定义头（本工具只认 unified diff）②`@@` 后不写行号区间。只回「缺少 +++ 头 / 缺少有效
+   * hunk」时，模型会**再猜一次**（2026-10-19 鹈鹕会话实测：两次失败后才改用带行号的写法）。
+   * 给一段 6 行示例，比任何形容词都省一轮调用。
+   */
+  private static readonly FORMAT_HINT =
+    '需要标准 unified diff（必须带 `+++` 文件头与 `@@ -旧起点,旧行数 +新起点,新行数 @@`）。示例：\n' +
+    '--- a/file.txt\n' +
+    '+++ b/file.txt\n' +
+    '@@ -1,2 +1,2 @@\n' +
+    '-旧的一行\n' +
+    '+新的一行\n' +
+    ' 未改动的上下文行';
+
+  /**
    * @param workspaceRoot 工作区根目录（补丁目标必须落在其内，越界即拒绝）。
    * @param ledger 内容账本（S1，可选）：应用前逐目标比对指纹，发现外部改动即整体拒绝。
    */
@@ -71,7 +88,11 @@ export class ApplyPatchTool {
     const patch = String(call.arguments['patch'] ?? '');
     const parsed = this.applier.parseFiles(patch);
     if (!parsed.ok) {
-      return { callId: call.id, ok: false, error: parsed.error };
+      return {
+        callId: call.id,
+        ok: false,
+        error: `${parsed.error}\n${ApplyPatchTool.FORMAT_HINT}`,
+      };
     }
     const targets = this.resolveTargets(call, parsed.files);
     if (targets === undefined) {

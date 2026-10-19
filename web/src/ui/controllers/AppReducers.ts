@@ -343,10 +343,14 @@ export class AppReducers {
     ];
     // 设置不在这份面板清单里（2026-10-17）：它是模态，不是右栏面板。
     // 命令面板里以独立一条「打开设置」呈现，见下方 list.push。
+    //
+    // 面板名直接作 label（2026-10-19）：组标题已经写着「面板」，10 行再各带一次
+    // 「打开面板：」前缀，整列会读成同一句话，扫读成本高且视觉噪音大。
+    // 搜索仍可命中：分组名参与过滤，输入「面板」即可收窄到这 10 条。
     const list: CommandItem[] = panes.map((p) => ({
       id: 'pane-' + p.key,
-      label: '打开面板：' + p.label,
-      group: '导航',
+      label: p.label,
+      group: '面板',
       run: () => {
         deps.setActivePane(p.key);
         deps.setRightOpen(true);

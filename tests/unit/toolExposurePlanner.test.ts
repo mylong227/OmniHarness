@@ -11,6 +11,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ToolExposurePlanner, type ToolCategory } from '../../src/core/toolExposurePlanner.ts';
+import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
 
 /** 精简类别表：两条类别 + 一个故意不登记的工具，便于断言边界。 */
 const CATEGORIES: readonly ToolCategory[] = [
@@ -123,6 +124,61 @@ test('无工具时短路，不抛错', () => {
   });
   assert.deepEqual([...plan.visible], []);
   assert.deepEqual([...plan.deferred], []);
+});
+
+test('创建类任务不得丢文件工具（2026-10-19 鹈鹕会话回归）', () => {
+  // 真实事故：任务「创建一个HTML……动画」不含「文件/写」，`files` 类未命中；
+  // 而「你不需要任何测试」反而命中 `exec`，于是 33 个工具裁到 17 个，
+  // write_file / read_file / edit / apply_patch 全被延迟，模型只好用 run_code + `node -e`
+  // 写文件，被沙箱连续拒绝 5 次，5.5 分钟零产出。
+  const tools = [
+    TOOL_NAMES.readFile,
+    TOOL_NAMES.writeFile,
+    TOOL_NAMES.edit,
+    TOOL_NAMES.listDir,
+    TOOL_NAMES.applyPatch,
+    TOOL_NAMES.grep,
+    TOOL_NAMES.glob,
+    TOOL_NAMES.shell,
+    TOOL_NAMES.shellInteractive,
+    TOOL_NAMES.shellJob,
+    TOOL_NAMES.runCode,
+    TOOL_NAMES.webFetch,
+    TOOL_NAMES.browserScreenshot,
+    TOOL_NAMES.viewImage,
+    TOOL_NAMES.viewMedia,
+    TOOL_NAMES.subagent,
+    TOOL_NAMES.runGoal,
+    TOOL_NAMES.runWorkflow,
+    TOOL_NAMES.todoWrite,
+    TOOL_NAMES.todoRead,
+    TOOL_NAMES.askUser,
+    TOOL_NAMES.planWrite,
+    TOOL_NAMES.planPresent,
+    TOOL_NAMES.planRead,
+    TOOL_NAMES.toolSearch,
+    TOOL_NAMES.memorySearch,
+    TOOL_NAMES.budgetStatus,
+    TOOL_NAMES.policyEval,
+    TOOL_NAMES.checkpoint,
+    TOOL_NAMES.rollback,
+    TOOL_NAMES.sketchWrite,
+    TOOL_NAMES.spillRead,
+    TOOL_NAMES.agentIdentity,
+  ];
+  const plan = ToolExposurePlanner.plan({
+    taskText:
+      '创建一个HTML，内容是SVG绘制一个鹈鹕骑自行车的2D动画，你不需要任何测试，只靠你自己完成，不要使用任何skill，不要依赖我本地的AGENTS.md',
+    tools,
+  });
+  for (const name of [
+    TOOL_NAMES.readFile,
+    TOOL_NAMES.writeFile,
+    TOOL_NAMES.edit,
+    TOOL_NAMES.applyPatch,
+  ]) {
+    assert.ok(plan.visible.includes(name), `${name} 必须可见（创建类任务必然要落盘/改文件）`);
+  }
 });
 
 test('类别里写了未注册的工具名 ⇒ 忽略，不抛错也不误伤', () => {

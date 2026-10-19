@@ -170,6 +170,7 @@ export class AnthropicModel implements ModelPort {
           request.tools,
           request.responseFormat,
           request.reasoningEffort,
+          request.maxOutputTokens,
         ),
       ),
       // V2：协作式取消——signal 存在时透传给 fetch，取消即中断在飞请求。
@@ -199,6 +200,7 @@ export class AnthropicModel implements ModelPort {
     tools: readonly ModelToolSpec[],
     format?: ModelResponseFormat,
     effort?: string,
+    maxOutputTokens?: number,
   ): Record<string, unknown> {
     const plan = this.cacheBreakpoints.plan(messages, system !== undefined);
     // 结构化输出（2026-10-11）：Anthropic **没有** response_format 一类字段，等价实现是
@@ -208,9 +210,18 @@ export class AnthropicModel implements ModelPort {
     // 推理强度（2026-10-11）：Anthropic 用 `thinking:{type:'enabled',budget_tokens}`，
     // 且**硬约束 max_tokens > budget_tokens** —— 故这里同时抬高 max_tokens（见 ModelReasoningEfforts）。
     const thinking = ModelReasoningEfforts.toAnthropic(effort);
+    // Anthropic 硬约束 max_tokens > thinking.budget_tokens：调用方的上限不得低于该地板。
+    const defaultMaxTokens = ModelReasoningEfforts.anthropicMaxTokens(
+      effort,
+      this.config.maxTokens,
+    );
+    const cappedMaxTokens =
+      typeof maxOutputTokens === 'number' && Number.isFinite(maxOutputTokens) && maxOutputTokens > 0
+        ? Math.max(Math.floor(maxOutputTokens), defaultMaxTokens)
+        : defaultMaxTokens;
     return {
       model: this.config.model,
-      max_tokens: ModelReasoningEfforts.anthropicMaxTokens(effort, this.config.maxTokens),
+      max_tokens: cappedMaxTokens,
       ...(thinking === undefined ? {} : thinking),
       // V2.1（C10 prompt caching）：system 作为独立 text block 并打上 ephemeral
       // 缓存断点——system 前缀跨回合稳定（不变内容 + 追加），命中缓存可省重复

@@ -159,6 +159,17 @@ export class ToolExposurePlanner {
         'edit',
         'patch',
         'directory',
+        // 「**创建**一个 HTML」这类任务不含「文件/写」二字，却**必然**要落盘。词表若只收
+        // 「文件/写」，`files` 类会被整体延迟，模型连 write_file 都看不见（2026-10-19 鹈鹕
+        // 会话实测：33 → 17，write_file/read_file/apply_patch 全被藏，模型改用 run_code +
+        // `node -e` 写文件，被沙箱连续拒绝 5 次，5.5 分钟零产出）。按本模块「宁可多给不可少给」
+        // 的护栏，创建意向词一律并入本类——多给只是多几百 token，少给是能力损伤。
+        'create',
+        'new',
+        'generate',
+        'html',
+        'svg',
+        'css',
         '文件',
         '读',
         '写',
@@ -170,6 +181,18 @@ export class ToolExposurePlanner {
         '改',
         '补丁',
         '目录',
+        '创建',
+        '新建',
+        '生成',
+        '编写',
+        '写一个',
+        '写个',
+        '绘制',
+        '画一',
+        '画个',
+        '页面',
+        '代码',
+        '源码',
       ],
       tools: [
         TOOL_NAMES.readFile,
@@ -538,19 +561,36 @@ export class ToolExposurePlanner {
   }
 
   /**
-   * BM25 分词：小写 → 非字母数字切分 → CJK 连续段补二元组。
+   * BM25 分词：小写 → 按「ASCII 字母数字」与「CJK」两类**连续段**切词 → CJK 段补二元组。
+   *
+   * ## 为什么必须按「连续段」而不是「分隔符之间的整块」
+   *
+   * 旧实现把分隔符之间的整块当一个词元，**只有整块是纯 CJK 时才补二元组**。中英混排的任务
+   * 恰恰是最常见的一类（`创建一个html，内容是svg绘制……`），整块既不是纯 ASCII 也不是纯 CJK：
+   *  - 拿不到 `html` / `svg` / `agents.md` 这些 ASCII 词；
+   *  - 更致命的是**一个中文二元组都拿不到**——整块的 `创建`、`内容`、`绘制` 全部丢失。
+   *
+   * 于是检索路对这类查询**恒空**（2026-10-19 鹈鹕会话实测：`reason` 明写「BM25 检索补入 0 个」，
+   * `write_file` 被延迟，模型用 `run_code`+`node -e` 写文件连续失败 5 次，白烧 5.5 分钟）。
+   * 修法是把整块再切成同类连续段：`创建一个html` → `创建一个` + `html`，后者既补 ASCII 词元，
+   * 前者补 `创建/建一/一个` 二元组。对纯 CJK / 纯 ASCII 输入，输出与旧实现**逐位一致**。
+   *
    * @param text 原始文本。
    * @returns 词元集合（去重）。
    */
   private static retrievalTokens(text: string): ReadonlySet<string> {
     const lowered = text.toLowerCase();
     const tokens = new Set<string>();
+    // 先按「非字母数字且非 CJK」切块，再在块内按同类连续段提取：
+    // `[a-z0-9]+` 抓 ASCII 词，`[\u4e00-\u9fff]+` 抓中文段（两者可交错出现）。
     for (const chunk of lowered.split(/[^a-z0-9\u4e00-\u9fff]+/u)) {
       if (chunk === '') continue;
-      tokens.add(chunk);
-      if (/^[\u4e00-\u9fff]+$/u.test(chunk) && chunk.length > 1) {
-        for (let i = 0; i + 1 < chunk.length; i += 1) {
-          tokens.add(chunk.slice(i, i + 2));
+      for (const run of chunk.match(/[a-z0-9]+|[\u4e00-\u9fff]+/gu) ?? []) {
+        tokens.add(run);
+        if (/^[\u4e00-\u9fff]+$/u.test(run) && run.length > 1) {
+          for (let i = 0; i + 1 < run.length; i += 1) {
+            tokens.add(run.slice(i, i + 2));
+          }
         }
       }
     }

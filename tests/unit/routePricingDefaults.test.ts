@@ -216,3 +216,14 @@ test('⑥ 消费面接线：budget_status 必须把"估算基于兜底价"讲出
   assert.deepStrictEqual(cleanParsed.unpricedModels, []);
   assert.ok(!cleanParsed.pricingNote.includes('兜底价'));
 });
+
+test('⑦ deepseek-flash 精确命中同价档（不再落兜底价，避免 10× 高估）', () => {
+  const pricing = RoutePricing.mergeRoutePricing();
+  const resolved = RoutePricing.resolve('deepseek-flash', pricing, DEFAULT_FALLBACK_PRICE);
+  assert.strictEqual(resolved.source, 'exact', 'deepseek-flash 必须有显式价目');
+  assert.deepStrictEqual(resolved.price, {
+    inputPer1M: 0.3,
+    outputPer1M: 1.2,
+    cachedInputPer1M: 0.006,
+  });
+});

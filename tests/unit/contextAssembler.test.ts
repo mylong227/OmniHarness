@@ -240,3 +240,31 @@ test('P2-⑬：工具附件紧跟其工具轮次 flush（不再落到整段对�
   assert.ok(attachIndex > toolIndex, '附件在 tool 消息之后（不破坏配对）');
   assert.ok(attachIndex < laterAssistant, '附件必须在其产生轮次附近，而非对话末尾');
 });
+
+test('图片附件预算：只保留最近的附件，旧附件降级为文字（2026-10-19 鹈鹕会话回归）', () => {
+  // 事故：7 张截图（6.2 MiB base64）在 45 次调用里累计重传 82.4 MiB，后期单次生成 247–314 秒。
+  // 预算 700k 字符 ⇒ 两张 900k 的截图只保留最新一张，旧的一张降级为带文件名的文字。
+  const assembler = new ContextAssembler();
+  const big = 'x'.repeat(900_000);
+  const events: SessionEvent[] = [];
+  for (let i = 0; i < 2; i += 1) {
+    events.push(
+      event('tool_call', { callId: `c${String(i)}`, name: 'browser_screenshot', args: {} }),
+      event('tool_result', {
+        callId: `c${String(i)}`,
+        ok: true,
+        output: 'ok',
+        files: [{ name: `s${String(i)}.png`, mediaType: 'image/png', data: big }],
+      }),
+      event('assistant', { content: `seen ${String(i)}` }),
+    );
+  }
+  const messages = assembler.build(events);
+  const withData = messages.filter((m) => (m.files?.length ?? 0) > 0);
+  assert.strictEqual(withData.length, 1, '900k + 900k > 1.5M ⇒ 只保留最新一张');
+  assert.strictEqual(withData[0]?.files?.[0]?.name, 's1.png');
+  const dropped = messages.filter((m) => m.content.includes('较早的图片附件已省略'));
+  assert.strictEqual(dropped.length, 1, '旧附件消息必须降级（保留文件名）');
+  assert.match(dropped[0]?.content ?? '', /s0\.png/);
+  assert.strictEqual(dropped[0]?.files, undefined, '被省略的消息不得再携带 base64');
+});

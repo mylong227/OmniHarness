@@ -9,6 +9,7 @@ import { ContextBreakdownEstimator } from '../context/contextBreakdownEstimator.
 import { StepContextBuilder } from './stepContextBuilder.ts';
 import { StepToolExecutor } from './stepToolExecutor.ts';
 import type { StepRunnerDeps, StepOutcome } from './stepTypes.ts';
+import type { LoopResultObservation } from './loop/loopGuard.ts';
 import { log } from '../util/logger.ts';
 
 /** 单步运行依赖（全部来自端口）。定义已迁至 `stepTypes.ts`，此处再导出以稳定公共 API。 */
@@ -34,6 +35,8 @@ export class StepRunner {
   private readonly breakdown = new ContextBreakdownEstimator();
   /** 本步模型发出的工具调用（V2 失控检测观测用；text/empty 步为空数组）。 */
   private lastToolCalls: readonly ToolCall[] = [];
+  /** 本步工具结果（LoopGuard 的 `redundant-result` 检测用；无工具步为空数组）。 */
+  private lastToolResults: readonly LoopResultObservation[] = [];
   /** 本步模型用量（V2.1 token 预算终止用；模型未上报时为 undefined）。 */
   private lastUsage: ModelUsage | undefined;
   /** 本步实际送出上下文的占用快照（随 model 事件落日志，UI 容量面板读实测值）。 */
@@ -52,6 +55,44 @@ export class StepRunner {
   /** 最近一步的工具调用（LoopGuard 观测入口；无工具步为空数组）。 */
   public get toolCallsOfLastStep(): readonly ToolCall[] {
     return this.lastToolCalls;
+  }
+
+  /** 最近一步的工具结果（LoopGuard 冗余取回检测；无工具步为空数组）。 */
+  public get toolResultsOfLastStep(): readonly LoopResultObservation[] {
+    return this.lastToolResults;
+  }
+
+  /**
+   * 从事件日志尾部取回本步工具结果（只读、不复制正文之外的结构）。
+   *
+   * 为什么不改 `StepToolExecutor.run` 的返回值：工具结果在**执行时**已由执行器记录，
+   * 这里只做一次「按 callId 对齐」的尾部扫描——不侵入审批/沙箱/钩子那条链路，
+   * 也不改变执行器「记录即配对」的既有不变量。最坏 O(历史事件数)，但正常情况下
+   * 目标结果就在最后几条事件里，扫到即停。
+   *
+   * @param calls 本步的模型工具调用。
+   * @returns 按 callId 去重后的结果观测（顺序为事件顺序的逆序，语义上无所谓）。
+   */
+  private collectToolResults(calls: readonly ToolCall[]): LoopResultObservation[] {
+    if (calls.length === 0) return [];
+    const names = new Map(calls.map((call) => [call.id, call.name]));
+    const events = this.deps.recorder.allEvents();
+    const seen = new Set<string>();
+    const results: LoopResultObservation[] = [];
+    for (let i = events.length - 1; i >= 0 && results.length < calls.length; i -= 1) {
+      const event = events[i];
+      if (event === undefined || event.type !== 'tool_result') continue;
+      const payload = event.payload as { callId?: string; ok?: boolean; output?: string };
+      const callId = payload.callId;
+      if (callId === undefined || !names.has(callId) || seen.has(callId)) continue;
+      seen.add(callId);
+      results.push({
+        name: names.get(callId) ?? '?',
+        ok: payload.ok === true,
+        output: typeof payload.output === 'string' ? payload.output : '',
+      });
+    }
+    return results;
   }
 
   /**
@@ -88,9 +129,11 @@ export class StepRunner {
         arguments: c.arguments,
       }));
       await this.toolExecutor.run(output.toolCalls, context);
+      this.lastToolResults = this.collectToolResults(this.lastToolCalls);
       return 'tool';
     }
     this.lastToolCalls = [];
+    this.lastToolResults = [];
     if (output.text !== undefined) {
       // 把模型同一回合的推理内容（DeepSeek v4 reasoning 模式输出）一并塞进 assistant 事件，
       // 不依赖 reasoning/assistant 事件流时序——避免下轮 HTTP 400（#OBS-5）。
@@ -182,6 +225,8 @@ export class StepRunner {
       messages,
       tools,
       reasoningEffort: this.deps.reasoningEffort,
+      // 单次输出上限：未配置时为 undefined（适配器不发 max_tokens，保持端点默认）。
+      maxOutputTokens: this.deps.maxOutputTokens,
       // V2：取消信号透传（未注入为 undefined，适配器行为不变）。
       signal: this.deps.signal,
     };

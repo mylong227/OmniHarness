@@ -290,6 +290,12 @@ export function renderCardsView(ctx: ListCtx, now: number = Date.now()): ReactEl
           </div>
           <div className="tc-meta">
             <span>{t('{n} 回合', { n: s.turns ?? 0 })}</span>
+            {SessionRowMeta.activeDuration(s) !== '' ? (
+              <>
+                <span>·</span>
+                <span>{t('有效 {d}', { d: SessionRowMeta.activeDuration(s) })}</span>
+              </>
+            ) : null}
             <span>·</span>
             <span>{timeAgo(s.updatedAt, now)}</span>
             {s.workspace ? (

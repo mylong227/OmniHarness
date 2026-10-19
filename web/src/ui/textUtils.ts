@@ -3,6 +3,7 @@
 // 注意：本文件不得 import 'react'（纯文本工具，保持零 React 依赖才能在任何环境直接加载）。
 
 import type { ThreadEvent } from '../types/models.ts';
+import { FileSizeFormatter } from './models/FileSizeFormatter.ts';
 import { t } from './i18n/i18n.ts';
 
 /** 截断长字符串到指定字符数（按 UTF-16 单元），超长末尾加省略号。 */
@@ -71,6 +72,10 @@ export function describeToolCall(name: string, args: unknown): string {
       return t('展示计划');
     case 'todo_write':
       return t('更新待办');
+    case 'sketch_write': {
+      const title = str('title') || str('name');
+      return title ? t('生成草图 {title}', { title: short(title) }) : t('生成草图');
+    }
     case 'delegate':
     case 'subagent': {
       const task = str('task') || str('prompt');
@@ -81,6 +86,135 @@ export function describeToolCall(name: string, args: unknown): string {
       return summary ? t('{name}（{summary}）', { name, summary }) : t('调用 {name}', { name });
     }
   }
+}
+
+/**
+ * 工具动作的**标签**（步骤列表左侧固定列）：回答「做了什么类型的事」，不是工具名。
+ *
+ * 与 `describeToolCall` 的分工：后者给一句完整人话（工作状态条 / 过程摘要用），
+ * 本函数只给动词标签，供步骤行做成「标签 | 对象」两列（2026-10-20 用户口径：
+ * 不显示使用了什么工具，像活动记录一样展示）。
+ * @param name 工具名
+ * @returns 中文标签（作为 t() 的键）
+ */
+export function toolVerb(name: string): string {
+  switch (name) {
+    case 'read_file':
+      return '读取';
+    case 'write_file':
+      return '写入';
+    case 'apply_patch':
+      return '编辑';
+    case 'shell':
+    case 'bash':
+      return '运行命令';
+    case 'list_dir':
+      return '浏览';
+    case 'search':
+    case 'grep':
+      return '搜索';
+    case 'delegate':
+    case 'subagent':
+      return '委派';
+    case 'sketch_write':
+      return '生成草图';
+    case 'todo_write':
+      return '更新待办';
+    case 'plan_read':
+      return '查看计划';
+    case 'plan_write':
+      return '更新计划';
+    case 'plan_present':
+      return '展示计划';
+    default:
+      return '调用';
+  }
+}
+
+/**
+ * 工具动作的**对象**（步骤列表右侧内容）：路径 / 命令 / 查询 / 任务标题。
+ * @param name 工具名
+ * @param args 工具入参
+ * @returns 单行对象文本；无可用对象时为空串
+ */
+export function toolSubject(name: string, args: unknown): string {
+  const a = args && typeof args === 'object' ? (args as Record<string, unknown>) : {};
+  const str = (k: string): string => (typeof a[k] === 'string' ? (a[k] as string) : '');
+  const short = (s: string, n = 96): string => truncate(s.replace(/\s+/g, ' ').trim(), n);
+  const pathOf = (): string => short(str('path') || str('file') || str('target'), 88);
+  switch (name) {
+    case 'read_file':
+    case 'write_file':
+    case 'list_dir':
+      return pathOf();
+    case 'apply_patch': {
+      const explicit = pathOf();
+      if (explicit !== '') return explicit;
+      const patch = str('patch');
+      const m = /^\+\+\+ b\/(.+)$/m.exec(patch);
+      return m && m[1] !== undefined ? short(m[1], 88) : '';
+    }
+    case 'shell':
+    case 'bash':
+      return short(str('command') || str('cmd'), 110);
+    case 'search':
+    case 'grep':
+      return short(str('pattern') || str('query'), 72);
+    case 'delegate':
+    case 'subagent':
+      return short(str('task') || str('prompt'), 80);
+    case 'sketch_write':
+      return short(str('title') || str('name'), 72);
+    case 'todo_write':
+    case 'plan_read':
+    case 'plan_write':
+    case 'plan_present':
+      return '';
+    default:
+      return argSummary(args);
+  }
+}
+
+/**
+ * 工具动作的附加度量：写文件的体积 + 新增行（编辑另含删除行）。
+ *
+ * 只对本地能直接读到的入参计算（write_file 的 content、apply_patch 的 patch）；
+ * read_file 等没有可靠体积来源的工具返回空串，不猜。
+ * @param name 工具名
+ * @param args 工具入参
+ * @returns 如 `2.0 KB +34 −0`；无度量时为空串
+ */
+export function toolMeta(name: string, args: unknown): string {
+  const a = args && typeof args === 'object' ? (args as Record<string, unknown>) : {};
+  const text = (k: string): string => (typeof a[k] === 'string' ? (a[k] as string) : '');
+  if (name === 'write_file') {
+    const content = text('content');
+    if (content === '') return '';
+    const lines = content.split('\n').length;
+    return `${FileSizeFormatter.human(utf8Bytes(content))} +${lines} −0`;
+  }
+  if (name === 'apply_patch') {
+    const patch = text('patch');
+    if (patch === '') return '';
+    let added = 0;
+    let deleted = 0;
+    for (const line of patch.split('\n')) {
+      if (line.startsWith('+') && !line.startsWith('+++')) added += 1;
+      else if (line.startsWith('-') && !line.startsWith('---')) deleted += 1;
+    }
+    return `${FileSizeFormatter.human(utf8Bytes(patch))} +${added} −${deleted}`;
+  }
+  return '';
+}
+
+/**
+ * UTF-8 字节数（体积口径与磁盘一致）；运行环境没有 TextEncoder 时退回字符数。
+ * @param s 文本
+ * @returns 字节数
+ */
+function utf8Bytes(s: string): number {
+  if (typeof TextEncoder === 'function') return new TextEncoder().encode(s).length;
+  return s.length;
 }
 
 /** 外部 URL 提取（用于助手消息里的可点击链接卡片）。 */
@@ -120,7 +254,19 @@ export interface ProcessBlock {
   /** 块首 key，React 列表 diff 用。 */
   readonly key: string;
 }
-export type DisplayBlock = SingleBlock | ProcessBlock;
+/**
+ * 回合结果汇总块：由 `turn_diff` 收口的整轮结果（生成 / 修改的文件清单）。
+ *
+ * `events` 是**本轮**的事件切片（上一轮 turn_diff 之后到本轮 turn_diff），
+ * 结果卡据此把写类工具回执与 diff 合并去重（见 models/TurnSummary）。
+ */
+export interface TurnSummaryBlock {
+  readonly kind: 'turn_summary';
+  readonly key: string;
+  readonly diffEvent: ThreadEvent;
+  readonly events: readonly ThreadEvent[];
+}
+export type DisplayBlock = SingleBlock | ProcessBlock | TurnSummaryBlock;
 
 /** 收集「已被调用卡内联结果」的工具调用 id 集合（tool_result 隐藏判据的单一来源）。 */
 export function collectToolCallIds(events: readonly ThreadEvent[]): ReadonlySet<string> {
@@ -171,14 +317,79 @@ export function isArtifactCall(ev: ThreadEvent): boolean {
 }
 
 /**
- * 把 events 拆成可视块：**先剔除不会渲染的事件**（见 {@link isRenderedEvent}），
- * busy=true 时单 event 不折叠；busy=false 时把过程类打包成 process 块。
+ * 取工具调用的稳定 id（payload.callId 优先，缺省回落事件 id）。
+ * @param ev 工具调用事件
+ * @returns 调用 id
  */
-export function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean | undefined): DisplayBlock[] {
-  const visible = events.filter((e) => isRenderedEvent(e, collectToolCallIds(events)));
-  if (busy === true) {
-    return visible.map((e) => ({ kind: 'single', event: e } as SingleBlock));
+function callIdOf(ev: ThreadEvent): string {
+  const p = ev.payload || {};
+  return typeof p.callId === 'string' && p.callId !== '' ? p.callId : ev.id;
+}
+
+/**
+ * 被回合结果卡收编的产物调用 id 集合。
+ *
+ * 判据：产物调用出现在某一轮 `turn_diff` 之前（即该轮正常收尾）⇒ 它的产物会进入结果卡，
+ * 过程里不再单独出产物卡。没有 turn_diff 收尾的调用（运行中 / diff 失效）保留内联卡兜底，
+ * 保证「正在写的东西」在结果卡出现前也看得见。
+ * @param events 事件数组
+ * @returns 已被结果卡收编的 tool_call id 集合
+ */
+export function collectTurnSummaryCalls(events: readonly ThreadEvent[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  let pending = new Set<string>();
+  for (const ev of events) {
+    if (ev.type === 'tool_call' && isArtifactCall(ev)) pending.add(callIdOf(ev));
+    else if (ev.type === 'turn_diff') {
+      pending.forEach((id) => ids.add(id));
+      pending = new Set<string>();
+    }
   }
+  return ids;
+}
+
+/**
+ * 按 `turn_diff` 切出每轮事件切片（**原始事件**，含被渲染层内联隐藏的 tool_result）。
+ *
+ * 结果卡要用 tool_result 的文本回读草图路径（sketch_write），所以切片不能只拿「可见事件」——
+ * 那会把已内联的结果滤掉，图片产物就永远补不进结果卡。
+ * @param events 原始事件数组
+ * @returns turn_diff 事件 id → 该轮事件切片（含本轮 turn_diff）
+ */
+function turnSummarySegments(events: readonly ThreadEvent[]): ReadonlyMap<string, readonly ThreadEvent[]> {
+  const out = new Map<string, readonly ThreadEvent[]>();
+  let segment: ThreadEvent[] = [];
+  for (const ev of events) {
+    segment.push(ev);
+    if (ev.type === 'turn_diff') {
+      out.set(ev.id, segment);
+      segment = [];
+    }
+  }
+  return out;
+}
+
+/**
+ * 把 events 拆成可视块：**先剔除不会渲染的事件**（见 {@link isRenderedEvent}）。
+ *
+ * 规则：
+ *  - `turn_diff` 收口成 `turn_summary` 块，并把本轮事件切片交给结果卡做汇总；
+ *  - 运行中（busy=true）只把工具调用/结果折成一行「执行中」摘要，思考保留实时面板；
+ *  - 空闲时 reasoning/tool_call/tool_result 照旧聚合；**已收编进结果卡**的产物调用也聚合，
+ *    没被收编的产物调用仍单独成块并带内联产物卡（运行中 / 无 diff 的兜底路径）。
+ * @param events 事件数组
+ * @param busy 回合是否进行中
+ * @param summarizedCallIds 已收编进结果卡的产物调用 id（缺省现算）
+ * @returns 可视块列表
+ */
+export function buildDisplayBlocks(
+  events: readonly ThreadEvent[],
+  busy: boolean | undefined,
+  summarizedCallIds?: ReadonlySet<string>,
+): DisplayBlock[] {
+  const summarized = summarizedCallIds ?? collectTurnSummaryCalls(events);
+  const visible = events.filter((e) => isRenderedEvent(e, collectToolCallIds(events)));
+  const segments = turnSummarySegments(events);
   const blocks: DisplayBlock[] = [];
   let buf: ThreadEvent[] = [];
   const flush = (): void => {
@@ -192,12 +403,29 @@ export function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean
     buf = [];
   };
   for (const ev of visible) {
-    // **产物单独成块**（2026-10-07 用户截图口径：「结果不应该被收进过程中，应该单独的显示出来」）：
-    // 写文件/改文件的调用会在卡片里带出**产物卡**（ArtifactCard：文件名 + 打开/下载），那是这一轮的
-    // *结果*而不是*过程*。此前它和其他工具调用一起被折进「执行过程」折叠块里 ⇒ 用户得展开过程才看得到
-    // 自己刚拿到的东西。故把产物类调用（write_file / apply_patch）**跳出过程缓冲**单独成块：
-    // 顺序不变、折叠块语义不变（其余工具/思考仍照旧聚合）。
-    if (PROCESS_TYPES.has(ev.type) && !isArtifactCall(ev)) {
+    if (ev.type === 'turn_diff') {
+      flush();
+      blocks.push({
+        kind: 'turn_summary',
+        key: ev.id,
+        diffEvent: ev,
+        events: segments.get(ev.id) ?? [ev],
+      } as TurnSummaryBlock);
+      continue;
+    }
+    // 运行中：思考仍是实时面板；工具调用与结果折成活动摘要（不再一条一行地铺开）。
+    if (busy === true) {
+      if (ev.type === 'tool_call' || ev.type === 'tool_result') {
+        buf.push(ev);
+        continue;
+      }
+      flush();
+      blocks.push({ kind: 'single', event: ev } as SingleBlock);
+      continue;
+    }
+    const artifact = isArtifactCall(ev);
+    const keepInline = artifact && !summarized.has(callIdOf(ev));
+    if (PROCESS_TYPES.has(ev.type) && !keepInline) {
       buf.push(ev);
     } else {
       flush();
@@ -211,7 +439,9 @@ export function buildDisplayBlocks(events: readonly ThreadEvent[], busy: boolean
 /** 过程动作分组（WorkBuddy 范式）：工具名 → 人话动词短语。 */
 const ACTION_GROUPS: ReadonlyArray<{ readonly verbs: string; readonly test: (n: string) => boolean }> = [
   { verbs: '读取了 {n} 个文件', test: (n) => n === 'read_file' },
-  { verbs: '写入了 {n} 个文件', test: (n) => n === 'write_file' || n === 'apply_patch' },
+  { verbs: '写入了 {n} 个文件', test: (n) => n === 'write_file' },
+  { verbs: '修改了 {n} 个文件', test: (n) => n === 'apply_patch' },
+  { verbs: '生成了 {n} 张草图', test: (n) => n === 'sketch_write' },
   { verbs: '执行了 {n} 条命令', test: (n) => n === 'shell' || n === 'bash' },
   { verbs: '浏览了 {n} 次目录', test: (n) => n === 'list_dir' },
   { verbs: '搜索了 {n} 次', test: (n) => n === 'search' || n === 'grep' },

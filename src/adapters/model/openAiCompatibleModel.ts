@@ -307,6 +307,14 @@ export class OpenAiCompatibleModel implements ModelPort {
     if (typeof request.temperature === 'number') {
       body.temperature = request.temperature;
     }
+    // 单次输出上限（2026-10-20）：显式正整数才发 max_tokens；未设即端点默认。
+    if (
+      typeof request.maxOutputTokens === 'number' &&
+      Number.isFinite(request.maxOutputTokens) &&
+      request.maxOutputTokens > 0
+    ) {
+      body.max_tokens = Math.floor(request.maxOutputTokens);
+    }
     // 结构化输出（2026-10-11）：OpenAI Chat Completions 的 `response_format`。
     // 三条落点：json-schema → `{type:'json_schema', json_schema:{name, schema[, strict]}}`；
     // json-object → `{type:'json_object'}`；text / 缺省 → **不发该字段**（与旧行为逐字一致）。

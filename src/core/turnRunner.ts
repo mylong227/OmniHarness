@@ -352,13 +352,16 @@ export class TurnRunner {
     }
     const decision: LoopDecision = this.loopGuard.observe({
       toolCalls: this.stepRunner.toolCallsOfLastStep,
+      // 结果维度：同一份内容被反复取回（长会话主病）只能靠结果指纹发现。
+      results: this.stepRunner.toolResultsOfLastStep,
     });
     if (decision.kind === 'allow') {
       return false;
     }
     if (decision.kind === 'nudge') {
       log.warn('turn.loopguard.nudge', { violation: decision.violation });
-      this.recorder.user(decision.message);
+      // synthetic=true：模型要看到 nudge，但工具暴露 / repo-map 的「任务文本」推导必须跳过它。
+      this.recorder.user(decision.message, undefined, undefined, true);
       return false;
     }
     log.warn('turn.loopguard.abort', { violation: decision.violation });

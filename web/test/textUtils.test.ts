@@ -1,9 +1,12 @@
-﻿// web 纯函数单测（node --test，无第三方依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
+// web 纯函数单测（node --test，无第三方依赖）。覆盖从 StreamView/ChangesTab 抽离的可测逻辑，
 // 回应审计 P0「web 0 测试文件」。运行：npm run web:test（先 web:build 编译到 dist）。
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import {
   describeToolCall,
+  toolVerb,
+  toolSubject,
+  toolMeta,
   processSummary,
   buildDisplayBlocks,
   extractUrls,
@@ -27,16 +30,49 @@ test('describeToolCall 映射已知工具为人话动作', () => {
   assert.strictEqual(describeToolCall('unknown_tool', {}), '调用 unknown_tool');
 });
 
+test('toolVerb / toolSubject：步骤行是「动作标签 + 对象」，不出现工具名', () => {
+  assert.strictEqual(toolVerb('read_file'), '读取');
+  assert.strictEqual(toolVerb('write_file'), '写入');
+  assert.strictEqual(toolVerb('apply_patch'), '编辑');
+  assert.strictEqual(toolVerb('shell'), '运行命令');
+  assert.strictEqual(toolVerb('bash'), '运行命令');
+  assert.strictEqual(toolVerb('sketch_write'), '生成草图');
+  assert.strictEqual(toolVerb('unknown_tool'), '调用');
+
+  assert.strictEqual(toolSubject('read_file', { path: 'a/b.ts' }), 'a/b.ts');
+  assert.strictEqual(toolSubject('shell', { command: 'npm test' }), 'npm test');
+  assert.strictEqual(toolSubject('search', { pattern: 'foo' }), 'foo');
+  assert.strictEqual(toolSubject('sketch_write', { title: '草图 A' }), '草图 A');
+  assert.strictEqual(toolSubject('unknown_tool', { x: 1 }), 'x=1');
+  // apply_patch 没显式 path 时从补丁头取目标文件。
+  assert.strictEqual(
+    toolSubject('apply_patch', { patch: '--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b' }),
+    'x.ts',
+  );
+});
+
+test('toolMeta：写入体积 + 新增行；编辑补丁含删除行', () => {
+  assert.strictEqual(toolMeta('write_file', { content: 'a\nb' }), '3 B +2 −0');
+  const patch = '--- a/x.ts\n+++ b/x.ts\n@@ -1 +1 @@\n-a\n+b\n+c';
+  const meta = toolMeta('apply_patch', { patch });
+  assert.ok(meta.endsWith(' +2 −1'), `补丁增删统计不对：${meta}`);
+  assert.strictEqual(toolMeta('read_file', { path: 'a.ts' }), '');
+});
+
 test('processSummary 叙述式聚合', () => {
   const events: ThreadEvent[] = [
     { type: 'reasoning', id: '1', timestamp: 0 },
     { type: 'tool_call', id: '2', timestamp: 0, payload: { name: 'write_file', path: 'a' } },
     { type: 'tool_call', id: '3', timestamp: 0, payload: { name: 'bash', command: 'x' } },
     { type: 'tool_call', id: '4', timestamp: 0, payload: { name: 'read_file', path: 'b' } },
+    { type: 'tool_call', id: '5', timestamp: 0, payload: { name: 'apply_patch', path: 'c' } },
+    { type: 'tool_call', id: '6', timestamp: 0, payload: { name: 'sketch_write', title: 'd' } },
   ];
   const s = processSummary(events);
   assert.match(s, /思考 1 次/);
   assert.match(s, /写入了 1 个文件/);
+  assert.match(s, /修改了 1 个文件/);
+  assert.match(s, /生成了 1 张草图/);
   assert.match(s, /执行了 1 条命令/);
   assert.match(s, /读取了 1 个文件/);
 });
@@ -54,7 +90,7 @@ test('buildDisplayBlocks 非忙碌时折叠过程事件', () => {
   assert.strictEqual(blocks[1].events.length, 2);
 });
 
-test('buildDisplayBlocks 忙碌时不折叠', () => {
+test('buildDisplayBlocks 忙碌时：思考保持实时单块，工具折成一行活动摘要', () => {
   const events: ThreadEvent[] = [
     { type: 'reasoning', id: '1', timestamp: 0 },
     { type: 'tool_call', id: '2', timestamp: 0, payload: { name: 'bash' } },
@@ -62,6 +98,7 @@ test('buildDisplayBlocks 忙碌时不折叠', () => {
   const blocks = buildDisplayBlocks(events, true);
   assert.strictEqual(blocks.length, 2);
   assert.strictEqual(blocks[0].kind, 'single');
+  assert.strictEqual(blocks[1].kind, 'process', '运行中的工具调用不再一条一行地铺开');
 });
 
 test('extractUrls 去重并剔除末尾标点', () => {
@@ -152,8 +189,9 @@ test('timeAgo 相对时间', () => {
 });
 
 // 2026-10-07 用户截图：「结果不应该被收进过程中，应该单独的显示出来」——写文件/打补丁的调用会带出
-// 产物卡（ArtifactCard），那是这一轮的**结果**；此前它和其他工具调用一起被折进「执行过程」折叠块。
-test('buildDisplayBlocks：产物类调用单独成块（不折进「执行过程」）', () => {
+// 产物卡（ArtifactCard），那是这一轮的**结果**。在没有 turn_diff 的兜底路径（运行中 / diff 失效）
+// 它仍单独成块；一旦 turn_diff 收口，产物进入「回合结果卡」，过程里不再重复出现。
+test('buildDisplayBlocks：无 turn_diff 时产物调用单独成块（兜底）', () => {
   const events: ThreadEvent[] = [
     { id: 'r1', type: 'reasoning', timestamp: 1, payload: { content: '想一下' } },
     { id: 'c1', type: 'tool_call', timestamp: 2, payload: { callId: 'k1', name: 'read_file', args: { path: 'a.ts' } } },
@@ -175,4 +213,27 @@ test('buildDisplayBlocks：产物类调用单独成块（不折进「执行过�
   assert.ok(process.length >= 1, '读文件与 shell 仍应聚合为过程块');
   const names = process.flatMap((b) => b.events.map((e) => e.payload?.name)).filter(Boolean);
   assert.ok(names.includes('read_file') && names.includes('shell'), '过程块仍含读文件与 shell');
+});
+
+test('buildDisplayBlocks：turn_diff 收口成结果块，产物调用折进过程（不再散落）', () => {
+  const events: ThreadEvent[] = [
+    { id: 'u1', type: 'user', timestamp: 1 },
+    { id: 'r1', type: 'reasoning', timestamp: 2, payload: { content: '想一下' } },
+    { id: 'c1', type: 'tool_call', timestamp: 3, payload: { callId: 'k1', name: 'write_file', args: { path: 'docs/x.md' } } },
+    { id: 'x1', type: 'tool_result', timestamp: 4, payload: { callId: 'k1', ok: true, output: '已写入' } },
+    { id: 'a1', type: 'assistant', timestamp: 5, payload: { content: '完成' } },
+    { id: 'd1', type: 'turn_diff', timestamp: 6, payload: { diff: '--- a/docs/x.md\n+++ b/docs/x.md\n@@ -0,0 +1,1 @@\n+x' } },
+  ];
+  const blocks = buildDisplayBlocks(events, false);
+  const summary = blocks.find((b) => b.kind === 'turn_summary');
+  assert.ok(summary !== undefined, '应产出 turn_summary 块');
+  if (summary === undefined || summary.kind !== 'turn_summary') throw new Error('缺少结果块');
+  assert.strictEqual(summary.key, 'd1');
+  assert.strictEqual(summary.events.length, events.length, '结果块拿到本轮全部可见事件');
+  const writes = blocks.filter((b) => b.kind === 'single' && b.event.payload?.name === 'write_file');
+  assert.strictEqual(writes.length, 0, '已收编的产物调用不得再单独成块');
+  const inProcess = blocks.some(
+    (b) => b.kind === 'process' && b.events.some((e) => e.payload?.name === 'write_file'),
+  );
+  assert.strictEqual(inProcess, true, '已收编的产物调用留在过程摘要里（只讲做了什么）');
 });

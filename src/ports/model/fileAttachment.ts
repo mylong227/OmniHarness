@@ -11,4 +11,13 @@ export interface FileAttachment {
   readonly data?: string;
   /** http(s) / file:// / data URI（与 data 二选一）。 */
   readonly url?: string;
+  /**
+   * 外置存储路径（与 data 二选一，2026-10-20）。
+   *
+   * 大附件落盘到 `<StoragePort.location>/attachments/<sha256>.<ext>`（内容寻址、跨会话共享），
+   * 这里存**相对 sessions 根的 POSIX 路径**（`attachments/xxx.png`）；读回时由
+   * `ContextAssembler` 用 `StoragePort.location` 拼出绝对路径并水合成 base64 再送模型。
+   * 整个 sessions 目录搬移/备份后仍可解析；旧存档里的绝对路径也继续兼容。
+   */
+  readonly path?: string;
 }

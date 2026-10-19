@@ -111,6 +111,8 @@
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
     "probe:laya": "node tools/probes/layaVerdictCalibration.mjs",
+    "telemetry:sessions": "node tools/sessionTelemetry.mjs",
+    "migrate:attachments": "node scripts/migrateSessionAttachments.mjs",
     "prm:train": "node scripts/trainProcessReward.mjs",
     "smoke:real": "node scripts/realRunSmoke.mjs --phase=all",
     "smoke:model": "node scripts/realModelComplexTest.mjs",

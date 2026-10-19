@@ -24,6 +24,11 @@ export interface ModelRequest {
    */
   readonly temperature?: number | undefined;
   /**
+   * 单次响应输出上限（可选，2026-10-20）：透传为 OpenAI `max_tokens` / Anthropic `max_tokens`。
+   * 未设 = 端点默认。用于给长会话一个成本上界（例如 16k），避免一次思考生成 20k token。
+   */
+  readonly maxOutputTokens?: number | undefined;
+  /**
    * 取消信号（V2，可选）：透传给底层 fetch 实现协作式取消。
    * 未提供时适配器行为不变（向后兼容）；提供时取消即中断在飞 HTTP 请求。
    */

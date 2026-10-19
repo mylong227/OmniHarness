@@ -76,9 +76,111 @@ test('LoopGuard：wall-clock 超时熔断（注入 ts 驱动时钟）', () => {
   assert.strictEqual(decision.kind, 'abort');
 });
 
+test('LoopGuard：软时限只劝收尾（nudge），硬时限才熔断', () => {
+  const guard = new LoopGuard({ softDeadlineMs: 1000, maxDurationMs: 2000 });
+  const start = 1_000_000;
+  assert.deepStrictEqual(guard.observe({ toolCalls: [call('x')], ts: start }), { kind: 'allow' });
+  const soft = guard.observe({ toolCalls: [call('y')], ts: start + 1001 });
+  assert.strictEqual(soft.kind, 'nudge');
+  assert.ok(soft.kind === 'nudge' && soft.violation === 'soft-deadline');
+  const hard = guard.observe({ toolCalls: [call('z')], ts: start + 2001 });
+  assert.strictEqual(hard.kind, 'abort');
+  assert.ok(hard.kind === 'abort' && hard.violation === 'wall-clock');
+});
+
 test('LoopGuard：nudge 文案要求换方法而非重复尝试', () => {
   const guard = new LoopGuard({ maxExactRepeats: 1, nudgeLimit: 2 });
   const decision = guard.observe({ toolCalls: [call('grep', { pattern: 'x' })] });
   assert.strictEqual(decision.kind, 'nudge');
   assert.ok(decision.kind === 'nudge' && decision.message.includes('换一种方法'));
+});
+
+test('LoopGuard：结果冗余——同一内容不连续地取回 4 次 → nudge（长会话主病）', () => {
+  // 只测结果维度：关掉 exact-repeat / cycle，避免测试序列本身构成短周期。
+  const guard = new LoopGuard({
+    maxRedundantResults: 4,
+    nudgeLimit: 2,
+    cycleWindow: 0,
+    maxExactRepeats: 0,
+  });
+  const body = 'x'.repeat(120);
+  const unique = (name: string, ch: string) => ({
+    toolCalls: [call(name, { path: ch })],
+    results: [{ name, ok: true, output: ch.repeat(120) }],
+  });
+  assert.deepStrictEqual(
+    guard.observe({
+      toolCalls: [call('read_file')],
+      results: [{ name: 'read_file', ok: true, output: body }],
+    }),
+    { kind: 'allow' },
+  );
+  assert.deepStrictEqual(guard.observe(unique('list_dir', 'y')), { kind: 'allow' });
+  assert.deepStrictEqual(
+    guard.observe({
+      toolCalls: [call('read_file', { path: 'b' })],
+      results: [{ name: 'read_file', ok: true, output: body }],
+    }),
+    { kind: 'allow' },
+  );
+  assert.deepStrictEqual(guard.observe(unique('grep', 'z')), { kind: 'allow' });
+  assert.deepStrictEqual(
+    guard.observe({
+      toolCalls: [call('read_file', { path: 'c' })],
+      results: [{ name: 'read_file', ok: true, output: body }],
+    }),
+    { kind: 'allow' },
+  );
+  assert.deepStrictEqual(guard.observe(unique('list_dir', 'w')), { kind: 'allow' });
+  const decision = guard.observe({
+    toolCalls: [call('read_file', { path: 'd' })],
+    results: [{ name: 'read_file', ok: true, output: body }],
+  });
+  assert.strictEqual(decision.kind, 'nudge');
+  assert.ok(decision.kind === 'nudge' && decision.message.includes('完全相同'));
+});
+
+test('LoopGuard：maxRedundantResults=0 关闭结果检测（全量关闭契约）', () => {
+  const guard = new LoopGuard({ maxRedundantResults: 0, cycleWindow: 0, maxExactRepeats: 0 });
+  const body = 'x'.repeat(200);
+  for (let i = 0; i < 10; i += 1) {
+    assert.deepStrictEqual(
+      guard.observe({
+        toolCalls: [call('read_file')],
+        results: [{ name: 'read_file', ok: true, output: body }],
+      }),
+      { kind: 'allow' },
+      'maxRedundantResults=0 必须真的关闭（不能只关一半）',
+    );
+  }
+});
+
+test('LoopGuard：结果冗余不误伤——短结果/失败结果/内容变化都不触发', () => {
+  const guard = new LoopGuard({ maxRedundantResults: 4, cycleWindow: 0, maxExactRepeats: 0 });
+  for (let i = 0; i < 8; i += 1) {
+    assert.deepStrictEqual(
+      guard.observe({
+        toolCalls: [call('read_file')],
+        results: [{ name: 'read_file', ok: true, output: 'ok' }],
+      }),
+      { kind: 'allow' },
+      '过短结果重复是常态',
+    );
+    assert.deepStrictEqual(
+      guard.observe({
+        toolCalls: [call('shell')],
+        results: [{ name: 'shell', ok: false, output: 'x'.repeat(200) }],
+      }),
+      { kind: 'allow' },
+      '失败结果重试是合法行为',
+    );
+    assert.deepStrictEqual(
+      guard.observe({
+        toolCalls: [call('grep')],
+        results: [{ name: 'grep', ok: true, output: `hit-${String(i)}-${'x'.repeat(100)}` }],
+      }),
+      { kind: 'allow' },
+      '内容变化说明在推进',
+    );
+  }
 });

@@ -43,14 +43,16 @@ export class SessionRecorder {
    * @param content 用户消息文本，进入事件流并投影进模型上下文。
    * @param images 可选图片内容数组，与文本同条消息送入模型。
    * @param files 可选文件附件数组，与文本同条消息送入模型。
+   * @param synthetic 是否为 harness 注入的合成 user 消息（nudge 等）。
    * @returns 落盘并广播后的 user 事件。
    */
   public user(
     content: string,
     images?: readonly ImageContent[],
     files?: readonly FileAttachment[],
+    synthetic = false,
   ): SessionEvent {
-    return this.record(eventFactory.user(this.sid, content, images, files));
+    return this.record(eventFactory.user(this.sid, content, images, files, synthetic));
   }
 
   /**
@@ -82,10 +84,11 @@ export class SessionRecorder {
   /**
    * 记录会话元数据（新会话首条：创建时的工作区，供按项目收纳）。
    * @param workspace 创建会话时的工作区根目录。
+   * @param model 创建会话时使用的模型名（可选；`mock` 让存档能区分演示会话）。
    * @returns 落盘并广播后的 session_meta 事件。
    */
-  public sessionMeta(workspace: string): SessionEvent {
-    return this.record(eventFactory.sessionMeta(this.sid, workspace));
+  public sessionMeta(workspace: string, model?: string): SessionEvent {
+    return this.record(eventFactory.sessionMeta(this.sid, workspace, model));
   }
 
   /**

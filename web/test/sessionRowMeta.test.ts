@@ -63,6 +63,24 @@ test('① 悬停标题：完整标题 + 最近活动 + 回合数；缺什么不�
   assert.strictEqual(SessionRowMeta.hoverTitle({ id: 'sess_only', label: '' }, NOW), 'sess_only');
 });
 
+test('②b 有效时长：字段存在才渲染（紧凑形），挂机次数独立一格', () => {
+  assert.strictEqual(SessionRowMeta.activeDuration(entry({ activeMs: 45_000 })), '45秒');
+  assert.strictEqual(SessionRowMeta.activeDuration(entry({ activeMs: 12 * 60_000 })), '12分');
+  assert.strictEqual(SessionRowMeta.activeDuration(entry({ activeMs: 2 * 3_600_000 })), '2小时');
+  assert.strictEqual(SessionRowMeta.activeDuration(entry({})), '', '历史会话没有 activeMs ⇒ 不渲染');
+  const hover = SessionRowMeta.hoverTitle(
+    entry({
+      label: 'A',
+      updatedAt: new Date(NOW).toISOString(),
+      turns: 2,
+      activeMs: 12 * 60_000,
+      idleGaps: 1,
+    }),
+    NOW,
+  );
+  assert.strictEqual(hover, 'A · 刚刚 · 2 回合 · 有效 12分 · 空闲 1 次 · sess_abc');
+});
+
 test('② 行内相对时间：受控时刻下确定、用紧凑形、无时间时不渲染', () => {
   const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60000).toISOString();
   // 紧凑形（这一格是从标题宽度里抠出来的，见 SessionRowMeta.inlineTime 的说明）

@@ -38,7 +38,9 @@ export class CodeExecutorTool {
   public readonly definition: ToolDefinition = {
     name: TOOL_NAMES.runCode,
     description:
-      '执行一段 TypeScript/JavaScript 程序；程序内可用 await call("工具名", 参数) 调用工具、log(...) 输出',
+      '执行一段 TypeScript/JavaScript 程序；程序内可用 await call("工具名", 参数) 调用工具、log(...) 输出。' +
+      '注意：运行在隔离沙箱里，**没有 Node.js 内置模块**（require/fs/process 均不可用）；' +
+      '要读写文件请直接 call("read_file"/"write_file"/"apply_patch", …)，不要用 node -e 或 require("fs")。',
     parameters: {
       type: 'object',
       properties: {

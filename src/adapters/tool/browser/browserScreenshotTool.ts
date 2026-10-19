@@ -29,6 +29,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.ts';
 import type { FileAttachment } from '../../../ports/model/model.ts';
+import type { ImageResizerPort } from '../../../ports/media/imageResizer.ts';
 import type { ScreenshotRequest, ScreenshotResult } from '../../browser/browserSession.ts';
 import { BrowserSession } from '../../browser/browserSession.ts';
 import { BrowserAvailability } from '../../browser/browserAvailability.ts';
@@ -125,23 +126,100 @@ export class BrowserScreenshotTool {
   private session: ScreenshotSession | undefined;
 
   /**
+   * 空闲自动关闭定时器（见 {@link BrowserScreenshotTool.IDLE_CLOSE_MS}）。
+   * 为 undefined 表示当前没有挂起的关闭计划。
+   */
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * 空闲多久后自动关掉浏览器（毫秒）：3 分钟。
+   *
+   * 为什么需要：`close()` 原本只在**会话收尾**由组合根调用，而实际装配里没有任何调用点
+   *（全仓 grep 只有它自己的定义）⇒ 一次截图之后 headless Chromium **常驻到进程退出**，
+   * 每个用截图的工作区都留一个 150–300 MB 的渲染进程。改成「最后一次调用后空闲 3 分钟自动关」，
+   * 既保留连续截图复用（不必每次重启浏览器），又不让内存无限挂着。
+   */
+  private static readonly IDLE_CLOSE_MS = 180_000;
+
+  /**
+   * 附件（送模型）长边上限：1600 px。
+   *
+   * 落盘的原图保持模型要求的 2400×1400；**送给模型的那份**只保留长边 1600——足够看清布局与
+   * 形状，base64 体积却能降一个量级（2026-10-19 鹈鹕会话：7 张全尺寸截图在 45 次调用里被
+   * 累计重传 82.4 MiB，是后期单次生成 247–314 秒的主因之一）。需要看细节时模型可对原图再
+   * 用 `view_image` 放大。
+   */
+  private static readonly ATTACH_MAX_DIMENSION = 1600;
+
+  /** 附件（送模型）单图字节上限：500 KiB（JPEG q85 下 1600×933 约 150–250 KiB）。 */
+  private static readonly ATTACH_MAX_BYTES = 500 * 1024;
+
+  /**
    * @param workspaceRoot 工作区根目录（落盘目标必须落在其内）。
    * @param factory 会话工厂（缺省起真实 headless Chromium；测试可注入假实现）。
+   * @param resizer 图片缩放端口（缺省不缩放，交付原始 PNG；生产装配注入 sharp 实现）。
    */
   public constructor(
     private readonly workspaceRoot: string,
     private readonly factory: ScreenshotSessionFactory = (): ScreenshotSession =>
       new BrowserSession(),
+    private readonly resizer?: ImageResizerPort,
   ) {}
 
   /**
-   * 执行 browser_screenshot。
+   * 执行 browser_screenshot（并维护空闲关闭定时器）。
    *
    * @param call 工具调用（实参含 url 及可选的落盘路径 / 视口 / 等待）。
    * @param context 工具上下文（其 workspaceRoot 优先——子智能体据此落到隔离工作树）。
    * @returns 成功时 `output` 为元数据、`files` 为 PNG 附件；参数非法或截图失败时 ok:false。
    */
   public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    this.disarmIdleClose();
+    try {
+      return await this.shoot(call, context);
+    } finally {
+      // 无论成功/失败都重新计时：失败也可能已经拉起过浏览器（`startSession` 失败会自动 close，
+      // 但成功启动后请求参数出错仍会留下会话）。
+      this.armIdleClose();
+    }
+  }
+
+  /**
+   * 关掉空闲的浏览器会话。
+   *
+   * @returns 关闭完成。
+   */
+  private armIdleClose(): void {
+    this.disarmIdleClose();
+    const timer = setTimeout(() => {
+      this.idleTimer = undefined;
+      void this.close();
+    }, BrowserScreenshotTool.IDLE_CLOSE_MS);
+    // 不因这个定时器拖住进程退出（CLI 跑完就该退）。
+    (timer as { unref?: () => void }).unref?.();
+    this.idleTimer = timer;
+  }
+
+  /**
+   * 取消空闲关闭计划（有新的截图请求进来时）。
+   *
+   * @returns 无返回值。
+   */
+  private disarmIdleClose(): void {
+    if (this.idleTimer !== undefined) {
+      clearTimeout(this.idleTimer);
+      this.idleTimer = undefined;
+    }
+  }
+
+  /**
+   * 真正的截图流程（`handle` 只负责定时器包装）。
+   *
+   * @param call 工具调用。
+   * @param context 工具上下文。
+   * @returns 工具结果。
+   */
+  private async shoot(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const url = String(call.arguments['url'] ?? '').trim();
     const schemeError = BrowserScreenshotTool.checkScheme(url);
     if (schemeError !== '') {
@@ -197,17 +275,60 @@ export class BrowserScreenshotTool {
         error: `截图写入失败: ${BrowserScreenshotTool.detailOf(error)}`,
       };
     }
+    const attachment = await this.attachmentOf(target.relative, shot);
     return {
       callId: call.id,
       ok: true,
-      output: BrowserScreenshotTool.describe(target.relative, shot),
-      files: [
-        {
-          name: target.relative.split(/[\\/]/).pop() ?? 'screenshot.png',
-          mediaType: 'image/png',
-          data: shot.png.toString('base64'),
-        } satisfies FileAttachment,
-      ],
+      output: BrowserScreenshotTool.describe(target.relative, shot, attachment.note),
+      files: [attachment.file],
+    };
+  }
+
+  /**
+   * 生成送入模型的附件（必要时缩放/转码；**落盘原图保持不变**）。
+   *
+   * 失败时 fail-open 到原图：缩放是成本优化，不该让「能看的截图」变成报错。
+   *
+   * @param relative 落盘相对路径（决定附件名）。
+   * @param shot 截图结果（原始 PNG）。
+   * @returns 附件 + 一句给模型的说明（是否压缩过、尺寸多少）。
+   */
+  private async attachmentOf(
+    relative: string,
+    shot: ScreenshotResult,
+  ): Promise<{ readonly file: FileAttachment; readonly note: string }> {
+    const name = relative.split(/[\\/]/).pop() ?? 'screenshot.png';
+    const original: FileAttachment = {
+      name,
+      mediaType: 'image/png',
+      data: shot.png.toString('base64'),
+    };
+    if (this.resizer === undefined) {
+      return { file: original, note: '' };
+    }
+    const outcome = await this.resizer.resize({
+      bytes: shot.png,
+      mediaType: 'image/png',
+      maxDimension: BrowserScreenshotTool.ATTACH_MAX_DIMENSION,
+      maxBytes: BrowserScreenshotTool.ATTACH_MAX_BYTES,
+      // 截图是 UI，不是照片；但 PNG 的 base64 太大，送模型这一份转 JPEG 换 5–8 倍体积下降。
+      preferFormat: 'jpeg',
+    });
+    if (outcome === undefined || !outcome.resized) {
+      return { file: original, note: '' };
+    }
+    const jpeg = outcome.mediaType === 'image/jpeg';
+    const attachment: FileAttachment = {
+      name: jpeg ? name.replace(/\.png$/u, '.jpg') : name,
+      mediaType: outcome.mediaType,
+      data: Buffer.from(outcome.bytes).toString('base64'),
+    };
+    return {
+      file: attachment,
+      note:
+        `\n送入模型的是压缩版（${String(outcome.width)}×${String(outcome.height)}，` +
+        `${String(outcome.bytes.byteLength)} 字节）；原图 ${String(shot.png.byteLength)} 字节仍在 ${relative}，` +
+        '需要看细节时可用 view_image 放大。',
     };
   }
 
@@ -217,6 +338,7 @@ export class BrowserScreenshotTool {
    * @returns 关闭完成。
    */
   public async close(): Promise<void> {
+    this.disarmIdleClose();
     const session = this.session;
     this.session = undefined;
     await session?.close();
@@ -326,13 +448,15 @@ export class BrowserScreenshotTool {
    *
    * @param relative 落盘相对路径。
    * @param shot 截图结果。
+   * @param note 附件压缩说明（未压缩时为空串）。
    * @returns 可读说明。
    */
-  private static describe(relative: string, shot: ScreenshotResult): string {
+  private static describe(relative: string, shot: ScreenshotResult, note = ''): string {
     return (
       `已截图 ${shot.finalUrl}（${String(shot.width)}×${String(shot.height)}，${String(shot.png.byteLength)} 字节）` +
       `，已保存到 ${relative}。图片已作为附件随本轮工具结果送入模型；` +
-      '若当前模型不支持图像输入，则只能看到本行说明。'
+      '若当前模型不支持图像输入，则只能看到本行说明。' +
+      note
     );
   }
 

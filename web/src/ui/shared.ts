@@ -15,6 +15,14 @@ export interface SessionEntry {
   workspace?: string;
   updatedAt?: string;
   turns?: number;
+  /** 有效时长（ms，服务端已剔除 >5 分钟的挂机间隔；历史会话可能没有）。 */
+  activeMs?: number;
+  /** 被剔除的空闲间隔个数（用户离开后再回来）。 */
+  idleGaps?: number;
+  /** 是否 mock/演示会话（服务端默认已过滤，显式 includeMock 时可能出现在列表里）。 */
+  mock?: boolean;
+  /** 创建会话时的模型名（服务端新存档才有）。 */
+  model?: string;
   /** 服务端真实运行态（runTurn 进行中）；缺省视为空闲。 */
   running?: boolean;
   /** 是否已归档（侧车标记）：归档会话在左栏折叠到「已归档」组，可随时恢复。 */

@@ -111,25 +111,7 @@ pre.json { border:1px solid var(--border-soft); padding:8px 10px; margin-top:7px
 .diff .add { display:block; padding:0 8px; white-space:pre; }
 .diff .del { display:block; padding:0 8px; white-space:pre; }
 .diff .ctx { display:block; padding:0 8px; white-space:pre; }
-/* 回合变更卡片（对标 Codex「Edited N files」）：文件清单 + 每文件增删统计。 */
-.turn-diff-card { border:1px solid var(--border-soft); border-radius:8px; background:var(--panel); overflow:hidden; }
-.turn-diff-card .tdc-head { display:flex; align-items:center; gap:8px; padding:8px 10px; border-bottom:1px solid var(--border-soft); flex-wrap:nowrap; }
-.turn-diff-card .tdc-title { font-weight:600; font-size:12.5px; white-space:nowrap; }
-.turn-diff-card .tdc-total { font-family:var(--mono); font-size:12px; color:var(--dim); }
-.turn-diff-card .tdc-total .add { color:var(--ok); }
-.turn-diff-card .tdc-total .del { color:var(--err); }
-.turn-diff-card .tdc-toggle { margin-left:auto; border:none; background:none; color:var(--dim); font-size:12px; cursor:pointer; padding:2px 6px; border-radius:6px; }
-.turn-diff-card .tdc-toggle:hover { background:var(--hover); color:var(--text); }
-.turn-diff-card .tdc-file { border-bottom:1px solid var(--border-soft); }
-.turn-diff-card .tdc-file:last-child { border-bottom:none; }
-.turn-diff-card .tdc-row { display:flex; width:100%; align-items:center; gap:10px; padding:6px 10px; border:none; background:none; cursor:pointer; font:inherit; text-align:left; }
-.turn-diff-card .tdc-row:hover { background:var(--hover); }
-.turn-diff-card .tdc-path { font-family:var(--mono); font-size:12px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.turn-diff-card .tdc-stat { margin-left:auto; font-family:var(--mono); font-size:12px; white-space:nowrap; }
-.turn-diff-card .tdc-stat .add { color:var(--ok); }
-.turn-diff-card .tdc-stat .del { color:var(--err); }
-.turn-diff-card .tdc-body { max-height:320px; overflow:auto; border-top:1px dashed var(--border-soft); }
-.turn-diff-card .tdc-body .diff { border:none; border-radius:0; max-height:none; }
+/* 回合结果卡（生成 / 修改文件汇总）的视觉定义在 minimal.css；旧 .turn-diff-card 规则已随组件删除。 */
 .question-list { display:flex; flex-direction:column; gap:10px; }
 .question-item { display:flex; flex-direction:column; gap:5px; }
 .question-header { font-size:12px; color:var(--dim); }
@@ -306,11 +288,11 @@ details.standalone summary::-webkit-details-marker { display:none; }
    无边框无卡片，头部一行「思考中 + 跳动计时 + 字数」；之前只有一行灰字静态增长。
    ========================================================================= */
 
-/* 流式态：极简平铺（左侧细强调线区分层级，无背景无边框） */
+/* 流式态：极简平铺——不再画左侧竖线；用一块很轻的圆角面与纸面做区分
+   （2026-10-20 用户：「去掉竖线，收尾加圆角，底色轻微区分即可」）。 */
 .ev.reasoning.live {
-  margin: 10px 0 6px;
-  padding: 2px 0 2px 12px;
-  border-left: 1px solid color-mix(in srgb, var(--accent-2) 45%, transparent);
+  margin: 10px 0 10px;
+  padding: 10px 14px;
 }
 .reason-live-head {
   display: flex;

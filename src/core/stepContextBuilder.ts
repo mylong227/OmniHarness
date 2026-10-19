@@ -49,6 +49,15 @@ export class StepContextBuilder {
   private lastSerialized: string | undefined;
   /** 上一次组装测得的相邻请求前缀复用率（0–1）；首次请求无基准 ⇒ undefined。 */
   private lastPrefixReuseRatio: number | undefined;
+  /**
+   * 上一步被**延迟加载**的工具名（按名字升序；空数组 = 本轮没有工具被隐藏）。
+   *
+   * 存在意义：`tool_search` 虽是唯一找回入口，但模型**不知道自己缺什么**时不会去搜。
+   * 2026-10-19 鹈鹕会话实测：`write_file` 被延迟，模型先用 `run_code` + `node -e` 写文件
+   * 连撞 5 次沙箱拒绝，直到第 427 秒才想起 `tool_search`——白烧 5.5 分钟。把「本轮没给你哪些
+   * 工具」一句话写进上下文，模型就能在**第一步**直接 `tool_search`，而不是盲试。
+   */
+  private lastDeferredTools: readonly string[] = [];
   /** 消息对象 → 它的 JSON 片段（前缀复用测量用；WeakMap 随消息对象一起回收）。 */
   private readonly serializedMessages = new WeakMap<object, string>();
 
@@ -57,7 +66,7 @@ export class StepContextBuilder {
    *   workspaceRoot / repoMapEnabled / embedding / projectInstructionsEnabled）。
    */
   public constructor(private readonly deps: StepRunnerDeps) {
-    this.assembler = new ContextAssembler(deps.fragments);
+    this.assembler = new ContextAssembler(deps.fragments, deps.attachmentRoot);
   }
 
   /**
@@ -94,7 +103,7 @@ export class StepContextBuilder {
     let repoMap: string | null = null;
     if (this.deps.workspaceRoot !== undefined && this.deps.repoMapEnabled !== false) {
       const q = this.deriveQueryText(events);
-      if (q !== '') {
+      if (q !== '' && StepContextBuilder.shouldBuildRepoMap(q)) {
         repoMap = await this.buildRepoMapContext(q);
       }
     }
@@ -146,6 +155,20 @@ export class StepContextBuilder {
     // 仅尾部每轮变化 ⇒ 命中 provider 前缀缓存。内容不变、仅位置后移（P_prefix 治理）。
     if (repoMap !== null) {
       messages.push({ role: 'system', content: repoMap });
+    }
+    // 被延迟加载的工具**要在模型眼前留一张清单**：`tool_search` 是找回通道，但前提是模型
+    // 知道自己缺什么。只在「本轮确实传了工具集」时追加（`finalize()` 以 `tools: []` 收尾，
+    // 那里列出来只会诱导模型去调一个本回合已禁用的通道）。
+    if (this.lastDeferredTools.length > 0 && overhead?.tools !== undefined) {
+      const shown = this.lastDeferredTools.slice(0, 20).join(', ');
+      const more =
+        this.lastDeferredTools.length > 20 ? ` 等 ${String(this.lastDeferredTools.length)} 个` : '';
+      messages.push({
+        role: 'system',
+        content:
+          `本轮未直载的工具（按任务相关性延迟，可先调用 tool_search 找回）：${shown}${more}。` +
+          '若完成任务需要其中某个工具，请先 tool_search 检索，而不是用 shell/run_code 自行变通。',
+      });
     }
     this.measurePrefixReuse(messages);
     return messages;
@@ -277,7 +300,10 @@ export class StepContextBuilder {
    * @returns 裁剪后的工具定义列表（`off` 时与入参同一数组，零成本）。
    */
   private exposeByRelevance(direct: readonly ToolDefinition[]): readonly ToolDefinition[] {
-    if (ToolExposurePlanner.modeFromEnv() !== 'plan') return direct;
+    if (ToolExposurePlanner.modeFromEnv() !== 'plan') {
+      this.lastDeferredTools = [];
+      return direct;
+    }
     // T2（2026-10-03）：把工具的**描述 + schema** 一并交给规划器，BM25 检索路才有语料可检索。
     // 为什么必须在这里接：规划器只看名字时，"描述相关但类别没登记"的必需工具捞不回来
     //（判据 ③ 就是钉这件事）。声明了参数却没人传，等于没接线——本仓最高频的缺陷形态。
@@ -292,16 +318,55 @@ export class StepContextBuilder {
       tools: direct.map((tool) => tool.name),
       toolTexts,
     });
+    this.lastDeferredTools = plan.deferred;
     if (plan.deferred.length === 0) return direct;
     const keep = new Set(plan.visible);
     return direct.filter((tool) => keep.has(tool.name));
   }
 
   /**
+   * repo-map 的**任务形状闸**：纯创作/视觉任务不注入代码大纲。
+   *
+   * 为什么需要（2026-10-19 鹈鹕会话实测）：任务是「画一个 SVG 动画」，repo-map 却每步注入
+   * 约 1.5k token 的代码符号大纲；模型在 reasoning 里 6 次写「The repo map is unrelated —
+   * ignore」。这不是 token 成本问题（缓存后很便宜），而是**注意力稀释**：模型要反复判断
+   * 哪些上下文与本任务无关。
+   *
+   * 判据刻意保守：只有「视觉/创作动词」**且**「没有任何代码信号」时才跳过。
+   *  - 视觉/创作：画 / 绘制 / 插画 / 海报 / 动画 / logo / 配色 / 排版 / 壁纸；
+   *  - 代码信号：代码/函数/模块/接口/实现/修复/测试/编译/报错/重构/依赖/版本/
+   *    组件/路由/样式/脚本/命令/配置，或真实文件扩展名（`.ts`/`.py`/`.html`…）或路径分隔符。
+   *
+   * 「创建一个 HTML」不含「画/绘制」，仍会注入 repo-map——创建网页可能要看现有组件；
+   * 「用 SVG 绘制动画」则跳过。误判代价只是少一份可选的代码大纲，不会阻断任何工具。
+   *
+   * @param query 任务文本（最近至多 3 条真实 user 消息拼接）。
+   * @returns 是否构建 repo-map。
+   */
+  public static shouldBuildRepoMap(query: string): boolean {
+    // 先剔除「否定测试」短语：鹈鹕原话「你不需要任何测试」里的「测试」会把纯视觉任务
+    // 误判成代码任务（同一类否定语义污染，在工具暴露的关键词匹配里也出现过）。
+    const text = query
+      .toLowerCase()
+      .replace(/(?:不需要|无需|不要|不用|禁止)[^。；，,\n]{0,8}测试/gu, '');
+    const visual = /画|绘制|插画|海报|动画|logo|配色|排版|壁纸/u.test(text);
+    if (!visual) return true;
+    const code =
+      /代码|函数|模块|接口|实现|修复|测试|编译|报错|重构|依赖|版本|组件|路由|样式|脚本|命令|配置|调试|逻辑|数据/u.test(
+        text,
+      ) ||
+      /\.(?:ts|tsx|js|jsx|mjs|cjs|py|rs|go|java|kt|rb|php|cs|cpp|c|h|md|json|css|scss|html|vue|svelte)\b/u.test(
+        text,
+      ) ||
+      /[/\\]/u.test(text);
+    return code;
+  }
+
+  /**
    * 从事件日志推导 repo-map 查询文本：取最近最多 3 条 user 消息的 content 拼接。
    * 仅用 user 文本（避开工具结果噪声），足以驱动 repo-map 的相关文件召回。
    *
-   * @param events 会话事件日志（倒序扫描，取最近 3 条 user 文本）。
+   * @param events 会话事件日志（倒序扫描，取最近 3 条**真实** user 文本）。
    * @returns 按时间正序拼接的查询文本；无 user 文本时为空串。
    */
   private deriveQueryText(events: readonly SessionEvent[]): string {
@@ -309,7 +374,13 @@ export class StepContextBuilder {
     for (let i = events.length - 1; i >= 0 && texts.length < 3; i--) {
       const e = ArrayAt.at(events, i);
       if (e.type === 'user') {
-        const content = (e.payload as { content?: string }).content;
+        const payload = e.payload as { content?: string; synthetic?: boolean };
+        // harness 注入的 nudge 不是用户意图：把它算进任务文本会让工具表 / repo-map 中途漂移
+        //（nudge 文案里常含「文件」「工具」等关键词，足以翻转 ToolExposurePlanner 的类别命中）。
+        if (payload.synthetic === true) {
+          continue;
+        }
+        const content = payload.content;
         if (content !== undefined && content.trim() !== '') {
           texts.push(content.trim());
         }

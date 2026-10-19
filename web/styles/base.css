@@ -1528,28 +1528,7 @@ pre.json {
   font-size: 11.5px;
 }
 
-/* 工作状态条：跑动时的"心跳"条，靠左侧品牌色脉冲而不是整条高亮。 */
+/* 工作状态条：无框一行；动态交给品牌标识（BrandMark compact）表达。 */
 .work-indicator {
   font-size: 11.5px;
-  position: relative;
-  overflow: hidden;
-}
-.work-indicator::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: var(--brand);
-  animation: wi-sweep 1.8s var(--ease) infinite;
-}
-@keyframes wi-sweep {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 1;
-  }
 }

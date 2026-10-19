@@ -5,6 +5,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
 } from 'node:fs';
 import { readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -34,6 +35,14 @@ interface ModelStat {
 interface SessionInfo {
   readonly sessionId: string;
   readonly workspace?: string | undefined;
+  /** 创建会话时的模型名（老存档没有；有 model 事件时回填）。 */
+  readonly model?: string | undefined;
+  /** 是否 mock/演示会话（`session_meta.model === 'mock'` 或旧存档启发式）。 */
+  readonly mock: boolean;
+  /** 有效时长（ms，已剔除用户离开的空闲间隔）。 */
+  readonly activeMs: number;
+  /** 被剔除的空闲间隔个数。 */
+  readonly idleGaps: number;
   readonly label: string;
   readonly turns: number;
   readonly updatedAt: string;
@@ -173,9 +182,15 @@ export class SessionArchive {
    *   既有误导性（看起来像本项目的历史），也让每次刷新白搬上千行。
    *   归属标记取自 `session_meta.payload.workspace`；**无标记的历史会话（undefined）一律保留**：
    *   它们无法归因，隐藏等于让用户永远够不到自己的旧数据。
+   * @param includeMock 是否列出 mock/演示会话（缺省 **false**：本机 152 个会话里 144 个是 mock，
+   *   默认列出会让真实会话被淹没；调试/回放时显式传 true）。
    * @returns `{ dir: string|undefined; sessions: SessionInfo[] }`
    */
-  public async list(includeArchived = true, workspace?: unknown): Promise<unknown> {
+  public async list(
+    includeArchived = true,
+    workspace?: unknown,
+    includeMock = false,
+  ): Promise<unknown> {
     const requested = typeof workspace === 'string' ? workspace : undefined;
     const scope = requested === '*' ? undefined : (requested ?? '') || this.workspaceRoot();
     const dir = this.storageLocation();
@@ -215,7 +230,9 @@ export class SessionArchive {
         return this.buildSession(join(dir, name), id, archivedSet.has(id), scope, titles);
       }),
     );
-    for (const row of mainRows) if (row !== undefined) sessions.push(row);
+    for (const row of mainRows) {
+      if (row !== undefined && (includeMock || !row.mock)) sessions.push(row);
+    }
     // 归档会话现在住在 `archive/` 子目录里：日常列表（includeArchived=false）**整个目录都不扫**，
     // 连事件流都不解析；「已归档」组按需请求时才读。
     if (includeArchived) {
@@ -234,7 +251,9 @@ export class SessionArchive {
             return this.buildSession(join(archDir, name), id, true, scope, titles);
           }),
       );
-      for (const row of archRows) if (row !== undefined) sessions.push(row);
+      for (const row of archRows) {
+        if (row !== undefined && (includeMock || !row.mock)) sessions.push(row);
+      }
     }
     const doc = this.sidecars.readOrderDoc();
     const keyed = sessions.map((s) => ({
@@ -443,7 +462,10 @@ export class SessionArchive {
     if (existsSync(dir)) {
       for (const name of readdirSync(dir)) {
         if (!name.endsWith('.jsonl')) continue;
-        this.scanDayFile(join(dir, name), day, byModel);
+        const perFile = this.dailyForFile(join(dir, name), day);
+        for (const [model, tokens] of Object.entries(perFile)) {
+          byModel.set(model, (byModel.get(model) ?? 0) + tokens);
+        }
       }
     }
     const out: Record<string, number> = {};
@@ -454,6 +476,51 @@ export class SessionArchive {
     }
     return { byModel: out, total };
   }
+
+  /**
+   * 单文件当日用量（带 `(mtime,size,dayKey)` 缓存）。
+   *
+   * 为什么需要：`dailyUsage` 原先每次调用都 `readFileSync` 全部会话——一个 6 MB 的截图会话
+   * 会被反复整读。按文件戳缓存后，稳态只剩一次 `statSync`；追加事件/跨日会自动失效。
+   *
+   * @param file 存档文件路径。
+   * @param day 目标本地自然日。
+   * @returns 模型 → 当日 token 数。
+   */
+  private dailyForFile(file: string, day: LocalDay): Readonly<Record<string, number>> {
+    let stamp;
+    try {
+      stamp = statSync(file);
+    } catch {
+      return {};
+    }
+    const hit = this.dailyCache.get(file);
+    if (
+      hit !== undefined &&
+      hit.mtimeMs === stamp.mtimeMs &&
+      hit.size === stamp.size &&
+      hit.dayKey === day.key
+    ) {
+      return hit.byModel;
+    }
+    const scanned = new Map<string, number>();
+    this.scanDayFile(file, day, scanned);
+    const byModel = Object.fromEntries(scanned);
+    if (this.dailyCache.size >= 4096) this.dailyCache.clear();
+    this.dailyCache.set(file, {
+      mtimeMs: stamp.mtimeMs,
+      size: stamp.size,
+      dayKey: day.key,
+      byModel,
+    });
+    return byModel;
+  }
+
+  /** 按日用量缓存：文件 → 文件戳 + 日期键 → 当日 byModel（有界）。 */
+  private readonly dailyCache = new Map<
+    string,
+    { mtimeMs: number; size: number; dayKey: string; byModel: Readonly<Record<string, number>> }
+  >();
 
   /**
    * 扫描单个存档中属于该自然日的 model 事件，累加 token 到 byModel。

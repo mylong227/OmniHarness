@@ -131,6 +131,23 @@ test('③ 必需工具召回 100%：描述相关但不在命中类别名单里�
   );
 });
 
+test('③b 中英混排任务也必须走通检索路（`创建一个html…` 不得退化成零召回）', () => {
+  // 2026-10-19 鹈鹕会话实测回归：旧分词把「创建一个html」整块当一个词元，纯 CJK 才补二元组，
+  // 于是中英混排查询**一个中文二元组都拿不到** ⇒ BM25 补入 0 个 ⇒ write_file 被延迟。
+  // 这里用「类别已命中（exec 的 `测试`）+ 目标工具只在描述里相关」复现那条路径。
+  const plan = ToolExposurePlanner.plan({
+    taskText: '创建一个HTML页面并跑一次测试，把审批审计记录一起导出',
+    tools: TOOLS,
+    categories: CATEGORIES,
+    toolTexts: TEXTS,
+  });
+  assert.ok(
+    plan.visible.includes('audit_query'),
+    `中英混排查询必须仍能经 BM25 捞回描述相关的工具（实得 ${plan.visible.join(',')}）`,
+  );
+  assert.match(plan.reason, /BM25 检索补入 [1-9]/, '检索补入数量必须 > 0');
+});
+
 test('④ 检索只增不减：开检索后的可见集 ⊇ 关检索时的可见集', () => {
   for (const taskText of ['跑一下测试', '谁批准了这次测试运行', '读一下配置']) {
     const off = ToolExposurePlanner.plan({

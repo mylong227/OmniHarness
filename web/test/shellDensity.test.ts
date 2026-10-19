@@ -1,4 +1,4 @@
-﻿// 壳层「占地方」判据（2026-10-07 用户报障，真机复现 + 结构守卫）。
+// 壳层「占地方」判据（2026-10-07 用户报障，真机复现 + 结构守卫）。
 //
 // ## 用户报的两件事
 //
@@ -42,6 +42,7 @@ interface ShellMetrics {
   toggleInsideColumn: boolean | null;
   hitAtToggleCenter: string | null;
   brandText: string | null;
+  brandTag: string | null;
   wordmarkClipped: boolean | null;
 }
 
@@ -65,13 +66,17 @@ function readShell(cdp: CdpSession): Promise<ShellMetrics> {
     }
     var center = q('.col.center');
     var wordmark = q('.side-wordmark');
+    var wordmarkText = q('.side-wordmark-text') || wordmark;
+    var wordmarkTag = q('.side-wordmark-tag');
     return {
       leftWidth: colR ? Math.round(colR.width) : null,
       centerWidth: center ? Math.round(center.getBoundingClientRect().width) : null,
       toggleRight: tgR ? Math.round(tgR.right) : null,
       toggleInsideColumn: colR && tgR ? tgR.right <= colR.right + 0.5 : null,
       hitAtToggleCenter: hit,
-      brandText: wordmark ? wordmark.textContent.trim() : null,
+      // 扫光层是 aria-hidden 的重复文字；读品牌名要取无装饰的文本节点。
+      brandText: wordmarkText ? wordmarkText.textContent.trim() : null,
+      brandTag: wordmarkTag ? wordmarkTag.textContent.trim() : null,
       wordmarkClipped: wordmark ? wordmark.scrollWidth > wordmark.clientWidth + 1 : null,
     };
   })()`) as Promise<ShellMetrics>;
@@ -89,7 +94,8 @@ test('左栏「收起」按钮必须在可视区内且点得动（真 Chrome，1
   try {
     const initial = await readShell(page.cdp);
     assert.ok(initial.leftWidth !== null && initial.leftWidth > 200, `左栏未展开：${JSON.stringify(initial)}`);
-    assert.strictEqual(initial.brandText, 'OmniHarness', '品牌字标必须是本产品名（不是上游 deepseek）');
+    assert.strictEqual(initial.brandText, 'Omni', '品牌主标题必须是 Omni（不是上游 deepseek）');
+    assert.strictEqual(initial.brandTag, 'HARNESS', '品牌副标必须是大写 HARNESS 且与主标题分开');
     assert.strictEqual(
       initial.toggleInsideColumn,
       true,

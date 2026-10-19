@@ -161,7 +161,8 @@ export class ToolGate implements ToolGatePort {
         continue;
       }
       const cat = decision.category ? `[${decision.category}] ` : '';
-      return `sandbox 拒绝（${call.name}：${action.target}）${cat}${decision.reason ?? '未提供原因'}`;
+      const reason = decision.reason ?? '未提供原因';
+      return `sandbox 拒绝（${call.name}：${action.target}）${cat}${reason}${ToolGate.repairHint(reason)}`;
     }
     return undefined;
   }
@@ -305,6 +306,27 @@ export class ToolGate implements ToolGatePort {
       return [this.sandboxActionOf(call)];
     }
     return this.targetsOf(call).map((target) => ({ kind: 'file_write', target }));
+  }
+
+  /**
+   * 给「内联解释器」类拒绝补一句**可执行的替代动作**。
+   *
+   * 为什么只对这类规则加提示：`node -e` / `python -c` / `pwsh -c` 被危险命令黑名单拦下时，
+   * 模型看到的只有「命中危险命令规则」，于是它只会换一种引号/编码**再试一次**——2026-10-19
+   * 鹈鹕会话实测连试 5 次（300→424 秒，纯浪费）。这类拒绝的补救动作是确定的：要落文件就用
+   * 文件工具，要跑脚本就先写成文件再按文件名执行。其余拒绝（路径越界、递归删除）不猜意图。
+   *
+   * @param reason 沙箱给出的拒绝原因（`命中危险命令规则: <pattern>`）。
+   * @returns 追加的提示文本（不适用时为空串）。
+   */
+  public static repairHint(reason: string): string {
+    const inline =
+      /node -e|node -eval|python3? -c|perl -e|ruby -e|php -r|powershell -c|powershell -command|pwsh -c|pwsh -command|invoke-expression/u;
+    if (!inline.test(reason)) return '';
+    return (
+      '。补救：① 要**写/改文件**请直接用 `write_file` / `edit` / `apply_patch`（不要用解释器内联代码落盘）；' +
+      '② 确实要跑脚本，先把脚本写成工作区内的 `.js` / `.py` 文件，再用 `node 文件名` / `python 文件名` 执行。'
+    );
   }
 }
 

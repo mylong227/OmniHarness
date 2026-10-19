@@ -26,6 +26,14 @@ export interface ImageResizeRequest {
   readonly maxDimension: number;
   /** 编码后单图字节上限。 */
   readonly maxBytes: number;
+  /**
+   * 输出格式偏好（可选）。
+   *
+   * 截图类输入（纯色块 + 文字）用 PNG 落盘是对的，但**送入模型**时 PNG 的 base64 仍然很大
+   * （2400×1400 ≈ 1 MiB/张，且每步重传）。调用方可以要求转成 JPEG 换取 5–8 倍的体积下降；
+   * 不传时保持历史行为（按源格式：照片类转 JPEG、其余保持 PNG）。
+   */
+  readonly preferFormat?: 'jpeg' | 'png';
 }
 
 /** 缩放结果：编码产物 + 尺寸 + 是否真的缩小过。 */

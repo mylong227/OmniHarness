@@ -23,11 +23,16 @@ export const EN_COMPOSER: Record<string, string> = {
 
   // components/CommandPalette.tsx
   '命令面板': 'Command palette',
-  '输入命令或搜索…（↑↓ 选择，Enter 执行，Esc 关闭）':
-    'Type a command or search… (↑↓ to select, Enter to run, Esc to close)',
+  '搜索命令或面板…': 'Search commands or panels…',
   '命令搜索框': 'Command search',
   '命令列表': 'Command list',
+  '清除搜索': 'Clear search',
   '无匹配命令': 'No matching commands',
+  '换个关键词试试': 'Try a different keyword',
+  '选择': 'select',
+  '执行': 'run',
+  '↑↓ 选择，Enter 执行，Esc 关闭': '↑↓ to select, Enter to run, Esc to close',
+  '{count} 个命令': '{count} commands',
 
   // components/QuestionCard.tsx
   '输入你的回答': 'Enter your answer',
@@ -89,20 +94,10 @@ export const EN_COMPOSER: Record<string, string> = {
     'No thread yet: the mode has been saved and takes effect after you send the first message',
 
   // 命令面板消费的 buildCommands 标签（AppReducers 构造期拼接，渲染处 t(item.label)/t(g.group) 查表）。
-  导航: 'Navigation',
+  // 面板名（工具/指标/…）与分组名「面板」已在 misc 分片有词条，不再在此重复。
   会话: 'Sessions',
   界面: 'Interface',
   其他: 'Other',
-  '打开面板：工具': 'Open panel: Tools',
-  '打开面板：指标': 'Open panel: Metrics',
-  '打开面板：插件': 'Open panel: Plugins',
-  '打开面板：编排': 'Open panel: Graph',
-  '打开面板：记忆': 'Open panel: Memory',
-  '打开面板：配置集': 'Open panel: Profiles',
-  '打开面板：钻取': 'Open panel: Detail',
-  '打开面板：变更': 'Open panel: Changes',
-  '打开面板：回滚': 'Open panel: Rollback',
-  '打开面板：文件': 'Open panel: Files',
   '刷新会话列表': 'Refresh session list',
   '打开设置': 'Open settings',
   '切换浅色 / 深色主题': 'Toggle light / dark theme',

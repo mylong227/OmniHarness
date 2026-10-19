@@ -154,7 +154,10 @@ export class ConfigToolRegistry {
     // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道；
     // browser_screenshot 把「看一眼自己做的页面」补上（纯 TS CDP，headless Chrome/Edge）。
     const fetcher = new WebFetchTool();
-    const viewer = new ViewImageTool(seed.workspaceRoot, new SharpImageResizer());
+    // 两个「把图交给模型」的工具共用同一份缩放器：sharp 的模块加载是惰性且进程级复用，
+    // 各自 new 一份只会重复探测。截图落盘仍是原图，送模型的那份由它压到 1600px/500KiB。
+    const imageResizer = new SharpImageResizer();
+    const viewer = new ViewImageTool(seed.workspaceRoot, imageResizer);
     // 逐帧读媒体（动画 GIF / 视频）：与 view_image 分职——后者把整份文件当**一张静态图**，
     // 对动画/视频等于只看首帧。此处复用装配层（`MediaStackAssembler`）装好的**同一份**媒体栈
     // （同一份定位缓存与预算口径，与子智能体工具集共享，不各自 new 一遍）。
@@ -163,7 +166,7 @@ export class ConfigToolRegistry {
       extractor: seed.media.extractor,
       options: seed.media.options,
     });
-    const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot);
+    const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot, undefined, imageResizer);
     const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
       gate: ConfigToolRegistry.codeExecutorGate(seed),

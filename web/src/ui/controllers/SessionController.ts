@@ -172,6 +172,11 @@ export class SessionController {
         workspace: s.workspace,
         updatedAt: s.updatedAt,
         turns: s.turns,
+        // 有效时长/空闲间隔：服务端已剔除 >5 分钟挂机；卡片与悬停据此展示，而非墙钟。
+        ...(s.activeMs !== undefined ? { activeMs: s.activeMs } : {}),
+        ...(s.idleGaps !== undefined ? { idleGaps: s.idleGaps } : {}),
+        ...(s.mock !== undefined ? { mock: s.mock } : {}),
+        ...(s.model !== undefined ? { model: s.model } : {}),
         running: s.running === true,
         archived: s.archived === true,
       }));

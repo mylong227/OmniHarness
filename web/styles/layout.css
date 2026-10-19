@@ -233,18 +233,11 @@
 .graph-guide code { border:1px solid var(--border-soft); border-radius:5px; padding:0 5px; font-family:var(--mono); color:var(--text); }
 .graph-guide .gg-flow { margin-top:5px; padding-top:6px; border-top:1px dashed var(--border-soft); color:var(--dim); }
 
-/* ---- 工作状态条：agent 干活中（Composer 顶部） ---- */
+/* ---- 工作状态条：agent 干活中（Composer 顶部） ----
+   2026-10-20：去掉外框与左侧高亮条（用户「把底框去掉」），改成「品牌标识（工作中呼吸）+ 动作 + 耗时」
+   的无框一行；品牌标识与侧栏头共用 BrandMark。 */
 .work-indicator {
   display: flex; align-items: center; gap: 8px;
-  border: 1px solid var(--border-soft);
-}
-.wi-dot {
-  width: 8px; height: 8px; border-radius: 50%; flex: none;
-  animation: wi-pulse 1.2s ease-in-out infinite;
-}
-@keyframes wi-pulse {
-  0%, 100% { opacity: .35; transform: scale(.8); }
-  50% { opacity: 1; transform: scale(1.15); }
 }
 .wi-text { color: var(--text); }
 .wi-time { margin-left: auto; opacity: .7; }

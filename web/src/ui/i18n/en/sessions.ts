@@ -119,6 +119,9 @@ export const EN_SESSIONS: Record<string, string> = {
   '{n}分': '{n}m',
   '{n}小时': '{n}h',
   '{n}天': '{n}d',
+  '{n}秒': '{n}s',
+  '有效 {d}': 'Active {d}',
+  '空闲 {n} 次': 'Idle {n}x',
   // SessionProjectBinding
   '已切到该会话所属项目：{name}': 'Switched to the project this session belongs to: {name}',
   // StarterTasks（label/prompt 为渲染期消费的数据字段，定义处不包 t()；键先行入分片）

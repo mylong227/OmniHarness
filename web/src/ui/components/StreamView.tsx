@@ -28,7 +28,7 @@ import {
   todoView,
   questionView,
 } from '../format.ts';
-import { buildDisplayBlocks, describeToolCall, type DisplayBlock } from '../textUtils.ts';
+import { buildDisplayBlocks, toolSubject, toolVerb, type DisplayBlock } from '../textUtils.ts';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.ts';
 import { StarterTasks } from '../models/StarterTasks.ts';
 import { ContextUsageView } from '../models/ContextUsageView.ts';
@@ -43,7 +43,7 @@ import { ProcessCluster } from './stream/ProcessCluster.tsx';
 import { AssistantCard } from './stream/AssistantCard.tsx';
 import { UserCard } from './stream/UserCard.tsx';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.tsx';
-import { TurnDiffCard } from './stream/TurnDiffCard.tsx';
+import { TurnSummaryCard } from './stream/TurnSummaryCard.tsx';
 import { CompactionNote } from '../models/CompactionNote.ts';
 import { NumberFormatter } from '../models/NumberFormatter.ts';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.ts';
@@ -184,6 +184,8 @@ interface EventCtx {
   finalizedStreamText: string;
   /** 本回合出现过的工具调用 id（只读：仅用于 `has` 判定）。 */
   toolCallIds: ReadonlySet<string>;
+  /** 已被回合结果卡收编的产物调用 id（这些调用不再内联产物卡）。 */
+  summarizedCallIds: ReadonlySet<string>;
   /** 是否正有提问等待作答（对话流里的提问卡据此给出「去下方提问卡作答」的指引）。 */
   questionPending: boolean;
   /** 回合刚收尾（1.5s 内）：过程簇挂载瞬间的「回闪」高亮。历史加载恒 false。 */
@@ -204,13 +206,13 @@ function wasStreamed(p: Record<string, unknown>, finalized: string): boolean {
 }
 
 /**
- * 取一个可视块的稳定 key：过程簇用簇 key，单块用事件 id。
+ * 取一个可视块的稳定 key：过程簇 / 结果卡用块 key，单块用事件 id。
  * 该 key 同时作为「逐块真实高度索引」的维度（见 BlockHeightIndex）。
  * @param b 可视块
  * @returns 块 key
  */
 function blockKeyOf(b: DisplayBlock): string {
-  return b.kind === 'process' ? b.key : b.event.id;
+  return b.kind === 'single' ? b.event.id : b.key;
 }
 
 /**
@@ -252,16 +254,20 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
       // busy 时该 reasoning 事件正在流式增长 ⇒ 渲染实时「正在思考」面板（live）；
       // 回合结束（busy=false）后它由 ProcessCluster 渲染，ctx.busy 必为 false ⇒ 折叠摘要。
       return <ReasoningBlock key={ev.id} ev={ev} live={ctx.busy === true} />;
-    case 'tool_call':
+    case 'tool_call': {
+      const callId = (p.callId as string) || ev.id;
       return (
         <ToolCallCard
           key={ev.id}
           ev={ev}
-          res={ctx.toolResults[(p.callId as string) || ev.id]}
+          res={ctx.toolResults[callId]}
           onEventClick={ctx.onEventClick}
           onOpenFile={ctx.onOpenFile}
+          // 运行中不内联产物卡（结果卡收尾时统一展示）；已收编的调用同理。
+          showArtifact={ctx.busy !== true && !ctx.summarizedCallIds.has(callId)}
         />
       );
+    }
     case 'tool_result':
       // 已被调用卡内联的结果不再单独渲染；孤儿结果（调用被历史截断）折叠成一行。
       if (ctx.toolCallIds.has((p.callId as string) || '')) return null;
@@ -328,13 +334,8 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
         </>,
       );
     case 'turn_diff':
-      // 回合变更卡片（对标 Codex「Edited N files」）：按文件列出 + 每文件增删统计。
-      return node(
-        <>
-          <div className="head">{badge('turn_diff')}</div>
-          <TurnDiffCard diff={(p.diff as string) || ''} />
-        </>,
-      );
+      // 回合结果由 renderBlockNode 的 turn_summary 块整体渲染；这里不会走到，保留 null 兜底。
+      return null;
     case 'session_meta':
       // 会话元数据（工作区标记）：仅供会话收纳，不在对话流里渲染。
       return null;
@@ -367,13 +368,19 @@ function renderLiveInputRow(li: LiveInput): ReactElement {
   } catch {
     partialArgs = {};
   }
+  // 运行中的当前动作：只占一行（工具行会在 tool_call 事件到达后由过程簇接管）。
+  const subject = toolSubject(li.name, partialArgs);
   return (
-    <div className="ev" key={li.id}>
-      <div className="tc-line">
-        <span className="tc-chevron">▸</span>
-        <span className="tc-icon">{icon('wrench', { size: 14 })}</span>
-        <span className="tc-summary tc-action">{describeToolCall(li.name, partialArgs)}</span>
-        <span className="tool-status pending">{t('进行中…')}</span>
+    <div className="ev live-input" key={li.id}>
+      <div className="tc-line dim">
+        <span className="tc-icon tc-running" aria-hidden="true">
+          {icon('thinking', { size: 14 })}
+        </span>
+        <span className="tc-verb">{t(toolVerb(li.name))}</span>
+        <span className="tc-dot" aria-hidden="true">
+          ·
+        </span>
+        <span className="tc-subject">{subject === '' ? t('准备中…') : subject}</span>
       </div>
     </div>
   );
@@ -395,6 +402,15 @@ function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: 
         busy={ctx.busy}
         fresh={ctx.clusterFresh}
         renderEvent={(ev) => renderEventNode(ev, ctx)}
+      />
+    );
+  }
+  if (b.kind === 'turn_summary') {
+    return (
+      <TurnSummaryCard
+        key={b.key}
+        events={b.events}
+        onOpenFile={ctx.onOpenFile}
       />
     );
   }
@@ -471,6 +487,15 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const streamRef = React.useRef<HTMLDivElement | null>(null);
   /** 上一次滚动 / 提交时的贴底状态：仅在底部才自动贴底，用户上滚后不强制拉回。 */
   const stickyRef = React.useRef<boolean>(true);
+  /**
+   * 最近一次由代码写出的 scrollTop（程序化滚动）。
+   *
+   * 为什么需要它：内容变高后，旧的 `onScroll` 会把「我们为贴底而设的 scrollTop」误判成
+   * 用户主动上滚（此时 scrollTop 仍是旧 max、而新内容已把 scrollHeight 撑大），于是把
+   * `stickyRef` 置 false，结果卡底部就永远滚不到。onScroll 见到值等于这里记录的值时，
+   * 只更新窗口、不改变贴底意图。
+   */
+  const programmaticTopRef = React.useRef<number | null>(null);
   /** 当前滚动偏移（驱动虚拟窗口计算）。 */
   const [scrollTop, setScrollTop] = React.useState<number>(0);
   /** 可视区高度（真实测量值；未测量到 0 时由 StreamWindow 用兜底高度）。 */
@@ -518,6 +543,8 @@ export function StreamView(props: StreamViewProps): ReactElement {
     if (!el) return;
     if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
     el.scrollTop = StreamWindow.stickyScrollTop(stickyRef.current, el);
+    // 记录实际落点（浏览器会 clamp），供 onScroll 区分程序化滚动。
+    programmaticTopRef.current = el.scrollTop;
   }, [events, liveInputs, streamText]);
 
   /**
@@ -527,9 +554,17 @@ export function StreamView(props: StreamViewProps): ReactElement {
   const onScroll = (e: React.SyntheticEvent): void => {
     const el = e.currentTarget as HTMLDivElement | null;
     if (!el) return;
-    // 用户滚动了 ⇒ 把「空洞加渲」复位（位置是用户说了算，新位置重新按需修复）。
-    if (holeBoost !== 0) setHoleBoost(0);
-    stickyRef.current = StreamWindow.atBottom(el);
+    // 程序化滚动（我们自己设的 scrollTop）只更新窗口，不改变「是否贴底」的用户意图；
+    // 否则内容变高后会被误判成「用户上滚」，结果卡底部再也滚不到（2026-10-20 用户报「缺封口」）。
+    const isProgrammatic =
+      programmaticTopRef.current !== null &&
+      Math.abs(el.scrollTop - programmaticTopRef.current) <= 1;
+    programmaticTopRef.current = null;
+    if (!isProgrammatic) {
+      // 用户滚动了 ⇒ 把「空洞加渲」复位（位置是用户说了算，新位置重新按需修复）。
+      if (holeBoost !== 0) setHoleBoost(0);
+      stickyRef.current = StreamWindow.atBottom(el);
+    }
     if (el.scrollTop !== scrollTop) setScrollTop(el.scrollTop);
     if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
   };
@@ -538,7 +573,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
   // 这三项 + 块划分都是 O(事件数)，而**滚动帧也会重渲染**（scrollTop 是 state）⇒ 交给单击缓存复用，
   // 滚动时不再重算（审计 §2.5：每帧全量重算 ≈180 µs@1000 / ≈510 µs@3000 条）。
   const streamModel = STREAM_MODEL_CACHE.get(events, busy === true);
-  const { blocks, keys, lastUserId, lastAssistantId, toolCallIds } = streamModel;
+  const { blocks, keys, lastUserId, lastAssistantId, toolCallIds, summarizedCallIds } = streamModel;
   const ctx: EventCtx = {
     toolResults,
     onEventClick,
@@ -551,6 +586,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onRegenerate,
     finalizedStreamText: finalizedStreamText ?? '',
     toolCallIds,
+    summarizedCallIds,
     questionPending: question != null,
     clusterFresh,
   };
@@ -630,7 +666,16 @@ export function StreamView(props: StreamViewProps): ReactElement {
         setHoleBoost(HOLE_BOOST_BLOCKS);
       }
     }
-    if (changed) setMeasureTick((t) => t + 1);
+    if (changed) {
+      setMeasureTick((t) => t + 1);
+      // 测量回填后若用户仍在底部，补一次贴底：结果卡/长卡片挂载时先按估算高度撑开，
+      // 实测后内容会变高并把卡片底部推到视口外（用户看到「卡片缺了圆角封口」）。
+      // 只在原本贴底时补，绝不打断向上翻阅的用户；位置从不由测量反向移动。
+      if (el !== null && stickyRef.current) {
+        el.scrollTop = el.scrollHeight;
+        programmaticTopRef.current = el.scrollTop;
+      }
+    }
   }, [win.start, win.end, blocks.length, measureTick, holeBoost]);
 
   const visibleBlocks = blocks.slice(win.start, win.end);

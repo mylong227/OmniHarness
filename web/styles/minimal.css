@@ -149,27 +149,198 @@
   color: var(--accent);
 }
 
-/* 品牌标识（Ω 方块）：全站唯一一处实心墨块 logo。 */
+/* 品牌标识（Ω 芯片）：2026-10-20 重做。
+   用户反馈「背景框太亮、太方正」→ 先改成 30×24 淡墨扁平芯片；随后又反馈「太扁了，
+   要方感，圆角有点椭圆、不是标准圆角弧度」→ 现在稳定为 **28×28 的方芯片 + 椭圆角**
+   （`border-radius: 10px / 6px`：水平半径 10、垂直 6，四角呈椭圆弧而不是四分之一圆）。
+   Ω 与淡墨色仍在——识别度靠字形与独有形状，不靠高亮块。
+   慢呼吸 + 偶发扫光是「logo 自己有点小动画」；工作状态条用同一枚芯片的紧凑版。 */
 .brand .logo,
 .brand .brand-mark,
-.side-brand .brand-mark {
-  background: var(--accent);
-  color: var(--ink-fg);
-  border: none;
-  box-shadow: none;
-  border-radius: var(--r-sm);
+.side-brand .brand-mark,
+.brand-mark {
+  --bm-w: 28px;
+  --bm-h: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  position: relative;
+  width: var(--bm-w);
+  height: var(--bm-h);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  border-radius: 10px / 6px;
+  background: color-mix(in srgb, var(--accent) 15%, var(--panel));
+  color: var(--accent);
   font-family: var(--font-sans);
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1;
+  animation: brand-breathe 5.6s ease-in-out infinite;
 }
+.brand-mark::after {
+  content: '';
+  position: absolute;
+  top: -30%;
+  bottom: -30%;
+  left: -70%;
+  width: 46%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  transform: skewX(-18deg);
+  opacity: 0;
+  animation: brand-sheen 8.4s ease-in-out infinite;
+  pointer-events: none;
+}
+.brand-mark--compact {
+  --bm-w: 20px;
+  --bm-h: 20px;
+  border-radius: 7px / 5px;
+  font-size: 11px;
+  animation: brand-work 1.7s ease-in-out infinite;
+}
+.brand-mark--compact::after {
+  content: none;
+}
+@keyframes brand-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.015);
+  }
+}
+@keyframes brand-sheen {
+  0%,
+  66% {
+    transform: translateX(0) skewX(-18deg);
+    opacity: 0;
+  }
+  68% {
+    opacity: 1;
+  }
+  84%,
+  100% {
+    transform: translateX(360%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+@keyframes brand-work {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+}
+/* 字标：Omni 为主标题，HARNESS 拆成居中的小号大写副标（2026-10-20 用户：
+   「Harness 与标题分开，居中小字、改大写，加一点点几乎看不见的底色」）。
+   扫光仍只作用于主标题 Omni；副标只靠 4% 文本色淡底做极轻的分区。 */
 .side-wordmark {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  line-height: 1.12;
+  white-space: nowrap;
+}
+.side-wordmark-main {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+}
+.side-wordmark-text {
+  position: relative;
+  z-index: 0;
+  min-width: 0;
+  overflow: hidden;
   font-weight: 600;
   letter-spacing: -0.012em;
-  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: wordmark-glow 8s ease-in-out infinite;
+}
+.side-wordmark-tag {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
+  color: var(--dim);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+.side-wordmark-sheen {
+  --sheen: color-mix(in srgb, var(--accent) 85%, transparent);
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  color: transparent;
+  background-image: linear-gradient(
+    100deg,
+    transparent 36%,
+    var(--sheen) 50%,
+    transparent 64%
+  );
+  background-size: 260% 100%;
+  background-position: 150% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: wordmark-sheen 8s ease-in-out infinite;
+}
+@keyframes wordmark-glow {
+  0%,
+  68%,
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+  78% {
+    text-shadow: 0 0 9px color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  88% {
+    text-shadow: 0 0 0 transparent;
+  }
+}
+@keyframes wordmark-sheen {
+  0%,
+  72% {
+    background-position: 150% 0;
+  }
+  88%,
+  100% {
+    background-position: -70% 0;
+  }
 }
 .side-brand {
   border-bottom: 1px solid var(--hairline);
   padding: 12px 12px 10px;
   gap: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-mark,
+  .brand-mark::after,
+  .side-wordmark-text,
+  .side-wordmark-sheen {
+    animation: none;
+  }
+  .side-wordmark-sheen {
+    opacity: 0;
+  }
 }
 
 /* 连接状态胶囊：点 + 文案。状态色只给那枚 6px 的点（面积小到不构成"色块"）。 */
@@ -539,6 +710,13 @@
 .ev.process-cluster {
   margin-bottom: 10px;
 }
+/* 思考流式面：一层**很轻**的圆角底，替代原来的左侧竖线。
+   2026-10-20 用户反馈：「去掉竖线，收尾增加圆角，底色区分区域不要太高亮，轻微区分即可」。 */
+.ev.reasoning.live {
+  border-left: 0;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
 .ev + .ev {
   border-top: none;
   padding-top: 0;
@@ -655,14 +833,370 @@
   background: transparent;
 }
 .process-cluster-body {
-  border-left: 1px dashed var(--hairline);
-  padding: 2px 0 2px 12px;
-  margin: 2px 0 2px 4px;
+  border-left: 0;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 42%, transparent);
+  padding: 6px 10px;
+  margin: 4px 0 6px;
+}
+/* 过程摘要行：动作 + 失败数 + 步数。运行中只加重颜色，不画框、不换行。 */
+.process-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  margin-left: 4px;
+}
+.process-fail {
+  color: var(--err);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+}
+.process-cluster[data-running] > summary,
+.process-cluster[data-running] .tc-summary {
+  color: var(--text);
+}
+.process-cluster[data-running] > summary {
+  font-weight: 500;
+}
+/* 过程摘要恒为一行：动作再多也截断，读的是「干了哪几类事」，细节展开看。 */
+.process-cluster > summary .tc-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tc-running {
+  display: inline-flex;
+  color: var(--accent-2);
+  animation: reason-pulse 1.6s ease-in-out infinite;
+}
+/* 运行中的「当前动作」行：紧贴过程摘要，不再按一条消息留 22px。 */
+.ev.live-input {
+  margin: 0 0 6px;
+}
+.ev.live-input .tc-line {
+  color: var(--dim);
+  cursor: default;
+  padding-left: 0;
+}
+.tc-line {
+  gap: 7px;
+}
+/* 步骤行：左列固定「动作标签」，右列对象（路径 / 命令 / 查询），末尾度量（体积 + 增删）。
+   2026-10-20 用户口径：不显示工具名，做成活动记录式两列。
+   类名统一挂在 `.tc-line` 下，避免与左栏会话行的 `.tc-dot` / `.tc-meta` 撞名。 */
+.tc-line .tc-verb {
+  flex: none;
+  width: 4.6em;
+  color: var(--dim);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.tc-line .tc-dot {
+  flex: none;
+  color: var(--faint);
+}
+.tc-line .tc-subject {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 思考的内容是 prose，不是路径/命令：用界面字体，避免整行像代码。 */
+.ev.reasoning .tc-line .tc-subject {
+  font-family: var(--font-sans);
+}
+.tc-line .tc-meta {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tc-line .tc-chevron {
+  color: var(--faint);
+  opacity: 0.7;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.tc-line:hover .tc-chevron {
+  opacity: 1;
+}
+
+/* =========================================================================
+   回合结果卡（2026-10-19）
+   -------------------------------------------------------------------------
+   一轮的结果只在这里出现一次：生成的文件 / 修改的文件分两组，行内给出
+   打开、下载、差异三个入口。过程卡只讲「做了什么」，不再散落产物卡。
+   表面用 panel + 发丝线 + 10px 圆角；颜色只用于增删数字与运行状态。
+   ========================================================================= */
+.turn-summary {
+  margin: 2px 0 22px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+.ts-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 10px 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+.ts-head-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--accent);
+}
+.ts-title {
+  flex: none;
+  color: var(--text);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+.ts-counts {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ts-time {
+  flex: none;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ts-time-label {
+  color: var(--faint);
+}
+.ts-total {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  margin-left: 2px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: var(--fs-list);
+  font-variant-numeric: tabular-nums;
+}
+.ts-total .add {
+  color: var(--ok);
+}
+.ts-total .del {
+  color: var(--err);
+}
+.ts-toggle {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--faint);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ts-toggle:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.ts-body {
+  padding: 2px 0 4px;
+}
+.ts-group + .ts-group {
+  border-top: 1px solid var(--hairline);
+}
+.ts-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 3px;
+}
+.ts-group-name {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ts-group-count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  line-height: 16px;
+  text-align: center;
+}
+.ts-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 8px 0 12px;
+}
+.ts-row:hover {
+  background: var(--hover);
+}
+.ts-main {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ts-ico {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+}
+.ts-main:hover .ts-ico {
+  color: var(--accent);
+}
+.ts-path {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-list);
+  white-space: nowrap;
+}
+.ts-dir {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--faint);
+  text-overflow: ellipsis;
+}
+.ts-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+}
+.ts-stat {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.ts-stat .add {
+  color: var(--ok);
+}
+.ts-stat .del {
+  color: var(--err);
+}
+.ts-kind {
+  flex: none;
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-xs);
+  color: var(--faint);
+  font-size: var(--fs-micro);
+}
+.ts-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.55;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.ts-row:hover .ts-actions,
+.ts-row:focus-within .ts-actions {
+  opacity: 1;
+}
+.ts-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--fs-micro);
+  text-decoration: none;
+  cursor: pointer;
+}
+.ts-act:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.ts-act-icon {
+  width: 26px;
+}
+.ts-diff {
+  border-top: 1px solid var(--hairline);
+  background: var(--code-bg);
+}
+.ts-diff .diff {
+  max-height: 340px;
+  border: 0;
+  border-radius: 0;
+}
+/* 解析不出文件段（旧存档 / 非标准 diff）时的原始 diff 兜底。 */
+.ts-fallback .diff {
+  max-height: 340px;
+  border: 0;
+  border-radius: 0;
+}
+
+/* 中栏变窄（侧栏都展开 / 窄窗口）时，先让次要信息让位：
+   数量摘要、增删合计、类型徽标、目录与「差异」文字按钮隐藏；耗时保留「耗时 + 数字」；
+   路径保留文件名（目录可省略），打开 / 下载两个图标入口保留，行点击也仍可开合差异。 */
+@media (max-width: 1024px) {
+  .ts-counts,
+  .ts-total,
+  .ts-kind,
+  .ts-dir {
+    display: none;
+  }
+  .ts-act:not(.ts-act-icon) {
+    display: none;
+  }
+}
+/* 更窄（手机）时，步骤行先让出体积/增删，保留动作标签与路径。 */
+@media (max-width: 640px) {
+  .tc-line .tc-meta {
+    display: none;
+  }
 }
 .tc-line,
 .tool-status,
-.artifact-card,
-.turn-diff {
+.artifact-card {
   font-family: var(--mono);
 }
 .tool-status {
@@ -713,8 +1247,9 @@
   background: color-mix(in srgb, var(--add) 12%, transparent);
   color: var(--add);
 }
+/* diff 行不再画左缘竖线：增删只靠 12% 同色底 + 行首 +/- 表达（2026-10-20 去竖线）。 */
 .diff .add {
-  border-left: 2px solid var(--add);
+  border-left: 0;
 }
 .change-badge.add {
   border-left: none;
@@ -725,7 +1260,7 @@
   color: var(--del);
 }
 .diff .del {
-  border-left: 2px solid var(--del);
+  border-left: 0;
 }
 .change-badge.del {
   border-left: none;
@@ -735,11 +1270,11 @@
 }
 .diff-row.add {
   background: color-mix(in srgb, var(--add) 10%, transparent);
-  box-shadow: inset 2px 0 0 var(--add);
+  box-shadow: none;
 }
 .diff-row.del {
   background: color-mix(in srgb, var(--del) 10%, transparent);
-  box-shadow: inset 2px 0 0 var(--del);
+  box-shadow: none;
 }
 [data-theme='light'] .diff .add,
 [data-theme='light'] .change-badge.add,
@@ -751,6 +1286,14 @@
 [data-theme='light'] .diff-row.del {
   background: color-mix(in srgb, var(--del) 9%, transparent);
 }
+/* hunk 头也不再用左缘竖线区分；选中态只靠淡色底（2026-10-20 去竖线）。 */
+.hunk-head {
+  border-left: 0;
+  border-radius: var(--r-sm);
+}
+.hunk-head.selected {
+  border-left-color: transparent;
+}
 
 /* =========================================================================
    6. 输入区：一块安静的圆润面板，焦点由容器承担
@@ -759,13 +1302,14 @@
      · 曾经容器和 textarea 各有一圈框 ⇒ "框里套框"；
      · 曾经输入区自己画 `border-top` + `border-radius:0` ⇒ 圆润面板下方横着一条直角线；
      · 曾经面板带投影 + 顶高光 ⇒ 输入区是全页唯一"浮起来"的东西，反而脏。
-   定案：`.composer-box` 是唯一可见表面（panel + 22px 圆角 + 发丝描边），
-   `.composer` 自己不画任何框，textarea 不出任何线；焦点 = 容器描边转墨 + 一圈极淡外晕。
+   定案：外层 `.composer` 一圈**发丝圆角框**（含顶边，暗色下也看得见，但不用高亮）；
+   内层 `.composer-box` 是输入表面（panel + 22px 圆角 + 发丝描边），textarea 不出任何线；
+   焦点 = 内层容器描边转墨 + 一圈极淡外晕。
    ========================================================================= */
 .composer {
   background: transparent;
-  border-top: none;
-  border-radius: 0 0 22px 22px;
+  border: 1px solid var(--border-soft);
+  border-radius: 26px;
   padding: 10px 18px 16px;
   box-shadow: none;
   /* 弹层挂载/卸载时不做滚动锚定补偿：容量面板插在输入区子树里，某些浏览器会把
@@ -796,11 +1340,6 @@
   border-color: var(--accent);
   box-shadow: var(--ring);
 }
-.composer:hover,
-.composer:focus-within {
-  box-shadow: none;
-  border-color: transparent;
-}
 /* textarea **不出任何线**（含聚焦）：它躺在一块有圆角、有表面的面板里。 */
 .composer textarea,
 .composer textarea:focus,
@@ -822,12 +1361,13 @@
   color: var(--faint);
 }
 
-/* 主行动（发送）：全站唯一的实心墨块，且只作为 32px 圆点存在。
-   面积小到不构成"色块"，但形状 + 颜色双重标记，一眼可辨。 */
+/* 主行动（发送）：全站唯一的实心墨块，扁一点的圆角矩形（40×32 / 11px 半径）——
+   2026-10-20 用户：「太圆了，扁平一些、方一些，带点椭圆感」。停止键共用同一几何。 */
 .send.round {
-  width: 32px;
+  width: 40px;
   height: 32px;
-  min-width: 32px;
+  min-width: 40px;
+  border-radius: 11px;
   background: var(--accent);
   color: var(--ink-fg);
   border: 1px solid transparent;
@@ -846,9 +1386,10 @@
   opacity: 1;
 }
 .stop.round {
-  width: 32px;
+  width: 40px;
   height: 32px;
-  min-width: 32px;
+  min-width: 40px;
+  border-radius: 11px;
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--err) 60%, transparent);
   color: var(--err);
@@ -984,17 +1525,19 @@
   flex: none;
 }
 
-/* 工作状态条：与输入区同语言的细带，不画卡片。 */
+/* 工作状态条：无框一行。动态由 BrandMark compact（品牌标识的「工作中」呼吸）承担，
+   文字与计时只做信息，不再画底框或左侧高亮条。 */
 .work-indicator {
-  background: transparent;
-  border-color: var(--hairline);
-  color: var(--dim);
-  border-radius: var(--r-sm);
   margin: 8px 16px 0;
-  padding: 6px 10px;
+  padding: 2px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--dim);
 }
-.wi-dot {
-  background: var(--accent);
+.wi-text {
+  color: var(--text);
+  font-size: var(--fs-sm);
 }
 
 /* 中栏头：标题 + 视图切换。发丝线收尾，不给整条横带加底色。 */
@@ -1598,25 +2141,22 @@ button:active,
    上一版是"整条反白"，在深色主题里是一条刺眼的亮带；现在它是页面里最靠后的东西，
    但阴影让它明显浮起（浮层才配投影）。 */
 .toast {
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elev));
   color: var(--text);
   border: 1px solid var(--border-soft);
-  border-left-width: 3px;
-  border-left-color: var(--accent);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-2);
   font-size: var(--fs-list);
 }
 .toast.ok {
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--ok) 8%, var(--bg-elev));
   color: var(--text);
-  border-left-color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--border-soft));
 }
 .toast.err {
-  background: var(--bg-elev);
+  background: color-mix(in srgb, var(--err) 8%, var(--bg-elev));
   color: var(--text);
   border-color: color-mix(in srgb, var(--err) 40%, var(--border-soft));
-  border-left-color: var(--err);
 }
 
 .composer .cap-bar,
@@ -2188,8 +2728,10 @@ button:active,
 }
 .empty.err {
   color: var(--err);
-  border-left: 2px solid var(--err);
-  padding-left: var(--sp-3);
+  border-left: 0;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+  padding: 10px 12px;
 }
 .empty.err .illu-ico {
   color: var(--err);
@@ -2266,11 +2808,14 @@ textarea,
   color: var(--text);
   padding: 0.1em 0.36em;
 }
+/* 引用块：不用左侧竖线，改成轻微墨色圆角底（2026-10-20 用户口径：
+   「类似的竖线全去掉，有竖线排版的文字都加个轻微颜色圆角底区别下」）。 */
 .md-content blockquote {
-  border-left: 2px solid var(--accent-line);
-  background: transparent;
+  border-left: 0;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--dim);
-  padding-left: 12px;
+  padding: 8px 12px;
 }
 .md-content hr {
   border-top: 1px solid var(--hairline);
@@ -2463,8 +3008,11 @@ button:hover,
 .tc-error,
 [data-theme='light'] .tc-error {
   color: var(--err);
-  border-left-color: var(--err);
+  border-left: 0;
+  border-radius: var(--r-sm);
   background: color-mix(in srgb, var(--err) 8%, transparent);
+  padding: 6px 10px;
+  margin: 4px 0 2px;
 }
 .b-tool_call {
   color: var(--warn);
@@ -2749,4 +3297,386 @@ button:hover,
 .panel-surface > .diagnostics-tab,
 .panel-surface > .permission-tab {
   padding: 0;
+}
+
+/* =========================================================================
+   13. 命令面板（2026-10-19 重构）
+   -------------------------------------------------------------------------
+   旧版的三个问题，逐条对应本段的解法：
+
+     ① 输入框是一枚「裸 input + 默认焦点环」：和全站的容器焦点语言脱节，浅色下尤其像
+        浏览器原生控件。现在焦点交给 `.cmdk-search` 表达（底部墨线 + 图标变墨），
+        input 自己不出环——与 composer 文本域的既有口径一致。
+     ② 10 行「打开面板：X」是同一句话的复读。面板组直接显示面板名（数据层改），
+        每行只用一枚 currentColor 线性图标回答「这条命令作用于什么」。
+     ③ placeholder 承担了整段键盘说明书，搜索槽被占满。说明移进页脚键帽，
+        搜索槽只留「搜索命令或面板…」。
+
+   几何：580px 宽 / 14px 圆角 / 40px 内嵌搜索条（四周留 8–10px 呼吸位）/
+   42px 行高 / 组标题上方 10px。
+   颜色：全部走 token；选中 = accent-soft 淡墨底 + 文字转墨，不画彩色左边条。
+   投影：命令面板属于「真的浮起来」的浮层，用 shadow-2（见 §8）。
+   ========================================================================= */
+.cmdk-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: max(10vh, 64px) 16px 24px;
+  background: rgba(10, 12, 16, 0.62);
+  backdrop-filter: none;
+  animation: cmdk-veil var(--dur-2) var(--ease) both;
+}
+[data-theme='light'] .cmdk-backdrop {
+  background: rgba(22, 25, 30, 0.28);
+}
+@keyframes cmdk-veil {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.cmdk {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(580px, calc(100vw - 32px));
+  max-height: min(72vh, 680px);
+  overflow: hidden;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-2);
+  animation: cmdk-in var(--dur-2) var(--ease-out) both;
+}
+@keyframes cmdk-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* —— 搜索条：一块内嵌的窄控件，四周留缝，不再顶满面板上缘 —— */
+.cmdk-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  height: 40px;
+  margin: 8px 10px 4px;
+  padding: 0 10px 0 12px;
+  background: var(--code-bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  transition: border-color var(--dur-1) var(--ease);
+}
+.cmdk-search:focus-within {
+  border-color: var(--accent-line);
+}
+.cmdk-search-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+  transition: color var(--dur-1) var(--ease);
+}
+.cmdk-search:focus-within .cmdk-search-icon {
+  color: var(--accent);
+}
+.cmdk .cmdk-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-ui);
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+}
+.cmdk .cmdk-input:focus,
+.cmdk .cmdk-input:focus-visible {
+  border: 0;
+  outline: none;
+  box-shadow: none;
+}
+.cmdk .cmdk-input::placeholder {
+  color: var(--dim);
+}
+.cmdk-esc,
+.cmdk-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.cmdk-esc {
+  height: 20px;
+  min-width: 28px;
+  padding: 0 6px;
+  color: var(--faint);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-xs);
+  font: 500 9.5px/1 var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.cmdk-clear {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--faint);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  cursor: pointer;
+}
+.cmdk-clear:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+/* —— 列表：组间靠留白断开，组内不留分隔线 —— */
+.cmdk-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 6px 8px 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 全站菜单默认隐藏滚动条（见 shell.css §6）。命令面板是例外：16 条命令在 76vh 里
+     必然越界，没有滚动条时用户只能靠"猜"下面还有内容。这里用一根极细的主题色滑块，
+     悬停才加深——它是**可滚动的证据**，不是装饰。 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-soft) transparent;
+  scrollbar-gutter: stable;
+}
+.cmdk-list::-webkit-scrollbar {
+  width: 8px;
+  height: 0;
+}
+.cmdk-list::-webkit-scrollbar-thumb {
+  background: var(--border-soft);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 999px;
+}
+.cmdk-list:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+.cmdk-group + .cmdk-group {
+  margin-top: 6px;
+}
+.cmdk-group-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 8px 6px;
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+}
+.cmdk-group-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+.cmdk .cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 42px;
+  padding: 6px 10px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+}
+.cmdk .cmdk-item:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.cmdk .cmdk-item.active {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.cmdk-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--faint);
+  transition: color var(--dur-1) var(--ease);
+}
+.cmdk-item:hover .cmdk-item-icon {
+  color: var(--dim);
+}
+.cmdk-item.active .cmdk-item-icon {
+  color: var(--accent);
+}
+.cmdk-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-ui);
+  line-height: 1.4;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cmdk-item.active .cmdk-label {
+  font-weight: 600;
+}
+.cmdk-mark {
+  color: var(--accent);
+  background: transparent;
+  font-weight: 600;
+}
+.cmdk-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  color: var(--faint);
+}
+.cmdk-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  color: var(--dim);
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-xs);
+  font: 500 10.5px/1 var(--font-mono);
+  letter-spacing: 0;
+}
+.cmdk-item.active .cmdk-key {
+  color: var(--text);
+  background: var(--panel);
+  border-color: var(--accent-line);
+}
+
+/* —— 空态：不喊「错误」，只回答「没搜到」并给出下一步 —— */
+.cmdk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 20px 38px;
+  text-align: center;
+}
+.cmdk-empty-icon {
+  display: inline-flex;
+  margin-bottom: 2px;
+  color: var(--faint);
+  opacity: 0.72;
+}
+.cmdk-empty-title {
+  color: var(--text);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.cmdk-empty-hint {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+/* —— 页脚：结果计数 + 键盘图例（搜索槽不再承担说明书） —— */
+.cmdk-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  min-height: 36px;
+  padding: 7px 14px;
+  color: var(--faint);
+  border-top: 1px solid var(--hairline);
+  font-size: var(--fs-micro);
+  line-height: 1;
+}
+.cmdk-total {
+  font-variant-numeric: tabular-nums;
+}
+.cmdk-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.cmdk-legend kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-xs);
+  font: 500 10px/1 var(--font-mono);
+}
+.cmdk-legend .cmdk-sep {
+  color: var(--faint);
+  opacity: 0.55;
+}
+/* 键帽是视觉简写；完整键盘说明给读屏，视觉上裁成 1px。 */
+.cmdk-help {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 窄窗：贴边、去掉鼠标用不上的键帽图例，把宽度让给命令名。 */
+@media (max-width: 560px) {
+  .cmdk-backdrop {
+    padding: 8vh 10px 10px;
+  }
+  .cmdk {
+    width: calc(100vw - 20px);
+    max-height: 82vh;
+  }
+  .cmdk-search {
+    height: 38px;
+    margin: 7px 8px 3px;
+    padding: 0 8px 0 10px;
+  }
+  .cmdk-legend {
+    display: none;
+  }
 }

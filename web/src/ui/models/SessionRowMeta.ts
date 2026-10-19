@@ -42,9 +42,34 @@ export class SessionRowMeta {
     const when = timeAgo(s.updatedAt, now);
     if (when !== '') parts.push(when);
     if (typeof s.turns === 'number') parts.push(t('{n} 回合', { n: s.turns }));
+    // 有效时长与服务端摘要同口径（已剔除 >5 分钟挂机）；没有该字段的历史会话就不写。
+    const active = SessionRowMeta.activeDuration(s);
+    if (active !== '') parts.push(t('有效 {d}', { d: active }));
+    if (typeof s.idleGaps === 'number' && s.idleGaps > 0) {
+      parts.push(t('空闲 {n} 次', { n: s.idleGaps }));
+    }
     // id 只在"标题不是 id"时作为**末位**补充：同一句话被用作多个会话标题时，id 是唯一区分依据。
     if (s.label !== '' && s.label !== s.id) parts.push(s.id);
     return parts.join(' · ');
+  }
+
+  /**
+   * 有效时长的紧凑文案（`45秒` / `12分` / `3小时`）。
+   *
+   * 为什么单独暴露：卡片视图与悬停文案都要用；且「有效时长」必须与服务端口径一致
+   * （`activeMs` 已剔除挂机间隔），不能拿 `updatedAt` 与当前时间差去冒充。
+   *
+   * @param s 会话条目
+   * @returns 紧凑时长文案；字段缺失/非正数时为空串（调用方跳过该格）
+   */
+  public static activeDuration(s: SessionEntry): string {
+    if (typeof s.activeMs !== 'number' || !Number.isFinite(s.activeMs) || s.activeMs <= 0) {
+      return '';
+    }
+    const seconds = Math.floor(s.activeMs / 1000);
+    if (seconds < 60) return t('{n}秒', { n: seconds });
+    if (seconds < 3600) return t('{n}分', { n: Math.floor(seconds / 60) });
+    return t('{n}小时', { n: Math.floor(seconds / 3600) });
   }
 
   /**

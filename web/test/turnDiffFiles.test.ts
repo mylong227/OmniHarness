@@ -1,4 +1,4 @@
-﻿// 回合变更文件清单解析器契约测试（对标 Codex「Edited N files」卡片的数据面）。
+// 回合变更文件清单解析器契约测试（对标 Codex「Edited N files」卡片的数据面）。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/turnDiffFiles.test.mjs 直跑。
 import assert from 'node:assert/strict';
@@ -32,9 +32,26 @@ test('双文件 diff：按文件拆分、路径与增删正确', () => {
   assert.strictEqual(files[0].path, 'src/a.ts');
   assert.strictEqual(files[0].added, 1);
   assert.strictEqual(files[0].deleted, 1);
+  assert.strictEqual(files[0].created, false, '改写已有文件不得标成新建');
   assert.strictEqual(files[1].path, 'src/new.ts');
   assert.strictEqual(files[1].added, 2);
   assert.strictEqual(files[1].deleted, 0);
+  assert.strictEqual(files[1].created, true, '旧侧行数为 0（@@ -0,0 / -1,0）即新建');
+});
+
+test('新旧两侧都有行的 hunk 不算新建（即使整段替换）', () => {
+  const replaced = [
+    '--- a/old.txt',
+    '+++ b/old.txt',
+    '@@ -1,2 +1,2 @@',
+    '-old 1',
+    '-old 2',
+    '+new 1',
+    '+new 2',
+  ].join('\n');
+  const files = parseTurnDiffFiles(replaced);
+  assert.strictEqual(files.length, 1);
+  assert.strictEqual(files[0].created, false);
 });
 
 test('+++ / --- 头不计入增删行数', () => {

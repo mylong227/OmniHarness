@@ -1,5 +1,10 @@
 import type { ThreadEvent } from '../../types/models.ts';
-import { buildDisplayBlocks, collectToolCallIds, type DisplayBlock } from '../textUtils.ts';
+import {
+  buildDisplayBlocks,
+  collectToolCallIds,
+  collectTurnSummaryCalls,
+  type DisplayBlock,
+} from '../textUtils.ts';
 
 /**
  * 事件流的**渲染输入模型**（块 / 键 / 末条 id / 本轮工具调用 id）。
@@ -19,6 +24,8 @@ export interface StreamModel {
   readonly lastAssistantId: string;
   /** 本轮出现过的工具调用 id（判断 tool_result 是否已被调用卡内联）。 */
   readonly toolCallIds: ReadonlySet<string>;
+  /** 已被回合结果卡收编的产物调用 id（这些调用不再单独渲染内联产物卡）。 */
+  readonly summarizedCallIds: ReadonlySet<string>;
 }
 
 /** 模型缓存观测（测试与诊断用）。 */
@@ -96,8 +103,9 @@ export class StreamModelCache {
    * @returns 模型。
    */
   public static build(events: readonly ThreadEvent[], busy: boolean): StreamModel {
-    const blocks = buildDisplayBlocks(events, busy);
-    const keys = blocks.map((b) => (b.kind === 'process' ? b.key : b.event.id));
+    const summarizedCallIds = collectTurnSummaryCalls(events);
+    const blocks = buildDisplayBlocks(events, busy, summarizedCallIds);
+    const keys = blocks.map((b) => (b.kind === 'single' ? b.event.id : b.key));
     let lastUserId = '';
     let lastAssistantId = '';
     for (const e of events) {
@@ -106,6 +114,6 @@ export class StreamModelCache {
     }
     // 与 buildDisplayBlocks 同一份判据（isRenderedEvent 用它隐藏已内联的 tool_result）。
     const toolCallIds = collectToolCallIds(events);
-    return { blocks, keys, lastUserId, lastAssistantId, toolCallIds };
+    return { blocks, keys, lastUserId, lastAssistantId, toolCallIds, summarizedCallIds };
   }
 }

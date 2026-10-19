@@ -305,7 +305,12 @@ export class ContextCompactor {
     state?: CompactionState,
     overhead?: RequestOverhead,
   ): Promise<CompactionResult> {
-    const budget = this.effectiveThreshold(overhead);
+    // 图片的视觉 token 无法从 base64 反推（TokenEstimator 只记信封），但它在真实窗口里的占用
+    // 是确定的：按保守常数从预算里扣掉，避免「本地算 83k、provider 报 120k」时才发现超窗。
+    const budget = Math.max(
+      100,
+      this.effectiveThreshold(overhead) - ContextCompactor.imageTokensOf(messages),
+    );
     // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。
     const reused = this.tryReuseState(messages, state, budget);
     if (reused !== undefined) {
@@ -370,7 +375,10 @@ export class ContextCompactor {
         ...(all.report !== undefined ? { shrink: all.report } : {}),
       };
     }
-    const summary = await this.summarize(head);
+    // 模型摘要 + **确定性工具台账**：摘要由模型生成，可能漏掉「已经读过哪些文件、跑过哪些命令」；
+    // 台账由折叠段的事件直接生成，是「不依赖摘要质量」的进度基线（长会话防重复探索）。
+    // 预算过小时不加台账：宁可少一行确定性信息，也不能把最近的工具轮挤出 tail。
+    const summary = ContextCompactor.withToolLedger(await this.summarize(head), head, budget);
     const newState: CompactionState = {
       compactedUpTo: headEnd,
       headHash: ContextCompactor.headFingerprint(head),
@@ -476,6 +484,138 @@ export class ContextCompactor {
     while (messages[count]?.role === 'system') count += 1;
     return count;
   }
+
+  /**
+   * 把**确定性工具台账**追加到模型摘要之后（没有工具调用时原样返回摘要）。
+   *
+   * 为什么需要：摘要由模型生成，长会话里它可能漏掉「已经读过哪些文件、跑过哪些命令」；
+   * 一旦漏掉，模型下一步就会重新探索，形成「压缩 → 失忆 → 重复读」的循环（2026-10-13
+   * `sess_mv88ycm7_1` 对同一文件 `read_file` 34 次）。台账直接由折叠段的 assistant(tool_calls)
+   * 与 tool 结果配对生成，**不依赖摘要质量**，并按「工具 + 目标」聚合计数（×N）——重复本身
+   * 也因此在上下文里可见。
+   *
+   * @param summary 模型摘要。
+   * @param head 被折叠的消息段。
+   * @param budget 可用消息预算（过小则不加台账，避免挤掉 tail）。
+   * @returns 摘要（无工具调用 / 预算过小时逐字不变）。
+   */
+  private static withToolLedger(
+    summary: string,
+    head: readonly ModelMessage[],
+    budget: number,
+  ): string {
+    if (budget < ContextCompactor.LEDGER_MIN_BUDGET_TOKENS) {
+      return summary;
+    }
+    const ledger = ContextCompactor.toolLedger(head);
+    if (ledger.length === 0) {
+      return summary;
+    }
+    return `${summary}\n\n## 已执行工具台账（确定性生成，用于避免重复探索）\n${ledger.join('\n')}`;
+  }
+
+  /**
+   * 台账生效的最小消息预算（token）：低于此值时台账的收益不如「保住最近工具轮」大。
+   * 生产压缩阈值是 0.8×窗口（128k → 102k），远高于此值。
+   */
+  private static readonly LEDGER_MIN_BUDGET_TOKENS = 2000;
+
+  /**
+   * 生成工具台账行（按「工具 + 目标」聚合，最多 40 行）。
+   * @param head 被折叠的消息段。
+   * @returns 台账行数组（按首次出现顺序）。
+   */
+  private static toolLedger(head: readonly ModelMessage[]): string[] {
+    const calls = new Map<string, { readonly name: string; readonly target: string }>();
+    const stats = new Map<
+      string,
+      { readonly name: string; readonly target: string; count: number; fail: number }
+    >();
+    const order: string[] = [];
+    for (const message of head) {
+      if (message.role === 'assistant' && message.toolCalls !== undefined) {
+        for (const call of message.toolCalls) {
+          calls.set(call.id, {
+            name: call.name,
+            target: ContextCompactor.ledgerTarget(call.arguments),
+          });
+        }
+        continue;
+      }
+      if (message.role !== 'tool' || message.toolCallId === undefined) {
+        continue;
+      }
+      const call = calls.get(message.toolCallId);
+      if (call === undefined) {
+        continue;
+      }
+      const key = `${call.name}\u0000${call.target}`;
+      let entry = stats.get(key);
+      if (entry === undefined) {
+        entry = { name: call.name, target: call.target, count: 0, fail: 0 };
+        stats.set(key, entry);
+        order.push(key);
+      }
+      entry.count += 1;
+      if (message.content.startsWith('工具执行失败')) {
+        entry.fail += 1;
+      }
+    }
+    return order.slice(0, 40).map((key) => {
+      const entry = stats.get(key) as {
+        readonly name: string;
+        readonly target: string;
+        count: number;
+        fail: number;
+      };
+      const failed = entry.fail > 0 ? `（失败 ${String(entry.fail)} 次）` : '';
+      const target = entry.target === '' ? '(无参数)' : entry.target;
+      return `- ${entry.name} ${target} ×${String(entry.count)}${failed}`;
+    });
+  }
+
+  /**
+   * 台账里的「目标」：取命令/路径/模式/URL 之一，压成一行并截断。
+   * @param args 工具参数。
+   * @returns 可读目标（无可用字段为空串）。
+   */
+  private static ledgerTarget(args: Record<string, unknown>): string {
+    const raw = args['command'] ?? args['path'] ?? args['pattern'] ?? args['url'] ?? args['query'];
+    if (typeof raw !== 'string') {
+      return '';
+    }
+    const oneLine = raw.replace(/\s+/gu, ' ').trim();
+    return oneLine.length > 80 ? `${oneLine.slice(0, 80)}…` : oneLine;
+  }
+
+  /**
+   * 消息里图片附件的**保守 token 估算**（每张 {@link IMAGE_TOKEN_ESTIMATE}）。
+   *
+   * 为什么不改 `TokenEstimator`：它的记账口径被 Rust 原生实现逐位镜像
+   *（`crates/omni-napi/src/handler.rs::accountable_text`），单边改动会让「原生开/关」给出
+   * 不同的压缩时机。这里只在**压缩预算**上扣减，不改变对外记账口径。
+   *
+   * @param messages 待压缩消息。
+   * @returns 图片附件对应的 token 估算（无图为 0）。
+   */
+  private static imageTokensOf(messages: readonly ModelMessage[]): number {
+    let count = 0;
+    for (const message of messages) {
+      count += message.images?.length ?? 0;
+      for (const file of message.files ?? []) {
+        if (file.mediaType.startsWith('image/')) count += 1;
+      }
+    }
+    return count * ContextCompactor.IMAGE_TOKEN_ESTIMATE;
+  }
+
+  /**
+   * 单张图片的保守 token 估算：1600。
+   *
+   * 依据：provider 对 1200×700 截图的视觉编码约 1.4k token（2026-10-19 鹈鹕会话末次调用
+   * 107,633 真实 prompt vs 本地 83,146）；取 1600 留出余量。宁可提前压缩，也不要越过窗口。
+   */
+  private static readonly IMAGE_TOKEN_ESTIMATE = 1_600;
 
   /**
    * 生成历史摘要（V2 三通道：服务端压缩回调 → 本地模型（前缀友好请求）→ 占位）。

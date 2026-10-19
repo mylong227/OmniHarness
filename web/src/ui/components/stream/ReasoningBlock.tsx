@@ -1,16 +1,17 @@
 // 思考过程块：两种形态——
 //   1) live（回合进行中，busy=true）：实时「思考中」平铺面板（对标 Codex 桌面版工作态，2026-10-14）。
-//      头部一行「思考中 + 跳动计时（X分Y秒）+ 实时字数」；思考正文以正文色流式长出，**末段**
+//      头部一行「思考中 + 跳动计时（时/分/秒）+ 实时字数」；思考正文以正文色流式长出，**末段**
 //      （最后一个换行之后的生长中片段）以更浅斜体呈现——正是 Codex「Running …」片段的活跃感；
 //      文本末尾带光标。正文整块 aria-hidden，另设粗粒度 polite 状态区（跨百字档才变）。
-//      已思时长每秒写入 sessionStorage（按事件 id）：收尾摘要直接读它显示「X秒」，刻意**持续写**
+//      已思时长每秒写入 sessionStorage（按事件 id）：收尾摘要直接读它显示时长，刻意**持续写**
 //      而非卸载时写——卸载清理跑在新组件首渲染之后，收尾块的首帧会读到空值（React 提交时序）。
-//   2) 收尾（非 live）：默认折叠成一行摘要「思考过程 · [X秒 ·] N 字」，点击展开全文。
+//   2) 收尾（非 live）：折叠成步骤列表的一行「思考 | 内容摘要 | 时长 · 字数」，点击展开全文。
 //
 // 函数组件范式：仅一个展开态 + 一个计时器，用 useState/useRef/useEffect 承接。
 
 import * as React from 'react';
 import { icon } from '../../models/Icon.ts';
+import { formatDuration } from '../../models/DurationFormat.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
 
@@ -36,17 +37,6 @@ const DUR_KEY = 'omni-reason-dur:';
 function announceText(length: number): string {
   if (length < ANNOUNCE_STEP) return t('正在思考');
   return t('正在思考（已约 {n} 字）', { n: Math.floor(length / ANNOUNCE_STEP) * ANNOUNCE_STEP });
-}
-
-/**
- * 秒数 → 「X分Y秒」/「Y秒」（对标 Codex 的 Working 计时器）。
- * @param totalSec 累计秒数
- * @returns 计时文案
- */
-function fmtDuration(totalSec: number): string {
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return m > 0 ? t('{m}分{s}秒', { m, s }) : t('{s}秒', { s });
 }
 
 /**
@@ -118,7 +108,7 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
             <i></i>
             <i></i>
           </span>
-          <span className="reason-live-timer">{fmtDuration(elapsed)}</span>
+          <span className="reason-live-timer">{formatDuration(elapsed)}</span>
           <span className="reason-live-count">{t('{n} 字', { n: content.length })}</span>
         </div>
         <div className="reason-live-body" aria-hidden="true">
@@ -136,20 +126,33 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
 
   // —— 收尾态：折叠摘要（有已录时长则一并显示），点击展开全文 ——
   const durSec = readDuration(ev.id);
+  const summary = content.replace(/\s+/g, ' ').trim();
+  const meta = durSec !== null ? `${formatDuration(durSec)} · ${content.length} 字` : `${content.length} 字`;
   return (
     <div className="ev reasoning">
       <div
         className="tc-line dim"
         onClick={toggle}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
         title={open ? t('收起') : t('点击查看思考内容')}
       >
-        <span className="tc-chevron">{open ? '▾' : '▸'}</span>
         <span className="tc-icon">{icon('thinking', { size: 14 })}</span>
-        <span className="tc-summary">
-          {durSec !== null
-            ? t('思考过程 · {dur} · {n} 字', { dur: fmtDuration(durSec), n: content.length })
-            : t('思考过程 · {n} 字', { n: content.length })}
+        <span className="tc-verb">{t('思考')}</span>
+        <span className="tc-dot" aria-hidden="true">
+          ·
         </span>
+        <span className="tc-subject" title={summary}>
+          {summary === '' ? t('（无内容）') : summary}
+        </span>
+        <span className="tc-meta">{meta}</span>
       </div>
       {open ? (
         <div className="tc-detail">

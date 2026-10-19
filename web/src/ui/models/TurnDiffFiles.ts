@@ -16,6 +16,14 @@ export interface TurnDiffFile {
   readonly deleted: number;
   /** 该文件的 unified diff 正文（含 `---`/`+++`/`@@` 头，可直接喂 diff 渲染器）。 */
   readonly text: string;
+  /**
+   * 是否为本回合**新建**的文件（写入前不存在）。
+   *
+   * 判据：任一 hunk 头的旧侧行数为 0（`@@ -1,0 +1,N @@` / `@@ -0,0 +1,N @@`）——
+   * TurnDiffTracker 对新建文件取的 before 快照是空串，UnifiedDiff 因此只能产出
+   * beforeCount=0 的 hunk。改写已有文件即使整段替换，旧侧行数也不会是 0。
+   */
+  readonly created: boolean;
 }
 
 /** 全回合增删合计。 */
@@ -36,7 +44,9 @@ export interface TurnDiffTotals {
 export function parseTurnDiffFiles(diff: string): readonly TurnDiffFile[] {
   const lines = (diff ?? '').replace(/\r\n/g, '\n').split('\n');
   const files: TurnDiffFile[] = [];
-  let current: { path: string; added: number; deleted: number; body: string[] } | undefined;
+  let current:
+    | { path: string; added: number; deleted: number; created: boolean; body: string[] }
+    | undefined;
 
   const flush = (): void => {
     if (current !== undefined) {
@@ -45,6 +55,7 @@ export function parseTurnDiffFiles(diff: string): readonly TurnDiffFile[] {
         added: current.added,
         deleted: current.deleted,
         text: current.body.join('\n'),
+        created: current.created,
       });
     }
   };
@@ -52,13 +63,25 @@ export function parseTurnDiffFiles(diff: string): readonly TurnDiffFile[] {
   for (const line of lines) {
     if (line.startsWith('--- a/')) {
       flush();
-      current = { path: line.slice('--- a/'.length), added: 0, deleted: 0, body: [line] };
+      current = {
+        path: line.slice('--- a/'.length),
+        added: 0,
+        deleted: 0,
+        created: false,
+        body: [line],
+      };
       continue;
     }
     if (current === undefined) {
       continue; // 文件头之前的杂散行（空行等）——不构成文件段，忽略。
     }
     current.body.push(line);
+    if (line.startsWith('@@')) {
+      // hunk 头 `@@ -<oldStart>,<oldCount> +<newStart>,<newCount> @@`：旧侧行数为 0 ⇒ 新建文件。
+      const m = /^@@ -\d+(?:,(\d+))? \+/.exec(line);
+      if (m !== null && Number(m[1] ?? '1') === 0) current.created = true;
+      continue;
+    }
     if (line.startsWith('+++')) {
       continue; // 文件头，不计增删。
     }

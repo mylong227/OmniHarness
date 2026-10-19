@@ -266,7 +266,7 @@ test('WorkIndicator：role=status 播报动作，跳动计时 aria-hidden 防每
   assert.strictEqual(vnode!.props['aria-live'], 'polite');
   const hidden = collect(vnode, (n) => n.props['aria-hidden'] === 'true');
   assert.strictEqual(hidden.length, 2, '圆点与计时数字都应 aria-hidden');
-  assert.match(allText(vnode), /正在调用 shell/);
+  assert.match(allText(vnode), /正在执行命令/);
 });
 
 test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚点存在', () => {
