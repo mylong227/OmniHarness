@@ -226,15 +226,16 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
               <option value="5">5</option>
             </select>
           </label>
-          <div className="row">
-            <button className="send" onClick={() => void save()}>
-              {editingId ? t('保存修改') : t('保存')}
-            </button>
+          <div className="pane-actions">
+            <span className="flex-spacer"></span>
             {editingId ? (
-              <button className="ghost" onClick={reset}>
+              <button className="btn" onClick={reset}>
                 {t('取消编辑')}
               </button>
             ) : null}
+            <button className="btn primary" onClick={() => void save()}>
+              {editingId ? t('保存修改') : t('保存')}
+            </button>
           </div>
         </div>
       </div>

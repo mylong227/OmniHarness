@@ -422,12 +422,13 @@ export function GraphTab(props: GraphTabProps): ReactElement {
             {t('+ 添加步骤')}
           </button>
         </div>
-        <div className="row">
-          <button className="send" onClick={() => void save()}>
-            {t('保存')}
-          </button>
-          <button className="send" onClick={() => void runDef()}>
+        <div className="pane-actions">
+          <span className="flex-spacer"></span>
+          <button className="btn" onClick={() => void runDef()}>
             {t('运行')}
+          </button>
+          <button className="btn primary" onClick={() => void save()}>
+            {t('保存')}
           </button>
         </div>
         <div id="graphStatus">

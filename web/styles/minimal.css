@@ -2481,3 +2481,173 @@ button:hover,
 .cp-badge.snap {
   background: var(--hover-strong);
 }
+
+/* =========================================================================
+   右栏功能面板：设置面板同款版式（2026-10-19，「干净利落」重构）
+   -------------------------------------------------------------------------
+   用户要求除「文件 / 变更」外的面板都按设置面板的极简语言重构：
+   · 章节标题 = 设置里的 .sp-sec-title（13px/600、正常大小写）；
+   · 列表 = 行式（无卡片底、无描边，行间一条发丝线）；
+   · 控件 = 设置里的输入/按钮（发丝边、r-sm 圆角）；
+   · 空态收窄，不再用一张大虚线卡占半屏。
+   作用域限定 #right-pane：不污染全局卡片（如对话里的产物卡）。
+   ========================================================================= */
+#right-pane {
+  padding: 14px 18px 20px;
+}
+#right-pane .detail-section,
+#right-pane .pm-section {
+  margin: 0;
+}
+#right-pane .detail-section + .detail-section,
+#right-pane .pm-section + .pm-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+#right-pane .detail-h,
+#right-pane .pm-title,
+#right-pane .section-title {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+#right-pane .hint,
+#right-pane .panel-note {
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.65;
+  margin: 4px 0 8px;
+}
+/* 列表行：拍平卡片，只留发丝分隔线 */
+#right-pane .plugin-card,
+#right-pane .mem-row,
+#right-pane .cp-item,
+#right-pane .graph-card,
+#right-pane .tool-item {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 9px 0;
+}
+#right-pane .plugin-card + .plugin-card,
+#right-pane .mem-row + .mem-row,
+#right-pane .cp-item + .cp-item,
+#right-pane .graph-card + .graph-card,
+#right-pane .tool-item + .tool-item {
+  border-top: 1px solid var(--hairline);
+}
+#right-pane .mem-row:first-child,
+#right-pane .plugin-card:first-child,
+#right-pane .cp-item:first-child {
+  padding-top: 0;
+}
+#right-pane .mem-actions .ghost,
+#right-pane .mem-actions .btn {
+  padding: 2px 8px;
+  font-size: 11.5px;
+}
+/* 指标：四张卡改成设置式的两列统计行 */
+#right-pane .metric-grid {
+  gap: 0 18px;
+  margin-bottom: 4px;
+}
+#right-pane .metric {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  padding: 10px 0;
+}
+#right-pane .metric .n {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+#right-pane .metric .l {
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 11px;
+}
+#right-pane .usage-table {
+  width: 100%;
+  font-size: 12px;
+}
+#right-pane .usage-table th {
+  color: var(--faint);
+  font-weight: 500;
+  text-align: right;
+  padding: 4px 0;
+}
+#right-pane .usage-table th:first-child,
+#right-pane .usage-table td:first-child {
+  text-align: left;
+}
+#right-pane .usage-table td {
+  text-align: right;
+  padding: 4px 0;
+  border: 0;
+}
+#right-pane .usage-table tr + tr td {
+  border-top: 1px solid var(--hairline);
+}
+/* 表单控件与设置面板同款 */
+#right-pane input:not([type='checkbox']):not([type='radio']),
+#right-pane textarea,
+#right-pane select {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+}
+/* 空态收窄：右栏不需要占半屏的插画卡（设置面板里也没有这种大插画） */
+#right-pane .empty.illu {
+  margin: 6px 0 0;
+  padding: 12px 8px;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+}
+#right-pane .empty.illu .illu-text {
+  font-size: 13px;
+}
+#right-pane .empty.illu .illu-hint {
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+/* 编排页顶部说明卡：同样拍平成普通段落（用户要求"干净利落"）。 */
+#right-pane .graph-guide {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 14px;
+}
+#right-pane .gg-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+#right-pane .gg-text,
+#right-pane .gg-flow {
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+#right-pane .empty.illu .illu-icon {
+  width: 30px;
+  height: 30px;
+}
+/* 面板整体滚动时，顶栏（路径栏）保持可读 */
+#right-pane > .review,
+#right-pane > .governance-tab,
+#right-pane > .vault-tab,
+#right-pane > .audit-tab,
+#right-pane > .trace-tab,
+#right-pane > .diagnostics-tab,
+#right-pane > .permission-tab {
+  padding: 0;
+}

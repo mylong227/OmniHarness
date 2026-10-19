@@ -4133,3 +4133,21 @@ tablist 只包标签（`.rv-tablist`）、关闭「×」改为 `aria-hidden` 指
 
 验收：注入样例节点读计算样式（cluster border 0 / bg transparent、change-item border transparent、
 badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比度与语义色门禁）。
+
+### 31. 右栏功能面板统一为设置面板版式（2026-10-19）
+
+用户：除「文件 / 变更」外，其余面板全部按设置面板的极简语言重构——干净利落。
+
+- **版式**（`#right-pane` 作用域，不污染全局卡片）：
+  - 章节标题改用设置同款（13px / 600 / 正常大小写）；
+  - 列表拍平成行式：`.plugin-card` / `.mem-row` / `.cp-item` / `.graph-card` / `.tool-item`
+    一律透明底、无描边、行间一条 `--hairline`；
+  - 指标四张卡改成两列统计行（数值 19px、标签 11px），用量表压缩为紧凑表格；
+  - 空态收窄（30px 图标、13px 主文案、11.5px 指引），不再用大插画卡占半屏；
+  - 输入框 / 下拉与设置面板同款（`--panel` 底 + 发丝边 + `r-sm`）。
+- **按钮**：记忆 / 配置集 / 编排里原来的全宽 `.send` 块改为 `.pane-actions` 右对齐
+  （主操作 `.btn.primary`，次操作 `.btn`）。
+- **编排页**：顶部「什么是 DAG 编排」说明卡拍平成普通段落；「保存 / 运行」不再两块大按钮。
+
+验收：真实 serve + 真 Chrome 逐面板截图（记忆 / 指标 / 编排 / 权限 / 诊断 / 审计 / 工具 / 插件…）；
+`vitest web` 86 文件 / 490 例全绿（含 a11y 对比度与语义色门禁）。

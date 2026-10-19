@@ -217,8 +217,9 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
               placeholder={t('如：minimal / web-dev')}
             />
           </label>
-          <div className="row">
-            <button className="send" onClick={() => void saveCurrent()}>
+          <div className="pane-actions">
+            <span className="flex-spacer"></span>
+            <button className="btn primary" onClick={() => void saveCurrent()}>
               {t('保存当前为配置集')}
             </button>
           </div>
