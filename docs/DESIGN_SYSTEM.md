@@ -368,6 +368,8 @@ PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 
   会把表格尾部整块吃掉（2026-10-20 用户实测）。
 - markdown-it 产出的表格补 `.md-table` 类，吃设计系统的边框 / 圆角 / 表头底 / 单元格行距；
   裸 `<table>` 在暗色主题里只是一片无边界文本。判据：`format.test.ts`。
+- 表格保持 `display:table` + **内容宽度**（`width:auto; max-width:100%`），**不要** `display:block`：
+  2 列表格会被拉成整栏宽、右侧全空的“大块”。宽表靠 `overflow-wrap:anywhere` 在单元格内断行。
 
 ---
 

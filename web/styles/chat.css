@@ -226,8 +226,10 @@ details.standalone summary::-webkit-details-marker { display:none; }
 .md-content em { font-style:italic; }
 .md-content pre { border-radius:8px; overflow:auto; font-family:var(--mono); font-size:12px; line-height:1.55; color:var(--dim); }
 /* #OBS-15：markdown 表格（聊天与右侧面板共用） */
-.md-content .md-table { display:block; overflow-x:auto; max-width:100%; }
-.md-content .md-table th, .md-content .md-table td { text-align:left; }
+/* 表格：保持 table 布局（内容宽度），不要 `display:block`——那会把 2 列表格拉成
+   整栏宽的“大空块”，右侧全是空边框（2026-10-20 用户实测）。宽表靠单元格断行收敛。 */
+.md-content .md-table { display:table; width:auto; max-width:100%; }
+.md-content .md-table th, .md-content .md-table td { text-align:left; overflow-wrap:anywhere; }
 .md-content .md-table th { font-weight:600; }
 .md-content.md-empty { display:none; }
 
