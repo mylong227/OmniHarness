@@ -4168,3 +4168,16 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 验证：真实 serve + Chrome 截图（指标 / 记忆模态：左导航 + 右内容 + 全局/本会话徽标）；
 `vitest web` 86 文件 / 489 例全绿（右栏 Tabs、Router 深链、a11y 计数判据同步更新）。
+
+### 33. 上下文容量面板：新会话实时取数与弹层不推文（2026-10-19）
+
+用户：容量面板数据不实时；弹出时"文字直接下移"。
+
+- **根因（数据）**：新会话的 `currentThreadId` 原先只在 `turns.run` **响应返回后**才写入，
+  而事件流从第一步就带 sessionId ⇒ 整个回合里容量面板都按空会话取数（截图里的 `0/12.8万` 全零）。
+  现在 `SessionController.handleEvent` 在**首个带 sessionId 的事件**上立刻认领 currentThreadId
+  （收尾时 `res.threadId` 幂等覆盖）；同时把裸会话 id 从标题兜底里去掉，避免标题闪 UUID。
+- **实时刷新**：容量面板的取数 effect 增加 `sessionTick` 依赖——回合推进（tool_result / model /
+  turn_diff）去抖后立即重拉 `context.usage` + `quota.get`；忙时的 2s 轮询保留为兜底。
+- **弹层不推文**：`.composer` 设 `overflow-anchor: none`，避免弹层挂载时浏览器做滚动锚定补偿
+  把消息区/输入区整体推一下（实测弹层本身是绝对定位，不参与文档流；输入框坐标前后一致）。

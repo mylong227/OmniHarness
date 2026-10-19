@@ -226,7 +226,9 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
 function sessionTitleOf(s: AppState): string {
   const cur = s.sessions.find((x) => x.id === s.currentThreadId);
   if (cur !== undefined && cur.label !== '') return cur.label;
-  return s.currentThreadId === null ? '' : s.currentThreadId;
+  // 不把裸会话 id 当标题：新会话在第一事件里**提前认领** currentThreadId（见 SessionController）
+  // 时它还没进 sessions 列表，直接把 id 顶上会让标题闪一串 UUID；落回空串由中栏兜底「新会话」。
+  return '';
 }
 
 /**

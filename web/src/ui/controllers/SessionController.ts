@@ -75,6 +75,12 @@ export class SessionController {
     if (typeof sid === 'string' && sid !== '' && current !== null && current !== '' && sid !== current) {
       return;
     }
+    // 新会话：turns.run 的响应要等回合结束才回来，而事件流从第一步就带 sessionId。
+    // 不在这里认领，整个回合里 currentThreadId 都是 null ⇒ 容量面板按空会话取数（实测全零）、
+    // 回滚 / Trace 也拿不到会话。认领后 currentThreadId 立刻可用，收尾时 res.threadId 再幂等覆盖。
+    if (typeof sid === 'string' && sid !== '' && (current === null || current === '')) {
+      this.host.patch({ currentThreadId: sid });
+    }
     const p = ev.payload || {};
     if (ev.type === 'tool_call') {
       const callId = (p.callId as string) || ev.id;

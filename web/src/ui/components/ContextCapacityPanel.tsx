@@ -14,6 +14,7 @@ import { QuotaView } from '../models/QuotaView.ts';
 import { icon } from '../models/Icon.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
+import { useApp } from '../context.ts';
 import { t } from '../i18n/i18n.ts';
 import type { ContextUsageReport, QuotaStatus } from '../../types/models.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
@@ -63,6 +64,9 @@ export interface ContextCapacityPanelProps {
  */
 export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactElement {
   const { threadId, api, onToast, busy, revision } = props;
+  // 会话数据版本号：回合推进（tool_result / model / turn_diff）后去抖 +1，
+  // 容量快照因此随事件刷新，而不是只等 2s 定时器（用户报「面板数据不能实时同步」）。
+  const { sessionTick } = useApp();
   const [open, setOpen] = React.useState<boolean>(false);
   const [usage, setUsage] = React.useState<ContextUsageReport | undefined>(undefined);
   const [quota, setQuota] = React.useState<QuotaStatus | undefined>(undefined);
@@ -139,7 +143,7 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     return () => {
       alive = false;
     };
-  }, [open, threadId, busy, tick, revision]);
+  }, [open, threadId, busy, tick, revision, sessionTick]);
 
   /** 触发按钮：阻断冒泡后切换展开态。 */
   /** 触发按钮：阻断冒泡后切换展开态。 */
