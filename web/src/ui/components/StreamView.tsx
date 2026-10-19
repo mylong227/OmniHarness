@@ -69,6 +69,11 @@ export interface StreamViewProps {
   onEventClick: (ev: ThreadEvent) => void;
   /** 点击助手回复中的文件路径链接时，在右侧文件面板打开（而不是跳外链）。 */
   onOpenFile?: (path: string) => void;
+  /**
+   * 在右栏网页标签打开一个地址（助手消息里的本地 dev server URL / 预览链接）。
+   * 只对回环地址显示入口（见 ExternalLinkCards）。
+   */
+  onOpenUrl?: (url: string) => void;
   onSend: (
     prompt: string,
     images: { url?: string; data?: string; mediaType?: string }[],
@@ -166,6 +171,8 @@ interface EventCtx {
   toolResults: Record<string, ToolResultView>;
   onEventClick: (ev: ThreadEvent) => void;
   onOpenFile?: (path: string) => void;
+  /** 在右栏网页标签打开本地地址（缺省时不渲染该入口）。 */
+  onOpenUrl?: (url: string) => void;
   busy?: boolean;
   /** 最后一条用户消息 id（仅它可编辑重发）。 */
   lastUserId: string;
@@ -236,6 +243,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           ev={ev}
           busy={ctx.busy}
           onOpenFile={ctx.onOpenFile}
+          onOpenUrl={ctx.onOpenUrl}
           animate={!wasStreamed(p, ctx.finalizedStreamText)}
           onRegenerate={ev.id === ctx.lastAssistantId && ctx.busy !== true ? ctx.onRegenerate : undefined}
         />,
@@ -422,6 +430,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     composerSeed,
     onEventClick,
     onOpenFile,
+    onOpenUrl,
     onSend,
     onStop,
     onRegenerate,
@@ -534,6 +543,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     toolResults,
     onEventClick,
     onOpenFile,
+    onOpenUrl,
     busy,
     lastUserId,
     lastAssistantId,

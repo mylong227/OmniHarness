@@ -148,6 +148,7 @@
     "openid-client": "^6.8.8",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "sirv": "^3.0.2",
     "zod": "^4.6.4"
   },
   "optionalDependencies": {

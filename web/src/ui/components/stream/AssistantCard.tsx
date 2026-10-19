@@ -30,6 +30,8 @@ export interface AssistantCardProps {
   busy?: boolean;
   /** 打开正文中引用的文件（在右侧面板预览）。 */
   onOpenFile?: (p: string) => void;
+  /** 在右栏网页标签打开正文里的本地地址（回环 URL 才显示入口）。 */
+  onOpenUrl?: (url: string) => void;
   /**
    * 是否允许渐进揭示动画（缺省允许）。
    * 传 false 用于「这段正文刚刚已经逐字流过来了」——此时再揭一遍会从 40% 处往回跳，是可见的倒退。
@@ -59,7 +61,7 @@ const COPY_BTN: Record<string, string> = {
  * @returns 助手消息节点
  */
 export function AssistantCard(props: AssistantCardProps): ReactElement {
-  const { ev, busy, animate, onOpenFile, onRegenerate, schedule } = props;
+  const { ev, busy, animate, onOpenFile, onOpenUrl, onRegenerate, schedule } = props;
   const [shown, setShown] = React.useState<string>('');
   const full = (ev.payload?.content as string) || '';
   // 收折判定与渲染统一走 LongContentCollapser / CollapsibleDoc（阈值与摘要在模型层可单测）。
@@ -141,7 +143,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
           )}
         </div>
         <AttachmentChips files={p.files as FileAttachment[] | undefined} />
-        <ExternalLinkCards urls={extractUrls(full)} />
+        <ExternalLinkCards urls={extractUrls(full)} onOpenInPanel={onOpenUrl} />
         <button className="copy-btn" title={t('复制结果')} style={COPY_BTN} onClick={onCopy}>
           {icon('copy', { size: 13 })} {t('复制')}
         </button>

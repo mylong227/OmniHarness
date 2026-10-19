@@ -88,6 +88,31 @@ export class ApiClient {
   }
 
   /**
+   * 取服务端「工作区网页预览源」的端口（`/healthz` 的可选字段 `previewPort`）。
+   *
+   * 为什么走探针而不是 RPC：预览源由 HTTP 层在绑定主端口之后启动，它的端口是**运行时事实**；
+   * `/healthz` 本来就是公开的运行时自述，加一个可选字段即可，不必为一个只读端口新增 RPC 方法
+   * （新增 RPC 要改协议面、SDK 与稳定性基线）。
+   * @returns 有效端口；未启用 / 探针不可达 / 字段非法时 null（调用方按"本地预览不可用"处理）
+   */
+  public async getPreviewPort(): Promise<number | null> {
+    let res: Response;
+    try {
+      res = await fetch('/healthz', { headers: this.buildHeaders() });
+    } catch {
+      return null;
+    }
+    if (!res.ok) return null;
+    const body = (await Promise.resolve(res.json()).catch(() => undefined)) as
+      | { previewPort?: unknown }
+      | undefined;
+    const port = body?.previewPort;
+    return typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65535
+      ? port
+      : null;
+  }
+
+  /**
    * 拉取 /metrics 并解析。服务端返回 Prometheus 文本格式（# HELP / metric lines），
    * 此处做轻量解析：omni_sessions gauge → sessions；omni_events_total{type="x"} → eventsByType。
    * 早期版本误用 res.json() 解析必挂，导致指标面板永远停在「读取中…」。

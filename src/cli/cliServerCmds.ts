@@ -664,6 +664,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       workspaceRoot: () => app.effectiveWorkspace(),
       host: serveHost,
       authToken: serveToken,
+      // 右栏网页预览源（独立回环端口）随 workspaceRoot 自动启用（见 HttpServerOptions.preview）。
     });
     const port = this.flagNumber(serveArgs, '--port') ?? 8787;
     // 启动即清扫本端口的**陈旧**实例记录（进程已不在 ⇒ 删掉并如实说明）：

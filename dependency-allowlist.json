@@ -1,8 +1,8 @@
-{
+﻿{
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
-  "updatedAt": "2026-10-17",
+  "updatedAt": "2026-10-19",
   "notes": [
     "必要且更优即可依赖 → 同等能力下优先选择成熟依赖而非自研（D10，2026-09-14 用户拍板；2026-10-02 再次确认并清除「零依赖」残余教义，见 docs/DEPENDENCY_POLICY.md §1.3）；自研仅在依赖不可得/引入伤害架构/性能不达标时保留，保留者一律降格为「资产 + 回退路径」，不构成拒绝更优依赖的理由。",
     "分层隔离不变：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
@@ -165,6 +165,16 @@
       "exitPlan": "若该包停更：web/src/ui/highlight.ts 的自研分词器保留为回退资产——把 markdown.ts 的highlight 回调改指向它即可（同 token 类名，CSS 不用动），能力面收窄为 18 条规则覆盖的语言。",
       "maxInstallKb": 8192,
       "maxTransitiveDeps": 4
+    },
+    "sirv": {
+      "reason": "右栏「工作区网页预览」需要一个静态站点根：MIME（mrmime）、目录/扩展名回落、Range/HEAD、缓存头与路径归一这些协议细节，手写等价物就是长期自维护的服务器（本轮首版 260 行，还在 Windows 上踩了「目录被读成 0 字节」的坑）。sirv 是 Polka/Vite 生态广泛使用的静态中间件（MIT、零配置），依赖树仅 @polka/url/mrmime/totalist 三个小包；按 DEPENDENCY_POLICY D10「必要且更优即用成熟依赖」准入。",
+      "capability": "把工作区目录作为静态站点根返回 HTML/CSS/JS/字体等资源：目录回落 index.html/index.htm、clean URL 回落 .html/.htm、Range/HEAD、正确 MIME 与 no-store 缓存头。本仓只在 WorkspacePreviewServer 一个文件内消费；文件解析仍由 SafeFs 做越界 + realpath 守卫，sirv 只发送已确认的文件。",
+      "license": "MIT",
+      "approvedAt": "2026-10-19",
+      "layer": "src/server/transport",
+      "exitPlan": "消费面只有 src/server/transport/previewServer.ts：若停更，可替换为 serve-handler / send（同为 MIT）或回退到 SafeFs + 手写静态响应（本文件首版实现可从 git 历史取回），调用面不变。",
+      "maxInstallKb": 256,
+      "maxTransitiveDeps": 3
     }
   },
   "entryTemplate": {

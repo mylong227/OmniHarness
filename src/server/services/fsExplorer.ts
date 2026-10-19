@@ -2,6 +2,7 @@ import { access, mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import type { Dirent } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { MimeType } from '../../util/mimeType.ts';
 
 /** 单文件附加大小上限（20MB）。 */
 const MAX_ATTACH_BYTES = 20 * 1024 * 1024;
@@ -283,60 +284,14 @@ export class FsExplorer {
   /**
    * 由文件扩展名推断 mediaType（无 mime-types 依赖；无第三方依赖铁律）。
    * 覆盖 attach.read 与 browseFs(includeFiles) 的输出。
+   *
+   * 判定表已收敛到 `util/mimeType.ts`（唯一事实源）：预览源与附件读取看同一张表，
+   * 两边不会在「.md 算不算 text」这类问题上漂成两套结论。
    * @param name 文件名（含扩展名）
    * @returns 推断出的 MIME 类型；未知扩展名回退 `application/octet-stream`
    */
   private static inferMediaType(name: string): string {
-    const dot = name.lastIndexOf('.');
-    if (dot < 0) return 'application/octet-stream';
-    const ext = name.slice(dot + 1).toLowerCase();
-    const map: Record<string, string> = {
-      // 图片
-      png: 'image/png',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      gif: 'image/gif',
-      webp: 'image/webp',
-      svg: 'image/svg+xml',
-      bmp: 'image/bmp',
-      ico: 'image/x-icon',
-      // 视频
-      mp4: 'video/mp4',
-      mov: 'video/quicktime',
-      webm: 'video/webm',
-      mkv: 'video/x-matroska',
-      avi: 'video/x-msvideo',
-      // 音频
-      mp3: 'audio/mpeg',
-      wav: 'audio/wav',
-      ogg: 'audio/ogg',
-      m4a: 'audio/mp4',
-      flac: 'audio/flac',
-      // 文本
-      txt: 'text/plain',
-      md: 'text/markdown',
-      json: 'application/json',
-      csv: 'text/csv',
-      xml: 'application/xml',
-      html: 'text/html',
-      htm: 'text/html',
-      // 文档
-      pdf: 'application/pdf',
-      // 压缩
-      zip: 'application/zip',
-      tar: 'application/x-tar',
-      gz: 'application/gzip',
-      // 代码（粗略，浏览器可能不识别但能下载/查看）
-      ts: 'text/typescript',
-      tsx: 'text/tsx',
-      js: 'text/javascript',
-      jsx: 'text/jsx',
-      py: 'text/x-python',
-      rs: 'text/x-rust',
-      go: 'text/x-go',
-      java: 'text/x-java',
-    };
-    return map[ext] ?? 'application/octet-stream';
+    return MimeType.of(name);
   }
 
   /**

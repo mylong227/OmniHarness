@@ -146,6 +146,66 @@ test('RightPanel：←/→ 在文件标签间移动，Delete 关闭当前标签'
   assert.deepStrictEqual(closed, ['b.ts'], 'Delete 关闭当前文件');
 });
 
+test('RightPanel：网页标签与文件标签同属一个 tablist（键盘可走到、可关闭）', () => {
+  // 2026-10-19：右栏新增「网页」标签。它必须与文件标签共享同一套 Tabs 语义——
+  // 否则屏幕阅读器看不到它，左右方向键也会在"最后一枚文件"处停住。
+  const shown: string[] = [];
+  const closed: string[] = [];
+  const { node } = renderFacade(RightPanel, {
+    props: {
+      open: true,
+      openFiles: [fileOf('a.ts')],
+      activeFileTitle: 'a.ts',
+      onShowFile: () => {},
+      onCloseFile: () => {},
+      onOpenPanels: () => {},
+      browser: { open: true, active: false, url: '', title: 'localhost:5173', reloadKey: 0, error: '' },
+      onShowBrowser: () => shown.push('browser'),
+      onCloseBrowser: () => closed.push('browser'),
+      children: null,
+    },
+  });
+  const tabs = collect(node, (n) => n.props.role === 'tab');
+  assert.strictEqual(tabs.length, 2, '文件 + 网页各一枚 tab');
+  const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
+  assert.strictEqual(selected.length, 1);
+  assert.match(String(selected[0]!.props.id), /^file-tab-/u);
+  const webTab = tabs.find((t) => t.props.id === 'web-tab');
+  assert.ok(webTab !== undefined, '网页标签的稳定 id 必须存在');
+  // 激活文件标签上按 →，下一枚就是网页标签。
+  fireEvent.keyDown(selected[0]!.el, { key: 'ArrowRight' });
+  assert.deepStrictEqual(shown, ['browser']);
+  fireEvent.keyDown(webTab.el, { key: 'Delete' });
+  assert.deepStrictEqual(closed, ['browser']);
+});
+
+test('RightPanel：网页标签激活时面板 aria-labelledby 指向 web-tab', () => {
+  const { node } = renderFacade(RightPanel, {
+    props: {
+      open: true,
+      openFiles: [fileOf('a.ts')],
+      activeFileTitle: 'a.ts',
+      onShowFile: () => {},
+      onCloseFile: () => {},
+      onOpenPanels: () => {},
+      browser: { open: true, active: true, url: 'http://localhost:5173/', title: 'localhost:5173', reloadKey: 1, error: '' },
+      onShowBrowser: () => {},
+      onCloseBrowser: () => {},
+      browserContent: 'web-body',
+      children: 'file-body',
+    },
+  });
+  const selected = collect(
+    node,
+    (n) => n.props.role === 'tab' && n.props['aria-selected'] === 'true',
+  );
+  assert.strictEqual(selected.length, 1);
+  assert.strictEqual(selected[0]!.props.id, 'web-tab');
+  const panel = collect(node, (n) => n.props.role === 'tabpanel')[0]!;
+  assert.strictEqual(panel.props['aria-labelledby'], 'web-tab');
+  assert.strictEqual(allText(panel), 'web-body', '网页激活时不得再渲染文件内容');
+});
+
 // ---- 纯图标按钮必须有可读名字 ----
 
 test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/emoji）', () => {

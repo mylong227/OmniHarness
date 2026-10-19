@@ -13,6 +13,7 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 起一个测试服务。 */
@@ -296,6 +297,62 @@ test('GET /healthz：存活探针恒 200，不依赖任何可选能力', async (
     const body = (await response.json()) as { status: string; uptimeSeconds: number };
     assert.strictEqual(body.status, 'ok');
     assert.ok(Number.isFinite(body.uptimeSeconds), 'uptimeSeconds 应为数值');
+  } finally {
+    await server.close();
+  }
+});
+
+test('GET /healthz：启用预览时给出 previewPort，且预览源能读工作区 HTML / 不接 RPC', async () => {
+  // 2026-10-19：右栏网页标签从 /healthz 读预览端口。这条判据同时钉住三件事：
+  //   ① 端口真的经探针暴露（前端不猜）；② 预览源真的能渲染工作区 HTML；
+  //   ③ 预览源**不是**第二个 RPC 入口（POST /rpc 必须 405）——安全边界不能被"顺手复用"打破。
+  const root = mkdtempSync(join(tmpdir(), 'omni-http-preview-'));
+  writeFileSync(join(root, 'index.html'), '<h1>预览页</h1>', 'utf8');
+  const config = ConfigFactory.build({
+    workspaceRoot: root,
+    maxSteps: 4,
+    model: new MockModel(),
+    storage: new MemoryStorage(),
+    approvals: new AutoApproval(),
+    sandbox: new PassthroughSandbox(),
+    events: new SilentEventPort(),
+  });
+  const bridge = new HttpBridgeTransport();
+  const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
+  const server = new HttpServer({
+    app,
+    bridge,
+    webDir: resolve(process.cwd(), 'web'),
+    workspaceRoot: () => root,
+    // 刻意不传 preview：注入 workspaceRoot 即默认启用（serve 走的就是这条路径，
+    // 避免在已顶到行数线的 cliServerCmds 里再加一行代码）。
+  });
+  const port = await server.start(0);
+  try {
+    const health = await fetch(`http://127.0.0.1:${String(port)}/healthz`);
+    assert.strictEqual(health.status, 200);
+    const body = (await health.json()) as { previewPort?: unknown };
+    assert.strictEqual(typeof body.previewPort, 'number', '/healthz 必须报告预览端口');
+    const previewPort = body.previewPort as number;
+    const page = await fetch(`http://127.0.0.1:${String(previewPort)}/`);
+    assert.strictEqual(page.status, 200);
+    assert.match(await page.text(), /预览页/u);
+    const rpc = await fetch(`http://127.0.0.1:${String(previewPort)}/rpc`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'threads.create', params: {} }),
+    });
+    assert.strictEqual(rpc.status, 405, '预览源只读：不得成为第二个 RPC 入口');
+  } finally {
+    await server.close();
+  }
+});
+
+test('GET /healthz：未启用预览时 previewPort 字段不出现（前端据此如实显示不可用）', async () => {
+  const { server, base } = await startTestServer();
+  try {
+    const body = (await (await fetch(`${base}/healthz`)).json()) as { previewPort?: unknown };
+    assert.strictEqual(body.previewPort, undefined);
   } finally {
     await server.close();
   }

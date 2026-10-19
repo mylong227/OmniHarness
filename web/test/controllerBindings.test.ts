@@ -1,4 +1,4 @@
-﻿// 控制器「方法绑定」门禁：防止「方法当裸引用传给子组件却忘了绑定」这类**静默失效**复发。
+// 控制器「方法绑定」门禁：防止「方法当裸引用传给子组件却忘了绑定」这类**静默失效**复发。
 //
 // ## 缺陷形态（2026-09-27 用户报「会话删除无效」的实测根因）
 //
@@ -40,6 +40,7 @@ const GROUPS: Record<string, string> = {
   composer: 'ComposerController.ts',
   graph: 'GraphController.ts',
   files: 'FileController.ts',
+  browser: 'BrowserController.ts',
   layout: 'LayoutController.ts',
   // 2026-10-17 新增：设置模态与界面语言从 AppController 拆出（上帝类判据的成员数越线），
   // 它的 close / setTab 同样是**裸引用**传给视图层的，故必须登记在这里接受同一条判据。

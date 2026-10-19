@@ -14,6 +14,17 @@ import { join } from 'node:path';
 import { WorkspaceGuard } from '../../util/workspaceGuard.ts';
 
 /**
+ * `safeStat` 的结果：成功时给出大小与「是否是普通文件」；失败时带前端可读原因。
+ *
+ * 为什么需要它（2026-10-19，网页预览实测）：Windows 上对**目录**调用 `openSync(..., 'r')`
+ * + `readSync` 会成功返回 0 字节，`safeReadFile` 因此把目录读成"空文件"——预览源会把
+ * `/site`（目录）当空 HTML 返回 200。先用 stat 判 `isFile()`，再决定读不读。
+ */
+export type SafeStatResult =
+  | { readonly ok: true; readonly size: number; readonly isFile: boolean }
+  | { readonly ok: false; readonly error: string };
+
+/**
  * 单文件读取硬上限（字节）：64 MiB。
  *
  * `readFileSync` 整文件读进 Buffer 是 OOM 经典路径（workspaceTree 的 `fs.read`、HTTP /files
@@ -53,10 +64,15 @@ export class SafeFs {
     } catch {
       return { ok: false, error: '路径越界工作区' };
     }
-    let stat: { size: number };
+    let stat: { size: number; isFile(): boolean };
     let buf: Buffer;
     try {
       stat = statSync(target);
+      // 目录 / 设备 / FIFO 一律拒绝：Windows 上对目录 `openSync(...,'r') + readSync` 会成功
+      // 返回 0 字节，调用方会把它当成"空文件"（2026-10-19 网页预览实测：`/site` 返回 200 空白页）。
+      if (!stat.isFile()) {
+        return { ok: false, error: '读取失败: 不是普通文件（目录或特殊文件）' };
+      }
       // 体积上限 fail-closed：超大文件（如几百 MiB 的构建产物）绝不允许整文件读进内存。
       if (stat.size > HARD_READ_CAP) {
         return { ok: false, error: '文件过大（超过 64 MiB，拒绝整文件读入内存）' };
@@ -76,6 +92,35 @@ export class SafeFs {
       };
     }
     return { ok: true, buffer: buf, size: stat.size };
+  }
+
+  /**
+   * 安全探测工作区内的路径（不读内容）。
+   *
+   * 复用与 {@link safeReadFile} 完全相同的越界 / symlink 判定；只额外回答「是不是普通文件」，
+   * 供预览源在读取前跳过目录（见 {@link SafeStatResult} 的说明）。
+   * @param workspaceRoot 工作区根（空串 → 拒绝）
+   * @param rel 相对路径
+   * @returns 成功给出大小与 isFile；越界 / 不存在 / 无权限给出错误描述
+   */
+  public static safeStat(workspaceRoot: string, rel: string): SafeStatResult {
+    if (!workspaceRoot) return { ok: false, error: '工作区未配置' };
+    if (typeof rel !== 'string' || rel === '') return { ok: false, error: '缺少 path' };
+    let target: string;
+    try {
+      target = new WorkspaceGuard(workspaceRoot).resolveSafe(rel);
+    } catch {
+      return { ok: false, error: '路径越界工作区' };
+    }
+    try {
+      const stat = statSync(target);
+      return { ok: true, size: stat.size, isFile: stat.isFile() };
+    } catch (err) {
+      return {
+        ok: false,
+        error: '读取失败: ' + (err instanceof Error ? err.message : String(err)),
+      };
+    }
   }
 }
 

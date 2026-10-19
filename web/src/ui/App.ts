@@ -19,6 +19,7 @@ import { RenderErrorBoundary } from './components/RenderErrorBoundary.tsx';
 import { SessionPanel } from './components/SessionPanel.tsx';
 import { StreamView } from './components/StreamView.tsx';
 import { RightPanel } from './components/RightPanel.tsx';
+import { BrowserPane } from './components/BrowserPane.tsx';
 import { PanelModal } from './components/PanelModal.tsx';
 import { ApprovalModal } from './components/ApprovalModal.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
@@ -85,6 +86,7 @@ function prefetchLazyPanes(): void {
 }
 import { SettingsModal } from './components/SettingsModal.tsx';
 import { SessionsScope } from './models/SessionsScope.ts';
+import { LocalDevUrls } from './models/LocalDevUrls.ts';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
 type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
@@ -121,6 +123,8 @@ function initialState(): AppState {
     question: null,
     fileView: null,
     openFiles: [],
+    // 右栏网页标签：默认关闭；地址与标题保留到用户下次打开（关闭标签不清地址）。
+    browser: { open: false, active: false, url: '', title: '', reloadKey: 0, error: '' },
     theme: 'dark',
     // 主题偏好初值：`system`（跟随系统）。真正的解析在 LayoutController.initTheme 完成，
     // 首帧前的 data-theme 由 index.html 的内联脚本按 prefers-color-scheme 设好。
@@ -238,9 +242,15 @@ function sessionTitleOf(s: AppState): string {
  * @param ctrl 根控制器
  * @param s 当前状态
  * @param pane 右侧内容面板节点
+ * @param recentLocalUrls 会话里出现过的回环地址（网页标签空态的一键入口）
  * @returns 顶层 DOM 树
  */
-function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): ReactElement {
+function renderBody(
+  ctrl: AppController,
+  s: AppState,
+  pane: ReactElement,
+  recentLocalUrls: readonly string[],
+): ReactElement {
   return React.createElement(
     'div',
     { className: 'app' },
@@ -285,6 +295,8 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
         composerSeed: s.composerSeed,
         onEventClick: ctrl.sessions.showDetail,
         onOpenFile: ctrl.files.openFile,
+        // 助手消息里的回环 URL（dev server 地址）可一键进右栏网页标签。
+        onOpenUrl: ctrl.browser.open,
         onSend: ctrl.composer.send,
         busy: s.busy,
         activeTool: s.activeTool,
@@ -342,8 +354,20 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
             ctrl.setActivePane(s.activePane === 'file' ? 'tools' : s.activePane),
           onCollapse: () => ctrl.layout.toggleRight(),
           style: { width: s.rightWidth + 'px' },
+          // 右栏网页标签（2026-10-19）：地址 / 重载 / 关闭全部由 BrowserController 收口。
+          browser: s.browser,
+          onOpenBrowser: ctrl.browser.show,
+          onShowBrowser: ctrl.browser.show,
+          onCloseBrowser: ctrl.browser.close,
+          onPreviewFile: ctrl.browser.previewFile,
+          browserContent: React.createElement(BrowserPane, {
+            view: s.browser,
+            recentUrls: recentLocalUrls,
+            onNavigate: ctrl.browser.open,
+            onReload: ctrl.browser.reload,
+          }),
         },
-        // 右栏只放文件预览；功能面板走下面的 PanelModal（2026-10-19）。
+        // 右栏文件视图；功能面板走下面的 PanelModal（2026-10-19）。
         React.createElement(FileTab, { fileView: s.fileView }),
       ),
     ),
@@ -449,11 +473,31 @@ export function App(): ReactElement {
     return () => window.clearTimeout(timer);
   }, []);
 
+  // 会话里出现过的本地开发地址（dev server / 预览链接）：给网页标签空态做一键入口。
+  // 只扫最近若干条（倒序），不在每帧对全量事件做正则——长会话里那是可见的卡顿源。
+  const recentLocalUrls = React.useMemo(() => {
+    const texts: string[] = [];
+    for (let i = state.events.length - 1; i >= 0 && texts.length < 24; i -= 1) {
+      const ev = state.events[i];
+      if (ev !== undefined && ev.type === 'assistant') {
+        texts.push(String(ev.payload?.content ?? ''));
+      }
+    }
+    const results = Object.values(state.toolResults);
+    for (let i = results.length - 1; i >= 0 && texts.length < 36; i -= 1) {
+      texts.push(results[i]?.text ?? '');
+    }
+    return LocalDevUrls.collect(texts, {
+      limit: 6,
+      excludeHostPort: typeof location === 'undefined' ? '' : location.host,
+    });
+  }, [state.events, state.toolResults]);
+
   const pane = renderPane(controller, state);
   return React.createElement(
     AppContext.Provider,
     { value: controller.getContextValue() },
-    renderBody(controller, state, pane),
+    renderBody(controller, state, pane, recentLocalUrls),
   );
 }
 

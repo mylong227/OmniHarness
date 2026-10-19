@@ -286,9 +286,13 @@ details.standalone summary::-webkit-details-marker { display:none; }
 /* #OBS-11：外部链接卡片（assistant 文本中 URL 提取为可点击列表） */
 .link-cards { margin-top:10px; padding:6px 8px; border:1px dashed var(--border-soft); border-radius:8px; }
 .link-cards-head { font-size:11px; color:var(--dim); margin-bottom:4px; }
-.link-card { display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--text); font-size:12px; }
+.link-card { display:flex; align-items:center; gap:8px; font-size:12px; }
+/* 链接主体：整行可点、保持外链语义；「预览」是并列的次要按钮（不能嵌进 <a>）。 */
+.link-card-main { display:flex; align-items:center; gap:8px; min-width:0; flex:1; text-decoration:none; color:var(--text); }
 .link-card .link-card-host { flex:none; padding:1px 6px; border:1px solid var(--accent); font-family:var(--mono); font-size:10px; }
 .link-card .link-card-url { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--dim); font-family:var(--mono); font-size:11px; }
+.link-card-open { flex:none; padding:1px 8px; border:1px solid var(--border-soft); border-radius:6px; background:transparent; color:var(--dim); font-size:11px; cursor:pointer; }
+.link-card-open:hover { background:var(--hover); color:var(--text); }
 
 /* --- 长会话性能（虚拟化占位） --- */
 

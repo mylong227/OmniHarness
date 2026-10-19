@@ -82,6 +82,9 @@ export default defineConfig({
       '/events': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
       // 工作区文件下载 / 预览（GET /files）
       '/files': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
+      // 运行时自述（右栏网页标签从 `/healthz.previewPort` 取工作区预览源端口）；
+      // 不代理的话 dev 下该请求会落到 Vite 的 404，本地网页预览会显示"未启用"。
+      '/healthz': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
     },
   },
   // 依赖预构建：React 走 npm，不再出现 vendor UMD 全局。

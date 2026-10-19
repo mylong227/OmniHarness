@@ -48,6 +48,10 @@ export type IconName =
   | 'package'
   | 'plug'
   | 'link'
+  // 右栏网页标签：地球（网页）/ 重载 / 在外部窗口打开。
+  | 'globe'
+  | 'refresh'
+  | 'external-link'
   | 'eye'
   | 'download'
   | 'copy'
@@ -171,6 +175,15 @@ const SHAPES: Readonly<Record<IconName, IconShape>> = {
   package: { paths: ['M12 3l8 4v10l-8 4-8-4V7z', 'M4 7l8 4 8-4', 'M12 11v10'] },
   plug: { paths: ['M9 3v6', 'M15 3v6', 'M7 9h10v3a5 5 0 0 1-10 0z', 'M12 17v4'] },
   link: { paths: ['M10.5 13.5a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7L11.9 6.4', 'M13.5 10.5a4 4 0 0 0-5.7 0l-2.6 2.6a4 4 0 0 0 5.7 5.7l1.2-1.2'] },
+  /* 地球：经线 + 赤道（网页/站点语义，比"链接"更像"打开一个页面"）。 */
+  globe: {
+    circles: [[12, 12, 9]],
+    paths: ['M3 12h18', 'M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z'],
+  },
+  /* 重载：环形箭头（缺口在右上，避免与 `rewind` 的逆时针混淆）。 */
+  refresh: { paths: ['M20 12a8 8 0 1 1-2.3-5.7', 'M20 4v5h-5'] },
+  /* 外部打开：方框 + 右上外指箭头。 */
+  'external-link': { paths: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'] },
   eye: { paths: ['M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z'], circles: [[12, 12, 2.8]] },
   download: { paths: ['M12 4v10', 'M8 11l4 4 4-4', 'M5 19h14'] },
   copy: { paths: ['M9 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z', 'M15 6V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h1'] },

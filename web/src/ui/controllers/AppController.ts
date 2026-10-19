@@ -31,7 +31,7 @@ import type { SettingsTabKey } from '../models/SettingsModel.ts';
 import type { ThemePreference } from '../models/ThemePreference.ts';
 import type { Locale } from '../i18n/i18n.ts';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.ts';
-import type { FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.ts';
+import type { BrowserView, FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.ts';
 import type { ComposerSeed } from '../shared.ts';
 import { AppReducers } from './AppReducers.ts';
 import { formatProfilePluginToast } from '../notify.ts';
@@ -39,6 +39,7 @@ import { SessionController } from './SessionController.ts';
 import { ComposerController } from './ComposerController.ts';
 import { GraphController } from './GraphController.ts';
 import { FileController } from './FileController.ts';
+import { BrowserController } from './BrowserController.ts';
 import { SettingsController } from './SettingsController.ts';
 import { ShortcutActions } from './ShortcutActions.ts';
 import { t } from '../i18n/i18n.ts';
@@ -94,6 +95,8 @@ export interface AppState {
    * 合并 / 关闭规则见 `models/FileTabs.ts`）。`fileView` 永远指向其中激活的一个（或 null）。
    */
   openFiles: FileView[];
+  /** 右栏「网页」标签状态（内置浏览器：地址 / 重载 / 失败原因）。 */
+  browser: BrowserView;
   /** 解析后的实际主题（落在 `<html data-theme>` 上的值）。 */
   theme: 'dark' | 'light';
   /**
@@ -173,6 +176,8 @@ export class AppController {
     graph: GraphController;
     /** 文件预览 / 代码查看器控制器（打开 / 切换 / 关闭文件标签）。 */
     files: FileController;
+    /** 右栏网页标签控制器（地址导航 / 重载 / 关闭）。 */
+    browser: BrowserController;
     /** 布局 / 主题偏好控制器（主题切换、面板开合、宽度持久化）。 */
     layout: LayoutController;
     /** 设置与界面语言控制器（设置模态开合 / 分栏定位 / locale 落盘）。 */
@@ -218,6 +223,11 @@ export class AppController {
     return this.children.files;
   }
 
+  /** 右栏网页标签子控制器（只读暴露给视图层）。 */
+  public get browser(): BrowserController {
+    return this.children.browser;
+  }
+
   /** 布局 / 主题偏好控制器（只读暴露给视图层）。 */
   public get layout(): LayoutController {
     return this.children.layout;
@@ -247,6 +257,7 @@ export class AppController {
     const graph = new GraphController(this.host, this.services);
     const composer = new ComposerController(this.host, this.services, sessions);
     const files = new FileController(this.host, this.services);
+    const browser = new BrowserController(this.host, this.services);
     const layout = new LayoutController(this.host);
     // 设置控制器要吃 layout（语言即时生效走它）与 services.api（落盘到用户级配置）。
     const settings = new SettingsController(this.host, { layout, api: this.services.api });
@@ -255,6 +266,7 @@ export class AppController {
       composer,
       graph,
       files,
+      browser,
       layout,
       settings,
       keyBindings: new KeyboardShortcuts(),

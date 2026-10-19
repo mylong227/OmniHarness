@@ -33,6 +33,20 @@ export class FileKindClassifier {
     return typeof lang === 'string' && MD_LANGS.has(lang.toLowerCase());
   }
 
+  /**
+   * 是否是可在浏览器里预览的网页（HTML 文件）。
+   *
+   * 入参既接受语言 id（`html`）也接受路径（`site/index.html`）——文件视图的 `lang` 由
+   * `langOf(path)` 推断，两条调用路径必须给出同一结论，故在同一个判定里都认。
+   * @param langOrPath 语言 id 或文件路径
+   * @returns HTML/HTM/XHTML 时为 true
+   */
+  public static isWebPage(langOrPath: string | undefined): boolean {
+    if (typeof langOrPath !== 'string' || langOrPath === '') return false;
+    const text = langOrPath.toLowerCase();
+    return text === 'html' || text === 'htm' || text === 'xhtml' || /\.(?:html?|xhtml)$/u.test(text);
+  }
+
   /** 明确分类：三选一，未知归 plain。 */
   public static classify(lang: string | undefined): 'code' | 'markdown' | 'plain' {
     if (FileKindClassifier.isCode(lang)) return 'code';

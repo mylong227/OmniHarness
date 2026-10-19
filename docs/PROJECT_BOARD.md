@@ -4210,3 +4210,32 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   22px 图标 + 两行文案的横向紧凑行；表单里的 ghost 按钮左对齐。
 - 验证：浅色/深色截图（记忆、指标、编排、配置集、回滚、插件、审计、诊断、权限），
   `vitest web` 86 文件 / 489 例全绿。
+
+### 36. 右栏内置网页预览（2026-10-19）
+
+用户：右侧要能直接浏览网页——写好的网页直接预览，项目跑起来也能在右栏看。
+
+- **右栏新增「网页」标签**（与文件标签同属一个 tablist）：地址栏 + 重载 + 新窗口打开 +
+  `<iframe>`；空态列出**会话里出现过的回环地址**（`http://localhost:5173` 这类，来自助手正文
+  与工具输出）一键直达；助手消息里的回环链接也直接给「预览」按钮。
+- **工作区 HTML 直接预览**：文件路径栏对 `.html/.htm/.xhtml` 出现「预览」；地址栏也接受
+  工作区相对路径（`index.html`、`examples/site/index.html`），`?query#hash` 保留。
+- **后端预览源**：新增 `server/transport/previewServer.ts`，独立回环端口、只读 GET/HEAD。
+  静态响应交给成熟依赖 **`sirv`（MIT，依赖树 3 个包）**：MIME、目录/扩展名回落、Range/HEAD、
+  缓存头由它负责；本仓只保留业务边界——路径先过 `SafeFs.safeStat`（词法 + realpath，拦
+  symlink/junction，点文件默认拒绝、`.well-known` 例外），再把**具体文件**交给 sirv。
+  `sirv` 已登记进 `dependency-allowlist.json`（`layer: src/server/transport`）。
+  端口经 `/healthz.previewPort` 暴露，前端不猜；注入 `workspaceRoot` 即自动启用。
+- **安全边界（本轮核心取舍）**：不复用主服务同源的 `/files`（它是下载语义，且同源 iframe
+  能带着会话调 `/rpc`）。预览走独立源，且 iframe 主机名**故意与 UI 不同**
+  （`127.0.0.1` ↔ `localhost`）：会话 cookie 是 host-only + SameSite=Strict，预览页带不上它；
+  预览源也不接 RPC（POST 405）。协议白名单只有 http(s)（`file:`/`data:`/`javascript:` 拒绝）。
+- **已修的真实缺陷**：Windows 上 `safeReadFile` 把**目录**读成 0 字节"空文件"（预览 `/site`
+  返回 200 空白页）——新增 `SafeFs.safeStat` 先判 `isFile()`，预览源据此回落索引；`safeReadFile`
+  同时对目录 / 特殊文件 fail-closed（`/files?path=dir` 也不再下载空气）。
+- 验证：`tests/unit/previewServer.test.ts` 7 例（索引 / MIME / 只读 / 编码反斜杠越界 403 /
+  点文件拒绝与 `.well-known` 例外 / 无工作区 503 / close 幂等）+ `httpServer.test.ts` 2 例
+  （healthz 报端口且预览源不接 RPC；未注入工作区时字段不出现）+ 前端 5 个判据文件（PreviewUrl
+  fail-closed、BrowserPane、BrowserController、ExternalLinkCards、RightPanel 网页标签 a11y）。
+  实跑 `vitest web` **90 文件 / 509 例全绿**；真实 `serve` + 真 Chrome 点开网页标签截图确认
+  iframe 渲染的是工作区页面（示例：`.tmp/preview-shot.png`，不提交）。

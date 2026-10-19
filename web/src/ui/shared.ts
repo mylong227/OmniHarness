@@ -35,6 +35,27 @@ export interface ToolResultView {
   ok: boolean;
 }
 
+/**
+ * 右栏「网页」标签的状态（内置浏览器，2026-10-19）。
+ *
+ * 与文件标签共享右栏容器，但**不共享** FileView：网页有地址、需要重载、可以没有内容；
+ * 把两者塞进一个联合类型会让文件标签的合并/回落规则（FileTabs）被迫理解 iframe 语义。
+ */
+export interface BrowserView {
+  /** 网页标签是否存在（关闭标签后为 false，地址保留以便再次打开）。 */
+  open: boolean;
+  /** 当前右栏显示的是网页还是文件（文件标签点击会把这里置 false）。 */
+  active: boolean;
+  /** iframe 当前地址（空串 = 还没导航，显示空态引导）。 */
+  url: string;
+  /** 标签标题（主机名或工作区文件名；只在展示层用）。 */
+  title: string;
+  /** 重载计数器：变化即重建 iframe（跨源页面无法调用其 history/reload）。 */
+  reloadKey: number;
+  /** 最近一次导航失败的可读原因（成功为空串）。 */
+  error: string;
+}
+
 export type ToastKind = 'ok' | 'err' | 'info';
 
 export interface ToastState {

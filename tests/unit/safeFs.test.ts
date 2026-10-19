@@ -76,6 +76,21 @@ test('⑦ 符号链接 / junction 逃逸被拦截（词法在内、真实在外�
   }
 });
 
+test('⑧ 目录 / 非普通文件：拒绝而不是当成 0 字节空文件', async () => {
+  // 2026-10-19 实测：Windows 上对目录 read 会成功返回 0 字节；若不判 isFile，`/files?path=dir`
+  // 与网页预览都会把目录渲染成"空文件"。safeStat 同时给出 isFile 供预览源回落目录索引。
+  await mkdir(join(WS, 'only-dir'));
+  const read = SafeFs.safeReadFile(WS, 'only-dir');
+  assert.strictEqual(read.ok, false);
+  if (!read.ok) assert.match(read.error, /不是普通文件/u);
+  const stat = SafeFs.safeStat(WS, 'only-dir');
+  assert.strictEqual(stat.ok, true);
+  if (stat.ok) assert.strictEqual(stat.isFile, false);
+  const fileStat = SafeFs.safeStat(WS, 'sub/x.md');
+  assert.strictEqual(fileStat.ok, true);
+  if (fileStat.ok) assert.strictEqual(fileStat.isFile, true);
+});
+
 test('清理临时目录', async () => {
   await rm(WS, { recursive: true, force: true });
 });

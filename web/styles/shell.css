@@ -302,9 +302,150 @@
   flex: none;
 }
 .rv-meta { white-space: nowrap; flex: none; }
+/* 路径栏里的「预览」入口：只在 HTML 文件上出现，按发丝按钮（不是主操作）。 */
+.rv-preview {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-micro);
+  padding: 1px 7px;
+  cursor: pointer;
+}
+.rv-preview:hover {
+  background: var(--hover);
+}
 
 /* ---------- 面板内容区：代码查看器要填满高度（用户实测"底下空了一块、没有顶底边"） ---------- */
 .col.right .pane:has(> .file-pane) { display: flex; flex-direction: column; }
+.col.right .pane:has(> .web-pane) { display: flex; flex-direction: column; overflow: hidden; }
+.web-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.web-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--hairline);
+}
+.web-addr {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  padding: 5px 8px;
+}
+.web-addr:focus {
+  outline: none;
+  border-color: var(--faint);
+}
+.web-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+.web-error {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--err);
+  font-size: var(--fs-micro);
+}
+.web-empty {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 18px;
+  color: var(--dim);
+}
+.web-empty-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.web-empty-title {
+  color: var(--text);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+.web-empty-hint {
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.web-recent {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.web-recent-title {
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.web-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.web-recent-item:hover {
+  background: var(--hover);
+}
+.web-recent-host {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  color: var(--faint);
+}
+.web-recent-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  color: var(--dim);
+}
+.web-empty-actions {
+  margin-top: 18px;
+}
+.web-note {
+  margin-top: 14px;
+  color: var(--faint);
+  font-size: var(--fs-micro);
+  line-height: 1.6;
+}
 .file-pane {
   flex: 1;
   min-height: 0;

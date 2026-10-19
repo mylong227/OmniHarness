@@ -56,6 +56,8 @@ export class FileController {
         fileView: view,
         // 代码查看器的标签页：同一文件只保留一份（后开刷新内容），其余追加在队尾。
         openFiles: FileTabs.merge(s.openFiles, view),
+        // 打开文件 = 把右栏从网页切回文件（网页标签保留，地址不丢）。
+        browser: s.browser === undefined ? s.browser : { ...s.browser, active: false },
       }));
       // 展开右栏与激活面板由路由收口（RouteBinding.apply），避免两处状态各写一遍。
       this.services.navigate({ pane: 'file' });
@@ -72,7 +74,10 @@ export class FileController {
   public showOpenFile(title: string): void {
     const found = this.host.getState().openFiles.find((f) => f.title === title);
     if (found === undefined) return;
-    this.host.patch({ fileView: found });
+    this.host.patch((s) => ({
+      fileView: found,
+      browser: s.browser === undefined ? s.browser : { ...s.browser, active: false },
+    }));
     this.services.navigate({ pane: 'file' });
   }
 

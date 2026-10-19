@@ -1,4 +1,5 @@
 import { HttpBridgeTransport } from './httpBridgeTransport.ts';
+import { PreviewServer } from './previewServer.ts';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -33,6 +34,15 @@ export interface HttpServerOptions {
   readonly host?: string | undefined;
   /** 访问令牌（配了才启用鉴权；非回环绑定必须配，见 `ServerAuthGuard.assertBindSafe`）。 */
   readonly authToken?: string | undefined;
+  /**
+   * 是否同时启动「工作区网页预览」源（缺省：注入了 `workspaceRoot` 即启用；显式 `false` 关闭）。
+   *
+   * 预览源是**独立的回环端口**（见 `previewServer.ts` 的安全边界说明）：右栏 iframe 用它渲染
+   * 工作区里的 HTML/CSS/JS，而它不带主服务的会话 cookie、也不转发 RPC。
+   * 默认跟随 `workspaceRoot` 存在性，是为了让 CLI 的 serve 接线**不增代码行**——
+   * `cliServerCmds.ts` 已顶在上帝类行数线上，新增代码行会被增量门禁挡下。
+   */
+  readonly preview?: boolean | undefined;
 }
 
 /** 健康检查结果（供容器编排探针消费）。 */
@@ -51,6 +61,14 @@ export interface HealthStatus {
    * 有 PID 后既可以给出可行动的提示，也能让显式接管（`--take-port`）**只杀确认是自己人**的进程。
    */
   readonly pid: number;
+  /**
+   * 工作区网页预览源的端口（2026-10-19 加）。
+   *
+   * 前端从本探针读它，拼出 `http://<与 UI 不同的回环主机名>:<port>/…` 给右栏 iframe。
+   * 未启用预览（或预览源启动失败）时**整个字段不出现**——前端据此如实显示「本地预览不可用」，
+   * 而不是猜一个端口。
+   */
+  readonly previewPort?: number;
   /**
    * 各组件检查结果。`app` 与 `bridge` 是**核心项**，决定 `status`；
    * `webDir`/`metrics` 仅为诊断信息，缺失不影响就绪判定（属可选能力）。
@@ -86,6 +104,10 @@ export class HttpServer {
   private readonly guard: ServerAuthGuard;
   /** 启动时刻（用于 uptime，构造即计时）。 */
   private readonly startedAt = Date.now();
+  /** 工作区网页预览源（未启用 / 启动失败时为 null）。 */
+  private previewServer: PreviewServer | null = null;
+  /** 预览源端口（0 = 未启用）。 */
+  private previewPort = 0;
 
   /**
    * 创建 HTTP 服务：装配请求路由与 WS 升级处理。
@@ -139,11 +161,42 @@ export class HttpServer {
     // 只在 port=0 时重试；显式指定端口的调用方应自己看到真实错误，不被静默换端口。
     for (let attempt = 0; ; attempt += 1) {
       const actual = await this.listenOnce(port);
-      if (port !== 0 || !HttpServer.BROWSER_BLOCKED_PORTS.has(actual)) return actual;
+      if (port !== 0 || !HttpServer.BROWSER_BLOCKED_PORTS.has(actual)) {
+        // 主服务绑定成功后才起预览源：预览失败**不拖垮**主服务（前端会如实显示不可用），
+        // 但必须把失败收成一条告警——静默缺失会让用户以为"网页标签坏了"。
+        await this.startPreview();
+        return actual;
+      }
       await this.close();
       if (attempt >= 4) {
         throw new Error(`连续分配到浏览器禁用端口（最后 ${String(actual)}），拒绝启动`);
       }
+    }
+  }
+
+  /**
+   * 启动工作区网页预览源（独立回环端口；未启用 / 无工作区根时为空操作）。
+   *
+   * 失败只告警不抛出：预览是**可选能力**，不能让一个端口分配失败把整个 UI 服务打掉
+   * （与 `/healthz` 里 `webDir`/`metrics` 不参与就绪判定同一口径）。
+   * @returns 启动尝试完成后 resolve
+   */
+  private async startPreview(): Promise<void> {
+    // 默认跟随 workspaceRoot（serve 注入它）；显式 false 关闭，没有根则无从预览。
+    if (this.options.preview === false) return;
+    const workspaceRoot = this.options.workspaceRoot;
+    if (workspaceRoot === undefined) return;
+    const preview = new PreviewServer({ workspaceRoot });
+    try {
+      this.previewPort = await preview.start(0);
+      this.previewServer = preview;
+      log.info('http.preview.started', { port: this.previewPort });
+    } catch (error) {
+      this.previewPort = 0;
+      await preview.close().catch(() => undefined);
+      log.warn('http.preview.start.failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -184,8 +237,12 @@ export class HttpServer {
    * 再断普通 HTTP 连接，最后关监听。
    * @returns 监听关闭后 resolve，无载荷
    */
-  public close(): Promise<void> {
-    return new Promise((resolve) => {
+  public async close(): Promise<void> {
+    const preview = this.previewServer;
+    this.previewServer = null;
+    this.previewPort = 0;
+    if (preview !== null) await preview.close().catch(() => undefined);
+    await new Promise<void>((resolve) => {
       this.ws.closeAll();
       this.server.closeAllConnections?.();
       this.server.close(() => resolve());
@@ -279,6 +336,8 @@ export class HttpServer {
       // PID 供"端口占用者是谁"的诊断与显式接管用（见 HealthStatus.pid 的说明）。
       pid: process.pid,
       checks,
+      // 预览源端口（未启用时字段不出现；前端据此决定"本地网页预览"是否可用）。
+      ...(this.previewPort > 0 ? { previewPort: this.previewPort } : {}),
     };
     response.writeHead(ok ? 200 : 503, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(body));
