@@ -1321,8 +1321,8 @@
   border: 1px solid var(--border-soft);
   border-radius: 22px;
   box-shadow: none;
-  padding: 10px 12px 10px;
-  gap: 6px;
+  padding: 8px 12px 8px;
+  gap: 5px;
   transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-2) var(--ease);
 }
 /* hover / focus-within 必须显式再写一次：旧层里 `.composer-box:hover` 与
@@ -1353,9 +1353,10 @@
   border: none;
   color: var(--text);
   font-size: 14.5px;
-  line-height: 1.65;
+  line-height: 1.55;
   letter-spacing: -0.002em;
-  padding: 4px 6px 2px;
+  padding: 3px 6px 0;
+  overflow-y: auto;
 }
 .composer-input textarea::placeholder {
   color: var(--faint);

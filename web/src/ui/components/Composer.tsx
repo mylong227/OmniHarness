@@ -42,6 +42,19 @@ import { t } from '../i18n/i18n.ts';
 
 const PICKER_ERR_BOX: Record<string, string> = { margin: '6px 14px 0' };
 
+/**
+ * 输入框随内容增高：空态一行，最多 140px（与 CSS max-height 一致）。
+ *
+ * 非受控 textarea 在输入 / @ 回填 / 语音写入 / 发送清空后都要重算，否则高度会停在旧值。
+ * @param ta 目标输入框（尚未挂载时传 null）
+ * @returns 无
+ */
+function growComposerTextarea(ta: HTMLTextAreaElement | null): void {
+  if (ta === null) return;
+  ta.style.height = 'auto';
+  ta.style.height = `${Math.min(ta.scrollHeight, 140)}px`;
+}
+
 /** Composer 组件的入参。 */
 export interface ComposerProps {
   model: string;
@@ -231,6 +244,7 @@ export function Composer(props: ComposerProps): ReactElement {
   React.useEffect(() => {
     if (seed === undefined || seed === null) return;
     ComposerDraft.fill(taRef.current, seed.text);
+    growComposerTextarea(taRef.current);
     setMention(null);
   }, [seed]);
 
@@ -239,6 +253,7 @@ export function Composer(props: ComposerProps): ReactElement {
    * @returns 无
    */
   const refreshMention = (): void => {
+    growComposerTextarea(taRef.current);
     const ta = taRef.current;
     if (!ta) return;
     const pos = ta.selectionStart ?? 0;
@@ -276,6 +291,7 @@ export function Composer(props: ComposerProps): ReactElement {
     const pos = ta.selectionStart ?? 0;
     const v = ta.value;
     ta.value = v.slice(0, mention.start) + '@' + item + ' ' + v.slice(pos);
+    growComposerTextarea(taRef.current);
     setMention(null);
     ta.focus();
   };
@@ -292,7 +308,10 @@ export function Composer(props: ComposerProps): ReactElement {
       const ta = taRef.current;
       if (!ta) return;
       const add = SpeechTranscript.concat(e);
-      if (add !== '') ta.value = ta.value === '' ? add : ta.value.replace(/\s*$/, '') + ' ' + add;
+      if (add !== '') {
+        ta.value = ta.value === '' ? add : ta.value.replace(/\s*$/, '') + ' ' + add;
+        growComposerTextarea(taRef.current);
+      }
     };
     recog.onend = () => setListening(false);
     recog.onerror = () => setListening(false);
@@ -400,6 +419,7 @@ export function Composer(props: ComposerProps): ReactElement {
       else files.push(base);
     }
     ta.value = '';
+    growComposerTextarea(taRef.current);
     setAttachments([]);
     setMention(null);
     onSend(prompt, images, files);
@@ -452,7 +472,7 @@ export function Composer(props: ComposerProps): ReactElement {
           {renderMentionView(mention, applyMention)}
           <textarea
             id="prompt"
-            rows={2}
+            rows={1}
             ref={taRef}
             aria-label={t('任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件')}
             placeholder={t('发消息或创建任务，/ 调用指令，@ 文件或对话')}
