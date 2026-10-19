@@ -105,6 +105,24 @@ export class ConfigToolRegistry {
   }
 
   /**
+   * `delegate` 只在**真有 worker** 时注册（2026-09-26 审计 F1）：默认配置下它由演示桩
+   * `SimpleWorker` 支撑，而桩恒返回 `ok:true` + 固定文案 ⇒ 模型拿到的是**伪造的委派成功**，
+   * 据此继续往下做，结论全建立在假事实上。「工具不存在」远好过「工具撒谎」：没有 worker 时
+   * 模型会改用 subagent / run_workflow（这两条是真实执行路径）。
+   * @param registry 工具注册表
+   * @param workers worker 注册表；缺省时不注册 delegate
+   * @returns 无返回值
+   */
+  private static registerWorkerDelegate(
+    registry: RegistryToolPort,
+    workers: WorkerRegistryPort | undefined,
+  ): void {
+    if (workers === undefined) return;
+    const delegator = new DelegateTool(new WorkerOrchestrator(workers));
+    registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
+  }
+
+  /**
    * 注册内置 FS / 执行 / 代理工具（shell / shell_job / read / write / edit / list / patch / grep / glob / web_fetch / view_image / code / delegate / spill_read）。
    * @param {RegistryToolPort} registry - registry
    * @param {SubagentPortSeed} seed - seed
@@ -172,14 +190,7 @@ export class ConfigToolRegistry {
       gate: ConfigToolRegistry.codeExecutorGate(seed),
       tools: registry,
     });
-    // `delegate` 只在**真有 worker** 时注册（2026-09-26 审计 F1）：默认配置下它由演示桩
-    // `SimpleWorker` 支撑，而桩恒返回 `ok:true` + 固定文案 ⇒ 模型拿到的是**伪造的委派成功**，
-    // 据此继续往下做，结论全建立在假事实上。「工具不存在」远好过「工具撒谎」：没有 worker 时
-    // 模型会改用 subagent / run_workflow（这两条是真实执行路径）。
-    if (workers !== undefined) {
-      const delegator = new DelegateTool(new WorkerOrchestrator(workers));
-      registry.register(delegator.definition, (call, ctx) => delegator.handle(call, ctx));
-    }
+    ConfigToolRegistry.registerWorkerDelegate(registry, workers);
     const spillReader = new SpillReadTool(seed.spill);
     // 绘图（草图）：把 Mermaid / SVG / 文本草图落成 .omniharness/sketches/ 下的文件，
     // 与 UI 的「+ → 绘图」入口配套——入口负责把模型切到「先画后写」的回合指令，本工具负责产物落地。

@@ -87,17 +87,8 @@ export class StepContextBuilder {
    */
   public async buildMessages(overhead?: RequestOverhead): Promise<readonly ModelMessage[]> {
     const events = this.deps.recorder.allEvents();
-    const frontFragments: string[] = [];
-    // 常驻指令（静态：同一工作区内容稳定）放头部，构成稳定前缀缓存锚点，先于动态派生信息。
-    // 任何读取/解析失败均 fail-closed（返回 null 即跳过），绝不因指令文件问题阻断主流程。
-    if (this.deps.workspaceRoot !== undefined && this.deps.projectInstructionsEnabled !== false) {
-      const instructions = await ProjectInstructions.loadProjectInstructionsCached({
-        workspaceRoot: this.deps.workspaceRoot,
-      });
-      if (instructions !== null) {
-        frontFragments.push(instructions.content);
-      }
-    }
+    // 常驻指令（静态）放头部，构成稳定前缀缓存锚点；读取失败 fail-closed（返回空）。
+    const frontFragments = await this.projectInstructionFragments();
     // U2：repo-map 是逐轮变化的动态段（查询派生），先计算、后置于消息尾部——见方法 JSDoc 排序说明。
     // 若注入了语义嵌入端口则走混合检索（BM25 ∪ 语义 RRF），否则纯 BM25（零开销）；任何失败 fail-closed。
     let repoMap: string | null = null;
@@ -172,6 +163,23 @@ export class StepContextBuilder {
     }
     this.measurePrefixReuse(messages);
     return messages;
+  }
+
+  /**
+   * 读取本工作区的常驻指令，作为消息头部的稳定前缀。
+   *
+   * 同一工作区内容稳定，放在动态派生信息之前可命中 provider 前缀缓存；
+   * 任何读取/解析失败均 fail-closed（返回空数组），绝不因指令文件问题阻断主流程。
+   * @returns 指令片段（0 或 1 条）
+   */
+  private async projectInstructionFragments(): Promise<string[]> {
+    if (this.deps.workspaceRoot === undefined || this.deps.projectInstructionsEnabled === false) {
+      return [];
+    }
+    const instructions = await ProjectInstructions.loadProjectInstructionsCached({
+      workspaceRoot: this.deps.workspaceRoot,
+    });
+    return instructions === null ? [] : [instructions.content];
   }
 
   /**

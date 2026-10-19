@@ -347,33 +347,7 @@ export class ContextCompactor {
     const tail = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0 || !ContextCompactor.hasFoldableConversation(head)) {
-      // 无 head 可折叠（keepRecent ≥ 总条数），或 head 里**只剩 system 提示、没有任何对话内容**
-      // ⇒ 没有摘要可生成，但**绝不能原样透传**：旧实现在这里返回 tail 却报 `compacted: true` +
-      // summary '[历史已省略]'，实测「阈值 100、输入 4 万字符 → 输出 4 万字符、out===in」，即
-      // **假称已压缩、上下文仍超预算**（fail-open：下一步直接把超窗请求发给端点）。现按真实预算
-      // 兜底丢弃最旧消息，并如实报告丢弃条数；若本就在预算内则如实回 `compacted: false`（不谎报）。
-      //
-      // 「head 只剩 system」这一支是 2026-10-07 用户实测补的：真机会话（新项目 sess_muxj2kcl_1）
-      // 首次压缩的边界恰好落在 1，拿**光秃秃的 system 提示**去调摘要模型，模型如实答
-      // 「任务目标：无（历史为空…）」——这份零信息摘要随后被写成 OMNI_COMPACTION_V1 游标并
-      // 注入后续每一步请求，模型据此认为自己「完全完成不了这样的任务」。没有对话可折叠就
-      // 如实走丢弃兜底，**兜底作用在全部消息上**——head 里的 system 提示不能因为"所在段
-      // 不可折叠"而被丢出上下文（它本该一直保留）。
-      const all = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages));
-      const bounded = this.dropOldestUntilBudget(all.messages, budget);
-      log.info('compaction.done', {
-        keepRecent: bounded.messages.length,
-        hadModel: this.model !== undefined,
-        droppedMessages: bounded.dropped,
-        summaryLen: 0,
-        headWithoutConversation: head.length > 0,
-      });
-      return {
-        messages: bounded.messages,
-        compacted: bounded.dropped > 0,
-        ...(bounded.dropped > 0 ? { summary: `[最早 ${bounded.dropped} 条历史已省略]` } : {}),
-        ...(all.report !== undefined ? { shrink: all.report } : {}),
-      };
+      return this.compactWithoutHead(messages, head, budget);
     }
     // 模型摘要 + **确定性工具台账**：摘要由模型生成，可能漏掉「已经读过哪些文件、跑过哪些命令」；
     // 台账由折叠段的事件直接生成，是「不依赖摘要质量」的进度基线（长会话防重复探索）。
@@ -402,6 +376,48 @@ export class ContextCompactor {
       summary,
       state: newState,
       ...(tail.report !== undefined ? { shrink: tail.report } : {}),
+    };
+  }
+
+  /**
+   * 没有可折叠 head 时的兜底：不生成摘要，按真实预算丢弃最旧消息。
+   *
+   * 无 head 可折叠（keepRecent ≥ 总条数），或 head 里**只剩 system 提示、没有任何对话内容**
+   * ⇒ 没有摘要可生成，但**绝不能原样透传**：旧实现在这里返回 tail 却报 `compacted: true` +
+   * summary '[历史已省略]'，实测「阈值 100、输入 4 万字符 → 输出 4 万字符、out===in」，即
+   * **假称已压缩、上下文仍超预算**（fail-open：下一步直接把超窗请求发给端点）。现按真实预算
+   * 兜底丢弃最旧消息，并如实报告丢弃条数；若本就在预算内则如实回 `compacted: false`（不谎报）。
+   *
+   * 「head 只剩 system」这一支是 2026-10-07 用户实测补的：真机会话（新项目 sess_muxj2kcl_1）
+   * 首次压缩的边界恰好落在 1，拿**光秃秃的 system 提示**去调摘要模型，模型如实答
+   * 「任务目标：无（历史为空…）」——这份零信息摘要随后被写成 OMNI_COMPACTION_V1 游标并
+   * 注入后续每一步请求，模型据此认为自己「完全完成不了这样的任务」。没有对话可折叠就
+   * 如实走丢弃兜底，**兜底作用在全部消息上**——head 里的 system 提示不能因为"所在段
+   * 不可折叠"而被丢出上下文（它本该一直保留）。
+   * @param messages 全部消息
+   * @param head 边界前的消息（仅用于报告是否只剩 system）
+   * @param budget 扣除固定开销后的可用消息预算
+   * @returns 预算内的消息 + 真实丢弃条数
+   */
+  private compactWithoutHead(
+    messages: readonly ModelMessage[],
+    head: readonly ModelMessage[],
+    budget: number,
+  ): CompactionResult {
+    const all = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages));
+    const bounded = this.dropOldestUntilBudget(all.messages, budget);
+    log.info('compaction.done', {
+      keepRecent: bounded.messages.length,
+      hadModel: this.model !== undefined,
+      droppedMessages: bounded.dropped,
+      summaryLen: 0,
+      headWithoutConversation: head.length > 0,
+    });
+    return {
+      messages: bounded.messages,
+      compacted: bounded.dropped > 0,
+      ...(bounded.dropped > 0 ? { summary: `[最早 ${bounded.dropped} 条历史已省略]` } : {}),
+      ...(all.report !== undefined ? { shrink: all.report } : {}),
     };
   }
 
