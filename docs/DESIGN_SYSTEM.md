@@ -360,6 +360,15 @@ PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 
 - **判据**：`textUtils.test.ts` 的 `toolVerb` / `toolSubject` / `toolMeta`；视觉留档
   `web/archive/session-process-open.png`。
 
+### 6.9 长文简报卡与 Markdown 表格
+
+- 长文预告**在空行（块边界）收口**，不把表格 / 围栏代码切在表头或分隔行——否则预览只剩
+  表头，看起来像“一大块空白”。判据：`longContentCollapser.test.ts`。
+- 预览底部渐隐必须是 **透明 → `--bg` 的渐变**，不许用实心 `--panel-2` 盖住底部；实心块
+  会把表格尾部整块吃掉（2026-10-20 用户实测）。
+- markdown-it 产出的表格补 `.md-table` 类，吃设计系统的边框 / 圆角 / 表头底 / 单元格行距；
+  裸 `<table>` 在暗色主题里只是一片无边界文本。判据：`format.test.ts`。
+
 ---
 
 ## 7. 组件契约（改样式时不许动的东西）
