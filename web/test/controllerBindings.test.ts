@@ -178,6 +178,40 @@ test('②-b 行为：文件控制器的 openFile 脱离实例调用也必须到�
   assert.ok(calls.some((c) => c[0] === 'navigate' && c[1] === 'file'), '必须路由到 file 面板');
 });
 
+test('②-c 行为：打开静态网页时自动回调预览；打开代码文件不触发', async () => {
+  // 用户口径（2026-10-19）：「静态网页应该能直接打开预览才对」——不是先显示源码、
+  // 再让用户去路径栏点「预览」。这里钉住 openFile 的自动回调，且不能误伤代码文件。
+  const previews: string[] = [];
+  const services = {
+    api: {
+      readFs: async (path: string) => ({
+        path,
+        content: '<h1>x</h1>',
+        size: 12,
+        isBinary: false,
+        truncated: false,
+      }),
+    },
+    toast: () => {},
+    navigate: () => {},
+    reducers: {},
+  };
+  const state = { fileView: null, openFiles: [], activePane: 'tools' };
+  const host = {
+    patch(action: Parameters<AppHost['patch']>[0]): void {
+      Object.assign(state, typeof action === 'function' ? (action as (prev: unknown) => unknown)(state) : action);
+    },
+    getState: () => state,
+  } as unknown as AppHost;
+  const { FileController } = await import('../src/ui/controllers/FileController.ts');
+  const ctrl = new FileController(host, services as unknown as AppServices, (path) => {
+    previews.push(path);
+  });
+  await ctrl.openFile('pages/pelican-bike.html');
+  await ctrl.openFile('src/a.ts');
+  assert.deepStrictEqual(previews, ['pages/pelican-bike.html'], '只有网页文件触发预览');
+});
+
 test('③ 行为：布局控制器的主题/抽屉切换脱离实例调用也必须改到宿主状态', () => {
   // `toggleTheme` 会写 `document.documentElement` 的 data-theme；本文件是零 DOM 环境，
   // 故只补最小桩（写属性即可），不引入 jsdom。

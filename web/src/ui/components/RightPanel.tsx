@@ -162,7 +162,11 @@ export function RightPanel(props: RightPanelProps): ReactElement {
   /** 渲染网页标签（与文件标签同属一个 tablist）。 */
   const renderWebTab = (): ReactElement | null => {
     if (!browserOpen) return null;
-    const label = browser?.title !== undefined && browser.title !== '' ? browser.title : t('网页');
+    // 标签文案固定为「网页」：打开 HTML 时文件标签与网页标签会同时存在（源码 / 渲染），
+    // 两者同名会让用户分不清哪个是源码；当前地址放在 title 悬浮里。
+    const label = t('网页');
+    const title =
+      browser?.title !== undefined && browser.title !== '' ? browser.title : label;
     return (
       <div
         id={WEB_TAB_ID}
@@ -171,7 +175,7 @@ export function RightPanel(props: RightPanelProps): ReactElement {
         aria-selected={browserActive ? 'true' : 'false'}
         aria-controls={PANE_ID}
         aria-keyshortcuts="Delete"
-        title={label}
+        title={title}
         tabIndex={browserActive ? 0 : -1}
         onClick={() => onShowBrowser?.()}
         onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, openFiles.length)}

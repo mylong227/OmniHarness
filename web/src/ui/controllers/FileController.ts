@@ -5,6 +5,7 @@
 
 import type { AppHost, AppServices } from './AppController.ts';
 import { langOf } from '../highlight.ts';
+import { FileKindClassifier } from '../models/FileKindClassifier.ts';
 import { FileTabs } from '../models/FileTabs.ts';
 import type { FileView } from '../shared.ts';
 import { MethodBinder } from './methodBinder.ts';
@@ -16,15 +17,23 @@ export class FileController {
   private readonly host: AppHost;
   /** 共享服务。 */
   private readonly services: AppServices;
+  /** 打开 HTML 时自动切到网页预览（由组合根注入；缺省不自动切，供单测/无预览环境）。 */
+  private readonly onPreview?: ((path: string) => void | Promise<void>) | undefined;
 
   /**
    * 构造并绑定对外回调。
    * @param host 状态宿主
    * @param services 共享服务
+   * @param onPreview 打开网页文件时的预览回调（可选；注入后 HTML 文件默认直接渲染）
    */
-  public constructor(host: AppHost, services: AppServices) {
+  public constructor(
+    host: AppHost,
+    services: AppServices,
+    onPreview?: (path: string) => void | Promise<void>,
+  ) {
     this.host = host;
     this.services = services;
+    this.onPreview = onPreview;
     // openFile / showOpenFile / closeOpenFile 均以裸引用传给子组件 ⇒ 必须绑定（见 MethodBinder）。
     MethodBinder.bindAll(this);
   }
@@ -61,6 +70,11 @@ export class FileController {
       }));
       // 展开右栏与激活面板由路由收口（RouteBinding.apply），避免两处状态各写一遍。
       this.services.navigate({ pane: 'file' });
+      // 静态网页默认**直接渲染**（用户口径：打开 HTML 就应该看到页面，而不是先看源码再点预览）。
+      // 源文件标签仍保留在标签条里，点它即可切回源码；非网页文件不受影响。
+      if (this.onPreview !== undefined && FileKindClassifier.isWebPage(view.title)) {
+        void this.onPreview(view.title);
+      }
     } catch (e) {
       this.services.toast(t('打开失败：{msg}', { msg: (e as Error).message }), 'err');
     }

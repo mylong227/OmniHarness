@@ -287,7 +287,8 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
   界面会提示「尚未创建会话：该模式已记录，发送第一条消息后自动生效」，不是报错。
 - **审批**：`--approval rules` 下危险动作会在 UI 弹出审批条；`--auto-approve` 则全部放行（慎用）。
 - **右栏网页预览**：点右栏标签条的 🌐 打开「网页」标签；地址栏接受 `http(s)://…` 或工作区
-  相对路径（如 `index.html`、`examples/site/index.html`），HTML 文件路径栏也有「预览」。
+  相对路径（如 `index.html`、`examples/site/index.html`）。**打开工作区里的 HTML 文件会直接
+  渲染预览**（文件标签仍在，点它可切回源码），路径栏也保留「预览」按钮。
   工作区页面由**独立回环端口**提供，且 iframe 主机名与 UI 不同（`127.0.0.1` ↔ `localhost`），
   预览页拿不到工作台会话、也不能调 RPC。部分站点用 `X-Frame-Options` 禁止嵌入，页面空白时
   用地址栏右侧的「在新窗口打开」。

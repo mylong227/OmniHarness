@@ -256,8 +256,11 @@ export class AppController {
     const sessions = new SessionController(this.host, this.services);
     const graph = new GraphController(this.host, this.services);
     const composer = new ComposerController(this.host, this.services, sessions);
-    const files = new FileController(this.host, this.services);
     const browser = new BrowserController(this.host, this.services);
+    // 打开 HTML 时默认直接进网页预览（文件标签仍保留源码视图，点标签可切回）。
+    const files = new FileController(this.host, this.services, (path) =>
+      browser.previewFile(path),
+    );
     const layout = new LayoutController(this.host);
     // 设置控制器要吃 layout（语言即时生效走它）与 services.api（落盘到用户级配置）。
     const settings = new SettingsController(this.host, { layout, api: this.services.api });

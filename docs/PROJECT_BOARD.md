@@ -4218,8 +4218,10 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **右栏新增「网页」标签**（与文件标签同属一个 tablist）：地址栏 + 重载 + 新窗口打开 +
   `<iframe>`；空态列出**会话里出现过的回环地址**（`http://localhost:5173` 这类，来自助手正文
   与工具输出）一键直达；助手消息里的回环链接也直接给「预览」按钮。
-- **工作区 HTML 直接预览**：文件路径栏对 `.html/.htm/.xhtml` 出现「预览」；地址栏也接受
-  工作区相对路径（`index.html`、`examples/site/index.html`），`?query#hash` 保留。
+- **工作区 HTML 直接预览**：打开 `.html/.htm/.xhtml` 时**自动切到网页标签并直接渲染**（不再
+  先显示源码再让用户点「预览」）；源文件标签仍保留在标签条里，点它可切回源码。地址栏也接受
+  工作区相对路径（`index.html`、`examples/site/index.html`），`?query#hash` 保留；路径栏的
+  「预览」按钮保留为显式入口。
 - **后端预览源**：新增 `server/transport/previewServer.ts`，独立回环端口、只读 GET/HEAD。
   静态响应交给成熟依赖 **`sirv`（MIT，依赖树 3 个包）**：MIME、目录/扩展名回落、Range/HEAD、
   缓存头由它负责；本仓只保留业务边界——路径先过 `SafeFs.safeStat`（词法 + realpath，拦
@@ -4237,5 +4239,5 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   点文件拒绝与 `.well-known` 例外 / 无工作区 503 / close 幂等）+ `httpServer.test.ts` 2 例
   （healthz 报端口且预览源不接 RPC；未注入工作区时字段不出现）+ 前端 5 个判据文件（PreviewUrl
   fail-closed、BrowserPane、BrowserController、ExternalLinkCards、RightPanel 网页标签 a11y）。
-  实跑 `vitest web` **90 文件 / 509 例全绿**；真实 `serve` + 真 Chrome 点开网页标签截图确认
-  iframe 渲染的是工作区页面（示例：`.tmp/preview-shot.png`，不提交）。
+  实跑 `vitest web` **90 文件 / 510 例全绿**；真实 `serve` + 真 Chrome 点开网页标签 / 点产物
+  卡片「打开」，均确认 HTML 直接进入渲染预览（截图：`.tmp/preview-shot.png`，不提交）。
