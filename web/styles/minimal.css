@@ -283,7 +283,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 16px;
 }
 .pane-actions .btn.primary {
   margin-left: auto;
@@ -2501,7 +2501,7 @@ button:hover,
 
 /* 模态内容：单栏阅读宽度，避免长句横贯 900px 屏 */
 .panel-modal-content > * {
-  max-width: 760px;
+  max-width: 700px;
   margin-inline: auto;
 }
 /* 插件/配置集这类「列表行」：操作统一右对齐，徽标与正文分层 */
@@ -2521,6 +2521,9 @@ button:hover,
   gap: 8px;
   flex: none;
 }
+.panel-surface .form > button.ghost {
+  align-self: flex-start;
+}
 .panel-surface .pc-name {
   font-size: 13px;
   font-weight: 600;
@@ -2539,15 +2542,16 @@ button:hover,
 .btn.primary,
 [data-theme='dark'] .btn.primary,
 [data-theme='light'] .btn.primary {
-  background: var(--text);
-  color: var(--bg);
-  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  font-weight: 600;
 }
 .btn.primary:hover,
 [data-theme='dark'] .btn.primary:hover,
 [data-theme='light'] .btn.primary:hover {
-  background: color-mix(in srgb, var(--text) 86%, var(--bg));
-  color: var(--bg);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
 }
 
 .panel-modal {
@@ -2556,11 +2560,19 @@ button:hover,
   max-height: min(760px, 86vh);
 }
 .panel-modal .sp-content {
-  padding: 0;
   overflow-y: auto;
 }
+.panel-modal .sp-content.panel-surface {
+  padding: 28px 32px 32px;
+}
 .panel-modal .sp-nav {
-  width: 156px;
+  width: 168px;
+  padding: 14px 12px;
+  gap: 2px;
+}
+.panel-modal .sp-nav-item {
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
 }
 .panel-modal .sp-nav-item {
   display: flex;
@@ -2573,16 +2585,16 @@ button:hover,
 }
 .panel-surface .detail-section + .detail-section,
 .panel-surface .pm-section + .pm-section {
-  margin-top: 26px;
-  padding-top: 20px;
+  margin-top: 32px;
+  padding-top: 24px;
   border-top: 1px solid var(--hairline);
 }
 .panel-surface .detail-h,
 .panel-surface .pm-title,
 .panel-surface .section-title {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
   text-transform: none;
