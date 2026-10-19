@@ -237,16 +237,15 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
   }
 }
-/* 字标：Omni 为主标题，HARNESS 拆成居中的小号大写副标（2026-10-20 用户：
-   「Harness 与标题分开，居中小字、改大写，加一点点几乎看不见的底色」）。
-   扫光仍只作用于主标题 Omni；副标只靠 4% 文本色淡底做极轻的分区。 */
+/* 字标：Omni 为主标题，HARNESS 同行后置的小号大写副标（2026-10-20 用户：
+   「与标题一排放后面水平居中」——同一行、在主标题之后、垂直居中）。
+   扫光仍只作用于主标题 Omni；副标只靠 3% 文本色淡底做极轻的分区。 */
 .side-wordmark {
   position: relative;
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 1px;
+  gap: 5px;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
@@ -273,13 +272,14 @@
 }
 .side-wordmark-tag {
   display: inline-block;
-  padding: 0 4px;
+  flex: none;
+  padding: 0 3px;
   border-radius: 3px;
   background: color-mix(in srgb, var(--text) 3%, transparent);
   color: var(--dim);
   font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   line-height: 1.35;
   text-transform: uppercase;
 }
