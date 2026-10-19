@@ -84,6 +84,8 @@ export class RouteBinding {
     // rightOpen=true 仍不可见（用户收起过一次后，点文件树/链接全部静默无效）。
     if (r.pane !== 'tools') patch.rightCollapsed = false;
     if (r.pane !== 'tools') patch.rightOpen = true;
+    // 深链直达某个功能面板：打开面板模态（文件视图仍留在右栏）。
+    if (r.pane !== 'tools' && r.pane !== 'file') patch.panelModalOpen = true;
     this.host.patch(patch);
     const cur = this.host.getState().currentThreadId;
     if (r.threadId === null) {

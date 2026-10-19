@@ -54,30 +54,28 @@ function byId(node: Facade, id: unknown): FacadeNode[] {
 /** 造一份已打开文件（代码查看器标签条的渲染源）。 */
 const fileOf = (title: string) => ({ title, meta: '测试文件', content: 'x', lang: 'ts' });
 
-test('RightPanel：tablist/tab/tabpanel 成套，aria-selected 唯一为 true，roving tabindex', () => {
-  // 2026-10-07 壳层重构：右栏改为代码查看器（文件标签 + 激活面板标签），12 个功能面板收进
-  // PanelPicker 菜单——标签条不再常驻 12 项，但 Tabs 语义契约原样保留。
+test('RightPanel：文件标签的 tablist/tab/tabpanel 成套，aria-selected 唯一为 true，roving tabindex', () => {
+  // 2026-10-19：功能面板移入设置式模态后，右栏标签条只承载文件；Tabs 语义契约不变。
   const { node } = renderFacade(RightPanel, {
     props: {
-      activePane: 'changes',
-      onSelect: () => {},
       open: true,
       openFiles: [fileOf('a.ts'), fileOf('b.ts')],
       activeFileTitle: 'a.ts',
       onShowFile: () => {},
       onCloseFile: () => {},
-      children: 'panel-body',
+      onOpenPanels: () => {},
+      children: 'file-body',
     },
   });
   const tablist = collect(node, (n) => n.props.role === 'tablist');
   assert.strictEqual(tablist.length, 1);
-  assert.strictEqual(tablist[0]!.props['aria-label'], '文件与面板');
+  assert.strictEqual(tablist[0]!.props['aria-label'], '文件');
 
   const tabs = collect(node, (n) => n.props.role === 'tab');
-  assert.strictEqual(tabs.length, 3, '2 个文件标签 + 1 个激活面板标签（变更）');
+  assert.strictEqual(tabs.length, 2, '只有已打开的文件标签（功能面板已移入模态）');
   const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
   assert.strictEqual(selected.length, 1, 'aria-selected 必须有且仅有 1 个 true');
-  assert.strictEqual(selected[0]!.props.id, 'tab-pane-changes', '非 file 视图时激活的是面板标签');
+  assert.match(String(selected[0]!.props.id), /^file-tab-/);
   assert.deepStrictEqual(
     tabs.filter((t) => t.props['aria-selected'] !== 'true' && t.props['aria-selected'] !== 'false'),
     [],
@@ -88,70 +86,64 @@ test('RightPanel：tablist/tab/tabpanel 成套，aria-selected 唯一为 true，
 
   const panel = collect(node, (n) => n.props.role === 'tabpanel');
   assert.strictEqual(panel.length, 1);
-  assert.strictEqual(panel[0]!.props['aria-labelledby'], 'tab-pane-changes');
-  assert.strictEqual(
-    byId(node, 'tab-pane-changes').length,
-    1,
-    'aria-labelledby 必须指向真实存在的元素',
-  );
+  assert.strictEqual(panel[0]!.props['aria-labelledby'], selected[0]!.props.id);
+  assert.strictEqual(byId(node, String(selected[0]!.props.id)).length, 1);
   assert.strictEqual(new Set(tabs.map((t) => t.props['aria-controls'])).size, 1);
-  assert.strictEqual(tabs[0]!.props['aria-controls'], panel[0]!.props.id);
-  assert.strictEqual(allText(panel[0]!), 'panel-body');
+  assert.strictEqual(allText(panel[0]!), 'file-body');
 });
 
-test('RightPanel：file 视图时激活对应文件标签；全部面板可经 PanelPicker 到达', () => {
+test('RightPanel：激活文件标签；「全部面板」入口打开模态（不再有下拉菜单）', () => {
+  let opened = 0;
   const { node } = renderFacade(RightPanel, {
     props: {
-      activePane: 'file',
-      onSelect: () => {},
       open: true,
       openFiles: [fileOf('a.ts'), fileOf('rollback.ts')],
       activeFileTitle: 'rollback.ts',
       onShowFile: () => {},
       onCloseFile: () => {},
+      onOpenPanels: () => {
+        opened += 1;
+      },
       children: null,
     },
   });
-  const tabs = collect(node, (n) => n.props.role === 'tab');
-  const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
+  const selected = collect(
+    node,
+    (n) => n.props.role === 'tab' && n.props['aria-selected'] === 'true',
+  );
   assert.strictEqual(selected.length, 1);
-  assert.match(String(selected[0]!.props.id), /^tab-file-/, 'file 视图激活的是文件标签');
   assert.match(allText(selected[0]!), /rollback\.ts/);
-  // 12 个功能面板仍可一步到达：标签条右端常驻「全部面板」入口（原 NavRail 的职责收编于此）。
-  // 迁移前按组件类型断言 `PanelPicker` 存在；真实 React 会把子组件渲染成 DOM，这里改为
-  // **点开菜单并断言注册表条目逐项可见**——比"组件挂上了"更强。
   const trigger = byTag(node, 'button').find((b) => b.props['aria-label'] === '全部面板');
   assert.ok(trigger !== undefined, '右栏必须常驻「全部面板」入口');
+  assert.strictEqual(trigger.props['aria-haspopup'], 'dialog');
+  fireEvent.click(trigger.el);
+  assert.strictEqual(opened, 1, '点击入口必须打开面板模态');
 });
 
-test('RightPanel：←/→ 在标签间移动并激活，Enter/Space 激活当前标签', () => {
-  const seen: unknown[] = [];
-  const shown: unknown[] = [];
+test('RightPanel：←/→ 在文件标签间移动，Delete 关闭当前标签', () => {
+  const shown: string[] = [];
+  const closed: string[] = [];
   const { node } = renderFacade(RightPanel, {
     props: {
-      activePane: 'changes',
-      onSelect: (k: string) => seen.push(k),
       open: true,
-      openFiles: [fileOf('a.ts'), fileOf('b.ts')],
-      activeFileTitle: 'a.ts',
+      openFiles: [fileOf('a.ts'), fileOf('b.ts'), fileOf('c.ts')],
+      activeFileTitle: 'b.ts',
       onShowFile: (t: string) => shown.push(t),
-      onCloseFile: () => {},
+      onCloseFile: (t: string) => closed.push(t),
+      onOpenPanels: () => {},
       children: null,
     },
   });
-  const tabs = collect(node, (n) => n.props.role === 'tab');
-  const active = tabs.filter((t) => t.props['aria-selected'] === 'true')[0]!;
-  // 标签顺序：a.ts(0) → b.ts(1) → 变更(2)；右栏 props 固定，键盘只上抛回调、不改变选中态，
-  // 故 `active` 始终是同一节点（变更，下标 2）——每条断言都以"从变更出发"计算。
-  const key = (k: string) => fireEvent.keyDown(active.el, { key: k });
-  key('ArrowRight');
-  assert.deepStrictEqual(shown, ['a.ts'], '右方向键回绕到第一个文件标签（变更 → a.ts）');
-  key('ArrowLeft');
-  assert.deepStrictEqual(shown, ['a.ts', 'b.ts'], '左方向键切到上一个文件标签（变更 → b.ts）');
-  key('Enter');
-  assert.deepStrictEqual(seen.at(-1), 'changes', 'Enter 激活当前标签');
-  key(' ');
-  assert.deepStrictEqual(seen.at(-1), 'changes', 'Space 同样激活');
+  const active = collect(
+    node,
+    (n) => n.props.role === 'tab' && n.props['aria-selected'] === 'true',
+  )[0]!;
+  fireEvent.keyDown(active.el, { key: 'ArrowRight' });
+  assert.deepStrictEqual(shown, ['c.ts'], '右方向键切到下一个文件');
+  fireEvent.keyDown(active.el, { key: 'ArrowLeft' });
+  assert.deepStrictEqual(shown, ['c.ts', 'a.ts'], '左方向键切回上一个文件');
+  fireEvent.keyDown(active.el, { key: 'Delete' });
+  assert.deepStrictEqual(closed, ['b.ts'], 'Delete 关闭当前文件');
 });
 
 // ---- 纯图标按钮必须有可读名字 ----
@@ -168,7 +160,7 @@ test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/em
         onOpenSettings: () => {},
       },
     }).node,
-    renderFacade(PanelPicker, { props: { activePane: 'tools', onPick: () => {} } }).node,
+    renderFacade(PanelPicker, { props: { onOpen: () => {} } }).node,
     renderFacade(ChatHeader, {
       props: {
         title: 't',
@@ -343,7 +335,15 @@ test('ChangesTab：键盘评审容器是可聚焦 region，且带 aria-label 说
 test('汇总：跨组件渲染树的可访问性属性计数达到下限', () => {
   const trees: Facade[] = [
     renderFacade(RightPanel, {
-      props: { activePane: 'changes', onSelect: () => {}, open: true, children: null },
+      props: {
+        open: true,
+        openFiles: [],
+        activeFileTitle: null,
+        onShowFile: () => {},
+        onCloseFile: () => {},
+        onOpenPanels: () => {},
+        children: null,
+      },
     }).node,
     renderFacade(SidebarHeader, {
       props: { rail: false, onToggleRail: () => {}, onOpenPalette: () => {} },
@@ -380,15 +380,16 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
   };
   // 数字同时打印进输出，作为「实测覆盖率」证据留在日志里。
   process.stdout.write('a11y 计数（5 棵渲染树）:' + JSON.stringify(numbered) + '\n');
-  // 2026-10-07 壳层重构后：右栏标签条 = 已打开文件 + 激活面板（不再是常驻 12 项），
-  // 绝对数量阈值随之收窄；属性「逐个显式给出」的契约由上面各用例分别钉住。
+  // 2026-10-07 壳层重构后：右栏标签条 = 已打开文件（不再是常驻 12 项）；
+  // 2026-10-19：功能面板改到设置式模态，右栏只剩文件标签 ⇒ 计数再收窄。
+  // 属性「逐个显式给出」的契约由上面各用例分别钉住。
   // 2026-10-18：关闭「×」改成 aria-hidden 的指针捷径（嵌套交互控件会被 axe 判红），
-  // 标签自身仍逐个带 roving tabindex（激活项 0、其余 -1）⇒ 阈值从 ≥3 收到 ≥2。
-  assert.ok(numbered.role >= 8, 'role 数量偏低：' + JSON.stringify(numbered));
+  // 标签自身仍逐个带 roving tabindex（激活项 0、其余 -1）。
+  assert.ok(numbered.role >= 7, 'role 数量偏低：' + JSON.stringify(numbered));
   // 2026-10-19：页脚主题切换按钮 + 输入区独立回形针按钮已移除（附件入口收进「＋」菜单），
   // aria-label 相应少两枚 ⇒ 阈值 10→8。
   assert.ok(numbered.ariaLabel >= 8, 'aria-label 数量偏低：' + JSON.stringify(numbered));
   assert.ok(numbered.ariaLive >= 1, '必须有 polite 播报区');
-  assert.ok(numbered.ariaSelected >= 3, '标签页必须逐个带 aria-selected');
-  assert.ok(numbered.tabIndex >= 2, 'roving tabindex / 可聚焦容器必须存在');
+  assert.ok(numbered.ariaSelected >= 2, '标签页必须逐个带 aria-selected');
+  assert.ok(numbered.tabIndex >= 1, 'roving tabindex / 可聚焦容器必须存在');
 });

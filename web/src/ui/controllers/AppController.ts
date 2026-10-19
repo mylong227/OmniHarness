@@ -57,6 +57,8 @@ export interface AppState {
   activePane: string;
   /** 设置模态是否打开（2026-10-17：设置从右栏面板改为模态）。 */
   settingsOpen: boolean;
+  /** 功能面板模态是否打开（2026-10-19：面板从右栏下拉改为设置式左导航模态）。 */
+  panelModalOpen: boolean;
   /** 设置模态当前分栏（打开时定位，关闭后保留上次选择）。 */
   settingsTab: SettingsTabKey;
   model: string;
@@ -424,6 +426,9 @@ export class AppController {
    * @returns 无
    */
   public openPane(key: string): void {
+    // 2026-10-19：功能面板改在模态里显示；openPane 的调用方（AddMenu 链接 / 设置里的跳转）
+    // 需要同时把模态打开，否则只是改了 activePane、界面上什么都不会发生。
+    this.host.patch({ panelModalOpen: key !== 'file', activePane: key });
     this.routeBinding.navigate({ pane: key });
   }
 
@@ -524,6 +529,8 @@ export class AppController {
    * @returns 无
    */
   public setActivePane(key: string): void {
+    // 同上：命令面板 / 面板模态左导航都走这里。
+    this.host.patch({ panelModalOpen: key !== 'file', activePane: key });
     this.routeBinding.navigate({ pane: key });
   }
 

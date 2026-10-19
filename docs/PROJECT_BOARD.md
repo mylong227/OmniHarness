@@ -4151,3 +4151,20 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 验收：真实 serve + 真 Chrome 逐面板截图（记忆 / 指标 / 编排 / 权限 / 诊断 / 审计 / 工具 / 插件…）；
 `vitest web` 86 文件 / 490 例全绿（含 a11y 对比度与语义色门禁）。
+
+### 32. 功能面板改为设置式模态（2026-10-19）
+
+用户：点「全部面板」不要再弹下拉菜单，「像设置按钮一样弹窗、分左右显示」。
+
+- 新增 `components/PanelModal.tsx`：复用设置模态的 `.sp-*` 版式——左侧 16 项面板导航、
+  右侧完整宽度的面板内容；标题右侧沿用 `.scope-chip` + 会话实时绿点；Esc / 遮罩 / × 关闭。
+- `PanelPicker` 从下拉菜单改为**一枚触发按钮**（`aria-haspopup="dialog"`），点开模态；
+  菜单的展开/外部点击/滚动关闭逻辑全部删除。
+- 右栏 `RightPanel` 收敛为**纯文件预览**：只渲染文件标签与文件内容；没有打开文件时保留
+  一枚静态「文件」标签，避免空标签条 + 孤立按钮。功能面板不再以标签形式出现。
+- 状态：新增 `AppState.panelModalOpen`；`LayoutController.openPanels/closePanels`；
+  `setActivePane/openPane` 打开对应面板模态；`#pane=xxx` 深链自动打开模态（Router 测试同步）。
+- 面板内容沿用 `.panel-surface`（原 `#right-pane` 作用域改名），模态与右栏共享同一套版式。
+
+验证：真实 serve + Chrome 截图（指标 / 记忆模态：左导航 + 右内容 + 全局/本会话徽标）；
+`vitest web` 86 文件 / 489 例全绿（右栏 Tabs、Router 深链、a11y 计数判据同步更新）。

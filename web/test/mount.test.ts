@@ -185,45 +185,26 @@ test('TreeNode：文件树节点渲染名称并保留展开回调（零 DOM 依�
   assert.match(allText(vnode), /src/, '节点必须渲染名称');
 });
 
-test('PanelPicker：闭合态只渲染触发器（aria-haspopup=menu），展开态罗列全部 16 个面板', async () => {
-  // 2026-10-07 壳层重构：原 NavRail（9 常驻图标 + 「更多面板」兜底）收编为右栏的 PanelPicker
-  // ——功能面板不再常驻占位，全部收进这一个菜单（截图式三栏壳的"收起来"）。
-  // 2026-10-11：新增 `diagnostics` ⇒ 12 → 13。
-  // 2026-10-17：`settings` **移出**注册表（17 → 16）——设置改成左栏页脚按钮 + 居中模态，
-  //   不再是右栏面板。这里同时断言「菜单里不该再出现设置」，否则等于两处入口两个真相。
-  const ui = renderFacade(PanelPicker, { props: { activePane: 'tools', onPick: () => {} } });
-  const closedBtns = byTag(ui.node, 'button');
-  assert.strictEqual(closedBtns.length, 1, '闭合态必须只有 1 个触发按钮');
-  assert.strictEqual(closedBtns[0]!.props['aria-haspopup'], 'menu');
-  assert.strictEqual(closedBtns[0]!.props['aria-expanded'], 'false');
-  assert.strictEqual(closedBtns[0]!.props['aria-label'], '全部面板');
-
-  // 点真实触发器 ⇒ 展开态。
-  fireEvent.click(closedBtns[0]!.el);
+test('PanelPicker：唯一触发器，点击打开面板模态（不再有下拉菜单）', async () => {
+  // 2026-10-19：面板选择从下拉菜单改为设置式模态（左导航 + 右内容），这里只钉触发器契约。
+  let opened = 0;
+  const ui = renderFacade(PanelPicker, {
+    props: {
+      onOpen: () => {
+        opened += 1;
+      },
+    },
+  });
+  const btns = byTag(ui.node, 'button');
+  assert.strictEqual(btns.length, 1, '只保留 1 个触发按钮');
+  assert.strictEqual(btns[0]!.props['aria-haspopup'], 'dialog');
+  assert.strictEqual(btns[0]!.props['aria-label'], '全部面板');
+  assert.strictEqual(collect(ui.node, (n) => n.props.role === 'menuitem').length, 0, '不得再渲染菜单项');
+  fireEvent.click(btns[0]!.el);
   await act(async () => {
     await Promise.resolve();
   });
-  const open = facadeOf(ui.container.firstElementChild);
-  const items = collect(open, (n) => n.props.role === 'menuitem');
-  assert.strictEqual(items.length, 16, '菜单必须罗列注册表全部 16 个面板');
-  const labels = byTag(open, 'span').map((s) => allText(s));
-  for (const l of ['工具', '指标', '插件', '编排', '记忆', '配置集', '钻取', '回滚', '变更', '治理', '文件', '诊断', '审计', 'Trace', '权限', '凭据']) {
-    assert.ok(labels.includes(l), `菜单应含面板：${l}`);
-  }
-  // 「设置」不得再出现在面板菜单里（它现在是模态，入口在左栏页脚）。
-  assert.ok(!labels.includes('设置'), '设置已移出面板列表（改为页脚按钮 + 模态），不应再出现在「全部面板」菜单里');
-});
-
-test('PanelPicker：激活面板在菜单中高亮（active class 唯一）', async () => {
-  const ui = renderFacade(PanelPicker, { props: { activePane: 'memory', onPick: () => {} } });
-  fireEvent.click(byTag(ui.node, 'button')[0]!.el);
-  await act(async () => {
-    await Promise.resolve();
-  });
-  const open = facadeOf(ui.container.firstElementChild);
-  const items = collect(open, (n) => n.props.role === 'menuitem');
-  const actives = items.filter((b) => String(b.props.className).includes('active'));
-  assert.strictEqual(actives.length, 1, 'active class 必须有且仅有 1 个');
+  assert.strictEqual(opened, 1, '点击必须打开面板模态');
 });
 
 test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据此渲染，IA 缺口的机械判据）', async () => {

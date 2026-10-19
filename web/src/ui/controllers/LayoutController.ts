@@ -126,6 +126,16 @@ export class LayoutController {
     this.host.patch((s) => ({ leftOpen: !s.leftOpen, rightOpen: false }));
   }
 
+  /** 打开功能面板模态（右栏「全部面板」按钮 / 命令面板入口）。 @returns 无 */
+  public openPanels(): void {
+    this.host.patch({ panelModalOpen: true });
+  }
+
+  /** 关闭功能面板模态。 @returns 无 */
+  public closePanels(): void {
+    this.host.patch({ panelModalOpen: false });
+  }
+
   /**
    * 切换右侧面板：桌面端 = 收起 / 展开整栏（持久化本机偏好）；窄屏（≤880px）= 抽屉（互斥关闭左栏）。
    * 2026-10-07 用户反馈「右侧栏也要可以收起来」前的行为只有抽屉一态，桌面端 12 面板常驻占宽。

@@ -19,6 +19,7 @@ import { RenderErrorBoundary } from './components/RenderErrorBoundary.tsx';
 import { SessionPanel } from './components/SessionPanel.tsx';
 import { StreamView } from './components/StreamView.tsx';
 import { RightPanel } from './components/RightPanel.tsx';
+import { PanelModal } from './components/PanelModal.tsx';
 import { ApprovalModal } from './components/ApprovalModal.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
 import { Toast } from './components/Toast.tsx';
@@ -101,6 +102,7 @@ function initialState(): AppState {
     activePane: 'tools',
     // 设置模态默认关闭、默认落在「模型」栏（最常改的一栏）。
     settingsOpen: false,
+    panelModalOpen: false,
     settingsTab: 'model',
     model: '',
     modelOptions: [],
@@ -328,28 +330,42 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
       React.createElement(
         RightPanel,
         {
-          activePane: s.activePane,
-          onSelect: ctrl.setActivePane,
           open: s.rightOpen,
           openFiles: s.openFiles,
           activeFileTitle: s.fileView?.title ?? null,
           onShowFile: ctrl.files.showOpenFile,
           onCloseFile: ctrl.files.closeOpenFile,
+          // 从文件视图点「全部面板」时，模态默认落到工具面板（文件内容仍留在右栏）。
+          onOpenPanels: () =>
+            ctrl.setActivePane(s.activePane === 'file' ? 'tools' : s.activePane),
           onCollapse: () => ctrl.layout.toggleRight(),
           style: { width: s.rightWidth + 'px' },
         },
-        // 按需加载的面板在这里落地：预取未完成时先给一行"加载中"，不让右栏空白。
-        React.createElement(
-          React.Suspense,
-          {
-            fallback: React.createElement(
-              'div',
-              { className: 'pane-loading empty note' },
-              t('加载中…'),
-            ),
-          },
-          pane,
-        ),
+        // 右栏只放文件预览；功能面板走下面的 PanelModal（2026-10-19）。
+        React.createElement(FileTab, { fileView: s.fileView }),
+      ),
+    ),
+    React.createElement(
+      PanelModal,
+      {
+        open: s.panelModalOpen,
+        pane: s.activePane,
+        onPick: (key: string) => {
+          ctrl.layout.openPanels();
+          ctrl.setActivePane(key);
+        },
+        onClose: () => ctrl.layout.closePanels(),
+      },
+      React.createElement(
+        React.Suspense,
+        {
+          fallback: React.createElement(
+            'div',
+            { className: 'pane-loading empty note' },
+            t('加载中…'),
+          ),
+        },
+        pane,
       ),
     ),
     React.createElement(ApprovalModal, {
@@ -370,7 +386,11 @@ function renderBody(ctrl: AppController, s: AppState, pane: ReactElement): React
       onTabChange: ctrl.settings.setTab,
       // 更重的配置编辑（参数级规则、配置集增删、凭据库）仍走各自的专属面板：
       // 设置模态负责"常改的几项"，不试图把所有编辑都塞进来。
-      onOpenPanel: (key: string) => ctrl.openPane(key),
+      // 从设置跳到专属面板：先关设置模态，否则两个模态会叠在一起。
+      onOpenPanel: (key: string) => {
+        ctrl.settings.close();
+        ctrl.openPane(key);
+      },
     }),
     React.createElement('div', {
       className: 'drawer-backdrop' + (s.leftOpen || s.rightOpen ? ' show' : ''),

@@ -17,13 +17,13 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { fireEvent, renderFacadeAsync } from './rtlHarness.ts';
-import { allText, byTag, clsOf, facadeOf, walk } from './domFacade.ts';
+import { renderFacadeAsync } from './rtlHarness.ts';
+import { allText, byTag, clsOf, walk } from './domFacade.ts';
 import type { FacadeNode } from './domFacade.ts';
 
 const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.tsx');
-const { RightPanel } = await import('../src/ui/components/RightPanel.tsx');
-const { parseHash } = await import('../src/core/Router.ts');
+const { PanelModal } = await import('../src/ui/components/PanelModal.tsx');
+const { parseHash, isValidPane } = await import('../src/core/Router.ts');
 
 /**
  * 深度收集满足谓词的节点。
@@ -140,42 +140,21 @@ test('F2 面板：rpc 抛错 ⇒ 可读错误 + 重试按钮（不整页白屏�
   assert.ok(retry.length >= 1, '必须给出重试入口');
 });
 
-test('F2 注册：激活 governance 时 RightPanel 出现其标签，Router 认可该 pane', async () => {
-  // 2026-10-07 壳层重构：右栏标签条不再常驻 12 个面板（收进 PanelPicker 菜单），
-  // 但激活某面板时它必须以标签形式出现——这里钉住「治理激活 ⇒ 有治理标签」这条契约。
-  const ui = await renderFacadeAsync(RightPanel, {
-    props: { activePane: 'governance', onSelect: () => {}, open: true },
+test('F2 注册：governance 出现在面板模态左导航，Router 认可该 pane', async () => {
+  // 2026-10-19：功能面板从右栏标签改为设置式模态（左导航 + 右内容），注册判据随之改为
+  // 「模态左导航里有治理」+「路由认可 #pane=governance」。
+  const ui = await renderFacadeAsync(PanelModal, {
+    props: { open: true, pane: 'governance', onPick: () => {}, onClose: () => {} },
   });
-  const tabs = collect(ui.node, (node) => node.props.role === 'tab');
-  assert.ok(
-    tabs.some((tab) => tab.props.id === 'tab-pane-governance'),
-    '激活治理面板时 RightPanel 必须渲染其标签（漏注册则永远选不中）',
-  );
-  // 全部面板仍可一步到达：点开标签条右端的「全部面板」菜单，注册表里的 12 项必须都在。
-  // （迁移前按组件类型 `PanelPicker` 断言存在性；真实 React 会把子组件渲染成 DOM，
-  // 这里改成**点击后逐项可见**——比只断言"组件挂上了"更强。）
-  const trigger = byTag(ui.node, 'button').find(
-    (btn) => btn.props['aria-label'] === '全部面板',
-  );
-  assert.ok(trigger !== undefined, '右栏必须常驻「全部面板」入口');
-  fireEvent.click(trigger.el);
-  const menu = facadeOf(ui.container.firstElementChild);
-  const items = collect(menu, (node) => node.props.role === 'menuitem');
-  assert.ok(items.length >= 12, `全部面板菜单必须列出注册表条目，实际 ${String(items.length)}`);
+  const items = collect(ui.node, (node) => String(node.props.className).includes('sp-nav-item'));
+  assert.strictEqual(items.length, 16, '左侧必须列出注册表全部 16 个面板');
   assert.ok(
     items.some((item) => allText(item) === '治理'),
-    '治理面板必须可从「全部面板」一步到达',
+    '治理面板必须可从面板模态一步到达',
   );
-
   const route = parseHash.call(null);
   assert.strictEqual(typeof route, 'object', 'parseHash 可用');
   // `#pane=governance` 必须被认作合法 pane（否则静默落回默认面板）。
-  const original = globalThis.location;
-  // 桩只提供 parseHash 实际读取的 hash 字段（按边界约定断言为 Location）。
-  globalThis.location = { hash: '#pane=governance' } as Location;
-  try {
-    assert.strictEqual(parseHash().pane, 'governance');
-  } finally {
-    globalThis.location = original;
-  }
+  const ok = isValidPane.call(null, 'governance');
+  assert.strictEqual(ok, true, 'Router 必须认可 governance pane');
 });

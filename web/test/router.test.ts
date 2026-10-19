@@ -124,7 +124,7 @@ test('RouteBinding.start：还原初始深链（展开右栏 + 载入会话）�
 
   assert.deepEqual(
     patches[0],
-    { activePane: 'changes', rightOpen: true, rightCollapsed: false },
+    { activePane: 'changes', rightOpen: true, rightCollapsed: false, panelModalOpen: true },
     '深链面板必须落到状态，并复位桌面端收起偏好',
   );
   assert.deepEqual(opened, ['t-deep'], '深链会话必须触发载入');
@@ -138,6 +138,7 @@ test('RouteBinding.start：还原初始深链（展开右栏 + 载入会话）�
     activePane: 'memory',
     rightOpen: true,
     rightCollapsed: false,
+    panelModalOpen: true,
   });
   assert.deepEqual(opened, ['t-deep'], '无 thread 的路由不得重复载入会话');
 

@@ -1,6 +1,8 @@
 // en 词条分片：零散组件（AddMenu/Pickers/WorkIndicator/RightPanel 等）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_MISC: Record<string, string> = {
   // 面板数据范围徽标 / 本会话指标（2026-10-19）
+  '功能面板': 'Panels',
+  '面板': 'Panel',
   '本会话': 'This session',
   '未选择会话': 'No session',
   '服务端': 'Server',

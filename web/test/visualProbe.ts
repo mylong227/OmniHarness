@@ -604,19 +604,18 @@ async function openPaneByLabel(cdp: CdpSession, label: string) {
   // 先等入口按钮出现（重载后挂载有先后，直接点会点空 ⇒ 假红）。
   if (!(await cdp.waitFor("!!document.querySelector('.pp-btn')", 1500))) return false;
   /**
-   * 走一遍「展开菜单 → 按标签点项」。
-   * 注意：只有菜单**未展开**时才点按钮——已展开时再点会收起，随后就找不到菜单项了（首帧竞态）。
+   * 走一遍「点按钮 → 等面板模态 → 按标签点左导航项」。
+   * 2026-10-19：按钮改为打开设置式面板模态（左导航 + 右内容），不再有下拉菜单。
    * @returns 是否成功选中该面板
    */
   const pickOnce = async () => {
-    await cdp.evaluate(
-      "(function(){ var b=document.querySelector('.pp-btn'); if(b && b.getAttribute('aria-expanded')!=='true') b.click(); return true; })()",
-    );
-    // 菜单是点击后挂载的：等它真的出现（固定的 150ms 在某些主题/首帧下不够）。
-    if (!(await cdp.waitFor("!!document.querySelector('.pp-menu .pp-item')", 800))) return false;
+    await cdp.evaluate("(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return true; })()");
+    if (!(await cdp.waitFor("!!document.querySelector('.panel-modal .sp-nav-item')", 1500))) {
+      return false;
+    }
     return (
       (await cdp.evaluate(
-        `(function(){ var hit=[].slice.call(document.querySelectorAll('.pp-item')).filter(function(x){ var l=x.querySelector('.pp-label'); return !!l && l.textContent.trim()===${JSON.stringify(label)}; })[0]; if(!hit) return false; hit.click(); return true; })()`,
+        `(function(){ var hit=[].slice.call(document.querySelectorAll('.panel-modal .sp-nav-item')).filter(function(x){ return (x.textContent||'').trim()===${JSON.stringify(label)}; })[0]; if(!hit) return false; hit.click(); return true; })()`,
       )) === true
     );
   };
