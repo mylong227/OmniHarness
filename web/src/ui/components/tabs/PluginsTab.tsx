@@ -42,20 +42,14 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
           {m.name}
           <span className="pc-ver">v{m.version}</span>
         </span>
-        <span className={'src-badge ' + actions.source}>{actions.source}</span>
-      </div>
-      {m.description ? <div className="pc-desc">{m.description}</div> : null}
-      {m.author ? <div className="pc-meta">{t('作者：{author}', { author: m.author })}</div> : null}
-      {perms.length ? <div>{perms}</div> : null}
-      <div className="pc-foot">
-        {actions.isInstalled ? (
-          <span className={'src-badge ' + (m.loaded ? 'loaded' : 'unloaded')}>
-            {m.loaded ? t('已加载') : t('未加载')}
-          </span>
-        ) : null}
-        {actions.isInstalled ? (
-          <>
-            <span className="pc-installed">{icon('check', { size: 12 })} {t('已安装')}</span>
+        <span className="pc-head-actions">
+          {actions.isInstalled ? (
+            <span className={'src-badge ' + (m.loaded ? 'loaded' : 'unloaded')}>
+              {m.loaded ? t('已加载') : t('未加载')}
+            </span>
+          ) : null}
+          <span className={'src-badge ' + actions.source}>{actions.source}</span>
+          {actions.isInstalled ? (
             <button
               className="btn-remove"
               disabled={disabled}
@@ -63,17 +57,20 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
             >
               {t('卸载')}
             </button>
-          </>
-        ) : (
-          <button
-            className="btn-install"
-            disabled={disabled}
-            onClick={() => actions.onAction('install', m.name)}
-          >
-            {t('安装')}
-          </button>
-        )}
+          ) : (
+            <button
+              className="btn-install"
+              disabled={disabled}
+              onClick={() => actions.onAction('install', m.name)}
+            >
+              {t('安装')}
+            </button>
+          )}
+        </span>
       </div>
+      {m.description ? <div className="pc-desc">{m.description}</div> : null}
+      {m.author ? <div className="pc-meta">{t('作者：{author}', { author: m.author })}</div> : null}
+      {perms.length ? <div>{perms}</div> : null}
     </div>
   );
 }

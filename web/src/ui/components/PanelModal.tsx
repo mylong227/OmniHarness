@@ -96,7 +96,7 @@ export function PanelModal(props: PanelModalProps): ReactElement | null {
         </div>
         <div className="sp-body">
           <nav className="sp-nav" aria-label={t('全部面板')}>
-            {PANELS.map((p) => (
+            {PANELS.filter((p) => p.key !== 'file').map((p) => (
               <button
                 key={p.key}
                 className={'sp-nav-item' + (p.key === pane ? ' on' : '')}

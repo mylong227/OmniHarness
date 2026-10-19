@@ -147,7 +147,9 @@ test('F2 注册：governance 出现在面板模态左导航，Router 认可该 p
     props: { open: true, pane: 'governance', onPick: () => {}, onClose: () => {} },
   });
   const items = collect(ui.node, (node) => String(node.props.className).includes('sp-nav-item'));
-  assert.strictEqual(items.length, 16, '左侧必须列出注册表全部 16 个面板');
+  // 2026-10-19：文件预览固定在右栏，面板模态左导航不再列「文件」⇒ 16 → 15。
+  assert.strictEqual(items.length, 15, '左侧列出 15 个功能面板（不含文件）');
+  assert.ok(!items.some((item) => allText(item) === '文件'), '文件不应出现在面板模态里');
   assert.ok(
     items.some((item) => allText(item) === '治理'),
     '治理面板必须可从面板模态一步到达',

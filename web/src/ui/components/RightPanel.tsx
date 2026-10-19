@@ -114,31 +114,19 @@ export function RightPanel(props: RightPanelProps): ReactElement {
     </div>
   );
 
-  // 没有打开文件时保留一枚静态「文件」标签：标签条与 tabpanel 仍然成套，
-  // 也不会让「全部面板」按钮孤零零地飘在空标签条右端。
-  const emptyTab = openFiles.length === 0;
-  const pathText = activeFile !== undefined ? activeFile.title : emptyTab ? t('文件') : '';
+  // 没有打开文件时不渲染任何假标签（用户要求「把文件标签删除」）：只留工具按钮，
+  // 路径栏也一并隐藏，空白态直接从标签条下方开始。
+  const pathText = activeFile !== undefined ? activeFile.title : '';
 
   return (
     <div className={'col right' + (open ? ' open' : '')} style={style}>
       <div className="tabs rv-tabs">
         {/* tablist 只包文件标签：「全部面板」/ 收起按钮不是 tab，放在列表外。 */}
-        <div className="rv-tablist" role="tablist" aria-label={t('文件')}>
-          {emptyTab ? (
-            <div
-              id="file-tab-empty"
-              className="tab active"
-              role="tab"
-              aria-selected="true"
-              aria-controls={PANE_ID}
-              tabIndex={0}
-            >
-              <span className="tab-label">{t('文件')}</span>
-            </div>
-          ) : (
-            openFiles.map((f, i) => renderTab(f, i))
-          )}
-        </div>
+        {openFiles.length === 0 ? null : (
+          <div className="rv-tablist" role="tablist" aria-label={t('文件')}>
+            {openFiles.map((f, i) => renderTab(f, i))}
+          </div>
+        )}
         <span className="flex-spacer" aria-hidden="true"></span>
         <PanelPicker onOpen={onOpenPanels} />
         {onCollapse === undefined ? null : (
@@ -152,26 +140,24 @@ export function RightPanel(props: RightPanelProps): ReactElement {
           </button>
         )}
       </div>
-      <div className="rv-pathbar">
-        <span className="rv-path" title={pathText}>
-          {pathText}
-        </span>
-        <span className="flex-spacer" aria-hidden="true"></span>
-        {activeFile !== undefined && activeFile.lang !== '' ? (
-          <span className="rv-lang">{activeFile.lang}</span>
-        ) : null}
-        {activeFile !== undefined ? <span className="rv-meta">{activeFile.meta}</span> : null}
-      </div>
+      {activeFile === undefined ? null : (
+        <div className="rv-pathbar">
+          <span className="rv-path" title={pathText}>
+            {pathText}
+          </span>
+          <span className="flex-spacer" aria-hidden="true"></span>
+          {activeFile.lang !== '' ? <span className="rv-lang">{activeFile.lang}</span> : null}
+          <span className="rv-meta">{activeFile.meta}</span>
+        </div>
+      )}
       <div
         className="pane active panel-surface"
         id={PANE_ID}
         role="tabpanel"
         aria-labelledby={
-          emptyTab
-            ? 'file-tab-empty'
-            : activeIdx >= 0 && openFiles[activeIdx] !== undefined
-              ? tabIdOf(openFiles[activeIdx]!, activeIdx)
-              : undefined
+          activeIdx >= 0 && openFiles[activeIdx] !== undefined
+            ? tabIdOf(openFiles[activeIdx]!, activeIdx)
+            : undefined
         }
         tabIndex={-1}
       >

@@ -2496,13 +2496,64 @@ button:hover,
    作用域限定 .panel-surface：不污染全局卡片（如对话里的产物卡）。
    ========================================================================= */
 .panel-surface {
-  padding: 14px 18px 20px;
+  padding: 20px 26px 26px;
 }
 
-/* 功能面板模态（2026-10-19）：比设置模态更宽更高，承载面板内容 */
+/* 模态内容：单栏阅读宽度，避免长句横贯 900px 屏 */
+.panel-modal-content > * {
+  max-width: 760px;
+  margin-inline: auto;
+}
+/* 插件/配置集这类「列表行」：操作统一右对齐，徽标与正文分层 */
+.panel-surface .pc-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.panel-surface .pc-desc {
+  margin-top: 2px;
+  line-height: 1.65;
+}
+.panel-surface .pc-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.panel-surface .pc-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.panel-surface .pc-meta {
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.panel-surface .plugin-card .src-badge {
+  flex: none;
+  font-size: 10px;
+}
+
+/* 主操作按钮改成中性墨色：accent 只留给选中/链接，不再有大块宝蓝色块
+   （用户 2026-10-19「按钮配色很丑，不符合整体设计感」）。 */
+.btn.primary,
+[data-theme='dark'] .btn.primary,
+[data-theme='light'] .btn.primary {
+  background: var(--text);
+  color: var(--bg);
+  border-color: transparent;
+}
+.btn.primary:hover,
+[data-theme='dark'] .btn.primary:hover,
+[data-theme='light'] .btn.primary:hover {
+  background: color-mix(in srgb, var(--text) 86%, var(--bg));
+  color: var(--bg);
+}
+
 .panel-modal {
-  width: min(1040px, 94vw);
-  height: min(760px, 88vh);
+  width: min(880px, 92vw);
+  height: auto;
+  max-height: min(760px, 86vh);
 }
 .panel-modal .sp-content {
   padding: 0;
@@ -2522,8 +2573,8 @@ button:hover,
 }
 .panel-surface .detail-section + .detail-section,
 .panel-surface .pm-section + .pm-section {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 26px;
+  padding-top: 20px;
   border-top: 1px solid var(--hairline);
 }
 .panel-surface .detail-h,
@@ -2626,11 +2677,26 @@ button:hover,
 }
 /* 空态收窄：右栏不需要占半屏的插画卡（设置面板里也没有这种大插画） */
 .panel-surface .empty.illu {
-  margin: 6px 0 0;
-  padding: 12px 8px;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  column-gap: 10px;
+  align-items: center;
+  margin: 0;
+  padding: 10px 0;
+  text-align: left;
   border: 0;
   background: transparent;
+}
+.panel-surface .empty.illu .illu-icon {
+  grid-row: span 2;
+  width: 22px;
+  height: 22px;
+}
+.panel-surface .empty.illu .illu-text {
+  align-self: end;
+}
+.panel-surface .empty.illu .illu-hint {
+  align-self: start;
 }
 .panel-surface .empty.illu .illu-text {
   font-size: 13px;
