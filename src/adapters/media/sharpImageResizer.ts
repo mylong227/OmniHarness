@@ -102,8 +102,7 @@ export class SharpImageResizer implements ImageResizerPort {
       const longEdge = Math.max(width, height);
       // `preferFormat` 与源格式不同 ⇒ **即使体积/尺寸没超限也重编码**：调用方要的是「换格式省体积」，
       // 不是「只在超限时才救急」。截图（PNG，几百 KB）正属于这种：尺寸没超、但 base64 太大。
-      const wantsReencode =
-        request.preferFormat !== undefined && request.preferFormat !== format;
+      const wantsReencode = request.preferFormat !== undefined && request.preferFormat !== format;
       const oversized =
         request.bytes.byteLength > request.maxBytes ||
         longEdge > request.maxDimension ||

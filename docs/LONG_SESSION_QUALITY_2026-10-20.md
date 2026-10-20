@@ -25,27 +25,27 @@
 
 ### 1.1 口径
 
-| 指标 | 定义 |
-| --- | --- |
-| 真实会话 | 至少有一条 `model` 事件的会话；mock 会话没有 `model` 事件 |
-| 有效时长 | 墙钟 − 空闲间隔（>5 分钟且间隔之后是 `user` 事件的间隔） |
-| 结果冗余 | 同一「工具名 + 结果内容 FNV 指纹」在会话内第 2 次及以后出现 |
-| 缓存命中 | `cachedPromptTokens / promptTokens` |
-| 成本 | 按 `deepseek-v4-flash` 公开单价 0.30 / 1.20 / 0.006 USD per 1M **估算** |
+| 指标     | 定义                                                                    |
+| -------- | ----------------------------------------------------------------------- |
+| 真实会话 | 至少有一条 `model` 事件的会话；mock 会话没有 `model` 事件               |
+| 有效时长 | 墙钟 − 空闲间隔（>5 分钟且间隔之后是 `user` 事件的间隔）                |
+| 结果冗余 | 同一「工具名 + 结果内容 FNV 指纹」在会话内第 2 次及以后出现             |
+| 缓存命中 | `cachedPromptTokens / promptTokens`                                     |
+| 成本     | 按 `deepseek-v4-flash` 公开单价 0.30 / 1.20 / 0.006 USD per 1M **估算** |
 
 ### 1.2 八个真实会话
 
-| 会话 | 日期 | 有效/墙钟 | 调用 | prompt | 缓存 | 输出 | ctxMax | 压缩 | 冗余 | 失败 | 成本 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mvf6q61y`（鹈鹕） | 10-19 | 1235s / 1235s | 45 | 3.31M | **92.5%** | 92.5k | 83.1k | 0 | 1 | 12 | $0.20 |
-| `mv6rkj0k` | 10-13 | 356s / 356s | 17 | 124.9k | 41.9% | 7.9k | 7.7k | 1 | **43** | 0 | $0.03 |
-| `mv88ycm7` | 10-14 | 333s / 333s | 51 | 408.4k | 74.3% | 29.5k | 9.9k | 1 | **59** | 0 | $0.07 |
-| `mv9nl59c` | 10-15 | 237s / 237s | 34 | 1.26M | 83.9% | 25.6k | 57.0k | 0 | 0 | 0 | $0.10 |
-| `mv8b8k5j` | 10-14/15 | **135s / 8.16h** | 34 | 1.11M | 88.0% | 18.6k | 49.7k | 0 | 0 | 5 | $0.07 |
-| `mv6uvoyd` | 10-13 | 81s / 81s | 17 | 139.2k | 58.0% | 12.1k | 8.0k | 1 | **34** | 2 | $0.03 |
-| `mv8a0fso` | 10-15 | 9s / 9s | 4 | 22.9k | 56.0% | 0.3k | 5.7k | 0 | 0 | 1 | $0.00 |
-| `mve1s8c6` | 10-15 | 5s / 5s | 3 | 20.3k | 39.7% | 0.3k | 6.5k | 0 | 0 | 0 | $0.00 |
-| **合计** | | **39.9 min** | **205** | **6.39M** | 86.8% | **186.8k** | | 3 | **137** | 20 | **$0.51** |
+| 会话               | 日期     | 有效/墙钟        | 调用    | prompt    | 缓存      | 输出       | ctxMax | 压缩 | 冗余    | 失败 | 成本      |
+| ------------------ | -------- | ---------------- | ------- | --------- | --------- | ---------- | ------ | ---- | ------- | ---- | --------- |
+| `mvf6q61y`（鹈鹕） | 10-19    | 1235s / 1235s    | 45      | 3.31M     | **92.5%** | 92.5k      | 83.1k  | 0    | 1       | 12   | $0.20     |
+| `mv6rkj0k`         | 10-13    | 356s / 356s      | 17      | 124.9k    | 41.9%     | 7.9k       | 7.7k   | 1    | **43**  | 0    | $0.03     |
+| `mv88ycm7`         | 10-14    | 333s / 333s      | 51      | 408.4k    | 74.3%     | 29.5k      | 9.9k   | 1    | **59**  | 0    | $0.07     |
+| `mv9nl59c`         | 10-15    | 237s / 237s      | 34      | 1.26M     | 83.9%     | 25.6k      | 57.0k  | 0    | 0       | 0    | $0.10     |
+| `mv8b8k5j`         | 10-14/15 | **135s / 8.16h** | 34      | 1.11M     | 88.0%     | 18.6k      | 49.7k  | 0    | 0       | 5    | $0.07     |
+| `mv6uvoyd`         | 10-13    | 81s / 81s        | 17      | 139.2k    | 58.0%     | 12.1k      | 8.0k   | 1    | **34**  | 2    | $0.03     |
+| `mv8a0fso`         | 10-15    | 9s / 9s          | 4       | 22.9k     | 56.0%     | 0.3k       | 5.7k   | 0    | 0       | 1    | $0.00     |
+| `mve1s8c6`         | 10-15    | 5s / 5s          | 3       | 20.3k     | 39.7%     | 0.3k       | 6.5k   | 0    | 0       | 0    | $0.00     |
+| **合计**           |          | **39.9 min**     | **205** | **6.39M** | 86.8%     | **186.8k** |        | 3    | **137** | 20   | **$0.51** |
 
 两个结构性事实：
 
@@ -76,11 +76,11 @@
 
 ### 3.1 现场
 
-| 会话 | ctxMax | 压缩次数 | 冗余 | 缓存 |
-| --- | --- | --- | --- | --- |
-| `mv6rkj0k` | 7,672 | 1 | 43 / 74 工具结果 | 41.9% |
-| `mv88ycm7` | 9,855 | 1 | 59 / 102 | 74.3% |
-| `mv6uvoyd` | 7,963 | 1 | 34 / 103 | 58.0% |
+| 会话       | ctxMax | 压缩次数 | 冗余             | 缓存  |
+| ---------- | ------ | -------- | ---------------- | ----- |
+| `mv6rkj0k` | 7,672  | 1        | 43 / 74 工具结果 | 41.9% |
+| `mv88ycm7` | 9,855  | 1        | 59 / 102         | 74.3% |
+| `mv6uvoyd` | 7,963  | 1        | 34 / 103         | 58.0% |
 
 具体形态（`mv88ycm7`）：
 
@@ -131,12 +131,12 @@ LoopGuard 原本只认两类重复：
 
 把历史会话按步回放（同一模型行为固定，只看检测器会不会响）：
 
-| 会话 | 触发点 | 若不修复会浪费 |
-| --- | --- | --- |
-| `mv6rkj0k` | 第 8、15 步 `redundant-result` | 17 步里 43 次冗余结果 |
-| `mv88ycm7` | 第 7/14/22/26/32/36/40/48 步冗余 + 2 次 cycle | 51 步里 59 次冗余 |
-| `mv6uvoyd` | 第 9、14 步 `redundant-result` | 17 步里 34 次冗余 |
-| **鹈鹕** | **0 次** | 45 步里仅 1 次（合法复查） |
+| 会话       | 触发点                                        | 若不修复会浪费             |
+| ---------- | --------------------------------------------- | -------------------------- |
+| `mv6rkj0k` | 第 8、15 步 `redundant-result`                | 17 步里 43 次冗余结果      |
+| `mv88ycm7` | 第 7/14/22/26/32/36/40/48 步冗余 + 2 次 cycle | 51 步里 59 次冗余          |
+| `mv6uvoyd` | 第 9、14 步 `redundant-result`                | 17 步里 34 次冗余          |
+| **鹈鹕**   | **0 次**                                      | 45 步里仅 1 次（合法复查） |
 
 回放里第一次 nudge 在 `mv6rkj0k` 第 8 步——如果能在那时打断，后面 9 步（含 43 次冗余结果
 中的大部分）就不必发生。鹈鹕的 0 触发说明没有误伤：`apply_patch` 连续 4 次相同**状态文案**
@@ -182,10 +182,10 @@ LoopGuard 原本只认两类重复：
 
 ## 7. 病灶四：prompt cache 与压缩经济学
 
-| 阶段 | 缓存命中 | 说明 |
-| --- | --- | --- |
-| pre-fix 3 会话 | 41.9% / 58.0% / 74.3% | 每次压缩重写摘要 + 丢弃 tail ⇒ 前缀反复失效 |
-| post-fix 3 会话 | **92.5% / 83.9% / 88.0%** | 稳定增长的前缀，缓存几乎全中 |
+| 阶段            | 缓存命中                  | 说明                                        |
+| --------------- | ------------------------- | ------------------------------------------- |
+| pre-fix 3 会话  | 41.9% / 58.0% / 74.3%     | 每次压缩重写摘要 + 丢弃 tail ⇒ 前缀反复失效 |
+| post-fix 3 会话 | **92.5% / 83.9% / 88.0%** | 稳定增长的前缀，缓存几乎全中                |
 
 两笔额外成本：
 
@@ -230,29 +230,29 @@ LoopGuard 原本只认两类重复：
 
 ## 10. 其它长会话缺口（按性价比）
 
-| # | 缺口 | 证据 | 建议 | 优先级 |
-| --- | --- | --- | --- | --- |
-| 1 | mock 会话污染列表/统计 | 144/152 | `session_meta` 记 adapter；列表过滤/归档 | P0 |
-| 2 | 存档内联 base64 | 6.28 MiB / 会话 | 附件外置 + head/tail 扫描 | P1 |
-| 3 | 墙钟 ≠ 有效时长 | 8.16h vs 135s | 统计/UI 用有效时长 | P1 |
-| 4 | 无软时限/输出上限 | 20k token 首调 | 可配置 deadline + max_tokens | P1 |
-| 5 | 图片 token 不入账 | 107.6k vs 83.1k | 每图保守常数或 provider 回填 | P2 |
-| 6 | nudge 污染查询文本 | LoopGuard nudge 记为 user | 加 `synthetic` 标记，`deriveQueryText` 跳过 | P2 |
-| 7 | `deepseek-flash` 未定价 | 兜底价高估 10× | 价目别名 | P2 |
-| 8 | repo-map 对非代码任务无意义 | 鹈鹕 reasoning 6 次「无关」 | 任务类型判定或首步后降级 | P3 |
-| 9 | `dailyUsage` 全量扫描 | 每次读所有文件 | 复用 `SessionScanCache.readUsage` | P3 |
-| 10 | `turn_diff` 漏 shell 删除 | `_preview_server.js` | mtime 指纹或专用删除工具 | P3 |
+| #   | 缺口                        | 证据                        | 建议                                        | 优先级 |
+| --- | --------------------------- | --------------------------- | ------------------------------------------- | ------ |
+| 1   | mock 会话污染列表/统计      | 144/152                     | `session_meta` 记 adapter；列表过滤/归档    | P0     |
+| 2   | 存档内联 base64             | 6.28 MiB / 会话             | 附件外置 + head/tail 扫描                   | P1     |
+| 3   | 墙钟 ≠ 有效时长             | 8.16h vs 135s               | 统计/UI 用有效时长                          | P1     |
+| 4   | 无软时限/输出上限           | 20k token 首调              | 可配置 deadline + max_tokens                | P1     |
+| 5   | 图片 token 不入账           | 107.6k vs 83.1k             | 每图保守常数或 provider 回填                | P2     |
+| 6   | nudge 污染查询文本          | LoopGuard nudge 记为 user   | 加 `synthetic` 标记，`deriveQueryText` 跳过 | P2     |
+| 7   | `deepseek-flash` 未定价     | 兜底价高估 10×              | 价目别名                                    | P2     |
+| 8   | repo-map 对非代码任务无意义 | 鹈鹕 reasoning 6 次「无关」 | 任务类型判定或首步后降级                    | P3     |
+| 9   | `dailyUsage` 全量扫描       | 每次读所有文件              | 复用 `SessionScanCache.readUsage`           | P3     |
+| 10  | `turn_diff` 漏 shell 删除   | `_preview_server.js`        | mtime 指纹或专用删除工具                    | P3     |
 
 ---
 
 ## 11. 本轮改动与验证
 
-| 改动 | 文件 | 判据 |
-| --- | --- | --- |
-| 结果指纹冗余检测 + 全量关闭路径 | `src/core/loop/loopGuard.ts`、`src/core/agent.ts` | 新增 3 条单测（触发 / 不误伤 / 关闭） |
-| 结果观测接线 | `src/core/stepRunner.ts`、`src/core/turnRunner.ts` | `tsc --noEmit` + LoopGuard 回放 |
-| 压缩摘要确定性台账 | `src/context/contextCompactor.ts` | 新增 1 条单测（聚合 ×N / 失败计数 / 预算门控） |
-| 会话遥测工具 | `tools/sessionTelemetry.mjs` | 本报告全部数字由它产出 |
+| 改动                            | 文件                                               | 判据                                           |
+| ------------------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| 结果指纹冗余检测 + 全量关闭路径 | `src/core/loop/loopGuard.ts`、`src/core/agent.ts`  | 新增 3 条单测（触发 / 不误伤 / 关闭）          |
+| 结果观测接线                    | `src/core/stepRunner.ts`、`src/core/turnRunner.ts` | `tsc --noEmit` + LoopGuard 回放                |
+| 压缩摘要确定性台账              | `src/context/contextCompactor.ts`                  | 新增 1 条单测（聚合 ×N / 失败计数 / 预算门控） |
+| 会话遥测工具                    | `tools/sessionTelemetry.mjs`                       | 本报告全部数字由它产出                         |
 
 运行结果：
 
@@ -267,19 +267,19 @@ LoopGuard 原本只认两类重复：
 
 按上一节清单逐项实现（除附件外置，见 §13）：
 
-| 原项 | 实现 | 位置 | 判据 |
-| --- | --- | --- | --- |
-| P0 mock 会话 | 新会话 `session_meta.model` 记模型名；旧存档按 `mock_call_` / 「模拟模型适配器输出」识别；`list` 默认过滤，`includeMock:true` 才列出 | `eventFactory.ts`、`sessionRecorder.ts`、`agent.ts`、`sessionScanCache.ts`、`sessionArchive.ts`、`appServer.ts` | `sessionArchive.test.ts` 新增 1 条（隐藏/包含/标记） |
-| P1 有效时长 | 摘要新增 `activeMs` + `idleGaps`（>5 分钟且后接 user 的间隔剔除） | `sessionScanCache.ts` | 同上（10s+5s，剔除 1 小时挂机） |
-| P1 软时限 | `LoopGuard.softDeadlineMs`：到点只 nudge 收尾；`Agent` 默认 **30 min 软 / 60 min 硬**，`OMNI_LOOP_SOFT_MS` / `OMNI_LOOP_MAX_MS` 可调（0 = 关） | `loopGuard.ts`、`agent.ts` | `loopGuard.test.ts` 新增 1 条（软 nudge / 硬 abort） |
-| P1 输出上限 | `ModelRequest.maxOutputTokens` → OpenAI `max_tokens` / Anthropic `max_tokens`（不低于 thinking 地板）；`OMNI_MAX_OUTPUT_TOKENS` 配置（默认关） | `modelRequest.ts`、`stepTypes.ts`、`stepRunner.ts`、`agent.ts`、`openAiCompatibleModel.ts`、`anthropicModel.ts` | `modelOutputCap.test.ts`（透传 / 未设不发） |
-| P2 图片 token | 压缩预算按 **1600 token/张** 扣减（不改 TokenEstimator 的对外记账，避免 Rust 镜像漂移） | `contextCompactor.ts` | `contextCompactor.test.ts` 新增 1 条（纯文本不压、加图就压） |
-| P2 nudge synthetic | user 事件新增 `payload.synthetic`；`deriveQueryText` 跳过合成消息 | `eventFactory.ts`、`sessionRecorder.ts`、`turnRunner.ts`、`stepContextBuilder.ts` | `toolCatalogSnapshot.test.ts` 新增 1 条（nudge 的「文件」不得翻转工具表） |
-| P2 定价别名 | `deepseek-flash` 精确命中 0.30/1.20/0.006 | `routePricing.ts` | `routePricingDefaults.test.ts` 新增 1 条 |
-| P3 repo-map | `shouldBuildRepoMap` 任务形状闸：视觉/创作且无代码信号 ⇒ 跳过（剔除「不需要测试」否定短语） | `stepContextBuilder.ts` | `repoMapTaskGate.test.ts` 2 条 |
-| P3 dailyUsage | 按 `(mtime,size,dayKey)` 缓存单文件当日用量 | `sessionArchive.ts` | `sessionArchive.test.ts` 新增 1 条（追加后失效） |
-| P3 turn_diff | 单目标 `del/erase/rm` 渲染为全量删除行；其他可能写盘的 shell（copy/move/重定向/脚本/安装）让 diff 失效 | `turnDiffHooks.ts` | `turnDiffTracker.test.ts` 新增 3 条（分类/删除/invalidate） |
-| P1 附件外置 | `JsonlStorage` 落盘/追加时把 >256K 字符的 `files[].data` 移到全局 `sessions/attachments/<sha256>.<ext>`；事件只留 `path`；`ContextAssembler` 投影时按路径水合 | `sessionAttachmentSpiller.ts`、`jsonlStorage.ts`、`contextAssembler.ts`、`fileAttachment.ts` | `sessionAttachmentSpill.test.ts` 2 条（存档不含 base64 / 回放水合一致 / 小附件内联） |
+| 原项               | 实现                                                                                                                                                          | 位置                                                                                                            | 判据                                                                                 |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| P0 mock 会话       | 新会话 `session_meta.model` 记模型名；旧存档按 `mock_call_` / 「模拟模型适配器输出」识别；`list` 默认过滤，`includeMock:true` 才列出                          | `eventFactory.ts`、`sessionRecorder.ts`、`agent.ts`、`sessionScanCache.ts`、`sessionArchive.ts`、`appServer.ts` | `sessionArchive.test.ts` 新增 1 条（隐藏/包含/标记）                                 |
+| P1 有效时长        | 摘要新增 `activeMs` + `idleGaps`（>5 分钟且后接 user 的间隔剔除）                                                                                             | `sessionScanCache.ts`                                                                                           | 同上（10s+5s，剔除 1 小时挂机）                                                      |
+| P1 软时限          | `LoopGuard.softDeadlineMs`：到点只 nudge 收尾；`Agent` 默认 **30 min 软 / 60 min 硬**，`OMNI_LOOP_SOFT_MS` / `OMNI_LOOP_MAX_MS` 可调（0 = 关）                | `loopGuard.ts`、`agent.ts`                                                                                      | `loopGuard.test.ts` 新增 1 条（软 nudge / 硬 abort）                                 |
+| P1 输出上限        | `ModelRequest.maxOutputTokens` → OpenAI `max_tokens` / Anthropic `max_tokens`（不低于 thinking 地板）；`OMNI_MAX_OUTPUT_TOKENS` 配置（默认关）                | `modelRequest.ts`、`stepTypes.ts`、`stepRunner.ts`、`agent.ts`、`openAiCompatibleModel.ts`、`anthropicModel.ts` | `modelOutputCap.test.ts`（透传 / 未设不发）                                          |
+| P2 图片 token      | 压缩预算按 **1600 token/张** 扣减（不改 TokenEstimator 的对外记账，避免 Rust 镜像漂移）                                                                       | `contextCompactor.ts`                                                                                           | `contextCompactor.test.ts` 新增 1 条（纯文本不压、加图就压）                         |
+| P2 nudge synthetic | user 事件新增 `payload.synthetic`；`deriveQueryText` 跳过合成消息                                                                                             | `eventFactory.ts`、`sessionRecorder.ts`、`turnRunner.ts`、`stepContextBuilder.ts`                               | `toolCatalogSnapshot.test.ts` 新增 1 条（nudge 的「文件」不得翻转工具表）            |
+| P2 定价别名        | `deepseek-flash` 精确命中 0.30/1.20/0.006                                                                                                                     | `routePricing.ts`                                                                                               | `routePricingDefaults.test.ts` 新增 1 条                                             |
+| P3 repo-map        | `shouldBuildRepoMap` 任务形状闸：视觉/创作且无代码信号 ⇒ 跳过（剔除「不需要测试」否定短语）                                                                   | `stepContextBuilder.ts`                                                                                         | `repoMapTaskGate.test.ts` 2 条                                                       |
+| P3 dailyUsage      | 按 `(mtime,size,dayKey)` 缓存单文件当日用量                                                                                                                   | `sessionArchive.ts`                                                                                             | `sessionArchive.test.ts` 新增 1 条（追加后失效）                                     |
+| P3 turn_diff       | 单目标 `del/erase/rm` 渲染为全量删除行；其他可能写盘的 shell（copy/move/重定向/脚本/安装）让 diff 失效                                                        | `turnDiffHooks.ts`                                                                                              | `turnDiffTracker.test.ts` 新增 3 条（分类/删除/invalidate）                          |
+| P1 附件外置        | `JsonlStorage` 落盘/追加时把 >256K 字符的 `files[].data` 移到全局 `sessions/attachments/<sha256>.<ext>`；事件只留 `path`；`ContextAssembler` 投影时按路径水合 | `sessionAttachmentSpiller.ts`、`jsonlStorage.ts`、`contextAssembler.ts`、`fileAttachment.ts`                    | `sessionAttachmentSpill.test.ts` 2 条（存档不含 base64 / 回放水合一致 / 小附件内联） |
 
 验证：`tsc --noEmit` 通过、ESLint（改动文件）通过、**22 个测试文件 191 条全绿**。
 
