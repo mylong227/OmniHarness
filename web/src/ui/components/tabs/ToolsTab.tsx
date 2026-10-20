@@ -4,6 +4,7 @@
 
 import { emptyState } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
+import { toolVerb } from '../../textUtils.ts';
 import type { ToolItem } from '../../shared.ts';
 import { t } from '../../i18n/i18n.ts';
 
@@ -42,15 +43,15 @@ export function ToolsTab(props: ToolsTabProps): ReactElement {
   }
   return (
     <div id="toolList">
-      {toolItems.map((t) => (
+      {toolItems.map((item) => (
         <div
-          key={t.callId}
-          className={'tool-item ' + t.status}
-          onClick={() => onShowTool(t.callId)}
+          key={item.callId}
+          className={'tool-item ' + item.status}
+          onClick={() => onShowTool(item.callId)}
         >
           <span className="dot"></span>
-          <span>{t.name}</span>
-          <span className="state">{statusText(t.status)}</span>
+          <span>{t(toolVerb(item.name))}</span>
+          <span className="state">{statusText(item.status)}</span>
         </div>
       ))}
     </div>

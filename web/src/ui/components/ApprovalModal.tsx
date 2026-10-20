@@ -12,6 +12,7 @@
 import * as React from 'react';
 import { jsonView } from '../format.ts';
 import { icon } from '../models/Icon.ts';
+import { toolVerb } from '../textUtils.ts';
 import type { ApprovalRequest } from '../../types/models.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -71,6 +72,7 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
 
   if (!approval) return <div className="overlay" style={HIDDEN}></div>;
   const args = approval.args != null ? jsonView(approval.args) : '';
+  const toolLabel = approval.toolName ? t(toolVerb(approval.toolName)) : '?';
   return (
     <div className="overlay show" onKeyDown={onKeyDown}>
       <div
@@ -83,7 +85,7 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
         <h3 id="ap-title">
           {icon('shield-alert', { size: 16 })} {t('工具审批请求')}
         </h3>
-        <div className="meta">{t('工具：{name}', { name: approval.toolName || '?' })}</div>
+        <div className="meta">{t('工具：{name}', { name: toolLabel })}</div>
         <div className="meta">{t('目标：{name}', { name: approval.target || '—' })}</div>
         <pre id="ap-desc">{args}</pre>
         <div className="actions">

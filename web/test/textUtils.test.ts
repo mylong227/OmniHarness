@@ -38,6 +38,67 @@ test('describeToolCall 映射已知工具为人话动作', () => {
   assert.strictEqual(describeToolCall('unknown_tool', {}), '调用工具');
 });
 
+test('全部内建工具都有中文动作，任何一条都不返回接口名', () => {
+  const names = [
+    'read_file',
+    'list_dir',
+    'glob',
+    'grep',
+    'write_file',
+    'edit',
+    'apply_patch',
+    'patch_candidates',
+    'workflow_memory',
+    'shell',
+    'shell_job',
+    'shell_interactive',
+    'run_code',
+    'delegate',
+    'a2a_delegate',
+    'subagent',
+    'browser_screenshot',
+    'rollback',
+    'checkpoint',
+    'remember',
+    'recall',
+    'memory_search',
+    'todo_write',
+    'todo_read',
+    'capability_metadata',
+    'plan_read',
+    'plan_write',
+    'plan_present',
+    'ask_user',
+    'tool_search',
+    'spill_read',
+    'budget_status',
+    'sketch_write',
+    'view_image',
+    'view_media',
+    'web_search',
+    'web_fetch',
+    'policy_eval',
+    'agent_identity',
+    'run_goal',
+    'run_workflow',
+    'registry',
+    'lsp_go_to_definition',
+    'lsp_find_references',
+    'lsp_hover',
+    'lsp_status',
+    'lsp_diagnostics',
+    'lsp_document_symbols',
+    'lsp_code_action',
+    'lsp_workspace_symbols',
+  ];
+  for (const name of names) {
+    const action = describeToolCall(name, {});
+    assert.ok(!action.includes(name), `${name} 仍直接显示接口名：${action}`);
+    assert.notStrictEqual(action, '调用工具', `${name} 缺少中文动作映射`);
+    assert.notStrictEqual(toolVerb(name), '调用', `${name} 缺少中文步骤标签`);
+  }
+});
+
 test('toolVerb / toolSubject：步骤行是「动作标签 + 对象」，不出现工具名', () => {
   assert.strictEqual(toolVerb('read_file'), '读取');
   assert.strictEqual(toolVerb('write_file'), '写入');

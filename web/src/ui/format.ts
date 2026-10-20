@@ -5,6 +5,7 @@ import * as React from 'react';
 import { markdownRender, markdownLibsReady, handleCodeblockCopyClick } from './markdown.ts';
 import { icon } from './models/Icon.ts';
 import { parseTurnDiffFiles, turnDiffTotals } from './models/TurnDiffFiles.ts';
+import { describeToolCall, truncate } from './textUtils.ts';
 import type { IconName } from './models/Icon.ts';
 import type { ThreadEvent } from '../types/models.ts';
 import { t } from './i18n/i18n.ts';
@@ -288,12 +289,9 @@ export function detailSummary(
 ): string {
   switch (ev.type) {
     case 'tool_call': {
-      const ks = p.args ? Object.keys(p.args as Record<string, unknown>) : [];
       const name = (p.name as string) || 'tool';
-      return (
-        name +
-        (ks.length ? '(' + ks.slice(0, 3).join(', ') + (ks.length > 3 ? '…' : '') + ')' : '')
-      );
+      // 详情列表同样走人话动作：不再把 `memory_search(path, limit…)` 这种接口签名甩给用户。
+      return truncate(describeToolCall(name, p.args), 140);
     }
     case 'tool_result':
       return (
