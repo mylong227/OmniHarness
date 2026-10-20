@@ -3737,3 +3737,47 @@ button,
   -webkit-backdrop-filter: blur(10px) saturate(1.06);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-soft) 45%, transparent);
 }
+
+/* =========================================================================
+   2026-10-20 用户：所有按钮颜色要符合主题、舒适、不冲击
+   -------------------------------------------------------------------------
+   主操作不再用实心 accent/err，统一改成「12% 语义色淡底 + 同色文字 + 30–38% 细边」。
+   这套已经是 .btn.primary 在 2026-10-18 调整后的口径，现在扩到 send / allow /
+   dlg-confirm / qask-submit，并用 :hover 只加深到 18%，不换反色白字。
+   ========================================================================= */
+.send,
+.send.round,
+.btn.primary,
+[data-theme='dark'] .btn.primary,
+[data-theme='light'] .btn.primary,
+.dlg .dlg-confirm,
+.modal .actions .allow,
+.qask-submit {
+  background-color: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+  font-weight: 600;
+}
+.send:hover:not(:disabled),
+.send.round:hover:not(:disabled),
+.btn.primary:hover:not(:disabled),
+[data-theme='dark'] .btn.primary:hover:not(:disabled),
+[data-theme='light'] .btn.primary:hover:not(:disabled),
+.dlg .dlg-confirm:hover:not(:disabled),
+.modal .actions .allow:hover,
+.qask-submit:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent) 18%, var(--panel));
+  color: var(--accent);
+  opacity: 1;
+}
+.send.round:disabled {
+  background-color: var(--panel-2);
+  color: var(--faint);
+  border-color: var(--border-soft);
+}
+.dlg .dlg-confirm.danger {
+  background-color: var(--panel-2);
+  color: var(--err);
+  border-color: color-mix(in srgb, var(--err) 42%, transparent);
+}
+
