@@ -1,11 +1,9 @@
 /**
- * A2A 互操作协议（U6 场间共振委托通道）。
+ * **私有** agent 间委托协议（U6 场间共振委托通道）。
  *
- * 定义 agent 之间「能力声明 → 任务委托 → 结果回传」的最小 JSON-RPC 协议，
- * 以及可插拔的传输层抽象。协议与传输解耦：同一套消息既可在内存双端（测试）、
- * 也可在 HTTP/WebSocket（生产）上跑，fail-closed 由两端门禁保证。
- *
- * 无第三方依赖（仅复用 server/jsonRpc 消息类型）。
+ * ⚠️ INT-05（2026-10-20）：本文件定义的是 `capabilities.declare` / `task.delegate` 私有方法，
+ * **不是 A2A v1.0 规范**。A2A v1.0 互操作面（`message/send` / `tasks/get` / `agent/getCard`）
+ * 实现在 `A2aServer` 的 v1 分支；两者共用同一 `TaskHandler`，但协议名不得混称。
  */
 
 export type { A2aTransport } from '../ports/a2a/a2aTransport.ts';
@@ -14,6 +12,41 @@ export type { A2aTransport } from '../ports/a2a/a2aTransport.ts';
 export const A2A_CAPABILITIES_DECLARE = 'capabilities.declare';
 /** 任务委托方法名。 */
 export const A2A_TASK_DELEGATE = 'task.delegate';
+/** A2A v1.0：发送消息（任务入口）。 */
+export const A2A_MESSAGE_SEND = 'message/send';
+/** A2A v1.0：查询任务。 */
+export const A2A_TASKS_GET = 'tasks/get';
+/** A2A v1.0：取 AgentCard。 */
+export const A2A_AGENT_GET_CARD = 'agent/getCard';
+
+/** A2A v1.0 AgentCard（最小互操作面）。 */
+export interface A2aAgentCard {
+  readonly name: string;
+  readonly description: string;
+  readonly version: string;
+  readonly url?: string;
+  readonly capabilities?: { readonly streaming?: boolean; readonly pushNotifications?: boolean };
+  readonly skills?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly description?: string;
+  }[];
+}
+
+/** A2A v1.0 Task 状态。 */
+export type A2aTaskState = 'submitted' | 'working' | 'completed' | 'failed' | 'canceled';
+
+/** A2A v1.0 Task（最小互操作面）。 */
+export interface A2aTask {
+  readonly id: string;
+  readonly contextId?: string;
+  readonly status: { readonly state: A2aTaskState; readonly timestamp?: string };
+  readonly artifacts?: readonly {
+    readonly artifactId?: string;
+    readonly parts: readonly { readonly type: 'text'; readonly text: string }[];
+  }[];
+  readonly error?: string;
+}
 
 /** 单条能力描述。 */
 export interface A2aCapability {

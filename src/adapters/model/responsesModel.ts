@@ -334,7 +334,14 @@ export class ResponsesModel implements ModelPort {
       text?: string;
       toolCalls?: readonly ModelToolCallRef[];
       usage?: ModelUsage;
+      finishReason?: string;
     } = {};
+    // LR-01：Responses 用 status/incomplete_details 表达结束原因；`max_output_tokens` = 截断。
+    if (body.status === 'incomplete' && body.incomplete_details?.reason === 'max_output_tokens') {
+      output.finishReason = 'length';
+    } else if (typeof body.status === 'string' && body.status !== '') {
+      output.finishReason = body.status === 'completed' ? 'stop' : body.status;
+    }
     const reasoning = this.collectReasoning(items);
     if (reasoning !== '') {
       output.reasoning = reasoning;
@@ -438,7 +445,7 @@ export class ResponsesModel implements ModelPort {
       }
       return;
     }
-    if (event.event === 'response.completed') {
+    if (event.event === 'response.completed' || event.event === 'response.incomplete') {
       const response = json['response'] as ResponsesResponse | undefined;
       if (response !== undefined) {
         state.completed = response;
@@ -511,6 +518,10 @@ export class ResponsesModel implements ModelPort {
 /** wire 层响应。 */
 interface ResponsesResponse {
   readonly id: string;
+  /** 响应状态（`completed` / `incomplete` / `failed`；LR-01）。 */
+  readonly status?: string;
+  /** 未完成原因（`max_output_tokens` 表示输出被截断；LR-01）。 */
+  readonly incomplete_details?: { readonly reason?: string } | null;
   readonly output?: readonly ResponsesOutputItem[];
   /** token 用量（#S29）。 */
   readonly usage?: {

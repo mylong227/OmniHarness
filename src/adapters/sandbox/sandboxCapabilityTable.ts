@@ -49,6 +49,7 @@ export class SandboxCapabilityTable {
     'seatbelt',
     'bwrap',
     'unshare',
+    'wsl-bwrap',
   ];
 
   private constructor() {}
@@ -171,6 +172,15 @@ export class SandboxCapabilityTable {
         'linux',
         'unshare',
         '安装 util-linux 提供 `unshare`（多数发行版自带）；需在 Linux 真机验证',
+      ),
+      SandboxCapabilityTable.osEntry(
+        'wsl-bwrap',
+        'wsl-bwrap',
+        platform === 'win32' && commandExists('wsl.exe'),
+        platform,
+        'win32',
+        'wsl.exe',
+        '需 WSL2 发行版内安装 bubblewrap（`wsl -e sudo apt install bubblewrap`）；本表只证明 wsl.exe 存在，不证明发行版已装 bwrap',
       ),
     ];
   }

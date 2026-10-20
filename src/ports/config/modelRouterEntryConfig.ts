@@ -9,4 +9,6 @@ export interface ModelRouterEntryConfig {
   readonly adapter?: string;
   /** 每千 token 定价（USD），least-cost 用。 */
   readonly pricing?: { readonly inputPer1k: number; readonly outputPer1k: number };
+  /** 该 entry 能接受的最大上下文 token（by-context 用；缺省不限）。 */
+  readonly maxContextTokens?: number;
 }

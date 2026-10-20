@@ -49,7 +49,15 @@ export interface CliArgs {
   /** 权限规则未命中时的默认裁决（A2，来自配置 permission.defaultDecision；缺省 allow，保持既有零行为变更）。 */
   permissionDefault?: PermissionRuleDecision | undefined;
   /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
-  sandbox: 'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap' | 'unshare';
+  sandbox:
+    | 'passthrough'
+    | 'policy'
+    | 'restricted'
+    | 'landlock'
+    | 'seatbelt'
+    | 'bwrap'
+    | 'unshare'
+    | 'wsl-bwrap';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
   escalation: 'deny' | 'ask' | 'auto';
   /** 提权后的复核沙箱（#G3/G4，默认 policy=fail-closed 收紧）：escalate 裁决后以此复核放行，危险命令/工作区外路径仍拦截。 */

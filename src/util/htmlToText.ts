@@ -8,6 +8,8 @@
  * ④ 剥掉剩余标签；⑤ 解实体码；⑥ 收敛空白。
  */
 
+import { createRequire } from 'node:module';
+
 /** 整块丢弃的标签（内容也不保留）。 */
 const DROPPED_BLOCKS = /<(script|style|noscript|template|svg)\b[^>]*>[\s\S]*?<\/\1>/gi;
 
@@ -53,6 +55,43 @@ const NAMED_ENTITIES: Readonly<Record<string, string>> = {
  * HTML 转文本（无状态，纯静态）。
  */
 export class HtmlToText {
+  /**
+   * 提取 HTML 可读文本（优先 Mozilla Readability，失败/过短时回退正则实现）。
+   *
+   * @param html 原始 HTML。
+   * @returns 正文文本。
+   */
+  public static async convertAsync(html: string): Promise<string> {
+    const article = await HtmlToText.withReadability(html);
+    return article !== undefined && article.length >= 40 ? article : HtmlToText.convert(html);
+  }
+
+  /**
+   * 用 Readability + linkedom 抽主文章；缺失/失败/过短时返回 undefined。
+   * @param html 原始 HTML。
+   * @returns 正文文本或 undefined。
+   */
+  private static async withReadability(html: string): Promise<string | undefined> {
+    try {
+      const require = createRequire(import.meta.url);
+      const { parseHTML } = require('linkedom') as {
+        parseHTML(html: string): { document: unknown };
+      };
+      const { Readability } = require('@mozilla/readability') as {
+        Readability: new (
+          document: unknown,
+          options: { charThreshold: number },
+        ) => { parse(): { textContent?: string } | null };
+      };
+      const { document } = parseHTML(html);
+      const parsed = new Readability(document, { charThreshold: 50 }).parse();
+      const text = parsed?.textContent?.replace(/\n{3,}/g, '\n\n').trim();
+      return text === undefined || text === '' ? undefined : text;
+    } catch {
+      return undefined;
+    }
+  }
+
   /**
    * 提取 HTML 的可读文本。
    *

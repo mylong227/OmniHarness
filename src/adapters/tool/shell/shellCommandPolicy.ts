@@ -33,6 +33,22 @@ export interface ShellCommandPolicyOptions {
 /** Windows 下可执行扩展名（归一化程序名时剥离）。 */
 const WIN_EXEC_EXT = /\.(exe|cmd|bat|com|ps1)$/i;
 
+/** 可发起网络外联的常见程序（SEC-02：`--network-allow` 开启时工具层也要拦）。 */
+const NETWORK_PROGRAMS: ReadonlySet<string> = new Set([
+  'curl',
+  'wget',
+  'nc',
+  'ncat',
+  'ssh',
+  'scp',
+  'rsync',
+  'certutil',
+  'bitsadmin',
+  'invoke-webrequest',
+  'iwr',
+  'invoke-restmethod',
+]);
+
 /**
  * shell 命令策略：解析命令结构并按配置裁决，返回拒绝原因或 `undefined`。
  */
@@ -88,6 +104,13 @@ export class ShellCommandPolicy {
     }
     for (const program of plan.programs) {
       const name = this.normalize(program);
+      // SEC-02：一旦配置了网络白名单，shell 子进程的带外通道必须一起收口（不能只包 fetch）。
+      if (process.env['OMNI_NETWORK_ALLOW'] !== undefined && NETWORK_PROGRAMS.has(name)) {
+        return (
+          `命令被工具层策略拒绝：\`${program}\` 属带外网络通道，不在 fetch 守卫覆盖范围内；` +
+          '请在白名单内使用受管 fetch，或改用 wget/curl 之外的工具。'
+        );
+      }
       if (this.denyPrograms.has(name)) {
         return this.violation(`程序 \`${program}\` 在拒绝名单中`);
       }

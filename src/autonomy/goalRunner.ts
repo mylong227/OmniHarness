@@ -1,5 +1,6 @@
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
 import { GoalChecker } from './goalChecker.ts';
+import { EvidenceLedger } from '../core/evidenceLedger.ts';
 import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.ts';
 
 /**
@@ -130,7 +131,15 @@ export class GoalRunner {
    * @returns 封装后的轮次结果
    */
   private async check(outcome: AgentResult, goal: string, iteration: number): Promise<GoalResult> {
-    const check = await this.checker.check(goal, outcome.finalText ?? '');
+    const evidence = EvidenceLedger.summarize(outcome.events);
+    // VER-03：有工具调用但全部失败 ⇒ 机械证据不通过，不让模型“嘴上达成”。
+    const mechanicallyVerified = !evidence.hasToolCalls || evidence.hasSuccessfulTool;
+    const check = await this.checker.check(goal, outcome.finalText ?? '', {
+      mechanicallyVerified,
+      ...(evidence.successfulTools.length > 0
+        ? { evidence: evidence.successfulTools.join('、') }
+        : {}),
+    });
     return {
       goal,
       achieved: check.achieved,

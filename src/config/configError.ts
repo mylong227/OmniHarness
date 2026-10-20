@@ -473,7 +473,16 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   // 具体厂商的合法值由 openaiCompatibleModel.bodyOf 在拼 wire 时再次校验，
   // 不在该厂商列表里的值会被清空（避免端点 400 "unknown variant"）。
   reasoning: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'],
-  sandbox: ['passthrough', 'policy', 'restricted', 'landlock', 'seatbelt', 'bwrap', 'unshare'],
+  sandbox: [
+    'passthrough',
+    'policy',
+    'restricted',
+    'landlock',
+    'seatbelt',
+    'bwrap',
+    'unshare',
+    'wsl-bwrap',
+  ],
   escalation: ['deny', 'ask', 'auto'],
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],
   // 界面语言（Web UI 设置「外观」栏切换，随配置落用户级 omniharness.json）。

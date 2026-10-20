@@ -17,6 +17,8 @@ import {
 } from './otlpTraceExporter.ts';
 import { TraceCollectingEventPort } from './traceCollectingEventPort.ts';
 import { TraceSpanBuilder } from './traceSpanBuilder.ts';
+import { OtlpMetricsExporter } from './otlpMetricsExporter.ts';
+import { MetricsCollectingEventPort } from './metricsCollectingEventPort.ts';
 
 /** trace 装配器（纯静态）。 */
 export class TraceExporterAssembly {
@@ -25,6 +27,9 @@ export class TraceExporterAssembly {
 
   /** 服务名环境变量名。 */
   public static readonly SERVICE_ENV = 'OMNI_OTLP_SERVICE_NAME';
+
+  /** OTLP metrics 端点环境变量名（OBS-01）。 */
+  public static readonly METRICS_ENDPOINT_ENV = 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT';
 
   private constructor() {}
 
@@ -39,15 +44,27 @@ export class TraceExporterAssembly {
     port: EventPort,
     env: Readonly<Record<string, string | undefined>> = process.env,
   ): EventPort {
-    const endpoint = (env[TraceExporterAssembly.ENDPOINT_ENV] ?? '').trim();
-    if (endpoint === '') {
-      return port;
+    let wrapped = port;
+    const traceEndpoint = (env[TraceExporterAssembly.ENDPOINT_ENV] ?? '').trim();
+    if (traceEndpoint !== '') {
+      wrapped = new TraceCollectingEventPort({
+        inner: wrapped,
+        exporter: TraceExporterAssembly.exporterFor(traceEndpoint, env),
+        builder: new TraceSpanBuilder(),
+      });
     }
-    return new TraceCollectingEventPort({
-      inner: port,
-      exporter: TraceExporterAssembly.exporterFor(endpoint, env),
-      builder: new TraceSpanBuilder(),
-    });
+    const metricsEndpoint = (env[TraceExporterAssembly.METRICS_ENDPOINT_ENV] ?? '').trim();
+    if (metricsEndpoint !== '') {
+      const service = (env[TraceExporterAssembly.SERVICE_ENV] ?? '').trim();
+      wrapped = new MetricsCollectingEventPort({
+        inner: wrapped,
+        exporter: new OtlpMetricsExporter({
+          endpoint: metricsEndpoint,
+          ...(service !== '' ? { serviceName: service } : {}),
+        }),
+      });
+    }
+    return wrapped;
   }
 
   /**
@@ -79,6 +96,9 @@ export class TraceExporterAssembly {
    * @returns 启用时为 true。
    */
   public static enabled(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
-    return (env[TraceExporterAssembly.ENDPOINT_ENV] ?? '').trim() !== '';
+    return (
+      (env[TraceExporterAssembly.ENDPOINT_ENV] ?? '').trim() !== '' ||
+      (env[TraceExporterAssembly.METRICS_ENDPOINT_ENV] ?? '').trim() !== ''
+    );
   }
 }

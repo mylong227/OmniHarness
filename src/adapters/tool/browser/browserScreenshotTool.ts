@@ -32,6 +32,8 @@ import type { FileAttachment } from '../../../ports/model/model.ts';
 import type { ImageResizerPort } from '../../../ports/media/imageResizer.ts';
 import type { ScreenshotRequest, ScreenshotResult } from '../../browser/browserSession.ts';
 import { BrowserSession } from '../../browser/browserSession.ts';
+import { PlaywrightBrowserSession } from '../../browser/playwrightBrowserSession.ts';
+import { log } from '../../../util/logger.ts';
 import { BrowserAvailability } from '../../browser/browserAvailability.ts';
 import type {
   BrowserAvailabilityInput,
@@ -162,9 +164,19 @@ export class BrowserScreenshotTool {
   public constructor(
     private readonly workspaceRoot: string,
     private readonly factory: ScreenshotSessionFactory = (): ScreenshotSession =>
-      new BrowserSession(),
+      BrowserScreenshotTool.defaultSession(),
     private readonly resizer?: ImageResizerPort,
   ) {}
+
+  /**
+   * 默认引擎：Playwright（商用可靠性：actionability/自动等待），`OMNI_BROWSER_ENGINE=cdp` 可降级。
+   * @returns 截图会话。
+   */
+  private static defaultSession(): ScreenshotSession {
+    return process.env.OMNI_BROWSER_ENGINE === 'cdp'
+      ? new BrowserSession()
+      : new PlaywrightBrowserSession();
+  }
 
   /**
    * 执行 browser_screenshot（并维护空闲关闭定时器）。
@@ -213,6 +225,35 @@ export class BrowserScreenshotTool {
   }
 
   /**
+   * 截图；Playwright 不可用/启动失败时回收会话并回退 CDP 再试一次（商用降级路径）。
+   * @param request 截图请求。
+   * @returns 截图结果或可读错误。
+   */
+  private async screenshotOrFallback(
+    request: ScreenshotRequest,
+  ): Promise<ScreenshotResult | { readonly error: string }> {
+    try {
+      return await this.requireSession().screenshot(request);
+    } catch (error) {
+      if (!(this.session instanceof PlaywrightBrowserSession)) {
+        return { error: BrowserScreenshotTool.failure(error) };
+      }
+      await this.close();
+      log.warn('browser.engine.fallback', {
+        from: 'playwright',
+        to: 'cdp',
+        error: String(error),
+      });
+      this.session = new BrowserSession();
+      try {
+        return await this.session.screenshot(request);
+      } catch (fallbackError) {
+        return { error: BrowserScreenshotTool.failure(fallbackError) };
+      }
+    }
+  }
+
+  /**
    * 真正的截图流程（`handle` 只负责定时器包装）。
    *
    * @param call 工具调用。
@@ -250,12 +291,11 @@ export class BrowserScreenshotTool {
       return { callId: call.id, ok: false, error: target.error };
     }
 
-    let shot: ScreenshotResult;
-    try {
-      shot = await this.requireSession().screenshot(request);
-    } catch (error) {
-      return { callId: call.id, ok: false, error: BrowserScreenshotTool.failure(error) };
+    const captured = await this.screenshotOrFallback(request);
+    if ('error' in captured) {
+      return { callId: call.id, ok: false, error: captured.error };
     }
+    const shot = captured;
     if (shot.png.byteLength > BrowserScreenshotTool.MAX_IMAGE_BYTES) {
       return {
         callId: call.id,

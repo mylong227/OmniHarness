@@ -127,6 +127,7 @@ export class ConfigBuilder {
       'least-cost',
       'round-robin',
       'by-task',
+      'by-context',
       'health-fallback',
     ]);
     if (!VALID_STRATEGIES.has(cfg.strategy)) {
@@ -141,6 +142,7 @@ export class ConfigBuilder {
       adapter: this.buildRouterAdapter(entry),
       model: entry.model,
       pricing: entry.pricing,
+      ...(entry.maxContextTokens !== undefined ? { maxContextTokens: entry.maxContextTokens } : {}),
     }));
     return new ModelRouter({
       entries,

@@ -12,17 +12,22 @@ import type { RpcMessage } from '../server/core/jsonRpc.ts';
 import { jsonRpc } from '../server/core/jsonRpc.ts';
 import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.ts';
 import type {
+  A2aAgentCard,
   A2aCapabilityDeclaration,
+  A2aTask,
   A2aTransport,
   DelegateRequest,
   DelegateResult,
 } from './a2aProtocol.ts';
 import {
+  A2A_AGENT_GET_CARD,
   A2A_CAPABILITIES_DECLARE,
   A2A_ERROR_INVALID,
   A2A_ERROR_METHOD_NOT_FOUND,
   A2A_ERROR_UNAUTHORIZED,
+  A2A_MESSAGE_SEND,
   A2A_TASK_DELEGATE,
+  A2A_TASKS_GET,
 } from './a2aProtocol.ts';
 
 /** 断言头的 `AgentAssertion ` 前缀（`AgentIdentityPort.authorizationHeader()` 的直接产物形态）。 */
@@ -46,6 +51,10 @@ export class A2aServer {
   private handler: TaskHandler | undefined;
   /** 已登记的对端能力声明表（agentId → 声明）。 */
   private readonly declarations = new Map<string, A2aCapabilityDeclaration>();
+  /** A2A v1.0 任务表（taskId → Task），供 `tasks/get` 查询。 */
+  private readonly tasks = new Map<string, A2aTask>();
+  /** A2A v1.0 AgentCard（可选；未设置时 `agent/getCard` fail-closed）。 */
+  private card: A2aAgentCard | undefined;
 
   /**
    * @param transport 底层传输端口（监听入站 JSON-RPC 并回写响应）。
@@ -66,6 +75,15 @@ export class A2aServer {
    */
   public setTaskHandler(handler: TaskHandler): void {
     this.handler = handler;
+  }
+
+  /**
+   * 设置 A2A v1.0 AgentCard（供 `agent/getCard` 返回）。
+   * @param card AgentCard。
+   * @returns 无返回值。
+   */
+  public setAgentCard(card: A2aAgentCard): void {
+    this.card = card;
   }
 
   /**
@@ -155,7 +173,71 @@ export class A2aServer {
       if (!this.verifyAssertion(req.assertion)) throw new Error('UNAUTHORIZED: 委托请求验签失败');
       return await this.handler.handle(req);
     }
+    // A2A v1.0 最小互操作面：message/send / tasks/get / agent/getCard。
+    if (method === A2A_MESSAGE_SEND) {
+      return await this.handleV1Message(params);
+    }
+    if (method === A2A_TASKS_GET) {
+      const id = (params as { id?: unknown }).id;
+      const task = typeof id === 'string' ? this.tasks.get(id) : undefined;
+      if (task === undefined) throw new Error(`未知任务: ${String(id)}`);
+      return task;
+    }
+    if (method === A2A_AGENT_GET_CARD) {
+      if (this.card === undefined) throw new Error('未配置 AgentCard');
+      return this.card;
+    }
     throw new Error(`未知方法: ${method}`);
+  }
+
+  /**
+   * 处理 A2A v1.0 `message/send`：把消息里的 text parts 交给 TaskHandler，返回 Task。
+   *
+   * 兼容口径：不强制要求 `kind`（v1.0 已删除该判别字段）；`contextId` 原样回传；
+   * 没有文本 part 时 fail-closed（不凭空造任务）。
+   * @param params `{ message: { parts: [{type:'text', text}], messageId? }, contextId? }`
+   * @returns 完成的 Task（成功带 artifacts，失败带 error）。
+   */
+  private async handleV1Message(params: unknown): Promise<A2aTask> {
+    if (this.handler === undefined) throw new Error('未配置任务处理器');
+    const payload = params as {
+      readonly message?: {
+        readonly parts?: readonly { readonly type?: string; readonly text?: string }[];
+        readonly messageId?: string;
+      };
+      readonly contextId?: string;
+    };
+    const text = (payload.message?.parts ?? [])
+      .filter((part) => part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text ?? '')
+      .join('\n')
+      .trim();
+    if (text === '') throw new Error('message/send 缺少文本 part');
+    const id =
+      payload.message?.messageId ?? `task-${String(Date.now())}-${String(this.tasks.size)}`;
+    const contextId = payload.contextId;
+    const result = await this.handler.handle({
+      taskId: id,
+      task: text,
+      ...(contextId !== undefined ? { parentSessionId: contextId } : {}),
+    });
+    const task: A2aTask = {
+      id,
+      ...(contextId !== undefined ? { contextId } : {}),
+      status: { state: result.ok ? 'completed' : 'failed', timestamp: new Date().toISOString() },
+      ...(result.ok
+        ? {
+            artifacts: [
+              {
+                artifactId: `${id}-output`,
+                parts: [{ type: 'text' as const, text: result.output }],
+              },
+            ],
+          }
+        : { error: result.error ?? '任务失败' }),
+    };
+    this.tasks.set(id, task);
+    return task;
   }
 }
 

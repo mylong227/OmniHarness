@@ -17,8 +17,10 @@
  * 零第三方依赖；只做「读文件 + 校验 + 合并」，不碰注册表（装配仍是 `ConfigFactory` 的事）。
  */
 import { readFileSync } from 'node:fs';
+import { basename } from 'node:path';
 
 import type { SkillEntry } from '../skill/skill.ts';
+import { SkillMdCodec } from '../skill/skillMdCodec.ts';
 import { ConfigError } from '../config/configError.ts';
 import type { CliArgs } from './argParser.ts';
 
@@ -72,10 +74,15 @@ export class CliSkillFlags {
     }
     let parsed: unknown;
     try {
+      // INT-04：`--skills path/to/SKILL.md` 直接吃 Agent Skills 目录格式；JSON 路径保持原行为。
+      if (path.toLowerCase().endsWith('.md')) {
+        return [SkillMdCodec.parse(text, basename(path, '.md'))];
+      }
       parsed = JSON.parse(text);
     } catch (error) {
+      const kind = path.toLowerCase().endsWith('.md') ? 'SKILL.md' : 'JSON';
       throw new Error(
-        `${source}: JSON 解析失败（${error instanceof Error ? error.message : String(error)}）`,
+        `${source}: ${kind} 解析失败（${error instanceof Error ? error.message : String(error)}）`,
       );
     }
     return ConfigError.normalizeSkillEntries(parsed, source);

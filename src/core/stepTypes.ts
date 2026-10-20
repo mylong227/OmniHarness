@@ -95,6 +95,16 @@ export interface StepRunnerDeps {
    */
   readonly maxOutputTokens?: number | undefined;
   /**
+   * 备用模型（可选，LR-04）：主模型连续 529/5xx 后切到它重试一次。
+   * 缺省 undefined = 不切换（保持单模型 fail-closed）；由组合根按配置注入。
+   */
+  readonly fallbackModel?: ModelPort | undefined;
+  /**
+   * 输出截断续写次数上限（LR-02，默认 3）：`finishReason='length'` 时续写，
+   * 超过上限仍截断则如实上抛，不无限续写。
+   */
+  readonly maxOutputRecoveries?: number | undefined;
+  /**
    * 工作区根路径（U2）：非空时每步从当前查询推导 repo-map 上下文注入系统消息。
    * 配合 repoMapEnabled（默认开）使用；env OMNI_REPO_MAP=0 由装配层置 false 关闭。
    */

@@ -1,4 +1,6 @@
 import { McpClient } from './mcpClient.ts';
+import { McpStatelessClient } from './mcpStatelessClient.ts';
+import { McpProtocolNegotiator } from './mcpProtocolNegotiator.ts';
 import { mcpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.ts';
 import type { McpConnectionHandle, McpConnectorPort } from '../ports/mcp/mcpConnectorPort.ts';
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
@@ -33,6 +35,25 @@ export interface McpConnectorOptions extends McpStdioServerOptions {
  */
 export class McpConnector implements McpConnectorPort {
   /**
+   * server 是否在允许清单内（SEC-04）。
+   *
+   * `OMNI_MCP_ALLOW` 为空/未设 ⇒ 不启用白名单（兼容既有配置）；设置后只允许逗号分隔的
+   * server 名，未登记一律拒连（fail-closed，而不是“先连上再问”）。
+   * @param name server 名。
+   * @param env 环境变量（测试可注入）。
+   * @returns 允许时为 true。
+   */
+  public static isAllowed(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
+    const raw = env['OMNI_MCP_ALLOW'];
+    if (raw === undefined || raw.trim() === '') return true;
+    return raw
+      .split(',')
+      .map((item) => item.trim())
+      .filter((item) => item !== '')
+      .includes(name);
+  }
+
+  /**
    * 建立连接（握手成功返回，失败关闭子进程并抛出）。
    * @param server 服务器配置（stdio 形态：command/args/env/cwd）。
    * @param timeoutMs 请求超时（毫秒；缺省 10000）。
@@ -42,6 +63,11 @@ export class McpConnector implements McpConnectorPort {
     server: McpServerConfig,
     timeoutMs?: number | undefined,
   ): Promise<McpConnection> {
+    if (!McpConnector.isAllowed(server.name)) {
+      throw new Error(
+        `MCP server "${server.name}" 不在 OMNI_MCP_ALLOW 白名单内（SEC-04 fail-closed）`,
+      );
+    }
     if (server.url !== undefined) {
       throw new Error(
         `手写 MCP 连接器只支持本地 stdio 服务器；"server.url=${server.url}" 需要官方 SDK 连接器` +
@@ -64,7 +90,10 @@ export class McpConnector implements McpConnectorPort {
     };
     const handle = mcpStdioTransport.launch(options);
     try {
-      const client = new McpClient({ transport: handle.transport, timeoutMs });
+      const client =
+        McpProtocolNegotiator.select() === 'stateless-v2'
+          ? new McpStatelessClient({ transport: handle.transport, timeoutMs })
+          : new McpClient({ transport: handle.transport, timeoutMs });
       const info = await Promise.race([client.initialize(), handle.failure]);
       // 关闭顺序有讲究：**先**拒绝在途请求（`client.close()`），**再**关传输/子进程。
       // 反过来的话，`Transport` 契约没有关闭通知 ⇒ 在途请求只能等各自超时（默认 10s）

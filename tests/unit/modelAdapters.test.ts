@@ -595,3 +595,42 @@ test('OpenAI 兼容：开启空闲超时时调用方取消仍能穿透守卫到�
   controller.abort();
   assert.strictEqual(captured?.signal?.aborted, true, '收尾后信号状态不应回退');
 });
+
+test('LR-01：OpenAI 兼容保留 finish_reason=length', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+  });
+  const output = await withFetch(
+    async () =>
+      new Response(
+        JSON.stringify({
+          choices: [{ finish_reason: 'length', message: { role: 'assistant', content: '半截' } }],
+        }),
+        { status: 200 },
+      ),
+    () => model.generate(request),
+  );
+  assert.strictEqual(output.finishReason, 'length');
+});
+
+test('LR-01：Anthropic 保留 stop_reason=max_tokens', async () => {
+  const model = new AnthropicModel({
+    baseUrl: 'https://api.anthropic.com',
+    apiKey: 'sk',
+    model: 'claude-3',
+  });
+  const output = await withFetch(
+    async () =>
+      new Response(
+        JSON.stringify({
+          stop_reason: 'max_tokens',
+          content: [{ type: 'text', text: '半截' }],
+        }),
+        { status: 200 },
+      ),
+    () => model.generate(request),
+  );
+  assert.strictEqual(output.finishReason, 'max_tokens');
+});

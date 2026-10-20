@@ -10,6 +10,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BrowserScreenshotTool } from '../../src/adapters/tool/browser/browserScreenshotTool.ts';
+import { PlaywrightBrowserSession } from '../../src/adapters/browser/playwrightBrowserSession.ts';
 import type { ScreenshotSession } from '../../src/adapters/tool/browser/browserScreenshotTool.ts';
 import type {
   ScreenshotRequest,
@@ -255,6 +256,28 @@ test('真机 e2e：用本机 Chrome 截一张 data: 页面（无浏览器则跳�
     assert.strictEqual(decoded[0], 0x89, 'PNG 魔数');
     assert.strictEqual(decoded[1], 0x50);
     assert.ok((result.output ?? '').includes('800×600'), '输出应含视口尺寸');
+    await tool.close();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('真机降级：Playwright 启动失败时回退 CDP 截图', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'browshot-fallback-'));
+  try {
+    const tool = new BrowserScreenshotTool(
+      dir,
+      () => new PlaywrightBrowserSession({ executablePath: join(dir, 'no-such-chrome.exe') }),
+    );
+    const result = await tool.handle(
+      {
+        id: 'c1',
+        name: 'browser_screenshot',
+        arguments: { url: 'data:text/html,<p>fallback</p>' },
+      },
+      ctx(dir),
+    );
+    assert.strictEqual(result.ok, true, `降级截图失败：${result.error ?? ''}`);
     await tool.close();
   } finally {
     await rm(dir, { recursive: true, force: true });

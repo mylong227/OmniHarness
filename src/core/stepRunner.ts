@@ -2,9 +2,11 @@ import type { ToolContext, ToolCall, ToolDefinition } from '../ports/tool/tool.t
 import type {
   ModelContextSnapshot,
   ModelMessage,
+  ModelOutput,
   ModelPort,
   ModelUsage,
 } from '../ports/model/model.ts';
+import { ModelCallError } from '../errors/modelCallError.ts';
 import { ContextBreakdownEstimator } from '../context/contextBreakdownEstimator.ts';
 import { StepContextBuilder } from './stepContextBuilder.ts';
 import { StepToolExecutor } from './stepToolExecutor.ts';
@@ -41,6 +43,8 @@ export class StepRunner {
   private lastUsage: ModelUsage | undefined;
   /** 本步实际送出上下文的占用快照（随 model 事件落日志，UI 容量面板读实测值）。 */
   private lastContext: ModelContextSnapshot | undefined;
+  /** 本步实际使用的模型名（fallback 时可能不同于主模型；LR-04）。 */
+  private lastModelName: string;
 
   /** 本步模型用量（TurnRunner 预算累计读；无 usage 的模型恒 undefined）。 */
   public get usageOfLastStep(): ModelUsage | undefined {
@@ -102,6 +106,7 @@ export class StepRunner {
   public constructor(private readonly deps: StepRunnerDeps) {
     this.contextBuilder = new StepContextBuilder(deps);
     this.toolExecutor = new StepToolExecutor(deps);
+    this.lastModelName = deps.model.name;
   }
 
   /**
@@ -120,7 +125,7 @@ export class StepRunner {
     // 重复计入预算（提前熔断/多计费）。
     this.lastUsage = output.usage;
     if (output.usage !== undefined) {
-      this.deps.recorder.usage(output.usage, this.deps.model.name, this.lastContext);
+      this.deps.recorder.usage(output.usage, this.lastModelName, this.lastContext);
     }
     if (output.toolCalls !== undefined && output.toolCalls.length > 0) {
       this.lastToolCalls = output.toolCalls.map((c) => ({
@@ -212,15 +217,119 @@ export class StepRunner {
    *
    * @returns 模型输出（推理 / 文本 / 工具调用 / 用量）。
    */
-  private async requestModel(): Promise<ReturnType<ModelPort['generate']>> {
+  private async requestModel(): Promise<ModelOutput> {
     // 先算工具集再组装消息：`buildMessages` 要拿它当**每请求固定开销**（工具 schema 与
     // 消息共用同一 token 预算），否则压缩判据看不到 schema 占用，长会话会越过真实窗口才压缩。
     // 两件事互不依赖（工具集只读注册表/发现寄存器，不读事件），调序无行为差异。
     const tools = this.contextBuilder.effectiveTools();
-    const messages = await this.contextBuilder.buildMessages({ tools });
+    let messages = await this.contextBuilder.buildMessages({ tools });
     this.lastContext = this.snapshotOf(messages, tools);
-    log.debug('model.request', { messageCount: messages.length, toolCount: tools.length });
-    const stream = this.deps.model.stream;
+    let output = await this.invokeWithRecovery(messages, tools);
+    let text = output.text;
+    let reasoning = output.reasoning;
+    let usage = output.usage;
+    let finishReason = output.finishReason;
+    const maxRecoveries = Math.max(0, this.deps.maxOutputRecoveries ?? 3);
+    let recoveries = 0;
+    // LR-02：输出被截断（`length`）时续写，而不是把半截当完成。半截 tool_calls 不执行。
+    while (finishReason === 'length' && recoveries < maxRecoveries) {
+      const partial = text ?? '';
+      if (partial.trim() === '' && output.toolCalls === undefined) {
+        break;
+      }
+      recoveries += 1;
+      log.warn('model.output.truncated', { recoveries, maxRecoveries });
+      this.deps.recorder.system(
+        `【输出截断】模型输出达到 token 上限，正在续写（${String(recoveries)}/${String(maxRecoveries)}）。`,
+      );
+      const continuation: ModelMessage[] = [
+        ...messages,
+        { role: 'assistant', content: partial },
+        {
+          role: 'user',
+          content:
+            'Output token limit hit. Resume directly from the exact point where you stopped. ' +
+            'Do not repeat completed work and do not restate the plan; continue the same deliverable.',
+        },
+      ];
+      messages = continuation;
+      const next = await this.invokeWithRecovery(messages, tools);
+      text = StepRunner.joinText(text, next.text);
+      reasoning = StepRunner.joinReasoning(reasoning, next.reasoning);
+      usage = StepRunner.mergeUsage(usage, next.usage);
+      finishReason = next.finishReason;
+      output = next;
+    }
+    if (finishReason === 'length') {
+      // 续写次数用尽仍截断：如实保留 finishReason，但**绝不执行半截工具调用**（参数可能不完整）。
+      log.warn('model.output.truncated_exhausted', { recoveries, maxRecoveries });
+      this.deps.recorder.system(
+        '【输出截断】续写次数已用尽，输出仍不完整；本步不执行任何半截工具调用，请缩小任务或提高输出上限。',
+      );
+      output = { ...output, toolCalls: undefined };
+    }
+    return {
+      ...output,
+      ...(text !== undefined ? { text } : {}),
+      ...(reasoning !== undefined && reasoning !== '' ? { reasoning } : {}),
+      ...(usage !== undefined ? { usage } : {}),
+      ...(finishReason !== undefined ? { finishReason } : {}),
+    };
+  }
+
+  /**
+   * 带恢复的模型调用（LR-03 / LR-04）：
+   *  - 400 `prompt_too_long` ⇒ 强制压缩一轮后重试（只重试一次，避免死循环）；
+   *  - 529/503 过载 ⇒ 若配置了备用模型，切到备用模型重试一次；
+   *  - 其它错误原样上抛（fail-closed）。
+   *
+   * @param messages 本次请求消息。
+   * @param tools 本次可见工具。
+   * @returns 模型输出。
+   */
+  private async invokeWithRecovery(
+    messages: readonly ModelMessage[],
+    tools: readonly ToolDefinition[],
+  ): Promise<ModelOutput> {
+    try {
+      return await this.invoke(this.deps.model, messages, tools);
+    } catch (error) {
+      if (StepRunner.isPromptTooLong(error) && this.deps.compactor !== undefined) {
+        log.warn('model.context_overflow.recovering', { messageCount: messages.length });
+        this.deps.recorder.system('【上下文超窗】端点拒绝请求，正在强制压缩后重试。');
+        const forced = await this.contextBuilder.buildMessages({ tools }, true);
+        this.lastContext = this.snapshotOf(forced, tools);
+        return await this.invoke(this.deps.model, forced, tools);
+      }
+      if (StepRunner.isOverload(error) && this.deps.fallbackModel !== undefined) {
+        log.warn('model.overload.fallback', { fallback: this.deps.fallbackModel.name });
+        this.deps.recorder.system(
+          `【模型过载】主模型不可用，切换到备用模型 ${this.deps.fallbackModel.name} 重试。`,
+        );
+        return await this.invoke(this.deps.fallbackModel, messages, tools);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 单次模型调用（流式/非流式二选一）。
+   * @param model 本次使用的模型端口（可能是 fallback）。
+   * @param messages 请求消息。
+   * @param tools 可见工具。
+   * @returns 模型输出。
+   */
+  private async invoke(
+    model: ModelPort,
+    messages: readonly ModelMessage[],
+    tools: readonly ToolDefinition[],
+  ): Promise<ModelOutput> {
+    this.lastModelName = model.name;
+    log.debug('model.request', {
+      messageCount: messages.length,
+      toolCount: tools.length,
+      model: model.name,
+    });
     const request = {
       messages,
       tools,
@@ -230,14 +339,85 @@ export class StepRunner {
       // V2：取消信号透传（未注入为 undefined，适配器行为不变）。
       signal: this.deps.signal,
     };
+    const stream = model.stream;
     if (this.deps.live !== undefined && stream !== undefined) {
-      return stream.call(this.deps.model, request, {
+      return stream.call(model, request, {
         // V2.1：文本增量转发给 live sink（--stream-text 时打到 stdout）；无消费方即丢弃，行为不变。
         onText: (text) => this.deps.live!.onTextDelta?.(text),
         onToolInput: (delta) => this.deps.live!.onToolInput(delta),
       });
     }
-    return this.deps.model.generate(request);
+    return model.generate(request);
+  }
+
+  /**
+   * 是否为 prompt-too-long 类 400（LR-03）。
+   * @param error 抛出的错误。
+   * @returns 命中时为 true。
+   */
+  private static isPromptTooLong(error: unknown): boolean {
+    if (!(error instanceof ModelCallError) || error.status !== 400) return false;
+    const text = `${error.message}\n${error.responseBody ?? ''}`;
+    return /prompt.{0,12}too.{0,12}long|context.{0,12}(length|window).{0,12}(exceed|too|max)|maximum context|too many tokens|input.{0,12}too.{0,12}long/i.test(
+      text,
+    );
+  }
+
+  /**
+   * 是否为过载类错误（LR-04）。
+   * @param error 抛出的错误。
+   * @returns 命中时为 true。
+   */
+  private static isOverload(error: unknown): boolean {
+    return error instanceof ModelCallError && (error.status === 529 || error.status === 503);
+  }
+
+  /**
+   * 合并两段文本（任一段为空时保留另一段）。
+   * @param a 第一段。
+   * @param b 第二段。
+   * @returns 合并文本。
+   */
+  private static joinText(a: string | undefined, b: string | undefined): string | undefined {
+    if (a === undefined || a === '') return b;
+    if (b === undefined || b === '') return a;
+    return `${a}${b}`;
+  }
+
+  /**
+   * 合并两段推理文本（换行分隔，避免粘成一个词）。
+   * @param a 第一段。
+   * @param b 第二段。
+   * @returns 合并推理文本。
+   */
+  private static joinReasoning(a: string | undefined, b: string | undefined): string | undefined {
+    if (a === undefined || a === '') return b;
+    if (b === undefined || b === '') return a;
+    return `${a}\n${b}`;
+  }
+
+  /**
+   * 合并两段用量（续写/fallback 后成本要累加，不能只记最后一次）。
+   * @param a 第一段用量。
+   * @param b 第二段用量。
+   * @returns 合并用量。
+   */
+  private static mergeUsage(
+    a: ModelUsage | undefined,
+    b: ModelUsage | undefined,
+  ): ModelUsage | undefined {
+    if (a === undefined) return b;
+    if (b === undefined) return a;
+    const cached =
+      a.cachedPromptTokens === undefined && b.cachedPromptTokens === undefined
+        ? undefined
+        : (a.cachedPromptTokens ?? 0) + (b.cachedPromptTokens ?? 0);
+    return {
+      promptTokens: a.promptTokens + b.promptTokens,
+      completionTokens: a.completionTokens + b.completionTokens,
+      totalTokens: a.totalTokens + b.totalTokens,
+      ...(cached !== undefined ? { cachedPromptTokens: cached } : {}),
+    };
   }
 
   /**

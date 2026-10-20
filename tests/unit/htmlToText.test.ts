@@ -1,5 +1,5 @@
 /**
- * HTML → 文本单测（web_fetch 的正文提取，无第三方依赖）。
+ * HTML → 文本单测（web_fetch 的正文提取；默认正则，Readability 为可选增强）。
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
@@ -55,4 +55,15 @@ test('链接保留可见文本与绝对 href（过滤锚点/伪协议）', () =>
   assert.ok(text.includes('文档 (https://example.com/doc)'), `实际: ${text}`);
   assert.ok(text.includes('回到顶部'), '锚点链接保留文本');
   assert.strictEqual(text.includes('javascript:'), false, '伪协议链接不得泄露 href');
+});
+
+test('ACT-03：Readability 可选增强抽主文章并丢弃导航', async () => {
+  const body = '这是正文段落，用来证明 Readability 会保留文章内容。'.repeat(8);
+  const html =
+    '<html><body><nav>首页 产品 关于 联系</nav>' +
+    `<article><h1>标题</h1><p>${body}</p></article>` +
+    '<footer>版权所有</footer></body></html>';
+  const text = await HtmlToText.convertAsync(html);
+  assert.ok(text.includes('这是正文段落'), `实际: ${text.slice(0, 120)}`);
+  assert.strictEqual(text.includes('首页 产品 关于 联系'), false, '导航不应进入正文');
 });

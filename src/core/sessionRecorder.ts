@@ -178,11 +178,34 @@ export class SessionRecorder {
   }
 
   /**
+   * 本回合最近一条用户指令（VER-06：reviewer 需要任务目标，但不读父历史全文）。
+   * @returns 用户消息正文；本回合没有用户消息时为 undefined。
+   */
+  public lastUserText(): string | undefined {
+    const all = this.log.all();
+    for (let i = all.length - 1; i >= this.turnStartIndex; i--) {
+      const event = ArrayAt.at(all, i);
+      if (event.type === 'user') {
+        return (event.payload as { content?: string }).content;
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * 全部事件（上下文投影用）。
    * @returns 事件日志当前全量快照（按追加顺序）。
    */
   public allEvents(): readonly SessionEvent[] {
     return this.log.all();
+  }
+
+  /**
+   * 本回合开始以来的事件（VER-02：证据账本只读当前回合，不把历史成功工具当成新证据）。
+   * @returns 从 `markTurnStart()` 起的事件切片。
+   */
+  public eventsSinceTurnStart(): readonly SessionEvent[] {
+    return this.log.all().slice(this.turnStartIndex);
   }
 
   /**

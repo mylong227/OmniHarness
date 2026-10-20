@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/runtime/event.ts';
+﻿import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { ToolContext } from '../ports/tool/tool.ts';
 import type { ImageContent, FileAttachment } from '../ports/model/model.ts';
 
@@ -11,6 +11,10 @@ import { SessionInjector } from './sessionInjector.ts';
 import { StepRunner } from './stepRunner.ts';
 import { TurnRunner } from './turnRunner.ts';
 import type { TurnOutcome } from './turnRunner.ts';
+import { CheckpointManager } from './checkpointManager.ts';
+import type { CheckpointManagerPort } from '../ports/runtime/checkpointManager.ts';
+import { ResumeGuidance } from './resumeGuidance.ts';
+import { AgentLimits } from './agentLimits.ts';
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
 import { ContextCompactor } from '../context/contextCompactor.ts';
 import { NativeTokenAccounting } from './nativeTokenAccounting.ts';
@@ -30,7 +34,7 @@ const DEFAULT_MAX_TOKENS = 8000;
 const DEFAULT_KEEP_RECENT = 6;
 
 /**
- * 回合时限默认值：30 分钟软提醒 + 60 分钟硬熔断。
+ * 回合时限默认值：30 分钟软提醒 + 8 小时硬熔断（LR-05，2026-10-20 从 1 小时提高）。
  *
  * 为什么要有默认（2026-10-20）：`maxSteps=0`（不设步数上限）且 `OMNI_LOOP_MAX_MS` 默认关闭时，
  * 一个回合唯一的刹车是「模型自己愿意收尾」。实测 20 分钟级任务已经出现，长会话需要一个
@@ -38,7 +42,12 @@ const DEFAULT_KEEP_RECENT = 6;
  * 可用 `OMNI_LOOP_SOFT_MS=0` / `OMNI_LOOP_MAX_MS=0` 分别关闭。
  */
 const DEFAULT_SOFT_DEADLINE_MS = 30 * 60_000;
-const DEFAULT_HARD_DEADLINE_MS = 60 * 60_000;
+/**
+ * 默认硬时限（LR-05，2026-10-20）：从 1 小时提高到 **8 小时**，对齐 Terminal-Bench 4.0
+ * 的长任务时间尺度。分钟级回合仍由软时限（30 分钟）提醒收尾；8 小时只是“最坏情况”的硬闸。
+ * 需要更快熔断的调用方用 `OMNI_LOOP_MAX_MS` 显式覆盖；`0` = 关闭。
+ */
+const DEFAULT_HARD_DEADLINE_MS = 8 * 60 * 60_000;
 
 // AgentResult 契约已上移至 ports/agent.ts（端口契约），此处 re-export 以保公开 API 稳定。
 export type { AgentResult };
@@ -79,6 +88,8 @@ export class Agent implements AgentPort {
    * 与主循环无耦合 ⇒ 拆到 `SessionInjector`，`Agent` 回到 23 个方法。
    */
   private readonly injector: SessionInjector;
+  /** 自动检查点（LR-06）：每 20 步落一次事件检查点；失败只告警，不阻断主流程。 */
+  private readonly autoCheckpoints: CheckpointManagerPort;
 
   public constructor(
     /** 运行时组合根：提供模型、工具、审批、沙箱、存储、事件总线等全部依赖。 */
@@ -95,6 +106,9 @@ export class Agent implements AgentPort {
     this.injector = new SessionInjector({
       skills: skills ?? runtime.config.skillRegistry,
       longTermMemory: runtime.longTermMemory,
+    });
+    this.autoCheckpoints = new CheckpointManager(runtime.storage, {
+      workspaceRoot: runtime.config.workspaceRoot,
     });
   }
 
@@ -379,9 +393,7 @@ export class Agent implements AgentPort {
       // V2.1（B7）：resume 不带提示 = 崩溃/中断恢复语义——注入续跑引导而非空白用户消息，
       // 让模型基于已持久化的历史（含 write-behind 落盘的中间事件）接着当前进度做。
       const effectivePrompt: string =
-        mode === 'resume' && prompt.trim() === ''
-          ? '【续跑】上次任务在此中断。基于上方会话历史与当前工作区状态接着完成剩余工作，不要重复已完成的步骤。'
-          : prompt;
+        mode === 'resume' && prompt.trim() === '' ? ResumeGuidance.build(eventLog.all()) : prompt;
       recorder.user(effectivePrompt, images, files);
       // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）+ 回卷回调，按 sessionId 登记。
       const opened = this.openSessionResources(sessionId, recorder, eventLog);
@@ -508,7 +520,7 @@ export class Agent implements AgentPort {
       promptInjectionGuardThresholds: this.runtime.config.promptInjectionGuardThresholds,
       reasoningEffort: this.runtime.config.reasoning,
       // 单次输出上限（env 可选）：给长会话一个成本上界；未设则端点默认。
-      maxOutputTokens: Agent.maxOutputTokensFromEnv(),
+      maxOutputTokens: AgentLimits.maxOutputTokens(),
       // U2：repo-map 上下文注入。默认开；env OMNI_REPO_MAP=0 关闭（不增 config schema，避免破 fail-closed 校验）。
       workspaceRoot: this.runtime.config.workspaceRoot,
       repoMapEnabled: process.env.OMNI_REPO_MAP !== '0',
@@ -549,6 +561,11 @@ export class Agent implements AgentPort {
       }),
       // P4：成功轨迹自动沉淀/下一回合召回；runtime 未注入即零行为。
       this.runtime.workflowMemory,
+      // LR-06：每 20 步自动落一次事件检查点（无文件快照；文件面仍由 checkpoint 工具负责）。
+      this.autoCheckpoints,
+      // VER-06：只在显式开启时把 reviewer 当阻断；否则 runner 不调用它。
+      this.runtime.reviewer,
+      process.env.OMNI_REVIEW_BLOCK === '1',
     );
   }
 
@@ -689,20 +706,6 @@ export class Agent implements AgentPort {
       log.warn('spark.cycle.failed', { sessionId, error: String(err) });
     }
   }
-  /**
-   * 解析 `OMNI_MAX_OUTPUT_TOKENS`（单次响应输出上限）。
-   *
-   * 为什么用 env 而不加 config schema：这是**运维/成本旋钮**，不该进入用户配置文件与
-   * fail-closed 校验面；与 `OMNI_LOOP_SOFT_MS` 同一先例。未设/非法/<=0 一律不设上限。
-   *
-   * @returns 正整数 token 上限；未配置时为 undefined。
-   */
-  private static maxOutputTokensFromEnv(): number | undefined {
-    const raw = process.env.OMNI_MAX_OUTPUT_TOKENS;
-    if (raw === undefined || raw === '') return undefined;
-    const value = Number(raw);
-    return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
-  }
 
   /**
    * buildLoopGuard — module-level helper moved into Agent.
@@ -737,7 +740,7 @@ export class Agent implements AgentPort {
  * V2 失控检测器装配（默认开，零 config schema 变更——沿用 env 开关先例）：
  *  - `OMNI_LOOPGUARD=0` 关闭；
  *  - `OMNI_LOOP_SOFT_MS=<毫秒>` 软时限（到点劝收尾，默认 30 分钟；0 = 关闭）；
- *  - `OMNI_LOOP_MAX_MS=<毫秒>` 硬时限（到点熔断，默认 60 分钟；0 = 关闭）。
+ *  - `OMNI_LOOP_MAX_MS=<毫秒>` 硬时限（到点熔断，默认 8 小时；0 = 关闭）。
  * 检测策略：同调用重复 ≥3 次 / 循环窗口 8 内周期 ≤4 的 A→B→A→B / 同一工具结果重复 ≥4 次
  * （后者专治长会话里「同一文件反复 read_file、同一目录反复 list_dir」的冗余取回）。
  * 首次触发注入纠偏 user 消息，同一违规连续 2 次才熔断（不误杀长任务）。

@@ -1,10 +1,13 @@
 import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts'
 import type { ToolCall, ToolContext, ToolDefinition, ToolResult } from '../../../ports/tool/tool.ts';
+import type { WebSearchProvider } from '../../../ports/tool/webSearchProvider.ts';
 
 /** 网络搜索工具选项（注入真实搜索实现，保持无第三方依赖）。 */
 export interface WebSearchToolOptions {
   /** 搜索实现：关键词 → 结果摘要；未注入时工具明确报错不静默失败。 */
   readonly search?: (query: string) => Promise<string>;
+  /** 结构化 provider（优先于 `search`；ACT-02）。 */
+  readonly provider?: WebSearchProvider | undefined;
 }
 
 /** 网络搜索工具：可注入搜索实现，未配置时明确提示（不静默失败）。 */
@@ -34,6 +37,31 @@ export class WebSearchTool {
    */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
     const query = String(call.arguments['query'] ?? '');
+    const provider = this.options.provider;
+    if (provider !== undefined) {
+      try {
+        const results = await provider.search(query);
+        if (results.length === 0) {
+          return { callId: call.id, ok: true, output: '（没有搜索结果）' };
+        }
+        return {
+          callId: call.id,
+          ok: true,
+          output: results
+            .map(
+              (result, index) =>
+                `${String(index + 1)}. ${result.title}\n   ${result.url}${
+                  result.snippet === undefined || result.snippet === ''
+                    ? ''
+                    : `\n   ${result.snippet}`
+                }`,
+            )
+            .join('\n'),
+        };
+      } catch (error) {
+        return { callId: call.id, ok: false, error: this.messageOf(error) };
+      }
+    }
     const search = this.options.search;
     if (search === undefined) {
       return { callId: call.id, ok: false, error: '未配置搜索服务（构造时注入 search 实现）' };

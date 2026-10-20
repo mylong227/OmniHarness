@@ -11,6 +11,14 @@ export interface GoalCheck {
   readonly raw: string;
 }
 
+/** 达成判定的机械证据（VER-03）：先由代码否掉“没有成功工具”的回合，再让模型判语义。 */
+export interface GoalCheckContext {
+  /** 机械证据是否通过；false 时**不调用模型**，直接判未达成（fail-closed）。 */
+  readonly mechanicallyVerified?: boolean | undefined;
+  /** 可复核的成功工具清单（作为模型判定的证据）。 */
+  readonly evidence?: string | undefined;
+}
+
 /**
  * @beta
  * 目标达成判定器：用模型判断「给定目标下，最近一轮产出是否已完全达成可验证目标」。
@@ -27,12 +35,26 @@ export class GoalChecker {
    * @param progress 最近一轮的产出/进展文本
    * @returns 达成判定（YES/NO + 模型原话）
    */
-  public async check(goal: string, progress: string): Promise<GoalCheck> {
+  public async check(
+    goal: string,
+    progress: string,
+    context?: GoalCheckContext,
+  ): Promise<GoalCheck> {
+    if (context?.mechanicallyVerified === false) {
+      return {
+        achieved: false,
+        raw: '机械证据未通过：本回合没有成功的工具结果，不调用模型判定达成。',
+      };
+    }
+    const evidence =
+      context?.evidence === undefined || context.evidence === ''
+        ? ''
+        : `\n\n可复核的成功工具：\n${context.evidence}`;
     const messages: ModelMessage[] = [
       { role: 'system', content: CHECKER_SYSTEM },
       {
         role: 'user',
-        content: `目标：\n${goal}\n\n最近的进展：\n${progress || '（无产出）'}\n\n目标是否已完全达成？只回答 YES 或 NO，并附一句理由。`,
+        content: `目标：\n${goal}\n\n最近的进展：\n${progress || '（无产出）'}${evidence}\n\n目标是否已完全达成？只回答 YES 或 NO，并附一句理由。`,
       },
     ];
     const output = await this.model.generate({ messages, tools: [] });

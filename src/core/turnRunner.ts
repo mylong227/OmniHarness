@@ -1,5 +1,7 @@
 import type { ToolContext } from '../ports/tool/tool.ts';
 import type { CompletionGate, VerificationState } from '../ports/runtime/completionGate.ts';
+import type { CheckpointManagerPort } from '../ports/runtime/checkpointManager.ts';
+import type { ReviewPort } from '../ports/tool/review.ts';
 import { BudgetExceededError } from '../ports/model/model.ts';
 import type { StepRunner, StepOutcome } from './stepRunner.ts';
 import type { SessionRecorder } from './sessionRecorder.ts';
@@ -9,6 +11,7 @@ import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.ts';
 import type { WorkflowMemoryPort } from '../ports/memory/workflowMemory.ts';
 import { WorkflowMemoryRecorder } from './workflowMemoryRecorder.ts';
 import { LoopGuard, type LoopDecision } from './loop/loopGuard.ts';
+import { EvidenceLedger } from './evidenceLedger.ts';
 import type { EventPersister } from './loop/eventPersister.ts';
 import { log } from '../util/logger.ts';
 
@@ -39,6 +42,8 @@ export interface TurnOutcome {
 interface CompletionClaim {
   /** 完成闸门是否已用过（有界：每回合至多一次）。 */
   gated: boolean;
+  /** 独立审查是否已用过（VER-06，有界：每回合至多一次）。 */
+  reviewed: boolean;
   /** 本回合的验证状态（G3-V2）；`unverified` 不得读成通过。 */
   verificationState: VerificationState;
 }
@@ -86,6 +91,18 @@ export class TurnRunner {
     private readonly completionGate?: CompletionGate,
     /** Workflow Memory（P4，可选）：成功回合自动沉淀、下一回合按任务召回参考。 */
     workflowMemory?: WorkflowMemoryPort | undefined,
+    /**
+     * 自动检查点（LR-06，可选）：每 20 步落一次事件检查点。无文件快照，文件面仍由
+     * `checkpoint` 工具显式负责；失败只告警，绝不阻断主流程。
+     */
+    private readonly autoCheckpoints?: CheckpointManagerPort | undefined,
+    /**
+     * 独立审查端口（VER-06，可选）：只在 `reviewBlock` 为 true 时，在完成声明时对
+     * `turnDiff.getUnifiedDiff()` 跑一次干净上下文审查；有 blocker/major 则回灌一次。
+     */
+    private readonly reviewer?: ReviewPort | undefined,
+    /** 是否把 reviewer 的 blocker/major 当阻断（默认 false = advisory，避免误杀）。 */
+    private readonly reviewBlock = false,
   ) {
     this.loopGuard = loopGuard;
     this.workflowRecorder =
@@ -110,7 +127,7 @@ export class TurnRunner {
     let usageTokens = 0;
     /** 本回合的完成判定状态（闸门是否已用过 + 验证状态）；用对象承载以便抽方法传引用。 */
     /** 本回合的完成判定状态（就地更新；用对象承载以便抽方法传引用）。 */
-    const claim: CompletionClaim = { gated: false, verificationState: 'not-run' };
+    const claim: CompletionClaim = { gated: false, reviewed: false, verificationState: 'not-run' };
     // 不限步数（0/undefined/负数都按不限处理）：终止由「模型产出结论 / 预算 / 行为护栏 / 取消」决定。
     while (!(this.maxSteps > 0) || steps < this.maxSteps) {
       // V2.1：成本预算熔断（B5 补全）——BudgetedModel 抛 BudgetExceededError 时
@@ -128,6 +145,7 @@ export class TurnRunner {
         throw err;
       }
       steps += 1;
+      await this.maybeAutoCheckpoint(steps, context.sessionId);
       // V2.1 token 预算累计（B4）：usage 缺失的模型不计入（绝不臆造）。
       const stepUsage = this.stepRunner.usageOfLastStep;
       if (stepUsage !== undefined) {
@@ -237,6 +255,24 @@ export class TurnRunner {
     return summary !== undefined && summary.trim() !== '' ? summary : existing;
   }
   /**
+   * 每 20 步自动落一次事件检查点（LR-06）。失败只告警——检查点是增强，不是主流程闸门。
+   * @param steps 当前步数。
+   * @param sessionId 会话 id。
+   * @returns 无返回值。
+   */
+  private async maybeAutoCheckpoint(steps: number, sessionId: string): Promise<void> {
+    if (this.autoCheckpoints === undefined || steps % 20 !== 0) return;
+    try {
+      await this.autoCheckpoints.snapshot(sessionId, `auto-${String(steps)}`);
+    } catch (error) {
+      log.warn('turn.autocheckpoint.failed', {
+        steps,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
    * 处理「模型宣布完成」这一步：问一次完成闸门，决定回灌重试还是允许收尾。
    *
    * 有界性：闸门**每回合至多跑一次**（避免把步数预算烧在反复验证上）。因此二次宣告完成时无法再核验，
@@ -251,6 +287,14 @@ export class TurnRunner {
     sessionId: string,
     steps: number,
   ): Promise<'retry' | 'close'> {
+    // VER-02：证据账本下限——有工具调用但全部失败时，不允许“通过”完成。
+    if (
+      !claim.gated &&
+      !EvidenceLedger.hasCompletionEvidence(this.recorder.eventsSinceTurnStart())
+    ) {
+      claim.verificationState = 'unverified';
+      log.warn('turn.evidence.missing', { steps, sessionId });
+    }
     const digest = claim.gated ? undefined : await this.completionDigest(sessionId);
     if (digest !== undefined && digest !== '') {
       claim.gated = true;
@@ -264,6 +308,20 @@ export class TurnRunner {
       );
       return 'retry';
     }
+    if (!claim.gated && !claim.reviewed && this.reviewer !== undefined && this.reviewBlock) {
+      claim.reviewed = true;
+      const review = await this.reviewDigest();
+      if (review !== undefined && review !== '') {
+        claim.verificationState = 'failed';
+        log.warn('turn.review.blocked', { steps, sessionId });
+        this.recorder.user(
+          '【独立审查】你已声明完成，但干净上下文 reviewer 报出 blocker/major 问题：\n' +
+            `${review}\n` +
+            '请先修好它再收尾；若你判断其中某条不成立，请在结论里逐条给出反证（文件/行/测试）。',
+        );
+        return 'retry';
+      }
+    }
     if (claim.gated) {
       claim.verificationState = 'unverified';
       log.warn('turn.completion_gate.unverified', { steps, sessionId });
@@ -273,6 +331,42 @@ export class TurnRunner {
       );
     }
     return 'close';
+  }
+
+  /**
+   * 对当前回合 diff 跑一次独立审查（VER-06）。
+   *
+   * 只把 `diff + 任务目标` 交给 reviewer，不传父会话历史；reviewer 异常按 advisory 处理
+   * （返回 undefined，不让审查基建故障阻断正常收尾）。
+   * @returns 阻断级问题摘要；无 diff / 无阻断 / 审查失败时为 undefined。
+   */
+  private async reviewDigest(): Promise<string | undefined> {
+    if (this.reviewer === undefined) return undefined;
+    const diff = this.turnDiff?.getUnifiedDiff();
+    if (diff === undefined || diff.trim() === '') return undefined;
+    try {
+      const report = await this.reviewer.review({
+        diff,
+        goal: this.recorder.lastUserText() ?? '完成当前任务',
+      });
+      const blocking = report.findings.filter(
+        (finding) => finding.severity === 'blocker' || finding.severity === 'major',
+      );
+      if (!report.ok || blocking.length === 0) return undefined;
+      return blocking
+        .map(
+          (finding) =>
+            `- [${finding.severity}] ${finding.file}${
+              finding.line === undefined ? '' : `:${String(finding.line)}`
+            } — ${finding.issue}\n  证据：${finding.evidence}`,
+        )
+        .join('\n');
+    } catch (error) {
+      log.warn('turn.review.failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
   }
 
   /**

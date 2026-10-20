@@ -263,8 +263,10 @@ export class ToolExposurePlanner {
         '网址',
         '链接',
         '在线',
+        '搜索',
+        'search',
       ],
-      tools: [TOOL_NAMES.webFetch],
+      tools: [TOOL_NAMES.webFetch, TOOL_NAMES.webSearch],
     },
     {
       id: 'visual',
@@ -292,7 +294,12 @@ export class ToolExposurePlanner {
         '逐帧',
         '转场',
       ],
-      tools: [TOOL_NAMES.browserScreenshot, TOOL_NAMES.viewImage, TOOL_NAMES.viewMedia],
+      tools: [
+        TOOL_NAMES.browserScreenshot,
+        TOOL_NAMES.browserAct,
+        TOOL_NAMES.viewImage,
+        TOOL_NAMES.viewMedia,
+      ],
     },
     {
       id: 'delegate',
@@ -314,13 +321,14 @@ export class ToolExposurePlanner {
     {
       id: 'planning',
       hint: '计划与待办',
-      keywords: ['plan', 'todo', 'steps', '计划', '待办', '清单', '步骤', '排期'],
+      keywords: ['plan', 'todo', 'steps', 'review', '计划', '待办', '清单', '步骤', '排期', '审查'],
       tools: [
         TOOL_NAMES.todoWrite,
         TOOL_NAMES.todoRead,
         TOOL_NAMES.planWrite,
         TOOL_NAMES.planPresent,
         TOOL_NAMES.planRead,
+        TOOL_NAMES.reviewDiff,
       ],
     },
     {

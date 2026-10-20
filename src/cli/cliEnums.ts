@@ -35,6 +35,7 @@ export const SANDBOX_PROFILES = [
   'seatbelt',
   'bwrap',
   'unshare',
+  'wsl-bwrap',
 ] as const satisfies readonly CliArgs['sandbox'][];
 export const ESCALATIONS = [
   'deny',

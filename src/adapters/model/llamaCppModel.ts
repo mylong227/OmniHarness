@@ -130,10 +130,10 @@ export class LlamaCppModel implements ModelPort {
     const chunks: string[] = [];
     const toolCalls: PipelineToolCall[] = [];
     let usage: ModelUsage | undefined;
+    let doneReason: string | undefined;
     const decoder = new TextDecoder();
     let buffer = '';
     for await (const piece of body) {
-      // 每一块 NDJSON 数据都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
       guard?.touch();
       buffer += decoder.decode(piece, { stream: true });
       let nl: number;
@@ -152,29 +152,22 @@ export class LlamaCppModel implements ModelPort {
           this.mergeToolCalls(toolCalls, obj.message.tool_calls);
         }
         usage = this.usageFromChunk(obj, usage);
+        if (typeof obj.done_reason === 'string' && obj.done_reason !== '') {
+          doneReason = obj.done_reason;
+        }
         if (obj.done === true) {
           break;
         }
       }
     }
-    // 处理末尾未以换行刷新的残余片段。
     const tail = buffer.trim();
-    if (tail !== '') {
-      try {
-        const obj = JSON.parse(tail) as OllamaChatStreamChunk;
-        if (obj.message?.content !== undefined && obj.message.content !== '') {
-          callbacks.onText(obj.message.content);
-          chunks.push(obj.message.content);
-        }
-        if (obj.message?.tool_calls !== undefined) {
-          this.mergeToolCalls(toolCalls, obj.message.tool_calls);
-        }
-        usage = this.usageFromChunk(obj, usage);
-      } catch {
-        // 截断片段忽略。
-      }
-    }
-    const output: { text?: string; toolCalls?: ModelToolCallRef[]; usage?: ModelUsage } = {
+    usage = this.consumeTail(tail, callbacks, chunks, toolCalls, usage);
+    const output: {
+      text?: string;
+      toolCalls?: ModelToolCallRef[];
+      usage?: ModelUsage;
+      finishReason?: string;
+    } = {
       text: chunks.join(''),
     };
     const finalized = this.finalizeToolCalls(toolCalls);
@@ -184,7 +177,43 @@ export class LlamaCppModel implements ModelPort {
     if (usage !== undefined) {
       output.usage = usage;
     }
+    if (doneReason !== undefined) {
+      output.finishReason = doneReason;
+    }
     return output;
+  }
+
+  /**
+   * 处理流末尾未以换行刷新的残余 JSON 片段。
+   * @param tail 残余文本。
+   * @param callbacks 流式回调。
+   * @param chunks 文本累积。
+   * @param toolCalls 工具调用累积。
+   * @param usage 当前用量。
+   * @returns 更新后的用量。
+   */
+  private consumeTail(
+    tail: string,
+    callbacks: StreamCallbacks,
+    chunks: string[],
+    toolCalls: PipelineToolCall[],
+    usage: ModelUsage | undefined,
+  ): ModelUsage | undefined {
+    if (tail === '') return usage;
+    try {
+      const obj = JSON.parse(tail) as OllamaChatStreamChunk;
+      if (obj.message?.content !== undefined && obj.message.content !== '') {
+        callbacks.onText(obj.message.content);
+        chunks.push(obj.message.content);
+      }
+      if (obj.message?.tool_calls !== undefined) {
+        this.mergeToolCalls(toolCalls, obj.message.tool_calls);
+      }
+      return this.usageFromChunk(obj, usage);
+    } catch {
+      // 截断片段忽略。
+      return usage;
+    }
   }
 
   /** 构造请求体。
@@ -359,7 +388,12 @@ export class LlamaCppModel implements ModelPort {
    *          两字段皆缺时不含 usage。
    */
   private parseOutput(body: OllamaChatResponse): ModelOutput {
-    const output: { text?: string; toolCalls?: ModelToolCallRef[]; usage?: ModelUsage } = {};
+    const output: {
+      text?: string;
+      toolCalls?: ModelToolCallRef[];
+      usage?: ModelUsage;
+      finishReason?: string;
+    } = {};
     const message = body.message;
     if (message?.content !== undefined && message.content !== '') {
       output.text = message.content;
@@ -376,6 +410,9 @@ export class LlamaCppModel implements ModelPort {
         completionTokens: completion,
         totalTokens: prompt + completion,
       };
+    }
+    if (typeof body.done_reason === 'string' && body.done_reason !== '') {
+      output.finishReason = body.done_reason;
     }
     return output;
   }
@@ -524,6 +561,7 @@ interface OllamaChatResponse {
   };
   readonly prompt_eval_count?: number;
   readonly eval_count?: number;
+  readonly done_reason?: string;
 }
 
 /** Ollama 流式片段（usage 在 done 段以顶层字段返回）。 */
@@ -533,6 +571,7 @@ interface OllamaChatStreamChunk {
     tool_calls?: readonly OllamaToolCall[];
   };
   readonly done?: boolean;
+  readonly done_reason?: string;
   readonly prompt_eval_count?: number;
   readonly eval_count?: number;
 }

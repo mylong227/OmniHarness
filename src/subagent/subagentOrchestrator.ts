@@ -91,10 +91,36 @@ export class SubagentOrchestrator {
       // 清理**之前**把改动取出来（看板 §8.1）：`cleanup()` 是 `worktree remove --force` + `branch -D`，
       // 不先采集就是静默丢弃。采集失败也必须**显式标记**（`writesUnrecoverable`），绝不静默。
       const withWrites = await this.attachWrites(worktree, result);
+      // VER-04：子代轨迹持久化（cleanup 会删掉隔离树里的子代存储，必须在清理前落父存储）。
+      const withTrace = await this.persistTrace(withWrites);
       // 无论成败（含父取消导致的失败）都释放隔离资源，避免工作树/目录泄漏。
       await worktree.cleanup();
-      return withWrites;
+      return withTrace;
     });
+  }
+
+  /**
+   * 子代理轨迹持久化（VER-04）：把子代事件写进父存储的独立 session 文件。
+   *
+   * 为什么必须在这里做：子代 storage 被重定位到隔离工作树 `.omni-storage`，worktree
+   * cleanup 会把它删掉；`SubagentEventBridge` 只在内存。清理前落一份到父存储，
+   * `--session <childId>` / `trace read` 才查得到，审计链不在子代理处断掉。
+   * @param result 子代理结果（含 events）。
+   * @returns 原结果（持久化失败只告警，不改变任务成败）。
+   */
+  private async persistTrace(result: SubagentResult): Promise<SubagentResult> {
+    if (result.events === undefined || result.events.length === 0) {
+      return result;
+    }
+    try {
+      await this.ports.storage.save(result.sessionId, result.events);
+    } catch (error) {
+      log.warn('subagent.trace.persist_failed', {
+        sessionId: result.sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return result;
   }
 
   /**

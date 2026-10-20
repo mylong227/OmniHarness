@@ -26,6 +26,7 @@ import { A2aTaskExecutor } from '../a2a/a2aTaskExecutor.ts';
 import { A2aDelegateTool } from '../a2a/a2aDelegateTool.ts';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
 import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.ts';
+import { ReviewDiffTool } from '../adapters/tool/verify/reviewDiffTool.ts';
 import {
   A2aServer,
   A2aClient,
@@ -155,6 +156,10 @@ export class Runtime {
       budgetDegrade: config.budgetDegrade,
       // A1 回合完成闸门：组合根注入实现（core 只认端口 `CompletionGateFactory`），口径见其模块头。
       completionGateFactory: (ctx) => TurnCompletionGateFactory.of(ctx),
+      // VER-06：显式开启才挂 reviewer（默认 advisory/零额外模型调用）。
+      ...(process.env.OMNI_REVIEW_BLOCK === '1'
+        ? { reviewer: new ReviewDiffTool(config.model) }
+        : {}),
     } as OmniHarnessRuntime;
     Runtime.attachA2a(runtime, config);
     return runtime;

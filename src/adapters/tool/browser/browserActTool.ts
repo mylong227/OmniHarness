@@ -1,0 +1,203 @@
+import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+} from '../../../ports/tool/tool.ts';
+import type {
+  BrowserActionKind,
+  BrowserActionPort,
+  BrowserActionRequest,
+  BrowserActionResult,
+} from '../../../ports/tool/browserAction.ts';
+import { PlaywrightBrowserSession } from '../../browser/playwrightBrowserSession.ts';
+
+/** 动作工具选项。 */
+export interface BrowserActToolOptions {
+  /** 注入执行体（测试用假实现；缺省懒建真实浏览器会话，默认 Playwright、回退 CDP）。 */
+  readonly session?: BrowserActionPort | undefined;
+  /** 空闲关闭毫秒数（默认 180s；每次动作后重置）。 */
+  readonly idleCloseMs?: number | undefined;
+  /** Playwright 浏览器可执行文件（缺省用 ChromeLocator；测试/自定义安装可用）。 */
+  readonly browserExecutablePath?: string | undefined;
+}
+
+/**
+ * `browser_act` 工具（ACT-01）：把“看一眼”升级为“点一下/输一段/等条件/读 ARIA”。
+ *
+ * 安全口径：动作可能改变外部系统状态（点击提交、输入表单）⇒ 进入写类工具集，
+ * plan 模式与 RBAC viewer 会被拦截；`aria_snapshot`/`console`/`network` 是只读，
+ * 但本工具整体按写类处理（宁可多一次审批，也不让未审批的点击穿透）。
+ */
+export class BrowserActTool {
+  /** 工具定义。 */
+  public readonly definition: ToolDefinition = {
+    name: TOOL_NAMES.browserAct,
+    description:
+      '操作浏览器页面：打开 URL、点击、输入、按键、滚动、等待条件、读取可访问性树/console/失败网络请求。' +
+      '用于改完前端后的真实交互验证；动作有审批与超时，不是任意脚本执行。',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: [
+            'goto',
+            'click',
+            'type',
+            'press',
+            'scroll',
+            'wait_for',
+            'aria_snapshot',
+            'console',
+            'network',
+          ],
+          description: '动作类型。',
+        },
+        url: { type: 'string', description: 'goto 的目标地址（http/https/data）。' },
+        selector: { type: 'string', description: 'click/type/wait_for 的 CSS 选择器。' },
+        text: { type: 'string', description: 'type 的输入文本；wait_for 可用于按正文等待。' },
+        key: {
+          type: 'string',
+          description: 'press 的按键名（Enter/Tab/Escape/Backspace/方向键）。',
+        },
+        dx: { type: 'number', description: 'scroll 的水平增量（像素）。' },
+        dy: { type: 'number', description: 'scroll 的垂直增量（像素）。' },
+        timeout_ms: {
+          type: 'number',
+          description: 'wait_for 的超时毫秒数（默认 5000，上限 30000）。',
+        },
+      },
+      required: ['action'],
+    },
+  };
+
+  /** 执行体（懒建或注入）。 */
+  private lazy: BrowserActionPort | undefined;
+  /** 自建的浏览器执行体（close 用）。 */
+  private owned: (BrowserActionPort & { close(): Promise<void> }) | undefined;
+  /** 空闲关闭定时器。 */
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  /** 是否已关闭。 */
+  private closed = false;
+
+  /**
+   * @param options 注入执行体与空闲关闭时间。
+   */
+  public constructor(private readonly options: BrowserActToolOptions = {}) {}
+
+  /**
+   * 执行动作。
+   * @param call 工具调用。
+   * @param _context 工具上下文（本工具不读工作区）。
+   * @returns 工具结果。
+   */
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+    const action = String(call.arguments['action'] ?? '');
+    if (!BrowserActTool.isKind(action)) {
+      return { callId: call.id, ok: false, error: `未知 browser_act 动作：${action}` };
+    }
+    const request: BrowserActionRequest = {
+      kind: action,
+      ...(typeof call.arguments['url'] === 'string' ? { url: call.arguments['url'] } : {}),
+      ...(typeof call.arguments['selector'] === 'string'
+        ? { selector: call.arguments['selector'] }
+        : {}),
+      ...(typeof call.arguments['text'] === 'string' ? { text: call.arguments['text'] } : {}),
+      ...(typeof call.arguments['key'] === 'string' ? { key: call.arguments['key'] } : {}),
+      ...(typeof call.arguments['dx'] === 'number' ? { dx: call.arguments['dx'] } : {}),
+      ...(typeof call.arguments['dy'] === 'number' ? { dy: call.arguments['dy'] } : {}),
+      ...(typeof call.arguments['timeout_ms'] === 'number'
+        ? { timeoutMs: call.arguments['timeout_ms'] }
+        : {}),
+    };
+    try {
+      const result = await this.run(request);
+      this.touchIdle();
+      return result.ok
+        ? { callId: call.id, ok: true, output: result.output }
+        : { callId: call.id, ok: false, error: result.output };
+    } catch (error) {
+      this.touchIdle();
+      return {
+        callId: call.id,
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * 关闭自建浏览器（幂等）。工具实例被回收时由进程退出兜底；这里提供显式入口。
+   * @returns 关闭完成。
+   */
+  public async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
+    this.idleTimer = undefined;
+    await this.owned?.close();
+    this.owned = undefined;
+  }
+
+  /**
+   * 执行动作（Playwright 是唯一动作引擎；启动失败向上抛给工具层）。
+   * @param request 动作请求。
+   * @returns 动作结果。
+   */
+  private async run(request: BrowserActionRequest): Promise<BrowserActionResult> {
+    return await this.actionPort().act(request);
+  }
+
+  /**
+   * 取执行体：注入优先；否则懒建 Playwright 引擎（复用本机 Chrome）。
+   * @returns 动作端口。
+   */
+  private actionPort(): BrowserActionPort {
+    if (this.options.session !== undefined) {
+      return this.options.session;
+    }
+    if (this.lazy === undefined) {
+      this.owned = new PlaywrightBrowserSession({
+        ...(this.options.browserExecutablePath !== undefined
+          ? { executablePath: this.options.browserExecutablePath }
+          : {}),
+      });
+      this.lazy = this.owned;
+    }
+    return this.lazy;
+  }
+
+  /**
+   * 重置空闲关闭计时器。
+   * @returns 无返回值。
+   */
+  private touchIdle(): void {
+    if (this.options.session !== undefined) return;
+    if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
+    this.idleTimer = setTimeout(() => {
+      void this.close();
+    }, this.options.idleCloseMs ?? 180_000);
+    this.idleTimer.unref?.();
+  }
+
+  /**
+   * 动作名是否合法。
+   * @param value 原始值。
+   * @returns 合法动作时为 true。
+   */
+  private static isKind(value: string): value is BrowserActionKind {
+    return (
+      value === 'goto' ||
+      value === 'click' ||
+      value === 'type' ||
+      value === 'press' ||
+      value === 'scroll' ||
+      value === 'wait_for' ||
+      value === 'aria_snapshot' ||
+      value === 'console' ||
+      value === 'network'
+    );
+  }
+}

@@ -99,7 +99,11 @@ export interface BrowserSessionOptions {
 }
 
 /**
- * 可复用的 headless Chromium 会话。
+ * 可复用的 headless Chromium 会话（CDP）。
+ *
+ * **默认引擎已是 Playwright**（`PlaywrightBrowserSession`）；本类降级为：
+ * ① `OMNI_BROWSER_ENGINE=cdp` 的显式回退；② Playwright 不可用/启动失败时的自动回退。
+ * 保留它是因为 CDP 零依赖、启动路径短，且已有成熟判据；新功能优先加在 Playwright 引擎。
  */
 export class BrowserSession {
   /** 默认等待加载事件的超时。 */
@@ -122,6 +126,10 @@ export class BrowserSession {
 
   /** 是否已关闭。 */
   private closed = false;
+
+  /** 本页 console 输出（最近 80 条；ACT-01）。 */
+
+  /** 本页失败网络请求（最近 80 条；ACT-01）。 */
 
   public constructor(private readonly options: BrowserSessionOptions = {}) {}
 
@@ -152,7 +160,6 @@ export class BrowserSession {
       title: await this.title(client, session),
     };
   }
-
   /**
    * 关闭会话：断开 CDP、结束浏览器、删除自建的用户数据目录。幂等。
    *

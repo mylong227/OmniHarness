@@ -8,6 +8,7 @@ import { LinuxBwrapSandbox } from './linuxBwrapSandbox.ts';
 import { LinuxUnshareSandbox } from './linuxUnshareSandbox.ts';
 import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
+import { WslBwrapSandbox } from './wslBwrapSandbox.ts';
 
 export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
 
@@ -47,6 +48,8 @@ export class SandboxManager {
     this.register('bwrap', () => new LinuxBwrapSandbox(this.workspaceRoot));
     this.register('unshare', () => new LinuxUnshareSandbox(this.workspaceRoot));
     this.register('seatbelt', () => new MacOsSeatbeltSandbox(this.workspaceRoot));
+    // SEC-01：Windows 上的 L3 路径（WSL2 + bwrap）；不可达时后端自身 fail-closed。
+    this.register('wsl-bwrap', () => new WslBwrapSandbox(this.workspaceRoot));
   }
 
   /** 注册后端（工厂延迟实例化，避免无谓构造）。

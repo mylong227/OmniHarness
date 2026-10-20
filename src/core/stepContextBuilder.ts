@@ -2,6 +2,7 @@ import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { ModelMessage } from '../ports/model/model.ts';
 import type { ToolDefinition } from '../ports/tool/tool.ts';
 import { ContextAssembler } from '../context/contextAssembler.ts';
+import { ContextShapers } from '../context/contextShapers.ts';
 import { PrefixStability } from '../context/prefixStability.ts';
 import { ProjectInstructions } from '../context/projectInstructions.ts';
 import { type CompactionState, ContextCompactor } from '../context/contextCompactor.ts';
@@ -83,9 +84,13 @@ export class StepContextBuilder {
    *   **给了才进预算**：不传即与改造前逐字一致（工具/schema 与尾段都不入账）。
    *   调用方（`StepRunner.requestModel`）先算工具集再调本方法，正是为了把这份开销交进来——
    *   否则长会话会「越过真实窗口才触发压缩」（fail-open 到上游 400）。
+   * @param forceCompaction 为 true 时强制压缩（LR-03：端点已报 prompt-too-long，主动压缩后重试）。
    * @returns 投影 + 压缩后发给模型的消息列表（跨步复用压缩游标）。
    */
-  public async buildMessages(overhead?: RequestOverhead): Promise<readonly ModelMessage[]> {
+  public async buildMessages(
+    overhead?: RequestOverhead,
+    forceCompaction = false,
+  ): Promise<readonly ModelMessage[]> {
     const events = this.deps.recorder.allEvents();
     // 常驻指令（静态）放头部，构成稳定前缀缓存锚点；读取失败 fail-closed（返回空）。
     const frontFragments = await this.projectInstructionFragments();
@@ -99,10 +104,11 @@ export class StepContextBuilder {
       }
     }
     const projected = this.assembler.build(events, frontFragments);
+    const projectedForModel = this.shapeIfEnabled(projected, forceCompaction);
     const compactor = this.deps.compactor;
     let messages: ModelMessage[];
     if (compactor === undefined) {
-      messages = projected;
+      messages = [...projectedForModel];
     } else {
       // V2：懒恢复压缩游标（进程重启/resume 后从事件日志解析最近压缩点，只做一次）。
       if (!this.stateRestored) {
@@ -115,7 +121,12 @@ export class StepContextBuilder {
         ...(overhead?.tools !== undefined ? { tools: overhead.tools } : {}),
         ...(repoMap !== null ? { trailingText: repoMap } : {}),
       };
-      const result = await compactor.compact(projected, previous, requestOverhead);
+      const result = await compactor.compact(
+        projectedForModel,
+        previous,
+        requestOverhead,
+        forceCompaction,
+      );
       if (result.state !== undefined) {
         // 游标持久化：写回事件日志（system 事件），崩溃/重启后可恢复，跨步复用摘要。
         //
@@ -142,27 +153,68 @@ export class StepContextBuilder {
       // 故删除该分支。
       messages = [...result.messages];
     }
-    // 动态段（repo-map）置于尾部：前置（world_state + 常驻指令 + 事件历史）跨回合稳定，
-    // 仅尾部每轮变化 ⇒ 命中 provider 前缀缓存。内容不变、仅位置后移（P_prefix 治理）。
-    if (repoMap !== null) {
-      messages.push({ role: 'system', content: repoMap });
+    // 动态段合并为**一条** system 尾消息：repo-map 与延迟工具清单若各占一条，会让
+    // “上一条请求的尾部”有两个可变元素，前缀复用判据/真实缓存都多断一次。
+    this.appendDynamicTail(messages, repoMap, overhead?.tools !== undefined);
+    this.measurePrefixReuse(messages);
+    return messages;
+  }
+
+  /**
+   * CTX-01 逃生口：默认开；`OMNI_CONTEXT_SHAPERS=0` 回到逐字旧行为（便于定位前缀/压缩回归）。
+   * @param messages 原始投影消息。
+   * @returns 削减后的消息（关闭时原样返回）。
+   */
+  private shapeIfEnabled(
+    messages: readonly ModelMessage[],
+    aggressive: boolean,
+  ): readonly ModelMessage[] {
+    return process.env.OMNI_CONTEXT_SHAPERS === '0' ? messages : this.shape(messages, aggressive);
+  }
+
+  /**
+   * CTX-01：在摘要压缩之前先做两层零成本/低成本削减（超长工具结果头尾裁剪、旧工具轮剪枝）。
+   * @param messages 原始投影消息。
+   * @param aggressive 强制压缩路径才允许改写旧消息（默认只裁最新一条，保前缀缓存）。
+   * @returns 削减后的消息（未触发时逐字等于输入）。
+   */
+  private shape(messages: readonly ModelMessage[], aggressive: boolean): readonly ModelMessage[] {
+    const shaped = ContextShapers.apply(messages, {
+      ...(this.deps.contextWindowTokens !== undefined
+        ? { contextWindowTokens: this.deps.contextWindowTokens }
+        : {}),
+      aggressive,
+    });
+    if (shaped.report.trimmedToolResults > 0 || shaped.report.snippedToolResults > 0) {
+      log.debug('context.shapers', { ...shaped.report });
     }
-    // 被延迟加载的工具**要在模型眼前留一张清单**：`tool_search` 是找回通道，但前提是模型
-    // 知道自己缺什么。只在「本轮确实传了工具集」时追加（`finalize()` 以 `tools: []` 收尾，
-    // 那里列出来只会诱导模型去调一个本回合已禁用的通道）。
-    if (this.lastDeferredTools.length > 0 && overhead?.tools !== undefined) {
+    return shaped.messages;
+  }
+
+  /**
+   * 追加唯一的动态尾部：repo-map 与延迟工具清单合并，保证相邻请求只改**一条**尾消息。
+   * @param messages 当前消息列表（就地追加）。
+   * @param repoMap repo-map 文本或 null。
+   * @param hasTools 本轮是否传了工具集（finalize 的 tools:[] 不列延迟工具）。
+   * @returns 无返回值。
+   */
+  private appendDynamicTail(
+    messages: ModelMessage[],
+    repoMap: string | null,
+    hasTools: boolean,
+  ): void {
+    const tail: string[] = [];
+    if (repoMap !== null) tail.push(repoMap);
+    if (this.lastDeferredTools.length > 0 && hasTools) {
       const shown = this.lastDeferredTools.slice(0, 20).join(', ');
       const more =
         this.lastDeferredTools.length > 20 ? ` 等 ${String(this.lastDeferredTools.length)} 个` : '';
-      messages.push({
-        role: 'system',
-        content:
-          `本轮未直载的工具（按任务相关性延迟，可先调用 tool_search 找回）：${shown}${more}。` +
+      tail.push(
+        `本轮未直载的工具（按任务相关性延迟，可先调用 tool_search 找回）：${shown}${more}。` +
           '若完成任务需要其中某个工具，请先 tool_search 检索，而不是用 shell/run_code 自行变通。',
-      });
+      );
     }
-    this.measurePrefixReuse(messages);
-    return messages;
+    if (tail.length > 0) messages.push({ role: 'system', content: tail.join('\n\n') });
   }
 
   /**

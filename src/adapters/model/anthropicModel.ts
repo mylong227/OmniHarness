@@ -139,10 +139,16 @@ export class AnthropicModel implements ModelPort {
       this.handleEvent(event.data, callbacks, chunks, toolBlocks, usageState);
     });
     const usage = this.usageOf(usageState);
+    const finishReason =
+      typeof usageState.stop_reason === 'string' ? usageState.stop_reason : undefined;
     if (usage === undefined) {
-      return { text: chunks.join('') };
+      return { text: chunks.join(''), ...(finishReason !== undefined ? { finishReason } : {}) };
     }
-    return { text: chunks.join(''), usage };
+    return {
+      text: chunks.join(''),
+      usage,
+      ...(finishReason !== undefined ? { finishReason } : {}),
+    };
   }
 
   /** 构造端点。
@@ -378,7 +384,12 @@ export class AnthropicModel implements ModelPort {
       text?: string;
       toolCalls?: readonly ModelToolCallRef[];
       usage?: ModelUsage;
+      finishReason?: string;
     } = {};
+    // LR-01：Anthropic 用 `stop_reason`（`max_tokens` 即截断）表达结束原因；保留给恢复层。
+    if (typeof body.stop_reason === 'string' && body.stop_reason !== '') {
+      output.finishReason = body.stop_reason;
+    }
     const mergedText = `${text}${structuredText}`;
     if (mergedText !== '') {
       output.text = mergedText;
@@ -460,6 +471,10 @@ export class AnthropicModel implements ModelPort {
       );
     }
     this.observeUsage(json, usageState);
+    // LR-01：`message_delta` 的 stop_reason 是流式结束原因（max_tokens = 截断）。
+    if (json.type === 'message_delta' && typeof json.delta?.stop_reason === 'string') {
+      usageState.stop_reason = json.delta.stop_reason;
+    }
     // #B3 工具调用开始：记录 id/name，先推一次空增量（便于 UI 立即显示「调用中」）。
     if (json.type === 'content_block_start' && json.content_block?.type === 'tool_use') {
       const index = json.index ?? toolBlocks.length;
@@ -524,6 +539,8 @@ interface AnthropicUsageState {
   output_tokens?: number | undefined;
   cache_creation_input_tokens?: number | undefined;
   cache_read_input_tokens?: number | undefined;
+  /** 流式结束原因（`message_delta.delta.stop_reason`；LR-01）。 */
+  stop_reason?: string | undefined;
 }
 
 /** wire 层 usage（非流式响应体与流式 message_start 同形）。 */
@@ -537,6 +554,8 @@ interface AnthropicUsageWire {
 /** Anthropic 响应类型。 */
 interface AnthropicResponse {
   readonly content: readonly (TextBlock | ToolUseBlock)[];
+  /** 结束原因（`max_tokens` = 输出被截断；LR-01）。 */
+  readonly stop_reason?: string | null;
   /** token 用量（#S29；`input_tokens` 不含缓存两段，见 usageOf 的口径说明）。 */
   readonly usage?: AnthropicUsageWire;
 }
@@ -559,7 +578,12 @@ interface ToolUseBlock {
 interface AnthropicStreamEvent {
   readonly type: string;
   readonly index?: number;
-  readonly delta?: { type: string; text?: string; partial_json?: string };
+  readonly delta?: {
+    type: string;
+    text?: string;
+    partial_json?: string;
+    stop_reason?: string | null;
+  };
   readonly content_block?: { type: string; id?: string; name?: string; input?: unknown };
   /** `message_start` 携带首段用量（含缓存两段）。 */
   readonly message?: { readonly usage?: AnthropicUsageWire };

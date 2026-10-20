@@ -31,6 +31,8 @@ export class ModelRouter implements ModelPort {
 
   /** 轮询游标。 */
   private cursor = 0;
+  /** 最近一次路由理由（OBS-02：日志/诊断可解释）。 */
+  private lastSelectionReason = '';
   /** 各模型累计成本（USD），least-cost 用。 */
   private readonly spend: Map<string, number> = new Map();
 
@@ -80,6 +82,14 @@ export class ModelRouter implements ModelPort {
       );
       return output;
     });
+  }
+
+  /**
+   * 最近一次路由理由（OBS-02）：`by-context` 会写估算与选中模型；其它策略为空串。
+   * @returns 可读理由。
+   */
+  public get routeReason(): string {
+    return this.lastSelectionReason;
   }
 
   /** 按策略选出底层 entry（entry 非空，下标必然有效）。
@@ -142,6 +152,8 @@ export class ModelRouter implements ModelPort {
         return this.selectLeastCost();
       case 'by-task':
         return this.selectByTask(request);
+      case 'by-context':
+        return this.selectByContext(request);
       case 'round-robin':
       case 'health-fallback':
       default:
@@ -166,6 +178,31 @@ export class ModelRouter implements ModelPort {
       }
     }
     return best;
+  }
+
+  /**
+   * by-context（OBS-02）：按请求估算 token 排除装不下的 entry，再取窗口最小者
+   * （窗口小通常更便宜/更快）。估算用字符数/4 的保守近似，不引 tokenizer。
+   * @param request 模型请求。
+   * @returns 选中的 entry 下标。
+   */
+  private selectByContext(request: ModelRequest): number {
+    const estimated = Math.ceil(JSON.stringify(request.messages).length / 4);
+    const fits = this.options.entries
+      .map((entry, index) => ({ entry, index }))
+      .filter(
+        ({ entry }) => entry.maxContextTokens === undefined || entry.maxContextTokens >= estimated,
+      );
+    const pool =
+      fits.length > 0 ? fits : this.options.entries.map((entry, index) => ({ entry, index }));
+    let best = pool[0]!;
+    for (const candidate of pool) {
+      const bestLimit = best.entry.maxContextTokens ?? Number.POSITIVE_INFINITY;
+      const candidateLimit = candidate.entry.maxContextTokens ?? Number.POSITIVE_INFINITY;
+      if (candidateLimit < bestLimit) best = candidate;
+    }
+    this.lastSelectionReason = `by-context estimated=${String(estimated)} chosen=${best.entry.model}`;
+    return best.index;
   }
 
   /** by-task：含「写/代码」关键词选 entries[0]，含「推理/分析」选 entries[1]，否则轮询。

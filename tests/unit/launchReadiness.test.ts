@@ -216,8 +216,8 @@ test('⑦ 接线：`--open` 由本脚本消费、绝不透传给 serve（未知�
   );
   assert.match(
     source,
-    /void openWhenReady\(resolveServePort\(serveArgs\)\)/u,
-    '--open 分支必须真的被调用',
+    /void openWhenReady\(resolveServePort\(serveArgs\), uiUrlRef\)/u,
+    '--open 分支必须真的被调用，并把带 token 的 uiUrlRef 传进去（裸 URL 会 401）',
   );
   assert.match(
     source,

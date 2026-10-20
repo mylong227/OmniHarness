@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
@@ -59,6 +59,66 @@
       "maxInstallKb": 16000,
       "maxTransitiveDeps": 60,
       "budgetOverrideReason": "SDK+zod 实测约 15MB（含类型与多传输实现），超出默认 2MB 预算；但换来的是与主流 MCP 客户端生态的完整互通能力（A1 差距闭合），收益远超体积代价。依赖树收敛（直接+传递计 3 项），远低于默认 20 上限。"
+    },
+    "yaml": {
+      "reason": "INT-04 SKILL.md frontmatter：自研解析只认单行 `key: value` 与 `[a,b]` tags，遇到 YAML 数组（`tags:\\n  - a`）、带冒号/引号的值、多行 description 会直接报错。`yaml` 2.x 是 YAML 1.2 参考实现、零依赖、活跃维护；比 `gray-matter`（依赖旧 js-yaml 3.x、传递 5 项）更干净。",
+      "capability": "SKILL.md 的 YAML frontmatter 解析：name/description/tags（数组或字符串）及未来扩展字段；解析失败/缺字段仍 fail-closed。缺失依赖时回退既有单行解析。仅 `src/skill/skillMdCodec.ts` 通过 `createRequire` 同步加载（CLI 导入路径是同步的）。",
+      "license": "ISC",
+      "approvedAt": "2026-10-20",
+      "layer": "src/skill",
+      "exitPlan": "删 `yamlParser()` 分支即回退自研单行解析（保留）；替换可换 `@std/front-matter`，仅改 SkillMdCodec 一个文件。",
+      "maxInstallKb": 1024,
+      "maxTransitiveDeps": 0,
+      "optional": true,
+      "optionalReason": "只在 SKILL.md 导入时同步 require；`npm i --omit=optional` 时自动回退自研解析，不属于默认安装硬依赖。"
+    },
+    "@mozilla/readability": {
+      "reason": "ACT-03 网页正文：自研 `HtmlToText` 只按标签做正则清洗，导航/侧栏/页脚等噪声与正文一起进上下文；Readability 是 Firefox 阅读模式的正文抽取算法，能按内容密度选主文章。按「自研边际成本显著高于引入」准入。",
+      "capability": "web_fetch 的 HTML 正文抽取：Readability 从 DOM 提主文章文本；缺失/失败/空结果时回退自研 `HtmlToText.convert`。仅 `src/util/htmlToText.ts` 动态 import()。",
+      "license": "Apache-2.0",
+      "approvedAt": "2026-10-20",
+      "layer": "src/util",
+      "exitPlan": "删 `convertAsync` 的 Readability 分支即回退正则实现；替换可换 `@extractus/article-extractor`，只改 HtmlToText 一个文件。",
+      "maxInstallKb": 512,
+      "maxTransitiveDeps": 0,
+      "optional": true,
+      "optionalReason": "只在 HTML 正文抽取时按需动态 import；`npm i --omit=optional` 时体积 0，web_fetch 仍走自研 fallback。"
+    },
+    "linkedom": {
+      "reason": "Readability 需要 DOM；Node 无 DOM。用 linkedom 而不是 jsdom：linkedom 约 0.9MB、无原生依赖，jsdom 约 5.5MB 且传递依赖 20+，本仓只需要 parseHTML 的轻量 DOM。",
+      "capability": "把 HTML 解析成 Readability 可消费的 DOM（parseHTML），仅作为 `@mozilla/readability` 的配套；缺失时同样回退自研 HtmlToText。",
+      "license": "ISC",
+      "approvedAt": "2026-10-20",
+      "layer": "src/util",
+      "exitPlan": "与 @mozilla/readability 同进同退；若换 jsdom/parse5，仅改 HtmlToText 的 DOM 构造一行。",
+      "maxInstallKb": 2048,
+      "maxTransitiveDeps": 8,
+      "optional": true,
+      "optionalReason": "只服务 Readability 的 DOM 构造，按需动态 import；默认安装不含。"
+    },
+    "playwright-core": {
+      "reason": "ACT-01 浏览器动作：自研 CDP 已能 goto/click/type/ARIA，但缺少 actionability（可见/可点/稳定）、自动等待、iframe/shadow DOM 与更可靠的选择器语义；这些是 Playwright 十年积累的浏览器兼容细节，重写边际成本远高于引依赖。用 `playwright-core` 而非 `playwright`：不带浏览器下载，复用本机 Chrome（`executablePath`）。",
+      "capability": "浏览器动作第二引擎：`OMNI_BROWSER_ENGINE=playwright` 时经 `PlaywrightBrowserSession` 提供 goto/click/type/press/scroll/wait_for/aria_snapshot/console/network；默认仍走自研 CDP，缺失依赖时自动回退。仅 `src/adapters/browser/playwrightBrowserSession.ts` 动态 import()。",
+      "license": "Apache-2.0",
+      "approvedAt": "2026-10-20",
+      "layer": "src/adapters/browser",
+      "exitPlan": "删除 `PlaywrightBrowserSession` 与工具里的 engine 分支即回退自研 CDP（同端口，调用方零改动）；替换可换 puppeteer-core（体积更小但 actionability 较弱）。",
+      "maxInstallKb": 16384,
+      "maxTransitiveDeps": 0,
+      "optional": true,
+      "optionalReason": "只作为浏览器动作的可选第二引擎，按需动态 import；`npm i --omit=optional` 时体积为 0，`browser_act` 自动回到自研 CDP。"
+    },
+    "unpdf": {
+      "reason": "ACT-03 PDF 文本提取：自研实现只解 FlateDecode + `Tj`/`TJ`，对对象流、CMap/字体编码、加密与真实排版 PDF 会漏或乱码；`unpdf` 基于 PDF.js 的 Node 无 DOM 构建，直接补上文本层解析。按 DEPENDENCY_POLICY「自研边际成本显著高于引入」准入。",
+      "capability": "web_fetch 的 PDF 正文提取：PDF.js 文本层合并页输出；加载失败/缺失时自动回退既有 `PdfTextExtractor.extract` 正则实现。仅 `src/util/pdfTextExtractor.ts` 动态 import()。",
+      "license": "MIT",
+      "approvedAt": "2026-10-20",
+      "layer": "src/util",
+      "exitPlan": "若包停更或行为回归：删动态 import 分支即回退自研正则（同文件保留），能力面收窄为简单 PDF；替换可换 pdfjs-dist / pdf-parse，仅改 PdfTextExtractor 一个文件。",
+      "maxInstallKb": 3072,
+      "maxTransitiveDeps": 4,
+      "optional": true,
+      "optionalReason": "只在 PDF 分支按需动态 import；`npm i --omit=optional` 时体积为 0，web_fetch 仍走自研 fallback，不产生硬依赖。"
     },
     "zod": {
       "reason": "官方 MCP SDK 的必需传递依赖（schema 校验层），同时被 src/adapters/mcp 适配器直接使用（JSON Schema 形状 → Zod RawShape 转换），随 SDK 一并准入。",

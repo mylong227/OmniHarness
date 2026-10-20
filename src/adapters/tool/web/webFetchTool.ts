@@ -23,6 +23,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.ts';
 import { HtmlToText } from '../../../util/htmlToText.ts';
+import { PdfTextExtractor } from '../../../util/pdfTextExtractor.ts';
 
 /** 单次抓取的响应体默认上限（字节）。 */
 const DEFAULT_MAX_BYTES = 200_000;
@@ -46,6 +47,8 @@ export interface FetchedDocument {
   readonly body: string;
   /** 是否因超出字节上限被截断。 */
   readonly truncated: boolean;
+  /** 原始字节（PDF 等二进制正文需要；文本路径可不带）。 */
+  readonly bytes?: Buffer | undefined;
 }
 
 /** 网页抓取工具选项。 */
@@ -158,10 +161,27 @@ export class WebFetchTool {
     });
     const contentType = response.headers.get('content-type') ?? '';
     const read = await WebFetchTool.readBounded(response, maxBytes);
-    const body = contentType.toLowerCase().includes('html')
-      ? HtmlToText.convert(read.text)
-      : read.text;
-    return { status: response.status, contentType, body, truncated: read.truncated };
+    const lower = contentType.toLowerCase();
+    let body: string;
+    if (lower.includes('pdf')) {
+      // ACT-03：PDF 文本尽力提取；扫描件/复杂编码提取为空时**如实说明**，不把空串当正文。
+      const extracted = await PdfTextExtractor.extractAsync(read.buffer);
+      body =
+        extracted === ''
+          ? '（PDF 文本提取为空：可能是扫描件/图片型 PDF，或使用了不支持的编码；请用浏览器打开查看）'
+          : extracted;
+    } else if (lower.includes('html')) {
+      body = await HtmlToText.convertAsync(read.text);
+    } else {
+      body = read.text;
+    }
+    return {
+      status: response.status,
+      contentType,
+      body,
+      truncated: read.truncated,
+      ...(lower.includes('pdf') ? { bytes: read.buffer } : {}),
+    };
   }
 
   /**
@@ -174,10 +194,10 @@ export class WebFetchTool {
   private static async readBounded(
     response: Response,
     maxBytes: number,
-  ): Promise<{ readonly text: string; readonly truncated: boolean }> {
+  ): Promise<{ readonly text: string; readonly truncated: boolean; readonly buffer: Buffer }> {
     const body = response.body as ReadableStream<Uint8Array> | null;
     if (body === null) {
-      return { text: '', truncated: false };
+      return { text: '', truncated: false, buffer: Buffer.alloc(0) };
     }
     const reader = body.getReader();
     const chunks: Uint8Array[] = [];
@@ -199,7 +219,11 @@ export class WebFetchTool {
         break;
       }
     }
-    return { text: Buffer.concat(chunks).toString('utf8').slice(0, maxBytes), truncated };
+    return {
+      text: Buffer.concat(chunks).toString('utf8').slice(0, maxBytes),
+      truncated,
+      buffer: Buffer.concat(chunks),
+    };
   }
 
   /**

@@ -9,6 +9,7 @@ import {
   type EnforcementMode,
 } from '../security/enforcementModeResolver.ts';
 import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
+import { ProvenanceTracker } from '../security/provenanceTracker.ts';
 import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { log } from '../util/logger.ts';
 import type { StepRunnerDeps } from './stepTypes.ts';
@@ -34,6 +35,8 @@ export class StepToolExecutor {
   private readonly gate: ToolGatePort;
   /** 工具并行调度器（V2）：读类并行、写类屏障、model-order 提交。 */
   private readonly scheduler: ToolScheduler;
+  /** 本回合的不可信来源追踪（SEC-03）：只在开启时生效。 */
+  private provenance: ProvenanceTracker | undefined;
 
   /**
    * @param deps 单步依赖契约（此处消费门禁相关字段：gate / approvals / sandbox / escalation /
@@ -70,6 +73,10 @@ export class StepToolExecutor {
     // V2 取消传播：本会话取消令牌的 AbortSignal 必须随工具上下文下传，否则长任务工具
     // （subagent / run_workflow / run_goal）无从得知父已取消，会继续派生并烧 token。
     const toolContext = this.withCancelSignal(context);
+    this.provenance =
+      process.env.OMNI_PROVENANCE_GUARD === '1'
+        ? ProvenanceTracker.fromEvents(this.deps.recorder.allEvents())
+        : undefined;
     await this.scheduler.run(calls, async (call) => {
       const ok = await this.runToolCall(call, toolContext);
       return { callId: call.id, ok };
@@ -94,6 +101,27 @@ export class StepToolExecutor {
   }
 
   /**
+   * SEC-03：写类工具参数是否命中外部不可信来源片段；命中时记录配对拒绝事件。
+   * @param call 工具调用。
+   * @returns 命中并已记录拒绝时为 true。
+   */
+  private blockedByProvenance(call: ToolCall): boolean {
+    if (
+      this.provenance === undefined ||
+      !MUTATING_TOOLS.has(call.name) ||
+      !this.provenance.isTainted(call.arguments)
+    ) {
+      return false;
+    }
+    const reason =
+      'SEC-03 来源追踪：该写类工具参数包含外部不可信工具输出片段，已拒绝（OMNI_PROVENANCE_GUARD=1）。';
+    log.warn('tool.provenance.blocked', { tool: call.name, callId: call.id });
+    this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+    this.deps.recorder.toolResult(call.id, false, undefined, reason);
+    return true;
+  }
+
+  /**
    * 执行单个工具调用（审批 → 沙箱 → pre 钩子 → 执行 → post 钩子）。
    *
    * **配对不变量**：本方法一旦落下 `tool_call` 事件，就保证在同一批内落下配对的
@@ -110,6 +138,8 @@ export class StepToolExecutor {
    * @returns 该调用是否成功（门禁拒绝、执行失败、链路异常均为 false）。
    */
   private async runToolCall(call: ToolCall, context: ToolContext): Promise<boolean> {
+    // SEC-03：不可信来源片段进入写类工具参数 ⇒ 显式开启时 fail-closed（先记配对事件）。
+    if (this.blockedByProvenance(call)) return false;
     // 审批 + 沙箱门禁（用户配置策略层）：native 与 JS 路径共用同一道门禁，
     // 保证 --approval / --sandbox 在两种后端下行为一致（修复 #66 旁路缺陷）。
     const denied = await this.gate.gate(call, context.sessionId);

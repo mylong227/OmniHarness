@@ -25,6 +25,7 @@ import type { EmbeddingPort } from '../model/embedding.ts';
 import type { EvolutionController } from '../runtime/evolution.ts';
 import type { BudgetDegradeSignal } from '../model/budgetDegrade.ts';
 import type { CompletionGateFactory } from '../runtime/completionGate.ts';
+import type { ReviewPort } from '../tool/review.ts';
 import type { SparkControllerPort } from '../spark/sparkControllerPort.ts';
 import type { A2aServer, A2aClient } from '../../a2a/index.ts';
 import type { A2aTransport } from '../a2a/a2aTransport.ts';
@@ -104,6 +105,8 @@ export interface OmniHarnessRuntime {
    * 决定本回合用哪种闸门。缺省 undefined＝不设闸门（旧行为；子代理运行时即如此）。
    */
   readonly completionGateFactory?: CompletionGateFactory | undefined;
+  /** 独立审查端口（VER-06，可选）：`OMNI_REVIEW_BLOCK=1` 时由组合根注入。 */
+  readonly reviewer?: ReviewPort | undefined;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务末跑 燧-3/燧-4 调谐/冲刷；缺省 undefined，零破坏。 */
   readonly spark?: SparkControllerPort | undefined;
   /** (U6) A2A 互操作：启用时本端起 A2aServer（监听）并构造 A2aClient，server 任务处理器跑子 agent 完成对等委托。缺省 undefined，零破坏。 */

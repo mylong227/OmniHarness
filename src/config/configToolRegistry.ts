@@ -22,6 +22,9 @@ import { FileContentLedger } from '../adapters/tool/fs/fileContentLedger.ts';
 import { GrepTool } from '../adapters/tool/fs/grepTool.ts';
 import { GlobTool } from '../adapters/tool/fs/globTool.ts';
 import { WebFetchTool } from '../adapters/tool/web/webFetchTool.ts';
+import { WebSearchProviders } from '../adapters/tool/web/webSearchProviders.ts';
+import { BrowserActTool } from '../adapters/tool/browser/browserActTool.ts';
+import { ReviewDiffTool } from '../adapters/tool/verify/reviewDiffTool.ts';
 import { ViewImageTool } from '../adapters/tool/media/viewImageTool.ts';
 import { SharpImageResizer } from '../adapters/media/sharpImageResizer.ts';
 import { ViewMediaTool } from '../adapters/tool/media/viewMediaTool.ts';
@@ -172,8 +175,7 @@ export class ConfigToolRegistry {
     // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道；
     // browser_screenshot 把「看一眼自己做的页面」补上（纯 TS CDP，headless Chrome/Edge）。
     const fetcher = new WebFetchTool();
-    // 两个「把图交给模型」的工具共用同一份缩放器：sharp 的模块加载是惰性且进程级复用，
-    // 各自 new 一份只会重复探测。截图落盘仍是原图，送模型的那份由它压到 1600px/500KiB。
+    const searchTool = WebSearchProviders.fromEnv();
     const imageResizer = new SharpImageResizer();
     const viewer = new ViewImageTool(seed.workspaceRoot, imageResizer);
     // 逐帧读媒体（动画 GIF / 视频）：与 view_image 分职——后者把整份文件当**一张静态图**，
@@ -185,6 +187,7 @@ export class ConfigToolRegistry {
       options: seed.media.options,
     });
     const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot, undefined, imageResizer);
+    const browserActTool = new BrowserActTool();
     const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
       gate: ConfigToolRegistry.codeExecutorGate(seed),
@@ -207,9 +210,13 @@ export class ConfigToolRegistry {
     registry.register(grepper.definition, (call, ctx) => grepper.handle(call, ctx));
     registry.register(globber.definition, (call, ctx) => globber.handle(call, ctx));
     registry.register(fetcher.definition, (call, ctx) => fetcher.handle(call, ctx));
+    if (searchTool !== undefined) {
+      registry.register(searchTool.definition, (call, ctx) => searchTool.handle(call, ctx));
+    }
     registry.register(viewer.definition, (call, ctx) => viewer.handle(call, ctx));
     registry.register(mediaViewer.definition, (call, ctx) => mediaViewer.handle(call, ctx));
     registry.register(screenshotTool.definition, (call, ctx) => screenshotTool.handle(call, ctx));
+    registry.register(browserActTool.definition, (call, ctx) => browserActTool.handle(call, ctx));
     registry.register(jobTool.definition, (call, ctx) => jobTool.handle(call, ctx));
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
     registry.register(spillReader.definition, (call, ctx) => spillReader.handle(call, ctx));
@@ -271,6 +278,8 @@ export class ConfigToolRegistry {
       eventFactory,
     );
     const planReader = new PlanReadTool(planning.plan);
+    // VER-01：独立审查者只吃 diff/目标/测试，不读父会话历史。
+    const reviewer = new ReviewDiffTool(seed.model);
     registry.register(spawner.definition, (call, ctx) => spawner.handle(call, ctx));
     registry.register(goalRunner.definition, (call, ctx) => goalRunner.handle(call, ctx));
     registry.register(workflowRunner.definition, (call, ctx) => workflowRunner.handle(call, ctx));
@@ -280,6 +289,7 @@ export class ConfigToolRegistry {
     registry.register(planWriter.definition, (call, ctx) => planWriter.handle(call, ctx));
     registry.register(planPresenter.definition, (call, ctx) => planPresenter.handle(call, ctx));
     registry.register(planReader.definition, (call, ctx) => planReader.handle(call, ctx));
+    registry.register(reviewer.definition, (call, ctx) => reviewer.handle(call, ctx));
     // #M1 工具语义检索：对全量工具建 BM25 索引，注册 tool_search；命中经 discovery 装载。
     const toolIndex = new ToolIndex(registry.list());
     const searchTool = new ToolSearchTool(toolIndex, discovery);

@@ -35,6 +35,10 @@ import {
 export class McpProtocol {
   /** 支持的协议版本（2025-06-18：当前稳定版，与主流 MCP 客户端互操作）。 */
   public static readonly PROTOCOL_VERSION = '2025-06-18';
+  /** 最新无状态修订（2026-07-28，INT-01/02）：双栈中的 v2 版本锚。 */
+  public static readonly PROTOCOL_VERSION_V2 = '2026-07-28';
+  /** 方法名：服务端能力发现（v2 无状态握手替代 initialize）。 */
+  public static readonly METHOD_SERVER_DISCOVER = 'server/discover';
   /** 方法名：握手。 */
   public static readonly METHOD_INITIALIZE = 'initialize';
   /** 方法名：列举工具。 */

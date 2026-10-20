@@ -298,12 +298,14 @@ export class ContextCompactor {
    * @param messages 待压缩消息（已投影但未追加 repo-map 尾段）。
    * @param state 上一步写回的压缩游标（可缺省）。
    * @param overhead 本轮固定开销（可缺省）。
+   * @param force 为 true 时**即使未达阈值也强制折叠**（LR-03：prompt-too-long 反应式压缩）。
    * @returns 压缩结果（含是否真的压缩、摘要、写回游标与收缩度量）。
    */
   public async compact(
     messages: readonly ModelMessage[],
     state?: CompactionState,
     overhead?: RequestOverhead,
+    force = false,
   ): Promise<CompactionResult> {
     // 图片的视觉 token 无法从 base64 反推（TokenEstimator 只记信封），但它在真实窗口里的占用
     // 是确定的：按保守常数从预算里扣掉，避免「本地算 83k、provider 报 120k」时才发现超窗。
@@ -311,13 +313,15 @@ export class ContextCompactor {
       100,
       this.effectiveThreshold(overhead) - ContextCompactor.imageTokensOf(messages),
     );
-    // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。
-    const reused = this.tryReuseState(messages, state, budget);
-    if (reused !== undefined) {
-      return reused;
+    // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。强制压缩时跳过（要重新折叠更大范围）。
+    if (!force) {
+      const reused = this.tryReuseState(messages, state, budget);
+      if (reused !== undefined) {
+        return reused;
+      }
     }
     const estimated = this.estimator.estimateMessages(messages);
-    if (estimated <= budget) {
+    if (!force && estimated <= budget) {
       // 未达压缩阈值：不折叠历史，但仍施加无损收缩（逐轮可复现 ⇒ 不破坏前缀缓存）。
       const shrunk = this.shrink(messages);
       return {
@@ -326,12 +330,18 @@ export class ContextCompactor {
         ...(shrunk.report !== undefined ? { shrink: shrunk.report } : {}),
       };
     }
+    // 强制压缩时把 tail 压到更小（至少保留 2 条最近消息），否则「摘要 + 大 tail」仍可能超窗。
     log.debug('compaction.triggered', {
       estimated,
       threshold: budget,
       reserved: this.overheadTokens(overhead),
       keepRecent: this.options.keepRecent,
+      force,
     });
+    const keepCount = force
+      ? Math.min(this.options.keepRecent, Math.max(2, messages.length - 1))
+      : Math.min(this.options.keepRecent, messages.length);
+    const headEnd = ContextCompactor.roundAlignedBoundary(messages, messages.length - keepCount);
     // 切 tail 时边界**必须落在工具轮之外**（2026-10-03 修，轮对齐）：
     // tail 起点若是 tool 消息（其 assistant(tool_calls) 被折进 head），或起点恰是
     // assistant(tool_calls)（其 tool 结果留在 tail），都会把一个工具轮从中间切开——
@@ -342,8 +352,6 @@ export class ContextCompactor {
     // 旧边界算法（只躲 orphan tool）在良构投影上从不移动，切轮是常态而非边缘。
     // 算法：边界指到 tool ⇒ 左移穿过全部结果到其 assistant，再把整个轮次让给 tail；
     // 边界指到 assistant(tool_calls) ⇒ 同样左移一位（结果必在其后）。
-    const keepCount = Math.min(this.options.keepRecent, messages.length);
-    const headEnd = ContextCompactor.roundAlignedBoundary(messages, messages.length - keepCount);
     const tail = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0 || !ContextCompactor.hasFoldableConversation(head)) {

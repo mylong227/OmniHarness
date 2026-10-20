@@ -18,6 +18,7 @@ const KERNEL_ENFORCED_PROFILES: ReadonlySet<string> = new Set([
   'unshare',
   'landlock',
   'seatbelt',
+  'wsl-bwrap',
 ]);
 
 /** 权限清单文件名（企业管控用，缺省位于工作区根；可选存在，存在时须合法 JSON）。 */

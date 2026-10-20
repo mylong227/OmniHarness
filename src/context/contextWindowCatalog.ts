@@ -18,7 +18,19 @@
 const WINDOW_TABLE: readonly { readonly match: readonly string[]; readonly tokens: number }[] = [
   // 1M 级
   {
-    match: ['gemini-1.5-pro', 'gemini-2.0', 'gemini-2.5', 'glm-5', 'qwen3-max'],
+    match: [
+      'gemini-1.5-pro',
+      'gemini-2.0',
+      'gemini-2.5',
+      'glm-5',
+      'qwen3-max',
+      // CTX-03（2026-10-20）：Claude 4.6 系列已是 1M 窗口；旧表把 `claude-4` 一律记 200k，
+      // 会让 1M 模型在 160k 就压缩（浪费 84% 窗口）。这里先精确匹配 4.6，再落到 200k 档。
+      'claude-4.6',
+      'claude-4-6',
+      'claude-opus-4-6',
+      'claude-sonnet-4-6',
+    ],
     tokens: 1_000_000,
   },
   // 200k 级

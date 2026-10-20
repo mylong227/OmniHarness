@@ -216,9 +216,14 @@ export class CliBuildConfig extends CliCredentialBuild {
     const guard = new NetworkEgressGuard(egressOptions(allowed, args));
     const original = globalThis.fetch;
     globalThis.fetch = guard.wrapFetch(original);
+    // SEC-02：把白名单标记给工具层，shell 策略据此拦截 curl/wget 等带外通道。
+    const previousAllow = process.env['OMNI_NETWORK_ALLOW'];
+    process.env['OMNI_NETWORK_ALLOW'] = allowed.join(',');
     process.stderr.write(`[omniharness] 网络外联策略已启用，仅放行: ${allowed.join(', ')}\n`);
     return () => {
       globalThis.fetch = original;
+      if (previousAllow === undefined) delete process.env['OMNI_NETWORK_ALLOW'];
+      else process.env['OMNI_NETWORK_ALLOW'] = previousAllow;
     };
   }
 

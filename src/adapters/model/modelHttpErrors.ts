@@ -55,6 +55,7 @@ export class ModelHttpErrors {
       status,
       retryable: ModelHttpErrors.retryableOf(status),
       retryAfterMs,
+      responseBody: bodyText.slice(0, 2000),
     });
   }
 

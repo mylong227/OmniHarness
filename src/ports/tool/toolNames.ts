@@ -62,6 +62,8 @@ export const TOOL_NAMES = {
   subagent: 'subagent',
   /** 网页截图落盘。 */
   browserScreenshot: 'browser_screenshot',
+  /** 浏览器交互动作（点击/输入/滚动/ARIA/console；ACT-01）。 */
+  browserAct: 'browser_act',
   /** 回滚工作区文件 / 截断事件流。 */
   rollback: 'rollback',
   /** 落盘检查点快照。 */
@@ -108,6 +110,8 @@ export const TOOL_NAMES = {
   webFetch: 'web_fetch',
   /** 策略求值（只读）。 */
   policyEval: 'policy_eval',
+  /** 独立审查一段 diff（只读；不接收父会话历史）。 */
+  reviewDiff: 'review_diff',
   /** Agent 密码学身份（只读）。 */
   agentIdentity: 'agent_identity',
   /** 自主目标循环（编排入口）。 */
@@ -175,6 +179,8 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   TOOL_NAMES.runCode,
   // 网页截图落盘 PNG ⇒ 与 write_file 同级。
   TOOL_NAMES.browserScreenshot,
+  // 浏览器交互动作：点击/输入会改变外部系统状态 ⇒ 与 shell 同级（plan/RBAC 必须拦）。
+  TOOL_NAMES.browserAct,
   // 还原工作区文件 + 截断事件流 ⇒ 与 write_file 同级。
   TOOL_NAMES.rollback,
   // 落盘检查点快照（含工作区文件内容）⇒ 写状态。

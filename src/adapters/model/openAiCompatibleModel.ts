@@ -142,6 +142,7 @@ export class OpenAiCompatibleModel implements ModelPort {
       reasoningChunks: [],
       toolBlocks: [],
       usage: undefined,
+      finishReason: undefined,
     };
     await sseParser.read(streamBody, (event) => {
       // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
@@ -162,7 +163,7 @@ export class OpenAiCompatibleModel implements ModelPort {
             arguments: ToolArgumentParser.parse(b.partial),
           }))
         : undefined;
-    return { text, reasoning, toolCalls, usage: state.usage };
+    return { text, reasoning, toolCalls, usage: state.usage, finishReason: state.finishReason };
   }
 
   /** 构造请求端点。
@@ -440,7 +441,12 @@ export class OpenAiCompatibleModel implements ModelPort {
       text?: string;
       toolCalls?: readonly ModelToolCallRef[];
       usage?: ModelUsage;
+      finishReason?: string;
     } = {};
+    // LR-01：保留结束原因（`length` 是截断信号，上层据此续写；旧端点缺字段则不写）。
+    if (typeof choice.finish_reason === 'string' && choice.finish_reason !== '') {
+      output.finishReason = choice.finish_reason;
+    }
     if (message.reasoning_content !== undefined && message.reasoning_content !== '') {
       output.reasoning = message.reasoning_content;
     }
@@ -512,6 +518,10 @@ export class OpenAiCompatibleModel implements ModelPort {
       };
     }
     const delta = json.choices?.[0]?.delta;
+    const finishReason = json.choices?.[0]?.finish_reason;
+    if (typeof finishReason === 'string' && finishReason !== '') {
+      state.finishReason = finishReason;
+    }
     // 流中错误负载（2026-10-03 修，审计 D3）：`{"error":{…}}` 形式的帧此前因取不到
     // `choices[0].delta` 被静默忽略（error 帧根本没有 choices，直接读 choices[0] 还会
     // TypeError）。显式上抛结构化错误中断流。
@@ -585,11 +595,13 @@ interface StreamState {
     { id?: string | undefined; name?: string | undefined; partial: string } | undefined
   )[];
   usage: ModelUsage | undefined;
+  finishReason: string | undefined;
 }
 
 /** 流式块类型。 */
 interface ChatCompletionChunk {
   readonly choices: readonly {
+    readonly finish_reason?: string | null;
     readonly delta?: {
       content?: string | null;
       reasoning_content?: string | null;
@@ -605,6 +617,7 @@ interface ChatCompletionChunk {
 /** wire 层响应类型。 */
 interface ChatCompletionResponse {
   readonly choices: readonly {
+    readonly finish_reason?: string | null;
     readonly message: {
       readonly role: string;
       readonly content?: string | null;
