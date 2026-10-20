@@ -42,9 +42,9 @@ export class FileController {
    * 在右侧代码查看器打开一个路径（含语法高亮语言推断）。
    * F8：面板经路由写入 hash，刷新 / 前进后退可还原「正在看哪个文件」这一视图。
    * @param path 文件路径
-   * @returns 异步完成
+   * @returns 是否成功打开（false 供结果卡移除已不存在的文件行）
    */
-  public async openFile(path: string): Promise<void> {
+  public async openFile(path: string): Promise<boolean> {
     try {
       const r = await this.services.api.readFs(path);
       const tag = r.isBinary ? t('二进制文件') : r.truncated ? t('已截断（>200KB）') : '';
@@ -75,8 +75,17 @@ export class FileController {
       if (this.onPreview !== undefined && FileKindClassifier.isWebPage(view.title)) {
         void this.onPreview(view.title);
       }
+      return true;
     } catch (e) {
-      this.services.toast(t('打开失败：{msg}', { msg: (e as Error).message }), 'err');
+      const msg = (e as Error).message;
+      // 旧 turn_diff 可能仍列着「生成后又被删除」的临时文件（如 _preview_server.js）。
+      // 不再把原始 ENOENT 甩给用户：给一句人话，调用方（结果卡）据 false 移除该行。
+      if (/ENOENT|no such file|not found/i.test(msg)) {
+        this.services.toast(t('文件已不存在（可能已被删除）'), 'err');
+      } else {
+        this.services.toast(t('打开失败：{msg}', { msg }), 'err');
+      }
+      return false;
     }
   }
 

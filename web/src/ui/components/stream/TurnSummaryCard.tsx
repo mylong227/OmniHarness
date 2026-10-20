@@ -22,8 +22,8 @@ import { t } from '../../i18n/i18n.ts';
 export interface TurnSummaryCardProps {
   /** 本轮事件切片（上一轮 turn_diff 之后到本轮 turn_diff，含 turn_diff）。 */
   events: readonly ThreadEvent[];
-  /** 在右侧面板打开文件。 */
-  onOpenFile?: (path: string) => void;
+  /** 在右侧面板打开文件；返回 false 表示文件已不存在，行会被移除。 */
+  onOpenFile?: (path: string) => Promise<boolean> | boolean | void;
 }
 
 /** 生成 / 修改两组的展示顺序与标题。 */
@@ -66,7 +66,7 @@ function FileRow(props: {
   file: TurnSummaryFile;
   diffOpen: boolean;
   onToggleDiff: () => void;
-  onOpenFile?: (path: string) => void;
+  onOpenFile?: (path: string) => Promise<boolean> | boolean | void;
 }): ReactElement {
   const { file, diffOpen, onToggleDiff, onOpenFile } = props;
   const { dir, name } = splitPath(file.path);
@@ -91,7 +91,7 @@ function FileRow(props: {
    */
   const onMain = (): void => {
     if (hasDiff && file.group === 'modified') onToggleDiff();
-    else onOpenFile?.(file.path);
+    else void onOpenFile?.(file.path);
   };
 
   return (
@@ -143,7 +143,7 @@ function FileRow(props: {
             className="ts-act ts-act-icon ts-open"
             onClick={(e: React.MouseEvent) => {
               stop(e);
-              onOpenFile?.(file.path);
+              void onOpenFile?.(file.path);
             }}
             title={t('在右侧面板打开')}
             aria-label={t('在右侧面板打开')}
@@ -193,6 +193,26 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
   const { events, onOpenFile } = props;
   const summary = React.useMemo(() => buildTurnSummary(events), [events]);
   const rawDiff = React.useMemo(() => rawDiffOf(events), [events]);
+  // 旧 turn_diff 可能仍列着生成后又被删除的临时文件；打开失败（false）时把它从卡里摘掉。
+  const [missing, setMissing] = React.useState<ReadonlySet<string>>(() => new Set());
+  const visibleFiles = summary.files.filter((f) => !missing.has(f.path));
+  const openFile = async (path: string): Promise<boolean> => {
+    let ok: boolean | void;
+    try {
+      ok = await onOpenFile?.(path);
+    } catch {
+      ok = false;
+    }
+    if (ok === false) {
+      setMissing((prev) => {
+        const next = new Set(prev);
+        next.add(path);
+        return next;
+      });
+      return false;
+    }
+    return true;
+  };
   // 不足 1s 不显示（避免「耗时 0秒」这种没有信息量的读数）。
   const duration = summary.durationMs >= 1000 ? formatDurationMs(summary.durationMs) : '';
   // 文件多时先收起（头部仍给出数量与增删合计），避免一次改动几十个文件把结论顶出屏幕。
@@ -219,6 +239,9 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
     );
   }
 
+  // 全部行都被判定为「已不存在」：整张卡退场，不再展示过期产物。
+  if (visibleFiles.length === 0) return null;
+
   /**
    * 开合某个文件的 diff 正文。
    * @param path 文件路径
@@ -233,12 +256,16 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
     });
   };
 
+  const createdCount = visibleFiles.filter((f) => f.group === 'created').length;
+  const modifiedCount = visibleFiles.filter((f) => f.group === 'modified').length;
+  const added = visibleFiles.reduce((n, f) => n + f.added, 0);
+  const deleted = visibleFiles.reduce((n, f) => n + f.deleted, 0);
   const counts =
-    summary.createdCount > 0 && summary.modifiedCount > 0
-      ? t('生成 {c} · 修改 {m}', { c: summary.createdCount, m: summary.modifiedCount })
-      : summary.createdCount > 0
-        ? t('生成 {c} 个文件', { c: summary.createdCount })
-        : t('修改 {m} 个文件', { m: summary.modifiedCount });
+    createdCount > 0 && modifiedCount > 0
+      ? t('生成 {c} · 修改 {m}', { c: createdCount, m: modifiedCount })
+      : createdCount > 0
+        ? t('生成 {c} 个文件', { c: createdCount })
+        : t('修改 {m} 个文件', { m: modifiedCount });
 
   return (
     <div className="turn-summary" role="group" aria-label={t('本轮结果')}>
@@ -252,10 +279,10 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
             {duration}
           </span>
         )}
-        {summary.added + summary.deleted > 0 ? (
+        {added + deleted > 0 ? (
           <span className="ts-total">
-            {summary.added > 0 ? <span className="add">+{summary.added}</span> : null}
-            {summary.deleted > 0 ? <span className="del">−{summary.deleted}</span> : null}
+            {added > 0 ? <span className="add">+{added}</span> : null}
+            {deleted > 0 ? <span className="del">−{deleted}</span> : null}
           </span>
         ) : null}
         <button
@@ -271,7 +298,7 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
       {open ? (
         <div className="ts-body">
           {GROUPS.map(({ group, label }) => {
-            const files = summary.files.filter((f) => f.group === group);
+            const files = visibleFiles.filter((f) => f.group === group);
             if (files.length === 0) return null;
             return (
               <section className="ts-group" key={group} aria-label={t(label)}>
@@ -285,7 +312,7 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
                     file={file}
                     diffOpen={openDiffs.has(file.path)}
                     onToggleDiff={() => toggleDiff(file.path)}
-                    onOpenFile={onOpenFile}
+                    onOpenFile={openFile}
                   />
                 ))}
               </section>

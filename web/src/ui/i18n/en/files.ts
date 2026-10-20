@@ -41,6 +41,7 @@ export const EN_FILES: Record<string, string> = {
   '{size} 字节': '{size} bytes',
   '（二进制文件，无法预览）': '(Binary file, preview unavailable)',
   '打开失败：{msg}': 'Failed to open: {msg}',
+  '文件已不存在（可能已被删除）': 'File no longer exists (it may have been deleted)',
   // 右栏网页标签（BrowserPane / RightPanel / BrowserController，2026-10-19）
   '网页': 'Web',
   '文件与网页': 'Files and web',

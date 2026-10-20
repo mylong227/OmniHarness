@@ -380,6 +380,8 @@ PANELS(16) —— 「全部面板」菜单渲染全集；Router 的 VALID_PANES 
   裸 `<table>` 在暗色主题里只是一片无边界文本。判据：`format.test.ts`。
 - 表格保持 `display:table` + **内容宽度**（`width:auto; max-width:100%`），**不要** `display:block`：
   2 列表格会被拉成整栏宽、右侧全空的“大块”。宽表靠 `overflow-wrap:anywhere` 在单元格内断行。
+- 结果卡里的文件若已被删除（旧 turn_diff 仍列着临时文件）：打开返回 `false`，
+  **该行从卡里移除**，toast 只说「文件已不存在（可能已被删除）」，不再把 ENOENT 原文甩给用户。
 
 ---
 
