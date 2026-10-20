@@ -187,6 +187,26 @@ test('RouteBinding：同一会话的重复收口不重复拉取线程，换会�
   assert.deepEqual(opened, ['t1', 't2', 't1']);
 });
 
+test('RouteBinding：只换会话不重开已关闭的面板模态（点会话行不弹配置集）', () => {
+  withHash('#pane=profiles&thread=t1');
+  const win = installWindow();
+  const { host, patches } = makeHost('t1');
+  const rb = new RouteBinding(host, () => {});
+  rb.start();
+  // 用户关掉配置集模态；路由仍保留 pane=profiles。
+  host.patch({ panelModalOpen: false });
+  patches.length = 0;
+
+  // loadThread 只 navigate threadId：沿用 profiles pane，但不得把模态重新打开。
+  rb.navigate({ threadId: 't2' });
+  withHash('#pane=profiles&thread=t2');
+  win.fire();
+  assert.ok(
+    !patches.some((p) => p.panelModalOpen === true),
+    '只换会话时不得重开配置集/功能面板',
+  );
+});
+
 test('RouteBinding.navigate：写 hash；路由未变时立即收口不等 hashchange', () => {
   withHash('#pane=tools');
   const win = installWindow();

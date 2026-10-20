@@ -23,6 +23,8 @@ export class RouteBinding {
   private readonly onThread: (id: string) => void;
   /** 最近一次已请求加载的会话 id：避免同一会话被重复 loadThread（哈希未变时立即收口会二次进入 apply）。 */
   private requestedThread: string | null = null;
+  /** 是否已完成首次路由收口（深链的第一帧要打开目标面板模态）。 */
+  private applied = false;
 
   /**
    * 构造并解析初始路由。
@@ -77,6 +79,12 @@ export class RouteBinding {
    * @returns 无
    */
   private apply(r: AppRoute): void {
+    // 只有「首次深链」或「面板真的变了」才自动打开面板模态。
+    // 2026-10-20 用户报「点会话行却弹出配置集」：根因是 loadThread 只换 threadId，
+    // navigate 沿用了当前 pane=profiles，apply 无条件 panelModalOpen=true 把刚关掉的配置集又弹回来。
+    const paneChanged = r.pane !== this.route.pane;
+    const firstApply = !this.applied;
+    this.applied = true;
     this.route = r;
     const patch: Partial<AppState> = { activePane: r.pane };
     // 深链 / 前进后退到达具体面板时展开右栏，便于直接看到目标 tab。
@@ -85,7 +93,9 @@ export class RouteBinding {
     if (r.pane !== 'tools') patch.rightCollapsed = false;
     if (r.pane !== 'tools') patch.rightOpen = true;
     // 深链直达某个功能面板：打开面板模态（文件视图仍留在右栏）。
-    if (r.pane !== 'tools' && r.pane !== 'file') patch.panelModalOpen = true;
+    if ((firstApply || paneChanged) && r.pane !== 'tools' && r.pane !== 'file') {
+      patch.panelModalOpen = true;
+    }
     this.host.patch(patch);
     const cur = this.host.getState().currentThreadId;
     if (r.threadId === null) {
