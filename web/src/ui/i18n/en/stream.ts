@@ -166,6 +166,9 @@ export const EN_STREAM: Record<string, string> = {
   '查看能力元数据': 'Capability metadata',
   '读取待办': 'Read todos',
   '工具注册表': 'Tool registry',
+  '调用 MCP': 'Call MCP',
+  '调用工具': 'Call tool',
+  '调用工具（{summary}）': 'Call tool ({summary})',
   '{label} · {subject}': '{label} · {subject}',
 
   // textUtils.ts — processSummary

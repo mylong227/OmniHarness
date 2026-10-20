@@ -42,6 +42,7 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
   run_goal: '自主目标',
   run_workflow: '运行工作流',
   registry: '工具注册表',
+  mcp: '调用 MCP',
   lsp_go_to_definition: '代码导航',
   lsp_find_references: '查找引用',
   lsp_hover: '查看提示',
@@ -76,6 +77,7 @@ const TOOL_SUBJECT_KEYS: Readonly<Record<string, readonly string[]>> = {
   a2a_delegate: ['task', 'prompt'],
   patch_candidates: ['path'],
   checkpoint: ['label', 'name'],
+  mcp: ['tool', 'name', 'server'],
   lsp_go_to_definition: ['path', 'file', 'uri'],
   lsp_find_references: ['path', 'file', 'uri'],
   lsp_hover: ['path', 'file', 'uri'],
@@ -170,7 +172,7 @@ export function describeToolCall(name: string, args: unknown): string {
           : t(label);
       }
       const summary = argSummary(args);
-      return summary ? t('{name}（{summary}）', { name, summary }) : t('调用 {name}', { name });
+      return summary ? t('调用工具（{summary}）', { summary }) : t('调用工具');
     }
   }
 }

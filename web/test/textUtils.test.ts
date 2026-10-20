@@ -32,8 +32,10 @@ test('describeToolCall 映射已知工具为人话动作', () => {
   assert.strictEqual(describeToolCall('run_code', { code: 'const x = 1' }), '运行代码 · const x = 1');
   assert.strictEqual(describeToolCall('web_fetch', { url: 'https://x.test' }), '抓取网页 · https://x.test');
   assert.strictEqual(describeToolCall('edit', { path: 'a/b.ts' }), '编辑 · a/b.ts');
-  assert.strictEqual(describeToolCall('unknown_tool', { x: 1 }), 'unknown_tool（x=1）');
-  assert.strictEqual(describeToolCall('unknown_tool', {}), '调用 unknown_tool');
+  assert.strictEqual(describeToolCall('mcp', { tool: 'search' }), '调用 MCP · search');
+  // 未登记工具也不得直接露接口名：退成「调用工具（参数摘要）」。
+  assert.strictEqual(describeToolCall('unknown_tool', { x: 1 }), '调用工具（x=1）');
+  assert.strictEqual(describeToolCall('unknown_tool', {}), '调用工具');
 });
 
 test('toolVerb / toolSubject：步骤行是「动作标签 + 对象」，不出现工具名', () => {
