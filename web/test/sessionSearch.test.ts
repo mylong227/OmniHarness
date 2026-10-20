@@ -541,3 +541,36 @@ test('SessionPanel：Esc 清空关键字并收起结果（不再打远端）', a
   assert.strictEqual(searchInput(tree)!.props['aria-expanded'], 'false');
   assert.deepStrictEqual(handle.calls.searchAll, ['app'], 'Esc 后不得补打远端');
 });
+
+test('SessionPanel：右键「配置」展开管理动作，且菜单内点击不会把分组关掉', async () => {
+  const handle = await setupPanel();
+  const row = byClass(handle.tree(), 'session').filter((n) => hasClass(n, 'session'))[0];
+  assert.ok(row !== undefined, '必须先有会话行');
+  fireEvent.contextMenu(row.el, { clientX: 120, clientY: 200 });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const menu = byClass(handle.tree(), 'row-menu')[0];
+  assert.ok(menu !== undefined, '右键必须打开行菜单');
+  assert.match(allText(menu), /打开/);
+  assert.match(allText(menu), /配置/);
+  assert.ok(
+    byClass(menu, 'row-menu-sub').length === 0,
+    '「配置」默认收起，不直接铺开管理动作',
+  );
+
+  const configBtn = byTag(menu, 'button').find((n) => allText(n).includes('配置'));
+  assert.ok(configBtn !== undefined, '必须有「配置」按钮');
+  assert.strictEqual(configBtn.props['aria-expanded'], 'false');
+  fireEvent.click(configBtn.el);
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  const opened = byClass(handle.tree(), 'row-menu')[0];
+  const sub = byClass(opened, 'row-menu-sub')[0];
+  assert.ok(sub !== undefined, '点击「配置」必须展开管理动作分组');
+  assert.match(allText(sub), /重命名/);
+  assert.match(allText(sub), /复制为副本/);
+  assert.match(allText(sub), /删除/);
+});

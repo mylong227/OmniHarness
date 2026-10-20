@@ -124,6 +124,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [rail, setRail] = React.useState<boolean>(false);
   /** 行右键菜单（会话 id + 视口坐标；null 表示未打开）。 */
   const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
+  /** 右键菜单里的「配置」分组是否展开（2026-10-20：会话管理动作收进可展开分组）。 */
+  const [menuConfigOpen, setMenuConfigOpen] = React.useState<boolean>(false);
   /** 菜单**实际**左上角坐标（由 MenuPlacement 贴边翻转算出；null 表示尚未测量）。 */
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
   /** 菜单元素（量它的真实宽高用于翻转判定）。 */
@@ -279,7 +281,13 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   // 右键菜单：点空白处 / 滚动即关闭（菜单 fixed 定位，滚动后位置就错了）。
   React.useEffect(() => {
     if (menu === null) return;
-    const close = (): void => setMenu(null);
+    const close = (e: Event): void => {
+      // 菜单内部点击（如展开「配置」分组）不算“点空白处”，否则分组刚展开就被关掉。
+      const el = menuRef.current;
+      if (el !== null && e.target instanceof Node && el.contains(e.target)) return;
+      setMenu(null);
+      setMenuConfigOpen(false);
+    };
     window.addEventListener('click', close);
     window.addEventListener('scroll', close, true);
     return () => {
@@ -304,7 +312,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       { w: window.innerWidth, h: window.innerHeight },
     );
     setMenuPos((prev) => (prev !== null && prev.x === p.x && prev.y === p.y ? prev : p));
-  }, [menu]);
+  }, [menu, menuConfigOpen]);
 
   /** 打开内嵌文件夹选择器。 @returns 无 */
   const addProject = (): void => setPicking(true);
@@ -501,7 +509,10 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onCancelDelete: cancelDelete,
     onCommitDelete: (id: string) => void commitDelete(id),
     onFork: (id: string) => void onFork(id),
-    onContextMenu: (id: string, x: number, y: number) => setMenu({ id, x, y }),
+    onContextMenu: (id: string, x: number, y: number) => {
+      setMenuConfigOpen(false);
+      setMenu({ id, x, y });
+    },
     ...(props.onArchive !== undefined ? { onArchive: props.onArchive } : {}),
   };
   const listCtx: ListCtx = {
@@ -756,63 +767,78 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           </button>
           <button
             role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              startRename(menuSession);
-            }}
+            className="row-menu-config"
+            aria-expanded={menuConfigOpen ? 'true' : 'false'}
+            onClick={() => setMenuConfigOpen((v) => !v)}
           >
-            {t('重命名')}
+            <span>{t('配置')}</span>
+            <span className="row-menu-caret" aria-hidden="true">
+              {menuConfigOpen ? '▾' : '▸'}
+            </span>
           </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              void onFork(menu.id);
-            }}
-          >
-            {t('复制为副本')}
-          </button>
-          {/* 排序：不用拖拽也能把会话钉到最前/最后（Codex 式右键菜单的做法）。 */}
-          <button
-            role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              moveToEdge(menu.id, 'top');
-            }}
-          >
-            {t('移到顶部')}
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              moveToEdge(menu.id, 'bottom');
-            }}
-          >
-            {t('移到底部')}
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              // 归入当前项目（2026-10-07 用户口径「各自分离不要出现串项目」）：只对**没有归属或归属别家**
-              // 的会话显示（当前项目自己的会话点了没意义）。改的是存档首行 session_meta 的 workspace
-              // （归一值），历史事件逐字不动；落盘后刷新列表即可看到它换组。
-              void assignToCurrentProject(menu.id);
-            }}
-          >
-            {t('归入当前项目')}
-          </button>
-          <button
-            role="menuitem"
-            className="danger"
-            onClick={() => {
-              setMenu(null);
-              askDelete(menu.id);
-            }}
-          >
-            {t('删除…')}
-          </button>
+          {menuConfigOpen ? (
+            <div className="row-menu-sub" role="group" aria-label={t('会话配置')}>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  startRename(menuSession);
+                }}
+              >
+                {t('重命名')}
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  void onFork(menu.id);
+                }}
+              >
+                {t('复制为副本')}
+              </button>
+              {/* 排序：不用拖拽也能把会话钉到最前/最后（Codex 式右键菜单的做法）。 */}
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  moveToEdge(menu.id, 'top');
+                }}
+              >
+                {t('移到顶部')}
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  moveToEdge(menu.id, 'bottom');
+                }}
+              >
+                {t('移到底部')}
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenu(null);
+                  // 归入当前项目（2026-10-07 用户口径「各自分离不要出现串项目」）：只对**没有归属或归属别家**
+                  // 的会话显示（当前项目自己的会话点了没意义）。改的是存档首行 session_meta 的 workspace
+                  // （归一值），历史事件逐字不动；落盘后刷新列表即可看到它换组。
+                  void assignToCurrentProject(menu.id);
+                }}
+              >
+                {t('归入当前项目')}
+              </button>
+              <button
+                role="menuitem"
+                className="danger"
+                onClick={() => {
+                  setMenu(null);
+                  askDelete(menu.id);
+                }}
+              >
+                {t('删除…')}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : null}
       {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */}

@@ -2993,6 +2993,30 @@ button:hover,
   background: color-mix(in srgb, var(--err) 12%, transparent);
   color: var(--err);
 }
+/* 右键菜单「配置」分组：管理动作收进可展开的浅底分组，单点行本身只打开会话。 */
+.row-menu button.row-menu-config {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.row-menu-caret {
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1;
+}
+.row-menu-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 2px 0;
+  padding: 3px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel-2) 55%, transparent);
+}
+.row-menu-sub button {
+  padding: 5px 8px;
+}
 .ws-add:hover {
   border-color: var(--accent);
   color: var(--accent);

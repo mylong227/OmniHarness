@@ -28,6 +28,7 @@ export const EN_SESSIONS: Record<string, string> = {
   '搜索会话…': 'Search sessions…',
   '文件': 'Files',
   '打开': 'Open',
+  '会话配置': 'Session config',
   '重命名': 'Rename',
   '复制为副本': 'Duplicate',
   '移到顶部': 'Move to top',
