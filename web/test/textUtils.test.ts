@@ -26,6 +26,12 @@ test('describeToolCall 映射已知工具为人话动作', () => {
   assert.strictEqual(describeToolCall('bash', { command: 'npm test' }), '执行命令 npm test');
   assert.strictEqual(describeToolCall('search', { pattern: 'foo' }), '搜索 foo');
   assert.strictEqual(describeToolCall('delegate', { task: '调研 X' }), '委派子任务 调研 X');
+  // 2026-10-20：轨迹里此前直接露 `memory_search(...)` / `run_code(...)`；
+  // 现在走中文动作 + 语义对象，不再显示接口名。
+  assert.strictEqual(describeToolCall('memory_search', { limit: 15, query: 'bug 清单' }), '检索记忆 · bug 清单');
+  assert.strictEqual(describeToolCall('run_code', { code: 'const x = 1' }), '运行代码 · const x = 1');
+  assert.strictEqual(describeToolCall('web_fetch', { url: 'https://x.test' }), '抓取网页 · https://x.test');
+  assert.strictEqual(describeToolCall('edit', { path: 'a/b.ts' }), '编辑 · a/b.ts');
   assert.strictEqual(describeToolCall('unknown_tool', { x: 1 }), 'unknown_tool（x=1）');
   assert.strictEqual(describeToolCall('unknown_tool', {}), '调用 unknown_tool');
 });
@@ -37,8 +43,12 @@ test('toolVerb / toolSubject：步骤行是「动作标签 + 对象」，不出�
   assert.strictEqual(toolVerb('shell'), '运行命令');
   assert.strictEqual(toolVerb('bash'), '运行命令');
   assert.strictEqual(toolVerb('sketch_write'), '生成草图');
+  assert.strictEqual(toolVerb('memory_search'), '检索记忆');
+  assert.strictEqual(toolVerb('run_code'), '运行代码');
   assert.strictEqual(toolVerb('unknown_tool'), '调用');
 
+  assert.strictEqual(toolSubject('memory_search', { query: 'bug 清单' }), 'bug 清单');
+  assert.strictEqual(toolSubject('run_code', { code: 'const x = 1' }), 'const x = 1');
   assert.strictEqual(toolSubject('read_file', { path: 'a/b.ts' }), 'a/b.ts');
   assert.strictEqual(toolSubject('shell', { command: 'npm test' }), 'npm test');
   assert.strictEqual(toolSubject('search', { pattern: 'foo' }), 'foo');

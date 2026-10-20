@@ -6,6 +6,86 @@ import type { ThreadEvent } from '../types/models.ts';
 import { FileSizeFormatter } from './models/FileSizeFormatter.ts';
 import { t } from './i18n/i18n.ts';
 
+/**
+ * 工具名的**中文动作标签**（2026-10-20：轨迹 / 步骤行不再露出接口名）。
+ *
+ * 只登记「还需要人话」的工具；read/write/patch/shell/search 等已有专门句式（带路径/命令），
+ * 不在此表，避免与 `describeToolCall` 的既有措辞打架。
+ */
+const TOOL_LABELS: Readonly<Record<string, string>> = {
+  edit: '编辑',
+  glob: '匹配文件',
+  patch_candidates: '候选补丁',
+  workflow_memory: '工作流记忆',
+  shell_job: '管理后台作业',
+  shell_interactive: '打开终端',
+  run_code: '运行代码',
+  a2a_delegate: '跨代理委派',
+  browser_screenshot: '网页截图',
+  rollback: '回滚',
+  checkpoint: '创建检查点',
+  remember: '写入记忆',
+  recall: '读取记忆',
+  memory_search: '检索记忆',
+  todo_read: '读取待办',
+  capability_metadata: '查看能力元数据',
+  ask_user: '询问用户',
+  tool_search: '查找工具',
+  spill_read: '读取溢出',
+  budget_status: '查看预算',
+  view_image: '查看图片',
+  view_media: '查看媒体',
+  web_search: '联网搜索',
+  web_fetch: '抓取网页',
+  policy_eval: '评估策略',
+  agent_identity: '查看身份',
+  run_goal: '自主目标',
+  run_workflow: '运行工作流',
+  registry: '工具注册表',
+  lsp_go_to_definition: '代码导航',
+  lsp_find_references: '查找引用',
+  lsp_hover: '查看提示',
+  lsp_status: '语言服务状态',
+  lsp_diagnostics: '代码诊断',
+  lsp_document_symbols: '文档符号',
+  lsp_code_action: '代码动作',
+  lsp_workspace_symbols: '工作区符号',
+};
+
+/** 工具入参里「对象」字段的候选顺序（按业务语义，而不是按 JSON 键序）。 */
+const TOOL_SUBJECT_KEYS: Readonly<Record<string, readonly string[]>> = {
+  edit: ['path', 'file', 'target'],
+  glob: ['pattern', 'query'],
+  run_code: ['code'],
+  memory_search: ['query'],
+  web_search: ['query'],
+  web_fetch: ['url', 'href'],
+  view_image: ['path', 'file'],
+  view_media: ['path', 'file'],
+  browser_screenshot: ['url', 'path'],
+  ask_user: ['question', 'prompt'],
+  tool_search: ['query', 'q'],
+  spill_read: ['id', 'callId'],
+  remember: ['text', 'content', 'fact'],
+  recall: ['query'],
+  workflow_memory: ['query', 'task'],
+  shell_job: ['command', 'action'],
+  shell_interactive: ['command'],
+  run_goal: ['goal', 'task', 'prompt'],
+  run_workflow: ['name', 'workflow', 'task'],
+  a2a_delegate: ['task', 'prompt'],
+  patch_candidates: ['path'],
+  checkpoint: ['label', 'name'],
+  lsp_go_to_definition: ['path', 'file', 'uri'],
+  lsp_find_references: ['path', 'file', 'uri'],
+  lsp_hover: ['path', 'file', 'uri'],
+  lsp_status: [],
+  lsp_diagnostics: ['path', 'file', 'uri'],
+  lsp_document_symbols: ['path', 'file', 'uri'],
+  lsp_code_action: ['path', 'file', 'uri'],
+  lsp_workspace_symbols: ['query'],
+};
+
 /** 截断长字符串到指定字符数（按 UTF-16 单元），超长末尾加省略号。 */
 export function truncate(s: string, n: number): string {
   if (s.length <= n) return s;
@@ -82,6 +162,13 @@ export function describeToolCall(name: string, args: unknown): string {
       return task ? t('委派子任务 {task}', { task: short(task, 48) }) : t('委派子任务');
     }
     default: {
+      const label = TOOL_LABELS[name];
+      if (label !== undefined) {
+        const subject = toolSubject(name, args);
+        return subject !== ''
+          ? t('{label} · {subject}', { label: t(label), subject })
+          : t(label);
+      }
       const summary = argSummary(args);
       return summary ? t('{name}（{summary}）', { name, summary }) : t('调用 {name}', { name });
     }
@@ -127,7 +214,7 @@ export function toolVerb(name: string): string {
     case 'plan_present':
       return '展示计划';
     default:
-      return '调用';
+      return TOOL_LABELS[name] ?? '调用';
   }
 }
 
@@ -170,9 +257,30 @@ export function toolSubject(name: string, args: unknown): string {
     case 'plan_write':
     case 'plan_present':
       return '';
-    default:
-      return argSummary(args);
+    default: {
+      const generic = genericToolSubject(name, args);
+      return generic !== '' ? generic : argSummary(args);
+    }
   }
+}
+
+/**
+ * 通用工具对象提取：按 {@link TOOL_SUBJECT_KEYS} 的语义顺序取第一个非空字符串。
+ * @param name 工具名
+ * @param args 工具入参
+ * @returns 截断后的单行对象；无可用字段时为空串
+ */
+function genericToolSubject(name: string, args: unknown): string {
+  const fields = TOOL_SUBJECT_KEYS[name];
+  if (fields === undefined || fields.length === 0) return '';
+  const a = args && typeof args === 'object' ? (args as Record<string, unknown>) : {};
+  for (const key of fields) {
+    const v = a[key];
+    if (typeof v === 'string' && v.trim() !== '') {
+      return truncate(v.replace(/\s+/g, ' ').trim(), 96);
+    }
+  }
+  return '';
 }
 
 /**
