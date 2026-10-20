@@ -305,8 +305,12 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     }
     const el = menuRef.current;
     if (el === null) return;
+    // 菜单贴到左栏右侧：右键位置若落在会话行上，菜单不覆盖行，避免下一次点行误触菜单项。
+    const leftCol = el.closest('.col.left');
+    const colRight = leftCol === null ? 0 : leftCol.getBoundingClientRect().right;
+    const anchorX = Math.max(menu.x, colRight + 6);
     const p = MenuPlacement.clamp(
-      menu.x,
+      anchorX,
       menu.y,
       { w: el.offsetWidth, h: el.offsetHeight },
       { w: window.innerWidth, h: window.innerHeight },

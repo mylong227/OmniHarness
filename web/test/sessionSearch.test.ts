@@ -255,7 +255,7 @@ function latestOnlyScheduler() {
 
 /** 装配 SessionPanel 的渲染与调用记录。 */
 async function setupPanel() {
-  const calls = { searchAll: [] as string[], opened: [] as string[], selected: [] as string[] };
+  const calls = { searchAll: [] as string[], opened: [] as string[], selected: [] as string[], panes: [] as string[] };
   const sched = latestOnlyScheduler();
   const responses: Record<string, unknown> = {
     async searchAll(q: string) {
@@ -281,6 +281,7 @@ async function setupPanel() {
     onRename: () => {},
     onDelete: () => {},
     onFork: () => {},
+    onOpenPane: (key: string) => calls.panes.push(key),
     open: true,
     style: {},
     // 同步调度：把防抖变成「flush 即执行」，测试无需等真实定时器。
@@ -542,24 +543,38 @@ test('SessionPanel：Esc 清空关键字并收起结果（不再打远端）', a
   assert.deepStrictEqual(handle.calls.searchAll, ['app'], 'Esc 后不得补打远端');
 });
 
-test('SessionPanel：右键「配置」展开管理动作，且菜单内点击不会把分组关掉', async () => {
+test('SessionPanel：单点只打开会话；右键「配置集」才弹面板，「配置」展开管理动作', async () => {
   const handle = await setupPanel();
   const row = byClass(handle.tree(), 'session').filter((n) => hasClass(n, 'session'))[0];
   assert.ok(row !== undefined, '必须先有会话行');
-  fireEvent.contextMenu(row.el, { clientX: 120, clientY: 200 });
+
+  // 单点：只 onSelect，不打开任何面板（用户口径「单点不要弹配置」）。
+  fireEvent.click(row.el);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.deepStrictEqual(handle.calls.selected, ['s-1'], '单点必须打开会话');
+  assert.deepStrictEqual(handle.calls.panes, [], '单点不得打开配置集面板');
+
+  fireEvent.contextMenu(byClass(handle.tree(), 'session')[0]!.el, { clientX: 120, clientY: 200 });
   await act(async () => {
     await Promise.resolve();
   });
   const menu = byClass(handle.tree(), 'row-menu')[0];
   assert.ok(menu !== undefined, '右键必须打开行菜单');
   assert.match(allText(menu), /打开/);
-  assert.match(allText(menu), /配置/);
+  // 会话列表的点击/右键都不再提供「配置集」入口，配置集仍从「全部面板」进。
+  assert.ok(!allText(menu).includes('配置集'), '行菜单不得再出现「配置集」');
+  assert.deepStrictEqual(handle.calls.panes, [], '右键也不得打开配置集面板');
   assert.ok(
     byClass(menu, 'row-menu-sub').length === 0,
     '「配置」默认收起，不直接铺开管理动作',
   );
 
-  const configBtn = byTag(menu, 'button').find((n) => allText(n).includes('配置'));
+  const configBtn = byTag(menu, 'button').find((n) => {
+    const text = allText(n).trim();
+    return text.startsWith('配置') && !text.startsWith('配置集');
+  });
   assert.ok(configBtn !== undefined, '必须有「配置」按钮');
   assert.strictEqual(configBtn.props['aria-expanded'], 'false');
   fireEvent.click(configBtn.el);
@@ -570,7 +585,9 @@ test('SessionPanel：右键「配置」展开管理动作，且菜单内点击�
   const opened = byClass(handle.tree(), 'row-menu')[0];
   const sub = byClass(opened, 'row-menu-sub')[0];
   assert.ok(sub !== undefined, '点击「配置」必须展开管理动作分组');
+  assert.ok(!allText(sub).includes('配置集'), '行菜单任何层级都不得提供配置集入口');
   assert.match(allText(sub), /重命名/);
   assert.match(allText(sub), /复制为副本/);
   assert.match(allText(sub), /删除/);
+  assert.deepStrictEqual(handle.calls.panes, [], '任何行菜单操作都不得打开配置集面板');
 });
