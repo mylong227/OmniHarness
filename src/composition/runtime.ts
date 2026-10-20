@@ -156,13 +156,29 @@ export class Runtime {
       budgetDegrade: config.budgetDegrade,
       // A1 回合完成闸门：组合根注入实现（core 只认端口 `CompletionGateFactory`），口径见其模块头。
       completionGateFactory: (ctx) => TurnCompletionGateFactory.of(ctx),
-      // VER-06：显式开启才挂 reviewer（默认 advisory/零额外模型调用）。
-      ...(process.env.OMNI_REVIEW_BLOCK === '1'
-        ? { reviewer: new ReviewDiffTool(config.model) }
-        : {}),
+      // VER-06（2026-10-21）：reviewer 默认注入，完成声明且有 diff 时跑一次干净上下文审查。
+      // 默认 advisory；`OMNI_REVIEW_BLOCK=1` 阻断；`OMNI_REVIEW=off|0` 关闭；
+      // `OMNI_REVIEW_MODEL` 命中路由 entry 时用独立模型（见 reviewerField）。
+      ...Runtime.reviewerField(config),
     } as OmniHarnessRuntime;
     Runtime.attachA2a(runtime, config);
     return runtime;
+  }
+
+  /**
+   * 独立审查注入字段（VER-06，2026-10-21）。
+   *
+   * 默认注入；`OMNI_REVIEW=off|0` 显式关闭；`config.reviewerModel`（由
+   * `OMNI_REVIEW_MODEL` 命中 modelRouter entry 得到）优先于主模型。
+   * @param config 已解析配置。
+   * @returns 含 `reviewer` 的运行时片段；关闭时为空对象。
+   */
+  private static reviewerField(
+    config: ResolvedConfig,
+  ): Pick<OmniHarnessRuntime, 'reviewer'> | Record<string, never> {
+    const value = process.env.OMNI_REVIEW;
+    if (value === 'off' || value === '0') return {};
+    return { reviewer: new ReviewDiffTool(config.reviewerModel ?? config.model) };
   }
 
   /**

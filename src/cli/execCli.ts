@@ -144,14 +144,9 @@ export class ExecCli extends CliAgentCmds {
       // 顺序讲究：headless 的专属提示（"交互审批会挂起"）更具体，故对 `-p` 先判它。
       if (args.print === true) this.assertHeadlessSafe(args);
       this.assertExecPathSupported(args, argv);
-      // LR-05：headless（-p）默认 1 小时硬时限；serve/交互默认 8 小时（见 Agent 的常量）。
-      // 显式 OMNI_LOOP_MAX_MS 优先（含 0 = 关闭），这里只补缺省。
-      if (
-        args.print === true &&
-        (process.env.OMNI_LOOP_MAX_MS === undefined || process.env.OMNI_LOOP_MAX_MS === '')
-      ) {
-        process.env.OMNI_LOOP_MAX_MS = String(60 * 60_000);
-      }
+      // LR-05（2026-10-21）：headless（-p）不再单独压到 1 小时——与 Agent 默认一致用 8 小时，
+      // 让长任务在非交互路径也跑得完；需要更短熔断的调用方用 OMNI_LOOP_MAX_MS 显式覆盖
+      //（含 0 = 关闭）。
       const config = await this.buildConfig(args);
       const agent = new Agent(Runtime.createRuntime(config));
       const result = await this.execute(agent, args);

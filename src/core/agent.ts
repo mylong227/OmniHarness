@@ -1,4 +1,4 @@
-﻿import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { ToolContext } from '../ports/tool/tool.ts';
 import type { ImageContent, FileAttachment } from '../ports/model/model.ts';
 
@@ -16,9 +16,8 @@ import type { CheckpointManagerPort } from '../ports/runtime/checkpointManager.t
 import { ResumeGuidance } from './resumeGuidance.ts';
 import { AgentLimits } from './agentLimits.ts';
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
-import { ContextCompactor } from '../context/contextCompactor.ts';
-import { NativeTokenAccounting } from './nativeTokenAccounting.ts';
-import { ContextWindowCatalog } from '../context/contextWindowCatalog.ts';
+import { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
+import { AgentCompactor } from './agentCompactor.ts';
 import { SkillRegistry } from '../skill/skillRegistry.ts';
 import { LoopGuard } from './loop/loopGuard.ts';
 import { EventPersister } from './loop/eventPersister.ts';
@@ -28,10 +27,6 @@ import { Id } from '../util/id.ts';
 import { WorkspaceIdentity } from '../util/workspaceIdentity.ts';
 import { log, Logger } from '../util/logger.ts';
 import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.ts';
-
-/** 默认压缩参数。 */
-const DEFAULT_MAX_TOKENS = 8000;
-const DEFAULT_KEEP_RECENT = 6;
 
 /**
  * 回合时限默认值：30 分钟软提醒 + 8 小时硬熔断（LR-05，2026-10-20 从 1 小时提高）。
@@ -90,6 +85,11 @@ export class Agent implements AgentPort {
   private readonly injector: SessionInjector;
   /** 自动检查点（LR-06）：每 20 步落一次事件检查点；失败只告警，不阻断主流程。 */
   private readonly autoCheckpoints: CheckpointManagerPort;
+  /**
+   * token 估算校准器（CTX-02，2026-10-21）：同一实例同时喂给 `StepRunner`（记录
+   * 估算 vs 实际）与 `ContextCompactor`（按 factor 修正自动窗口阈值）。
+   */
+  private readonly calibration = new TokenEstimatorCalibrator();
 
   public constructor(
     /** 运行时组合根：提供模型、工具、审批、沙箱、存储、事件总线等全部依赖。 */
@@ -414,12 +414,18 @@ export class Agent implements AgentPort {
         // 回卷登记同样按身份反注册（理由同上）：先结束的回合不得摘掉后启动回合的回卷能力。
         this.unregisterRewinder(sessionId, sessionEntry.rewinder);
         // V2：回合内 write-behind 定时器已由 TurnRunner 收尾 flush+dispose；
-        // 此处兜底：先 flush 在飞写、再停表，最后全量 persist——顺序反了会让更早排队的
+        // 此处兜底：先 flush 在飞写，再决定是否需要全量 persist——顺序反了会让更早排队的
         // 旧快照在 persist 之后落地，把异常回合的历史覆盖成旧版本。
         await persister.flush();
+        const needsFullSave = persister.hasUnsaved(eventLog.all());
         persister.dispose();
         persistedAt = eventLog.size();
-        await this.persist(sessionId, eventLog.all());
+        // 2026-10-21：追加通道已把全部事件成功落盘时**不再全量重写**（原先无条件 save
+        // 让 G7 的追加优化在每回合末被抵消，长会话是 O(回合×事件数) 的写放大）。
+        // 未落盘（flush 失败/无 append 后端/回卷强制重写）才走全量 save。
+        if (needsFullSave) {
+          await this.persist(sessionId, eventLog.all());
+        }
         // 观测端口收尾：有缓冲的端口（OTLP span 收集器）在此把最后一批 span 外发；
         // 无缓冲端口未实现 flush，`?.` 使其零成本跳过。失败不掩盖原始异常（fail-soft）。
         await this.runtime.events.flush?.();
@@ -506,7 +512,8 @@ export class Agent implements AgentPort {
       supervisor: this.runtime.supervisor,
       recorder,
       sessionId: recorder.sessionId(),
-      compactor: this.buildCompactor(),
+      compactor: AgentCompactor.build(this.runtime, this.calibration),
+      calibrator: this.calibration,
       fragments: this.runtime.config.fragments,
       native: this.runtime.native,
       spiller: this.runtime.spiller,
@@ -533,7 +540,7 @@ export class Agent implements AgentPort {
       // V2：取消信号贯穿模型请求（cancel() → fetch 中断）。
       signal: cancel.toAbortSignal(),
       // 上下文窗口：容量快照的百分比分母（env OMNI_CONTEXT_WINDOW 优先 → 模型名表 → 缺省）。
-      contextWindowTokens: this.resolveContextWindow(),
+      contextWindowTokens: AgentCompactor.resolveContextWindow(this.runtime),
       // 外置附件根：相对 path 由 ContextAssembler 按 sessions 目录拼绝对路径水合。
       attachmentRoot: this.runtime.storage.location,
     });
@@ -563,7 +570,7 @@ export class Agent implements AgentPort {
       this.runtime.workflowMemory,
       // LR-06：每 20 步自动落一次事件检查点（无文件快照；文件面仍由 checkpoint 工具负责）。
       this.autoCheckpoints,
-      // VER-06：只在显式开启时把 reviewer 当阻断；否则 runner 不调用它。
+      // VER-06：reviewer 默认注入（Runtime 装配）；这里只决定 blocker/major 是否阻断。
       this.runtime.reviewer,
       process.env.OMNI_REVIEW_BLOCK === '1',
     );
@@ -581,61 +588,6 @@ export class Agent implements AgentPort {
     }
     const fromEnv = Number(process.env.OMNI_TURN_TOKEN_BUDGET);
     return Number.isFinite(fromEnv) && fromEnv > 0 ? Math.floor(fromEnv) : 0;
-  }
-
-  /**
-   * 解析上下文窗口 token 数（UI 容量面板的百分比分母）。
-   *
-   * env `OMNI_CONTEXT_WINDOW` 优先（运维可显式纠正厂商表），否则按模型名查
-   * {@link ContextWindowCatalog}。与压缩阈值口径**有意分离**：压缩何时触发是行为契约
-   * （改动会影响既有会话的折叠时机与测试基线），而窗口大小只是展示口径，两者不互相绑定。
-   * @returns 上下文窗口 token 数（env 覆盖值或按模型名查表的容量）。
-   */
-  private resolveContextWindow(): number {
-    const fromEnv = Number(process.env.OMNI_CONTEXT_WINDOW);
-    return new ContextWindowCatalog(Number.isFinite(fromEnv) ? fromEnv : undefined).of(
-      this.runtime.model.name,
-    );
-  }
-
-  /**
-   * 构建上下文压缩器（V2：阈值挂钩真实 context window，0.8×window 优先于固定值）。
-   *
-   * **2026-10-14 修（压缩阈值与真实窗口脱钩）**：默认档此前恒为固定 8000 token——128k 窗口的
-   * 模型在用量 ~6k 时就触发折叠，且 `keepRecent=6` 会把刚读的文件内容整体折进摘要；摘要塌陷
-   * （真机实测「摘要 13 字」）后模型每步失忆，无限重启探索循环（sess_mv88ycm7_1 实证：
-   * `read_file` 循环 20+ 次，用户三次催促「修复」都到不了写工具）。现默认阈值 = 0.8×真实窗口
-   * （env `OMNI_CONTEXT_WINDOW` → 模型名目录 → 缺省 128k，与容量面板同源）；仅当用户**显式**
-   * 配置 `compactionMaxTokens` 时维持固定阈值契约（既有测试基线不漂移）。
-   * @returns 配置好压缩阈值与（可选）原生 token 估算器的 ContextCompactor。
-   */
-  private buildCompactor(): ContextCompactor {
-    const compactor = new ContextCompactor(this.runtime.model, {
-      maxTokens: this.runtime.config.compactionMaxTokens ?? DEFAULT_MAX_TOKENS,
-      keepRecent: this.runtime.config.compactionKeepRecent ?? DEFAULT_KEEP_RECENT,
-      // P2（打磨）：确定性无损收缩显式透传（配置缺省即 true），杜绝「声明未接线」死旋钮。
-      deterministicShrink: this.runtime.config.compactionDeterministicShrink ?? true,
-      // V2→V3：真实窗口 token 数优先于固定 maxTokens（compactor 内 0.8×window 取阈值）。
-      // 显式配置 `compactionMaxTokens` = 用户钉死压缩预算 ⇒ 不传窗口，维持固定阈值行为；
-      // 未配置时挂 `resolveContextWindow()`（env OMNI_CONTEXT_WINDOW 优先，目录表兜底，恒为正）。
-      ...(this.runtime.config.compactionMaxTokens === undefined
-        ? { contextWindowTokens: this.resolveContextWindow() }
-        : {}),
-    });
-    // G8（2026-10-03）：token 记账**默认走 TS**，原生下沉改为显式开启。
-    //
-    // 为什么翻转默认：本机实测同语料 1,108 条 / 775,600 字符，TS 纯计数 6.12 ms，走 native
-    // `context.estimate` 27.8–40.7 ms（**慢 4.5–6.7×**）——封送成本占主导（JSON.stringify 单项
-    // 12.08 ms / 925 KB，占 native 全往返 29.7%），且 Rust 侧无缓存而 TS 侧已有 LRU + 零分配。
-    // 原实现是「原生可用即下沉」，等于**在有原生内核的机器上默认变慢**。
-    // 安全性：两条路径逐位相同（既有断言保证）⇒ 翻转只去掉延迟，不改任何记账结果。
-    if (NativeTokenAccounting.enabled(this.runtime.config.nativeTokenAccounting)) {
-      const kernel = this.runtime.native;
-      if (kernel?.estimateTokens !== undefined) {
-        compactor.setNativeEstimator((m) => kernel.estimateTokens!(m));
-      }
-    }
-    return compactor;
   }
 
   /**

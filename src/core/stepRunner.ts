@@ -6,6 +6,7 @@ import type {
   ModelPort,
   ModelUsage,
 } from '../ports/model/model.ts';
+import { ModelFinishReasons } from '../util/modelFinishReasons.ts';
 import { ModelCallError } from '../errors/modelCallError.ts';
 import { ContextBreakdownEstimator } from '../context/contextBreakdownEstimator.ts';
 import { StepContextBuilder } from './stepContextBuilder.ts';
@@ -225,14 +226,20 @@ export class StepRunner {
     let messages = await this.contextBuilder.buildMessages({ tools });
     this.lastContext = this.snapshotOf(messages, tools);
     let output = await this.invokeWithRecovery(messages, tools);
+    // CTX-02（2026-10-21）：首次请求的 usage 与 `lastContext` 同源，喂给校准器。
+    // 续写/回退后的多次调用**不重复喂**（merged usage 的 promptTokens 会累加，
+    // 与单次估算不同源，喂进去会系统性抬高 factor）。
+    this.observeCalibration(output.usage);
     let text = output.text;
     let reasoning = output.reasoning;
     let usage = output.usage;
-    let finishReason = output.finishReason;
+    let finishReason = ModelFinishReasons.normalize(output.finishReason);
     const maxRecoveries = Math.max(0, this.deps.maxOutputRecoveries ?? 3);
     let recoveries = 0;
-    // LR-02：输出被截断（`length`）时续写，而不是把半截当完成。半截 tool_calls 不执行。
-    while (finishReason === 'length' && recoveries < maxRecoveries) {
+    // LR-02：输出被截断（`length` / `max_tokens` 等厂商字面量）时续写，而不是把半截当完成。
+    // 半截 tool_calls 不执行；恢复层只认归一化后的统一值，适配器已在边界完成归一化，
+    // 这里再用 `isTruncated` 兜底第三方适配器（2026-10-21）。
+    while (ModelFinishReasons.isTruncated(finishReason) && recoveries < maxRecoveries) {
       const partial = text ?? '';
       if (partial.trim() === '' && output.toolCalls === undefined) {
         break;
@@ -257,10 +264,10 @@ export class StepRunner {
       text = StepRunner.joinText(text, next.text);
       reasoning = StepRunner.joinReasoning(reasoning, next.reasoning);
       usage = StepRunner.mergeUsage(usage, next.usage);
-      finishReason = next.finishReason;
+      finishReason = ModelFinishReasons.normalize(next.finishReason);
       output = next;
     }
-    if (finishReason === 'length') {
+    if (ModelFinishReasons.isTruncated(finishReason)) {
       // 续写次数用尽仍截断：如实保留 finishReason，但**绝不执行半截工具调用**（参数可能不完整）。
       log.warn('model.output.truncated_exhausted', { recoveries, maxRecoveries });
       this.deps.recorder.system(
@@ -430,6 +437,41 @@ export class StepRunner {
    * @param messages 本次发出的模型消息（与请求体同一数组）
    * @param tools 本次发出的工具定义
    * @returns 紧凑快照（分类 token 数 + 工具计数 + 窗口）
+   */
+  /**
+   * 把「本地估算 vs 端点实际 promptTokens」喂给校准器（CTX-02，2026-10-21）。
+   *
+   * 只记录、不改本步行为；压缩器读同一实例的 factor 修正自动窗口阈值。
+   * @param usage 本步模型用量（无 usage 时跳过）。
+   * @returns 无返回值。
+   */
+  private observeCalibration(usage: ModelUsage | undefined): void {
+    const calibrator = this.deps.calibrator;
+    const estimated = this.lastContext?.usedTokens;
+    if (
+      calibrator === undefined ||
+      usage === undefined ||
+      estimated === undefined ||
+      estimated <= 0 ||
+      usage.promptTokens <= 0
+    ) {
+      return;
+    }
+    calibrator.observe({ estimated, actual: usage.promptTokens });
+    const report = calibrator.report();
+    log.debug('context.token_calibration', {
+      samples: report.samples,
+      medianErrorPct: Number(report.medianErrorPct.toFixed(2)),
+      p90ErrorPct: Number(report.p90ErrorPct.toFixed(2)),
+      factor: Number(report.factor.toFixed(4)),
+    });
+  }
+
+  /**
+   * 取本步实际送出上下文的快照（估算 token / 工具计数 / 前缀复用率）。
+   * @param messages 本轮消息。
+   * @param tools 本轮可见工具。
+   * @returns 上下文快照。
    */
   private snapshotOf(
     messages: readonly ModelMessage[],

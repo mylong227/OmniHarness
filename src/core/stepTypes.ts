@@ -10,6 +10,7 @@ import type { TrustTier } from '../security/toolOutputTrust.ts';
 import type { RepoMapContextEnginePort } from '../ports/context/repoMapContextEnginePort.ts';
 import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.ts';
 import type { ContextCompactor } from '../context/contextCompactor.ts';
+import type { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
 import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.ts';
 import type { SessionRecorder } from './sessionRecorder.ts';
@@ -41,6 +42,11 @@ export interface StepRunnerDeps {
   readonly sessionId: string;
   /** 上下文压缩器（可选）：超预算时折叠较早历史。 */
   readonly compactor?: ContextCompactor | undefined;
+  /**
+   * token 估算校准器（CTX-02，可选）：每次模型调用后把「本地估算 vs 端点 promptTokens」
+   * 喂给它；压缩器读同一个实例的 factor 修正阈值。缺省 undefined ⇒ 行为不变。
+   */
+  readonly calibrator?: TokenEstimatorCalibrator | undefined;
   /** 额外常驻系统片段（可选）。 */
   readonly fragments?: readonly string[] | undefined;
   /** 工具钩子运行器（可选）：pre/post 拦截与审计。 */

@@ -2,6 +2,7 @@ import type { ModelMessage, ModelPort } from '../ports/model/model.ts';
 import type { ToolDefinition } from '../ports/tool/tool.ts';
 import type { CompactionState } from '../ports/context/compactionState.ts';
 import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.ts';
+import type { TokenEstimatorCalibrator } from './tokenEstimatorCalibrator.ts';
 import { DeterministicCompressor } from './deterministicCompressor.ts';
 import { log } from '../util/logger.ts';
 import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
@@ -41,6 +42,12 @@ export interface CompactionOptions {
    * 幂等且单调 ⇒ 逐轮输出稳定（不破坏 prompt 前缀缓存）。关闭时逐字节回到旧行为。
    */
   readonly deterministicShrink?: boolean;
+  /**
+   * token 估算校准器（CTX-02，可选，2026-10-21）：接入后在样本 ≥5 时按
+   * `factor = actual/estimated` 修正自动窗口阈值（只影响 `contextWindowTokens` 档，
+   * 用户显式 `compactionMaxTokens` 钉死的预算不修正）。缺省 undefined ⇒ 阈值行为不变。
+   */
+  readonly calibrator?: TokenEstimatorCalibrator | undefined;
 }
 
 /**
@@ -188,10 +195,18 @@ export class ContextCompactor {
     this.estimator.setNativeEstimator(fn);
   }
 
-  /** 生效压缩阈值：给了 contextWindowTokens 则 0.8×window 优先。 */
+  /**
+   * 生效压缩阈值：给了 contextWindowTokens 则 0.8×window 优先。
+   *
+   * 若注入了校准器且样本 ≥5，按 `factor = actual/estimated` 修正该**自动档**阈值：
+   * 后端实际比本地估得多（factor>1）就提前压缩；估得少（factor<1）就放宽。
+   * 用户显式 `compactionMaxTokens`（未传 contextWindowTokens）是钉死的预算，不受校准影响。
+   */
   private get threshold(): number {
     if (this.options.contextWindowTokens !== undefined && this.options.contextWindowTokens > 0) {
-      return Math.floor(this.options.contextWindowTokens * 0.8);
+      const base = Math.floor(this.options.contextWindowTokens * 0.8);
+      const ratio = this.options.calibrator?.thresholdRatio() ?? 1;
+      return Math.max(100, Math.floor(base * ratio));
     }
     return this.options.maxTokens;
   }
@@ -277,6 +292,36 @@ export class ContextCompactor {
     // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
     // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
     const composed = this.composeWithinBudget(state.summary, tail.messages, budget);
+    if (composed.dropped > 0) {
+      // **不能在这里静默丢**（2026-10-21 修）：游标快路径原先会从 tail 头部逐条丢弃，
+      // 但既不更新摘要、也不前移游标、也不记日志 ⇒ 长会话第一次压缩后，中段历史
+      // 以「滑窗淘汰」方式无痕消失，模型只看到旧摘要 + 最新几条，且事后无法从日志发现。
+      //
+      // 能重新折叠就交给主路径：真实 boundary 还能前移时，把旧 tail 纳入新 head，
+      // 生成覆盖更长的摘要并写回游标。用 roundAlignedBoundary 而不是裸下标，
+      // 否则「边界被工具轮对齐左移」会让同一 boundary 反复触发重折叠。
+      const foldableUpTo = ContextCompactor.roundAlignedBoundary(
+        messages,
+        messages.length - Math.max(0, this.options.keepRecent),
+      );
+      if (state.compactedUpTo < foldableUpTo) {
+        log.info('compaction.reuse.overflow', {
+          compactedUpTo: state.compactedUpTo,
+          foldableUpTo,
+          messages: messages.length,
+          dropped: composed.dropped,
+        });
+        return undefined;
+      }
+      // 预算小到「摘要 + 最近 keepRecent 条」本身就不够：再折叠也不会改善（boundary 不会前移），
+      // 只会每步重复调摘要模型。此时如实告警并复用现有摘要，不做无声丢弃。
+      log.warn('compaction.reuse.over_budget', {
+        compactedUpTo: state.compactedUpTo,
+        messages: messages.length,
+        dropped: composed.dropped,
+        budget,
+      });
+    }
     return {
       messages: composed.messages,
       compacted: true,

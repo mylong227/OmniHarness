@@ -4241,3 +4241,26 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   fail-closed、BrowserPane、BrowserController、ExternalLinkCards、RightPanel 网页标签 a11y）。
   实跑 `vitest web` **90 文件 / 510 例全绿**；真实 `serve` + 真 Chrome 点开网页标签 / 点产物
   卡片「打开」，均确认 HTML 直接进入渲染预览（截图：`.tmp/preview-shot.png`，不提交）。
+
+## 37. 2026-10-21 缺陷修复：长任务正确性 + 能力接线（代码复核后）
+
+> 完整清单、逐条证据与「未改边界」见 [REMEDIATION_2026-10-21.md](../reports/REMEDIATION_2026-10-21.md)。
+
+本轮修掉 `07a2a09b` 之后仍存在的 12 项问题，重点是**不再把半截/中段历史当完成**：
+
+- **Anthropic 截断**：`max_tokens` 在适配器边界归一化为 `length`；`StepRunner` 用
+  `ModelFinishReasons.isTruncated` 兜底，续写用尽仍丢弃半截工具调用。
+- **压缩游标溢出**：快路径不再静默丢 tail；能前移 boundary 就重新折叠并写回游标，
+  不能前移时 `compaction.reuse.over_budget` 告警。
+- **reviewer**：默认 advisory 注入（`OMNI_REVIEW=off|0` 关闭），`OMNI_REVIEW_BLOCK=1` 才阻断；
+  `OMNI_REVIEW_MODEL` 可指定 modelRouter entry 走独立模型。
+- **browser_act**：Playwright 失败自动回退 CDP（`BrowserSession` 实现九动作），
+  `OMNI_BROWSER_ENGINE=cdp` 直接走 CDP；两个真机判据改用 `RequireEnv`，不再裸 `return`。
+- **接线**：`TokenEstimatorCalibrator` 进请求路径并修正自动窗口阈值；回合末不再无条件全量重写
+  JSONL；`ContextAssembler` 增量投影；MCP 默认 `auto`（v2 → legacy 回退）；工作区
+  `.omniharness/skills` / `.claude/skills` 自动发现 SKILL.md；续跑引导带目标；`-p` 沿用 8h。
+- **验收（本机实跑）**：`typecheck` / `lint` / `check` / `arch:gate --strict` /
+  `audit:config-wiring` / `api:check` / `format:check` / `check:doc-links` 全绿；
+  单测 **589 files / 3617 tests**（7 例显式 RequireEnv skip），集成 **7 files / 17 tests**，
+  前端 **93 files / 539 tests**。验收中同时修正了五处**陈旧判据**（serve token、PanelModal、
+  历史反思文案、主操作 12% 淡底、`threads.get` 假后端）；原因逐条记录在报告 §2.3。

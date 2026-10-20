@@ -9,6 +9,7 @@ import type {
   StreamCallbacks,
 } from '../../ports/model/model.ts';
 import { ModelCallError } from '../../ports/model/model.ts';
+import { ModelFinishReasons } from '../../util/modelFinishReasons.ts';
 import { PromptCacheUsageReader } from './promptCacheUsageReader.ts';
 import { ModelHttpErrors } from './modelHttpErrors.ts';
 import { sseParser } from './sseParser.ts';
@@ -445,7 +446,8 @@ export class OpenAiCompatibleModel implements ModelPort {
     } = {};
     // LR-01：保留结束原因（`length` 是截断信号，上层据此续写；旧端点缺字段则不写）。
     if (typeof choice.finish_reason === 'string' && choice.finish_reason !== '') {
-      output.finishReason = choice.finish_reason;
+      output.finishReason =
+        ModelFinishReasons.normalize(choice.finish_reason) ?? choice.finish_reason;
     }
     if (message.reasoning_content !== undefined && message.reasoning_content !== '') {
       output.reasoning = message.reasoning_content;
@@ -520,7 +522,7 @@ export class OpenAiCompatibleModel implements ModelPort {
     const delta = json.choices?.[0]?.delta;
     const finishReason = json.choices?.[0]?.finish_reason;
     if (typeof finishReason === 'string' && finishReason !== '') {
-      state.finishReason = finishReason;
+      state.finishReason = ModelFinishReasons.normalize(finishReason) ?? finishReason;
     }
     // 流中错误负载（2026-10-03 修，审计 D3）：`{"error":{…}}` 形式的帧此前因取不到
     // `choices[0].delta` 被静默忽略（error 帧根本没有 choices，直接读 choices[0] 还会

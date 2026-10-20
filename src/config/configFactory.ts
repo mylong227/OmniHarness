@@ -11,6 +11,7 @@ import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformers
 import { DiskCachedEmbeddingAdapter } from '../adapters/embedding/diskCachedEmbeddingAdapter.ts';
 
 import type { EmbeddingPort } from '../ports/model/embedding.ts';
+import type { ModelPort } from '../ports/model/model.ts';
 import type { ToolPort } from '../ports/tool/tool.ts';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
 import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.ts';
@@ -70,6 +71,10 @@ export class ConfigFactory {
     const budgetDegrade: BudgetDegradeSignal | undefined =
       costBudget !== undefined ? new CostBudgetDegradeAdapter(costBudget) : undefined;
     const model = ConfigBuilder.buildModel(partial, costBudget);
+    // VER-06：独立审查模型（2026-10-21）。`OMNI_REVIEW_MODEL` 命中 modelRouter entry 时
+    // 单独构造一个 ModelPort，让 reviewer 与主模型**不同源**；未配置/未命中则返回 undefined，
+    // Runtime 回退到主模型（仍保持干净上下文，只是不独立）。
+    const reviewerModel = ConfigFactory.buildReviewerModel(partial);
     const memory = MemoryStackAssembler.assembleMemoryStack(partial, model);
     const skills = SkillStackAssembler.assembleSkillStack(partial);
     const goalMaxIterations = partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS;
@@ -108,6 +113,7 @@ export class ConfigFactory {
       turnTokenBudget: partial.turnTokenBudget,
       reasoning: partial.reasoning,
       model,
+      ...(reviewerModel !== undefined ? { reviewerModel } : {}),
       storage: partial.storage,
       compactionMaxTokens: partial.compactionMaxTokens,
       compactionKeepRecent: partial.compactionKeepRecent,
@@ -434,6 +440,38 @@ export class ConfigFactory {
         });
       },
     );
+  }
+
+  /**
+   * 构造独立审查模型（VER-06，2026-10-21）。
+   *
+   * `OMNI_REVIEW_MODEL` 是**运维开关**（不进用户配置 schema，避免与既有配置面冲突）：
+   *  - 未设置 ⇒ undefined，Runtime 复用主模型；
+   *  - 设置了且命中 `modelRouter.entries` ⇒ 按该 entry 的 adapter 单独构造；
+   *  - 设置了但未命中 ⇒ 记 warn 并回退主模型（不阻断启动，但排障可见）。
+   * @param partial 未解析配置。
+   * @returns 审查模型；未配置/未命中时为 undefined。
+   */
+  private static buildReviewerModel(partial: OmniHarnessConfig): ModelPort | undefined {
+    const requested = process.env.OMNI_REVIEW_MODEL?.trim();
+    if (requested === undefined || requested === '') return undefined;
+    const entry = partial.modelRouter?.entries.find((candidate) => candidate.model === requested);
+    if (entry === undefined) {
+      log.warn('review.model.not_found', {
+        requested,
+        entries: partial.modelRouter?.entries.map((candidate) => candidate.model) ?? [],
+      });
+      return undefined;
+    }
+    try {
+      return ConfigBuilder.buildRouterAdapter(entry);
+    } catch (error) {
+      log.warn('review.model.build_failed', {
+        requested,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
   }
 
   /**

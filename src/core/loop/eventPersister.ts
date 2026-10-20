@@ -101,6 +101,25 @@ export class EventPersister {
     }
   }
 
+  /** 本实例**最后一次成功落盘**覆盖的事件条数（0 = 尚未成功落盘）。 */
+  public get savedCount(): number {
+    return this.lastSavedCount;
+  }
+
+  /**
+   * 是否仍有未落盘的内容（回合末决定要不要再全量保存）。
+   *
+   * 为什么需要它（2026-10-21）：`Agent.continueSession` 的 finally 原先无条件
+   * `storage.save(全量)`——即使 `EventPersister` 刚刚已经通过追加通道把全部事件写入，
+   * 每回合仍要 O(N) 重写一遍，G7 的追加优化在回合末被抵消。现在只有
+   * 「未落盘 / 回卷强制重写 / 追加失败回退失败」时才走全量保存。
+   * @param events 当前完整事件快照。
+   * @returns 仍有未落盘内容时为 true。
+   */
+  public hasUnsaved(events: readonly SessionEvent[]): boolean {
+    return this.forceWrite || this.lastSavedCount < events.length;
+  }
+
   /**
    * 事件流回卷后的对齐（**检查点回滚必须经过这里**，否则回滚会被在飞写覆盖回去）。
    *

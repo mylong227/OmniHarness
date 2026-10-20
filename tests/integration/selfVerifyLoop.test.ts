@@ -76,13 +76,17 @@ test('P3 端到端：改坏源码 → 回环捕获失败摘要 → 修好 → �
     assert.ok(bad.output?.includes('[自验证回环]'), `未回灌回环段: ${bad.output}`);
     assert.ok(bad.output?.includes('not ok'), `未回灌失败摘要: ${bad.output}`);
 
-    // ② 修好代码：写回干净源码 → 测试通过 ⇒ 静默（不含回环段）。
+    // ② 修好代码：写回干净源码 → 测试通过 ⇒ 静默（不追加**新的**回环段）。
+    // 注意：结果里可能带上一次失败的 `[历史失败反思]`（其中含旧回环摘要），
+    // 因此断言“回环段数量不增加”，而不是“输出完全不含该字符串”。
     const good = await port.execute(writeCall('c2', 'export const a = 1;\n'), ctx);
     assert.strictEqual(good.ok, true);
+    const countLoops = (text: string | undefined): number =>
+      (text?.match(/\[自验证回环\]/g) ?? []).length;
     assert.strictEqual(
-      good.output?.includes('[自验证回环]'),
-      false,
-      `测试通过时不应回灌: ${good.output}`,
+      countLoops(good.output),
+      countLoops(bad.output),
+      `测试通过时不应追加新的回环段: ${good.output}`,
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });

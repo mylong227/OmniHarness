@@ -458,3 +458,45 @@ test('压缩器：keepRecent=0 是合法配置，不得让边界读取抛 RangeE
   assert.ok(result.messages.length >= 1, '压缩必须返回可用消息');
   assert.strictEqual(result.messages[0]?.role, 'system', '无 head 可折叠时走兜底，仍保留 system');
 });
+
+test('压缩器：游标复用后 tail 溢出必须重新折叠并前移游标（2026-10-21 回归）', async () => {
+  let summaryCalls = 0;
+  const spy: ModelPort = {
+    name: 'spy',
+    async generate(_request: ModelRequest): Promise<ModelOutput> {
+      summaryCalls += 1;
+      return { text: `摘要-${String(summaryCalls)}` };
+    },
+  };
+  const compactor = new ContextCompactor(spy, { maxTokens: 300, keepRecent: 2 });
+  const base: ModelMessage[] = [{ role: 'system', content: 'SYS' }];
+  for (let i = 0; i < 12; i += 1) {
+    base.push({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `m${String(i)}-${'x'.repeat(120)}`,
+    });
+  }
+  const first = await compactor.compact(base);
+  assert.ok(first.state !== undefined, '首次压缩必须产生游标');
+  assert.strictEqual(summaryCalls, 1);
+
+  // 追加足够多的新消息，使「旧摘要 + 全部 tail」超出预算。
+  const grown = [...base];
+  for (let i = 12; i < 30; i += 1) {
+    grown.push({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `m${String(i)}-${'x'.repeat(120)}`,
+    });
+  }
+  const second = await compactor.compact(grown, first.state);
+  assert.strictEqual(summaryCalls, 2, '溢出必须重新调用摘要模型，不能静默丢弃 tail');
+  assert.ok(
+    (second.state?.compactedUpTo ?? 0) > (first.state?.compactedUpTo ?? 0),
+    '重新折叠必须前移游标，把旧 tail 纳入摘要范围',
+  );
+  assert.strictEqual(second.summary, '摘要-2', '摘要必须更新为覆盖更长历史的新摘要');
+  assert.ok(
+    second.messages.length <= 3,
+    `摘要 + 最近消息仍在预算内（实际 ${String(second.messages.length)} 条）`,
+  );
+});

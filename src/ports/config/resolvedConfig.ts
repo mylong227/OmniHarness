@@ -1,4 +1,5 @@
 import type { OmniHarnessConfig } from './omniHarnessConfig.ts';
+import type { ModelPort } from '../model/model.ts';
 
 import type { ApprovalPort } from '../runtime/approval.ts';
 import type { SandboxPort } from '../runtime/sandbox.ts';
@@ -104,6 +105,11 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly lsp?: LspPort | undefined;
   /** Agent 密码学身份端口（#S33，可选）：配置了 agentIdentity 时构造 Ed25519AgentIdentity，否则 undefined（agent_identity 工具不注册）。 */
   readonly identity?: AgentIdentityPort | undefined;
+  /**
+   * 独立审查模型（VER-06，可选，2026-10-21）：`OMNI_REVIEW_MODEL` 命中 `modelRouter.entries`
+   * 的模型名时，按该 entry 的 adapter 单独构造；缺省 undefined ⇒ 复用主模型（仅上下文独立）。
+   */
+  readonly reviewerModel?: ModelPort | undefined;
   /** 工具输入实时观察端口（#B3，可选）：模型流式生成的工具参数增量经此推给 UI；由 ConfigFactory 默认 ConsoleLiveView。 */
   readonly live?: ToolInputSink | undefined;
   /** 语义嵌入端口（U3 混合检索，可选）：env OMNI_SEMANTIC_RECALL=1 时由 ConfigFactory 构造并注入本地 ONNX 嵌入适配器；默认 undefined（纯 BM25、零开销）。 */

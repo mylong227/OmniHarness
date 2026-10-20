@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+﻿import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type {
@@ -8,6 +8,18 @@ import type {
   ModelToolCallRef,
 } from '../ports/model/model.ts';
 import { COMPACTION_MARKER } from './contextCompactor.ts';
+import { ContextImageBudget } from './contextImageBudget.ts';
+
+/** 组装器增量投影缓存（2026-10-21）：事件只追加时复用已投影消息，避免每步 O(全量事件)。 */
+interface ProjectionCache {
+  readonly events: readonly SessionEvent[];
+  readonly messages: ModelMessage[];
+  readonly extra: readonly string[];
+  readonly pendingToolCalls: ModelToolCallRef[];
+  readonly pendingReasoning: string | undefined;
+  readonly reasoningSeen: boolean;
+  readonly pendingAttachments: FileAttachment[];
+}
 
 /** 上下文组装器：固定碎片（world_state）+ 事件日志投影 → 模型消息（model-visible means logged）。 */
 export class ContextAssembler {
@@ -18,16 +30,6 @@ export class ContextAssembler {
    * 挤掉后续工具结果所需的上下文预算。
    */
   public static readonly MAX_DIFF_CHARS = 8_000;
-
-  /**
-   * 最近图片附件的**保留预算**（base64 字符数）：700k ≈ 2 张压缩后的 1600px JPEG
-   * （每张约 270k 字符）≈ 1 张未压缩的全尺寸 PNG。
-   *
-   * 为什么是字符数而不是张数：截图体积随分辨率/内容差 5–10 倍，按张数记预算会让「7 张 1200×700」
-   * 与「7 张 2400×1400」占用完全不同的请求体；按字节记账才和真实上传量同口径。
-   * 超过预算的**旧**附件降级为一行文字（保留文件名），最新附件永远保留。
-   */
-  public static readonly IMAGE_ATTACHMENT_BUDGET_CHARS = 700_000;
 
   /**
    * 待 flush 的 assistant 工具调用（跨事件累积）。
@@ -67,6 +69,9 @@ export class ContextAssembler {
    */
   private pendingAttachments: FileAttachment[] = [];
 
+  /** 增量投影缓存：事件前缀未变时复用上一轮投影（2026-10-21）。 */
+  private projectionCache: ProjectionCache | undefined;
+
   public constructor(
     private readonly fragments: readonly string[] = [],
     /**
@@ -85,76 +90,79 @@ export class ContextAssembler {
     events: readonly SessionEvent[],
     extraSystemFragments: readonly string[] = [],
   ): ModelMessage[] {
-    this.pendingToolCalls = [];
-    this.pendingReasoning = undefined;
-    this.reasoningSeen = false;
-    this.pendingAttachments = [];
-    const messages: ModelMessage[] = [];
-    for (const fragment of this.fragments) {
-      messages.push({ role: 'system', content: fragment });
-    }
-    for (const fragment of extraSystemFragments) {
-      if (fragment !== '') {
+    const cached = this.reusableProjection(events, extraSystemFragments);
+    let messages: ModelMessage[];
+    let start: number;
+    if (cached !== undefined) {
+      // 复用已投影前缀：只追加 cache 之后的新事件。事件日志只追加（回卷会让长度变小/
+      // 前缀对象变化 ⇒ reusable 判否），所以「前缀同一批事件对象」是安全判据。
+      messages = [...cached.messages];
+      this.pendingToolCalls = [...cached.pendingToolCalls];
+      this.pendingReasoning = cached.pendingReasoning;
+      this.reasoningSeen = cached.reasoningSeen;
+      this.pendingAttachments = [...cached.pendingAttachments];
+      start = cached.events.length;
+    } else {
+      this.pendingToolCalls = [];
+      this.pendingReasoning = undefined;
+      this.reasoningSeen = false;
+      this.pendingAttachments = [];
+      messages = [];
+      for (const fragment of this.fragments) {
         messages.push({ role: 'system', content: fragment });
       }
+      for (const fragment of extraSystemFragments) {
+        if (fragment !== '') {
+          messages.push({ role: 'system', content: fragment });
+        }
+      }
+      start = 0;
     }
-    for (const event of events) {
-      this.append(messages, event);
+    for (let i = start; i < events.length; i += 1) {
+      const event = events[i];
+      if (event !== undefined) this.append(messages, event);
     }
     // 注：不在末尾 flush 残留 pendingToolCalls。真实链路中 tool_call 必有后续 tool_result
     // （stepRunner 即便被门禁拒绝也会补录 toolCall+toolResult），故挂起的 tool_call 只会出现在
     // 会话不完整（中途崩溃）的异常日志里，此时丢弃比发出"无配对 tool 消息的 assistant(tool_calls)"
     // 更安全（后者发给模型会触发 HTTP 400）。
     this.flushPendingAttachments(messages);
-    ContextAssembler.retainRecentImageAttachments(messages);
+    ContextImageBudget.retainRecent(messages);
+    this.projectionCache = {
+      events: [...events],
+      messages: [...messages],
+      extra: [...extraSystemFragments],
+      pendingToolCalls: [...this.pendingToolCalls],
+      pendingReasoning: this.pendingReasoning,
+      reasoningSeen: this.reasoningSeen,
+      pendingAttachments: [...this.pendingAttachments],
+    };
     return messages;
   }
 
   /**
-   * 只保留**最近的**图片附件，较早的降级为一行文字说明。
-   *
-   * ## 为什么必须做（2026-10-19 鹈鹕会话实测）
-   *
-   * 工具附件会原样进入之后**每一次**请求：该会话 7 张截图（合计 6.2 MiB base64）在 45 次模型
-   * 调用里累计上传 **82.4 MiB**，且越到后面单次请求体越大——第 24/29 次调用的生成耗时 247 s /
-   * 314 s（同一模型在小 prompt 下 84 s 能出 20k token）。附件不是「传一次」，是「每一步都传」。
-   *
-   * 较早的截图对当前决策几乎没有价值（模型看的是最新一版渲染），保留最近 700k 字符（约两张
-   * 压缩截图）即可；被省略的消息**保留文件名**，模型需要时可再用 `view_image`。
-   * 这不改事件日志（存档仍是完整的），只改发给模型的那一份投影。
-   *
-   * @param messages 已组装的消息序列（原地替换过期附件）。
+   * 判断上一轮投影能否复用（事件前缀对象同一 + 动态片段一致）。
+   * @param events 本轮完整事件。
+   * @param extra 本轮动态系统片段。
+   * @returns 可复用缓存；不可复用为 undefined。
    */
-  private static retainRecentImageAttachments(messages: ModelMessage[]): void {
-    let kept = 0;
-    let seen = 0;
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const message = messages[i];
-      if (message === undefined) continue;
-      const files = message.files ?? [];
-      const images = message.images ?? [];
-      if (files.length === 0 && images.length === 0) continue;
-      const bytes =
-        files.reduce((sum, file) => sum + (file.data?.length ?? 0), 0) +
-        images.reduce((sum, image) => sum + (image.data?.length ?? 0), 0);
-      // 最新一份附件**无条件保留**：即便单张就超预算，也不能让模型看不到当前画面。
-      if (seen === 0 || kept + bytes <= ContextAssembler.IMAGE_ATTACHMENT_BUDGET_CHARS) {
-        seen = 1;
-        kept += bytes;
-        continue;
-      }
-      const names = files
-        .map((file) => file.name)
-        .filter((name) => name !== '')
-        .join('、');
-      const { files: _droppedFiles, images: _droppedImages, ...rest } = message;
-      messages[i] = {
-        ...rest,
-        content:
-          `${message.content}\n（较早的图片附件已省略以节省上下文` +
-          `${names === '' ? '' : `：${names}`}；文件仍在工作区，需要时用 view_image 重新查看）`,
-      };
+  private reusableProjection(
+    events: readonly SessionEvent[],
+    extra: readonly string[],
+  ): ProjectionCache | undefined {
+    const cached = this.projectionCache;
+    if (cached === undefined) return undefined;
+    if (cached.extra.length !== extra.length) return undefined;
+    for (let i = 0; i < extra.length; i += 1) {
+      if (cached.extra[i] !== extra[i]) return undefined;
     }
+    // 只在**确实追加了新事件**时复用：同长度重建虽然更慢，但能看见头部事件被原地改写
+    // （测试会这样构造前缀漂移；生产事件虽是只追加，也不该把契约押在「对象不会被原地改」上）。
+    if (events.length <= cached.events.length) return undefined;
+    for (let i = 0; i < cached.events.length; i += 1) {
+      if (events[i] !== cached.events[i]) return undefined;
+    }
+    return cached;
   }
 
   /** 按事件类型追加对应消息。

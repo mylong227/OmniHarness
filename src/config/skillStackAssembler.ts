@@ -1,4 +1,5 @@
 import { SkillRegistry } from '../skill/skillRegistry.ts';
+import { SkillMdDiscovery } from '../skill/skillMdDiscovery.ts';
 import { CRISPRSkillEditor } from '../adapters/skill/crisprSkillEditor.ts';
 import { CapabilityCrystallizer } from '../adapters/skill/capabilityCrystallizer.ts';
 import { InsightEtchingEngine } from '../adapters/memory/insightEtchingEngine.ts';
@@ -104,8 +105,18 @@ export class SkillStackAssembler {
   public static assembleSkillStack(partial: OmniHarnessConfig): SkillStack {
     // 受种技能注册表：从配置技能池构造，供 CRISPR 编辑与相变固化复用（零破坏：空池亦安全）。
     const skillRegistry = new SkillRegistry();
+    const seen = new Set<string>();
     if (partial.skills !== undefined) {
-      for (const skill of partial.skills) skillRegistry.register(skill);
+      for (const skill of partial.skills) {
+        skillRegistry.register(skill);
+        seen.add(skill.name);
+      }
+    }
+    // INT-04（2026-10-21）：工作区 SKILL.md 自动发现；显式配置/CLI 同名优先。
+    for (const skill of SkillMdDiscovery.discover(partial.workspaceRoot)) {
+      if (seen.has(skill.name)) continue;
+      skillRegistry.register(skill);
+      seen.add(skill.name);
     }
     return {
       skillRegistry,

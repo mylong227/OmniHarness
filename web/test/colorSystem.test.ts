@@ -127,6 +127,35 @@ function asRgb(hex: string): string {
   return `rgb(${rgb.join(', ')})`;
 }
 
+/**
+ * 解析计算后的颜色（`rgb(r, g, b)` 或新版 Chrome 的 `color(srgb r g b)`）。
+ * @param value getComputedStyle 返回值
+ * @returns [r,g,b]（0–255，浮点）；无法解析为 null
+ */
+function computedRgb(value: string | null): number[] | null {
+  if (value === null) return null;
+  const rgb = /^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i.exec(value);
+  if (rgb !== null) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  const srgb = /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i.exec(value);
+  if (srgb !== null) {
+    return [Number(srgb[1]) * 255, Number(srgb[2]) * 255, Number(srgb[3]) * 255];
+  }
+  return null;
+}
+
+/**
+ * 按 sRGB 线性混合两个 token 的期望值（0–255）。
+ * @param base 底色 token
+ * @param accent 语义色 token
+ * @param ratio 语义色占比（0–1）
+ * @returns [r,g,b]
+ */
+function mixToken(base: string, accent: string, ratio: number): number[] {
+  const a = hexToRgb(accent) ?? [0, 0, 0];
+  const b = hexToRgb(base) ?? [0, 0, 0];
+  return a.map((value, i) => value * ratio + b[i]! * (1 - ratio));
+}
+
 test('③ 真机：签名色与语义色的解析值真的落在组件上（两套主题）', { timeout: 120_000 }, async (t) => {
   const page = await openStubSession(t, {
     stub: '_color-system.html',
@@ -204,7 +233,18 @@ test('③ 真机：签名色与语义色的解析值真的落在组件上（两�
       assert.strictEqual(seen['deleted'], asRgb(tk['del']), `${themeName}：删除徽标没用 --del`);
       assert.strictEqual(seen['dot'], asRgb(tk['ok']), `${themeName}：在线状态点没用 --ok`);
       if (seen['sendBg'] !== null) {
-        assert.strictEqual(seen['sendBg'], asRgb(tk['accent']), `${themeName}：发送按钮底色不是签名色`);
+        // 2026-10-20 设计：主操作 = 12% 语义色 + 88% panel 的淡底，不再是实心 accent。
+        const actual = computedRgb(seen['sendBg']);
+        assert.ok(actual !== null, `${themeName}：发送按钮底色无法解析：${seen['sendBg']}`);
+        const expected = mixToken(String(tk['panel']), String(tk['accent']), 0.12);
+        for (let i = 0; i < 3; i += 1) {
+          assert.ok(
+            Math.abs(actual[i]! - expected[i]!) <= 1.5,
+            `${themeName}：发送按钮底色不是 accent 12% + panel（通道 ${i}: ${String(
+              actual[i],
+            )} vs ${String(expected[i])}）`,
+          );
+        }
       }
     }
   } finally {

@@ -97,8 +97,8 @@ export class TurnRunner {
      */
     private readonly autoCheckpoints?: CheckpointManagerPort | undefined,
     /**
-     * 独立审查端口（VER-06，可选）：只在 `reviewBlock` 为 true 时，在完成声明时对
-     * `turnDiff.getUnifiedDiff()` 跑一次干净上下文审查；有 blocker/major 则回灌一次。
+     * 独立审查端口（VER-06，可选）：完成声明时对 `turnDiff.getUnifiedDiff()` 跑一次
+     * 干净上下文审查；`reviewBlock` 决定 blocker/major 是回灌阻断（true）还是 advisory（false）。
      */
     private readonly reviewer?: ReviewPort | undefined,
     /** 是否把 reviewer 的 blocker/major 当阻断（默认 false = advisory，避免误杀）。 */
@@ -308,18 +308,28 @@ export class TurnRunner {
       );
       return 'retry';
     }
-    if (!claim.gated && !claim.reviewed && this.reviewer !== undefined && this.reviewBlock) {
+    // VER-06（2026-10-21）：reviewer 存在即跑一次；`reviewBlock` 只决定阻断还是 advisory。
+    if (!claim.gated && !claim.reviewed && this.reviewer !== undefined) {
       claim.reviewed = true;
       const review = await this.reviewDigest();
       if (review !== undefined && review !== '') {
-        claim.verificationState = 'failed';
-        log.warn('turn.review.blocked', { steps, sessionId });
-        this.recorder.user(
-          '【独立审查】你已声明完成，但干净上下文 reviewer 报出 blocker/major 问题：\n' +
-            `${review}\n` +
-            '请先修好它再收尾；若你判断其中某条不成立，请在结论里逐条给出反证（文件/行/测试）。',
+        if (this.reviewBlock) {
+          claim.verificationState = 'failed';
+          log.warn('turn.review.blocked', { steps, sessionId });
+          this.recorder.user(
+            '【独立审查】你已声明完成，但干净上下文 reviewer 报出 blocker/major 问题：\n' +
+              `${review}\n` +
+              '请先修好它再收尾；若你判断其中某条不成立，请在结论里逐条给出反证（文件/行/测试）。',
+          );
+          return 'retry';
+        }
+        // advisory：不阻断、不改变验证状态，但必须留痕——否则「审查跑过没跑过、报了什么」
+        // 在会话里完全不可见，等于隐式关闭。
+        log.warn('turn.review.advisory', { steps, sessionId });
+        this.recorder.system(
+          '【独立审查/advisory】完成声明时 reviewer 报出 blocker/major（未阻断，仅提示）：\n' +
+            review,
         );
-        return 'retry';
       }
     }
     if (claim.gated) {

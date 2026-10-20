@@ -11,6 +11,7 @@ import type {
   ModelUsage,
   StreamCallbacks,
 } from '../../ports/model/model.ts';
+import { ModelFinishReasons } from '../../util/modelFinishReasons.ts';
 import {
   AnthropicCacheBreakpoints,
   type AnthropicWireBlock,
@@ -387,8 +388,10 @@ export class AnthropicModel implements ModelPort {
       finishReason?: string;
     } = {};
     // LR-01：Anthropic 用 `stop_reason`（`max_tokens` 即截断）表达结束原因；保留给恢复层。
+    // 2026-10-21：必须**归一化**为统一值（`max_tokens` → `length`），否则 StepRunner 的
+    // 截断续写只认 `length`，会把 Anthropic 的半截输出当成正常完成。
     if (typeof body.stop_reason === 'string' && body.stop_reason !== '') {
-      output.finishReason = body.stop_reason;
+      output.finishReason = ModelFinishReasons.normalize(body.stop_reason) ?? body.stop_reason;
     }
     const mergedText = `${text}${structuredText}`;
     if (mergedText !== '') {
@@ -473,7 +476,7 @@ export class AnthropicModel implements ModelPort {
     this.observeUsage(json, usageState);
     // LR-01：`message_delta` 的 stop_reason 是流式结束原因（max_tokens = 截断）。
     if (json.type === 'message_delta' && typeof json.delta?.stop_reason === 'string') {
-      usageState.stop_reason = json.delta.stop_reason;
+      usageState.stop_reason = ModelFinishReasons.normalize(json.delta.stop_reason);
     }
     // #B3 工具调用开始：记录 id/name，先推一次空增量（便于 UI 立即显示「调用中」）。
     if (json.type === 'content_block_start' && json.content_block?.type === 'tool_use') {

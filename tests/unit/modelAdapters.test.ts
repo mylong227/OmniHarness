@@ -615,7 +615,7 @@ test('LR-01：OpenAI 兼容保留 finish_reason=length', async () => {
   assert.strictEqual(output.finishReason, 'length');
 });
 
-test('LR-01：Anthropic 保留 stop_reason=max_tokens', async () => {
+test('LR-01：Anthropic 的 stop_reason=max_tokens 归一化为 length（2026-10-21）', async () => {
   const model = new AnthropicModel({
     baseUrl: 'https://api.anthropic.com',
     apiKey: 'sk',
@@ -632,5 +632,5 @@ test('LR-01：Anthropic 保留 stop_reason=max_tokens', async () => {
       ),
     () => model.generate(request),
   );
-  assert.strictEqual(output.finishReason, 'max_tokens');
+  assert.strictEqual(output.finishReason, 'length');
 });

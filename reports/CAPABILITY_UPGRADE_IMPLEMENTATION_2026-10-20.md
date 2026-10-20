@@ -3,6 +3,12 @@
 > 对应需求矩阵：[CAPABILITY_UPGRADE_REQUIREMENTS_2026-10-20.md](CAPABILITY_UPGRADE_REQUIREMENTS_2026-10-20.md)
 > 对应短板分析：[CORE_CAPABILITY_GAP_ANALYSIS_2026-10-20.md](CORE_CAPABILITY_GAP_ANALYSIS_2026-10-20.md)
 > 口径：**不做跑分结论**；以能力闭环 + 工程判据验收。
+>
+> **2026-10-21 勘误/增量**：本文件是当日落地记录，不是现状全貌。后续修复（Anthropic 截断归一化、
+> 压缩游标溢出重新折叠、reviewer 默认 advisory + 独立模型、browser_act CDP 回退、校准器接线、
+> MCP 默认 auto、SKILL.md 发现、增量投影等）见
+> [REMEDIATION_2026-10-21.md](REMEDIATION_2026-10-21.md)。其中 §5 的 `OMNI_MCP_PROTOCOL` 默认已从
+> legacy 改为 **auto**，`OMNI_BROWSER_ENGINE=cdp` 现在对 `browser_act` 同样生效。
 
 ## 1. 落地清单
 

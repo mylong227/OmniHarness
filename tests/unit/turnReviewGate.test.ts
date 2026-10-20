@@ -8,6 +8,65 @@ import type { StepRunner } from '../../src/core/stepRunner.ts';
 import type { TurnDiffTrackerPort } from '../../src/ports/runtime/turnDiffTracker.ts';
 import type { ReviewPort } from '../../src/ports/tool/review.ts';
 
+test('VER-06：默认 advisory 模式不阻断，但把发现写进事件', async () => {
+  const recorder = new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), 's2');
+  recorder.user('修 bug');
+  let stepCalls = 0;
+  const stepRunner = {
+    usageOfLastStep: 0,
+    run: async () => {
+      stepCalls += 1;
+      recorder.assistant('改好了');
+      return 'text';
+    },
+    finalize: async () => '兜底',
+  } as unknown as StepRunner;
+  let reviewCalls = 0;
+  const reviewer: ReviewPort = {
+    review: async () => {
+      reviewCalls += 1;
+      return {
+        ok: true,
+        findings: [
+          { severity: 'major', file: 'src/a.ts', line: 3, issue: '边界漏判', evidence: '空数组' },
+        ],
+        raw: '',
+      };
+    },
+  };
+  const turnDiff = {
+    getUnifiedDiff: () => '--- a/src/a.ts\n+++ b/src/a.ts',
+    reset: () => {},
+  } as unknown as TurnDiffTrackerPort;
+  const runner = new TurnRunner(
+    stepRunner,
+    recorder,
+    5,
+    turnDiff,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+    undefined,
+    undefined,
+    undefined,
+    reviewer,
+    false,
+  );
+  const outcome = await runner.run({ sessionId: 's2', workspaceRoot: '/tmp' });
+  assert.strictEqual(stepCalls, 1, 'advisory 不得回灌/追加一步');
+  assert.strictEqual(reviewCalls, 1, 'reviewer 每回合至多一次');
+  assert.ok(
+    recorder.allEvents().some((event) => {
+      if (event.type !== 'system') return false;
+      return String((event.payload as { content?: string }).content).includes('advisory');
+    }),
+    'advisory 发现必须留痕',
+  );
+  assert.strictEqual(outcome.truncated, false);
+});
+
 test('VER-06：reviewer 报 major 时回灌一次，且每回合至多一次', async () => {
   const recorder = new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), 's1');
   recorder.user('修 bug');

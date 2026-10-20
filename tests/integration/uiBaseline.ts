@@ -11,10 +11,12 @@
  *
  * ## 2026-10-15：随壳层重构更新「采什么」
  *
- * 第六十九/七十轮把顶栏与左竖条（`NavRail`）删掉，12 个面板入口收进右栏的 `PanelPicker` 菜单。
- * 旧快照里的 `railItems` 于是**恒为 0**——按本文件自己立的口径（"采到一个永远为空的字段等于什么都没断言"），
- * 那是**假绿**。故本字段删除，改为采 `panelMenuItems`（`.pp-menu .pp-item` 的可读名）：
- * 它才是"12 个面板入口还在不在"在现役壳层下的等价契约。菜单由调用方先展开（`liveUiE2e.test.ts`
+ * 第六十九/七十轮把顶栏与左竖条（`NavRail`）删掉，面板入口收进右栏的 `PanelPicker`。
+ * 2026-10-19 起 `PanelPicker` 打开的是设置式 `PanelModal`（左导航 `.sp-nav-item`），
+ * 旧下拉 `.pp-menu .pp-item` 已不存在；基线字段随之改采 `.panel-modal .sp-nav-item`。
+ * 旧快照里的 `railItems` 曾**恒为 0**——按本文件自己立的口径（"采到一个永远为空的字段等于什么都没断言"），
+ * 那是**假绿**。故本字段改为采 `panelMenuItems`（`.panel-modal .sp-nav-item` 的可读名）：
+ * 它才是"面板入口还在不在"在现役壳层下的等价契约。模态由调用方先展开（`liveUiE2e.test.ts`
  * 用真实点击展开，并在展开失败时**明确报错**而不是采到空数组）。
  *
  * ## 更新基线
@@ -35,9 +37,9 @@ export interface SnapshotSource {
 /** 结构快照（字段顺序无关；值都已规范化）。 */
 export interface UiSnapshot {
   /**
-   * 面板菜单条目（`PanelPicker` 展开后的 `.pp-item` 可读名，按界面顺序）。
+   * 面板导航条目（`PanelModal` 展开后的 `.sp-nav-item` 可读名，按界面顺序）。
    *
-   * 调用方负责在采集前把菜单展开（见文件头「随壳层重构更新采什么」）。
+   * 调用方负责在采集前把模态展开（见文件头「随壳层重构更新采什么」）。
    */
   readonly panelMenuItems: readonly string[];
   /** 页签标签（`[role="tab"]`，按界面顺序；含中栏视图页签与右栏已开面板页签）。 */
@@ -63,7 +65,7 @@ export class UiBaseline {
   /**
    * 从页面采集结构快照。
    *
-   * @param cdp CDP 会话（或任何能求值的对象）。**面板菜单需由调用方先展开**，否则
+   * @param cdp CDP 会话（或任何能求值的对象）。**面板模态需由调用方先展开**，否则
    *   `panelMenuItems` 为空数组——那会让整条判据退化，故调用方必须自证已展开。
    * @returns 规范化后的快照。
    */
@@ -76,10 +78,7 @@ export class UiBaseline {
       var send = document.querySelector('button.send');
       var empties = all('.empty-state, .empty').map(text).filter(function(t){ return t.length > 0; });
       return {
-        panelMenuItems: all('.pp-menu .pp-item').map(function(item){
-          var l = item.querySelector('.pp-label');
-          return l ? text(l) : text(item);
-        }).filter(function(t){ return t.length > 0; }),
+        panelMenuItems: all('.panel-modal .sp-nav-item').map(text).filter(function(t){ return t.length > 0; }),
         tabs: all('[role="tab"]').map(label).filter(function(t){ return t.length > 0; }),
         composer: { placeholder: ta ? (ta.getAttribute('placeholder') || '') : '', sendLabel: text(send) },
         composerControls: all('.composer button').map(label).filter(function(t){ return t.length > 0; }),

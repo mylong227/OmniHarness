@@ -124,7 +124,7 @@ test('load：基线文件损坏时抛错（不静默当成空基线而放行一�
   }
 });
 
-test('capture 契约：面板入口来自 .pp-menu .pp-item、页签来自 [role="tab"]、控件名来自 .composer button（防选择器漂移）', async () => {
+test('capture 契约：面板入口来自 .panel-modal .sp-nav-item、页签来自 [role="tab"]、控件名来自 .composer button（防选择器漂移）', async () => {
   let expression = '';
   const cdp = {
     evaluate: async (js: string): Promise<unknown> => {
@@ -135,10 +135,9 @@ test('capture 契约：面板入口来自 .pp-menu .pp-item、页签来自 [role
   await UiBaseline.capture(cdp);
   assert.match(
     expression,
-    /\.pp-menu \.pp-item/,
-    '面板入口必须按现役 PanelPicker 菜单采集（旧 `.rail` 已随壳层重构删除，采它恒为空）',
+    /\.panel-modal \.sp-nav-item/,
+    '面板入口必须按现役 PanelModal 导航采集（旧 `.pp-menu` / `.rail` 已随壳层重构删除，采它恒为空）',
   );
-  assert.match(expression, /\.pp-label/, '入口名必须取 .pp-label（菜单项的可读名）');
   assert.match(expression, /\[role="tab"\]/, '页签必须按 role=tab 采集（实测过的真实选择器）');
   assert.match(expression, /\.composer button/, '输入区控件必须按 .composer button 采集');
   assert.match(expression, /aria-label/, '控件名必须优先取 aria-label（无障碍契约的一部分）');

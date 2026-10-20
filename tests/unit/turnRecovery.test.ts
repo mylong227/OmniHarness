@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 长时执行恢复判据（LR-02 / LR-04，2026-10-20）。
  *
  * 口径：这是**能力验收**，不是跑分——验证“截断续写/过载切换”这条路径存在且可观察。
@@ -93,6 +93,44 @@ test('LR-02：续写次数用尽仍截断时，不执行半截工具调用', asy
     workspaceRoot: '/tmp',
   });
   assert.strictEqual(outcome, 'text', '不应把半截 tool_calls 当成功工具步');
+  assert.strictEqual(recorder.allEvents().filter((e) => e.type === 'tool_result').length, 0);
+});
+
+test('LR-02：Anthropic 的 max_tokens 也触发续写（2026-10-21 回归）', async () => {
+  const recorder = recorderFor('lr02-anthropic');
+  let call = 0;
+  const model: ModelPort = {
+    name: 'anthropic-shape',
+    generate: async () => {
+      call += 1;
+      if (call === 1) return { text: '前半段。', finishReason: 'max_tokens' };
+      return { text: '后半段。', finishReason: 'end_turn' };
+    },
+  };
+  const outcome = await runnerFor(model, recorder).run({
+    sessionId: 'lr02-anthropic',
+    workspaceRoot: '/tmp',
+  });
+  assert.strictEqual(outcome, 'text');
+  assert.strictEqual(call, 2, 'max_tokens 必须触发续写，而不是按完成收尾');
+  assert.strictEqual(recorder.lastAssistantText(), '前半段。后半段。');
+});
+
+test('LR-02：Anthropic 的 max_tokens 用尽后同样不执行半截工具调用', async () => {
+  const recorder = recorderFor('lr02-anthropic-tool');
+  const model: ModelPort = {
+    name: 'anthropic-shape',
+    generate: async () => ({
+      text: '半截',
+      finishReason: 'max_tokens',
+      toolCalls: [{ id: 'c1', name: 'write_file', arguments: {} }],
+    }),
+  };
+  const outcome = await runnerFor(model, recorder).run({
+    sessionId: 'lr02-anthropic-tool',
+    workspaceRoot: '/tmp',
+  });
+  assert.strictEqual(outcome, 'text');
   assert.strictEqual(recorder.allEvents().filter((e) => e.type === 'tool_result').length, 0);
 });
 

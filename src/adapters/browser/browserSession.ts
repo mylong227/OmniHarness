@@ -22,6 +22,13 @@ import { ChromeProcess } from './chromeProcess.ts';
 import type { ChromeLaunchResult, ChromeProcessOptions } from './chromeProcess.ts';
 import { CdpClient } from './cdpClient.ts';
 import { ImageProbe } from '../../util/imageProbe.ts';
+import type {
+  BrowserActionPort,
+  BrowserActionRequest,
+  BrowserActionResult,
+} from '../../ports/tool/browserAction.ts';
+import { BrowserObservations } from './browserObservations.ts';
+import { CdpBrowserActions } from './cdpBrowserActions.ts';
 
 /**
  * 浏览器进程最小面：`ChromeProcess` 结构化满足；测试可注入假实现（不真起浏览器）。
@@ -105,7 +112,7 @@ export interface BrowserSessionOptions {
  * ① `OMNI_BROWSER_ENGINE=cdp` 的显式回退；② Playwright 不可用/启动失败时的自动回退。
  * 保留它是因为 CDP 零依赖、启动路径短，且已有成熟判据；新功能优先加在 Playwright 引擎。
  */
-export class BrowserSession {
+export class BrowserSession implements BrowserActionPort {
   /** 默认等待加载事件的超时。 */
   public static readonly DEFAULT_LOAD_TIMEOUT_MS = 30_000;
 
@@ -127,9 +134,8 @@ export class BrowserSession {
   /** 是否已关闭。 */
   private closed = false;
 
-  /** 本页 console 输出（最近 80 条；ACT-01）。 */
-
-  /** 本页失败网络请求（最近 80 条；ACT-01）。 */
+  /** console / 失败网络观测（由本类订阅，动作执行体读取）。 */
+  private readonly observations = new BrowserObservations();
 
   public constructor(private readonly options: BrowserSessionOptions = {}) {}
 
@@ -160,6 +166,27 @@ export class BrowserSession {
       title: await this.title(client, session),
     };
   }
+  /**
+   * 执行一个浏览器动作（CDP 版回退，ACT-01）。
+   *
+   * 这是 `browser_act` 在 **Playwright 不可用/启动失败**时的回退路径：语义比 Playwright
+   * 弱（没有 actionability 自动等待、iframe 穿透），但覆盖 goto/click/type/press/scroll/
+   * wait_for/aria_snapshot/console/network 九个动作，保证 optional 依赖缺失时工具仍可用。
+   * @param request 动作请求。
+   * @returns 动作结果（可恢复失败为 ok:false + 可读原因）。
+   */
+  public async act(request: BrowserActionRequest): Promise<BrowserActionResult> {
+    await this.ensureSession();
+    const client = this.requireClient();
+    const session = this.requireSession();
+    return await new CdpBrowserActions({
+      client,
+      session,
+      navigate: (url, waitMs) => this.navigateTo(client, session, url, waitMs),
+      observations: this.observations,
+    }).act(request);
+  }
+
   /**
    * 关闭会话：断开 CDP、结束浏览器、删除自建的用户数据目录。幂等。
    *
@@ -267,6 +294,13 @@ export class BrowserSession {
         throw new Error('CDP Target.attachToTarget 未返回 sessionId');
       }
       this.pageSessionId = attached.sessionId;
+      // ACT-01：console/network 观测。启用域失败不应让整个会话启动失败（老浏览器/裁剪版），
+      // 但成功时观测数据必须真实可得。
+      await client.send('Runtime.enable', {}, this.pageSessionId).catch(() => undefined);
+      await client.send('Network.enable', {}, this.pageSessionId).catch(() => undefined);
+      client.on('Runtime.consoleAPICalled', (params) => this.observations.console(params));
+      client.on('Network.loadingFailed', (params) => this.observations.networkFailure(params));
+      client.on('Network.responseReceived', (params) => this.observations.networkStatus(params));
     } catch (error) {
       // 启动中途失败也必须收干净：否则每失败一次就漏一个 Chromium 进程。
       await this.close();
@@ -310,19 +344,36 @@ export class BrowserSession {
     session: string,
     request: ScreenshotRequest,
   ): Promise<string> {
+    return await this.navigateTo(client, session, request.url, request.waitMs);
+  }
+
+  /**
+   * 导航到指定 URL 并等待 load（事件优先、超时兜底）。
+   * @param client CDP 客户端。
+   * @param session 页面会话 id。
+   * @param url 目标地址。
+   * @param waitMs 加载后再等待的毫秒数。
+   * @returns 导航后的最终地址。
+   */
+  private async navigateTo(
+    client: CdpClient,
+    session: string,
+    url: string,
+    waitMs: number,
+  ): Promise<string> {
     let loaded = false;
     const off = client.on('Page.loadEventFired', () => {
       loaded = true;
     });
     try {
-      await client.send('Page.navigate', { url: request.url }, session);
+      await client.send('Page.navigate', { url }, session);
       const timeoutMs = this.options.loadTimeoutMs ?? BrowserSession.DEFAULT_LOAD_TIMEOUT_MS;
       const deadline = Date.now() + timeoutMs;
       while (!loaded && Date.now() < deadline) {
         await BrowserSession.sleep(50);
       }
-      if (request.waitMs > 0) {
-        await BrowserSession.sleep(request.waitMs);
+      if (waitMs > 0) {
+        await BrowserSession.sleep(waitMs);
       }
     } finally {
       off();

@@ -173,3 +173,25 @@ test('EventPersister: getEvents 闭包抛错时 flush 不 reject（2026-10-03 �
   assert.strictEqual(storage.writes.length, 0);
   persister.dispose();
 });
+
+test('EventPersister: hasUnsaved 区分「已全部落盘」与「失败/新增未落盘」（2026-10-21）', async () => {
+  const storage = new RecordingStorage();
+  const events: SessionEvent[] = [evt('a')];
+  const persister = new EventPersister(storage, 's1', () => events, { batchDelayMs: 0 });
+  assert.strictEqual(persister.hasUnsaved(events), true, '尚未落盘必须为 true');
+  await persister.flush();
+  assert.strictEqual(persister.savedCount, 1);
+  assert.strictEqual(persister.hasUnsaved(events), false, '成功落盘后不得再全量重写');
+
+  events.push(evt('b'));
+  assert.strictEqual(persister.hasUnsaved(events), true, '新增事件后必须为 true');
+
+  storage.failNext = true;
+  await persister.flush();
+  assert.strictEqual(
+    persister.hasUnsaved(events),
+    true,
+    '落盘失败必须保持 true，触发回合末全量兜底',
+  );
+  persister.dispose();
+});

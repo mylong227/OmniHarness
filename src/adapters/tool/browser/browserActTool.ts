@@ -12,6 +12,8 @@ import type {
   BrowserActionResult,
 } from '../../../ports/tool/browserAction.ts';
 import { PlaywrightBrowserSession } from '../../browser/playwrightBrowserSession.ts';
+import { BrowserSession } from '../../browser/browserSession.ts';
+import { log } from '../../../util/logger.ts';
 
 /** 动作工具选项。 */
 export interface BrowserActToolOptions {
@@ -21,6 +23,10 @@ export interface BrowserActToolOptions {
   readonly idleCloseMs?: number | undefined;
   /** Playwright 浏览器可执行文件（缺省用 ChromeLocator；测试/自定义安装可用）。 */
   readonly browserExecutablePath?: string | undefined;
+  /** Playwright 执行体工厂（测试注入；缺省懒建真实会话）。 */
+  readonly playwrightFactory?: (() => BrowserActionPort & { close(): Promise<void> }) | undefined;
+  /** CDP 回退执行体工厂（测试注入；缺省懒建 BrowserSession）。 */
+  readonly cdpFactory?: (() => BrowserSession) | undefined;
 }
 
 /**
@@ -77,6 +83,10 @@ export class BrowserActTool {
   private lazy: BrowserActionPort | undefined;
   /** 自建的浏览器执行体（close 用）。 */
   private owned: (BrowserActionPort & { close(): Promise<void> }) | undefined;
+  /** CDP 回退执行体（Playwright 不可用/启动失败时懒建）。 */
+  private cdp: BrowserSession | undefined;
+  /** 是否已切到 CDP 回退（后续动作直接走 CDP，避免每次先撞一次 Playwright 失败）。 */
+  private usingCdp = false;
   /** 空闲关闭定时器。 */
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
   /** 是否已关闭。 */
@@ -139,15 +149,50 @@ export class BrowserActTool {
     this.idleTimer = undefined;
     await this.owned?.close();
     this.owned = undefined;
+    await this.cdp?.close();
+    this.cdp = undefined;
   }
 
   /**
-   * 执行动作（Playwright 是唯一动作引擎；启动失败向上抛给工具层）。
+   * 执行动作（Playwright 为主；启动失败自动回退 CDP）。
    * @param request 动作请求。
    * @returns 动作结果。
    */
   private async run(request: BrowserActionRequest): Promise<BrowserActionResult> {
-    return await this.actionPort().act(request);
+    // 显式降级：`OMNI_BROWSER_ENGINE=cdp` 直接在 CDP 上跑，不先尝试 Playwright。
+    if (this.options.session === undefined && process.env.OMNI_BROWSER_ENGINE === 'cdp') {
+      this.usingCdp = true;
+    }
+    if (this.usingCdp) {
+      return await this.cdpPort().act(request);
+    }
+    try {
+      return await this.actionPort().act(request);
+    } catch (error) {
+      // 注入执行体时不回退（测试/调用方明确指定了引擎）。
+      if (this.options.session !== undefined) throw error;
+      // Playwright 启动失败：`ensurePage` 抛错（缺 optional 依赖/缺 Chrome/启动崩溃）。
+      // 动作级失败在 `PlaywrightBrowserSession.act` 内已转成 ok:false，不会走到这里。
+      log.warn('browser.engine.fallback', {
+        from: 'playwright',
+        to: 'cdp',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      this.usingCdp = true;
+      await this.owned?.close();
+      this.owned = undefined;
+      this.lazy = undefined;
+      return await this.cdpPort().act(request);
+    }
+  }
+
+  /**
+   * 取 CDP 回退执行体（懒建）。
+   * @returns 动作端口。
+   */
+  private cdpPort(): BrowserSession {
+    this.cdp ??= this.options.cdpFactory?.() ?? new BrowserSession();
+    return this.cdp;
   }
 
   /**
@@ -159,11 +204,13 @@ export class BrowserActTool {
       return this.options.session;
     }
     if (this.lazy === undefined) {
-      this.owned = new PlaywrightBrowserSession({
-        ...(this.options.browserExecutablePath !== undefined
-          ? { executablePath: this.options.browserExecutablePath }
-          : {}),
-      });
+      this.owned =
+        this.options.playwrightFactory?.() ??
+        new PlaywrightBrowserSession({
+          ...(this.options.browserExecutablePath !== undefined
+            ? { executablePath: this.options.browserExecutablePath }
+            : {}),
+        });
       this.lazy = this.owned;
     }
     return this.lazy;

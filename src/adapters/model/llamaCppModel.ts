@@ -9,6 +9,7 @@ import type {
   ModelUsage,
   StreamCallbacks,
 } from '../../ports/model/model.ts';
+import { ModelFinishReasons } from '../../util/modelFinishReasons.ts';
 import { ModelHttpErrors } from './modelHttpErrors.ts';
 import { ModelRequestGuard } from './modelRequestGuard.ts';
 import { log } from '../../util/logger.ts';
@@ -178,7 +179,7 @@ export class LlamaCppModel implements ModelPort {
       output.usage = usage;
     }
     if (doneReason !== undefined) {
-      output.finishReason = doneReason;
+      output.finishReason = ModelFinishReasons.normalize(doneReason) ?? doneReason;
     }
     return output;
   }
@@ -412,7 +413,7 @@ export class LlamaCppModel implements ModelPort {
       };
     }
     if (typeof body.done_reason === 'string' && body.done_reason !== '') {
-      output.finishReason = body.done_reason;
+      output.finishReason = ModelFinishReasons.normalize(body.done_reason) ?? body.done_reason;
     }
     return output;
   }

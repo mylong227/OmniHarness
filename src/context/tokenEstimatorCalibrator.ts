@@ -73,6 +73,22 @@ export class TokenEstimatorCalibrator {
   }
 
   /**
+   * 压缩阈值修正比例（`1/factor`，夹在 [0.67, 1.5]；样本不足/非法值为 1）。
+   *
+   * 放在校准器而不是压缩器里：这是「校准结果怎么用」的唯一口径，
+   * 换一个消费点（例如容量面板告警）不应再抄一遍夹紧逻辑。
+   * @param minSamples 最少样本数（默认 5）。
+   * @returns 阈值乘数（约 0.67–1.5）。
+   */
+  public thresholdRatio(minSamples = 5): number {
+    const report = this.report();
+    if (report.samples < minSamples) return 1;
+    const factor = report.factor;
+    if (!Number.isFinite(factor) || factor <= 0) return 1;
+    return 1 / Math.min(1.5, Math.max(0.67, factor));
+  }
+
+  /**
    * 取分位数（线性插值；空数组返回 0）。
    * @param sorted 已排序数组。
    * @param q 0..1。

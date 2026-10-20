@@ -1,9 +1,10 @@
 import { McpClient } from './mcpClient.ts';
 import { McpStatelessClient } from './mcpStatelessClient.ts';
-import { McpProtocolNegotiator } from './mcpProtocolNegotiator.ts';
+import { McpProtocolNegotiator, type McpProtocolChoice } from './mcpProtocolNegotiator.ts';
 import { mcpStdioTransport, type McpStdioServerOptions } from './mcpStdioTransport.ts';
 import type { McpConnectionHandle, McpConnectorPort } from '../ports/mcp/mcpConnectorPort.ts';
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
+import { log } from '../util/logger.ts';
 
 /**
  * @beta
@@ -90,19 +91,19 @@ export class McpConnector implements McpConnectorPort {
     };
     const handle = mcpStdioTransport.launch(options);
     try {
-      const client =
-        McpProtocolNegotiator.select() === 'stateless-v2'
-          ? new McpStatelessClient({ transport: handle.transport, timeoutMs })
-          : new McpClient({ transport: handle.transport, timeoutMs });
-      const info = await Promise.race([client.initialize(), handle.failure]);
+      const opened = await McpConnector.handshake(
+        handle,
+        timeoutMs,
+        McpProtocolNegotiator.select(),
+      );
       // 关闭顺序有讲究：**先**拒绝在途请求（`client.close()`），**再**关传输/子进程。
-      // 反过来的话，`Transport` 契约没有关闭通知 ⇒ 在途请求只能等各自超时（默认 10s）
+      // 反过来的话：`Transport` 契约没有关闭通知 ⇒ 在途请求只能等各自超时（默认 10s）
       // 才被拒，调用方在此期间表现为「卡住」（审计 §3.5 记录的形态）。
       return {
-        client,
-        info,
+        client: opened.client,
+        info: opened.info,
         close: () => {
-          client.close('MCP 连接已关闭');
+          opened.client.close('MCP 连接已关闭');
           handle.close();
         },
       };
@@ -110,6 +111,59 @@ export class McpConnector implements McpConnectorPort {
       handle.close();
       throw error;
     }
+  }
+
+  /**
+   * 按协商结果完成握手；`auto` 先尝试 v2 无状态发现，失败回退 legacy。
+   *
+   * 为什么可以复用同一 transport：`McpStatelessClient.close()` 只拒绝在途请求、
+   * 不关闭子进程/管道，故一次失败的 `server/discover` 之后仍可用旧栈 `initialize`。
+   * @param handle stdio 传输句柄。
+   * @param timeoutMs 请求超时。
+   * @param choice 协议选择（legacy / stateless-v2 / auto）。
+   * @returns 已握手的客户端与初始化信息。
+   */
+  private static async handshake(
+    handle: ReturnType<typeof mcpStdioTransport.launch>,
+    timeoutMs: number | undefined,
+    choice: McpProtocolChoice,
+  ): Promise<{ client: McpConnection['client']; info: McpConnection['info'] }> {
+    if (choice !== 'auto') {
+      return await McpConnector.openWith(handle, timeoutMs, choice);
+    }
+    const v2 = new McpStatelessClient({ transport: handle.transport, timeoutMs });
+    try {
+      const info = await Promise.race([v2.initialize(), handle.failure]);
+      return { client: v2, info };
+    } catch (error) {
+      v2.close('MCP 2026-07-28 探测失败，回退 legacy');
+      log.info('mcp.protocol.fallback', {
+        from: 'stateless-v2',
+        to: 'legacy',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return await McpConnector.openWith(handle, timeoutMs, 'legacy');
+    }
+  }
+
+  /**
+   * 用指定协议栈完成握手。
+   * @param handle stdio 传输句柄。
+   * @param timeoutMs 请求超时。
+   * @param choice 显式协议（legacy / stateless-v2）。
+   * @returns 已握手的客户端与初始化信息。
+   */
+  private static async openWith(
+    handle: ReturnType<typeof mcpStdioTransport.launch>,
+    timeoutMs: number | undefined,
+    choice: Exclude<McpProtocolChoice, 'auto'>,
+  ): Promise<{ client: McpConnection['client']; info: McpConnection['info'] }> {
+    const client =
+      choice === 'stateless-v2'
+        ? new McpStatelessClient({ transport: handle.transport, timeoutMs })
+        : new McpClient({ transport: handle.transport, timeoutMs });
+    const info = await Promise.race([client.initialize(), handle.failure]);
+    return { client, info };
   }
 }
 

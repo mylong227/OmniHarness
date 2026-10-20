@@ -81,6 +81,9 @@ function stubHtml() {
     '(function(){',
     '  var RPC_CALLS = []; window.__RPC_CALLS__ = RPC_CALLS;',
     '  var SOURCES = []; window.__SOURCES__ = SOURCES;',
+    // 回合收尾后 UI 会重新 `threads.get` 拉整段历史（turns.run 响应晚于事件流到达）；
+    // 假后端必须返回**同一批事件**，否则刚 push 的 turn_diff/assistant 会被空结果覆盖。
+    '  var EVENTS = []; window.__EVENTS__ = EVENTS;',
     '  var json = function(o){ return { ok:true, status:200, json:function(){ return Promise.resolve(o); }, text:function(){ return Promise.resolve(JSON.stringify(o)); } }; };',
     '  var results = {',
     "    'model.catalog': { providers: [], active: { id:'mock', label:'Mock 厂商', defaultModel:'mock-e2e', model:'mock-e2e', models:['mock-e2e'], reasoningEffort:['low','high'] } },",
@@ -103,6 +106,7 @@ function stubHtml() {
     '      var id = 0; try { id = JSON.parse(opts.body).id; } catch(e) {}',
     '      RPC_CALLS.push({ method: method });',
     "      if (method === 'turns.run') { return new Promise(function(resolveTurn){ window.__RESOLVE_TURN__ = function(r){ resolveTurn(json({ jsonrpc:'2.0', id:id, result: r })); }; }); }",
+    "      if (method === 'threads.get') { return Promise.resolve(json({ jsonrpc:'2.0', id:id, result: { threadId:'s1', items: EVENTS } })); }",
     "      var body = results[method] !== undefined ? results[method] : {};",
     "      return Promise.resolve(json({ jsonrpc:'2.0', id:id, result: body }));",
     '    }',
@@ -115,6 +119,7 @@ function stubHtml() {
     '  };',
     '  window.EventSource.prototype.close = function(){ this.readyState = 2; };',
     '  var push = function(env){',
+    "    if (env.method === 'thread.event' && env.params && env.params.event) EVENTS.push(env.params.event);",
     '    for (var i = 0; i < SOURCES.length; i++) {',
     "      var es = SOURCES[i]; if (es.onmessage) es.onmessage({ data: JSON.stringify(env) });",
     '    }',
