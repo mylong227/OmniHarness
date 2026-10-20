@@ -2715,9 +2715,12 @@ button:active,
   color: var(--text);
 }
 .sp-seg-item.on {
-  background: var(--accent);
-  color: var(--ink-fg);
+  /* 2026-10-20 用户：分段按钮的实心墨色太重，要「符合主题、淡淡的舒适感」。
+     选中态只用极淡签名色底 + 正常正文色；识别靠色温，不靠深色块。 */
+  background: var(--accent-soft);
+  color: var(--text);
   font-weight: 550;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* =========================================================================
