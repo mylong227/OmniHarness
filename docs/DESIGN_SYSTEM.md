@@ -272,6 +272,9 @@ dark：`--accent: #a8b4e8` / `--ink-fg: #14161c`（8.7:1）；light：`--accent:
 >
 > 路由口径：切换会话只 `navigate({ threadId })`；`RouteBinding` **只在首次深链或 pane 变化时**
 > 打开功能面板模态。只换会话不会把刚关掉的配置集重新弹回来（判据 `router.test.ts`）。
+>
+> 一级导航「插件」当前页：`color-mix(accent 7%, transparent)` 淡底 + 图标着色，**不再用
+> `panel-2` 整条亮底**（2026-10-20 用户：「插件的纯底色太亮了」）。
 
 ### 6.2 面板可达性（硬契约）
 

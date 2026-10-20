@@ -585,6 +585,15 @@
   background: var(--hover);
   color: var(--text);
 }
+/* 一级导航「插件」当前页：不再用 panel-2 整条亮底（深色下像一块亮条）；
+   改成 7% 签名色淡底 + 图标着色，识别度靠色相而不是亮度。 */
+.side-item.active {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  color: var(--text);
+}
+.side-item.active .si-ico {
+  color: var(--accent);
+}
 
 .session,
 .task-card {
