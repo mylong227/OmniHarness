@@ -169,11 +169,12 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 [adr/](adr/README.md)：`0001-hexagonal-ports-adapters`、`0002-dependency-allowlist`、
 `0003-unified-gate-fail-closed`、`0004-audit-hash-chain`、`0005-event-stream-single-source`、
 `0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`、
-`0009-capability-protocol`、`0010-isolation-ladder`、`0011-signed-asset-pack`。
+`0009-capability-protocol`、`0010-isolation-ladder`、`0011-signed-asset-pack`、`0012-plugin-process-isolation`。
 
 ## 12. 已知边界与"不做"清单
 
-- **隔离是 L2**（同用户进程内约束），不是容器/VM；`restricted` 档在 Windows 上限制 SID 数为 0（如实标注）。
+- **默认隔离是 L2**（同用户进程内约束）；**远程插件走独立 Worker 进程（L3）**，见
+  [ADR-0012](adr/0012-plugin-process-isolation.md)。`restricted` 档在 Windows 上限制 SID 数为 0（如实标注）。
 - **`policy` 档的出站守卫只管 `globalThis.fetch`**，子进程带外通道不受管辖。
 - **注入防护默认 `off`**（观测模式），需显式开启才强制。
 - **实验档检索路径**不承诺增益（全部实测零增益或净负面），清单与删除边界见 §6。

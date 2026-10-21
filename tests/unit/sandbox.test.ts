@@ -66,7 +66,7 @@ test('沙箱插件：缺 export default 抛错', () => {
 
 test('沙箱插件：apply 超时熔断', async () => {
   const code = "export default { meta:{name:'hang'}, apply(){ return new Promise(()=>{}); } };";
-  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'hang.js', 50);
+  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'hang.js', 1_000);
   const manager = makeManager();
   await assert.rejects(() => manager.register(plugin), /超时/);
 });

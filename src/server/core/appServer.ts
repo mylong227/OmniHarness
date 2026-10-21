@@ -649,5 +649,6 @@ export class AppServer extends AppServerVaultHandlers {
     while (agent.runningSessionIds().length > 0 && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
+    await this.plugins.shutdown();
   }
 }

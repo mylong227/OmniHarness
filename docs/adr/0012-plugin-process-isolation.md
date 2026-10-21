@@ -1,9 +1,9 @@
 # 0012 远程插件进程隔离（Plugin Worker + Capability RPC）
 
 - 日期：2026-10-21
-- 状态：**提议（设计定稿，分阶段实施）**
+- 状态：**核心已实施（2026-10-21）；能力 broker / OS 沙箱强制 / 重启退避为后续阶段**
 - 关联：[ADR-0009 统一资产协议](./0009-capability-protocol.md)、[ADR-0010 信任-隔离阶梯](./0010-isolation-ladder.md)、[ADR-0011 签名资产包](./0011-signed-asset-pack.md)
-- 现行实现：[`src/plugin/sandbox.ts`](../../src/plugin/sandbox.ts)、[`src/plugin/pluginLoader.ts`](../../src/plugin/pluginLoader.ts)
+- 现行实现：[`src/plugin/worker/`](../../src/plugin/worker/)、[`src/plugin/pluginLoader.ts`](../../src/plugin/pluginLoader.ts)
 
 ## 背景
 
@@ -38,6 +38,25 @@
 - 不承诺 Windows ACL 后端提供网络隔离（它只限制写）；远程插件的网络策略必须由更强后端
   或显式授权决定，见 §7。
 - 不把 `worker_threads` 当安全边界；线程共享进程地址空间。
+
+## 实施状态（2026-10-21）
+
+已落地并有判据：
+
+- 一插件一 Worker 进程（`pluginWorkerMain.mjs` + `PluginWorkerSupervisor`）；
+- NDJSON 协议 v1、握手 nonce、帧上限、activate/tool.invoke/deactivate/health；
+- 工具桥（注册/调用/回收、超时、同名拒绝）；
+- legacy `apply(ctx)` 适配器（仅 `port.tools` 注册视图，其它宿主服务拒绝）；
+- Worker 最小环境 + Node 权限模型（`--experimental-permission --allow-fs-read=<pluginDir>`）；
+- Loader 路由：`remote`/缺失 source → Worker，`bundled`/`local` → 进程内；
+- 宿主停机 `PluginManager.disposeAll` → `PluginHost.shutdown` 停止 Worker。
+
+尚未落地（后续阶段，不得宣称已具备）：
+
+- 真实宿主能力 broker（`cap.call` 的授权执行；当前 Worker 不暴露宿主能力）；
+- OS 沙箱强制（Windows ACL/WSL bwrap；当前只有进程边界 + Node 权限模型）；
+- 崩溃后指数退避重启/quarantine；
+- `plugin.worker.*` 事件指标与 `doctor` 的 worker 段。
 
 ## 决策
 
@@ -184,7 +203,10 @@ Worker 注册工具时只发送**定义 + handler 句柄**；父进程是工具�
 
 父进程校验：
 
-1. 名称必须匹配 `^[a-z][a-z0-9_]*$` 且加前缀 `pluginName__`，冲突即拒绝；
+> 2026-10-21 实施口径：为兼容既有插件工具名（`ping-tool` 等），首版**保留原名**，
+> 同名注册直接拒绝；命名空间前缀留到多插件冲突治理时再加，避免破坏现有工具表/UI。
+
+1. 名称必须匹配 `^[a-z][a-z0-9_-]*$`，同名已存在即拒绝（不静默覆盖）；
 2. `description` ≤ 2 KiB，`parameters` 必须是 JSON Schema 对象且 ≤ 16 KiB；
 3. 每插件工具数 ≤ 64；同名重复注册拒绝；
 4. 注册完成才进入 `ToolPort`，部分失败则回滚本插件已注册项。

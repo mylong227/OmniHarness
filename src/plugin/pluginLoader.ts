@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { Plugin } from './plugin.ts';
 import type { PluginManifest } from './manifest.ts';
 import type { PluginManager } from './pluginManager.ts';
-import { Sandbox } from './sandbox.ts';
+import { RemotePlugin } from './worker/remotePlugin.ts';
 
 /**
  * PluginLoader — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
@@ -114,15 +114,17 @@ export class PluginLoader {
         const trusted = manifest.source === 'bundled' || manifest.source === 'local';
         if (manifest.source === 'remote' && !remoteAllowed) {
           throw new Error(
-            '远程插件默认不加载（VM 不是安全边界）；如确需加载请设 OMNI_ALLOW_REMOTE_PLUGINS=1',
+            '远程插件默认不加载（需 Worker 进程隔离）；如确需加载请设 OMNI_ALLOW_REMOTE_PLUGINS=1',
           );
         }
         const plugin: Plugin = trusted
           ? await PluginLoader.importPlugin(join(dir, entryFile))
-          : Sandbox.loadPluginCodeInSandbox(
-              readFileSync(join(dir, entryFile), 'utf8'),
-              join(dir, entryFile),
-            );
+          : new RemotePlugin({
+              name: manifest.name ?? entry,
+              entryPath: join(dir, entryFile),
+              ...(manifest.version !== undefined ? { version: manifest.version } : {}),
+              ...(manifest.permissions !== undefined ? { permissions: manifest.permissions } : {}),
+            });
         await manager.register(plugin);
         loaded.push(entry);
       } catch (error) {

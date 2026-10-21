@@ -76,6 +76,15 @@ export class PluginManager {
     this.plugins.delete(name);
   }
 
+  /** 卸载全部插件（宿主停机路径；逆序清理，worker 一并停止）。
+   * @returns 无返回值。
+   */
+  public async disposeAll(): Promise<void> {
+    for (const name of [...this.plugins.keys()].reverse()) {
+      await this.uninstall(name);
+    }
+  }
+
   /** 取出共享工具端口（未注入则 undefined，不影响无工具插件）。 */
   private tryGetTools(): ToolPort | undefined {
     if (!this.container.has('port.tools')) {

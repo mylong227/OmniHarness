@@ -38,7 +38,7 @@ export class PluginHost {
   /** 宿主依赖（插件目录、配置来源、传输、注册表与错误口径）。 */
   private readonly deps: PluginHostDeps;
   /** 插件容器管理器（ensure 后就绪；未启用目录时保持 undefined）。 */
-  private pluginManager?: PluginManager;
+  private pluginManager: PluginManager | undefined;
   /** 在飞加载 Promise（并发合流，见 `ensure` 注释）。 */
   private readyPromise: Promise<void> | undefined;
 
@@ -109,6 +109,15 @@ export class PluginHost {
     } catch (error) {
       this.notifyLoadError({ error: this.deps.messageOf(error) });
     }
+  }
+
+  /**
+   * 停机：卸载全部插件（含远程 Worker 进程），释放工具与进程。
+   * @returns 无返回值。
+   */
+  public async shutdown(): Promise<void> {
+    await this.pluginManager?.disposeAll();
+    this.pluginManager = undefined;
   }
 
   /**
