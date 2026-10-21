@@ -389,20 +389,59 @@ export class ConfigError extends OmniError {
     return ConfigError.normalizeConfig(coerced);
   }
 
-  /** 多层合并：靠后层非零值覆盖靠前层（mcpServers 数组整体替换，不拼接）。 */
+  /**
+   * 多层合并：靠后层非零值覆盖靠前层。
+   *
+   * 2026-10-21 修：此前只按顶层 key 赋值，`permission` / `a2a` / `evolutionRlvr` 这类
+   * **嵌套段**会被上层「只改一个子键」整段吞掉（实测 `{permission:{rules}}` +
+   * `{permission:{defaultDecision}}` ⇒ 只剩 defaultDecision，规则静默消失）。
+   * 现在对普通对象**逐子键递归合并**；数组与标量仍整体替换（`mcpServers` / `skills`
+   * 等列表的语义是「这一层给出一份完整清单」，拼接会产生无法删除的幽灵项）。
+   * @param layers 从低到高的配置层（undefined 跳过）。
+   * @returns 合并后的配置。
+   */
   public static mergeConfigs(...layers: readonly Partial<FileConfig>[]): FileConfig {
-    const result: Record<string, unknown> = {};
+    let result: Record<string, unknown> = {};
     for (const layer of layers) {
       if (layer === undefined) {
         continue;
       }
-      for (const [key, value] of Object.entries(layer)) {
-        if (value !== undefined) {
-          result[key] = value;
-        }
-      }
+      result = ConfigError.mergeLayer(result, layer as Record<string, unknown>);
     }
     return result as FileConfig;
+  }
+
+  /**
+   * 递归合并一层普通对象（数组/标量替换）。
+   * @param base 已合并的基底。
+   * @param patch 本层覆盖值。
+   * @returns 新对象（不修改入参）。
+   */
+  private static mergeLayer(
+    base: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = { ...base };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) {
+        continue;
+      }
+      const current = out[key];
+      out[key] =
+        ConfigError.isPlainObject(current) && ConfigError.isPlainObject(value)
+          ? ConfigError.mergeLayer(current, value)
+          : value;
+    }
+    return out;
+  }
+
+  /**
+   * 是否为可递归合并的普通对象（数组与 null 不参与递归）。
+   * @param value 待判定值。
+   * @returns 普通对象为 true。
+   */
+  private static isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 
   /**

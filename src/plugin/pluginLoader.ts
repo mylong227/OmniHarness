@@ -52,12 +52,26 @@ export class PluginLoader {
   }
 
   /**
+   * 是否允许加载**远程来源**的插件（默认禁止，需 `OMNI_ALLOW_REMOTE_PLUGINS=1` 显式放行）。
+   *
+   * 为什么默认禁止（2026-10-21）：VM 沙箱不是安全边界（宿主端口对象的方法仍带宿主
+   * `Function`），而市场安装的远程插件是不可信代码。把「加载不可信代码」变成显式选择，
+   * 默认只加载 bundled/local 这些同源可信插件；需要时由部署者一次性开启。
+   * @param env 环境变量（测试可注入）。
+   * @returns 允许远程插件时为 true。
+   */
+  public static remotePluginsAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env['OMNI_ALLOW_REMOTE_PLUGINS'] === '1';
+  }
+
+  /**
    * 扫 pluginsDir，逐个加载 entry 并 register 进 PluginManager。
    *
    * 设计要点（闭环 G-B 运行时加载）：
    * - 仅加载未注册过的插件（按目录名去重），重复调用幂等，不重复注册工具。
-   * - **远程源插件（manifest.source==='remote'）走受限 VM 沙箱**（`loadPluginCodeInSandbox`），
-   *   隔离不可信代码；本地/内置源走普通动态 import（同源可信）。
+   * - **远程源插件默认不加载**（`source==='remote'`）：VM 只是纵深防御，不是安全边界；
+   *   需 `OMNI_ALLOW_REMOTE_PLUGINS=1` 显式放行，放行后仍走受限 VM。
+   * - 本地/内置源走普通动态 import（同源可信）。
    * - 单插件坏不影响其余：onError 回调上报，否则整轮抛错。
    * - 绑定到与 Agent 同一 `port.tools` 的容器时，插件 apply 内 `get('port.tools').register(...)`
    *   注册的工具直接进 Agent 工具表——这就是「市场安装 → 运行时可用」的闭环。
@@ -75,6 +89,7 @@ export class PluginLoader {
       return [];
     }
     const allow = only === undefined ? undefined : new Set(only);
+    const remoteAllowed = PluginLoader.remotePluginsAllowed();
     const loaded: string[] = [];
     const existing = new Set(manager.names());
     for (const entry of PluginLoader.safeReaddir(pluginsDir)) {
@@ -93,9 +108,15 @@ export class PluginLoader {
       const entryFile = manifest.entry ?? 'index.js';
       try {
         // 只有**显式声明** bundled/local 的插件才走宿主 import（同源可信）。
-        // `remote` 与**缺失/损坏的 source**一律走受限 VM：清单来自包内可篡改字段，
-        // 「没写 source」不能被当成「本地可信」（2026-10-18 审查 P1-1）。
+        // `remote` 默认拒绝加载（需 `OMNI_ALLOW_REMOTE_PLUGINS=1` 显式放行）；**缺失/损坏的 source** 按不可信
+        // 处理但仍在受限 VM 中加载——手工放进 pluginsDir 的本地插件通常不写 source，
+        // 直接拒绝会把「本地开发插件」一并打死（2026-10-21 口径修正）。
         const trusted = manifest.source === 'bundled' || manifest.source === 'local';
+        if (manifest.source === 'remote' && !remoteAllowed) {
+          throw new Error(
+            '远程插件默认不加载（VM 不是安全边界）；如确需加载请设 OMNI_ALLOW_REMOTE_PLUGINS=1',
+          );
+        }
         const plugin: Plugin = trusted
           ? await PluginLoader.importPlugin(join(dir, entryFile))
           : Sandbox.loadPluginCodeInSandbox(

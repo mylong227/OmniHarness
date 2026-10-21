@@ -147,10 +147,18 @@ export class BrowserActTool {
     this.closed = true;
     if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
     this.idleTimer = undefined;
-    await this.owned?.close();
-    this.owned = undefined;
-    await this.cdp?.close();
-    this.cdp = undefined;
+    try {
+      await this.owned?.close();
+      await this.cdp?.close();
+    } finally {
+      // 2026-10-21 修：空闲关闭是「省资源」，不是「销毁工具」。此前置 closed=true 后不复位
+      // lazy，下次动作会复用已关闭的会话再拉起浏览器，而后续 close 直接早退 ⇒ 浏览器永不关闭。
+      // 这里清掉 lazy 并复位 closed，使下一次动作重新懒建、下一次空闲关闭仍然生效。
+      this.owned = undefined;
+      this.cdp = undefined;
+      this.lazy = undefined;
+      this.closed = false;
+    }
   }
 
   /**
@@ -224,7 +232,11 @@ export class BrowserActTool {
     if (this.options.session !== undefined) return;
     if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => {
-      void this.close();
+      void this.close().catch((error: unknown) => {
+        log.warn('browser.idle.close_failed', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     }, this.options.idleCloseMs ?? 180_000);
     this.idleTimer.unref?.();
   }

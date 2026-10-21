@@ -24,6 +24,7 @@ import { ModelHttpErrors } from './modelHttpErrors.ts';
 import { sseParser } from './sseParser.ts';
 import { ModelResponseFormats } from './modelResponseFormats.ts';
 import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
+import { ToolArgumentParser } from './toolArgumentParser.ts';
 
 /** Anthropic 模型配置。 */
 export interface AnthropicModelConfig {
@@ -125,6 +126,7 @@ export class AnthropicModel implements ModelPort {
       return this.generate(request);
     }
     const chunks: string[] = [];
+    const reasoningChunks: string[] = [];
     const toolBlocks: {
       index: number;
       id?: string | undefined;
@@ -137,19 +139,57 @@ export class AnthropicModel implements ModelPort {
     await sseParser.read(body, (event) => {
       // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
       guard?.touch();
-      this.handleEvent(event.data, callbacks, chunks, toolBlocks, usageState);
+      this.handleEvent(event.data, callbacks, chunks, toolBlocks, usageState, reasoningChunks);
     });
     const usage = this.usageOf(usageState);
     const finishReason =
       typeof usageState.stop_reason === 'string' ? usageState.stop_reason : undefined;
-    if (usage === undefined) {
-      return { text: chunks.join(''), ...(finishReason !== undefined ? { finishReason } : {}) };
-    }
-    return {
-      text: chunks.join(''),
-      usage,
+    // 2026-10-21 修（P0）：此前只返回 text/usage，累了一路的 `toolBlocks` 被整段丢弃 ⇒
+    // 默认装配 live 非空时 StepRunner 必走 stream，Claude 永远只出文本、不调工具。
+    const streamed = AnthropicModel.toolCallsOfStream(toolBlocks, request.responseFormat);
+    const reasoning = reasoningChunks.join('');
+    const output: ModelOutput = {
+      text: `${chunks.join('')}${streamed.structuredText}`,
+      ...(reasoning !== '' ? { reasoning } : {}),
+      ...(streamed.toolCalls.length > 0 ? { toolCalls: streamed.toolCalls } : {}),
+      ...(usage !== undefined ? { usage } : {}),
       ...(finishReason !== undefined ? { finishReason } : {}),
     };
+    return output;
+  }
+
+  /**
+   * 把流式累积的工具块转成统一工具调用；结构化输出的**强制工具**单独还原为文本。
+   *
+   * 与非流式 `parseOutput` 同一口径：强制工具（`structured_output` / schema 名）不是
+   * 用户工具调用，必须从 `toolCalls` 剔除并把它的 JSON 作为正文返回，否则 harness 会去
+   * 执行一个不存在的工具，而调用方永远拿不到结构化文本。
+   * @param blocks 流式累积的工具块。
+   * @param format 本次请求的结构化输出意图。
+   * @returns `toolCalls` 与强制工具还原出的结构化文本（无则为空串）。
+   */
+  private static toolCallsOfStream(
+    blocks: readonly {
+      id?: string | undefined;
+      name?: string | undefined;
+      partial: string;
+    }[],
+    format: ModelResponseFormat | undefined,
+  ): { toolCalls: ModelToolCallRef[]; structuredText: string } {
+    const forced = ModelResponseFormats.toAnthropicForcedTool(format);
+    const forcedName = forced === undefined ? undefined : String(forced.tool['name']);
+    let structuredText = '';
+    const toolCalls: ModelToolCallRef[] = [];
+    for (const block of blocks) {
+      if (block.id === undefined || block.name === undefined) continue;
+      const args = ToolArgumentParser.parse(block.partial);
+      if (forcedName !== undefined && block.name === forcedName) {
+        structuredText += JSON.stringify(args);
+        continue;
+      }
+      toolCalls.push({ id: block.id, name: block.name, arguments: args });
+    }
+    return { toolCalls, structuredText };
   }
 
   /** 构造端点。
@@ -458,6 +498,7 @@ export class AnthropicModel implements ModelPort {
       partial: string;
     }[],
     usageState: AnthropicUsageState,
+    reasoningChunks: string[],
   ): void {
     if (data === '[DONE]') {
       return;
@@ -508,6 +549,14 @@ export class AnthropicModel implements ModelPort {
       const text = json.delta?.text ?? '';
       callbacks.onText(text);
       chunks.push(text);
+      return;
+    }
+    // 扩展思考（thinking）：只收集、不进正文；随输出 `reasoning` 回传，UI/日志可见。
+    // Anthropic 的 signature 也需回传才能续接 thinking 块，但当前端口没有签名字段，
+    // 故这里只保留文本（工具轮里的思考块回传属后续能力，见端口 ModelMessage.reasoningContent）。
+    if (json.type === 'content_block_delta' && json.delta?.type === 'thinking_delta') {
+      const thinking = json.delta.thinking ?? '';
+      if (thinking !== '') reasoningChunks.push(thinking);
     }
   }
 
@@ -585,6 +634,7 @@ interface AnthropicStreamEvent {
     type: string;
     text?: string;
     partial_json?: string;
+    thinking?: string;
     stop_reason?: string | null;
   };
   readonly content_block?: { type: string; id?: string; name?: string; input?: unknown };

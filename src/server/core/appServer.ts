@@ -437,11 +437,19 @@ export class AppServer extends AppServerVaultHandlers {
    * @returns 线程结果（sessionId 与本次回合事件）
    */
   protected async continueThread(params: Record<string, unknown>): Promise<unknown> {
-    const result = await this.runtime
-      .agent()
-      .resume(String(params['threadId'] ?? ''), String(params['prompt'] ?? ''));
-    this.threads.set(result.sessionId, result.sessionId);
-    return this.threadResult(result);
+    const threadId = String(params['threadId'] ?? '');
+    // 与 turns.run 同一把单飞锁：threads.continue 也不能在跑着的会话上再起一回合。
+    if (threadId !== '' && this.activeTurns.has(threadId)) {
+      return { ok: false, error: 'session_running' };
+    }
+    if (threadId !== '') this.activeTurns.add(threadId);
+    try {
+      const result = await this.runtime.agent().resume(threadId, String(params['prompt'] ?? ''));
+      this.threads.set(result.sessionId, result.sessionId);
+      return this.threadResult(result);
+    } finally {
+      if (threadId !== '') this.activeTurns.delete(threadId);
+    }
   }
 
   /**
@@ -464,7 +472,10 @@ export class AppServer extends AppServerVaultHandlers {
    */
   protected async getThread(params: Record<string, unknown>): Promise<unknown> {
     const threadId = String(params['threadId'] ?? '');
-    const items = await this.runtime.agent().replay(threadId);
+    // 2026-10-21 修：`replay` 会把整段历史**逐条广播给所有客户端**（同文件 `trace.read`
+    // 早已改为纯读）。打开一个会话却让别的窗口收到它的历史，是跨会话串流 + O(N) 广播。
+    // 这里只读（在跑会话读内存、否则读存档），响应里已带 items，无需广播。
+    const items = await this.runtime.agent().eventsOf(threadId);
     return { threadId, items };
   }
 
@@ -490,7 +501,15 @@ export class AppServer extends AppServerVaultHandlers {
    * @returns 线程结果（sessionId、事件与用量）
    */
   protected async runTurn(params: Record<string, unknown>): Promise<unknown> {
-    const threadId = String(params['threadId'] ?? '');
+    const requestedThreadId = String(params['threadId'] ?? '');
+    // 新会话由服务端预生成 id：否则 `activeTurns` 只能记在空串下，`sessions.delete` /
+    // `sessions.list` 的 running 判定与真实会话 id 对不上（2026-10-21 修）。
+    const threadId = requestedThreadId === '' ? Id.id('sess') : requestedThreadId;
+    // 单飞锁：同一 threadId 的第二个回合直接拒绝。没有它会两个回合各自 hydrate、
+    // 各自在回合末全量覆盖写 ⇒ 后写者静默吃掉先写者的事件历史。
+    if (this.activeTurns.has(threadId)) {
+      return { ok: false, error: 'session_running' };
+    }
     const prompt = String(params['prompt'] ?? '');
     const images = params['images'] as readonly ImageContent[] | undefined;
     const files = params['files'] as readonly FileAttachment[] | undefined;
@@ -504,9 +523,13 @@ export class AppServer extends AppServerVaultHandlers {
     // 真实运行态跟踪：并行任务卡据此显示「运行中」，而非前端猜测。
     this.activeTurns.add(threadId);
     try {
-      const result = this.threads.has(threadId)
-        ? await this.runtime.agent().resume(threadId, effective, images, files)
-        : await this.runtime.agent().runTask(effective, images, files);
+      // 显式给了 threadId 一律走 resume：服务端重启后 `this.threads` 缓存为空，但存档可能
+      // 还在——若按「不在缓存就 runTask」处理，会用同一个 id 覆盖（清空）已有历史。
+      // resume 空存档等价于新建（Agent 会补 session_meta），故两条路径都安全。
+      const result =
+        requestedThreadId !== '' || this.threads.has(threadId)
+          ? await this.runtime.agent().resume(threadId, effective, images, files)
+          : await this.runtime.agent().runTask(effective, images, files, threadId);
       this.threads.set(result.sessionId, result.sessionId);
       return this.threadResult(result);
     } finally {
@@ -608,5 +631,23 @@ export class AppServer extends AppServerVaultHandlers {
       })
       .finally(() => this.graphRuns.release(runId));
     return { runId, nodeCount: def.steps.length };
+  }
+
+  /**
+   * 优雅收尾：取消全部在跑回合并等待其落盘（最多 5s）。
+   *
+   * 2026-10-21：`serve` 的 SIGINT 收尾此前只 `server.close()`，在飞回合被直接掐断，
+   * EventPersister 的 200ms write-behind 窗口与回合末 flush 都来不及跑。这里先发
+   * `'shutdown'` 取消（模型 fetch 被 abort → 回合走 finally flush + save），再等
+   * runningSessionIds 清空；超时则如实放弃等待（不无限挂住 Ctrl-C）。
+   * @returns 等待结束（无论是否全部收尾）后 resolve。
+   */
+  public async shutdown(): Promise<void> {
+    const agent = this.runtime.agent();
+    agent.cancelCurrentRun('shutdown');
+    const deadline = Date.now() + 5_000;
+    while (agent.runningSessionIds().length > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   }
 }

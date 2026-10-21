@@ -56,6 +56,32 @@ test('ACT-01：Playwright 启动失败时 browser_act 自动回退 CDP，且后�
   assert.strictEqual(cdpCloses, 1);
 });
 
+test('ACT-01：close 后仍可复用，且再次 close 关闭新会话（2026-10-21 泄漏修复）', async () => {
+  let created = 0;
+  let closed = 0;
+  const makeSession = (): BrowserActionPort & { close(): Promise<void> } => {
+    created += 1;
+    return {
+      act: async () => ({ ok: true, output: `session-${String(created)}` }),
+      close: async () => {
+        closed += 1;
+      },
+    };
+  };
+  const tool = new BrowserActTool({ playwrightFactory: makeSession });
+  const first = await tool.handle(call({ action: 'goto', url: 'http://127.0.0.1/' }), context);
+  assert.strictEqual(first.ok, true, first.error);
+  assert.strictEqual(created, 1);
+  await tool.close();
+  assert.strictEqual(closed, 1);
+
+  const second = await tool.handle(call({ action: 'goto', url: 'http://127.0.0.1/' }), context);
+  assert.strictEqual(second.ok, true, second.error);
+  assert.strictEqual(created, 2, 'close 后再次动作必须重新懒建会话');
+  await tool.close();
+  assert.strictEqual(closed, 2, '第二次 close 必须真的关闭新会话（此前因 closed 早退而泄漏）');
+});
+
 test('ACT-01：OMNI_BROWSER_ENGINE=cdp 直接走 CDP，不尝试 Playwright', async () => {
   const saved = process.env.OMNI_BROWSER_ENGINE;
   process.env.OMNI_BROWSER_ENGINE = 'cdp';

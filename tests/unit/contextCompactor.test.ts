@@ -495,8 +495,44 @@ test('压缩器：游标复用后 tail 溢出必须重新折叠并前移游标�
     '重新折叠必须前移游标，把旧 tail 纳入摘要范围',
   );
   assert.strictEqual(second.summary, '摘要-2', '摘要必须更新为覆盖更长历史的新摘要');
+  // 2026-10-21 起前导 system（SYS）是 pinned 段，不参与折叠：SYS + 摘要 + 最近 2 条 = 4。
   assert.ok(
-    second.messages.length <= 3,
+    second.messages.length <= 4,
     `摘要 + 最近消息仍在预算内（实际 ${String(second.messages.length)} 条）`,
   );
+  assert.strictEqual(second.messages[0]?.content, 'SYS', 'pinned system 必须留在首条');
+});
+
+test('压缩保留前导 system 段：world_state / AGENTS.md / 技能不得被折进摘要', async () => {
+  const compactor = new ContextCompactor(
+    fakeModel(() => ({ text: '摘要' })),
+    {
+      maxTokens: 200,
+      keepRecent: 2,
+    },
+  );
+  const messages: ModelMessage[] = [
+    { role: 'system', content: 'SYS-UNIQUE world_state 不可丢' },
+    { role: 'system', content: 'AGENTS-UNIQUE 先跑测试再收尾' },
+    ...longMessages(8),
+  ];
+  const first = await compactor.compact(messages, undefined, undefined, true);
+  assert.strictEqual(first.compacted, true);
+  assert.strictEqual(
+    first.messages[0]?.content,
+    'SYS-UNIQUE world_state 不可丢',
+    '首条 system 必须原位保留',
+  );
+  assert.strictEqual(
+    first.messages[1]?.content,
+    'AGENTS-UNIQUE 先跑测试再收尾',
+    '第二条 system 必须原位保留',
+  );
+  assert.match(first.messages[2]?.content ?? '', /摘要/, '摘要排在 pinned system 之后');
+
+  // 游标快路径同样不能把 pinned 段丢掉（长会话后续每一步都走这条路径）。
+  assert.ok(first.state !== undefined, '首次压缩必须产生游标');
+  const second = await compactor.compact(messages, first.state);
+  assert.strictEqual(second.messages[0]?.content, 'SYS-UNIQUE world_state 不可丢');
+  assert.strictEqual(second.messages[1]?.content, 'AGENTS-UNIQUE 先跑测试再收尾');
 });

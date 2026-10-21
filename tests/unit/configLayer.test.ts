@@ -99,6 +99,34 @@ describe('configLayer: 多层合并', () => {
     assert.strictEqual(merged.mcpServers?.length, 1);
     assert.strictEqual(merged.mcpServers?.[0]?.name, 'y');
   });
+
+  it('嵌套段逐子键合并，数组字段仍整体替换（2026-10-21 修）', () => {
+    const base: FileConfig = {
+      permission: { rules: [{ toolName: 'shell', commandPrefix: 'rm ', decision: 'deny' }] },
+      a2a: { enabled: true, port: 8790 },
+    };
+    const override: FileConfig = {
+      permission: { defaultDecision: 'allow' },
+      a2a: { transport: 'ws' },
+    };
+    const merged = ConfigError.mergeConfigs(base, override);
+    assert.strictEqual(
+      merged.permission?.rules?.length,
+      1,
+      '上层只改 defaultDecision，不得吞掉 rules',
+    );
+    assert.strictEqual(merged.permission?.defaultDecision, 'allow');
+    assert.strictEqual(merged.a2a?.enabled, true, '上层只改 transport，不得吞掉 enabled');
+    assert.strictEqual(merged.a2a?.port, 8790);
+    assert.strictEqual(merged.a2a?.transport, 'ws');
+
+    // 数组字段仍是「整段替换」：上层给新清单即完全取代旧清单。
+    const replaced = ConfigError.mergeConfigs(base, {
+      permission: { rules: [{ toolName: 'shell', decision: 'allow' }] },
+    });
+    assert.strictEqual(replaced.permission?.rules?.length, 1);
+    assert.strictEqual(replaced.permission?.rules?.[0]?.decision, 'allow');
+  });
 });
 
 describe('profile: 查找与加载', () => {

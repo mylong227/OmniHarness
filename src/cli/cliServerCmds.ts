@@ -23,6 +23,7 @@ import type { AppServer } from '../server/core/appServer.ts';
 import type { ServerEventBridge } from '../server/core/serverEventBridge.ts';
 import { DoctorRunner } from './doctorRunner.ts';
 import { ServeInstance } from './serveInstance.ts';
+import { ServeShutdown } from './serveShutdown.ts';
 import { API_VERSION } from '../version.ts';
 import {
   OidcClient,
@@ -699,7 +700,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         ? `http://${serveHost}:${binding.port}`
         : `http://${serveHost}:${binding.port}/?token=${encodeURIComponent(serveToken)}`;
     process.stdout.write(`OmniHarness UI: ${uiUrl} ${authNote}\n`);
-    return CliServerCmds.awaitShutdown(server, instancePath);
+    return ServeShutdown.wait(server, instancePath, () => app.shutdown());
   }
 
   /**
@@ -710,33 +711,5 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
   protected closeGateway(): void {
     this.gateway?.close();
     this.gateway = undefined;
-  }
-
-  /**
-   * 常驻等待信号并**优雅收尾**（2026-09-26 审计 S5）。
-   *
-   * 原实现 `return new Promise(() => undefined)` 且不注册任何信号处理 —— Ctrl-C / SIGTERM 时
-   * 监听套接字、WS/SSE 客户端、MCP/LSP/Chrome/后台作业子进程全部不被关闭，端口要等进程被强杀
-   * 才释放（Windows 上孙进程还可能残留）。
-   * @param server 已启动的 HTTP 服务。
-   * @param instancePath 本实例的记录文件路径（收尾时**只删自己的**那条记录）。
-   * @returns 关闭完成后 resolve（调用方据此正常退出）。
-   */
-  private static awaitShutdown(server: HttpServer, instancePath: string): Promise<number> {
-    return new Promise<number>((resolve) => {
-      const shutdown = (signal: NodeJS.Signals): void => {
-        process.stdout.write(`\n收到 ${signal}，正在关闭服务…\n`);
-        void server
-          .close()
-          .catch(() => undefined)
-          .finally(() => {
-            // 正常退出即退役记录；异常退出留下的记录由下次启动清扫（见 `ServeInstance.sweep`）。
-            ServeInstance.retire(instancePath);
-            resolve(0);
-          });
-      };
-      process.once('SIGINT', () => shutdown('SIGINT'));
-      process.once('SIGTERM', () => shutdown('SIGTERM'));
-    });
   }
 }

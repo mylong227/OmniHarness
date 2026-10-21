@@ -134,6 +134,36 @@ test('Anthropic：流式文本增量回调', async () => {
   assert.strictEqual(output.text, '你好世界');
 });
 
+test('Anthropic：流式增量必须还原工具调用与思考文本（2026-10-21 P0）', async () => {
+  const model = new AnthropicModel({
+    baseUrl: 'https://api.anthropic.com',
+    apiKey: 'sk',
+    model: 'claude-3',
+  });
+  const sse = [
+    'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_1","name":"read_file"}}\n\n',
+    'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"path\\":\\"a.ts\\","}}\n\n',
+    'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\\"offset\\":1}"}}\n\n',
+    'data: {"type":"content_block_delta","index":1,"delta":{"type":"thinking_delta","thinking":"先想一想"}}\n\n',
+    'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
+  ].join('');
+  const toolDeltas: string[] = [];
+  const output = await withFetch(
+    async () => new Response(streamOf(sse), { status: 200 }),
+    () =>
+      model.stream(request, {
+        onText: () => undefined,
+        onToolInput: (delta) => toolDeltas.push(delta.partialJson),
+      }),
+  );
+  assert.deepStrictEqual(output.toolCalls, [
+    { id: 'toolu_1', name: 'read_file', arguments: { path: 'a.ts', offset: 1 } },
+  ]);
+  assert.strictEqual(output.reasoning, '先想一想');
+  assert.strictEqual(output.finishReason, 'tool_use');
+  assert.ok(toolDeltas.length >= 2, '工具参数增量必须实时推给 UI');
+});
+
 test('OpenAI 兼容：流式文本增量回调', async () => {
   const model = new OpenAiCompatibleModel({
     baseUrl: 'https://api.deepseek.com',

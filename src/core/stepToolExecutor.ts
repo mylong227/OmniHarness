@@ -167,30 +167,10 @@ export class StepToolExecutor {
       if (this.deps.hooks !== undefined) {
         await this.deps.hooks.pre(hookContext);
       }
-      // FFI 热路径（#66）：pre 之后才真正执行；**仅「原生执行本身失败」**才回退下方 JS 路径
-      //（门禁已通过、pre 已执行一次，回退时不重复跑 pre）。记录/钩子失败不算原生执行失败。
-      // 根对账（2026-10-13「内核根跑偏」）：内核是进程级全局静态，工作区切换后根不会自己跟上
-      // ——执行前先对齐到本回合的工作区根（旧内核无 root.* 时实现方静默降级，行为同旧版）；
-      // 对齐失败抛错走 catch → 回退 JS（其根恒正确），绝不拿错误根的结果糊弄模型。
-      // 原生 shell.run 目前是同步 `Command::output()`：无超时/取消/输出上限，且非零退出被
-      // 映射成 ok:true（Rust 侧 2026-10-18 审查 P1）。在 Rust 修好前**禁止**把 shell 路由到
-      // 原生后端，直接走 JS ShellTool（语义正确、有超时/进程树终止）。
-      if (this.deps.native !== undefined && call.name !== TOOL_NAMES.shell) {
-        let nativeResult: ToolResult | undefined;
-        try {
-          this.deps.native.syncWorkspaceRoot?.(context.workspaceRoot);
-          nativeResult = this.deps.native.runTool(call);
-        } catch {
-          log.debug('tool.native.fallback', { tool: call.name, callId: call.id });
-        }
-        if (nativeResult !== undefined) {
-          await this.recordToolResult(call.name, nativeResult, context.sessionId);
-          recorded = true;
-          await this.runPostHookSafely(hookContext, call, nativeResult);
-          // U4：原生后端路径同样在写类工具成功执行后失效 repo-map 缓存。
-          this.maybeInvalidateRepoMap(call, nativeResult);
-          return nativeResult.ok;
-        }
+      // FFI 热路径（#66）：pre 之后才真正执行；只接管 supports() 声明的语义等价工具。
+      const nativeOutcome = await this.runNativeIfEquivalent(call, context, hookContext);
+      if (nativeOutcome !== undefined) {
+        return nativeOutcome;
       }
       const result = await this.deps.tools.execute(call, context);
       // 先记录真实结果、再跑 post 钩子（2026-10-01 审计，与 native 路径对齐）：
@@ -280,6 +260,45 @@ export class StepToolExecutor {
     } catch {
       // 缓存失效失败不影响主流程
     }
+  }
+
+  /**
+   * 原生执行（仅当后端声明该工具语义等价时）。
+   *
+   * 2026-10-21：`--native` 默认开，而内核 fs.* 与 JS 工具语义不等价（offset/limit、行号、
+   * 64 MiB 上限、.bak、mkdir -p、内容账本）。真实后端的 `supports()` 恒 false；
+   * 未实现 `supports()` 的 stub 按「支持」处理，保持既有测试/嵌入方行为。
+   * 根对账失败与内部失败都抛回调用方 → 回退 JS（其根恒正确）。
+   * @param call 工具调用。
+   * @param context 工具上下文。
+   * @param hookContext 钩子上下文。
+   * @returns 原生已处理时为 `ok`；未接管（不支持/内部失败）时 undefined。
+   */
+  private async runNativeIfEquivalent(
+    call: ToolCall,
+    context: ToolContext,
+    hookContext: {
+      sessionId: string;
+      toolName: string;
+      target: string;
+      args: Record<string, unknown>;
+    },
+  ): Promise<boolean | undefined> {
+    const native = this.deps.native;
+    if (native === undefined || call.name === TOOL_NAMES.shell) return undefined;
+    if (native.supports?.(call.name) === false) return undefined;
+    let nativeResult: ToolResult | undefined;
+    try {
+      native.syncWorkspaceRoot?.(context.workspaceRoot);
+      nativeResult = native.runTool(call);
+    } catch {
+      log.debug('tool.native.fallback', { tool: call.name, callId: call.id });
+    }
+    if (nativeResult === undefined) return undefined;
+    await this.recordToolResult(call.name, nativeResult, context.sessionId);
+    await this.runPostHookSafely(hookContext, call, nativeResult);
+    this.maybeInvalidateRepoMap(call, nativeResult);
+    return nativeResult.ok;
   }
 
   /**

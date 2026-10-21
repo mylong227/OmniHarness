@@ -6,24 +6,17 @@ import type { Plugin, PluginApplyContext } from './plugin.ts';
  */
 export class Sandbox {
   /**
-   * 仅暴露空操作的控制台，避免插件刷屏或借 console 逃逸。
-  
-   * @returns Record<string, unknown>
-   */
-  public static limitedConsole(): Record<string, unknown> {
-    const noop = (): void => undefined;
-    return { log: noop, info: noop, warn: noop, error: noop, debug: noop, trace: noop };
-  }
-
-  /**
    * @beta
    * 在受限 VM 上下文里加载「远程/不可信」插件代码，返回一个经隔离与超时熔断包装的插件对象。
    *
    * 安全模型（保守、fail-closed）：
    * 1. **自包含**：禁止 `import` / `require` / `module.` —— 远程插件不得拉取外部模块，必须自带逻辑。
-   * 2. **受限全局**：上下文默认只持有 V8 自带的、与宿主隔离的内建（Object/Array/Promise…），
-   *    不注入 `require`/`process`/`global`/`fetch`/`import`，因此插件无法触达宿主 Node 能力。
-   *    （注：这是 best-effort 隔离，非对抗国家级攻击者的安全边界。）
+   * 2. **不注入宿主对象**：上下文只持有 V8 自建的隔离内建；`console` 也由 VM 内的脚本创建，
+   *    **不能**把宿主函数挂进去（宿主函数保留宿主 realm 的 `Function` 构造器，
+   *    `console.log.constructor('return process')()` 即可拿到宿主 process）。
+   *    注：`__ctx` 仍是宿主侧传入的端口对象，其方法同样带宿主 `Function` ⇒ 本 VM 是
+   *    best-effort 隔离，**不是**对抗恶意代码的安全边界；真正的强隔离需要独立进程/Worker。
+   *    因此远程插件默认不加载（见 `PluginLoader.remotePluginsAllowed`），此处只做纵深防御。
    * 3. **能力仍由 PermissionGate 把关**：沙箱只管「代码隔离」，插件声明的能力（port.tools 等）
    *    仍由 PluginManager 的权限门禁校验，越白名单即拒绝注册。
    * 4. **超时熔断（口径已澄清，2026-09-26 审计 S16）**：
@@ -55,11 +48,20 @@ export class Sandbox {
     }
 
     const sandbox: Record<string, unknown> = {
-      console: Sandbox.limitedConsole(),
       __plugin: undefined,
       __ctx: undefined,
     };
     const context = createContext(sandbox);
+    try {
+      // **必须用 VM 内脚本**创建 console：如果把宿主的 no-op 函数挂上去，其函数属于宿主
+      // realm，`console.log.constructor` 就是宿主 `Function`（`constructor('return process')()` 可逃逸）。
+      new Script(
+        'globalThis.console = { log(){}, info(){}, warn(){}, error(){}, debug(){}, trace(){} };',
+        { filename: '__sandbox_console__.js' },
+      ).runInContext(context, { timeout: applyTimeoutMs });
+    } catch (error) {
+      throw new Error(Sandbox.describeLoadFailure(error, applyTimeoutMs));
+    }
     let plugin: Plugin;
     try {
       // 编译 + 工厂调用**整段**放进带 timeout 的 Script：模块顶层写 `while(true){}` 也会被中止

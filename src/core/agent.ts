@@ -14,6 +14,7 @@ import type { TurnOutcome } from './turnRunner.ts';
 import { CheckpointManager } from './checkpointManager.ts';
 import type { CheckpointManagerPort } from '../ports/runtime/checkpointManager.ts';
 import { ResumeGuidance } from './resumeGuidance.ts';
+import { InterruptedToolCalls } from './interruptedToolCalls.ts';
 import { AgentLimits } from './agentLimits.ts';
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
 import { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
@@ -233,8 +234,9 @@ export class Agent implements AgentPort {
    *  1. 技能注入 + 可选长期记忆 primer（判重与理由见 `SessionInjector`）；
    *  2. 新会话写工作区标记 `session_meta`（供 UI 按项目收纳会话；resume/fork 已随历史带标记）。
    *
-   * 注意 `session_meta` **只能**在 `mode === 'run'` 时写：`observability/traceCollectingEventPort`
-   * 把它当作「新会话首条事件」用来冲刷上一会话的 span ⇒ 在 resume 中途补写会被误判为会话切换。
+   * 注意 `session_meta` 只在**会话还没有元数据**时写：`observability/traceCollectingEventPort`
+   * 把它当作「新会话首条事件」用来冲刷上一会话的 span ⇒ 已有 meta 的 resume/fork 再写会被
+   * 误判为会话切换；而 resume 一个**空存档**（客户端自带 id 的新会话）仍需要 meta 才能按项目归类。
    * @param recorder 会话记录器（注入经其写为 system 事件）。
    * @param eventLog 事件日志（resume/fork 已 hydrate 历史，用于判重）。
    * @param prompt 本轮用户指令（技能匹配输入）。
@@ -250,7 +252,8 @@ export class Agent implements AgentPort {
     mode: 'run' | 'resume' | 'fork',
   ): void {
     this.injector.open(recorder, eventLog, prompt, sessionId);
-    if (mode === 'run') {
+    const hasMeta = eventLog.all().some((event) => event.type === 'session_meta');
+    if (mode === 'run' || !hasMeta) {
       // 归属标记**写归一值**：会话存档是全局的，归属只靠这个字符串；本机实测同一项目曾被写成
       // `D:\x` / `D:/x` / 跑测子目录三种拼写，导致侧栏按项目归类失准（2026-10-07 用户报）。
       // 同时记模型名：`mock` 会话必须能在列表/统计里被识别出来（本机 152 个会话里 144 个是 mock）。
@@ -266,14 +269,16 @@ export class Agent implements AgentPort {
    * @param prompt 用户任务文本，作为首条 user 事件进入事件流。
    * @param images 可选图片内容数组，随首条用户消息一并送入模型。
    * @param files 可选文件附件数组，随首条用户消息一并送入模型。
+   * @param sessionId 可选会话 ID（缺省自动生成）；服务端用它把「运行中」状态绑到真实 id 上。
    * @returns 会话执行结果：sessionId、最终文本、步数与全部事件。
    */
   public async runTask(
     prompt: string,
     images?: readonly ImageContent[],
     files?: readonly FileAttachment[],
+    sessionId?: string,
   ): Promise<AgentResult> {
-    return this.continueSession(undefined, prompt, Id.id('sess'), images, files);
+    return this.continueSession(undefined, prompt, sessionId ?? Id.id('sess'), images, files);
   }
 
   /**
@@ -375,6 +380,10 @@ export class Agent implements AgentPort {
   ): Promise<AgentResult> {
     const mode: 'run' | 'resume' | 'fork' =
       sourceId === undefined ? 'run' : sessionId === sourceId ? 'resume' : 'fork';
+    // 引擎层单飞锁：并发会各自 hydrate、回合末全量覆盖写（服务端另有 activeTurns 前置锁）。
+    if (this.runningSessions.has(sessionId)) {
+      throw new Error(`会话 ${sessionId} 已有回合在跑：不允许并发执行（事件历史会互相覆盖）`);
+    }
     // 单次会话绑定一个 traceId，期间所有结构化日志自动携带（AsyncLocalStorage 传播）。
     return log.withTrace(Logger.nextTraceId(sessionId), async () => {
       log.info('session.start', { sessionId, mode, sourceId });
@@ -388,10 +397,9 @@ export class Agent implements AgentPort {
         sessionId,
         this.runtime.retrieval,
       );
-      // 开场注入（技能 + 可选长期记忆 primer）+ 新会话工作区标记：见 openSession 的 JSDoc。
       this.openSession(recorder, eventLog, prompt, sessionId, mode);
-      // V2.1（B7）：resume 不带提示 = 崩溃/中断恢复语义——注入续跑引导而非空白用户消息，
-      // 让模型基于已持久化的历史（含 write-behind 落盘的中间事件）接着当前进度做。
+      // 崩溃对账：悬空 tool_call 补「状态未知」结果，避免模型当成从未执行而重跑。
+      if (mode !== 'run') InterruptedToolCalls.recordInto(recorder, eventLog.all());
       const effectivePrompt: string =
         mode === 'resume' && prompt.trim() === '' ? ResumeGuidance.build(eventLog.all()) : prompt;
       recorder.user(effectivePrompt, images, files);

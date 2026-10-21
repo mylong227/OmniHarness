@@ -694,7 +694,43 @@ export class ArgParser {
     argv: readonly string[],
     defaults?: Partial<CliArgs>,
   ): CliArgs | undefined {
-    return argParser.parseArgs(argv, defaults);
+    return argParser.parseArgs(ArgParser.expandEquals(argv), defaults);
+  }
+
+  /**
+   * 把 `--flag=value` 展开成 `--flag value`（仅对**已登记的取值型**旗标）。
+   *
+   * 2026-10-21 修：此前只认精确 token，`--workspace=foo` 会报「未知旗标」退出 1，
+   * 而帮助与 `serveWorkspace` 都把它当合法写法。只展开取值型旗标（`VALUE_FLAGS`），
+   * 布尔旗标保持原样——`--auto-approve=true` 不该把 `true` 变成 prompt。
+   * `--` 之后的 token 一律不展开（显式选项结束符，用于传以 `-` 开头的 prompt）。
+   * @param argv 原始参数。
+   * @returns 展开后的参数（不修改入参）。
+   */
+  private static expandEquals(argv: readonly string[]): string[] {
+    const out: string[] = [];
+    let afterTerminator = false;
+    for (const token of argv) {
+      if (afterTerminator) {
+        out.push(token);
+        continue;
+      }
+      if (token === '--') {
+        afterTerminator = true;
+        out.push(token);
+        continue;
+      }
+      if (token.startsWith('--') && token.includes('=')) {
+        const eq = token.indexOf('=');
+        const name = token.slice(0, eq);
+        if (VALUE_FLAGS.has(name) && CliFlagTable.isKnownFlag(name)) {
+          out.push(name, token.slice(eq + 1));
+          continue;
+        }
+      }
+      out.push(token);
+    }
+    return out;
   }
 
   /** 配置文件 → CLI 默认参数。 */

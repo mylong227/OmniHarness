@@ -140,6 +140,9 @@ test('④ takeOver：只对 omni + 正整数 PID 动手；否则 kill 必须**�
 
 test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 --take-port 已登记', () => {
   const source = readFileSync(join(REPO_ROOT, 'src/cli/cliServerCmds.ts'), 'utf8');
+  // 2026-10-21：信号收尾（含 retire）拆到 `serveShutdown.ts`（CliServerCmds 行数门禁），
+  // 接线断言必须跟着实现走——否则「实现搬了、判据还在旧文件」会变成一条假红。
+  const shutdownSource = readFileSync(join(REPO_ROOT, 'src/cli/serveShutdown.ts'), 'utf8');
   assert.match(
     source,
     /catch \(error\)[\s\S]{0,400}?ServePortConflict\.probe\(port\)/u,
@@ -155,7 +158,7 @@ test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 
   assert.match(source, /ServeInstance\.announce\(/u, '绑定成功后必须写下实例记录');
   assert.match(source, /ServeInstance\.sweep\(/u, '启动/冲突时必须清扫已死进程留下的陈旧记录');
   assert.match(
-    source,
+    shutdownSource,
     /ServeInstance\.retire\(instancePath\)/u,
     '正常退出必须退役记录（只删自己的）',
   );

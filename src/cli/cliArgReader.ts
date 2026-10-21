@@ -30,11 +30,19 @@ export class CliArgReader {
   }
 
   /**
-   * 取标志后的第一个值。
+   * 取标志后的第一个值（同时支持 `--flag value` 与 `--flag=value`）。
    * @param flag 标志名（如 `--file`）。
    * @returns 紧随其后的值；标志不存在或其后无值时返回 undefined。
    */
   public value(flag: string): string | undefined {
+    // 2026-10-21：`--flag=value` 是主流写法（serveWorkspace / 帮助都暗示可用），
+    // 但读取器此前只做精确匹配 ⇒ 配置发现与各子命令都读不到它。
+    const prefix = `${flag}=`;
+    for (const arg of this.args) {
+      if (arg.startsWith(prefix)) {
+        return arg.slice(prefix.length);
+      }
+    }
     const index = this.args.indexOf(flag);
     return index >= 0 ? this.args[index + 1] : undefined;
   }

@@ -75,3 +75,16 @@ test('CLI 校验：--a2a-transport 非法取值 fail-closed 抛错', () => {
     '枚举旗标必须显式校验，不得裸强转',
   );
 });
+
+test('CLI 回归：--flag=value 展开 + 无值布尔 --memory-encrypt 不吞 prompt（2026-10-21）', () => {
+  const withEquals = ArgParser.parseArgs(['--workspace=/tmp/ws', '--prompt=hello']);
+  assert.ok(withEquals !== undefined);
+  assert.strictEqual(withEquals.workspace, '/tmp/ws');
+  assert.strictEqual(withEquals.prompt, 'hello');
+
+  // 布尔旗标后面跟的任务文本必须回到 prompt，而不是被当成它的取值。
+  const withBoolean = ArgParser.parseArgs(['--memory-encrypt', 'real task']);
+  assert.ok(withBoolean !== undefined);
+  assert.strictEqual(withBoolean.memoryEncrypt, true);
+  assert.strictEqual(withBoolean.prompt, 'real task');
+});

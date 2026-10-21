@@ -4,8 +4,9 @@ import type { CompactionState } from '../ports/context/compactionState.ts';
 import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.ts';
 import type { TokenEstimatorCalibrator } from './tokenEstimatorCalibrator.ts';
 import { DeterministicCompressor } from './deterministicCompressor.ts';
-import { log } from '../util/logger.ts';
 import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
+import { log } from '../util/logger.ts';
+import { CompactionComposer } from './compactionComposer.ts';
 
 /**
  * 每请求的**固定开销**（不随消息增删变化，但确实占用同一 token 预算）。
@@ -268,12 +269,14 @@ export class ContextCompactor {
    * @param messages 全量消息。
    * @param state 上一步写回的压缩游标。
    * @param budget 扣除固定开销后的可用消息预算（{@link ContextCompactor.effectiveThreshold}）。
+   * @param pinned 必须原样保留的前导 system 段（world_state / 项目指令 / 技能）。
    * @returns 复用成功时的结果；无游标 / 游标越界 / 指纹漂移时为 undefined。
    */
   private tryReuseState(
     messages: readonly ModelMessage[],
     state: CompactionState | undefined,
     budget: number,
+    pinned: readonly ModelMessage[],
   ): CompactionResult | undefined {
     if (state === undefined || state.compactedUpTo <= 0 || state.compactedUpTo >= messages.length) {
       return undefined;
@@ -291,7 +294,13 @@ export class ContextCompactor {
     );
     // 与主路径**共用**预算组装：否则同一输入在「首次压缩」与「复用游标」下给出不同条数
     // （实测：主路径 2 条、快路径 3 条），既不一致又可能超预算。
-    const composed = this.composeWithinBudget(state.summary, tail.messages, budget);
+    const composed = CompactionComposer.compose(
+      state.summary,
+      tail.messages,
+      budget,
+      pinned,
+      this.estimator,
+    );
     if (composed.dropped > 0) {
       // **不能在这里静默丢**（2026-10-21 修）：游标快路径原先会从 tail 头部逐条丢弃，
       // 但既不更新摘要、也不前移游标、也不记日志 ⇒ 长会话第一次压缩后，中段历史
@@ -358,9 +367,13 @@ export class ContextCompactor {
       100,
       this.effectiveThreshold(overhead) - ContextCompactor.imageTokensOf(messages),
     );
+    // 前导 system 段是**常驻指令**（world_state / AGENTS.md / 技能注入），必须钉在头部：
+    // 它是 harness 编排的一部分，不属于「可折叠的历史」。折进摘要后模型只会看到摘要模型
+    // 转述的「关键约束」，实测会写成「无」⇒ 压缩后开始不守规矩（2026-10-21 实测）。
+    const pinned = CompactionComposer.leadingSystemMessages(messages);
     // 游标快路径：前缀未漂移 → 复用摘要，不调 LLM。强制压缩时跳过（要重新折叠更大范围）。
     if (!force) {
-      const reused = this.tryReuseState(messages, state, budget);
+      const reused = this.tryReuseState(messages, state, budget, pinned);
       if (reused !== undefined) {
         return reused;
       }
@@ -413,7 +426,13 @@ export class ContextCompactor {
     };
     // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
     // 与游标快路径共用同一方法，保证两条路径结果一致。
-    const composed = this.composeWithinBudget(summary, tail.messages, budget);
+    const composed = CompactionComposer.compose(
+      summary,
+      tail.messages,
+      budget,
+      pinned,
+      this.estimator,
+    );
     const final = composed.messages;
     const extraDropped = composed.dropped;
     log.info('compaction.done', {
@@ -458,7 +477,7 @@ export class ContextCompactor {
     budget: number,
   ): CompactionResult {
     const all = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages));
-    const bounded = this.dropOldestUntilBudget(all.messages, budget);
+    const bounded = CompactionComposer.dropOldest(all.messages, budget, this.estimator);
     log.info('compaction.done', {
       keepRecent: bounded.messages.length,
       hadModel: this.model !== undefined,
@@ -472,86 +491,6 @@ export class ContextCompactor {
       ...(bounded.dropped > 0 ? { summary: `[最早 ${bounded.dropped} 条历史已省略]` } : {}),
       ...(all.report !== undefined ? { shrink: all.report } : {}),
     };
-  }
-
-  /**
-   * 组装「摘要 + 最近消息」并保证落入预算：超出时丢弃较旧的 tail 消息（保留摘要与最新一条）。
-   *
-   * **主路径与游标快路径共用本方法**——两条路径若各自组装，同一输入会给出不同条数
-   * （实测：首次压缩 2 条、复用游标 3 条），既不自洽也可能超预算。
-   * @param summary 摘要文本（作为首条 system）
-   * @param tail 最近消息（已收缩并消毒）
-   * @param budget 扣除固定开销后的可用消息预算
-   * @returns 预算内的消息数组与**额外丢弃**的条数（0 表示摘要 + 最近消息本就未超预算）
-   */
-  private composeWithinBudget(
-    summary: string,
-    tail: readonly ModelMessage[],
-    budget: number,
-  ): { readonly messages: readonly ModelMessage[]; readonly dropped: number } {
-    let final: readonly ModelMessage[] = [{ role: 'system', content: summary }, ...tail];
-    let dropped = 0;
-    while (final.length > 2 && this.estimator.estimateMessages(final) > budget) {
-      const before = final.length;
-      const summaryMessage = final[0] as ModelMessage;
-      // 丢弃下标 1..（较旧的 tail），保留摘要与最新一条；丢弃后重新消毒避免 orphan tool。
-      final = [summaryMessage, ...ToolRoundSanitizer.sanitizeToolRounds(final.slice(2))];
-      dropped += before - final.length;
-    }
-    return { messages: final, dropped };
-  }
-
-  /**
-   * 预算兜底：结果仍超阈值时，从**最旧**一端逐条丢弃（每次丢弃后重新消毒工具轮次，
-   * 避免留下无匹配前序的 orphan tool —— 那会被上游 400 拒收），直到落入预算或只剩一条消息。
-   *
-   * 这是「无 head 可摘要」时的最后一道防线：宁可丢最旧历史并**如实报告**，
-   * 也不能假称已压缩而把超窗请求发出去（旧实现即 fail-open）。
-   * @param messages 已折叠/收缩后的候选消息（按时间顺序）
-   * @param budget 扣除固定开销后的可用消息预算
-   * @returns 预算内的消息与**实际丢弃**的条数（0 表示本就未超预算）
-   */
-  private dropOldestUntilBudget(
-    messages: readonly ModelMessage[],
-    budget: number,
-  ): {
-    readonly messages: readonly ModelMessage[];
-    readonly dropped: number;
-  } {
-    const sanitized = ToolRoundSanitizer.sanitizeToolRounds(messages);
-    // 保序丢最旧，但**永不动前导 system 段**：它是系统提示/安全约束，丢了会让模型
-    // 在"没有规则"的状态下继续跑（见调用处注释）。同时保留最后一条（最新事实），
-    // 避免预算极紧时把用户刚说的话也丢掉。
-    const prefixCount = ContextCompactor.leadingSystemCount(sanitized);
-    const prefix = sanitized.slice(0, prefixCount);
-    let body = sanitized.slice(prefixCount);
-    let dropped = 0;
-    while (body.length > 1 && this.estimator.estimateMessages([...prefix, ...body]) > budget) {
-      const before = body.length;
-      body = ToolRoundSanitizer.sanitizeToolRounds(body.slice(1));
-      dropped += before - body.length;
-    }
-    const current = [...prefix, ...body];
-    if (this.estimator.estimateMessages(current) > budget) {
-      // 只剩「system 前缀 + 最新一条」仍超预算：不再牺牲二者中的任何一个（安全约束与
-      // 最新事实都必须留），但如实留痕，便于发现预算配置本身不合理。
-      log.warn('compaction.drop.over_budget', {
-        messages: current.length,
-        systemMessages: prefix.length,
-      });
-    }
-    return { messages: current, dropped };
-  }
-
-  /**
-   * 前导连续 system 消息的条数（兜底丢弃时必须整段保留）。
-   * @param messages 消息数组
-   * @returns 前导 system 段长度
-   */
-  private static leadingSystemCount(messages: readonly ModelMessage[]): number {
-    let count = 0;
-    while (messages[count]?.role === 'system') count += 1;
-    return count;
   }
 
   /**

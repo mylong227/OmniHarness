@@ -15,6 +15,7 @@ import { sseParser, type SseEvent } from './sseParser.ts';
 import { log } from '../../util/logger.ts';
 import { ModelResponseFormats } from './modelResponseFormats.ts';
 import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
+import { ResponsesInput } from './responsesInput.ts';
 
 /**
  * @beta
@@ -287,7 +288,8 @@ export class ResponsesModel implements ModelPort {
    *
    * @param messages 完整消息列表。
    * @returns `instructions`（开头连续 system 以空行拼接；无则空串）与 `input` 数组
-   *          （保留原角色与顺序，头部 system 已被剥离）。
+   *          （保留原角色与顺序，头部 system 已被剥离；工具轮转成 Responses 的
+   *          `function_call` / `function_call_output` 项）。
    */
   private splitSystem(messages: readonly ModelRequest['messages'][number][]): {
     instructions: string;
@@ -302,10 +304,7 @@ export class ResponsesModel implements ModelPort {
         .slice(0, head)
         .map((message) => message.content)
         .join('\n\n'),
-      input: messages.slice(head).map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      input: messages.slice(head).flatMap((message) => ResponsesInput.itemsOf(message)),
     };
   }
 

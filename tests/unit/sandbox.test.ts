@@ -71,7 +71,7 @@ test('沙箱插件：apply 超时熔断', async () => {
   await assert.rejects(() => manager.register(plugin), /超时/);
 });
 
-test('loadInstalledPlugins：source=remote 的已安装插件走沙箱加载', async () => {
+test('loadInstalledPlugins：source=remote 默认不加载，显式放行后走沙箱加载', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'oh-sbx-inst-'));
   const name = 'sbx-remote';
   mkdirSync(join(dir, name), { recursive: true });
@@ -89,16 +89,60 @@ test('loadInstalledPlugins：source=remote 的已安装插件走沙箱加载', a
       permissions: [],
     }),
   );
-  const manager = makeManager();
-  const loaded = await PluginLoader.loadInstalledPlugins(manager, dir);
-  assert.deepStrictEqual(loaded, [name], '远程源插件应被沙箱加载');
-  const tools = (manager as unknown as { container: Container }).container.get(
-    'port.tools',
-  ) as RegistryToolPort;
-  assert.ok(
-    tools.list().some((t) => t.name === 'sbx_tool'),
-    '远程源插件的工具应注入工具表',
-  );
+  const saved = process.env.OMNI_ALLOW_REMOTE_PLUGINS;
+  try {
+    delete process.env.OMNI_ALLOW_REMOTE_PLUGINS;
+    const denied: string[] = [];
+    const manager = makeManager();
+    const loaded = await PluginLoader.loadInstalledPlugins(manager, dir, (n, error) => {
+      denied.push(`${n}:${String(error)}`);
+    });
+    assert.deepStrictEqual(loaded, [], '远程插件默认必须拒绝加载');
+    assert.match(denied[0] ?? '', /OMNI_ALLOW_REMOTE_PLUGINS/, '拒绝原因必须可行动');
+
+    process.env.OMNI_ALLOW_REMOTE_PLUGINS = '1';
+    const allowedManager = makeManager();
+    const allowed = await PluginLoader.loadInstalledPlugins(allowedManager, dir);
+    assert.deepStrictEqual(allowed, [name], '显式放行后远程源插件应被沙箱加载');
+    const tools = (allowedManager as unknown as { container: Container }).container.get(
+      'port.tools',
+    ) as RegistryToolPort;
+    assert.ok(
+      tools.list().some((t) => t.name === 'sbx_tool'),
+      '远程源插件的工具应注入工具表',
+    );
+  } finally {
+    if (saved === undefined) delete process.env.OMNI_ALLOW_REMOTE_PLUGINS;
+    else process.env.OMNI_ALLOW_REMOTE_PLUGINS = saved;
+  }
+});
+
+test('沙箱插件：宿主 console 未被注入（console.log.constructor 逃逸不到宿主 process）', async () => {
+  const code = `
+    const plugin = {
+      meta: { name: 'console-escape' },
+      apply(ctx) {
+        let escaped;
+        try {
+          escaped = typeof console.log.constructor('return process')();
+        } catch {
+          escaped = 'thrown';
+        }
+        ctx.registerService('__escape', escaped);
+      },
+    };
+    export default plugin;
+  `;
+  const plugin = Sandbox.loadPluginCodeInSandbox(code, 'escape.js');
+  let captured: unknown;
+  await plugin.apply({
+    services: { get: () => undefined, has: () => false },
+    registerService: (_name: string, value: unknown) => {
+      captured = value;
+    },
+  } as never);
+  assert.notStrictEqual(captured, 'object', 'console 函数不得来自宿主 realm');
+  assert.notStrictEqual(captured, 'function');
 });
 
 test('S16：模块顶层死循环在**加载阶段**即被 vm timeout 中止（旧实现在此永久挂住）', () => {

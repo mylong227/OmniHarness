@@ -131,7 +131,18 @@ export class CliAgentCmds extends CliNativeCmds {
       return 2;
     }
     const maxIter = this.flagNumber(args, '--goal-max-iterations') ?? 10;
-    const cliArgs = ArgParser.parseArgs(['--prompt', 'goal-placeholder', ...args]) ?? CliDefaults;
+    // 2026-10-21 修：goal 也是 agent 装配入口，必须走与 exec 相同的分层加载与守卫，
+    // 否则 `--approval ask` 会在 buildApproval 落到 AutoApproval（静默全放行）。
+    const cliArgs =
+      ArgParser.parseArgs(['--prompt', 'goal-placeholder', ...args], this.loadDefaults(args)) ??
+      CliDefaults;
+    if (cliArgs.approval === 'ask') {
+      process.stderr.write(
+        'goal 子命令没有交互审批通道：`--approval ask` 会退化为全放行，已拒绝。' +
+          '请改用 --approval rules|guardian|plan|deny，或使用 omniharness serve 的 Web 审批。\n',
+      );
+      return 2;
+    }
     const config = await this.buildConfig(cliArgs);
     const agent = new Agent(Runtime.createRuntime(config));
     const runner = new GoalRunner(agent, new GoalChecker(config.model), { maxIterations: maxIter });
@@ -168,7 +179,15 @@ export class CliAgentCmds extends CliNativeCmds {
       }
     }
     const cliArgs =
-      ArgParser.parseArgs(['--prompt', 'workflow-placeholder', ...args]) ?? CliDefaults;
+      ArgParser.parseArgs(['--prompt', 'workflow-placeholder', ...args], this.loadDefaults(args)) ??
+      CliDefaults;
+    if (cliArgs.approval === 'ask') {
+      process.stderr.write(
+        'workflow 子命令没有交互审批通道：`--approval ask` 会退化为全放行，已拒绝。' +
+          '请改用 --approval rules|guardian|plan|deny，或使用 omniharness serve 的 Web 审批。\n',
+      );
+      return 2;
+    }
     const config = await this.buildConfig(cliArgs);
     const runtime = Runtime.createRuntime(config);
     // 生产入口开启运行存档（库级默认 false＝零写盘）：这是 `--resume-run` 与事后审计的前提。
@@ -311,7 +330,10 @@ export class CliAgentCmds extends CliNativeCmds {
   protected loadDefaults(argv: readonly string[]): Partial<CliArgs> | undefined {
     const explicitConfig = this.flagValue(argv, '--config');
     const profile = this.flagValue(argv, '--profile');
-    if (explicitConfig === undefined && configFile.find(process.cwd()) === undefined) {
+    // 2026-10-21 修：配置发现必须跟随**生效工作区**，而不是启动目录。此前 `--workspace`
+    // 只改运行根、不改配置查找根 ⇒ 指向别的项目时模型/审批/沙箱仍来自启动目录。
+    const workspace = this.flagValue(argv, '--workspace') ?? process.cwd();
+    if (explicitConfig === undefined && configFile.find(workspace) === undefined) {
       process.stderr.write(
         '[omniharness] 未找到 omniharness.json，使用内置默认配置（mock 模型）。\n',
       );
@@ -320,7 +342,7 @@ export class CliAgentCmds extends CliNativeCmds {
       );
     }
     const merged = configFile.loadLayered({
-      workspace: process.cwd(),
+      workspace,
       configPath: explicitConfig,
       profile,
     });

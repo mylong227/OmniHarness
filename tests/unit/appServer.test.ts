@@ -158,6 +158,20 @@ test('app-server：threads.continue 沿用同一线程', async () => {
   assert.strictEqual(result.threadId, threadId);
 });
 
+test('app-server：同一 thread 并发 turns.run 必须拒绝第二个（单飞锁）', async () => {
+  const { transport } = buildServer();
+  const created = await transport.receive('threads.create', { prompt: '种子回合' });
+  const threadId = (created as { result: { threadId: string } }).result.threadId;
+
+  // 不 await 第一个：它同步进入 runTurn 并先 add activeTurns，再 await 模型/存储。
+  const first = transport.receive('turns.run', { threadId, prompt: '回合一' }, 10);
+  const second = await transport.receive('turns.run', { threadId, prompt: '回合二' }, 11);
+  const result = (second as { result: { ok?: boolean; error?: string } }).result;
+  assert.strictEqual(result.ok, false, '第二个并发回合必须被拒绝');
+  assert.strictEqual(result.error, 'session_running');
+  await first;
+});
+
 // 回归测试：UI「完全访问」（approval=auto）必须绕过 SupervisorKernel 的 fail-closed 降级，
 // 否则用户点「完全访问」后首个危险工具失败即翻 safe、永久封锁写类工具（2026-09-08 用户截图根因）。
 test('app-server：approval=auto 时 bypassSupervisorKernel 返回 no-op supervisor', async () => {

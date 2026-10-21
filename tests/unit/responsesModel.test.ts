@@ -77,6 +77,37 @@ test('Responses：请求体用 instructions + 扁平工具 + input 剥离 system
   assert.strictEqual(headers['Authorization'], 'Bearer sk-test');
 });
 
+test('Responses：工具轮必须序列化为 function_call / function_call_output（2026-10-21 P0）', async () => {
+  let captured: RequestInit | undefined;
+  const withTools: ModelRequest = {
+    messages: [
+      { role: 'system', content: '你是助手' },
+      { role: 'user', content: '列目录' },
+      {
+        role: 'assistant',
+        content: '我来执行',
+        toolCalls: [{ id: 'call_1', name: 'shell', arguments: { command: 'ls' } }],
+      },
+      { role: 'tool', content: 'a.ts', toolCallId: 'call_1' },
+    ],
+    tools: request.tools,
+  };
+  await withFetch(
+    async (_url, init) => {
+      captured = init;
+      return new Response(JSON.stringify({ id: 'resp_tools', output: [] }), { status: 200 });
+    },
+    () => model().generate(withTools),
+  );
+  const body = JSON.parse(String(captured?.body)) as { input: unknown[] };
+  assert.deepStrictEqual(body.input, [
+    { role: 'user', content: '列目录' },
+    { role: 'assistant', content: '我来执行' },
+    { type: 'function_call', call_id: 'call_1', name: 'shell', arguments: '{"command":"ls"}' },
+    { type: 'function_call_output', call_id: 'call_1', output: 'a.ts' },
+  ]);
+});
+
 test('Responses：解析文本 / reasoning / function_call', async () => {
   const payload = {
     id: 'resp_2',

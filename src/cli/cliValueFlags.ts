@@ -51,7 +51,8 @@ export const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--mcp-server',
   '--worker-dsh',
   '--plugin-profile',
-  '--memory-encrypt',
+  // 注意：`--memory-encrypt` 是**无值布尔**（FLAG_TABLE 里直接置 true，return 0），
+  // 2026-10-21 修：此前误登记为取值旗标，`--memory-encrypt "task"` 会把 task 吞成它的值。
   '--memory-key-file',
   '--context-window',
   '--output-format',

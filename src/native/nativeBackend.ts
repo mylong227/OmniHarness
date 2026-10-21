@@ -1,6 +1,11 @@
-// 原生后端（FFI 接入真实 agent 循环 #66）：把工具执行（含审批→沙箱→执行 全链）
-// 路由到 Rust 内核 in-process，TS 侧 recorder 仍为事件源。内核不可用或内部失败时，
+// 原生后端（FFI 接入真实 agent 循环 #66）：把**语义等价**的工具执行（含审批→沙箱→执行
+// 全链）路由到 Rust 内核 in-process，TS 侧 recorder 仍为事件源。内核不可用或内部失败时，
 // 调用方（StepRunner）自动回退 JS 路径——fail-closed，绝不静默丢弃工具调用。
+//
+// 2026-10-21：`--native` 默认仍开，但工具执行已全部回退 JS（`supports()` 恒 false）——
+// 内核 fs.* 与 JS 工具语义不等价（offset/limit、行号、64 MiB 上限、.bak、mkdir -p、
+// 内容账本）。`--native` 现在保留的真实收益是 `estimateTokens` 的 FFI 下沉。
+// 待某个工具逐字节等价后，再加回 `TOOL_NAME_ALIASES` 并让 `supports()` 放行。
 //
 // 零新增运行时依赖：底层 NativeKernel 经 Node 内置 require() 加载手写 N-API 插件
 // （native/omni_napi.node，GNU 工具链编译，无需 MSVC），不引入任何第三方 FFI 库。
@@ -14,22 +19,20 @@ import { log } from '../util/logger.ts';
 export type { NativeToolRunner } from '../ports/native/nativeToolRunner.ts';
 
 /**
- * 工具名别名桥（#72）：标准工具集的 JS 名 → Rust 内核出厂内置名。
+ * 工具名别名桥（#66、#72）：标准工具集的 JS 名 → Rust 内核出厂内置名。
  *
- * 标准 JS 工具（read_file / write_file / list_dir / shell）与内核自带
- * （fs.read_file / fs.write_file / fs.list_dir / shell.run）仅命名不同、
- * 参数形状完全一致（{path,content?} / {command}）。适配器在此翻译，使内核
- * 方言对上层透明——模型口述名与 TS 工具注册名均保持不变，路由层只做改名。
+ * **2026-10-21 起为空**：现有内核内置工具与 JS 工具**语义不等价**，不能直接接管：
+ *  - `fs.read_file` 只认 `path`，忽略 `offset/limit/numbered`，无行号脚注、无 64 MiB 上限、
+ *    也不写入 `FileContentLedger`（写类工具的冲突检测因此失效）；
+ *  - `fs.write_file` 不做 `.bak` 备份、不 `mkdir -p`、同样不记账；
+ *  - `fs.list_dir` 返回 JSON，而 JS 工具返回 `[d]/[f]` 行格式；
+ *  - `shell.run` 无超时/取消，非零退出还被映射成成功（StepToolExecutor 已显式禁用）。
  *
- * 越界的未知名原样透传（交由内核判「未知工具」→ 业务拒绝 → JS 回退），
- * 不在此做「猜名字」，避免意外映射到内核危险工具。
+ * 在补齐语义之前一律走 JS：`supports()` 恒 false，调用方据此跳过原生执行。
+ * `--native` 仍保留其真实收益——`estimateTokens` 的 FFI 下沉（见 `agentCompactor`）。
+ * 未来某个工具做到逐字节等价时，再把它加回本表并让 `supports()` 返回 true。
  */
-const TOOL_NAME_ALIASES: Readonly<Record<string, string>> = {
-  read_file: 'fs.read_file',
-  write_file: 'fs.write_file',
-  list_dir: 'fs.list_dir',
-  shell: 'shell.run',
-};
+const TOOL_NAME_ALIASES: Readonly<Record<string, string>> = {};
 
 /** 把 JS 工具名翻译成内核方言；无别名则原样返回。 */
 
@@ -105,6 +108,19 @@ export class NativeBackend implements NativeToolRunner {
       log.warn('native.root.sync_failed', { expected, error: message });
       throw new Error(`原生内核工作区根对齐失败（回退 JS 执行）：${message}`);
     }
+  }
+
+  /**
+   * 本后端是否声明对该 JS 工具名具备**语义等价**的执行能力。
+   *
+   * 2026-10-21 起恒 false：见 {@link TOOL_NAME_ALIASES} 的语义差异清单。调用方
+   * （`StepToolExecutor`）据此跳过原生执行，避免「默认 --native 把 read_file 的
+   * offset/limit 吃掉、把 write_file 的备份与冲突检测绕过」这类静默失真。
+   * @param _toolName JS 侧工具名。
+   * @returns 恒 false（待某个工具做到逐字节等价后再按表放行）。
+   */
+  public supports(_toolName: string): boolean {
+    return false;
   }
 
   /** 经 Rust 内核走 审批→沙箱→执行 全链。

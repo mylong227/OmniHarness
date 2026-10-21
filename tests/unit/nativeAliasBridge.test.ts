@@ -1,138 +1,60 @@
-// #72 单测：工具名别名桥（JS 名 → Rust 内核名）让标准工具集真正下沉 Rust。
-// 内核不可用时整体 skip（与 nativeTokenEstimator.test.ts 一致，避免 CI 无 .node 时红）。
+// 2026-10-21：原生工具接管门禁（原 #72 别名桥的收敛）。
 //
-// 覆盖：
-//  - shell      → shell.run（OS 沙箱包装为 omni-cli sandbox run，故需 omni-cli 在 PATH）
-//  - read_file  → fs.read_file（原生沙箱，无需外部依赖）
-//  - write_file → fs.write_file（原生沙箱，无需外部依赖）
-//  - 未知工具    → 仍被内核判为业务拒绝，不被静默当成原生工具执行
+// 背景：`--native` 默认开，而内核内置的 fs.read_file / fs.write_file / fs.list_dir
+// 与 JS 工具**语义不等价**（忽略 offset/limit、无行号/64MiB 上限、无 .bak/mkdir -p、
+// 不写 FileContentLedger；list_dir 还是 JSON 格式）。直接按名字路由会让默认路径静默失真。
+//
+// 现在的契约：
+//  - `NativeBackend.supports()` 对全部 JS 工具恒 false ⇒ StepToolExecutor 跳过原生执行；
+//  - 别名表为空 ⇒ 即使有人直接 `runTool('read_file')`，内核也只会报「工具不存在」，
+//    绝不可能被当成 fs.read_file 执行；
+//  - 未知工具仍不被静默执行。
+//
+// 内核不可用时整体 skip（与 nativeTokenEstimator.test.ts 一致）。
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve, delimiter } from 'node:path';
 import { NativeBackend } from '../../src/native/nativeBackend.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 import type { ToolCall } from '../../src/ports/tool/tool.ts';
 
-// #72：native shell.run 经 OS 沙箱包装为 `omni-cli sandbox run`，需 omni-cli 在 PATH。
-// 模块加载时注入 cargo target bin，模拟真实 --native 部署环境；缺失则跳过 shell 测试。
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-let omniCliOnPath = false;
-for (const profile of ['release', 'debug']) {
-  const bin = join(root, 'target', profile);
-  if (existsSync(bin)) {
-    process.env.PATH = `${bin}${delimiter}${process.env.PATH ?? ''}`;
-    omniCliOnPath = true;
-  }
-}
-
-// 顶层探测一次，供各用例用 test({ skip }) 真跳过（旧写法 `if undefined return` 会虚增通过计数）。
 const native = NativeBackend.tryCreate();
-const nativeUnavailable = native === undefined;
-
-/**
- * 预编译内核是否**早于 Rust 源码**。
- *
- * 为什么要判：`native/omni_napi.node` 是构建产物（`.node` 不入库），若它比 `crates/` 下的
- * 全部 `.rs` 源文件旧，则本轮对内核的修复（如 2026-09-19 的输出解码：UTF-8 优先 + OEM 回退）
- * **不在产物里**，跑出来的失败是「产物过期」而非「源码有问题」。此时显式 skip 并打印重建命令，
- * 既不伪装通过、也不制造假红。
- */
-const addonStale = ((): string | false => {
-  const addon = join(root, 'native', 'omni_napi.node');
-  if (!existsSync(addon)) {
-    return '预编译内核不存在（请先 npm run native:build）';
-  }
-  const addonTime = statSync(addon).mtimeMs;
-  let newestSource = 0;
-  for (const crate of readdirSync(join(root, 'crates'), { withFileTypes: true })) {
-    if (!crate.isDirectory()) continue;
-    const srcDir = join(root, 'crates', crate.name, 'src');
-    if (!existsSync(srcDir)) continue;
-    for (const file of readdirSync(srcDir, { recursive: true, withFileTypes: true })) {
-      if (!file.isFile() || !file.name.endsWith('.rs')) continue;
-      const mtime = statSync(join(file.parentPath ?? srcDir, file.name)).mtimeMs;
-      if (mtime > newestSource) newestSource = mtime;
-    }
-  }
-  return newestSource > addonTime
-    ? `预编译内核早于 Rust 源码（产物 ${new Date(addonTime).toISOString()} < 源码 ${new Date(newestSource).toISOString()}）：请先 npm run native:build 再跑本文件`
-    : false;
-})();
-
-const shellSkipSource: string | false = nativeUnavailable
-  ? '原生内核不可用（请先 npm run native:build）'
-  : !omniCliOnPath
-    ? 'omni-cli 不在 PATH，无法验证 shell.run OS 沙箱包装（见 #72 备注）'
-    : addonStale;
-// 三种原因都属「原生侧能力不在场」⇒ 统一挂在 `OMNI_REQUIRE_NATIVE` 下：
-// 声明"原生必须在场"的环境里，缺 .node / 缺 omni-cli / 产物过期都必须**失败**而不是静默跳过。
-const shellSkip = RequireEnv.skipUnlessBool(
+const skip = RequireEnv.skipUnlessBool(
   'OMNI_REQUIRE_NATIVE',
-  shellSkipSource === false,
-  String(shellSkipSource),
+  native !== undefined,
+  '原生内核不可用（请先 npm run native:build）',
 );
 
 function call(name: string, args: Record<string, unknown>, id = 'c1'): ToolCall {
   return { id, name, arguments: args } as ToolCall;
 }
 
-test('shell 经别名桥路由到 shell.run 真实执行', { skip: shellSkip }, () => {
-  const r = native!.runTool(call('shell', { command: 'echo 别名桥-ok' }));
-  assert.strictEqual(r.ok, true, 'shell 应路由到 shell.run 并成功');
-  assert.match(r.output ?? '', /别名桥-ok/, '输出应含回显内容');
+test('原生后端不得声明接管 fs / shell 工具（语义尚不等价）', { skip }, () => {
+  for (const name of ['read_file', 'write_file', 'list_dir', 'shell']) {
+    assert.strictEqual(
+      native!.supports(name),
+      false,
+      `${name} 尚未做到与 JS 工具逐字节等价，supports() 必须为 false`,
+    );
+  }
 });
 
-test(
-  'read_file / write_file 经别名桥路由到 fs.read_file / fs.write_file',
-  {
-    skip: RequireEnv.skipUnlessBool(
-      'OMNI_REQUIRE_NATIVE',
-      !nativeUnavailable,
-      '原生内核不可用（请先 npm run native:build）',
-    ),
-  },
-  () => {
-    // 内核 fs 根 = 进程 cwd；放到 cwd 下的 .tmp 子目录，避免往仓库根写临时文件。
-    const cwd = process.cwd();
-    const dir = join(cwd, '.tmp', `omni-alias-${process.pid}-${Date.now()}`);
-    const path = join(dir, 'bridge.txt');
-    mkdirSync(dir, { recursive: true });
-    try {
-      const w = native!.runTool(call('write_file', { path, content: 'bridge-ok' }));
-      assert.strictEqual(w.ok, true, 'write_file 应路由到 fs.write_file 并成功');
-      assert.strictEqual(existsSync(path), true, '文件应已写出');
-      const r = native!.runTool(call('read_file', { path }));
-      assert.strictEqual(r.ok, true, 'read_file 应路由到 fs.read_file 并成功');
-      assert.match(r.output ?? '', /bridge-ok/, '读回内容应一致');
-    } finally {
-      rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
-    }
-  },
-);
+test('fs 工具名不再被翻译成内核方言：直接调用只会报工具不存在', { skip }, () => {
+  // 若别名桥被误加回来，这里会成功返回整文件内容（read_file 的 offset/limit 会被吞掉）。
+  assert.throws(
+    () => native!.runTool(call('read_file', { path: 'package.json', offset: 1, limit: 1 })),
+    /工具不存在|原生内核执行失败/,
+    'read_file 不得被内核接管',
+  );
+});
 
-test(
-  '未知工具仍返回业务拒绝（不抛错、不静默当成原生工具执行）',
-  {
-    skip: RequireEnv.skipUnlessBool(
-      'OMNI_REQUIRE_NATIVE',
-      !nativeUnavailable,
-      '原生内核不可用（请先 npm run native:build）',
-    ),
-  },
-  () => {
-    // 内核对未知工具判为业务拒绝（ok:false, rejected=true）→ 不抛错；
-    // 若内核以异常表达拒绝亦属「未静默执行」，两种都算通过。
-    let rejectedOrThrown = false;
-    try {
-      const r = native!.runTool(call('no_such_tool_xyz', {}));
-      if (r.ok === false) rejectedOrThrown = true;
-    } catch {
-      rejectedOrThrown = true;
-    }
-    assert.strictEqual(rejectedOrThrown, true, '未知工具不应被当成原生工具执行');
-  },
-);
+test('未知工具仍不被静默当成原生工具执行', { skip }, () => {
+  let rejectedOrThrown = false;
+  try {
+    const r = native!.runTool(call('no_such_tool_xyz', {}));
+    if (r.ok === false) rejectedOrThrown = true;
+  } catch {
+    rejectedOrThrown = true;
+  }
+  assert.strictEqual(rejectedOrThrown, true, '未知工具不应被当成原生工具执行');
+});
