@@ -1,4 +1,4 @@
-﻿import type { ModelAdapterId } from '../model/modelAdapterId.ts';
+import type { ModelAdapterId } from '../model/modelAdapterId.ts';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicyConfig.ts';
 import type { RbacConfig } from './rbacConfig.ts';
 import type { SkillEntry } from '../skill/skillEntry.ts';
@@ -38,7 +38,14 @@ export interface FileConfig {
    */
   readonly reasoning?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   readonly sandbox?:
-    'passthrough' | 'policy' | 'restricted' | 'landlock' | 'seatbelt' | 'bwrap' | 'unshare';
+    | 'passthrough'
+    | 'policy'
+    | 'restricted'
+    | 'landlock'
+    | 'seatbelt'
+    | 'bwrap'
+    | 'unshare'
+    | 'wsl-bwrap';
   /**
    * 权限参数级规则（A2）：与内置规则合并后交规则审批（`approval: 'rules'` 生效）。
    * 支持 `commandGlob`（`*`/`?` 通配），使「拒绝含某子串的命令」无需改代码即可配置。
