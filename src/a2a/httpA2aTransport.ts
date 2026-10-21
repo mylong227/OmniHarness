@@ -156,6 +156,9 @@ export class HttpA2aServerTransport implements A2aTransport {
 
   /**
    * 在给定端口监听（返回实际端口）。
+   *
+   * 2026-10-21：默认只绑 **127.0.0.1**（此前 `listen(port)` 绑 `0.0.0.0`，同网段可免认证
+   * 委托只读工具）。确需局域网互操作时用 `OMNI_A2A_HOST=0.0.0.0` 显式放行，并务必配置身份。
    * @param port 期望监听的端口（可传 0 取系统分配的临时端口）。
    * @returns **实际**监听的端口（由 `server.address()` 读取，port=0 时即临时端口）；
    *          仅接受 POST /a2a，其余返回 405/400/500。
@@ -163,8 +166,9 @@ export class HttpA2aServerTransport implements A2aTransport {
   public async listen(port: number): Promise<number> {
     this.server = http.createServer((req, res) => this.handleRequest(req, res));
     const server = this.server;
+    const host = (process.env['OMNI_A2A_HOST'] ?? '').trim() || '127.0.0.1';
     return new Promise<number>((resolve) => {
-      server.listen(port, () => {
+      server.listen(port, host, () => {
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });

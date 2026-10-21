@@ -1,6 +1,4 @@
 import type {
-  ImageContent,
-  FileAttachment,
   ModelMessage,
   ModelOutput,
   ModelPort,
@@ -350,27 +348,55 @@ export class AnthropicModel implements ModelPort {
     ) {
       return message.content;
     }
-    return [
-      { type: 'text', text: message.content },
-      ...(images ?? []).map((image: ImageContent) => ({
-        type: 'image',
-        source:
-          image.url !== undefined
-            ? { type: 'url', url: image.url }
-            : { type: 'base64', media_type: image.mediaType, data: image.data },
-      })),
-      ...imageFiles.map((f: FileAttachment) => ({
-        type: 'image',
-        source:
-          f.url !== undefined
-            ? { type: 'url', url: f.url }
-            : { type: 'base64', media_type: f.mediaType, data: f.data },
-      })),
-      ...textFiles.map((f: FileAttachment) => ({
-        type: 'text',
-        text: `[附件] ${f.name} (${f.mediaType})`,
-      })),
-    ];
+    const blocks: AnthropicWireBlock[] = [{ type: 'text', text: message.content }];
+    for (const image of images ?? []) {
+      if (image.url !== undefined) {
+        blocks.push({ type: 'image', source: { type: 'url', url: image.url } });
+      } else if (image.data !== undefined) {
+        blocks.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: image.mediaType ?? 'application/octet-stream',
+            data: image.data,
+          },
+        });
+      } else {
+        blocks.push({ type: 'text', text: '[图片不可用] 文件内容已不可读，请让用户重新附加。' });
+      }
+    }
+    for (const file of imageFiles) {
+      if (file.url !== undefined) {
+        blocks.push({ type: 'image', source: { type: 'url', url: file.url } });
+      } else if (file.data !== undefined) {
+        blocks.push({
+          type: 'image',
+          source: { type: 'base64', media_type: file.mediaType, data: file.data },
+        });
+      } else {
+        blocks.push({
+          type: 'text',
+          text: `[附件不可用] ${file.name}（${file.mediaType}）：文件内容已不可读，请让用户重新附加。`,
+        });
+      }
+    }
+    for (const file of textFiles) {
+      // Anthropic 原生支持 PDF document block（base64）；其它非图片文件仍以文本说明注入。
+      if (file.mediaType === 'application/pdf' && file.data !== undefined) {
+        blocks.push({
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: file.data },
+        });
+      } else if (file.data === undefined && file.url === undefined) {
+        blocks.push({
+          type: 'text',
+          text: `[附件不可用] ${file.name}（${file.mediaType}）：文件内容已不可读，请让用户重新附加。`,
+        });
+      } else {
+        blocks.push({ type: 'text', text: `[附件] ${file.name} (${file.mediaType})` });
+      }
+    }
+    return blocks;
   }
 
   /** 工具转 Anthropic 格式。

@@ -184,6 +184,89 @@ test('OpenAI 兼容：流式文本增量回调', async () => {
   assert.strictEqual(output.text, '星辰');
 });
 
+test('OpenAI 兼容：附件水合失败不得拼出 base64,undefined（2026-10-21）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+  });
+  let captured: RequestInit | undefined;
+  const req: ModelRequest = {
+    messages: [
+      {
+        role: 'user',
+        content: '看这张图',
+        files: [{ name: 'lost.png', mediaType: 'image/png', path: 'attachments/lost.png' }],
+      },
+    ],
+    tools: [],
+  };
+  await withFetch(
+    async (_url, init) => {
+      captured = init;
+      return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] }), {
+        status: 200,
+      });
+    },
+    () => model.generate(req),
+  );
+  const body = JSON.parse(String(captured?.body)) as {
+    messages: { content: { type: string; text?: string }[] }[];
+  };
+  const parts = body.messages[0]?.content ?? [];
+  assert.ok(
+    parts.some((part) => part.type === 'text' && (part.text ?? '').includes('附件不可用')),
+    '缺字节的图片附件必须降级为文本说明',
+  );
+  assert.doesNotMatch(String(captured?.body), /base64,undefined/u, '不得发送非法 data URI');
+});
+
+test('Anthropic：PDF 附件走原生 document block，缺字节附件降级文本（2026-10-21）', async () => {
+  const model = new AnthropicModel({
+    baseUrl: 'https://api.anthropic.com',
+    apiKey: 'sk',
+    model: 'claude-3',
+  });
+  let captured: RequestInit | undefined;
+  const req: ModelRequest = {
+    messages: [
+      {
+        role: 'user',
+        content: '看文档',
+        files: [
+          { name: 'spec.pdf', mediaType: 'application/pdf', data: 'QUJD' },
+          { name: 'lost.png', mediaType: 'image/png', path: 'attachments/lost.png' },
+        ],
+      },
+    ],
+    tools: [],
+  };
+  await withFetch(
+    async (_url, init) => {
+      captured = init;
+      return new Response(JSON.stringify({ content: [], stop_reason: 'end_turn' }), {
+        status: 200,
+      });
+    },
+    () => model.generate(req),
+  );
+  const body = JSON.parse(String(captured?.body)) as {
+    messages: { content: { type: string; source?: { media_type?: string } }[] }[];
+  };
+  const blocks = body.messages[0]?.content ?? [];
+  assert.ok(
+    blocks.some(
+      (block) => block.type === 'document' && block.source?.media_type === 'application/pdf',
+    ),
+    'PDF 必须走 Anthropic 原生 document block',
+  );
+  assert.ok(
+    blocks.some((block) => block.type === 'text'),
+    '缺字节的图片必须降级为文本说明',
+  );
+  assert.doesNotMatch(String(captured?.body), /base64,undefined/u);
+});
+
 test('OpenAI 兼容：非流式生成保持可用', async () => {
   const model = new OpenAiCompatibleModel({
     baseUrl: 'https://api.deepseek.com',

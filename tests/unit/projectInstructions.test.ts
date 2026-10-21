@@ -197,6 +197,29 @@ describe('仓库常驻指令加载', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
+  it('预算不足时优先保留项目级规则，而不是被用户级大文件挤掉（2026-10-21）', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'omni-priority-'));
+    const userHome = await mkdtemp(join(tmpdir(), 'omni-priority-home-'));
+    await mkdir(join(userHome, '.omniharness'), { recursive: true });
+    await writeFile(join(userHome, '.omniharness', 'AGENTS.md'), 'U'.repeat(2000));
+    await writeFile(join(dir, 'AGENTS.md'), 'P'.repeat(500));
+
+    const result = await ProjectInstructions.loadProjectInstructions({
+      workspaceRoot: dir,
+      home: userHome,
+      cwd: dir,
+      maxBytes: 900,
+      includeLlmsTxt: false,
+    });
+
+    assert.notStrictEqual(result, null);
+    assert.ok(result!.content.includes('P'.repeat(50)), '项目级规则必须优先保住');
+    assert.ok(!result!.content.includes('U'.repeat(50)), '用户级大文件不得挤掉项目级规则');
+    assert.strictEqual(result!.truncated, true);
+    await rm(dir, { recursive: true, force: true });
+    await rm(userHome, { recursive: true, force: true });
+  });
+
   it('llms.txt 作为独立段落纳入，可用 includeLlmsTxt=false 关闭', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'omni-llms-'));
     await writeFile(join(dir, 'llms.txt'), '# 文档索引\n- 指南: /docs');

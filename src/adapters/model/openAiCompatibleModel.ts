@@ -398,15 +398,34 @@ export class OpenAiCompatibleModel implements ModelPort {
     }
     const parts: unknown[] = [{ type: 'text', text: message.content }];
     for (const image of images ?? []) {
+      if (image.url === undefined && image.data === undefined) {
+        // 2026-10-21：附件水合失败（文件被清理/超限）会留下只有 path 的附件；拼
+        // `base64,undefined` 会被端点 400 拒收，且错误离根因很远。显式降级为文本说明。
+        parts.push({ type: 'text', text: '[图片不可用] 文件内容已不可读，请让用户重新附加。' });
+        continue;
+      }
       parts.push({
         type: 'image_url',
-        image_url: { url: image.url ?? `data:${image.mediaType};base64,${image.data}` },
+        image_url: {
+          url:
+            image.url ??
+            `data:${image.mediaType ?? 'application/octet-stream'};base64,${image.data ?? ''}`,
+        },
       });
     }
     for (const file of imageFiles) {
+      if (file.url === undefined && file.data === undefined) {
+        parts.push({
+          type: 'text',
+          text: `[附件不可用] ${file.name}（${file.mediaType}）：文件内容已不可读，请让用户重新附加。`,
+        });
+        continue;
+      }
       parts.push({
         type: 'image_url',
-        image_url: { url: file.url ?? `data:${file.mediaType};base64,${file.data}` },
+        image_url: {
+          url: file.url ?? `data:${file.mediaType};base64,${file.data ?? ''}`,
+        },
       });
     }
     // 非图片文件无法作为视觉输入，注入文件名 + MIME 的文本说明保上下文完整。

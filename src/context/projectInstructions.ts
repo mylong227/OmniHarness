@@ -210,18 +210,10 @@ export class ProjectInstructions {
     let truncated = false;
 
     for (const path of candidates) {
-      const body = await ProjectInstructions.tryRead(path, ctx.read);
-      if (body === null || body.trim() === '') {
+      const chunk = await ProjectInstructions.renderChunk(path, ctx);
+      if (chunk === null) {
         continue;
       }
-      const expanded = await ProjectInstructions.expandImports(
-        body,
-        path,
-        ctx.workspaceRoot,
-        ctx.read,
-        0,
-      );
-      const chunk = `<!-- 常驻指令: ${path} -->\n${expanded.trim()}`;
       const bytes = Buffer.byteLength(chunk, 'utf8');
       if (used + bytes > ctx.maxBytes) {
         truncated = true;
@@ -232,6 +224,88 @@ export class ProjectInstructions {
       used += bytes;
     }
     return { sections, sources, usedBytes: used, truncated };
+  }
+
+  /**
+   * 按**层级优先级**合并（2026-10-21）：预算从高优先级层往低优先级层分配，输出仍按
+   * 低→高排列（更具体的规则在最后）。
+   *
+   * 为什么要有它：原 `mergeCandidates` 先读用户级、再项目级、再子目录级，一旦预算见底就直接
+   * `break`——于是**最高优先级的项目/子目录规则先被丢掉**，只剩下用户级的大文件。
+   * 现在是「先保障高优先级，再回填低优先级」：高优先级放不下的单个文件跳过并标记
+   * `truncated`（不因一个巨型文件把整层拖没），低优先级用剩余预算。
+   * @param groups 从低到高的层级候选（每组内部顺序保持不变）。
+   * @param ctx 合并上下文。
+   * @returns 合并结果（sections 仍按低→高排列）。
+   */
+  public static async mergeCandidatesByPriority(
+    groups: readonly (readonly string[])[],
+    ctx: MergeContext,
+  ): Promise<MergeOutcome> {
+    const chunks = new Map<string, string>();
+    for (const group of groups) {
+      for (const path of group) {
+        const chunk = await ProjectInstructions.renderChunk(path, ctx);
+        if (chunk !== null) {
+          chunks.set(path, chunk);
+        }
+      }
+    }
+    const selected = new Set<string>();
+    let used = 0;
+    let truncated = false;
+    for (let level = groups.length - 1; level >= 0; level -= 1) {
+      for (const path of groups[level] ?? []) {
+        const chunk = chunks.get(path);
+        if (chunk === undefined) {
+          continue;
+        }
+        const bytes = Buffer.byteLength(chunk, 'utf8');
+        if (used + bytes > ctx.maxBytes) {
+          truncated = true;
+          continue;
+        }
+        selected.add(path);
+        used += bytes;
+      }
+    }
+    const sections: string[] = [];
+    const sources: string[] = [];
+    for (const group of groups) {
+      for (const path of group) {
+        if (!selected.has(path)) {
+          continue;
+        }
+        const chunk = chunks.get(path);
+        if (chunk === undefined) {
+          continue;
+        }
+        sections.push(chunk);
+        sources.push(path);
+      }
+    }
+    return { sections, sources, usedBytes: used, truncated };
+  }
+
+  /**
+   * 读取单个候选并展开 `@import`，生成最终段落。
+   * @param path 候选文件路径。
+   * @param ctx 合并上下文。
+   * @returns 段落文本；文件不存在/为空时为 null。
+   */
+  private static async renderChunk(path: string, ctx: MergeContext): Promise<string | null> {
+    const body = await ProjectInstructions.tryRead(path, ctx.read);
+    if (body === null || body.trim() === '') {
+      return null;
+    }
+    const expanded = await ProjectInstructions.expandImports(
+      body,
+      path,
+      ctx.workspaceRoot,
+      ctx.read,
+      0,
+    );
+    return `<!-- 常驻指令: ${path} -->\n${expanded.trim()}`;
   }
 
   /**
@@ -319,13 +393,13 @@ export class ProjectInstructions {
     };
 
     const overrideExists = await ProjectInstructions.hasAgentsOverride(workspaceRoot, ctx.read);
-    const candidates = [
-      ...ProjectInstructions.userLevelCandidates(home),
-      ...ProjectInstructions.projectLevelCandidates(workspaceRoot, overrideExists),
-      ...ProjectInstructions.subdirLevelCandidates(workspaceRoot, cwd),
+    const groups = [
+      ProjectInstructions.userLevelCandidates(home),
+      ProjectInstructions.projectLevelCandidates(workspaceRoot, overrideExists),
+      ProjectInstructions.subdirLevelCandidates(workspaceRoot, cwd),
     ];
 
-    let outcome = await ProjectInstructions.mergeCandidates(candidates, ctx);
+    let outcome = await ProjectInstructions.mergeCandidatesByPriority(groups, ctx);
     if (options.includeLlmsTxt !== false) {
       outcome = await ProjectInstructions.appendLlmsTxt(outcome, ctx);
     }

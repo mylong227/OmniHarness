@@ -265,6 +265,7 @@ export class WsA2aServerTransport implements A2aTransport {
 
   /**
    * 在给定端口监听（返回实际端口）。仅处理 `A2A_WS_PATH` 的 Upgrade；普通 HTTP 请求回 426。
+   * 默认只绑 `127.0.0.1`（2026-10-21），局域网互操作需显式 `OMNI_A2A_HOST=0.0.0.0`。
    * @param port 期望监听的端口（可传 0 取系统分配的临时端口）。
    * @returns **实际**监听的端口（由 `server.address()` 读取，port=0 时即临时端口）。
    */
@@ -275,8 +276,9 @@ export class WsA2aServerTransport implements A2aTransport {
     });
     this.server.on('upgrade', (request, socket) => this.upgrade(request, socket));
     const server = this.server;
+    const host = (process.env['OMNI_A2A_HOST'] ?? '').trim() || '127.0.0.1';
     return new Promise<number>((resolve) => {
-      server.listen(port, () => {
+      server.listen(port, host, () => {
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });
