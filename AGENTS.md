@@ -71,6 +71,16 @@
   要加/改门禁只改那一份文件与其 `GATES` 数组，别再往文档里抄第二份清单。
 - 钩子在**远端连接之后、传输之前**执行 `pre-push`：对不可达的远端（如 403 的误建仓）会先连接失败，
   因此「钩子没打印拦截文案」不等于钩子失效——用本地 bare 仓库才能端到端验证。
+- **`github.com:443` 连不上时的有效旁路（2026-10-21 实测）**：本机 DNS 曾把 github.com 解析到
+  `20.205.243.166`（该 IP 的 443 不通），而其它 GitHub A 记录可通。不必找代理，给 git 固定 IP 即可：
+  ```bash
+  curl -sS -o NUL -w '%{http_code}' --connect-timeout 6 \
+    --resolve github.com:443:140.82.112.3 https://github.com   # 先探活，应回 200
+  git -c http.curloptResolve=github.com:443:140.82.112.3 \
+    push https://github.com/mylong227/OmniHarness.git main
+  ```
+  备选 IP：`140.82.113.3` / `20.27.177.113` / `20.200.245.247`。这比反复重试默认解析快得多；
+  推送仍是直连真实 URL，授权弹窗/凭据行为与正常直连一致。
 
 ## 一键启动与前端构建形态
 
