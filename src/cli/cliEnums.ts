@@ -36,6 +36,8 @@ export const SANDBOX_PROFILES = [
   'bwrap',
   'unshare',
   'wsl-bwrap',
+  'windows-acl',
+  'windows-acl-readonly',
 ] as const satisfies readonly CliArgs['sandbox'][];
 export const ESCALATIONS = [
   'deny',

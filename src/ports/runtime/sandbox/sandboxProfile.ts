@@ -7,4 +7,6 @@ export type SandboxProfile =
   | 'seatbelt'
   | 'bwrap'
   | 'unshare'
-  | 'wsl-bwrap';
+  | 'wsl-bwrap'
+  | 'windows-acl'
+  | 'windows-acl-readonly';

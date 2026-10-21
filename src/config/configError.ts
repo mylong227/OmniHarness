@@ -527,6 +527,8 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
     'bwrap',
     'unshare',
     'wsl-bwrap',
+    'windows-acl',
+    'windows-acl-readonly',
   ],
   escalation: ['deny', 'ask', 'auto'],
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],

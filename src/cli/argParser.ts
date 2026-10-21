@@ -57,7 +57,9 @@ export interface CliArgs {
     | 'seatbelt'
     | 'bwrap'
     | 'unshare'
-    | 'wsl-bwrap';
+    | 'wsl-bwrap'
+    | 'windows-acl'
+    | 'windows-acl-readonly';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
   escalation: 'deny' | 'ask' | 'auto';
   /** 提权后的复核沙箱（#G3/G4，默认 policy=fail-closed 收紧）：escalate 裁决后以此复核放行，危险命令/工作区外路径仍拦截。 */

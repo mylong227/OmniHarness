@@ -9,6 +9,7 @@ import { LinuxUnshareSandbox } from './linuxUnshareSandbox.ts';
 import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
 import { WslBwrapSandbox } from './wslBwrapSandbox.ts';
+import { WindowsAclSandbox } from './windowsAclSandbox.ts';
 
 export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
 
@@ -50,6 +51,15 @@ export class SandboxManager {
     this.register('seatbelt', () => new MacOsSeatbeltSandbox(this.workspaceRoot));
     // SEC-01：Windows 上的 L3 路径（WSL2 + bwrap）；不可达时后端自身 fail-closed。
     this.register('wsl-bwrap', () => new WslBwrapSandbox(this.workspaceRoot));
+    // 2026-10-21：Windows 原生 ACL 写限制（受限令牌 + 工作区写入 SID）；可选依赖缺失时 fail-closed。
+    this.register(
+      'windows-acl',
+      () => new WindowsAclSandbox(this.workspaceRoot, 'workspace-write'),
+    );
+    this.register(
+      'windows-acl-readonly',
+      () => new WindowsAclSandbox(this.workspaceRoot, 'read-only'),
+    );
   }
 
   /** 注册后端（工厂延迟实例化，避免无谓构造）。
