@@ -251,6 +251,9 @@ test('E2 装配透传 + 运行时真装配：显式 a2a 不再被静默丢弃，
   assert.ok(config.a2a !== undefined, 'a2a 必须活着穿到 ResolvedConfig（装配透传护栏）');
   assert.strictEqual(config.a2a.enabled, true);
 
+  // 2026-10-21：无身份默认 fail-closed；本机自环用例显式放行。
+  const saved = process.env.OMNI_A2A_INSECURE;
+  process.env.OMNI_A2A_INSECURE = '1';
   const runtime = Runtime.createRuntime(config);
   try {
     assert.ok(runtime.a2a !== undefined, '显式开启 → 运行时必须装配 A2A server/client');
@@ -259,6 +262,25 @@ test('E2 装配透传 + 运行时真装配：显式 a2a 不再被静默丢弃，
     assert.match(result.output, /in-process-final/, 'server 侧处理器须跑真实子代理并回传其产出');
   } finally {
     runtime.a2a?.transport.close?.();
+    if (saved === undefined) delete process.env.OMNI_A2A_INSECURE;
+    else process.env.OMNI_A2A_INSECURE = saved;
+  }
+});
+
+test('E2 fail-closed：a2a 已开启但无身份、且未显式放行 ⇒ 不装配', async () => {
+  const port = await freePort();
+  const config = ConfigFactory.build(
+    basePartial(workspace('a2a-no-identity'), {
+      a2a: { enabled: true, port, peerEndpoint: `http://127.0.0.1:${port}/a2a` },
+    }),
+  );
+  const saved = process.env.OMNI_A2A_INSECURE;
+  delete process.env.OMNI_A2A_INSECURE;
+  try {
+    const runtime = Runtime.createRuntime(config);
+    assert.strictEqual(runtime.a2a, undefined, '无身份必须拒绝启动 A2A（免验签面不得默认开放）');
+  } finally {
+    if (saved !== undefined) process.env.OMNI_A2A_INSECURE = saved;
   }
 });
 

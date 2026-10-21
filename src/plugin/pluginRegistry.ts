@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 import { Manifest, type PluginDescriptor, type PluginManifest } from './manifest.ts';
+import { PluginSignature } from './pluginSignature.ts';
 import { BUNDLED_PLUGINS, type BundledPlugin } from './bundledRegistry.ts';
 import {
   DEFAULT_REGISTRY_URL,
@@ -119,6 +120,20 @@ export class PluginRegistry {
     }
     // 先校验权限，非法即中止（fail-closed），避免落盘半成品。
     Manifest.validateManifestPermissions(descriptor.manifest);
+    // 2026-10-21：清单带 Ed25519 签名就必须验（此前只写不验，远程包被篡改也照装）。
+    // 验签在**写权威清单之前**：安装器会把 source 改写成安装来源，改写后 canonical 内容已变。
+    PluginSignature.assert(descriptor.manifest);
+    const signature = (descriptor.manifest as { signatureEd25519?: unknown }).signatureEd25519;
+    if (
+      PluginSignature.required() &&
+      descriptor.source === 'remote' &&
+      (typeof signature !== 'string' || signature === '')
+    ) {
+      throw new Error(
+        `远程插件 "${descriptor.manifest.name}" 未带 Ed25519 签名，已拒绝安装` +
+          '（OMNI_PLUGIN_REQUIRE_SIGNATURE=1 强制签名档）',
+      );
+    }
 
     // 清单来自远程源（可被篡改）：name/entry 直接拼路径 ⇒ 必须先过白名单，否则可写到
     // pluginsDir 之外（`name: ../evil` 或 `entry: ../../x`）。

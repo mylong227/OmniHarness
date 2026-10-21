@@ -329,6 +329,16 @@ export class Runtime {
     if (config.a2a?.enabled !== true) {
       return;
     }
+    // 2026-10-21：无身份 ⇒ 验签恒 true（任何人都能委托）。默认 fail-closed 不启动；
+    // 确需无身份的本机/受控环境，显式 OMNI_A2A_INSECURE=1 放行（并自行承担网络暴露风险）。
+    if (config.identity === undefined && process.env.OMNI_A2A_INSECURE !== '1') {
+      log.warn('a2a.disabled.identity_missing', {
+        hint:
+          'A2A 已配置 enabled 但未配置 Agent 身份：拒绝启动（无身份=免验签）。' +
+          '请配置 identity，或显式设 OMNI_A2A_INSECURE=1（不推荐）。',
+      });
+      return;
+    }
     const a2aPort = config.a2a.port ?? 8790;
     // 传输形态：http（默认，POST /a2a）或 ws（RFC6455，/a2a-ws）。二者实现同一 A2aTransport 端口，
     // 协议与门禁完全共用；缺省 http 保持原行为（零破坏）。

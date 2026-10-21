@@ -1,4 +1,4 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type {
@@ -79,6 +79,8 @@ export class ContextAssembler {
      * `FileAttachment.path` 为相对路径时，按它拼绝对路径水合；缺省时只认绝对路径。
      */
     private readonly attachmentRoot?: string,
+    /** 模型上下文窗口（可选）：图片附件张数预算按窗口 25% 自适应（2026-10-21）。 */
+    private readonly windowTokens?: number,
   ) {}
 
   /**
@@ -127,7 +129,7 @@ export class ContextAssembler {
     // 会话不完整（中途崩溃）的异常日志里，此时丢弃比发出"无配对 tool 消息的 assistant(tool_calls)"
     // 更安全（后者发给模型会触发 HTTP 400）。
     this.flushPendingAttachments(messages);
-    ContextImageBudget.retainRecent(messages);
+    ContextImageBudget.retainRecent(messages, this.windowTokens);
     this.projectionCache = {
       events: [...events],
       messages: [...messages],

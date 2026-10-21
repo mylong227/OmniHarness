@@ -67,7 +67,11 @@ export class StepContextBuilder {
    *   workspaceRoot / repoMapEnabled / embedding / projectInstructionsEnabled）。
    */
   public constructor(private readonly deps: StepRunnerDeps) {
-    this.assembler = new ContextAssembler(deps.fragments, deps.attachmentRoot);
+    this.assembler = new ContextAssembler(
+      deps.fragments,
+      deps.attachmentRoot,
+      deps.contextWindowTokens,
+    );
   }
 
   /**

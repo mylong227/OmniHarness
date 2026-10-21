@@ -158,6 +158,9 @@ test('注册面：a2a.enabled 时 createRuntime 后工具表出现 a2a_delegate'
     sandbox: new PassthroughSandbox(),
     a2a: { enabled: true, port: 0 },
   });
+  // 2026-10-21：无身份默认 fail-closed；本机注册面用例显式放行。
+  const saved = process.env.OMNI_A2A_INSECURE;
+  process.env.OMNI_A2A_INSECURE = '1';
   const runtime = Runtime.createRuntime(config);
   try {
     const names = config.tools.list().map((t) => t.name);
@@ -165,6 +168,8 @@ test('注册面：a2a.enabled 时 createRuntime 后工具表出现 a2a_delegate'
     assert.ok(runtime.a2a !== undefined, 'runtime.a2a 应已装配');
   } finally {
     runtime.a2a?.transport.close?.();
+    if (saved === undefined) delete process.env.OMNI_A2A_INSECURE;
+    else process.env.OMNI_A2A_INSECURE = saved;
     rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }
 });

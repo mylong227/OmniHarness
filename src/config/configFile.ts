@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { profileLoader } from './profileLoader.ts';
@@ -109,7 +109,17 @@ export class ConfigFile {
       mkdirSync(dir, { recursive: true });
     }
     const normalized = ConfigError.normalizeConfig(cfg as Record<string, unknown>);
-    writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
+    // 配置文件可能含 apiKey / providerKeys：POSIX 下按 0600 落盘，且对**已存在**文件补 chmod
+    //（writeFileSync 的 mode 只在创建时生效）。Windows 上 chmod 语义有限，失败忽略。
+    writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
+    try {
+      chmodSync(filePath, 0o600);
+    } catch {
+      // 平台不支持/无权限：不阻断保存（避免把“配置写入”变成因权限位失败）。
+    }
   }
 
   /**

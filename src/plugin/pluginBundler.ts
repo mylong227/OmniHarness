@@ -12,6 +12,7 @@ import {
 import { isAbsolute, join, resolve, sep } from 'node:path';
 import { Zip, type ZipEntry } from './zip.ts';
 import { Ed25519PublicKey } from '../util/ed25519PublicKey.ts';
+import { CanonicalManifest } from './canonicalManifest.ts';
 import type { PluginProfile } from './pluginProfileStore.ts';
 import type { PluginRegistry } from './pluginRegistry.ts';
 
@@ -150,35 +151,7 @@ export class PluginBundler {
    * @returns 稳定键序的规范化 JSON（不含任何签名字段）
    */
   public static canonicalManifestOf(manifest: BundleManifest): string {
-    const { signature: _omit, signatureEd25519: _omitEd, ...rest } = manifest;
-    return PluginBundler.stableStringify(rest);
-  }
-
-  /**
-   * 递归稳定序列化：**每一层**的键都排序，数组保序。
-   *
-   * 为什么不能用 `JSON.stringify(rest, sortedKeys)`：replacer 数组会**递归**裁剪对象键，
-   * 只保留顶层白名单里的同名键 ⇒ `plugins[].from/localPath`、`patches[].key/value` 等
-   * 嵌套字段**完全不在签名覆盖内**（改补丁值仍报 verified）。本方法保留全部嵌套字段，
-   * 只把键序稳定下来。
-   * @param value 任意 JSON 值
-   * @returns 稳定序列化字符串
-   */
-  private static stableStringify(value: unknown): string {
-    if (Array.isArray(value)) {
-      return '[' + value.map((item) => PluginBundler.stableStringify(item)).join(',') + ']';
-    }
-    if (value !== null && typeof value === 'object') {
-      const record = value as Record<string, unknown>;
-      const parts: string[] = [];
-      for (const key of Object.keys(record).sort()) {
-        const item = record[key];
-        if (item === undefined) continue; // JSON.stringify 会省略 undefined 键
-        parts.push(JSON.stringify(key) + ':' + PluginBundler.stableStringify(item));
-      }
-      return '{' + parts.join(',') + '}';
-    }
-    return JSON.stringify(value) ?? 'null';
+    return CanonicalManifest.of(manifest as unknown as Record<string, unknown>);
   }
 
   /** 用密钥对清单做 HMAC-SHA256。 */

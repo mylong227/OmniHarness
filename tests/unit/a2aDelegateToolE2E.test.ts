@@ -69,6 +69,9 @@ function runtimeWithA2a(
 }
 
 test('e2e：a2a_delegate 经真实 HTTP 链路委托给独立 runtime 的子代理并回收结果', async () => {
+  // 2026-10-21：无身份默认 fail-closed；本机真链路用例显式放行。
+  const saved = process.env.OMNI_A2A_INSECURE;
+  process.env.OMNI_A2A_INSECURE = '1';
   // 对端：A2A 服务端 + A2aTaskExecutor（委托任务跑在**它自己**的受限子代理里）。
   const peerPort = await freePort();
   const peer = runtimeWithA2a(peerPort);
@@ -105,5 +108,7 @@ test('e2e：a2a_delegate 经真实 HTTP 链路委托给独立 runtime 的子代�
     }
   } finally {
     peer.close();
+    if (saved === undefined) delete process.env.OMNI_A2A_INSECURE;
+    else process.env.OMNI_A2A_INSECURE = saved;
   }
 });

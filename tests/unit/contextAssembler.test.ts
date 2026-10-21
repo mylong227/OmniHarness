@@ -241,6 +241,37 @@ test('P2-⑬：工具附件紧跟其工具轮次 flush（不再落到整段对�
   assert.ok(attachIndex < laterAssistant, '附件必须在其产生轮次附近，而非对话末尾');
 });
 
+test('图片附件预算：按模型窗口自适应（小窗口只留最新一张，2026-10-21）', () => {
+  // 8000 token 窗口 ⇒ 25% 预算 / 每张 1600 ≈ 1 张；两张小图（字符远低于 700k）仍只留最新。
+  const assembler = new ContextAssembler([], undefined, 8_000);
+  const events: SessionEvent[] = [
+    event('user', { content: 'first' }),
+    event('tool_call', { callId: 'c1', name: 'view_image', args: {} }),
+    event('tool_result', {
+      callId: 'c1',
+      ok: true,
+      output: 'ok',
+      files: [{ name: 'old.png', mediaType: 'image/png', data: 'a' }],
+    }),
+    event('assistant', { content: 'seen old' }),
+    event('user', { content: 'second' }),
+    event('tool_call', { callId: 'c2', name: 'view_image', args: {} }),
+    event('tool_result', {
+      callId: 'c2',
+      ok: true,
+      output: 'ok',
+      files: [{ name: 'new.png', mediaType: 'image/png', data: 'b' }],
+    }),
+  ];
+  const messages = assembler.build(events);
+  const withData = messages.filter((m) => (m.files ?? []).some((f) => f.data !== undefined));
+  assert.strictEqual(withData.length, 1, '小窗口只应保留最新一张图片');
+  assert.strictEqual(withData[0]?.files?.[0]?.name, 'new.png');
+  const dropped = messages.filter((m) => m.content.includes('较早的图片附件已省略'));
+  assert.strictEqual(dropped.length, 1);
+  assert.match(dropped[0]?.content ?? '', /old\.png/);
+});
+
 test('图片附件预算：只保留最近的附件，旧附件降级为文字（2026-10-19 鹈鹕会话回归）', () => {
   // 事故：7 张截图（6.2 MiB base64）在 45 次调用里累计重传 82.4 MiB，后期单次生成 247–314 秒。
   // 预算 700k 字符 ⇒ 两张 900k 的截图只保留最新一张，旧的一张降级为带文件名的文字。

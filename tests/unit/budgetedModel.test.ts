@@ -58,16 +58,21 @@ test('超预算后阻断且不再调用模型（fail-closed）', async () => {
   assert.strictEqual(calls.n, 1); // 第二次被阻断，未发起真实调用
 });
 
-test('无 usage 不记账（绝不臆造成本）', async () => {
+test('无 usage 按本地估算记账并标记 estimated（2026-10-21）', async () => {
   const budget = new CostBudget(
     100,
     RoutePricing.mergeRoutePricing({ x: { inputPer1M: 1, outputPer1M: 1 } }),
   );
   const inner = fakeModel({ text: 'hi' }, { n: 0 });
   const wrapped = new BudgetedModel(inner, budget);
-  await wrapped.generate({ messages: [], tools: [] });
-  assert.strictEqual(budget.totalPromptTokens, 0);
-  assert.strictEqual(budget.totalCostUsd, 0);
+  const out = await wrapped.generate({
+    messages: [{ role: 'user', content: 'x'.repeat(4000) }],
+    tools: [],
+  });
+  assert.ok(budget.totalPromptTokens > 0, '缺 usage 也要有估算 token 进预算');
+  assert.ok(budget.totalCostUsd > 0, '成本不能永远是 0（否则硬熔断永不触发）');
+  assert.strictEqual(out.usage?.estimated, true, '估算用量必须显式标记，不得冒充精确值');
+  assert.ok((out.usage?.promptTokens ?? 0) > 0);
 });
 
 test('stream 缺失时回退 generate 并记账', async () => {

@@ -12,4 +12,11 @@ export interface ModelUsage {
    * 否则会把「无数据」误算成「缓存全未命中」，拉低统计出的平均命中率。
    */
   readonly cachedPromptTokens?: number | undefined;
+  /**
+   * 该用量是**本地估算**（端点未回传 usage，2026-10-21）。
+   *
+   * 成本预算在缺 usage 时按本地 token 估算记账并置位本字段；读方（UI/统计）应把这类
+   * 数字标注为估算，不能与厂商回传的精确值混为一谈。
+   */
+  readonly estimated?: boolean | undefined;
 }

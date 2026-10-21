@@ -126,6 +126,36 @@ export class A2aServer {
   }
 
   /**
+   * 校验 A2A v1 请求的签名（配置了身份时强制）。
+   *
+   * 断言位置兼容两种：顶层 `params.assertion`（传输层把 HTTP `Authorization` 原文放入），
+   * 或 `params.message.metadata.assertion`（A2A 消息元数据形态）。
+   * @param params 请求参数。
+   * @returns 无返回值；缺失/验签失败时抛 `UNAUTHORIZED`。
+   */
+  private assertV1(params: unknown): void {
+    if (this.identity === undefined) {
+      return;
+    }
+    const payload = params as {
+      readonly assertion?: unknown;
+      readonly message?: { readonly metadata?: { readonly assertion?: unknown } };
+    };
+    const raw =
+      typeof payload.assertion === 'string'
+        ? payload.assertion
+        : typeof payload.message?.metadata?.assertion === 'string'
+          ? payload.message.metadata.assertion
+          : undefined;
+    if (raw === undefined) {
+      throw new Error('UNAUTHORIZED: 缺失 v1 请求签名');
+    }
+    if (!this.verifyAssertion(raw)) {
+      throw new Error('UNAUTHORIZED: v1 请求验签失败');
+    }
+  }
+
+  /**
    * fail-closed 验签：未配置身份即放行（零破坏）；配置了身份则必须验过。
    * 接受两种原文形态——裸签名信封，或 HTTP `Authorization` 头形态
    * （`AgentAssertion <envelope>`，即 `AgentIdentityPort.authorizationHeader()` 的直接产物）。
@@ -174,10 +204,16 @@ export class A2aServer {
       return await this.handler.handle(req);
     }
     // A2A v1.0 最小互操作面：message/send / tasks/get / agent/getCard。
+    // 2026-10-21：v1 的 message/send 与 tasks/get 此前**完全绕过验签**（配置了身份也能免签
+    // 委托/读任务），与类注释「对所有入站请求强制验签」相反。现在按同一口径校验：
+    // 断言可放在 `params.assertion` 或 `message.metadata.assertion`（HTTP 头形态由传输层
+    // 直接透传为 `params.assertion` 即可）；agent/getCard 是公开能力声明，不要求签名。
     if (method === A2A_MESSAGE_SEND) {
+      this.assertV1(params);
       return await this.handleV1Message(params);
     }
     if (method === A2A_TASKS_GET) {
+      this.assertV1(params);
       const id = (params as { id?: unknown }).id;
       const task = typeof id === 'string' ? this.tasks.get(id) : undefined;
       if (task === undefined) throw new Error(`未知任务: ${String(id)}`);
