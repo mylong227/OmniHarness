@@ -23,6 +23,15 @@ export interface McpConnectionHandle {
   readonly info: McpInitializeResult;
   /** 关闭连接（幂等：重复调用无副作用）。 */
   readonly close: () => void;
+  /**
+   * 订阅「连接已断开」（进程退出 / 传输关闭，可选）。
+   *
+   * 网关用它把连接标记为失效，下一次工具调用按需重连；不支持该信号的连接器
+   * 可不实现（则只能等调用超时才发现）。
+   * @param listener 断开回调。
+   * @returns 无返回值。
+   */
+  onExit?(listener: () => void): void;
 }
 
 /**

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 审批上行**不会永久挂起**的回归（2026-09-22，审计 P2）。
  *
  * 被修的缺陷：`ServerEventBridge.requestApproval` 只登记 resolver 后**死等**，而客户端可随时消失
@@ -121,8 +121,8 @@ test('④ 传输层：SSE/WS 关闭触发一次「全部断开」回调（仅在
   };
   const sse1 = mkSse();
   const sse2 = mkSse();
-  transport.registerSse(sse1);
-  transport.registerSse(sse2);
+  transport.sse.register(sse1);
+  transport.sse.register(sse2);
   sse1.emit('close');
   assert.strictEqual(gone, 0, '仍有客户端在线时不得触发');
   sse2.emit('close');

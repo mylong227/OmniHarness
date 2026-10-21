@@ -45,6 +45,8 @@ export class McpProtocol {
   public static readonly METHOD_TOOLS_LIST = 'tools/list';
   /** 方法名：调用工具。 */
   public static readonly METHOD_TOOLS_CALL = 'tools/call';
+  /** 通知名：服务端工具列表变化（2026-10-21；客户端据此刷新注册）。 */
+  public static readonly NOTIFICATION_TOOLS_LIST_CHANGED = 'notifications/tools/list_changed';
   /** 方法名：列举资源。 */
   public static readonly METHOD_RESOURCES_LIST = 'resources/list';
   /** 方法名：读取资源。 */

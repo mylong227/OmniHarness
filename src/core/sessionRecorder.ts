@@ -22,6 +22,13 @@ export class SessionRecorder {
   private readonly sid: string;
   /** 已索引进检索端口的事件序号（仅内容事件递增，保证检索文档 seq 单调）。 */
   private seq = 0;
+  /**
+   * 下一条事件要用的**会话内单调序号**（2026-10-21）。
+   *
+   * 与上面检索用的 `seq` 是两件事：这里是事件流对账/SSE `Last-Event-ID` 的序号，
+   * 每条事件都递增；回卷后**不回退**（高水位），避免重连客户端把回卷后的事件当成重复。
+   */
+  private eventSeq = 1;
   /** 本回合起点在事件日志中的下标（#OBS-10）；0 = 未标记，等同全文起点。 */
   private turnStartIndex = 0;
 
@@ -36,6 +43,15 @@ export class SessionRecorder {
     private readonly retrieval?: RetrievalPort,
   ) {
     this.sid = sessionId;
+    // hydrate 的历史可能已有 seq（新存档）或没有（旧存档）：都从「长度/最大值 + 1」续编。
+    const history = log.all();
+    let maxSeq = 0;
+    for (const event of history) {
+      if (typeof event.seq === 'number' && event.seq > maxSeq) {
+        maxSeq = event.seq;
+      }
+    }
+    this.eventSeq = Math.max(history.length, maxSeq) + 1;
   }
 
   /**
@@ -312,17 +328,21 @@ export class SessionRecorder {
    * @returns 原样返回该事件（append → emit → 索引 三步完成后）。
    */
   private record(event: SessionEvent): SessionEvent {
-    this.log.append(event);
+    // 2026-10-21：每条事件都带会话内单调 seq；旧事件（外部构造/旧存档）保持原样。
+    const recorded: SessionEvent =
+      event.seq === undefined ? { ...event, seq: this.eventSeq } : event;
+    this.eventSeq = Math.max(this.eventSeq, (recorded.seq ?? 0) + 1);
+    this.log.append(recorded);
     try {
-      this.events.emit(event);
+      this.events.emit(recorded);
     } catch (error) {
       log.warn('session.event.emit.failed', {
-        type: event.type,
+        type: recorded.type,
         error: error instanceof Error ? error.message : String(error),
       });
     }
-    this.indexToRetrieval(event);
-    return event;
+    this.indexToRetrieval(recorded);
+    return recorded;
   }
 
   /**

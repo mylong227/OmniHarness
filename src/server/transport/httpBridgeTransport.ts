@@ -1,8 +1,7 @@
-import { type ServerResponse } from 'node:http';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../core/jsonRpc.ts';
 import type { Transport } from './lineTransport.ts';
 import { type WsConnection } from './wsConnection.ts';
-import { SseBackpressureGuard } from './sseBackpressureGuard.ts';
+import { SseFanout } from './sseFanout.ts';
 import { EnterpriseAuth } from '../../enterprise/index.ts';
 import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
 
@@ -64,13 +63,20 @@ export class HttpBridgeTransport implements Transport {
   private callback: ((message: RpcMessage) => void) | undefined;
   /** 等待响应的请求表：请求 id → 收尾通道（本传输只用成功通道，见 send）。 */
   private readonly pending = new PendingRequests<number | string, RpcMessage>();
-  /** SSE 长连接客户端集合（连接断开自动移除）。 */
-  private readonly sseClients = new Set<ServerResponse>();
   /**
-   * SSE 客户端背压守卫：委托 {@link SseBackpressureGuard} 跟踪每个慢客户端连续写失败次数，
-   * 超阈值即丢弃该客户端（fail-closed 偏严，避免单条慢连接拖垮服务端事件总线）。
+   * SSE 扇出器（连接集合 / 背压 / `thread.event` 重放历史，2026-10-21 抽离）。
+   *
+   * 宿主只保留一个字段：`sse.register(...)` 与 `sse.broadcast(...)`。这样
+   * `HttpBridgeTransport` 不再因重连重放的状态而越过「上帝类」属性/方法数门禁。
    */
-  private readonly sseBackpressure = new SseBackpressureGuard();
+  public readonly sse = new SseFanout({
+    onClientAdded: () => {
+      this.hadClients = true;
+    },
+    onClientsGone: () => {
+      this.notifyIfAllClientsGone();
+    },
+  });
   /** WebSocket 客户端集合（连接关闭自动移除）。 */
   private readonly wsClients = new Set<WsConnection>();
   /** 企业鉴权门禁（D2，opt-in）：设置后所有入站 RPC 调用需有效 Bearer 令牌，fail-closed。 */
@@ -120,7 +126,7 @@ export class HttpBridgeTransport implements Transport {
    * @returns 无返回值。
    */
   private notifyIfAllClientsGone(): void {
-    const empty = this.sseClients.size === 0 && this.wsClients.size === 0;
+    const empty = this.sse.count() === 0 && this.wsClients.size === 0;
     if (empty && this.hadClients) {
       this.hadClients = false;
       this.onAllClientsGone?.();
@@ -276,45 +282,12 @@ export class HttpBridgeTransport implements Transport {
   }
 
   /**
-   * 注册 SSE 客户端。
-   * @param response event-stream 响应对象（连接关闭时自动移出集合）。
-   * @returns 无返回值。
-   */
-  public registerSse(response: ServerResponse): void {
-    this.sseClients.add(response);
-    this.hadClients = true;
-    response.on('close', () => {
-      this.sseClients.delete(response);
-      this.sseBackpressure.remove(response);
-      this.notifyIfAllClientsGone();
-    });
-  }
-
-  /**
-   * 广播通知给全部 SSE 客户端。
-   * @param message 通知消息（SSE data 帧与 WS 文本帧各发一份）。
+   * 广播通知给全部 SSE / WS 客户端（SSE 由 {@link SseFanout} 处理 id 与重放）。
+   * @param message 通知消息。
    * @returns 无返回值。
    */
   private broadcast(message: RpcMessage): void {
-    const ssePayload = `data: ${JSON.stringify(message)}\n\n`;
-    for (const client of this.sseClients) {
-      // 背压兜底：对端消费慢、`write` 返回 false 时累计计数，连续超限即丢弃慢客户端
-      // （宁可少推一个慢连接，也不让服务端事件总线被单条慢连接拖垮）。
-      if (client.write(ssePayload)) {
-        this.sseBackpressure.clear(client);
-        continue;
-      }
-      if (this.sseBackpressure.hit(client)) {
-        this.sseClients.delete(client);
-        try {
-          client.end();
-        } catch {
-          // 已断开：忽略
-        }
-        this.notifyIfAllClientsGone();
-        continue;
-      }
-    }
+    this.sse.broadcast(message);
     const wsPayload = JSON.stringify(message);
     for (const client of this.wsClients) {
       client.send(wsPayload);

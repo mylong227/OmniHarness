@@ -27,6 +27,15 @@ import type {
  */
 export interface McpClientPort {
   /**
+   * 订阅「工具列表变化」通知（`notifications/tools/list_changed`，可选）。
+   *
+   * 不支持该通知的客户端可不实现；网关只在方法存在时挂回调，并重新 `listTools` +
+   * 替换本地注册（2026-10-21）。
+   * @param listener 变化回调。
+   * @returns 无返回值。
+   */
+  onToolsChanged?(listener: () => void): void;
+  /**
    * 握手，返回服务端信息与能力。
    *
    * @returns initialize 结果（协议版本 / 能力 / serverInfo）。

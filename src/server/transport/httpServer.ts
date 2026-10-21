@@ -274,7 +274,7 @@ export class HttpServer {
         return;
       }
       if (request.method === 'GET' && path === '/events') {
-        this.openSse(response);
+        this.openSse(request, response);
       } else if (request.method === 'GET' && path === '/metrics') {
         this.serveMetrics(response);
       } else if (request.method === 'GET' && path === '/healthz') {
@@ -345,10 +345,11 @@ export class HttpServer {
 
   /**
    * SSE 长连接。
+   * @param request 原始请求（读取断线重连的 `Last-Event-ID`）。
    * @param response 响应对象（切换为 event-stream 后交给 bridge 注册广播）
    * @returns 无返回值。
    */
-  private openSse(response: ServerResponse): void {
+  private openSse(request: IncomingMessage, response: ServerResponse): void {
     // 客户端断开后 bridge 向该 response 写 SSE 帧会抛 'error'，若无人处理即 uncaughtException
     // 终止进程（每帧通知都可能触发，2026-09-28 审计）。吞掉写失败，进程不受影响。
     response.on('error', () => {});
@@ -358,7 +359,13 @@ export class HttpServer {
       Connection: 'keep-alive',
     });
     response.write('retry: 1000\n\n');
-    this.options.bridge.registerSse(response);
+    // EventSource 重连会自动带 Last-Event-ID 头；数值非法（或首次连接）时不重放。
+    const raw = request.headers['last-event-id'];
+    const lastEventId = typeof raw === 'string' ? Number(raw) : NaN;
+    this.options.bridge.sse.register(
+      response,
+      Number.isFinite(lastEventId) ? lastEventId : undefined,
+    );
   }
 
   /**

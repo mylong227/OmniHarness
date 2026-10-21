@@ -36,9 +36,20 @@ export class McpClient implements McpClientPort {
   private nextId = 1;
   /** 是否已关闭（关闭后拒绝新请求，并立即拒绝全部在途请求）。 */
   private closed = false;
+  /** 工具列表变化监听（可缺省；`notifications/tools/list_changed` 到达时触发）。 */
+  private toolsChanged: (() => void) | undefined;
 
   public constructor(private readonly options: McpClientOptions) {
     options.transport.onMessage((message) => this.handle(message));
+  }
+
+  /**
+   * 订阅工具列表变化通知（MCP `notifications/tools/list_changed`）。
+   * @param listener 变化回调（重复注册以最后一次为准）。
+   * @returns 无返回值。
+   */
+  public onToolsChanged(listener: () => void): void {
+    this.toolsChanged = listener;
   }
 
   /**
@@ -155,14 +166,26 @@ export class McpClient implements McpClientPort {
     return response.result;
   }
 
-  /** 处理入站消息（响应按 id 关联，通知忽略）。
+  /** 处理入站消息（响应按 id 关联；工具列表变化通知触发回调）。
    * @returns 无返回值。
    */
   private handle(message: RpcMessage): void {
     if (jsonRpc.isRequest(message)) {
+      // 服务端反向请求（sampling / roots 等）本客户端未实现：显式回「方法不存在」，
+      // 避免对端永久等待。此前直接 return，请求方只能等超时。
+      this.options.transport.send(
+        jsonRpc.errorResponse(
+          message.id,
+          McpProtocol.ERROR_METHOD_NOT_FOUND,
+          '客户端不支持服务端发起的方法',
+        ),
+      );
       return;
     }
     if (!('id' in message)) {
+      if ((message as { method?: string }).method === McpProtocol.NOTIFICATION_TOOLS_LIST_CHANGED) {
+        this.toolsChanged?.();
+      }
       return;
     }
     const handler = this.pending.take(Number(message.id));

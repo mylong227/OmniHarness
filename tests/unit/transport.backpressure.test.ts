@@ -1,4 +1,4 @@
-import { test } from 'vitest';
+﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { Duplex } from 'node:stream';
 import type { ServerResponse } from 'node:http';
@@ -138,7 +138,7 @@ test('HttpBridgeTransport 广播：SSE 慢客户端连续背压超阈值即丢�
   const transport = new HttpBridgeTransport();
   const res = new FakeSseResponse();
   res.writeReturns = false;
-  transport.registerSse(res as unknown as ServerResponse);
+  transport.sse.register(res as unknown as ServerResponse);
   for (let i = 0; i < 65; i += 1) {
     transport.notify('evt', { i });
   }
@@ -149,7 +149,7 @@ test('HttpBridgeTransport 广播：正常写回即清除背压计数', () => {
   const transport = new HttpBridgeTransport();
   const res = new FakeSseResponse();
   res.writeReturns = true;
-  transport.registerSse(res as unknown as ServerResponse);
+  transport.sse.register(res as unknown as ServerResponse);
   transport.notify('evt', { a: 1 });
   transport.notify('evt', { a: 2 });
   assert.strictEqual(res.dropped, false);

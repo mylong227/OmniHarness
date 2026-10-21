@@ -38,14 +38,16 @@ export class McpConnector implements McpConnectorPort {
   /**
    * server 是否在允许清单内（SEC-04）。
    *
-   * `OMNI_MCP_ALLOW` 为空/未设 ⇒ 不启用白名单（兼容既有配置）；设置后只允许逗号分隔的
-   * server 名，未登记一律拒连（fail-closed，而不是“先连上再问”）。
+   * `OMNI_MCP_ALLOW` / `OMNI_MCP_ALLOWLIST` 为空/未设 ⇒ 不启用白名单（兼容既有配置）；设置后只允许
+   * 逗号分隔的 server 名，未登记一律拒连（fail-closed，而不是“先连上再问”）。
+   * 两个环境变量名是历史分叉（连接器用前者、网关用后者）：2026-10-21 起**互为回退**，
+   * 避免「只设了一个名字，另一条路径不生效」。
    * @param name server 名。
    * @param env 环境变量（测试可注入）。
    * @returns 允许时为 true。
    */
   public static isAllowed(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
-    const raw = env['OMNI_MCP_ALLOW'];
+    const raw = env['OMNI_MCP_ALLOW'] ?? env['OMNI_MCP_ALLOWLIST'];
     if (raw === undefined || raw.trim() === '') return true;
     return raw
       .split(',')
@@ -105,6 +107,12 @@ export class McpConnector implements McpConnectorPort {
         close: () => {
           opened.client.close('MCP 连接已关闭');
           handle.close();
+        },
+        // 2026-10-21：进程退出/传输失败时通知网关（此前只能等下一次调用超时才暴露）。
+        onExit: (listener) => {
+          void handle.failure.catch(() => {
+            listener();
+          });
         },
       };
     } catch (error) {

@@ -44,6 +44,18 @@ export class McpStdioTransport {
     stdin.on('error', (error: Error) => {
       log.warn('mcp.stdio.stdinFailed', { error: error.message });
     });
+    // stderr **必须持续排水**（2026-10-21）：管道默认 buffer 约 64KB，服务端日志写满即阻塞，
+    // 表现为「MCP 服务器活着但所有调用超时」。只记 debug、截断单条，避免日志刷屏。
+    const stderr = child.stderr;
+    if (stderr !== null) {
+      stderr.on('data', (chunk: Buffer) => {
+        const text = chunk.toString('utf8').trim();
+        if (text !== '') {
+          log.debug('mcp.stdio.stderr', { text: text.slice(0, 2000) });
+        }
+      });
+      stderr.on('error', () => undefined);
+    }
     const transport = new LineTransport(
       (onLine) => {
         reader.on('line', onLine);
