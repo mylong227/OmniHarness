@@ -201,6 +201,11 @@ const SERVER_ONLY_FIELDS = {
     'I5a 只扫 src/cli/，扫不到 web/ 下的这条消费链，故按本清单登记（与 workspaces 同性质：' +
     '真被消费、只是不在 CLI 层）。若哪天 locale 改由 CLI 消费（例如 `--locale` 旗标），' +
     '请删掉本条 —— 反向检查会因为键仍在清单里而报警。',
+  apiKeyDpapi:
+    'Windows DPAPI 密文由 `configFile` 读路径解密为 apiKey（DpapiConfig.open），CLI 只消费解密后的 apiKey；' +
+    '该字段是落盘中间态，不是 CLI 旋钮。',
+  providerKeysDpapi:
+    '同上：`configFile` 读路径解密为 providerKeys，CLI 只消费明文映射；该字段是落盘中间态。',
 };
 /**
  * I7 豁免清单：**仅编程注入可达**的装配门（`partial.X?.enabled`——FileConfig 无键、CLI 无旗标）。

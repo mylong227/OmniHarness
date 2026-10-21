@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { profileLoader } from './profileLoader.ts';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicy.ts';
 import { ConfigError } from './configError.ts';
+import { DpapiConfig } from './dpapiConfig.ts';
 
 export type { FileMcpServer } from '../ports/config/fileMcpServer.ts';
 
@@ -81,7 +82,7 @@ export class ConfigFile {
     }
     try {
       const raw = ConfigFile.stripBom(readFileSync(filePath, 'utf8'));
-      return JSON.parse(raw) as FileConfig;
+      return DpapiConfig.open(JSON.parse(raw) as FileConfig);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       throw new ConfigError(`配置文件解析失败: ${filePath} —— ${reason}`);
@@ -108,7 +109,9 @@ export class ConfigFile {
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    const normalized = ConfigError.normalizeConfig(cfg as Record<string, unknown>);
+    const normalized = ConfigError.normalizeConfig(
+      DpapiConfig.seal(cfg) as Record<string, unknown>,
+    );
     // 配置文件可能含 apiKey / providerKeys：POSIX 下按 0600 落盘，且对**已存在**文件补 chmod
     //（writeFileSync 的 mode 只在创建时生效）。Windows 上 chmod 语义有限，失败忽略。
     writeFileSync(filePath, JSON.stringify(normalized, null, 2) + '\n', {
@@ -182,7 +185,13 @@ export class ConfigFile {
     if (typeof parsed !== 'object' || parsed === null) {
       throw new ConfigError(`配置文件 ${filePath} 顶层应为对象`);
     }
-    return ConfigError.normalizeConfig(parsed as Record<string, unknown>);
+    const normalized = ConfigError.normalizeConfig(parsed as Record<string, unknown>);
+    try {
+      return DpapiConfig.open(normalized);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new ConfigError(`配置文件 ${filePath} 凭据解密失败: ${reason}`);
+    }
   }
 }
 

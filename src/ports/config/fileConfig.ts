@@ -20,6 +20,13 @@ export interface FileConfig {
   readonly modelAdapter?: ModelAdapterId;
   readonly baseUrl?: string;
   readonly apiKey?: string;
+  /**
+   * Windows DPAPI 加密后的 API Key（2026-10-21）。
+   *
+   * 读入时由 `DpapiConfig.open` 解密到 `apiKey`；写回时 `save` 自动把 `apiKey` 加密成
+   * 本字段并删除明文。仅 Windows 生效；非 Windows 保持明文 + 0600。
+   */
+  readonly apiKeyDpapi?: string;
   readonly model?: string;
   readonly storageAdapter?: 'memory' | 'jsonl' | 'sqlite';
   readonly storageDir?: string;
@@ -205,4 +212,6 @@ export interface FileConfig {
    * 仅落盘本地配置文件；config.get 回传时一律打码，凭据原文不出服务端。
    */
   readonly providerKeys?: Record<string, string>;
+  /** Windows DPAPI 加密后的多厂商 Key（键为厂商标识；读入时解密到 providerKeys）。 */
+  readonly providerKeysDpapi?: Record<string, string>;
 }

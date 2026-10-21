@@ -181,16 +181,22 @@ export class ConfigError extends OmniError {
    * @returns {void} - result
    */
   public static validateProviderKeys(cfg: FileConfig): void {
-    const providerKeys = (cfg as Record<string, unknown>).providerKeys;
-    if (providerKeys === undefined) {
-      return;
-    }
-    if (typeof providerKeys !== 'object' || providerKeys === null || Array.isArray(providerKeys)) {
-      throw new ConfigError('providerKeys 应为「厂商标识 → Key」对象');
-    }
-    for (const [vendor, key] of Object.entries(providerKeys)) {
-      if (typeof key !== 'string' || key.length === 0) {
-        throw new ConfigError(`providerKeys["${vendor}"] 应为非空字符串`);
+    for (const field of ['providerKeys', 'providerKeysDpapi'] as const) {
+      const providerKeys = (cfg as Record<string, unknown>)[field];
+      if (providerKeys === undefined) {
+        continue;
+      }
+      if (
+        typeof providerKeys !== 'object' ||
+        providerKeys === null ||
+        Array.isArray(providerKeys)
+      ) {
+        throw new ConfigError(`${field} 应为「厂商标识 → Key」对象`);
+      }
+      for (const [vendor, key] of Object.entries(providerKeys)) {
+        if (typeof key !== 'string' || key.length === 0) {
+          throw new ConfigError(`${field}["${vendor}"] 应为非空字符串`);
+        }
       }
     }
   }
@@ -534,6 +540,7 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
 const STRING_FIELDS: ReadonlySet<string> = new Set([
   'baseUrl',
   'apiKey',
+  'apiKeyDpapi',
   'model',
   'storageDir',
   'workspace',
@@ -571,6 +578,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'longTermMemoryKeyFile',
   'modelRouter',
   'providerKeys',
+  'providerKeysDpapi',
   'workspaces',
   'permission',
   'ssrfPolicy',

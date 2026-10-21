@@ -27,6 +27,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ServerConfigStore } from '../../src/server/services/serverConfigStore.ts';
 import { ModelCatalogService } from '../../src/server/services/modelCatalogService.ts';
+import { ConfigFile } from '../../src/config/configFile.ts';
 
 /** 用户级 Key（假值，绝不发网；只断言"看得见/不回显"）。 */
 const USER_KEY = 'sk-user-layer-deepseek-0001';
@@ -109,10 +110,17 @@ test('③ 写路径只落用户级：凭据进用户级文件、绝不进项目�
       '项目文件不得承载凭据（重启解析到别的工作区就读不到了）',
     );
     // 用户级文件：新 Key 落地，且**既有**用户级 Key 不被整文件覆盖丢掉。
-    const userFile = JSON.parse(
-      readFileSync(join(home, '.omniharness', 'omniharness.json'), 'utf8'),
-    ) as { providerKeys?: Record<string, string> };
+    const userPath = join(home, '.omniharness', 'omniharness.json');
+    const userFile = new ConfigFile().load(userPath) as {
+      providerKeys?: Record<string, string>;
+    };
     assert.strictEqual(userFile.providerKeys?.['deepseek'], 'sk-project-layer-0003');
+    if (process.platform === 'win32') {
+      assert.ok(
+        !readFileSync(userPath, 'utf8').includes('sk-project-layer-0003'),
+        'Windows 用户级文件必须以 DPAPI 密文落盘，不得出现 Key 原文',
+      );
+    }
     assert.strictEqual(
       userFile.providerKeys?.['openai'],
       'sk-user-layer-openai-0002',
