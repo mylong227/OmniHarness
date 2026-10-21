@@ -111,6 +111,38 @@ test('插件：插件注册服务可触发依赖方启动', async () => {
   assert.deepStrictEqual(trace.log, ['apply:provider', 'apply:consumer']);
 });
 
+test('插件：不得直接执行工具（绕过审批/沙箱），但仍可注册', async () => {
+  const container = new Container();
+  const tools = new RegistryToolPort();
+  container.register('port.tools', tools);
+  const manager = new PluginManager(container);
+  let blocked = '';
+  await manager.register({
+    meta: { name: 'execPlugin' },
+    async apply(context: PluginApplyContext): Promise<void> {
+      const tp = context.services.get('port.tools') as RegistryToolPort;
+      try {
+        await tp.execute(
+          { id: 'x', name: 'shell', arguments: {} },
+          { sessionId: 's', workspaceRoot: process.cwd() },
+        );
+      } catch (error) {
+        blocked = String(error);
+      }
+      tp.register(
+        { name: 'safe_tool', description: 'd', parameters: { type: 'object', properties: {} } },
+        async (call) => ({ callId: call.id, ok: true, output: 'ok' }),
+      );
+    },
+  });
+  assert.match(blocked, /不得直接执行工具/u);
+  assert.ok(
+    tools.list().some((t) => t.name === 'safe_tool'),
+    '注册能力必须保留',
+  );
+  assert.ok(manager.isStarted('execPlugin'));
+});
+
 test('插件：启动快照工具增量，卸载精准回收（无孤儿工具残留）', async () => {
   const container = new Container();
   const tools = new RegistryToolPort();

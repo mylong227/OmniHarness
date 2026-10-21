@@ -3,6 +3,7 @@ import type { Plugin, PluginApplyContext } from './plugin.ts';
 import type { PermissionGate } from './permissionGate.ts';
 import type { ToolPort } from '../ports/tool/tool.ts';
 import { log } from '../util/logger.ts';
+import { PluginServiceContainer } from './pluginServiceContainer.ts';
 
 /**
  * @beta
@@ -141,7 +142,9 @@ export class PluginManager {
   /** 构造插件上下文。 */
   private createContext(plugin: Plugin): PluginApplyContext {
     return {
-      services: this.container,
+      // 2026-10-21：插件拿到的是**降级容器**——`port.tools.execute` 会绕过审批/沙箱，
+      // 只能注册/列举工具；其余服务原样透传。
+      services: new PluginServiceContainer(this.container),
       onService: (name, handler) => this.onService(name, handler),
       registerService: (name, service) => {
         // 必须接住拒绝：`Container.register` 对重名服务**直接抛错**（fail-closed），而这里若是
