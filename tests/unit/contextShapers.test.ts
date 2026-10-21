@@ -44,6 +44,25 @@ test('CTX-01：超过预算比例时剪旧工具结果，并消毒 orphan tool',
   assert.ok(out.messages.some((message) => message.content === '继续'));
 });
 
+test('CTX-01：默认模式裁剪**所有**超长工具结果，重复应用结果稳定（防每步回滚）', () => {
+  const long = 'z'.repeat(30_000);
+  const messages: ModelMessage[] = [
+    { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'read_file', arguments: {} }] },
+    { role: 'tool', content: long, toolCallId: 'c1' },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'c2', name: 'read_file', arguments: {} }] },
+    { role: 'tool', content: long, toolCallId: 'c2' },
+  ];
+  const first = ContextShapers.apply(messages, { maxToolChars: 1000 });
+  const second = ContextShapers.apply(messages, { maxToolChars: 1000 });
+  assert.strictEqual(
+    first.report.trimmedToolResults,
+    2,
+    '旧工具结果同样必须被裁（否则下一步恢复全文）',
+  );
+  assert.deepStrictEqual(first.messages, second.messages, '同一输入重复应用必须逐字节稳定');
+  assert.ok(first.messages[1]!.content.length < long.length);
+});
+
 test('CTX-01：小消息不做任何改动', () => {
   const messages: ModelMessage[] = [
     { role: 'user', content: 'hi' },

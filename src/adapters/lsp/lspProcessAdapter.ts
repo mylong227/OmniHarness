@@ -47,6 +47,14 @@ export class LspProcessAdapter implements LspPort {
   /** 端口名（便于调试/状态展示）：固定为 'lsp-process'。 */
   public readonly name = 'lsp-process';
 
+  /**
+   * 当前连接是否就绪（懒启动前为 false）。
+   * @returns 已连接且进程未死亡时为 true。
+   */
+  public get ready(): boolean {
+    return this.conn !== undefined && !this.conn.isDead;
+  }
+
   /** 默认等待诊断推送的毫秒数。 */
   public static readonly DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5000;
 
@@ -328,8 +336,19 @@ export class LspProcessAdapter implements LspPort {
    
    * @returns 无返回值。
    */
+  /**
+   * 确保文档在服务器侧是**最新内容**：首开发 didOpen（版本 1），已开则发 didChange 刷新。
+   *
+   * 2026-10-21 修：此前这里对已打开文件直接早退，于是 `definition` / `references` /
+   * `hover` / `codeAction` 在编辑之后仍拿**旧文本**做分析（诊断路径因为单独调
+   * `syncDocument` 才幸免）。现在所有查询入口都经这里同步，语义与诊断一致。
+   *
+   * @param file 目标文件绝对路径
+   * @returns 同步完成
+   */
   private async didOpen(file: string): Promise<void> {
     if (this.opened.has(file)) {
+      await this.syncDocument(file);
       return;
     }
     this.opened.add(file);

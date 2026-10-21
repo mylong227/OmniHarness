@@ -32,9 +32,19 @@ export class LspStatusTool {
    * 执行 lsp_status：返回后端名与就绪状态。
    * @param call 模型传入的工具调用（本工具无参数）。
    * @param _context 工具执行上下文（本工具不依赖，保留签名兼容）。
-   * @returns 始终 ok:true，output 含后端名与可用性说明。
+   * @returns 始终 ok:true；`ready` 为 false 时如实说明「未连接/首次查询时懒启动」，不再恒报可用。
    */
   public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
-    return { callId: call.id, ok: true, output: `LSP 代码导航可用｜后端: ${this.lsp.name}` };
+    const state =
+      this.lsp.ready === undefined
+        ? '可用'
+        : this.lsp.ready
+          ? '已就绪'
+          : '未连接（首次查询时自动启动）';
+    return {
+      callId: call.id,
+      ok: true,
+      output: `LSP 代码导航${state}｜后端: ${this.lsp.name}`,
+    };
   }
 }

@@ -18,6 +18,11 @@ import type { LspWorkspaceSymbol } from './lspWorkspaceSymbol.ts';
 export interface LspPort {
   /** 端口名（便于调试/状态展示）。 */
   readonly name: string;
+  /**
+   * 连接是否已就绪（可选）：仅表示**当前已启动且进程存活**，不代表首次查询会失败。
+   * 未启动时为 false（懒启动语义），`lsp_status` 据此区分「已就绪」与「未连接」。
+   */
+  readonly ready?: boolean;
   /** 跳转到定义：返回 0..n 个位置（部分语言/符号可能返回多个）。 */
   definition(file: string, line: number, character: number): Promise<readonly LspLocation[]>;
   /** 查找引用：返回所有引用位置（含声明处，若服务器支持）。 */

@@ -12,9 +12,11 @@ export interface ContextShaperOptions {
   /** 上下文窗口 token 数（缺省 128k，用于估算字符预算）。 */
   readonly contextWindowTokens?: number;
   /**
-   * 激进模式（默认 false）：为 true 时才裁剪**所有**超长工具结果并剪旧工具轮。
-   * 默认只裁**最新一条**工具结果——旧消息一旦改写，前缀缓存从改动点起全部失效；
-   * 只在 prompt-too-long 的强制压缩路径才接受这个代价。
+   * 激进模式（默认 false）：为 true 时**额外**剪掉较旧的工具轮。
+   *
+   * 工具结果的头尾裁剪**不再**受此开关控制（2026-10-21）：裁剪必须对每一条消息
+   * 确定性生效，否则「本步只裁最新一条、下一步旧消息恢复全文」会让同一段历史
+   * 在请求之间反复改字节——既省不下 token，又从改动点起打断前缀缓存。
    */
   readonly aggressive?: boolean;
 }
@@ -62,10 +64,11 @@ export class ContextShapers {
   ): { readonly messages: readonly ModelMessage[]; readonly report: ContextShaperReport } {
     const beforeChars = ContextShapers.charsOf(messages);
     const aggressive = options.aggressive === true;
+    // 2026-10-21：头尾裁剪对所有超长工具结果生效（确定性）。只裁最新一条会让旧消息在
+    // 下一步恢复全文，token 省不下来且前缀缓存从该点断裂——这是实测的「每步回滚」缺陷。
     const trimmed = ContextShapers.trimToolResults(
       messages,
       options.maxToolChars ?? ContextShapers.DEFAULT_MAX_TOOL_CHARS,
-      aggressive,
     );
     const snipped = aggressive
       ? ContextShapers.snipStaleToolResults(trimmed.messages, {
@@ -87,7 +90,7 @@ export class ContextShapers {
   }
 
   /**
-   * 第一层：超长工具结果头尾裁剪。
+   * 第一层：超长工具结果头尾裁剪（对所有超长结果生效，保证跨步确定性）。
    * @param messages 消息列表。
    * @param maxChars 单条阈值。
    * @returns 裁剪后的消息与条数。
@@ -95,16 +98,10 @@ export class ContextShapers {
   private static trimToolResults(
     messages: readonly ModelMessage[],
     maxChars: number,
-    all: boolean,
   ): { readonly messages: readonly ModelMessage[]; readonly count: number } {
     let count = 0;
-    let lastTool = -1;
-    for (let i = 0; i < messages.length; i += 1) {
-      if (messages[i]?.role === 'tool') lastTool = i;
-    }
-    const out = messages.map((message, index) => {
+    const out = messages.map((message) => {
       if (message.role !== 'tool' || message.content.length <= maxChars) return message;
-      if (!all && index !== lastTool) return message;
       count += 1;
       const head = message.content.slice(0, Math.floor(maxChars * 0.7));
       const tail = message.content.slice(-Math.floor(maxChars * 0.2));
