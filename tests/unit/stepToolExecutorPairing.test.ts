@@ -273,3 +273,27 @@ test('对照：正常成功路径的配对不受本次修复影响', async () =>
   assert.strictEqual(typeof StepContextBuilder, 'function');
   assert.strictEqual(eventFactory.sessionMeta('s', '/w').type, 'session_meta');
 });
+
+test('provenance shadow：命中不可信片段只记录、不拦执行；enforce 才拦', async () => {
+  const snippet = 'EXTERNAL_UNTRUSTED_SNIPPET_1234567890';
+  const run = async (mode: 'shadow' | 'enforce'): Promise<RecordingTools> => {
+    const f = fixture();
+    f.deps.recorder.toolCall('fetch-1', 'web_fetch', { url: 'https://example.com' });
+    f.deps.recorder.toolResult('fetch-1', true, snippet);
+    const previous = process.env.OMNI_PROVENANCE_GUARD;
+    process.env.OMNI_PROVENANCE_GUARD = mode;
+    try {
+      const tools = f.deps.tools as RecordingTools;
+      await new StepToolExecutor(f.deps).run(
+        [{ id: 'w1', name: 'write_file', arguments: { path: 'a.ts', content: snippet } }],
+        ctx,
+      );
+      return tools;
+    } finally {
+      if (previous === undefined) delete process.env.OMNI_PROVENANCE_GUARD;
+      else process.env.OMNI_PROVENANCE_GUARD = previous;
+    }
+  };
+  assert.deepStrictEqual((await run('shadow')).executed, ['write_file'], 'shadow 原样放行');
+  assert.deepStrictEqual((await run('enforce')).executed, [], 'enforce 拒绝执行');
+});

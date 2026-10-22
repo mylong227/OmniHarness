@@ -37,6 +37,8 @@ export class StepToolExecutor {
   private readonly scheduler: ToolScheduler;
   /** 本回合的不可信来源追踪（SEC-03）：只在开启时生效。 */
   private provenance: ProvenanceTracker | undefined;
+  /** 来源追踪模式（off/shadow/enforce；shadow 只记录不拦）。 */
+  private provenanceMode: EnforcementMode = 'off';
 
   /**
    * @param deps 单步依赖契约（此处消费门禁相关字段：gate / approvals / sandbox / escalation /
@@ -73,10 +75,18 @@ export class StepToolExecutor {
     // V2 取消传播：本会话取消令牌的 AbortSignal 必须随工具上下文下传，否则长任务工具
     // （subagent / run_workflow / run_goal）无从得知父已取消，会继续派生并烧 token。
     const toolContext = this.withCancelSignal(context);
-    this.provenance =
-      process.env.OMNI_PROVENANCE_GUARD === '1'
-        ? ProvenanceTracker.fromEvents(this.deps.recorder.allEvents())
-        : undefined;
+    const raw = process.env.OMNI_PROVENANCE_GUARD;
+    this.provenanceMode =
+      raw === undefined || raw === ''
+        ? 'off'
+        : raw === '1' || raw === 'true'
+          ? 'enforce'
+          : raw === '0' || raw === 'false'
+            ? 'off'
+            : EnforcementModeResolver.modeOf(raw);
+    this.provenance = EnforcementModeResolver.observes(this.provenanceMode)
+      ? ProvenanceTracker.fromEvents(this.deps.recorder.allEvents())
+      : undefined;
     await this.scheduler.run(calls, async (call) => {
       const ok = await this.runToolCall(call, toolContext);
       return { callId: call.id, ok };
@@ -113,8 +123,13 @@ export class StepToolExecutor {
     ) {
       return false;
     }
+    if (this.provenanceMode === 'shadow') {
+      // shadow：跑检测、留证据，但原样放行（不伪造 tool_call/tool_result 配对）。
+      log.warn('tool.provenance.shadow_blocked', { tool: call.name, callId: call.id });
+      return false;
+    }
     const reason =
-      'SEC-03 来源追踪：该写类工具参数包含外部不可信工具输出片段，已拒绝（OMNI_PROVENANCE_GUARD=1）。';
+      'SEC-03 来源追踪：该写类工具参数包含外部不可信工具输出片段，已拒绝（OMNI_PROVENANCE_GUARD=enforce）。';
     log.warn('tool.provenance.blocked', { tool: call.name, callId: call.id });
     this.deps.recorder.toolCall(call.id, call.name, call.arguments);
     this.deps.recorder.toolResult(call.id, false, undefined, reason);
@@ -138,7 +153,7 @@ export class StepToolExecutor {
    * @returns 该调用是否成功（门禁拒绝、执行失败、链路异常均为 false）。
    */
   private async runToolCall(call: ToolCall, context: ToolContext): Promise<boolean> {
-    // SEC-03：不可信来源片段进入写类工具参数 ⇒ 显式开启时 fail-closed（先记配对事件）。
+    // SEC-03：不可信来源片段进入写类工具参数 ⇒ enforce 时 fail-closed（shadow 只记录）。
     if (this.blockedByProvenance(call)) return false;
     // 审批 + 沙箱门禁（用户配置策略层）：native 与 JS 路径共用同一道门禁，
     // 保证 --approval / --sandbox 在两种后端下行为一致（修复 #66 旁路缺陷）。

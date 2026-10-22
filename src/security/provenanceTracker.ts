@@ -8,7 +8,8 @@ import type { SessionEvent } from '../ports/runtime/event.ts';
  * 阻止“读到注入内容 → 原样写进文件/命令”的最短外泄路径。
  *
  * 边界：这是**字符串片段匹配**，不是数据流分析；会漏（改写/编码）也会误报（正常引用同一段文本）。
- * 因此默认关闭，只由 `OMNI_PROVENANCE_GUARD=1` 开启，并在拒绝原因里写清依据。
+ * 因此默认关闭，只由 `OMNI_PROVENANCE_GUARD=shadow|enforce` 开启
+ * （`shadow` 只记录本该拦截的证据、原样放行；`enforce` 才拒绝），并在拒绝原因里写清依据。
  */
 export class ProvenanceTracker {
   /** 需要视为不可信来源的工具名前缀/精确名。 */

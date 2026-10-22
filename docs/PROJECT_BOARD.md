@@ -4395,3 +4395,14 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 独立 Agent 复审 2 轮：首轮 2 项 must-fix（扩展名截断、URL 过滤死代码），修复后 **PASS**。
 
 **边界**：这是**提案器**，不是自动补丁器；真正落补丁仍需验证闭环（测试通过 + 独立审查）。
+
+## 45. 2026-10-22 来源追踪 shadow 档（P1-6 第一片）
+
+- `OMNI_PROVENANCE_GUARD` 从二值扩展为 `off / shadow / enforce`（兼容旧 `1`=enforce、`0`=off；未知值 fail-closed）。
+- `shadow`：对写类工具参数做不可信片段检测、`log.warn('tool.provenance.shadow_blocked')` 记录证据，但**原样放行**、不伪造 tool_call/result；
+  `enforce`：保留原有拒绝 + 配对事件；`off`：零开销、零行为变更。
+- 判据：`stepToolExecutorPairing` 新增 shadow/enforce 对照（shadow 执行成功、enforce 不执行）；6 例全绿。
+- tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 评审 **PASS**（无 must-fix）。
+
+**边界**：仍是字符串片段匹配（会漏改写/编码、会误报正常引用），不是数据流分析；本片只做 provenance 观测档，不含 egress proxy/完整 CaMeL。
