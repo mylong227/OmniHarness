@@ -11,6 +11,7 @@ import {
   type InjectionSelfCheckSummary,
 } from '../security/injectionSelfCheck.ts';
 import type { SandboxCapabilityEntry } from '../adapters/sandbox/sandboxCapabilityTable.ts';
+import { PluginWorkerMetrics } from '../plugin/worker/pluginWorkerMetrics.ts';
 
 /** 由**内核**强制隔离的 profile（其余为纯 TS 策略类：passthrough / policy / restricted）。 */
 const KERNEL_ENFORCED_PROFILES: ReadonlySet<string> = new Set([
@@ -133,6 +134,7 @@ export class DoctorRunner {
       injectionSelfCheck: this.checkInjectionSelfCheck(issues),
       pluginsDirReadable,
       permissionsManifestReadable,
+      workers: PluginWorkerMetrics.all(),
       issues,
     };
   }
@@ -338,6 +340,16 @@ export class DoctorRunner {
     );
     lines.push(`  插件目录可读      : ${report.pluginsDirReadable ? '是' : '否'}`);
     lines.push(`  权限清单可读      : ${report.permissionsManifestReadable ? '是' : '否'}`);
+    const workers = Object.entries(report.workers ?? {});
+    lines.push(
+      `  Worker 指标       : ${workers.length === 0 ? '无活动 Worker' : `${String(workers.length)} 个`}`,
+    );
+    for (const [name, metrics] of workers) {
+      lines.push(
+        `    ${name}: 激活 ${String(metrics.activations)} / 调用 ${String(metrics.calls)} / ` +
+          `失败 ${String(metrics.failures)} / 崩溃 ${String(metrics.crashes)}`,
+      );
+    }
     // 安全边界自述（G5）：不写"有沙箱"这种让人误以为已隔离的话，直接报实际强度与覆盖面。
     const security = report.security;
     const thresholds = Object.entries(security.injectionThresholds)

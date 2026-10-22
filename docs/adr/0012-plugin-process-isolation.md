@@ -57,13 +57,13 @@
 - **崩溃退避重启**：工具调用发现 Worker 非 ready 时，按 `baseDelayMs * 2^n`（上限
   `maxDelayMs`）重启并重放一次；`RemotePlugin.restart` 可配 `maxAttempts`，用尽后进入隔离态；
 - `PluginWorkerMetrics`：按插件统计激活/调用/失败/崩溃，停机日志输出快照；
+- `doctor` 报告新增 `workers` 段（按插件输出激活/调用/失败/崩溃）；
 - Loader 路由：`remote`/缺失 source → Worker，`bundled`/`local` → 进程内；
 - 宿主停机 `PluginManager.disposeAll` → `PluginHost.shutdown` 停止 Worker。
 
 尚未落地（后续阶段，不得宣称已具备）：
 
 - 更多能力（`store.*` / `events.emit` / `net.connect`）；
-- `plugin.worker.*` 事件面与 `doctor` 的 worker 段（当前指标只在进程内注册表 + 日志）；
 - 后台主动重启（当前是下一次工具调用触发退避重启，不是监护线程主动拉起）。
 
 ## 决策

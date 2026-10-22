@@ -96,6 +96,18 @@ export interface DoctorReport {
   readonly pluginsDirReadable: boolean;
   /** 权限清单是否可读（不存在时视为可读，不计入问题）。 */
   readonly permissionsManifestReadable: boolean;
+  /** Plugin Worker 运行期指标（按插件名；无 Worker 时为空对象）。 */
+  readonly workers?: Readonly<
+    Record<
+      string,
+      {
+        readonly activations: number;
+        readonly calls: number;
+        readonly failures: number;
+        readonly crashes: number;
+      }
+    >
+  >;
   /** 不合格项清单。 */
   readonly issues: string[];
 }
