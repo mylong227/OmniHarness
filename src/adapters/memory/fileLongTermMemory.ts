@@ -45,12 +45,14 @@ export class FileLongTermMemory implements LongTermMemoryPort {
    * @param codec 每行文本编解码器（默认恒等；可注入 AES-GCM 加密编解码）。
    * @param halfLifeDays 时间衰减半衰期（天），召回重排用，默认 90。
    * @param clock 时钟函数（毫秒时间戳），测试可注入固定时钟，默认 Date.now。
+   * @param untrustedPenalty 不可信来源事实的召回得分惩罚（0..1；默认 0.5，降低记忆投毒权重）。
    */
   public constructor(
     private readonly path: string,
     private readonly codec: TextCodec = { encode: (t) => t, decode: (t) => t },
     private readonly halfLifeDays: number = 90,
     private readonly clock: () => number = Date.now,
+    private readonly untrustedPenalty: number = 0.5,
   ) {
     this.load();
   }
@@ -120,7 +122,13 @@ export class FileLongTermMemory implements LongTermMemoryPort {
         items.push({ fact, score: hit.score });
       }
     }
-    return TimeDecay.rankWithDecay(items, this.clock(), this.halfLifeDays, k);
+    return TimeDecay.rankWithDecay(
+      items,
+      this.clock(),
+      this.halfLifeDays,
+      k,
+      this.untrustedPenalty,
+    );
   }
 
   /** 全部事实。

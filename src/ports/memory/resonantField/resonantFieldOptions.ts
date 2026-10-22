@@ -12,4 +12,6 @@ export interface ResonantFieldOptions {
   readonly halfLifeDays?: number | undefined;
   /** 时钟（注入用，便于测试）；返回当前毫秒时间戳。默认 Date.now。 */
   readonly clock?: (() => number) | undefined;
+  /** 不可信来源事实的召回得分惩罚（0..1；默认 0.5，与 FileLongTermMemory 一致）。 */
+  readonly untrustedPenalty?: number | undefined;
 }

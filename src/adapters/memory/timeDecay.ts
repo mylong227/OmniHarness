@@ -44,6 +44,7 @@ export class TimeDecay {
    * @param nowMs 当前时间戳（毫秒）
    * @param halfLifeDays 半衰期（天）
    * @param k 取回条数
+   * @param untrustedPenalty 不可信来源的得分惩罚系数（0..1；缺省 1 = 不惩罚）
    * @returns 重排后的事实序列（已由衰减得分降序）
    */
   public static rankWithDecay(
@@ -51,12 +52,19 @@ export class TimeDecay {
     nowMs: number,
     halfLifeDays: number,
     k: number,
+    untrustedPenalty = 1,
   ): MemoryFact[] {
+    const penalty = Number.isFinite(untrustedPenalty)
+      ? Math.min(1, Math.max(0, untrustedPenalty))
+      : 1;
     return items
       .filter((it) => !TimeDecay.isExpired(it.fact, nowMs))
       .map((it) => ({
         fact: it.fact,
-        score: it.score * TimeDecay.decayFactor(it.fact.createdAt, nowMs, halfLifeDays),
+        score:
+          it.score *
+          TimeDecay.decayFactor(it.fact.createdAt, nowMs, halfLifeDays) *
+          (it.fact.trust === 'untrusted' ? penalty : 1),
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, Math.max(0, k))

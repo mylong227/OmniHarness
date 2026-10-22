@@ -124,3 +124,15 @@ test('⑤ tune 守恒：facts 与 base 一致', () => {
   assert.strictEqual(t.facts, 2);
   assert.strictEqual(t.clusters, 2);
 });
+
+test('⑥ 生产包装器召回也应用 untrusted 降权（不是只有 FileLongTermMemory 生效）', () => {
+  const now = Date.now();
+  const mem = new MemLongTermMemory();
+  mem.remember({ ...fact('同一段记忆内容'), id: 'u', trust: 'untrusted' });
+  mem.remember({ ...fact('同一段记忆内容'), id: 't', trust: 'trusted' });
+  const engine = new ResonantFieldEngine(mem, { clock: () => now });
+  assert.deepStrictEqual(
+    engine.recall('同一段记忆内容', 2).map((f) => f.id),
+    ['t', 'u'],
+  );
+});

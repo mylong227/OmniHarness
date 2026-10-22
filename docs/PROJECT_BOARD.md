@@ -4416,3 +4416,19 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 独立 Agent 评审 **PASS**，并据此把 `.agents` 收紧为 opt-in（原评审指出 restricted 模式自动注入风险）。
 
 **边界**：不是签名分发；工作区技能（含既有 `.omniharness/.claude`）与 workspace trust 的关系仍是已知风险：restricted 模式下不会自动信任项目，但技能发现绕过 `skills` 配置键过滤，需后续接 trust 闸。
+
+## 47. 2026-10-22 记忆召回信任降权（P2-7 第一片）
+
+- `TimeDecay.rankWithDecay` 增加可选 `untrustedPenalty`（0..1，缺省 1 = 不改变旧行为）：
+  得分 = 相关性 × 时间衰减 ×（`trust:'untrusted'` ? penalty : 1）。
+- `FileLongTermMemory` 默认 `untrustedPenalty=0.5`，降低工具输出蒸馏事实的召回权重（记忆投毒面），
+  但不隐藏、不删除、也不替代回灌侧来源警示。
+- **生产默认路径也生效**：`ResonantFieldEngine` 新增 `untrustedPenalty` 选项（默认 0.5）并传入
+  `rankWithDecay`；`memoryStackAssembler` 默认封装的共振场端口不再绕过惩罚。
+- 判据：`fileLongTermMemory` 14 例 + `resonantField` 6 例 = 20 例全绿（默认 1 保持旧排序、强惩罚把 untrusted
+  降到 trusted 之后、FileLongTermMemory 默认召回、ResonantFieldEngine 包装召回、非有限系数回落 1）。
+- tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 评审 2 轮：首轮发现生产默认路径（ResonantFieldEngine）绕过惩罚，修复后 **PASS**。
+
+**边界**：这是排序降权，不是信任过滤/签名；BM25 命中相同且同时间时靠惩罚系数打破平局；RG 坍缩出的
+`__web_abstract__` 事实无 `trust`，抽象后的投毒内容仍不被降权；长期记忆的完整 LongMemEval-S 仍未接。

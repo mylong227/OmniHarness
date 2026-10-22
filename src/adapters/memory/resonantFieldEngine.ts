@@ -67,6 +67,8 @@ export class ResonantFieldEngine
   private readonly halfLifeDays: number;
   /** 时钟函数（毫秒时间戳），测试可注入固定时钟。 */
   private readonly clock: () => number;
+  /** 不可信来源事实的召回得分惩罚（0..1）。 */
+  private readonly untrustedPenalty: number;
 
   /**
    * @param base 被包装的底层长期记忆端口（标准读写与落盘全部委托给它）。
@@ -82,6 +84,7 @@ export class ResonantFieldEngine
     this.bins = opts.bins ?? 257;
     this.halfLifeDays = opts.halfLifeDays ?? 90;
     this.clock = opts.clock ?? Date.now;
+    this.untrustedPenalty = ResonantFieldMath.clamp(opts.untrustedPenalty ?? 0.5, 0, 1);
     this.seed();
   }
 
@@ -312,7 +315,13 @@ export class ResonantFieldEngine
   public recall(query: string, k: number): readonly MemoryFact[] {
     const hits = this.resonateByText(query, this.base.all().length);
     const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
-    return TimeDecay.rankWithDecay(items, this.clock(), this.halfLifeDays, k);
+    return TimeDecay.rankWithDecay(
+      items,
+      this.clock(),
+      this.halfLifeDays,
+      k,
+      this.untrustedPenalty,
+    );
   }
   /** 全部事实（委托 base，供导出/调试）。
    * @returns base 中的全部事实列表。

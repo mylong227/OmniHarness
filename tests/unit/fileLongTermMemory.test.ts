@@ -209,4 +209,38 @@ describe('FileLongTermMemory（T3.1 时间维度：衰减召回 + 失效丢弃 +
       ['new', 'old'],
     );
   });
+
+  it('rankWithDecay：untrusted 事实按系数降权（默认 1 不改变旧行为）', () => {
+    const at = new Date(NOW).toISOString();
+    const items = [
+      { fact: fact({ id: 'trusted', createdAt: at, trust: 'trusted' }), score: 1 },
+      { fact: fact({ id: 'untrusted', createdAt: at, trust: 'untrusted' }), score: 10 },
+    ];
+    assert.deepStrictEqual(
+      TimeDecay.rankWithDecay(items, NOW, 30, 10, 0.05).map((f) => f.id),
+      ['trusted', 'untrusted'],
+      '强惩罚后不可信事实降到可信事实之后',
+    );
+    assert.deepStrictEqual(
+      TimeDecay.rankWithDecay(items, NOW, 30, 10).map((f) => f.id),
+      ['untrusted', 'trusted'],
+      '默认系数 1 保持旧排序（同时间下按相关性）',
+    );
+  });
+});
+
+describe('FileLongTermMemory 召回信任降权（生产默认路径）', () => {
+  it('默认 untrustedPenalty=0.5 让同相关性的 untrusted 事实排到 trusted 之后', () => {
+    const p = tmpFile('trust-recall.jsonl');
+    const now = Date.now();
+    const m = new FileLongTermMemory(p, undefined, 90, () => now);
+    const at = new Date(now).toISOString();
+    m.remember(fact({ id: 'u', text: '同一段记忆内容', createdAt: at, trust: 'untrusted' }));
+    m.remember(fact({ id: 't', text: '同一段记忆内容', createdAt: at, trust: 'trusted' }));
+    assert.deepStrictEqual(
+      m.recall('同一段记忆内容', 2).map((f) => f.id),
+      ['t', 'u'],
+      '默认生产端口必须真正使用 0.5 惩罚，而不是只改静态函数',
+    );
+  });
 });
