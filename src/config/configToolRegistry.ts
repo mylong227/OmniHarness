@@ -64,6 +64,7 @@ import { DEFAULT_SUBAGENT_MAX_STEPS } from '../subagent/subagentTypes.ts';
 import { SubagentTool } from '../adapters/tool/workflow/subagentTool.ts';
 import { RunGoalTool } from '../adapters/tool/workflow/runGoalTool.ts';
 import { RunWorkflowTool } from '../adapters/tool/workflow/runWorkflowTool.ts';
+import { RunPlanTool } from '../adapters/tool/workflow/runPlanTool.ts';
 import { AgentFactory } from './agentFactory.ts';
 import {
   LspGoToDefinitionTool,
@@ -266,6 +267,7 @@ export class ConfigToolRegistry {
     );
     // #S31 工作流 DAG：run_workflow 派生进程内多步依赖编排（拓扑分层 + 并发闸门 + 失败传播）。
     const workflowRunner = new RunWorkflowTool(childPorts);
+    const planRunner = new RunPlanTool(childPorts, planning.todo, seed.events, eventFactory);
     // #77 计划/待办/提问协作态工具。
     const todoWriter = new TodoWriteTool(planning.todo, seed.events, eventFactory);
     const todoReader = new TodoReadTool(planning.todo);
@@ -283,6 +285,7 @@ export class ConfigToolRegistry {
     registry.register(spawner.definition, (call, ctx) => spawner.handle(call, ctx));
     registry.register(goalRunner.definition, (call, ctx) => goalRunner.handle(call, ctx));
     registry.register(workflowRunner.definition, (call, ctx) => workflowRunner.handle(call, ctx));
+    registry.register(planRunner.definition, (call, ctx) => planRunner.handle(call, ctx));
     registry.register(todoWriter.definition, (call, ctx) => todoWriter.handle(call, ctx));
     registry.register(todoReader.definition, (call, ctx) => todoReader.handle(call, ctx));
     registry.register(asker.definition, (call, ctx) => asker.handle(call, ctx));

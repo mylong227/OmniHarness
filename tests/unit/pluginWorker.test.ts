@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Container } from '../../src/core/container.ts';
@@ -10,6 +10,15 @@ import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
 import { RemotePlugin } from '../../src/plugin/worker/remotePlugin.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
 import { WindowsAclSandbox } from '../../src/adapters/sandbox/windowsAclSandbox.ts';
+
+/** 清理临时插件目录；Windows 上 worker 退出后仍可能短暂持有 cwd，清理失败不该让判据假红。 */
+function cleanup(path: string): void {
+  try {
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  } catch {
+    /* 留给 OS 临时目录清理 */
+  }
+}
 
 /** 建一个临时插件目录 + 清单（可指定父目录，便于 Loader 扫描隔离）。 */
 function pluginDir(
@@ -115,6 +124,19 @@ export default {
 };
 `;
 
+const fsWritePlugin = `
+export default {
+  meta: { name: 'fs-write' },
+  async activate(ctx) {
+    await ctx.call('fs', 'write', { path: 'nested/out.txt', text: 'written-by-worker' });
+    await ctx.tools.register(
+      { name: 'write', description: 'write', parameters: { type: 'object', properties: {} } },
+      async (call) => ({ callId: call.id, ok: true, output: 'ok' }),
+    );
+  },
+};
+`;
+
 test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async () => {
   const dir = pluginDir('worker-demo', echoPlugin);
   const { manager, tools } = managerWithTools();
@@ -142,7 +164,7 @@ test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async (
     await manager.uninstall('worker-demo');
     assert.ok(!tools.list().some((tool) => tool.name === 'echo'), '卸载后必须回收');
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
   }
 });
 
@@ -161,7 +183,7 @@ test('远程插件：Loader 把 remote 源路由到 Worker 而非进程内 vm', 
     if (saved === undefined) delete process.env.OMNI_ALLOW_REMOTE_PLUGINS;
     else process.env.OMNI_ALLOW_REMOTE_PLUGINS = saved;
     await manager.uninstall('loader-demo');
-    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(root);
   }
 });
 
@@ -180,7 +202,7 @@ test('远程插件：legacy apply 适配器仍可注册工具', async () => {
     assert.strictEqual(result.output, 'legacy-ok');
   } finally {
     await manager.uninstall('legacy-demo');
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
   }
 });
 
@@ -197,7 +219,7 @@ test('远程插件：激活崩溃被隔离，宿主存活', async () => {
     );
     assert.strictEqual(manager.isStarted('crash-demo'), false);
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
   }
 });
 
@@ -220,7 +242,7 @@ test('远程插件：工具超时返回失败且不拖垮宿主', async () => {
     assert.match(result.error ?? '', /CALL_TIMEOUT/u);
   } finally {
     await manager.uninstall('hang-demo');
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
   }
 });
 
@@ -234,7 +256,7 @@ test('远程插件：未声明的宿主服务能力被拒绝', async () => {
       /CAPABILITY_UNAVAILABLE/u,
     );
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
   }
 });
 
@@ -250,7 +272,7 @@ test('远程插件：Node 权限模型拒绝 Worker 写入（纵深防御）', a
     assert.strictEqual(existsSync(join(dir, 'should-not-write.txt')), false);
   } finally {
     try {
-      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      cleanup(dir);
     } catch {
       /* 进程仍持有 cwd 时留给 OS 临时目录清理；判据不因清理失败而假红 */
     }
@@ -278,7 +300,31 @@ test('远程插件：声明 fs.read 后可经能力 broker 读取工作区文件
     assert.strictEqual(result.output, 'broker-secret');
   } finally {
     await manager.uninstall('fs-read');
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
+  }
+});
+
+test('远程插件：声明 fs.write 后可经能力 broker 写入工作区', async () => {
+  const dir = pluginDir('fs-write', fsWritePlugin);
+  const { manager, tools } = managerWithTools();
+  try {
+    await manager.register(
+      new RemotePlugin({
+        name: 'fs-write',
+        entryPath: join(dir, 'index.mjs'),
+        workspaceRoot: dir,
+        permissions: ['fs.write'],
+      }),
+    );
+    const result = await tools.execute(
+      { id: 'c5', name: 'write', arguments: {} },
+      { sessionId: 's', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, true, result.error);
+    assert.strictEqual(readFileSync(join(dir, 'nested', 'out.txt'), 'utf8'), 'written-by-worker');
+  } finally {
+    await manager.uninstall('fs-write');
+    cleanup(dir);
   }
 });
 
@@ -300,7 +346,7 @@ test('远程插件：未声明 fs.read 时能力 broker 拒绝', async () => {
       /UNAUTHORIZED_CAPABILITY/u,
     );
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(dir);
   }
 });
 
@@ -332,6 +378,6 @@ test('远程插件：配置 OS 沙箱后 Worker 仍可启动并执行工具（Wi
     assert.match(result.output ?? '', /:acl$/u);
   } finally {
     await manager.uninstall('acl-demo');
-    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    cleanup(root);
   }
 }, 120_000);

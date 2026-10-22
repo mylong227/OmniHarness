@@ -18,4 +18,6 @@ export class PluginWorkerLimits {
   public static readonly DEACTIVATE_TIMEOUT_MS = 2_000;
   /** 能力 broker 单次读取字节上限（1 MiB）。 */
   public static readonly CAPABILITY_READ_MAX_BYTES = 1_048_576;
+  /** 能力 broker 单次写入字节上限（1 MiB）。 */
+  public static readonly CAPABILITY_WRITE_MAX_BYTES = 1_048_576;
 }

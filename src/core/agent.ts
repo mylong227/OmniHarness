@@ -1,4 +1,4 @@
-import type { SessionEvent } from '../ports/runtime/event.ts';
+﻿import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { ToolContext } from '../ports/tool/tool.ts';
 import type { ImageContent, FileAttachment } from '../ports/model/model.ts';
 
@@ -27,6 +27,10 @@ import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.ts';
 import { Id } from '../util/id.ts';
 import { WorkspaceIdentity } from '../util/workspaceIdentity.ts';
 import { log, Logger } from '../util/logger.ts';
+import {
+  PlanningDirective,
+  TaskComplexityClassifier,
+} from './planning/taskComplexityClassifier.ts';
 import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime.ts';
 
 /**
@@ -265,6 +269,22 @@ export class Agent implements AgentPort {
   }
 
   /**
+   * 复杂任务在用户消息前注入回合级规划要求（`OMNI_PLANNING_GUARD=0` 可关）。
+   * @param prompt 本轮任务文本。
+   * @param recorder 会话记录器。
+   * @returns 无返回值。
+   */
+  private maybeRequirePlanning(prompt: string, recorder: SessionRecorder): void {
+    if (!PlanningDirective.enabled() || prompt.trim() === '') {
+      return;
+    }
+    const complexity = TaskComplexityClassifier.assess(prompt);
+    if (complexity.complex) {
+      recorder.system(PlanningDirective.text(complexity));
+    }
+  }
+
+  /**
    * 执行一次任务（新会话）。images/files 可选，随首条用户消息送入模型（#B1/#B5）。
    * @param prompt 用户任务文本，作为首条 user 事件进入事件流。
    * @param images 可选图片内容数组，随首条用户消息一并送入模型。
@@ -402,6 +422,7 @@ export class Agent implements AgentPort {
       if (mode !== 'run') InterruptedToolCalls.recordInto(recorder, eventLog.all());
       const effectivePrompt: string =
         mode === 'resume' && prompt.trim() === '' ? ResumeGuidance.build(eventLog.all()) : prompt;
+      this.maybeRequirePlanning(effectivePrompt, recorder);
       recorder.user(effectivePrompt, images, files);
       // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）+ 回卷回调，按 sessionId 登记。
       const opened = this.openSessionResources(sessionId, recorder, eventLog);

@@ -118,6 +118,8 @@ export const TOOL_NAMES = {
   runGoal: 'run_goal',
   /** DAG 工作流编排（编排入口）。 */
   runWorkflow: 'run_workflow',
+  /** 按当前 todo 计划执行 DAG（自动并行就绪步骤）。 */
+  runPlan: 'run_plan',
   /** 插件注册表工具族外壳（`RegistryToolPort`）。 */
   registry: 'registry',
   // ---- LSP 只读查询族（原名常量在 `adapters/lsp/lspToolNames.ts`，现统一指向本表）----
@@ -173,6 +175,7 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   // 子会话去改盘；② 监督内核进 safe/locked 后只否 `subagent`、放行 `run_workflow`——最强的
   // 放大入口反而最不受控（2026-09-26 审计 X8/F15）。
   TOOL_NAMES.runWorkflow,
+  TOOL_NAMES.runPlan,
   TOOL_NAMES.runGoal,
   // 代码执行器：程序内可 call("shell"/"write_file"/…) ⇒ 与 shell 同级（落盘/任意命令）。
   // 漏收会让 plan 模式、监督内核与调度器串行屏障同时失效（2026-10-18 审查 H2）。
