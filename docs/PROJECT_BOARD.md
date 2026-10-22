@@ -4294,3 +4294,25 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **诚实边界**：trust.json 是 TOFU 不是防篡改；并发 grant 可能丢一条（后写覆盖，不放宽执行面）；
 临时文件按 1 小时清扫；未信任工作区的 `model/reasoning/storageAdapter/maxSteps/contextWindow/locale/extends` 仍生效。
+
+## 39. 2026-10-22 评测契约第一片（P0-2）
+
+> 对应 [REASSESSMENT_2026-10-22.md](../reports/REASSESSMENT_2026-10-22.md) §6.3；目标是把「harness 变好」变成可复核的数字，而不是再加一个引擎。
+
+**落地**：
+
+- `RunManifest`（`ports/runtime/runManifest.ts` + `core/runManifestBuilder.ts`）：模型/推理强度/planMode/**exposureMode**/工具清单哈希/提示哈希/字符数/时间；
+  提示原文**只哈希不落盘**；`Agent.openSession` 写入 `session_meta.payload.manifest`，旧会话日志无 manifest 仍可读。
+- `TraceSpanBuilder`：有 manifest 的会话在 drain 时额外发 `invoke_agent` span（`gen_ai.operation.name`、
+  `session.id`、`gen_ai.request.model`、`harness.manifest.*`）；无 manifest 的旧事件流不产该 span，golden trace 不变；
+  会话切换时重置 stats/openCalls/manifest，避免把上一会话的 id/起点带过来。
+- `AbMetrics`（`src/eval/abMetrics.ts`）：pass@k / pass^k / tokensPerSolved（无成功或 usage 缺失为 null）/ 下标对齐的 paired Δ；新增 `tests/unit/abMetrics.test.ts`。
+- `tools/eval/harnessAb.mjs` + `tools/eval/README.md` + `npm run eval:harness`：可执行 A/B runner（`--a/--b @file.json`、`--k`、`--tasks`、`--dry-run`），
+  任务必须有机械验收 `files`；凭据在报告/日志中打码（含嵌套对象）；无 key 时跳过而不是 mock 冒充。
+
+**判据**：`runManifest` 6 例（确定性、不落提示原文、有/无 manifest span、零调用、重复 drain、会话切换、malformed manifest 不产 span）；
+`abMetrics` 6 例；OTel golden/conformance/traceWiring 27 例全绿；`tsc`/`check`/`arch --strict`/`lint`/`top-level-fn` 全绿；`harnessAb --dry-run` 实跑通过。
+独立 Agent 复审 2 轮：首轮 4 项 must-fix（`-p` 破坏 prompt、无 `files` 假成功、凭据泄漏、会话切换 span 错位），次轮 **PASS**。
+
+**诚实边界**：manifest 记录的是注册工具集与 exposureMode（不是请求期最终可见集合）；resume/fork 复用原 manifest；
+真正的小时级 A/B 仍需真实 API key 与 k≥3；单次小差异不作为收益结论（沿两关纪律）。

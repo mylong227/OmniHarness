@@ -6,6 +6,7 @@ import type {
   ModelUsage,
 } from '../ports/model/model.ts';
 import type { EventFactoryPort } from '../ports/runtime/eventFactory.ts';
+import type { RunManifest } from '../ports/runtime/runManifest.ts';
 import { Id } from '../util/id.ts';
 
 /**
@@ -210,12 +211,21 @@ export class EventFactory implements EventFactoryPort {
    * @param sessionId 事件归属的会话 ID。
    * @param workspace 创建会话时的工作区根目录。
    * @param model 创建会话时使用的模型名（可选；`mock` 用于把演示会话与真实会话分开）。
+   * @param manifest 运行清单（可选；写入 payload.manifest）。
    * @returns 结构完整的 session_meta 事件。
    */
-  public sessionMeta(sessionId: string, workspace: string, model?: string): SessionEvent {
+  public sessionMeta(
+    sessionId: string,
+    workspace: string,
+    model?: string,
+    manifest?: RunManifest,
+  ): SessionEvent {
     const payload: Record<string, unknown> = { workspace };
     if (model !== undefined && model !== '') {
       payload['model'] = model;
+    }
+    if (manifest !== undefined) {
+      payload['manifest'] = manifest;
     }
     return this.base(sessionId, 'session_meta', payload);
   }

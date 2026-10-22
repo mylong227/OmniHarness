@@ -89,4 +89,6 @@ export const GEN_AI_OPERATIONS = {
   chat: 'chat',
   /** 工具执行。 */
   executeTool: 'execute_tool',
+  /** agent 级调用（OTel GenAI agent spans）。 */
+  invokeAgent: 'invoke_agent',
 } as const;

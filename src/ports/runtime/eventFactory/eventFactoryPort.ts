@@ -1,4 +1,5 @@
 import type { SessionEvent } from '../event.ts';
+import type { RunManifest } from '../runManifest.ts';
 import type { TodoSnapshotEntry } from './todoSnapshotEntry.ts';
 import type {
   ImageContent,
@@ -59,6 +60,11 @@ export interface EventFactoryPort {
     modelName?: string,
     context?: ModelContextSnapshot,
   ): SessionEvent;
-  /** 会话元数据事件。 */
-  sessionMeta(sessionId: string, workspace: string): SessionEvent;
+  /** 会话元数据事件（模型名/运行清单可选）。 */
+  sessionMeta(
+    sessionId: string,
+    workspace: string,
+    model?: string,
+    manifest?: RunManifest,
+  ): SessionEvent;
 }

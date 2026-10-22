@@ -1,4 +1,5 @@
 import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { RunManifest } from '../ports/runtime/runManifest.ts';
 import type { EventPort } from '../ports/runtime/eventPort.ts';
 import type {
   RetrievalDoc,
@@ -101,10 +102,11 @@ export class SessionRecorder {
    * 记录会话元数据（新会话首条：创建时的工作区，供按项目收纳）。
    * @param workspace 创建会话时的工作区根目录。
    * @param model 创建会话时使用的模型名（可选；`mock` 让存档能区分演示会话）。
+   * @param manifest 运行清单（模型/工具/提示指纹；旧调用可省略）。
    * @returns 落盘并广播后的 session_meta 事件。
    */
-  public sessionMeta(workspace: string, model?: string): SessionEvent {
-    return this.record(eventFactory.sessionMeta(this.sid, workspace, model));
+  public sessionMeta(workspace: string, model?: string, manifest?: RunManifest): SessionEvent {
+    return this.record(eventFactory.sessionMeta(this.sid, workspace, model, manifest));
   }
 
   /**

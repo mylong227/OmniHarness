@@ -16,6 +16,7 @@ import { randomBytes } from 'node:crypto';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { OtlpAttributeValue, Span } from './otlpTraceExporter.ts';
 import { GEN_AI_KEYS, GEN_AI_OPERATIONS, LEGACY_KEYS } from './genAiSemconv.ts';
+import type { RunManifest } from '../ports/runtime/runManifest.ts';
 
 /** 构造器可选项。 */
 export interface TraceSpanBuilderOptions {
@@ -28,7 +29,7 @@ export interface TraceSpanBuilderOptions {
 /** 会话累计统计（供汇总 span）。 */
 interface SessionStats {
   /** 会话 ID。 */
-  readonly sessionId: string;
+  sessionId: string;
   /** 最早事件时间（毫秒）。 */
   startMs: number;
   /** 最晚事件时间（毫秒）。 */
@@ -57,6 +58,8 @@ export class TraceSpanBuilder {
   private readonly openCalls = new Map<string, OpenCall>();
   /** 当前会话统计。 */
   private stats: SessionStats | null = null;
+  /** 本会话的运行清单（session_meta 带 manifest 时记录；drain 后清空）。 */
+  private agentManifest: RunManifest | undefined;
   /** traceId（一次构造器生命周期内稳定，代表进程内这条 trace）。 */
   private readonly traceId: string;
   /** spanId 生成器。 */
@@ -89,6 +92,9 @@ export class TraceSpanBuilder {
       case 'model':
         this.consumeModel(event, ts);
         return;
+      case 'session_meta':
+        this.consumeSessionMeta(event);
+        return;
       default:
         return;
     }
@@ -117,6 +123,12 @@ export class TraceSpanBuilder {
           TraceSpanBuilder.number(LEGACY_KEYS.sessionTokens, stats.tokens),
         ],
       });
+      // 有 Run Manifest 的会话额外发一条 agent 级 span（OTel GenAI 的 `invoke_agent` 语义）。
+      // 没有 manifest 的旧事件流保持原样（golden trace / 既有判据零变化）。
+      if (this.agentManifest !== undefined) {
+        this.spans.push(this.agentSpanOf(stats, this.agentManifest));
+        this.agentManifest = undefined;
+      }
       // 窗口语义：汇总 span 报告的是「自上次 drain 起」的增量，故计数清零、起点前移；
       // 否则第二次 drain 会凭陈旧计数再吐一条汇总（重复上报）。
       stats.toolCalls = 0;
@@ -124,6 +136,8 @@ export class TraceSpanBuilder {
       stats.tokens = 0;
       stats.startMs = stats.endMs;
     }
+    // 没有有效调用（例如启动即崩溃）时也清掉清单，避免下一次 drain 用陈旧清单伪造 span。
+    this.agentManifest = undefined;
     const out = [...this.spans];
     this.spans.length = 0;
     return out;
@@ -245,7 +259,10 @@ export class TraceSpanBuilder {
    * @returns 无返回值。
    */
   private touch(sessionId: string, ts: number): void {
-    if (this.stats === null) {
+    if (this.stats === null || this.stats.sessionId !== sessionId) {
+      // 会话切换：上一会话的未闭合调用不能与新会话配对，清掉；汇总窗口从新会话首条事件重开。
+      this.openCalls.clear();
+      this.agentManifest = undefined;
       this.stats = {
         sessionId,
         startMs: ts,
@@ -257,6 +274,61 @@ export class TraceSpanBuilder {
       return;
     }
     this.stats.endMs = Math.max(this.stats.endMs, ts);
+  }
+
+  /**
+   * 处理 `session_meta`：记录运行清单（供 drain 生成 `invoke_agent` span）。
+   * @param event 事件。
+   * @returns 无返回值。
+   */
+  private consumeSessionMeta(event: SessionEvent): void {
+    const payload = TraceSpanBuilder.recordOf(event.payload);
+    const manifest = payload['manifest'];
+    if (typeof manifest !== 'object' || manifest === null) {
+      return;
+    }
+    const record = manifest as Record<string, unknown>;
+    if (
+      typeof record['promptHash'] !== 'string' ||
+      typeof record['toolHash'] !== 'string' ||
+      typeof record['model'] !== 'string' ||
+      typeof record['toolCount'] !== 'number' ||
+      !Number.isFinite(record['toolCount']) ||
+      typeof record['planMode'] !== 'boolean' ||
+      (record['exposureMode'] !== 'off' && record['exposureMode'] !== 'plan')
+    ) {
+      return;
+    }
+    this.agentManifest = record as unknown as RunManifest;
+  }
+
+  /**
+   * 构造 agent 级 span（`invoke_agent`）。
+   * @param stats 本窗口统计。
+   * @param manifest 运行清单。
+   * @returns OTLP span。
+   */
+  private agentSpanOf(stats: SessionStats, manifest: RunManifest): Span {
+    return {
+      traceId: this.traceId,
+      spanId: this.spanIdFactory(),
+      name: 'invoke_agent',
+      startTimeUnixNano: TraceSpanBuilder.nano(stats.startMs),
+      endTimeUnixNano: TraceSpanBuilder.nano(stats.endMs),
+      attributes: [
+        TraceSpanBuilder.text(GEN_AI_KEYS.operationName, GEN_AI_OPERATIONS.invokeAgent),
+        TraceSpanBuilder.text(LEGACY_KEYS.sessionId, stats.sessionId),
+        TraceSpanBuilder.text(GEN_AI_KEYS.requestModel, manifest.model),
+        TraceSpanBuilder.text('harness.manifest.prompt_hash', manifest.promptHash),
+        TraceSpanBuilder.text('harness.manifest.tool_hash', manifest.toolHash),
+        TraceSpanBuilder.number('harness.manifest.tool_count', manifest.toolCount),
+        TraceSpanBuilder.text('harness.manifest.plan_mode', String(manifest.planMode)),
+        TraceSpanBuilder.text('harness.manifest.exposure_mode', manifest.exposureMode),
+        TraceSpanBuilder.number(LEGACY_KEYS.sessionToolCalls, stats.toolCalls),
+        TraceSpanBuilder.number(LEGACY_KEYS.sessionModelCalls, stats.modelCalls),
+        TraceSpanBuilder.number(LEGACY_KEYS.sessionTokens, stats.tokens),
+      ],
+    };
   }
 
   /**

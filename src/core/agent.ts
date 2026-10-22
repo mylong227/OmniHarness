@@ -1,4 +1,4 @@
-﻿import type { SessionEvent } from '../ports/runtime/event.ts';
+import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { ToolContext } from '../ports/tool/tool.ts';
 import type { ImageContent, FileAttachment } from '../ports/model/model.ts';
 
@@ -7,6 +7,8 @@ import type { SparkCycleReport } from '../spark/sparkController.ts';
 import type { SparkControllerPort } from '../ports/spark/sparkControllerPort.ts';
 import { AppendOnlyEventLog } from './appendOnlyEventLog.ts';
 import { SessionRecorder } from './sessionRecorder.ts';
+import { RunManifestBuilder } from './runManifestBuilder.ts';
+import { ToolExposurePlanner } from './toolExposurePlanner.ts';
 import { SessionInjector } from './sessionInjector.ts';
 import { StepRunner } from './stepRunner.ts';
 import { TurnRunner } from './turnRunner.ts';
@@ -261,9 +263,21 @@ export class Agent implements AgentPort {
       // 归属标记**写归一值**：会话存档是全局的，归属只靠这个字符串；本机实测同一项目曾被写成
       // `D:\x` / `D:/x` / 跑测子目录三种拼写，导致侧栏按项目归类失准（2026-10-07 用户报）。
       // 同时记模型名：`mock` 会话必须能在列表/统计里被识别出来（本机 152 个会话里 144 个是 mock）。
+      const manifest = RunManifestBuilder.build({
+        workspace: WorkspaceIdentity.normalize(this.runtime.config.workspaceRoot),
+        model: this.runtime.model.name,
+        ...(this.runtime.config.reasoning !== undefined
+          ? { reasoning: this.runtime.config.reasoning }
+          : {}),
+        planMode: this.runtime.config.planMode === true,
+        exposureMode: ToolExposurePlanner.modeFromEnv(),
+        tools: this.runtime.config.tools.list().map((tool) => tool.name),
+        prompt,
+      });
       recorder.sessionMeta(
         WorkspaceIdentity.normalize(this.runtime.config.workspaceRoot),
         this.runtime.model.name,
+        manifest,
       );
     }
   }

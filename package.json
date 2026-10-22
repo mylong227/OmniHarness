@@ -108,6 +108,7 @@
     "gate:typed": "node scripts/runGates.mjs --tier=typed",
     "gate:budget": "node scripts/gateBudget.mjs",
     "probe:recall": "node tools/probes/recallHitrate.mjs",
+    "eval:harness": "node tools/eval/harnessAb.mjs",
     "probe:memory-task": "node tools/probes/memoryTaskLift.mjs",
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
