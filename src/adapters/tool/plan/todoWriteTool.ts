@@ -32,12 +32,22 @@ export class TodoWriteTool {
         todos: {
           type: 'array',
           description:
-            '完整待办列表；每项是 { content: 一句话任务, status: pending|in_progress|completed }。',
+            '完整待办列表；每项是 { content, status, id?, dependsOn? }。' +
+            '需要严格顺序时给步骤稳定 id，并用 dependsOn 引用前置 id。',
           items: {
             type: 'object',
             properties: {
               content: { type: 'string', description: '任务描述' },
               status: { type: 'string', description: 'pending | in_progress | completed' },
+              id: {
+                type: 'string',
+                description: '可选稳定 id（小写字母开头，允许数字/下划线/连字符）',
+              },
+              dependsOn: {
+                type: 'array',
+                items: { type: 'string' },
+                description: '可选前置步骤 id 列表；必须存在于同一次提交中，禁止环',
+              },
             },
           },
         },
@@ -54,6 +64,57 @@ export class TodoWriteTool {
 
   /** 单次待办上限：防止模型把上百条噪声塞进 UI/上下文（超出即拒绝，而不是静默截断）。 */
   private static readonly MAX_ITEMS = 20;
+
+  /** 依赖 id 的合法形状（与工具名同一口径，避免 UI/图存储注入）。 */
+  private static readonly ID_PATTERN = /^[a-z][a-z0-9_-]*$/u;
+
+  /**
+   * 校验 id 唯一性、依赖存在性与无环性（Kahn 拓扑）。
+   * @param items 待写入的完整待办。
+   * @returns 错误文本；合法时为 null。
+   */
+  private static validateGraph(items: readonly TodoItem[]): string | null {
+    const ids = new Set<string>();
+    for (const item of items) {
+      if (item.id === undefined) continue;
+      if (ids.has(item.id)) {
+        return `待办 id 重复: ${item.id}`;
+      }
+      ids.add(item.id);
+    }
+    const indegree = new Map<string, number>();
+    const adjacency = new Map<string, string[]>();
+    for (const id of ids) {
+      indegree.set(id, 0);
+      adjacency.set(id, []);
+    }
+    for (const item of items) {
+      if (item.id === undefined || item.dependsOn === undefined) continue;
+      for (const dep of item.dependsOn) {
+        if (!ids.has(dep)) {
+          return `待办 ${item.id} 依赖了不存在的 id: ${dep}`;
+        }
+        if (dep === item.id) {
+          return `待办 ${item.id} 不能依赖自身`;
+        }
+        adjacency.get(dep)?.push(item.id);
+        indegree.set(item.id, (indegree.get(item.id) ?? 0) + 1);
+      }
+    }
+    const queue = [...ids].filter((id) => (indegree.get(id) ?? 0) === 0);
+    let visited = 0;
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (current === undefined) break;
+      visited += 1;
+      for (const next of adjacency.get(current) ?? []) {
+        const remaining = (indegree.get(next) ?? 0) - 1;
+        indegree.set(next, remaining);
+        if (remaining === 0) queue.push(next);
+      }
+    }
+    return visited === ids.size ? null : '待办依赖存在环，请改成有向无环的步骤顺序';
+  }
 
   /**
    * 执行 todo_write：校验并整表替换待办、广播 todo 事件、汇总各状态计数。
@@ -88,7 +149,32 @@ export class TodoWriteTool {
           error: `todos[${i}].status 必须是 pending|in_progress|completed`,
         };
       }
-      items.push({ content, status });
+      const idRaw = entry['id'];
+      const id = typeof idRaw === 'string' ? idRaw : undefined;
+      if (id !== undefined && !TodoWriteTool.ID_PATTERN.test(id)) {
+        return { callId: call.id, ok: false, error: `todos[${i}].id 不合法: ${id}` };
+      }
+      const depsRaw = entry['dependsOn'];
+      let dependsOn: readonly string[] | undefined;
+      if (depsRaw !== undefined) {
+        if (!Array.isArray(depsRaw) || !depsRaw.every((dep) => typeof dep === 'string')) {
+          return { callId: call.id, ok: false, error: `todos[${i}].dependsOn 必须是字符串数组` };
+        }
+        if (id === undefined) {
+          return { callId: call.id, ok: false, error: `todos[${i}].dependsOn 需要同时提供 id` };
+        }
+        dependsOn = [...(depsRaw as string[])];
+      }
+      items.push({
+        content,
+        status,
+        ...(id !== undefined ? { id } : {}),
+        ...(dependsOn !== undefined ? { dependsOn } : {}),
+      });
+    }
+    const graphError = TodoWriteTool.validateGraph(items);
+    if (graphError !== null) {
+      return { callId: call.id, ok: false, error: graphError };
     }
     if (items.filter((item) => item.status === 'in_progress').length > 1) {
       return {

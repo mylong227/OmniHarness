@@ -90,6 +90,62 @@ describe('TodoTool', () => {
     assert.strictEqual(r.ok, false);
     assert.match(r.error ?? '', /最多 20 条/u);
   });
+
+  it('带依赖的有向无环计划可写入并读回 id/dependsOn', async () => {
+    const port = new MemoryTodo();
+    const writer = new TodoWriteTool(port, undefined, eventFactory);
+    const r = await writer.handle(
+      call('todo_write', {
+        todos: [
+          { id: 'inspect', content: '读代码', status: 'completed' },
+          { id: 'edit', content: '改代码', status: 'in_progress', dependsOn: ['inspect'] },
+          { id: 'test', content: '跑测试', status: 'pending', dependsOn: ['edit'] },
+        ],
+      }),
+      ctx,
+    );
+    assert.strictEqual(r.ok, true, r.error);
+    const read = await new TodoReadTool(port).handle(call('todo_read', {}), ctx);
+    const items = JSON.parse(read.output ?? '[]') as { dependsOn?: string[] }[];
+    assert.deepStrictEqual(items[1]?.dependsOn, ['inspect']);
+    assert.deepStrictEqual(items[2]?.dependsOn, ['edit']);
+  });
+
+  it('悬空依赖 / 重复 id / 依赖环一律拒绝', async () => {
+    const writer = new TodoWriteTool(new MemoryTodo(), undefined, eventFactory);
+    const missing = await writer.handle(
+      call('todo_write', {
+        todos: [{ id: 'a', content: 'A', status: 'pending', dependsOn: ['nope'] }],
+      }),
+      ctx,
+    );
+    assert.strictEqual(missing.ok, false);
+    assert.match(missing.error ?? '', /不存在/u);
+
+    const duplicate = await writer.handle(
+      call('todo_write', {
+        todos: [
+          { id: 'a', content: 'A', status: 'pending' },
+          { id: 'a', content: 'B', status: 'pending' },
+        ],
+      }),
+      ctx,
+    );
+    assert.strictEqual(duplicate.ok, false);
+    assert.match(duplicate.error ?? '', /重复/u);
+
+    const cycle = await writer.handle(
+      call('todo_write', {
+        todos: [
+          { id: 'a', content: 'A', status: 'pending', dependsOn: ['b'] },
+          { id: 'b', content: 'B', status: 'pending', dependsOn: ['a'] },
+        ],
+      }),
+      ctx,
+    );
+    assert.strictEqual(cycle.ok, false);
+    assert.match(cycle.error ?? '', /环/u);
+  });
 });
 
 describe('AskUserTool', () => {

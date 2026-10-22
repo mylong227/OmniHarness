@@ -4,6 +4,10 @@ export interface TodoDockItem {
   readonly content: string;
   /** 状态：pending / in_progress / completed。 */
   readonly status: string;
+  /** 稳定 id（可选）。 */
+  readonly id?: string;
+  /** 前置步骤 id（可选）。 */
+  readonly dependsOn?: readonly string[];
 }
 
 /** 面板需要的最小事件形状（不依赖后端类型，避免 web 包反向 import src）。 */
@@ -34,10 +38,20 @@ export class TodoDockModel {
       if (!Array.isArray(raw)) return null;
       return raw
         .map((item) => {
-          const record = item as { readonly content?: unknown; readonly status?: unknown };
+          const record = item as {
+            readonly content?: unknown;
+            readonly status?: unknown;
+            readonly id?: unknown;
+            readonly dependsOn?: unknown;
+          };
+          const dependsOn = Array.isArray(record.dependsOn)
+            ? record.dependsOn.filter((dep): dep is string => typeof dep === 'string')
+            : undefined;
           return {
             content: typeof record.content === 'string' ? record.content : '',
             status: typeof record.status === 'string' ? record.status : 'pending',
+            ...(typeof record.id === 'string' ? { id: record.id } : {}),
+            ...(dependsOn !== undefined && dependsOn.length > 0 ? { dependsOn } : {}),
           };
         })
         .filter((item) => item.content !== '');

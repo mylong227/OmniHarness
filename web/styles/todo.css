@@ -83,3 +83,10 @@
   flex: 0 0 12px;
   text-align: center;
 }
+
+.todo-dock__deps {
+  margin-left: auto;
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
+}

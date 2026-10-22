@@ -41,6 +41,11 @@ export function TodoDock({ items }: TodoDockProps): React.ReactElement | null {
               {item.status === 'completed' ? '✓' : item.status === 'in_progress' ? '◐' : '○'}
             </span>
             {item.content}
+            {item.dependsOn === undefined || item.dependsOn.length === 0 ? null : (
+              <span className="todo-dock__deps">
+                {t('依赖 {n}', { n: item.dependsOn.length })}
+              </span>
+            )}
           </li>
         ))}
       </ul>

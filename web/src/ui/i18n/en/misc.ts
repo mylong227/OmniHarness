@@ -116,4 +116,5 @@ export const EN_MISC: Record<string, string> = {
   // TodoDock.tsx
   '待处理 {n} 项': '{n} pending',
   '全部完成': 'All done',
+  '依赖 {n}': '{n} deps',
 };
