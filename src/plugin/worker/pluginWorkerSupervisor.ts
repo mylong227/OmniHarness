@@ -1,10 +1,11 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+﻿import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { ProcessTreeKiller } from '../../adapters/tool/shell/processTreeKiller.ts';
 import { log } from '../../util/logger.ts';
+import type { SandboxPort } from '../../ports/runtime/sandbox.ts';
 import type { ToolCall } from '../../ports/tool/tool.ts';
 import type { ToolContext } from '../../ports/tool/tool/toolContext.ts';
 import type { ToolResult } from '../../ports/tool/tool/toolResult.ts';
@@ -15,6 +16,8 @@ import type {
   PluginWorkerToolInvoke,
   PluginWorkerToolRegistration,
 } from '../../ports/plugin/pluginWorkerProtocol.ts';
+import type { WorkerCapabilityBroker } from './workerCapabilityBroker.ts';
+import { WorkerSpawnSpecBuilder } from './workerSpawnSpecBuilder.ts';
 
 /** Supervisor 构造选项。 */
 export interface PluginWorkerSupervisorOptions {
@@ -30,6 +33,10 @@ export interface PluginWorkerSupervisorOptions {
   readonly activationTimeoutMs?: number;
   /** 单次工具调用超时（毫秒，默认 30s）。 */
   readonly callTimeoutMs?: number;
+  /** 能力 broker（缺省一律拒绝）。 */
+  readonly broker?: WorkerCapabilityBroker;
+  /** OS 沙箱（可选；有 `wrapCommand` 时 Worker 经它启动）。 */
+  readonly sandbox?: SandboxPort;
 }
 
 /** 工具注册回调（父进程据此把工具挂到自己的 ToolPort）。 */
@@ -52,8 +59,6 @@ export class PluginWorkerSupervisor {
   public state: PluginWorkerState = 'spawned';
   /** Worker pid（未 spawn 时为 undefined）。 */
   public pid: number | undefined;
-  /** 最近一次错误（崩溃/超时）。 */
-  public lastError: string | undefined;
 
   /** Worker 子进程句柄（退出后清空）。 */
   private child: ChildProcessWithoutNullStreams | undefined;
@@ -78,6 +83,8 @@ export class PluginWorkerSupervisor {
   private readonly exitPromise: Promise<void>;
   /** 工具注册回调。 */
   private onTool: PluginWorkerToolRegistrar | undefined;
+  /** 能力 broker（Worker 只能经它访问宿主能力）。 */
+  private readonly broker: WorkerCapabilityBroker | undefined;
   /** 单次工具调用超时。 */
   private readonly callTimeoutMs: number;
   /** 激活/握手超时。 */
@@ -89,6 +96,7 @@ export class PluginWorkerSupervisor {
   public constructor(private readonly options: PluginWorkerSupervisorOptions) {
     this.callTimeoutMs = options.callTimeoutMs ?? 30_000;
     this.activationTimeoutMs = options.activationTimeoutMs ?? 10_000;
+    this.broker = options.broker;
     this.exitPromise = new Promise<void>((resolve) => {
       this.exitResolve = resolve;
     });
@@ -133,7 +141,6 @@ export class PluginWorkerSupervisor {
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.lastError = message;
       return { callId: call.id, ok: false, error: `插件调用失败: ${message}` };
     }
   }
@@ -177,27 +184,19 @@ export class PluginWorkerSupervisor {
   private async spawnWorker(): Promise<void> {
     const workerEntry =
       this.options.workerEntry ?? fileURLToPath(new URL('./pluginWorkerMain.mjs', import.meta.url));
-    const permissionArgs =
-      process.env['OMNI_PLUGIN_WORKER_PERMISSION'] === '0'
-        ? []
-        : [
-            '--experimental-permission',
-            `--allow-fs-read=${dirname(this.options.entryPath)}`,
-            `--allow-fs-read=${workerEntry}`,
-          ];
-    const child = spawn(process.execPath, [...permissionArgs, workerEntry, '--plugin-worker'], {
+    const spec = WorkerSpawnSpecBuilder.build({
+      entryPath: this.options.entryPath,
+      pluginName: this.options.pluginName,
+      workerEntry,
+      session: this.session,
+      ...(this.options.sandbox !== undefined ? { sandbox: this.options.sandbox } : {}),
+    });
+    const child = spawn(spec.bin, spec.args, {
       cwd: dirname(this.options.entryPath),
-      env: {
-        OMNI_PLUGIN_WORKER_SESSION: this.session,
-        OMNI_PLUGIN_ENTRY: this.options.entryPath,
-        OMNI_PLUGIN_NAME: this.options.pluginName,
-        SYSTEMROOT: process.env['SystemRoot'] ?? '',
-        TEMP: process.env['TEMP'] ?? '',
-        TMP: process.env['TMP'] ?? '',
-        PATH: process.env['PATH'] ?? '',
-      },
+      env: spec.env,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
+      windowsVerbatimArguments: spec.verbatim,
     });
     this.child = child;
     this.pid = child.pid;
@@ -267,6 +266,46 @@ export class PluginWorkerSupervisor {
     }
     if (message.kind === 'evt') {
       void this.handleEvent(message.method, message.params);
+      return;
+    }
+    if (message.kind === 'cap') {
+      const broker = this.broker;
+      if (broker === undefined) {
+        this.send({
+          v: 1,
+          session: this.session,
+          kind: 'capres',
+          id: message.id,
+          ok: false,
+          error: { code: 'UNAUTHORIZED_CAPABILITY', message: '未配置能力 broker' },
+        });
+        return;
+      }
+      void broker
+        .call({ capability: message.capability, method: message.method, params: message.params })
+        .then((result) => {
+          this.send({
+            v: 1,
+            session: this.session,
+            kind: 'capres',
+            id: message.id,
+            ok: true,
+            result,
+          });
+        })
+        .catch((error: unknown) => {
+          this.send({
+            v: 1,
+            session: this.session,
+            kind: 'capres',
+            id: message.id,
+            ok: false,
+            error: {
+              code: 'UNAUTHORIZED_CAPABILITY',
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        });
     }
   }
 
@@ -372,7 +411,6 @@ export class PluginWorkerSupervisor {
   private fail(reason: string): void {
     if (this.state === 'failed' || this.state === 'stopped') return;
     this.state = 'failed';
-    this.lastError = reason;
     this.readyReject?.(new Error(reason));
     for (const [id, entry] of this.pending) {
       this.pending.delete(id);

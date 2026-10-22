@@ -8,8 +8,10 @@ import type { ToolContext } from '../../ports/tool/tool/toolContext.ts';
 import type { ToolDefinition } from '../../ports/tool/tool/toolDefinition.ts';
 import type { ToolResult } from '../../ports/tool/tool/toolResult.ts';
 import type { ToolParametersSchema } from '../../ports/tool/tool/toolParametersSchema.ts';
+import type { SandboxPort } from '../../ports/runtime/sandbox.ts';
 import type { ToolHandler } from '../../adapters/tool/toolHandler.ts';
 import { PluginWorkerSupervisor } from './pluginWorkerSupervisor.ts';
+import { WorkerCapabilityBroker } from './workerCapabilityBroker.ts';
 
 /** 带注册能力的工具端口（与 `RegistryToolPort` 的结构子集一致）。 */
 type RegistrarToolPort = ToolPort & {
@@ -32,6 +34,10 @@ export interface RemotePluginOptions {
   readonly callTimeoutMs?: number;
   /** Worker 入口覆盖（测试用）。 */
   readonly workerEntry?: string;
+  /** 能力 broker 的 fs scope（缺省 process.cwd()）。 */
+  readonly workspaceRoot?: string;
+  /** OS 沙箱（缺省从 `port.sandbox` 取；有 wrapCommand 时启用）。 */
+  readonly sandbox?: SandboxPort;
 }
 
 /**
@@ -67,6 +73,11 @@ export class RemotePlugin implements Plugin {
    */
   public async apply(context: PluginApplyContext): Promise<void> {
     this.toolPort = context.services.get<ToolPort>('port.tools');
+    const sandbox =
+      this.options.sandbox ??
+      (context.services.has('port.sandbox')
+        ? context.services.get<SandboxPort>('port.sandbox')
+        : undefined);
     this.supervisor = new PluginWorkerSupervisor({
       pluginName: this.options.name,
       entryPath: this.options.entryPath,
@@ -78,6 +89,11 @@ export class RemotePlugin implements Plugin {
         ? { callTimeoutMs: this.options.callTimeoutMs }
         : {}),
       ...(this.options.workerEntry !== undefined ? { workerEntry: this.options.workerEntry } : {}),
+      broker: new WorkerCapabilityBroker(
+        this.options.workspaceRoot ?? process.cwd(),
+        (this.options.permissions ?? []) as readonly PluginPermission[],
+      ),
+      ...(sandbox !== undefined ? { sandbox } : {}),
     });
     try {
       await this.supervisor.start((registration) => this.registerTool(registration));

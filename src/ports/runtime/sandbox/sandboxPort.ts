@@ -15,4 +15,17 @@ export interface SandboxPort {
    * @returns 包装后的命令文本
    */
   wrapCommand?(command: string, cwd: string): string;
+  /**
+   * 可选：把 **argv** 包装成 OS 沙箱内的直接进程启动（不经过 shell）。
+   *
+   * 为什么需要：带非 ASCII 路径的 Windows 命令若落 `.cmd` 再交给 `cmd.exe`，会受控制台
+   * 代码页影响（实测中文用户名路径被读成非法文件名）。直接 argv 启动避开 shell 解析。
+   * @param argv 原始 argv（argv[0] 为可执行文件）。
+   * @param cwd 工作目录。
+   * @returns 实际的 bin/args。
+   */
+  wrapArgv?(
+    argv: readonly string[],
+    cwd: string,
+  ): { readonly bin: string; readonly args: string[] };
 }

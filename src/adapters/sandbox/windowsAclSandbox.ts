@@ -46,6 +46,38 @@ export class WindowsAclSandbox implements SandboxPort {
   }
 
   /**
+   * 把 argv 包装成 runner 直接启动（不经 shell，避免中文路径经 `.cmd` 代码页损坏）。
+   * @param argv 原始 argv。
+   * @param cwd 工作目录。
+   * @returns runner 的 bin/args。
+   */
+  public wrapArgv(
+    argv: readonly string[],
+    _cwd: string,
+  ): { readonly bin: string; readonly args: string[] } {
+    if (process.platform !== 'win32') {
+      throw new Error('windows-acl 仅支持 Windows');
+    }
+    const runner = WindowsAclSandbox.runnerPath();
+    const sandboxDir = join(this.workspaceRoot, '.omniharness', 'sandbox');
+    mkdirSync(sandboxDir, { recursive: true, mode: 0o700 });
+    return {
+      bin: process.execPath,
+      args: [
+        runner,
+        '--workspace',
+        this.workspaceRoot,
+        '--temp',
+        sandboxDir,
+        '--mode',
+        this.mode,
+        '--',
+        ...argv,
+      ],
+    };
+  }
+
+  /**
    * 把命令包装成「runner + 受限令牌」调用。
    *
    * 命令写入工作区私有的 `.omniharness/sandbox/cmd-<hash>.cmd`，再由 `cmd.exe /c <file>`
@@ -64,7 +96,10 @@ export class WindowsAclSandbox implements SandboxPort {
     mkdirSync(sandboxDir, { recursive: true, mode: 0o700 });
     const hash = createHash('sha256').update(`${cwd}\0${command}`).digest('hex').slice(0, 16);
     const script = join(sandboxDir, `cmd-${hash}.cmd`);
-    writeFileSync(script, `@echo off\r\n${command}\r\n`, { encoding: 'utf8', mode: 0o600 });
+    writeFileSync(script, `@echo off\r\n@chcp 65001 >nul\r\n${command}\r\n`, {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
     const cmd = process.env['ComSpec'] ?? 'cmd.exe';
     return [
       `"${process.execPath}"`,

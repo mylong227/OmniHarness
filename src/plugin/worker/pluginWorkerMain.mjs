@@ -20,6 +20,8 @@ class PluginWorker {
     this.handlers = new Map();
     this.toolHandlers = new Map();
     this.handlerSeq = 0;
+    this.capSeq = 0;
+    this.capPending = new Map();
     this.ready = false;
     this.activateStarted = false;
   }
@@ -84,12 +86,30 @@ class PluginWorker {
     };
   }
 
-  /** SDK v2 上下文：只有工具注册；其它能力在 v1 一律不可用。 */
+  /** SDK v2 上下文：工具注册 + 显式能力调用（能力由父进程 broker 裁决）。 */
   contextV2() {
     return {
       tools: this.toolsView(),
+      call: (capability, method, params) => this.callCapability(capability, method, params),
       log: (...args) => this.event('log', { level: 'info', message: args.map(String).join(' ') }),
     };
+  }
+
+  /** 发起能力调用并等待父进程响应。 */
+  callCapability(capability, method, params) {
+    const id = ++this.capSeq;
+    return new Promise((resolve, reject) => {
+      this.capPending.set(id, { resolve, reject });
+      this.send({
+        v: 1,
+        session: this.session,
+        kind: 'cap',
+        id,
+        capability: String(capability),
+        method: String(method),
+        params: params ?? {},
+      });
+    });
   }
 
   /** Legacy apply 上下文：仅 port.tools 的注册视图；容器不跨进程。 */
@@ -188,6 +208,15 @@ class PluginWorker {
 
   /** 处理一条入站消息。 */
   async onMessage(message) {
+    if (message?.kind === 'capres') {
+      const pending = this.capPending.get(message.id);
+      if (pending !== undefined) {
+        this.capPending.delete(message.id);
+        if (message.ok) pending.resolve(message.result);
+        else pending.reject(new Error(message.error?.message ?? 'UNAUTHORIZED_CAPABILITY'));
+      }
+      return;
+    }
     if (message?.kind === 'hello') {
       if (message.v !== 1 || message.session !== this.session) {
         throw new Error('VERSION_MISMATCH: 握手版本/会话不匹配');

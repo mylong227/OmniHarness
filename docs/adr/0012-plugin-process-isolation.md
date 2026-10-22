@@ -48,13 +48,17 @@
 - 工具桥（注册/调用/回收、超时、同名拒绝）；
 - legacy `apply(ctx)` 适配器（仅 `port.tools` 注册视图，其它宿主服务拒绝）；
 - Worker 最小环境 + Node 权限模型（`--experimental-permission --allow-fs-read=<pluginDir>`）；
+- 能力 broker 首版：`fs.read`（SafeFs 越界/符号链接双重校验、1 MiB 上限），未声明权限拒绝；
+- OS 沙箱接线：`SandboxPort.wrapArgv`（Windows ACL）或 `wrapCommand`（bwrap/seatbelt）存在时，
+  Worker 经它启动；
 - Loader 路由：`remote`/缺失 source → Worker，`bundled`/`local` → 进程内；
 - 宿主停机 `PluginManager.disposeAll` → `PluginHost.shutdown` 停止 Worker。
 
 尚未落地（后续阶段，不得宣称已具备）：
 
-- 真实宿主能力 broker（`cap.call` 的授权执行；当前 Worker 不暴露宿主能力）；
-- OS 沙箱强制（Windows ACL/WSL bwrap；当前只有进程边界 + Node 权限模型）；
+- 更多能力（`store.*` / `events.emit` / `fs.write` / `net.connect`）——当前只开只读 `fs.read`；
+- **强制** OS 沙箱（`requireOsSandbox` 开关；当前有 `wrapArgv/wrapCommand` 才启用，
+  policy 档仍只有进程边界 + Node 权限）；
 - 崩溃后指数退避重启/quarantine；
 - `plugin.worker.*` 事件指标与 `doctor` 的 worker 段。
 

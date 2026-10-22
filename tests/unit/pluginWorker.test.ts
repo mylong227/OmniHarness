@@ -1,4 +1,4 @@
-import { test } from 'vitest';
+﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -9,6 +9,7 @@ import { PermissionGate } from '../../src/plugin/permissionGate.ts';
 import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
 import { RemotePlugin } from '../../src/plugin/worker/remotePlugin.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
+import { WindowsAclSandbox } from '../../src/adapters/sandbox/windowsAclSandbox.ts';
 
 /** 建一个临时插件目录 + 清单（可指定父目录，便于 Loader 扫描隔离）。 */
 function pluginDir(
@@ -101,6 +102,19 @@ export default {
 };
 `;
 
+const fsReadPlugin = `
+export default {
+  meta: { name: 'fs-read' },
+  async activate(ctx) {
+    const result = await ctx.call('fs', 'read', { path: 'secret.txt' });
+    await ctx.tools.register(
+      { name: 'read', description: 'read', parameters: { type: 'object', properties: {} } },
+      async (call) => ({ callId: call.id, ok: true, output: result.text }),
+    );
+  },
+};
+`;
+
 test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async () => {
   const dir = pluginDir('worker-demo', echoPlugin);
   const { manager, tools } = managerWithTools();
@@ -128,7 +142,7 @@ test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async (
     await manager.uninstall('worker-demo');
     assert.ok(!tools.list().some((tool) => tool.name === 'echo'), '卸载后必须回收');
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -147,7 +161,7 @@ test('远程插件：Loader 把 remote 源路由到 Worker 而非进程内 vm', 
     if (saved === undefined) delete process.env.OMNI_ALLOW_REMOTE_PLUGINS;
     else process.env.OMNI_ALLOW_REMOTE_PLUGINS = saved;
     await manager.uninstall('loader-demo');
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -166,7 +180,7 @@ test('远程插件：legacy apply 适配器仍可注册工具', async () => {
     assert.strictEqual(result.output, 'legacy-ok');
   } finally {
     await manager.uninstall('legacy-demo');
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -183,7 +197,7 @@ test('远程插件：激活崩溃被隔离，宿主存活', async () => {
     );
     assert.strictEqual(manager.isStarted('crash-demo'), false);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -206,7 +220,7 @@ test('远程插件：工具超时返回失败且不拖垮宿主', async () => {
     assert.match(result.error ?? '', /CALL_TIMEOUT/u);
   } finally {
     await manager.uninstall('hang-demo');
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -220,7 +234,7 @@ test('远程插件：未声明的宿主服务能力被拒绝', async () => {
       /CAPABILITY_UNAVAILABLE/u,
     );
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
 
@@ -235,6 +249,85 @@ test('远程插件：Node 权限模型拒绝 Worker 写入（纵深防御）', a
     );
     assert.strictEqual(existsSync(join(dir, 'should-not-write.txt')), false);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });
+
+test('远程插件：声明 fs.read 后可经能力 broker 读取工作区文件', async () => {
+  const dir = pluginDir('fs-read', fsReadPlugin);
+  writeFileSync(join(dir, 'secret.txt'), 'broker-secret', 'utf8');
+  const { manager, tools } = managerWithTools();
+  try {
+    await manager.register(
+      new RemotePlugin({
+        name: 'fs-read',
+        entryPath: join(dir, 'index.mjs'),
+        workspaceRoot: dir,
+        permissions: ['fs.read'],
+      }),
+    );
+    const result = await tools.execute(
+      { id: 'c4', name: 'read', arguments: {} },
+      { sessionId: 's', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, true, result.error);
+    assert.strictEqual(result.output, 'broker-secret');
+  } finally {
+    await manager.uninstall('fs-read');
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('远程插件：未声明 fs.read 时能力 broker 拒绝', async () => {
+  const dir = pluginDir('fs-read-denied', fsReadPlugin.replace('fs-read', 'fs-read-denied'));
+  writeFileSync(join(dir, 'secret.txt'), 'broker-secret', 'utf8');
+  const { manager } = managerWithTools();
+  try {
+    await assert.rejects(
+      () =>
+        manager.register(
+          new RemotePlugin({
+            name: 'fs-read-denied',
+            entryPath: join(dir, 'index.mjs'),
+            workspaceRoot: dir,
+            permissions: [],
+          }),
+        ),
+      /UNAUTHORIZED_CAPABILITY/u,
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test('远程插件：配置 OS 沙箱后 Worker 仍可启动并执行工具（Windows ACL）', async () => {
+  if (process.platform !== 'win32') return;
+  const root = mkdtempSync(join(tmpdir(), 'omni-worker-acl-'));
+  const plugin = pluginDir(
+    'acl-demo',
+    echoPlugin.replace('worker-demo', 'acl-demo'),
+    'remote',
+    root,
+  );
+  const { manager, tools } = managerWithTools();
+  try {
+    const sandbox = new WindowsAclSandbox(root, 'read-only');
+    await manager.register(
+      new RemotePlugin({
+        name: 'acl-demo',
+        entryPath: join(plugin, 'index.mjs'),
+        workspaceRoot: root,
+        sandbox,
+      }),
+    );
+    const result = await tools.execute(
+      { id: 'c5', name: 'echo', arguments: { text: 'acl' } },
+      { sessionId: 's', workspaceRoot: root },
+    );
+    assert.strictEqual(result.ok, true, result.error);
+    assert.match(result.output ?? '', /:acl$/u);
+  } finally {
+    await manager.uninstall('acl-demo');
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+}, 120_000);
