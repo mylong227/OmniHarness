@@ -81,7 +81,7 @@ export class SdkMcpConnector implements McpConnectorPort {
       timeoutMs,
     };
     if (server.url !== undefined) {
-      const headers = McpAuthProvider.headersOf(server);
+      const headers = await McpAuthProvider.headersOf(server);
       return await SdkMcpConnector.connectRemote(server, clientOptions, this.deps, headers);
     }
     return await SdkMcpConnector.connectStdio(server, clientOptions, this.deps);

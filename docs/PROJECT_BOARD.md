@@ -4338,3 +4338,19 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **诚实边界**：本片只做**已有令牌**与发现；浏览器授权码 + PKCE 回调 / token 刷新 / CIMD / registry / server 侧 2026-07-28 **未做**；
 `inputHandler` 只有端口、宿主侧回答器未接（live MRTR 当前总是 fail-closed）；发现请求尚未接 `ssrfPolicy` 与跨源重定向拒绝。
+
+## 41. 2026-10-22 MCP OAuth client credentials（P0-3 第二片）
+
+> 续 [ADR-0014](adr/0014-mcp-client-auth.md)；第一片见第 40 轮。
+
+- `McpOAuthTokenClient`：OAuth 2.1 client credentials（form-encoded、resource/scope、`redirect:'error'`、10s 超时）；
+  非 2xx / 非 JSON / 缺 access_token 一律 `MCP_OAUTH_TOKEN_FAILED`，错误不含 secret/token。
+- `McpAuthProvider.headersOf` 改为 async：令牌优先级 直接值 > tokenEnv > client credentials；有效期缓存（30s 提前量、50 条上限）；
+  client secret 只从 `clientSecret`/`clientSecretEnv` 读，空白 fail-closed；缓存键含 clientId/endpoint/resource/scopes。
+- 配置校验允许 oauth 的 `tokenEndpoint`/`clientSecret`/`clientSecretEnv`；仍拒绝跨类型键。
+- 判据：`mcpAuth` 9 例（含出站表单字段、缓存/过期、非 2xx、缺 token、缺 secret）；MCP 定点 57 例全绿；
+  `mcp:conformance` 32 例；tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 复审 **PASS**（无 must-fix）。
+
+**仍未做**：浏览器授权码 + PKCE 回调、refresh token、CIMD、MCP registry、server 侧 2026-07-28；
+发现请求尚未接 `ssrfPolicy`/跨源重定向拒绝。

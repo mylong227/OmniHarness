@@ -21,16 +21,16 @@ function server(auth: McpServerConfig['auth'], headers?: Record<string, string>)
   };
 }
 
-test('bearer：直接令牌 / 环境变量令牌都能生成 Authorization，且覆盖静态头', () => {
+test('bearer：直接令牌 / 环境变量令牌都能生成 Authorization，且覆盖静态头', async () => {
   assert.deepStrictEqual(
-    McpAuthProvider.headersOf(
+    await McpAuthProvider.headersOf(
       server({ type: 'bearer', token: 'tok' }, { Authorization: 'old' }),
       {},
     ),
     { Authorization: 'Bearer tok' },
   );
   assert.deepStrictEqual(
-    McpAuthProvider.headersOf(
+    await McpAuthProvider.headersOf(
       server({ type: 'bearer', token: 'tok' }, { authorization: 'lower-old' }),
       {},
     ),
@@ -38,13 +38,13 @@ test('bearer：直接令牌 / 环境变量令牌都能生成 Authorization，且
     '小写 authorization 也必须被认证头覆盖（HTTP 头大小写不敏感）',
   );
   assert.deepStrictEqual(
-    McpAuthProvider.headersOf(
+    await McpAuthProvider.headersOf(
       server({ type: 'bearer', tokenEnv: 'MCP_TOKEN' }, { 'X-Trace': '1' }),
       { MCP_TOKEN: 'env-token' },
     ),
     { 'X-Trace': '1', Authorization: 'Bearer env-token' },
   );
-  assert.throws(
+  await assert.rejects(
     () =>
       McpAuthProvider.headersOf(server({ type: 'bearer', token: '   ', tokenEnv: 'MCP_TOKEN' }), {
         MCP_TOKEN: 'env-token',
@@ -54,25 +54,116 @@ test('bearer：直接令牌 / 环境变量令牌都能生成 Authorization，且
   );
 });
 
-test('oauth：消费已有访问令牌；缺失时抛可行动错误', () => {
+test('oauth：消费已有访问令牌；缺失时抛可行动错误', async () => {
   assert.deepStrictEqual(
-    McpAuthProvider.headersOf(
+    await McpAuthProvider.headersOf(
       server({ type: 'oauth', accessToken: 'oauth-token', resource: 'https://mcp.example' }),
       {},
     ),
     { Authorization: 'Bearer oauth-token' },
   );
-  assert.throws(
+  await assert.rejects(
     () => McpAuthProvider.headersOf(server({ type: 'oauth', tokenEnv: 'MISSING' }), {}),
     /MCP_AUTH_UNAVAILABLE: 服务器 "x"/u,
   );
 });
 
-test('none / 无 auth：只回静态头，不发 Authorization', () => {
-  assert.deepStrictEqual(McpAuthProvider.headersOf(server({ type: 'none' }, { 'X-A': '1' }), {}), {
-    'X-A': '1',
+test('none / 无 auth：只回静态头，不发 Authorization', async () => {
+  assert.deepStrictEqual(
+    await McpAuthProvider.headersOf(server({ type: 'none' }, { 'X-A': '1' }), {}),
+    { 'X-A': '1' },
+  );
+  assert.deepStrictEqual(await McpAuthProvider.headersOf(server(undefined), {}), {});
+});
+
+test('oauth client credentials：取令牌、缓存、过期后重取', async () => {
+  let calls = 0;
+  let lastInit: RequestInit | undefined;
+  const fetchImpl = (async (_input: string | URL | Request, init?: RequestInit) => {
+    calls += 1;
+    lastInit = init;
+    return new Response(
+      JSON.stringify({
+        access_token: `tok-${String(calls)}`,
+        token_type: 'Bearer',
+        expires_in: 60,
+      }),
+      { status: 200 },
+    );
+  }) as typeof fetch;
+  const config = server({
+    type: 'oauth',
+    tokenEndpoint: 'https://auth.example/token',
+    clientId: 'client',
+    clientSecretEnv: 'MCP_CLIENT_SECRET',
+    resource: 'https://mcp.example',
+    scopes: ['mcp.read'],
   });
-  assert.deepStrictEqual(McpAuthProvider.headersOf(server(undefined), {}), {});
+  const first = await McpAuthProvider.headersOf(
+    config,
+    { MCP_CLIENT_SECRET: 'secret' },
+    1_000,
+    fetchImpl,
+  );
+  assert.deepStrictEqual(first, { Authorization: 'Bearer tok-1' });
+  const body = new URLSearchParams(String(lastInit?.body));
+  assert.strictEqual(body.get('grant_type'), 'client_credentials');
+  assert.strictEqual(body.get('client_id'), 'client');
+  assert.strictEqual(body.get('client_secret'), 'secret');
+  assert.strictEqual(body.get('resource'), 'https://mcp.example');
+  assert.strictEqual(body.get('scope'), 'mcp.read');
+  assert.strictEqual(lastInit?.redirect, 'error');
+  const cached = await McpAuthProvider.headersOf(
+    config,
+    { MCP_CLIENT_SECRET: 'secret' },
+    2_000,
+    fetchImpl,
+  );
+  assert.deepStrictEqual(cached, { Authorization: 'Bearer tok-1' });
+  assert.strictEqual(calls, 1, '有效期内必须复用缓存');
+  const refreshed = await McpAuthProvider.headersOf(
+    config,
+    { MCP_CLIENT_SECRET: 'secret' },
+    62_000,
+    fetchImpl,
+  );
+  assert.deepStrictEqual(refreshed, { Authorization: 'Bearer tok-2' });
+  assert.strictEqual(calls, 2, '过期必须重新取令牌');
+  await assert.rejects(
+    () => McpAuthProvider.headersOf(config, {}, 1_000, fetchImpl),
+    /MCP_AUTH_UNAVAILABLE/u,
+    '缺客户端密钥时 fail-closed，不发匿名请求',
+  );
+});
+
+test('oauth client credentials：非 2xx / 缺 access_token 一律 fail-closed', async () => {
+  const config = server({
+    type: 'oauth',
+    tokenEndpoint: 'https://auth.example/token',
+    clientId: 'client',
+    clientSecret: 'secret',
+  });
+  await assert.rejects(
+    () =>
+      McpAuthProvider.headersOf(
+        config,
+        {},
+        1_000,
+        (async () => new Response('', { status: 500 })) as typeof fetch,
+      ),
+    /MCP_OAUTH_TOKEN_FAILED: token endpoint HTTP 500/u,
+  );
+  await assert.rejects(
+    () =>
+      McpAuthProvider.headersOf(
+        config,
+        {},
+        1_000,
+        (async () =>
+          new Response(JSON.stringify({ token_type: 'Bearer' }), { status: 200 })) as typeof fetch,
+      ),
+    /缺少 access_token/u,
+  );
 });
 
 test('RFC 9728：path-aware 元数据 URL + resource 精确匹配；非 2xx/缺字段/不匹配都拒绝', async () => {

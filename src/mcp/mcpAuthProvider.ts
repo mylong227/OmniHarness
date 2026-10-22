@@ -8,7 +8,8 @@
  * - 静态 `headers` 与认证头合并，认证头优先（避免配置里写死的旧 token 覆盖新 token）。
  */
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
-import type { McpAuthConfig, McpProtectedResourceMetadata } from '../ports/mcp/mcpAuthConfig.ts';
+import type { McpProtectedResourceMetadata } from '../ports/mcp/mcpAuthConfig.ts';
+import { McpOAuthTokenClient, type OAuthAccessToken } from './mcpOAuthTokenClient.ts';
 
 /** 认证头缺失时抛出的可行动错误前缀。 */
 export const MCP_AUTH_UNAVAILABLE = 'MCP_AUTH_UNAVAILABLE';
@@ -18,25 +19,29 @@ export const MCP_AUTH_UNAVAILABLE = 'MCP_AUTH_UNAVAILABLE';
  */
 export class McpAuthProvider {
   /**
-   * 解析请求头。
+   * 解析请求头（async：oauth client credentials 可能需要取令牌）。
    * @param server 服务器配置。
    * @param env 环境变量（测试注入）。
+   * @param now 受控时钟（测试注入）。
+   * @param fetchImpl fetch 注入（测试用）。
    * @returns 请求头（含 Authorization，若配置了认证）。
-   * @throws 认证令牌缺失/空白时抛 `MCP_AUTH_UNAVAILABLE: ...`。
+   * @throws 认证令牌缺失/空白时抛 `MCP_AUTH_UNAVAILABLE: ...`；令牌端点失败抛 `MCP_OAUTH_TOKEN_FAILED`。
    */
-  public static headersOf(
+  public static async headersOf(
     server: McpServerConfig,
     env: Record<string, string | undefined> = process.env,
-  ): Record<string, string> {
+    now: number = Date.now(),
+    fetchImpl: typeof fetch = fetch,
+  ): Promise<Record<string, string>> {
     const headers: Record<string, string> = { ...(server.headers ?? {}) };
     if (server.auth === undefined || server.auth.type === 'none') {
       return headers;
     }
-    const token = McpAuthProvider.tokenOf(server.auth, env);
+    const token = await McpAuthProvider.tokenOf(server, env, now, fetchImpl);
     if (token === undefined) {
       throw new Error(
         `${MCP_AUTH_UNAVAILABLE}: 服务器 "${server.name}" 配置了 ${server.auth.type} 认证，但没有可用令牌；` +
-          '请设置 token 或 tokenEnv 指向的环境变量（不要提交明文令牌）',
+          '请设置 token/tokenEnv，或为 oauth 提供 tokenEndpoint + clientId + clientSecretEnv',
       );
     }
     for (const key of Object.keys(headers)) {
@@ -45,6 +50,12 @@ export class McpAuthProvider {
     headers['Authorization'] = `Bearer ${token}`;
     return headers;
   }
+
+  /** 令牌缓存（按 server + tokenEndpoint + scopes；有界，避免长期运行无限增长）。 */
+  private static readonly tokenCache = new Map<string, OAuthAccessToken>();
+
+  /** 缓存上限。 */
+  private static readonly MAX_CACHE = 50;
 
   /**
    * 通过 RFC 9728 发现受保护资源元数据。
@@ -104,16 +115,21 @@ export class McpAuthProvider {
   }
 
   /**
-   * 取令牌：配置值优先，其次环境变量。
-   * @param auth 认证配置。
+   * 取令牌：直接值 > tokenEnv > oauth client credentials（带缓存）。
+   * @param server 服务器配置（含 name，用于缓存键）。
    * @param env 环境变量。
+   * @param now 受控时钟。
+   * @param fetchImpl fetch 注入。
    * @returns 非空令牌或 undefined。
    */
-  private static tokenOf(
-    auth: McpAuthConfig,
+  private static async tokenOf(
+    server: McpServerConfig,
     env: Record<string, string | undefined>,
-  ): string | undefined {
-    if (auth.type === 'none') return undefined;
+    now: number,
+    fetchImpl: typeof fetch,
+  ): Promise<string | undefined> {
+    const auth = server.auth;
+    if (auth === undefined || auth.type === 'none') return undefined;
     const direct = auth.type === 'bearer' ? auth.token : auth.accessToken;
     if (direct !== undefined) {
       const trimmed = direct.trim();
@@ -121,8 +137,49 @@ export class McpAuthProvider {
       return trimmed === '' ? undefined : trimmed;
     }
     const envName = auth.tokenEnv;
-    if (envName === undefined) return undefined;
-    const value = env[envName]?.trim();
-    return value === '' ? undefined : value;
+    if (envName !== undefined) {
+      const value = env[envName]?.trim();
+      if (value !== undefined && value !== '') return value;
+    }
+    if (auth.type !== 'oauth' || auth.tokenEndpoint === undefined || auth.clientId === undefined) {
+      return undefined;
+    }
+    const secretRaw =
+      auth.clientSecret !== undefined && auth.clientSecret.trim() !== ''
+        ? auth.clientSecret
+        : auth.clientSecretEnv !== undefined
+          ? env[auth.clientSecretEnv]
+          : undefined;
+    const secret = secretRaw?.trim();
+    if (secret === undefined || secret === '') return undefined;
+    const key = [
+      server.name,
+      auth.tokenEndpoint,
+      auth.clientId,
+      auth.resource ?? '',
+      (auth.scopes ?? []).join(' '),
+    ].join('\0');
+    const cached = McpAuthProvider.tokenCache.get(key);
+    if (cached !== undefined && cached.expiresAt > now + 30_000) {
+      return cached.accessToken;
+    }
+    const token = await McpOAuthTokenClient.clientCredentials(
+      {
+        tokenEndpoint: auth.tokenEndpoint,
+        clientId: auth.clientId,
+        clientSecret: secret,
+        ...(auth.resource !== undefined ? { resource: auth.resource } : {}),
+        ...(auth.scopes !== undefined ? { scopes: auth.scopes } : {}),
+        fetchImpl,
+      },
+      now,
+    );
+    McpAuthProvider.tokenCache.set(key, token);
+    while (McpAuthProvider.tokenCache.size > McpAuthProvider.MAX_CACHE) {
+      const first = McpAuthProvider.tokenCache.keys().next().value;
+      if (first === undefined) break;
+      McpAuthProvider.tokenCache.delete(first);
+    }
+    return token.accessToken;
   }
 }

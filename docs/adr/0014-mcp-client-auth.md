@@ -1,7 +1,7 @@
-# 0014 MCP 客户端认证与 MRTR（第一片）
+# 0014 MCP 客户端认证与 MRTR
 
 - 日期：2026-10-22
-- 状态：**第一片已实施（token-based auth + RFC 9728 发现 + MRTR）；交互式授权码流未做**
+- 状态：**已实施 token-based auth + RFC 9728 发现 + MRTR + OAuth client credentials（机器对机器）；交互式授权码流未做**
 - 关联：[ADR-0003 统一门禁](./0003-unified-gate-fail-closed.md)、[ADR-0013 工作区信任闸](./0013-workspace-trust.md)
 - 现行实现：[`src/mcp/mcpAuthProvider.ts`](../../src/mcp/mcpAuthProvider.ts)、[`src/mcp/mcpStatelessClient.ts`](../../src/mcp/mcpStatelessClient.ts)、[`src/ports/mcp/mcpAuthConfig.ts`](../../src/ports/mcp/mcpAuthConfig.ts)
 
@@ -12,14 +12,14 @@ MCP 2026-07-28 把客户端认证定为 OAuth 2.1 resource server：server 暴�
 MRTR（`resultType:"input_required"` + `inputRequests`）取代 server 发起的 elicitation。
 本仓此前只能接**匿名**远端 server，且 v2 客户端没有 `input_required` 回路。
 
-## 决策（第一片）
+## 决策（第一/第二片）
 
 1. `McpServerConfig`/`FileMcpServer` 增加 `headers` 与 `auth`；`auth` 支持
    `none` / `bearer` / `oauth`，令牌来源为配置值或 `tokenEnv`（默认不把明文写进项目文件）。
-2. `McpAuthProvider` 只做两件事：把已有令牌变成 `Authorization` 头（认证头覆盖静态头）；
-   通过 RFC 9728 `/.well-known/oauth-protected-resource` 发现授权服务器与 scope。发现 URL
-   **path-aware**（后缀插在 host 与 path 之间），并**精确校验**返回的 `resource` 与输入一致；
-   不一致即拒绝（RFC 9728 §3.3）。
+2. `McpAuthProvider` 把已有令牌变成 `Authorization` 头（认证头覆盖静态头）；令牌来源优先级
+   直接值 > `tokenEnv` > **OAuth client credentials**（`tokenEndpoint` + `clientId` +
+   `clientSecretEnv`，带有效期缓存）。RFC 9728 资源元数据发现是 **path-aware**（后缀插在 host
+   与 path 之间），并**精确校验**返回的 `resource` 与输入一致；不一致即拒绝（RFC 9728 §3.3）。
 3. 远端连接器把认证头传给 Streamable HTTP / SSE 传输；**缺令牌 fail-closed**，不发匿名请求。
 4. `McpStatelessClient` 处理 `input_required`：把 `inputRequests` 交给注入的
    `McpInputHandler`，带 `inputResponses` 重试（≤3 轮）；无 handler/漏答/仍要求输入一律报

@@ -28,8 +28,14 @@ export type McpAuthConfig =
       readonly resource?: string;
       /** 授权服务器 issuer（用于 RFC 8414 发现）。 */
       readonly authorizationServer?: string;
-      /** 客户端标识（后续交互式授权用）。 */
+      /** 令牌端点（缺省时可用 issuer 的 RFC 8414 元数据，后续接入）。 */
+      readonly tokenEndpoint?: string;
+      /** 客户端标识（client credentials / 后续交互式授权）。 */
       readonly clientId?: string;
+      /** 客户端密钥（不推荐写配置文件；优先用 clientSecretEnv）。 */
+      readonly clientSecret?: string;
+      /** 从环境变量读取客户端密钥的变量名。 */
+      readonly clientSecretEnv?: string;
       /** 申请的 scope。 */
       readonly scopes?: readonly string[];
     };

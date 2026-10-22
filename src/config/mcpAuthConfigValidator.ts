@@ -33,7 +33,10 @@ export class McpAuthConfigValidator {
         'tokenEnv',
         'resource',
         'authorizationServer',
+        'tokenEndpoint',
         'clientId',
+        'clientSecret',
+        'clientSecretEnv',
         'scopes',
       ]),
     };
@@ -48,7 +51,10 @@ export class McpAuthConfigValidator {
       'accessToken',
       'resource',
       'authorizationServer',
+      'tokenEndpoint',
       'clientId',
+      'clientSecret',
+      'clientSecretEnv',
     ]) {
       if (auth[key] !== undefined && typeof auth[key] !== 'string') {
         return `${where}.${key} 必须是字符串`;
