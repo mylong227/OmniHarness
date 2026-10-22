@@ -39,3 +39,15 @@ npm run eval:harness -- --a @a.json --b @b.json --k 3 --out report.json
 - 清单记录的是**注册工具集**与 `exposureMode`，不是请求期最终可见集合；A/B 的
   `OMNI_TOOL_EXPOSURE` 差异要看 manifest 的 `exposureMode` 字段。
 - 启动失败、转写截断等由 CLI 退出码/`ok` 字段反映；脚本不把「文件恰好存在」当唯一证据。
+
+## trace → patch 计划（`npm run trace:patch`）
+
+先 `npm run build`（脚本读取 `dist/src/eval/tracePatchPlanner.js`）：
+
+```bash
+npm run trace:patch -- --input signals.json          # markdown
+npm run trace:patch -- --input signals.jsonl --json  # 机器读
+```
+
+输入是失败信号数组（或 JSONL）：`{tool, ok, output, path, command}`。输出复现命令、涉及文件、
+最小修改假设、验证命令。**它不改文件、不自动合并**——自动落补丁必须先有验证闭环。

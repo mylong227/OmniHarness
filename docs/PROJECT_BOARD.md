@@ -4383,3 +4383,15 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **边界**：`health-fallback` 仍绕过角色路由；role 键未做枚举校验（拼错会回退首项）；role 目标不在 entries 时首次请求才 fail-closed；
 `planner`/`subagent` 角色暂未发射（子代理走 executor）。
+
+## 44. 2026-10-22 trace → patch 提案器（P1-4 第二片）
+
+- `TracePatchPlanner`（纯逻辑）：从失败信号提取证据（输出截断 ≤400 字）、涉及文件、复现/验证命令，
+  生成 `reproduce → inspect → fix → verify` 四步计划；同输入同输出，文件/命令排序去重。
+- 文件提取：最长后缀优先（`.tsx`/`.json` 不截断）、URL 排除、Windows 盘符保留、文件数上限 100。
+- `npm run trace:patch -- --input signals.json|jsonl [--json]`（先 `npm run build`）；只打印计划，
+  **不改文件、不自动合并**。
+- 判据：`tracePatchPlanner` 5 例（失败判定/URL/扩展名/盘符/去重/确定性/截断/ok 语义）。
+- 独立 Agent 复审 2 轮：首轮 2 项 must-fix（扩展名截断、URL 过滤死代码），修复后 **PASS**。
+
+**边界**：这是**提案器**，不是自动补丁器；真正落补丁仍需验证闭环（测试通过 + 独立审查）。
