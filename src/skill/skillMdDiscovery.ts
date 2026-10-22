@@ -11,6 +11,10 @@ import { log } from '../util/logger.ts';
  * `.omniharness/skills/<name>/SKILL.md`（以及 Claude Code 兼容的 `.claude/skills`）
  * 永远不会被读到——「SKILL.md 可移植」只完成了导入通道，没完成自动发现。
  *
+ * 2026-10-22 起支持 `.agents/skills`（跨工具 Agent Skills 约定），但**默认关闭**：
+ * 工作区技能会注入系统提示，`.agents` 是新增攻击面；需显式 `OMNI_AGENTS_SKILLS=1` 才扫描。
+ * 扫描优先级 `.omniharness` > `.claude` > `.agents`，同名只保留先扫到的。
+ *
  * 口径：
  *  - 只扫**直接子目录**，每个子目录读 `SKILL.md`；文件不存在/解析失败**跳过并告警**，不阻断启动；
  *  - 显式配置/CLI 的同名技能优先（由调用方合并时去重）；
@@ -20,14 +24,21 @@ export class SkillMdDiscovery {
   /** 扫描目录（相对工作区根；按顺序扫描，后面的同名技能不覆盖前面的）。 */
   private static readonly DIRS = [join('.omniharness', 'skills'), join('.claude', 'skills')];
 
+  /** 跨工具约定目录（opt-in，避免默认扩大工作区提示注入面）。 */
+  private static readonly AGENTS_DIR = join('.agents', 'skills');
+
   /**
    * 发现工作区内的 SKILL.md 技能。
    * @param workspaceRoot 工作区根目录。
    * @returns 解析出的技能条目（可能为空；同名只保留首次出现）。
    */
   public static discover(workspaceRoot: string): SkillEntry[] {
+    const dirs = [...SkillMdDiscovery.DIRS];
+    if (process.env.OMNI_AGENTS_SKILLS === '1') {
+      dirs.push(SkillMdDiscovery.AGENTS_DIR);
+    }
     const found = new Map<string, SkillEntry>();
-    for (const relative of SkillMdDiscovery.DIRS) {
+    for (const relative of dirs) {
       for (const entry of SkillMdDiscovery.scan(join(workspaceRoot, relative))) {
         if (!found.has(entry.name)) found.set(entry.name, entry);
       }

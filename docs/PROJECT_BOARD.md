@@ -4406,3 +4406,13 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 独立 Agent 评审 **PASS**（无 must-fix）。
 
 **边界**：仍是字符串片段匹配（会漏改写/编码、会误报正常引用），不是数据流分析；本片只做 provenance 观测档，不含 egress proxy/完整 CaMeL。
+
+## 46. 2026-10-22 `.agents/skills` 发现（P1-5 第一片）
+
+- `SkillMdDiscovery` 增加 `.agents/skills`（跨工具 Agent Skills 约定）；优先级 `.omniharness` > `.claude` > `.agents`，同名先扫到者胜。
+- **默认关闭**：需 `OMNI_AGENTS_SKILLS=1` 才扫描——工作区技能会注入系统提示，新增 `.agents` 不能默认扩大提示注入面。
+- 只扫直接子目录；缺失/坏 SKILL.md 跳过并告警；显式配置/CLI 同名技能仍优先。
+- 判据：发现 3 例（三目录发现/优先级、默认不扫描、空目录不抛错）；tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 评审 **PASS**，并据此把 `.agents` 收紧为 opt-in（原评审指出 restricted 模式自动注入风险）。
+
+**边界**：不是签名分发；工作区技能（含既有 `.omniharness/.claude`）与 workspace trust 的关系仍是已知风险：restricted 模式下不会自动信任项目，但技能发现绕过 `skills` 配置键过滤，需后续接 trust 闸。
