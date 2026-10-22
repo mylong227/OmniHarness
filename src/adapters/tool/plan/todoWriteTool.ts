@@ -52,16 +52,26 @@ export class TodoWriteTool {
     private readonly eventFactory: EventFactoryPort,
   ) {}
 
+  /** 单次待办上限：防止模型把上百条噪声塞进 UI/上下文（超出即拒绝，而不是静默截断）。 */
+  private static readonly MAX_ITEMS = 20;
+
   /**
    * 执行 todo_write：校验并整表替换待办、广播 todo 事件、汇总各状态计数。
    * @param call 模型传入的工具调用（含完整 todos 数组）。
    * @param ctx 工具执行上下文（取 sessionId 用于广播 todo 事件）。
-   * @returns todos 非数组、content 为空或 status 非法时报错；成功返回计数摘要。
+   * @returns todos 非数组、content 为空、status 非法、超过上限或同时多个 in_progress 时报错。
    */
   public async handle(call: ToolCall, ctx: ToolContext): Promise<ToolResult> {
     const raw = call.arguments['todos'];
     if (!Array.isArray(raw)) {
       return { callId: call.id, ok: false, error: 'todos 必须是数组' };
+    }
+    if (raw.length > TodoWriteTool.MAX_ITEMS) {
+      return {
+        callId: call.id,
+        ok: false,
+        error: `todos 最多 ${String(TodoWriteTool.MAX_ITEMS)} 条（当前 ${String(raw.length)} 条），请合并或拆分任务`,
+      };
     }
     const items: TodoItem[] = [];
     for (let i = 0; i < raw.length; i += 1) {
@@ -79,6 +89,13 @@ export class TodoWriteTool {
         };
       }
       items.push({ content, status });
+    }
+    if (items.filter((item) => item.status === 'in_progress').length > 1) {
+      return {
+        callId: call.id,
+        ok: false,
+        error: '同一时刻最多只能有一条 in_progress；请先完成当前步骤再推进下一条',
+      };
     }
     // 按**本会话**写入（2026-09-26 审计 F7/F9）：待办端口是进程级单例，不分桶时子代理的
     // todo_write 会整表覆盖父会话的清单。

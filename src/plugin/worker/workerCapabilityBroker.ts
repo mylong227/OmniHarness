@@ -1,5 +1,6 @@
-import type { PluginPermission } from '../../ports/plugin/pluginPermission.ts';
+﻿import type { PluginPermission } from '../../ports/plugin/pluginPermission.ts';
 import { SafeFs } from '../../server/services/safeFs.ts';
+import { PluginWorkerLimits } from './pluginWorkerLimits.ts';
 
 /** 能力 broker 的调用请求。 */
 export interface WorkerCapabilityCall {
@@ -45,7 +46,11 @@ export class WorkerCapabilityBroker {
     if (typeof path !== 'string' || path === '') {
       throw new Error('INVALID_FRAME: fs.read 缺少 path');
     }
-    const result = SafeFs.safeReadFile(this.workspaceRoot, path, 1024 * 1024);
+    const result = SafeFs.safeReadFile(
+      this.workspaceRoot,
+      path,
+      PluginWorkerLimits.CAPABILITY_READ_MAX_BYTES,
+    );
     if (!result.ok) {
       throw new Error(`UNAUTHORIZED_CAPABILITY: ${result.error}`);
     }

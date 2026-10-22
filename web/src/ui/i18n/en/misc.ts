@@ -113,4 +113,7 @@ export const EN_MISC: Record<string, string> = {
   '进行中': 'Running',
   '本轮还没有工具调用。发起任务后，读取 / 编辑 / 命令会按顺序出现在这里。':
     'No tool calls in this turn yet. Once you start a task, reads / edits / commands will appear here in order.',
+  // TodoDock.tsx
+  '待处理 {n} 项': '{n} pending',
+  '全部完成': 'All done',
 };

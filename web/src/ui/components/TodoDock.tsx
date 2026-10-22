@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { type TodoDockItem } from '../models/TodoDockModel.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 面板属性。 */
 export interface TodoDockProps {
@@ -22,7 +23,7 @@ export function TodoDock({ items }: TodoDockProps): React.ReactElement | null {
   return (
     <details className="todo-dock" open={current !== undefined}>
       <summary className="todo-dock__summary">
-        <span className="todo-dock__title">计划</span>
+        <span className="todo-dock__title">{t('计划')}</span>
         <span className="todo-dock__count">
           {done}/{items.length}
         </span>
@@ -30,7 +31,7 @@ export function TodoDock({ items }: TodoDockProps): React.ReactElement | null {
           <span className="todo-dock__fill" style={{ width: `${String(percent)}%` }} />
         </span>
         <span className="todo-dock__current">
-          {current?.content ?? (pending > 0 ? `待处理 ${String(pending)} 项` : '全部完成')}
+          {current?.content ?? (pending > 0 ? t('待处理 {n} 项', { n: pending }) : t('全部完成'))}
         </span>
       </summary>
       <ul className="todo-dock__list">

@@ -18,6 +18,7 @@ import type {
 } from '../../ports/plugin/pluginWorkerProtocol.ts';
 import type { WorkerCapabilityBroker } from './workerCapabilityBroker.ts';
 import { WorkerSpawnSpecBuilder } from './workerSpawnSpecBuilder.ts';
+import { PluginWorkerLimits } from './pluginWorkerLimits.ts';
 
 /** Supervisor 构造选项。 */
 export interface PluginWorkerSupervisorOptions {
@@ -94,8 +95,9 @@ export class PluginWorkerSupervisor {
    * @param options 插件/Worker 配置。
    */
   public constructor(private readonly options: PluginWorkerSupervisorOptions) {
-    this.callTimeoutMs = options.callTimeoutMs ?? 30_000;
-    this.activationTimeoutMs = options.activationTimeoutMs ?? 10_000;
+    this.callTimeoutMs = options.callTimeoutMs ?? PluginWorkerLimits.DEFAULT_CALL_TIMEOUT_MS;
+    this.activationTimeoutMs =
+      options.activationTimeoutMs ?? PluginWorkerLimits.DEFAULT_ACTIVATION_TIMEOUT_MS;
     this.broker = options.broker;
     this.exitPromise = new Promise<void>((resolve) => {
       this.exitResolve = resolve;
@@ -157,14 +159,14 @@ export class PluginWorkerSupervisor {
       if (this.child !== undefined) ProcessTreeKiller.kill(this.child);
       await Promise.race([
         this.exitPromise,
-        new Promise<void>((resolve) => setTimeout(resolve, 1_000)),
+        new Promise<void>((resolve) => setTimeout(resolve, PluginWorkerLimits.SHUTDOWN_GRACE_MS)),
       ]);
       return;
     }
     this.state = 'stopping';
     if (this.child !== undefined && this.child.exitCode === null) {
       try {
-        await this.request('plugin.deactivate', {}, 2_000);
+        await this.request('plugin.deactivate', {}, PluginWorkerLimits.DEACTIVATE_TIMEOUT_MS);
       } catch {
         /* 停用失败不阻断强杀 */
       }
@@ -172,7 +174,7 @@ export class PluginWorkerSupervisor {
     if (this.child !== undefined) ProcessTreeKiller.kill(this.child);
     await Promise.race([
       this.exitPromise,
-      new Promise<void>((resolve) => setTimeout(resolve, 1_000)),
+      new Promise<void>((resolve) => setTimeout(resolve, PluginWorkerLimits.SHUTDOWN_GRACE_MS)),
     ]);
     this.state = 'stopped';
   }
@@ -245,8 +247,8 @@ export class PluginWorkerSupervisor {
    */
   private handleLine(line: string): void {
     if (line.length === 0) return;
-    if (line.length > 1024 * 1024) {
-      this.fail('INVALID_FRAME: 帧超过 1 MiB');
+    if (line.length > PluginWorkerLimits.MAX_FRAME_BYTES) {
+      this.fail('INVALID_FRAME: 帧超过上限');
       return;
     }
     let message: PluginWorkerInbound;

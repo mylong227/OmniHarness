@@ -63,6 +63,33 @@ describe('TodoTool', () => {
     );
     assert.strictEqual(r.ok, false);
   });
+
+  it('同一时刻多条 in_progress 被拒绝（防止计划状态自相矛盾）', async () => {
+    const r = await new TodoWriteTool(new MemoryTodo(), undefined, eventFactory).handle(
+      call('todo_write', {
+        todos: [
+          { content: 'A', status: 'in_progress' },
+          { content: 'B', status: 'in_progress' },
+        ],
+      }),
+      ctx,
+    );
+    assert.strictEqual(r.ok, false);
+    assert.match(r.error ?? '', /最多.*in_progress/u);
+  });
+
+  it('超过 20 条待办被拒绝（避免噪声塞爆 UI/上下文）', async () => {
+    const todos = Array.from({ length: 21 }, (_, i) => ({
+      content: `T${String(i)}`,
+      status: 'pending',
+    }));
+    const r = await new TodoWriteTool(new MemoryTodo(), undefined, eventFactory).handle(
+      call('todo_write', { todos }),
+      ctx,
+    );
+    assert.strictEqual(r.ok, false);
+    assert.match(r.error ?? '', /最多 20 条/u);
+  });
 });
 
 describe('AskUserTool', () => {

@@ -9,8 +9,8 @@
 import { pathToFileURL } from 'node:url';
 import { createInterface } from 'node:readline';
 
-/** 单帧上限（与父进程一致）。 */
-const MAX_FRAME_BYTES = 1024 * 1024;
+/** 单帧上限（与父进程同源：由 Supervisor 经环境变量传入）。 */
+const MAX_FRAME_BYTES = Number(process.env['OMNI_PLUGIN_WORKER_MAX_FRAME_BYTES'] ?? 1_048_576);
 
 class PluginWorker {
   constructor() {

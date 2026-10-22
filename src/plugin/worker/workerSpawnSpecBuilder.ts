@@ -1,5 +1,6 @@
-import { dirname } from 'node:path';
+﻿import { dirname } from 'node:path';
 import type { SandboxPort } from '../../ports/runtime/sandbox.ts';
+import { PluginWorkerLimits } from './pluginWorkerLimits.ts';
 
 /** Worker 进程启动参数。 */
 export interface WorkerSpawnSpec {
@@ -53,6 +54,7 @@ export class WorkerSpawnSpecBuilder {
       OMNI_PLUGIN_WORKER_SESSION: options.session,
       OMNI_PLUGIN_ENTRY: options.entryPath,
       OMNI_PLUGIN_NAME: options.pluginName,
+      OMNI_PLUGIN_WORKER_MAX_FRAME_BYTES: String(PluginWorkerLimits.MAX_FRAME_BYTES),
       SYSTEMROOT: process.env['SystemRoot'] ?? '',
       TEMP: process.env['TEMP'] ?? '',
       TMP: process.env['TMP'] ?? '',
