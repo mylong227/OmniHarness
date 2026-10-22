@@ -1,8 +1,8 @@
 /**
- * MCP OAuth 令牌客户端（client credentials grant，2026-10-22 第二片）。
+ * MCP OAuth 令牌客户端（client credentials + authorization code + PKCE，2026-10-22）。
  *
- * 适用：服务账号 / 机器对机器的托管 MCP server（无用户交互）。浏览器授权码 + PKCE
- * 仍留给下一步的 `mcp auth` 命令；本类**不**伪造用户授权。
+ * 两类授权：服务账号（client credentials）与用户授权码（authorization code + PKCE）。
+ * 浏览器打开/本地回调服务器/令牌持久化仍留给 `mcp auth` 命令；本类只做 token 端点交换。
  *
  * 安全口径：client secret 优先从环境变量读；不打印/不回显 secret 与 token。
  */
@@ -18,6 +18,26 @@ export interface OAuthClientCredentialsRequest {
   /** 申请的 scope。 */
   readonly scopes?: readonly string[] | undefined;
   /** fetch 注入（测试用）。 */
+  readonly fetchImpl?: typeof fetch | undefined;
+}
+
+/** 授权码 + PKCE 换令牌请求。 */
+export interface OAuthAuthorizationCodeRequest {
+  /** 令牌端点。 */
+  readonly tokenEndpoint: string;
+  /** 客户端标识。 */
+  readonly clientId: string;
+  /** 授权码。 */
+  readonly code: string;
+  /** 与授权请求一致的 redirect_uri。 */
+  readonly redirectUri: string;
+  /** PKCE verifier。 */
+  readonly codeVerifier: string;
+  /** 公共客户端无需 secret；机密客户端可给。 */
+  readonly clientSecret?: string | undefined;
+  /** RFC 8707 resource。 */
+  readonly resource?: string | undefined;
+  /** fetch 注入。 */
   readonly fetchImpl?: typeof fetch | undefined;
 }
 
@@ -60,8 +80,58 @@ export class McpOAuthTokenClient {
     if (request.scopes !== undefined && request.scopes.length > 0) {
       body.set('scope', request.scopes.join(' '));
     }
-    const fetchImpl = request.fetchImpl ?? fetch;
-    const response = await fetchImpl(request.tokenEndpoint, {
+    return McpOAuthTokenClient.exchange(
+      request.tokenEndpoint,
+      body,
+      request.fetchImpl ?? fetch,
+      now,
+    );
+  }
+
+  /**
+   * 用授权码 + PKCE 换访问令牌。
+   * @param request 端点/客户端/授权码/redirect_uri/verifier。
+   * @param now 受控时钟。
+   * @returns 访问令牌。
+   */
+  public static async authorizationCode(
+    request: OAuthAuthorizationCodeRequest,
+    now: number = Date.now(),
+  ): Promise<OAuthAccessToken> {
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: request.clientId,
+      code: request.code,
+      redirect_uri: request.redirectUri,
+      code_verifier: request.codeVerifier,
+    });
+    if (request.clientSecret !== undefined && request.clientSecret !== '') {
+      body.set('client_secret', request.clientSecret);
+    }
+    if (request.resource !== undefined) body.set('resource', request.resource);
+    return McpOAuthTokenClient.exchange(
+      request.tokenEndpoint,
+      body,
+      request.fetchImpl ?? fetch,
+      now,
+    );
+  }
+
+  /**
+   * 发 token 请求并解析。
+   * @param tokenEndpoint 令牌端点。
+   * @param body 表单体。
+   * @param fetchImpl fetch。
+   * @param now 时钟。
+   * @returns 访问令牌。
+   */
+  private static async exchange(
+    tokenEndpoint: string,
+    body: URLSearchParams,
+    fetchImpl: typeof fetch,
+    now: number,
+  ): Promise<OAuthAccessToken> {
+    const response = await fetchImpl(tokenEndpoint, {
       method: 'POST',
       headers: {
         accept: 'application/json',

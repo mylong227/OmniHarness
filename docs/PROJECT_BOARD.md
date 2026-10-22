@@ -4432,3 +4432,16 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **边界**：这是排序降权，不是信任过滤/签名；BM25 命中相同且同时间时靠惩罚系数打破平局；RG 坍缩出的
 `__web_abstract__` 事实无 `trust`，抽象后的投毒内容仍不被降权；长期记忆的完整 LongMemEval-S 仍未接。
+
+## 48. 2026-10-22 MCP OAuth PKCE + 授权码换令牌（P0-3 第三片）
+
+- `McpOAuthPkce`：RFC 7636 S256 生成（32B verifier / base64url 无填充）、state、授权 URL
+  （response_type/client_id/redirect_uri/code_challenge/state/scope/resource）、回调解析（code/state/error）。
+- `McpOAuthTokenClient.authorizationCode`：grant_type=authorization_code + code_verifier + redirect_uri，
+  可选 client_secret/resource；与 client credentials 共用 exchange（`redirect:'error'`、10s 超时、fail-closed）。
+- 判据：`mcpOAuthPkce` 4 例（RFC 7636 附录 B 向量、授权 URL 全参数、回调 code/error、换令牌表单与响应）；
+  13 例 MCP 定点全绿；tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 审查 **PASS**（协议正确、无 secret/token 日志、无新依赖）。
+
+**仍未接线**：浏览器打开、本地回环回调服务器、state 比对、令牌持久化、`mcp auth` 命令都未做；
+`McpOAuthPkce` 目前只有测试引用。P0-3 不能称为完成。
