@@ -1,0 +1,85 @@
+/* 输入框上方的计划进度条（TodoDock）：长会话里不需要滚回顶部也能看到 Agent 当前步骤。 */
+.todo-dock {
+  margin: 0 12px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.todo-dock__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.todo-dock__summary::-webkit-details-marker {
+  display: none;
+}
+
+.todo-dock__title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.todo-dock__count {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.todo-dock__bar {
+  flex: 0 0 72px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.todo-dock__fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 180ms ease;
+}
+
+.todo-dock__current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.todo-dock__list {
+  margin: 0;
+  padding: 2px 10px 8px;
+  list-style: none;
+  border-top: 1px solid var(--hairline);
+}
+
+.todo-dock__item {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  color: var(--dim);
+}
+
+.todo-dock__item.is-completed {
+  color: var(--faint);
+  text-decoration: line-through;
+}
+
+.todo-dock__item.is-in_progress {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.todo-dock__mark {
+  flex: 0 0 12px;
+  text-align: center;
+}

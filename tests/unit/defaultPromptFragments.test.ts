@@ -82,6 +82,15 @@ test('⑤ 仍只返回单片段（前缀缓存契约：基础片段数不变）'
   assert.strictEqual(DefaultPromptFragments.codingAgent().length, 1);
 });
 
+test('⑦ 多步任务必须带规划/执行协议（拆解、单 in_progress、收尾核对）', () => {
+  const text = DefaultPromptFragments.codingAgent().join('\n');
+  assert.match(text, /task planning|任务规划/u);
+  assert.ok(text.includes('todo_write'), '必须给出待办写入入口');
+  assert.match(text, /in_progress/u, '必须要求同一时刻只有一条进行中');
+  assert.match(text, /不得.*pending|pending.*不得/u, '必须禁止把未完成说成完成');
+  assert.ok(text.includes('plan_write'), '必须区分计划模式与普通 todo');
+});
+
 test('⑥ 子代用「运行环境片段」：含平台与 shell，但不背主会话的整段编码 SOP', () => {
   // 2026-10-06（第六十一轮实测）：子代 `systemPrompt` 曾为 0 token，于是在 cmd.exe 上按 POSIX 试错，
   // 并把「不是内部或外部命令」误判成「隔离 shell 不可用」回传主代理（主代理照抄进最终答复）。

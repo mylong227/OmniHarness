@@ -37,6 +37,8 @@ import { StreamModelCache } from '../models/StreamModelCache.ts';
 import { Composer } from './Composer.tsx';
 import { GraphResumeChip } from './GraphResumeChip.tsx';
 import { QuestionCard } from './QuestionCard.tsx';
+import { TodoDock } from './TodoDock.tsx';
+import { TodoDockModel } from '../models/TodoDockModel.ts';
 import { ToolCallCard } from './stream/ToolCallCard.tsx';
 import { ReasoningBlock } from './stream/ReasoningBlock.tsx';
 import { ProcessCluster } from './stream/ProcessCluster.tsx';
@@ -785,6 +787,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
           onExpire={onQuestionExpired}
         />
       )}
+      <TodoDock items={TodoDockModel.latest(events)} />
       <Composer
         model={model}
         modelOptions={modelOptions}

@@ -9,6 +9,7 @@ import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.ts';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
 import type { MemoryExtractorPort } from '../ports/memory/memoryExtractor.ts';
 import type { WorkflowMemoryPort } from '../ports/memory/workflowMemory.ts';
+import type { TodoPort } from '../ports/runtime/todo.ts';
 import { WorkflowMemoryRecorder } from './workflowMemoryRecorder.ts';
 import { LoopGuard, type LoopDecision } from './loop/loopGuard.ts';
 import { EvidenceLedger } from './evidenceLedger.ts';
@@ -103,6 +104,13 @@ export class TurnRunner {
     private readonly reviewer?: ReviewPort | undefined,
     /** 是否把 reviewer 的 blocker/major 当阻断（默认 false = advisory，避免误杀）。 */
     private readonly reviewBlock = false,
+    /**
+     * 待办端口（可选）：模型宣告完成时若仍有 pending/in_progress，注入一次纠偏。
+     *
+     * 为什么放在 TurnRunner 而不是提示词：提示词只能"建议"；实测模型仍会在待办未完成时
+     * 直接收尾。这里用一次有界的状态检查兜住「提前宣告完成」，比无限要求模型自省可靠。
+     */
+    private readonly todo?: TodoPort | undefined,
   ) {
     this.loopGuard = loopGuard;
     this.workflowRecorder =
@@ -125,7 +133,8 @@ export class TurnRunner {
     /** 是否**由模型产出结论**而结束（自然收敛）；`truncated` 取它的反。 */
     let converged = false;
     let usageTokens = 0;
-    /** 本回合的完成判定状态（闸门是否已用过 + 验证状态）；用对象承载以便抽方法传引用。 */
+    /** 待办纠偏是否已用过（每回合至多一次，避免把收尾卡死）。 */
+    let todoReminded = false;
     /** 本回合的完成判定状态（就地更新；用对象承载以便抽方法传引用）。 */
     const claim: CompletionClaim = { gated: false, reviewed: false, verificationState: 'not-run' };
     // 不限步数（0/undefined/负数都按不限处理）：终止由「模型产出结论 / 预算 / 行为护栏 / 取消」决定。
@@ -171,8 +180,9 @@ export class TurnRunner {
         continue;
       }
       if (outcome === 'text') {
-        // 完成闸门（A1 + G3-V2）：抽成方法以守住本函数体上限，语义见其 JSDoc。
-        if ((await this.handleCompletionClaim(claim, context.sessionId, steps)) === 'retry') {
+        const action = await this.afterText(claim, context.sessionId, steps, todoReminded);
+        if (action !== 'done') {
+          todoReminded ||= action === 'nudge';
           continue;
         }
         converged = true;
@@ -240,6 +250,21 @@ export class TurnRunner {
   }
 
   /**
+   * 读取本会话未完成的待办（pending/in_progress）。
+   * @param sessionId 会话标识。
+   * @returns 未完成项；未注入待办端口或无会话桶时为空。
+   */
+  private openTodos(sessionId: string): readonly { readonly content: string }[] {
+    if (this.todo === undefined) {
+      return [];
+    }
+    return this.todo
+      .list(sessionId)
+      .filter((item) => item.status === 'pending' || item.status === 'in_progress')
+      .map((item) => ({ content: item.content }));
+  }
+
+  /**
    * 取本回合的最终文本（从 `run` 外移：铁律函数体上限，且这段是自洽的一件事）。
    *
    * 口径：优先取模型本轮产出的最后一条 assistant 文本；**一条都没有**时（模型一直在调工具、
@@ -270,6 +295,38 @@ export class TurnRunner {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  /**
+   * 文本步后的收尾判定：完成闸门优先，其次检查未完成待办。
+   * @param claim 完成判定状态（就地更新）。
+   * @param sessionId 会话 id。
+   * @param steps 当前步数。
+   * @param todoReminded 待办纠偏是否已用过。
+   * @returns `retry` 继续改；`nudge` 已注入待办纠偏、继续执行；`done` 允许收尾。
+   */
+  private async afterText(
+    claim: CompletionClaim,
+    sessionId: string,
+    steps: number,
+    todoReminded: boolean,
+  ): Promise<'retry' | 'nudge' | 'done'> {
+    if ((await this.handleCompletionClaim(claim, sessionId, steps)) === 'retry') {
+      return 'retry';
+    }
+    if (todoReminded) {
+      return 'done';
+    }
+    const open = this.openTodos(sessionId);
+    if (open.length === 0) {
+      return 'done';
+    }
+    this.recorder.system(
+      '【待办未完成】以下待办仍是 pending/in_progress：' +
+        open.map((item) => `- ${item.content}`).join('；') +
+        '。请继续执行并更新 `todo_write`；若确实无法完成，明确说明阻塞点，不要宣告完成。',
+    );
+    return 'nudge';
   }
 
   /**

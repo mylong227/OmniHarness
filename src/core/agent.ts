@@ -581,6 +581,8 @@ export class Agent implements AgentPort {
       // VER-06：reviewer 默认注入（Runtime 装配）；这里只决定 blocker/major 是否阻断。
       this.runtime.reviewer,
       process.env.OMNI_REVIEW_BLOCK === '1',
+      // 待办未完成时的一次纠偏（模型容易把“计划写完”当“任务做完”）。
+      this.runtime.config.todo,
     );
   }
 

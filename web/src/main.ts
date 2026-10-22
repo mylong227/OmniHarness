@@ -19,6 +19,7 @@ import '../styles/theme.css'; // 唯一色彩事实源：token / reset / 原生�
 import '../styles/layout.css'; // 三栏骨架
 import '../styles/components.css'; // 可复用组件
 import '../styles/chat.css'; // 对话流基础
+import '../styles/todo.css'; // 计划进度条（输入框上方）
 import '../styles/tokens.css'; // 字体族补充
 import '../styles/base.css'; // 全局底子：滚动条 / 选区 / 焦点
 import '../styles/overlays.css'; // 浮层

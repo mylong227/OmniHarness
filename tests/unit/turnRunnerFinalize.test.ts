@@ -16,6 +16,7 @@ import { TurnRunner } from '../../src/core/turnRunner.ts';
 import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { MemoryTodo } from '../../src/adapters/todo/memoryTodo.ts';
 import type {
   ModelPort,
   ModelOutput,
@@ -69,7 +70,52 @@ function makeModel(opts: { alwaysTool: boolean }): {
   return { model, toolCounts, generateCalls: () => calls };
 }
 
-test('① 模型一直调工具：跑满 maxSteps 后兜底产出总结（不再 hasText:false）', async () => {
+test('② 待办仍有 pending/in_progress 时，模型收尾会被纠偏一次（不把计划当完成）', async () => {
+  const recorder = recorderFor('s-todo-guard');
+  const todo = new MemoryTodo();
+  todo.snapshot([{ content: '实现并验证', status: 'in_progress' }], 's-todo-guard');
+  const model: ModelPort = {
+    name: 'mock',
+    generate: async () => ({ text: '已完成。' }),
+  };
+  const sr = new StepRunner({
+    model,
+    tools: jsTools,
+    approvals: allowApproval,
+    sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
+    recorder,
+    sessionId: 's-todo-guard',
+  });
+  const tr = new TurnRunner(
+    sr,
+    recorder,
+    5,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    false,
+    todo,
+  );
+  const outcome = await tr.run({ sessionId: 's-todo-guard', workspaceRoot: '/tmp' });
+  assert.strictEqual(outcome.steps, 2, '应纠偏后再收尾一次');
+  assert.ok(
+    recorder.allEvents().some((event) => {
+      const payload = event.payload as { readonly content?: unknown };
+      return typeof payload.content === 'string' && payload.content.includes('待办未完成');
+    }),
+    '应写入待办纠偏消息',
+  );
+});
+
+test('③ 模型一直调工具：跑满 maxSteps 后兜底产出总结（不再 hasText:false）', async () => {
   const recorder = recorderFor('s-obs9-1');
   const { model, toolCounts } = makeModel({ alwaysTool: true });
   const sr = new StepRunner({
@@ -98,7 +144,7 @@ test('① 模型一直调工具：跑满 maxSteps 后兜底产出总结（不再
   );
 });
 
-test('② 模型正常收敛：不触发兜底，不额外多调一次模型', async () => {
+test('④ 模型正常收敛：不触发兜底，不额外多调一次模型', async () => {
   const recorder = recorderFor('s-obs9-2');
   const { model, toolCounts, generateCalls } = makeModel({ alwaysTool: false });
   const sr = new StepRunner({
@@ -122,7 +168,7 @@ test('② 模型正常收敛：不触发兜底，不额外多调一次模型', a
   );
 });
 
-test('③ 兜底调用失败时 fail-closed：不抛错、不阻断主流程', async () => {
+test('⑤ 兜底调用失败时 fail-closed：不抛错、不阻断主流程', async () => {
   const recorder = recorderFor('s-obs9-3');
   let calls = 0;
   const model: ModelPort = {
