@@ -48,8 +48,9 @@
 - 工具桥（注册/调用/回收、超时、同名拒绝）；
 - legacy `apply(ctx)` 适配器（仅 `port.tools` 注册视图，其它宿主服务拒绝）；
 - Worker 最小环境 + Node 权限模型（`--experimental-permission --allow-fs-read=<pluginDir>`）；
-- 能力 broker：`fs.read`（SafeFs 越界/符号链接双重校验、1 MiB 上限）与 `fs.write`
-  （WorkspaceGuard 双重校验、1 MiB 上限、自动建父目录）；未声明权限拒绝；
+- 能力 broker：`fs.read`（SafeFs 越界/符号链接双重校验、1 MiB 上限）、`fs.write`
+  （WorkspaceGuard 双重校验、1 MiB 上限、自动建父目录）、`store.get/set/delete/list`
+  （按插件独立目录、key 白名单、单值 256 KiB）；未声明权限拒绝；
 - OS 沙箱接线：`SandboxPort.wrapArgv`（Windows ACL）或 `wrapCommand`（bwrap/seatbelt）存在时，
   Worker 经它启动；
 - **强制 OS 沙箱**：`RemotePlugin` 默认要求 `wrapArgv`/`wrapCommand`，缺失时以
@@ -63,7 +64,7 @@
 
 尚未落地（后续阶段，不得宣称已具备）：
 
-- 更多能力（`store.*` / `events.emit` / `net.connect`）；
+- 更多能力（`events.emit` / `net.connect`）；
 - 后台主动重启（当前是下一次工具调用触发退避重启，不是监护线程主动拉起）。
 
 ## 决策

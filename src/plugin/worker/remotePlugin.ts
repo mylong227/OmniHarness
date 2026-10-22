@@ -10,6 +10,7 @@ import type { ToolResult } from '../../ports/tool/tool/toolResult.ts';
 import type { ToolParametersSchema } from '../../ports/tool/tool/toolParametersSchema.ts';
 import type { SandboxPort } from '../../ports/runtime/sandbox.ts';
 import type { ToolHandler } from '../../adapters/tool/toolHandler.ts';
+import { join } from 'node:path';
 import { PluginWorkerSupervisor } from './pluginWorkerSupervisor.ts';
 import { WorkerCapabilityBroker } from './workerCapabilityBroker.ts';
 
@@ -131,6 +132,12 @@ export class RemotePlugin implements Plugin {
       broker: new WorkerCapabilityBroker(
         this.options.workspaceRoot ?? process.cwd(),
         (this.options.permissions ?? []) as readonly PluginPermission[],
+        join(
+          this.options.workspaceRoot ?? process.cwd(),
+          '.omniharness',
+          'plugin-store',
+          this.options.name,
+        ),
       ),
       ...(sandbox !== undefined ? { sandbox } : {}),
     });

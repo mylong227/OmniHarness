@@ -157,6 +157,20 @@ export default {
 };
 `;
 
+const storePlugin = `
+export default {
+  meta: { name: 'store-demo' },
+  async activate(ctx) {
+    await ctx.call('store', 'set', { key: 'answer', value: { value: 42 } });
+    const got = await ctx.call('store', 'get', { key: 'answer' });
+    await ctx.tools.register(
+      { name: 'read-store', description: 'read store', parameters: { type: 'object', properties: {} } },
+      async (call) => ({ callId: call.id, ok: true, output: JSON.stringify(got) }),
+    );
+  },
+};
+`;
+
 test('远程插件：默认强制 OS 沙箱，缺 wrap 时拒绝启动', async () => {
   const saved = process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'];
   delete process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'];
@@ -402,6 +416,30 @@ test('远程插件：声明 fs.write 后可经能力 broker 写入工作区', as
     assert.strictEqual(readFileSync(join(dir, 'nested', 'out.txt'), 'utf8'), 'written-by-worker');
   } finally {
     await manager.uninstall('fs-write');
+    cleanup(dir);
+  }
+});
+
+test('远程插件：声明 store 权限后可持久化键值', async () => {
+  const dir = pluginDir('store-demo', storePlugin);
+  const { manager, tools } = managerWithTools();
+  try {
+    await manager.register(
+      new RemotePlugin({
+        name: 'store-demo',
+        entryPath: join(dir, 'index.mjs'),
+        workspaceRoot: dir,
+        permissions: ['store.read', 'store.write'],
+      }),
+    );
+    const result = await tools.execute(
+      { id: 'c-store', name: 'read-store', arguments: {} },
+      { sessionId: 's', workspaceRoot: dir },
+    );
+    assert.strictEqual(result.ok, true, result.error);
+    assert.deepStrictEqual(JSON.parse(result.output ?? 'null'), { value: 42 });
+  } finally {
+    await manager.uninstall('store-demo');
     cleanup(dir);
   }
 });

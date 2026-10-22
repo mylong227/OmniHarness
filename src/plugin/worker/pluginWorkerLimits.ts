@@ -20,4 +20,6 @@ export class PluginWorkerLimits {
   public static readonly CAPABILITY_READ_MAX_BYTES = 1_048_576;
   /** 能力 broker 单次写入字节上限（1 MiB）。 */
   public static readonly CAPABILITY_WRITE_MAX_BYTES = 1_048_576;
+  /** 插件 KV 单值上限（256 KiB）。 */
+  public static readonly CAPABILITY_STORE_MAX_BYTES = 262_144;
 }

@@ -1,5 +1,5 @@
-﻿import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { PluginPermission } from '../../ports/plugin/pluginPermission.ts';
 import { SafeFs } from '../../server/services/safeFs.ts';
 import { WorkspaceGuard } from '../../util/workspaceGuard.ts';
@@ -32,6 +32,7 @@ export class WorkerCapabilityBroker {
   public constructor(
     private readonly workspaceRoot: string,
     private readonly permissions: readonly PluginPermission[],
+    private readonly storeDir: string = join(workspaceRoot, '.omniharness', 'plugin-store'),
   ) {}
 
   /**
@@ -41,6 +42,9 @@ export class WorkerCapabilityBroker {
    * @throws Error `UNAUTHORIZED_CAPABILITY` / `INVALID_FRAME`。
    */
   public async call(call: WorkerCapabilityCall): Promise<unknown> {
+    if (call.capability === 'store') {
+      return this.store(call.method, call.params);
+    }
     if (call.capability !== 'fs') {
       throw new Error(`UNAUTHORIZED_CAPABILITY: ${call.capability}.${call.method}`);
     }
@@ -91,6 +95,66 @@ export class WorkerCapabilityBroker {
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, text, 'utf8');
     return { path, bytes: Buffer.byteLength(text, 'utf8') };
+  }
+
+  /**
+   * 插件键值存储（每个插件独立目录；key 白名单，防路径穿越）。
+   * @param method get / set / delete / list。
+   * @param params `{ key, value? }`。
+   * @returns 读取值 / 写入确认 / 删除确认 / key 列表。
+   */
+  private store(method: string, params: unknown): unknown {
+    if (method === 'get') {
+      this.assertPermission('store.read');
+      const key = this.storeKey(params, method);
+      const file = join(this.storeDir, `${key}.json`);
+      if (!existsSync(file)) return null;
+      return JSON.parse(readFileSync(file, 'utf8')) as unknown;
+    }
+    if (method === 'list') {
+      this.assertPermission('store.read');
+      if (!existsSync(this.storeDir)) return [];
+      return readdirSync(this.storeDir)
+        .filter((name) => name.endsWith('.json'))
+        .map((name) => name.slice(0, -'.json'.length))
+        .sort();
+    }
+    if (method === 'set') {
+      this.assertPermission('store.write');
+      const key = this.storeKey(params, method);
+      const value = (params as { readonly value?: unknown } | undefined)?.value;
+      if (value === undefined) {
+        throw new Error('INVALID_FRAME: store.set 缺少 value');
+      }
+      const text = JSON.stringify(value);
+      if (Buffer.byteLength(text, 'utf8') > PluginWorkerLimits.CAPABILITY_STORE_MAX_BYTES) {
+        throw new Error('UNAUTHORIZED_CAPABILITY: store.set 超过单值上限');
+      }
+      mkdirSync(this.storeDir, { recursive: true });
+      writeFileSync(join(this.storeDir, `${key}.json`), text, 'utf8');
+      return { key, bytes: Buffer.byteLength(text, 'utf8') };
+    }
+    if (method === 'delete') {
+      this.assertPermission('store.write');
+      const key = this.storeKey(params, method);
+      rmSync(join(this.storeDir, `${key}.json`), { force: true });
+      return { key, deleted: true };
+    }
+    throw new Error(`UNAUTHORIZED_CAPABILITY: store.${method}`);
+  }
+
+  /**
+   * 校验 store key（仅字母数字/下划线/点/连字符，长度 1–128）。
+   * @param params 参数。
+   * @param method 方法名（错误定位）。
+   * @returns 合法 key。
+   */
+  private storeKey(params: unknown, method: string): string {
+    const key = (params as { readonly key?: unknown } | undefined)?.key;
+    if (typeof key !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/u.test(key)) {
+      throw new Error(`INVALID_FRAME: ${method} 的 key 不合法`);
+    }
+    return key;
   }
 
   /**
