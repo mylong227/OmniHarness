@@ -2,14 +2,16 @@
  * MCP 客户端认证解析（端口 → 实现的第一片）。
  *
  * 口径：
- * - `bearer` / `oauth` 都消费**已有访问令牌**（配置值或环境变量），生成 `Authorization` 头；
- * - `oauth` 的 `resource`/`authorizationServer` 用于 RFC 9728 资源元数据发现与后续交互式授权；
- *   本片**不**发起浏览器授权码流（缺令牌即 fail-closed，不发匿名请求后静默失败）；
+ * - `bearer` / `oauth` 消费**已有访问令牌**（配置值 / 环境变量 / `mcp auth` 写入的本机令牌存储），
+ *   生成 `Authorization` 头；
+ * - `oauth` 的 `resource`/`authorizationServer` 用于 RFC 9728 资源元数据发现；浏览器授权码流由
+ *   `mcp auth` 跑，本类只读结果（缺令牌即 fail-closed，不发匿名请求后静默失败）；
  * - 静态 `headers` 与认证头合并，认证头优先（避免配置里写死的旧 token 覆盖新 token）。
  */
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
 import type { McpProtectedResourceMetadata } from '../ports/mcp/mcpAuthConfig.ts';
 import { McpOAuthTokenClient, type OAuthAccessToken } from './mcpOAuthTokenClient.ts';
+import { McpAuthTokenStore } from './mcpAuthTokenStore.ts';
 
 /** 认证头缺失时抛出的可行动错误前缀。 */
 export const MCP_AUTH_UNAVAILABLE = 'MCP_AUTH_UNAVAILABLE';
@@ -41,7 +43,7 @@ export class McpAuthProvider {
     if (token === undefined) {
       throw new Error(
         `${MCP_AUTH_UNAVAILABLE}: 服务器 "${server.name}" 配置了 ${server.auth.type} 认证，但没有可用令牌；` +
-          '请设置 token/tokenEnv，或为 oauth 提供 tokenEndpoint + clientId + clientSecretEnv',
+          '请设置 token/tokenEnv、先跑 `omniharness mcp auth`，或为 oauth 提供 tokenEndpoint + clientId + clientSecretEnv',
       );
     }
     for (const key of Object.keys(headers)) {
@@ -140,6 +142,23 @@ export class McpAuthProvider {
     if (envName !== undefined) {
       const value = env[envName]?.trim();
       if (value !== undefined && value !== '') return value;
+    }
+    if (auth.type === 'oauth') {
+      const resource = auth.resource ?? server.url;
+      if (resource !== undefined) {
+        const stored = new McpAuthTokenStore(
+          env['OMNI_MCP_TOKENS_FILE'] ?? McpAuthTokenStore.defaultPath(),
+        ).get(resource);
+        if (
+          stored !== undefined &&
+          stored.accessToken.trim() !== '' &&
+          stored.expiresAt > now + 30_000 &&
+          (auth.clientId === undefined || stored.clientId === auth.clientId) &&
+          (auth.tokenEndpoint === undefined || stored.tokenEndpoint === auth.tokenEndpoint)
+        ) {
+          return stored.accessToken;
+        }
+      }
     }
     if (auth.type !== 'oauth' || auth.tokenEndpoint === undefined || auth.clientId === undefined) {
       return undefined;

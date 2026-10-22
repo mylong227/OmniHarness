@@ -4445,3 +4445,20 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **仍未接线**：浏览器打开、本地回环回调服务器、state 比对、令牌持久化、`mcp auth` 命令都未做；
 `McpOAuthPkce` 目前只有测试引用。P0-3 不能称为完成。
+
+## 49. 2026-10-22 `mcp auth` 授权码回环 + 令牌存储（P0-3 第四片）
+
+- `McpAuthFlow`：`127.0.0.1` 随机端口回环回调、PKCE S256、state 精确比对、5 分钟超时、服务器 finally 关闭；
+  回调 code 换令牌后写存储；不自动打开浏览器（CLI 打印 URL）。
+- `McpAuthTokenStore`：`~/.omniharness/mcp-tokens.json`（0600、temp+rename 原子写、BOM/损坏容忍、容量 50，
+  淘汰时保留刚写入键）；`OMNI_MCP_TOKENS_FILE` 可覆盖路径。
+- `McpAuthProvider`：oauth 在直接值/tokenEnv 之后读存储（未过期、30s 提前量、clientId/tokenEndpoint 匹配），
+  空 accessToken/损坏条目 fail-closed。
+- CLI：`omniharness mcp auth --authorize-url URL --token-url URL --client-id ID --resource RESOURCE [--scope a,b] [--port N]`；
+  旗标已登记，端口 0..65535 校验；文档更新。
+- 判据：flow 1 例（真实本地回调 + mock token 端点 + 写存储）、store 2 例（51 键淘汰、空 token 损坏）、
+  auth 10 例（含 provider 读存储）；tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 审查 2 轮：首轮 2 项 store must-fix（淘汰吞新键、空 token 放行），修复后 **PASS**。
+
+**仍未做**：refresh token、CIMD、MCP registry、server 侧 2026-07-28；回环处理器对非回调路径/错误 state 采取整流程失败（本地 DoS 面，非令牌窃取）；
+无 fsync；未做 state mismatch/timeout/0600 的独立判据。

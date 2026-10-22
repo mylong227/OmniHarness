@@ -6,7 +6,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { McpAuthProvider } from '../../src/mcp/mcpAuthProvider.ts';
+import { McpAuthTokenStore } from '../../src/mcp/mcpAuthTokenStore.ts';
 import { ConfigError } from '../../src/config/configError.ts';
 import { ArgParser } from '../../src/cli/argParser.ts';
 import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.ts';
@@ -66,6 +70,32 @@ test('oauth：消费已有访问令牌；缺失时抛可行动错误', async () 
     () => McpAuthProvider.headersOf(server({ type: 'oauth', tokenEnv: 'MISSING' }), {}),
     /MCP_AUTH_UNAVAILABLE: 服务器 "x"/u,
   );
+});
+
+test('oauth：从 mcp auth 令牌存储读取未过期令牌，不再发匿名请求', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-auth-store-'));
+  try {
+    const path = join(dir, 'tokens.json');
+    new McpAuthTokenStore(path).set({
+      accessToken: 'stored-token',
+      expiresAt: Date.now() + 60_000,
+      tokenEndpoint: 'https://auth.example/token',
+      clientId: 'client',
+      resource: 'https://mcp.example',
+    });
+    const headers = await McpAuthProvider.headersOf(
+      server({
+        type: 'oauth',
+        resource: 'https://mcp.example',
+        tokenEndpoint: 'https://auth.example/token',
+        clientId: 'client',
+      }),
+      { OMNI_MCP_TOKENS_FILE: path },
+    );
+    assert.deepStrictEqual(headers, { Authorization: 'Bearer stored-token' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('none / 无 auth：只回静态头，不发 Authorization', async () => {

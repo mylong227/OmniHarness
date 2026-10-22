@@ -27,14 +27,67 @@ export class CliMcpCmds extends CliServerCmds {
       if (sub === 'call') {
         return await this.runMcpCall(args.slice(1));
       }
+      if (sub === 'auth') {
+        return await this.runMcpAuth(args.slice(1));
+      }
     } catch (error) {
       console.error(`MCP 操作失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
     process.stdout.write(
-      '用法: omniharness mcp serve | mcp list --server NAME=CMD | mcp call --server NAME=CMD --tool NAME [--args JSON]\n',
+      '用法: omniharness mcp serve | mcp list --server NAME=CMD | mcp call --server NAME=CMD --tool NAME [--args JSON] | ' +
+        'mcp auth --authorize-url URL --token-url URL --client-id ID --resource RESOURCE [--scope a,b]\n',
     );
     return 2;
+  }
+
+  /**
+   * mcp auth：浏览器授权码 + PKCE 回环流程，把令牌写入本机令牌存储。
+   * @param args 子命令参数（--authorize-url/--token-url/--client-id/--resource 必填）。
+   * @returns 0 成功；缺参数为 2；流程失败为 1。
+   */
+  protected async runMcpAuth(args: readonly string[]): Promise<number> {
+    const authorizeUrl = this.flagValue(args, '--authorize-url');
+    const tokenUrl = this.flagValue(args, '--token-url');
+    const clientId = this.flagValue(args, '--client-id');
+    const resource = this.flagValue(args, '--resource');
+    if (
+      authorizeUrl === undefined ||
+      tokenUrl === undefined ||
+      clientId === undefined ||
+      resource === undefined
+    ) {
+      process.stdout.write(
+        '用法: omniharness mcp auth --authorize-url URL --token-url URL --client-id ID --resource RESOURCE [--scope a,b] [--port N]\n',
+      );
+      return 2;
+    }
+    const scopes = this.flagValue(args, '--scope')
+      ?.split(',')
+      .map((scope) => scope.trim())
+      .filter((scope) => scope !== '');
+    const portRaw = this.flagValue(args, '--port');
+    const port = portRaw === undefined ? 0 : Number(portRaw);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      process.stdout.write('--port 必须是 0..65535 的整数\n');
+      return 2;
+    }
+    const { McpAuthFlow } = await import('../mcp/mcpAuthFlow.ts');
+    const stored = await McpAuthFlow.run({
+      authorizeUrl,
+      tokenUrl,
+      clientId,
+      resource,
+      ...(scopes !== undefined && scopes.length > 0 ? { scopes } : {}),
+      port,
+      onAuthorizeUrl: (url) => {
+        process.stdout.write(`请在浏览器打开（等待回调，Ctrl+C 取消）：\n${url}\n`);
+      },
+    });
+    process.stdout.write(
+      `✓ 已保存 MCP 令牌（resource=${stored.resource}，过期 ${new Date(stored.expiresAt).toISOString()}）\n`,
+    );
+    return 0;
   }
 
   /**

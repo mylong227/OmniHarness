@@ -47,18 +47,18 @@
 
 ### 扩展与集成
 
-| 子命令                                       | 作用                                                                                    |
-| -------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `plugin load\|list\|search\|install\|remove` | 插件管理                                                                                |
-| `profile list\|create\|delete\|use`          | 插件集 Profile（一条命令切换编码/研究模式）                                             |
-| `bundle pack\|unpack`                        | Bundle 发布单元（补丁叠层 + zip + 可选 HMAC 签名）                                      |
-| `mcp serve\|list\|call`                      | 暴露本地工具集 / 列出 / 调用外部 MCP 服务器工具                                         |
-| `sdk call --url ws://… --method NAME`        | 用本仓 TS SDK 客户端连 app-server 发一次 JSON-RPC                                       |
-| `lsp definition\|references\|hover\|status`  | LSP 代码导航（需自备语言服务器）                                                        |
-| `capability …`                               | 能力注册表（协议能力声明与查询）                                                        |
-| `boost probe [list]`                         | 探针统一归档 + 跨次比对（只读 `tools/probes/`；`exit 0/1/3` = 通过/仪器坏/判据类结论）  |
-| `boost gate`                                 | 按改动挑门禁子集（清单现场读自 `scripts/runGates.mjs`；默认不执行，`--boost-run` 才跑） |
-| `boost audit-surface`                        | 输入表面声明的静态取证（入口脚本一变即判声明过期；只覆盖 `scripts/` 下的门禁入口）      |
+| 子命令                                       | 作用                                                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `plugin load\|list\|search\|install\|remove` | 插件管理                                                                                   |
+| `profile list\|create\|delete\|use`          | 插件集 Profile（一条命令切换编码/研究模式）                                                |
+| `bundle pack\|unpack`                        | Bundle 发布单元（补丁叠层 + zip + 可选 HMAC 签名）                                         |
+| `mcp serve\|list\|call\|auth`                | 暴露本地工具集 / 列出 / 调用外部 MCP 服务器工具；`auth` 走授权码+PKCE 回环并写本机令牌存储 |
+| `sdk call --url ws://… --method NAME`        | 用本仓 TS SDK 客户端连 app-server 发一次 JSON-RPC                                          |
+| `lsp definition\|references\|hover\|status`  | LSP 代码导航（需自备语言服务器）                                                           |
+| `capability …`                               | 能力注册表（协议能力声明与查询）                                                           |
+| `boost probe [list]`                         | 探针统一归档 + 跨次比对（只读 `tools/probes/`；`exit 0/1/3` = 通过/仪器坏/判据类结论）     |
+| `boost gate`                                 | 按改动挑门禁子集（清单现场读自 `scripts/runGates.mjs`；默认不执行，`--boost-run` 才跑）    |
+| `boost audit-surface`                        | 输入表面声明的静态取证（入口脚本一变即判声明过期；只覆盖 `scripts/` 下的门禁入口）         |
 
 ### 数据、凭据与治理
 
