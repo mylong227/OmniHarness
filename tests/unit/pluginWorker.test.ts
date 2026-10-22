@@ -1,4 +1,4 @@
-﻿import { test } from 'vitest';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -249,7 +249,11 @@ test('远程插件：Node 权限模型拒绝 Worker 写入（纵深防御）', a
     );
     assert.strictEqual(existsSync(join(dir, 'should-not-write.txt')), false);
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    } catch {
+      /* 进程仍持有 cwd 时留给 OS 临时目录清理；判据不因清理失败而假红 */
+    }
   }
 });
 

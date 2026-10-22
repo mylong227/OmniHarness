@@ -84,6 +84,7 @@ export class PluginLoader {
     pluginsDir: string,
     onError?: (name: string, error: unknown) => void,
     only?: readonly string[],
+    workspaceRoot?: string,
   ): Promise<string[]> {
     if (!existsSync(pluginsDir)) {
       return [];
@@ -109,7 +110,7 @@ export class PluginLoader {
       try {
         // 只有**显式声明** bundled/local 的插件才走宿主 import（同源可信）。
         // `remote` 默认拒绝加载（需 `OMNI_ALLOW_REMOTE_PLUGINS=1` 显式放行）；**缺失/损坏的 source** 按不可信
-        // 处理但仍在受限 VM 中加载——手工放进 pluginsDir 的本地插件通常不写 source，
+        // 处理但仍在 Worker 中加载——手工放进 pluginsDir 的本地插件通常不写 source，
         // 直接拒绝会把「本地开发插件」一并打死（2026-10-21 口径修正）。
         const trusted = manifest.source === 'bundled' || manifest.source === 'local';
         if (manifest.source === 'remote' && !remoteAllowed) {
@@ -124,6 +125,7 @@ export class PluginLoader {
               entryPath: join(dir, entryFile),
               ...(manifest.version !== undefined ? { version: manifest.version } : {}),
               ...(manifest.permissions !== undefined ? { permissions: manifest.permissions } : {}),
+              ...(workspaceRoot !== undefined ? { workspaceRoot } : {}),
             });
         await manager.register(plugin);
         loaded.push(entry);

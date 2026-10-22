@@ -100,8 +100,12 @@ export class PluginHost {
       container.register(ServiceKeys.approvals, config.approvals);
       const manager = new PluginManager(container, PermissionGate.fromList(ALL_PERMISSIONS));
       this.pluginManager = manager;
-      const loaded = await PluginLoader.loadInstalledPlugins(manager, pluginsDir, (name, error) =>
-        this.notifyLoadError({ name, error: this.deps.messageOf(error) }),
+      const loaded = await PluginLoader.loadInstalledPlugins(
+        manager,
+        pluginsDir,
+        (name, error) => this.notifyLoadError({ name, error: this.deps.messageOf(error) }),
+        undefined,
+        config.workspaceRoot,
       );
       if (loaded.length > 0) {
         this.deps.transport.send(jsonRpc.notify('plugin.loaded', { names: loaded }));

@@ -199,6 +199,8 @@ export class AppServerHandlers extends AppServerBase {
           this.options.transport.send(
             jsonRpc.notify('plugin.loadError', { name, error: this.messageOf(error) }),
           ),
+        undefined,
+        this.displayConfig['workspace'] ?? process.cwd(),
       );
       if (loaded.length > 0) {
         this.options.transport.send(
