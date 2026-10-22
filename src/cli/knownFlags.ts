@@ -68,6 +68,9 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--skill',
   '--pack',
   '--trust',
+  // 工作区信任闸（2026-10-22）：显式信任当前工作区的项目级配置（mcpServers/approval/baseUrl 等）。
+  // 未登记会让「未知旗标 fail-closed」直接打死 `serve --trust-workspace`。
+  '--trust-workspace',
   '--source',
   '--loose',
   '--declare',

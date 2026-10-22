@@ -18,6 +18,8 @@ import { mediaConfigValidator } from './mediaConfigValidator.ts';
 import { CapabilityConfigValidator } from './capabilityConfigValidator.ts';
 import { RbacConfigValidator } from './rbacConfigValidator.ts';
 import { decisionEngineConfigValidator } from './decisionEngineConfigValidator.ts';
+import { ConfigKeyAliases } from './configKeyAliases.ts';
+import { TextBom } from '../util/textBom.ts';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
@@ -261,7 +263,7 @@ export class ConfigError extends OmniError {
       if (value === undefined) {
         continue;
       }
-      const key = KEY_ALIASES[rawKey] ?? rawKey;
+      const key = ConfigKeyAliases.canonical(rawKey);
       if (!KNOWN_KEYS.has(key)) {
         // 报错必须**可行动**：点名非法键 + 给出合法键出口（此前只有前半句，用户无处可查）。
         throw new ConfigError(
@@ -375,6 +377,17 @@ export class ConfigError extends OmniError {
     for (const validate of FIELD_VALIDATORS) validate(cfg);
   }
 
+  /**
+   * 已知标准配置键全集（只读、排序）。
+   *
+   * 存在理由：工作区信任闸需要「新增配置键必须分类为安全/权威」的全覆盖判据；
+   * 没有公开出口时判据只能抄一份键表，抄的时候就会漂。
+   * @returns 排序后的键名数组。
+   */
+  public static knownKeys(): readonly string[] {
+    return [...KNOWN_KEYS].sort();
+  }
+
   /** 从环境变量读取配置层（OMNIHARNESS_* 映射为标准 key，数字字段做 coerce）。 */
   public static readEnvConfig(): Partial<FileConfig> {
     const raw: Record<string, string> = {};
@@ -469,7 +482,7 @@ export class ConfigError extends OmniError {
       }
       let data: { patches?: Array<{ key: string; value: unknown }> };
       try {
-        data = JSON.parse(readFileSync(join(dir, file), 'utf8')) as {
+        data = JSON.parse(TextBom.strip(readFileSync(join(dir, file), 'utf8'))) as {
           patches?: Array<{ key: string; value: unknown }>;
         };
       } catch {
@@ -601,39 +614,6 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
  * 故只列前 N 项 + 总数 + 示例配置出口（示例里的键逐条合法，由判据钉住）。
  */
 const LEGAL_KEY_HINT_LIMIT = 12;
-
-/** key 别名 → 标准 key（下划线/连字符变体，对标 codex 的 key 别名归一化）。 */
-const KEY_ALIASES: Readonly<Record<string, string>> = {
-  model_adapter: 'modelAdapter',
-  'model-adapter': 'modelAdapter',
-  base_url: 'baseUrl',
-  'base-url': 'baseUrl',
-  api_key: 'apiKey',
-  'api-key': 'apiKey',
-  storage_adapter: 'storageAdapter',
-  'storage-adapter': 'storageAdapter',
-  storage_dir: 'storageDir',
-  'storage-dir': 'storageDir',
-  elevated_sandbox: 'elevatedSandbox',
-  'elevated-sandbox': 'elevatedSandbox',
-  max_steps: 'maxSteps',
-  'max-steps': 'maxSteps',
-  model_circuit_breaker: 'modelCircuitBreaker',
-  'model-circuit-breaker': 'modelCircuitBreaker',
-  model_circuit_breaker_threshold: 'modelCircuitBreakerThreshold',
-  'model-circuit-breaker-threshold': 'modelCircuitBreakerThreshold',
-  model_circuit_breaker_open_ms: 'modelCircuitBreakerOpenMs',
-  'model-circuit-breaker-open-ms': 'modelCircuitBreakerOpenMs',
-  // P5：成本预算（snake / kebab / 缩写别名）。
-  cost_budget_usd: 'costBudgetUsd',
-  'cost-budget-usd': 'costBudgetUsd',
-  cost_budget: 'costBudgetUsd',
-  'cost-budget': 'costBudgetUsd',
-  cost_budget_on_exceed: 'costBudgetOnExceed',
-  'cost-budget-on-exceed': 'costBudgetOnExceed',
-  cost_budget_soft_ratio: 'costBudgetSoftRatio',
-  'cost-budget-soft-ratio': 'costBudgetSoftRatio',
-};
 
 /** 环境变量前缀与映射（OMNIHARNESS_MODEL → model）。 */
 const ENV_MAP: Readonly<Record<string, string>> = {

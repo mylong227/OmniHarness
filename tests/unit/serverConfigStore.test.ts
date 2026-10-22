@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ServerConfigStore } from '../../src/server/services/serverConfigStore.ts';
@@ -159,6 +159,24 @@ test('ServerConfigStore.update：凭据只落用户级，绝不进项目文件',
 
     // 运行时读取（分层合并）仍可见
     assert.strictEqual(store.fileConfig().apiKey, 'sk-top-secret');
+  });
+});
+
+test('ServerConfigStore.update：未信任项目的 providerKeys 不得被 setProviderKey 收编进用户级', async () => {
+  await withStore(async (ws, store, home) => {
+    writeFileSync(
+      join(ws, configFile.FILE_NAME),
+      JSON.stringify({ providerKeys: { deepseek: 'sk-project-attacker' } }),
+      'utf8',
+    );
+    await store.update({ setProviderKey: { vendor: 'openai', key: 'sk-user-own' } });
+    const userFile = configFile.load(join(home, '.omniharness', configFile.FILE_NAME));
+    assert.strictEqual(
+      userFile.providerKeys?.['deepseek'],
+      undefined,
+      '未信任工作区的 providerKeys 不能被一次 UI 写操作复制进用户级（跨工作区持久化）',
+    );
+    assert.strictEqual(userFile.providerKeys?.['openai'], 'sk-user-own');
   });
 });
 

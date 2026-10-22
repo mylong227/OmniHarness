@@ -19,6 +19,7 @@
 | [0010](./0010-isolation-ladder.md)           | 信任-隔离阶梯（档位不可达即拒执行）                   | 已接受 |
 | [0011](./0011-signed-asset-pack.md)          | 签名资产包分发（Ed25519 非对称 + 严格档 fail-closed） | 已接受 |
 | [0012](./0012-plugin-process-isolation.md)   | 远程插件进程隔离（Plugin Worker + Capability RPC）    | 提议   |
+| [0013](./0013-workspace-trust.md)            | 工作区信任闸（restricted 默认 + TOFU + policy floor） | 已接受 |
 
 ## 何时写新 ADR
 

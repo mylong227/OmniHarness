@@ -14,6 +14,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import type { FileConfig } from './configFile.ts';
 import { ConfigError } from './configError.ts';
+import { TextBom } from '../util/textBom.ts';
 
 /** 继承链最大深度（防深层 / 环形 extends 造成的无限递归）。 */
 const MAX_EXTENDS_DEPTH = 8;
@@ -72,7 +73,7 @@ export class ProfileLoader {
   private readJson(filePath: string): FileConfig {
     let raw: string;
     try {
-      raw = readFileSync(filePath, 'utf8');
+      raw = TextBom.strip(readFileSync(filePath, 'utf8'));
     } catch (err) {
       throw new ConfigError(`无法读取 profile 文件 ${filePath}: ${(err as Error).message}`);
     }

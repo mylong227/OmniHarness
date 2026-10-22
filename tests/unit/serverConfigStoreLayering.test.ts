@@ -201,8 +201,51 @@ test('⑤ 摘要里的 workspace 必须是**实际运行根**，不被项目文�
     assert.strictEqual(summary.workspace, project, '摘要里的工作区必须是实际运行根');
     assert.strictEqual(
       store.fileConfig().workspace,
-      'D:/some/other/project',
-      '文件层的值本身仍然可读（只是不该覆盖运行时根）',
+      undefined,
+      '工作区根是权威键：RPC 文件层不能把项目级 workspace 透出（运行时根由 displayConfig 保持）',
+    );
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('RPC 面信任指纹必须带 --profile：启动信任后 fileConfig 不应退回 restricted', () => {
+  const home = mkdtempSync(join(tmpdir(), 'cfg-profile-home-'));
+  const project = mkdtempSync(join(tmpdir(), 'cfg-profile-ws-'));
+  const configPath = join(project, 'omniharness.json');
+  mkdirSync(join(project, 'profiles'), { recursive: true });
+  writeFileSync(configPath, JSON.stringify({ model: 'm' }), 'utf8');
+  writeFileSync(join(project, 'profiles', 'base.json'), JSON.stringify({ approval: 'deny' }));
+  writeFileSync(join(project, 'profiles', 'child.json'), JSON.stringify({ extends: 'base' }));
+  try {
+    // 模拟 `serve --profile child --trust-workspace` 写入的 TOFU 指纹。
+    new ConfigFile().loadLayered({
+      workspace: project,
+      configPath,
+      profile: 'child',
+      userHomedir: home,
+      trust: { grant: true },
+    });
+    const makeStore = (profile?: string): ServerConfigStore =>
+      new ServerConfigStore({
+        displayConfig: { workspace: project },
+        configPath,
+        autoApprove: false,
+        probeProvider: async () => {},
+        onChanged: () => undefined,
+        userHomedir: home,
+        ...(profile !== undefined ? { profile } : {}),
+      });
+    assert.strictEqual(
+      makeStore('child').fileConfig().approval,
+      'deny',
+      '同一 profile 的 RPC 读取必须命中启动时写入的信任指纹',
+    );
+    assert.strictEqual(
+      makeStore().fileConfig().approval,
+      undefined,
+      '不带 profile 时指纹不同 ⇒ 必须 fail-closed 到 restricted',
     );
   } finally {
     rmSync(home, { recursive: true, force: true });

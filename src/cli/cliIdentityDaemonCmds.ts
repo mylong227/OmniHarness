@@ -16,7 +16,7 @@ import { CliBuildConfig } from './cliBuildConfig.ts';
 import { ArgParser, CliDefaults } from './argParser.ts';
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
 import { configFile } from '../config/configFile.ts';
-import type { FileConfig } from '../config/configFile.ts';
+import type { FileConfig, WorkspaceTrustOptions } from '../config/configFile.ts';
 
 /** 身份 / 后台服务命令层。 */
 export class CliIdentityDaemonCmds extends CliBuildConfig {
@@ -129,6 +129,7 @@ export class CliIdentityDaemonCmds extends CliBuildConfig {
    * @param configPath 项目级配置路径（`--config` 显式指定或 `find` 结果）。
    * @param profile `--profile` 指定的配置 profile 名（缺省 undefined＝不叠加 profile 层）。
    * @param userHomedir 用户级配置的家目录（缺省 `os.homedir()`；测试隔离注入用）。
+   * @param trust 工作区信任选项（生产入口必传；缺省保持既有合并语义）。
    * @returns 分层合并后的配置（严格校验：非法即抛 `ConfigError`，由入口 fail-closed 退出）。
    */
   public static loadServeConfig(
@@ -136,12 +137,14 @@ export class CliIdentityDaemonCmds extends CliBuildConfig {
     configPath: string,
     profile?: string,
     userHomedir?: string,
+    trust?: WorkspaceTrustOptions,
   ): FileConfig {
     return configFile.loadLayered({
       workspace: wsRoot,
       configPath,
       ...(profile !== undefined ? { profile } : {}),
       ...(userHomedir !== undefined ? { userHomedir } : {}),
+      ...(trust !== undefined ? { trust } : {}),
     });
   }
 }

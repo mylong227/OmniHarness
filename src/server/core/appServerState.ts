@@ -44,6 +44,13 @@ export interface AppServerOptions {
   readonly autoApprove?: boolean | undefined;
   /** 持久化目标配置文件路径（项目级 omniharness.json；缺省时按工作区推断并创建）。 */
   readonly configPath?: string | undefined;
+  /**
+   * 启动时选中的配置 profile（`--profile`）。
+   *
+   * 为什么要传给 RPC 面：工作区信任指纹包含 profile；`serve --profile X --trust-workspace`
+   * 后若 UI 读配置时不带 profile，会算出不同指纹而退回 restricted（fail-closed 但不一致）。
+   */
+  readonly profile?: string | undefined;
   /** 工作区根（检查点文件快照还原用；缺省回退 process.cwd()）。 */
   readonly workspaceRoot?: string | undefined;
   /**

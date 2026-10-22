@@ -111,19 +111,20 @@
 
 ### 工作区、配置与存储
 
-| 旗标                                                                     | 说明                                                              |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `--workspace DIR`                                                        | 工作区根（工具读写边界）；解析链见 [`STARTUP.md`](STARTUP.md) §6  |
-| `--config PATH` / `--profile NAME` / `--plugin-profile NAME`             | 显式配置 / 配置分层 / 插件集（**`--plugin-profile` 仅 `serve`**） |
-| `--storage-adapter memory\|jsonl\|sqlite` / `--storage-dir DIR`          | 存储端口（默认 `jsonl` → `~/.omniharness/sessions`）              |
-| `--spill-adapter memory\|file` / `--spill-bytes N` / `--spill-preview N` | 大输出外溢策略                                                    |
-| `--memory-encrypt` / `--memory-key-file PATH`                            | 长期记忆落盘加密（AES-256-GCM，默认关）                           |
-| `--vault-key-file PATH`（默认 `~/.omniharness/vault.key`）               | 主密钥文件（首次使用时生成 0600）；`OMNIHARNESS_VAULT=0` 关闭     |
-| `--skills FILE.json`                                                     | 受种技能包（可重复；与配置 `skills` 合并，**同名以旗标为准**）    |
-| `--tool FILE`                                                            | 加载自定义工具模块（可重复）                                      |
-| `--mcp-server NAME=COMMAND`                                              | 桥接外部 MCP 服务器（工具名前缀 `NAME__`）                        |
-| `--defer-tools web_search,delegate`                                      | 延迟加载工具（经 `tool_search` 发现）                             |
-| `--dump-config`                                                          | 仅打印生效配置并退出                                              |
+| 旗标                                                                     | 说明                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--workspace DIR`                                                        | 工作区根（工具读写边界）；解析链见 [`STARTUP.md`](STARTUP.md) §6                                                                                                                                                         |
+| `--config PATH` / `--profile NAME` / `--plugin-profile NAME`             | 显式配置 / 配置分层 / 插件集（**`--plugin-profile` 仅 `serve`**）                                                                                                                                                        |
+| `--trust-workspace`                                                      | 显式信任当前工作区的项目级配置（`mcpServers`/`approval`/`sandbox`/`media` 等）；缺省 restricted，只应用只读语义键；`serve`/`exec`/TUI/UI RPC 同一条边界；写入 `~/.omniharness/trust.json`（TOFU 指纹，配置变化自动失效） |
+| `--storage-adapter memory\|jsonl\|sqlite` / `--storage-dir DIR`          | 存储端口（默认 `jsonl` → `~/.omniharness/sessions`）                                                                                                                                                                     |
+| `--spill-adapter memory\|file` / `--spill-bytes N` / `--spill-preview N` | 大输出外溢策略                                                                                                                                                                                                           |
+| `--memory-encrypt` / `--memory-key-file PATH`                            | 长期记忆落盘加密（AES-256-GCM，默认关）                                                                                                                                                                                  |
+| `--vault-key-file PATH`（默认 `~/.omniharness/vault.key`）               | 主密钥文件（首次使用时生成 0600）；`OMNIHARNESS_VAULT=0` 关闭                                                                                                                                                            |
+| `--skills FILE.json`                                                     | 受种技能包（可重复；与配置 `skills` 合并，**同名以旗标为准**）                                                                                                                                                           |
+| `--tool FILE`                                                            | 加载自定义工具模块（可重复）                                                                                                                                                                                             |
+| `--mcp-server NAME=COMMAND`                                              | 桥接外部 MCP 服务器（工具名前缀 `NAME__`）                                                                                                                                                                               |
+| `--defer-tools web_search,delegate`                                      | 延迟加载工具（经 `tool_search` 发现）                                                                                                                                                                                    |
+| `--dump-config`                                                          | 仅打印生效配置并退出                                                                                                                                                                                                     |
 
 ### 会话与输出
 

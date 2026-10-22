@@ -1,4 +1,4 @@
-﻿import { ConfigFactory } from '../../config/configFactory.ts';
+import { ConfigFactory } from '../../config/configFactory.ts';
 import { ConfigRebase } from '../../config/configRebase.ts';
 import { SandboxManager, type SandboxProfile } from '../../adapters/sandbox/sandboxManager.ts';
 import type { PluginManager } from '../../plugin/pluginManager.ts';
@@ -81,6 +81,7 @@ export class AppServerBase {
     this.configStore = new ServerConfigStore({
       displayConfig: options.displayConfig ?? {},
       configPath: options.configPath,
+      ...(options.profile !== undefined ? { profile: options.profile } : {}),
       autoApprove: options.autoApprove ?? false,
       probeProvider: (preset, key) => this.modelCatalog.cacheProbe(preset, key),
       onChanged: () => this.runtime.invalidateAgent(),

@@ -9,6 +9,7 @@
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import { configFile } from '../config/configFile.ts';
+import { WorkspaceTrust } from '../config/workspaceTrust.ts';
 import { Agent } from '../core/agent.ts';
 import type { AgentResult } from '../core/agent.ts';
 import { Runtime } from '../composition/runtime.ts';
@@ -345,6 +346,16 @@ export class CliAgentCmds extends CliNativeCmds {
       workspace,
       configPath: explicitConfig,
       profile,
+      // 工作区信任闸（2026-10-22）：exec/TUI 与 serve 同一条边界。
+      trust: {
+        grant: argv.includes('--trust-workspace'),
+        onDecision: (decision) => {
+          const lines = WorkspaceTrust.describe(decision);
+          if (lines.length > 0) {
+            process.stderr.write(`${lines.join('\n')}\n`);
+          }
+        },
+      },
     });
     return ArgParser.configDefaults(merged);
   }

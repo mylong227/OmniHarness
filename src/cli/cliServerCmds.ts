@@ -37,7 +37,8 @@ import type { OidcFlowPort } from '../ports/enterprise/oidcFlow.ts';
 import { CodeGenerator } from '../schema/codeGenerator.ts';
 import { protocolSchema } from '../schema/protocolSchema.ts';
 import { configFile } from '../config/configFile.ts';
-import type { FileConfig } from '../config/configFile.ts';
+import type { FileConfig, WorkspaceTrustOptions } from '../config/configFile.ts';
+import { WorkspaceTrust } from '../config/workspaceTrust.ts';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.ts';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.ts';
 import { ArgParser } from './argParser.ts';
@@ -526,10 +527,22 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     }
     const configPath = foundConfig ?? join(wsRoot, configFile.FILE_NAME);
     // 分层加载（用户级 → 项目级 → profile → bundle → 环境变量）；缺陷原委见 loadServeConfig 的 JSDoc。
+    // 工作区信任闸（2026-10-22）：未信任工作区只应用只读语义键；`--trust-workspace` 显式授权。
+    const trust: WorkspaceTrustOptions = {
+      grant: serveArgs.includes('--trust-workspace'),
+      onDecision: (decision) => {
+        const lines = WorkspaceTrust.describe(decision);
+        if (lines.length > 0) {
+          process.stderr.write(`${lines.join('\n')}\n`);
+        }
+      },
+    };
     const loadedFile = CliServerCmds.loadServeConfig(
       wsRoot,
       configPath,
       this.flagValue(serveArgs, '--profile'),
+      undefined,
+      trust,
     );
     const fileDefaults = ArgParser.configDefaults(loadedFile);
     const args = ArgParser.parseArgs(['--prompt', 'serve', ...serveArgs], fileDefaults);
@@ -569,6 +582,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
       const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
       const { AppServer } = await import('../server/core/appServer.ts');
+      const serveProfile = this.flagValue(serveArgs, '--profile');
       const app = new AppServer({
         config: { ...config, live },
         transport: bridge,
@@ -584,6 +598,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         displayConfig,
         autoApprove: serveArgs.includes('--auto-approve'),
         configPath,
+        ...(serveProfile !== undefined ? { profile: serveProfile } : {}),
         pluginsDir,
         workspaceRoot: wsRoot,
         // Web 交付（2026-10-11 修）：**stdio 路径接了 doctor，serve 路径却漏了** ——

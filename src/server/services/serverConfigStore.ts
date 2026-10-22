@@ -12,6 +12,8 @@ export interface ServerConfigStoreDeps {
   readonly displayConfig: Record<string, string>;
   /** 持久化目标路径（undefined 时按工作区推断并创建项目 omniharness.json）。 */
   readonly configPath?: string | undefined;
+  /** 启动时选中的配置 profile（与 serve 启动路径同一份指纹；缺省不叠加 profile）。 */
+  readonly profile?: string | undefined;
   /** 启动标志 --auto-approve。 */
   readonly autoApprove: boolean;
   /** 启用厂商时的实测回调（写探测缓存）；探测失败不阻断启用。 */
@@ -136,21 +138,13 @@ export class ServerConfigStore {
     const layered = configFile.loadLayered({
       workspace: this.workspace(),
       configPath: this.configFilePath(),
+      ...(this.deps.profile !== undefined ? { profile: this.deps.profile } : {}),
       ...(this.deps.userHomedir !== undefined ? { userHomedir: this.deps.userHomedir } : {}),
+      // RPC 面与启动路径同一条信任边界：未信任工作区的 approval/sandbox/baseUrl/mcpServers
+      // 不能因为「UI 读了一次配置」就重新出现。
+      trust: { grant: false },
     });
     return ConfigError.mergeConfigs(layered, this.overrides);
-  }
-
-  /**
-   * **持久化层**的配置：只读项目级那一份（`persist()` / 写路径的合并基准）。
-   *
-   * 为什么读与写必须分开：`fileConfig()` 现在含用户级内容，若拿它当**写基准**，用户级凭据会在
-   * 任何一次 `config.update` 时被**复制进项目文件**（用户把 Key 放用户级，正是为了不落到项目里）。
-   * 故写路径一律以本方法为基准：只合并「项目文件 + UI 覆盖」。
-   * @returns 项目级配置（文件不存在为空配置）。
-   */
-  private persistedConfig(): FileConfig {
-    return configFile.load(this.configFilePath());
   }
 
   /**
@@ -250,7 +244,7 @@ export class ServerConfigStore {
    */
   public addWorkspace(raw: unknown): unknown {
     const root = this.requireDirectory(raw);
-    const list = this.localState().workspaces ?? this.persistedConfig().workspaces ?? [];
+    const list = this.localState().workspaces ?? this.fileConfig().workspaces ?? [];
     if (!list.includes(root)) {
       this.overrides = { ...this.overrides, workspaces: [...list, root] };
       this.persist();
@@ -270,7 +264,8 @@ export class ServerConfigStore {
     previous: string,
   ): { current: string; workspaces: string[] } {
     // 写基取**本机运行态**那份（用户级）：项目文件不再承载项目列表，若拿它当基会把列表写回项目文件。
-    const saved = this.localState().workspaces ?? this.persistedConfig().workspaces ?? [];
+    // 回退也走**过滤后**的 fileConfig：未信任项目的 workspaces 不能被 UI 添加/切换动作收编进用户级。
+    const saved = this.localState().workspaces ?? this.fileConfig().workspaces ?? [];
     this.overrides = {
       ...this.overrides,
       workspace: root,
@@ -329,7 +324,7 @@ export class ServerConfigStore {
   /**
    * 项目级配置的**读取**路径：显式 configPath 优先，否则按 displayConfig.workspace 推断。
    *
-   * 只供分层加载的项目层（{@link fileConfig}）与遗留凭据回退（{@link persistedConfig}）读用——
+   * 只供分层加载的项目层（{@link fileConfig}）读用——未信任工作区的项目层会被工作区信任闸过滤；
    * **写路径已全部固定到用户级**（见 {@link persist}，2026-10-13 用户口径），项目文件在本仓只读不写。
    * @returns 配置文件绝对路径。
    */
@@ -362,8 +357,11 @@ export class ServerConfigStore {
     // 合并基准优先**用户级**（Key 的新家，见 SECRET_KEYS 注释）；项目级只作遗留回退——老版本把
     // Key 落过项目文件，此处借「再存一个厂商」的时机把它们收编进用户级（运行时项目层仍可读到旧值，
     // 收编不丢数据）。
+    //
+    // 2026-10-22 信任闸评审：基线必须是**过滤后**的 fileConfig，而不是 persistedConfig；否则未信任
+    // 工作区可以在项目文件里塞 providerKeys，借一次 UI 写操作把它们复制进用户级、跨工作区持久化。
     const merged = {
-      ...(this.persistedConfig().providerKeys ?? {}),
+      ...(this.fileConfig().providerKeys ?? {}),
       ...(this.localState().providerKeys ?? {}),
     };
     if (typeof key === 'string' && key.length > 0) {

@@ -4264,3 +4264,33 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   单测 **589 files / 3617 tests**（7 例显式 RequireEnv skip），集成 **7 files / 17 tests**，
   前端 **93 files / 539 tests**。验收中同时修正了五处**陈旧判据**（serve token、PanelModal、
   历史反思文案、主操作 12% 淡底、`threads.get` 假后端）；原因逐条记录在报告 §2.3。
+
+## 38. 2026-10-22 工作区信任闸（P0，报告 P0-1）
+
+> 对应 [REASSESSMENT_2026-10-22.md](../reports/REASSESSMENT_2026-10-22.md) §6.1；决策记录 [ADR-0013](adr/0013-workspace-trust.md)。
+
+**问题（本机代码复核）**：`serve`/`exec`/TUI 分层加载会把项目级 `omniharness.json`、项目 `profiles/*.json`（含 `extends`）、`.omniharness/bundle-patches/*.json` 合并进运行时；这些层可声明 `mcpServers`（启动即 spawn）、`approval/sandbox/escalation`（降权）、`baseUrl/providerKeys`（改凭据去向）、`media`（可执行 ffmpeg 路径）、`workspace`（改沙箱根）。「clone + npm start」因此等价于执行仓库配置。
+
+**本轮落地**：
+
+- 新增 `src/config/workspaceTrust.ts` + `workspaceTrustStore.ts` + `ports/config/workspaceTrust.ts`：
+  restricted 默认、`--trust-workspace` 显式授权、用户级 `~/.omniharness/trust.json` TOFU 指纹、
+  policy floor（`approval:auto`/`sandbox:passthrough`/`escalation:auto`/`elevatedSandbox:passthrough` 不能被项目层给出）。
+- 统一归一化：`BOM 剥离`（`util/textBom.ts`，ConfigFile/ProfileLoader/trust/bundle 共用）、
+  `键别名`（`config/configKeyAliases.ts` 单一来源）、`DPAPI 解密`；过滤在 `readStrict` 之后，
+  并以**实际层内容**兜底（不只信决策快照），`apiKey/apiKeyDpapi`、`providerKeys/providerKeysDpapi` 同族一起删。
+- 入口接线：`serve`、`exec`/TUI、UI RPC `ServerConfigStore.fileConfig()` 同一条边界；
+  `serverConfigStore` 的 `setProviderKey` 与 workspace 添加/切换改用过滤后的配置，避免未信任项目把凭据/项目列表收编进用户级。
+- 配置键分类全覆盖：`ConfigError.knownKeys()` 的每个键必须归入安全/权威，新增未分类即红。
+- 文档：ADR-0013、`CLI_REFERENCE.md`、`ARCHITECTURE_SPEC.md` §12 边界同步。
+
+**判据**：`tests/unit/workspaceTrust.test.ts` **18 例**（restricted/trusted/TOFU/BOM/别名/media/storageDir/workspace/bundle BOM/extends 父链/--config 工作区外/DPAPI 同族/分类全覆盖/接线守卫）；
+`serverConfigStoreLayering` +1（`--profile` 信任指纹一致）；`serverConfigStore` +1（未信任项目 providerKeys 不被收编）。
+修复期间独立 Agent 复审 3 轮：首轮 7 项 must-fix，次轮补出 `workspace` 权威键绕过，第三轮 PASS；其后又加
+「实际层兜底过滤 / workspaces 回退过滤 / grant 写失败 fail-closed」三项硬化。
+
+**验收（本机）**：`npx tsc --noEmit`、`npm run check`、`npm run arch:gate -- --strict`、`npm run lint` 全绿；
+定点测试 `workspaceTrust` 18 + `serverConfigStore` 15 + `serverConfigStoreLayering` 7 全绿。
+
+**诚实边界**：trust.json 是 TOFU 不是防篡改；并发 grant 可能丢一条（后写覆盖，不放宽执行面）；
+临时文件按 1 小时清扫；未信任工作区的 `model/reasoning/storageAdapter/maxSteps/contextWindow/locale/extends` 仍生效。
