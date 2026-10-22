@@ -20,6 +20,7 @@
 | [0011](./0011-signed-asset-pack.md)          | 签名资产包分发（Ed25519 非对称 + 严格档 fail-closed） | 已接受 |
 | [0012](./0012-plugin-process-isolation.md)   | 远程插件进程隔离（Plugin Worker + Capability RPC）    | 提议   |
 | [0013](./0013-workspace-trust.md)            | 工作区信任闸（restricted 默认 + TOFU + policy floor） | 已接受 |
+| [0014](./0014-mcp-client-auth.md)            | MCP 客户端认证与 MRTR（token + RFC 9728 + 输入回路）  | 已接受 |
 
 ## 何时写新 ADR
 

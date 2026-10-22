@@ -19,6 +19,7 @@ import { CapabilityConfigValidator } from './capabilityConfigValidator.ts';
 import { RbacConfigValidator } from './rbacConfigValidator.ts';
 import { decisionEngineConfigValidator } from './decisionEngineConfigValidator.ts';
 import { ConfigKeyAliases } from './configKeyAliases.ts';
+import { McpAuthConfigValidator } from './mcpAuthConfigValidator.ts';
 import { TextBom } from '../util/textBom.ts';
 
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
@@ -135,6 +136,29 @@ export class ConfigError extends OmniError {
           `mcpServers[${index}]（${String(record.name)}）需二选一：本地进程给字符串 command，` +
             '或远端服务器给 http/https 的 url（不可同时给、不可都不给）',
         );
+      }
+      if (hasCommand && (record.headers !== undefined || record.auth !== undefined)) {
+        throw new ConfigError(
+          `mcpServers[${index}]（${String(record.name)}）的 headers/auth 仅适用于远端 url 形态`,
+        );
+      }
+      if (record.headers !== undefined) {
+        if (
+          typeof record.headers !== 'object' ||
+          record.headers === null ||
+          Array.isArray(record.headers) ||
+          Object.values(record.headers as Record<string, unknown>).some(
+            (value) => typeof value !== 'string',
+          )
+        ) {
+          throw new ConfigError(`mcpServers[${index}].headers 必须是字符串键值对象`);
+        }
+      }
+      if (record.auth !== undefined) {
+        const message = McpAuthConfigValidator.validate(record.auth, `mcpServers[${index}].auth`);
+        if (message !== undefined) {
+          throw new ConfigError(message);
+        }
       }
     }
   }

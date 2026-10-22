@@ -12,6 +12,8 @@
  * `command` 因此改为可选；只吃 stdio 的手写连接器在收到 `url` 或缺 `command`
  * 的配置时会给出可行动的显式报错（绝不静默 spawn 空命令）。
  */
+import type { McpAuthConfig } from './mcpAuthConfig.ts';
+
 export interface McpServerConfig {
   /** 服务器别名（用作工具名前缀，避免跨服务器重名）。 */
   readonly name: string;
@@ -25,4 +27,8 @@ export interface McpServerConfig {
   readonly cwd?: string;
   /** 远端服务器地址（http/https，url 形态必填；command 形态必须为空）。 */
   readonly url?: string;
+  /** 额外请求头（远端形态；auth 生成的 Authorization 优先）。 */
+  readonly headers?: Record<string, string>;
+  /** 认证配置（缺省 none；远端形态）。 */
+  readonly auth?: McpAuthConfig;
 }

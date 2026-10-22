@@ -19,6 +19,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { SdkMcpClientAdapter, type SdkMcpClientOptions } from './sdkMcpClientAdapter.ts';
 import type { McpConnectionHandle, McpConnectorPort } from '../../ports/mcp/mcpConnectorPort.ts';
 import type { McpServerConfig } from '../../ports/mcp/mcpServerConfig.ts';
+import { McpAuthProvider } from '../../mcp/mcpAuthProvider.ts';
 import { log } from '../../util/logger.ts';
 
 /** 连接器选项（客户端元数据）。 */
@@ -40,9 +41,11 @@ export interface SdkMcpConnectorDeps {
   /** stdio 传输工厂（缺省 `new StdioClientTransport(parameters)`）。 */
   readonly createStdioTransport?: ((parameters: StdioServerParameters) => Transport) | undefined;
   /** Streamable HTTP 传输工厂（缺省 `new StreamableHTTPClientTransport(target)`）。 */
-  readonly createStreamableHttpTransport?: ((target: URL) => Transport) | undefined;
+  readonly createStreamableHttpTransport?:
+    ((target: URL, headers?: Record<string, string>) => Transport) | undefined;
   /** SSE 传输工厂（缺省 `new SSEClientTransport(target)`）。 */
-  readonly createSseTransport?: ((target: URL) => Transport) | undefined;
+  readonly createSseTransport?:
+    ((target: URL, headers?: Record<string, string>) => Transport) | undefined;
 }
 
 /**
@@ -78,7 +81,8 @@ export class SdkMcpConnector implements McpConnectorPort {
       timeoutMs,
     };
     if (server.url !== undefined) {
-      return await SdkMcpConnector.connectRemote(server, clientOptions, this.deps);
+      const headers = McpAuthProvider.headersOf(server);
+      return await SdkMcpConnector.connectRemote(server, clientOptions, this.deps, headers);
     }
     return await SdkMcpConnector.connectStdio(server, clientOptions, this.deps);
   }
@@ -144,6 +148,7 @@ export class SdkMcpConnector implements McpConnectorPort {
     server: McpServerConfig,
     clientOptions: SdkMcpClientOptions,
     deps: SdkMcpConnectorDeps,
+    headers: Record<string, string>,
   ): Promise<McpConnectionHandle> {
     const url = server.url;
     if (!/^https?:\/\//i.test(url ?? '')) {
@@ -160,8 +165,11 @@ export class SdkMcpConnector implements McpConnectorPort {
         // 存在已知的属性型变摩擦（sessionId: string | undefined vs sessionId?: string），
         // 与运行时行为无关，此处按官方继承关系显式收口。
         createHttp === undefined
-          ? () => new StreamableHTTPClientTransport(target) as unknown as Transport
-          : () => createHttp(target),
+          ? () =>
+              new StreamableHTTPClientTransport(target, {
+                requestInit: { headers },
+              }) as unknown as Transport
+          : () => createHttp(target, headers),
         clientOptions,
       );
     } catch (streamableError) {
@@ -172,8 +180,11 @@ export class SdkMcpConnector implements McpConnectorPort {
       });
       return await SdkMcpConnector.connectWith(
         createSse === undefined
-          ? () => new SSEClientTransport(target) as unknown as Transport
-          : () => createSse(target),
+          ? () =>
+              new SSEClientTransport(target, {
+                requestInit: { headers },
+              }) as unknown as Transport
+          : () => createSse(target, headers),
         clientOptions,
       );
     }

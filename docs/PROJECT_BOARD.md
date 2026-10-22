@@ -4316,3 +4316,25 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **诚实边界**：manifest 记录的是注册工具集与 exposureMode（不是请求期最终可见集合）；resume/fork 复用原 manifest；
 真正的小时级 A/B 仍需真实 API key 与 k≥3；单次小差异不作为收益结论（沿两关纪律）。
+
+## 40. 2026-10-22 MCP 客户端认证 + MRTR（P0-3 第一片）
+
+> 对应 [REASSESSMENT_2026-10-22.md](../reports/REASSESSMENT_2026-10-22.md) §6.2；决策记录 [ADR-0014](adr/0014-mcp-client-auth.md)。
+
+**落地**：
+
+- `McpServerConfig` / `FileMcpServer` 增加 `headers` 与 `auth`（`none` / `bearer` / `oauth`）；令牌可来自配置或 `tokenEnv`，
+  远端连接器把 `Authorization` 传给 **Streamable HTTP 与 SSE 两条路径**；缺令牌/空白令牌一律 `MCP_AUTH_UNAVAILABLE` fail-closed。
+- `McpAuthProvider`：静态头与认证头合并（认证头大小写不敏感覆盖）；RFC 9728 资源元数据发现为 **path-aware**
+  （`host/.well-known/oauth-protected-resource/<path>`，保留 query），返回的 `resource` 与输入**逐字**匹配，否则拒绝（§3.3）。
+- `McpStatelessClient`：处理 `input_required` → `inputRequests` → 注入的 `McpInputHandler` → 带 `inputResponses` 重试（≤3 轮）；
+  无 handler / 漏答 / 空请求 / 超轮次一律 `MCP_INPUT_REQUIRED` fail-closed；`_meta` 每轮重注入。
+- 配置校验：headers 字符串键值、auth 类型白名单、拒绝跨类型键、stdio 形态禁止 headers/auth；`ArgParser.configDefaults` 显式透传（声明即接线）。
+- 文档：ADR-0014、ADR 索引、ARCHITECTURE_SPEC ADR 列表；`npm run mcp:conformance` 作为内部一致性回归（不是官方 suite）。
+
+**判据**：`mcpAuth` 7 例（bearer/oauth/空白 token/大小写头/9728 path+身份+query/配置校验/接线）；
+`mcpMrtr` 5 例（正常重试/无 handler/漏答/超轮次/空 requests）；`sdkMcpConnector` +2（HTTP/SSE 认证头）；总计 55 例全绿。
+独立 Agent 复审 2 轮：首轮 2 项 RFC 9728 must-fix（path-aware URL、resource 逐字匹配），修复后 **PASS**。
+
+**诚实边界**：本片只做**已有令牌**与发现；浏览器授权码 + PKCE 回调 / token 刷新 / CIMD / registry / server 侧 2026-07-28 **未做**；
+`inputHandler` 只有端口、宿主侧回答器未接（live MRTR 当前总是 fail-closed）；发现请求尚未接 `ssrfPolicy` 与跨源重定向拒绝。

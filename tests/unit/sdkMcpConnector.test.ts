@@ -544,3 +544,57 @@ test('⑮ 远端 JSON-RPC 错误不得被吞成空清单（"服务器报错"≠"
     handle.close();
   }
 });
+
+test('⑯ 远端认证头真的到达传输：静态 headers 与 Bearer 合并，认证头优先', async () => {
+  const server = new ScriptedServer();
+  const calls: Array<{ url: string; headers?: Record<string, string> }> = [];
+  const handle = await new SdkMcpConnector(
+    {},
+    {
+      createStreamableHttpTransport: (target, headers) => {
+        calls.push({ url: String(target), ...(headers !== undefined ? { headers } : {}) });
+        return new FakeTransport(server);
+      },
+    },
+  ).connect({
+    name: 'remote',
+    url: 'https://mcp.example.com/v1',
+    headers: { 'X-Trace': '1', Authorization: 'old' },
+    auth: { type: 'bearer', token: 'tok' },
+  });
+  try {
+    assert.strictEqual(calls[0]?.url, 'https://mcp.example.com/v1');
+    assert.deepStrictEqual(calls[0]?.headers, {
+      'X-Trace': '1',
+      Authorization: 'Bearer tok',
+    });
+  } finally {
+    handle.close();
+  }
+});
+
+test('⑰ SSE 回落路径同样携带认证头（不是只有 Streamable HTTP 有）', async () => {
+  const server = new ScriptedServer();
+  const sseHeaders: Array<Record<string, string> | undefined> = [];
+  const handle = await new SdkMcpConnector(
+    {},
+    {
+      createStreamableHttpTransport: () => {
+        throw new Error('HTTP 传输启动失败');
+      },
+      createSseTransport: (_target, headers) => {
+        sseHeaders.push(headers);
+        return new FakeTransport(server);
+      },
+    },
+  ).connect({
+    name: 'remote',
+    url: 'https://mcp.example.com/v1',
+    auth: { type: 'bearer', token: 'tok' },
+  });
+  try {
+    assert.deepStrictEqual(sseHeaders[0], { Authorization: 'Bearer tok' });
+  } finally {
+    handle.close();
+  }
+});

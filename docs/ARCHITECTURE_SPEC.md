@@ -170,7 +170,7 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 `0003-unified-gate-fail-closed`、`0004-audit-hash-chain`、`0005-event-stream-single-source`、
 `0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`、
 `0009-capability-protocol`、`0010-isolation-ladder`、`0011-signed-asset-pack`、`0012-plugin-process-isolation`、
-`0013-workspace-trust`。
+`0013-workspace-trust`、`0014-mcp-client-auth`。
 
 ## 12. 已知边界与"不做"清单
 

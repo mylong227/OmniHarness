@@ -3,6 +3,7 @@ import type { Transport } from '../server/transport/lineTransport.ts';
 import { PendingRequests } from '../util/concurrency/pendingRequests.ts';
 import { McpProtocol } from './mcpProtocol.ts';
 import type { McpClientPort } from '../ports/mcp/mcpClientPort.ts';
+import type { McpInputHandler, McpInputRequest } from '../ports/mcp/mcpInputHandler.ts';
 import type {
   McpCallToolResult,
   McpInitializeResult,
@@ -18,6 +19,8 @@ export interface McpStatelessClientOptions {
   readonly timeoutMs?: number | undefined;
   readonly clientName?: string | undefined;
   readonly clientVersion?: string | undefined;
+  /** MRTR 输入回路（缺省 fail-closed：server 要求输入时直接报错）。 */
+  readonly inputHandler?: McpInputHandler | undefined;
 }
 
 /**
@@ -88,10 +91,39 @@ export class McpStatelessClient implements McpClientPort {
    * @returns 调用结果。
    */
   public async callTool(name: string, args: Record<string, unknown>): Promise<McpCallToolResult> {
-    const result = (await this.request(McpProtocol.METHOD_TOOLS_CALL, {
+    let result = (await this.request(McpProtocol.METHOD_TOOLS_CALL, {
       name,
       arguments: args,
-    })) as McpCallToolResult & { resultType?: string };
+    })) as McpCallToolResult & { resultType?: string; inputRequests?: unknown };
+    for (let round = 0; round < 3 && result.resultType === 'input_required'; round += 1) {
+      const handler = this.options.inputHandler;
+      if (handler === undefined) {
+        throw new Error(
+          'MCP_INPUT_REQUIRED: server 要求补充输入（MRTR），但客户端未配置 inputHandler；' +
+            '请在宿主侧注入回答器（无 UI 时 fail-closed，不自动猜测）',
+        );
+      }
+      const requests = McpStatelessClient.inputRequestsOf(result.inputRequests);
+      if (requests.length === 0) {
+        throw new Error('MCP_INPUT_REQUIRED: resultType=input_required 但没有 inputRequests');
+      }
+      const responses = await handler.resolve(requests);
+      const answered = new Set(responses.map((response) => response.id));
+      const missing = requests.filter((request) => !answered.has(request.id));
+      if (missing.length > 0) {
+        throw new Error(
+          `MCP_INPUT_REQUIRED: 输入回路缺少回答：${missing.map((request) => request.id).join(', ')}`,
+        );
+      }
+      result = (await this.request(McpProtocol.METHOD_TOOLS_CALL, {
+        name,
+        arguments: args,
+        inputResponses: responses,
+      })) as McpCallToolResult & { resultType?: string; inputRequests?: unknown };
+    }
+    if (result.resultType === 'input_required') {
+      throw new Error('MCP_INPUT_REQUIRED: MRTR 重试 3 轮后 server 仍要求输入');
+    }
     return {
       content: result.content ?? [],
       isError: result.isError === true,
@@ -99,6 +131,28 @@ export class McpStatelessClient implements McpClientPort {
         ? { structuredContent: result.structuredContent }
         : {}),
     };
+  }
+
+  /**
+   * 把 server 的 `inputRequests` 收敛为带 id 的请求列表。
+   * @param raw 原始值（规范是数组；容忍缺失 id）。
+   * @returns 请求列表。
+   */
+  private static inputRequestsOf(raw: unknown): readonly McpInputRequest[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((entry, index) => {
+      const record =
+        typeof entry === 'object' && entry !== null ? (entry as Record<string, unknown>) : {};
+      const idCandidate = record['id'] ?? record['requestId'] ?? record['key'];
+      const id =
+        typeof idCandidate === 'string' && idCandidate !== '' ? idCandidate : String(index);
+      const promptCandidate = record['prompt'] ?? record['message'] ?? record['description'];
+      return {
+        id,
+        ...(typeof promptCandidate === 'string' ? { prompt: promptCandidate } : {}),
+        raw: entry,
+      };
+    });
   }
 
   /**

@@ -3,7 +3,10 @@
  *
  * 已从 `config/configFile.ts` 外迁到 ports/config：原文件退化为纯再导出桶，调用点零改动。
  * 2026-10-02 起支持远端 url 形态（与 command 二选一，校验见 `ConfigError.validateMcpServers`）。
+ * 2026-10-22 起支持 headers/auth（远端形态；令牌优先从 tokenEnv 读，避免明文进项目文件）。
  */
+import type { McpAuthConfig } from '../mcp/mcpAuthConfig.ts';
+
 export interface FileMcpServer {
   readonly name: string;
   /** 本地子进程命令（stdio 形态必填；url 形态可省略）。 */
@@ -11,4 +14,8 @@ export interface FileMcpServer {
   readonly args?: readonly string[];
   /** 远端服务器地址（http/https；stdio 形态可省略）。 */
   readonly url?: string;
+  /** 额外请求头（远端形态）。 */
+  readonly headers?: Record<string, string>;
+  /** 认证配置（远端形态；项目级 mcpServers 默认被工作区信任闸忽略）。 */
+  readonly auth?: McpAuthConfig;
 }
