@@ -77,13 +77,16 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       <span className="flex-spacer" aria-hidden="true"></span>
       {onToggleRight === undefined ? null : (
         <button
-          className={'iconbtn' + (rightCollapsed ? '' : ' active')}
+          // 2026-10-21（用户按截图「按钮去掉换成小箭头形式」）：原来是 `columns` 图标 + `.active`
+          // 的淡色底块，看着像一枚「选中态视图」；它其实是「把右栏推到右边 / 拉回来」的开关，
+          // 故改成与左栏「«」、右栏头「»」同源的**纯字形小箭头**，也不再加 `.active` 底块。
+          className="iconbtn chat-panel-toggle"
           title={rightCollapsed ? t('展开功能面板（Ctrl/Cmd+Shift+E）') : t('收起功能面板（Ctrl/Cmd+Shift+E）')}
           aria-label={rightCollapsed ? t('展开功能面板') : t('收起功能面板')}
-          aria-pressed={rightCollapsed ? 'false' : 'true'}
+          aria-expanded={rightCollapsed ? 'false' : 'true'}
           onClick={onToggleRight}
         >
-          {icon('columns', { size: 16 })}
+          {rightCollapsed ? '«' : '»'}
         </button>
       )}
     </div>

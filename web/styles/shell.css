@@ -194,6 +194,24 @@
 }
 .chat-head .iconbtn.active { color: var(--brand); background: var(--panel-2); }
 
+/* 中栏头的右栏开关（2026-10-21 用户：「按钮去掉换成小箭头形式」）：一枚安静的字形小箭头，
+   `»` = 收起右栏、`«` = 拉回来，与左栏品牌行的「«」、右栏头的「»」同一套字形与节奏。
+   刻意**不要** `.iconbtn.active` / `[aria-pressed=true]` 的淡色底块——那是「选中了某个视图」
+   的语法，而这里只表达「这一栏往右推 / 拉回来」，底块会让中栏头多出一枚假的可选控件。
+   也抹掉全站按钮的毛玻璃底与 1px inset 细环（minimal.css 的 `button{}` 那条）：静止态只留字形，
+   悬停/键盘聚焦时才借回底色——它是栏缝上的一个「推手」，不是又一枚按钮。 */
+.chat-panel-toggle {
+  color: var(--dim);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 7px;
+  background-image: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+.chat-panel-toggle:hover { color: var(--text); background: var(--hover); }
+
 .chat-status {
   display: flex;
   align-items: center;
@@ -566,11 +584,17 @@
 
 /* ---------- 通用 ---------- */
 .flex-spacer { flex: 1 1 auto; min-width: 0; }
-.mob-only { display: none; }
+
+/* 仅窄屏可见（`.mob-only`）：用在中栏头的「左栏抽屉」汉堡键上，桌面端必须隐藏。
+   ⚠️ 选择器必须带元素名（`button.mob-only` = 0,1,1）：minimal.css 的 `.iconbtn{display:inline-flex}`
+   与本类同为 0,1,0 却级联更晚，单写 `.mob-only{display:none}` 会被它盖掉——汉堡键因此在桌面端
+   一直露着，而桌面端点它只是空转（`.col.left` 的 `.open` 只在 ≤880px 的抽屉规则里生效）。
+   2026-10-21 用户按截图要求「去掉」的就是这枚幽灵按钮；窄屏抽屉开关与 Ctrl/Cmd+B 均保留。 */
+button.mob-only { display: none; }
 
 /* ---------- 窄屏（≤880px）：抽屉模式保留，头部按钮现身 ---------- */
 @media (max-width: 880px) {
-  .mob-only { display: inline-flex; }
+  button.mob-only { display: inline-flex; }
   .chat-title { max-width: 18ch; }
 }
 
