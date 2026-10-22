@@ -1,4 +1,4 @@
-﻿import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -19,6 +19,7 @@ import type {
 import type { WorkerCapabilityBroker } from './workerCapabilityBroker.ts';
 import { WorkerSpawnSpecBuilder } from './workerSpawnSpecBuilder.ts';
 import { PluginWorkerLimits } from './pluginWorkerLimits.ts';
+import { PluginWorkerMetrics } from './pluginWorkerMetrics.ts';
 
 /** Supervisor 构造选项。 */
 export interface PluginWorkerSupervisorOptions {
@@ -115,6 +116,7 @@ export class PluginWorkerSupervisor {
     try {
       await this.request('plugin.activate', {}, this.activationTimeoutMs);
       this.state = 'ready';
+      PluginWorkerMetrics.record(this.options.pluginName, 'activation');
     } catch (error) {
       this.fail(`ACTIVATION_TIMEOUT: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
@@ -139,9 +141,11 @@ export class PluginWorkerSupervisor {
       context: { sessionId: context.sessionId, workspaceRoot: context.workspaceRoot },
     };
     try {
+      PluginWorkerMetrics.record(this.options.pluginName, 'call');
       const result = (await this.request('tool.invoke', params, this.callTimeoutMs)) as ToolResult;
       return result;
     } catch (error) {
+      PluginWorkerMetrics.record(this.options.pluginName, 'failure');
       const message = error instanceof Error ? error.message : String(error);
       return { callId: call.id, ok: false, error: `插件调用失败: ${message}` };
     }
@@ -177,6 +181,10 @@ export class PluginWorkerSupervisor {
       new Promise<void>((resolve) => setTimeout(resolve, PluginWorkerLimits.SHUTDOWN_GRACE_MS)),
     ]);
     this.state = 'stopped';
+    log.info('plugin.worker.metrics', {
+      plugin: this.options.pluginName,
+      ...PluginWorkerMetrics.snapshot(this.options.pluginName),
+    });
   }
 
   /**
@@ -216,7 +224,7 @@ export class PluginWorkerSupervisor {
       });
     });
     child.on('exit', (code, signal) => {
-      if (this.state !== 'stopped') {
+      if (this.state !== 'stopped' && this.state !== 'stopping') {
         this.fail(`WORKER_CRASHED: code=${String(code)} signal=${String(signal)}`);
       }
       this.child = undefined;
@@ -413,6 +421,7 @@ export class PluginWorkerSupervisor {
   private fail(reason: string): void {
     if (this.state === 'failed' || this.state === 'stopped') return;
     this.state = 'failed';
+    PluginWorkerMetrics.record(this.options.pluginName, 'crash');
     this.readyReject?.(new Error(reason));
     for (const [id, entry] of this.pending) {
       this.pending.delete(id);

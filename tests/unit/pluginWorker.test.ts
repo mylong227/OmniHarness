@@ -10,6 +10,7 @@ import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
 import { RemotePlugin } from '../../src/plugin/worker/remotePlugin.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
 import { WindowsAclSandbox } from '../../src/adapters/sandbox/windowsAclSandbox.ts';
+import { PluginWorkerMetrics } from '../../src/plugin/worker/pluginWorkerMetrics.ts';
 
 /** 清理临时插件目录；Windows 上 worker 退出后仍可能短暂持有 cwd，清理失败不该让判据假红。 */
 function cleanup(path: string): void {
@@ -138,6 +139,7 @@ export default {
 `;
 
 test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async () => {
+  PluginWorkerMetrics.reset();
   const dir = pluginDir('worker-demo', echoPlugin);
   const { manager, tools } = managerWithTools();
   try {
@@ -161,6 +163,12 @@ test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async (
       '必须由子进程执行',
     );
     assert.match(result.output ?? '', /:hi$/u);
+    assert.deepStrictEqual(PluginWorkerMetrics.snapshot('worker-demo'), {
+      activations: 1,
+      calls: 1,
+      failures: 0,
+      crashes: 0,
+    });
     await manager.uninstall('worker-demo');
     assert.ok(!tools.list().some((tool) => tool.name === 'echo'), '卸载后必须回收');
   } finally {
