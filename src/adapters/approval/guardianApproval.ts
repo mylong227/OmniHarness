@@ -77,6 +77,7 @@ export class GuardianApproval implements ApprovalPort {
       const output = await this.options.model.generate({
         messages: guardianPrompt.build(request),
         tools: [],
+        role: 'guardian',
       });
       return this.parseVerdict(output.text);
     } catch {

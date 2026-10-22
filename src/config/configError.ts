@@ -199,6 +199,17 @@ export class ConfigError extends OmniError {
     ) {
       throw new ConfigError('modelRouter 需含字符串 strategy 与数组 entries');
     }
+    const roles = (router as Record<string, unknown>).roles;
+    if (roles !== undefined) {
+      if (typeof roles !== 'object' || roles === null || Array.isArray(roles)) {
+        throw new ConfigError('modelRouter.roles 必须是「角色 → 模型名」对象');
+      }
+      for (const [role, model] of Object.entries(roles)) {
+        if (typeof model !== 'string' || model === '') {
+          throw new ConfigError(`modelRouter.roles["${role}"] 必须是非空字符串`);
+        }
+      }
+    }
   }
 
   /**

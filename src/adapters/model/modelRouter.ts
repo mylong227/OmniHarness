@@ -85,7 +85,8 @@ export class ModelRouter implements ModelPort {
   }
 
   /**
-   * 最近一次路由理由（OBS-02）：`by-context` 会写估算与选中模型；其它策略为空串。
+   * 最近一次路由理由（OBS-02）：`by-context` 写估算与选中模型，`by-role` 写角色与选中/回退模型；
+   * 其它策略为空串。
    * @returns 可读理由。
    */
   public get routeReason(): string {
@@ -154,11 +155,38 @@ export class ModelRouter implements ModelPort {
         return this.selectByTask(request);
       case 'by-context':
         return this.selectByContext(request);
+      case 'by-role':
+        return this.selectByRole(request);
       case 'round-robin':
       case 'health-fallback':
       default:
         return this.nextRoundRobin();
     }
+  }
+
+  /**
+   * by-role：按 `request.role` 查 `roles` 映射；未映射回退第一个 entry。
+   * 映射到不存在的模型时 fail-closed（配置错误不能静默换成别的模型）。
+   * @param request 模型请求（读可选 role）。
+   * @returns 选中的 entry 下标。
+   */
+  private selectByRole(request: ModelRequest): number {
+    const role = request.role;
+    const requested = role === undefined ? undefined : this.options.roles?.[role];
+    if (requested === undefined) {
+      this.lastSelectionReason = `by-role role=${role ?? 'none'} fallback=${
+        ArrayAt.at(this.options.entries, 0).model
+      }`;
+      return 0;
+    }
+    const index = this.options.entries.findIndex((entry) => entry.model === requested);
+    if (index < 0) {
+      throw new Error(
+        `ModelRouter by-role: role "${role ?? 'none'}" 映射到未知模型 "${requested}"（fail-closed）`,
+      );
+    }
+    this.lastSelectionReason = `by-role role=${role ?? 'none'} chosen=${requested}`;
+    return index;
   }
 
   /** 选累计成本最低者；无 pricing 则回退轮询。

@@ -138,7 +138,7 @@
     },
     {
       "spec": "--model-router JSON",
-      "description": "模型路由配置（#B4，JSON 字符串）：按 least-cost / round-robin / by-task / health-fallback 在多个底层适配器间路由"
+      "description": "模型路由配置（#B4，JSON 字符串）：按 least-cost / round-robin / by-task / by-context / by-role / health-fallback 在多个底层适配器间路由；by-role 用 roles 映射角色到模型"
     },
     {
       "spec": "--model-router-file PATH",

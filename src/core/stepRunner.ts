@@ -187,6 +187,7 @@ export class StepRunner {
         tools: [],
         reasoningEffort: this.deps.reasoningEffort,
         signal: this.deps.signal,
+        role: 'executor' as const,
       };
       log.info('step.finalize', { messageCount: messages.length });
       const stream = this.deps.model.stream;
@@ -345,6 +346,7 @@ export class StepRunner {
       maxOutputTokens: this.deps.maxOutputTokens,
       // V2：取消信号透传（未注入为 undefined，适配器行为不变）。
       signal: this.deps.signal,
+      role: 'executor' as const,
     };
     const stream = model.stream;
     if (this.deps.live !== undefined && stream !== undefined) {

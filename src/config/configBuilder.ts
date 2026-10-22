@@ -128,6 +128,7 @@ export class ConfigBuilder {
       'round-robin',
       'by-task',
       'by-context',
+      'by-role',
       'health-fallback',
     ]);
     if (!VALID_STRATEGIES.has(cfg.strategy)) {
@@ -148,6 +149,7 @@ export class ConfigBuilder {
       entries,
       strategy: cfg.strategy as RouterStrategy,
       taskField: cfg.taskField,
+      ...(cfg.roles !== undefined ? { roles: cfg.roles } : {}),
     });
   }
 

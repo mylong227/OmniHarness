@@ -1,11 +1,14 @@
 import type { ModelMessage } from './modelMessage.ts';
 import type { ModelResponseFormat } from './modelResponseFormat.ts';
 import type { ModelToolSpec } from './modelToolSpec.ts';
+import type { ModelRole } from './modelRole.ts';
 
 /** 模型请求。 */
 export interface ModelRequest {
   readonly messages: readonly ModelMessage[];
   readonly tools: readonly ModelToolSpec[];
+  /** 角色（可选，P1-4）：`by-role` 路由按它选模型；未设/未映射时回退第一 entry。 */
+  readonly role?: ModelRole | undefined;
   /**
    * 结构化输出意图（可选，2026-10-11）：缺省＝纯文本（与旧行为逐字一致）。
    *

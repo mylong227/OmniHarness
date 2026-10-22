@@ -1,6 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ModelRouter } from '../../src/adapters/model/modelRouter.ts';
+import { ConfigError } from '../../src/config/configError.ts';
 import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
 
 /** 始终成功的模型，记录调用次数与 name。 */
@@ -114,4 +115,59 @@ test('round-robin：轮询选择 entries', async () => {
 
 test('fail-closed：entry 为空时构造即报错', () => {
   assert.throws(() => new ModelRouter({ strategy: 'round-robin', entries: [] }));
+});
+
+test('by-role：按角色映射选模型；未映射回退首项；映射到未知模型 fail-closed', async () => {
+  const executor = new OkModel('executor-model');
+  const reviewer = new OkModel('reviewer-model');
+  const router = new ModelRouter({
+    strategy: 'by-role',
+    roles: { executor: 'executor-model', reviewer: 'reviewer-model' },
+    entries: [
+      { adapter: executor, model: 'executor-model' },
+      { adapter: reviewer, model: 'reviewer-model' },
+    ],
+  });
+  const reviewed = await router.generate({ ...REQ, role: 'reviewer' });
+  assert.strictEqual(reviewed.text, 'ok:reviewer-model');
+  assert.strictEqual(reviewer.calls, 1);
+  assert.strictEqual(executor.calls, 0);
+  assert.match(router.routeReason, /by-role role=reviewer/u);
+
+  const fallback = await router.generate({ ...REQ, role: 'compactor' });
+  assert.strictEqual(fallback.text, 'ok:executor-model');
+  assert.strictEqual(executor.calls, 1);
+
+  const broken = new ModelRouter({
+    strategy: 'by-role',
+    roles: { reviewer: 'missing-model' },
+    entries: [{ adapter: executor, model: 'executor-model' }],
+  });
+  await assert.rejects(
+    () => broken.generate({ ...REQ, role: 'reviewer' }),
+    /映射到未知模型 "missing-model"/u,
+  );
+});
+
+test('配置校验：modelRouter.roles 必须是「角色 → 非空模型名」对象', () => {
+  assert.doesNotThrow(() =>
+    ConfigError.validateModelRouter({
+      modelRouter: {
+        strategy: 'by-role',
+        entries: [{ model: 'm' }],
+        roles: { reviewer: 'm' },
+      },
+    }),
+  );
+  assert.throws(
+    () =>
+      ConfigError.validateModelRouter({
+        modelRouter: {
+          strategy: 'by-role',
+          entries: [{ model: 'm' }],
+          roles: { reviewer: '' },
+        },
+      }),
+    /roles\["reviewer"\] 必须是非空字符串/u,
+  );
 });

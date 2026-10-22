@@ -136,6 +136,25 @@ test('buildRouter：合法策略构造 ModelRouter', () => {
   assert.ok(router instanceof ModelRouter);
 });
 
+test('buildRouter：by-role 是合法策略，roles 被接受并可路由', async () => {
+  const router = new ConfigBuilder().buildRouter({
+    strategy: 'by-role',
+    roles: { reviewer: 'mock-b' },
+    entries: [
+      { model: 'mock-a', adapter: 'mock' },
+      { model: 'mock-b', adapter: 'mock' },
+    ],
+  });
+  assert.ok(router instanceof ModelRouter);
+  const output = await router.generate({
+    messages: [{ role: 'user', content: 'review' }],
+    tools: [],
+    role: 'reviewer',
+  });
+  assert.ok(output !== undefined);
+  assert.match(router.routeReason, /chosen=mock-b/u);
+});
+
 test('buildRouterAdapter：mock 默认、未知类型抛错、openai 缺密钥 fail-closed', () => {
   const builder = new ConfigBuilder();
   assert.ok(builder.buildRouterAdapter({ model: 'x' }) instanceof MockModel);

@@ -91,6 +91,7 @@ export class ReviewDiffTool implements ReviewPort {
         },
       ],
       tools: [],
+      role: 'reviewer',
     });
     const raw = output.text ?? '';
     const findings = ReviewDiffTool.parse(raw);

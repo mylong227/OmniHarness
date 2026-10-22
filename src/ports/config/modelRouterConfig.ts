@@ -10,4 +10,6 @@ export interface ModelRouterConfig {
   readonly entries: readonly ModelRouterEntryConfig[];
   /** by-task 策略下仅匹配该 role 的消息（可选）。 */
   readonly taskField?: string;
+  /** by-role 策略：角色 → 模型名（角色未映射时回退第一个 entry）。 */
+  readonly roles?: Readonly<Record<string, string>>;
 }

@@ -174,6 +174,7 @@ export class MemoryExtractor implements MemoryExtractorPort {
     const request: ModelRequest = {
       messages: [{ role: 'user', content: prompt }],
       tools: [],
+      role: 'memory',
     };
     const output = await this.model.generate(request);
     return MemoryExtractor.parseFacts(output.text ?? '');

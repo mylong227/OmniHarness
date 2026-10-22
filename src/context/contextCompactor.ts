@@ -655,6 +655,7 @@ export class ContextCompactor {
           },
         ],
         tools: [],
+        role: 'compactor',
       });
       return output.text ?? '[历史已省略]';
     } catch (error) {

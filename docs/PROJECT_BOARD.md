@@ -4366,3 +4366,20 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 独立 Agent 评审 **PASS**；tsc/check/arch/lint/top-level-fn 全绿。
 
 **边界**：只清本仓前缀且超龄条目；不清理非本仓文件；不自动删新条目（避免误伤其他进程）。
+
+## 43. 2026-10-22 角色化模型路由（P1-4 第一片）
+
+- `ModelRole` + `ModelRequest.role`（executor/planner/reviewer/compactor/memory/guardian/goal/subagent）。
+- `ModelRouter` 新增 `by-role`：角色 → 模型名精确匹配；未映射回退第一个 entry；映射到未知模型 fail-closed；
+  `routeReason` 记录角色与选择。`stream()` 同样按角色选。
+- 装配：`ConfigBuilder.buildRouter` 转发 `roles` 并把 `by-role` 加入策略白名单；
+  `ConfigError` 校验 roles 为「角色 → 非空模型名」对象。
+- 调用点：`stepRunner`（两处 executor）、`reviewDiffTool`（reviewer）、`contextCompactor`（compactor）、
+  `goalChecker`（goal）、`memoryExtractor`（memory）、`guardianApproval`（guardian）。
+- CLI/文档：`--model-router` 帮助与 CLI_REFERENCE 列出六种策略和 `roles` 示例。
+- 判据：router 8 例（角色命中/未映射回退/未知目标 fail-closed/配置校验）+ `configBuilder` by-role 端到端
+  （`routeReason=chosen=mock-b`）；30 例定点全绿；tsc/check/arch/lint/top-level-fn/doc-links 全绿。
+- 独立 Agent 复审 2 轮：首轮发现 `by-role` 未进 `ConfigBuilder` 白名单（真实配置路径不可达），修复后 **PASS**。
+
+**边界**：`health-fallback` 仍绕过角色路由；role 键未做枚举校验（拼错会回退首项）；role 目标不在 entries 时首次请求才 fail-closed；
+`planner`/`subagent` 角色暂未发射（子代理走 executor）。
