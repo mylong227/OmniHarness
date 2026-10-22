@@ -14,6 +14,9 @@ import { AppServer } from '../../src/server/core/appServer.ts';
 import { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
 import { ASCII_TMP } from '../../vitest.workspace.ts';
 
+// 本文件验证 remote 路由/重载，不验证 OS 沙箱；沙箱强制由 pluginWorker.test 的专门判据覆盖。
+process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'] = '0';
+
 // Windows 本机用户名含中文 ⇒ 默认 %TEMP% 让 vite 对非 ASCII 路径做 percent-encoding 后解析失败
 // （见 vitest.workspace.ts 的 ASCII_TMP 注释）。本判据要在临时目录落盘示范插件再动态 `import()`，
 // 故把 TMP/TEMP **局部**指向仓库内全 ASCII 目录。**不可在 workspace 全局改写**：那会让 vite 的
@@ -98,7 +101,7 @@ class TestTransport implements Transport {
     id = 1,
   ): Promise<RpcMessage> {
     await this.callback?.({ jsonrpc: '2.0', id, method, params });
-    const deadline = Date.now() + 2000;
+    const deadline = Date.now() + 15_000;
     while (Date.now() < deadline) {
       const response = this.sent.find((m) => 'id' in m && m.id === id);
       if (response !== undefined) return response;

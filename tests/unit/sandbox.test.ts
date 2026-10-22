@@ -90,6 +90,7 @@ test('loadInstalledPlugins：source=remote 默认不加载，显式放行后走�
     }),
   );
   const saved = process.env.OMNI_ALLOW_REMOTE_PLUGINS;
+  const savedRequire = process.env.OMNI_PLUGIN_REQUIRE_OS_SANDBOX;
   try {
     delete process.env.OMNI_ALLOW_REMOTE_PLUGINS;
     const denied: string[] = [];
@@ -101,9 +102,18 @@ test('loadInstalledPlugins：source=remote 默认不加载，显式放行后走�
     assert.match(denied[0] ?? '', /OMNI_ALLOW_REMOTE_PLUGINS/, '拒绝原因必须可行动');
 
     process.env.OMNI_ALLOW_REMOTE_PLUGINS = '1';
+    delete process.env.OMNI_PLUGIN_REQUIRE_OS_SANDBOX;
+    const unsandboxed: string[] = [];
+    const noSandbox = await PluginLoader.loadInstalledPlugins(makeManager(), dir, (n, error) =>
+      unsandboxed.push(`${n}:${String(error)}`),
+    );
+    assert.deepStrictEqual(noSandbox, [], '显式放行但没有 OS 沙箱时必须 fail-closed');
+    assert.match(unsandboxed[0] ?? '', /SANDBOX_UNAVAILABLE/u);
+
+    process.env.OMNI_PLUGIN_REQUIRE_OS_SANDBOX = '0';
     const allowedManager = makeManager();
     const allowed = await PluginLoader.loadInstalledPlugins(allowedManager, dir);
-    assert.deepStrictEqual(allowed, [name], '显式放行后远程源插件应被沙箱加载');
+    assert.deepStrictEqual(allowed, [name], '显式关闭沙箱强制后远程源插件应加载');
     const tools = (allowedManager as unknown as { container: Container }).container.get(
       'port.tools',
     ) as RegistryToolPort;
@@ -114,6 +124,8 @@ test('loadInstalledPlugins：source=remote 默认不加载，显式放行后走�
   } finally {
     if (saved === undefined) delete process.env.OMNI_ALLOW_REMOTE_PLUGINS;
     else process.env.OMNI_ALLOW_REMOTE_PLUGINS = saved;
+    if (savedRequire === undefined) delete process.env.OMNI_PLUGIN_REQUIRE_OS_SANDBOX;
+    else process.env.OMNI_PLUGIN_REQUIRE_OS_SANDBOX = savedRequire;
   }
 });
 

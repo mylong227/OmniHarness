@@ -1,7 +1,7 @@
 # 0012 远程插件进程隔离（Plugin Worker + Capability RPC）
 
 - 日期：2026-10-21
-- 状态：**核心已实施（2026-10-21）；能力 broker / OS 沙箱强制 / 重启退避为后续阶段**
+- 状态：**核心已实施（2026-10-21）；能力 broker（fs.read/fs.write）/ OS 沙箱强制 / 重启退避 / 指标已补（2026-10-22）**
 - 关联：[ADR-0009 统一资产协议](./0009-capability-protocol.md)、[ADR-0010 信任-隔离阶梯](./0010-isolation-ladder.md)、[ADR-0011 签名资产包](./0011-signed-asset-pack.md)
 - 现行实现：[`src/plugin/worker/`](../../src/plugin/worker/)、[`src/plugin/pluginLoader.ts`](../../src/plugin/pluginLoader.ts)
 
@@ -39,7 +39,7 @@
   或显式授权决定，见 §7。
 - 不把 `worker_threads` 当安全边界；线程共享进程地址空间。
 
-## 实施状态（2026-10-21）
+## 实施状态（2026-10-22）
 
 已落地并有判据：
 
@@ -48,19 +48,23 @@
 - 工具桥（注册/调用/回收、超时、同名拒绝）；
 - legacy `apply(ctx)` 适配器（仅 `port.tools` 注册视图，其它宿主服务拒绝）；
 - Worker 最小环境 + Node 权限模型（`--experimental-permission --allow-fs-read=<pluginDir>`）；
-- 能力 broker 首版：`fs.read`（SafeFs 越界/符号链接双重校验、1 MiB 上限），未声明权限拒绝；
+- 能力 broker：`fs.read`（SafeFs 越界/符号链接双重校验、1 MiB 上限）与 `fs.write`
+  （WorkspaceGuard 双重校验、1 MiB 上限、自动建父目录）；未声明权限拒绝；
 - OS 沙箱接线：`SandboxPort.wrapArgv`（Windows ACL）或 `wrapCommand`（bwrap/seatbelt）存在时，
   Worker 经它启动；
+- **强制 OS 沙箱**：`RemotePlugin` 默认要求 `wrapArgv`/`wrapCommand`，缺失时以
+  `SANDBOX_UNAVAILABLE` 拒绝远程插件；`OMNI_PLUGIN_REQUIRE_OS_SANDBOX=0` 仅作显式逃生门；
+- **崩溃退避重启**：工具调用发现 Worker 非 ready 时，按 `baseDelayMs * 2^n`（上限
+  `maxDelayMs`）重启并重放一次；`RemotePlugin.restart` 可配 `maxAttempts`，用尽后进入隔离态；
+- `PluginWorkerMetrics`：按插件统计激活/调用/失败/崩溃，停机日志输出快照；
 - Loader 路由：`remote`/缺失 source → Worker，`bundled`/`local` → 进程内；
 - 宿主停机 `PluginManager.disposeAll` → `PluginHost.shutdown` 停止 Worker。
 
 尚未落地（后续阶段，不得宣称已具备）：
 
-- 更多能力（`store.*` / `events.emit` / `fs.write` / `net.connect`）——当前只开只读 `fs.read`；
-- **强制** OS 沙箱（`requireOsSandbox` 开关；当前有 `wrapArgv/wrapCommand` 才启用，
-  policy 档仍只有进程边界 + Node 权限）；
-- 崩溃后指数退避重启/quarantine；
-- `plugin.worker.*` 事件指标与 `doctor` 的 worker 段。
+- 更多能力（`store.*` / `events.emit` / `net.connect`）；
+- `plugin.worker.*` 事件面与 `doctor` 的 worker 段（当前指标只在进程内注册表 + 日志）；
+- 后台主动重启（当前是下一次工具调用触发退避重启，不是监护线程主动拉起）。
 
 ## 决策
 

@@ -12,6 +12,9 @@ import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
 import { WindowsAclSandbox } from '../../src/adapters/sandbox/windowsAclSandbox.ts';
 import { PluginWorkerMetrics } from '../../src/plugin/worker/pluginWorkerMetrics.ts';
 
+// 既有判据多数直接构造 RemotePlugin 且不注入沙箱；显式关闭强制沙箱，专门的判据会单独验证默认强制。
+process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'] = '0';
+
 /** 清理临时插件目录；Windows 上 worker 退出后仍可能短暂持有 cwd，清理失败不该让判据假红。 */
 function cleanup(path: string): void {
   try {
@@ -137,6 +140,73 @@ export default {
   },
 };
 `;
+
+const crashToolPlugin = `
+export default {
+  meta: { name: 'crash-tool' },
+  async activate(ctx) {
+    await ctx.tools.register(
+      { name: 'echo', description: 'echo', parameters: { type: 'object', properties: {} } },
+      async (call) => ({ callId: call.id, ok: true, output: 'ok' }),
+    );
+    await ctx.tools.register(
+      { name: 'crash', description: 'crash', parameters: { type: 'object', properties: {} } },
+      async () => { process.exit(7); },
+    );
+  },
+};
+`;
+
+test('远程插件：默认强制 OS 沙箱，缺 wrap 时拒绝启动', async () => {
+  const saved = process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'];
+  delete process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'];
+  const dir = pluginDir('sandbox-required', echoPlugin);
+  const { manager } = managerWithTools();
+  try {
+    await assert.rejects(
+      () =>
+        manager.register(
+          new RemotePlugin({ name: 'sandbox-required', entryPath: join(dir, 'index.mjs') }),
+        ),
+      /SANDBOX_UNAVAILABLE/u,
+    );
+  } finally {
+    process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'] = saved ?? '0';
+    cleanup(dir);
+  }
+});
+
+test('远程插件：Worker 运行期崩溃后退避重启并恢复工具', async () => {
+  PluginWorkerMetrics.reset();
+  const dir = pluginDir('crash-tool', crashToolPlugin);
+  const { manager, tools } = managerWithTools();
+  try {
+    await manager.register(
+      new RemotePlugin({
+        name: 'crash-tool',
+        entryPath: join(dir, 'index.mjs'),
+        workspaceRoot: dir,
+        restart: { maxAttempts: 5, baseDelayMs: 5 },
+      }),
+    );
+    const crashed = await tools.execute(
+      { id: 'c-crash', name: 'crash', arguments: {} },
+      { sessionId: 's', workspaceRoot: dir },
+    );
+    assert.strictEqual(crashed.ok, false);
+    const recovered = await tools.execute(
+      { id: 'c-echo', name: 'echo', arguments: {} },
+      { sessionId: 's', workspaceRoot: dir },
+    );
+    assert.strictEqual(recovered.ok, true, recovered.error);
+    const metrics = PluginWorkerMetrics.snapshot('crash-tool');
+    assert.ok(metrics.activations >= 2, `应至少重启一次，实际 ${JSON.stringify(metrics)}`);
+    assert.ok(metrics.crashes >= 1, `应记录崩溃，实际 ${JSON.stringify(metrics)}`);
+  } finally {
+    await manager.uninstall('crash-tool');
+    cleanup(dir);
+  }
+});
 
 test('远程插件：RemotePlugin 直接注册工具并跨进程调用', async () => {
   PluginWorkerMetrics.reset();
