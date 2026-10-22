@@ -4354,3 +4354,15 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **仍未做**：浏览器授权码 + PKCE 回调、refresh token、CIMD、MCP registry、server 侧 2026-07-28；
 发现请求尚未接 `ssrfPolicy`/跨源重定向拒绝。
+
+## 42. 2026-10-22 临时产物卫生（P2 维护项）
+
+- `src/util/tmpSweep.ts`：只清 `os.tmpdir()` 下本仓前缀（`omni-chrome-`/`omni-wt-`/`omni-ab-`/`omni-manifest-`/`omni-trust-`/`laya-req-`）且超龄条目；
+  符号链接跳过、dry-run 不删、删除失败只记录不崩、扫描后条目消失按已达成处理。
+- `npm run tmp:sweep -- [--apply] [--json] [--older-than-hours N]`（默认 dry-run）；`tools/hygiene/README.md`。
+- `npm start` 构建后自动清一次 **>7 天**条目，失败仅告警不阻断启动。
+- 判据：`tests/unit/tmpSweep.test.ts` 2 例（前缀/年龄/外来条目/新条目保留、dry-run、符号链接、removed 计数）。
+- 本机 dry-run 实测扫到本仓历史 Chrome/worktree 临时目录（证明清理入口不是空转）。
+- 独立 Agent 评审 **PASS**；tsc/check/arch/lint/top-level-fn 全绿。
+
+**边界**：只清本仓前缀且超龄条目；不清理非本仓文件；不自动删新条目（避免误伤其他进程）。

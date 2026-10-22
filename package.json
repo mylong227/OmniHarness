@@ -110,6 +110,7 @@
     "probe:recall": "node tools/probes/recallHitrate.mjs",
     "eval:harness": "node tools/eval/harnessAb.mjs",
     "mcp:conformance": "vitest run --project node tests/unit/mcpAuth.test.ts tests/unit/mcpMrtr.test.ts tests/unit/mcpStateless.test.ts tests/unit/sdkMcpConnector.test.ts",
+    "tmp:sweep": "node tools/hygiene/tmpSweep.mjs",
     "probe:memory-task": "node tools/probes/memoryTaskLift.mjs",
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",
