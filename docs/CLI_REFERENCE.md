@@ -189,3 +189,17 @@ curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
 
 历史教训：`--auto-approve`（`--help` 与文档都写着、代码也真的读）因未登记被"未知旗标"打死；
 把判据扫描面补上 `Array.includes(` 后，一次又揪出 `--version` / `--compliance` / `--allow-all` 三个同类。
+
+---
+
+## 5. 安全相关环境变量（本轮新增）
+
+| 变量                                               | 作用                                                        |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| `OMNI_EGRESS_ALLOW_PRIVATE=1`                      | 允许 `web_fetch` 访问私有网段（默认拒绝；云元数据始终拒绝） |
+| `OMNI_EGRESS_ALLOW_HOSTS=.example.com,api.foo.com` | 出站主机允许清单（前缀 `.` 为后缀匹配）                     |
+| `OMNI_EGRESS_ALLOW_PORTS=443`                      | 出站端口允许清单                                            |
+| `OMNI_MEMORY_TRUSTED_ONLY=1`                       | 记忆 primer 只注入可信事实（需同时 `OMNI_MEMORY_PRIMER=1`） |
+| `OMNI_AGENTS_SKILLS=1`                             | 允许发现 `.agents/skills`（默认关闭）                       |
+| `OMNI_SKILL_TRUSTED_KEY=<public.pem>`              | 加载签名技能包时的可信 Ed25519 公钥；未设置则拒绝签名包     |
+| `OMNI_MCP_TOKENS_FILE=<path>`                      | 覆盖 `mcp auth` 令牌存储路径                                |

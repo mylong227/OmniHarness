@@ -429,9 +429,11 @@ test('分类全覆盖：新增配置键必须显式归入安全或权威，不�
 test('接线守卫：serve/exec 的 --trust-workspace 必须真的进入 loadLayered', () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const serve = readFileSync(join(here, '..', '..', 'src', 'cli', 'cliServerCmds.ts'), 'utf8');
+  const serveTrust = readFileSync(join(here, '..', '..', 'src', 'cli', 'serveTrust.ts'), 'utf8');
   const agent = readFileSync(join(here, '..', '..', 'src', 'cli', 'cliAgentCmds.ts'), 'utf8');
-  assert.match(serve, /serveArgs\.includes\('--trust-workspace'\)/u);
-  assert.match(serve, /trust,/u);
+  assert.match(serveTrust, /serveArgs\.includes\('--trust-workspace'\)/u);
+  assert.match(serve, /serveTrust\.options/u);
+  assert.match(serve, /args\.allowWorkspaceSkills = serveTrust\.state\.trusted/u);
   assert.match(agent, /argv\.includes\('--trust-workspace'\)/u);
   assert.match(agent, /trust:\s*\{/u);
 });
