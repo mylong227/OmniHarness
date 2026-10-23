@@ -4479,3 +4479,12 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 审查：安全批 3 must-fix（trust 透传+switch、egress trailing-dot/DNS、A2A peer URL）与协议批 2 must-fix（refresh 外泄、discover 形状）均已修复；复审 PASS（见附录）。
 
 **边界**：server 侧是 discover + resultType 的 v2 兼容面，不是完整 2026-07-28（无 stateful session/所有 v2 方法语义）；registry 是只读发现；LongMemEval-S 是本地检索代理，不是官方模型判分；memory trust 默认仍 opt-in。
+
+## 51. 2026-10-22 剩余项闭环验收
+
+- **全量 node 单测**：615 passed / 1 skipped，3768 tests passed / 7 skipped（`vitest run --project node tests/unit/`）。
+- **本轮新增/修改定点**：20 files / 106 tests；`test:determinism` 3 次 shuffle 种子全绿。
+- **门禁**：`tsc --noEmit`、`check`、`arch:gate --strict`、`lint`、`top-level-fn`、`doc-links` 全绿。
+- **独立审查**：安全批（技能信任/记忆过滤/egress/A2A）与协议批（refresh/CIMD/registry/server discover/LongMemEval）均经 FAIL→修复→PASS；残余风险已写入各节边界。
+- **闭环清单**：P0-3 refresh/CIMD/registry/server discover；P1-5 skills 签名 + A2A 卡；P1-6 egress + SSRF/policy floor；P2-7 记忆信任过滤 + LongMemEval-S 代理；技能发现 trust 接线；测试确定性；临时文件治理（§42）。长时会话缓存审计确认热点 Map 均有界（CryptoVault 256 / Dpapi 128 / projectInstructions 16 / corpus 4 / semantic 16 / sessionArchive 4096 / MCP token 50）。
+- **未闭环/外部依赖**：完整 MCP 2026-07-28 stateful/session 语义（本仓 server 只做 discover + resultType 兼容面）；官方 LongMemEval-S 模型判分（本仓是本地检索代理）；A2A 仅 well-known/agent-card 与既有 v1，不是完整 A2A 生态；registry 只读；skill signing 是 Ed25519 包级签名，不是全生态信任根。
