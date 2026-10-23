@@ -98,6 +98,115 @@ test('oauth：从 mcp auth 令牌存储读取未过期令牌，不再发匿名�
   }
 });
 
+test('oauth：过期存储令牌用 refresh_token 换新并回写', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-auth-refresh-'));
+  try {
+    const path = join(dir, 'tokens.json');
+    new McpAuthTokenStore(path).set({
+      accessToken: 'expired',
+      refreshToken: 'rt',
+      expiresAt: Date.now() - 1_000,
+      tokenEndpoint: 'https://auth.example/token',
+      clientId: 'client',
+      resource: 'https://mcp.example',
+    });
+    const headers = await McpAuthProvider.headersOf(
+      server({
+        type: 'oauth',
+        resource: 'https://mcp.example',
+        tokenEndpoint: 'https://auth.example/token',
+        clientId: 'client',
+      }),
+      { OMNI_MCP_TOKENS_FILE: path },
+      Date.now(),
+      (async (_input: string | URL | Request, init?: RequestInit) => {
+        const form = new URLSearchParams(String(init?.body));
+        assert.strictEqual(form.get('grant_type'), 'refresh_token');
+        assert.strictEqual(form.get('refresh_token'), 'rt');
+        return new Response(JSON.stringify({ access_token: 'fresh', expires_in: 60 }), {
+          status: 200,
+        });
+      }) as typeof fetch,
+    );
+    assert.deepStrictEqual(headers, { Authorization: 'Bearer fresh' });
+    assert.strictEqual(
+      new McpAuthTokenStore(path).get('https://mcp.example')?.accessToken,
+      'fresh',
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('oauth：配置只给 resource 时用存储的 endpoint/client 刷新', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-auth-refresh-store-'));
+  try {
+    const path = join(dir, 'tokens.json');
+    new McpAuthTokenStore(path).set({
+      accessToken: 'expired',
+      refreshToken: 'rt',
+      expiresAt: Date.now() - 1_000,
+      tokenEndpoint: 'https://auth.example/token',
+      clientId: 'client',
+      resource: 'https://mcp.example',
+    });
+    const headers = await McpAuthProvider.headersOf(
+      server({ type: 'oauth', resource: 'https://mcp.example' }),
+      { OMNI_MCP_TOKENS_FILE: path },
+      Date.now(),
+      (async (_input: string | URL | Request, init?: RequestInit) => {
+        const form = new URLSearchParams(String(init?.body));
+        assert.strictEqual(form.get('refresh_token'), 'rt');
+        return new Response(JSON.stringify({ access_token: 'fresh' }), { status: 200 });
+      }) as typeof fetch,
+    );
+    assert.deepStrictEqual(headers, { Authorization: 'Bearer fresh' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('oauth：配置 endpoint 与存储不一致时绝不发送 refresh_token', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-auth-refresh-mismatch-'));
+  try {
+    const path = join(dir, 'tokens.json');
+    new McpAuthTokenStore(path).set({
+      accessToken: 'expired',
+      refreshToken: 'rt',
+      expiresAt: Date.now() - 1_000,
+      tokenEndpoint: 'https://auth.example/token',
+      clientId: 'client',
+      resource: 'https://mcp.example',
+    });
+    let called = false;
+    await assert.rejects(
+      () =>
+        McpAuthProvider.headersOf(
+          server({
+            type: 'oauth',
+            resource: 'https://mcp.example',
+            tokenEndpoint: 'https://attacker.example/token',
+            clientId: 'attacker',
+          }),
+          { OMNI_MCP_TOKENS_FILE: path },
+          Date.now(),
+          (async () => {
+            called = true;
+            return new Response('{}', { status: 200 });
+          }) as typeof fetch,
+        ),
+      /MCP_AUTH_UNAVAILABLE/u,
+    );
+    assert.strictEqual(called, false);
+    assert.strictEqual(
+      new McpAuthTokenStore(path).get('https://mcp.example')?.accessToken,
+      'expired',
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('none / 无 auth：只回静态头，不发 Authorization', async () => {
   assert.deepStrictEqual(
     await McpAuthProvider.headersOf(server({ type: 'none' }, { 'X-A': '1' }), {}),

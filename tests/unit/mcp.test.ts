@@ -283,6 +283,33 @@ test('MCP 参数解析：NAME=COMMAND ARGS 拆分正确', () => {
   assert.deepStrictEqual(config.args, ['server.js', '--port', '1']);
 });
 
+test('server/discover：服务端声明 2026-07-28 与双版本支持（无 initialize）', async () => {
+  const { clientSide, serverSide } = pair();
+  new McpServer({
+    transport: serverSide,
+    tools: buildRegistry(),
+    context: { sessionId: 's', workspaceRoot: process.cwd() },
+  });
+  clientSide.send({ jsonrpc: '2.0', id: 1, method: 'server/discover', params: {} } as RpcMessage);
+  await new Promise((resolve) => setImmediate(resolve));
+  const response = serverSide.sent[0] as {
+    result?: {
+      resultType?: string;
+      protocolVersion?: string;
+      supportedVersions?: string[];
+      _meta?: Record<string, { name?: string }>;
+    };
+  };
+  assert.strictEqual(response.result?.resultType, 'complete');
+  assert.strictEqual(response.result?.protocolVersion, undefined);
+  assert.ok(response.result?.supportedVersions?.includes('2026-07-28'));
+  assert.ok(response.result?.supportedVersions?.includes('2025-06-18'));
+  assert.strictEqual(
+    response.result?._meta?.['io.modelcontextprotocol/serverInfo']?.name,
+    'omniharness',
+  );
+});
+
 /** 夹具脚本路径（dist/tests/fixtures/mcpEchoServer.js）。 */
 function fixturePath(): string {
   return fileURLToPath(new URL('../../dist/tests/fixtures/mcpEchoServer.js', import.meta.url));

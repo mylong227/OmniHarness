@@ -83,6 +83,20 @@ export class McpProtocol {
       serverInfo,
     };
   }
+
+  /**
+   * 构造 2026-07-28 `server/discover` 结果（无 initialize 握手）。
+   * @param serverInfo 服务端信息。
+   * @returns 发现结果。
+   */
+  public discoverResult(serverInfo: McpServerInfo): Record<string, unknown> {
+    return {
+      resultType: 'complete',
+      supportedVersions: [McpProtocol.PROTOCOL_VERSION_V2, McpProtocol.PROTOCOL_VERSION],
+      capabilities: { tools: {}, resources: {}, prompts: {} },
+      _meta: { 'io.modelcontextprotocol/serverInfo': serverInfo },
+    };
+  }
 }
 
 /** 组合根单例：纯构造逻辑的统一装配点。协议常量仍经 `McpProtocol.XXX` 访问。 */

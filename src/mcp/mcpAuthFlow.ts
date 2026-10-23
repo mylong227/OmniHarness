@@ -8,6 +8,7 @@ import { createServer, type Server } from 'node:http';
 import { McpOAuthPkce } from './mcpOAuthPkce.ts';
 import { McpOAuthTokenClient } from './mcpOAuthTokenClient.ts';
 import { McpAuthTokenStore, type McpStoredToken } from './mcpAuthTokenStore.ts';
+import { McpCimd } from './mcpCimd.ts';
 
 /** 流程选项。 */
 export interface McpAuthFlowOptions {
@@ -31,6 +32,8 @@ export interface McpAuthFlowOptions {
   readonly tokenStore?: McpAuthTokenStore | undefined;
   /** 时钟注入。 */
   readonly now?: number | undefined;
+  /** fetch 注入（CIMD / 测试）。 */
+  readonly fetchImpl?: typeof fetch | undefined;
 }
 
 /**
@@ -49,6 +52,12 @@ export class McpAuthFlow {
     const port = await McpAuthFlow.listen(server, options.port ?? 0);
     const redirectUri = `http://127.0.0.1:${String(port)}/callback`;
     try {
+      if (McpCimd.isCimd(options.clientId)) {
+        const metadata = await McpCimd.resolve(options.clientId, options.fetchImpl ?? fetch);
+        if (!metadata.redirectUris.includes(redirectUri)) {
+          throw new Error(`CIMD 未登记回调地址: ${redirectUri}`);
+        }
+      }
       const authorizeUrl = McpOAuthPkce.authorizationUrl({
         authorizationEndpoint: options.authorizeUrl,
         clientId: options.clientId,

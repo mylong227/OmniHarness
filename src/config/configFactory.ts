@@ -110,6 +110,7 @@ export class ConfigFactory {
     return {
       workspaceRoot: partial.workspaceRoot,
       maxSteps: partial.maxSteps ?? 0,
+      allowWorkspaceSkills: partial.allowWorkspaceSkills,
       turnTokenBudget: partial.turnTokenBudget,
       reasoning: partial.reasoning,
       model,

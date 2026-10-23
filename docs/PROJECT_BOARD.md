@@ -4462,3 +4462,20 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **仍未做**：refresh token、CIMD、MCP registry、server 侧 2026-07-28；回环处理器对非回调路径/错误 state 采取整流程失败（本地 DoS 面，非令牌窃取）；
 无 fsync；未做 state mismatch/timeout/0600 的独立判据。
+
+## 50. 2026-10-22 剩余闭环批量（P0-3/P1-5/P1-6/P2-7）
+
+- **P0-3 refresh**：`McpOAuthTokenClient.refresh`；provider 用存储的 endpoint/client 刷新，配置与存储不一致时绝不上送 refresh_token；store 回写。
+- **P0-3 CIMD**：`McpCimd`（HTTPS/localhost、路径、无 userinfo/fragment/dot-segment、client_id 逐字、redirect_uris）；`mcp auth` 对 URL client_id 预检回调登记。
+- **P0-3 registry**：`McpRegistryClient.search` + `mcp registry [QUERY] [--limit N]`（只读发现，不自动 spawn）。
+- **P0-3 server 2026-07-28**：`server/discover` 按 spec 返回 `resultType:"complete"`/`supportedVersions`/`_meta.serverInfo`；服务端对象结果统一补 resultType；stateless client 读 `_meta`。
+- **P1-5 skill signing**：`SkillManifestSigner`（Ed25519 规范化签名/验签）；`--skills` 签名包必须由 `OMNI_SKILL_TRUSTED_KEY` 可信公钥验签；`skill:sign`/`skill:verify` 工具。
+- **P1-5 A2A card**：`/.well-known/agent-card.json` + `agent/getCard` 同源，URL 用本服务端端点（不是 peerEndpoint）。
+- **P1-6 egress**：默认拒私网/元数据；`checkAsync` 对每一跳 DNS 解析并拒绝私网解析；web_fetch 手动重定向逐跳过策略、最多 3 跳。
+- **P2-7 memory**：`trustedOnly` primer 过滤（recall + fallback）；LongMemEval-S 代理（recall@k/MRR/trustedOnly）+ 样例数据集 + `eval:longmem`。
+- **技能信任接线**：`allowWorkspaceSkills` 由 CLI 信任决定设置；ConfigFactory 透传；切换工作区默认 false；runServer/mcp serve/routine 未显式信任不注入。
+- **确定性**：`npm run test:determinism` 对 6 组纯逻辑判据跑 3 次 shuffle 种子。
+- 判据：20 files / 106 tests；`tsc`/`check`/`arch --strict`/`lint`/`top-level-fn`/`doc-links`/determinism 全绿。
+- 审查：安全批 3 must-fix（trust 透传+switch、egress trailing-dot/DNS、A2A peer URL）与协议批 2 must-fix（refresh 外泄、discover 形状）均已修复；复审 PASS（见附录）。
+
+**边界**：server 侧是 discover + resultType 的 v2 兼容面，不是完整 2026-07-28（无 stateful session/所有 v2 方法语义）；registry 是只读发现；LongMemEval-S 是本地检索代理，不是官方模型判分；memory trust 默认仍 opt-in。

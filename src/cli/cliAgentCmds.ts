@@ -311,6 +311,8 @@ export class CliAgentCmds extends CliNativeCmds {
       ...CliDefaults,
       modelAdapter: routine.modelAdapter,
       prompt: routine.prompt,
+      // 定时任务没有交互式信任决定：不自动注入项目技能。
+      allowWorkspaceSkills: false,
     };
     const config = await this.buildConfig(args);
     const agent = new Agent(Runtime.createRuntime(config));
@@ -342,6 +344,7 @@ export class CliAgentCmds extends CliNativeCmds {
         '              可复制 omniharness.json.example，或运行 node scripts/init-config.mjs 生成。\n',
       );
     }
+    let workspaceTrusted = false;
     const merged = configFile.loadLayered({
       workspace,
       configPath: explicitConfig,
@@ -350,6 +353,7 @@ export class CliAgentCmds extends CliNativeCmds {
       trust: {
         grant: argv.includes('--trust-workspace'),
         onDecision: (decision) => {
+          workspaceTrusted = decision.mode === 'trusted';
           const lines = WorkspaceTrust.describe(decision);
           if (lines.length > 0) {
             process.stderr.write(`${lines.join('\n')}\n`);
@@ -357,7 +361,7 @@ export class CliAgentCmds extends CliNativeCmds {
         },
       },
     });
-    return ArgParser.configDefaults(merged);
+    return { ...ArgParser.configDefaults(merged), allowWorkspaceSkills: workspaceTrusted };
   }
 
   /**

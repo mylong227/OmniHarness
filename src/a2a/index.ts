@@ -5,6 +5,7 @@ export type {
   A2aTransport,
   A2aCapability,
   A2aCapabilityDeclaration,
+  A2aAgentCard,
   DelegateRequest,
   DelegateResult,
 } from './a2aProtocol.ts';

@@ -9,9 +9,10 @@
  * - 静态 `headers` 与认证头合并，认证头优先（避免配置里写死的旧 token 覆盖新 token）。
  */
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
-import type { McpProtectedResourceMetadata } from '../ports/mcp/mcpAuthConfig.ts';
+import type { McpProtectedResourceMetadata, McpAuthConfig } from '../ports/mcp/mcpAuthConfig.ts';
 import { McpOAuthTokenClient, type OAuthAccessToken } from './mcpOAuthTokenClient.ts';
 import { McpAuthTokenStore } from './mcpAuthTokenStore.ts';
+import { log } from '../util/logger.ts';
 
 /** 认证头缺失时抛出的可行动错误前缀。 */
 export const MCP_AUTH_UNAVAILABLE = 'MCP_AUTH_UNAVAILABLE';
@@ -117,6 +118,82 @@ export class McpAuthProvider {
   }
 
   /**
+   * 读取/刷新本机存储中的 oauth 令牌。
+   * @param server 服务器配置。
+   * @param auth oauth 认证配置。
+   * @param env 环境变量。
+   * @param now 受控时钟。
+   * @param fetchImpl fetch 注入。
+   * @returns 未过期或刷新后的访问令牌；不可用时 undefined。
+   */
+  private static async storedOauthToken(
+    server: McpServerConfig,
+    auth: McpAuthConfig,
+    env: Record<string, string | undefined>,
+    now: number,
+    fetchImpl: typeof fetch,
+  ): Promise<string | undefined> {
+    if (auth.type !== 'oauth') return undefined;
+    const resource = auth.resource ?? server.url;
+    if (resource === undefined) return undefined;
+    const store = new McpAuthTokenStore(
+      env['OMNI_MCP_TOKENS_FILE'] ?? McpAuthTokenStore.defaultPath(),
+    );
+    const stored = store.get(resource);
+    if (
+      stored !== undefined &&
+      stored.accessToken.trim() !== '' &&
+      stored.expiresAt > now + 30_000 &&
+      (auth.clientId === undefined || stored.clientId === auth.clientId) &&
+      (auth.tokenEndpoint === undefined || stored.tokenEndpoint === auth.tokenEndpoint)
+    ) {
+      return stored.accessToken;
+    }
+    if (stored?.refreshToken === undefined) return undefined;
+    // 令牌是「哪个端点/客户端签发的」由存储决定；配置若显式给了不同值，拒绝刷新而不是把
+    // 合法 refresh_token 发到另一个端点（配置写错不能变成凭据外泄）。
+    if (
+      (auth.tokenEndpoint !== undefined && auth.tokenEndpoint !== stored.tokenEndpoint) ||
+      (auth.clientId !== undefined && auth.clientId !== stored.clientId)
+    ) {
+      return undefined;
+    }
+    const tokenEndpoint = auth.tokenEndpoint ?? stored.tokenEndpoint;
+    const clientId = auth.clientId ?? stored.clientId;
+    try {
+      const secret =
+        auth.clientSecret ?? (auth.clientSecretEnv ? env[auth.clientSecretEnv] : undefined);
+      const refreshed = await McpOAuthTokenClient.refresh(
+        {
+          tokenEndpoint,
+          clientId,
+          refreshToken: stored.refreshToken,
+          ...(secret !== undefined ? { clientSecret: secret } : {}),
+          ...(auth.resource !== undefined ? { resource: auth.resource } : {}),
+          fetchImpl,
+        },
+        now,
+      );
+      store.set({
+        accessToken: refreshed.accessToken,
+        expiresAt: refreshed.expiresAt,
+        tokenEndpoint,
+        clientId,
+        resource,
+        refreshToken: refreshed.refreshToken ?? stored.refreshToken,
+        ...(stored.scopes !== undefined ? { scopes: stored.scopes } : {}),
+      });
+      return refreshed.accessToken;
+    } catch (error) {
+      log.warn('mcp.auth.refresh_failed', {
+        server: server.name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  }
+
+  /**
    * 取令牌：直接值 > tokenEnv > oauth client credentials（带缓存）。
    * @param server 服务器配置（含 name，用于缓存键）。
    * @param env 环境变量。
@@ -144,21 +221,8 @@ export class McpAuthProvider {
       if (value !== undefined && value !== '') return value;
     }
     if (auth.type === 'oauth') {
-      const resource = auth.resource ?? server.url;
-      if (resource !== undefined) {
-        const stored = new McpAuthTokenStore(
-          env['OMNI_MCP_TOKENS_FILE'] ?? McpAuthTokenStore.defaultPath(),
-        ).get(resource);
-        if (
-          stored !== undefined &&
-          stored.accessToken.trim() !== '' &&
-          stored.expiresAt > now + 30_000 &&
-          (auth.clientId === undefined || stored.clientId === auth.clientId) &&
-          (auth.tokenEndpoint === undefined || stored.tokenEndpoint === auth.tokenEndpoint)
-        ) {
-          return stored.accessToken;
-        }
-      }
+      const stored = await McpAuthProvider.storedOauthToken(server, auth, env, now, fetchImpl);
+      if (stored !== undefined) return stored;
     }
     if (auth.type !== 'oauth' || auth.tokenEndpoint === undefined || auth.clientId === undefined) {
       return undefined;

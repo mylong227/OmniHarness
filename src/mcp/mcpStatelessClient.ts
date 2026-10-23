@@ -65,11 +65,20 @@ export class McpStatelessClient implements McpClientPort {
       supportedVersions?: readonly string[];
       capabilities?: McpInitializeResult['capabilities'];
       serverInfo?: McpInitializeResult['serverInfo'];
+      resultType?: string;
+      _meta?: Record<string, unknown>;
     };
+    const supported = discovered.supportedVersions ?? [];
+    const metaInfo = discovered._meta?.['io.modelcontextprotocol/serverInfo'] as
+      McpInitializeResult['serverInfo'] | undefined;
     return {
-      protocolVersion: discovered.protocolVersion ?? McpProtocol.PROTOCOL_VERSION_V2,
+      protocolVersion:
+        discovered.protocolVersion ??
+        (supported.includes(McpProtocol.PROTOCOL_VERSION_V2)
+          ? McpProtocol.PROTOCOL_VERSION_V2
+          : (supported[0] ?? McpProtocol.PROTOCOL_VERSION_V2)),
       capabilities: discovered.capabilities ?? { tools: {}, resources: {}, prompts: {} },
-      serverInfo: discovered.serverInfo ?? { name: 'unknown', version: 'unknown' },
+      serverInfo: discovered.serverInfo ?? metaInfo ?? { name: 'unknown', version: 'unknown' },
     };
   }
 

@@ -41,6 +41,22 @@ export interface OAuthAuthorizationCodeRequest {
   readonly fetchImpl?: typeof fetch | undefined;
 }
 
+/** refresh_token 换新令牌请求。 */
+export interface OAuthRefreshRequest {
+  /** 令牌端点。 */
+  readonly tokenEndpoint: string;
+  /** 客户端标识。 */
+  readonly clientId: string;
+  /** 授权服务器给的 refresh token。 */
+  readonly refreshToken: string;
+  /** 机密客户端可给 secret。 */
+  readonly clientSecret?: string | undefined;
+  /** RFC 8707 resource。 */
+  readonly resource?: string | undefined;
+  /** fetch 注入。 */
+  readonly fetchImpl?: typeof fetch | undefined;
+}
+
 /** 令牌结果（只保留本仓需要的字段）。 */
 export interface OAuthAccessToken {
   /** 访问令牌。 */
@@ -104,6 +120,33 @@ export class McpOAuthTokenClient {
       code: request.code,
       redirect_uri: request.redirectUri,
       code_verifier: request.codeVerifier,
+    });
+    if (request.clientSecret !== undefined && request.clientSecret !== '') {
+      body.set('client_secret', request.clientSecret);
+    }
+    if (request.resource !== undefined) body.set('resource', request.resource);
+    return McpOAuthTokenClient.exchange(
+      request.tokenEndpoint,
+      body,
+      request.fetchImpl ?? fetch,
+      now,
+    );
+  }
+
+  /**
+   * 用 refresh_token 换新令牌。
+   * @param request 端点/客户端/refresh token。
+   * @param now 受控时钟。
+   * @returns 新令牌（可能带新 refresh token）。
+   */
+  public static async refresh(
+    request: OAuthRefreshRequest,
+    now: number = Date.now(),
+  ): Promise<OAuthAccessToken> {
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: request.clientId,
+      refresh_token: request.refreshToken,
     });
     if (request.clientSecret !== undefined && request.clientSecret !== '') {
       body.set('client_secret', request.clientSecret);

@@ -51,3 +51,15 @@ npm run trace:patch -- --input signals.jsonl --json  # 机器读
 
 输入是失败信号数组（或 JSONL）：`{tool, ok, output, path, command}`。输出复现命令、涉及文件、
 最小修改假设、验证命令。**它不改文件、不自动合并**——自动落补丁必须先有验证闭环。
+
+## LongMemEval-S 代理（`npm run eval:longmem`）
+
+先 `npm run build`：
+
+```bash
+npm run eval:longmem -- --dataset tools/eval/datasets/longmemeval-s.sample.json --json
+npm run eval:longmem -- --dataset cases.json --trusted-only
+```
+
+输入 `{cases:[{id,question,answer,facts:[{text,trust?}]}]}`；用真实 `FileLongTermMemory` 召回 top-k，
+按答案文本命中报告 recall@k / MRR。它是**本地检索代理**，不是官方 LongMemEval-S 的模型判分复刻。

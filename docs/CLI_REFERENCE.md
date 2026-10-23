@@ -47,18 +47,18 @@
 
 ### 扩展与集成
 
-| 子命令                                       | 作用                                                                                       |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `plugin load\|list\|search\|install\|remove` | 插件管理                                                                                   |
-| `profile list\|create\|delete\|use`          | 插件集 Profile（一条命令切换编码/研究模式）                                                |
-| `bundle pack\|unpack`                        | Bundle 发布单元（补丁叠层 + zip + 可选 HMAC 签名）                                         |
-| `mcp serve\|list\|call\|auth`                | 暴露本地工具集 / 列出 / 调用外部 MCP 服务器工具；`auth` 走授权码+PKCE 回环并写本机令牌存储 |
-| `sdk call --url ws://… --method NAME`        | 用本仓 TS SDK 客户端连 app-server 发一次 JSON-RPC                                          |
-| `lsp definition\|references\|hover\|status`  | LSP 代码导航（需自备语言服务器）                                                           |
-| `capability …`                               | 能力注册表（协议能力声明与查询）                                                           |
-| `boost probe [list]`                         | 探针统一归档 + 跨次比对（只读 `tools/probes/`；`exit 0/1/3` = 通过/仪器坏/判据类结论）     |
-| `boost gate`                                 | 按改动挑门禁子集（清单现场读自 `scripts/runGates.mjs`；默认不执行，`--boost-run` 才跑）    |
-| `boost audit-surface`                        | 输入表面声明的静态取证（入口脚本一变即判声明过期；只覆盖 `scripts/` 下的门禁入口）         |
+| 子命令                                       | 作用                                                                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `plugin load\|list\|search\|install\|remove` | 插件管理                                                                                                                     |
+| `profile list\|create\|delete\|use`          | 插件集 Profile（一条命令切换编码/研究模式）                                                                                  |
+| `bundle pack\|unpack`                        | Bundle 发布单元（补丁叠层 + zip + 可选 HMAC 签名）                                                                           |
+| `mcp serve\|list\|call\|auth\|registry`      | 暴露本地工具集 / 列出 / 调用外部 MCP 服务器工具；`auth` 走授权码+PKCE 回环并写本机令牌存储；`registry` 只读搜索官方 registry |
+| `sdk call --url ws://… --method NAME`        | 用本仓 TS SDK 客户端连 app-server 发一次 JSON-RPC                                                                            |
+| `lsp definition\|references\|hover\|status`  | LSP 代码导航（需自备语言服务器）                                                                                             |
+| `capability …`                               | 能力注册表（协议能力声明与查询）                                                                                             |
+| `boost probe [list]`                         | 探针统一归档 + 跨次比对（只读 `tools/probes/`；`exit 0/1/3` = 通过/仪器坏/判据类结论）                                       |
+| `boost gate`                                 | 按改动挑门禁子集（清单现场读自 `scripts/runGates.mjs`；默认不执行，`--boost-run` 才跑）                                      |
+| `boost audit-surface`                        | 输入表面声明的静态取证（入口脚本一变即判声明过期；只覆盖 `scripts/` 下的门禁入口）                                           |
 
 ### 数据、凭据与治理
 
@@ -111,20 +111,20 @@
 
 ### 工作区、配置与存储
 
-| 旗标                                                                     | 说明                                                                                                                                                                                                                     |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--workspace DIR`                                                        | 工作区根（工具读写边界）；解析链见 [`STARTUP.md`](STARTUP.md) §6                                                                                                                                                         |
-| `--config PATH` / `--profile NAME` / `--plugin-profile NAME`             | 显式配置 / 配置分层 / 插件集（**`--plugin-profile` 仅 `serve`**）                                                                                                                                                        |
-| `--trust-workspace`                                                      | 显式信任当前工作区的项目级配置（`mcpServers`/`approval`/`sandbox`/`media` 等）；缺省 restricted，只应用只读语义键；`serve`/`exec`/TUI/UI RPC 同一条边界；写入 `~/.omniharness/trust.json`（TOFU 指纹，配置变化自动失效） |
-| `--storage-adapter memory\|jsonl\|sqlite` / `--storage-dir DIR`          | 存储端口（默认 `jsonl` → `~/.omniharness/sessions`）                                                                                                                                                                     |
-| `--spill-adapter memory\|file` / `--spill-bytes N` / `--spill-preview N` | 大输出外溢策略                                                                                                                                                                                                           |
-| `--memory-encrypt` / `--memory-key-file PATH`                            | 长期记忆落盘加密（AES-256-GCM，默认关）                                                                                                                                                                                  |
-| `--vault-key-file PATH`（默认 `~/.omniharness/vault.key`）               | 主密钥文件（首次使用时生成 0600）；`OMNIHARNESS_VAULT=0` 关闭                                                                                                                                                            |
-| `--skills FILE.json`                                                     | 受种技能包（可重复；与配置 `skills` 合并，**同名以旗标为准**）；工作区 `.omniharness/skills`、`.claude/skills` 的 `SKILL.md` 自动发现；`.agents/skills` 需 `OMNI_AGENTS_SKILLS=1`                                        |
-| `--tool FILE`                                                            | 加载自定义工具模块（可重复）                                                                                                                                                                                             |
-| `--mcp-server NAME=COMMAND`                                              | 桥接外部 MCP 服务器（工具名前缀 `NAME__`）                                                                                                                                                                               |
-| `--defer-tools web_search,delegate`                                      | 延迟加载工具（经 `tool_search` 发现）                                                                                                                                                                                    |
-| `--dump-config`                                                          | 仅打印生效配置并退出                                                                                                                                                                                                     |
+| 旗标                                                                     | 说明                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--workspace DIR`                                                        | 工作区根（工具读写边界）；解析链见 [`STARTUP.md`](STARTUP.md) §6                                                                                                                                                              |
+| `--config PATH` / `--profile NAME` / `--plugin-profile NAME`             | 显式配置 / 配置分层 / 插件集（**`--plugin-profile` 仅 `serve`**）                                                                                                                                                             |
+| `--trust-workspace`                                                      | 显式信任当前工作区的项目级配置（`mcpServers`/`approval`/`sandbox`/`media` 等）；缺省 restricted，只应用只读语义键；`serve`/`exec`/TUI/UI RPC 同一条边界；写入 `~/.omniharness/trust.json`（TOFU 指纹，配置变化自动失效）      |
+| `--storage-adapter memory\|jsonl\|sqlite` / `--storage-dir DIR`          | 存储端口（默认 `jsonl` → `~/.omniharness/sessions`）                                                                                                                                                                          |
+| `--spill-adapter memory\|file` / `--spill-bytes N` / `--spill-preview N` | 大输出外溢策略                                                                                                                                                                                                                |
+| `--memory-encrypt` / `--memory-key-file PATH`                            | 长期记忆落盘加密（AES-256-GCM，默认关）                                                                                                                                                                                       |
+| `--vault-key-file PATH`（默认 `~/.omniharness/vault.key`）               | 主密钥文件（首次使用时生成 0600）；`OMNIHARNESS_VAULT=0` 关闭                                                                                                                                                                 |
+| `--skills FILE.json`                                                     | 受种技能包（可重复；与配置 `skills` 合并，**同名以旗标为准**）；工作区 `.omniharness/skills`、`.claude/skills` 的 `SKILL.md` 自动发现；`.agents/skills` 需 `OMNI_AGENTS_SKILLS=1`；签名包需 `OMNI_SKILL_TRUSTED_KEY` 可信公钥 |
+| `--tool FILE`                                                            | 加载自定义工具模块（可重复）                                                                                                                                                                                                  |
+| `--mcp-server NAME=COMMAND`                                              | 桥接外部 MCP 服务器（工具名前缀 `NAME__`）                                                                                                                                                                                    |
+| `--defer-tools web_search,delegate`                                      | 延迟加载工具（经 `tool_search` 发现）                                                                                                                                                                                         |
+| `--dump-config`                                                          | 仅打印生效配置并退出                                                                                                                                                                                                          |
 
 ### 会话与输出
 

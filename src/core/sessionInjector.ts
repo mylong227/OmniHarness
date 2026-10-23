@@ -29,6 +29,8 @@ export interface SessionInjectorDeps {
   readonly skills?: SkillRegistryPort | undefined;
   /** 长期记忆端口（缺省 = primer 无数据可注入）。 */
   readonly longTermMemory?: LongTermMemoryPort | undefined;
+  /** 只注入可信记忆（`trust:'untrusted'` 不进入 primer；缺省 false 保持旧行为）。 */
+  readonly trustedOnly?: boolean | undefined;
 }
 
 /**
@@ -55,6 +57,8 @@ export class SessionInjector {
   private readonly skills: SkillRegistryPort | undefined;
   /** 长期记忆端口（primer 数据来源）。 */
   private readonly longTermMemory: LongTermMemoryPort | undefined;
+  /** 只注入可信记忆。 */
+  private readonly trustedOnly: boolean;
   /** T5.4 技能稀疏化器（预算/豁免判据见 `SkillSparsifier`；确定性，无随机源）。 */
   private readonly sparsifier = new SkillSparsifier({
     maxSkills: SKILL_SPARSE_MAX,
@@ -67,6 +71,7 @@ export class SessionInjector {
   public constructor(deps: SessionInjectorDeps) {
     this.skills = deps.skills;
     this.longTermMemory = deps.longTermMemory;
+    this.trustedOnly = deps.trustedOnly === true;
   }
 
   /**
@@ -186,13 +191,17 @@ export class SessionInjector {
       return;
     }
     // 不把本次会话刚沉淀的事实回灌进自身开场（避免自指噪声）。
-    const relevant = memory.recall(prompt, 5).filter((fact) => fact.sessionId !== sessionId);
+    const relevant = memory
+      .recall(prompt, 5)
+      .filter((fact) => fact.sessionId !== sessionId)
+      .filter((fact) => !this.trustedOnly || fact.trust !== 'untrusted');
     const primer: readonly MemoryFact[] =
       relevant.length > 0
         ? relevant
         : memory
             .all()
             .filter((fact) => fact.sessionId !== sessionId)
+            .filter((fact) => !this.trustedOnly || fact.trust !== 'untrusted')
             .slice()
             .sort((a, b) => b.importance - a.importance)
             .slice(0, 5);

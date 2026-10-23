@@ -35,7 +35,7 @@ import {
   WsA2aTransport,
   WsA2aServerTransport,
 } from '../a2a/index.ts';
-import type { A2aTransport } from '../a2a/a2aProtocol.ts';
+import type { A2aTransport, A2aAgentCard } from '../a2a/a2aProtocol.ts';
 import { ServiceKeys } from './serviceKeys.ts';
 import { SsrfPolicy } from '../security/ssrfPolicy.ts';
 import { log } from '../util/logger.ts';
@@ -349,6 +349,31 @@ export class Runtime {
       config.a2a.peerEndpoint ??
       (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
     const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
+    // A2A v1.0 AgentCard：JSON-RPC `agent/getCard` 与 HTTP `/.well-known/agent-card.json` 同源。
+    // URL 必须是**本服务端**端点，不是 `peerEndpoint`（后者是出站委托目标；误用会把调用方导到上游）。
+    const localA2aUrl = wsMode
+      ? `ws://127.0.0.1:${String(a2aPort)}/a2a-ws`
+      : `http://127.0.0.1:${String(a2aPort)}/a2a`;
+    const card: A2aAgentCard = {
+      name: 'omniharness',
+      description: 'OmniHarness 本地编码代理（A2A v1.0 互操作面）',
+      version: '0.2.0',
+      url: localA2aUrl,
+      capabilities: { streaming: wsMode },
+      ...(config.skills !== undefined && config.skills.length > 0
+        ? {
+            skills: config.skills.map((skill) => ({
+              id: skill.name,
+              name: skill.name,
+              description: skill.description,
+            })),
+          }
+        : {}),
+    };
+    server.setAgentCard(card);
+    if (serverTransport instanceof HttpA2aServerTransport) {
+      serverTransport.setAgentCard(card);
+    }
     // 委托执行器：并发闸门 + 受限工具子集（剔除 MUTATING_TOOLS，若委托声明 tools 授权则取交集），
     // 复用既有子代理隔离运行时，避免对等方突发委托拖垮进程或越权调用写类工具。
     const executor = new A2aTaskExecutor(runtime);

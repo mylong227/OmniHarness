@@ -104,6 +104,8 @@ export class CliCompareCmds extends CliDataCmds {
     ]);
     return ConfigFactory.build({
       workspaceRoot: process.cwd(),
+      // compare 不做工作区信任加载：未显式信任前不自动注入 cwd 项目技能。
+      allowWorkspaceSkills: false,
       maxSteps: 0, // 与 CliDefaults 同步：0 = 不限（终止靠任务完成/预算/行为护栏）
       model: this.buildModel(cliArgs),
       storage: new MemoryStorage(),

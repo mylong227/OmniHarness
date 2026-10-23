@@ -5,7 +5,6 @@
  * identity / daemon / serve。所有方法逐字节等价于原 exec.ts，仅 `private`→`protected`。
  * 继承自 CliBuildConfig，可调用其全部共享接线与配置装配助手。
  */
-
 import { LicenseSource } from '../license/licenseSource.ts';
 import { createInterface } from 'node:readline';
 import { existsSync, rmSync } from 'node:fs';
@@ -37,8 +36,8 @@ import type { OidcFlowPort } from '../ports/enterprise/oidcFlow.ts';
 import { CodeGenerator } from '../schema/codeGenerator.ts';
 import { protocolSchema } from '../schema/protocolSchema.ts';
 import { configFile } from '../config/configFile.ts';
-import type { FileConfig, WorkspaceTrustOptions } from '../config/configFile.ts';
-import { WorkspaceTrust } from '../config/workspaceTrust.ts';
+import type { FileConfig } from '../config/configFile.ts';
+import { ServeTrust } from './serveTrust.ts';
 import { CompositeLiveView, WebLiveView, ConsoleLiveView } from '../adapters/index.ts';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.ts';
 import { ArgParser } from './argParser.ts';
@@ -49,7 +48,6 @@ import { CliArgReader } from './cliArgReader.ts';
 import { ServeWorkspace } from './serveWorkspace.ts';
 import { ServePortConflict } from './servePortConflict.ts';
 import { CliIdentityDaemonCmds } from './cliIdentityDaemonCmds.ts';
-
 /** 服务端 / 身份 / 后台类子命令。 */
 export class CliServerCmds extends CliIdentityDaemonCmds {
   /**
@@ -63,6 +61,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       ArgParser.printUsage();
       return 2;
     }
+    args.allowWorkspaceSkills = serverArgs.includes('--trust-workspace'); // 未显式信任不注入 cwd 技能
     const config = await this.buildConfig(args);
     const { LineTransport } = await import('../server/transport/lineTransport.ts');
     const transport = new LineTransport(
@@ -82,17 +81,12 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       pluginsDir,
       audit: this.createAudit(serverArgs),
       workspaceRoot: process.cwd(),
-      // (F4) 治理台按档位可用：权益来自本机授权（OMNI_LICENSE*）；无授权 ⇒ core 档。
       entitlements: LicenseSource.resolve({ env: process.env }),
-      // Web 交付（2026-10-11）：`doctor.report` RPC 的实现由组合根注入 —— `DoctorRunner` 住在 CLI 层，
-      // 而 `cli → server` 已存在，反向 import 会成环。这里注入**同一个实现**（与 `omniharness doctor`
-      // 命令逐字同源），面板因此不会看到与 CLI 不一致的诊断结论。
       doctorReport: (options) => DoctorRunner.runDoctor(options ?? {}),
     });
     await app.loadPlugins();
     return new Promise(() => undefined);
   }
-
   /**
    * 生成 TS/Python SDK（由单源 schema）。
    * @param args 子命令参数（--out-ts / --out-py / --out-md 指定落盘路径，缺省打印到 stdout）。
@@ -127,19 +121,16 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     }
     return 0;
   }
-
   /**
    * 写 SDK 文件（自动建目录）。
    * @param filePath 目标文件路径（父目录不存在时递归创建）。
    * @param content 待写入的 UTF-8 文本。
-   
    * @returns 无返回值。
    */
   protected async writeSdk(filePath: string, content: string): Promise<void> {
     await mkdir(dirname(filePath), { recursive: true });
     await writeFile(filePath, content, 'utf8');
   }
-
   /**
    * 环境诊断：doctor。
    * @param args 子命令参数（--config 指定待检查的配置文件路径）。
@@ -151,7 +142,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     DoctorRunner.printDoctor(report);
     return DoctorRunner.exitCode(report);
   }
-
   /**
    * 企业 SSO：auth login（拉 discovery + 生成授权 URL + 持久化 state）/ auth callback（授权码换 token）。
    * @param args 子命令参数（首 token 为子动作 login / callback）。
@@ -167,7 +157,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     );
     return 2;
   }
-
   /**
    * auth login 子动作：拉取 IdP discovery、生成 PKCE 与 state、构造授权 URL，
    * 并把中间态写入 ~/.omni-auth-state.json 供 callback 续跑。
@@ -221,7 +210,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     );
     return 0;
   }
-
   /**
    * auth callback 子动作：校验 state（防 CSRF）后用授权码 + PKCE verifier 换取令牌集。
    * @param rest callback 之后的参数（--code 必填，--state 提供时必须与 login 持久化值一致）。
@@ -276,7 +264,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     );
     return 0;
   }
-
   /**
    * 组装 serve 的「显示配置」（供 UI 展示运行口径）。
    *
@@ -308,7 +295,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       workspace: wsRoot,
     };
   }
-
   /**
    * 构造服务端鉴权门禁（`--auth-required`）。
    *
@@ -343,7 +329,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       new JoseIdTokenVerifier(),
     );
   }
-
   /**
    * serve 的上行前置装配：传输 → 指标 → 上行桥 → 配置（把**提问上行端口**注入 `userResponder`、
    * 把**工具侧事件出口**注入 `events`）。
@@ -382,15 +367,10 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     const events = new ServerEventBridge({ transport: bridge, metrics, audit });
     const config = await this.buildConfig(args, {
       userResponder: events.questionPort(),
-      // 工具侧事件也要到客户端：`ask_user` 的 `question`（对话流里那块「提问」）、`todo_write` 的
-      // `todo`、`plan_write` 的 `plan` 都在 `ConfigFactory.build` 期捕获事件端口。不给这一份，
-      // serve 里它们只走控制台（`args.events` 缺省 'console'）——**客户端收不到**，2026-10-08 修
-      // （此前只在切换过工作区后才偶然搭上服务端端口）。
       events: events.eventPort(),
     });
     return { bridge, metrics, events, config };
   }
-
   /**
    * 按命名插件集 profile 收敛运行时插件集（serve 启动后的一步；G-E 5.1）。
    *
@@ -420,7 +400,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     await app.applyPluginProfile(profile);
     process.stdout.write(`已应用插件集 profile: ${name}\n`);
   }
-
   /**
    * 启动 HTTP 服务；端口被占时给**可行动**的诊断，并在显式要求下接管。
    *
@@ -455,13 +434,9 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         throw error;
       }
       const holder = await ServePortConflict.probe(port);
-      // **保留原始错误**：用户与搜索引擎认的是 `EADDRINUSE` 这个词，只打自己的建议会让人搜不到。
-      // （首版只打建议，端到端判据当场要求补回。）
       process.stderr.write(
         `omniharness: 启动失败：${error instanceof Error ? error.message : String(error)}\n`,
       );
-      // 实例记录（2026-10-15）：先清扫**已死**进程留下的记录（自愈），再把活着的记录交给提示。
-      // 顺序不能反——否则会把一条陈旧记录当成"当前占用者的自述"印给用户。
       const recordPath = ServeInstance.pathFor(port);
       const cleaned = ServeInstance.sweep(recordPath);
       if (cleaned.swept && cleaned.record !== null) {
@@ -493,7 +468,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       }
     }
   }
-
   /**
    * 启动 HTTP + SSE Web 服务（UI + JSON-RPC + 审批上行）。
    * @param serveArgs 子命令参数（--port 监听端口、--config 配置文件、--auth-required 与 --oidc-* 鉴权门禁等）。
@@ -513,9 +487,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         ? ArgParser.toWindowsPath(explicitConfig)
         : configFile.find(wsRoot);
     if (explicitConfig === undefined && foundConfig === undefined) {
-      // 旧文案说"将使用内置默认配置（mock 模型）"——**误导**（2026-10-06 实测）：用户级配置同样是
-      // 合法配置层，本机实测此时仍在跑真模型（openai/deepseek），而横幅却让人以为退回了 mock。
-      // 只如实说"没有项目级配置"，不再替用户断言模型。
       process.stderr.write(
         `[omniharness] 未在 ${wsRoot} 找到项目级 omniharness.json；` +
           '将只用用户级（~/.omniharness/omniharness.json）与内置默认。\n',
@@ -526,23 +497,13 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       );
     }
     const configPath = foundConfig ?? join(wsRoot, configFile.FILE_NAME);
-    // 分层加载（用户级 → 项目级 → profile → bundle → 环境变量）；缺陷原委见 loadServeConfig 的 JSDoc。
-    // 工作区信任闸（2026-10-22）：未信任工作区只应用只读语义键；`--trust-workspace` 显式授权。
-    const trust: WorkspaceTrustOptions = {
-      grant: serveArgs.includes('--trust-workspace'),
-      onDecision: (decision) => {
-        const lines = WorkspaceTrust.describe(decision);
-        if (lines.length > 0) {
-          process.stderr.write(`${lines.join('\n')}\n`);
-        }
-      },
-    };
+    const serveTrust = ServeTrust.create(serveArgs);
     const loadedFile = CliServerCmds.loadServeConfig(
       wsRoot,
       configPath,
       this.flagValue(serveArgs, '--profile'),
       undefined,
-      trust,
+      serveTrust.options,
     );
     const fileDefaults = ArgParser.configDefaults(loadedFile);
     const args = ArgParser.parseArgs(['--prompt', 'serve', ...serveArgs], fileDefaults);
@@ -557,6 +518,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     // serve 的工作区必须恒等于启动时的真实目录（--workspace 参数 > process.cwd()），
     // 绝不从持久化的「当前工作区」状态反推。
     args.workspace = wsRoot;
+    args.allowWorkspaceSkills = serveTrust.state.trusted;
     const restoreEgress = this.applyNetworkGuard(args);
     try {
       // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
@@ -624,7 +586,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       this.closeGateway();
     }
   }
-
   /**
    * 起 HTTP 服务并常驻到退出：算 webDir、定绑定地址与令牌、绑端口（冲突则诊断/按需接管）、打印 UI 地址。
    *
@@ -717,7 +678,6 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     process.stdout.write(`OmniHarness UI: ${uiUrl} ${authNote}\n`);
     return ServeShutdown.wait(server, instancePath, () => app.shutdown());
   }
-
   /**
    * 关闭 MCP 网关子进程（若已连接）：serve / exec 路径退出时由 finally 调用，避免网关子进程残留占端口。
    * 声明为 protected，使继承链下游（execCli 等）可直接复用，不重复定义成员。

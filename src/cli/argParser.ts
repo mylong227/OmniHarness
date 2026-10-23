@@ -231,6 +231,8 @@ export interface CliArgs {
    * 注入系统提示。**声明式子集**——莫尔/固化等运行时字段不由此通道注入（见 `SkillEntry`）。
    */
   skills?: readonly SkillEntry[] | undefined;
+  /** 是否允许自动发现工作区 SKILL.md（生产入口按 workspace trust 设置；缺省 true 保持库兼容）。 */
+  allowWorkspaceSkills?: boolean | undefined;
   /** `--skills <file.json>`（可重复）：从 JSON 文件追加技能（数组或 `{"skills":[...]}`），同名以旗标为准。 */
   skillsFile?: readonly string[] | undefined;
   /**

@@ -21,6 +21,7 @@ import { basename } from 'node:path';
 
 import type { SkillEntry } from '../skill/skill.ts';
 import { SkillMdCodec } from '../skill/skillMdCodec.ts';
+import { SkillManifestSigner } from '../skill/skillManifestSigner.ts';
 import { ConfigError } from '../config/configError.ts';
 import type { CliArgs } from './argParser.ts';
 
@@ -84,6 +85,18 @@ export class CliSkillFlags {
       throw new Error(
         `${source}: ${kind} 解析失败（${error instanceof Error ? error.message : String(error)}）`,
       );
+    }
+    if (SkillManifestSigner.isSigned(parsed)) {
+      const trustedPath = process.env['OMNI_SKILL_TRUSTED_KEY'];
+      if (trustedPath === undefined || trustedPath.trim() === '') {
+        throw new ConfigError(
+          `${source}: 签名技能包需要 OMNI_SKILL_TRUSTED_KEY 指向可信公钥（拒绝未配置信任锚）`,
+        );
+      }
+      const trusted = readFile(trustedPath).trim();
+      if (!SkillManifestSigner.verify(parsed, trusted)) {
+        throw new ConfigError(`${source}: 技能包签名无效或与可信公钥不匹配`);
+      }
     }
     return ConfigError.normalizeSkillEntries(parsed, source);
   }

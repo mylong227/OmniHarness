@@ -318,6 +318,11 @@ export interface OmniHarnessConfig {
   /** 初始技能池（可选）：受种进内置 SkillRegistry，供 CRISPR 编辑与相变固化复用。缺省空池。 */
   readonly skills?: readonly Skill[] | undefined;
   /**
+   * 是否允许自动发现工作区 `SKILL.md`（可选，缺省 true 保持库级兼容）。
+   * 生产 CLI 在**未信任工作区**下显式传 false：项目技能会注入系统提示，不能绕过 workspace trust。
+   */
+  readonly allowWorkspaceSkills?: boolean | undefined;
+  /**
    * 媒体抽帧配置（`view_media` 工具）：帧数 / 尺寸 / 字节预算、采样阈值，以及
    * `ffmpeg`/`ffprobe` 的显式路径。全字段可选，缺省见 `MediaConfigResolver` 的默认值
    * （配置 > 环境变量 > 内置默认，且数值一律收敛到安全区间）。

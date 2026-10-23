@@ -113,6 +113,7 @@ export class Agent implements AgentPort {
     this.injector = new SessionInjector({
       skills: skills ?? runtime.config.skillRegistry,
       longTermMemory: runtime.longTermMemory,
+      trustedOnly: process.env.OMNI_MEMORY_TRUSTED_ONLY === '1',
     });
     this.autoCheckpoints = new CheckpointManager(runtime.storage, {
       workspaceRoot: runtime.config.workspaceRoot,

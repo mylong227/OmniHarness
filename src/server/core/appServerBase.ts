@@ -306,6 +306,9 @@ export class AppServerBase {
     const sandbox = new SandboxManager(root).build((file.sandbox ?? 'policy') as SandboxProfile);
     const rebuilt = ConfigFactory.build({
       ...ConfigRebase.forWorkspace(cfg, root),
+      // 切换工作区 = 新的未信任根：在用户对该根显式 `--trust-workspace` 前，绝不自动注入其项目技能
+      // （否则 serve 在 A 中启动、UI 切到恶意 B 就绕过 trust 闸）。
+      allowWorkspaceSkills: false,
       maxSteps: cfg.maxSteps,
       model: this.modelCatalog.resolveOverride() ?? cfg.model,
       storage: cfg.storage,

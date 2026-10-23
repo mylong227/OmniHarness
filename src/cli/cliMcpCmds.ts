@@ -30,13 +30,17 @@ export class CliMcpCmds extends CliServerCmds {
       if (sub === 'auth') {
         return await this.runMcpAuth(args.slice(1));
       }
+      if (sub === 'registry') {
+        return await this.runMcpRegistry(args.slice(1));
+      }
     } catch (error) {
       console.error(`MCP 操作失败: ${ArgParser.messageOf(error)}`);
       return 1;
     }
     process.stdout.write(
       '用法: omniharness mcp serve | mcp list --server NAME=CMD | mcp call --server NAME=CMD --tool NAME [--args JSON] | ' +
-        'mcp auth --authorize-url URL --token-url URL --client-id ID --resource RESOURCE [--scope a,b]\n',
+        'mcp auth --authorize-url URL --token-url URL --client-id ID --resource RESOURCE [--scope a,b]\n' +
+        'mcp registry [QUERY] [--limit N]\n',
     );
     return 2;
   }
@@ -91,6 +95,42 @@ export class CliMcpCmds extends CliServerCmds {
   }
 
   /**
+   * mcp registry：只读搜索官方 MCP registry。
+   * @param args 子命令参数（QUERY + 可选 --limit）。
+   * @returns 0 成功；网络/解析失败为 1。
+   */
+  protected async runMcpRegistry(args: readonly string[]): Promise<number> {
+    const limitRaw = this.flagValue(args, '--limit');
+    const limit = limitRaw === undefined ? 20 : Number(limitRaw);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      process.stdout.write('--limit 必须是 1..100 的整数\n');
+      return 2;
+    }
+    const queryParts: string[] = [];
+    for (let index = 0; index < args.length; index += 1) {
+      const arg = args[index];
+      if (arg === '--limit') {
+        index += 1;
+        continue;
+      }
+      if (arg !== undefined && !arg.startsWith('-')) queryParts.push(arg);
+    }
+    const query = queryParts.join(' ').trim();
+    const { McpRegistryClient } = await import('../mcp/mcpRegistryClient.ts');
+    const entries = await McpRegistryClient.search(query, { limit });
+    if (entries.length === 0) {
+      process.stdout.write('（没有匹配的 MCP server）\n');
+      return 0;
+    }
+    for (const entry of entries) {
+      process.stdout.write(`${entry.name}  v${entry.version}\n  ${entry.description}\n`);
+      for (const remote of entry.remotes) process.stdout.write(`  remote: ${remote}\n`);
+      for (const pkg of entry.packages) process.stdout.write(`  package: ${pkg}\n`);
+    }
+    return 0;
+  }
+
+  /**
    * mcp serve：以 stdio 把本地工具集暴露为 MCP 服务器（走审批 + 沙箱门禁）。
    *
    * A1 接线（2026-09-19 入口可达性审计）：**默认走官方 SDK 适配器**（`SdkMcpServerAdapter` +
@@ -105,6 +145,7 @@ export class CliMcpCmds extends CliServerCmds {
     if (cliArgs === undefined) {
       return 2;
     }
+    cliArgs.allowWorkspaceSkills = args.includes('--trust-workspace');
     const config = await this.buildConfig(cliArgs);
     const sessionId = 'mcp';
     const context = { sessionId, workspaceRoot: cliArgs.workspace };

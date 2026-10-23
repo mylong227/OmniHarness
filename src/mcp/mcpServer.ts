@@ -34,7 +34,7 @@ export class McpServer {
     }
     try {
       const result = await handler(message.params ?? {});
-      this.options.transport.send(jsonRpc.response(message.id, result));
+      this.options.transport.send(jsonRpc.response(message.id, McpServer.withResultType(result)));
     } catch (error) {
       this.replyError(message, McpProtocol.ERROR_INVALID_PARAMS, this.messageOf(error));
     }
@@ -45,6 +45,7 @@ export class McpServer {
    */
   private registerHandlers(): void {
     this.handlers.set(McpProtocol.METHOD_INITIALIZE, () => this.initialize());
+    this.handlers.set(McpProtocol.METHOD_SERVER_DISCOVER, () => this.discover());
     this.handlers.set(McpProtocol.METHOD_PING, async () => ({}));
     this.handlers.set(McpProtocol.METHOD_TOOLS_LIST, async () => this.listTools());
     this.handlers.set(McpProtocol.METHOD_TOOLS_CALL, (params) => this.callTool(params));
@@ -59,6 +60,27 @@ export class McpServer {
     return mcpProtocol.initializeResult(
       this.options.serverInfo ?? { name: 'omniharness', version: '0.1.0' },
     );
+  }
+
+  /**
+   * 2026-07-28 无状态发现（不要求 initialize 握手）。
+   * @returns DiscoverResult。
+   */
+  private async discover(): Promise<unknown> {
+    return mcpProtocol.discoverResult(
+      this.options.serverInfo ?? { name: 'omniharness', version: '0.1.0' },
+    );
+  }
+
+  /**
+   * 给对象结果补 2026-07-28 的 `resultType:"complete"`（旧客户端忽略额外字段）。
+   * @param result 处理器结果。
+   * @returns 带 resultType 的结果。
+   */
+  private static withResultType(result: unknown): unknown {
+    if (typeof result !== 'object' || result === null || Array.isArray(result)) return result;
+    const record = result as Record<string, unknown>;
+    return record['resultType'] === undefined ? { ...record, resultType: 'complete' } : record;
   }
 
   /** 列举工具（本地定义 → MCP 描述）。 */

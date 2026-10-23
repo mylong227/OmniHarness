@@ -116,6 +116,17 @@ export class HttpA2aServerTransport implements A2aTransport {
   private seq = 0;
   /** 底层 node:http 服务实例（listen 后才有值）。 */
   private server: http.Server | undefined;
+  /** AgentCard（设置后暴露 `/.well-known/agent-card.json`）。 */
+  private card: unknown;
+
+  /**
+   * 设置 AgentCard（与 A2aServer 的 card 同步；well-known 路由只读暴露）。
+   * @param card A2A AgentCard。
+   * @returns 无返回值。
+   */
+  public setAgentCard(card: unknown): void {
+    this.card = card;
+  }
 
   /**
    * 订阅入站消息：注册处理回调，服务端收到的 POST /a2a 请求体经此转交（如 A2aServer 处理）。
@@ -176,6 +187,24 @@ export class HttpA2aServerTransport implements A2aTransport {
   }
 
   /**
+   * 处理 AgentCard well-known 路由。
+   * @param req 入站请求。
+   * @param res 响应对象。
+   * @returns 已处理时为 true。
+   */
+  private serveAgentCard(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+    if (req.method !== 'GET' || req.url !== '/.well-known/agent-card.json') return false;
+    if (this.card === undefined) {
+      res.writeHead(404);
+      res.end();
+      return true;
+    }
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(this.card));
+    return true;
+  }
+
+  /**
    * 处理单条入站 HTTP 请求（POST /a2a）：带体积上限与读超时的 fail-closed 解析。
    *
    * @param req 入站请求。
@@ -183,7 +212,8 @@ export class HttpA2aServerTransport implements A2aTransport {
    * @returns 无返回值。
    */
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (req.method !== 'POST') {
+    if (this.serveAgentCard(req, res)) return;
+    if (req.method !== 'POST' || req.url !== '/a2a') {
       res.writeHead(405);
       res.end();
       return;

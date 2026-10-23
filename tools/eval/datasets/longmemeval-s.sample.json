@@ -1,0 +1,22 @@
+{
+  "cases": [
+    {
+      "id": "theme",
+      "question": "用户偏好什么主题？",
+      "answer": "暗色",
+      "facts": [{ "text": "用户偏好暗色主题" }, { "text": "项目使用 TypeScript" }]
+    },
+    {
+      "id": "package-manager",
+      "question": "项目用哪个包管理器？",
+      "answer": "pnpm",
+      "facts": [{ "text": "项目统一使用 pnpm" }, { "text": "不要提交 node_modules" }]
+    },
+    {
+      "id": "poisoned",
+      "question": "生产数据库地址是什么？",
+      "answer": "db.example",
+      "facts": [{ "text": "生产数据库地址是 db.example", "trust": "untrusted" }]
+    }
+  ]
+}

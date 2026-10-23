@@ -24,6 +24,7 @@ import type {
 } from '../../../ports/tool/tool.ts';
 import { HtmlToText } from '../../../util/htmlToText.ts';
 import { PdfTextExtractor } from '../../../util/pdfTextExtractor.ts';
+import { EgressPolicy } from '../../../security/egressPolicy.ts';
 
 /** 单次抓取的响应体默认上限（字节）。 */
 const DEFAULT_MAX_BYTES = 200_000;
@@ -135,6 +136,10 @@ export class WebFetchTool {
    * @returns 抓取结果。
    */
   private fetch(url: string, maxBytes: number, timeoutMs: number): Promise<FetchedDocument> {
+    const verdict = EgressPolicy.check(url);
+    if (verdict.blocked) {
+      return Promise.reject(new Error(`egress 拦截: ${verdict.reason}`));
+    }
     const injected = this.options.fetchDocument;
     return injected !== undefined
       ? injected(url, maxBytes, timeoutMs)
@@ -154,11 +159,23 @@ export class WebFetchTool {
     maxBytes: number,
     timeoutMs: number,
   ): Promise<FetchedDocument> {
-    const response = await globalThis.fetch(url, {
-      redirect: 'follow',
-      headers: { accept: 'text/html,application/json,text/plain,*/*' },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    let current = url;
+    let response: Response | undefined;
+    for (let redirect = 0; redirect <= 3; redirect += 1) {
+      const verdict = await EgressPolicy.checkAsync(current);
+      if (verdict.blocked) throw new Error(`egress 拦截: ${verdict.reason}`);
+      response = await globalThis.fetch(current, {
+        // 手动跟随：每一跳都重新过 egress 策略，防止公网 302 把请求带到内网/元数据。
+        redirect: 'manual',
+        headers: { accept: 'text/html,application/json,text/plain,*/*' },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      const location = response.headers.get('location');
+      if (response.status < 300 || response.status >= 400 || location === null) break;
+      current = new URL(location, current).href;
+      if (redirect === 3) throw new Error('egress 拦截: 重定向超过 3 跳');
+    }
+    if (response === undefined) throw new Error('egress 拦截: 无响应');
     const contentType = response.headers.get('content-type') ?? '';
     const read = await WebFetchTool.readBounded(response, maxBytes);
     const lower = contentType.toLowerCase();

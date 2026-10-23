@@ -51,7 +51,10 @@ export class SsrfGuard {
 
   /** 纯字面量判定（不发起网络请求）。 */
   public inspectHost(host: string, options: SsrfOptions = {}): SsrfVerdict {
-    const lower = host.toLowerCase().replace(/^\[|\]$/g, '');
+    const lower = host
+      .toLowerCase()
+      .replace(/^\[|\]$/g, '')
+      .replace(/\.$/u, '');
     if (lower === '') {
       return { blocked: true, reason: '空主机名' };
     }
