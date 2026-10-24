@@ -3,16 +3,15 @@
  *
  * ## 为什么要有它
  *
- * 看板 §8.5 登记了三处「声明强于实现」：① 默认沙箱档是纯 TS 策略（无内核强制）；② Windows「OS 级」后端的
- * `CreateRestrictedToken` 三个 restricting-SID 计数全为 0 ⇒ 无文件/网络拒绝语义；③ `networkEgressGuard`
- * 只包 `globalThis.fetch` ⇒ shell 子进程完全绕过。**用户可感知的后果**是：模型若被注入说服，
+ * 看板 §8.5 登记了三处「声明强于实现」：① 默认沙箱档是纯 TS 策略（无内核强制）；② Windows 原生后端
+ * 历史上 restricting-SID 计数为 0（2026-10-24 已升级为 `WRITE_RESTRICTED` 写隔离，但读/网络仍不隔离）；
+ * ③ `networkEgressGuard` 只包 `globalThis.fetch` ⇒ shell 子进程完全绕过。**用户可感知的后果**是：模型若被注入说服，
  * `shell` 里的下载/外联命令在本机**不会**被拦住。
  *
  * 修法不是"把它说成能拦"（那是更糟的假安全），而是把**真实能力边界**变成可复核的诊断输出与数据：
  *  - `ToolOutputTrust` 新增 `memory` 档（阈值 1，与 `external` 同级）——记忆跨会话持久、来源不可追溯；
  *  - `NetworkEgressGuard.COVERAGE` 常量自述"只覆盖 fetch、不覆盖 shell"；
- *  - `SandboxCapabilityTable` 的 `restricted` 条目删去"Windows 上真 OS 级隔离由 Rust RestrictedToken
- *    提供"这句暗示，改为如实说明它只削减特权；
+ *  - `SandboxCapabilityTable` 的 `restricted` 条目如实区分「原生写隔离」与「TS 策略层 / 读网络不隔离」；
  *  - `doctor` 增「隔离强度 / 网络守卫覆盖 / 注入护栏」三行，值全部取自上述单一事实来源。
  */
 import { test } from 'vitest';
@@ -117,13 +116,14 @@ test('④ 记忆信任档已收紧：memory 档阈值 1（与 external 同级）
   }
 });
 
-test('⑤ 能力表不得再暗示"Windows 受限令牌已提供 OS 级隔离"', () => {
+test('⑤ 能力表把原生写隔离与完整 OS 隔离区分开', () => {
   const entries = SandboxCapabilityTable.describe(process.cwd(), { elevated: false });
   const restricted = entries.find((item) => item.profile === 'restricted');
   assert.ok(restricted !== undefined, 'restricted 条目必须存在');
   assert.ok(
-    restricted!.basis.includes('restricting-SID') ||
-      restricted!.basis.includes('不提供文件/网络拒绝语义'),
-    `restricted 的 basis 必须点明受限令牌不提供文件/网络拒绝语义，实际为：${restricted!.basis}`,
+    restricted!.basis.includes('写隔离') &&
+      restricted!.basis.includes('读/网络仍不受限') &&
+      restricted!.basis.includes('TS 执行链仍是策略层'),
+    `restricted 的 basis 必须区分写隔离/读网络边界/TS 策略层，实际为：${restricted!.basis}`,
   );
 });
