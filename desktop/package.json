@@ -4,6 +4,9 @@
   "private": true,
   "description": "OmniHarness desktop client (Electron + existing React web workbench)",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22.14.0"
+  },
   "type": "commonjs",
   "main": "dist/main.cjs",
   "scripts": {

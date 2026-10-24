@@ -1,0 +1,82 @@
+name: desktop
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'src/cli/**'
+      - 'src/plugin/worker/**'
+      - 'web/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'src/cli/**'
+      - 'src/plugin/worker/**'
+      - 'web/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Harness + Web
+        run: |
+          npm run build
+          npm run web:build
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck desktop
+        working-directory: desktop
+        run: npm run typecheck
+
+      - name: Unit tests desktop
+        working-directory: desktop
+        run: npm test
+
+      - name: Build desktop bundles
+        working-directory: desktop
+        run: npm run build
+
+      - name: Stage Harness runtime
+        working-directory: desktop
+        run: npm run stage
+
+      - name: Package (unsigned, dir)
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --dir --config electron-builder.yml
+
+      - name: Upload unpacked app
+        uses: actions/upload-artifact@v4
+        with:
+          name: omniharness-desktop-win-unpacked
+          path: desktop/release/**
+          if-no-files-found: error
