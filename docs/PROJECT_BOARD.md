@@ -4503,4 +4503,4 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **前端**：设置页沙箱下拉补齐 `wsl-bwrap` / `unshare` / `container` 等现行档，并明示
   `policy` / `restricted` 是策略级而非 OS 隔离。
 - **文档判据**：`docsLayout` / `architectureSpec` 去掉归档横幅/索引/旧路径判据；`doc-links` 零死链。
-- **门禁**：`typecheck` / `check` / `lint` / `doc-links` / 目标测试全绿；全量单测见本轮收尾记录。
+- **门禁**：`typecheck` / `check` / `lint` / `doc-links` 全绿；node 全量 **4012 通过 / 4 skip / 0 失败**（640 文件），web 全量 **560 通过 / 0 失败**（99 文件）。
