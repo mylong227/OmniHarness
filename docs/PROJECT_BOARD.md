@@ -4526,3 +4526,12 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   `read_only_denies_workspace_write`；CLI 集成测例 `cli_sandbox_run_isolates_writes`；
   `omni sandbox check` 输出 `writeRestricted`。TS 能力表同步如实区分「原生写隔离」与「TS 策略层」。
 - **边界**：只限制写；读、网络、进程可见性不受限；ACE 常驻工作区（随机 SID，不影响其它账户）。
+
+## 55. 2026-10-24 目标收口判据
+
+- **Node 全量**：641 文件 / **4014 通过 / 4 skip / 0 失败**（`npm run test:fast`，22:14 完成）。
+- **Web 全量**：99 文件 / **560 通过 / 0 失败**（`npx vitest run --project web`）。
+- **Rust**：`cargo test -p omni-core -p omni-cli` 全绿，含原生写隔离 3 个测例。
+- **静态门禁**：`typecheck` / `lint` / `check` / `check:doc-links` 全绿。
+- **说明**：桌面架构提议稿由并行进程在 22:16 后继续改写（0015 重写、新增 0016）；本目标只对
+  `955b4340` 提交快照负责。若该并行工作继续，需在其落定后重跑 docs/ADR 两项判据。
