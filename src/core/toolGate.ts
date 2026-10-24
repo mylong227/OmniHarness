@@ -22,6 +22,7 @@ import type { PlanPort } from '../ports/runtime/plan.ts';
 import type { ToolCall, ToolResult } from '../ports/tool/tool.ts';
 import type { EscalationPort } from '../ports/runtime/escalation.ts';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
+import { ToolIntentPolicy } from '../security/toolIntentPolicy.ts';
 
 /**
  * @beta
@@ -48,6 +49,9 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set<string>(MUTATING_TOOL
  * 工具门禁：审批 + 沙箱 + 计划态三道门禁统一裁决（fail-closed，任意拒绝即拦截）。
  */
 export class ToolGate implements ToolGatePort {
+  /** 每动作意图策略（2026-10-24；默认 shadow，不改变既有行为）。 */
+  private readonly intentPolicy = new ToolIntentPolicy();
+
   public constructor(
     /** 审批端口：策略层裁决（auto/rules/plan 白名单），deny 不升级直接拒绝。 */
     private readonly approvals: ApprovalPort,
@@ -87,6 +91,11 @@ export class ToolGate implements ToolGatePort {
       if (verdict !== undefined) {
         return { callId: call.id, ok: false, error: verdict };
       }
+    }
+    // 每动作意图授权（正交于审批/沙箱/RBAC）：默认 shadow 只记高风险；enforce 才拒绝。
+    const intent = this.intentPolicy.evaluate(call);
+    if (!intent.allow) {
+      return { callId: call.id, ok: false, error: intent.reason ?? '意图策略拒绝该动作' };
     }
     const denialReason = await this.denialReason(call, sessionId);
     if (denialReason !== undefined) {

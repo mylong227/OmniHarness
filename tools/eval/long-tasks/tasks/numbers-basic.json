@@ -1,0 +1,9 @@
+{
+  "id": "numbers-basic",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：clamp(value, min, max)、percent(part, total)、sumTo(n)。\n\n逐条验收要求：\n- clamp(value, min, max)：把数值夹到 [min, max] 区间。\n- percent(part, total)：返回 part/total 的百分数并保留 1 位小数（如 1/3 -> 33.3）；total 为 0 时返回 0。\n- sumTo(n)：返回 1..floor(n) 的和；n<1 或非有限数返回 0。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置为你看到的版本。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "numbers-basic",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}

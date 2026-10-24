@@ -14,6 +14,13 @@ export interface McpClientMetadata {
   readonly clientName?: string | undefined;
   /** 令牌端点认证方式（可选）。 */
   readonly tokenEndpointAuthMethod?: string | undefined;
+  /**
+   * OAuth 客户端类型（RFC 7591 `application_type`，2026-07-28 要求客户端注册时显式给出）。
+   *
+   * - `native`：桌面/CLI 客户端，使用 loopback 或自定义 scheme 回调；
+   * - `web`：Web 客户端，回调必须是 HTTPS。
+   */
+  readonly applicationType?: 'native' | 'web' | undefined;
 }
 
 /**
@@ -56,6 +63,7 @@ export class McpCimd {
     ) {
       throw new Error('CIMD 文档缺少 redirect_uris');
     }
+    const applicationType = McpCimd.applicationTypeOf(record['application_type'], redirects);
     return {
       clientId,
       redirectUris: redirects as readonly string[],
@@ -63,7 +71,56 @@ export class McpCimd {
       ...(typeof record['token_endpoint_auth_method'] === 'string'
         ? { tokenEndpointAuthMethod: record['token_endpoint_auth_method'] }
         : {}),
+      ...(applicationType !== undefined ? { applicationType } : {}),
     };
+  }
+
+  /**
+   * 校验 CIMD 文档里的 `application_type`（RFC 7591 / 2026-07-28 要求）。
+   *
+   * 规则：值只能是 `native`/`web`；`web` 客户端不得使用 loopback 回调（OIDC 注册冲突），
+   * `native` 客户端至少应有一个 loopback/自定义 scheme 回调。字段缺失时返回 undefined
+   * （兼容尚未声明该字段的旧文档，但调用方可要求显式值）。
+   * @param raw 原始 `application_type`。
+   * @param redirectUris 文档声明的回调地址。
+   * @returns 规整后的类型；字段缺失时 undefined。
+   * @throws 值非法或与回调形态冲突时抛错（fail-closed）。
+   */
+  public static applicationTypeOf(
+    raw: unknown,
+    redirectUris: readonly string[],
+  ): 'native' | 'web' | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    if (raw !== 'native' && raw !== 'web') {
+      throw new Error('CIMD application_type 必须是 native 或 web');
+    }
+    if (raw === 'web' && redirectUris.some((uri) => McpCimd.isLoopback(uri))) {
+      throw new Error('CIMD application_type=web 不得使用 loopback 回调地址');
+    }
+    return raw;
+  }
+
+  /**
+   * 按回调地址建议 `application_type`（供动态注册/CIMD 文档生成使用）。
+   * @param redirectUris 回调地址。
+   * @returns 含 loopback 时为 `native`，否则 `web`。
+   */
+  public static suggestApplicationType(redirectUris: readonly string[]): 'native' | 'web' {
+    return redirectUris.some((uri) => McpCimd.isLoopback(uri)) ? 'native' : 'web';
+  }
+
+  /**
+   * 回调地址是否为 loopback（localhost / 127.0.0.1 / ::1）。
+   * @param uri 回调地址。
+   * @returns loopback 为 true（非法 URL 视为 false）。
+   */
+  public static isLoopback(uri: string): boolean {
+    try {
+      const url = new URL(uri);
+      return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1';
+    } catch {
+      return false;
+    }
   }
 
   /**

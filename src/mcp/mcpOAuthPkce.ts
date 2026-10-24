@@ -34,6 +34,8 @@ export interface OAuthCallback {
   readonly state?: string | undefined;
   readonly error?: string | undefined;
   readonly errorDescription?: string | undefined;
+  /** 授权服务器签发者（RFC 9207；存在时客户端 MUST 与记录的 issuer 比对）。 */
+  readonly iss?: string | undefined;
 }
 
 /** PKCE 纯工具。 */
@@ -109,11 +111,13 @@ export class McpOAuthPkce {
     const state = url.searchParams.get('state') ?? undefined;
     const error = url.searchParams.get('error') ?? undefined;
     const errorDescription = url.searchParams.get('error_description') ?? undefined;
+    const iss = url.searchParams.get('iss') ?? undefined;
     return {
       ...(code !== undefined ? { code } : {}),
       ...(state !== undefined ? { state } : {}),
       ...(error !== undefined ? { error } : {}),
       ...(errorDescription !== undefined ? { errorDescription } : {}),
+      ...(iss !== undefined ? { iss } : {}),
     };
   }
 

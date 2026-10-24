@@ -159,7 +159,10 @@ export class CliMcpCmds extends CliServerCmds {
       config.elevatedSandbox,
     );
     // 模式选择经 stderr 如实上报（stdout 是 MCP 协议通道，不得混入提示）。
-    const { McpServeRunner } = await import('../adapters/mcp/mcpServeRunner.ts');
+    const [{ McpServeRunner }, { McpAskUserInputHandler }] = await Promise.all([
+      import('../adapters/mcp/mcpServeRunner.ts'),
+      import('../mcp/mcpAskUserInputHandler.ts'),
+    ]);
     return new McpServeRunner().run(
       {
         tools: config.tools,
@@ -168,10 +171,21 @@ export class CliMcpCmds extends CliServerCmds {
         gate,
         fallbackGate: gate,
         serverInfo: { name: 'omniharness', version: '0.1.0' },
+        // 2026-07-28 MRTR：现代客户端调用 ask_user 时走 input_required 往返；
+        // legacy 客户端由 handler 内部回落旧行为（UserResponder），不破坏旧 stdio。
+        inputRequired: new McpAskUserInputHandler(),
       },
       (result) => {
-        const suffix = result.mode === 'sdk' ? result.detail : `手写回退：${result.detail}`;
-        process.stderr.write(`OmniHarness MCP 服务器已启动（stdio · ${suffix}）\n`);
+        const suffix =
+          result.mode === 'sdk'
+            ? result.detail
+            : result.mode === 'custom-v2'
+              ? `内置 2026-07-28 双栈：${result.detail}`
+              : `手写回退：${result.detail}`;
+        process.stderr.write(
+          `OmniHarness MCP 服务器已启动（stdio · ${suffix} · ` +
+            `协议 ${result.protocolVersions.join(', ')}）\n`,
+        );
       },
     );
   }

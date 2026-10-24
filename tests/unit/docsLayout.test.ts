@@ -46,6 +46,8 @@ const ROOT_ALLOWLIST: readonly string[] = [
   // 进化域架构升级方案（2026-10-04 显式登记）：GEE Kernel v1 实施蓝图，配套 ADR-0008，未实现前不得当现状引用。
   // 商业化路线图剩余项裁决记录（2026-10-04 显式登记）：逐项判定「已落地 / 阻塞 / 非代码项」，防止把商业决策当成欠账。
   'COMMERCIALIZATION_GAPS_2026-10.md',
+  // 协议生态现行说明（2026-10-24 显式登记）：ACP / A2A 1.0 / AG-UI 覆盖与未支持点。
+  'PROTOCOL_ECOSYSTEM.md',
   'EVOLUTION_ARCH_UPGRADE_2026-10.md',
   // 目标架构蓝图（2026-10-04 显式登记）：Evolvix-Ω 终局态，Wave A–E 分波浪路线，未实现前不得当现状引用。
   'ARCHITECTURE_TARGET_2026-10.md',

@@ -4,6 +4,7 @@ import type { McpClientPort } from '../ports/mcp/mcpClientPort.ts';
 import type { McpConnectorPort, McpConnectionHandle } from '../ports/mcp/mcpConnectorPort.ts';
 import { mcpConnector } from './mcpConnector.ts';
 import { mcpToolMapper } from './mcpToolMapper.ts';
+import { McpToolIntegrity } from './mcpToolIntegrity.ts';
 import type { McpCallToolResult, McpToolDescriptor } from './mcpProtocol.ts';
 import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
 import { log } from '../util/logger.ts';
@@ -45,6 +46,35 @@ export interface McpGatewayOptions {
 }
 
 /**
+ * 渲染结构化输出（JSON 文本；不可序列化时回退为字符串描述，**绝不抛错**）。
+ * @param value 结构化输出。
+ * @returns 可读文本。
+ */
+const renderStructured = (value: unknown): string => {
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value);
+  } catch {
+    return String(value);
+  }
+};
+
+/**
+ * MCP 调用结果 → 本地 ToolResult（文本 + 结构化输出，失败带 error）。
+ * @param callId 工具调用 id。
+ * @param result MCP 结果。
+ * @returns 本地工具结果。
+ */
+const toToolResult = (callId: string, result: McpCallToolResult): ToolResult => {
+  const text = result.content.map((entry) => entry.text).join('\n');
+  const structured =
+    result.structuredContent === undefined
+      ? ''
+      : `\n[结构化输出]\n${renderStructured(result.structuredContent)}`;
+  const body = `${text}${structured}`;
+  return result.isError ? { callId, ok: false, error: body } : { callId, ok: true, output: body };
+};
+
+/**
  * @beta
  * MCP 网关：连接多个外部 MCP 服务器，把远端工具桥接进本地工具注册表。
  *
@@ -66,6 +96,8 @@ export class McpGateway {
   private readonly allowedServers: readonly string[] | undefined;
   /** 连接器（构造时收敛，缺省手写实现）。 */
   private readonly connector: McpConnectorPort;
+  /** 工具清单完整性固定（防 tool poisoning / 会话内 rug-pull）。 */
+  private readonly integrity = new McpToolIntegrity();
 
   public constructor(private readonly options: McpGatewayOptions) {
     // 选项优先，其次 env（两个历史名字互为回退）；为空串/未设置则回落为「全部允许」。
@@ -132,8 +164,29 @@ export class McpGateway {
       void this.refresh(server);
     });
     const descriptors = await connection.client.listTools();
+    this.assertToolIntegrity(server.name, descriptors);
     this.replaceTools(server, descriptors);
     return connection.client;
+  }
+
+  /**
+   * 工具清单完整性闸：同一 server 的 name/description/schema 指纹变化即 fail-closed。
+   *
+   * 为什么在这里而不是 mapper：这是**时序**攻击面（先干净、后改描述），
+   * 单条描述的字符串扫描看不见「相对上次变了」。
+   * @param server 服务器名。
+   * @param descriptors 最新工具描述。
+   * @returns 无返回值。
+   * @throws Error 指纹变化且未显式允许时抛出（调用方按连接失败处理）。
+   */
+  private assertToolIntegrity(server: string, descriptors: readonly McpToolDescriptor[]): void {
+    const verdict = this.integrity.check(server, descriptors);
+    if (verdict.ok) return;
+    throw new Error(
+      `MCP_TOOL_LIST_CHANGED: 服务器 "${server}" 的工具清单与首次连接不一致（${verdict.changedTools.join(
+        ', ',
+      )}）；拒绝替换工具注册。确认可信后可重启进程或设 OMNI_MCP_ALLOW_TOOL_CHANGES=1`,
+    );
   }
 
   /**
@@ -223,6 +276,7 @@ export class McpGateway {
     }
     try {
       const descriptors = await client.listTools();
+      this.assertToolIntegrity(server.name, descriptors);
       this.replaceTools(server, descriptors);
       log.info('mcp.tools.changed', { server: server.name, tools: descriptors.length });
     } catch (error) {
@@ -293,7 +347,7 @@ export class McpGateway {
     }
     try {
       const result = await client.callTool(remoteName, args);
-      return this.toToolResult(callId, result);
+      return toToolResult(callId, result);
     } catch (error) {
       // 调用可能已产生副作用 ⇒ 不重试；标记失效，下一次调用再重连。
       this.onServerExit(server.name);
@@ -315,29 +369,6 @@ export class McpGateway {
    * @param result 远端 MCP 结果。
    * @returns 本仓工具结果。
    */
-  private toToolResult(callId: string, result: McpCallToolResult): ToolResult {
-    const text = result.content.map((entry) => entry.text).join('\n');
-    const structured =
-      result.structuredContent === undefined
-        ? ''
-        : `\n[结构化输出]\n${McpGateway.renderStructured(result.structuredContent)}`;
-    const body = `${text}${structured}`;
-    return result.isError ? { callId, ok: false, error: body } : { callId, ok: true, output: body };
-  }
-
-  /**
-   * 渲染结构化输出（JSON 文本；不可序列化时回退为字符串描述，**绝不抛错**）。
-   * @param value 结构化输出。
-   * @returns 可读文本。
-   */
-  private static renderStructured(value: unknown): string {
-    try {
-      return JSON.stringify(value, null, 2) ?? String(value);
-    } catch {
-      return String(value);
-    }
-  }
-
   /** 生成带前缀的工具名。 */
   private prefixedName(serverName: string, toolName: string): string {
     return `${serverName}__${toolName}`;

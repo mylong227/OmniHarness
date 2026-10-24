@@ -1,0 +1,9 @@
+{
+  "id": "text-stats",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：slugify(text)、readingTime(text)、wordFrequency(text)。\n\n逐条验收要求：\n- slugify(text)：转小写、非字母数字压成 \"-\"、去掉首尾 \"-\"（如 \"Hello, World!\" -> \"hello-world\"）。\n- readingTime(text)：按每分钟 200 词估算阅读分钟数，向上取整且非空文本至少 1；空文本返回 0。\n- wordFrequency(text)：统计小写单词（字母/数字/撇号）出现次数，返回普通对象。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置为你看到的版本。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "text-stats",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}

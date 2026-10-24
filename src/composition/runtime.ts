@@ -354,25 +354,7 @@ export class Runtime {
     const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
     // A2A v1.0 AgentCard：JSON-RPC `agent/getCard` 与 HTTP `/.well-known/agent-card.json` 同源。
     // URL 必须是**本服务端**端点，不是 `peerEndpoint`（后者是出站委托目标；误用会把调用方导到上游）。
-    const localA2aUrl = wsMode
-      ? `ws://127.0.0.1:${String(a2aPort)}/a2a-ws`
-      : `http://127.0.0.1:${String(a2aPort)}/a2a`;
-    const card: A2aAgentCard = {
-      name: 'omniharness',
-      description: 'OmniHarness 本地编码代理（A2A v1.0 互操作面）',
-      version: '0.2.0',
-      url: localA2aUrl,
-      capabilities: { streaming: wsMode },
-      ...(config.skills !== undefined && config.skills.length > 0
-        ? {
-            skills: config.skills.map((skill) => ({
-              id: skill.name,
-              name: skill.name,
-              description: skill.description,
-            })),
-          }
-        : {}),
-    };
+    const card = Runtime.a2aCard(config, wsMode, a2aPort);
     server.setAgentCard(card);
     if (serverTransport instanceof HttpA2aServerTransport) {
       serverTransport.setAgentCard(card);
@@ -391,6 +373,65 @@ export class Runtime {
       config.tools.register(delegateTool.definition, (call, ctx) => delegateTool.handle(call, ctx));
     }
     runtime.a2a = { server, client, transport: serverTransport };
+  }
+
+  /**
+   * 构造 A2A v1.0 AgentCard（服务端端点、能力、认证与技能）。
+   * @param config 已解析配置。
+   * @param wsMode 是否 WebSocket 传输。
+   * @param port 监听端口。
+   * @returns AgentCard。
+   */
+  private static a2aCard(config: ResolvedConfig, wsMode: boolean, port: number): A2aAgentCard {
+    const localA2aUrl = wsMode
+      ? `ws://127.0.0.1:${String(port)}/a2a-ws`
+      : `http://127.0.0.1:${String(port)}/a2a`;
+    return {
+      name: 'omniharness',
+      description: 'OmniHarness 本地编码代理（A2A v1.0 互操作面）',
+      version: '0.2.0',
+      url: localA2aUrl,
+      protocolVersion: '1.0',
+      capabilities: {
+        // HTTP 传输支持 SSE 流式（message/stream / tasks/subscribe），两种传输都声明 streaming。
+        streaming: true,
+        pushNotifications: true,
+        extendedAgentCard: config.identity !== undefined,
+      },
+      supportedInterfaces: [
+        {
+          url: localA2aUrl,
+          protocolBinding: wsMode ? 'WEBSOCKET' : 'JSONRPC',
+          protocolVersion: '1.0',
+        },
+      ],
+      defaultInputModes: ['text/plain'],
+      defaultOutputModes: ['text/plain'],
+      // 认证状态可见性：配置了身份即声明断言头方案；标准客户端据此决定是否附带凭据。
+      ...(config.identity !== undefined
+        ? {
+            securitySchemes: {
+              agentAssertion: {
+                type: 'apiKey',
+                in: 'header',
+                name: 'Authorization',
+                description:
+                  'AgentAssertion <Ed25519 envelope>（AgentIdentityPort.authorizationHeader）',
+              },
+            },
+            security: [{ agentAssertion: [] }],
+          }
+        : {}),
+      ...(config.skills !== undefined && config.skills.length > 0
+        ? {
+            skills: config.skills.map((skill) => ({
+              id: skill.name,
+              name: skill.name,
+              description: skill.description,
+            })),
+          }
+        : {}),
+    };
   }
 }
 

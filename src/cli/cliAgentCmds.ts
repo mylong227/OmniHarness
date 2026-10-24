@@ -27,6 +27,15 @@ import { ArgParser, CliDefaults } from './argParser.ts';
 import { CronerSchedule } from '../adapters/schedule/cronerSchedule.ts';
 import type { CliArgs } from './argParser.ts';
 import { CliNativeCmds } from './cliNativeCmds.ts';
+import {
+  ACP_PERMISSION_MODES,
+  AcpServer,
+  AcpStdioTransport,
+  AgentAcpSession,
+  type AcpPermissionMode,
+  type AcpSessionOptions,
+  type AcpSessionRuntime,
+} from '../acp/index.ts';
 
 /** 自主 / 编排 / 交互类子命令。 */
 export class CliAgentCmds extends CliNativeCmds {
@@ -412,5 +421,75 @@ export class CliAgentCmds extends CliNativeCmds {
       console.error(`TUI 启动失败: ${err instanceof Error ? err.message : String(err)}`);
       return 1;
     }
+  }
+
+  /**
+   * ACP（Agent Client Protocol）v1 子命令：在 stdio 上提供 JSON-RPC 服务，供 Zed 等编辑器驱动。
+   *
+   * 协议输出只写 stdout、诊断只写 stderr；`--acp-permission` 选择权限策略
+   * （`client` = 写类工具向编辑器请求授权，`auto` = 全部自动放行）。
+   * @param args 子命令参数（其余旗标与 exec 共用：`--workspace` / `--model-adapter` / `--max-steps` 等）。
+   * @returns 进程退出码：stdio 正常关闭为 0，启动失败为 1，参数不可解析为 2。
+   */
+  protected async runAcp(args: readonly string[]): Promise<number> {
+    try {
+      const permissionMode = this.acpPermissionMode(args);
+      const cliArgs = ArgParser.parseArgs(['--prompt', 'acp', ...args], this.loadDefaults(args));
+      if (cliArgs === undefined) {
+        ArgParser.printUsage();
+        return 2;
+      }
+      const server = new AcpServer({
+        transport: new AcpStdioTransport(),
+        permissionMode,
+        sessionFactory: (options) => this.createAcpSession(cliArgs, options),
+      });
+      try {
+        await server.run();
+        return 0;
+      } finally {
+        server.close();
+      }
+    } catch (error) {
+      process.stderr.write(`ACP 启动失败: ${ArgParser.messageOf(error)}\n`);
+      return 1;
+    }
+  }
+
+  /**
+   * 解析 `--acp-permission`（缺省 client；非法值 fail-closed）。
+   * @param args 子命令参数。
+   * @returns 生效的权限策略。
+   */
+  protected acpPermissionMode(args: readonly string[]): AcpPermissionMode {
+    const raw = this.flagValue(args, '--acp-permission') ?? 'client';
+    const mode = ACP_PERMISSION_MODES.find((item) => item === raw);
+    if (mode === undefined) {
+      throw new Error(
+        `--acp-permission 非法值: ${raw}（可选: ${ACP_PERMISSION_MODES.join(' | ')}）`,
+      );
+    }
+    return mode;
+  }
+
+  /**
+   * 为单个 ACP 会话装配真实 Agent 运行时。
+   *
+   * 每个会话独立装配：工作区取 Client 传入的 cwd，事件出口与审批端口由 ACP 服务端注入
+   * （事件 → session/update；写类工具 → session/request_permission）。
+   * @param base 已解析的 CLI 参数（启动参数基线）。
+   * @param options 会话创建参数（id / cwd / 事件出口 / 审批端口）。
+   * @returns 绑定到该会话的 Agent 运行时。
+   */
+  protected async createAcpSession(
+    base: CliArgs,
+    options: AcpSessionOptions,
+  ): Promise<AcpSessionRuntime> {
+    const config = await this.buildConfig(
+      { ...base, workspace: options.cwd, events: 'silent' },
+      { events: options.events },
+    );
+    const runtime = Runtime.createRuntime({ ...config, approvals: options.approvals });
+    return new AgentAcpSession(new Agent(runtime), options.sessionId);
   }
 }

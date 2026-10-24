@@ -78,6 +78,10 @@
       "description": "纯 ANSI 交互式终端 UI（#S35，需 TTY；demo 用回声驱动演示事件流渲染）"
     },
     {
+      "usage": "omniharness acp [--acp-permission client|auto]",
+      "description": "ACP v1 编辑器入口（JSON-RPC over stdio）：initialize / session/new|load|prompt / session/cancel / 工具与计划事件 / 权限请求"
+    },
+    {
       "usage": "omniharness boost probe [list] [--boost-probe NAME] [--boost-arg V] [--boost-network] [--boost-diff] [--boost-dir DIR] [--boost-timeout-ms N]",
       "description": "探针统一归档与跨次比对（只读 tools/probes/，退出码 1=仪器坏 / 3=判据类结论）"
     },
@@ -187,6 +191,10 @@
     {
       "spec": "--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport {{a2aTransports}}]",
       "description": "(U6) A2A 互操作（默认关）：起对等 agent 服务端监听并对接委托客户端，本端可被对等委托、也可委托对端"
+    },
+    {
+      "spec": "--acp-permission {{acpPermissionModes}}",
+      "description": "ACP（`omniharness acp`）权限策略：client=写类工具向编辑器发 session/request_permission；auto=全部自动放行"
     },
     {
       "spec": "--approval {{approvals}}",

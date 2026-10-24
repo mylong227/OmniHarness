@@ -40,6 +40,34 @@ npm run eval:harness -- --a @a.json --b @b.json --k 3 --out report.json
   `OMNI_TOOL_EXPOSURE` 差异要看 manifest 的 `exposureMode` 字段。
 - 启动失败、转写截断等由 CLI 退出码/`ok` 字段反映；脚本不把「文件恰好存在」当唯一证据。
 
+## 长任务评测（`npm run eval:long`）
+
+`longTasks.mjs` + `long-tasks/` 回答「长时程能力是否真的改变长任务表现」：20 个**可机械验收**的
+fixture 仓库，每任务 k 次、每次在独立临时 git 仓库里跑，报告 `pass@1 / pass@k / pass^k /
+tokensPerSolved`（口径复用 `src/eval/abMetrics.ts` 的 `AbMetrics`，不复制公式）。
+
+先 `npm run build`：
+
+```bash
+npm run eval:long -- --dry-run                 # 只打印任务与配置
+npm run eval:long -- --self-check              # 不调模型：参考解必须通过全部验收器
+npm run eval:long -- --k 3 --model <model> --out report.json
+npm run eval:long -- --k 3 --long-horizon      # 显式开长时程协议（primer/progress/checklist）
+npm run eval:long -- --only strings-basic,arrays-basic
+```
+
+- 每任务 JSON 必填 `id/prompt/repo/verifyCommand/expectedFiles/timeoutMs/maxTokens`；
+  没有 `verifyCommand` 或 `expectedFiles` 的任务会被拒绝（「CLI 退出 0」不等于成功）。
+- 验收 = CLI 退出 0 + `ok:true` + `verifyCommand` 通过 + `expectedFiles` 齐全；
+  `verify.mjs` 在验收前从 `verifiers/` 覆盖写入（模型改验收器不算数）。
+- 无 `OMNIHARNESS_API_KEY` 时输出 `{skipped:true}` 并以 0 退出——不用 mock 冒充真实跑分。
+- 每次运行写 transcript（stdout/stderr/验证输出），报告回传路径。
+- `--long-horizon` 显式设置 `OMNI_LONG_HORIZON=1` + `OMNI_LONG_HORIZON_TASK/VERIFY`；不加时
+  显式设置 `OMNI_LONG_HORIZON=0`（对照基线，避免复杂 prompt 自动开启污染 A/B）。
+
+**诚实边界**：20 个 fixture 是本仓自建的合成任务，不是 SWE-bench / Terminal-Bench 分数；
+token 来自模型 usage（端点不回传时为 0，不臆造估算）；单次小差异不作为收益结论。
+
 ## trace → patch 计划（`npm run trace:patch`）
 
 先 `npm run build`（脚本读取 `dist/src/eval/tracePatchPlanner.js`）：

@@ -1,0 +1,223 @@
+import http from 'node:http';
+import { Id } from '../util/id.ts';
+import { AgUiEventStream } from './aguiEventStream.ts';
+import type {
+  AgUiAgentRunner,
+  AgUiEvent,
+  AgUiHttpServerOptions,
+  AgUiRunInput,
+} from './aguiProtocol.ts';
+
+/** 默认请求体上限（1 MiB）。 */
+const DEFAULT_MAX_BODY_BYTES = 1_048_576;
+/** 读请求体超时（毫秒）。 */
+const READ_TIMEOUT_MS = 30_000;
+
+/** 可接受的 AG-UI 运行路径（`/agui` 为简写，`/agui/run` 为规范式）。 */
+const RUN_PATHS: ReadonlySet<string> = new Set<string>(['/agui', '/agui/run']);
+
+/**
+ * AG-UI HTTP/SSE 适配端点（**独立于现有 Web RPC/SSE，不改前端**）。
+ *
+ * - `POST /agui` / `POST /agui/run`：body 为 `AgUiRunInput`，响应为 `text/event-stream`，
+ *   每行 `data: <AgUiEvent JSON>`，以 `RUN_FINISHED` 或 `RUN_ERROR` 收尾。
+ * - `GET /agui/health`：探活。
+ *
+ * 运行器由调用方注入（`createRuntime` + `Agent` 的薄包装在组合层完成），本类只负责
+ * HTTP 语义、取消传播与 SSE 编码。
+ */
+export class AgUiHttpServer {
+  /** 运行器。 */
+  private readonly run: AgUiAgentRunner;
+  /** 监听地址。 */
+  private readonly host: string;
+  /** 请求体上限（字节）。 */
+  private readonly maxBodyBytes: number;
+  /** 底层 HTTP 服务（listen 后才有值）。 */
+  private server: http.Server | undefined;
+
+  /**
+   * @param options 运行器与可选监听/体积配置。
+   */
+  public constructor(options: AgUiHttpServerOptions) {
+    this.run = options.run;
+    this.host = options.host ?? '127.0.0.1';
+    this.maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
+  }
+
+  /**
+   * 在给定端口监听。
+   * @param port 端口（0 = 系统分配）。
+   * @returns 实际监听端口。
+   */
+  public async listen(port: number): Promise<number> {
+    this.server = http.createServer((req, res) => {
+      void this.handleRequest(req, res);
+    });
+    const server = this.server;
+    return await new Promise<number>((resolve) => {
+      server.listen(port, this.host, () => {
+        const address = server.address();
+        resolve(typeof address === 'object' && address !== null ? address.port : port);
+      });
+    });
+  }
+
+  /** 关闭监听（已建立的流会被 abort）。     * @returns 无返回值。
+   */
+  public close(): void {
+    this.server?.close();
+    this.server = undefined;
+  }
+
+  /**
+   * 处理单条 HTTP 请求（路由 + CORS + 预检）。
+   * @param req 入站请求。
+   * @param res 响应对象。
+   * @returns 处理完成。
+   */
+  private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    if (req.method === 'OPTIONS') {
+      AgUiHttpServer.writeCors(res);
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+    if (req.method === 'GET' && req.url === '/agui/health') {
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'access-control-allow-origin': '*',
+      });
+      res.end(JSON.stringify({ ok: true, protocol: 'ag-ui' }));
+      return;
+    }
+    if (req.method !== 'POST' || req.url === undefined || !RUN_PATHS.has(req.url)) {
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end('not found');
+      return;
+    }
+    const body = await this.readBody(req, res);
+    if (body === undefined) return;
+    let input: AgUiRunInput;
+    try {
+      const parsed: unknown = JSON.parse(body);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new Error('body 必须是 JSON 对象');
+      }
+      input = parsed as AgUiRunInput;
+    } catch (error) {
+      res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end(`invalid body: ${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
+    await this.streamRun(input, req, res);
+  }
+
+  /**
+   * 执行一次 run 并以 SSE 回写 AG-UI 事件。
+   * @param input 运行输入。
+   * @param req 入站请求（断开 → 取消）。
+   * @param res 响应对象。
+   * @returns 流结束。
+   */
+  private async streamRun(
+    input: AgUiRunInput,
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<void> {
+    const threadId = typeof input.threadId === 'string' ? input.threadId : Id.id('thread');
+    const runId = typeof input.runId === 'string' ? input.runId : Id.id('run');
+    const controller = new AbortController();
+    req.on('close', () => controller.abort());
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+      'access-control-allow-origin': '*',
+    });
+    res.flushHeaders();
+    const stream = new AgUiEventStream({ threadId, runId });
+    try {
+      const events = this.run(input, controller.signal);
+      for await (const event of stream.run(events, controller.signal)) {
+        AgUiHttpServer.writeSse(res, event);
+      }
+    } catch (error) {
+      AgUiHttpServer.writeSse(res, {
+        type: 'RUN_ERROR',
+        message: error instanceof Error ? error.message : String(error),
+        code: 'RUN_ERROR',
+        timestamp: Date.now(),
+      });
+    } finally {
+      if (!res.writableEnded) res.end();
+    }
+  }
+
+  /**
+   * 读取请求体（体积上限 + 读超时，超限返回 413 并 resolve undefined）。
+   * @param req 入站请求。
+   * @param res 响应对象。
+   * @returns 请求体文本；失败/超限为 undefined。
+   */
+  private async readBody(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+  ): Promise<string | undefined> {
+    return await new Promise<string | undefined>((resolve) => {
+      const chunks: Buffer[] = [];
+      let received = 0;
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        res.writeHead(408, { 'content-type': 'text/plain; charset=utf-8' });
+        res.end('read timeout');
+        resolve(undefined);
+      }, READ_TIMEOUT_MS);
+      const finish = (value: string | undefined): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      };
+      req.on('data', (chunk: Buffer) => {
+        if (settled) return;
+        received += chunk.length;
+        if (received > this.maxBodyBytes) {
+          res.writeHead(413, { 'content-type': 'text/plain; charset=utf-8' });
+          res.end('body too large');
+          req.resume();
+          finish(undefined);
+          return;
+        }
+        chunks.push(chunk);
+      });
+      req.on('end', () => finish(Buffer.concat(chunks).toString('utf8')));
+      req.on('error', () => finish(undefined));
+    });
+  }
+
+  /**
+   * 写一条 SSE 事件。
+   * @param res 响应对象。
+   * @param event AG-UI 事件。
+   * @returns 无返回值。
+   */
+  private static writeSse(res: http.ServerResponse, event: AgUiEvent): void {
+    if (res.writableEnded) return;
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  }
+
+  /**
+   * 写 CORS 预检响应头。
+   * @param res 响应对象。
+   * @returns 无返回值。
+   */
+  private static writeCors(res: http.ServerResponse): void {
+    res.setHeader('access-control-allow-origin', '*');
+    res.setHeader('access-control-allow-methods', 'POST, GET, OPTIONS');
+    res.setHeader('access-control-allow-headers', 'content-type, authorization');
+  }
+}

@@ -19,6 +19,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import {
+  LATEST_PROTOCOL_VERSION,
+  SUPPORTED_PROTOCOL_VERSIONS,
+} from '@modelcontextprotocol/sdk/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { z } from 'zod';
 import type {
@@ -50,6 +54,21 @@ export interface InMemoryPair {
  * 每次 `createMcpServer()` 生成一个独立的 SDK server 实例（工具清单在创建时快照注册）。
  */
 export class SdkMcpServerAdapter {
+  /** SDK 实际对外服务的协议版本（`LATEST_PROTOCOL_VERSION`，1.32 为 2025-11-25）。 */
+  public static readonly PROTOCOL_VERSION = LATEST_PROTOCOL_VERSION;
+  /** SDK 支持的全部协议版本（用于诚实声明/回落判断）。 */
+  public static readonly SUPPORTED_PROTOCOL_VERSIONS: readonly string[] = [
+    ...SUPPORTED_PROTOCOL_VERSIONS,
+  ];
+
+  /**
+   * SDK 是否原生支持 2026-07-28（当前 1.32 不支持 ⇒ `mcp serve` 必须显式声明/走自定义 v2）。
+   * @returns 支持为 true。
+   */
+  public static supportsProtocol20260728(): boolean {
+    return SdkMcpServerAdapter.SUPPORTED_PROTOCOL_VERSIONS.includes('2026-07-28');
+  }
+
   /** 工具端口：工具清单与执行后端。 */
   private readonly tools: ToolPort;
   /** 服务器元数据（握手上报）。 */

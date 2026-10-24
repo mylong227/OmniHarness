@@ -104,10 +104,13 @@ const OPTIONS: McpServeOptions = {
   serverInfo: { name: 'omniharness', version: '0.1.0' },
 };
 
-/** 探针桩：SDK 可用。 */
+/** 探针桩：SDK 可用且原生支持 2026-07-28。 */
 const SDK_OK: McpSdkProbeResult = {
   available: true,
   version: '9.9.9',
+  protocolVersion: '2026-07-28',
+  supportedProtocolVersions: ['2026-07-28', '2025-06-25'],
+  supports20260728: true,
   modules: [{ specifier: 'server/mcp.js', ok: true }],
 };
 
@@ -132,7 +135,7 @@ interface Selection {
  */
 function selection(): {
   promise: Promise<Selection>;
-  onSelect: (result: { mode: 'sdk' | 'fallback'; detail: string }) => void;
+  onSelect: (result: { mode: string; detail: string }) => void;
 } {
   let report: ((value: Selection) => void) | undefined;
   const promise = new Promise<Selection>((resolve, reject) => {

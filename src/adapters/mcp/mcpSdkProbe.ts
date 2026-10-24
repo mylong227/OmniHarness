@@ -21,7 +21,13 @@ import { createRequire } from 'node:module';
 const SDK_PACKAGE = '@modelcontextprotocol/sdk';
 
 /** 探测所需模块（相对 SDK 包的子路径；与适配器/部署形态的真实导入路径逐字一致）。 */
-const REQUIRED = ['server/mcp.js', 'inMemory.js', 'client/index.js', 'server/stdio.js'] as const;
+const REQUIRED = [
+  'server/mcp.js',
+  'inMemory.js',
+  'client/index.js',
+  'server/stdio.js',
+  'types.js',
+] as const;
 
 /** 单条模块装载结果。 */
 export interface McpSdkModuleResult {
@@ -39,6 +45,12 @@ export interface McpSdkProbeResult {
   readonly available: boolean;
   /** 解析到的包版本；不可用（未安装）时 undefined。 */
   readonly version?: string | undefined;
+  /** SDK 的 `LATEST_PROTOCOL_VERSION`（实际对外服务的协议版本；读不到时 undefined）。 */
+  readonly protocolVersion?: string | undefined;
+  /** SDK 声明支持的全部协议版本（读不到时 undefined）。 */
+  readonly supportedProtocolVersions?: readonly string[] | undefined;
+  /** SDK 是否原生支持 2026-07-28（`mcp serve` 据此决定是否走 SDK 路径）。 */
+  readonly supports20260728?: boolean | undefined;
   /** 不可用原因（人类可读短句）；可用时为 undefined。 */
   readonly reason?: string | undefined;
   /** 逐模块装载明细（可用时也给出，便于日志核对版本形态）。 */
@@ -57,7 +69,38 @@ export class McpSdkProbe {
     const versionPath = McpSdkProbe.resolvePackageJson();
     const modules = await Promise.all(REQUIRED.map((specifier) => McpSdkProbe.load(specifier)));
     const version = versionPath === undefined ? undefined : McpSdkProbe.versionOf(versionPath);
-    return McpSdkProbe.assemble(modules, version, versionPath !== undefined);
+    const protocol = await McpSdkProbe.protocolOf();
+    return McpSdkProbe.assemble(modules, version, versionPath !== undefined, protocol);
+  }
+
+  /**
+   * 读取 SDK 的协议版本声明（动态导入，SDK 缺失时返回空）。
+   * @returns 当前版本与支持列表。
+   */
+  private static async protocolOf(): Promise<{
+    readonly current?: string | undefined;
+    readonly supported?: readonly string[] | undefined;
+  }> {
+    try {
+      const types = (await import('@modelcontextprotocol/sdk/types.js')) as {
+        readonly LATEST_PROTOCOL_VERSION?: unknown;
+        readonly SUPPORTED_PROTOCOL_VERSIONS?: unknown;
+      };
+      return {
+        ...(typeof types.LATEST_PROTOCOL_VERSION === 'string'
+          ? { current: types.LATEST_PROTOCOL_VERSION }
+          : {}),
+        ...(Array.isArray(types.SUPPORTED_PROTOCOL_VERSIONS)
+          ? {
+              supported: types.SUPPORTED_PROTOCOL_VERSIONS.filter(
+                (entry): entry is string => typeof entry === 'string',
+              ),
+            }
+          : {}),
+      };
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -65,22 +108,42 @@ export class McpSdkProbe {
    * @param modules 逐模块装载结果
    * @param version 包版本（可缺省）
    * @param installed 包声明是否可解析
+   * @param protocol SDK 协议版本声明
    * @returns 探测结果（含失败原因汇总）
    */
   private static assemble(
     modules: readonly McpSdkModuleResult[],
     version: string | undefined,
     installed: boolean,
+    protocol: {
+      readonly current?: string | undefined;
+      readonly supported?: readonly string[] | undefined;
+    },
   ): McpSdkProbeResult {
     const failed = modules.filter((entry) => !entry.ok);
+    const supported20260728 = protocol.supported?.includes('2026-07-28') === true;
     if (failed.length === 0) {
-      return { available: true, modules, ...(version !== undefined ? { version } : {}) };
+      return {
+        available: true,
+        modules,
+        ...(version !== undefined ? { version } : {}),
+        ...(protocol.current !== undefined ? { protocolVersion: protocol.current } : {}),
+        ...(protocol.supported !== undefined
+          ? { supportedProtocolVersions: protocol.supported }
+          : {}),
+        supports20260728: supported20260728,
+      };
     }
     const head = installed ? `${SDK_PACKAGE} 模块实载失败` : `未安装依赖包 ${SDK_PACKAGE}`;
     const detail = failed
       .map((entry) => `${entry.specifier}: ${entry.reason ?? '未知原因'}`)
       .join('；');
-    return { available: false, reason: `${head}（${detail}）`, modules };
+    return {
+      available: false,
+      reason: `${head}（${detail}）`,
+      modules,
+      supports20260728: false,
+    };
   }
 
   /**

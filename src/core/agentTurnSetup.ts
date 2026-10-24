@@ -18,6 +18,15 @@ export interface AgentTurnSetupDeps {
   ): void;
   /** 复杂任务强制规划指令。 */
   requirePlanning(prompt: string, recorder: SessionRecorder): void;
+  /**
+   * 长时程任务开场（可选，2026-10-24）：复杂任务或显式开关时 ensure 状态件，
+   * 并把**极简** primer 注入 system（不塞回历史）。
+   * @param prompt 本轮生效的用户提示。
+   * @param recorder 会话记录器（primer 写成 system 事件）。
+   * @param sessionId 会话 id（状态件按会话派生稳定 slug）。
+   * @returns 无返回值。
+   */
+  beginLongHorizon?(prompt: string, recorder: SessionRecorder, sessionId: string): void;
 }
 
 /** 回合开场输入。 */
@@ -54,6 +63,8 @@ export class AgentTurnSetup {
         ? ResumeGuidance.build(input.eventLog.all())
         : input.prompt;
     deps.requirePlanning(effective, input.recorder);
+    // 长时程 primer 必须排在 user 事件之前：模型看到的顺序是「约束 → 任务 → 历史」。
+    deps.beginLongHorizon?.(effective, input.recorder, input.sessionId);
     input.recorder.user(effective, input.images, input.files);
     return effective;
   }

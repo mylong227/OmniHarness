@@ -71,7 +71,9 @@ test('MRTR：input_required → 宿主回答 → 带 inputResponses 重试成功
   const retry = transport.sent.filter(
     (message) => (message as { method?: string }).method === 'tools/call',
   )[1] as { params?: Record<string, unknown> };
-  assert.deepStrictEqual(retry.params?.['inputResponses'], [{ id: 'q1', value: 'yes' }]);
+  assert.deepStrictEqual(retry.params?.['inputResponses'], {
+    q1: { action: 'accept', content: { answer: 'yes' } },
+  });
   client.close();
 });
 

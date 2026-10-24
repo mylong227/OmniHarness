@@ -5,7 +5,7 @@
  * 回调校验 state、换令牌、写 `McpAuthTokenStore`。不自动打开浏览器（无隐藏副作用）。
  */
 import { createServer, type Server } from 'node:http';
-import { McpOAuthPkce } from './mcpOAuthPkce.ts';
+import { McpOAuthPkce, type OAuthCallback } from './mcpOAuthPkce.ts';
 import { McpOAuthTokenClient } from './mcpOAuthTokenClient.ts';
 import { McpAuthTokenStore, type McpStoredToken } from './mcpAuthTokenStore.ts';
 import { McpCimd } from './mcpCimd.ts';
@@ -20,6 +20,13 @@ export interface McpAuthFlowOptions {
   readonly clientId: string;
   /** 受保护资源（RFC 8707，同时作为令牌存储键）。 */
   readonly resource: string;
+  /**
+   * 记录在案的授权服务器 issuer（RFC 8414；缺省取 authorizeUrl 的 origin）。
+   * 回调里的 `iss`（RFC 9207）存在时必须与之逐字相等，否则拒绝兑换授权码。
+   */
+  readonly issuer?: string | undefined;
+  /** 是否要求授权响应必须带 `iss`（缺省 false；开启后缺 iss 即拒绝）。 */
+  readonly requireIssuer?: boolean | undefined;
   /** 申请的 scope。 */
   readonly scopes?: readonly string[] | undefined;
   /** 回环端口（缺省 0 = 系统分配）。 */
@@ -48,6 +55,7 @@ export class McpAuthFlow {
   public static async run(options: McpAuthFlowOptions): Promise<McpStoredToken> {
     const pkce = McpOAuthPkce.create();
     const state = McpOAuthPkce.state();
+    const issuer = options.issuer ?? new URL(options.authorizeUrl).origin;
     const server = createServer();
     const port = await McpAuthFlow.listen(server, options.port ?? 0);
     const redirectUri = `http://127.0.0.1:${String(port)}/callback`;
@@ -68,7 +76,8 @@ export class McpAuthFlow {
         resource: options.resource,
       });
       options.onAuthorizeUrl(authorizeUrl);
-      const code = await McpAuthFlow.waitForCode(server, state, options.timeoutMs ?? 300_000);
+      const callback = await McpAuthFlow.waitForCode(server, state, options.timeoutMs ?? 300_000);
+      const code = McpAuthFlow.codeOf(callback, issuer, options.requireIssuer === true);
       const token = await McpOAuthTokenClient.authorizationCode(
         {
           tokenEndpoint: options.tokenUrl,
@@ -86,6 +95,7 @@ export class McpAuthFlow {
         tokenEndpoint: options.tokenUrl,
         clientId: options.clientId,
         resource: options.resource,
+        issuer,
         ...(token.refreshToken !== undefined ? { refreshToken: token.refreshToken } : {}),
         ...(options.scopes !== undefined ? { scopes: options.scopes } : {}),
       };
@@ -125,14 +135,14 @@ export class McpAuthFlow {
    * @param server http server。
    * @param expectedState 期望 state。
    * @param timeoutMs 超时。
-   * @returns 授权码。
+   * @returns 回调参数（code/state/iss/error）。
    */
   private static async waitForCode(
     server: Server,
     expectedState: string,
     timeoutMs: number,
-  ): Promise<string> {
-    return await new Promise<string>((resolve, reject) => {
+  ): Promise<OAuthCallback> {
+    return await new Promise<OAuthCallback>((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`MCP auth 等待回调超时（${String(timeoutMs)}ms）`));
       }, timeoutMs);
@@ -162,8 +172,38 @@ export class McpAuthFlow {
         }
         response.end('<h1>授权成功</h1><p>可以关闭此页。</p>');
         clearTimeout(timer);
-        resolve(callback.code);
+        resolve(callback);
       });
     });
+  }
+
+  /**
+   * 校验回调的 issuer（RFC 9207）并返回授权码。
+   *
+   * 规范：客户端 **MUST** 校验「存在的 `iss`」与记录在案的 issuer 一致；
+   * `requireIssuer` 开启时，缺失 `iss` 同样拒绝（更严格的部署口径）。
+   * @param callback 回调参数。
+   * @param expectedIssuer 记录在案的 issuer。
+   * @param requireIssuer 是否要求 iss 必须存在。
+   * @returns 授权码。
+   * @throws issuer 缺失（严格模式）/不匹配时抛错（不发起令牌兑换）。
+   */
+  private static codeOf(
+    callback: OAuthCallback,
+    expectedIssuer: string,
+    requireIssuer: boolean,
+  ): string {
+    if (callback.iss === undefined) {
+      if (requireIssuer) {
+        throw new Error('MCP auth 授权响应缺少 iss（RFC 9207 严格模式拒绝）');
+      }
+    } else if (callback.iss !== expectedIssuer) {
+      throw new Error('MCP auth 授权响应的 iss 与记录的 issuer 不一致（拒绝兑换授权码）');
+    }
+    const code = callback.code;
+    if (code === undefined || code === '') {
+      throw new Error('MCP auth 回调缺少 code');
+    }
+    return code;
   }
 }

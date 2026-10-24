@@ -27,6 +27,8 @@ export type SubagentBuilder = (
 export type A2aAgentRunner = (
   runtime: OmniHarnessRuntime,
   task: string,
+  taskId?: string,
+  signal?: AbortSignal,
 ) => Promise<{ readonly finalText?: string | undefined; readonly steps: number }>;
 
 /** A2aTaskExecutor 选项。 */
@@ -57,6 +59,8 @@ export class A2aTaskExecutor implements TaskHandler {
   private readonly buildSubagent: SubagentBuilder;
   /** 任务执行器（注入点，缺省走 `new Agent(runtime).runTask`）。 */
   private readonly runTask: A2aAgentRunner;
+  /** 在跑任务 → 取消控制器（`tasks/cancel` 据此中止子代理）。 */
+  private readonly inflight = new Map<string, AbortController>();
 
   /**
    * 构造 A2A 任务委托执行器。
@@ -83,6 +87,8 @@ export class A2aTaskExecutor implements TaskHandler {
   public async handle(request: DelegateRequest): Promise<DelegateResult> {
     const start = Date.now();
     return this.limiter.run(async () => {
+      const controller = new AbortController();
+      this.inflight.set(request.taskId, controller);
       try {
         const sub = this.buildSubagent(
           SubagentPorts.portsOf(this.runtime),
@@ -90,7 +96,17 @@ export class A2aTaskExecutor implements TaskHandler {
           this.runtime.events,
           this.maxSteps,
         );
-        const result = await this.runTask(sub, request.task);
+        const result = await this.runTask(sub, request.task, request.taskId, controller.signal);
+        if (controller.signal.aborted) {
+          return {
+            ok: false,
+            output: '',
+            steps: result.steps,
+            durationMs: Date.now() - start,
+            error: '任务已取消',
+            canceled: true,
+          };
+        }
         return {
           ok: true,
           output: result.finalText ?? '',
@@ -99,9 +115,33 @@ export class A2aTaskExecutor implements TaskHandler {
         };
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
+        if (controller.signal.aborted) {
+          return {
+            ok: false,
+            output: '',
+            steps: 0,
+            durationMs: Date.now() - start,
+            error: '任务已取消',
+            canceled: true,
+          };
+        }
         return { ok: false, output: '', steps: 0, durationMs: Date.now() - start, error: msg };
+      } finally {
+        this.inflight.delete(request.taskId);
       }
     });
+  }
+
+  /**
+   * 取消一个在跑任务（A2A `tasks/cancel`）。
+   * @param taskId 任务 id。
+   * @returns 是否找到了在跑执行并发出取消。
+   */
+  public cancel(taskId: string): boolean {
+    const controller = this.inflight.get(taskId);
+    if (controller === undefined) return false;
+    controller.abort();
+    return true;
   }
 
   /**
@@ -120,6 +160,19 @@ export class A2aTaskExecutor implements TaskHandler {
   private static defaultBuildSubagent: SubagentBuilder = (ports, tools, events, maxSteps) =>
     subagentRuntimeFactory.build(ports, tools, events, maxSteps);
 
-  /** 默认任务执行器（生产路径）。 */
-  private static defaultRunTask: A2aAgentRunner = (rt, task) => new Agent(rt).runTask(task);
+  /** 默认任务执行器（生产路径）：绑定 taskId 作为 Agent 会话 id，并在 abort 时取消回合。 */
+  private static defaultRunTask: A2aAgentRunner = async (rt, task, taskId, signal) => {
+    const agent = new Agent(rt);
+    const onAbort = (): void => {
+      agent.cancelCurrentRun('user', taskId);
+    };
+    if (signal !== undefined) signal.addEventListener('abort', onAbort, { once: true });
+    try {
+      return taskId === undefined
+        ? await agent.runTask(task)
+        : await agent.runTask(task, undefined, undefined, taskId);
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
+  };
 }

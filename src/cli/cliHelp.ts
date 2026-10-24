@@ -1,4 +1,5 @@
 import { builtinDefaults } from '../util/builtinDefaults.ts';
+import { ACP_PERMISSION_MODES } from '../acp/acpProtocol.ts';
 import {
   A2A_TRANSPORTS,
   APPROVAL_ASKS,
@@ -39,6 +40,7 @@ export const HELP_ENUM_SOURCES: Readonly<Record<string, readonly string[]>> = {
   budgetOnExceed: BUDGET_ON_EXCEED,
   enforcementModes: ENFORCEMENT_MODES,
   decisionEngineModes: DECISION_ENGINE_MODES,
+  acpPermissionModes: ACP_PERMISSION_MODES,
 };
 
 /** 描述列的起始列（命令段与选项段共用；不足补空白，超出留 `MIN_GAP` 个空格）。 */

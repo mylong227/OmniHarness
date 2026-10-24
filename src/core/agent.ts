@@ -16,6 +16,8 @@ import type { TurnOutcome } from './turnRunner.ts';
 import { CheckpointManager } from './checkpointManager.ts';
 import type { CheckpointManagerPort } from '../ports/runtime/checkpointManager.ts';
 import { AgentTurnSetup } from './agentTurnSetup.ts';
+import { LongHorizonCoordinator } from './longHorizonCoordinator.ts';
+import type { CompletionGate } from '../ports/runtime/completionGate.ts';
 import { AgentLimits } from './agentLimits.ts';
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
 import { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
@@ -43,18 +45,41 @@ import type { OmniHarnessRuntime } from '../ports/composition/omniHarnessRuntime
  * **可预期的最坏情况**。软提醒只注入一条「开始收尾」消息，不打断；硬熔断才终止。
  * 可用 `OMNI_LOOP_SOFT_MS=0` / `OMNI_LOOP_MAX_MS=0` 分别关闭。
  */
-const DEFAULT_SOFT_DEADLINE_MS = 30 * 60_000;
-/**
- * 默认硬时限（LR-05，2026-10-20）：从 1 小时提高到 **8 小时**，对齐 Terminal-Bench 4.0
- * 的长任务时间尺度。分钟级回合仍由软时限（30 分钟）提醒收尾；8 小时只是“最坏情况”的硬闸。
- * 需要更快熔断的调用方用 `OMNI_LOOP_MAX_MS` 显式覆盖；`0` = 关闭。
- */
-const DEFAULT_HARD_DEADLINE_MS = 8 * 60 * 60_000;
 
 // AgentResult 契约已上移至 ports/agent.ts（端口契约），此处 re-export 以保公开 API 稳定。
 export type { AgentResult };
 
 /** Agent 总编排：建会话 → 记录输入 → 跑回合 → 持久化。 */
+/**
+ * 组装完成闸门：组合根工厂产的既有闸门 + 长时程收尾检查清单（按会话决定是否包）。
+ * @param runtime 运行时组合根。
+ * @param longHorizon 长时程协调器。
+ * @param sessionId 会话 id。
+ * @returns 生效闸门；两者皆无时为 undefined。
+ */
+const buildCompletionGate = (
+  runtime: OmniHarnessRuntime,
+  longHorizon: LongHorizonCoordinator,
+  sessionId: string,
+): CompletionGate | undefined => {
+  const inner = runtime.completionGateFactory?.({
+    tools: runtime.tools,
+    selfVerify: runtime.config.selfVerify,
+    workspaceRoot: runtime.config.workspaceRoot,
+  });
+  const candidate = runtime.tools as unknown as {
+    lastFailure?: (id: string) => string | undefined;
+  };
+  const lastFailure =
+    typeof candidate.lastFailure === 'function'
+      ? (id: string): string | undefined => candidate.lastFailure?.(id)
+      : undefined;
+  return longHorizon.checklistFor(sessionId, inner, lastFailure);
+};
+/**
+ * @beta
+ * Agent：事件溯源式回合执行器（模型 → 工具 → 审批 → 沙箱 → 回灌 → 收敛）。
+ */
 export class Agent implements AgentPort {
   /**
    * 在跑会话的取消令牌与增量持久化器，**按 sessionId 隔离**。
@@ -97,6 +122,12 @@ export class Agent implements AgentPort {
    * 估算 vs 实际）与 `ContextCompactor`（按 factor 修正自动窗口阈值）。
    */
   private readonly calibration = new TokenEstimatorCalibrator();
+  /**
+   * 长时程协议协调器（P0-2/P1-2，2026-10-24）：复杂任务开场 ensure 状态件并注入极简 primer，
+   * 回合末把进度追加到 `.omniharness/tasks/<slug>/progress.md`，完成闸门外层补一道收尾检查清单。
+   * 每会话记录在回合结束即释放（不跨回合持有状态）。
+   */
+  private readonly longHorizon: LongHorizonCoordinator;
 
   public constructor(
     /** 运行时组合根：提供模型、工具、审批、沙箱、存储、事件总线等全部依赖。 */
@@ -116,6 +147,9 @@ export class Agent implements AgentPort {
       trustedOnly: process.env.OMNI_MEMORY_TRUSTED_ONLY === '1',
     });
     this.autoCheckpoints = new CheckpointManager(runtime.storage, {
+      workspaceRoot: runtime.config.workspaceRoot,
+    });
+    this.longHorizon = new LongHorizonCoordinator({
       workspaceRoot: runtime.config.workspaceRoot,
     });
   }
@@ -432,29 +466,16 @@ export class Agent implements AgentPort {
         sessionId,
         this.runtime.retrieval,
       );
-      const turnDeps = {
-        openSession: (
-          rec: SessionRecorder,
-          log: AppendOnlyEventLog,
-          text: string,
-          id: string,
-          turnMode: 'run' | 'resume' | 'fork',
-        ): void => {
-          this.openSession(rec, log, text, id, turnMode);
+      // 开场依赖（技能/规划/长时程）：以箭头回调注入，避免把 Agent 的私有方法暴露给 setup。
+      const effectivePrompt = AgentTurnSetup.beginTurn(
+        {
+          openSession: (rec, log, text, id, turnMode) =>
+            this.openSession(rec, log, text, id, turnMode),
+          requirePlanning: (text, rec) => this.maybeRequirePlanning(text, rec),
+          beginLongHorizon: (text, rec, id) => this.longHorizon.begin(text, rec, id),
         },
-        requirePlanning: (text: string, rec: SessionRecorder): void => {
-          this.maybeRequirePlanning(text, rec);
-        },
-      };
-      const effectivePrompt = AgentTurnSetup.beginTurn(turnDeps, {
-        mode,
-        prompt,
-        sessionId,
-        eventLog,
-        recorder,
-        images,
-        files,
-      });
+        { mode, prompt, sessionId, eventLog, recorder, images, files },
+      );
       const effort = AgentTurnSetup.executorReasoningEffort(
         this.runtime.config.reasoning,
         effectivePrompt,
@@ -471,6 +492,8 @@ export class Agent implements AgentPort {
       try {
         outcome = await runner.run(this.contextOf(sessionId));
       } finally {
+        // 长时程进度：只 append 一行摘要（用户提示 / 工具失败 / verify 结论），不写回上下文。
+        await this.longHorizon.finish(sessionId, recorder);
         persistedAt = await this.finishSession(sessionId, sessionEntry, eventLog, persister);
       }
       // P1 进化闭环（可选、零破坏）：任务完成后若注入了 evolution 且 autoRun 开启，
@@ -633,7 +656,7 @@ export class Agent implements AgentPort {
       this.runtime.turnDiff,
       this.runtime.longTermMemory,
       this.runtime.memoryExtractor,
-      Agent.buildLoopGuard(),
+      LoopGuard.fromEnv(),
       // 增量持久化器：EventPersister 由 continueSession 创建并管理生命周期，
       // TurnRunner 只在每步调 schedule()——但构造签名要实例，故由调用方显式传入
       // （2026-09-22：不再读 `this.currentPersister` 单字段，避免并发回合互相覆盖）。
@@ -643,11 +666,8 @@ export class Agent implements AgentPort {
       // 完成闸门（A1 收口）：实现由**组合根**经端口注入（`runtime.completionGateFactory`），
       // core 不认识任何具体闸门——写时自验证已启用则读它的结论；未启用则回合末尾现跑一次
       // （显式 enabled:false 才两者皆无）。缺省未注入＝不设闸门（旧行为）。
-      this.runtime.completionGateFactory?.({
-        tools: this.runtime.tools,
-        selfVerify: this.runtime.config.selfVerify,
-        workspaceRoot: this.runtime.config.workspaceRoot,
-      }),
+      // 长时程任务在其外层再包一道收尾检查清单（配置了 verifyCommand 且未通过 → 注入一次）。
+      buildCompletionGate(this.runtime, this.longHorizon, recorder.sessionId()),
       // P4：成功轨迹自动沉淀/下一回合召回；runtime 未注入即零行为。
       this.runtime.workflowMemory,
       // LR-06：每 20 步自动落一次事件检查点（无文件快照；文件面仍由 checkpoint 工具负责）。
@@ -729,34 +749,6 @@ export class Agent implements AgentPort {
     } catch (err) {
       log.warn('spark.cycle.failed', { sessionId, error: String(err) });
     }
-  }
-
-  /**
-   * buildLoopGuard — module-level helper moved into Agent.
-   * @returns {LoopGuard} - result
-   */
-  private static buildLoopGuard(): LoopGuard {
-    if (process.env.OMNI_LOOPGUARD === '0') {
-      // 全量关闭（2026-10-01 审计）：原先只关 maxExactRepeats/cycleWindow，edit 维度的
-      // 振荡/抖动检测无门控照跑，`OMNI_LOOPGUARD=0` 承诺的「关闭失控检测」并不成立。
-      // 2026-10-19：新增的结果冗余检测同样必须一起关——否则「全量关闭」又会退化成半关。
-      return new LoopGuard({
-        maxExactRepeats: 0,
-        cycleWindow: 0,
-        editChecks: false,
-        maxRedundantResults: 0,
-      });
-    }
-    const maxRaw = process.env.OMNI_LOOP_MAX_MS;
-    const softRaw = process.env.OMNI_LOOP_SOFT_MS;
-    // 「未设置」才用默认；显式 0 = 关闭（旧行为），不能被 Number('0') 的真值判断吞掉。
-    const hard = maxRaw === undefined || maxRaw === '' ? DEFAULT_HARD_DEADLINE_MS : Number(maxRaw);
-    const soft =
-      softRaw === undefined || softRaw === '' ? DEFAULT_SOFT_DEADLINE_MS : Number(softRaw);
-    return new LoopGuard({
-      maxDurationMs: Number.isFinite(hard) && hard > 0 ? hard : 0,
-      softDeadlineMs: Number.isFinite(soft) && soft > 0 ? soft : 0,
-    });
   }
 }
 

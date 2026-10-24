@@ -36,14 +36,15 @@
 
 ### 执行与编排
 
-| 子命令                            | 作用                                                                                                |
-| --------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `exec`（默认）                    | 单次任务执行；`-p/--print` = headless（CI）                                                         |
-| `goal "<目标>"`                   | 自主目标循环（多轮推进直到达成或达上限）                                                            |
-| `workflow --file workflow.json`   | DAG 工作流（多步依赖并发，前序产出注入后续；步骤可用 `when` 声明受控条件）                          |
-| `workflow --resume-run <runId>`   | 续跑工作流运行（复用已完成步骤的产出，其余重跑；运行日志在 `<workspace>/.omniharness/graph-runs/`） |
-| `routines add\|list\|remove\|run` | 定时任务（interval / cron）                                                                         |
-| `tui [demo]`                      | 纯 ANSI 交互式终端 UI（需 TTY）                                                                     |
+| 子命令                            | 作用                                                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `exec`（默认）                    | 单次任务执行；`-p/--print` = headless（CI）                                                                                  |
+| `goal "<目标>"`                   | 自主目标循环（多轮推进直到达成或达上限）                                                                                     |
+| `workflow --file workflow.json`   | DAG 工作流（多步依赖并发，前序产出注入后续；步骤可用 `when` 声明受控条件）                                                   |
+| `workflow --resume-run <runId>`   | 续跑工作流运行（复用已完成步骤的产出，其余重跑；运行日志在 `<workspace>/.omniharness/graph-runs/`）                          |
+| `routines add\|list\|remove\|run` | 定时任务（interval / cron）                                                                                                  |
+| `tui [demo]`                      | 纯 ANSI 交互式终端 UI（需 TTY）                                                                                              |
+| `acp`                             | ACP v1 编辑器入口（JSON-RPC over stdio；`--acp-permission client\|auto`，见 [PROTOCOL_ECOSYSTEM.md](PROTOCOL_ECOSYSTEM.md)） |
 
 ### 扩展与集成
 
@@ -128,23 +129,24 @@
 
 ### 会话与输出
 
-| 旗标                                                                             | 说明                                                                         |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `-p, --print` / `--output-format text\|json`                                     | headless 执行与输出格式（json = `{ok,sessionId,steps,finalText}`）           |
-| `--resume ID` / `--fork ID` / `--replay ID`                                      | 续跑 / 分叉 / 回放                                                           |
-| `--output FILE`                                                                  | 事件 JSONL 输出文件                                                          |
-| `--events console\|silent`                                                       | 事件端口（默认 console，进度走 stderr）                                      |
-| `--stream-text`                                                                  | 流式打印模型文本增量（默认关）                                               |
-| `--auto-commit`                                                                  | 执行后用 git 自动提交变更（需处于 git 仓库）                                 |
-| `--native`                                                                       | 启用 FFI 原生后端（默认开启；不可用自动回退 TS）                             |
-| `--max-steps N`                                                                  | 本回合步数上限：**不传 = 0 = 不限**（终止以任务完成为准；预算/行为护栏兜底） |
-| `--subagent-max-depth N` / `--subagent-concurrency N` / `--subagent-max-steps N` | 子智能体编排上限（`--subagent-max-steps` 同为 0 = 不限）                     |
-| `--self-verify` / `--no-self-verify`                                             | 写源码后自动跑受限测试并回灌失败摘要（默认开）                               |
-| `--decision-engine off\|shadow\|enforce` / `--no-decision-engine`                | Laya 本地决策引擎（默认 `shadow` 观测档）；解释器与权重零配置解析            |
-| `--decision-engine-python PATH`                                                  | 决策引擎的 Python 解释器（须装有 `laya`/`torch`；覆盖自动探测）              |
-| `--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http\|ws]`               | A2A 互操作（默认关）                                                         |
-| `--evolution-rlvr …` / `--evolution-kernel`                                      | RLVR 进化闭环 / GEE Kernel 编排（默认关）                                    |
-| `--version, -V`                                                                  | 打印 `API_VERSION` 并退出                                                    |
+| 旗标                                                                             | 说明                                                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `-p, --print` / `--output-format text\|json`                                     | headless 执行与输出格式（json = `{ok,sessionId,steps,finalText}`）                                            |
+| `--resume ID` / `--fork ID` / `--replay ID`                                      | 续跑 / 分叉 / 回放                                                                                            |
+| `--output FILE`                                                                  | 事件 JSONL 输出文件                                                                                           |
+| `--events console\|silent`                                                       | 事件端口（默认 console，进度走 stderr）                                                                       |
+| `--stream-text`                                                                  | 流式打印模型文本增量（默认关）                                                                                |
+| `--auto-commit`                                                                  | 执行后用 git 自动提交变更（需处于 git 仓库）                                                                  |
+| `--native`                                                                       | 启用 FFI 原生后端（默认开启；不可用自动回退 TS）                                                              |
+| `--max-steps N`                                                                  | 本回合步数上限：**不传 = 0 = 不限**（终止以任务完成为准；预算/行为护栏兜底）                                  |
+| `--subagent-max-depth N` / `--subagent-concurrency N` / `--subagent-max-steps N` | 子智能体编排上限（`--subagent-max-steps` 同为 0 = 不限）                                                      |
+| `--self-verify` / `--no-self-verify`                                             | 写源码后自动跑受限测试并回灌失败摘要（默认开）                                                                |
+| `--decision-engine off\|shadow\|enforce` / `--no-decision-engine`                | Laya 本地决策引擎（默认 `shadow` 观测档）；解释器与权重零配置解析                                             |
+| `--decision-engine-python PATH`                                                  | 决策引擎的 Python 解释器（须装有 `laya`/`torch`；覆盖自动探测）                                               |
+| `--a2a [--a2a-port N] [--a2a-peer URL] [--a2a-transport http\|ws]`               | A2A 互操作（默认关；v1 面含 stream/cancel/subscribe/push，见 [PROTOCOL_ECOSYSTEM.md](PROTOCOL_ECOSYSTEM.md)） |
+| `--acp-permission client\|auto`                                                  | `acp` 子命令的权限策略：client=写类工具向编辑器请求授权；auto=自动放行                                        |
+| `--evolution-rlvr …` / `--evolution-kernel`                                      | RLVR 进化闭环 / GEE Kernel 编排（默认关）                                                                     |
+| `--version, -V`                                                                  | 打印 `API_VERSION` 并退出                                                                                     |
 
 ---
 

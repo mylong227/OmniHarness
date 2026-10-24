@@ -98,9 +98,27 @@ export class McpClient implements McpClientPort {
     return result.resources ?? [];
   }
 
-  /** 读取远端资源。 */
+  /** 读取远端资源（兼容 2026-07-28 的 `{contents:[…]}` 与旧版 `{uri,text}` 形状）。 */
   public async readResource(uri: string): Promise<McpResourceContent> {
-    return (await this.request(McpProtocol.METHOD_RESOURCES_READ, { uri })) as McpResourceContent;
+    const result = (await this.request(McpProtocol.METHOD_RESOURCES_READ, { uri })) as {
+      contents?: readonly { uri?: unknown; mimeType?: unknown; text?: unknown }[];
+      uri?: unknown;
+      mimeType?: unknown;
+      text?: unknown;
+    };
+    const first = result.contents?.[0];
+    if (first !== undefined) {
+      return {
+        uri: typeof first.uri === 'string' ? first.uri : uri,
+        ...(typeof first.mimeType === 'string' ? { mimeType: first.mimeType } : {}),
+        text: typeof first.text === 'string' ? first.text : '',
+      };
+    }
+    return {
+      uri: typeof result.uri === 'string' ? result.uri : uri,
+      ...(typeof result.mimeType === 'string' ? { mimeType: result.mimeType } : {}),
+      text: typeof result.text === 'string' ? result.text : '',
+    };
   }
 
   /** 列举远端提示模板。 */

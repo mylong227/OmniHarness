@@ -23,6 +23,13 @@ export interface McpStoredToken {
   readonly clientId: string;
   /** 受保护资源（键）。 */
   readonly resource: string;
+  /**
+   * 授权服务器 issuer（RFC 8414/9207）。
+   *
+   * 2026-07-28 安全要求：凭据绑定到签发它的授权服务器，**不得**跨 issuer 复用。
+   * 旧条目没有该字段 ⇒ 在要求 issuer 的路径上视为不可用（fail-closed，需重新授权）。
+   */
+  readonly issuer?: string | undefined;
   /** 申请的 scope。 */
   readonly scopes?: readonly string[] | undefined;
 }
@@ -53,10 +60,14 @@ export class McpAuthTokenStore {
   /**
    * 读取指定 resource 的令牌。
    * @param resource 受保护资源标识。
-   * @returns 令牌；不存在/损坏为 undefined。
+   * @param issuer 期望的授权服务器 issuer（给出时，只返回 issuer 逐字匹配的令牌）。
+   * @returns 令牌；不存在/损坏/issuer 不匹配为 undefined。
    */
-  public get(resource: string): McpStoredToken | undefined {
-    return this.read()[resource];
+  public get(resource: string, issuer?: string | undefined): McpStoredToken | undefined {
+    const token = this.read()[resource];
+    if (token === undefined) return undefined;
+    if (issuer !== undefined && token.issuer !== issuer) return undefined;
+    return token;
   }
 
   /**
@@ -108,6 +119,7 @@ export class McpAuthTokenStore {
           typeof token.tokenEndpoint === 'string' &&
           typeof token.clientId === 'string' &&
           typeof token.resource === 'string' &&
+          (token.issuer === undefined || typeof token.issuer === 'string') &&
           key === token.resource
         ) {
           out[key] = token;

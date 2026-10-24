@@ -12,6 +12,7 @@ import type { McpServerConfig } from '../ports/mcp/mcpServerConfig.ts';
 import type { McpProtectedResourceMetadata, McpAuthConfig } from '../ports/mcp/mcpAuthConfig.ts';
 import { McpOAuthTokenClient, type OAuthAccessToken } from './mcpOAuthTokenClient.ts';
 import { McpAuthTokenStore } from './mcpAuthTokenStore.ts';
+import { McpSecretGuard } from './mcpSecretGuard.ts';
 import { log } from '../util/logger.ts';
 
 /** 认证头缺失时抛出的可行动错误前缀。 */
@@ -139,7 +140,8 @@ export class McpAuthProvider {
     const store = new McpAuthTokenStore(
       env['OMNI_MCP_TOKENS_FILE'] ?? McpAuthTokenStore.defaultPath(),
     );
-    const stored = store.get(resource);
+    // 2026-07-28：凭据绑定签发它的授权服务器，跨 issuer 一律不复用（fail-closed 重授权）。
+    const stored = store.get(resource, auth.authorizationServer);
     if (
       stored !== undefined &&
       stored.accessToken.trim() !== '' &&
@@ -154,7 +156,8 @@ export class McpAuthProvider {
     // 合法 refresh_token 发到另一个端点（配置写错不能变成凭据外泄）。
     if (
       (auth.tokenEndpoint !== undefined && auth.tokenEndpoint !== stored.tokenEndpoint) ||
-      (auth.clientId !== undefined && auth.clientId !== stored.clientId)
+      (auth.clientId !== undefined && auth.clientId !== stored.clientId) ||
+      (auth.authorizationServer !== undefined && stored.issuer !== auth.authorizationServer)
     ) {
       return undefined;
     }
@@ -174,12 +177,14 @@ export class McpAuthProvider {
         },
         now,
       );
+      const issuer = stored.issuer ?? auth.authorizationServer;
       store.set({
         accessToken: refreshed.accessToken,
         expiresAt: refreshed.expiresAt,
         tokenEndpoint,
         clientId,
         resource,
+        ...(issuer !== undefined ? { issuer } : {}),
         refreshToken: refreshed.refreshToken ?? stored.refreshToken,
         ...(stored.scopes !== undefined ? { scopes: stored.scopes } : {}),
       });
@@ -187,7 +192,10 @@ export class McpAuthProvider {
     } catch (error) {
       log.warn('mcp.auth.refresh_failed', {
         server: server.name,
-        error: error instanceof Error ? error.message : String(error),
+        error: McpSecretGuard.redact(error instanceof Error ? error.message : String(error), [
+          auth.clientSecret,
+          auth.clientSecretEnv === undefined ? undefined : env[auth.clientSecretEnv],
+        ]),
       });
       return undefined;
     }
@@ -237,6 +245,7 @@ export class McpAuthProvider {
     if (secret === undefined || secret === '') return undefined;
     const key = [
       server.name,
+      auth.authorizationServer ?? '',
       auth.tokenEndpoint,
       auth.clientId,
       auth.resource ?? '',

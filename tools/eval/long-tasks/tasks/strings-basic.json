@@ -1,0 +1,9 @@
+{
+  "id": "strings-basic",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：toCamel(s)、truncate(s, n)、countWords(s)。\n\n逐条验收要求：\n- toCamel(s)：按非字母数字分隔，首段全小写，其余段首字母大写、其余小写（如 \"foo bar_baz\" -> \"fooBarBaz\"）。\n- truncate(s, n)：n<=0 返回空串；长度不超过 n 原样返回；n===1 返回 \"…\"；否则保留前 n-1 个字符再拼 \"…\"。\n- countWords(s)：按连续空白切分并忽略首尾空白，空串返回 0（如 \" one two\\tthree \" -> 3）。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置为你看到的版本。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "strings-basic",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}

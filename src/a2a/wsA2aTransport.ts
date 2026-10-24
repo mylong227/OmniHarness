@@ -19,6 +19,7 @@ import type { RpcMessage } from '../server/core/jsonRpc.ts';
 import { jsonRpc } from '../server/core/jsonRpc.ts';
 import { WsConnection } from '../server/transport/wsConnection.ts';
 import type { A2aTransport } from './a2aProtocol.ts';
+import { A2A_MESSAGE_STREAM, A2A_TASKS_RESUBSCRIBE, A2A_TASKS_SUBSCRIBE } from './a2aProtocol.ts';
 import { SsrfGuard } from '../security/ssrfGuard.ts';
 import type { SsrfOptions } from '../security/ssrfGuard.ts';
 import { log } from '../util/logger.ts';
@@ -226,12 +227,16 @@ export class WsA2aServerTransport implements A2aTransport {
     {
       readonly remoteId: number | string;
       readonly respond: (m: RpcMessage) => void;
+      /** 是否流式请求（同一 id 允许多帧，终帧后回收）。 */
+      readonly stream: boolean;
     }
   >();
   /** 服务端唯一键的单调计数器（进程内唯一即可）。 */
   private seq = 0;
   /** 活跃 WebSocket 连接（close 时逐一关闭）。 */
   private readonly connections = new Set<WsConnection>();
+  /** 连接 → 握手时携带的 Authorization（注入到每条请求的 params.assertion）。 */
+  private readonly authorizations = new Map<WsConnection, string>();
   /** 底层 node:http 服务实例（listen 后才有值）。 */
   private server: http.Server | undefined;
 
@@ -257,9 +262,10 @@ export class WsA2aServerTransport implements A2aTransport {
     const key = String(message.id);
     const entry = this.resolvers.get(key);
     if (entry !== undefined) {
-      this.resolvers.delete(key);
-      // 还原对端的原始 id 再回帧：否则对端按自己的 id 关联会匹配不上。
       entry.respond({ ...message, id: entry.remoteId });
+      if (!entry.stream || WsA2aServerTransport.isFinal(message)) {
+        this.resolvers.delete(key);
+      }
     }
   }
 
@@ -293,6 +299,7 @@ export class WsA2aServerTransport implements A2aTransport {
       connection.close();
     }
     this.connections.clear();
+    this.authorizations.clear();
     this.server?.close();
   }
 
@@ -314,7 +321,14 @@ export class WsA2aServerTransport implements A2aTransport {
     );
     const connection = new WsConnection(socket);
     this.connections.add(connection);
-    connection.onClose = () => this.connections.delete(connection);
+    const authorization = request.headers['authorization'];
+    if (typeof authorization === 'string' && authorization.trim() !== '') {
+      this.authorizations.set(connection, authorization);
+    }
+    connection.onClose = () => {
+      this.connections.delete(connection);
+      this.authorizations.delete(connection);
+    };
     connection.onMessage = (text) => this.deliver(text, connection);
   }
 
@@ -338,7 +352,64 @@ export class WsA2aServerTransport implements A2aTransport {
     this.resolvers.set(key, {
       remoteId: id,
       respond: (response) => connection.send(JSON.stringify(response)),
+      stream: WsA2aServerTransport.isStreaming(message.method),
     });
-    this.callback?.({ ...message, id: key });
+    const enriched = this.attachAuthorization(message, connection);
+    this.callback?.({ ...enriched, id: key });
+  }
+
+  /**
+   * 判断是否为流式方法（同一 id 允许多帧）。
+   * @param method JSON-RPC 方法名。
+   * @returns 流式方法为 true。
+   */
+  private static isStreaming(method: string): boolean {
+    return (
+      method === A2A_MESSAGE_STREAM ||
+      method === A2A_TASKS_SUBSCRIBE ||
+      method === A2A_TASKS_RESUBSCRIBE
+    );
+  }
+
+  /**
+   * 判断流式响应的最后一帧（错误响应或 result.final === true）。
+   * @param message JSON-RPC 响应。
+   * @returns 最后一帧为 true。
+   */
+  private static isFinal(message: RpcMessage): boolean {
+    if ('error' in message) return true;
+    const result = (message as { readonly result?: unknown }).result;
+    if (typeof result !== 'object' || result === null) return false;
+    const record = result as Record<string, unknown>;
+    if (record['final'] === true) return true;
+    for (const key of ['statusUpdate', 'artifactUpdate'] as const) {
+      const nested = record[key];
+      if (
+        typeof nested === 'object' &&
+        nested !== null &&
+        (nested as Record<string, unknown>)['final'] === true
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 把握手时携带的 Authorization 注入请求参数 `assertion`（不覆盖已有值）。
+   * @param message 入站消息。
+   * @param connection 该帧所属连接。
+   * @returns 注入后的消息。
+   */
+  private attachAuthorization(message: RpcMessage, connection: WsConnection): RpcMessage {
+    const authorization = this.authorizations.get(connection);
+    if (authorization === undefined) return message;
+    const params = (message as { readonly params?: unknown }).params;
+    const record =
+      typeof params === 'object' && params !== null && !Array.isArray(params)
+        ? { ...(params as Record<string, unknown>) }
+        : {};
+    if (record['assertion'] === undefined) record['assertion'] = authorization;
+    return { ...message, params: record } as RpcMessage;
   }
 }

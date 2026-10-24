@@ -183,6 +183,29 @@ export class LoopGuard {
   /** 会话起点：取首次观测的 ts（时间轴由调用方驱动，可测试注入）；无 ts 用挂钟。 */
   private startedAt: number | undefined = undefined;
 
+  /**
+   * 从环境变量构造（`OMNI_LOOPGUARD=0` 全关；`OMNI_LOOP_MAX_MS` / `OMNI_LOOP_SOFT_MS` 控时限）。
+   * @returns LoopGuard 实例。
+   */
+  public static fromEnv(): LoopGuard {
+    if (process.env.OMNI_LOOPGUARD === '0') {
+      return new LoopGuard({
+        maxExactRepeats: 0,
+        cycleWindow: 0,
+        editChecks: false,
+        maxRedundantResults: 0,
+      });
+    }
+    const maxRaw = process.env.OMNI_LOOP_MAX_MS;
+    const softRaw = process.env.OMNI_LOOP_SOFT_MS;
+    const hard = maxRaw === undefined || maxRaw === '' ? 8 * 60 * 60_000 : Number(maxRaw);
+    const soft = softRaw === undefined || softRaw === '' ? 30 * 60_000 : Number(softRaw);
+    return new LoopGuard({
+      maxDurationMs: Number.isFinite(hard) && hard > 0 ? hard : 0,
+      softDeadlineMs: Number.isFinite(soft) && soft > 0 ? soft : 0,
+    });
+  }
+
   public constructor(options: LoopGuardOptions = {}) {
     this.maxExactRepeats = options.maxExactRepeats ?? DEFAULTS.maxExactRepeats;
     this.cycleWindow = options.cycleWindow ?? DEFAULTS.cycleWindow;

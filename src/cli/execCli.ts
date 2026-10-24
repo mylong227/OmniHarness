@@ -112,6 +112,10 @@ export class ExecCli extends CliAgentCmds {
     if (argv[0] === 'tui') {
       return this.runTui(argv.slice(1));
     }
+    // ACP（Agent Client Protocol）编辑器入口：JSON-RPC over stdio，供 Zed 等宿主驱动。
+    if (argv[0] === 'acp') {
+      return this.runAcp(argv.slice(1));
+    }
     if (argv[0] === 'evolution') return this.runEvolution(argv.slice(1));
     if (argv[0] === 'capability') return this.runCapability(argv.slice(1));
     // 检索默认档**只对真正的 agent 路径**生效（2026-10-11 收窄：此前它在 `run()` 开头无条件调用）。

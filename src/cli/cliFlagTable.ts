@@ -44,6 +44,7 @@ export const FLAG_ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   '--a2a-transport': A2A_TRANSPORTS,
   '--output-format': OUTPUT_FORMATS,
   '--cost-budget-on-exceed': BUDGET_ON_EXCEED,
+  '--acp-permission': ['client', 'auto'],
 };
 
 /**
@@ -203,6 +204,10 @@ const FLAG_TABLE: Record<string, FlagApply> = {
   },
   '--approval': (a, argv, i) => {
     a.approval = CliFlagTable.enumOf(argv, i, '--approval', APPROVALS);
+    return 1;
+  },
+  '--acp-permission': (_a, argv, i) => {
+    CliFlagTable.enumOf(argv, i, '--acp-permission', ['client', 'auto']);
     return 1;
   },
   '--approval-ask': (a, argv, i) => {

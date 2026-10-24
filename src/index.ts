@@ -315,10 +315,18 @@ export { DelegateTool } from './adapters/tool/workflow/delegateTool.ts';
 export { McpProtocol } from './mcp/mcpProtocol.ts';
 export type {
   McpCallToolResult,
+  McpCacheableResult,
   McpCapabilities,
+  McpClientCapabilities,
   McpInitializeResult,
+  McpInputRequestSpec,
+  McpInputRequests,
+  McpInputRequiredResult,
+  McpInputResponses,
   McpInputSchema,
+  McpResourceTemplate,
   McpServerInfo,
+  McpSubscriptionFilter,
   McpTextContent,
   McpToolDescriptor,
 } from './mcp/mcpProtocol.ts';
@@ -327,6 +335,22 @@ export { McpServer } from './mcp/mcpServer.ts';
 export type { McpServerOptions } from './mcp/mcpServer.ts';
 export { McpClient } from './mcp/mcpClient.ts';
 export type { McpClientOptions } from './mcp/mcpClient.ts';
+export { McpStatelessClient } from './mcp/mcpStatelessClient.ts';
+export type {
+  McpStatelessClientOptions,
+  McpSubscription,
+  McpSubscriptionHandlers,
+} from './mcp/mcpStatelessClient.ts';
+export type {
+  McpInputRequiredContext,
+  McpInputRequiredDecision,
+  McpInputRequiredPort,
+} from './ports/mcp/mcpInputRequiredPort.ts';
+export { McpAskUserInputHandler } from './mcp/mcpAskUserInputHandler.ts';
+export { McpApprovalInputHandler } from './mcp/mcpApprovalInputHandler.ts';
+export { McpCompositeInputHandler } from './mcp/mcpCompositeInputHandler.ts';
+export { McpSseResponseTransport } from './mcp/mcpSseResponseTransport.ts';
+export type { McpSseFrame, McpSseWriter } from './mcp/mcpSseResponseTransport.ts';
 export { McpStdioTransport } from './mcp/mcpStdioTransport.ts';
 export type { McpStdioHandle, McpStdioServerOptions } from './mcp/mcpStdioTransport.ts';
 export { McpConnector } from './mcp/mcpConnector.ts';

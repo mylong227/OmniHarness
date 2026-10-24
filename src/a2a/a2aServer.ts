@@ -1,12 +1,13 @@
 /**
- * A2A 互操作服务端（U6）。
+ * A2A 互操作服务端。
  *
- * 在可插拔 `A2aTransport` 上监听并分发 A2A 方法：
- * - `capabilities.declare`：登记对端能力声明（可选验签）。
- * - `task.delegate`：转交注入的 `TaskHandler` 执行（如本地起一个子 agent），
- *   回传 `DelegateResult`。未配置 handler 则 fail-closed 报错。
+ * 两条协议面并存（共用同一 `TaskHandler`）：
+ * - **私有委托面**（U6 历史）：`capabilities.declare` / `task.delegate`。
+ * - **A2A v1.0 互操作面**：`message/send`、`message/stream`、`tasks/get|cancel|subscribe|list`、
+ *   `tasks/pushNotificationConfig/*`、`agent/getCard`、`agent/getAuthenticatedExtendedCard`。
  *
- * 无第三方依赖。
+ * 协议语义在 `A2aV1Methods`（任务状态机 / 流事件 / push 配置）；本类只负责
+ * JSON-RPC 收发、验签与错误码映射——认证边界因此只有一处实现。
  */
 import type { RpcMessage } from '../server/core/jsonRpc.ts';
 import { jsonRpc } from '../server/core/jsonRpc.ts';
@@ -14,63 +15,103 @@ import type { AgentIdentityPort } from '../ports/runtime/agentIdentity.ts';
 import type {
   A2aAgentCard,
   A2aCapabilityDeclaration,
-  A2aTask,
   A2aTransport,
   DelegateRequest,
-  DelegateResult,
 } from './a2aProtocol.ts';
 import {
+  A2A_AGENT_GET_AUTHENTICATED_CARD,
   A2A_AGENT_GET_CARD,
   A2A_CAPABILITIES_DECLARE,
+  A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED,
   A2A_ERROR_INVALID,
   A2A_ERROR_METHOD_NOT_FOUND,
+  A2A_ERROR_TASK_NOT_CANCELABLE,
+  A2A_ERROR_TASK_NOT_FOUND,
   A2A_ERROR_UNAUTHORIZED,
+  A2A_ERROR_UNSUPPORTED_OPERATION,
   A2A_MESSAGE_SEND,
+  A2A_MESSAGE_STREAM,
+  A2A_PUSH_DELETE,
+  A2A_PUSH_GET,
+  A2A_PUSH_LIST,
+  A2A_PUSH_SET,
   A2A_TASK_DELEGATE,
+  A2A_TASKS_CANCEL,
   A2A_TASKS_GET,
+  A2A_TASKS_LIST,
+  A2A_TASKS_RESUBSCRIBE,
+  A2A_TASKS_SUBSCRIBE,
 } from './a2aProtocol.ts';
+import { A2aProtocolError } from './a2aProtocolError.ts';
+import { A2aTaskStore } from './a2aTaskStore.ts';
+import { A2aPushNotifications } from './a2aPushNotifications.ts';
+import { A2aV1Methods } from './a2aV1Methods.ts';
+import type { TaskHandler } from './a2aTaskHandler.ts';
+
+export type { TaskHandler } from './a2aTaskHandler.ts';
 
 /** 断言头的 `AgentAssertion ` 前缀（`AgentIdentityPort.authorizationHeader()` 的直接产物形态）。 */
 const ASSERTION_PREFIX = 'AgentAssertion ';
 
-/** 任务委托处理器（由调用方注入：通常起一个本地子 agent 跑任务）。 */
-export interface TaskHandler {
-  /**
-   * 执行一次委托任务。
-   * @param request 委托请求（taskId / 输入 / 签名断言）。
-   * @returns 任务执行结果。
-   */
-  handle(request: DelegateRequest): Promise<DelegateResult>;
-}
+/** 需要 A2A v1 验签的方法集合（`agent/getCard` 是公开发现面，不要求签名）。 */
+const V1_PROTECTED: ReadonlySet<string> = new Set<string>([
+  A2A_MESSAGE_SEND,
+  A2A_MESSAGE_STREAM,
+  A2A_TASKS_GET,
+  A2A_TASKS_CANCEL,
+  A2A_TASKS_SUBSCRIBE,
+  A2A_TASKS_RESUBSCRIBE,
+  A2A_TASKS_LIST,
+  A2A_PUSH_SET,
+  A2A_PUSH_GET,
+  A2A_PUSH_LIST,
+  A2A_PUSH_DELETE,
+  A2A_AGENT_GET_AUTHENTICATED_CARD,
+]);
+
+/** 流式方法集合（同一 JSON-RPC id 的多条响应）。 */
+const STREAMING_METHODS: ReadonlySet<string> = new Set<string>([
+  A2A_MESSAGE_STREAM,
+  A2A_TASKS_SUBSCRIBE,
+  A2A_TASKS_RESUBSCRIBE,
+]);
 
 /**
  * A2A 服务端。
  */
 export class A2aServer {
-  /** 注入的任务委托处理器（未配置时 task.delegate fail-closed 报错）。 */
+  /** 注入的任务委托处理器（未配置时 v1/私有面都 fail-closed 报错）。 */
   private handler: TaskHandler | undefined;
   /** 已登记的对端能力声明表（agentId → 声明）。 */
   private readonly declarations = new Map<string, A2aCapabilityDeclaration>();
-  /** A2A v1.0 任务表（taskId → Task），供 `tasks/get` 查询。 */
-  private readonly tasks = new Map<string, A2aTask>();
-  /** A2A v1.0 AgentCard（可选；未设置时 `agent/getCard` fail-closed）。 */
+  /** A2A v1.0 AgentCard（可选；未设置时取卡方法 fail-closed）。 */
   private card: A2aAgentCard | undefined;
+  /** 任务表（状态机 + 流事件）。 */
+  private readonly tasks = new A2aTaskStore();
+  /** push notification 配置与投递。 */
+  private readonly push = new A2aPushNotifications();
+  /** v1.0 协议语义实现。 */
+  private readonly v1: A2aV1Methods;
 
   /**
    * @param transport 底层传输端口（监听入站 JSON-RPC 并回写响应）。
-   * @param identity 可选的 Agent 身份端口；提供时对所有入站请求强制 fail-closed 验签。
+   * @param identity 可选的 Agent 身份端口；提供时对受保护请求强制 fail-closed 验签。
    */
   public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
   ) {
-    this.transport.onMessage((m) => void this.onMessage(m));
+    this.v1 = new A2aV1Methods({
+      tasks: this.tasks,
+      push: this.push,
+      handler: () => this.handler,
+    });
+    this.transport.onMessage((message) => void this.onMessage(message));
   }
 
   /**
    * 注入任务处理器（本地执行委托）。
    * @param handler 任务委托处理器。
-   
    * @returns 无返回值。
    */
   public setTaskHandler(handler: TaskHandler): void {
@@ -78,7 +119,7 @@ export class A2aServer {
   }
 
   /**
-   * 设置 A2A v1.0 AgentCard（供 `agent/getCard` 返回）。
+   * 设置 A2A v1.0 AgentCard（供取卡方法与 well-known 路由返回）。
    * @param card AgentCard。
    * @returns 无返回值。
    */
@@ -104,25 +145,47 @@ export class A2aServer {
   }
 
   /**
-   * 处理入站 JSON-RPC 请求：dispatch 后按 id 回写响应；错误映射为
-   * UNAUTHORIZED / INVALID 错误响应（通知类无 id 时只吞错不回写）。
+   * 处理入站 JSON-RPC 请求：流式方法走多响应通道，其余方法单响应；
+   * 错误按 `A2aProtocolError.code`（缺省 INVALID / UNAUTHORIZED）映射。
    * @param message 入站 JSON-RPC 消息（非请求/通知则忽略）。
-   
    * @returns 无返回值。
    */
   private async onMessage(message: RpcMessage): Promise<void> {
     if (!('method' in message)) return; // 响应，忽略
     const id = 'id' in message ? message.id : null;
+    const params = (message as { readonly params?: unknown }).params;
     try {
-      const result = await this.dispatch(message.method, (message as { params?: unknown }).params);
-      if (id !== null) this.transport.send(jsonRpc.response(id, result));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (id !== null) {
-        const code = msg.includes('UNAUTHORIZED') ? A2A_ERROR_UNAUTHORIZED : A2A_ERROR_INVALID;
-        this.transport.send(jsonRpc.errorResponse(id, code, msg));
+      if (STREAMING_METHODS.has(message.method)) {
+        if (id === null) throw new A2aProtocolError('流式方法必须带 id', A2A_ERROR_INVALID);
+        this.assertV1(params);
+        await this.handleStream(message.method, params, id);
+        return;
       }
+      const result = await this.dispatch(message.method, params);
+      if (id !== null) this.transport.send(jsonRpc.response(id, result));
+    } catch (error) {
+      if (id === null) return;
+      const mapped = A2aServer.errorOf(error);
+      this.transport.send(jsonRpc.errorResponse(id, mapped.code, mapped.message));
     }
+  }
+
+  /**
+   * 处理流式方法：把每次 respond 编码为同一 id 的 JSON-RPC 响应（HTTP 传输落为 SSE）。
+   * @param method 流式方法名。
+   * @param params 请求参数。
+   * @param id JSON-RPC 请求 id。
+   * @returns 无返回值。
+   */
+  private async handleStream(method: string, params: unknown, id: number | string): Promise<void> {
+    const respond = (payload: unknown): void => {
+      this.transport.send(jsonRpc.response(id, payload));
+    };
+    if (method === A2A_MESSAGE_STREAM) {
+      await this.v1.stream(params, respond);
+      return;
+    }
+    await this.v1.subscribe(params, respond);
   }
 
   /**
@@ -131,7 +194,7 @@ export class A2aServer {
    * 断言位置兼容两种：顶层 `params.assertion`（传输层把 HTTP `Authorization` 原文放入），
    * 或 `params.message.metadata.assertion`（A2A 消息元数据形态）。
    * @param params 请求参数。
-   * @returns 无返回值；缺失/验签失败时抛 `UNAUTHORIZED`。
+   * @returns 无返回值。
    */
   private assertV1(params: unknown): void {
     if (this.identity === undefined) {
@@ -148,10 +211,10 @@ export class A2aServer {
           ? payload.message.metadata.assertion
           : undefined;
     if (raw === undefined) {
-      throw new Error('UNAUTHORIZED: 缺失 v1 请求签名');
+      throw new A2aProtocolError('UNAUTHORIZED: 缺失 v1 请求签名', A2A_ERROR_UNAUTHORIZED);
     }
     if (!this.verifyAssertion(raw)) {
-      throw new Error('UNAUTHORIZED: v1 请求验签失败');
+      throw new A2aProtocolError('UNAUTHORIZED: v1 请求验签失败', A2A_ERROR_UNAUTHORIZED);
     }
   }
 
@@ -159,8 +222,6 @@ export class A2aServer {
    * fail-closed 验签：未配置身份即放行（零破坏）；配置了身份则必须验过。
    * 接受两种原文形态——裸签名信封，或 HTTP `Authorization` 头形态
    * （`AgentAssertion <envelope>`，即 `AgentIdentityPort.authorizationHeader()` 的直接产物）。
-   * 此前只按裸信封解码，导致**真实 Ed25519 身份下客户端发出的断言恒解析失败**
-   * （仅自造桩身份因自带去前缀逻辑而侥幸通过）——E2 跨进程实测才暴露。
    * @param assertion 断言原文（可带 `AgentAssertion ` 前缀）；undefined 视为缺失。
    * @returns 验签通过为 true；缺失 / 格式非法 / 验签失败一律 false（绝不抛错谎称通过）。
    */
@@ -178,102 +239,110 @@ export class A2aServer {
   }
 
   /**
-   * 按 A2A 方法名分发：capabilities.declare 登记（可选验签）、task.delegate 转交 handler。
+   * 按方法名分发（私有委托面 → v1 互操作面）。
    * @param method JSON-RPC 方法名。
-   * @param params 方法参数（声明或委托请求）。
-   * @returns 方法执行结果（如 { accepted: true } 或 DelegateResult）；未知方法、验签失败或缺 handler 时抛错。
+   * @param params 方法参数。
+   * @returns 方法执行结果。
    */
   private async dispatch(method: string, params: unknown): Promise<unknown> {
     if (method === A2A_CAPABILITIES_DECLARE) {
       const decl = params as A2aCapabilityDeclaration;
       // fail-closed：配置了身份就必须验签，缺失或验不过即拒。
       if (this.identity !== undefined && decl.assertion === undefined) {
-        throw new Error('UNAUTHORIZED: 缺失能力声明签名');
+        throw new A2aProtocolError('UNAUTHORIZED: 缺失能力声明签名', A2A_ERROR_UNAUTHORIZED);
       }
-      if (!this.verifyAssertion(decl.assertion)) throw new Error('UNAUTHORIZED: 能力声明验签失败');
+      if (!this.verifyAssertion(decl.assertion)) {
+        throw new A2aProtocolError('UNAUTHORIZED: 能力声明验签失败', A2A_ERROR_UNAUTHORIZED);
+      }
       this.declarations.set(decl.agentId, decl);
       return { accepted: true };
     }
     if (method === A2A_TASK_DELEGATE) {
-      if (this.handler === undefined) throw new Error('未配置任务处理器');
+      if (this.handler === undefined) {
+        throw new A2aProtocolError('未配置任务处理器', A2A_ERROR_UNSUPPORTED_OPERATION);
+      }
       const req = params as DelegateRequest;
       if (this.identity !== undefined && req.assertion === undefined) {
-        throw new Error('UNAUTHORIZED: 缺失委托请求签名');
+        throw new A2aProtocolError('UNAUTHORIZED: 缺失委托请求签名', A2A_ERROR_UNAUTHORIZED);
       }
-      if (!this.verifyAssertion(req.assertion)) throw new Error('UNAUTHORIZED: 委托请求验签失败');
+      if (!this.verifyAssertion(req.assertion)) {
+        throw new A2aProtocolError('UNAUTHORIZED: 委托请求验签失败', A2A_ERROR_UNAUTHORIZED);
+      }
       return await this.handler.handle(req);
     }
-    // A2A v1.0 最小互操作面：message/send / tasks/get / agent/getCard。
-    // 2026-10-21：v1 的 message/send 与 tasks/get 此前**完全绕过验签**（配置了身份也能免签
-    // 委托/读任务），与类注释「对所有入站请求强制验签」相反。现在按同一口径校验：
-    // 断言可放在 `params.assertion` 或 `message.metadata.assertion`（HTTP 头形态由传输层
-    // 直接透传为 `params.assertion` 即可）；agent/getCard 是公开能力声明，不要求签名。
-    if (method === A2A_MESSAGE_SEND) {
-      this.assertV1(params);
-      return await this.handleV1Message(params);
+    if (V1_PROTECTED.has(method)) this.assertV1(params);
+    switch (method) {
+      case A2A_MESSAGE_SEND:
+        return await this.v1.send(params);
+      case A2A_TASKS_GET:
+        return this.v1.get(params);
+      case A2A_TASKS_CANCEL:
+        return this.v1.cancel(params);
+      case A2A_TASKS_LIST:
+        return this.v1.list(params);
+      case A2A_PUSH_SET:
+        return this.v1.pushSet(params);
+      case A2A_PUSH_GET:
+        return this.v1.pushGet(params);
+      case A2A_PUSH_LIST:
+        return this.v1.pushList(params);
+      case A2A_PUSH_DELETE:
+        return this.v1.pushDelete(params);
+      case A2A_AGENT_GET_CARD:
+        if (this.card === undefined) {
+          throw new A2aProtocolError('未配置 AgentCard', A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED);
+        }
+        return this.card;
+      case A2A_AGENT_GET_AUTHENTICATED_CARD:
+        return this.authenticatedCard();
+      default:
+        throw new A2aProtocolError(`未知方法: ${method}`, A2A_ERROR_METHOD_NOT_FOUND);
     }
-    if (method === A2A_TASKS_GET) {
-      this.assertV1(params);
-      const id = (params as { id?: unknown }).id;
-      const task = typeof id === 'string' ? this.tasks.get(id) : undefined;
-      if (task === undefined) throw new Error(`未知任务: ${String(id)}`);
-      return task;
-    }
-    if (method === A2A_AGENT_GET_CARD) {
-      if (this.card === undefined) throw new Error('未配置 AgentCard');
-      return this.card;
-    }
-    throw new Error(`未知方法: ${method}`);
   }
 
   /**
-   * 处理 A2A v1.0 `message/send`：把消息里的 text parts 交给 TaskHandler，返回 Task。
-   *
-   * 兼容口径：不强制要求 `kind`（v1.0 已删除该判别字段）；`contextId` 原样回传；
-   * 没有文本 part 时 fail-closed（不凭空造任务）。
-   * @param params `{ message: { parts: [{type:'text', text}], messageId? }, contextId? }`
-   * @returns 完成的 Task（成功带 artifacts，失败带 error）。
+   * 取认证后的扩展 AgentCard（必须声明 `capabilities.extendedAgentCard` 且配置了身份）。
+   * @returns 扩展 AgentCard。
    */
-  private async handleV1Message(params: unknown): Promise<A2aTask> {
-    if (this.handler === undefined) throw new Error('未配置任务处理器');
-    const payload = params as {
-      readonly message?: {
-        readonly parts?: readonly { readonly type?: string; readonly text?: string }[];
-        readonly messageId?: string;
-      };
-      readonly contextId?: string;
-    };
-    const text = (payload.message?.parts ?? [])
-      .filter((part) => part.type === 'text' && typeof part.text === 'string')
-      .map((part) => part.text ?? '')
-      .join('\n')
-      .trim();
-    if (text === '') throw new Error('message/send 缺少文本 part');
-    const id =
-      payload.message?.messageId ?? `task-${String(Date.now())}-${String(this.tasks.size)}`;
-    const contextId = payload.contextId;
-    const result = await this.handler.handle({
-      taskId: id,
-      task: text,
-      ...(contextId !== undefined ? { parentSessionId: contextId } : {}),
-    });
-    const task: A2aTask = {
-      id,
-      ...(contextId !== undefined ? { contextId } : {}),
-      status: { state: result.ok ? 'completed' : 'failed', timestamp: new Date().toISOString() },
-      ...(result.ok
-        ? {
-            artifacts: [
-              {
-                artifactId: `${id}-output`,
-                parts: [{ type: 'text' as const, text: result.output }],
-              },
-            ],
-          }
-        : { error: result.error ?? '任务失败' }),
-    };
-    this.tasks.set(id, task);
-    return task;
+  private authenticatedCard(): A2aAgentCard {
+    if (this.card === undefined) {
+      throw new A2aProtocolError('未配置 AgentCard', A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED);
+    }
+    if (this.identity === undefined) {
+      throw new A2aProtocolError(
+        'UNAUTHORIZED: 未配置身份，无法提供认证扩展卡',
+        A2A_ERROR_UNAUTHORIZED,
+      );
+    }
+    if (this.card.capabilities?.extendedAgentCard !== true) {
+      throw new A2aProtocolError(
+        '未声明 capabilities.extendedAgentCard',
+        A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED,
+      );
+    }
+    return this.card;
+  }
+
+  /**
+   * 异常 → JSON-RPC 错误码（协议错误透传；UNAUTHORIZED 归一；其余按非法参数）。
+   * @param error 异常。
+   * @returns 错误码与可读消息。
+   */
+  private static errorOf(error: unknown): { readonly code: number; readonly message: string } {
+    if (error instanceof A2aProtocolError) {
+      return { code: error.code, message: error.message };
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('UNAUTHORIZED')) {
+      return { code: A2A_ERROR_UNAUTHORIZED, message };
+    }
+    if (message.includes('未知任务')) {
+      return { code: A2A_ERROR_TASK_NOT_FOUND, message };
+    }
+    if (message.includes('不可取消')) {
+      return { code: A2A_ERROR_TASK_NOT_CANCELABLE, message };
+    }
+    return { code: A2A_ERROR_INVALID, message };
   }
 }
 

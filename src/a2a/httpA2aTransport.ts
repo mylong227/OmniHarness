@@ -12,6 +12,7 @@ import http from 'node:http';
 import type { RpcMessage } from '../server/core/jsonRpc.ts';
 import { jsonRpc } from '../server/core/jsonRpc.ts';
 import type { A2aTransport } from './a2aProtocol.ts';
+import { A2A_MESSAGE_STREAM, A2A_TASKS_RESUBSCRIBE, A2A_TASKS_SUBSCRIBE } from './a2aProtocol.ts';
 import { SsrfGuard } from '../security/ssrfGuard.ts';
 import type { SsrfOptions } from '../security/ssrfGuard.ts';
 import { log } from '../util/logger.ts';
@@ -112,6 +113,13 @@ export class HttpA2aServerTransport implements A2aTransport {
     string,
     { readonly remoteId: number | string; readonly resolve: (m: RpcMessage) => void }
   >();
+  /**
+   * 流式响应通道（同一 JSON-RPC id 的多条响应 → SSE）。
+   *
+   * 与 `resolvers` 分开存放：单响应与流式响应的收尾条件不同（前者首条即删，后者要等到
+   * `final:true` 或错误响应），混在一张表里极易把后续事件写进已结束的响应。
+   */
+  private readonly streams = new Map<string, http.ServerResponse>();
   /** 服务端唯一键的单调计数器（进程内唯一即可，不跨进程保证）。 */
   private seq = 0;
   /** 底层 node:http 服务实例（listen 后才有值）。 */
@@ -151,6 +159,11 @@ export class HttpA2aServerTransport implements A2aTransport {
       return;
     }
     const key = String(message.id);
+    const stream = this.streams.get(key);
+    if (stream !== undefined) {
+      this.writeStream(key, stream, message);
+      return;
+    }
     const entry = this.resolvers.get(key);
     if (entry === undefined) {
       return;
@@ -199,7 +212,11 @@ export class HttpA2aServerTransport implements A2aTransport {
       res.end();
       return true;
     }
-    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+    // A2A 1.0 §8.6：AgentCard 变化频率低，应给出缓存提示（客户端可据此条件请求）。
+    res.writeHead(200, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'public, max-age=300',
+    });
     res.end(JSON.stringify(this.card));
     return true;
   }
@@ -247,49 +264,169 @@ export class HttpA2aServerTransport implements A2aTransport {
       chunks.push(chunk);
     });
     req.on('end', () => {
-      if (aborted) {
-        return;
-      }
-      const body = Buffer.concat(chunks).toString('utf8');
-      const msg = jsonRpc.parse(body);
-      if (msg === undefined || !('method' in msg)) {
-        res.writeHead(400);
-        res.end();
-        return;
-      }
-      const id = 'id' in msg ? msg.id : null;
-      if (id === null) {
-        res.writeHead(400);
-        res.end();
-        return;
-      }
-      this.seq += 1;
-      const key = `a2a-${String(this.seq)}`;
-      const promise = new Promise<RpcMessage>((resolve) => {
-        this.resolvers.set(key, { remoteId: id, resolve });
-      });
-      // 对端在响应前断开 ⇒ 该挂起项永远不会被回写，必须就地回收，否则长跑服务里逐请求泄漏
-      // （审计 X4：原实现无 close 清理，resolver 与连接一起悬着）。
-      res.on('close', () => {
-        this.resolvers.delete(key);
-      });
-      this.callback?.({ ...msg, id: key });
-      promise
-        .then((response) => {
-          res.writeHead(200, { 'content-type': 'application/json' });
-          res.end(JSON.stringify(response));
-        })
-        .catch(() => {
-          res.writeHead(500);
-          res.end();
-        });
+      if (aborted) return;
+      this.handleBody(req, res, chunks);
     });
   }
 
-  /** 关闭传输：停止 HTTP 服务监听，释放端口。
+  /**
+   * 解析已读入的请求体并分发（JSON-RPC / SSE）。
+   * @param req 入站请求（用于认证头）。
+   * @param res 响应对象。
+   * @param chunks 已读入的请求体分片。
+   * @returns 无返回值。
+   */
+  private handleBody(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    chunks: readonly Buffer[],
+  ): void {
+    const body = Buffer.concat(chunks).toString('utf8');
+    const msg = jsonRpc.parse(body);
+    if (msg === undefined || !('method' in msg)) {
+      res.writeHead(400);
+      res.end();
+      return;
+    }
+    const id = 'id' in msg ? msg.id : null;
+    if (id === null) {
+      res.writeHead(400);
+      res.end();
+      return;
+    }
+    this.seq += 1;
+    const key = `a2a-${String(this.seq)}`;
+    // HTTP `Authorization` 原文注入 `params.assertion`：A2A 1.0 的认证在绑定层，
+    // JSON-RPC 请求体本身不带凭据；不注入则真实客户端按规范发 Bearer/AgentAssertion
+    // 头时，服务端永远判「缺失签名」。
+    const enriched = HttpA2aServerTransport.attachAuthorization(msg, req);
+    if (HttpA2aServerTransport.isStreaming(msg.method)) {
+      this.openStream(key, res);
+      this.callback?.({ ...enriched, id: key });
+      return;
+    }
+    const promise = new Promise<RpcMessage>((resolve) => {
+      this.resolvers.set(key, { remoteId: id, resolve });
+    });
+    // 对端在响应前断开 ⇒ 该挂起项永远不会被回写，必须就地回收，否则长跑服务里逐请求泄漏
+    // （审计 X4：原实现无 close 清理，resolver 与连接一起悬着）。
+    res.on('close', () => {
+      this.resolvers.delete(key);
+    });
+    this.callback?.({ ...enriched, id: key });
+    promise
+      .then((response) => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(response));
+      })
+      .catch(() => {
+        res.writeHead(500);
+        res.end();
+      });
+  }
+
+  /**
+   * 开启 SSE 流式响应（同一 JSON-RPC id 的多条响应逐条 `data:` 写出）。
+   * @param key 服务端唯一键。
+   * @param res 响应对象。
+   * @returns 无返回值。
+   */
+  private openStream(key: string, res: http.ServerResponse): void {
+    res.writeHead(200, {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    });
+    res.flushHeaders();
+    this.streams.set(key, res);
+    res.on('close', () => {
+      this.streams.delete(key);
+    });
+  }
+
+  /**
+   * 写一条 SSE 事件；`final:true`（或错误响应）后结束流并回收。
+   * @param key 服务端唯一键。
+   * @param res 响应对象。
+   * @param message JSON-RPC 响应。
+   * @returns 无返回值。
+   */
+  private writeStream(key: string, res: http.ServerResponse, message: RpcMessage): void {
+    if (res.writableEnded) {
+      this.streams.delete(key);
+      return;
+    }
+    res.write(`data: ${JSON.stringify(message)}\n\n`);
+    if (HttpA2aServerTransport.isFinal(message)) {
+      res.end();
+      this.streams.delete(key);
+    }
+  }
+
+  /**
+   * 判断消息是否为某条流式逻辑的最后一条。
+   * @param message JSON-RPC 响应。
+   * @returns 错误响应，或 `statusUpdate.final` / `artifactUpdate.final` 为 true 时为 true。
+   */
+  private static isFinal(message: RpcMessage): boolean {
+    if ('error' in message) return true;
+    const result = (message as { readonly result?: unknown }).result;
+    if (typeof result !== 'object' || result === null) return false;
+    const record = result as Record<string, unknown>;
+    if (record['final'] === true) return true;
+    for (const key of ['statusUpdate', 'artifactUpdate'] as const) {
+      const nested = record[key];
+      if (
+        typeof nested === 'object' &&
+        nested !== null &&
+        (nested as Record<string, unknown>)['final'] === true
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 是否流式方法（同一 id 的多条响应）。
+   * @param method JSON-RPC 方法名。
+   * @returns 流式方法为 true。
+   */
+  private static isStreaming(method: string): boolean {
+    return (
+      method === A2A_MESSAGE_STREAM ||
+      method === A2A_TASKS_SUBSCRIBE ||
+      method === A2A_TASKS_RESUBSCRIBE
+    );
+  }
+
+  /**
+   * 把 HTTP `Authorization` 头注入请求参数的 `assertion`（不覆盖已有值）。
+   * @param message 解析后的 JSON-RPC 消息。
+   * @param req 入站请求。
+   * @returns 注入后的消息。
+   */
+  private static attachAuthorization(message: RpcMessage, req: http.IncomingMessage): RpcMessage {
+    const authorization = req.headers['authorization'];
+    if (typeof authorization !== 'string' || authorization.trim() === '') return message;
+    const params = (message as { readonly params?: unknown }).params;
+    const record =
+      typeof params === 'object' && params !== null && !Array.isArray(params)
+        ? { ...(params as Record<string, unknown>) }
+        : {};
+    if (record['assertion'] === undefined) record['assertion'] = authorization;
+    return { ...message, params: record } as RpcMessage;
+  }
+
+  /** 关闭传输：结束全部 SSE 流并停止 HTTP 服务监听，释放端口。
    * @returns 无返回值。
    */
   public close(): void {
+    for (const response of this.streams.values()) {
+      if (!response.writableEnded) response.end();
+    }
+    this.streams.clear();
     this.server?.close();
   }
 }

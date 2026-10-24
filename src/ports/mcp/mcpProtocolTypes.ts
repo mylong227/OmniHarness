@@ -133,12 +133,115 @@ export interface McpPromptDescriptor {
 
 /**
  * @beta
- * MCP 能力声明（tools / resources / prompts）。
+ * MCP 服务端能力声明（2026-07-28：tools/resources/prompts 的 `listChanged`/`subscribe`
+ * 子能力 + 官方扩展协商位 `extensions`）。
  */
 export interface McpCapabilities {
-  readonly tools?: Record<string, never>;
-  readonly resources?: Record<string, never>;
-  readonly prompts?: Record<string, never>;
+  /** 工具能力；`listChanged` 表示服务端会发 `notifications/tools/list_changed`。 */
+  readonly tools?: { readonly listChanged?: boolean };
+  /** 资源能力；`subscribe`/`listChanged` 对应 `subscriptions/listen` 的两类资源通知。 */
+  readonly resources?: { readonly subscribe?: boolean; readonly listChanged?: boolean };
+  /** 提示模板能力；`listChanged` 表示会发 `notifications/prompts/list_changed`。 */
+  readonly prompts?: { readonly listChanged?: boolean };
+  /**
+   * 扩展协商位：扩展标识 → 该扩展的 settings 对象（空对象表示支持且无额外设置）。
+   * 键名遵循 `_meta` 命名规则（必须带前缀），本仓只声明真正实现的扩展。
+   */
+  readonly extensions?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+}
+
+/**
+ * @beta
+ * MCP 客户端能力声明（2026-07-28 每请求 `_meta` 携带）。
+ *
+ * 只建模本仓会**消费**的位：MRTR 的 `elicitation`/`sampling`/`roots`，以及扩展协商位。
+ * 未声明的能力不得据此假设（规范：服务端 MUST NOT 依赖客户端未声明的能力）。
+ */
+export interface McpClientCapabilities {
+  /** 客户端支持 `roots/list`（MRTR 输入请求类型）。 */
+  readonly roots?: Readonly<Record<string, unknown>>;
+  /** 客户端支持 `sampling/createMessage`（MRTR）。 */
+  readonly sampling?: Readonly<Record<string, unknown>>;
+  /** 客户端支持 `elicitation/create`（MRTR）。 */
+  readonly elicitation?: Readonly<Record<string, unknown>>;
+  /** 客户端支持的扩展。 */
+  readonly extensions?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * @beta
+ * 可缓存结果字段（2026-07-28 CacheableResult）。
+ */
+export interface McpCacheableResult {
+  /** 新鲜度提示（毫秒；0 表示立即过期）。 */
+  readonly ttlMs: number;
+  /** 缓存范围：`public` 可跨授权上下文共享；`private` 只能在同一授权上下文内复用。 */
+  readonly cacheScope: 'public' | 'private';
+}
+
+/**
+ * @beta
+ * 资源模板描述（`resources/templates/list` 返回项）。
+ */
+export interface McpResourceTemplate {
+  /** RFC 6570 URI 模板。 */
+  readonly uriTemplate: string;
+  /** 模板名。 */
+  readonly name: string;
+  /** 模板说明。 */
+  readonly description?: string;
+  /** 所有匹配资源的 MIME 类型（类型一致时才给）。 */
+  readonly mimeType?: string;
+}
+
+/**
+ * @beta
+ * 一条 MRTR 输入请求（`inputRequests` 的值）。
+ */
+export interface McpInputRequestSpec {
+  /** 输入请求方法（`elicitation/create` / `sampling/createMessage` / `roots/list`）。 */
+  readonly method: string;
+  /** 方法参数（形状由方法决定）。 */
+  readonly params: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * @beta
+ * MRTR 输入请求映射（键为服务端分配的 id，值为请求对象）。
+ */
+export type McpInputRequests = Readonly<Record<string, McpInputRequestSpec>>;
+
+/**
+ * @beta
+ * MRTR 输入回答映射（键与 {@link McpInputRequests} 对齐）。
+ */
+export type McpInputResponses = Readonly<Record<string, unknown>>;
+
+/**
+ * @beta
+ * MRTR 中间结果（`resultType:"input_required"`）。
+ */
+export interface McpInputRequiredResult {
+  readonly resultType: 'input_required';
+  /** 需要客户端补充的输入请求（与 `requestState` 至少给一个）。 */
+  readonly inputRequests?: McpInputRequests;
+  /** 服务端不透明状态（客户端必须原样回传，不得解析）。 */
+  readonly requestState?: string;
+}
+
+/**
+ * @beta
+ * 订阅过滤器（`subscriptions/listen` 的 `notifications` 参数）。
+ */
+export interface McpSubscriptionFilter {
+  /** 接收 `notifications/tools/list_changed`。 */
+  readonly toolsListChanged?: boolean;
+  /** 接收 `notifications/prompts/list_changed`。 */
+  readonly promptsListChanged?: boolean;
+  /** 接收 `notifications/resources/list_changed`。 */
+  readonly resourcesListChanged?: boolean;
+  /** 接收这些 URI 的 `notifications/resources/updated`。 */
+  readonly resourceSubscriptions?: readonly string[];
 }
 
 /**

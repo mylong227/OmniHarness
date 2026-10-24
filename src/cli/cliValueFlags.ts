@@ -26,6 +26,7 @@ export const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--storage-dir',
   '--approval',
   '--approval-ask',
+  '--acp-permission',
   '--sandbox',
   '--escalation',
   '--elevated-sandbox',
