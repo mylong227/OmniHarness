@@ -143,6 +143,9 @@ test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 
   // 2026-10-21：信号收尾（含 retire）拆到 `serveShutdown.ts`（CliServerCmds 行数门禁），
   // 接线断言必须跟着实现走——否则「实现搬了、判据还在旧文件」会变成一条假红。
   const shutdownSource = readFileSync(join(REPO_ROOT, 'src/cli/serveShutdown.ts'), 'utf8');
+  // 2026-10-24：实例记录/就绪文件/UI 地址收尾拆到 `serveAnnounce.ts`（CliServerCmds 行数门禁），
+  // 接线断言跟实现走；`sweep` 仍在 cliServerCmds（绑定前清扫）。
+  const announceSource = readFileSync(join(REPO_ROOT, 'src/cli/serveAnnounce.ts'), 'utf8');
   assert.match(
     source,
     /catch \(error\)[\s\S]{0,400}?ServePortConflict\.probe\(port\)/u,
@@ -155,7 +158,7 @@ test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 
     /ServePortConflict\.advice\(port, holder,/u,
     '必须把可行动提示打给用户（并带上实例记录）',
   );
-  assert.match(source, /ServeInstance\.announce\(/u, '绑定成功后必须写下实例记录');
+  assert.match(announceSource, /ServeInstance\.announce\(/u, '绑定成功后必须写下实例记录');
   assert.match(source, /ServeInstance\.sweep\(/u, '启动/冲突时必须清扫已死进程留下的陈旧记录');
   assert.match(
     shutdownSource,

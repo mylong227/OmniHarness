@@ -16,7 +16,7 @@ async function bundle(entry, outfile) {
     target: 'node22',
     format: 'cjs',
     sourcemap: true,
-    external: ['electron'],
+    external: ['electron', 'electron-updater'],
     logLevel: 'info',
   });
 }

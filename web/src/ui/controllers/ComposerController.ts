@@ -8,6 +8,7 @@ import type { ToolResultView } from '../shared.ts';
 import type { SessionController } from './SessionController.ts';
 import { MethodBinder } from './methodBinder.ts';
 import { t } from '../i18n/i18n.ts';
+import { notifyDesktop } from '../../core/desktop/DesktopBridge.ts';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
 export class ComposerController {
@@ -127,6 +128,11 @@ export class ComposerController {
       this.host.patch((s) =>
         s.streamText === '' ? {} : { streamText: '', finalizedStreamText: s.streamText },
       );
+      notifyDesktop({
+        title: '回合完成',
+        body: 'Agent 已完成本轮任务。',
+        ...(res.threadId ? { sessionId: res.threadId } : {}),
+      });
     } catch (e) {
       // 用户主动中断已由 stop() 即时收口（含「已中止」提示），此处不再重复报错。
       // 视图已换掉时也不写错误提示：那条报错属于用户已离开的回合，写进去只会让新视图莫名多出一条 system 事件。

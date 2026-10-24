@@ -3,7 +3,7 @@ productName: OmniHarness
 copyright: Copyright © 2026 mylong227
 directories:
   output: release
-  buildResources: build
+  buildResources: static
 files:
   - dist/**/*
   - package.json
@@ -12,7 +12,20 @@ extraResources:
     to: harness
 asar: true
 npmRebuild: false
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+protocols:
+  - name: OmniHarness
+    schemes:
+      - omniharness
 win:
+  icon: static/icon.png
   target:
     - target: nsis
       arch:

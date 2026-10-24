@@ -18,9 +18,17 @@ export interface DesktopState {
   recentWorkspaces: string[];
   /** 窗口位置/大小。 */
   window?: WindowBounds;
+  /** 关闭窗口时最小化到托盘（默认 true，长任务不中断）。 */
+  closeToTray?: boolean;
+  /** 开机启动（默认 false）。 */
+  openAtLogin?: boolean;
 }
 
-const DEFAULT_STATE: DesktopState = { recentWorkspaces: [] };
+const DEFAULT_STATE: DesktopState = {
+  recentWorkspaces: [],
+  closeToTray: true,
+  openAtLogin: false,
+};
 const MAX_RECENT = 8;
 
 /** 桌面偏好存储。 */
@@ -66,6 +74,26 @@ export class DesktopStateStore {
   }
 
   /**
+   * 设置“关闭到托盘”。
+   * @param enabled 是否启用。
+   * @returns 无返回值。
+   */
+  public setCloseToTray(enabled: boolean): void {
+    this.state = { ...this.state, closeToTray: enabled };
+    this.save();
+  }
+
+  /**
+   * 设置“开机启动”。
+   * @param enabled 是否启用。
+   * @returns 无返回值。
+   */
+  public setOpenAtLogin(enabled: boolean): void {
+    this.state = { ...this.state, openAtLogin: enabled };
+    this.save();
+  }
+
+  /**
    * 原子写入。
    * @returns 无返回值。
    */
@@ -106,6 +134,10 @@ export class DesktopStateStore {
       }
       return {
         recentWorkspaces: recent.slice(0, MAX_RECENT),
+        closeToTray:
+          typeof raw['closeToTray'] === 'boolean' ? raw['closeToTray'] : DEFAULT_STATE.closeToTray,
+        openAtLogin:
+          typeof raw['openAtLogin'] === 'boolean' ? raw['openAtLogin'] : DEFAULT_STATE.openAtLogin,
         ...(workspace !== undefined ? { workspace } : {}),
         ...(window !== undefined ? { window } : {}),
       };

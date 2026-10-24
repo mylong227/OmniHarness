@@ -1,6 +1,6 @@
 /** 桌面端纯逻辑测试：args / ready 契约 / 环境清洗（不启动 Electron GUI）。 */
 import { buildSync } from 'esbuild';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
@@ -27,10 +27,12 @@ function bundle(entry, name, external = []) {
 bundle('src/main/lib/args.ts', 'args');
 bundle('src/main/lib/ready.ts', 'ready');
 bundle('src/main/harnessSupervisor.ts', 'supervisor', ['electron']);
+bundle('src/main/desktopState.ts', 'desktopState');
 
 const { parseLaunchArgs } = await import(pathToFileURL(join(out, 'args.cjs')).href);
 const { parseReadyInfo } = await import(pathToFileURL(join(out, 'ready.cjs')).href);
 const { buildHarnessEnv } = await import(pathToFileURL(join(out, 'supervisor.cjs')).href);
+const { DesktopStateStore } = await import(pathToFileURL(join(out, 'desktopState.cjs')).href);
 
 test('parseLaunchArgs: workspace / inline / hidden / deep link', () => {
   assert.deepEqual(parseLaunchArgs(['electron', '.', '--workspace', 'D:\\ws']), {
@@ -84,4 +86,23 @@ test('buildHarnessEnv: strips dangerous vars and injects controlled vars', () =>
   assert.equal(env['ELECTRON_RUN_AS_NODE'], undefined);
   assert.equal(env['OMNI_SERVE_TOKEN'], 't');
   assert.equal(env['OMNI_NO_UI_URL'], '1');
+});
+
+test('DesktopStateStore: 默认值 + 持久化 + 重新加载', () => {
+  const dir = join(out, 'state');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const first = new DesktopStateStore(dir);
+  assert.equal(first.get().closeToTray, true);
+  assert.equal(first.get().openAtLogin, false);
+  assert.deepEqual(first.get().recentWorkspaces, []);
+  first.rememberWorkspace('D:\\ws');
+  first.setCloseToTray(false);
+  first.setOpenAtLogin(true);
+  const second = new DesktopStateStore(dir);
+  assert.equal(second.get().workspace, 'D:\\ws');
+  assert.equal(second.get().closeToTray, false);
+  assert.equal(second.get().openAtLogin, true);
+  assert.deepEqual(second.get().recentWorkspaces, ['D:\\ws']);
+  rmSync(dir, { recursive: true, force: true });
 });

@@ -10,6 +10,8 @@ export interface MainWindowOptions {
   readonly preload: string;
   /** 桌面偏好（窗口 bounds）。 */
   readonly state: DesktopStateStore;
+  /** 是否在 ready-to-show 时自动显示（`--hidden`/开机启动时为 false）。 */
+  readonly autoShow?: boolean;
 }
 
 /**
@@ -49,6 +51,7 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
     minHeight: 600,
     show: false,
     title: 'OmniHarness',
+    icon: join(__dirname, 'icon.png'),
     backgroundColor: '#16181d',
     autoHideMenuBar: false,
     webPreferences: {
@@ -67,7 +70,9 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
     },
   });
 
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => {
+    if (options.autoShow !== false) window.show();
+  });
   window.on('close', () => {
     if (!window.isDestroyed()) {
       const current = window.getNormalBounds();

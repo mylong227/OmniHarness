@@ -107,19 +107,33 @@ OmniHarness/
 ## 5. 安全基线
 
 - 渲染层：`sandbox: true`、`contextIsolation: true`、`nodeIntegration: false`、`webviewTag: false`。
-- preload 只暴露 `window.omni`（getInfo/pickWorkspace/openWorkspace/openLogs/openExternal/
-  restartHarness/quit），IPC 校验 sender + 主 frame + harness origin。
+- preload 只暴露 `window.omni`（getInfo/工作区/日志/外链/重启/通知/更新/深链订阅/退出），
+  IPC 校验 sender + 主 frame + harness origin；通知/更新参数再做结构/长度校验。
 - CSP 由主进程注入；导航/窗口打开/权限白名单；外链只允许 http(s)/mailto。
 - 侧车环境清洗：删除 `NODE_OPTIONS`/`NODE_PATH`/`NODE_EXTRA_CA_CERTS`/`ELECTRON_RUN_AS_NODE`。
 - Token：32 字节、仅内存；`OMNI_SERVE_TOKEN` 注入；`OMNI_NO_UI_URL=1` 抑制侧车横幅；日志脱敏。
 - Harness：`--port 0`、`OMNI_READY_FILE`、`OMNI_CONTROL_STDIO`、`OMNI_NO_SERVE_INSTANCE=1`。
 
-## 6. 测试
+## 6. 桌面能力（已接线）
+
+| 能力       | 实现                                                                                            |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| 托盘       | `TrayService`：显示/打开工作区/日志/检查更新/关闭到托盘/开机启动/退出                           |
+| 关闭到托盘 | 默认开；托盘不存在时自动不拦截关闭，避免“隐藏后找不回来”                                        |
+| 原生通知   | 审批/提问/回合完成时由 UI 调 `window.omni.notify`；窗口聚焦时主进程自动不打扰；点击通知聚焦会话 |
+| 深链       | 注册 `omniharness://`；支持 `open?workspace=...&session=...`；第二实例/`open-url` 转发给 UI     |
+| 单实例     | 第二实例聚焦已有窗口，并处理 `--workspace`/深链                                                 |
+| 开机启动   | `app.setLoginItemSettings`（Windows/macOS）；Linux 暂不伪装支持                                 |
+| 自动更新   | `electron-updater` + GitHub Releases；菜单/托盘“检查更新”，下载后确认安装；安装前优雅停 Harness |
+| 窗口状态   | 保存 bounds，恢复时校验可见屏幕；多显示器/DPI 变化兜底                                          |
+| 日志       | 主进程/Harness 分文件、脱敏、环形缓冲；菜单/托盘可打开目录                                      |
+
+## 7. 测试
 
 ```powershell
 cd desktop
 npm run typecheck
-npm test        # args / ready 契约 / 环境清洗
+npm test        # args / ready 契约 / 环境清洗 / 桌面偏好
 ```
 
 已执行的集成验证（本机 Node 22.20）：
@@ -131,25 +145,24 @@ HarnessSupervisor.start() → /healthz 200 → stop()
 
 GUI 级验证（窗口、CSP、菜单、IPC）需要在真实桌面跑；本会话的 Electron 沙箱不允许。
 
-## 7. 下一步（按 Codex 官方 App 对齐）
+## 8. 下一步（按 Codex 官方 App 对齐）
 
 1. **React UI 演进**：把 Codex 式的“项目 → 线程”、活动流、diff、`@` 文件、`/` 技能、
    Skills/Automations 做进 `web/src`，而不是只加载旧工作台。
-2. **原生能力**：托盘、通知、深链 `omniharness://`、开机启动、单实例转发。
-3. **更新**：electron-updater + GitHub Releases + 代码签名 + N-1 回滚。
-4. **安全**：精确 Origin/Host 校验、CSP 收紧到实际端口、Renderer 权限白名单复核。
-5. **打包**：图标、签名、安装/卸载保留 `~/.omniharness`、Windows 10/11 + 高 DPI 验收。
+2. **安全**：精确 Origin/Host 校验、CSP 收紧到实际端口、Renderer 权限白名单复核。
+3. **打包**：代码签名、N-1 升级实跑、安装/卸载保留 `~/.omniharness`、Windows 10/11 + 高 DPI 验收。
+4. **平台**：macOS 签名/公证；Linux 的托盘/通知能力按桌面环境降级验证。
 
-## 8. 与文档的关系
+## 9. 与文档的关系
 
 - 当前架构决策：[ADR-0017](../docs/adr/0017-electron-official-app.md)（已接受）。
 - 历史方案：[ADR-0016](../docs/adr/0016-native-desktop-ui.md)（Avalonia 原生，已废止）、
   [ADR-0015](../docs/adr/0015-desktop-shell.md)（Electron 早期版本，已废止）。
 - 原生 UI 调研：[DESKTOP_ARCHITECTURE_2026-10.md](../docs/DESKTOP_ARCHITECTURE_2026-10.md)（v2，历史）。
 
-## 9. 已知限制
+## 10. 已知限制
 
 - 当前直接复用现有 Web 工作台；**还不是 Codex 式的全新 React UI**。
-- 没有托盘/自动更新/深链/多窗口；关闭窗口即退出（会优雅停 Harness）。
-- 安装包未签名；`npm run dist` 需要 electron-builder 下载 NSIS/winCodeSign（本机网络下可能很慢）。
+- 托盘/通知/深链/开机启动/更新已接线，但 GUI 级验证需真实桌面；本会话 Electron 沙箱不允许。
+- 自动更新/安装包未签名，未完成 N-1 实跑；`npm run dist` 需要 electron-builder 下载 NSIS/winCodeSign。
 - macOS/Linux 未验证；`stageHarness`/`nodeBinary` 已按平台分支，但 electron-builder 配置目前只配 Windows。

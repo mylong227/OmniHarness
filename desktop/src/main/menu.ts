@@ -1,13 +1,29 @@
 /** 应用菜单（最小集；与官方 App 一致的“文件/编辑/视图/帮助”）。 */
-import { Menu, type MenuItemConstructorOptions } from 'electron';
+import { Menu, shell, type MenuItemConstructorOptions } from 'electron';
 
 /** 菜单回调。 */
 export interface MenuActions {
   openWorkspace(): void;
   openLogs(): void;
   restartHarness(): void;
+  checkForUpdates(): void;
+  closeToTray(): boolean;
+  setCloseToTray(enabled: boolean): void;
+  openAtLogin(): boolean;
+  setOpenAtLogin(enabled: boolean): void;
   quit(): void;
   isPackaged: boolean;
+}
+
+/** 最近一次菜单动作（设置变化时重建勾选状态）。 */
+let lastActions: MenuActions | null = null;
+
+/**
+ * 重建菜单（勾选项变化后调用）。
+ * @returns 无返回值。
+ */
+export function refreshMenu(): void {
+  if (lastActions !== null) installMenu(lastActions);
 }
 
 /**
@@ -16,6 +32,7 @@ export interface MenuActions {
  * @returns 无返回值。
  */
 export function installMenu(actions: MenuActions): void {
+  lastActions = actions;
   const isMac = process.platform === 'darwin';
   const template: MenuItemConstructorOptions[] = [
     ...(isMac
@@ -39,6 +56,20 @@ export function installMenu(actions: MenuActions): void {
       submenu: [
         { label: '打开工作区…', accelerator: 'CmdOrCtrl+O', click: actions.openWorkspace },
         { label: '重启 Harness', click: actions.restartHarness },
+        { label: '检查更新', click: actions.checkForUpdates },
+        { type: 'separator' },
+        {
+          label: '关闭时最小化到托盘',
+          type: 'checkbox',
+          checked: actions.closeToTray(),
+          click: (item) => actions.setCloseToTray(item.checked),
+        },
+        {
+          label: '开机启动',
+          type: 'checkbox',
+          checked: actions.openAtLogin(),
+          click: (item) => actions.setOpenAtLogin(item.checked),
+        },
         { type: 'separator' },
         { label: '打开日志目录', click: actions.openLogs },
         { type: 'separator' },
@@ -77,9 +108,7 @@ export function installMenu(actions: MenuActions): void {
         {
           label: 'OmniHarness on GitHub',
           click: () => {
-            void import('electron').then(({ shell }) =>
-              shell.openExternal('https://github.com/mylong227/OmniHarness'),
-            );
+            void shell.openExternal('https://github.com/mylong227/OmniHarness');
           },
         },
       ],

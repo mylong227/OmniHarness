@@ -35,6 +35,7 @@ import type { BrowserView, FileView, LiveInput, SessionEntry, ToolResultView, To
 import type { ComposerSeed } from '../shared.ts';
 import { AppReducers } from './AppReducers.ts';
 import { formatProfilePluginToast } from '../notify.ts';
+import { desktopBridge, notifyDesktop } from '../../core/desktop/DesktopBridge.ts';
 import { SessionController } from './SessionController.ts';
 import { ComposerController } from './ComposerController.ts';
 import { GraphController } from './GraphController.ts';
@@ -191,6 +192,8 @@ export class AppController {
   public commands: CommandItem[];
   /** 全局快捷键监听句柄（卸载时移除）。 */
   private keyHandler: ((e: KeyboardEvent) => void) | null = null;
+  /** 桌面通知/深链订阅（卸载时取消）。 */
+  private desktopUnsubscribes: Array<() => void> = [];
   /**
    * 「断开」宽限期（毫秒）：SSE 抖动先显示「重连中」，超过该时长仍未重连上才判「断开」。
    *
@@ -319,6 +322,29 @@ export class AppController {
     void this.children.sessions.refreshSessions(true);
     // F8：应用初始深链（面板 + 会话）并订阅浏览器前进 / 后退。
     this.routeBinding.start();
+    // 桌面端：点击原生通知/深链后聚焦到对应会话（浏览器下 desktopBridge() 为 null，自动 no-op）。
+    const bridge = desktopBridge();
+    if (bridge !== null) {
+      this.desktopUnsubscribes.push(
+        bridge.onNotificationClick((sessionId) => {
+          if (sessionId !== undefined && sessionId !== '') {
+            this.services.navigate({ threadId: sessionId });
+          }
+        }),
+      );
+      this.desktopUnsubscribes.push(
+        bridge.onDeepLink((url) => {
+          try {
+            const parsed = new URL(url);
+            const threadId =
+              parsed.searchParams.get('session') ?? parsed.searchParams.get('threadId');
+            if (threadId !== null && threadId !== '') this.services.navigate({ threadId });
+          } catch {
+            // 非法深链忽略；主进程已做协议/目录校验。
+          }
+        }),
+      );
+    }
   }
 
   /** 卸载：关闭 SSE 流、移除全局快捷键与路由订阅。 @returns 无 */
@@ -326,6 +352,8 @@ export class AppController {
     this.services.stream.close();
     this.clearStreamGrace();
     if (this.keyHandler) window.removeEventListener('keydown', this.keyHandler);
+    for (const unsubscribe of this.desktopUnsubscribes) unsubscribe();
+    this.desktopUnsubscribes = [];
     this.routeBinding.stop();
   }
 
@@ -367,10 +395,20 @@ export class AppController {
           break;
         case 'approval.request':
           this.host.patch({ approval: params as unknown as ApprovalRequest });
+          notifyDesktop({
+            title: '需要你的确认',
+            body: '有一个工具调用等待审批，请回到 OmniHarness 处理。',
+            ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
+          });
           break;
         case 'question.request':
           // 提问上行：卡片由该通知驱动（**不**依赖对话流里的 question 事件——事件端口可能不接 Web）。
           this.host.patch({ question: params as unknown as QuestionRequest });
+          notifyDesktop({
+            title: '需要你的回答',
+            body: 'Agent 正在等待你的回答。',
+            ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
+          });
           break;
         case 'memory.changed':
           this.host.patch((s) => ({ memoryReloadKey: s.memoryReloadKey + 1 }));

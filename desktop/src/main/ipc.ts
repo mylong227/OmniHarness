@@ -1,7 +1,9 @@
 /** 主进程 IPC：只暴露语义化能力，不提供任意命令/任意路径。 */
 import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { existsSync, statSync } from 'node:fs';
+import type { NotifyInput } from './notifications.ts';
 import { currentHarnessOrigin, openExternalSafely } from './security.ts';
+import type { UpdateStatus } from './updateService.ts';
 
 /** IPC 依赖。 */
 export interface IpcDeps {
@@ -17,6 +19,16 @@ export interface IpcDeps {
   openLogs(): Promise<void>;
   /** 重启 Harness。 */
   restartHarness(): Promise<void>;
+  /** 原生通知。 */
+  notify(input: NotifyInput): boolean;
+  /** 检查更新。 */
+  checkForUpdates(): Promise<void>;
+  /** 下载更新。 */
+  downloadUpdate(): Promise<void>;
+  /** 安装更新。 */
+  installUpdate(): Promise<void>;
+  /** 当前更新状态。 */
+  updateStatus(): UpdateStatus;
   /** 退出应用。 */
   quit(): void;
 }
@@ -57,10 +69,55 @@ export function registerIpc(deps: IpcDeps): void {
     assertTrusted(event, deps);
     await deps.restartHarness();
   });
+  ipcMain.handle('omni:notify', (event, input: unknown) => {
+    assertTrusted(event, deps);
+    return deps.notify(assertNotifyInput(input));
+  });
+  ipcMain.handle('omni:checkForUpdates', async (event) => {
+    assertTrusted(event, deps);
+    await deps.checkForUpdates();
+  });
+  ipcMain.handle('omni:downloadUpdate', async (event) => {
+    assertTrusted(event, deps);
+    await deps.downloadUpdate();
+  });
+  ipcMain.handle('omni:installUpdate', async (event) => {
+    assertTrusted(event, deps);
+    await deps.installUpdate();
+  });
+  ipcMain.handle('omni:getUpdateStatus', (event) => {
+    assertTrusted(event, deps);
+    return deps.updateStatus();
+  });
   ipcMain.handle('omni:quit', (event) => {
     assertTrusted(event, deps);
     deps.quit();
   });
+}
+
+/**
+ * 校验通知参数（渲染层不可信）。
+ * @param value 原始参数。
+ * @returns 合法输入。
+ */
+function assertNotifyInput(value: unknown): NotifyInput {
+  if (value === null || typeof value !== 'object') throw new Error('invalid notify');
+  const raw = value as Record<string, unknown>;
+  const title = raw['title'];
+  const body = raw['body'];
+  const sessionId = raw['sessionId'];
+  if (typeof title !== 'string' || title.trim() === '' || title.length > 160) {
+    throw new Error('invalid notify.title');
+  }
+  if (typeof body !== 'string' || body.length > 800) throw new Error('invalid notify.body');
+  if (sessionId !== undefined && (typeof sessionId !== 'string' || sessionId.length > 200)) {
+    throw new Error('invalid notify.sessionId');
+  }
+  return {
+    title,
+    body,
+    ...(sessionId !== undefined ? { sessionId } : {}),
+  };
 }
 
 /**
