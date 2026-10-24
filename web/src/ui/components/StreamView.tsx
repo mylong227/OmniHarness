@@ -48,6 +48,7 @@ import { StreamingAssistantCard } from './stream/StreamingAssistantCard.tsx';
 import { TurnSummaryCard } from './stream/TurnSummaryCard.tsx';
 import { CompactionNote } from '../models/CompactionNote.ts';
 import { NumberFormatter } from '../models/NumberFormatter.ts';
+import { SessionDuration } from '../models/SessionDuration.ts';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.ts';
 import type { ComposerSeed, LiveInput } from '../shared.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
@@ -147,6 +148,8 @@ export interface StreamViewProps {
   disabled?: boolean;
   /** 当前会话标题（中栏头；空串显示「新会话」）。 */
   sessionTitle?: string;
+  /** 当前会话服务端有效时长（ms；undefined 表示历史会话没有该字段）。 */
+  sessionActiveMs?: number;
   /** SSE 三态（透传给状态栏的连接口径；缺省不显示状态栏右段）。 */
   streamState?: 'open' | 'connecting' | 'closed';
   /** 模型适配器摘要（状态栏左段，如 `openai · gpt-4o`）。 */
@@ -476,6 +479,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onPermissionChange,
     disabled,
     sessionTitle,
+    sessionActiveMs,
     streamState,
     adapter,
     graphRuns,
@@ -514,6 +518,42 @@ export function StreamView(props: StreamViewProps): ReactElement {
   /** 回合收尾时刻（busy true→false）：过程簇此刻挂载，给它一次「回闪」高亮，
    *  提示「刚才的思考/工具过程已收纳在此」。0=无；历史加载不经此路径（恒 0，不闪）。 */
   const [settledAt, setSettledAt] = React.useState<number>(0);
+  /** 当前会话时钟：每秒 tick 一次；busySince 记录本回合开始（null=未在跑）。 */
+  const [clockNow, setClockNow] = React.useState<number>(() => Date.now());
+  const [busySince, setBusySince] = React.useState<number | undefined>(undefined);
+  /** 本回合开始时服务端已累计时长（busy 期间冻结，避免中途 refresh 把当前回合计两次）。 */
+  const busyBaseRef = React.useRef<number>(0);
+  const sessionActiveMsRef = React.useRef<number | undefined>(sessionActiveMs);
+  sessionActiveMsRef.current = sessionActiveMs;
+  const prevBusyForClockRef = React.useRef<boolean | undefined>(busy);
+  const prevThreadForClockRef = React.useRef<string | null | undefined>(threadId);
+  React.useEffect(() => {
+    const switched = prevThreadForClockRef.current !== threadId;
+    prevThreadForClockRef.current = threadId;
+    if (busy === true) {
+      if (prevBusyForClockRef.current !== true || switched) {
+        busyBaseRef.current =
+          typeof sessionActiveMsRef.current === 'number' && sessionActiveMsRef.current > 0
+            ? sessionActiveMsRef.current
+            : 0;
+        setBusySince(Date.now());
+        setClockNow(Date.now());
+      }
+      const timer = setInterval(() => setClockNow(Date.now()), 1000);
+      prevBusyForClockRef.current = true;
+      return () => clearInterval(timer);
+    }
+    setBusySince(undefined);
+    setClockNow(Date.now());
+    prevBusyForClockRef.current = false;
+    return undefined;
+  }, [busy, threadId]);
+  const sessionClock = SessionDuration.view(
+    busy === true ? busyBaseRef.current : sessionActiveMs,
+    busySince,
+    clockNow,
+    busy === true,
+  );
   const prevBusyRef = React.useRef<boolean | undefined>(busy);
   React.useEffect(() => {
     if (prevBusyRef.current === true && busy !== true) setSettledAt(Date.now());
@@ -688,6 +728,8 @@ export function StreamView(props: StreamViewProps): ReactElement {
       <ChatHeader
         title={sessionTitle ?? ''}
         busy={busy === true}
+        duration={sessionClock.visible ? sessionClock.label : ''}
+        durationState={sessionClock.state}
         view={view}
         onView={setView}
         onToggleLeft={onToggleLeft}

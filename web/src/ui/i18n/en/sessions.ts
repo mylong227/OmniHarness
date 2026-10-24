@@ -91,6 +91,8 @@ export const EN_SESSIONS: Record<string, string> = {
   '会话侧栏': 'Session sidebar',
   '打开会话侧栏': 'Open session sidebar',
   '任务进行中': 'Task in progress',
+  '已完成，用时 {duration}': 'Completed in {duration}',
+  '进行中，用时 {duration}': 'In progress · {duration}',
   '中栏视图': 'Center pane views',
   '展开功能面板（Ctrl/Cmd+Shift+E）': 'Expand panel (Ctrl/Cmd+Shift+E)',
   '收起功能面板（Ctrl/Cmd+Shift+E）': 'Collapse panel (Ctrl/Cmd+Shift+E)',

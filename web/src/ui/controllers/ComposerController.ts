@@ -187,6 +187,9 @@ export class ComposerController {
       finalizedStreamText: s.streamText === '' ? s.finalizedStreamText : s.streamText,
       streamText: '',
     }));
+    // 回合收尾刷新一次会话列表：中栏「已完成，用时 …」依赖服务端 activeMs；正常路径在
+    // runTurn 返回时也会刷，但中止/失败路径没有，计数器会停在旧值。best-effort，不阻塞收尾。
+    void this.sessions.refreshSessions();
   }
 
   /**

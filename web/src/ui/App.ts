@@ -235,6 +235,11 @@ function sessionTitleOf(s: AppState): string {
   return '';
 }
 
+/** 当前会话服务端有效时长（ms；历史会话/新会话可能没有）。 */
+function sessionActiveMsOf(s: AppState): number | undefined {
+  return s.sessions.find((x) => x.id === s.currentThreadId)?.activeMs;
+}
+
 /**
  * 装配顶层 DOM 树（三栏主体 + 审批弹窗 + 抽屉遮罩 + 命令面板 + toast）。
  * 壳层为截图式三栏：会话侧栏（品牌 / 新会话 / 插件 / 工作区 / 设置）+ 中栏对话 + 右栏代码查看器；
@@ -330,6 +335,7 @@ function renderBody(
         onPermissionChange: ctrl.composer.changePermission,
         api: ctrl.api,
         sessionTitle: sessionTitleOf(s),
+        sessionActiveMs: sessionActiveMsOf(s),
         streamState: s.streamState,
         adapter: s.adapter,
         onToggleLeft: () => ctrl.layout.toggleLeft(),

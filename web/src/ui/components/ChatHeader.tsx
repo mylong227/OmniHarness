@@ -15,6 +15,10 @@ export interface ChatHeaderProps {
   title: string;
   /** 回合进行中——显示忙碌徽标（诚实口径：有多少显示多少，不虚构后台任务数）。 */
   busy: boolean;
+  /** 当前会话时长文案（形如「已完成，用时 4秒」；空串/缺省不渲染）。 */
+  duration?: string;
+  /** 时长展示态（running 高亮计时、done 常规）。 */
+  durationState?: 'running' | 'done';
   /** 当前视图。 */
   view: ChatViewKind;
   /** 切换视图。 */
@@ -55,6 +59,18 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       <div className="chat-title" title={title}>
         {title === '' ? t('新会话') : title}
       </div>
+      {props.duration === undefined || props.duration === '' ? null : (
+        <span
+          className={
+            'chat-duration' +
+            (props.durationState === 'running' ? ' chat-duration-running' : '')
+          }
+          role="status"
+          aria-live="off"
+        >
+          {props.duration}
+        </span>
+      )}
       {busy ? (
         <span className="chat-busy" role="status">
           <span className="wi-dot" aria-hidden="true"></span>{t('任务进行中')}
