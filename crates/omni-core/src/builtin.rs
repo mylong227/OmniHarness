@@ -442,9 +442,14 @@ fn run_shell_in(
     let timeout = timeout_ms.map(std::time::Duration::from_millis);
     #[cfg(windows)]
     let (output, timed_out) = if let Some(inner) =
+        command.strip_prefix(crate::restricted_token::WRITE_RESTRICTED_COMMAND_PREFIX)
+    {
+        // 写隔离路径：以工作目录为唯一可写根；Job Object 自行限额，保持阻塞语义。
+        (run_write_restricted_capture(inner, cwd)?, false)
+    } else if let Some(inner) =
         command.strip_prefix(crate::restricted_token::RESTRICTED_COMMAND_PREFIX)
     {
-        // 受限令牌路径由 Job Object 自行限额；这里保持阻塞语义（不接墙钟超时）。
+        // 旧的前缀保留兼容：只削减特权，不做文件写隔离。
         (run_restricted_capture(inner, cwd)?, false)
     } else {
         capture_with_timeout(
@@ -583,8 +588,28 @@ fn run_restricted_capture(
     let (out, code) = launcher
         .run_capture(command, Some(cwd))
         .map_err(std::io::Error::other)?;
-    // 仅回传原始字节 + 退出码；成败前缀（"exit N:"）与解码统一由 run_shell_in 处理，
-    // 与 cmd /C 分支完全一致，避免此处二次编码导致中文乱码。
+    Ok(std::process::Output {
+        status: ExitStatusExt::from_raw(code),
+        stdout: out,
+        stderr: Vec::new(),
+    })
+}
+
+/// 以写隔离令牌拉起命令并回传输出：工作目录是唯一可写根，越界写由内核拒绝。
+#[cfg(windows)]
+fn run_write_restricted_capture(
+    command: &str,
+    cwd: &std::path::Path,
+) -> std::io::Result<std::process::Output> {
+    use std::os::windows::process::ExitStatusExt;
+    let launcher = crate::write_restricted::WriteRestrictedProcessLauncher::new(
+        cwd,
+        crate::write_restricted::WriteMode::WorkspaceWrite,
+    )
+    .map_err(std::io::Error::other)?;
+    let (out, code) = launcher
+        .run_capture(command, Some(cwd))
+        .map_err(std::io::Error::other)?;
     Ok(std::process::Output {
         status: ExitStatusExt::from_raw(code),
         stdout: out,

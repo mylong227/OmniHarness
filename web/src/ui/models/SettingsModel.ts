@@ -118,7 +118,7 @@ export const SETTINGS_FIELDS: readonly SettingsField[] = [
       'seatbelt',
       'container',
     ],
-    hint: 'policy/restricted 只做进程内策略与命令拦截，不是 OS 隔离；Windows 真隔离用 wsl-bwrap，跨平台可用 container（需 Docker/Podman）',
+    hint: 'policy 只做进程内策略；restricted 的原生内核在 Windows 提供写隔离，但 TS 执行链仍是策略层；读/网络真隔离用 wsl-bwrap（Windows）或 container（需 Docker/Podman）',
   },
   {
     key: 'approval',

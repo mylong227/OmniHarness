@@ -17,6 +17,41 @@ fn cli_sandbox_check_reports_json() {
     let value: serde_json::Value = serde_json::from_str(text.trim()).expect("输出应为合法 JSON");
     assert_eq!(value["ok"], serde_json::json!(true));
     assert_eq!(value["name"], serde_json::json!("restricted-token"));
+    assert_eq!(value["writeRestricted"], serde_json::json!(true));
+}
+
+/// run --workspace：原生写隔离真实生效（工作区可写、越界写被拒）。
+#[cfg(windows)]
+#[test]
+fn cli_sandbox_run_isolates_writes() {
+    let exe = env!("CARGO_BIN_EXE_omni-cli");
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let root = std::env::temp_dir().join(format!("omni-cli-wr-{stamp}"));
+    std::fs::create_dir_all(&root).expect("temp dir");
+    let outside = std::env::temp_dir().join(format!("omni-cli-wr-out-{stamp}.txt"));
+    let command = format!(
+        "echo in> inside.txt & echo out> \"{}\"",
+        outside.display()
+    );
+    let status = Command::new(exe)
+        .args([
+            "sandbox",
+            "run",
+            "--workspace",
+            &root.to_string_lossy(),
+            "--command",
+            &command,
+        ])
+        .status()
+        .expect("sandbox run 应可执行");
+    assert!(!status.success(), "越界写入应非零退出");
+    assert!(root.join("inside.txt").exists(), "工作区写入必须成功");
+    assert!(!outside.exists(), "工作区外写入必须被内核拒绝");
+    let _ = std::fs::remove_dir_all(&root);
+    let _ = std::fs::remove_file(&outside);
 }
 
 /// run：受限进程退出码透传（Windows；能力不可用时自动跳过）。

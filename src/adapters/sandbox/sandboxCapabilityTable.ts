@@ -108,15 +108,14 @@ export class SandboxCapabilityTable {
         real: true,
         basis:
           '纯 TS 强化策略（policy 规则 + 网络外联/提权命令黑名单）。' +
-          'Windows 上另有 Rust RestrictedToken（`--native` 路径）可**削减进程特权**' +
-          '（DISABLE_MAX_PRIVILEGE + Job Object 限额），但它**不提供文件/网络拒绝语义**：' +
-          '其 CreateRestrictedToken 的三个 restricting-SID 计数参数全为 0' +
-          '（crates/omni-core/src/restricted_token.rs:281）⇒ 不得据此声称"已隔离文件或网络"。' +
+          'Windows 原生内核另有写隔离实现（WRITE_RESTRICTED 令牌 + 按工作区派生的写入 SID + DACL）：' +
+          '工作区可写、工作区外写入被内核拒绝（读/网络仍不受限）；该路径由 `--native` 内核与 ' +
+          '`omni-cli sandbox run --workspace` 提供，本 profile 的 TS 执行链仍是策略层，不自动获得该隔离。' +
           `当前进程${elevated ? '已' : '未'}提权`,
         actionable: elevated
           ? ''
-          : 'Windows 上创建受限令牌需要管理员权限；但**提权只换来特权削减与资源限额**，' +
-            '不等于文件/网络隔离（要真正的隔离需 AppContainer + 宿主路径 DACL，或 WSL2 内 bubblewrap/landlock）',
+          : 'Windows 原生写隔离不要求提权（令牌限制 + 工作区 DACL）；' +
+            '要读/网络隔离请用 wsl-bwrap 或 container',
       },
     ];
   }

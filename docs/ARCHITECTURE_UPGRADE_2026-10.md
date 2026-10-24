@@ -387,6 +387,8 @@ Roots/Sampling/Logging 同期弃用）；自研 OAuth/CIMD（STDIO 规范本就 
    均放行才放行"的拒绝默认** ⇒ 该后端**没有文件/网络约束**，只删特权 + Job Object 限额（256 MB/进程、1 GB/job、4 进程）
    - 关句柄即杀。未设 `JOB_OBJECT_UILIMIT_*`、未换桌面（官方要求换桌面以阻 SendMessage/PostMessage）。
      —— <https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-createrestrictedtoken>
+     **2026-10-24 更新**：该后端已升级为 `WRITE_RESTRICTED` + 按工作区派生的写入 SID + DACL——工作区可写、
+     越界写由内核拒绝；读/网络仍不隔离。原生测例与 `omni sandbox run --workspace` 均已验证。
 3. **【关键结论】不付费 + 支持 Windows 下可达的最强隔离 = L3，只有两条路**：
    **(a) AppContainer + 宿主路径 DACL**（微软自家 MXC 定义其为"T3 通用回退：23H2/24H2/25H2 上所有文件系统策略
    均由宿主路径 DACL 强制"；网络靠 AppContainer 能力 + `netsh advfirewall`，**后者需要管理员**）；

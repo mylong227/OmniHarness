@@ -4513,3 +4513,16 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **设计原创化**：全仓移除所有外部归因措辞（含代码注释、CLI 帮助、CHANGELOG、ADR、报告），
   改为本设计的第一性说明；不再保留「参考某实现/某路径」的表述。
 - **判据**：`typecheck` / `lint` / `check` 全绿；新增 hybrid 判据 2 例通过。
+
+## 54. 2026-10-24 原生 Windows 写隔离落地
+
+- **令牌层**：`CreateRestrictedToken(DISABLE_MAX_PRIVILEGE | WRITE_RESTRICTED)`，并注入按工作区路径
+  派生的 restricting SID（`S-1-0-x-y`，FNV-1a 稳定派生）；该 SID 只参与写访问检查。
+- **授权层**：只把该 SID 以可继承 ACE 授予工作区（`FILE_GENERIC_WRITE | DELETE | FILE_DELETE_CHILD`）；
+  工作区外写入由内核拒绝；`--read-only` 模式不授予任何写 ACE。
+- **执行层**：`omni sandbox run --workspace <dir> [--read-only]` 与原生内核 `shell.run`
+  （`omni-write-restricted://` 前缀）都走该启动器；失败即 fail-closed，不回退无限启动。
+- **判据**：Rust 测例 `workspace_write_is_isolated`（区内写成功/区外写失败）与
+  `read_only_denies_workspace_write`；CLI 集成测例 `cli_sandbox_run_isolates_writes`；
+  `omni sandbox check` 输出 `writeRestricted`。TS 能力表同步如实区分「原生写隔离」与「TS 策略层」。
+- **边界**：只限制写；读、网络、进程可见性不受限；ACE 常驻工作区（随机 SID，不影响其它账户）。

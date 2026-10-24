@@ -91,17 +91,18 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 
 ## 5. 沙箱矩阵与隔离口径
 
-| 后端                             | 平台    | 强度                     | 备注                                                                                   |
-| -------------------------------- | ------- | ------------------------ | -------------------------------------------------------------------------------------- |
-| `passthrough`                    | 全平台  | 无                       | 显式选择才用                                                                           |
-| `policy`（**默认档**）           | 全平台  | 命令/路径策略 + 出站守卫 | `networkEgressGuard` 覆盖 `globalThis.fetch`；**子进程带外通道不受其管辖**（诚实边界） |
-| `restricted`                     | Windows | 受限令牌                 | 实测**限制 SID 数 0** ⇒ 强度有限，如实标注                                             |
-| `landlock` / `bwrap` / `unshare` | Linux   | 内核级                   | 按可用性探测                                                                           |
-| `seatbelt`                       | macOS   | 内核级                   | 同上                                                                                   |
-| `unsupported`                    | —       | —                        | fail-closed 占位（不可用即拒绝而非放行）                                               |
+| 后端                             | 平台    | 强度                     | 备注                                                                                               |
+| -------------------------------- | ------- | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `passthrough`                    | 全平台  | 无                       | 显式选择才用                                                                                       |
+| `policy`（**默认档**）           | 全平台  | 命令/路径策略 + 出站守卫 | `networkEgressGuard` 覆盖 `globalThis.fetch`；**子进程带外通道不受其管辖**（诚实边界）             |
+| `restricted`                     | Windows | 策略 + 原生写隔离        | `WRITE_RESTRICTED` 令牌 + 工作区派生写入 SID + DACL：工作区可写、越界写被内核拒绝；读/网络仍不隔离 |
+| `landlock` / `bwrap` / `unshare` | Linux   | 内核级                   | 按可用性探测                                                                                       |
+| `seatbelt`                       | macOS   | 内核级                   | 同上                                                                                               |
+| `unsupported`                    | —       | —                        | fail-closed 占位（不可用即拒绝而非放行）                                                           |
 
-**隔离级别自陈：L2（同用户进程内约束）**——不是容器/VM 级隔离；该结论引用时必须保留口径
-（报告 §1.4）。真 L3（Windows AppContainer）为**未做**的可选大项（G6）。
+**隔离级别自陈：L2（同用户进程内约束）+ Windows 原生写隔离**——`restricted` 的原生内核路径在
+Windows 上用 `WRITE_RESTRICTED` 令牌 + 工作区写入 SID 形成**内核强制的写边界**（越界写拒绝），
+但读/网络仍不受限，也不是容器/VM 级隔离；该结论引用时必须保留口径。
 
 ## 6. 上下文引擎与检索栈（**生产路径 vs 实验档**）
 
@@ -173,7 +174,8 @@ Agent            ── 会话生命周期、装配依赖（composition/Runtime 
 ## 12. 已知边界与"不做"清单
 
 - **默认隔离是 L2**（同用户进程内约束）；**远程插件走独立 Worker 进程（L3）**，见
-  [ADR-0012](adr/0012-plugin-process-isolation.md)。`restricted` 档在 Windows 上限制 SID 数为 0（如实标注）。
+  [ADR-0012](adr/0012-plugin-process-isolation.md)。`restricted` 的原生内核路径在 Windows 上提供
+  `WRITE_RESTRICTED` + 工作区 SID 的写隔离（越界写拒绝；读/网络仍不隔离）。
 - **工作区信任闸默认 restricted**：`serve`/`exec`/UI 分层读配置时，项目级、项目 profile、bundle patch 的
   `mcpServers`/`approval`/`sandbox`/`baseUrl`/`permission`/`ssrfPolicy` 等权威键在未显式
   `--trust-workspace` 时被忽略；即使已信任，`approval:auto` / `sandbox:passthrough` 仍被 policy floor 拒绝。

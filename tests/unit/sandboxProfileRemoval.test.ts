@@ -36,14 +36,14 @@ test('③ 未注册 profile 走 UnsupportedSandbox 并拒绝执行', async () =>
   assert.strictEqual(decision.allowed, false, '未知 profile 必须 fail-closed，不得回落直通');
 });
 
-test('④ 能力表不谎称 Windows 原生写隔离', () => {
+test('④ 能力表如实区分原生写隔离与 TS 策略层', () => {
   const entries = SandboxCapabilityTable.describe(process.cwd());
   assert.ok(!entries.some((e) => String(e.profile).startsWith('windows-acl')));
   const text = entries.map((e) => `${e.basis} ${e.actionable}`).join('\n');
   assert.ok(!/windows-acl|Windows ACL 写隔离已启用/u.test(text), '能力表不得声称已恢复已删除后端');
   const restricted = entries.find((e) => e.profile === 'restricted');
   assert.ok(restricted !== undefined);
-  assert.match(restricted.basis, /不提供文件\/网络拒绝语义|不是.*隔离/u);
+  assert.match(restricted.basis, /写隔离|策略层/u);
 });
 
 test('⑤ 源码与依赖中不再有 windows-acl 实现或第三方沙箱依赖', () => {

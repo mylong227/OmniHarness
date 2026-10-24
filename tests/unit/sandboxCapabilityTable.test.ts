@@ -131,18 +131,20 @@ test('Landlock 条目：判定委托给后端探测报告（同源，不另写�
   assert.strictEqual(landlock.actionable, '');
 });
 
-test('restricted 条目如实说明 Windows 侧的提权前提', () => {
+test('restricted 条目区分原生写隔离与 TS 策略层', () => {
   const elevated = entryOf(
     SandboxCapabilityTable.describe(process.cwd(), { platform: 'win32', elevated: true }),
     'restricted',
   );
   assert.match(elevated.basis, /已提权/);
+  assert.match(elevated.basis, /写隔离/);
+  assert.match(elevated.basis, /TS 执行链仍是策略层/);
   const plain = entryOf(
     SandboxCapabilityTable.describe(process.cwd(), { platform: 'win32', elevated: false }),
     'restricted',
   );
   assert.match(plain.basis, /未提权/);
-  assert.match(plain.actionable, /管理员权限/);
+  assert.match(plain.actionable, /不要求提权/);
 });
 
 test('format：表格可直接打印，含表头/可达列/不可达项的可执行补救', () => {

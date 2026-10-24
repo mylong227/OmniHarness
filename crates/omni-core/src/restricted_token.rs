@@ -12,23 +12,28 @@ pub struct RestrictedTokenSandbox;
 /// 不再依赖外部 `omni-cli` 二进制（A4：去掉 omni-cli 强依赖）。
 pub const RESTRICTED_COMMAND_PREFIX: &str = "omni-restricted://";
 
+/// 写隔离包装哨兵前缀：`run_shell` 识别后以「WRITE_RESTRICTED 令牌 + 工作区写入 SID」启动。
+pub const WRITE_RESTRICTED_COMMAND_PREFIX: &str = "omni-write-restricted://";
+
 impl PlatformSandbox for RestrictedTokenSandbox {
     fn name(&self) -> &str {
         "restricted-token"
     }
 
     fn available(&self) -> bool {
-        restricted_token_available()
+        crate::write_restricted::write_restricted_available()
     }
 
     fn wrap(&self, command: &str) -> Option<String> {
         if !self.available() {
             return None;
         }
-        // 受限启动由进程内 RestrictedProcessLauncher 直接完成（见 builtin.rs run_shell
-        // 识别此前缀，以受限令牌 + Job Object 拉起 cmd /C，无需 omni-cli 外部二进制）。
-        // 不加引号：run_shell 识别此前缀后剥离，原始命令原样交给受限启动器。
-        Some(format!("{}{}", RESTRICTED_COMMAND_PREFIX, command))
+        // 写隔离启动由进程内启动器完成（见 builtin.rs 对新前缀的处理）。
+        Some(format!(
+            "{}{}",
+            WRITE_RESTRICTED_COMMAND_PREFIX,
+            command
+        ))
     }
 }
 
@@ -46,6 +51,14 @@ impl RestrictedProcessLauncher {
         let token = create_restricted_token()?;
         let job = create_job_object()?;
         Ok(Self { token, job })
+    }
+
+    /// 由已创建好的令牌与 Job Object 组装（供写隔离启动器复用捕获/等待逻辑）。
+    /// @param token primary 令牌句柄。
+    /// @param job Job Object 句柄。
+    /// @returns 启动器（Drop 时关闭两个句柄）。
+    pub(crate) fn from_parts(token: windows_sys::Win32::Foundation::HANDLE, job: windows_sys::Win32::Foundation::HANDLE) -> Self {
+        Self { token, job }
     }
 
     /// 以受限令牌 + Job Object 启动命令并等待结束，返回进程退出码。
@@ -341,7 +354,7 @@ fn create_restricted_token() -> Result<windows_sys::Win32::Foundation::HANDLE, S
 
 /// 创建 Job Object：资源限额（内存/进程数）+ KILL_ON_JOB_CLOSE。
 #[cfg(windows)]
-fn create_job_object() -> Result<windows_sys::Win32::Foundation::HANDLE, String> {
+pub(crate) fn create_job_object() -> Result<windows_sys::Win32::Foundation::HANDLE, String> {
     use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::JobObjects::{
         CreateJobObjectW, JobObjectExtendedLimitInformation, SetInformationJobObject,
@@ -384,26 +397,6 @@ fn create_job_object() -> Result<windows_sys::Win32::Foundation::HANDLE, String>
     Ok(job)
 }
 
-/// 探测当前进程能否创建并运行受限进程（成本高，结果只算一次）。
-#[cfg(windows)]
-fn restricted_token_available() -> bool {
-    use std::sync::OnceLock;
-    static CACHE: OnceLock<bool> = OnceLock::new();
-    *CACHE.get_or_init(|| {
-        let Ok(launcher) = RestrictedProcessLauncher::new() else {
-            return false;
-        };
-        // 试跑一次瞬时进程，验证 CreateProcessAsUserW 特权路径真实可用。
-        launcher.run("cmd /c exit 0").is_ok()
-    })
-}
-
-/// 非 Windows 平台：RestrictedToken 恒不可用。
-#[cfg(not(windows))]
-fn restricted_token_available() -> bool {
-    false
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,7 +408,7 @@ mod tests {
         // available() 与 wrap() 行为必须一致：不可用则拒绝包装。
         if backend.available() {
             let wrapped = backend.wrap("echo hi").expect("可用时必须能包装");
-            assert!(wrapped.starts_with(RESTRICTED_COMMAND_PREFIX));
+            assert!(wrapped.starts_with(WRITE_RESTRICTED_COMMAND_PREFIX));
         } else {
             assert!(backend.wrap("echo hi").is_none());
         }

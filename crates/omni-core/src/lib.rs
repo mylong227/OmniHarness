@@ -12,6 +12,7 @@ pub mod sandbox;
 pub mod session;
 pub mod store;
 pub mod tool;
+pub mod write_restricted;
 
 pub use agent::AgentLoop;
 pub use agents::{AgentError, AgentNode, AgentRegistry};
@@ -34,3 +35,6 @@ pub use sandbox::{
 pub use session::Session;
 pub use store::{MemoryStore, RolloutStore};
 pub use tool::{Tool, ToolArgs, ToolMeta, ToolResult};
+pub use write_restricted::write_restricted_available;
+#[cfg(windows)]
+pub use write_restricted::{WriteMode, WriteRestrictedProcessLauncher};

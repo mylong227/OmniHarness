@@ -1,6 +1,7 @@
 //! `omni sandbox` 子命令（一个子命令一个函数）：
-//! - `omni sandbox check`                    探测 RestrictedToken 受限进程能力；
-//! - `omni sandbox run --command "<cmd>"`    以受限令牌 + Job Object 启动命令并等待，透传退出码。
+//! - `omni sandbox check`                    探测受限进程与原生写隔离能力；
+//! - `omni sandbox run --command "<cmd>"`    以受限令牌 + Job Object 启动命令并等待，透传退出码；
+//!   追加 `--workspace <dir>` 时启用原生写隔离（该目录是唯一可写根），`--read-only` 则零写授权。
 
 use std::process::ExitCode;
 
@@ -12,7 +13,9 @@ pub fn dispatch(args: &[String]) -> ExitCode {
         Some("check") => check(),
         Some("run") => run(args),
         _ => {
-            eprintln!("用法: omni sandbox check | omni sandbox run --command \"<cmd>\"");
+            eprintln!(
+                "用法: omni sandbox check | omni sandbox run --command \"<cmd>\" [--workspace <dir>] [--read-only]"
+            );
             ExitCode::from(2)
         }
     }
@@ -27,6 +30,7 @@ fn check() -> ExitCode {
             "ok": true,
             "name": backend.name(),
             "available": backend.available(),
+            "writeRestricted": omni_core::write_restricted_available(),
         })
     );
     ExitCode::SUCCESS
@@ -34,7 +38,7 @@ fn check() -> ExitCode {
 
 /// 以受限令牌 + Job Object 启动命令并等待，透传退出码。
 fn run(args: &[String]) -> ExitCode {
-    // 参数提取放进 Windows 分支（--command 仅该分支消费；无门控提取会在 Linux 上触发
+    // 参数提取放进 Windows 分支（仅该分支消费；无门控提取会在 Linux 上触发
     // unused variable，clippy -D warnings 阻断——ubuntu 首跑实证）。
     #[cfg(windows)]
     {
@@ -42,6 +46,31 @@ fn run(args: &[String]) -> ExitCode {
             eprintln!("{{ \"ok\": false, \"error\": \"缺少 --command\" }}");
             return ExitCode::from(1);
         };
+        // 给了 --workspace 就启用原生写隔离；否则保留旧的特权削减路径。
+        if let Some(workspace) = flag_value(args, "--workspace") {
+            let mode = if args.iter().any(|arg| arg == "--read-only") {
+                omni_core::WriteMode::ReadOnly
+            } else {
+                omni_core::WriteMode::WorkspaceWrite
+            };
+            let launcher = match omni_core::WriteRestrictedProcessLauncher::new(
+                std::path::Path::new(&workspace),
+                mode,
+            ) {
+                Ok(launcher) => launcher,
+                Err(error) => {
+                    eprintln!("{{ \"ok\": false, \"error\": \"{}\" }}", error);
+                    return ExitCode::from(1);
+                }
+            };
+            return match launcher.run(&command, std::path::Path::new(&workspace)) {
+                Ok(code) => std::process::exit(code as i32),
+                Err(error) => {
+                    eprintln!("{{ \"ok\": false, \"error\": \"{}\" }}", error);
+                    ExitCode::from(1)
+                }
+            };
+        }
         let launcher = match omni_core::RestrictedProcessLauncher::new() {
             Ok(launcher) => launcher,
             Err(e) => {
