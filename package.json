@@ -55,6 +55,10 @@
   "scripts": {
     "start": "node scripts/startAll.mjs",
     "dev": "node scripts/devAll.mjs",
+    "desktop:build": "npm --prefix desktop run build",
+    "desktop:start": "npm --prefix desktop start",
+    "desktop:test": "npm --prefix desktop test",
+    "desktop:dist": "npm --prefix desktop run dist",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
     "build": "node scripts/buildDist.mjs",
     "web:build": "vite build",

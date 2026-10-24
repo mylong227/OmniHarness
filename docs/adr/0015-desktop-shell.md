@@ -1,8 +1,15 @@
 # 0015 桌面壳：Electron + 固定 Node 侧车 + 回环 HTTP 契约
 
+> **已废止（2026-10-24）**：用户最终选择“按 Codex 官方 App 的 Electron + React/TS 方式完成”，
+> 主界面仍是 WebView；本 ADR 的 Electron 方案被 [0017](./0017-electron-official-app.md) 取代。  
+> 本文保留的价值：记录 Electron 方案的历史取舍，以及仍然成立的 Harness 前置（`--permission`、ready 文件、stdin 控制、Token 横幅）。
+
 - 日期：2026-10-24
-- 状态：提议（详细论证、体积/安全/路线见 [../DESKTOP_ARCHITECTURE_2026-10.md](../DESKTOP_ARCHITECTURE_2026-10.md)）
-- 范围：Windows 优先的桌面客户端；不改 Harness 业务逻辑与 Web 工作台
+- 状态：**已废止**（被 [0017](./0017-electron-official-app.md) 取代）
+
+> **以下为历史提议内容**：仅用于记录 Electron 方案的历史，不再代表当前架构。当前方案见 [0017](./0017-electron-official-app.md)。
+
+- 原范围：Windows 优先的桌面客户端；不改 Harness 业务逻辑与 Web 工作台
 
 ## 背景
 

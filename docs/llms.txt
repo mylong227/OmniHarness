@@ -16,7 +16,8 @@
 - [自进化商业落地方案研究报告](EVOLUTION_COMMERCIALIZATION_2026-10.md): 资产盘点 / 市场调研（二手来源）/ 商业模式推荐 / E1–E5 路线图（可证伪判据）/ 定价与 GTM / 风险登记册
 - [自进化先行研究调研与自研方案](EVOLUTION_RD_RESEARCH_2026-10.md): 开源+学术机制级择优学习表（采纳/改造/拒绝）/ 分类法对位 / 自研进化环 2.0（GEE）设计与判据
 - [进化域架构升级方案](EVOLUTION_ARCH_UPGRADE_2026-10.md): GEE Kernel v1 实施蓝图（现状实读 / 目标架构 / 模块映射 / S1–S7 切片与判据），配套 ADR-0008
-- [桌面应用技术方案与目标架构](DESKTOP_ARCHITECTURE_2026-10.md): Electron/Tauri/Wails 候选调研与加权决策 / Electron + 固定 Node 侧车 + 回环 HTTP 契约 / 安全加固 / 打包签名更新 / Phase 0–3 路线，配套 ADR-0015（提议稿）
+- [桌面应用技术方案（v2 原生研究，历史）](DESKTOP_ARCHITECTURE_2026-10.md): 原生 UI（无 WebView）调研与决策 / Avalonia 12.1 + 固定 Node 侧车 + 回环 HTTP 契约；已被 ADR-0017 取代
+- [桌面客户端实施](../desktop/README.md): Electron + React/TS（按 Codex 官方 App 同构）/ 主进程 + preload + Harness 侧车 / 构建、打包与限制，配套 ADR-0017
 - [快速开始](QUICKSTART.md): 5 分钟跑通
 - [一键启动与运行规范](STARTUP.md): `npm start` 一键起（服务端 + 前端 + HTTP UI）/ 起没起来的判定 / 停止重启 / 数据与配置落点 / 故障排查
 
@@ -33,5 +34,5 @@
 
 ## 架构决策记录（ADR）
 
-- [ADR 索引](adr/README.md): 六边形架构 / 依赖白名单 / 统一门禁 fail-closed / 审计哈希链 / 事件流单源 / 沙箱诚实降级 / API 稳定标注 / 治理化进化内核 / 统一资产协议（0009）/ 信任-隔离阶梯（0010）/ 签名资产包分发（0011）/ 桌面壳（0015）
+- [ADR 索引](adr/README.md): 六边形架构 / 依赖白名单 / 统一门禁 fail-closed / 审计哈希链 / 事件流单源 / 沙箱诚实降级 / API 稳定标注 / 治理化进化内核 / 统一资产协议（0009）/ 信任-隔离阶梯（0010）/ 签名资产包分发（0011）/ 原生桌面 UI（0016）
 

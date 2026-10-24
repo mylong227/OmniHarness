@@ -23,7 +23,8 @@ import type { ServerEventBridge } from '../server/core/serverEventBridge.ts';
 import { DoctorRunner } from './doctorRunner.ts';
 import { ServeInstance } from './serveInstance.ts';
 import { ServeShutdown } from './serveShutdown.ts';
-import { API_VERSION } from '../version.ts';
+import { ServeAnnounce } from './serveAnnounce.ts';
+import { ServeReadyFile } from './serveReadyFile.ts';
 import {
   OidcClient,
   EnterpriseAuth,
@@ -644,39 +645,34 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       // 右栏网页预览源（独立回环端口）随 workspaceRoot 自动启用（见 HttpServerOptions.preview）。
     });
     const port = this.flagNumber(serveArgs, '--port') ?? 8787;
+    // 桌面模式跳过 serve-*.pid：桌面有自己的单实例与 ready 文件，且 --port 0 时
+    // sweep(pathFor(0)) 与 announce(实际端口) 的路径并不一致（见 desktop 方案 P0）。
+    const manageInstance = process.env['OMNI_NO_SERVE_INSTANCE'] !== '1';
     // 启动即清扫本端口的**陈旧**实例记录（进程已不在 ⇒ 删掉并如实说明）：
     // 这是"陈旧实例可识别"的自愈面——记录不会长期撒谎，也不会在下次冲突提示里冒充当前占用者。
-    const stale = ServeInstance.sweep(ServeInstance.pathFor(port));
-    if (stale.swept && stale.record !== null) {
-      process.stderr.write(
-        `[omniharness] 已清理陈旧实例记录（${ServeInstance.describe(stale.record)}）：该进程已不在。\n`,
-      );
+    if (manageInstance) {
+      const stale = ServeInstance.sweep(ServeInstance.pathFor(port));
+      if (stale.swept && stale.record !== null) {
+        process.stderr.write(
+          `[omniharness] 已清理陈旧实例记录（${ServeInstance.describe(stale.record)}）：该进程已不在。\n`,
+        );
+      }
     }
     const binding = await this.startHttpServer(server, port, serveArgs.includes('--take-port'));
     if (binding.ok !== true) {
       return binding.code;
     }
-    // 绑定成功后才写记录（先写会留下"说要跑但没跑起来"的假记录）。
-    const instancePath = ServeInstance.announce({
-      pid: process.pid,
-      host: serveHost,
-      port: binding.port,
-      startedAt: new Date().toISOString(),
-      workspace: app.effectiveWorkspace(),
-      version: API_VERSION,
-    });
-    const authNote =
-      serveToken === undefined
-        ? '（未启用鉴权；仅回环可访问）'
-        : configuredToken !== ''
-          ? '（已启用 Bearer 鉴权）'
-          : '（已启用本机临时令牌；请用下面的带 token URL 打开）';
-    const uiUrl =
-      serveToken === undefined
-        ? `http://${serveHost}:${binding.port}`
-        : `http://${serveHost}:${binding.port}/?token=${encodeURIComponent(serveToken)}`;
-    process.stdout.write(`OmniHarness UI: ${uiUrl} ${authNote}\n`);
-    return ServeShutdown.wait(server, instancePath, () => app.shutdown());
+    const announced = ServeAnnounce.announce(
+      app,
+      serveHost,
+      binding.port,
+      serveToken,
+      configuredToken,
+      manageInstance,
+    );
+    const code = await ServeShutdown.wait(server, announced.instancePath, () => app.shutdown());
+    if (announced.readyPath !== '') ServeReadyFile.remove(announced.readyPath);
+    return code;
   }
   /**
    * 关闭 MCP 网关子进程（若已连接）：serve / exec 路径退出时由 finally 调用，避免网关子进程残留占端口。

@@ -1,259 +1,381 @@
-# OmniHarness 桌面应用技术方案与目标架构
+# OmniHarness 桌面应用技术方案（原生 UI 版）
 
-> **状态**：提议稿（待架构评审）  
-> **日期**：2026-10-24  
-> **范围**：Windows 优先的桌面客户端；同时说明 macOS / Linux 的边界与后续路径  
-> **结论先行**：**Electron 45 + 固定版本 Node 24 LTS 侧车（sidecar）+ 现有回环 HTTP/SSE 契约**。桌面壳只做生命周期与 OS 集成，不复制、不改写 Harness 业务逻辑；现有 Web 工作台与 CLI 继续作为同一服务的两个客户端。  
-> **一句话架构**：`Electron 主进程（壳） → 预加载桥 → Chromium 渲染层（无 Node） → 回环 HTTP/SSE → Node 侧车（Harness） → N-API → Rust 内核`。
-
----
-
-## 0. 摘要（TL;DR）
-
-| 决策项         | 结论                                                                               | 理由（一句话）                                                                     |
-| -------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 桌面壳         | **Electron 45.x**（Chromium 156 / Node 24.22）                                     | 与现有 Chrome 目标一致，OS 集成成熟，生态与自动更新链路完整                        |
-| Harness 运行时 | **独立 `node.exe` 侧车，固定 Node 24.22 LTS**                                      | 保留 `process.execPath`、权限模型、插件 Worker 的既有语义；壳与 Harness 可独立升级 |
-| 通信           | **继续用 `127.0.0.1:0` + Bearer Token + HttpOnly Cookie + SSE**                    | 不新增第二套业务 IPC；桌面、浏览器、CLI 共用同一契约                               |
-| UI 交付        | **仍由 Harness 静态托管 `web/dist`，窗口 `loadURL` 回环地址**                      | 现有 `ServerAuthGuard` 只放行回环 Origin；`file://`/自定义协议会直接 401           |
-| 进程模型       | 主进程 / 渲染进程 / Harness 进程 / Harness 的子进程                                | 崩溃隔离 + 最小权限；Harness 可脱离 Electron 独立运行                              |
-| 安全基线       | 渲染层 sandbox + contextIsolation + 严格 IPC 白名单 + CSP + Fuses + ASAR 完整性    | Electron 官方安全清单的“生产档”                                                    |
-| 打包           | `electron-builder` 26 + NSIS 按用户安装 + GitHub Releases 自动更新                 | Windows 差分更新、签名、灰度发布一条链                                             |
-| 不做什么       | 不重写 Harness、不把 Node 塞进渲染层、不用 `file://` 载入 UI、不暴露 `ipcRenderer` | 任何一条都会把“桌面化”变成“第二套产品”                                             |
-| 工期           | Windows 签名 Beta **6–8 周**（1–2 名工程师）；macOS 再加 4–6 周                    | 不含模型/产品新功能，只含桌面化与发布工程                                          |
-
-**最重要的三个前置发现**（详见 §2.4、§6.7、附录 F）：
-
-1. `src/plugin/worker/workerSpawnSpecBuilder.ts` 使用 `--experimental-permission`；该旗标在 **Node 24 / Electron 44 的 Node 24.21 上直接报 `bad option`**，而 `--permission` 在 Node 22.20、Node 24.22.1、Electron 44.7 上均可用。**桌面化前必须先改**，否则插件 Worker 在桌面运行时必然启动失败。
-2. 本机实测 `native/omni_napi.node` 在 **Node 24.22.1** 与 **Electron 44.7.0（ELECTRON_RUN_AS_NODE）** 下均可加载并 `ping` 成功；Electron 的 `electron.exe` 导出 N-API 符号。原生内核不是桌面化的阻塞项，但**必须保持“侧车 = 真 node.exe”**，否则 `process.execPath` 语义会变。
-3. 现有服务端 `ServerAuthGuard` 的 Origin 白名单**只允许回环 http(s)**；这决定了 UI **不能**改成 `file://` 或 `app://` 加载，否则所有 `/rpc`、`/events` 都会被 401。回环托管不是“临时方案”，而是当前鉴权模型的组成部分。
+> **后续变更（2026-10-24）**：用户最终选择 **按 Codex 官方 App 的 Electron + React/TS 方式**完成；
+> 本文转为**历史/备选研究**（Avalonia 原生路线），不再代表当前架构。当前实施见
+> [ADR-0017](./adr/0017-electron-official-app.md) 与 [desktop/README.md](../desktop/README.md)。  
+> **版本**：v2（2026-10-24）  
+> **状态**：历史研究（已被 ADR-0017 取代）  
+> **变更**：v1 的 **Electron 套壳方案曾被否决**（用户要求“不做套壳”），因此本文改为原生 UI；
+> 随后用户改选官方 App 路线，Electron 方案以 ADR-0017 重启。  
+> **结论先行**：**Avalonia 12.1 + .NET 10 + LiveMarkdown.Avalonia + Node 24 侧车（Harness）**。WinUI 3（Windows App SDK 2.5）是 Windows-only 的强备选；Electron / Tauri / WebView2 主界面在本方案中不做。  
+> **一句话架构**：`Avalonia 原生 UI 进程（无 Chromium/WebView） → HTTP/SSE（Bearer）→ Node 侧车（Harness）→ N-API → Rust 内核`。
 
 ---
 
-## 1. “最适合”的判定标准
+## 0. 摘要
 
-“最佳技术方案”不是抽象的框架排名，而是在本项目约束下**总拥有成本最低**的方案。本文用六条标准排序：
+| 决策项             | 结论                                                                             | 理由                                                                         |
+| ------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 主界面             | **Avalonia 12.1.x + .NET 10**                                                    | 无 WebView、跨平台、MIT、富文本生态最贴合 AI 聊天；12.x 性能/无障碍/IME 成熟 |
+| Markdown/数学/代码 | **LiveMarkdown.Avalonia 2.5.x**（Apache-2.0）                                    | 专为 LLM 流式输出设计：增量渲染、LaTeX、Mermaid、代码高亮、表格、可选择文本  |
+| Windows-only 备选  | **WinUI 3 / Windows App SDK 2.5**                                                | 真原生 Fluent 控件、IME/无障碍最佳；但 Windows-only，Markdown/数学需更多自研 |
+| Harness            | **Node 24 LTS 侧车**，现有 HTTP/SSE 契约                                         | 复用全部 Agent/工具/沙箱/会话能力；原生客户端只是另一个服务客户端            |
+| 进程模型           | UI 进程 + Node 侧车 + Harness 子进程                                             | 无 Chromium；UI 崩溃不带走 Harness，Harness 崩溃可重启                       |
+| 打包/更新          | **Velopack 1.2** + 代码签名 + GitHub Releases                                    | .NET 原生安装器、差分更新、跨平台；比 MSIX 更适合独立开发者                  |
+| 不做什么           | 不做 Electron/Tauri/WebView 主界面；不把 React 组件硬塞进原生控件；不承诺 6–8 周 | 这是“原生”的代价，必须先说清                                                 |
+| 工期               | Windows Beta **6–8 个月**（2 名工程师）；跨平台 GA **10–14 个月**                | 不含模型/产品新功能；1 人约 10–12 个月                                       |
 
-| 权重 | 标准                   | 说明                                                                                                                  |
-| ---: | ---------------------- | --------------------------------------------------------------------------------------------------------------------- |
-|  30% | **现有资产复用**       | 约 15 万行核心 TS（本机统计 `src/**` 149,546 行，不含测试）、Vite/React 工作台、CLI、N-API 内核、SSE 事件流能否零重写 |
-|  20% | **交付速度与风险**     | 能否在数周内做出可安装、可升级、可回滚的 Beta                                                                         |
-|  20% | **安全与可加固性**     | 渲染层隔离、IPC 最小面、更新链签名、供应链完整性                                                                      |
-|  15% | **桌面体验 / OS 集成** | 托盘、通知、深链、文件对话框、单实例、自动启动、窗口状态                                                              |
-|  10% | **分发 / 体积 / 更新** | 安装包大小、差分更新、签名、灰度、企业部署                                                                            |
-|   5% | **长期维护与生态**     | 版本节奏、社区、排障资料、团队熟悉度                                                                                  |
+**三个必须先接受的事实**：
 
-**非目标（明确不做）**：
-
-- 不把 Harness 重写成 Rust/Go 以换取“更小的壳”；Harness 的价值在 TS 生态与既有能力，不在壳。
-- 不为桌面端复制一套 RPC/状态管理；桌面只是同一服务的“带 OS 能力的客户端”。
-- 不在 v1 支持 32 位 Windows（Electron 45 已移除 32 位构建）、Windows ARM64 原生内核、Linux 全功能。
-- 不承诺“绿色便携版”：Harness 的会话/配置仍写 `~/.omniharness`，真正便携需要 `OMNI_HOME` 级别的改造（见 §6.10）。
-
----
-
-## 2. 现状盘点：哪些能直接用，哪些会挡路
-
-### 2.1 可复用资产（桌面化的最大筹码）
-
-| 资产          | 现状                                                                                          | 桌面化复用方式                                               |
-| ------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Web 工作台    | Vite 6 + React 19，产物 `web/dist` 约 2.2 MB；标准 SPA；`base: './'`                          | **原样复用**，由 Harness 静态托管；窗口载入回环 URL          |
-| HTTP/SSE 契约 | `POST /rpc`（JSON-RPC 2.0）+ `GET /events`（SSE）+ `/files` + `/healthz` + `/readyz`          | 原样复用；桌面只增加“启动/停止/健康检查”                     |
-| 鉴权          | 回环默认生成临时 Token；首屏 `?token=` 换 HttpOnly Cookie；`ServerAuthGuard` 统一校验 HTTP/WS | 桌面生成 Token、经环境变量注入；不落盘                       |
-| CLI           | `omniharness serve/exec/doctor/...` 已具备工作区、配置分层、单实例记录、端口冲突诊断          | 侧车直接跑 `serve`；诊断复用 `doctor`                        |
-| 原生内核      | Windows N-API `.node`（`native/omni_napi.node`，约 10.9 MB）                                  | 侧车进程内加载；布局保持 `dist/src/native` 与 `native/` 同级 |
-| 前端测试      | 真 Chrome、jsdom、a11y、响应式等大量判据                                                      | 桌面 E2E 复用 Playwright；渲染层仍是 Chromium                |
-| 工作区信任    | `~/.omniharness/trust.json`、项目级配置信任闸                                                 | 桌面不绕过；打开新工作区时沿用现有信任流程                   |
-
-### 2.2 现有进程/端口事实（直接决定桌面方案）
-
-- `HttpServer` **默认只绑 `127.0.0.1`**，非回环必须配 Token（fail-closed）。
-- `runHttpServe` 在回环且未显式配 Token 时**自动生成临时 Token**，并在首屏 `index.html` 响应里 `Set-Cookie: omni_serve_token=...; HttpOnly; SameSite=Strict`。
-- `ServerAuthGuard.verify()` 接受三种凭据：`Authorization: Bearer`、`?token=`（SSE 用）、Cookie；同时检查 `Origin`，**只允许回环 http(s) 页面**。
-- `--port 0` 可用：`HttpServer.start(0)` 返回系统分配的实际端口；本机 Node 24 实测 `serve --port 0 --mock` 正常打印带 Token 的 UI URL。
-- `ServeInstance` 记录写在 `~/.omniharness/serve-<port>.pid`；`--port 0` 时 `sweep()` 用 `serve-0.pid`、`announce()` 用实际端口，**两者路径不一致**（见 §6.2 的前置修复）。
-- `ServeShutdown` 只监听 `SIGINT`/`SIGTERM`；**Windows 上 Node 的 `child.kill()` 不是可捕获的优雅信号**，必须另加控制通道（见 §6.3）。
-
-### 2.3 代码层面的桌面化“暗礁”
-
-| 位置                                                                                                                   | 问题                                                                            | 影响                                                                                 | 方案                                                                                                                                           |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/plugin/worker/workerSpawnSpecBuilder.ts:48`                                                                       | 使用 `--experimental-permission`                                                | Node 24 / Electron 44 直接 `bad option`，插件 Worker 起不来                          | 改为 `--permission`（Node ≥22.13 已稳定），并加 Node 22/24 双版本判据                                                                          |
-| `src/daemon/daemonController.ts:205`、`src/worker/windowsShim.ts:69`、`src/plugin/worker/workerSpawnSpecBuilder.ts:79` | 以 `process.execPath` 作为 Node 解释器                                          | 在 Electron 主进程/utilityProcess 中它是 `electron.exe`，会拉起第二个 App 或直接失败 | **侧车使用真 `node.exe`**，这些调用语义不变；若走 utilityProcess，则必须逐一改造                                                               |
-| `src/cli/cliServerCmds.ts`（`runHttpServe`）                                                                           | 只把 UI URL 打到 stdout；**即使 Token 是外部注入的，也会把 `?token=` 原样打印** | 桌面解析 stdout 脆弱；Token 经日志泄漏                                               | 新增 `OMNI_READY_FILE` 机器可读就绪文件；Token 由桌面经 `OMNI_SERVE_TOKEN` 注入，并加 `OMNI_NO_UI_URL=1` 抑制带 Token 的横幅；日志再做脱敏兜底 |
-| `src/cli/serveShutdown.ts`                                                                                             | 只认 POSIX 信号                                                                 | Windows 无法优雅停 Harness，可能丢最后一笔落盘/孤儿 MCP 子进程                       | 新增 stdin 控制通道 + 父进程 EOF 兜底 + 树杀兜底                                                                                               |
-| `web/index.html:36`                                                                                                    | 主题初始化是内联 `<script>`                                                     | 严格 CSP 需要 `'unsafe-inline'` 或 hash                                              | 抽成 `web/public/theme-init.js` 外链，`script-src 'self'`                                                                                      |
-| `web/src/ui/components/BrowserPane.tsx:40`、`ExternalLinkCards.tsx:38`                                                 | `window.open(..., '_blank')` / `target="_blank"`                                | Electron 默认会开新窗口，可能继承不期望的权限                                        | `setWindowOpenHandler` 统一分流：回环预览 → 受控子窗口；外部 http(s)/mailto → 系统浏览器                                                       |
-| `web/index.html` 无 CSP                                                                                                | 任何注入都少一层防线                                                            | 桌面端必须补 header CSP（不要只靠 meta）                                             |
-| `package.json` 依赖含前端库                                                                                            | `react-dom`/`katex`/`highlight.js` 等已打进 `web/dist`，服务端不需要            | 桌面 staging 原样安装会多带上百 MB                                                   | staging 用“服务端最小依赖清单”安装，剔除前端库                                                                                                 |
-| `@huggingface/transformers` 的 `.cache`                                                                                | 本机 `node_modules` 内缓存达 **2.2 GB**                                         | 直接打包安装包灾难                                                                   | 排除 `.cache`；模型缓存指向 `%LOCALAPPDATA%`；ONNX 作为可选能力包                                                                              |
-
-### 2.4 本机实测（2026-10-24，Windows 11 26300）
-
-| 测试                                                              | 结果                                                            | 说明                                               |
-| ----------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------------- |
-| `node 24.22.1 dist/src/cli/exec.js --version`                     | ✅ `omniharness 0.1.0`                                          | Node 24 可跑构建产物                               |
-| `node 24.22.1 ... serve --port 0 --mock`                          | ✅ 绑定随机端口并打印带 Token URL                               | `--port 0` + 临时 Token 可用                       |
-| `node 24.22.1 -e "require('./native/omni_napi.node').call(ping)"` | ✅ `{"native":true,"ok":true,"pong":true}`                      | N-API ABI 在 Node 24 正常                          |
-| `node 24.22.1 --experimental-permission`                          | ❌ `bad option`                                                 | 必须改 `--permission`                              |
-| `node 24.22.1 --permission`                                       | ✅                                                              | 与 Node 22.20 一致                                 |
-| `electron 44.7.0`（`ELECTRON_RUN_AS_NODE=1`）加载同一 `.node`     | ✅ `ping` 成功                                                  | Electron 的 Node 24.21 也导出 N-API 符号           |
-| Electron 45 GUI 启动                                              | ⚠️ 本会话 DSH 沙箱内返回 `STATUS_BREAKPOINT`，未完成 GUI 级验证 | 列为 Phase 0 第一项，见 §7；**不把未验证当已验证** |
-| `npm run test:fast`（Node 24）                                    | ⚠️ 受沙箱临时目录 `EPERM` 阻断，未得到有效结论                  | 必须在 CI/真实桌面补 Node 24 全量判据              |
-
-> 结论：**Node 24 作为 Harness 运行时是“有条件的可行”**——核心启动、服务、原生内核均通过；但必须先修权限旗标，并用 CI 跑完整单测。若 Node 24 门禁失败，退回 Node 22.20 侧车是零代码改动的降级路径（见 §6.7）。
+1. **“不做套壳”不是换一个壳，而是重写 UI 层**。现有 Web 工作台是 172 个源文件 / 26,573 行 TS/TSX、62 个 TSX 组件、259 KB CSS、99 个测试文件 / 14,036 行测试。原生方案不能复用这些组件与 DOM 判据，只能复用 Harness、协议、设计 token 与产品语义。
+2. **“原生”在本方案中 = 无浏览器引擎、无 HTML/CSS/JS 主界面**。Avalonia 用 Skia 自绘控件树（不是 Win32 原生控件）；WinUI 3 用系统 Fluent 控件。两者都满足“不做套壳”，但“原生感”不同，见 §3。
+3. **Node 侧车仍是必需的**。Harness 是产品的核心资产；桌面 UI 只替换“浏览器客户端”，不替换 Agent 运行时。侧车的 `process.execPath`、N-API、插件 Worker、沙箱语义保持不变。
 
 ---
 
-## 3. 候选技术调研
+## 1. 需求与判定标准
+
+### 1.1 “不做套壳”的操作性定义
+
+| 层级 | 形态                                                       | 是否接受            | 说明                                        |
+| ---- | ---------------------------------------------------------- | ------------------- | ------------------------------------------- |
+| L0   | Electron/Tauri 把现有 Web UI 整体装进 WebView              | ❌                  | 典型套壳；主界面仍是浏览器                  |
+| L1   | 原生窗口壳 + 全部内容用 WebView2                           | ❌                  | 只是换了窗口边框，本质仍是 Web UI           |
+| L2   | 原生主界面 + **局部** WebView 仅用于隔离的 HTML 预览       | ⚠️ 仅作为功能级例外 | 例如工作区网页预览；v1 优先用系统浏览器代替 |
+| L3   | **原生 UI 树/控件、原生输入/焦点/无障碍/渲染，无 WebView** | ✅ **目标**         | Avalonia / WinUI 3 / WPF 等                 |
+
+本文按 **L3** 设计。若只是“不要 Electron、但 WebView 可以接受”，应直接选 Tauri 2（约 3–4 周），不需要本文的 6–8 个月——但那仍然属于 L0/L1，不满足“不做套壳”。
+
+### 1.2 质量属性（按优先级）
+
+| 权重 | 属性                   | 具体要求                                                                      |
+| ---: | ---------------------- | ----------------------------------------------------------------------------- |
+|  25% | **富文本/AI 聊天体验** | 流式 Markdown、代码高亮、LaTeX、表格、Mermaid、长会话虚拟化、可选择/复制/搜索 |
+|  20% | **原生体验 / OS 集成** | 托盘、通知、文件对话框、深链、单实例、开机启动、窗口状态、高 DPI、主题        |
+|  15% | **中文输入 / 无障碍**  | 微软拼音/搜狗等 IME 组合、候选、提交不丢字；Narrator/键盘/高对比度            |
+|  15% | **交付与团队**         | 团队以 TS/Rust 为主，新语言学习成本；招聘/外包可行性；文档与生态              |
+|  10% | **跨平台**             | Windows 优先；macOS 后续；Linux 尽力                                          |
+|  10% | **性能/内存**          | 冷启动、长会话滚动、流式帧率；无 Chromium 的收益要兑现                        |
+|   5% | **打包/更新/签名**     | 安装器、差分更新、代码签名、回滚、企业部署                                    |
+
+### 1.3 非目标
+
+- 不做“原生外壳 + WebView 内容”的伪原生；主界面不允许出现 HTML 渲染。
+- 不在 v1 做内置终端/代码编辑器/多窗口；先做到核心工作流对等。
+- 不在 v1 支持 32 位 Windows；Windows ARM64 视 .NET/Avalonia 支持另行验证。
+- 不承诺“绿色便携版”；数据仍在 `~/.omniharness`，真正便携需要 `OMNI_HOME` 改造。
+
+---
+
+## 2. 现状盘点：能复用与不能复用
+
+### 2.1 可复用（桌面化的真正资产）
+
+| 资产         | 现状                                                             | 原生客户端如何复用                             |
+| ------------ | ---------------------------------------------------------------- | ---------------------------------------------- |
+| Harness 服务 | `serve`：HTTP/SSE、工作区、配置分层、会话、审批、沙箱、插件、MCP | **原样运行**；原生客户端通过 HTTP/SSE 调用     |
+| 协议         | JSON-RPC 2.0 + SSE；`protocol.md` / schema / `omni-sdk-gen`      | 从 schema 生成 C# DTO；契约测试防漂移          |
+| CLI          | `serve/exec/doctor/...`；`--port 0`、Token、实例记录             | 侧车直接跑 `serve`；诊断复用 `doctor`          |
+| 原生内核     | Windows N-API `.node`；Node 24 实测 `ping` 成功                  | 仍在 Node 侧车内加载；UI 不直接 P/Invoke       |
+| 设计 token   | `web/styles/tokens.css`、`DESIGN_SYSTEM.md`                      | 抽成 JSON → 生成 Avalonia `ResourceDictionary` |
+| 文案/i18n    | `web/src/ui/i18n/{zh,en}`                                        | 抽成 JSON/ResX，原生端复用同一份文案           |
+| 产品语义     | 会话、回合、工具卡、审批、检查点、成本                           | 原样建模为 ViewModel/Store                     |
+| Harness 测试 | 大量 Node 单测/集成                                              | 继续跑；桌面只加客户端测试                     |
+
+### 2.2 不能复用（必须重写）
+
+| 资产       | 规模                                                                                 | 影响                                                                     |
+| ---------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| React 组件 | 62 个 TSX / 172 个文件 / 26,573 行                                                   | 全部重写为 Avalonia `UserControl`/`ControlTheme`                         |
+| CSS        | 259 KB / 约 40 个样式表                                                              | 不能 1:1 翻译；按设计 token + 组件状态重做                               |
+| DOM 行为   | 虚拟滚动、ResizeObserver、IntersectionObserver、`content-visibility`、选区、滚动锚定 | 用 Avalonia 布局/虚拟化/滚动 API 重写                                    |
+| 前端测试   | 99 个测试 / 14,036 行；真 Chrome、jsdom、a11y、响应式                                | 大部分不可直接复用；改为 headless Avalonia + Appium + 视觉回归           |
+| 浏览器预览 | 右栏 iframe（独立回环端口）                                                          | 原生端 v1 改为“在系统浏览器打开”；后续如需内嵌，用隔离 WebView2 仅做预览 |
+
+> **这就是 6–8 个月的来源**：不是“换个框架编译一下”，而是把 2.6 万行 UI 逻辑与 259 KB 样式重新实现，并补齐 IME/无障碍/原生集成。
+
+### 2.3 与 UI 框架无关、但必须先修的 Harness 前置
+
+这四条在 v1（Electron）调研中已实测，换成原生 UI 仍然成立：
+
+1. **`--experimental-permission` 必须改 `--permission`**：Node 24.22.1 / Electron 44.7（Node 24.21）直接报 `bad option`；`--permission` 在 Node 22.20、24.22.1、Electron 44.7 均可用。位置：`src/plugin/worker/workerSpawnSpecBuilder.ts:48`。
+2. **就绪文件**：新增 `OMNI_READY_FILE`，在 `runHttpServe` 绑定成功后原子写 `{protocol,pid,port,workspace,version,apiVersion}`；原生客户端不解析 stdout。
+3. **优雅退出**：新增 `OMNI_CONTROL_STDIO` stdin 控制通道；Windows 上 `child.kill()` 不是可捕获的优雅信号，必须用 stdin `{"type":"shutdown"}` + EOF 兜底 + `taskkill /T /F` 兜底。
+4. **Token 不落盘、不进日志**：桌面生成 32 字节 Token，经 `OMNI_SERVE_TOKEN` 注入；`runHttpServe` 目前仍会打印带 `?token=` 的横幅，需要 `OMNI_NO_UI_URL=1` 抑制；日志再做脱敏。
+
+另加两条：
+
+- `--port 0` 时 `ServeInstance.sweep(pathFor(0))` 与 `announce(实际端口)` 路径不一致；桌面模式用 `OMNI_NO_SERVE_INSTANCE=1` 跳过实例记录。
+- 模型/向量缓存默认落在包根 `third-party/`；安装到 Program Files 会不可写。桌面必须设 `OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE` 到 `%LOCALAPPDATA%`。
+
+### 2.4 本机已实测（2026-10-24）
+
+| 测试                                                        | 结果                                                                                                       |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Node 24.22.1 跑 `dist/src/cli/exec.js --version`            | ✅                                                                                                         |
+| Node 24.22.1 `serve --port 0 --mock`                        | ✅ 随机端口 + Token URL                                                                                    |
+| Node 24.22.1 加载 `native/omni_napi.node` 并 `ping`         | ✅ `{"native":true,"ok":true,"pong":true}`                                                                 |
+| Node 24.22.1 `--experimental-permission`                    | ❌ `bad option`                                                                                            |
+| Node 24.22.1 `--permission`                                 | ✅                                                                                                         |
+| Electron 44.7.0（`ELECTRON_RUN_AS_NODE=1`）加载同一 `.node` | ✅ `ping`                                                                                                  |
+| Electron 45 GUI 启动                                        | ⚠️ 本会话 DSH 沙箱内 `STATUS_BREAKPOINT`，未完成 GUI 验证（与原生方案无关，但说明本环境不能做 GUI 级验收） |
+
+---
+
+## 3. 候选技术调研（无 WebView）
 
 ### 3.1 事实基线（截至 2026-10-24）
 
-| 技术                            | 最新稳定                             | 运行时/WebView                                    | 与本项目的关键事实                                                              |
-| ------------------------------- | ------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **Electron**                    | **45.0.0**（2026-10-21）             | Chromium 156 / Node 24.22 / V8 15.6               | 自带 Chromium 与 Node；`utilityProcess` 提供 Node 子进程；Fuses/ASAR 完整性成熟 |
-| **Tauri**                       | **2.12.x**（CLI 2.12.4，2026-10-21） | 系统 WebView2 / WKWebView / WebKitGTK + Rust Core | 壳小；Node 需作为 sidecar 打包；跨平台 WebView 差异由开发者承担                 |
-| **Wails**                       | **v3.0.0-beta.34**（2026-10-20）     | 系统 WebView + Go Core                            | 仍是 beta；Go 生态与团队栈不匹配                                                |
-| **NW.js**                       | 持续维护                             | Chromium + Node（渲染层可直接 Node）              | 安全模型落后于 Electron 的 sandbox/contextIsolation 实践                        |
-| **Neutralino**                  | 2.x                                  | 系统 WebView + 轻量原生层                         | 无 Node；要跑 Harness 仍需 Node sidecar，API 生态弱                             |
-| **PWA / 浏览器 App 模式**       | —                                    | 浏览器                                            | 无托盘/深链/自动更新/文件对话框/单实例，不能算桌面应用                          |
-| **原生重写（Rust/Qt/Flutter）** | —                                    | 原生                                              | UI 与 Harness 全重写，成本与风险不可接受                                        |
+| 技术                      | 最新版本                                | 渲染/运行时               | 平台              | 与本项目的关键事实                                                       |
+| ------------------------- | --------------------------------------- | ------------------------- | ----------------- | ------------------------------------------------------------------------ |
+| **Avalonia**              | **12.1.4**（2026-10-09）                | Skia 自绘控件树 + .NET 10 | Win/macOS/Linux   | MIT；12.x 大幅提升渲染/无障碍/IME；NativeAOT 可用                        |
+| **WinUI 3**               | **Windows App SDK 2.5.1**（2026-09-16） | 原生 Fluent/XAML + .NET   | Windows only      | 真原生控件/IME/无障碍；无官方 DataGrid/可视化设计器；Markdown/数学需自研 |
+| **WPF**                   | .NET 10                                 | 原生 XAML/DirectX         | Windows only      | 成熟稳定；Fluent 主题；无跨平台；生态偏旧                                |
+| **Uno Platform**          | 6.6（2026-08）                          | WinUI XAML + Skia/WinUI   | 多平台            | 可复用 WinUI XAML；复杂度高；桌面生态不如 Avalonia                       |
+| **Flutter**               | **3.47.8**（2026-10-23）                | Impeller/Skia 自绘        | 多平台            | 自定义 UI 强；Windows IME 仍有未闭环问题（见 §3.4）                      |
+| **Qt**                    | 6.10+                                   | 原生 Qt Widgets/QML       | 多平台            | 文本排版顶级；C++/QML、LGPL/商业许可；数学/Markdown 需自研               |
+| **Slint**                 | 1.18（2026-09-16）                      | Rust 自绘                 | 多平台            | 轻量；富文本/Markdown/数学生态弱                                         |
+| **Compose Multiplatform** | 1.9+                                    | Kotlin/JVM + Skia         | 多平台            | JVM 运行时；Kotlin 新栈；富文本生态较弱                                  |
+| **React Native Windows**  | 0.85（2026-10-21）                      | WinUI 原生控件 + JS       | Windows（+macOS） | TS/React 心智可复用；但桌面生态窄、IME/文本/无障碍仍需验证               |
+| **egui**                  | 持续                                    | Rust 即时模式             | 多平台            | 不适合富文本聊天/无障碍                                                  |
+| **GPUI**                  | Zed 1.0（2026-04-29）                   | Rust GPU 自绘             | Win/macOS/Linux   | Zed 的**内部框架**，不是通用 SDK；无稳定文档/生态                        |
+| **Electron / Tauri**      | 45 / 2.12                               | Chromium/系统 WebView     | 多平台            | 仍是 WebView 套壳；按需求否决                                            |
 
-权威版本与能力来源见 [1]–[13]。Electron 45 的发布说明明确：Chromium 156、Node 24.22.0；同时提醒 45 起 **sandboxed preload 不再提供 `Buffer`/`setImmediate`/`events`/`timers`/`url` 垫片**——这直接影响 preload 写法（我们只暴露最小桥，不受影响，但必须知道）。
+### 3.2 第一轮筛选：先排除“仍然是 WebView”的
 
-### 3.2 社区与生产实践信号
+- **Electron 45**：主界面仍是 Chromium；无论打包多好，都是 L0。
+- **Tauri 2.12**：Rust 核心 + 系统 WebView；UI 仍是 HTML/CSS/JS，仍是 L0/L1。
+- **NW.js / Neutralino / WebView2 混合**：同理。
 
-- Electron 官方 Showcase 里，VS Code、Slack、Discord、Obsidian、Postman、Signal、1Password 等长期生产应用在列 [19]。这说明“Electron 做大型本地优先工具”不是实验路线。
-- 从公开工程形态看，AI/Agent 类桌面客户端常见两种：**Electron 壳 + Node 能力**，或 **Tauri 壳 + Node 侧车**。本项目属于前者更自然的形态——核心是 Node/TS 的 Agent 循环 + 本地文件/进程能力 + 复杂 Web UI，而不是“一个轻量表单”。
-- Tauri 的官方 Node sidecar 指南明确建议用 `pkg`/打包器把 Node 应用变成二进制再作为 sidecar [11]；它并没有消除 Node 运行时，只是把 Node 藏到 sidecar 里。对本项目而言，这会变成 **Electron 等价的两个运行时 + 两套 IPC**，但少了 Electron 的 Chromium 一致性。
-- Wails v3 仍是 beta（beta.34），且要求 Go 1.26+；对一个以 TS 为主仓的团队，引入 Go 壳的维护成本高于收益 [13]。
+> 如果产品目标只是“不要 Electron，但 WebView 可以”，Tauri 2 是合理选择：3–4 周可复用现有 React UI，安装包更小。但它**不满足本文的“不做套壳”**，故不进入主推荐。
 
-### 3.3 关键能力对照
+### 3.3 第二轮：原生候选中，为什么是 Avalonia 而不是其他
 
-| 能力                     | Electron 45                       | Tauri 2.12                               | Wails v3 beta                |
-| ------------------------ | --------------------------------- | ---------------------------------------- | ---------------------------- |
-| 复用现有 React UI        | ✅ 同一 Chromium                  | ⚠️ WebView2/WKWebView/WebKitGTK 三套内核 | ⚠️ 同上                      |
-| 复用 Node Harness        | ✅ 内置 Node 或侧车               | ❌ 必须 sidecar                          | ❌ 必须 sidecar              |
-| 托盘/通知/深链/单实例    | ✅ 成熟                           | ✅ 插件齐全                              | ✅ 基本齐全                  |
-| 自动更新（Windows 差分） | ✅ electron-updater + NSIS        | ✅ 官方 updater（需签名）                | ✅ 自带 updater              |
-| 安装包体积               | ⚠️ 大（Chromium）                 | ✅ 小（系统 WebView）                    | ✅ 小                        |
-| 渲染层安全模型           | ✅ sandbox/contextIsolation/fuses | ✅ 能力白名单（Rust 侧）                 | ⚠️ 相对年轻                  |
-| 跨平台 UI 一致性         | ✅ 最高                           | ⚠️ 需逐平台测试                          | ⚠️ 需逐平台测试              |
-| 与本项目技术栈匹配       | ✅ TS/Node 原生                   | ⚠️ 引入 Rust 壳 + Node sidecar           | ❌ 引入 Go 壳 + Node sidecar |
-| 生产案例密度（桌面工具） | ✅ 极高                           | ⚠️ 增长中                                | ⚠️ 较少                      |
+#### 3.3.1 Avalonia 12.1：最贴合“AI 聊天 + 自定义设计 + 跨平台”
 
-### 3.4 体积/内存的现实预期
+**关键优势**：
 
-不要用“Electron 一定臃肿、Tauri 一定轻”的口号做决策；要按本项目拆分：
+1. **富文本/流式渲染有现成的高质量开源件**：`LiveMarkdown.Avalonia` 2.5.1（Apache-2.0，2026-10-22）专为 LLM 流式输出设计，支持 Markdig、TextMateSharp 代码高亮、LaTeX（RaTeX）、Mermaid（Mermaider）、表格、图片、可选择文本、搜索高亮、增量 `ObservableStringBuilder`。它还明确支持“Append/Clear”的流式模型，正好对应 SSE 增量。
+2. **不是“拿网页糊一层”**：控件树、文本布局、输入、焦点、无障碍都是 Avalonia 自己的；Windows 用 UIA、macOS 用 NSAccessibility、Linux 用 AT-SPI2。
+3. **中文 IME 是一等公民**：官方文档明确 Windows/macOS/Linux 的 IME 支持为 Full；`TextBox` 自带组合/候选/提交，不必自己实现 IME。
+4. **12.x 的性能与无障碍补强**：官方称复杂场景最高 1,867% FPS 提升；新增 Linux AT-SPI2 无障碍、导航控件、焦点管理重做；目标 .NET 10。
+5. **NativeAOT 可用**：可自包含、无 .NET 运行时依赖、启动更快、攻击面更小；但第三方控件需逐项验证 AOT 兼容性。
+6. **测试/工程化完整**：`Avalonia.Headless.XUnit` 可做 UI 单测；官方支持 Appium UI 测试；TrayIcon、NativeMenu、StorageProvider、剪贴板、拖放都是内置。
+7. **MIT 许可**：框架可免费商用；部分工具/高级控件是商业产品，但本文选用的 LiveMarkdown 是 Apache-2.0，不依赖付费组件。
+8. **生产案例**：`Everywhere`（约 6.3k stars 的桌面 AI 助手，MCP/多 LLM）使用 LiveMarkdown.Avalonia；dotMemory、Lunacy 等商业应用使用 Avalonia。
 
-| 组成                                                  |      安装后估算 |      压缩后估算 | 说明                                                |
-| ----------------------------------------------------- | --------------: | --------------: | --------------------------------------------------- |
-| Electron 运行时（Chromium+Node）                      |     ~300–370 MB |     ~100–120 MB | 本机 Electron 44.7 `dist` 实测 367.7 MB             |
-| Node 24 侧车 `node.exe`                               |          ~90 MB |          ~30 MB | 本机 Node 24.22.1 实测 89.6 MB                      |
-| Harness 产物（`dist`+`web/dist`+`defaults`+`native`） |          ~35 MB |          ~12 MB | `dist` 19.7 MB、`web/dist` 2.2 MB、`native` 10.9 MB |
-| 服务端生产依赖（裁剪后）                              |       ~30–50 MB |       ~10–15 MB | 剔除 React/KaTeX/highlight 等前端库                 |
-| **基础版合计**                                        | **~450–550 MB** | **~150–180 MB** | 估算；Phase 0 用真实 `electron-builder` 产物校准    |
-| 可选 ONNX/本地嵌入包                                  |     +65 MB/平台 |          +25 MB | `onnxruntime-node` 全平台 210 MB；按平台裁剪        |
-| 模型权重                                              |   0（按需下载） |               0 | 默认缓存到 `%LOCALAPPDATA%`，绝不进安装包           |
+**代价/风险**：
 
-**判断**：对“本地 Agent 工作台”这个品类，150–180 MB 的安装包与 300–550 MB 常驻内存是可接受的；把安装包压到 80 MB 以下而引入第二套 IPC/三套 WebView，是拿核心稳定性换一个非核心指标。
+- 自绘控件不是 Win32 原生控件；Windows 上的“原生感”不如 WinUI 3，需用 Fluent 主题 + Mica + 自定义 chrome 贴近。
+- 团队没有 C#/XAML 经验；需要 4–6 周 ramp-up。
+- OS toast 没有内置（TrayIcon 有，但系统 Toast 要平台服务）；单实例/深链/全局热键需要自己封一层。
+- 第三方 Markdown/数学控件的 AOT 兼容性要实测；不兼容就退回自包含（非 AOT）。
+- **LiveMarkdown 本身是较新的社区项目**（2.5.1 发布时下载量还很小），维护集中在少数作者；必须锁定版本、做视觉/性能回归，并准备 Apache-2.0 源码 fork/vendor 的预案。
 
-### 3.5 可借鉴的开源工程模式
+#### 3.3.2 WinUI 3：Windows-only 的“最原生”，但富文本要自研
 
-| 项目/模式                    | 公开事实                                                       | 可借鉴                                                                | 不照搬                                                                                 |
-| ---------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **VS Code**                  | Electron 壳 + 独立 Extension Host 进程；扩展崩溃不带走 UI [21] | “能力进程与 UI 进程分离”的边界设计；本项目的 Harness 侧车就是同一思路 | 它的 Extension Host 是 Node 进程、用私有 IPC；我们继续用 HTTP/SSE，便于 CLI/浏览器复用 |
-| **GitHub Desktop**           | Electron + 本地 Git 子进程；安装器/自动更新成熟 [22]           | 本地工具型 App 的窗口/更新/日志工程化                                 | 不引入它的 Git 领域模型；本项目的工具执行已在 Harness 内                               |
-| **Signal Desktop**           | Electron + 本地 SQLite；长期生产、重安全加固 [23]              | 本地数据、签名发布、更新链的长期维护经验                              | 不做端到端加密通信；本项目是本地单用户工作台                                           |
-| **Tauri Node sidecar**       | 官方指南把 Node 应用打成二进制作 sidecar [11]                  | “Node 作为独立进程”是跨壳可复用的模式                                 | 不为了小壳引入三套 WebView/两套 IPC                                                    |
-| **Electron 官方安全/ Fuses** | 官方清单 + 打包期 fuse + ASAR 完整性 [3][4][6]                 | 生产档安全基线直接照做                                                | 不因为“本地应用”就跳过 CSP/sandbox                                                     |
+**优势**：
 
-**结论**：开源社区的主流做法不是“把 Node 塞进渲染层”，而是**把能力放进独立进程、把 UI 留在沙箱里**。这与本项目的 Harness 侧车方案同向；真正需要自己设计的是“壳 ↔ 服务”的契约与生命周期，而不是重复造一个 Electron/Tauri 内核。
+- 真正的 Fluent 控件、Mica、系统 IME、UIA 无障碍、Windows 通知/任务栏集成最好。
+- Windows App SDK 2.5 稳定，微软持续投入；MSIX + App Installer 可做企业级更新。
+- C#/XAML 与 Avalonia 学习曲线相近；如果产品 100% 锁定 Windows，这是最“像 Windows 应用”的选择。
+
+**硬伤**：
+
+- **Windows-only**：macOS/Linux 要另写一套；本项目已有跨平台 CLI/Web，桌面端锁死 Windows 是产品战略问题。
+- **没有官方 DataGrid、没有可视化 XAML 设计器**（社区 2026 评估仍指出）；聊天 UI 不用 DataGrid，但工具/成本表格会用到。
+- **Markdown/数学没有 Avalonia 那样的“开箱即用”**：Community Toolkit 有 `MarkdownTextBlock`，但数学/流式/代码高亮/Mermaid 需组合自研；RichEditBox 的 `SetMathMode` 是 Windows App SDK 2.0 experimental，且要把 LaTeX 转 OMML，链路长。
+- **更新/打包更重**：MSIX 需要包身份、签名、App Installer；对独立开发者不如 Velopack 直接。
+
+**结论**：WinUI 3 是“Windows-only + 原生控件优先”的强备选；用 Phase 0 bake-off 与 Avalonia 对比后再定。若 bake-off 发现 Avalonia 的 IME/无障碍/文本保真不达标，切 WinUI 3。
+
+#### 3.3.3 Flutter：自定义 UI 很强，但 Windows IME 是红线
+
+Flutter 3.47.8 的渲染/自定义 UI 很适合聊天界面，`flutter_math_fork` 也能渲染 TeX。但 2026 年 Windows 上仍有未闭环的 IME 缺陷：
+
+- `[Windows][IME] Composition stops after the Flutter view regains focus`（#190042）
+- `[Windows] TextField with maxLines: 1 duplicates text with IMEs that commit on Space`（#191194）
+
+对一个中文优先的 Agent 工作台，输入框丢字/重复字是阻断级缺陷。再加上桌面插件/无障碍/托盘/更新生态不如 Avalonia/WinUI 成熟，**不推荐**。
+
+#### 3.3.4 Qt：文本最强，但团队/许可/数学不划算
+
+Qt 的文本排版、IME、无障碍、跨平台都成熟；但：
+
+- C++/QML 双栈，团队以 TS/Rust 为主，学习/招聘成本高；
+- LGPLv3（动态链接）或商业许可，闭源分发需合规评估；
+- Markdown 可用 `QTextDocument::setMarkdown`，但 LaTeX/数学没有 KaTeX 级方案，需自带渲染器或 WebEngine（又回到 WebView）；
+- 打包体积/部署复杂度高。
+
+**结论**：如果团队已有 Qt 专家，Qt 是强候选；对本项目不是最优。
+
+#### 3.3.5 Rust UI（Slint / egui / GPUI）：方向对，生态不够
+
+- **Slint 1.18**：Rust 原生、轻量、声明式；但富文本/Markdown/数学/流式聊天组件几乎都要自研；生态与招聘面窄。
+- **egui**：即时模式，适合工具面板，不适合长文本、选区、无障碍、IME 复杂的聊天。
+- **GPUI**：Zed 1.0 证明了 Rust GPU UI 能做到极致性能，但 GPUI 是 Zed 的内部框架，不是给第三方应用用的稳定 SDK；没有文档/生态/版本承诺。
+- **Dioxus**：桌面默认仍是 WebView，Blitz 渲染器尚早；不满足“无 WebView”。
+
+#### 3.3.6 React Native Windows：心智复用，但桌面生态太窄
+
+RNW 0.85 已切到 New Architecture，要求 VS 2026 / .NET 10 / Windows App SDK 1.8；文本/IME/无障碍有修复。它能让 React 团队复用组件心智，但：
+
+- 不是 DOM/CSS，现有 26k 行 React 组件不能直接复用；
+- 桌面端（托盘/深链/多窗口/更新）生态远小于 Avalonia/WinUI；
+- Markdown/数学/代码高亮多为移动端包，桌面适配要自己填；
+- 仍然要 C++ 工具链。
+
+**结论**：不作为主方案；若团队坚决要 React 且 Windows-only，可作为备选评估，但风险高于 Avalonia。
+
+### 3.4 加权评分（工程判断）
+
+权重：富文本/聊天 25%、原生体验 20%、无 WebView/安全 15%、跨平台 10%、团队/生态/交付 15%、性能/内存 10%、打包/更新 5%。
+
+| 方案              | 富文本 | 原生体验 | 无 WebView | 跨平台 | 团队/生态 | 性能 | 打包 |   加权 |
+| ----------------- | -----: | -------: | ---------: | -----: | --------: | ---: | ---: | -----: |
+| **Avalonia 12.1** |      5 |        4 |          5 |      5 |         3 |    5 |    4 | **89** |
+| **WinUI 3**       |      3 |        5 |          5 |      1 |         3 |    5 |    5 | **76** |
+| Qt 6.10           |      4 |        5 |          5 |      5 |         1 |    5 |    2 | **80** |
+| WPF               |      3 |        4 |          5 |      1 |         3 |    4 |    4 | **69** |
+| Flutter 3.47      |      4 |        2 |          5 |      5 |         2 |    4 |    3 | **70** |
+| Slint 1.18        |      2 |        4 |          5 |      4 |         3 |    5 |    4 | **72** |
+| RNW 0.85          |      3 |        4 |          5 |      3 |         2 |    4 |    4 | **70** |
+| Compose MP        |      3 |        3 |          5 |      5 |         2 |    3 |    3 | **67** |
+| egui              |      2 |        3 |          5 |      4 |         3 |    5 |    4 | **68** |
+| GPUI              |      2 |        4 |          5 |      2 |         1 |    5 |    3 | **61** |
+| Tauri 2.12        |      5 |        2 |          1 |      5 |         4 |    3 |    5 | **69** |
+| Electron 45       |      5 |        2 |          1 |      5 |         5 |    3 |    5 | **72** |
+
+> 分数用于暴露取舍，不是 benchmark。Qt 分数不低，但团队/许可/数学三项是硬约束；Tauri/Electron 的“无 WebView”为 1，直接不满足需求。
+
+### 3.5 开源社区可借鉴的模式
+
+| 项目                        | 事实                                                               | 借鉴                                                  | 不照搬                                   |
+| --------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------- | ---------------------------------------- |
+| **Everywhere**              | 约 6.3k stars 的桌面 AI 助手；Avalonia + LiveMarkdown + MCP/多 LLM | “原生 UI + 本地 Agent 服务 + 流式 Markdown”的完整组合 | 不复制其产品功能；只验证技术路线         |
+| **Zed**                     | 1.0（2026-04）；Rust/GPUI；Win/macOS/Linux                         | 原生 GPU UI 能做到极致性能；证明“无 WebView”可行      | GPUI 不是通用 SDK，不引入                |
+| **VS Code**                 | Electron + Extension Host                                          | 能力进程与 UI 进程分离                                | 它的 UI 仍是 WebView，不满足需求         |
+| **Avalonia + LiveMarkdown** | Apache-2.0 的流式 Markdown                                         | 直接解决 AI 聊天最难的一块                            | 仍需自己做聊天布局、工具卡、审批、虚拟化 |
+| **WinUI 3**                 | 系统 Fluent/IME/UIA                                                | Windows-only 的“最原生”参照                           | 不为了原生控件牺牲跨平台与富文本交付     |
 
 ---
 
-## 4. 决策矩阵与结论
+## 4. 决策
 
-### 4.1 加权评分（1–5 分，工程判断，不是 benchmark）
+### 4.1 主方案
 
-权重见 §1。分数用于**暴露取舍**，不追求伪精确。
+**Avalonia 12.1.x + .NET 10 + LiveMarkdown.Avalonia 2.5.x + Node 24 侧车 + Velopack 1.2.x。**
 
-| 方案                             | 资产复用 30% | 交付速度 20% | 安全 20% | OS 体验 15% | 分发/体积 10% | 维护 5% | 加权分 |
-| -------------------------------- | -----------: | -----------: | -------: | ----------: | ------------: | ------: | -----: |
-| **Electron + Node 侧车（推荐）** |            5 |            4 |        4 |           5 |             3 |       5 | **88** |
-| Electron + `utilityProcess`      |            5 |            3 |        3 |           5 |             5 |       5 | **84** |
-| Tauri 2 + Node 侧车              |            4 |            3 |        5 |           4 |             4 |       4 | **80** |
-| PWA + 本地服务                   |            4 |            4 |        3 |           1 |             5 |       4 | **69** |
-| Wails v3 + Node 侧车             |            4 |            2 |        4 |           3 |             3 |       2 | **65** |
-| NW.js                            |            4 |            3 |        1 |           3 |             2 |       2 | **55** |
-| 原生重写                         |            1 |            1 |        5 |           4 |             3 |       2 | **50** |
+理由排序：
 
-### 4.2 为什么是 Electron + 侧车，而不是 Tauri
+1. **富文本/流式是产品核心**：LiveMarkdown 把最难的部分（增量 Markdown、代码、LaTeX、Mermaid、选择/搜索）变成现成件。
+2. **无 WebView**：满足“不做套壳”的硬要求。
+3. **跨平台**：Windows 先行，macOS/Linux 不需要重写 UI。
+4. **IME/无障碍有官方承诺**：中文输入是红线，Avalonia 文档明确 Full。
+5. **团队只新增 C#/XAML 一门语言**：比 C++/QML、Dart、Kotlin 更接近现有工程文化；且 Avalonia XAML 与 WPF 类似，资料多。
+6. **打包/更新简单**：Velopack 一条命令出安装器/差分更新；不需要 MSIX 包身份。
 
-Tauri 在“壳的体积/内存/默认权限”上确实更好；但它要求：
+**为什么接受 C# + TS + Rust 三种语言**：Harness 是约 15 万行 TS + Rust 内核，重写成 C#/Rust 的成本远高于新增一层 UI；C# 只进入 `desktop-native/`，不污染 `src/` 与 `web/`。这是“复用核心资产”与“原生 UI”之间的最小代价；如果坚持单语言原生，实际是重写 Harness，不是本文的选项。
 
-1. **Node 仍要打包**（sidecar），所以省掉的只是 Chromium，不是整个运行时；
-2. **UI 要跑在三套 WebView 上**（WebView2/WKWebView/WebKitGTK），本项目的复杂 CSS、KaTeX、虚拟滚动、SSE、预览 iframe 都要逐平台回归；
-3. **要维护两套 IPC**：Tauri command 用于 OS 能力，HTTP/SSE 用于 Harness；错误边界、鉴权、调试链路都翻倍；
-4. **团队栈不匹配**：壳层用 Rust，出问题时要同时懂 Rust/Tauri 与 TS Harness。
+### 4.2 备选：WinUI 3
 
-反过来说，Tauri 的收益（安装包少约 100 MB、内存少约 100–200 MB）在本项目“Harness 本身就可能占数百 MB”的背景下，不足以抵消上述成本。**结论：v1 不做 Tauri；把“壳可替换”作为架构约束保留（见 §5.2），当安装包/内存成为硬性商业约束，或 Harness 核心迁到 Rust 时再评估。**
+只在以下条件同时成立时选 WinUI 3：
 
-### 4.3 为什么不是 Electron `utilityProcess`
+- 产品明确 **Windows-only**（至少 3 年内不做 macOS/Linux）；
+- “系统原生控件/Fluent/Windows 通知”是硬性品牌/采购要求；
+- 愿意为 Markdown/数学/流式渲染自研或接受 WebView2 仅用于公式（后者又破坏纯原生）；
+- Phase 0 bake-off 证明 Avalonia 在 IME/无障碍/文本保真上不达标。
 
-`utilityProcess` 是 Electron 官方推荐的“Node 子进程”方式，省掉一个 `node.exe`（约 30 MB 压缩），并且生命周期由 Electron 管理。但对本项目有两个硬伤：
+### 4.3 明确否决
 
-1. **`process.execPath` 语义变化**：`utilityProcess` 里 `process.execPath` 仍是 `electron.exe`，而 Harness 有多处用它当 Node 解释器（守护进程、插件 Worker、Windows `.cmd` 垫片、boost 脚本）。改成 `utilityProcess` 需要逐个改造成 `execArgv`/`ELECTRON_RUN_AS_NODE`，并处理 `runAsNode` fuse 的冲突。
-2. **安全 fuse 冲突**：生产档要关 `runAsNode`，而 `child_process.fork`/`ELECTRON_RUN_AS_NODE` 依赖它；关了就必须把所有“起 Node 子进程”的路径改成 utilityProcess。改动面从“桌面壳”扩散到“插件安全/守护进程”核心代码。
-
-侧车方案把这两个问题一次性消掉：**`process.execPath` 就是 `node.exe`，所有既有语义原样成立**；同时可以关掉 `runAsNode`，让 Electron 壳更硬。代价只是多 30 MB 压缩体积。**这是“用体积换正确性”的典型划算交易。**
-
-> 保留 `utilityProcess` 作为备选：若未来安装包体积成为硬约束，且愿意做上述改造，可按 §10 的迁移路径切换；HTTP 契约不变，壳代码大部分可复用。
+| 方案                  | 否决理由                                                 |
+| --------------------- | -------------------------------------------------------- |
+| Electron 45           | WebView 套壳；v1 已论证，用户明确否决                    |
+| Tauri 2.12            | 仍是 WebView；只换壳不换渲染                             |
+| NW.js / Neutralino    | 同上，且生态/安全更弱                                    |
+| Flutter               | Windows IME 未闭环；桌面生态/无障碍风险                  |
+| Qt                    | C++/QML + 许可 + 数学/Markdown 自研；团队不匹配          |
+| Slint / egui / GPUI   | 富文本/聊天/无障碍生态不足；GPUI 非通用 SDK              |
+| Compose Multiplatform | JVM/Kotlin 新栈；富文本生态弱                            |
+| RNW 0.85              | 桌面生态窄；React 组件不能直接复用；C++ 工具链           |
+| WPF                   | Windows-only；作为 Avalonia 失败时的保守回退，不作主方案 |
 
 ---
 
 ## 5. 目标架构
 
-### 5.1 架构原则（铁律）
-
-1. **壳不做业务**：Electron 主进程只负责窗口、生命周期、OS 集成、更新；不 import `src/core`、不直接读写会话。
-2. **一个契约，三个客户端**：桌面、Web、CLI 都通过同一 HTTP/SSE 契约访问 Harness；桌面不是“特权分支”。
-3. **进程隔离优先于进程内方便**：Harness 崩溃不能带走窗口；渲染层被攻破不能碰 Node。
-4. **默认拒绝**：渲染导航、窗口打开、权限请求、IPC 通道、更新源全部白名单。
-5. **运行时版本是打包选择，不是架构锁**：Harness 侧车可独立固定 Node 版本；壳可独立升级 Electron。
-6. **打包是架构的一部分**：体积、签名、ASAR 完整性、更新回滚在第一天就纳入设计。
-7. **每个集成点都有可测契约**：就绪文件、控制通道、桥 API、版本握手都要有单测/集成测。
-
-### 5.2 进程与信任边界
+### 5.1 进程与信任边界
 
 ```text
-┌────────────────────────────── 用户会话（Windows） ──────────────────────────────┐
+┌──────────────────────────── Windows / macOS / Linux ────────────────────────────┐
 │                                                                                │
-│  Electron 主进程（受信，但无业务逻辑）                                          │
-│   ├─ BrowserWindow / WebContents（Chromium sandbox，nodeIntegration=false）     │
-│   │    └─ preload（isolated world，只暴露 window.omni 最小桥）                  │
-│   ├─ HarnessSupervisor（spawn / ready / health / stop / restart）               │
-│   ├─ Updater / Tray / Menu / Notifications / DeepLink / Dialogs                 │
-│   └─ 本地日志 / 诊断导出 / 窗口状态                                             │
+│  OmniHarness.Desktop（Avalonia，.NET 10，无 Chromium/WebView）                  │
+│   ├─ Views / ViewModels（MVVM，UI 线程）                                        │
+│   ├─ Stores（Session/Chat/Inspector/Settings）                                  │
+│   ├─ HarnessClient（HTTP/SSE，Bearer）                                          │
+│   ├─ HarnessSupervisor（spawn/ready/health/stop/restart）                       │
+│   ├─ Platform services（Tray/Notification/Dialog/DeepLink/AutoStart/Update）     │
+│   └─ NativeAOT / self-contained 发布                                             │
 │                                                                                │
-│  node.exe 侧车（Harness，独立进程，独立崩溃域）                                 │
-│   ├─ HTTP/SSE 服务：127.0.0.1:<随机端口>，Bearer + HttpOnly Cookie              │
-│   ├─ Agent 循环 / 工具 / 审批 / 沙箱 / MCP / 会话存档                           │
-│   ├─ N-API → native/omni_napi.node（Rust 内核，Windows）                        │
-│   └─ 子进程：MCP 网关 / shell 后台任务 / 插件 Worker（各自沙箱/权限）            │
+│  node.exe 侧车（Harness，独立进程）                                              │
+│   ├─ HTTP/SSE：127.0.0.1:<随机端口>，Bearer Token                               │
+│   ├─ Agent / 工具 / 审批 / 沙箱 / MCP / 会话                                     │
+│   ├─ N-API → native/omni_napi.node（Rust 内核，Windows）                         │
+│   └─ 子进程：MCP 网关 / shell 后台任务 / 插件 Worker                             │
 │                                                                                │
-│  渲染层 →（HTTP/SSE，带 Cookie）→ Harness；渲染层 →（IPC）→ 主进程 → OS          │
-│  渲染层 ✗→ Node / fs / child_process；主进程 ✗→ Harness 内部状态                 │
+│  UI 进程 ──HTTP/SSE──> Harness；UI 进程 ──原生 API──> OS                        │
+│  UI 进程 ✗→ 浏览器引擎/HTML/JS；Harness ✗→ UI 进程内部状态                       │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**信任边界**：
+**与 v1 的关键差异**：
 
-- **渲染层不可信**：它渲染模型输出/工作区内容，必须假设可能被 XSS。
-- **preload 是窄腰**：只暴露 `window.omni`，参数经主进程校验；不暴露 `ipcRenderer`、`require`、`process`。
-- **主进程受信但克制**：只做“用户明确要求的 OS 操作”，不提供任意路径/任意命令执行。
-- **Harness 是能力中心**：所有工具执行仍走既有审批/沙箱门禁；桌面不额外提权。
+- 没有 Chromium 渲染进程、没有 preload、没有 Cookie/CORS/CSP；原生客户端直接用 `Authorization: Bearer`。
+- 没有“UI 页面来自 Harness 静态托管”这层；UI 是安装包里的原生二进制。
+- Harness 仍是独立进程；`process.execPath`、N-API、插件 Worker 语义不变。
+
+### 5.2 分层与目录
+
+```text
+desktop-native/
+  OmniHarness.Desktop.sln
+  src/
+    OmniHarness.Desktop/                 # Avalonia app（可执行）
+      Program.cs
+      App.axaml / App.axaml.cs
+      Views/
+        MainWindow.axaml
+        SessionSidebar.axaml
+        ChatPane.axaml
+        InspectorPane.axaml
+        SettingsWindow.axaml
+        OnboardingWindow.axaml
+        LogViewerWindow.axaml
+      ViewModels/
+      Controls/                          # ChatItem、ToolCard、ApprovalCard、DiffView
+      Styles/                            # Theme.axaml、Tokens.axaml、Controls/*
+      Assets/
+      Services/                          # 平台服务接口的注入/组合
+    OmniHarness.Client/                  # 纯 .NET：RPC/SSE/DTO/错误模型
+      HarnessClient.cs
+      SseClient.cs
+      Contracts/                         # 由 schema 生成
+      Json/
+    OmniHarness.Desktop.Platform/        # 平台实现（Win/macOS/Linux）
+      Windows/  Macos/  Linux/
+    OmniHarness.Desktop.Tests/           # xUnit + Avalonia.Headless
+  contracts/                             # protocol schema → C# 生成脚本
+  packaging/                             # Velopack / 图标 / 签名
+```
+
+**依赖方向**：
+
+```text
+Desktop (Views/ViewModels) → Client → Contracts
+Desktop → Platform interfaces（Tray/Notification/...）
+Platform → OS API / P/Invoke
+Client ✗→ Desktop；Client ✗→ Harness 内部类型；Desktop ✗→ Electron/WebView
+```
 
 ### 5.3 启动时序
 
@@ -261,987 +383,559 @@ Tauri 在“壳的体积/内存/默认权限”上确实更好；但它要求：
 sequenceDiagram
     autonumber
     participant U as 用户
-    participant M as Electron 主进程
+    participant D as Avalonia UI
     participant H as node.exe Harness
-    participant R as 渲染层（Web 工作台）
 
-    U->>M: 双击启动
-    M->>M: requestSingleInstanceLock()
-    M->>M: 解析工作区（最近/命令行/文件夹拖入）
-    M->>M: 生成 32 字节 Token（仅内存）
-    M->>H: spawn serve --port 0 --workspace <ws>
-    Note over M,H: env: OMNI_SERVE_TOKEN / OMNI_READY_FILE /<br/>OMNI_CONTROL_STDIO=1 / OMNI_NO_SERVE_INSTANCE=1
-    H->>H: 绑定 127.0.0.1:0，写 ready.json（原子）
-    H-->>M: ready.json {protocol,pid,port,workspace,version}
-    M->>H: GET /readyz (Authorization: Bearer <token>)
-    H-->>M: 200 ready
-    M->>R: loadURL(http://127.0.0.1:<port>/?token=<token>)
-    R->>H: GET /（服务端 Set-Cookie: HttpOnly）
-    R->>H: GET /events（SSE）+ POST /rpc（Cookie）
-    R-->>M: window.omni.*（原生对话框/通知/外链）
-    U->>M: 关闭窗口 / 退出
-    M->>H: stdin {"type":"shutdown"}
-    H->>H: 取消在飞回合、flush、关闭 MCP/子进程、删 ready.json
-    H-->>M: exit 0
-    M->>M: app.quit()
+    U->>D: 双击启动
+    D->>D: 单实例锁 + 读取 desktop.json
+    D->>D: 选择工作区（最近/命令行/文件夹）
+    D->>D: 生成 32 字节 Token（仅内存）
+    D->>H: spawn serve --port 0 --workspace <ws>
+    Note over D,H: env: OMNI_SERVE_TOKEN / OMNI_READY_FILE /<br/>OMNI_CONTROL_STDIO=1 / OMNI_NO_SERVE_INSTANCE=1
+    H->>H: 绑定 127.0.0.1:0，写 ready.json
+    H-->>D: ready.json {protocol,pid,port,workspace,version}
+    D->>H: GET /readyz (Authorization: Bearer)
+    H-->>D: 200 ready
+    D->>D: 显示主窗口，加载会话列表
+    D->>H: POST /rpc（sessions.list 等）
+    D->>H: GET /events（SSE，Bearer）
+    H-->>D: 事件流（增量）
+    U->>D: 关闭/退出
+    D->>H: stdin {"type":"shutdown"}
+    H->>H: 取消回合、flush、关 MCP/子进程
+    H-->>D: exit 0
+    D->>D: 退出
 ```
 
-### 5.4 目录与模块
+### 5.4 状态归属
 
-桌面代码**不要放进 `src/`**（否则会破坏现有六边形架构门禁与发布包边界），而是作为独立的 `desktop/` 包：
-
-```text
-desktop/
-  package.json                 # 独立依赖：electron / electron-builder / esbuild；不发布到 npm
-  tsconfig.json                # 只做类型检查
-  src/
-    main/
-      main.ts                  # app 生命周期、单实例、协议注册
-      window.ts                # BrowserWindow 工厂、窗口状态、缩放
-      harness/
-        supervisor.ts          # 状态机：spawn/ready/health/stop/restart
-        readyContract.ts       # ready.json 的 zod schema + 校验
-        nodeRuntime.ts         # 定位 node.exe（打包/开发）
-        env.ts                 # 环境变量白名单与清洗
-        logs.ts                # stdout/stderr 分流、轮转、脱敏、环形缓冲
-        killTree.ts            # Windows taskkill / POSIX 进程组
-      ipc/
-        channels.ts            # 通道名常量（唯一来源）
-        validate.ts            # sender / origin / 参数校验
-        handlers.ts            # 所有 ipcMain.handle
-      security/
-        webPreferences.ts      # 统一安全 webPreferences
-        navigation.ts          # will-navigate / setWindowOpenHandler / web-contents-created
-        permissions.ts         # 权限请求白名单
-        csp.ts                 # onHeadersReceived 注入 CSP
-      os/
-        tray.ts                # 托盘与菜单
-        notifications.ts       # 通知与点击聚焦
-        dialogs.ts             # 工作区/文件选择
-        deepLink.ts            # omniharness:// 解析与单实例转发
-        loginItem.ts           # 开机启动
-      update/
-        updater.ts             # electron-updater 封装、渠道、灰度、退出前清理
-      state/
-        desktopState.ts        # 最近工作区/窗口/偏好（原子写）
-      diagnostics.ts           # 导出日志/版本/doctor 摘要
-    preload/
-      preload.ts               # 只 import electron；contextBridge.exposeInMainWorld
-    shared/
-      desktopApi.ts            # 桥 API 类型（不依赖 electron/node）
-      errors.ts                # 错误码与用户文案
-  build/
-    icon.ico / icon.icns / icon.png
-    installer.nsh
-    entitlements.mac.plist
-  test/
-    supervisor.test.ts
-    readyContract.test.ts
-    ipcValidate.test.ts
-    e2e/                       # Playwright _electron
-  electron-builder.yml
-```
-
-**前端只加一层“桌面宿主端口”**：
-
-```text
-web/src/core/desktop/
-  DesktopBridge.ts        # interface：桌面能力（浏览器下为 null 实现）
-  NullDesktopBridge.ts    # 浏览器/CLI 托管时全部 no-op
-  ElectronDesktopBridge.ts# 读 window.omni，做能力检测与错误映射
-```
-
-UI 里**不出现 `window.omni` 的直接调用**（除这个适配器），便于在浏览器/测试中运行。
-
-**Harness 只加两个 CLI 适配器**（不动 core/ports）：
-
-```text
-src/cli/serveReadyFile.ts   # OMNI_READY_FILE：绑定成功后原子写、退出时删
-src/cli/serveControl.ts     # OMNI_CONTROL_STDIO：stdin JSON lines → 优雅 shutdown
-```
-
-依赖方向：
-
-```text
-desktop/main  → desktop/shared, electron, node:*
-desktop/preload → electron（仅 contextBridge/ipcRenderer/webUtils）
-desktop/shared → 纯类型，无 electron/node
-web/src        → 不 import electron；只通过 DesktopBridge 接口
-src/**         → 不 import desktop/**；不 import electron
-```
-
-**架构门禁建议**：在现有 `scripts/architectureGate.mjs` 增加两条文本判据：
-
-- `src/**` 与 `web/src/**` 不得出现 `from 'electron'`（`desktop/` 与测试除外）；
-- `src/**` 不得出现 `desktop/` 相对导入。
-
-### 5.5 状态归属（唯一真相源）
-
-| 状态          | 位置                                                 | 写入者           | 备注                                                    |
-| ------------- | ---------------------------------------------------- | ---------------- | ------------------------------------------------------- |
-| 会话事件流    | `~/.omniharness/sessions/*.jsonl`                    | Harness          | 全局；CLI/桌面共享；不要搬到 `userData`                 |
-| 用户配置      | `~/.omniharness/omniharness.json`                    | Harness/UI       | 现有分层；桌面不另存一份                                |
-| 凭据          | `~/.omniharness/vault.key` / 现有 vault              | Harness          | 桌面不存 API Key                                        |
-| 工作区状态    | `<ws>/.omniharness/**`                               | Harness          | 信任、图、任务、日志                                    |
-| 桌面偏好      | `%APPDATA%\OmniHarness\desktop.json`                 | 主进程           | 最近工作区、窗口、开关                                  |
-| Shell 日志    | `%LOCALAPPDATA%\OmniHarness\logs`                    | 主进程           | 轮转；脱敏                                              |
-| Harness 日志  | 同上 `harness-*.log`                                 | 主进程代写       | 来自侧车 stdout/stderr                                  |
-| 就绪文件      | `%LOCALAPPDATA%\OmniHarness\run`                     | Harness          | 每次启动唯一；退出删除                                  |
-| 更新缓存      | `%LOCALAPPDATA%\OmniHarness\updater`                 | electron-updater | 可清理                                                  |
-| 模型/向量缓存 | `%LOCALAPPDATA%\OmniHarness\models`、`...\vec-cache` | Harness          | 通过 `OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE` 指定 |
-
-> **为什么不用 `electron-store`/SQLite 存桌面偏好**：偏好是小而稳定的 JSON；仓库已有“原子写 + 结构校验”的纪律，自己写 60 行比引入依赖更可控。
+| 状态       | 位置                                   | 写入者     | 说明                                   |
+| ---------- | -------------------------------------- | ---------- | -------------------------------------- |
+| 会话事件流 | `~/.omniharness/sessions/*.jsonl`      | Harness    | 全局；CLI/桌面共享；**不要搬到 UI 侧** |
+| 用户配置   | `~/.omniharness/omniharness.json`      | Harness/UI | 分层配置；桌面不另存                   |
+| 凭据       | `~/.omniharness/vault.key` / vault     | Harness    | UI 不存 API Key                        |
+| 工作区状态 | `<ws>/.omniharness/**`                 | Harness    | 信任、图、任务、日志                   |
+| 桌面偏好   | `%APPDATA%\OmniHarness\desktop.json`   | UI         | 最近工作区、窗口、开关、主题           |
+| 日志       | `%LOCALAPPDATA%\OmniHarness\logs`      | UI + 侧车  | 轮转/脱敏                              |
+| 就绪文件   | `%LOCALAPPDATA%\OmniHarness\run`       | Harness    | 每次唯一；退出删除                     |
+| 更新缓存   | `%LOCALAPPDATA%\OmniHarness\updates`   | Velopack   | 可清理                                 |
+| 模型缓存   | `%LOCALAPPDATA%\OmniHarness\models`    | Harness    | `OMNI_EMBEDDING_CACHE_DIR`             |
+| 向量缓存   | `%LOCALAPPDATA%\OmniHarness\vec-cache` | Harness    | `OMNI_VEC_CACHE`                       |
 
 ---
 
 ## 6. 关键技术方案
 
-### 6.1 UI 交付：回环托管，不做 `file://` / 自定义协议
+### 6.1 UI 结构与设计系统移植
 
-**决策**：窗口 `loadURL('http://127.0.0.1:<port>/?token=<token>')`，由现有 Harness 静态托管 `web/dist`。
-
-**理由**：
-
-- `ServerAuthGuard.originAllowed()` 只接受回环 http(s) Origin；`file://` 的 Origin 是 `null`，自定义 `app://` 也不在白名单 → `/rpc`、`/events` 全部 401。
-- 回环托管让 **Cookie/SSE/CORS/相对路径**全部保持浏览器语义，零改动。
-- 桌面与浏览器共用同一产物与同一套前端测试；不会出现“桌面版才能复现”的布局/路由差异。
-
-**Token 生命周期**：
-
-1. 主进程生成 `randomBytes(32).toString('hex')`，经 `OMNI_SERVE_TOKEN` 注入侧车，**不写文件、不进日志**。
-2. 首屏 URL 带 `?token=`；服务端 `index.html` 响应设置 `HttpOnly; SameSite=Strict` Cookie。
-3. 页面加载完成后执行 `history.replaceState({}, '', '/')` 去掉地址栏 Token；后续 RPC/SSE 依靠 Cookie（以及前端 `authToken` 从 URL 读到的 Token 发 Bearer，二者都可用）。
-4. 刷新窗口时 Cookie 仍有效；Harness 重启换 Token 时，主进程用新 URL 重新 `loadURL`，新 `Set-Cookie` 覆盖旧值。
-5. **不把 Token 写入 `localStorage`**；现有 `authToken` 的 localStorage 分支保留给浏览器场景，桌面不调用 `set()` 持久化。
-6. **抑制服务端横幅**：`runHttpServe` 目前无条件打印带 `?token=` 的 UI URL；桌面模式必须加 `OMNI_NO_UI_URL=1`（或让主进程对 stdout 做 `token=` 脱敏）。否则 Token 会经侧车 stdout 落进桌面日志——这是“Token 不落盘”之外同样重要的泄漏面。
-
-**CSP**（由主进程 `session.webRequest.onHeadersReceived` 注入，同时建议服务端也下发）：
+**主窗口三栏**（与现有工作台对齐）：
 
 ```text
-default-src 'none';
-script-src 'self';
-style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob:;
-font-src 'self' data:;
-connect-src 'self' http://127.0.0.1:<harnessPort> ws://127.0.0.1:<harnessPort>;
-frame-src 'self' http://127.0.0.1:<previewPort>;
-media-src 'self' blob:;
-base-uri 'none';
-form-action 'none';
-object-src 'none';
-frame-ancestors 'none';
+┌────────────────────────────────────────────────────────────────────┐
+│ 自定义标题栏（Mica/纯色；Windows 11 圆角）                          │
+├──────────────┬──────────────────────────────────┬──────────────────┤
+│ 会话侧栏      │ 聊天区（虚拟化）                   │ 检查器/工具/成本  │
+│ 搜索/分组     │ 消息、工具卡、审批卡、流式 Markdown  │ 设置/诊断/预览    │
+│ 新建/工作区   │ 输入区（IME、附件、模式）            │                  │
+└──────────────┴──────────────────────────────────┴──────────────────┘
 ```
 
-说明：
+**控件映射**：
 
-- `connect-src` 用**实际监听端口**，不要写成 `http://127.0.0.1:*`；后者等于允许渲染层探测本机任意回环服务。
-- `frame-src` 用 `/healthz` 返回的 `previewPort`（预览独立回环端口）；预览未启用/启动失败时设为 `'none'`。不要长期用 `127.0.0.1:*` 放宽。
-- `style-src 'unsafe-inline'` 是现有 React 内联样式/面板宽度拖拽所需；不要顺手去掉。
-- `img-src` 默认不含 `https:`：若产品要显示模型输出里的远程图片，需显式加 `https:` 或走服务端代理；这是隐私/可用性取舍，建议默认阻止并在设置里提供开关。
-- 把 `web/index.html` 的内联主题脚本抽成 `web/public/theme-init.js`，才能保持 `script-src 'self'`；否则只能加 `'unsafe-inline'`，不建议。
+| Web 现状      | Avalonia 实现                                                        |
+| ------------- | -------------------------------------------------------------------- |
+| `SessionList` | `ListBox`/`ItemsRepeater` + `VirtualizingStackPanel`                 |
+| 聊天气泡/流   | `ItemsRepeater` + `ChatItemTemplateSelector`；仅可见项实例化         |
+| Markdown      | `LiveMarkdown.Avalonia.MarkdownRenderer` + `ObservableStringBuilder` |
+| 代码块        | LiveMarkdown 内置 TextMateSharp；复制/换行/主题                      |
+| 数学          | LiveMarkdown + RaTeX（`$...$` / `$$...$$`）                          |
+| Mermaid       | LiveMarkdown.Mermaid（Mermaider 原生渲染）                           |
+| 工具卡/审批卡 | 自定义 `UserControl` + `Expander`/`ContentControl`                   |
+| Diff          | 自定义 `DiffView`（行级/字符级；只读）                               |
+| 附件          | `StorageProvider` 选择 + 拖放；图片异步加载                          |
+| 命令面板      | `TextBox` + `ListBox` 过滤 + 键盘路由                                |
+| 设置          | `SettingsWindow`（原生表单）                                         |
+| 主题          | `RequestedThemeVariant` + `ResourceDictionary`                       |
+| 响应式        | `Grid` + `GridSplitter` + 断点 `AdaptiveTrigger` 等价逻辑            |
+| 预览 iframe   | v1：系统浏览器打开；后续可选隔离 WebView2 仅预览                     |
 
-### 6.2 就绪契约：机器可读，不解析 stdout
+**设计系统移植方法**：
 
-新增环境变量 `OMNI_READY_FILE`；`runHttpServe` 在**绑定成功、拿到实际端口之后**原子写入：
+1. 从 `web/styles/tokens.css` 抽取颜色/字号/间距/圆角/阴影为 JSON；
+2. 生成 `Tokens.axaml`（`Color`/`SolidColorBrush`/`Thickness`/`CornerRadius`/`FontFamily`）；
+3. 按组件状态（normal/hover/pressed/focus/disabled）写 `ControlTheme`，不要逐条翻译 259 KB CSS；
+4. 用 headless 渲染 + 截图对比做视觉回归；
+5. 保留“纸与墨”的品牌语义，而不是套 Fluent 默认皮肤。
 
-```json
-{
-  "protocol": 1,
-  "pid": 12345,
-  "host": "127.0.0.1",
-  "port": 51234,
-  "workspace": "D:\\work\\demo",
-  "harnessVersion": "0.2.0",
-  "apiVersion": "0.1.0",
-  "startedAt": "2026-10-24T13:40:32.058Z"
-}
-```
+**关键原则**：原生端的布局/排版/交互要按桌面习惯重做，不做“网页像素级复刻”。例如：
 
-规则：
+- 文本选择、右键菜单、快捷键按平台习惯；
+- 滚动、焦点、Tab 顺序按 Avalonia 原生行为；
+- 高 DPI 下用矢量图标/字体，不放大位图。
 
-- **Token 不写入**（桌面用 `OMNI_SERVE_TOKEN` 注入；CLI 若要写可另加可选字段，但桌面模式不需要）。
-- 先写 `*.tmp` 再 `rename`，读者永远看不到半截 JSON；权限 `0600`（Windows 走用户目录 ACL）。
-- 退出/被优雅关闭时删除；异常退出留下的文件由主进程按 `pid` 判活后清理。
-- `protocol` 是壳/侧车握手版本；`apiVersion` 是 `src/version.ts` 的公开 API 版本；`harnessVersion` 是包版本。三者独立，不要混用。
-- 主进程等待策略：50 ms 轮询 + 30 s 超时；校验 `pid` 存活、`workspace` 非空、`port` 在 1–65535；随后 `GET /readyz`（带 Bearer）确认应用就绪，而不是只看端口。
+### 6.2 流式渲染与长会话性能
 
-**前置修复（P0）**：`--port 0` 时 `ServeInstance.sweep(pathFor(0))` 与 `announce({port: 实际端口})` 路径不一致。桌面模式建议加 `OMNI_NO_SERVE_INSTANCE=1` 完全跳过 `serve-*.pid`（桌面有自己的单实例与 ready 文件）；若保留，则改成“绑定后再 sweep 实际端口”。
-
-### 6.3 生命周期与优雅退出
-
-**问题**：Windows 上 `child.kill('SIGTERM')` 等价于强制终止，`ServeShutdown` 收不到可捕获信号；直接杀会丢最后一笔落盘，MCP 网关/后台 shell 可能变孤儿进程。
-
-**方案**：stdin 控制通道 + 父进程 EOF 兜底。
-
-`serveControl.ts`（仅当 `OMNI_CONTROL_STDIO=1`）：
-
-```ts
-process.stdin.setEncoding('utf8');
-process.stdin.resume();
-let buffer = '';
-process.stdin.on('data', (chunk) => {
-  buffer += chunk;
-  let index;
-  while ((index = buffer.indexOf('\n')) >= 0) {
-    const line = buffer.slice(0, index).trim();
-    buffer = buffer.slice(index + 1);
-    if (line === '') continue;
-    try {
-      const message = JSON.parse(line) as { type?: string };
-      if (message.type === 'shutdown') shutdown('control');
-    } catch {
-      // 忽略坏行；控制通道只接受父进程，不对外暴露
-    }
-  }
-});
-process.stdin.on('end', () => shutdown('stdin-eof'));
-```
-
-`shutdown` 复用 `ServeShutdown` 的同一收尾顺序：**先取消在飞回合并等待落盘 → 关 MCP 网关/子进程 → 关 HTTP → 删 ready/实例记录 → resolve(0)**。`ServeShutdown.wait` 增加可选的 `control` 参数，避免复制逻辑。
-
-**主进程停止流程**：
+**数据流**：
 
 ```text
-write {"type":"shutdown"}\n
-→ child.stdin.end()
-→ 等 exit（10 s）
-→ child.kill()（2 s）
-→ taskkill /PID <pid> /T /F（Windows 兜底）/ process.kill(-pid, 'SIGKILL')（POSIX 进程组）
-→ 清理 ready 文件
+SSE event → SseClient → Channel<SseEvent> → ChatStore（后台线程）
+  → 批量（16–33ms）→ Dispatcher.UIThread → ChatViewModel.ApplyDelta
+  → LiveMarkdown.ObservableStringBuilder.Append
 ```
 
-**崩溃恢复**：
+**规则**：
 
-- 侧车意外退出 → 记录退出码/最后 200 行日志 → 指数退避重启（1 s / 2 s / 5 s，最多 3 次）→ 仍失败则显示“Harness 无法启动”面板（重试 / 打开日志 / 退出）。
-- 健康检查：每 10 s `GET /healthz`；连续 3 次失败视为失联，走重启。
-- 渲染层崩溃：`render-process-gone` → 自动 `reload()` 一次；再次崩溃显示错误页。
-- 重启后端口/Token 都会变：主进程用新 URL 重新加载，保留原路由（hash/query）以便回到同一会话。
+- **只 append，不重建**：LiveMarkdown 的 `ObservableStringBuilder` 为流式设计；不要每个 token 重新 `Markdown.Parse` 全文。
+- **节流**：SSE 可能每 token 一条；按 30–60fps 合并，避免 UI 线程过载。
+- **完成即缓存**：回合结束后把 `MarkdownDocumentUpdate` 缓存到消息模型；虚拟列表回收再显示时直接复用，不重解析。
+- **虚拟化**：只实例化可见消息；历史消息用 `ItemsRepeater` 的回收；不要把 1000 条消息全部放进 `StackPanel`。
+- **滚动锚定**：用户在底部时自动跟随；用户上滚后保持位置，显示“回到底部”。
+- **长内容折叠**：超长工具输出/代码块默认折叠，展开时再渲染。
+- **错误降级**：Markdown/LaTeX 解析失败显示纯文本 + 错误提示，不崩 UI。
+- **性能预算**：1000 条消息、10k 工具事件、单条 100KB 文本；滚动 60fps；流式延迟 <100ms。
 
-### 6.4 单实例、工作区与深链
+**为什么不直接用 WebView 做 Markdown**：那就又回到套壳；LiveMarkdown 已经覆盖了所需能力，且没有 HTML/JS 注入面。
 
-**单实例**：
+### 6.3 Harness 客户端（RPC/SSE/契约）
 
-```ts
-if (!app.requestSingleInstanceLock()) {
-  app.quit();
-  return;
-}
-app.on('second-instance', (_event, argv) => {
-  const target = parseLaunchTarget(argv); // 文件夹 / omniharness://
-  focusMainWindow();
-  if (target) queueLaunchTarget(target);
-});
-```
+**HTTP 客户端**：
 
-**工作区解析顺序**（桌面自己的规则，明确优先于 Harness 的 `serveWorkspace` 回退）：
-
-1. 命令行 `--workspace <path>` 或拖入的文件夹；
-2. 上次成功打开的工作区（`desktop.json`）；
-3. 本机固定项目 `~/.omniharness/omniharness.json` 的 `workspace`；
-4. 首次启动：原生目录选择框（默认 `Documents`）；取消则退出（v1 不做欢迎页，减少一条未验证的 UI 路径）。
-
-**必须显式传 `--workspace`**：从开始菜单/快捷方式启动时，进程 cwd 可能是 `C:\Windows\System32`，绝不能靠 cwd 推断工作区。侧车 `cwd` 也设为该工作区，保证工具的相对路径行为一致。
-
-**深链**：`omniharness://open?workspace=<urlencoded>&session=<id>`
-
-- 打包后 `app.setAsDefaultProtocolClient('omniharness')`；开发态带 `process.execPath` + 入口参数。
-- 解析后只接受：`workspace` 是已存在目录、`session` 是安全 id；**不执行任何 URL 里的命令/提示词**。
-- 未运行时先入队，等 Harness ready + 渲染层 `did-finish-load` 后再转发 `omni.onDeepLink`。
-- 未知工作区先弹确认（“打开并信任此文件夹？”），不自动信任。
-
-**拖拽文件夹**：渲染层 `drop` → `webUtils.getPathForFile(file)`（Electron 32 起 `File.path` 已移除）→ `omni.openWorkspace(path)`；主进程做存在性/目录校验后再切换。该 API 需在 Phase 0 实测 sandboxed preload 下的行为。
-
-### 6.5 托盘、通知、后台任务
-
-**托盘**：
-
-- 图标三态：idle / running / error；`omni.setActivity()` 由 UI 在回合开始/结束/失败时上报（主进程不猜）。
-- 菜单：显示窗口、新建会话、打开工作区、检查更新、打开日志、退出。
-- 关闭行为：设置项 `closeToTray`（默认 **开**，因为 Agent 任务可能很长）；关闭时若 `isQuitting=false` 则 `event.preventDefault()` + `hide()`，首次隐藏弹一次系统通知“仍在后台运行”。
-- 托盘“退出”走 §6.3 的优雅停止；`before-quit` 期间禁止窗口 close 拦截。
-
-**通知**：
-
-- 渲染层在回合完成/需要审批时调用 `omni.notify({title, body, sessionId, kind})`；主进程用 `new Notification(...)` 展示。
-- 窗口聚焦时不弹（避免打扰）；通知点击 → `show()+focus()` → `omni.onNotificationClick(sessionId)` → UI 路由到会话/审批卡。
-- 默认不把提示词/文件内容放进通知正文（隐私）；只放“会话标题 + 状态”。
-- Windows 需 `app.setAppUserModelId('com.mylong227.omniharness')`，且安装器快捷方式的 AUMID 要一致，否则 Toast 不显示/不聚合。
-
-**后台任务**：
-
-- 窗口隐藏不等于 Harness 停止；侧车继续跑。
-- `powerSaveBlocker` 仅在“有回合在跑且用户设置允许”时启用，任务结束释放；不要常驻阻止睡眠。
-- 开机启动默认关；开启时 `--hidden` 启动到托盘，不抢焦点。
-
-### 6.6 安全加固（生产档）
-
-**渲染层 `webPreferences`（唯一工厂，禁止各处手写）**：
-
-```ts
-const securePreferences: WebPreferences = {
-  sandbox: true,
-  contextIsolation: true,
-  nodeIntegration: false,
-  nodeIntegrationInWorker: false,
-  nodeIntegrationInSubFrames: false,
-  webviewTag: false,
-  webSecurity: true,
-  allowRunningInsecureContent: false,
-  experimentalFeatures: false,
-  spellcheck: false,
-  backgroundThrottling: false,
-  preload: path.join(__dirname, 'preload.cjs'),
+```csharp
+var handler = new SocketsHttpHandler {
+    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+    ConnectTimeout = TimeSpan.FromSeconds(3),
 };
+var http = new HttpClient(handler) { BaseAddress = new Uri($"http://127.0.0.1:{port}/") };
+http.DefaultRequestHeaders.Authorization = new("Bearer", token);
 ```
 
-**导航与窗口打开**：
+- **JSON-RPC 2.0**：`POST /rpc`；请求 id 自增；超时/取消；错误码映射为领域错误。
+- **SSE**：`GET /events`，`Accept: text/event-stream`；`HttpCompletionOption.ResponseHeadersRead`；逐行解析 `id:`/`event:`/`data:`；断线用 `Last-Event-ID` 重连；服务器不支持重放时用 `sessions.get` 全量对齐。
+- **重试**：只对幂等读重试；写操作（发送消息/审批）不自动重试，避免重复执行。
+- **取消**：`CancellationToken` 贯穿；UI 取消 → `turns.cancel` RPC。
+- **契约**：从 `protocolSchema.json` 生成 C# DTO（`System.Text.Json` source generation）；CI 检查生成物与 schema 一致。
+- **版本握手**：ready 文件 `protocol`/`apiVersion`；客户端硬校验 `protocol`，`apiVersion` 不匹配提示升级。
 
-```ts
-app.on('web-contents-created', (_event, contents) => {
-  contents.on('will-navigate', (event, url) => {
-    if (!isHarnessUrl(url)) {
-      event.preventDefault();
-      void openExternalSafely(url);
-    }
-  });
-  contents.setWindowOpenHandler(({ url }) => {
-    if (isPreviewUrl(url))
-      return { action: 'allow', overrideBrowserWindowOptions: previewWindowOptions };
-    void openExternalSafely(url);
-    return { action: 'deny' };
-  });
-  contents.on('will-attach-webview', (event) => event.preventDefault());
-});
-```
+### 6.4 进程生命周期与 Harness 前置
 
-- `openExternalSafely` 只允许 `http:`/`https:`/`mailto:`；拒绝 `file:`、`javascript:`、`data:`、`smb:`、`ms-*:`。
-- 预览子窗口：`sandbox:true`、无 preload、`nodeIntegration:false`，并套用同一套导航/权限守卫。
-- 外部链接一律交给系统浏览器；**不在主窗口内嵌任意远程页面**。
+与 v1 相同的 P0 修复（§2.3），这里给出原生端的落地：
 
-**权限**：
+- 生成 Token → `OMNI_SERVE_TOKEN`；
+- `OMNI_READY_FILE`；50ms 轮询 + 30s 超时；校验 pid/port/workspace；
+- `GET /readyz` 带 Bearer；
+- `OMNI_CONTROL_STDIO=1`；退出写 `{"type":"shutdown"}` → `stdin.end()` → 等 10s → `kill` → 2s → `taskkill /T /F`（Windows）；
+- 侧车崩溃：指数退避重启（1/2/5s，最多 3 次）；健康检查每 10s；连续 3 次失败重启；
+- 环境清洗：删除 `NODE_OPTIONS`/`NODE_PATH`/`NODE_EXTRA_CA_CERTS`/`ELECTRON_RUN_AS_NODE`；只透传白名单 provider key；
+- 缓存目录：`OMNI_EMBEDDING_CACHE_DIR`/`OMNI_VEC_CACHE` 指向 `%LOCALAPPDATA%`。
 
-```ts
-session.defaultSession.setPermissionRequestHandler((wc, permission, callback) => {
-  const url = new URL(wc.getURL());
-  const trusted = url.hostname === '127.0.0.1' && url.port === String(harnessPort);
-  callback(
-    trusted && (permission === 'notifications' || permission === 'clipboard-sanitized-write'),
-  );
-});
-session.defaultSession.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
-  return (
-    requestingOrigin === `http://127.0.0.1:${harnessPort}` &&
-    (permission === 'notifications' || permission === 'clipboard-sanitized-write')
-  );
-});
-```
+**原生端 supervisor** 与 UI 解耦：`IHarnessSupervisor` 暴露 `State`/`Ready`/`StartAsync`/`StopAsync`/`RestartAsync`；UI 只订阅状态，不直接 `Process`。
 
-其余（摄像头、麦克风、地理位置、HID、串口、MIDI、剪贴板读）一律拒绝；需要时再逐项评审。
+### 6.5 单实例、工作区、深链、托盘、通知
 
-**Fuses（生产构建）**：
+| 能力       | Avalonia 实现                                                 | 备注                                                                                                                                          |
+| ---------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 单实例     | 命名 Mutex + 命名 Pipe（跨平台）                              | 第二实例把 argv 转发给第一实例；Windows 可加 `WM_COPYDATA`                                                                                    |
+| 工作区选择 | `IStorageProvider.OpenFolderPickerAsync`                      | 默认 `Documents`；最近工作区持久化；显式 `--workspace`                                                                                        |
+| 文件夹拖入 | `DragDrop` + `DataFormats.Files`                              | 校验存在/可写；不自动信任                                                                                                                     |
+| 深链       | 安装器注册 `omniharness://`；argv/pipe 转发                   | 只接受已存在目录 + 安全 session id；不执行 URL 里的命令/提示词                                                                                |
+| 托盘       | `TrayIcon` + `NativeMenu`                                     | 三态图标；菜单：显示/新建/工作区/更新/日志/退出                                                                                               |
+| 通知       | `WindowNotificationManager`（应用内）+ 平台 Toast 服务        | Avalonia 没有内置系统 Toast；Windows 用 WinRT/`DesktopNotifications`，macOS 用 UNUserNotificationCenter，Linux 用 libnotify；失败回退托盘气泡 |
+| 开机启动   | HKCU Run（Win）/ LaunchAgent（macOS）/ XDG autostart（Linux） | 默认关；`--hidden` 启动到托盘                                                                                                                 |
+| 窗口状态   | 自定义 JSON；恢复时校验屏幕可见区域                           | 多显示器/DPI 变化要兜底                                                                                                                       |
+| 主题/Mica  | `RequestedThemeVariant` + `TransparencyLevelHint`             | Windows 11 Mica；其他平台纯色/亚克力回退                                                                                                      |
+| 全局热键   | Win32 `RegisterHotKey`（Windows）；后续平台实现               | Phase 3；需冲突检测/可配置                                                                                                                    |
+| 预览网页   | v1 系统浏览器；后续可选隔离 WebView2                          | 仅功能级，不作为主界面                                                                                                                        |
 
-```yaml
-electronFuses:
-  runAsNode: false
-  enableCookieEncryption: true
-  enableNodeOptionsEnvironmentVariable: false
-  enableNodeCliInspectArguments: false
-  enableEmbeddedAsarIntegrityValidation: true
-  onlyLoadAppFromAsar: true
-  grantFileProtocolExtraPrivileges: false
-```
+**通知的产品语义**：
 
-- 侧车是独立 `node.exe`，不受 `runAsNode` 影响；这是侧车方案的又一好处。
-- `enableNodeCliInspectArguments:false` 会让 Playwright Electron 无法连接（其已知限制要求该 fuse 不为 false）[17]；因此 **E2E 跑未翻 fuse 的开发构建**，发布构建另做安装/启动烟测。
-- `onlyLoadAppFromAsar` + `enableEmbeddedAsarIntegrityValidation` 要求 `asar.disableIntegrity` 不为 true；electron-builder 26 支持 `electronFuses` 并在签名前翻 fuse [9]。
+- 回合完成/待审批 → 通知；窗口聚焦时不弹；
+- 点击通知 → 激活窗口 → 导航到会话/审批卡；
+- 默认不把提示词/文件内容放进通知正文（隐私）；
+- Windows 需 AUMID/快捷方式一致；Avalonia 需自行注册。
 
-**环境变量清洗（容易被忽略）**：
+### 6.6 安全
 
-侧车是 `node.exe`，会读取 `NODE_OPTIONS`、`NODE_PATH`、`NODE_EXTRA_CA_CERTS`；即使 Electron 关了 `nodeOptions` fuse，也管不到侧车。主进程必须：
+**攻击面比 WebView 小，但不是零**：
 
-```ts
-const env = { ...process.env };
-for (const key of [
-  'NODE_OPTIONS',
-  'NODE_PATH',
-  'NODE_EXTRA_CA_CERTS',
-  'ELECTRON_RUN_AS_NODE',
-  'ELECTRON_NO_ASAR',
-]) {
-  delete env[key];
-}
-// 仅保留受控的 OMNI_* 与已知 provider key；不要整包透传
-```
+| 风险                  | 措施                                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| Markdown 注入 HTML/JS | LiveMarkdown 不支持 HTML 渲染；不启用 HTML 节点；数学/代码/Mermaid 都是原生渲染                   |
+| 恶意链接              | 只允许 `http(s)`/`mailto`；拒绝 `file:`/`smb:`/`javascript:`/`data:`；未知域名先确认              |
+| 远程图片泄露 IP       | 默认不加载远程图片；设置里显式开启；或经 Harness/代理拉取                                         |
+| 本地文件路径          | 只允许工作区内/用户刚选择的路径；`Path.GetFullPath` + 前缀校验；拒绝 UNC/设备路径（除非用户选择） |
+| Token 泄漏            | 只在内存；不写 ready 文件/日志；日志脱敏；`OMNI_NO_UI_URL=1`                                      |
+| 侧车被本地网页调用    | 只绑 `127.0.0.1`；随机 Token；建议加 `Host` 精确校验                                              |
+| 环境注入              | 清洗 `NODE_OPTIONS`/`NODE_PATH` 等；不透传整包 env                                                |
+| 更新供应链            | 代码签名 + HTTPS + Velopack 校验；发布前 N-1 升级测试                                             |
+| 深链注入              | 只接受目录/session id；不执行命令；未知工作区需确认                                               |
+| 崩溃/日志泄露         | 日志脱敏；诊断导出需用户确认；默认不上传                                                          |
+| 插件/工具执行         | 仍走 Harness 审批/沙箱；原生 UI 不额外提权                                                        |
 
-Provider Key 是否透传要显式列白名单（`OPENAI_API_KEY`、`ANTHROPIC_API_KEY`、`DEEPSEEK_API_KEY` 等），否则用户“在系统环境变量里配了 Key”会突然失效；这是产品行为，要在设置里说明。
+**不需要的东西**：CSP、Cookie、CORS、Chromium sandbox、ASAR 完整性——因为根本没有 WebView。这是原生方案的安全收益，但不要误以为“原生 = 安全”；Markdown 链接/图片/文件路径/更新链仍要逐项处理。
 
-**IPC 校验（每个 handler 第一行）**：
+### 6.7 打包、更新、签名
 
-```ts
-function assertTrustedSender(event: IpcMainInvokeEvent): void {
-  if (event.sender !== mainWindow?.webContents) throw denied();
-  const frame = event.senderFrame;
-  if (!frame || frame.parent !== null) throw denied();
-  const url = new URL(frame.url);
-  if (
-    url.protocol !== 'http:' ||
-    url.hostname !== '127.0.0.1' ||
-    url.port !== String(harnessPort)
-  ) {
-    throw denied();
-  }
-}
-```
+**发布形态**：
 
-- 参数用 zod/手写 schema 校验；路径必须 `resolve` 后做“是否在工作区内/是否用户刚选择”的判定。
-- 不提供 `exec`/`spawn`/`readFile(any)` 这类通用能力；桥 API 是**语义化**的（`pickWorkspace`、`revealPath`、`openExternal`）。
-- 不暴露 `ipcRenderer`；preload 只导出冻结对象。
+- `dotnet publish -c Release -r win-x64 --self-contained true`（首选）；
+- 若 LiveMarkdown/第三方控件全部 AOT 兼容，再切 `PublishAot=true`（启动更快、体积更小）；不兼容就保持 self-contained + trimming；
+- 产物目录：`OmniHarness.Desktop.exe` + `resources/harness/{node.exe,dist,web,defaults,native,node_modules}`。
 
-**其他**：
+**Velopack**：
 
-- **收紧 Origin/Host**：`ServerAuthGuard` 现在只校验“Origin 是任意回环 http(s)”，并未绑定本次监听端口，也不校验 `Host`。建议桌面模式把它收紧为精确的 `http://127.0.0.1:<harnessPort>`（预览/开发另列白名单），并校验 `Host` 为 `127.0.0.1:<port>` / `localhost:<port>`；这是对 DNS rebinding/本机多服务误用的额外一道门，属于 P1 加固项。
-- **ASAR 完整性的边界**：`enableEmbeddedAsarIntegrityValidation` 只保护 `app.asar`（壳代码）。`resources/harness` 是普通文件（`node.exe` 不支持读 asar），不在 ASAR 校验范围内；按用户安装又意味着当前用户可写。**不要把 ASAR 完整性当成“整个应用防篡改”**：安装包签名 + 安装目录 ACL 才是边界；同用户恶意进程的篡改属于本地威胁模型之外。需要更强保证时提供 per-machine（Program Files）安装或企业 MSI，并在文档中如实说明。
-- 生产禁用 DevTools（或仅 `--devtools` 启动参数）；禁止 `--remote-debugging-port`（检测到就退出并提示）。
-- `app.enableSandbox()` 在 `ready` 前调用，确保所有渲染器沙箱。
-- `crashReporter.start({ uploadToServer: false })`；崩溃转储本地保留，诊断导出需用户确认。
-- 日志脱敏：`token`、`Authorization`、`apiKey`、`sk-...`、Cookie；不要把首屏带 Token 的 URL 原样写日志。
+- `vpk pack --packId OmniHarness --packVersion <ver> --packDir publish --mainExe OmniHarness.exe`；
+- 生成安装器、差分包、`RELEASES`；上传 GitHub Releases；
+- 客户端 `UpdateManager` 检查/下载/应用；退出前先停 Harness；
+- 差分更新减少下载；保留上一版本安装包以便回滚（发更高版本号）；
+- 代码签名：`signtool`/Azure Trusted Signing；签名主 exe 与安装器；Node 保留上游签名；
+- 安装到 `%LOCALAPPDATA%\OmniHarness`（per-user，无 UAC）；数据仍写 `~/.omniharness`。
 
-### 6.7 原生内核与 Node 版本策略
+**体积估算**（需 Phase 0 实测）：
 
-**实测结论**：
+| 组成                                |          安装后 |        压缩后 |
+| ----------------------------------- | --------------: | ------------: |
+| Avalonia + .NET self-contained      |      ~70–100 MB |     ~25–40 MB |
+| 或 NativeAOT                        |       ~25–40 MB |     ~12–20 MB |
+| Node 24 `node.exe`                  |          ~90 MB |        ~30 MB |
+| Harness（dist/web/native/默认依赖） |       ~35–50 MB |     ~12–18 MB |
+| 应用资源/图标                       |           ~5 MB |         ~2 MB |
+| **合计**                            | **~150–240 MB** | **~60–90 MB** |
 
-- `omni_napi.node` 在 Node 24.22.1 与 Electron 44.7.0（Node 24.21）下均能加载并 `ping`；其 `GetModuleHandleW(NULL)` 解析宿主模块，Electron 的 `electron.exe` 导出 N-API 符号，故可用。
-- 该 `.node` 是 **Windows-only**；macOS/Linux 走 JS 回退（现有 `NativeBackend.supports()` 已经是 fail-closed 回退）。
-- N-API 是 ABI 稳定的；不需要 `electron-rebuild`，但需要保持“侧车 = 真 node.exe”以避免宿主模块变化。
+> 比 Electron 方案（安装后 450–550 MB）小一半左右；但仍比纯 WebView 壳大，因为带 .NET 运行时与 Node 侧车。
 
-**Node 版本决策**：
+**macOS（Phase 3）**：`.app` + Developer ID 签名 + Notarization + Hardened Runtime；Node 二进制/`.node` 需签名；Avalonia NativeAOT 可按架构发布。**Linux**：AppImage/tar.gz；无 Windows 原生内核（JS 回退）；Wayland/X11 由 Avalonia 处理。
 
-| 方案                            | 优点                                                                           | 风险                                                   | 结论                               |
-| ------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------ | ---------------------------------- |
-| **Node 24.22 LTS 侧车（推荐）** | Active LTS 到 2028-04；与 Electron 45 的 Node 24.22 同大版本；本机核心冒烟通过 | 需修 `--permission`；CI 目前只测 Node 22；全量单测需补 | **推荐，但设门禁**（见下）         |
-| Node 22.20 侧车（降级）         | 与当前 CI/本机完全一致；零代码改动                                             | 2027-04 EOL；与 Electron 45 的 Node 24 不同大版本      | **门禁失败时的回退**，不是长期方案 |
+### 6.8 可观测性与诊断
 
-**Node 24 门禁（Phase 0 必过）**：
+- 日志：`Microsoft.Extensions.Logging` + 文件 sink；10 MB × 5 轮转；脱敏；`Open Logs`。
+- 启动失败面板：阶段（spawn/ready 超时/readyz 失败/崩溃）、最后 20 行 stderr、日志路径、重试/退出。
+- 诊断导出：版本、OS、`doctor --json` 摘要、脱敏日志、更新状态；默认不含会话内容/密钥。
+- 崩溃：`AppDomain.UnhandledException` / `TaskScheduler.UnobservedTaskException` / 平台 crash handler；本地转储；默认不上传。
+- 性能指标：启动耗时、Harness ready、首屏、滚动帧率、内存；本地日志，可选匿名上报。
 
-1. `--experimental-permission` → `--permission`（Node ≥22.13 稳定；Node 22.20/24.22.1/Electron 44.7 均实测可用）。
-2. CI 增加 Node 24 job，跑 `npm run test:fast` + 集成/前端关键判据；不得只跑 smoke。
-3. 插件 Worker 加 `--allow-addons` **仅当**它确实加载原生模块；当前 Worker 不加载 `.node`，先不加，避免扩大权限。
-4. 复核 Node 24 的 `--permission` 对子进程/Worker 的继承行为（v24.4 起 `--allow-child-process` 会经 `NODE_OPTIONS` 继承），确认插件 Worker 的 `spawn` 行为没有意外放宽/收紧。
-5. 在真实 Windows 桌面跑 `serve --port 0`、插件 Worker、`doctor`、原生 `ping`。
+### 6.9 测试策略
 
-> 如果第 2 步失败且短期修不完：**立即切 Node 22.20 侧车**，桌面架构不变，只换打包的 `node.exe`；把 Node 24 迁移作为独立里程碑。侧车方案的最大价值就是让这个切换成为“换一个二进制”，而不是“改架构”。
+| 层      | 内容                                                                | 工具                                          |
+| ------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| 单元    | ViewModel、Store、DTO、SSE 解析、路径策略、错误映射                 | xUnit                                         |
+| UI 单元 | 控件布局/键盘/焦点/主题                                             | `Avalonia.Headless.XUnit`（`[AvaloniaFact]`） |
+| 契约    | schema → C# 生成物一致；RPC/SSE 夹具                                | 生成脚本 + xUnit                              |
+| 集成    | 真 `node.exe` + 真 `serve`：ready、RPC、SSE、取消、崩溃重启、优雅停 | xUnit + 临时目录/随机端口                     |
+| E2E     | 首屏、发消息（mock 模型）、审批、工作区切换、通知、退出             | Appium（Avalonia 官方支持）                   |
+| 视觉    | 关键界面截图对比；字体/DPI 固定                                     | Headless render + golden                      |
+| 平台    | 托盘/Toast/深链/单实例/开机启动                                     | 手工 + 平台自动化                             |
+| 安装包  | 安装/启动/更新/卸载保留数据；N-1→N                                  | PowerShell/脚本 + Velopack                    |
+| 性能    | 1000 消息、流式、内存、启动                                         | 基准脚本                                      |
+| 安全    | 链接/图片/路径/深链/环境注入                                        | 单测 + 手工                                   |
 
-### 6.8 打包与体积
+**CI**：`windows-latest`（主）、`macos-14`、`ubuntu-24.04`；.NET 10 SDK；Node 24（Harness 矩阵同时跑 Node 22/24）；Avalonia headless；Velopack 打包；签名只在 tag。
 
-**布局**（保持 Harness 现有相对路径解析，零代码改动）：
+### 6.10 与 Web UI 共存/迁移
 
-```text
-OmniHarness/
-  OmniHarness.exe
-  resources/
-    app.asar                 # Electron main/preload/图标/错误页（无 Node 业务代码）
-    harness/
-      node.exe
-      dist/src/...
-      web/dist/...
-      defaults/...
-      native/omni_napi.node
-      node_modules/...
-      package.json
-      LICENSE / THIRD_PARTY_NOTICES
-```
-
-为什么保持这个布局：
-
-- `NativeKernel` 从 `dist/src/native` 向上找 `native/omni_napi.node`；
-- `runHttpServe` 从 `dist/src/cli` 向上找 `web`；
-- `ConfigFactory.locatePackageRoot` 用 `package.json` + `defaults/` 双锚点；
-- 三者都依赖“`dist`/`web`/`native`/`defaults` 同级”。**不要为了“好看”重排目录**，否则要在三个模块里改路径。
-
-**staging 脚本**（`desktop/scripts/stageHarness.mjs`）：
-
-1. `npm run build`（tsc → `dist`）；
-2. `npm run web:build`（Vite → `web/dist`）；
-3. 复制 `dist`、`web/dist`、`defaults`、`native`、`package.json`、`omniharness.json.example`；
-4. 用**服务端最小依赖清单**安装生产依赖（剔除 `react`、`react-dom`、`markdown-it`、`katex`、`highlight.js`）；或 `npm ci --omit=dev` 后删除这些目录；
-5. 删除 `@huggingface/transformers/.cache`（本机 2.2 GB）、测试、文档；保留 `dist` 的 `.js.map` 便于诊断（压缩后体积可接受）。
-6. 断言 `web/dist/index.html`、`native/omni_napi.node`、`dist/src/cli/exec.js` 存在；缺一即构建失败（白屏/原生缺失要在构建期暴露，不要等用户）。
-
-**可选能力包**：
-
-- 基础版不含 `onnxruntime-node`/`@huggingface/transformers`；启用本地语义检索时，UI 明确提示“需要完整版/安装本地模型包”。
-- 完整版含 ONNX（按平台裁剪：win32-x64 约 65 MB），模型权重仍在首次使用时下载到 `%LOCALAPPDATA%\OmniHarness\models`，绝不打进安装包。
-- 不建议 v1 做“运行时下载 npm 包到 Program Files”（无写权限/签名/完整性复杂）；两个安装包（Lite/Full）比运行时装配更稳。
-- `playwright-core`（约 13 MB，不下载浏览器）与 `sharp`/`unpdf`/`linkedom` 可按基础版策略保留：`sharp` 缺失会退化为“不缩放”，`playwright-core` 缺失会让浏览器工具报错（应在 UI 提示安装完整版），不要静默假装可用。
-
-**便携版**：v1 不做。当前 `homedir()`/`~/.omniharness` 是全局硬编码；真正的 portable 需要 `OMNI_HOME` 贯穿会话、配置、vault、插件、模型缓存，属于独立改造。若必须提供，先做 ZIP + 明确文档“数据仍写用户目录”，不要假装绿色。
-
-### 6.9 更新、签名与发布
-
-**更新链路**：
-
-- `electron-builder` 26 + `electron-updater` 6.8.x；Windows 目标 **NSIS**（差分 blockmap），GitHub Releases 作为 provider [7]。
-- `autoUpdater.autoDownload = false`；启动 10 s 后检查，发现更新弹“下载/稍后”；下载完成弹“重启安装”，**有回合在跑时延后**。
-- 退出安装前先优雅停 Harness（§6.3），再 `quitAndInstall()`；设置 `autoInstallOnAppQuit=false`，避免用户直接关窗时安装器与 Harness 收尾竞争。
-- 灰度：`latest.yml` 的 `stagingPercentage: 10` → 50 → 100；出问题发更高版本号回滚（electron-updater 不支持降级，除非显式 `allowDowngrade`）。
-- 安全：HTTPS + Authenticode 校验（electron-updater 在 Windows 会校验签名）+ 未来的签名更新清单（v27）；不要把 `setFeedURL` 指向用户可控地址。
-- 更新失败：保留当前版本，显示可操作错误与“手动下载”链接；不要静默重试到死。
-
-**代码签名**：
-
-- Windows：OV/EV 证书或 **Azure Trusted Signing**；`forceCodeSigning: true` 只在 tag 构建启用，避免本地开发被卡 [8]。
-- SmartScreen：签名不等于立刻无警告；EV 自 2024 起也不再“即时免拦”，声誉需要时间累积 [18]。**尽早开始签名发版**，否则 Beta 用户会先看到“未知发布者”。
-- macOS（后续）：Developer ID + Notarization；Electron 44+ 要求 macOS 13+；侧车 `node` 二进制、`.node`、ONNX dylib 都要签名/硬化运行时，工作量不小，故不作为 v1。
-- 供应链：`npm ci` + lockfile + 现有依赖 allowlist；产物附 SHA-256/SBOM；Node/Electron 的许可证与第三方声明随包分发。
-
-**版本号**：
-
-- 桌面壳版本与 Harness 包版本**统一**（例如都从根 `package.json` 同步），避免“壳 1.2 / 内核 0.2”的用户困惑。
-- 但 `API_VERSION`（公开 API 契约，当前 0.1.0）是第三个数；ready 文件同时带 `harnessVersion` 与 `apiVersion`，壳只硬校验 `protocol`，`apiVersion` 不匹配时提示升级而不是崩溃。
-
-### 6.10 可观测性与诊断
-
-- **日志**：主进程与侧车分开文件；JSON lines；10 MB × 5 轮转；脱敏；`Open Logs` 一键打开目录。
-- **启动失败面板**：显示阶段（spawn / ready 超时 / readyz 失败 / 崩溃）、最后 20 行 stderr、日志路径、两个按钮（重试 / 退出）；后续可加“安全模式”。
-- **安全模式（后续项，需先补旗标）**：当前 CLI **没有** `--safe-mode`/`--no-native` 等开关，不能假装它已存在。若要提供，需新增 `--safe-mode` 并登记进 `src/cli/knownFlags.ts`（否则会被“未知旗标 fail-closed”打死），语义为：不加载插件、跳过原生内核、跳过自动更新检查；这是独立的后续任务。
-- **导出诊断**：zip 包含版本、OS、`doctor --json` 摘要、脱敏日志、fuses 状态、更新状态；默认不含会话内容/密钥；用户确认后生成。
-- **崩溃**：`crashReporter` 本地转储；Windows 45 需随包带 `electron_wer.dll`（重命名跟随 exe）[1]；默认不上传。
-- **指标**：v1 不做远程遥测；可在设置里 opt-in 匿名启动成功率/崩溃率。若做，单独评审隐私与合规。
-
-### 6.11 测试策略
-
-| 层           | 内容                                                                                                                                                        | 工具/判据                                       |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 单元         | ready 文件原子写/脏数据/pid 判活；控制通道；supervisor 状态机；IPC sender 校验；环境清洗；路径策略                                                          | Vitest（`desktop/test`）                        |
-| 集成         | 真 `node.exe` + 真 `serve`：启动、readyz、SSE、RPC、优雅停、强杀兜底、崩溃重启                                                                              | Vitest + 临时目录/随机端口；不依赖 Electron GUI |
-| Harness 回归 | Node 22/24 双版本单测、插件 Worker、原生 `ping`、`doctor`                                                                                                   | CI matrix                                       |
-| 前端回归     | 现有 `npm run web:test`；新增桌面桥的 null 实现                                                                                                             | 现有真 Chrome 判据                              |
-| E2E          | Playwright `_electron` 启动开发构建：首屏、发消息（mock 模型）、审批、工作区切换、外链、通知、退出                                                          | Playwright（开发构建，保留 inspect fuse）[17]   |
-| 安装包       | 静默安装、启动、ready、截图、退出、卸载保留数据；N-1 → N 升级                                                                                               | PowerShell + 安装器 `/S`；Windows runner        |
-| 安全         | `window.require`/`process` 为 undefined；`fetch('https://example.com')` 被 CSP 拦；`window.open('file:///')` 被拒；iframe 调桥被拒；`NODE_OPTIONS` 注入无效 | E2E + 单测                                      |
-| 性能         | 冷启动到可交互、Harness ready、空闲内存、长会话 1000 轮                                                                                                     | 基准脚本 + 手动记录                             |
-
-**CI 流水线**（新增 `.github/workflows/desktop.yml`）：
-
-1. `windows-latest`，Node 24（桌面） + Node 22/24（Harness 矩阵）；
-2. 构建根包 + `web:build` + stage + `electron-builder --dir`（不打安装包）跑单测/E2E；
-3. tag 时：签名 + NSIS + blockmap + `latest.yml` + SBOM + 校验和；
-4. 上传 draft release；人工验证 N-1 升级后再发布；
-5. 缓存 Electron/Node 二进制（带 SHA-256 校验），避免每次下载。
+- **保留 Web UI 作为浏览器/远程客户端**，CLI 不变；桌面原生是第三个客户端。
+- **共享契约**：protocol schema → TS/C# 双端生成；共享 i18n JSON；共享设计 token JSON。
+- **功能冻结**：原生 Beta 前，Web UI 只修 bug，不加新功能，避免双端追逐。
+- **Strangler**：原生先做“读 + 流式 + 审批”，再补工具卡/设置/预览；不搞大爆炸。
+- **退出条件**：原生达到核心工作流对等 + 稳定性门槛后，桌面安装包不再包含 Web UI；Web UI 仍可作为独立服务端 UI 保留。
 
 ---
 
 ## 7. 实施路线
 
-### Phase 0：前置修复与可行性钉死（约 1 周）
+### Phase 0：Bake-off + Harness 前置（3–4 周）
 
-| #    | 任务                                                                                  | 产出/退出标准                                          |
-| ---- | ------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| P0-1 | `--experimental-permission` → `--permission`；Node 22/24 双版本判据                   | 插件 Worker 在两个版本都能起；CI 绿                    |
-| P0-2 | `OMNI_READY_FILE` + `OMNI_NO_SERVE_INSTANCE`；修 `--port 0` 记录路径                  | 真 `serve` 在随机端口写/删 ready；无残留 pid           |
-| P0-3 | `OMNI_CONTROL_STDIO` 优雅停 + EOF 兜底                                                | Windows 上 stdin 关闭后进程退出码 0，子进程无孤儿      |
-| P0-4 | Token 经 `OMNI_SERVE_TOKEN` 注入；`OMNI_NO_UI_URL=1` 抑制带 Token 的横幅；日志脱敏    | 启动 10 次，日志扫描无 Token                           |
-| P0-5 | Electron GUI 冒烟（真实桌面，不用 DSH 沙箱）：窗口载入回环 UI、Cookie、SSE、RPC、外链 | 截图 + 控制台零错误；录屏/日志留档                     |
-| P0-6 | 打包布局 spike：stage → `electron-builder --dir` → 启动                               | 安装目录结构正确；原生 `ping` 成功；安装包体积有实测值 |
-| P0-7 | Node 24 全量单测门禁                                                                  | 通过则定 Node 24；失败则切 Node 22 并记录              |
+| 任务                                        | 产出/退出标准                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| P0-1 `--permission` 修复 + Node 22/24 判据  | 插件 Worker 双版本可起；CI 绿                                                                     |
+| P0-2 ready 文件 + 控制通道 + Token 横幅抑制 | 真 `serve` 随机端口；退出无孤儿；日志无 Token                                                     |
+| P0-3 Avalonia 垂直切片                      | 200 条消息、流式 Markdown+LaTeX+代码、审批卡、IME 中文、150% DPI、Narrator、托盘、Velopack 安装包 |
+| P0-4 WinUI 3 对照切片（可选但建议）         | 同一垂直切片；对比 IME/无障碍/文本/开发效率                                                       |
+| P0-5 量化对比                               | 启动 p95、内存、安装包、滚动帧率、IME 缺陷、开发人日                                              |
+| P0-6 决策                                   | Avalonia 或 WinUI 3；记录 ADR                                                                     |
 
-> P0-5 是本文唯一未能在此环境完成的验证（Electron GUI 在 DSH 沙箱内 `STATUS_BREAKPOINT`）。**在真实桌面跑通前，不应进入 Phase 1 的排期承诺。**
+**Phase 0 退出条件**：中文 IME 无丢字/重复；Markdown/数学/代码显示正确；1000 条消息可滚动；安装包可安装/启动；团队能在 3 周内独立改一个 UI 组件。**不达标就不进入 Phase 1。**
 
-### Phase 1：MVP “能启动、能干活、能退出”（约 2 周）
+### Phase 1：原生壳 + 核心聊天（6–8 周）
 
-- Electron 主进程/窗口/单实例/工作区选择/侧车 supervisor。
-- ready 契约、健康检查、启动失败面板、日志。
-- 载入现有 Web 工作台，SSE/RPC/审批/会话全部走通。
-- 窗口状态、菜单、外链、基础托盘、优雅退出。
-- 开发构建 E2E（Playwright）+ 集成测。
-- 产出：未签名 NSIS 安装包，内部可用。
+- Avalonia app、DI/Host、主题、三栏布局、窗口状态。
+- HarnessClient/SseClient/DTO 生成、supervisor、日志。
+- 会话列表、聊天流、流式 Markdown、工具卡、审批卡、输入区（IME/附件）。
+- 工作区选择、最近工作区、单实例、托盘基础、设置只读。
+- 内部 Alpha；与 Web UI 并行验证同一会话。
 
-### Phase 2：产品化 Beta（约 2–3 周）
+### Phase 2：功能对等 Beta（8–10 周）
 
-- 托盘三态、通知、深链、开机启动、拖拽文件夹、最近工作区。
-- 安全加固：CSP、权限、导航、IPC 校验、环境清洗、Fuses、ASAR 完整性。
-- 更新：electron-updater + GitHub Releases + 灰度 + 退出前清理。
-- 签名：证书/Trusted Signing 接入；`forceCodeSigning`；SmartScreen 提交。
-- 安装/升级/卸载测试；诊断导出；安全模式（需先补旗标，见 §6.10）。
-- 产出：签名 Beta，10% 灰度。
+- 设置读写、模型/审批/权限/检查点/成本/诊断等面板。
+- 深链、开机启动、通知、拖拽、外链、下载、预览（系统浏览器）。
+- 无障碍（Narrator/键盘/高对比度）、i18n、主题、响应式。
+- Velopack 更新、代码签名、N-1 升级、灰度、回滚。
+- 性能/长会话优化；安全审计。
+- 签名 Beta；10% 灰度。
 
-### Phase 3：差异化与平台扩展（持续）
+### Phase 3：跨平台 GA（6–8 周）
 
-- 多窗口/会话拖出、全局快捷键快速提问、通知动作按钮、Jump List/Dock 菜单。
-- 原生编辑器集成（Open in VS Code）、终端（`node-pty`，需单独安全评审）、文件关联。
-- macOS（签名/公证/通用二进制）、Linux（AppImage，明确沙箱边界）。
-- 企业部署（MSI/MSIX、策略关闭自动更新、代理/私有源）。
-- 若体积成为硬约束：评估 `utilityProcess` 或 Tauri 壳（§10）。
+- macOS：签名/公证/通用二进制；平台通知/托盘/快捷键。
+- Linux：AppImage/deb；X11/Wayland；无原生内核的回退说明。
+- 多窗口/会话拖出、全局热键、通知动作、文件关联、企业 MSIX/策略。
+- GA 稳定性/性能/无障碍复核。
 
-**排期假设**：1 名熟悉 Electron + 本仓的资深工程师；不含模型/产品新功能；不含证书审批等待（建议 Phase 0 就启动采购）。2 人可并行压缩到 4–5 周，但签名/更新/安全验证不建议压缩。
+**排期假设**：2 名工程师（1 名 C#/Avalonia，1 名 TS/Harness + 平台）；1 名设计师/前端协助设计系统移植。Windows Beta 约 **6–8 个月**；跨平台 GA **10–14 个月**；1 人约 10–12 个月。**这是“不做套壳”的真实代价**，不要用 Electron 的 6–8 周去承诺。
 
 ---
 
 ## 8. 风险登记
 
-| 风险                                            | 概率 | 影响 | 缓解                                                                                |
-| ----------------------------------------------- | ---- | ---- | ----------------------------------------------------------------------------------- |
-| Node 24 全量判据暴露兼容问题                    | 中   | 高   | Phase 0 门禁；失败即切 Node 22.20 侧车（零架构改动）                                |
-| Electron GUI 在目标机器/远程桌面启动失败        | 低   | 高   | 真实桌面/VM/RDP 多环境冒烟；收集 `--enable-logging`；准备软件渲染开关               |
-| `process.execPath` 语义在侧车方案下仍被某处误用 | 低   | 中   | 侧车就是 `node.exe`；加一条运行期断言/测试：`process.execPath` basename 必须是 node |
-| 安装包过大（>250 MB）                           | 中   | 中   | 基础版/完整版拆分；剔除前端库与 `.cache`；按平台裁剪 ONNX；Phase 0 实测             |
-| SmartScreen 拦截导致下载转化低                  | 高   | 中   | 尽早签名、稳定证书、提交 Microsoft、官网校验和、Beta 渠道说明                       |
-| 自动更新把用户更坏                              | 中   | 高   | 10% 灰度、N-1 升级测试、签名校验、失败保留旧版、可手动下载                          |
-| 本地回环 RPC 被恶意网页/进程利用                | 中   | 高   | Origin 白名单、随机 Token、SameSite Cookie、Host 校验（建议加）、CSP、权限白名单    |
-| 渲染层 XSS 升级为 RCE                           | 低   | 高   | sandbox + contextIsolation + 无 Node + IPC 白名单 + CSP + Fuses                     |
-| Windows 上 Harness 强杀留下孤儿 MCP/shell       | 中   | 中   | stdin 优雅停 + EOF + `taskkill /T /F` 兜底；Harness 侧关闭网关/后台任务             |
-| 端口/Tokens 变化导致重启后 401                  | 低   | 中   | supervisor 统一重载 URL；Cookie 覆盖；失败面板可重试                                |
-| 预览 iframe 被 CSP/端口变化打断                 | 低   | 低   | `frame-src 127.0.0.1:*`；预览端口从 `/healthz` 读取；启动日志告警                   |
-| 企业 EDR/AV 误杀侧车                            | 中   | 中   | 签名所有可执行文件、保留上游 Node 签名、提交厂商白名单、提供 SHA-256                |
-| 模型缓存写入 Program Files 失败                 | 中   | 中   | 显式设 `OMNI_EMBEDDING_CACHE_DIR`/`OMNI_VEC_CACHE` 到 `%LOCALAPPDATA%`              |
-| 便携版承诺无法兑现                              | 中   | 低   | v1 明确不做；文档写清数据仍在用户目录                                               |
-| macOS 公证/通用二进制复杂度超预期               | 高   | 中   | 不作为 v1；单独里程碑与预算                                                         |
+| 风险                                     | 概率 | 影响 | 缓解                                                                          |
+| ---------------------------------------- | ---- | ---- | ----------------------------------------------------------------------------- |
+| 团队 C#/XAML 学习曲线                    | 高   | 高   | Phase 0 垂直切片；招 1 名 C#/Avalonia；AI 辅助 + 代码评审                     |
+| UI 功能对等时间长                        | 高   | 高   | Strangler；先核心聊天/审批；Web UI 冻结新功能；按里程碑验收                   |
+| 中文 IME 在 Avalonia 上仍有边缘缺陷      | 中   | 高   | Phase 0 用微软拼音/搜狗/QQ 输入法实测组合/候选/提交/emoji；不达标切 WinUI 3   |
+| Markdown/数学/代码保真不足               | 中   | 中   | LiveMarkdown + RaTeX + TextMateSharp 实测；golden 截图；失败回退纯文本/代码块 |
+| 长会话性能不达标                         | 中   | 中   | 虚拟化 + 增量渲染 + 缓存；1000 条基准；必要时分页/折叠                        |
+| 无障碍不达标                             | 中   | 中   | UIA/NSAccessibility/AT-SPI2；Narrator 手动测试；AutomationProperties          |
+| 原生通知/单实例/深链/热键的平台差异      | 中   | 中   | 平台服务接口 + 逐平台实现；v1 可降级托盘气泡/系统浏览器                       |
+| 安装包/更新/签名复杂                     | 中   | 中   | Velopack；Phase 0 出安装包；签名提前采购；N-1 测试                            |
+| macOS 公证/通用二进制                    | 高   | 中   | Phase 3 单独预算；先 Windows Beta                                             |
+| 双 UI 维护成本                           | 高   | 中   | 冻结 Web 新功能；共享契约/token/i18n；设定 Web UI 退役条件                    |
+| 第三方控件 NativeAOT 不兼容              | 中   | 低   | 先 self-contained；逐项验证；不强行 AOT                                       |
+| LiveMarkdown 维护/成熟度风险             | 中   | 中   | Apache-2.0 可 fork/vendor；锁版本；视觉/性能回归；准备 Markdig 自研回退       |
+| 设计系统移植走样                         | 中   | 中   | token JSON + 视觉回归 + 设计师验收；不逐像素翻译 CSS                          |
+| Node 侧车仍可能成为启动瓶颈              | 中   | 中   | 原生 UI 先显示骨架；Harness 后台启动；ready 超时诊断                          |
+| 安全面从 WebView 转到 Markdown/链接/更新 | 中   | 高   | 链接/图片/路径白名单；签名更新；安全评审                                      |
+| 招聘/外包 C#/Avalonia 困难               | 中   | 中   | 远程/外包；Avalonia 社区；先用 1 名资深 + AI                                  |
 
 ---
 
 ## 9. 验收清单（Definition of Done）
 
+**原生性**
+
+- [ ] 主界面无 WebView/HTML/JS；进程列表无 Chromium/WebView2（可选预览除外，且明确标注）。
+- [ ] UI 使用 Avalonia 控件树/原生输入/焦点/无障碍；不是“WebView 截图贴图”。
+- [ ] 安装包可离线启动；不依赖浏览器/本地网页。
+
 **功能**
 
-- [ ] 首次启动可选工作区；取消可干净退出；第二次启动记住上次工作区。
-- [ ] 冷启动到可交互 p95 < 4 s（参考机：8 核/16 GB/SSD；不含模型加载）。
-- [ ] 现有 Web 工作台全部功能可用：会话、流式、审批、工具卡、预览、设置、主题、i18n。
-- [ ] 托盘显示/隐藏/退出；关闭到托盘的设置生效；退出时 Harness 优雅停止。
-- [ ] 通知在回合完成/待审批时出现；点击聚焦正确会话。
-- [ ] 外链走系统浏览器；预览走受控子窗口；下载走系统保存对话框。
-- [ ] 深链 `omniharness://open?...` 在冷启动/已启动两种情况下都能打开正确工作区/会话。
+- [ ] 会话列表/搜索/分组/新建/删除/切换工作区。
+- [ ] 流式聊天、Markdown、代码高亮、LaTeX、表格、Mermaid、附件、复制/选择/搜索。
+- [ ] 工具卡、审批卡、检查点、成本/上下文面板、设置、诊断。
+- [ ] 深链、托盘、通知、开机启动、拖拽文件夹、外链、下载。
+- [ ] 与 Web UI/CLI 共享同一 Harness 会话与配置。
 
-**可靠性**
+**中文/无障碍**
 
-- [ ] 杀掉 Harness 后 3 次内自动重启；仍失败显示可操作面板。
-- [ ] 启动超时/端口占用/工作区不可写分别有明确错误与日志。
-- [ ] 强杀侧车不留孤儿 MCP/后台 shell；`taskkill /T` 兜底验证。
-- [ ] 1000 轮长会话后 UI 无明显泄漏/卡死；Harness 内存有上限告警。
+- [ ] 微软拼音、搜狗、QQ 输入法：组合、候选、提交、删除、emoji 无丢字/重复。
+- [ ] 150%/200% DPI 布局不糊、不裁切；多显示器正常。
+- [ ] Narrator 可读主要控件/标题/状态；键盘可完成核心流程；高对比度可用。
 
-**安全**
+**性能**
 
-- [ ] 渲染层 `window.require`/`process`/`module` 均为 undefined。
-- [ ] `file://`、`javascript:`、`data:` 外链被拒；`http(s)` 走系统浏览器。
-- [ ] iframe/子窗口调用 `window.omni` 被拒；未知 sender 的 IPC 抛错。
-- [ ] `fetch('https://example.com')` 被 CSP 拦；`img-src` 行为符合产品设置。
-- [ ] `NODE_OPTIONS=--require evil.js` 对侧车无效。
-- [ ] 发布包 fuses 全部符合 §6.6；ASAR 完整性校验开启；`@electron/fuses read` 输出留档。
-- [ ] 安装包/主 exe/侧车/`.node` 签名有效；卸载不删除 `~/.omniharness`（除非用户勾选）。
+- [ ] 冷启动 UI <1.5s；Harness ready p95 <4s；首屏可交互 <3s（不含模型）。
+- [ ] 1000 条消息滚动 60fps；流式渲染不阻塞输入；内存有上限。
+- [ ] 长会话/大工具输出不崩、不卡死。
 
-**发布**
+**安全/发布**
 
-- [ ] N-1 → N 自动更新成功，会话/配置/工作区不丢。
-- [ ] 灰度 10% 可回滚（发更高版本）；更新失败保留旧版。
-- [ ] 安装包附 SHA-256、SBOM、第三方许可证；GitHub Release 说明完整。
-- [ ] Windows 10 22H2 / 11 x64、125%/150% DPI、中文/空格路径、非管理员账户通过。
+- [ ] 链接/图片/文件路径/深链白名单生效；Token 不落盘/不进日志。
+- [ ] 安装包/主 exe 签名有效；Velopack 差分更新 N-1→N 成功；失败保留旧版。
+- [ ] 卸载默认保留 `~/.omniharness`；用户可选删除。
+- [ ] 安全评审通过：无 WebView、无任意命令执行面、更新链签名。
 
 ---
 
 ## 10. 备选与回退
 
-### 10.1 若体积成为硬约束：`utilityProcess`
+### 10.1 WinUI 3（Windows-only）
 
-迁移步骤：
+触发条件：Avalonia 在 IME/无障碍/文本保真/性能上不达标，且产品接受 Windows-only。
+迁移成本：View/ViewModel 大部分可保留（C#），XAML/控件/主题重写；打包从 Velopack 换 MSIX/App Installer；通知/托盘改用 WinUI API。
 
-1. 用 `utilityProcess.fork(harnessEntry, args, { stdio: 'pipe', env })` 替代 `spawn(node.exe)`；
-2. 把 Harness 中 `process.execPath` 的 4 类用法改为 `execArgv`/显式 Node 入口；
-3. 保留 `runAsNode` 或改造所有 fork 路径；
-4. 重新验证插件 Worker 的 `--permission`、原生 `.node`、守护进程；
-5. HTTP 契约、ready 文件、控制通道（改用 `parentPort`）不变。
+### 10.2 WPF（保守回退）
 
-收益：省一个 `node.exe`（约 30 MB 压缩）；代价：安全 fuse 与核心代码改造。**不建议在 v1 做。**
+触发条件：Avalonia 生态/稳定性出问题，且 Windows-only 可接受。WPF 文本/RichTextBox 成熟，但 Markdown/数学仍需自研；不作为主方案。
 
-### 10.2 若壳体积/内存成为硬约束：Tauri 2 壳
+### 10.3 Tauri（仅当“WebView 可接受”）
 
-保持“Harness 侧车 + 回环 HTTP 契约”不变，只替换壳：
+如果最终口径变成“不要 Electron，但 WebView 可以”，Tauri 2.12 + 现有 React UI 是 3–4 周方案；但它不满足本文的“不做套壳”，且需要接受 WebView 的 IME/无障碍/安全模型。**不要把它包装成原生方案。**
 
-- Tauri 窗口载入 `http://127.0.0.1:<port>`（远程 URL 能力需按 Tauri 2 的 capability/remote 配置评审）；
-- OS 能力改用 Tauri commands/plugins；`window.omni` 桥改为 Tauri invoke 适配层；
-- 重新验证三平台 WebView、通知、托盘、更新签名、深链。
+### 10.4 Electron（已否决）
 
-这是“壳可替换”架构的兑现路径；但不建议在 v1 同时做。
-
-### 10.3 回退顺序
-
-1. Node 24 门禁失败 → Node 22.20 侧车（当天可切）。
-2. Electron 45 在目标环境不稳 → Electron 44.7.x（本机已验证 Node/N-API；注意支持窗口）。
-3. electron-builder 26 更新链问题 → 先只发手动安装包，自动更新延后一个版本（不要带病上线）。
-4. 安全评审否决侧车 → 回到 `utilityProcess` 方案，按 §10.1 改造。
+v1 已详细论证：UI 复用最好、6–8 周可出 Beta；但主界面是 WebView，不满足需求。保留其 P0 发现（`--permission`、ready 文件、控制通道、Token 横幅）作为 Harness 前置。
 
 ---
 
-## 11. 待产品确认（默认值已给出）
+## 11. 参考资料
 
-| 问题                        | 本文默认                           | 影响                           |
-| --------------------------- | ---------------------------------- | ------------------------------ |
-| v1 是否只支持 Windows x64？ | 是                                 | macOS/Linux 排到 Phase 3       |
-| 本地语义检索是否进基础版？  | 否，Lite/Full 两版                 | 安装包 +25–40 MB；模型按需下载 |
-| 自动更新渠道                | GitHub Releases 稳定版 + Beta 渠道 | 国内网络可能需镜像/手动下载    |
-| 关闭窗口默认行为            | 收起到托盘（可设置）               | 长任务不中断；首次弹通知解释   |
-| 是否收集匿名遥测？          | 否（v1 仅本地诊断）                | 降低合规/隐私评审成本          |
-| 是否要便携版？              | 否（数据仍在用户目录）             | 真正便携需 `OMNI_HOME` 改造    |
-| 多窗口/会话拖出优先级       | Phase 3                            | v1 单窗口，降低状态同步复杂度  |
+> 访问日期均为 2026-10-24。外部链接随版本变化；版本事实以文内日期为准。
 
----
-
-## 12. 参考资料
-
-> 访问日期均为 2026-10-24。外部链接的内容可能随版本变化；版本事实以文内日期为准。  
-> 标注“实测”的条目来自本机命令输出，不是文档推断。
-
-1. Electron 45 发布说明（2026-10-21，Chromium 156 / Node 24.22.0）— <https://www.electronjs.org/blog/electron-45-0>
-2. Electron Releases v45.0.0 — <https://releases.electronjs.org/release/v45.0.0>
-3. Electron Security Checklist — <https://www.electronjs.org/docs/latest/tutorial/security>
-4. Electron Fuses — <https://www.electronjs.org/docs/latest/tutorial/fuses>
-5. Electron `utilityProcess` — <https://www.electronjs.org/docs/latest/api/utility-process>
-6. Electron ASAR Integrity — <https://www.electronjs.org/docs/latest/tutorial/asar-integrity>
-7. electron-builder Auto Update — <https://www.electron.build/docs/features/auto-update/>
-8. electron-builder Code Signing — <https://www.electron.build/docs/features/code-signing/>
-9. electron-builder Adding Electron Fuses — <https://www.electron.build/docs/tutorials/adding-electron-fuses>
-10. Tauri Process Model — <https://v2.tauri.app/concept/process-model/>
-11. Tauri Node.js as a sidecar — <https://v2.tauri.app/learn/sidecar-nodejs/>
-12. Tauri App Size — <https://v2.tauri.app/concept/size/>
-13. Wails v3 Changelog（beta.34，2026-10-20）— <https://v3.wails.io/changelog/>
-14. Node.js Release Schedule（22.x Maintenance / 24.x Active LTS）— <https://github.com/nodejs/Release>
-15. Node.js Permissions（`--permission` 自 22.13 稳定）— <https://nodejs.org/api/permissions.html>
-16. Node.js 24 CLI Options — <https://nodejs.org/docs/latest-v24.x/api/cli.html>
-17. Playwright Electron（实验性；fuse 限制）— <https://playwright.dev/docs/api/class-electron>
-18. Microsoft SmartScreen reputation — <https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation>
-19. Electron Showcase — <https://www.electronjs.org/apps>
-20. npm registry：`electron@45.0.0`、`electron-builder@26.18.0`、`electron-updater@6.8.11`、`@electron/fuses@2.1.3`、`electron-vite@6.0.0` — <https://registry.npmjs.org/>
-21. VS Code（Electron + Extension Host 进程模型）— <https://github.com/microsoft/vscode>
-22. GitHub Desktop（Electron 本地工具）— <https://github.com/desktop/desktop>
-23. Signal Desktop（Electron 本地数据/安全加固）— <https://github.com/signalapp/Signal-Desktop>
+1. Avalonia 12 发布（2026-04-07）— <https://avaloniaui.net/blog/avalonia-12>
+2. Avalonia 12.1 发布（2026-07-08）— <https://avaloniaui.net/blog/release-12-1>
+3. Avalonia 12.1.4 NuGet（2026-10-09）— <https://www.nuget.org/packages/Avalonia/12.1.4>
+4. Avalonia Accessibility（UIA/NSAccessibility/AT-SPI2）— <https://docs.avaloniaui.net/docs/app-development/accessibility>
+5. Avalonia Text Input and IME — <https://docs.avaloniaui.net/docs/input-interaction/text-input>
+6. Avalonia Native AOT — <https://docs.avaloniaui.net/docs/deployment/native-aot>
+7. Avalonia Headless Testing with xUnit — <https://docs.avaloniaui.net/docs/testing/headless-xunit>
+8. Avalonia TrayIcon — <https://docs.avaloniaui.net/controls/navigation/trayicon>
+9. LiveMarkdown.Avalonia.Math 2.5.1（2026-10-22，Apache-2.0）— <https://www.nuget.org/packages/LiveMarkdown.Avalonia.Math>
+10. LiveMarkdown.Avalonia 源码 — <https://github.com/DearVa/LiveMarkdown.Avalonia>
+11. Everywhere（Avalonia 桌面 AI 助手，约 6.3k stars）— <https://github.com/Sylinko/Everywhere>
+12. Windows App SDK 2.5.1 / WinUI 3（2026-09-16）— <https://learn.microsoft.com/windows/apps/whats-new/whats-new-for-developers>
+13. Windows App SDK 发布说明 — <https://learn.microsoft.com/windows/apps/windows-app-sdk/release-notes/windows-app-sdk-2-0>
+14. MSIX Auto-update and Repair — <https://learn.microsoft.com/windows/msix/app-installer/auto-update-and-repair--overview>
+15. Flutter 3.47.8 Windows releases — <https://docs.flutter.dev/platform-integration/windows/building>
+16. Flutter Windows IME #190042 — <https://github.com/flutter/flutter/issues/190042>
+17. Flutter Windows IME #191194 — <https://github.com/flutter/flutter/issues/191194>
+18. Qt 6.10 — <https://www.qt.io/blog/qt-6.10-released>
+19. Slint 1.18（2026-09-16）— <https://slint.dev/blog/slint-1.18-released.html>
+20. Compose Multiplatform 1.9 — <https://blog.jetbrains.com/kotlin/2025/09/compose-multiplatform-1-9-0-compose-for-web-beta/>
+21. React Native Windows 0.85（2026-10-21）— <https://devblogs.microsoft.com/react-native/react-native-windows-v0-85-is-here/>
+22. Zed 1.0 / GPUI（2026-04-29）— <https://zed.dev/blog/zed-1-0>
+23. Velopack 1.2.161（2026-09-29）— <https://www.nuget.org/packages/Velopack>
+24. Velopack Docs — <https://docs.velopack.io/>
+25. .NET Support Policy — <https://dotnet.microsoft.com/platform/support/policy/dotnet-core>
+26. Electron 45（v1 备选记录）— <https://www.electronjs.org/blog/electron-45-0>
+27. Tauri 2.12（v1 备选记录）— <https://v2.tauri.app/>
+28. Simon Willison：Introducing the Codex app（2026-02-02，明确 Electron + Node.js）— <https://simonwillison.net/2026/Feb/2/introducing-the-codex-app/>
+29. OpenAI：Frontend Software Engineer, Codex App（React/TypeScript/Electron 要求）— <https://jobs.khoslaventures.com/companies/openai/jobs/68168842-frontend-software-engineer-codex-app>
+30. Codex CLI TUI Architecture（Rust + Ratatui）— <https://mintlify.wiki/openai/codex/architecture/tui>
+31. 非官方 Codex Desktop（Electron + React + TS，Codex CLI 的包装）— <https://github.com/dfones288/codex-desktop>
+32. Engadget：OpenAI brings its Codex coding app to Windows（2026-03-04）— <https://www.engadget.com/ai/openai-brings-its-codex-coding-app-to-windows-195345429.html>
 
 **仓库内依据**：
 
 - `src/cli/cliServerCmds.ts`（`runHttpServe`：webDir、Token、port 0、ServeInstance、UI URL）
-- `src/cli/serveShutdown.ts`（仅 SIGINT/SIGTERM）
-- `src/cli/serveInstance.ts`（`serve-<port>.pid` 记录）
-- `src/server/transport/httpServer.ts`（`start(0)`、`/healthz`、`/readyz`、静态托管、Set-Cookie）
-- `src/server/transport/serverAuthGuard.ts`（回环 Origin 白名单、Bearer/Query/Cookie）
+- `src/cli/serveShutdown.ts`、`src/cli/serveInstance.ts`
+- `src/server/transport/httpServer.ts`、`src/server/transport/serverAuthGuard.ts`
 - `src/plugin/worker/workerSpawnSpecBuilder.ts`（`--experimental-permission`、`process.execPath`）
-- `src/daemon/daemonController.ts`、`src/worker/windowsShim.ts`（`process.execPath`）
-- `src/native/nativeKernel.ts`（`.node` 路径解析与 fail-closed）
-- `src/config/configFactory.ts`（`OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE` / 包根缓存）
-- `web/index.html`（内联主题脚本、无 CSP）
-- `web/src/core/EventStream.ts`、`web/src/core/authToken.ts`（SSE 用 `?token=`、Cookie/Bearer）
-- `web/src/ui/components/BrowserPane.tsx`、`ExternalLinkCards.tsx`（`window.open` / 外部链接）
-- `package.json`、`web/tsconfig.json`、`vite.config.ts`、`.github/workflows/ci.yml`（Node 22 CI、构建形态）
+- `src/daemon/daemonController.ts`、`src/worker/windowsShim.ts`
+- `src/native/nativeKernel.ts`
+- `src/config/configFactory.ts`（`OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE`）
+- `web/src/**`（26,573 行）、`web/styles/**`（259 KB）、`web/test/**`（99 个测试）
+- `web/src/core/EventStream.ts`、`web/src/core/authToken.ts`
+- `package.json`、`web/tsconfig.json`、`vite.config.ts`、`.github/workflows/ci.yml`
 
 ---
 
-## 附录 A：主进程 supervisor 伪代码
-
-```ts
-type State = 'idle' | 'starting' | 'ready' | 'stopping' | 'crashed';
-
-export class HarnessSupervisor {
-  private child?: ChildProcess;
-  private state: State = 'idle';
-  private token = '';
-  private ready?: ReadyInfo;
-
-  async start(workspace: string): Promise<ReadyInfo> {
-    this.state = 'starting';
-    this.token = randomBytes(32).toString('hex');
-    const readyFile = join(runDir(), `harness-${process.pid}-${Date.now()}.json`);
-    const node = resolveNodeExe();
-    const entry = join(harnessRoot(), 'dist', 'src', 'cli', 'exec.js');
-    this.child = spawn(node, [entry, 'serve', '--port', '0', '--workspace', workspace], {
-      cwd: workspace,
-      windowsHide: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: buildHarnessEnv({
-        OMNI_SERVE_TOKEN: this.token,
-        OMNI_READY_FILE: readyFile,
-        OMNI_CONTROL_STDIO: '1',
-        OMNI_NO_SERVE_INSTANCE: '1',
-        OMNI_EMBEDDING_CACHE_DIR: join(localData(), 'models'),
-        OMNI_VEC_CACHE: join(localData(), 'vec-cache'),
-      }),
-    });
-    this.pipeLogs(this.child);
-    const info = await waitForReady(readyFile, this.child, 30_000);
-    await assertReadyz(info.port, this.token);
-    this.ready = info;
-    this.state = 'ready';
-    return info;
-  }
-
-  async stop(): Promise<void> {
-    if (!this.child || this.state === 'idle') return;
-    this.state = 'stopping';
-    this.child.stdin?.write('{"type":"shutdown"}\n');
-    this.child.stdin?.end();
-    if (!(await waitExit(this.child, 10_000))) {
-      this.child.kill();
-      if (!(await waitExit(this.child, 2_000))) await killTree(this.child.pid);
-    }
-    this.cleanupReadyFile();
-    this.state = 'idle';
-  }
-}
-```
-
-关键点：**Token 只在主进程内存**；`readyFile` 只含非敏感信息；`stop()` 有三级兜底。
-
-## 附录 B：preload 桥（最小面）
-
-```ts
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
-
-const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> =>
-  ipcRenderer.invoke(channel, ...args) as Promise<T>;
-
-const api = Object.freeze({
-  apiVersion: 1 as const,
-  platform: process.platform,
-  pickWorkspace: () => invoke<string | null>('omni:pickWorkspace'),
-  openWorkspace: (path: string) => invoke<void>('omni:openWorkspace', path),
-  revealPath: (path: string) => invoke<void>('omni:revealPath', path),
-  openExternal: (url: string) => invoke<void>('omni:openExternal', url),
-  pathForFile: (file: File) => webUtils.getPathForFile(file),
-  notify: (input: unknown) => invoke<void>('omni:notify', input),
-  setTitle: (title: string) => invoke<void>('omni:setTitle', title),
-  setActivity: (activity: 'idle' | 'running' | 'error') =>
-    invoke<void>('omni:setActivity', activity),
-  onMenuAction: (cb: (action: string) => void) => subscribe('omni:menuAction', cb),
-  onDeepLink: (cb: (url: string) => void) => subscribe('omni:deepLink', cb),
-  onNotificationClick: (cb: (sessionId: string) => void) => subscribe('omni:notificationClick', cb),
-  onUpdateStatus: (cb: (status: unknown) => void) => subscribe('omni:updateStatus', cb),
-  checkForUpdates: () => invoke<void>('omni:checkForUpdates'),
-  installUpdate: () => invoke<void>('omni:installUpdate'),
-  restartHarness: () => invoke<void>('omni:restartHarness'),
-  openLogs: () => invoke<void>('omni:openLogs'),
-  quit: () => invoke<void>('omni:quit'),
-});
-
-contextBridge.exposeInMainWorld('omni', api);
-
-function subscribe(channel: string, cb: (value: never) => void): () => void {
-  const listener = (_event: unknown, value: never): void => cb(value);
-  ipcRenderer.on(channel, listener);
-  return () => ipcRenderer.removeListener(channel, listener);
-}
-```
-
-注意：`pathForFile` 的 `File` 参数在 contextBridge 下的行为需 Phase 0 实测；若不可行，改为“drop 时由 preload 侧监听并直接取路径”的受控实现，不要把 `File` 传给主进程。
-
-## 附录 C：`electron-builder.yml` 骨架
-
-```yaml
-appId: com.mylong227.omniharness
-productName: OmniHarness
-copyright: Copyright © 2026 mylong227
-directories:
-  output: release
-  buildResources: build
-files:
-  - dist/**/*
-  - package.json
-extraResources:
-  - from: ../.desktop-stage/harness
-    to: harness
-asar: true
-npmRebuild: false
-electronFuses:
-  runAsNode: false
-  enableCookieEncryption: true
-  enableNodeOptionsEnvironmentVariable: false
-  enableNodeCliInspectArguments: false
-  enableEmbeddedAsarIntegrityValidation: true
-  onlyLoadAppFromAsar: true
-  grantFileProtocolExtraPrivileges: false
-win:
-  target:
-    - target: nsis
-      arch: [x64]
-  icon: build/icon.ico
-nsis:
-  oneClick: false
-  perMachine: false
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  deleteAppDataOnUninstall: false
-  include: build/installer.nsh
-publish:
-  - provider: github
-    owner: mylong227
-    repo: OmniHarness
-    releaseType: draft
-```
-
-> `files` 相对于 `desktop/`（desktop 自己的 `package.json` 为 app 清单）；`extraResources` 指向仓库根的 staging 目录。`forceCodeSigning` 建议只在 CI tag 构建通过 `-c.win.forceCodeSigning=true` 打开，避免本地开发无法出包。
-
-## 附录 D：环境变量契约（桌面 → 侧车）
-
-| 变量                       | 用途                                        | 是否必须 |
-| -------------------------- | ------------------------------------------- | -------- |
-| `OMNI_SERVE_TOKEN`         | 桌面生成的 32 字节 Token；避免写 ready 文件 | 是       |
-| `OMNI_NO_UI_URL`           | `1` 时不打印带 Token 的 UI 横幅             | 是       |
-| `OMNI_READY_FILE`          | 机器可读就绪文件路径                        | 是       |
-| `OMNI_CONTROL_STDIO`       | `1` 时启用 stdin 控制通道                   | 是       |
-| `OMNI_NO_SERVE_INSTANCE`   | `1` 时跳过 `~/.omniharness/serve-*.pid`     | 建议     |
-| `OMNI_EMBEDDING_CACHE_DIR` | 模型权重缓存到用户可写目录                  | 建议     |
-| `OMNI_VEC_CACHE`           | 向量缓存到用户可写目录                      | 建议     |
-| `OMNI_HF_ENDPOINT`         | 可选 HuggingFace 镜像                       | 可选     |
-| `OMNI_SERVE_HOST`          | 保持缺省 `127.0.0.1`；**不要覆盖**          | 否       |
-| `NO_COLOR`                 | 侧车日志去 ANSI，便于写文件                 | 建议     |
-
-**禁止透传**：`NODE_OPTIONS`、`NODE_PATH`、`NODE_EXTRA_CA_CERTS`、`ELECTRON_RUN_AS_NODE`、`ELECTRON_NO_ASAR`、未列入白名单的 `OMNI_*`。
-
-## 附录 E：体积实测/估算明细
-
-| 项                               |        实测/估算 | 命令/依据                                                   |
-| -------------------------------- | ---------------: | ----------------------------------------------------------- |
-| `dist`                           |          19.7 MB | `Get-ChildItem dist -Recurse \| Measure-Object Length -Sum` |
-| `web/dist`                       |           2.2 MB | 同上                                                        |
-| `native`                         |          10.9 MB | 含 `omni_napi.node` 与旧版                                  |
-| `node.exe`（22.20）              |          81.6 MB | 本机                                                        |
-| `node.exe`（24.22.1）            |          89.6 MB | 下载的 Node 24 发行版                                       |
-| Electron 44.7 `dist`             |         367.7 MB | 本机 spike                                                  |
-| `@huggingface/transformers` 缓存 |         2,235 MB | 本机 `node_modules`（必须排除）                             |
-| `onnxruntime-node`               | 210 MB（全平台） | 按平台裁剪后约 65 MB                                        |
-| 生产依赖（前端库剔除后）         |      约 30–50 MB | 估算，Phase 0 校准                                          |
-
-## 附录 F：Node 24 兼容性实测记录
+## 附录 A：Avalonia 垂直切片（Phase 0 最小验证）
 
 ```text
-# 1) Node 24.22.1
-$ node24 --version
-v24.22.1
-
-$ node24 dist/src/cli/exec.js --version
-omniharness 0.1.0
-
-$ node24 dist/src/cli/exec.js serve --port 0 --mock
-OmniHarness UI: http://127.0.0.1:30321/?token=... （已启用本机临时令牌）
-
-$ node24 -e "require('./native/omni_napi.node').call(JSON.stringify({jsonrpc:'2.0',id:1,method:'ping'}))"
-{"native":true,"ok":true,"pong":true}
-
-$ node24 --experimental-permission -e "1"
-node.exe: bad option: --experimental-permission
-
-$ node24 --permission -e "console.log('ok')"
-ok
-
-# 2) Electron 44.7.0 (ELECTRON_RUN_AS_NODE=1)
-$ electron.exe -e "console.log(process.versions.node); require('./native/omni_napi.node').call(...)"
-24.21.0
-{"native":true,"ok":true,"pong":true}
+MainWindow
+ ├─ SessionSidebar（20 条假会话）
+ ├─ ChatPane
+ │   ├─ ItemsRepeater（200 条消息）
+ │   ├─ LiveMarkdown.MarkdownRenderer（流式追加）
+ │   └─ Composer（TextBox，中文 IME）
+ └─ InspectorPane（工具卡/审批卡各 1 个）
 ```
 
-**结论**：Node 24 的核心路径可用；唯一确定的阻塞是 `--experimental-permission`。全量判据仍需 CI 补跑。Electron 45 GUI 未在本会话验证（沙箱限制），列为 Phase 0 门禁。
+必须验证：
+
+1. 中文输入法组合/候选/提交不丢字；
+2. 200 条消息滚动 60fps；
+3. 流式追加 50 次/秒不卡输入；
+4. LaTeX/代码/Mermaid 正确；
+5. 150% DPI 不糊；
+6. Narrator 能读标题/按钮/状态；
+7. Velopack 安装包可安装/启动；
+8. 冷启动/内存有数字。
+
+## 附录 B：HarnessClient 伪代码
+
+```csharp
+public sealed class HarnessClient : IAsyncDisposable
+{
+    private readonly HttpClient _http;
+    private readonly string _token;
+
+    public async Task<T> RpcAsync<T>(string method, object? @params, CancellationToken ct)
+    {
+        var id = Interlocked.Increment(ref _nextId);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "rpc")
+        {
+            Content = JsonContent.Create(new { jsonrpc = "2.0", id, method, @params })
+        };
+        req.Headers.Authorization = new("Bearer", _token);
+        using var res = await _http.SendAsync(req, ct);
+        // 解析 JSON-RPC result/error；映射为领域错误
+    }
+
+    public async IAsyncEnumerable<SseEvent> EventsAsync(
+        string? lastEventId, [EnumeratorCancellation] CancellationToken ct)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, "events");
+        req.Headers.Authorization = new("Bearer", _token);
+        req.Headers.Accept.ParseAdd("text/event-stream");
+        if (lastEventId is not null) req.Headers.TryAddWithoutValidation("Last-Event-ID", lastEventId);
+        using var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await using var stream = await res.Content.ReadAsStreamAsync(ct);
+        using var reader = new StreamReader(stream);
+        // 逐行解析 id/event/data；空行派发
+    }
+}
+```
+
+## 附录 C：打包/更新命令（Velopack）
+
+```powershell
+dotnet publish src/OmniHarness.Desktop -c Release -r win-x64 --self-contained true -o publish
+vpk pack --packId OmniHarness --packVersion 0.3.0 --packDir publish --mainExe OmniHarness.exe
+# 上传 release/ 到 GitHub Releases；客户端 UpdateManager 检查/下载/应用
+```
+
+> 若 NativeAOT：`-p:PublishAot=true`；先验证 LiveMarkdown/TextMateSharp/RaTeX/Mermaider 的 AOT 兼容性。不兼容就用 self-contained + trimming。
+
+## 附录 D：被否决的 Electron 方案（v1 摘要）
+
+| 项          | 结论                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 形态        | Electron 加载 `http://127.0.0.1:<port>` 的现有 Web UI                                                                                                  |
+| 优点        | UI 复用 100%；6–8 周可出 Beta；OS 集成成熟                                                                                                             |
+| 否决理由    | 主界面是 WebView/HTML/CSS/JS，属于 L0 套壳；不满足“不做套壳”                                                                                           |
+| v1 关键实测 | `--experimental-permission` 在 Node 24 不可用；`--permission` 可用；N-API 在 Node 24/Electron 44 可加载；`serve --port 0` 可用；Token 横幅会泄漏 Token |
+| 保留价值    | 这些 Harness 前置与 UI 框架无关，已并入 §2.3/§6.4                                                                                                      |
+
+## 附录 E：Codex 桌面应用用的是什么 UI？能不能复用？
+
+**事实（2026-10-24 核对）**：
+
+| 产物                     | 技术栈                                                                     | 证据                                                                                                                                                     | 能否直接复用                                                                      |
+| ------------------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Codex 官方桌面 App**   | **Electron + Node.js**；前端 **React + TypeScript**（OpenAI 招聘要求）     | Simon Willison 2026-02-02 预览文章明确“built with Electron and Node.js”；OpenAI“Frontend Software Engineer, Codex App”招聘要求 React/TypeScript/Electron | **不能直接用代码**：官方未发布桌面 App 源码（开源的是 Codex CLI）；技术栈可以复刻 |
+| **Codex CLI**            | **Rust + Ratatui**（TUI）                                                  | Codex CLI TUI Architecture 文档                                                                                                                          | 终端 UI，不适合做 GUI                                                             |
+| **Codex IDE 扩展**       | VS Code Webview UI（与桌面 App 同一前端团队）                              | OpenAI 招聘（同一团队做 desktop + IDE extension）                                                                                                        | 只适用于 VS Code，不是桌面 App                                                    |
+| **非官方 codex-desktop** | Electron 30+ / React 18+ / TypeScript / Vite / electron-builder / node-pty | 仓库 README（明确“not an official OpenAI product”）                                                                                                      | 开源可参考（需署名）；但它是 Codex CLI 的专用包装，不能直接接 OmniHarness         |
+
+**官方 App 的关键事实**：
+
+- 2026-02-02 macOS 首发；2026-03-04 上 Windows；Electron 是为了跨平台，Windows 沙箱是当时的主要难点。
+- App 是**本地 Codex CLI/Agent 的图形前端**：本地执行、SQLite 存 automations（`~/.codex/sqlite/codex-dev.db`）、技能/自动化/线程。
+- UI 是 **Chromium 里的 React 页面**，不是原生控件；Simon 的标签就是“harness disguised as a tool for programmers”。
+- 它证明的是“**Electron + React 足够做一个成熟的 coding agent 桌面 App**”，不是“原生 UI 不必要”。
+
+**能不能用？分三种口径**：
+
+1. **直接使用官方 UI 代码**：❌ 不可行。官方桌面 App 闭源；反编译/解包再复用有法律与供应链风险。非官方 `codex-desktop` 是另一套 Codex-specific 实现，不能直接接 OmniHarness 的 HTTP/SSE/会话模型。
+2. **使用它的技术栈（Electron + React + TypeScript）**：✅ 可行，而且这正是 v1（已废止）的方案。若你接受“WebView 主界面”，Codex 已经替你验证了这条路；回到 Electron 方案可 **6–8 周**出 Beta。但它仍然是 L0 套壳，不满足“不做套壳”。
+3. **使用它的产品/交互模式**：✅ 推荐，且与 UI 框架无关。可移植到 Avalonia：
+   - 左栏“项目 → 线程”两级结构，而不是单一会话列表；
+   - 对话 + 工具/命令/补丁活动流 + diff 块；
+   - Composer 的 `@` 文件引用、`/` 技能、附件/截图；
+   - Skills / Automations 作为一等入口；
+   - 本地优先、可恢复的长任务；
+   - 运行中线程的状态与切换不中断。
+4. **使用 Codex CLI 的 TUI（Ratatui）做 GUI**：❌ 不适用；终端 UI 与桌面 UI 的输入/布局/无障碍模型不同。
+
+**结论**：
+
+- 若目标是“**像 Codex 一样快、一样成熟**”：Electron + React + TypeScript 是已被 OpenAI 验证的路线；代价是接受 WebView 套壳。
+- 若目标是“**不做套壳**”：不要照搬 Codex 的 UI 实现；照搬它的**信息架构与交互**，用 Avalonia 重做。Codex 是“Web UI 可行”的证据，不是“原生不必要”的证据。
+- 若目标是“**既想快又想原生**”：没有第三条捷径；Tauri 仍是 WebView，Flutter 仍有 Windows IME 风险，Qt/Rust UI 的富文本生态不足。
 
 ---
 
-**文档维护**：本文是“提议稿”，不是已冻结的架构事实。评审通过后，建议拆成：
+**文档维护**：本文是提议稿，不是已冻结事实。评审通过后：
 
-- 一份 ADR（决策：Electron + Node 侧车 + 回环契约；现已落为 [adr/0015-desktop-shell.md](./adr/0015-desktop-shell.md)）；
-- 一份长期维护的桌面目标架构文档（本文可在评审后转正）；
-- 一份发布 runbook（签名/更新/回滚；待桌面项目立项后创建，不在本次交付内）。
-
-在 ADR 接受前，任何实现都应把 §6.2/§6.3/§6.7 的前置修复视为**可独立合入的 P0**，不要等“桌面项目立项”才开始。
+- ADR-0016 记录“原生 UI：Avalonia 主选 / WinUI 3 备选”；
+- ADR-0015（Electron）标记为废止；
+- 本文转为长期维护的 `DESKTOP_ARCHITECTURE.md`（或保留日期后缀作为快照）；
+- Phase 0 bake-off 的实测数据另存 `reports/DESKTOP_BAKEOFF_2026-XX.md`。

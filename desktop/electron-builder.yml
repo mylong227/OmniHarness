@@ -1,0 +1,32 @@
+appId: com.mylong227.omniharness
+productName: OmniHarness
+copyright: Copyright © 2026 mylong227
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: ../.desktop-stage/harness
+    to: harness
+asar: true
+npmRebuild: false
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+  runAfterFinish: true
+publish:
+  - provider: github
+    owner: mylong227
+    repo: OmniHarness
+    releaseType: draft

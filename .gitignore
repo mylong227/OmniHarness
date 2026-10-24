@@ -132,6 +132,11 @@ chrome-hijack-backup/
 # 发布产物（走 GitHub Release 分发，不入库）
 *.tgz
 
+# 桌面端构建/打包产物（Electron 主进程 dist 已由 dist/ 规则覆盖；这里补 stage/release）
+.desktop-stage/
+desktop/release/
+desktop/*.log
+
 
 # 临时探针/提交草稿目录（bad.js 等故意写坏的探针会让 lint 门禁误红）
 .tmpcheck/

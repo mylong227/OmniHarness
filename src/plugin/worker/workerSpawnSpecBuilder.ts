@@ -1,4 +1,4 @@
-﻿import { dirname } from 'node:path';
+import { dirname } from 'node:path';
 import type { SandboxPort } from '../../ports/runtime/sandbox.ts';
 import { PluginWorkerLimits } from './pluginWorkerLimits.ts';
 
@@ -45,7 +45,7 @@ export class WorkerSpawnSpecBuilder {
       process.env['OMNI_PLUGIN_WORKER_PERMISSION'] === '0'
         ? []
         : [
-            '--experimental-permission',
+            '--permission',
             `--allow-fs-read=${dirname(options.entryPath)}`,
             `--allow-fs-read=${options.workerEntry}`,
           ];
