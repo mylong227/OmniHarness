@@ -138,3 +138,19 @@ test('StreamModelCache：clear 后重新计数（会话切换不继承旧计数�
   assert.strictEqual(cache.stats().computes, 1);
   assert.strictEqual(again.blocks.length, 3);
 });
+
+test('StreamModelCache：每段对话独立用时进入渲染模型（未收口段不入表）', () => {
+  const events = asEvents([
+    { id: 'u1', type: 'user', sessionId: 's1', timestamp: '2026-10-24T00:00:00.000Z', payload: {} },
+    { id: 'a1', type: 'assistant', sessionId: 's1', timestamp: '2026-10-24T00:00:03.000Z', payload: {} },
+    { id: 'u2', type: 'user', sessionId: 's1', timestamp: '2026-10-24T00:01:00.000Z', payload: {} },
+    { id: 'a2', type: 'assistant', sessionId: 's1', timestamp: '2026-10-24T00:01:05.000Z', payload: {} },
+  ]);
+  const done = StreamModelCache.build(events, false);
+  assert.strictEqual(done.turnDurations.get('u1'), 3_000);
+  assert.strictEqual(done.turnDurations.get('u2'), 5_000);
+
+  const running = StreamModelCache.build(events, true);
+  assert.strictEqual(running.turnDurations.get('u1'), 3_000);
+  assert.strictEqual(running.turnDurations.has('u2'), false);
+});

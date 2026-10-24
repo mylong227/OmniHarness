@@ -93,6 +93,8 @@ export const EN_SESSIONS: Record<string, string> = {
   '任务进行中': 'Task in progress',
   '已完成，用时 {duration}': 'Completed in {duration}',
   '进行中，用时 {duration}': 'In progress · {duration}',
+  '本轮用时 {duration}': 'This turn: {duration}',
+  '本段对话从提问到完成的有效时长': 'Effective time for this prompt, from question to completion',
   '中栏视图': 'Center pane views',
   '展开功能面板（Ctrl/Cmd+Shift+E）': 'Expand panel (Ctrl/Cmd+Shift+E)',
   '收起功能面板（Ctrl/Cmd+Shift+E）': 'Collapse panel (Ctrl/Cmd+Shift+E)',

@@ -6,6 +6,7 @@
 import * as React from 'react';
 import { badge, timeOf } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
+import { formatDurationMs } from '../../models/DurationFormat.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
 
@@ -17,6 +18,8 @@ export interface UserCardProps {
   busy?: boolean;
   /** 是否允许编辑（仅最后一条用户消息挂载）。 */
   canEdit: boolean;
+  /** 本段对话独立用时（ms；未收口/不足 1s 不显示）。 */
+  turnDurationMs?: number;
   /** 编辑重发：把这条消息填回底部输入框。 */
   onEdit: () => void;
 }
@@ -27,13 +30,22 @@ export interface UserCardProps {
  * @returns 用户消息节点
  */
 export function UserCard(props: UserCardProps): ReactElement {
-  const { ev, canEdit, busy, onEdit } = props;
+  const { ev, canEdit, busy, turnDurationMs, onEdit } = props;
   const text = (ev.payload?.content as string) || '';
+  const turnDuration =
+    turnDurationMs !== undefined && turnDurationMs >= 1000
+      ? formatDurationMs(turnDurationMs)
+      : '';
   return (
     <>
       <div className="head">
         {badge('user')}
         <span className="time">{timeOf(ev.timestamp)}</span>
+        {turnDuration === '' ? null : (
+          <span className="time turn-duration" title={t('本段对话从提问到完成的有效时长')}>
+            {t('本轮用时 {duration}', { duration: turnDuration })}
+          </span>
+        )}
         {canEdit && busy !== true ? (
           <button
             className="msg-act"

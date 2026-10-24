@@ -10,6 +10,8 @@
    锚定校正停用后这两处位移仍然存在** ⇒ 证明确实来自浏览器而非本仓代码。
    位置校正改由唯一一处负责：`StreamWindow.needsAnchorRepair`（只在视口基本没内容时才修空洞）。 */
 .stream { flex:1; overflow:auto; min-height:0; overflow-anchor:none; }
+/* 对话/轨迹双视图常驻：切换只切显示，不卸载重挂，避免切换瞬间白屏与滚动位置丢失。 */
+.view-hidden { display:none !important; }
 /* 逐块真实高度测量容器：flow-root 建立 BFC，使子块 margin 不外溢，offsetHeight 即完整竖直占位。 */
 .sw-block { display:flow-root; }
 /* 注意：**不要**给 `.ev` 加入场动画（曾有过 `animation:fade .22s`）。
@@ -21,6 +23,7 @@
 .badge { border-radius:999px; }
 .b-todo, .b-plan, .b-question, .b-turn_diff { background:var(--panel-2); color:var(--dim); }
 .time { color:var(--dim); font-size:11px; }
+.turn-duration { margin-left:4px; }
 .card.user { background:rgba(255,255,255,.04); border-color:var(--border-soft); }
 
 /* 对话气泡（Codex 式：用户右对齐近白气泡 / 助手左对齐面板气泡） */

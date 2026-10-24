@@ -4,6 +4,7 @@
 //
 // 函数组件范式：无内部状态；行渲染下沉为模块级纯函数（与 StreamView 同款写法）。
 
+import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import type { IconName } from '../models/Icon.ts';
 import { describeToolCall } from '../textUtils.ts';
@@ -20,6 +21,8 @@ export interface TraceViewProps {
   liveInputs: LiveInput[];
   /** 工具结果视图（有结果的调用显示「完成」）。 */
   toolResults: Record<string, ToolResultView>;
+  /** 是否隐藏（对话/轨迹双视图常驻，切换只切显示，避免卸载重挂闪白）。 */
+  hidden?: boolean;
 }
 
 /** 单行轨迹（模块级中间形态，渲染前组装）。 */
@@ -95,11 +98,17 @@ function collectRows(events: readonly ThreadEvent[], toolResults: Record<string,
  * @returns 轨迹节点
  */
 export function TraceView(props: TraceViewProps): ReactElement {
-  const { events, liveInputs, toolResults } = props;
-  const rows = collectRows(events, toolResults);
+  const { events, liveInputs, toolResults, hidden } = props;
+  // 对话流每个文本增量都会让父组件重渲染；轨迹行只依赖事件/结果，缓存后隐藏态切换不重算。
+  const rows = React.useMemo(() => collectRows(events, toolResults), [events, toolResults]);
   const running = rows.filter((r) => !r.done).length;
   return (
-    <div className="trace" role="log" aria-label={t('工具调用轨迹')}>
+    <div
+      className={'trace' + (hidden === true ? ' view-hidden' : '')}
+      role={hidden === true ? undefined : 'log'}
+      aria-label={t('工具调用轨迹')}
+      aria-hidden={hidden === true ? 'true' : undefined}
+    >
       <div className="trace-head" aria-hidden="true">
         {t('共 {count} 次工具调用', { count: rows.length })}
         {running > 0 ? t(' · {count} 次进行中', { count: running }) : ''}

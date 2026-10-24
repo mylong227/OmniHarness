@@ -191,6 +191,8 @@ interface EventCtx {
   toolCallIds: ReadonlySet<string>;
   /** 已被回合结果卡收编的产物调用 id（这些调用不再内联产物卡）。 */
   summarizedCallIds: ReadonlySet<string>;
+  /** 每段对话（user 事件 id）的独立用时。 */
+  turnDurations: ReadonlyMap<string, number>;
   /** 是否正有提问等待作答（对话流里的提问卡据此给出「去下方提问卡作答」的指引）。 */
   questionPending: boolean;
   /** 回合刚收尾（1.5s 内）：过程簇挂载瞬间的「回闪」高亮。历史加载恒 false。 */
@@ -241,6 +243,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           ev={ev}
           busy={ctx.busy}
           canEdit={ev.id === ctx.lastUserId}
+          turnDurationMs={ctx.turnDurations.get(ev.id)}
           onEdit={() => ctx.onEditUser?.()}
         />,
       );
@@ -616,6 +619,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
   // 滚动时不再重算（审计 §2.5：每帧全量重算 ≈180 µs@1000 / ≈510 µs@3000 条）。
   const streamModel = STREAM_MODEL_CACHE.get(events, busy === true);
   const { blocks, keys, lastUserId, lastAssistantId, toolCallIds, summarizedCallIds } = streamModel;
+  const turnDurations = streamModel.turnDurations;
   const ctx: EventCtx = {
     toolResults,
     onEventClick,
@@ -629,6 +633,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     finalizedStreamText: finalizedStreamText ?? '',
     toolCallIds,
     summarizedCallIds,
+    turnDurations,
     questionPending: question != null,
     clusterFresh,
   };
@@ -736,22 +741,20 @@ export function StreamView(props: StreamViewProps): ReactElement {
         onToggleRight={onToggleRight}
         rightCollapsed={rightCollapsed}
       />
-      {view === 'trace' ? (
-        <TraceView events={events} liveInputs={liveInputs} toolResults={toolResults} />
-      ) : (
-        <div
-          className="stream"
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions"
-          aria-label={t('对话事件流')}
-          data-virtual="1"
-          data-rendered-count={String(renderedCount)}
-          data-total-count={String(totalCount)}
-          data-event-count={String(events.length)}
-          ref={streamRef}
-          onScroll={onScroll}
-        >
+      <div
+        className={'stream' + (view === 'trace' ? ' view-hidden' : '')}
+        role={view === 'trace' ? undefined : 'log'}
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label={t('对话事件流')}
+        aria-hidden={view === 'trace' ? 'true' : undefined}
+        data-virtual="1"
+        data-rendered-count={String(renderedCount)}
+        data-total-count={String(totalCount)}
+        data-event-count={String(events.length)}
+        ref={streamRef}
+        onScroll={onScroll}
+      >
           {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
             <div className="empty illu starter-empty">
               <div className="illu-icon">{icon('message', { size: 20 })}</div>
@@ -821,7 +824,12 @@ export function StreamView(props: StreamViewProps): ReactElement {
             </div>
           )}
         </div>
-      )}
+      <TraceView
+        events={events}
+        liveInputs={liveInputs}
+        toolResults={toolResults}
+        hidden={view !== 'trace'}
+      />
       {question == null || onAnswerQuestion === undefined || onQuestionExpired === undefined ? null : (
         <QuestionCard
           request={question}

@@ -386,3 +386,30 @@ test('StreamWindow：占位高度维持滚动条总高比例（padTop + 窗口 +
   assert.strictEqual(negative.start, 0);
   assert.strictEqual(negative.padBottom, 0, '总块数不足一屏时底部无占位');
 });
+
+test('对话/轨迹切换：双视图常驻，切换只切显示，不卸载聊天 DOM', () => {
+  const ui = renderStream(makeEvents(30));
+  const tabOf = (label: string): FacadeNode => {
+    const hit = collect(ui.tree(), (n) => n.type === 'button' && n.children.includes(label))[0];
+    assert.ok(hit !== undefined, `缺少 ${label} 视图标签`);
+    return hit;
+  };
+  const chatRoot = (): FacadeNode => byClass(ui.tree(), 'stream')[0]!;
+  const traceRoot = (): FacadeNode => byClass(ui.tree(), 'trace')[0]!;
+
+  assert.strictEqual(chatRoot().props['aria-hidden'], undefined);
+  assert.ok(String(traceRoot().props['className']).includes('view-hidden'));
+
+  fireEvent.click(tabOf('轨迹').el);
+  assert.ok(String(chatRoot().props['className']).includes('view-hidden'));
+  assert.ok(!String(traceRoot().props['className']).includes('view-hidden'));
+  assert.strictEqual(chatRoot().props['aria-hidden'], 'true');
+
+  // 切回对话：聊天根节点仍是同一批 DOM（没有卸载重挂），因此滚动/块索引不生空白。
+  const before = chatRoot().el;
+  before.scrollTop = 240;
+  fireEvent.click(tabOf('对话').el);
+  assert.strictEqual(chatRoot().el, before);
+  assert.strictEqual(before.scrollTop, 240, '切回对话必须保留滚动位置');
+  assert.ok(!String(chatRoot().props['className']).includes('view-hidden'));
+});

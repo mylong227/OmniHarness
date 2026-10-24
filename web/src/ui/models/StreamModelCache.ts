@@ -5,6 +5,7 @@ import {
   collectTurnSummaryCalls,
   type DisplayBlock,
 } from '../textUtils.ts';
+import { TurnTiming } from './TurnTiming.ts';
 
 /**
  * 事件流的**渲染输入模型**（块 / 键 / 末条 id / 本轮工具调用 id）。
@@ -26,6 +27,8 @@ export interface StreamModel {
   readonly toolCallIds: ReadonlySet<string>;
   /** 已被回合结果卡收编的产物调用 id（这些调用不再单独渲染内联产物卡）。 */
   readonly summarizedCallIds: ReadonlySet<string>;
+  /** 每段对话（user 事件 id）的独立用时（ms；未收口段不入表）。 */
+  readonly turnDurations: ReadonlyMap<string, number>;
 }
 
 /** 模型缓存观测（测试与诊断用）。 */
@@ -114,6 +117,19 @@ export class StreamModelCache {
     }
     // 与 buildDisplayBlocks 同一份判据（isRenderedEvent 用它隐藏已内联的 tool_result）。
     const toolCallIds = collectToolCallIds(events);
-    return { blocks, keys, lastUserId, lastAssistantId, toolCallIds, summarizedCallIds };
+    const turnDurations = new Map<string, number>(
+      [...TurnTiming.build(events, busy)]
+        .filter(([, record]) => record.complete)
+        .map(([id, record]) => [id, record.durationMs] as const),
+    );
+    return {
+      blocks,
+      keys,
+      lastUserId,
+      lastAssistantId,
+      toolCallIds,
+      summarizedCallIds,
+      turnDurations,
+    };
   }
 }
