@@ -76,8 +76,15 @@ impl WriteRestrictedProcessLauncher {
         }
         let token = create_write_restricted_token(sid);
         unsafe { FreeSid(sid) };
-        let token = token?;
+        // 先建 Job，再建令牌：令牌失败时立即关掉 Job，避免 HANDLE 泄漏。
         let job = create_job_object()?;
+        let token = match token {
+            Ok(token) => token,
+            Err(error) => {
+                unsafe { CloseHandle(job) };
+                return Err(error);
+            }
+        };
         Ok(Self {
             inner: RestrictedProcessLauncher::from_parts(token, job),
         })
