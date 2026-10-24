@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Bm25Index } from '../search/bm25Index.ts';
 import { RepoMap, type SymbolNode } from './repoMap/repoMap.ts';
 import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import { CorpusFileArtifactCodec } from './corpusFileArtifactCodec.ts';
 
 /** 一次文件解析的产出（词项与符号；不含路径无关的装配信息）。 */
 export interface ParsedCorpusFile {
@@ -83,10 +84,10 @@ export class CorpusFileParser {
     return {
       rel,
       hash: byteHash,
-      fileDoc: parsed.fileDoc,
+      fileDoc: CorpusFileArtifactCodec.encode(parsed.fileDoc),
       tokenCount: parsed.tokenCount,
       symbols: parsed.symbols,
-      symbolDocs: parsed.symbolDocs,
+      symbolDocs: parsed.symbolDocs.map((doc) => CorpusFileArtifactCodec.encode(doc)),
       symbolStart,
     };
   }

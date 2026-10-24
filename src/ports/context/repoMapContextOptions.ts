@@ -3,13 +3,15 @@ export interface RepoMapContextOptions {
   /** 是否启用；默认开。env OMNI_REPO_MAP=0 由调用方显式传 enabled:false。 */
   readonly enabled?: boolean;
   /**
-   * 注入的系统碎片里最多几个文件（默认 **20**）。
+   * 注入的系统碎片里最多几个文件（默认 **30**）。
    *
    * 2026-09-17 二次决策：先由 10 → 14（精排增益随候选池深度放大，命中率 51.5% → 69.7%），再由 14 → 20。
    * 第二次扩档之所以**近乎免费**，是因为 {@link RepoMapContextOptions.payloadShape} 的梯度投送把注入
    * token 从 3703 压到 **1496（−59.6%）**——省下的预算足以覆盖更深的文件：命中率再由 69.7% 升到
    * **75.8%（+6.1pp，CI [60.6, 87.9]）**，而 token 仍**低于**原来的 fileK=14 全大纲口径。
-   * 报告：`evals/military-pareto.report.json`、`evals/military-verdict.report.json`。
+   * 2026-10-23 再由 20 → 30：191 条查询 K20 36.6% → K30 43.5%（配对 McNemar 13 胜 0 负，p=0.0002），
+   * 平均注入 token 914 → 1,001（+9.5%）。K=40 点估计 46.1% 但 p=0.0625，未过两关，故不作默认。
+   * 报告：`reports/OPTIMIZATION_AUDIT_2026-10-23.md`。
    */
   readonly fileK?: number;
   /**

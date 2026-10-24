@@ -6,6 +6,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.ts';
 import type { ModelPort } from '../../../ports/model/model.ts';
+import { ReasoningBudget } from '../../../util/reasoningBudget.ts';
 import type {
   ReviewFinding,
   ReviewPort,
@@ -92,6 +93,8 @@ export class ReviewDiffTool implements ReviewPort {
       ],
       tools: [],
       role: 'reviewer',
+      reasoningEffort: ReasoningBudget.auxiliary('reviewer', undefined),
+      maxOutputTokens: 4_000,
     });
     const raw = output.text ?? '';
     const findings = ReviewDiffTool.parse(raw);

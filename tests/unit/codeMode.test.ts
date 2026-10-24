@@ -78,6 +78,21 @@ test('CodeInterpreter：语法错误收敛为失败结果', async () => {
   assert.match(result.output, /执行错误/);
 });
 
+test('CodeExecutorTool：失败原因必须同时进入 error（模型投影只读 error）', async () => {
+  const registry = registryWith();
+  const coder = new CodeExecutorTool({
+    gate: new ToolGate(new AutoApproval(), new PassthroughSandbox()),
+    tools: registry,
+  });
+  const result = await coder.handle(
+    { id: 'c1', name: 'run_code', arguments: { code: `throw new Error('boom-42');` } },
+    context,
+  );
+  assert.strictEqual(result.ok, false);
+  assert.match(result.error ?? '', /boom-42/u);
+  assert.match(result.output ?? '', /boom-42/u);
+});
+
 test('CodeExecutorTool：程序内调用经门禁执行', async () => {
   const registry = registryWith();
   const coder = new CodeExecutorTool({

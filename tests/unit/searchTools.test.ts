@@ -134,6 +134,34 @@ test('GrepTool：非法正则与空 pattern 均 fail-closed 报错', async () =>
   }
 });
 
+test('GrepTool：开头 (?i) 归一化为 case_insensitive（模型常用 PCRE 写法）', async () => {
+  const dir = await makeWorkspace();
+  try {
+    const result = await new GrepTool(dir).handle(
+      { id: 'c1', name: 'grep', arguments: { pattern: '(?i)NEEDLE', path: 'src' } },
+      ctx(dir),
+    );
+    assert.strictEqual(result.ok, true, result.error);
+    assert.match(result.output ?? '', /needle/u);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('GrepTool：无法等价翻译的内联修饰符给出可行动提示', async () => {
+  const dir = await makeWorkspace();
+  try {
+    const result = await new GrepTool(dir).handle(
+      { id: 'c1', name: 'grep', arguments: { pattern: 'foo(?i)bar' } },
+      ctx(dir),
+    );
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error ?? '', /case_insensitive/u);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('GlobTool：**/*.ts 命中任意深度且按工作区相对路径返回', async () => {
   const dir = await makeWorkspace();
   try {

@@ -1,4 +1,5 @@
 import type { ModelMessage, ModelPort } from '../ports/model/model.ts';
+import { ReasoningBudget } from '../util/reasoningBudget.ts';
 
 /**
  * @beta
@@ -57,7 +58,13 @@ export class GoalChecker {
         content: `目标：\n${goal}\n\n最近的进展：\n${progress || '（无产出）'}${evidence}\n\n目标是否已完全达成？只回答 YES 或 NO，并附一句理由。`,
       },
     ];
-    const output = await this.model.generate({ messages, tools: [], role: 'goal' });
+    const output = await this.model.generate({
+      messages,
+      tools: [],
+      role: 'goal',
+      reasoningEffort: ReasoningBudget.auxiliary('goal', undefined),
+      maxOutputTokens: 800,
+    });
     const raw = (output.text ?? '').trim();
     return { achieved: GoalChecker.parseAchieved(raw), raw };
   }

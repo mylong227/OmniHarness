@@ -11,6 +11,14 @@ import { ObservationCompressor } from './observationCompressor.ts';
 export interface SpillerOptions extends SpillPolicyOptions {
   /** 豁免工具名：其输出不外溢（spill_read 读回时若再被截断，模型将永远取不回全文）。 */
   readonly exemptTools?: readonly string[];
+  /**
+   * 按工具的覆盖策略（可选）。
+   *
+   * 为什么需要：`read_file` 返回的是模型要改的代码，16 KiB 就外溢、只给 2 KiB 预览会把
+   * 一个 30 KiB 文件压成约 50 行；`shell/grep` 的长输出则更适合「错误优先 + 小预览」。
+   * 未列出的工具沿用全局策略（逐字旧行为）。
+   */
+  readonly toolPolicies?: Readonly<Record<string, SpillPolicyOptions>> | undefined;
 }
 
 /** 默认豁免：读回工具本身。 */
@@ -33,6 +41,8 @@ const COMPRESSED_TOOLS: ReadonlySet<string> = new Set([
 export class ToolResultSpiller implements ToolResultSpillerPort {
   private readonly policy: SpillPolicy;
   private readonly exempt: readonly string[];
+  /** 按工具覆盖的策略（空 Map = 全部走全局策略）。 */
+  private readonly toolPolicies: ReadonlyMap<string, SpillPolicy>;
 
   public constructor(
     private readonly port: SpillPort,
@@ -40,17 +50,23 @@ export class ToolResultSpiller implements ToolResultSpillerPort {
   ) {
     this.policy = new SpillPolicy(options);
     this.exempt = options.exemptTools ?? DEFAULT_EXEMPT;
+    const perTool = new Map<string, SpillPolicy>();
+    for (const [tool, override] of Object.entries(options.toolPolicies ?? {})) {
+      perTool.set(tool, new SpillPolicy(override));
+    }
+    this.toolPolicies = perTool;
   }
 
   /** 未超阈值或命中豁免则原样返回；否则外溢并替换为预览 + 读回指引。 */
   public async apply(toolName: string, result: ToolResult, sessionId: string): Promise<ToolResult> {
     const target = result.output ?? result.error;
-    if (this.exempt.includes(toolName) || !this.policy.needsSpill(target)) {
+    const policy = this.toolPolicies.get(toolName) ?? this.policy;
+    if (this.exempt.includes(toolName) || !policy.needsSpill(target)) {
       return result;
     }
     const content = target as string;
     const handle = await this.port.spill(content, sessionId);
-    return this.replace(result, this.render(content, handle.id, handle.bytes, toolName));
+    return this.replace(result, this.render(content, handle.id, handle.bytes, toolName, policy));
   }
 
   /** 用替代文本替换原输出（保持另一字段原样）。
@@ -82,16 +98,23 @@ export class ToolResultSpiller implements ToolResultSpillerPort {
    * @param spillId 外溢 id
    * @param bytes 原始字节数
    * @param toolName 工具名（决定是否启用错误优先预览）
+   * @param policy 该工具生效的策略（全局或按工具覆盖）
    * @returns 模型可见的预览文本
    */
-  private render(content: string, spillId: string, bytes: number, toolName: string): string {
+  private render(
+    content: string,
+    spillId: string,
+    bytes: number,
+    toolName: string,
+    policy: SpillPolicy,
+  ): string {
     const source = COMPRESSED_TOOLS.has(toolName)
       ? ObservationCompressor.preview(content, {
-          maxChars: Math.max(2_000, this.policy.preview(content).length),
+          maxChars: Math.max(2_000, policy.preview(content).length),
         })
       : content;
-    const preview = this.policy.preview(source);
-    const hidden = bytes - this.policy.byteLength(preview);
+    const preview = policy.preview(source);
+    const hidden = bytes - policy.byteLength(preview);
     return `${preview}\n…（已省略 ${hidden} 字节，完整内容外溢至 spill://${spillId}，用 spill_read 工具传 id 读回）`;
   }
 }

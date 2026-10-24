@@ -9,6 +9,7 @@ import type { EnforcementMode } from '../security/enforcementModeResolver.ts';
 import type { TrustTier } from '../security/toolOutputTrust.ts';
 import type { RepoMapContextEnginePort } from '../ports/context/repoMapContextEnginePort.ts';
 import type { ToolResultSpillerPort } from '../ports/context/toolResultSpillerPort.ts';
+import type { AttachmentSpillPort } from '../ports/context/attachmentSpillPort.ts';
 import type { ContextCompactor } from '../context/contextCompactor.ts';
 import type { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
@@ -53,6 +54,8 @@ export interface StepRunnerDeps {
   readonly hooks?: ToolHookRunnerPort | undefined;
   /** 外溢器（#74）：超大工具输出入历史前先落后端，只留有界预览。 */
   readonly spiller?: ToolResultSpillerPort | undefined;
+  /** 附件内存外置（2026-10-23）：工具结果的大附件记录前写盘，内存事件只留 path。 */
+  readonly attachmentSpiller?: AttachmentSpillPort | undefined;
   /** 原生后端（FFI #66）：非空时工具执行路由到 Rust 内核 in-process；内核不可用由 createRuntime 置空以回退 JS。 */
   readonly native?: NativeToolRunner | undefined;
   /** 工具发现寄存器（#M1）：tool_search 命中后登记，使延迟加载工具后续回合对模型可见。 */

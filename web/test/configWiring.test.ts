@@ -186,3 +186,26 @@ test('⑦ 「已保存」提示会自动消隐（dispose 后不再有挂起定�
     vi.useRealTimers();
   }
 });
+
+test('⑧ 首次装载失败：原因进快照（表单全空时必须可见），重拉成功后清掉', async () => {
+  const failDeps = makeDeps({
+    async getConfig() {
+      throw new Error('未知配置项 providerKeysDpapi');
+    },
+  });
+  await failDeps.model.load();
+  await flush();
+  assert.match(
+    failDeps.model.getSnapshot().loadError,
+    /读取配置失败：未知配置项 providerKeysDpapi/,
+    '首次装载失败必须留下可读原因，不能只显示空表单',
+  );
+  failDeps.model.dispose();
+
+  const okDeps = makeDeps();
+  await okDeps.model.load();
+  await flush();
+  assert.strictEqual(okDeps.model.getSnapshot().loadError, '', '成功装载后必须清掉错误');
+  assert.strictEqual(okDeps.model.valueOf('model'), 'gpt-4o', '成功装载后表单必须回填');
+  okDeps.model.dispose();
+});

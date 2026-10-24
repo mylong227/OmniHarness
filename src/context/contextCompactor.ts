@@ -6,6 +6,7 @@ import type { TokenEstimatorCalibrator } from './tokenEstimatorCalibrator.ts';
 import { DeterministicCompressor } from './deterministicCompressor.ts';
 import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
 import { log } from '../util/logger.ts';
+import { ReasoningBudget } from '../util/reasoningBudget.ts';
 import { CompactionComposer } from './compactionComposer.ts';
 
 /**
@@ -656,6 +657,9 @@ export class ContextCompactor {
         ],
         tools: [],
         role: 'compactor',
+        // 结构化 8 段摘要不需要深度思考；输出上限防「摘要模型生成 20k token」的成本尖峰。
+        reasoningEffort: ReasoningBudget.auxiliary('compactor', undefined),
+        maxOutputTokens: 3_000,
       });
       return output.text ?? '[历史已省略]';
     } catch (error) {

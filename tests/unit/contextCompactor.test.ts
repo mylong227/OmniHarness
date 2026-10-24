@@ -37,6 +37,21 @@ test('压缩器：未超预算原样返回', async () => {
   assert.strictEqual(result.messages.length, 2);
 });
 
+test('压缩器：摘要请求带输出上限与低推理档（成本尖峰防护）', async () => {
+  let captured: ModelRequest | undefined;
+  const model: ModelPort = {
+    name: 'capture',
+    async generate(request: ModelRequest): Promise<ModelOutput> {
+      captured = request;
+      return { text: '摘要' };
+    },
+  };
+  const compactor = new ContextCompactor(model, { maxTokens: 20, keepRecent: 2 });
+  await compactor.compact(longMessages(20));
+  assert.strictEqual(captured?.maxOutputTokens, 3_000);
+  assert.strictEqual(captured?.reasoningEffort, 'low');
+});
+
 test('压缩器：每请求固定开销（工具 schema + 尾部文本）挤占同一预算 ⇒ 提前压缩（§3-3 后半）', async () => {
   // 消息本身远在预算内，但「工具 schema + repo-map 尾段」是同一请求体的恒定占用。
   // 不入账的后果：记账偏低 ⇒ 越过真实窗口才压缩 ⇒ 超窗请求打到上游（fail-open 400）。

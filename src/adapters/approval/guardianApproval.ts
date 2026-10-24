@@ -5,6 +5,7 @@ import type {
 } from '../../ports/runtime/approval.ts';
 import type { ModelPort } from '../../ports/model/model.ts';
 import { guardianPrompt } from './guardianPrompt.ts';
+import { ReasoningBudget } from '../../util/reasoningBudget.ts';
 
 /** Guardian 审批选项。 */
 export interface GuardianApprovalOptions {
@@ -78,6 +79,8 @@ export class GuardianApproval implements ApprovalPort {
         messages: guardianPrompt.build(request),
         tools: [],
         role: 'guardian',
+        reasoningEffort: ReasoningBudget.auxiliary('guardian', undefined),
+        maxOutputTokens: 800,
       });
       return this.parseVerdict(output.text);
     } catch {

@@ -131,6 +131,9 @@ export class Runtime {
       gate,
       supervisor,
       spiller: config.spiller,
+      ...(config.attachmentSpiller !== undefined
+        ? { attachmentSpiller: config.attachmentSpiller }
+        : {}),
       discovery: config.discovery,
       retrieval: config.retrieval,
       container,

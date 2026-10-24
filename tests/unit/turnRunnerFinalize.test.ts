@@ -70,6 +70,57 @@ function makeModel(opts: { alwaysTool: boolean }): {
   return { model, toolCounts, generateCalls: () => calls };
 }
 
+test('④ 软 token 预算：达到阈值只注入收尾提醒，不停止步进', async () => {
+  const recorder = recorderFor('s-soft-budget');
+  let n = 0;
+  const model: ModelPort = {
+    name: 'mock',
+    generate: async (): Promise<ModelOutput> => {
+      n += 1;
+      return {
+        toolCalls: [{ id: `c${n}`, name: 'shell.run', arguments: { command: 'echo hi' } }],
+        usage: { promptTokens: 5, completionTokens: 5, totalTokens: 10 },
+      };
+    },
+  };
+  const sr = new StepRunner({
+    model,
+    tools: jsTools,
+    approvals: allowApproval,
+    sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
+    recorder,
+    sessionId: 's-soft-budget',
+  });
+  const tr = new TurnRunner(
+    sr,
+    recorder,
+    2,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    false,
+    undefined,
+    10,
+  );
+  const outcome = await tr.run({ sessionId: 's-soft-budget', workspaceRoot: '/tmp' });
+  assert.strictEqual(outcome.steps, 2, '软预算不得截断步进');
+  assert.ok(
+    recorder.allEvents().some((event) => {
+      const payload = event.payload as { readonly content?: unknown };
+      return typeof payload.content === 'string' && payload.content.includes('预算提醒');
+    }),
+    '达到软预算应写入一次收尾提醒',
+  );
+});
+
 test('② 待办仍有 pending/in_progress 时，模型收尾会被纠偏一次（不把计划当完成）', async () => {
   const recorder = recorderFor('s-todo-guard');
   const todo = new MemoryTodo();

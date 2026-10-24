@@ -18,6 +18,7 @@ import { MemoryTodo } from '../adapters/todo/memoryTodo.ts';
 import { MemoryPlan } from '../adapters/plan/memoryPlan.ts';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.ts';
 import { JsonlStorage } from '../adapters/storage/jsonlStorage.ts';
+import { SessionAttachmentSpiller } from '../adapters/storage/sessionAttachmentSpiller.ts';
 import { SqliteStorage } from '../adapters/storage/sqliteStorage.ts';
 import { CancellableModel } from './cancellableModel.ts';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
@@ -42,15 +43,12 @@ export class SubagentRuntimeFactory {
     maxSteps: number,
     signal?: AbortSignal,
   ): OmniHarnessRuntime {
-    // 子代存储重定位到隔离工作树（worktree.path / 拷贝目录）下，杜绝共享冲突。
     const storage = this.rerootStorage(ports.storage, ports.workspaceRoot);
-    // 取消传播：父会话的取消信号并进子代每次模型请求（父取消 → 在飞请求中止、不再烧 token）。
-    // 未注入信号时逐字沿用原模型对象，零行为变更。
+    const attachmentSpiller = this.attachmentSpillerFor(storage);
+    // 取消传播：父取消 → 在飞请求中止（未注入信号时逐字沿用原模型，零行为变更）。
     const model =
       signal === undefined ? ports.model : CancellableModel.cancellableModel(ports.model, signal);
-    // 计划门禁继承（2026-10-01 审计）：子代原先硬编码 `plan: undefined` + `planMode: false`，
-    // 使 `--plan` 只读语义在委派路径上被绕过（模型调一次 subagent/run_workflow/run_goal 即可落盘，
-    // 且子代事件走独立 bridge，主会话侧完全静默）。此处与父级共用同一计划状态源。
+    // 计划门禁继承（2026-10-01）：子代与父级共用 plan/planMode，否则 --plan 可被委派绕过。
     const planMode = ports.planMode ?? false;
     const plan = ports.plan ?? new MemoryPlan();
     const config: ResolvedConfig = {
@@ -67,6 +65,7 @@ export class SubagentRuntimeFactory {
       tools,
       spill: ports.spill,
       spiller: ports.spiller,
+      ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
       planMode,
       userResponder: new DefaultUserResponder(),
       todo: new MemoryTodo(),
@@ -94,6 +93,7 @@ export class SubagentRuntimeFactory {
       escalation: ports.escalation,
       elevatedSandbox: ports.elevatedSandbox,
       spiller: ports.spiller,
+      ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
       discovery: new ToolDiscovery(),
       retrieval: new Bm25MemoryIndex(),
       gate: new ToolGate(
@@ -116,6 +116,17 @@ export class SubagentRuntimeFactory {
       // 恒 undefined ⇒ 子代 repo-map 保持既有口径，零行为变更。（诚实边界：降级仅作用于主循环）
       budgetDegrade: undefined,
     };
+  }
+
+  /**
+   * 子代附件外置器：必须落在**子代自己的** sessions 根（ContextAssembler 的 attachmentRoot 同源），
+   * 不能复用父 spiller 的 path 前缀，否则模型按 path 水合会找不到文件。
+   * @param storage 子代存储端口。
+   * @returns 外置器；非 JSONL 或无 location 时为 undefined。
+   */
+  private attachmentSpillerFor(storage: StoragePort): SessionAttachmentSpiller | undefined {
+    if (storage.name !== 'jsonl' || storage.location === undefined) return undefined;
+    return new SessionAttachmentSpiller(storage.location);
   }
 
   /**

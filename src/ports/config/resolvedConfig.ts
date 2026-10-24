@@ -14,6 +14,7 @@ import type { ToolHookRunnerPort } from '../tool/toolHookRunnerPort.ts';
 import type { ToolPort } from '../tool/tool.ts';
 import type { SpillPort } from '../memory/spill.ts';
 import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts';
+import type { AttachmentSpillPort } from '../context/attachmentSpillPort.ts';
 import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.ts';
 import type { LongTermMemoryPort } from '../memory/longTermMemory.ts';
 import type { RepoMapContextEnginePort } from '../context/repoMapContextEnginePort.ts';
@@ -63,6 +64,11 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly spill: SpillPort;
   /** 工具结果外溢器（#74）：超大输出落后端，只留有界预览。 */
   readonly spiller: ToolResultSpillerPort;
+  /**
+   * 附件内存外置端口（2026-10-23，可选）：工具结果的大附件在**记录事件前**写盘，
+   * 内存事件只留 `path`。仅文件型存储（有 `storage.location`）时构造。
+   */
+  readonly attachmentSpiller?: AttachmentSpillPort | undefined;
   /** 是否处于计划模式（plan-only，不执行副作用工具）。 */
   readonly planMode: boolean;
   /** Agent 用户响应端口（进度 / 澄清提问推送）。 */

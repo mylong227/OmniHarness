@@ -9,6 +9,7 @@ import { ConsoleLiveView } from '../adapters/live/consoleLiveView.ts';
 import { CompositeLiveView } from '../adapters/live/compositeLiveView.ts';
 import { TransformersEmbeddingAdapter } from '../adapters/embedding/transformersEmbeddingAdapter.ts';
 import { DiskCachedEmbeddingAdapter } from '../adapters/embedding/diskCachedEmbeddingAdapter.ts';
+import { SessionAttachmentSpiller } from '../adapters/storage/sessionAttachmentSpiller.ts';
 
 import type { EmbeddingPort } from '../ports/model/embedding.ts';
 import type { ModelPort } from '../ports/model/model.ts';
@@ -107,6 +108,8 @@ export class ConfigFactory {
       lsp,
       identity,
     );
+    // JSONL 的 location 是目录；sqlite 是库文件，不能拼 attachments（自定义存储暂不接线）。
+    const attachmentSpiller = ConfigFactory.buildAttachmentSpiller(partial);
     return {
       workspaceRoot: partial.workspaceRoot,
       maxSteps: partial.maxSteps ?? 0,
@@ -116,6 +119,7 @@ export class ConfigFactory {
       model,
       ...(reviewerModel !== undefined ? { reviewerModel } : {}),
       storage: partial.storage,
+      ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
       compactionMaxTokens: partial.compactionMaxTokens,
       compactionKeepRecent: partial.compactionKeepRecent,
       compactionDeterministicShrink: partial.compactionDeterministicShrink,
@@ -407,6 +411,20 @@ export class ConfigFactory {
       ...(cfg.maxOutputBytes !== undefined ? { maxOutputBytes: cfg.maxOutputBytes } : {}),
       ...(cfg.maxDigestLines !== undefined ? { maxDigestLines: cfg.maxDigestLines } : {}),
     });
+  }
+
+  /**
+   * 构建附件内存外置器（仅 JSONL 文件型存储；sqlite 的 location 是库文件，不能拼目录）。
+   * @param partial 未解析的运行配置。
+   * @returns 外置器；非 JSONL 存储或没有 location 时为 undefined。
+   */
+  private static buildAttachmentSpiller(
+    partial: OmniHarnessConfig,
+  ): SessionAttachmentSpiller | undefined {
+    if (partial.storage?.name !== 'jsonl' || partial.storage.location === undefined) {
+      return undefined;
+    }
+    return new SessionAttachmentSpiller(partial.storage.location);
   }
 
   /**

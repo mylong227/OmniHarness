@@ -128,8 +128,11 @@ jobs:
       # 三平台 runner 经 `npm install` 均会装上 `sharp`（optionalDependency，各平台有预编译包），
       # 许可签发链（Ed25519）纯 Node 内置能力、无外部依赖 ⇒ 这两条在 CI 上**必须真跑**。
       # 其余开关的 CI 可满足性见本文件末尾「CI 不可满足的开关」一节（那是给判据读的登记）。
+      # 重判据（spawn Chrome/Python/Worker）由 tests/setup/heavyResource.ts 的跨进程槽串行化；
+      # 槽数显式给 1，普通判据仍全速并行（2026-10-23）。
       - run: npm run coverage:check
         env:
+          OMNI_HEAVY_SLOTS: '1'
           OMNI_REQUIRE_SHARP: '1'
           OMNI_REQUIRE_LICENSE: '1'
       # 集成/端到端分层：多模块真实 IO 编排（agent→门禁→存储→检查点→权限），独立于单元测试。
@@ -137,6 +140,7 @@ jobs:
       # 本会 skip ⇒ 那等于这条门禁看着绿却没跑。三平台 runner 均自带 Chrome，故 CI 下把 skip 升级为失败。
       - run: npm run test:integration
         env:
+          OMNI_HEAVY_SLOTS: '1'
           OMNI_REQUIRE_BROWSER: '1'
 
   security:

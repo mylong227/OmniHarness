@@ -28,6 +28,7 @@ import { ContextEngine, type IndexedCorpus } from './contextEngine.ts';
 import { CorpusFileParser } from './corpusFileParser.ts';
 import { CorpusIncrementalUpdater } from './corpusIncrementalUpdater.ts';
 import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import { CorpusWatchRegistry } from './corpusWatchRegistry.ts';
 import { log } from '../util/logger.ts';
 
 /** 缓存条目：语料 + 索引时间戳 + 文件内容签名（用于 TTL 失效与内容增量复用）。 */
@@ -36,32 +37,239 @@ interface CacheEntry {
   readonly corpus: IndexedCorpus;
   /** 索引完成时刻（Date.now()）。 */
   readonly indexedAt: number;
+  /** 最近一次命中时刻（空闲淘汰用）。 */
+  readonly lastAccess: number;
   /**
    * 索引时各参与文件（rel 路径）与其**内容哈希**拼成的有序签名；TTL 到期时比对以决定是否复用。
    * 文件集合或任一文件内容变化 ⇒ 签名变化 ⇒ 重建。
    */
   readonly contentSig: string;
   /**
+   * 逐文件 `rel:mtimeMs:size` 的轻量签名（2026-10-23）。
+   *
+   * 只在 `fs.watch` 可用且未收到变更事件时作为**无需读文件**的快速复核；
+   * 不看 mtime 单独下结论（watcher 不可用/有事件 ⇒ 仍走内容哈希）。
+   */
+  readonly statSig: string;
+  /**
    * 逐文件解析产物（rel → 产物），供 `CorpusIncrementalUpdater` 按内容哈希复用。
    * 生命期与本条目一致（LRU 驱逐即释放）；首次全量索引时由 `artifactSink` 写入。
    */
   readonly artifacts: ReadonlyMap<string, CorpusFileArtifact>;
+  /** 估算堆占用（字节；用于 `maxBytes` 预算，不是精确 RSS）。 */
+  readonly estimatedBytes: number;
 }
 
 /** 默认最多缓存的工作区数量（多 workspace 会话防内存无限增长）。 */
-const DEFAULT_MAX_ENTRIES = 4;
+const DEFAULT_MAX_ENTRIES = 2;
 /** 默认索引 TTL（毫秒）：超过则下次查询触发重索引。 */
 const DEFAULT_TTL_MS = 30_000;
+/**
+ * 默认总字节预算（256 MiB）。
+ *
+ * 本机实测单份全仓索引约 259 MB 堆；按条数 4 条会到 ~1 GB。字节预算让「大仓只留一份、
+ * 小仓可多留几份」，不再只看条数。
+ */
+const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
+/** 默认空闲淘汰（10 分钟）：条目长时间不再被查询即释放，不等到进程退出。 */
+const DEFAULT_IDLE_MS = 10 * 60_000;
 
 /** 构造选项。 */
 export interface CorpusIndexCacheOptions {
-  /** 最多缓存的工作区数量；缺省 4。 */
+  /** 最多缓存的工作区数量；缺省 2（2026-10-23 从 4 收紧）。 */
   readonly maxEntries?: number;
+  /** 估算堆占用总预算（字节）；缺省 256 MiB。单条超预算时至少保留该条。 */
+  readonly maxBytes?: number;
+  /** 空闲淘汰时长（毫秒）；缺省 10 分钟，`0` = 关闭空闲淘汰。 */
+  readonly idleMs?: number;
+  /** TTL 覆盖（毫秒；缺省 env `OMNI_REPO_MAP_TTL_MS` → 30s；测试用）。 */
+  readonly ttlMs?: number;
+  /** 是否启用 `fs.watch` 变更信号（缺省 true；不支持递归 watch 的平台自动回落全量哈希）。 */
+  readonly watch?: boolean;
   /** 驱逐回调：某 root 被 LRU 淘汰时调用，供外部同步失效关联缓存。 */
   readonly onEvict?: (root: string) => void;
   /** 命中率上报回调：每次查询判定后调用（缺省即不统计，行为与接入前完全一致）。 */
   readonly onSample?: (hit: boolean) => void;
 }
+
+/**
+ * 构造缓存条目（统一计算估算字节，避免各写入点漏算）。
+ * @param corpus 语料。
+ * @param artifacts 逐文件产物。
+ * @param indexedAt 索引时刻。
+ * @param contentSig 内容签名。
+ * @param statSig 轻量 stat 签名。
+ * @param lastAccess 最近访问时刻（缺省同索引时刻）。
+ * @returns 缓存条目。
+ */
+const makeEntry = (
+  corpus: IndexedCorpus,
+  artifacts: ReadonlyMap<string, CorpusFileArtifact>,
+  indexedAt: number,
+  contentSig: string,
+  statSig: string,
+  lastAccess: number = indexedAt,
+): CacheEntry => ({
+  corpus,
+  indexedAt,
+  lastAccess,
+  contentSig,
+  statSig,
+  artifacts,
+  estimatedBytes: estimateBytes(corpus, artifacts),
+});
+
+/**
+ * 估算条目堆占用（**近似值**，用于相对预算而非 RSS 承诺）。
+ *
+ * 口径：文件正文 UTF-16 字符 ×2；两套 BM25 文档 token 按 48 字节/词估算（typed 文档 +
+ * packed 倒排的摊销）；artifacts 已改「单串编码」，按字符 ×2；符号节点按 128 字节/个；
+ * 另加 1 MiB 固定开销。2026-10-23 压缩后实测 `src/` 63.6 MB、全仓 108.9 MB（RSS 280.8 MB），
+ * 估算用于相对预算，不作为 RSS 承诺。
+ * @param corpus 语料。
+ * @param artifacts 逐文件产物。
+ * @returns 估算字节数。
+ */
+const estimateBytes = (
+  corpus: IndexedCorpus,
+  artifacts: ReadonlyMap<string, CorpusFileArtifact>,
+): number => {
+  let chars = 0;
+  for (const text of corpus.fileText.values()) chars += text.length;
+  let artifactChars = 0;
+  for (const artifact of artifacts.values()) {
+    artifactChars += artifact.fileDoc.length;
+    for (const doc of artifact.symbolDocs) artifactChars += doc.length;
+  }
+  const docTokens = corpus.symbolIndex.tokenCount + corpus.fileIndex.tokenCount;
+  return 1024 * 1024 + chars * 2 + docTokens * 48 + artifactChars * 2 + corpus.symbols.length * 128;
+};
+
+/**
+ * 索引 TTL（毫秒）：显式选项 > env > 默认。
+ * @param override 显式 TTL（undefined = 读 env/default）。
+ * @returns TTL 毫秒数。
+ */
+const ttlMs = (override: number | undefined): number => {
+  if (override !== undefined) return override;
+  const raw = Number(process.env.OMNI_REPO_MAP_TTL_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_TTL_MS;
+};
+
+/**
+ * 计算某 root 下「参与索引的文件集合 + 各自内容哈希」签名。
+ *
+ * 用 `ContextEngine.walk`（与 `indexCorpus` 同一套忽略清单与三道上限）枚举文件，
+ * 再逐个读取文件内容并哈希。签名相等 ⇒ 语料无需重建。内容哈希而非 mtime：
+ * mtime 同毫秒/被保留时会假阴性，touch/git 回写时会假阳性；内容本身才是判据。
+ * @param root workspace 根路径。
+ * @returns `rel → sha1`；根不可枚举或任一文件不可读时返回 null。
+ */
+const contentHashes = (root: string): ReadonlyMap<string, string> | null => {
+  try {
+    const rels: string[] = [];
+    ContextEngine.walk(root, root, rels, {
+      maxFiles: ContextEngine.MAX_FILES,
+      maxTotalBytes: ContextEngine.MAX_TOTAL_BYTES,
+      maxFileBytes: ContextEngine.MAX_FILE_BYTES,
+    });
+    const hashes = new Map<string, string>();
+    for (const rel of rels) {
+      // 按原始字节哈希（不先转 utf8）：与 indexCorpus 读同一份磁盘字节。
+      const bytes = readFileSync(join(root, rel.split('/').join(sep)));
+      hashes.set(rel, CorpusFileParser.hashOfBytes(bytes));
+    }
+    return hashes;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 由逐文件哈希表算出整体签名（`rel:hash` 排序后连接再哈希）。
+ * @param hashes 逐文件哈希表。
+ * @returns 内容签名串。
+ */
+const signatureOf = (hashes: ReadonlyMap<string, string>): string => {
+  const parts: string[] = [];
+  for (const [rel, digest] of hashes) parts.push(`${rel}:${digest}`);
+  parts.sort();
+  return createHash('sha1').update(parts.join('\n')).digest('hex');
+};
+
+/**
+ * 计算某 root 的整体内容签名。
+ * @param root workspace 根路径。
+ * @returns 签名串；不可枚举/不可读时 null。
+ */
+const contentSignature = (root: string): string | null => {
+  const hashes = contentHashes(root);
+  return hashes === null ? null : signatureOf(hashes);
+};
+
+/**
+ * 全量建索引（同时产出逐文件产物表）。
+ * @param root workspace 根路径。
+ * @returns 语料与产物表；失败返回 null（fail-closed）。
+ */
+const buildFresh = (
+  root: string,
+): {
+  readonly corpus: IndexedCorpus;
+  readonly artifacts: Map<string, CorpusFileArtifact>;
+} | null => {
+  const artifacts = new Map<string, CorpusFileArtifact>();
+  try {
+    return {
+      corpus: ContextEngine.indexCorpus(root, {
+        morph: true,
+        light: true,
+        artifactSink: artifacts,
+      }),
+      artifacts,
+    };
+  } catch (error) {
+    const stack = error instanceof Error ? error.stack : undefined;
+    log.warn('corpusIndexCache 索引失败（fail-closed 返回 null）', {
+      root,
+      error: error instanceof Error ? error.message : String(error),
+      ...(stack !== undefined ? { stack } : {}),
+    });
+    return null;
+  }
+};
+
+/**
+ * 分块（可让出事件循环）的全量重建：与 `buildFresh` 同产物、同 fail-closed 语义。
+ * @param root workspace 根路径。
+ * @returns 语料与产物表；失败时为 null。
+ */
+const buildFreshAsync = async (
+  root: string,
+): Promise<{
+  readonly corpus: IndexedCorpus;
+  readonly artifacts: Map<string, CorpusFileArtifact>;
+} | null> => {
+  const artifacts = new Map<string, CorpusFileArtifact>();
+  try {
+    return {
+      corpus: await ContextEngine.indexCorpusAsync(root, {
+        morph: true,
+        light: true,
+        artifactSink: artifacts,
+      }),
+      artifacts,
+    };
+  } catch (error) {
+    const stack = error instanceof Error ? error.stack : undefined;
+    log.warn('corpusIndexCache 异步索引失败（fail-closed 返回 null）', {
+      root,
+      error: error instanceof Error ? error.message : String(error),
+      ...(stack !== undefined ? { stack } : {}),
+    });
+    return null;
+  }
+};
 
 export class CorpusIndexCache {
   /** 按 workspace 根路径缓存的语料（TTL 失效 / LRU 驱逐）。 */
@@ -71,8 +279,16 @@ export class CorpusIndexCache {
    * 与全量路径共用 `CorpusFileParser`（解析规则单一实现），且只处理 light 档。
    */
   private readonly incremental = new CorpusIncrementalUpdater({ morph: true, light: true });
-  /** 缓存条目上限。 */
-  private readonly maxEntries: number;
+  /** 条数/字节预算（不可变；热路径只读）。 */
+  private readonly limits: { readonly maxEntries: number; readonly maxBytes: number };
+  /** 空闲淘汰时长（毫秒；0 = 关闭）。 */
+  private readonly idleMs: number;
+  /** TTL 覆盖（毫秒；undefined = 读 env/default）。 */
+  private readonly ttlOverride: number | undefined;
+  /** watcher/stat 观测注册表（2026-10-23 拆出，避免本类越过成员数上限）。 */
+  public readonly watch: CorpusWatchRegistry;
+  /** 空闲淘汰定时器（unref，不阻止进程退出）。 */
+  private readonly idleTimer?: ReturnType<typeof setInterval> | undefined;
   /** 驱逐回调（可缺省）。 */
   private readonly onEvict?: ((root: string) => void) | undefined;
   /** 命中率上报回调（可缺省）。 */
@@ -86,9 +302,85 @@ export class CorpusIndexCache {
    * @param options 上限、驱逐回调与命中率上报回调（均可缺省）。
    */
   public constructor(options: CorpusIndexCacheOptions = {}) {
-    this.maxEntries = options.maxEntries ?? DEFAULT_MAX_ENTRIES;
+    this.limits = {
+      maxEntries: CorpusIndexCache.positiveOr(options.maxEntries, DEFAULT_MAX_ENTRIES),
+      maxBytes: CorpusIndexCache.positiveOr(options.maxBytes, DEFAULT_MAX_BYTES),
+    };
+    this.idleMs = CorpusIndexCache.nonNegativeOr(options.idleMs, DEFAULT_IDLE_MS);
+    this.ttlOverride =
+      options.ttlMs !== undefined && Number.isFinite(options.ttlMs) && options.ttlMs >= 0
+        ? Math.floor(options.ttlMs)
+        : undefined;
+    this.watch = new CorpusWatchRegistry(options.watch !== false);
     this.onEvict = options.onEvict;
     this.onSample = options.onSample;
+    if (this.idleMs > 0) {
+      const timer = setInterval(
+        () => {
+          this.sweepIdle();
+        },
+        Math.min(this.idleMs, 60_000),
+      );
+      timer.unref();
+      this.idleTimer = timer;
+    }
+  }
+
+  /**
+   * 释放空闲超过 `idleMs` 的条目。
+   * @param now 当前时刻（缺省 Date.now；测试可注入）。
+   * @returns 被释放的条目数。
+   */
+  public sweepIdle(now: number = Date.now()): number {
+    if (this.idleMs <= 0) return 0;
+    let removed = 0;
+    for (const [root, entry] of [...this.cache]) {
+      if (now - entry.lastAccess > this.idleMs) {
+        this.cache.delete(root);
+        this.watch.close(root);
+        this.onEvict?.(root);
+        removed += 1;
+      }
+    }
+    return removed;
+  }
+
+  /** 当前条目估算总字节数（观测/判据用）。
+   * @returns 估算字节数。
+   */
+  public bytesInUse(): number {
+    let total = 0;
+    for (const entry of this.cache.values()) total += entry.estimatedBytes;
+    return total;
+  }
+
+  /** 停止空闲淘汰定时器与全部 fs.watch（测试/宿主关停用；不影响已缓存条目）。
+   * @returns 无返回值。
+   */
+  public dispose(): void {
+    if (this.idleTimer !== undefined) clearInterval(this.idleTimer);
+    this.watch.closeAll();
+  }
+
+  /**
+   * stat 快速复核：watcher 可用、未脏、stat 签名相同 ⇒ 复用条目且不读文件。
+   * @param root 工作区根。
+   * @param existing 既有条目。
+   * @param now 当前时刻。
+   * @returns 已复用返回 true。
+   */
+  private tryStatReuse(root: string, existing: CacheEntry, now: number): boolean {
+    this.watch.ensure(root);
+    if (!this.watch.isActive(root) || this.watch.isDirty(root)) return false;
+    const statSig = this.watch.statSignature(root);
+    if (statSig === null || statSig !== existing.statSig) return false;
+    this.watch.noteStatReuse();
+    this.put(
+      root,
+      makeEntry(existing.corpus, existing.artifacts, now, existing.contentSig, statSig, now),
+    );
+    this.sample(true);
+    return true;
   }
 
   /**
@@ -98,24 +390,31 @@ export class CorpusIndexCache {
    */
   public get(root: string): IndexedCorpus | null {
     const now = Date.now();
+    this.sweepIdle(now);
     const existing = this.cache.get(root);
-    if (existing !== undefined && now - existing.indexedAt < this.ttlMs()) {
+    if (existing !== undefined && now - existing.indexedAt < ttlMs(this.ttlOverride)) {
+      this.cache.set(root, { ...existing, lastAccess: now });
       this.sample(true);
       return existing.corpus;
     }
-    // TTL 已过期（或首次）：先用**逐文件内容哈希**判断文件集合与内容是否真的变了。
+    // stat 预筛：watcher 未脏且 stat 签名未变 ⇒ 不读内容；否则回落内容哈希。
+    if (existing !== undefined && this.tryStatReuse(root, existing, now)) {
+      return existing.corpus;
+    }
+    this.watch.clearDirty(root);
+    // TTL 已过期（或首次）：用**逐文件内容哈希**判断文件集合与内容是否真的变了。
     // 若未变则直接复用既有语料（跳过 8.6s 级全量重建），并把这份哈希交给增量重建器复用，
     // 使「真的变了」的情形也不必二次读盘——见 `CorpusIncrementalUpdater`。
-    const hashes = existing === undefined ? null : this.contentHashes(root);
+    if (existing !== undefined) this.watch.noteFullHash();
+    const hashes = existing === undefined ? null : contentHashes(root);
     if (existing !== undefined && hashes !== null) {
-      const sig = CorpusIndexCache.signatureOf(hashes);
+      const sig = signatureOf(hashes);
+      const statSig = this.watch.statSignature(root) ?? '';
       if (sig === existing.contentSig) {
-        this.cache.set(root, {
-          corpus: existing.corpus,
-          indexedAt: now,
-          contentSig: existing.contentSig,
-          artifacts: existing.artifacts,
-        });
+        this.put(
+          root,
+          makeEntry(existing.corpus, existing.artifacts, now, existing.contentSig, statSig, now),
+        );
         this.sample(true);
         return existing.corpus;
       }
@@ -123,36 +422,33 @@ export class CorpusIndexCache {
       if (updated !== null) {
         this.sample(updated.reparsed === 0);
         if (updated.reparsed === 0) {
-          this.cache.set(root, {
-            corpus: updated.corpus,
-            indexedAt: now,
-            contentSig: existing.contentSig,
-            artifacts: updated.artifacts,
-          });
+          this.put(
+            root,
+            makeEntry(updated.corpus, updated.artifacts, now, existing.contentSig, statSig, now),
+          );
           return updated.corpus;
         }
-        this.evictIfNeeded();
-        this.cache.set(root, {
-          corpus: updated.corpus,
-          indexedAt: now,
-          contentSig: sig,
-          artifacts: updated.artifacts,
-        });
+        this.put(root, makeEntry(updated.corpus, updated.artifacts, now, sig, statSig, now));
         return updated.corpus;
       }
     }
-    const built = this.buildFresh(root);
+    const built = buildFresh(root);
     if (built === null) {
       return null;
     }
     this.sample(false);
-    this.evictIfNeeded();
-    this.cache.set(root, {
-      corpus: built.corpus,
-      indexedAt: now,
-      contentSig: this.contentSignature(root) ?? '',
-      artifacts: built.artifacts,
-    });
+    this.put(
+      root,
+      makeEntry(
+        built.corpus,
+        built.artifacts,
+        now,
+        contentSignature(root) ?? '',
+        this.watch.statSignature(root) ?? '',
+        now,
+      ),
+    );
+    this.watch.ensure(root);
     return built.corpus;
   }
 
@@ -179,19 +475,25 @@ export class CorpusIndexCache {
     if (this.cache.get(root) !== undefined) {
       return this.get(root);
     }
-    const built = await this.buildFreshAsync(root);
+    const built = await buildFreshAsync(root);
     if (built === null) {
       // 构建失败 ⇒ 交给同步路径按既有 fail-closed 语义处理（并留下同样的告警证据）。
       return this.get(root);
     }
     this.sample(false);
-    this.evictIfNeeded();
-    this.cache.set(root, {
-      corpus: built.corpus,
-      indexedAt: Date.now(),
-      contentSig: this.contentSignature(root) ?? '',
-      artifacts: built.artifacts,
-    });
+    const now = Date.now();
+    this.put(
+      root,
+      makeEntry(
+        built.corpus,
+        built.artifacts,
+        now,
+        contentSignature(root) ?? '',
+        this.watch.statSignature(root) ?? '',
+        now,
+      ),
+    );
+    this.watch.ensure(root);
     return built.corpus;
   }
 
@@ -208,8 +510,10 @@ export class CorpusIndexCache {
   public clear(root?: string): void {
     if (root === undefined) {
       this.cache.clear();
+      this.watch.closeAll();
     } else {
       this.cache.delete(root);
+      this.watch.close(root);
     }
   }
 
@@ -233,23 +537,13 @@ export class CorpusIndexCache {
   public invalidate(root?: string): void {
     if (root === undefined) {
       for (const [key, entry] of [...this.cache]) {
-        this.cache.set(key, {
-          corpus: entry.corpus,
-          indexedAt: 0,
-          contentSig: entry.contentSig,
-          artifacts: entry.artifacts,
-        });
+        this.cache.set(key, { ...entry, indexedAt: 0 });
       }
       return;
     }
     const entry = this.cache.get(root);
     if (entry !== undefined) {
-      this.cache.set(root, {
-        corpus: entry.corpus,
-        indexedAt: 0,
-        contentSig: entry.contentSig,
-        artifacts: entry.artifacts,
-      });
+      this.cache.set(root, { ...entry, indexedAt: 0 });
     }
   }
 
@@ -274,171 +568,70 @@ export class CorpusIndexCache {
     this.onSample?.(hit);
   }
 
-  /** 索引 TTL（毫秒）：env OMNI_REPO_MAP_TTL_MS 覆盖，非法值回落默认。 */
-  private ttlMs(): number {
-    const raw = Number(process.env.OMNI_REPO_MAP_TTL_MS);
-    return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_TTL_MS;
-  }
-
   /**
-   * 计算某 root 下「参与索引的文件集合 + 各自内容哈希」签名。
-   *
-   * 用 {@link ContextEngine.walk}（与 `indexCorpus` 同一套忽略清单与三道上限）枚举文件，
-   * 再逐个读取文件内容并哈希。签名相等 ⇒ 语料无需重建。
-   *
-   * ## 为什么是内容哈希而不是 mtime（2026-10-02 升级）
-   *
-   * mtime 是**弱且易脆**的变更信号，两个方向都会误判：
-   *  - **假阴性（真改了却不重建）**：同毫秒内多次落盘、编辑器保留 mtime、粗粒度文件系统
-   *    （FAT 2s / 部分 NFS）——内容已变而 `mtimeMs` 相同 ⇒ 旧实现复用了**已过期**的语料，
-   *    而语料是检索的唯一事实来源，脏语料会被下游当成真实仓库结构。
-   *  - **假阳性（没改却重建）**：`touch`、`git checkout` / `git stash`、备份工具回写都会只改
-   *    mtime 而内容逐字不变 ⇒ 白白付一次 8.6s 级全量重建。
-   *
-   * 内容哈希把两侧同时收掉，且**判据就是语料本身的同一性**（`indexCorpus` 读的也是这些字节），
-   * 不存在「信号与被保护对象不同源」的结构性缝隙。
-   *
-   * ## 代价（2026-10-03 更新）
-   *
-   * 每次 TTL 到期要做一遍「读全部参与文件 + SHA-1」。这份**逐文件哈希表**现在还有第二个用途：
-   * 直接喂给 `CorpusIncrementalUpdater`（它据此只重读真的变了的文件），因此这一步不再是纯开销，
-   * 而是增量重建的输入——「重新索引」与「判断要不要重新索引」共用同一次读盘。
-   *
-   * @param root workspace 根路径。
-   * @returns `rel → sha1`；根不可枚举或任一文件不可读时返回 null（调用方据此退化为全量重建）。
-   */
-  private contentHashes(root: string): ReadonlyMap<string, string> | null {
-    try {
-      const rels: string[] = [];
-      ContextEngine.walk(root, root, rels, {
-        maxFiles: ContextEngine.MAX_FILES,
-        maxTotalBytes: ContextEngine.MAX_TOTAL_BYTES,
-        maxFileBytes: ContextEngine.MAX_FILE_BYTES,
-      });
-      const hashes = new Map<string, string>();
-      for (const rel of rels) {
-        // 按**原始字节**哈希（不先转 utf8）：与 `indexCorpus` 读的是同一份磁盘字节，
-        // 且非法 UTF-8 不会被 `readFileSync(..., 'utf8')` 的替换字符抹平成「看起来没变」。
-        const bytes = readFileSync(join(root, rel.split('/').join(sep)));
-        hashes.set(rel, CorpusFileParser.hashOfBytes(bytes));
-      }
-      return hashes;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * 由逐文件哈希表算出整体签名（与上一版的 `contentSignature` 同一口径：`rel:hash` 排序后连接再哈希）。
-   * @param hashes 逐文件哈希表。
-   * @returns 内容签名串。
-   */
-  private static signatureOf(hashes: ReadonlyMap<string, string>): string {
-    const parts: string[] = [];
-    for (const [rel, digest] of hashes) {
-      parts.push(`${rel}:${digest}`);
-    }
-    // 路径已由 walk 按确定性顺序产出；再排一次序，使签名与遍历顺序解耦（防未来 walk 顺序调整
-    // 造成「同一个仓库两套签名」的伪变更）。
-    parts.sort();
-    return createHash('sha1').update(parts.join('\n')).digest('hex');
-  }
-
-  /**
-   * 计算某 root 的整体内容签名（`contentHashes` + `signatureOf` 的组合入口）。
-   * @param root workspace 根路径。
-   * @returns 签名串；根不可枚举或任一文件不可读时返回 null。
-   */
-  private contentSignature(root: string): string | null {
-    const hashes = this.contentHashes(root);
-    return hashes === null ? null : CorpusIndexCache.signatureOf(hashes);
-  }
-
-  /**
-   * 全量建索引（**同时**产出逐文件产物表，供后续增量复用）。
-   * @param root workspace 根路径。
-   * @returns 语料与产物表；失败返回 null（fail-closed）。
-   */
-  private buildFresh(root: string): {
-    readonly corpus: IndexedCorpus;
-    readonly artifacts: Map<string, CorpusFileArtifact>;
-  } | null {
-    const artifacts = new Map<string, CorpusFileArtifact>();
-    try {
-      return {
-        corpus: ContextEngine.indexCorpus(root, {
-          morph: true,
-          light: true,
-          artifactSink: artifacts,
-        }),
-        artifacts,
-      };
-    } catch (error) {
-      // 保持 fail-closed（返回 null 不抛），但必须留下可定位的证据：
-      // 2026-09-17 batch_next 25/25「语料索引失败」曾因这里的静默 catch 而把真因
-      // （worktree 未物化 → ENOENT）吞成 null，排查成本极高。
-      const stack = error instanceof Error ? error.stack : undefined;
-      log.warn('corpusIndexCache 索引失败（fail-closed 返回 null）', {
-        root,
-        error: error instanceof Error ? error.message : String(error),
-        ...(stack !== undefined ? { stack } : {}),
-      });
-      return null;
-    }
-  }
-
-  /**
-   * 分块（可让出事件循环）的全量重建：与 {@link buildFresh} 同产物、同 fail-closed 语义。
-   *
-   * 为什么产物相同：两条路径共用 `CorpusCollector` 做累积（符号编号口径只有一份实现），
-   * 装配也共用 `ContextEngine.assembleCorpus`。
-   * @param root workspace 根路径。
-   * @returns 语料与产物表；失败时为 null（不抛）。
-   */
-  private async buildFreshAsync(root: string): Promise<{
-    readonly corpus: IndexedCorpus;
-    readonly artifacts: Map<string, CorpusFileArtifact>;
-  } | null> {
-    const artifacts = new Map<string, CorpusFileArtifact>();
-    try {
-      return {
-        corpus: await ContextEngine.indexCorpusAsync(root, {
-          morph: true,
-          light: true,
-          artifactSink: artifacts,
-        }),
-        artifacts,
-      };
-    } catch (error) {
-      // 与同步路径同样的证据要求：静默 catch 曾把真因（worktree 未物化 → ENOENT）吞成 null。
-      const stack = error instanceof Error ? error.stack : undefined;
-      log.warn('corpusIndexCache 异步索引失败（fail-closed 返回 null）', {
-        root,
-        error: error instanceof Error ? error.message : String(error),
-        ...(stack !== undefined ? { stack } : {}),
-      });
-      return null;
-    }
-  }
-
-  /** 条目数达上限时淘汰最早索引的一条（近似 LRU），并通知驱逐回调。
+   * 写入条目：先按条数/字节预算淘汰最久未访问的条目，再写入。
+   * @param root 工作区根。
+   * @param entry 缓存条目。
    * @returns 无返回值。
    */
-  private evictIfNeeded(): void {
-    if (this.cache.size < this.maxEntries) {
+  private put(root: string, entry: CacheEntry): void {
+    this.evictIfNeeded(entry.estimatedBytes);
+    this.cache.set(root, entry);
+  }
+
+  /**
+   * 按「条数 + 估算字节」淘汰最久未访问的条目（近似 LRU）。
+   *
+   * 单条就超过 `maxBytes` 时允许保留它（无法在不重建的前提下更小），但下一次写入会先淘汰它；
+   * 这比「因为预算不够就永远不缓存」更可用，也保证最多只超一份。
+   * @param incomingBytes 即将写入条目的估算字节。
+   * @returns 无返回值。
+   */
+  private evictIfNeeded(incomingBytes: number): void {
+    if (this.cache.size === 0) {
       return;
     }
-    let oldestKey: string | undefined;
-    let oldest = Infinity;
-    for (const [key, entry] of this.cache) {
-      if (entry.indexedAt < oldest) {
-        oldest = entry.indexedAt;
-        oldestKey = key;
+    while (
+      this.cache.size > 0 &&
+      (this.cache.size >= this.limits.maxEntries ||
+        this.bytesInUse() + incomingBytes > this.limits.maxBytes)
+    ) {
+      let oldestKey: string | undefined;
+      let oldest = Infinity;
+      for (const [key, entry] of this.cache) {
+        if (entry.lastAccess < oldest) {
+          oldest = entry.lastAccess;
+          oldestKey = key;
+        }
       }
-    }
-    if (oldestKey !== undefined) {
+      if (oldestKey === undefined) {
+        return;
+      }
       this.cache.delete(oldestKey);
+      this.watch.close(oldestKey);
       this.onEvict?.(oldestKey);
     }
+  }
+
+  /** 归一化正数选项（非法/非正回落默认）。
+   * @param value 输入值。
+   * @param fallback 默认值。
+   * @returns 正数。
+   */
+  private static positiveOr(value: number | undefined, fallback: number): number {
+    return value !== undefined && Number.isFinite(value) && value > 0
+      ? Math.floor(value)
+      : fallback;
+  }
+
+  /** 归一化非负数选项（非法/负数回落默认；0 合法关闭）。
+   * @param value 输入值。
+   * @param fallback 默认值。
+   * @returns 非负数。
+   */
+  private static nonNegativeOr(value: number | undefined, fallback: number): number {
+    return value !== undefined && Number.isFinite(value) && value >= 0
+      ? Math.floor(value)
+      : fallback;
   }
 }

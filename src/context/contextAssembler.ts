@@ -434,7 +434,9 @@ export class ContextAssembler {
     if (payload.ok) {
       return payload.output ?? '';
     }
-    return `工具执行失败: ${payload.error ?? '未知错误'}`;
+    // 失败时不能只读 error：部分工具（2026-10-23 实测 `run_code`）把原因放在 output，
+    // 只读 error 会让模型看到「未知错误」。`error ?? output` 是双保险，不改变成功路径。
+    return `工具执行失败: ${payload.error ?? payload.output ?? '未知错误'}`;
   }
 
   /** 从 tool_call 事件提取工具调用引用（EventFactory 落地为 {callId, name, args}）。 */

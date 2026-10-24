@@ -15,11 +15,11 @@ import { TurnRunner } from './turnRunner.ts';
 import type { TurnOutcome } from './turnRunner.ts';
 import { CheckpointManager } from './checkpointManager.ts';
 import type { CheckpointManagerPort } from '../ports/runtime/checkpointManager.ts';
-import { ResumeGuidance } from './resumeGuidance.ts';
-import { InterruptedToolCalls } from './interruptedToolCalls.ts';
+import { AgentTurnSetup } from './agentTurnSetup.ts';
 import { AgentLimits } from './agentLimits.ts';
 import type { AgentPort, AgentResult } from '../ports/runtime/agent.ts';
 import { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
+import type { ReasoningEffort } from '../util/reasoningBudget.ts';
 import { AgentCompactor } from './agentCompactor.ts';
 import { SkillRegistry } from '../skill/skillRegistry.ts';
 import { LoopGuard } from './loop/loopGuard.ts';
@@ -432,47 +432,46 @@ export class Agent implements AgentPort {
         sessionId,
         this.runtime.retrieval,
       );
-      this.openSession(recorder, eventLog, prompt, sessionId, mode);
-      // 崩溃对账：悬空 tool_call 补「状态未知」结果，避免模型当成从未执行而重跑。
-      if (mode !== 'run') InterruptedToolCalls.recordInto(recorder, eventLog.all());
-      const effectivePrompt: string =
-        mode === 'resume' && prompt.trim() === '' ? ResumeGuidance.build(eventLog.all()) : prompt;
-      this.maybeRequirePlanning(effectivePrompt, recorder);
-      recorder.user(effectivePrompt, images, files);
+      const turnDeps = {
+        openSession: (
+          rec: SessionRecorder,
+          log: AppendOnlyEventLog,
+          text: string,
+          id: string,
+          turnMode: 'run' | 'resume' | 'fork',
+        ): void => {
+          this.openSession(rec, log, text, id, turnMode);
+        },
+        requirePlanning: (text: string, rec: SessionRecorder): void => {
+          this.maybeRequirePlanning(text, rec);
+        },
+      };
+      const effectivePrompt = AgentTurnSetup.beginTurn(turnDeps, {
+        mode,
+        prompt,
+        sessionId,
+        eventLog,
+        recorder,
+        images,
+        files,
+      });
+      const effort = AgentTurnSetup.executorReasoningEffort(
+        this.runtime.config.reasoning,
+        effectivePrompt,
+      );
       // V2：会话级取消令牌（贯穿模型请求 fetch）+ 增量持久化器（write-behind）+ 回卷回调，按 sessionId 登记。
       const opened = this.openSessionResources(sessionId, recorder, eventLog);
       const sessionEntry = opened.entry;
       const persister = sessionEntry.persister;
       this.runningSessions.set(sessionId, sessionEntry);
-      const runner = this.buildTurnRunner(recorder, sessionEntry.cancel, persister);
+      const runner = this.buildTurnRunner(recorder, sessionEntry.cancel, persister, effort);
       opened.bindRunner(runner);
       let outcome: TurnOutcome;
       let persistedAt = 0;
       try {
         outcome = await runner.run(this.contextOf(sessionId));
       } finally {
-        // 只清理**自己**那一格：并发回合若复用同一 sessionId（不该发生，但防御），不误删他人的登记。
-        if (this.runningSessions.get(sessionId) === sessionEntry) {
-          this.runningSessions.delete(sessionId);
-        }
-        // 回卷登记同样按身份反注册（理由同上）：先结束的回合不得摘掉后启动回合的回卷能力。
-        this.unregisterRewinder(sessionId, sessionEntry.rewinder);
-        // V2：回合内 write-behind 定时器已由 TurnRunner 收尾 flush+dispose；
-        // 此处兜底：先 flush 在飞写，再决定是否需要全量 persist——顺序反了会让更早排队的
-        // 旧快照在 persist 之后落地，把异常回合的历史覆盖成旧版本。
-        await persister.flush();
-        const needsFullSave = persister.hasUnsaved(eventLog.all());
-        persister.dispose();
-        persistedAt = eventLog.size();
-        // 2026-10-21：追加通道已把全部事件成功落盘时**不再全量重写**（原先无条件 save
-        // 让 G7 的追加优化在每回合末被抵消，长会话是 O(回合×事件数) 的写放大）。
-        // 未落盘（flush 失败/无 append 后端/回卷强制重写）才走全量 save。
-        if (needsFullSave) {
-          await this.persist(sessionId, eventLog.all());
-        }
-        // 观测端口收尾：有缓冲的端口（OTLP span 收集器）在此把最后一批 span 外发；
-        // 无缓冲端口未实现 flush，`?.` 使其零成本跳过。失败不掩盖原始异常（fail-soft）。
-        await this.runtime.events.flush?.();
+        persistedAt = await this.finishSession(sessionId, sessionEntry, eventLog, persister);
       }
       // P1 进化闭环（可选、零破坏）：任务完成后若注入了 evolution 且 autoRun 开启，
       // 在 fail-closed 门禁下跑一轮 发现→评估→晋升。异常不影响主任务（fail-closed）。
@@ -491,6 +490,41 @@ export class Agent implements AgentPort {
       });
       return Agent.resultOf(sessionId, outcome, eventLog.all());
     });
+  }
+
+  /**
+   * 回合收尾：注销在跑登记/回卷、flush write-behind、按需全量落盘并 flush 观测端口。
+   * @param sessionId 会话 ID。
+   * @param sessionEntry 本回合的登记项（只用于身份一致的反注册）。
+   * @param eventLog 事件日志。
+   * @param persister 增量持久化器。
+   * @returns 收尾时的事件数（供 evolution/spark 后判断是否需要再回写）。
+   */
+  private async finishSession(
+    sessionId: string,
+    sessionEntry: { readonly rewinder: (size: number) => Promise<void> },
+    eventLog: AppendOnlyEventLog,
+    persister: EventPersister,
+  ): Promise<number> {
+    // 只清理**自己**那一格：并发回合若复用同一 sessionId（不该发生，但防御），不误删他人的登记。
+    if (this.runningSessions.get(sessionId) === sessionEntry) {
+      this.runningSessions.delete(sessionId);
+    }
+    // 回卷登记同样按身份反注册：先结束的回合不得摘掉后启动回合的回卷能力。
+    this.unregisterRewinder(sessionId, sessionEntry.rewinder);
+    // V2：回合内 write-behind 定时器已由 TurnRunner 收尾 flush+dispose；此处兜底：
+    // 先 flush 在飞写，再决定是否需要全量 persist——顺序反了会让更早排队的旧快照覆盖新历史。
+    await persister.flush();
+    const needsFullSave = persister.hasUnsaved(eventLog.all());
+    persister.dispose();
+    const persistedAt = eventLog.size();
+    // 追加通道已把全部事件成功落盘时不再全量重写；未落盘/回卷强制重写才走全量 save。
+    if (needsFullSave) {
+      await this.persist(sessionId, eventLog.all());
+    }
+    // 观测端口收尾：有缓冲的端口（OTLP span 收集器）在此把最后一批 span 外发。
+    await this.runtime.events.flush?.();
+    return persistedAt;
   }
 
   /**
@@ -546,6 +580,7 @@ export class Agent implements AgentPort {
     recorder: SessionRecorder,
     cancel: CancellationToken,
     persister: EventPersister,
+    reasoningEffort: ReasoningEffort | undefined,
   ): TurnRunner {
     const step = new StepRunner({
       model: this.runtime.model,
@@ -561,6 +596,9 @@ export class Agent implements AgentPort {
       fragments: this.runtime.config.fragments,
       native: this.runtime.native,
       spiller: this.runtime.spiller,
+      ...(this.runtime.attachmentSpiller !== undefined
+        ? { attachmentSpiller: this.runtime.attachmentSpiller }
+        : {}),
       discovery: this.runtime.discovery,
       escalation: this.runtime.escalation,
       elevatedSandbox: this.runtime.elevatedSandbox,
@@ -569,7 +607,7 @@ export class Agent implements AgentPort {
       promptInjectionGuard: this.runtime.config.promptInjectionGuard,
       promptInjectionGuardWeakPolicy: this.runtime.config.promptInjectionGuardWeakPolicy,
       promptInjectionGuardThresholds: this.runtime.config.promptInjectionGuardThresholds,
-      reasoningEffort: this.runtime.config.reasoning,
+      reasoningEffort: reasoningEffort,
       // 单次输出上限（env 可选）：给长会话一个成本上界；未设则端点默认。
       maxOutputTokens: AgentLimits.maxOutputTokens(),
       // U2：repo-map 上下文注入。默认开；env OMNI_REPO_MAP=0 关闭（不增 config schema，避免破 fail-closed 校验）。
@@ -601,7 +639,7 @@ export class Agent implements AgentPort {
       // （2026-09-22：不再读 `this.currentPersister` 单字段，避免并发回合互相覆盖）。
       persister,
       // V2.1 token 预算（B4）：config 优先，env OMNI_TURN_TOKEN_BUDGET 兜底，均缺省关闭。
-      this.resolveTokenBudget(),
+      AgentLimits.tokenBudget(this.runtime.config.turnTokenBudget),
       // 完成闸门（A1 收口）：实现由**组合根**经端口注入（`runtime.completionGateFactory`），
       // core 不认识任何具体闸门——写时自验证已启用则读它的结论；未启用则回合末尾现跑一次
       // （显式 enabled:false 才两者皆无）。缺省未注入＝不设闸门（旧行为）。
@@ -619,21 +657,9 @@ export class Agent implements AgentPort {
       process.env.OMNI_REVIEW_BLOCK === '1',
       // 待办未完成时的一次纠偏（模型容易把“计划写完”当“任务做完”）。
       this.runtime.config.todo,
+      // 软 token 预算：默认 5M（硬预算配置时取其 80%），只提醒收尾、不截断。
+      AgentLimits.softTokenBudget(this.runtime.config.turnTokenBudget),
     );
-  }
-
-  /**
-   * 回合 token 预算解析（V2.1 / B4）：config.turnTokenBudget 优先，
-   * env OMNI_TURN_TOKEN_BUDGET 兜底；均未设置或非法时返回 0（关闭，不设预算闸）。
-   * @returns 每回合 token 预算上限（正整数）；0 表示未启用预算闸。
-   */
-  private resolveTokenBudget(): number {
-    const fromConfig = this.runtime.config.turnTokenBudget;
-    if (typeof fromConfig === 'number' && Number.isFinite(fromConfig) && fromConfig > 0) {
-      return Math.floor(fromConfig);
-    }
-    const fromEnv = Number(process.env.OMNI_TURN_TOKEN_BUDGET);
-    return Number.isFinite(fromEnv) && fromEnv > 0 ? Math.floor(fromEnv) : 0;
   }
 
   /**

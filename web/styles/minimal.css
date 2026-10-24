@@ -1718,7 +1718,9 @@
   color: var(--faint);
   white-space: nowrap;
 }
-.scope-chip.session {
+/* 会话范围徽标：修饰类必须带 `scope-` 前缀。裸 `session` 会撞上左栏会话行的
+   `.session { display:flex; min-height:34px }`，把顶栏撑高 9px（面板间上下跳的根因之一）。 */
+.scope-chip.scope-session {
   color: var(--accent);
   border-color: var(--accent-line);
 }
@@ -2507,6 +2509,28 @@ button:active,
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
+/* 装载失败条：原因 + 重试。与 `.empty.err` 同一套错误色，但允许放一个可点的次操作。 */
+.sp-load-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--err) 30%, transparent);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+  color: var(--err);
+  font-size: var(--fs-ui);
+  line-height: 1.6;
+}
+.sp-load-error > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sp-load-error .btn {
+  flex: none;
+}
 .sp-fields {
   display: flex;
   flex-direction: column;
@@ -3141,11 +3165,21 @@ button:hover,
 
 .panel-modal {
   width: min(880px, 92vw);
-  height: auto;
+  /* 固定几何：切面板只换内容，不改变窗口高矮/位置。内容超出由 `.sp-content` 自己滚动，
+     不再让「内容有多长」决定模态高度（旧写法 height:auto 会在 673→749px 间跳）。 */
+  height: min(760px, 86vh);
   max-height: min(760px, 86vh);
+}
+/* 顶栏基准高：scope 徽标与实时点只在会话类面板出现，不能因此把顶栏撑高。
+   用 min-height 而非定死 height：正常内容恰好 52px；用户放大字号时允许一起变高，不裁切。 */
+.panel-modal .sp-top {
+  min-height: 52px;
+  padding-block: 0;
 }
 .panel-modal .sp-content {
   overflow-y: auto;
+  /* 常驻滚动条槽位：面板长短不同时，有无滚动条不再让内容横向位移。 */
+  scrollbar-gutter: stable;
 }
 .panel-modal .sp-content.panel-surface {
   padding: 28px 32px 32px;

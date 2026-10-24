@@ -11,6 +11,7 @@ import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
+import { SessionAttachmentSpiller } from '../../src/adapters/storage/sessionAttachmentSpiller.ts';
 import { ContextAssembler } from '../../src/context/contextAssembler.ts';
 import type { SessionEvent } from '../../src/ports/runtime/event/sessionEvent.ts';
 
@@ -63,6 +64,22 @@ test('小附件保持内联（少一次 IO，测试夹具行为不变）', async
     await storage.save('s1', [eventWith(data)]);
     const text = readFileSync(join(dir, 's1.jsonl'), 'utf8');
     assert.ok(text.includes('"data"'), '小附件不应外置');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('内存事件外置：记录前把大附件换成 path（不需要等 JSONL 落盘）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'attach-spill-'));
+  try {
+    const data = Buffer.alloc(100 * 1024, 5).toString('base64');
+    const spiller = new SessionAttachmentSpiller(dir);
+    const files = await spiller.spillFiles('s1', [
+      { name: 'shot.png', mediaType: 'image/png', data },
+    ]);
+    assert.strictEqual(files[0]?.data, undefined, '内存事件不应再持有 base64');
+    assert.ok(files[0]?.path?.startsWith('attachments/'), '应留相对 sessions 根的 path');
+    assert.ok(existsSync(join(dir, files[0]?.path ?? '')), '外置文件必须真实存在');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

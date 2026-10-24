@@ -4,6 +4,7 @@ import type { ModelPort, ModelRequest } from '../../ports/model/model.ts';
 import type { SessionEvent } from '../../ports/runtime/event.ts';
 import type { MemoryExtractorPort } from '../../ports/memory/memoryExtractor.ts';
 import { log } from '../../util/logger.ts';
+import { ReasoningBudget } from '../../util/reasoningBudget.ts';
 
 /**
  * @beta
@@ -175,6 +176,8 @@ export class MemoryExtractor implements MemoryExtractorPort {
       messages: [{ role: 'user', content: prompt }],
       tools: [],
       role: 'memory',
+      reasoningEffort: ReasoningBudget.auxiliary('memory', undefined),
+      maxOutputTokens: 1_500,
     };
     const output = await this.model.generate(request);
     return MemoryExtractor.parseFacts(output.text ?? '');

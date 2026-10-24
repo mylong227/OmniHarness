@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileAsync } from '../helpers/childProcess.ts';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CheckpointManager } from '../../src/core/checkpointManager.ts';
@@ -100,6 +100,80 @@ test('GitWorkspaceSnapshot：未跟踪文件在快照时刻捕获其磁盘内容
     const entry = snap.entries.find((e) => e.relPath === 'untracked.txt');
     assert.notStrictEqual(entry, undefined);
     assert.strictEqual(entry?.content, 'x', '未跟踪文件应捕获快照时刻的磁盘内容以便还原');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('GitWorkspaceSnapshot：二进制文件回滚必须逐字节相等（不得按 UTF-8 解码损坏）', async () => {
+  const root = await initRepo();
+  try {
+    const original = Buffer.from([0, 1, 2, 255, 254, 0, 128, 200, 10, 13, 0, 7]);
+    await writeFile(join(root, 'bin.dat'), original);
+    const snap = await new GitWorkspaceSnapshot().capture(root);
+    const entry = snap.entries.find((e) => e.relPath === 'bin.dat');
+    assert.notStrictEqual(entry, undefined);
+    assert.strictEqual(
+      entry?.encoding,
+      'base64',
+      '非 UTF-8 字节必须走 base64，而不是替换成 U+FFFD',
+    );
+
+    // 回滚前的现场：改坏它；restore 必须恢复快照时刻的原始字节。
+    await writeFile(join(root, 'bin.dat'), Buffer.from([9, 9, 9]));
+    await new GitWorkspaceSnapshot().restore(root, snap);
+    const restored = await readFile(join(root, 'bin.dat'));
+    assert.deepStrictEqual(restored, original, '二进制回滚必须逐字节相等');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('GitWorkspaceSnapshot：超过单文件上限的条目标记 skipped，restore 保留现场而不是删除', async () => {
+  const root = await initRepo();
+  try {
+    await writeFile(join(root, 'large.bin'), Buffer.alloc(64, 0xff));
+    const snap = await new GitWorkspaceSnapshot({ maxFileBytes: 8 }).capture(root);
+    const entry = snap.entries.find((e) => e.relPath === 'large.bin');
+    assert.strictEqual(entry?.skipped, true);
+    assert.match(String(entry?.skipReason), /too-large/u);
+
+    // 现场改成可识别的内容；restore 若把 skipped 当成删除，会整文件消失。
+    await writeFile(join(root, 'large.bin'), Buffer.from('keep-me'));
+    await new GitWorkspaceSnapshot({ maxFileBytes: 8 }).restore(root, snap);
+    assert.strictEqual(await readFile(join(root, 'large.bin'), 'utf8'), 'keep-me');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CheckpointManager：文件快照保留策略只留最近 N 个，并删除被淘汰的快照文件', async () => {
+  const root = await initRepo();
+  try {
+    const storage = new MemoryStorage();
+    const mgr = new CheckpointManager(storage, {
+      snapshotter: new GitWorkspaceSnapshot(),
+      workspaceRoot: root,
+      stateDir: join(root, '.omni-checkpoints'),
+      maxFileSnapshots: 1,
+    });
+    await writeFile(join(root, 'a.txt'), 'v2', 'utf8');
+    await mgr.snapshot('sess-prune', 'cp1');
+    await writeFile(join(root, 'a.txt'), 'v3', 'utf8');
+    await mgr.snapshot('sess-prune', 'cp2');
+
+    const list = await mgr.list('sess-prune');
+    assert.deepStrictEqual(
+      list.map((m) => m.label),
+      ['cp2'],
+      '只应保留最新一个文件快照',
+    );
+    await assert.rejects(
+      () => stat(join(root, '.omni-checkpoints', 'sess-prune', 'cp1.files.json')),
+      /ENOENT/u,
+      '被淘汰的快照文件必须删除，不能只从索引里消失',
+    );
+    await assert.doesNotReject(() => mgr.rollback('sess-prune', 'cp2'));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

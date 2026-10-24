@@ -1,8 +1,9 @@
-﻿import { test } from 'vitest';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { ServerResponse } from 'node:http';
 
 import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.ts';
+import { SseFanout } from '../../src/server/transport/sseFanout.ts';
 import { jsonRpc } from '../../src/server/core/jsonRpc.ts';
 import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
 import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
@@ -69,6 +70,37 @@ test('SSE 重连：非法 / 缺省 Last-Event-ID 不重放（首次连接语义�
   const fresh = new FakeSse();
   transport.sse.register(asResponse(fresh));
   assert.deepStrictEqual(fresh.frames, [], '首次连接不应收到历史帧');
+});
+
+test('SSE 重连：历史按字节上限淘汰；单帧超预算不入历史但照常广播', () => {
+  const fanout = new SseFanout(
+    { onClientAdded: () => undefined, onClientsGone: () => undefined },
+    { maxHistoryFrames: 100, maxHistoryBytes: 300 },
+  );
+  const live = new FakeSse();
+  fanout.register(asResponse(live));
+
+  const big = (id: string, size: number): ReturnType<typeof jsonRpc.notify> =>
+    jsonRpc.notify('thread.event', {
+      threadId: 's',
+      event: {
+        id,
+        type: 'user',
+        sessionId: 's',
+        timestamp: '2026-10-21T00:00:00.000Z',
+        payload: { content: 'x'.repeat(size) },
+      },
+    });
+  // 每帧 ~200B：两条就逼近 300B，必须只留最近一条。
+  fanout.broadcast(big('e1', 100));
+  fanout.broadcast(big('e2', 100));
+  assert.ok(fanout.historyStats().bytes <= 300, '历史字节数不得超过预算');
+
+  const before = fanout.historyStats();
+  const huge = big('e3', 2_000);
+  fanout.broadcast(huge);
+  assert.deepStrictEqual(fanout.historyStats(), before, '单帧超预算时不得入历史（已有历史保留）');
+  assert.strictEqual(live.frames.length, 3, '超预算帧仍须广播给在线客户端');
 });
 
 test('事件 seq：每条事件单调递增，回卷后高水位不回退', () => {

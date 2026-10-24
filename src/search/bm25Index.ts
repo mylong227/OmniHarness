@@ -41,6 +41,99 @@ export interface Bm25Hit {
 }
 
 /**
+ * 单个词项的倒排表（2026-10-23 内存压缩）。
+ *
+ * 原实现用两个 `number[]`（ids/tfs）存 posting：1.7M 个 posting 条目在 V8 里约 66 MB。
+ * 改成**一个 packed number 数组**（`docId * 2^20 + tf`）后，每项 1 个 SMI/HeapNumber，
+ * 且不再有每词项两个 typed array 的 ArrayBuffer 开销；`setDocument` 仍按 docId 升序
+ * splice，增量语义不变。
+ */
+class PostingList {
+  /** 打包掩码（tf 上限 2^20-1；BM25 文档内词频不可能接近百万）。 */
+  private static readonly TF_MASK = (1 << 20) - 1;
+
+  /** 打包值（`docId * 2^20 + tf`，按 docId 升序）。 */
+  private readonly values: number[];
+
+  /**
+   * @param docId 首篇文档。
+   * @param tf 首篇词频。
+   */
+  public constructor(docId: number, tf: number) {
+    this.values = [PostingList.pack(docId, tf)];
+  }
+
+  /** 有效条目数。
+   * @returns 条目数。
+   */
+  public get length(): number {
+    return this.values.length;
+  }
+
+  /** 取第 i 个 docId。
+   * @param index 下标（0..length-1）。
+   * @returns docId。
+   */
+  public idAt(index: number): number {
+    return Math.floor((this.values[index] ?? 0) / (PostingList.TF_MASK + 1));
+  }
+
+  /** 取第 i 个词频。
+   * @param index 下标。
+   * @returns 词频。
+   */
+  public tfAt(index: number): number {
+    return (this.values[index] ?? 0) & PostingList.TF_MASK;
+  }
+
+  /** 按 docId 升序插入一条 posting。
+   * @param docId 文档 id。
+   * @param tf 词频。
+   * @returns 无返回值。
+   */
+  public insert(docId: number, tf: number): void {
+    const at = this.lowerBound(docId);
+    this.values.splice(at, 0, PostingList.pack(docId, tf));
+  }
+
+  /** 删除指定 docId（不存在则无操作）。
+   * @param docId 文档 id。
+   * @returns 无返回值。
+   */
+  public remove(docId: number): void {
+    const at = this.lowerBound(docId);
+    if (this.idAt(at) === docId) this.values.splice(at, 1);
+  }
+
+  /** 二分求首个 ≥ docId 的位置。
+   * @param docId 目标 docId。
+   * @returns 下标。
+   */
+  private lowerBound(docId: number): number {
+    let lo = 0;
+    let hi = this.values.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.idAt(mid) < docId) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  /** 打包 docId + tf。
+   * @param docId 文档 id。
+   * @param tf 词频。
+   * @returns 打包值。
+   */
+  private static pack(docId: number, tf: number): number {
+    return docId * (PostingList.TF_MASK + 1) + Math.min(tf, PostingList.TF_MASK);
+  }
+}
+
+/**
  * @beta
  * Okapi BM25 倒排索引检索器。
  * 文档以「已分词 token 数组」形式加入；查询同样传入 token 数组。
@@ -48,16 +141,25 @@ export interface Bm25Hit {
 export class Bm25Index {
   private readonly k1: number;
   private readonly b: number;
-  private readonly documents: string[][] = [];
-  private readonly documentFrequency = new Map<string, number>();
   /**
-   * 倒排表：词项 → 该词项在哪些文档中出现、词频多少（`ids` 升序，与 `tfs` 一一对应）。
+   * 每篇文档的 **token id** 序列（`Uint32Array`，2026-10-23 内存压缩）。
+   *
+   * 原先 `string[][]` 把 170 万 token 字符串逐个留在堆上（`src/` 实测约 53 MB）；
+   * 改为「全局词表 + 每文档 id」后，字符串只在词表里存一份（唯一词项约几万），
+   * 每 token 只占 4 字节。`setDocument` 仍按 id 摘除/插回，增量语义不变。
+   */
+  private readonly documents: Uint32Array[] = [];
+  /** 词项 → token id（id 单调递增，`vocabulary.size` 即下一个 id）。 */
+  private readonly vocabulary = new Map<string, number>();
+  private readonly documentFrequency = new Map<number, number>();
+  /**
+   * 倒排表：token id → 该词项在哪些文档中出现、词频多少（`ids` 升序，与 `tfs` 一一对应）。
    *
    * 为什么需要：`search` 原先为算 tf 而重扫全部文档 token（见模块头「倒排表」节）。
-   * 用两个并行数组而不是 `Array<{id,tf}>`，是为了避免每篇文档每个词项多分配一个对象
-   * （本语料 98.6 万 token ⇒ 省下近百万次小对象分配）。
+   * 用两个并行数组而不是 `Array<{id,tf}>`，是为了避免每篇文档每个词项多分配一个对象。
+   * 键从字符串改为 token id 后，倒排表不再额外持有词项字符串。
    */
-  private readonly postings = new Map<string, { ids: number[]; tfs: number[] }>();
+  private readonly postings = new Map<number, PostingList>();
   /**
    * 已加入文档的 token 总数（跨批累加）。
    *
@@ -90,9 +192,10 @@ export class Bm25Index {
    */
   public addDocument(tokens: readonly string[]): number {
     const slot = this.documents.length;
-    this.documents.push([...tokens]);
-    this.totalTokens += tokens.length;
-    this.indexTerms(slot, tokens);
+    const ids = this.toIds(tokens);
+    this.documents.push(ids);
+    this.totalTokens += ids.length;
+    this.indexTerms(slot, ids);
     this.refreshAverageLength();
     return slot;
   }
@@ -122,11 +225,12 @@ export class Bm25Index {
       this.addDocument(tokens);
       return;
     }
-    const previous = this.documents[slot] ?? [];
-    this.totalTokens += tokens.length - previous.length;
+    const ids = this.toIds(tokens);
+    const previous = this.documents[slot] ?? new Uint32Array(0);
+    this.totalTokens += ids.length - previous.length;
     this.unindexTerms(slot, previous);
-    this.documents[slot] = [...tokens];
-    this.indexTerms(slot, tokens);
+    this.documents[slot] = ids;
+    this.indexTerms(slot, ids);
     this.refreshAverageLength();
   }
 
@@ -140,78 +244,81 @@ export class Bm25Index {
 
   /** 把一篇文档的词项计入 df 与倒排表（docId 升序插入，保持累加顺序稳定）。
    * @param docId 文档槽位。
-   * @param tokens 该文档词项（保留词频）。
+   * @param ids 该文档的 token id 序列（保留词频）。
    * @returns 无返回值。
    */
-  private indexTerms(docId: number, tokens: readonly string[]): void {
-    const termFrequency = new Map<string, number>();
-    for (const term of tokens) {
-      termFrequency.set(term, (termFrequency.get(term) ?? 0) + 1);
+  private indexTerms(docId: number, ids: Uint32Array): void {
+    const termFrequency = new Map<number, number>();
+    for (let i = 0; i < ids.length; i += 1) {
+      const id = ArrayAt.at(ids, i);
+      termFrequency.set(id, (termFrequency.get(id) ?? 0) + 1);
     }
-    for (const [term, frequency] of termFrequency) {
-      this.documentFrequency.set(term, (this.documentFrequency.get(term) ?? 0) + 1);
-      const posting = this.postings.get(term);
+    for (const [termId, frequency] of termFrequency) {
+      this.documentFrequency.set(termId, (this.documentFrequency.get(termId) ?? 0) + 1);
+      const posting = this.postings.get(termId);
       if (posting === undefined) {
-        this.postings.set(term, { ids: [docId], tfs: [frequency] });
+        this.postings.set(termId, new PostingList(docId, frequency));
         continue;
       }
-      const at = Bm25Index.lowerBound(posting.ids, docId);
-      posting.ids.splice(at, 0, docId);
-      posting.tfs.splice(at, 0, frequency);
+      posting.insert(docId, frequency);
     }
   }
 
   /** 把一篇文档的词项从 df 与倒排表摘除（`setDocument` 的替换前半程）。
    * @param docId 文档槽位。
-   * @param tokens 该槽位**替换前**的词项。
+   * @param ids 该槽位**替换前**的 token id 序列。
    * @returns 无返回值。
    */
-  private unindexTerms(docId: number, tokens: readonly string[]): void {
-    const termFrequency = new Map<string, number>();
-    for (const term of tokens) {
-      termFrequency.set(term, (termFrequency.get(term) ?? 0) + 1);
+  private unindexTerms(docId: number, ids: Uint32Array): void {
+    const termFrequency = new Map<number, number>();
+    for (let i = 0; i < ids.length; i += 1) {
+      const id = ArrayAt.at(ids, i);
+      termFrequency.set(id, (termFrequency.get(id) ?? 0) + 1);
     }
-    for (const term of termFrequency.keys()) {
-      const df = this.documentFrequency.get(term);
+    for (const termId of termFrequency.keys()) {
+      const df = this.documentFrequency.get(termId);
       if (df !== undefined) {
         if (df <= 1) {
-          this.documentFrequency.delete(term);
+          this.documentFrequency.delete(termId);
         } else {
-          this.documentFrequency.set(term, df - 1);
+          this.documentFrequency.set(termId, df - 1);
         }
       }
-      const posting = this.postings.get(term);
+      const posting = this.postings.get(termId);
       if (posting === undefined) {
         continue;
       }
-      const at = Bm25Index.lowerBound(posting.ids, docId);
-      if (posting.ids[at] === docId) {
-        posting.ids.splice(at, 1);
-        posting.tfs.splice(at, 1);
-      }
-      if (posting.ids.length === 0) {
-        this.postings.delete(term);
+      posting.remove(docId);
+      if (posting.length === 0) {
+        this.postings.delete(termId);
       }
     }
   }
 
-  /** 二分求首个 ≥ `docId` 的位置（`ids` 恒升序）。
-   * @param ids 升序 docId 数组。
-   * @param docId 目标 docId。
-   * @returns 插入/定位下标。
+  /**
+   * 把词项列表转成 token id 序列（新词项在此登记，词表只增不减）。
+   * @param tokens 词项列表。
+   * @returns token id 序列。
    */
-  private static lowerBound(ids: readonly number[], docId: number): number {
-    let lo = 0;
-    let hi = ids.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if ((ids[mid] ?? Number.POSITIVE_INFINITY) < docId) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
+  private toIds(tokens: readonly string[]): Uint32Array {
+    const ids = new Uint32Array(tokens.length);
+    for (let i = 0; i < tokens.length; i += 1) {
+      ids[i] = this.idFor(ArrayAt.at(tokens, i));
     }
-    return lo;
+    return ids;
+  }
+
+  /**
+   * 取词项 id；不存在则登记新 id。
+   * @param term 词项。
+   * @returns token id。
+   */
+  private idFor(term: string): number {
+    const existing = this.vocabulary.get(term);
+    if (existing !== undefined) return existing;
+    const id = this.vocabulary.size;
+    this.vocabulary.set(term, id);
+    return id;
   }
 
   /** 重算平均文档长度（`Σ|doc| / N`，跨批与增量替换口径一致）。
@@ -230,13 +337,22 @@ export class Bm25Index {
   }
 
   /**
+   * 全部文档的 token 总数（观测/内存估算用）。
+   * @returns Σ 文档 token 数
+   */
+  public get tokenCount(): number {
+    return this.totalTokens;
+  }
+
+  /**
    * 词项的文档频率（出现在多少个已加入文档中）。
    * 供外部消费方按其自身口径复用同一统计（如重排器的 IDF 加权），避免各自重复遍历。
    * @param term 词项
    * @returns 文档频率；未收录返回 0
    */
   public documentFrequencyOf(term: string): number {
-    return this.documentFrequency.get(term) ?? 0;
+    const termId = this.vocabulary.get(term);
+    return termId === undefined ? 0 : (this.documentFrequency.get(termId) ?? 0);
   }
 
   /**
@@ -253,7 +369,11 @@ export class Bm25Index {
     if (count === 0) {
       return 0;
     }
-    const df = this.documentFrequency.get(term);
+    const termId = this.vocabulary.get(term);
+    if (termId === undefined) {
+      return 0;
+    }
+    const df = this.documentFrequency.get(termId);
     if (df === undefined) {
       return 0;
     }
@@ -283,21 +403,28 @@ export class Bm25Index {
     }
     const scores = new Array<number>(count).fill(0);
     for (const term of queryTokens) {
-      // IDF 统一走 `idf()`（与外部消费方同一公式，杜绝两套口径）。
-      // 未收录词返回 0 ⇒ 与原先 `df === undefined → continue` 逐字等价。
-      const idf = this.idf(term);
+      const termId = this.vocabulary.get(term);
+      if (termId === undefined) {
+        continue;
+      }
+      const df = this.documentFrequency.get(termId);
+      if (df === undefined) {
+        continue;
+      }
+      // IDF 与 `idf(term)` 同一公式（单一实现见该方法），避免两套口径。
+      const idf = Math.log(1 + (count - df + 0.5) / (df + 0.5));
       if (idf <= 0) {
         continue;
       }
-      const posting = this.postings.get(term);
+      const posting = this.postings.get(termId);
       if (posting === undefined) {
         continue;
       }
       // 只遍历「含该词项」的文档（原实现此处遍历全部文档并逐篇重扫 token）。
       // ids 为 docId 升序 ⇒ 同一文档的跨词累加顺序与旧实现一致，浮点结果逐位相同。
-      for (let p = 0; p < posting.ids.length; p += 1) {
-        const docId = ArrayAt.at(posting.ids, p);
-        const frequency = ArrayAt.at(posting.tfs, p);
+      for (let p = 0; p < posting.length; p += 1) {
+        const docId = posting.idAt(p);
+        const frequency = posting.tfAt(p);
         const doc = this.documents[docId];
         if (doc === undefined) {
           continue;

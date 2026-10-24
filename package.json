@@ -116,6 +116,7 @@
     "test:determinism": "node scripts/testDeterminism.mjs",
     "mcp:conformance": "vitest run --project node tests/unit/mcpAuth.test.ts tests/unit/mcpMrtr.test.ts tests/unit/mcpStateless.test.ts tests/unit/sdkMcpConnector.test.ts",
     "tmp:sweep": "node tools/hygiene/tmpSweep.mjs",
+    "checkpoint:sweep": "node scripts/checkpointSweep.mjs",
     "probe:memory-task": "node tools/probes/memoryTaskLift.mjs",
     "probe:exposure": "node tools/probes/toolExposureBudget.mjs",
     "probe:rerank-ab": "node tools/probes/rerankDiscriminatorAb.mjs",

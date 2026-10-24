@@ -21,7 +21,7 @@
  * ## 用法
  *
  * ```bash
- * node tools/probes/recallHitrate.mjs                       # fileK=20，不精排
+ * node tools/probes/recallHitrate.mjs                       # fileK=30（生产默认），不精排
  * node tools/probes/recallHitrate.mjs --rerank              # 开精排（生产路径同款）
  * node tools/probes/recallHitrate.mjs --rerank=1            # 同上（两种写法等价，见 _args.mjs）
  * node tools/probes/recallHitrate.mjs --fileK=14 --json=out.json
@@ -47,7 +47,7 @@ const importDist = (...segments) =>
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释：旗标错不该被
 // "缺少编译产物"盖住）。`--rerank` 既接受裸开关也接受 `--rerank=1`——两种写法历史上
 // 分属本目录不同探针，混用曾让 `--rerank=1` 在这里**静默不生效**。
-const a = probeArgs({ values: { fileK: '20', json: '' }, flags: { rerank: false } });
+const a = probeArgs({ values: { fileK: '30', json: '' }, flags: { rerank: false } });
 const FILE_K = Number(a.fileK);
 const RERANK = a.rerank === true;
 const JSON_OUT = String(a.json);

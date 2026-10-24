@@ -10,6 +10,7 @@ import type { EscalationPort } from '../runtime/escalation.ts';
 import type { ToolGatePort } from '../runtime/toolGatePort.ts';
 import type { SupervisorPort } from '../runtime/supervisor.ts';
 import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts';
+import type { AttachmentSpillPort } from '../context/attachmentSpillPort.ts';
 import type { ToolDiscoveryPort } from '../tool/toolDiscoveryPort.ts';
 import type { RetrievalPort } from '../intelligence/retrieval.ts';
 import type { TurnDiffTrackerPort } from '../runtime/turnDiffTracker.ts';
@@ -63,6 +64,8 @@ export interface OmniHarnessRuntime {
   readonly supervisor?: SupervisorPort | undefined;
   /** 工具结果外溢器（#74）：超大输出落后端，只留有界预览。 */
   readonly spiller: ToolResultSpillerPort;
+  /** 附件内存外置端口（2026-10-23，可选）：记录事件前把大附件写盘，内存只留 path。 */
+  readonly attachmentSpiller?: AttachmentSpillPort | undefined;
   /** 工具发现寄存器（#M1）：tool_search 命中后登记，StepRunner 据此装载延迟加载工具。 */
   readonly discovery: ToolDiscoveryPort;
   /** 检索端口（#M2）：会话历史事件索引供 memory_search 检索，实现跨长对话 recall。 */

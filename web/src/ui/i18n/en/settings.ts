@@ -39,6 +39,10 @@ export const EN_SETTINGS: Record<string, string> = {
   '保存 Key → 检测（真实请求厂商端点）→ 启用。凭据由服务端打码存储，界面不回显原文。':
     'Save key → probe (a real request to the provider endpoint) → enable. Credentials are stored masked on the server and never shown in the UI.',
   '读取厂商目录…': 'Loading provider catalog…',
+  '读取厂商目录失败：{msg}': 'Failed to load provider catalog: {msg}',
+  '厂商目录为空：defaults/providers.json 可能缺失或不可读。':
+    'Provider catalog is empty: defaults/providers.json may be missing or unreadable.',
+  '读取配置失败：{msg}': 'Failed to load settings: {msg}',
   已配置: 'Configured',
   当前: 'Active',
   '默认模型与端点': 'Default model & endpoint',

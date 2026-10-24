@@ -163,6 +163,14 @@ export interface SettingsSnapshot {
   saving: boolean;
   /** 最近一次错误文案（空串＝无）。 */
   error: string;
+  /**
+   * 首次装载失败的原因（空串＝无）。
+   *
+   * 为什么单独一档：`reload()` 在保存后重拉失败时必须**静默保留用户输入**（否则表单会被
+   * 回填成服务端旧值）；但首次装载失败时 `cfg` 还是 null、整页都是占位符，静默会让用户
+   * 只看到"空"，不知道是配置读挂了。这条只在 `cfg === null` 时写入，成功装载后清空。
+   */
+  loadError: string;
 }
 
 /** 设置模型依赖的服务端能力。 */
@@ -207,6 +215,7 @@ export class SettingsModel {
     savedHint: '',
     saving: false,
     error: '',
+    loadError: '',
   };
 
   /** 订阅者集合（视图侧 useSyncExternalStore）。 */
@@ -272,8 +281,16 @@ export class SettingsModel {
   public async reload(): Promise<void> {
     try {
       this.applyConfig(await this.deps.getConfig());
-    } catch {
-      /* 静默：配置不可用时保留当前表单值 */
+    } catch (e) {
+      // 首次装载失败必须可见（cfg 仍为 null ⇒ 表单全是占位符）；保存后的重拉失败仍静默，
+      // 保留用户刚输入的值（见 save() 的失败语义）。
+      if (this.snapshot.cfg === null) {
+        this.set({
+          loadError: t('读取配置失败：{msg}', {
+            msg: e instanceof Error ? e.message : String(e),
+          }),
+        });
+      }
     }
   }
 
@@ -300,7 +317,7 @@ export class SettingsModel {
    * @returns 无
    */
   public applyConfig(c: Config): void {
-    this.set({ cfg: c, baseUrl: (c.baseUrl as string) ?? '' });
+    this.set({ cfg: c, baseUrl: (c.baseUrl as string) ?? '', loadError: '' });
   }
 
   /**

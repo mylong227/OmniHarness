@@ -46,8 +46,8 @@ export class StepContextBuilder {
   private compactionState: CompactionState | undefined;
   /** 是否已尝试从事件日志恢复压缩游标（懒恢复，只做一次）。 */
   private stateRestored = false;
-  /** 上一次请求的序列化文本（前缀复用率测量的比对基准；G1b-b）。 */
-  private lastSerialized: string | undefined;
+  /** 上一次请求的逐消息序列化片段（前缀复用率测量的比对基准；不再拼成一整串）。 */
+  private lastSerialized: readonly string[] | undefined;
   /** 上一次组装测得的相邻请求前缀复用率（0–1）；首次请求无基准 ⇒ undefined。 */
   private lastPrefixReuseRatio: number | undefined;
   /**
@@ -276,14 +276,14 @@ export class StepContextBuilder {
    *
    * **按消息缓存序列化**（2026-10-18）：长会话里相邻两步的消息**绝大多数是同一批对象**，
    * 逐字节重新 `JSON.stringify(整个数组)` 是纯浪费。这里用 `WeakMap<消息对象, 该消息的 JSON>`
-   * 做记忆：只有新增/改写的消息需要序列化，拼接结果与 `JSON.stringify(array)` **逐字节相同**
-   * （对象数组的 JSON 就是 `[a,b,…]`，用 `','` 连接即可）⇒ 复用率口径与诊断数值都不变。
-   * 实测 200 条 × 8 KB（1.6 MB）：3.7 ms → 0.89 ms；WeakMap 随消息对象回收，不累积内存。
+   * 做记忆：只有新增/改写的消息需要序列化。
+   * 2026-10-23：不再把全部片段拼成一整串保存/比较，改为只保留片段数组并按片段边界算
+   * 公共前缀；结果与 `PrefixStability.prefixReuse(旧整串, 新整串)` 逐位一致（有精确判据）。
    * @param messages 本轮组装完成、即将发给模型的消息（含尾部动态段）。
    * @returns 无返回值。
    */
   private measurePrefixReuse(messages: readonly ModelMessage[]): void {
-    const current = `[${messages.map((m) => this.serializeMessage(m)).join(',')}]`;
+    const current = messages.map((m) => this.serializeMessage(m));
     const previous = this.lastSerialized;
     this.lastSerialized = current;
     if (previous === undefined) {
@@ -292,14 +292,66 @@ export class StepContextBuilder {
       return;
     }
     // 先四舍五入再同时用于日志与快照：两处口径必须逐位一致（否则面板与日志会各说各话）。
-    const reuse = Number(PrefixStability.prefixReuse(previous, current).toFixed(4));
+    const reuse = Number(StepContextBuilder.prefixReuseOfParts(previous, current).toFixed(4));
     this.lastPrefixReuseRatio = reuse;
     log.debug('context.prefix_reuse', {
       reuse,
       messages: messages.length,
-      previousChars: previous.length,
-      currentChars: current.length,
+      previousChars: StepContextBuilder.serializedLength(previous),
+      currentChars: StepContextBuilder.serializedLength(current),
     });
+  }
+
+  /**
+   * 计算 `[p1,p2,…]` 拼接后的字符长度（与旧实现 `current.length` 逐位一致）。
+   * @param parts 逐消息 JSON 片段。
+   * @returns 拼接后长度（含方括号与逗号）。
+   */
+  private static serializedLength(parts: readonly string[]): number {
+    let total = 2; // '[' + ']'
+    for (const part of parts) total += part.length;
+    if (parts.length > 1) total += parts.length - 1; // 逗号
+    return total;
+  }
+
+  /**
+   * 不拼接整串，逐片段算出与 `PrefixStability.prefixReuse('['+prev.join(',')+']', …)`
+   * **逐位一致**的前缀复用率。
+   *
+   * 为什么要这么算（2026-10-23）：旧实现每步把全部消息拼成一个可能数 MB 的字符串并留作
+   * 下一轮基准；改成只保留逐消息片段后，公共前缀可以在片段边界处计算，省掉整串分配。
+   * 边界规则：相同片段后若两边都还有片段，则共享逗号；任一边到末尾则分隔符是 `]`，
+   * 与另一边的 `,` 不同，公共前缀停在分隔符之前。空数组两侧是 `[]`。
+   * @param previous 上一步逐消息片段。
+   * @param current 本步逐消息片段。
+   * @returns 复用率 ∈ [0,1]。
+   */
+  private static prefixReuseOfParts(
+    previous: readonly string[],
+    current: readonly string[],
+  ): number {
+    const total = StepContextBuilder.serializedLength(previous);
+    let common = 1; // '['
+    const shared = Math.min(previous.length, current.length);
+    for (let i = 0; i < shared; i += 1) {
+      const before = previous[i] ?? '';
+      const after = current[i] ?? '';
+      if (before !== after) {
+        common += PrefixStability.commonPrefixLength(before, after);
+        return total === 0 ? 1 : common / total;
+      }
+      common += before.length;
+      const previousHasNext = i < previous.length - 1;
+      const currentHasNext = i < current.length - 1;
+      if (previousHasNext !== currentHasNext) {
+        return total === 0 ? 1 : common / total;
+      }
+      common += 1; // 两边同为 ',' 或同为 ']'
+    }
+    if (previous.length === 0 && current.length === 0) {
+      common += 1; // ']'
+    }
+    return total === 0 ? 1 : common / total;
   }
 
   /**

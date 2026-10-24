@@ -41,6 +41,22 @@ test('上下文投影：工具失败结果映射为失败说明', () => {
   assert.strictEqual(messages[0]?.content, '工具执行失败: 出错了');
 });
 
+test('上下文投影：失败结果只有 output 时也必须把原因交给模型（run_code 回归）', () => {
+  const assembler = new ContextAssembler();
+  const messages = assembler.build([
+    event('tool_result', {
+      callId: 'c1',
+      ok: false,
+      output: 'ReferenceError: fs is not defined\n  at <anonymous>:1:1',
+    }),
+  ]);
+  assert.strictEqual(
+    messages[0]?.content,
+    '工具执行失败: ReferenceError: fs is not defined\n  at <anonymous>:1:1',
+    '错误在 output 时不得退化成「未知错误」',
+  );
+});
+
 test('上下文投影：推理与工具调用事件不进入模型消息', () => {
   const assembler = new ContextAssembler();
   const messages = assembler.build([

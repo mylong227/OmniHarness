@@ -15,6 +15,7 @@ import {
 } from '../adapters/spill/vortexRingSpillAdapter.ts';
 
 import { ConfigBuilder } from './configBuilder.ts';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import type { OmniHarnessConfig } from '../ports/config/omniHarnessConfig.ts';
 import type { CorePorts } from '../ports/config/corePorts.ts';
 
@@ -56,6 +57,19 @@ export class CorePortsAssembler {
     const spiller = new ToolResultSpiller(spill, {
       maxInlineBytes: partial.spillMaxInlineBytes ?? DEFAULT_SPILL_MAX_INLINE_BYTES,
       previewBytes: partial.spillPreviewBytes ?? DEFAULT_SPILL_PREVIEW_BYTES,
+      // `read_file` 的正文是模型要改的代码：16 KiB 外溢 + 2 KiB 预览会把 30 KiB 文件压成
+      // 约 50 行。给它更宽的 48 KiB/8 KiB；shell/grep 仍用 16 KiB/2 KiB 的错误优先预览。
+      // 可用 `--spill-bytes` / `--spill-preview` 全局覆盖，此处只对未显式覆盖的 read_file 生效。
+      ...(partial.spillMaxInlineBytes === undefined && partial.spillPreviewBytes === undefined
+        ? {
+            toolPolicies: {
+              [TOOL_NAMES.readFile]: {
+                maxInlineBytes: DEFAULT_READ_FILE_MAX_INLINE_BYTES,
+                previewBytes: DEFAULT_READ_FILE_PREVIEW_BYTES,
+              },
+            },
+          }
+        : {}),
     });
     const turnDiff = partial.turnDiff !== false;
     const turnDiffTracker = turnDiff ? new TurnDiffTracker() : undefined;
@@ -94,6 +108,10 @@ export class CorePortsAssembler {
 /** Spill 默认参数（#74：超大工具输出外溢，避免撑爆上下文）。 */
 const DEFAULT_SPILL_MAX_INLINE_BYTES = 16384;
 const DEFAULT_SPILL_PREVIEW_BYTES = 2048;
+
+/** `read_file` 专用外溢参数：正文是模型要改的代码，阈值比 shell/grep 宽。 */
+const DEFAULT_READ_FILE_MAX_INLINE_BYTES = 48 * 1024;
+const DEFAULT_READ_FILE_PREVIEW_BYTES = 8 * 1024;
 
 /** 基础设施端口的装配结果：切片 + 燧专用内部件。 */
 export interface CorePortsAssembly {

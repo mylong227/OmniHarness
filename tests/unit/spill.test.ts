@@ -79,6 +79,30 @@ test('内存外溢端口：写入后可原样读回', async () => {
   assert.strictEqual(await port.read('spill_不存在_9'), undefined);
 });
 
+test('内存外溢端口：总字节超限时按 LRU 淘汰，至少保留最新一份', async () => {
+  const port = new MemorySpill({ maxBytes: 10 });
+  const first = await port.spill('12345678', 'sess_1');
+  const second = await port.spill('abcdefgh', 'sess_1');
+  assert.strictEqual(await port.read(first.id), undefined, '最旧的应被淘汰');
+  assert.strictEqual(await port.read(second.id), 'abcdefgh');
+  assert.deepStrictEqual(port.stats(), { entries: 1, bytes: 8 });
+});
+
+test('文件外溢端口：总字节超限时按 mtime 淘汰，至少保留最新一份', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'omni-spill-'));
+  try {
+    const port = new FileSpill(dir, { maxFiles: 100, maxBytes: 10 });
+    const first = await port.spill('12345678', 'sess_1');
+    // 文件系统 mtime 粒度可能到毫秒；隔开一点，避免「谁最旧」由目录顺序决定。
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const second = await port.spill('abcdefgh', 'sess_1');
+    assert.strictEqual(await port.read(first.id), undefined, '最旧的应被删除');
+    assert.strictEqual(await port.read(second.id), 'abcdefgh');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test('文件外溢端口：跨实例可读回，非法 id 返回 undefined', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'omni-spill-'));
   try {
@@ -114,6 +138,20 @@ test('外溢器：大输出替换为预览 + 定位符，全文可从后端读�
   assert.ok(output.includes('spill_read'));
   // 全文未丢失：按 id 可取回
   assert.strictEqual(await port.read(spillIdOf(output)), content);
+});
+
+test('外溢器：按工具覆盖策略（read_file 预览比 shell 宽）', async () => {
+  const port = new MemorySpill();
+  const spiller = new ToolResultSpiller(port, {
+    maxInlineBytes: 100,
+    previewBytes: 10,
+    toolPolicies: { read_file: { maxInlineBytes: 100, previewBytes: 50 } },
+  });
+  const content = 'C'.repeat(500);
+  const read = await spiller.apply('read_file', bigResult(content), 'sess_1');
+  assert.ok((read.output ?? '').startsWith('C'.repeat(50)), 'read_file 应使用 50 字符预览');
+  const shell = await spiller.apply('shell', bigResult(content), 'sess_1');
+  assert.ok((shell.output ?? '').startsWith('C'.repeat(10)), 'shell 应保持全局 10 字符预览');
 });
 
 test('外溢器：spill_read 工具豁免，避免读回时再次被截断', async () => {

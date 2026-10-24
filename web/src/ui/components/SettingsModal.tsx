@@ -70,7 +70,11 @@ const EMPTY_SNAPSHOT = {
   savedHint: '',
   saving: false,
   error: '',
+  loadError: '',
 };
+
+/** 厂商目录的装载态：把「读取中 / 读取失败 / 目录真的为空」三种情况分开。 */
+type CatalogStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /** SettingsModal 组件的入参。 */
 export interface SettingsModalProps {
@@ -209,6 +213,12 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({});
   const [probes, setProbes] = React.useState<Record<string, ProviderProbeResult>>({});
   const [modelSel, setModelSel] = React.useState<Record<string, string>>({});
+  // 目录装载态：失败必须可见。旧实现 `.catch(() => {})` 把错误吞掉，用户只看到
+  // 永久的「读取厂商目录…」——分不清"还在读"和"读挂了"（2026-10-23 用户报障）。
+  const [catalogStatus, setCatalogStatus] = React.useState<CatalogStatus>('idle');
+  const [catalogError, setCatalogError] = React.useState('');
+  // 竞态护栏：重试/切栏可能并发发出两次 catalog，只认最后一次的结果。
+  const catalogReqRef = React.useRef(0);
   // 忙碌标记**按厂商分开**（`{ [providerId]: 'key' | 'probe' | 'enable' }`）。
   //
   // ⚠️ 2026-10-17 修一个真实的串台缺陷：此前是单个字符串 `'<id>:<kind>'`，后果有两个——
@@ -243,13 +253,28 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
   };
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
 
-  /** 拉厂商目录与生效配置（失败静默保留上一帧）。 */
+  /**
+   * 拉厂商目录与生效配置。
+   *
+   * 目录失败**不再静默**：写进 `catalogStatus / catalogError`，由模型栏渲染原因 + 重试。
+   * 保留上一帧 providers（刷新失败时已加载的卡片不消失，只在上面挂一条错误条）。
+   * @returns 无
+   */
   const reloadProviders = React.useCallback((): void => {
+    const req = ++catalogReqRef.current;
+    setCatalogStatus('loading');
+    setCatalogError('');
     api
       .modelCatalog()
-      .then((r) => setProviders(r.providers))
-      .catch(() => {
-        /* 静默：目录不可用时保留上一帧 */
+      .then((r) => {
+        if (req !== catalogReqRef.current) return;
+        setProviders(r.providers);
+        setCatalogStatus('ready');
+      })
+      .catch((e: unknown) => {
+        if (req !== catalogReqRef.current) return;
+        setCatalogError(e instanceof Error ? e.message : String(e));
+        setCatalogStatus('error');
       });
     api
       .getConfig()
@@ -260,7 +285,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
         );
       })
       .catch(() => {
-        /* 静默：配置不可用时保留上一帧 */
+        /* 静默：打码 Key 读不到时保留上一帧；配置错误由 SettingsModel.loadError 统一提示 */
       });
   }, [api]);
 
@@ -274,6 +299,15 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
   const cfg = snapshot.cfg;
   const activeAdapter = (cfg?.modelAdapter as string) ?? '';
   const activeBaseUrl = (cfg?.baseUrl as string) ?? '';
+
+  /**
+   * 错误横幅的「重试」：配置与厂商目录一起重拉（首次装载失败时两者通常同源）。
+   * @returns 无
+   */
+  const retryLoad = (): void => {
+    void settings.load();
+    reloadProviders();
+  };
 
   /**
    * 该厂商是否当前生效。
@@ -439,11 +473,29 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
           <p className="sp-hint">
             {t('保存 Key → 检测（真实请求厂商端点）→ 启用。凭据由服务端打码存储，界面不回显原文。')}
           </p>
-          {providers.length === 0 ? (
-            // emptyNote 的 `icon` 选项收的是**图标名**（IconName），不是 vnode——
-            // 传 icon(...) 的返回值会在编译期报 TS2322（这里刚踩过一次）。
-            emptyNote(t('读取厂商目录…'), { icon: 'package' })
-          ) : (
+          {catalogStatus === 'error' ? (
+            <div className="sp-load-error" role="alert">
+              <span>{t('读取厂商目录失败：{msg}', { msg: catalogError })}</span>
+              <button className="btn ghost" type="button" onClick={reloadProviders}>
+                {t('重试')}
+              </button>
+            </div>
+          ) : null}
+          {providers.length === 0 && catalogStatus !== 'error' ? (
+            catalogStatus === 'ready' ? (
+              <div className="sp-load-error" role="alert">
+                <span>{t('厂商目录为空：defaults/providers.json 可能缺失或不可读。')}</span>
+                <button className="btn ghost" type="button" onClick={reloadProviders}>
+                  {t('重试')}
+                </button>
+              </div>
+            ) : (
+              // emptyNote 的 `icon` 选项收的是**图标名**（IconName），不是 vnode——
+              // 传 icon(...) 的返回值会在编译期报 TS2322（这里刚踩过一次）。
+              emptyNote(t('读取厂商目录…'), { icon: 'package' })
+            )
+          ) : null}
+          {providers.length > 0 ? (
             <div className="sp-cards">
               {providers.map((p) => {
                 // 折叠口径：当前生效厂商与已配置 Key 的厂商默认展开，其余折成一行标题。
@@ -485,7 +537,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </div>
         <div className="sp-sec">
           <h3 className="sp-sec-title">{t('默认模型与端点')}</h3>
@@ -682,7 +734,17 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
               </button>
             ))}
           </nav>
-          <div className="sp-content">{body}</div>
+          <div className="sp-content">
+            {snapshot.loadError !== '' ? (
+              <div className="sp-load-error" role="alert">
+                <span>{snapshot.loadError}</span>
+                <button className="btn ghost" type="button" onClick={retryLoad}>
+                  {t('重试')}
+                </button>
+              </div>
+            ) : null}
+            {body}
+          </div>
         </div>
       </div>
     </div>

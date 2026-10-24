@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { CorpusFileParser } from './corpusFileParser.ts';
 import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import { CorpusFileArtifactCodec } from './corpusFileArtifactCodec.ts';
 import type { SymbolNode } from './repoMap/repoMap.ts';
 
 /**
@@ -90,12 +91,12 @@ export class CorpusCollector {
     );
     this.fileRecords.push({ rel, tokens: artifact.tokenCount });
     // 正文侧不做扩展分词（净负面 −6.0pp，见 TASK_BOARD §22.3）。
-    this.fileDocs.push(artifact.fileDoc);
+    this.fileDocs.push(CorpusFileArtifactCodec.decode(artifact.fileDoc));
     for (const symbol of artifact.symbols) {
       this.allSymbols.push(symbol);
     }
     for (const doc of artifact.symbolDocs) {
-      this.symbolDocs.push(doc);
+      this.symbolDocs.push(CorpusFileArtifactCodec.decode(doc));
     }
     sink?.set(rel, artifact);
   }

@@ -367,12 +367,28 @@ export class GrepTool {
     options: { readonly literal: boolean; readonly caseInsensitive: boolean },
   ):
     { readonly ok: true; readonly value: RegExp } | { readonly ok: false; readonly error: string } {
-    const source = options.literal ? pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : pattern;
+    let source = options.literal ? pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : pattern;
+    let flags = options.caseInsensitive ? 'i' : '';
+    // 模型常把 PCRE 的 `(?i)` 内联修饰符带到 JS 正则上；JS 不支持内联组，但**开头**的
+    // `(?ims)` 可以无歧义地翻译成 flag。中段/分组内的内联修饰符无法等价翻译，交给 catch
+    // 给可行动提示。这样「同一个失败写法」不会连续重试 3 次（2026-10-23 真实会话实测）。
+    if (!options.literal) {
+      const leading = /^\(\?([ims]+)\)/u.exec(source);
+      if (leading !== null) {
+        source = source.slice(leading[0].length);
+        for (const flag of leading[1] ?? '') {
+          if (!flags.includes(flag)) flags += flag;
+        }
+      }
+    }
     try {
-      return { ok: true, value: new RegExp(source, options.caseInsensitive ? 'i' : '') };
+      return { ok: true, value: new RegExp(source, flags) };
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      return { ok: false, error: `正则表达式非法: ${detail}` };
+      const hint = /\(\?[imsx-]/u.test(pattern)
+        ? '；提示：JS 正则不支持内联 (?i) 等修饰符，请用 case_insensitive=true（或把 (?i) 放在模式开头）'
+        : '';
+      return { ok: false, error: `正则表达式非法: ${detail}${hint}` };
     }
   }
 

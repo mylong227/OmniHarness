@@ -341,12 +341,28 @@ export class StepToolExecutor {
       ? this.guardInjection(toolName, stored, guardMode)
       : stored;
     const annotated = this.annotateDenial(guarded);
+    // 附件内存外置（2026-10-23）：大附件在**记录前**写盘，内存事件只留 `path`；
+    // 模型下一次投影时由 `ContextAssembler` 按路径水合，UI 只显示 chip 名称。
+    // 外置失败是优化失败而非功能失败：保留原 files，主流程照常。
+    let files = result.files;
+    const attachmentSpiller = this.deps.attachmentSpiller;
+    if (attachmentSpiller !== undefined && files !== undefined && files.length > 0) {
+      try {
+        files = await attachmentSpiller.spillFiles(sessionId, files);
+      } catch (error) {
+        log.warn('tool.attachment.spill_failed', {
+          tool: toolName,
+          sessionId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
     this.deps.recorder.toolResult(
       annotated.callId,
       annotated.ok,
       annotated.output,
       annotated.error,
-      result.files,
+      files,
     );
     // I-P0-3：工具执行成败上报监督内核（native + JS 全路径共用此处，覆盖完整）。
     this.deps.supervisor?.report(toolName, annotated.ok ? 'success' : 'failure', annotated.error);

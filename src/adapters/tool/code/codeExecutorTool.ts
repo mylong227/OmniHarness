@@ -74,7 +74,17 @@ export class CodeExecutorTool {
       // 超时是**硬上限**：到期 terminate 掉沙箱 Worker（见 CodeInterpreter 的模块注释）。
       ...(this.options.timeoutMs !== undefined ? { timeoutMs: this.options.timeoutMs } : {}),
     });
-    return { callId: call.id, ok: result.ok, output: result.output };
+    // 失败原因在 `CodeInterpreter` 里是 `output`（日志/错误/超时文本）。`ContextAssembler`
+    // 对 ok=false 只渲染 `error`，若这里不带 error，模型只能看到「未知错误」——
+    // 2026-10-23 真实会话 9/27 次失败即此形态。成功仍只给 output，避免多一个空 error 字段。
+    return result.ok
+      ? { callId: call.id, ok: true, output: result.output }
+      : {
+          callId: call.id,
+          ok: false,
+          output: result.output,
+          error: result.output || 'run_code 执行失败（无输出）',
+        };
   }
 
   /**

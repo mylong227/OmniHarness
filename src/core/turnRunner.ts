@@ -111,6 +111,14 @@ export class TurnRunner {
      * 直接收尾。这里用一次有界的状态检查兜住「提前宣告完成」，比无限要求模型自省可靠。
      */
     private readonly todo?: TodoPort | undefined,
+    /**
+     * 软 token 预算（2026-10-23，可选，0 = 关闭）：达到该值时注入一次「开始收尾」提醒，
+     * 但**不停止**步进；硬预算仍由 {@link tokenBudget} 在 100% 时熔断。
+     *
+     * 与硬预算分开的理由：默认不设硬上限（长任务可能确实需要更多 token），但完全没有任何
+     * 提醒时，一个「一直在做新事情」的回合可以跑到 8h 硬时限。软预算只提醒、不截断。
+     */
+    private readonly softTokenBudget = 0,
   ) {
     this.loopGuard = loopGuard;
     this.workflowRecorder =
@@ -135,6 +143,8 @@ export class TurnRunner {
     let usageTokens = 0;
     /** 待办纠偏是否已用过（每回合至多一次，避免把收尾卡死）。 */
     let todoReminded = false;
+    /** 软 token 预算提醒是否已用过（每回合至多一次）。 */
+    let softBudgetNudged = false;
     /** 本回合的完成判定状态（就地更新；用对象承载以便抽方法传引用）。 */
     const claim: CompletionClaim = { gated: false, reviewed: false, verificationState: 'not-run' };
     // 不限步数（0/undefined/负数都按不限处理）：终止由「模型产出结论 / 预算 / 行为护栏 / 取消」决定。
@@ -162,14 +172,10 @@ export class TurnRunner {
       }
       // V2 增量持久化：每步安排 write-behind 落盘（崩溃最多丢一个批量窗口）。
       this.persister?.schedule();
-      // V2.1：token 预算超限 → 停止步进（finalize 会总结当前进展）。
-      if (this.tokenBudget > 0 && usageTokens >= this.tokenBudget) {
-        log.warn('turn.token_budget_reached', { steps, usageTokens, budget: this.tokenBudget });
-        this.recorder.system(
-          `【预算】本回合 token 用量（${usageTokens}）已达预算上限（${this.tokenBudget}），停止步进。`,
-        );
-        break;
-      }
+      // 软预算只提醒、硬预算才停止：两步都集中在一个方法里，避免 run() 继续膨胀。
+      const budget = this.applyTokenBudgets(usageTokens, steps, softBudgetNudged);
+      softBudgetNudged = budget.softNudged;
+      if (budget.stop) break;
       if (outcome === 'tool') {
         consecutiveEmpty = 0;
         // V2 失控检测：观测本步工具调用，决定 放行/纠偏/熔断。
@@ -262,6 +268,42 @@ export class TurnRunner {
       .list(sessionId)
       .filter((item) => item.status === 'pending' || item.status === 'in_progress')
       .map((item) => ({ content: item.content }));
+  }
+
+  /**
+   * 应用软/硬 token 预算：软预算只写一次收尾提醒，硬预算返回 `stop=true`。
+   * @param usageTokens 本回合累计 token。
+   * @param steps 当前步数。
+   * @param softNudged 软预算是否已提醒过。
+   * @returns 是否停止步进 + 更新后的软提醒标记。
+   */
+  private applyTokenBudgets(
+    usageTokens: number,
+    steps: number,
+    softNudged: boolean,
+  ): { readonly stop: boolean; readonly softNudged: boolean } {
+    let nudged = softNudged;
+    if (this.softTokenBudget > 0 && !nudged && usageTokens >= this.softTokenBudget) {
+      nudged = true;
+      log.warn('turn.soft_token_budget_nudge', {
+        steps,
+        usageTokens,
+        softBudget: this.softTokenBudget,
+      });
+      this.recorder.system(
+        `【预算提醒】本回合 token 用量（${usageTokens}）已达软预算（${this.softTokenBudget}）。` +
+          '请开始收尾：优先完成当前验证并总结，不要开启新的探索方向；' +
+          '若任务确实未完成，请在总结中明确剩余项与阻塞点。',
+      );
+    }
+    if (this.tokenBudget > 0 && usageTokens >= this.tokenBudget) {
+      log.warn('turn.token_budget_reached', { steps, usageTokens, budget: this.tokenBudget });
+      this.recorder.system(
+        `【预算】本回合 token 用量（${usageTokens}）已达预算上限（${this.tokenBudget}），停止步进。`,
+      );
+      return { stop: true, softNudged: nudged };
+    }
+    return { stop: false, softNudged: nudged };
   }
 
   /**

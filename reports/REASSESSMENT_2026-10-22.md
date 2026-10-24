@@ -141,7 +141,7 @@
 - 默认隔离仍是 **L2（同用户进程内约束）**；`windows-acl`/`wsl-bwrap` 需显式选择且依赖宿主能力。
 - `policy` 档出站守卫只覆盖 `globalThis.fetch`；shell 出网只在 `OMNI_NETWORK_ALLOW` 已配置时被工具层拦截。
 - 注入防护默认 `off`（观测模式）；provenance guard 默认关（`OMNI_PROVENANCE_GUARD=1` 才开）。
-- 工具暴露规划默认 `off`（`OMNI_TOOL_EXPOSURE=plan` 才开）。
+- 工具暴露规划默认 **`plan`**（2026-10-23 复核纠正：本行原写 `off`；代码 `ToolExposurePlanner.modeFromEnv` 缺省即 `plan`，`off` 才是显式逃生口）。
 - memory primer / evolution kernel 默认关（增益未证）。
 - A2A server 默认关（`--a2a` 才监听）。
 - `maxSteps=0` 且 token 预算默认 0；成本刹车需显式配。

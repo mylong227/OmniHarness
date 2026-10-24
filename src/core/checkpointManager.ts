@@ -1,4 +1,5 @@
 import { join, resolve, sep } from 'node:path';
+import { rm, stat } from 'node:fs/promises';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { StoragePort } from '../ports/memory/storage.ts';
 import type { WorkspaceSnapshotPort } from '../ports/tool/workspaceSnapshot.ts';
@@ -9,6 +10,7 @@ import {
 import type { LiveSessionRewindPort } from '../ports/runtime/liveSessionRewindPort.ts';
 import { SnapshotFileIo } from './snapshotFileIo.ts';
 import { LiveSessionRewindRegistry } from './liveSessionRewindRegistry.ts';
+import { log } from '../util/logger.ts';
 
 /** 检查点管理器选项。 */
 export interface CheckpointOptions {
@@ -18,6 +20,15 @@ export interface CheckpointOptions {
   readonly workspaceRoot?: string;
   /** 文件快照持久化目录（默认 `<workspaceRoot>/.omni-checkpoints`）。 */
   readonly stateDir?: string;
+  /**
+   * 每会话保留的文件快照个数（缺省 {@link CheckpointManager.DEFAULT_MAX_FILE_SNAPSHOTS}）。
+   *
+   * 只在注入 `snapshotter` 的显式检查点路径生效；纯事件检查点（自动检查点）不触发文件清理，
+   * 避免自动检查点把用户显式打的文件快照淘汰掉。
+   */
+  readonly maxFileSnapshots?: number;
+  /** 每会话文件快照总字节上限（缺省 {@link CheckpointManager.DEFAULT_MAX_FILE_SNAPSHOT_BYTES}）。 */
+  readonly maxFileSnapshotBytes?: number;
   /**
    * 在跑会话的事件流回卷端口（缺省取进程级登记表 `LiveSessionRewindRegistry`）。
    *
@@ -57,12 +68,22 @@ const SAFE_CHECKPOINT_ID = /^[A-Za-z0-9_-]{1,64}$/;
  * （对齐 Claude Code /rewind），而非仅回滚事件流。
  */
 export class CheckpointManager implements CheckpointManagerPort {
+  /** 每会话默认保留 20 个文件快照。 */
+  public static readonly DEFAULT_MAX_FILE_SNAPSHOTS = 20;
+
+  /** 每会话默认文件快照总预算：256 MiB。 */
+  public static readonly DEFAULT_MAX_FILE_SNAPSHOT_BYTES = 256 * 1024 * 1024;
+
   /** 工作区快照端口（可选）：具备时检查点附带文件级快照，支持代码回滚。 */
   private readonly snapshotter?: WorkspaceSnapshotPort | undefined;
   /** 工作区根：文件快照的捕获与还原范围。 */
   private readonly workspaceRoot?: string | undefined;
   /** 文件快照落盘目录：缺省为 `<workspaceRoot>/.omni-checkpoints`。 */
   private readonly stateDir?: string | undefined;
+  /** 每会话文件快照保留个数（≥1）。 */
+  private readonly maxFileSnapshots: number;
+  /** 每会话文件快照总字节上限（≥1）。 */
+  private readonly maxFileSnapshotBytes: number;
   /** 在跑会话回卷端口：缺省取进程级登记表（见 `CheckpointOptions.rewind`）。 */
   private readonly rewind: LiveSessionRewindPort;
 
@@ -75,6 +96,14 @@ export class CheckpointManager implements CheckpointManagerPort {
     this.snapshotter = options.snapshotter;
     this.workspaceRoot = options.workspaceRoot;
     this.stateDir = options.stateDir;
+    this.maxFileSnapshots = CheckpointManager.positiveOr(
+      options.maxFileSnapshots,
+      CheckpointManager.DEFAULT_MAX_FILE_SNAPSHOTS,
+    );
+    this.maxFileSnapshotBytes = CheckpointManager.positiveOr(
+      options.maxFileSnapshotBytes,
+      CheckpointManager.DEFAULT_MAX_FILE_SNAPSHOT_BYTES,
+    );
     this.rewind = options.rewind ?? LiveSessionRewindRegistry.sharedRegistry();
   }
 
@@ -123,8 +152,82 @@ export class CheckpointManager implements CheckpointManagerPort {
     await this.storage.save(CheckpointManager.checkpointKey(sessionId, label), events);
     const index = await this.loadIndex(sessionId);
     const next = index.filter((m) => m.label !== label).concat(meta);
-    await this.saveIndex(sessionId, next);
+    const kept = await this.pruneFileSnapshots(sessionId, next);
+    await this.saveIndex(sessionId, kept);
     return meta;
+  }
+
+  /**
+   * 按「每会话文件快照个数 + 总字节」淘汰最旧的文件快照。
+   *
+   * 为什么只在有 `snapshotter` 时生效：自动检查点（无 snapshotter、纯事件）也会调用
+   * `snapshot()`；若它来清理文件，会把用户显式打的文件快照一并删掉。这里只让显式检查点
+   * 路径承担保留策略，自动检查点只写自己的事件索引。
+   *
+   * 淘汰的是**文件快照**与索引项；事件载荷（`checkpoint:<sid>:<label>`）留在存储里
+   * （StoragePort 没有 delete 通道），体量小，不影响正确性。文件删除失败只告警并保留索引，
+   * 下次再试，不静默丢历史。
+   * @param sessionId 会话 ID。
+   * @param meta 待写入的完整索引。
+   * @returns 保留的索引（已按时间升序）。
+   */
+  private async pruneFileSnapshots(
+    sessionId: string,
+    meta: readonly CheckpointMeta[],
+  ): Promise<CheckpointMeta[]> {
+    if (this.snapshotter === undefined || meta.length === 0) {
+      return [...meta];
+    }
+    const kept = [...meta].sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+    const sizes = new Map<string, number>();
+    let total = 0;
+    for (const item of kept) {
+      const size = await this.fileSnapshotSize(sessionId, item);
+      sizes.set(item.label, size);
+      total += size;
+    }
+    const dropped: CheckpointMeta[] = [];
+    while (kept.length > this.maxFileSnapshots) {
+      const oldest = kept.shift();
+      if (oldest === undefined) break;
+      dropped.push(oldest);
+      total -= sizes.get(oldest.label) ?? 0;
+    }
+    // 至少保留最新一个：即使单份就超预算，也不把当前检查点删掉（否则用户刚打的点立即消失）。
+    while (total > this.maxFileSnapshotBytes && kept.length > 1) {
+      const oldest = kept.shift();
+      if (oldest === undefined) break;
+      dropped.push(oldest);
+      total -= sizes.get(oldest.label) ?? 0;
+    }
+    for (const item of dropped) {
+      if (!item.hasFileSnapshot) continue;
+      try {
+        await rm(this.fileSnapshotPath(sessionId, item.label), { force: true });
+      } catch (error) {
+        log.warn('checkpoint.prune.file_failed', {
+          sessionId,
+          label: item.label,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    return kept;
+  }
+
+  /**
+   * 文件快照的字节数（无文件/读不到按 0）。
+   * @param sessionId 会话 ID。
+   * @param meta 检查点元信息。
+   * @returns 字节数。
+   */
+  private async fileSnapshotSize(sessionId: string, meta: CheckpointMeta): Promise<number> {
+    if (!meta.hasFileSnapshot) return 0;
+    try {
+      return (await stat(this.fileSnapshotPath(sessionId, meta.label))).size;
+    } catch {
+      return 0;
+    }
   }
 
   /**
@@ -304,5 +407,16 @@ export class CheckpointManager implements CheckpointManagerPort {
         `${field} 非法（仅允许字母数字与 _ -，长度 1–64）：${value.replace(/[\r\n]/g, ' ').slice(0, 80)}`,
       );
     }
+  }
+
+  /** 归一化正数选项（非法/非正回落默认）。
+   * @param value 输入值。
+   * @param fallback 默认值。
+   * @returns 正数。
+   */
+  private static positiveOr(value: number | undefined, fallback: number): number {
+    return value !== undefined && Number.isFinite(value) && value > 0
+      ? Math.floor(value)
+      : fallback;
   }
 }

@@ -46,7 +46,17 @@ export class ListDirTool {
       const lines = entries.map((entry) => `${entry.isDirectory() ? '[d]' : '[f]'} ${entry.name}`);
       return { callId: call.id, ok: true, output: lines.join('\n') };
     } catch (error) {
-      return { callId: call.id, ok: false, error: this.messageOf(error) };
+      const detail = this.messageOf(error);
+      if (/ENOENT|no such file/i.test(detail)) {
+        return {
+          callId: call.id,
+          ok: false,
+          error:
+            `目录不存在: ${relative}（工作区根：${root}）。` +
+            '可用 list_dir 查看上级目录，或用 glob 按路径查找；注意大小写与路径分隔符。',
+        };
+      }
+      return { callId: call.id, ok: false, error: detail };
     }
   }
 

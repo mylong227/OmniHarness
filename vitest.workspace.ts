@@ -36,6 +36,8 @@ export default [
       name: 'node',
       include: ['tests/unit/**/*.test.ts', 'tests/integration/**/*.test.ts'],
       environment: 'node',
+      // 重判据（spawn Chrome/Python/Worker）走跨进程资源池；普通判据仍全速并行。
+      setupFiles: [resolve(ROOT, 'tests/setup/heavyResource.ts')],
       fileParallelism: true,
       // 注意：workspace 内联项目**不继承**根 vitest.config.ts 的 test 选项（vitest 2.1 实测），
       // 超时必须在这里逐项目声明——否则回落 5000ms 默认，spawn 类判据集体超时。

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { Bm25Index } from '../search/bm25Index.ts';
 import { CorpusFileParser } from './corpusFileParser.ts';
 import type { CorpusFileArtifact } from './corpusFileArtifact.ts';
+import { CorpusFileArtifactCodec } from './corpusFileArtifactCodec.ts';
 import type { IndexedCorpus, IndexOptions } from './contextEngine.ts';
 import type { SymbolNode } from './repoMap/repoMap.ts';
 import { log } from '../util/logger.ts';
@@ -131,7 +132,7 @@ export class CorpusIncrementalUpdater {
       } else {
         this.applySymbolSlots(previous.symbolIndex, symbolStart, artifact);
       }
-      previous.fileIndex.setDocument(next.size, artifact.fileDoc);
+      previous.fileIndex.setDocument(next.size, CorpusFileArtifactCodec.decode(artifact.fileDoc));
       fileText.set(rel, fresh);
       symbolStart += artifact.symbols.length;
       next.set(rel, artifact);
@@ -185,7 +186,8 @@ export class CorpusIncrementalUpdater {
     artifact: CorpusFileArtifact,
   ): void {
     for (let i = 0; i < artifact.symbolDocs.length; i += 1) {
-      symbolIndex.setDocument(start + i, artifact.symbolDocs[i] ?? []);
+      const encoded = artifact.symbolDocs[i] ?? '';
+      symbolIndex.setDocument(start + i, CorpusFileArtifactCodec.decode(encoded));
     }
   }
 
@@ -218,7 +220,7 @@ export class CorpusIncrementalUpdater {
         symbols.push(symbol);
       }
       for (const doc of artifact.symbolDocs) {
-        symbolDocs.push([...doc]);
+        symbolDocs.push(CorpusFileArtifactCodec.decode(doc));
       }
     }
     const reusable = symbolSlotsStable && previous.symbolIndex.slotCount === symbolDocs.length;

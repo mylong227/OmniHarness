@@ -52,12 +52,31 @@ export class PolicySandbox implements SandboxPort {
         const label = typeof pattern === 'string' ? pattern : pattern.source;
         return {
           allowed: false,
-          reason: `命中危险命令规则: ${label}`,
+          reason: `命中危险命令规则: ${label}${PolicySandbox.guidanceFor(label)}`,
           category: 'command',
         };
       }
     }
     return { allowed: true };
+  }
+
+  /**
+   * 给危险命令规则补一句可行动提示（不改变拦截结果，只把「为什么/怎么改」说清）。
+   * @param label 命中的规则文本。
+   * @returns 以「；」开头的提示；无匹配时为空串。
+   */
+  private static guidanceFor(label: string): string {
+    if (
+      /node -e|node -eval|python3? -c|perl -e|ruby -e|php -r|powershell -c|pwsh -c|invoke-expression|-encodedcommand/u.test(
+        label,
+      )
+    ) {
+      return '；写文件/执行脚本请用 write_file/apply_patch 落盘后再执行，不要用解释器 -e/-c 变通';
+    }
+    if (/rm -|del \/|erase \/|rmdir \/|remove-item|find -delete|xargs rm/u.test(label)) {
+      return '；删除请用专用工具并明确目标，避免通配/递归删除';
+    }
+    return '';
   }
 
   /** 路径门禁：工作区外即拒绝。

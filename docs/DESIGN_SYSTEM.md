@@ -279,6 +279,11 @@ dark：`--accent: #a8b4e8` / `--ink-fg: #14161c`（8.7:1）；light：`--accent:
 > 路由口径：切换会话只 `navigate({ threadId })`；`RouteBinding` **只在首次深链或 pane 变化时**
 > 打开功能面板模态。只换会话不会把刚关掉的配置集重新弹回来（判据 `router.test.ts`）。
 >
+> **面板模态几何（2026-10-23）**：`.panel-modal` 固定 `min(760px, 86vh) × min(880px, 92vw)`，
+> 顶栏基准 52px，内容区 `.sp-content` 独占滚动（`scrollbar-gutter: stable`）。切换左导航只换内容、
+> 不改窗口尺寸，滚动位置归零；范围徽标的会话修饰类必须写 `scope-session`（裸 `session` 会撞上
+> 左栏会话行样式把顶栏撑高）。判据 `web/test/panelModalSize.test.ts`。
+>
 > 一级导航「插件」当前页：`color-mix(accent 7%, transparent)` 淡底 + 图标着色，**不再用
 > `panel-2` 整条亮底**（2026-10-20 用户：「插件的纯底色太亮了」）。
 >
