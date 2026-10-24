@@ -25,6 +25,12 @@ export default tseslint.config(
       // 真机截图/探针产物（`web/archive/`，`.gitignore` 已忽略）：不是源码。
       'web/archive/**',
       'node_modules/**',
+      // 桌面端是独立 npm 包（Electron + 自己的 tsconfig）；根 ESLint 的 type-aware 配置
+      // 不覆盖它，进去只会产生“不在 project 里”的假红。桌面端自己跑 `tsc --noEmit`。
+      'desktop/**',
+      // 桌面端 stage 出来的整棵 harness 产物（dist/web 等，`.gitignore` 已忽略）：
+      // 它们不是本仓源码，lint 进去只会把构建产物当源码报错。
+      '.desktop-stage/**',
       'coverage/**',
       'native/**',
       'scripts/**',
