@@ -137,7 +137,8 @@ export class AgUiHttpServer {
       'access-control-allow-origin': '*',
     });
     res.flushHeaders();
-    const stream = new AgUiEventStream({ threadId, runId });
+    const messages = Array.isArray(input.messages) ? input.messages : undefined;
+    const stream = new AgUiEventStream({ threadId, runId, messages });
     try {
       const events = this.run(input, controller.signal);
       for await (const event of stream.run(events, controller.signal)) {

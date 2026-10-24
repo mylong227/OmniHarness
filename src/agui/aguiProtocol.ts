@@ -17,6 +17,8 @@ export type AgUiEventType =
   | 'STATE_SNAPSHOT'
   | 'STATE_DELTA'
   | 'MESSAGES_SNAPSHOT'
+  | 'ACTIVITY_SNAPSHOT'
+  | 'ACTIVITY_DELTA'
   | 'REASONING_MESSAGE_START'
   | 'REASONING_MESSAGE_CONTENT'
   | 'REASONING_MESSAGE_END'
@@ -65,6 +67,22 @@ export interface AgUiRunErrorEvent extends AgUiBaseEvent {
   readonly message: string;
   /** 错误码（取消为 `CANCELLED`）。 */
   readonly code?: string;
+}
+
+/** STEP_STARTED：run 内一个步骤开始（可选事件，本适配层暂不主动产生）。 */
+export interface AgUiStepStartedEvent extends AgUiBaseEvent {
+  /** 判别字段。 */
+  readonly type: 'STEP_STARTED';
+  /** 步骤名（与对应 STEP_FINISHED 配对）。 */
+  readonly stepName: string;
+}
+
+/** STEP_FINISHED：run 内一个步骤结束（可选事件，本适配层暂不主动产生）。 */
+export interface AgUiStepFinishedEvent extends AgUiBaseEvent {
+  /** 判别字段。 */
+  readonly type: 'STEP_FINISHED';
+  /** 步骤名（与对应 STEP_STARTED 相同）。 */
+  readonly stepName: string;
 }
 
 /** TEXT_MESSAGE_START：助手文本消息开始。 */
@@ -139,28 +157,126 @@ export interface AgUiToolCallResultEvent extends AgUiBaseEvent {
   readonly role?: 'tool';
 }
 
+/** RFC 6902 `add` 操作：在 path 处插入 value。 */
+export interface AgUiJsonPatchAddOperation {
+  /** 操作码。 */
+  readonly op: 'add';
+  /** RFC 6901 JSON Pointer。 */
+  readonly path: string;
+  /** 插入值。 */
+  readonly value: unknown;
+}
+
+/** RFC 6902 `remove` 操作：删除 path 处的值。 */
+export interface AgUiJsonPatchRemoveOperation {
+  /** 操作码。 */
+  readonly op: 'remove';
+  /** RFC 6901 JSON Pointer。 */
+  readonly path: string;
+}
+
+/** RFC 6902 `replace` 操作：用 value 替换 path 处的值。 */
+export interface AgUiJsonPatchReplaceOperation {
+  /** 操作码。 */
+  readonly op: 'replace';
+  /** RFC 6901 JSON Pointer。 */
+  readonly path: string;
+  /** 替换值。 */
+  readonly value: unknown;
+}
+
+/** RFC 6902 `move` 操作（类型面保留；映射器不产生）。 */
+export interface AgUiJsonPatchMoveOperation {
+  /** 操作码。 */
+  readonly op: 'move';
+  /** 源 JSON Pointer。 */
+  readonly from: string;
+  /** 目标 JSON Pointer。 */
+  readonly path: string;
+}
+
+/** RFC 6902 `copy` 操作（类型面保留；映射器不产生）。 */
+export interface AgUiJsonPatchCopyOperation {
+  /** 操作码。 */
+  readonly op: 'copy';
+  /** 源 JSON Pointer。 */
+  readonly from: string;
+  /** 目标 JSON Pointer。 */
+  readonly path: string;
+}
+
+/** RFC 6902 `test` 操作（类型面保留；映射器不产生）。 */
+export interface AgUiJsonPatchTestOperation {
+  /** 操作码。 */
+  readonly op: 'test';
+  /** RFC 6901 JSON Pointer。 */
+  readonly path: string;
+  /** 期望值。 */
+  readonly value: unknown;
+}
+
+/**
+ * RFC 6902 JSON Patch 操作联合。
+ *
+ * 映射器只生成 `add` / `replace` / `remove`（状态以对象键为粒度做增量；
+ * 数组整体替换），其余三种保留完整类型面供调用方构造自定义补丁。
+ */
+export type AgUiJsonPatchOperation =
+  | AgUiJsonPatchAddOperation
+  | AgUiJsonPatchRemoveOperation
+  | AgUiJsonPatchReplaceOperation
+  | AgUiJsonPatchMoveOperation
+  | AgUiJsonPatchCopyOperation
+  | AgUiJsonPatchTestOperation;
+
 /** STATE_SNAPSHOT：完整状态快照（todos / plan）。 */
 export interface AgUiStateSnapshotEvent extends AgUiBaseEvent {
   /** 判别字段。 */
   readonly type: 'STATE_SNAPSHOT';
-  /** 状态快照。 */
+  /** 状态快照（前端应以整份替换本地状态）。 */
   readonly snapshot: unknown;
 }
 
-/** STATE_DELTA：JSON Patch 增量（本适配层暂不产生，保留类型面）。 */
+/** STATE_DELTA：JSON Patch 增量（首个状态用快照，后续变化用补丁）。 */
 export interface AgUiStateDeltaEvent extends AgUiBaseEvent {
   /** 判别字段。 */
   readonly type: 'STATE_DELTA';
-  /** RFC 6902 补丁。 */
-  readonly delta: readonly unknown[];
+  /** RFC 6902 补丁（非空；无状态变化时不发事件）。 */
+  readonly delta: readonly AgUiJsonPatchOperation[];
 }
 
-/** MESSAGES_SNAPSHOT：全量消息快照（保留类型面）。 */
+/** MESSAGES_SNAPSHOT：run 开始/恢复时的全量消息快照（无历史则不发）。 */
 export interface AgUiMessagesSnapshotEvent extends AgUiBaseEvent {
   /** 判别字段。 */
   readonly type: 'MESSAGES_SNAPSHOT';
-  /** 消息列表。 */
+  /** 消息列表（AG-UI Message 对象，原样透传）。 */
   readonly messages: readonly unknown[];
+}
+
+/** ACTIVITY_SNAPSHOT：结构化活动（工具执行 / 子代理）的完整快照。 */
+export interface AgUiActivitySnapshotEvent extends AgUiBaseEvent {
+  /** 判别字段。 */
+  readonly type: 'ACTIVITY_SNAPSHOT';
+  /** 活动消息 id（与文本/思考消息 id 空间互斥）。 */
+  readonly messageId: string;
+  /** 活动类型（本适配层使用 `TOOL_CALL` / `SUBAGENT`）。 */
+  readonly activityType: string;
+  /** 活动内容对象（status / toolCallId / name 等）。 */
+  readonly content: Readonly<Record<string, unknown>>;
+  /** 是否替换同 id 的既有活动（缺省 true，符合 AG-UI 语义）。 */
+  readonly replace?: boolean;
+}
+
+/** ACTIVITY_DELTA：对既有活动应用 JSON Patch 增量。 */
+export interface AgUiActivityDeltaEvent extends AgUiBaseEvent {
+  /** 判别字段。 */
+  readonly type: 'ACTIVITY_DELTA';
+  /** 目标活动消息 id（与对应快照一致）。 */
+  readonly messageId: string;
+  /** 活动类型（与最近一次快照一致）。 */
+  readonly activityType: string;
+  /** RFC 6902 补丁（应用到活动 content 上）。 */
+  readonly patch: readonly AgUiJsonPatchOperation[];
 }
 
 /** REASONING_MESSAGE_START：思考消息开始。 */
@@ -216,6 +332,8 @@ export type AgUiEvent =
   | AgUiRunStartedEvent
   | AgUiRunFinishedEvent
   | AgUiRunErrorEvent
+  | AgUiStepStartedEvent
+  | AgUiStepFinishedEvent
   | AgUiTextMessageStartEvent
   | AgUiTextMessageContentEvent
   | AgUiTextMessageEndEvent
@@ -226,6 +344,8 @@ export type AgUiEvent =
   | AgUiStateSnapshotEvent
   | AgUiStateDeltaEvent
   | AgUiMessagesSnapshotEvent
+  | AgUiActivitySnapshotEvent
+  | AgUiActivityDeltaEvent
   | AgUiReasoningStartEvent
   | AgUiReasoningContentEvent
   | AgUiReasoningEndEvent
@@ -238,7 +358,12 @@ export interface AgUiRunInput {
   readonly threadId?: string;
   /** 本次 run id（缺省由服务端生成）。 */
   readonly runId?: string;
-  /** 历史消息（本适配层只透传，不解析）。 */
+  /**
+   * 历史消息（AG-UI Message 对象）。
+   *
+   * 非空时作为 `MESSAGES_SNAPSHOT` 在 run 开始时首发（恢复/续跑同样适用）；
+   * 空数组或未提供则**不发**该事件（不伪造空快照）。
+   */
   readonly messages?: readonly unknown[];
   /** 前端状态。 */
   readonly state?: unknown;

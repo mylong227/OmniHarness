@@ -4,6 +4,8 @@
 export type {
   A2aArtifact,
   A2aAgentCard,
+  A2aAgentCardSignature,
+  A2aAuthChallenge,
   A2aCapability,
   A2aCapabilityDeclaration,
   A2aDataPart,
@@ -51,9 +53,22 @@ export {
   A2A_TASKS_SUBSCRIBE,
 } from './a2aProtocol.ts';
 export { A2aProtocolError } from './a2aProtocolError.ts';
+export {
+  A2aAgentCardSigner,
+  type A2aAgentCardKeyResolver,
+  type A2aAgentCardSignerOptions,
+  type A2aAgentCardSigningKey,
+  type A2aAgentCardVerification,
+} from './a2aAgentCardSigner.ts';
+export {
+  A2aTaskPager,
+  type A2aTaskPage,
+  type A2aTaskPageQuery,
+  type A2aTaskPagerOptions,
+} from './a2aTaskPager.ts';
 export { A2aClient } from './a2aClient.ts';
 export { A2aPushNotifications } from './a2aPushNotifications.ts';
-export { A2aServer, type TaskHandler } from './a2aServer.ts';
+export { A2aServer, type A2aServerOptions, type TaskHandler } from './a2aServer.ts';
 export { A2aTaskStore, type A2aTaskEvent, type A2aTaskPatch } from './a2aTaskStore.ts';
 export { A2aV1Methods, type A2aStreamResponder } from './a2aV1Methods.ts';
 export { A2aTaskExecutor } from './a2aTaskExecutor.ts';

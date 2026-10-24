@@ -44,11 +44,31 @@ import {
 } from './a2aProtocol.ts';
 import { A2aProtocolError } from './a2aProtocolError.ts';
 import { A2aTaskStore } from './a2aTaskStore.ts';
+import type { A2aTaskPager } from './a2aTaskPager.ts';
 import { A2aPushNotifications } from './a2aPushNotifications.ts';
 import { A2aV1Methods } from './a2aV1Methods.ts';
+import type { A2aAgentCardSigner } from './a2aAgentCardSigner.ts';
 import type { TaskHandler } from './a2aTaskHandler.ts';
 
 export type { TaskHandler } from './a2aTaskHandler.ts';
+
+/** A2aServer 可选依赖（构造期一次性装配；也可用对应 setter 后置注入）。 */
+export interface A2aServerOptions {
+  /**
+   * `tasks/list` 分页器（缺省进程内随机 HMAC 密钥：重启后旧 `pageToken` 全部失效，fail-closed）。
+   *
+   * 生产多实例部署应注入**同一**密钥（`OMNI_A2A_PAGE_TOKEN_SECRET` 或显式传入），
+   * 否则请求被负载均衡到另一实例时会拿到「token 非法」。
+   */
+  readonly pager?: A2aTaskPager;
+  /**
+   * AgentCard JWS 签名器（等价于 {@link A2aServer.setAgentCardSigner}）。
+   *
+   * **未注入即不签名**：取卡方法与 well-known 只会返回没有 `signatures` 的卡，
+   * 绝不伪造「看似已签」的空签名。
+   */
+  readonly cardSigner?: A2aAgentCardSigner;
+}
 
 /** 断言头的 `AgentAssertion ` 前缀（`AgentIdentityPort.authorizationHeader()` 的直接产物形态）。 */
 const ASSERTION_PREFIX = 'AgentAssertion ';
@@ -86,6 +106,8 @@ export class A2aServer {
   private readonly declarations = new Map<string, A2aCapabilityDeclaration>();
   /** A2A v1.0 AgentCard（可选；未设置时取卡方法 fail-closed）。 */
   private card: A2aAgentCard | undefined;
+  /** AgentCard JWS 签名器（未设置时取卡返回未签名卡——不伪造签名）。 */
+  private signer: A2aAgentCardSigner | undefined;
   /** 任务表（状态机 + 流事件）。 */
   private readonly tasks = new A2aTaskStore();
   /** push notification 配置与投递。 */
@@ -96,15 +118,19 @@ export class A2aServer {
   /**
    * @param transport 底层传输端口（监听入站 JSON-RPC 并回写响应）。
    * @param identity 可选的 Agent 身份端口；提供时对受保护请求强制 fail-closed 验签。
+   * @param options 可选的分页器与 AgentCard 签名器。
    */
   public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
+    options: A2aServerOptions = {},
   ) {
+    this.signer = options.cardSigner;
     this.v1 = new A2aV1Methods({
       tasks: this.tasks,
       push: this.push,
       handler: () => this.handler,
+      ...(options.pager !== undefined ? { pager: options.pager } : {}),
     });
     this.transport.onMessage((message) => void this.onMessage(message));
   }
@@ -125,6 +151,31 @@ export class A2aServer {
    */
   public setAgentCard(card: A2aAgentCard): void {
     this.card = card;
+  }
+
+  /**
+   * 注入/替换 AgentCard JWS 签名器（不传即为不签名）。
+   *
+   * 无签名器时 {@link getAgentCard} 返回**未签名**卡；绝不产出空签名。
+   * @param signer 签名器（未配置私钥时调用方不应构造它）。
+   * @returns 无返回值。
+   */
+  public setAgentCardSigner(signer: A2aAgentCardSigner): void {
+    this.signer = signer;
+  }
+
+  /**
+   * 取当前对外的 AgentCard（配置签名器时返回签名卡，否则返回原卡）。
+   *
+   * well-known 路由也走这里，保证「JSON-RPC 取卡」与「HTTP 发现」两份卡内容一致且同源。
+   * @returns AgentCard 快照；未配置时抛 `ExtendedCardNotConfigured`。
+   */
+  public async getAgentCard(): Promise<A2aAgentCard> {
+    if (this.card === undefined) {
+      throw new A2aProtocolError('未配置 AgentCard', A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED);
+    }
+    if (this.signer === undefined) return this.card;
+    return await this.signer.sign(this.card);
   }
 
   /**
@@ -289,12 +340,9 @@ export class A2aServer {
       case A2A_PUSH_DELETE:
         return this.v1.pushDelete(params);
       case A2A_AGENT_GET_CARD:
-        if (this.card === undefined) {
-          throw new A2aProtocolError('未配置 AgentCard', A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED);
-        }
-        return this.card;
+        return await this.getAgentCard();
       case A2A_AGENT_GET_AUTHENTICATED_CARD:
-        return this.authenticatedCard();
+        return await this.authenticatedCard();
       default:
         throw new A2aProtocolError(`未知方法: ${method}`, A2A_ERROR_METHOD_NOT_FOUND);
     }
@@ -302,25 +350,23 @@ export class A2aServer {
 
   /**
    * 取认证后的扩展 AgentCard（必须声明 `capabilities.extendedAgentCard` 且配置了身份）。
-   * @returns 扩展 AgentCard。
+   * @returns 扩展 AgentCard（配置签名器时带 JWS `signatures`）。
    */
-  private authenticatedCard(): A2aAgentCard {
-    if (this.card === undefined) {
-      throw new A2aProtocolError('未配置 AgentCard', A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED);
-    }
+  private async authenticatedCard(): Promise<A2aAgentCard> {
+    const card = await this.getAgentCard();
     if (this.identity === undefined) {
       throw new A2aProtocolError(
         'UNAUTHORIZED: 未配置身份，无法提供认证扩展卡',
         A2A_ERROR_UNAUTHORIZED,
       );
     }
-    if (this.card.capabilities?.extendedAgentCard !== true) {
+    if (card.capabilities?.extendedAgentCard !== true) {
       throw new A2aProtocolError(
         '未声明 capabilities.extendedAgentCard',
         A2A_ERROR_EXTENDED_CARD_NOT_CONFIGURED,
       );
     }
-    return this.card;
+    return card;
   }
 
   /**

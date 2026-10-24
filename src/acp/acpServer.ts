@@ -1,18 +1,23 @@
 import type { RpcMessage } from '../server/core/jsonRpc.ts';
 import { jsonRpc } from '../server/core/jsonRpc.ts';
-import { Id } from '../util/id.ts';
 import { API_VERSION } from '../version.ts';
 import { PendingRequests } from '../util/concurrency/pendingRequests.ts';
 import type { EventPort } from '../ports/runtime/eventPort.ts';
 import type { ApprovalPort, ApprovalDecision } from '../ports/runtime/approval.ts';
 import type { ApprovalRequest } from '../ports/runtime/approval.ts';
 import { MUTATING_TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import { AcpAuthentication } from './acpAuthentication.ts';
+import type { AcpAuthenticator } from './acpAuthenticator.ts';
+import type { AcpSessionFactory } from './agentAcpSession.ts';
 import { AcpEventMapper } from './acpEventMapper.ts';
 import { AcpRequestError } from './acpRequestError.ts';
+import { AcpSessionLifecycle } from './acpSessionLifecycle.ts';
+import { AcpSessionRegistry } from './acpSessionRegistry.ts';
+import type { AcpSessionState } from './acpSessionRegistry.ts';
 import { AcpValidation } from './acpValidation.ts';
-import type { AcpSessionFactory, AcpSessionRuntime } from './agentAcpSession.ts';
 import type { AcpTransport } from './acpStdioTransport.ts';
 import type {
+  AcpAgentCapabilities,
   AcpContentBlock,
   AcpImplementation,
   AcpPermissionMode,
@@ -20,18 +25,24 @@ import type {
   AcpPermissionRequest,
   AcpPermissionResponse,
   AcpPromptResponse,
+  AcpSessionUpdate,
 } from './acpProtocol.ts';
 import {
   ACP_ERROR_INTERNAL,
   ACP_ERROR_INVALID_PARAMS,
   ACP_ERROR_INVALID_REQUEST,
   ACP_ERROR_METHOD_NOT_FOUND,
+  ACP_METHOD_AUTHENTICATE,
   ACP_METHOD_INITIALIZE,
+  ACP_METHOD_LOGOUT,
   ACP_METHOD_REQUEST_PERMISSION,
   ACP_METHOD_SESSION_CANCEL,
+  ACP_METHOD_SESSION_CLOSE,
+  ACP_METHOD_SESSION_LIST,
   ACP_METHOD_SESSION_LOAD,
   ACP_METHOD_SESSION_NEW,
   ACP_METHOD_SESSION_PROMPT,
+  ACP_METHOD_SESSION_RESUME,
   ACP_METHOD_SESSION_UPDATE,
   ACP_PROTOCOL_VERSION,
 } from './acpProtocol.ts';
@@ -54,68 +65,83 @@ export interface AcpServerOptions {
   readonly permissionTimeoutMs?: number;
   /** 上报给 Client 的实现信息。 */
   readonly agentInfo?: AcpImplementation;
+  /** 认证端口（缺省不注入 = 不提供认证方式，authenticate 一律拒绝）。 */
+  readonly authenticator?: AcpAuthenticator;
+  /** 是否要求先 authenticate 才能创建会话 / 跑 prompt / 列出会话（默认 false，保持兼容）。 */
+  readonly requireAuth?: boolean;
 }
 
-/** 一条活跃会话的运行时状态。 */
-interface AcpSessionState {
-  /** 会话 id。 */
-  readonly id: string;
-  /** 工作目录。 */
-  readonly cwd: string;
-  /** 运行时（真实 Agent 或测试替身）。 */
-  readonly runtime: AcpSessionRuntime;
-  /** 事件 → ACP 更新映射器。 */
-  readonly mapper: AcpEventMapper;
-  /** 本轮是否收到过 session/cancel。 */
-  cancelRequested: boolean;
-  /** 是否有 prompt 回合在跑。 */
-  busy: boolean;
+/** 归一化后的服务端依赖（缺省值在构造期一次填好，避免每个方法都做 `??`）。 */
+interface NormalizedAcpServerOptions {
+  /** 传输。 */
+  readonly transport: AcpTransport;
+  /** 会话工厂。 */
+  readonly sessionFactory: AcpSessionFactory;
+  /** 权限策略。 */
+  readonly permissionMode: AcpPermissionMode;
+  /** 权限等待上限（毫秒）。 */
+  readonly permissionTimeoutMs: number;
+  /** 实现信息。 */
+  readonly agentInfo: AcpImplementation;
 }
 
 /**
  * ACP v1 Agent 服务端（JSON-RPC over stdio）。
  *
- * 覆盖：initialize（版本/能力）、session/new|load|prompt、session/cancel、
+ * 覆盖：initialize（版本/能力/认证方式）、authenticate/logout、
+ * session/new|load|list|resume|close|prompt、session/cancel、
  * session/update（文本/思考/工具调用/计划）、session/request_permission（权限请求/响应）。
- * 运行时映射见 `AgentAcpSession`：会话 id 直接复用 Agent 会话 id。
+ * 认证与会话生命周期分别见 `AcpAuthentication` / `AcpSessionLifecycle`。
  */
 export class AcpServer {
-  /** 传输端口。 */
-  private readonly transport: AcpTransport;
-  /** 会话工厂。 */
-  private readonly sessionFactory: AcpSessionFactory;
-  /** 权限策略。 */
-  private readonly permissionMode: AcpPermissionMode;
-  /** 权限等待上限（毫秒；0 = 不限时）。 */
-  private readonly permissionTimeoutMs: number;
-  /** Agent 实现信息。 */
-  private readonly agentInfo: AcpImplementation;
-  /** 活跃会话表。 */
-  private readonly sessions = new Map<string, AcpSessionState>();
+  /** 归一化依赖。 */
+  private readonly deps: NormalizedAcpServerOptions;
+  /** 认证状态。 */
+  private readonly auth: AcpAuthentication;
+  /** 活跃会话表与生命周期簿记。 */
+  private readonly registry = new AcpSessionRegistry();
+  /** 会话生命周期方法集（new/load/list/resume/close）。 */
+  private readonly lifecycle: AcpSessionLifecycle;
   /** 在途的 Client 请求（权限请求 id → 结果）。 */
   private readonly pending = new PendingRequests<number, AcpPermissionOutcome>();
-  /** 会话 → 该会话挂起的权限请求 id（取消时逐一收尾）。 */
-  private readonly permissionIds = new Map<string, Set<number>>();
   /** 会话级可变状态（能力/请求 id/关闭位合并，避免字段数膨胀）。 */
-  private readonly state = {
-    clientCapabilities: {} as Record<string, unknown>,
+  private readonly state: {
+    clientCapabilities: Record<string, unknown>;
+    nextRequestId: number;
+    closed: boolean;
+  } = {
+    clientCapabilities: {},
     nextRequestId: 1,
     closed: false,
   };
 
   /**
-   * @param options 传输、会话工厂与权限策略。
+   * @param options 传输、会话工厂、权限策略与可选认证端口。
    */
   public constructor(options: AcpServerOptions) {
-    this.transport = options.transport;
-    this.sessionFactory = options.sessionFactory;
-    this.permissionMode = options.permissionMode ?? 'client';
-    this.permissionTimeoutMs = options.permissionTimeoutMs ?? DEFAULT_PERMISSION_TIMEOUT_MS;
-    this.agentInfo = options.agentInfo ?? {
-      name: 'omniharness',
-      title: 'OmniHarness',
-      version: API_VERSION,
+    this.deps = {
+      transport: options.transport,
+      sessionFactory: options.sessionFactory,
+      permissionMode: options.permissionMode ?? 'client',
+      permissionTimeoutMs: options.permissionTimeoutMs ?? DEFAULT_PERMISSION_TIMEOUT_MS,
+      agentInfo: options.agentInfo ?? {
+        name: 'omniharness',
+        title: 'OmniHarness',
+        version: API_VERSION,
+      },
     };
+    this.auth = new AcpAuthentication(
+      options.authenticator,
+      options.requireAuth ?? false,
+      this.registry,
+    );
+    this.lifecycle = new AcpSessionLifecycle({
+      registry: this.registry,
+      auth: this.auth,
+      openSession: (sessionId, cwd) => this.openSession(sessionId, cwd),
+      sendUpdate: (sessionId, update) => this.sendUpdate(sessionId, update),
+      settlePermissions: (permissionIds) => this.settlePermissions(permissionIds),
+    });
   }
 
   /**
@@ -123,28 +149,28 @@ export class AcpServer {
    * @returns 传输关闭时 resolve。
    */
   public async run(): Promise<void> {
-    this.transport.onMessage((message) => void this.onMessage(message));
+    this.deps.transport.onMessage((message) => void this.onMessage(message));
     await new Promise<void>((resolve) => {
       const finish = (): void => {
         this.state.closed = true;
         this.pending.settleAll({ outcome: 'cancelled' });
-        for (const ids of this.permissionIds.values()) ids.clear();
-        this.permissionIds.clear();
+        this.registry.shutdown((ids) => this.settlePermissions(ids));
         resolve();
       };
-      if (this.transport.onClose === undefined) return;
-      this.transport.onClose(finish);
+      if (this.deps.transport.onClose === undefined) return;
+      this.deps.transport.onClose(finish);
     });
   }
 
   /**
-   * 关闭服务（主动断开传输并收尾挂起请求）。
+   * 关闭服务（主动断开传输并收尾挂起请求与活跃会话）。
    * @returns 无返回值。
    */
   public close(): void {
     this.state.closed = true;
     this.pending.settleAll({ outcome: 'cancelled' });
-    this.transport.close?.();
+    this.registry.shutdown((ids) => this.settlePermissions(ids));
+    this.deps.transport.close?.();
   }
 
   /**
@@ -184,10 +210,20 @@ export class AcpServer {
     switch (method) {
       case ACP_METHOD_INITIALIZE:
         return this.initialize(params);
+      case ACP_METHOD_AUTHENTICATE:
+        return await this.auth.authenticate(params);
+      case ACP_METHOD_LOGOUT:
+        return this.auth.logout();
       case ACP_METHOD_SESSION_NEW:
-        return await this.newSession(params);
+        return await this.lifecycle.newSession(params);
       case ACP_METHOD_SESSION_LOAD:
-        return await this.loadSession(params);
+        return await this.lifecycle.loadSession(params);
+      case ACP_METHOD_SESSION_LIST:
+        return this.lifecycle.listSessions(params);
+      case ACP_METHOD_SESSION_RESUME:
+        return await this.lifecycle.resumeSession(params);
+      case ACP_METHOD_SESSION_CLOSE:
+        return this.lifecycle.closeSession(params);
       case ACP_METHOD_SESSION_PROMPT:
         return await this.promptSession(params);
       default:
@@ -196,7 +232,7 @@ export class AcpServer {
   }
 
   /**
-   * initialize：协商协议版本并声明能力（loadSession / promptCapabilities / MCP 传输）。
+   * initialize：协商协议版本并声明能力（会话生命周期 / 认证方式 / prompt / MCP 传输）。
    * @param params 请求参数（protocolVersion 必填）。
    * @returns initialize 响应。
    */
@@ -207,53 +243,19 @@ export class AcpServer {
       throw new AcpRequestError('initialize 缺少整数 protocolVersion', ACP_ERROR_INVALID_PARAMS);
     }
     this.state.clientCapabilities = AcpValidation.recordOf(record['clientCapabilities']);
+    const capabilities: AcpAgentCapabilities = {
+      loadSession: true,
+      promptCapabilities: { image: false, audio: false, embeddedContext: true },
+      mcpCapabilities: { http: false, sse: false },
+      sessionCapabilities: { list: {}, resume: {}, close: {} },
+      ...(this.auth.hasMethods() ? { auth: { logout: {} } } : {}),
+    };
     return {
       protocolVersion: ACP_PROTOCOL_VERSION,
-      agentCapabilities: {
-        loadSession: true,
-        promptCapabilities: { image: false, audio: false, embeddedContext: true },
-        mcpCapabilities: { http: false, sse: false },
-        sessionCapabilities: {},
-      },
-      agentInfo: this.agentInfo,
-      authMethods: [],
+      agentCapabilities: capabilities,
+      agentInfo: this.deps.agentInfo,
+      authMethods: this.auth.methods(),
     };
-  }
-
-  /**
-   * session/new：按 Client 给出的 cwd 创建独立会话。
-   * @param params 请求参数（cwd 必须是绝对路径）。
-   * @returns `{ sessionId }`。
-   */
-  private async newSession(params: unknown): Promise<unknown> {
-    const record = AcpValidation.recordOf(params);
-    const cwd = AcpValidation.requireAbsoluteCwd(record);
-    const sessionId = Id.id('sess');
-    const state = await this.openSession(sessionId, cwd);
-    return { sessionId: state.id };
-  }
-
-  /**
-   * session/load：创建（或复用）会话运行时并回放历史事件。
-   * @param params 请求参数（sessionId / cwd）。
-   * @returns 空对象。
-   */
-  private async loadSession(params: unknown): Promise<unknown> {
-    const record = AcpValidation.recordOf(params);
-    const sessionId = AcpValidation.requireString(record, 'sessionId');
-    const cwd = AcpValidation.requireAbsoluteCwd(record);
-    const existing = this.sessions.get(sessionId);
-    const state = existing ?? (await this.openSession(sessionId, cwd));
-    const events = await state.runtime.load();
-    for (const event of events) {
-      for (const update of state.mapper.map(event, { replay: true })) {
-        if (!this.state.closed)
-          this.transport.send(
-            jsonRpc.notify(ACP_METHOD_SESSION_UPDATE, { sessionId: state.id, update }),
-          );
-      }
-    }
-    return {};
   }
 
   /**
@@ -262,12 +264,16 @@ export class AcpServer {
    * @returns `{ stopReason }`。
    */
   private async promptSession(params: unknown): Promise<AcpPromptResponse> {
+    this.auth.require();
     const record = AcpValidation.recordOf(params);
-    const state = this.requireSession(record);
+    const sessionId = AcpValidation.requireString(record, 'sessionId');
+    const state = this.registry.require(sessionId);
     if (state.busy) {
       throw new AcpRequestError(`会话 ${state.id} 已有回合在跑`, ACP_ERROR_INVALID_REQUEST);
     }
     const prompt = AcpValidation.promptTextOf(record['prompt']);
+    const firstLine = prompt.split('\n', 1)[0] ?? '';
+    this.registry.setTitle(state, firstLine);
     state.cancelRequested = false;
     state.busy = true;
     try {
@@ -281,25 +287,28 @@ export class AcpServer {
       );
     } finally {
       state.busy = false;
+      this.registry.touch(state);
     }
   }
 
   /**
    * session/cancel（通知）：标记本轮取消、中止运行时，并把挂起的权限请求按 cancelled 收尾。
+   *
+   * 对已 close / 未知会话**幂等**（通知没有响应，直接忽略即可）。
    * @param params 请求参数（sessionId）。
    * @returns 无返回值。
    */
   private cancelSession(params: unknown): void {
     const record = AcpValidation.recordOf(params);
     const sessionId = typeof record['sessionId'] === 'string' ? record['sessionId'] : '';
-    const state = this.sessions.get(sessionId);
+    const state = this.registry.get(sessionId);
     if (state === undefined) return;
     state.cancelRequested = true;
     state.runtime.cancel();
-    for (const id of this.permissionIds.get(sessionId) ?? []) {
-      this.pending.settle(id, { outcome: 'cancelled' });
+    for (const permissionId of this.registry.permissionIdsOf(sessionId)) {
+      this.pending.settle(permissionId, { outcome: 'cancelled' });
+      this.registry.removePermissionId(sessionId, permissionId);
     }
-    this.permissionIds.delete(sessionId);
   }
 
   /**
@@ -309,12 +318,14 @@ export class AcpServer {
    * @returns 已登记的会话状态。
    */
   private async openSession(sessionId: string, cwd: string): Promise<AcpSessionState> {
-    const runtime = await this.sessionFactory({
+    const identity = this.auth.currentIdentity();
+    const runtime = await this.deps.sessionFactory({
       sessionId,
       cwd,
       events: this.eventPortFor(sessionId),
       approvals: this.approvalPortFor(sessionId),
       clientCapabilities: this.state.clientCapabilities,
+      ...(identity !== undefined ? { identity } : {}),
     });
     const state: AcpSessionState = {
       id: sessionId,
@@ -323,8 +334,10 @@ export class AcpServer {
       mapper: new AcpEventMapper(),
       cancelRequested: false,
       busy: false,
+      updatedAt: new Date().toISOString(),
+      ...(identity !== undefined ? { identity } : {}),
     };
-    this.sessions.set(sessionId, state);
+    this.registry.add(state);
     return state;
   }
 
@@ -337,17 +350,22 @@ export class AcpServer {
     return {
       name: 'acp',
       emit: (event) => {
-        const state = this.sessions.get(sessionId);
-        if (state !== undefined) {
-          for (const update of state.mapper.map(event)) {
-            if (!this.state.closed)
-              this.transport.send(
-                jsonRpc.notify(ACP_METHOD_SESSION_UPDATE, { sessionId: state.id, update }),
-              );
-          }
-        }
+        const state = this.registry.get(sessionId);
+        if (state === undefined) return;
+        for (const update of state.mapper.map(event)) this.sendUpdate(sessionId, update);
       },
     };
+  }
+
+  /**
+   * 推送一条 session/update 通知（关闭后静默丢弃）。
+   * @param sessionId 会话 id。
+   * @param update 会话更新。
+   * @returns 无返回值。
+   */
+  private sendUpdate(sessionId: string, update: AcpSessionUpdate): void {
+    if (this.state.closed) return;
+    this.deps.transport.send(jsonRpc.notify(ACP_METHOD_SESSION_UPDATE, { sessionId, update }));
   }
 
   /**
@@ -359,7 +377,7 @@ export class AcpServer {
     return {
       name: 'acp',
       decide: async (request: ApprovalRequest): Promise<ApprovalDecision> => {
-        if (this.permissionMode === 'auto') return 'allow';
+        if (this.deps.permissionMode === 'auto') return 'allow';
         if (!ACP_MUTATING.has(request.toolName)) return 'allow';
         return this.requestPermission(sessionId, request);
       },
@@ -393,27 +411,24 @@ export class AcpServer {
         { optionId: 'reject-always', name: '总是拒绝', kind: 'reject_always' },
       ],
     };
-    const ids = this.permissionIds.get(sessionId) ?? new Set<number>();
-    ids.add(id);
-    this.permissionIds.set(sessionId, ids);
+    this.registry.addPermissionId(sessionId, id);
     const outcome = await new Promise<AcpPermissionOutcome>((resolve) => {
       const timeout =
-        this.permissionTimeoutMs > 0
+        this.deps.permissionTimeoutMs > 0
           ? {
-              ms: this.permissionTimeoutMs,
+              ms: this.deps.permissionTimeoutMs,
               onTimeout: (handlers: { readonly resolve: (v: AcpPermissionOutcome) => void }) =>
                 handlers.resolve({ outcome: 'cancelled' }),
             }
           : undefined;
       this.pending.register(id, { resolve }, timeout);
-      this.transport.send(
+      this.deps.transport.send(
         jsonRpc.request(id, ACP_METHOD_REQUEST_PERMISSION, {
           ...permission,
         } as unknown as Record<string, unknown>),
       );
     });
-    ids.delete(id);
-    if (ids.size === 0) this.permissionIds.delete(sessionId);
+    this.registry.removePermissionId(sessionId, id);
     return AcpValidation.decisionOf(outcome);
   }
 
@@ -447,21 +462,16 @@ export class AcpServer {
    */
   private send(message: RpcMessage): void {
     if (this.state.closed) return;
-    this.transport.send(message);
+    this.deps.transport.send(message);
   }
 
   /**
-   * 取会话；不存在即非法参数。
-   * @param record 请求参数对象。
-   * @returns 会话状态。
+   * 把一组挂起权限请求按 cancelled 收尾（close / 传输关闭时调用）。
+   * @param permissionIds 权限请求 id 列表。
+   * @returns 无返回值。
    */
-  private requireSession(record: Record<string, unknown>): AcpSessionState {
-    const sessionId = AcpValidation.requireString(record, 'sessionId');
-    const state = this.sessions.get(sessionId);
-    if (state === undefined) {
-      throw new AcpRequestError(`未知会话: ${sessionId}`, ACP_ERROR_INVALID_PARAMS);
-    }
-    return state;
+  private settlePermissions(permissionIds: readonly number[]): void {
+    for (const id of permissionIds) this.pending.settle(id, { outcome: 'cancelled' });
   }
 }
 

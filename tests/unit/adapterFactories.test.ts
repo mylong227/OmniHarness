@@ -30,6 +30,7 @@ import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatible
 import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
 import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
 import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
+import { GeminiModel } from '../../src/adapters/model/geminiModel.ts';
 import { MODEL_ADAPTERS } from '../../src/cli/cliEnums.ts';
 import { storageFactory, DEFAULT_SQLITE_FILE } from '../../src/cli/storageFactory.ts';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
@@ -121,11 +122,18 @@ test('③ 厂商探测与模型路由都按表构造出正确类', () => {
     llamacpp: modelAdapterRegistry
       .get('llamacpp')
       ?.create({ baseUrl: 'http://localhost:11434', model: 'llama3' }),
+    gemini: modelAdapterRegistry.get('gemini')?.create({
+      baseUrl: 'https://gemini.test/v1beta',
+      apiKey: 'test-key',
+      model: 'gemini-2.5-flash',
+    }),
   };
   assert.ok(built.openai instanceof OpenAiCompatibleModel);
   assert.ok(built.anthropic instanceof AnthropicModel);
   assert.ok(built.responses instanceof ResponsesModel);
   assert.ok(built.llamacpp instanceof LlamaCppModel);
+  assert.ok(built.gemini instanceof GeminiModel);
+  assert.strictEqual(built.gemini?.name, 'gemini');
 });
 
 test('④ 存储工厂：后端选择与缺省落盘路径（单一实现来源）', async () => {
@@ -156,7 +164,7 @@ test('④ 存储工厂：后端选择与缺省落盘路径（单一实现来源�
 test('⑤ 构造守卫：模型适配器的 new 只允许出现在注册表里', () => {
   const offenders: string[] = [];
   const pattern =
-    /new (?:OpenAiCompatibleModel|AnthropicModel|ResponsesModel|LlamaCppModel|MockModel)\(/;
+    /new (?:OpenAiCompatibleModel|AnthropicModel|ResponsesModel|LlamaCppModel|GeminiModel|MockModel)\(/;
   const allow = new Set(['src/adapters/model/modelAdapterRegistry.ts']);
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir)) {

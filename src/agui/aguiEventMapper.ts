@@ -1,6 +1,10 @@
 import type { SessionEvent } from '../ports/runtime/event.ts';
+import { AgUiActivityMapper } from './aguiActivityMapper.ts';
+import { AgUiJsonPatch } from './aguiJsonPatch.ts';
+import { AgUiStateMapper } from './aguiStateMapper.ts';
 import type {
   AgUiEvent,
+  AgUiMessagesSnapshotEvent,
   AgUiReasoningContentEvent,
   AgUiReasoningEndEvent,
   AgUiReasoningStartEvent,
@@ -27,16 +31,20 @@ export interface AgUiEventMapperOptions {
 /**
  * OmniHarness 会话事件 → AG-UI 事件的映射器（单 run 实例）。
  *
- * 只做「事件翻译」：正文 → `TEXT_MESSAGE_*`，工具 → `TOOL_CALL_*`，计划/待办 → `STATE_SNAPSHOT`，
- * 其余（提问 / 回合 diff / 用量）→ `CUSTOM`。不解析前端状态，也不改现有 SSE/RPC。
+ * 只做「事件翻译」：正文 → `TEXT_MESSAGE_*`，工具 → `TOOL_CALL_*`，计划/待办 → `STATE_SNAPSHOT`
+ * （首个）或 `STATE_DELTA`（后续 JSON Patch），其余（提问 / 回合 diff / 用量）→ `CUSTOM`。
+ * 工具/子代理活动走独立的 {@link activities}（由事件流组合），不改变既有 `map` 的事件序列。
+ * 不解析前端状态，也不改现有 SSE/RPC。
  */
 export class AgUiEventMapper {
   /** 会话线程 id。 */
   private readonly threadId: string;
   /** 本次 run id。 */
   private readonly runId: string;
-  /** 当前状态快照（todos / plan）。 */
-  private readonly state: Record<string, unknown> = {};
+  /** 会话状态映射器（快照 / JSON Patch 增量）。 */
+  private readonly stateMapper: AgUiStateMapper;
+  /** 工具 / 子代理活动映射器。 */
+  private readonly activityMapper: AgUiActivityMapper;
   /** 最近一条助手正文（RUN_FINISHED 的 result.finalText）。 */
   private lastText = '';
   /** 已映射的步数（助手消息 + 工具调用）。 */
@@ -48,6 +56,8 @@ export class AgUiEventMapper {
   public constructor(options: AgUiEventMapperOptions) {
     this.threadId = options.threadId;
     this.runId = options.runId;
+    this.stateMapper = new AgUiStateMapper(new AgUiJsonPatch());
+    this.activityMapper = new AgUiActivityMapper();
   }
 
   /**
@@ -111,9 +121,9 @@ export class AgUiEventMapper {
       case 'tool_result':
         return this.toolResultEvents(payload);
       case 'todo':
-        return this.stateEvents('todos', payload['todos']);
+        return this.stateMapper.update('todos', payload['todos']);
       case 'plan':
-        return this.stateEvents('plan', payload);
+        return this.stateMapper.update('plan', payload);
       case 'question':
         return [this.custom('question', payload)];
       case 'turn_diff':
@@ -204,20 +214,44 @@ export class AgUiEventMapper {
   }
 
   /**
-   * 计划/待办 → STATE_SNAPSHOT（状态对象累积后整份下发）。
-   * @param key 状态键（todos / plan）。
-   * @param value 状态值。
-   * @returns AG-UI 事件序列。
+   * 工具 / 子代理进展 → ACTIVITY_*（与 `map` 分开，保持既有事件序列不变）。
+   * @param event 会话事件。
+   * @returns 活动事件序列；无活动语义时为空数组。
    */
-  private stateEvents(key: string, value: unknown): readonly AgUiEvent[] {
-    this.state[key] = value;
-    return [
-      {
-        type: 'STATE_SNAPSHOT',
-        snapshot: { ...this.state },
-        timestamp: Date.now(),
-      },
-    ];
+  public activities(event: SessionEvent): readonly AgUiEvent[] {
+    return this.activityMapper.eventsFor(event);
+  }
+
+  /**
+   * 整份会话状态变化 → STATE_SNAPSHOT（首个）或 STATE_DELTA（JSON Patch）。
+   *
+   * 这是状态增量的显式入口：调用方明确知道某个键被清除时可传完整状态，
+   * 补丁生成器会产出 `remove` 操作；状态未变化时返回空数组（不发空 delta）。
+   * @param next 完整的新状态。
+   * @returns 状态事件序列；无变化时为空数组。
+   */
+  public mapState(next: Readonly<Record<string, unknown>>): readonly AgUiEvent[] {
+    return this.stateMapper.replace(next);
+  }
+
+  /**
+   * run 开始 / 恢复时的消息快照（`MESSAGES_SNAPSHOT`）。
+   *
+   * 只在调用方确实持有历史消息且非空时发送；没有历史消息就不发，
+   * 避免用空快照覆盖前端已有的消息。
+   * @param messages AG-UI Message 对象列表（可缺省）。
+   * @returns 单条 MESSAGES_SNAPSHOT；无消息时为空数组。
+   */
+  public messagesSnapshot(messages?: readonly unknown[]): readonly AgUiEvent[] {
+    if (messages === undefined || messages.length === 0) {
+      return [];
+    }
+    const snapshot: AgUiMessagesSnapshotEvent = {
+      type: 'MESSAGES_SNAPSHOT',
+      messages: [...messages],
+      timestamp: Date.now(),
+    };
+    return [snapshot];
   }
 
   /**

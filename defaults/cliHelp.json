@@ -18,8 +18,8 @@
       "description": "启动 HTTP UI 服务（--port N，--auto-approve 跳过审批弹窗）"
     },
     {
-      "usage": "omniharness mcp serve",
-      "description": "以 stdio 暴露本地工具集（MCP 服务器，供第三方客户端调用）"
+      "usage": "omniharness mcp serve [--mcp-http-port N] [--mcp-http-host H] [--mcp-http-path P]",
+      "description": "暴露本地工具集（默认 stdio；给 --mcp-http-port 则走 Streamable HTTP）"
     },
     {
       "usage": "omniharness mcp list --server NAME=CMD",

@@ -44,7 +44,16 @@ export const A2A_AGENT_GET_CARD = 'agent/getCard';
 /** A2A v1.0：取认证后的扩展 AgentCard。 */
 export const A2A_AGENT_GET_AUTHENTICATED_CARD = 'agent/getAuthenticatedExtendedCard';
 
-/** A2A v1.0 Task 状态（取小写枚举名，兼容本仓既有 v1 实现与历史测试）。 */
+/**
+ * A2A v1.0 Task 状态（取小写枚举名，兼容本仓既有 v1 实现与历史测试）。
+ *
+ * 与规范枚举名的映射（JSON-RPC 绑定，规范 §4.1.3 / §5.5）：
+ * - `auth_required` = `TASK_STATE_AUTH_REQUIRED`（0.x 写作 `auth-required`）；
+ * - `input_required` = `TASK_STATE_INPUT_REQUIRED`（0.x 写作 `input-required`）。
+ *
+ * `auth_required` 与 `input_required` 都是**非终态**：任务仍可被 `tasks/get` 查询、
+ * 被 `tasks/cancel` 取消，并可通过携带凭据的 `message/send` 续跑（§7.6 in-task authorization）。
+ */
 export type A2aTaskState =
   | 'submitted'
   | 'working'
@@ -146,6 +155,13 @@ export interface A2aTask {
   readonly artifacts?: readonly A2aArtifact[];
   /** 历史消息（可选，本端暂不填充）。 */
   readonly history?: readonly A2aMessage[];
+  /**
+   * 任务级元数据（规范 §4.1.1 `metadata`）。
+   *
+   * 本仓用它承载**任务内认证请求**：任务落到 `auth_required` 时写入
+   * `{ authChallenge: A2aAuthChallenge }`，凭据被接受并续跑后该键被移除。
+   */
+  readonly metadata?: Record<string, unknown>;
   /** 失败原因（兼容最小实现）。 */
   readonly error?: string;
 }
@@ -180,6 +196,21 @@ export type A2aStreamResponse =
   | { readonly statusUpdate: A2aTaskStatusUpdateEvent }
   | { readonly artifactUpdate: A2aTaskArtifactUpdateEvent };
 
+/**
+ * AgentCard 的 JWS 签名条目（规范 §4.4.7 `AgentCardSignature`）。
+ *
+ * 字段语义与 RFC 7515 的「分离载荷」一致：`signature` 对
+ * `ASCII(protected ‖ "." ‖ BASE64URL(UTF8(规范化卡片正文)))` 签名——正文本身不重复携带。
+ */
+export interface A2aAgentCardSignature {
+  /** base64url(JSON) 的 JWS Protected Header（至少含 `alg` 与 `kid`，可选 `typ` / `jku` / `exp`）。 */
+  readonly protected: string;
+  /** base64url 的签名值。 */
+  readonly signature: string;
+  /** 可选的 JWS Unprotected Header（明文 JSON，**不参与**签名）。 */
+  readonly header?: Record<string, unknown>;
+}
+
 /** A2A v1.0 AgentCard（互操作面按需扩展）。 */
 export interface A2aAgentCard {
   /** Agent 名称。 */
@@ -213,6 +244,13 @@ export interface A2aAgentCard {
   readonly securitySchemes?: Readonly<Record<string, unknown>>;
   /** 认证要求（方案名 → scope 列表）。 */
   readonly security?: readonly Readonly<Record<string, readonly string[]>>[];
+  /**
+   * JWS 签名（规范 §8.4；可选）。
+   *
+   * **缺省即未签名**：客户端不得把「没有 signatures」推断成「已认证」。
+   * 本仓只在显式配置了 Ed25519 私钥且开关打开时产出签名（见 `A2aAgentCardSigner`）。
+   */
+  readonly signatures?: readonly A2aAgentCardSignature[];
   /** 技能。 */
   readonly skills?: readonly {
     readonly id: string;
@@ -221,6 +259,26 @@ export interface A2aAgentCard {
     readonly tags?: readonly string[];
     readonly examples?: readonly string[];
   }[];
+}
+
+/**
+ * 任务内认证请求（规范 §7.6 in-task authorization）。
+ *
+ * 由任务执行器在「继续执行需要凭据」时返回（`DelegateResult.authRequired`）；服务端把任务
+ * 落到 `auth_required`，并把本结构放进 `status.message.metadata.authChallenge` 与
+ * 任务级 `metadata.authChallenge`——客户端据此取凭据，再用 `message/send` 续跑。
+ */
+export interface A2aAuthChallenge {
+  /** 需要的认证方案（如 `Bearer` / `AgentAssertion` / `OAuth2`）。 */
+  readonly scheme: string;
+  /** 面向人的说明（为何需要、如何取得凭据）。 */
+  readonly description?: string;
+  /** 完成授权的端点（可选）。 */
+  readonly url?: string;
+  /** 需要的权限范围（可选）。 */
+  readonly scopes?: readonly string[];
+  /** 附加参数（原样透传，供实现自定义语义）。 */
+  readonly metadata?: Record<string, unknown>;
 }
 
 /** push notification 的 Webhook 目标。 */
@@ -297,6 +355,13 @@ export interface DelegateResult {
   readonly error?: string;
   /** 是否被取消（A2A `tasks/cancel`；取消不是失败，v1 映射为 canceled 状态）。 */
   readonly canceled?: boolean;
+  /**
+   * 需要任务内认证（规范 §7.6；**不是失败**）。
+   *
+   * 返回它时 v1 服务端把任务落到 `auth_required` 并带上 challenge，绝不判完成；
+   * 客户端带凭据续跑后执行器再次被调用（凭据经 `DelegateRequest.assertion` 传入）。
+   */
+  readonly authRequired?: A2aAuthChallenge;
 }
 
 /** JSON-RPC 错误码（与 A2A 1.0 规范 §5.4 对齐）。 */

@@ -99,12 +99,21 @@
 - `McpServer` 从 45 成员拆为 **16**：`McpSubscriptionService`（8）、`McpInputRequiredService`（8）、`McpMethodService`（19）；协议行为/错误码/trace/cache/requestState/订阅语义逐字保持；MCP 49 例 + 回归全绿。
 - `ConfigError` 的 `isPlainObject` 移到模块级，解除 501 codeLines 边缘；`temporalFactGraph` 24 成员；`resonantFieldEngine` 保持基线。编码标准增量门禁恢复全绿。
 
-## 9. 门禁结果
+## 9. 协议/模型扩展（第二轮）
+
+- **MCP Streamable HTTP**：新增 `McpHttpServer`（node:http，POST/GET/OPTIONS、1 MiB/读超时、批量、SSE `subscriptions/listen`、头校验 `MCP-Protocol-Version`/`Mcp-Method`/`Mcp-Name`、400/406/408/413/415 映射、`listen()` 端口 0、`close()` 幂等）；`mcp serve --mcp-http-port` 接线，未给端口仍 stdio。19 例。
+- **ACP 生命周期**：`session/close|list|resume`、`authenticate/logout`（注入式 `AcpAuthenticator`，默认拒绝）、close 幂等/取消/权限收尾、closed 墓碑、`requireAuth`；23 例。
+- **A2A 1.0 余项**：AgentCard JWS（Ed25519 + RFC 8785 稳定序列化，无 key 不伪造）、`auth_required` 状态机（无凭据 fail-closed，凭据续跑）、`tasks/list` HMAC 分页与过滤绑定；24 例。
+- **AG-UI 余项**：RFC 6902 `STATE_DELTA`（add/replace/remove）、`ACTIVITY_SNAPSHOT/DELTA`（工具/subagent）、`MESSAGES_SNAPSHOT`；14 例。
+- **Gemini 原生适配器**：`GeminiModel`（generateContent/streamGenerateContent、函数调用、thinkingBudget、usage/cache、错误/超时/取消、API key fail-closed），注册到适配器清单/CLI/端点；22 例。
+- 明确不实现：A2A gRPC/HTTP+JSON 绑定、MCP 官方 tasks/UI 扩展、ACP Client MCP server/fs/terminal 反向调用。
+
+## 10. 门禁结果
 
 | 项目                            | 结果                                            |
 | ------------------------------- | ----------------------------------------------- |
 | `tsc --noEmit`                  | ✅                                              |
-| `npm run check`                 | ✅ 1213 文件零违规                              |
+| `npm run check`                 | ✅ 1229 文件零违规                              |
 | `npm run lint`                  | ✅ 0 warning                                    |
 | `npm run format:check`          | ✅                                              |
 | `npm run arch:gate -- --strict` | ✅ 0 新增                                       |
@@ -112,9 +121,9 @@
 | `npm run audit:config-wiring`   | ✅                                              |
 | `npm run check:doc-links`       | ✅                                              |
 | `auditStandards --delta`        | ✅ 0 新增（含拆分后的 mcpServer）               |
-| 全量单测                        | **634 files / 3,921 tests passed**（7 skipped） |
+| 全量单测                        | **639 files / 4,009 tests passed**（7 skipped） |
 | 集成                            | **7/7 files、17/17 tests**                      |
 | `eval:long --self-check`        | **20/20**                                       |
 | `probe:recall:both --strict`    | ✅（57.6% vs 42.4%，fallback 0）                |
 
-**仍为外部/可选边界**：MCP Streamable HTTP 服务端路由、MRTR 仅 tools/call、官方 tasks/UI 扩展、ACP 可选的 authenticate/logout/session-close、A2A gRPC/JWS/AUTH_REQUIRED、AG-UI STATE_DELTA/ACTIVITY；这些均已在报告与各模块注释中如实登记，不影响已落地核心互操作面。
+**明确不支持/外部依赖**：A2A gRPC 与 HTTP+JSON/REST 绑定（现有传输只承载 JSON-RPC，无真实客户端可验）；MCP 官方 tasks/UI 扩展与客户端 TTL 缓存；ACP Client 提供的 MCP server、fs/terminal 反向调用、image/audio prompt；AG-UI STEP/SUBAGENT/RAW 主动事件；Gemini 仅内联 base64 图片/PDF（Files API 未接）、Bedrock 原生适配未做。以上均在模块注释与 `docs/PROTOCOL_ECOSYSTEM.md` 登记。

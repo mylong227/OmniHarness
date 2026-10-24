@@ -13,10 +13,20 @@ export const ACP_PROTOCOL_VERSION = 1;
 
 /** initialize：连接建立后协商版本 / 能力 / 认证方式。 */
 export const ACP_METHOD_INITIALIZE = 'initialize';
+/** authenticate：用 initialize 通告的认证方式完成认证。 */
+export const ACP_METHOD_AUTHENTICATE = 'authenticate';
+/** logout：清除当前连接与活跃会话上的认证身份。 */
+export const ACP_METHOD_LOGOUT = 'logout';
 /** session/new：创建新会话。 */
 export const ACP_METHOD_SESSION_NEW = 'session/new';
 /** session/load：加载既有会话并回放历史。 */
 export const ACP_METHOD_SESSION_LOAD = 'session/load';
+/** session/list：列出当前连接内的活跃会话（只读）。 */
+export const ACP_METHOD_SESSION_LIST = 'session/list';
+/** session/resume：复用既有会话继续 prompt（不回放历史）。 */
+export const ACP_METHOD_SESSION_RESUME = 'session/resume';
+/** session/close：关闭活跃会话、取消在跑回合并释放资源（幂等）。 */
+export const ACP_METHOD_SESSION_CLOSE = 'session/close';
 /** session/prompt：在会话内跑一轮用户提示。 */
 export const ACP_METHOD_SESSION_PROMPT = 'session/prompt';
 /** session/cancel：取消正在进行的回合（通知，无响应）。 */
@@ -26,7 +36,7 @@ export const ACP_METHOD_SESSION_UPDATE = 'session/update';
 /** session/request_permission：Agent → Client 的权限请求（带 id 的请求）。 */
 export const ACP_METHOD_REQUEST_PERMISSION = 'session/request_permission';
 
-/** 未认证（会话创建前需 authenticate；本端暂不启用认证流程，保留错误码）。 */
+/** 未认证 / 认证失败（`requireAuth` 开启或 `authenticate` 拒绝时使用）。 */
 export const ACP_ERROR_AUTH_REQUIRED = -32000;
 /** 非法请求。 */
 export const ACP_ERROR_INVALID_REQUEST = -32600;
@@ -57,6 +67,39 @@ export interface AcpImplementation {
   readonly version?: string | undefined;
 }
 
+/** 认证方式（initialize 响应的 `authMethods` 一项）。 */
+export interface AcpAuthMethod {
+  /** 方式 id（Client 在 authenticate 中回传）。 */
+  readonly id: string;
+  /** 展示名称。 */
+  readonly name: string;
+  /** 可选说明。 */
+  readonly description?: string | undefined;
+}
+
+/** authenticate 请求中本端可校验的载荷。 */
+export interface AcpAuthRequest {
+  /** 由 initialize 通告的认证方式 id。 */
+  readonly methodId: string;
+  /**
+   * 凭据（ACP 基线未定义该字段；本端把 Client 传来的 `params.token` 原样交给认证端口）。
+   *
+   * 凭据**从不**写死在代码里：由注入的 `AcpAuthenticator` 决定校验方式；
+   * 缺省没有认证端口时 authenticate 一律拒绝。
+   */
+  readonly token?: string | undefined;
+}
+
+/** 认证成功后的身份（记录在连接与活跃会话上）。 */
+export interface AcpAuthIdentity {
+  /** 认证方式 id。 */
+  readonly methodId: string;
+  /** 主体标识（用户名 / 租户 / 凭据 id，由认证端口给出）。 */
+  readonly subject: string;
+  /** 可选展示名。 */
+  readonly displayName?: string | undefined;
+}
+
 /** Client 能力（本端只读其子集，未知字段忽略）。 */
 export interface AcpClientCapabilities {
   /** 文件系统能力（Agent 可反向调用 fs/*）。 */
@@ -80,6 +123,26 @@ export interface AcpInitializeRequest {
   readonly clientInfo?: AcpImplementation | undefined;
 }
 
+/** 会话生命周期能力（只声明本端真正实现的方法；空对象 = 支持）。 */
+export interface AcpSessionCapabilities {
+  /** session/list 可用。 */
+  readonly list?: Record<string, never>;
+  /** session/resume 可用。 */
+  readonly resume?: Record<string, never>;
+  /** session/close 可用。 */
+  readonly close?: Record<string, never>;
+  /** session/delete（本端不实现）。 */
+  readonly delete?: Record<string, never>;
+  /** additionalDirectories（本端接受但忽略，不声明）。 */
+  readonly additionalDirectories?: Record<string, never>;
+}
+
+/** 认证能力（`auth.logout` 为空对象表示 logout 可用）。 */
+export interface AcpAgentAuthCapabilities {
+  /** logout 可用。 */
+  readonly logout?: Record<string, never>;
+}
+
 /** Agent 能力。 */
 export interface AcpAgentCapabilities {
   /** 是否支持 session/load。 */
@@ -92,8 +155,10 @@ export interface AcpAgentCapabilities {
   };
   /** MCP 传输能力（本端暂不连接 Client 提供的 MCP server）。 */
   readonly mcpCapabilities?: { readonly http?: boolean; readonly sse?: boolean };
-  /** 其他会话能力（本端不声明）。 */
-  readonly sessionCapabilities?: Record<string, unknown>;
+  /** 会话生命周期能力（list / resume / close）。 */
+  readonly sessionCapabilities?: AcpSessionCapabilities;
+  /** 认证能力（注入认证端口时声明 logout）。 */
+  readonly auth?: AcpAgentAuthCapabilities;
 }
 
 /** initialize 响应。 */
@@ -104,8 +169,8 @@ export interface AcpInitializeResponse {
   readonly agentCapabilities: AcpAgentCapabilities;
   /** Agent 实现信息。 */
   readonly agentInfo?: AcpImplementation;
-  /** 认证方式（本端为空）。 */
-  readonly authMethods?: readonly unknown[];
+  /** 认证方式（未注入认证端口时为空数组）。 */
+  readonly authMethods?: readonly AcpAuthMethod[];
 }
 
 /** 文本内容块。 */
@@ -209,6 +274,50 @@ export interface AcpLoadSessionRequest {
   readonly mcpServers?: readonly AcpMcpServer[];
   /** 额外工作区根。 */
   readonly additionalDirectories?: readonly string[];
+}
+
+/** session/resume 请求（不回放历史；cwd 必须与既有会话一致）。 */
+export interface AcpResumeSessionRequest {
+  /** 要续跑的会话 id。 */
+  readonly sessionId: string;
+  /** 工作目录（必须是绝对路径）。 */
+  readonly cwd: string;
+  /** 会话要连接的 MCP server 列表。 */
+  readonly mcpServers?: readonly AcpMcpServer[];
+  /** 额外工作区根。 */
+  readonly additionalDirectories?: readonly string[];
+}
+
+/** session/close 请求。 */
+export interface AcpCloseSessionRequest {
+  /** 要关闭的会话 id。 */
+  readonly sessionId: string;
+}
+
+/** session/list 返回的一条会话元数据。 */
+export interface AcpSessionInfo {
+  /** 会话唯一 id。 */
+  readonly sessionId: string;
+  /** 工作目录（绝对路径）。 */
+  readonly cwd: string;
+  /** 人类可读标题（本端取首轮 prompt 的首行，最多 80 字符）。 */
+  readonly title?: string | undefined;
+  /** 最近活动时间（ISO 8601）。 */
+  readonly updatedAt?: string | undefined;
+}
+
+/** session/list 请求（cwd 可选过滤；本端不做游标分页）。 */
+export interface AcpListSessionsRequest {
+  /** 只返回该 cwd 的会话（必须是绝对路径）。 */
+  readonly cwd?: string | undefined;
+  /** 游标（本端不实现分页，接受但忽略）。 */
+  readonly cursor?: string | undefined;
+}
+
+/** session/list 响应。 */
+export interface AcpListSessionsResponse {
+  /** 会话元数据（按最近活动时间倒序）。 */
+  readonly sessions: readonly AcpSessionInfo[];
 }
 
 /** session/prompt 请求。 */

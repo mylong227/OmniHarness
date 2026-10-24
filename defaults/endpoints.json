@@ -31,6 +31,16 @@
       "notes": "OpenAI Responses API 原生通道；与 openai 适配器共用凭据与端点，仅协议不同。"
     },
     {
+      "id": "gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "model": "gemini-2.5-flash",
+      "requiresApiKey": true,
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "baseUrlEnv": "GEMINI_BASE_URL",
+      "modelEnv": "GEMINI_MODEL",
+      "notes": "Google Gemini 原生 generateContent / streamGenerateContent API（适配器拼接 /models/{model}:generateContent）。注意 defaults/providers.json 里的 gemini 厂商预设走的是 OpenAI 兼容层，与本原生适配器是两条不同协议路径，勿合并。"
+    },
+    {
       "id": "llamacpp",
       "baseUrl": "http://localhost:11434",
       "model": "llama3",

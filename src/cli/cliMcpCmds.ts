@@ -7,6 +7,25 @@
 
 import { ArgParser } from './argParser.ts';
 import { CliServerCmds } from './cliServerCmds.ts';
+import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
+import type { ToolContext } from '../ports/tool/tool.ts';
+import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
+
+/** `mcp serve` 的 Streamable HTTP 接线参数（仅解析/校验，不持有服务实例）。 */
+interface McpHttpServeCliOptions {
+  /** `--mcp-http-port` 原始值（必填；`0` 表示内核分配）。 */
+  readonly port: string;
+  /** `--mcp-http-host`（缺省 `127.0.0.1`）。 */
+  readonly host?: string | undefined;
+  /** `--mcp-http-path`（缺省 `/mcp`）。 */
+  readonly path?: string | undefined;
+  /** 已装配的运行时配置（取 `tools`）。 */
+  readonly config: ResolvedConfig;
+  /** 工具执行上下文（会话 id + 工作区根）。 */
+  readonly context: ToolContext;
+  /** 审批 + 沙箱门禁（HTTP 路径同样前置裁决，语义与 stdio 一致）。 */
+  readonly gate: ToolGatePort;
+}
 
 /** MCP 网关子命令。 */
 export class CliMcpCmds extends CliServerCmds {
@@ -38,7 +57,7 @@ export class CliMcpCmds extends CliServerCmds {
       return 1;
     }
     process.stdout.write(
-      '用法: omniharness mcp serve | mcp list --server NAME=CMD | mcp call --server NAME=CMD --tool NAME [--args JSON] | ' +
+      '用法: omniharness mcp serve [--mcp-http-port N] | mcp list --server NAME=CMD | mcp call --server NAME=CMD --tool NAME [--args JSON] | ' +
         'mcp auth --authorize-url URL --token-url URL --client-id ID --resource RESOURCE [--scope a,b]\n' +
         'mcp registry [QUERY] [--limit N]\n',
     );
@@ -131,14 +150,19 @@ export class CliMcpCmds extends CliServerCmds {
   }
 
   /**
-   * mcp serve：以 stdio 把本地工具集暴露为 MCP 服务器（走审批 + 沙箱门禁）。
+   * mcp serve：把本地工具集暴露为 MCP 服务器（走审批 + 沙箱门禁）。
    *
-   * A1 接线（2026-09-19 入口可达性审计）：**默认走官方 SDK 适配器**（`SdkMcpServerAdapter` +
-   * StdioServerTransport，协议协商由官方实现托管）；SDK 不可用或起不来时回落既有手写
-   * `McpServer`，回落原因由 {@link McpServeRunner} 如实打到 stderr（绝不静默）。
-   * 门禁语义不因换实现而丢失：SDK 路径的工具端口经 `GatedToolPort` 前置审批 + 沙箱。
+   * 传输选择（2026-10-24，2026-07-28 Streamable HTTP）：
+   *  - 给 `--mcp-http-port` ⇒ 启动 {@link McpHttpServer}（POST/SSE/GET/CORS），不走 stdio；
+   *  - 未给 ⇒ 保持原 stdio 行为（默认官方 SDK，不可用回落手写实现），**零行为变化**。
+   *
+   * A1 接线（2026-09-19 入口可达性审计）：stdio 路径**默认走官方 SDK 适配器**
+   * （`SdkMcpServerAdapter` + StdioServerTransport，协议协商由官方实现托管）；SDK 不可用或起不来时
+   * 回落既有手写 `McpServer`，回落原因由 {@link McpServeRunner} 如实打到 stderr（绝不静默）。
+   * 门禁语义不因换实现而丢失：SDK 路径的工具端口经 `GatedToolPort` 前置审批 + 沙箱；
+   * HTTP 路径直接把同一个 `ToolGate` 交给手写 `McpServer`。
    * @param args 子命令参数（经 parseArgs 全量解析为运行时配置）。
-   * @returns 永不 resolve 的 Promise（常驻 stdio 服务，直至流关闭或外部终止）。
+   * @returns 常驻服务时永不 resolve；HTTP 启动失败时返回退出码。
    */
   protected async runMcpServe(args: readonly string[]): Promise<number> {
     const cliArgs = ArgParser.parseArgs(['--prompt', 'mcp-serve', ...args]);
@@ -158,6 +182,17 @@ export class CliMcpCmds extends CliServerCmds {
       config.escalation,
       config.elevatedSandbox,
     );
+    const httpPort = this.flagValue(args, '--mcp-http-port');
+    if (httpPort !== undefined) {
+      return await this.runMcpHttpServe({
+        port: httpPort,
+        host: this.flagValue(args, '--mcp-http-host'),
+        path: this.flagValue(args, '--mcp-http-path'),
+        config,
+        context,
+        gate,
+      });
+    }
     // 模式选择经 stderr 如实上报（stdout 是 MCP 协议通道，不得混入提示）。
     const [{ McpServeRunner }, { McpAskUserInputHandler }] = await Promise.all([
       import('../adapters/mcp/mcpServeRunner.ts'),
@@ -188,6 +223,54 @@ export class CliMcpCmds extends CliServerCmds {
         );
       },
     );
+  }
+
+  /**
+   * `mcp serve --mcp-http-port`：启动 2026-07-28 Streamable HTTP 端点并常驻。
+   * @param options 端口/主机/路径 + 已装配配置/上下文/门禁。
+   * @returns 常驻服务时永不 resolve；参数非法为 2，监听失败为 1。
+   */
+  protected async runMcpHttpServe(options: McpHttpServeCliOptions): Promise<number> {
+    const port = Number(options.port);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      process.stderr.write('--mcp-http-port 必须是 0..65535 的整数\n');
+      return 2;
+    }
+    const host = options.host ?? '127.0.0.1';
+    const path = options.path ?? '/mcp';
+    if (!path.startsWith('/')) {
+      process.stderr.write('--mcp-http-path 必须以 / 开头\n');
+      return 2;
+    }
+    const [{ McpHttpServer }, { McpAskUserInputHandler }, { McpProtocol }] = await Promise.all([
+      import('../mcp/mcpHttpServer.ts'),
+      import('../mcp/mcpAskUserInputHandler.ts'),
+      import('../mcp/mcpProtocol.ts'),
+    ]);
+    const server = new McpHttpServer(
+      {
+        tools: options.config.tools,
+        context: options.context,
+        gate: options.gate,
+        serverInfo: { name: 'omniharness', version: '0.1.0' },
+        inputRequired: new McpAskUserInputHandler(),
+      },
+      { host, port, path },
+    );
+    try {
+      const address = await server.listen();
+      process.stderr.write(
+        `OmniHarness MCP 服务器已启动（Streamable HTTP · ` +
+          `http://${address.host}:${address.port}${path} · ` +
+          `协议 ${McpProtocol.SUPPORTED_VERSIONS.join(', ')}）\n`,
+      );
+    } catch (error) {
+      process.stderr.write(
+        `[omniharness] ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      return 1;
+    }
+    return new Promise<number>(() => undefined);
   }
 
   /**

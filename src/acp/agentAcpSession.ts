@@ -2,6 +2,7 @@ import type { Agent } from '../core/agent.ts';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { EventPort } from '../ports/runtime/eventPort.ts';
 import type { ApprovalPort } from '../ports/runtime/approval.ts';
+import type { AcpAuthIdentity } from './acpProtocol.ts';
 
 /** 一轮 prompt 的产出（供 ACP 服务端映射 stopReason）。 */
 export interface AcpRunResult {
@@ -30,6 +31,12 @@ export interface AcpSessionRuntime {
   load(): Promise<readonly SessionEvent[]>;
   /** 取消正在进行的回合（session/cancel）。 */
   cancel(): void;
+  /**
+   * 可选：释放实现侧资源（session/close 在 cancel 之后调用）。
+   *
+   * 无资源可释放的实现可以不提供；服务端无论如何都会清空 mapper 并把会话移出活跃表。
+   */
+  dispose?(): void;
 }
 
 /** 创建会话运行时所需的外部依赖。 */
@@ -44,6 +51,8 @@ export interface AcpSessionOptions {
   readonly approvals: ApprovalPort;
   /** Client 声明的能力（透传，供实现方按需降级）。 */
   readonly clientCapabilities?: Readonly<Record<string, unknown>>;
+  /** 认证成功后的身份（未认证 / 未启用认证时缺省）。 */
+  readonly identity?: AcpAuthIdentity | undefined;
 }
 
 /** 会话运行时工厂（CLI 装配真实 Agent，测试注入替身）。 */

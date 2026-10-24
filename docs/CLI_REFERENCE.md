@@ -61,6 +61,9 @@
 | `boost gate`                                 | 按改动挑门禁子集（清单现场读自 `scripts/runGates.mjs`；默认不执行，`--boost-run` 才跑）                                      |
 | `boost audit-surface`                        | 输入表面声明的静态取证（入口脚本一变即判声明过期；只覆盖 `scripts/` 下的门禁入口）                                           |
 
+> **MCP HTTP 传输**：`mcp serve --mcp-http-port N` 启动 2026-07-28 Streamable HTTP
+> （可选 `--mcp-http-host H` / `--mcp-http-path P`，默认 `127.0.0.1` / `/mcp`）；不给端口仍走 stdio。
+
 ### 数据、凭据与治理
 
 | 子命令                                                                          | 作用                                                                                                                                  |

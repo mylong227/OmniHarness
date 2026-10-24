@@ -25,6 +25,20 @@ export class AcpValidation {
   }
 
   /**
+   * 校验可选的绝对路径 cwd（缺省 / null 返回 undefined）。
+   * @param record 请求参数对象。
+   * @returns cwd 或 undefined。
+   */
+  public static optionalAbsoluteCwd(record: Record<string, unknown>): string | undefined {
+    const value = record['cwd'];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'string' || !isAbsolute(value)) {
+      throw new AcpRequestError(`cwd 必须是绝对路径: ${String(value)}`, ACP_ERROR_INVALID_PARAMS);
+    }
+    return value;
+  }
+
+  /**
    * 取必填字符串字段。
    * @param record 请求参数对象。
    * @param key 字段名。

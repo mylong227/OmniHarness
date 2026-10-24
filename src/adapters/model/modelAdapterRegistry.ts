@@ -5,6 +5,7 @@ import { OpenAiCompatibleModel } from './openAiCompatibleModel.ts';
 import { AnthropicModel } from './anthropicModel.ts';
 import { ResponsesModel } from './responsesModel.ts';
 import { LlamaCppModel } from './llamaCppModel.ts';
+import { GeminiModel } from './geminiModel.ts';
 
 /** 构造一个模型适配器所需的配置（三种 OpenAI 系适配器共用同一形状）。 */
 export interface ModelAdapterConfig {
@@ -145,6 +146,15 @@ const ADAPTER_SPECS: Readonly<Record<ModelAdapterId, Omit<ModelAdapterSpec, 'id'
         baseUrl: config.baseUrl,
         model: config.model,
         apiKey: config.apiKey,
+      }),
+  },
+  gemini: {
+    defaultsId: 'gemini',
+    create: (config) =>
+      new GeminiModel({
+        baseUrl: config.baseUrl,
+        apiKey: config.apiKey ?? '',
+        model: config.model,
       }),
   },
 };

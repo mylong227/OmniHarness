@@ -11,8 +11,11 @@ import {
   A2A_ERROR_TASK_NOT_CANCELABLE,
   A2A_ERROR_UNSUPPORTED_OPERATION,
 } from './a2aProtocol.ts';
+import { A2aAuthFlow } from './a2aAuthFlow.ts';
+import { A2aParams } from './a2aParams.ts';
 import { A2aProtocolError } from './a2aProtocolError.ts';
 import { A2aTaskStore } from './a2aTaskStore.ts';
+import { A2aTaskPager } from './a2aTaskPager.ts';
 import type { A2aPushNotifications } from './a2aPushNotifications.ts';
 import type { TaskHandler } from './a2aTaskHandler.ts';
 
@@ -27,6 +30,8 @@ export interface A2aV1MethodsOptions {
   readonly push: A2aPushNotifications;
   /** 任务处理器（延迟读取：server.setTaskHandler 可能在构造之后）。 */
   readonly handler: () => TaskHandler | undefined;
+  /** `tasks/list` 分页器（缺省进程内随机密钥的 {@link A2aTaskPager}）。 */
+  readonly pager?: A2aTaskPager;
 }
 
 /** 解析后的 v1 消息请求。 */
@@ -41,6 +46,10 @@ interface A2aParsedMessage {
   readonly returnImmediately: boolean;
   /** 请求内联的 push 配置。 */
   readonly pushConfig?: A2aPushNotificationConfig;
+  /** 续跑目标任务 id（`message.taskId` / `params.taskId`；缺省表示新建任务）。 */
+  readonly taskId?: string;
+  /** 任务内认证凭据（`metadata.assertion` / `metadata.authorization` / 传输注入的 `params.assertion`）。 */
+  readonly credential?: string;
 }
 
 /**
@@ -57,29 +66,41 @@ export class A2aV1Methods {
   private readonly push: A2aPushNotifications;
   /** 处理器读取器。 */
   private readonly handler: () => TaskHandler | undefined;
+  /** `tasks/list` 分页器。 */
+  private readonly pager: A2aTaskPager;
 
   /**
-   * @param options 任务表、push 配置与处理器读取器。
+   * @param options 任务表、push 配置、处理器读取器与分页器。
    */
   public constructor(options: A2aV1MethodsOptions) {
     this.tasks = options.tasks;
     this.push = options.push;
     this.handler = options.handler;
+    this.pager = options.pager ?? new A2aTaskPager();
     this.tasks.setObserver((event, task) => this.push.notify(task.id, event));
   }
 
   /**
-   * `message/send`：创建任务并执行（`configuration.returnImmediately` 时后台执行并立即返回）。
+   * `message/send`：新建任务并执行；或对 `auth_required` 任务凭据续跑（§7.6）。
+   *
+   * 续跑语义（fail-closed）：
+   * - 目标任务不存在 → `TaskNotFoundError`；不在 `auth_required` → `UnsupportedOperation`；
+   * - **没有任何凭据** → 原样返回该任务（仍是 `auth_required`），绝不执行、绝不判完成；
+   * - 有凭据 → 重新调用执行器（凭据经 `DelegateRequest.assertion` 传入）；执行器再次要求认证则
+   *   仍落 `auth_required`（可带新 challenge），成功才落 `completed`。
    * @param params JSON-RPC 参数。
-   * @returns 任务（阻塞模式为终态；立即返回模式为 submitted）。
+   * @returns 任务（阻塞模式为终态或 `auth_required`；立即返回模式为 submitted）。
    */
   public async send(params: unknown): Promise<A2aTask> {
     const parsed = this.parseMessage(params);
+    if (parsed.taskId !== undefined) {
+      return await this.resume(parsed, parsed.taskId);
+    }
     const task = this.createTask(parsed);
     if (!parsed.returnImmediately) {
-      return await this.execute(task, parsed.text);
+      return await this.execute(task, parsed.text, parsed.credential);
     }
-    void this.execute(task, parsed.text).catch((error: unknown) => {
+    void this.execute(task, parsed.text, parsed.credential).catch((error: unknown) => {
       log.warn('a2a.task.background.failed', {
         taskId: task.id,
         error: error instanceof Error ? error.message : String(error),
@@ -104,7 +125,7 @@ export class A2aV1Methods {
     });
     try {
       respond({ task } satisfies A2aStreamResponse);
-      await this.execute(task, parsed.text);
+      await this.execute(task, parsed.text, parsed.credential);
     } finally {
       unsubscribe?.();
     }
@@ -117,7 +138,7 @@ export class A2aV1Methods {
    * @returns 任务快照。
    */
   public get(params: unknown): A2aTask {
-    return this.tasks.require(A2aV1Methods.taskIdOf(A2aV1Methods.recordOf(params)));
+    return this.tasks.require(A2aParams.taskIdOf(A2aParams.recordOf(params)));
   }
 
   /**
@@ -126,7 +147,7 @@ export class A2aV1Methods {
    * @returns 取消后的任务快照。
    */
   public cancel(params: unknown): A2aTask {
-    const taskId = A2aV1Methods.taskIdOf(A2aV1Methods.recordOf(params));
+    const taskId = A2aParams.taskIdOf(A2aParams.recordOf(params));
     const task = this.tasks.require(taskId);
     if (A2aTaskStore.isTerminal(task.status.state)) {
       throw new A2aProtocolError(
@@ -145,7 +166,7 @@ export class A2aV1Methods {
    * @returns 流结束（任务到达终态或订阅被解除）。
    */
   public async subscribe(params: unknown, respond: A2aStreamResponder): Promise<void> {
-    const taskId = A2aV1Methods.taskIdOf(A2aV1Methods.recordOf(params));
+    const taskId = A2aParams.taskIdOf(A2aParams.recordOf(params));
     const task = this.tasks.require(taskId);
     if (A2aTaskStore.isTerminal(task.status.state)) {
       throw new A2aProtocolError(
@@ -165,24 +186,32 @@ export class A2aV1Methods {
   }
 
   /**
-   * `tasks/list`：列出任务（可按 contextId / state 过滤）。
-   * @param params JSON-RPC 参数。
-   * @returns `{ tasks, nextPageToken }`。
+   * `tasks/list`：列出任务（可按 contextId / state 过滤，游标分页）。
+   *
+   * 游标是 HMAC 保护的 opaque token（见 {@link A2aTaskPager}）；非法/过期/过滤漂移一律
+   * `A2A_ERROR_INVALID`，没有更多结果时 `nextPageToken` 为空串。
+   * @param params JSON-RPC 参数（`contextId` / `state` 或 `status` / `pageSize` / `pageToken`）。
+   * @returns `{ tasks, nextPageToken, pageSize }`。
    */
   public list(params: unknown): {
     readonly tasks: readonly A2aTask[];
     readonly nextPageToken: string;
+    readonly pageSize: number;
   } {
-    const record = A2aV1Methods.recordOf(params);
+    const record = A2aParams.recordOf(params);
     const contextId = typeof record['contextId'] === 'string' ? record['contextId'] : undefined;
-    const state = typeof record['state'] === 'string' ? record['state'] : undefined;
-    return {
-      tasks: this.tasks
-        .list()
-        .filter((task) => contextId === undefined || task.contextId === contextId)
-        .filter((task) => state === undefined || task.status.state === state),
-      nextPageToken: '',
-    };
+    const state =
+      typeof record['state'] === 'string'
+        ? A2aParams.normalizeState(record['state'])
+        : typeof record['status'] === 'string'
+          ? A2aParams.normalizeState(record['status'])
+          : undefined;
+    return this.pager.paginate(this.tasks.list(), {
+      pageSize: record['pageSize'],
+      pageToken: record['pageToken'],
+      ...(contextId !== undefined ? { contextId } : {}),
+      ...(state !== undefined ? { state } : {}),
+    });
   }
 
   /**
@@ -191,8 +220,8 @@ export class A2aV1Methods {
    * @returns `{ taskId, pushNotificationConfig }`。
    */
   public pushSet(params: unknown): unknown {
-    const record = A2aV1Methods.recordOf(params);
-    const taskId = A2aV1Methods.taskIdOf(record);
+    const record = A2aParams.recordOf(params);
+    const taskId = A2aParams.taskIdOf(record);
     this.tasks.require(taskId);
     const config = this.pushConfigOf(record);
     return { taskId, pushNotificationConfig: this.push.set(taskId, config) };
@@ -204,10 +233,10 @@ export class A2aV1Methods {
    * @returns `{ taskId, pushNotificationConfig }`。
    */
   public pushGet(params: unknown): unknown {
-    const record = A2aV1Methods.recordOf(params);
-    const taskId = A2aV1Methods.taskIdOf(record);
+    const record = A2aParams.recordOf(params);
+    const taskId = A2aParams.taskIdOf(record);
     this.tasks.require(taskId);
-    const configId = A2aV1Methods.configIdOf(record);
+    const configId = A2aParams.configIdOf(record);
     return { taskId, pushNotificationConfig: this.push.get(taskId, configId) };
   }
 
@@ -217,8 +246,8 @@ export class A2aV1Methods {
    * @returns `{ configs }`。
    */
   public pushList(params: unknown): unknown {
-    const record = A2aV1Methods.recordOf(params);
-    const taskId = A2aV1Methods.taskIdOf(record);
+    const record = A2aParams.recordOf(params);
+    const taskId = A2aParams.taskIdOf(record);
     this.tasks.require(taskId);
     return { configs: this.push.list(taskId) };
   }
@@ -229,10 +258,10 @@ export class A2aV1Methods {
    * @returns `{ deleted }`。
    */
   public pushDelete(params: unknown): unknown {
-    const record = A2aV1Methods.recordOf(params);
-    const taskId = A2aV1Methods.taskIdOf(record);
+    const record = A2aParams.recordOf(params);
+    const taskId = A2aParams.taskIdOf(record);
     this.tasks.require(taskId);
-    const deleted = this.push.delete(taskId, A2aV1Methods.configIdOf(record));
+    const deleted = this.push.delete(taskId, A2aParams.configIdOf(record));
     return { deleted };
   }
 
@@ -242,20 +271,20 @@ export class A2aV1Methods {
    * @returns 解析结果。
    */
   private parseMessage(params: unknown): A2aParsedMessage {
-    const record = A2aV1Methods.recordOf(params);
-    const message = A2aV1Methods.recordOf(record['message']);
+    const record = A2aParams.recordOf(params);
+    const message = A2aParams.recordOf(record['message']);
     const parts = Array.isArray(message['parts']) ? message['parts'] : [];
     const texts: string[] = [];
     for (const part of parts) {
-      const item = A2aV1Methods.recordOf(part);
+      const item = A2aParams.recordOf(part);
       if (item['type'] === 'text' && typeof item['text'] === 'string') texts.push(item['text']);
     }
     const text = texts.join('\n').trim();
     if (text === '') {
       throw new A2aProtocolError('message 缺少文本 part', A2A_ERROR_INVALID);
     }
-    const configuration = A2aV1Methods.recordOf(record['configuration']);
-    const inline = A2aV1Methods.recordOf(
+    const configuration = A2aParams.recordOf(record['configuration']);
+    const inline = A2aParams.recordOf(
       configuration['pushNotificationConfig'] ?? configuration['taskPushNotificationConfig'],
     );
     const messageId =
@@ -266,6 +295,19 @@ export class A2aV1Methods {
         : typeof message['contextId'] === 'string'
           ? message['contextId']
           : undefined;
+    const messageMetadata = A2aParams.recordOf(message['metadata']);
+    // 续跑目标：规范的 `Message.taskId` 优先；也接受 params 级 `taskId`（兼容最小客户端）。
+    // 空串按「未提供」处理——否则会变成 `tasks.require('')` 的假 TaskNotFound。
+    const taskId = A2aParams.firstString(message['taskId'], record['taskId']);
+    // 任务内认证凭据：优先消息元数据（规范建议的 in-band 位置），再回落到
+    // 传输注入的 `params.assertion`（HTTP `Authorization` 原文）。
+    const credential = A2aParams.firstString(
+      messageMetadata['assertion'],
+      messageMetadata['authorization'],
+      messageMetadata['credential'],
+      record['assertion'],
+      record['credential'],
+    );
     return {
       text,
       messageId,
@@ -273,7 +315,31 @@ export class A2aV1Methods {
       returnImmediately:
         configuration['returnImmediately'] === true || configuration['return_immediately'] === true,
       ...(typeof inline['url'] === 'string' ? { pushConfig: this.pushConfigOf(inline) } : {}),
+      ...(taskId !== undefined ? { taskId } : {}),
+      ...(credential !== undefined ? { credential } : {}),
     };
+  }
+
+  /**
+   * 续跑一个 `auth_required` 任务（§7.6）。
+   * @param parsed 解析结果（含凭据）。
+   * @param taskId 目标任务 id。
+   * @returns 续跑后的任务；无凭据时为原样任务（仍 `auth_required`）。
+   */
+  private async resume(parsed: A2aParsedMessage, taskId: string): Promise<A2aTask> {
+    const task = this.tasks.require(taskId);
+    if (task.status.state !== 'auth_required') {
+      throw new A2aProtocolError(
+        `任务不处于 auth_required（当前 ${task.status.state}），不能以 taskId 续跑`,
+        A2A_ERROR_UNSUPPORTED_OPERATION,
+      );
+    }
+    if (parsed.credential === undefined || parsed.credential === '') {
+      // fail-closed：不接受「没带凭据就当已完成」，也不改动任务状态。
+      log.warn('a2a.task.auth.missingCredential', { taskId });
+      return task;
+    }
+    return await this.execute(task, parsed.text, parsed.credential);
   }
 
   /**
@@ -288,12 +354,14 @@ export class A2aV1Methods {
   }
 
   /**
-   * 执行任务并落终态（completed / failed / canceled）。异常收敛为 failed，绝不外抛。
+   * 执行任务并落终态（completed / failed / canceled）；执行器要求认证时落 `auth_required`。
+   * 异常收敛为 failed，绝不外抛。
    * @param task 任务快照。
    * @param prompt 用户文本。
-   * @returns 终态任务。
+   * @param credential 任务内认证凭据（续跑时给出；经 `DelegateRequest.assertion` 传给执行器）。
+   * @returns 终态或 `auth_required` 任务。
    */
-  private async execute(task: A2aTask, prompt: string): Promise<A2aTask> {
+  private async execute(task: A2aTask, prompt: string, credential?: string): Promise<A2aTask> {
     const handler = this.handler();
     if (handler === undefined) {
       return this.tasks.update(task.id, { state: 'failed', error: '未配置任务处理器' });
@@ -304,25 +372,38 @@ export class A2aV1Methods {
         taskId: task.id,
         task: prompt,
         ...(task.contextId !== undefined ? { parentSessionId: task.contextId } : {}),
+        ...(credential !== undefined && credential !== '' ? { assertion: credential } : {}),
       });
       if (result.canceled === true) {
-        return this.tasks.update(task.id, { state: 'canceled' });
+        return this.tasks.update(task.id, {
+          state: 'canceled',
+          metadata: { authChallenge: undefined },
+        });
+      }
+      if (result.authRequired !== undefined) {
+        return A2aAuthFlow.require(this.tasks, task, result.authRequired);
       }
       if (result.ok) {
         const artifact: A2aArtifact = {
           artifactId: `${task.id}-output`,
           parts: [{ type: 'text', text: result.output }],
         };
-        return this.tasks.update(task.id, { artifact, state: 'completed' });
+        return this.tasks.update(task.id, {
+          artifact,
+          state: 'completed',
+          metadata: { authChallenge: undefined },
+        });
       }
       return this.tasks.update(task.id, {
         state: 'failed',
         error: result.error ?? '任务失败',
+        metadata: { authChallenge: undefined },
       });
     } catch (error) {
       return this.tasks.update(task.id, {
         state: 'failed',
         error: error instanceof Error ? error.message : String(error),
+        metadata: { authChallenge: undefined },
       });
     }
   }
@@ -343,7 +424,7 @@ export class A2aV1Methods {
    * @returns 配置（url 必填）。
    */
   private pushConfigOf(record: Record<string, unknown>): A2aPushNotificationConfig {
-    const nested = A2aV1Methods.recordOf(record['pushNotificationConfig']);
+    const nested = A2aParams.recordOf(record['pushNotificationConfig']);
     const source = typeof nested['url'] === 'string' ? nested : record;
     const url = typeof source['url'] === 'string' ? source['url'] : '';
     if (!/^https?:\/\//u.test(url)) {
@@ -352,7 +433,7 @@ export class A2aV1Methods {
         A2A_ERROR_INVALID,
       );
     }
-    const authentication = A2aV1Methods.recordOf(source['authentication']);
+    const authentication = A2aParams.recordOf(source['authentication']);
     return {
       url,
       ...(typeof source['id'] === 'string' ? { id: source['id'] } : {}),
@@ -390,39 +471,5 @@ export class A2aV1Methods {
         final: true,
       },
     };
-  }
-
-  /**
-   * 从参数取任务 id（`id` 优先，兼容 `taskId`）。
-   * @param record 参数对象。
-   * @returns 任务 id。
-   */
-  private static taskIdOf(record: Record<string, unknown>): string {
-    const value = record['id'] ?? record['taskId'];
-    if (typeof value !== 'string' || value === '') {
-      throw new A2aProtocolError('缺少任务 id（id / taskId）', A2A_ERROR_INVALID);
-    }
-    return value;
-  }
-
-  /**
-   * 从参数取 push 配置 id（兼容 `pushNotificationConfigId` / `configId`）。
-   * @param record 参数对象。
-   * @returns 配置 id；未给出为 undefined。
-   */
-  private static configIdOf(record: Record<string, unknown>): string | undefined {
-    const value = record['pushNotificationConfigId'] ?? record['configId'] ?? record['config_id'];
-    return typeof value === 'string' && value !== '' ? value : undefined;
-  }
-
-  /**
-   * 归一为普通对象。
-   * @param value 待判值。
-   * @returns 普通对象。
-   */
-  private static recordOf(value: unknown): Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
   }
 }

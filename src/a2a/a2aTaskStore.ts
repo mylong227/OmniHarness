@@ -27,6 +27,13 @@ export interface A2aTaskPatch {
   readonly error?: string | undefined;
   /** 新增产出。 */
   readonly artifact?: A2aArtifact;
+  /**
+   * 任务级元数据合并补丁（值为 `undefined` 表示删除该键；合并后为空则移除整个字段）。
+   *
+   * 任务内认证（`auth_required`）用它挂/摘 `authChallenge`：状态与元数据必须同时可写，
+   * 否则客户端会看到「状态已回到 working、但旧 challenge 还留着」的自相矛盾快照。
+   */
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 /** 任务记录（任务本体 + 订阅者）。 */
@@ -97,13 +104,23 @@ export class A2aTaskStore {
   }
 
   /**
-   * 列出全部任务（按状态时间倒序，最近更新的在前）。
+   * 列出全部任务（按状态时间倒序，最近更新的在前；同时间按 id 倒序兜底）。
+   *
+   * 二级键不可省：`timestamp` 只到毫秒，同毫秒创建的任务若顺序取决于 Map 插入序，
+   * 游标分页会重复或漏项（`tasks/list` 的稳定排序依赖这里）。比较用**码元序**而非
+   * `localeCompare`——后者随区域设置变化，会和分页游标的码元比较口径打架。
    * @returns 任务快照数组。
    */
   public list(): readonly A2aTask[] {
     return [...this.records.values()]
       .map((record) => record.task)
-      .sort((a, b) => (b.status.timestamp ?? '').localeCompare(a.status.timestamp ?? ''));
+      .sort((a, b) => {
+        const at = a.status.timestamp ?? '';
+        const bt = b.status.timestamp ?? '';
+        if (at !== bt) return at < bt ? 1 : -1;
+        if (a.id === b.id) return 0;
+        return a.id < b.id ? 1 : -1;
+      });
   }
 
   /**
@@ -142,17 +159,25 @@ export class A2aTaskStore {
         final: false,
       });
     }
-    if (patch.state !== undefined || patch.message !== undefined || patch.error !== undefined) {
+    if (
+      patch.state !== undefined ||
+      patch.message !== undefined ||
+      patch.error !== undefined ||
+      patch.metadata !== undefined
+    ) {
       const status: A2aTaskStatus = {
         state: patch.state ?? record.task.status.state,
         timestamp: new Date().toISOString(),
         ...(patch.message !== undefined ? { message: patch.message } : {}),
       };
-      const task: A2aTask = {
-        ...record.task,
-        status,
-        ...(patch.error !== undefined ? { error: patch.error } : {}),
-      };
+      const task: A2aTask = A2aTaskStore.withMetadata(
+        {
+          ...record.task,
+          status,
+          ...(patch.error !== undefined ? { error: patch.error } : {}),
+        },
+        patch.metadata,
+      );
       record.task = task;
       this.publish(record, {
         payload: {
@@ -191,6 +216,30 @@ export class A2aTaskStore {
     return (
       state === 'completed' || state === 'failed' || state === 'canceled' || state === 'rejected'
     );
+  }
+
+  /**
+   * 应用任务级元数据合并补丁（`undefined` 值删键；合并后为空则移除字段）。
+   * @param task 已应用状态/错误补丁的任务快照。
+   * @param patch 元数据补丁；未提供时原样返回。
+   * @returns 应用补丁后的任务快照。
+   */
+  private static withMetadata(
+    task: A2aTask,
+    patch: Readonly<Record<string, unknown>> | undefined,
+  ): A2aTask {
+    if (patch === undefined) return task;
+    const merged: Record<string, unknown> = { ...(task.metadata ?? {}) };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete merged[key];
+      else merged[key] = value;
+    }
+    if (Object.keys(merged).length > 0) {
+      return { ...task, metadata: merged };
+    }
+    const copy: { -readonly [K in keyof A2aTask]: A2aTask[K] } = { ...task };
+    delete copy.metadata;
+    return copy;
   }
 
   /**

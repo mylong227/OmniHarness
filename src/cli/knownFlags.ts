@@ -36,6 +36,12 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--dir',
   '--allow',
   '--catalog',
+  // mcp serve（2026-07-28 Streamable HTTP）：由 `cliMcpCmds.runMcpServe` 用 `flagValue` 直读，
+  // 不经 FLAG_TABLE。`--mcp-http-port` 是传输开关（给则起 HTTP、不给仍 stdio）；
+  // `host` / `path` 只有配合 port 才生效。未登记会被「未知旗标 fail-closed」直接打死。
+  '--mcp-http-port',
+  '--mcp-http-host',
+  '--mcp-http-path',
   // serve：`cliServerCmds.ts` 用 `serveArgs.includes('--auto-approve')` 读取（**不是** reader 式读取）。
   // 2026-10-06 实测发现它从未登记 ⇒ 第五十七轮的"未知旗标 fail-closed"把它**打死了**：
   // `serve --auto-approve` 直接报「未知旗标」退出，而 `--help` 与 README 都还写着它——文档说的功能其实已失效。

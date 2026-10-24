@@ -28,6 +28,7 @@ import { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
 import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletionGateFactory.ts';
 import { ReviewDiffTool } from '../adapters/tool/verify/reviewDiffTool.ts';
 import {
+  A2aAgentCardSigner,
   A2aServer,
   A2aClient,
   HttpA2aTransport,
@@ -356,8 +357,20 @@ export class Runtime {
     // URL 必须是**本服务端**端点，不是 `peerEndpoint`（后者是出站委托目标；误用会把调用方导到上游）。
     const card = Runtime.a2aCard(config, wsMode, a2aPort);
     server.setAgentCard(card);
+    // AgentCard JWS（规范 §8.4）：只在显式配置了 Ed25519 私钥时签名（`OMNI_A2A_SIGN_CARD=1` 仅表达意图）。
+    // 无 key 时不签名，绝不伪造 `signatures`；well-known 走同一取卡方法，保证两份卡一致。
+    const cardSigner = A2aAgentCardSigner.fromEnv();
+    if (cardSigner !== undefined) {
+      server.setAgentCardSigner(cardSigner);
+    } else if (A2aAgentCardSigner.signingRequested()) {
+      log.warn('a2a.card.sign.skipped', {
+        hint:
+          'OMNI_A2A_SIGN_CARD 已开启但未配置私钥（OMNI_A2A_CARD_KEY_JWK 或 OMNI_A2A_CARD_KEY_FILE）：' +
+          'AgentCard 将以未签名形式发布（不伪造签名）。',
+      });
+    }
     if (serverTransport instanceof HttpA2aServerTransport) {
-      serverTransport.setAgentCard(card);
+      serverTransport.setAgentCardProvider(() => server.getAgentCard());
     }
     // 委托执行器：并发闸门 + 受限工具子集（剔除 MUTATING_TOOLS，若委托声明 tools 授权则取交集），
     // 复用既有子代理隔离运行时，避免对等方突发委托拖垮进程或越权调用写类工具。

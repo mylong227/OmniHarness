@@ -126,6 +126,8 @@ export class HttpA2aServerTransport implements A2aTransport {
   private server: http.Server | undefined;
   /** AgentCard（设置后暴露 `/.well-known/agent-card.json`）。 */
   private card: unknown;
+  /** AgentCard 动态提供者（优先于静态 card；用于返回签名卡并与 JSON-RPC 取卡同源）。 */
+  private cardProvider: (() => Promise<unknown> | unknown) | undefined;
 
   /**
    * 设置 AgentCard（与 A2aServer 的 card 同步；well-known 路由只读暴露）。
@@ -134,6 +136,18 @@ export class HttpA2aServerTransport implements A2aTransport {
    */
   public setAgentCard(card: unknown): void {
     this.card = card;
+  }
+
+  /**
+   * 设置 AgentCard 动态提供者（每次请求现取；用于返回带 JWS 签名的卡）。
+   *
+   * 提供者优先于 {@link setAgentCard}：签名卡的有效期/密钥轮换由提供者决定，
+   * 静态缓存会发出过期签名。提供者抛错时 well-known 返回 500（fail-closed，不回落到旧卡）。
+   * @param provider 返回 AgentCard（或 Promise）的回调。
+   * @returns 无返回值。
+   */
+  public setAgentCardProvider(provider: () => Promise<unknown> | unknown): void {
+    this.cardProvider = provider;
   }
 
   /**
@@ -200,25 +214,60 @@ export class HttpA2aServerTransport implements A2aTransport {
   }
 
   /**
-   * 处理 AgentCard well-known 路由。
-   * @param req 入站请求。
+   * 处理 AgentCard well-known 路由（支持动态提供者；任何失败都 500，不回落到旧卡）。
    * @param res 响应对象。
-   * @returns 已处理时为 true。
+   * @returns 无返回值（异步完成响应）。
    */
-  private serveAgentCard(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    if (req.method !== 'GET' || req.url !== '/.well-known/agent-card.json') return false;
-    if (this.card === undefined) {
-      res.writeHead(404);
-      res.end();
-      return true;
+  private async serveAgentCard(res: http.ServerResponse): Promise<void> {
+    try {
+      const card = this.cardProvider !== undefined ? await this.cardProvider() : this.card;
+      if (card === undefined) {
+        HttpA2aServerTransport.respond(res, 404);
+        return;
+      }
+      // A2A 1.0 §8.6：AgentCard 变化频率低，应给出缓存提示（客户端可据此条件请求）。
+      HttpA2aServerTransport.respond(res, 200, JSON.stringify(card), {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=300',
+      });
+    } catch (error) {
+      log.warn('a2a.card.wellKnown.failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      HttpA2aServerTransport.respond(res, 500);
     }
-    // A2A 1.0 §8.6：AgentCard 变化频率低，应给出缓存提示（客户端可据此条件请求）。
-    res.writeHead(200, {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'public, max-age=300',
-    });
-    res.end(JSON.stringify(this.card));
-    return true;
+  }
+
+  /**
+   * 写一个简单响应（客户端已断开时静默放弃，避免异步路径产生未处理拒绝）。
+   * @param res 响应对象。
+   * @param status HTTP 状态码。
+   * @param body 响应体（可选）。
+   * @param headers 额外响应头（可选）。
+   * @returns 无返回值。
+   */
+  private static respond(
+    res: http.ServerResponse,
+    status: number,
+    body?: string,
+    headers?: http.OutgoingHttpHeaders,
+  ): void {
+    if (res.writableEnded || res.destroyed) return;
+    try {
+      res.writeHead(status, headers);
+      res.end(body);
+    } catch {
+      /* 对端在写回前断开：连接已不可用，无可回写 */
+    }
+  }
+
+  /**
+   * 判断是否 AgentCard well-known 请求。
+   * @param req 入站请求。
+   * @returns 命中 GET `/.well-known/agent-card.json` 时为 true。
+   */
+  private static isAgentCardRequest(req: http.IncomingMessage): boolean {
+    return req.method === 'GET' && req.url === '/.well-known/agent-card.json';
   }
 
   /**
@@ -229,7 +278,10 @@ export class HttpA2aServerTransport implements A2aTransport {
    * @returns 无返回值。
    */
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (this.serveAgentCard(req, res)) return;
+    if (HttpA2aServerTransport.isAgentCardRequest(req)) {
+      void this.serveAgentCard(res);
+      return;
+    }
     if (req.method !== 'POST' || req.url !== '/a2a') {
       res.writeHead(405);
       res.end();

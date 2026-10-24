@@ -2,17 +2,26 @@
  * Agent Client Protocol（ACP）v1 适配层统一出口。
  *
  * - `AcpServer`：JSON-RPC over stdio 的 Agent 服务端。
+ * - `AcpSessionRegistry`：单连接的活跃会话表与生命周期簿记（close/list/resume 的底座）。
  * - `AcpStdioTransport`：换行分隔 JSON-RPC 的 stdio 传输。
  * - `AgentAcpSession`：把 ACP 会话映射到现有 `Agent`（runTask/resume/cancel）。
+ * - `AcpAuthenticator`：认证端口（宿主注入；缺省不提供认证方式并拒绝 authenticate）。
  */
 export type {
+  AcpAgentAuthCapabilities,
   AcpAgentCapabilities,
+  AcpAuthIdentity,
+  AcpAuthMethod,
+  AcpAuthRequest,
   AcpCancelNotification,
   AcpClientCapabilities,
+  AcpCloseSessionRequest,
   AcpContentBlock,
   AcpImplementation,
   AcpInitializeRequest,
   AcpInitializeResponse,
+  AcpListSessionsRequest,
+  AcpListSessionsResponse,
   AcpLoadSessionRequest,
   AcpMcpServer,
   AcpNewSessionRequest,
@@ -24,6 +33,9 @@ export type {
   AcpPlanEntry,
   AcpPromptRequest,
   AcpPromptResponse,
+  AcpResumeSessionRequest,
+  AcpSessionCapabilities,
+  AcpSessionInfo,
   AcpSessionResponse,
   AcpSessionUpdate,
   AcpStopReason,
@@ -38,19 +50,28 @@ export {
   ACP_ERROR_INVALID_PARAMS,
   ACP_ERROR_INVALID_REQUEST,
   ACP_ERROR_METHOD_NOT_FOUND,
+  ACP_METHOD_AUTHENTICATE,
   ACP_METHOD_INITIALIZE,
+  ACP_METHOD_LOGOUT,
   ACP_METHOD_REQUEST_PERMISSION,
   ACP_METHOD_SESSION_CANCEL,
+  ACP_METHOD_SESSION_CLOSE,
+  ACP_METHOD_SESSION_LIST,
   ACP_METHOD_SESSION_LOAD,
   ACP_METHOD_SESSION_NEW,
   ACP_METHOD_SESSION_PROMPT,
+  ACP_METHOD_SESSION_RESUME,
   ACP_METHOD_SESSION_UPDATE,
   ACP_PERMISSION_MODES,
   ACP_PROTOCOL_VERSION,
 } from './acpProtocol.ts';
+export type { AcpAuthenticator } from './acpAuthenticator.ts';
+export { AcpAuthentication } from './acpAuthentication.ts';
 export { AcpRequestError } from './acpRequestError.ts';
 export { AcpEventMapper } from './acpEventMapper.ts';
 export { AcpServer, type AcpServerOptions } from './acpServer.ts';
+export { AcpSessionLifecycle, type AcpSessionLifecycleOptions } from './acpSessionLifecycle.ts';
+export { AcpSessionRegistry, type AcpSessionState } from './acpSessionRegistry.ts';
 export { AcpStdioTransport, type AcpTransport } from './acpStdioTransport.ts';
 export {
   AgentAcpSession,

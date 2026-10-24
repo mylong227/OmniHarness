@@ -23,8 +23,12 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import {
   AcpServer,
   AgentAcpSession,
+  type AcpAuthIdentity,
+  type AcpAuthRequest,
+  type AcpAuthenticator,
   type AcpPermissionRequest,
   type AcpSessionFactory,
+  type AcpSessionInfo,
   type AcpSessionOptions,
   type AcpSessionRuntime,
   type AcpSessionUpdate,
@@ -115,6 +119,7 @@ class AcpClient {
 class FakeAcpSession implements AcpSessionRuntime {
   public readonly runs: string[] = [];
   public cancelled = false;
+  public disposed = false;
   public decision: string | undefined;
   private readonly events: EventPort;
   private readonly approvals: ApprovalPort;
@@ -154,6 +159,10 @@ class FakeAcpSession implements AcpSessionRuntime {
     this.cancelled = true;
     this.behavior.release?.();
   }
+
+  public dispose(): void {
+    this.disposed = true;
+  }
 }
 
 /** 假会话行为。 */
@@ -165,6 +174,24 @@ interface FakeBehavior {
   readonly release?: () => void;
 }
 
+/** 注入认证端口的假实现：唯有匹配 token 才返回身份。 */
+class TokenAuthenticator implements AcpAuthenticator {
+  public readonly methods = [{ id: 'token', name: 'Token 登录' }];
+
+  public constructor(private readonly expected: string) {}
+
+  public async authenticate(request: AcpAuthRequest): Promise<AcpAuthIdentity | undefined> {
+    if (request.token !== this.expected) return undefined;
+    return { methodId: request.methodId, subject: 'user-1', displayName: '测试用户' };
+  }
+}
+
+/** Harness 的可选装配项。 */
+interface HarnessOptions {
+  readonly authenticator?: AcpAuthenticator;
+  readonly requireAuth?: boolean;
+}
+
 /** 测试装配：server + client + 最近创建的假会话。 */
 class Harness {
   public readonly serverTransport = new MemoryAcpTransport();
@@ -172,13 +199,23 @@ class Harness {
   public readonly client: AcpClient;
   public readonly server: AcpServer;
   public session: FakeAcpSession | undefined;
+  public lastOptions: AcpSessionOptions | undefined;
+  public readonly sessions: FakeAcpSession[] = [];
+  public factoryCalls = 0;
 
-  public constructor(behavior: FakeBehavior, permissionMode: 'client' | 'auto' = 'client') {
+  public constructor(
+    behavior: FakeBehavior,
+    permissionMode: 'client' | 'auto' = 'client',
+    options: HarnessOptions = {},
+  ) {
     this.clientTransport.peer = this.serverTransport;
     this.serverTransport.peer = this.clientTransport;
     this.client = new AcpClient(this.clientTransport);
-    const factory: AcpSessionFactory = async (options) => {
-      this.session = new FakeAcpSession(options, behavior);
+    const factory: AcpSessionFactory = async (sessionOptions) => {
+      this.lastOptions = sessionOptions;
+      this.factoryCalls++;
+      this.session = new FakeAcpSession(sessionOptions, behavior);
+      this.sessions.push(this.session);
       return this.session;
     };
     this.server = new AcpServer({
@@ -186,6 +223,8 @@ class Harness {
       sessionFactory: factory,
       permissionMode,
       permissionTimeoutMs: 2_000,
+      ...(options.authenticator !== undefined ? { authenticator: options.authenticator } : {}),
+      ...(options.requireAuth !== undefined ? { requireAuth: options.requireAuth } : {}),
     });
     // 传输监听在 run() 里注册；测试不等待进程关闭，但必须启动监听。
     void this.server.run();
@@ -227,6 +266,21 @@ function tempDir(): string {
   return mkdtempSync(join(tmpdir(), 'omni-acp-'));
 }
 
+/** 取 JSON-RPC 响应里的 result。 */
+function resultOf(response: RpcMessage): unknown {
+  return (response as { readonly result?: unknown }).result;
+}
+
+/** 取 JSON-RPC 响应里的错误码。 */
+function errorCodeOf(response: RpcMessage): number | undefined {
+  return (response as { readonly error?: { readonly code?: number } }).error?.code;
+}
+
+/** 取 JSON-RPC 响应里的 result 字段（对象形状）。 */
+function recordResultOf(response: RpcMessage): Record<string, unknown> {
+  return (resultOf(response) ?? {}) as Record<string, unknown>;
+}
+
 test('1) initialize：协商协议版本 1 并声明 loadSession / prompt / MCP 能力', async () => {
   const harness = new Harness({});
   const pending = harness.client.request('initialize', {
@@ -239,6 +293,12 @@ test('1) initialize：协商协议版本 1 并声明 loadSession / prompt / MCP 
   assert.strictEqual(result?.['protocolVersion'], 1);
   const capabilities = result?.['agentCapabilities'] as Record<string, unknown>;
   assert.strictEqual(capabilities['loadSession'], true);
+  assert.deepStrictEqual(capabilities['sessionCapabilities'], {
+    list: {},
+    resume: {},
+    close: {},
+  });
+  assert.deepStrictEqual(result?.['authMethods'], []);
   assert.deepStrictEqual(capabilities['promptCapabilities'], {
     image: false,
     audio: false,
@@ -477,3 +537,269 @@ test('9) 真实 Agent 运行时：MockModel 的工具回路映射为 ACP 工具�
     server.close();
   }
 }, 60_000);
+
+test('10) session/close：释放会话、重复 close 幂等、未知会话 -32602', async () => {
+  const harness = new Harness({});
+  const sessionId = await harness.newSession(tempDir());
+  const first = await harness.client.request('session/close', { sessionId });
+  assert.deepStrictEqual(resultOf(first), {});
+  assert.strictEqual(harness.session?.disposed, true, 'close 必须释放运行时资源');
+  const second = await harness.client.request('session/close', { sessionId });
+  assert.deepStrictEqual(resultOf(second), {}, '重复 close 必须幂等成功');
+  const list = await harness.client.request('session/list', {});
+  assert.deepStrictEqual(recordResultOf(list)['sessions'], []);
+  const unknown = await harness.client.request('session/close', { sessionId: 'sess_missing' });
+  assert.strictEqual(errorCodeOf(unknown), -32602);
+});
+
+test('11) close 后 session/prompt 拒绝（会话上下文已不存在）', async () => {
+  const harness = new Harness({});
+  const sessionId = await harness.newSession(tempDir());
+  await harness.client.request('session/close', { sessionId });
+  const prompt = await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '关闭后还能跑吗' }],
+  });
+  assert.strictEqual(errorCodeOf(prompt), -32602);
+  assert.deepStrictEqual(harness.session?.runs, [], '拒绝必须发生在进入运行时之前');
+});
+
+test('12) session/close：在跑回合被取消，prompt 以 cancelled 收尾', async () => {
+  const gate = deferred();
+  const harness = new Harness({ gate: gate.promise, release: gate.resolve });
+  const sessionId = await harness.newSession(tempDir());
+  const pending = harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '长任务' }],
+  });
+  await waitFor(
+    () => harness.session?.runs ?? [],
+    (run) => run === '长任务',
+  );
+  const closed = await harness.client.request('session/close', { sessionId });
+  assert.deepStrictEqual(resultOf(closed), {});
+  const response = await pending;
+  assert.strictEqual(recordResultOf(response)['stopReason'], 'cancelled');
+  assert.strictEqual(harness.session?.cancelled, true);
+  assert.strictEqual(harness.session?.disposed, true);
+});
+
+test('13) 同一会话并发 prompt：busy 时 -32600，取消后首轮仍以 cancelled 收尾', async () => {
+  const gate = deferred();
+  const harness = new Harness({ gate: gate.promise, release: gate.resolve });
+  const sessionId = await harness.newSession(tempDir());
+  const pending = harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '第一轮' }],
+  });
+  await waitFor(
+    () => harness.session?.runs ?? [],
+    (run) => run === '第一轮',
+  );
+  const busy = await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '第二轮' }],
+  });
+  assert.strictEqual(errorCodeOf(busy), -32600);
+  harness.client.notify('session/cancel', { sessionId });
+  const response = await pending;
+  assert.strictEqual(recordResultOf(response)['stopReason'], 'cancelled');
+  assert.deepStrictEqual(harness.session?.runs, ['第一轮']);
+});
+
+test('14) session/list：返回 sessionId/cwd/标题/时间，支持 cwd 过滤且只读', async () => {
+  const cwd = tempDir();
+  const harness = new Harness({});
+  const firstId = await harness.newSession(cwd);
+  await harness.newSession(cwd);
+  await harness.client.request('session/prompt', {
+    sessionId: firstId,
+    prompt: [{ type: 'text', text: '实现会话列表\n附带第二行' }],
+  });
+  const totalRuns = harness.sessions.reduce((sum, item) => sum + item.runs.length, 0);
+  const response = await harness.client.request('session/list', {});
+  const sessions = recordResultOf(response)['sessions'] as AcpSessionInfo[];
+  assert.strictEqual(sessions.length, 2);
+  const first = sessions.find((item) => item.sessionId === firstId);
+  assert.ok(first, '必须包含已创建的会话');
+  assert.strictEqual(first.cwd, cwd);
+  assert.strictEqual(first.title, '实现会话列表', '标题取首轮 prompt 首行');
+  assert.ok(first.updatedAt !== undefined);
+  assert.ok(Number.isFinite(Date.parse(first.updatedAt)), 'updatedAt 必须是可解析的 ISO 时间');
+  assert.strictEqual(
+    harness.sessions.reduce((sum, item) => sum + item.runs.length, 0),
+    totalRuns,
+    'list 必须只读（不触发任何 run）',
+  );
+  const filtered = await harness.client.request('session/list', { cwd: tempDir() });
+  assert.deepStrictEqual(recordResultOf(filtered)['sessions'], []);
+  const invalid = await harness.client.request('session/list', { cwd: 'relative/path' });
+  assert.strictEqual(errorCodeOf(invalid), -32602);
+});
+
+test('15) session/resume：活跃会话复用 sessionId 继续 prompt（不重建运行时）', async () => {
+  const cwd = tempDir();
+  const harness = new Harness({});
+  const sessionId = await harness.newSession(cwd);
+  const resumed = await harness.client.request('session/resume', {
+    sessionId,
+    cwd,
+    mcpServers: [],
+  });
+  assert.deepStrictEqual(resultOf(resumed), {});
+  assert.strictEqual(harness.factoryCalls, 1, 'resume 活跃会话不得重建运行时');
+  const response = await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '继续' }],
+  });
+  assert.strictEqual(recordResultOf(response)['stopReason'], 'end_turn');
+  assert.deepStrictEqual(harness.session?.runs, ['继续']);
+});
+
+test('16) session/resume：持久化会话恢复运行时不回放历史', async () => {
+  const cwd = tempDir();
+  const harness = new Harness({
+    history: [
+      eventFactory.user('sess-stored-1', '旧问题'),
+      eventFactory.assistant('sess-stored-1', '旧回答'),
+    ],
+  });
+  const sessionId = 'sess-stored-1';
+  const resumed = await harness.client.request('session/resume', {
+    sessionId,
+    cwd,
+    mcpServers: [],
+  });
+  assert.deepStrictEqual(resultOf(resumed), {});
+  assert.strictEqual(harness.factoryCalls, 1);
+  assert.deepStrictEqual(harness.client.updates, [], 'session/resume 不回放历史');
+  const response = await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '接着聊' }],
+  });
+  assert.strictEqual(recordResultOf(response)['stopReason'], 'end_turn');
+  assert.deepStrictEqual(harness.session?.runs, ['接着聊']);
+});
+
+test('17) session/resume：不存在 / 已 close 的会话 fail-closed（-32602）', async () => {
+  const cwd = tempDir();
+  const harness = new Harness({});
+  const missing = await harness.client.request('session/resume', {
+    sessionId: 'sess_missing',
+    cwd,
+    mcpServers: [],
+  });
+  assert.strictEqual(errorCodeOf(missing), -32602);
+  const sessionId = await harness.newSession(cwd);
+  await harness.client.request('session/close', { sessionId });
+  const closed = await harness.client.request('session/resume', {
+    sessionId,
+    cwd,
+    mcpServers: [],
+  });
+  assert.strictEqual(errorCodeOf(closed), -32602, 'close 后 resume 必须拒绝而非静默复活');
+});
+
+test('18) authenticate：注入端口校验 token，成功后身份进入新会话', async () => {
+  const authenticator = new TokenAuthenticator('token-ok');
+  const harness = new Harness({}, 'client', { authenticator, requireAuth: true });
+  const cwd = tempDir();
+  const denied = await harness.client.request('session/new', { cwd, mcpServers: [] });
+  assert.strictEqual(errorCodeOf(denied), -32000, 'requireAuth 下未认证必须 -32000');
+  const bad = await harness.client.request('authenticate', {
+    methodId: 'token',
+    token: 'token-bad',
+  });
+  assert.strictEqual(errorCodeOf(bad), -32000);
+  const good = await harness.client.request('authenticate', {
+    methodId: 'token',
+    token: 'token-ok',
+  });
+  assert.deepStrictEqual(resultOf(good), {});
+  const sessionId = await harness.newSession(cwd);
+  assert.strictEqual(harness.lastOptions?.identity?.subject, 'user-1');
+  const response = await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '认证后第一轮' }],
+  });
+  assert.strictEqual(recordResultOf(response)['stopReason'], 'end_turn');
+});
+
+test('19) authenticate：未知方式与未注入端口一律拒绝', async () => {
+  const authenticator = new TokenAuthenticator('token-ok');
+  const withPort = new Harness({}, 'client', { authenticator });
+  const unknownMethod = await withPort.client.request('authenticate', {
+    methodId: 'unknown',
+  });
+  assert.strictEqual(errorCodeOf(unknownMethod), -32602);
+  const withoutPort = new Harness({});
+  const rejected = await withoutPort.client.request('authenticate', {
+    methodId: 'token',
+    token: 'token-ok',
+  });
+  assert.strictEqual(errorCodeOf(rejected), -32602, '缺省没有认证端口时必须拒绝');
+});
+
+test('20) logout：清除身份后 requireAuth 再次拒绝，重新认证可恢复', async () => {
+  const authenticator = new TokenAuthenticator('token-ok');
+  const harness = new Harness({}, 'client', { authenticator, requireAuth: true });
+  const cwd = tempDir();
+  await harness.client.request('authenticate', { methodId: 'token', token: 'token-ok' });
+  await harness.newSession(cwd);
+  const logout = await harness.client.request('logout', {});
+  assert.deepStrictEqual(resultOf(logout), {});
+  const denied = await harness.client.request('session/new', { cwd, mcpServers: [] });
+  assert.strictEqual(errorCodeOf(denied), -32000);
+  await harness.client.request('authenticate', { methodId: 'token', token: 'token-ok' });
+  const sessionId = await harness.newSession(cwd);
+  assert.match(sessionId, /^sess_/u);
+});
+
+test('21) initialize：声明 list/resume/close，并在注入认证端口时通告 authMethods/logout', async () => {
+  const authenticator = new TokenAuthenticator('token-ok');
+  const harness = new Harness({}, 'client', { authenticator });
+  const response = await harness.client.request('initialize', { protocolVersion: 1 });
+  const result = recordResultOf(response);
+  const capabilities = result['agentCapabilities'] as Record<string, unknown>;
+  assert.deepStrictEqual(capabilities['sessionCapabilities'], {
+    list: {},
+    resume: {},
+    close: {},
+  });
+  assert.deepStrictEqual(capabilities['auth'], { logout: {} });
+  assert.deepStrictEqual(result['authMethods'], [{ id: 'token', name: 'Token 登录' }]);
+});
+
+test('22) session/cancel 对已 close 会话幂等，且重复 close 仍成功', async () => {
+  const harness = new Harness({});
+  const sessionId = await harness.newSession(tempDir());
+  await harness.client.request('session/close', { sessionId });
+  harness.client.notify('session/cancel', { sessionId });
+  harness.client.notify('session/cancel', { sessionId });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const again = await harness.client.request('session/close', { sessionId });
+  assert.deepStrictEqual(resultOf(again), {});
+  const list = await harness.client.request('session/list', {});
+  assert.deepStrictEqual(recordResultOf(list)['sessions'], []);
+});
+
+test('23) session/close：挂起的权限请求按 cancelled 收尾，回合不悬挂', async () => {
+  const harness = new Harness({
+    permission: { toolName: 'write_file', target: 'src/close.ts' },
+  });
+  const sessionId = await harness.newSession(tempDir());
+  const pending = harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '写文件但不批' }],
+  });
+  const request = await waitFor(
+    () => harness.client.permissionRequests,
+    () => true,
+  );
+  const closed = await harness.client.request('session/close', { sessionId });
+  assert.deepStrictEqual(resultOf(closed), {});
+  const response = await pending;
+  assert.strictEqual(recordResultOf(response)['stopReason'], 'cancelled');
+  assert.strictEqual(harness.session?.decision, 'deny');
+  assert.ok(request.id > 0);
+});
