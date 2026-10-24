@@ -82,7 +82,7 @@ export class TurnRunner {
     private readonly persister?: EventPersister,
     /**
      * 回合 token 预算（V2.1，可选，0/缺省关闭）：累计模型 usage 超限即停止步进，
-     * 交由兜底总结收尾——借鉴同类成熟实现的 token 预算终止，比纯步数更贴近真实成本。
+     * 交由兜底总结收尾——token 预算终止，比纯步数更贴近真实成本。
      */
     private readonly tokenBudget = 0,
     /**

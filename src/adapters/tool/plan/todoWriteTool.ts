@@ -14,7 +14,7 @@ const STATUSES: readonly TodoStatus[] = ['pending', 'in_progress', 'completed'];
 /**
  * @beta
  * `todo_write`：全量替换待办列表（last-write-wins），并广播 `todo` 事件。
- * 借鉴同类成熟实现 `packages/todo/tool-todo` 的 `todo/write`。
+ * `会话级待办快照` 的 `todo/write`。
  */
 export class TodoWriteTool {
   /**

@@ -65,7 +65,7 @@ const SAFE_CHECKPOINT_ID = /^[A-Za-z0-9_-]{1,64}$/;
  * 因此这里用合成 key 把检查点事件与索引分别存为独立"会话"，从而不污染主会话日志。
  *
  * 若注入 `snapshotter` + `workspaceRoot`，则额外捕获工作区文件快照，回滚时**同时回滚对话与代码**
- * （对齐 Claude Code /rewind），而非仅回滚事件流。
+ * （对话 + 代码双回滚），而非仅回滚事件流。
  */
 export class CheckpointManager implements CheckpointManagerPort {
   /** 每会话默认保留 20 个文件快照。 */

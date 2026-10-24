@@ -206,7 +206,7 @@ export class CliNativeCmds extends CliCompareCmds {
   }
 
   /**
-   * lsp：代码导航（#S32，借鉴同类成熟实现 LSP stdio 桥接）。
+   * lsp：代码导航（#S32，LSP stdio 桥接）。
    * 用法: omniharness lsp <definition|references|hover|status> --file PATH --line N --col N [--lsp "server cmd"]
    * 语言服务器由用户自备（无第三方依赖铁律下不内嵌），用 --lsp "cmd args" 指定（如 --lsp "typescript-language-server --stdio"）。
    * @param args 子命令参数（首 token 为子动作，--file/--line/--col 定位，--lsp 指定服务器启动命令）。

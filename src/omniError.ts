@@ -1,7 +1,7 @@
 /**
- * 集中错误码目录（#P2，对标成熟 harness 的 error catalog）。
+ * 集中错误码目录（#P2，面向 成熟 harness 的 error catalog）。
  *
- * 成熟 harness（同类成熟实现 CLI / Claude Code）对所有可观测、可分类的错误都带**稳定错误码**，
+ * 成熟 harness对所有可观测、可分类的错误都带**稳定错误码**，
  * 便于日志关联、上层重试判定与跨组件对齐。此前项目错误类零散、无统一 code，
  * 本文件把错误码收敛为单一真相源，并提供 `OmniError` 基类。
  *

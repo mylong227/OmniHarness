@@ -477,7 +477,7 @@ export class ApiClient {
     return this.rpc('checkpoint.rollback', { sessionId, label });
   }
 
-  // ---- 内联 diff 审查（借鉴同类成熟实现 Review：hunk 级 stage/revert + 行内评论）----
+  // ---- 内联 diff 审查----
 
   /** stage 整个文件（git add）。 */
   public stageFile(path: string): Promise<{ ok: boolean }> {

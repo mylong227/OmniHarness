@@ -405,7 +405,7 @@ function getMd(): MarkdownItInstance {
     }
   });
 
-  // ---- 代码块包工具条：语言标签 + 一键复制（借鉴同类成熟实现回复观感） ----
+  // ---- 代码块包工具条：语言标签 + 一键复制 ----
   const defaultFence = (md.renderer.rules.fence ??
     ((tokens: MdToken[], idx: number, opts: unknown, _env: unknown, self: MdSelf): string =>
       self.renderToken(tokens, idx, opts))) as MdRenderRule;

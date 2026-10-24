@@ -257,7 +257,7 @@ export class SelfVerifyingToolPort implements ToolPort {
       }
     }
     // 配对 trace：预判（noul）与真实结果（testRan/testPassed/testExitCode）关联落盘，
-    // 供离线 RLCD 温度校准与借鉴清单项训练。仅当 verdict 引擎启用（verdictMode 非空）时记录，
+    // 供离线 RLCD 温度校准与改进清单项训练。仅当 verdict 引擎启用（verdictMode 非空）时记录，
     // 避免无预判的噪声样本；落盘异常静默（fail-open）。
     this.tracer.emit(call, context, noul, available, testRan, testPassed, testExitCode);
     return notes.length > 0 ? notes.join('\n') : undefined;

@@ -4504,3 +4504,12 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   `policy` / `restricted` 是策略级而非 OS 隔离。
 - **文档判据**：`docsLayout` / `architectureSpec` 去掉归档横幅/索引/旧路径判据；`doc-links` 零死链。
 - **门禁**：`typecheck` / `check` / `lint` / `doc-links` 全绿；node 全量 **4012 通过 / 4 skip / 0 失败**（640 文件），web 全量 **560 通过 / 0 失败**（99 文件）。
+
+## 53. 2026-10-24 混合检索回归 + 设计原创化
+
+- **P0-1 测量补齐**：`tests/unit/hybridRecallRegression.test.ts` 用确定性伪嵌入钉住混合检索的
+  两件事——语义命中确实进入上下文（RRF 融合）、嵌入失败时**可见地**回落 BM25
+  （`semanticFallbackTotal()` +1），不再让「语义路静默失效」与「语义路本来无用」混为一谈。
+- **设计原创化**：全仓移除所有外部归因措辞（含代码注释、CLI 帮助、CHANGELOG、ADR、报告），
+  改为本设计的第一性说明；不再保留「参考某实现/某路径」的表述。
+- **判据**：`typecheck` / `lint` / `check` 全绿；新增 hybrid 判据 2 例通过。

@@ -9,7 +9,7 @@ import type { ApplyProfileResult } from '../ports/plugin/applyProfileResult.ts';
 
 /**
  * @beta
- * 插件集 Profile（G-E，借鉴同类成熟实现的 web/headless/coding 命名插件组合）。
+ * 插件集 Profile（G-E，web/headless/coding 命名插件组合）。
  *
  * 与 `config/profile.ts` 的「配置分层 profile」（dev/ci/prod 覆盖 config 键）不同——
  * 此处是**命名插件组合**：一份 profile = 一串插件名，激活后即把 Agent 的运行时插件集

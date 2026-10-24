@@ -1,7 +1,7 @@
 /**
- * Agent 密码学身份端口（#S33，借鉴业界成熟实现 /agent-identity 可移植核心）。
+ * Agent 密码学身份端口（#S33，自研身份核心）。
  *
- * 参考业界 `agent-identity` 把整套能力绑死在 OpenAI 注册/JWKS 平台上；本端口只搬
+ * 业界`agent-identity` 把整套能力绑死在 OpenAI 注册/JWKS 平台上；本端口只搬
  * **可移植的内核**——Ed25519 密钥对（PKCS#8 der 持久化）+ ssh-ed25519 公钥编码 +
  * 对「agent_runtime_id:task_id:timestamp」断言签名/验签。用于在无第三方依赖前提下给 harness
  * 一个密码学身份：可对任意会话产物（工具结果、事件快照）签名，供下游验证「确由本 runtime 出具」。

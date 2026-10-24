@@ -229,7 +229,7 @@ export class AppServer extends AppServerVaultHandlers {
   }
 
   /**
-   * 多 Agent 编排 RPC（G-C，借鉴同类成熟实现 agent-graph-store）：图增删查 + 运行 + 实时状态。
+   * 多 Agent 编排 RPC（G-C，多 Agent 图存储）：图增删查 + 运行 + 实时状态。
    * @returns 无返回值。
    */
   protected registerGraphHandlers(): void {
@@ -293,7 +293,7 @@ export class AppServer extends AppServerVaultHandlers {
   }
 
   /**
-   * 会话检查点 / 回滚 RPC（借鉴同类成熟实现「回滚到检查点」）：列表 / 创建 / 回滚（对话 + 代码）。
+   * 会话检查点 / 回滚 RPC：列表 / 创建 / 回滚（对话 + 代码）。
    * @returns 无返回值。
    */
   private registerCheckpointHandlers(): void {
@@ -303,7 +303,7 @@ export class AppServer extends AppServerVaultHandlers {
   }
 
   /**
-   * 内联 diff 审查 RPC（借鉴同类成熟实现 Review）：hunk/file 级 stage/revert + 行级评论。
+   * 内联 diff 审查 RPC：hunk/file 级 stage/revert + 行级评论。
    * @returns 无返回值。
    */
   private registerReviewHandlers(): void {
@@ -329,7 +329,7 @@ export class AppServer extends AppServerVaultHandlers {
   }
 
   /**
-   * 长期记忆管理 RPC（#G-D / 4.3，借鉴同类成熟实现 dedicated memories）：列表/查看/增/改/删/检索 + 变更实时通知。
+   * 长期记忆管理 RPC（#G-D / 4.3，长期记忆管理）：列表/查看/增/改/删/检索 + 变更实时通知。
    * @returns 无返回值。
    */
   protected registerMemoryHandlers(): void {

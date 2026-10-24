@@ -1,4 +1,4 @@
-//! 多 Agent 树：registry + 角色 + 父子关系（参考成熟实现的 agent 控制面简化版）。
+//! 多 Agent 树：registry + 角色 + 父子关系（本实现的 agent 控制面简化版）。
 
 use std::collections::HashMap;
 

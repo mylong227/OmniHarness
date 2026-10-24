@@ -334,7 +334,7 @@
     },
     {
       "spec": "-p, --print",
-      "description": "headless 非交互执行（对标 claude -p 等 headless 惯例）：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）"
+      "description": "headless 非交互执行：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）"
     },
     {
       "spec": "--output-format {{outputFormats}}",

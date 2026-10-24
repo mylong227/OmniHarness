@@ -570,7 +570,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
 
   return (
     <div className={'col left side' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
-      {/* 品牌头：Ω + 同类成熟实现 + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
+      {/* 品牌头：Ω + 本实现 + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
       <SidebarHeader
         rail={rail}
         onToggleRail={() => setRail((v) => !v)}

@@ -8,7 +8,7 @@ import { log } from '../util/logger.ts';
  * `SKILL.md` 工作区发现（INT-04，2026-10-21）。
  *
  * 此前技能只能经配置文件内联或 CLI `--skills <file>` 进入，工作区里放好的
- * `.omniharness/skills/<name>/SKILL.md`（以及 Claude Code 兼容的 `.claude/skills`）
+ * `.omniharness/skills/<name>/SKILL.md`（以及外部工具兼容的 `.claude/skills`）
  * 永远不会被读到——「SKILL.md 可移植」只完成了导入通道，没完成自动发现。
  *
  * 2026-10-22 起支持 `.agents/skills`（跨工具 Agent Skills 约定），但**默认关闭**：

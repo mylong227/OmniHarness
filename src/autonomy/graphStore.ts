@@ -23,7 +23,7 @@ export type { GraphSummary } from '../ports/autonomy/graphSummary.ts';
 
 /**
  * @beta
- * 图定义持久化存储（借鉴同类成熟实现 agent-graph-store）：
+ * 图定义持久化存储：
  * 把命名 {@link WorkflowDef} 存到 `<workspace>/.omniharness/graphs/<id>.json`。
  *
  * 设计要点（fail-closed + 无第三方依赖）：

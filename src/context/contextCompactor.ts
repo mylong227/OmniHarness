@@ -35,7 +35,7 @@ export interface CompactionOptions {
   readonly remoteSummarizer?: (history: string) => Promise<string>;
   /**
    * 模型上下文窗口（token，V2）：提供时压缩阈值 = floor(window × 0.8)，
-   * 优先于 maxTokens（借鉴同类成熟实现 context_window 百分比 / 同类成熟实现 thresholdRatio 思想）。
+   * 优先于 maxTokens。
    */
   readonly contextWindowTokens?: number;
   /**
@@ -92,7 +92,7 @@ export interface CompactionResult {
  * 用于把 compaction 后会被 DeepSeek/OpenAI HTTP 400 拒收的"orphan tool 块"挪进 head。
  */
 
-/** 结构化摘要模板（借鉴同类成熟实现 compaction-basic 8 段结构，保关键工程信息不丢）。 */
+/** 结构化摘要模板。 */
 const SUMMARY_TEMPLATE = [
   '你是对话历史压缩器。请把下列历史压缩为结构化摘要，严格按以下小节输出（无内容的节写"无"）：',
   '1. 任务目标：用户的原始意图与验收标准',
@@ -630,7 +630,7 @@ export class ContextCompactor {
    * 生成历史摘要（V2 三通道：服务端压缩回调 → 本地模型（前缀友好请求）→ 占位）。
    * 前缀友好：摘要请求 = 原样重放 head + 尾部追加一条 user 压缩指令，
    * 使该请求与主请求共享最长公共前缀，命中 provider 的 implicit prompt cache
-   * （借鉴同类成熟实现 summarizer 真前缀设计 / 同类成熟实现保前缀头删策略）。
+   * 。
    */
   private async summarize(head: readonly ModelMessage[]): Promise<string> {
     if (this.options.remoteSummarizer !== undefined) {

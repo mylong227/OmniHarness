@@ -124,7 +124,7 @@ describe('shellProcessRunner：受限令牌沙箱下的 DLL 初始化失败回�
    * `windowsHide: true` ⇒ Node 给子进程加 `CREATE_NO_WINDOW` ⇒ 子进程在 DLL 初始化阶段就死，
    * 退出码 0xC0000142（Node 可能回传有符号 -1073741502 或无符号 3221225794），两路输出全空。
    * 该沙箱的官方文档明写这两个标志会导致 STATUS_DLL_INIT_FAILED（「console isolation is
-   * unavailable」），同类成熟实现自己的进程创建器为此刻意不加。
+   * unavailable」），本实现自己的进程创建器为此刻意不加。
    */
   it('判据只认「确定没跑过用户代码」的形态（退出码命中 + 两路输出全空 + 非超时/取消/截断）', () => {
     const base = {

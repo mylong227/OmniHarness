@@ -6,7 +6,7 @@ import type {
 
 /** 询问式升级审批选项。 */
 export interface AskEscalationOptions {
-  /** 交互裁决器：交人工/TTY/LLM 判断 escalate 还是 abort（借鉴同类成熟实现 request_permissions 的交互提权）。 */
+  /** 交互裁决器：交人工/TTY/LLM 判断 escalate 还是 abort。 */
   readonly askHandler: (request: EscalationRequest) => Promise<EscalationDecision>;
 }
 

@@ -1,7 +1,7 @@
 /**
  * 生效模式（EnforcementMode）——把「跑不跑」与「改不改行为」拆成两件事。
  *
- * ## 借鉴来源（`docs/TASK_BOARD.md` §17.2 D1）
+ * ## 设计说明（`docs/TASK_BOARD.md` §17.2 D1）
  *
  * 业界成熟实现 把「答案从哪来」（`provider`: mock/live）与「答案是否允许生效」（`mode`: off/shadow/enforce）
  * 做成两个**正交开关**。本仓库既有的安全开关多为二值 opt-in（`promptInjectionGuard` 等），于是

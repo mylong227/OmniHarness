@@ -12,7 +12,7 @@ import { t } from '../i18n/i18n.ts';
  * 长内容收起判定器：判断一段正文是否应默认收起，并产出简报卡所需的摘要信息。
  */
 export class LongContentCollapser {
-  /** 字符数阈值：超过即视为长内容（对标单章 2000+ 字的常规长回复，报告类动辄数千字）。 */
+  /** 字符数阈值：超过即视为长内容。 */
   public static readonly COLLAPSE_CHARS = 2600;
   /** 行数阈值：短行多的清单类内容（代码/表格）按行兜底。 */
   public static readonly COLLAPSE_LINES = 48;

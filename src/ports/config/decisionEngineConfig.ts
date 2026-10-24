@@ -21,6 +21,6 @@ export interface DecisionEngineConfig {
   readonly warm?: boolean | undefined;
   /** 单发路径单次决策上限（毫秒，默认 120000）；热路径另有更短预算，避免拖住回合。 */
   readonly timeoutMs?: number | undefined;
-  /** 是否落盘决策 trace（append-only JSONL，供 RLCD 温度校准 / 借鉴清单训练）。默认 true（仅当 mode≠off 时生效）。 */
+  /** 是否落盘决策 trace（append-only JSONL，供 RLCD 温度校准 / 改进清单训练）。默认 true（仅当 mode≠off 时生效）。 */
   readonly trace?: boolean | undefined;
 }

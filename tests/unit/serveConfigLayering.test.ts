@@ -4,9 +4,9 @@
  * ## 缺陷形态（真实，非假想）
  *
  * CLI 执行路径走 `execCli.loadDefaults` → `configFile.loadLayered`（用户级 → 项目级 → profile → bundle → env）；
- * 而 `同类成熟实现 serve`（Web UI）此前走的是 `configFile.find(wsRoot)` + **单文件 `load`** —— 只读**项目级那一份**。
+ * 而 `本实现 serve`（Web UI）此前走的是 `configFile.find(wsRoot)` + **单文件 `load`** —— 只读**项目级那一份**。
  * 于是用户级 `~/.omniharness/omniharness.json` 里的 `modelAdapter` / `providerKeys` / `model` / `reasoning`
- * 被**静默忽略**：验收实测 `同类成熟实现 serve` 起来后 `config.get` 报 `modelAdapter: mock`，而用户配置里明明是
+ * 被**静默忽略**：验收实测 `本实现 serve` 起来后 `config.get` 报 `modelAdapter: mock`，而用户配置里明明是
  * 真实 provider + 凭据。同一仓库里「一次性运行用真模型、Web UI 用 mock」这种自相矛盾，UI 上完全看不出来。
  *
  * 本测试锁死：**用户级层必须参与合并，且项目级层优先于用户级**（否则又是一个静默失效）。

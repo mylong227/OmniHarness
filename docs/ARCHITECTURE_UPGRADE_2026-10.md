@@ -256,7 +256,7 @@ Terminal-Bench/评测子系统且**生产代码零引用**（逐名 grep 确认�
 **不建议采纳**：照搬 LangGraph 式"每 superstep 全量快照 checkpointer"（官方自认 checkpoint 无界增长并建议 prune；
 本仓"追加日志 + 压缩游标"更省，叠加会放大写放大）；引入 `update_state` 式**可逆就地回滚**（LangGraph 的 `update_state`
 刻意不回滚而是分支；本仓 `rewindTo` 的 fail-closed 越界断言与"夹取会把算错伪装成成功"的理由会被毁掉 ⇒ 要分支语义应**新增**
-`fork-from-checkpoint`）；按调用间数据依赖做 DAG 调度 / 沙箱内确定性重放（工具契约无输入输出声明，同类成熟实现与本仓**都**选择静态声明；
+`fork-from-checkpoint`）；按调用间数据依赖做 DAG 调度 / 沙箱内确定性重放（工具契约无输入输出声明，本仓选择静态声明；
 模型调用与副作用不可确定，两家的"重放"都只在展示/证据层）。
 
 ### 3.2 上下文工程与代码检索（✅ 已完成）
@@ -424,7 +424,7 @@ Roots/Sampling/Logging 同期弃用）；自研 OAuth/CIMD（STDIO 规范本就 
 **不建议采纳**：上 Firecracker（官方 README 明说依赖 **KVM**、tested platforms 全为 Linux 宿主，**无任何 Windows 宿主表述**；
 要 VM 级应走 microsandbox（README 声明 WHP）或先做 WSL2 路线）；用 Windows Sandbox 做逐命令沙箱（见发现 4）；
 把 MXC / OpenHands 当既有安全边界（MXC 自述"known cases … are **overly permissive**""**no MXC profiles should be treated as
-security boundaries currently**"；OpenHands 无沙箱档自述"full access to your filesystem"）——**可借鉴设计，不可写进威胁模型当已隔离**。
+security boundaries currently**"；OpenHands 无沙箱档自述"full access to your filesystem"）——**可复用其设计边界，不可写进威胁模型当已隔离**。
 
 ### 3.6 多代理编排与子代理（✅ 已完成）
 
@@ -766,7 +766,7 @@ worker 线程反效（§3.8）、并行写入型子代理有害（§3.6）——
 | 并行写入型子代理（多写者 swarm）                      | Cognition 两篇一致反对 + C 编译器 16-agent 互相覆盖事故 + MAST inter-agent misalignment（§3.6）                |
 | 把 `run_workflow`/A2A 宣传成"隔离子代理/互操作"       | 与实现不符（§8.1/§3.6 发现 7）；要么补实现，要么**改文档**（低成本路线）                                       |
 | LangGraph 式每步全量快照 / `update_state` 可逆回滚    | 官方自认 checkpoint 无界增长；本仓 `rewindTo` 的 fail-closed 语义会被毁（§3.1）                                |
-| 按调用间数据依赖做 DAG 调度 / 确定性重放              | 工具契约无输入输出声明（同类成熟实现与本仓都选静态声明）；模型/副作用不可确定（§3.1）                          |
+| 按调用间数据依赖做 DAG 调度 / 确定性重放              | 工具契约无输入输出声明（本仓选择静态声明）；模型/副作用不可确定（§3.1）                                        |
 | 上 Firecracker / 用 Windows Sandbox 做逐命令沙箱      | 前者 Linux/KVM only；后者冷启动按次计费、每登录会话 1 个 VM、网络只能全封（§3.5）                              |
 | 拿 verifier/LLM 当完成判据                            | AUROC 0.65 < 机械检测器 0.83；"自信措辞"即可抬高 0.27–0.36（§3.9）                                             |
 | 无外部反馈的自我精炼循环                              | 会掉分；43–62% 初始正确的代码被改坏（§3.9）                                                                    |

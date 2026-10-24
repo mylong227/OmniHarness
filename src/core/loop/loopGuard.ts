@@ -1,6 +1,6 @@
 import { ArrayAt } from '../../util/arrayAt.ts';
 /**
- * LoopGuard（Agent Loop V2 失控检测，对标 OpenHands StuckDetector + agent-loop-guard
+ * LoopGuard（Agent Loop V2 失控检测，面向 OpenHands StuckDetector + agent-loop-guard
  * 品类思想，无第三方依赖）。
  *
  * 设计要点：

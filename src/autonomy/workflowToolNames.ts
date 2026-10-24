@@ -1,6 +1,6 @@
 /**
  * @beta
- * run_workflow 工具名（agent-team / workflow DAG 编排）。
+ * run_workflow 工具名（多步 DAG 编排 编排）。
  *
  * 值来自 `ports/tool/toolNames.ts`（工具名单一来源）：导出名不变，名字只声明一次。
  */

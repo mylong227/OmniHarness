@@ -386,7 +386,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.autoCommit = true;
     return 0;
   },
-  /** headless 模式（对标 `claude -p` 等 headless 惯例）：非交互单次执行，供 CI 消费。 */
+  /** headless 模式：非交互单次执行，供 CI 消费。 */
   '--print': (a) => {
     a.print = true;
     a.events = 'silent';

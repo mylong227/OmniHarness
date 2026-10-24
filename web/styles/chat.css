@@ -130,7 +130,7 @@ pre.json { border:1px solid var(--border-soft); padding:8px 10px; margin-top:7px
 .question-note.pending { color:var(--accent, var(--warn)); font-size:12px; }
 
 /* ---------- 输入区（业界常见式悬浮圆角容器） ---------- */
-/* ---------- 底部输入区（同类成熟实现风格：切换器 + 附件 + 文本） ---------- */
+/* ---------- 底部输入区（本实现风格：切换器 + 附件 + 文本） ---------- */
 .composer {
   /* 弹层（添加菜单 / 上下文容量）以**整个输入区**为定位基准：它们原先挂在 `.addmenu` / `.cap` 上
      再用 `left:0` + 固定 300–320px 展开，而这两个触发器在 `.composer-bar` 里会随 flex 排到右半侧
@@ -211,7 +211,7 @@ pre.json { border:1px solid var(--border-soft); padding:8px 10px; margin-top:7px
 details.standalone summary { list-style:none; }
 details.standalone summary::-webkit-details-marker { display:none; }
 
-/* ---- Markdown 内容渲染（助手回复结构化，对标 WorkBuddy 会话风格） ---- */
+/* ---- Markdown 内容渲染（助手回复结构化，面向 WorkBuddy 会话风格） ---- */
 /* white-space 必须显式重置：`white-space` 是继承属性，而 .md-content 的宿主
    `.content { white-space:pre-wrap }` 是为**旧纯文本渲染器**准备的。markdown 管线的产物是
    HTML 结构，markdown-it 在块与块之间（以及整篇末尾）本来就会写入换行；若继承 pre-wrap，
@@ -236,7 +236,7 @@ details.standalone summary::-webkit-details-marker { display:none; }
 .md-content .md-table th { font-weight:600; }
 .md-content.md-empty { display:none; }
 
-/* #OBS-F2：代码块工具条（语言标签 + 一键复制），借鉴同类成熟实现回复观感。
+/* #OBS-F2：代码块工具条（语言标签 + 一键复制），回复观感。
    整块包一层容器，header 行与代码区同框，暗/亮主题都走语义变量。 */
 .md-codeblock {
   position: relative;
@@ -292,7 +292,7 @@ details.standalone summary::-webkit-details-marker { display:none; }
 
 /* =========================================================================
    思考模式（2026-10-14 优化）：流式「思考中」实时平铺 + 收尾平滑展开
-   —— 借鉴同类成熟实现桌面版工作态（用户录屏标杆）：思考正文以正文色平铺流式追加，
+   —— 桌面版工作态（用户录屏标杆）：思考正文以正文色平铺流式追加，
    无边框无卡片，头部一行「思考中 + 跳动计时 + 字数」；之前只有一行灰字静态增长。
    ========================================================================= */
 
@@ -323,7 +323,7 @@ details.standalone summary::-webkit-details-marker { display:none; }
 }
 .reason-dots i:nth-child(2) { animation-delay: .2s; }
 .reason-dots i:nth-child(3) { animation-delay: .4s; }
-/* 计时器：每秒跳动（等宽字体防抖动），借鉴同类成熟实现「Working for X分Y秒」 */
+/* 计时器：每秒跳动（等宽字体防抖动），「Working for X分Y秒」 */
 .reason-live-timer {
   font-family: var(--mono);
   font-size: 11px;
@@ -349,7 +349,7 @@ details.standalone summary::-webkit-details-marker { display:none; }
   overflow: auto;
   animation: reason-fadein .35s ease both;
 }
-/* 生长中的末段（最后一个换行之后的片段）：更浅斜体——同类成熟实现「Running …」片段的活跃感 */
+/* 生长中的末段（最后一个换行之后的片段）：更浅斜体——本实现「Running …」片段的活跃感 */
 .reason-live-tail { color: var(--dim); font-style: italic; }
 .reason-caret {
   display: inline-block;

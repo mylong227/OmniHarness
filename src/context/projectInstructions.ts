@@ -62,7 +62,7 @@ export class ProjectInstructions {
   }
 
   /**
-   * 展开正文里的 `@import` / `@path` 引用（Claude Code 约定）。 相对路径按被引用文件所在目录解析；越界、超深、读取失败一律跳过（fail-closed）。
+   * 展开正文里的 `@import` / `@path` 引用（外部兼容约定）。 相对路径按被引用文件所在目录解析；越界、超深、读取失败一律跳过（fail-closed）。
    * @param {string} body - body
    * @param {string} sourcePath - sourcePath
    * @param {string} workspaceRoot - workspaceRoot
@@ -416,7 +416,7 @@ export class ProjectInstructions {
 
 /**
  * 仓库常驻指令文件的默认总字节上限（32 KiB）。
- * 对齐同类成熟实现 CLI 对 AGENTS.md 的容量约定：超出即截断，避免单个巨型指令文件挤爆上下文。
+ * 对齐本实现 CLI 对 AGENTS.md 的容量约定：超出即截断，避免单个巨型指令文件挤爆上下文。
  */
 export const DEFAULT_INSTRUCTIONS_MAX_BYTES = 32 * 1024;
 
@@ -426,10 +426,10 @@ const MAX_IMPORT_DEPTH = 5;
 /** 单层目录下识别的指令文件名（优先级从低到高）。 */
 const INSTRUCTION_FILE_NAMES = ['AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md'] as const;
 
-/** 出现此文件时，同名 AGENTS.md 被整体取代（同类成熟实现语义：override 而非合并）。 */
+/** 出现此文件时，同名 AGENTS.md 被整体取代（本实现语义：override 而非合并）。 */
 const AGENTS_OVERRIDE_NAME = 'AGENTS.override.md';
 
-/** 用户级目录（相对 home）：项目自有目录在前，兼容 Claude Code 目录在后。 */
+/** 用户级目录（相对 home）：项目自有目录在前，兼容外部工具目录在后。 */
 const USER_LEVEL_DIRS = ['.omniharness', '.claude'] as const;
 
 /** 文件读取器（可注入，测试无需 mock 全局 fs）。 */

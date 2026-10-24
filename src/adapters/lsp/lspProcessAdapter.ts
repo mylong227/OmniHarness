@@ -24,7 +24,7 @@ export interface LspProcessAdapterOptions {
 
 /**
  * @beta
- * 进程级 LSP 适配器（借鉴同类实现的 stdio 桥接）：
+ * 进程级 LSP 适配器：
  * 外启语言服务器子进程，用 LSP 协议（stdio JSON-RPC）通信。
  *
  * - **无第三方依赖**：仅用 Node 内置模块，不新增任何 npm 包。

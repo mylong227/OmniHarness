@@ -15,7 +15,7 @@ export interface WindowsShimCommand {
  *
  * 为什么必须做：`CliWorker` 原先把 `shell:true` 的 argv 交给 cmd，模型可控的 task 里一个
  * `&` 就能执行第二条命令（2026-10-18 审查 P0）。直接 `spawn(.cmd, …, {shell:false})` 又会
- * EINVAL；因此解析 npm 垫片、绕过 cmd 是唯一既不注入也不破坏同类成熟实现类 CLI 的路径。
+ * EINVAL；因此解析 npm 垫片、绕过 cmd 是唯一既不注入也不破坏本实现类 CLI 的路径。
  *
  * 解析只支持**可证明的形态**：`SET "VAR=%~dp0\..."` + 最后一行 `"%NODE%" "%ENTRY%" %*`。
  * 认不出就返回 undefined / `isBatch` 为 true，由调用方 fail-closed。

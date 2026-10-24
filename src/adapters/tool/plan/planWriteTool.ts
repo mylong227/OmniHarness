@@ -12,7 +12,7 @@ import type { EventFactoryPort } from '../../../ports/runtime/eventFactory.ts';
 /**
  * @beta
  * `plan_write`：写入/更新计划草稿（重新起草回到 drafting，需再次呈现审批）。
- * 借鉴同类成熟实现 `packages/plan/plan-mode`。
+ * `计划态（批准前拦截写类工具）`。
  */
 export class PlanWriteTool {
   /**

@@ -133,12 +133,12 @@ export interface CliArgs {
   lsp?: string | undefined;
   /** dump-config：仅打印生效配置（含默认值与配置文件合并结果）并退出，不执行。 */
   dumpConfig?: boolean | undefined;
-  /** auto-commit：执行后用 git 自动提交变更（对标 Aider 的 git 安全网，opt-in）。 */
+  /** auto-commit：执行后用 git 自动提交变更。 */
   autoCommit?: boolean | undefined;
   /** 上下文窗口 token 数（--context-window N）：据此在 75% 处自动触发压缩，长会话防上下文溢出。 */
   contextWindow?: number | undefined;
   /**
-   * headless / CI 模式（--print / -p，对标 `claude -p` 等 headless 惯例）。
+   * headless / CI 模式（--print / -p，面向 `claude -p` 等 headless 惯例）。
    * 显式声明非交互执行：强制静默过程事件，只把最终结果写到 stdout。
    */
   print?: boolean | undefined;

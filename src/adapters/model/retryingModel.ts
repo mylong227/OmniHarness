@@ -8,7 +8,7 @@ import { ModelCallError } from '../../ports/model/model.ts';
 
 /**
  * @beta
- * 重试策略（#M6，借鉴同类成熟实现 `RetryPolicy`）。
+ * 重试策略（#M6，）。
  */
 export interface RetryPolicy {
   /** 最大尝试次数（含首次），默认 3。 */
@@ -40,7 +40,7 @@ export type DelayFn = (ms: number) => Promise<void>;
 
 /**
  * @beta
- * 模型调用重试装饰器（#M6，借鉴同类成熟实现 `retry.rs` / `responses_retry.rs`）。
+ * 模型调用重试装饰器（#M6，指数退避 + 抖动 + Retry-After）。
  *
  * 把任意 `ModelPort` 包一层：可重试错误（429/408/5xx/网络抖动）按指数退避 + 抖动重试，
  * 尊重服务端 Retry-After；不可重试错误（4xx 客户端错误）或达到最大次数后直接上抛。

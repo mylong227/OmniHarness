@@ -126,7 +126,7 @@ export class CliAgentCmds extends CliNativeCmds {
   }
 
   /**
-   * goal：自主目标循环（#S30，借鉴同类成熟实现 goal/ralph）。
+   * goal：自主目标循环（#S30，自主目标循环）。
    * 用法: omniharness goal "<目标描述>" [--model-adapter ...] [--goal-max-iterations N]
    * @param args 子命令参数（目标描述或 --goal 旗标、--goal-max-iterations 等）。
    * @returns 进程退出码：目标描述缺失为 2，运行成功为 0。
@@ -164,7 +164,7 @@ export class CliAgentCmds extends CliNativeCmds {
   }
 
   /**
-   * workflow：DAG 工作流编排（#S31，借鉴同类成熟实现 agent-team / workflow DAG）。
+   * workflow：DAG 工作流编排（#S31，多步 DAG 编排）。
    * 用法: omniharness workflow --file workflow.json [--resume-run <runId>] [--model-adapter ...]
    * （并发闸门见 spec 的 maxConcurrency 字段；运行日志落在 <workspace>/.omniharness/graph-runs/）
    * @param args 子命令参数（--file 指定工作流 JSON 定义；--resume-run 续跑既有运行）。

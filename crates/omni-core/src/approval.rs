@@ -1,5 +1,5 @@
 //! 审批引擎：allow / deny / ask 三态 + 工具级与命令前缀规则 + Guardian 自动审查。
-//! 参考成熟实现的审批原语与 exec_policy 前缀策略；fail-closed（默认拒绝）。
+//! 本实现的审批原语与 exec_policy 前缀策略；fail-closed（默认拒绝）。
 
 use std::collections::HashMap;
 

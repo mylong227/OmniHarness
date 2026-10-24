@@ -16,7 +16,7 @@ import type {
 /**
  * @beta
  * `ask_user`：向用户抛出结构化问题并暂停，等回答后作为工具结果喂回循环。
- * 借鉴同类成熟实现 `packages/interaction/tool-ask-user`（工具名 `ask_user_question`）。
+ * `会话内提问`（工具名 `ask_user_question`）。
  *
  * 回答经 {@link UserResponder} 端口获取——TTY 走 ConsoleUserResponder，无人值守
  * 走 DefaultUserResponder（fail-soft 返回空选择），测试/前端可注入自定义实现。

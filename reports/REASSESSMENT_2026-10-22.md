@@ -263,7 +263,7 @@
 1. **没有通用 agent 框架**：11 个系统里没有一个在运行时 import LangGraph/Agents SDK 一类通用框架；主循环都是手写 async loop（事件溯源、流式批处理、Tokio 状态机、async-generator、预算化 stop-guard、steering queue、log-as-queue）。
 2. **代码检索不是向量检索**：样本内没有系统用 embedding 做代码检索；主流是 ripgrep/tree-sitter/glob/AGENTS.md 一类确定性检索。**这直接支持本仓「BM25 为主、语义可选、拒绝向量库」的取舍**，不必因为「前沿」而改。
 3. **Skills 超过 MCP**：`SKILL.md` 在 9/11 系统中出现，MCP 8/11；ACP 6/11，并出现「harness 作为 ACP host」的第三角色。
-4. **安全是分层选择，不是规模函数**：同类成熟实现四层（Starlark exec policy → lifecycle hooks → LLM approval reviewer「Guardian」→ OS sandbox）；Claude Code 三层；Hermes 保留「YOLO 也绕不过的 policy floor」；OpenCode/Hermes 没有 OS 隔离。**安全强度取决于是否显式设计，不取决于项目大小**。
+4. **安全是分层选择，不是规模函数**：成熟实现四层（Starlark exec policy → lifecycle hooks → LLM approval reviewer「Guardian」→ OS sandbox）；Claude Code 三层；Hermes 保留「YOLO 也绕不过的 policy floor」；OpenCode/Hermes 没有 OS 隔离。**安全强度取决于是否显式设计，不取决于项目大小**。
 5. **延迟加载与 plan mode 在扩散**：deferred tool loading 1→3 个系统、read-only plan mode 2→4 个系统（一个季度内）。
 6. **成熟同类的 app-server 把 Thread/Turn/Item 做成 API**：`thread/fork`、`resume`、`rollback`、`compact/start`、`turn/steer`、`turn/interrupt`；sandbox 策略 read-only → workspace-write → danger-full-access；per-task git worktree；kernel 级 `spawn_agent`/`wait_agent`。[B]（OpenAI 博客经两份二手转述，原文 403）
 7. **LangChain 的 13.7 分**：模型固定为 `gpt-5.2`，只改 harness，Terminal-Bench 2.0 从 **52.8 → 66.5**；三个旋钮：prompt、tools、middleware。具体 middleware：`LocalContextMiddleware`（启动时映射 cwd + 可用工具）、`PreCompletionChecklistMiddleware`（拦截退出，强制对照 spec 验证）、`LoopDetectionMiddleware`（按文件编辑计数 → 提示 reconsider）。另有「reasoning sandwich」（xhigh-high-xhigh 63.6% vs 全 xhigh 53.9%）。**注意**：单一 benchmark、厂商自报、对该模型调过参；Opus 4.6 在同一 harness 上 59.6%。[V]

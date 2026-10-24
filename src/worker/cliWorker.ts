@@ -13,7 +13,7 @@ export interface CliWorkerOptions {
   readonly args: (task: string, workspaceRoot: string) => readonly string[];
   /**
    * 是否经系统 shell 执行。
-   * Windows 上 npm 安装的 CLI 常为无扩展名 shell 脚本（如同类成熟实现），
+   * Windows 上 npm 安装的 CLI 常为无扩展名 shell 脚本（如本实现），
    * 不经 shell 会 ENOENT，此类 worker 需置为 true。
    */
   readonly shell?: boolean;

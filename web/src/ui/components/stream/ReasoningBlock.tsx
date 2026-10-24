@@ -1,7 +1,7 @@
 // 思考过程块：两种形态——
-//   1) live（回合进行中，busy=true）：实时「思考中」平铺面板（借鉴同类成熟实现桌面版工作态，2026-10-14）。
+//   1) live（回合进行中，busy=true）：实时「思考中」平铺面板。
 //      头部一行「思考中 + 跳动计时（时/分/秒）+ 实时字数」；思考正文以正文色流式长出，**末段**
-//      （最后一个换行之后的生长中片段）以更浅斜体呈现——正是同类成熟实现「Running …」片段的活跃感；
+//      （最后一个换行之后的生长中片段）以更浅斜体呈现——正是本实现「Running …」片段的活跃感；
 //      文本末尾带光标。正文整块 aria-hidden，另设粗粒度 polite 状态区（跨百字档才变）。
 //      已思时长每秒写入 sessionStorage（按事件 id）：收尾摘要直接读它显示时长，刻意**持续写**
 //      而非卸载时写——卸载清理跑在新组件首渲染之后，收尾块的首帧会读到空值（React 提交时序）。
@@ -70,8 +70,7 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
   // 函数式 updater：不依赖上一次渲染捕获的 open（H5 防陈旧闭包）。
   const toggle = (): void => setOpen((prev) => !prev);
 
-  // live 计时器：每秒跳动并同步落 sessionStorage（借鉴同类成熟实现「Working for X分Y秒」；
-  // 持续写保证收尾块挂载时读得到，见文件头说明）。卸载即停，无泄漏。
+  // live 计时器：每秒跳动并同步落 sessionStorage。卸载即停，无泄漏。
   React.useEffect(() => {
     if (!live) return;
     startedAt.current = Date.now();
@@ -92,7 +91,7 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
 
   // —— 流式态：实时「思考中」平铺（无边框，正文色流式文本 + 浅色生长末段） ——
   if (live) {
-    // 末段拆分：最后一个换行之后的片段是「正在生长」的部分——更浅斜体（同类成熟实现口径）。
+    // 末段拆分：最后一个换行之后的片段是「正在生长」的部分——更浅斜体（本实现口径）。
     const nl = content.lastIndexOf('\n');
     const settled = nl >= 0 ? content.slice(0, nl) : '';
     const tail = nl >= 0 ? content.slice(nl + 1) : content;

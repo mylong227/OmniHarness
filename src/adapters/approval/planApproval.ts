@@ -8,7 +8,7 @@ import type {
 /**
  * 规划模式（plan）审批适配器。
  *
- * 行为语义对标 Claude Code 的 plan mode：
+ * 计划态语义（批准前拦截写类工具）：
  *   - 只允许「只读」类工具（读文件、列目录、检索、规划存储读写、LSP 查询、预算查询等）；
  *   - 拒绝一切会改动工作区或产生副作用的工具（shell、写文件、打补丁、派生子智能体、
  *     rollback、run_goal/run_workflow 等）。

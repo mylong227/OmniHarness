@@ -10,7 +10,7 @@ import type { HookEventEnvelope } from './formats.ts';
  *   tool_call   → PreToolUse
  *   tool_result → PostToolUse
  *   system      → Notification
- * 与同类成熟实现映射不同处：claude-code 使用 Pre/PostToolUse 语义，且 PreToolUse
+ * 与本实现映射不同处：claude-code 使用 Pre/PostToolUse 语义，且 PreToolUse
  * 需携带 tool_use_id 便于关联 PostToolUse。
  */
 export class ClaudeCodeHooksMapper {

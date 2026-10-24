@@ -549,7 +549,7 @@ export class StepContextBuilder {
     const degrade = this.deps.budgetDegrade?.shouldDegrade === true;
     if (degrade) {
       // (L6) 降档是**决策**，必须带可读理由落观测——否则事后只能看到「档位变了」，
-      // 无从判断是预算越阈、检索退化还是配置变更导致（借鉴 Laya `router.route(x).reason`）。
+      // 无从判断是预算越阈、检索退化还是配置变更导致。
       log.info('context.repomap.degrade', {
         reason: '软预算已越阈（budgetDegrade.shouldDegrade=true）',
         effect: `纯 BM25（忽略 embedding）+ 关重排 + 收缩大纲档位（payloadShape=${DEGRADE_PAYLOAD_SHAPE}）`,
