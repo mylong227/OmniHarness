@@ -43,6 +43,9 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'COMMERCIALIZATION_GAPS_2026-10.md',
   // 协议生态现行说明（2026-10-24 显式登记）：ACP / A2A 1.0 / AG-UI 覆盖与未支持点。
   'PROTOCOL_ECOSYSTEM.md',
+  // 桌面应用技术方案（2026-10-24 显式登记）：Electron + 固定 Node 侧车的提议稿，配套 ADR-0015；
+  // **未评审前不得当已批准方案实施**。
+  'DESKTOP_ARCHITECTURE_2026-10.md',
   'EVOLUTION_ARCH_UPGRADE_2026-10.md',
   // 目标架构蓝图（2026-10-04 显式登记）：Evolvix-Ω 终局态，Wave A–E 分波浪路线，未实现前不得当现状引用。
   'ARCHITECTURE_TARGET_2026-10.md',

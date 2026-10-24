@@ -169,7 +169,7 @@ Windows 上用 `WRITE_RESTRICTED` 令牌 + 工作区写入 SID 形成**内核强
 `0003-unified-gate-fail-closed`、`0004-audit-hash-chain`、`0005-event-stream-single-source`、
 `0006-sandbox-honest-degradation`、`0007-api-stability-annotations`、`0008-governed-evolution-kernel`、
 `0009-capability-protocol`、`0010-isolation-ladder`、`0011-signed-asset-pack`、`0012-plugin-process-isolation`、
-`0013-workspace-trust`、`0014-mcp-client-auth`。
+`0013-workspace-trust`、`0014-mcp-client-auth`、`0015-desktop-shell`。
 
 ## 12. 已知边界与"不做"清单
 

@@ -21,6 +21,7 @@
 | [0012](./0012-plugin-process-isolation.md)   | 远程插件进程隔离（Plugin Worker + Capability RPC）    | 提议   |
 | [0013](./0013-workspace-trust.md)            | 工作区信任闸（restricted 默认 + TOFU + policy floor） | 已接受 |
 | [0014](./0014-mcp-client-auth.md)            | MCP 客户端认证与 MRTR（token + RFC 9728 + 输入回路）  | 已接受 |
+| [0015](./0015-desktop-shell.md)              | 桌面壳：Electron + 固定 Node 侧车 + 回环 HTTP 契约    | 提议   |
 
 ## 何时写新 ADR
 
