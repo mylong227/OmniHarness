@@ -45,6 +45,8 @@ export type { RestrictedSandboxOptions } from './sandbox/restrictedSandbox.ts';
 export { UnsupportedSandbox } from './sandbox/unsupportedSandbox.ts';
 export { LinuxBwrapSandbox } from './sandbox/linuxBwrapSandbox.ts';
 export { MacOsSeatbeltSandbox } from './sandbox/macosSeatbeltSandbox.ts';
+export { ContainerSandbox } from './sandbox/containerSandbox.ts';
+export type { ContainerSandboxOptions } from './sandbox/containerSandbox.ts';
 export { SandboxManager } from './sandbox/sandboxManager.ts';
 export type { SandboxProfile } from './sandbox/sandboxManager.ts';
 export { SandboxDenial } from '../security/sandboxDenial.ts';

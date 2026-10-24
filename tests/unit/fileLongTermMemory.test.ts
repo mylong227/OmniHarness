@@ -244,3 +244,137 @@ describe('FileLongTermMemory 召回信任降权（生产默认路径）', () => 
     );
   });
 });
+
+describe('FileLongTermMemory × 记忆时间图（P2-1，生产默认开启）', () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const NOW = Date.parse('2026-09-12T00:00:00.000Z');
+  const nowIso = new Date(NOW).toISOString();
+
+  it('默认启用图：BM25 漏（单字符实体）时图命中可召回；关闭图后同一查询为空', () => {
+    const enabled = new FileLongTermMemory(tmpFile('graph-hit.jsonl'), undefined, 90, () => NOW);
+    assert.ok(enabled.factGraph !== undefined, '生产默认必须启用时间图');
+    enabled.remember(fact({ id: 'lang-c', text: 'C: 编译型系统语言', createdAt: nowIso }));
+    assert.ok((enabled.factGraph?.size() ?? 0) > 0, '前置：可解析事实必须建出边');
+    assert.deepStrictEqual(
+      enabled.recall('C', 5).map((f) => f.id),
+      ['lang-c'],
+      'BM25 的 tokenize 丢弃单字符拉丁词 ⇒ 必须由时间图补上这次召回',
+    );
+
+    // 正对照（判据自证）：同一条事实、同一个查询，关图后必须召不回——否则上面命中的是 BM25 而非图。
+    const disabled = new FileLongTermMemory(
+      tmpFile('graph-off.jsonl'),
+      undefined,
+      90,
+      () => NOW,
+      0.5,
+      false,
+    );
+    assert.strictEqual(disabled.factGraph, undefined);
+    disabled.remember(fact({ id: 'lang-c', text: 'C: 编译型系统语言', createdAt: nowIso }));
+    assert.deepStrictEqual(disabled.recall('C', 5), []);
+  });
+
+  it('图有命中时不改变原有排序（与关闭图逐位一致）', () => {
+    const at = new Date(NOW - DAY).toISOString();
+    const enabled = new FileLongTermMemory(
+      tmpFile('graph-order-a.jsonl'),
+      undefined,
+      90,
+      () => NOW,
+    );
+    const disabled = new FileLongTermMemory(
+      tmpFile('graph-order-b.jsonl'),
+      undefined,
+      90,
+      () => NOW,
+      0.5,
+      false,
+    );
+    for (const store of [enabled, disabled]) {
+      store.remember(fact({ id: 'f1', text: 'cache uses redis', createdAt: at }));
+      store.remember(fact({ id: 'f2', text: 'cache 配置在本地', createdAt: at }));
+    }
+    assert.ok(
+      (enabled.factGraph?.size() ?? 0) > 0,
+      '前置：图确实建出了边（不是「无图命中」的空场景）',
+    );
+    const withGraph = enabled.recall('cache redis', 2).map((f) => f.id);
+    const withoutGraph = disabled.recall('cache redis', 2).map((f) => f.id);
+    assert.deepStrictEqual(withGraph, withoutGraph, '图分只做 max 合并，不得扰动既有排序');
+    assert.deepStrictEqual(withGraph, ['f1', 'f2']);
+  });
+
+  it('进程重启后图从 facts 重建：supersede 区间与关闭前一致', () => {
+    const p = tmpFile('graph-reload.jsonl');
+    const t1 = NOW - 2 * DAY;
+    const t2 = NOW - DAY;
+    const first = new FileLongTermMemory(p, undefined, 90, () => NOW);
+    first.remember(
+      fact({ id: 'old', text: 'service uses redis', createdAt: new Date(t1).toISOString() }),
+    );
+    first.remember(
+      fact({ id: 'new', text: 'service uses postgres', createdAt: new Date(t2).toISOString() }),
+    );
+
+    const reloaded = new FileLongTermMemory(p, undefined, 90, () => NOW);
+    assert.strictEqual(reloaded.count, 2);
+    assert.strictEqual(
+      reloaded.factGraph?.cardOf('old')?.validTo,
+      t2,
+      '重建必须复现「旧边在 t2 关闭」，不能依赖进程内状态',
+    );
+    assert.ok(
+      !reloaded.temporalRecall('service', NOW).some((hit) => hit.factId === 'old'),
+      '重建后的图召回同样过滤 validTo 到点的旧边',
+    );
+    assert.ok(reloaded.temporalRecall('service', NOW).some((hit) => hit.factId === 'new'));
+  });
+
+  it('update / updateMany / delete 同步维护图', () => {
+    const m = new FileLongTermMemory(tmpFile('graph-sync.jsonl'), undefined, 90, () => NOW);
+    m.remember(fact({ id: 'x', text: 'alpha is beta', createdAt: nowIso }));
+    m.remember(fact({ id: 'y', text: 'gamma is delta', createdAt: nowIso }));
+    assert.strictEqual(m.factGraph?.cardOf('x')?.subject, 'alpha');
+
+    assert.strictEqual(m.update('x', { text: 'epsilon is zeta' }), true);
+    assert.strictEqual(m.factGraph?.cardOf('x')?.subject, 'epsilon', '改文本必须重放该卡');
+    assert.strictEqual(m.update('y', { text: '用户偏好暗色主题' }), true);
+    assert.strictEqual(m.factGraph?.cardOf('y'), undefined, '改成不可解析文本必须摘卡');
+
+    m.remember(fact({ id: 'z', text: 'eta is theta', createdAt: nowIso }));
+    assert.strictEqual(
+      m.updateMany([
+        { id: 'z', patch: { text: 'iota is kappa' } },
+        { id: 'x', patch: { importance: 5 } },
+      ]),
+      2,
+    );
+    assert.strictEqual(m.factGraph?.cardOf('z')?.subject, 'iota');
+
+    assert.strictEqual(m.delete('z'), true);
+    assert.strictEqual(m.factGraph?.cardOf('z'), undefined, 'delete 必须摘卡');
+  });
+
+  it('consolidate 经文件记忆暴露：返回统计且不删除事实', () => {
+    const m = new FileLongTermMemory(tmpFile('graph-consolidate.jsonl'), undefined, 90, () => NOW);
+    m.remember(
+      fact({
+        id: 'a',
+        text: 'node is runtime',
+        createdAt: new Date(NOW - 2 * DAY).toISOString(),
+      }),
+    );
+    m.remember(
+      fact({ id: 'b', text: 'node is runtime', createdAt: new Date(NOW - DAY).toISOString() }),
+    );
+    const before = m.count;
+    const report = m.consolidate();
+    assert.strictEqual(m.count, before, '巩固只动图，绝不删除事实');
+    assert.strictEqual(m.all().length, before);
+    assert.strictEqual(report.before, 2);
+    assert.strictEqual(report.merged, 1);
+    assert.strictEqual(report.after, 1);
+    assert.strictEqual(report.active, 1);
+  });
+});

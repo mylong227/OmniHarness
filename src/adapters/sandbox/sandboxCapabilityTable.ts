@@ -52,6 +52,7 @@ export class SandboxCapabilityTable {
     'wsl-bwrap',
     'windows-acl',
     'windows-acl-readonly',
+    'container',
   ];
 
   private constructor() {}
@@ -76,6 +77,8 @@ export class SandboxCapabilityTable {
       ...SandboxCapabilityTable.policyEntries(input.elevated ?? false),
       SandboxCapabilityTable.landlockEntry(landlock),
       ...SandboxCapabilityTable.osEntries(platform, commandExists),
+      // P2-2：容器档与平台无关（Docker Desktop / Podman / 原生 docker 皆可），只看运行时二进制。
+      SandboxCapabilityTable.containerEntry(commandExists),
     ];
   }
 
@@ -203,6 +206,48 @@ export class SandboxCapabilityTable {
         '需安装可选依赖 @deepseek-ai/dsh-sandbox-windows-acl；read-only 表示零写授权，读/网络仍不受限',
       ),
     ];
+  }
+
+  /**
+   * 构造容器沙箱条目（P2-2）：判定只看 PATH 上的 `docker` / `podman`，与平台无关。
+   *
+   * 诚实边界（必须写进输出，否则「装了 CLI」会被读成「隔离可用」）：
+   * - 本表按纪律**不 spawn 进程**，因此只能证明二进制存在；守护进程是否可连由运行期
+   *   `docker version` 探测（`ContainerSandbox.available()`）决定，缺失时 check() fail-closed；
+   * - 镜像需可拉取/已预拉取；容器共享宿主内核，**不是 microVM**。
+   *
+   * @param commandExists 命令存在性判定（注入式，便于跨平台单测）。
+   * @returns 容器能力条目。
+   */
+  private static containerEntry(
+    commandExists: (command: string) => boolean,
+  ): SandboxCapabilityEntry {
+    const docker = commandExists('docker');
+    const podman = commandExists('podman');
+    if (!docker && !podman) {
+      return {
+        profile: 'container',
+        backend: 'container',
+        real: false,
+        basis:
+          'PATH 上找不到 `docker` 或 `podman`，容器沙箱 fail-closed（该档可选、非默认，不谎报已隔离）',
+        actionable:
+          '安装 Docker Desktop（Windows 需启用 WSL2 后端）或 podman，并确认 `docker version` / ' +
+          '`podman version` 可连通守护进程；镜像默认 node:22-alpine，可用 OMNI_CONTAINER_IMAGE 覆盖',
+      };
+    }
+    const runtime = docker ? 'docker' : 'podman';
+    return {
+      profile: 'container',
+      backend: 'container',
+      real: true,
+      basis:
+        `PATH 上找到 \`${runtime}\`（容器运行时；守护进程是否可连由运行期 \`${runtime} version\` 探测，` +
+        '本表不 spawn）；镜像默认 node:22-alpine（OMNI_CONTAINER_IMAGE 可覆盖），需本地可拉取',
+      actionable:
+        '可选档、非默认：容器共享宿主内核（不是 microVM）；默认 --network none 断网，' +
+        'workspace 以 rw 挂载（容器内可删改工作区文件），需要更强隔离请换 microVM/独立主机',
+    };
   }
 
   /**

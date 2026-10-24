@@ -43,6 +43,20 @@ class MemLongTermMemory implements LongTermMemoryPort {
   }
 }
 
+/** 具备「时间图召回信号」可选能力的桩：用于验证生产包装器的 max 合并接线。 */
+class GraphAwareMemory extends MemLongTermMemory {
+  /** 需要被图分抬升的事实 id（空串 ＝ 不发信号）。 */
+  public boostedId = '';
+
+  /**
+   * 时间图召回信号（模拟 FileLongTermMemory.temporalRecall）。
+   * @returns 一条图分 1.0 的信号。
+   */
+  public temporalRecall(): readonly { readonly factId: string; readonly score: number }[] {
+    return this.boostedId === '' ? [] : [{ factId: this.boostedId, score: 1 }];
+  }
+}
+
 let seq = 0;
 function fact(text: string): MemoryFact {
   return {
@@ -134,5 +148,34 @@ test('⑥ 生产包装器召回也应用 untrusted 降权（不是只有 FileLon
   assert.deepStrictEqual(
     engine.recall('同一段记忆内容', 2).map((f) => f.id),
     ['t', 'u'],
+  );
+});
+
+test('⑦ 生产包装器接线：底层端口具备 temporalRecall 时按 factId 以 max 合并图分', () => {
+  const probe = 'qqq rrr sss ttt';
+  // 对照：普通桩没有图能力 ⇒ 纯共振排序（高共振者在前）。
+  const plain = new MemLongTermMemory();
+  const plainEngine = new ResonantFieldEngine(plain);
+  const plainHigh = fact(`${probe} extra extra`);
+  const plainLow = fact('截然不同的中文内容 汉字串');
+  plainEngine.remember(plainHigh);
+  plainEngine.remember(plainLow);
+  assert.deepStrictEqual(
+    plainEngine.recall(probe, 2).map((f) => f.id),
+    [plainHigh.id, plainLow.id],
+    '前置：无图信号时共振分高者在前',
+  );
+
+  // 接线：图信号把低共振事实抬到 1.0 ⇒ 必须排到第一（证明包装器真的读了该可选能力）。
+  const aware = new GraphAwareMemory();
+  const awareEngine = new ResonantFieldEngine(aware);
+  const awareHigh = fact(`${probe} extra extra`);
+  const awareLow = fact('截然不同的中文内容 汉字串');
+  awareEngine.remember(awareHigh);
+  awareEngine.remember(awareLow);
+  aware.boostedId = awareLow.id;
+  assert.deepStrictEqual(
+    awareEngine.recall(probe, 2).map((f) => f.id),
+    [awareLow.id, awareHigh.id],
   );
 });

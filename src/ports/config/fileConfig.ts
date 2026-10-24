@@ -54,7 +54,8 @@ export interface FileConfig {
     | 'unshare'
     | 'wsl-bwrap'
     | 'windows-acl'
-    | 'windows-acl-readonly';
+    | 'windows-acl-readonly'
+    | 'container';
   /**
    * 权限参数级规则（A2）：与内置规则合并后交规则审批（`approval: 'rules'` 生效）。
    * 支持 `commandGlob`（`*`/`?` 通配），使「拒绝含某子串的命令」无需改代码即可配置。

@@ -38,6 +38,19 @@ interface Cluster {
 }
 
 /**
+ * 可选能力：底层端口提供「时间图」召回信号（`FileLongTermMemory` 默认具备）。
+ *
+ * 为什么用结构化探测而不是改 `LongTermMemoryPort`：时间图是文件记忆的实现细节，
+ * 端口保持窄契约；装饰器只消费这一可选能力，缺失时（桩/旧实现）行为完全不变。
+ */
+interface TemporalRecallSource {
+  readonly temporalRecall: (
+    query: string,
+    nowMs: number,
+  ) => readonly { readonly factId: string; readonly score: number }[];
+}
+
+/**
  * 共振场统一引擎。
  */
 export class ResonantFieldEngine
@@ -305,24 +318,37 @@ export class ResonantFieldEngine
   // ── LongTermMemoryPort 委托 ──
 
   /**
-   * 共振召回 + 时间衰减重排：把查询映射成频谱探针取共振 top 候选，
-   * 再按「共振度 × 时间衰减」重排，失效事实丢弃。
+   * 共振召回 + 时间图 + 时间衰减重排：把查询映射成频谱探针取共振 top 候选；
+   * 若底层端口具备时间图（`FileLongTermMemory` 默认具备），按 `factId` 以
+   * `max(共振分, 图分)` 合并（确定性），再按「相关性 × 时间衰减」重排，失效事实丢弃。
+   *
+   * 无图信号时（桩/旧实现/图被显式关闭）与旧实现逐位一致。
    *
    * @param query 自然语言查询
    * @param k 取回条数
    * @returns 重排后的事实序列（衰减得分降序）
    */
   public recall(query: string, k: number): readonly MemoryFact[] {
+    const nowMs = this.clock();
     const hits = this.resonateByText(query, this.base.all().length);
-    const items: ScoredFact[] = hits.map((h) => ({ fact: h.fact, score: h.score }));
-    return TimeDecay.rankWithDecay(
-      items,
-      this.clock(),
-      this.halfLifeDays,
-      k,
-      this.untrustedPenalty,
-    );
+    const boosts = new Map<string, number>();
+    // 可选能力探测（内联以守住「单类 ≤25 成员」门禁）：缺失时 boosts 为空，行为与旧实现一致。
+    const capable = this.base as LongTermMemoryPort & Partial<TemporalRecallSource>;
+    if (typeof capable.temporalRecall === 'function') {
+      for (const signal of capable.temporalRecall(query, nowMs)) {
+        boosts.set(signal.factId, signal.score);
+      }
+    }
+    const items: ScoredFact[] = hits.map((hit) => {
+      const boost = boosts.get(hit.fact.id);
+      return {
+        fact: hit.fact,
+        score: boost !== undefined && boost > hit.score ? boost : hit.score,
+      };
+    });
+    return TimeDecay.rankWithDecay(items, nowMs, this.halfLifeDays, k, this.untrustedPenalty);
   }
+
   /** 全部事实（委托 base，供导出/调试）。
    * @returns base 中的全部事实列表。
    */

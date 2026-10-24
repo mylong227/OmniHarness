@@ -20,6 +20,9 @@ const KERNEL_ENFORCED_PROFILES: ReadonlySet<string> = new Set([
   'landlock',
   'seatbelt',
   'wsl-bwrap',
+  // P2-2：容器用宿主内核的 namespace / cgroup / capability 建立边界（不是 microVM，
+  // 也不做 landlock 式路径 ACL）；运行时不不可用时能力表条目 real=false，不会误报 L3。
+  'container',
 ]);
 
 /** 权限清单文件名（企业管控用，缺省位于工作区根；可选存在，存在时须合法 JSON）。 */

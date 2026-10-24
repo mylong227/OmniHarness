@@ -79,21 +79,42 @@
 - `src/mcp/mcpToolIntegrity.ts` + `McpGateway`：会话内工具清单指纹；同名描述/schema 变化拒绝，纯增删允许。
 - 判据：intent 4 例、integrity 3 例；MCP 生命周期回归通过。
 
-## 6. 门禁结果
+## 6. 记忆时间图 / 事实卡（P2-1）
+
+- `src/adapters/memory/temporalFactGraph.ts`：`TemporalFactGraph` 维护 subject/predicate/object + factId + validFrom/validTo + trust；规则抽取（箭头、use/require/prefer/own、系动词、冒号），实体归一化；同一 s+p 新事实关闭旧边；召回按 s/p/o 的 Dice 重合度，过滤 validTo/expiresAt；`consolidate()` 只合并派生索引、不删事实。
+- `FileLongTermMemory` 默认启用图（第 6 个构造参数 `temporalGraph=true` 可关）；`load/remember/update/updateMany/delete` 同步维护；`recall` 按 factId `max(BM25, 图分)` 合并后仍走 `TimeDecay`；重启从 facts 重建。
+- `ResonantFieldEngine` 默认包装器也探测 `temporalRecall` 并 max 合并，确保生产默认路径真正吃到图信号。
+- 判据：temporalFactGraph 9 例；fileLongTermMemory +5 例（含关图正对照、图不改变排序、重启重建、consolidate 不删事实）；resonantField +1 接线例。
+- 边界：规则抽取不是语义解析（中文关系句不建边）；同一 s+p 视为单值；validTo 只过滤图候选，不反删 BM25 命中。
+
+## 7. 容器沙箱（P2-2）
+
+- `src/adapters/sandbox/containerSandbox.ts`：`ContainerSandbox`（`name='container'`），Docker/Podman 运行时探测（3s、失败/超时/ENOENT fail-closed）；`check` 对 file_read/file_write 做 workspace 前缀校验，越界 `category:'path'`；`wrapCommand` 生成 `--network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp`、workspace rw bind、POSIX/Windows 引号转义。
+- 接线：`SandboxProfile`/`SANDBOX_PROFILES`/`SandboxManager`/`SandboxCapabilityTable`/`doctor`/`ConfigError`/`adapters/index`/`cliHelp` 全部加 `container`；默认仍是 `policy`。
+- 判据：`containerSandbox` 12 例；相关 sandbox/CLI/doctor 92 passed / 1 skipped。
+- 边界：容器共享宿主内核，不是 microVM；`--read-only` 只保护容器根，workspace 是 rw；默认断网；Windows 依赖 Docker Desktop/WSL2；无运行时即 fail-closed。
+
+## 8. 结构收口
+
+- `McpServer` 从 45 成员拆为 **16**：`McpSubscriptionService`（8）、`McpInputRequiredService`（8）、`McpMethodService`（19）；协议行为/错误码/trace/cache/requestState/订阅语义逐字保持；MCP 49 例 + 回归全绿。
+- `ConfigError` 的 `isPlainObject` 移到模块级，解除 501 codeLines 边缘；`temporalFactGraph` 24 成员；`resonantFieldEngine` 保持基线。编码标准增量门禁恢复全绿。
+
+## 9. 门禁结果
 
 | 项目                            | 结果                                            |
 | ------------------------------- | ----------------------------------------------- |
 | `tsc --noEmit`                  | ✅                                              |
-| `npm run check`                 | ✅ 1208 文件零违规                              |
+| `npm run check`                 | ✅ 1213 文件零违规                              |
 | `npm run lint`                  | ✅ 0 warning                                    |
 | `npm run format:check`          | ✅                                              |
 | `npm run arch:gate -- --strict` | ✅ 0 新增                                       |
 | `npm run api:check`             | ✅                                              |
 | `npm run audit:config-wiring`   | ✅                                              |
 | `npm run check:doc-links`       | ✅                                              |
-| 全量单测                        | **632 files / 3,894 tests passed**（7 skipped） |
+| `auditStandards --delta`        | ✅ 0 新增（含拆分后的 mcpServer）               |
+| 全量单测                        | **634 files / 3,921 tests passed**（7 skipped） |
 | 集成                            | **7/7 files、17/17 tests**                      |
 | `eval:long --self-check`        | **20/20**                                       |
 | `probe:recall:both --strict`    | ✅（57.6% vs 42.4%，fallback 0）                |
 
-**已知例外**：`src/mcp/mcpServer.ts` 在 2026-07-28 功能扩展后为 45 个成员（方法+字段），超过编码标准「上帝类」阈值（25）。功能/类型/架构门禁全绿；这是唯一未拆分的结构债，后续应按「订阅 / MRTR / 结果装饰」三块拆类。
+**仍为外部/可选边界**：MCP Streamable HTTP 服务端路由、MRTR 仅 tools/call、官方 tasks/UI 扩展、ACP 可选的 authenticate/logout/session-close、A2A gRPC/JWS/AUTH_REQUIRED、AG-UI STATE_DELTA/ACTIVITY；这些均已在报告与各模块注释中如实登记，不影响已落地核心互操作面。

@@ -38,6 +38,8 @@ export const SANDBOX_PROFILES = [
   'wsl-bwrap',
   'windows-acl',
   'windows-acl-readonly',
+  // P2-2：容器沙箱（可选档、非默认；需外部 Docker/Podman，缺运行时 fail-closed）。
+  'container',
 ] as const satisfies readonly CliArgs['sandbox'][];
 export const ESCALATIONS = [
   'deny',

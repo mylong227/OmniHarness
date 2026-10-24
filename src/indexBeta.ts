@@ -18,6 +18,13 @@ export type {
 export { Bm25MemoryIndex } from './adapters/retrieval/bm25MemoryIndex.ts';
 export { MemorySearchTool } from './adapters/tool/memory/memorySearchTool.ts';
 export { FileLongTermMemory } from './adapters/memory/fileLongTermMemory.ts';
+export { TemporalFactGraph } from './adapters/memory/temporalFactGraph.ts';
+export type {
+  TemporalConsolidateOptions,
+  TemporalConsolidationReport,
+  TemporalFactCard,
+  TemporalFactHit,
+} from './adapters/memory/temporalFactGraph.ts';
 export { MemoryExtractor } from './adapters/memory/memoryExtractor.ts';
 export { RememberTool, RecallTool } from './adapters/tool/memory/longTermMemoryTools.ts';
 

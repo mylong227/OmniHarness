@@ -206,7 +206,7 @@
     },
     {
       "spec": "--sandbox {{sandboxProfiles}}",
-      "description": "沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed；landlock=内核路径 ACL，需 Linux 内核 ≥5.13 且启用 Landlock LSM，并经 OMNI_LANDLOCK_HELPER 指向的 helper 施加规则，缺一即 fail-closed；命名空间隔离请用 unshare，用户态沙箱请用 bwrap；`doctor` 打印各后端本机真机可达性）"
+      "description": "沙箱多后端（默认 policy=开箱默认拦截危险命令+工作区外路径；restricted=强化策略；passthrough=全放行；OS 级后端本环境 fail-closed；landlock=内核路径 ACL，需 Linux 内核 ≥5.13 且启用 Landlock LSM，并经 OMNI_LANDLOCK_HELPER 指向的 helper 施加规则，缺一即 fail-closed；命名空间隔离请用 unshare，用户态沙箱请用 bwrap；container=可选容器档（Docker/Podman，只读根+默认断网+workspace rw 挂载，需外部运行时与镜像，缺任一即 fail-closed，非默认、不是 microVM）；`doctor` 打印各后端本机真机可达性）"
     },
     {
       "spec": "--network-allow host1,host2",

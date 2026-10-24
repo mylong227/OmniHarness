@@ -22,6 +22,10 @@ import { ConfigKeyAliases } from './configKeyAliases.ts';
 import { McpAuthConfigValidator } from './mcpAuthConfigValidator.ts';
 import { TextBom } from '../util/textBom.ts';
 
+/** 普通对象判定（配置合并用）。 */
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
 /** 配置严格校验错误（fail-closed：任何未知 key / 类型 / 枚举越界都抛此错误，拒绝含糊吞掉）。 */
 export class ConfigError extends OmniError {
   public constructor(message: string) {
@@ -482,20 +486,11 @@ export class ConfigError extends OmniError {
       }
       const current = out[key];
       out[key] =
-        ConfigError.isPlainObject(current) && ConfigError.isPlainObject(value)
+        isPlainObject(current) && isPlainObject(value)
           ? ConfigError.mergeLayer(current, value)
           : value;
     }
     return out;
-  }
-
-  /**
-   * 是否为可递归合并的普通对象（数组与 null 不参与递归）。
-   * @param value 待判定值。
-   * @returns 普通对象为 true。
-   */
-  private static isPlainObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
   }
 
   /**
@@ -577,6 +572,8 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
     'wsl-bwrap',
     'windows-acl',
     'windows-acl-readonly',
+    // P2-2：容器沙箱（可选档、非默认；运行时/镜像由外部安装，缺任一即 fail-closed）。
+    'container',
   ],
   escalation: ['deny', 'ask', 'auto'],
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],

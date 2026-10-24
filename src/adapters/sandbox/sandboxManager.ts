@@ -10,6 +10,7 @@ import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
 import { WslBwrapSandbox } from './wslBwrapSandbox.ts';
 import { WindowsAclSandbox } from './windowsAclSandbox.ts';
+import { ContainerSandbox } from './containerSandbox.ts';
 
 export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
 
@@ -24,6 +25,8 @@ export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.
  * - `landlock` → LinuxLandlockSandbox（**严格探测**内核 Landlock 可见性 + 内核版本 +
  *   `OMNI_LANDLOCK_HELPER` 指向的 helper；任一不成立即 fail-closed，不冒充其它后端，也不谎称已隔离）；
  * - `seatbelt` → MacOsSeatbeltSandbox（非 macOS 恒 fail-closed）。
+ * - `container` → ContainerSandbox（P2-2 可选档：Docker/Podman + 只读根 + 默认断网 + workspace
+ *   rw 挂载；运行时/镜像缺失即 fail-closed，永不回退 policy，且**不是 microVM**）。
  *
  * 「本机到底哪个后端真能跑、依据是什么」由 {@link SandboxCapabilityTable} 统一自述，
  * 并经 `omniharness doctor` 输出——实现存在但无真机证据这件事从此可见、可复现。
@@ -60,6 +63,9 @@ export class SandboxManager {
       'windows-acl-readonly',
       () => new WindowsAclSandbox(this.workspaceRoot, 'read-only'),
     );
+    // P2-2：容器沙箱（可选档、非默认）。Docker/Podman 需外部安装；缺运行时/镜像由后端自身 fail-closed，
+    // 绝不回退 policy 冒充隔离。默认镜像 node:22-alpine，可用 OMNI_CONTAINER_IMAGE 覆盖。
+    this.register('container', () => new ContainerSandbox({ workspaceRoot: this.workspaceRoot }));
   }
 
   /** 注册后端（工厂延迟实例化，避免无谓构造）。
