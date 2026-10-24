@@ -36,7 +36,7 @@ export interface RowCtx {
   onCancelDelete: () => void;
   onCommitDelete: (id: string) => void;
   onFork: (id: string) => void;
-  /** 右键打开行菜单（Codex 式：右键给出打开 / 重命名 / 复制 / 删除）。缺省则行不响应右键。 */
+  /** 右键打开行菜单（业界常见式：右键给出打开 / 重命名 / 复制 / 删除）。缺省则行不响应右键。 */
   onContextMenu?: (id: string, x: number, y: number) => void;
   /** 归档 / 恢复（缺省则行不显示该按钮）。 */
   onArchive?: (id: string, archived: boolean) => void;
@@ -390,7 +390,7 @@ export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactE
 }
 
 /**
- * 时间分组视图（Codex 式：今天 / 昨天 / 更早，可折叠）。
+ * 时间分组视图（业界常见式：今天 / 昨天 / 更早，可折叠）。
  *
  * 与 `renderGroupsView`（按工作区分组）并列存在，由左栏的视图切换决定用哪一个；两处共用同一套
  * `renderSessionBody` 行渲染，故行内重命名 / 删除确认 / 右键菜单行为完全一致。

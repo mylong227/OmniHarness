@@ -11,7 +11,7 @@ export interface SessionCheckpointsOptions {
 }
 
 /**
- * 会话检查点领域服务（对标 Codex「回滚到检查点」）：列出 / 创建 / 回滚（对话 + 代码）。
+ * 会话检查点领域服务（借鉴同类成熟实现「回滚到检查点」）：列出 / 创建 / 回滚（对话 + 代码）。
  *
  * 惰性构造 `CheckpointManager`：复用会话 StoragePort 存索引 + Git 文件快照适配器还原代码，
  * 每次调用重建（管理器无长驻状态，避免跨会话串味）。

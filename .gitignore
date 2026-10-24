@@ -18,7 +18,7 @@ venv/
 # 需要当面评审截图时**直接看磁盘文件**即可（探针照常写这个目录，只是不入库）。
 web/archive/
 
-# Credentials and machine-local Codex configuration
+# Credentials and machine-local configuration
 .env
 .env.*
 config.yaml
@@ -26,7 +26,6 @@ config.local.yaml
 *.pem
 *.key
 auth.json
-.codex/
 
 # Runtime outputs and mutable memory
 runs/

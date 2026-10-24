@@ -5,7 +5,7 @@
 
 ## 背景
 
-OmniHarness 融合 Codex Harness 与 DeepSeek Harness 的能力，代码量庞大（500+ TS 文件）。
+OmniHarness 是自研全能 Agent Harness，代码量庞大（500+ TS 文件）。
 若让核心逻辑直接依赖具体实现（某沙箱、某模型 SDK、某存储），会导致：测试困难、替换实现成本高、
 供应链风险不可控。需要一种稳定的结构约束依赖方向。
 

@@ -10,7 +10,7 @@ export interface DiffReviewOptions {
 }
 
 /**
- * 内联 diff 审查领域服务（对标 Codex Review）：hunk / file 级 stage / revert，
+ * 内联 diff 审查领域服务（借鉴同类成熟实现 Review）：hunk / file 级 stage / revert，
  * 全部落到真实 `git` 操作，并在动手前做「是 git 仓库 + 路径在仓库内」双重 fail-closed 校验。
  *
  * 与 RPC 层解耦：入参为 RPC 原始参数对象，校验信息与返回结构保持与原实现逐字一致，

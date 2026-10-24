@@ -50,7 +50,7 @@ export class Manifest {
  * @beta
  * 插件清单（omni.plugin.json）。
  *
- * 吸收 DeepSeek Harness 的插件元数据思想，但字段自研、不引入 dsh 依赖。
+ * 吸收同类成熟实现的插件元数据思想，但字段自研、不引入第三方运行时依赖。
  * 清单声明的权限必须在 `ALL_PERMISSIONS` 白名单内，否则安装/加载阶段 fail-closed 拒绝。
  */
 export type { PluginManifest } from '../ports/plugin/pluginManifest.ts';

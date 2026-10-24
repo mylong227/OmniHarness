@@ -46,7 +46,6 @@
     "harness",
     "ai",
     "llm",
-    "codex",
     "cli",
     "mcp"
   ],
@@ -167,7 +166,6 @@
     "zod": "^4.6.4"
   },
   "optionalDependencies": {
-    "@deepseek-ai/dsh-sandbox-windows-acl": "^0.0.1-rc.1",
     "@huggingface/transformers": "^4.2.0",
     "@mozilla/readability": "^0.6.0",
     "linkedom": "^0.18.13",

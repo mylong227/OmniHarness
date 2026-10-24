@@ -50,7 +50,7 @@ export const VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--replay',
   '--prompt',
   '--mcp-server',
-  '--worker-dsh',
+  '--worker-external',
   '--plugin-profile',
   // 注意：`--memory-encrypt` 是**无值布尔**（FLAG_TABLE 里直接置 true，return 0），
   // 2026-10-21 修：此前误登记为取值旗标，`--memory-encrypt "task"` 会把 task 吞成它的值。

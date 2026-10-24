@@ -3,7 +3,7 @@
 // ## 用户报的两件事
 //
 // ① 「左侧工作区一列不能收起来，导致无法完全显示内容区」——**真因不是按钮坏了，是按钮被挤出了列**：
-//    品牌行是 `Ω + deepseek HARNESS + ⌘ + «` 四个不可收缩的 flex 子项，总宽 **284px > 列宽 248px**，
+//    品牌行是 `Ω + 同类成熟实现 + ⌘ + «` 四个不可收缩的 flex 子项，总宽 **284px > 列宽 248px**，
 //    于是「收起»」落在列外（实测 `getBoundingClientRect().right = 284 > 248`），`elementFromPoint`
 //    在它中心命中的是隔壁中栏的 `chat-title` ⇒ **看得见摸不着，点了没反应**。
 //    修法：字标改本产品名（`OmniHarness`，也短了）+ 样式层让字标可收缩并带省略号，按钮 `flex:none`。
@@ -17,7 +17,7 @@
 //
 // ① 真 Chrome：收起按钮必须落在左栏可视区内、中心点必须命中它自己；点它左栏必须真的收成图标条
 //    且中栏变宽（修复前实测：按钮在列外、中心点命中中栏）；
-// ② 真 Chrome：品牌字标必须是 `OmniHarness`（不得再出现上游字标 `deepseek`）；
+// ② 真 Chrome：品牌字标必须是 `OmniHarness`（不得再出现上游品牌字标）；
 // ③ 源码守卫：输入区不得再有常驻长文案（`ctl-hint`），权限说明唯一来源是档位表。
 //
 // 直跑：node --test web/test/shellDensity.test.mjs（需先 npm run web:build）。
@@ -94,7 +94,7 @@ test('左栏「收起」按钮必须在可视区内且点得动（真 Chrome，1
   try {
     const initial = await readShell(page.cdp);
     assert.ok(initial.leftWidth !== null && initial.leftWidth > 200, `左栏未展开：${JSON.stringify(initial)}`);
-    assert.strictEqual(initial.brandText, 'Omni', '品牌主标题必须是 Omni（不是上游 deepseek）');
+    assert.strictEqual(initial.brandText, 'Omni', '品牌主标题必须是 Omni（不是上游品牌）');
     assert.strictEqual(initial.brandTag, 'HARNESS', '品牌副标必须是大写 HARNESS 且与主标题分开');
     assert.strictEqual(
       initial.toggleInsideColumn,

@@ -15,7 +15,7 @@ export class DelegateTool {
   /** 工具定义。 */
   public readonly definition: ToolDefinition = {
     name: TOOL_NAMES.delegate,
-    description: '把子任务委派给外部 worker（codex/claude-code/dsh 等）执行，返回结果',
+    description: '把子任务委派给外部 worker（如 claude-code 等）执行，返回结果',
     parameters: {
       type: 'object',
       properties: {

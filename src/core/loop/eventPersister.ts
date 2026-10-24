@@ -1,5 +1,5 @@
 /**
- * EventPersister（Agent Loop V2 增量持久化，对标 deepseek-harness
+ * EventPersister（Agent Loop V2 增量持久化，借鉴同类成熟实现
  * session-persistence 的 write-behind 批量落盘思想，无第三方依赖）。
  *
  * 旧缺陷：storage.save 只在整回合结束的 finally 里调一次——长回合中途崩溃，

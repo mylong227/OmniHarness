@@ -1,6 +1,6 @@
 // 变更面板（git 式）：拉取 changes.list 展示当前工作区文件变更清单（状态 + 增删行数），
 // 点击文件查看 patch。git 仓库用真实 git status/diff；非 git 工作区回退聚合本进程 turn_diff 事件。
-// 内联审查（对标 Codex Review）：hunk 级 stage/revert（真实 git apply 操作）+ 行内评论（锚定行持久化）。
+// 内联审查（借鉴同类成熟实现 Review）：hunk 级 stage/revert（真实 git apply 操作）+ 行内评论（锚定行持久化）。
 // 键盘评审（A1）：j/k（或 ↑/↓）在改动块间移动选中、a 接受（stage）、r 拒绝（revert）、c 评论、? 帮助；
 // 焦点在输入框内时一律不响应（判据在 models/ReviewKeyboard，见其文件头注释）。
 //

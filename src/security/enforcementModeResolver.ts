@@ -3,7 +3,7 @@
  *
  * ## 借鉴来源（`docs/TASK_BOARD.md` §17.2 D1）
  *
- * dsh-jev 把「答案从哪来」（`provider`: mock/live）与「答案是否允许生效」（`mode`: off/shadow/enforce）
+ * 业界成熟实现 把「答案从哪来」（`provider`: mock/live）与「答案是否允许生效」（`mode`: off/shadow/enforce）
  * 做成两个**正交开关**。本仓库既有的安全开关多为二值 opt-in（`promptInjectionGuard` 等），于是
  * 「默认关」丢覆盖面、「默认开」担误报责任，二选一都不舒服——**`shadow` 档**正是这个死结的出口：
  * **跑、记、但不改行为**。

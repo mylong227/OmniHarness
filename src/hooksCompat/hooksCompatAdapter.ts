@@ -1,12 +1,12 @@
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { EventPort } from '../ports/runtime/eventPort.ts';
 import type { HookConsumer } from './formats.ts';
-import { CodexHooksMapper } from './codexHooksMapper.ts';
+import { GenericHooksMapper } from './genericHooksMapper.ts';
 import { ClaudeCodeHooksMapper } from './claudeCodeHooksMapper.ts';
 
 /**
  * hooks 兼容层适配器（实现 EventPort）。
- * 把内部 SessionEvent 实时映射为 codex-claude / claude-code 两种外部 hooks
+ * 把内部 SessionEvent 实时映射为通用 / claude-code 两种外部 hooks
  * 事件格式，并推送给订阅消费者。可作为观测端口注入 runtime，
  * 使外部 hooks 消费者无需改动即可消费 OmniHarness 事件流。
  */
@@ -14,7 +14,7 @@ export class HooksCompatAdapter implements EventPort {
   /** 端口名：hooks 兼容适配器（hooks-compat）。 */
   public readonly name = 'hooks-compat';
 
-  private readonly codex = new CodexHooksMapper();
+  private readonly generic = new GenericHooksMapper();
   private readonly claude = new ClaudeCodeHooksMapper();
   private sequence = 0;
 
@@ -28,7 +28,7 @@ export class HooksCompatAdapter implements EventPort {
    */
   public emit(event: SessionEvent): void {
     this.sequence += 1;
-    this.consumer(this.codex.map(event, this.sequence));
+    this.consumer(this.generic.map(event, this.sequence));
     this.consumer(this.claude.map(event, this.sequence));
   }
 }

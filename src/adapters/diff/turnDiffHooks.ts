@@ -20,7 +20,7 @@ type ShellEffect =
   | { readonly kind: 'readonly' };
 
 /**
- * 变更追踪钩子（#M5，对标 codex `TurnDiffTracker` 接入方式）。
+ * 变更追踪钩子（#M5，借鉴同类成熟实现 `TurnDiffTracker` 接入方式）。
  *
  * 写类工具执行前读一次 baseline、执行后取一次快照，喂给 `TurnDiffTracker`，
  * 使回合结束时能产出完整 unified diff，而无需重扫整个工作区。

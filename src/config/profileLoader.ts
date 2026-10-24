@@ -1,5 +1,5 @@
 /**
- * Profile 加载器（#G6，对标 codex profile_toml.rs；A2 起支持 extends 继承）。
+ * Profile 加载器（#G6，借鉴同类成熟实现 profile_toml.rs；A2 起支持 extends 继承）。
  *
  * profile 是一份可覆盖项目默认配置的分层文件，用于「同一项目、不同运行场景」：
  * 例如 `dev`（宽松沙箱 + mock 模型）、`ci`（deny 审批 + 静默事件）、`prod`（严格沙箱）。

@@ -1,5 +1,6 @@
 import type { CliArgs } from './argParser.ts';
 import { McpServerCommand } from '../mcp/mcpServerCommand.ts';
+import { ExternalCliWorker } from '../worker/externalCliWorker.ts';
 import type { ModelRouterConfig } from '../config/configFile.ts';
 import { KNOWN_EXTRA_FLAGS } from './knownFlags.ts';
 import { VALUE_FLAGS } from './cliValueFlags.ts';
@@ -366,8 +367,11 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     ];
     return 1;
   },
-  '--worker-dsh': (a, argv, i) => {
-    a.workerDsh = CliFlagTable.valueOf(argv, i, '--worker-dsh');
+  '--worker-external': (a, argv, i) => {
+    a.workerExternals = [
+      ...a.workerExternals,
+      ExternalCliWorker.parse(CliFlagTable.valueOf(argv, i, '--worker-external')),
+    ];
     return 1;
   },
   '--native': (a) => {
@@ -382,7 +386,7 @@ const FLAG_TABLE: Record<string, FlagApply> = {
     a.autoCommit = true;
     return 0;
   },
-  /** headless 模式（对标 `claude -p` / `codex exec`）：非交互单次执行，供 CI 消费。 */
+  /** headless 模式（对标 `claude -p` 等 headless 惯例）：非交互单次执行，供 CI 消费。 */
   '--print': (a) => {
     a.print = true;
     a.events = 'silent';

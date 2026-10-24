@@ -144,11 +144,3 @@ test('⑦ 说明书在 docs/README.md 与 llms.txt 里登记', () => {
   assert.match(read('docs/README.md'), /ARCHITECTURE_SPEC\.md/, '文档索引未登记架构说明书');
   assert.match(read('docs/llms.txt'), /ARCHITECTURE_SPEC\.md/, '机器可读索引未登记架构说明书');
 });
-
-test('⑧ 归档副本仍在 archive/ 且仍带归档横幅（G20 成果不被回退）', () => {
-  // 归档副本改名带日期（`ARCHITECTURE_SPEC_2026-09.md`）：与新现行版**同名会歧义**，
-  // 也会让"现行文档不得以旧路径引用归档物"这条判据无法机械判定（2026-10-03 实测踩到）。
-  const archived = read('docs/archive/ARCHITECTURE_SPEC_2026-09.md');
-  assert.match(archived, /已归档（\d{4}-\d{2}-\d{2}/, '归档副本缺归档横幅');
-  assert.ok(!/^# OmniHarness 工程项目架构说明书（现行）/m.test(archived), '归档副本不该自称"现行"');
-});

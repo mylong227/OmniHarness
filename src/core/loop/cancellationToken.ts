@@ -1,7 +1,7 @@
 import { CancelledError, type CancelReason } from './cancelledError.ts';
 
 /**
- * CancellationToken（Agent Loop V2，对标 codex CancellationToken 树思想，无第三方依赖）。
+ * CancellationToken（Agent Loop V2，借鉴同类成熟实现 CancellationToken 树思想，无第三方依赖）。
  *
  * 为什么不用 AbortController：AbortSignal 只能单向 abort 且无 reason 传播树；
  * 这里补齐 ①子令牌级联取消（父取消→全部子取消）②结构化 reason ③throwIfAborted

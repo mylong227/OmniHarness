@@ -235,19 +235,6 @@
       "exitPlan": "消费面只有 src/server/transport/previewServer.ts：若停更，可替换为 serve-handler / send（同为 MIT）或回退到 SafeFs + 手写静态响应（本文件首版实现可从 git 历史取回），调用面不变。",
       "maxInstallKb": 256,
       "maxTransitiveDeps": 3
-    },
-    "@deepseek-ai/dsh-sandbox-windows-acl": {
-      "reason": "Windows 原生写隔离不能靠策略/正则实现：需要 WRITE_RESTRICTED 受限令牌 + 按工作区派生写入 SID + DACL 授权，全部是 Win32 安全 API（CreateRestrictedToken/CreateProcessAsUserW/SetNamedSecurityInfoW）。自研等价物需要维护 koffi 绑定、ABI 布局与完整失败清理，边际成本极高且极易 fail-open；该包是 DSH 生态内已实测的同机制实现（BSD-3-Clause），按 D10「必要且更优即用成熟依赖」准入。",
-      "capability": "Windows 上的真实 OS 级写隔离：受限令牌只允许写工作区与会话临时目录，工作区外写入被内核拒绝；提供 runner argv 包装，直接接入本仓 shell 沙箱的 wrapCommand。只限制写，读/网络/进程可见性不受限（包自身边界，已在适配器注释中如实标注）。",
-      "license": "BSD-3-Clause",
-      "approvedAt": "2026-10-21",
-      "layer": "src/adapters/sandbox",
-      "exitPlan": "保留 wsl-bwrap 作为 Windows 备选真隔离路径；若该包停更，可换 @deepseek-ai/dsh-sandbox-local 的同一 win32 后端，或按包内 runner 契约自建受限令牌启动器（仅 src/adapters/sandbox/windowsAclSandbox.ts 一个消费点）。",
-      "maxInstallKb": 20000,
-      "maxTransitiveDeps": 12,
-      "optional": true,
-      "optionalReason": "列为 optionalDependencies：非 Windows 不加载；`npm i --omit=optional` 时后端不可用并 fail-closed，不影响默认安装/其他平台。",
-      "budgetOverrideReason": "安装体积主要来自 koffi 预编译二进制（多平台），远超默认 2MB；它是 Windows 真隔离的必要运行时，且为可选依赖，不占默认安装的关键路径预算。"
     }
   },
   "entryTemplate": {

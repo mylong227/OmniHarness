@@ -1,9 +1,9 @@
 import type { SessionEvent } from '../ports/runtime/event.ts';
 
 /**
- * 外部 hooks 事件信封（codex-claude / claude-code 通用最小字段）。
- * 兼容层将内部 SessionEvent 映射为这两种社区 hooks 约定的事件格式，
- * 供接入 codex-claude hooks / claude-code hooks 的外部消费者订阅。
+ * 外部 hooks 事件信封（通用 / claude-code 共用最小字段）。
+ * 兼容层将内部 SessionEvent 映射为这两种 hooks 约定的事件格式，
+ * 供外部 hooks 消费者订阅。
  */
 export interface HookEventEnvelope {
   /** 外部约定的事件类型（如 SessionStart / PreToolUse / tool_call ...）。 */

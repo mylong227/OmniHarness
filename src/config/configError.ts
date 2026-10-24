@@ -1,5 +1,5 @@
 /**
- * 配置分层归一化与严格校验（#G6，对标 codex merge.rs / profile_toml.rs / strict_config.rs）。
+ * 配置分层归一化与严格校验（#G6，借鉴同类成熟实现 merge.rs / profile_toml.rs / strict_config.rs）。
  *
  * 无第三方依赖、纯数据层：操作的是 `FileConfig`（纯可序列化配置），不触及任何端口对象。
  * 分层合并发生在文件配置层，端口对象的装配仍在 ConfigFactory 内进行。
@@ -570,8 +570,6 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
     'bwrap',
     'unshare',
     'wsl-bwrap',
-    'windows-acl',
-    'windows-acl-readonly',
     // P2-2：容器沙箱（可选档、非默认；运行时/镜像由外部安装，缺任一即 fail-closed）。
     'container',
   ],

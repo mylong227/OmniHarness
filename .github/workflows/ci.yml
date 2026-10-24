@@ -249,7 +249,6 @@ jobs:
 #     是 **Windows-GNU 专用**（产物名 `.dll → .node`、rustup GNU 工具链路径、依赖 git-bash 的
 #     MinGW 环境变量）。托管 ubuntu/macos runner 上跑不出同名产物 ⇒ 不是"忘了开开关"，是构建面
 #     尚未跨平台。让它在 CI 可满足属独立一片（改 nativeBuild.mjs 的跨平台产物命名与工具链探测）。
-#   · OMNI_REQUIRE_DSH —— 需要 PATH 上有 `dsh` 可执行文件（外部 harness，不在本仓依赖里）。
 #   · OMNI_REQUIRE_LAYAPY —— 需要项目内 Laya venv（`third_party`）+ 模型权重（体积大、非公开分发；
 #     重建步骤见 THIRD_PARTY_ASSETS.md）。CI 不下载权重。
 # 注意：这三条**不是**"允许它们静默跳过"——本仓的判据文件已把跳过原因写在 skip 文案里，且在

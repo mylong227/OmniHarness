@@ -4,7 +4,7 @@
  * ## 为什么需要它
  *
  * 本仓的门禁哲学是 fail-closed，但有一类判据**缺环境就静默不跑**：原生内核未构建、wasm 产物缺失、
- * `sharp` 没装、`dsh` 不在 PATH、Laya 权重没放……在本地"缺了就 skip"是友好的，在 CI 上却是
+ * `sharp` 没装、Laya 权重没放……在本地"缺了就 skip"是友好的，在 CI 上却是
  * **看着绿、其实一行没跑**。浏览器一族早已有 `OMNI_REQUIRE_BROWSER=1` 把 skip 升级为失败，
  * 其余能力**没有开关**（2026-10-11 审计实测：14 个文件里有 10 个属"无开关的静默跳过"）。
  *
@@ -33,7 +33,6 @@ export const REQUIRE_SWITCHES = {
   OMNI_REQUIRE_BROWSER: '真机浏览器（结构基线 / 真机 UI 回路面）',
   OMNI_REQUIRE_NATIVE: '原生内核 native/omni_napi.node（原生族判据）',
   OMNI_REQUIRE_WASM: 'wasm 产物 target/wasm32-unknown-unknown/release/omni_wasm.wasm（wasm 单测）',
-  OMNI_REQUIRE_DSH: 'dsh CLI 在 PATH（dshWorker 契约）',
   OMNI_REQUIRE_LAYAPY: 'Laya 解释器 + 权重（真 torch 前向）',
   OMNI_REQUIRE_SHARP: 'sharp（图片缩放的**真实实现**路径）',
   OMNI_REQUIRE_LICENSE: '许可签发链（entitlements 的真实校验路径）',

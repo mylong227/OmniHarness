@@ -1,4 +1,4 @@
-// 底部输入区（Codex 风格）：多模态粘贴/拖拽/选择（图片·视频·文件）+ 模型切换 + 推理强度切换
+// 底部输入区（同类成熟实现风格）：多模态粘贴/拖拽/选择（图片·视频·文件）+ 模型切换 + 推理强度切换
 // + AI 权限等级切换 + @mention 文件引用 + 语音输入。
 // 附件随消息经 turns.run 的 images / files 字段送入后端，开关经 config.update 持久化。
 //
@@ -95,7 +95,7 @@ export interface ComposerProps {
     images: { url?: string; data?: string; mediaType?: string }[],
     files: FileAttachment[],
   ) => void;
-  /** 停止在跑回合（busy 时由停止按钮触发，对标 codex 的 stop）。 */
+  /** 停止在跑回合（busy 时由停止按钮触发，业界常见的 stop）。 */
   onStop?: () => void;
   /** ApiClient（附件 FilePicker 走 attach.read 读 base64 用）。 */
   api: ApiClient;

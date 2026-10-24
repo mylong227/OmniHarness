@@ -7,7 +7,7 @@
  * 用户在**用户级** `~/.omniharness/omniharness.json` 里放 `providerKeys.deepseek`，在**项目级**
  * `omniharness.json` 里只写 `model`——这是最常见的一种合法配置。真机跑测时：
  *
- * - `dsh exec`（`execCli.loadDefaults`）与 `serve` **启动路径**（`loadServeConfig`）都走 `loadLayered`，
+ * - CLI 执行路径（`execCli.loadDefaults`）与 `serve` **启动路径**（`loadServeConfig`）都走 `loadLayered`，
  *   一切正常；
  * - 但 `ServerConfigStore.fileConfig()` 只读**项目级那一份**，于是 RPC 面看不到 `providerKeys`：
  *   `model.probe` 报「无凭据」、`ModelCatalogService.resolveOverride()` 直接抛

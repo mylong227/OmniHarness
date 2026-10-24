@@ -1,4 +1,4 @@
-// 回合变更文件清单解析器契约测试（对标 Codex「Edited N files」卡片的数据面）。
+// 回合变更文件清单解析器契约测试（借鉴同类成熟实现「Edited N files」卡片的数据面）。
 //
 // 运行方式：web:build 编译出 web/dist 后，node --test web/test/turnDiffFiles.test.mjs 直跑。
 import assert from 'node:assert/strict';

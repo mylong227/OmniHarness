@@ -10,7 +10,7 @@
 import type { SandboxDenialCategory } from '../ports/runtime/sandbox.ts';
 import type { RuntimeFailure } from '../ports/runtime/sandboxDenial.ts';
 
-/** OS 沙箱拒绝的典型签名（stderr/信息关键字）。移植自 Codex sandboxing/src/denial.rs 思路。 */
+/** OS 沙箱拒绝的典型签名（stderr/信息关键字）。借鉴同类成熟实现 sandboxing/src/denial.rs 思路。 */
 const SANDBOX_DENIAL_PATTERNS: readonly RegExp[] = [
   /operation not permitted/i,
   /permission denied/i,

@@ -334,7 +334,7 @@
     },
     {
       "spec": "-p, --print",
-      "description": "headless 非交互执行（对标 claude -p / codex exec）：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）"
+      "description": "headless 非交互执行（对标 claude -p 等 headless 惯例）：静默过程事件，只输出最终结果；禁交互审批（approval=ask 会挂起 CI，将显式报错）"
     },
     {
       "spec": "--output-format {{outputFormats}}",
@@ -357,8 +357,8 @@
       "description": "桥接外部 MCP 服务器工具（可重复，工具名前缀 NAME__）"
     },
     {
-      "spec": "--worker-dsh PROFILE",
-      "description": "注册真实 dsh worker（替代演示 worker，需 dsh 已配置）"
+      "spec": "--worker-external NAME=COMMAND",
+      "description": "注册通用外部 CLI worker（可重复；任务文本作为最后一个参数追加）"
     },
     {
       "spec": "--native",

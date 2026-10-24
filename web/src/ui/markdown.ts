@@ -1,10 +1,10 @@
 // 成熟依赖加持的 Markdown 渲染器（回复模式 / 会话模式核心展示层）。
 //
 // 设计取舍（回应「不要求无第三方依赖，善用成熟知识代替从零造轮子」）：
-//   - 解析交给 markdown-it（与 deepseek-harness 的 micromark 同代成熟方案），
+//   - 解析交给 markdown-it（成熟 Markdown 方案），
 //     取代 format.ts 里手写、易踩坑的无第三方依赖解析器；
-//   - 行内/块级数学交给 KaTeX（deepseek-harness 亦用 KaTeX）；
-//   - 代码高亮交给 highlight.js（deepseek-harness 用 Shiki，这里用零构建步骤、
+//   - 行内/块级数学交给 KaTeX（业界常用方案）；
+//   - 代码高亮交给 highlight.js（业界常用 Shiki，这里用零构建步骤、
 //     离线可用的 highlight.js，效果同级且更轻）。
 //
 // 安全：markdown-it 以 `html:false` 运行——用户原始 HTML 一律被转义，仅以下产出为受信任 HTML：
@@ -405,7 +405,7 @@ function getMd(): MarkdownItInstance {
     }
   });
 
-  // ---- 代码块包工具条：语言标签 + 一键复制（对标 deepseek-harness 回复观感） ----
+  // ---- 代码块包工具条：语言标签 + 一键复制（借鉴同类成熟实现回复观感） ----
   const defaultFence = (md.renderer.rules.fence ??
     ((tokens: MdToken[], idx: number, opts: unknown, _env: unknown, self: MdSelf): string =>
       self.renderToken(tokens, idx, opts))) as MdRenderRule;

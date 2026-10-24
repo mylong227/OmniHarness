@@ -2,7 +2,7 @@ import { UnifiedDiff } from '../util/unifiedDiff.ts';
 import type { TurnDiffTrackerPort } from '../ports/runtime/turnDiffTracker.ts';
 
 /**
- * 回合级变更追踪（对标 codex `turn_diff_tracker.rs`）。
+ * 回合级变更追踪（借鉴同类成熟实现 `turn_diff_tracker.rs`）。
  *
  * 内存累积本回合内**可精确追踪**的文件写入（write_file / apply_patch），回合结束产出 unified diff。
  * 关键约束：一旦出现无法精确追踪的变更（例如 shell 直接改文件），立刻 `invalidate()` 且本回合

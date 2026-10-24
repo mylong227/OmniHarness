@@ -126,7 +126,7 @@ export class ServerConfigStore {
    * `providerKeys` 在 RPC 面**完全不可见** ⇒ `model.probe` 与 `ModelCatalogService.resolveOverride()`
    * 在「用户级配 Key、项目级配 model」这种**最常见**的配置下抛
    * 「厂商 DeepSeek 未配置 API Key，无法启用（fail-closed）」，Web UI 一发真模型回合就在流里报错；
-   * 而 `dsh exec`（`execCli.loadDefaults`）与 serve 启动路径（`loadServeConfig`）都走分层、一切正常
+   * 而 CLI 执行路径（`execCli.loadDefaults`）与 serve 启动路径（`loadServeConfig`）都走分层、一切正常
    * —— 于是表现为「命令行能用、Web UI 不能用」。
    *
    * 这与 2026-09-27 修过的是**同一类**「用户级被静默忽略」，只是换了条通路（那次修的是启动路径，

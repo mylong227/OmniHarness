@@ -114,13 +114,13 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [picking, setPicking] = React.useState<boolean>(false);
   const [view, setView] = React.useState<'time' | 'ws' | 'cards'>('ws');
   const [query, setQuery] = React.useState<string>('');
-  /** 顶部工作区切换器是否展开（Codex 式：项目是一等入口，占据左栏最上方）。 */
+  /** 顶部工作区切换器是否展开（业界常见式：项目是一等入口，占据左栏最上方）。 */
   const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
   /** 搜索框是否展开（截图式侧栏不常驻搜索框，由「工作区」头的放大镜唤出）。 */
   const [searchOpen, setSearchOpen] = React.useState<boolean>(false);
   /** 文件树区块是否展开（截图式侧栏不常驻文件树；点「文件」区块标题展开 / 收起）。 */
   const [treeOpen, setTreeOpen] = React.useState<boolean>(false);
-  /** 左栏是否收成图标条（Codex 式可折叠侧栏；快捷键 `[`）。 */
+  /** 左栏是否收成图标条（业界常见式可折叠侧栏；快捷键 `[`）。 */
   const [rail, setRail] = React.useState<boolean>(false);
   /** 行右键菜单（会话 id + 视口坐标；null 表示未打开）。 */
   const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
@@ -570,7 +570,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
 
   return (
     <div className={'col left side' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
-      {/* 品牌头：Ω + deepseek HARNESS + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
+      {/* 品牌头：Ω + 同类成熟实现 + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
       <SidebarHeader
         rail={rail}
         onToggleRail={() => setRail((v) => !v)}
@@ -601,7 +601,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         </span>
         {rail ? null : <span>{t('插件')}</span>}
       </button>
-      {/* 顶部：工作区/项目切换器（Codex 式一等入口）。收成图标条时只留这一个按钮。 */}
+      {/* 顶部：工作区/项目切换器（业界常见式一等入口）。收成图标条时只留这一个按钮。 */}
       <div className="ws-switch">
         <button
           className="ws-switch-btn"
@@ -800,7 +800,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
               >
                 {t('复制为副本')}
               </button>
-              {/* 排序：不用拖拽也能把会话钉到最前/最后（Codex 式右键菜单的做法）。 */}
+              {/* 排序：不用拖拽也能把会话钉到最前/最后（业界常见式右键菜单的做法）。 */}
               <button
                 role="menuitem"
                 onClick={() => {

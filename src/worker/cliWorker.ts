@@ -13,7 +13,7 @@ export interface CliWorkerOptions {
   readonly args: (task: string, workspaceRoot: string) => readonly string[];
   /**
    * 是否经系统 shell 执行。
-   * Windows 上 npm 安装的 CLI 常为无扩展名 shell 脚本（如 dsh），
+   * Windows 上 npm 安装的 CLI 常为无扩展名 shell 脚本（如同类成熟实现），
    * 不经 shell 会 ENOENT，此类 worker 需置为 true。
    */
   readonly shell?: boolean;
@@ -28,7 +28,7 @@ export interface CliWorkerOptions {
 
 /**
  * @beta
- * 通用 CLI worker：spawn 任意 harness CLI（codex/claude-code/dsh/opencode）。
+ * 通用 CLI worker：spawn 任意 harness CLI（claude-code/opencode）。
  */
 export class CliWorker implements Worker {
   /** 默认单次任务上限：30 分钟（外部 harness 跑一个真实任务量级的时间）。 */

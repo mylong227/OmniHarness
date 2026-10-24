@@ -122,7 +122,7 @@ export class CliIdentityDaemonCmds extends CliBuildConfig {
    * **为什么必须 `loadLayered` 而不是「向上找第一份 + 单文件 load」**（2026-09-27 验收实测的缺陷）：
    * 旧写法只读**项目级那一份**，于是用户级 `~/.omniharness/omniharness.json` 里的配置
    * （`modelAdapter` / `providerKeys` / `model` / `reasoning`）被**静默忽略**——UI 上 `config.get`
-   * 报 `modelAdapter: mock`，而用户明明配了真实 provider 与凭据；`dsh exec` 走的是 loadLayered
+   * 报 `modelAdapter: mock`，而用户明明配了真实 provider 与凭据；而 CLI 的一次性执行路径走的是 loadLayered
    * （`execCli.loadDefaults`），于是同一个仓库里「一次性运行用真模型、Web UI 用 mock」这种自相矛盾
    * 的表现会长期无人发现。回归见 `tests/unit/serveConfigLayering.test.ts`。
    * @param wsRoot 工作区根（项目级配置从这里向上查找）。

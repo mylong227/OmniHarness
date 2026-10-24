@@ -53,8 +53,6 @@ export interface FileConfig {
     | 'bwrap'
     | 'unshare'
     | 'wsl-bwrap'
-    | 'windows-acl'
-    | 'windows-acl-readonly'
     | 'container';
   /**
    * 权限参数级规则（A2）：与内置规则合并后交规则审批（`approval: 'rules'` 生效）。

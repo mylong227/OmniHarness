@@ -107,7 +107,7 @@ interface LevelVerdict {
 
 /**
  * @beta
- * 工作流 DAG 编排器（对标 dsh agent-team / workflow DAG）：
+ * 工作流 DAG 编排器（借鉴同类成熟实现 agent-team / workflow DAG）：
  * 把多步任务组织为有向无环图，按拓扑层级调度——同层并发（受 {@link DEFAULT_WORKFLOW_CONCURRENCY} 闸门约束），
  * 前序步骤产出经 blackboard 注入后续步骤 prompt；某步失败则其全部下游 fail-closed 跳过（绝不静默续跑）。
  *

@@ -1,4 +1,5 @@
 import type { McpServerConfig } from '../mcp/mcpGateway.ts';
+import type { ExternalCliWorkerSpec } from '../worker/externalCliWorker.ts';
 import type { SkillEntry } from '../skill/skill.ts';
 import type {
   FileConfig,
@@ -58,8 +59,6 @@ export interface CliArgs {
     | 'bwrap'
     | 'unshare'
     | 'wsl-bwrap'
-    | 'windows-acl'
-    | 'windows-acl-readonly'
     | 'container';
   /** 升级审批模式（#G3/G4，默认 deny=fail-closed 不提权）。沙箱拒绝时咨询：ask 交互 / auto 自动（危险动作仍 abort）。 */
   escalation: 'deny' | 'ask' | 'auto';
@@ -99,8 +98,8 @@ export interface CliArgs {
   maxSteps: number;
   /** 待桥接的外部 MCP 服务器清单（--mcp-server，可重复）。 */
   mcpServers: McpServerConfig[];
-  /** 真实 dsh worker 的 profile（注册后替代演示 worker）。 */
-  workerDsh?: string | undefined;
+  /** 外部 CLI worker 规格清单（--worker-external NAME=COMMAND，可重复）。 */
+  workerExternals: ExternalCliWorkerSpec[];
   /** 启用 FFI 原生后端（#66）：工具执行路由到 Rust 内核 in-process。 */
   native: boolean;
   /** 计划模式（#77）：开启后未批准计划前拦截写类工具。 */
@@ -139,7 +138,7 @@ export interface CliArgs {
   /** 上下文窗口 token 数（--context-window N）：据此在 75% 处自动触发压缩，长会话防上下文溢出。 */
   contextWindow?: number | undefined;
   /**
-   * headless / CI 模式（--print / -p，对标 `claude -p`、`codex exec`）。
+   * headless / CI 模式（--print / -p，对标 `claude -p` 等 headless 惯例）。
    * 显式声明非交互执行：强制静默过程事件，只把最终结果写到 stdout。
    */
   print?: boolean | undefined;
@@ -301,6 +300,7 @@ export const CliDefaults: CliArgs = {
   // 需要硬上限时显式给：`--max-steps N` 或配置 `"maxSteps": N`。
   maxSteps: 0,
   mcpServers: [],
+  workerExternals: [],
   native: true,
   planMode: false,
 };

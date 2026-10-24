@@ -110,9 +110,9 @@ export class ShellProcessRunner {
    * 但不同 Node 版本/调用方也可能拿到无符号形态，故两种都认。
    *
    * 依据（2026-10-07 用户报「我的 agent 一条命令都跑不了」）：他把 `omniharness serve` 起在
-   * **DSH 的 Windows ACL 受限令牌沙箱**里（`dsh-sandbox-windows-acl`），而该沙箱的文档明写
+   * **受限令牌写隔离沙箱**里，而该沙箱的文档明写
    * 「CREATE_NO_WINDOW / CREATE_NEW_CONSOLE children die with STATUS_DLL_INIT_FAILED under the
-   * restriction —— console isolation is unavailable」，DSH 自己的进程创建器为此**刻意不加**这两个
+   * restriction —— console isolation is unavailable」，其进程创建器为此**刻意不加**这两个
    * 标志。本执行器此前恒传 `windowsHide: true`（Node 据此加 `CREATE_NO_WINDOW`）⇒ 在这种父进程下
    * 连 `echo hi` 都拿不到，工具层只能回一句 `exit -1073741502`。
    */

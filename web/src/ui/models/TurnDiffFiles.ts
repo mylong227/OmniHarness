@@ -1,4 +1,4 @@
-// 回合变更文件清单（纯模型，对标 Codex「Edited N files」卡片的数据面）。
+// 回合变更文件清单（纯模型，借鉴同类成熟实现「Edited N files」卡片的数据面）。
 //
 // 职责单一：把服务端 turn_diff 事件的整回合 unified diff 文本
 // （由 `UnifiedDiff.renderUnifiedDiff` 按文件渲染、`\n` 直连拼接）拆解为

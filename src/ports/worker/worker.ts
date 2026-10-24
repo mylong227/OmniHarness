@@ -30,7 +30,7 @@ export interface WorkerResult {
 
 /**
  * @beta
- * 外部 harness worker 统一插口（codex / claude-code / dsh / opencode）。
+ * 外部 harness worker 统一插口（claude-code / opencode）。
  */
 export interface Worker {
   readonly name: string;

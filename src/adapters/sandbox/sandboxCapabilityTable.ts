@@ -50,8 +50,6 @@ export class SandboxCapabilityTable {
     'bwrap',
     'unshare',
     'wsl-bwrap',
-    'windows-acl',
-    'windows-acl-readonly',
     'container',
   ];
 
@@ -185,25 +183,7 @@ export class SandboxCapabilityTable {
         platform,
         'win32',
         'wsl.exe',
-        '需 WSL2 发行版内安装 bubblewrap（`wsl -e sudo apt install bubblewrap`）；本表只证明 wsl.exe 存在，不证明发行版已装 bwrap',
-      ),
-      SandboxCapabilityTable.osEntry(
-        'windows-acl',
-        'windows-acl',
-        platform === 'win32' && commandExists('node'),
-        platform,
-        'win32',
-        'node',
-        '需安装可选依赖 @deepseek-ai/dsh-sandbox-windows-acl（含 koffi）；只限制写，读/网络不受限',
-      ),
-      SandboxCapabilityTable.osEntry(
-        'windows-acl-readonly',
-        'windows-acl',
-        platform === 'win32' && commandExists('node'),
-        platform,
-        'win32',
-        'node',
-        '需安装可选依赖 @deepseek-ai/dsh-sandbox-windows-acl；read-only 表示零写授权，读/网络仍不受限',
+        'Windows 上唯一的真 OS 隔离路径（可禁网）；需 WSL2 发行版内安装 bubblewrap（`wsl -e sudo apt install bubblewrap`）；本表只证明 wsl.exe 存在，不证明发行版已装 bwrap',
       ),
     ];
   }

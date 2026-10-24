@@ -1,10 +1,10 @@
 /**
- * ToolScheduler（Agent Loop V2 工具并行调度，对标 codex tools/parallel.rs 的
- * 工具级门控 + deepseek-harness tool-calls.ts 的有界池与互斥屏障，无第三方依赖）。
+ * ToolScheduler（Agent Loop V2 工具并行调度，借鉴同类成熟实现 tools/parallel.rs 的
+ * 工具级门控 + 同类成熟实现 tool-calls.ts 的有界池与互斥屏障，无第三方依赖）。
  *
  * 语义：
  *  - 并行能力是**工具级静态声明**（parallelCapable），不做调用间数据依赖分析
- *    （codex/dsh 同样不做——静态声明已覆盖绝大多数安全并行场景）。
+ *    （同类成熟实现同样不做——静态声明已覆盖绝大多数安全并行场景）。
  *  - 连续的并行安全调用组成并行批（有界池 maxParallel，默认 8）；
  *    遇到非并行安全调用（写类/副作用类）形成屏障：先排空当前并行批，再串行执行。
  *    这保证「读读并行、写前全静、写后串行」的保守安全序。

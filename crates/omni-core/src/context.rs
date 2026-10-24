@@ -2,7 +2,7 @@
 //! 对齐 TS 侧 `src/context/*`：TokenEstimator（中文 1 字 1 token，其余 4 字符 1 token）、
 //! ContextAssembler（碎片拼装）、ContextCompactor（本地摘要 + 远端通道）。
 
-/// 上下文碎片（Codex world_state 思路：~50 个碎片按需拼装）。
+/// 上下文碎片（成熟实现的 world_state 思路：~50 个碎片按需拼装）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextFragment {
     /// 碎片键（如 `world_state`、`developer_instructions`）。
@@ -147,7 +147,7 @@ impl ContextManager {
         });
     }
 
-    /// 追加推理摘要（压缩不被丢弃，对齐 Codex ReasoningSummary）。
+    /// 追加推理摘要（压缩不被丢弃，对齐成熟实现的 ReasoningSummary）。
     pub fn push_reasoning(&mut self, text: impl Into<String>) {
         self.reasoning.push(text.into());
     }

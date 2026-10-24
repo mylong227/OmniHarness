@@ -24,7 +24,7 @@
 | 3   | 交互环境摸不着 | `browser_act` 九动作（Playwright 默认、CDP 回退）；`web_search` Brave/Tavily 按 key 注册；`web_fetch` Readability + `unpdf`                                                                                                                                                                                                                           | **降级（已补齐机制）** |
 | 4   | 验证不独立     | `review_diff` 干净上下文 reviewer（默认 advisory）；`EvidenceLedger` 无证据 ⇒ `unverified`；目标判定有机械证据否决门。**但** reviewer 默认不阻断、目标正向语义仍靠 LLM、provenance 默认关                                                                                                                                                             | **部分降级**           |
 | 5   | 生态接不上     | MCP **2026-07-28 无状态客户端**（`server/discover`，默认 auto，失败回退 legacy）；A2A `message/send`/`tasks/get`/`agent/getCard`；`SKILL.md` 导入/发现。**但** MCP server 仍 `2025-11-25`；无 OAuth/MRTR/registry/conformance；无 ACP                                                                                                                 | **部分降级**           |
-| 6   | 隔离仍是 L2    | 新增 `windows-acl`（受限令牌）与 `wsl-bwrap`；但**默认 `sandbox=policy`** 仍是同用户进程内约束；shell 出网只在 `OMNI_NETWORK_ALLOW` 已配置时被工具层拦截                                                                                                                                                                                              | **仍成立（默认档）**   |
+| 6   | 隔离仍是 L2    | 新增 `wsl-bwrap`；但**默认 `sandbox=policy`** 仍是同用户进程内约束；shell 出网只在 `OMNI_NETWORK_ALLOW` 已配置时被工具层拦截                                                                                                                                                                                                                          | **仍成立（默认档）**   |
 
 > 结论：旧报告要求「90 天内把长时 + 上下文做成小时级闭环」，其中**长时已基本兑现**；上下文只兑现了机制，未兑现「压缩后能力不降」的证据。**验证与隔离没有翻默认**，这是有意为之的诚实边界，不应被写成已修复。
 
@@ -81,7 +81,7 @@
 
 - `[V]`：本轮读到原文/官方文档（arXiv HTML、官方 spec、官方 docs、仓库 README）。
 - `[I]`：由多条 `[V]` 推出的工程判断，或二手转述。
-- `[B]`：厂商博客/二手转述（原文未能直接读取，例如 OpenAI Codex 博客 403）。
+- `[B]`：厂商博客/二手转述（原文未能直接读取，例如 OpenAI 编码代理博客 403）。
 - 外部数字（跑分、百分比、版本日期）**只用于界定方向，不作为本项目的结论**；本报告没有复跑任何外部 benchmark。
 
 ### 1.3 本次没有做什么
@@ -106,18 +106,18 @@
 
 ### 2.2 近两周落地的能力（2026-10-07 → 10-22）
 
-| 能力面    | 已落地（本机代码/判据）                                                                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 长时执行  | 8h 硬限 / 30min 软提醒；`finishReason` 归一化与截断续写；`forceCompact`；`health-fallback`；每 20 步自动 checkpoint；续跑引导列已成功写类调用                      |
-| 上下文    | `ContextShapers` 头尾裁剪 + 旧轮剪枝；`TokenEstimatorCalibrator`；`ContextWindowCatalog` 补 1M；压缩游标回卷对齐（G1b-c2）                                         |
-| 交互      | `browser_act` 九动作（Playwright 默认 / CDP 回退）；Brave/Tavily `web_search`；`web_fetch` Readability + `unpdf`；右栏网页预览（独立回环源）                       |
-| 验证      | 完成闸门 + `EvidenceLedger` + `unverified` 一等状态；`review_diff` 干净上下文 reviewer；`OMNI_REVIEW_BLOCK=1` 才阻断；目标检查的机械证据否决门                     |
-| 互操作    | MCP v2 无状态客户端（`server/discover`，默认 auto 回退 legacy）；A2A v1 最小面；`SKILL.md` 导入/发现；AGENTS.md 读取                                               |
-| 隔离      | Windows ACL 受限令牌（`windows-acl`）；WSL2 + bwrap（`wsl-bwrap`）；shell 出网策略；MCP 主机白名单；远程插件独立 Worker（L3）+ 能力 broker（`fs.read`/`fs.write`） |
-| 可观测    | OTLP trace + metrics；GenAI semconv 1.44.0 锚（加字段不改名）；`observabilityReconcile` 对账；SSE 断线重放                                                         |
-| 进化/资产 | GEE Kernel（默认关）+ HashChain 晋升台账 + 回滚；CapabilitySchema/Registry；签名资产包；Windows 凭据 DPAPI                                                         |
-| 规划      | `TaskComplexityClassifier` 复杂任务强制先规划（2026-10-22）；todo `id/dependsOn` DAG；`run_plan` 并行执行（按 `writes` 声明精确并发）                              |
-| 前端      | Vite + React 19；面板模态；diff 评论；checkpoint/rewind；Trace/治理/记忆/指标面板；真 Chrome a11y 判据                                                             |
+| 能力面    | 已落地（本机代码/判据）                                                                                                                        |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 长时执行  | 8h 硬限 / 30min 软提醒；`finishReason` 归一化与截断续写；`forceCompact`；`health-fallback`；每 20 步自动 checkpoint；续跑引导列已成功写类调用  |
+| 上下文    | `ContextShapers` 头尾裁剪 + 旧轮剪枝；`TokenEstimatorCalibrator`；`ContextWindowCatalog` 补 1M；压缩游标回卷对齐（G1b-c2）                     |
+| 交互      | `browser_act` 九动作（Playwright 默认 / CDP 回退）；Brave/Tavily `web_search`；`web_fetch` Readability + `unpdf`；右栏网页预览（独立回环源）   |
+| 验证      | 完成闸门 + `EvidenceLedger` + `unverified` 一等状态；`review_diff` 干净上下文 reviewer；`OMNI_REVIEW_BLOCK=1` 才阻断；目标检查的机械证据否决门 |
+| 互操作    | MCP v2 无状态客户端（`server/discover`，默认 auto 回退 legacy）；A2A v1 最小面；`SKILL.md` 导入/发现；AGENTS.md 读取                           |
+| 隔离      | WSL2 + bwrap（`wsl-bwrap`）；shell 出网策略；MCP 主机白名单；远程插件独立 Worker（L3）+ 能力 broker（`fs.read`/`fs.write`）                    |
+| 可观测    | OTLP trace + metrics；GenAI semconv 1.44.0 锚（加字段不改名）；`observabilityReconcile` 对账；SSE 断线重放                                     |
+| 进化/资产 | GEE Kernel（默认关）+ HashChain 晋升台账 + 回滚；CapabilitySchema/Registry；签名资产包；Windows 凭据 DPAPI                                     |
+| 规划      | `TaskComplexityClassifier` 复杂任务强制先规划（2026-10-22）；todo `id/dependsOn` DAG；`run_plan` 并行执行（按 `writes` 声明精确并发）          |
+| 前端      | Vite + React 19；面板模态；diff 评论；checkpoint/rewind；Trace/治理/记忆/指标面板；真 Chrome a11y 判据                                         |
 
 ### 2.3 结构评价：强项与债务
 
@@ -138,7 +138,7 @@
 
 ### 2.4 现行诚实边界（引用时必须保留）
 
-- 默认隔离仍是 **L2（同用户进程内约束）**；`windows-acl`/`wsl-bwrap` 需显式选择且依赖宿主能力。
+- 默认隔离仍是 **L2（同用户进程内约束）**；`wsl-bwrap` 需显式选择且依赖宿主能力。
 - `policy` 档出站守卫只覆盖 `globalThis.fetch`；shell 出网只在 `OMNI_NETWORK_ALLOW` 已配置时被工具层拦截。
 - 注入防护默认 `off`（观测模式）；provenance guard 默认关（`OMNI_PROVENANCE_GUARD=1` 才开）。
 - 工具暴露规划默认 **`plan`**（2026-10-23 复核纠正：本行原写 `off`；代码 `ToolExposurePlanner.modeFromEnv` 缺省即 `plan`，`off` 才是显式逃生口）。
@@ -244,7 +244,7 @@
 ### 3.6 隔离：仍成立（默认 L2）
 
 - 默认 `sandbox=policy`（TS 策略：危险命令 + 工作区外路径）；`restricted` 在 Windows 上限制 SID 数仍为 0（如实标注）。
-- `windows-acl`/`wsl-bwrap` 是新增的真隔离路径，但需显式选择，且依赖宿主能力；`windows-acl` 走可选依赖 `@deepseek-ai/dsh-sandbox-windows-acl`。
+- `wsl-bwrap` 是 Windows 上的真隔离路径，但需显式选择且依赖宿主能力。
 - shell 出网：`ShellCommandPolicy` 在 `OMNI_NETWORK_ALLOW` 开启时拒绝 `curl/wget/nc/ssh` 等；但默认没有开，且这是「工具层拒绝」，不是「内核层断网」。
 - 注入防护默认 `off`；provenance 默认关。
 
@@ -263,10 +263,10 @@
 1. **没有通用 agent 框架**：11 个系统里没有一个在运行时 import LangGraph/Agents SDK 一类通用框架；主循环都是手写 async loop（事件溯源、流式批处理、Tokio 状态机、async-generator、预算化 stop-guard、steering queue、log-as-queue）。
 2. **代码检索不是向量检索**：样本内没有系统用 embedding 做代码检索；主流是 ripgrep/tree-sitter/glob/AGENTS.md 一类确定性检索。**这直接支持本仓「BM25 为主、语义可选、拒绝向量库」的取舍**，不必因为「前沿」而改。
 3. **Skills 超过 MCP**：`SKILL.md` 在 9/11 系统中出现，MCP 8/11；ACP 6/11，并出现「harness 作为 ACP host」的第三角色。
-4. **安全是分层选择，不是规模函数**：Codex 四层（Starlark exec policy → lifecycle hooks → LLM approval reviewer「Guardian」→ OS sandbox）；Claude Code 三层；Hermes 保留「YOLO 也绕不过的 policy floor」；OpenCode/Hermes 没有 OS 隔离。**安全强度取决于是否显式设计，不取决于项目大小**。
+4. **安全是分层选择，不是规模函数**：同类成熟实现四层（Starlark exec policy → lifecycle hooks → LLM approval reviewer「Guardian」→ OS sandbox）；Claude Code 三层；Hermes 保留「YOLO 也绕不过的 policy floor」；OpenCode/Hermes 没有 OS 隔离。**安全强度取决于是否显式设计，不取决于项目大小**。
 5. **延迟加载与 plan mode 在扩散**：deferred tool loading 1→3 个系统、read-only plan mode 2→4 个系统（一个季度内）。
-6. **Codex 的 app-server 把 Thread/Turn/Item 做成 API**：`thread/fork`、`resume`、`rollback`、`compact/start`、`turn/steer`、`turn/interrupt`；sandbox 策略 read-only → workspace-write → danger-full-access；per-task git worktree；kernel 级 `spawn_agent`/`wait_agent`。[B]（OpenAI 博客经两份二手转述，原文 403）
-7. **LangChain 的 13.7 分**：模型固定为 `gpt-5.2-codex`，只改 harness，Terminal-Bench 2.0 从 **52.8 → 66.5**；三个旋钮：prompt、tools、middleware。具体 middleware：`LocalContextMiddleware`（启动时映射 cwd + 可用工具）、`PreCompletionChecklistMiddleware`（拦截退出，强制对照 spec 验证）、`LoopDetectionMiddleware`（按文件编辑计数 → 提示 reconsider）。另有「reasoning sandwich」（xhigh-high-xhigh 63.6% vs 全 xhigh 53.9%）。**注意**：单一 benchmark、厂商自报、对该模型调过参；Opus 4.6 在同一 harness 上 59.6%。[V]
+6. **成熟同类的 app-server 把 Thread/Turn/Item 做成 API**：`thread/fork`、`resume`、`rollback`、`compact/start`、`turn/steer`、`turn/interrupt`；sandbox 策略 read-only → workspace-write → danger-full-access；per-task git worktree；kernel 级 `spawn_agent`/`wait_agent`。[B]（OpenAI 博客经两份二手转述，原文 403）
+7. **LangChain 的 13.7 分**：模型固定为 `gpt-5.2`，只改 harness，Terminal-Bench 2.0 从 **52.8 → 66.5**；三个旋钮：prompt、tools、middleware。具体 middleware：`LocalContextMiddleware`（启动时映射 cwd + 可用工具）、`PreCompletionChecklistMiddleware`（拦截退出，强制对照 spec 验证）、`LoopDetectionMiddleware`（按文件编辑计数 → 提示 reconsider）。另有「reasoning sandwich」（xhigh-high-xhigh 63.6% vs 全 xhigh 53.9%）。**注意**：单一 benchmark、厂商自报、对该模型调过参；Opus 4.6 在同一 harness 上 59.6%。[V]
 
 **对本仓的含义（逐条对照）：**
 
@@ -302,7 +302,7 @@
 
 **A2A**（[v1.0.0](https://github.com/a2aproject/A2A/releases/tag/v1.0.0)，2026-03-12）[V]：150+ 组织，但 Agent Card JWS 签名可选、registry/discovery 规范没有落地——「A2A-compliant」只证明 wire format + 自述卡，不证明身份/行为。[I]
 
-**ACP**（[agentclientprotocol.com](https://agentclientprotocol.com/)，registry 2026-01-28）[V]：~45 个 agent（Claude Code adapter、Codex、Cursor、Copilot、Gemini CLI、OpenCode、OpenHands、Qwen、Kimi 等），客户端 Zed + JetBrains；**事实上的 coding-agent↔editor 标准**。
+**ACP**（[agentclientprotocol.com](https://agentclientprotocol.com/)，registry 2026-01-28）[V]：~45 个 agent（Claude Code adapter、Cursor、Copilot、Gemini CLI、OpenCode、OpenHands、Qwen、Kimi 等），客户端 Zed + JetBrains；**事实上的 coding-agent↔editor 标准**。
 
 **AG-UI 1.0**（2026-09-30）[V]：agent→UI 事件流，Google/MS/Amazon/Oracle 采用；只解决 agent↔UI，不解决 agent↔agent。
 
@@ -336,7 +336,7 @@
 
 **隔离后端（2026）** [V]：
 
-- **Windows MXC（Microsoft Execution Containers）2026-10-07 GA**：一个策略接口下四种后端——AppContainer（进程）、session container（独立账户 + 独立桌面/剪贴板/输入）、WSL、实验 microVM；Enforcement/Learning/Permissive 三档；策略在工作负载之外。Copilot、Codex、OpenClaw、Replit 已采用。**这对 Windows 本地优先的本仓特别相关**：`windows-acl` 是入口，MXC 是「策略层」的下一站。
+- **Windows MXC（Microsoft Execution Containers）2026-10-07 GA**：一个策略接口下四种后端——AppContainer（进程）、session container（独立账户 + 独立桌面/剪贴板/输入）、WSL、实验 microVM；Enforcement/Learning/Permissive 三档；策略在工作负载之外。Copilot、OpenClaw、Replit 已采用。**这对 Windows 本地优先的本仓特别相关**：`wsl-bwrap` 是入口，MXC 是「策略层」的下一站。
 - Linux：Landlock/seccomp/bubblewrap；Apple Seatbelt（已弃用但仍在用）；gVisor（Sentry 用户态内核，CVE-2026-96812 提醒「不是零」）；microVM（Firecracker/E2B/Daytona）；WASI 0.3（2026-06-11，capability worlds）。
 - **真正有后果的逃逸是 agent 级**：Snowflake Cortex Code CLI 通过间接注入绕过 HITL 审批 + 沙箱模式（2026-03-16，1.0.25 修）。**命令门禁比 hypervisor 更值得加固**。[V]
 
@@ -370,7 +370,7 @@
 
 | 方向              | 代表项目                                                                                                                                                                                                                       | 可借机制                                                              | 本仓落点                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 开放 harness 平台 | [openai/codex](https://github.com/openai/codex)                                                                                                                                                                                | app-server 的 Thread/Turn/Item、fork/rollback/compact/steer、worktree | 已有 `threads.*`/checkpoint；补 `compact` 一等操作 + role 路由 |
+| 开放 harness 平台 | 业界同类开放实现                                                                                                                                                                                                               | app-server 的 Thread/Turn/Item、fork/rollback/compact/steer、worktree | 已有 `threads.*`/checkpoint；补 `compact` 一等操作 + role 路由 |
 | 终端 agent        | [google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli)                                                                                                                                                        | **trusted folders + discovery phase**、loop detection、A2A            | 新增 workspace trust（§6.1）；LoopGuard 已有                   |
 | 事件溯源 harness  | [All-Hands-AI/OpenHands](https://github.com/All-Hands-AI/OpenHands)                                                                                                                                                            | 事件溯源引擎、可插拔 condensation、ACP host                           | 事件流已有；补 ACP（§6.5）                                     |
 | 配方/多 agent     | [block/goose](https://github.com/block/goose)                                                                                                                                                                                  | recipes/subrecipes、MCP elicitation/roots、ACP provider               | `workflow` 已有；补 elicitation 回路                           |
@@ -408,15 +408,15 @@
 | 角色化路由           | 全局 model/reasoning；reviewer 单 env                       | Amp/Cline role routing           | 缺失 | P1     | S    |
 | Trace→patch          | `sessionTelemetry` 只聚合，无补丁建议                       | LangChain trace-analyzer         | 缺失 | P1     | M    |
 | 污点/出网            | provenance 默认关；egress 只 fetch                          | CaMeL / lethal trifecta          | 部分 | P1     | M    |
-| Policy-as-code/floor | 六档审批 + hooks；无机器可读 policy/floor                   | Codex 4 层 / Hermes floor        | 部分 | P1     | M    |
+| Policy-as-code/floor | 六档审批 + hooks；无机器可读 policy/floor                   | 同类 4 层 / Hermes floor         | 部分 | P1     | M    |
 | 记忆检索信任         | `TimeDecay` 只按时间；trust 不进排序                        | Zep/Mem0 + trust                 | 部分 | P2     | S/M  |
 | 长时执行             | 8h/续写/forceCompact/fallback/checkpoint                    | TB 4.0 8h                        | 持平 | —      | —    |
 | 上下文压缩           | 裁剪 + 校准 + 游标；单次摘要为主                            | 多级压缩                         | 部分 | P2     | M    |
 | 交互行动             | browser_act + search + readability/unpdf                    | OpenHands/OSWorld                | 持平 | —      | —    |
 | 独立验证             | reviewer advisory + evidence ledger + `unverified`          | Cognition reviewer               | 部分 | P1     | S/M  |
 | 默认隔离             | `policy` L2；OS 级可选                                      | MXC / bwrap / Seatbelt           | 落后 | P1     | M/L  |
-| 插件隔离             | Worker L3 + 能力 broker + 签名                              | Codex worktree / OS sandbox      | 领先 | —      | —    |
-| GitHub PR/IDE        | 无 PR 闭环；无 IDE/ACP                                      | Codex cloud / Cursor / ACP       | 缺失 | P2     | M    |
+| 插件隔离             | Worker L3 + 能力 broker + 签名                              | 同类 worktree / OS sandbox       | 领先 | —      | —    |
+| GitHub PR/IDE        | 无 PR 闭环；无 IDE/ACP                                      | 云端编码代理 / Cursor / ACP      | 缺失 | P2     | M    |
 
 ---
 
@@ -596,7 +596,7 @@
 - `ProvenanceTracker` 默认关，只匹配 `web_fetch`/`web_search`/`mcp_*` 输出片段，塞进写类参数才拒绝（[provenanceTracker.ts:11](../src/security/provenanceTracker.ts#L11)）；
 - `NetworkEgressGuard` 只包 `globalThis.fetch`；shell 出网只在 `OMNI_NETWORK_ALLOW` 已配置时被工具层拒绝；
 - 没有 machine-readable policy 文件/floor；
-- 默认 `sandbox=policy` L2；`windows-acl`/`wsl-bwrap` 可选。
+- 默认 `sandbox=policy` L2；`wsl-bwrap` 可选。
 
 **设计：**
 
@@ -604,7 +604,7 @@
 2. **Taint 扩展**：把「不可信来源」从 web/MCP 扩到 `read_file` 的工作区外内容、`shell` 输出、附件解析；给 `write_file`/`apply_patch`/`shell`/`web_fetch` 参数做「污点 → 目标」检查；不是完整 CaMeL，但去掉「读到注入 → 原样写出」这条最短路径。
 3. **Egress proxy**：本机回环 HTTP 代理 + 域名 allowlist；`fetch` 与 shell 子进程都走它（shell 设 `HTTP_PROXY`/`HTTPS_PROXY` + 拒绝直连）；审计链记录每条出站。
 4. **Policy floor**：机器可读 `policy.json`（allow/deny/requires-approval），在审批之前求值；项目级配置不能降低 floor（与 §6.1 共用）。
-5. **MXC 评估**：Windows 上把 `windows-acl` 作为 MXC 的一个后端候选；先做「策略 schema 对齐」，不急着换实现。
+5. **MXC 评估**：Windows 上把 WSL2 + bwrap 作为 MXC 的一个后端候选；先做「策略 schema 对齐」，不急着换实现。
 
 **验收：**
 
@@ -640,7 +640,7 @@
 
 ### 6.8 P2：产品面（GitHub PR / 会话分享 / 桌面）
 
-这些是「战略项」，不是当前瓶颈。建议只做一件：**GitHub PR 闭环**（branch/commit/push/PR/review comment），因为它把「本地改完」变成「可合并的交付物」，也是 Codex cloud/Cursor 的差异点。但需要 GitHub 凭据、网络与仓库权限，且与「本地可信」定位有张力；先做 `gh` CLI 适配（不引入 octokit），失败 fail-closed。
+这些是「战略项」，不是当前瓶颈。建议只做一件：**GitHub PR 闭环**（branch/commit/push/PR/review comment），因为它把「本地改完」变成「可合并的交付物」，也是云端编码代理/Cursor 的差异点。但需要 GitHub 凭据、网络与仓库权限，且与「本地可信」定位有张力；先做 `gh` CLI 适配（不引入 octokit），失败 fail-closed。
 
 ---
 
@@ -735,13 +735,12 @@ $ node --input-type=module -e "import { ArgParser } from './dist/src/cli/argPars
 
 1. [Harness Engineering: Anatomy, Architecture, and Evolution of Coding Agents — A Source-Code Study of Eleven Systems](https://arxiv.org/abs/2609.00006)，arXiv 2609.00006。[V]
 2. [Improving Deep Agents with harness engineering](https://www.langchain.com/blog/improving-deep-agents-with-harness-engineering)，LangChain，2026-02-17。[V]
-3. [Codex as a platform: build on the open agent harness](https://developers.openai.com/blog/codex-as-a-platform)，OpenAI Developers（原文 403；经两份二手转述）。[B]/[I]
-4. [How Claude Code works](https://code.claude.com/docs/en/how-claude-code-works)、[Context window](https://code.claude.com/docs/en/context-window)。[V]
-5. [Gemini CLI trusted folders](https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/trusted-folders.md)。[V]
-6. [Aider repo map](https://aider.chat/docs/repomap.html)。[V]
-7. [Amp models and subagents](https://ampcode.com/docs/models-and-subagents)。[V]
-8. [Kiro changelog 0.10](https://kiro.dev/changelog/ide/0-10/)、[Cline Plan & Act](https://docs.cline.bot/core-workflows/plan-and-act)、[Crush README](https://raw.githubusercontent.com/charmbracelet/crush/main/README.md)。[V]
-9. [Zed ACP registry](https://zed.dev/blog/acp-registry)。[V]
+3. [How Claude Code works](https://code.claude.com/docs/en/how-claude-code-works)、[Context window](https://code.claude.com/docs/en/context-window)。[V]
+4. [Gemini CLI trusted folders](https://raw.githubusercontent.com/google-gemini/gemini-cli/main/docs/cli/trusted-folders.md)。[V]
+5. [Aider repo map](https://aider.chat/docs/repomap.html)。[V]
+6. [Amp models and subagents](https://ampcode.com/docs/models-and-subagents)。[V]
+7. [Kiro changelog 0.10](https://kiro.dev/changelog/ide/0-10/)、[Cline Plan & Act](https://docs.cline.bot/core-workflows/plan-and-act)、[Crush README](https://raw.githubusercontent.com/charmbracelet/crush/main/README.md)。[V]
+8. [Zed ACP registry](https://zed.dev/blog/acp-registry)。[V]
 
 **协议**
 
@@ -787,7 +786,7 @@ $ node --input-type=module -e "import { ArgParser } from './dist/src/cli/argPars
 2. **MCP 客户端认证**：若 `McpServerConfig` 之外有全局 header/token 注入通道（如 env 注入到 SDK transport），则「接不上托管 server」降级；需要一条端到端判据。
 3. **评测契约**：若 `session_meta` 之外已有 run manifest/paired A/B（例如 CI 私有脚本），则 §6.3 的「缺失」降级；本报告只认仓内可复核的路径。
 4. **长时能力**：若有一份真实 2–8 小时任务的端到端记录（不是脚本模型），则 §3.1「缺小时级实跑」降级；仅有 8h 默认时限不算。
-5. **隔离默认**：若 `sandbox` 默认已改为 OS 级（`windows-acl`/`wsl-bwrap`），则 §3.6「仍成立」降级；需要 `doctor` 的实际输出与 `npm test` 证据。
+5. **隔离默认**：若 `sandbox` 默认已改为 OS 级（`wsl-bwrap`），则 §3.6「仍成立」降级；需要 `doctor` 的实际输出与 `npm test` 证据。
 6. **分发面**：若 ACP/`.agents/skills`/A2A 卡已在未合并分支或插件中实现，则 §6.5 的「缺失」降级——以 `src/` 的 grep 为准。
 
 反过来，如果 90 天后仍然是「项目配置自动执行 + MCP 只能匿名 + 没有 run manifest + 没有 ACP」，那么本报告的三条结论不仅成立，而且说明下一阶段需要把「边界/证据/分发」当成主线，而不是继续加工具。

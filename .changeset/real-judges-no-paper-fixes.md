@@ -23,14 +23,14 @@
 ## ② "跳过即假绿"全部装开关（10 个文件）
 
 审计实测：14 个含 skip 的文件里 **10 个是无开关的静默跳过**——缺原生 `.node` / 缺 wasm 产物 /
-没装 `sharp` / 没有 Laya 权重 / 没装 `dsh` 时，那些用例在 CI 上**看着绿、其实一行没跑**
+没装 `sharp` / 没有 Laya 权重时，那些用例在 CI 上**看着绿、其实一行没跑**
 （浏览器一族早有 `OMNI_REQUIRE_BROWSER=1`，其余没有）。
 
 新增 `tests/helpers/requireEnv.ts`（**单一实现**）与 7 个开关：
-`OMNI_REQUIRE_BROWSER / NATIVE / WASM / DSH / LAYAPY / SHARP / LICENSE`。
+`OMNI_REQUIRE_BROWSER / NATIVE / WASM / LAYAPY / SHARP / LICENSE`。
 语义：能力可用⇒照跑；不可用且开关关⇒如实 skip；**不可用且开关开⇒失败**。
 接了 10 个文件：`nativeKernel`(9 处，含 `approval.check` 审批语义)、`nativeAliasBridge`、
-`nativeTokenEstimator`、`dshWorker`(3)、`viewImageResize`(2)、`wasmKernelE2E`、`wasmSkillPack`、
+`nativeTokenEstimator`、`viewImageResize`(2)、`wasmKernelE2E`、`wasmSkillPack`、
 `wasmResourceLimits`、`featureEntitlements`、`layaBackend`(5 条真前向)。
 
 外加两条机制判据（`tests/unit/requireSwitches.test.ts`）：
@@ -101,7 +101,7 @@
 - `wasm` 作业打开 `OMNI_REQUIRE_WASM=1` **并真跑**那三个 wasm 单测文件（只挂环境变量不算接线）。
 - `ci.yml` 末尾新增「**CI 不可满足的开关**」登记段，逐条给理由：`OMNI_REQUIRE_NATIVE`
   （`nativeBuild.mjs` 是 Windows-GNU 专用：`.dll → .node`、rustup GNU 工具链路径、依赖 git-bash
-  MinGW 环境 ⇒ 托管 runner 跑不出同名产物，属**构建面尚未跨平台**）、`OMNI_REQUIRE_DSH`（PATH 无 `dsh`）、
+  MinGW 环境 ⇒ 托管 runner 跑不出同名产物，属**构建面尚未跨平台**）、
   `OMNI_REQUIRE_LAYAPY`（CI 不下载 Laya 权重）。
 - `tests/unit/requireSwitches.test.ts` 新增 **⑤/⑤b**：每个开关要么接线、要么登记原因（附变异正对照：
   删掉 `OMNI_REQUIRE_SHARP` 的接线必须被检出）；wasm 作业必须真跑那三个文件 ⇒「装了开关却没接进 CI」

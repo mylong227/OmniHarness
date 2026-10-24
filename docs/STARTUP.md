@@ -258,7 +258,6 @@ curl -s -X POST http://127.0.0.1:8787/rpc \
 2. 不要在 CI / 无人值守里用 `--approval ask`（会挂起；本仓已改为显式报错 fail-closed）。
 3. 不要在文档里承诺"零依赖"（政策是**准入制 D10**，见 [`DEPENDENCY_POLICY.md`](DEPENDENCY_POLICY.md)）。
 4. 不要用 `--workspace` 指向一个会被删除的临时目录并期待它成为长期项目。
-5. 不要把归档文档（`docs/archive/**`）当现状引用。
 
 ---
 

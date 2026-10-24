@@ -1,6 +1,6 @@
 import { ArrayAt } from './arrayAt.ts';
 /**
- * 命令规范化（对标 codex `command_canonicalization.rs`）。
+ * 命令规范化（借鉴同类成熟实现 `command_canonicalization.rs`）。
  *
  * 目的：把「同一语义、不同包装」的命令映射到同一个 canonical token 序列，
  * 使审批缓存键不受 `bash -lc "x"` 与 `bash -c "x"` 这类包装差异影响。

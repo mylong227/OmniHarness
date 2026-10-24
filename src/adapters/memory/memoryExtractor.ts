@@ -41,7 +41,7 @@ export interface MemoryExtractorOptions {
 
 /**
  * @beta
- * 长期记忆蒸馏器（#S28，对标 codex memories 两阶段 LLM）：
+ * 长期记忆蒸馏器（#S28，借鉴同类成熟实现 memories 两阶段 LLM）：
  * 把回合事件（用户/助手/工具输出）蒸馏为可跨会话复用的持久事实，沉淀进长期记忆。
  *
  * - 阶段一（LLM 抽取）：用模型从回合文本抽取 salient 事实（用户偏好/约定/决策/坑）。

@@ -113,7 +113,7 @@ export class RemotePlugin implements Plugin {
     if (requireSandbox && sandbox?.wrapArgv === undefined && sandbox?.wrapCommand === undefined) {
       throw new Error(
         'SANDBOX_UNAVAILABLE: 远程插件必须配置 OS 沙箱（wrapArgv/wrapCommand）；' +
-          '请选择 windows-acl / wsl-bwrap 沙箱，或显式设置 OMNI_PLUGIN_REQUIRE_OS_SANDBOX=0。',
+          '请选择 wsl-bwrap / container 沙箱，或显式设置 OMNI_PLUGIN_REQUIRE_OS_SANDBOX=0。',
       );
     }
     this.stopping = false;

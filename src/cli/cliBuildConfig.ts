@@ -37,7 +37,7 @@ import { EnforcementModeResolver } from '../security/enforcementModeResolver.ts'
 import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.ts';
 import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { WorkerRegistry } from '../worker/workerRegistry.ts';
-import { dshWorker } from '../worker/dshWorker.ts';
+import { ExternalCliWorker } from '../worker/externalCliWorker.ts';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
 import { McpGateway } from '../mcp/mcpGateway.ts';
 import { McpServerCommand } from '../mcp/mcpServerCommand.ts';
@@ -387,16 +387,24 @@ export class CliBuildConfig extends CliCredentialBuild {
   }
 
   /**
-   * 构建 worker 注册表（--worker-dsh 时注册真实 dsh worker 替代演示 worker）。
-   * @param args 解析后的 CLI 参数（读取 workerDsh 任务名）。
-   * @returns 已注册 worker 的注册表；未配置 worker 时返回 undefined。
+   * 构建 worker 注册表（`--worker-external NAME=COMMAND` 时注册通用外部 CLI worker）。
+   * @param args 解析后的 CLI 参数（读取 workerExternals 规格）。
+   * @returns 已注册 worker 的注册表；未配置外部 worker 时返回 undefined。
+   * @throws 重名 worker（fail-closed，避免后注册者静默覆盖先注册者）。
    */
   protected buildWorkers(args: CliArgs): WorkerRegistry | undefined {
-    if (args.workerDsh === undefined) {
+    if (args.workerExternals.length === 0) {
       return undefined;
     }
     const registry = new WorkerRegistry();
-    registry.register(dshWorker.task(args.workerDsh));
+    const seen = new Set<string>();
+    for (const spec of args.workerExternals) {
+      if (seen.has(spec.name)) {
+        throw new Error(`--worker-external 名字重复：${spec.name}`);
+      }
+      seen.add(spec.name);
+      registry.register(ExternalCliWorker.create(spec));
+    }
     return registry;
   }
 

@@ -4,7 +4,7 @@
 > （商业侧"卖什么"）；本篇回答研发侧"**学什么、不学什么、我们自己的最佳解是什么**"。
 > 口径：外部星标/跑分数字为检索快照（二手来源，引用前复核）；代码现状以
 > [PROJECT_BOARD.md](PROJECT_BOARD.md) 与 [ARCHITECTURE_UPGRADE_2026-10.md](ARCHITECTURE_UPGRADE_2026-10.md) 为准。
-> 立场延续：本仓归档研究（`archive/agent_evolution_research/18` 篇）已论证"为什么是**自研**而非融合"——本篇不推翻该结论，
+> 立场延续：本仓既有研究已论证"为什么是**自研**而非融合"——本篇不推翻该结论，
 > 只做机制级择优。
 
 ---
@@ -51,8 +51,7 @@
 | [OpenHands](https://docs.openhands.dev) / [Goose](https://github.com/block/goose)（Block）                               | 开源 harness             | 成熟           | 事件流单源可恢复；brain/hands 无状态分离 + 一次性沙箱                                                                               | 竞品（架构已对位：事件流单源 ADR-0005 + spill + checkpoint） |
 | SE-Agent / RAGEN / Multi-Agent Evolve                                                                                    | 论文群                   | 生态           | 轨迹自优化 / 多轮 RL / 共进化                                                                                                       | 生态坐标，不展开                                             |
 
-**历史对照**：归档的 `archive/agent_evolution_research/20_竞品量化对标与超越性报告.md`（2026-09 快照）
-已对比过效率与能力面；本篇不重复其数字，聚焦**进化机制**这一它未展开的维度。
+**历史对照**：早期竞品量化报告（2026-09 快照）已对比过效率与能力面；本篇不重复其数字，聚焦**进化机制**这一它未展开的维度。
 
 ---
 
@@ -192,7 +191,7 @@
   对外不得声称"治理化自进化已实现"。
 - 双源信号（成功侧归纳）的增益假设未验证：AWM/ExpeL 的证据来自 WebArena/Mind2Web（web agent 域），
   向编码/通用任务域外推是假设。
-- 本报告与 `archive/agent_evolution_research/`（历史快照）口径独立；若数字冲突，以本机可复跑判据为准。
+- 本报告与早期快照口径独立；若数字冲突，以本机可复跑判据为准。
 
 ---
 

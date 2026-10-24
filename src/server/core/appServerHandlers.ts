@@ -10,7 +10,7 @@ import { AppServerBase } from './appServerBase.ts';
  */
 export class AppServerHandlers extends AppServerBase {
   /**
-   * 插件集 Profile RPC（G-E 5.1，对标 dsh 命名插件组合）：增删查 + 应用 + 当前激活集。
+   * 插件集 Profile RPC（G-E 5.1，借鉴同类成熟实现命名插件组合）：增删查 + 应用 + 当前激活集。
    * @returns 无返回值。
    */
   protected registerProfileHandlers(): void {
@@ -86,7 +86,7 @@ export class AppServerHandlers extends AppServerBase {
   }
 
   /**
-   * Bundle 发布单元 RPC（G-E 5.2/5.3，对标 dsh 可 patch 插件叠层 + 发布单元）。
+   * Bundle 发布单元 RPC（G-E 5.2/5.3，借鉴同类成熟实现可 patch 插件叠层 + 发布单元）。
    * @returns 无返回值。
    */
   protected registerBundleHandlers(): void {

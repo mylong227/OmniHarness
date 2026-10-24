@@ -1,5 +1,5 @@
 //! 会话持久化：append-only 事件日志（事实源）+ 读取 / 回放 / 续跑。
-//! 对齐 Codex thread-store rollout JSONL 与 DSH「模型所见即所记」。
+//! 对齐成熟实现的 thread-store rollout JSONL 与「模型所见即所记」。
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Write};

@@ -237,7 +237,7 @@
 
 - 9cb124f: 护栏生效模式三态化（`off`/`shadow`/`enforce`）+ 修两处既有缺陷（陈旧工具 schema、护栏兜底 fail-open）+ 阈值校准 harness。
 
-  **D1 · 三态生效模式（借鉴 dsh-jev 的 `provider` × `mode` 两正交开关）**
+  **D1 · 三态生效模式（借鉴业界成熟的 `provider` × `mode` 两正交开关）**
 
   - 新增 `src/security/enforcementModeResolver.ts`：`off` 不跑 / `shadow` **跑·记·但不改行为** / `enforce` 跑且生效；兼容历史二值（`true ⇒ enforce`、`false / undefined ⇒ off`，零行为变更）。（2026-09-22 由 `enforcementMode.ts` 更名——主类名须与文件名一致，该增量门禁对新增文件是阻断项。）
   - 新增 CLI `--guard-prompt-injection-mode off|shadow|enforce`（白名单校验，入 `VALUE_FLAGS`）；`--guard-prompt-injection` 语义不变（等价 `enforce`）。
@@ -893,7 +893,7 @@
 ### Changed
 
 - **依赖铁律翻转：零依赖 → 必要即可依赖（准入制 + 分层隔离）**：`scripts/check.mjs` 由「禁止一切第三方依赖」改为「准入登记 + 分层隔离」四闸门——依赖须登记于 `dependency-allowlist.json`；登记字段 `reason`/`capability`/`license`/`approvedAt`/`layer` 缺一即阻断；许可证仅允 permissive（拒绝 GPL/AGPL/SSPL/BUSL 等）；`src/ports/**` 与 `src/core/**` 恒为第三方-free（架构不塌的底线）。新增机器可读 `dependency-allowlist.json` 与 `docs/DEPENDENCY_POLICY.md`。既有零依赖实现（BM25 / RFC6455 / Ed25519 / N-API FFI / LCS diff）全部保留，不因政策放宽而废弃；当前 `dependencies` 仍为 0。看板 LOCKED 项「零依赖铁律」同步更名为「依赖准入门禁」（门禁恒锁定 ON，严禁 OFF）。
-- **默认 `--sandbox` 从 `passthrough` 翻转为 `policy`（P0 安全行为变更）**：开箱即默认拦截危险命令 + 工作区外路径（对标 Codex/Claude 默认拦截）；CLI 默认值（`CliDefaults.sandbox`）与配置文件回落点（`loadedFile.sandbox ?? args.sandbox ?? 'policy'`）同步翻转。需显式 `--sandbox passthrough` 才退回全放行。
+- **默认 `--sandbox` 从 `passthrough` 翻转为 `policy`（P0 安全行为变更）**：开箱即默认拦截危险命令 + 工作区外路径（对标成熟 harness 默认拦截）；CLI 默认值（`CliDefaults.sandbox`）与配置文件回落点（`loadedFile.sandbox ?? args.sandbox ?? 'policy'`）同步翻转。需显式 `--sandbox passthrough` 才退回全放行。
 - 测试门禁：`package.json` test 脚本加 `--test-timeout=120000` 兜底。
 - 分发包：`files` 增补 `examples` / `omniharness.json.example`，加 `publishConfig` / `prepublishOnly` / `repository` / `homepage` / `bugs`。
 - CLI 入口 `src/cli/exec.ts` god-class（原 2153 行）拆解为薄调度层 + 继承链 6 个基类（`cliBuildConfig` / `cliServerCmds` / `cliMcpCmds` / `cliDataCmds` / `cliCompareCmds` / `cliNativeCmds` / `cliAgentCmds`）；方法体逐字节等价，仅 `private`→`protected`。`package.json` bin 仍指向 `dist/src/cli/exec.js`，`main()`/`isEntry` 留在该文件；零运行时依赖 / Node 20 兼容 / 禁大函数铁律不变。

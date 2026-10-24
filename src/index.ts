@@ -114,8 +114,8 @@ export {
 } from './adapters/model/routePricing.ts';
 export type { ToolHandler } from './adapters/tool/toolHandler.ts';
 
-// @public hooks 兼容层（codex-claude / claude-code 事件格式映射）
-export { CodexHooksMapper } from './hooksCompat/codexHooksMapper.ts';
+// @public hooks 兼容层（通用 / claude-code 事件格式映射）
+export { GenericHooksMapper } from './hooksCompat/genericHooksMapper.ts';
 export { ClaudeCodeHooksMapper } from './hooksCompat/claudeCodeHooksMapper.ts';
 export { HooksCompatAdapter } from './hooksCompat/hooksCompatAdapter.ts';
 export type { HookEventEnvelope, HookConsumer } from './hooksCompat/formats.ts';
@@ -304,8 +304,9 @@ export { CodeGenerator } from './schema/codeGenerator.ts';
 export type { Worker, WorkerRequest, WorkerResult } from './worker/worker.ts';
 export { CliWorker } from './worker/cliWorker.ts';
 export type { CliWorkerOptions } from './worker/cliWorker.ts';
+export { ExternalCliWorker } from './worker/externalCliWorker.ts';
+export type { ExternalCliWorkerSpec } from './worker/externalCliWorker.ts';
 export { SimpleWorker } from './worker/simpleWorker.ts';
-export { DshWorker } from './worker/dshWorker.ts';
 export { WorkerRegistry } from './worker/workerRegistry.ts';
 export { WorkerOrchestrator } from './worker/workerOrchestrator.ts';
 export type { DelegateTask } from './worker/workerOrchestrator.ts';

@@ -20,7 +20,7 @@ interface WorkspaceTagged {
   workspace?: string;
 }
 
-/** 时间分组键（Codex 式左栏：今天 / 昨天 / 更早；归档会话单独一组）。 */
+/** 时间分组键（业界常见式左栏：今天 / 昨天 / 更早；归档会话单独一组）。 */
 export type TimeBucketKey = 'today' | 'yesterday' | 'earlier' | 'archived';
 
 /** 一个时间分组。 */
@@ -79,7 +79,7 @@ export class SessionGrouper {
   }
 
   /**
-   * 按**本地日历日**把会话分「今天 / 昨天 / 更早」三桶（Codex 式左栏的组织方式）。
+   * 按**本地日历日**把会话分「今天 / 昨天 / 更早」三桶（业界常见式左栏的组织方式）。
    *
    * 口径与边界：
    * - 用 `updatedAt`（ISO 字符串）判定；**解析不出来或缺失的一律进「更早」**（fail-closed 到可见

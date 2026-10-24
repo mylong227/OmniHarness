@@ -45,7 +45,7 @@ export type { SubagentPortsShape } from './subagent/subagentPorts.ts';
 export { SubagentPorts } from './subagent/subagentPorts.ts';
 export type { SubagentOptions, SubagentRequest, SubagentResult } from './subagent/subagentTypes.ts';
 
-// @beta 自主目标循环（#S30：对标 dsh goal/ralph，多轮自主推进直到达成或达上限）
+// @beta 自主目标循环（#S30：借鉴同类成熟实现 goal/ralph，多轮自主推进直到达成或达上限）
 export { GoalRunner, DEFAULT_GOAL_MAX_ITERATIONS } from './autonomy/goalRunner.ts';
 export type { GoalResult, GoalRunnerOptions } from './autonomy/goalRunner.ts';
 export { GoalChecker } from './autonomy/goalChecker.ts';
@@ -53,7 +53,7 @@ export type { GoalCheck } from './autonomy/goalChecker.ts';
 export { RunGoalTool } from './adapters/tool/workflow/runGoalTool.ts';
 export { RUN_GOAL_TOOL_NAME } from './autonomy/goalToolNames.ts';
 
-// @beta 工作流 DAG 编排（#S31：对标 dsh agent-team / workflow DAG，多步依赖并发 + 失败传播）
+// @beta 工作流 DAG 编排（#S31：借鉴同类成熟实现 agent-team / workflow DAG，多步依赖并发 + 失败传播）
 export {
   WorkflowRunner,
   WorkflowCycleError,
@@ -91,7 +91,7 @@ export {
   LSP_STATUS_TOOL_NAME,
 } from './adapters/lsp/lspToolNames.ts';
 
-// @beta Agent 密码学身份（#S33：对标 codex-rs/agent-identity 可移植核心，Ed25519 无第三方依赖）
+// @beta Agent 密码学身份（#S33：借鉴业界成熟实现 /agent-identity 可移植核心，Ed25519 无第三方依赖）
 export type {
   AgentIdentityPort,
   AgentIdentityConfig,
@@ -103,7 +103,7 @@ export {
   AGENT_IDENTITY_TOOL_NAME,
 } from './adapters/tool/meta/agentIdentityTool.ts';
 
-// @beta 安全策略求值（#S34：对标 codex-rs/execpolicy 的「规则 → 决策」意图，安全子集无第三方依赖）
+// @beta 安全策略求值（#S34：借鉴业界成熟实现 /execpolicy 的「规则 → 决策」意图，安全子集无第三方依赖）
 export type {
   PolicyPort,
   PolicyRule,
@@ -125,11 +125,11 @@ export type {
 export { ToolOutputTrust } from './security/toolOutputTrust.ts';
 export type { TrustTier } from './security/toolOutputTrust.ts';
 
-// @beta 无第三方依赖 TUI 终端 UI（#S35：对标 codex-rs/tui 的「会话事件流渲染 + 交互」概念）
+// @beta 无第三方依赖 TUI 终端 UI（#S35：借鉴业界成熟实现 /tui 的「会话事件流渲染 + 交互」概念）
 export { TuiRenderer, type TuiEvent, type TuiEventKind } from './tui/tuiRenderer.ts';
 export { Interactive, type InteractiveOptions } from './tui/interactive.ts';
 
-// @beta 计划 / 待办 / 提问协作态（#77：对标 dsh plan/todo/interaction）
+// @beta 计划 / 待办 / 提问协作态（#77：借鉴同类成熟实现 plan/todo/interaction）
 export { TodoWriteTool, TodoReadTool } from './adapters/tool/plan/todoTool.ts';
 export { AskUserTool } from './adapters/tool/plan/askUserTool.ts';
 export { PlanWriteTool, PlanPresentTool, PlanReadTool } from './adapters/tool/plan/planTool.ts';

@@ -17,7 +17,7 @@ import type { PluginProfile } from './pluginProfileStore.ts';
 import type { PluginRegistry } from './pluginRegistry.ts';
 
 /**
- * Bundle 发布单元（G-E 5.2/5.3，对标 dsh 可 patch 插件叠层 + 发布单元）。
+ * Bundle 发布单元（G-E 5.2/5.3，借鉴同类成熟实现可 patch 插件叠层 + 发布单元）。
  *
  * 一个 bundle = 命名插件集 + 补丁层（config 覆盖）+ 可选 HMAC 签名，打包为自包含 `.ohb`
  * （store 方法 zip）。`packBundle` 把 profile 的插件目录与清单封进 zip；`unpackBundle`

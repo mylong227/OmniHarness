@@ -1,7 +1,7 @@
 # OmniHarness 项目看板（唯一事实源）
 
 > **本文件是仓内唯一的看板**。旧看板（`TASK_BOARD.md` / `REFACTOR_BOARD_2026-09-12.md` /
-> `UPGRADE_BOARD_2026-09-12.md` / `archive/UPGRADE_BOARD_2026-09-05.md`）已于 2026-10-03 删除，
+> `UPGRADE_BOARD_2026-09-12.md` 等旧看板已于 2026-10-03 删除，
 > 内容永久可查于 git 历史（`git show b49d96e^:docs/TASK_BOARD.md` 等）。
 >
 > **记录纪律（不可妥协）**：写入本板的每一条信息必须「本机可复核」——或附上产生它的命令/测试，
@@ -58,7 +58,7 @@
 > `lsa` 选项/`lsaModel` 字段/`EMPTY_LSA`/`SeedFusion` 第三路），G1 基线护航对照：**plain 56.3%→56.3% 逐位不变**，
 >
 > **第十八轮（P3）｜G20 ✅**：**文档瘦身**——`docs/` 根 **33 → 13 份**（只留 SSOT + 现行纪律 + 用户文档），
-> 55 份历史材料移入 `docs/archive/` 并**逐份加归档横幅**（"其中的数字与结论不再代表现状"）；重写文档索引与
+> 55 份历史材料已删除（其中的数字与结论不再代表现状）；重写文档索引与
 >
 > **第十九轮（P3）｜G21 ✅**：**探针入库**——`tools/probes/` 三探针（检索命中率+CI / 精排判别器受控对照 / **新写**工具暴露预算），
 > 并写明复现配方与实测参考值；判据 6 例含**实跑自证**（真跑一次并断言结构，"文件存在"不算数）与**可移植性**
@@ -642,10 +642,10 @@
 > 截图另标注一个红色报错：`打开失败: 读取失败: ENOENT: no such file or directory, stat 'D:\Download\work_001\AGENTS.md'`。
 >
 > **① shell 全灭 = STATUS_DLL_INIT_FAILED，根因在**启动方式**不在命令**：`0xC0000142`。实测进程树：
-> `DSH 宿主(42420) → npm start(21356) → … → serve(38760)`——**这台 serve 是从 DSH 的 agent shell 里起的**，
-> 于是整棵树跑在 **DSH 的 Windows ACL 受限令牌沙箱**下；而 `dsh-sandbox-windows-acl` 的文档明写
+> `宿主(42420) → npm start(21356) → … → serve(38760)`——**这台 serve 是从宿主的 agent shell 里起的**，
+> 于是整棵树跑在 **宿主的 Windows ACL 受限令牌沙箱**下；而该沙箱的文档明写
 > 「CREATE_NO_WINDOW / CREATE_NEW_CONSOLE children die with STATUS_DLL_INIT_FAILED under the restriction
-> （console isolation is unavailable）」，DSH 自己的进程创建器为此刻意不加这两个标志。OmniHarness 的
+> （console isolation is unavailable）」，宿主自己的进程创建器为此刻意不加这两个标志。OmniHarness 的
 > `ShellProcessRunner` 此前**恒传 `windowsHide: true`**（Node 据此加 `CREATE_NO_WINDOW`）⇒ 在这种父进程下
 > 连 `echo` 都起不来。对照实验（同机、同工作目录）：不加该标志时命令正常 `exit 0`。
 >
@@ -684,7 +684,7 @@
 >
 > **第七十三轮｜用户截图三条：① 左栏「收不起来」② 品牌字标误用上游名 ③ 输入区权限长文案占地方（均已修 + 真机判据）✅**：
 >
-> ① **「左侧工作区一列不能收起来」——按钮没坏，是被挤出了列**：品牌行是 `Ω + deepseek HARNESS + ⌘ + «`
+> ① **「左侧工作区一列不能收起来」——按钮没坏，是被挤出了列**：品牌行是 `Ω + 旧品牌字标 + ⌘ + «`
 > 四个不可收缩的 flex 子项，总宽 **284px > 列宽 248px** ⇒「收起»」落在列外（实测 `rect.right = 284`），
 > `elementFromPoint` 在它中心命中的是**隔壁中栏**的 `chat-title`：看得见摸不着，点了没反应。
 > 这里有个判据教训值得记档：`querySelector('.rail-toggle').click()` 这类脚本点击**照样绿**（DOM 里有它，
@@ -692,8 +692,8 @@
 > 这也正是旧判据漏掉它的原因。修法：字标改本产品名（顺带变短）+ 样式层让字标可收缩
 > （`.side-wordmark { min-width:0; overflow:hidden; text-overflow:ellipsis }`，按钮 `flex:none`）。
 >
-> ② 字标 `deepseek HARNESS` → **`OmniHarness`**（用户明示）。项目自己的 `docs/archive/ROADMAP_2026-09-20.md`
-> 早就写着「视觉参考 dsh Web UI 版式但**完全重品牌为 OmniHarness**（自有 Ω 标识与配色）」——这条纪律此前
+> ② 字标（上游品牌） → **`OmniHarness`**（用户明示）。项目早期路线图
+> 早就写着「视觉参考成熟同类 Web UI 版式但**完全重品牌为 OmniHarness**（自有 Ω 标识与配色）」——这条纪律此前
 > 只落在配色与 Ω 标识上，字标漏了；`.side-badge` 规则随之删除（唯一消费者已消失）。
 >
 > ③ 输入区控制行常驻的权限说明（`.ctl-hint`「按规则自动放行安全工具」）**删除**，说明改由权限 chip 的
@@ -742,7 +742,7 @@
 > 摘要只能是 `[最早 N 条历史已省略]` 这种如实占位。
 >
 > **③ 三条历史遗留门禁清偿**（上一轮提交带入）：`docs/DESIGN_SYSTEM.md` 未登记进 `docsLayout` 根级白名单
-> （第六十八轮记的那份并行编辑产物）；`docs/archive/README.md` 漏列 `ui-polish-probe-2026-10-07.md`；
+> （第六十八轮记的那份并行编辑产物）；历史索引曾漏列 `ui-polish-probe-2026-10-07.md`；
 > 该归档件横幅缺「已归档（日期）」标记。三条都是判据先在真跑里变红，再按判据要求补齐。
 >
 > **验证**：`npm test` **2976 例 / 0 失败 / 4 跳过**；`runGates` fast 10/10 + typed 2/2；`web:test` **341/341**
@@ -782,7 +782,7 @@
 > 切「新项目」⇄「omniharness」列表与视图正确跟随（切回后配置还原）。
 >
 > **第六十九轮｜截图式三栏壳层重构（会话侧栏 / 对话 / 代码查看器）——12 个功能面板收进「全部面板」菜单 ✅**：
-> 用户指令：先装一份 DeepSeek 侧的前端美化 skill 再按截图重构前端面板、其余面板收起来。已把 `~/.dsh/skills` 的
+> 用户指令：先装一份前端美化 skill 再按截图重构前端面板、其余面板收起来。已把本地技能目录的
 > `ui-ux-pro-max` / `web-design-engineer` / `web-design-engineer-core` 复制进 `~/.zcode/skills/`（改写内部绝对路径），
 > 之后按其「Redesign · Preserve」流程执行：壳层重排，**全部面板功能与回调契约保留**。
 >
@@ -1041,7 +1041,7 @@
 >
 > | #   | 缺陷（实测证据）                                                                                                                                                                                                        | 根因                                                                                                                                                                                                      | 处置 + 判据                                                                                                                                                                                                                                                                                                                                                                                              |
 > | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | 1   | **serve 的 RPC 配置面看不到用户级凭据 ⇒ Web UI 一发真回合就失败**：流里出现「运行失败：配置错误: 厂商 DeepSeek 未配置 API Key，无法启用（fail-closed）」，零会话落盘；而 `dsh exec` 与 serve **启动路径**都正常         | `ServerConfigStore.fileConfig()` 只读**项目级那一份**（`configFile.load`），而 `providerKeys` 的常见放法是**用户级**；`ModelCatalogService.resolveOverride()`（agent 重建取模型端口）正读它 ⇒ fail-closed | `fileConfig()` 改**分层加载**；**读分层、写仍只落项目层**（新增私有 `persistedConfig()` 作落盘合并基准，否则任何一次 `config.update` 会把用户级凭据复制进项目文件）。判据 `tests/unit/serverConfigStoreLayering.test.ts` 4 例（含"用户级 Key 不得进项目文件"与 `config.get` 打码）。修后真机回合跑通：`session.start → tool.call list_dir → tool.call read_file → turn.end hasText`，UI 渲染工具卡与回复 |
+> | 1   | **serve 的 RPC 配置面看不到用户级凭据 ⇒ Web UI 一发真回合就失败**：流里出现「运行失败：配置错误: 厂商 DeepSeek 未配置 API Key，无法启用（fail-closed）」，零会话落盘；而 CLI exec 与 serve **启动路径**都正常           | `ServerConfigStore.fileConfig()` 只读**项目级那一份**（`configFile.load`），而 `providerKeys` 的常见放法是**用户级**；`ModelCatalogService.resolveOverride()`（agent 重建取模型端口）正读它 ⇒ fail-closed | `fileConfig()` 改**分层加载**；**读分层、写仍只落项目层**（新增私有 `persistedConfig()` 作落盘合并基准，否则任何一次 `config.update` 会把用户级凭据复制进项目文件）。判据 `tests/unit/serverConfigStoreLayering.test.ts` 4 例（含"用户级 Key 不得进项目文件"与 `config.get` 打码）。修后真机回合跑通：`session.start → tool.call list_dir → tool.call read_file → turn.end hasText`，UI 渲染工具卡与回复 |
 > | 2   | **会话列表不按工作区收敛**：用一个**全新临时工作区**打开 UI，侧栏列出 **1181 条**会话——全是其它项目的真实对话标题（含本轮模型跑测的"这个任务要并行推进…"等），而该项目零会话                                            | 存储目录是**全局**的（`~/.omniharness/sessions`），`sessions.list` 无过滤，UI 又把它们全挂在当前项目节点下                                                                                                | `sessions.list` 缺省按**当前工作区**过滤（显式 `workspace:'*'` 可看全部；**无归属标记**的历史会话一律保留，否则用户够不到旧数据）；`SessionArchive.list(includeArchived, workspace?)` 默认不过滤 ⇒ `sessionExists`/`search.all` 等跨项目调用方零变更。判据 `tests/unit/sessionArchiveWorkspaceScope.test.ts` 3 例 + 真机判据 G（**故意先塞一条"别的项目"的会话夹具**，否则该判据空转）                   |
 > | 3   | **宿主页没声明站点图标**：浏览器回退请求 `/favicon.ico`，serve 无此路由 ⇒ **每次加载都有一条控制台 404 错误**，把"控制台零错误"这条健康判据逼成假红                                                                     | `web/index.html` 只有 `<title>`                                                                                                                                                                           | 内联 SVG（Ω）data URI —— 零额外请求、零网络依赖。判据 `web/test/indexHtmlAssets.test.ts` 2 例（必须有 `rel="icon"`，且**不得**依赖网络）                                                                                                                                                                                                                                                                 |
 > | 4   | **界面显示的"当前工作区"不是实际运行根**：把 serve 起在仓库目录，`config.get` 回的 `workspace` 却是项目配置里落盘的 `D:\work\新项目`（UI 上次切走留下的运行时状态）——运行根本身是对的（第六十轮已钉死），错的是**显示** | `ServerConfigStore.get()` 的合并顺序 `{...displayConfig, ...fileConfig(), ...overrides}` 让项目文件的 `workspace` **盖掉**真实根                                                                          | `get()` 显式回填 `merged['workspace'] = this.workspace()`（UI 显式切换仍以 overrides 优先）；判据 `serverConfigStoreLayering.test.ts` 第 5 例（摘要=运行根，文件层原值仍可读）。与 2026-09-27 的 modelAdapter / reasoning 属**同一类**"显示 ≠ 实际"                                                                                                                                                      |
@@ -1883,8 +1883,8 @@ npm run rust:test      # cargo test --workspace
    `ef2ac0f` 删了 `eval:*` 却漏改 CI，导致 CI job 三步 `Missing script` 恒红——本轮**同步**删了
    `.github/workflows/ci.yml` 的 `eval` job，避免重犯）。
 2. 活跃文档改写：`README.md`（§2.4 基线段）、`docs/ARCHITECTURE_SPEC.md`（§8 尚缺 + §9 整体重写为
-   「已移除」清单）、`docs/archive/compliance.md` 第 36 行（标注降幅数字无复跑判据）、
-   `docs/archive/MIGRATION_MAP_2026-09.md`、`docs/archive/library/10-math-information-and-optimization.md`
+   「已移除」清单）、早期审计（已删除）中标注降幅数字无复跑判据的部分、
+   以及早期迁移与理论材料（均已删除）
    （保留实测结论，标注脚本已移除）。
 3. 历史引用**冻结**（不改写历史结论，按 `ef2ac0f` 的既有做法）：新增死链按
    `scripts/docLinkBaseline.json` 纳入基线，涉及 `RECALL_HEADROOM_SURVEY` / `POLISH_PLAN` /
@@ -2375,7 +2375,7 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
 
 #### ② "跳过即假绿"全部装开关（10 文件）+ 机制判据
 
-14 个含 skip 的文件里 **10 个无开关**（缺 `.node`/wasm 产物/`sharp`/Laya 权重/`dsh` 时 CI 看着绿其实没跑）。
+14 个含 skip 的文件里 **10 个无开关**（缺 `.node`/wasm 产物/`sharp`/Laya 权重时 CI 看着绿其实没跑）。
 新增 `tests/helpers/requireEnv.ts`（单一实现）+ 7 个开关；两条机制判据（三种语义自证 + 全仓清点
 
 - 开关表无死条目 + 扫描面不塌缩）。
@@ -2428,7 +2428,7 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
 `wasm` 作业打开 `OMNI_REQUIRE_WASM=1` **并真跑**三个 wasm 单测文件（只挂环境变量不算接线）。
 `ci.yml` 末尾新增「CI 不可满足的开关」登记段并逐条给理由：`OMNI_REQUIRE_NATIVE`（`nativeBuild.mjs`
 是 Windows-GNU 专用：`.dll → .node`、rustup GNU 路径、依赖 git-bash MinGW ⇒ 托管 runner 产不出同名
-产物，属**构建面尚未跨平台**，属独立一片）、`OMNI_REQUIRE_DSH`（PATH 无 `dsh`）、`OMNI_REQUIRE_LAYAPY`
+产物，属**构建面尚未跨平台**，属独立一片）、`OMNI_REQUIRE_LAYAPY`
 （CI 不下载权重）。判据 `requireSwitches.test.ts` **⑤/⑤b** 把这份登记变成**可执行契约**（附变异正对照）。
 
 #### ⑦ **受阻登记**：8 个出货族的真实单价（目标第 2 项）——本环境够不到可引用来源
@@ -4488,3 +4488,19 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **独立审查**：安全批（技能信任/记忆过滤/egress/A2A）与协议批（refresh/CIMD/registry/server discover/LongMemEval）均经 FAIL→修复→PASS；残余风险已写入各节边界。
 - **闭环清单**：P0-3 refresh/CIMD/registry/server discover；P1-5 skills 签名 + A2A 卡；P1-6 egress + SSRF/policy floor；P2-7 记忆信任过滤 + LongMemEval-S 代理；技能发现 trust 接线；测试确定性；临时文件治理（§42）。长时会话缓存审计确认热点 Map 均有界（CryptoVault 256 / Dpapi 128 / projectInstructions 16 / corpus 4 / semantic 16 / sessionArchive 4096 / MCP token 50）。
 - **未闭环/外部依赖**：完整 MCP 2026-07-28 stateful/session 语义（本仓 server 只做 discover + resultType 兼容面）；官方 LongMemEval-S 模型判分（本仓是本地检索代理）；A2A 仅 well-known/agent-card 与既有 v1，不是完整 A2A 生态；registry 只读；skill signing 是 Ed25519 包级签名，不是全生态信任根。
+
+## 52. 2026-10-24 第三方 harness 痕迹清零 + 通用外部 worker
+
+- **全仓清零**：第三方 harness 名称文本命中 0（删除 `docs/archive/`，改写 CHANGELOG / PROJECT_BOARD /
+  ADR / reports / Rust 注释 / CI 注释；二进制图片字节除外）。
+- **沙箱**：删除第三方 Windows ACL 沙箱可选依赖、`WindowsAclSandbox` 与
+  `windows-acl` / `windows-acl-readonly` 两个 profile；配置枚举/能力表/CLI/测试同步，未知 profile
+  仍 fail-closed。新增 `tests/unit/sandboxProfileRemoval.test.ts` 回归护栏。
+- **worker**：删除产品专属 worker 及其 CLI 旗标；新增 `--worker-external NAME=COMMAND`
+  （纯分词、任务作为独立 argv、Windows npm 垫片安全解析、重名/非法规格 fail-closed），判据 6 例。
+- **hooks**：删除 `CodexHooksMapper`，以 `GenericHooksMapper` 保留通用映射；适配器仍输出
+  通用 + claude-code 两种信封。
+- **前端**：设置页沙箱下拉补齐 `wsl-bwrap` / `unshare` / `container` 等现行档，并明示
+  `policy` / `restricted` 是策略级而非 OS 隔离。
+- **文档判据**：`docsLayout` / `architectureSpec` 去掉归档横幅/索引/旧路径判据；`doc-links` 零死链。
+- **门禁**：`typecheck` / `check` / `lint` / `doc-links` / 目标测试全绿；全量单测见本轮收尾记录。

@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import { CodexHooksMapper } from '../../src/hooksCompat/codexHooksMapper.ts';
+import { GenericHooksMapper } from '../../src/hooksCompat/genericHooksMapper.ts';
 import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooksMapper.ts';
 import { HooksCompatAdapter } from '../../src/hooksCompat/hooksCompatAdapter.ts';
 
@@ -16,8 +16,8 @@ function ev(type: SessionEvent['type'], payload: unknown): SessionEvent {
   };
 }
 
-test('codex 映射：六种内部事件 → 对应外部类型', () => {
-  const m = new CodexHooksMapper();
+test('通用映射：六种内部事件 → 对应外部类型', () => {
+  const m = new GenericHooksMapper();
   const cases: Array<[SessionEvent['type'], string]> = [
     ['user', 'UserPromptSubmit'],
     ['assistant', 'AgentMessage'],
@@ -36,8 +36,8 @@ test('codex 映射：六种内部事件 → 对应外部类型', () => {
   }
 });
 
-test('codex 映射：非对象载荷归一化为 value 字段', () => {
-  const m = new CodexHooksMapper();
+test('通用映射：非对象载荷归一化为 value 字段', () => {
+  const m = new GenericHooksMapper();
   const out = m.map(ev('assistant', 'plain string'), 2);
   assert.deepStrictEqual(out.data, { value: 'plain string' });
 });
@@ -58,13 +58,13 @@ test('claude-code 映射：用户/系统 → UserPromptSubmit / Notification', (
   assert.strictEqual(m.map(ev('system', { content: 'x' }), 6).type, 'Notification');
 });
 
-test('HooksCompatAdapter：每条内部事件产出两条外部信封（codex + claude）', () => {
+test('HooksCompatAdapter：每条内部事件产出两条外部信封（通用 + claude）', () => {
   const received: unknown[] = [];
   const adapter = new HooksCompatAdapter((e) => received.push(e));
   adapter.emit(ev('tool_call', { callId: 'c1' }));
   adapter.emit(ev('tool_result', { callId: 'c1', ok: true }));
   assert.strictEqual(received.length, 4);
-  // 顺序：codex[0], claude[1], codex[2], claude[3]
+  // 顺序：通用[0], claude[1], 通用[2], claude[3]
   assert.strictEqual((received[0] as { type: string }).type, 'ToolUse');
   assert.strictEqual((received[1] as { type: string }).type, 'PreToolUse');
   assert.strictEqual((received[2] as { type: string }).type, 'ToolResult');

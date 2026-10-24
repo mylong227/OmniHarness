@@ -1,6 +1,6 @@
 # OmniHarness
 
-> 融合 Codex / DeepSeek Harness 能力的全能 Agent Harness：TypeScript ESM + Node 22，六边形端口-适配器分层，审批→沙箱→执行→记录构成 fail-closed 的统一门禁链；可选 Rust 原生内核（TS 为默认路径）。
+> 自研全能 Agent Harness：TypeScript ESM + Node 22，六边形端口-适配器分层，审批→沙箱→执行→记录构成 fail-closed 的统一门禁链；可选 Rust 原生内核（TS 为默认路径）。
 
 本文件按 [llmstxt.org](https://llmstxt.org/) 规范撰写，是 `docs/` 站点面向 LLM 与自动化工具的**机器可读索引**：只列权威入口与一句话职责，不复制正文。所有链接为相对 `docs/` 的路径；进度与状态数字一律以项目看板为准。
 
@@ -34,6 +34,3 @@
 
 - [ADR 索引](adr/README.md): 六边形架构 / 依赖白名单 / 统一门禁 fail-closed / 审计哈希链 / 事件流单源 / 沙箱诚实降级 / API 稳定标注 / 治理化进化内核 / 统一资产协议（0009）/ 信任-隔离阶梯（0010）/ 签名资产包分发（0011）
 
-## Optional
-
-- [历史存档](archive/README.md): 56 份被取代的审计 / 计划 / 路线图 / 调研（**只读**，每份带归档横幅，其中的数字与结论不代表现状；份数随时间增长，以目录为准）

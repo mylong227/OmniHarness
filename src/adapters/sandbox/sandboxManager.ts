@@ -9,7 +9,6 @@ import { LinuxUnshareSandbox } from './linuxUnshareSandbox.ts';
 import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
 import { WslBwrapSandbox } from './wslBwrapSandbox.ts';
-import { WindowsAclSandbox } from './windowsAclSandbox.ts';
 import { ContainerSandbox } from './containerSandbox.ts';
 
 export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
@@ -54,15 +53,6 @@ export class SandboxManager {
     this.register('seatbelt', () => new MacOsSeatbeltSandbox(this.workspaceRoot));
     // SEC-01：Windows 上的 L3 路径（WSL2 + bwrap）；不可达时后端自身 fail-closed。
     this.register('wsl-bwrap', () => new WslBwrapSandbox(this.workspaceRoot));
-    // 2026-10-21：Windows 原生 ACL 写限制（受限令牌 + 工作区写入 SID）；可选依赖缺失时 fail-closed。
-    this.register(
-      'windows-acl',
-      () => new WindowsAclSandbox(this.workspaceRoot, 'workspace-write'),
-    );
-    this.register(
-      'windows-acl-readonly',
-      () => new WindowsAclSandbox(this.workspaceRoot, 'read-only'),
-    );
     // P2-2：容器沙箱（可选档、非默认）。Docker/Podman 需外部安装；缺运行时/镜像由后端自身 fail-closed，
     // 绝不回退 policy 冒充隔离。默认镜像 node:22-alpine，可用 OMNI_CONTAINER_IMAGE 覆盖。
     this.register('container', () => new ContainerSandbox({ workspaceRoot: this.workspaceRoot }));

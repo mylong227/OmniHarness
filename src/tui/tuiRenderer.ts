@@ -1,7 +1,7 @@
 /**
- * 无第三方依赖 TUI 渲染（#S35，对标 codex-rs/tui 的「会话事件流渲染」概念）。
+ * 无第三方依赖 TUI 渲染（#S35，借鉴业界成熟实现 /tui 的「会话事件流渲染」概念）。
  *
- * 不搬 codex 的 288k 行全功能 TUI（React 式组件树、app-server 协议等）；只搬其
+ * 不搬同类实现的全功能 TUI（React 式组件树、app-server 协议等）；只搬其
  * **可移植内核**——把 SessionEvent 渲染为带 ANSI 颜色的终端行，供交互式会话使用。
  * 纯函数、无第三方依赖（仅 ANSI 转义），便于单测与在 `interactive.ts` 中复用。
  */

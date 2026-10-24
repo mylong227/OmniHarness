@@ -76,7 +76,7 @@ test('U1 收敛：写入事实经单一存储不翻倍、可被召回', async ()
 
   runtime.longTermMemory.remember({
     id: 'fact-u1-accept-1',
-    text: 'OmniHarness 是融合 Codex 与 DeepSeek Harness 的全能 Agent Harness',
+    text: 'OmniHarness 是通用全能 Agent Harness',
     topic: 'project',
     importance: 5,
     createdAt: new Date().toISOString(),

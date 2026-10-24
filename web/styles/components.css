@@ -232,7 +232,7 @@
 
 /* 变更面板：hunk 概览 */
 
-/* ===== 内联 diff 审查（对标 Codex Review）：hunk 级 stage/revert + 行内评论 ===== */
+/* ===== 内联 diff 审查（借鉴同类成熟实现 Review）：hunk 级 stage/revert + 行内评论 ===== */
 .review { display: flex; flex-direction: column; gap: 8px; }
 .file-actions, .hunk-actions { display: inline-flex; gap: 6px; align-items: center; }
 .hunk-btn { cursor: pointer;
@@ -285,7 +285,7 @@
 .iconbtn.mic.listening { color: var(--err); animation: mic-pulse 1.2s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
-/* ===== 并行任务卡（对标 Codex 并行 thread 监督） ===== */
+/* ===== 并行任务卡（借鉴同类成熟实现并行 thread 监督） ===== */
 .session-cards { display: flex; flex-direction: column; gap: 6px; }
 .task-card { padding: 8px 10px;
   cursor: pointer; display: flex; flex-direction: column; gap: 4px;

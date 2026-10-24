@@ -116,7 +116,7 @@
 2. 选择 OS 沙箱 profile：
    - Linux：`bwrap`（优先）或 `unshare`；
    - macOS：`seatbelt`；
-   - Windows：`wsl-bwrap`（可禁网）优先；`windows-acl-readonly` 仅在显式允许网络时使用。
+   - Windows：`wsl-bwrap`（可禁网）优先。
 3. 组装最小环境：仅 `PATH` / `SystemRoot` / 语言变量 / 私有 `TEMP`；**不传宿主 API Key、
    token、代理凭据**。宿主 `process.env` 整体不继承。
 4. `spawn(process.execPath, [workerMain, '--plugin-worker'], { cwd: pluginDir, env, stdio: ['pipe','pipe','pipe'] })`，
@@ -257,7 +257,6 @@ spawned → handshaking → activating → ready → draining → stopped
 
 ### 8. 沙箱与网络边界（必须如实标注）
 
-- `windows-acl`/`windows-acl-readonly` **只限制写**；读、网络、进程可见性不受限。
 - 因此远程插件的默认策略：
   - Linux：`bwrap --unshare-net`（强）；
   - macOS：seatbelt 禁止 network；
@@ -345,7 +344,6 @@ export default definePlugin({
 - Worker 内 `process`/`require`/`globalThis.process` 不可达（ESM 入口 + 权限模型）；
 - 未声明能力 `cap.call` → `UNAUTHORIZED_CAPABILITY`；
 - `fs` 越界/符号链接 → 拒绝；
-- `windows-acl-readonly` 下工作区写入失败；
 - `bwrap` 下网络连接失败（Linux CI 可跳过，需真机证据）。
 
 **工具桥**

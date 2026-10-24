@@ -50,7 +50,7 @@
 ### 1.2 对比方法
 
 - **仓内证据**：读码 + 跑探针 + 读项目自记（`PROJECT_BOARD.md`、`ARCHITECTURE_SPEC.md`、`LONG_SESSION_QUALITY_2026-10-20.md`）。
-- **参照设计**：Claude Code（公开源码分析论文 + 官方文档）、Codex/OpenCode（公开仓库与文档）、OpenHands/Cognition（公开工程复盘）、MCP/A2A/AGENTS.md/Skills 规范。
+- **参照设计**：Claude Code（公开源码分析论文 + 官方文档）、业界同类/OpenCode（公开仓库与文档）、OpenHands/Cognition（公开工程复盘）、MCP/A2A/AGENTS.md/Skills 规范。
 - **对比单位是“能力层”**，不是“功能条数”。例如不比“谁的工具多”，而比“行动空间是否覆盖文件、终端、浏览器、搜索、GUI”。
 - **不做的事**：不引用 SWE-bench/Terminal-Bench 的排名作为本项目结论；不把“单次跑分”当能力定论；不追求“比别人高几分”。
 
@@ -84,7 +84,7 @@
 | 互操作        | MCP 2025-11-25；A2A 私有；Skills JSON；AGENTS.md 已读       | MCP 2026-07-28；A2A v1.0；SKILL.md；AGENTS.md 60k+                  | **落后**                          | **P1** |
 | 模型/成本     | 5 适配器（含 mock）；轮询/最低成本/关键词路由；价格兜底     | Cognition smart-friend；多厂商路由                                  | **落后（路由）**                  | P2     |
 | 可观测        | OTLP trace + GenAI semconv + 对账；无 metrics/logs          | GenAI semconv；OTLP metrics/logs                                    | **领先（trace）/落后（metrics）** | P2     |
-| 产品化        | Web 工作台 + CLI；单机单用户；无 IDE/云端/PR 闭环           | Claude Code IDE/桌面/Web；Codex cloud；Devin 托管                   | **落后（战略）**                  | P2     |
+| 产品化        | Web 工作台 + CLI；单机单用户；无 IDE/云端/PR 闭环           | Claude Code IDE/桌面/Web；云端编码代理；Devin 托管                  | **落后（战略）**                  | P2     |
 
 ### 2.2 三个“领先”的细节
 

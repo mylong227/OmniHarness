@@ -34,7 +34,7 @@ export interface GoalResult {
 
 /**
  * @beta
- * 自主目标循环（对标 dsh goal / ralph）：在无人逐步干预下朝目标反复推进，
+ * 自主目标循环（借鉴同类成熟实现 goal / ralph）：在无人逐步干预下朝目标反复推进，
  * 每轮跑一次回合、用 {@link GoalChecker} 判达成度，达成即停、否则续跑，
  * 直到达成或触及 {@link GoalRunnerOptions.maxIterations} 上限。
  *

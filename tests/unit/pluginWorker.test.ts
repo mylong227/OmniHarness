@@ -9,8 +9,24 @@ import { PermissionGate } from '../../src/plugin/permissionGate.ts';
 import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
 import { RemotePlugin } from '../../src/plugin/worker/remotePlugin.ts';
 import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { WindowsAclSandbox } from '../../src/adapters/sandbox/windowsAclSandbox.ts';
+import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
 import { PluginWorkerMetrics } from '../../src/plugin/worker/pluginWorkerMetrics.ts';
+
+/**
+ * 测试用直通式 OS 沙箱：只满足 RemotePlugin 的 wrapArgv 契约，不做真实隔离。
+ * 用于验证「配置了执行包装后 Worker 仍能启动并执行工具」这条接线。
+ */
+class TestWrappingSandbox implements SandboxPort {
+  public readonly name = 'test-wrapping';
+
+  public async check(): Promise<{ allowed: true }> {
+    return { allowed: true };
+  }
+
+  public wrapArgv(argv: readonly string[]): { bin: string; args: string[] } {
+    return { bin: argv[0] ?? '', args: argv.slice(1) };
+  }
+}
 
 // 既有判据多数直接构造 RemotePlugin 且不注入沙箱；显式关闭强制沙箱，专门的判据会单独验证默认强制。
 process.env['OMNI_PLUGIN_REQUIRE_OS_SANDBOX'] = '0';
@@ -466,7 +482,7 @@ test('远程插件：未声明 fs.read 时能力 broker 拒绝', async () => {
   }
 });
 
-test('远程插件：配置 OS 沙箱后 Worker 仍可启动并执行工具（Windows ACL）', async () => {
+test('远程插件：配置 OS 沙箱后 Worker 仍可启动并执行工具', async () => {
   if (process.platform !== 'win32') return;
   const root = mkdtempSync(join(tmpdir(), 'omni-worker-acl-'));
   const plugin = pluginDir(
@@ -477,7 +493,7 @@ test('远程插件：配置 OS 沙箱后 Worker 仍可启动并执行工具（Wi
   );
   const { manager, tools } = managerWithTools();
   try {
-    const sandbox = new WindowsAclSandbox(root, 'read-only');
+    const sandbox = new TestWrappingSandbox();
     await manager.register(
       new RemotePlugin({
         name: 'acl-demo',

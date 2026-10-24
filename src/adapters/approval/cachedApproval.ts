@@ -24,12 +24,12 @@ export interface CachedApprovalOptions {
 const DEFAULT_MAX_ENTRIES = 256;
 
 /**
- * 审批缓存装饰器（对标 codex `ApprovalStore` + `with_cached_approval`）。
+ * 审批缓存装饰器（借鉴同类成熟实现 `ApprovalStore` + `with_cached_approval`）。
  *
  * 命中的裁决直接返回，未命中才问内层审批端口并写回缓存。
  * 缓存键 = 工具名 + 规范化命令/路径 + cwd + 策略指纹；四者任一变化即 miss。
  *
- * **进程内存态、不持久化、无 TTL**：与 codex 一致——审批裁决依赖运行时策略，
+ * **进程内存态、不持久化、无 TTL**：与同类成熟实现一致——审批裁决依赖运行时策略，
  * 跨进程复用等于把一次人工确认放大成永久放行，属于权限泄漏。
  */
 export class CachedApproval implements ApprovalPort {

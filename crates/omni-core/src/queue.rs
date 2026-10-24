@@ -1,4 +1,4 @@
-//! SQ/EQ 双队列：Submission（入站）与 Op（出站），对齐 Codex Session 状态机。
+//! SQ/EQ 双队列：Submission（入站）与 Op（出站），对齐成熟实现的 Session 状态机。
 
 use std::collections::VecDeque;
 

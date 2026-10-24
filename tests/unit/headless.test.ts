@@ -18,7 +18,7 @@ const CHILD_ENV: NodeJS.ProcessEnv = { ...process.env, OMNI_SEMANTIC_RECALL: '0'
 
 /**
  * headless 模式（--print / -p）冒烟测试。
- * 对齐 `claude -p` / `codex exec`：单次非交互执行、结果落 stdout、非零退出码。
+ * 对齐 `claude -p` 等 headless 惯例：单次非交互执行、结果落 stdout、非零退出码。
  */
 
 test('headless：-p 单次非交互执行，结果输出到 stdout，退出码 0', async () => {
