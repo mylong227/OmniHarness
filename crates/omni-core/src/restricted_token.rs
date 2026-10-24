@@ -29,11 +29,7 @@ impl PlatformSandbox for RestrictedTokenSandbox {
             return None;
         }
         // 写隔离启动由进程内启动器完成（见 builtin.rs 对新前缀的处理）。
-        Some(format!(
-            "{}{}",
-            WRITE_RESTRICTED_COMMAND_PREFIX,
-            command
-        ))
+        Some(format!("{}{}", WRITE_RESTRICTED_COMMAND_PREFIX, command))
     }
 }
 
@@ -57,7 +53,10 @@ impl RestrictedProcessLauncher {
     /// @param token primary 令牌句柄。
     /// @param job Job Object 句柄。
     /// @returns 启动器（Drop 时关闭两个句柄）。
-    pub(crate) fn from_parts(token: windows_sys::Win32::Foundation::HANDLE, job: windows_sys::Win32::Foundation::HANDLE) -> Self {
+    pub(crate) fn from_parts(
+        token: windows_sys::Win32::Foundation::HANDLE,
+        job: windows_sys::Win32::Foundation::HANDLE,
+    ) -> Self {
         Self { token, job }
     }
 
@@ -138,6 +137,7 @@ impl RestrictedProcessLauncher {
         command: &str,
         current_dir: Option<&std::path::Path>,
     ) -> Result<(Vec<u8>, u32), String> {
+        use std::os::windows::ffi::OsStrExt;
         use windows_sys::Win32::Foundation::{
             CloseHandle, GetLastError, SetHandleInformation, HANDLE, HANDLE_FLAG_INHERIT,
             INVALID_HANDLE_VALUE,
@@ -149,7 +149,6 @@ impl RestrictedProcessLauncher {
             CreateProcessAsUserW, GetExitCodeProcess, TerminateProcess, WaitForSingleObject,
             INFINITE, PROCESS_INFORMATION, STARTF_USESTDHANDLES, STARTUPINFOW,
         };
-        use std::os::windows::ffi::OsStrExt;
 
         // 可继承管道：父进程读，子进程继承写端。单管道即可（stderr 经 2>&1 合并）。
         let mut sa: SECURITY_ATTRIBUTES = unsafe { std::mem::zeroed() };

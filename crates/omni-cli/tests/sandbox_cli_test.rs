@@ -17,7 +17,9 @@ fn cli_sandbox_check_reports_json() {
     let value: serde_json::Value = serde_json::from_str(text.trim()).expect("输出应为合法 JSON");
     assert_eq!(value["ok"], serde_json::json!(true));
     assert_eq!(value["name"], serde_json::json!("restricted-token"));
-    assert_eq!(value["writeRestricted"], serde_json::json!(true));
+    // 跨平台：非 Windows 上写隔离恒不可用；两者必须同源（同一探测函数）。
+    assert!(value["writeRestricted"].is_boolean());
+    assert_eq!(value["writeRestricted"], value["available"]);
 }
 
 /// run --workspace：原生写隔离真实生效（工作区可写、越界写被拒）。
@@ -32,10 +34,7 @@ fn cli_sandbox_run_isolates_writes() {
     let root = std::env::temp_dir().join(format!("omni-cli-wr-{stamp}"));
     std::fs::create_dir_all(&root).expect("temp dir");
     let outside = std::env::temp_dir().join(format!("omni-cli-wr-out-{stamp}.txt"));
-    let command = format!(
-        "echo in> inside.txt & echo out> \"{}\"",
-        outside.display()
-    );
+    let command = format!("echo in> inside.txt & echo out> \"{}\"", outside.display());
     let status = Command::new(exe)
         .args([
             "sandbox",

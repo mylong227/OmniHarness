@@ -366,7 +366,12 @@ impl Tool for ShellRunTool {
             "执行外部命令（危险工具，受审批与沙箱多层门禁约束）",
             param_schema(&[
                 ("command", "string", true, "要执行的命令"),
-                ("timeout_ms", "number", false, "超时毫秒数（超时即终止并按失败返回）"),
+                (
+                    "timeout_ms",
+                    "number",
+                    false,
+                    "超时毫秒数（超时即终止并按失败返回）",
+                ),
             ]),
         )
     }

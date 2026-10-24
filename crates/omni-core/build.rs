@@ -37,16 +37,16 @@ fn main() {
     out.push_str("/// 危险命令短语（规范化子串、大小写不敏感）。来源：dangerous-commands.json。\n");
     out.push_str("pub const DANGEROUS_COMMAND_PATTERNS: &[&str] = &[\n");
     for p in patterns {
-        let s = p
-            .as_str()
-            .expect("patterns 的每个元素必须是字符串");
+        let s = p.as_str().expect("patterns 的每个元素必须是字符串");
         // 转义双引号与反斜杠，保证生成的 Rust 字面量合法。
         let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
         out.push_str(&format!("    \"{}\",\n", escaped));
     }
     out.push_str("];\n");
 
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR 未设置（构建脚本应在 cargo 环境下运行）"));
+    let out_dir = PathBuf::from(
+        std::env::var("OUT_DIR").expect("OUT_DIR 未设置（构建脚本应在 cargo 环境下运行）"),
+    );
     let out_path = out_dir.join("dangerous_commands.gen.rs");
     fs::write(&out_path, out).unwrap_or_else(|e| panic!("写入生成文件失败: {}", e));
 

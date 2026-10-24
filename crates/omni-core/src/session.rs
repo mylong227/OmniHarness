@@ -433,10 +433,8 @@ mod tests {
 
     /// 建一个带标记文件的临时目录，返回其路径。
     fn temp_ws(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!(
-            "omni-session-root-{tag}-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("omni-session-root-{tag}-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -452,9 +450,9 @@ mod tests {
         s.drain_ops()
             .iter()
             .find_map(|op| match op {
-                Op::ToolResult { call_id: c, output, .. } if c == call_id => {
-                    Some(output.clone())
-                }
+                Op::ToolResult {
+                    call_id: c, output, ..
+                } if c == call_id => Some(output.clone()),
                 _ => None,
             })
             .unwrap_or_default()

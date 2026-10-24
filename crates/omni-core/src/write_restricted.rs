@@ -15,7 +15,7 @@ use std::path::Path;
 
 #[cfg(windows)]
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, HANDLE, HLOCAL, INVALID_HANDLE_VALUE, LocalFree,
+    CloseHandle, GetLastError, LocalFree, HANDLE, HLOCAL, INVALID_HANDLE_VALUE,
 };
 #[cfg(windows)]
 use windows_sys::Win32::Security::Authorization::{
@@ -120,7 +120,11 @@ pub fn write_restricted_available() -> bool {
             .unwrap_or(0);
         let base = std::env::temp_dir();
         let dir = base.join(format!("omni-wr-probe-{}-{}", std::process::id(), stamp));
-        let outside = base.join(format!("omni-wr-outside-{}-{}.txt", std::process::id(), stamp));
+        let outside = base.join(format!(
+            "omni-wr-outside-{}-{}.txt",
+            std::process::id(),
+            stamp
+        ));
         if std::fs::create_dir_all(&dir).is_err() {
             return false;
         }
@@ -164,25 +168,13 @@ fn allocate_workspace_sid(workspace: &Path, mode: WriteMode) -> Result<PSID, Str
     let low = hash as u32;
     let mut sid: PSID = std::ptr::null_mut();
     let authority = SECURITY_NULL_SID_AUTHORITY;
-    let ok = unsafe {
-        AllocateAndInitializeSid(
-            &authority,
-            2,
-            high,
-            low,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            &mut sid,
-        )
-    };
+    let ok =
+        unsafe { AllocateAndInitializeSid(&authority, 2, high, low, 0, 0, 0, 0, 0, 0, &mut sid) };
     if ok == 0 || sid.is_null() {
-        return Err(format!("AllocateAndInitializeSid 失败, win32 错误 {}", unsafe {
-            GetLastError()
-        }));
+        return Err(format!(
+            "AllocateAndInitializeSid 失败, win32 错误 {}",
+            unsafe { GetLastError() }
+        ));
     }
     Ok(sid)
 }
@@ -191,11 +183,7 @@ fn allocate_workspace_sid(workspace: &Path, mode: WriteMode) -> Result<PSID, Str
 #[cfg(windows)]
 fn grant_write_access(workspace: &Path, sid: PSID) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
-    let wide: Vec<u16> = workspace
-        .as_os_str()
-        .encode_wide()
-        .chain(Some(0))
-        .collect();
+    let wide: Vec<u16> = workspace.as_os_str().encode_wide().chain(Some(0)).collect();
     let mut old_dacl: *mut ACL = std::ptr::null_mut();
     let mut descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
     let rc = unsafe {
@@ -328,12 +316,8 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
-        let dir = std::env::temp_dir().join(format!(
-            "omni-wr-{}-{}-{}",
-            tag,
-            std::process::id(),
-            stamp
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("omni-wr-{}-{}-{}", tag, std::process::id(), stamp));
         std::fs::create_dir_all(&dir).expect("temp dir");
         dir
     }
@@ -355,10 +339,7 @@ mod tests {
         ));
         let launcher = WriteRestrictedProcessLauncher::new(&root, WriteMode::WorkspaceWrite)
             .expect("写隔离启动器应可构造");
-        let command = format!(
-            "echo in> inside.txt & echo out> \"{}\"",
-            outside.display()
-        );
+        let command = format!("echo in> inside.txt & echo out> \"{}\"", outside.display());
         let (_out, code) = launcher
             .run_capture(&command, Some(&root))
             .expect("受限命令应能启动");

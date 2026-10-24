@@ -207,13 +207,11 @@ fn handle_context_estimate(v: &serde_json::Value) -> String {
 
 /// 把一条消息折叠成「参与记账的文本」（对齐 TS `TokenEstimator.accountableText`）。
 fn accountable_text(message: &serde_json::Value) -> String {
-    let mut parts: Vec<String> = vec![
-        message
-            .get("content")
-            .and_then(|c| c.as_str())
-            .unwrap_or("")
-            .to_string(),
-    ];
+    let mut parts: Vec<String> = vec![message
+        .get("content")
+        .and_then(|c| c.as_str())
+        .unwrap_or("")
+        .to_string()];
     if let Some(reasoning) = message.get("reasoningContent").and_then(|c| c.as_str()) {
         if !reasoning.is_empty() {
             parts.push(reasoning.to_string());
@@ -226,7 +224,10 @@ fn accountable_text(message: &serde_json::Value) -> String {
     }
     for image in array_at(message, "images") {
         let url = image.get("url").and_then(|u| u.as_str()).unwrap_or("");
-        let media_type = image.get("mediaType").and_then(|u| u.as_str()).unwrap_or("");
+        let media_type = image
+            .get("mediaType")
+            .and_then(|u| u.as_str())
+            .unwrap_or("");
         parts.push(format!("{url} {media_type}"));
     }
     for file in array_at(message, "files") {
