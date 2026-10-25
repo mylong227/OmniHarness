@@ -147,8 +147,8 @@ test('F2 注册：governance 出现在面板模态左导航，Router 认可该 p
     props: { open: true, pane: 'governance', onPick: () => {}, onClose: () => {} },
   });
   const items = collect(ui.node, (node) => String(node.props.className).includes('sp-nav-item'));
-  // 2026-10-19：文件预览固定在右栏，面板模态左导航不再列「文件」⇒ 16 → 15。
-  assert.strictEqual(items.length, 15, '左侧列出 15 个功能面板（不含文件）');
+  // 2026-10-25：新增活动/技能/自动化三个面板 ⇒ 15 → 18（仍不含「文件」）。
+  assert.strictEqual(items.length, 18, '左侧列出 18 个功能面板（不含文件）');
   assert.ok(!items.some((item) => allText(item) === '文件'), '文件不应出现在面板模态里');
   assert.ok(
     items.some((item) => allText(item) === '治理'),

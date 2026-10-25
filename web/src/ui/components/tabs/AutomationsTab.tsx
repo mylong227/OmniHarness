@@ -26,7 +26,8 @@ export function AutomationsTab(): React.ReactElement {
 
   const refresh = React.useCallback(async (): Promise<void> => {
     try {
-      setRows(await api.listAutomations());
+      const list = await api.listAutomations();
+      setRows(Array.isArray(list) ? list : []);
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

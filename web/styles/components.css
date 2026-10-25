@@ -283,7 +283,7 @@
 }
 .mention-item.active, .mention-item:hover { background: color-mix(in srgb, var(--brand) 12%, transparent); }
 .slash-name { color: var(--text); }
-.slash-desc { margin-left: 10px; color: var(--faint); font-family: var(--sans, inherit); font-size: var(--fs-xs); }
+.slash-desc { margin-left: 10px; color: var(--faint); font-size: var(--fs-xs); }
 .iconbtn.mic.listening { color: var(--err); animation: mic-pulse 1.2s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
