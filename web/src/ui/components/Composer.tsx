@@ -20,6 +20,7 @@ import { AddMenu } from './AddMenu.tsx';
 import { PermissionPicker } from './PermissionPicker.tsx';
 import { ContextCapacityPanel } from './ContextCapacityPanel.tsx';
 import { MentionResolver } from '../models/MentionResolver.ts';
+import { SlashResolver, type SlashToken } from '../models/SlashResolver.ts';
 import { ComposerDraft } from '../models/ComposerDraft.ts';
 import { FileTreeFlattener } from '../models/FileTreeFlattener.ts';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
@@ -117,6 +118,54 @@ interface MentionState {
   start: number;
   items: string[];
   idx: number;
+}
+
+/** `/` 技能候选。 */
+interface SkillOption {
+  name: string;
+  description: string;
+  tags: string[];
+}
+
+/** `/` 技能补全态。 */
+interface SlashState {
+  /** 当前 token（选中后用于替换）。 */
+  token: SlashToken;
+  items: SkillOption[];
+  idx: number;
+}
+
+/**
+ * `/` 技能补全弹层：名称 + 描述，点击插入 `/name `。
+ * @param slash 补全态
+ * @param onPick 选中回调
+ * @returns 弹层节点；无补全时为 null
+ */
+function renderSlashView(
+  slash: SlashState | null,
+  onPick: (item: SkillOption) => void,
+): ReactElement | null {
+  if (slash === null) return null;
+  return (
+    <div className="mention-pop" role="listbox" aria-label={t('技能补全')}>
+      {slash.items.map((item, i) => (
+        <div
+          key={item.name}
+          role="option"
+          aria-selected={i === slash.idx}
+          className={'mention-item' + (i === slash.idx ? ' active' : '')}
+          title={item.description}
+          onMouseDown={(e: React.MouseEvent) => {
+            e.preventDefault();
+            onPick(item);
+          }}
+        >
+          <span className="slash-name">/{item.name}</span>
+          <span className="slash-desc">{item.description}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -229,6 +278,9 @@ export function Composer(props: ComposerProps): ReactElement {
   const [mention, setMention] = React.useState<MentionState | null>(null);
   /** 文件路径缓存（@mention 数据源，首次触发时拉取一次）。 */
   const [fileCache, setFileCache] = React.useState<string[] | null>(null);
+  const [slash, setSlash] = React.useState<SlashState | null>(null);
+  /** 技能清单缓存（首次 `/` 时拉取一次）。 */
+  const [skillCache, setSkillCache] = React.useState<SkillOption[] | null>(null);
   const [listening, setListening] = React.useState<boolean>(false);
   const taRef = React.useRef<HTMLTextAreaElement | null>(null);
   const recogRef = React.useRef<SpeechRecognitionLike | null>(null);
@@ -246,6 +298,7 @@ export function Composer(props: ComposerProps): ReactElement {
     ComposerDraft.fill(taRef.current, seed.text);
     growComposerTextarea(taRef.current);
     setMention(null);
+    setSlash(null);
   }, [seed]);
 
   /**
@@ -293,6 +346,63 @@ export function Composer(props: ComposerProps): ReactElement {
     ta.value = v.slice(0, mention.start) + '@' + item + ' ' + v.slice(pos);
     growComposerTextarea(taRef.current);
     setMention(null);
+    ta.focus();
+  };
+
+  /**
+   * 解析 `/` 技能前缀；命中时拉取/过滤技能并返回 true。
+   * @returns 是否由 `/` 接管本次补全
+   */
+  const refreshSlash = (): boolean => {
+    const ta = taRef.current;
+    if (!ta) return false;
+    const pos = ta.selectionStart ?? 0;
+    const token = SlashResolver.parse(ta.value, pos);
+    if (token === null) {
+      if (slash !== null) setSlash(null);
+      return false;
+    }
+    if (mention !== null) setMention(null);
+    const apply = (skills: readonly SkillOption[]): void => {
+      const items = SlashResolver.filter(skills, token.query);
+      setSlash(items.length > 0 ? { token, items, idx: 0 } : null);
+    };
+    if (skillCache !== null) {
+      apply(skillCache);
+      return true;
+    }
+    api
+      .listSkills()
+      .then((r) => {
+        const skills = r.skills ?? [];
+        setSkillCache(skills);
+        apply(skills);
+      })
+      .catch(() => setSlash(null));
+    return true;
+  };
+
+  /** 输入/点击时统一刷新 `@` 与 `/` 补全（`/` 优先）。 @returns 无 */
+  const refreshCompletions = (): void => {
+    growComposerTextarea(taRef.current);
+    if (!refreshSlash()) refreshMention();
+  };
+
+  /**
+   * 选中技能：把 `/query` 替换为 `/name `。
+   * @param item 选中技能
+   * @returns 无
+   */
+  const applySlash = (item: SkillOption): void => {
+    const ta = taRef.current;
+    if (!ta || slash === null) return;
+    const pos = ta.selectionStart ?? 0;
+    const next = SlashResolver.apply(ta.value, slash.token, item.name, pos);
+    ta.value = next.text;
+    ta.selectionStart = next.caret;
+    ta.selectionEnd = next.caret;
+    growComposerTextarea(ta);
+    setSlash(null);
     ta.focus();
   };
 
@@ -422,6 +532,7 @@ export function Composer(props: ComposerProps): ReactElement {
     growComposerTextarea(taRef.current);
     setAttachments([]);
     setMention(null);
+    setSlash(null);
     onSend(prompt, images, files);
   };
 
@@ -431,6 +542,26 @@ export function Composer(props: ComposerProps): ReactElement {
    * @returns 无
    */
   const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (slash !== null && slash.items.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSlash({
+          ...slash,
+          idx: MentionResolver.move(slash.idx, slash.items.length, e.key === 'ArrowDown' ? 1 : -1),
+        });
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        applySlash(slash.items[slash.idx] ?? slash.items[0]!);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSlash(null);
+        return;
+      }
+    }
     if (mention !== null && mention.items.length > 0) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -448,6 +579,7 @@ export function Composer(props: ComposerProps): ReactElement {
       if (e.key === 'Escape') {
         e.preventDefault();
         setMention(null);
+        setSlash(null);
         return;
       }
     }
@@ -469,16 +601,17 @@ export function Composer(props: ComposerProps): ReactElement {
       {/* 输入卡片：正文在上、控制行在下（截图式 Composer 的版式）。 */}
       <div className="composer-box">
         <div className="composer-input">
+          {renderSlashView(slash, applySlash)}
           {renderMentionView(mention, applyMention)}
           <textarea
             id="prompt"
             rows={1}
             ref={taRef}
-            aria-label={t('任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件')}
-            placeholder={t('发消息或创建任务，/ 调用指令，@ 文件或对话')}
+            aria-label={t('任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件，/ 选择技能')}
+            placeholder={t('发消息或创建任务，/ 调用技能，@ 文件或对话')}
             onPaste={onPaste}
-            onInput={refreshMention}
-            onClick={refreshMention}
+            onInput={refreshCompletions}
+            onClick={refreshCompletions}
             onKeyDown={onKeyDown}
           ></textarea>
         </div>

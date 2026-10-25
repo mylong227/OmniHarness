@@ -523,9 +523,18 @@ export class ApiClient {
     return this.rpc('fs.read', { path });
   }
 
-  // ---- 插件 ----
+  // ---- 插件 / 技能 ----
   public listPlugins(): Promise<PluginManifest[]> {
     return this.rpc('plugins.list', {});
+  }
+  /**
+   * `/` 技能选择器数据（只读 name/description/tags）。
+   * @returns 技能清单
+   */
+  public listSkills(): Promise<{
+    skills: { name: string; description: string; tags: string[] }[];
+  }> {
+    return this.rpc('skills.list', {});
   }
   public searchPlugins(query = ''): Promise<PluginSearchEntry[]> {
     return this.rpc('plugins.search', { query });

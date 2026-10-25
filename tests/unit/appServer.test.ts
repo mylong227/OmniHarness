@@ -9,6 +9,7 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 可编程传输（测试双端）。 */
@@ -49,7 +50,10 @@ class TestTransport implements Transport {
 }
 
 /** 构造 server（approvalUplink 开启则审批上行）。 */
-function buildServer(approvalUplink = false): { server: AppServer; transport: TestTransport } {
+function buildServer(
+  approvalUplink = false,
+  skills?: SkillRegistry,
+): { server: AppServer; transport: TestTransport } {
   const transport = new TestTransport();
   const config = ConfigFactory.build({
     workspaceRoot: tempWorkspace(),
@@ -60,9 +64,30 @@ function buildServer(approvalUplink = false): { server: AppServer; transport: Te
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
   });
-  const server = new AppServer({ config, transport, approvalUplink, modelOverrideEnabled: false });
+  const server = new AppServer({
+    config,
+    transport,
+    approvalUplink,
+    modelOverrideEnabled: false,
+    ...(skills !== undefined ? { skills } : {}),
+  });
   return { server, transport };
 }
+
+test('app-server：skills.list 只回名称/描述/标签', async () => {
+  const registry = new SkillRegistry();
+  registry.register({
+    name: 'review',
+    description: '代码审查',
+    instructions: '检查 diff',
+    tags: ['git'],
+  });
+  const { transport } = buildServer(false, registry);
+  const response = await transport.receive('skills.list', {});
+  assert.deepStrictEqual((response as { result: unknown }).result, {
+    skills: [{ name: 'review', description: '代码审查', tags: ['git'] }],
+  });
+});
 
 test('app-server：threads.create 返回线程并持久化', async () => {
   const { transport } = buildServer();

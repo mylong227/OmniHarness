@@ -3,14 +3,15 @@ export const EN_COMPOSER: Record<string, string> = {
   // components/Composer.tsx
   '移除': 'Remove',
   '文件引用补全': 'File reference suggestions',
+  '技能补全': 'Skill suggestions',
   '附件读取失败': 'Failed to read attachment',
   '{count} 个文件读取失败：{errors}': '{count} files failed to read: {errors}',
   '附件读取失败：{msg}': 'Failed to read attachment: {msg}',
   '任务输入区': 'Task input',
-  '任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件':
-    'Task input: type a task, Enter to send, Shift+Enter for a new line, @ to reference files',
-  '发消息或创建任务，/ 调用指令，@ 文件或对话':
-    'Send a message or create a task, / for commands, @ for files or threads',
+  '任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件，/ 选择技能':
+    'Task input: type a task, Enter to send, Shift+Enter for a new line, @ to reference files, / to pick a skill',
+  '发消息或创建任务，/ 调用技能，@ 文件或对话':
+    'Send a message or create a task, / for skills, @ for files or threads',
   '粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）':
     'Paste / drag / pick files (project folder picker style)',
   '附加图片、视频或文件': 'Attach images, videos, or files',

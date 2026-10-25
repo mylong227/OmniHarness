@@ -136,6 +136,16 @@ export class AppServer extends AppServerVaultHandlers {
     this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
     this.handlers.set('config.update', (params) => Promise.resolve(this.updateConfig(params)));
     this.handlers.set('model.catalog', () => Promise.resolve(this.modelCatalog.catalog()));
+    // 技能选择器（Web 输入框 `/`）：只读名称/描述/标签，不回传完整 instructions。
+    this.handlers.set('skills.list', () =>
+      Promise.resolve({
+        skills: (this.options.skills?.list() ?? []).map((skill) => ({
+          name: skill.name,
+          description: skill.description,
+          tags: skill.tags ?? [],
+        })),
+      }),
+    );
     this.handlers.set('model.probe', (params) => this.modelCatalog.probe(params));
     this.handlers.set('usage.stats', () => this.sessionArchive.usage());
     this.handlers.set('workspace.list', () => Promise.resolve(this.configStore.workspaces()));

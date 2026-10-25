@@ -1,4 +1,4 @@
-﻿/* =========================================================================
+/* =========================================================================
   OmniHarness Web UI — 可复用组件：.btn 体系与主题化、会话列表、文件树、自定义下拉、FolderPicker/FilePicker、紧凑事件流。
   ========================================================================= */
 
@@ -282,6 +282,8 @@
   font-family: var(--mono, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mention-item.active, .mention-item:hover { background: color-mix(in srgb, var(--brand) 12%, transparent); }
+.slash-name { color: var(--text); }
+.slash-desc { margin-left: 10px; color: var(--faint); font-family: var(--sans, inherit); font-size: var(--fs-xs); }
 .iconbtn.mic.listening { color: var(--err); animation: mic-pulse 1.2s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
