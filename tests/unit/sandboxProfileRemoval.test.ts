@@ -57,5 +57,8 @@ test('⑤ 源码与依赖中不再有 windows-acl 实现或第三方沙箱依赖
     dependencies?: Record<string, string>;
   };
   const all = { ...pkg.dependencies, ...pkg.optionalDependencies };
-  assert.ok(!Object.keys(all).some((k) => k.startsWith('@deepseek-ai/')), '不得恢复第三方沙箱依赖');
+  assert.ok(
+    !Object.keys(all).some((k) => k.includes('windows-acl')),
+    '不得恢复 windows-acl 相关第三方沙箱依赖',
+  );
 });

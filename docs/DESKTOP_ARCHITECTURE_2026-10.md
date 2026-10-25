@@ -110,15 +110,15 @@
 
 ### 2.4 本机已实测（2026-10-24）
 
-| 测试                                                        | 结果                                                                                                       |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Node 24.22.1 跑 `dist/src/cli/exec.js --version`            | ✅                                                                                                         |
-| Node 24.22.1 `serve --port 0 --mock`                        | ✅ 随机端口 + Token URL                                                                                    |
-| Node 24.22.1 加载 `native/omni_napi.node` 并 `ping`         | ✅ `{"native":true,"ok":true,"pong":true}`                                                                 |
-| Node 24.22.1 `--experimental-permission`                    | ❌ `bad option`                                                                                            |
-| Node 24.22.1 `--permission`                                 | ✅                                                                                                         |
-| Electron 44.7.0（`ELECTRON_RUN_AS_NODE=1`）加载同一 `.node` | ✅ `ping`                                                                                                  |
-| Electron 45 GUI 启动                                        | ⚠️ 本会话 DSH 沙箱内 `STATUS_BREAKPOINT`，未完成 GUI 验证（与原生方案无关，但说明本环境不能做 GUI 级验收） |
+| 测试                                                        | 结果                                                                                                                    |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Node 24.22.1 跑 `dist/src/cli/exec.js --version`            | ✅                                                                                                                      |
+| Node 24.22.1 `serve --port 0 --mock`                        | ✅ 随机端口 + Token URL                                                                                                 |
+| Node 24.22.1 加载 `native/omni_napi.node` 并 `ping`         | ✅ `{"native":true,"ok":true,"pong":true}`                                                                              |
+| Node 24.22.1 `--experimental-permission`                    | ❌ `bad option`                                                                                                         |
+| Node 24.22.1 `--permission`                                 | ✅                                                                                                                      |
+| Electron 44.7.0（`ELECTRON_RUN_AS_NODE=1`）加载同一 `.node` | ✅ `ping`                                                                                                               |
+| Electron 45 GUI 启动                                        | ⚠️ 当前执行环境（无图形会话）返回 `STATUS_BREAKPOINT`，未完成 GUI 验证（与原生方案无关，但说明本环境不能做 GUI 级验收） |
 
 ---
 

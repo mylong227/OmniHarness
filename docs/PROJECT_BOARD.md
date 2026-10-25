@@ -4559,7 +4559,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **命令文件传参**：新增 `omni-cli sandbox run --command-file`，避开多层 cmd 引号解析。
 - **工具链**：`scripts/cargo.mjs` 代理（0 字节 cargo/cargo-fmt 垫片下仍可 `rust:test/fmt/clippy`）；
   `cargo fmt --all --check`、`clippy --workspace --all-targets -D warnings`、`cargo test -p omni-core -p omni-cli` 全绿。
-- **本机清理**：移除 `node_modules` 中残留的 `@deepseek-ai/dsh-*` / `koffi` 链（package-lock 早已无引用）。
+- **本机清理**：移除 `node_modules` 中残留的第三方 harness 包与 `koffi` 链（package-lock 早已无引用）。
 - **判据**：node **642 文件 / 4019 通过 / 4 skip / 0 失败**；web **102 文件 / 569 通过 / 0 失败**；
   desktop `typecheck` + `test`（4/4）通过；`typecheck` / `lint` / `check` / `doc-links` / `gate:typed` /
   `arch --strict` 全绿。

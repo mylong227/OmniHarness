@@ -57,9 +57,9 @@ npm start -- --workspace D:\deepseek\omniharness
 `npm start` = `npm run build && electron .`：构建主进程/preload 后启动 Electron。
 首次启动若没有工作区，会弹原生目录选择框。
 
-> **本机限制**：本会话的 DSH 沙箱内 Electron GUI 启动会返回 `STATUS_BREAKPOINT`（Chromium 初始化
-> 被环境拦截），所以 GUI 级验证需在真实 Windows 桌面执行。主进程的 Harness 生命周期已用
-> `node` 集成测试验证（见 §6）。
+> **本机限制**：当前执行环境（无图形会话）中 Electron GUI 启动会返回 `STATUS_BREAKPOINT`
+> （Chromium 初始化被环境拦截），所以 GUI 级验证需在真实 Windows 桌面执行。主进程的 Harness
+> 生命周期已用 `node` 集成测试验证（见 §6）。
 
 ### Electron 二进制下载失败时
 
