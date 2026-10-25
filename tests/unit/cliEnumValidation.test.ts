@@ -65,7 +65,7 @@ test('错误提示列出可选值（可自愈，不留用户在黑暗里）', ()
     const message = error instanceof Error ? error.message : String(error);
     assert.match(
       message,
-      /可选: passthrough \| policy \| restricted \| landlock \| seatbelt \| bwrap \| unshare/,
+      /可选: passthrough \| policy \| restricted \| windows-native \| landlock \| seatbelt \| bwrap \| unshare/,
     );
   }
 });
@@ -75,6 +75,7 @@ test('合法枚举值全部正常解析（无过度收紧）', () => {
     'passthrough',
     'policy',
     'restricted',
+    'windows-native',
     'landlock',
     'seatbelt',
     'bwrap',
