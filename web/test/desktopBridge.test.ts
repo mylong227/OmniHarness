@@ -32,7 +32,7 @@ function clearOmni(): void {
 /** 构造完整假桥。 */
 function fakeOmni(overrides: Partial<FakeOmni> = {}): FakeOmni {
   return {
-    apiVersion: 1,
+    apiVersion: 2,
     getInfo: () =>
       Promise.resolve({
         appVersion: '0.0.0-test',
@@ -66,7 +66,7 @@ describe('DesktopBridge', () => {
   });
 
   test('结构不合法（版本/方法缺失）时 fail-safe 返回 null', () => {
-    (globalThis as { omni?: unknown }).omni = { apiVersion: 1, notify: () => Promise.resolve() };
+    (globalThis as { omni?: unknown }).omni = { apiVersion: 2, notify: () => Promise.resolve() };
     expect(desktopBridge()).toBeNull();
   });
 

@@ -2,7 +2,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 /** 桥 API 版本（与 UI/壳握手；变更即 bump）。 */
-const API_VERSION = 1;
+const API_VERSION = 2;
 
 /** 通知输入（与主进程 NotifyInput 对齐）。 */
 interface NotifyInput {

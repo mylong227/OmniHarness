@@ -80,7 +80,7 @@ export function desktopBridge(): DesktopBridge | null {
   const candidate = (globalThis as { omni?: unknown }).omni;
   if (candidate === null || typeof candidate !== 'object') return null;
   const raw = candidate as Record<string, unknown>;
-  if (raw['apiVersion'] !== 1) return null;
+  if (raw['apiVersion'] !== 2) return null;
   for (const name of REQUIRED_METHODS) {
     if (typeof raw[name] !== 'function') return null;
   }
@@ -89,7 +89,7 @@ export function desktopBridge(): DesktopBridge | null {
   const subscribe = <T>(name: string, listener: (value: T) => void): (() => void) =>
     (raw[name] as (value: (value: T) => void) => () => void)(listener);
   return {
-    apiVersion: 1,
+    apiVersion: 2,
     getInfo: () => call<DesktopInfo>('getInfo'),
     setCloseToTray: (enabled) => call<void>('setCloseToTray', enabled),
     setOpenAtLogin: (enabled) => call<void>('setOpenAtLogin', enabled),
