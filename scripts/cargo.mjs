@@ -43,8 +43,22 @@ const env = { ...process.env };
 // Windows 的 PATH 可能以 `Path` 键出现（npm/宿主注入）；两种键都取，避免把系统 PATH 覆盖掉。
 const basePath = env['PATH'] ?? env['Path'] ?? '';
 env['PATH'] = `${dirname(cargo)}${delimiter}${basePath}`;
+const args = process.argv.slice(2);
+// `cargo fmt` 会从 CARGO_HOME/bin 找 cargo-fmt；本机该垫片为 0 字节（实测），
+// 直接调 toolchain 里同目录的真实 cargo-fmt，避开 shim。
+if (args[0] === 'fmt') {
+  const fmt = join(dirname(cargo), process.platform === 'win32' ? 'cargo-fmt.exe' : 'cargo-fmt');
+  if (existsSync(fmt)) {
+    try {
+      execFileSync(fmt, args.slice(1), { stdio: 'inherit', env });
+    } catch (error) {
+      process.exit(typeof error?.status === 'number' ? error.status : 1);
+    }
+    process.exit(0);
+  }
+}
 try {
-  execFileSync(cargo, process.argv.slice(2), { stdio: 'inherit', env });
+  execFileSync(cargo, args, { stdio: 'inherit', env });
 } catch (error) {
   process.exit(typeof error?.status === 'number' ? error.status : 1);
 }
