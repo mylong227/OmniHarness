@@ -2509,6 +2509,17 @@ button:active,
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
+/* 设置里的错误提示：沿用 `.sp-hint` 的排版，只换错误色。 */
+.sp-hint.sp-error {
+  color: var(--danger);
+}
+/* 桌面设置里的长路径：单行省略，完整值由 title 提供。 */
+.sp-v-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 28rem;
+}
 /* 装载失败条：原因 + 重试。与 `.empty.err` 同一套错误色，但允许放一个可点的次操作。 */
 .sp-load-error {
   display: flex;

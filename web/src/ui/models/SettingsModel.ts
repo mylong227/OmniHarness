@@ -19,7 +19,13 @@ import type { Config } from '../../types/models.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 设置分栏 key。 */
-export type SettingsTabKey = 'model' | 'runtime' | 'permission' | 'appearance' | 'profiles';
+export type SettingsTabKey =
+  | 'model'
+  | 'runtime'
+  | 'permission'
+  | 'appearance'
+  | 'profiles'
+  | 'desktop';
 
 /** 一个分栏。 */
 export interface SettingsTabDef {
@@ -31,13 +37,14 @@ export interface SettingsTabDef {
   hint: string;
 }
 
-/** 分栏清单：顺序即面板内导航顺序（模型 → 运行时 → 权限 → 外观 → 配置集）。 */
+/** 分栏清单：顺序即面板内导航顺序（模型 → 运行时 → 权限 → 外观 → 配置集 → 桌面）。 */
 export const SETTINGS_TABS: readonly SettingsTabDef[] = [
   { key: 'model', label: '模型', hint: '厂商接入、API Key、默认模型与自定义端点' },
   { key: 'runtime', label: '运行时', hint: '适配器、工作区与沙箱执行环境' },
   { key: 'permission', label: '权限', hint: '审批模式、升级策略与免确认开关' },
   { key: 'appearance', label: '外观', hint: '主题与界面密度' },
   { key: 'profiles', label: '配置集', hint: '切换配置集、查看当前生效插件' },
+  { key: 'desktop', label: '桌面', hint: '托盘、开机启动、更新与诊断' },
 ];
 
 /** 字段类型。 */

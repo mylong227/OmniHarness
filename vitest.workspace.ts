@@ -61,7 +61,7 @@ export default [
     // `resolve.alias`——「这段代码跑的是哪个 React」不再有第二个答案。
     test: {
       name: 'web',
-      include: ['web/test/**/*.test.ts'],
+      include: ['web/test/**/*.test.{ts,tsx}'],
       // **已退役判据**（2026-10-18）：单色体系的"所有颜色必须是灰阶"不变量已被
       // `colorSystem.test.ts`（色相预算 + token 接线）取代。
       //

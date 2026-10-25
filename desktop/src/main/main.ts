@@ -205,6 +205,10 @@ async function bootstrap(): Promise<void> {
   registerIpc({
     mainContents: () => context?.window?.webContents,
     workspace: () => context?.workspace ?? initial,
+    closeToTray: () => context?.state.get().closeToTray === true,
+    setCloseToTray,
+    openAtLogin: () => context?.state.get().openAtLogin === true,
+    setOpenAtLogin,
     pickWorkspace: () => pickWorkspace(),
     openWorkspace: (path) => switchWorkspace(path),
     openLogs,

@@ -36,6 +36,8 @@ function subscribe<T>(channel: string, listener: (value: T) => void): () => void
 const api = Object.freeze({
   apiVersion: API_VERSION,
   getInfo: () => ipcRenderer.invoke('omni:getInfo'),
+  setCloseToTray: (enabled: boolean) => ipcRenderer.invoke('omni:setCloseToTray', enabled),
+  setOpenAtLogin: (enabled: boolean) => ipcRenderer.invoke('omni:setOpenAtLogin', enabled),
   pickWorkspace: () => ipcRenderer.invoke('omni:pickWorkspace'),
   openWorkspace: (path: string) => ipcRenderer.invoke('omni:openWorkspace', path),
   openLogs: () => ipcRenderer.invoke('omni:openLogs'),

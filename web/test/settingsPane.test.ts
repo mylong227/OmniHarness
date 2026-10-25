@@ -1,4 +1,4 @@
-﻿// 设置面板结构契约：字段声明（SETTINGS_FIELDS）与分栏声明（SETTINGS_TABS）的一致性。
+// 设置面板结构契约：字段声明（SETTINGS_FIELDS）与分栏声明（SETTINGS_TABS）的一致性。
 //
 // 为什么值得单测：设置面板的**单一事实源**是 `SettingsModel` 里的两份声明数组，
 // 组件只是把它渲染出来。这带来一种新风险——声明本身可能自相矛盾（字段指向不存在的分栏、
@@ -25,8 +25,9 @@ test('每个分栏要么有声明字段，要么是「自定义渲染」分栏�
   // 两个分栏不由 SETTINGS_FIELDS 驱动，而是组件里手写渲染（它们不是"一行一个配置键"的形状）：
   //   appearance —— 主题是分段控件（两态），不是 select
   //   profiles   —— 配置集应用 + 生效插件回显，且依赖 profile.* 而非 config.*
+  //   desktop    —— 桌面桥（托盘/开机启动/更新），浏览器下只显示说明
   // 这里显式列出它们，避免"某个分栏因为忘了声明字段而空着"被一并豁免掉。
-  const CUSTOM_RENDERED = new Set(['appearance', 'profiles']);
+  const CUSTOM_RENDERED = new Set(['appearance', 'profiles', 'desktop']);
   for (const t of SETTINGS_TABS) {
     const n = SETTINGS_FIELDS.filter((f) => f.tab === t.key).length;
     if (CUSTOM_RENDERED.has(t.key)) continue;
@@ -67,11 +68,15 @@ test('CATALOG_KEYS 只包含真实存在的字段键（防写错键名导致"该
   }
 });
 
-test('分栏 key 唯一且按「模型 → 运行时 → 权限 → 外观 → 配置集」排序', () => {
-  assert.deepEqual(
-    SETTINGS_TABS.map((t) => t.key),
-    ['model', 'runtime', 'permission', 'appearance', 'profiles'],
-  );
+test('分栏 key 唯一且按「模型 → 运行时 → 权限 → 外观 → 配置集 → 桌面」排序', () => {
+  assert.deepEqual(SETTINGS_TABS.map((t) => t.key), [
+    'model',
+    'runtime',
+    'permission',
+    'appearance',
+    'profiles',
+    'desktop',
+  ]);
 });
 
 test('每个分栏都有 hint（模态里用 title 提示这一栏管什么）', () => {

@@ -15,42 +15,95 @@ export interface DesktopNotifyInput {
   readonly sessionId?: string;
 }
 
+/** 桌面信息（设置面板展示）。 */
+export interface DesktopInfo {
+  /** 应用版本。 */
+  readonly appVersion: string;
+  /** 平台。 */
+  readonly platform: string;
+  /** 当前工作区。 */
+  readonly workspace: string;
+  /** 关闭时最小化到托盘。 */
+  readonly closeToTray: boolean;
+  /** 开机启动。 */
+  readonly openAtLogin: boolean;
+}
+
+/** 更新状态（与主进程 UpdateStatus 对齐）。 */
+export type DesktopUpdateStatus =
+  | { readonly state: 'idle' }
+  | { readonly state: 'checking' }
+  | { readonly state: 'available'; readonly version: string }
+  | { readonly state: 'downloading'; readonly percent: number }
+  | { readonly state: 'downloaded'; readonly version: string }
+  | { readonly state: 'error'; readonly message: string }
+  | { readonly state: 'disabled'; readonly reason: string };
+
 /** 桌面桥最小面（只声明 UI 用到的部分）。 */
 export interface DesktopBridge {
   /** 桥版本。 */
   readonly apiVersion: number;
-  /** 原生通知。 */
+  getInfo(): Promise<DesktopInfo>;
+  setCloseToTray(enabled: boolean): Promise<void>;
+  setOpenAtLogin(enabled: boolean): Promise<void>;
+  openLogs(): Promise<void>;
+  restartHarness(): Promise<void>;
   notify(input: DesktopNotifyInput): Promise<unknown>;
-  /** 点击通知后回传 sessionId；返回取消订阅函数。 */
+  checkForUpdates(): Promise<void>;
+  downloadUpdate(): Promise<void>;
+  installUpdate(): Promise<void>;
+  getUpdateStatus(): Promise<DesktopUpdateStatus>;
+  onUpdateStatus(listener: (status: DesktopUpdateStatus) => void): () => void;
   onNotificationClick(listener: (sessionId: string | undefined) => void): () => void;
-  /** 深链（`omniharness://open?...`）；返回取消订阅函数。 */
   onDeepLink(listener: (url: string) => void): () => void;
 }
+
+/** 必须存在的桥方法（缺任一即视为旧版/不合法，整体降级为 null）。 */
+const REQUIRED_METHODS = [
+  'getInfo',
+  'setCloseToTray',
+  'setOpenAtLogin',
+  'openLogs',
+  'restartHarness',
+  'notify',
+  'checkForUpdates',
+  'downloadUpdate',
+  'installUpdate',
+  'getUpdateStatus',
+  'onUpdateStatus',
+  'onNotificationClick',
+  'onDeepLink',
+] as const;
 
 /** 读取全局桥；结构不合法时返回 null（fail-safe）。 */
 export function desktopBridge(): DesktopBridge | null {
   const candidate = (globalThis as { omni?: unknown }).omni;
   if (candidate === null || typeof candidate !== 'object') return null;
   const raw = candidate as Record<string, unknown>;
-  if (
-    raw['apiVersion'] !== 1 ||
-    typeof raw['notify'] !== 'function' ||
-    typeof raw['onNotificationClick'] !== 'function' ||
-    typeof raw['onDeepLink'] !== 'function'
-  ) {
-    return null;
+  if (raw['apiVersion'] !== 1) return null;
+  for (const name of REQUIRED_METHODS) {
+    if (typeof raw[name] !== 'function') return null;
   }
+  const call = <T>(name: string, ...args: unknown[]): Promise<T> =>
+    (raw[name] as (...values: unknown[]) => Promise<T>)(...args);
+  const subscribe = <T>(name: string, listener: (value: T) => void): (() => void) =>
+    (raw[name] as (value: (value: T) => void) => () => void)(listener);
   return {
     apiVersion: 1,
-    notify: (input) => (raw['notify'] as (value: DesktopNotifyInput) => Promise<unknown>)(input),
+    getInfo: () => call<DesktopInfo>('getInfo'),
+    setCloseToTray: (enabled) => call<void>('setCloseToTray', enabled),
+    setOpenAtLogin: (enabled) => call<void>('setOpenAtLogin', enabled),
+    openLogs: () => call<void>('openLogs'),
+    restartHarness: () => call<void>('restartHarness'),
+    notify: (input) => call<unknown>('notify', input),
+    checkForUpdates: () => call<void>('checkForUpdates'),
+    downloadUpdate: () => call<void>('downloadUpdate'),
+    installUpdate: () => call<void>('installUpdate'),
+    getUpdateStatus: () => call<DesktopUpdateStatus>('getUpdateStatus'),
+    onUpdateStatus: (listener) => subscribe<DesktopUpdateStatus>('onUpdateStatus', listener),
     onNotificationClick: (listener) =>
-      (
-        raw['onNotificationClick'] as (
-          value: (sessionId: string | undefined) => void,
-        ) => () => void
-      )(listener),
-    onDeepLink: (listener) =>
-      (raw['onDeepLink'] as (value: (url: string) => void) => () => void)(listener),
+      subscribe<string | undefined>('onNotificationClick', listener),
+    onDeepLink: (listener) => subscribe<string>('onDeepLink', listener),
   };
 }
 

@@ -118,4 +118,36 @@ export const EN_SETTINGS: Record<string, string> = {
   '没有可用模型，请先检测': 'No available models — run a probe first',
   '{name} 已启用（模型 {model}），下一条消息即生效': '{name} enabled (model {model}); takes effect on the next message',
   '启用失败：{msg}': 'Enable failed: {msg}',
+
+  // 「桌面」栏（DesktopSettingsSection）
+  桌面: 'Desktop',
+  '托盘、开机启动、更新与诊断': 'Tray, startup, updates and diagnostics',
+  '当前是浏览器模式；托盘、开机启动与自动更新只在安装版中可用。':
+    'Browser mode: tray, launch-at-login and auto-update are only available in the installed desktop app.',
+  版本: 'Version',
+  平台: 'Platform',
+  窗口与启动: 'Window & startup',
+  关闭时最小化到托盘: 'Minimize to tray on close',
+  已开启: 'On',
+  已关闭: 'Off',
+  '长任务在后台继续运行；托盘菜单可随时恢复窗口。':
+    'Long tasks keep running in the background; restore the window from the tray menu at any time.',
+  开机启动: 'Launch at login',
+  '登录系统后以托盘方式启动（Windows/macOS）。':
+    'Start in the tray after signing in (Windows/macOS).',
+  更新: 'Updates',
+  '读取中…': 'Loading…',
+  当前已是最新版本: 'You are up to date',
+  '正在检查更新…': 'Checking for updates…',
+  '发现新版本 {version}': 'Version {version} is available',
+  '正在下载… {percent}%': 'Downloading… {percent}%',
+  '新版本 {version} 已下载，可安装': 'Version {version} downloaded — ready to install',
+  '更新失败：{message}': 'Update failed: {message}',
+  当前构建未启用自动更新: 'Auto-update is disabled in this build',
+  检查更新: 'Check for updates',
+  下载更新: 'Download update',
+  安装并重启: 'Install and restart',
+  诊断: 'Diagnostics',
+  打开日志目录: 'Open log directory',
+  '重启 Harness': 'Restart Harness',
 };

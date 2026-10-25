@@ -43,6 +43,7 @@ import {
 } from '../models/SettingsModel.ts';
 import { ProviderCard } from './settings/ProviderCard.tsx';
 import type { ProviderPreset, ProviderProbeResult, Config, Profile } from '../../types/models.ts';
+import { DesktopSettingsSection } from './settings/DesktopSettingsSection.tsx';
 
 /** 关闭键。 */
 const ESC = 'Escape';
@@ -647,8 +648,7 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
   );
 
   /** 「配置集」栏：切换 + 生效插件 + 指向插件面板。 */
-  const renderProfilesTab = (): ReactElement => (
-    <div className="sp-sec">
+  const renderProfilesTab = (): ReactElement => (    <div className="sp-sec">
       <h3 className="sp-sec-title">{t('配置集（Profile）')}</h3>
       <label className="sp-field">
         <span className="sp-field-label">{t('应用配置集')}</span>
@@ -687,7 +687,9 @@ export function SettingsModal(props: SettingsModalProps): ReactElement | null {
           ? renderPermissionTab()
           : tab === 'appearance'
             ? renderAppearanceTab()
-            : renderProfilesTab();
+            : tab === 'desktop'
+              ? <DesktopSettingsSection />
+              : renderProfilesTab();
 
   return (
     <div

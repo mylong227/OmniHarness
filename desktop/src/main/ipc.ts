@@ -11,6 +11,14 @@ export interface IpcDeps {
   mainContents(): WebContents | undefined;
   /** 当前工作区。 */
   workspace(): string;
+  /** 关闭到托盘状态。 */
+  closeToTray(): boolean;
+  /** 设置关闭到托盘。 */
+  setCloseToTray(enabled: boolean): void;
+  /** 开机启动状态。 */
+  openAtLogin(): boolean;
+  /** 设置开机启动。 */
+  setOpenAtLogin(enabled: boolean): void;
   /** 选择工作区。 */
   pickWorkspace(): Promise<string | null>;
   /** 切换工作区并重启 Harness。 */
@@ -45,7 +53,21 @@ export function registerIpc(deps: IpcDeps): void {
       appVersion: app.getVersion(),
       platform: process.platform,
       workspace: deps.workspace(),
+      closeToTray: deps.closeToTray(),
+      openAtLogin: deps.openAtLogin(),
     };
+  });
+  ipcMain.handle('omni:setCloseToTray', (event, enabled: unknown) => {
+    assertTrusted(event, deps);
+    if (typeof enabled !== 'boolean') throw new Error('invalid closeToTray');
+    deps.setCloseToTray(enabled);
+    return deps.closeToTray();
+  });
+  ipcMain.handle('omni:setOpenAtLogin', (event, enabled: unknown) => {
+    assertTrusted(event, deps);
+    if (typeof enabled !== 'boolean') throw new Error('invalid openAtLogin');
+    deps.setOpenAtLogin(enabled);
+    return deps.openAtLogin();
   });
   ipcMain.handle('omni:pickWorkspace', async (event) => {
     assertTrusted(event, deps);
