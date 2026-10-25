@@ -4550,3 +4550,18 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **判据**：`tests/unit/windowsNativeSandbox.test.ts` 5 例（策略同源/注册/包装/ShellTool 接线/真机写隔离）；
   `cargo fmt/clippy/test`、`typecheck`、`arch --strict` 全绿。
 - **边界**：只限制写；读/网络/进程可见性不受限；需要读/网络隔离请用 `wsl-bwrap` / `container`。
+
+## 57. 2026-10-25 收口：windows-native 接通默认 shell + Rust/桌面工具链收口
+
+- **默认 shell 链**：新增 `windows-native` profile，`ShellTool` 经 `commandWrapper` 自动调用
+  `omni-cli sandbox run --workspace ... --command-file ...`；`WindowsNativeSandbox` 策略面复用
+  `restricted`，执行面由 `WRITE_RESTRICTED` + 工作区 SID 强制写边界。
+- **命令文件传参**：新增 `omni-cli sandbox run --command-file`，避开多层 cmd 引号解析。
+- **工具链**：`scripts/cargo.mjs` 代理（0 字节 cargo/cargo-fmt 垫片下仍可 `rust:test/fmt/clippy`）；
+  `cargo fmt --all --check`、`clippy --workspace --all-targets -D warnings`、`cargo test -p omni-core -p omni-cli` 全绿。
+- **本机清理**：移除 `node_modules` 中残留的 `@deepseek-ai/dsh-*` / `koffi` 链（package-lock 早已无引用）。
+- **判据**：node **642 文件 / 4019 通过 / 4 skip / 0 失败**；web **102 文件 / 569 通过 / 0 失败**；
+  desktop `typecheck` + `test`（4/4）通过；`typecheck` / `lint` / `check` / `doc-links` / `gate:typed` /
+  `arch --strict` 全绿。
+- **边界**：`cargo test --workspace` 的 `omni-sdk` 跨语言 e2e 依赖 `dist` 与 Node 环境，本轮以
+  `omni-core` + `omni-cli` 为本地门禁；CI rust job 在无 `dist` 时该用例自动跳过。
