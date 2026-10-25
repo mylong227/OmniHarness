@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { renderFacade } from './rtlHarness.ts';
+import { fireEvent } from '@testing-library/react';
 import { allText, byClass } from './domFacade.ts';
 import { renderProjectsView } from '../src/ui/components/SessionViews.tsx';
 import type { SessionEntry } from '../src/ui/shared.ts';
@@ -13,8 +14,17 @@ function Projects(props: {
   projects: string[];
   wsPath: string;
   sessions: readonly SessionEntry[];
+  onNew?: (path: string) => void;
+  onReveal?: (path: string) => void;
 }): React.ReactElement | null {
-  return renderProjectsView(props.projects, props.wsPath, () => {}, props.sessions);
+  return renderProjectsView(
+    props.projects,
+    props.wsPath,
+    () => {},
+    props.sessions,
+    props.onNew,
+    props.onReveal,
+  );
 }
 
 /** 最小会话行。 */
@@ -54,4 +64,26 @@ test('无项目时不渲染项目条', () => {
     props: { projects: [], wsPath: '', sessions: [] },
   });
   assert.strictEqual(byClass(node, 'ws-projects').length, 0);
+});
+
+test('项目动作：新建线程与打开目录都带项目路径，且不触发切换', () => {
+  const calls: string[] = [];
+  const { node } = renderFacade(Projects, {
+    props: {
+      projects: ['D:\\work\\alpha', 'D:\\work\\beta'],
+      wsPath: 'D:\\work\\alpha',
+      sessions: [],
+      onNew: (p: string) => calls.push(`new:${p}`),
+      onReveal: (p: string) => calls.push(`reveal:${p}`),
+    },
+  });
+  const actions = byClass(node, 'ws-project-act');
+  assert.strictEqual(actions.length, 4);
+  for (const action of actions) fireEvent.click(action.el);
+  assert.deepStrictEqual(calls, [
+    'new:D:\\work\\alpha',
+    'reveal:D:\\work\\alpha',
+    'new:D:\\work\\beta',
+    'reveal:D:\\work\\beta',
+  ]);
 });

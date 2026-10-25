@@ -27,6 +27,8 @@ export interface IpcDeps {
   openLogs(): Promise<void>;
   /** 重启 Harness。 */
   restartHarness(): Promise<void>;
+  /** 在系统文件管理器中打开目录（桌面版专用）。 */
+  revealPath(path: string): Promise<void>;
   /** 原生通知。 */
   notify(input: NotifyInput): boolean;
   /** 检查更新。 */
@@ -90,6 +92,11 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle('omni:restartHarness', async (event) => {
     assertTrusted(event, deps);
     await deps.restartHarness();
+  });
+  ipcMain.handle('omni:revealPath', async (event, path: unknown) => {
+    assertTrusted(event, deps);
+    if (typeof path !== 'string') throw new Error('invalid path');
+    await deps.revealPath(path);
   });
   ipcMain.handle('omni:notify', (event, input: unknown) => {
     assertTrusted(event, deps);

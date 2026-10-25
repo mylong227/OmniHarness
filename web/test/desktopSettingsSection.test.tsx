@@ -17,7 +17,7 @@ afterEach(() => {
 /** 完整假桥（与 preload 形状一致）。 */
 function fakeOmni(calls: string[]): Record<string, unknown> {
   return {
-    apiVersion: 2,
+    apiVersion: 3,
     getInfo: () =>
       Promise.resolve({
         appVersion: '0.0.0-test',
@@ -36,6 +36,7 @@ function fakeOmni(calls: string[]): Record<string, unknown> {
     },
     openLogs: () => Promise.resolve(),
     restartHarness: () => Promise.resolve(),
+    revealPath: () => Promise.resolve(),
     notify: () => Promise.resolve(true),
     checkForUpdates: () => {
       calls.push('check');

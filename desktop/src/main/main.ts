@@ -1,5 +1,5 @@
 /** OmniHarness 桌面主进程（Electron；按 Codex 官方 App 的 Electron + React/TS 形态）。 */
-import { app, BrowserWindow, dialog, session } from 'electron';
+import { app, BrowserWindow, dialog, session, shell } from 'electron';
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { AutoStartService } from './autoStart.ts';
@@ -213,6 +213,7 @@ async function bootstrap(): Promise<void> {
     openWorkspace: (path) => switchWorkspace(path),
     openLogs,
     restartHarness,
+    revealPath,
     quit: () => app.quit(),
     notify: (input) => context?.notifications.show(input) === true,
     checkForUpdates,
@@ -387,6 +388,17 @@ async function openLogs(): Promise<void> {
   const ctx = context;
   if (ctx === null) return;
   await openLogDirectory(ctx.logger.directory());
+}
+
+/**
+ * 在系统文件管理器中打开目录。
+ * @param path 目录路径（渲染层传入，必须再次校验）。
+ * @returns 无返回值。
+ */
+async function revealPath(path: string): Promise<void> {
+  const absolute = assertDirectory(path);
+  const error = await shell.openPath(absolute);
+  if (error !== '') throw new Error(error);
 }
 
 /**

@@ -30,6 +30,7 @@ import { PathJoiner } from '../models/PathJoiner.ts';
 import { MenuPlacement } from '../models/MenuPlacement.ts';
 import { SessionOrder } from '../models/SessionOrder.ts';
 import { icon } from '../models/Icon.ts';
+import { desktopBridge } from '../../core/desktop/DesktopBridge.ts';
 import type { FsNode } from '../../types/models.ts';
 import type { SearchHit } from '../../types/models.ts';
 import type { SessionEntry } from '../shared.ts';
@@ -372,10 +373,10 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   /**
    * 切换项目：服务端重建运行时后刷新文件树；同路径直接短路，不打断用户。
    * @param path 目录路径
-   * @returns 无
+   * @returns 是否切换成功
    */
-  const switchProject = async (path: string): Promise<void> => {
-    if (path === wsPath) return;
+  const switchProject = async (path: string): Promise<boolean> => {
+    if (path === wsPath) return true;
     try {
       await api.switchWorkspace(path);
       setWsPath(path);
@@ -383,9 +384,37 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       setTreeError(null);
       onWorkspaceResolved?.(path);
       onWorkspaceSwitched?.();
+      return true;
     } catch (e) {
       toast(t('切换失败：{msg}', { msg: (e as Error).message }), 'err');
+      return false;
     }
+  };
+
+  /**
+   * 在指定项目开新线程：跨项目时先切项目，失败则不新建。
+   * @param path 项目路径
+   * @returns 无返回值。
+   */
+  const newThreadInProject = async (path: string): Promise<void> => {
+    setWsMenuOpen(false);
+    if (await switchProject(path)) onNew();
+  };
+
+  /**
+   * 在系统文件管理器中打开项目目录（仅桌面版）。
+   * @param path 项目路径
+   * @returns 无返回值。
+   */
+  const revealProject = (path: string): void => {
+    const bridge = desktopBridge();
+    if (bridge === null) {
+      toast(t('仅桌面版支持打开项目目录'), 'err');
+      return;
+    }
+    void bridge.revealPath(path).catch((e: unknown) => {
+      toast(t('打开项目目录失败：{msg}', { msg: (e as Error).message }), 'err');
+    });
   };
 
   /** 切换视图：时间分组 → 按工作区分组 → 并行任务卡（三态循环）。 @returns 无 */
@@ -625,7 +654,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             {renderProjectsView(projects, wsPath, (p) => {
               setWsMenuOpen(false);
               void switchProject(p);
-            }, sessions)}
+            }, sessions, (p) => void newThreadInProject(p), revealProject)}
             <button
               className="ws-add"
               onClick={() => {

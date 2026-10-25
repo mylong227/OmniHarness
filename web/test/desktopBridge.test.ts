@@ -14,6 +14,7 @@ interface FakeOmni {
   setOpenAtLogin: (enabled: boolean) => Promise<boolean>;
   openLogs: () => Promise<void>;
   restartHarness: () => Promise<void>;
+  revealPath: (path: string) => Promise<void>;
   notify: (input: DesktopNotifyInput) => Promise<unknown>;
   checkForUpdates: () => Promise<void>;
   downloadUpdate: () => Promise<void>;
@@ -32,7 +33,7 @@ function clearOmni(): void {
 /** 构造完整假桥。 */
 function fakeOmni(overrides: Partial<FakeOmni> = {}): FakeOmni {
   return {
-    apiVersion: 2,
+    apiVersion: 3,
     getInfo: () =>
       Promise.resolve({
         appVersion: '0.0.0-test',
@@ -45,6 +46,7 @@ function fakeOmni(overrides: Partial<FakeOmni> = {}): FakeOmni {
     setOpenAtLogin: (enabled) => Promise.resolve(enabled),
     openLogs: () => Promise.resolve(),
     restartHarness: () => Promise.resolve(),
+    revealPath: () => Promise.resolve(),
     notify: () => Promise.resolve(true),
     checkForUpdates: () => Promise.resolve(),
     downloadUpdate: () => Promise.resolve(),
@@ -66,7 +68,7 @@ describe('DesktopBridge', () => {
   });
 
   test('结构不合法（版本/方法缺失）时 fail-safe 返回 null', () => {
-    (globalThis as { omni?: unknown }).omni = { apiVersion: 2, notify: () => Promise.resolve() };
+    (globalThis as { omni?: unknown }).omni = { apiVersion: 3, notify: () => Promise.resolve() };
     expect(desktopBridge()).toBeNull();
   });
 

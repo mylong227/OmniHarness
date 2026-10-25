@@ -48,6 +48,8 @@ export interface DesktopBridge {
   setOpenAtLogin(enabled: boolean): Promise<void>;
   openLogs(): Promise<void>;
   restartHarness(): Promise<void>;
+  /** 在系统文件管理器中打开目录。 */
+  revealPath(path: string): Promise<void>;
   notify(input: DesktopNotifyInput): Promise<unknown>;
   checkForUpdates(): Promise<void>;
   downloadUpdate(): Promise<void>;
@@ -65,6 +67,7 @@ const REQUIRED_METHODS = [
   'setOpenAtLogin',
   'openLogs',
   'restartHarness',
+  'revealPath',
   'notify',
   'checkForUpdates',
   'downloadUpdate',
@@ -80,7 +83,7 @@ export function desktopBridge(): DesktopBridge | null {
   const candidate = (globalThis as { omni?: unknown }).omni;
   if (candidate === null || typeof candidate !== 'object') return null;
   const raw = candidate as Record<string, unknown>;
-  if (raw['apiVersion'] !== 2) return null;
+  if (raw['apiVersion'] !== 3) return null;
   for (const name of REQUIRED_METHODS) {
     if (typeof raw[name] !== 'function') return null;
   }
@@ -89,12 +92,13 @@ export function desktopBridge(): DesktopBridge | null {
   const subscribe = <T>(name: string, listener: (value: T) => void): (() => void) =>
     (raw[name] as (value: (value: T) => void) => () => void)(listener);
   return {
-    apiVersion: 2,
+    apiVersion: 3,
     getInfo: () => call<DesktopInfo>('getInfo'),
     setCloseToTray: (enabled) => call<void>('setCloseToTray', enabled),
     setOpenAtLogin: (enabled) => call<void>('setOpenAtLogin', enabled),
     openLogs: () => call<void>('openLogs'),
     restartHarness: () => call<void>('restartHarness'),
+    revealPath: (path) => call<void>('revealPath', path),
     notify: (input) => call<unknown>('notify', input),
     checkForUpdates: () => call<void>('checkForUpdates'),
     downloadUpdate: () => call<void>('downloadUpdate'),

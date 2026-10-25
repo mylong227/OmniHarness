@@ -467,11 +467,13 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
 }
 
 /**
- * 项目条：列出已添加的项目文件夹，点击切换；附该项目的线程数。
+ * 项目条：列出已添加的项目文件夹，点击切换；附该项目的线程数与桌面动作。
  * @param projects 项目路径清单
  * @param wsPath 当前工作区路径
  * @param onSwitch 切换回调
  * @param sessions 会话清单（用于线程计数；缺省为 0）
+ * @param onNew 在指定项目新建线程（缺省不渲染按钮）
+ * @param onReveal 在系统文件管理器中打开项目目录（缺省不渲染按钮）
  * @returns 项目条节点；无项目时为 null
  */
 export function renderProjectsView(
@@ -479,6 +481,8 @@ export function renderProjectsView(
   wsPath: string,
   onSwitch: (path: string) => void,
   sessions: readonly SessionEntry[] = [],
+  onNew?: (path: string) => void,
+  onReveal?: (path: string) => void,
 ): ReactElement | null {
   if (projects.length === 0) return null;
   const countOf = (path: string): number => {
@@ -492,6 +496,7 @@ export function renderProjectsView(
       {projects.map((p) => {
         const count = countOf(p);
         const active = p === wsPath;
+        const name = PathJoiner.basename(p);
         return (
           <div
             key={p}
@@ -501,7 +506,35 @@ export function renderProjectsView(
             onClick={() => onSwitch(p)}
           >
             <span className="ws-project-dot" aria-hidden="true"></span>
-            <span className="ws-project-name">{PathJoiner.basename(p)}</span>
+            <span className="ws-project-name">{name}</span>
+            {onNew === undefined ? null : (
+              <button
+                type="button"
+                className="ws-project-act"
+                title={t('在 {name} 新建线程', { name })}
+                aria-label={t('在 {name} 新建线程', { name })}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNew(p);
+                }}
+              >
+                +
+              </button>
+            )}
+            {onReveal === undefined ? null : (
+              <button
+                type="button"
+                className="ws-project-act"
+                title={t('打开项目目录')}
+                aria-label={t('打开项目目录')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReveal(p);
+                }}
+              >
+                ↗
+              </button>
+            )}
             <span className="ws-project-count" title={t('{n} 个线程', { n: count })}>
               {count}
             </span>

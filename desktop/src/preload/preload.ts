@@ -2,7 +2,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 /** 桥 API 版本（与 UI/壳握手；变更即 bump）。 */
-const API_VERSION = 2;
+const API_VERSION = 3;
 
 /** 通知输入（与主进程 NotifyInput 对齐）。 */
 interface NotifyInput {
@@ -43,6 +43,7 @@ const api = Object.freeze({
   openLogs: () => ipcRenderer.invoke('omni:openLogs'),
   openExternal: (url: string) => ipcRenderer.invoke('omni:openExternal', url),
   restartHarness: () => ipcRenderer.invoke('omni:restartHarness'),
+  revealPath: (path: string) => ipcRenderer.invoke('omni:revealPath', path),
   notify: (input: NotifyInput) => ipcRenderer.invoke('omni:notify', input),
   checkForUpdates: () => ipcRenderer.invoke('omni:checkForUpdates'),
   downloadUpdate: () => ipcRenderer.invoke('omni:downloadUpdate'),

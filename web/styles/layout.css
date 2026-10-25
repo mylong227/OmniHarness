@@ -264,6 +264,23 @@
   font-size: var(--fs-xs);
   flex: none;
 }
+.ws-project-act {
+  border: 0;
+  background: transparent;
+  color: var(--faint);
+  padding: 0 2px;
+  font-size: var(--fs-xs);
+  line-height: 1;
+  opacity: 0;
+  cursor: pointer;
+}
+.ws-project:hover .ws-project-act,
+.ws-project-act:focus-visible {
+  opacity: 1;
+}
+.ws-project-act:hover {
+  color: var(--text);
+}
 
 /* ---- 文件面板：右侧显示文件内容，仿 git 变更列表可展开收缩 ---- */
 .file-content { border:1px solid var(--border-soft); padding:10px 12px; font-size:12px; line-height:1.6; max-height:70vh; overflow:auto; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); tab-size:4; }
