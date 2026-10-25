@@ -31,6 +31,7 @@ export const SANDBOX_PROFILES = [
   'passthrough',
   'policy',
   'restricted',
+  'windows-native',
   'landlock',
   'seatbelt',
   'bwrap',

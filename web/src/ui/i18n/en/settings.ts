@@ -56,8 +56,8 @@ export const EN_SETTINGS: Record<string, string> = {
   '切换适配器会同时刷新可用模型清单': 'Switching the adapter also refreshes the available model list',
   沙箱: 'Sandbox',
   '命令执行环境的隔离方式': 'Isolation mode for command execution',
-  'policy 只做进程内策略；restricted 的原生内核在 Windows 提供写隔离，但 TS 执行链仍是策略层；读/网络真隔离用 wsl-bwrap（Windows）或 container（需 Docker/Podman）':
-    'policy is in-process only; the native restricted kernel provides Windows write isolation, but the TS execution path is still policy-level; use wsl-bwrap (Windows) or container (requires Docker/Podman) for real read/network isolation',
+  'policy/restricted 只做进程内策略；windows-native 在 Windows 提供原生写隔离（需 omni-cli）；读/网络真隔离用 wsl-bwrap 或 container（需 Docker/Podman）':
+    'policy/restricted are in-process only; windows-native provides native Windows write isolation (requires omni-cli); use wsl-bwrap or container (requires Docker/Podman) for real read/network isolation',
 
   // 「运行时」栏
   '适配器与执行环境': 'Adapter & execution environment',

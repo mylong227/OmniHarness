@@ -3,6 +3,8 @@ export type SandboxProfile =
   | 'passthrough'
   | 'policy'
   | 'restricted'
+  /** Windows 原生写隔离（WRITE_RESTRICTED + 工作区 SID + DACL；需 omni-cli 二进制）。 */
+  | 'windows-native'
   | 'landlock'
   | 'seatbelt'
   | 'bwrap'

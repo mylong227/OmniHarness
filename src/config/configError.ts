@@ -565,6 +565,7 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
     'passthrough',
     'policy',
     'restricted',
+    'windows-native',
     'landlock',
     'seatbelt',
     'bwrap',

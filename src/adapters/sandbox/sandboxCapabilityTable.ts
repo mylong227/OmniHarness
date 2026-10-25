@@ -21,6 +21,7 @@ import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
 import type { LandlockProbeReport } from './linuxLandlockSandbox.ts';
 import type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
 import type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.ts';
+import { OmniCliLocator } from '../../native/omniCliLocator.ts';
 
 export type { SandboxCapabilityEntry } from '../../ports/runtime/sandbox/sandboxCapabilityEntry.ts';
 
@@ -45,6 +46,7 @@ export class SandboxCapabilityTable {
     'passthrough',
     'policy',
     'restricted',
+    'windows-native',
     'landlock',
     'seatbelt',
     'bwrap',
@@ -73,6 +75,7 @@ export class SandboxCapabilityTable {
     const landlock = input.landlock ?? new LinuxLandlockSandbox(workspaceRoot).probe();
     return [
       ...SandboxCapabilityTable.policyEntries(input.elevated ?? false),
+      SandboxCapabilityTable.windowsNativeEntry(platform),
       SandboxCapabilityTable.landlockEntry(landlock),
       ...SandboxCapabilityTable.osEntries(platform, commandExists),
       // P2-2：容器档与平台无关（Docker Desktop / Podman / 原生 docker 皆可），只看运行时二进制。
@@ -118,6 +121,32 @@ export class SandboxCapabilityTable {
             '要读/网络隔离请用 wsl-bwrap 或 container',
       },
     ];
+  }
+
+  /**
+   * 构造 Windows 原生写隔离条目。
+   *
+   * 判定只做文件存在性检查（不 spawn）；找不到二进制时如实标不可达并给构建提示。
+   * @param platform 当前平台名。
+   * @returns 能力条目。
+   */
+  private static windowsNativeEntry(platform: string): SandboxCapabilityEntry {
+    const binary = platform === 'win32' ? OmniCliLocator.tryLocate() : undefined;
+    const real = platform === 'win32' && binary !== undefined;
+    return {
+      profile: 'windows-native',
+      backend: 'windows-native',
+      real,
+      basis:
+        platform !== 'win32'
+          ? 'windows-native 仅 Windows 可用'
+          : binary !== undefined
+            ? `Windows 原生写隔离已就绪（${binary}）：工作区可写、越界写被内核拒绝；读/网络仍不受限`
+            : 'Windows 原生写隔离未就绪：找不到 omni-cli 二进制',
+      actionable: real
+        ? ''
+        : '在仓库根运行 `cargo build -p omni-cli`（或 `npm run native:build`），或用 OMNI_CLI_BIN 指定路径',
+    };
   }
 
   /**

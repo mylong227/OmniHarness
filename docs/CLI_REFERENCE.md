@@ -101,17 +101,17 @@
 
 ### 安全（审批 / 沙箱 / 网络 / 提权）
 
-| 旗标                                                                              | 说明                                                                           |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `--approval auto\|deny\|rules\|guardian\|plan\|ask`                               | 审批端口（默认 `rules`；**`ask` 仅 `serve` 支持**，单跑路径 fail-closed 报错） |
-| `--approval-ask allow\|deny`                                                      | `rules` 模式下 ask 时的裁决（默认 allow）                                      |
-| `--auto-approve`                                                                  | **仅 `serve`**：启动即跳过审批弹窗（危险）                                     |
-| `--sandbox passthrough\|policy\|restricted\|landlock\|seatbelt\|bwrap\|unshare`   | 沙箱后端（默认 `policy`；OS 级不可用即 fail-closed）                           |
-| `--network-allow host1,host2`                                                     | 网络外联白名单（**一旦设置即白名单外全拒**）                                   |
-| `--escalation deny\|ask\|auto` / `--elevated-sandbox …`                           | 升级审批与提权复核沙箱                                                         |
-| `--auth-required` / `--oidc-issuer URL --oidc-client-id ID --oidc-jwks-uri URI`   | 服务端鉴权门禁（`serve`/`server`）                                             |
-| `--plan`                                                                          | 计划模式：未批准计划前拦截写类工具                                             |
-| `--guard-prompt-injection` / `--guard-prompt-injection-mode off\|shadow\|enforce` | 提示注入护栏（**未显式传时默认 `shadow` 观测档常开**）                         |
+| 旗标                                                                                                                  | 说明                                                                               |
+| --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `--approval auto\|deny\|rules\|guardian\|plan\|ask`                                                                   | 审批端口（默认 `rules`；**`ask` 仅 `serve` 支持**，单跑路径 fail-closed 报错）     |
+| `--approval-ask allow\|deny`                                                                                          | `rules` 模式下 ask 时的裁决（默认 allow）                                          |
+| `--auto-approve`                                                                                                      | **仅 `serve`**：启动即跳过审批弹窗（危险）                                         |
+| `--sandbox passthrough\|policy\|restricted\|windows-native\|landlock\|seatbelt\|bwrap\|unshare\|wsl-bwrap\|container` | 沙箱后端（默认 `policy`；`windows-native` 需 omni-cli；OS 级不可用即 fail-closed） |
+| `--network-allow host1,host2`                                                                                         | 网络外联白名单（**一旦设置即白名单外全拒**）                                       |
+| `--escalation deny\|ask\|auto` / `--elevated-sandbox …`                                                               | 升级审批与提权复核沙箱                                                             |
+| `--auth-required` / `--oidc-issuer URL --oidc-client-id ID --oidc-jwks-uri URI`                                       | 服务端鉴权门禁（`serve`/`server`）                                                 |
+| `--plan`                                                                                                              | 计划模式：未批准计划前拦截写类工具                                                 |
+| `--guard-prompt-injection` / `--guard-prompt-injection-mode off\|shadow\|enforce`                                     | 提示注入护栏（**未显式传时默认 `shadow` 观测档常开**）                             |
 
 ### 工作区、配置与存储
 

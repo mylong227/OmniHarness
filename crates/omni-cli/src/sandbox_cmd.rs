@@ -14,7 +14,7 @@ pub fn dispatch(args: &[String]) -> ExitCode {
         Some("run") => run(args),
         _ => {
             eprintln!(
-                "用法: omni sandbox check | omni sandbox run --command \"<cmd>\" [--workspace <dir>] [--read-only]"
+                "用法: omni sandbox check | omni sandbox run --command \"<cmd>\" [--command-file <path>] [--workspace <dir>] [--read-only]"
             );
             ExitCode::from(2)
         }
@@ -42,9 +42,26 @@ fn run(args: &[String]) -> ExitCode {
     // unused variable，clippy -D warnings 阻断——ubuntu 首跑实证）。
     #[cfg(windows)]
     {
-        let Some(command) = flag_value(args, "--command") else {
-            eprintln!("{{ \"ok\": false, \"error\": \"缺少 --command\" }}");
-            return ExitCode::from(1);
+        let command = match flag_value(args, "--command") {
+            Some(command) => command,
+            None => match flag_value(args, "--command-file") {
+                Some(path) => match std::fs::read_to_string(&path) {
+                    Ok(text) => text.trim_start_matches('\u{feff}').to_string(),
+                    Err(error) => {
+                        eprintln!(
+                            "{{ \"ok\": false, \"error\": \"读取 --command-file 失败: {}\" }}",
+                            error
+                        );
+                        return ExitCode::from(1);
+                    }
+                },
+                None => {
+                    eprintln!(
+                        "{{ \"ok\": false, \"error\": \"缺少 --command 或 --command-file\" }}"
+                    );
+                    return ExitCode::from(1);
+                }
+            },
         };
         // 给了 --workspace 就启用原生写隔离；否则保留旧的特权削减路径。
         if let Some(workspace) = flag_value(args, "--workspace") {

@@ -54,6 +54,7 @@ export interface CliArgs {
     | 'passthrough'
     | 'policy'
     | 'restricted'
+    | 'windows-native'
     | 'landlock'
     | 'seatbelt'
     | 'bwrap'

@@ -48,6 +48,7 @@ export interface FileConfig {
     | 'passthrough'
     | 'policy'
     | 'restricted'
+    | 'windows-native'
     | 'landlock'
     | 'seatbelt'
     | 'bwrap'

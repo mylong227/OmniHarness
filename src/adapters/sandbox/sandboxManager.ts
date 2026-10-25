@@ -9,6 +9,7 @@ import { LinuxUnshareSandbox } from './linuxUnshareSandbox.ts';
 import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
 import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
 import { WslBwrapSandbox } from './wslBwrapSandbox.ts';
+import { WindowsNativeSandbox } from './windowsNativeSandbox.ts';
 import { ContainerSandbox } from './containerSandbox.ts';
 
 export type { SandboxProfile } from '../../ports/runtime/sandbox/sandboxProfile.ts';
@@ -47,6 +48,8 @@ export class SandboxManager {
     this.register('passthrough', () => new PassthroughSandbox());
     this.register('policy', () => new PolicySandbox({ workspaceRoot: this.workspaceRoot }));
     this.register('restricted', () => new RestrictedSandbox({ workspaceRoot: this.workspaceRoot }));
+    // 原生 Windows 写隔离：策略面同 restricted，执行面走 omni-cli + WRITE_RESTRICTED。
+    this.register('windows-native', () => new WindowsNativeSandbox(this.workspaceRoot));
     this.register('landlock', () => new LinuxLandlockSandbox(this.workspaceRoot));
     this.register('bwrap', () => new LinuxBwrapSandbox(this.workspaceRoot));
     this.register('unshare', () => new LinuxUnshareSandbox(this.workspaceRoot));

@@ -75,6 +75,7 @@ export {
   PassthroughSandbox,
   PolicySandbox,
   RestrictedSandbox,
+  WindowsNativeSandbox,
   UnsupportedSandbox,
   SandboxManager,
   SandboxDenial,

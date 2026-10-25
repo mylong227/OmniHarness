@@ -4535,3 +4535,18 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **静态门禁**：`typecheck` / `lint` / `check` / `check:doc-links` 全绿。
 - **说明**：桌面架构提议稿由并行进程在 22:16 后继续改写（0015 重写、新增 0016）；本目标只对
   `955b4340` 提交快照负责。若该并行工作继续，需在其落定后重跑 docs/ADR 两项判据。
+
+## 56. 2026-10-25 `windows-native` profile：原生写隔离接入默认 shell 链
+
+- **新增 profile** `windows-native`：策略面复用 `restricted`（危险命令/路径/外联规则不变），
+  执行面把命令交给 `omni-cli sandbox run --workspace <root> --command-file <tmp>`，由
+  `WRITE_RESTRICTED` 令牌 + 工作区写入 SID 真正限制写边界。
+- **默认 shell 链已接通**：`ConfigToolRegistry` 把 `seed.sandbox.wrapCommand` 注入 `ShellTool`，
+  因此 `--sandbox windows-native` 下的 `shell` 工具调用自动走原生启动器；不再是“只能从 CLI 手调”。
+- **命令文本落盘传参**：新增 `omni-cli sandbox run --command-file`，避免多层 cmd 引号把命令解析坏；
+  `WindowsNativeSandbox` 写 `.omniharness/sandbox/cmd-<hash>.txt`。
+- **可观测**：`SandboxCapabilityTable` 新增条目（找到二进制才标可达，否则给构建提示）；
+  `omni sandbox check` 继续输出 `writeRestricted`；设置页沙箱下拉新增 `windows-native`。
+- **判据**：`tests/unit/windowsNativeSandbox.test.ts` 5 例（策略同源/注册/包装/ShellTool 接线/真机写隔离）；
+  `cargo fmt/clippy/test`、`typecheck`、`arch --strict` 全绿。
+- **边界**：只限制写；读/网络/进程可见性不受限；需要读/网络隔离请用 `wsl-bwrap` / `container`。

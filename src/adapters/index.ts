@@ -42,6 +42,7 @@ export { PolicySandbox } from './sandbox/policySandbox.ts';
 export type { PolicySandboxOptions } from './sandbox/policySandbox.ts';
 export { RestrictedSandbox } from './sandbox/restrictedSandbox.ts';
 export type { RestrictedSandboxOptions } from './sandbox/restrictedSandbox.ts';
+export { WindowsNativeSandbox } from './sandbox/windowsNativeSandbox.ts';
 export { UnsupportedSandbox } from './sandbox/unsupportedSandbox.ts';
 export { LinuxBwrapSandbox } from './sandbox/linuxBwrapSandbox.ts';
 export { MacOsSeatbeltSandbox } from './sandbox/macosSeatbeltSandbox.ts';

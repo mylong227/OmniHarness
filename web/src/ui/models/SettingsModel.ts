@@ -118,6 +118,7 @@ export const SETTINGS_FIELDS: readonly SettingsField[] = [
       'passthrough',
       'policy',
       'restricted',
+      'windows-native',
       'wsl-bwrap',
       'unshare',
       'bwrap',
@@ -125,7 +126,7 @@ export const SETTINGS_FIELDS: readonly SettingsField[] = [
       'seatbelt',
       'container',
     ],
-    hint: 'policy 只做进程内策略；restricted 的原生内核在 Windows 提供写隔离，但 TS 执行链仍是策略层；读/网络真隔离用 wsl-bwrap（Windows）或 container（需 Docker/Podman）',
+    hint: 'policy/restricted 只做进程内策略；windows-native 在 Windows 提供原生写隔离（需 omni-cli）；读/网络真隔离用 wsl-bwrap 或 container（需 Docker/Podman）',
   },
   {
     key: 'approval',
