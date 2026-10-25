@@ -4,6 +4,7 @@
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
 import { icon } from '../models/Icon.ts';
+import { PathJoiner } from '../models/PathJoiner.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 中栏视图（对话流 / 工具轨迹）。 */
@@ -13,6 +14,8 @@ export type ChatViewKind = 'chat' | 'trace';
 export interface ChatHeaderProps {
   /** 当前会话标题（未命名会话显示占位）。 */
   title: string;
+  /** 当前项目绝对路径（Codex 式「项目 / 线程」面包屑；空串不渲染项目段）。 */
+  projectPath?: string;
   /** 回合进行中——显示忙碌徽标（诚实口径：有多少显示多少，不虚构后台任务数）。 */
   busy: boolean;
   /** 当前会话时长文案（形如「已完成，用时 4秒」；空串/缺省不渲染）。 */
@@ -43,7 +46,9 @@ const VIEWS: readonly { key: ChatViewKind; label: string }[] = [
  * @returns 中栏头节点
  */
 export function ChatHeader(props: ChatHeaderProps): ReactElement {
-  const { title, busy, view, onView, onToggleLeft, onToggleRight, rightCollapsed } = props;
+  const { title, projectPath, busy, view, onView, onToggleLeft, onToggleRight, rightCollapsed } = props;
+  const project =
+    projectPath === undefined || projectPath === '' ? '' : PathJoiner.basename(projectPath);
   return (
     <div className="chat-head">
       {onToggleLeft === undefined ? null : (
@@ -55,6 +60,14 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
         >
           {icon('menu', { size: 16 })}
         </button>
+      )}
+      {project === '' ? null : (
+        <span className="chat-project" title={projectPath}>
+          {project}
+          <span className="chat-slash" aria-hidden="true">
+            {' / '}
+          </span>
+        </span>
       )}
       <div className="chat-title" title={title}>
         {title === '' ? t('新会话') : title}

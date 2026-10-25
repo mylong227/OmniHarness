@@ -467,31 +467,47 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
 }
 
 /**
- * 项目条：列出已添加的项目文件夹，点击切换。
+ * 项目条：列出已添加的项目文件夹，点击切换；附该项目的线程数。
  * @param projects 项目路径清单
  * @param wsPath 当前工作区路径
  * @param onSwitch 切换回调
+ * @param sessions 会话清单（用于线程计数；缺省为 0）
  * @returns 项目条节点；无项目时为 null
  */
 export function renderProjectsView(
   projects: string[],
   wsPath: string,
   onSwitch: (path: string) => void,
+  sessions: readonly SessionEntry[] = [],
 ): ReactElement | null {
   if (projects.length === 0) return null;
+  const countOf = (path: string): number => {
+    const key = WorkspacePath.normalize(path);
+    return sessions.filter(
+      (s) => s.workspace !== undefined && WorkspacePath.normalize(s.workspace) === key,
+    ).length;
+  };
   return (
     <div className="ws-projects">
-      {projects.map((p) => (
-        <div
-          key={p}
-          className={'ws-project' + (p === wsPath ? ' active' : '')}
-          title={p === wsPath ? t('当前工作区') : t('点击直接切换到 {path}', { path: p })}
-          onClick={() => onSwitch(p)}
-        >
-          <span className="ws-project-dot" aria-hidden="true"></span>
-          <span className="ws-project-name">{PathJoiner.basename(p)}</span>
-        </div>
-      ))}
+      {projects.map((p) => {
+        const count = countOf(p);
+        const active = p === wsPath;
+        return (
+          <div
+            key={p}
+            className={'ws-project' + (active ? ' active' : '')}
+            title={active ? t('当前工作区') : t('点击直接切换到 {path}', { path: p })}
+            aria-current={active ? 'true' : undefined}
+            onClick={() => onSwitch(p)}
+          >
+            <span className="ws-project-dot" aria-hidden="true"></span>
+            <span className="ws-project-name">{PathJoiner.basename(p)}</span>
+            <span className="ws-project-count" title={t('{n} 个线程', { n: count })}>
+              {count}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

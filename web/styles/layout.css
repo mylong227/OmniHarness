@@ -257,6 +257,13 @@
 .ws-project:hover { background: var(--panel-2); color: var(--text); }
 .ws-project-dot { border-radius: 50%; background: var(--border-soft); flex: none; }
 .ws-project-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-project-count {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  flex: none;
+}
 
 /* ---- 文件面板：右侧显示文件内容，仿 git 变更列表可展开收缩 ---- */
 .file-content { border:1px solid var(--border-soft); padding:10px 12px; font-size:12px; line-height:1.6; max-height:70vh; overflow:auto; white-space:pre-wrap; word-break:break-word; font-family:var(--mono); tab-size:4; }

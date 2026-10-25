@@ -66,6 +66,7 @@ export const EN_SESSIONS: Record<string, string> = {
   '显示全部 {n} 条': 'Show all {n}',
   '当前工作区': 'Current workspace',
   '点击直接切换到 {path}': 'Click to switch to {path}',
+  '{n} 个线程': '{n} threads',
   '当前工作区无法读取，或 serve 未在工作区内启动。': 'The current workspace cannot be read, or serve was not started inside it.',
   '读取中…': 'Loading…',
   '空工作区': 'Empty workspace',

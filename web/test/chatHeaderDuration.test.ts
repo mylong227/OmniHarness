@@ -43,3 +43,14 @@ test('空串/缺省不渲染空胶囊', () => {
   const absent = renderFacade(ChatHeader, { props: BASE_PROPS });
   assert.strictEqual(byClass(absent.node, 'chat-duration').length, 0);
 });
+
+test('项目 / 线程面包屑：有项目才渲染，项目名取 basename', () => {
+  const withProject = renderFacade(ChatHeader, {
+    props: { ...BASE_PROPS, title: '修复登录', projectPath: 'D:\\work\\alpha' },
+  });
+  const crumbs = byClass(withProject.node, 'chat-project');
+  assert.strictEqual(crumbs.length, 1);
+  assert.match(allText(withProject.node), /alpha\s*\/\s*修复登录/u);
+  const without = renderFacade(ChatHeader, { props: BASE_PROPS });
+  assert.strictEqual(byClass(without.node, 'chat-project').length, 0);
+});

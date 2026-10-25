@@ -54,6 +54,8 @@ export interface SessionPanelProps {
   onReorder?: (ordered: SessionEntry[]) => void | Promise<void>;
   /** 切换项目成功后回调（App 刷新会话列表等）。 */
   onWorkspaceSwitched?: () => void;
+  /** 当前项目路径解析后回调（中栏项目面包屑）。 */
+  onWorkspaceResolved?: (path: string) => void;
   /** 会话列表是否显示**全部项目**（缺省只看当前项目，见 SessionsScope）。 */
   scopeAll?: boolean;
   /** 翻转显示范围（当前项目 ⇄ 全部项目）。 */
@@ -92,6 +94,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onDelete,
     onFork,
     onWorkspaceSwitched,
+    onWorkspaceResolved,
     scopeAll,
     onToggleScope,
     activePane,
@@ -229,11 +232,12 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       .then((r) => {
         setWsPath(r.current);
         setProjects(r.workspaces);
+        onWorkspaceResolved?.(r.current);
       })
       .catch(() => {
         /* 静默：分组标题退化为通用名 */
       });
-  }, [api]);
+  }, [api, onWorkspaceResolved]);
 
   // 工作区变化即重刷文件树（原 componentDidUpdate 的 prevState.wsPath 比对）；alive 防迟到回写。
   React.useEffect(() => {
@@ -358,6 +362,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       setWsPath(path);
       setTreeLoaded(false);
       setTreeError(null);
+      onWorkspaceResolved?.(path);
       onWorkspaceSwitched?.();
     } catch (e) {
       toast(t('添加失败：{msg}', { msg: (e as Error).message }), 'err');
@@ -376,6 +381,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       setWsPath(path);
       setTreeLoaded(false);
       setTreeError(null);
+      onWorkspaceResolved?.(path);
       onWorkspaceSwitched?.();
     } catch (e) {
       toast(t('切换失败：{msg}', { msg: (e as Error).message }), 'err');
@@ -619,7 +625,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
             {renderProjectsView(projects, wsPath, (p) => {
               setWsMenuOpen(false);
               void switchProject(p);
-            })}
+            }, sessions)}
             <button
               className="ws-add"
               onClick={() => {

@@ -255,6 +255,8 @@ function renderBody(
   s: AppState,
   pane: ReactElement,
   recentLocalUrls: readonly string[],
+  workspacePath: string,
+  onWorkspaceResolved: (path: string) => void,
 ): ReactElement {
   return React.createElement(
     'div',
@@ -274,6 +276,7 @@ function renderBody(
         onArchive: ctrl.sessions.archiveSession,
         onReorder: ctrl.sessions.reorderSessions,
         onWorkspaceSwitched: () => ctrl.sessions.onWorkspaceSwitched(),
+        onWorkspaceResolved,
         scopeAll: s.sessionsScopeAll,
         onToggleScope: () => ctrl.sessions.toggleSessionsScope(),
         activePane: s.activePane,
@@ -335,6 +338,7 @@ function renderBody(
         onPermissionChange: ctrl.composer.changePermission,
         api: ctrl.api,
         sessionTitle: sessionTitleOf(s),
+        workspacePath,
         sessionActiveMs: sessionActiveMsOf(s),
         streamState: s.streamState,
         adapter: s.adapter,
@@ -447,6 +451,8 @@ export function App(): ReactElement {
   // 最新状态镜像：供控制器同步读取（getState），避免闭包读到陈旧快照。
   const stateRef = React.useRef<AppState>(state);
   stateRef.current = state;
+  // 当前项目路径只服务中栏面包屑，放在视图层局部状态：不必进 AppController 的上帝类。
+  const [workspacePath, setWorkspacePath] = React.useState('');
 
   // 组合根：控制器只构造一次；host 桥接到稳定 setState + 最新状态 ref。
   const controllerRef = React.useRef<AppController | null>(null);
@@ -503,7 +509,7 @@ export function App(): ReactElement {
   return React.createElement(
     AppContext.Provider,
     { value: controller.getContextValue() },
-    renderBody(controller, state, pane, recentLocalUrls),
+    renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath),
   );
 }
 

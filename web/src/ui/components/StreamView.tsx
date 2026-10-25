@@ -148,6 +148,8 @@ export interface StreamViewProps {
   disabled?: boolean;
   /** 当前会话标题（中栏头；空串显示「新会话」）。 */
   sessionTitle?: string;
+  /** 当前项目绝对路径（中栏「项目 / 线程」面包屑；空串不渲染项目段）。 */
+  workspacePath?: string;
   /** 当前会话服务端有效时长（ms；undefined 表示历史会话没有该字段）。 */
   sessionActiveMs?: number;
   /** SSE 三态（透传给状态栏的连接口径；缺省不显示状态栏右段）。 */
@@ -482,6 +484,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onPermissionChange,
     disabled,
     sessionTitle,
+    workspacePath,
     sessionActiveMs,
     streamState,
     adapter,
@@ -732,6 +735,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     <div className="col center">
       <ChatHeader
         title={sessionTitle ?? ''}
+        projectPath={workspacePath}
         busy={busy === true}
         duration={sessionClock.visible ? sessionClock.label : ''}
         durationState={sessionClock.state}
