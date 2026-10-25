@@ -14,7 +14,10 @@ desktop/
   src/main/lib/       # 纯逻辑：args / ready 契约 / 路径
   src/preload/        # contextBridge：只暴露 window.omni 最小桥
   src/main/harnessSupervisor.ts  # spawn node.exe serve --port 0 / ready / 优雅停
-  static/loading.html # 启动画面
+  static/loading.html # 启动画面（当前主进程用内联 data URL，保留作源文件）
+  static/icon.svg     # 项目 Ω 标志源文件
+  static/icon.png     # 512×512 窗口/托盘图标
+  static/icon.ico     # 多尺寸 Windows 安装包/任务栏图标
   scripts/build.mjs   # esbuild → dist/main.cjs + dist/preload.cjs
   scripts/stageHarness.mjs # 打包用 Harness + node.exe + 生产依赖
   scripts/test.mjs    # 纯逻辑测试（node:test）

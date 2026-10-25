@@ -1,6 +1,6 @@
 /** 桌面端纯逻辑测试：args / ready 契约 / 环境清洗（不启动 Electron GUI）。 */
 import { buildSync } from 'esbuild';
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
@@ -86,6 +86,17 @@ test('buildHarnessEnv: strips dangerous vars and injects controlled vars', () =>
   assert.equal(env['ELECTRON_RUN_AS_NODE'], undefined);
   assert.equal(env['OMNI_SERVE_TOKEN'], 't');
   assert.equal(env['OMNI_NO_UI_URL'], '1');
+});
+
+test('品牌图标：PNG 为 512×512，ICO 为多尺寸 Windows 图标', () => {
+  const png = readFileSync(join(process.cwd(), 'static', 'icon.png'));
+  assert.equal(png.subarray(1, 4).toString('ascii'), 'PNG');
+  assert.equal(png.readUInt32BE(16), 512);
+  assert.equal(png.readUInt32BE(20), 512);
+  const ico = readFileSync(join(process.cwd(), 'static', 'icon.ico'));
+  assert.equal(ico.readUInt16LE(0), 0);
+  assert.equal(ico.readUInt16LE(2), 1);
+  assert.ok(ico.readUInt16LE(4) >= 7, 'ICO 必须包含多尺寸（16–256）');
 });
 
 test('DesktopStateStore: 默认值 + 持久化 + 重新加载', () => {

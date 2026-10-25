@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="#343b50"/>
+  <rect x="24" y="24" width="464" height="464" rx="112" fill="none" stroke="#a8b4e8" stroke-width="10" opacity="0.9"/>
+  <text x="256" y="348" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="300" font-weight="600" fill="#dbe2ff">Ω</text>
+</svg>
