@@ -3,6 +3,7 @@
   "version": "0.2.0",
   "private": true,
   "description": "OmniHarness desktop client (Electron + existing React web workbench)",
+  "author": "mylong227",
   "license": "Apache-2.0",
   "engines": {
     "node": ">=22.14.0"

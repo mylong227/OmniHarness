@@ -87,6 +87,10 @@ npm run dist    # NSIS 安装包（未配置签名）
 
 `SKIP_DEPS=1` 可只复制产物（不装依赖），用于快速验证目录布局。
 
+本机实测：`npm run stage`（完整生产依赖）+ `npx electron-builder --dir -c.win.signAndEditExecutable=false` 可产出
+`release/win-unpacked`（含 `resources/harness/node_modules`、`app.asar`、`node.exe`）；Electron 下载建议走
+`ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`。安装包/签名仍未验证。
+
 ### 布局
 
 ```text

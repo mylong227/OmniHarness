@@ -10,6 +10,13 @@ files:
 extraResources:
   - from: ../.desktop-stage/harness
     to: harness
+    filter:
+      - '**/*'
+  # electron-builder 默认过滤掉 `node_modules`；单独再拷一次（Harness 的运行时依赖）。
+  - from: ../.desktop-stage/harness/node_modules
+    to: harness/node_modules
+    filter:
+      - '**/*'
 asar: true
 npmRebuild: false
 electronFuses:
