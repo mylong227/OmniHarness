@@ -232,7 +232,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       .then((r) => {
         setWsPath(r.current);
         setProjects(r.workspaces);
-        onWorkspaceResolved?.(r.current);
+        if (typeof r.current === 'string' && r.current !== '') onWorkspaceResolved?.(r.current);
       })
       .catch(() => {
         /* 静默：分组标题退化为通用名 */
