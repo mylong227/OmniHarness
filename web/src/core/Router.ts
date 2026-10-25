@@ -12,6 +12,7 @@ export interface AppRoute {
 
 /** 合法面板标识（与 PanelRegistry / RightPanel 的单一来源保持一致）。 */
 const VALID_PANES: ReadonlySet<string> = new Set([
+  'activity',
   'tools',
   'metrics',
   'changes',

@@ -45,6 +45,9 @@ import { PermissionTab } from './components/tabs/PermissionTab.tsx';
 const GraphTab = React.lazy(() =>
   import('./components/tabs/GraphTab.tsx').then((m) => ({ default: m.GraphTab })),
 );
+const ActivityTab = React.lazy(() =>
+  import('./components/tabs/ActivityTab.tsx').then((m) => ({ default: m.ActivityTab })),
+);
 const MemoryTab = React.lazy(() =>
   import('./components/tabs/MemoryTab.tsx').then((m) => ({ default: m.MemoryTab })),
 );
@@ -67,9 +70,10 @@ const VaultTab = React.lazy(() =>
   import('./components/tabs/VaultTab.tsx').then((m) => ({ default: m.VaultTab })),
 );
 
-/** 空闲期预取上面 8 个按需面板（与 lazy 的 import 一一对应）。 */
+/** 空闲期预取上面 9 个按需面板（与 lazy 的 import 一一对应）。 */
 function prefetchLazyPanes(): void {
   const loaders: (() => Promise<unknown>)[] = [
+    () => import('./components/tabs/ActivityTab.tsx'),
     () => import('./components/tabs/GraphTab.tsx'),
     () => import('./components/tabs/MemoryTab.tsx'),
     () => import('./components/tabs/ProfilesTab.tsx'),
@@ -170,6 +174,16 @@ function mergeAppPatch(prev: AppState, action: AppAction): AppState {
  */
 function renderPane(ctrl: AppController, s: AppState): ReactElement {
   switch (s.activePane) {
+    case 'activity':
+      return React.createElement(ActivityTab, {
+        events: s.events,
+        toolResults: s.toolResults,
+        busy: s.busy,
+        activeTool: s.activeTool,
+        approval: s.approval,
+        question: s.question,
+        onOpenPane: (key: string) => ctrl.setActivePane(key),
+      });
     case 'metrics':
       return React.createElement(MetricsTab, null);
     case 'changes':

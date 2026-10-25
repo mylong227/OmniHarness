@@ -1,10 +1,10 @@
-// 右侧面板注册表：12 个面板的**唯一事实源**（key / 标签 / 图标）。
+// 右侧面板注册表：17 个面板的**唯一事实源**（key / 标签 / 图标）。
 //
 // ## 演进（2026-10-07 壳层重构）
 //
 // 面板清单原先有三处消费者：`RightPanel` 的标签条、`NavRail` 的导航竖条（`rail: true` 子集）、
 // 以及后来的「更多面板」菜单。壳层重构后前两者不复存在——右栏改为**代码查看器**（文件标签 +
-// 路径栏），12 个功能面板全部收进 `PanelPicker`（「全部面板」菜单）这一个入口；本注册表成为
+// 路径栏），17 个功能面板全部收进 `PanelPicker`（「全部面板」菜单）这一个入口；本注册表成为
 // 菜单与 `panelOf()` 查询的唯一事实源。`rail` 布尔位随 NavRail 一并移除（死数据不保留）。
 //
 // 零 React 依赖（只导出纯数据），可直接在 node 下单测；图标名来自 `models/Icon.ts` 的 `IconName`。
@@ -36,6 +36,7 @@ export interface PanelEntry {
  * 与面板注册表彻底解耦。要加回面板列表前先读那段组件的头注释。
  */
 export const PANELS: readonly PanelEntry[] = [
+  { key: 'activity', label: '活动', icon: 'chart' },
   { key: 'tools', label: '工具', icon: 'wrench' },
   { key: 'changes', label: '变更', icon: 'pencil' },
   { key: 'file', label: '文件', icon: 'file' },

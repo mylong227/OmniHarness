@@ -2509,7 +2509,79 @@ button:active,
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
-/* 设置里的错误提示：沿用 `.sp-hint` 的排版，只换错误色。 */
+/* 活动面板：聚合状态/审批/变更/最近事件（Codex 式工作台入口）。 */
+.act {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.act-card {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--panel);
+}
+.act-title {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: var(--fs-list);
+  font-weight: 600;
+}
+.act-status {
+  margin: 0;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.act-pending {
+  border-color: var(--brand);
+}
+.act-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.act-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-xs);
+}
+.act-muted {
+  margin: 0;
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+.act-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.act-item {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+.act-kind {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.act-text {
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .sp-hint.sp-error {
   color: var(--danger);
 }
