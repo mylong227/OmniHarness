@@ -2,6 +2,7 @@ import type { ApprovalPort } from '../../ports/runtime/approval.ts';
 import type { EntitlementPort } from '../../ports/license/entitlement.ts';
 
 import type { SkillRegistry } from '../../skill/skillRegistry.ts';
+import type { AutomationStore } from '../services/automationStore.ts';
 import type { PluginRegistry } from '../../plugin/pluginRegistry.ts';
 import type { Transport } from '../transport/lineTransport.ts';
 import type { Metrics } from '../services/metrics.ts';
@@ -17,6 +18,8 @@ export interface AppServerOptions {
   readonly config: ResolvedConfig;
   readonly transport: Transport;
   readonly skills?: SkillRegistry | undefined;
+  /** 自动化任务存储（缺省不启用调度；CLI serve 注入用户级文件）。 */
+  readonly automations?: AutomationStore | undefined;
   readonly approvalUplink?: boolean | undefined;
   /**
    * 事件/上行桥（可注入）。

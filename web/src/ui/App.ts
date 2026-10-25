@@ -48,6 +48,12 @@ const GraphTab = React.lazy(() =>
 const ActivityTab = React.lazy(() =>
   import('./components/tabs/ActivityTab.tsx').then((m) => ({ default: m.ActivityTab })),
 );
+const SkillsTab = React.lazy(() =>
+  import('./components/tabs/SkillsTab.tsx').then((m) => ({ default: m.SkillsTab })),
+);
+const AutomationsTab = React.lazy(() =>
+  import('./components/tabs/AutomationsTab.tsx').then((m) => ({ default: m.AutomationsTab })),
+);
 const MemoryTab = React.lazy(() =>
   import('./components/tabs/MemoryTab.tsx').then((m) => ({ default: m.MemoryTab })),
 );
@@ -70,10 +76,12 @@ const VaultTab = React.lazy(() =>
   import('./components/tabs/VaultTab.tsx').then((m) => ({ default: m.VaultTab })),
 );
 
-/** 空闲期预取上面 9 个按需面板（与 lazy 的 import 一一对应）。 */
+/** 空闲期预取上面 11 个按需面板（与 lazy 的 import 一一对应）。 */
 function prefetchLazyPanes(): void {
   const loaders: (() => Promise<unknown>)[] = [
     () => import('./components/tabs/ActivityTab.tsx'),
+    () => import('./components/tabs/SkillsTab.tsx'),
+    () => import('./components/tabs/AutomationsTab.tsx'),
     () => import('./components/tabs/GraphTab.tsx'),
     () => import('./components/tabs/MemoryTab.tsx'),
     () => import('./components/tabs/ProfilesTab.tsx'),
@@ -184,6 +192,10 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
         question: s.question,
         onOpenPane: (key: string) => ctrl.setActivePane(key),
       });
+    case 'skills':
+      return React.createElement(SkillsTab, null);
+    case 'automations':
+      return React.createElement(AutomationsTab, null);
     case 'metrics':
       return React.createElement(MetricsTab, null);
     case 'changes':

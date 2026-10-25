@@ -1,5 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { AppServer } from '../../src/server/core/appServer.ts';
 import { type RpcMessage } from '../../src/server/core/jsonRpc.ts';
 import type { Transport } from '../../src/server/transport/lineTransport.ts';
@@ -10,6 +13,7 @@ import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import { AutomationStore } from '../../src/server/services/automationStore.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 可编程传输（测试双端）。 */
@@ -53,6 +57,7 @@ class TestTransport implements Transport {
 function buildServer(
   approvalUplink = false,
   skills?: SkillRegistry,
+  automations?: AutomationStore,
 ): { server: AppServer; transport: TestTransport } {
   const transport = new TestTransport();
   const config = ConfigFactory.build({
@@ -70,6 +75,7 @@ function buildServer(
     approvalUplink,
     modelOverrideEnabled: false,
     ...(skills !== undefined ? { skills } : {}),
+    ...(automations !== undefined ? { automations } : {}),
   });
   return { server, transport };
 }
@@ -87,6 +93,29 @@ test('app-server：skills.list 只回名称/描述/标签', async () => {
   assert.deepStrictEqual((response as { result: unknown }).result, {
     skills: [{ name: 'review', description: '代码审查', tags: ['git'] }],
   });
+});
+
+test('app-server：automations 创建/列表/立即运行/删除', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-auto-rpc-'));
+  try {
+    const store = new AutomationStore(join(dir, 'automations.json'));
+    const { transport } = buildServer(false, undefined, store);
+    const created = await transport.receive('automations.create', {
+      name: '日报',
+      prompt: '总结今天',
+      intervalMinutes: 30,
+    });
+    const row = (created as { result: { id: string } }).result;
+    assert.ok(row.id.startsWith('auto_'));
+    const list = await transport.receive('automations.list', {}, 2);
+    assert.strictEqual((list as { result: unknown[] }).result.length, 1);
+    const run = await transport.receive('automations.run', { id: row.id }, 3);
+    assert.ok((run as { result: { threadId: string } }).result.threadId.length > 0);
+    const removed = await transport.receive('automations.delete', { id: row.id }, 4);
+    assert.strictEqual((removed as { result: boolean }).result, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('app-server：threads.create 返回线程并持久化', async () => {

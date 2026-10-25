@@ -220,6 +220,8 @@ test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据�
     PANELS.map((p) => p.key),
     [
       'activity',
+      'skills',
+      'automations',
       'tools',
       'changes',
       'file',
@@ -237,7 +239,7 @@ test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据�
       'permission',
       'vault',
     ],
-    '注册表必须恰好是这 17 个面板（顺序即菜单渲染顺序）',
+    '注册表必须恰好是这 19 个面板（顺序即菜单渲染顺序）',
   );
   assert.ok(
     panelOf('settings') === undefined,

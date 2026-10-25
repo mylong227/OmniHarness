@@ -2582,6 +2582,32 @@ button:active,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.auto-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.auto-prompt {
+  min-height: 76px;
+  resize: vertical;
+}
+.auto-name {
+  color: var(--text);
+  font-size: var(--fs-xs);
+}
+.auto-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  flex: none;
+}
+.auto-actions .ghost {
+  font-size: var(--fs-xs);
+  padding: 2px 6px;
+}
+.auto-skill .act-text {
+  flex: 1;
+}
 .sp-hint.sp-error {
   color: var(--danger);
 }

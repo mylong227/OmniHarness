@@ -15,6 +15,8 @@ import { providerPresets } from '../services/providerPresets.ts';
 import { RepoPathGuard } from '../services/repoPathGuard.ts';
 import { DiffReview } from '../services/diffReview.ts';
 import { DiffCommentStore } from '../services/diffCommentStore.ts';
+import { AutomationScheduler } from '../services/automationScheduler.ts';
+import { AppServerAutomationHandlers } from './appServerAutomationHandlers.ts';
 import { SessionCheckpoints } from '../services/session/sessionCheckpoints.ts';
 import { SessionRewindService } from '../services/session/sessionRewindService.ts';
 import type { SessionRewindOutcome } from '../services/session/sessionRewindService.ts';
@@ -38,6 +40,10 @@ export class AppServer extends AppServerVaultHandlers {
   private readonly checkpoints: SessionCheckpoints;
   /** 会话回退服务：把持久化事件流截断到指定事件（`threads.rewind` RPC 的后端）。 */
   private readonly rewinder: SessionRewindService;
+  /** 自动化调度器（仅注入 automations 存储时启用）。 */
+  private readonly automationScheduler?: AutomationScheduler;
+  /** 自动化 RPC 处理器（独立类，避免 AppServer 代码行数增长）。 */
+  private readonly automationHandlers: AppServerAutomationHandlers;
 
   /**
    * 装配各领域服务并注册全部 RPC 处理器与传输层监听。
@@ -58,7 +64,19 @@ export class AppServer extends AppServerVaultHandlers {
     // 2026-10-09 订正：此前接的是 `replay`，而它会**把整段历史重新广播给所有客户端** —— 注释写着
     // 「纯读不写」、实现却在写事件总线，正是「声明与实现不一致」那一类缺陷。
     // 存在性判定另走事件日志存档（storage.load 对不存在的会话也回空数组，不足以区分「无此会话」）。
+    this.automationHandlers = new AppServerAutomationHandlers(options.automations, (params) =>
+      this.createThread(params),
+    );
     this.registerHandlers();
+    if (options.automations !== undefined) {
+      this.automationScheduler = new AutomationScheduler(
+        options.automations,
+        async (automation) => {
+          await this.createThread({ prompt: automation.prompt });
+        },
+      );
+      this.automationScheduler.start();
+    }
     // 会话回退（`threads.rewind`）：读 / 写都指向**唯一事实源**（storage），
     // 运行态判定复用 runTurn 维护的 activeTurns（运行中拒绝回退，避免两处写盘互相覆盖）。
     this.rewinder = new SessionRewindService({
@@ -146,6 +164,7 @@ export class AppServer extends AppServerVaultHandlers {
         })),
       }),
     );
+    this.automationHandlers.register(this.handlers);
     this.handlers.set('model.probe', (params) => this.modelCatalog.probe(params));
     this.handlers.set('usage.stats', () => this.sessionArchive.usage());
     this.handlers.set('workspace.list', () => Promise.resolve(this.configStore.workspaces()));
@@ -653,6 +672,7 @@ export class AppServer extends AppServerVaultHandlers {
    * @returns 等待结束（无论是否全部收尾）后 resolve。
    */
   public async shutdown(): Promise<void> {
+    this.automationScheduler?.stop();
     const agent = this.runtime.agent();
     agent.cancelCurrentRun('shutdown');
     const deadline = Date.now() + 5_000;

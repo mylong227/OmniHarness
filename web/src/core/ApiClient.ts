@@ -536,6 +536,65 @@ export class ApiClient {
   }> {
     return this.rpc('skills.list', {});
   }
+
+  /**
+   * 自动化任务列表。
+   * @returns 任务列表
+   */
+  public listAutomations(): Promise<
+    {
+      id: string;
+      name: string;
+      prompt: string;
+      intervalMinutes: number;
+      enabled: boolean;
+      createdAt: string;
+      lastRunAt?: string;
+    }[]
+  > {
+    return this.rpc('automations.list', {});
+  }
+
+  /**
+   * 新建自动化任务。
+   * @param input 名称/提示词/间隔
+   * @returns 新任务
+   */
+  public createAutomation(input: {
+    name: string;
+    prompt: string;
+    intervalMinutes: number;
+  }): Promise<unknown> {
+    return this.rpc('automations.create', input);
+  }
+
+  /**
+   * 删除自动化任务。
+   * @param id 任务 id
+   * @returns 是否删除
+   */
+  public deleteAutomation(id: string): Promise<boolean> {
+    return this.rpc('automations.delete', { id });
+  }
+
+  /**
+   * 启停自动化任务。
+   * @param id 任务 id
+   * @param enabled 是否启用
+   * @returns 更新后的任务
+   */
+  public setAutomationEnabled(id: string, enabled: boolean): Promise<unknown> {
+    return this.rpc('automations.setEnabled', { id, enabled });
+  }
+
+  /**
+   * 立即运行一次自动化。
+   * @param id 任务 id
+   * @returns 新会话结果
+   */
+  public runAutomation(id: string): Promise<unknown> {
+    return this.rpc('automations.run', { id });
+  }
   public searchPlugins(query = ''): Promise<PluginSearchEntry[]> {
     return this.rpc('plugins.search', { query });
   }

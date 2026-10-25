@@ -37,6 +37,8 @@ export interface PanelEntry {
  */
 export const PANELS: readonly PanelEntry[] = [
   { key: 'activity', label: '活动', icon: 'chart' },
+  { key: 'skills', label: '技能', icon: 'sparkle' },
+  { key: 'automations', label: '自动化', icon: 'refresh' },
   { key: 'tools', label: '工具', icon: 'wrench' },
   { key: 'changes', label: '变更', icon: 'pencil' },
   { key: 'file', label: '文件', icon: 'file' },

@@ -17,6 +17,7 @@ import { HttpBridgeTransport } from '../server/transport/httpServer.ts';
 import type { HttpServer } from '../server/transport/httpServer.ts';
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
 import { Metrics } from '../server/services/metrics.ts';
+import { AutomationStore } from '../server/services/automationStore.ts';
 import type { AuditSink } from '../server/services/auditSink.ts';
 import type { AppServer } from '../server/core/appServer.ts';
 import type { ServerEventBridge } from '../server/core/serverEventBridge.ts';
@@ -570,6 +571,8 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         doctorReport: (options) => DoctorRunner.runDoctor(options ?? {}),
         // 凭据保险库（vault.list/set/delete 的后端）：无主密钥来源时不注入，面板如实显示"未接线"。
         vault: await this.buildServeVault(args),
+        // 自动化任务：用户级文件 + 30s 调度；任务触发即新建一个普通会话。
+        automations: new AutomationStore(join(homedir(), '.omniharness', 'automations.json')),
       });
       await app.loadPlugins();
       // G-E 5.1：插件集收敛（按职责抽成方法：runServe 体量已顶到铁律上限，外移而不是放宽）。
