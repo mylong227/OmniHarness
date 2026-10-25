@@ -150,6 +150,12 @@
   align-items: center;
   gap: 6px;
   min-height: 24px;
+  /* 高 DPI / 矮窗口下侧栏内容可能高于视口；页脚必须始终可达（设置入口不能掉到屏幕外）。 */
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  flex: 0 0 auto;
+  background: var(--bg-elev);
 }
 .side-foot .pill { font-size: 11.5px; }
 
