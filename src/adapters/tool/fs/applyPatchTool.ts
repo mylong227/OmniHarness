@@ -1,6 +1,6 @@
 import { TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import type {
   ToolCall,
   ToolContext,
@@ -9,10 +9,14 @@ import type {
 } from '../../../ports/tool/tool.ts';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
 import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
+import { TextDiffSummary } from '../../../util/textDiffSummary.ts';
+import { TextThreeWayMerge } from '../../../util/textThreeWayMerge.ts';
+import { TextMergeConflictMessage } from '../../../util/textMergeConflictMessage.ts';
 import { log } from '../../../util/logger.ts';
 import { FileContentLedger } from './fileContentLedger.ts';
 import { PatchApplier } from './patchApplier.ts';
 import type { FilePatch } from './patchApplier.ts';
+import { WorkspaceFileCoordinator, type FileWriteLease } from './workspaceFileCoordinator.ts';
 
 /**
  * 应用补丁工具：unified diff 写入工作区文件。
@@ -24,6 +28,8 @@ import type { FilePatch } from './patchApplier.ts';
  *   要么全不生效——旧实现只保证解析期原子，写盘失败会留下**半份补丁**（第 2 个目标写失败时
  *   第 1 个已落盘且无回滚），与类文档承诺矛盾；
  * - **可审计**：覆盖已有文件前与 `write_file` / `edit` 一致地生成 `<file>.bak`；
+ * - **并发合并**：有会话基线全文时，先把补丁应用到 base 得到 ours，再与磁盘现状做行级
+ *   diff3；双方改不同区域 ⇒ 合并，同区域冲突 ⇒ 整份补丁不落盘（细节见 `mergeWithBaselines`）；
  * - **容错**：行号写偏（±200 行内自动搜）、行尾空白差异、上下文里误带 `read_file` 行号前缀，
  *   都能正确落位（细节见 {@link PatchApplier}）；
  * - `path` 参数仅在**单文件补丁**时用于覆盖头里的目标路径（保持既有用法），多文件补丁以头为准。
@@ -104,8 +110,11 @@ export class ApplyPatchTool {
     }
     const root = ToolWorkspaceRoot.of(this.workspaceRoot, context);
     const guard = new WorkspaceGuard(root);
+    const coordinator = WorkspaceFileCoordinator.of(root);
+    const ledger = this.ledger ?? coordinator.ledger;
     const originals = new Map<string, string>();
-    this.existing.clear();
+    const existing = new Set<string>();
+    const absolutes: string[] = [];
     for (const target of targets) {
       if (!guard.isInside(target)) {
         return { callId: call.id, ok: false, error: `路径越界: ${target}` };
@@ -113,33 +122,235 @@ export class ApplyPatchTool {
       const absolute = resolve(root, target);
       try {
         const before = await this.readExisting(absolute, target);
-        // S1 冲突保护：账本有记录且已背离 ⇒ 拒绝整份补丁（原子语义：一个字节都不写）。
-        if (this.ledger?.changedSince(absolute, before.content) === true) {
-          return { callId: call.id, ok: false, error: FileContentLedger.conflictMessage(target) };
-        }
         originals.set(target, before.content);
-        if (before.existed) {
-          this.existing.add(target);
-        }
+        absolutes.push(absolute);
+        if (before.existed) existing.add(target);
       } catch (error) {
         return { callId: call.id, ok: false, error: this.messageOf(error) };
       }
     }
-    const result = this.applier.applyMany(originals, this.rewriteHeaders(patch, targets));
-    if (!result.ok) {
-      return { callId: call.id, ok: false, error: `补丁应用失败: ${result.error}` };
+    try {
+      return await coordinator.withWriteMany(
+        absolutes,
+        (leases) =>
+          this.applyWithin(
+            call,
+            patch,
+            targets,
+            originals,
+            existing,
+            leases,
+            ledger,
+            context.sessionId,
+            root,
+          ),
+        { ...(context.signal !== undefined ? { signal: context.signal } : {}) },
+      );
+    } catch (error) {
+      return { callId: call.id, ok: false, error: this.messageOf(error) };
     }
-    return this.writeAll(call.id, result.outputs, originals, root);
   }
 
   /**
-   * 本次调用中「补丁前已存在」的目标集合（决定回滚是还原还是删除）。
+   * 在全部目标锁内：重读现状 → 应用补丁 → 两阶段落盘。
    *
-   * 为什么必须区分：`readExisting` 对「不存在」与「存在但为空」都读回空串，
-   * 二者在回滚时处置相反（删除 vs 写回空串）。用成员字段承载是因为 `handle` 已贴近体量基线，
-   * 且每次 `handle` 调用都会先清空它。单实例并发调用同一工具不在设计内（工具端口按调用串行）。
+   * @param call 工具调用。
+   * @param files 补丁文件段。
+   * @param targets 生效目标清单。
+   * @param originals 操作开始时的内容。
+   * @param existing 操作开始时已存在的目标集合。
+   * @param leases 目标绝对路径 → 写租约。
+   * @param ledger 账本。
+   * @param owner 会话 id。
+   * @param root 工作区根。
+   * @returns 工具结果。
    */
-  private readonly existing = new Set<string>();
+  private async applyWithin(
+    call: ToolCall,
+    patch: string,
+    targets: readonly string[],
+    originals: ReadonlyMap<string, string>,
+    existing: ReadonlySet<string>,
+    leases: ReadonlyMap<string, FileWriteLease>,
+    ledger: FileContentLedger,
+    owner: string,
+    root: string,
+  ): Promise<ToolResult> {
+    const currents = new Map<string, string>();
+    for (const target of targets) {
+      const lease = leases.get(resolve(root, target));
+      currents.set(target, (await lease?.read()) ?? '');
+    }
+    const merged = targets.some((target) => currents.get(target) !== originals.get(target));
+    const threeWay = this.mergeWithBaselines(
+      patch,
+      targets,
+      originals,
+      currents,
+      ledger,
+      owner,
+      root,
+    );
+    if (threeWay !== undefined) {
+      if (!threeWay.ok) return { callId: call.id, ok: false, error: threeWay.error };
+      return this.writeAll(
+        call.id,
+        threeWay.outputs,
+        currents,
+        originals,
+        existing,
+        leases,
+        ledger,
+        owner,
+        root,
+        merged || threeWay.merged,
+      );
+    }
+    const result = this.applier.applyMany(currents, this.rewriteHeaders(patch, targets));
+    if (!result.ok) {
+      if (merged) {
+        const changed = targets.filter((target) => currents.get(target) !== originals.get(target));
+        const detail = changed
+          .map(
+            (target) =>
+              `${target}：${TextDiffSummary.of(originals.get(target) ?? '', currents.get(target) ?? '')}`,
+          )
+          .join('；');
+        return {
+          callId: call.id,
+          ok: false,
+          error:
+            `补丁未应用：等待写锁期间目标被其他会话/进程修改（${detail}），且补丁已无法在当前内容上应用。` +
+            '为避免改错位置，本次一个字节都未写入；请 read_file 重读后重发补丁。',
+        };
+      }
+      return { callId: call.id, ok: false, error: `补丁应用失败: ${result.error}` };
+    }
+    return this.writeAll(
+      call.id,
+      result.outputs,
+      currents,
+      originals,
+      existing,
+      leases,
+      ledger,
+      owner,
+      root,
+      merged,
+    );
+  }
+
+  /**
+   * 尝试用会话基线做三方合并：`base + ours(补丁应用到 base) + theirs(磁盘现状)`。
+   *
+   * @param patch 补丁文本。
+   * @param targets 目标清单。
+   * @param originals 操作开始时内容。
+   * @param currents 拿到锁后的内容。
+   * @param ledger 账本。
+   * @param owner 会话 id。
+   * @param root 工作区根。
+   * @returns 合并产出；没有可用基线时 undefined（调用方走「在 current 上重放」的旧路径）。
+   */
+  private mergeWithBaselines(
+    patch: string,
+    targets: readonly string[],
+    originals: ReadonlyMap<string, string>,
+    currents: ReadonlyMap<string, string>,
+    ledger: FileContentLedger,
+    owner: string,
+    root: string,
+  ):
+    | {
+        readonly ok: true;
+        readonly outputs: readonly { readonly targetFile: string; readonly content: string }[];
+        readonly merged: boolean;
+      }
+    | { readonly ok: false; readonly error: string }
+    | undefined {
+    const baselines = new Map<string, string>();
+    for (const target of targets) {
+      const absolute = resolve(root, target);
+      const text = ledger.baselineTextOf(absolute, owner);
+      const hash = ledger.baselineOf(absolute, owner);
+      if (text !== undefined && hash !== undefined && FileContentLedger.hashOf(text) === hash) {
+        baselines.set(target, text);
+      } else if (currents.get(target) !== originals.get(target)) {
+        // 该目标在等锁期间变了，却没有基线全文 ⇒ 无法安全合并，退回旧路径（会拒绝）。
+        return undefined;
+      }
+    }
+    if (baselines.size === 0) return undefined;
+    const baseMap = new Map<string, string>();
+    for (const target of targets) {
+      baseMap.set(target, baselines.get(target) ?? currents.get(target) ?? '');
+    }
+    const baseResult = this.applier.applyMany(baseMap, this.rewriteHeaders(patch, targets));
+    if (!baseResult.ok) {
+      for (const [target, base] of baselines) {
+        if (currents.get(target) === base) continue;
+        return {
+          ok: false,
+          error:
+            this.staleMessage(
+              ledger,
+              resolve(root, target),
+              target,
+              currents.get(target) ?? '',
+              owner,
+            ) ?? `补丁无法应用到会话基线: ${baseResult.error}`,
+        };
+      }
+      return undefined;
+    }
+    const outputs: { readonly targetFile: string; readonly content: string }[] = [];
+    let merged = false;
+    for (const output of baseResult.outputs) {
+      const current = currents.get(output.targetFile) ?? '';
+      if (current === output.content) {
+        outputs.push(output);
+        continue;
+      }
+      const base = baselines.get(output.targetFile);
+      if (base === undefined) return undefined;
+      const result = TextThreeWayMerge.merge(base, output.content, current);
+      if (!result.ok) {
+        if (result.reason === 'too-large') return undefined;
+        return {
+          ok: false,
+          error: TextMergeConflictMessage.format(output.targetFile, '应用补丁', result.conflicts),
+        };
+      }
+      outputs.push({ targetFile: output.targetFile, content: result.content });
+      if (result.content !== output.content) merged = true;
+    }
+    return { ok: true, outputs, merged };
+  }
+
+  /**
+   * 进入锁前判断本会话基线是否过期。
+   *
+   * @param ledger 账本。
+   * @param absolute 绝对路径。
+   * @param target 相对路径。
+   * @param content 操作开始时的内容。
+   * @param owner 会话 id。
+   * @returns 冲突文案；无冲突时 undefined。
+   */
+  private staleMessage(
+    ledger: FileContentLedger,
+    absolute: string,
+    target: string,
+    content: string,
+    owner: string,
+  ): string | undefined {
+    const baseline = ledger.baselineOf(absolute, owner);
+    if (baseline === undefined || !ledger.changedSince(absolute, content, owner)) return undefined;
+    const detail = `你的基线 ${FileContentLedger.shortHash(baseline)}，当前 ${FileContentLedger.shortHash(
+      FileContentLedger.hashOf(content),
+    )}`;
+    return FileContentLedger.conflictMessage(target, detail);
+  }
 
   /**
    * 解析目标文件清单：`path` 仅在单文件补丁时覆盖（多文件补丁以各自 `+++` 头为准）。
@@ -187,43 +398,68 @@ export class ApplyPatchTool {
    * 后续自证与结论都建立在假事实上。现在把「变更 / 无变化」如实分开回报。
    *
    * 为什么必须两阶段（2026-10-03 补 PROJECT_BOARD §3-6）：
-   *  - **阶段 1（准备）**：建父目录 + 为已存在的目标写 `.bak`。此阶段失败时**一个字节都没写**，
+   *  - **阶段 1（准备）**：为已存在的目标写 `.bak`。此阶段失败时**一个字节都没写**，
    *    直接返回失败即可（与解析期原子一致）。
    *  - **阶段 2（提交）**：逐个落盘；任一次失败即**回滚**已写成功的文件（存在过的还原原文，
-   *    新建的删除），并如实报告回滚件数。旧实现没有这一层：第 2 个目标写失败（磁盘满 /
-   *    只读挂载 / EPERM）时第 1 个已落盘且无回滚——用户拿到「失败」，工作区却留下了半份补丁。
+   *    新建的删除），并如实报告回滚件数。
+   *
+   * 并发：本方法只在 `withWriteMany` 持有**全部目标锁**时调用，故准备/提交/回滚不会与其他
+   * 会话交错；回滚也走同一租约（原子写），不会留下半截文件。
    *
    * @param callId 工具调用 ID。
    * @param outputs 各目标的新内容。
-   * @param originals 各目标应用前的内容（不存在的目标为空串）。
-   * @param root 本次调用解析出的工作区根（运行时 ctx 优先，见 `ToolWorkspaceRoot`）。
+   * @param currents 各目标拿到写锁后的内容（不存在的目标为空串）。
+   * @param originals 各目标操作开始时的内容（用于判断「无变化」）。
+   * @param existing 操作开始时已存在的目标集合（决定回滚是还原还是删除）。
+   * @param leases 绝对路径 → 写租约。
+   * @param ledger 账本。
+   * @param owner 会话 id。
+   * @param root 工作区根。
+   * @param merged 等锁期间是否叠加了其他会话的改动（回报用）。
    * @returns 成功结果（附变更清单）；准备或提交失败时返回失败（提交失败时附回滚情况）。
    */
   private async writeAll(
     callId: string,
     outputs: readonly { readonly targetFile: string; readonly content: string }[],
+    currents: ReadonlyMap<string, string>,
     originals: ReadonlyMap<string, string>,
+    existing: ReadonlySet<string>,
+    leases: ReadonlyMap<string, FileWriteLease>,
+    ledger: FileContentLedger,
+    owner: string,
     root: string,
+    merged: boolean,
   ): Promise<ToolResult> {
     const pending = outputs.filter(
-      (output) => (originals.get(output.targetFile) ?? '') !== output.content,
+      (output) => (currents.get(output.targetFile) ?? '') !== output.content,
     );
     const unchanged = outputs
       .map((output) => output.targetFile)
       .filter((target) => !pending.some((output) => output.targetFile === target));
     try {
-      await this.prepare(pending, originals, root);
+      await this.prepare(pending, existing, leases, root);
     } catch (error) {
       return { callId, ok: false, error: `补丁未落盘（准备阶段失败）: ${this.messageOf(error)}` };
     }
     const written: string[] = [];
     for (const output of pending) {
-      const absolute = resolve(root, output.targetFile);
+      const lease = leases.get(resolve(root, output.targetFile));
+      if (lease === undefined) {
+        return { callId, ok: false, error: `补丁目标未持锁: ${output.targetFile}` };
+      }
       try {
-        await writeFile(absolute, output.content, 'utf8');
+        await lease.write(output.content);
         written.push(output.targetFile);
       } catch (error) {
-        const rolled = await this.rollback(written, originals, root);
+        const rolled = await this.rollback(
+          written,
+          originals,
+          existing,
+          leases,
+          ledger,
+          owner,
+          root,
+        );
         return {
           callId,
           ok: false,
@@ -234,61 +470,77 @@ export class ApplyPatchTool {
       }
     }
     for (const output of pending) {
-      this.ledger?.remember(resolve(root, output.targetFile), output.content);
+      ledger.remember(resolve(root, output.targetFile), output.content, owner);
     }
     return {
       callId,
       ok: true,
-      output: ApplyPatchTool.describe(
-        pending.map((output) => output.targetFile),
-        unchanged,
-      ),
+      output:
+        ApplyPatchTool.describe(
+          pending.map((output) => output.targetFile),
+          unchanged,
+        ) + (merged ? '\n［自动合并：目标在等锁期间被其他会话改动，补丁已应用到最新内容］' : ''),
     };
   }
 
   /**
-   * 提交前准备：建父目录，并为**已存在**的目标生成 `.bak`（与 `write_file` / `edit` 同口径）。
+   * 提交前准备：为**已存在**的目标生成 `.bak`（与 `write_file` / `edit` 同口径）。
    * @param pending 内容确实会变化的目标（顺序即落盘顺序）。
-   * @param originals 各目标应用前的内容。
+   * @param existing 操作开始时已存在的目标集合。
+   * @param leases 绝对路径 → 写租约。
    * @param root 本次调用解析出的工作区根。
    * @returns 准备完成后的 Promise；任一目标准备失败即抛出（调用方据此在**未写任何文件**时返回）。
    */
   private async prepare(
     pending: readonly { readonly targetFile: string; readonly content: string }[],
-    originals: ReadonlyMap<string, string>,
+    existing: ReadonlySet<string>,
+    leases: ReadonlyMap<string, FileWriteLease>,
     root: string,
   ): Promise<void> {
     for (const output of pending) {
-      const absolute = resolve(root, output.targetFile);
-      await mkdir(dirname(absolute), { recursive: true });
-      if (this.existing.has(output.targetFile)) {
-        await writeFile(`${absolute}.bak`, originals.get(output.targetFile) ?? '', 'utf8');
-      }
+      if (!existing.has(output.targetFile)) continue;
+      const lease = leases.get(resolve(root, output.targetFile));
+      if (lease === undefined) throw new Error(`补丁目标未持锁: ${output.targetFile}`);
+      await lease.backup();
     }
   }
 
   /**
    * 回滚已落盘的目标到补丁前状态（fail-soft：单件回滚失败只告警并计数，不掩盖原始写错误）。
    * @param written 已成功写入的相对路径（按落盘顺序）。
-   * @param originals 各目标应用前的内容。
+   * @param originals 各目标操作开始时的内容。
+   * @param existing 操作开始时已存在的目标集合。
+   * @param leases 绝对路径 → 写租约。
+   * @param ledger 账本。
    * @param root 本次调用解析出的工作区根。
    * @returns 成功回滚的文件数。
    */
   private async rollback(
     written: readonly string[],
     originals: ReadonlyMap<string, string>,
+    existing: ReadonlySet<string>,
+    leases: ReadonlyMap<string, FileWriteLease>,
+    ledger: FileContentLedger,
+    owner: string,
     root: string,
   ): Promise<number> {
     let rolled = 0;
     for (const target of [...written].reverse()) {
       const absolute = resolve(root, target);
+      const lease = leases.get(absolute);
       try {
-        if (this.existing.has(target)) {
-          await writeFile(absolute, originals.get(target) ?? '', 'utf8');
+        if (lease === undefined) throw new Error(`补丁目标未持锁: ${target}`);
+        if (existing.has(target)) {
+          await lease.write(originals.get(target) ?? '');
         } else {
-          await unlink(absolute);
+          await lease.remove();
         }
-        this.ledger?.forget(absolute);
+        // 回滚后磁盘回到补丁前：账本必须跟着退回，否则下一次写入会拿「补丁后版本」误判。
+        if (existing.has(target)) {
+          ledger.remember(absolute, originals.get(target) ?? '', owner);
+        } else {
+          ledger.forget(absolute);
+        }
         rolled += 1;
       } catch (error) {
         log.warn('tool.apply_patch.rollback.failed', {

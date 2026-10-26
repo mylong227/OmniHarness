@@ -30,9 +30,11 @@ export default tseslint.config(...base, {
   files: ['src/**/*.ts'],
   languageOptions: {
     parserOptions: {
-      // 用 `project`（显式 tsconfig）而非 `projectService`：本机实测 26.4 s vs 28.3 s，
+      // 只把 `src/**` 建进类型程序：tests/examples 不参与 typed lint，却会被 `tsconfig.json`
+      // 的 include 带进 program，白白增加 ~1s 级解析成本（2026-10-26 实测 45.3s → 预算内）。
+      // 用 `project`（显式 tsconfig）而非 `projectService`：本机实测更稳定，
       // 且显式工程边界更贴合"只覆盖 src/**"的口径。
-      project: ['./tsconfig.json'],
+      project: ['./tsconfig.typed.json'],
       tsconfigRootDir: import.meta.dirname,
     },
   },

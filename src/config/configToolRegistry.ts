@@ -18,7 +18,9 @@ import { AskUserTool } from '../adapters/tool/plan/askUserTool.ts';
 import { PlanWriteTool, PlanPresentTool, PlanReadTool } from '../adapters/tool/plan/planTool.ts';
 import { ReadFileTool } from '../adapters/tool/fs/readFileTool.ts';
 import { EditFileTool } from '../adapters/tool/fs/editFileTool.ts';
-import { FileContentLedger } from '../adapters/tool/fs/fileContentLedger.ts';
+import { WorkspaceFileCoordinator } from '../adapters/tool/fs/workspaceFileCoordinator.ts';
+import { FairSessionScheduler } from '../util/concurrency/fairSessionScheduler.ts';
+import { LimitEnv } from '../util/limitEnv.ts';
 import { GrepTool } from '../adapters/tool/fs/grepTool.ts';
 import { GlobTool } from '../adapters/tool/fs/globTool.ts';
 import { WebFetchTool } from '../adapters/tool/web/webFetchTool.ts';
@@ -145,34 +147,12 @@ export class ConfigToolRegistry {
       readonly planMode: boolean;
     },
   ): void {
-    // A3：shell 命令策略在**组合根**显式装配（不在工具内部自建），模式默认 audit
-    // （解析 + 记录，零行为变更），`OMNI_SHELL_POLICY=enforce` 或后续 A2 权限档驱动为强制拒绝。
-    // S1 内容账本：读记指纹、写前比对——读写工具必须共用**同一实例**才有意义（组合根单例）。
-    const ledger = new FileContentLedger();
     // P2-⑫ 后台作业：shell 与 shell_job 必须共用同一注册表，否则二者看不到彼此的作业。
     const jobs = new BackgroundJobRegistry(seed.workspaceRoot);
-    // 工具族共用同一策略实例：shell / shell_interactive 的裁决口径不漂移。
-    const shellPolicy = new ShellCommandPolicy();
-    // OS 级 profile（bwrap/unshare）自带命令包装；策略档没有该方法，保持原样执行。
-    const commandWrapper = seed.sandbox.wrapCommand?.bind(seed.sandbox);
-    const shell = new ShellTool({
-      policy: shellPolicy,
-      jobs,
-      ledger,
-      ...(commandWrapper !== undefined ? { commandWrapper } : {}),
-    });
-    // 交互式 / 持久 PTY：TTY 环境下把终端交给命令（`stdio: 'inherit'`），非 TTY 一律 fail-closed
-    // 并给出可执行原因——补齐「TUI 类命令拿不到真终端」这条腿（2026-09-19 全量收口）。
-    const interactiveShell = new ShellInteractiveTool({ policy: shellPolicy });
-    const reader = new ReadFileTool(ledger);
-    const writer = new WriteFileTool(seed.workspaceRoot, ledger);
-    // 内容替换编辑（P0，2026-09-19）：模型不必给行号即可改代码；与 write_file/apply_patch 并列。
-    const editor = new EditFileTool(seed.workspaceRoot, ledger);
-    const lister = new ListDirTool(seed.workspaceRoot);
-    const patcher = new ApplyPatchTool(seed.workspaceRoot, ledger);
-    // 编码检索（P0，2026-09-19）：按内容 grep / 按路径 glob，补齐「查问题」这条腿（原只能靠 shell 手写 grep）。
-    const grepper = new GrepTool(seed.workspaceRoot);
-    const globber = new GlobTool(seed.workspaceRoot);
+    // 文件/命令工具族的装配（账本、跨会话文件协调器、shell 公平闸门）收在单一 helper 里：
+    // 这组工具的并发语义必须**共享同一批实例**，散在 registerCoreTools 里最容易漏掉其中一条。
+    const { shell, interactiveShell, reader, writer, editor, lister, patcher, grepper, globber } =
+      ConfigToolRegistry.buildWorkspaceTools(seed, jobs);
     // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道；
     // browser_screenshot 把「看一眼自己做的页面」补上（纯 TS CDP，headless Chrome/Edge）。
     const fetcher = new WebFetchTool();
@@ -222,6 +202,67 @@ export class ConfigToolRegistry {
     registry.register(coder.definition, (call, ctx) => coder.handle(call, ctx));
     registry.register(spillReader.definition, (call, ctx) => spillReader.handle(call, ctx));
     registry.register(sketcher.definition, (call, ctx) => sketcher.handle(call, ctx));
+  }
+
+  /**
+   * 装配文件 / shell 工具族（共享账本、文件协调器与 shell 公平闸门）。
+   *
+   * @param seed 子智能体端口种子（工作区根、沙箱包装等）。
+   * @param jobs 后台作业注册表（shell 与 shell_job 共享）。
+   * @returns 已构造好的工具实例（由调用方注册进 registry）。
+   */
+  private static buildWorkspaceTools(
+    seed: SubagentPortSeed,
+    jobs: BackgroundJobRegistry,
+  ): {
+    readonly shell: ShellTool;
+    readonly interactiveShell: ShellInteractiveTool;
+    readonly reader: ReadFileTool;
+    readonly writer: WriteFileTool;
+    readonly editor: EditFileTool;
+    readonly lister: ListDirTool;
+    readonly patcher: ApplyPatchTool;
+    readonly grepper: GrepTool;
+    readonly globber: GlobTool;
+  } {
+    // A3：shell 命令策略在**组合根**显式装配（不在工具内部自建），模式默认 audit
+    // （解析 + 记录，零行为变更），`OMNI_SHELL_POLICY=enforce` 或后续 A2 权限档驱动为强制拒绝。
+    // S1 内容账本：读记本会话基线、写前比对——读写工具必须共用**同一实例**才有意义。
+    // 2026-10-25：账本挂在工作区级 `WorkspaceFileCoordinator` 上，跨 Runtime 重建/跨会话共享，
+    // 否则 `config.update` 触发 Agent 重建后账本清空，陈旧读保护会静默失效。
+    const coordinator = WorkspaceFileCoordinator.of(seed.workspaceRoot);
+    const ledger = coordinator.ledger;
+    // 多会话并发闸门：总量有界（默认 8 个前台 shell）+ 会话公平（不是 FIFO，避免一个会话
+    // 塞满队列让另一个会话的命令长时间拿不到槽位）。环境变量可调，非法值安全回退。
+    const shellGovernor = FairSessionScheduler.shared(`shell:${coordinator.root}`, {
+      limit: LimitEnv.int('OMNI_SHELL_CONCURRENCY', 8),
+      maxQueuePerSession: LimitEnv.int('OMNI_SHELL_QUEUE_PER_SESSION', 64),
+      maxQueueTotal: LimitEnv.int('OMNI_SHELL_QUEUE_TOTAL', 256),
+    });
+    // 工具族共用同一策略实例：shell / shell_interactive 的裁决口径不漂移。
+    const shellPolicy = new ShellCommandPolicy();
+    // OS 级 profile（bwrap/unshare）自带命令包装；策略档没有该方法，保持原样执行。
+    const commandWrapper = seed.sandbox.wrapCommand?.bind(seed.sandbox);
+    const shell = new ShellTool({
+      policy: shellPolicy,
+      jobs,
+      ledger,
+      governor: shellGovernor,
+      ...(commandWrapper !== undefined ? { commandWrapper } : {}),
+    });
+    // 交互式 / 持久 PTY：TTY 环境下把终端交给命令（`stdio: 'inherit'`），非 TTY 一律 fail-closed
+    // 并给出可执行原因——补齐「TUI 类命令拿不到真终端」这条腿（2026-09-19 全量收口）。
+    const interactiveShell = new ShellInteractiveTool({ policy: shellPolicy });
+    const reader = new ReadFileTool(ledger);
+    const writer = new WriteFileTool(seed.workspaceRoot, ledger);
+    // 内容替换编辑（P0，2026-09-19）：模型不必给行号即可改代码；与 write_file/apply_patch 并列。
+    const editor = new EditFileTool(seed.workspaceRoot, ledger);
+    const lister = new ListDirTool(seed.workspaceRoot);
+    const patcher = new ApplyPatchTool(seed.workspaceRoot, ledger);
+    // 编码检索（P0，2026-09-19）：按内容 grep / 按路径 glob，补齐「查问题」这条腿（原只能靠 shell 手写 grep）。
+    const grepper = new GrepTool(seed.workspaceRoot);
+    const globber = new GlobTool(seed.workspaceRoot);
+    return { shell, interactiveShell, reader, writer, editor, lister, patcher, grepper, globber };
   }
 
   /**

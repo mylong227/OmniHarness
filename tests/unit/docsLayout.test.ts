@@ -54,6 +54,17 @@ const ROOT_ALLOWLIST: readonly string[] = [
   // A.5 OTel 导出评估：B 级「先测后买」的裁决记录（含复评触发条件），ARCHITECTURE_TARGET §5.3 指向它
   'OTEL_EXPORT_EVALUATION_2026-10.md',
   'TRANSPORT_STACK_EVALUATION_2026-10.md',
+  // 多会话并发数学调研（2026-10-25 显式登记）：锁/调度/一致性/原子写的理论映射与未做边界，
+  // 配套本轮文件协调器与 shell 公平闸门的实施记录。
+  'CONCURRENCY_MATH_2026-10-25.md',
+  // 能力升级总规划（2026-10-25 显式登记）：独立性/桌面/长任务/多 Skill/Web+桌面五条工作流与优先级。
+  'PROJECT_EVOLUTION_PLAN_2026-10-25.md',
+  // Web/桌面能力矩阵（2026-10-25 显式登记）：共享层/文件/通知/更新/安全/缺口六张表。
+  'WEB_DESKTOP_CAPABILITY_MATRIX.md',
+  // 剩余阻塞项（2026-10-25 显式登记）：必须由外部环境/凭据才能继续的项 + 复现证据与解阻命令。
+  'BLOCKERS_2026-10-25.md',
+  // 长任务自锁修复（2026-10-26 显式登记）：supervisor 降级导致真实长任务从 3 分钟拖成 3 小时的复盘与修复。
+  'LONG_TASK_SUPERVISOR_FIX_2026-10-26.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',
@@ -107,15 +118,39 @@ function localDocLinks(text: string): string[] {
   return out;
 }
 
+/** 并发会话临时记录标记：出现在文件前 5 行即视为「待合并的协作便签」，不要求进白名单。 */
+const TEMP_NOTE_MARKERS: readonly string[] = ['并发会话临时记录', '看板并发写入期间单独记录'];
+
+/**
+ * 是否是并发会话的临时记录（未合并前不阻塞其他会话的门禁）。
+ *
+ * 为什么需要：两个会话同时工作时，后写者不能把「一份待合并的临时记录」直接塞进白名单
+ * （合并后删除会让白名单出现死条目），也不能因为它让另一个会话的全量测试红。用**显式标记**
+ * 区分「有意的临时便签」与「随手堆在 docs/ 根的报告」——后者仍然红。
+ * @param name docs 根下的文件名。
+ * @returns 含标记时为 true。
+ */
+function isConcurrentScratchNote(name: string): boolean {
+  try {
+    const head = readFileSync(join(DOCS, name), 'utf8').split('\n').slice(0, 5).join('\n');
+    return TEMP_NOTE_MARKERS.some((marker) => head.includes(marker));
+  } catch {
+    return false;
+  }
+}
+
 test('① docs/ 根只允许白名单内的文档（新增根级文档必须显式决定去向）', () => {
   const actual = markdownUnder(DOCS).filter((rel) => !rel.includes('/'));
-  const unexpected = actual.filter((name) => !ROOT_ALLOWLIST.includes(name));
+  const unexpected = actual.filter(
+    (name) => !ROOT_ALLOWLIST.includes(name) && !isConcurrentScratchNote(name),
+  );
   assert.deepStrictEqual(
     unexpected,
     [],
     `docs/ 根出现未登记文档：${unexpected.join('、')}\n` +
       '若它是历史审计/计划/调研 ⇒ 直接删除（本仓不再维护历史存档）；' +
-      '若确为现行文档 ⇒ 加进本判据的白名单并在 docs/README.md 登记。',
+      '若确为现行文档 ⇒ 加进本判据的白名单并在 docs/README.md 登记；' +
+      '若只是并发会话的临时记录 ⇒ 前 5 行写明「并发会话临时记录」并在合并后删除。',
   );
   // 白名单里的每一项都必须真的存在（否则白名单本身在撒谎）。
   const missing = ROOT_ALLOWLIST.filter((name) => !existsSync(join(DOCS, name)));

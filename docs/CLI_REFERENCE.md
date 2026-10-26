@@ -208,3 +208,14 @@ curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
 | `OMNI_AGENTS_SKILLS=1`                             | 允许发现 `.agents/skills`（默认关闭）                       |
 | `OMNI_SKILL_TRUSTED_KEY=<public.pem>`              | 加载签名技能包时的可信 Ed25519 公钥；未设置则拒绝签名包     |
 | `OMNI_MCP_TOKENS_FILE=<path>`                      | 覆盖 `mcp auth` 令牌存储路径                                |
+
+### 5.1 多会话并发闸门（2026-10-25）
+
+| 变量                           | 默认  | 作用                                                                |
+| ------------------------------ | ----- | ------------------------------------------------------------------- |
+| `OMNI_SHELL_CONCURRENCY`       | `8`   | 前台 shell 全局并发上限（所有会话共享；`<1` / 非整数回落默认）      |
+| `OMNI_SHELL_QUEUE_PER_SESSION` | `64`  | 单会话最多排队多少条 shell；超出即返回 `queue-full`（不无限占内存） |
+| `OMNI_SHELL_QUEUE_TOTAL`       | `256` | 全局排队上限；超出即拒绝，避免多会话把进程内存拖垮                  |
+
+> 分配按会话公平（SFQ），不是全局 FIFO：一个会话灌满队列时，另一个会话的命令仍会排在
+> 它的前几条任务之后，而不是排在 100 条之后。代码：`src/util/concurrency/fairSessionScheduler.ts`。

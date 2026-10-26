@@ -32,6 +32,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { hostname } from 'node:os';
+import { dirname } from 'node:path';
 import { LockCompromisedError } from './lockCompromisedError.ts';
 
 /** 自旋等待与租约参数。 */
@@ -42,6 +43,13 @@ export interface FileLockOptions {
   readonly waitMs?: number;
   /** 租约时长（毫秒）：超过它没被持有者刷新即视为陈旧、可接管。 */
   readonly leaseMs?: number;
+  /**
+   * 锁目录的**完整路径**（可选）。缺省用 `<targetPath>.lock`。
+   *
+   * 为什么需要覆盖：工具级文件锁不能把 `<file>.lock` 丢在用户工作区里（会污染 `git status`、
+   * 被 `grep/glob` 当成产物）。调用方把它指到 `<workspace>/.omniharness/locks/<hash>` 即可。
+   */
+  readonly lockDir?: string;
 }
 
 /** 默认参数：切片 5ms、最多等 300ms、租约 5s。 */
@@ -50,7 +58,7 @@ const DEFAULT_WAIT_MS = 300;
 const DEFAULT_LEASE_MS = 5_000;
 
 /** 持锁者信息（写在 `<lock>.lock/owner.json`）。 */
-interface LockOwner {
+export interface FileLockOwner {
   /** fencing token：每次获取自增；写盘前用它核对锁是否仍属于自己。 */
   readonly token: number;
   /** 持有者 pid。 */
@@ -65,12 +73,15 @@ interface LockOwner {
 export class FileLock {
   /** 锁目录路径。 */
   private readonly lockDir: string;
-  /** 等待切片（毫秒）。 */
-  private readonly sliceMs: number;
-  /** 最长等待（毫秒）。 */
-  private readonly waitMs: number;
-  /** 租约时长（毫秒）。 */
-  private readonly leaseMs: number;
+  /** 等待/租约参数（合并成一个字段，避免类成员膨胀）。 */
+  private readonly timing: {
+    /** 单次等待切片（毫秒）。 */
+    readonly sliceMs: number;
+    /** 最长等待（毫秒）。 */
+    readonly waitMs: number;
+    /** 租约时长（毫秒）。 */
+    readonly leaseMs: number;
+  };
   /** 本持有者的 token（未持有时为 0）。 */
   private token = 0;
   /** fencing token 水位文件（在锁目录**之外**，释放后保留）。 */
@@ -81,11 +92,59 @@ export class FileLock {
    * @param options 等待与租约参数
    */
   public constructor(targetPath: string, options: FileLockOptions = {}) {
-    this.lockDir = `${targetPath}.lock`;
+    this.lockDir = options.lockDir ?? `${targetPath}.lock`;
     this.watermarkPath = `${this.lockDir}.token`;
-    this.sliceMs = options.sliceMs ?? DEFAULT_SLICE_MS;
-    this.waitMs = options.waitMs ?? DEFAULT_WAIT_MS;
-    this.leaseMs = options.leaseMs ?? DEFAULT_LEASE_MS;
+    this.timing = {
+      sliceMs: options.sliceMs ?? DEFAULT_SLICE_MS,
+      waitMs: options.waitMs ?? DEFAULT_WAIT_MS,
+      leaseMs: options.leaseMs ?? DEFAULT_LEASE_MS,
+    };
+  }
+
+  /**
+   * 当前持有者信息（诊断与「谁挡住了我」文案用）。
+   * @returns 持有者信息；未持有/读不到时为 undefined。
+   */
+  public holder(): FileLockOwner | undefined {
+    return this.readOwner();
+  }
+
+  /**
+   * 续租：临界区超过 `leaseMs` 时由心跳调用，避免被别的进程当陈旧锁接管。
+   *
+   * **只写 token 专属的 `lease.<token>` 文件，不改 `owner.json`**。原因：租约过期被接管时，
+   * 旧路径已经被 `rename` 给新持有者；若续租还去写 `owner.json`，就可能在「检查 token → 写入」
+   * 的窗口里**覆盖新持有者的 token**（经典租约 TOCTOU）。写到 `lease.<oldToken>` 即使落进新
+   * 目录也只是多一个无害文件，新持有者的 `owner.json` 不受影响。
+   *
+   * 若锁已被接管（磁盘 token 不是自己的），返回 false 并放弃本地 token——调用方据此停止心跳，
+   * 写盘前的 `assertHeld` 也会拒绝。
+   * @returns 仍持有返回 true。
+   */
+  public renew(): boolean {
+    if (this.token === 0) return false;
+    if (this.currentToken() !== this.token) {
+      this.token = 0;
+      return false;
+    }
+    FileLock.writeText(this.leasePath(this.token), String(Date.now()) + '\n');
+    return true;
+  }
+
+  /**
+   * 生效的租约毫秒数（供调用方计算心跳间隔）。
+   * @returns 租约时长（毫秒）。
+   */
+  public leaseMsOf(): number {
+    return this.timing.leaseMs;
+  }
+
+  /**
+   * 生效的等待毫秒数（供异步封装计算轮询上限）。
+   * @returns 最长等待（毫秒）。
+   */
+  public waitMsOf(): number {
+    return this.timing.waitMs;
   }
 
   /**
@@ -125,7 +184,7 @@ export class FileLock {
    * @returns 是否真正在锁内执行了 `fn`
    */
   public withLock(fn: (guard: () => void) => void): boolean {
-    const deadline = Date.now() + this.waitMs;
+    const deadline = Date.now() + this.timing.waitMs;
     for (;;) {
       if (this.tryAcquire()) {
         try {
@@ -136,7 +195,7 @@ export class FileLock {
         }
       }
       if (Date.now() >= deadline) return false;
-      FileLock.sleep(this.sliceMs);
+      FileLock.sleep(this.timing.sliceMs);
     }
   }
 
@@ -159,6 +218,9 @@ export class FileLock {
    */
   private createLockDir(): boolean {
     try {
+      // 自定义锁目录（`<workspace>/.omniharness/locks/<hash>`）的父目录可能尚未创建；
+      // 同步 mkdir 一次，避免首个写者因 ENOENT 被误判成「锁被占用」。
+      mkdirSync(dirname(this.lockDir), { recursive: true });
       mkdirSync(this.lockDir);
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') return false;
@@ -204,12 +266,37 @@ export class FileLock {
     if (owner === undefined) {
       // 只有目录没有 owner.json（极窄的窗口：别人刚 mkdir 还没写）⇒ 用目录 mtime 兜底。
       try {
-        return Date.now() - statSync(this.lockDir).mtimeMs > this.leaseMs;
+        return Date.now() - statSync(this.lockDir).mtimeMs > this.timing.leaseMs;
       } catch {
         return false;
       }
     }
-    return Date.now() - owner.at > this.leaseMs;
+    const heartbeat = FileLock.readTokenNumber(this.leasePath(owner.token));
+    const at = heartbeat > 0 ? heartbeat : owner.at;
+    return Date.now() - at > this.timing.leaseMs;
+  }
+
+  /**
+   * 某 token 的续租文件路径（token 专属，接管后旧持有者的写入不会碰到新持有者的 owner.json）。
+   * @param token fencing token
+   * @returns 续租文件绝对路径
+   */
+  private leasePath(token: number): string {
+    return `${this.lockDir}/lease.${String(token)}`;
+  }
+
+  /**
+   * 尽力写一个小文本文件（续租失败不改变互斥语义：最坏情况是租约到期被接管，guard 会拒绝写入）。
+   * @param file 目标路径
+   * @param text 内容
+   * @returns 无返回值
+   */
+  private static writeText(file: string, text: string): void {
+    try {
+      writeFileSync(file, text, 'utf8');
+    } catch {
+      /* 见方法注释：续租是尽力而为 */
+    }
   }
 
   /**
@@ -260,7 +347,7 @@ export class FileLock {
    * 读当前锁目录的持有者信息。
    * @returns 持有者信息；缺失/损坏返回 undefined
    */
-  private readOwner(): LockOwner | undefined {
+  private readOwner(): FileLockOwner | undefined {
     return FileLock.readOwnerAt(this.lockDir);
   }
 
@@ -269,11 +356,11 @@ export class FileLock {
    * @param dir 锁目录
    * @returns 持有者信息；缺失/损坏返回 undefined
    */
-  private static readOwnerAt(dir: string): LockOwner | undefined {
+  private static readOwnerAt(dir: string): FileLockOwner | undefined {
     const file = `${dir}/owner.json`;
     if (!existsSync(file)) return undefined;
     try {
-      const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<LockOwner>;
+      const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<FileLockOwner>;
       if (typeof parsed.token !== 'number' || typeof parsed.at !== 'number') return undefined;
       return {
         token: parsed.token,
@@ -291,7 +378,7 @@ export class FileLock {
    * @returns 无返回值。
    */
   private writeOwner(): void {
-    const owner: LockOwner = {
+    const owner: FileLockOwner = {
       token: this.token,
       pid: process.pid,
       host: hostname(),

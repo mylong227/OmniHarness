@@ -14,6 +14,7 @@ import type { ShellRunOutcome } from './shellProcessRunner.ts';
 import type { BackgroundJobRegistry } from './backgroundJobRegistry.ts';
 import { StackFrameParser } from '../verify/stackFrameParser.ts';
 import type { FileContentLedger } from '../fs/fileContentLedger.ts';
+import type { FairSessionScheduler } from '../../../util/concurrency/fairSessionScheduler.ts';
 import { SHELL_DEFAULT_MAX_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS } from './shellTimeouts.ts';
 
 /** shell 工具可选项。 */
@@ -61,6 +62,12 @@ export interface ShellToolOptions {
    * 只在策略/审批按**原始命令**裁决之后应用；未注入 = 不进行 OS 包装（纯策略档）。
    */
   readonly commandWrapper?: ((command: string, cwd: string) => string) | undefined;
+  /**
+   * 会话公平的 shell 并发闸门（可选）。注入后前台命令/后台启动在**全局上限**内排队，
+   * 且按会话公平分配（一个会话不能塞满队列把别的会话饿死）。
+   * 未注入时保持原有「立即执行」语义（测试/嵌入式调用零行为变更）。
+   */
+  readonly governor?: FairSessionScheduler | undefined;
 }
 
 /**
@@ -93,10 +100,15 @@ export class ShellTool {
   /** 失败摘要中最多回灌的位置候选条数（P1-⑩，防刷屏）。 */
   private static readonly MAX_FRAME_HINTS = 5;
 
-  /** 子进程输出解码器（处理 GBK/UTF-8 等编码容错）。 */
-  private readonly decoder = new OutputDecoder();
-  /** 子进程执行器（spawn 显式 argv；可经选项注入替身，见 {@link ShellToolOptions.runner}）。 */
-  private readonly runner: Pick<ShellProcessRunner, 'run'>;
+  /** 运行时依赖（执行器/解码器/公平闸门合并为一个字段，避免类成员膨胀）。 */
+  private readonly runtime: {
+    /** 子进程输出解码器（处理 GBK/UTF-8 等编码容错）。 */
+    readonly decoder: OutputDecoder;
+    /** 子进程执行器（spawn 显式 argv；可经选项注入替身）。 */
+    readonly runner: Pick<ShellProcessRunner, 'run'>;
+    /** 会话公平并发闸门（未注入时命令立即执行）。 */
+    readonly governor: ShellToolOptions['governor'];
+  };
   /** 工具层命令策略。 */
   private readonly policy: ShellCommandPolicy;
   /** 单条命令默认超时（毫秒）。 */
@@ -126,7 +138,11 @@ export class ShellTool {
    * @param options shell 工具选项（超时/缓冲/长度上限、可选裁决器、策略与后台作业注册表，全有默认）。
    */
   public constructor(options: ShellToolOptions = {}) {
-    this.runner = options.runner ?? new ShellProcessRunner();
+    this.runtime = {
+      decoder: new OutputDecoder(),
+      runner: options.runner ?? new ShellProcessRunner(),
+      governor: options.governor,
+    };
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.maxTimeoutMs = Math.max(
       ShellTool.MIN_TIMEOUT_MS,
@@ -176,14 +192,34 @@ export class ShellTool {
   };
 
   /**
-   * 执行命令。
+   * 执行命令（先过会话公平闸门；未注入闸门时直接执行）。
    *
    * @param call 工具调用（实参须含 command 字符串，可选 timeout_ms）。
    * @param context 工具上下文（workspaceRoot、sessionId 等）。
+   * @returns 执行结果；闸门拒绝（排队满/取消）也转成失败结果，不向调用方抛错。
+   */
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    if (this.runtime.governor === undefined) {
+      return this.execute(call, context);
+    }
+    try {
+      return await this.runtime.governor.run(context.sessionId, () => this.execute(call, context), {
+        ...(context.signal !== undefined ? { signal: context.signal } : {}),
+      });
+    } catch (error) {
+      return this.failure(call.id, error);
+    }
+  }
+
+  /**
+   * 命令校验、裁决与真实执行的实体（`handle` 只负责闸门与失败兜底）。
+   *
+   * @param call 工具调用。
+   * @param context 工具上下文。
    * @returns 执行结果：成功附 stdout/stderr 组合输出；校验失败、被裁决、超时、输出超限或
    *   命令非零退出时失败（非零退出与超时会**保留已产生的输出**，便于模型自行纠错）。
    */
-  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+  private async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
     const command = String(call.arguments['command'] ?? '').trim();
     if (command === '') {
       return this.failure(call.id, '命令为空');
@@ -222,7 +258,7 @@ export class ShellTool {
     const usePty = call.arguments['tty'] === true;
     try {
       const timeoutMs = this.effectiveTimeout(call.arguments['timeout_ms']);
-      const outcome = await this.runner.run(executable, {
+      const outcome = await this.runtime.runner.run(executable, {
         cwd,
         env: ShellChildEnv.clean(),
         timeoutMs,
@@ -317,8 +353,8 @@ export class ShellTool {
    */
   private toResult(callId: string, outcome: ShellRunOutcome, timeoutMs: number): ToolResult {
     let output = this.composeOutput(
-      this.decoder.decode(outcome.stdout),
-      this.decoder.decode(outcome.stderr),
+      this.runtime.decoder.decode(outcome.stdout),
+      this.runtime.decoder.decode(outcome.stderr),
     );
     if (outcome.consoleFallback === true) {
       // 诚实上报（2026-10-07）：命令**实际启动了两次**——首次带 CREATE_NO_WINDOW 的启动在受限

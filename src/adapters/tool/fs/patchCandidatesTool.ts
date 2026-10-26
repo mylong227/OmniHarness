@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import type { DecisionEngine } from '../../../ports/decision/decisionEngine.ts';
 import type {
   ToolCall,
@@ -15,6 +15,8 @@ import { SelfVerifyPolicy } from '../verify/selfVerifyPolicy.ts';
 import { PatchApplier } from './patchApplier.ts';
 import { ToolWorkspaceRoot } from '../../../util/toolWorkspaceRoot.ts';
 import { WorkspaceGuard } from '../../../util/workspaceGuard.ts';
+import { log } from '../../../util/logger.ts';
+import { WorkspaceFileCoordinator, type FileWriteLease } from './workspaceFileCoordinator.ts';
 
 /** 单个候选补丁的评估结果（未跑测试前）。 */
 interface Candidate {
@@ -293,30 +295,55 @@ export class PatchCandidatesTool {
         note: '总测试预算耗尽，未运行',
       };
     }
+    const coordinator = WorkspaceFileCoordinator.of(root);
+    const absolutes = [...candidate.outputs.keys()].map((target) => resolve(root, target));
     try {
-      await this.writeOutputs(root, candidate.outputs);
-      const effectiveTimeout = Math.min(timeoutMs, remaining);
-      const outcome = await this.runner.run(command.command, {
-        cwd: root,
-        env: ShellChildEnv.clean(),
-        timeoutMs: effectiveTimeout,
-        maxBufferBytes: command.maxOutputBytes,
+      // 候选验证**全程持有目标文件写锁**：临时写入 → 跑测试 → 恢复原文，期间别的会话
+      // 不得改同一文件（否则测试结果与恢复都会建立在他人的并发修改上）。
+      return await coordinator.withWriteMany(absolutes, async (leases) => {
+        try {
+          const conflict = await this.writeOutputs(root, candidate, leases);
+          if (conflict !== undefined) {
+            return {
+              index: candidate.index,
+              passed: false,
+              exitCode: null,
+              timedOut: false,
+              note: conflict,
+            };
+          }
+          const effectiveTimeout = Math.min(timeoutMs, remaining);
+          const outcome = await this.runner.run(command.command, {
+            cwd: root,
+            env: ShellChildEnv.clean(),
+            timeoutMs: effectiveTimeout,
+            maxBufferBytes: command.maxOutputBytes,
+          });
+          const passed =
+            outcome.exitCode === 0 && !outcome.timedOut && !outcome.aborted && !outcome.overflowed;
+          return {
+            index: candidate.index,
+            passed,
+            exitCode: outcome.exitCode,
+            timedOut: outcome.timedOut,
+            note: passed
+              ? '测试通过'
+              : outcome.timedOut
+                ? `超时（${String(timeoutMs)}ms）`
+                : `失败（exit=${String(outcome.exitCode ?? 'null')}，aborted=${String(outcome.aborted)}，overflowed=${String(outcome.overflowed)}）`,
+          };
+        } finally {
+          await this.restore(root, candidate, leases);
+        }
       });
-      const passed =
-        outcome.exitCode === 0 && !outcome.timedOut && !outcome.aborted && !outcome.overflowed;
+    } catch (error) {
       return {
         index: candidate.index,
-        passed,
-        exitCode: outcome.exitCode,
-        timedOut: outcome.timedOut,
-        note: passed
-          ? '测试通过'
-          : outcome.timedOut
-            ? `超时（${String(timeoutMs)}ms）`
-            : `失败（exit=${String(outcome.exitCode ?? 'null')}，aborted=${String(outcome.aborted)}，overflowed=${String(outcome.overflowed)}）`,
+        passed: false,
+        exitCode: null,
+        timedOut: false,
+        note: `未运行：${this.messageOf(error)}`,
       };
-    } finally {
-      await this.restore(root, candidate.originals);
     }
   }
 
@@ -385,45 +412,71 @@ export class PatchCandidatesTool {
   }
 
   /**
-   * 把候选内容写入工作区（临时验证阶段）。
+   * 把候选内容写入工作区（临时验证阶段；调用方必须已持有全部目标写锁）。
+   *
+   * 写入前逐目标核对「当前内容 == 候选基于的原文」：不一致说明候选是在旧内容上算出来的，
+   * 直接写会把别人的改动覆盖掉——此时整批不写，让该候选判为未运行。
    * @param root 工作区根。
-   * @param outputs 目标 → 内容。
-   * @returns 无返回值。
+   * @param candidate 候选。
+   * @param leases 目标绝对路径 → 写租约。
+   * @returns 冲突/错误文案；成功时 undefined。
    */
-  private async writeOutputs(root: string, outputs: ReadonlyMap<string, string>): Promise<void> {
-    for (const [target, content] of outputs) {
-      const absolute = resolve(root, target);
-      await mkdir(dirname(absolute), { recursive: true });
-      await writeFile(absolute, content, 'utf8');
+  private async writeOutputs(
+    root: string,
+    candidate: Candidate,
+    leases: ReadonlyMap<string, FileWriteLease>,
+  ): Promise<string | undefined> {
+    for (const [target] of candidate.outputs) {
+      const lease = leases.get(resolve(root, target));
+      if (lease === undefined) return `目标未持锁: ${target}`;
+      const current = await lease.read();
+      if (current !== candidate.originals.get(target)) {
+        return `目标 ${target} 在候选计算后被修改，已放弃写入（请重读后重发候选）`;
+      }
     }
+    for (const [target, content] of candidate.outputs) {
+      const lease = leases.get(resolve(root, target));
+      if (lease === undefined) return `目标未持锁: ${target}`;
+      await lease.write(content);
+    }
+    return undefined;
   }
 
   /**
-   * 恢复候选前的文件状态（存在则写回，不存在则删除）。
+   * 恢复候选前的文件状态（调用方仍持有全部目标写锁；测试自身改文件也一并恢复）。
    * @param root 工作区根。
-   * @param originals 目标 → 原内容（undefined = 原不存在）。
+   * @param candidate 候选。
+   * @param leases 目标绝对路径 → 写租约。
    * @returns 无返回值。
    */
   private async restore(
     root: string,
-    originals: ReadonlyMap<string, string | undefined>,
+    candidate: Candidate,
+    leases: ReadonlyMap<string, FileWriteLease>,
   ): Promise<void> {
-    for (const [target, content] of originals) {
-      const absolute = resolve(root, target);
+    for (const [target, content] of candidate.originals) {
+      const lease = leases.get(resolve(root, target));
       try {
+        if (lease === undefined) throw new Error(`目标未持锁: ${target}`);
         if (content === undefined) {
-          await unlink(absolute);
+          await lease.remove();
         } else {
-          await writeFile(absolute, content, 'utf8');
+          await lease.write(content);
         }
-      } catch {
-        // 恢复失败不掩盖原始测试错误；调用方仍会看到 candidate 失败/工具错误。
+      } catch (error) {
+        log.warn('tool.patch_candidates.restore.failed', {
+          target,
+          error: this.messageOf(error),
+        });
       }
     }
   }
 
   /**
    * 把胜出候选正式写回工作区（含 `.bak` 备份；失败回滚）。
+   *
+   * 与临时验证阶段同一把锁：写回前核对「当前内容 == 候选原文」，防止在候选跑测试期间
+   * 别的会话改了目标文件后仍被候选覆盖。
    * @param root 工作区根。
    * @param chosen 胜出候选。
    * @returns 成功/失败。
@@ -432,26 +485,33 @@ export class PatchCandidatesTool {
     root: string,
     chosen: Candidate,
   ): Promise<{ readonly ok: true } | { readonly ok: false; readonly error: string }> {
-    const written: string[] = [];
-    for (const [target, content] of chosen.outputs) {
-      const absolute = resolve(root, target);
-      try {
-        await mkdir(dirname(absolute), { recursive: true });
-        const original = chosen.originals.get(target);
-        if (original !== undefined) {
-          await writeFile(`${absolute}.bak`, original, 'utf8');
+    const coordinator = WorkspaceFileCoordinator.of(root);
+    const absolutes = [...chosen.outputs.keys()].map((target) => resolve(root, target));
+    try {
+      await coordinator.withWriteMany(absolutes, async (leases) => {
+        for (const [target] of chosen.outputs) {
+          const lease = leases.get(resolve(root, target));
+          if (lease === undefined) throw new Error(`目标未持锁: ${target}`);
+          if ((await lease.read()) !== chosen.originals.get(target)) {
+            throw new Error(`目标 ${target} 在候选验证期间被其他会话修改，已放弃写回`);
+          }
         }
-        await writeFile(absolute, content, 'utf8');
-        written.push(target);
-      } catch (error) {
-        await this.restore(root, chosen.originals);
-        return {
-          ok: false,
-          error: `写回候选失败（已恢复 ${String(written.length)} 个已写文件）：${this.messageOf(error)}`,
-        };
-      }
+        try {
+          for (const [target, content] of chosen.outputs) {
+            const lease = leases.get(resolve(root, target));
+            if (lease === undefined) throw new Error(`目标未持锁: ${target}`);
+            await lease.backup();
+            await lease.write(content);
+          }
+        } catch (error) {
+          await this.restore(root, chosen, leases);
+          throw error;
+        }
+      });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: `写回候选失败: ${this.messageOf(error)}` };
     }
-    return { ok: true };
   }
 
   /**
