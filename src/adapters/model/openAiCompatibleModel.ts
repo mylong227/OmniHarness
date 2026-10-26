@@ -121,10 +121,13 @@ export class OpenAiCompatibleModel implements ModelPort {
     callbacks: StreamCallbacks,
     guard: RequestStallGuard | undefined,
   ): Promise<ModelOutput> {
-    const init = this.buildRequest(request, guard);
-    const body = this.bodyOf(request);
     // stream_options.include_usage 让兼容端点（DeepSeek/OpenAI）在末块回传 usage，供成本护栏记账。
-    init.body = JSON.stringify({ ...body, stream: true, stream_options: { include_usage: true } });
+    // 2026-10-25：附加字段并入 buildRequest 的 body 后再序列化——旧实现先 buildRequest
+    // （内部已 stringify 一次）再 bodyOf + stringify 覆盖，1.16 MB 请求体白烧约 23 ms/次。
+    const init = this.buildRequest(request, guard, {
+      stream: true,
+      stream_options: { include_usage: true },
+    });
     const response = await fetch(this.endpoint(), init);
     guard?.touch();
     if (!response.ok) {
@@ -224,13 +227,22 @@ export class OpenAiCompatibleModel implements ModelPort {
    * @param request 模型请求，决定 body 内容。
    * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal，
    *              缺省则不带 signal（与改造前该分支逐字一致）。
+   * @param bodyOverrides 流式分支的附加字段（`stream` / `stream_options`）；给出时**只序列化一次**。
    * @returns 可直接交给 fetch 的 RequestInit（POST、鉴权头与 JSON 序列化后的请求体）。
    */
-  private buildRequest(request: ModelRequest, guard?: RequestStallGuard): RequestInit {
+  private buildRequest(
+    request: ModelRequest,
+    guard?: RequestStallGuard,
+    bodyOverrides?: Record<string, unknown>,
+  ): RequestInit {
+    const body =
+      bodyOverrides === undefined
+        ? this.bodyOf(request)
+        : { ...this.bodyOf(request), ...bodyOverrides };
     return {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify(this.bodyOf(request)),
+      body: JSON.stringify(body),
       // V2：协作式取消——守卫信号已合并「空闲超时」与调用方 request.signal，取消即中断在飞请求。
       ...(guard !== undefined ? { signal: guard.signal } : {}),
     };

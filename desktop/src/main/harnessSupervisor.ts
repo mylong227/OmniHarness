@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import type { DesktopLogger } from './logger.ts';
+import type { DesktopHarnessConfig } from './config.ts';
 import type { ReadyInfo } from './lib/ready.ts';
 import { assertReadyz, waitForExit, waitForReadyFile } from './lib/ready.ts';
 
@@ -22,12 +23,20 @@ export interface HarnessOptions {
   readonly node: string;
   /** 就绪文件目录。 */
   readonly runDir: string;
+  /** 模型缓存目录（侧车可写，不能落在 Program Files）。 */
+  readonly modelDir: string;
+  /** 向量缓存目录。 */
+  readonly vectorDir: string;
   /** 日志器。 */
   readonly logger: DesktopLogger;
+  /** 侧车超时/主机/token 等配置。 */
+  readonly config: DesktopHarnessConfig;
 }
 
 /** 就绪句柄。 */
 export interface HarnessHandle {
+  /** 实际主机。 */
+  readonly host: string;
   /** 实际端口。 */
   readonly port: number;
   /** 本次 Token（仅内存）。 */
@@ -105,11 +114,11 @@ export class HarnessSupervisor extends EventEmitter {
     }
 
     this.state = 'starting';
-    const token = randomBytes(32).toString('hex');
+    const token = randomBytes(this.options.config.tokenBytes).toString('hex');
     mkdirSync(this.options.runDir, { recursive: true });
     const readyPath = join(
       this.options.runDir,
-      `harness-${String(process.pid)}-${String(Date.now())}.json`,
+      `${this.options.config.readyFilePrefix}-${String(process.pid)}-${String(Date.now())}.json`,
     );
     this.readyPath = readyPath;
     const env = buildHarnessEnv(process.env, {
@@ -118,8 +127,8 @@ export class HarnessSupervisor extends EventEmitter {
       OMNI_CONTROL_STDIO: '1',
       OMNI_NO_SERVE_INSTANCE: '1',
       OMNI_NO_UI_URL: '1',
-      OMNI_EMBEDDING_CACHE_DIR: join(this.options.runDir, '..', 'models'),
-      OMNI_VEC_CACHE: join(this.options.runDir, '..', 'vec-cache'),
+      OMNI_EMBEDDING_CACHE_DIR: this.options.modelDir,
+      OMNI_VEC_CACHE: this.options.vectorDir,
       NO_COLOR: '1',
     });
 
@@ -170,11 +179,22 @@ export class HarnessSupervisor extends EventEmitter {
     });
 
     try {
-      const ready: ReadyInfo = await waitForReadyFile(readyPath, child, 30_000);
-      await assertReadyz(ready.port, token);
-      this.handle = { port: ready.port, token, workspace: ready.workspace };
+      const config = this.options.config;
+      const ready: ReadyInfo = await waitForReadyFile(
+        readyPath,
+        child,
+        config.readyTimeoutMs,
+        config.readyPollIntervalMs,
+      );
+      await assertReadyz(ready.port, token, {
+        host: config.host,
+        timeoutMs: config.readyzTimeoutMs,
+        probeTimeoutMs: config.readyzProbeTimeoutMs,
+        retryIntervalMs: config.readyzRetryIntervalMs,
+      });
+      this.handle = { host: ready.host, port: ready.port, token, workspace: ready.workspace };
       this.state = 'ready';
-      this.options.logger.write('main', `harness ready on 127.0.0.1:${String(ready.port)}`);
+      this.options.logger.write('main', `harness ready on ${ready.host}:${String(ready.port)}`);
       return this.handle;
     } catch (error) {
       this.options.logger.write(
@@ -188,7 +208,7 @@ export class HarnessSupervisor extends EventEmitter {
   }
 
   /**
-   * 优雅停止；10s 后强杀，再 2s 后树杀（Windows）。
+   * 优雅停止；按配置等待后强杀，再按配置等待后树杀（Windows）。
    * @returns 无返回值。
    */
   public async stop(): Promise<void> {
@@ -206,10 +226,14 @@ export class HarnessSupervisor extends EventEmitter {
     } catch {
       // 管道可能已断；走强杀兜底。
     }
-    if (!(await waitForExit(child, 10_000))) {
-      this.options.logger.write('main', 'harness did not exit in 10s; killing');
+    const config = this.options.config;
+    if (!(await waitForExit(child, config.stopGraceMs))) {
+      this.options.logger.write(
+        'main',
+        `harness did not exit in ${String(config.stopGraceMs)}ms; killing`,
+      );
       child.kill();
-      if (!(await waitForExit(child, 2_000))) {
+      if (!(await waitForExit(child, config.killGraceMs))) {
         this.options.logger.write('main', 'harness still alive; taskkill tree');
         HarnessSupervisor.killTree(child.pid);
       }

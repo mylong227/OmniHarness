@@ -13,9 +13,11 @@ export interface LaunchArgs {
 /**
  * 从 argv 解析启动参数。
  * @param argv 进程参数（含 exe/入口前缀）。
+ * @param protocol 深链协议名（缺省 `omniharness`，由桌面配置传入）。
  * @returns 解析结果。
  */
-export function parseLaunchArgs(argv: readonly string[]): LaunchArgs {
+export function parseLaunchArgs(argv: readonly string[], protocol = 'omniharness'): LaunchArgs {
+  const deepLinkPrefix = `${protocol}://`;
   let workspace: string | null = null;
   let hidden = false;
   let deepLink: string | null = null;
@@ -39,7 +41,7 @@ export function parseLaunchArgs(argv: readonly string[]): LaunchArgs {
       hidden = true;
       continue;
     }
-    if (value.startsWith('omniharness://')) {
+    if (value.startsWith(deepLinkPrefix)) {
       deepLink = value;
     }
   }

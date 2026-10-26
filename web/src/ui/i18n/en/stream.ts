@@ -5,6 +5,7 @@ export const EN_STREAM: Record<string, string> = {
   '— 上下文已压缩 · 游标 upTo={upTo} · 摘要约 {n} 字 · 点击查看 —':
     '— Context compacted · cursor upTo={upTo} · summary ~{n} chars · click to view —',
   '进行中…': 'Running…',
+  '加载更早的消息': 'Load earlier messages',
   '对话事件流': 'Conversation event stream',
   '等待任务': 'Waiting for a task',
   '下达任务后，模型推理、工具调用与结果将在此实时呈现。':

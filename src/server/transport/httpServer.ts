@@ -1,9 +1,12 @@
 import { HttpBridgeTransport } from './httpBridgeTransport.ts';
 import { PreviewServer } from './previewServer.ts';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { extname, join, normalize } from 'node:path';
+import { readFile, stat } from 'node:fs/promises';
+import { createReadStream, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'node:zlib';
+import { extname, isAbsolute, join, normalize, relative, resolve } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import type { AppServer } from '../core/appServer.ts';
 import { type RpcRequest } from '../core/jsonRpc.ts';
 import { WsServer } from './wsConnection.ts';
@@ -76,8 +79,34 @@ export interface HealthStatus {
   readonly checks: Readonly<Record<string, boolean>>;
 }
 
+/** 静态资源缓存条目（原始字节 + 按需压缩结果；键为 `mtime:size`）。 */
+interface StaticAsset {
+  /** 文件版本键；变化即重建。 */
+  readonly key: string;
+  /** 内容 ETag（强校验，base64 编码的 sha1）。 */
+  readonly etag: string;
+  /** MIME。 */
+  readonly contentType: string;
+  /** 原始字节。 */
+  readonly raw: Buffer;
+  /** gzip 结果（首次请求才计算）。 */
+  gzip?: Buffer;
+  /** brotli 结果（首次请求才计算）。 */
+  br?: Buffer;
+}
+
 /** HTTP + SSE + WebSocket 服务：静态页 + JSON-RPC + 事件推送（无第三方依赖）。 */
 export class HttpServer {
+  /**
+   * 静态资源缓存条目（2026-10-25）。
+   *
+   * 为什么需要：主服务原先每个请求 `readFile` + `no-store`，2.37 MB 首屏每次刷新全量重下，
+   * 且无 gzip/br。这里按 `(mtime,size)` 缓存原始字节与压缩结果，命中时零读盘、可 304。
+   * 条目有界（64 条 / 64 MB），哈希资源与 index 都够用。
+   */
+  private readonly staticCache = new Map<string, StaticAsset>();
+  /** 静态缓存总字节（粗略，按原始 + 压缩后计）。 */
+  private staticBytes = 0;
   /**
    * 请求体总量上限（字节）：8 MiB。
    *
@@ -85,6 +114,11 @@ export class HttpServer {
    * 附件类请求留足余量，同时把「不封口的 POST 吃光内存」这条 OOM 路径彻底封死。
    */
   public static readonly MAX_BODY_BYTES = 8 * 1024 * 1024;
+
+  /** 静态资源缓存条数上限。 */
+  private static readonly STATIC_CACHE_MAX_ENTRIES = 64;
+  /** 静态资源缓存总字节上限（原始 + 压缩结果）。 */
+  private static readonly STATIC_CACHE_MAX_BYTES = 64 * 1024 * 1024;
 
   /**
    * 浏览器 / undici 明确禁用的端口（WHATWG bad ports 的子集）。
@@ -263,7 +297,9 @@ export class HttpServer {
     await log.withTrace(traceId, async () => {
       const started = Date.now();
       const method = request.method ?? 'GET';
-      log.info('http.request.start', { method, url });
+      // 令牌可能在查询串里（首屏 `?token=`）；日志脱敏后再落盘，避免重定向 stderr 即泄漏。
+      const safeUrl = HttpServer.redactUrlToken(url);
+      log.info('http.request.start', { method, url: safeUrl });
       if (!this.guard.verify(request)) {
         // 鉴权门禁（配令牌时生效）：401 + WWW-Authenticate，让客户端知道该怎么补头。
         response.writeHead(401, {
@@ -285,15 +321,15 @@ export class HttpServer {
         await this.handleRpc(request, response);
       } else if (request.method === 'GET' && path.startsWith('/files')) {
         // #OBS-11：工作区文件下载（Agent 写出的产物、前端 artifact 卡片 download 走这里）。
-        // 路径校验与 RPC fs.read 共用 safeReadFile，fail-closed 越界/缺失统一 403/404。
+        // 路径校验复用 WorkspaceGuard（与 RPC fs.read 同一套安全逻辑），越界/缺失统一 403/404。
         await this.serveWorkspaceFile(url, response);
       } else if (request.method === 'GET') {
-        await this.serveStatic(url, response);
+        await this.serveStatic(request, url, response);
       } else {
         response.writeHead(405).end('Method Not Allowed');
       }
       const status = response.statusCode;
-      log.info('http.request.end', { method, url, status, ms: Date.now() - started });
+      log.info('http.request.end', { method, url: safeUrl, status, ms: Date.now() - started });
     });
   }
 
@@ -386,45 +422,190 @@ export class HttpServer {
   }
 
   /**
-   * 静态文件（防目录穿越）。
+   * 静态文件（防目录穿越；带缓存/压缩/ETag/304）。
+   *
+   * 2026-10-25：从「每请求 readFile + no-store」改为：
+   *  - 按 `(mtime,size)` 缓存原始字节（命中零读盘）；
+   *  - `/assets/*`（内容哈希文件名）→ `public, max-age=31536000, immutable`；
+   *  - 其余（index.html / 源码回落）→ `no-cache` + ETag，可 304；
+   *  - 文本类按 `Accept-Encoding` 提供 br/gzip（首次请求压缩并缓存）。
+   *
+   * @param request 请求对象（读 Accept-Encoding / If-None-Match）。
    * @param url 请求 URL（映射到 webDir 下相对路径，`/` 回退 index.html）
    * @param response 响应对象（命中 200 返回文件内容，越界 403，缺失 404）
    * @returns 响应写出完成后 resolve，无载荷
    */
-  private async serveStatic(url: string, response: ServerResponse): Promise<void> {
+  private async serveStatic(
+    request: IncomingMessage,
+    url: string,
+    response: ServerResponse,
+  ): Promise<void> {
     // 去掉 query string，让 `?v=时间戳` 这类缓存破坏参数不影响文件查找。
     const cleanUrl = url.split('?')[0] ?? url;
-    const relative = cleanUrl === '/' ? 'index.html' : cleanUrl.replace(/^\//, '');
-    const file = normalize(join(this.options.webDir, relative));
-    if (!file.startsWith(this.options.webDir)) {
+    const relativePath = cleanUrl === '/' ? 'index.html' : cleanUrl.replace(/^\//, '');
+    const root = resolve(this.options.webDir);
+    const file = normalize(join(root, relativePath));
+    const rel = relative(root, file);
+    if (rel.startsWith('..') || isAbsolute(rel)) {
       response.writeHead(403).end('Forbidden');
       return;
     }
     try {
-      const content = await readFile(file);
+      const info = await stat(file);
+      if (!info.isFile()) {
+        response.writeHead(404).end('Not Found');
+        return;
+      }
+      const key = `${String(info.mtimeMs)}:${String(info.size)}`;
+      let asset = this.staticCache.get(file);
+      if (asset === undefined || asset.key !== key) {
+        const raw = await readFile(file);
+        asset = {
+          key,
+          etag: `"${createHash('sha1').update(raw).digest('base64')}"`,
+          contentType: this.contentType(file),
+          raw,
+        };
+        this.rememberStatic(file, asset);
+      }
       const headers: Record<string, string> = {
-        'Content-Type': this.contentType(file),
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
+        'Content-Type': asset.contentType,
+        'Cache-Control': relativePath.startsWith('assets/')
+          ? 'public, max-age=31536000, immutable'
+          : 'no-cache',
+        ETag: asset.etag,
       };
       // 首屏 HTML 命中时下发 HttpOnly 会话 cookie，让后续静态资源/下载/WS 自动带鉴权；
       // 仅当本次请求已通过 guard（query token 或已有 cookie）才会走到这里。
-      if (relative === 'index.html' && this.options.authToken !== undefined) {
+      if (relativePath === 'index.html' && this.options.authToken !== undefined) {
         headers['Set-Cookie'] = ServerAuthGuard.cookieHeader(this.options.authToken);
         // URL 里带过 ?token=；禁止 Referer 把它带给外部站点。
         headers['Referrer-Policy'] = 'no-referrer';
       }
+      if (HttpServer.compressible(asset)) headers.Vary = 'Accept-Encoding';
+      const ifNoneMatch = request.headers['if-none-match'];
+      if (typeof ifNoneMatch === 'string' && HttpServer.matchesEtag(ifNoneMatch, asset.etag)) {
+        response.writeHead(304, headers);
+        response.end();
+        return;
+      }
+      const encoding = HttpServer.encodingFor(request, asset);
+      if (encoding !== undefined) headers['Content-Encoding'] = encoding;
+      const body = encoding === undefined ? asset.raw : this.compressedOf(asset, encoding);
+      headers['Content-Length'] = String(body.length);
       response.writeHead(200, headers);
-      response.end(content);
+      response.end(body);
     } catch {
       response.writeHead(404).end('Not Found');
     }
   }
 
   /**
+   * 记住一个静态资源（有界：条数 64 / 总量 64 MB；超限淘汰最旧）。
+   * @param file 文件绝对路径。
+   * @param asset 新条目。
+   * @returns 无返回值。
+   */
+  private rememberStatic(file: string, asset: StaticAsset): void {
+    const previous = this.staticCache.get(file);
+    if (previous !== undefined) this.staticBytes -= HttpServer.assetBytes(previous);
+    this.staticCache.delete(file);
+    this.staticCache.set(file, asset);
+    this.staticBytes += HttpServer.assetBytes(asset);
+    while (
+      this.staticCache.size > HttpServer.STATIC_CACHE_MAX_ENTRIES ||
+      this.staticBytes > HttpServer.STATIC_CACHE_MAX_BYTES
+    ) {
+      const oldest = this.staticCache.keys().next();
+      if (oldest.done === true) break;
+      const evicted = this.staticCache.get(oldest.value);
+      if (evicted !== undefined) this.staticBytes -= HttpServer.assetBytes(evicted);
+      this.staticCache.delete(oldest.value);
+    }
+  }
+
+  /**
+   * 取压缩后的字节（首次按需压缩并计入缓存占用）。
+   * @param asset 静态资源。
+   * @param encoding 编码。
+   * @returns 压缩后字节。
+   */
+  private compressedOf(asset: StaticAsset, encoding: 'br' | 'gzip'): Buffer {
+    if (encoding === 'gzip') {
+      if (asset.gzip === undefined) {
+        asset.gzip = gzipSync(asset.raw);
+        this.staticBytes += asset.gzip.length;
+      }
+      return asset.gzip;
+    }
+    if (asset.br === undefined) {
+      asset.br = brotliCompressSync(asset.raw, {
+        params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 },
+      });
+      this.staticBytes += asset.br.length;
+    }
+    return asset.br;
+  }
+
+  /** 条目占用字节（原始 + 已生成压缩）。 */
+  private static assetBytes(asset: StaticAsset): number {
+    return asset.raw.length + (asset.gzip?.length ?? 0) + (asset.br?.length ?? 0);
+  }
+
+  /**
+   * 选择压缩编码（只对文本类且 >1 KB 的资源压缩）。
+   * @param request 请求。
+   * @param asset 资源。
+   * @returns 选中的编码；不压缩为 undefined。
+   */
+  private static encodingFor(
+    request: IncomingMessage,
+    asset: StaticAsset,
+  ): 'br' | 'gzip' | undefined {
+    if (!HttpServer.compressible(asset)) return undefined;
+    const accept = String(request.headers['accept-encoding'] ?? '');
+    if (/\bbr\b/u.test(accept)) return 'br';
+    if (/\bgzip\b/u.test(accept)) return 'gzip';
+    return undefined;
+  }
+
+  /**
+   * 资源是否值得压缩（文本类且 >1 KB）。
+   * @param asset 资源。
+   * @returns 可压缩为 true。
+   */
+  private static compressible(asset: StaticAsset): boolean {
+    return (
+      asset.raw.length >= 1024 &&
+      /^(?:text\/|application\/(?:javascript|json|xml)|image\/svg\+xml)/u.test(asset.contentType)
+    );
+  }
+
+  /**
+   * `If-None-Match` 是否命中（支持弱校验前缀与逗号分隔列表）。
+   * @param header 请求头值。
+   * @param etag 资源 ETag。
+   * @returns 命中为 true。
+   */
+  private static matchesEtag(header: string, etag: string): boolean {
+    return header.split(',').some((item) => item.trim().replace(/^W\//u, '') === etag);
+  }
+
+  /**
+   * 日志用 URL 脱敏：抹掉 `?token=`/`&token=` 的值（保留其它参数便于排障）。
+   * @param url 原始 URL。
+   * @returns 脱敏 URL。
+   */
+  private static redactUrlToken(url: string): string {
+    return url.replace(/([?&]token=)[^&\s]+/gu, '$1***');
+  }
+
+  /**
    * 工作区文件下载（#OBS-11）：GET /files?path=<rel>，路径越界/缺失统一 403/404。
-   * 复用 safeReadFile（与 RPC fs.read 同一套安全逻辑），force-download 用 Content-Disposition。
+   *
+   * 2026-10-25：从 `safeReadFile`（整文件 `readSync`，上限 64 MiB）改为
+   * `safeResolve` + `createReadStream` + `pipeline`：64 MiB 文件不再一次性进内存，
+   * 也不再让事件循环为读盘阻塞。安全判定仍复用 `WorkspaceGuard`（同一实现来源）。
    * @param url 请求 URL（query 中的 path 为工作区相对路径）
    * @param response 响应对象（以附件形式返回文件内容）
    * @returns 响应写出完成后 resolve，无载荷
@@ -453,12 +634,16 @@ export class HttpServer {
       response.writeHead(400).end('path 解码失败');
       return;
     }
-    const r = SafeFs.safeReadFile(ws, decoded);
-    if (!r.ok) {
+    const resolved = SafeFs.safeResolve(ws, decoded);
+    if (!resolved.ok) {
       // 越界/缺失：403/404 区分；其他错误统一 500。
       const status =
-        r.error === '路径越界工作区' ? 403 : r.error.startsWith('读取失败') ? 404 : 500;
-      response.writeHead(status).end(r.error);
+        resolved.error === '路径越界工作区'
+          ? 403
+          : resolved.error.startsWith('读取失败')
+            ? 404
+            : 500;
+      response.writeHead(status).end(resolved.error);
       return;
     }
     const fileName = decoded.split(/[\\/]/).pop() || 'download';
@@ -466,11 +651,16 @@ export class HttpServer {
     const encoded = encodeURIComponent(fileName);
     response.writeHead(200, {
       'Content-Type': this.contentType(decoded) || 'application/octet-stream',
-      'Content-Length': String(r.size),
+      'Content-Length': String(resolved.size),
       'Content-Disposition': `attachment; filename="${fileName.replace(/[\r\n"]/g, '_')}"; filename*=UTF-8''${encoded}`,
       'Cache-Control': 'no-store',
     });
-    response.end(r.buffer);
+    try {
+      await pipeline(createReadStream(resolved.target), response);
+    } catch {
+      // 客户端中断 / 读盘失败：headers 已发出，直接销毁连接；路由层不再写第二份响应。
+      response.destroy();
+    }
   }
 
   /**
@@ -514,6 +704,28 @@ export class HttpServer {
         return 'text/javascript; charset=utf-8';
       case '.css':
         return 'text/css; charset=utf-8';
+      case '.json':
+      case '.map':
+        return 'application/json; charset=utf-8';
+      case '.svg':
+        return 'image/svg+xml';
+      case '.png':
+        return 'image/png';
+      case '.jpg':
+      case '.jpeg':
+        return 'image/jpeg';
+      case '.webp':
+        return 'image/webp';
+      case '.ico':
+        return 'image/x-icon';
+      case '.woff2':
+        return 'font/woff2';
+      case '.woff':
+        return 'font/woff';
+      case '.ttf':
+        return 'font/ttf';
+      case '.txt':
+        return 'text/plain; charset=utf-8';
       default:
         return 'application/octet-stream';
     }

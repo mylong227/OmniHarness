@@ -13,6 +13,13 @@ export interface Skill {
   readonly instructions: string;
   readonly tags?: readonly string[];
   /**
+   * 互斥资源声明（2026-10-25）：技能运行时会独占的资源，如 `browser` / `port:5173` /
+   * `file:src/x.ts`。两条 `exclusive` 技能若共享任一资源，激活规划器只保留相关性更高的一条。
+   */
+  readonly resources?: readonly string[];
+  /** 是否要求资源独占（true 时参与资源冲突的强制取舍）。 */
+  readonly exclusive?: boolean;
+  /**
    * 可选能力场（扁平 N*N 的二维正弦光栅，值 ∈ [-1,1]）。
    * 缺省时由组合器按技能文本确定性派生（可复现、非随机）。
    */

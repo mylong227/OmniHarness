@@ -107,6 +107,8 @@ export const EN_SESSIONS: Record<string, string> = {
   '收起功能面板': 'Collapse panel',
   // SessionController
   '加载会话失败：{msg}': 'Failed to load session: {msg}',
+  '加载更早历史失败：{msg}': 'Failed to load earlier history: {msg}',
+  '历史已变化，已重新加载': 'History changed; reloaded',
   '重命名失败：{msg}': 'Rename failed: {msg}',
   '删除失败：{msg}': 'Failed to delete: {msg}',
   '会话正在运行，无法删除（先点「停止」结束本回合再删）': 'Session is running and cannot be deleted (click "Stop" to end the turn first)',

@@ -11,12 +11,15 @@ export class DesktopLogger {
   private readonly mainStream: WriteStream;
   private readonly harnessStream: WriteStream;
   private readonly ring: string[] = [];
+  private readonly ringLines: number;
 
   /**
    * @param dir 日志目录。
+   * @param options 可调参数（环形缓冲行数）。
    */
-  public constructor(dir: string) {
+  public constructor(dir: string, options: { readonly ringLines?: number } = {}) {
     this.dir = dir;
+    this.ringLines = Math.max(1, Math.floor(options.ringLines ?? 200));
     mkdirSync(dir, { recursive: true });
     const day = new Date().toISOString().slice(0, 10);
     this.mainStream = createWriteStream(join(dir, `main-${day}.log`), { flags: 'a' });
@@ -35,7 +38,7 @@ export class DesktopLogger {
     if (kind === 'main') this.mainStream.write(line);
     else this.harnessStream.write(line);
     this.ring.push(line.trimEnd());
-    if (this.ring.length > 200) this.ring.shift();
+    if (this.ring.length > this.ringLines) this.ring.shift();
   }
 
   /**

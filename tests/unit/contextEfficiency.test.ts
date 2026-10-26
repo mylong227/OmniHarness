@@ -189,3 +189,19 @@ test('byteLength：UTF-8 计（中文 3 字节，非 UTF-16）', () => {
   assert.strictEqual(DeterministicCompressor.byteLength('ab'), 2);
   assert.strictEqual(DeterministicCompressor.byteLength('中'), 3);
 });
+
+test('无损收缩：LRU 缓存命中/淘汰后结果逐字节一致', () => {
+  const compressor = new DeterministicCompressor();
+  for (let index = 0; index < 1100; index += 1) {
+    const text = `{\n  "i": ${String(index)}\n}\n\n\n`;
+    const once = compressor.shrinkLossless(text);
+    assert.strictEqual(compressor.shrinkLossless(text), once);
+    assert.strictEqual(compressor.byteLength(text), compressor.byteLength(text));
+  }
+  // 超过 1024 条后最早的条目被淘汰，重算结果必须仍与压缩口径一致。
+  assert.strictEqual(compressor.shrinkLossless('{\n  "i": 0\n}\n\n\n'), '{"i":0}');
+});
+
+test('byteLength：emoji 按 UTF-8 4 字节计（缓存不改变口径）', () => {
+  assert.strictEqual(DeterministicCompressor.byteLength('🙂'), 4);
+});

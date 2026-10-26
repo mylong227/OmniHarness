@@ -12,6 +12,7 @@ import { join } from 'node:path';
 
 import {
   LongTaskCatalog,
+  LongTaskFailureBreakdownCounter,
   LongTaskMetrics,
   LongTaskRunPlan,
   LongTaskSandbox,
@@ -128,6 +129,53 @@ test('口径：pass@k / pass^k 与 tokensPerSolved 复用 AbMetrics（不复制�
     tokens: 0,
     tokensPerSolved: null,
     wallMs: 0,
+  });
+});
+
+test('失败模式拆解：超时/验收失败/缺文件/非零退出独立计数', () => {
+  const report = LongTaskFailureBreakdownCounter.summarize([
+    {
+      runs: [
+        {
+          ok: false,
+          tokens: 10,
+          wallMs: 1,
+          exitCode: 1,
+          timedOut: true,
+          verifyOk: false,
+          missingFiles: ['README.md'],
+          transcript: 'a.log',
+        },
+        {
+          ok: false,
+          tokens: 10,
+          wallMs: 1,
+          exitCode: 0,
+          timedOut: false,
+          verifyOk: false,
+          missingFiles: [],
+          transcript: 'b.log',
+        },
+        {
+          ok: true,
+          tokens: 10,
+          wallMs: 1,
+          exitCode: 0,
+          timedOut: false,
+          verifyOk: true,
+          missingFiles: [],
+          transcript: 'c.log',
+        },
+      ],
+    },
+  ]);
+  assert.deepStrictEqual(report, {
+    runs: 3,
+    failed: 2,
+    timedOut: 1,
+    verifyFailed: 2,
+    missingFiles: 1,
+    nonzeroExit: 1,
   });
 });
 

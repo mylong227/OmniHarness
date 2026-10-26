@@ -33,6 +33,12 @@ export interface TurnRunResult {
 
 export interface ThreadGetResult {
   items: ThreadEvent[];
+  /** 更早是否还有事件（分页响应）。 */
+  hasMore?: boolean;
+  /** 本页最早事件 id（下一页 `before`）。 */
+  oldestId?: string;
+  /** 分页参数错误（如 unknown_before）。 */
+  error?: string;
 }
 
 export interface Config {

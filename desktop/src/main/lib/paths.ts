@@ -39,32 +39,40 @@ export function nodeBinary(): string {
 
 /**
  * 桌面日志目录（用户级）。
+ * @param userDataDir Electron userData。
+ * @param dirName 目录名（桌面配置）。
  * @returns 绝对路径。
  */
-export function logDir(): string {
-  return join(app.getPath('userData'), 'logs');
+export function logDir(userDataDir: string, dirName: string): string {
+  return join(userDataDir, dirName);
 }
 
 /**
- * 桌面运行目录（就绪文件等）。
+ * 桌面临时运行目录（就绪文件等）。
+ * @param userDataDir Electron userData。
+ * @param dirName 目录名（桌面配置）。
  * @returns 绝对路径。
  */
-export function runDir(): string {
-  return join(app.getPath('userData'), 'run');
+export function runDir(userDataDir: string, dirName: string): string {
+  return join(userDataDir, dirName);
 }
 
 /**
- * 模型/向量缓存目录（必须可写，不能落在 Program Files）。
+ * 模型缓存目录（必须可写，不能落在 Program Files）。
+ * @param userDataDir Electron userData。
+ * @param dirName 目录名（桌面配置）。
  * @returns 绝对路径。
  */
-export function modelDir(): string {
-  return join(app.getPath('userData'), 'models');
+export function modelDir(userDataDir: string, dirName: string): string {
+  return join(userDataDir, dirName);
 }
 
 /**
  * 向量缓存目录。
+ * @param userDataDir Electron userData。
+ * @param dirName 目录名（桌面配置）。
  * @returns 绝对路径。
  */
-export function vectorDir(): string {
-  return join(app.getPath('userData'), 'vec-cache');
+export function vectorDir(userDataDir: string, dirName: string): string {
+  return join(userDataDir, dirName);
 }

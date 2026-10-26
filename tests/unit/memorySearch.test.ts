@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.ts';
 import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.ts';
@@ -58,6 +58,19 @@ describe('Bm25MemoryIndex', () => {
     assert.deepStrictEqual([...idx.search('x', 5)], []);
     idx.index({ id: 'a', sessionId: 's', seq: 0, role: 'user', text: 'hello world', ts: 't' });
     assert.deepStrictEqual([...idx.search('   ', 5)], []);
+  });
+
+  it('增量追加不重建；remove 后才重建一次（F8）', () => {
+    const idx = new Bm25MemoryIndex();
+    idx.index({ id: 'a', sessionId: 's', seq: 0, role: 'user', text: 'postgres 连接串', ts: 't' });
+    assert.ok(idx.search('postgres', 5).length >= 1);
+    assert.strictEqual(idx.rebuilds, 1, '首次检索全量建一次');
+    idx.index({ id: 'b', sessionId: 's', seq: 1, role: 'user', text: 'redis 缓存', ts: 't' });
+    assert.ok(idx.search('redis', 5).some((hit) => hit.doc.id === 'b'));
+    assert.strictEqual(idx.rebuilds, 1, '增量追加不得触发全量重建');
+    assert.strictEqual(idx.remove(['a']), 1);
+    assert.ok(idx.search('redis', 5).some((hit) => hit.doc.id === 'b'));
+    assert.strictEqual(idx.rebuilds, 2, 'remove 重排下标后必须重建一次');
   });
 });
 

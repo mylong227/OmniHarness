@@ -91,6 +91,21 @@ test('⑧ 目录 / 非普通文件：拒绝而不是当成 0 字节空文件', a
   if (fileStat.ok) assert.strictEqual(fileStat.isFile, true);
 });
 
+test('⑨ safeResolve：普通文件给 target/size，目录/越界拒绝（流式下载用）', () => {
+  const ok = SafeFs.safeResolve(WS, 'a.txt');
+  assert.strictEqual(ok.ok, true);
+  if (ok.ok) {
+    assert.strictEqual(ok.size, 5);
+    assert.ok(ok.target.endsWith('a.txt'));
+  }
+  const dir = SafeFs.safeResolve(WS, 'only-dir');
+  assert.strictEqual(dir.ok, false);
+  if (!dir.ok) assert.match(dir.error, /不是普通文件/u);
+  const outside = SafeFs.safeResolve(WS, '../etc/passwd');
+  assert.strictEqual(outside.ok, false);
+  if (!outside.ok) assert.strictEqual(outside.error, '路径越界工作区');
+});
+
 test('清理临时目录', async () => {
   await rm(WS, { recursive: true, force: true });
 });

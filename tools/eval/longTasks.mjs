@@ -203,6 +203,13 @@ function humanSummary(report) {
       `tok/solved=${aggregate.tokensPerSolved === null ? 'n/a' : String(aggregate.tokensPerSolved)}`,
   );
   lines.push(`transcripts: ${report.transcriptsDir}`);
+  if (report.failureModes !== undefined) {
+    const modes = report.failureModes;
+    lines.push(
+      `失败模式: timedOut=${String(modes.timedOut)} verifyFailed=${String(modes.verifyFailed)} ` +
+        `missingFiles=${String(modes.missingFiles)} nonzeroExit=${String(modes.nonzeroExit)}`,
+    );
+  }
   return lines.join('\n');
 }
 
@@ -242,6 +249,9 @@ async function runSuite(mod, options, specs, root) {
   }
   report.aggregate = mod.LongTaskMetrics.aggregate(
     report.tasks.map((task) => ({ id: task.id, runs: task.runs })),
+  );
+  report.failureModes = mod.LongTaskFailureBreakdownCounter.summarize(
+    report.tasks.map((task) => ({ runs: task.runs })),
   );
   emit(report, options);
 }

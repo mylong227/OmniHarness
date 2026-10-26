@@ -24,6 +24,11 @@ export type SafeStatResult =
   | { readonly ok: true; readonly size: number; readonly isFile: boolean }
   | { readonly ok: false; readonly error: string };
 
+/** 安全解析结果：成功给出可读的普通文件绝对路径与大小。 */
+export type SafeResolveResult =
+  | { readonly ok: true; readonly target: string; readonly size: number }
+  | { readonly ok: false; readonly error: string };
+
 /**
  * 单文件读取硬上限（字节）：64 MiB。
  *
@@ -38,6 +43,42 @@ const HARD_READ_CAP = 64 * 1024 * 1024;
  */
 export class SafeFs {
   /**
+   * 安全解析工作区内**普通文件**为绝对路径（不读内容）。
+   *
+   * 供流式下载使用（`createReadStream` 直接消费），避免把大文件整读进内存。
+   * 与 {@link safeReadFile} 共用同一套词法 + realpath 越界判定。
+   * @param workspaceRoot 工作区根（空串 → 拒绝）。
+   * @param rel 相对路径。
+   * @returns 成功给出 target/size；越界 / 非普通文件 / 不存在给出错误描述。
+   */
+  public static safeResolve(workspaceRoot: string, rel: string): SafeResolveResult {
+    if (!workspaceRoot) {
+      return { ok: false, error: '工作区未配置' };
+    }
+    if (typeof rel !== 'string' || rel === '') {
+      return { ok: false, error: '缺少 path' };
+    }
+    let target: string;
+    try {
+      target = new WorkspaceGuard(workspaceRoot).resolveSafe(rel);
+    } catch {
+      return { ok: false, error: '路径越界工作区' };
+    }
+    try {
+      const info = statSync(target);
+      if (!info.isFile()) {
+        return { ok: false, error: '读取失败: 不是普通文件（目录或特殊文件）' };
+      }
+      return { ok: true, target, size: info.size };
+    } catch (err) {
+      return {
+        ok: false,
+        error: '读取失败: ' + (err instanceof Error ? err.message : String(err)),
+      };
+    }
+  }
+
+  /**
    * 安全读工作区内文件。
    * @param workspaceRoot 工作区根（绝对路径）；为空字符串/undefined → 一律拒绝。
    * @param rel 相对路径（允许 ./、../、绝对路径）；绝对路径会被相对化以防绕过。
@@ -50,48 +91,29 @@ export class SafeFs {
     rel: string,
     maxBytes: number = HARD_READ_CAP,
   ): SafeReadResult {
-    if (!workspaceRoot) {
-      return { ok: false, error: '工作区未配置' };
+    const resolved = SafeFs.safeResolve(workspaceRoot, rel);
+    if (!resolved.ok) return resolved;
+    // 体积上限 fail-closed：超大文件（如几百 MiB 的构建产物）绝不允许整文件读进内存。
+    if (resolved.size > HARD_READ_CAP) {
+      return { ok: false, error: '文件过大（超过 64 MiB，拒绝整文件读入内存）' };
     }
-    if (typeof rel !== 'string' || rel === '') {
-      return { ok: false, error: '缺少 path' };
-    }
-    // 词法越界 + 符号链接/junction 逃逸双重判定，全部复用 WorkspaceGuard（单一实现来源）。
-    // 两类失败共用同一对外文案，保持既有前端契约不变。
-    let target: string;
+    const limit = Math.max(0, Math.min(resolved.size, maxBytes, HARD_READ_CAP));
     try {
-      target = new WorkspaceGuard(workspaceRoot).resolveSafe(rel);
-    } catch {
-      return { ok: false, error: '路径越界工作区' };
-    }
-    let stat: { size: number; isFile(): boolean };
-    let buf: Buffer;
-    try {
-      stat = statSync(target);
-      // 目录 / 设备 / FIFO 一律拒绝：Windows 上对目录 `openSync(...,'r') + readSync` 会成功
-      // 返回 0 字节，调用方会把它当成"空文件"（2026-10-19 网页预览实测：`/site` 返回 200 空白页）。
-      if (!stat.isFile()) {
-        return { ok: false, error: '读取失败: 不是普通文件（目录或特殊文件）' };
-      }
-      // 体积上限 fail-closed：超大文件（如几百 MiB 的构建产物）绝不允许整文件读进内存。
-      if (stat.size > HARD_READ_CAP) {
-        return { ok: false, error: '文件过大（超过 64 MiB，拒绝整文件读入内存）' };
-      }
-      const limit = Math.max(0, Math.min(stat.size, maxBytes, HARD_READ_CAP));
-      const fd = openSync(target, 'r');
+      const fd = openSync(resolved.target, 'r');
+      let buf: Buffer;
       try {
         buf = Buffer.alloc(limit);
         readSync(fd, buf, 0, limit, 0);
       } finally {
         closeSync(fd);
       }
+      return { ok: true, buffer: buf, size: resolved.size };
     } catch (err) {
       return {
         ok: false,
         error: '读取失败: ' + (err instanceof Error ? err.message : String(err)),
       };
     }
-    return { ok: true, buffer: buf, size: stat.size };
   }
 
   /**

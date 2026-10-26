@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, rmSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AuditSink } from '../../src/server/services/auditSink.ts';
@@ -58,6 +58,39 @@ test('未配置 dir/path 时 no-op 不创建文件', () => {
     const sink = new AuditSink();
     sink.record({ ts: new Date().toISOString(), type: 'x', sessionId: 's' });
     assert.strictEqual(existsSync(join(dir, 'audit.log')), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('close 写链头 sidecar，重启续链；文件大小不匹配时回落全量', () => {
+  const dir = tmp();
+  try {
+    const path = join(dir, 'audit.log');
+    const first = new AuditSink({ path });
+    first.record({ ts: new Date().toISOString(), type: 'a', sessionId: 's' });
+    first.close();
+    assert.ok(existsSync(`${path}.head.json`), 'close 后应写 head sidecar');
+    const head = JSON.parse(readFileSync(`${path}.head.json`, 'utf8')) as { seq: number };
+    assert.strictEqual(head.seq, 1);
+
+    const second = new AuditSink({ path });
+    assert.strictEqual(
+      second.record({ ts: new Date().toISOString(), type: 'b', sessionId: 's' }),
+      2,
+      'sidecar 命中应续到 seq 2',
+    );
+    second.close();
+
+    // 模拟崩溃后多出一行（sidecar 的 size 不再匹配）⇒ 必须全量重读，不能错续。
+    appendFileSync(path, '\n', 'utf8');
+    const third = new AuditSink({ path });
+    assert.strictEqual(
+      third.record({ ts: new Date().toISOString(), type: 'c', sessionId: 's' }),
+      3,
+    );
+    assert.strictEqual(third.verify().ok, true);
+    third.close();
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

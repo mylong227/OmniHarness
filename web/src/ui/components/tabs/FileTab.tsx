@@ -8,6 +8,7 @@
 // 函数组件范式：「按语言渲染正文」下沉为模块级函数（纯渲染分支）；
 // 「语言分类」判据复用 FileKindClassifier（零 React，可单测）。
 
+import { memo } from 'react';
 import { langOf } from '../../highlight.ts';
 import { renderMarkdown, emptyState } from '../../format.ts';
 import type { FileView } from '../../shared.ts';
@@ -53,10 +54,13 @@ function renderBody(fileView: FileView): ReactElement | null {
 
 /**
  * 文件面板：填满面板高度的文件内容预览（标题 / 元信息由代码查看器的路径栏呈现）。
+ *
+ * 2026-10-25：`memo` 包一层。流式期间父组件每 50 ms 重渲染，右栏若开着文件，`renderBody`
+ * 会重新建树；`fileView` 未变时整块跳过（内部 `CodeSurface` 另有 memo，双保险）。
  * @param props 组件入参
  * @returns 文件面板节点（无文件时为引导文案）
  */
-export function FileTab(props: FileTabProps): ReactElement {
+export const FileTab = memo(function FileTab(props: FileTabProps): ReactElement {
   const { fileView } = props;
   if (!fileView) {
     return (
@@ -68,4 +72,4 @@ export function FileTab(props: FileTabProps): ReactElement {
     );
   }
   return <div className="file-pane">{renderBody(fileView)}</div>;
-}
+});

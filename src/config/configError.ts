@@ -354,20 +354,23 @@ export class ConfigError extends OmniError {
       const description = ConfigError.requiredText(obj['description'], `${where}.description`);
       const instructions = ConfigError.requiredText(obj['instructions'], `${where}.instructions`);
       const tags = ConfigError.readTags(obj['tags'], `${where}.tags`);
+      const resources = ConfigError.readTextArray(obj['resources'], `${where}.resources`);
+      const exclusive = obj['exclusive'];
+      if (exclusive !== undefined && typeof exclusive !== 'boolean') {
+        throw new ConfigError(`${where}.exclusive 必须是布尔值`);
+      }
       if (seen.has(name)) {
         throw new ConfigError(`${source}: 技能重名 "${name}"（同一来源内不允许重复定义）`);
       }
       seen.add(name);
-      out.push(
-        tags === undefined
-          ? { name, description, instructions }
-          : {
-              name,
-              description,
-              instructions,
-              tags,
-            },
-      );
+      out.push({
+        name,
+        description,
+        instructions,
+        ...(tags !== undefined ? { tags } : {}),
+        ...(resources !== undefined ? { resources } : {}),
+        ...(exclusive !== undefined ? { exclusive } : {}),
+      });
     }
     return out;
   }
@@ -396,14 +399,21 @@ export class ConfigError extends OmniError {
    * @throws ConfigError 非数组或含非字符串项
    */
   public static readTags(value: unknown, where: string): readonly string[] | undefined {
+    return ConfigError.readTextArray(value, where);
+  }
+
+  /** 读取可选字符串数组（去空白/丢空；未声明返回 undefined）。 */
+  public static readTextArray(value: unknown, where: string): readonly string[] | undefined {
     if (value === undefined) {
       return undefined;
     }
-    if (!Array.isArray(value) || value.some((tag) => typeof tag !== 'string')) {
+    if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
       throw new ConfigError(`${where} 必须是字符串数组`);
     }
-    const tags = (value as readonly string[]).map((tag) => tag.trim()).filter((tag) => tag !== '');
-    return tags.length > 0 ? tags : undefined;
+    const items = (value as readonly string[])
+      .map((item) => item.trim())
+      .filter((item) => item !== '');
+    return items.length > 0 ? items : undefined;
   }
 
   /**

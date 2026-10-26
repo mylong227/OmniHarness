@@ -74,10 +74,53 @@ export interface CompressResult {
  */
 export class DeterministicCompressor {
   private readonly encoder = new TextEncoder();
+  /** 无损收缩结果 LRU（键=原文；只缓存 256 B–256 KB 的文本，防大对象把缓存撑爆）。 */
+  private readonly shrinkCache = new Map<string, string>();
+  /** UTF-8 字节数 LRU（同样限长）。 */
+  private readonly byteCache = new Map<string, number>();
+  /** 缓存条目上限（按条数；总字符量由单条上限与条数间接约束）。 */
+  private static readonly CACHE_LIMIT = 1024;
+  /** 可缓存文本的最大长度：超过则直接计算（避免 1 MB 消息 × 1024 条常驻）。 */
+  private static readonly CACHE_MAX_TEXT = 256 * 1024;
 
-  /** UTF-8 字节数（token 成本的真实代理）。 */
+  /**
+   * 命中有界缓存；命中后刷新 LRU 顺序。
+   * @param cache 缓存表。
+   * @param key 键。
+   * @returns 命中值；未命中为 undefined。
+   */
+  private static cached<T>(cache: Map<string, T>, key: string): T | undefined {
+    const hit = cache.get(key);
+    if (hit === undefined) return undefined;
+    cache.delete(key);
+    cache.set(key, hit);
+    return hit;
+  }
+
+  /**
+   * 写入有界缓存（超限淘汰最旧）。
+   * @param cache 缓存表。
+   * @param key 键。
+   * @param value 值。
+   * @returns 无返回值。
+   */
+  private static remember<T>(cache: Map<string, T>, key: string, value: T): void {
+    if (key.length > DeterministicCompressor.CACHE_MAX_TEXT) return;
+    cache.set(key, value);
+    while (cache.size > DeterministicCompressor.CACHE_LIMIT) {
+      const oldest = cache.keys().next();
+      if (oldest.done === true) break;
+      cache.delete(oldest.value);
+    }
+  }
+
+  /** UTF-8 字节数（token 成本的真实代理；结果按文本有界缓存）。 */
   public byteLength(text: string): number {
-    return this.encoder.encode(text).length;
+    const cached = DeterministicCompressor.cached(this.byteCache, text);
+    if (cached !== undefined) return cached;
+    const bytes = this.encoder.encode(text).length;
+    DeterministicCompressor.remember(this.byteCache, text, bytes);
+    return bytes;
   }
 
   /** 折叠空行与行尾空白。 */
@@ -153,7 +196,12 @@ export class DeterministicCompressor {
     if (text === '') {
       return text;
     }
-    return this.minifyJsonBlock(this.collapseBlankLines(text));
+    const cached = DeterministicCompressor.cached(this.shrinkCache, text);
+    if (cached !== undefined) return cached;
+    const shrunk = this.minifyJsonBlock(this.collapseBlankLines(text));
+    // 未变化的文本也缓存：长会话里绝大多数消息在相邻两步之间不变，命中即 O(1)。
+    DeterministicCompressor.remember(this.shrinkCache, text, shrunk);
+    return shrunk;
   }
 
   /**

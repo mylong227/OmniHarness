@@ -157,6 +157,30 @@ export class AppServerBase {
     await this.plugins.load();
   }
 
+  /** 插件加载 + Profile 应用的“就绪”闸门（serve 启动可先监听、回合前再等它）。 */
+  private pluginsReady: Promise<void> = Promise.resolve();
+
+  /**
+   * 登记插件就绪 Promise（启动优化，2026-10-25）。
+   *
+   * 为什么需要：插件加载/Profile 应用可能 spawn Worker / 读大量文件；此前它挡在 HTTP `listen`
+   * 之前，桌面/浏览器要等它完成才拿到第一帧。现在把加载放到 listen 之后并行跑，
+   * **真正需要插件的回合**（create/continue/runTurn）在开始时 await 这道闸门，语义不变。
+   * @param ready 插件与 Profile 都完成的 Promise（失败应自行 catch，闸门不向回合抛错）。
+   * @returns 无返回值。
+   */
+  public setPluginsReady(ready: Promise<void>): void {
+    this.pluginsReady = ready.catch(() => undefined);
+  }
+
+  /**
+   * 等待插件就绪（回合入口用）。
+   * @returns 就绪后 resolve。
+   */
+  protected async awaitPlugins(): Promise<void> {
+    await this.pluginsReady;
+  }
+
   /**
    * 应用插件集 Profile（CLI --plugin-profile / 编程入口复用）。
    * @param profile 插件集档案（启用的插件与来源配置）。

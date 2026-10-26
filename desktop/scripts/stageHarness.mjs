@@ -9,7 +9,7 @@
  * 依赖安装用根 package-lock，剔除前端库与重型可选包；`node_modules` 体积大时
  * 可先只做 `SKIP_DEPS=1` 的产物复制用于本地验证。
  */
-import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -69,10 +69,22 @@ if (!skipDeps) {
     '@huggingface',
     'onnxruntime-node',
     'onnxruntime-common',
+    // 2026-10-25：`@huggingface` 删掉后它的传递依赖 onnxruntime-web（128.2 MB）仍会被
+    // npm ci 装上；不删就是「删了模型、留着 128 MB 推理运行时」的死重量。
+    'onnxruntime-web',
+    // 纯类型包不应出现在运行时；实测 stage 里 2.3 MB。
+    '@types',
   ]) {
     rmSync(join(stage, 'node_modules', name), { recursive: true, force: true });
   }
   const hfCache = join(stage, 'node_modules', '@huggingface', 'transformers', '.cache');
   rmSync(hfCache, { recursive: true, force: true });
+}
+// 旧版原生内核产物（`.old.node`，5.4 MB）只用于回滚，不应进安装包。
+const nativeDir = join(stage, 'native');
+if (existsSync(nativeDir)) {
+  for (const name of readdirSync(nativeDir)) {
+    if (name.endsWith('.old.node')) rmSync(join(nativeDir, name), { force: true });
+  }
 }
 console.log(`[desktop] staged harness -> ${stage}`);

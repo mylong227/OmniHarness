@@ -20,6 +20,19 @@ function streamOf(text: string): ReadableStream<Uint8Array> {
   });
 }
 
+/** 把文本按固定大小切块包装为流（用于验证跨 chunk 分帧）。 */
+function chunkedStream(text: string, chunkSize: number): ReadableStream<Uint8Array> {
+  const bytes = new TextEncoder().encode(text);
+  return new ReadableStream({
+    start(controller) {
+      for (let index = 0; index < bytes.length; index += chunkSize) {
+        controller.enqueue(bytes.slice(index, index + chunkSize));
+      }
+      controller.close();
+    },
+  });
+}
+
 /** 临时替换 fetch。 */
 async function withFetch<T>(
   handler: (url: string, init: RequestInit) => Promise<Response>,
@@ -58,6 +71,27 @@ test('SSE 解析：event 字段与跨块 data 行', async () => {
     events.push(`${event.event}:${event.data}`);
   });
   assert.deepStrictEqual(events, ['delta:line1\nline2']);
+});
+
+test('SSE 解析：LF/CRLF/CR 三态混用且跨任意 chunk 边界（增量分帧）', async () => {
+  const text = 'data: {"a":1}\r\n\r\ndata: {"b":2}\r\rdata: {"c":3}\n\n';
+  const expected = ['{"a":1}', '{"b":2}', '{"c":3}'];
+  for (const size of [1, 2, 3, 7, 64]) {
+    const events: string[] = [];
+    await sseParser.read(chunkedStream(text, size), (event) => events.push(event.data));
+    assert.deepStrictEqual(events, expected, `chunkSize=${String(size)}`);
+  }
+});
+
+test('SSE 解析：大事件按 1 KB 分块仍逐字节还原（不再 O(n²) 重扫）', async () => {
+  const payload = 'x'.repeat(200 * 1024);
+  const events: string[] = [];
+  await sseParser.read(chunkedStream(`data: ${payload}\n\n`, 1024), (event) =>
+    events.push(event.data),
+  );
+  assert.strictEqual(events.length, 1);
+  assert.strictEqual(events[0]?.length, payload.length);
+  assert.strictEqual(events[0], payload);
 });
 
 test('Anthropic：请求体拆分 system 与工具格式', async () => {
@@ -182,6 +216,43 @@ test('OpenAI 兼容：流式文本增量回调', async () => {
   );
   assert.deepStrictEqual(chunks, ['星', '辰']);
   assert.strictEqual(output.text, '星辰');
+});
+
+test('OpenAI 兼容：流式请求体只序列化一次，且 stream 字段正确', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+  });
+  const sse = ['data: {"choices":[{"delta":{"content":"ok"}}]}\n\n', 'data: [DONE]\n\n'].join('');
+  let capturedBody = '';
+  let serializedRequestBodies = 0;
+  const originalStringify = JSON.stringify;
+  JSON.stringify = function patched(value: unknown, ...rest: unknown[]): string {
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      Array.isArray((value as { messages?: unknown }).messages)
+    ) {
+      serializedRequestBodies += 1;
+    }
+    return originalStringify(value as never, ...(rest as never[]));
+  } as typeof JSON.stringify;
+  try {
+    await withFetch(
+      async (_url, init) => {
+        capturedBody = String(init.body);
+        return new Response(streamOf(sse), { status: 200 });
+      },
+      () => model.stream(request, { onText: () => undefined }),
+    );
+  } finally {
+    JSON.stringify = originalStringify;
+  }
+  const body = JSON.parse(capturedBody) as Record<string, unknown>;
+  assert.strictEqual(body['stream'], true);
+  assert.deepStrictEqual(body['stream_options'], { include_usage: true });
+  assert.strictEqual(serializedRequestBodies, 1, '流式请求体必须只 stringify 一次');
 });
 
 test('OpenAI 兼容：附件水合失败不得拼出 base64,undefined（2026-10-21）', async () => {

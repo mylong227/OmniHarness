@@ -29,8 +29,16 @@ jobs:
       - run: npm install
       # 阻断级铁律：零运行时依赖 / 禁止第三方裸导入 / TS 文件名 camelCase。
       - run: npm run check
-      - run: npm run typecheck
+      # 独立性：产品代码/配置/测试不得再引用外部 harness 的影子（路径/环境/依赖）。
+      - run: npm run audit:independence
+      # 类型层一条命令跑完 tsc + 类型感知 ESLint（替代单独 typecheck，避免重复一次 tsc）。
+      - run: npm run gate:typed
       - run: npm run build
+      # 构建后消费 dist 的热路径预算（SSE/planner/压缩器），把性能回归挡在合并前。
+      - run: npm run perf:gate
+      # 架构白名单 + 文档死链：本地门禁与 CI 必须是同一套判据。
+      - run: npm run arch:gate -- --strict
+      - run: npm run check:doc-links
       # 工程化门禁：ESLint 零告警（--max-warnings=0）。
       # 2026-09-16 收紧：静态告警曾编码两处真实断链（附件漏传、query 死参数），
       # 故告警预算归零——任何新增 warn 一律阻断，防止告警池再次沦为噪声。

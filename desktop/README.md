@@ -101,6 +101,7 @@ OmniHarness/
   OmniHarness.exe
   resources/
     app.asar                 # Electron main/preload/loading.html
+    desktop.config.json      # 发布默认配置（可被 userData/OMNI_DESKTOP_CONFIG 覆盖）
     harness/
       node.exe
       dist/ web/ defaults/ native/
@@ -110,6 +111,76 @@ OmniHarness/
 
 保持 `dist`/`web`/`native`/`defaults` 同级，是 `NativeKernel`、`runHttpServe`、`ConfigFactory`
 三处路径解析的共同前提。
+
+### 4.1 桌面配置（`desktop.config.json`）
+
+所有可调技术参数（窗口尺寸、侧车超时、重试/停止宽限、更新策略、日志环形缓冲、IPC 长度上限、
+CSP/权限、路径目录名）都集中在配置里，**不再散落在主进程代码**。
+
+加载顺序（后者覆盖前者，逐字段深合并）：
+
+1. 代码内置默认值（`src/main/config/defaults.ts` 的 `DEFAULT_DESKTOP_CONFIG`，缺文件也能启动）；
+2. 发布包/开发树内置 `desktop.config.json`（打包后位于 `resources/desktop.config.json`）；
+3. 用户覆盖 `%APPDATA%/OmniHarness/desktop.config.json`；
+4. `OMNI_DESKTOP_CONFIG=<path>` 指定的最后一份覆盖文件。
+
+非法值（类型错/越界/非回环主机/非法 CSP token）会**回落默认并写告警到主进程日志**，
+不会静默采纳。发布包内置配置与代码默认值逐字段相等，`desktop/scripts/test.mjs` 会核对防漂移。
+
+示例（只写要改的字段即可）：
+
+```json
+{
+  "app": { "language": "system" },
+  "harness": { "readyTimeoutMs": 45000, "stopGraceMs": 8000, "autoRestart": true },
+  "window": { "width": 1440, "height": 900, "showShortcut": "CommandOrControl+Shift+O" },
+  "update": {
+    "autoCheckDelayMs": 30000,
+    "channel": "latest",
+    "allowDowngrade": false
+  },
+  "logging": { "ringLines": 500 }
+}
+```
+
+`app.language` 取 `system`（跟随系统，`en*` → 英文，其余 → 中文）、`zh-CN` 或 `en-US`。
+它只影响**原生壳**（菜单/托盘/对话框/启动页）；渲染层工作台的语言仍由 Web UI 自己的设置决定。
+
+`update.channel` 取 `latest` / `beta` / `alpha`；`allowDowngrade=true` 允许安装低于当前版本的
+构建（仅用于回滚演练，默认关闭）。
+
+`window.showShortcut` 是全局「显示窗口」快捷键（Electron accelerator，如
+`CommandOrControl+Shift+O`）；空串关闭。注册失败只写日志，不阻断启动。
+
+`harness.autoRestart`（默认 true）在崩溃后自动重启；`restartMax`/`restartWindowMs`
+限制窗口内次数（默认 3 次 / 10 分钟），超限才弹崩溃对话框，避免崩溃循环。
+
+> `harness.host` 只接受 `127.0.0.1`：当前 `serve` 固定绑回环，没有 `--host` 旗标。
+> CSP 只允许修改指令值，token 内含 `;`/换行会被剔除（防注入额外指令）。
+
+### 4.2 启动阶段报告
+
+主进程会在日志里写固定格式的阶段标记：
+
+```text
+startup.phase phase=config.loaded elapsedMs=...
+startup.phase phase=workspace.resolved elapsedMs=...
+startup.phase phase=window.created elapsedMs=...
+startup.phase phase=harness.start elapsedMs=...
+startup.phase phase=harness.ready elapsedMs=...
+startup.phase phase=ui.loading elapsedMs=...
+startup.phase phase=ui.ready elapsedMs=...
+```
+
+不需要启动 Electron，直接读最近一份日志：
+
+```powershell
+npm --prefix desktop run startup:report
+# 带预算：超过 5s 退出码 1（可直接进 CI/发布检查）
+npm --prefix desktop run startup:report -- --budget-ms=5000
+```
+
+日志目录默认 `%APPDATA%/OmniHarness/logs`；可用 `--dir=<path>` 指定。
 
 ## 5. 安全基线
 
@@ -146,6 +217,8 @@ OmniHarness/
 cd desktop
 npm run typecheck
 npm test        # args / ready 契约 / 环境清洗 / 桌面偏好
+npm run verify:package  # 检查 release/win-unpacked 结构/裁剪/配置
+npm run installer       # 由 win-unpacked 生成 NSIS 安装包（需 makensis）
 ```
 
 已执行的集成验证（本机 Node 22.20）：

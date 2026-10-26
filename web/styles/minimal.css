@@ -712,6 +712,33 @@
   max-width: 800px;
   margin: 0 auto;
 }
+/* W1 流式尾部：尚未闭合的文本按原样保留空白，不做 Markdown 解析。 */
+.stream-tail {
+  white-space: pre-wrap;
+}
+/* 历史分页（S2）：顶部「加载更早」入口。轻量胶囊，不抢消息层级。 */
+.stream-load-earlier {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0 16px;
+}
+.stream-load-earlier button {
+  border: 1px solid var(--border-soft);
+  background: var(--panel);
+  color: var(--dim);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.stream-load-earlier button:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.stream-load-earlier button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
 .ev {
   margin-bottom: 22px;
 }

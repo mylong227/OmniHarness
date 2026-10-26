@@ -31,17 +31,48 @@ const DEFAULT_STATE: DesktopState = {
 };
 const MAX_RECENT = 8;
 
+/** 偏好存储的可调参数（由桌面配置传入；缺省值保持历史行为）。 */
+export interface DesktopStateOptions {
+  /** 最近工作区保留条数。 */
+  readonly maxRecent?: number;
+  /** 窗口最小宽（保存值夹取）。 */
+  readonly minWidth?: number;
+  /** 窗口最小高（保存值夹取）。 */
+  readonly minHeight?: number;
+  /** 首次运行的「关闭到托盘」默认值。 */
+  readonly closeToTray?: boolean;
+  /** 首次运行的「开机启动」默认值。 */
+  readonly openAtLogin?: boolean;
+}
+
 /** 桌面偏好存储。 */
 export class DesktopStateStore {
   private readonly file: string;
   private state: DesktopState;
+  private readonly maxRecent: number;
+  private readonly minWidth: number;
+  private readonly minHeight: number;
 
   /**
    * @param userDataDir Electron userData 目录。
+   * @param options 可调参数（缺省保持历史默认值）。
    */
-  public constructor(userDataDir: string) {
+  public constructor(userDataDir: string, options: DesktopStateOptions = {}) {
     this.file = join(userDataDir, 'desktop.json');
-    this.state = DesktopStateStore.read(this.file);
+    this.maxRecent = Math.max(1, Math.floor(options.maxRecent ?? MAX_RECENT));
+    this.minWidth = Math.max(1, Math.floor(options.minWidth ?? 900));
+    this.minHeight = Math.max(1, Math.floor(options.minHeight ?? 600));
+    this.state = DesktopStateStore.read(
+      this.file,
+      {
+        ...DEFAULT_STATE,
+        closeToTray: options.closeToTray ?? DEFAULT_STATE.closeToTray,
+        openAtLogin: options.openAtLogin ?? DEFAULT_STATE.openAtLogin,
+      },
+      this.minWidth,
+      this.minHeight,
+      this.maxRecent,
+    );
   }
 
   /**
@@ -59,7 +90,11 @@ export class DesktopStateStore {
    */
   public rememberWorkspace(workspace: string): void {
     const recent = [workspace, ...this.state.recentWorkspaces.filter((item) => item !== workspace)];
-    this.state = { ...this.state, workspace, recentWorkspaces: recent.slice(0, MAX_RECENT) };
+    this.state = {
+      ...this.state,
+      workspace,
+      recentWorkspaces: recent.slice(0, this.maxRecent),
+    };
     this.save();
   }
 
@@ -107,13 +142,25 @@ export class DesktopStateStore {
   /**
    * 读取（脏数据/缺文件一律回落默认，不拿半条记录误导）。
    * @param file 文件路径。
+   * @param defaults 首次运行默认值（来自配置）。
+   * @param minWidth 窗口最小宽。
+   * @param minHeight 窗口最小高。
+   * @param maxRecent 最近工作区条数。
    * @returns 状态。
    */
-  private static read(file: string): DesktopState {
-    if (!existsSync(file)) return { ...DEFAULT_STATE };
+  private static read(
+    file: string,
+    defaults: DesktopState,
+    minWidth: number,
+    minHeight: number,
+    maxRecent: number,
+  ): DesktopState {
+    if (!existsSync(file)) return { ...defaults, recentWorkspaces: [] };
     try {
       const parsed = JSON.parse(readFileSync(file, 'utf8')) as unknown;
-      if (parsed === null || typeof parsed !== 'object') return { ...DEFAULT_STATE };
+      if (parsed === null || typeof parsed !== 'object') {
+        return { ...defaults, recentWorkspaces: [] };
+      }
       const raw = parsed as Record<string, unknown>;
       const recent = Array.isArray(raw['recentWorkspaces'])
         ? raw['recentWorkspaces'].filter((item): item is string => typeof item === 'string')
@@ -125,24 +172,24 @@ export class DesktopStateStore {
         const bounds = windowRaw as Record<string, unknown>;
         if (typeof bounds['width'] === 'number' && typeof bounds['height'] === 'number') {
           window = {
-            width: Math.max(900, Math.round(bounds['width'])),
-            height: Math.max(600, Math.round(bounds['height'])),
+            width: Math.max(minWidth, Math.round(bounds['width'])),
+            height: Math.max(minHeight, Math.round(bounds['height'])),
             ...(typeof bounds['x'] === 'number' ? { x: Math.round(bounds['x']) } : {}),
             ...(typeof bounds['y'] === 'number' ? { y: Math.round(bounds['y']) } : {}),
           };
         }
       }
       return {
-        recentWorkspaces: recent.slice(0, MAX_RECENT),
+        recentWorkspaces: recent.slice(0, maxRecent),
         closeToTray:
-          typeof raw['closeToTray'] === 'boolean' ? raw['closeToTray'] : DEFAULT_STATE.closeToTray,
+          typeof raw['closeToTray'] === 'boolean' ? raw['closeToTray'] : defaults.closeToTray,
         openAtLogin:
-          typeof raw['openAtLogin'] === 'boolean' ? raw['openAtLogin'] : DEFAULT_STATE.openAtLogin,
+          typeof raw['openAtLogin'] === 'boolean' ? raw['openAtLogin'] : defaults.openAtLogin,
         ...(workspace !== undefined ? { workspace } : {}),
         ...(window !== undefined ? { window } : {}),
       };
     } catch {
-      return { ...DEFAULT_STATE };
+      return { ...defaults, recentWorkspaces: [] };
     }
   }
 }

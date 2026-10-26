@@ -1,7 +1,16 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { SessionEvent } from '../../ports/runtime/event.ts';
 import { AsyncChildProcess } from '../../util/asyncChildProcess.ts';
+
+/**
+ * 未跟踪文件预览/统计上限（2 MiB）。
+ *
+ * 2026-10-25：`changes.list` 的未跟踪文件原先**无上限**整读（`readFileSync` + split/map），
+ * 一个 100 MB 的构建产物就能让主线程卡住数百毫秒。超过上限时：patch 返回显式占位文本、
+ * 行数记 0（列表仍显示文件，只是不预览内容）。
+ */
+const MAX_UNTRACKED_BYTES = 2 * 1024 * 1024;
 
 /** 单文件变更统计。 */
 interface ChangeStat {
@@ -85,9 +94,22 @@ export class WorkspaceChanges {
       },
     );
     if (status.stdout.startsWith('??')) {
+      const target = resolve(ws, fileParam);
+      let size = 0;
+      try {
+        size = statSync(target).size;
+      } catch {
+        size = 0;
+      }
+      if (size > MAX_UNTRACKED_BYTES) {
+        return {
+          source: 'git',
+          patch: `--- /dev/null\n+++ ${fileParam}\n+[文件过大（${String(size)} 字节），已跳过预览]`,
+        };
+      }
       let content = '';
       try {
-        content = readFileSync(resolve(ws, fileParam), 'utf8');
+        content = readFileSync(target, 'utf8');
       } catch {
         content = '';
       }
@@ -250,14 +272,19 @@ export class WorkspaceChanges {
   }
 
   /**
-   * 读取文件行数（读不到回退 0）。
+   * 读取文件行数（读不到/超过预览上限回退 0）。
+   *
+   * 大文件不整读：超过 {@link MAX_UNTRACKED_BYTES} 时列表仍显示该文件，但行数记 0
+   * （比让主线程为一个构建产物卡住数百毫秒更可接受；UI 只把它当统计参考）。
    * @param ws 工作区根
    * @param path 相对路径
-   * @returns 文件行数；读不到回退 0
+   * @returns 文件行数；读不到/过大回退 0
    */
   private static countLines(ws: string, path: string): number {
+    const target = resolve(ws, path);
     try {
-      return readFileSync(resolve(ws, path), 'utf8').split('\n').length;
+      if (statSync(target).size > MAX_UNTRACKED_BYTES) return 0;
+      return readFileSync(target, 'utf8').split('\n').length;
     } catch {
       return 0;
     }

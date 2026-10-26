@@ -9,6 +9,8 @@ export interface CorpusWatchStats {
   readonly statReuses: number;
   /** 全量内容哈希次数。 */
   readonly fullHashes: number;
+  /** 只复核变更路径即判定未变、跳过全量哈希的次数。 */
+  readonly pathReuses: number;
   /** watcher 不可用/出错的回落次数。 */
   readonly watcherFallbacks: number;
 }
@@ -25,12 +27,14 @@ export class CorpusWatchRegistry {
   private readonly watchers = new Map<string, FSWatcher>();
   /** 收到变更事件、待下次复核的 workspace。 */
   private readonly dirty = new Set<string>();
+  /** 待复核的**具体变更路径**（相对 POSIX）；空串表示"文件名不可用，必须全量复核"。 */
+  private readonly changes = new Map<string, Set<string>>();
   /** 是否启用 watcher。 */
   private readonly enabled: boolean;
   /** 不支持递归 watch 后置位，避免重复尝试。 */
   private watchDisabled = false;
   /** 观测计数。 */
-  private readonly io = { statReuses: 0, fullHashes: 0, watcherFallbacks: 0 };
+  private readonly io = { statReuses: 0, fullHashes: 0, pathReuses: 0, watcherFallbacks: 0 };
 
   /**
    * @param enabled 是否启用 `fs.watch`（缺省 true）。
@@ -49,7 +53,7 @@ export class CorpusWatchRegistry {
       const watcher = watch(root, { recursive: true });
       const markDirty = (_event: string, filename: string | Buffer | null): void => {
         if (!CorpusWatchRegistry.watchRelevant(filename)) return;
-        this.dirty.add(root);
+        this.markChanged(root, filename);
       };
       watcher.on('change', markDirty);
       watcher.on('rename', markDirty);
@@ -75,6 +79,7 @@ export class CorpusWatchRegistry {
     if (watcher === undefined) return;
     this.watchers.delete(root);
     this.dirty.delete(root);
+    this.changes.delete(root);
     try {
       watcher.close();
     } catch {
@@ -111,6 +116,34 @@ export class CorpusWatchRegistry {
    */
   public clearDirty(root: string): void {
     this.dirty.delete(root);
+    this.changes.delete(root);
+  }
+
+  /**
+   * 记录一次变更（watcher 回调与测试共用入口）。
+   *
+   * 文件名不可用（null/空）时写入空串哨兵，表示"只知道脏、不知道哪条路径"，调用方必须全量复核。
+   * @param root 工作区根。
+   * @param filename watcher 给出的相对文件名。
+   * @returns 无返回值。
+   */
+  public markChanged(root: string, filename: string | Buffer | null): void {
+    this.dirty.add(root);
+    const rel = CorpusWatchRegistry.normalizeChanged(filename);
+    const set = this.changes.get(root) ?? new Set<string>();
+    set.add(rel);
+    this.changes.set(root, set);
+  }
+
+  /**
+   * 取本次待复核的变更路径（相对 POSIX）。
+   * @param root 工作区根。
+   * @returns 路径集合；含空串哨兵或没有记录时 undefined（调用方须全量复核）。
+   */
+  public changedPaths(root: string): ReadonlySet<string> | undefined {
+    const set = this.changes.get(root);
+    if (set === undefined || set.size === 0 || set.has('')) return undefined;
+    return set;
   }
 
   /** 记录一次 stat 快速复用。
@@ -125,6 +158,13 @@ export class CorpusWatchRegistry {
    */
   public noteFullHash(): void {
     this.io.fullHashes += 1;
+  }
+
+  /** 记录一次"只复核变更路径即未变"的复用。
+   * @returns 无返回值。
+   */
+  public notePathReuse(): void {
+    this.io.pathReuses += 1;
   }
 
   /** 取观测快照。
@@ -170,5 +210,15 @@ export class CorpusWatchRegistry {
     return !/(^|\/)(?:node_modules|\.git|dist|target|\.cache|\.omni-storage|\.omni-checkpoints|\.tmp)(?:\/|$)/iu.test(
       rel,
     );
+  }
+
+  /**
+   * 归一化 watcher 文件名：反斜杠→斜杠、去掉 `./` 前缀；不可用时返回空串哨兵。
+   * @param filename watcher 回调的 filename。
+   * @returns 相对 POSIX 路径或空串。
+   */
+  private static normalizeChanged(filename: string | Buffer | null): string {
+    if (filename === null || filename === '') return '';
+    return String(filename).replace(/\\/g, '/').replace(/^\.\//u, '');
   }
 }

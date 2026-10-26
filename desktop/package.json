@@ -15,7 +15,11 @@
     "start": "npm run build && electron .",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
+    "startup:report": "node scripts/startupReport.mjs",
     "stage": "node scripts/stageHarness.mjs",
+    "verify:package": "node scripts/verifyPackage.mjs",
+    "installer": "node scripts/buildInstaller.mjs",
+    "manifest": "node scripts/releaseManifest.mjs",
     "pack": "npm run build && npm run stage && electron-builder --dir --config electron-builder.yml",
     "dist": "npm run build && npm run stage && electron-builder --win --x64 --config electron-builder.yml"
   },

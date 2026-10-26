@@ -105,11 +105,18 @@ interface CompiledCategory {
 }
 
 /**
- * 工具暴露规划器（纯函数集合）。
+ * 工具暴露规划器（确定性纯逻辑 + 有界 memo）。
  *
- * 全部方法为 `static` 且无状态：同输入恒同输出，可在任意并发场景下安全调用。
+ * 方法均为 `static` 且无副作用：同输入恒同输出；仅保留 token 化结果的**有界** LRU 缓存
+ * （工具描述每步都相同，重复分词是纯浪费，见 {@link ToolExposurePlanner.tokenCache}）。
  */
 export class ToolExposurePlanner {
+  /** 工具语料/任务文本分词结果缓存（键=原文；有界，避免长会话常驻）。 */
+  private static readonly tokenCache = new Map<string, ReadonlySet<string>>();
+  /** 分词缓存条目上限。 */
+  private static readonly TOKEN_CACHE_LIMIT = 512;
+  /** 超过该长度的文本不缓存（避免把超长任务文本常驻）。 */
+  private static readonly TOKEN_CACHE_MAX_CHARS = 16 * 1024;
   /**
    * 恒可见工具：三条件「出事时要有」的通道 + 五个**规划产物**通道。
    *  - `tool_search`：找回被隐藏工具的唯一入口（隐藏即可恢复的前提）；
@@ -587,6 +594,8 @@ export class ToolExposurePlanner {
    * @returns 词元集合（去重）。
    */
   private static retrievalTokens(text: string): ReadonlySet<string> {
+    const cached = ToolExposurePlanner.tokenCache.get(text);
+    if (cached !== undefined) return cached;
     const lowered = text.toLowerCase();
     const tokens = new Set<string>();
     // 先按「非字母数字且非 CJK」切块，再在块内按同类连续段提取：
@@ -602,7 +611,15 @@ export class ToolExposurePlanner {
         }
       }
     }
-    return tokens;
+    const result = tokens as ReadonlySet<string>;
+    if (text.length <= ToolExposurePlanner.TOKEN_CACHE_MAX_CHARS) {
+      if (ToolExposurePlanner.tokenCache.size >= ToolExposurePlanner.TOKEN_CACHE_LIMIT) {
+        const oldest = ToolExposurePlanner.tokenCache.keys().next();
+        if (oldest.done !== true) ToolExposurePlanner.tokenCache.delete(oldest.value);
+      }
+      ToolExposurePlanner.tokenCache.set(text, result);
+    }
+    return result;
   }
 
   /**

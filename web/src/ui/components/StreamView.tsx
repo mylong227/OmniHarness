@@ -61,6 +61,12 @@ export type { ToolResultView };
 /** StreamView 组件的入参。 */
 export interface StreamViewProps {
   events: ThreadEvent[];
+  /** 是否还有更早历史可补拉（分页）。 */
+  historyHasMore?: boolean;
+  /** 正在补拉更早历史。 */
+  historyLoading?: boolean;
+  /** 补拉更早历史（顶部按钮）。 */
+  onLoadEarlier?: () => void;
   toolResults: Record<string, ToolResultView>;
   liveInputs: LiveInput[];
   /** 本回合已累积的流式正文（`thread.text_delta` 增量拼接）。非空即在末尾渲染生成中的助手卡片。 */
@@ -449,6 +455,9 @@ const HOLE_BOOST_BLOCKS = 24;
 export function StreamView(props: StreamViewProps): ReactElement {
   const {
     events,
+    historyHasMore,
+    historyLoading,
+    onLoadEarlier,
     toolResults,
     liveInputs,
     streamText,
@@ -791,6 +800,18 @@ export function StreamView(props: StreamViewProps): ReactElement {
             </div>
           ) : (
             <div className="stream-inner">
+              {onLoadEarlier !== undefined && historyHasMore === true ? (
+                <div className="stream-load-earlier">
+                  <button
+                    type="button"
+                    className="ghost"
+                    disabled={historyLoading === true}
+                    onClick={onLoadEarlier}
+                  >
+                    {historyLoading === true ? t('加载中…') : t('加载更早的消息')}
+                  </button>
+                </div>
+              ) : null}
               {win.padTop > 0 ? (
                 <div
                   key="stream-pad-top"

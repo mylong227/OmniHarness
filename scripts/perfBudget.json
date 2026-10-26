@@ -1,0 +1,9 @@
+{
+  "sseParser200KbAt1KbMs": 60,
+  "plannerWarmMs": 2,
+  "shrink200WarmMs": 5,
+  "fingerprintWarmMs": 2,
+  "memorySearchWarmMs": 5,
+  "breakdownWarmMs": 1,
+  "threadPage300Ms": 3
+}

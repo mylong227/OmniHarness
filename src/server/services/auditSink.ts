@@ -1,13 +1,14 @@
 import {
-  appendFileSync,
   closeSync,
   existsSync,
   mkdirSync,
   openSync,
   readFileSync,
   readSync,
+  renameSync,
   statSync,
   writeFileSync,
+  writeSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { log } from '../../util/logger.ts';
@@ -103,6 +104,11 @@ export class AuditSink {
   private prev = HashChain.GENESIS;
   /** 链哈希 HMAC 密钥（未配置时为 undefined = 裸 SHA256 模式，与既有日志逐字节兼容）。 */
   private readonly hmacKey: string | undefined;
+  /**
+   * 常开 append 文件描述符（S7，2026-10-25）：每条 `appendFileSync` 的 open/write/close
+   * 三连改为构造时 open 一次、`writeSync` 追加。写入仍同步（审计合规优先）。
+   */
+  private fd: number | undefined;
 
   /**
    * @param options 落盘目标：`path` 为完整文件路径，`dir` 为目录（固定写 `audit.log`）；两者都缺省时不落盘（record 为 no-op）。
@@ -127,6 +133,7 @@ export class AuditSink {
         writeFileSync(this.target, '', { flag: 'a' });
       }
       this.resumeChain();
+      this.fd = openSync(this.target, 'a');
     }
   }
 
@@ -151,11 +158,75 @@ export class AuditSink {
       prev,
       hash,
     });
-    appendFileSync(this.target, line + '\n');
+    writeSync(this.fd as number, line + '\n');
     this.seq = seq;
     this.prev = hash;
     log.debug('audit.record', { type: entry.type, seq });
     return seq;
+  }
+
+  /**
+   * 关闭审计日志文件描述符（幂等；测试/停机用）。
+   * @returns 无返回值。
+   */
+  public close(): void {
+    if (this.fd === undefined) return;
+    closeSync(this.fd);
+    this.fd = undefined;
+    this.writeHead();
+  }
+
+  /**
+   * 写链头 sidecar（`<log>.head.json`），供下次启动 O(1) 续链。
+   * 只在 `close()` 时写：正常停机才可信；崩溃时文件大小不匹配 ⇒ 回退全量读取。
+   * @returns 无返回值。
+   */
+  private writeHead(): void {
+    if (this.target === undefined || !existsSync(this.target)) return;
+    try {
+      const headPath = `${this.target}.head.json`;
+      const tmp = `${headPath}.tmp`;
+      const size = statSync(this.target).size;
+      writeFileSync(tmp, JSON.stringify({ seq: this.seq, prev: this.prev, size }), 'utf8');
+      renameSync(tmp, headPath);
+    } catch (error) {
+      // sidecar 只是启动优化；写失败不影响审计日志本身（fail-open，但保留下一次全量续链）。
+      log.debug('audit.head.write_failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  /**
+   * 尝试从链头 sidecar 恢复（大小必须与日志文件一致）。
+   * @returns 命中且可信为 true。
+   */
+  private tryResumeFromHead(): boolean {
+    if (this.target === undefined) return false;
+    const headPath = `${this.target}.head.json`;
+    if (!existsSync(headPath)) return false;
+    try {
+      const raw = JSON.parse(readFileSync(headPath, 'utf8')) as {
+        seq?: unknown;
+        prev?: unknown;
+        size?: unknown;
+      };
+      if (
+        typeof raw.seq !== 'number' ||
+        !Number.isInteger(raw.seq) ||
+        raw.seq < 0 ||
+        typeof raw.prev !== 'string' ||
+        typeof raw.size !== 'number' ||
+        raw.size !== statSync(this.target).size
+      ) {
+        return false;
+      }
+      this.seq = raw.seq;
+      this.prev = raw.prev;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -295,6 +366,7 @@ export class AuditSink {
    * @returns 无返回值。
    */
   private resumeChain(): void {
+    if (this.tryResumeFromHead()) return;
     const events = this.read();
     const last = events[events.length - 1];
     if (last === undefined) return;

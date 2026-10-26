@@ -30,3 +30,14 @@ test('INT-04：gray-matter 可选增强解析 YAML 数组与带冒号的值', ()
   assert.strictEqual(skill.description, '处理: PDF');
   assert.deepStrictEqual(skill.tags, ['pdf', 'docs']);
 });
+
+test('INT-04：resources/exclusive 解析、序列化往返', () => {
+  const skill = SkillMdCodec.parse(
+    '---\nname: browser\ndescription: 浏览器\ntags: [web]\nresources: [browser, port:5173]\nexclusive: true\n---\n正文',
+  );
+  assert.deepStrictEqual(skill.resources, ['browser', 'port:5173']);
+  assert.strictEqual(skill.exclusive, true);
+  const round = SkillMdCodec.parse(SkillMdCodec.serialize(skill));
+  assert.deepStrictEqual(round.resources, skill.resources);
+  assert.strictEqual(round.exclusive, true);
+});

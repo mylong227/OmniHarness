@@ -133,6 +133,12 @@ export interface AppState {
   finalizedStreamText: string;
   /** 输入框回填指令（F4「编辑重发」：把末条用户消息填回底部输入框；null 表示无待回填内容）。 */
   composerSeed: ComposerSeed | null;
+  /** 当前会话是否还有更早事件可补拉（`threads.get` 分页）。 */
+  historyHasMore: boolean;
+  /** 当前已加载的最早事件 id（下一页 `before`）。 */
+  oldestEventId: string | null;
+  /** 正在补拉更早历史（按钮禁用/文案用）。 */
+  historyLoading: boolean;
   leftWidth: number;
   rightWidth: number;
 }

@@ -15,6 +15,9 @@ import { MethodBinder } from './methodBinder.ts';
 import { SessionTicker } from './sessionTicker.ts';
 import { t } from '../i18n/i18n.ts';
 
+/** 历史分页页大小（首屏只取尾部；更早内容按需补拉）。 */
+const HISTORY_PAGE_SIZE = 300;
+
 /** 会话 / 事件 / 文件控制器：单一职责，仅供 App 组合使用。 */
 export class SessionController {
   /** 状态宿主。 */
@@ -218,6 +221,8 @@ export class SessionController {
    * @returns 异步完成
    */
   public async loadThread(id: string): Promise<void> {
+    // S2 真机首屏观测：从点击/深链进入开始计时，加载完成后落一条 Performance measure。
+    const startedAt = typeof performance === 'undefined' ? 0 : performance.now();
     // 挂到这条会话上（不是摘掉）：刷新 / 深链 / 点会话都要能继续收它的流式事件。
     this.viewAttachment.attach();
     try {
@@ -225,7 +230,7 @@ export class SessionController {
       // 打开前对齐归属项目、必要时先切项目——策略与判据见 `models/SessionProjectBinding`。
       const owner = { api: this.services.api, host: this.host, toast: this.services.toast };
       if (await SessionProjectBinding.ensure(owner, id)) await this.refreshSessions();
-      const r = await this.services.api.getThread(id);
+      const r = await this.services.api.getThread(id, { limit: HISTORY_PAGE_SIZE });
       const items = r.items || [];
       // 历史会话的**工具结果**必须从事件里重建：卡片状态只来自实时 `tool_result` 通知，而加载历史时
       // 那些通知早就过去了 ⇒ 否则旧工具卡永远停在「进行中…」（2026-10-07 用户截图「结果卡住了」）。
@@ -245,14 +250,102 @@ export class SessionController {
         finalizedStreamText: '',
         busy: false,
         activeTool: null,
+        historyHasMore: r.hasMore === true,
+        oldestEventId: items[0]?.id ?? null,
+        historyLoading: false,
       });
       // #OBS-12：加载历史会话必须重置 busy / activeTool，避免上一回合残留撑开过程 cluster。
       this.host.patch((s) => ({ sessions: s.sessions.map((x) => x) }));
       this.ticker.now();
       // F8：把当前会话写进 hash，支持深链 / 浏览器前进后退。
       this.services.navigate({ threadId: id });
+      SessionController.markFirstPage(startedAt, items.length);
     } catch (e) {
       this.services.toast(t('加载会话失败：{msg}', { msg: (e as Error).message }), 'err');
+    }
+  }
+
+  /**
+   * 落一条首屏 Performance measure（S2 真机测量入口）。
+   * @param startedAt 开始时间（`performance.now()`；0 表示环境无 performance）。
+   * @param events 首屏事件条数。
+   * @returns 无返回值。
+   */
+  private static markFirstPage(startedAt: number, events: number): void {
+    if (startedAt === 0 || typeof performance === 'undefined') return;
+    try {
+      performance.measure('omni.thread.firstPage', {
+        start: startedAt,
+        end: performance.now(),
+        detail: { events },
+      });
+    } catch {
+      // 观测失败绝不能影响会话加载。
+    }
+  }
+
+  /**
+   * 补拉更早历史（S2）：用当前最早事件 id 作 `before`，把上一页拼到事件流前面。
+   *
+   * 为什么要在 await 后重新核对 currentThreadId：补拉可能跨越用户切会话，晚到响应若直接
+   * 写入就会把 A 的历史拼进 B（与 `loadThread` 的竞态同源）。
+   * @returns 补拉完成（无更多/未加载时为 no-op）
+   */
+  public async loadEarlier(): Promise<void> {
+    const before = this.host.getState();
+    const threadId = before.currentThreadId;
+    const oldest = before.oldestEventId;
+    if (
+      threadId === null ||
+      !before.historyHasMore ||
+      oldest === null ||
+      before.historyLoading
+    ) {
+      return;
+    }
+    this.host.patch({ historyLoading: true });
+    try {
+      const r = await this.services.api.getThread(threadId, {
+        limit: HISTORY_PAGE_SIZE,
+        before: oldest,
+      });
+      if (r.error !== undefined) throw new Error(r.error);
+      const current = this.host.getState();
+      if (current.currentThreadId !== threadId) return;
+      const seen = new Set(current.events.map((event) => event.id));
+      const older = (r.items || []).filter((event) => !seen.has(event.id));
+      const results = { ...current.toolResults };
+      for (const event of older) {
+        const callId =
+          event.type === 'tool_result' ? (event.payload?.callId as string | undefined) : undefined;
+        if (callId !== undefined && callId !== '') {
+          results[callId] = this.services.reducers.mergeToolResult(
+            {},
+            callId,
+            event.payload || {},
+          )[callId]!;
+        }
+      }
+      this.host.patch({
+        events: [...older, ...current.events],
+        toolResults: results,
+        historyHasMore: r.hasMore === true,
+        oldestEventId: older[0]?.id ?? oldest,
+        historyLoading: false,
+      });
+    } catch (error) {
+      this.host.patch({ historyLoading: false });
+      // 事件被回卷（重生成/回退）后，旧页的 before id 已不在日志里：不猜、不静默丢历史，
+      // 直接重载当前会话的尾部页，让用户看到一致的新视图。
+      if ((error as Error).message === 'unknown_before') {
+        this.services.toast(t('历史已变化，已重新加载'), 'info');
+        await this.loadThread(threadId);
+        return;
+      }
+      this.services.toast(
+        t('加载更早历史失败：{msg}', { msg: (error as Error).message }),
+        'err',
+      );
     }
   }
 
@@ -269,6 +362,9 @@ export class SessionController {
       finalizedStreamText: '',
       busy: false,
       activeTool: null,
+      historyHasMore: false,
+      oldestEventId: null,
+      historyLoading: false,
     });
     // F8：清空 hash 中的会话，回到无会话视图。
     this.services.navigate({ threadId: null });

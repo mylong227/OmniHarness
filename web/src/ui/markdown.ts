@@ -251,6 +251,57 @@ export function handleCodeblockCopyClick(e: MouseEvent): void {
 /** 模块级单例缓存：首次用到时才构造（配置一次、渲染多次）。 */
 let mdCache: MarkdownItInstance | null = null;
 
+/**
+ * `src → HTML` 有界 LRU（2026-10-25）。
+ *
+ * 为什么需要：历史上卡并不是原始 Markdown 没缓存，而是**同一条消息被反复渲染**——父组件每次
+ * 流式刷新/滚动重渲染都会重新解析全文（markdown-it 3.7–6.1 ms/次，20k 字回复累计可达秒级）。
+ * 这里缓存「已渲染 HTML」而不是 React 元素：元素每次新建很便宜，HTML 字符串才是解析产物。
+ *
+ * 上限：64 条 / 8M 字符；只缓存 ≤64KB 的文本（更大的渲染本来就低频，避免缓存常驻）。
+ */
+const HTML_CACHE_MAX_ENTRIES = 64;
+const HTML_CACHE_MAX_CHARS = 8 * 1024 * 1024;
+const HTML_CACHE_MAX_TEXT = 64 * 1024;
+const htmlCache = new Map<string, string>();
+let htmlCacheChars = 0;
+
+/**
+ * 读缓存（命中刷新 LRU 顺序）。
+ * @param key Markdown 源码。
+ * @returns 命中的 HTML；未命中 undefined。
+ */
+function readHtmlCache(key: string): string | undefined {
+  const hit = htmlCache.get(key);
+  if (hit === undefined) return undefined;
+  htmlCache.delete(key);
+  htmlCache.set(key, hit);
+  return hit;
+}
+
+/**
+ * 写缓存（有界；超限淘汰最旧）。
+ * @param key Markdown 源码。
+ * @param html 渲染结果。
+ * @returns 无返回值。
+ */
+function writeHtmlCache(key: string, html: string): void {
+  if (key.length > HTML_CACHE_MAX_TEXT) return;
+  if (htmlCache.has(key)) return;
+  htmlCache.set(key, html);
+  htmlCacheChars += key.length + html.length;
+  while (
+    htmlCache.size > HTML_CACHE_MAX_ENTRIES ||
+    htmlCacheChars > HTML_CACHE_MAX_CHARS
+  ) {
+    const oldest = htmlCache.keys().next();
+    if (oldest.done === true) break;
+    const value = htmlCache.get(oldest.value) ?? '';
+    htmlCacheChars -= oldest.value.length + value.length;
+    htmlCache.delete(oldest.value);
+  }
+}
+
 /** 构造并缓存配置好的 markdown-it 实例（含数学插件与代码高亮）。 */
 function getMd(): MarkdownItInstance {
   if (mdCache !== null) return mdCache;
@@ -459,7 +510,13 @@ export function markdownRender(src: string): ReactElement {
   // 比原文多一个换行（文本选中、复制、无障碍朗读都会带上），与「textContent == 原文」这一契约
   // 不符（两条独立 e2e：D3 dump-DOM 与 E1 CDP，都是按该契约写的严格断言）。
   // 只剥**末尾一个字符**，块内换行（如 fenced code 的源码）一概不受影响。
-  const html = getMd().render(text).replace(/\n$/, '');
+  const cached = readHtmlCache(text);
+  const html =
+    cached ??
+    getMd()
+      .render(text)
+      .replace(/\n$/, '');
+  if (cached === undefined) writeHtmlCache(text, html);
   return React.createElement('div', {
     className: 'md-content',
     spellCheck: 'false',

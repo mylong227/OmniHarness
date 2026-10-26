@@ -47,12 +47,14 @@ export function parseReadyInfo(value: unknown): ReadyInfo | null {
  * @param path 就绪文件路径。
  * @param child 侧车进程（用于提前判死）。
  * @param timeoutMs 总超时。
+ * @param pollIntervalMs 轮询间隔（缺省 50 ms；由桌面配置传入）。
  * @returns 就绪信息。
  */
 export async function waitForReadyFile(
   path: string,
   child: ChildProcess,
   timeoutMs: number,
+  pollIntervalMs = 50,
 ): Promise<ReadyInfo> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -67,33 +69,54 @@ export async function waitForReadyFile(
         // 文件可能正在 rename 的瞬间：下一轮再读。
       }
     }
-    await delay(50);
+    await delay(pollIntervalMs);
   }
   throw new Error(`等待 Harness 就绪超时（${String(timeoutMs)}ms）`);
+}
+
+/** `/readyz` 探测参数（全部有默认值，便于单测/旧调用点）。 */
+export interface ReadyProbeOptions {
+  /** Harness 主机（回环）。 */
+  readonly host?: string;
+  /** 总超时（ms）。 */
+  readonly timeoutMs?: number;
+  /** 单次请求超时（ms）。 */
+  readonly probeTimeoutMs?: number;
+  /** 重试间隔（ms）。 */
+  readonly retryIntervalMs?: number;
 }
 
 /**
  * 带 Bearer 调 /readyz；启动瞬间可能还没 ready，故短重试。
  * @param port 实际端口。
  * @param token 本次启动 Token。
- * @param timeoutMs 总超时。
+ * @param options 主机/超时/重试参数。
  * @returns 无返回值；失败抛错。
  */
-export async function assertReadyz(port: number, token: string, timeoutMs = 8_000): Promise<void> {
+export async function assertReadyz(
+  port: number,
+  token: string,
+  options: ReadyProbeOptions = {},
+): Promise<void> {
+  const host = options.host ?? '127.0.0.1';
+  const authority = host.includes(':') ? `[${host}]` : host;
+  const timeoutMs = options.timeoutMs ?? 8_000;
+  const probeTimeoutMs = options.probeTimeoutMs ?? 1_500;
+  const retryIntervalMs = options.retryIntervalMs ?? 100;
   const deadline = Date.now() + timeoutMs;
   let last = '';
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${String(port)}/readyz`, {
+      const response = await fetch(`http://${authority}:${String(port)}/readyz`, {
         headers: { authorization: `Bearer ${token}` },
-        signal: AbortSignal.timeout(1_500),
+        signal: AbortSignal.timeout(probeTimeoutMs),
       });
       if (response.ok) return;
       last = `HTTP ${String(response.status)}`;
     } catch (error) {
       last = error instanceof Error ? error.message : String(error);
     }
-    await delay(100);
+    await delay(retryIntervalMs);
   }
   throw new Error(`/readyz 未就绪：${last}`);
 }

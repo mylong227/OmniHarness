@@ -1,13 +1,21 @@
 /** OmniHarness 桌面主进程（Electron；按 Codex 官方 App 的 Electron + React/TS 形态）。 */
-import { app, BrowserWindow, dialog, session, shell } from 'electron';
+import { app, BrowserWindow, globalShortcut, session, shell } from 'electron';
 import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { AutoStartService } from './autoStart.ts';
 import { DesktopStateStore } from './desktopState.ts';
 import { HarnessSupervisor, type HarnessHandle } from './harnessSupervisor.ts';
 import { assertDirectory, openLogDirectory, pickDirectory, registerIpc } from './ipc.ts';
-import { harnessEntry, logDir, nodeBinary, runDir } from './lib/paths.ts';
+import { harnessEntry, logDir, modelDir, nodeBinary, runDir, vectorDir } from './lib/paths.ts';
 import { parseLaunchArgs } from './lib/args.ts';
+import { loadDesktopConfig, type DesktopConfig } from './config.ts';
+import { DesktopDialogs } from './app/DesktopDialogs.ts';
+import { DeepLinkRouter } from './app/DeepLinkRouter.ts';
+import { HarnessRestartPolicy } from './app/HarnessRestartPolicy.ts';
+import { SecondaryWindows } from './app/SecondaryWindows.ts';
+import { StartupMarker } from './app/StartupMarker.ts';
+import { WindowLifecycle } from './app/WindowLifecycle.ts';
+import { DesktopI18n } from './i18n/DesktopI18n.ts';
 import { DesktopLogger } from './logger.ts';
 import { installMenu, refreshMenu } from './menu.ts';
 import { NotificationService } from './notifications.ts';
@@ -17,6 +25,22 @@ import { UpdateService } from './updateService.ts';
 import { createMainWindow, loadHarness } from './window.ts';
 
 app.setName('OmniHarness');
+
+/**
+ * 加载桌面配置（发布包文件 → 用户文件 → `OMNI_DESKTOP_CONFIG`）。
+ *
+ * 必须在 `app.setName` 之后（userData 路径取决于应用名）、`whenReady` 之前：
+ * `app.getPath('userData')` 在主进程启动早期即可用。
+ */
+const loadedConfig = loadDesktopConfig({
+  builtinFile: app.isPackaged
+    ? join(process.resourcesPath, 'desktop.config.json')
+    : join(app.getAppPath(), 'desktop.config.json'),
+  userFile: join(app.getPath('userData'), 'desktop.config.json'),
+  envFile: (process.env['OMNI_DESKTOP_CONFIG'] ?? '').trim(),
+});
+const config: DesktopConfig = loadedConfig.config;
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -36,35 +60,95 @@ interface AppContext {
   updates: UpdateService;
   tray: TrayService | null;
   quitting: boolean;
+  /** 原生壳文案（中/英）。 */
+  i18n: DesktopI18n;
+  /** 原生对话框统一入口。 */
+  dialogs: DesktopDialogs;
 }
 
 let context: AppContext | null = null;
-let pendingDeepLink: string | null = null;
+
+/** 深链路由（待处理 URL 由类持有，不再用全局变量）。 */
+const deepLinks = new DeepLinkRouter({
+  protocol: config.app.protocol,
+  uiReadyTimeoutMs: config.deepLink.uiReadyTimeoutMs,
+  getWindow: () => context?.window ?? null,
+  isReady: () => context !== null,
+  switchWorkspace: (path) => switchWorkspace(path),
+});
+
+/** 主窗口生命周期（显示/关闭到托盘/开机启动/诊断）。 */
+const windows = new WindowLifecycle({
+  current: () =>
+    context === null
+      ? null
+      : {
+          window: context.window,
+          handle: context.handle,
+          state: context.state,
+          tray: context.tray,
+        },
+  createWindow: () => {
+    if (context === null) throw new Error('window lifecycle not ready');
+    return createMainWindow({
+      preload: join(__dirname, 'preload.cjs'),
+      state: context.state,
+      config: config.window,
+    });
+  },
+  setWindow: (window) => {
+    if (context !== null) context.window = window;
+  },
+  loadHarness,
+  refreshMenu,
+  isQuitting: () => context?.quitting === true,
+  applyAutoStart: (enabled) => AutoStartService.apply(enabled),
+  logger: () => context?.logger ?? null,
+});
+
+/** 额外工作台窗口（多窗口）。 */
+const secondary = new SecondaryWindows({
+  createWindow: () => windows.createWindow(),
+  loadHarness,
+  logger: () => context?.logger ?? null,
+});
+
+/**
+ * 新开一个工作台窗口（复用当前 Harness 句柄）。
+ * @returns 无返回值。
+ */
+function openNewWindow(): void {
+  const handle = context?.handle;
+  if (handle === null || handle === undefined) return;
+  secondary.open(handle);
+}
 
 /** 启动应用。 */
 function run(): void {
-  app.setAppUserModelId('com.mylong227.omniharness');
+  app.setAppUserModelId(config.app.appId);
   if (app.isPackaged) {
-    app.setAsDefaultProtocolClient('omniharness');
+    app.setAsDefaultProtocolClient(config.app.protocol);
   } else if (process.argv[1] !== undefined) {
-    app.setAsDefaultProtocolClient('omniharness', process.execPath, [resolve(process.argv[1])]);
+    app.setAsDefaultProtocolClient(config.app.protocol, process.execPath, [
+      resolve(process.argv[1]),
+    ]);
   }
   app.enableSandbox();
   installGlobalGuards();
 
   app.on('second-instance', (_event, argv) => {
-    showMainWindow();
-    const launch = parseLaunchArgs(argv);
+    windows.show();
+    const launch = parseLaunchArgs(argv, config.app.protocol);
     if (launch.workspace !== null) {
       void switchWorkspace(launch.workspace);
     } else if (launch.deepLink !== null) {
-      void handleDeepLink(launch.deepLink);
+      void deepLinks.handle(launch.deepLink);
     }
   });
 
   app.on('open-url', (event, url) => {
     event.preventDefault();
-    void handleDeepLink(url);
+    void deepLinks.handle(url);
   });
 
   app.on('window-all-closed', () => {
@@ -77,12 +161,17 @@ function run(): void {
       context.window = createMainWindow({
         preload: join(__dirname, 'preload.cjs'),
         state: context.state,
+        config: config.window,
       });
-      attachWindowBehavior(context.window);
+      windows.attach(context.window);
       loadHarness(context.window, context.handle);
     }
   });
 
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll();
+    secondary.closeAll();
+  });
   app.on('before-quit', (event) => {
     if (context === null || context.quitting) return;
     event.preventDefault();
@@ -96,40 +185,52 @@ function run(): void {
     .catch(async (error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       context?.logger.write('main', `bootstrap failed: ${message}`);
-      await dialog.showMessageBox({
-        type: 'error',
-        title: 'OmniHarness 无法启动',
-        message: '桌面应用启动失败',
-        detail: message,
-      });
+      const i18n = new DesktopI18n(DesktopI18n.resolve(config.app.language, app.getLocale()));
+      await new DesktopDialogs(i18n).startFailed(message);
       app.exit(1);
     });
 }
 
 /** 初始化：日志 → 偏好 → 工作区 → 窗口 → Harness → 载入 UI。 */
 async function bootstrap(): Promise<void> {
-  const logger = new DesktopLogger(logDir());
-  const state = new DesktopStateStore(app.getPath('userData'));
-  const launch = parseLaunchArgs(process.argv);
-  const linkedWorkspace = launch.deepLink !== null ? deepLinkWorkspace(launch.deepLink) : null;
+  const logger = new DesktopLogger(logDir(app.getPath('userData'), config.logging.dirName), {
+    ringLines: config.logging.ringLines,
+  });
+  for (const warning of loadedConfig.warnings) logger.write('main', `config: ${warning}`);
+  const startup = new StartupMarker(logger);
+  startup.mark('config.loaded');
+  const i18n = new DesktopI18n(DesktopI18n.resolve(config.app.language, app.getLocale()));
+  const dialogs = new DesktopDialogs(i18n);
+  logger.write('main', `desktop language=${i18n.locale} (setting=${config.app.language})`);
+  const state = new DesktopStateStore(app.getPath('userData'), {
+    maxRecent: config.state.maxRecentWorkspaces,
+    minWidth: config.window.minWidth,
+    minHeight: config.window.minHeight,
+    closeToTray: config.state.defaultCloseToTray,
+    openAtLogin: config.state.defaultOpenAtLogin,
+  });
+  const launch = parseLaunchArgs(process.argv, config.app.protocol);
+  const linkedWorkspace =
+    launch.deepLink !== null
+      ? DeepLinkRouter.workspaceOf(launch.deepLink, config.app.protocol)
+      : null;
   const initial = await resolveWorkspace(launch.workspace ?? linkedWorkspace, state);
   if (initial === null) {
     logger.write('main', 'no workspace selected; quit');
     app.quit();
     return;
   }
+  startup.mark('workspace.resolved');
   const window = createMainWindow({
     preload: join(__dirname, 'preload.cjs'),
     state,
+    config: config.window,
     autoShow: !launch.hidden,
+    loadingHint: i18n.t('window.starting'),
+    loadingLang: i18n.locale,
   });
-  const supervisor = new HarnessSupervisor({
-    workspace: initial,
-    entry: harnessEntry(),
-    node: nodeBinary(),
-    runDir: runDir(),
-    logger,
-  });
+  startup.mark('window.created');
+  const supervisor = createSupervisor(initial, logger);
   const notifications = new NotificationService(
     () => context?.window ?? null,
     (sessionId) => {
@@ -138,6 +239,7 @@ async function bootstrap(): Promise<void> {
         target.webContents.send('omni:notificationClick', sessionId);
       }
     },
+    config.notification,
   );
   const updates = new UpdateService(
     () => context?.window ?? null,
@@ -146,6 +248,7 @@ async function bootstrap(): Promise<void> {
       context.quitting = true;
       await context.supervisor?.stop().catch(() => undefined);
     },
+    config.update,
   );
   context = {
     window,
@@ -158,26 +261,57 @@ async function bootstrap(): Promise<void> {
     updates,
     tray: null,
     quitting: false,
+    i18n,
+    dialogs,
   };
-  attachWindowBehavior(window);
-  const tray = new TrayService(join(__dirname, 'icon.png'), {
-    show: () => showMainWindow(),
-    openWorkspace: () => {
-      void chooseWorkspace();
+  windows.attach(window);
+  const tray = new TrayService(
+    join(__dirname, 'icon.png'),
+    {
+      show: () => windows.show(),
+      newWindow: openNewWindow,
+      openWorkspace: () => {
+        void chooseWorkspace();
+      },
+      recentWorkspaces: () => (context?.state.get().recentWorkspaces ?? []).slice(0, 5),
+      openRecent: (path) => {
+        void switchWorkspace(path);
+      },
+      openLogs: () => {
+        void openLogs();
+      },
+      checkUpdates: () => {
+        void checkForUpdates();
+      },
+      diagnostics: () => {
+        void showDiagnostics();
+      },
+      setCloseToTray: (enabled) => windows.setCloseToTray(enabled),
+      setOpenAtLogin: (enabled) => windows.setOpenAtLogin(enabled),
+      quit: () => app.quit(),
+      closeToTray: () => context?.state.get().closeToTray === true,
+      openAtLogin: () => context?.state.get().openAtLogin === true,
     },
-    openLogs: () => {
-      void openLogs();
-    },
-    checkUpdates: () => {
-      void checkForUpdates();
-    },
-    setCloseToTray: (enabled) => setCloseToTray(enabled),
-    setOpenAtLogin: (enabled) => setOpenAtLogin(enabled),
-    quit: () => app.quit(),
-    closeToTray: () => context?.state.get().closeToTray === true,
-    openAtLogin: () => context?.state.get().openAtLogin === true,
-  });
+    config.tray,
+    i18n,
+  );
   context.tray = tray.create() ? tray : null;
+  if (config.window.showShortcut !== '') {
+    try {
+      const ok = globalShortcut.register(config.window.showShortcut, () => windows.show());
+      logger.write(
+        'main',
+        ok
+          ? `global shortcut registered: ${config.window.showShortcut}`
+          : `global shortcut unavailable: ${config.window.showShortcut}`,
+      );
+    } catch (error) {
+      logger.write(
+        'main',
+        `global shortcut failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
   if (launch.hidden && context.tray === null) window.show();
   AutoStartService.apply(state.get().openAtLogin === true);
   updates.initialize();
@@ -186,6 +320,7 @@ async function bootstrap(): Promise<void> {
     openWorkspace: () => {
       void chooseWorkspace();
     },
+    newWindow: openNewWindow,
     openLogs: () => {
       void openLogs();
     },
@@ -196,19 +331,27 @@ async function bootstrap(): Promise<void> {
       void checkForUpdates();
     },
     closeToTray: () => context?.state.get().closeToTray === true,
-    setCloseToTray: (enabled) => setCloseToTray(enabled),
+    setCloseToTray: (enabled) => windows.setCloseToTray(enabled),
     openAtLogin: () => context?.state.get().openAtLogin === true,
-    setOpenAtLogin: (enabled) => setOpenAtLogin(enabled),
+    setOpenAtLogin: (enabled) => windows.setOpenAtLogin(enabled),
     quit: () => app.quit(),
     isPackaged: app.isPackaged,
+    repositoryUrl: config.app.repositoryUrl,
+    i18n,
   });
   registerIpc({
+    limits: config.ipc,
     mainContents: () => context?.window?.webContents,
+    isTrustedContents: (contents) => secondary.owns(contents),
     workspace: () => context?.workspace ?? initial,
+    language: () => context?.i18n.locale ?? i18n.locale,
+    showDiagnostics: () => {
+      void showDiagnostics();
+    },
     closeToTray: () => context?.state.get().closeToTray === true,
-    setCloseToTray,
+    setCloseToTray: (enabled) => windows.setCloseToTray(enabled),
     openAtLogin: () => context?.state.get().openAtLogin === true,
-    setOpenAtLogin,
+    setOpenAtLogin: (enabled) => windows.setOpenAtLogin(enabled),
     pickWorkspace: () => pickWorkspace(),
     openWorkspace: (path) => switchWorkspace(path),
     openLogs,
@@ -221,38 +364,35 @@ async function bootstrap(): Promise<void> {
     installUpdate: () => context?.updates.install() ?? Promise.resolve(),
     updateStatus: () => context?.updates.current() ?? { state: 'idle' },
   });
-  if (app.isPackaged) {
+  if (app.isPackaged && config.update.autoCheckDelayMs > 0) {
     setTimeout(() => {
       void context?.updates.check();
-    }, 10_000);
+    }, config.update.autoCheckDelayMs);
   }
 
+  startup.mark('harness.start');
   try {
     const handle = await supervisor.start();
     context.handle = handle;
-    setHarnessOrigin(handle.port);
-    installSessionSecurity(session.defaultSession, handle.port);
+    startup.mark('harness.ready');
+    setHarnessOrigin(handle.port, handle.host);
+    installSessionSecurity(session.defaultSession, handle.port, {
+      ...config.security,
+      host: handle.host,
+    });
     state.rememberWorkspace(initial);
     loadHarness(window, handle);
+    startup.mark('ui.loading');
     logger.write('main', `UI loaded for workspace ${initial}`);
-    if (launch.deepLink !== null) pendingDeepLink = launch.deepLink;
-    window.webContents.once('did-finish-load', () => flushDeepLink());
+    if (launch.deepLink !== null) deepLinks.setPending(launch.deepLink);
+    window.webContents.once('did-finish-load', () => {
+      startup.mark('ui.ready');
+      deepLinks.flush();
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.write('main', `harness start failed: ${message}`);
-    await dialog
-      .showMessageBox(window, {
-        type: 'error',
-        title: 'Harness 启动失败',
-        message: '本地 Harness 未能启动',
-        detail: `${message}\n\n日志：${logger.directory()}`,
-        buttons: ['退出', '打开日志'],
-        defaultId: 0,
-        cancelId: 0,
-      })
-      .then((result) => {
-        if (result.response === 1) void openLogDirectory(logger.directory());
-      });
+    await dialogs.harnessStartFailed(window, message, logger.directory());
     app.quit();
   }
 }
@@ -288,6 +428,26 @@ async function pickWorkspace(): Promise<string | null> {
   return pickDirectory(app.getPath('documents'));
 }
 
+/**
+ * 按桌面配置构造 Harness 侧车（启动/切换工作区共用同一套路径与超时）。
+ * @param workspace 工作区绝对路径。
+ * @param logger 日志器。
+ * @returns 侧车实例。
+ */
+function createSupervisor(workspace: string, logger: DesktopLogger): HarnessSupervisor {
+  const userData = app.getPath('userData');
+  return new HarnessSupervisor({
+    workspace,
+    entry: harnessEntry(),
+    node: nodeBinary(),
+    runDir: runDir(userData, config.harness.runDirName),
+    modelDir: modelDir(userData, config.harness.modelDirName),
+    vectorDir: vectorDir(userData, config.harness.vectorDirName),
+    logger,
+    config: config.harness,
+  });
+}
+
 /** 菜单/IPC：选择并切换工作区。 */
 async function chooseWorkspace(): Promise<void> {
   try {
@@ -296,11 +456,9 @@ async function chooseWorkspace(): Promise<void> {
   } catch (error) {
     const ctx = context;
     ctx?.logger.write('main', `choose workspace failed: ${String(error)}`);
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '打开工作区失败',
-      message: error instanceof Error ? error.message : String(error),
-    });
+    if (ctx !== null) {
+      await ctx.dialogs.workspaceOpenFailed(error instanceof Error ? error.message : String(error));
+    }
   }
 }
 
@@ -316,42 +474,31 @@ async function switchWorkspace(path: string): Promise<void> {
   try {
     absolute = assertDirectory(path);
   } catch (error) {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '工作区无效',
-      message: error instanceof Error ? error.message : String(error),
-    });
+    await ctx.dialogs.invalidWorkspace(error instanceof Error ? error.message : String(error));
     return;
   }
   if (absolute === ctx.workspace) return;
   ctx.logger.write('main', `switch workspace -> ${absolute}`);
   await ctx.supervisor?.stop();
-  const next = new HarnessSupervisor({
-    workspace: absolute,
-    entry: harnessEntry(),
-    node: nodeBinary(),
-    runDir: runDir(),
-    logger: ctx.logger,
-  });
+  const next = createSupervisor(absolute, ctx.logger);
   bindCrashHandler(next);
   ctx.supervisor = next;
   try {
     const handle = await next.start();
     ctx.handle = handle;
     ctx.workspace = absolute;
-    setHarnessOrigin(handle.port);
-    installSessionSecurity(session.defaultSession, handle.port);
+    setHarnessOrigin(handle.port, handle.host);
+    installSessionSecurity(session.defaultSession, handle.port, {
+      ...config.security,
+      host: handle.host,
+    });
     ctx.state.rememberWorkspace(absolute);
     if (ctx.window !== null) loadHarness(ctx.window, handle);
+    secondary.reloadAll(handle);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     ctx.logger.write('main', `switch workspace failed: ${message}`);
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '切换工作区失败',
-      message: '无法启动新工作区的 Harness',
-      detail: message,
-    });
+    await ctx.dialogs.switchFailed(message);
   }
 }
 
@@ -368,18 +515,17 @@ async function restartHarness(): Promise<void> {
     const handle = await ctx.supervisor?.start();
     if (handle === undefined) throw new Error('supervisor unavailable');
     ctx.handle = handle;
-    setHarnessOrigin(handle.port);
-    installSessionSecurity(session.defaultSession, handle.port);
+    setHarnessOrigin(handle.port, handle.host);
+    installSessionSecurity(session.defaultSession, handle.port, {
+      ...config.security,
+      host: handle.host,
+    });
     if (ctx.window !== null) loadHarness(ctx.window, handle);
+    secondary.reloadAll(handle);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     ctx.logger.write('main', `restart failed: ${message}`);
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '重启失败',
-      message: 'Harness 未能重新启动',
-      detail: message,
-    });
+    await ctx.dialogs.restartFailed(message);
   }
 }
 
@@ -388,6 +534,24 @@ async function openLogs(): Promise<void> {
   const ctx = context;
   if (ctx === null) return;
   await openLogDirectory(ctx.logger.directory());
+}
+
+/** 托盘「诊断信息」：把版本/工作区/侧车/日志/配置来源汇总到可复制对话框。 */
+async function showDiagnostics(): Promise<void> {
+  const ctx = context;
+  if (ctx === null) return;
+  const handle = ctx.handle;
+  const detail = [
+    `version: ${app.getVersion()}`,
+    `workspace: ${ctx.workspace}`,
+    `language: ${ctx.i18n.locale}`,
+    `harness: ${ctx.supervisor?.getState() ?? 'none'}${
+      handle !== null ? ` (${handle.host}:${String(handle.port)})` : ''
+    }`,
+    `logs: ${ctx.logger.directory()}`,
+    `config: ${loadedConfig.sources.length > 0 ? loadedConfig.sources.join(' -> ') : 'builtin defaults'}`,
+  ].join('\n');
+  await ctx.dialogs.diagnostics(detail);
 }
 
 /**
@@ -401,197 +565,64 @@ async function revealPath(path: string): Promise<void> {
   if (error !== '') throw new Error(error);
 }
 
-/**
- * 从 `omniharness://open?workspace=...` 取出工作区。
- * @param url 深链。
- * @returns 工作区路径或 null。
- */
-function deepLinkWorkspace(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'omniharness:') return null;
-    const workspace = parsed.searchParams.get('workspace');
-    return workspace !== null && workspace.trim() !== '' ? workspace : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 处理深链：切换工作区并把原始 URL 转发给 UI。
- * @param url 深链。
- * @returns 无返回值。
- */
-async function handleDeepLink(url: string): Promise<void> {
-  const ctx = context;
-  if (ctx === null) {
-    pendingDeepLink = url;
-    return;
-  }
-  const workspace = deepLinkWorkspace(url);
-  if (workspace !== null) {
-    await switchWorkspace(workspace);
-    if (ctx.window !== null) await waitForUiReady(ctx.window);
-  }
-  pendingDeepLink = url;
-  flushDeepLink();
-}
-
-/**
- * 等 UI 加载完成（最多 5s；超时也继续，避免深链把进程卡住）。
- * @param window 主窗口。
- * @returns 无返回值。
- */
-function waitForUiReady(window: BrowserWindow): Promise<void> {
-  if (!window.webContents.isLoading()) return Promise.resolve();
-  return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, 5_000);
-    window.webContents.once('did-finish-load', () => {
-      clearTimeout(timer);
-      resolve();
-    });
-  });
-}
-
-/** 把待处理深链发给已加载的 UI。 */
-function flushDeepLink(): void {
-  const ctx = context;
-  if (ctx === null || ctx.window === null || pendingDeepLink === null) return;
-  ctx.window.webContents.send('omni:deepLink', pendingDeepLink);
-  pendingDeepLink = null;
-}
-
-/** 显示/聚焦主窗口；窗口被关闭但 Harness 还在时重建。 */
-function showMainWindow(): void {
-  const ctx = context;
-  if (ctx === null) return;
-  if (ctx.window === null && ctx.handle !== null) {
-    const window = createMainWindow({
-      preload: join(__dirname, 'preload.cjs'),
-      state: ctx.state,
-    });
-    ctx.window = window;
-    attachWindowBehavior(window);
-    loadHarness(window, ctx.handle);
-  }
-  const window = ctx.window;
-  if (window === null) return;
-  if (window.isMinimized()) window.restore();
-  window.show();
-  window.focus();
-}
-
-/**
- * 设置关闭到托盘。
- * @param enabled 是否启用。
- * @returns 无返回值。
- */
-function setCloseToTray(enabled: boolean): void {
-  const ctx = context;
-  if (ctx === null) return;
-  ctx.state.setCloseToTray(enabled);
-  ctx.tray?.refresh();
-  refreshMenu();
-}
-
-/**
- * 设置开机启动。
- * @param enabled 是否启用。
- * @returns 无返回值。
- */
-function setOpenAtLogin(enabled: boolean): void {
-  const ctx = context;
-  if (ctx === null) return;
-  ctx.state.setOpenAtLogin(enabled);
-  AutoStartService.apply(enabled);
-  ctx.tray?.refresh();
-  refreshMenu();
-}
-
 /** 检查更新（手动入口；开发态提示，不静默）。 */
 async function checkForUpdates(): Promise<void> {
   const ctx = context;
   if (ctx === null) return;
   if (!app.isPackaged) {
-    await dialog.showMessageBox({
-      type: 'info',
-      title: '检查更新',
-      message: '开发构建不启用自动更新',
-      detail: '请使用打包后的安装版本；更新源由 electron-builder 的 publish 配置提供。',
-    });
+    await ctx.dialogs.updateDev();
     return;
   }
   await ctx.updates.check();
   const status = ctx.updates.current();
   if (status.state === 'available') {
-    const result = await dialog.showMessageBox({
-      type: 'info',
-      title: '发现新版本',
-      message: `OmniHarness ${status.version} 可用`,
-      detail: '是否现在下载？下载完成后会在你确认时安装。',
-      buttons: ['下载', '稍后'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (result.response === 0) await ctx.updates.download();
+    const response = await ctx.dialogs.updateAvailable(status.version);
+    if (response === 0) await ctx.updates.download();
     return;
   }
   if (status.state === 'downloaded') {
-    const result = await dialog.showMessageBox({
-      type: 'info',
-      title: '更新已下载',
-      message: `OmniHarness ${status.version} 已下载`,
-      detail: '安装会先停止本地 Harness，然后重启应用。',
-      buttons: ['立即安装', '稍后'],
-      defaultId: 0,
-      cancelId: 1,
-    });
-    if (result.response === 0) await ctx.updates.install();
+    const response = await ctx.dialogs.updateDownloaded(status.version);
+    if (response === 0) await ctx.updates.install();
     return;
   }
   if (status.state === 'error') {
-    await dialog.showMessageBox({
-      type: 'error',
-      title: '检查更新失败',
-      message: '无法检查更新',
-      detail: status.message,
-    });
+    await ctx.dialogs.updateFailed(status.message);
     return;
   }
   if (status.state === 'idle') {
-    await dialog.showMessageBox({
-      type: 'info',
-      title: '检查更新',
-      message: '当前已是最新版本',
-    });
+    await ctx.dialogs.updateLatest();
   }
 }
 
 /**
- * 绑定崩溃处理：Harness 意外退出时提示并退出（MVP；后续做自动重启）。
+ * 绑定崩溃处理：配置允许时按策略自动重启，超出上限才弹对话框。
  * @param supervisor 侧车。
  * @returns 无返回值。
  */
 function bindCrashHandler(supervisor: HarnessSupervisor): void {
+  const policy = new HarnessRestartPolicy(
+    config.harness.restartMax,
+    config.harness.restartWindowMs,
+  );
   supervisor.on('crashed', (error: unknown) => {
     const ctx = context;
     if (ctx === null || ctx.quitting) return;
     const message = error instanceof Error ? error.message : String(error);
     ctx.logger.write('main', `harness crashed: ${message}`);
-    void dialog
-      .showMessageBox({
-        type: 'error',
-        title: 'Harness 已退出',
-        message: '本地 Harness 意外退出',
-        detail: `${message}\n\n日志：${ctx.logger.directory()}`,
-        buttons: ['退出', '重启'],
-        defaultId: 1,
-        cancelId: 0,
-      })
-      .then((result) => {
-        if (result.response === 1) void restartHarness();
-        else app.quit();
-      });
+    if (config.harness.autoRestart && policy.allow(Date.now())) {
+      ctx.logger.write(
+        'main',
+        `auto restart in ${String(config.harness.restartDelayMs)}ms (policy ${String(config.harness.restartMax)}/${String(config.harness.restartWindowMs)}ms)`,
+      );
+      setTimeout(() => {
+        void restartHarness();
+      }, config.harness.restartDelayMs);
+      return;
+    }
+    void ctx.dialogs.crash(message, ctx.logger.directory()).then((response) => {
+      if (response === 1) void restartHarness();
+      else app.quit();
+    });
   });
 }
 
@@ -601,40 +632,4 @@ async function shutdownAndExit(ctx: AppContext): Promise<void> {
   await ctx.supervisor?.stop().catch(() => undefined);
   ctx.logger.close();
   app.exit(0);
-}
-
-/**
- * 绑定窗口行为（关闭到托盘/加载诊断）。窗口重建时复用。
- * @param window 主窗口。
- * @returns 无返回值。
- */
-function attachWindowBehavior(window: BrowserWindow): void {
-  const ctx = context;
-  if (ctx === null) return;
-  bindUiDiagnostics(window, ctx.logger);
-  window.on('close', (event) => {
-    if (ctx.quitting) return;
-    if (ctx.tray !== null && ctx.state.get().closeToTray === true) {
-      event.preventDefault();
-      window.hide();
-    }
-  });
-}
-
-/**
- * 绑定 UI 加载/渲染崩溃日志（不阻塞主流程）。
- * @param window 主窗口。
- * @param logger 日志器。
- * @returns 无返回值。
- */
-function bindUiDiagnostics(window: BrowserWindow, logger: DesktopLogger): void {
-  window.webContents.on('did-fail-load', (_event, code, description, url) => {
-    logger.write('main', `ui load failed code=${String(code)} desc=${description} url=${url}`);
-  });
-  window.webContents.on('render-process-gone', (_event, details) => {
-    logger.write(
-      'main',
-      `renderer gone reason=${details.reason} exitCode=${String(details.exitCode)}`,
-    );
-  });
 }

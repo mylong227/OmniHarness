@@ -544,6 +544,19 @@ export class Agent implements AgentPort {
     // 追加通道已把全部事件成功落盘时不再全量重写；未落盘/回卷强制重写才走全量 save。
     if (needsFullSave) {
       await this.persist(sessionId, eventLog.all());
+    } else {
+      // 追加通道已落盘时补写旁路摘要（列表免整档解析）；失败只告警，不影响回合结果。
+      const writeSummary = this.runtime.storage.writeSummary;
+      if (writeSummary !== undefined) {
+        try {
+          await writeSummary.call(this.runtime.storage, sessionId, eventLog.all());
+        } catch (error) {
+          log.warn('session.summary.failed', {
+            sessionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
     }
     // 观测端口收尾：有缓冲的端口（OTLP span 收集器）在此把最后一批 span 外发。
     await this.runtime.events.flush?.();

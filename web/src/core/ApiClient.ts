@@ -158,8 +158,21 @@ export class ApiClient {
   public abortTurn(threadId?: string): Promise<unknown> {
     return this.rpc('turns.abort', threadId === undefined ? {} : { threadId });
   }
-  public getThread(threadId: string): Promise<ThreadGetResult> {
-    return this.rpc('threads.get', { threadId });
+  /**
+   * 读取线程事件；可选分页（取尾部 / 用 `before` 向上补拉）。
+   * @param threadId 目标线程
+   * @param opts `limit` 页大小、`before` 上一页最早事件 id
+   * @returns 线程事件页（`hasMore`/`oldestId` 供加载更早）
+   */
+  public getThread(
+    threadId: string,
+    opts: { readonly limit?: number; readonly before?: string } = {},
+  ): Promise<ThreadGetResult> {
+    return this.rpc('threads.get', {
+      threadId,
+      ...(opts.limit !== undefined ? { limit: opts.limit } : {}),
+      ...(opts.before !== undefined ? { before: opts.before } : {}),
+    });
   }
   /**
    * 服务端回退：把持久化事件流截断到 keepEventId（含）。

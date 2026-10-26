@@ -46,6 +46,28 @@ export const MUTATING_TOOLS: ReadonlySet<string> = new Set<string>(MUTATING_TOOL
 
 /**
  * @beta
+ * **会让 repo-map 立即复核的工具**（2026-10-25 收窄）。
+ *
+ * 为什么不能直接用 `MUTATING_TOOLS`：后者为了安全（plan 模式/监督内核/串行屏障）宁可多收，
+ * 含 `shell` / `run_code` / 子代理等「可能改盘但无法预知改了哪些文件」的工具。把它们也当成
+ * 「立即可知变更」会触发 `contentHashes()` 的**全仓重读+哈希**（本机 1.0–2.4 s/次），
+ * 而 `shell` 在真实回合里出现频率最高（构建/测试/格式化），实测 20 次 shell 可白烧 ≈24–48 s。
+ *
+ * 新口径：只有**明确会写工作区文件**的工具才硬失效；其余交给 `fs.watch` 的脏标记
+ * （真改盘 → 下一次组装上下文时按内容复核）与 TTL 兜底。watcher 不可用的平台仍在 TTL
+ * 到期时走内容哈希，正确性不变，只是陈旧窗口从「同一回合内」放宽到 TTL。
+ */
+export const REPO_MAP_INVALIDATING_TOOLS: ReadonlySet<string> = new Set<string>([
+  TOOL_NAMES.writeFile,
+  TOOL_NAMES.edit,
+  TOOL_NAMES.applyPatch,
+  TOOL_NAMES.patchCandidates,
+  // 回滚会把工作区文件还原到检查点 ⇒ 必须立即复核。
+  TOOL_NAMES.rollback,
+]);
+
+/**
+ * @beta
  * 工具门禁：审批 + 沙箱 + 计划态三道门禁统一裁决（fail-closed，任意拒绝即拦截）。
  */
 export class ToolGate implements ToolGatePort {

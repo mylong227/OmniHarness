@@ -7,6 +7,7 @@
 //
 // 函数组件范式：无内部状态；行号序列为模块级纯函数。
 
+import { memo } from 'react';
 import { highlightCode } from '../highlight.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -38,10 +39,15 @@ function gutterRows(content: string): ReactElement[] {
 
 /**
  * 代码表面：行号 gutter + 高亮正文，整体装在一个共同滚动的容器里。
+ *
+ * 2026-10-25：`memo` 包一层——`highlightCode` 是整段分词（40KB ≈10 ms），而父组件在流式
+ * 期间每 50 ms 重渲染一次；内容/语言不变时必须跳过，否则右栏开着文件就会持续吃满主线程。
  * @param props 组件入参
  * @returns 代码表面节点（空内容返回 null）
  */
-export function CodeSurface(props: CodeSurfaceProps): ReactElement | null {
+export const CodeSurface = memo(function CodeSurface(
+  props: CodeSurfaceProps,
+): ReactElement | null {
   const { content, lang } = props;
   const code = highlightCode(content, lang);
   if (code === null) return null;
@@ -51,4 +57,4 @@ export function CodeSurface(props: CodeSurfaceProps): ReactElement | null {
       {code}
     </div>
   );
-}
+});

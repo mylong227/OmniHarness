@@ -4,6 +4,8 @@ import type { AppendOnlyEventLog } from './appendOnlyEventLog.ts';
 import type { SessionRecorder } from './sessionRecorder.ts';
 import type { SkillRegistryPort } from '../ports/skill/skillRegistryPort.ts';
 import { SkillSparsifier } from '../skill/skillSparsifier.ts';
+import { SkillActivationPlanner } from '../skill/skillActivationPlanner.ts';
+import { log as logger } from '../util/logger.ts';
 
 /**
  * 长期记忆 primer 产物的内容特征前缀（与 `injectMemoryPrimer` 拼出的开场文本同源）。
@@ -31,6 +33,8 @@ export interface SessionInjectorDeps {
   readonly longTermMemory?: LongTermMemoryPort | undefined;
   /** 只注入可信记忆（`trust:'untrusted'` 不进入 primer；缺省 false 保持旧行为）。 */
   readonly trustedOnly?: boolean | undefined;
+  /** 多技能注入总字符预算（缺省 12000，也可用 `OMNI_SKILL_BUDGET_CHARS`）。 */
+  readonly skillBudgetChars?: number | undefined;
 }
 
 /**
@@ -64,6 +68,8 @@ export class SessionInjector {
     maxSkills: SKILL_SPARSE_MAX,
     minKeepScore: SKILL_SPARSE_MIN_KEEP,
   });
+  /** 多 skill 去重/预算/冲突规划（渲染后文本级）。 */
+  private readonly planner: SkillActivationPlanner;
 
   /**
    * @param deps 注入依赖（技能注册表与长期记忆端口，均可缺省）。
@@ -72,6 +78,10 @@ export class SessionInjector {
     this.skills = deps.skills;
     this.longTermMemory = deps.longTermMemory;
     this.trustedOnly = deps.trustedOnly === true;
+    const envBudget = Number(process.env['OMNI_SKILL_BUDGET_CHARS'] ?? '');
+    const budget =
+      deps.skillBudgetChars ?? (Number.isFinite(envBudget) && envBudget > 0 ? envBudget : 12_000);
+    this.planner = new SkillActivationPlanner(budget);
   }
 
   /**
@@ -128,6 +138,7 @@ export class SessionInjector {
       return;
     }
     const matched = this.skills.rankForPrompt(prompt);
+    const skills = this.skills;
     const sparse = this.sparsifier.sparsify(
       matched.map((hit) => hit.skill),
       prompt.toLowerCase(),
@@ -136,10 +147,23 @@ export class SessionInjector {
     // 逐条判重（判重点是「保留每回合匹配」而非「一会话只算一次」）：同一条技能文本不重复注入，
     // 但任务转向后新命中的技能仍会注入——任务能力不因判重而丢。
     const seen = SessionInjector.injectedContents(log);
-    for (const skill of sparse.kept) {
-      const rendered = this.skills.render(skill);
-      if (seen.has(rendered)) continue;
-      recorder.system(rendered);
+    const rendered = sparse.kept.map((skill) => ({
+      skill,
+      rendered: skills.render(skill),
+      relevance: matched.find((hit) => hit.skill.name === skill.name)?.score ?? 0,
+    }));
+    const plan = this.planner.plan(rendered);
+    if (plan.dropped.length > 0 || plan.conflicts.length > 0) {
+      logger.debug('skill.activation', {
+        kept: plan.kept.map((entry) => entry.skill.name),
+        dropped: plan.dropped.map((entry) => entry.skill.name),
+        duplicates: plan.duplicates,
+        conflicts: plan.conflicts.map((item) => `${item.a}~${item.b}`),
+      });
+    }
+    for (const entry of plan.kept) {
+      if (seen.has(entry.rendered)) continue;
+      recorder.system(entry.rendered);
     }
   }
 

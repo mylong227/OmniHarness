@@ -105,6 +105,10 @@ export function DesktopSettingsSection(): React.ReactElement {
           <span className="sp-v">{info?.platform ?? '—'}</span>
         </div>
         <div className="sp-kv">
+          <span className="sp-k">{t('语言')}</span>
+          <span className="sp-v">{info?.language ?? '—'}</span>
+        </div>
+        <div className="sp-kv">
           <span className="sp-k">{t('当前工作区')}</span>
           <span className="sp-v sp-v-path" title={info?.workspace ?? ''}>
             {info?.workspace ?? '—'}
@@ -187,6 +191,15 @@ export function DesktopSettingsSection(): React.ReactElement {
           <button className="ghost" type="button" onClick={() => void bridge.openLogs()}>
             {t('打开日志目录')}
           </button>
+          {bridge.showDiagnostics !== undefined ? (
+            <button
+              className="ghost"
+              type="button"
+              onClick={() => void bridge.showDiagnostics?.()}
+            >
+              {t('查看诊断信息')}
+            </button>
+          ) : null}
           <button
             className="ghost"
             type="button"

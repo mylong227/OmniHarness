@@ -2,10 +2,12 @@
 import { BrowserWindow, screen, type Rectangle } from 'electron';
 import { join } from 'node:path';
 import type { DesktopStateStore, WindowBounds } from './desktopState.ts';
+import type { DesktopWindowConfig } from './config.ts';
 import type { HarnessHandle } from './harnessSupervisor.ts';
 
 /** 启动页（内联 data URL：不依赖 asar 内文件路径，规避 packaged `ERR_FILE_NOT_FOUND`）。 */
-const LOADING_HTML = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />
+const loadingHtml = (hint: string, lang: string): string =>
+  `<!doctype html><html lang="${lang}"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" /><title>OmniHarness</title>
 <style>
 :root{color-scheme:dark;--ink:#fdfcf9;--muted:#a9a39a;--bg:#16181d;--accent:#6f7bd8}
@@ -20,25 +22,35 @@ border-top-color:var(--accent);animation:spin .8s linear infinite}
 .title{font-size:15px;letter-spacing:.08em}.hint{font-size:12px;color:var(--muted)}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style></head><body><div class="wrap"><div class="mark">Ω</div><div class="spinner"></div>
-<div class="title">OMNIHARNESS</div><div class="hint">正在启动本地 Harness…</div></div></body></html>`;
+<div class="title">OMNIHARNESS</div><div class="hint">${hint}</div></div></body></html>`;
 export interface MainWindowOptions {
   /** preload 绝对路径。 */
   readonly preload: string;
   /** 桌面偏好（窗口 bounds）。 */
   readonly state: DesktopStateStore;
+  /** 窗口尺寸/外观配置。 */
+  readonly config: DesktopWindowConfig;
   /** 是否在 ready-to-show 时自动显示（`--hidden`/开机启动时为 false）。 */
   readonly autoShow?: boolean;
+  /** 启动页提示文案（跟随桌面语言）。 */
+  readonly loadingHint?: string;
+  /** 启动页 `<html lang>`。 */
+  readonly loadingLang?: string;
 }
 
 /**
  * 让保存的 bounds 至少有一角落在当前显示器内。
  * @param bounds 保存的 bounds。
+ * @param config 窗口尺寸配置（默认宽高/最小宽高）。
  * @returns 可用的 bounds。
  */
-export function ensureVisibleBounds(bounds: WindowBounds | undefined): Rectangle {
+export function ensureVisibleBounds(
+  bounds: WindowBounds | undefined,
+  config: DesktopWindowConfig,
+): Rectangle {
   const primary = screen.getPrimaryDisplay().workArea;
-  const fallbackWidth = Math.min(1280, primary.width);
-  const fallbackHeight = Math.min(860, primary.height);
+  const fallbackWidth = Math.min(config.width, primary.width);
+  const fallbackHeight = Math.min(config.height, primary.height);
   const fallback: Rectangle = {
     x: primary.x + Math.max(0, Math.round((primary.width - fallbackWidth) / 2)),
     y: primary.y + Math.max(0, Math.round((primary.height - fallbackHeight) / 2)),
@@ -51,11 +63,11 @@ export function ensureVisibleBounds(bounds: WindowBounds | undefined): Rectangle
   const area = screen.getDisplayMatching({
     x: bounds.x ?? fallback.x,
     y: bounds.y ?? fallback.y,
-    width: Math.max(900, Math.round(bounds.width)),
-    height: Math.max(600, Math.round(bounds.height)),
+    width: Math.max(config.minWidth, Math.round(bounds.width)),
+    height: Math.max(config.minHeight, Math.round(bounds.height)),
   }).workArea;
-  const width = Math.min(Math.max(900, Math.round(bounds.width)), area.width);
-  const height = Math.min(Math.max(600, Math.round(bounds.height)), area.height);
+  const width = Math.min(Math.max(config.minWidth, Math.round(bounds.width)), area.width);
+  const height = Math.min(Math.max(config.minHeight, Math.round(bounds.height)), area.height);
   const x = Math.min(Math.max(bounds.x ?? fallback.x, area.x), area.x + area.width - width);
   const y = Math.min(Math.max(bounds.y ?? fallback.y, area.y), area.y + area.height - height);
   return { x, y, width, height };
@@ -67,16 +79,17 @@ export function ensureVisibleBounds(bounds: WindowBounds | undefined): Rectangle
  * @returns 主窗口。
  */
 export function createMainWindow(options: MainWindowOptions): BrowserWindow {
-  const bounds = ensureVisibleBounds(options.state.get().window);
+  const config = options.config;
+  const bounds = ensureVisibleBounds(options.state.get().window, config);
   const window = new BrowserWindow({
     ...bounds,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: config.minWidth,
+    minHeight: config.minHeight,
     show: false,
     title: 'OmniHarness',
     icon: join(__dirname, 'icon.png'),
-    backgroundColor: '#16181d',
-    autoHideMenuBar: false,
+    backgroundColor: config.backgroundColor,
+    autoHideMenuBar: config.autoHideMenuBar,
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
@@ -88,7 +101,7 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
       spellcheck: false,
-      backgroundThrottling: false,
+      backgroundThrottling: config.backgroundThrottling,
       preload: options.preload,
     },
   });
@@ -107,7 +120,11 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
       });
     }
   });
-  void window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_HTML)}`);
+  void window.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(
+      loadingHtml(options.loadingHint ?? '正在启动本地 Harness…', options.loadingLang ?? 'zh-CN'),
+    )}`,
+  );
   return window;
 }
 
@@ -118,6 +135,7 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
  * @returns 无返回值。
  */
 export function loadHarness(window: BrowserWindow, handle: HarnessHandle): void {
-  const url = `http://127.0.0.1:${String(handle.port)}/?token=${encodeURIComponent(handle.token)}`;
+  const authority = handle.host.includes(':') ? `[${handle.host}]` : handle.host;
+  const url = `http://${authority}:${String(handle.port)}/?token=${encodeURIComponent(handle.token)}`;
   void window.loadURL(url);
 }

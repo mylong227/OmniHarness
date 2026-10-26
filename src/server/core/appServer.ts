@@ -20,6 +20,7 @@ import { AppServerAutomationHandlers } from './appServerAutomationHandlers.ts';
 import { SessionCheckpoints } from '../services/session/sessionCheckpoints.ts';
 import { SessionRewindService } from '../services/session/sessionRewindService.ts';
 import type { SessionRewindOutcome } from '../services/session/sessionRewindService.ts';
+import { ThreadPage } from '../services/session/threadPage.ts';
 
 export type { AppServerOptions } from './appServerState.ts';
 
@@ -455,6 +456,7 @@ export class AppServer extends AppServerVaultHandlers {
    * @returns 线程结果（sessionId、本次回合事件等，见 threadResult）
    */
   protected async createThread(params: Record<string, unknown>): Promise<unknown> {
+    await this.awaitPlugins();
     const result = await this.runtime.agent().runTask(String(params['prompt'] ?? ''));
     this.threads.set(result.sessionId, result.sessionId);
     return this.threadResult(result);
@@ -466,6 +468,7 @@ export class AppServer extends AppServerVaultHandlers {
    * @returns 线程结果（sessionId 与本次回合事件）
    */
   protected async continueThread(params: Record<string, unknown>): Promise<unknown> {
+    await this.awaitPlugins();
     const threadId = String(params['threadId'] ?? '');
     // 与 turns.run 同一把单飞锁：threads.continue 也不能在跑着的会话上再起一回合。
     if (threadId !== '' && this.activeTurns.has(threadId)) {
@@ -495,17 +498,33 @@ export class AppServer extends AppServerVaultHandlers {
   }
 
   /**
-   * 获取线程事件（threads.get）：重放指定线程的全部历史事件。
-   * @param params `{ threadId }` — 目标线程
-   * @returns `{ threadId, items }` — 线程标识与事件数组
+   * 获取线程事件（threads.get）：默认返回全部；可选 `limit`/`before` 分页（S2，2026-10-25）。
+   * @param params `{ threadId, limit?, before? }` — 目标线程与可选分页
+   * @returns `{ threadId, items, hasMore?, oldestId?, error? }`
    */
   protected async getThread(params: Record<string, unknown>): Promise<unknown> {
     const threadId = String(params['threadId'] ?? '');
     // 2026-10-21 修：`replay` 会把整段历史**逐条广播给所有客户端**（同文件 `trace.read`
     // 早已改为纯读）。打开一个会话却让别的窗口收到它的历史，是跨会话串流 + O(N) 广播。
     // 这里只读（在跑会话读内存、否则读存档），响应里已带 items，无需广播。
-    const items = await this.runtime.agent().eventsOf(threadId);
-    return { threadId, items };
+    const events = await this.runtime.agent().eventsOf(threadId);
+    const rawLimit = params['limit'];
+    const numericLimit =
+      typeof rawLimit === 'number'
+        ? rawLimit
+        : typeof rawLimit === 'string' && rawLimit.trim() !== ''
+          ? Number(rawLimit)
+          : Number.NaN;
+    const limit = Number.isFinite(numericLimit) && numericLimit > 0 ? numericLimit : undefined;
+    const before = typeof params['before'] === 'string' ? params['before'] : undefined;
+    if (limit === undefined) {
+      return { threadId, items: events, hasMore: false };
+    }
+    const page = ThreadPage.slice(events, limit, before);
+    return {
+      threadId,
+      ...page,
+    };
   }
 
   /**
@@ -530,6 +549,7 @@ export class AppServer extends AppServerVaultHandlers {
    * @returns 线程结果（sessionId、事件与用量）
    */
   protected async runTurn(params: Record<string, unknown>): Promise<unknown> {
+    await this.awaitPlugins();
     const requestedThreadId = String(params['threadId'] ?? '');
     // 新会话由服务端预生成 id：否则 `activeTurns` 只能记在空串下，`sessions.delete` /
     // `sessions.list` 的 running 判定与真实会话 id 对不上（2026-10-21 修）。

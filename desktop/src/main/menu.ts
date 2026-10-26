@@ -1,11 +1,14 @@
 /** 应用菜单（最小集；与官方 App 一致的“文件/编辑/视图/帮助”）。 */
 import { Menu, shell, type MenuItemConstructorOptions } from 'electron';
+import type { DesktopI18n } from './i18n/DesktopI18n.ts';
 
 /** 菜单回调。 */
 export interface MenuActions {
   openWorkspace(): void;
   openLogs(): void;
   restartHarness(): void;
+  /** 新开一个工作台窗口（多窗口）。 */
+  newWindow?(): void;
   checkForUpdates(): void;
   closeToTray(): boolean;
   setCloseToTray(enabled: boolean): void;
@@ -13,6 +16,10 @@ export interface MenuActions {
   setOpenAtLogin(enabled: boolean): void;
   quit(): void;
   isPackaged: boolean;
+  /** 「帮助」菜单打开的仓库地址。 */
+  readonly repositoryUrl: string;
+  /** 本地化文案（中/英由配置决定）。 */
+  readonly i18n: DesktopI18n;
 }
 
 /** 最近一次菜单动作（设置变化时重建勾选状态）。 */
@@ -52,32 +59,44 @@ export function installMenu(actions: MenuActions): void {
         ]
       : []),
     {
-      label: '文件',
+      label: actions.i18n.t('menu.file'),
       submenu: [
-        { label: '打开工作区…', accelerator: 'CmdOrCtrl+O', click: actions.openWorkspace },
-        { label: '重启 Harness', click: actions.restartHarness },
-        { label: '检查更新', click: actions.checkForUpdates },
+        {
+          label: actions.i18n.t('menu.openWorkspace'),
+          accelerator: 'CmdOrCtrl+O',
+          click: actions.openWorkspace,
+        },
+        { label: actions.i18n.t('menu.restartHarness'), click: actions.restartHarness },
+        { label: actions.i18n.t('menu.checkUpdates'), click: actions.checkForUpdates },
         { type: 'separator' },
         {
-          label: '关闭时最小化到托盘',
+          label: actions.i18n.t('menu.closeToTray'),
           type: 'checkbox',
           checked: actions.closeToTray(),
           click: (item) => actions.setCloseToTray(item.checked),
         },
         {
-          label: '开机启动',
+          label: actions.i18n.t('menu.openAtLogin'),
           type: 'checkbox',
           checked: actions.openAtLogin(),
           click: (item) => actions.setOpenAtLogin(item.checked),
         },
         { type: 'separator' },
-        { label: '打开日志目录', click: actions.openLogs },
+        { label: actions.i18n.t('menu.openLogs'), click: actions.openLogs },
         { type: 'separator' },
-        ...(isMac ? [] : [{ label: '退出', accelerator: 'Alt+F4', click: actions.quit }]),
+        ...(isMac
+          ? []
+          : [
+              {
+                label: actions.i18n.t('menu.quit'),
+                accelerator: 'Alt+F4',
+                click: actions.quit,
+              },
+            ]),
       ],
     },
     {
-      label: '编辑',
+      label: actions.i18n.t('menu.edit'),
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
@@ -89,12 +108,22 @@ export function installMenu(actions: MenuActions): void {
       ],
     },
     {
-      label: '视图',
+      label: actions.i18n.t('menu.view'),
       submenu: [
         { role: 'reload' },
         { role: 'forceReload' },
         ...(!actions.isPackaged ? [{ role: 'toggleDevTools' as const }] : []),
         { type: 'separator' },
+        ...(actions.newWindow !== undefined
+          ? [
+              {
+                label: actions.i18n.t('menu.newWindow'),
+                accelerator: 'CmdOrCtrl+Shift+N',
+                click: actions.newWindow,
+              },
+              { type: 'separator' as const },
+            ]
+          : []),
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
@@ -103,12 +132,12 @@ export function installMenu(actions: MenuActions): void {
       ],
     },
     {
-      label: '帮助',
+      label: actions.i18n.t('menu.help'),
       submenu: [
         {
-          label: 'OmniHarness on GitHub',
+          label: actions.i18n.t('menu.repository'),
           click: () => {
-            void shell.openExternal('https://github.com/mylong227/OmniHarness');
+            void shell.openExternal(actions.repositoryUrl);
           },
         },
       ],

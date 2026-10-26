@@ -1,4 +1,4 @@
-﻿import { test } from 'vitest';
+import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -111,6 +111,26 @@ test('WorkspaceChanges：git 工作区返回真实变更清单', { skip }, async
     assert.ok(fresh !== undefined, '应包含未跟踪的新文件');
     assert.strictEqual(fresh.status, '??');
     assert.strictEqual(fresh.additions, 3);
+  });
+});
+
+test('WorkspaceChanges：未跟踪大文件不整读（patch 占位、行数记 0）', { skip }, async () => {
+  await withTemp(async (ws) => {
+    await spawnSyncAsync('git', ['init'], { cwd: ws, encoding: 'utf8' });
+    // 3 MiB > MAX_UNTRACKED_BYTES（2 MiB）：不得整读进内存/生成 3 MiB patch。
+    writeFileSync(join(ws, 'huge.bin'), Buffer.alloc(3 * 1024 * 1024, 0x61));
+    const changes = build(ws, [], async () => []);
+    const patch = (await changes.list({ path: 'huge.bin' })) as {
+      source: string;
+      patch: string;
+    };
+    assert.strictEqual(patch.source, 'git');
+    assert.match(patch.patch, /文件过大/u);
+    assert.ok(patch.patch.length < 1_000, '大文件 patch 必须是占位文本，不是内容');
+    const list = (await changes.list({})) as {
+      files: { path: string; additions: number }[];
+    };
+    assert.strictEqual(list.files.find((file) => file.path === 'huge.bin')?.additions, 0);
   });
 });
 

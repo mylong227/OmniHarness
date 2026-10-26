@@ -1,6 +1,7 @@
 /** 自动更新（electron-updater；签名/发布配置见 electron-builder.yml）。 */
 import { app, type BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import type { DesktopUpdateConfig } from './config.ts';
 
 /** 更新状态（同时经 IPC 推给渲染层）。 */
 export type UpdateStatus =
@@ -19,10 +20,12 @@ export class UpdateService {
   /**
    * @param getWindow 主窗口（推送状态）。
    * @param beforeInstall 安装前收尾（停 Harness）。
+   * @param config 更新策略（自动下载/预发布等）。
    */
   public constructor(
     private readonly getWindow: () => BrowserWindow | null,
     private readonly beforeInstall: () => Promise<void>,
+    private readonly config: DesktopUpdateConfig,
   ) {}
 
   /**
@@ -34,9 +37,11 @@ export class UpdateService {
       this.set({ state: 'disabled', reason: 'development' });
       return;
     }
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = false;
-    autoUpdater.allowPrerelease = false;
+    autoUpdater.autoDownload = this.config.autoDownload;
+    autoUpdater.autoInstallOnAppQuit = this.config.autoInstallOnAppQuit;
+    autoUpdater.allowPrerelease = this.config.allowPrerelease;
+    autoUpdater.channel = this.config.channel;
+    autoUpdater.allowDowngrade = this.config.allowDowngrade;
     autoUpdater.on('checking-for-update', () => this.set({ state: 'checking' }));
     autoUpdater.on('update-available', (info) =>
       this.set({ state: 'available', version: info.version }),

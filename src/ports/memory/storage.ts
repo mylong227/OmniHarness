@@ -32,4 +32,16 @@ export interface StoragePort {
    * @returns 无返回值；前缀校验失败或写入失败时抛错。
    */
   append?(sessionId: string, events: readonly SessionEvent[], fromCount: number): Promise<void>;
+
+  /**
+   * **旁路摘要**（可选通道；用于 `sessions.list` 免整档解析）。
+   *
+   * 实现方应把摘要写到存档旁的轻量文件（如 `<session>.jsonl.summary.json`），
+   * 并带上存档字节数以便读取方校验。旁路是**优化，不是事实源**：
+   * 写入失败不得抛错、不得影响主流程；读取方在旁路缺失/过期时必须回落逐行解析。
+   * @param sessionId 会话标识。
+   * @param events 该会话完整事件列表（用于计算摘要）。
+   * @returns 无返回值（失败静默）。
+   */
+  writeSummary?(sessionId: string, events: readonly SessionEvent[]): Promise<void>;
 }

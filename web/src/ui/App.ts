@@ -158,6 +158,9 @@ function initialState(): AppState {
     streamText: '',
     finalizedStreamText: '',
     composerSeed: null,
+    historyHasMore: false,
+    oldestEventId: null,
+    historyLoading: false,
     leftWidth: 248,
     rightWidth: 420,
   };
@@ -322,6 +325,9 @@ function renderBody(
       }),
       React.createElement(StreamView, {
         events: s.events,
+        historyHasMore: s.historyHasMore,
+        historyLoading: s.historyLoading,
+        onLoadEarlier: ctrl.sessions.loadEarlier,
         toolResults: s.toolResults,
         liveInputs: s.liveInputs,
         streamText: s.streamText,

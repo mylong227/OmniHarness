@@ -33,6 +33,7 @@ import {
 } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
+import { SessionFileCodec } from './sessionFileCodec.ts';
 
 /** 归档子目录名（与 `.jsonl` 同级）。 */
 export const ARCHIVE_DIR_NAME = 'archive';
@@ -58,7 +59,7 @@ export class SessionArchiveLayout {
    * @returns 路径
    */
   public static mainFileOf(dir: string, sessionId: string): string {
-    return join(dir, `${sessionId}.jsonl`);
+    return join(dir, `${SessionFileCodec.encode(sessionId)}.jsonl`);
   }
 
   /**
@@ -68,7 +69,10 @@ export class SessionArchiveLayout {
    * @returns 路径
    */
   public static archivedFileOf(dir: string, sessionId: string): string {
-    return join(SessionArchiveLayout.archiveDirOf(dir), `${sessionId}.jsonl`);
+    return join(
+      SessionArchiveLayout.archiveDirOf(dir),
+      `${SessionFileCodec.encode(sessionId)}.jsonl`,
+    );
   }
 
   /**

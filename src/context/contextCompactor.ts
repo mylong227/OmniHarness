@@ -6,8 +6,8 @@ import type { TokenEstimatorCalibrator } from './tokenEstimatorCalibrator.ts';
 import { DeterministicCompressor } from './deterministicCompressor.ts';
 import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
 import { log } from '../util/logger.ts';
-import { ReasoningBudget } from '../util/reasoningBudget.ts';
 import { CompactionComposer } from './compactionComposer.ts';
+import { CompactionSummarizer } from './compactionSummarizer.ts';
 
 /**
  * 每请求的**固定开销**（不随消息增删变化，但确实占用同一 token 预算）。
@@ -92,19 +92,6 @@ export interface CompactionResult {
  * 用于把 compaction 后会被 DeepSeek/OpenAI HTTP 400 拒收的"orphan tool 块"挪进 head。
  */
 
-/** 结构化摘要模板。 */
-const SUMMARY_TEMPLATE = [
-  '你是对话历史压缩器。请把下列历史压缩为结构化摘要，严格按以下小节输出（无内容的节写"无"）：',
-  '1. 任务目标：用户的原始意图与验收标准',
-  '2. 关键决策：已做出的技术/方案选择及理由',
-  '3. 涉及文件：读写过的文件路径及改动要点',
-  '4. 错误与修复：遇到的错误、根因、解决方式（未解决的标注"未解决"）',
-  '5. 当前进度：已完成/进行中的工作状态',
-  '6. 下一步：明确的待办与执行顺序',
-  '7. 关键约束：不可违反的约定/环境限制',
-  '8. 重要事实：命令输出、配置、数据等后续必需的具体信息',
-].join('\n');
-
 /** 压缩事件标记前缀（写回事件日志供崩溃恢复解析）。 */
 export const COMPACTION_MARKER = 'OMNI_COMPACTION_V1';
 
@@ -113,6 +100,8 @@ export class ContextCompactor {
   private readonly estimator = new TokenEstimator();
   /** 确定性无损收缩器（无状态，可安全复用）。 */
   private readonly shrinker = new DeterministicCompressor();
+  /** 摘要生成（全量/增量，F6 种子逻辑在其内部）。 */
+  private readonly summarizer: CompactionSummarizer;
   /** 收缩开关：默认开（选项缺省 undefined 视为开）。 */
   private readonly shrinkEnabled: boolean;
   /**
@@ -129,6 +118,7 @@ export class ContextCompactor {
     private readonly options: CompactionOptions,
   ) {
     this.shrinkEnabled = options.deterministicShrink !== false;
+    this.summarizer = new CompactionSummarizer(this.model, options.remoteSummarizer);
   }
 
   /**
@@ -175,9 +165,16 @@ export class ContextCompactor {
       }
       const before = message.content;
       const after = this.shrinker.shrinkLossless(before);
+      if (after === before) {
+        // 未变化只计一次字节：两步之间绝大多数消息命中 shrink 缓存，这里再省一次 encode。
+        const bytes = this.shrinker.byteLength(before);
+        beforeBytes += bytes;
+        afterBytes += bytes;
+        return message;
+      }
       beforeBytes += this.shrinker.byteLength(before);
       afterBytes += this.shrinker.byteLength(after);
-      return after === before ? message : { ...message, content: after };
+      return { ...message, content: after };
     });
     return {
       messages: out,
@@ -416,10 +413,17 @@ export class ContextCompactor {
     if (head.length === 0 || !ContextCompactor.hasFoldableConversation(head)) {
       return this.compactWithoutHead(messages, head, budget);
     }
+    // F6（2026-10-25）：游标覆盖的前缀仍完整时，用「已有摘要 + 新增段」做增量摘要，
+    // 而不是把整段 head 再喂一遍。前缀漂移/游标无效时退回全量摘要（正确性优先）。
+    const { seed, fresh } = this.resolveSummarySeed(messages, state, head, headEnd);
     // 模型摘要 + **确定性工具台账**：摘要由模型生成，可能漏掉「已经读过哪些文件、跑过哪些命令」；
     // 台账由折叠段的事件直接生成，是「不依赖摘要质量」的进度基线（长会话防重复探索）。
     // 预算过小时不加台账：宁可少一行确定性信息，也不能把最近的工具轮挤出 tail。
-    const summary = ContextCompactor.withToolLedger(await this.summarize(head), head, budget);
+    const summary = ContextCompactor.withToolLedger(
+      await this.summarizer.summarize(fresh, seed),
+      head,
+      budget,
+    );
     const newState: CompactionState = {
       compactedUpTo: headEnd,
       headHash: ContextCompactor.headFingerprint(head),
@@ -632,51 +636,37 @@ export class ContextCompactor {
    * 使该请求与主请求共享最长公共前缀，命中 provider 的 implicit prompt cache
    * 。
    */
-  private async summarize(head: readonly ModelMessage[]): Promise<string> {
-    if (this.options.remoteSummarizer !== undefined) {
-      try {
-        return await this.options.remoteSummarizer(this.historyText(head));
-      } catch (error) {
-        // 服务端压缩失败，降级本地（留 debug 痕迹：静默降级曾让「摘要质量塌陷」不可归因）。
-        log.debug('compaction.remote_summarizer.failed', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+  /**
+   * 解析二次折叠的摘要种子：游标前缀 hash 仍有效时返回「旧摘要 + 新增段」，否则回退全量 head。
+   * @param messages 全部消息。
+   * @param state 上一条压缩游标（可能 undefined）。
+   * @param head 本次待折叠的完整 head。
+   * @param headEnd head 结束下标。
+   * @returns 摘要种子（无则 undefined）与实际喂给摘要模型的消息。
+   */
+  private resolveSummarySeed(
+    messages: readonly ModelMessage[],
+    state: CompactionState | undefined,
+    head: readonly ModelMessage[],
+    headEnd: number,
+  ): { seed?: string; fresh: readonly ModelMessage[] } {
+    if (
+      state === undefined ||
+      state.compactedUpTo <= 0 ||
+      state.compactedUpTo >= headEnd ||
+      ContextCompactor.headFingerprint(messages.slice(0, state.compactedUpTo)) !== state.headHash
+    ) {
+      return { fresh: head };
     }
-    if (this.model === undefined) {
-      return '[历史已省略]';
-    }
-    try {
-      const output = await this.model.generate({
-        messages: [
-          ...head,
-          {
-            role: 'user',
-            content: `${SUMMARY_TEMPLATE}\n\n【历史结束】请输出上述对话历史的结构化摘要，直接给内容，不要寒暄。`,
-          },
-        ],
-        tools: [],
-        role: 'compactor',
-        // 结构化 8 段摘要不需要深度思考；输出上限防「摘要模型生成 20k token」的成本尖峰。
-        reasoningEffort: ReasoningBudget.auxiliary('compactor', undefined),
-        maxOutputTokens: 3_000,
-      });
-      return output.text ?? '[历史已省略]';
-    } catch (error) {
-      // 2026-10-03 修：此处曾是纯静默 catch——严格端点（Anthropic/llama.cpp）对畸形摘要请求
-      // 回 400 时，整次压缩名义成功、实际拿到零信息占位摘要，事后完全不可归因。留 warn。
-      log.warn('compaction.summarize.failed', {
-        error: error instanceof Error ? error.message : String(error),
-        headMessages: head.length,
-      });
-      return '[历史已省略]';
-    }
+    const fresh = messages.slice(state.compactedUpTo, headEnd);
+    log.debug('compaction.resummarize', {
+      compactedUpTo: state.compactedUpTo,
+      headEnd,
+      freshMessages: fresh.length,
+    });
+    return { seed: state.summary, fresh };
   }
 
-  /** 历史文本（服务端压缩回调入参）。 */
-  private historyText(head: readonly ModelMessage[]): string {
-    return head.map((message) => `${message.role}: ${message.content}`).join('\n');
-  }
   /**
    * 把候选边界左移到**工具轮之外**：tail 不得从 tool 消息开始（assistant 已进 head），
    * 也不得从 assistant(tool_calls) 开始（其结果必在 tail）——两者都是把一个工具轮切两半。
@@ -709,16 +699,65 @@ export class ContextCompactor {
     return headEnd;
   }
 
+  /** 单条消息的指纹片段（对象身份缓存；内容被替换/原地修改时重算）。 */
+  private static readonly fingerprintSegments = new WeakMap<
+    ModelMessage,
+    {
+      readonly role: string;
+      readonly content: string;
+      readonly toolCallId: string | undefined;
+      readonly length: number;
+      readonly value: number;
+    }
+  >();
+
   /** djb2 前缀指纹（无第三方依赖、稳定、跨进程一致——JSON.stringify 顺序由消息构造方保证）。 */
   public static headFingerprint(messages: readonly ModelMessage[]): string {
     let h = 5381;
     for (const m of messages) {
-      const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}`;
-      for (let i = 0; i < s.length; i++) {
-        h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+      const cached = ContextCompactor.fingerprintSegments.get(m);
+      let segment = cached;
+      if (
+        segment === undefined ||
+        segment.role !== m.role ||
+        segment.content !== m.content ||
+        segment.toolCallId !== m.toolCallId
+      ) {
+        const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}`;
+        let value = 0;
+        for (let i = 0; i < s.length; i++) {
+          value = (Math.imul(value, 33) + s.charCodeAt(i)) | 0;
+        }
+        segment = {
+          role: m.role,
+          content: m.content,
+          toolCallId: m.toolCallId,
+          length: s.length,
+          value,
+        };
+        ContextCompactor.fingerprintSegments.set(m, segment);
       }
+      // 把「已缓存的单条多项式」折叠进当前前缀：h' = h * 33^n + segment (mod 2^32)。
+      h = (Math.imul(h, ContextCompactor.pow33(segment.length)) + segment.value) | 0;
     }
     return (h >>> 0).toString(16);
+  }
+
+  /**
+   * 33^n mod 2^32（快速幂；避免为每步建大数组）。
+   * @param exponent 指数（非负整数）。
+   * @returns 32 位有符号乘数。
+   */
+  private static pow33(exponent: number): number {
+    let result = 1;
+    let base = 33;
+    let n = exponent;
+    while (n > 0) {
+      if ((n & 1) === 1) result = Math.imul(result, base) | 0;
+      base = Math.imul(base, base) | 0;
+      n >>>= 1;
+    }
+    return result;
   }
 
   /**

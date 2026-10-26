@@ -1,5 +1,6 @@
 /** 原生通知：回合完成/待审批；窗口聚焦时不打扰。 */
 import { Notification, type BrowserWindow } from 'electron';
+import type { DesktopNotificationConfig } from './config.ts';
 
 /** 通知输入。 */
 export interface NotifyInput {
@@ -16,10 +17,12 @@ export class NotificationService {
   /**
    * @param getWindow 当前主窗口。
    * @param onClick 点击通知后的导航回调。
+   * @param config 文本上限。
    */
   public constructor(
     private readonly getWindow: () => BrowserWindow | null,
     private readonly onClick: (sessionId: string | undefined) => void,
+    private readonly config: DesktopNotificationConfig,
   ) {}
 
   /**
@@ -35,8 +38,8 @@ export class NotificationService {
       return false;
     }
     const notification = new Notification({
-      title: NotificationService.limit(input.title, 120),
-      body: NotificationService.limit(input.body, 500),
+      title: NotificationService.limit(input.title, this.config.titleMax),
+      body: NotificationService.limit(input.body, this.config.bodyMax),
       silent: false,
     });
     notification.on('click', () => {

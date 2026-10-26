@@ -82,6 +82,18 @@ export class ContextBreakdownEstimator {
   private readonly toolTokenCache = new WeakMap<ToolDefinition, number>();
 
   /**
+   * 消息对象 → 单条记账结果（F9，2026-10-25）。
+   *
+   * `TokenEstimator` 内部已缓存「记账文本→计数」，但每步仍要对每条消息做两次 WeakMap 查找 +
+   * 一次 `estimateMessage` 包装；长会话 1000 条消息实测约 1.16 ms/步。这里直接缓存单条结果，
+   * 相邻两步未变消息只付一次指针比较。content 变化（原地改写）即失效。
+   */
+  private readonly messageTokenCache = new WeakMap<
+    ModelMessage,
+    { readonly content: string; readonly tokens: number }
+  >();
+
+  /**
    * @param estimator token 估算器（缺省新建；注入便于单测固定口径）
    */
   public constructor(estimator: TokenEstimator = new TokenEstimator()) {
@@ -196,7 +208,11 @@ export class ContextBreakdownEstimator {
    * @returns 该消息的 token 估算值
    */
   private messageTokens(message: ModelMessage): number {
-    return this.estimator.estimateMessage(message);
+    const cached = this.messageTokenCache.get(message);
+    if (cached !== undefined && cached.content === message.content) return cached.tokens;
+    const tokens = this.estimator.estimateMessage(message);
+    this.messageTokenCache.set(message, { content: message.content, tokens });
+    return tokens;
   }
 
   /** 单个工具定义的 token 估算：按真实发给模型的序列化形态（name + description + JSON Schema）计。

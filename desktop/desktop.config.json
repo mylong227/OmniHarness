@@ -1,0 +1,87 @@
+{
+  "app": {
+    "appId": "com.mylong227.omniharness",
+    "protocol": "omniharness",
+    "repositoryUrl": "https://github.com/mylong227/OmniHarness",
+    "language": "system"
+  },
+  "window": {
+    "width": 1280,
+    "height": 860,
+    "minWidth": 900,
+    "minHeight": 600,
+    "backgroundColor": "#16181d",
+    "autoHideMenuBar": false,
+    "backgroundThrottling": false,
+    "showShortcut": "CommandOrControl+Shift+O"
+  },
+  "harness": {
+    "host": "127.0.0.1",
+    "readyTimeoutMs": 30000,
+    "readyPollIntervalMs": 50,
+    "readyzTimeoutMs": 8000,
+    "readyzProbeTimeoutMs": 1500,
+    "readyzRetryIntervalMs": 100,
+    "stopGraceMs": 10000,
+    "killGraceMs": 2000,
+    "autoRestart": true,
+    "restartDelayMs": 1500,
+    "restartMax": 3,
+    "restartWindowMs": 600000,
+    "tokenBytes": 32,
+    "readyFilePrefix": "harness",
+    "runDirName": "run",
+    "modelDirName": "models",
+    "vectorDirName": "vec-cache"
+  },
+  "update": {
+    "autoCheckDelayMs": 10000,
+    "autoDownload": false,
+    "autoInstallOnAppQuit": false,
+    "allowPrerelease": false,
+    "channel": "latest",
+    "allowDowngrade": false
+  },
+  "logging": {
+    "dirName": "logs",
+    "ringLines": 200
+  },
+  "state": {
+    "maxRecentWorkspaces": 8,
+    "defaultCloseToTray": true,
+    "defaultOpenAtLogin": false
+  },
+  "notification": {
+    "titleMax": 120,
+    "bodyMax": 500
+  },
+  "ipc": {
+    "notifyTitleMax": 160,
+    "notifyBodyMax": 800,
+    "notifySessionIdMax": 200
+  },
+  "deepLink": {
+    "uiReadyTimeoutMs": 5000
+  },
+  "security": {
+    "permissions": ["notifications", "clipboard-sanitized-write"],
+    "csp": {
+      "defaultSrc": ["'none'"],
+      "scriptSrc": ["'self'", "'unsafe-inline'"],
+      "styleSrc": ["'self'", "'unsafe-inline'"],
+      "imgSrc": ["'self'", "data:", "blob:"],
+      "fontSrc": ["'self'", "data:"],
+      "connectSrc": ["'self'", "http://127.0.0.1:*", "ws://127.0.0.1:*"],
+      "frameSrc": ["http://127.0.0.1:*"],
+      "mediaSrc": ["'self'", "blob:"],
+      "baseUri": ["'none'"],
+      "formAction": ["'none'"],
+      "objectSrc": ["'none'"],
+      "frameAncestors": ["'none'"]
+    }
+  },
+  "tray": {
+    "iconSize": 16,
+    "tooltip": "OmniHarness"
+  }
+}

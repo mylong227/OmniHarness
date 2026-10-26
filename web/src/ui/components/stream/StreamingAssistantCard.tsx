@@ -12,6 +12,7 @@
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
 import { badge, renderMarkdown } from '../../format.ts';
+import { StreamStableSplit } from '../../models/StreamStableSplit.ts';
 import { t } from '../../i18n/i18n.ts';
 
 /** StreamingAssistantCard 组件的入参。 */
@@ -40,6 +41,8 @@ function announceText(length: number): string {
  */
 export function StreamingAssistantCard(props: StreamingAssistantCardProps): ReactElement {
   const { text } = props;
+  // W1：只对已闭合前缀跑 Markdown/高亮；尾部半截用纯文本，避免每个 delta 重渲染整篇。
+  const { stable, tail } = StreamStableSplit.split(text);
   return (
     <div className="ev assistant streaming-assistant">
       <div className="head">
@@ -48,7 +51,8 @@ export function StreamingAssistantCard(props: StreamingAssistantCardProps): Reac
       </div>
       <div className="card assistant streaming">
         <div className="content" spellCheck="false" aria-hidden="true">
-          {renderMarkdown(text)}
+          {stable === '' ? null : renderMarkdown(stable)}
+          {tail === '' ? null : <span className="stream-tail">{tail}</span>}
           <span className="stream-caret"></span>
         </div>
       </div>

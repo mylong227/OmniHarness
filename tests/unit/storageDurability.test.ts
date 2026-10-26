@@ -46,8 +46,12 @@ test('JsonlStorage: 覆盖写为原子写，不留 .tmp 残留', async () => {
     await storage.save('s1', [evt('a'), evt('b')]);
     const loaded = await storage.load('s1');
     assert.strictEqual(loaded.length, 2, '覆盖写后应读到新快照');
-    // 临时文件必须已被 rename 消费掉（否则崩溃留下的半成品会一直堆积）
-    assert.deepStrictEqual(readdirSync(dir).sort(), ['s1.jsonl']);
+    // 临时文件必须已被 rename 消费掉（否则崩溃留下的半成品会一直堆积）。
+    // 目录里允许存在旁路摘要（`s1.jsonl.summary.json`，列表免整档解析的既有设计），
+    // 这条判据只锁「不得残留 .tmp」。
+    const leftovers = readdirSync(dir).filter((name) => name.endsWith('.tmp'));
+    assert.deepStrictEqual(leftovers, [], `不得残留临时文件（实测 ${leftovers.join('、')}）`);
+    assert.strictEqual(existsSync(join(dir, 's1.jsonl')), true);
   });
 });
 

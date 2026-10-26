@@ -23,6 +23,8 @@ export interface DesktopInfo {
   readonly platform: string;
   /** 当前工作区。 */
   readonly workspace: string;
+  /** 桌面语言（可选；旧版 preload 可能没有）。 */
+  readonly language?: string;
   /** 关闭时最小化到托盘。 */
   readonly closeToTray: boolean;
   /** 开机启动。 */
@@ -47,6 +49,10 @@ export interface DesktopBridge {
   setCloseToTray(enabled: boolean): Promise<void>;
   setOpenAtLogin(enabled: boolean): Promise<void>;
   openLogs(): Promise<void>;
+  /** 打开诊断信息（新版 preload 才提供）。 */
+  showDiagnostics?(): Promise<void>;
+  /** 任务栏进度（-1 清除，0–1 进度，2 不确定；新版 preload 才提供）。 */
+  setProgress?(value: number): Promise<void>;
   restartHarness(): Promise<void>;
   /** 在系统文件管理器中打开目录。 */
   revealPath(path: string): Promise<void>;
@@ -97,6 +103,12 @@ export function desktopBridge(): DesktopBridge | null {
     setCloseToTray: (enabled) => call<void>('setCloseToTray', enabled),
     setOpenAtLogin: (enabled) => call<void>('setOpenAtLogin', enabled),
     openLogs: () => call<void>('openLogs'),
+    ...(typeof raw['showDiagnostics'] === 'function'
+      ? { showDiagnostics: () => call<void>('showDiagnostics') }
+      : {}),
+    ...(typeof raw['setProgress'] === 'function'
+      ? { setProgress: (value: number) => call<void>('setProgress', value) }
+      : {}),
     restartHarness: () => call<void>('restartHarness'),
     revealPath: (path) => call<void>('revealPath', path),
     notify: (input) => call<unknown>('notify', input),

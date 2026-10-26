@@ -1,5 +1,5 @@
 import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.ts';
-import { ToolGate, MUTATING_TOOLS } from './toolGate.ts';
+import { ToolGate, MUTATING_TOOLS, REPO_MAP_INVALIDATING_TOOLS } from './toolGate.ts';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
 import { ToolScheduler } from './loop/toolScheduler.ts';
 import { SandboxDenial } from '../security/sandboxDenial.ts';
@@ -12,6 +12,7 @@ import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
 import { ProvenanceTracker } from '../security/provenanceTracker.ts';
 import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { log } from '../util/logger.ts';
+import { SupervisorHealthSignal } from '../supervisor/healthSignal.ts';
 import type { StepRunnerDeps } from './stepTypes.ts';
 
 /**
@@ -207,7 +208,9 @@ export class StepToolExecutor {
         const text = `工具执行异常: ${message}`;
         log.warn('tool.call.failed', { tool: call.name, callId: call.id, error: message });
         this.deps.recorder.toolResult(call.id, false, undefined, text);
-        this.deps.supervisor?.report(call.name, 'failure', text);
+        if (!SupervisorHealthSignal.isPolicyDenial(text)) {
+          this.deps.supervisor?.report(call.name, 'failure', text);
+        }
       }
       return false;
     }
@@ -247,14 +250,16 @@ export class StepToolExecutor {
   }
 
   /**
-   * U4：写类工具成功执行后主动失效 repo-map 缓存，消除 30s TTL 陈旧窗口。
-   * fail-closed：workspaceRoot 未注入 / 工具未成功 / 非写类工具 / 失效抛错，均静默跳过，绝不崩主流程。
+   * U4：**明确会写工作区文件**的工具成功后主动失效 repo-map 缓存，消除 TTL 陈旧窗口。
+   * fail-closed：workspaceRoot 未注入 / 工具未成功 / 非写文件工具 / 失效抛错，均静默跳过，绝不崩主流程。
    *
-   * 走**软失效**（`invalidate`）而非硬删（`clear`，2026-10-03 修）：这里的语义是「刚跑过写类
-   * 工具，repo-map **可能**陈旧了」，而 `shell`（本集合最大宗成员）里跑 `echo` / `git status` /
-   * `npm test` 都不改被索引的源码。硬删会让下一次组装上下文**必然**全量重建（本仓实测 8.6s），
-   * 旧行为下 `sessionLifecycle` 单回合把全仓索引两遍（8.5s + 8.5s，单文件 100s 逼近超时门限）。
-   * 软失效先比内容签名：未变复用同一语料实例（零重建、零陈旧），真变照常重建。
+   * 为什么不用 `MUTATING_TOOLS`（2026-10-25）：后者含 `shell` / `run_code` / 子代理等
+   * 「可能写盘但不可预知改了哪些文件」的工具，一次成功就会触发 `contentHashes()` 的
+   * **全仓重读 + SHA1**（本机 1.0–2.4 s）。`shell` 在真实回合里频率最高（构建/测试/格式化），
+   * 实测 20 次可白烧 24–48 s。现在这类工具交给 `fs.watch` 的脏标记 + TTL 复核；只有
+   * `REPO_MAP_INVALIDATING_TOOLS`（write_file/edit/apply_patch/patch_candidates/rollback）立即失效。
+   *
+   * 仍走**软失效**（`invalidate`）而非硬删：未变则复用同一语料实例，真变才重建。
    *
    * @param call 已执行的工具调用。
    * @param result 该调用的结果（只读 ok）。
@@ -267,7 +272,7 @@ export class StepToolExecutor {
     if (!result.ok) {
       return;
     }
-    if (!MUTATING_TOOLS.has(call.name)) {
+    if (!REPO_MAP_INVALIDATING_TOOLS.has(call.name)) {
       return;
     }
     try {
@@ -365,7 +370,13 @@ export class StepToolExecutor {
       files,
     );
     // I-P0-3：工具执行成败上报监督内核（native + JS 全路径共用此处，覆盖完整）。
-    this.deps.supervisor?.report(toolName, annotated.ok ? 'success' : 'failure', annotated.error);
+    // 策略拒绝（审批/沙箱/监督内核）不算工具健康失败：否则一次拒绝会推进 safe，
+    // safe 又拒绝后续危险工具，形成自锁（实测长任务 3 小时循环）。
+    if (annotated.ok) {
+      this.deps.supervisor?.report(toolName, 'success');
+    } else if (!SupervisorHealthSignal.isPolicyDenial(annotated.error)) {
+      this.deps.supervisor?.report(toolName, 'failure', annotated.error);
+    }
   }
 
   /**

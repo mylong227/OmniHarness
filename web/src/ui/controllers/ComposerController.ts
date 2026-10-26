@@ -8,7 +8,7 @@ import type { ToolResultView } from '../shared.ts';
 import type { SessionController } from './SessionController.ts';
 import { MethodBinder } from './methodBinder.ts';
 import { t } from '../i18n/i18n.ts';
-import { notifyDesktop } from '../../core/desktop/DesktopBridge.ts';
+import { desktopBridge, notifyDesktop } from '../../core/desktop/DesktopBridge.ts';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
 export class ComposerController {
@@ -88,6 +88,7 @@ export class ComposerController {
     // 新回合：开一份干净的流式缓冲（上一个回合的残留在 flushStream/discard 时已释放）。
     this.sessions.streamPhase('open');
     this.host.patch({ busy: true, activeTool: null, streamText: '', finalizedStreamText: '' });
+    void desktopBridge()?.setProgress?.(2);
     try {
       const res = await this.services.api.runTurn(params);
       // 用户已中止：即使后端以正常响应收尾（取消在飞请求后的回落），也不再补最终文本，
@@ -193,6 +194,7 @@ export class ComposerController {
       finalizedStreamText: s.streamText === '' ? s.finalizedStreamText : s.streamText,
       streamText: '',
     }));
+    void desktopBridge()?.setProgress?.(-1);
     // 回合收尾刷新一次会话列表：中栏「已完成，用时 …」依赖服务端 activeMs；正常路径在
     // runTurn 返回时也会刷，但中止/失败路径没有，计数器会停在旧值。best-effort，不阻塞收尾。
     void this.sessions.refreshSessions();

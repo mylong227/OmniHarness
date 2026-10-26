@@ -1,16 +1,27 @@
 /** 渲染层加固：导航/窗口打开/权限/CSP。 */
 import { app, shell, type Session, type WebContents } from 'electron';
+import { formatCsp, type DesktopSecurityConfig } from './config.ts';
 
 /** 允许的 harness origin（每次启动/切换工作区更新）。 */
 let harnessOrigin = '';
 
 /**
+ * 把 host/port 拼成 origin（IPv6 加方括号）。
+ * @param host 主机。
+ * @param port 端口。
+ * @returns origin 字符串。
+ */
+const originOf = (host: string, port: number): string =>
+  `http://${host.includes(':') ? `[${host}]` : host}:${String(port)}`;
+
+/**
  * 设置当前 harness origin。
  * @param port 实际端口。
+ * @param host Harness 主机（缺省 127.0.0.1）。
  * @returns 无返回值。
  */
-export function setHarnessOrigin(port: number): void {
-  harnessOrigin = `http://127.0.0.1:${String(port)}`;
+export function setHarnessOrigin(port: number, host = '127.0.0.1'): void {
+  harnessOrigin = originOf(host, port);
 }
 
 /**
@@ -25,39 +36,28 @@ export function currentHarnessOrigin(): string {
  * 给指定 session 注入 CSP 与权限白名单。
  * @param session Electron session。
  * @param port 实际端口。
+ * @param config 安全配置（host/CSP/允许的权限）。
  * @returns 无返回值。
  */
-export function installSessionSecurity(session: Session, port: number): void {
-  const origin = `http://127.0.0.1:${String(port)}`;
+export function installSessionSecurity(
+  session: Session,
+  port: number,
+  config: DesktopSecurityConfig & { readonly host: string },
+): void {
+  const origin = originOf(config.host, port);
+  const allowedPermissions = new Set(config.permissions);
   session.webRequest.onHeadersReceived({ urls: [`${origin}/*`] }, (details, callback) => {
     const headers = { ...(details.responseHeaders ?? {}) };
-    headers['Content-Security-Policy'] = [
-      [
-        "default-src 'none'",
-        "script-src 'self' 'unsafe-inline'",
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob:",
-        "font-src 'self' data:",
-        "connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*",
-        'frame-src http://127.0.0.1:*',
-        "media-src 'self' blob:",
-        "base-uri 'none'",
-        "form-action 'none'",
-        "object-src 'none'",
-        "frame-ancestors 'none'",
-      ].join('; '),
-    ];
+    headers['Content-Security-Policy'] = [formatCsp(config.csp)];
     callback({ responseHeaders: headers });
   });
   session.setPermissionRequestHandler((contents, permission, callback) => {
     const url = contents.getURL();
     const trusted = url.startsWith(`${origin}/`) || url === origin;
-    const allowed = permission === 'notifications' || permission === 'clipboard-sanitized-write';
-    callback(trusted && allowed);
+    callback(trusted && allowedPermissions.has(permission));
   });
   session.setPermissionCheckHandler((_contents, permission, requestingOrigin) => {
-    const allowed = permission === 'notifications' || permission === 'clipboard-sanitized-write';
-    return requestingOrigin === origin && allowed;
+    return requestingOrigin === origin && allowedPermissions.has(permission);
   });
 }
 

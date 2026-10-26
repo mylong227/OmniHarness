@@ -372,6 +372,16 @@ export class CorpusIndexCache {
   private tryStatReuse(root: string, existing: CacheEntry, now: number): boolean {
     this.watch.ensure(root);
     if (!this.watch.isActive(root) || this.watch.isDirty(root)) return false;
+    // 变更路径复核后写入的哨兵：watcher 干净即"自上次复核以来无变更"，无需再走 0.8s 的 stat 全树。
+    if (existing.statSig === '') {
+      this.watch.noteStatReuse();
+      this.put(
+        root,
+        makeEntry(existing.corpus, existing.artifacts, now, existing.contentSig, '', now),
+      );
+      this.sample(true);
+      return true;
+    }
     const statSig = this.watch.statSignature(root);
     if (statSig === null || statSig !== existing.statSig) return false;
     this.watch.noteStatReuse();
@@ -381,6 +391,66 @@ export class CorpusIndexCache {
     );
     this.sample(true);
     return true;
+  }
+
+  /**
+   * 只复核 watcher 报来的变更路径，并在内容真的变了时走**路径级增量重建**（F1，2026-10-25）。
+   *
+   * 做法：从既有 `artifacts` 复制一份完整 hash 表，只对变更路径重新读/哈希；未变的路径不读盘。
+   * - 全部一致 ⇒ 直接复用语料（`touch`/同内容保存）；
+   * - 内容变了且文件集合不变 ⇒ 交给 `CorpusIncrementalUpdater`，只重解析变化的文件；
+   * - 新增/删除文件 ⇒ 增量器返回 null，方法返回 false，交回全量哈希（正确性优先）。
+   * 成功后把 `statSig` 置空串哨兵：watcher 干净时无需再跑 0.8s 的 stat 全树。
+   * @param root 工作区根。
+   * @param existing 既有条目。
+   * @param now 当前时刻。
+   * @returns 复用/更新后的语料；无法路径级处理时为 null（调用方回落全量哈希）。
+   */
+  private tryChangedPathsReuse(
+    root: string,
+    existing: CacheEntry,
+    now: number,
+  ): IndexedCorpus | null {
+    this.watch.ensure(root);
+    if (!this.watch.isActive(root) || !this.watch.isDirty(root)) return null;
+    const paths = this.watch.changedPaths(root);
+    if (paths === undefined || paths.size === 0) return null;
+    const hashes = new Map<string, string>();
+    for (const [rel, artifact] of existing.artifacts) hashes.set(rel, artifact.hash);
+    let changed = false;
+    for (const rel of paths) {
+      const artifact = existing.artifacts.get(rel);
+      let bytes: Buffer;
+      try {
+        bytes = readFileSync(join(root, rel.split('/').join(sep)));
+      } catch {
+        // 删除/目录事件：让增量器判文件集合变化（它会返回 null，调用方回落全量）。
+        hashes.delete(rel);
+        changed = true;
+        continue;
+      }
+      const hash = CorpusFileParser.hashOfBytes(bytes);
+      if (artifact?.hash !== hash) changed = true;
+      hashes.set(rel, hash);
+    }
+    if (!changed) {
+      this.watch.notePathReuse();
+      this.watch.clearDirty(root);
+      this.put(
+        root,
+        makeEntry(existing.corpus, existing.artifacts, now, existing.contentSig, '', now),
+      );
+      this.sample(true);
+      return existing.corpus;
+    }
+    const sig = signatureOf(hashes);
+    const updated = this.incremental.update(root, existing.corpus, existing.artifacts, hashes);
+    if (updated === null) return null;
+    this.watch.notePathReuse();
+    this.watch.clearDirty(root);
+    this.put(root, makeEntry(updated.corpus, updated.artifacts, now, sig, '', now));
+    this.sample(updated.reparsed === 0);
+    return updated.corpus;
   }
 
   /**
@@ -400,6 +470,11 @@ export class CorpusIndexCache {
     // stat 预筛：watcher 未脏且 stat 签名未变 ⇒ 不读内容；否则回落内容哈希。
     if (existing !== undefined && this.tryStatReuse(root, existing, now)) {
       return existing.corpus;
+    }
+    // watcher 脏但只有少数路径：先只复核这些路径，内容没变就不必全量哈希。
+    if (existing !== undefined) {
+      const reused = this.tryChangedPathsReuse(root, existing, now);
+      if (reused !== null) return reused;
     }
     this.watch.clearDirty(root);
     // TTL 已过期（或首次）：用**逐文件内容哈希**判断文件集合与内容是否真的变了。

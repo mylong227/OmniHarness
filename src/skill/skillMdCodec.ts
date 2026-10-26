@@ -51,11 +51,15 @@ export class SkillMdCodec {
       throw new Error('SKILL.md 需要非空 name/description 与正文 instructions');
     }
     const tags = SkillMdCodec.tagsOf(fields.get('tags'));
+    const resources = SkillMdCodec.tagsOf(fields.get('resources'));
+    const exclusive = fields.get('exclusive') === 'true';
     return {
       name,
       description,
       instructions: body,
       ...(tags.length > 0 ? { tags } : {}),
+      ...(resources.length > 0 ? { resources } : {}),
+      ...(exclusive ? { exclusive } : {}),
     };
   }
 
@@ -86,11 +90,15 @@ export class SkillMdCodec {
         typeof record['description'] === 'string' ? record['description'].trim() : '';
       if (name === '' || description === '' || instructions === '') return undefined;
       const tags = SkillMdCodec.tagsOfValue(record['tags']);
+      const resources = SkillMdCodec.tagsOfValue(record['resources']);
+      const exclusive = record['exclusive'] === true;
       return {
         name,
         description,
         instructions,
         ...(tags.length > 0 ? { tags } : {}),
+        ...(resources.length > 0 ? { resources } : {}),
+        ...(exclusive ? { exclusive } : {}),
       };
     } catch {
       return undefined;
@@ -136,6 +144,12 @@ export class SkillMdCodec {
     const lines = ['---', `name: ${skill.name}`, `description: ${skill.description}`];
     if (skill.tags !== undefined && skill.tags.length > 0) {
       lines.push(`tags: [${skill.tags.join(', ')}]`);
+    }
+    if (skill.resources !== undefined && skill.resources.length > 0) {
+      lines.push(`resources: [${skill.resources.join(', ')}]`);
+    }
+    if (skill.exclusive === true) {
+      lines.push('exclusive: true');
     }
     lines.push('---', '', skill.instructions.trim(), '');
     return lines.join('\n');

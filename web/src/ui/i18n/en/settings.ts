@@ -149,5 +149,6 @@ export const EN_SETTINGS: Record<string, string> = {
   安装并重启: 'Install and restart',
   诊断: 'Diagnostics',
   打开日志目录: 'Open log directory',
+  '查看诊断信息': 'Show diagnostics',
   '重启 Harness': 'Restart Harness',
 };

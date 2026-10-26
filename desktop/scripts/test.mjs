@@ -1,6 +1,6 @@
-/** 桌面端纯逻辑测试：args / ready 契约 / 环境清洗（不启动 Electron GUI）。 */
-import { buildSync } from 'esbuild';
-import { mkdirSync, readFileSync, rmSync } from 'node:fs';
+/** 桌面端纯逻辑测试：args / ready 契约 / 环境清洗 / 配置合并（不启动 Electron GUI）。 */
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
@@ -9,30 +9,198 @@ import assert from 'node:assert/strict';
 const out = join(process.cwd(), '..', '.tmp', 'desktop-tests');
 mkdirSync(out, { recursive: true });
 
+/**
+ * esbuild 原生二进制路径。
+ *
+ * 不用 `esbuild` JS API：它会 spawn 一个常驻 service 子进程；本机受限执行环境禁止带管道的
+ * 子进程（spawn EPERM）。直接调平台二进制可执行文件（stdio inherit）在本机/CI 都能跑。
+ */
+const esbuildBin =
+  process.env['ESBUILD_BINARY_PATH'] ??
+  join(
+    process.cwd(),
+    'node_modules',
+    `@esbuild/${process.platform}-${process.arch}`,
+    process.platform === 'win32' ? 'esbuild.exe' : 'bin/esbuild',
+  );
+
 /** 打包一个纯模块到 CJS 供 Node 测试。 */
 function bundle(entry, name, external = []) {
-  buildSync({
-    absWorkingDir: process.cwd(),
-    entryPoints: [entry],
-    outfile: join(out, `${name}.cjs`),
-    bundle: true,
-    platform: 'node',
-    format: 'cjs',
-    target: 'node22',
-    external,
-    logLevel: 'silent',
-  });
+  const args = [
+    entry,
+    '--bundle',
+    '--platform=node',
+    '--format=cjs',
+    '--target=node22',
+    `--outfile=${join(out, `${name}.cjs`)}`,
+    ...external.map((item) => `--external:${item}`),
+    '--log-level=error',
+  ];
+  const result = spawnSync(esbuildBin, args, { cwd: process.cwd(), stdio: 'inherit' });
+  if (result.error !== undefined || result.status !== 0) {
+    throw new Error(`esbuild 失败（${name}）：${String(result.error?.message ?? result.status)}`);
+  }
 }
 
 bundle('src/main/lib/args.ts', 'args');
 bundle('src/main/lib/ready.ts', 'ready');
 bundle('src/main/harnessSupervisor.ts', 'supervisor', ['electron']);
 bundle('src/main/desktopState.ts', 'desktopState');
+bundle('src/main/config.ts', 'config');
+bundle('src/main/i18n/DesktopI18n.ts', 'i18n');
+bundle('src/main/app/StartupMarker.ts', 'startup');
+bundle('src/main/app/DeepLinkRouter.ts', 'deepLinks');
+bundle('src/main/app/HarnessRestartPolicy.ts', 'restartPolicy');
+bundle('src/main/app/WindowLifecycle.ts', 'windowLifecycle');
 
 const { parseLaunchArgs } = await import(pathToFileURL(join(out, 'args.cjs')).href);
 const { parseReadyInfo } = await import(pathToFileURL(join(out, 'ready.cjs')).href);
 const { buildHarnessEnv } = await import(pathToFileURL(join(out, 'supervisor.cjs')).href);
 const { DesktopStateStore } = await import(pathToFileURL(join(out, 'desktopState.cjs')).href);
+const { DEFAULT_DESKTOP_CONFIG, loadDesktopConfig, formatCsp } = await import(
+  pathToFileURL(join(out, 'config.cjs')).href
+);
+const { DesktopI18n } = await import(pathToFileURL(join(out, 'i18n.cjs')).href);
+const { StartupMarker } = await import(pathToFileURL(join(out, 'startup.cjs')).href);
+const { DeepLinkRouter } = await import(pathToFileURL(join(out, 'deepLinks.cjs')).href);
+const { HarnessRestartPolicy } = await import(pathToFileURL(join(out, 'restartPolicy.cjs')).href);
+const { WindowLifecycle } = await import(pathToFileURL(join(out, 'windowLifecycle.cjs')).href);
+
+test('DesktopI18n：system 解析 + 中英词条完整 + 占位符替换', () => {
+  assert.equal(DesktopI18n.resolve('system', 'en-US'), 'en-US');
+  assert.equal(DesktopI18n.resolve('system', 'zh-Hans-CN'), 'zh-CN');
+  assert.equal(DesktopI18n.resolve('en-US', 'zh-CN'), 'en-US');
+  assert.equal(DesktopI18n.resolve(undefined, 'en-GB'), 'en-US');
+  const zh = new DesktopI18n('zh-CN');
+  const en = new DesktopI18n('en-US');
+  assert.equal(zh.t('menu.file'), '文件');
+  assert.equal(en.t('menu.file'), 'File');
+  assert.equal(
+    en.t('dialog.updateAvailableMessage', { version: '0.2.1' }),
+    'OmniHarness 0.2.1 is available',
+  );
+  assert.equal(DEFAULT_DESKTOP_CONFIG.app.language, 'system');
+  assert.equal(DEFAULT_DESKTOP_CONFIG.update.channel, 'latest');
+  assert.equal(DEFAULT_DESKTOP_CONFIG.update.allowDowngrade, false);
+  assert.equal(DEFAULT_DESKTOP_CONFIG.window.showShortcut, 'CommandOrControl+Shift+O');
+});
+
+test('DesktopI18n：中英语言包键集合完全一致', () => {
+  const zh = new DesktopI18n('zh-CN');
+  const en = new DesktopI18n('en-US');
+  for (const key of [
+    'menu.file',
+    'menu.help',
+    'tray.show',
+    'tray.quit',
+    'dialog.startFailedTitle',
+    'dialog.crashTitle',
+    'dialog.updateLatestMessage',
+    'window.starting',
+  ]) {
+    assert.notEqual(zh.t(key), key, `zh 缺少 ${key}`);
+    assert.notEqual(en.t(key), key, `en 缺少 ${key}`);
+  }
+});
+
+test('StartupMarker：固定阶段格式（供 startupReport 解析）', () => {
+  const lines = [];
+  const marker = new StartupMarker({ write: (_kind, text) => lines.push(text) });
+  marker.mark('config.loaded');
+  marker.mark('window.created');
+  assert.equal(lines.length, 2);
+  for (const line of lines) {
+    assert.match(line, /^startup\.phase phase=[a-z.]+ elapsedMs=\d+$/u);
+  }
+});
+
+test('DeepLinkRouter：协议/workspace 解析 + 就绪前排队', async () => {
+  assert.equal(
+    DeepLinkRouter.workspaceOf('omniharness://open?workspace=D%3A%5Cws', 'omniharness'),
+    'D:\\ws',
+  );
+  assert.equal(DeepLinkRouter.workspaceOf('https://example.com/?workspace=x', 'omniharness'), null);
+  assert.equal(DeepLinkRouter.workspaceOf('not a url', 'omniharness'), null);
+  let switched = '';
+  const router = new DeepLinkRouter({
+    protocol: 'omniharness',
+    uiReadyTimeoutMs: 10,
+    getWindow: () => null,
+    isReady: () => false,
+    switchWorkspace: async (path) => {
+      switched = path;
+    },
+  });
+  await router.handle('omniharness://open?workspace=D%3A%5Cws');
+  assert.equal(switched, '', '未就绪时不得切工作区');
+  router.flush();
+});
+
+test('HarnessRestartPolicy：窗口内限次，超窗恢复', () => {
+  const policy = new HarnessRestartPolicy(2, 1000);
+  assert.equal(policy.allow(10_000), true);
+  assert.equal(policy.allow(10_100), true);
+  assert.equal(policy.allow(10_200), false, '窗口内第三次必须拒绝');
+  assert.equal(policy.allow(11_500), true, '超出窗口后重新允许');
+  policy.reset();
+  assert.equal(policy.allow(12_000), true);
+  assert.equal(DEFAULT_DESKTOP_CONFIG.harness.autoRestart, true);
+  assert.ok(DEFAULT_DESKTOP_CONFIG.harness.restartMax >= 1);
+});
+
+test('WindowLifecycle：重建窗口/加载 UI/关闭到托盘', () => {
+  const calls = { created: 0, loaded: 0, shown: 0, hidden: 0, tray: 0, menu: 0 };
+  let window = null;
+  let closeHandler = null;
+  const state = {
+    closeToTray: true,
+    openAtLogin: false,
+    get: () => ({ closeToTray: state.closeToTray, openAtLogin: state.openAtLogin }),
+    setCloseToTray: (value) => {
+      state.closeToTray = value;
+    },
+    setOpenAtLogin: (value) => {
+      state.openAtLogin = value;
+    },
+  };
+  const tray = { refresh: () => (calls.tray += 1) };
+  const lifecycle = new WindowLifecycle({
+    current: () => ({ window, handle: {}, state, tray }),
+    createWindow: () => {
+      calls.created += 1;
+      window = {
+        isMinimized: () => false,
+        restore: () => undefined,
+        show: () => (calls.shown += 1),
+        focus: () => undefined,
+        hide: () => (calls.hidden += 1),
+        on: (event, handler) => {
+          if (event === 'close') closeHandler = handler;
+        },
+        webContents: { on: () => undefined },
+      };
+      return window;
+    },
+    setWindow: () => undefined,
+    loadHarness: () => (calls.loaded += 1),
+    refreshMenu: () => (calls.menu += 1),
+    isQuitting: () => false,
+    applyAutoStart: () => undefined,
+    logger: () => null,
+  });
+  lifecycle.show();
+  assert.equal(calls.created, 1);
+  assert.equal(calls.loaded, 1);
+  assert.equal(calls.shown, 1);
+  closeHandler({ preventDefault: () => undefined });
+  assert.equal(calls.hidden, 1, '关闭到托盘应隐藏窗口');
+  lifecycle.setCloseToTray(false);
+  assert.equal(state.closeToTray, false);
+  assert.equal(calls.tray, 1);
+  assert.equal(calls.menu, 1);
+  lifecycle.setOpenAtLogin(true);
+  assert.equal(state.openAtLogin, true);
+});
 
 test('parseLaunchArgs: workspace / inline / hidden / deep link', () => {
   assert.deepEqual(parseLaunchArgs(['electron', '.', '--workspace', 'D:\\ws']), {
@@ -99,6 +267,97 @@ test('品牌图标：PNG 为 512×512，ICO 为多尺寸 Windows 图标', () => 
   assert.ok(ico.readUInt16LE(4) >= 7, 'ICO 必须包含多尺寸（16–256）');
 });
 
+test('parseLaunchArgs: 深链协议可配置（不再硬编码 omniharness）', () => {
+  assert.equal(
+    parseLaunchArgs(['electron', '.', 'omni-test://open?workspace=x'], 'omni-test').deepLink,
+    'omni-test://open?workspace=x',
+  );
+  assert.equal(
+    parseLaunchArgs(['electron', '.', 'omniharness://open?workspace=x'], 'omni-test').deepLink,
+    null,
+  );
+});
+
+test('desktop.config.json 必须与内置默认值逐字段相等（防配置/代码漂移）', () => {
+  const shipped = JSON.parse(readFileSync(join(process.cwd(), 'desktop.config.json'), 'utf8'));
+  assert.deepEqual(shipped, DEFAULT_DESKTOP_CONFIG);
+  const loaded = loadDesktopConfig({ builtinFile: join(process.cwd(), 'desktop.config.json') });
+  assert.deepEqual(loaded.config, DEFAULT_DESKTOP_CONFIG);
+  assert.deepEqual(loaded.warnings, []);
+  assert.equal(loaded.sources.length, 1);
+});
+
+test('loadDesktopConfig: 逐字段覆盖 + 非法值夹取/回落 + 未知权限剔除', () => {
+  const dir = join(out, 'config');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const userFile = join(dir, 'desktop.config.json');
+  writeFileSync(
+    userFile,
+    JSON.stringify({
+      app: { language: 'en-US' },
+      window: { width: 100, backgroundThrottling: true },
+      harness: { host: '0.0.0.0', readyTimeoutMs: 'soon', tokenBytes: 8 },
+      security: { permissions: ['geolocation', 'notifications'] },
+      update: { autoDownload: 'yes' },
+      unknownSection: { ignored: true },
+    }),
+    'utf8',
+  );
+  const loaded = loadDesktopConfig({
+    builtinFile: join(process.cwd(), 'desktop.config.json'),
+    userFile,
+  });
+  assert.equal(loaded.config.window.width, 640, 'width 夹到最小值 640');
+  assert.equal(loaded.config.window.backgroundThrottling, true);
+  assert.equal(loaded.config.harness.host, '127.0.0.1', '非回环主机回落');
+  assert.equal(loaded.config.harness.readyTimeoutMs, 30_000, '类型错误回落');
+  assert.equal(loaded.config.harness.tokenBytes, 16, 'tokenBytes 夹到最小值 16');
+  assert.deepEqual(loaded.config.security.permissions, ['notifications']);
+  assert.equal(loaded.config.update.autoDownload, false);
+  assert.equal(loaded.config.app.language, 'en-US');
+  assert.ok(loaded.warnings.length >= 4, `应收集多条告警，实际 ${loaded.warnings.length}`);
+  assert.ok(loaded.warnings.some((line) => line.includes('harness.host')));
+});
+
+test('loadDesktopConfig: 非法 app.language 回落 system 并告警', () => {
+  const dir = join(out, 'config-lang');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const userFile = join(dir, 'desktop.config.json');
+  writeFileSync(userFile, JSON.stringify({ app: { language: 'fr-FR' } }), 'utf8');
+  const loaded = loadDesktopConfig({
+    builtinFile: join(process.cwd(), 'desktop.config.json'),
+    userFile,
+  });
+  assert.equal(loaded.config.app.language, 'system');
+  assert.ok(loaded.warnings.some((line) => line.includes('app.language')));
+});
+
+test('loadDesktopConfig: 环境文件优先级最高（DEFAULT < builtin < user < env）', () => {
+  const dir = join(out, 'config-env');
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const userFile = join(dir, 'user.json');
+  const envFile = join(dir, 'env.json');
+  writeFileSync(userFile, JSON.stringify({ window: { width: 1000 } }), 'utf8');
+  writeFileSync(envFile, JSON.stringify({ window: { width: 1100 } }), 'utf8');
+  const loaded = loadDesktopConfig({
+    builtinFile: join(process.cwd(), 'desktop.config.json'),
+    userFile,
+    envFile,
+  });
+  assert.equal(loaded.config.window.width, 1100);
+  assert.equal(loaded.sources.length, 3);
+});
+
+test('formatCsp: 指令顺序稳定且含配置项', () => {
+  const csp = formatCsp(DEFAULT_DESKTOP_CONFIG.security.csp);
+  assert.ok(csp.startsWith("default-src 'none'; script-src 'self' 'unsafe-inline'"));
+  assert.ok(csp.includes("connect-src 'self' http://127.0.0.1:* ws://127.0.0.1:*"));
+  assert.ok(csp.endsWith("frame-ancestors 'none'"));
+});
+
 test('DesktopStateStore: 默认值 + 持久化 + 重新加载', () => {
   const dir = join(out, 'state');
   rmSync(dir, { recursive: true, force: true });
@@ -116,4 +375,29 @@ test('DesktopStateStore: 默认值 + 持久化 + 重新加载', () => {
   assert.equal(second.get().openAtLogin, true);
   assert.deepEqual(second.get().recentWorkspaces, ['D:\\ws']);
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('启动阶段标记：main.ts 覆盖 config → workspace → window → harness → ui', () => {
+  const source = readFileSync(join(process.cwd(), 'src', 'main', 'main.ts'), 'utf8');
+  for (const phase of [
+    'config.loaded',
+    'workspace.resolved',
+    'window.created',
+    'harness.start',
+    'harness.ready',
+    'ui.loading',
+    'ui.ready',
+  ]) {
+    assert.ok(source.includes(`'${phase}'`), `main.ts 缺少 startup.phase ${phase} 标记`);
+  }
+});
+
+test('打包裁剪：locales 只留中英 + stage 删除死重量（onnxruntime-web/@types/old.node）', () => {
+  const builder = readFileSync(join(process.cwd(), 'electron-builder.yml'), 'utf8');
+  assert.match(builder, /electronLanguages:\s*\n\s*- en-US\s*\n\s*- zh-CN/u);
+  const stage = readFileSync(join(process.cwd(), 'scripts', 'stageHarness.mjs'), 'utf8');
+  for (const name of ['onnxruntime-web', '@types']) {
+    assert.ok(stage.includes(`'${name}'`), `stage 必须删除 ${name}`);
+  }
+  assert.ok(stage.includes('.old.node'), 'stage 必须清理旧版原生内核产物');
 });

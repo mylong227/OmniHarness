@@ -158,12 +158,15 @@ export class AppServerHandlers extends AppServerBase {
       return;
     }
     this.handlers.set('plugins.list', async () => {
+      // 启动优化后插件在 listen 之后加载：市场列表必须等 Profile 也应用完，避免“加载中空库”。
+      await this.awaitPlugins();
       await this.plugins.ensure();
       const list = await registry.list();
       const loaded = new Set(this.pluginManager?.names() ?? []);
       return list.map((m) => ({ ...m, loaded: loaded.has(m.name) }));
     });
     this.handlers.set('plugins.search', async (params) => {
+      await this.awaitPlugins();
       await this.plugins.ensure();
       const query = typeof params['query'] === 'string' ? params['query'] : undefined;
       const all = await registry.search(query);

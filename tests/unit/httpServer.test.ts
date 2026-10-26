@@ -13,7 +13,7 @@ import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 起一个测试服务。 */
@@ -21,6 +21,8 @@ async function startTestServer(
   approvalUplink = false,
   audit?: AuditSink,
   authToken?: string,
+  webDir?: string,
+  filesRoot?: string,
 ): Promise<{ server: HttpServer; port: number; base: string }> {
   const config = ConfigFactory.build({
     workspaceRoot: tempWorkspace(),
@@ -42,9 +44,11 @@ async function startTestServer(
   const server = new HttpServer({
     app,
     bridge,
-    webDir: resolve(process.cwd(), 'web'),
+    webDir: webDir ?? resolve(process.cwd(), 'web'),
     metrics: new Metrics(),
     authToken,
+    // 文件下载测试注入工作区；显式关预览源，避免每个用例多起一个回环端口。
+    ...(filesRoot !== undefined ? { workspaceRoot: () => filesRoot, preview: false as const } : {}),
   });
   const port = await server.start(0);
   // 连**实际绑定地址**（服务端默认绑 127.0.0.1）：Windows 上 `localhost` 常先解析到 `::1`，
@@ -103,6 +107,67 @@ test('HTTP：启用令牌时首屏下发 HttpOnly cookie，后续静态资源凭
     assert.strictEqual(asset.status, 200, '同源 cookie 必须放行后续静态资源');
   } finally {
     await server.close();
+  }
+});
+
+test('HTTP：静态资源压缩/immutable/304（2026-10-25）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-static-'));
+  mkdirSync(join(dir, 'assets'), { recursive: true });
+  writeFileSync(join(dir, 'index.html'), '<h1>static</h1>', 'utf8');
+  const js = 'console.log("cache-me");\n'.repeat(200);
+  writeFileSync(join(dir, 'assets', 'app-abc123.js'), js, 'utf8');
+  const { server, base } = await startTestServer(false, undefined, undefined, dir);
+  try {
+    const compressed = await fetch(`${base}/assets/app-abc123.js`, {
+      headers: { 'accept-encoding': 'gzip' },
+    });
+    assert.strictEqual(compressed.status, 200);
+    assert.match(compressed.headers.get('cache-control') ?? '', /immutable/u);
+    assert.strictEqual(compressed.headers.get('content-encoding'), 'gzip');
+    // undici 会自动解压 body（但保留 Content-Encoding 头），故直接按文本核对内容。
+    assert.strictEqual(await compressed.text(), js);
+    const etag = compressed.headers.get('etag');
+    assert.ok(etag !== null && etag !== '');
+    const notModified = await fetch(`${base}/assets/app-abc123.js`, {
+      headers: { 'accept-encoding': 'gzip', 'if-none-match': etag },
+    });
+    assert.strictEqual(notModified.status, 304);
+    const index = await fetch(`${base}/`);
+    assert.strictEqual(index.status, 200);
+    assert.match(index.headers.get('cache-control') ?? '', /no-cache/u);
+    assert.ok((index.headers.get('etag') ?? '') !== '');
+  } finally {
+    await server.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('HTTP：/files 流式下载大文件 + 越界 403 + 缺失 404（2026-10-25）', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'omni-files-'));
+  const web = mkdtempSync(join(tmpdir(), 'omni-files-web-'));
+  try {
+    writeFileSync(join(web, 'index.html'), '<h1>files</h1>', 'utf8');
+    const payload = Buffer.alloc(4 * 1024 * 1024, 0x61);
+    writeFileSync(join(root, 'big.bin'), payload);
+    writeFileSync(join(root, '..', 'outside.txt'), 'secret', 'utf8');
+    const { server, base } = await startTestServer(false, undefined, undefined, web, root);
+    try {
+      const response = await fetch(`${base}/files?path=big.bin`);
+      assert.strictEqual(response.status, 200);
+      assert.strictEqual(response.headers.get('content-length'), String(payload.length));
+      const body = Buffer.from(await response.arrayBuffer());
+      assert.strictEqual(body.length, payload.length);
+      assert.strictEqual(body[0], 0x61);
+      const missing = await fetch(`${base}/files?path=nope.bin`);
+      assert.strictEqual(missing.status, 404);
+      const escaped = await fetch(`${base}/files?path=${encodeURIComponent('../outside.txt')}`);
+      assert.strictEqual(escaped.status, 403);
+    } finally {
+      await server.close();
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(web, { recursive: true, force: true });
   }
 });
 

@@ -1,16 +1,33 @@
 /** 主进程 IPC：只暴露语义化能力，不提供任意命令/任意路径。 */
-import { app, dialog, ipcMain, shell, type IpcMainInvokeEvent, type WebContents } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  shell,
+  type IpcMainInvokeEvent,
+  type WebContents,
+} from 'electron';
 import { existsSync, statSync } from 'node:fs';
 import type { NotifyInput } from './notifications.ts';
+import type { DesktopIpcConfig } from './config.ts';
 import { currentHarnessOrigin, openExternalSafely } from './security.ts';
 import type { UpdateStatus } from './updateService.ts';
 
 /** IPC 依赖。 */
 export interface IpcDeps {
+  /** 入参上限（来自桌面配置）。 */
+  readonly limits: DesktopIpcConfig;
   /** 当前主窗口 webContents（sender 校验）。 */
   mainContents(): WebContents | undefined;
+  /** 额外窗口 sender 校验（多窗口；缺省只看主窗口）。 */
+  isTrustedContents?(contents: WebContents): boolean;
   /** 当前工作区。 */
   workspace(): string;
+  /** 当前桌面语言（`zh-CN`/`en-US`）。 */
+  language(): string;
+  /** 打开诊断信息对话框。 */
+  showDiagnostics(): void;
   /** 关闭到托盘状态。 */
   closeToTray(): boolean;
   /** 设置关闭到托盘。 */
@@ -55,9 +72,24 @@ export function registerIpc(deps: IpcDeps): void {
       appVersion: app.getVersion(),
       platform: process.platform,
       workspace: deps.workspace(),
+      language: deps.language(),
       closeToTray: deps.closeToTray(),
       openAtLogin: deps.openAtLogin(),
     };
+  });
+  ipcMain.handle('omni:showDiagnostics', (event) => {
+    assertTrusted(event, deps);
+    deps.showDiagnostics();
+    return true;
+  });
+  ipcMain.handle('omni:setProgress', (event, value: unknown) => {
+    assertTrusted(event, deps);
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error('invalid progress');
+    }
+    const progress = Math.min(2, Math.max(-1, value));
+    BrowserWindow.fromWebContents(event.sender)?.setProgressBar(progress);
+    return true;
   });
   ipcMain.handle('omni:setCloseToTray', (event, enabled: unknown) => {
     assertTrusted(event, deps);
@@ -100,7 +132,7 @@ export function registerIpc(deps: IpcDeps): void {
   });
   ipcMain.handle('omni:notify', (event, input: unknown) => {
     assertTrusted(event, deps);
-    return deps.notify(assertNotifyInput(input));
+    return deps.notify(assertNotifyInput(input, deps.limits));
   });
   ipcMain.handle('omni:checkForUpdates', async (event) => {
     assertTrusted(event, deps);
@@ -127,19 +159,25 @@ export function registerIpc(deps: IpcDeps): void {
 /**
  * 校验通知参数（渲染层不可信）。
  * @param value 原始参数。
+ * @param limits 长度上限（桌面配置）。
  * @returns 合法输入。
  */
-function assertNotifyInput(value: unknown): NotifyInput {
+function assertNotifyInput(value: unknown, limits: DesktopIpcConfig): NotifyInput {
   if (value === null || typeof value !== 'object') throw new Error('invalid notify');
   const raw = value as Record<string, unknown>;
   const title = raw['title'];
   const body = raw['body'];
   const sessionId = raw['sessionId'];
-  if (typeof title !== 'string' || title.trim() === '' || title.length > 160) {
+  if (typeof title !== 'string' || title.trim() === '' || title.length > limits.notifyTitleMax) {
     throw new Error('invalid notify.title');
   }
-  if (typeof body !== 'string' || body.length > 800) throw new Error('invalid notify.body');
-  if (sessionId !== undefined && (typeof sessionId !== 'string' || sessionId.length > 200)) {
+  if (typeof body !== 'string' || body.length > limits.notifyBodyMax) {
+    throw new Error('invalid notify.body');
+  }
+  if (
+    sessionId !== undefined &&
+    (typeof sessionId !== 'string' || sessionId.length > limits.notifySessionIdMax)
+  ) {
     throw new Error('invalid notify.sessionId');
   }
   return {
@@ -157,7 +195,10 @@ function assertNotifyInput(value: unknown): NotifyInput {
  */
 function assertTrusted(event: IpcMainInvokeEvent, deps: IpcDeps): void {
   const main = deps.mainContents();
-  if (main === undefined || event.sender !== main) throw new Error('ipc denied: sender');
+  const trusted =
+    (main !== undefined && event.sender === main) ||
+    deps.isTrustedContents?.(event.sender) === true;
+  if (!trusted) throw new Error('ipc denied: sender');
   const frame = event.senderFrame;
   if (frame === null || frame.parent !== null) throw new Error('ipc denied: frame');
   const origin = currentHarnessOrigin();

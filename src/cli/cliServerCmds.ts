@@ -574,13 +574,22 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         // 自动化任务：用户级文件 + 30s 调度；任务触发即新建一个普通会话。
         automations: new AutomationStore(join(homedir(), '.omniharness', 'automations.json')),
       });
-      await app.loadPlugins();
-      // G-E 5.1：插件集收敛（按职责抽成方法：runServe 体量已顶到铁律上限，外移而不是放宽）。
-      await this.applyPluginProfile(
-        app,
-        this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile,
-        wsRoot,
-      );
+      // 启动优化（D1，2026-10-25）：插件加载 + Profile 应用不再挡在 HTTP listen 之前。
+      // 先登记“就绪闸门”，HTTP 起来后 UI 可先渲染；真正需要插件的回合入口会 await 它。
+      // 失败只告警：回合闸门会以已失败（已 catch）的 Promise 放行，避免整个服务起不来。
+      const pluginProfile =
+        this.flagValue(serveArgs, '--plugin-profile') ?? loadedFile.pluginProfile;
+      const pluginsReady = (async () => {
+        await app.loadPlugins();
+        await this.applyPluginProfile(app, pluginProfile, wsRoot);
+      })().catch((error: unknown) => {
+        process.stderr.write(
+          `[omniharness] 插件加载/Profile 应用失败（后台继续，插件工具可能缺失）：${
+            error instanceof Error ? error.message : String(error)
+          }\n`,
+        );
+      });
+      app.setPluginsReady(pluginsReady);
       // 起 HTTP 服务并常驻到退出（绑定地址/令牌、端口冲突诊断与按需接管、打印 UI 地址）。
       // 抽成方法的原因：runServe 体量顶到铁律基线（见 applyPluginProfile 的说明）。
       return await this.runHttpServe(app, bridge, metrics, serveArgs);

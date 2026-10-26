@@ -11,6 +11,12 @@
  * 追加事件会改 mtime ⇒ 自动失效，不存在陈旧读。两个调用点共用同一份缓存的实现，
  * 也把"解析循环 + 缓存判据"从 `SessionArchive` 里挪走（那个类已到上帝类阈值边缘）。
  *
+ * ## 2026-10-25：列表摘要走旁路
+ *
+ * `readSummary` 先读 `<sid>.jsonl.summary.json`（几百字节，带 `.jsonl` 字节数校验）：
+ * 命中即**完全不读 `.jsonl`**；缺失/过期才逐行解析并异步回写。`usage` 仍整档解析
+ * （它要逐条聚合 token，无法用摘要替代）。旁路由 `JsonlStorage.save` 与回合末补写。
+ *
  * ## 缓存边界
  *
  * 有界：超过 4096 条整体清空重建（极端多会话场景不会无限吃内存）。
@@ -19,32 +25,10 @@
 
 import { readFile, stat } from 'node:fs/promises';
 import { SessionFileScanner } from './sessionFileScanner.ts';
+import { SessionSummaryBuilder, type SessionSummary } from '../../../util/sessionSummary.ts';
+import { readSessionSummary, writeSessionSummary } from '../../../util/sessionSummarySidecar.ts';
 
-/** 会话摘要（`list` 需要的字段）。 */
-export interface SessionSummary {
-  /** 归属工作区（`session_meta.payload.workspace`；老存档可能没有）。 */
-  readonly workspace?: string | undefined;
-  /** 创建会话时记录的模型名（老存档没有；有 `model` 事件时回填）。 */
-  readonly model?: string | undefined;
-  /**
-   * 是否为 mock/演示会话。
-   *
-   * 判据（按可靠性排序）：`session_meta.model === 'mock'` → 工具调用 id 以 `mock_call_` 开头
-   * → assistant 文案含「模拟模型适配器输出」。**不能**用「没有 model 事件」判定：用户只发了
-   * 一句话就取消的会话同样没有 model 事件，把它当 mock 会误伤真实会话。
-   */
-  readonly mock: boolean;
-  /** 首条用户消息前 80 字（无自定义标题时作标签）。 */
-  readonly label: string;
-  /** 用户回合数。 */
-  readonly turns: number;
-  /** 最后一条事件的时间戳（ISO 字符串；没有则为空串）。 */
-  readonly updatedAt: string;
-  /** 有效时长（ms）：首末事件间隔 − 空闲间隔（>5 分钟且后接 user 事件）。 */
-  readonly activeMs: number;
-  /** 被剔除的空闲间隔个数（用户离开后再回来）。 */
-  readonly idleGaps: number;
-}
+export type { SessionSummary } from '../../../util/sessionSummary.ts';
 
 /** 单个模型的 token 统计。 */
 export interface ModelUsage {
@@ -106,14 +90,14 @@ class FileParseCache<V> {
   }
 
   /**
-   * 命中缓存则直接返回；否则调用 `load()` 解析并写回缓存。
+   * 命中缓存则直接返回；否则调用 `load(stamp)` 解析并写回缓存。
    * @param file 文件路径
-   * @param load 解析函数（仅在未命中时调用）
+   * @param load 解析函数（仅在未命中时调用；拿到文件戳用于校验旁路摘要）
    * @returns 解析结果与文件戳；文件不可读或解析失败时为 `undefined`
    */
   public async getOrLoad(
     file: string,
-    load: () => Promise<V | undefined>,
+    load: (stamp: FileStamp) => Promise<V | undefined>,
   ): Promise<{ value: V; mtimeMs: number } | undefined> {
     const stamp = await FileParseCache.stampOf(file);
     if (stamp === undefined) return undefined;
@@ -127,7 +111,7 @@ class FileParseCache<V> {
     if (inflight !== undefined) {
       value = await inflight;
     } else {
-      const task = load();
+      const task = load(stamp);
       this.inflight.set(file, task);
       try {
         value = await task;
@@ -160,7 +144,7 @@ export class SessionScanCache {
   public async readSummary(
     file: string,
   ): Promise<{ value: SessionSummary; mtimeMs: number } | undefined> {
-    return this.listCache.getOrLoad(file, () => SessionScanCache.parseSummary(file));
+    return this.listCache.getOrLoad(file, (stamp) => SessionScanCache.parseSummary(file, stamp));
   }
 
   /**
@@ -174,94 +158,39 @@ export class SessionScanCache {
   }
 
   /**
-   * 解析摘要：工作区 / 模型 / mock 标记 / 首条 user / 回合数 / 最后时间戳 / 有效时长。
+   * 解析摘要：优先读**旁路摘要**，失效才整档逐行解析。
    *
-   * 仍然一次整读文件（列表缓存按 `(mtime,size)` 命中，稳态只 stat），但**同一次遍历**把
-   * mock 与有效时长一起算出来，避免为了新字段再扫一遍。
+   * 2026-10-25：`.jsonl.summary.json` 的 `size` 与当前文件戳一致时直接返回，完全不读 `.jsonl`。
+   * 旁路缺失/过期则按原口径逐行解析，并**尽力**回写旁路（失败只影响下次性能，不影响结果）。
    *
    * @param file 存档绝对路径
+   * @param stamp 当前文件戳（大小用于校验旁路）
    * @returns 摘要；不可读时 `undefined`
    */
-  private static async parseSummary(file: string): Promise<SessionSummary | undefined> {
+  private static async parseSummary(
+    file: string,
+    stamp: { readonly mtimeMs: number; readonly size: number },
+  ): Promise<SessionSummary | undefined> {
+    const sidecar = await readSessionSummary(file);
+    if (sidecar !== undefined && sidecar.size === stamp.size) {
+      return sidecar.summary;
+    }
     let text: string;
     try {
       text = await readFile(file, 'utf8');
     } catch {
       return undefined;
     }
-    let workspace: string | undefined;
-    let model: string | undefined;
-    let label = '';
-    let turns = 0;
-    let updatedAt = '';
-    let mock = false;
-    let firstTs: number | null = null;
-    let prevTs: number | null = null;
-    let idleMs = 0;
-    let idleGaps = 0;
+    const builder = new SessionSummaryBuilder();
     for (const line of text.split('\n')) {
-      const ev = SessionFileScanner.parseLine(line);
-      if (ev === undefined) continue;
-      const payload = ev.payload;
-      if (ev.type === 'session_meta') {
-        if (typeof payload?.['workspace'] === 'string') {
-          workspace = payload['workspace'] as string;
-        }
-        if (typeof payload?.['model'] === 'string') {
-          model = payload['model'] as string;
-          if (model === 'mock') mock = true;
-        }
-      } else if (ev.type === 'user') {
-        if (label === '') {
-          const content = payload?.['content'];
-          if (typeof content === 'string') label = content.slice(0, 80);
-        }
-        turns += 1;
-      } else if (ev.type === 'tool_call') {
-        const callId = payload?.['callId'];
-        if (typeof callId === 'string' && callId.startsWith('mock_call_')) mock = true;
-      } else if (ev.type === 'assistant') {
-        const content = payload?.['content'];
-        if (typeof content === 'string' && content.includes('模拟模型适配器输出')) mock = true;
-      } else if (ev.type === 'model' && model === undefined) {
-        const name = payload?.['model'];
-        if (typeof name === 'string') {
-          model = name;
-          if (name === 'mock') mock = true;
-        }
-      }
-      if (typeof ev.timestamp === 'string') {
-        updatedAt = ev.timestamp;
-        const ts = Date.parse(ev.timestamp);
-        if (Number.isFinite(ts)) {
-          if (firstTs === null) firstTs = ts;
-          if (prevTs !== null) {
-            const gap = ts - prevTs;
-            // 空闲 = 长间隔且间隔之后是用户消息（人离开后再回来）；模型生成延迟不算空闲。
-            if (gap > SessionScanCache.IDLE_GAP_MS && ev.type === 'user') {
-              idleMs += gap;
-              idleGaps += 1;
-            }
-          }
-          prevTs = ts;
-        }
-      }
+      const event = SessionFileScanner.parseLine(line);
+      if (event !== undefined) builder.add(event);
     }
-    const spanMs = firstTs === null || prevTs === null ? 0 : Math.max(0, prevTs - firstTs);
-    return {
-      workspace,
-      ...(model !== undefined ? { model } : {}),
-      mock,
-      label,
-      turns,
-      updatedAt,
-      activeMs: Math.max(0, spanMs - idleMs),
-      idleGaps,
-    };
+    const summary = builder.build();
+    // 不 await：列表刷新不该为「优化旁路」多付 409 次写；失败下次解析会重试。
+    void writeSessionSummary(file, stamp.size, summary).catch(() => undefined);
+    return summary;
   }
-
-  /** 判定「用户离开」的最小间隔：5 分钟（与 tools/sessionTelemetry.mjs 同口径）。 */
-  private static readonly IDLE_GAP_MS = 5 * 60 * 1000;
 
   /**
    * 解析用量：聚合 `type='model'` 事件的 `usage.promptTokens/completionTokens`。

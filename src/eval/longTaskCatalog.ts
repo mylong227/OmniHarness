@@ -118,6 +118,8 @@ export interface LongTaskSandboxOptions {
   readonly fixturesRoot: string;
   /** 临时仓库的父目录（每次运行在其下 mkdtemp）。 */
   readonly rootDir: string;
+  /** 是否初始化 git（缺省 true；self-check 不跑 agent 时可关，便于受限环境）。 */
+  readonly initGit?: boolean;
 }
 
 /** CLI 选项。 */
@@ -376,6 +378,46 @@ export class LongTaskMetrics {
   }
 }
 
+/** 长任务失败模式拆解。 */
+export interface LongTaskFailureBreakdown {
+  /** 总运行次数。 */
+  readonly runs: number;
+  /** 失败运行次数（ok=false）。 */
+  readonly failed: number;
+  /** 超时次数。 */
+  readonly timedOut: number;
+  /** 验收命令失败次数。 */
+  readonly verifyFailed: number;
+  /** 缺失 expectedFiles 的次数。 */
+  readonly missingFiles: number;
+  /** 非零退出码次数。 */
+  readonly nonzeroExit: number;
+}
+
+/**
+ * 失败模式聚合（2026-10-25）：pass^k 只说“失败”，这里回答“为什么失败”。
+ * 同一次运行可能同时命中多个模式（例如超时 + 非零退出），各模式独立计数。
+ */
+export class LongTaskFailureBreakdownCounter {
+  /**
+   * @param tasks 每任务的运行结果。
+   * @returns 失败模式计数。
+   */
+  public static summarize(
+    tasks: readonly { readonly runs: readonly LongTaskRun[] }[],
+  ): LongTaskFailureBreakdown {
+    const runs = tasks.flatMap((task) => [...task.runs]);
+    return {
+      runs: runs.length,
+      failed: runs.filter((run) => !run.ok).length,
+      timedOut: runs.filter((run) => run.timedOut).length,
+      verifyFailed: runs.filter((run) => !run.verifyOk).length,
+      missingFiles: runs.filter((run) => run.missingFiles.length > 0).length,
+      nonzeroExit: runs.filter((run) => run.exitCode !== 0).length,
+    };
+  }
+}
+
 /**
  * 任务验证执行器（委托通用 {@link VerifyCommandRunner}，口径与长时程协议一致）。
  */
@@ -431,6 +473,9 @@ export class LongTaskSandbox {
     mkdirSync(options.rootDir, { recursive: true });
     const dir = mkdtempSync(join(options.rootDir, `${options.spec.id}-`));
     cpSync(fixture, dir, { recursive: true });
+    if (options.initGit === false) {
+      return new LongTaskSandbox(dir, false);
+    }
     LongTaskSandbox.initGit(dir, options.spec.id);
     return new LongTaskSandbox(dir, true);
   }
@@ -707,6 +752,8 @@ export class LongTaskSelfCheck {
         spec,
         fixturesRoot: join(tasksDir, 'fixtures'),
         rootDir,
+        // 自检只验证参考解/验收器，不需要 git；受限环境（禁用 spawn）下也能跑。
+        initGit: false,
       });
       cpSync(solution, join(sandbox.dir, 'src', 'index.js'));
       cpSync(readme, join(sandbox.dir, 'README.md'));

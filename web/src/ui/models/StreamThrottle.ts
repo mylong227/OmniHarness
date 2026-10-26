@@ -37,14 +37,20 @@ export interface ThrottleClock {
 
 /** 节流器可选参数。 */
 export interface StreamThrottleOptions {
-  /** 两次刷新之间的最小间隔（毫秒），缺省 50ms。 */
+  /** 两次刷新之间的最小间隔（毫秒），缺省 80ms（见 DEFAULT_INTERVAL_MS 的取值说明）。 */
   intervalMs?: number;
   /** 注入时钟，缺省用全局 setTimeout/clearTimeout/Date.now 包一层。 */
   clock?: ThrottleClock;
 }
 
-/** 默认刷新间隔（毫秒）。 */
-const DEFAULT_INTERVAL_MS = 50;
+/**
+ * 缺省刷新间隔：50 → 80ms（2026-10-25，W1）。
+ *
+ * 流式期每次 flush 都会重渲染中栏并重跑 Markdown 解析；50ms（20fps）在长回复上仍是主线程
+ * 的主要占用。80ms（12.5fps）对「文字逐字出现」的观感几乎无差异，却把渲染次数再降 37%。
+ * 首个增量仍立即出（首字延迟不受影响），收尾 flush 保证零丢失。
+ */
+const DEFAULT_INTERVAL_MS = 80;
 
 /** 生产用时钟：唯一一处 setTimeout 调用，集中在此以便整体替换。 */
 const REAL_CLOCK: ThrottleClock = {

@@ -1,13 +1,22 @@
 /** 系统托盘：显示窗口/打开工作区/日志/更新/退出。 */
 import { Menu, Tray, nativeImage, type MenuItemConstructorOptions } from 'electron';
 import { existsSync } from 'node:fs';
+import type { DesktopI18n } from './i18n/DesktopI18n.ts';
+import type { DesktopTrayConfig } from './config.ts';
 
 /** 托盘依赖的动作。 */
 export interface TrayActions {
   show(): void;
+  /** 新开工作台窗口。 */
+  newWindow(): void;
   openWorkspace(): void;
+  /** 最近工作区（最多 5 条，按最近使用排序）。 */
+  recentWorkspaces(): readonly string[];
+  /** 打开最近工作区。 */
+  openRecent(path: string): void;
   openLogs(): void;
   checkUpdates(): void;
+  diagnostics(): void;
   setCloseToTray(enabled: boolean): void;
   setOpenAtLogin(enabled: boolean): void;
   quit(): void;
@@ -22,10 +31,13 @@ export class TrayService {
   /**
    * @param iconPath 托盘图标路径（dist/icon.png）。
    * @param actions 动作。
+   * @param config 图标尺寸与提示文案。
    */
   public constructor(
     private readonly iconPath: string,
     private readonly actions: TrayActions,
+    private readonly config: DesktopTrayConfig,
+    private readonly i18n: DesktopI18n,
   ) {}
 
   /**
@@ -38,8 +50,10 @@ export class TrayService {
     try {
       const image = nativeImage.createFromPath(this.iconPath);
       if (image.isEmpty()) return false;
-      const tray = new Tray(image.resize({ width: 16, height: 16 }));
-      tray.setToolTip('OmniHarness');
+      const tray = new Tray(
+        image.resize({ width: this.config.iconSize, height: this.config.iconSize }),
+      );
+      tray.setToolTip(this.config.tooltip);
       tray.setContextMenu(this.menu());
       tray.on('click', () => this.actions.show());
       tray.on('double-click', () => this.actions.show());
@@ -73,14 +87,26 @@ export class TrayService {
    */
   private menu(): Menu {
     const template: MenuItemConstructorOptions[] = [
-      { label: '显示 OmniHarness', click: () => this.actions.show() },
+      { label: this.i18n.t('tray.show'), click: () => this.actions.show() },
+      { label: this.i18n.t('tray.newWindow'), click: () => this.actions.newWindow() },
       { type: 'separator' },
-      { label: '打开工作区…', click: () => this.actions.openWorkspace() },
-      { label: '打开日志目录', click: () => this.actions.openLogs() },
-      { label: '检查更新', click: () => this.actions.checkUpdates() },
+      { label: this.i18n.t('tray.openWorkspace'), click: () => this.actions.openWorkspace() },
+      {
+        label: this.i18n.t('tray.recent'),
+        submenu:
+          this.actions.recentWorkspaces().length > 0
+            ? this.actions.recentWorkspaces().map((path) => ({
+                label: path,
+                click: () => this.actions.openRecent(path),
+              }))
+            : [{ label: this.i18n.t('tray.noRecent'), enabled: false }],
+      },
+      { label: this.i18n.t('tray.openLogs'), click: () => this.actions.openLogs() },
+      { label: this.i18n.t('tray.checkUpdates'), click: () => this.actions.checkUpdates() },
+      { label: this.i18n.t('tray.diagnostics'), click: () => this.actions.diagnostics() },
       { type: 'separator' },
       {
-        label: '关闭时最小化到托盘',
+        label: this.i18n.t('tray.closeToTray'),
         type: 'checkbox',
         checked: this.actions.closeToTray(),
         click: (item) => {
@@ -89,7 +115,7 @@ export class TrayService {
         },
       },
       {
-        label: '开机启动',
+        label: this.i18n.t('tray.openAtLogin'),
         type: 'checkbox',
         checked: this.actions.openAtLogin(),
         click: (item) => {
@@ -98,7 +124,7 @@ export class TrayService {
         },
       },
       { type: 'separator' },
-      { label: '退出', click: () => this.actions.quit() },
+      { label: this.i18n.t('tray.quit'), click: () => this.actions.quit() },
     ];
     return Menu.buildFromTemplate(template);
   }

@@ -4,6 +4,9 @@ import type { SessionEvent } from '../../ports/runtime/event.ts';
 import type { StoragePort } from '../../ports/memory/storage.ts';
 import { log } from '../../util/logger.ts';
 import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.ts';
+import { SessionFileCodec } from '../../util/sessionFileCodec.ts';
+import { SessionSummaryBuilder } from '../../util/sessionSummary.ts';
+import { writeSessionSummary } from '../../util/sessionSummarySidecar.ts';
 import { SessionAttachmentSpiller } from './sessionAttachmentSpiller.ts';
 
 /** JSONL 文件存储适配器：每个会话一个 .jsonl 文件（可观测、可回放）。 */
@@ -64,6 +67,34 @@ export class JsonlStorage implements StoragePort {
     }
     // 记下基准：后续 `append` 以"磁盘字节数是否等于这里记录的值"做 O(1) 前缀校验。
     this.written.set(sessionId, { count: events.length, bytes: Buffer.byteLength(text, 'utf8') });
+    // 旁路摘要与 `.jsonl` 同步落盘：列表下次可直接读小文件，不再整档解析。
+    await this.writeSummary(sessionId, events);
+  }
+
+  /**
+   * 写旁路摘要（`<session>.jsonl.summary.json`；失败只告警）。
+   *
+   * 为什么放在存储适配器：它最清楚文件**实际字节数**（旁路校验键），且写入必须与
+   * `save`/`append` 的落盘语义同生共死。摘要构建口径由 `SessionSummaryBuilder` 单一提供。
+   * @param sessionId 会话标识。
+   * @param events 该会话完整事件列表。
+   * @returns 无返回值（失败静默）。
+   */
+  public async writeSummary(sessionId: string, events: readonly SessionEvent[]): Promise<void> {
+    const file = this.fileOf(sessionId);
+    try {
+      const info = await stat(file);
+      const summary = SessionSummaryBuilder.fromEvents(events);
+      const ok = await writeSessionSummary(file, info.size, summary);
+      if (!ok) log.warn('storage.summary.write.failed', { sessionId, file });
+    } catch (error) {
+      // 旁路是优化：文件不存在/被归档/权限问题都不影响主流程。
+      log.warn('storage.summary.write.failed', {
+        sessionId,
+        file,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   /**
@@ -168,7 +199,7 @@ export class JsonlStorage implements StoragePort {
    * @returns 该会话对应的 .jsonl 文件绝对/相对路径。
    */
   private fileOf(sessionId: string): string {
-    return join(this.directory, `${sessionId}.jsonl`);
+    return join(this.directory, `${SessionFileCodec.encode(sessionId)}.jsonl`);
   }
 
   /**
