@@ -204,20 +204,25 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
     assert.strictEqual(dom.send, 1, 'send 按钮必须存在');
     assert.ok(dom.rootLen > 500, `#root 渲染内容过少（len=${dom.rootLen}）`);
 
+    // 主界面快照必须先采：控制台是整页视图，打开后会话区/输入区/右栏都让位，
+    // 再采会把「主界面还在不在」采成空数组（假绿）。
+    const mainSnapshot = await UiBaseline.capture(cdp);
+
     // ---- 结构基线（视觉回归的可复现判据；见 uiBaseline.ts 里「为什么不用像素」）----
-    // 面板入口已随壳层重构收进 `PanelPicker`（打开设置式 `PanelModal`；旧下拉 `.pp-menu`
-    // 与左竖条 `NavRail` 都已删除）⇒ 先真实打开模态再采集，并在此自证"模态真的开了"。
-    await cdp.click('.pp-btn');
+    // 2026-10-26 全窗口控制台：功能面板与设置合并，入口固定在左栏页脚「设置」按钮
+    // （旧右栏 `.pp-btn` 已随壳层重构删除）。先真实打开控制台再采集，并自证"导航真的展开"。
+    await cdp.click('.side-foot button.iconbtn');
     const menuOpen = await cdp.waitFor(
       "document.querySelectorAll('.panel-modal .sp-nav-item').length >= 12",
       8_000,
     );
     assert.ok(
       menuOpen,
-      '面板模态（PanelPicker）必须能展开且至少 12 个入口 —— 采不到入口会让结构基线退化成假绿',
+      '工作台控制台必须能展开且至少 12 个入口 —— 采不到入口会让结构基线退化成假绿',
     );
     const baselinePath = resolve(process.cwd(), 'tests/integration/uiBaseline.json');
-    const snapshot = await UiBaseline.capture(cdp);
+    const menuSnapshot = await UiBaseline.capture(cdp);
+    const snapshot = { ...mainSnapshot, panelMenuItems: menuSnapshot.panelMenuItems };
     if (process.env['OMNI_UI_BASELINE_UPDATE'] === '1') {
       UiBaseline.save(baselinePath, snapshot);
       console.log(`[ui-baseline] 已重写基线：${baselinePath}`);
@@ -232,11 +237,11 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
         `UI 结构相对基线有变化（有意改动请用 OMNI_UI_BASELINE_UPDATE=1 重写基线并提交）：\n  - ${verdict.diffs.join('\n  - ')}`,
       );
     }
-    // 关闭模态：后面还要真实输入并点发送，浮层残留会挡住输入区。
-    await cdp.click('.panel-modal .sp-top button.iconbtn');
+    // 关闭控制台：后面还要真实输入并点发送，浮层残留会挡住输入区。
+    await cdp.click('.csl-back');
     assert.ok(
       await cdp.waitFor("!document.querySelector('.panel-modal')", 5_000),
-      '面板模态必须能关闭（浮层残留会挡住后续的真实点击）',
+      '控制台必须能关闭（浮层残留会挡住后续的真实点击）',
     );
 
     // ---- 全链路：输入 → 发送 → 回合跑完 → UI 更新 ----
