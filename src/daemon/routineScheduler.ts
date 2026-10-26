@@ -18,8 +18,8 @@
  * 执行动作（真正跑 Agent）由 CLI 层负责，本模块只负责「何时该跑」的判定与存储。
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 import type { Routine } from '../ports/daemon/routine.ts';
 import { log } from '../util/logger.ts';
 import type { RoutineModelAdapter } from '../ports/daemon/routineModelAdapter.ts';
@@ -305,7 +305,7 @@ export class RoutineScheduler {
    * @returns {string} - result
    */
   private static defaultStorePath(): string {
-    return resolve(homedir(), '.omniharness', 'routines.json');
+    return join(OmniHome.dir(), 'routines.json');
   }
 
   /**

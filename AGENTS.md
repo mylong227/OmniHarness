@@ -3,6 +3,22 @@
 本文件由仓库的 projectInstructions 加载器自动读取并注入上下文（`AGENTS.md` 优先于 `CLAUDE.md`）。
 只写「不写就会重复踩坑」的事，不复制进度（进度以 `docs/PROJECT_BOARD.md` 为准）。
 
+## 用户级状态归属：`OMNI_HOME` 是唯一搬盘旋钮（2026-10-26 起）
+
+- 归属根的**唯一事实源是 `src/util/omniHome.ts`**：显式注入 > `OMNI_HOME` 环境变量 > `~/.omniharness`。
+  **新增任何用户级落盘（pid/配置/会话/令牌/插件目录）一律 `OmniHome.dir()` 拼接，禁止再手写
+  `join(homedir(), '.omniharness', …)`**——2026-10-26 收口了 15+ 处分裂写法，别再长出第 16 处。
+- **本机已迁移**：`OMNI_HOME=D:\omniharness-home`（setx 持久化），`~/.omniharness` 已删除。
+  排障/查会话/看 pid 记录都去 `D:\omniharness-home`，别再找 C 盘旧路径（会扑空）。
+- 项目临时根 `OmniHome.tmpRoot()` = `OMNI_TMP_DIR` > `<home>/tmp`：新代码要建临时目录（浏览器
+  profile / worktree 副本类）用 `tmpRoot()` 并以 `omni-` 开头命名——**清扫器按 `omni-*`/`omniharness-*`
+  家族前缀 + 24h 阈值清扫**，起了别的名字就是新的泄留（2026-10-26 实测 Temp 19 GB 的根因就是
+  「枚举式前缀名单 + 收尾 rmSync 静默失败 + 清扫器没人调用」三件套）。web 测试建临时目录一律用
+  `web/test/omniTemp.ts` 的 `makeOmniTemp`/`rmRfRetry`。
+- 自动维护巡检（serve 启动 + 6h 周期 + `omniharness gc [--dry-run]`）会清：临时孤儿、陈旧
+  `serve-*.pid`、超龄/超限会话（keepNewest=50 / 90 天 / 4 GiB，归档优先）、孤儿附件、半截临时文件。
+  `OMNI_MAINTENANCE=off` 全停。会话删除是**保守策略**：50 组以内永不删；别"顺手"把它改成默认更激进。
+
 ## 导入约定（2026-10-17 起，前后端统一）
 
 - **相对导入一律写真实源文件后缀 `.ts`/`.tsx`**，不再写 `.js`。新代码照此写；

@@ -23,6 +23,7 @@ import { AuditCommand } from './auditCommand.ts';
 import { StoreCommand } from './storeCommand.ts';
 import { TraceCommand } from './traceCommand.ts';
 import { SdkCommand } from './sdkCommand.ts';
+import { GcCommand } from './gcCommand.ts';
 import { BoostCommand, BOOST_PROBE_TIMEOUT_MS, type BoostOptions } from './boostCommand.ts';
 import { CliArgReader } from './cliArgReader.ts';
 
@@ -49,6 +50,8 @@ export class CliDataCmds extends CliMcpCmds {
   private readonly storeCommand = new StoreCommand();
   /** trace 子命令（只读自省会话事件流）。 */
   private readonly traceCommand = new TraceCommand();
+  /** gc 子命令（手动维护巡检）。 */
+  private readonly gcCommand = new GcCommand();
   /** sdk 子命令（连 app-server WS 端点发 JSON-RPC）。 */
   private readonly sdkCommand = new SdkCommand();
   /** boost 子命令（探针归档比对 / 按改动挑门禁子集；只读外部脚本，不改它们）。 */
@@ -61,6 +64,15 @@ export class CliDataCmds extends CliMcpCmds {
    */
   protected async runSession(args: readonly string[]): Promise<number> {
     return this.sessionCommand.run(args);
+  }
+
+  /**
+   * gc 子命令入口（手动维护巡检）。
+   * @param args 子命令参数（已去掉 `gc`）。
+   * @returns 进程退出码。
+   */
+  protected async runGc(args: readonly string[]): Promise<number> {
+    return this.gcCommand.run(args);
   }
 
   /**

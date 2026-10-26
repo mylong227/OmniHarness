@@ -20,10 +20,10 @@
 // 直跑：node --test web/test/renderErrorBoundary.test.mjs（需先 npm run web:build）。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 import { requireBrowser } from './browserSwitch.ts';
 import {
   findBrowser,
@@ -161,7 +161,7 @@ test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白
     [`/${CRASH_PAGE}`]: html,
     [crash.url]: crash.code,
   })) as StaticServerHandle;
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-crash-'));
+  const userDataDir = makeOmniTemp('omni-crash-');
   const port = await getFreePort();
   const proc = launchChromeForCdp(
     browser,
@@ -204,10 +204,8 @@ test('渲染期抛错 → 降级为可读面板（含组件栈、不整页空白
     killChromeTree(proc, userDataDir);
     await controlServer.close();
     await crashServer.close();
-    try {
-      rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      /* 锁未释放，交由 OS 回收 */
-    }
+    // 带锁重试强删：Chrome 锁释放滞后，单次 rmSync 常静默失败（Temp 19 GB 的直接成因之一）；
+    // 最终仍失败的交给 omniTemp 清扫与生产侧 TmpSweep 兜底——此处绝不抛。
+    rmRfRetry(userDataDir);
   }
 });

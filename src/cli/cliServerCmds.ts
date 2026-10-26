@@ -13,6 +13,8 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
+import { OmniHome } from '../util/omniHome.ts';
+import { MaintenanceRunner } from '../util/maintenanceRunner.ts';
 import { HttpBridgeTransport } from '../server/transport/httpServer.ts';
 import type { HttpServer } from '../server/transport/httpServer.ts';
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
@@ -73,8 +75,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       },
       (line) => process.stdout.write(`${line}\n`),
     );
-    const pluginsDir =
-      this.flagValue(serverArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
+    const pluginsDir = this.flagValue(serverArgs, '--dir') ?? join(OmniHome.dir(), 'plugins');
     const { AppServer } = await import('../server/core/appServer.ts');
     const app = new AppServer({
       config,
@@ -540,8 +541,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       // 注意：**提问**不在这条总开关之下——提问不是门禁，Web 端必须能作答（见 buildServeUpstream）。
       const uplink = false;
       const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
-      const pluginsDir =
-        this.flagValue(serveArgs, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
+      const pluginsDir = this.flagValue(serveArgs, '--dir') ?? join(OmniHome.dir(), 'plugins');
       // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
       // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
       const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
@@ -572,7 +572,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         // 凭据保险库（vault.list/set/delete 的后端）：无主密钥来源时不注入，面板如实显示"未接线"。
         vault: await this.buildServeVault(args),
         // 自动化任务：用户级文件 + 30s 调度；任务触发即新建一个普通会话。
-        automations: new AutomationStore(join(homedir(), '.omniharness', 'automations.json')),
+        automations: new AutomationStore(join(OmniHome.dir(), 'automations.json')),
       });
       // 启动优化（D1，2026-10-25）：插件加载 + Profile 应用不再挡在 HTTP listen 之前。
       // 先登记“就绪闸门”，HTTP 起来后 UI 可先渲染；真正需要插件的回合入口会 await 它。
@@ -670,6 +670,8 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
         );
       }
     }
+    // 启动 + 周期维护巡检（2026-10-26，磁盘爆炸收口）：编排与播报都在 MaintenanceRunner.startup。
+    MaintenanceRunner.startup();
     const binding = await this.startHttpServer(server, port, serveArgs.includes('--take-port'));
     if (binding.ok !== true) {
       return binding.code;

@@ -14,10 +14,9 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { rmSync } from 'node:fs';
 import { requireBrowser } from './browserSwitch.ts';
+import { makeOmniTemp } from './omniTemp.ts';
 import {
   findBrowser,
   serveStatic,
@@ -70,8 +69,8 @@ test('CDP：提问卡在真浏览器里可见可点，提交发出 question.resp
   }
 
   const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB_NAME}`]: stubHtmlCdp() });
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-qask-ud-'));
-  const shotDir = mkdtempSync(join(tmpdir(), 'omni-qask-shots-'));
+  const userDataDir = makeOmniTemp('omni-qask-ud-');
+  const shotDir = makeOmniTemp('omni-qask-shots-');
   let cdp;
   let proc;
   try {

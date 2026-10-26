@@ -8,10 +8,8 @@
 // 这是探针而非门禁：异常也 exit 0。
 // 用法：node web/test/composerProbe.mjs [--focus]
 
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { requireBrowser } from './browserSwitch.ts';
+import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 import {
   findBrowser,
   serveStatic,
@@ -217,7 +215,7 @@ async function main() {
     return requireBrowser() ? 1 : 0;
   }
   const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB_NAME}`]: stubHtmlCdp() });
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-composer-ud-'));
+  const userDataDir = makeOmniTemp('omni-composer-ud-');
   let cdp;
   let proc;
   let exitCode = 0;
@@ -253,7 +251,7 @@ async function main() {
     try { cdp?.close(); } catch { /* ignore */ }
     try { proc?.kill(); } catch { /* ignore */ }
     try { server.close(); } catch { /* ignore */ }
-    try { rmSync(userDataDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    try { rmRfRetry(userDataDir); } catch { /* ignore */ }
   }
   return exitCode;
 }

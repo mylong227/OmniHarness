@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { configFile, type FileConfig } from '../../config/configFile.ts';
 import { PortablePath } from '../../util/portablePath.ts';
+import { OmniHome } from '../../util/omniHome.ts';
 
 /**
  * 用户级配置（`~/.omniharness/omniharness.json`）的专属读写通道：本机运行态 + 私密凭据。
@@ -50,7 +51,7 @@ export class UserLevelConfigStore {
    * @returns 用户级 `omniharness.json` 的绝对路径。
    */
   public path(): string {
-    return join(this.home ?? homedir(), '.omniharness', configFile.FILE_NAME);
+    return join(OmniHome.dir(this.home), configFile.FILE_NAME);
   }
 
   /**

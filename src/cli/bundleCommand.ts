@@ -9,8 +9,8 @@
  * 用法: omniharness bundle pack <profileName> [--key-file K] [--out-dir D] [--dir P] | unpack <path.ohb> [--key-file K] [--dir P]
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 import { PluginProfileStore } from '../plugin/pluginProfileStore.ts';
 import { FeatureEntitlements } from '../license/featureEntitlements.ts';
 import type { EntitlementPort } from '../ports/license/entitlement.ts';
@@ -62,7 +62,7 @@ export class BundleCommand {
     const sub = args[0];
     const reader = new CliArgReader(args);
     const wsRoot = reader.value('--workspace') ?? process.cwd();
-    const pluginsDir = reader.value('--dir') ?? join(homedir(), '.omniharness', 'plugins');
+    const pluginsDir = reader.value('--dir') ?? join(OmniHome.dir(), 'plugins');
     if (sub === 'pack') {
       return this.pack(args, reader, wsRoot, pluginsDir);
     }

@@ -6,8 +6,8 @@
  * 不含 client_secret；损坏/未知版本按空处理，不阻断启动。
  */
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 
 /** 一条持久化令牌。 */
 export interface McpStoredToken {
@@ -49,7 +49,7 @@ export class McpAuthTokenStore {
    * @returns 令牌文件绝对路径。
    */
   public static defaultPath(): string {
-    return join(homedir(), '.omniharness', 'mcp-tokens.json');
+    return join(OmniHome.dir(), 'mcp-tokens.json');
   }
 
   /**

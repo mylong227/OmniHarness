@@ -8,9 +8,9 @@
  */
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
+import { OmniHome } from '../util/omniHome.ts';
 import { log } from '../util/logger.ts';
 
 /** PID 文件记录：pid + 进程启动时刻（毫秒，尽力采集；旧文件只有 pid）。 */
@@ -47,8 +47,7 @@ export class DaemonController {
    * @param opts 可选项（pidFile / 入口路径 / 就绪观察窗口，缺省按用户主目录与当前模块推导）
    */
   public constructor(opts?: { pidFile?: string; entry?: string; probeMs?: number }) {
-    const home = homedir();
-    this.pidFile = opts?.pidFile ?? resolve(home, '.omniharness', 'daemon.pid');
+    this.pidFile = opts?.pidFile ?? join(OmniHome.dir(), 'daemon.pid');
     this.entry = opts?.entry ?? DaemonController.defaultEntry();
     // 就绪观察窗口抽成可注入项的唯一原因是**判据可确定性**：满载机器上"入口不存在 ⇒
     // 子进程立刻退出"可能要 >800ms 才被调度到，同步窗口一到就判存活 ⇒ 测试偶发红

@@ -5310,3 +5310,46 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   `panelModalSize` 改用 `#pane=profiles` 深链打开控制台；`visualProbe` 同步改深链。
 - **本机复核**：真 Chrome 1582×1088 实测 `headerButtons=0 / railToggle=false / panelPicker=0 /
 rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**。
+
+### 103.5 2026-10-26 磁盘爆炸收口：归属单一事实源（OMNI_HOME）+ 自动维护巡检（gc）
+
+- **实测事故（用户截图 + 本机复核）**：清理工具报告用户临时目录 `%LOCALAPPDATA%\Temp`
+  **40,384 个条目 / ~19 GB**，其中 `omni-cdp-*` ×1000 = **9.2 GB**（web 真浏览器 e2e 的 Chrome
+  profile）、`omni-crash-*` ×114 = **1.1 GB**（渲染崩溃转储）。三重根因：
+  ① 收尾 `rmSync` 在 Chrome 文件锁未释放时**静默失败**（注释还写着"交由 OS 回收"——Windows 对
+  Temp 从不自动回收，这条假设不成立）；② 泄漏前缀根本不在 `TmpSweep.DEFAULT_PREFIXES` 名单里
+  （枚举式名单追不齐十余个 `omni-*` 变体——枚举即失败模式）；③ **`TmpSweep` 自 2026-10-22 写好后
+  没有任何生产调用方**，是永远不跑的死代码；会话存档则连保留策略都没有（本机 879 组会话只增不减）。
+- **归属单一事实源 `src/util/omniHome.ts`**：15+ 处 `join(homedir(), '.omniharness', …)` 全部收口
+  （configFile / profileLoader / userLevelConfigStore / workspaceTrustStore / serveInstance /
+  daemonController / routineScheduler / mcpAuthTokenStore / vaultKeyDefaults / sessionStorageLocation /
+  cliServerCmds / cliBuildConfig / bundleCommand / doctorRunner）。优先级 **显式注入 > `OMNI_HOME`
+  环境变量 > `~/.omniharness`**（注入压过环境是判据封闭性：真机 setx 后注入临时目录的判据不受漂移）。
+  项目临时根 `tmpRoot()` = `OMNI_TMP_DIR` > `<home>/tmp`——浏览器 profile / worktree 副本集中到自家
+  屋顶，不再散在全体应用共享的 OS Temp。
+- **家族前缀**：`TmpSweep.DEFAULT_PREFIXES` 从 6 个精确枚举改为 `omni-*` / `omniharness-*` / `laya-req-`
+  三个家族前缀（本仓命名空间 + 24h 年龄阈值 + 跳符号链接，安全面是既有纪律的真子集）。
+- **自动维护巡检 `src/util/maintenanceRunner.ts`**（serve 启动 + `OMNI_MAINTENANCE_INTERVAL_HOURS`
+  周期（缺省 6h，unref）+ `gc` 子命令三方共用同一实现）：TmpSweep（扫归属根 tmp/ + OS Temp 兜底）、
+  `ServeInstance.sweepAll`（全量陈旧实例记录——单端口 `sweep` 对临时高位端口永不自愈，本机实测积压
+  19 份）、`SessionGc`（keepNewest=50 硬保护 / 90 天年龄淘汰 / 4 GiB 总量封顶，归档目录优先删；
+  孤儿附件按**引用集**判定——content-addressed 无法按会话归属，读存活 `.jsonl` 子串匹配文件名）、
+  `SessionArchiveLayout.sweepTempFiles`（跨分区搬运半截文件）。`OMNI_MAINTENANCE=off` 一键全停；
+  `OMNI_GC_KEEP` / `OMNI_GC_MAX_AGE_DAYS` / `OMNI_GC_MAX_BYTES` 调策略；全 best-effort 绝不挡启动。
+- **判据（新增 5 文件 21 例）**：`omniHome`（注入压过环境/搬盘跟随）、`sessionGc`（keepNewest 保护/
+  年龄淘汰/总量封顶/**归档优先序**/dry-run 不动手/sidecar 整组删/附件引用集——**判据实跑抓出真 bug：
+  初版把年龄阈值并进硬保护，总量封顶永不生效；附件清扫把绝对时间线当时长比较**）、
+  `maintenanceRunner`（停用旋钮/三账各归/dry-run 透传/汇总行 sidecar 并组）、`serveInstanceSweepAll`
+  （死删活留/脏记录清文件/非 serve-*.pid 不碰）、`gcCommandWiring`（execLocal 分发/用法守卫/
+  `--dry-run` 已登记 knownFlags）。全量 **node 681 文件 / 4203 例全绿**；**web 112 文件 / 597 例全绿**；
+  fast + typed 门禁通过。
+- **web 夹具源头修复**：新增 `web/test/omniTemp.ts`（`makeOmniTemp` 创建前顺手收尸 + `rmRfRetry`
+  带锁重试删），`browserHarness` / `e2e-cdp` / `renderErrorBoundary` / `chromeCleanup` / `composerProbe`
+  / `e2e` / `narrowReflow` / `questionCardProbe` 八处"单发 rmSync + 吞错"全部换掉。
+- **本机迁移（可复核）**：`cp -a` + `diff -rq` 逐字节校验后 `~/.omniharness`（13 MB，879 组会话）
+  **整体迁至 `D:\omniharness-home`**，`setx OMNI_HOME D:\omniharness-home` 持久化；`gc` 实跑清扫
+  19 份陈旧实例记录（C 盘 `serve-*.pid` 清零）；真机 serve 启动复核：healthz=200、实例记录/保险库
+  密钥均落新家、临时根解析为 `D:\omniharness-home\tmp`。
+- **诚实边界**：`gc` 明细里 pid 记录标「将删除/已删除」区分 dry-run；`SessionGc` 的 keepNewest
+  对"只有 N 个组"的目录意味着全保护（N=50 缺省下 50 组以内永不删）——策略是**保守**的，先保数据
+  后省盘；真要立刻回收用 `OMNI_GC_KEEP` 下调。

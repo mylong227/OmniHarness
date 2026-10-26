@@ -22,11 +22,11 @@
  * 读那些条目会**明确报错**（GCM 认证失败/fail-closed），而不会返回错误明文——这是刻意的：
  * 宁可报错，也不让调用方拿到错误的凭据。
  */
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 
-/** 默认主密钥文件（用户级）。 */
-export const DEFAULT_VAULT_KEY_FILE: string = join(homedir(), '.omniharness', 'vault.key');
+/** 默认主密钥文件（用户级归属根下；归属根由 `OmniHome` 裁决，`OMNI_HOME` 可整体搬盘）。 */
+export const DEFAULT_VAULT_KEY_FILE: string = join(OmniHome.dir(), 'vault.key');
 
 /** 关闭保险库的环境变量（置 `0`/`off`/`false` 生效）。 */
 const VAULT_ENABLED_ENV = 'OMNIHARNESS_VAULT';

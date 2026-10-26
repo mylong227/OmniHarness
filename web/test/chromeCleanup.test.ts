@@ -20,10 +20,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { requireBrowser } from './browserSwitch.ts';
+import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 import {
   findBrowser,
   getFreePort,
@@ -90,7 +88,7 @@ test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会
     return;
   }
 
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-chrome-tree-'));
+  const userDataDir = makeOmniTemp('omni-chrome-tree-');
   const port = await getFreePort();
   const proc = launchChromeForCdp(browser, 'about:blank', userDataDir, port);
   try {
@@ -114,7 +112,7 @@ test('浏览器收尾必须终止整棵 Chrome 进程树（只 kill 启动器会
     60_000,
     'killChromeTree 后该 user-data-dir 下不得有 Chrome 残留',
   );
-  // 同步终止的附带收益：profile 目录当场可删（此前异步 kill + 锁未释放 ⇒ rmSync 撞 EBUSY）。
-  rmSync(userDataDir, { recursive: true, force: true });
+  // 同步终止的附带收益：profile 目录当场可删；仍带锁重试兜一次（锁释放滞后）。
+  rmRfRetry(userDataDir);
   assert.strictEqual(procsWithMarker(userDataDir).length, 0, '清理后仍应有零残留');
 });

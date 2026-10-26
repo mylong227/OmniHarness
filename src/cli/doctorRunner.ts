@@ -1,7 +1,7 @@
 import { accessSync, existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 import { NetworkEgressGuard } from '../adapters/sandbox/networkEgressGuard.ts';
 import { SandboxCapabilityTable } from '../adapters/sandbox/sandboxCapabilityTable.ts';
 import { SandboxManager } from '../adapters/sandbox/sandboxManager.ts';
@@ -59,7 +59,7 @@ export class DoctorRunner {
    * @returns 插件目录绝对路径。
    */
   private defaultPluginsDir(): string {
-    return join(homedir(), '.omniharness', 'plugins');
+    return join(OmniHome.dir(), 'plugins');
   }
 
   /**

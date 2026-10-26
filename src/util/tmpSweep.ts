@@ -58,13 +58,18 @@ export interface TmpSweepReport {
  * 临时目录清扫器（纯逻辑 + 受限 IO）。
  */
 export class TmpSweep {
-  /** 缺省前缀（只清本仓产物）。 */
+  /**
+   * 缺省前缀（本仓命名空间：**家族前缀**，不再逐个枚举变体）。
+   *
+   * 为什么从"精确枚举"改成家族前缀（2026-10-26 磁盘爆炸实测教训）：枚举表只登记了 6 个前缀，
+   * 而 web 真浏览器 e2e/探针各自手写了 `omni-cdp-`、`omni-crash-`、`omni-e2e-ud-`、
+   * `omni-qask-ud-`……十余个变体——漏登记的那两个就泄了 10.3 GB。变体还会继续新增，
+   * 枚举永远追不齐；`omni-*` 是本仓独占的命名空间（本机 Temp 实测无其它应用使用），
+   * 加上 24h 年龄阈值与"只删本仓产物"的既有纪律，家族前缀是既有安全面的真子集收窄。
+   */
   public static readonly DEFAULT_PREFIXES: readonly string[] = [
-    'omni-chrome-',
-    'omni-wt-',
-    'omni-ab-',
-    'omni-manifest-',
-    'omni-trust-',
+    'omni-',
+    'omniharness-',
     'laya-req-',
   ];
 

@@ -10,8 +10,8 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 import type { FileConfig } from './configFile.ts';
 import { ConfigError } from './configError.ts';
 import { TextBom } from '../util/textBom.ts';
@@ -25,7 +25,7 @@ export class ProfileLoader {
   public find(projectDir: string, name: string): string | undefined {
     const candidates = [
       join(projectDir, 'profiles', `${name}.json`),
-      join(homedir(), '.omniharness', 'profiles', `${name}.json`),
+      join(OmniHome.dir(), 'profiles', `${name}.json`),
     ];
     return candidates.find((candidate) => existsSync(candidate));
   }

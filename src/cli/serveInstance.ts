@@ -22,9 +22,17 @@
  * **可识别 + 可清扫**：绑定成功后写下，正常退出时删掉，进程意外消失时由下次启动清扫。
  * 默认**绝不**因为记录存在就去杀任何进程。
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 
 /** 一条 serve 实例记录（自描述：足以让人判断"这是谁、什么时候、在哪儿"）。 */
 export interface ServeInstanceRecord {
@@ -47,21 +55,21 @@ export class ServeInstance {
   private constructor() {}
 
   /**
-   * 记录目录（用户级：与 `daemon.pid` / 会话存档同一层）。
-   * @param home 家目录（缺省 `os.homedir()`；判据注入临时目录以保持离线与 hermetic）。
+   * 记录目录（用户级：与 `daemon.pid` / 会话存档同一层，归属根由 `OmniHome` 裁决）。
+   * @param home 家目录（缺省按归属根解析；判据注入临时目录以保持离线与 hermetic）。
    * @returns 记录目录绝对路径。
    */
-  public static dirOf(home: string = homedir()): string {
-    return join(home, '.omniharness');
+  public static dirOf(home?: string): string {
+    return OmniHome.dir(home);
   }
 
   /**
    * 某端口的记录文件路径（一端口一份，互不覆盖）。
    * @param port 端口。
-   * @param home 家目录（缺省 `os.homedir()`）。
+   * @param home 家目录（缺省按归属根解析）。
    * @returns 记录文件绝对路径。
    */
-  public static pathFor(port: number, home: string = homedir()): string {
+  public static pathFor(port: number, home?: string): string {
     return join(ServeInstance.dirOf(home), `serve-${String(port)}.pid`);
   }
 
@@ -162,6 +170,48 @@ export class ServeInstance {
     }
     rmSync(path, { force: true });
     return { swept: true, record };
+  }
+
+  /**
+   * 全量清扫记录目录里**所有**死进程的 `serve-*.pid`（2026-10-26）。
+   *
+   * 为什么只有 `sweep` 不够：它只在「新 serve 起同一端口」时被调，而端口号来自**上一次启动
+   * 的临时选择**（`--port 0` 的高位端口如 58227、46449 几乎不会被重启）——本机实测积了 19 份
+   * 陈旧记录，每一份都要等到"恰好再用同一个端口"才有机会自愈，等于永远不会。维护巡检
+   * （`MaintenanceRunner`）按目录整体扫一遍，把判活失败的记录一次清完。
+   *
+   * 只认 `serve-*.pid` 命名；`daemon.pid` / `vault.key` 等同层文件不碰。
+   * @param home 家目录（缺省按归属根解析；判据注入临时目录）。
+   * @param aliveFn 存活判定（判据注入以离线覆盖）。
+   * @param dryRun true 只报告不删除（`gc --dry-run` 的审计面）。
+   * @returns 被清扫（dry-run 时为「将会被清扫」）的记录列表。
+   */
+  public static sweepAll(
+    home?: string,
+    aliveFn: (pid: number) => boolean = (pid) => ServeInstance.isAlive(pid),
+    dryRun: boolean = false,
+  ): readonly ServeInstanceRecord[] {
+    const dir = ServeInstance.dirOf(home);
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return [];
+    }
+    const swept: ServeInstanceRecord[] = [];
+    for (const name of names) {
+      if (!name.startsWith('serve-') || !name.endsWith('.pid')) continue;
+      const record = ServeInstance.read(join(dir, name));
+      if (record === null) {
+        // 脏记录当"没有记录"（与 read 的 fail-closed 同口径），但文件本身是本仓产物且已无意义，清掉。
+        if (!dryRun) rmSync(join(dir, name), { force: true });
+        continue;
+      }
+      if (aliveFn(record.pid)) continue;
+      if (!dryRun) rmSync(join(dir, name), { force: true });
+      swept.push(record);
+    }
+    return swept;
   }
 
   /**

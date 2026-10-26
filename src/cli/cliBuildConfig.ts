@@ -11,9 +11,9 @@
  */
 
 import { CliCredentialBuild } from './cliCredentialBuild.ts';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { OmniHome } from '../util/omniHome.ts';
 import { readFile } from 'node:fs/promises';
 import { NativeKernel } from '../native/nativeKernel.ts';
 // 2026-10-11 启动成本（目标 (9)「CLI 子命令启动 ~2s」）：`configFactory`（净 ~580ms）与
@@ -164,8 +164,7 @@ export class CliBuildConfig extends CliCredentialBuild {
    * @returns 就绪的插件注册表（catalog 指向仓库内 examples/catalog/registry.json）。
    */
   protected createRegistry(args: readonly string[], pluginsDir?: string): PluginRegistry {
-    const dir =
-      pluginsDir ?? this.flagValue(args, '--dir') ?? join(homedir(), '.omniharness', 'plugins');
+    const dir = pluginsDir ?? this.flagValue(args, '--dir') ?? join(OmniHome.dir(), 'plugins');
     const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
     // 离线 catalog 占位 registry：仓库内 examples/catalog/registry.json，
     // 作为真实 registry 占位服务，离线可用、可被用户编辑以扩展市场。

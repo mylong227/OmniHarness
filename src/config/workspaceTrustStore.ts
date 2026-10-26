@@ -23,9 +23,9 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { TextBom } from '../util/textBom.ts';
+import { OmniHome } from '../util/omniHome.ts';
 
 /** 信任条目上限（超出按 trustedAt 淘汰最旧）。 */
 export const MAX_TRUST_ENTRIES = 100;
@@ -58,10 +58,11 @@ export class WorkspaceTrustStore {
   public readonly path: string;
 
   /**
-   * @param home 用户家目录（缺省真实 home；测试注入隔离目录）。
+   * @param home 用户家目录（**测试隔离注入**；缺省走归属根裁决——显式注入压过 `OMNI_HOME`，
+   *   见 `OmniHome` 的优先级说明）。
    */
-  public constructor(home: string = homedir()) {
-    this.path = join(home, '.omniharness', 'trust.json');
+  public constructor(home?: string) {
+    this.path = join(OmniHome.dir(home), 'trust.json');
   }
 
   /**

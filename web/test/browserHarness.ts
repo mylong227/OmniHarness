@@ -9,12 +9,12 @@
 
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer as createNetServer } from 'node:net';
 import { requireBrowser } from './browserSwitch.ts';
+import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');
@@ -814,18 +814,16 @@ export async function openStubSession(
   const waitFor = options.waitFor ?? '.composer-input textarea';
   const hash = options.hash ?? '';
   const server = await serveStatic(WEB_ROOT, { [`/${stub}`]: html });
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-cdp-'));
+  const userDataDir = makeOmniTemp('omni-cdp-');
   const cdpPort = await getFreePort();
   const proc = launchChromeForCdp(browser, `http://127.0.0.1:${server.port}/${stub}`, userDataDir, cdpPort);
   /** 收干净：浏览器整树 + 静态服务 + 临时 profile。 @returns {Promise<void>} 无 */
   const cleanup = async () => {
     killChromeTree(proc, userDataDir);
     await server.close();
-    try {
-      rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      /* 锁未释放，交由 OS 回收 */
-    }
+    // 带锁重试强删（omniTemp）：锁释放滞后时单次 rmSync 静默失败（Temp 19 GB 成因之一）；
+    // 仍失败的交给 omniTemp/生产 TmpSweep 按前缀兜底。
+    rmRfRetry(userDataDir);
   };
   let cdp: CdpSession | undefined;
   try {

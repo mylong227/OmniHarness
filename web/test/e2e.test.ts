@@ -38,10 +38,10 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { makeOmniTemp } from './omniTemp.ts';
 import { requireBrowser } from './browserSwitch.ts';
 import {
   findBrowser,
@@ -277,7 +277,7 @@ test('UI e2e：发任务 → 审批 → 流式 → 产物（headless 浏览器 +
   }
 
   const server = await serveStatic(WEB_ROOT, { [`/${STUB_NAME}`]: stubHtml() });
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-e2e-ud-'));
+  const userDataDir = makeOmniTemp('omni-e2e-ud-');
   try {
     const { dom, stderr, status } = await dumpDom(browser, `http://127.0.0.1:${server.port}/${STUB_NAME}`, userDataDir);
     if (process.env.OMNI_E2E_VERBOSE === '1') {

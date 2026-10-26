@@ -16,9 +16,6 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import {
   findBrowser,
   serveStatic,
@@ -31,6 +28,7 @@ import {
   WEB_ROOT_PATH,
 } from './browserHarness.ts';
 import { skipReasonFor } from './browserSwitch.ts';
+import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 
 const STUB_NAME = '_narrow-reflow-stub.html';
 const HEIGHT = 900;
@@ -174,7 +172,7 @@ test('F8：1000/1280 窄视口 + 两栏展开时，中栏不得横向溢出（�
 
   // serveStatic 在 browserHarness.ts 中未标类型（返回推断为 unknown），按本地句柄口径收窄
   const server = (await serveStatic(WEB_ROOT_PATH, { [`/${STUB_NAME}`]: stubHtmlCdp() })) as StaticServerHandle;
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-f8-ud-'));
+  const userDataDir = makeOmniTemp('omni-f8-ud-');
   let cdp;
   let proc;
   try {
@@ -268,8 +266,9 @@ test('F8：1000/1280 窄视口 + 两栏展开时，中栏不得横向溢出（�
     } catch {
       /* 同上 */
     }
+    // 带锁重试强删（omniTemp）：Chrome 锁释放滞后时单次 rmSync 会静默失败（Temp 19 GB 成因之一）。
     try {
-      rmSync(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      rmRfRetry(userDataDir);
     } catch {
       /* profile 目录被占用不是判据失败 */
     }

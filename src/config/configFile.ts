@@ -7,8 +7,8 @@ import {
   realpathSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 import { profileLoader } from './profileLoader.ts';
 import type { SsrfPolicyConfig } from '../security/ssrfPolicy.ts';
 import { ConfigError } from './configError.ts';
@@ -151,8 +151,9 @@ export class ConfigFile {
   public loadLayered(opts: LayeredOptions): FileConfig {
     const layers: Partial<FileConfig>[] = [];
 
-    // 用户级：固定路径 ~/.omniharness/omniharness.json（若存在；userHomedir 供测试隔离注入）。
-    const userPath = join(opts.userHomedir ?? homedir(), '.omniharness', 'omniharness.json');
+    // 用户级：固定路径 <归属根>/omniharness.json（若存在；userHomedir 供测试隔离注入，
+    // 显式注入压过 OMNI_HOME——见 OmniHome 的优先级说明）。
+    const userPath = join(OmniHome.dir(opts.userHomedir), this.FILE_NAME);
     if (existsSync(userPath)) {
       layers.push(this.readStrict(userPath));
     }

@@ -149,4 +149,7 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--boost-tier',
   '--boost-run',
   '--boost-explain',
+  // gc 子命令（2026-10-26）：`gcCommand.run` 用 `args.includes('--dry-run')` 直读的布尔旗标
+  // （审计面：只报告要清理什么、不动手）。未登记会被「未知旗标 fail-closed」口径的判据③点名。
+  '--dry-run',
 ]);

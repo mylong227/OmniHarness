@@ -20,8 +20,8 @@
  * - `sessionArchive` 的兜底仍按工作区，但那只是"没有活的 StoragePort 时"的推断（serve 路径优先问
  *   存储端口本身的 `location`），与本类的语义不同，故不强行合并——差异在本注释里写明。
  */
-import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { OmniHome } from './omniHome.ts';
 
 /** 会话落盘位置解析（无状态）。 */
 export class SessionStorageLocation {
@@ -29,13 +29,14 @@ export class SessionStorageLocation {
   public static readonly ENV_DIR = 'OMNI_SESSIONS_DIR';
 
   /**
-   * 默认会话目录：`OMNI_SESSIONS_DIR` 优先，否则用户级 `~/.omniharness/sessions`。
+   * 默认会话目录：`OMNI_SESSIONS_DIR` 优先，否则归属根下的 `sessions`
+   * （归属根 = `OMNI_HOME` > `~/.omniharness`，见 `OmniHome`）。
    * @returns 绝对路径。
    */
   public static defaultDir(): string {
     const configured = process.env[SessionStorageLocation.ENV_DIR];
     if (configured !== undefined && configured.trim() !== '') return configured;
-    return join(homedir(), '.omniharness', 'sessions');
+    return OmniHome.sessionsDir();
   }
 
   /**

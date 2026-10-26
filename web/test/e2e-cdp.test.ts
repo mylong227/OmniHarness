@@ -13,10 +13,9 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { requireBrowser } from './browserSwitch.ts';
+import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 import {
   findBrowser,
   serveStatic,
@@ -48,8 +47,8 @@ test('E1 CDP：截图 → 视觉核对 → 操作回环（本机 Chrome，无第
   }
 
   const server = await serveStatic(WEB_ROOT_PATH, { [`/${STUB_NAME}`]: stubHtmlCdp() });
-  const userDataDir = mkdtempSync(join(tmpdir(), 'omni-cdp-ud-'));
-  const shotDir = mkdtempSync(join(tmpdir(), 'omni-cdp-shots-'));
+  const userDataDir = makeOmniTemp('omni-cdp-ud-');
+  const shotDir = makeOmniTemp('omni-cdp-shots-');
   let cdp;
   let proc;
   try {
@@ -118,17 +117,9 @@ test('E1 CDP：截图 → 视觉核对 → 操作回环（本机 Chrome，无第
     // ⇒ 只 `proc.kill()` 会留下浏览器 + 渲染/gpu 子进程（实测一次残留 10 个）。见 browserHarness.killChromeTree。
     killChromeTree(proc, userDataDir);
     await server.close();
-    // killChromeTree 是同步的（taskkill 返回即已死），故此处通常能直接删掉 profile 目录；
-    // 仍保留尽力而为的 fallback（残留锁由 OS 回收）。
-    try {
-      rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      /* 锁未释放，忽略 */
-    }
-    try {
-      rmSync(shotDir, { recursive: true, force: true });
-    } catch {
-      /* 同上 */
-    }
+    // 带锁重试强删（omniTemp）：锁释放滞后时单次 rmSync 静默失败，是 Temp 19 GB 的成因之一；
+    // 仍失败的交给 omniTemp/生产 TmpSweep 按前缀兜底。
+    rmRfRetry(userDataDir);
+    rmRfRetry(shotDir);
   }
 });
