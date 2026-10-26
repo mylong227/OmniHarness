@@ -28,6 +28,8 @@
   贵项错失更优组合（`budgetedKnapsack` 5 例 + 规划器反例）。
 - **自适应模型路由**：`ModelRouter` 新增 `ucb1` 策略，按成功/延迟在线学习
   （`ucb1Bandit` 4 例 + 路由集成 1 例）。
+- **工作流列表调度**：全只读 DAG 去掉层屏障，依赖一完成即启动；底位级（关键路径）优先，
+  `scheduling`/`priority` 可选；写类工作流仍走层屏障（`workflowReadyScheduler`）。
 - **撕裂读**：落盘改为同目录 tmp + rename；并发读者只会看到完整旧版本或完整新版本。
 - **`apply_patch` 共享实例字段**：`existing` 从工具实例字段改为每次调用局部集合——旧实现
   在两个会话并发补丁时会互相污染「哪些目标原本存在」。
@@ -48,7 +50,8 @@
 `concurrencyProperties`（3）；既有 `staleReadGuard` / `editFileTool` / `readFileTool` /
 `fileLock` / `fileLockCrossProcess` / `patchCandidates` / `shellTool` 全绿。
 数学扩展新增 `quantileSketch`（4）、`metricsQuantiles`（2）、`budgetedKnapsack`（5）、
-`ucb1Bandit`（4），并给 `skillActivationPlanner` 加 1 例背包反例、`router` 加 1 例 ucb1。
+`ucb1Bandit`（4），并给 `skillActivationPlanner` 加 1 例背包反例、`router` 加 1 例 ucb1；
+工作流调度新增 `workflowPriority`（4）、`workflowReadyScheduling`（1）与 `workflowRunner` 顺序 1 例。
 
 ## 边界（未做，已在文档登记）
 

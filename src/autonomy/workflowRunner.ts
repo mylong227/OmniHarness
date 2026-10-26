@@ -1,4 +1,4 @@
-﻿import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { WorkflowCycleError } from './workflowCycleError.ts';
 import { WorkflowGuard } from './workflowGuard.ts';
 import { WorkflowRunLog } from './workflowRunLog.ts';
@@ -10,6 +10,8 @@ import { CANCELLED_BY_PARENT_MESSAGE } from '../subagent/subagentTypes.ts';
 import { Agent } from '../core/agent.ts';
 import { log } from '../util/logger.ts';
 import { WorkflowLayerPolicy } from './workflowLayerPolicy.ts';
+import { WorkflowPriority } from './workflowPriority.ts';
+import { WorkflowReadyScheduler } from './workflowReadyScheduler.ts';
 import { subagentRuntimeFactory } from '../subagent/subagentRuntimeFactory.ts';
 import { SubagentEventBridge } from '../subagent/subagentEventBridge.ts';
 import { ToolSubset } from '../subagent/toolSubset.ts';
@@ -81,6 +83,16 @@ export interface WorkflowRunnerOptions {
   readonly persist?: boolean | undefined;
   /** 本次运行的 id（缺省自动生成；显式给出时须符合 `[A-Za-z0-9_-]{1,80}`）。 */
   readonly runId?: string | undefined;
+  /**
+   * 同层启动顺序：`critical-path`（缺省，底位级降序，长链优先）或 `spec`（保持声明顺序）。
+   * 只影响“并发槽位先给谁”，不改依赖/失败传播/并发上限。
+   */
+  readonly priority?: 'critical-path' | 'spec' | undefined;
+  /**
+   * 调度形态：`ready`（缺省，去掉层屏障，依赖一就绪就启动；仅对**全只读**工作流生效）
+   * 或 `levels`（旧行为，逐层屏障）。写类工作流始终走 `levels`，保持共享工作区的写安全。
+   */
+  readonly scheduling?: 'ready' | 'levels' | undefined;
 }
 
 /** 调度上下文（本次运行的持久化与尝试计数，供各步骤记录用）。 */
@@ -91,18 +103,6 @@ interface RunContext {
   readonly log: WorkflowRunLog | undefined;
   /** 各步骤在本轮开始前的尝试次数（续跑时来自日志）。 */
   readonly attemptBase: ReadonlyMap<string, number>;
-}
-
-/** 一层内「本层不执行但需记账」的判定结果。 */
-interface LevelVerdict {
-  /** 本层可执行的步骤 id（保序）。 */
-  readonly runnable: readonly string[];
-  /** 本层直接判终态的步骤（blocked / skipped），需按序记账。 */
-  readonly settled: readonly {
-    readonly id: string;
-    readonly status: WorkflowStepStatus;
-    readonly error: string;
-  }[];
 }
 
 /**
@@ -250,6 +250,8 @@ export class WorkflowRunner {
     WorkflowGuard.validate(def.steps);
     const byId = new Map(def.steps.map((step) => [step.id, step]));
     const levels = WorkflowRunner.computeLevels(def.steps);
+    const priority =
+      this.options.priority === 'spec' ? undefined : WorkflowPriority.rank(def.steps);
     const context: RunContext = {
       runId,
       log,
@@ -261,35 +263,106 @@ export class WorkflowRunner {
     const resumed: string[] = [];
     this.replayDone(replay, statuses, blackboard, results, resumed);
 
-    for (const level of levels) {
-      if (this.isCancelled()) {
-        this.recordSettled(
-          level.map((id) => ({
-            id,
-            status: 'cancelled' as const,
-            error: CANCELLED_BY_PARENT_MESSAGE,
-          })),
+    const readOnly = def.steps.every((step) => !WorkflowLayerPolicy.mayWrite(step));
+    if (this.options.scheduling !== 'levels' && readOnly && this.options.signal === undefined) {
+      await this.scheduleReady(
+        def,
+        byId,
+        statuses,
+        blackboard,
+        results,
+        context,
+        maxConcurrency,
+        priority,
+      );
+    } else {
+      for (const level of levels) {
+        if (this.isCancelled()) {
+          this.recordSettled(
+            level.map((id) => ({
+              id,
+              status: 'cancelled' as const,
+              error: CANCELLED_BY_PARENT_MESSAGE,
+            })),
+            statuses,
+            results,
+            context,
+          );
+          continue;
+        }
+        const verdict = WorkflowReadyScheduler.classify(
+          new Set(level),
+          byId,
           statuses,
-          results,
-          context,
+          blackboard,
+          WorkflowReadyScheduler.blockedReason,
         );
-        continue;
-      }
-      const verdict = this.classify(level, byId, statuses, blackboard);
-      this.recordSettled(verdict.settled, statuses, results, context);
-      if (verdict.runnable.length === 0) {
-        continue;
-      }
-      const limiter = new ConcurrencyLimiter(maxConcurrency);
-      const outs = await this.runLayer(verdict.runnable, byId, blackboard, limiter, context);
-      for (const out of outs) {
-        this.recordExecuted(out, statuses, blackboard, results, context);
+        this.recordSettled(verdict.settled, statuses, results, context);
+        if (verdict.runnable.length === 0) {
+          continue;
+        }
+        const limiter = new ConcurrencyLimiter(maxConcurrency);
+        const ordered =
+          priority === undefined
+            ? verdict.runnable
+            : WorkflowPriority.order(verdict.runnable, priority);
+        const outs = await this.runLayer(ordered, byId, blackboard, limiter, context);
+        for (const out of outs) {
+          this.recordExecuted(out, statuses, blackboard, results, context);
+        }
       }
     }
 
+    const order = new Map(def.steps.map((step, index) => [step.id, index]));
+    results.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
     const ok = results.every((entry) => WorkflowStepStatuses.countsAsSuccess(entry.status));
     log?.appendRunEnd(runId, ok);
     return { ok, steps: results, blackboard, runId, resumed };
+  }
+
+  /**
+   * **就绪队列调度**（仅全只读工作流）：取消层屏障，依赖一完成就启动下游。
+   *
+   * 列表调度：每轮先裁决所有“依赖已终态”的步骤，再按关键路径优先级填满并发槽，
+   * 等**任意一个**完成即进入下一轮。全只读 ⇒ 不存在共享工作区写覆盖，去掉屏障是安全的。
+   *
+   * @param def 工作流定义。
+   * @param byId 步骤索引。
+   * @param statuses 终态表（就地写入）。
+   * @param blackboard 产出黑板（就地写入）。
+   * @param results 结果数组（就地追加）。
+   * @param context 调度上下文。
+   * @param maxConcurrency 并发上限。
+   * @param priority 关键路径优先级（`spec` 档为 undefined）。
+   * @returns 无返回值。
+   */
+  private async scheduleReady(
+    def: WorkflowDef,
+    byId: ReadonlyMap<string, WorkflowStep>,
+    statuses: Map<string, WorkflowStepStatus>,
+    blackboard: Record<string, string>,
+    results: WorkflowStepResult[],
+    context: RunContext,
+    maxConcurrency: number,
+    priority: ReadonlyMap<string, number> | undefined,
+  ): Promise<void> {
+    const scheduler = new WorkflowReadyScheduler({
+      maxConcurrency,
+      priority,
+      isCancelled: () => this.isCancelled(),
+      execute: (id) => this.execute(byId.get(id)!, blackboard, context),
+      onSettled: (records) => this.recordSettled(records, statuses, results, context),
+      onExecuted: (result) => this.recordExecuted(result, statuses, blackboard, results, context),
+      classify: (pending) =>
+        WorkflowReadyScheduler.classify(
+          pending,
+          byId,
+          statuses,
+          blackboard,
+          WorkflowReadyScheduler.blockedReason,
+        ),
+    });
+    await scheduler.run(def.steps.map((step) => step.id).filter((id) => !statuses.has(id)));
   }
 
   /**
@@ -332,72 +405,6 @@ export class WorkflowRunner {
       });
       this.options.onNodeUpdate?.({ id, status: 'done', steps: 0, durationMs: 0 });
     }
-  }
-
-  /**
-   * 判定一层里哪些步骤可执行、哪些直接判终态（顺序：**先条件裁决，再失败传播**）。
-   *
-   * 为什么条件裁决必须在前（2026-10-08 语义要点）：本能力的典型用法就是
-   * `{ when: { step:'test', status:'failed' } }`（失败才补救）——若先做失败传播，
-   * 这个「补救步」会在条件被裁决之前就被上游失败拖成 blocked，功能直接失效。
-   *
-   * @param level 本层步骤 id（拓扑层内保序）。
-   * @param byId 步骤索引。
-   * @param statuses 已记录终态。
-   * @param blackboard 已记录产出（`outputMatches` 用）。
-   * @returns 可执行集合 + 直接判终态集合。
-   */
-  private classify(
-    level: readonly string[],
-    byId: ReadonlyMap<string, WorkflowStep>,
-    statuses: ReadonlyMap<string, WorkflowStepStatus>,
-    blackboard: Readonly<Record<string, string>>,
-  ): LevelVerdict {
-    const runnable: string[] = [];
-    const settled: { id: string; status: WorkflowStepStatus; error: string }[] = [];
-    for (const id of level) {
-      if (statuses.has(id)) {
-        continue; // 已在续跑中复用或本层前序判定过。
-      }
-      const step = byId.get(id)!;
-      const deps = step.dependsOn ?? [];
-      const blockedBy = deps.filter((dep) => {
-        const depStatus = statuses.get(dep);
-        return depStatus !== undefined && WorkflowStepStatuses.blocksDownstream(depStatus);
-      });
-      const guard = step.when;
-      if (guard !== undefined) {
-        const verdict = WorkflowGuard.decide(guard, statuses, blackboard);
-        if (!verdict.run) {
-          settled.push({ id, status: 'skipped', error: verdict.reason });
-          continue;
-        }
-        // 条件成立：被观察步骤的状态不再是阻塞理由（其余依赖仍按 fail-closed 判定）。
-        const otherBlockers = blockedBy.filter((dep) => dep !== guard.step);
-        if (otherBlockers.length > 0) {
-          settled.push({ id, status: 'blocked', error: this.blockedReason(otherBlockers) });
-          continue;
-        }
-        runnable.push(id);
-        continue;
-      }
-      if (blockedBy.length > 0) {
-        settled.push({ id, status: 'blocked', error: this.blockedReason(blockedBy) });
-        continue;
-      }
-      runnable.push(id);
-    }
-    return { runnable, settled };
-  }
-
-  /**
-   * 构造「被上游拖死」的可读原因（与条件跳过的措辞区分开，避免事后误读）。
-   *
-   * @param blockedBy 处于阻塞终态的依赖 id 列表。
-   * @returns 原因文本。
-   */
-  private blockedReason(blockedBy: readonly string[]): string {
-    return `上游依赖失败/未完成（${blockedBy.join('、')}），已跳过`;
   }
 
   /**

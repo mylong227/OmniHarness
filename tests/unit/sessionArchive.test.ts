@@ -16,7 +16,9 @@ async function withTemp<T>(fn: (dir: string) => T | Promise<T>): Promise<T> {
   try {
     return await fn(dir);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    // 旁路摘要/索引写入是异步的：清理与最后一次写可能擦肩，Windows 上会 ENOTEMPTY；
+    // 有界重试而非硬失败（判据本身已结束，清理不应把绿判红）。
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 }
 

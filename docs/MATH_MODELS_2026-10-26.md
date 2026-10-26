@@ -1,14 +1,14 @@
-# 面向实现的数学扩展（2026-10-26）：分位数草图、背包、UCB1
+# 面向实现的数学扩展（2026-10-26）：分位数、背包、UCB1、工作流调度
 
 > **本文性质**：在 `CONCURRENCY_MATH_2026-10-25.md`（并发/文件合并）之后，继续为**非并发**能力找
 > 「高杠杆、可判据、零新依赖」的数学模型。每个模型都回答：① 解决本项目哪个可测量瓶颈；
 > ② 公式是什么；③ 落在哪一行代码/哪条判据；④ 什么情况下它**不该**用。
 >
-> 不写「万能数学」：只收录本轮真正实现并跑过判据的三项；未采用的候选连同拒绝理由列在 §4。
+> 不写「万能数学」：只收录本轮真正实现并跑过判据的四项；未采用的候选连同拒绝理由列在 §5。
 
 ---
 
-## 0. 选择标准（为什么是这三项）
+## 0. 选择标准（为什么是这四项）
 
 | 标准     | 含义                                                       |
 | -------- | ---------------------------------------------------------- |
@@ -17,7 +17,7 @@
 | 失败可退 | 规模超限/输入异常时退回保守路径，不拖垮主流程              |
 | 当前瓶颈 | 对应本仓已有的观测缺口或预算决策，而不是「为了用数学而用」 |
 
-三项分别对应：**观测**（分位数）、**预算分配**（背包）、**在线决策**（UCB1）。
+四项分别对应：**观测**（分位数）、**预算分配**（背包）、**在线决策**（UCB1）、**调度**（工作流列表调度）。
 
 ---
 
@@ -155,7 +155,59 @@ reward = success ? 1 / (1 + latencySeconds) : 0
 
 ---
 
-## 4. 评估过但本轮不采用的模型
+## 4. 工作流 DAG：去掉层屏障的列表调度
+
+### 4.1 问题
+
+`WorkflowRunner` 原先逐层执行并**在层末设屏障**：同层所有步骤完成才启动下一层。若某层有一个慢步骤
+A、一个快步骤 B，而 C 只依赖 B，C 仍要等 A 完成——并发槽位被一个与 C 无关的长任务占住。
+
+### 4.2 数学对象
+
+DAG `G=(V,E)`，底位级（bottom level，单位权重）：
+
+```text
+l(v) = 1 + max{ l(c) : c 是 v 的后继 }，叶子 l=1
+```
+
+就绪集合 `R = {v : 所有前驱已终态}`；每轮按 `l(v)` 降序填满并发槽，**等任意一个完成**就重新计算
+`R`（列表调度 / HEFT 的简化版）。Graham 的列表调度界：
+
+```text
+makespan ≤ (2 − 1/m) · OPT
+```
+
+对任意静态优先级成立；关键路径优先通常更接近下界。
+
+### 4.3 落地
+
+- 代码：`src/autonomy/workflowPriority.ts`（底位级 + 稳定排序）、
+  `src/autonomy/workflowRunner.ts` 的 `scheduleReady` / `classifyReady`。
+- 开关：`WorkflowRunnerOptions.scheduling`（`ready` 缺省 / `levels` 旧行为）、
+  `priority`（`critical-path` 缺省 / `spec`）。
+- **安全边界**：只有**全只读**工作流走 `ready`；任一步骤可能写文件时自动回退 `levels`，
+  保持共享工作区的写安全（`WorkflowLayerPolicy`）。
+- 判据：`tests/unit/workflowPriority.test.ts`（4 例）、
+  `tests/unit/workflowReadyScheduling.test.ts`（1 例，真计时）。
+
+### 4.4 实测
+
+DAG：A(120ms)、B(10ms)、C(10ms，依赖 B)，并发 2。
+
+| 调度           | C 启动时刻         | 结果                            |
+| -------------- | ------------------ | ------------------------------- |
+| `levels`（旧） | A 结束后（≈120ms） | 层屏障把 C 拖到慢兄弟之后       |
+| `ready`（新）  | B 结束后（≈10ms）  | C 在 A 完成前启动，槽位不被空耗 |
+
+判据断言 `ready: C.start < A.end` 且 `levels: C.start ≥ A.end − 5ms`。
+
+### 4.5 不适用
+
+- 写类工作流：共享工作区会覆盖，必须保留层屏障/写安全策略。
+- 单位权重不等于真实耗时；有步骤耗时估计后可把 `l(v)` 换成加权底位级（HEFT 原版）。
+- 列表调度是启发式；受并发约束的 DAG 最优 makespan 是 NP-hard。
+
+## 5. 评估过但本轮不采用的模型
 
 | 候选                        | 数学对象                           | 为什么本轮不做                                                                              |
 | --------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -171,14 +223,15 @@ reward = success ? 1 / (1 + latencySeconds) : 0
 
 ---
 
-## 5. 边界与重评触发
+## 6. 边界与重评触发
 
 - **GK**：未做 merge；多实例聚合前必须补。
 - **背包**：单维字符预算；多维预算/数千技能前必须换算法。
 - **UCB1**：全历史平均；provider 能力突变或需要成本约束时重评。
-- 三项都只改**观测/选择**，不改变文件写入、权限、审计的 fail-closed 语义。
+- **工作流列表调度**：只对全只读工作流生效；单位权重不是真实耗时；写类工作流仍走层屏障。
+- 四项都只改**观测/选择/调度**，不改变文件写入、权限、审计的 fail-closed 语义。
 
-## 6. 参考
+## 7. 参考
 
 - M. Greenwald, S. Khanna, _Space-Efficient Online Computation of Quantile Summaries_, SIGMOD 2001.
   <https://dl.acm.org/doi/10.1145/375663.375670>
@@ -186,3 +239,8 @@ reward = success ? 1 / (1 + latencySeconds) : 0
   <https://www.designofapproxalgs.com/>
 - P. Auer, N. Cesa-Bianchi, P. Fischer, _Finite-time Analysis of the Multiarmed Bandit Problem_,
   Machine Learning 2002. <https://link.springer.com/article/10.1023/A:1013689704352>
+- R. L. Graham, _Bounds on Multiprocessing Timing Anomalies_, SIAM J. Appl. Math. 1969.
+  <https://epubs.siam.org/doi/10.1137/0117039>
+- H. Topcuoglu, S. Hariri, M.-Y. Wu, _Performance-Effective and Low-Complexity Task Scheduling
+  for Heterogeneous Computing_ (HEFT), IEEE TPDS 2002.
+  <https://ieeexplore.ieee.org/document/993206>

@@ -5174,21 +5174,37 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **诚实边界**：GK 未做 merge（多实例聚合前要补）；背包是单维字符预算（多维需换算法）；
   UCB1 是全历史平均（非平稳需滑动窗口/折扣）、且未把成本并入奖励。
 
+### 102.5 2026-10-26 工作流 DAG：去掉层屏障的列表调度
+
+- **问题**：`WorkflowRunner` 逐层执行并在层末设屏障；同层慢步骤 A 会拖住只依赖快步骤 B 的 C。
+- **模型**：底位级 `l(v)=1+max l(后继)`，就绪集合按 `l(v)` 降序填满并发槽，等任意一个完成即重算
+  （列表调度 / HEFT 简化版；Graham 界 `makespan ≤ (2−1/m)·OPT`）。
+- **落地**：
+  - `src/autonomy/workflowPriority.ts`：底位级 + 稳定排序；
+  - `WorkflowRunner.scheduleReady` / `classifyReady`：全只读工作流走就绪队列，去掉层屏障；
+  - `WorkflowRunnerOptions.scheduling: 'ready' | 'levels'`（缺省 ready）、
+    `priority: 'critical-path' | 'spec'`（缺省 critical-path）。
+- **安全边界**：任一步骤可能写文件 ⇒ 自动回退旧 `levels` 路径，保持 `WorkflowLayerPolicy`
+  的共享工作区写安全；`signal` 存在时也走旧路径。
+- **实测**：A(120ms)、B(10ms)、C(10ms，依赖 B)，并发 2。旧 `levels` 的 C 在 A 结束后才启动；
+  新 `ready` 的 C 在 B 结束后（≈10ms）即启动，早于 A 结束。
+- **判据**：`workflowPriority` 4 例 + `workflowReadyScheduling` 1 例 + `workflowRunner` 顺序 1 例。
+
 ### 102.1 最终门禁与测试收口（本机可复跑）
 
 - `npm run build`（clean dist）：通过。
 - `npx tsc --noEmit`、`npx eslint . --max-warnings=0`、Prettier：通过。
-- `node scripts/check.mjs`（铁律/函数体/文件行数）：通过（**1264** 个源文件，零违规）。
-- `node scripts/architectureGate.mjs`：0 新增依赖方向违规 / 0 新增环（1264 文件 / 4133 边）。
-- `node scripts/auditStandards.mjs --maturity`：通过（**99** 项声明，L2/L3 均有存在性证据）。
+- `node scripts/check.mjs`（铁律/函数体/文件行数）：通过（**1266** 个源文件，零违规）。
+- `node scripts/architectureGate.mjs`：0 新增依赖方向违规 / 0 新增环（1266 文件 / 4143 边）。
+- `node scripts/auditStandards.mjs --maturity`：通过（**101** 项声明，L2/L3 均有存在性证据）。
 - `node scripts/auditStandards.mjs --delta`：通过（本次提交未新增标准违规；含上帝类阈值）。
-- `npm run audit:independence`：**2253** 文件零外部 harness 引用。
-- `npm run audit:config-wiring`：1264 源文件接线全绿。
+- `npm run audit:independence`：**2257** 文件零外部 harness 引用。
+- `npm run audit:config-wiring`：1266 源文件接线全绿。
 - `npm run api:check`：170 + 72 条 export 全部落在带标注分区。
 - `npm run check:doc-links`：**56 份 markdown / 0 死链**。
-- `npm run gate:budget`（空载）：快层 **42.1s < 65s**、类型层墙钟 **44.9s ≤ 45s**；
+- `npm run gate:budget`（空载）：快层 **27.0s < 65s**、类型层墙钟 **35.7s ≤ 45s**；
   `npm run gate:typed` 2/2 通过。
-- **全量 node 单测**：**674 文件 / 4175 通过 / 4 跳过 / 0 失败**
+- **全量 node 单测**：**676 文件 / 4182 通过 / 4 跳过 / 0 失败**
   （`npm run test:fast` = 租约内 `vitest run --project node tests/unit/`，clean build 后实跑）。
 - **Web 单测**：**109 文件 / 585 例全绿**（`npm run test:web` = 租约内 `vitest run --project web`）。
 - 并发相关子集分两批跑：**12 文件 / 105 例**（协调器/锁/公平调度/shell/既有 fs 工具）+
@@ -5200,6 +5216,8 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 非并发数学扩展新增 **4 文件 / 15 例** + 2 例既有扩展：`quantileSketch` 4、
   `metricsQuantiles` 2、`budgetedKnapsack` 5、`ucb1Bandit` 4；`skillActivationPlanner`
   背包反例 1、`router` ucb1 1。
+- 工作流调度新增 **2 文件 / 5 例** + `workflowRunner` 顺序 1 例：`workflowPriority` 4、
+  `workflowReadyScheduling` 1（真计时，ready vs levels）。
 - **诚实边界（环境）**：本轮全量跑已通过 `npm run test:fast` 的共享租约串行化；
   直接 `npx vitest` **仍会绕过租约**（wrapper 之外无法强制）。一次历史全量跑曾被另一个
   会话的 `npm run build` 换入窗口打断，dist 稳定后 11 文件 / 67 例单独重跑全绿。
@@ -5210,7 +5228,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 - **入口**：左栏页脚齿轮（落「常规」）与右栏「全部面板」（落上次的面板）打开**同一个**工作台控制台；
   删除 `SettingsModal.tsx` / `PanelModal.tsx`（-896 行），新增
-  `components/console/{ConsoleModal,ConsoleUI,SettingsSurface}.tsx`。
+  `components/console/{ConsoleView,ConsoleUI,SettingsSurface}.tsx`。
 - **导航单一事实源**：新增 `models/ConsoleRegistry.ts`，从 `SettingsModel.SETTINGS_TABS` 与
   `PanelRegistry.PANELS` 派生；三组（基础设置 / Agent 能力 / 数据与统计）。缺 key 在模块加载即抛错，
   判据 `consoleRegistry.test.ts`（7 例：覆盖全集 / 无重复 / 分组顺序 / 默认落点 / 排除面板身份）。
@@ -5225,11 +5243,12 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **样式**：新增 `web/styles/console.css`（main.ts 中位于 `minimal.css` 之后、`highlight.css` 之前）；
   仅 token 配色，两套主题共用。窄屏 ≤900px 左栏变抽屉（`visibility` 同步隐藏，避免 Tab 走进不可见导航）。
 - **a11y**：保留 `.sp` / `.panel-modal` / `.sp-top` / `.sp-content` / `[data-pane]` 契约；
-  Esc + 焦点陷阱 + 关闭归还焦点；axe 两主题无 serious/critical。
-- **判据更新**：`settingsPane`（新分栏 + icon）、`settingsLoadFailure`（改用 ConsoleModal 的 model 落点）、
-  `governanceTab`（控制台左导航 24 项）、新增 `consoleRegistry`（7 例）与 `consoleModal`（3 例：无搜索框/焦点落点、分派、Esc）；`panelModalSize` / `modalFocusTrap` /
-  `shellFooter` / `a11yAudit` / `colorSystem` / `a11yContrast` / `i18nCoverage` 全绿。
-- **本机复核**：`npm run typecheck` 通过；`npm run web:test` **111 文件 / 595 例全绿**（含 11 个真 Chrome 判据）；
+  Esc + 关闭归还焦点；全窗口页面（无焦点陷阱）；axe 两主题无 serious/critical。
+- **判据更新**：`settingsPane`（新分栏 + icon）、`settingsLoadFailure`（改用 ConsoleView 的 model 落点）、
+  `governanceTab`（控制台左导航 24 项）、新增 `consoleRegistry`（7 例）与 `consoleView`（3 例：无搜索框/焦点落点、分派、Esc）、
+  `consolePage`（全窗口：非 dialog、整窗接管、Esc 返回）、`modalFocusTrap`（焦点落导航项 + Esc 归还）；`panelModalSize` / `shellFooter` /
+  `a11yAudit` / `colorSystem` / `a11yContrast` / `i18nCoverage` 全绿。
+- **本机复核**：`npm run typecheck` 通过；`npm run web:test` **112 文件 / 596 例全绿**（含 11 个真 Chrome 判据）；
   改动文件 `eslint --max-warnings=0` 与 `prettier --check` 通过。
 - **诚实边界**：视觉验证用 `web/test/browserHarness.ts` 的 stub 后端 + headless Chrome 截图（1440×900 双主题、
   390×844 窄屏）；未在真实后端长会话里做人工点击回归。工作区里其它未提交的后端/文档改动未触碰。
@@ -5238,11 +5257,11 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 - 左导航移除搜索框（连同 query 状态 / 过滤 / 回车选中 / 空结果提示），导航恢复"一屏可扫"；
   打开时焦点改落**当前导航项**（键盘用户可接着走），窄屏抽屉打开时同样聚焦当前项。判据
-  `consoleModal.test.ts` 断言 `input[type="search"]` 不存在、焦点在 `[data-pane]` 当前项上。
+  `consoleView.test.ts` 断言 `input[type="search"]` 不存在、焦点在 `[data-pane]` 当前项上。
 - "返回工作区"按钮从 `--panel` 实底改为 `text 3.5%` 中性淡底 + `--hairline` 发丝边，hover 到 6%；
   两套主题下都不再抢导航注意力。
-- 复核：`npm run typecheck` 通过；修改文件 eslint 通过；相关判据（consoleModal / i18nCoverage /
-  panelModalSize / modalFocusTrap）重跑全绿。
+- 复核：`npm run typecheck` 通过；修改文件 eslint 通过；相关判据（consoleView / i18nCoverage /
+  panelModalSize / consolePage）重跑全绿。
 
 ### 103.2 2026-10-26 白屏修复：静态根动态解析 dist
 
@@ -5260,3 +5279,21 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   真 Chrome 打开带 token URL：`.composer-box` 挂载、设置按钮可点、`.sp.panel-modal` 出现；
   截图存 `web/archive/console-2026-10-26/08-real-console.png`（gitignored）。
 - **操作提醒**：当前 8787 由本会话的后台 serve 进程持有；用户以后自行 `npm start` 前需先结束它。
+
+### 103.3 2026-10-26 用户改版：设置改为**全窗口页面** + 删除右栏收起按钮
+
+- **正确定位**：参考图里的设置页是**整窗视图**——只保留控制台自己的左导航，应用会话栏 / 对话 / 右栏
+  全部让位。上一版把它塞进中栏、旁边还留着会话栏，形成"两个左栏"，是设计错误。
+- **实现**：App 在 `.body` 上加 `.console-open`，控制台直接作为 `.body` 唯一可见子节点；CSS 隐藏
+  `.col.left` 与 `.resizer-left`。全窗口、无遮罩、无圆角/投影，`role="region"`、无 `aria-modal`、
+  无焦点陷阱；关闭后工作区原样恢复。
+- **页面头**：去掉工具栏 / 面包屑 / Esc / ×；标题 28px + scope 徽标在下方，与参考图一致。移动端
+  保留一条 48px 的菜单栏（桌面 `display:none`）。
+- **卡片**：常规 / 外观页去掉卡头标题与副标题，卡片直接从设置行开始（参考图样式）；复杂页保留卡头。
+- **右栏 `»` 收起按钮删除**：`RightPanel` 去掉 `onCollapse` prop 与 `.rv-collapse` 按钮；
+  右栏开合仍可用中栏头的 `»` 与 Ctrl/Cmd+Shift+E。
+- **判据**：新增 `consolePage.test.ts`（真 Chrome：`.csl` 铺满视口、`.body.console-open`、
+  应用左栏不可见、非 dialog、Esc 恢复）；`modalFocusTrap.test.ts` 改为验证焦点落点与归还；
+  `shellFooter` 改为等 `.csl`。全量 **112 文件 / 596 例全绿**。
+- **真机复核**：同一 token 的 8787 服务、1582×1088 真 Chrome：设置页只显示控制台左导航；
+  `.csl` 铺满视口，`role=region / composer=false / right=false / leftVisible=false / .rv-collapse=0`。

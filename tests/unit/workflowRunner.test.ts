@@ -25,6 +25,18 @@ class EchoModel implements ModelPort {
   }
 }
 
+/** 记录执行顺序的模型（每个步骤的 prompt 以 id 开头）。 */
+class OrderModel implements ModelPort {
+  public readonly name = 'order';
+  public readonly seen: string[] = [];
+
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
+    const lastUser = [...request.messages].reverse().find((message) => message.role === 'user');
+    this.seen.push((lastUser?.content ?? '').slice(0, 1));
+    return { text: 'ok' };
+  }
+}
+
 /** 含延迟的模型：观测并发峰值。 */
 class DelayModel implements ModelPort {
   public readonly name = 'delay';
@@ -195,6 +207,27 @@ describe('WorkflowRunner', () => {
       maxConcurrency: 1,
     });
     assert.strictEqual(model.peak, 1);
+  });
+
+  it('单并发：关键路径优先让长链先拿槽位；spec 档保持声明顺序', async () => {
+    const steps: WorkflowStep[] = [
+      { id: 'R', prompt: 'R root' },
+      { id: 'S', prompt: 'S short', dependsOn: ['R'] },
+      { id: 'X', prompt: 'X long', dependsOn: ['R'] },
+      { id: 'Y', prompt: 'Y tail', dependsOn: ['X'] },
+    ];
+    const critical = new OrderModel();
+    await new WorkflowRunner(makePorts(critical, new RecordingEvents(), new RegistryToolPort()), {
+      maxConcurrency: 1,
+    }).run({ steps, maxConcurrency: 1 });
+    assert.deepStrictEqual(critical.seen, ['R', 'X', 'S', 'Y']);
+
+    const spec = new OrderModel();
+    await new WorkflowRunner(makePorts(spec, new RecordingEvents(), new RegistryToolPort()), {
+      maxConcurrency: 1,
+      priority: 'spec',
+    }).run({ steps, maxConcurrency: 1 });
+    assert.deepStrictEqual(spec.seen, ['R', 'S', 'X', 'Y']);
   });
 
   it('上游失败 → 下游 fail-closed 跳过（不静默续跑）', async () => {
