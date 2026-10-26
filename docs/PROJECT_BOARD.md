@@ -5131,30 +5131,132 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   改为「行级已落地，字符级/OT/CRDT 仍未做」；不再把哈希当共同祖先。
 - **门禁提速**：新增 `tsconfig.typed.json`（只含 `src/**`），`eslint.typed.config.mjs` 的
   type-aware program 不再被 `tests/**`、`examples/**` 拖大；`npm run gate:budget` 类型层墙钟
-  **45.3s → 40.7s**（预算 ≤45s 从「擦线」回到有 4s 余量）。`npm run gate:typed` 2/2 通过。
+  **45.3s → 41.9s**（空载复测；预算 ≤45s，仍有 3s 余量）。`npm run gate:typed` 2/2 通过。
+
+### 102.3 2026-10-26 收口「仍未做」的五项
+
+- **字符级三方合并**：新增 `util/textCharacterMerge.ts`，行级 diff3 冲突时对**同一行冲突片段**
+  再做 UTF-16 code unit 的 LCS；区间不相交才合并，相交仍冲突。只细化冲突片段，不做整文件
+  字符级合并。判据 `textCharacterMerge.test.ts` 5 例 + `textThreeWayMerge` 同线合并例。
+- **OT（insert-only）**：新增 `util/textOperationalTransform.ts`，实现 `T(a,b)` 交换律；
+  同位置插入字典序定序、同文本不去重（两个独立客户端）。判据穷举位置×文本组合的交换律。
+  **边界**：delete/富文本/undo 未做。
+- **CRDT（RGA）**：新增 `util/textCrdt.ts`，节点 id + `after` 引用 + 墓碑 + 确定性物化；
+  并发插入/删除/离线 merge 收敛、merge 幂等。**边界**：未接入文件写入、无 GC/富文本。
+- **向量时钟**：新增 `util/concurrency/vectorClock.ts`，`tick/merge/compare`
+  （equal/before/after/concurrent）；判据覆盖因果、并发、merge 交换与幂等。
+- **分布式锁**：新增 `scripts/workspaceLease.mjs`（共享文件系统租约：mkdir 原子获取、
+  owner+TTL+心跳、stale rename 接管、fencing token 单调）；已接入 **`npm run build` 与
+  `npm run test:fast` / `test:web` / `coverage`**，真跨进程判据断言两个进程持锁区间不重叠。
+  **边界**：共享 FS 租约，不是 etcd/Raft quorum；直接 `npx vitest` 会绕过 wrapper。
+- **fsync**：`AtomicFileWriter` 增 `durable`（临时文件 fsync + POSIX 父目录 sync）；
+  晋升台账每条 append fsync；`AuditSink.close()` 必 fsync，`durable:true` 每条也 fsync。
+  判据 `atomicFileWriterDurable` 2 例、`auditDurability` 1 例；`audit`/`ledger` 既有判据全绿。
+- **有界模型检查**：`tests/unit/modelChecking.test.ts` 穷举读写锁可达状态（互斥不变量）+
+  有序加锁无环 + 无序正对照；**边界**：有界 TS 状态机，不是 TLA+/Coq 全量定理证明。
+- **门禁提速**：`tsconfig.typed.json` 只含 `src/**`，typed lint 墙钟 45.3s → 41.9s。
+
+### 102.4 2026-10-26 非并发数学扩展：分位数 / 背包 / UCB1
+
+- **调研文档**：`docs/MATH_MODELS_2026-10-26.md`（公式、复杂度、实测、未采用候选与拒绝理由）。
+- **GK 分位数草图**：`util/quantileSketch.ts`（Greenwald–Khanna，ε=0.01，空间 O(1/ε·log εn)）；
+  接入 `Metrics` 的回合耗时 p50/p95/p99 与 Prometheus
+  `omni_turn_duration_quantile_seconds`。10,000 样本实测 68 个元组，p50 误差 1.44%、
+  p95/p99 误差 <1%；max 保持 10000。判据 `quantileSketch` 4 + `metricsQuantiles` 2。
+- **0/1 背包技能预算**：`util/budgetedKnapsack.ts`（二维 DP，O(nB)；nB>5e6 贪心回退）；
+  `SkillActivationPlanner` 预算选择由贪心改为精确解。反例：预算 18 时贪心拿 14/10 后
+  装不下，精确解 10/9 + 8/9 总价值 18。判据 `budgetedKnapsack` 5 + 规划器反例 1。
+- **UCB1 自适应模型路由**：`util/concurrency/ucb1Bandit.ts`（`mean + sqrt(2 ln N/n)`，
+  奖励 `success/(1+latencySeconds)`）；`RouterStrategy` 新增 `ucb1`，
+  `ModelRouter` 计时记账并在 `routeReason` 输出 chosen/pulls/mean；配置合法策略表与
+  `CLI_REFERENCE` 同步。判据 `ucb1Bandit` 4 + 路由集成 1。
+- **总新增**：4 个实现文件 / 4 个测试文件 + 2 个既有测试扩展 = **17 例**。
+- **诚实边界**：GK 未做 merge（多实例聚合前要补）；背包是单维字符预算（多维需换算法）；
+  UCB1 是全历史平均（非平稳需滑动窗口/折扣）、且未把成本并入奖励。
 
 ### 102.1 最终门禁与测试收口（本机可复跑）
 
 - `npm run build`（clean dist）：通过。
 - `npx tsc --noEmit`、`npx eslint . --max-warnings=0`、Prettier：通过。
-- `node scripts/check.mjs`（铁律/函数体/文件行数）：通过（**1257** 个源文件，零违规）。
-- `node scripts/architectureGate.mjs`：0 新增依赖方向违规 / 0 新增环（1257 文件 / 4130 边）。
-- `node scripts/auditStandards.mjs --maturity`：通过（**92** 项声明，L2/L3 均有存在性证据）。
+- `node scripts/check.mjs`（铁律/函数体/文件行数）：通过（**1264** 个源文件，零违规）。
+- `node scripts/architectureGate.mjs`：0 新增依赖方向违规 / 0 新增环（1264 文件 / 4133 边）。
+- `node scripts/auditStandards.mjs --maturity`：通过（**99** 项声明，L2/L3 均有存在性证据）。
 - `node scripts/auditStandards.mjs --delta`：通过（本次提交未新增标准违规；含上帝类阈值）。
-- `npm run audit:independence`：**2228** 文件零外部 harness 引用。
-- `npm run audit:config-wiring`：1257 源文件接线全绿。
+- `npm run audit:independence`：**2253** 文件零外部 harness 引用。
+- `npm run audit:config-wiring`：1264 源文件接线全绿。
 - `npm run api:check`：170 + 72 条 export 全部落在带标注分区。
-- `npm run check:doc-links`：**55 份 markdown / 0 死链**。
-- `npm run gate:budget`（空载）：快层 **34.2s < 65s**、类型层墙钟 **40.7s ≤ 45s**；
+- `npm run check:doc-links`：**56 份 markdown / 0 死链**。
+- `npm run gate:budget`（空载）：快层 **42.1s < 65s**、类型层墙钟 **44.9s ≤ 45s**；
   `npm run gate:typed` 2/2 通过。
-- **全量 node 单测**：**662 文件 / 4130 通过 / 4 跳过 / 0 失败**
-  （`npx vitest run --project node tests/unit/`，clean build 后实跑）。
-- **Web 单测**：**109 文件 / 585 例全绿**（`npx vitest run --project web`，web 构建后）。
+- **全量 node 单测**：**674 文件 / 4175 通过 / 4 跳过 / 0 失败**
+  （`npm run test:fast` = 租约内 `vitest run --project node tests/unit/`，clean build 后实跑）。
+- **Web 单测**：**109 文件 / 585 例全绿**（`npm run test:web` = 租约内 `vitest run --project web`）。
 - 并发相关子集分两批跑：**12 文件 / 105 例**（协调器/锁/公平调度/shell/既有 fs 工具）+
-  本轮 diff3 **4 文件 / 25 例**（`textThreeWayMerge` 10、`fileThreeWayMerge` 8、
+  diff3 **4 文件 / 25 例**（`textThreeWayMerge` 10、`fileThreeWayMerge` 8、
   `sessionBaselineStore` 4、`concurrencyProperties` 3）；合计 **16 文件 / 130 例**。
-- **诚实边界（环境）**：一次全量跑曾撞到**另一个会话正在 `npm run build`**，`dist` 在换入窗口
-  短暂缺失，导致 20+ 个 spawn `dist` 的用例假红；这些用例在 dist 稳定后单独重跑 **11 文件 /
-  67 例全绿**。这是共享工作区的构建/测试争用，不是代码缺陷；本仓尚未实现「测试/构建共享租约」。
+- 并发收口新增 **8 文件 / 28 例**：`textCharacterMerge` 5、`textOperationalTransform` 4、
+  `textCrdt` 5、`vectorClock` 5、`workspaceLease` 3（真跨进程）、`modelChecking` 3、
+  `atomicFileWriterDurable` 2、`auditDurability` 1。
+- 非并发数学扩展新增 **4 文件 / 15 例** + 2 例既有扩展：`quantileSketch` 4、
+  `metricsQuantiles` 2、`budgetedKnapsack` 5、`ucb1Bandit` 4；`skillActivationPlanner`
+  背包反例 1、`router` ucb1 1。
+- **诚实边界（环境）**：本轮全量跑已通过 `npm run test:fast` 的共享租约串行化；
+  直接 `npx vitest` **仍会绕过租约**（wrapper 之外无法强制）。一次历史全量跑曾被另一个
+  会话的 `npm run build` 换入窗口打断，dist 稳定后 11 文件 / 67 例单独重跑全绿。
 - **诚实边界（耗时）**：`gate:budget` 第一次在跑全量套件时曾超预算，空载复测通过——负载敏感，
   不是门禁失效。
+
+## 103. 2026-10-26 前端重构：工作台控制台（设置 + 功能面板合并）
+
+- **入口**：左栏页脚齿轮（落「常规」）与右栏「全部面板」（落上次的面板）打开**同一个**工作台控制台；
+  删除 `SettingsModal.tsx` / `PanelModal.tsx`（-896 行），新增
+  `components/console/{ConsoleModal,ConsoleUI,SettingsSurface}.tsx`。
+- **导航单一事实源**：新增 `models/ConsoleRegistry.ts`，从 `SettingsModel.SETTINGS_TABS` 与
+  `PanelRegistry.PANELS` 派生；三组（基础设置 / Agent 能力 / 数据与统计）。缺 key 在模块加载即抛错，
+  判据 `consoleRegistry.test.ts`（7 例：覆盖全集 / 无重复 / 分组顺序 / 默认落点 / 排除面板身份）。
+- **设置页**：`SETTINGS_TABS` 改为 常规 / 外观 / 模型与厂商 / 运行时 / 权限 / 桌面 / 键盘快捷键；
+  配置集移回它自己的完整管理面板。新增「常规」（语言 / 工作区 / 会话范围 / 快捷键入口 / 关于）与
+  「键盘快捷键」（从 `KeyboardShortcuts` 绑定表取组合键，不另抄一份）。
+  文本字段改为**本地草稿 + 失焦/回车提交**（旧实现每敲一个字符就 `config.update`）。
+- **面板重构**：所有面板进入统一页面头（标题 / 说明 / 数据范围 chip）；列表型面板补卡片壳
+  （治理 / 变更 / 回滚 / 工具 / 凭据 / 审计 / Trace），指标页改为 3×2 计数卡 + 两张内容卡，
+  技能页合并搜索与列表；空态 / 错误条统一成卡片。卡片语言仍只用 `--panel` / `--border-soft` /
+  `--hairline`，不投影、不引入第二个色相。
+- **样式**：新增 `web/styles/console.css`（main.ts 中位于 `minimal.css` 之后、`highlight.css` 之前）；
+  仅 token 配色，两套主题共用。窄屏 ≤900px 左栏变抽屉（`visibility` 同步隐藏，避免 Tab 走进不可见导航）。
+- **a11y**：保留 `.sp` / `.panel-modal` / `.sp-top` / `.sp-content` / `[data-pane]` 契约；
+  Esc + 焦点陷阱 + 关闭归还焦点；axe 两主题无 serious/critical。
+- **判据更新**：`settingsPane`（新分栏 + icon）、`settingsLoadFailure`（改用 ConsoleModal 的 model 落点）、
+  `governanceTab`（控制台左导航 24 项）、新增 `consoleRegistry`（7 例）与 `consoleModal`（3 例：无搜索框/焦点落点、分派、Esc）；`panelModalSize` / `modalFocusTrap` /
+  `shellFooter` / `a11yAudit` / `colorSystem` / `a11yContrast` / `i18nCoverage` 全绿。
+- **本机复核**：`npm run typecheck` 通过；`npm run web:test` **111 文件 / 595 例全绿**（含 11 个真 Chrome 判据）；
+  改动文件 `eslint --max-warnings=0` 与 `prettier --check` 通过。
+- **诚实边界**：视觉验证用 `web/test/browserHarness.ts` 的 stub 后端 + headless Chrome 截图（1440×900 双主题、
+  390×844 窄屏）；未在真实后端长会话里做人工点击回归。工作区里其它未提交的后端/文档改动未触碰。
+
+### 103.1 2026-10-26 用户微调：去掉搜索框 + 返回键底框更淡
+
+- 左导航移除搜索框（连同 query 状态 / 过滤 / 回车选中 / 空结果提示），导航恢复"一屏可扫"；
+  打开时焦点改落**当前导航项**（键盘用户可接着走），窄屏抽屉打开时同样聚焦当前项。判据
+  `consoleModal.test.ts` 断言 `input[type="search"]` 不存在、焦点在 `[data-pane]` 当前项上。
+- "返回工作区"按钮从 `--panel` 实底改为 `text 3.5%` 中性淡底 + `--hairline` 发丝边，hover 到 6%；
+  两套主题下都不再抢导航注意力。
+- 复核：`npm run typecheck` 通过；修改文件 eslint 通过；相关判据（consoleModal / i18nCoverage /
+  panelModalSize / modalFocusTrap）重跑全绿。
+
+### 103.2 2026-10-26 白屏修复：静态根动态解析 dist
+
+- **现象**：`http://127.0.0.1:8787/?token=…` 首屏全白，页面源码是 `web/index.html` 的
+  `<script type="module" src="./src/main.ts">`（浏览器无法直接执行 TS）。
+- **根因**：serve 启动那一刻 `web/dist` 正被并发 `vite build` 清空（本次是本机同时跑
+  `npm run web:test` 与用户 `npm start`），`runHttpServe` 的
+  `existsSync(web/dist/index.html) ? webDist : webRoot` 落在源码目录；静态根在进程生命周期内
+  不再重算，之后产物就绪也不会切回 ⇒ 白屏。
+- **修复**：`HttpServer.staticRoot()` 每次请求解析：若 `webDir/dist/index.html` 存在则托管
+  `webDir/dist`，否则回落 `webDir`。产物一旦生成即自动生效，不必重启。
+- **判据**：`tests/unit/httpServer.test.ts` 新增「源码目录 + dist 产物 ⇒ 优先 dist」1 例
+  （断言首屏含 `assets/app.js`、不含入口源码路径，且产物资源 200）；该文件 17 例全绿。
+- **本机复核**：kill 旧 serve（pid 18604）→ 用同一 `OMNI_SERVE_TOKEN` 在 8787 重启 →
+  真 Chrome 打开带 token URL：`.composer-box` 挂载、设置按钮可点、`.sp.panel-modal` 出现；
+  截图存 `web/archive/console-2026-10-26/08-real-console.png`（gitignored）。
+- **操作提醒**：当前 8787 由本会话的后台 serve 进程持有；用户以后自行 `npm start` 前需先结束它。

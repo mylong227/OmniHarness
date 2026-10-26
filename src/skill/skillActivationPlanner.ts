@@ -10,6 +10,7 @@
  * 纯逻辑、确定性排序（相关性 → 名称），可在 node:test 直接跑。
  */
 import type { Skill } from './skill.ts';
+import { BudgetedKnapsack } from '../util/budgetedKnapsack.ts';
 
 /** 规划输入。 */
 export interface SkillActivationCandidate {
@@ -58,12 +59,12 @@ export class SkillActivationPlanner {
     const sorted = [...candidates].sort(
       (a, b) => b.relevance - a.relevance || (a.skill.name < b.skill.name ? -1 : 1),
     );
-    const kept: SkillActivationCandidate[] = [];
+    const eligible: SkillActivationCandidate[] = [];
     const dropped: SkillActivationCandidate[] = [];
     const seen = new Set<string>();
+    const reserved: SkillActivationCandidate[] = [];
     const resourceConflicts: SkillConflict[] = [];
     let duplicates = 0;
-    let chars = 0;
     for (const candidate of sorted) {
       const normalized = SkillActivationPlanner.normalize(candidate.rendered);
       if (seen.has(normalized)) {
@@ -73,7 +74,7 @@ export class SkillActivationPlanner {
       }
       // 独占资源：与已保留的 exclusive 技能共享资源时，保留相关性更高者。
       if (candidate.skill.exclusive === true) {
-        const conflict = kept.find(
+        const conflict = reserved.find(
           (entry) =>
             entry.skill.exclusive === true &&
             SkillActivationPlanner.sharedResources(entry.skill, candidate.skill).length > 0,
@@ -88,14 +89,25 @@ export class SkillActivationPlanner {
           dropped.push(candidate);
           continue;
         }
-      }
-      if (kept.length > 0 && chars + normalized.length > this.maxChars) {
-        dropped.push(candidate);
-        continue;
+        reserved.push(candidate);
       }
       seen.add(normalized);
-      kept.push(candidate);
-      chars += normalized.length;
+      eligible.push(candidate);
+    }
+    // 预算内精确 0/1 背包：不因「先遇到贵项」而错失总价值更高的组合。
+    const selection = BudgetedKnapsack.select(
+      eligible.map((entry) => ({
+        id: entry.skill.name,
+        weight: SkillActivationPlanner.normalize(entry.rendered).length,
+        value: entry.relevance,
+      })),
+      this.maxChars,
+      true,
+    );
+    const selected = new Set(selection.indices);
+    const kept = eligible.filter((_, index) => selected.has(index));
+    for (let index = 0; index < eligible.length; index += 1) {
+      if (!selected.has(index)) dropped.push(eligible[index]!);
     }
     return {
       kept,

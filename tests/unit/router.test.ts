@@ -149,6 +149,31 @@ test('by-role：按角色映射选模型；未映射回退首项；映射到未�
   );
 });
 
+test('ucb1：按成功/延迟自适应，失败臂不会被一直选中', async () => {
+  const good = new OkModel('good');
+  const fail = new FailModel();
+  const router = new ModelRouter({
+    strategy: 'ucb1',
+    entries: [
+      { adapter: fail, model: 'fail' },
+      { adapter: good, model: 'good' },
+    ],
+  });
+  for (let i = 0; i < 12; i += 1) {
+    try {
+      await router.generate(REQ);
+    } catch {
+      // 失败是预期输入；UCB1 记录 0 奖励后继续。
+    }
+  }
+  assert.ok(good.calls > 0);
+  assert.match(router.routeReason, /ucb1 chosen=/u);
+  assert.ok(
+    router.routeReason.includes('good') || router.routeReason.includes('fail'),
+    '路由理由必须点名被选中的模型',
+  );
+});
+
 test('配置校验：modelRouter.roles 必须是「角色 → 非空模型名」对象', () => {
   assert.doesNotThrow(() =>
     ConfigError.validateModelRouter({

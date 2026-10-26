@@ -89,15 +89,15 @@
 
 ### 模型与端点
 
-| 旗标                                                                                        | 说明                                                                                                                                                    |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--model-adapter mock\|openai\|anthropic\|responses\|llamacpp`                              | 模型端口（默认 `mock`；`responses` = OpenAI Responses API；`llamacpp` = 本地 Ollama/llama.cpp `/api/chat`）                                             |
-| `--mock`                                                                                    | 等价 `--model-adapter mock`（离线演示）；与 `--model-adapter` 同时给出时**以 argv 中后出现者为准**                                                      |
-| `--base-url URL` / `--api-key KEY` / `--model NAME`                                         | OpenAI 兼容端点与凭据（**凭据只应放用户级配置或本机环境**）                                                                                             |
-| `--model-router JSON` / `--model-router-file PATH`                                          | 多适配器路由（least-cost / round-robin / by-task / by-context / by-role / health-fallback）；`by-role` 用 `roles: {"reviewer":"strong-model"}` 映射角色 |
-| `--turn-token-budget N` / `--context-window N`                                              | 单回合预算 / 上下文窗口（据此在 75% 处压缩）                                                                                                            |
-| `--no-model-retry` / `--no-model-circuit-breaker` / `--model-circuit-breaker-*`             | 重试与熔断                                                                                                                                              |
-| `--cost-budget-usd N` / `--cost-budget-on-exceed fail\|warn` / `--cost-budget-soft-ratio R` | 成本硬预算与软阈值                                                                                                                                      |
+| 旗标                                                                                        | 说明                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--model-adapter mock\|openai\|anthropic\|responses\|llamacpp`                              | 模型端口（默认 `mock`；`responses` = OpenAI Responses API；`llamacpp` = 本地 Ollama/llama.cpp `/api/chat`）                                                                              |
+| `--mock`                                                                                    | 等价 `--model-adapter mock`（离线演示）；与 `--model-adapter` 同时给出时**以 argv 中后出现者为准**                                                                                       |
+| `--base-url URL` / `--api-key KEY` / `--model NAME`                                         | OpenAI 兼容端点与凭据（**凭据只应放用户级配置或本机环境**）                                                                                                                              |
+| `--model-router JSON` / `--model-router-file PATH`                                          | 多适配器路由（least-cost / round-robin / by-task / by-context / by-role / health-fallback / ucb1）；`by-role` 用 `roles: {"reviewer":"strong-model"}` 映射角色；`ucb1` 按成功/延迟自适应 |
+| `--turn-token-budget N` / `--context-window N`                                              | 单回合预算 / 上下文窗口（据此在 75% 处压缩）                                                                                                                                             |
+| `--no-model-retry` / `--no-model-circuit-breaker` / `--model-circuit-breaker-*`             | 重试与熔断                                                                                                                                                                               |
+| `--cost-budget-usd N` / `--cost-budget-on-exceed fail\|warn` / `--cost-budget-soft-ratio R` | 成本硬预算与软阈值                                                                                                                                                                       |
 
 ### 安全（审批 / 沙箱 / 网络 / 提权）
 

@@ -130,6 +130,7 @@ export class ConfigBuilder {
       'by-context',
       'by-role',
       'health-fallback',
+      'ucb1',
     ]);
     if (!VALID_STRATEGIES.has(cfg.strategy)) {
       throw new ConfigError(

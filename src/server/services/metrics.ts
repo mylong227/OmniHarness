@@ -1,4 +1,5 @@
 import type { SessionEvent } from '../../ports/runtime/event.ts';
+import { QuantileSketch } from '../../util/quantileSketch.ts';
 
 /** 单指标对象（Prometheus 文本用）。 */
 export interface MetricLine {
@@ -27,6 +28,12 @@ export interface TurnStats {
   readonly sumMs: number;
   readonly minMs: number;
   readonly maxMs: number;
+  /** p50 耗时（GK 草图，误差 ≤2%）。 */
+  readonly p50Ms: number;
+  /** p95 耗时（GK 草图，误差 ≤2%）。 */
+  readonly p95Ms: number;
+  /** p99 耗时（GK 草图，误差 ≤2%）。 */
+  readonly p99Ms: number;
 }
 
 /** 指标：事件计数 + 会话数 + 性能/成本可观测（无第三方依赖）。 */
@@ -44,6 +51,8 @@ export class Metrics {
   private turnMinMs = Infinity;
   /** 回合耗时最大值（毫秒；无样本时为 -Infinity，快照时归 0）。 */
   private turnMaxMs = -Infinity;
+  /** 回合耗时 GK 分位数草图（O(1/ε·log εn) 内存，不保存全部样本）。 */
+  private readonly turnQuantiles = new QuantileSketch(0.01);
 
   /** 工具名 -> 调用次数 + 累计耗时（毫秒）。 */
   private readonly toolCalls = new Map<string, { calls: number; durationMs: number }>();
@@ -89,6 +98,7 @@ export class Metrics {
     if (!Number.isFinite(latencyMs)) return;
     this.turnCount += 1;
     this.turnSumMs += latencyMs;
+    this.turnQuantiles.insert(latencyMs);
     if (latencyMs < this.turnMinMs) this.turnMinMs = latencyMs;
     if (latencyMs > this.turnMaxMs) this.turnMaxMs = latencyMs;
   }
@@ -160,6 +170,9 @@ export class Metrics {
       sumMs: this.turnSumMs,
       minMs: this.turnCount > 0 ? this.turnMinMs : 0,
       maxMs: this.turnCount > 0 ? this.turnMaxMs : 0,
+      p50Ms: this.turnCount > 0 ? this.turnQuantiles.quantile(0.5) : 0,
+      p95Ms: this.turnCount > 0 ? this.turnQuantiles.quantile(0.95) : 0,
+      p99Ms: this.turnCount > 0 ? this.turnQuantiles.quantile(0.99) : 0,
     };
     return {
       eventsByType: Object.fromEntries(this.eventsByType),
@@ -189,6 +202,12 @@ export class Metrics {
       'summary',
       (this.turnCount > 0 ? this.turnSumMs / 1000 : 0).toString(),
     );
+    lines.push('# HELP omni_turn_duration_quantile_seconds Turn latency quantiles in seconds');
+    lines.push('# TYPE omni_turn_duration_quantile_seconds gauge');
+    for (const q of [0.5, 0.95, 0.99]) {
+      const value = this.turnCount > 0 ? this.turnQuantiles.quantile(q) / 1000 : 0;
+      lines.push(`omni_turn_duration_quantile_seconds{quantile="${String(q)}"} ${String(value)}`);
+    }
 
     const tools = [...this.toolCalls.entries()].sort(([a], [b]) => a.localeCompare(b));
     for (const [tool, { calls, durationMs }] of tools) {

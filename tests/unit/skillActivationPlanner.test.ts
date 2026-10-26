@@ -43,6 +43,24 @@ test('SkillActivationPlanner：超出字符预算丢弃低相关项，但至少�
   assert.strictEqual(only.kept.length, 1, '单条超预算也必须保留（避免能力归零）');
 });
 
+test('SkillActivationPlanner：预算内精确背包，不因先遇到贵项错失更优组合', () => {
+  const planner = new SkillActivationPlanner(18);
+  const plan = planner.plan([
+    { skill: skill('expensive', ['a']), rendered: 'A'.repeat(14), relevance: 10 },
+    { skill: skill('small1', ['b']), rendered: 'B'.repeat(10), relevance: 9 },
+    { skill: skill('small2', ['c']), rendered: 'C'.repeat(8), relevance: 9 },
+  ]);
+  // 贪心先拿 expensive(14) 后装不下小项（总价值 10）；精确解是 9+9=18。
+  assert.deepStrictEqual(
+    plan.kept.map((entry) => entry.skill.name),
+    ['small1', 'small2'],
+  );
+  assert.strictEqual(
+    plan.kept.reduce((sum, entry) => sum + entry.rendered.length, 0),
+    18,
+  );
+});
+
 test('SkillActivationPlanner：tag Jaccard ≥0.8 记为冲突且不误删', () => {
   const planner = new SkillActivationPlanner();
   const plan = planner.plan([

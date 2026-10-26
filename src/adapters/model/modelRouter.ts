@@ -7,8 +7,8 @@ import type {
 } from '../../ports/model/model.ts';
 import { ArrayAt } from '../../util/arrayAt.ts';
 
-import type { RouterEntry } from '../../ports/model/routerEntry.ts';
 import type { ModelRouterOptions } from '../../ports/model/modelRouterOptions.ts';
+import { Ucb1Bandit } from '../../util/concurrency/ucb1Bandit.ts';
 
 export type { RouterEntry } from '../../ports/model/routerEntry.ts';
 export type { RouterStrategy } from '../../ports/model/routerStrategy.ts';
@@ -35,6 +35,8 @@ export class ModelRouter implements ModelPort {
   private lastSelectionReason = '';
   /** 各模型累计成本（USD），least-cost 用。 */
   private readonly spend: Map<string, number> = new Map();
+  /** UCB1 自适应路由的臂统计（仅 ucb1 策略使用）。 */
+  private readonly bandit: Ucb1Bandit;
 
   public constructor(
     /** 路由配置：候选模型与选择策略（entries 为空时构造抛错）。 */
@@ -43,6 +45,7 @@ export class ModelRouter implements ModelPort {
     if (options.entries.length === 0) {
       throw new Error('ModelRouter 需要至少一个 entry（fail-closed）');
     }
+    this.bandit = new Ucb1Bandit(options.entries.length);
   }
 
   /** 生成响应：按策略选择底层适配器并转发，成功后记账。
@@ -53,14 +56,22 @@ export class ModelRouter implements ModelPort {
     if (this.options.strategy === 'health-fallback') {
       return this.generateWithFallback(request);
     }
-    const entry = this.pick(request);
-    const output = await entry.adapter.generate(request);
-    this.recordUsage(
-      entry.model,
-      output.usage?.promptTokens ?? 0,
-      output.usage?.completionTokens ?? 0,
-    );
-    return output;
+    const index = this.select(request);
+    const entry = ArrayAt.at(this.options.entries, index);
+    const started = Date.now();
+    try {
+      const output = await entry.adapter.generate(request);
+      this.recordBandit(index, true, Date.now() - started);
+      this.recordUsage(
+        entry.model,
+        output.usage?.promptTokens ?? 0,
+        output.usage?.completionTokens ?? 0,
+      );
+      return output;
+    } catch (error) {
+      this.recordBandit(index, false, Date.now() - started);
+      throw error;
+    }
   }
 
   /** 流式生成：转发到选中适配器（其不支持 stream 时 fail-closed 报错）。
@@ -69,19 +80,28 @@ export class ModelRouter implements ModelPort {
    * @returns 流结束后的底层适配器输出；完成后按 usage 记账。选中适配器不支持流式时同步抛错。
    */
   public stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
-    const entry = this.pick(request);
+    const index = this.select(request);
+    const entry = ArrayAt.at(this.options.entries, index);
     const adapter = entry.adapter;
     if (adapter.stream === undefined) {
       throw new Error(`ModelRouter 选中的 adapter "${entry.model}" 不支持 stream（fail-closed）`);
     }
-    return adapter.stream(request, callbacks).then((output) => {
-      this.recordUsage(
-        entry.model,
-        output.usage?.promptTokens ?? 0,
-        output.usage?.completionTokens ?? 0,
-      );
-      return output;
-    });
+    const started = Date.now();
+    return adapter.stream(request, callbacks).then(
+      (output) => {
+        this.recordBandit(index, true, Date.now() - started);
+        this.recordUsage(
+          entry.model,
+          output.usage?.promptTokens ?? 0,
+          output.usage?.completionTokens ?? 0,
+        );
+        return output;
+      },
+      (error: unknown) => {
+        this.recordBandit(index, false, Date.now() - started);
+        throw error;
+      },
+    );
   }
 
   /**
@@ -93,12 +113,53 @@ export class ModelRouter implements ModelPort {
     return this.lastSelectionReason;
   }
 
-  /** 按策略选出底层 entry（entry 非空，下标必然有效）。
+  /** 按策略选出底层 entry 下标（entry 非空，下标必然有效）。
    * @param request 模型请求（by-task 策略需要读消息内容匹配关键词）。
-   * @returns 选中的路由条目。
+   * @returns 选中的路由条目下标。
    */
-  private pick(request: ModelRequest): RouterEntry {
-    return ArrayAt.at(this.options.entries, this.select(request));
+  private select(request: ModelRequest): number {
+    switch (this.options.strategy) {
+      case 'least-cost':
+        return this.selectLeastCost();
+      case 'by-task':
+        return this.selectByTask(request);
+      case 'by-context':
+        return this.selectByContext(request);
+      case 'by-role':
+        return this.selectByRole(request);
+      case 'ucb1':
+        return this.selectUcb1();
+      case 'round-robin':
+      case 'health-fallback':
+      default:
+        return this.nextRoundRobin();
+    }
+  }
+
+  /**
+   * UCB1：选择「平均奖励 + 探索上界」最大的手臂。
+   * @returns 选中的 entry 下标。
+   */
+  private selectUcb1(): number {
+    const index = this.bandit.select();
+    const stats = this.bandit.statsOf(index);
+    this.lastSelectionReason =
+      `ucb1 chosen=${ArrayAt.at(this.options.entries, index).model} ` +
+      `pulls=${String(stats.pulls)} mean=${stats.mean.toFixed(3)}`;
+    return index;
+  }
+
+  /**
+   * 记录一次 UCB1 奖励：成功且越快奖励越高；失败为 0。
+   * @param index 被选中的 entry 下标。
+   * @param success 是否成功。
+   * @param latencyMs 本次耗时（毫秒）。
+   * @returns 无返回值。
+   */
+  private recordBandit(index: number, success: boolean, latencyMs: number): void {
+    if (this.options.strategy !== 'ucb1') return;
+    const reward = success ? 1 / (1 + Math.max(0, latencyMs) / 1000) : 0;
+    this.bandit.record(index, reward);
   }
 
   /** health-fallback：依次尝试 entries，某 adapter 抛错则下一个；全失败才抛（fail-closed）。
@@ -141,27 +202,6 @@ export class ModelRouter implements ModelPort {
         : (promptTokens / 1000) * pricing.inputPer1k +
           (completionTokens / 1000) * pricing.outputPer1k;
     this.spend.set(model, (this.spend.get(model) ?? 0) + cost);
-  }
-
-  /** 选底层 adapter 下标（health-fallback 由 generate 单独处理）。
-   * @param request 模型请求（by-task 需要读消息内容）。
-   * @returns entries 中被选中条目的下标。
-   */
-  private select(request: ModelRequest): number {
-    switch (this.options.strategy) {
-      case 'least-cost':
-        return this.selectLeastCost();
-      case 'by-task':
-        return this.selectByTask(request);
-      case 'by-context':
-        return this.selectByContext(request);
-      case 'by-role':
-        return this.selectByRole(request);
-      case 'round-robin':
-      case 'health-fallback':
-      default:
-        return this.nextRoundRobin();
-    }
   }
 
   /**
