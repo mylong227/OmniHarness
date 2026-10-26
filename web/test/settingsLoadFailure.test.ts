@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// 设置模态的装载失败判据（2026-10-23 用户报「读取厂商目录…」一直加载不出）。
+// 工作台控制台的装载失败判据（2026-10-23 用户报「读取厂商目录…」一直加载不出）。
 //
 // ## 为什么需要它
 //
@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
 
-const { SettingsModal } = await import('../src/ui/components/SettingsModal.tsx');
+const { ConsoleView } = await import('../src/ui/components/console/ConsoleView.tsx');
 
 /** 一个最小但形状完整的厂商预设（ProviderCard 会读 label/baseUrl/models 等）。 */
 const PROVIDER = {
@@ -30,27 +30,37 @@ const PROVIDER = {
   reasoningEffort: ['high'],
 };
 
-/** 打开「模型」栏所需的最小 props。 */
+/** 打开控制台「模型与厂商」页所需的最小 props。 */
 const PROPS = {
   open: true,
-  tab: 'model' as const,
-  theme: 'light' as const,
-  themePref: 'light' as const,
-  locale: 'zh' as const,
-  onThemePrefChange: () => {},
-  onLocaleChange: () => {},
+  active: 'model' as const,
+  onPick: () => {},
   onClose: () => {},
-  onTabChange: () => {},
-  onOpenPanel: () => {},
+  settings: {
+    theme: 'light' as const,
+    themePref: 'light' as const,
+    onThemePrefChange: () => {},
+    locale: 'zh' as const,
+    onLocaleChange: () => {},
+    workspacePath: '',
+    sessionScopeAll: false,
+    onToggleSessionsScope: () => {},
+    leftWidth: 248,
+    rightWidth: 420,
+    onLeftWidthChange: () => {},
+    onRightWidthChange: () => {},
+  },
+  workspacePath: '',
+  connected: true,
 };
 
 /**
- * 渲染设置模态，并补上设置模型会拉的三条无关 RPC（避免假 api 返回 `{}` 造成额外噪声）。
+ * 渲染控制台，并补上设置模型会拉的三条无关 RPC（避免假 api 返回 `{}` 造成额外噪声）。
  * @param responses 需要覆盖的 api 方法
  * @returns 渲染结果
  */
 async function renderSettings(responses: Record<string, unknown>) {
-  return renderFacadeAsync(SettingsModal, {
+  return renderFacadeAsync(ConsoleView, {
     props: PROPS,
     responses: {
       listProfiles: () => Promise.resolve([]),

@@ -34,7 +34,7 @@ export interface SettingsControllerDeps {
 }
 
 /**
- * 设置子控制器：设置模态的开合与分栏、界面语言切换（含落盘）。
+ * 设置子控制器：控制台设置页的开合与分栏、界面语言切换（含落盘）。
  */
 export class SettingsController {
   /** 状态宿主（`patch` 提交 App 状态：settingsOpen / settingsTab 都经它落地）。 */
@@ -58,17 +58,23 @@ export class SettingsController {
   }
 
   /**
-   * 打开设置模态（设置自 2026-10-17 起是左栏页脚按钮 + 居中模态，不再是右栏面板；
-   * 见 `components/SettingsModal.tsx` 头注释）。
+   * 打开工作台控制台（设置自 2026-10-17 起是左栏页脚按钮 + 独立页面，不再是右栏面板；
+   * 2026-10-26 起与功能面板共用 `components/console/ConsoleModal.tsx`）。
    * @param tab 打开时定位到哪一栏（缺省保持上次选择）
    * @returns 无
    */
   public open(tab?: SettingsTabKey): void {
-    this.host.patch(tab === undefined ? { settingsOpen: true } : { settingsOpen: true, settingsTab: tab });
+    // 设置与功能面板共用同一个控制台：打开设置时必须退出面板态，
+    // 否则两个开关同为 true 时 `active` 的优先级会让"用命令面板打开某个面板"看起来没反应。
+    this.host.patch(
+      tab === undefined
+        ? { settingsOpen: true, panelModalOpen: false }
+        : { settingsOpen: true, settingsTab: tab, panelModalOpen: false },
+    );
   }
 
   /**
-   * 关闭设置模态。
+   * 关闭设置页（控制台由调用方一并关闭）。
    * @returns 无
    */
   public close(): void {
@@ -76,7 +82,7 @@ export class SettingsController {
   }
 
   /**
-   * 切换设置模态内的分栏（受控：供"从审批弹窗跳到权限"这类外部驱动）。
+   * 切换控制台内的设置分栏（受控：供"从审批弹窗跳到权限"这类外部驱动）。
    * @param tab 分栏 key
    * @returns 无
    */
@@ -89,7 +95,7 @@ export class SettingsController {
    *
    * 原实现是 `openPane('settings')`——打开一个**已经不存在**的面板 key（settings 已从
    * `PanelRegistry` 移除），会静默落到默认面板（工具）⇒ 审批弹窗里的「更改权限」点了没反应。
-   * 这条路径现在指向模态的权限栏。
+   * 这条路径现在指向控制台的权限页。
    * @returns 无
    */
   public openPermission(): void {

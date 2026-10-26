@@ -100,7 +100,6 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onToggleScope,
     activePane,
     onOpenPane,
-    onOpenPalette,
     onOpenSettings,
     connected,
     streamState,
@@ -606,11 +605,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   return (
     <div className={'col left side' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
       {/* 品牌头：Ω + 本实现 + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
-      <SidebarHeader
-        rail={rail}
-        onToggleRail={() => setRail((v) => !v)}
-        onOpenPalette={onOpenPalette}
-      />
+      <SidebarHeader rail={rail} />
       {/* 新会话：截图式一等按钮；收成图标条时退化为紧凑图标钮。 */}
       <button
         className={rail ? 'new-chat compact' : 'new-chat'}

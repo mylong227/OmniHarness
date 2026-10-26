@@ -444,7 +444,7 @@ const STATES = [
     // 编排**运行态**（`graph-runs`）：静态面板图只能看到编辑器，看不到"节点跑起来"的观感
     // （running 呼吸圈 / done / failed 三态芯片）。走"载入示例 → 运行"这条用户真会走的通路。
     open: async (cdp: CdpSession) => {
-      const clicked = await openPaneByLabel(cdp, '编排');
+      const clicked = await openPaneByLabel(cdp, '编排', 'graph');
       if (!clicked) return false;
       // 按**可见文本**点击（位置式选择器在壳层重构后必然失配：`.pm-head .ghost:nth-child(2)`
       // 与 `.row button.send:last-child` 都依赖元素顺序，改一次布局就静默点错/点空）。
@@ -600,19 +600,18 @@ const PANES = [
  * @param label 面板标签（如「编排」）
  * @returns 是否成功打开
  */
-async function openPaneByLabel(cdp: CdpSession, label: string) {
-  // 先等入口按钮出现（重载后挂载有先后，直接点会点空 ⇒ 假红）。
-  if (!(await cdp.waitFor("!!document.querySelector('.pp-btn')", 1500))) return false;
+async function openPaneByLabel(cdp: CdpSession, label: string, key: string) {
+  // 2026-10-26：「全部面板」按钮已按用户要求删除；现役入口是深链 / 命令面板。
+  // 探针用深链打开控制台，再按标签点左导航项。
+  await cdp.evaluate(`(function(){ location.hash = '#pane=${key}'; return true; })()`);
+  if (!(await cdp.waitFor("!!document.querySelector('.panel-modal .sp-nav-item')", 2500))) {
+    return false;
+  }
   /**
-   * 走一遍「点按钮 → 等面板模态 → 按标签点左导航项」。
-   * 2026-10-19：按钮改为打开设置式面板模态（左导航 + 右内容），不再有下拉菜单。
+   * 按标签点左导航项。
    * @returns 是否成功选中该面板
    */
   const pickOnce = async () => {
-    await cdp.evaluate("(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return true; })()");
-    if (!(await cdp.waitFor("!!document.querySelector('.panel-modal .sp-nav-item')", 1500))) {
-      return false;
-    }
     return (
       (await cdp.evaluate(
         `(function(){ var hit=[].slice.call(document.querySelectorAll('.panel-modal .sp-nav-item')).filter(function(x){ return (x.textContent||'').trim()===${JSON.stringify(label)}; })[0]; if(!hit) return false; hit.click(); return true; })()`,
@@ -755,7 +754,7 @@ async function main() {
           await seedSession(cdp);
           await cdp.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
           if (label) {
-            const clicked = await openPaneByLabel(cdp, label);
+            const clicked = await openPaneByLabel(cdp, label, String(key));
             if (!clicked) {
               failures.push(`${theme}/${key}: 打开面板失败 ${label}`);
               continue;

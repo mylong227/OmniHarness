@@ -1,0 +1,1350 @@
+/* =========================================================================
+   10. 工作台控制台（设置中心）
+   -------------------------------------------------------------------------
+   结构：左侧分组导航（品牌 / 返回 / 搜索 / 三组页面 / 工作区与连接）
+         + 右侧（工具栏 + 页面标题 + 卡片式设置行）。
+
+   口径（2026-10-26 重构）：
+   · 表面只有三级：bg（页面）→ panel（卡片/控件底）→ panel-2（开关轨道）；
+   · 描边三档照旧：hairline 分隔行、border-soft 卡片与输入、border 控件边界；
+   · 颜色只来自 theme.css 的 token；本文件不出现任何字面色相；
+   · 选中态只用 --accent-soft + --accent，不做整块实心墨色；
+   · 卡片不投影（投影只留给浮层）。
+   ========================================================================= */
+
+/* 控制台里的按钮一律是"平面控件"：全局 `button` 的毛玻璃渐变与 inset 细环只适合
+   浮在对话上的小按钮；放进左导航会变成一排白色药丸，破坏分组。 */
+.csl-nav-item.sp-nav-item,
+.csl-back,
+.csl-seg-item,
+.csl-provider-head,
+.csl-btn {
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.csl-nav-item.sp-nav-item,
+.csl-back,
+.csl-seg-item,
+.csl-provider-head,
+.csl-btn {
+  box-shadow: none;
+}
+
+/* —— 遮罩与窗口 —— */
+.csl {
+  display: grid;
+  grid-template-columns: 284px minmax(0, 1fr);
+  width: min(1400px, calc(100vw - 32px));
+  height: min(960px, calc(100vh - 32px));
+  max-height: min(960px, calc(100vh - 32px));
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-2);
+}
+.csl:focus {
+  outline: none;
+}
+/* 全窗口页面：设置/面板直接占用整个工作区，不是浮在页面上的模态。 */
+.console-host {
+  min-width: 0;
+  background: var(--bg);
+}
+/* 全屏设置页：隐藏应用自己的会话栏与分隔条（返回工作区后原样恢复）。 */
+.body.console-open > .col.left,
+.body.console-open > .resizer-left {
+  display: none;
+}
+.csl.csl-embedded {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* —— 左栏 —— */
+.csl-rail.sp-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 284px;
+  min-height: 0;
+  padding: 18px 14px 12px;
+  overflow: hidden;
+  background: var(--bg-elev);
+  border-right: 1px solid var(--hairline);
+}
+.csl-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 0 8px 14px;
+}
+.csl-brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.csl-brand-name {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.csl-brand-sub {
+  color: var(--faint);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+}
+.csl-nav-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--faint);
+  cursor: pointer;
+}
+.csl-nav-close:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.csl-nav-close:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+.csl-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  height: 34px;
+  padding: 0 11px;
+  /* 返回工作区：只做一层极淡的中性底 + 发丝边，不抢导航的注意力。 */
+  background: color-mix(in srgb, var(--text) 3.5%, transparent);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.csl-back:hover {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border-color: var(--border-soft);
+  color: var(--text);
+}
+.csl-back:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+
+/* 导航滚动区：分组标题 + 条目。 */
+.csl-nav {
+  flex: 1;
+  min-height: 0;
+  margin: 14px -6px 0;
+  padding: 0 6px 10px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.csl-group {
+  padding-top: 14px;
+}
+.csl-group:first-child {
+  padding-top: 6px;
+}
+.csl-group-label {
+  padding: 0 9px 6px;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.csl-nav-item.sp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--dim);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.csl-nav-item.sp-nav-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.csl-nav-item.sp-nav-item.on {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  font-weight: 550;
+}
+.csl-nav-item.sp-nav-item.on .csl-nav-icon {
+  color: var(--accent);
+}
+.csl-nav-item.sp-nav-item:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+.csl-nav-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+}
+.csl-nav-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 页脚：工作区身份 + 连接状态。 */
+.csl-rail-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 8px 2px;
+  border-top: 1px solid var(--hairline);
+}
+.csl-workspace {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.csl-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 27px;
+  height: 27px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 7px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+.csl-workspace-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.csl-workspace-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.csl-workspace-sub {
+  color: var(--faint);
+  font-size: 10.5px;
+}
+.csl-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
+.csl-conn-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: transparent;
+}
+.csl-conn-dot.on {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.csl-conn-dot.warn {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+/* —— 右栏 —— */
+.csl-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+.csl-mobilebar.sp-top {
+  display: none;
+}
+.csl-mobile-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.csl-scroll.sp-content {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  overflow-y: auto;
+  background: var(--bg);
+  scrollbar-gutter: stable;
+}
+.csl-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 56px 48px 72px;
+}
+
+/* 页面标题区 */
+.csl-head {
+  margin-bottom: 30px;
+}
+.csl-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.csl-head-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* —— 设置页容器 —— */
+.csl-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.csl-status-line {
+  min-height: 16px;
+  margin: -8px 2px -2px;
+  color: var(--dim);
+  font-size: 11.5px;
+  text-align: right;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.csl-status-line.on {
+  opacity: 1;
+}
+.csl-status-line.err {
+  color: var(--err);
+}
+.csl-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--err) 30%, transparent);
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+  color: var(--err);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.csl-banner > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.csl-note,
+.csl-empty {
+  margin: 0;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.csl-note {
+  padding: 14px 22px;
+}
+
+/* —— 卡片 —— */
+.csl-card {
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 22px 13px;
+  border-bottom: 1px solid var(--hairline);
+}
+.csl-card-head-main {
+  min-width: 0;
+}
+.csl-card-title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.csl-card-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.csl-card-meta {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+.csl-card-desc {
+  margin: 5px 0 0;
+  max-width: 66ch;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.csl-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.csl-card-body {
+  display: flex;
+  flex-direction: column;
+}
+.csl-card-foot {
+  padding: 11px 22px;
+  border-top: 1px solid var(--hairline);
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+/* —— 设置行 —— */
+.csl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 28px;
+  padding: 15px 22px;
+}
+.csl-row + .csl-row {
+  border-top: 1px solid var(--hairline);
+}
+.csl-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.csl-row-label {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.csl-row-hint {
+  max-width: 60ch;
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.csl-row-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: none;
+  min-width: 0;
+}
+.csl-row-below {
+  grid-column: 1 / -1;
+}
+.csl-row--info .csl-row-label {
+  color: var(--dim);
+  font-size: 12.5px;
+}
+.csl-value {
+  max-width: 360px;
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* —— 控件 —— */
+.csl-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.csl-select {
+  width: 100%;
+  min-width: 170px;
+  height: 32px;
+  padding: 0 30px 0 11px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  appearance: none;
+}
+.csl-select:hover {
+  border-color: var(--border);
+}
+.csl-select:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+.csl-select-caret {
+  position: absolute;
+  right: 10px;
+  display: inline-flex;
+  color: var(--faint);
+  pointer-events: none;
+}
+.csl-input {
+  height: 32px;
+  padding: 0 11px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.csl-input:hover {
+  border-color: var(--border);
+}
+.csl-input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+.csl-input::placeholder {
+  color: var(--faint);
+}
+.csl-row-control .csl-input {
+  width: 260px;
+}
+.csl-input--mono {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+/* 开关：原生 checkbox 藏起来但保留键盘与语义，轨道自绘。 */
+.csl-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  width: 38px;
+  height: 22px;
+  cursor: pointer;
+}
+.csl-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.csl-switch-track {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.csl-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--dim);
+  border-radius: 50%;
+  transition: transform var(--dur-2) var(--ease-out), background var(--dur-1) var(--ease);
+}
+.csl-switch input:checked + .csl-switch-track {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.csl-switch input:checked + .csl-switch-track::after {
+  transform: translateX(16px);
+  background: var(--accent);
+}
+.csl-switch input:focus-visible + .csl-switch-track {
+  box-shadow: var(--ring);
+}
+.csl-switch.is-disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* 开关旁的状态文字（设置页的可读状态，不只靠颜色/滑块位置） */
+.csl-switch-state {
+  font-size: 12px;
+  color: var(--dim);
+  flex: none;
+  min-width: 3em;
+  text-align: right;
+}
+
+/* 分段控件 */
+.csl-seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+}
+.csl-seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.csl-seg-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.csl-seg-item.on {
+  background: var(--panel);
+  border-color: var(--border-soft);
+  color: var(--text);
+  font-weight: 550;
+}
+.csl-seg-item:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.csl-seg-item svg {
+  color: var(--accent);
+}
+
+/* 按钮 / 键帽 / 滑杆 */
+.csl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.csl-btn:hover {
+  background: var(--hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+.csl-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+.csl-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.csl-btn--primary {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+  font-weight: 600;
+}
+.csl-btn--primary:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+.csl-kbd {
+  display: inline-block;
+  min-width: 26px;
+  padding: 2px 7px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: center;
+}
+.csl-range {
+  width: 190px;
+  accent-color: var(--accent);
+}
+.csl-range:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+/* —— 功能面板内容：把"平铺段落"收成同样的卡片语言 —— */
+.csl-panel {
+  min-width: 0;
+}
+.csl-scroll .act {
+  gap: 14px;
+}
+.csl-scroll .act-card {
+  padding: 18px 22px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .act-title {
+  margin: 0 0 9px;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.csl-scroll .act-status {
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.csl-scroll .detail-section,
+.csl-scroll .pm-section {
+  margin: 0;
+  padding: 18px 22px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .detail-section + .detail-section,
+.csl-scroll .pm-section + .pm-section,
+.csl-scroll .pm-head + .pm-section {
+  margin-top: 14px;
+}
+.csl-scroll.panel-surface .detail-section + .detail-section,
+.csl-scroll.panel-surface .pm-section + .pm-section,
+.csl-scroll.panel-surface .pm-head + .pm-section {
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.csl-scroll.panel-surface .detail-section,
+.csl-scroll.panel-surface .pm-section {
+  margin: 0;
+}
+.csl-scroll .detail-h,
+.csl-scroll .pm-title,
+.csl-scroll .section-title {
+  margin: 0 0 10px;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+.csl-scroll .hint,
+.csl-scroll .panel-note,
+.csl-scroll .pm-section .dim {
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+/* 面板顶部的筛选条（搜索 / 刷新） */
+.csl-scroll .pm-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .pm-head input[type='text'],
+.csl-scroll .pm-head select {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 11px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.csl-scroll .pm-head input[type='text']:focus,
+.csl-scroll .pm-head select:focus {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+
+/* 面板里的表单（新增记忆 / 配置集 / 凭据写入） */
+.csl-scroll .form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.csl-scroll .form label,
+.csl-scroll .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.csl-scroll .form input[type='text'],
+.csl-scroll .form select,
+.csl-scroll .form textarea,
+.csl-scroll .field input {
+  height: 32px;
+  padding: 0 11px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+}
+.csl-scroll .form textarea {
+  height: auto;
+  padding: 9px 11px;
+  line-height: 1.6;
+}
+.csl-scroll .form input:focus,
+.csl-scroll .form select:focus,
+.csl-scroll .form textarea:focus,
+.csl-scroll .field input:focus {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
+
+/* 指标：六张计数卡改成 3×2 网格（不抢眼，但可扫读） */
+.csl-scroll.panel-surface .metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 0;
+}
+.csl-scroll.panel-surface .metric {
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll.panel-surface .metric .n {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.csl-scroll.panel-surface .metric .l {
+  margin-top: 3px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+/* 表格（用量 / 审计 / 规则）：卡片边界 + 行分隔线 */
+.csl-scroll .usage-table,
+.csl-scroll .audit-table {
+  width: 100%;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  background: var(--panel);
+  font-size: 12px;
+}
+.csl-scroll .usage-table th,
+.csl-scroll .audit-table th {
+  padding: 9px 12px;
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--faint);
+  font-weight: 500;
+  text-align: right;
+}
+.csl-scroll .usage-table th:first-child,
+.csl-scroll .usage-table td:first-child {
+  text-align: left;
+}
+.csl-scroll .usage-table td,
+.csl-scroll .audit-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--hairline);
+  color: var(--dim);
+}
+.csl-scroll .usage-table tr:last-child td,
+.csl-scroll .audit-table tr:last-child td {
+  border-bottom: 0;
+}
+/* 表格已经在一张卡片里时，不再套第二层描边 */
+.csl-scroll .act-card .usage-table,
+.csl-scroll .act-card .audit-table {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.csl-scroll .act-card .usage-table th,
+.csl-scroll .act-card .audit-table th {
+  padding-left: 0;
+  padding-right: 0;
+}
+.csl-scroll .act-card .usage-table td,
+.csl-scroll .act-card .audit-table td {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* 厂商卡片（模型页）：卡片内的折叠行 */
+.csl-provider.sp-card-wrap {
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: 0;
+  margin: 0;
+}
+.csl-provider.sp-card-wrap:first-of-type {
+  border-top: 0;
+}
+.csl-provider-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 22px;
+  background: transparent;
+  border: 0;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.csl-provider-head:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.csl-provider-head:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+.csl-caret {
+  flex: none;
+  width: 10px;
+  color: var(--faint);
+  font-size: 10px;
+}
+.csl-provider-name {
+  color: var(--text);
+  font-weight: 550;
+}
+.csl-provider-url {
+  margin-left: auto;
+  max-width: 300px;
+  overflow: hidden;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.csl-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+.csl-tag.on {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.csl-provider-body {
+  padding: 2px 22px 16px;
+}
+.csl-provider-body .sp-card {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+.csl-provider-body .sp-card.on {
+  background: transparent;
+}
+.csl-provider-body .sp-row {
+  margin-top: 10px;
+}
+.csl-provider-body .sp-row .ghost {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  color: var(--dim);
+}
+.csl-provider-body .sp-row .ghost:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+/* 错误条：沿用 `.sp-load-error` 的形状，只把内边距对齐卡片 */
+.csl-scroll .sp-load-error {
+  margin: 0 22px 12px;
+}
+
+/* 面板内的纵向节奏（列表型面板自己不带间距容器） */
+.csl-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.csl-scroll .governance-tab,
+.csl-scroll .audit-tab,
+.csl-scroll .trace-tab,
+.csl-scroll .diagnostics-tab,
+.csl-scroll .review-root,
+.csl-scroll .review {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 面板里的筛选条如果已经在卡片内，就不再套第二层卡片 */
+.csl-scroll .act-card .pm-head {
+  padding: 0 0 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.csl-scroll .act-card .section-title {
+  margin: 0 0 10px;
+}
+.csl-card-body > .csl-empty {
+  padding: 14px 22px;
+}
+
+/* 列表型面板：给整份列表一个卡片壳，行之间只留发丝线 */
+.csl-scroll .governance-rows,
+.csl-scroll .changes-list,
+.csl-scroll .cp-timeline,
+.csl-scroll #toolList,
+.csl-scroll .vault-list {
+  margin: 0;
+  padding: 2px 18px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .governance-rows > li,
+.csl-scroll .cp-timeline > *,
+.csl-scroll #toolList .tool-item,
+.csl-scroll .vault-list > li {
+  padding: 9px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.csl-scroll .governance-rows > li + li,
+.csl-scroll .cp-timeline > * + *,
+.csl-scroll #toolList .tool-item + .tool-item,
+.csl-scroll .vault-list > li + li {
+  border-top: 1px solid var(--hairline);
+}
+.csl-scroll .changes-list .change-row {
+  padding: 9px 0;
+}
+.csl-scroll .changes-list .change-item + .change-item {
+  border-top: 1px solid var(--hairline);
+}
+.csl-scroll .governance-tab > .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .governance-tab > .row .ok,
+.csl-scroll .governance-tab > .row .err {
+  margin-left: auto;
+}
+.csl-scroll .rollback-targets {
+  margin: 0;
+  padding: 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .review-root > .pane-head {
+  margin: 0;
+  padding: 10px 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .review-root > .review-hint {
+  margin: -6px 2px 0;
+  color: var(--faint);
+  font-size: 11.5px;
+}
+.csl-scroll .review > .file-actions {
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .review > .empty,
+.csl-scroll .review-root > .empty {
+  padding: 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .audit-tab > .err,
+.csl-scroll .audit-tab > .hint,
+.csl-scroll .trace-tab > .err,
+.csl-scroll .trace-tab > .hint,
+.csl-scroll .governance-tab > .err,
+.csl-scroll .governance-tab > .hint {
+  margin: 0;
+  padding: 14px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+.csl-scroll .audit-tab > .err,
+.csl-scroll .governance-tab > .err,
+.csl-scroll .trace-tab > .err {
+  color: var(--err);
+}
+.csl-scroll .diagnostics-foot {
+  margin: 0;
+  padding: 12px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+.csl-scroll .audit-tab .detail-section ul,
+.csl-scroll .trace-tab .detail-section ul,
+.csl-scroll .detail-tab .detail-section ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.csl-scroll .audit-tab .detail-section ul > li,
+.csl-scroll .trace-tab .detail-section ul > li,
+.csl-scroll .detail-tab .detail-section ul > li {
+  padding: 8px 0;
+  border-top: 1px solid var(--hairline);
+  color: var(--dim);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.csl-scroll .audit-tab .detail-section ul > li:first-child,
+.csl-scroll .trace-tab .detail-section ul > li:first-child,
+.csl-scroll .detail-tab .detail-section ul > li:first-child {
+  border-top: 0;
+}
+
+/* 面板根部的空态：和卡片同一层级的表面，而不是裸文字 */
+.csl-panel > .empty.illu,
+.csl-panel > .empty.note,
+.csl-stack > .empty.illu,
+.csl-stack > .empty.note {
+  margin: 0;
+  padding: 28px 24px;
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+}
+
+/* 面板根部的动作按钮不要被 flex 拉满整行 */
+.csl-scroll .governance-tab > button,
+.csl-scroll .audit-tab > button,
+.csl-scroll .trace-tab > button,
+.csl-scroll .governance-tab > .btn,
+.csl-scroll .audit-tab > .btn,
+.csl-scroll .trace-tab > .btn {
+  align-self: flex-start;
+  height: 30px;
+  padding: 0 12px;
+  background-image: none;
+  background-color: transparent;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  box-shadow: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.csl-scroll .governance-tab > button:hover,
+.csl-scroll .audit-tab > button:hover,
+.csl-scroll .trace-tab > button:hover {
+  background-color: var(--hover);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* —— 窄屏：左栏变抽屉 —— */
+@media (max-width: 900px) {
+  .csl {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+  .csl-rail.sp-nav {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 3;
+    width: min(300px, 86vw);
+    visibility: hidden;
+    transform: translateX(-101%);
+    box-shadow: var(--shadow-2);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+  .csl.nav-open .csl-rail.sp-nav {
+    visibility: visible;
+    transform: none;
+  }
+  .csl-menu {
+    display: inline-flex;
+  }
+  .csl-mobilebar.sp-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 10px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .csl-nav-close {
+    display: inline-flex;
+  }
+  .csl-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: rgba(6, 8, 11, 0.5);
+  }
+  .csl-page {
+    padding: 24px 18px 48px;
+  }
+  .csl-title {
+    font-size: 22px;
+  }
+  .csl-row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 14px 18px;
+  }
+  .csl-row-control {
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .csl-select-wrap {
+    width: 100%;
+  }
+  .csl-input,
+  .csl-row-control .csl-input {
+    width: 100%;
+  }
+  .csl-range {
+    width: 100%;
+  }
+  .csl-scroll.panel-surface .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .csl-card-head {
+    flex-direction: column;
+    padding: 15px 18px 12px;
+  }
+  .csl-card-foot {
+    padding: 10px 18px;
+  }
+  .csl-provider-head {
+    flex-wrap: wrap;
+    padding: 12px 18px;
+  }
+  .csl-provider-url {
+    width: 100%;
+    margin-left: 18px;
+  }
+  .csl-provider-body {
+    padding: 2px 18px 14px;
+  }
+  .csl-scroll .act-card,
+  .csl-scroll .detail-section,
+  .csl-scroll .pm-section {
+    padding: 15px 18px;
+  }
+}

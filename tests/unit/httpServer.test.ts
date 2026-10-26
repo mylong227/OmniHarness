@@ -142,6 +142,31 @@ test('HTTP：静态资源压缩/immutable/304（2026-10-25）', async () => {
   }
 });
 
+test('HTTP：webDir 为源码目录但 dist 产物已就绪时，优先托管 dist（防白屏）', async () => {
+  // 2026-10-26 白屏：serve 启动时 dist 正被并发 build 清空 ⇒ 静态根落到 web/（源码），
+  // 之后产物就绪也不会切回来，浏览器拿到 `<script src="./src/main.ts">` 直接白屏。
+  const src = mkdtempSync(join(tmpdir(), 'omni-web-src-'));
+  const dist = join(src, 'dist');
+  mkdirSync(join(dist, 'assets'), { recursive: true });
+  writeFileSync(join(src, 'index.html'), '<script src="./src/main.ts"></script>', 'utf8');
+  writeFileSync(join(dist, 'index.html'), '<script src="./assets/app.js"></script>', 'utf8');
+  writeFileSync(join(dist, 'assets', 'app.js'), 'console.log("built");', 'utf8');
+  const { server, base } = await startTestServer(false, undefined, undefined, src);
+  try {
+    const index = await fetch(`${base}/`);
+    assert.strictEqual(index.status, 200);
+    const html = await index.text();
+    assert.match(html, /assets\/app\.js/u, '必须返回构建产物 index.html，而不是源码入口');
+    assert.doesNotMatch(html, /src\/main\.ts/u, '不得再把源码入口发给浏览器（那会白屏）');
+    const asset = await fetch(`${base}/assets/app.js`);
+    assert.strictEqual(asset.status, 200, '产物资源必须可访问');
+    assert.strictEqual(await asset.text(), 'console.log("built");');
+  } finally {
+    await server.close();
+    rmSync(src, { recursive: true, force: true });
+  }
+});
+
 test('HTTP：/files 流式下载大文件 + 越界 403 + 缺失 404（2026-10-25）', async () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-files-'));
   const web = mkdtempSync(join(tmpdir(), 'omni-files-web-'));

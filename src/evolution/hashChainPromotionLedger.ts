@@ -22,7 +22,15 @@
  * @maturity L1 — 快照/还原/篡改检出/重启续链判据钉死；多进程并发写未处理（单进程口径）
  * @maturityEvidence tests/unit/hashChainPromotionLedger.test.ts
  */
-import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs';
+import {
+  closeSync,
+  existsSync,
+  fsyncSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  writeSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { HashChain } from '../util/hashChain.ts';
 import { log } from '../util/logger.ts';
@@ -267,7 +275,14 @@ export class HashChainPromotionLedger implements PromotionLedgerPort {
     if (this.path === undefined) return;
     try {
       mkdirSync(dirname(this.path), { recursive: true });
-      appendFileSync(this.path, `${JSON.stringify(entry)}\n`, 'utf8');
+      // 账本是不可重建的治理证据：追加后 fsync，掉电后不能留下"内存有、盘上没有"的链。
+      const fd = openSync(this.path, 'a');
+      try {
+        writeSync(fd, `${JSON.stringify(entry)}\n`);
+        fsyncSync(fd);
+      } finally {
+        closeSync(fd);
+      }
     } catch (err) {
       // 回滚内存镜像：未落盘成功的条目不得留在链上（内存/磁盘恒一致）。
       this.entries.pop();

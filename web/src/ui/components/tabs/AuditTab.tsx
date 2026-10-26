@@ -84,7 +84,7 @@ export function AuditTab(): ReactElement {
 
       {data !== null && !data.ok ? (
         // 纪律①：未接线必须直说——不得退化成"无记录"。
-        <p className="err">{t('未接线：{reason}', { reason: data.reason })}</p>
+        <p className="err">{t('未接线：{reason}', { reason: data.reason || t('未提供原因') })}</p>
       ) : data !== null && data.ok ? (
         data.events.length === 0 ? (
           <p className="hint">{t('本次查询无匹配事件（审计 sink 已接线）。')}</p>

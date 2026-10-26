@@ -48,17 +48,15 @@ export function SkillsTab(): React.ReactElement {
   return (
     <div className="act">
       <section className="act-card">
-        <h3 className="act-title">{t('技能')}</h3>
-        <p className="act-status">{t('在输入框输入 / 可快速选择技能；下面可浏览全部技能。')}</p>
-        <input
-          className="sp-input"
-          value={query}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-          placeholder={t('搜索技能')}
-          aria-label={t('搜索技能')}
-        />
-      </section>
-      <section className="act-card">
+        <div className="pm-head">
+          <input
+            className="sp-input"
+            value={query}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+            placeholder={t('搜索技能')}
+            aria-label={t('搜索技能')}
+          />
+        </div>
         {shown.length === 0 ? (
           <p className="act-muted">{t('没有匹配的技能')}</p>
         ) : (

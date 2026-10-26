@@ -12,7 +12,7 @@
 //     （那会把"内联 SVG 建议加 title"这类风格问题当成缺陷）；
 //   · 只把 **serious / critical** 判红；moderate/minor 打印出来供观察（不阻断）；
 //   · 必须真有 `passes`（否则说明 axe 没真正跑，判据会变假绿）；
-//   · 两套主题、两个状态（空态 + 打开设置模态）各扫一次——主题会改变颜色，模态会引入
+//   · 两套主题、两个状态（空态 + 打开工作台控制台）各扫一次——主题会改变颜色，模态会引入
 //     dialog / 焦点陷阱 / 表单控件。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -86,7 +86,7 @@ function report(rows: readonly AxeViolation[], label: string): string {
   );
 }
 
-test('axe WCAG 2.1 A/AA：两套主题 × 空态/设置模态，无 serious/critical 违规', { timeout: 180_000 }, async (t) => {
+test('axe WCAG 2.1 A/AA：两套主题 × 空态/工作台控制台，无 serious/critical 违规', { timeout: 180_000 }, async (t) => {
   const page = await openStubSession(t, { stub: '_a11y-audit.html', width: 1280, height: 900 });
   if (page === null) return;
   try {

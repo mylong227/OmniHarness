@@ -166,8 +166,6 @@
   .body.rcollapsed .col.right,
   .body.rcollapsed .resizer-right { display: none; }
 }
-.rv-collapse { color: var(--dim); font-weight: 700; }
-.rv-collapse:hover { color: var(--text); background: var(--panel-2); }
 
 /* ---------- 中栏：头部 / 状态栏 ---------- */
 .chat-head {

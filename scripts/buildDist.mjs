@@ -39,12 +39,19 @@ import {
 import { spawnSync } from 'node:child_process';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { WorkspaceLease } from './workspaceLease.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const TARGET = join(ROOT, 'dist');
 const STAGING = join(ROOT, 'dist.next');
 const BACKUP = join(ROOT, 'dist.old');
 const ALLOW_STALE = process.env['OMNI_ALLOW_STALE_DIST'] === '1';
+
+// 构建/测试共享租约：同一工作区内 build 与 vitest 互斥，避免 dist 换入窗口里另一个
+// 进程 spawn `dist/src/...` 看到半成品（2026-10-26 实测的假红来源）。
+const lease = new WorkspaceLease(ROOT, { name: 'workspace' });
+await lease.acquire({ timeoutMs: 30 * 60_000, label: 'buildDist' });
+process.on('exit', () => lease.release());
 
 /** 逐文件收集（仓库相对 staging 的路径），跳过草稿/备份后缀。 */
 function collect(dir, base = dir, out = new Map()) {
@@ -180,3 +187,4 @@ if (!existsSync(join(TARGET, 'src'))) {
 if (statSync(join(TARGET, 'src')).isDirectory()) {
   process.stdout.write('[build] ✓ dist 已就绪\n');
 }
+lease.release();

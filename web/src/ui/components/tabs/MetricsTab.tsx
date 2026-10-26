@@ -12,9 +12,6 @@ import { NumberFormatter } from '../../models/NumberFormatter.ts';
 import type { Metrics } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
 
-/** 纵向留白。React 的 style 必须是「属性→值」映射，不能传 CSS 字符串。 */
-const SPACER: Record<string, string> = { height: '14px' };
-
 /** 轮询间隔（ms）。 */
 const POLL_MS = 2000;
 
@@ -89,7 +86,7 @@ export function MetricsTab(): ReactElement {
   const models = Object.entries(usage?.byModel ?? {}).sort(([, a], [, b]) => b.total - a.total);
 
   return (
-    <div>
+    <div className="csl-stack">
       <div className="metric-grid">
         {cards.map((c) => (
           <div className="metric" key={c[0]}>
@@ -98,60 +95,66 @@ export function MetricsTab(): ReactElement {
           </div>
         ))}
       </div>
-      <div style={SPACER}></div>
 
-      <div className="section-title">{t('Token 消耗统计')}</div>
-      {models.length > 0 ? (
-        <>
-          <table className="usage-table">
-            <thead>
-              <tr>
-                <th>{t('模型')}</th>
-                <th>{t('调用次数')}</th>
-                <th>{t('输入')}</th>
-                <th>{t('输出')}</th>
-                <th>{t('总计')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map(([m, s]) => (
-                <tr key={m}>
-                  <td>{m}</td>
-                  <td>{s.calls}</td>
-                  <td>{NumberFormatter.abbrev(s.prompt)}</td>
-                  <td>{NumberFormatter.abbrev(s.completion)}</td>
-                  <td>{NumberFormatter.abbrev(s.total)}</td>
+      <section className="act-card">
+        <div className="section-title">{t('Token 消耗统计')}</div>
+        {models.length > 0 ? (
+          <>
+            <table className="usage-table">
+              <thead>
+                <tr>
+                  <th>{t('模型')}</th>
+                  <th>{t('调用次数')}</th>
+                  <th>{t('输入')}</th>
+                  <th>{t('输出')}</th>
+                  <th>{t('总计')}</th>
                 </tr>
-              ))}
-              <tr className="total">
-                <td>{t('合计')}</td>
-                <td>{usage?.total.calls ?? 0}</td>
-                <td>{NumberFormatter.abbrev(usage?.total.prompt ?? 0)}</td>
-                <td>{NumberFormatter.abbrev(usage?.total.completion ?? 0)}</td>
-                <td>{NumberFormatter.abbrev(usage?.total.total ?? 0)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div className="usage-src">
-            {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
-          </div>
-        </>
-      ) : (
-        <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
-      )}
-
-      <div style={SPACER}></div>
-      <div className="section-title">{t('事件分布')}</div>
-      <div id="metricTypes">
-        {Object.keys(et)
-          .sort()
-          .map((k) => (
-            <div className="kv" key={k}>
-              <span className="k">{k}</span>
-              <span className="v">{et[k]}</span>
+              </thead>
+              <tbody>
+                {models.map(([m, s]) => (
+                  <tr key={m}>
+                    <td>{m}</td>
+                    <td>{s.calls}</td>
+                    <td>{NumberFormatter.abbrev(s.prompt)}</td>
+                    <td>{NumberFormatter.abbrev(s.completion)}</td>
+                    <td>{NumberFormatter.abbrev(s.total)}</td>
+                  </tr>
+                ))}
+                <tr className="total">
+                  <td>{t('合计')}</td>
+                  <td>{usage?.total.calls ?? 0}</td>
+                  <td>{NumberFormatter.abbrev(usage?.total.prompt ?? 0)}</td>
+                  <td>{NumberFormatter.abbrev(usage?.total.completion ?? 0)}</td>
+                  <td>{NumberFormatter.abbrev(usage?.total.total ?? 0)}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div className="usage-src">
+              {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
             </div>
-          ))}
-      </div>
+          </>
+        ) : (
+          <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
+        )}
+      </section>
+
+      <section className="act-card">
+        <div className="section-title">{t('事件分布')}</div>
+        <div id="metricTypes">
+          {Object.keys(et).length === 0 ? (
+            <p className="hint">{t('暂无事件记录。')}</p>
+          ) : (
+            Object.keys(et)
+              .sort()
+              .map((k) => (
+                <div className="kv" key={k}>
+                  <span className="k">{k}</span>
+                  <span className="v">{et[k]}</span>
+                </div>
+              ))
+          )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -16,16 +16,18 @@
 //   一个键只出现在一个字段里；一个字段只属于一个分栏。断言钉在 web/test/settingsPane.test.mjs。
 
 import type { Config } from '../../types/models.ts';
+import type { IconName } from './Icon.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 设置分栏 key。 */
 export type SettingsTabKey =
+  | 'general'
+  | 'appearance'
   | 'model'
   | 'runtime'
   | 'permission'
-  | 'appearance'
-  | 'profiles'
-  | 'desktop';
+  | 'desktop'
+  | 'shortcuts';
 
 /** 一个分栏。 */
 export interface SettingsTabDef {
@@ -35,16 +37,40 @@ export interface SettingsTabDef {
   label: string;
   /** 一句话说明这一栏管什么（空态/引导用，避免用户靠猜）。 */
   hint: string;
+  /** 控制台左导航用的线性图标（`models/Icon.ts` 的图标名）。 */
+  icon: IconName;
 }
 
-/** 分栏清单：顺序即面板内导航顺序（模型 → 运行时 → 权限 → 外观 → 配置集 → 桌面）。 */
+/**
+ * 分栏清单：顺序即设置类页面的默认顺序。
+ *
+ * 2026-10-26 控制台重构后，设置不再是独立模态的六个分栏，而是「工作台控制台」里的
+ * 基础设置组；配置集（profiles）移出设置，回到它自己的完整管理面板（避免"设置里只能
+ * 应用、面板里才能增删"的两套入口）。
+ */
 export const SETTINGS_TABS: readonly SettingsTabDef[] = [
-  { key: 'model', label: '模型', hint: '厂商接入、API Key、默认模型与自定义端点' },
-  { key: 'runtime', label: '运行时', hint: '适配器、工作区与沙箱执行环境' },
-  { key: 'permission', label: '权限', hint: '审批模式、升级策略与免确认开关' },
-  { key: 'appearance', label: '外观', hint: '主题与界面密度' },
-  { key: 'profiles', label: '配置集', hint: '切换配置集、查看当前生效插件' },
-  { key: 'desktop', label: '桌面', hint: '托盘、开机启动、更新与诊断' },
+  { key: 'general', label: '常规', hint: '界面语言、工作区与会话范围', icon: 'sliders' },
+  { key: 'appearance', label: '外观', hint: '主题与界面宽度', icon: 'contrast' },
+  {
+    key: 'model',
+    label: '模型与厂商',
+    hint: '厂商接入、API Key、默认模型与自定义端点',
+    icon: 'package',
+  },
+  {
+    key: 'runtime',
+    label: '运行时',
+    hint: '适配器、工作区与沙箱执行环境',
+    icon: 'command',
+  },
+  {
+    key: 'permission',
+    label: '权限',
+    hint: '审批模式、升级策略与参数级规则',
+    icon: 'shield',
+  },
+  { key: 'desktop', label: '桌面', hint: '托盘、开机启动、更新与诊断', icon: 'monitor' },
+  { key: 'shortcuts', label: '键盘快捷键', hint: '全局快捷键与输入框按键', icon: 'keyboard' },
 ];
 
 /** 字段类型。 */

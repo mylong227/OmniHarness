@@ -20,7 +20,8 @@ import { SessionPanel } from './components/SessionPanel.tsx';
 import { StreamView } from './components/StreamView.tsx';
 import { RightPanel } from './components/RightPanel.tsx';
 import { BrowserPane } from './components/BrowserPane.tsx';
-import { PanelModal } from './components/PanelModal.tsx';
+import { ConsoleView } from './components/console/ConsoleView.tsx';
+import { isSettingKey } from './models/ConsoleRegistry.ts';
 import { ApprovalModal } from './components/ApprovalModal.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
 import { Toast } from './components/Toast.tsx';
@@ -96,7 +97,6 @@ function prefetchLazyPanes(): void {
     void load().catch(() => undefined);
   }
 }
-import { SettingsModal } from './components/SettingsModal.tsx';
 import { SessionsScope } from './models/SessionsScope.ts';
 import { LocalDevUrls } from './models/LocalDevUrls.ts';
 
@@ -114,10 +114,10 @@ function initialState(): AppState {
     streamState: 'connecting',
     adapter: '',
     activePane: 'tools',
-    // 设置模态默认关闭、默认落在「模型」栏（最常改的一栏）。
+    // 控制台默认关闭、默认落在「常规」页（点左栏页脚的设置按钮即进入）。
     settingsOpen: false,
     panelModalOpen: false,
-    settingsTab: 'model',
+    settingsTab: 'general',
     model: '',
     modelOptions: [],
     providerLabel: '',
@@ -221,10 +221,13 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
       // Web 交付：凭据保险库（只列名字、写入即清空、服务端不提供回读）。
       return React.createElement(VaultTab, null);
     case 'rollback':
-      return React.createElement(RollbackTab, { sessionId: s.currentThreadId, onRolledBack: ctrl.sessions.loadThread });
-    // 'settings' 已**不在此处**（2026-10-17）：设置从右栏面板改成模态，
-    // 见 components/SettingsModal.tsx 与 renderBody 里的挂载点。
-    // 若这里还留着 case，说明有人把设置又塞回了面板列表——那会与模态形成两个真相。
+      return React.createElement(RollbackTab, {
+        sessionId: s.currentThreadId,
+        onRolledBack: ctrl.sessions.loadThread,
+      });
+    // 'settings' 已**不在此处**（2026-10-17）：设置从右栏面板改成独立页面；
+    // 2026-10-26 起它与功能面板合并为 components/console/ConsoleView.tsx。
+    // 若这里还留着 case，说明有人把设置又塞回了面板列表——那会与控制台形成两个真相。
     case 'plugins':
       return React.createElement(PluginsTab, null);
     case 'graph':
@@ -272,7 +275,7 @@ function sessionActiveMsOf(s: AppState): number | undefined {
 /**
  * 装配顶层 DOM 树（三栏主体 + 审批弹窗 + 抽屉遮罩 + 命令面板 + toast）。
  * 壳层为截图式三栏：会话侧栏（品牌 / 新会话 / 插件 / 工作区 / 设置）+ 中栏对话 + 右栏代码查看器；
- * 无全局顶栏——品牌在侧栏头，连接状态在侧栏页脚，12 个功能面板收进右栏的「全部面板」菜单。
+ * 无全局顶栏——品牌在侧栏头，连接状态在侧栏页脚；功能面板与设置收进同一个「工作台控制台」。
  * @param ctrl 根控制器
  * @param s 当前状态
  * @param pane 右侧内容面板节点
@@ -287,12 +290,65 @@ function renderBody(
   workspacePath: string,
   onWorkspaceResolved: (path: string) => void,
 ): ReactElement {
+  const consoleOpen = s.settingsOpen || s.panelModalOpen;
+  const consoleView = React.createElement(ConsoleView, {
+    // 设置按钮与「全部面板」按钮共用同一个控制台，只是落点不同。
+    open: s.settingsOpen || s.panelModalOpen,
+    active: s.settingsOpen ? s.settingsTab : s.activePane,
+    onPick: (key: string) => {
+      if (isSettingKey(key)) {
+        ctrl.layout.closePanels();
+        ctrl.settings.open(key);
+        return;
+      }
+      ctrl.settings.close();
+      ctrl.setActivePane(key);
+    },
+    onClose: () => {
+      ctrl.settings.close();
+      ctrl.layout.closePanels();
+    },
+    panelContent: React.createElement(
+      React.Suspense,
+      {
+        fallback: React.createElement(
+          'div',
+          { className: 'pane-loading empty note' },
+          t('加载中…'),
+        ),
+      },
+      pane,
+    ),
+    settings: {
+      theme: s.theme,
+      themePref: s.themePref,
+      onThemePrefChange: (pref: ThemePreference) => ctrl.layout.setThemePref(pref),
+      locale: s.locale,
+      onLocaleChange: (l: Locale) => ctrl.settings.setLocale(l),
+      workspacePath,
+      sessionScopeAll: s.sessionsScopeAll,
+      onToggleSessionsScope: ctrl.sessions.toggleSessionsScope,
+      leftWidth: s.leftWidth,
+      rightWidth: s.rightWidth,
+      onLeftWidthChange: ctrl.layout.onLeftWidthChange,
+      onRightWidthChange: ctrl.layout.onRightWidthChange,
+    },
+    workspacePath,
+    connected: s.connected,
+    streamState: s.streamState,
+  });
+
   return React.createElement(
     'div',
     { className: 'app' },
     React.createElement(
       'div',
-      { className: 'body' + (s.rightCollapsed ? ' rcollapsed' : '') },
+      {
+        className:
+          'body' +
+          (s.rightCollapsed ? ' rcollapsed' : '') +
+          (consoleOpen ? ' console-open' : ''),
+      },
       React.createElement(SessionPanel, {
         sessions: s.sessions,
         currentThreadId: s.currentThreadId,
@@ -310,9 +366,11 @@ function renderBody(
         onToggleScope: () => ctrl.sessions.toggleSessionsScope(),
         activePane: s.activePane,
         onOpenPane: (key: string) => ctrl.setActivePane(key),
-        onOpenPalette: () => ctrl.openPalette(),
-        // 设置固定在左栏页脚（2026-10-17）：它是模态，不再从面板列表进入。
-        onOpenSettings: () => ctrl.settings.open(),
+        // 设置固定在左栏页脚（2026-10-17）：它打开工作台控制台，不再从面板列表进入。
+        onOpenSettings: () => {
+          ctrl.layout.closePanels();
+          ctrl.settings.open();
+        },
         connected: s.connected,
         streamState: s.streamState,
         open: s.leftOpen,
@@ -323,142 +381,103 @@ function renderBody(
         width: s.leftWidth,
         onChange: (w: number) => ctrl.layout.onLeftWidthChange(w),
       }),
-      React.createElement(StreamView, {
-        events: s.events,
-        historyHasMore: s.historyHasMore,
-        historyLoading: s.historyLoading,
-        onLoadEarlier: ctrl.sessions.loadEarlier,
-        toolResults: s.toolResults,
-        liveInputs: s.liveInputs,
-        streamText: s.streamText,
-        finalizedStreamText: s.finalizedStreamText,
-        composerSeed: s.composerSeed,
-        onEventClick: ctrl.sessions.showDetail,
-        onOpenFile: ctrl.files.openFile,
-        // 助手消息里的回环 URL（dev server 地址）可一键进右栏网页标签。
-        onOpenUrl: ctrl.browser.open,
-        onSend: ctrl.composer.send,
-        busy: s.busy,
-        activeTool: s.activeTool,
-        question: s.question,
-        onAnswerQuestion: ctrl.answerQuestion,
-        onQuestionExpired: ctrl.expireQuestion,
-        onStop: ctrl.composer.stop,
-        onRegenerate: ctrl.composer.regenerate,
-        onEditUser: ctrl.composer.editLastUser,
-        model: s.model,
-        modelOptions: s.modelOptions,
-        providerLabel: s.providerLabel,
-        reasoning: s.reasoning,
-        reasoningOptions: s.reasoningOptions,
-        permission: s.permission,
-        threadId: s.currentThreadId,
-        onToast: ctrl.showToast,
-        // 编排未跑完时状态栏出现一键续跑（与「编排」面板卡片共用 ctrl.graph.resumeRun）——
-        // 用户不必先学会「全部面板 → 编排」的导航才知道有东西没跑完。
-        graphRuns: s.graphRuns,
-        onGraphResume: ctrl.graph.resumeRun,
-        onApplyMode: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) =>
-          ctrl.sessions.applyModes(patch),
-        onOpenTab: ctrl.openPane,
-        onLoadThread: ctrl.sessions.loadThread,
-        // 空态「快速开始」示例 → 填进输入框（**不是**直接发送：示例是给人改的模板，
-        // 且直接发送会立刻消耗真实额度）。实现与「编辑重发」共用同一条回填通道。
-        onUseStarter: ctrl.composer.seedDraft,
-        onModelChange: ctrl.composer.changeModel,
-        onReasoningChange: ctrl.composer.changeReasoning,
-        onPermissionChange: ctrl.composer.changePermission,
-        api: ctrl.api,
-        sessionTitle: sessionTitleOf(s),
-        workspacePath,
-        sessionActiveMs: sessionActiveMsOf(s),
-        streamState: s.streamState,
-        adapter: s.adapter,
-        onToggleLeft: () => ctrl.layout.toggleLeft(),
-        onToggleRight: () => ctrl.layout.toggleRight(),
-        rightCollapsed: s.rightCollapsed,
-      }),
-      React.createElement(Resizer, {
-        side: 'right',
-        width: s.rightWidth,
-        onChange: (w: number) => ctrl.layout.onRightWidthChange(w),
-      }),
-      React.createElement(
-        RightPanel,
-        {
-          open: s.rightOpen,
-          openFiles: s.openFiles,
-          activeFileTitle: s.fileView?.title ?? null,
-          onShowFile: ctrl.files.showOpenFile,
-          onCloseFile: ctrl.files.closeOpenFile,
-          // 从文件视图点「全部面板」时，模态默认落到工具面板（文件内容仍留在右栏）。
-          onOpenPanels: () =>
-            ctrl.setActivePane(s.activePane === 'file' ? 'tools' : s.activePane),
-          onCollapse: () => ctrl.layout.toggleRight(),
-          style: { width: s.rightWidth + 'px' },
-          // 右栏网页标签（2026-10-19）：地址 / 重载 / 关闭全部由 BrowserController 收口。
-          browser: s.browser,
-          onOpenBrowser: ctrl.browser.show,
-          onShowBrowser: ctrl.browser.show,
-          onCloseBrowser: ctrl.browser.close,
-          onPreviewFile: ctrl.browser.previewFile,
-          browserContent: React.createElement(BrowserPane, {
-            view: s.browser,
-            recentUrls: recentLocalUrls,
-            onNavigate: ctrl.browser.open,
-            onReload: ctrl.browser.reload,
-          }),
-        },
-        // 右栏文件视图；功能面板走下面的 PanelModal（2026-10-19）。
-        React.createElement(FileTab, { fileView: s.fileView }),
-      ),
-    ),
-    React.createElement(
-      PanelModal,
-      {
-        open: s.panelModalOpen,
-        pane: s.activePane,
-        onPick: (key: string) => {
-          ctrl.layout.openPanels();
-          ctrl.setActivePane(key);
-        },
-        onClose: () => ctrl.layout.closePanels(),
-      },
-      React.createElement(
-        React.Suspense,
-        {
-          fallback: React.createElement(
-            'div',
-            { className: 'pane-loading empty note' },
-            t('加载中…'),
+      consoleOpen
+        ? React.createElement('div', { className: 'col center console-host' }, consoleView)
+        : React.createElement(
+            React.Fragment,
+            null,
+            React.createElement(StreamView, {
+              events: s.events,
+              historyHasMore: s.historyHasMore,
+              historyLoading: s.historyLoading,
+              onLoadEarlier: ctrl.sessions.loadEarlier,
+              toolResults: s.toolResults,
+              liveInputs: s.liveInputs,
+              streamText: s.streamText,
+              finalizedStreamText: s.finalizedStreamText,
+              composerSeed: s.composerSeed,
+              onEventClick: ctrl.sessions.showDetail,
+              onOpenFile: ctrl.files.openFile,
+              // 助手消息里的回环 URL（dev server 地址）可一键进右栏网页标签。
+              onOpenUrl: ctrl.browser.open,
+              onSend: ctrl.composer.send,
+              busy: s.busy,
+              activeTool: s.activeTool,
+              question: s.question,
+              onAnswerQuestion: ctrl.answerQuestion,
+              onQuestionExpired: ctrl.expireQuestion,
+              onStop: ctrl.composer.stop,
+              onRegenerate: ctrl.composer.regenerate,
+              onEditUser: ctrl.composer.editLastUser,
+              model: s.model,
+              modelOptions: s.modelOptions,
+              providerLabel: s.providerLabel,
+              reasoning: s.reasoning,
+              reasoningOptions: s.reasoningOptions,
+              permission: s.permission,
+              threadId: s.currentThreadId,
+              onToast: ctrl.showToast,
+              // 编排未跑完时状态栏出现一键续跑（与「编排」面板卡片共用 ctrl.graph.resumeRun）——
+              // 用户不必先学会「全部面板 → 编排」的导航才知道有东西没跑完。
+              graphRuns: s.graphRuns,
+              onGraphResume: ctrl.graph.resumeRun,
+              onApplyMode: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) =>
+                ctrl.sessions.applyModes(patch),
+              onOpenTab: ctrl.openPane,
+              onLoadThread: ctrl.sessions.loadThread,
+              // 空态「快速开始」示例 → 填进输入框（**不是**直接发送：示例是给人改的模板，
+              // 且直接发送会立刻消耗真实额度）。实现与「编辑重发」共用同一条回填通道。
+              onUseStarter: ctrl.composer.seedDraft,
+              onModelChange: ctrl.composer.changeModel,
+              onReasoningChange: ctrl.composer.changeReasoning,
+              onPermissionChange: ctrl.composer.changePermission,
+              api: ctrl.api,
+              sessionTitle: sessionTitleOf(s),
+              workspacePath,
+              sessionActiveMs: sessionActiveMsOf(s),
+              streamState: s.streamState,
+              adapter: s.adapter,
+              onToggleLeft: () => ctrl.layout.toggleLeft(),
+              onToggleRight: () => ctrl.layout.toggleRight(),
+              rightCollapsed: s.rightCollapsed,
+            }),
+            React.createElement(Resizer, {
+              side: 'right',
+              width: s.rightWidth,
+              onChange: (w: number) => ctrl.layout.onRightWidthChange(w),
+            }),
+            React.createElement(
+              RightPanel,
+              {
+                open: s.rightOpen,
+                openFiles: s.openFiles,
+                activeFileTitle: s.fileView?.title ?? null,
+                onShowFile: ctrl.files.showOpenFile,
+                onCloseFile: ctrl.files.closeOpenFile,
+                style: { width: s.rightWidth + 'px' },
+                // 右栏网页标签（2026-10-19）：地址 / 重载 / 关闭全部由 BrowserController 收口。
+                browser: s.browser,
+                onOpenBrowser: ctrl.browser.show,
+                onShowBrowser: ctrl.browser.show,
+                onCloseBrowser: ctrl.browser.close,
+                onPreviewFile: ctrl.browser.previewFile,
+                browserContent: React.createElement(BrowserPane, {
+                  view: s.browser,
+                  recentUrls: recentLocalUrls,
+                  onNavigate: ctrl.browser.open,
+                  onReload: ctrl.browser.reload,
+                }),
+              },
+              // 右栏文件视图；功能面板与设置在下面的控制台（ConsoleView）里。
+              React.createElement(FileTab, { fileView: s.fileView }),
+            ),
           ),
-        },
-        pane,
-      ),
     ),
     React.createElement(ApprovalModal, {
       approval: s.approval,
       onRespond: ctrl.respondApproval,
-      // 「修改权限」直接打开设置的权限栏（原实现打开的是一个已不存在的面板 key）。
+      // 「修改权限」直接打开控制台的权限页（原实现打开的是一个已不存在的面板 key）。
       onChangePermission: ctrl.settings.openPermission,
-    }),
-    React.createElement(SettingsModal, {
-      open: s.settingsOpen,
-      tab: s.settingsTab,
-      theme: s.theme,
-      themePref: s.themePref,
-      onThemePrefChange: (pref: ThemePreference) => ctrl.layout.setThemePref(pref),
-      locale: s.locale,
-      onLocaleChange: (l: Locale) => ctrl.settings.setLocale(l),
-      onClose: ctrl.settings.close,
-      onTabChange: ctrl.settings.setTab,
-      // 更重的配置编辑（参数级规则、配置集增删、凭据库）仍走各自的专属面板：
-      // 设置模态负责"常改的几项"，不试图把所有编辑都塞进来。
-      // 从设置跳到专属面板：先关设置模态，否则两个模态会叠在一起。
-      onOpenPanel: (key: string) => {
-        ctrl.settings.close();
-        ctrl.openPane(key);
-      },
     }),
     React.createElement('div', {
       className: 'drawer-backdrop' + (s.leftOpen || s.rightOpen ? ' show' : ''),
@@ -571,4 +590,3 @@ export function mountApp(container: Element): void {
     ),
   );
 }
-

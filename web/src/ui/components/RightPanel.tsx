@@ -1,7 +1,8 @@
 // 右栏容器（截图式三栏壳）：**代码查看器 + 网页标签**。
 //
-// 2026-10-19 起，功能面板不再从这里以「标签」形式出现，而是改为设置式的
-// `PanelModal`（左导航 + 右内容）。本组件因此只负责两类**内容视**：
+// 2026-10-19 起，功能面板不再从这里以「标签」形式出现，而是改为「左导航 + 右内容」的
+// 页面；2026-10-26 起该页面与设置合并为工作台控制台（`components/console/ConsoleView.tsx`）。
+// 本组件因此只负责两类**内容视**：
 //   · 文件标签条 / 路径栏 / 只读内容（FileTab，由调用方作为 children 注入）；
 //   · 网页标签（BrowserPane，由调用方作为 browserContent 注入）——2026-10-19 新增：
 //     右栏可以直接浏览/预览网页，文件路径栏对 HTML 还给出「预览」入口。
@@ -12,7 +13,6 @@
 // 纯展示组件（函数组件范式）：无内部状态、无副作用。
 
 import * as React from 'react';
-import { PanelPicker } from './PanelPicker.tsx';
 import { FileKindClassifier } from '../models/FileKindClassifier.ts';
 import { icon } from '../models/Icon.ts';
 import type { BrowserView, FileView } from '../shared.ts';
@@ -36,10 +36,6 @@ export interface RightPanelProps {
   onShowFile: (title: string) => void;
   /** 关闭某个文件。 */
   onCloseFile: (title: string) => void;
-  /** 打开「全部面板」模态。 */
-  onOpenPanels: () => void;
-  /** 收起右栏（未提供则不渲染收起按钮）。 */
-  onCollapse?: (() => void) | undefined;
   /** 容器内联样式（宽度）。 */
   style?: Record<string, string> | undefined;
   /** 文件内容节点（FileTab）。 */
@@ -78,8 +74,6 @@ export function RightPanel(props: RightPanelProps): ReactElement {
     activeFileTitle,
     onShowFile,
     onCloseFile,
-    onOpenPanels,
-    onCollapse,
     style,
     children,
     browser,
@@ -165,8 +159,7 @@ export function RightPanel(props: RightPanelProps): ReactElement {
     // 标签文案固定为「网页」：打开 HTML 时文件标签与网页标签会同时存在（源码 / 渲染），
     // 两者同名会让用户分不清哪个是源码；当前地址放在 title 悬浮里。
     const label = t('网页');
-    const title =
-      browser?.title !== undefined && browser.title !== '' ? browser.title : label;
+    const title = browser?.title !== undefined && browser.title !== '' ? browser.title : label;
     return (
       <div
         id={WEB_TAB_ID}
@@ -208,7 +201,7 @@ export function RightPanel(props: RightPanelProps): ReactElement {
   return (
     <div className={'col right' + (open ? ' open' : '')} style={style}>
       <div className="tabs rv-tabs">
-        {/* tablist 只包标签：「全部面板」/ 收起 / 打开网页按钮不是 tab，放在列表外。 */}
+        {/* tablist 只包标签：「全部面板」/ 打开网页按钮不是 tab，放在列表外。 */}
         {tabCount === 0 ? null : (
           <div
             className="rv-tablist"
@@ -229,17 +222,6 @@ export function RightPanel(props: RightPanelProps): ReactElement {
             onClick={onOpenBrowser}
           >
             {icon('globe', { size: 16 })}
-          </button>
-        )}
-        <PanelPicker onOpen={onOpenPanels} />
-        {onCollapse === undefined ? null : (
-          <button
-            className="iconbtn rv-collapse"
-            title={t('收起功能面板（Ctrl/Cmd+Shift+E）')}
-            aria-label={t('收起功能面板')}
-            onClick={onCollapse}
-          >
-            »
           </button>
         )}
       </div>

@@ -1,6 +1,7 @@
 import {
   closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -55,6 +56,13 @@ export interface AuditSinkOptions {
    * `--audit-hmac-key` 旗标），缺省维持裸 SHA256、已落盘历史不受影响。
    */
   readonly hmacKey?: string;
+  /**
+   * 每条记录写后是否 `fsync`（默认 false）。
+   *
+   * 审计是合规面：默认在 `close()` 时 sync 一次（正常停机不掉尾）；要求"每条落盘即耐久"
+   * 的部署可设 `durable:true`，代价是每条一次磁盘同步。
+   */
+  readonly durable?: boolean;
 }
 
 /**
@@ -104,6 +112,8 @@ export class AuditSink {
   private prev = HashChain.GENESIS;
   /** 链哈希 HMAC 密钥（未配置时为 undefined = 裸 SHA256 模式，与既有日志逐字节兼容）。 */
   private readonly hmacKey: string | undefined;
+  /** 每条记录写后是否 fsync。 */
+  private readonly durable: boolean;
   /**
    * 常开 append 文件描述符（S7，2026-10-25）：每条 `appendFileSync` 的 open/write/close
    * 三连改为构造时 open 一次、`writeSync` 追加。写入仍同步（审计合规优先）。
@@ -117,6 +127,7 @@ export class AuditSink {
    */
   public constructor(options: AuditSinkOptions = {}) {
     this.hmacKey = options.hmacKey;
+    this.durable = options.durable === true;
     if (options.path !== undefined) {
       this.target = options.path;
     } else if (options.dir !== undefined) {
@@ -159,6 +170,13 @@ export class AuditSink {
       hash,
     });
     writeSync(this.fd as number, line + '\n');
+    if (this.durable) {
+      try {
+        fsyncSync(this.fd as number);
+      } catch {
+        // 同步失败不改变已写入的字节；由上层观测/重试，不在记录路径抛错打断审计链。
+      }
+    }
     this.seq = seq;
     this.prev = hash;
     log.debug('audit.record', { type: entry.type, seq });
@@ -171,6 +189,11 @@ export class AuditSink {
    */
   public close(): void {
     if (this.fd === undefined) return;
+    try {
+      fsyncSync(this.fd);
+    } catch {
+      // 关闭前 sync 是尽力而为；close 仍必须发生，避免 fd 泄漏。
+    }
     closeSync(this.fd);
     this.fd = undefined;
     this.writeHead();

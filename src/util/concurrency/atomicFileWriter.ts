@@ -7,16 +7,21 @@
  * 崩溃则文件永久停在一半。`rename` 在同一文件系统内是原子的，这是解决该问题的标准做法。
  *
  * Windows 上杀毒/索引器短暂占用会让 `rename` 返回 `EPERM/EBUSY`。这里按**指数退避 + 抖动**
- * 有界重试（最多 5 次），仍失败则抛错——不静默退化为非原子写。
+ * 有界重试（最多 20 次），仍失败则抛错——不静默退化为非原子写。
+ *
+ * `durable: true` 额外对临时文件 `fsync`（并在 POSIX 上 sync 父目录）：适合账本/审计等
+ * **掉电后必须仍在**的数据；普通工作区文件默认不付这笔代价。
  */
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, open, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 /** 写入选项。 */
 export interface AtomicWriteOptions {
   /** 是否沿用目标文件已有权限位（POSIX；Windows 忽略）。 */
   readonly preserveMode?: boolean | undefined;
+  /** 是否 `fsync`（临时文件 + POSIX 父目录）；默认 false（工作区文件可重建）。 */
+  readonly durable?: boolean | undefined;
 }
 
 /** 原子文件写入器（无状态）。 */
@@ -41,12 +46,23 @@ export class AtomicFileWriter {
     const temp = AtomicFileWriter.tempPathOf(target);
     let renamed = false;
     try {
-      await writeFile(temp, content, 'utf8');
+      if (options.durable === true) {
+        const handle = await open(temp, 'w');
+        try {
+          await handle.writeFile(content, 'utf8');
+          await handle.sync();
+        } finally {
+          await handle.close();
+        }
+      } else {
+        await writeFile(temp, content, 'utf8');
+      }
       if (mode !== undefined && process.platform !== 'win32') {
         await chmod(temp, mode).catch(() => undefined);
       }
       await AtomicFileWriter.renameWithRetry(temp, target);
       renamed = true;
+      if (options.durable === true) await AtomicFileWriter.syncDirectory(dirname(target));
     } finally {
       if (!renamed) {
         await unlink(temp).catch(() => undefined);
@@ -89,6 +105,25 @@ export class AtomicFileWriter {
   private static tempPathOf(target: string): string {
     const suffix = randomBytes(6).toString('hex');
     return join(dirname(target), `.${basename(target)}.omni-${String(process.pid)}-${suffix}.tmp`);
+  }
+
+  /**
+   * POSIX 上 sync 父目录，保证 rename 目录项也落盘（Windows 目录句柄 fsync 不可用/无意义）。
+   * @param dir 目录。
+   * @returns 无返回值。
+   */
+  private static async syncDirectory(dir: string): Promise<void> {
+    if (process.platform === 'win32') return;
+    try {
+      const handle = await open(dir, 'r');
+      try {
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+    } catch {
+      // 目录 fsync 失败不改变"文件已 rename"的事实；不把可选耐久性变成写失败。
+    }
   }
 
   /**

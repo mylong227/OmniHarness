@@ -57,11 +57,11 @@ export interface AppState {
   streamState: 'open' | 'connecting' | 'closed';
   adapter: string;
   activePane: string;
-  /** 设置模态是否打开（2026-10-17：设置从右栏面板改为模态）。 */
+  /** 设置页是否打开（2026-10-26 起嵌入中栏控制台，不再是模态）。 */
   settingsOpen: boolean;
-  /** 功能面板模态是否打开（2026-10-19：面板从右栏下拉改为设置式左导航模态）。 */
+  /** 控制台的面板态是否打开（与 settingsOpen 互斥，二者共用中栏）。 */
   panelModalOpen: boolean;
-  /** 设置模态当前分栏（打开时定位，关闭后保留上次选择）。 */
+  /** 设置页当前分栏（打开时定位，关闭后保留上次选择）。 */
   settingsTab: SettingsTabKey;
   model: string;
   modelOptions: string[];
@@ -187,7 +187,7 @@ export class AppController {
     browser: BrowserController;
     /** 布局 / 主题偏好控制器（主题切换、面板开合、宽度持久化）。 */
     layout: LayoutController;
-    /** 设置与界面语言控制器（设置模态开合 / 分栏定位 / locale 落盘）。 */
+    /** 设置与界面语言控制器（设置页开合 / 分栏定位 / locale 落盘）。 */
     settings: SettingsController;
     /** 全局快捷键解析器（无状态）。 */
     keyBindings: KeyboardShortcuts;
@@ -485,19 +485,20 @@ export class AppController {
    * @returns 无
    */
   public openPane(key: string): void {
-    // 2026-10-19：功能面板改在模态里显示；openPane 的调用方（AddMenu 链接 / 设置里的跳转）
-    // 需要同时把模态打开，否则只是改了 activePane、界面上什么都不会发生。
-    this.host.patch({ panelModalOpen: key !== 'file', activePane: key });
+    // 2026-10-19：功能面板显示在中栏控制台；openPane 的调用方（AddMenu 链接 / 设置里的跳转）
+    // 需要同时打开控制台，否则只是改了 activePane、界面上什么都不会发生。
+    // 控制台与设置共用同一块中栏：打开面板/文件都要退出设置态，否则 active 仍指向设置页。
+    this.host.patch({ panelModalOpen: key !== 'file', activePane: key, settingsOpen: false });
     this.routeBinding.navigate({ pane: key });
   }
 
   /**
-   * 设置子控制器（设置模态开合 / 分栏定位 / 界面语言）。
+   * 设置子控制器（设置页开合 / 分栏定位 / 界面语言）。
    *
    * 为什么搬出去（2026-10-17）：本类在 HEAD 时是 **25 个成员**——恰好顶在 `CODE_STANDARD`
    * 上帝类判据的线上（成员 > 25 即违规，且参与增量门禁）；设置这一组一次加了 5 个成员就把它
    * 推过了线。合并方法名去凑数只是把复杂度藏进参数，所以按"成员真正的主语"归位：
-   * 设置模态与界面语言与「连接 SSE / 路由 / 审批」这些本职无关。
+   * 设置页与界面语言与「连接 SSE / 路由 / 审批」这些本职无关。
    * @returns 设置子控制器
    */
   public get settings(): SettingsController {
@@ -588,8 +589,8 @@ export class AppController {
    * @returns 无
    */
   public setActivePane(key: string): void {
-    // 同上：命令面板 / 面板模态左导航都走这里。
-    this.host.patch({ panelModalOpen: key !== 'file', activePane: key });
+    // 命令面板 / 控制台左导航都走这里；面板或文件打开即退出设置态（两者共用中栏）。
+    this.host.patch({ panelModalOpen: key !== 'file', activePane: key, settingsOpen: false });
     this.routeBinding.navigate({ pane: key });
   }
 

@@ -4,18 +4,15 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { openStubSession } from './browserHarness.ts';
 
-test(
-  '侧栏页脚与设置入口在矮视口内可见可点',
-  { timeout: 120_000 },
-  async (t) => {
-    const page = await openStubSession(t, {
-      width: 1000,
-      height: 700,
-      waitFor: '.side-foot',
-    });
-    if (page === null) return;
-    try {
-      const metrics = (await page.cdp.evaluate(`(function(){
+test('侧栏页脚与设置入口在矮视口内可见可点', { timeout: 120_000 }, async (t) => {
+  const page = await openStubSession(t, {
+    width: 1000,
+    height: 700,
+    waitFor: '.side-foot',
+  });
+  if (page === null) return;
+  try {
+    const metrics = (await page.cdp.evaluate(`(function(){
         var foot = document.querySelector('.side-foot');
         var btn = document.querySelector('.side-foot button[aria-label="打开设置"]');
         var fr = foot ? foot.getBoundingClientRect() : null;
@@ -34,33 +31,32 @@ test(
           hit: hit,
         };
       })()`)) as {
-        innerHeight: number;
-        top: number | null;
-        bottom: number | null;
-        btnTop: number | null;
-        btnBottom: number | null;
-        hit: string | null;
-      };
-      assert.ok(metrics.bottom !== null && metrics.top !== null, '页脚必须渲染');
-      assert.ok(
-        metrics.bottom <= metrics.innerHeight + 0.5 && metrics.top >= 0,
-        `页脚必须在视口内：${JSON.stringify(metrics)}`,
-      );
-      assert.ok(
-        metrics.btnBottom !== null && metrics.btnBottom <= metrics.innerHeight + 0.5,
-        '设置按钮必须在视口内',
-      );
-      assert.ok(metrics.hit !== null && metrics.hit !== '', '设置按钮中心必须有命中元素');
-      assert.match(String(metrics.hit), /iconbtn|BUTTON|svg|SVG/u, '设置按钮中心必须可点击');
-      await page.cdp.evaluate(
-        `(function(){ var b=document.querySelector('.side-foot button[aria-label="打开设置"]'); if(b) b.click(); })()`,
-      );
-      assert.ok(
-        await page.cdp.waitFor("!!document.querySelector('.sp[role=\"dialog\"]')", 2000),
-        '点设置后必须打开设置模态',
-      );
-    } finally {
-      await page.close();
-    }
-  },
-);
+      innerHeight: number;
+      top: number | null;
+      bottom: number | null;
+      btnTop: number | null;
+      btnBottom: number | null;
+      hit: string | null;
+    };
+    assert.ok(metrics.bottom !== null && metrics.top !== null, '页脚必须渲染');
+    assert.ok(
+      metrics.bottom <= metrics.innerHeight + 0.5 && metrics.top >= 0,
+      `页脚必须在视口内：${JSON.stringify(metrics)}`,
+    );
+    assert.ok(
+      metrics.btnBottom !== null && metrics.btnBottom <= metrics.innerHeight + 0.5,
+      '设置按钮必须在视口内',
+    );
+    assert.ok(metrics.hit !== null && metrics.hit !== '', '设置按钮中心必须有命中元素');
+    assert.match(String(metrics.hit), /iconbtn|BUTTON|svg|SVG/u, '设置按钮中心必须可点击');
+    await page.cdp.evaluate(
+      `(function(){ var b=document.querySelector('.side-foot button[aria-label="打开设置"]'); if(b) b.click(); })()`,
+    );
+    assert.ok(
+      await page.cdp.waitFor("!!document.querySelector('.csl')", 2000),
+      '点设置后必须打开工作台控制台',
+    );
+  } finally {
+    await page.close();
+  }
+});

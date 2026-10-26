@@ -5297,3 +5297,16 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   `shellFooter` 改为等 `.csl`。全量 **112 文件 / 596 例全绿**。
 - **真机复核**：同一 token 的 8787 服务、1582×1088 真 Chrome：设置页只显示控制台左导航；
   `.csl` 铺满视口，`role=region / composer=false / right=false / leftVisible=false / .rv-collapse=0`。
+
+### 103.4 2026-10-26 三处 chrome 图标退场：命令 / 收起 / 全部面板
+
+- **用户标注**：左栏头「⌘ 命令面板」与「« 收起」、右栏头「▥ 全部面板」，三处图标按钮删除。
+- **删除**：`SidebarHeader` 只留 Ω + 字标（无按钮）；`RightPanel` 不再渲染 `PanelPicker`
+  （`onOpenPanels` prop 一并移除）。右栏头只剩网页标签入口（globe）与文件标签。
+- **入口替代**：命令面板仍可用 Ctrl/Cmd+P；左栏图标条仍可用 `[`；功能面板通过
+  「设置按钮 → 控制台左导航」进入，深链 `#pane=<key>` 仍有效。
+- **判据**：`shellDensity` 改为「品牌行零按钮 + `[` 仍可切换图标条」；
+  `a11yKeyboard` 改为「品牌行无按钮」并把 aria-label 汇总额下调到 5；
+  `panelModalSize` 改用 `#pane=profiles` 深链打开控制台；`visualProbe` 同步改深链。
+- **本机复核**：真 Chrome 1582×1088 实测 `headerButtons=0 / railToggle=false / panelPicker=0 /
+rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**。

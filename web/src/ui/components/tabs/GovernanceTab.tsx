@@ -106,7 +106,7 @@ export function GovernanceTab(): ReactElement {
     // 读不出来要**直说**：空列表会被误读成"没有晋升记录"。
     return (
       <div className="governance-tab">
-        <p className="err">{data.reason}</p>
+        <p className="err">{data.reason || t('未提供原因')}</p>
         <p className="hint">{t('台账尚未产生时可忽略；若已产生过晋升，请检查工作区 .omniharness/evolution。')}</p>
         <button type="button" onClick={() => void refresh()}>
           {t('重试')}

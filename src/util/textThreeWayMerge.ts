@@ -10,13 +10,15 @@
  * 2. 按 base 区间合并两组编辑：**区间不相交 ⇒ 两个改动可交换**，直接叠加；
  * 3. 区间相交且两侧结果不同 ⇒ **冲突**（不猜、不覆盖）。
  *
- * 本实现是**行级**、确定性、无第三方依赖；不做字符级合并（字符级会把「同一行不同位置」
- * 也合并，容易生成语义上不成立的内容）。超过规模上限时返回 `too-large`，调用方退回
- * 「拒绝并重读」的保守路径——**绝不为了合并而把大文件整读两遍**。
+ * 本实现是**行级 + 冲突片段字符级细化**、确定性、无第三方依赖；行级冲突里若双方改的是
+ * 同一行的不同字符区间，会再用 `TextCharacterMerge` 尝试一次（仍冲突才拒绝）。超过规模
+ * 上限时返回 `too-large`，调用方退回「拒绝并重读」的保守路径——**绝不为了合并而把大文件
+ * 整读两遍**。
  *
  * @maturity L2 — 真实实现 LCS 差分 + 区间合并；与 GNU diff3 的边界排序未做逐例对照
  * @maturityEvidence tests/unit/textThreeWayMerge.test.ts
  */
+import { TextCharacterMerge } from './textCharacterMerge.ts';
 
 /** 合并冲突（base 行号 0 起；对外文案时转 1 起）。 */
 export interface TextMergeConflict {
@@ -232,14 +234,18 @@ export class TextThreeWayMerge {
       );
       const hasOurs = cluster.some((hunk) => hunk.side === 'ours');
       const hasTheirs = cluster.some((hunk) => hunk.side === 'theirs');
-      if (hasOurs && hasTheirs && ours.join('\n') !== theirs.join('\n')) {
+      const oursText = ours.join('\n');
+      const theirsText = theirs.join('\n');
+      if (hasOurs && hasTheirs && oursText !== theirsText) {
+        const refined = TextThreeWayMerge.characterRefined(base, start, end, oursText, theirsText);
+        if (refined !== undefined) {
+          out.push(...base.slice(cursor, start));
+          out.push(...refined);
+          cursor = end;
+          continue;
+        }
         if (conflicts.length < TextThreeWayMerge.MAX_CONFLICTS) {
-          conflicts.push({
-            baseStart: start,
-            baseEnd: end,
-            ours: TextThreeWayMerge.snippet(ours),
-            theirs: TextThreeWayMerge.snippet(theirs),
-          });
+          conflicts.push(TextThreeWayMerge.conflictOf(start, end, ours, theirs));
         }
         continue;
       }
@@ -250,6 +256,30 @@ export class TextThreeWayMerge {
     if (conflicts.length > 0) return { ok: false, reason: 'conflict', conflicts };
     out.push(...base.slice(cursor));
     return { ok: true, lines: out };
+  }
+
+  /**
+   * 行级冲突片段的字符级细化。
+   * @param base base 行。
+   * @param start 冲突起点。
+   * @param end 冲突终点。
+   * @param oursText 我方片段。
+   * @param theirsText 对方片段。
+   * @returns 合并后的行；字符级仍冲突时 undefined。
+   */
+  private static characterRefined(
+    base: readonly string[],
+    start: number,
+    end: number,
+    oursText: string,
+    theirsText: string,
+  ): string[] | undefined {
+    const refined = TextCharacterMerge.merge(
+      base.slice(start, end).join('\n'),
+      oursText,
+      theirsText,
+    );
+    return refined.ok ? refined.content.split('\n') : undefined;
   }
 
   /**
@@ -292,6 +322,28 @@ export class TextThreeWayMerge {
     if (aInsert) return b.baseStart < a.baseStart && a.baseStart < b.baseEnd;
     if (bInsert) return a.baseStart < b.baseStart && b.baseStart < a.baseEnd;
     return a.baseStart < b.baseEnd && b.baseStart < a.baseEnd;
+  }
+
+  /**
+   * 构造冲突条目（片段做有界截断）。
+   * @param start base 起始行。
+   * @param end base 结束行。
+   * @param ours 我方行。
+   * @param theirs 对方行。
+   * @returns 冲突条目。
+   */
+  private static conflictOf(
+    start: number,
+    end: number,
+    ours: readonly string[],
+    theirs: readonly string[],
+  ): TextMergeConflict {
+    return {
+      baseStart: start,
+      baseEnd: end,
+      ours: TextThreeWayMerge.snippet(ours),
+      theirs: TextThreeWayMerge.snippet(theirs),
+    };
   }
 
   /**

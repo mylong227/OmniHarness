@@ -193,7 +193,6 @@
   display:flex; align-items:center; gap:6px; background:transparent; border:none; cursor:pointer; border-radius:6px;
 }
 .sec-toggle:hover { background:var(--panel-2); }
-.rail-toggle { margin-left:auto; }
 /* 收起成图标条：只留一条 46px 宽的竖条（项目切换器 + 两个区块开关 + 折叠按钮）。 */
 .col.left.rail { width:46px; min-width:46px; max-width:46px; overflow:hidden; }
 .col.left.rail .ws-switch { padding:8px 5px 4px; }

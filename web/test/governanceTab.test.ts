@@ -9,7 +9,7 @@
  * 3. **台账读不出来就直说**：`available:false` ⇒ 显示原因，**不显示空列表**
  *    （空列表会被误读成"没有晋升记录"）；
  * 4. **回滚是显式动作**：只列快照锚点 + 提示命令行入口，面板本身**不**提供"点一下就回滚"；
- * 5. **面板已注册**：`RightPanel` 的 tab 列表含 `governance`，且 `Router` 认可该 pane
+ * 5. **面板已注册**：工作台控制台左导航含 `governance`，且 `Router` 认可该 pane
  *    （漏注册会让 `#pane=governance` 静默落回默认面板）。
  */
 
@@ -22,7 +22,7 @@ import { allText, byTag, clsOf, walk } from './domFacade.ts';
 import type { FacadeNode } from './domFacade.ts';
 
 const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.tsx');
-const { PanelModal } = await import('../src/ui/components/PanelModal.tsx');
+const { ConsoleView } = await import('../src/ui/components/console/ConsoleView.tsx');
 const { parseHash, isValidPane } = await import('../src/core/Router.ts');
 
 /**
@@ -140,20 +140,40 @@ test('F2 面板：rpc 抛错 ⇒ 可读错误 + 重试按钮（不整页白屏�
   assert.ok(retry.length >= 1, '必须给出重试入口');
 });
 
-test('F2 注册：governance 出现在面板模态左导航，Router 认可该 pane', async () => {
-  // 2026-10-19：功能面板从右栏标签改为设置式模态（左导航 + 右内容），注册判据随之改为
-  // 「模态左导航里有治理」+「路由认可 #pane=governance」。
-  const ui = await renderFacadeAsync(PanelModal, {
-    props: { open: true, pane: 'governance', onPick: () => {}, onClose: () => {} },
+test('F2 注册：governance 出现在控制台左导航，Router 认可该 pane', async () => {
+  // 2026-10-26：功能面板与设置合并为「工作台控制台」；判据改为
+  // 「控制台左导航里有治理」+「路由认可 #pane=governance」。
+  const ui = await renderFacadeAsync(ConsoleView, {
+    props: {
+      open: true,
+      active: 'governance',
+      onPick: () => {},
+      onClose: () => {},
+      workspacePath: '',
+      connected: true,
+      settings: {
+        theme: 'light',
+        themePref: 'light',
+        onThemePrefChange: () => {},
+        locale: 'zh',
+        onLocaleChange: () => {},
+        workspacePath: '',
+        sessionScopeAll: false,
+        onToggleSessionsScope: () => {},
+        leftWidth: 248,
+        rightWidth: 420,
+        onLeftWidthChange: () => {},
+        onRightWidthChange: () => {},
+      },
+    },
   });
   const items = collect(ui.node, (node) => String(node.props.className).includes('sp-nav-item'));
-  // 2026-10-25：新增活动/技能/自动化三个面板 ⇒ 15 → 18（仍不含「文件」）。
-  assert.strictEqual(items.length, 18, '左侧列出 18 个功能面板（不含文件）');
-  assert.ok(!items.some((item) => allText(item) === '文件'), '文件不应出现在面板模态里');
-  assert.ok(
-    items.some((item) => allText(item) === '治理'),
-    '治理面板必须可从面板模态一步到达',
-  );
+  // 24 = 7 个设置页 + 17 个功能面板（PANELS 19 项去掉「文件」与并入权限页的「权限」）。
+  // 数字跟着注册表走：改注册表就该同步改这里，而不是让判据只覆盖一部分。
+  assert.strictEqual(items.length, 24, '控制台左导航列出 24 项（设置 + 功能面板）');
+  assert.ok(!items.some((item) => allText(item) === '文件'), '文件不应出现在控制台里');
+  assert.ok(items.some((item) => allText(item) === '治理'), '治理面板必须可从控制台一步到达');
+  assert.ok(items.some((item) => allText(item) === '常规'), '设置页必须与功能面板同一份导航');
   const route = parseHash.call(null);
   assert.strictEqual(typeof route, 'object', 'parseHash 可用');
   // `#pane=governance` 必须被认作合法 pane（否则静默落回默认面板）。

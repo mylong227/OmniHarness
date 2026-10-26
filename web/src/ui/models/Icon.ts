@@ -81,7 +81,11 @@ export type IconName =
   | 'scan'
   | 'panel-left'
   | 'panel-right'
-  | 'contrast';
+  | 'contrast'
+  // 控制台（设置中心）：返回、下拉指示、键盘。
+  | 'arrow-left'
+  | 'chevron-down'
+  | 'keyboard';
 
 /** 一个图标的几何：路径集合 + 需要的线条/圆点。 */
 interface IconShape {
@@ -264,6 +268,24 @@ const SHAPES: Readonly<Record<IconName, IconShape>> = {
   contrast: {
     circles: [[12, 12, 9]],
     filled: ['M12 3a9 9 0 0 1 0 18z'],
+  },
+  /* 控制台：返回工作区（左箭头）。 */
+  'arrow-left': {
+    paths: ['M19 12H5', 'M11 18l-6-6 6-6'],
+  },
+  /* 下拉指示：只做方向提示，不承担选中态。 */
+  'chevron-down': {
+    paths: ['M6 9l6 6 6-6'],
+  },
+  /* 键盘快捷键：键帽轮廓 + 底行空格键。 */
+  keyboard: {
+    paths: [
+      'M4 6h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z',
+      'M7 10h.01',
+      'M11 10h.01',
+      'M15 10h.01',
+      'M9 14h6',
+    ],
   },
 };
 

@@ -362,7 +362,7 @@ export class HttpServer {
     };
     const checks: Record<string, boolean> = {
       ...core,
-      webDir: existsSync(this.options.webDir),
+      webDir: existsSync(this.staticRoot()),
       metrics: this.options.metrics !== undefined,
     };
     const ok = mode === 'live' || Object.values(core).every(Boolean);
@@ -422,6 +422,21 @@ export class HttpServer {
   }
 
   /**
+   * 解析静态根：**优先 `webDir/dist`（Vite 产物），否则 `webDir`**。
+   *
+   * 2026-10-26 白屏事故：serve 启动那一刻 `web/dist` 正被并发的 `vite build` 清空，
+   * 于是静态根被定在 `web/`；之后产物已生成，进程仍把源码目录的 `index.html`
+   * （`<script src="./src/main.ts">`）当首页发出去 ⇒ 浏览器加载 TS 失败、整页白屏。
+   * 现在每次请求都先看 `webDir/dist/index.html`：产物一旦就绪就自动切换，不必重启服务。
+   * @returns 静态根绝对路径
+   */
+  private staticRoot(): string {
+    const base = resolve(this.options.webDir);
+    const nested = join(base, 'dist');
+    return existsSync(join(nested, 'index.html')) ? nested : base;
+  }
+
+  /**
    * 静态文件（防目录穿越；带缓存/压缩/ETag/304）。
    *
    * 2026-10-25：从「每请求 readFile + no-store」改为：
@@ -443,7 +458,7 @@ export class HttpServer {
     // 去掉 query string，让 `?v=时间戳` 这类缓存破坏参数不影响文件查找。
     const cleanUrl = url.split('?')[0] ?? url;
     const relativePath = cleanUrl === '/' ? 'index.html' : cleanUrl.replace(/^\//, '');
-    const root = resolve(this.options.webDir);
+    const root = this.staticRoot();
     const file = normalize(join(root, relativePath));
     const rel = relative(root, file);
     if (rel.startsWith('..') || isAbsolute(rel)) {

@@ -213,7 +213,7 @@ test('面板注册表：16 项齐全、key 唯一（「全部面板」菜单据�
   // 2026-10-11：新增 `diagnostics`（Web 交付项：daemon 运行态 + doctor 报告）⇒ 12 → 13，
   // 且**逐条**比对 key 集合（只改数字等于放弃"清单齐全"这半条判据）。
   // 2026-10-17：`settings` 移出（17 → 16）。它不是"看某个东西的状态"的面板，而是"改全局配置"，
-  //   现为左栏页脚按钮 + 居中模态（components/SettingsModal.tsx）。逐条比对时把它删掉，
+  //   现为左栏页脚按钮 + 工作台控制台（components/console/ConsoleModal.tsx）。逐条比对时把它删掉，
   //   并在下方显式断言"注册表里不得再有 settings"——否则它会以"未知 pane"的形式静默落回默认面板。
   const { PANELS, panelOf } = await import('../src/ui/models/PanelRegistry.ts');
   assert.deepStrictEqual(

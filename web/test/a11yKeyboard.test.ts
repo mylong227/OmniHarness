@@ -92,8 +92,7 @@ test('RightPanel：文件标签的 tablist/tab/tabpanel 成套，aria-selected �
   assert.strictEqual(allText(panel[0]!), 'file-body');
 });
 
-test('RightPanel：激活文件标签；「全部面板」入口打开模态（不再有下拉菜单）', () => {
-  let opened = 0;
+test('RightPanel：激活文件标签；不再渲染「全部面板」入口', () => {
   const { node } = renderFacade(RightPanel, {
     props: {
       open: true,
@@ -101,9 +100,6 @@ test('RightPanel：激活文件标签；「全部面板」入口打开模态（�
       activeFileTitle: 'rollback.ts',
       onShowFile: () => {},
       onCloseFile: () => {},
-      onOpenPanels: () => {
-        opened += 1;
-      },
       children: null,
     },
   });
@@ -113,11 +109,11 @@ test('RightPanel：激活文件标签；「全部面板」入口打开模态（�
   );
   assert.strictEqual(selected.length, 1);
   assert.match(allText(selected[0]!), /rollback\.ts/);
-  const trigger = byTag(node, 'button').find((b) => b.props['aria-label'] === '全部面板');
-  assert.ok(trigger !== undefined, '右栏必须常驻「全部面板」入口');
-  assert.strictEqual(trigger.props['aria-haspopup'], 'dialog');
-  fireEvent.click(trigger.el);
-  assert.strictEqual(opened, 1, '点击入口必须打开面板模态');
+  assert.strictEqual(
+    byTag(node, 'button').filter((b) => b.props['aria-label'] === '全部面板').length,
+    0,
+    '「全部面板」按钮已按用户要求从右栏头删除',
+  );
 });
 
 test('RightPanel：←/→ 在文件标签间移动，Delete 关闭当前标签', () => {
@@ -208,12 +204,14 @@ test('RightPanel：网页标签激活时面板 aria-labelledby 指向 web-tab', 
 
 // ---- 纯图标按钮必须有可读名字 ----
 
+test('侧栏品牌行不再有命令/收起按钮（2026-10-26 用户要求）', () => {
+  const tree = renderFacade(SidebarHeader, { props: { rail: false } }).node;
+  assert.strictEqual(byTag(tree, 'button').length, 0, '品牌行不得再渲染命令面板/收起按钮');
+});
+
 test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/emoji）', () => {
   // 2026-10-07 壳层重构：NavRail / TopBar 收编为 SidebarHeader / SidebarFooter / PanelPicker。
   const trees = [
-    renderFacade(SidebarHeader, {
-      props: { rail: false, onToggleRail: () => {}, onOpenPalette: () => {} },
-    }).node,
     renderFacade(SidebarFooter, {
       props: {
         connected: true,
@@ -405,9 +403,6 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
         children: null,
       },
     }).node,
-    renderFacade(SidebarHeader, {
-      props: { rail: false, onToggleRail: () => {}, onOpenPalette: () => {} },
-    }).node,
     renderFacade(SidebarFooter, {
       props: {
         connected: true,
@@ -449,7 +444,9 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
   assert.ok(numbered.role >= 6, 'role 数量偏低：' + JSON.stringify(numbered));
   // 2026-10-19：页脚主题切换按钮 + 输入区独立回形针按钮已移除（附件入口收进「＋」菜单），
   // aria-label 相应少两枚 ⇒ 阈值 10→8。
-  assert.ok(numbered.ariaLabel >= 8, 'aria-label 数量偏低：' + JSON.stringify(numbered));
+  // 2026-10-26：品牌行命令按钮 + 右栏「全部面板」按钮按用户要求删除 ⇒ 再少两枚，阈值 8→6；
+  // 随后「收起»」按钮保留、汇总树里 PanelPicker 不再挂进 RightPanel ⇒ 实测 5，阈值落到 5。
+  assert.ok(numbered.ariaLabel >= 5, 'aria-label 数量偏低：' + JSON.stringify(numbered));
   assert.ok(numbered.ariaLive >= 1, '必须有 polite 播报区');
   assert.ok(numbered.ariaSelected >= 2, '标签页必须逐个带 aria-selected');
   assert.ok(numbered.tabIndex >= 1, 'roving tabindex / 可聚焦容器必须存在');

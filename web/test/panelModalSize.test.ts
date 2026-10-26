@@ -1,4 +1,4 @@
-// 面板模态「不跳尺寸」判据（真机）。
+// 全窗口控制台「不跳尺寸」判据（真机）。
 //
 // ## 用户报障
 //
@@ -9,7 +9,7 @@
 //   2. 范围徽标以前写成 `class="scope-chip session"`：`session` 撞上左栏会话行的通用类
 //      `.session { display:flex; min-height:34px }`，会话类面板的顶栏比工作区类高 9px。
 //
-// 现在几何契约是：模态 `min(760px,86vh) × min(880px,92vw)`，顶栏 52px，内容区独占滚动，
+// 现在几何契约是：控制台铺满中栏（宽高随工作区），顶栏 52px，内容区独占滚动，
 // 切面板 scrollTop 归零。本判据逐项**量真机 rect**——CSS 源码断言挡不住"某条新规则又把它撑开"。
 //
 // ## 判据
@@ -59,28 +59,27 @@ async function readGeometry(cdp: CdpSession): Promise<Geometry | null> {
 }
 
 test(
-  '面板模态：切换左导航时窗口几何恒定，且切换后面板从头读',
+  '全窗口控制台：切换左导航时窗口几何恒定，且切换后面板从头读',
   { timeout: 120_000 },
   async (t) => {
     const page = await openStubSession(t, VIEWPORT);
     if (page === null) return;
     try {
       const cdp = page.cdp;
+      // 「全部面板」按钮已按用户要求删除；深链是现役的面板入口（#pane=profiles）。
       const opened = await cdp.evaluate(`(function(){
-        var b = document.querySelector('.pp-btn');
-        if (b === null) return false;
-        b.click();
+        location.hash = '#pane=profiles';
         return true;
       })()`);
-      assert.strictEqual(opened, true, '找不到「全部面板」按钮（.pp-btn），入口可能被改名');
+      assert.strictEqual(opened, true, '无法写入面板深链');
       assert.ok(
         await cdp.waitFor("!!document.querySelector('.panel-modal .sp-nav-item')", 1500),
-        '面板模态没有渲染出左导航',
+        '控制台没有渲染出左导航',
       );
 
       const base = await readGeometry(cdp);
       assert.ok(base !== null, '量不到 .panel-modal 的几何');
-      assert.ok(base.w > 0 && base.h > 0, `模态尺寸异常：${String(base.w)}×${String(base.h)}`);
+      assert.ok(base.w > 0 && base.h > 0, `控制台尺寸异常：${String(base.w)}×${String(base.h)}`);
 
       const count = Number(
         await cdp.evaluate("document.querySelectorAll('.panel-modal .sp-nav-item').length"),

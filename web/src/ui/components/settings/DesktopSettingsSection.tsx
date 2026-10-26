@@ -1,4 +1,4 @@
-/** 设置 → 桌面：托盘/开机启动/更新/诊断（仅桌面桥可用；浏览器下展示说明）。 */
+/** 控制台 → 桌面：托盘 / 开机启动 / 更新 / 诊断（仅桌面桥可用；浏览器下说明边界）。 */
 import * as React from 'react';
 import {
   desktopBridge,
@@ -6,6 +6,7 @@ import {
   type DesktopUpdateStatus,
 } from '../../../core/desktop/DesktopBridge.ts';
 import { t } from '../../i18n/i18n.ts';
+import { ConsoleCard, ConsoleInfoRow, ConsoleRow, ConsoleSwitch } from '../console/ConsoleUI.tsx';
 
 /** 更新状态的可读文案。 */
 function statusText(status: DesktopUpdateStatus | null): string {
@@ -28,7 +29,10 @@ function statusText(status: DesktopUpdateStatus | null): string {
   }
 }
 
-/** 桌面设置栏。 */
+/**
+ * 桌面设置页。
+ * @returns 页面节点
+ */
 export function DesktopSettingsSection(): React.ReactElement {
   const bridge = React.useMemo(() => desktopBridge(), []);
   const [info, setInfo] = React.useState<DesktopInfo | null>(null);
@@ -37,7 +41,7 @@ export function DesktopSettingsSection(): React.ReactElement {
   const [error, setError] = React.useState('');
 
   React.useEffect(() => {
-    if (bridge === null) return;
+    if (bridge === null) return undefined;
     let alive = true;
     void Promise.all([bridge.getInfo(), bridge.getUpdateStatus()])
       .then(([nextInfo, nextStatus]) => {
@@ -59,18 +63,20 @@ export function DesktopSettingsSection(): React.ReactElement {
 
   if (bridge === null) {
     return (
-      <div className="sp-sec">
-        <h3 className="sp-sec-title">{t('桌面')}</h3>
-        <p className="sp-hint">{t('当前是浏览器模式；托盘、开机启动与自动更新只在安装版中可用。')}</p>
-      </div>
+      <ConsoleCard
+        title={t('桌面')}
+        description={t('当前是浏览器模式；托盘、开机启动与自动更新只在安装版中可用。')}
+      >
+        <p className="csl-empty">{t('在安装版中打开，可在这里管理窗口行为与更新。')}</p>
+      </ConsoleCard>
     );
   }
 
   /**
    * 执行一个异步动作（统一 busy/error）。
-   * @param key 动作标识。
-   * @param action 动作。
-   * @returns 无返回值。
+   * @param key 动作标识
+   * @param action 动作
+   * @returns 无
    */
   const run = async (key: string, action: () => Promise<void>): Promise<void> => {
     setBusy(key);
@@ -94,128 +100,116 @@ export function DesktopSettingsSection(): React.ReactElement {
 
   return (
     <>
-      <div className="sp-sec">
-        <h3 className="sp-sec-title">{t('桌面')}</h3>
-        <div className="sp-kv">
-          <span className="sp-k">{t('版本')}</span>
-          <span className="sp-v">{info?.appVersion ?? '—'}</span>
+      {error === '' ? null : (
+        <div className="sp-load-error csl-banner" role="alert">
+          <span>{error}</span>
         </div>
-        <div className="sp-kv">
-          <span className="sp-k">{t('平台')}</span>
-          <span className="sp-v">{info?.platform ?? '—'}</span>
-        </div>
-        <div className="sp-kv">
-          <span className="sp-k">{t('语言')}</span>
-          <span className="sp-v">{info?.language ?? '—'}</span>
-        </div>
-        <div className="sp-kv">
-          <span className="sp-k">{t('当前工作区')}</span>
-          <span className="sp-v sp-v-path" title={info?.workspace ?? ''}>
-            {info?.workspace ?? '—'}
-          </span>
-        </div>
-      </div>
+      )}
 
-      <div className="sp-sec">
-        <h3 className="sp-sec-title">{t('窗口与启动')}</h3>
-        <div className="sp-field">
-          <span className="sp-field-label">{t('关闭时最小化到托盘')}</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={info?.closeToTray === true ? 'true' : 'false'}
-            className={'sp-seg-item' + (info?.closeToTray === true ? ' on' : '')}
-            disabled={busy !== null}
-            onClick={() => toggle('closeToTray', !(info?.closeToTray === true))}
-          >
+      <ConsoleCard title={t('应用信息')} description={t('来自桌面桥的只读信息。')}>
+        <ConsoleInfoRow label={t('版本')} value={info?.appVersion ?? '—'} />
+        <ConsoleInfoRow label={t('平台')} value={info?.platform ?? '—'} />
+        <ConsoleInfoRow label={t('语言')} value={info?.language ?? '—'} />
+        <ConsoleInfoRow
+          label={t('当前工作区')}
+          value={info?.workspace ?? '—'}
+          title={info?.workspace ?? ''}
+        />
+      </ConsoleCard>
+
+      <ConsoleCard
+        title={t('窗口与启动')}
+        description={t('长任务在后台继续运行；托盘菜单可随时恢复窗口。')}
+      >
+        <ConsoleRow label={t('关闭时最小化到托盘')} hint={t('关闭窗口不结束会话与任务。')}>
+          <span className="csl-switch-state">
             {info?.closeToTray === true ? t('已开启') : t('已关闭')}
-          </button>
-          <span className="sp-hint">{t('长任务在后台继续运行；托盘菜单可随时恢复窗口。')}</span>
-        </div>
-        <div className="sp-field">
-          <span className="sp-field-label">{t('开机启动')}</span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={info?.openAtLogin === true ? 'true' : 'false'}
-            className={'sp-seg-item' + (info?.openAtLogin === true ? ' on' : '')}
+          </span>
+          <ConsoleSwitch
+            label={t('关闭时最小化到托盘')}
+            checked={info?.closeToTray === true}
             disabled={busy !== null}
-            onClick={() => toggle('openAtLogin', !(info?.openAtLogin === true))}
-          >
+            onChange={(checked) => toggle('closeToTray', checked)}
+          />
+        </ConsoleRow>
+        <ConsoleRow label={t('开机启动')} hint={t('登录系统后以托盘方式启动（Windows / macOS）。')}>
+          <span className="csl-switch-state">
             {info?.openAtLogin === true ? t('已开启') : t('已关闭')}
-          </button>
-          <span className="sp-hint">{t('登录系统后以托盘方式启动（Windows/macOS）。')}</span>
-        </div>
-      </div>
-
-      <div className="sp-sec">
-        <h3 className="sp-sec-title">{t('更新')}</h3>
-        <p className="sp-hint" role="status" aria-live="polite">
-          {statusText(update)}
-        </p>
-        <div className="sp-field">
-          <button
-            className="ghost"
-            type="button"
+          </span>
+          <ConsoleSwitch
+            label={t('开机启动')}
+            checked={info?.openAtLogin === true}
             disabled={busy !== null}
-            onClick={() => void run('check', () => bridge.checkForUpdates())}
-          >
-            {t('检查更新')}
-          </button>
-          {update?.state === 'available' ? (
-            <button
-              className="ghost"
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void run('download', () => bridge.downloadUpdate())}
-            >
-              {t('下载更新')}
-            </button>
-          ) : null}
-          {update?.state === 'downloaded' ? (
-            <button
-              className="ghost"
-              type="button"
-              disabled={busy !== null}
-              onClick={() => void run('install', () => bridge.installUpdate())}
-            >
-              {t('安装并重启')}
-            </button>
-          ) : null}
-        </div>
-      </div>
+            onChange={(checked) => toggle('openAtLogin', checked)}
+          />
+        </ConsoleRow>
+      </ConsoleCard>
 
-      <div className="sp-sec">
-        <h3 className="sp-sec-title">{t('诊断')}</h3>
-        <div className="sp-field">
-          <button className="ghost" type="button" onClick={() => void bridge.openLogs()}>
+      <ConsoleCard
+        title={t('更新')}
+        description={statusText(update)}
+        actions={
+          <>
+            <button
+              className="csl-btn"
+              type="button"
+              disabled={busy !== null}
+              onClick={() => void run('check', () => bridge.checkForUpdates())}
+            >
+              {t('检查更新')}
+            </button>
+            {update?.state === 'available' ? (
+              <button
+                className="csl-btn"
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void run('download', () => bridge.downloadUpdate())}
+              >
+                {t('下载更新')}
+              </button>
+            ) : null}
+            {update?.state === 'downloaded' ? (
+              <button
+                className="csl-btn csl-btn--primary"
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void run('install', () => bridge.installUpdate())}
+              >
+                {t('安装并重启')}
+              </button>
+            ) : null}
+          </>
+        }
+      >
+        <p className="csl-note" role="status" aria-live="polite">
+          {t('更新由桌面应用的后台服务完成；下载完成后可在此安装并重启。')}
+        </p>
+      </ConsoleCard>
+
+      <ConsoleCard title={t('诊断')} description={t('日志目录与运行时排障入口。')}>
+        <ConsoleRow label={t('日志')}>
+          <button className="csl-btn" type="button" onClick={() => void bridge.openLogs()}>
             {t('打开日志目录')}
           </button>
-          {bridge.showDiagnostics !== undefined ? (
-            <button
-              className="ghost"
-              type="button"
-              onClick={() => void bridge.showDiagnostics?.()}
-            >
+        </ConsoleRow>
+        {bridge.showDiagnostics === undefined ? null : (
+          <ConsoleRow label={t('诊断信息')}>
+            <button className="csl-btn" type="button" onClick={() => void bridge.showDiagnostics?.()}>
               {t('查看诊断信息')}
             </button>
-          ) : null}
+          </ConsoleRow>
+        )}
+        <ConsoleRow label={t('重启 Harness')} hint={t('只重启后台服务，不关闭窗口。')}>
           <button
-            className="ghost"
+            className="csl-btn"
             type="button"
             disabled={busy !== null}
             onClick={() => void run('restart', () => bridge.restartHarness())}
           >
             {t('重启 Harness')}
           </button>
-        </div>
-      </div>
-
-      {error !== '' ? (
-        <p className="sp-hint sp-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+        </ConsoleRow>
+      </ConsoleCard>
     </>
   );
 }
