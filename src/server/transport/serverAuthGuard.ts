@@ -7,8 +7,10 @@
  *
  * 1. **默认只绑回环**（127.0.0.1 / ::1 / localhost）；
  * 2. **非回环绑定必须配令牌**，否则拒绝启动（fail-closed，绝不静默开在公网）；
- * 3. 配了令牌后，除 `/healthz`（存活探针，不泄露任何数据）外一律要求
- *    `Authorization: Bearer <token>`，HTTP 与 WebSocket 一视同仁。
+ * 3. 配了令牌后，除 `/healthz` 与 `/readyz`（存活/就绪探针，只回状态与 uptime，不泄露任何
+ *    会话/工作区数据）外一律要求 `Authorization: Bearer <token>`，HTTP 与 WebSocket 一视同仁。
+ *    就绪探针必须免鉴权：容器编排/进程管理器做 readiness 检查时不会携带本服务的令牌，
+ *    401 会让 `/readyz` 在它唯一的使用场景里失效（2026-10-27 冒烟实测）。
  */
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage } from 'node:http';
@@ -16,8 +18,8 @@ import type { IncomingMessage } from 'node:http';
 /** 回环地址集合（含 IPv6 简写与 localhost）。 */
 const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['127.0.0.1', '::1', 'localhost', '[::1]']);
 
-/** 无需鉴权的路径（存活探针：只回状态与 uptime，不含任何会话/工作区数据）。 */
-const PUBLIC_PATHS: ReadonlySet<string> = new Set(['/healthz']);
+/** 无需鉴权的路径（健康探针：只回状态与 uptime，不含任何会话/工作区数据）。 */
+const PUBLIC_PATHS: ReadonlySet<string> = new Set(['/healthz', '/readyz']);
 
 /** 服务端暴露守卫。 */
 export class ServerAuthGuard {

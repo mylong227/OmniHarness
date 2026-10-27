@@ -11,8 +11,8 @@ import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbo
 import { resolve } from 'node:path';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
-/** 起测试服务。 */
-async function startServer(): Promise<{ server: HttpServer; port: number }> {
+/** 起测试服务（可选注入鉴权令牌）。 */
+async function startServer(authToken?: string): Promise<{ server: HttpServer; port: number }> {
   const config = ConfigFactory.build({
     workspaceRoot: tempWorkspace(),
     maxSteps: 16,
@@ -24,7 +24,12 @@ async function startServer(): Promise<{ server: HttpServer; port: number }> {
   });
   const bridge = new HttpBridgeTransport();
   const app = new AppServer({ config, transport: bridge, modelOverrideEnabled: false });
-  const server = new HttpServer({ app, bridge, webDir: resolve(process.cwd(), 'web') });
+  const server = new HttpServer({
+    app,
+    bridge,
+    webDir: resolve(process.cwd(), 'web'),
+    ...(authToken === undefined ? {} : { authToken }),
+  });
   const port = await server.start(0);
   return { server, port };
 }
@@ -90,6 +95,39 @@ test('WebSocket：非 /ws 路径拒绝握手', async () => {
       socket.onerror = () => resolve(true);
       socket.onopen = () => resolve(false);
       setTimeout(() => resolve(true), 800);
+    });
+    assert.strictEqual(failed, true);
+  } finally {
+    await server.close();
+  }
+});
+
+test('WebSocket：带 ?token= 的升级请求可鉴权通过（查询串不得被当成路径不匹配）', async () => {
+  // 旧实现用 `request.url !== '/ws'` 精确比较 ⇒ 带查询串的升级被静默 destroy，
+  // 客户端只看到「WebSocket 错误」（2026-10-27 冒烟实测：serve 的 WS 检查从未真正跑通）。
+  const { server, port } = await startServer('ws-secret');
+  try {
+    const socket = new WebSocket(`ws://localhost:${port}/ws?token=ws-secret`);
+    const opened = await new Promise<boolean>((resolve) => {
+      socket.onopen = () => resolve(true);
+      socket.onerror = () => resolve(false);
+      setTimeout(() => resolve(false), 2000);
+    });
+    assert.strictEqual(opened, true, '带正确 token 的 WS 升级应成功');
+    socket.close();
+  } finally {
+    await server.close();
+  }
+});
+
+test('WebSocket：错误 token 的升级被拒（401，不放宽鉴权）', async () => {
+  const { server, port } = await startServer('ws-secret');
+  try {
+    const socket = new WebSocket(`ws://localhost:${port}/ws?token=wrong`);
+    const failed = await new Promise<boolean>((resolve) => {
+      socket.onopen = () => resolve(false);
+      socket.onerror = () => resolve(true);
+      setTimeout(() => resolve(true), 2000);
     });
     assert.strictEqual(failed, true);
   } finally {

@@ -147,3 +147,28 @@ test('extraTools 注入的自定义工具可经 tool_search 检索到（2026-10-
     'tool_search 必须能检索到 extraTools 注入的工具',
   );
 });
+
+test('默认注册的辅助工具（policy_eval / checkpoint）可经 tool_search 检索到', async () => {
+  // 旧实现：`toolIndex` 在 `registerAgentTools` 里建好（此时辅助工具尚未注册），而
+  // `registerAuxiliaryTools` 之后**没有**无条件 reindex ⇒ 这些工具在直载表里、却永远检索不到
+  // （真模型实测：模型反复 tool_search 得到 count:0，空转 63 次；2026-10-27）。
+  const config = ConfigFactory.build(base());
+  const context: ToolContext = { sessionId: 's1', workspaceRoot: tempWorkspace() };
+  const result = await config.tools.execute(
+    { id: 'c3', name: 'tool_search', arguments: { query: 'policy_eval checkpoint', limit: 10 } },
+    context,
+  );
+  assert.strictEqual(result.ok, true);
+  const payload = JSON.parse(result.output ?? '{}') as { tools?: unknown[] };
+  const names = (payload.tools ?? [])
+    .map((tool) => (tool as { name?: string }).name)
+    .filter((name): name is string => typeof name === 'string');
+  assert.ok(
+    names.includes('policy_eval'),
+    `tool_search 检索不到 policy_eval（实际：${names.join(',')}）`,
+  );
+  assert.ok(
+    names.includes('checkpoint'),
+    `tool_search 检索不到 checkpoint（实际：${names.join(',')}）`,
+  );
+});

@@ -71,10 +71,15 @@ test('verify：启用令牌 + SSE ?token= 错令牌拒绝', () => {
   assert.strictEqual(guard.verify(req('/events?token=wrong')), false);
 });
 
-test('verify：公开路径 /healthz 不受令牌约束', () => {
+test('verify：公开路径 /healthz 与 /readyz 不受令牌约束（就绪探针必须能被编排器调用）', () => {
   const guard = new ServerAuthGuard('secret');
   assert.strictEqual(guard.verify(req('/healthz')), true);
   assert.strictEqual(guard.verify(req('/healthz?token=secret')), true);
+  assert.strictEqual(guard.verify(req('/readyz')), true);
+  assert.strictEqual(guard.verify(req('/readyz?probe=1')), true);
+  // 正对照：非探针路径仍必须带令牌（放宽只限健康面）。
+  assert.strictEqual(guard.verify(req('/rpc')), false);
+  assert.strictEqual(guard.verify(req('/files?path=a.txt')), false);
 });
 
 test('verify：无令牌时也拒绝跨源浏览器请求（回环 Origin 放行，无 Origin 放行）', () => {

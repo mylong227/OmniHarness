@@ -5390,6 +5390,39 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   口径更新；shell 工具新增「非零退出携带真实 exitCode」判据。
 - **验证**：全量单测 **683 文件 / 4212 例通过，4 跳过**；`check.mjs --strict` 1271 文件零违规；
   `tsc --noEmit` 通过；改动文件 prettier/eslint 通过。**未跑** web/desktop 套件（本轮未触碰前端）。
-- **诚实边界**：m1 某次仍有 63 次 `tool_search`（模型检索不存在的能力，空转但未致失败）——这是
-  独立的检索可见性问题，本轮**未修**；真实模型有非确定性（同一 m2 两次运行失败形态不同），
-  单次跑绿不等于稳定；只测了 deepseek-v4-flash 一个模型。
+- **诚实边界**：m1 某次仍有 63 次 `tool_search`（模型检索不存在的能力，空转但未致失败）——根因当日
+  在 §105 定位并修复（`tool_search` 的 BM25 索引漏掉辅助工具）；真实模型有非确定性（同一 m2 两次
+  运行失败形态不同），单次跑绿不等于稳定；只测了 deepseek-v4-flash 一个模型。
+
+## 105. 2026-10-27 全系统体检：真实进程冒烟 36/36 + 4 个「只有真跑才暴露」的缺陷
+
+- **承接**：上一轮监督内核/判据修复已推送（`9b86997c`，远端 main 同哈希）。本轮按「全软件系统」口径
+  做体检：`npm run smoke:real`（36 项真进程）+ 单测/前端/桌面/性能/独立性/文档全跑一遍。
+- **体检结果**：`smoke:real` **36/36**（修复前 27/29，且**有 6 项被静默跳过**，见 ⑤）；桌面 **25/25**；
+  单测 **684 文件 / 4218 例通过（4 跳过）**；`perf:gate` **7/7**；`audit:independence` 2273 文件零外部引用；
+  `check:doc-links` 56 份零死链。
+- **修掉的 4 个真缺陷**（全部是单测/审计看不见、只有装配好的进程才暴露的形态）：
+  1. **`tool_search` 索引漏注册（模型空转的直接原因）**：`toolIndex` 在 `registerAgentTools` 里建好，
+     而 `registerAuxiliaryTools`（`policy_eval` / `checkpoint` / 记忆 / LSP / 身份）与补丁候选/extraTools
+     都在其后注册；旧实现只在「selfVerify 存在」或「extraTools 非空」时重建 ⇒ 默认路径下这些工具
+     **直载可见、检索永远 count:0**（实测真模型 63 次空转）。修复：全部注册完成后**统一 reindex 一次**
+     （`configToolRegistry.defaultTools`）。判据：`defaultToolsInventory.test.ts` 新增「辅助工具可检索」。
+  2. **`--dump-config` 明文泄漏 `apiKey`（严重）**：旧实现直接 `JSON.stringify(CliArgs)`，把 DPAPI 解出的
+     key 打进 stdout。修复：新增 `src/cli/dumpRedactor.ts`（递归打码 `apiKey`、`auth` 整块、`env`/`headers`
+     里名字像凭据的条目；非敏感值保留以维持排障价值），`execCli` 走它。判据：`dumpConfigRedaction.test.ts`
+     3 例；`smoke:real` 的 dump 检查改为「必须出现 `<redacted>` 且不得有 `sk-…`」。
+     **事故记账**：本轮排障时该泄漏被真实复现过一次（探针输出里出现了明文 key）⇒ **那把 key 应视为已暴露，
+     建议轮换**；修复后同一命令只输出 `"apiKey": "<redacted>"`。
+  3. **`/readyz` 需要令牌**：就绪探针的唯一使用者（容器编排/进程管理器）不会带本服务令牌 ⇒ 401 让探针
+     形同虚设。修复：`ServerAuthGuard.PUBLIC_PATHS` 加 `/readyz`（与 `/healthz` 同类：只回 status/uptime/pid，
+     无会话/工作区数据）。判据：`serverAuthGuard.test.ts` 扩为「两个探针公开 + `/rpc`/`/files` 仍 401」。
+  4. **WS 升级只认精确 `/ws`**：`request.url !== '/ws'` ⇒ 带 `?token=` 的升级被静默 `socket.destroy()`，
+     客户端只看到「WebSocket 错误」。修复：只比**路径**（查询串留给守卫读 token）。判据：`wsTransport.test.ts`
+     新增 2 例（正确 token 升级成功 / 错误 token 401），并用真实 `WebSocket` 握手验证。
+  5. **冒烟自己的「假跳过」**：serve 段在 `/readyz` 未就绪时 `return`，而 `/readyz` 常年 401 ⇒ 后续
+     `/metrics`/静态页/`/rpc`/WS×2/审计 共 6 项**从未执行**（报告只显示 1 项红）。修复：冒烟显式注入
+     `OMNI_SERVE_TOKEN`，HTTP 走 `?token=`、WS 走同一查询参数；serve 段 **9/9**、全量 **36/36**。
+- **验证**：如上；`tsc --noEmit`、改动文件 prettier/eslint、`check.mjs --strict` 全过。
+- **前端/桌面**：`npm run web:test` **113 文件 / 603 例全绿**（含真 Chrome 判据）；`desktop npm test` **25/25**。
+- **诚实边界**：`capability list --json`（配置已开）仍以 exit 1 收场——原因是工作区未信任导致项目配置被
+  忽略（既有语义，非缺陷），冒烟脚本按「警告可接受」判定，未强行改成绿；真实模型面只覆盖 deepseek-v4-flash。

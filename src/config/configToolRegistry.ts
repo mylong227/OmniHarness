@@ -585,8 +585,6 @@ export class ConfigToolRegistry {
       registry.register(candidates.definition, (call, context) => candidates.handle(call, context));
       const workflows = new WorkflowMemoryTool(new WorkflowMemoryStore(seed.workspaceRoot));
       registry.register(workflows.definition, (call, context) => workflows.handle(call, context));
-      // tool_search 的 BM25 索引在注册补丁候选/工作流记忆之前已建好；不重建会让它们只能直载、搜不到。
-      toolIndex.reindex(registry.list());
     }
     for (const extra of extraTools ?? []) {
       // 显式注入**优先于内置默认**：`web_fetch` / `view_image` 等内置工具允许被调用方整体替换
@@ -595,13 +593,13 @@ export class ConfigToolRegistry {
       registry.unregister(extra.definition.name);
       registry.register(extra.definition, extra.handler);
     }
-    // 2026-10-03 修（审计 T6）：extraTools 注册完成后**必须重建** tool_search 的索引——
-    // 旧实现在 extraTools 注册前建好索引且 `reindex()` 全仓零调用，注入的自定义工具永远
-    // 不可检索；若注入工具还**替换**了内置（如同名 web_fetch），模型检索到的是旧 schema，
-    // 与 effectiveTools 绑定的新定义自相矛盾。
-    if ((extraTools ?? []).length > 0) {
-      toolIndex.reindex(registry.list());
-    }
+    // **统一重建一次**（2026-10-27）：`toolIndex` 在 `registerAgentTools` 里建好，而
+    // `registerAuxiliaryTools`（policy_eval / checkpoint / 记忆 / LSP / 身份等）、补丁候选与
+    // extraTools 都在其后注册。旧实现只在「selfVerify 存在」或「extraTools 非空」时重建，
+    // 于是默认路径下这些工具**直载可见、tool_search 却永远搜不到**（真模型实测：模型反复检索
+    // `policy_eval`/`checkpoint` 得到 count:0，空转 63 次）。工具数只有几十个，重建代价可忽略；
+    // 顺序必须放在所有注册之后、`markDeferred` 之前（2026-10-03 修 T6 的 extraTools 重建并入此处）。
+    toolIndex.reindex(registry.list());
     if (deferredTools !== undefined && deferredTools.length > 0) {
       registry.markDeferred(deferredTools);
     }

@@ -1,4 +1,4 @@
-﻿import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { WsFrameCodec } from './wsFrameCodec.ts';
 import type { WsParsedFrame } from './wsFrameCodec.ts';
 import type { Duplex } from 'node:stream';
@@ -354,7 +354,11 @@ export class WsServer {
    */
   private upgrade(request: IncomingMessage, socket: Duplex): void {
     const key = request.headers['sec-websocket-key'];
-    if (request.url !== '/ws' || typeof key !== 'string') {
+    // 只比**路径**：查询串要留给鉴权守卫读 `?token=`（浏览器/EventSource 类客户端无法设头）。
+    // 旧实现用 `request.url !== '/ws'` 精确比较 ⇒ 任何带查询串的升级请求都被静默 destroy，
+    // 客户端只看到「WebSocket 错误」（2026-10-27 冒烟实测）。
+    const path = (request.url ?? '').split('?')[0] ?? '';
+    if (path !== '/ws' || typeof key !== 'string') {
       socket.destroy();
       return;
     }

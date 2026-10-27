@@ -199,9 +199,15 @@ function phaseCore(ws) {
       return s === want || `退出码 ${String(s)} 与报告不一致（应为 ${String(want)}）`;
     },
   });
-  runCli('--dump-config', ['--dump-config', '--prompt', 'x'], {
+  runCli('--dump-config（凭据必须打码）', ['--dump-config', '--prompt', 'x'], {
     cwd: ws,
-    expect: (o) => (/"modelAdapter"/.test(o) && /"capability"/.test(o)) || 'dump 缺关键键',
+    expect: (o) => {
+      if (!/"modelAdapter"/.test(o) || !/"workspace"/.test(o)) return 'dump 缺关键键';
+      // 2026-10-27：dump 曾把 apiKey 明文打到 stdout；未配置 key 时字段不出现属正常。
+      if (/"apiKey"/.test(o) && !/"apiKey": "<redacted>"/.test(o)) return 'dump 的 apiKey 未打码';
+      if (/sk-[A-Za-z0-9]{16,}/.test(o)) return 'dump 出现疑似明文 key';
+      return true;
+    },
   });
   runCli('native info（原生内核）', ['native', 'info'], {
     cwd: ws,
@@ -478,13 +484,19 @@ async function phaseServe(ws) {
 
   const port = await freePort();
   const auditDir = join(ws, 'audit-serve');
+  // 服务端在回环下也会生成临时令牌（浏览器用 `?token=` 首屏换 cookie），因此冒烟必须自带令牌：
+  // 显式注入 OMNI_SERVE_TOKEN，HTTP 走 `?token=`、WS 走同一查询参数（Guard 对两者同源校验）。
+  // 2026-10-27 发现：本段此前从不带令牌 ⇒ `/metrics`/静态页/`/rpc`/WS 全部 401，而早先 `/readyz`
+  // 也是 401 时脚本提前 `return`，把这些检查整体跳过了（看着只红一项，其实全段从未真正跑过）。
+  const serveToken = `smoke-${String(process.pid)}-${Date.now().toString(36)}`;
+  const tokenQuery = `token=${encodeURIComponent(serveToken)}`;
   const child = spawn(
     process.execPath,
     // 显式 `--workspace ws`：否则本机固定项目（用户级配置）会接手工作区（见 realUiScenario 同处注释）。
     [CLI, 'serve', '--port', String(port), '--workspace', ws, '--audit-dir', auditDir],
     {
       cwd: ws,
-      env: { ...process.env, OMNI_SEMANTIC_RECALL: '0' },
+      env: { ...process.env, OMNI_SEMANTIC_RECALL: '0', OMNI_SERVE_TOKEN: serveToken },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -493,7 +505,8 @@ async function phaseServe(ws) {
   child.stderr.on('data', (d) => (serverOut += String(d)));
   const base = `http://127.0.0.1:${String(port)}`;
   const get = async (path) => {
-    const res = await fetch(`${base}${path}`);
+    const sep = path.includes('?') ? '&' : '?';
+    const res = await fetch(`${base}${path}${sep}${tokenQuery}`);
     const text = await res.text();
     return { status: res.status, text };
   };
@@ -552,7 +565,7 @@ async function phaseServe(ws) {
     let rpcOk = false;
     let rpcEvidence = '';
     try {
-      const res = await fetch(`${base}/rpc`, {
+      const res = await fetch(`${base}/rpc?${tokenQuery}`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'config.get', params: {} }),
@@ -568,7 +581,14 @@ async function phaseServe(ws) {
     // 真实 WebSocket 往返：用**本仓自己的 CLI**（sdk call）作为客户端
     runCli(
       'serve WS：sdk call --method model.catalog',
-      ['sdk', 'call', '--url', `ws://127.0.0.1:${String(port)}/ws`, '--method', 'model.catalog'],
+      [
+        'sdk',
+        'call',
+        '--url',
+        `ws://127.0.0.1:${String(port)}/ws?${tokenQuery}`,
+        '--method',
+        'model.catalog',
+      ],
       {
         cwd: ws,
         timeoutMs: 60000,
@@ -583,7 +603,7 @@ async function phaseServe(ws) {
         'sdk',
         'call',
         '--url',
-        `ws://127.0.0.1:${String(port)}/ws`,
+        `ws://127.0.0.1:${String(port)}/ws?${tokenQuery}`,
         '--method',
         'turns.run',
         '--params',

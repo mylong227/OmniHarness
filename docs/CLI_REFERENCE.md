@@ -4,7 +4,7 @@
 >
 > ```bash
 > node dist/src/cli/exec.js --help              # 子命令用法 + 全部旗标
-> node dist/src/cli/exec.js --dump-config       # 打印生效配置（默认值 + 配置文件合并结果）后退出
+> node dist/src/cli/exec.js --dump-config       # 打印生效配置（默认值 + 配置文件合并结果；凭据已打码）后退出
 > ```
 >
 > 命令分发处：[`../src/cli/execCli.ts`](../src/cli/execCli.ts)；旗标认识面（**新增旗标必须登记**）：
@@ -129,7 +129,7 @@
 | `--tool FILE`                                                            | 加载自定义工具模块（可重复）                                                                                                                                                                                                  |
 | `--mcp-server NAME=COMMAND`                                              | 桥接外部 MCP 服务器（工具名前缀 `NAME__`）                                                                                                                                                                                    |
 | `--defer-tools web_search,delegate`                                      | 延迟加载工具（经 `tool_search` 发现）                                                                                                                                                                                         |
-| `--dump-config`                                                          | 仅打印生效配置并退出                                                                                                                                                                                                          |
+| `--dump-config`                                                          | 仅打印生效配置并退出（`apiKey` / MCP `auth` / `env`·`headers` 里的凭据一律打码为 `<redacted>`）                                                                                                                               |
 
 ### 会话与输出
 
