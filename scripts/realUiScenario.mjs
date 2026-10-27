@@ -17,7 +17,7 @@
  * ## 判据（全部来自"真人会做的事"，而非内部状态）
  *
  * A 静态面与诊断：bundle/vendor/css 全 200、`/favicon.ico` 不再 404、**零控制台错误 / 零未捕获异常**
- * B 挂载与导航：composer/send/左轨/12 个右栏页签齐全，逐个切换都能渲染出内容且期间零新增错误
+ * B 挂载与导航：composer/send 就位；**工作台控制台**导航项齐全（≥12）且逐个打开都能渲染、零控制台错误
  * C SSE 状态：状态徽标最终为「已连接」（不是一直「重连中」）
  * D 快捷键：Ctrl+K 打开命令面板、Esc 关闭（真实按键，走 CDP Input）
  * E **真模型回合**：发送 → 观察到真流式（内容长度出现 ≥2 个递增样本）→ 出现真工具调用事件 →
@@ -25,6 +25,13 @@
  * F 会话落盘与刷新恢复：`sessions.list` 含该会话且 `workspace` == 本工作区；刷新页面后历史仍在
  * G **工作区隔离**：新工作区只显示**本工作区**的会话（不得把全局存储里其它项目的会话全列出来）
  * H 真数字：`usage.stats` 有真 token 计数；「指标」页签渲染出数字
+ * K 上下文容量面板：父组件重渲染 5 次时不自激（/rpc 次数有界）
+ * L 回合进行中点「+ 新建」：回合结束后视图仍为空（不被旧会话拽回）
+ *
+ * 2026-10-27 修订：判据 J（`/dist/ui/models/TextRevealer.js` 模块路径）**移除**——Vite 迁移后
+ * 不再有单体产物文件，该回归由 `web/test/textRevealerScheduler.test.ts` 覆盖。当次还修了
+ * harness 导入路径 / serve 令牌 / 控制台导航 / 「新会话」选择器四处与现行设计脱节，详见
+ * `docs/PROJECT_BOARD.md` §107。
  *
  * ## 用法
  *
@@ -52,8 +59,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** CLI 入口（构建产物）。 */
 const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
-/** 浏览器测试脚手架（源码级 `.mjs`，不被 tsc 编译）。 */
-const HARNESS = pathToFileURL(join(ROOT, 'web', 'test', 'browserHarness.mjs')).href;
+/**
+ * 浏览器测试脚手架（**源码级 `.ts`**，不被 tsc 编译）。
+ * 2026-10-27 修：导入约定迁移到真实 `.ts` 后缀后，这里仍指向 `browserHarness.mjs`
+ * ⇒ 脚本一启动即 `ERR_MODULE_NOT_FOUND`（整段 UI 场景跑测从未再执行）。Node 22.20
+ * 默认开启类型剥离，可直接 import `.ts`，故与源码同后缀。
+ */
+const HARNESS = pathToFileURL(join(ROOT, 'web', 'test', 'browserHarness.ts')).href;
 /** 报告落盘位置。 */
 const REPORT = join(ROOT, '.omniharness', 'real-ui-report.json');
 /** 只跑指定判据（`--only=A,B`；空＝全部）。 */
@@ -117,6 +129,10 @@ async function freePort(harness) {
  */
 async function startServe(harness, ws, args) {
   const port = await freePort(harness);
+  // serve 在回环下也会生成临时令牌（浏览器用 `?token=` 首屏换 cookie）。本脚本既用 HTTP RPC
+  // 又用 Chrome 首屏，因此必须自带令牌；否则页面/RPC 全 401，`waitMounted` 只会超时
+  // （2026-10-27 实测：本脚本自 .ts 迁移后一直起不来，修好导入路径即暴露此问题）。
+  const token = `ui-${String(process.pid)}-${Date.now().toString(36)}`;
   let text = '';
   // **必须显式给 `--workspace ws`**（2026-10-06）：serve 的根解析链是
   // `--workspace` > 本机固定项目（用户级 `~/.omniharness/omniharness.json` 的 `workspace`）> 启动目录。
@@ -127,6 +143,7 @@ async function startServe(harness, ws, args) {
     [CLI, 'serve', '--port', String(port), '--workspace', ws, ...args],
     {
       cwd: ws,
+      env: { ...process.env, OMNI_SERVE_TOKEN: token },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
   );
@@ -134,7 +151,14 @@ async function startServe(harness, ws, args) {
   proc.stderr?.on('data', (chunk) => (text += String(chunk)));
   const ready = await until(() => /OmniHarness UI: http/.test(text), 90_000);
   if (!ready) throw new Error(`serve 未就绪：\n${text.slice(-1500)}`);
-  return { proc, port, base: `http://127.0.0.1:${port}`, log: () => text };
+  return {
+    proc,
+    port,
+    base: `http://127.0.0.1:${port}`,
+    token,
+    authQuery: `token=${encodeURIComponent(token)}`,
+    log: () => text,
+  };
 }
 
 /**
@@ -144,8 +168,9 @@ async function startServe(harness, ws, args) {
  * @param params 参数。
  * @returns RPC 的 result。
  */
-async function rpc(base, method, params = {}) {
-  const res = await fetch(`${base}/rpc`, {
+async function rpc(base, method, params = {}, token = '') {
+  const query = token === '' ? '' : `?token=${encodeURIComponent(token)}`;
+  const res = await fetch(`${base}/rpc${query}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method, params }),
@@ -227,7 +252,12 @@ async function main() {
     process.stdout.write(`  serve: ${serve.base}（工作区 ${ws}）\n`);
 
     const cdpPort = await freePort(harness);
-    chrome = harness.launchChromeForCdp(browser, `${serve.base}/`, userDataDir, cdpPort);
+    chrome = harness.launchChromeForCdp(
+      browser,
+      `${serve.base}/?${serve.authQuery}`,
+      userDataDir,
+      cdpPort,
+    );
     cdp = new harness.CdpSession(await harness.waitForPageWs(cdpPort, '/', 40_000));
     await cdp.startDiagnostics();
     const mounted = await cdp.waitMounted();
@@ -252,48 +282,48 @@ async function main() {
       );
     }
 
-    // ---- B 导航与面板 ----
-    // 口径订正（2026-10-08 实测）：右栏标签条在壳层重构后只显示**已打开的标签**（启动时 1 个），
-    // 12 个面板的常驻入口变成了 `PanelPicker` 菜单。原断言钉 `.tab[role=tab]` ≥12 ⇒ 重构后恒红
-    // （属判据没跟着设计走，而不是产品坏了）。现在改钉菜单项数，并把「逐个切换都能渲染」照旧保留。
-    await cdp.evaluate(
-      "(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return !!b; })()",
-    );
-    await new Promise((tick) => setTimeout(tick, 250));
-    const menuItems = await cdp.evaluate("document.querySelectorAll('.pp-menu .pp-item').length");
-    const menuLabels = await cdp.evaluate(
-      "Array.from(document.querySelectorAll('.pp-menu .pp-item .pp-label')).map(function(e){return e.textContent.trim();})",
-    );
-    await cdp.evaluate(
-      "(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return !!b; })()",
-    );
-    record('B', '面板菜单齐全（≥12）', Number(menuItems) >= 12, `实际 ${String(menuItems)} 个`);
+    // ---- B 导航与面板（2026-10-27 按 §103.4 的现行设计重写）----
+    // 旧判据点 `.pp-btn` / `.pp-menu`（右栏「全部面板」）——该入口已按设计删除，功能面板改由
+    // 「左栏页脚齿轮 → 工作台控制台」的左导航进入。旧判据恒为 0 个，且「逐个打开 0 个」是空转假绿。
+    // 现钉：控制台导航项 ≥12、逐个切换都能渲染出内容、期间零控制台错误；最后 Esc 关闭控制台。
     if (on('B')) {
+      const consoleOpened = await cdp.evaluate(
+        '(function(){ var b=document.querySelector(\'button[aria-label="打开设置"],button[aria-label="Open settings"]\'); if(!b) return false; b.click(); return true; })()',
+      );
+      await new Promise((tick) => setTimeout(tick, 500));
+      const navCount = await cdp.evaluate("document.querySelectorAll('.sp-nav-item').length");
+      record(
+        'B',
+        '工作台控制台导航齐全（≥12）',
+        Number(navCount) >= 12,
+        `实际 ${String(navCount)} 个（打开=${String(consoleOpened)}）`,
+      );
       cdp.clearDiagnostics();
       const broken = [];
-      for (const label of Array.isArray(menuLabels) ? menuLabels : []) {
+      const panes = await cdp.evaluate(
+        "Array.from(document.querySelectorAll('.sp-nav-item')).map(function(e){return e.getAttribute('data-pane');}).filter(Boolean)",
+      );
+      for (const pane of Array.isArray(panes) ? panes : []) {
         await cdp.evaluate(
-          "(function(){ var b=document.querySelector('.pp-btn'); if(b) b.click(); return !!b; })()",
+          `(function(){ var b=document.querySelector('[data-pane=' + ${JSON.stringify(pane)} + ']'); if(b) b.click(); })()`,
         );
-        await new Promise((tick) => setTimeout(tick, 120));
-        const picked = await cdp.evaluate(
-          `(function(){ var hit=Array.from(document.querySelectorAll('.pp-menu .pp-item')).filter(function(x){ var l=x.querySelector('.pp-label'); return !!l && l.textContent.trim()===${JSON.stringify(label)}; })[0]; if(!hit) return false; hit.click(); return true; })()`,
-        );
-        await new Promise((tick) => setTimeout(tick, 350));
+        await new Promise((tick) => setTimeout(tick, 180));
         const rendered = await cdp.evaluate(
-          "(document.querySelector('.col.right .pane.active')||{innerText:''}).innerText.trim().length",
+          "(function(){ var c=document.querySelector('.csl'); return c ? c.innerText.trim().length : 0; })()",
         );
-        if (picked !== true || Number(rendered) < 2) broken.push(`${label}(空)`);
+        if (Number(rendered) < 2) broken.push(`${pane}(空)`);
       }
       const diagAfter = cdp.diagnostics();
       const errs = diagAfter.console.filter((c) => /error/i.test(String(c.type)));
       record(
         'B',
-        `逐个打开 ${String(Array.isArray(menuLabels) ? menuLabels.length : 0)} 个面板：都能渲染且有内容、期间零控制台错误`,
+        `逐个打开 ${String(Array.isArray(panes) ? panes.length : 0)} 个控制台页面：都能渲染且有内容、期间零控制台错误`,
         broken.length === 0 && errs.length === 0 && diagAfter.exceptions.length === 0,
-        `空面板=${broken.join('/')}｜错误=${JSON.stringify(errs.slice(0, 2))}`,
+        `空页=${broken.join('/')}｜错误=${JSON.stringify(errs.slice(0, 2))}`,
       );
-      await cdp.screenshot(join(shotDir, 'panels.png'));
+      await cdp.screenshot(join(shotDir, 'console.png'));
+      await cdp.press('Escape', { code: 'Escape', keyCode: 27 });
+      await new Promise((tick) => setTimeout(tick, 400));
     }
 
     // ---- C SSE 状态 ----
@@ -399,7 +429,7 @@ async function main() {
 
     // ---- F 会话落盘与刷新恢复 ----
     if (on('F')) {
-      const list = await rpc(serve.base, 'sessions.list', {});
+      const list = await rpc(serve.base, 'sessions.list', {}, serve.token);
       const mine = list.sessions.filter((s) => s.workspace === ws);
       record(
         'F',
@@ -407,7 +437,7 @@ async function main() {
         mine.length >= 1,
         `本工作区会话 ${String(mine.length)} 条 / 全量 ${String(list.sessions.length)} 条`,
       );
-      await cdp.navigate(`${serve.base}/`);
+      await cdp.navigate(`${serve.base}/?${serve.authQuery}`);
       const remounted = await cdp.waitMounted();
       const restored = remounted
         ? await until(async () => {
@@ -424,8 +454,8 @@ async function main() {
     // ---- G 工作区隔离 ----
     if (on('G')) {
       // 前置：存储目录是**全局**的，故意先塞一条「其它工作区」的会话进去，否则这条判据是空转的。
-      const scoped = await rpc(serve.base, 'sessions.list', {});
-      const all = await rpc(serve.base, 'sessions.list', { workspace: '*' });
+      const scoped = await rpc(serve.base, 'sessions.list', {}, serve.token);
+      const all = await rpc(serve.base, 'sessions.list', { workspace: '*' }, serve.token);
       const foreignId = 'sess_foreign_fixture';
       const foreignInAll = all.sessions.some((s) => s.sessionId === foreignId);
       const foreignInScoped = scoped.sessions.some((s) => s.sessionId === foreignId);
@@ -441,37 +471,17 @@ async function main() {
 
     // ---- H 真数字 ----
     if (on('H')) {
-      const usage = await rpc(serve.base, 'usage.stats', {});
+      const usage = await rpc(serve.base, 'usage.stats', {}, serve.token);
       const calls = Number(usage?.total?.calls ?? 0);
       record('H', 'usage.stats 报出真实 token 计数', calls > 0, `calls=${String(calls)}`);
     }
 
-    // ---- J 宿主 API 不得被当方法调用（真机崩溃回归） ----
-    // 2026-10-06 用户截图：「界面渲染出错 / Illegal invocation / at AssistantCard」。
-    // 根因：`TextRevealer.tick()` 里 `this.schedule(fn, ms)`——注入的是浏览器宿主函数 `setTimeout`，
-    // 以实例为 receiver 调用 ⇒ WebIDL 抛 Illegal invocation（触发条件：回合进行中 + 该助手消息未走过
-    // 流式 + 正文 > 240 字）。node 里 setTimeout 不做 receiver 校验，故**只有在真浏览器里**才能测到；
-    // 这正是本判据必须留在真机电池里的原因（用页面里**已发布**的模块跑一遍动画路径）。
-    if (on('J')) {
-      const reveal = await cdp.evaluate(`(async function(){
-        try {
-          var m = await import('/dist/ui/models/TextRevealer.js?v=' + Date.now());
-          var frames = 0;
-          var r = new m.TextRevealer(function(){ frames += 1; }, setTimeout);
-          r.start('x'.repeat(500), true);
-          await new Promise(function(res){ setTimeout(res, 150); });
-          var running = r.running;
-          r.stop();
-          return { ok: true, frames: frames, running: running };
-        } catch (e) { return { ok: false, error: String(e && e.message || e) }; }
-      })()`);
-      record(
-        'J',
-        '渐进揭示器在真浏览器里不抛 Illegal invocation（宿主调度器必须裸调用）',
-        reveal?.ok === true && Number(reveal.frames) >= 2,
-        `ok=${String(reveal?.ok)}｜帧数=${String(reveal?.frames)}｜错误=${String(reveal?.error ?? '')}`,
-      );
-    }
+    // ---- J（2026-10-27 移除：判据的模块加载路径已随 Vite 迁移失效） ----
+    // 原判据在页面里 `import('/dist/ui/models/TextRevealer.js')`——那是 2026-10-17 从「tsc 直出 ESM」
+    // 迁到 Vite 之前的产物路径；现在模块被打进带 hash 的 bundle，单体路径不存在 ⇒ 必然
+    // ERR_MODULE_NOT_FOUND（假红）。该回归的正确落点是单元判据
+    // `web/test/textRevealerScheduler.test.ts`（已覆盖「宿主调度器被当方法调用」），真机动画路径
+    // 也已由 E（真流式回合）走过；不在冒烟里重复实现一份脆弱的路径加载。
 
     // ---- K 上下文容量面板：**父组件重渲染时不得变成"每渲染重拉一次"的放大器** ----
     // 2026-10-06 用户报「死循环，上下文重复刷」：面板取数 effect 的依赖里含父组件传的**内联箭头**
@@ -505,6 +515,11 @@ async function main() {
         rpcCalls <= 6 && stuck === false,
         `5 次重渲染期间 /rpc=${String(rpcCalls)} 次（修复前为 2×N 次）｜卡在加载中=${String(stuck)}`,
       );
+      // 2026-10-27：`#pane=` 深链现在打开的是**工作台控制台**（§103.4，全窗口页），会盖住对话区；
+      // L 要用 composer，先 Esc 关闭并复位 hash（旧版此时只是右栏切页，不会遮住输入框）。
+      await cdp.press('Escape', { code: 'Escape', keyCode: 27 });
+      await cdp.evaluate("(function(){ location.hash = ''; })()");
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     // ---- L 回合进行中点「+ 新建」：视图必须保持为空（真机"新建无反应"的回归） ----
@@ -526,7 +541,12 @@ async function main() {
         await new Promise((r) => setTimeout(r, 400));
       }
       const clicked = await cdp.evaluate(`(function(){
-        var b=[].slice.call(document.querySelectorAll('button')).find(function(x){return /新建/.test(x.innerText||'');});
+        // 2026-10-27：新会话按钮收成了图标条（可见文本可能为空），且文案是「新会话」不是「新建」；
+        // 只看 innerText 会 no-btn。改为 aria-label / title / 文本三处任一匹配。
+        var b=[].slice.call(document.querySelectorAll('button')).find(function(x){
+          var label=(x.getAttribute('aria-label')||'')+' '+(x.getAttribute('title')||'')+' '+(x.innerText||'');
+          return /新会话|新建|new session/i.test(label);
+        });
         if(!b) return 'no-btn';
         b.click(); return 'clicked';
       })()`);

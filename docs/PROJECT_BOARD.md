@@ -5426,3 +5426,46 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
 - **前端/桌面**：`npm run web:test` **113 文件 / 603 例全绿**（含真 Chrome 判据）；`desktop npm test` **25/25**。
 - **诚实边界**：`capability list --json`（配置已开）仍以 exit 1 收场——原因是工作区未信任导致项目配置被
   忽略（既有语义，非缺陷），冒烟脚本按「警告可接受」判定，未强行改成绿；真实模型面只覆盖 deepseek-v4-flash。
+
+## 106. 2026-10-27 真跑复测 + 首个长任务基线：`tool_search` 空转 63→0，pass@1 = 0.95
+
+- **复测 §105 的 `tool_search` 修复（收益可量化）**：同一模型（deepseek-v4-flash）重跑 m1/m2：
+  - m1 `14/14`，**26 步 / 74 s / 327,203 prompt（cached 306,816 = 93.8%）**；修复前同用例
+    85 步 / 3.42M prompt（空转）。
+  - m2 `16/16`，**17 步 / 160 s / 235,832 prompt（cached 93.7%）**；修复前 103 步 / 4.56M。
+  - **工具直方图里 `tool_search` = 0 次**（修复前该用例 63 次）；即「检索不到辅助工具 → 反复搜」
+    的空转路径被真正切断，而不是被别的重试掩盖。
+- **`longTasks` 首个真实基线（k=1，全 20 个任务）**：**19/20 通过，pass@1 = 0.950**、
+  `tok/solved` 均值 **98,279**；失败模式 `timedOut=1 / verifyFailed=0 / missingFiles=0 / nonzeroExit=0`。
+  报告 `.tmp/longtasks-full.json`（gitignored），transcripts 同目录 `.long-task-transcripts/`。
+- **唯一失败 `csv-basic` 复盘（不粉饰、也不改阈值凑绿）**：180 s 预算内 CLI 没跑完；transcript 显示
+  `verify ok`、产物齐全，最后一条工具调用距超时仅 **8 秒**。属**时间预算边界**，不是正确性失败。
+  刻意**不**上调 `timeoutMs`：那等于用「放宽尺子」换绿，与本仓「判据不将就」的纪律冲突；如需更宽
+  预算应作为独立的 benchmark 变更并全量重跑。
+- **口径与边界**：`pass@1` 是**单次采样**（非 `--k 3` 统计）；20 个 fixture 是**本仓自建的合成任务**
+  （不是 SWE-bench/Terminal-Bench 分数）；只测了 deepseek-v4-flash 一个模型；`--k 3` 与多厂商仍未跑。
+  复跑命令：
+  ```bash
+  npm run build
+  node tools/eval/longTasks.mjs --k 1 --model deepseek-v4-flash --out report.json
+  ```
+
+## 107. 2026-10-27 `smoke:ui` 复活：真机场景 13/13（含真模型流转 + 落盘 + 隔离）
+
+- **起因**：跑 `npm run smoke:ui` 直接 `ERR_MODULE_NOT_FOUND`——脚本仍按**迁移前的 `.mjs` 旧路径**去
+  import `web/test/browserHarness`，而导入约定迁到真实 `.ts` 后该文件不存在。即：这一层
+  「真 serve + 真 Chrome + 真模型」的跑测**自迁移起从未真正执行**（与 §105 的 serve 段假跳过同类）。
+- **修好导入后，又暴露 4 处判据与现行实现脱节**（全部改成按现状断言，而不是放宽）：
+  1. **不带令牌**：serve 在回环下总是生成临时令牌 ⇒ 页面与 `/rpc` 全 401、`waitMounted` 必然超时。
+     改为脚本显式注入 `OMNI_SERVE_TOKEN`，页面用 `?token=`、RPC 用同一令牌。
+  2. **「右侧面板菜单 ≥12」**：该入口已按 §103.4 删除。改为「左栏页脚齿轮 → 工作台控制台」，
+     逐个打开 **24** 个导航页并断言渲染与零控制台错误。
+  3. **判据 J 的模块路径**：`/dist/ui/models/TextRevealer.js` 是 Vite 迁移前的产物路径 ⇒ 必然
+     `ERR_MODULE_NOT_FOUND`（假红）。移除该条，回归由 `web/test/textRevealerScheduler.test.ts` 覆盖。
+  4. **「+ 新建」选择器 / K 的深链副作用**：按钮已收成图标条（aria-label「新会话」）⇒ 改三处任一匹配；
+     `#pane=` 深链现在会打开全窗口控制台，K 之后补 Esc + hash 复位，L 才能拿到 composer。
+- **结果**：**13/13 全绿**——A 静态面零错误、B 挂载 + 24 个控制台页、C SSE 已连接、D 快捷键、
+  **E 真模型流式 + 真工具调用**、F 会话落盘与刷新恢复、G 工作区隔离、H 真实 token 计数、K 重渲染不自激、
+  L 回合中新建不被旧会话拽回。报告 `.omniharness/real-ui-report.json`。
+- **诚实边界**：只用 deepseek-v4-flash；依赖本机 Chrome（无浏览器时脚本显式 skip）；判据 J 的回归
+  现在只在单元层（jsdom）有覆盖，真机动画路径仅由 E 间接走过——这是本轮**缩小**的一处覆盖面，如实登记。
