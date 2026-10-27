@@ -372,10 +372,16 @@ export class StepToolExecutor {
     // I-P0-3：工具执行成败上报监督内核（native + JS 全路径共用此处，覆盖完整）。
     // 策略拒绝（审批/沙箱/监督内核）不算工具健康失败：否则一次拒绝会推进 safe，
     // safe 又拒绝后续危险工具，形成自锁（实测长任务 3 小时循环）。
+    // 命令「执行完但非零退出」同理不算（2026-10-27 真模型跑测）：一次红测试是日常中间态，
+    // 不是工具坏了；判定用**原始结果**的 exitCode（外溢/注入护栏可能重建结果对象）。
     if (annotated.ok) {
       this.deps.supervisor?.report(toolName, 'success');
     } else if (!SupervisorHealthSignal.isPolicyDenial(annotated.error)) {
-      this.deps.supervisor?.report(toolName, 'failure', annotated.error);
+      if (SupervisorHealthSignal.isCommandOutcome(result)) {
+        log.debug('tool.command.nonzero', { tool: toolName, exitCode: result.exitCode });
+      } else {
+        this.deps.supervisor?.report(toolName, 'failure', annotated.error);
+      }
     }
   }
 

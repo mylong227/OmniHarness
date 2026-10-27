@@ -217,6 +217,7 @@ export class ShellInteractiveTool {
       return {
         callId,
         ok: false,
+        exitCode: outcome.exitCode ?? undefined,
         error: `交互式命令退出码 ${outcome.exitCode ?? 'unknown'}（${where}）`,
       };
     }

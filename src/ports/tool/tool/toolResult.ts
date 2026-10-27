@@ -15,4 +15,13 @@ export interface ToolResult {
    * tool 消息能携带分段内容，且把附件插在 tool 消息之间会破坏 tool_call 配对。
    */
   readonly files?: readonly FileAttachment[] | undefined;
+  /**
+   * 命令类工具的**真实退出码**（可选，2026-10-27）：仅当「子进程确实执行完」时由工具填写。
+   *
+   * 语义边界是**执行完成**而非成功：`exitCode !== 0` 表示命令跑完但返回非零——红测试、
+   * `grep` 无命中、`git diff --exit-code` 等日常结果都属此类，**不是**工具健康失败；
+   * 超时 / 被信号终止 / 进程起不来时子进程没有正常退出码，故**不填**此字段（仍算真实失败）。
+   * 监督内核据此区分「命令结果」与「工具坏了」，避免一次红测试把会话推进 safe 自锁。
+   */
+  readonly exitCode?: number | undefined;
 }

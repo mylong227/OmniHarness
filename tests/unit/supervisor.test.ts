@@ -26,9 +26,13 @@ test('默认 nominal：非危险工具成功不升级', () => {
   assert.strictEqual(s.mode(), 'nominal');
 });
 
-test('危险工具失败 → safe，intercept 拒危险工具', () => {
-  const s = make();
+test('危险工具单次失败只降 degraded（不拦工具）；累计失败率越线才 safe', () => {
+  const s = make({ lockAfterConsecutiveFailures: 100 });
   s.report('shell', 'failure', 'boom');
+  assert.strictEqual(s.mode(), 'degraded', '单样本 100% 失败率无统计意义，不得直接 safe');
+  assert.strictEqual(s.intercept('shell'), undefined, 'degraded 不拦截任何工具');
+  // 攒够 minSamples（默认 4）且失败率仍 100% ⇒ safe，危险工具零越权。
+  for (let i = 0; i < 3; i += 1) s.report('shell', 'failure', 'boom');
   assert.strictEqual(s.mode(), 'safe');
   assert.ok(s.intercept('shell')); // safe 下危险工具零越权
 });
@@ -72,11 +76,14 @@ test('健康向量入审计哈希链 + 模式转移回调触发', () => {
   const path = join(mkdtempSync(join(tmpdir(), 'omni-sup-')), 'audit.log');
   const audit = new AuditSink({ path });
   const transitions: string[] = [];
-  const s = make({ audit });
+  const s = make({ audit, lockAfterConsecutiveFailures: 100 });
   s.onTransition((from, to) => transitions.push(`${from}->${to}`));
-  s.report('shell', 'failure'); // → safe
+  s.report('shell', 'failure'); // 单次失败 → degraded（样本不足不做失败率判定）
+  s.report('shell', 'failure');
+  s.report('shell', 'failure');
+  s.report('shell', 'failure'); // 4/4 = 1.0 ⇒ safe
   assert.strictEqual(s.mode(), 'safe');
-  assert.ok(transitions.includes('nominal->safe'));
+  assert.ok(transitions.includes('degraded->safe'), '单次失败先 degraded，样本够了再升 safe');
   // 哈希链完整
   const report = audit.verify();
   assert.strictEqual(report.ok, true);
@@ -88,7 +95,7 @@ test('健康向量入审计哈希链 + 模式转移回调触发', () => {
 
 test('attemptRecovery 保守：窗口仍有失败不强行升；健康恢复后自动回落 nominal', () => {
   const s = make({ windowSize: 4, safeThreshold: 0.5, lockAfterConsecutiveFailures: 100 });
-  s.report('shell', 'failure'); // → safe（危险工具失败）
+  for (let i = 0; i < 4; i += 1) s.report('shell', 'failure'); // 4/4 ⇒ safe（危险工具失败）
   assert.strictEqual(s.mode(), 'safe');
   // 窗口内仍有失败（failureRate 1.0 > 0.5），不强行升
   assert.strictEqual(s.attemptRecovery(), 'safe');
@@ -120,7 +127,7 @@ test('F16：健康向量转好时**会**自动回落（口径按事实登记，�
     safeThreshold: 0.5,
     lockAfterConsecutiveFailures: 100,
   });
-  s.report('shell', 'failure');
+  for (let i = 0; i < 4; i += 1) s.report('shell', 'failure');
   assert.strictEqual(s.mode(), 'safe');
   for (let i = 0; i < 4; i += 1) s.report('shell', 'success');
   assert.strictEqual(s.mode(), 'nominal', '窗口全成功后自动回落（既有语义，文档已按事实更正）');

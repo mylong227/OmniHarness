@@ -25,9 +25,10 @@ test('onTransition：订阅者超过上限后淘汰最旧（无界增长防御�
     listeners.push(cb);
     s.onTransition(cb);
   }
-  // 触发一次转移（shell 失败 → safe），仅当前在册的订阅者（最旧 6 个已被淘汰）应收到。
+  // 触发一次转移（shell 单次失败 → degraded；样本不足不做失败率判定），仅当前在册的订阅者
+  // （最旧 6 个已被淘汰）应收到。
   s.report('shell', 'failure');
-  assert.strictEqual(s.mode(), 'safe');
+  assert.strictEqual(s.mode(), 'degraded');
   // 共订阅 cap+6 个，最旧 6 个被淘汰，应只通知最后 cap 个（索引 6..cap+5）。
   assert.deepStrictEqual(
     called,

@@ -373,6 +373,32 @@ function runInWs(ws, args) {
 }
 
 /**
+ * 「模型自写的测试真实全绿」的**防假绿**判定（2026-10-27 真模型跑测暴露）。
+ *
+ * 病根：`node --test "test/*.test.mjs"` 在**没有任何测试文件**时输出 `1..0` 并 **exit 0**，
+ * 于是「测试全绿」在「文件根本没写出来」时也判绿（实测 m1 第二轮：判据绿、产物不存在）。
+ * 三个条件必须同时成立：① 指定测试文件存在；② TAP 头 `# tests N` > 0（真跑了用例）；
+ * ③ 退出码 0 且 `# pass` 等于 `# tests`。
+ * @param ws 工作区根。
+ * @param rel 期望的测试文件（相对路径）。
+ * @param result `runInWs` 结果。
+ * @returns `{ ok, detail }` 判定与给报告看的证据串。
+ */
+function selfTestVerdict(ws, rel, result) {
+  const out = result.stdout + result.stderr;
+  const tests = /# tests (\d+)/.exec(out);
+  const pass = /# pass (\d+)/.exec(out);
+  const count = tests === null ? 0 : Number(tests[1]);
+  const passCount = pass === null ? 0 : Number(pass[1]);
+  const exists = existsSync(join(ws, rel));
+  const ok = result.code === 0 && exists && count > 0 && passCount === count;
+  const detail =
+    `exit=${String(result.code)} exists=${String(exists)} tests=${String(count)} pass=${String(passCount)}｜` +
+    truncate(out, 200);
+  return { ok, detail };
+}
+
+/**
  * 判据条目构造器（把布尔 + 说明 + 归属维度合成统一形态）。
  * @param axis 归属维度：`capability` 过程/编排证据、`correctness` 产物正确度、`integrity` 纪律。
  * @param name 条目名。
@@ -510,12 +536,13 @@ function caseM1() {
     async verify(ctx) {
       const checks = [...asAxis(runOracle(ctx.ws, 'm1', M1_ORACLE), 'correctness')];
       const selfTest = runInWs(ctx.ws, ['--test', 'test/*.test.mjs']);
+      const selfTestCheck = selfTestVerdict(ctx.ws, 'test/statkit.test.mjs', selfTest);
       checks.push(
         verdict(
           'correctness',
           '模型自写的 test/statkit.test.mjs 真实全绿',
-          selfTest.code === 0,
-          `node --test "test/*.test.mjs" 退出码 ${String(selfTest.code)}｜${truncate(selfTest.stdout + selfTest.stderr, 200)}`,
+          selfTestCheck.ok,
+          selfTestCheck.detail,
         ),
       );
       const toolNames = ctx.events.toolCalls.map((call) => call.name);
@@ -555,23 +582,26 @@ await checkAsync('主工作区 src/index.mjs 可导入且导出两个函数', as
   assert.equal(typeof mod.formatRows, 'function', 'formatRows 必须是函数');
 });
 if (mod !== undefined && typeof mod.parseKv === 'function' && typeof mod.formatRows === 'function') {
+  // 规格只要求「解析成对象」，未约束原型；Object.create(null) 的返回在功能上等价。
+  // 判据按规格口径比较**键值**（2026-10-27 实测：子代理产出 null 原型对象被判红，属判据过严）。
+  const parse = (text) => ({ ...mod.parseKv(text) });
   check('parseKv 基本解析', () => {
-    eq(mod.parseKv('a=1\\nb=2'), { a: '1', b: '2' });
+    eq(parse('a=1\\nb=2'), { a: '1', b: '2' });
   });
   check('parseKv 忽略空行与 # 注释行', () => {
-    eq(mod.parseKv('# 注释\\n\\na=1\\n   \\nb=2'), { a: '1', b: '2' });
+    eq(parse('# 注释\\n\\na=1\\n   \\nb=2'), { a: '1', b: '2' });
   });
   check('parseKv 去掉 key/value 两侧空白', () => {
-    eq(mod.parseKv('  a  =  1  '), { a: '1' });
+    eq(parse('  a  =  1  '), { a: '1' });
   });
   check('parseKv 重复 key 保留最后一次', () => {
-    eq(mod.parseKv('a=1\\na=2'), { a: '2' });
+    eq(parse('a=1\\na=2'), { a: '2' });
   });
   check('parseKv 非法行抛 Error 且消息含 parseKv', () => {
     throwsWith(() => mod.parseKv('a=1\\nbad line'), Error, 'parseKv');
   });
   check('parseKv 值里含 = 时只按第一个 = 切分', () => {
-    eq(mod.parseKv('url=a=b'), { url: 'a=b' });
+    eq(parse('url=a=b'), { url: 'a=b' });
   });
   check('formatRows 等宽对齐（左列宽 = 最大 k 长度，列间两空格）', () => {
     eq(mod.formatRows([{ k: 'a', v: 1 }, { k: 'bb', v: 2 }]), 'a   1\\nbb  2');
@@ -633,12 +663,13 @@ function caseM2() {
         ),
       );
       const selfTest = runInWs(ctx.ws, ['--test', 'test/*.test.mjs']);
+      const selfTestCheck = selfTestVerdict(ctx.ws, 'test/integration.test.mjs', selfTest);
       checks.push(
         verdict(
           'correctness',
           '模型自写的 test/integration.test.mjs 真实全绿',
-          selfTest.code === 0,
-          `node --test "test/*.test.mjs" 退出码 ${String(selfTest.code)}｜${truncate(selfTest.stdout + selfTest.stderr, 200)}`,
+          selfTestCheck.ok,
+          selfTestCheck.detail,
         ),
       );
       return checks;

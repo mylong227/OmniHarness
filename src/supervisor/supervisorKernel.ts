@@ -32,6 +32,15 @@ const DEFAULT_WINDOW = 32;
 const DEFAULT_DEGRADE = 0.25;
 const DEFAULT_SAFE = 0.5;
 const DEFAULT_LOCK = 5;
+/**
+ * 失败率判定的最小样本数（默认 4，2026-10-27 真模型跑测后引入）。
+ *
+ * 病根：`1 次失败 / 1 次调用 = 100%` 在统计上没有意义，却会直接越 `safeThreshold` ⇒ 进 safe
+ * ⇒ 危险工具全拒。真实链路里模型一次失败的 `apply_patch`（补丁上下文没对上，日常现象）就足以
+ * 把整会话锁死。因此样本不足时**不做失败率判定**，只允许危险工具降到 `degraded`（degraded 不拦
+ * 任何工具）；危险工具累计 4 次失败后仍按失败率进 safe，连续失败仍按 `lockAfter` 进 locked。
+ */
+const DEFAULT_MIN_SAMPLES = 4;
 /** 模式转移订阅者上限：避免长期运行进程重复订阅导致 listeners 无界增长。 */
 const MAX_LISTENERS = 64;
 
@@ -58,6 +67,8 @@ export class SupervisorKernel implements SupervisorPort {
   private readonly safeThreshold: number;
   /** 连续失败锁定线：任一工具连续失败达该次数直接 locked（默认 5）。 */
   private readonly lockAfter: number;
+  /** 失败率判定的最小样本数（默认 4）：样本不足时不做失败率判定。 */
+  private readonly minSamples: number;
   /** 危险工具名集合：safe/locked 模式下被 intercept 直接否决。 */
   private readonly hazardous: ReadonlySet<string>;
   /** 可选审计 sink：每次模式转移把前后模式与健康向量写入审计哈希链。 */
@@ -83,6 +94,7 @@ export class SupervisorKernel implements SupervisorPort {
     this.degradeThreshold = options.degradeThreshold ?? DEFAULT_DEGRADE;
     this.safeThreshold = options.safeThreshold ?? DEFAULT_SAFE;
     this.lockAfter = Math.max(1, options.lockAfterConsecutiveFailures ?? DEFAULT_LOCK);
+    this.minSamples = Math.max(1, options.minSamples ?? DEFAULT_MIN_SAMPLES);
     this.hazardous = SupervisorKernel.toSet(options.hazardousTools);
     this.audit = options.audit;
     this.sessionId = options.sessionId;
@@ -257,7 +269,13 @@ export class SupervisorKernel implements SupervisorPort {
         next = 'locked';
         break;
       }
-      if (rate >= this.safeThreshold || hazardousFailed) {
+      // 样本不足 ⇒ 失败率没有统计意义（1/1 = 100% 是典型假阳性）：不做失败率判定。
+      // 危险工具的单次失败只降到 degraded（degraded 不拦截任何工具，仅状态/审计可见）。
+      if (total < this.minSamples) {
+        if (hazardousFailed) next = this.raise(next, 'degraded');
+        continue;
+      }
+      if (rate >= this.safeThreshold) {
         next = this.raise(next, 'safe');
       } else if (rate >= this.degradeThreshold) {
         next = this.raise(next, 'degraded');

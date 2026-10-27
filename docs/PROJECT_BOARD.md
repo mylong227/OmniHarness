@@ -5353,3 +5353,43 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
 - **诚实边界**：`gc` 明细里 pid 记录标「将删除/已删除」区分 dry-run；`SessionGc` 的 keepNewest
   对"只有 N 个组"的目录意味着全保护（N=50 缺省下 50 组以内永不删）——策略是**保守**的，先保数据
   后省盘；真要立刻回收用 `OMNI_GC_KEEP` 下调。
+
+## 104. 2026-10-27 真模型跑测归因：监督内核自锁（第二、三来源）修复 + 判据假绿修复
+
+- **承接同日收尾**：环④（`rlvrLoop ↔ inMemoryReplayBuffer`）已拆——依赖环 **5 → 4 组**、架构白名单
+  **21 → 19**（`arch:gate` 实测 4 组 / 19 成员）；桌面 GUI 冒烟已脚本化（`desktop npm run smoke`）；
+  `cliHelp.json` 的重复 `gc` 条目已去重（提交 `cabc0a1d`）。
+- **先更正一条误判（诚实优先）**：同日早先写「本机无模型 API Key ⇒ 真模型评测外部阻塞」**不成立**。
+  Key 一直在用户级配置 `D:\omniharness-home\omniharness.json` 的 `providerKeysDpapi.deepseek`
+  （DPAPI 密文，同一 Windows 用户可解）；上一版只查了已迁移删除的 `~/.omniharness`。实测：
+  `-p` 单跑 exit 0（`finalText:"4"`）、`longTasks --self-check` **20/20**。
+  **真正卡住前一轮的是执行环境**：评测脚本用**管道 spawn** 子进程，受限沙箱下 `spawnSync(…,{encoding})`
+  必 `EPERM`（`stdio:'inherit'` 正常）——普通用户会话即可，不是外部凭据阻塞。
+- **真模型跑测（`npm run smoke:model`，deepseek-v4-flash）暴露两个 mock/单测都看不见的缺陷**：
+  1. **监督内核自锁（高严重度，第二/三来源）**：`shell` 命令非零退出被计为「危险工具健康失败」，
+     且 `computeMode` 对「1 次调用 1 次失败 = 100%」直接套 `safeThreshold`。实测 m1：模型写完文件跑
+     自己刚写的红测试（本就是要修的中间态）⇒ 一次失败 ⇒ `safe` ⇒ `shell`/`write_file`/`subagent`
+     全拒 ⇒ 85 步 / **3.4M prompt token** 空转，最终宣告「卡在环境层」。m2 更甚：103 步 / 4.5M token、
+     主工作区只有 README。
+  2. **判据假绿（评测仪器缺陷）**：m1 的「模型自写测试真实全绿」只看 `node --test` 退出码；**没有
+     测试文件时 Node 输出 `1..0` 且 exit 0** ⇒ 文件根本没写出来也判绿（实测 m1 第二轮）。
+  3. **判据过严（规格/判据不同口径）**：m2 的 `parseKv` 返回 `Object.create(null)`（功能等价），
+     oracle 的 `deepStrictEqual` 比到原型 ⇒ 5 项红；prompt 只说「解析成对象」，未要求 `Object.prototype`。
+- **修复**：
+  - `ToolResult.exitCode`（可选，命令类工具填真实退出码）+ `SupervisorHealthSignal.isCommandOutcome`：
+    「命令执行完但非零」不是健康失败；超时/信号/启动失败仍算（fail-closed 不放宽）。
+  - `SupervisorOptions.minSamples`（默认 4）：样本不足不做失败率判定；危险工具单次失败只降
+    `degraded`（不拦任何工具），4 次以上才按失败率进 `safe`；连续失败仍按 `lockAfter` 进 `locked`。
+  - `scripts/realModelComplexTest.mjs`：`selfTestVerdict` 要求「测试文件存在 + `# tests`>0 +
+    `# pass`==`# tests` + exit 0」；m2 oracle 按规格口径比较键值（`{...parseKv(...)}`），不约束原型。
+- **证据（逐用例，真实调用）**：m1 `14/14`（82 s / 32 步，修复前 13/14 且自锁）、m2 `16/16`
+  （145 s / 23 步，修复前 3/5）、m3 `6/6`、m4 `14/14`、m5 `5/5`、m6 `6/6`——**六用例全绿**
+  （m2 的 16/16 为 oracle 修正后单跑；全量跑测当次为 5/6，唯一红项即该 oracle 过严）。
+- **判据**：新增 `supervisorCommandOutcome.test.ts`（3 例：红测试 5 连不降级 / 真实失败样本够了仍降 /
+  超时仍计）+ `healthSignal.test.ts` 2 例；`supervisor.test.ts` / `supervisorListeners.test.ts` 按新
+  口径更新；shell 工具新增「非零退出携带真实 exitCode」判据。
+- **验证**：全量单测 **683 文件 / 4212 例通过，4 跳过**；`check.mjs --strict` 1271 文件零违规；
+  `tsc --noEmit` 通过；改动文件 prettier/eslint 通过。**未跑** web/desktop 套件（本轮未触碰前端）。
+- **诚实边界**：m1 某次仍有 63 次 `tool_search`（模型检索不存在的能力，空转但未致失败）——这是
+  独立的检索可见性问题，本轮**未修**；真实模型有非确定性（同一 m2 两次运行失败形态不同），
+  单次跑绿不等于稳定；只测了 deepseek-v4-flash 一个模型。

@@ -59,3 +59,21 @@ SELF_CHECK_PASS=20 TOTAL=20
 
 - 识别依赖错误文本特征；若未来工具返回结构化 `denial` 码，应改为读码而非正则。
 - 真实长任务复跑需 API key 与可 spawn 验证器；本机已能跑 CLI 单任务，完整 `eval:long` 仍受限。
+
+## 2026-10-27 追加：同类自锁的**第二、第三个**来源（真模型跑测再次暴露）
+
+上一版只堵住了「策略拒绝」这一条，实测仍有两条会把会话锁死（详见 `docs/PROJECT_BOARD.md` §104）：
+
+1. **命令非零退出被当成工具健康失败**：`shell` 属写类工具；模型跑自己刚写的红测试（`exit 1`，
+   本就是要修的中间态）⇒ 一次失败 ⇒ `hazardousFailed` 直接 `safe` ⇒ shell/write_file/subagent 全拒。
+   修法：`ToolResult.exitCode` 携带**真实退出码**，`SupervisorHealthSignal.isCommandOutcome`
+   把「命令执行完但非零」排除出健康信号（不解析错误文案；超时/信号/启动失败仍算真实失败）。
+2. **单样本失败率 = 100%**：`computeMode` 对「1 次调用 1 次失败」也套用 `safeThreshold`，
+   于是任何工具的一次普通失败都能推 `safe`。修法：`SupervisorOptions.minSamples`（默认 4）——
+   样本不足不做失败率判定；危险工具单次失败只降 `degraded`（不拦工具），4 次以上才按失败率
+   进 `safe`；连续失败仍按 `lockAfter` 进 `locked`。
+
+判据：`tests/unit/supervisorCommandOutcome.test.ts`（3 例：红测试 5 连不降级 / 真实失败仍计 /
+超时仍计）、`healthSignal.test.ts` 增 2 例、`supervisor*.test.ts` 按新口径更新。
+实测：m1 由 13/14（safe 自锁、85 步 / 3.4M prompt token）→ **14/14**；
+m2 由 3/5（103 步 / 4.5M）→ **16/16**（19 步 / 358k）。

@@ -383,7 +383,12 @@ export class ShellTool {
       return this.exitFailure(callId, `命令被信号终止：${outcome.signal}`, output);
     }
     if (outcome.exitCode !== 0) {
-      return this.exitFailure(callId, `命令退出码 ${outcome.exitCode ?? 'unknown'}`, output);
+      return this.exitFailure(
+        callId,
+        `命令退出码 ${outcome.exitCode ?? 'unknown'}`,
+        output,
+        outcome.exitCode ?? undefined,
+      );
     }
     return { callId, ok: true, output };
   }
@@ -424,12 +429,24 @@ export class ShellTool {
    * @param callId 工具调用 ID。
    * @param message 失败说明。
    * @param output 已产生的组合输出。
+   * @param exitCode 子进程的真实退出码（仅「命令执行完」时给；超时/信号/启动失败不给）。
    * @returns ok=false 的工具结果（有输出时一并带上）。
    */
-  private exitFailure(callId: string, message: string, output: string): ToolResult {
+  private exitFailure(
+    callId: string,
+    message: string,
+    output: string,
+    exitCode?: number,
+  ): ToolResult {
     const hint = this.frameHint(output);
     const error = hint === '' ? message : `${message}\n${hint}`;
-    return output === '' ? { callId, ok: false, error } : { callId, ok: false, error, output };
+    return exitCode === undefined
+      ? output === ''
+        ? { callId, ok: false, error }
+        : { callId, ok: false, error, output }
+      : output === ''
+        ? { callId, ok: false, error, exitCode }
+        : { callId, ok: false, error, output, exitCode };
   }
 
   /**
