@@ -679,7 +679,7 @@ async function runSmoke(hiddenLaunch: boolean): Promise<void> {
     windowAlive: alive,
     windowVisible: alive && window.isVisible(),
     hiddenLaunch,
-    harnessState: ctx?.supervisor.getState() ?? null,
+    harnessState: ctx?.supervisor?.getState() ?? null,
     harnessEndpoint: handle !== null ? `${handle.host}:${String(handle.port)}` : null,
     loadedUrl: alive ? window.webContents.getURL() : null,
     dom,

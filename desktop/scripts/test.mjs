@@ -393,12 +393,16 @@ test('SmokeHarness：--hidden 启动时按「预期隐藏」判定可见性；�
 
 test('SmokeHarness：DOM 探针脚本可执行且含桥版本判定', () => {
   // 纯 jsdom 级执行：探针在缺 window.omni 时必须报 bridgeVersion=0（而不是抛错）。
-  const root = { querySelector: () => null };
-  const fakeWindow = { document: root };
+  // 探针在渲染层里用全局 document；测试用 Function 参数显式注入同一形态。
+  const fakeDocument = { querySelector: () => null };
   const probe = SmokeHarness.DOM_PROBE;
   assert.ok(probe.includes('apiVersion'), '探针必须检查桥版本');
-  const fn = new Function('window', `return ${probe};`);
-  assert.deepEqual(fn(fakeWindow), { root: false, bridgeVersion: 0 });
+  const fn = new Function('window', 'document', `return ${probe};`);
+  assert.deepEqual(fn({ omni: undefined }, fakeDocument), { root: false, bridgeVersion: 0 });
+  assert.deepEqual(fn({ omni: { apiVersion: 3 } }, { querySelector: () => ({ id: 'root' }) }), {
+    root: true,
+    bridgeVersion: 3,
+  });
 });
 
 test('parseLaunchArgs: workspace / inline / hidden / deep link', () => {
