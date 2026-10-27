@@ -1,5 +1,5 @@
 /** 沙箱 preload：只暴露 window.omni 最小桥，不暴露 ipcRenderer/Node。 */
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 /** 桥 API 版本（与 UI/壳握手；变更即 bump）。 */
 const API_VERSION = 3;
@@ -51,6 +51,8 @@ const api = Object.freeze({
   downloadUpdate: () => ipcRenderer.invoke('omni:downloadUpdate'),
   installUpdate: () => ipcRenderer.invoke('omni:installUpdate'),
   getUpdateStatus: () => ipcRenderer.invoke('omni:getUpdateStatus'),
+  /** 拖入文件的真实系统路径（Electron ≥32 移除 File.path 后，跨 contextBridge 的唯一正道）。 */
+  pathForFile: (file: File) => webUtils.getPathForFile(file),
   onUpdateStatus: (listener: (status: UpdateStatus) => void) =>
     subscribe<UpdateStatus>('omni:updateStatus', listener),
   onNotificationClick: (listener: (sessionId: string | undefined) => void) =>

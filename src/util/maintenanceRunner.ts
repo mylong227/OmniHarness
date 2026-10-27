@@ -144,21 +144,7 @@ export class MaintenanceRunner {
     });
 
     // 每步独立兜错：维护失败绝不外抛（serve 启动路径在调）。
-    const tmp: TmpSweepReport[] = [];
-    for (const root of tmpRoots) {
-      try {
-        tmp.push(
-          TmpSweep.run({
-            tmpDir: root,
-            olderThanMs: options.olderThanMs,
-            dryRun: options.dryRun,
-            now,
-          }),
-        );
-      } catch {
-        /* 单根失败不挡其余根 */
-      }
-    }
+    const tmp = MaintenanceRunner.sweepTmp(tmpRoots, options, now);
 
     let pidSwept: ServeInstanceRecord[] = [];
     try {
@@ -200,6 +186,36 @@ export class MaintenanceRunner {
       sessions,
       sessionTempFiles,
     };
+  }
+
+  /**
+   * 逐个临时根清扫（单根失败不挡其余根）。
+   * @param roots 临时根。
+   * @param options 巡检选项。
+   * @param now 当前时刻。
+   * @returns 各根报告。
+   */
+  private static sweepTmp(
+    roots: readonly string[],
+    options: MaintenanceOptions,
+    now: number,
+  ): TmpSweepReport[] {
+    const reports: TmpSweepReport[] = [];
+    for (const root of roots) {
+      try {
+        reports.push(
+          TmpSweep.run({
+            tmpDir: root,
+            olderThanMs: options.olderThanMs,
+            dryRun: options.dryRun,
+            now,
+          }),
+        );
+      } catch {
+        /* 单根失败不挡其余根 */
+      }
+    }
+    return reports;
   }
 
   /**

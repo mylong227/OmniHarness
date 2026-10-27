@@ -63,6 +63,30 @@ export class DesktopDialogs {
   }
 
   /**
+   * 渲染层自愈耗尽（UI 加载失败 / 渲染进程崩溃的自动恢复已达上限）。
+   * @param kind 故障种类（进 detail 供排障）。
+   * @param detail 故障细节（错误码 / 崩溃原因）。
+   * @param logDir 日志目录。
+   * @returns 1 = 重试（重新载入 UI），0 = 退出。
+   */
+  public async uiGone(
+    kind: 'load-failed' | 'renderer-gone',
+    detail: string,
+    logDir: string,
+  ): Promise<number> {
+    const result = await dialog.showMessageBox({
+      type: 'error',
+      title: this.i18n.t('dialog.uiGoneTitle'),
+      message: this.i18n.t('dialog.uiGoneMessage'),
+      detail: `${kind}: ${detail}\n\n${this.i18n.t('menu.openLogs')}: ${logDir}`,
+      buttons: [this.i18n.t('dialog.quit'), this.i18n.t('dialog.restart')],
+      defaultId: 1,
+      cancelId: 0,
+    });
+    return result.response;
+  }
+
+  /**
    * 诊断信息（工作区/侧车/日志目录/版本）。
    * @param detail 可复制的诊断文本。
    */

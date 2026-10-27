@@ -1,6 +1,6 @@
 /** OmniHarness 桌面主进程（Electron；按 Codex 官方 App 的 Electron + React/TS 形态）。 */
-import { app, BrowserWindow, globalShortcut, session, shell } from 'electron';
-import { existsSync, statSync } from 'node:fs';
+import { app, BrowserWindow, globalShortcut, Notification, session, shell } from 'electron';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { AutoStartService } from './autoStart.ts';
 import { DesktopStateStore } from './desktopState.ts';
@@ -13,6 +13,7 @@ import { DesktopDialogs } from './app/DesktopDialogs.ts';
 import { DeepLinkRouter } from './app/DeepLinkRouter.ts';
 import { HarnessRestartPolicy } from './app/HarnessRestartPolicy.ts';
 import { SecondaryWindows } from './app/SecondaryWindows.ts';
+import { SmokeHarness, type SmokeReport } from './app/SmokeHarness.ts';
 import { StartupMarker } from './app/StartupMarker.ts';
 import { WindowLifecycle } from './app/WindowLifecycle.ts';
 import { DesktopI18n } from './i18n/DesktopI18n.ts';
@@ -104,6 +105,8 @@ const windows = new WindowLifecycle({
   isQuitting: () => context?.quitting === true,
   applyAutoStart: (enabled) => AutoStartService.apply(enabled),
   logger: () => context?.logger ?? null,
+  recovery: config.recovery,
+  onUiGone: (kind, detail) => onUiGone(kind, detail),
 });
 
 /** 额外工作台窗口（多窗口）。 */
@@ -126,6 +129,13 @@ function openNewWindow(): void {
 /** 启动应用。 */
 function run(): void {
   app.setAppUserModelId(config.app.appId);
+  if (process.env['OMNI_SMOKE'] === '1') {
+    // 冒烟超时闸：90s 内没跑到结论（侧车起不来 / UI 挂了）⇒ 退出码 2，绝不吊死调用方。
+    setTimeout(() => {
+      process.stdout.write('[omni-smoke] TIMEOUT: 90s 内未得出结论\n');
+      app.exit(2);
+    }, 90_000);
+  }
   if (app.isPackaged) {
     app.setAsDefaultProtocolClient(config.app.protocol);
   } else if (process.argv[1] !== undefined) {
@@ -388,6 +398,7 @@ async function bootstrap(): Promise<void> {
     window.webContents.once('did-finish-load', () => {
       startup.mark('ui.ready');
       deepLinks.flush();
+      if (process.env['OMNI_SMOKE'] === '1') void runSmoke(launch.hidden);
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -536,6 +547,19 @@ async function openLogs(): Promise<void> {
   await openLogDirectory(ctx.logger.directory());
 }
 
+/**
+ * 渲染层自愈耗尽的人机出口：弹「重试/退出」对话框（重试由 WindowLifecycle 清零计数并重载 UI）。
+ * @param kind 故障种类。
+ * @param detail 故障细节。
+ * @returns 对话框按钮序号（1 = 重试）。
+ */
+async function onUiGone(kind: 'load-failed' | 'renderer-gone', detail: string): Promise<number> {
+  const ctx = context;
+  if (ctx === null) return 0;
+  ctx.logger.write('main', `ui recovery exhausted: ${kind} ${detail}`);
+  return ctx.dialogs.uiGone(kind, detail, ctx.logger.directory());
+}
+
 /** 托盘「诊断信息」：把版本/工作区/侧车/日志/配置来源汇总到可复制对话框。 */
 async function showDiagnostics(): Promise<void> {
   const ctx = context;
@@ -624,6 +648,61 @@ function bindCrashHandler(supervisor: HarnessSupervisor): void {
       else app.quit();
     });
   });
+}
+
+/**
+ * `OMNI_SMOKE=1` 冒烟入口：采集运行事实 → `SmokeHarness` 判定 → 落盘 JSON → 按结论退出
+ * （0 = 全过 / 1 = 有致命断言失败；90s 超时闸在 `run()` 里，退出码 2）。
+ * @param hiddenLaunch 是否带 `--hidden` 启动（可见性按「预期隐藏」判定）。
+ * @returns 无返回值。
+ */
+async function runSmoke(hiddenLaunch: boolean): Promise<void> {
+  const ctx = context;
+  const handle = ctx?.handle ?? null;
+  const window = ctx?.window ?? null;
+  const alive = window !== null && !window.isDestroyed();
+  let dom: { root: boolean; bridgeVersion: number } | null = null;
+  try {
+    if (alive) {
+      dom = (await window.webContents.executeJavaScript(SmokeHarness.DOM_PROBE, true)) as {
+        root: boolean;
+        bridgeVersion: number;
+      };
+    }
+  } catch (error) {
+    ctx?.logger.write(
+      'main',
+      `smoke dom probe failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  const report: SmokeReport = SmokeHarness.judge({
+    windowAlive: alive,
+    windowVisible: alive && window.isVisible(),
+    hiddenLaunch,
+    harnessState: ctx?.supervisor.getState() ?? null,
+    harnessEndpoint: handle !== null ? `${handle.host}:${String(handle.port)}` : null,
+    loadedUrl: alive ? window.webContents.getURL() : null,
+    dom,
+    trayCreated: ctx?.tray !== null,
+    notificationsSupported: Notification.isSupported(),
+    protocolRegistered: app.isDefaultProtocolClient(config.app.protocol),
+  });
+  const out =
+    (process.env['OMNI_SMOKE_OUT'] ?? '').trim() ||
+    join(app.getPath('userData'), 'smoke-result.json');
+  try {
+    writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  } catch (error) {
+    // 落盘失败不改变结论，只进日志（结论仍走 stdout/退出码）。
+    ctx?.logger.write('main', `smoke result write failed: ${String(error)}`);
+  }
+  const line = `smoke ${report.pass ? 'PASS' : 'FAIL'} (${String(report.checks.length)} checks) -> ${out}`;
+  process.stdout.write(`[omni-smoke] ${line}\n`);
+  for (const check of report.checks) {
+    if (!check.ok) process.stdout.write(`[omni-smoke]   ✗ ${check.name}: ${check.detail}\n`);
+  }
+  ctx?.logger.write('main', line);
+  setTimeout(() => app.exit(report.pass ? 0 : 1), 300);
 }
 
 /** 停止 Harness 并退出。 */

@@ -1,4 +1,7 @@
-import type { CodeCandidate, ReplayBuffer } from './rlvrLoop.ts';
+// 2026-10-27 环④拆解：契约类型一律直连端口层（`ReplayBuffer` 已从 `rlvrLoop.ts` 外迁
+// `ports/runtime/evolution/replayBuffer.ts`）——反向 import 实现文件会复活 2 成员环。
+import type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.ts';
+import type { ReplayBuffer } from '../ports/runtime/evolution/replayBuffer.ts';
 
 /** 内存回放缓冲（带容量上限，超出按 FIFO 丢弃最旧）。 */
 export class InMemoryReplayBuffer implements ReplayBuffer {

@@ -63,6 +63,11 @@
   "deepLink": {
     "uiReadyTimeoutMs": 5000
   },
+  "recovery": {
+    "maxAttempts": 3,
+    "windowMs": 600000,
+    "delayMs": 1200
+  },
   "security": {
     "permissions": ["notifications", "clipboard-sanitized-write"],
     "csp": {

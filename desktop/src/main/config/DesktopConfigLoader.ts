@@ -15,6 +15,7 @@ import type {
   DesktopIpcConfig,
   DesktopLoggingConfig,
   DesktopNotificationConfig,
+  DesktopRecoveryConfig,
   DesktopSecurityConfig,
   DesktopStateConfig,
   DesktopTrayConfig,
@@ -154,6 +155,11 @@ export class DesktopConfigLoader {
       deepLink: DesktopConfigLoader.mergeDeepLink(
         DesktopConfigLoader.section(doc, 'deepLink', v),
         base.deepLink,
+        v,
+      ),
+      recovery: DesktopConfigLoader.mergeRecovery(
+        DesktopConfigLoader.section(doc, 'recovery', v),
+        base.recovery,
         v,
       ),
       security: DesktopConfigLoader.mergeSecurity(
@@ -714,6 +720,40 @@ export class DesktopConfigLoader {
         0,
         60_000,
         'deepLink.uiReadyTimeoutMs',
+        v,
+      ),
+    };
+  }
+
+  /** recovery 分区（渲染层自愈）。 */
+  private static mergeRecovery(
+    raw: Record<string, unknown>,
+    base: DesktopRecoveryConfig,
+    v: Validator,
+  ): DesktopRecoveryConfig {
+    return {
+      maxAttempts: DesktopConfigLoader.integerField(
+        raw['maxAttempts'],
+        base.maxAttempts,
+        0,
+        20,
+        'recovery.maxAttempts',
+        v,
+      ),
+      windowMs: DesktopConfigLoader.integerField(
+        raw['windowMs'],
+        base.windowMs,
+        1_000,
+        3_600_000,
+        'recovery.windowMs',
+        v,
+      ),
+      delayMs: DesktopConfigLoader.integerField(
+        raw['delayMs'],
+        base.delayMs,
+        0,
+        30_000,
+        'recovery.delayMs',
         v,
       ),
     };

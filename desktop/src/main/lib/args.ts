@@ -6,7 +6,7 @@ export interface LaunchArgs {
   readonly workspace: string | null;
   /** `--hidden`：启动到托盘/后台（当前仅记录，窗口仍会显示）。 */
   readonly hidden: boolean;
-  /** `omniharness://` 深链（未实现路由时保留）。 */
+  /** `omniharness://` 深链（交给 `DeepLinkRouter`：workspace 切换 / UI 聚焦）。 */
   readonly deepLink: string | null;
 }
 

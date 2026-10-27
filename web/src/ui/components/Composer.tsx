@@ -24,6 +24,8 @@ import { SlashResolver, type SlashToken } from '../models/SlashResolver.ts';
 import { ComposerDraft } from '../models/ComposerDraft.ts';
 import { FileTreeFlattener } from '../models/FileTreeFlattener.ts';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
+import { pathsForDrop } from '../models/AttachmentDrop.ts';
+import { desktopBridge } from '../../core/desktop/DesktopBridge.ts';
 import { icon } from '../models/Icon.ts';
 import {
   SpeechRecognitionFactory,
@@ -499,13 +501,24 @@ export function Composer(props: ComposerProps): ReactElement {
 
   /**
    * 拖拽落点：取文件附件。
+   *
+   * 桌面桥能给出拖入文件的**真实路径**时（preload `webUtils.getPathForFile`），优先走
+   * 服务端 `attach.read`（与 FilePicker 同通道，大文件不必整个 base64 过渲染层）；
+   * 浏览器 / 虚拟文件才回落浏览器读（决策见 `AttachmentDrop`）。
    * @param e 拖拽事件
    * @returns 无
    */
   const onDrop = (e: React.DragEvent): void => {
     e.preventDefault();
     const dt = e.dataTransfer;
-    if (dt && dt.files && dt.files.length > 0) void addFiles(dt.files);
+    if (dt && dt.files && dt.files.length > 0) {
+      const paths = pathsForDrop(Array.from(dt.files), desktopBridge()?.pathForFile);
+      if (paths !== null) {
+        void addRemoteFiles([...paths]);
+        return;
+      }
+      void addFiles(dt.files);
+    }
   };
 
   /**

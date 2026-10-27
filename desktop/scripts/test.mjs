@@ -52,6 +52,7 @@ bundle('src/main/app/StartupMarker.ts', 'startup');
 bundle('src/main/app/DeepLinkRouter.ts', 'deepLinks');
 bundle('src/main/app/HarnessRestartPolicy.ts', 'restartPolicy');
 bundle('src/main/app/WindowLifecycle.ts', 'windowLifecycle');
+bundle('src/main/app/SmokeHarness.ts', 'smokeHarness');
 
 const { parseLaunchArgs } = await import(pathToFileURL(join(out, 'args.cjs')).href);
 const { parseReadyInfo } = await import(pathToFileURL(join(out, 'ready.cjs')).href);
@@ -65,6 +66,7 @@ const { StartupMarker } = await import(pathToFileURL(join(out, 'startup.cjs')).h
 const { DeepLinkRouter } = await import(pathToFileURL(join(out, 'deepLinks.cjs')).href);
 const { HarnessRestartPolicy } = await import(pathToFileURL(join(out, 'restartPolicy.cjs')).href);
 const { WindowLifecycle } = await import(pathToFileURL(join(out, 'windowLifecycle.cjs')).href);
+const { SmokeHarness } = await import(pathToFileURL(join(out, 'smokeHarness.cjs')).href);
 
 test('DesktopI18n：system 解析 + 中英词条完整 + 占位符替换', () => {
   assert.equal(DesktopI18n.resolve('system', 'en-US'), 'en-US');
@@ -200,6 +202,203 @@ test('WindowLifecycle：重建窗口/加载 UI/关闭到托盘', () => {
   assert.equal(calls.menu, 1);
   lifecycle.setOpenAtLogin(true);
   assert.equal(state.openAtLogin, true);
+});
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+test('WindowLifecycle：渲染层自愈——加载失败/渲染崩溃自动重载，耗尽后交人机出口', async () => {
+  const calls = { loaded: 0, uiGone: 0 };
+  const handlers = {};
+  let window = null;
+  const state = {
+    closeToTray: true,
+    openAtLogin: false,
+    get: () => ({ closeToTray: state.closeToTray, openAtLogin: state.openAtLogin }),
+    setCloseToTray: () => undefined,
+    setOpenAtLogin: () => undefined,
+  };
+  const lifecycle = new WindowLifecycle({
+    current: () => ({ window, handle: {}, state, tray: null }),
+    createWindow: () => {
+      window = {
+        isMinimized: () => false,
+        restore: () => undefined,
+        show: () => undefined,
+        focus: () => undefined,
+        hide: () => undefined,
+        isDestroyed: () => false,
+        on: () => undefined,
+        webContents: {
+          on: (event, handler) => {
+            handlers[event] = handler;
+          },
+        },
+      };
+      return window;
+    },
+    setWindow: () => undefined,
+    loadHarness: () => (calls.loaded += 1),
+    refreshMenu: () => undefined,
+    isQuitting: () => false,
+    applyAutoStart: () => undefined,
+    logger: () => ({ write: () => undefined }),
+    recovery: { maxAttempts: 2, windowMs: 60_000, delayMs: 5 },
+    onUiGone: async () => {
+      calls.uiGone += 1;
+      return 1;
+    },
+  });
+  lifecycle.show();
+  assert.equal(calls.loaded, 1, '首次加载不受自愈影响');
+  assert.ok(handlers['did-fail-load'], '必须绑定 did-fail-load');
+  assert.ok(handlers['render-process-gone'], '必须绑定 render-process-gone');
+
+  // ① 前两次主帧加载失败：各自延迟后用当前句柄重载。
+  await handlers['did-fail-load'](null, -2, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:1/', true);
+  await sleep(40);
+  assert.equal(calls.loaded, 2, '第一次失败后应自动重载');
+  await handlers['did-fail-load'](null, -2, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:1/', true);
+  await sleep(40);
+  assert.equal(calls.loaded, 3, '第二次失败后仍自动重载');
+
+  // ② 第三次：窗口内达到上限 → 人机出口；选重试 ⇒ 清零计数再载一次。
+  await handlers['did-fail-load'](null, -2, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:1/', true);
+  await sleep(60);
+  assert.equal(calls.uiGone, 1, '恢复耗尽必须交人机出口');
+  assert.equal(calls.loaded, 4, '用户选重试后应再载一次');
+
+  // ③ 过滤面：-3（新加载取代旧加载）与子帧失败都不恢复。
+  await handlers['did-fail-load'](null, -3, 'ERR_ABORTED', 'http://127.0.0.1:1/', true);
+  await handlers['did-fail-load'](null, -2, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:1/', false);
+  await sleep(30);
+  assert.equal(calls.loaded, 4, '正常取消/子帧失败不得触发恢复');
+
+  // ④ 渲染进程崩溃（abnormal-exit / oom）恢复；killed（外部干预）不恢复。
+  await handlers['render-process-gone'](null, { reason: 'abnormal-exit', exitCode: 1 });
+  await sleep(40);
+  assert.equal(calls.loaded, 5, '渲染崩溃后应自动重载');
+  await handlers['render-process-gone'](null, { reason: 'oom', exitCode: 0 });
+  await sleep(40);
+  assert.equal(calls.loaded, 6, 'oom 也应自动重载');
+  await handlers['render-process-gone'](null, { reason: 'killed', exitCode: 1 });
+  await sleep(30);
+  assert.equal(calls.loaded, 6, 'killed 不触发恢复');
+});
+
+test('WindowLifecycle：recovery 未配置时保持旧行为（只记日志不恢复）', async () => {
+  const calls = { loaded: 0 };
+  const handlers = {};
+  let window = null;
+  const state = {
+    closeToTray: true,
+    openAtLogin: false,
+    get: () => ({ closeToTray: state.closeToTray, openAtLogin: state.openAtLogin }),
+    setCloseToTray: () => undefined,
+    setOpenAtLogin: () => undefined,
+  };
+  const lifecycle = new WindowLifecycle({
+    current: () => ({ window, handle: {}, state, tray: null }),
+    createWindow: () => {
+      window = {
+        isMinimized: () => false,
+        restore: () => undefined,
+        show: () => undefined,
+        focus: () => undefined,
+        hide: () => undefined,
+        on: () => undefined,
+        webContents: { on: (event, handler) => (handlers[event] = handler) },
+      };
+      return window;
+    },
+    setWindow: () => undefined,
+    loadHarness: () => (calls.loaded += 1),
+    refreshMenu: () => undefined,
+    isQuitting: () => false,
+    applyAutoStart: () => undefined,
+    logger: () => ({ write: () => undefined }),
+  });
+  lifecycle.show();
+  await handlers['did-fail-load'](null, -2, 'ERR_CONNECTION_REFUSED', 'http://127.0.0.1:1/', true);
+  await sleep(30);
+  assert.equal(calls.loaded, 1, '未配置 recovery 时不得自动重载（行为不变）');
+});
+
+/** 冒烟判定入参基线：全绿事实（各用例按需覆盖）。 */
+function smokeFacts(overrides = {}) {
+  return {
+    windowAlive: true,
+    windowVisible: true,
+    hiddenLaunch: false,
+    harnessState: 'running',
+    harnessEndpoint: '127.0.0.1:51234',
+    loadedUrl: 'http://127.0.0.1:51234/?token=x',
+    dom: { root: true, bridgeVersion: 3 },
+    trayCreated: true,
+    notificationsSupported: true,
+    protocolRegistered: false,
+    ...overrides,
+  };
+}
+
+test('SmokeHarness：全绿事实 ⇒ pass，含 5 致命 + 3 观测', () => {
+  const report = SmokeHarness.judge(smokeFacts());
+  assert.equal(report.pass, true);
+  assert.equal(report.checks.length, 8);
+  for (const name of [
+    'window.created',
+    'window.visible',
+    'harness.ready',
+    'ui.origin',
+    'ui.mounted',
+  ]) {
+    assert.ok(
+      report.checks.some((c) => c.name === name && c.ok),
+      `致命项 ${name} 应通过`,
+    );
+  }
+  for (const name of ['tray', 'notifications', 'protocol']) {
+    assert.ok(
+      report.checks.some((c) => c.name === name),
+      `观测项 ${name} 应在报告里`,
+    );
+  }
+});
+
+test('SmokeHarness：五类致命断言各自能判死', () => {
+  const cases = [
+    ['window.created', smokeFacts({ windowAlive: false })],
+    ['window.visible', smokeFacts({ windowVisible: false })],
+    ['harness.ready', smokeFacts({ harnessState: 'crashed', harnessEndpoint: null })],
+    ['ui.origin', smokeFacts({ loadedUrl: 'data:text/html,...' })],
+    ['ui.mounted', smokeFacts({ dom: null })],
+  ];
+  for (const [name, facts] of cases) {
+    const report = SmokeHarness.judge(facts);
+    assert.equal(report.pass, false, `${name} 失败必须判死`);
+    const check = report.checks.find((c) => c.name === name);
+    assert.equal(check?.ok, false, `${name} 应带失败明细：${check?.detail}`);
+  }
+});
+
+test('SmokeHarness：--hidden 启动时按「预期隐藏」判定可见性；观测项不判死', () => {
+  assert.equal(
+    SmokeHarness.judge(smokeFacts({ hiddenLaunch: true, windowVisible: false })).pass,
+    true,
+  );
+  const degraded = SmokeHarness.judge(
+    smokeFacts({ trayCreated: false, notificationsSupported: false, protocolRegistered: false }),
+  );
+  assert.equal(degraded.pass, true, '托盘/通知/协议缺失是观测项，不得判死');
+});
+
+test('SmokeHarness：DOM 探针脚本可执行且含桥版本判定', () => {
+  // 纯 jsdom 级执行：探针在缺 window.omni 时必须报 bridgeVersion=0（而不是抛错）。
+  const root = { querySelector: () => null };
+  const fakeWindow = { document: root };
+  const probe = SmokeHarness.DOM_PROBE;
+  assert.ok(probe.includes('apiVersion'), '探针必须检查桥版本');
+  const fn = new Function('window', `return ${probe};`);
+  assert.deepEqual(fn(fakeWindow), { root: false, bridgeVersion: 0 });
 });
 
 test('parseLaunchArgs: workspace / inline / hidden / deep link', () => {

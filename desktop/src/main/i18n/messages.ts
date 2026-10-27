@@ -41,6 +41,8 @@ export type DesktopMessageKey =
   | 'dialog.harnessStartMessage'
   | 'dialog.crashTitle'
   | 'dialog.crashMessage'
+  | 'dialog.uiGoneTitle'
+  | 'dialog.uiGoneMessage'
   | 'dialog.restart'
   | 'dialog.diagnosticsTitle'
   | 'dialog.diagnosticsMessage'
@@ -103,6 +105,8 @@ const ZH: Record<DesktopMessageKey, string> = {
   'dialog.harnessStartMessage': '本地 Harness 未能启动',
   'dialog.crashTitle': 'Harness 已退出',
   'dialog.crashMessage': '本地 Harness 意外退出',
+  'dialog.uiGoneTitle': '界面进程异常',
+  'dialog.uiGoneMessage': '工作台界面多次崩溃或加载失败，自动恢复已达上限。',
   'dialog.restart': '重启',
   'dialog.diagnosticsTitle': 'OmniHarness 诊断信息',
   'dialog.diagnosticsMessage': '可复制以下内容用于排障：',
@@ -167,6 +171,9 @@ const EN: Record<DesktopMessageKey, string> = {
   'dialog.harnessStartMessage': 'The local Harness could not start.',
   'dialog.crashTitle': 'Harness exited',
   'dialog.crashMessage': 'The local Harness exited unexpectedly.',
+  'dialog.uiGoneTitle': 'Workbench UI crash',
+  'dialog.uiGoneMessage':
+    'The workbench UI kept crashing or failing to load, and automatic recovery gave up.',
   'dialog.restart': 'Restart',
   'dialog.diagnosticsTitle': 'OmniHarness diagnostics',
   'dialog.diagnosticsMessage': 'Copy the following for troubleshooting:',

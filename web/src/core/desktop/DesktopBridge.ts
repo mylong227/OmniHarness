@@ -53,6 +53,8 @@ export interface DesktopBridge {
   showDiagnostics?(): Promise<void>;
   /** 任务栏进度（-1 清除，0–1 进度，2 不确定；新版 preload 才提供）。 */
   setProgress?(value: number): Promise<void>;
+  /** 拖入文件的真实系统路径（新版 preload 才提供；Electron ≥32 已移除 File.path）。 */
+  pathForFile?(file: File): string;
   restartHarness(): Promise<void>;
   /** 在系统文件管理器中打开目录。 */
   revealPath(path: string): Promise<void>;
@@ -108,6 +110,9 @@ export function desktopBridge(): DesktopBridge | null {
       : {}),
     ...(typeof raw['setProgress'] === 'function'
       ? { setProgress: (value: number) => call<void>('setProgress', value) }
+      : {}),
+    ...(typeof raw['pathForFile'] === 'function'
+      ? { pathForFile: (file: File) => (raw['pathForFile'] as (f: File) => string)(file) }
       : {}),
     restartHarness: () => call<void>('restartHarness'),
     revealPath: (path) => call<void>('revealPath', path),

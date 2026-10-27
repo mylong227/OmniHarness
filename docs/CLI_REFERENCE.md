@@ -23,7 +23,7 @@
 
 ---
 
-## 1. 子命令一览（28 个分发点，按用途分组）
+## 1. 子命令一览（30 个分发点 = 链基 19 + 链顶 11，2026-10-27 实数，按用途分组）
 
 ### 服务与工作台
 
@@ -66,20 +66,21 @@
 
 ### 数据、凭据与治理
 
-| 子命令                                                                          | 作用                                                                                                                                  |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `session list`                                                                  | 会话列表（`--storage-dir` 指定存档目录）                                                                                              |
-| `trace read --session ID`                                                       | 只读自省会话 trace（冻结条目，不可借道改历史）                                                                                        |
-| `audit export [--compliance]`                                                   | 审计导出 / 合规报告（含完整性哈希）                                                                                                   |
-| `kv get\|set\|del\|list`                                                        | 通用键值存储                                                                                                                          |
-| `vault get\|set\|del\|list`                                                     | 凭据保险库（AES-256-GCM）                                                                                                             |
-| `identity generate\|show\|sign\|verify`                                         | 密码学身份（Ed25519，零依赖）                                                                                                         |
-| `license …`                                                                     | 许可证校验与签名资产包（见 ADR-0011）                                                                                                 |
-| `schema [--out-ts/--out-py/--out-md]`                                           | 单源 schema 导出                                                                                                                      |
-| `compare`                                                                       | A/B 模型对比                                                                                                                          |
-| `doctor`                                                                        | 环境诊断（沙箱后端可达性、依赖、配置）；**有问题项即以退出码 1 退出**（0＝`[OK] 未发现健康问题`），便于 `doctor && 下一步` 与 CI 察觉 |
-| `evolution …`                                                                   | 进化闭环（RLVR / GEE Kernel 编排）                                                                                                    |
-| `native info\|ping\|tools\|approval\|session-submit\|context\|tool-call\|bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                                                                                     |
+| 子命令                                                                          | 作用                                                                                                                                                   |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session list`                                                                  | 会话列表（`--storage-dir` 指定存档目录）                                                                                                               |
+| `trace read --session ID`                                                       | 只读自省会话 trace（冻结条目，不可借道改历史）                                                                                                         |
+| `audit export [--compliance]`                                                   | 审计导出 / 合规报告（含完整性哈希）                                                                                                                    |
+| `kv get\|set\|del\|list`                                                        | 通用键值存储                                                                                                                                           |
+| `vault get\|set\|del\|list`                                                     | 凭据保险库（AES-256-GCM）                                                                                                                              |
+| `identity generate\|show\|sign\|verify`                                         | 密码学身份（Ed25519，零依赖）                                                                                                                          |
+| `license …`                                                                     | 许可证校验与签名资产包（见 ADR-0011）                                                                                                                  |
+| `schema [--out-ts/--out-py/--out-md]`                                           | 单源 schema 导出                                                                                                                                       |
+| `compare`                                                                       | A/B 模型对比                                                                                                                                           |
+| `doctor`                                                                        | 环境诊断（沙箱后端可达性、依赖、配置）；**有问题项即以退出码 1 退出**（0＝`[OK] 未发现健康问题`），便于 `doctor && 下一步` 与 CI 察觉                  |
+| `gc [--dry-run]`                                                                | 手动维护巡检：临时目录 / 陈旧 serve 实例记录 / 会话保留策略（keepNewest 50 / 90 天 / 4 GiB，`OMNI_GC_*` 可调）/ 半截临时文件；`--dry-run` 只报告不删除 |
+| `evolution …`                                                                   | 进化闭环（RLVR / GEE Kernel 编排）                                                                                                                     |
+| `native info\|ping\|tools\|approval\|session-submit\|context\|tool-call\|bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                                                                                                      |
 
 > **没有** `eval` 子命令（跑分/对外评测子系统已移除；历史评测数字只在 git 历史与归档文档里）。
 

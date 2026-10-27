@@ -104,6 +104,16 @@ export interface DesktopIpcConfig {
   readonly notifySessionIdMax: number;
 }
 
+/** 渲染层自愈（UI 加载失败 / 渲染进程崩溃的自动恢复）。 */
+export interface DesktopRecoveryConfig {
+  /** 统计窗口内最多自动恢复次数（加载失败与渲染崩溃各自计数；超出交人机出口）。 */
+  readonly maxAttempts: number;
+  /** 自动恢复统计窗口（ms）。 */
+  readonly windowMs: number;
+  /** 触发恢复前的延迟（ms；给瞬时故障留窗口，也让崩溃现场写完日志）。 */
+  readonly delayMs: number;
+}
+
 /** 深链。 */
 export interface DesktopDeepLinkConfig {
   /** 切换工作区后等待 UI 加载的上限（ms；超时也继续）。 */
@@ -175,6 +185,7 @@ export interface DesktopConfig {
   readonly notification: DesktopNotificationConfig;
   readonly ipc: DesktopIpcConfig;
   readonly deepLink: DesktopDeepLinkConfig;
+  readonly recovery: DesktopRecoveryConfig;
   readonly security: DesktopSecurityConfig;
   readonly tray: DesktopTrayConfig;
 }

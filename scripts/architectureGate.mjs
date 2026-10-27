@@ -169,9 +169,11 @@ const CYCLE_WL_MEMBERS = new Set([
   'context/contextEngine',
   'context/fileRerankIndex',
   'context/fileReranker',
-  // 环④ 进化回放组（2）：rlvrLoop ↔ inMemoryReplayBuffer。
-  'evolution/inMemoryReplayBuffer',
-  'evolution/rlvrLoop',
+  // 环④（2026-10-27 **已拆解**）：原为 2 成员进化回放环（`rlvrLoop ↔ inMemoryReplayBuffer`）——
+  // `ReplayBuffer` 接口住在实现文件 `rlvrLoop.ts` 里，唯一实现 `inMemoryReplayBuffer.ts` 反向 import 它。
+  // 与 2026-10-11 `CodeCandidate` 外迁同型：契约搬进 `ports/runtime/evolution/replayBuffer.ts`，
+  // 原位置导入 + 再导出（API 面不变），反向边消失。环组数实测 5 → 4；白名单随之**收紧**
+  // （删掉这 2 个成员），不留陈旧豁免。判据：`tests/unit/evolutionCycleDisbanded.test.ts`。
   // 环⑤ Spark 桥组（4）：sparkController 与引擎集 / 遥测 / genesis 桥互引。
   'genesis/genesisSparkBridge',
   'spark/sparkController',

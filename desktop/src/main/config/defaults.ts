@@ -50,6 +50,7 @@ export const DEFAULT_DESKTOP_CONFIG: DesktopConfig = {
   notification: { titleMax: 120, bodyMax: 500 },
   ipc: { notifyTitleMax: 160, notifyBodyMax: 800, notifySessionIdMax: 200 },
   deepLink: { uiReadyTimeoutMs: 5_000 },
+  recovery: { maxAttempts: 3, windowMs: 10 * 60 * 1000, delayMs: 1_200 },
   security: {
     permissions: ['notifications', 'clipboard-sanitized-write'],
     csp: {

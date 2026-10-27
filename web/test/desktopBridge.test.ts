@@ -20,6 +20,7 @@ interface FakeOmni {
   downloadUpdate: () => Promise<void>;
   installUpdate: () => Promise<void>;
   getUpdateStatus: () => Promise<DesktopUpdateStatus>;
+  pathForFile?: (file: File) => string;
   onUpdateStatus: (listener: (status: DesktopUpdateStatus) => void) => () => void;
   onNotificationClick: (listener: (sessionId: string | undefined) => void) => () => void;
   onDeepLink: (listener: (url: string) => void) => () => void;
@@ -70,6 +71,19 @@ describe('DesktopBridge', () => {
   test('结构不合法（版本/方法缺失）时 fail-safe 返回 null', () => {
     (globalThis as { omni?: unknown }).omni = { apiVersion: 3, notify: () => Promise.resolve() };
     expect(desktopBridge()).toBeNull();
+  });
+
+  test('pathForFile：preload 提供时按能力透出，缺失时不声明（可选面）', () => {
+    (globalThis as { omni?: unknown }).omni = fakeOmni({
+      pathForFile: (file: File) => `D:\\dl\\${file.name}`,
+    });
+    const withPath = desktopBridge();
+    expect(withPath?.pathForFile).toBeTypeOf('function');
+    expect(withPath?.pathForFile?.(new File(['x'], 'a.txt'))).toBe('D:\\dl\\a.txt');
+
+    (globalThis as { omni?: unknown }).omni = fakeOmni();
+    const withoutPath = desktopBridge();
+    expect(withoutPath?.pathForFile).toBeUndefined();
   });
 
   test('合法桥：notify 透传输入，订阅函数可取消', async () => {

@@ -21,6 +21,11 @@ import type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleCon
 export type { CodeCandidate } from '../ports/runtime/evolution/codeCandidate.ts';
 export type { RlvrRoundResult } from '../ports/runtime/evolution/rlvrRoundResult.ts';
 export type { RlvrSampleContext } from '../ports/runtime/evolution/rlvrSampleContext.ts';
+// 2026-10-27：`ReplayBuffer` 同型外迁（环④拆解）——它原先声明在本实现文件里，唯一实现
+// `inMemoryReplayBuffer.ts` 反向 import 它 ⇒ 2 成员环（`rlvrLoop ↔ inMemoryReplayBuffer`）。
+// 端口契约见 `ports/runtime/evolution/replayBuffer.ts`；此处导入供本文件使用并再导出（API 面不变）。
+import type { ReplayBuffer } from '../ports/runtime/evolution/replayBuffer.ts';
+export type { ReplayBuffer } from '../ports/runtime/evolution/replayBuffer.ts';
 
 /** 采样器：对给定 prompt 产出第 index 个候选（返回 undefined = 采样池耗尽）。 */
 export interface RlvrSampler {
@@ -36,13 +41,6 @@ export interface RlvrSampler {
     index: number,
     context?: RlvrSampleContext,
   ): CodeCandidate | undefined | Promise<CodeCandidate | undefined>;
-}
-
-/** 回放缓冲：收集「绿」样本供后续策略更新。 */
-export interface ReplayBuffer {
-  push(candidate: CodeCandidate, reward: number): void;
-  readonly size: number;
-  readonly entries: readonly { readonly candidate: CodeCandidate; readonly reward: number }[];
 }
 
 /** RLVR 循环选项。 */
