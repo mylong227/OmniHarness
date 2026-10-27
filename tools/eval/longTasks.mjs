@@ -11,6 +11,10 @@
  *   node tools/eval/longTasks.mjs --self-check
  *   node tools/eval/longTasks.mjs --k 3 --model <model> --out report.json
  *   node tools/eval/longTasks.mjs --k 3 --long-horizon --only strings-basic,arrays-basic
+ *   node tools/eval/longTasks.mjs --k 1 --timeout-scale 2 --only json-basic   # 预算敏感性对照
+ *
+ * `--timeout-scale`（默认 1）只放大**单任务超时预算**，不改任务规格；报告会记录倍率，
+ * 且摘要会标注「非基准口径」——用于区分「预算不足导致的超时」与「能力失败」。
  *
  * 判据口径：
  *  - **复用** `src/eval/abMetrics.ts`（dist）的 `AbMetrics`：pass@k / pass^k / tokensPerSolved 不复制公式；
@@ -122,11 +126,14 @@ async function runOne(mod, options, spec, index, root, transcripts) {
   const store = mkdtempSync(join(root, `store-${spec.id}-`));
   const args = cliArgsOf(spec, sandbox.dir, store, options.model);
   const started = Date.now();
+  // 预算倍率（`--timeout-scale`）：默认 1 = 任务规格口径；显式放大用于「预算敏感性」对照，
+  // 报告里会记录倍率，避免把放宽预算后的数字当成基准数字。
+  const budgetMs = Math.round(spec.timeoutMs * options.timeoutScale);
   const result = spawnSync(process.execPath, args, {
     cwd: sandbox.dir,
     env: envOf(options, spec),
     encoding: 'utf8',
-    timeout: spec.timeoutMs,
+    timeout: budgetMs,
     maxBuffer: 32 * 1024 * 1024,
   });
   const wallMs = Date.now() - started;
@@ -197,10 +204,14 @@ function humanSummary(report) {
     );
   }
   const aggregate = report.aggregate;
+  const scaleNote =
+    report.timeoutScale !== undefined && report.timeoutScale !== 1
+      ? `（预算倍率 ${String(report.timeoutScale)}×——非基准口径）`
+      : '';
   lines.push(
     `总计: tasks=${String(aggregate.tasks)} pass@1=${aggregate.passAt1.toFixed(3)} ` +
       `pass@k=${aggregate.passAtK.toFixed(3)} pass^k=${aggregate.passAllK.toFixed(3)} ` +
-      `tok/solved=${aggregate.tokensPerSolved === null ? 'n/a' : String(aggregate.tokensPerSolved)}`,
+      `tok/solved=${aggregate.tokensPerSolved === null ? 'n/a' : String(aggregate.tokensPerSolved)}${scaleNote}`,
   );
   lines.push(`transcripts: ${report.transcriptsDir}`);
   if (report.failureModes !== undefined) {
@@ -235,6 +246,7 @@ async function runSuite(mod, options, specs, root) {
     k: options.k,
     model: options.model ?? null,
     longHorizon: options.longHorizon,
+    timeoutScale: options.timeoutScale,
     tasksDir: options.tasksDir,
     transcriptsDir: transcripts.dir,
     tasks: [],

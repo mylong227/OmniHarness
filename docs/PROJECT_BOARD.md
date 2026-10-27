@@ -5487,3 +5487,19 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   （web 603 例 / integration 17 例 / smoke:ui 14 例，含真 Chrome）。
 - **当前 `smoke:ui` 判据数**：14（A/B×3/C/D/E/F×2/G/H/K/L/M）；仍依赖本机 Chrome，无浏览器时显式 skip。
 - **诚实边界**：DevTools 逐帧火焰图与主观流畅度仍属人工评估；M 只覆盖首屏 thread measure 一个点。
+
+## 109. 2026-10-27 长任务 k=3 与预算敏感性：那两次「超时」确为预算边界，不是能力失败
+
+- **k=3（arrays-basic / strings-basic / json-basic，各 3 次）**：pass@1 **0.889**（8/9）、
+  pass@k **1.000**、pass^k **0.667**、`tok/solved` **68,053**；唯一失败是 json-basic run2 的
+  180 s 超时（`tokens=0`、`wallMs=180030`）。逐次：arrays 3/3、strings 3/3、json 2/3。
+- **新增预算敏感性旋钮 `--timeout-scale`**（`src/eval/longTaskCatalog.ts` + runner）：只放大
+  **单任务超时**，**不改任务规格**；报告记录倍率、人类摘要显式标注「非基准口径」。默认 1×，
+  对外报数必须用 1×。
+- **对照实验（2× = 360 s，仅两个此前超时的任务）**：`csv-basic` 与 `json-basic` **均通过**
+  （tok/solved 101,599 / 95,754；失败模式全 0）。⇒ 两次超时是**预算边界**（该模型单步约 12 s，
+  180 s ≈ 15 步），不是任务做不出来。
+- **判据**：`longTask.test.ts` 扩到 11 例——`--timeout-scale` 解析、非法值 fail-closed
+  （`0/-1/11/abc/空`）、`--dry-run` 报告透传倍率。
+- **口径提醒**：k=3 只覆盖 3 个任务；全 20 任务的 k=3 未跑（约 3× 成本）。2× 的数字**不得**当作
+  基准 pass@1 引用——它与 1× 的差异全部来自预算，这一点本身已由本对照证明。

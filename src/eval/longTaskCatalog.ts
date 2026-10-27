@@ -142,6 +142,15 @@ export interface LongTaskCliOptions {
   readonly transcriptsDir: string | undefined;
   /** 只跑这些任务 id（缺省全部）。 */
   readonly only: readonly string[] | undefined;
+  /**
+   * 每任务超时预算的**倍率**（默认 1，`--timeout-scale`）。
+   *
+   * 为什么需要它：任务规格里的 `timeoutMs`（多为 180 s）是**基准口径**，但真实模型的实际
+   * 步进耗时随厂商/负载变化——用同一份规格跑不同模型时，超时会被误读成「能力不足」。
+   * 倍率让评测者**显式**做预算敏感性对照（如 1× vs 2×），而不必改动任务规格；
+   * 报告里会记录倍率，避免把放宽预算后的数字当成基准数字。
+   */
+  readonly timeoutScale: number;
 }
 
 /** 自检单任务结果。 */
@@ -610,6 +619,7 @@ export class LongTaskRunPlan {
     let out: string | undefined;
     let transcriptsDir: string | undefined;
     let only: readonly string[] | undefined;
+    let timeoutScale = 1;
     for (let i = 0; i < argv.length; i += 1) {
       const token = argv[i] ?? '';
       const [flag, inline] = LongTaskRunPlan.splitFlag(token);
@@ -628,6 +638,7 @@ export class LongTaskRunPlan {
       else if (flag === '--tasks') tasksDir = value();
       else if (flag === '--out') out = value();
       else if (flag === '--transcripts') transcriptsDir = value();
+      else if (flag === '--timeout-scale') timeoutScale = Number(value());
       else if (flag === '--only')
         only = value()
           .split(',')
@@ -635,6 +646,9 @@ export class LongTaskRunPlan {
       else throw new Error(`未知参数：${token}`);
     }
     if (!Number.isInteger(k) || k < 1) throw new Error('--k 必须是正整数');
+    if (!Number.isFinite(timeoutScale) || timeoutScale <= 0 || timeoutScale > 10) {
+      throw new Error('--timeout-scale 必须是 (0, 10] 内的数');
+    }
     if (only !== undefined && (only.length === 0 || only.some((id) => id === ''))) {
       throw new Error('--only 必须是非空 id 列表');
     }
@@ -648,6 +662,7 @@ export class LongTaskRunPlan {
       out,
       transcriptsDir,
       only,
+      timeoutScale,
     };
   }
 
@@ -677,6 +692,7 @@ export class LongTaskRunPlan {
       k: options.k,
       model: options.model ?? null,
       longHorizon: options.longHorizon,
+      timeoutScale: options.timeoutScale,
       tasksDir: options.tasksDir,
       tasks: specs.map((spec) => ({
         id: spec.id,

@@ -304,6 +304,25 @@ test('CLI 参数：k/model/dry-run/self-check/only 解析，未知旗标 fail-cl
   assert.strictEqual(options.out, 'report.json');
   assert.strictEqual(options.selfCheck, false);
   assert.strictEqual(options.longHorizon, false);
+  // 预算倍率：缺省 1（与任务规格同口径）；显式放大用于敏感性对照。
+  assert.strictEqual(options.timeoutScale, 1);
+  assert.strictEqual(
+    LongTaskRunPlan.parseArgs(['--timeout-scale', '2'], { tasksDir: TASKS_DIR }).timeoutScale,
+    2,
+  );
   assert.throws(() => LongTaskRunPlan.parseArgs(['--nope'], { tasksDir: TASKS_DIR }), /未知参数/u);
   assert.throws(() => LongTaskRunPlan.parseArgs(['--k', '0'], { tasksDir: TASKS_DIR }), /--k/u);
+  for (const bad of ['0', '-1', '11', 'abc', '']) {
+    assert.throws(
+      () => LongTaskRunPlan.parseArgs(['--timeout-scale', bad], { tasksDir: TASKS_DIR }),
+      /--timeout-scale/u,
+      `timeout-scale=${bad} 应被拒`,
+    );
+  }
+  // dry-run 报告要带上倍率（避免把放宽预算的数字误读成基准口径）。
+  const plan = LongTaskRunPlan.dryRunReport(
+    LongTaskRunPlan.parseArgs(['--timeout-scale', '2', '--dry-run'], { tasksDir: TASKS_DIR }),
+    [],
+  );
+  assert.strictEqual(plan.timeoutScale, 2);
 });

@@ -54,10 +54,14 @@ npm run eval:long -- --self-check              # 不调模型：参考解必须�
 npm run eval:long -- --k 3 --model <model> --out report.json
 npm run eval:long -- --k 3 --long-horizon      # 显式开长时程协议（primer/progress/checklist）
 npm run eval:long -- --only strings-basic,arrays-basic
+npm run eval:long -- --k 1 --timeout-scale 2 --only json-basic   # 预算敏感性对照（非基准口径）
 ```
 
 - 每任务 JSON 必填 `id/prompt/repo/verifyCommand/expectedFiles/timeoutMs/maxTokens`；
   没有 `verifyCommand` 或 `expectedFiles` 的任务会被拒绝（「CLI 退出 0」不等于成功）。
+- `--timeout-scale`（默认 1）只放大**单任务超时**，不改任务规格；报告记录倍率、摘要标注
+  「非基准口径」，用于区分「预算不足导致的超时」与「能力失败」。`timeoutMs` 是基准口径，
+  对外报数必须用 1×。
 - 验收 = CLI 退出 0 + `ok:true` + `verifyCommand` 通过 + `expectedFiles` 齐全；
   `verify.mjs` 在验收前从 `verifiers/` 覆盖写入（模型改验收器不算数）。
 - 无 `OMNIHARNESS_API_KEY` 时输出 `{skipped:true}` 并以 0 退出——不用 mock 冒充真实跑分。
