@@ -5020,6 +5020,9 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - 浏览器 DevTools Performance 可直接看到该 measure；观测失败不影响加载。
 - **判据**：`web tsc`、Prettier；无 performance 环境（如 jsdom 未注入）自动跳过。
 - **边界**：只提供可观测点，尚未在真机浏览器回填数值；本机 Vite/Vitest 仍被 spawn EPERM 阻断。
+- **2026-10-27 真机回填（销账本条边界）**：`smoke:ui` 新增 M 判据，在真 serve + 真 Chrome 里读回
+  `performance.getEntriesByName('omni.thread.firstPage')`，本机实测 **duration = 17.2 ms**；
+  Vite/Vitest 的 spawn EPERM 也已随普通会话权限消失（web 套件 603 例全绿）。
 
 ## 98. 2026-10-25 项目升级执行状态收口
 
@@ -5469,3 +5472,18 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   L 回合中新建不被旧会话拽回。报告 `.omniharness/real-ui-report.json`。
 - **诚实边界**：只用 deepseek-v4-flash；依赖本机 Chrome（无浏览器时脚本显式 skip）；判据 J 的回归
   现在只在单元层（jsdom）有覆盖，真机动画路径仅由 E 间接走过——这是本轮**缩小**的一处覆盖面，如实登记。
+
+## 108. 2026-10-27 集成层补齐 + S2 真机数值回填：BLOCKERS 第 2 条销账
+
+- **补齐此前没跑过的层**（全部本机实测）：
+  - `npm run test:integration` **7 文件 / 17 例全绿**（含 `liveUiE2e`：真 serve + 真 Chrome；
+    以及 Laya 真模型 noul 前向与候选排序 A/B）；
+  - `npm run smoke`（dist 进程级）**全部通过**；`scripts/testDeterminism.mjs` **35 例全绿**。
+- **S2 的「待真机回填」销账**：`smoke:ui` 新增 **M** 判据——在真 serve + 真 Chrome 里读回
+  `performance.getEntriesByName('omni.thread.firstPage')`，本机 **duration = 17.2 ms**
+  （只作基线记录，不作门禁阈值；绝对耗时依机器而定）。
+- **BLOCKERS 第 2 条（浏览器 W1/S2 真机）改写为「不再是阻塞」**：当初的判据是「Chrome 在受限 shell
+  下 mojo/crashpad 拒绝访问、Vite/Vitest spawn EPERM」；普通会话下不复现，且已有三层证据
+  （web 603 例 / integration 17 例 / smoke:ui 14 例，含真 Chrome）。
+- **当前 `smoke:ui` 判据数**：14（A/B×3/C/D/E/F×2/G/H/K/L/M）；仍依赖本机 Chrome，无浏览器时显式 skip。
+- **诚实边界**：DevTools 逐帧火焰图与主观流畅度仍属人工评估；M 只覆盖首屏 thread measure 一个点。

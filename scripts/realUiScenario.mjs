@@ -27,6 +27,7 @@
  * H 真数字：`usage.stats` 有真 token 计数；「指标」页签渲染出数字
  * K 上下文容量面板：父组件重渲染 5 次时不自激（/rpc 次数有界）
  * L 回合进行中点「+ 新建」：回合结束后视图仍为空（不被旧会话拽回）
+ * M 首屏性能：真机读回 `omni.thread.firstPage` 的 duration（S2 的「待真机回填」项）
  *
  * 2026-10-27 修订：判据 J（`/dist/ui/models/TextRevealer.js` 模块路径）**移除**——Vite 迁移后
  * 不再有单体产物文件，该回归由 `web/test/textRevealerScheduler.test.ts` 覆盖。当次还修了
@@ -449,6 +450,25 @@ async function main() {
           }, 25_000)
         : false;
       record('F', '刷新页面后历史会话仍可打开（真持久化）', restored, '刷新后未渲染出历史助手消息');
+    }
+
+    // ---- M 首屏性能 measure（S2）：真机回填 `omni.thread.firstPage` ----
+    // 背景：`SessionController.loadThread` 会落 `performance.measure('omni.thread.firstPage')`，
+    // 但 PROJECT_BOARD §97 的边界一直是「尚未在真机回填数值」。这里用真 Chrome 读回 duration，
+    // 断言「存在且为有限正数」，并给一个**宽松**的病理上限（10 s）——不把某台机器的绝对耗时当门禁。
+    if (on('M')) {
+      const perf = await cdp.evaluate(`(function(){
+        var e = performance.getEntriesByName('omni.thread.firstPage');
+        var last = e[e.length - 1];
+        return last ? { duration: last.duration, startTime: last.startTime } : null;
+      })()`);
+      const ms = Number(perf?.duration ?? NaN);
+      record(
+        'M',
+        '首屏 thread 加载有真机耗时（omni.thread.firstPage 可读）',
+        Number.isFinite(ms) && ms > 0 && ms < 10_000,
+        perf === null ? '未找到 omni.thread.firstPage measure' : `duration=${ms.toFixed(1)}ms`,
+      );
     }
 
     // ---- G 工作区隔离 ----
