@@ -58,6 +58,7 @@
     "desktop:build": "npm --prefix desktop run build",
     "desktop:start": "npm --prefix desktop start",
     "desktop:test": "npm --prefix desktop test",
+    "desktop:smoke": "npm --prefix desktop run smoke",
     "desktop:dist": "npm --prefix desktop run dist",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
     "build": "node scripts/buildDist.mjs",

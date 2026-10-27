@@ -231,9 +231,28 @@ HarnessSupervisor.start() → /healthz 200 → stop()
 
 GUI 级验证（窗口、CSP、菜单、IPC）需要在真实桌面跑；本会话的 Electron 沙箱不允许。
 
+### 7.1 GUI 冒烟验收（真实桌面会话，2026-10-27 起）
+
+受限执行环境（无图形会话）里 Electron 起不来（STATUS_BREAKPOINT），GUI 级断言此前只能靠
+人工、从未跑过。现在主进程内置**冒烟入口**：`OMNI_SMOKE=1` 时 UI 加载完成后自动采集运行
+事实（窗口可见性 / 侧车端点 / UI 加载来源 / React 根挂载 / preload 桥版本），判定结果落盘
+`userData/smoke-result.json` 并以退出码回传：
+
+```powershell
+cd desktop
+npm run smoke                       # 退出码 0=全过 / 1=断言失败 / 2=90s 超时
+npm run smoke -- --workspace D:\deepseek\omniharness   # 免首次目录选择框
+$env:OMNI_SMOKE_OUT='D:\tmp\smoke.json'; npm run smoke # 指定结果落盘位置
+```
+
+判定逻辑（致命 5 项 + 观测 3 项）在 `src/main/app/SmokeHarness.ts`，**零 electron 依赖**、
+`npm test` 直接覆盖（含五类致命断言与「观测项不判死」）。托盘图标/系统通知/深链注册在受限
+会话合法缺失，按观测项记录、不影响结论。
+
 ## 8. 下一步
 
-1. **真实桌面验收**：Windows 10/11 窗口、CSP、菜单、IPC、托盘、通知、深链、关闭到托盘全链路。
+1. **真实桌面验收**：跑 `npm run smoke`（§7.1，一键出结论与明细 JSON）；托盘/深链/通知的
+   手工核对项在其观测明细里列出。
 2. **安装包**：代码签名、N-1 升级实跑、安装/卸载保留 `~/.omniharness`、高 DPI 验收。
 3. **安全复核**：精确 Origin/Host 校验、CSP 收紧到实际端口、Renderer 权限白名单。
 4. **平台**：macOS 签名/公证；Linux 的托盘/通知能力按桌面环境降级验证。
@@ -250,4 +269,5 @@ GUI 级验证（窗口、CSP、菜单、IPC）需要在真实桌面跑；本会�
 - 当前直接复用现有 Web 工作台；**还不是 Codex 式的全新 React UI**。
 - 托盘/通知/深链/开机启动/更新已接线，但 GUI 级验证需真实桌面；本会话 Electron 沙箱不允许。
 - 自动更新/安装包未签名，未完成 N-1 实跑；`npm run dist` 需要 electron-builder 下载 NSIS/winCodeSign。
-- macOS/Linux 未验证；`stageHarness`/`nodeBinary` 已按平台分支，但 electron-builder 配置目前只配 Windows。
+- GUI 冒烟验收已脚本化（§7.1）但**执行**仍需真实桌面会话（受限 shell 里 Electron 起不来）；
+  macOS/Linux 未验证；`stageHarness`/`nodeBinary` 已按平台分支，但 electron-builder 配置目前只配 Windows。
