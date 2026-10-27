@@ -112,13 +112,15 @@ export interface OmniHarnessRuntime {
   readonly reviewer?: ReviewPort | undefined;
   /** 燧内核控制器（S+，可选）：任一燧能力启用时构造，Agent 任务末跑 燧-3/燧-4 调谐/冲刷；缺省 undefined，零破坏。 */
   readonly spark?: SparkControllerPort | undefined;
-  /** (U6) A2A 互操作：启用时本端起 A2aServer（监听）并构造 A2aClient，server 任务处理器跑子 agent 完成对等委托。缺省 undefined，零破坏。 */
-  a2a?: {
-    /** A2A 服务端（监听对等委托）。 */
-    readonly server: A2aServer;
-    /** A2A 客户端（发起对等委托）。 */
-    readonly client: A2aClient;
-    /** A2A 传输（http / ws 实现同一 `A2aTransport` 端口）。 */
-    readonly transport: A2aTransport;
-  };
+  /** (U6) A2A 互操作：启用时本端起 A2aServer（监听）并构造 A2aClient，server 任务处理器跑子 agent 完成对等委托。缺省 undefined，零破坏；监听失败时由组合根置回 undefined（消费方可见 a2a 未就绪）。 */
+  a2a?:
+    | {
+        /** A2A 服务端（监听对等委托）。 */
+        readonly server: A2aServer;
+        /** A2A 客户端（发起对等委托）。 */
+        readonly client: A2aClient;
+        /** A2A 传输（http / ws 实现同一 `A2aTransport` 端口）。 */
+        readonly transport: A2aTransport;
+      }
+    | undefined;
 }

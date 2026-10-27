@@ -312,7 +312,11 @@ export class WsA2aServerTransport implements A2aTransport {
       };
       server.once('error', onError);
       server.listen(port, host, () => {
+        // 绑定期错误已交给 reject；此后换成常驻监听（无监听的 server 'error' 会终止进程）。
         server.off('error', onError);
+        server.on('error', (bindError: Error) => {
+          log.warn('a2a.ws.server.error', { message: bindError.message });
+        });
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });

@@ -376,7 +376,16 @@ export class Runtime {
     // 复用既有子代理隔离运行时，避免对等方突发委托拖垮进程或越权调用写类工具。
     const executor = new A2aTaskExecutor(runtime);
     server.setTaskHandler(executor);
-    void serverTransport.listen(a2aPort);
+    // 监听失败必须可观测（2026-10-27 审计收口）：此前 `void listen(port)` 把 EADDRINUSE
+    // 变成浮动 rejection——a2a 从未监听而 runtime.a2a 已装配，委托全部打到死端口静默失效。
+    // 现在：拒绝时打 error 并把 transport 从 runtime 摘除（消费方可见 a2a 未就绪）。
+    void serverTransport.listen(a2aPort).catch((error: unknown) => {
+      log.error('a2a.listen.failed', {
+        port: a2aPort,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      runtime.a2a = undefined;
+    });
     // 委托工具面（2026-10-05 收口）：此前只有「服务端收委托」半边——client 装配进 runtime.a2a
     // 后在生产路径上零调用点，本 agent 没有任何工具能**发起**委托。就地注册 a2a_delegate：
     // 仅当工具端口是本仓 RegistryToolPort（支持注册）时挂上；自定义 ToolPort 的嵌入方可经

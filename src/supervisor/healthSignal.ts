@@ -15,13 +15,29 @@
  * （**真实退出码**，不是错误文案）——「命令跑完了」与「工具坏了」必须分开。
  */
 export class SupervisorHealthSignal {
-  /** 策略拒绝的特征（中英；大小写不敏感）。 */
+  /**
+   * 策略拒绝的特征（2026-10-27 审计收口：只认**本仓门禁自己的拒绝格式**）。
+   *
+   * 此前有一条过宽的英文兜底 `\b(denied|permission|sandbox|policy)\b`——真实执行失败的
+   * 错误文本极易撞上（`EACCES: permission denied, open ...` 同命 denied/permission），
+   * 结果这类失败**不上报监督内核**（既不算 success 也不算 failure），FDIR 滑动窗口看不到
+   * 真实故障 → 永不降级 → 模型反复撞同一堵墙。现已逐条对应各门禁的既有文案：
+   *  - `监督内核(safe|locked)：…`（SupervisorKernel.intercept）；
+   *  - `…策略拒绝（tool）：…` / `意图策略拒绝该动作`（审批 deny / ToolIntentPolicy）；
+   *  - `plan mode 未批准/未提交` 与计划端口未注入（ToolGate 计划门禁）；
+   *  - `sandbox 拒绝（…）`（ToolGate 沙箱门禁统一格式）；
+   *  - `RBAC：…`（rbacPolicy.refuse 的统一前缀）；
+   *  - `[沙箱拒绝] …`（执行期 SandboxDenial 前缀，annotateDenial 加注）。
+   * `EPERM` 裸词已移除：文件系统真 EPERM 是执行失败不是拒绝；沙箱引起的 EPERM 已被
+   * `[沙箱拒绝]` 前缀覆盖。非零退出码另有 `isCommandOutcome` 按硬事实分流。
+   */
   private static readonly DENIAL_PATTERNS: readonly RegExp[] = [
     /监督内核\((?:safe|locked)\)/iu,
-    /审批(?:拒绝|未通过)/u,
-    /沙箱(?:拒绝|拦截)/u,
-    /\b(?:approval|denied|permission|sandbox|policy)\b/iu,
-    /\bEPERM\b/u,
+    /策略拒绝/u,
+    /plan mode 未(?:批准|提交)|计划端口未注入/u,
+    /sandbox 拒绝/u,
+    /RBAC：/u,
+    /^\[沙箱拒绝\]/u,
   ];
 
   /**

@@ -2,25 +2,32 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { SupervisorHealthSignal } from '../../src/supervisor/healthSignal.ts';
 
-test('策略拒绝识别：监督内核/审批/沙箱/EPERM', () => {
+test('策略拒绝识别：只认本仓门禁自己的拒绝格式（2026-10-27 收口）', () => {
   for (const text of [
     '监督内核(safe)：危险工具在安全模式下拒绝，零越权',
-    '审批拒绝：用户未批准',
-    '沙箱拒绝：路径不在工作区',
-    'sandbox denied: EPERM',
-    'operation not permitted (EPERM)',
+    '监督内核(locked)：危险工具在锁定模式下零越权拒绝',
+    'approval 策略拒绝（write_file）：当前审批模式不允许该工具',
+    '意图策略拒绝该动作',
+    'plan mode 未批准：当前计划状态=draft，写类工具（write_file）需经用户批准后才能执行',
+    'plan mode 已开启但计划端口未注入：写类工具（write_file）fail-closed 拒绝',
+    'sandbox 拒绝（write_file：/tmp/x）[os] 未提供原因',
+    'RBAC：该角色不允许使用此工具',
+    '[沙箱拒绝] EPERM: operation not permitted',
   ]) {
     assert.strictEqual(SupervisorHealthSignal.isPolicyDenial(text), true, text);
   }
 });
 
-test('真实执行失败不误判为策略拒绝', () => {
+test('真实执行失败不误判为策略拒绝（过宽英文兜底已删，EACCES/EPERM 不再漏计）', () => {
   for (const text of [
     undefined,
     '',
     '工具执行异常: TypeError: x is not a function',
     'verify failed: expected 1 got 2',
     'command timed out after 30s',
+    "EACCES: permission denied, open 'D:\\repo\\.git\\index.lock'",
+    'EPERM: operation not permitted, unlink C:\\tmp\\file',
+    'npm error code EPERM (依赖安装失败)',
   ]) {
     assert.strictEqual(SupervisorHealthSignal.isPolicyDenial(text), false, String(text));
   }

@@ -27,6 +27,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
@@ -457,7 +458,10 @@ export class LongHorizonProtocol {
     const path = taskPath(this.directory, this.valid, PROGRESS_FILE);
     if (path === undefined || !existsSync(path)) return 0;
     try {
-      return Buffer.byteLength(readFileSync(path, 'utf8'), 'utf8');
+      // 只取字节数用 stat（2026-10-27 审计收口）：此前为拿长度把整个 progress.md 同步
+      // 读进内存——appendProgress 每次追加都先走这里，长任务高频追加时是 O(N) 重复
+      // 全量读，放大事件循环延迟。
+      return statSync(path).size;
     } catch {
       return 0;
     }

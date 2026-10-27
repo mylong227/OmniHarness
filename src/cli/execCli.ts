@@ -392,7 +392,14 @@ export class ExecCli extends CliAgentCmds {
       const args = ArgParser.parseArgs(['--prompt', 'capability list'], defaults);
       if (args === undefined) return undefined;
       return (await this.buildConfig(args)).capabilityStack;
-    } catch {
+    } catch (error) {
+      // 装配失败 ≠ 未启用（2026-10-27 审计收口）：坏 JSON/schema 不匹配此前与「未启用」
+      // 同样返回 undefined，用户改坏 omniharness.json 后看到的是"功能不存在"——排查方向
+      // 完全被带偏。留一行 stderr 把两者区分开（命令本身仍照常走"未启用"分支不打挂）。
+      process.stderr.write(
+        `[omniharness] capability 装配失败（注意：这与"未启用"不同，多为配置错误）：` +
+          `${error instanceof Error ? error.message : String(error)}\n`,
+      );
       return undefined;
     }
   }

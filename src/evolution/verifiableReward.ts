@@ -167,7 +167,11 @@ export class VerifiableReward {
             reason: `unverifiable:write-error:${String(err)}`,
           };
         }
-        command = command.split(token).join(tmp);
+        // 路径加双引号再替换（2026-10-27 审计收口）：命令经 `shell:true` 跑，Windows 的
+        // %TEMP% 含空格（用户名带空格极常见）时裸路径被 shell 切成两个参数 ⇒ 命令必然
+        // 非零退出 ⇒ reward 恒 0 且 reason 恒 verified-fail——RLVR 的客观绿度在整类
+        // 环境下静默退化为噪声。生成的文件名不含双引号/$，POSIX sh 下双引号同样安全。
+        command = command.split(token).join(`"${tmp}"`);
       }
       let status = -1;
       try {

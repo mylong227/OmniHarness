@@ -511,7 +511,13 @@ export class TurnRunner {
     // 异步化：不阻塞 turns.run 的 HTTP 响应——即便蒸馏因模型错误或挂起，也不影响
     // 任务结果（finalText/steps）正常返回，UI 不会卡在「处理中」。这是稳健性改进，
     // 与审批上行无关（审批闭环本身已验证正常）。
-    void this.consolidateMemory().catch(() => {});
+    // 兜底 catch 也留轨迹（2026-10-27 审计收口）：蒸馏链路长期无声失败
+    // （extractor 配置错/模型持续 4xx）用户无从发现。
+    void this.consolidateMemory().catch((error: unknown) => {
+      log.warn('memory.consolidate.unhandled', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
     return {
       steps: summary.steps,
       finalText: summary.finalText,
@@ -598,8 +604,13 @@ export class TurnRunner {
     }
     try {
       await this.extractor.consolidate(events, this.recorder.sessionId());
-    } catch {
+    } catch (error) {
       // 蒸馏失败（模型错误/解析失败）不致命：手动 remember 仍可用，跳过本回合自动沉淀。
+      // 但必须可观测（2026-10-27 审计收口）：否则「记忆在沉淀」是假象，配置错/持续 4xx
+      // 会长期无声失败。
+      log.warn('memory.consolidate.failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
   /**

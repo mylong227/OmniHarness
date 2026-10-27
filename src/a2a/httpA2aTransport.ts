@@ -221,7 +221,12 @@ export class HttpA2aServerTransport implements A2aTransport {
       };
       server.once('error', onError);
       server.listen(port, host, () => {
+        // 绑定期错误已交给上面的 reject；此后换成常驻监听——EventEmitter 语义下 server 级
+        // 'error' 无监听即 uncaughtException 终止进程（2026-10-27 审计收口）。
         server.off('error', onError);
+        server.on('error', (bindError: Error) => {
+          log.warn('a2a.server.error', { message: bindError.message });
+        });
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });
