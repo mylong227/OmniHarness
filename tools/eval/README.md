@@ -65,7 +65,8 @@ npm run eval:long -- --k 1 --timeout-scale 2 --only json-basic   # 预算敏感�
 - 验收 = CLI 退出 0 + `ok:true` + `verifyCommand` 通过 + `expectedFiles` 齐全；
   `verify.mjs` 在验收前从 `verifiers/` 覆盖写入（模型改验收器不算数）。
 - 无 `OMNIHARNESS_API_KEY` 时输出 `{skipped:true}` 并以 0 退出——不用 mock 冒充真实跑分。
-- 每次运行写 transcript（stdout/stderr/验证输出），报告回传路径。
+- 每次运行写 transcript（stdout/stderr/验证输出），报告回传路径；每个 run 记录 `budgetMs`
+  （本次实际超时预算，含倍率）与 `wallMs`，超时项可直接对照是否真的撞了预算。
 - `--long-horizon` 显式设置 `OMNI_LONG_HORIZON=1` + `OMNI_LONG_HORIZON_TASK/VERIFY`；不加时
   显式设置 `OMNI_LONG_HORIZON=0`（对照基线，避免复杂 prompt 自动开启污染 A/B）。
 

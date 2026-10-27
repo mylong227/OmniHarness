@@ -157,7 +157,7 @@ async function runOne(mod, options, spec, index, root, transcripts) {
     index,
     [
       `# task=${spec.id} run=${String(index + 1)} k=${String(options.k)}`,
-      `# exit=${String(result.status)} timedOut=${String(timedOut)} wallMs=${String(wallMs)} tokens=${String(tokens)}`,
+      `# exit=${String(result.status)} timedOut=${String(timedOut)} wallMs=${String(wallMs)} budgetMs=${String(budgetMs)} tokens=${String(tokens)}`,
       `# verifyExit=${String(verify.exitCode)} verifyTimedOut=${String(verify.timedOut)} ok=${String(ok)}`,
       `# command: node ${args.slice(1).join(' ')}`,
       '',
@@ -181,6 +181,8 @@ async function runOne(mod, options, spec, index, root, transcripts) {
     ok,
     tokens,
     wallMs,
+    // 本次运行实际使用的超时预算（含 `--timeout-scale`），供报告层区分「超时」与「能力失败」。
+    budgetMs,
     steps: typeof parsed.steps === 'number' ? parsed.steps : undefined,
     exitCode: result.status,
     timedOut,
