@@ -19,7 +19,7 @@
     },
     {
       "usage": "omniharness gc [--dry-run]",
-      "description": "手动维护巡检：临时目录 / 陈旧实例记录 / 会话保留策略（--dry-run 只报告不删除）"
+      "description": "手动维护巡检：临时目录 / 陈旧 serve 实例记录 / 会话保留策略 / 半截临时文件（--dry-run 只报告不删除；serve 启动与周期巡检共用同一实现）"
     },
     {
       "usage": "omniharness mcp serve [--mcp-http-port N] [--mcp-http-host H] [--mcp-http-path P]",
@@ -56,10 +56,6 @@
     {
       "usage": "omniharness bundle pack <profileName> [--key-file K] [--out-dir D] | bundle unpack <path.ohb> [--key-file K]",
       "description": "Bundle 发布单元（#G-E 5.2/5.3，可 patch 插件叠层 + 纯 TS zip + 可选 HMAC 签名）"
-    },
-    {
-      "usage": "omniharness gc [--dry-run]",
-      "description": "手动维护巡检：临时目录 / 陈旧 serve 实例记录 / 会话保留策略 / 半截临时文件（--dry-run 只报告不删除；serve 启动与周期巡检共用同一实现）"
     },
     {
       "usage": "omniharness native info|ping|tools|approval|session-submit|context|tool-call|bench",
