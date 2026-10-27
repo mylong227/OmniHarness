@@ -104,3 +104,22 @@ test('WsA2aServerTransport：两条连接同用 id=1 时各拿各的响应（不
     server.close();
   }
 });
+
+test('WsA2aServerTransport：连接断开即回收其挂起请求（resolvers 不泄漏）', async () => {
+  const server = new WsA2aServerTransport();
+  // 永不回复的处理器：制造挂起的 resolvers 条目。
+  server.onMessage(() => {});
+  const port = await server.listen(0);
+  try {
+    const ws = new WsA2aTransport(`ws://127.0.0.1:${String(port)}${A2A_WS_PATH}`);
+    ws.send({ jsonrpc: '2.0', id: 1, method: 'message/stream', params: {} } as RpcMessage);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    // 断开连接 ⇒ 服务端 onClose 必须回收该连接的挂起条目（此前只在收到终帧时删除）。
+    ws.close();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    const pending = (server as unknown as { resolvers: Map<string, unknown> }).resolvers.size;
+    assert.strictEqual(pending, 0, '连接断开后不得残留挂起请求条目');
+  } finally {
+    server.close();
+  }
+});

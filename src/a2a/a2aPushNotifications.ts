@@ -1,4 +1,5 @@
 import { Id } from '../util/id.ts';
+import { LimitEnv } from '../util/limitEnv.ts';
 import { log } from '../util/logger.ts';
 import { SsrfGuard } from '../security/ssrfGuard.ts';
 import type { SsrfOptions } from '../security/ssrfGuard.ts';
@@ -29,6 +30,13 @@ export interface A2aPushNotificationsOptions {
  * - 投递是**尽力而为**：失败只记日志，绝不影响任务状态机（webhook 不可用不能把任务判失败）。
  */
 export class A2aPushNotifications {
+  /** 单任务通知配置上限（超出丢最旧）。 */
+  private static readonly MAX_CONFIGS_PER_TASK = LimitEnv.int(
+    'OMNI_A2A_MAX_PUSH_CONFIGS_PER_TASK',
+    20,
+  );
+  /** 任务配置桶总数上限（超出连带淘汰最老任务桶）。 */
+  private static readonly MAX_TASK_BUCKETS = LimitEnv.int('OMNI_A2A_MAX_PUSH_TASKS', 500);
   /** 任务 id → 配置列表。 */
   private readonly configs = new Map<string, A2aPushNotificationConfig[]>();
   /** fetch 实现。 */
@@ -62,6 +70,18 @@ export class A2aPushNotifications {
     const index = list.findIndex((item) => item.id === stored.id);
     if (index >= 0) list[index] = stored;
     else list.push(stored);
+    // 有界（2026-10-27 审计收口）：单任务配置数封顶（超出丢最旧并告警），任务桶数封顶
+    // （超限连带淘汰最老任务桶）——两者此前都无上限，长跑 serve 即内存增长向量。
+    while (list.length > A2aPushNotifications.MAX_CONFIGS_PER_TASK) {
+      const dropped = list.shift();
+      log.warn('a2a.push.config.evicted', { taskId, configId: dropped?.id });
+    }
+    while (this.configs.size > A2aPushNotifications.MAX_TASK_BUCKETS && !this.configs.has(taskId)) {
+      const oldest = this.configs.keys().next().value;
+      if (oldest === undefined) break;
+      this.configs.delete(oldest);
+      log.warn('a2a.push.config.bucketEvicted', { taskId: oldest });
+    }
     this.configs.set(taskId, list);
     return stored;
   }

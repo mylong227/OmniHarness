@@ -207,3 +207,16 @@ test('HMAC 模式：密钥是链的属性——验证方 key 不符 ⇒ 判失�
   const noKey = new AuditSink({ path }).verify();
   assert.strictEqual(noKey.ok, false, '未持密钥的验证方不得放行 HMAC 链');
 });
+
+test('close() 后 record 不再抛 TypeError，返回 undefined 且留告警（不再侵入事件流）', () => {
+  const path = tmpFile('closed');
+  const sink = seed(path, 2);
+  sink.close();
+  // 此前：writeSync(undefined) 抛 TypeError，沿 serverEventBridge 的 audit?.record
+  // 打断回合路径。修后：降级为告警并返回 undefined（语义 = 未落盘）。
+  assert.strictEqual(sink.record({ type: 'after-close', actor: 'tester', detail: {} }), undefined);
+  // 链未受污染：close 前的两条仍完整可校验。
+  const report = new AuditSink({ path }).verify();
+  assert.strictEqual(report.ok, true);
+  assert.strictEqual(report.count, 2);
+});

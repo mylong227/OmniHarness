@@ -113,8 +113,12 @@ export class WsA2aTransport implements A2aTransport {
     try {
       const connection = await this.ensureConnection();
       connection.send(JSON.stringify(message));
-    } catch {
-      /* 握手/写失败：由上层调用超时与 fail-closed 门禁观测 */
+    } catch (error) {
+      // 握手/写失败由上层调用超时与 fail-closed 门禁兜底；留 debug 轨迹避免静默（审计 #13）。
+      log.debug('a2a.ws.send.failed', {
+        endpoint: this.endpoint,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -229,6 +233,8 @@ export class WsA2aServerTransport implements A2aTransport {
       readonly respond: (m: RpcMessage) => void;
       /** 是否流式请求（同一 id 允许多帧，终帧后回收）。 */
       readonly stream: boolean;
+      /** 发起连接（close 时按连接回收挂起条目，防泄漏）。 */
+      readonly connection: WsConnection;
     }
   >();
   /** 服务端唯一键的单调计数器（进程内唯一即可）。 */
@@ -270,6 +276,22 @@ export class WsA2aServerTransport implements A2aTransport {
   }
 
   /**
+   * 回收一条连接的全部挂起请求（连接关闭/断开时调用）。
+   *
+   * 此前 onClose 只清 connections/authorizations——对端发完流式请求即断开时，resolvers
+   * 条目只在收到终帧时删除 ⇒ 永久滞留（respond 对已关连接静默丢弃）。按连接索引回收。
+   * @param connection 已关闭的连接。
+   * @returns 无返回值。
+   */
+  private reclaim(connection: WsConnection): void {
+    for (const [key, entry] of this.resolvers) {
+      if (entry.connection === connection) {
+        this.resolvers.delete(key);
+      }
+    }
+  }
+
+  /**
    * 在给定端口监听（返回实际端口）。仅处理 `A2A_WS_PATH` 的 Upgrade；普通 HTTP 请求回 426。
    * 默认只绑 `127.0.0.1`（2026-10-21），局域网互操作需显式 `OMNI_A2A_HOST=0.0.0.0`。
    * @param port 期望监听的端口（可传 0 取系统分配的临时端口）。
@@ -277,14 +299,20 @@ export class WsA2aServerTransport implements A2aTransport {
    */
   public async listen(port: number): Promise<number> {
     this.server = http.createServer((_req, res) => {
+      res.on('error', () => {});
       res.writeHead(426, { upgrade: 'websocket' });
       res.end();
     });
     this.server.on('upgrade', (request, socket) => this.upgrade(request, socket));
     const server = this.server;
     const host = (process.env['OMNI_A2A_HOST'] ?? '').trim() || '127.0.0.1';
-    return new Promise<number>((resolve) => {
+    return await new Promise<number>((resolve, reject) => {
+      const onError = (error: Error): void => {
+        reject(error);
+      };
+      server.once('error', onError);
       server.listen(port, host, () => {
+        server.off('error', onError);
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });
@@ -328,6 +356,7 @@ export class WsA2aServerTransport implements A2aTransport {
     connection.onClose = () => {
       this.connections.delete(connection);
       this.authorizations.delete(connection);
+      this.reclaim(connection);
     };
     connection.onMessage = (text) => this.deliver(text, connection);
   }
@@ -353,6 +382,7 @@ export class WsA2aServerTransport implements A2aTransport {
       remoteId: id,
       respond: (response) => connection.send(JSON.stringify(response)),
       stream: WsA2aServerTransport.isStreaming(message.method),
+      connection,
     });
     const enriched = this.attachAuthorization(message, connection);
     this.callback?.({ ...enriched, id: key });

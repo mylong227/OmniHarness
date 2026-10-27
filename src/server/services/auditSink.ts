@@ -155,6 +155,13 @@ export class AuditSink {
    */
   public record(entry: AuditEvent): number | undefined {
     if (this.target === undefined) return undefined;
+    // close() 后再 record（serverEventBridge 的 audit?.record 无 try 包裹）此前会以
+    // writeSync(undefined) 抛 TypeError 侵入回合路径；磁盘满/EIO 同理。审计写失败降级为
+    // 告警并返回 undefined（调用方语义：未落盘），不让合规面的 IO 异常打断业务事件流。
+    if (this.fd === undefined) {
+      log.warn('audit.record.closed', { target: this.target });
+      return undefined;
+    }
     const ts = entry.ts || new Date().toISOString();
     const seq = this.seq + 1;
     const prev = this.prev;
@@ -169,10 +176,18 @@ export class AuditSink {
       prev,
       hash,
     });
-    writeSync(this.fd as number, line + '\n');
+    try {
+      writeSync(this.fd, line + '\n');
+    } catch (error) {
+      log.warn('audit.record.failed', {
+        target: this.target,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
     if (this.durable) {
       try {
-        fsyncSync(this.fd as number);
+        fsyncSync(this.fd);
       } catch {
         // 同步失败不改变已写入的字节；由上层观测/重试，不在记录路径抛错打断审计链。
       }

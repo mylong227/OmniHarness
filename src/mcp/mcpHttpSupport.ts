@@ -9,6 +9,7 @@
 import type { IncomingMessage, Server } from 'node:http';
 import type { RpcRequest } from '../ports/server/rpcRequest.ts';
 import type { RpcMessage } from '../server/core/jsonRpc.ts';
+import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
 import { McpProtocol } from './mcpProtocol.ts';
 
 /** 默认 MCP 端点路径。 */
@@ -17,8 +18,15 @@ const DEFAULT_PATH = '/mcp';
 const DEFAULT_BODY_LIMIT_BYTES = 1024 * 1024;
 /** 默认读取请求体超时（毫秒）。 */
 const DEFAULT_READ_TIMEOUT_MS = 10_000;
-/** 默认 CORS 允许来源（本机服务默认不做来源白名单）。 */
-const DEFAULT_CORS_ORIGIN = '*';
+/**
+ * CORS 来源哨兵值（默认）：**仅回环 Origin 回显**。
+ *
+ * 2026-10-27 审计收口：默认 `*` 让任意网页都能跨源读取本端点响应（本端点能驱动
+ * agent 工具 ⇒ 等于把本机执行面暴露给互联网内容）。改为「回环回显」后，本机开发页
+ * （localhost:5173 等）照常跨源，外部页面拿不到任何跨源许可；需要开放给已知远端页面时
+ * 显式配 `corsOrigin`（精确 origin 或 `'*'` 自担风险）。
+ */
+export const CORS_ORIGIN_LOOPBACK_ECHO = 'loopback';
 
 /** Streamable HTTP 监听配置。 */
 export interface McpHttpServerConfig {
@@ -32,8 +40,14 @@ export interface McpHttpServerConfig {
   readonly bodyLimitBytes?: number | undefined;
   /** 读取请求体超时毫秒（默认 10 s）。 */
   readonly readTimeoutMs?: number | undefined;
-  /** CORS `Access-Control-Allow-Origin`（默认 `*`）。 */
+  /** CORS `Access-Control-Allow-Origin`（默认仅回环回显，见 {@link CORS_ORIGIN_LOOPBACK_ECHO}）。 */
   readonly corsOrigin?: string | undefined;
+  /**
+   * Bearer 令牌（2026-10-27 审计收口）：非空时**所有**请求都要求
+   * `Authorization: Bearer <token>`（或 `?token=`）；非回环绑定必须配令牌。
+   * 缺省由构造方回落 `OMNI_SERVE_TOKEN` 环境变量。
+   */
+  readonly token?: string | undefined;
 }
 
 /** `listen()` 回报的实际监听地址（端口 0 时是内核分配的真实端口）。 */
@@ -56,8 +70,10 @@ export interface NormalizedHttpConfig {
   readonly bodyLimitBytes: number;
   /** 读取请求体超时毫秒。 */
   readonly readTimeoutMs: number;
-  /** CORS 允许来源。 */
+  /** CORS 允许来源（`loopback` 哨兵 = 仅回环回显）。 */
   readonly corsOrigin: string;
+  /** Bearer 令牌（空串 = 未启用鉴权）。 */
+  readonly token: string;
 }
 
 /** 头校验失败（HTTP 层直接回 400，不进入服务端分发）。 */
@@ -113,7 +129,7 @@ export const normalizeHttpConfig = (config: McpHttpServerConfig): NormalizedHttp
   if (!Number.isInteger(readTimeoutMs) || readTimeoutMs < 1) {
     throw new Error('McpHttpServer readTimeoutMs 必须是正整数');
   }
-  const corsOrigin = config.corsOrigin ?? DEFAULT_CORS_ORIGIN;
+  const corsOrigin = config.corsOrigin ?? CORS_ORIGIN_LOOPBACK_ECHO;
   if (corsOrigin.trim() === '') throw new Error('McpHttpServer corsOrigin 不能为空');
   return {
     host: config.host,
@@ -122,6 +138,7 @@ export const normalizeHttpConfig = (config: McpHttpServerConfig): NormalizedHttp
     bodyLimitBytes,
     readTimeoutMs,
     corsOrigin,
+    token: (config.token ?? '').trim(),
   };
 };
 
@@ -324,31 +341,60 @@ export const statusOfRpcMessage = (message: RpcMessage): number => {
 };
 
 /**
- * CORS 响应头（预检与普通响应共用）。
- * @param origin `Access-Control-Allow-Origin`。
- * @returns 头名 → 头值。
+ * CORS 响应头（预检与普通响应共用；`Vary: Origin` 恒写，其余头按来源策略）。
+ * @param origin 配置的来源策略（`loopback` 哨兵 / `*` / 精确 origin）。
+ * @param requestOrigin 请求的 Origin 头（无/非法 = 非浏览器客户端）。
+ * @returns 头名 → 头值（无跨源许可时只含 Vary）。
  */
-const corsHeadersFor = (origin: string): Readonly<Record<string, string>> => ({
-  'Access-Control-Allow-Origin': origin,
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers':
-    'Content-Type, Accept, Authorization, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id, Mcp-Task',
-  'Access-Control-Expose-Headers': 'MCP-Protocol-Version, Mcp-Session-Id',
-  'Access-Control-Max-Age': '86400',
-  Vary: 'Origin',
-});
+const corsHeadersFor = (
+  origin: string,
+  requestOrigin: string | undefined,
+): Readonly<Record<string, string>> => {
+  const headers: Record<string, string> = { Vary: 'Origin' };
+  let allowed: string | undefined;
+  if (origin === '*') {
+    allowed = '*';
+  } else if (origin === CORS_ORIGIN_LOOPBACK_ECHO) {
+    if (requestOrigin !== undefined && ServerAuthGuard.isLoopback(HostOf(requestOrigin))) {
+      allowed = requestOrigin;
+    }
+  } else if (requestOrigin !== undefined && requestOrigin === origin) {
+    allowed = requestOrigin;
+  }
+  if (allowed === undefined) return headers;
+  return {
+    ...headers,
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers':
+      'Content-Type, Accept, Authorization, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Mcp-Session-Id, Mcp-Task',
+    'Access-Control-Expose-Headers': 'MCP-Protocol-Version, Mcp-Session-Id',
+    'Access-Control-Max-Age': '86400',
+  };
+};
+
+/** 取 Origin 的主机名（非法 URL 返回原文，交给回环判断兜底为 false）。 */
+const HostOf = (origin: string): string => {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return origin;
+  }
+};
 
 /**
- * 把 CORS 头写入响应。
+ * 把 CORS 头写入响应（`loopback` 哨兵策略按请求 Origin 决定是否回显）。
  * @param response 响应对象（只要求 `setHeader`）。
- * @param origin 允许来源。
+ * @param origin 配置的来源策略。
+ * @param requestOrigin 请求的 Origin 头。
  * @returns 无返回值。
  */
 export const applyCorsHeaders = (
   response: { setHeader(name: string, value: string): void },
   origin: string,
+  requestOrigin: string | undefined,
 ): void => {
-  for (const [name, value] of Object.entries(corsHeadersFor(origin))) {
+  for (const [name, value] of Object.entries(corsHeadersFor(origin, requestOrigin))) {
     response.setHeader(name, value);
   }
 };

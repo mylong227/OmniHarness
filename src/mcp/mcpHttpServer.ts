@@ -27,6 +27,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { McpServerInfo } from '../ports/mcp/mcpProtocolTypes.ts';
 import type { RequestId } from '../ports/server/requestId.ts';
 import { jsonRpc, type RpcMessage, type RpcRequest } from '../server/core/jsonRpc.ts';
+import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
 import { log } from '../util/logger.ts';
 import { McpProtocol } from './mcpProtocol.ts';
 import { McpServer, type McpServerOptions } from './mcpServer.ts';
@@ -119,19 +120,32 @@ export class McpHttpServer {
   private readonly sse = new Map<RequestId, ServerResponse>();
   /** `close()` 的幂等缓存。 */
   private closePromise: Promise<void> | undefined;
+  /** 暴露守卫（Bearer 令牌鉴权；配置了令牌时全端点生效）。 */
+  private readonly guard: ServerAuthGuard;
+  /** 服务端响应流唯一键序列（防客户端 id 复用导致响应串线）。 */
+  private streamSeq = 0;
 
   /**
    * @param options MCP 服务端选项（tools/context/gate/resources/prompts/extensions/cache/inputRequired）。
-   * @param config 监听配置（host/port/path 与可选上限）。
+   * @param config 监听配置（host/port/path 与可选上限/令牌；令牌缺省回落 `OMNI_SERVE_TOKEN`）。
    */
   public constructor(options: McpHttpServerOptions, config: McpHttpServerConfig) {
-    this.config = normalizeHttpConfig(config);
+    // 令牌的环境回落只在构造期解析一次；normalizeHttpConfig 保持纯函数。
+    this.config = normalizeHttpConfig({
+      ...config,
+      token: config.token ?? process.env[ServerAuthGuard.TOKEN_ENV] ?? '',
+    });
     this.info = options.serverInfo ?? { name: 'omniharness', version: '0.1.0' };
+    this.guard = new ServerAuthGuard(this.config.token);
     this.transport = new McpSseResponseTransport((frame) => {
       log.warn('mcp.http.unrouted', { event: frame.event });
     });
     this.mcp = new McpServer({ ...options, transport: this.transport });
     this.http = createServer((request, response) => {
+      response.on('error', () => {
+        // 客户端提前断开时写响应会触发 'error'；无监听会被 Node 22 升级为
+        // uncaughtException 终止进程（httpServer.ts 的同一课）。写失败伴随连接死亡，无需上报。
+      });
       void this.handle(request, response);
     });
   }
@@ -139,9 +153,10 @@ export class McpHttpServer {
   /**
    * 启动 HTTP 监听（端口 0 由内核分配）。
    * @returns 实际监听地址（`port` 为真实端口）。
-   * @throws Error 监听失败（端口占用/权限/地址不可用）时抛出可行动消息。
+   * @throws Error 非回环绑定且未配令牌时拒绝启动（fail-closed）；监听失败（端口占用/权限/地址不可用）时抛出可行动消息。
    */
-  public listen(): Promise<McpHttpListenAddress> {
+  public async listen(): Promise<McpHttpListenAddress> {
+    ServerAuthGuard.assertBindSafe(this.config.host, this.config.token || undefined);
     if (this.http.listening) {
       return Promise.resolve(listenAddressOf(this.http, this.config.host));
     }
@@ -186,7 +201,18 @@ export class McpHttpServer {
    */
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     try {
-      applyCorsHeaders(response, this.config.corsOrigin);
+      applyCorsHeaders(response, this.config.corsOrigin, headerText(request, 'origin'));
+      // 令牌鉴权（2026-10-27 审计收口）：配置了令牌时**所有**方法（含健康/预检）都要求
+      // Bearer/`?token=`；未配置令牌时仅回环绑定为默认形态（非回环已在 listen() 拒绝）。
+      if (this.guard.enabled && !this.guard.verify(request)) {
+        this.respondError(
+          response,
+          401,
+          ERROR_INVALID_REQUEST,
+          'unauthorized：需要 Authorization: Bearer <token>（或 ?token=）',
+        );
+        return;
+      }
       const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
       if (!matchesHttpPath(url.pathname, this.config.path)) {
         this.respondError(
@@ -404,6 +430,19 @@ export class McpHttpServer {
    */
   private async handleListen(response: ServerResponse, message: RpcRequest): Promise<void> {
     const id = message.id;
+    // 订阅流按协议语义必须以客户端请求 id 为 subscriptionId 路由 ⇒ 无法像普通请求那样
+    // 改写成服务端唯一键。同 id 并发订阅时**拒绝后者**（fail-closed）：静默覆盖会让前一条
+    // 订阅的帧写进后一条连接。唯一 id 的客户端（正常形态）不受影响；要彻底解耦需
+    // 每连接一个 transport，已登记为后续重构项。
+    if (this.sse.has(id)) {
+      this.respondError(
+        response,
+        409,
+        ERROR_INVALID_REQUEST,
+        `subscriptions/listen 的请求 id ${String(id)} 已有活跃订阅：请为每条订阅使用唯一 id`,
+      );
+      return;
+    }
     response.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -469,25 +508,33 @@ export class McpHttpServer {
 
   /**
    * 分发单条消息：请求登记临时响应流并等待服务端写完；通知直接投递。
+   *
+   * **服务端唯一键（2026-10-27 审计收口）**：响应流按**服务端生成的唯一键**登记，
+   * 请求 id 在边界改写、响应回写时还原。此前直接用客户端原始 id 登记——大量客户端
+   * 每请求都从 `id:1` 重新编号，两个并发 POST 同 id 时后登记者覆盖前者，一方的响应帧
+   * 写进另一方（`replies[0]` 变 undefined ⇒ TypeError ⇒ 500）。A2A 传输已用同一模式修复。
    * @param message 入站消息。
-   * @returns 响应消息；通知为 undefined。
+   * @returns 响应消息（id 已还原为客户端原始 id）；通知为 undefined。
    */
   private async dispatchOne(message: RpcMessage): Promise<RpcMessage | undefined> {
     if (!('method' in message) || !('id' in message)) {
       await this.mcp.handle(message);
       return undefined;
     }
+    const serverKey: RequestId = `@srv-${(this.streamSeq += 1)}`;
     const replies: RpcMessage[] = [];
-    this.transport.registerStream(message.id, (frame) => {
+    this.transport.registerStream(serverKey, (frame) => {
       const parsed = jsonRpc.parse(frame.data);
       if (parsed !== undefined) replies.push(parsed);
     });
     try {
-      await this.mcp.handle(message);
+      await this.mcp.handle({ ...message, id: serverKey });
     } finally {
-      this.transport.unregisterStream(message.id);
+      this.transport.unregisterStream(serverKey);
     }
-    return replies[0];
+    const reply = replies[0];
+    // 响应 id 还原为客户端原始 id（协议要求响应回显请求 id）。
+    return reply === undefined ? undefined : ({ ...reply, id: message.id } as RpcMessage);
   }
 
   /**

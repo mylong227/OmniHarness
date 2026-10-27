@@ -7,6 +7,7 @@ import type {
 } from './a2aProtocol.ts';
 import { A2A_ERROR_TASK_NOT_FOUND } from './a2aProtocol.ts';
 import { A2aProtocolError } from './a2aProtocolError.ts';
+import { LimitEnv } from '../util/limitEnv.ts';
 import { log } from '../util/logger.ts';
 
 /** 一条任务流事件（订阅者与 push 通知共用同一载荷）。 */
@@ -51,6 +52,21 @@ interface A2aTaskRecord {
  * `await`，因此订阅者不会错过「订阅快照」与「后续更新」之间的任何一条事件。
  */
 export class A2aTaskStore {
+  /**
+   * 任务总量上限（`OMNI_A2A_MAX_TASKS` 可调，默认 500；构造期读取）。
+   *
+   * 2026-10-27 审计收口：records Map 此前无上限——每个 `message/send`（远端可控的唯一 id）
+   * 永久占一条记录，长跑 serve 即远程内存耗尽向量（`OMNI_A2A_HOST=0.0.0.0` 时尤甚）。
+   * 超限时**先淘汰终态任务**（Map 插入序即创建序），无终态可淘汰才淘汰最老的非终态任务
+   * （有界内存优先于保留全部状态；每次淘汰都留 warn 轨迹）。与 GraphRunRegistry 的
+   * MAX_RUNS 淘汰同口径。
+   */
+  private readonly maxTasks: number = LimitEnv.int('OMNI_A2A_MAX_TASKS', 500);
+  /** 单任务产出上限（超出丢最旧并告警；防长流任务的 artifacts 无界增长）。 */
+  private readonly maxArtifactsPerTask: number = LimitEnv.int(
+    'OMNI_A2A_MAX_ARTIFACTS_PER_TASK',
+    200,
+  );
   /** 任务记录表（id → 记录）。 */
   private readonly records = new Map<string, A2aTaskRecord>();
   /** 任务事件观察者（push notification 用；缺省不通知）。 */
@@ -78,7 +94,30 @@ export class A2aTaskStore {
       status: { state: 'submitted', timestamp: new Date().toISOString() },
     };
     this.records.set(id, { task, listeners: new Set() });
+    this.evictBeyondLimit();
     return task;
+  }
+
+  /**
+   * 超上限时淘汰旧任务（终态优先；Map 插入序 = 创建序）。
+   * @returns 无返回值。
+   */
+  private evictBeyondLimit(): void {
+    if (this.records.size <= this.maxTasks) return;
+    for (const terminalOnly of [true, false]) {
+      for (const [key, record] of this.records) {
+        if (this.records.size <= this.maxTasks) return;
+        const isTerminal = A2aTaskStore.isTerminal(record.task.status.state);
+        if (terminalOnly && !isTerminal) continue;
+        this.records.delete(key);
+        log.warn('a2a.task.evicted', {
+          taskId: key,
+          state: record.task.status.state,
+          terminal: isTerminal,
+          limit: this.maxTasks,
+        });
+      }
+    }
   }
 
   /**
@@ -142,9 +181,20 @@ export class A2aTaskStore {
       return record.task;
     }
     if (patch.artifact !== undefined) {
+      // 单任务产出上限：超出丢最旧（有界内存优先；每次都留 warn 轨迹）。
+      const existing = record.task.artifacts ?? [];
+      const overflow = existing.length + 1 - this.maxArtifactsPerTask;
+      const artifacts = overflow > 0 ? existing.slice(overflow) : existing;
+      if (overflow > 0) {
+        log.warn('a2a.task.artifacts.evicted', {
+          taskId: id,
+          dropped: overflow,
+          limit: this.maxArtifactsPerTask,
+        });
+      }
       const task: A2aTask = {
         ...record.task,
-        artifacts: [...(record.task.artifacts ?? []), patch.artifact],
+        artifacts: [...artifacts, patch.artifact],
       };
       record.task = task;
       this.publish(record, {

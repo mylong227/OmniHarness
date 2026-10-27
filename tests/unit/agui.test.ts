@@ -333,3 +333,149 @@ test('14) HTTP/SSE：非空 messages 发 MESSAGES_SNAPSHOT，工具活动随流�
     server.close();
   }
 });
+
+test('15) 绑定安全：非回环绑定未配令牌时拒绝启动（fail-closed）', async () => {
+  const runner: AgUiAgentRunner = async function* (): AsyncIterable<SessionEvent> {
+    yield eventFactory.assistant('s', '不应跑到这里');
+  };
+  const server = new AgUiHttpServer({ run: runner, host: '0.0.0.0' });
+  await assert.rejects(() => server.listen(0), /非回环绑定必须配令牌/u);
+});
+
+test('16) 鉴权：配令牌后无令牌 401、Bearer/?token= 放行、跨源 Origin 恒 401', async () => {
+  const runner: AgUiAgentRunner = async function* (): AsyncIterable<SessionEvent> {
+    yield eventFactory.assistant('s', '来自 runner');
+  };
+  const server = new AgUiHttpServer({ run: runner, token: 'secret-token' });
+  const port = await server.listen(0);
+  const post = (init: RequestInit): Promise<Response> =>
+    fetch(`http://127.0.0.1:${String(port)}/agui`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ threadId: 't16', runId: 'r16', messages: [] }),
+      ...init,
+    });
+  try {
+    const noToken = await post({});
+    assert.strictEqual(noToken.status, 401);
+    const wrongToken = await post({
+      headers: { 'content-type': 'application/json', authorization: 'Bearer wrong' },
+    });
+    assert.strictEqual(wrongToken.status, 401);
+    // 跨源恶意页面即使拿到令牌也不放行（防任意网页驱动本机 agent）。
+    const evilOrigin = await post({
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer secret-token',
+        origin: 'https://evil.example',
+      },
+    });
+    assert.strictEqual(evilOrigin.status, 401);
+    const bearer = await post({
+      headers: { 'content-type': 'application/json', authorization: 'Bearer secret-token' },
+    });
+    assert.strictEqual(bearer.status, 200);
+    const queryToken = await fetch(`http://127.0.0.1:${String(port)}/agui?token=secret-token`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ threadId: 't16b', runId: 'r16b', messages: [] }),
+    });
+    assert.strictEqual(queryToken.status, 200);
+    // 探活免鉴权（只回协议标识，无会话数据）。
+    const health = await fetch(`http://127.0.0.1:${String(port)}/agui/health`);
+    assert.strictEqual(health.status, 200);
+  } finally {
+    server.close();
+  }
+});
+
+test('17) CORS：外部 Origin 不给 allow-origin，回环 Origin 回显；不再出现通配 *', async () => {
+  const runner: AgUiAgentRunner = async function* (): AsyncIterable<SessionEvent> {
+    yield eventFactory.assistant('s', 'ok');
+  };
+  const server = new AgUiHttpServer({ run: runner });
+  const port = await server.listen(0);
+  const post = (origin?: string): Promise<Response> =>
+    fetch(`http://127.0.0.1:${String(port)}/agui`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(origin === undefined ? {} : { origin }),
+      },
+      body: JSON.stringify({ threadId: 't17', runId: 'r17', messages: [] }),
+    });
+  try {
+    const evil = await post('https://evil.example');
+    assert.strictEqual(
+      evil.headers.get('access-control-allow-origin'),
+      null,
+      '外部 Origin 不得获得跨源读取许可',
+    );
+    const loopback = await post('http://localhost:5173');
+    assert.strictEqual(
+      loopback.headers.get('access-control-allow-origin'),
+      'http://localhost:5173',
+    );
+    const preflight = await fetch(`http://127.0.0.1:${String(port)}/agui`, {
+      method: 'OPTIONS',
+      headers: { origin: 'https://evil.example' },
+    });
+    assert.strictEqual(preflight.headers.get('access-control-allow-origin'), null);
+  } finally {
+    server.close();
+  }
+});
+
+test('18) close()：在飞 run 被 abort 收尾（RUN_ERROR/CANCELLED），连接不再悬挂', async () => {
+  let observedSignal: AbortSignal | undefined;
+  const runner: AgUiAgentRunner = async function* (
+    _input: { threadId?: string; runId?: string },
+    signal: AbortSignal,
+  ): AsyncIterable<SessionEvent> {
+    observedSignal = signal;
+    yield eventFactory.assistant('s', '开始');
+    await new Promise<void>((resolve) => {
+      if (signal.aborted) resolve();
+      else signal.addEventListener('abort', () => resolve(), { once: true });
+    });
+    yield eventFactory.assistant('s', '不应出现');
+  };
+  const server = new AgUiHttpServer({ run: runner });
+  const port = await server.listen(0);
+  const response = await fetch(`http://127.0.0.1:${String(port)}/agui`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ threadId: 't18', runId: 'r18', messages: [] }),
+  });
+  const textPromise = response.text();
+  // 先等 run 真正开始（runner 已拿到 signal），再 close() 触发 abort。
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('run 未开始')), 5000);
+    const check = (): void => {
+      if (observedSignal !== undefined) {
+        clearTimeout(timer);
+        resolve();
+      } else {
+        setTimeout(check, 20);
+      }
+    };
+    setTimeout(check, 20);
+  });
+  server.close();
+  assert.strictEqual(observedSignal?.aborted, true, 'close() 必须 abort 在飞 run');
+  const text = await textPromise;
+  const events = text
+    .split('\n')
+    .filter((line) => line.startsWith('data: '))
+    .map((line) => JSON.parse(line.slice('data: '.length)) as AgUiEvent);
+  const last = events.at(-1);
+  assert.strictEqual(last?.type, 'RUN_ERROR');
+  assert.strictEqual((last as { code?: string }).code, 'CANCELLED');
+  assert.ok(
+    !events.some(
+      (event) =>
+        event.type === 'TEXT_MESSAGE_CONTENT' && (event as { delta?: string }).delta === '不应出现',
+    ),
+    'close() abort 后源事件不应继续映射',
+  );
+});

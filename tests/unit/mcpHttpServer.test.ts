@@ -70,12 +70,16 @@ afterEach(async () => {
 /**
  * 起一个测试服务（始终绑定 127.0.0.1 + 端口 0）。
  * @param overrides 服务端选项覆盖（如 gate）。
+ * @param configOverrides 监听配置覆盖（如 token/corsOrigin）。
  * @returns 服务与端点 URL。
  */
-async function start(overrides: Partial<McpHttpServerOptions> = {}): Promise<RunningServer> {
+async function start(
+  overrides: Partial<McpHttpServerOptions> = {},
+  configOverrides: { token?: string; corsOrigin?: string; host?: string } = {},
+): Promise<RunningServer> {
   const server = new McpHttpServer(
     { tools: new EchoTools(), context: CONTEXT, ...overrides },
-    { host: '127.0.0.1', port: 0 },
+    { host: '127.0.0.1', port: 0, ...configOverrides },
   );
   running.push(server);
   const address = await server.listen();
@@ -492,23 +496,145 @@ test('close() 幂等：重复调用返回同一 Promise 且不抛错', async () 
   await server.close();
 });
 
-test('GET 健康/能力 + OPTIONS CORS 预检', async () => {
+test('GET 健康/能力 + OPTIONS CORS 预检（默认仅回环 Origin 回显，外部 Origin 无跨源许可）', async () => {
   const { endpoint } = await start();
   const health = await fetch(endpoint);
   assert.strictEqual(health.status, 200);
   const body = await jsonOf(health);
   assert.strictEqual(body['transport'], 'streamable-http');
   assert.deepStrictEqual(body['protocolVersions'], [...McpProtocol.SUPPORTED_VERSIONS]);
-  const preflight = await fetch(endpoint, {
+  // 外部页面（example.com）：默认策略不给任何跨源许可——本端点能驱动 agent 工具。
+  const external = await fetch(endpoint, {
     method: 'OPTIONS',
     headers: {
       Origin: 'http://example.com',
       'Access-Control-Request-Method': 'POST',
     },
   });
-  assert.strictEqual(preflight.status, 204);
+  assert.strictEqual(external.status, 204);
+  assert.strictEqual(external.headers.get('access-control-allow-origin'), null);
+  // 回环开发页：跨源回显照常（本机 UI/工具页是合法消费方）。
+  const loopback = await fetch(endpoint, {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'http://localhost:5173',
+      'Access-Control-Request-Method': 'POST',
+    },
+  });
+  assert.strictEqual(loopback.status, 204);
+  assert.strictEqual(loopback.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+});
+
+test('CORS：显式 corsOrigin="*" 仍允许通配（显式自担风险的选择）', async () => {
+  const { endpoint } = await start({}, { corsOrigin: '*' });
+  const preflight = await fetch(endpoint, {
+    method: 'OPTIONS',
+    headers: { Origin: 'http://example.com', 'Access-Control-Request-Method': 'POST' },
+  });
   assert.strictEqual(preflight.headers.get('access-control-allow-origin'), '*');
-  assert.match(preflight.headers.get('access-control-allow-methods') ?? '', /POST/u);
+});
+
+test('鉴权：配置令牌后无令牌 401、Bearer/?token= 放行、错误令牌 401', async () => {
+  const { endpoint } = await start({}, { token: 'mcp-secret' });
+  const call = (extra: Record<string, string> = {}, url = endpoint): Promise<Response> =>
+    fetch(url, {
+      method: 'POST',
+      headers: { ...headersOf('tools/list'), ...extra },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/list',
+        params: { _meta: modernMeta() },
+      }),
+    });
+  const noToken = await call();
+  assert.strictEqual(noToken.status, 401);
+  const wrongToken = await call({ authorization: 'Bearer nope' });
+  assert.strictEqual(wrongToken.status, 401);
+  const withBearer = await call({ authorization: 'Bearer mcp-secret' });
+  assert.strictEqual(withBearer.status, 200);
+  const body = (await withBearer.json()) as { result?: { tools?: unknown[] } };
+  assert.strictEqual(body.result?.tools?.length, 2);
+  const withQuery = await call({}, `${endpoint}?token=mcp-secret`);
+  assert.strictEqual(withQuery.status, 200);
+  // 探活同样被门禁覆盖（配置了令牌 ⇒ 全端点鉴权）。
+  const health = await fetch(endpoint);
+  assert.strictEqual(health.status, 401);
+});
+
+test('绑定安全：非回环绑定未配令牌时 listen() 拒绝启动', async () => {
+  const server = new McpHttpServer(
+    { tools: new EchoTools(), context: CONTEXT },
+    { host: '0.0.0.0', port: 0 },
+  );
+  await assert.rejects(() => server.listen(), /非回环绑定必须配令牌/u);
+});
+
+test('响应不串线：两个并发 POST 同 id=1，各自拿到自己的响应', async () => {
+  const { endpoint } = await start();
+  // 两个并发请求都用 id:1（常见客户端行为：每请求重新编号）；
+  // 修复前按客户端 id 登记响应流 ⇒ 后者覆盖前者，一方拿到空响应。
+  const requests = [0, 1].map((index) =>
+    fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        'MCP-Protocol-Version': MODERN,
+        'Mcp-Method': 'tools/call',
+        'Mcp-Name': index === 0 ? 'alpha' : 'echo',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: index === 0 ? 'alpha' : 'echo',
+          arguments: {},
+          _meta: modernMeta(),
+        },
+      }),
+    }).then(async (response): Promise<string> => {
+      assert.strictEqual(response.status, 200);
+      const body = (await response.json()) as { result?: { content?: unknown[] } };
+      const first = body.result?.content?.[0] as { text?: string } | undefined;
+      return first?.text ?? '';
+    }),
+  );
+  const [alphaText = '', echoText = ''] = await Promise.all(requests);
+  assert.match(alphaText, /done:alpha/u, '第一个请求必须拿到 alpha 的结果');
+  assert.match(echoText, /done:echo/u, '第二个请求必须拿到 echo 的结果');
+});
+
+test('订阅同 id 并发：第二条 subscriptions/listen 被 409 拒绝（不再静默串线）', async () => {
+  const { endpoint } = await start();
+  const listenBody = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 'sub-1',
+    method: 'subscriptions/listen',
+    params: { _meta: modernMeta() },
+  });
+  const listenHeaders = {
+    'content-type': 'application/json',
+    accept: 'text/event-stream',
+    'MCP-Protocol-Version': MODERN,
+    'Mcp-Method': 'subscriptions/listen',
+  };
+  const first = await fetch(endpoint, { method: 'POST', headers: listenHeaders, body: listenBody });
+  assert.strictEqual(first.status, 200);
+  try {
+    const second = await fetch(endpoint, {
+      method: 'POST',
+      headers: listenHeaders,
+      body: listenBody,
+    });
+    assert.strictEqual(second.status, 409);
+    const body = (await second.json()) as { error?: { code?: number } };
+    assert.strictEqual(body.error?.code, -32600);
+  } finally {
+    // 断开第一条订阅，释放其连接。
+    first.body?.cancel();
+  }
 });
 
 test('通知（无 id）：202 Accepted 且无响应体', async () => {

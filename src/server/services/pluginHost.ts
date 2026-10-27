@@ -2,8 +2,7 @@ import { Container } from '../../core/container.ts';
 import { ServiceKeys } from '../../composition/runtime.ts';
 import { PluginManager } from '../../plugin/pluginManager.ts';
 import { PluginLoader } from '../../plugin/pluginLoader.ts';
-import { PermissionGate } from '../../plugin/permissionGate.ts';
-import { ALL_PERMISSIONS } from '../../plugin/permission.ts';
+import { PluginHostPermissions } from './pluginHostPermissions.ts';
 import {
   PluginProfileStore,
   type PluginProfile,
@@ -98,7 +97,9 @@ export class PluginHost {
       container.register(ServiceKeys.events, config.events);
       container.register(ServiceKeys.sandbox, config.sandbox);
       container.register(ServiceKeys.approvals, config.approvals);
-      const manager = new PluginManager(container, PermissionGate.fromList(ALL_PERMISSIONS));
+      // 权限白名单（2026-10-27 审计收口）：默认只授非危险权限；危险能力须
+      // OMNI_PLUGIN_PERMISSIONS 显式授予。声明超白名单的插件在 register 阶段被拒。
+      const manager = new PluginManager(container, PluginHostPermissions.resolve());
       this.pluginManager = manager;
       const loaded = await PluginLoader.loadInstalledPlugins(
         manager,

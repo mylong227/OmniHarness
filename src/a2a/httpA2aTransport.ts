@@ -86,8 +86,13 @@ export class HttpA2aTransport implements A2aTransport {
           this.callback(resp as RpcMessage);
         }
       })
-      .catch(() => {
-        /* 网络错误由对端超时/上层 fail-closed 处理 */
+      .catch((error: unknown) => {
+        // 网络错误由对端超时/上层 fail-closed 兜底，但零观测会让「对端配错/宕机」表现为
+        // 永远静默超时（2026-10-27 审计 #13）——至少留一条 debug 轨迹。
+        log.debug('a2a.send.failed', {
+          endpoint: this.endpoint,
+          error: error instanceof Error ? error.message : String(error),
+        });
       });
   }
 
@@ -202,11 +207,21 @@ export class HttpA2aServerTransport implements A2aTransport {
    *          仅接受 POST /a2a，其余返回 405/400/500。
    */
   public async listen(port: number): Promise<number> {
-    this.server = http.createServer((req, res) => this.handleRequest(req, res));
+    this.server = http.createServer((req, res) => {
+      // 客户端提前断开（RST/半关闭）时写响应触发 'error'；无监听会被 Node 22 升级为
+      // uncaughtException 终止进程（httpServer.ts 同一课）。
+      res.on('error', () => {});
+      this.handleRequest(req, res);
+    });
     const server = this.server;
     const host = (process.env['OMNI_A2A_HOST'] ?? '').trim() || '127.0.0.1';
-    return new Promise<number>((resolve) => {
+    return await new Promise<number>((resolve, reject) => {
+      const onError = (error: Error): void => {
+        reject(error);
+      };
+      server.once('error', onError);
       server.listen(port, host, () => {
+        server.off('error', onError);
         const address = server.address();
         resolve(typeof address === 'object' && address !== null ? address.port : port);
       });

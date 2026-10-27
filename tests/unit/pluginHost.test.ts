@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PluginHost } from '../../src/server/services/pluginHost.ts';
+import { PluginHostPermissions } from '../../src/server/services/pluginHostPermissions.ts';
 import type { Transport } from '../../src/server/transport/lineTransport.ts';
 import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
@@ -12,6 +13,7 @@ import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
 import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
 import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { DANGEROUS_PERMISSIONS } from '../../src/plugin/permission.ts';
 
 /** 空传输桩。 */
 class NoopTransport implements Transport {
@@ -83,4 +85,29 @@ test('PluginHost：有插件目录时装配出管理器并对外暴露目录', a
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('宿主权限白名单：默认只授非危险权限，proc.exec/env.write 等被拒', () => {
+  const gate = PluginHostPermissions.resolve({});
+  const dangerous = [...DANGEROUS_PERMISSIONS];
+  const decision = gate.check(dangerous);
+  assert.strictEqual(
+    decision.allowed,
+    false,
+    '默认白名单不得放行任何危险权限（此前宿主直接授全集）',
+  );
+  assert.deepStrictEqual(new Set(decision.missing), new Set(dangerous));
+  // 非危险能力照常可用。
+  assert.strictEqual(
+    gate.check(['fs.read', 'net.connect', 'env.read', 'store.read']).allowed,
+    true,
+  );
+});
+
+test('宿主权限白名单：OMNI_PLUGIN_PERMISSIONS 显式授予危险权限 / all 全开 / 未知名忽略', () => {
+  const granted = PluginHostPermissions.resolve({ OMNI_PLUGIN_PERMISSIONS: 'proc.exec, nope' });
+  assert.strictEqual(granted.check(['proc.exec']).allowed, true, '显式授予后应放行');
+  assert.strictEqual(granted.check(['env.write']).allowed, false, '未授予的危险权限仍应被拒');
+  const all = PluginHostPermissions.resolve({ OMNI_PLUGIN_PERMISSIONS: 'all' });
+  assert.strictEqual(all.check([...DANGEROUS_PERMISSIONS]).allowed, true, 'all 显式全开');
 });

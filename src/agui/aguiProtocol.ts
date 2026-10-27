@@ -381,8 +381,13 @@ export type AgUiAgentRunner = (
 export interface AgUiHttpServerOptions {
   /** 运行器（真实装配或测试替身）。 */
   readonly run: AgUiAgentRunner;
-  /** 监听地址（缺省 127.0.0.1）。 */
+  /** 监听地址（缺省 127.0.0.1；非回环绑定必须配令牌，否则拒绝启动）。 */
   readonly host?: string;
   /** 请求体上限（字节，缺省 1 MiB）。 */
   readonly maxBodyBytes?: number;
+  /**
+   * Bearer 令牌（2026-10-27 审计收口）：非空时除探活外一律要求鉴权。
+   * 缺省回落 `OMNI_SERVE_TOKEN` 环境变量（与主 serve 共用一把钥匙）。
+   */
+  readonly token?: string;
 }

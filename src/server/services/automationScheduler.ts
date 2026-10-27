@@ -1,5 +1,6 @@
 /** 自动化调度器：按间隔把到期任务交给运行回调。 */
 import type { Automation, AutomationStore } from './automationStore.ts';
+import { log } from '../../util/logger.ts';
 
 /** 自动化调度器。 */
 export class AutomationScheduler {
@@ -51,8 +52,14 @@ export class AutomationScheduler {
         this.store.markRun(automation.id);
         try {
           await this.run(automation);
-        } catch {
-          // 单条失败不影响其余任务。
+        } catch (error) {
+          // 单条失败不影响其余任务——但**必须可观测**（2026-10-27 审计收口）：此前
+          // 空吞错误且 lastRunAt 已落，用户定义的定时自动化会呈现「看起来在跑、
+          // 实际每轮都失败」的假象且排障无门。
+          log.warn('automation.tick.failed', {
+            id: automation.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     } finally {
