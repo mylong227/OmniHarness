@@ -14,6 +14,7 @@ import {
 import { WorkflowStepStatuses } from '../../../autonomy/workflowTypes.ts';
 import type { WorkflowDef, WorkflowResult } from '../../../autonomy/workflowTypes.ts';
 import { RUN_WORKFLOW_TOOL_NAME } from '../../../autonomy/workflowToolNames.ts';
+import { WorkflowIsolatedRun } from '../../../autonomy/workflowIsolatedRun.ts';
 import type { SubagentPortsShape } from '../../../ports/subagent/subagentPortsShape.ts';
 
 /** 模型面 run_workflow 工具：派生一次进程内 DAG 工作流（多步依赖编排 + 受控条件 + 断点续跑）。 */
@@ -39,6 +40,11 @@ export class RunWorkflowTool {
           type: 'string',
           description:
             '续跑上次运行的 runId（来自上次结果首行）。给出时 spec 可省略（定义从运行日志读回）。',
+        },
+        isolate: {
+          type: 'boolean',
+          description:
+            '在独立 git worktree 里跑（成功才把改动应用回主工作区，失败丢弃）。isolate=true 时不落运行日志，不能 resume；非 git 工作区会失败。',
         },
       },
       required: [],
@@ -68,20 +74,26 @@ export class RunWorkflowTool {
     if (def !== undefined && def.steps.length === 0) {
       return { callId: call.id, ok: false, error: '工作流至少需包含一个步骤' };
     }
+    const isolate = call.arguments['isolate'] === true;
+    if (isolate && resumeArg !== undefined) {
+      return { callId: call.id, ok: false, error: 'isolate 与 resume 不能同时使用' };
+    }
     try {
-      const runner = new WorkflowRunner(this.ports, {
+      const options = {
         // 非法 maxConcurrency 由 WorkflowRunner 构造期 fail-closed 拒绝（下方 catch 转为工具错误），
         // 绝不留给并发闸门永久挂起。
         maxConcurrency: def?.maxConcurrency ?? DEFAULT_WORKFLOW_CONCURRENCY,
         // 取消传播：父会话取消 → 不再启动新步骤，在飞步骤的模型请求一并中止。
         signal: context.signal,
         // 生产入口开启运行存档（库级默认 false＝零写盘）：这是 resume 与事后审计的前提。
-        persist: true,
-      });
+        persist: !isolate,
+      } as const;
       const result =
-        resumeArg !== undefined
-          ? await runner.resume(resumeArg, def)
-          : await runner.run(def as WorkflowDef);
+        isolate && def !== undefined
+          ? await WorkflowIsolatedRun.runWorkflow(this.ports, options, def)
+          : await (resumeArg !== undefined
+              ? new WorkflowRunner(this.ports, options).resume(resumeArg, def)
+              : new WorkflowRunner(this.ports, options).run(def as WorkflowDef));
       // `run()` 正常返回 ≠ 全部步骤成功：成败事实是 `result.ok`（含「上游依赖失败被跳过」的传递失败，
       // 但不含「条件未满足」的设计内跳过）。失败时把同一份渲染文本放进 `error`——
       // `ContextAssembler.toolContentOf` 对 ok=false 只渲染 error，放进 output 模型就看不到失败原因

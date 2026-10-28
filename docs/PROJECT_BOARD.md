@@ -6113,3 +6113,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`workflowIsolation.test.ts` 2 例——隔离区改动（含新文件）应用回主工作区；discard 不落主工作区。
 - **边界**：尚未接入 `run_workflow` 工具默认路径（需要产品决定"默认隔离还是显式隔离"）。
 - **剩余**：E6/S3 扩容、A5 工具接线、S2 前端长函数。
+
+## 139. 2026-10-29 A5 工具接线：`run_workflow isolate=true`
+
+- **实现**：`run_workflow` schema 增加 `isolate`；`isolate=true` 且非 resume 时走
+  `WorkflowIsolatedRun.runWorkflow`（worktree 内执行、成功 patch 回主工作区、失败丢弃）。
+  `isolate` 与 `resume` 互斥（工具层直接拒绝），`persist` 在隔离模式关闭（日志写隔离区会丢）。
+- **判据**：`runWorkflowToolContract.test.ts` 4 例——步骤失败仍 `ok:false`；成功 `ok:true`；
+  spec 非法 `ok:false`；`isolate=true` 在 git 工作区跑通且与 resume 互斥。
+- **边界**：隔离是**显式 opt-in**，默认仍直接写主工作区；隔离模式不能用 resume。
+- **剩余**：E6/S3 扩容、S2 前端长函数。

@@ -145,3 +145,22 @@ test('对照：spec 非法仍返回 ok:false（既有正确行为不回退）', 
   );
   assert.strictEqual(empty.ok, false);
 });
+
+test('A5：isolate=true 在 git 工作区跑通；与 resume 互斥', async () => {
+  const tool = new RunWorkflowTool(makePorts(new EchoModel()));
+  const isolated = await tool.handle(
+    {
+      id: 'c1',
+      name: 'run_workflow',
+      arguments: { isolate: true, spec: { steps: [{ id: 'a', prompt: 'ok' }] } },
+    },
+    ctx,
+  );
+  assert.strictEqual(isolated.ok, true, `隔离运行失败：${String(isolated.error)}`);
+  const conflict = await tool.handle(
+    { id: 'c2', name: 'run_workflow', arguments: { isolate: true, resume: 'run-x' } },
+    ctx,
+  );
+  assert.strictEqual(conflict.ok, false);
+  assert.match(String(conflict.error), /isolate.*resume/u);
+});
