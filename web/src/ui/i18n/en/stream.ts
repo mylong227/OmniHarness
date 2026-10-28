@@ -81,6 +81,7 @@ export const EN_STREAM: Record<string, string> = {
   '点击查看调用详情': 'Click to view call details',
   '等待结果…': 'Waiting for result…',
   '在右侧钻取面板查看原始事件': 'View raw event in drill-down panel',
+  '在钻取面板查看原始事件': 'View raw event in drill-down panel',
   '⤢ 在钻取面板查看': '⤢ View in drill-down panel',
 
   // TurnSummaryCard.tsx

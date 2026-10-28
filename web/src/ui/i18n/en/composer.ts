@@ -19,6 +19,8 @@ export const EN_COMPOSER: Record<string, string> = {
   '语音输入（中文）': 'Voice input (Chinese)',
   '开始语音输入': 'Start voice input',
   '停止生成': 'Stop generating',
+  '插话': 'Steer',
+  '插话（Enter 发送，下一步生效）': 'Steer (Enter to send, applies next step)',
   '发送任务': 'Send task',
   '发送（Enter）': 'Send (Enter)',
 
