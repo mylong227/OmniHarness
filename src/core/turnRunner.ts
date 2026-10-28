@@ -119,6 +119,11 @@ export class TurnRunner {
      * 提醒时，一个「一直在做新事情」的回合可以跑到 8h 硬时限。软预算只提醒、不截断。
      */
     private readonly softTokenBudget = 0,
+    /**
+     * 回合中 steering 队列（A8，可选）：每步结束后、下一步开始前取一条用户追加指令。
+     * 只在步边界消费，保证不会插进 `assistant(tool_calls) ↔ tool` 中间。
+     */
+    private readonly steering?: (() => string | undefined) | undefined,
   ) {
     this.loopGuard = loopGuard;
     this.workflowRecorder =
@@ -176,6 +181,7 @@ export class TurnRunner {
       const budget = this.applyTokenBudgets(usageTokens, steps, softBudgetNudged);
       softBudgetNudged = budget.softNudged;
       if (budget.stop) break;
+      if (this.consumeSteering()) continue;
       if (outcome === 'tool') {
         consecutiveEmpty = 0;
         // V2 失控检测：观测本步工具调用，决定 放行/纠偏/熔断。
@@ -193,8 +199,7 @@ export class TurnRunner {
         }
         converged = true;
         break;
-      }
-      // 'empty'：模型既没给文本也没调工具（空响应/被安全过滤/上游截断）。
+      } // 'empty'：模型既没给文本也没调工具（空响应/被安全过滤/上游截断）。
       // 旧行为是一步即 break —— 一轮昂贵的工具探索后只要模型吐个空响应就整轮没结果。
       // 改为有限重试；连续空转达上限则止损（避免把整个步数预算烧在空响应上）。
       consecutiveEmpty += 1;
@@ -223,6 +228,17 @@ export class TurnRunner {
     });
     await this.captureWorkflow(workflow.task, workflow.start, outcome);
     return outcome;
+  }
+
+  /**
+   * 步边界消费一条 steering（A8）。
+   * @returns 是否注入了一条 user 消息（true ⇒ 下一步继续）。
+   */
+  private consumeSteering(): boolean {
+    const text = this.steering?.();
+    if (text === undefined || text === '') return false;
+    this.recorder.user(text);
+    return true;
   }
 
   /**

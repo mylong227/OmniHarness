@@ -5976,3 +5976,16 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   `maxAttempts=2` + 首败模型 ⇒ 成功且模型被调用 2 次。
 - **仍缺**：worktree 级隔离、步骤回滚（属结构性 ADR，未在本批假装完成）。
 - **剩余**：E6/S3 任务集、A5 隔离/回滚、A7 技能懒加载/信任、A8 steering、A9 符号级指标、S2 前端长函数。
+
+## 125. 2026-10-29 A8 steering 核心循环支持：步边界注入不打断工具配对
+
+- **缺陷**：回合中若直接往事件流追加 user 消息，会插进 `assistant(tool_calls) ↔ tool` 中间，
+  上游直接 400；此前没有安全的注入点，steering 完全缺失。
+- **修法**：`TurnRunner` 增加可选 `steering: () => string | undefined`；每步结束、下一步开始前
+  `consumeSteering()` 取一条并记为 user 事件。工具结果已落、下一步未发，配对天然完整。
+- **判据**：`turnSteering.test.ts`——首步发工具、steering 返回「改方向」⇒ 第二步请求包含该文本、
+  事件序为 `tool_result` → `user(steering)`。
+- **边界**：**只到核心循环**；`Agent` 公共入口 / Web RPC 尚未接线（`Agent` 已贴体量阈值，
+  需先把会话运行表抽成独立类）。
+- **剩余**：E6/S3 任务集、A5 隔离/回滚、A7 技能懒加载/信任、A8 入口接线、A9 符号级指标、
+  S2 前端长函数。
