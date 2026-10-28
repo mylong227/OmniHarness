@@ -205,6 +205,55 @@ function renderDraft(i: number, ctx: ReviewCtx): ReactElement {
 }
 
 /**
+ * 渲染一个 hunk 头（含 stage / 丢弃按钮）。
+ * @param ctx 审查上下文。
+ * @param text hunk 头文本。
+ * @param idx hunk 序号。
+ * @param isNewFile 是否新文件。
+ * @returns hunk 头节点。
+ */
+function renderHunkHead(
+  ctx: ReviewCtx,
+  text: string,
+  idx: number,
+  isNewFile: boolean,
+): ReactElement {
+  const h = DiffHunkSplitter.split(ctx.patch)[idx];
+  const selected = idx === ctx.selected;
+  return (
+    <div
+      className={'hunk-head' + (selected ? ' selected' : '')}
+      data-hunk-idx={String(idx)}
+      aria-current={selected ? 'true' : undefined}
+      title={t('点击选中该改动块（键盘 j/k 移动）')}
+      onClick={() => ctx.onSelectHunk(idx)}
+    >
+      <span className="hunk-header">{text}</span>
+      {ctx.isGit && h ? (
+        <span className="hunk-actions">
+          <button
+            className="hunk-btn"
+            disabled={ctx.busyAct !== null}
+            title={t('stage 该改动块（git apply --cached）')}
+            onClick={() => ctx.onStageHunk(ctx.f.path, DiffHunkSplitter.text(h), isNewFile, idx)}
+          >
+            {icon('plus', { size: 12 })} stage
+          </button>
+          <button
+            className="hunk-btn danger"
+            disabled={ctx.busyAct !== null}
+            title={t('丢弃该改动块（git apply -R，不可恢复）')}
+            onClick={() => ctx.onRevertHunk(ctx.f.path, DiffHunkSplitter.text(h), idx)}
+          >
+            {icon('undo', { size: 12 })} {t('丢弃')}
+          </button>
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * 单文件展开视图：文件级操作 + hunk 分块 + 行号 + 行内评论。
  * @param ctx 审查上下文
  * @returns 变更内容节点
@@ -215,7 +264,6 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
     return emptyNote(t('无 diff 内容（可能是二进制文件或模式变更）'), { icon: 'file' });
 
   const isNewFile = !ctx.patch.includes('@@') || ctx.f.status === '??';
-  const hunks = DiffHunkSplitter.split(ctx.patch);
   const rows = parseDiffRows(ctx.patch);
   const out: ReactElement[] = [];
   let hunkIdx = -1;
@@ -232,43 +280,7 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
     }
     if (row.kind === 'hunk') {
       hunkIdx++;
-      const h = hunks[hunkIdx];
-      const idx = hunkIdx;
-      const selected = idx === ctx.selected;
-      out.push(
-        <div
-          key={'h' + i}
-          className={'hunk-head' + (selected ? ' selected' : '')}
-          data-hunk-idx={String(idx)}
-          aria-current={selected ? 'true' : undefined}
-          title={t('点击选中该改动块（键盘 j/k 移动）')}
-          onClick={() => ctx.onSelectHunk(idx)}
-        >
-          <span className="hunk-header">{row.text}</span>
-          {ctx.isGit && h ? (
-            <span className="hunk-actions">
-              <button
-                className="hunk-btn"
-                disabled={ctx.busyAct !== null}
-                title={t('stage 该改动块（git apply --cached）')}
-                onClick={() =>
-                  ctx.onStageHunk(ctx.f.path, DiffHunkSplitter.text(h), isNewFile, idx)
-                }
-              >
-                {icon('plus', { size: 12 })} stage
-              </button>
-              <button
-                className="hunk-btn danger"
-                disabled={ctx.busyAct !== null}
-                title={t('丢弃该改动块（git apply -R，不可恢复）')}
-                onClick={() => ctx.onRevertHunk(ctx.f.path, DiffHunkSplitter.text(h), idx)}
-              >
-                {icon('undo', { size: 12 })} {t('丢弃')}
-              </button>
-            </span>
-          ) : null}
-        </div>,
-      );
+      out.push(renderHunkHead(ctx, row.text, hunkIdx, isNewFile));
       continue;
     }
     out.push(renderRow(row, i, ctx));
