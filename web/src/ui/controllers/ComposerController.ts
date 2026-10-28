@@ -3,7 +3,7 @@
 // 经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
 import type { AppHost, AppServices } from './AppController.ts';
-import type { FileAttachment, ThreadEvent } from '../../types/models.ts';
+import type { FileAttachment, ThreadEvent, TurnRunResult } from '../../types/models.ts';
 import type { ToolResultView } from '../shared.ts';
 import type { SessionController } from './SessionController.ts';
 import { MethodBinder } from './methodBinder.ts';
@@ -110,40 +110,7 @@ export class ComposerController {
         this.host.patch({ busy: false, streamText: '', finalizedStreamText: '' });
         return;
       }
-      if (res.threadId) {
-        this.host.patch({ currentThreadId: res.threadId });
-        // 会话刚出现：把用户在建会话前就点下的模式（目标/计划/绘图）落盘——见 SessionController.applyModes。
-        // **必须包在 try 里**：模式是增强，任何失败（含协作者未实现该方法的嵌入场景）都不许把回合判成失败
-        // ——实测漏包会在对话流里冒出「运行失败」提示事件，把一次成功的回合说成失败。
-        try {
-          void this.sessions.modes.flush(res.threadId);
-        } catch {
-          /* 模式落盘失败不影响回合 */
-        }
-        this.host.patch((s) => {
-          if (s.sessions.some((x) => x.id === res.threadId)) return s;
-          // 会话标签就是纯文本：不再用 `📎 ` 前缀（emoji 当图标已废弃，见 models/Icon.ts），
-          // 附件信息由会话里的附件 chip 表达。
-          const next = [{ id: res.threadId, label: prompt || files[0]?.name || '' }, ...s.sessions];
-          return { sessions: next };
-        });
-        void this.sessions.refreshSessions();
-        // F8：把新会话写进 hash，刷新 / 分享链接可直接回到该会话。
-        this.services.navigate({ threadId: res.threadId });
-      }
-      // 兜底：若后端最后一步未产出 assistant 事件，把 finalText 补成一条 assistant 事件；
-      // 流中已存在同内容则跳过避免重复。
-      this.host.patch((s) => ({ events: this.services.reducers.appendFinalText(s.events, res.finalText) }));
-      // 回合正常结束：流式缓冲已由 assistant 事件（或上面的兜底事件）落成事实事件，
-      // 此处把残留缓冲收口，避免它与最终卡片同屏重复。
-      this.host.patch((s) =>
-        s.streamText === '' ? {} : { streamText: '', finalizedStreamText: s.streamText },
-      );
-      notifyDesktop({
-        title: t('回合完成'),
-        body: t('Agent 已完成本轮任务。'),
-        ...(res.threadId ? { sessionId: res.threadId } : {}),
-      });
+      this.applySuccess(res, prompt, files);
     } catch (e) {
       // 用户主动中断已由 stop() 即时收口（含「已中止」提示），此处不再重复报错。
       // 视图已换掉时也不写错误提示：那条报错属于用户已离开的回合，写进去只会让新视图莫名多出一条 system 事件。
@@ -163,6 +130,40 @@ export class ComposerController {
       this.settleRound(aborted);
       this.abortNoted = false;
     }
+  }
+
+  /**
+   * 回合成功收尾：落 sessionId、刷会话列表、补 finalText、收口流式缓冲、桌面通知。
+   * @param res 后端回合结果。
+   * @param prompt 用户输入（用于新会话标签）。
+   * @param files 文件附件（无 prompt 时用首个附件名作标签）。
+   * @returns 无
+   */
+  private applySuccess(res: TurnRunResult, prompt: string, files: FileAttachment[]): void {
+    if (res.threadId) {
+      this.host.patch({ currentThreadId: res.threadId });
+      try {
+        void this.sessions.modes.flush(res.threadId);
+      } catch {
+        /* 模式落盘失败不影响回合 */
+      }
+      this.host.patch((s) => {
+        if (s.sessions.some((x) => x.id === res.threadId)) return s;
+        const next = [{ id: res.threadId, label: prompt || files[0]?.name || '' }, ...s.sessions];
+        return { sessions: next };
+      });
+      void this.sessions.refreshSessions();
+      this.services.navigate({ threadId: res.threadId });
+    }
+    this.host.patch((s) => ({ events: this.services.reducers.appendFinalText(s.events, res.finalText) }));
+    this.host.patch((s) =>
+      s.streamText === '' ? {} : { streamText: '', finalizedStreamText: s.streamText },
+    );
+    notifyDesktop({
+      title: t('回合完成'),
+      body: t('Agent 已完成本轮任务。'),
+      ...(res.threadId ? { sessionId: res.threadId } : {}),
+    });
   }
 
   /**

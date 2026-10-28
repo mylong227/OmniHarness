@@ -378,6 +378,63 @@ export class AppController {
     }
   }
 
+  /**
+   * 路由一条 SSE 消息到对应子控制器。
+   * @param msg SSE 信封。
+   * @returns 无
+   */
+  private routeStreamMessage(msg: SseEnvelope): void {
+    const params = msg.params as Record<string, unknown>;
+    switch (msg.method) {
+      case 'thread.event':
+        this.children.sessions.handleEvent(params.event as ThreadEvent);
+        break;
+      case 'approval.request':
+        this.host.patch({ approval: params as unknown as ApprovalRequest });
+        notifyDesktop({
+          title: t('需要你的确认'),
+          body: t('有一个工具调用等待审批，请回到 OmniHarness 处理。'),
+          ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
+        });
+        break;
+      case 'question.request':
+        this.host.patch({ question: params as unknown as QuestionRequest });
+        notifyDesktop({
+          title: t('需要你的回答'),
+          body: t('Agent 正在等待你的回答。'),
+          ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
+        });
+        break;
+      case 'memory.changed':
+        this.host.patch((s) => ({ memoryReloadKey: s.memoryReloadKey + 1 }));
+        break;
+      case 'profile.event':
+        this.host.patch((s) => ({ profilesReloadKey: s.profilesReloadKey + 1 }));
+        break;
+      case 'profile.applied':
+        this.host.patch((s) => ({ profilesReloadKey: s.profilesReloadKey + 1 }));
+        this.applyProfilePluginToast('profile.applied', params);
+        break;
+      case 'profile.error':
+      case 'plugin.loaded':
+      case 'plugin.loadError':
+        this.applyProfilePluginToast(msg.method, params);
+        break;
+      case 'thread.tool_input':
+        this.children.sessions.updateToolInput(params);
+        break;
+      case 'thread.text_delta':
+        this.children.sessions.appendTextDelta(params);
+        break;
+      case 'graph.progress':
+        this.children.graph.applyGraphProgress(params as unknown as GraphProgress);
+        break;
+      case 'graph.done':
+        this.children.graph.applyGraphDone(params as unknown as GraphDone);
+        break;
+    }
+  }
+
   /** 连接 SSE 并把各消息方法路由到对应子控制器。 @returns 无 */
   public connectStream(): void {
     const stream = this.services.stream;
@@ -400,58 +457,7 @@ export class AppController {
         this.host.patch({ connected: false, streamState: 'closed' });
       }, AppController.STREAM_DISCONNECT_GRACE_MS);
     };
-    stream.onMessage = (msg: SseEnvelope) => {
-      const params = msg.params as Record<string, unknown>;
-      switch (msg.method) {
-        case 'thread.event':
-          this.children.sessions.handleEvent(params.event as ThreadEvent);
-          break;
-        case 'approval.request':
-          this.host.patch({ approval: params as unknown as ApprovalRequest });
-          notifyDesktop({
-            title: t('需要你的确认'),
-            body: t('有一个工具调用等待审批，请回到 OmniHarness 处理。'),
-            ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
-          });
-          break;
-        case 'question.request':
-          // 提问上行：卡片由该通知驱动（**不**依赖对话流里的 question 事件——事件端口可能不接 Web）。
-          this.host.patch({ question: params as unknown as QuestionRequest });
-          notifyDesktop({
-            title: t('需要你的回答'),
-            body: t('Agent 正在等待你的回答。'),
-            ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
-          });
-          break;
-        case 'memory.changed':
-          this.host.patch((s) => ({ memoryReloadKey: s.memoryReloadKey + 1 }));
-          break;
-        case 'profile.event':
-          this.host.patch((s) => ({ profilesReloadKey: s.profilesReloadKey + 1 }));
-          break;
-        case 'profile.applied':
-          this.host.patch((s) => ({ profilesReloadKey: s.profilesReloadKey + 1 }));
-          this.applyProfilePluginToast('profile.applied', params);
-          break;
-        case 'profile.error':
-        case 'plugin.loaded':
-        case 'plugin.loadError':
-          this.applyProfilePluginToast(msg.method, params);
-          break;
-        case 'thread.tool_input':
-          this.children.sessions.updateToolInput(params);
-          break;
-        case 'thread.text_delta':
-          this.children.sessions.appendTextDelta(params);
-          break;
-        case 'graph.progress':
-          this.children.graph.applyGraphProgress(params as unknown as GraphProgress);
-          break;
-        case 'graph.done':
-          this.children.graph.applyGraphDone(params as unknown as GraphDone);
-          break;
-      }
-    };
+    stream.onMessage = (msg: SseEnvelope) => this.routeStreamMessage(msg);
     stream.connect();
     this.keyHandler = (e: KeyboardEvent) => {
       const action = this.children.keyBindings.resolve(e);
@@ -510,11 +516,6 @@ export class AppController {
    */
   public get settings(): SettingsController {
     return this.children.settings;
-  }
-
-  /** 打开命令面板。 @returns 无 */
-  public openPalette(): void {
-    this.host.patch({ paletteOpen: true });
   }
 
   /** 关闭命令面板。 @returns 无 */

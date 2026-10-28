@@ -6174,3 +6174,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`web/test/format.test.ts` **21 例全绿**；`check.mjs --strict` 不再列出 `format.ts` 任何超基线函数。
 - **剩余规模**：全仓仍报 **57** 处函数体超基线（`check.mjs` 实测），其中前端大组件仍需拆子组件/hooks。
 - **结论**：S2 **未闭环**；已清偿 4 个函数（tokenize + format 三个），剩余 57。
+
+## 146. 2026-10-29 S2 继续清偿：两个控制器长函数
+
+- **改动**：
+  - `ComposerController.send` 96 → <80：回合成功收尾抽 `applySuccess()`；
+  - `AppController.connectStream` 82 → <80：SSE 消息路由抽 `routeStreamMessage()`。
+- **判据**：`turnControl` / `rpcFailureMessage` / `pendingModes` / `controllerBindings` 共 28 例；
+  `e2e` + `controllerBindings` 7 例；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **55** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 6 个函数，剩余 55。
