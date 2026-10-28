@@ -62,6 +62,43 @@ function classify(word: string, lang: string): Tok['t'] {
   return 'plain';
 }
 
+/**
+ * 扫描一个字符串/模板串 token（含 JSON 键识别）。
+ * @param src 源码。
+ * @param start 起始引号下标。
+ * @param end 源码长度。
+ * @param lang 语言 id。
+ * @returns token 与下一个扫描位置。
+ */
+function scanString(
+  src: string,
+  start: number,
+  end: number,
+  lang: string,
+): { tok: Tok; next: number } {
+  const quote = src[start]!;
+  let j = start + 1;
+  while (j < end) {
+    const c = src[j]!;
+    if (c === '\\') {
+      j += 2;
+      continue;
+    }
+    if (c === quote) {
+      j++;
+      break;
+    }
+    j++;
+  }
+  let isKey = false;
+  if (lang === 'json') {
+    let k = j;
+    while (k < end && /\s/.test(src[k]!)) k++;
+    isKey = src[k] === ':';
+  }
+  return { tok: { t: isKey ? 'prop' : 'string', v: src.slice(start, j) }, next: j };
+}
+
 /** 把一段源码切成 token 序列。lang 是小写 id（'js'|'ts'|...）。 */
 function tokenize(src: string, lang: string): Tok[] {
   if (lang === 'md') return tokenizeMarkdown(src);
@@ -101,30 +138,9 @@ function tokenize(src: string, lang: string): Tok[] {
     // 字符串 / 模板串（含单双反引号）
     if (ch === '"' || ch === "'" || ch === '`') {
       flushPlain();
-      const quote = ch;
-      let j = i + 1;
-      while (j < n) {
-        const c = src[j]!;
-        if (c === '\\') {
-          j += 2;
-          continue;
-        }
-        if (c === quote) {
-          j++;
-          break;
-        }
-        j++;
-      }
-      // JSON 键值分色（用户实测「代码显示区色彩没有区分」的主因：键和值同为字符串全蓝一片）：
-      // 字符串之后（跳过空白）紧跟冒号 ⇒ 它是对象键，标为 prop 与字符串值区分。
-      let isKey = false;
-      if (lang === 'json') {
-        let k = j;
-        while (k < n && /\s/.test(src[k]!)) k++;
-        isKey = src[k] === ':';
-      }
-      out.push({ t: isKey ? 'prop' : 'string', v: src.slice(i, j) });
-      i = j;
+      const scanned = scanString(src, i, n, lang);
+      out.push(scanned.tok);
+      i = scanned.next;
       continue;
     }
     // 数字
