@@ -6123,3 +6123,10 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   spec 非法 `ok:false`；`isolate=true` 在 git 工作区跑通且与 resume 互斥。
 - **边界**：隔离是**显式 opt-in**，默认仍直接写主工作区；隔离模式不能用 resume。
 - **剩余**：E6/S3 扩容、S2 前端长函数。
+
+## 140. 2026-10-29 E6/S3 任务集 26 → 28：`slugify` + `bit-count`
+
+- **新增任务**：`slugify`（slugify / truncateSlug / isValidSlug）、`bit-count`（bitCount / isPowerOfTwo / lowestBit）。
+- **自检**：`eval:long --self-check` **28 passed / 0 failed**；`longTask.test.ts` 计数同步 28。
+- **边界**：28/40+；逐个编写，不灌水。
+- **剩余**：E6/S3 扩容、S2 前端长函数。
