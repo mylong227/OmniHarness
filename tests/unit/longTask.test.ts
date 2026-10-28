@@ -86,10 +86,10 @@ test('任务清单：合法通过、缺验收/越界路径/非法时长逐条拒
   );
 });
 
-test('仓库内 36 个任务可加载，且 fixture / verifier / 参考解齐全', () => {
+test('仓库内 40 个任务可加载，且 fixture / verifier / 参考解齐全', () => {
   const specs = LongTaskCatalog.load(TASKS_DIR);
-  assert.strictEqual(specs.length, 36);
-  assert.strictEqual(new Set(specs.map((spec) => spec.id)).size, 36, '任务 id 必须唯一');
+  assert.strictEqual(specs.length, 40);
+  assert.strictEqual(new Set(specs.map((spec) => spec.id)).size, 40, '任务 id 必须唯一');
   for (const spec of specs) {
     assert.ok(existsSync(join(TASKS_DIR, 'fixtures', spec.repo, 'src', 'index.js')), spec.id);
     assert.ok(existsSync(join(TASKS_DIR, 'verifiers', `${spec.id}.mjs`)), spec.id);
@@ -276,7 +276,7 @@ test('token 读取：只累加 model usage，坏行跳过', () => {
   assert.strictEqual(LongTaskSessionUsage.read('/nonexistent', 'sess'), 0);
 });
 
-test('自检：36 个参考解全部通过各自验证器（任务本身可解）', async () => {
+test('自检：40 个参考解全部通过各自验证器（任务本身可解）', async () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-longtask-selfcheck-'));
   try {
     const report = await LongTaskSelfCheck.run({
@@ -285,7 +285,7 @@ test('自检：36 个参考解全部通过各自验证器（任务本身可解�
       rootDir: root,
     });
     assert.strictEqual(report.failed, 0, JSON.stringify(report.items.filter((item) => !item.ok)));
-    assert.strictEqual(report.passed, 36);
+    assert.strictEqual(report.passed, 40);
     assert.strictEqual(report.ok, true);
   } finally {
     rmSync(root, { recursive: true, force: true });

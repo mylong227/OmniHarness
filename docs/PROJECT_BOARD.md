@@ -6145,3 +6145,11 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   `matrix-multiply` 首次自检暴露 `isSquare` 判定写成「矩形一致」——已修成「行数=列数」。
 - **边界**：36/40+，还差 4。
 - **剩余**：E6/S3 扩容、S2 前端长函数。
+
+## 143. 2026-10-29 E6/S3 任务集 36 → 40（目标达成）
+
+- **新增任务**：`query-string`、`luhn`、`natural-sort`、`range`。
+- **自检**：`eval:long --self-check` **40 passed / 0 failed**；`longTask.test.ts` 计数同步 40。
+- **结论**：任务集从 20 扩到 **40**，E6/S3 达成调研设定的 40+ 目标；每个任务都有
+  fixture/权威 verifier/参考解/README，并经全量自检验证可解。
+- **剩余**：S2 前端长函数。

@@ -1,0 +1,9 @@
+{
+  "id": "luhn",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：isValidCard(card)、generateCheckDigit(partial)、maskCard(card)。\n\n逐条验收要求：\n- isValidCard：Luhn 校验；忽略空格/连字符；非数字返回 false。\n- generateCheckDigit：给定前缀数字，返回使 Luhn 通过的校验位；非数字抛错。\n- maskCard：保留后 4 位，其余换 `*`；长度 <=4 原样返回。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "luhn",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}
