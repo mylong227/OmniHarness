@@ -36,6 +36,50 @@ type DoctorResponse = { readonly ok: true; readonly report: DoctorReportLike } |
   readonly reason: string;
 };
 
+/**
+ * doctor 报告正文（环境 / 安全档 / 不合格项）。
+ * @param props 报告。
+ * @returns 报告节点。
+ */
+function DoctorReport({ report }: { report: DoctorReportLike }): ReactElement {
+  return (
+    <div>
+      <p>
+        Node {report.nodeVersion} · {t('配置')}{' '}
+        {report.config.valid
+          ? t('合法')
+          : t('非法（{reason}）', { reason: report.config.error ?? t('未知原因') })}
+      </p>
+      <p>
+        {t('隔离档 {level}', { level: report.security.isolationLevel })}
+        {report.security.kernelEnforced ? t('（内核强制）') : t('（**无内核强制**）')} · {t('沙箱档')}{' '}
+        {report.security.sandboxProfile}
+      </p>
+      <p className="hint">{report.security.isolationBasis}</p>
+      <p className="hint">
+        {t('shell 出网受守卫约束：')}
+        {report.security.shellEgressGuarded ? t('是') : t('否')} · {t('插件目录可读：')}
+        {report.pluginsDirReadable ? t('是') : t('否')} · {t('权限清单可读：')}
+        {report.permissionsManifestReadable ? t('是') : t('否')}
+      </p>
+      {report.issues.length === 0 ? (
+        <p>{t('无不合格项。')}</p>
+      ) : (
+        <div>
+          <div className="detail-h">{t('不合格项（{count}）', { count: report.issues.length })}</div>
+          <ul>
+            {report.issues.map((issue, index) => (
+              <li key={`${String(index)}-${issue}`} className="err">
+                {issue}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 诊断面板：daemon 运行态 + 环境诊断报告。 */
 export function DiagnosticsTab(): ReactElement {
   const { api } = useApp();
@@ -102,46 +146,7 @@ export function DiagnosticsTab(): ReactElement {
           // 纪律①：未接线必须直说——**不得**退化成"体检通过"。
           <p className="err">{t('未接线：{reason}', { reason: doctor.reason })}</p>
         ) : doctor !== null && doctor.ok ? (
-          <div>
-            <p>
-              Node {doctor.report.nodeVersion} · {t('配置')}{' '}
-              {doctor.report.config.valid
-                ? t('合法')
-                : t('非法（{reason}）', { reason: doctor.report.config.error ?? t('未知原因') })}
-            </p>
-            <p>
-              {t('隔离档 {level}', { level: doctor.report.security.isolationLevel })}
-              {doctor.report.security.kernelEnforced
-                ? t('（内核强制）')
-                : t('（**无内核强制**）')} · {t('沙箱档')}{' '}
-              {doctor.report.security.sandboxProfile}
-            </p>
-            <p className="hint">{doctor.report.security.isolationBasis}</p>
-            <p className="hint">
-              {t('shell 出网受守卫约束：')}
-              {doctor.report.security.shellEgressGuarded ? t('是') : t('否')} ·{' '}
-              {t('插件目录可读：')}
-              {doctor.report.pluginsDirReadable ? t('是') : t('否')} · {t('权限清单可读：')}
-              {doctor.report.permissionsManifestReadable ? t('是') : t('否')}
-            </p>
-            {doctor.report.issues.length === 0 ? (
-              <p>{t('无不合格项。')}</p>
-            ) : (
-              <div>
-                {/* 纪律②：逐条列出，不折叠成"有问题"。 */}
-                <div className="detail-h">
-                  {t('不合格项（{count}）', { count: doctor.report.issues.length })}
-                </div>
-                <ul>
-                  {doctor.report.issues.map((issue, index) => (
-                    <li key={`${String(index)}-${issue}`} className="err">
-                      {issue}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          <DoctorReport report={doctor.report} />
         ) : (
           <p className="hint">{t('暂无诊断数据。')}</p>
         )}

@@ -23,6 +23,38 @@ import type { ReactElement } from 'react';
 import type { AuditQueryResult } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
 
+/** 审计事件（只取展示所需字段）。 */
+interface AuditEventView {
+  readonly seq?: number | undefined;
+  readonly ts?: string | undefined;
+  readonly type: string;
+  readonly sessionId?: string | undefined;
+  readonly actor?: string | undefined;
+}
+
+/**
+ * 审计事件列表。
+ * @param props 事件数组。
+ * @returns 列表节点。
+ */
+function AuditEventList(props: { events: readonly AuditEventView[] }): ReactElement {
+  return (
+    <div className="detail-section">
+      <div className="detail-h">{t('事件（{count}）', { count: props.events.length })}</div>
+      <ul>
+        {props.events.map((event, index) => (
+          <li key={`${String(index)}-${event.type}-${String(event.seq ?? '')}`}>
+            {event.seq === undefined ? t('（未入链）') : `#${String(event.seq)}`} ·{' '}
+            {event.ts === undefined ? t('（无时间戳）') : timeOf(Date.parse(event.ts))} · {event.type}
+            {event.sessionId === undefined ? '' : ` · ${t('会话 {id}', { id: event.sessionId })}`}
+            {event.actor === undefined ? '' : ` · ${event.actor}`}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** 审计面板：过滤 + 列表。 */
 export function AuditTab(): ReactElement {
   const { api, sessionTick } = useApp();
@@ -91,19 +123,7 @@ export function AuditTab(): ReactElement {
         data.events.length === 0 ? (
           <p className="hint">{t('本次查询无匹配事件（审计 sink 已接线）。')}</p>
         ) : (
-          <div className="detail-section">
-            <div className="detail-h">{t('事件（{count}）', { count: data.events.length })}</div>
-            <ul>
-              {data.events.map((event, index) => (
-                <li key={`${String(index)}-${event.type}-${String(event.seq ?? '')}`}>
-                  {event.seq === undefined ? t('（未入链）') : `#${String(event.seq)}`} ·{' '}
-                  {event.ts === undefined ? t('（无时间戳）') : timeOf(Date.parse(event.ts))} · {event.type}
-                  {event.sessionId === undefined ? '' : ` · ${t('会话 {id}', { id: event.sessionId })}`}
-                  {event.actor === undefined ? '' : ` · ${event.actor}`}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <AuditEventList events={data.events as readonly AuditEventView[]} />
         )
       ) : (
         <p className="hint">{t('暂无审计数据。')}</p>

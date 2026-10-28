@@ -30,6 +30,89 @@ export interface TraceTabProps {
   readonly sessionId?: string | null | undefined;
 }
 
+/**
+ * Trace 过滤区。
+ * @param props 过滤值、会话与刷新回调。
+ * @returns 过滤区节点。
+ */
+function TraceFilters(props: {
+  kindFilter: string;
+  limit: string;
+  session: string;
+  count: number;
+  onKind: (value: string) => void;
+  onLimit: (value: string) => void;
+  onRefresh: () => void;
+}): ReactElement {
+  return (
+    <div className="detail-section">
+      <div className="detail-h">{t('过滤')}</div>
+      <label>
+        {t('类别')}
+        <input
+          type="text"
+          value={props.kindFilter}
+          placeholder={t('如 tool.call（留空＝全部）')}
+          onChange={(e: { target: { value: string } }) => props.onKind(e.target.value)}
+        />
+      </label>
+      <label>
+        {t('条数上限')}
+        <input
+          type="text"
+          value={props.limit}
+          onChange={(e: { target: { value: string } }) => props.onLimit(e.target.value)}
+        />
+      </label>
+      <button type="button" onClick={props.onRefresh}>
+        {t('查询')}
+      </button>
+      <span className="hint">
+        {t('会话 {session} · 本次返回 {count} 条', { session: props.session, count: props.count })}
+        {props.kindFilter === '' ? '' : t(' · 类别 {kind}', { kind: props.kindFilter })}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Trace 条目列表。
+ * @param props 条目数组。
+ * @returns 列表节点。
+ */
+function TraceEntries(props: {
+  entries: TraceReadResultLike['entries'];
+}): ReactElement {
+  if (props.entries.length === 0) {
+    return <p className="hint">{t('本次查询无匹配条目（会话存在但该条件下没有条目）。')}</p>;
+  }
+  return (
+    <ul>
+      {props.entries.map((entry) => (
+        <li key={`${String(entry.seq)}-${entry.kind}`}>
+          #{entry.seq} · {timeOf(Date.parse(entry.at))} · {entry.kind} · {entry.summary}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Trace 读取失败提示。
+ * @param props 错误文案与重试回调。
+ * @returns 提示节点。
+ */
+function TraceError(props: { message: string; onRetry: () => void }): ReactElement {
+  return (
+    <div className="trace-tab">
+      <p className="err">{t('读取 trace 失败：{msg}', { msg: props.message })}</p>
+      <button type="button" onClick={props.onRetry}>
+        {t('重试')}
+      </button>
+    </div>
+  );
+}
+
 /** Trace 自省面板：只读条目列表。 */
 export function TraceTab(props: TraceTabProps): ReactElement {
   const { api, sessionTick } = useApp();
@@ -76,68 +159,25 @@ export function TraceTab(props: TraceTabProps): ReactElement {
   }
   if (loading) return <div className="trace-tab">{t('载入 trace 条目…')}</div>;
   if (error !== null) {
-    return (
-      <div className="trace-tab">
-        <p className="err">{t('读取 trace 失败：{msg}', { msg: error })}</p>
-        <button type="button" onClick={() => void refresh()}>
-          {t('重试')}
-        </button>
-      </div>
-    );
+    return <TraceError message={error} onRetry={() => void refresh()} />;
   }
   if (data === null) return <div className="trace-tab">{t('暂无 trace 数据。')}</div>;
   if (data.error !== undefined) {
-    // 纪律①：会话不存在 / 存档不可读 ⇒ 直说原因，不显示空列表。
-    return (
-      <div className="trace-tab">
-        <p className="err">{data.error}</p>
-        <button type="button" onClick={() => void refresh()}>
-          {t('重试')}
-        </button>
-      </div>
-    );
+    return <TraceError message={data.error} onRetry={() => void refresh()} />;
   }
 
   return (
     <div className="trace-tab">
-      <div className="detail-section">
-        <div className="detail-h">{t('过滤')}</div>
-        <label>
-          {t('类别')}
-          <input
-            type="text"
-            value={kindFilter}
-            placeholder={t('如 tool.call（留空＝全部）')}
-            onChange={(e: { target: { value: string } }) => setKindFilter(e.target.value)}
-          />
-        </label>
-        <label>
-          {t('条数上限')}
-          <input
-            type="text"
-            value={limit}
-            onChange={(e: { target: { value: string } }) => setLimit(e.target.value)}
-          />
-        </label>
-        <button type="button" onClick={() => void refresh()}>
-          {t('查询')}
-        </button>
-        <span className="hint">
-          {t('会话 {session} · 本次返回 {count} 条', { session: data.session, count: data.count })}
-          {kindFilter === '' ? '' : t(' · 类别 {kind}', { kind: kindFilter })}
-        </span>
-      </div>
-      {data.entries.length === 0 ? (
-        <p className="hint">{t('本次查询无匹配条目（会话存在但该条件下没有条目）。')}</p>
-      ) : (
-        <ul>
-          {data.entries.map((entry) => (
-            <li key={`${String(entry.seq)}-${entry.kind}`}>
-              #{entry.seq} · {timeOf(Date.parse(entry.at))} · {entry.kind} · {entry.summary}
-            </li>
-          ))}
-        </ul>
-      )}
+      <TraceFilters
+        kindFilter={kindFilter}
+        limit={limit}
+        session={data.session}
+        count={data.count}
+        onKind={setKindFilter}
+        onLimit={setLimit}
+        onRefresh={() => void refresh()}
+      />
+      <TraceEntries entries={data.entries} />
     </div>
   );
 }

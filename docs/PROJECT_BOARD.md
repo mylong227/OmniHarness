@@ -6203,3 +6203,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`turnSummary` + `turnSummaryCard` + `streamStability` 9 例全绿；`tsc -p web` 零错。
 - **剩余规模**：`check.mjs --strict` 仍报 **50** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 11 个函数，剩余 50。
+
+## 149. 2026-10-29 S2 继续清偿：Audit / Trace / Diagnostics 三个面板
+
+- **改动**：
+  - `AuditTab` 87 → <80：事件列表抽 `AuditEventList()`；
+  - `TraceTab` 110 → <80：过滤区/条目列表/错误态抽 `TraceFilters` / `TraceEntries` / `TraceError`；
+  - `DiagnosticsTab` 118 → <80：doctor 报告抽 `DoctorReport()`。
+- **判据**：`auditTraceTabs` 8 例 + `diagnosticsTab` 6 例全绿；`tsc -p web` 零错。
+- **剩余规模**：`check.mjs --strict` 仍报 **47** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 14 个函数，剩余 47。
