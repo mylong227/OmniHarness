@@ -1,4 +1,4 @@
-﻿// U1 验收（resonantField 默认开启）：默认配置下，长期记忆/共振/宇宙网三态合一于
+// U1 验收（resonantField 默认开启）：默认配置下，长期记忆/共振/宇宙网三态合一于
 // 单一 ResonantFieldEngine 实例（消除双重频谱索引），且 SparkController 能在同一引擎上
 // 同时驱动 燧-3 tune 与宇宙网 consolidate 而不双实例化、不崩。
 //
@@ -29,6 +29,8 @@ function buildDefaultRuntime() {
     approvals: new AutoApproval(),
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
+    // 2026-10-29（S1）：共振场已改为 opt-in；本文件验的是「显式开启后单一状态源收敛」。
+    resonantField: { enabled: true },
   });
   // supervisor 缺省 → createRuntime 自动构造生产级 SupervisorKernel
   return Runtime.createRuntime(config);

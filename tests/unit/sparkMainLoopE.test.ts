@@ -82,6 +82,8 @@ test('① 三算子同时启用 → 构造 spark + 各算子，cycle 报告 web/
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: mem,
+    // 2026-10-29（S1）：共振场 opt-in；本用例验三者同时启用的收敛。
+    resonantField: { enabled: true },
     qec: { enabled: true },
     immuneMonitoring: { enabled: true },
     sparkAutoRun: true,
@@ -109,6 +111,8 @@ test('② 主循环 QEC 阶段真纠正单点损坏（非静默）', async () =>
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: mem,
+    // 2026-10-29（S1）：共振场 opt-in；本用例验三者同时启用的收敛。
+    resonantField: { enabled: true },
     qec: { enabled: true },
     sparkAutoRun: true,
   });

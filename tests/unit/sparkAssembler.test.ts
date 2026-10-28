@@ -55,9 +55,10 @@ test('SparkAssembler：无活跃燧能力时不构造控制器（零开销旁路
   });
 });
 
-test('SparkAssembler：统一基板默认开启即视为活跃燧能力', () => {
+test('SparkAssembler：统一基板显式开启即视为活跃燧能力', () => {
   withWorkspace((root) => {
-    assert.ok(assemble(root) !== undefined);
+    // 2026-10-29（S1）：共振场已改为 opt-in，必须显式开启。
+    assert.ok(assemble(root, { resonantField: { enabled: true } }) !== undefined);
   });
 });
 

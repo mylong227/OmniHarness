@@ -32,7 +32,7 @@
  * ## 用法
  *
  * ```bash
- * node tools/probes/memoryLiftProbe.mjs [--k=5] [--json=out.json]
+ * node tools/probes/memoryLiftProbe.mjs [--k=5] [--json=out.json] [--lens=base|resonant]
  * ```
  *
  * ## 诚实边界

@@ -1,4 +1,4 @@
-﻿// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 createRuntime，
+// 燧-3 共振寻址 / 燧-4 涡环包 接入主循环（F）：把已落地的端口+引擎封包进 createRuntime，
 // 复用 I-P1-4 进化闭环的 autoRun 钩子范式，使"市面唯一"从端口变为真能力。断言：
 //   ① U1 统一基板（默认开）下，注入 Agent 的 longTermMemory 即单一 ResonantField 引擎，recall 走频率域代数（drop-in）；
 //   ② 启用 vortexRing 后，注入的 spill 即涡环包适配器，外溢封成 vr_ 拓扑环、解环 fail-closed；
@@ -95,6 +95,8 @@ test('① 燧-3 接入主循环：注入的 longTermMemory 即共振引擎，rec
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base,
+    // 2026-10-29（S1）：共振场 opt-in，本用例验封包后的 drop-in 行为。
+    resonantField: { enabled: true },
   });
   // 注入主循环的即单一 ResonantField 引擎（而非原始 base）。
   assert.ok(
@@ -170,6 +172,7 @@ test('③ SparkController 装配与 autoRun 门控', async () => {
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base,
+    resonantField: { enabled: true },
     vortexRing: { enabled: true },
     spillAdapter: 'memory' as const,
   };
@@ -215,6 +218,7 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base,
+    resonantField: { enabled: true },
     sparkAutoRun: true,
   });
   const engineOn = configOn.longTermMemory as ResonantFieldEngine;
@@ -240,7 +244,8 @@ test('④ autoRun 钩子真进主循环：任务完成后触发 燧-3 tune（关
     sandbox: new PassthroughSandbox(),
     events: new SilentEventPort(),
     longTermMemory: base2,
-    // U1 基板默认开（共振引擎在），但没开 sparkAutoRun
+    // 2026-10-29（S1）：共振场 opt-in；本对照验「引擎在，但 sparkAutoRun 关 ⇒ 不 tune」。
+    resonantField: { enabled: true },
   });
   const engineOff = configOff.longTermMemory as ResonantFieldEngine;
   let tunedOff = false;
