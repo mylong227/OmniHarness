@@ -40,4 +40,11 @@ export interface WorkflowStep {
    * 重试会重新跑整步（含模型/工具副作用），只应在幂等步骤上显式开启。
    */
   readonly maxAttempts?: number | undefined;
+  /**
+   * 失败后是否按 `writes` 声明回滚文件（默认 false）。
+   *
+   * 只恢复**声明的普通文件**；目录/通配符不做（跳过并留痕）。这是 best-effort，
+   * 不替代 worktree 级隔离；未声明 `writes` 时该开关无效。
+   */
+  readonly rollbackOnFailure?: boolean | undefined;
 }

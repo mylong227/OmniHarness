@@ -25,6 +25,7 @@ import type {
 import type { WorkflowRunReplay } from './workflowRunLog.ts';
 import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 import { WorkflowStepResults } from './workflowStepResults.ts';
+import { WorkflowWriteSnapshot } from './workflowWriteSnapshot.ts';
 import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.ts';
 
 /**
@@ -582,6 +583,10 @@ export class WorkflowRunner {
       (context.attemptBase.get(step.id) ?? 0) + 1,
     );
     const attempts = Math.max(1, Math.min(5, Math.floor(step.maxAttempts ?? 1)));
+    const snapshot =
+      step.rollbackOnFailure === true && step.writes !== undefined && step.writes.length > 0
+        ? WorkflowWriteSnapshot.capture(this.ports.workspaceRoot, step.writes)
+        : undefined;
     let lastError = '步骤未执行';
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       const controller = new AbortController();
@@ -628,6 +633,14 @@ export class WorkflowRunner {
         if (timer !== undefined) clearTimeout(timer);
         parent?.removeEventListener('abort', forward);
       }
+    }
+    if (snapshot !== undefined) {
+      const restored = snapshot.restore();
+      log.warn('workflow.step.rollback', {
+        stepId: step.id,
+        files: snapshot.size,
+        restored,
+      });
     }
     return WorkflowStepResults.failed(step, lastError, startedAt, this.options.onNodeUpdate);
   }

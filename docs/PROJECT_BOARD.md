@@ -6000,3 +6000,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   不作为「语义检索能力」的区分度证据（已写进诚实边界）。
 - **判据**：`probesInRepo.test.ts` 9 例全绿（用法块 ↔ 旋钮交叉核对、--json、缺产物退出 2）。
 - **剩余**：E6/S3 任务集、A5 隔离/回滚、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。
+
+## 127. 2026-10-29 A5 回滚补齐：声明写集快照/恢复（best-effort）
+
+- **修法**：`WorkflowStep.rollbackOnFailure` + `WorkflowWriteSnapshot`：步骤首次尝试前对
+  `writes` 声明的**普通文件**做内容快照；最终失败时恢复旧内容、删除原本不存在的文件。
+  越界路径（`../`）、目录、读不到的文件跳过并留痕；回滚失败不掩盖原始错误。
+- **判据**：`workflowWriteSnapshot.test.ts` 2 例——旧文件恢复、新文件删除；越界/目录被跳过。
+  与既有超时/重试判据合计 12 例通过。
+- **边界**：这是 **best-effort 文件回滚**，不是 worktree 级隔离；未声明 `writes` 时开关无效。
+- **剩余**：E6/S3 任务集、A5 worktree 隔离、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。
