@@ -6060,3 +6060,10 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **语义**：入队后由 `TurnRunner` 在**下一步边界**消费，不会插进当前工具轮。
 - **边界**：Web UI 仍无输入入口（需另加按钮/输入框并调用该 RPC）；服务端能力已可用。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 注入路径懒加载、A8 Web UI、S2 前端长函数。
+
+## 133. 2026-10-29 E6/S3 任务集 +1：`deep-merge`
+
+- **新增任务**：`deep-merge`（mergeDeep / getPath / setPath），含不可变更新与数组下标路径边界。
+- **自检**：`--only=deep-merge` 通过；任务集 **23**；`longTask.test.ts` 计数同步 23。
+- **边界**：23/40+，逐个写。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 注入路径懒加载、A8 Web UI、S2 前端长函数。

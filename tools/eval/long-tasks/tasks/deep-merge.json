@@ -1,0 +1,9 @@
+{
+  "id": "deep-merge",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：mergeDeep(a, b)、getPath(object, path)、setPath(object, path, value)。\n\n逐条验收要求：\n- mergeDeep：递归合并普通对象；数组与标量由 b 覆盖；不得修改入参。\n- getPath：支持点路径（含数组下标，如 `a.b.0.c`）；缺失返回 undefined。\n- setPath：返回不可变更新后的新对象（原对象保持不变），路径不存在时创建中间对象。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "deep-merge",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}

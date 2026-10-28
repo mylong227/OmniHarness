@@ -1,4 +1,4 @@
-# 长任务 fixture 集（`eval:long`，22 任务）
+# 长任务 fixture 集（`eval:long`，23 任务）
 
 每个任务都是一个**可机械验收**的小仓库：agent 在隔离的临时 git 仓库里实现 `src/index.js`
 的导出函数、写 `README.md`，评测器用任务自带的 `verify.mjs` 判定通过/失败。
@@ -32,7 +32,7 @@ npm run eval:long -- --only strings-basic,arrays-basic
 - 每任务每次运行都在独立临时 git 仓库里；`verify.mjs` 验收前从 `verifiers/` 覆盖；
 - 无 `OMNIHARNESS_API_KEY` 时显式 `{skipped:true}`，不用 mock 冒充；
 - token 来自模型 usage（端点不回传时为 0，不臆造估算）；
-- **这 22 个任务是本仓自建的合成回归集，不是 SWE-bench / Terminal-Bench 分数**；
+- **这 23 个任务是本仓自建的合成回归集，不是 SWE-bench / Terminal-Bench 分数**；
   单次小差异不作为收益结论（沿本仓两关纪律：配对 bootstrap CI + 留出折同向）。
 
 ## 加一个任务
