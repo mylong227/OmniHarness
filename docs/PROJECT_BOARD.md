@@ -5509,3 +5509,56 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   基准 pass@1 引用——它与 1× 的差异全部来自预算，这一点本身已由本对照证明。
 - **报告可追溯**：每个 run 现在同时记录 `budgetMs`（本次实际预算，含倍率）与 `wallMs`，
   transcript 头行也带上 `budgetMs`，超时项可直接对照是否真的撞了预算。
+
+## 109. 2026-10-28 全仓审计收口夜战：三传输面安全洞 + 崩溃/泄漏批 + CLI 高危批 + 两项新能力
+
+- **起点（审计）**：三路并行审计（服务端/安全面 13 项、CLI/核心面 13 项、基线体检）。
+  基线先行确认：fast 门禁 10/10、typed 门禁 2/2、无 skip 判据、测试栈健康
+  （684 单测文件 / 10 集成 / 125 web）。
+- **批①（安全 + 崩溃/泄漏，commit 见 git log）**：
+  1. **AG-UI 端点零鉴权 + CORS `*`（高·安全）**：接入 `ServerAuthGuard`（Bearer/`?token=`，
+     env 回落 `OMNI_SERVE_TOKEN`）、非回环绑定必须配令牌（fail-closed）、CORS 仅回环 Origin
+     回显、`close()` 真正 abort 在飞 run、listen 补 error 拒绝。判据 18 例（新增 4）。
+  2. **MCP Streamable HTTP 同洞（高·安全）**：鉴权/绑定安全/CORS 回环回显同批收口
+     （显式 `corsOrigin:'*'` 保留为显式自担风险选项）；**JSON-RPC id 复用响应串线**（高·正确性）
+     改服务端唯一键 + 边界回写 id（A2A 同款已验证模式）；`subscriptions/listen` 同 id 并发改
+     409 拒绝（此前静默覆盖写错连接）。判据 24 例（新增 6）；MCP 一致性套件 86/86 全绿。
+  3. **PluginHost 权限 fail-closed（高·安全）**：宿主白名单不再无条件全集——默认只授非危险
+     权限，危险能力须 `OMNI_PLUGIN_PERMISSIONS` 显式授予（`all` 全开可显式，留 warn 轨迹）。
+  4. 崩溃/泄漏：A2A HTTP/WS `listen` 补 once('error') 拒绝；response 'error' 消费；
+     WS A2A 连接断开按连接回收挂起条目；A2aTaskStore 总量上限（终态优先淘汰）+ 单任务
+     产出上限；A2aPushNotifications 桶数/单任务配置上限；AutomationScheduler 失败从空吞改
+     warn；AuditSink close 后 record 降级告警不再抛 TypeError。
+- **批②（CLI/核心审计高危 + 中危）**：
+  1. **A2A 装配**：`void listen(port)` 不再吞拒绝（失败打 `a2a.listen.failed` 并把
+     `runtime.a2a` 摘回 undefined）；绑定成功后保留常驻 server 'error' 监听。
+  2. **auth callback CSRF fail-open（高）**：`--state` 必带（缺省即拒 exit 2）——此前缺省时
+     整段校验被跳过；`readAuthState` 抛错（形状非法/超 TTL）转可行动提示。auth 命令族抽到
+     `cliAuthCmds.ts`（原文件被推过上帝类阈值，抽职责不放宽）。判据 2 例。
+  3. **supervisor 文案正则过宽（高）**：删 `\b(denied|permission|sandbox|policy)\b` 与裸
+     EPERM——`EACCES: permission denied...` 此前被误判策略拒绝而**漏报监督内核**（FDIR 永不
+     降级）；现逐条对齐各门禁自身格式。判据重写 +4 反例。
+  4. 中危：RLVR 临时路径加引号（Windows 空格用户名下 reward 恒 0 的整类环境修复）；
+     `progressBytes` 改 statSync；记忆蒸馏双重静默补 warn；`capabilityStackOf` 装配失败
+     与「未启用」可区分。
+- **批③（R&D：自然规律 → 机制突破）**：**间隔效应**——Ebbinghaus 遗忘曲线 `R=0.5^(t/S)` +
+  间隔重复（合意困难强化 `S'=S×(1+(1-R))`、稳定度个体化 `S0=30×importance`）接入长期记忆
+  召回排序。`OMNI_MEMORY_FORGETTING=1` 开启；**默认关、关闭时逐位等于旧行为**（判据钉住）；
+  增益验证预注册（recallHitrate ON/OFF 对照 ≥5 轮 + bootstrap CI95 下界 > 0 才提案默认开）。
+  登记 `docs/NATURE_INSPIRED_RND_2026-10-27.md`（机制/映射/判据/边界四件套 + 候选池：
+  蚁群信息素 workflowMemory、李雅普诺夫回弹、免疫负选择——各附启动条件）。
+- **批④（功能欠账，BLOCKERS §5 销账）**：**工具级资源域闸**——「给工具声明资源域与锁语义」：
+  声明表 `ports/tool/toolResourceDomains.ts`（browser_act/browser_screenshot → browser 写域；
+  BrowserSession 跨调用复用同一浏览器，跨会话并发互踩标签页）；闸 `core/toolResourceGate.ts`
+  （KeyedReadWriteLock 按域互斥、多域字典序防 ABBA、`OMNI_TOOL_DOMAIN_LOCKS=0` 关闭）；
+  接入点 = 门禁之后/pre 之前（等审批绝不持锁），finally 恒释放，取锁失败配对兜底；
+  进程级单例经 `OmniHarnessRuntime.toolResourceGate` 注入、子代理工厂强制透传父级单例。
+  判据 4 例（跨会话串行/开关零行为/取消不泄漏/声明表完整性）。
+- **验证**：每批独立 `tsc --noEmit` + 受影响套件实跑全绿（AG-UI 18、MCP 24+86、PluginHost 6、
+  A2A 52、audit 13、healthSignal 4、authCallbackGuard 2、spacingEffect 5、toolResourceGate 4、
+  记忆面回归 57、工具调度回归 12）；`auditStandards --delta` 每批通过；
+  全量 `test:fast` 与 typed 门禁收尾复跑（结果见下一条补记）。
+- **诚实边界**：① MCP `subscriptions/listen` 的彻底解法是每连接独立 transport（已登记后续项，
+  本轮以 409 fail-closed 止血）；② ACP allow-always 持久化与 run() 早退死路径**未修**（审计
+  #12，低危，登记待办）；③ 间隔效应是机制级落地，增益数字必须走 §106 预注册流程，不得引用；
+  ④ doctor/boost 的 spawnSync 违反自家异步规范（审计 #9）未在本轮收口，登记待办。
