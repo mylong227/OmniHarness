@@ -750,7 +750,7 @@ async function main() {
           if (key !== 'stream' && !wantPanes.includes(key)) continue;
           await cdp.send('Page.enable');
           await cdp.send('Page.reload', { ignoreCache: true });
-          if (!(await cdp.waitMounted(2400))) {
+          if (!(await cdp.waitMounted(5000))) {
             failures.push(`${theme}/${key}: 重载后未挂载`);
             continue;
           }
@@ -800,10 +800,13 @@ async function main() {
             if (stateOnly !== null && !stateOnly.includes(st.key)) continue;
             await cdp.send('Page.enable');
             await cdp.send('Page.reload', { ignoreCache: true });
-            if (!(await cdp.waitMounted(2400))) {
+            // W0 基线实测：并行会话高负载下 2400 次轮询会在「vendor 分块加载 + composer 装配」
+            // 完成前耗尽，整批交互态被误判未挂载——放宽到 6000 并在挂载后再给 300ms 装配余量。
+            if (!(await cdp.waitMounted(6000))) {
               failures.push(`${theme}/${st.key}: 重载后未挂载`);
               continue;
             }
+            await new Promise((r) => setTimeout(r, 300));
             await seedSession(cdp, { keepTurnInFlight: st.key === 'streaming' });
             await cdp.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
             // 单态失败**不得中止整轮**（W0 基线实测：dropdown 态 .dd 缺位时 click 抛错，
