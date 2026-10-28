@@ -193,6 +193,8 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
   /** 弹窗根节点（打开时把焦点从背后的输入框收进来，Enter 才不会继续发给输入区）。 */
   const modalRef = React.useRef<HTMLDivElement | null>(null);
+  /** 目录加载请求代际（晚到的旧目录响应据此丢弃）。 */
+  const loadSeq = React.useRef<number>(0);
   React.useEffect(() => {
     modalRef.current?.focus();
   }, []);
@@ -208,9 +210,13 @@ export function FilePicker(props: FilePickerProps): ReactElement {
    * @returns 异步完成
    */
   const loadDir = async (path?: string): Promise<void> => {
+    // 目录切换的请求代际：点完 A 立刻点 B 时，A 的慢响应不得把当前目录改回 A
+    // （此前无条件 setBrowse，用户在慢盘上会看到「点了 B 却回到 A」）。
+    const seq = ++loadSeq.current;
     setLoad({ loading: true, error: null });
     try {
       const r: BrowseResult = await api.browseFs(path, true);
+      if (seq !== loadSeq.current) return;
       if (r.level === 'drives') {
         setBrowse({
           roots: Array.isArray(r.roots) ? r.roots : [],
@@ -232,9 +238,10 @@ export function FilePicker(props: FilePickerProps): ReactElement {
         setLoad((prev) => ({ ...prev, error: t('文件列表返回格式异常（fs.browse）') }));
       }
     } catch (e) {
+      if (seq !== loadSeq.current) return;
       setLoad((prev) => ({ ...prev, error: (e as Error).message }));
     } finally {
-      setLoad((prev) => ({ ...prev, loading: false }));
+      if (seq === loadSeq.current) setLoad((prev) => ({ ...prev, loading: false }));
     }
   };
 

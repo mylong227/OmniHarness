@@ -113,6 +113,8 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   const [files, setFiles] = React.useState<readonly SearchHit[]>([]);
   const [chats, setChats] = React.useState<readonly SearchHit[]>([]);
   const [searching, setSearching] = React.useState<boolean>(false);
+  /** 搜索关键字（用于丢弃迟到响应）。 */
+  const searchSeq = React.useRef<number>(0);
   /** 搜索防抖定时器。 */
   const searchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -228,6 +230,9 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   const onQuery = (value: string): void => {
     setQuery(value);
     if (searchTimer.current !== null) clearTimeout(searchTimer.current);
+    // 关键字一变就作废在途请求：删空输入或改字后，旧响应不得再覆盖当前结果
+    // （此前只清防抖定时器，慢请求后到会把「已删空的列表」重新填满旧命中）。
+    const seq = ++searchSeq.current;
     if (value.trim() === '') {
       setFiles([]);
       setChats([]);
@@ -239,11 +244,14 @@ export function AddMenu(props: AddMenuProps): ReactElement {
       api
         .searchAll(value.trim())
         .then((r) => {
+          if (seq !== searchSeq.current) return;
           setFiles(r.files);
           setChats(r.chats);
           setSearching(false);
         })
-        .catch(() => setSearching(false));
+        .catch(() => {
+          if (seq === searchSeq.current) setSearching(false);
+        });
     }, SEARCH_DEBOUNCE_MS);
   };
 

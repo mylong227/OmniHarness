@@ -83,6 +83,8 @@ export function ChangesTab(): ReactElement {
    * 官方 `RefObject` 对元素类型是**不变**的，基类引用不再被接受——旧手写垫片把它写宽了。
    */
   const rootRef = React.useRef<HTMLDivElement | null>(null);
+  /** patch 加载请求代际：连点两个文件时，先发的慢响应不得覆盖后点的文件。 */
+  const patchSeq = React.useRef<number>(0);
   // 游标跨渲染复用（构造只发生一次，等价 App.ts 的 controllerRef 写法）。
   const cursorRef = React.useRef<ReviewCursor | null>(null);
   if (cursorRef.current === null) cursorRef.current = new ReviewCursor();
@@ -128,21 +130,26 @@ export function ChangesTab(): ReactElement {
    */
   const openPatch = async (path: string): Promise<void> => {
     if (expanded === path) {
+      // 收起也作废在途请求：否则迟到的 patch 会把「已收起」的文件内容重新填进来。
+      patchSeq.current++;
       setExpanded(null);
       setPatch('');
       return;
     }
+    const seq = ++patchSeq.current;
     setExpanded(path);
     setPatchLoading(true);
     setPatch('');
     setDraft(null);
     try {
       const r = await api.listChanges(path);
+      if (seq !== patchSeq.current) return;
       setPatch(r.patch ?? '');
     } catch (e) {
+      if (seq !== patchSeq.current) return;
       setPatch(t('读取失败：{msg}', { msg: (e as Error).message }));
     } finally {
-      setPatchLoading(false);
+      if (seq === patchSeq.current) setPatchLoading(false);
     }
   };
 
@@ -151,10 +158,13 @@ export function ChangesTab(): ReactElement {
    * @param path 当前展开的文件路径
    */
   const reloadAfter = async (path: string): Promise<void> => {
+    const seq = ++patchSeq.current;
     await refresh();
     await refreshComments();
     try {
       const r = await api.listChanges(path);
+      // 期间用户可能已切到别的文件 / 收起：迟到内容不得写进当前视图。
+      if (seq !== patchSeq.current) return;
       setPatch(r.patch ?? '');
     } catch {
       /* patch 刷新失败保留旧内容 */

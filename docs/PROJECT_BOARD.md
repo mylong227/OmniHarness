@@ -1,4 +1,4 @@
-# OmniHarness 项目看板（唯一事实源）
+﻿# OmniHarness 项目看板（唯一事实源）
 
 > **本文件是仓内唯一的看板**。旧看板（`TASK_BOARD.md` / `REFACTOR_BOARD_2026-09-12.md` /
 > `UPGRADE_BOARD_2026-09-12.md` 等旧看板已于 2026-10-03 删除，
@@ -5645,3 +5645,20 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   ③ 两个选择器还没做**完整焦点圈定**（Tab 仍可跑出弹窗到背后的控件）；焦点圈定要复用
   `models/focusTrap.ts` 并与 Esc/归还 opener 一起设计，留作下一批；
   ④ jsdom 无布局：本批判据覆盖「焦点落点 + 按键行为」，视觉与圈定仍由真机（`smoke:ui`）覆盖。
+
+## 112. 2026-10-28 前端竞态批：在途响应序号（§110 待办 ② 销账）
+
+- **缺陷（审计原文）**：三处列表只防抖、不校验「响应回来时查询条件还是不是当前那个」——
+  AddMenu 搜索（改字/删空后旧命中回填）、ChangesTab 展开（点 A 立刻点 B，A 的 patch 后到显示成
+  B 的内容）、FilePicker 目录（慢盘上点 B 被 A 的迟到响应改回 A）。
+- **修法**：统一用**请求代际**（`useRef<number>` 自增 + await 后比对）而不是比较查询串：
+  ① AddMenu `searchSeq`（关键字一变即作废；清空分支同样递增）；
+  ② ChangesTab `patchSeq`（`openPatch` 与 `reloadAfter` 同源；**收起也递增**——否则迟到的 patch 会把
+  已收起的文件内容重新填进来）；
+  ③ FilePicker `loadSeq`（catch / finally 同样按代际守卫，避免旧请求把 `loading` 状态改回去）。
+- **判据**：新增 `web/test/staleResponseGuards.test.ts` **2 例**（先发后到被丢弃、清空后不回填）——
+  用闸门精确控制落地顺序，而不是靠 sleep 猜时序）。
+  pm run web:test 全量 **119 文件 / 620 例全绿**。
+- **诚实边界**：FilePicker 的守卫是**防御性**的——切目录时列表先被「读取中…」占位，UI 上点不出
+  第二个目录，故没有可复现的 UI 竞态（保留守卫防未来代码绕过 loading 门；测试里已注明）。
+  ChangesTab 的代际守卫由既有 `diffControl` / `reviewShortcuts` 回归覆盖交互路径，未单独写竞态判据。
