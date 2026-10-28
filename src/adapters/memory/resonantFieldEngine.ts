@@ -28,6 +28,7 @@ import type { ResonantFieldOptions, ResonantFieldPort } from '../../ports/memory
 import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
 import { TimeDecay, type ScoredFact } from './timeDecay.ts';
 import { ResonantFieldMath } from './resonantFieldMath.ts';
+import { MemoryValueSlot } from './memoryValueSlot.ts';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
 interface Cluster {
@@ -133,9 +134,10 @@ export class ResonantFieldEngine
    */
   public remember(fact: MemoryFact): void {
     if (this.knownIds.has(fact.id)) {
-      // 已存在：更新谱与所属簇。
+      // 已存在：更新谱与所属簇（文本可能被 update 改过，base 也要同步）。
       const s = EigenSpectrum.eigenSpectrum(fact.text, this.bins);
       this.spectra.set(fact.id, s);
+      this.base.update(fact.id, { text: fact.text });
       return;
     }
     const s = EigenSpectrum.eigenSpectrum(fact.text, this.bins);
@@ -150,15 +152,37 @@ export class ResonantFieldEngine
     }
     this.spectra.set(fact.id, s);
     this.knownIds.add(fact.id);
-    if (bestId !== undefined) {
-      // Burgers 黏附：不写 base（去重），仅并入簇。
-      const cl = this.clusters.get(bestId)!;
-      cl.members.push(fact.id);
-      cl.centroid = ResonantFieldMath.avgSpectrum(cl.centroid, s);
+    const cluster = bestId === undefined ? undefined : this.clusters.get(bestId);
+    // **值冲突闸**（2026-10-28）：黏附只看频谱相近，会把「同一槽位的不同取值」当成近重复
+    // 吞掉（例：端口 58217 → 58218 时新值不落盘，remember 却回 stored:true）。
+    // 先找出簇内同槽位、不同取值的旧事实；有冲突就不黏附，改为落盘 + 旧值失效。
+    const conflicts =
+      cluster === undefined
+        ? []
+        : cluster.members
+            .map((id) => this.base.get(id))
+            .filter(
+              (existing): existing is MemoryFact =>
+                existing !== undefined && MemoryValueSlot.conflicts(fact.text, existing.text),
+            );
+    if (cluster !== undefined && conflicts.length === 0) {
+      // Burgers 黏附：确属近重复，不写 base（去重），仅并入簇。
+      cluster.members.push(fact.id);
+      cluster.centroid = ResonantFieldMath.avgSpectrum(cluster.centroid, s);
       return;
     }
-    // 新簇：写入 base 并登记质心。
+    // 值冲突（或没有可黏附簇）：新值必须落盘；同槽位旧值置 expiresAt 失效（不删除，历史可查）。
+    const nowIso = new Date(this.clock()).toISOString();
+    for (const old of conflicts) {
+      this.base.update(old.id, { expiresAt: nowIso });
+    }
     this.base.remember(fact);
+    if (cluster !== undefined) {
+      cluster.members.push(fact.id);
+      cluster.centroid = ResonantFieldMath.avgSpectrum(cluster.centroid, s);
+      return;
+    }
+    // 新簇：登记质心。
     const cid = `cl_${this.clusterSeq++}`;
     this.clusters.set(cid, { repId: fact.id, centroid: s, members: [fact.id], abstract: false });
   }

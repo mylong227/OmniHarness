@@ -109,4 +109,20 @@ describe('MemoryExtractor', () => {
     assert.strictEqual(added, 0);
     assert.strictEqual(called, false);
   });
+
+  it('per-session cursor：新会话不被旧会话游标跳过（2026-10-28）', async () => {
+    const store = stubStore();
+    let call = 0;
+    const model: ModelPort = {
+      name: 'per-session',
+      generate: async () => ({ text: call++ === 0 ? '["A"]' : '["B"]' }),
+    };
+    const ex = new MemoryExtractor(model, store);
+    const addedA = await ex.consolidate([ev('a1'), ev('a2'), ev('a3'), ev('a4'), ev('a5')], 'A');
+    assert.strictEqual(addedA, 1);
+    // 旧实现是单实例全局游标：A 已处理 5 条，B 只有 2 条 ⇒ slice(5) 为空、返回 0。
+    const addedB = await ex.consolidate([ev('b1'), ev('b2')], 'B');
+    assert.strictEqual(addedB, 1, '新会话必须独立蒸馏');
+    assert.strictEqual(store.count, 2);
+  });
 });

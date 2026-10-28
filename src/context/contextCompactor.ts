@@ -85,6 +85,13 @@ export interface CompactionResult {
   readonly state?: CompactionState;
   /** 本次发往模型的消息文本的无损收缩度量（关闭收缩时为 undefined）。 */
   readonly shrink?: ShrinkReport;
+  /**
+   * 摘要是否**降级**（无模型/模型失败/远程摘要失败 ⇒ 拿到了占位摘要）。
+   *
+   * 降级时仍然返回可用的 messages（本次请求不能炸），但**不会写回 `state`**：
+   * 把占位摘要写进游标等于让后续每一步都复用它，一次 429 就会让长会话永久失忆。
+   */
+  readonly degraded?: boolean;
 }
 
 /**
@@ -419,16 +426,13 @@ export class ContextCompactor {
     // 模型摘要 + **确定性工具台账**：摘要由模型生成，可能漏掉「已经读过哪些文件、跑过哪些命令」；
     // 台账由折叠段的事件直接生成，是「不依赖摘要质量」的进度基线（长会话防重复探索）。
     // 预算过小时不加台账：宁可少一行确定性信息，也不能把最近的工具轮挤出 tail。
-    const summary = ContextCompactor.withToolLedger(
-      await this.summarizer.summarize(fresh, seed),
-      head,
-      budget,
-    );
-    const newState: CompactionState = {
-      compactedUpTo: headEnd,
-      headHash: ContextCompactor.headFingerprint(head),
-      summary,
-    };
+    const rawSummary = await this.summarizer.summarize(fresh, seed);
+    // 占位摘要只能用于本次请求，**不能写进游标**——否则后续每步复用占位，长会话永久失忆。
+    const degraded = CompactionSummarizer.isUnusable(rawSummary);
+    const summary = ContextCompactor.withToolLedger(rawSummary, head, budget);
+    const newState: CompactionState | undefined = degraded
+      ? undefined
+      : { compactedUpTo: headEnd, headHash: ContextCompactor.headFingerprint(head), summary };
     // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
     // 与游标快路径共用同一方法，保证两条路径结果一致。
     const composed = CompactionComposer.compose(
@@ -451,7 +455,8 @@ export class ContextCompactor {
       messages: final,
       compacted: true,
       summary,
-      state: newState,
+      ...(newState !== undefined ? { state: newState } : {}),
+      ...(degraded ? { degraded: true } : {}),
       ...(tail.report !== undefined ? { shrink: tail.report } : {}),
     };
   }

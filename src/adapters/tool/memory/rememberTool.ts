@@ -7,6 +7,7 @@ import type {
   ToolResult,
 } from '../../../ports/tool/tool.ts';
 import type { LongTermMemoryPort } from '../../../ports/memory/longTermMemory.ts';
+import { MemoryValueSlot } from '../../memory/memoryValueSlot.ts';
 
 /**
  * 长期记忆写入工具（#S28）：模型显式沉淀一条跨会话持久的 durable fact
@@ -62,12 +63,46 @@ export class RememberTool {
         ? (call.arguments['importance'] as number)
         : 3;
     const importance = Math.min(5, Math.max(1, Math.round(rawImportance)));
+    const existing = this.memory.all();
+    const normalized = MemoryValueSlot.normalize(factText);
+    // 完全重复（归一化后逐字相同）：不新增，如实回 duplicate——旧实现无论是否真的落盘都回
+    // `stored:true`，调用方（模型）从此以为更正已生效。
+    const duplicate = existing.find(
+      (entry) =>
+        entry.expiresAt === undefined && MemoryValueSlot.normalize(entry.text) === normalized,
+    );
+    if (duplicate !== undefined) {
+      return {
+        callId: call.id,
+        ok: true,
+        output: JSON.stringify(
+          {
+            stored: false,
+            duplicateOf: duplicate.id,
+            id: duplicate.id,
+            count: this.memory.count,
+            note: '同内容事实已存在，未重复写入',
+          },
+          null,
+          2,
+        ),
+      };
+    }
+    // 值冲突（同槽位、不同取值）：先让旧值失效，再写新值。引擎侧也会做同一件事；
+    // 这里覆盖 `resonantField.enabled:false` 的裸存储路径，保证两条装配都把更正落下去。
+    const nowIso = new Date().toISOString();
+    for (const entry of existing) {
+      if (entry.expiresAt !== undefined) continue;
+      if (MemoryValueSlot.conflicts(factText, entry.text)) {
+        this.memory.update(entry.id, { expiresAt: nowIso });
+      }
+    }
     const fact = {
       id: randomUUID(),
       text: factText,
       topic,
       importance,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
       sessionId: context.sessionId,
       source: 'tool' as const,
     };

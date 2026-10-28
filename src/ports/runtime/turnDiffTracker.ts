@@ -35,6 +35,14 @@ export interface TurnDiffTrackerPort {
   invalidate(): void;
   /** 本回合变更文件数（含新建与改写）。 */
   readonly changedCount: number;
+  /**
+   * 本回合的变更是否**仍可被精确追踪**（可选；缺省视为 true）。
+   *
+   * `false` ＝ 出现过 `invalidate()`（shell 重定向/脚本/依赖安装等无法逐文件归因的写），
+   * 此时 `changedCount` 会被清成 0——但「0」只表示**没有可精确记账的变更**，不表示
+   * 「没改过文件」。turn-end 完成闸门据此区分两者，避免 shell 写过文件却跳过验证。
+   */
+  readonly isValid?: boolean;
   /** 产出整回合 unified diff；无实质差异或已失效时返回 undefined。 */
   getUnifiedDiff(): string | undefined;
   /** 重置（新回合开始）：恢复有效并清空基线/当前快照。 */

@@ -23,6 +23,7 @@ import type { ToolPort } from '../../src/ports/tool/tool.ts';
 import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
 import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
 import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import type { TurnDiffTrackerPort } from '../../src/ports/runtime/turnDiffTracker.ts';
 
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };
 const sandboxOk: SandboxPort = { name: 'ok', check: async () => ({ allowed: true }) };
@@ -142,4 +143,86 @@ test('A1：未注入闸门 ⇒ 与改造前逐字一致（零行为变更）', a
   const outcome = await runner.run({ sessionId: 's-a1-4', workspaceRoot: '/tmp' });
   assert.strictEqual(outcome.steps, 1);
   assert.strictEqual(outcome.finalText, '没有闸门的旧行为。');
+});
+
+/** 构造一个「变更追踪已失效」的端口：changedCount=0，但 isValid=false。 */
+function invalidTracker(): TurnDiffTrackerPort {
+  return {
+    hasBaseline: () => false,
+    recordBaseline: () => {},
+    noteWrite: () => {},
+    invalidate: () => {},
+    changedCount: 0,
+    isValid: false,
+    getUnifiedDiff: () => undefined,
+    reset: () => {},
+  };
+}
+
+/** 带 turnDiff 端口的回合执行器（其余参数与 {@link build} 对齐）。 */
+function buildWithTracker(
+  sessionId: string,
+  model: ModelPort,
+  tracker: TurnDiffTrackerPort,
+  gate: CompletionGate,
+): TurnRunner {
+  const recorder = new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);
+  const sr = new StepRunner({
+    model,
+    tools,
+    approvals: allowApproval,
+    sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
+    recorder,
+    sessionId,
+  });
+  return new TurnRunner(
+    sr,
+    recorder,
+    6,
+    tracker,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+    gate,
+  );
+}
+
+test('A1：tracker 失效（shell 写过但 changedCount=0）仍必须跑 turn-end 闸门（2026-10-28）', async () => {
+  const { model, prompts } = textModel(['我改好了。', '已按闸门修复。']);
+  let verified = 0;
+  const gate: CompletionGate = {
+    kind: 'turn-end',
+    verify: async () => {
+      verified += 1;
+      return verified === 1 ? '测试未通过（exit=1）' : undefined;
+    },
+  };
+  const runner = buildWithTracker('s-a1-5', model, invalidTracker(), gate);
+  const outcome = await runner.run({ sessionId: 's-a1-5', workspaceRoot: '/tmp' });
+  assert.strictEqual(verified, 1, '失效的 tracker 不等于「没改过文件」，闸门必须被问到');
+  assert.strictEqual(outcome.steps, 2, '闸门失败应回灌并再给一步');
+  assert.ok(
+    prompts.some((p) => p.includes('完成闸门')),
+    '回灌消息必须包含闸门提示',
+  );
+});
+
+test('A1：tracker 有效且 changedCount=0 ⇒ 纯问答不白跑验证（不回归）', async () => {
+  const { model } = textModel(['纯问答收尾。']);
+  let verified = 0;
+  const gate: CompletionGate = {
+    kind: 'turn-end',
+    verify: async () => {
+      verified += 1;
+      return '不应被调用';
+    },
+  };
+  const tracker: TurnDiffTrackerPort = { ...invalidTracker(), isValid: true };
+  const runner = buildWithTracker('s-a1-6', model, tracker, gate);
+  const outcome = await runner.run({ sessionId: 's-a1-6', workspaceRoot: '/tmp' });
+  assert.strictEqual(verified, 0, '没有变更信号时不应跑 turn-end 验证');
+  assert.strictEqual(outcome.steps, 1);
 });

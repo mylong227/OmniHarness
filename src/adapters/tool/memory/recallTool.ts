@@ -61,6 +61,10 @@ export class RecallTool {
       topic: fact.topic,
       text: fact.text,
       importance: fact.importance,
+      // 2026-10-28：不能把 trust 丢掉——`ToolOutputTrust` 把 recall 输出按最严 harness 档处理，
+      // 但模型自己看不到「这条记忆来自未验证的工具输出」，等于把风险信号在最后一米抹掉。
+      ...(fact.trust !== undefined ? { trust: fact.trust } : {}),
+      ...(fact.expiresAt !== undefined ? { expiresAt: fact.expiresAt } : {}),
     }));
     return {
       callId: call.id,

@@ -165,6 +165,9 @@ test('③ 反向：默认参数下的截断仍保留头尾并标注省略行数�
   assert.match(String(lines[40]), /lines omitted of 500/);
 });
 
+/** 摘要桩文本：必须是「可用摘要」——占位摘要按 2026-10-28 的新语义**不写游标**，不能用来验游标。 */
+const SUMMARY_TEXT = '摘要：历史要点';
+
 /**
  * 构造只跑「事件投影 + 压缩」的最小 StepContextBuilder 依赖（不碰 repo-map / 常驻指令）。
  * @param events 事件数组（就地增长，供 recorder.system 追加压缩游标）。
@@ -177,7 +180,10 @@ const makeBuilderDeps = (events: SessionEvent[]): StepRunnerDeps =>
     approvals: {},
     sandbox: {},
     sessionId: 's',
-    compactor: new ContextCompactor(undefined, { maxTokens: 100, keepRecent: 2 }),
+    compactor: new ContextCompactor(
+      { name: 'sum', generate: async () => ({ text: SUMMARY_TEXT }) },
+      { maxTokens: 100, keepRecent: 2 },
+    ),
     fragments: [],
     repoMapEnabled: false,
     projectInstructionsEnabled: false,
@@ -214,7 +220,7 @@ test('④ 压缩游标只在变化时写回、且绝不进模型上下文（摘�
   }
   const last = sent[sent.length - 1]!;
   const summaryCopies = last.filter(
-    (message) => message.role === 'system' && message.content.includes('[历史已省略]'),
+    (message) => message.role === 'system' && message.content.includes(SUMMARY_TEXT),
   ).length;
   const markerLeaks = last.filter(
     (message) => message.role === 'system' && message.content.startsWith(COMPACTION_MARKER),

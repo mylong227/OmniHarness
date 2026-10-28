@@ -5732,3 +5732,86 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   （`smoke:ui`）覆盖；组件层基线是**冻结**不是清偿，49 个超长函数仍待按批拆。
 
 - **顺带把「不能增长」变成了「真的在降」**：五个组件在接入本批功能时被抽职责（useMenuNavigation / useModalFocus / useAddMenuData / useApprovalTiers + ModelPickerLadder / PermissionTierOption / PermissionMenu / PermissionTrigger / AddMenuPopover / AddMenuTrigger），组件体**低于**接入前的基线：AddMenu 257→230、ModelPicker 193→172、PermissionPicker 133→126、FilePicker 159→154、FolderPicker 176→171；基线已按新值重建（只许继续减）。
+
+## 115. 2026-10-28 悬浮提示重做：原生 `title` 气泡 → 全站白纸片（收窄 + 圆角 + 不投影）
+
+- **用户报障**：「鼠标悬浮冒泡提示展示太长太宽，同时扁平设计带圆角」。
+- **根因在浏览器 UI，不在 CSS**：全站上百处提示走原生 `title` 属性，气泡的形状/字号/宽度由
+  浏览器/系统决定（Windows 下是方角灰板；一句权限说明就拉成一条横线）。`title` 无法被 CSS 命中
+  ⇒ 想收窄/圆角只能「接管」，不能「调样式」。
+- **单一接管层（`models/HoverTips.ts`，document 事件委托）**：悬停 180ms 后把 `title` 摘到
+  `data-tip`（原生因此不出现），离开/点击/滚动/Esc/卸载原样放回；同一条提示内部移动（图标→文字）
+  不收起不重弹；显示期间用 MutationObserver 盯住 React 重渲染写回的 `title`（否则原生 + 自绘两套
+  气泡同屏）；`PopoverStack.currentPopoverId()` 非空时不冒泡（菜单开着时再弹提示是噪音）。
+  键盘/读屏语义不变：`title` 只在**指针悬停期间**被摘下。
+- **展示层（`components/TooltipLayer.tsx` + `minimal.css` 的 `.hover-tip`）**：**扁平纸片**，两套
+  主题**同向**的浅底深字（同日第二轮用户：「白色主题下，应该也是白色的冒泡」）：深色下底
+  `--tip-bg`（近白，暗场里不刺眼）、浅色下纯白 + 1px `--tip-line` 发丝边（白纸在纸白底上要靠
+  边线立住）；**10px 圆角 + 不投影**、最宽 280px、最多 4 行后收口；`aria-hidden`（文字与
+  `title` 同源，读屏不该听第二遍）。配色进 `theme.css` 的 `--tip-bg`/`--tip-fg`/`--tip-line`
+  （唯一配色事实源），不在样式层写死色值。第一版是反相墨块——浅色主题下变成一块黑，被用户当天
+  否掉（「白色主题下也应该是白色的冒泡」），这一版才固定为"两套都是浅底"。
+- **落位（`models/HoverTipPlacement.ts`，纯函数）**：上方优先 → 下方回退 → 水平与垂直都夹进 8px
+  视口边距，结果取整（亚像素会让圆角与文字发虚）。左栏会话行贴左缘、输入区 chip 贴底边两类真机
+  边界单独判据化（jsdom 没有布局，量不出来）。
+- **判据**：`hoverTipPlacement.test.ts` 6 例（上方 / 翻下 / 左右贴边 / 超矮视口 / 取整）；
+  `hoverTips.test.ts` 6 例（延迟期间不提前摘、内部移动不闪、重渲染同步文案、点击/滚动/Esc/卸载
+  归还、弹层闸门、真实 React 挂载）；`hoverTipChrome.test.ts` 1 例**真 Chrome**——悬停权限 chip，
+  浅/深两套主题各量一次：宽 ≤280、`border-radius:10px`、`box-shadow:none`、浅色底=纯白
+  （三通道 ≥250）+ 1px 发丝边、深色底=近白（≥200）、字两套都深（≤80）、气泡在 chip 上方且不出
+  视口、离开后气泡卸载且 `title` 原样归还。
+- **为什么没有直接引 antd**（用户提议「可以引用优秀前端 UI 库，不用重复开发组件」）：antd 5.29
+  实测 **49 个直接运行时依赖** / **48.4 MB unpacked**（rc-* ×30+、cssinjs、dayjs…），超出准入
+  政策默认预算（2 MB / 20 个传递依赖，需单独审批）；更关键的是 antd 的 `Tooltip` 是**包装组件**，
+  不会接管已有的原生 `title`——上百处调用点仍要逐个迁移，而「接管 + 延迟 + 重渲染同步 + 弹层
+  互斥」这部分工作不会消失，只会叠在第二套设计语言上。这里的接管层是三个文件、零依赖，展示层
+  隔离在 `.hover-tip` 一段 CSS + 一个组件里：若项目今后整体接入组件库，只换这一段，调用点零改动。
+- **更小的候选也逐个算过**（用户第二轮澄清：「antd 或者别的优秀的、能解决的、需要最小代价的引用」）：
+  `tippy.js` 6.3.7（**2021-11 之后未再发版**）装 2.07MB + `@popperjs/core` 1.46MB；`react-tooltip`
+  6.0.9（2026-10 活跃）1.06MB + `clsx`/`@floating-ui/dom`；`@floating-ui/dom` 1.8.0 仅 174KB
+  （+ core 219KB / utils 66KB）；`@radix-ui/react-tooltip` 1.4.1 带 **14 个直接依赖**且必须逐个
+  包触发器。共同点是**没有一个会接管原生 `title`**：tippy 仍要自己写 `delegate + content:
+ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要在每个元素上挂
+  `data-tooltip-*`（等于换一套标记迁移上百处）；radix 要包装每个触发器。它们能省的只有"定位 +
+  显隐生命周期"（本仓两段几十行 + 12 例判据），省不掉"接管 + React 重渲染同步 + 弹层互斥"。
+  为 174KB～3.5MB 换掉一段已判据化的自有实现，不是最小代价 ⇒ 维持零依赖；若将来要换，唯一
+  值得换的是 `@floating-ui/dom`（只换定位那 40 行，其余不动）。
+- **验证**：`web:test` **123 文件 / 641 例全绿**；`runGates` fast 层 10 条 + typed 层 2 条全绿；
+  入口 chunk ≈849KB < 900KB 预算（提示层自身约 +4KB，没有把体积预算顶破）。
+
+## 116. 2026-10-28 核心能力再调研 + 正确性批：压缩失忆 / 记忆写丢 / 闸门漏验证
+
+- **调研**（新文档 [`docs/CORE_CAPABILITY_UPGRADE_2026-10-28.md`](CORE_CAPABILITY_UPGRADE_2026-10-28.md)）：
+  4 路只读代码审计（主循环+上下文 / 记忆+检索 / 工具+协议 / 模型+评测）+ 2026 年一手论文与规范
+  （arXiv 2609.00006 / 2603.28052 / 2610.02163 / 2605.23296 / 2610.03020 / 2607.17641 /
+  2610.32131 / 2601.15195 / 2608.27969、ACL 2026 ARC、MCP 2026-07-28、Agent Skills）。
+  结论：七子系统全部有实现（MCP 已双栈 2026-07-28，压缩已有结构化摘要+工具台账+前缀游标+轮对齐），
+  短板是**最后一公里的静默失效**，不是缺功能。文档含 P0–P3 缺口矩阵（逐条 file:line）与 U0–U3 路线。
+- **批①（压缩）**：摘要失败时 `CompactionSummarizer` 返回 7 字占位，`ContextCompactor` 却把它
+  写进 `OMNI_COMPACTION_V1` 游标并长期复用（一次 429 ⇒ 永久失忆）。改为 `PLACEHOLDER` +
+  `isUnusable()`；降级时**不写 state**、回 `degraded:true`，本次仍带兜底消息。
+  判据 `contextCompactorDegraded.test.ts` 3 例（必抛模型 / 正常摘要 / 三态判定）。
+- **批②（完成闸门）**：`completionDigest` 以 `changedCount===0` 跳过 turn-end 闸门，而 shell 写文件
+  会 `invalidate()` 把计数清 0 ⇒ 脚本改过文件也从不验证。`TurnDiffTrackerPort` 加可选 `isValid`；
+  条件改为「有变更 **或** 变更不可知」。判据 `turnCompletionGate.test.ts` +2（失效 tracker 必须问闸门；
+  有效 + 0 不白跑）。
+- **批③（记忆正确性，4 项）**：
+  1. primer fallback 不过滤 `expiresAt`，已 supersede 的旧值在每会话开场复活 ⇒ 两分支共用
+     `injectable()`（`<= now` 口径，core 内联不反向依赖 adapters）。判据 `memoryPrimerExpiry.test.ts`。
+  2. 蒸馏游标是单实例全局量，短会话被长会话游标跳过、完全不蒸馏 ⇒ `Map<sessionId,cursor>`，
+     事件变短按 0 重放，512 上限淘汰最早活跃。判据 `memoryExtractor.test.ts`（A 5 事件 → B 2 事件仍蒸馏）。
+  3. 共振黏附把「同槽位不同取值」当近重复吞掉（58217→58218 不落盘），工具仍回 `stored:true`
+     ⇒ 新增 `MemoryValueSlot`（归一化+数字槽骨架）；引擎冲突时落盘 + 旧值 `expiresAt`；
+     `RememberTool` 同步兜底并让完全重复回 `stored:false, duplicateOf`。
+     判据 `resonantField.test.ts ⑧` + `longTermMemoryTools.test.ts` 2 例。
+  4. `recall` 丢弃 `trust`/`expiresAt`，模型看不到未验证来源 ⇒ payload 保留两字段。判据同上。
+- **验证**：新增/修改 5 文件 **18 例**；记忆/压缩回归 14 文件 **107 例**；记忆冲突批 5 文件 **25 例**；
+  扩展核心回归（agent/turnRunner/stepRunner/sessionInjector/longHorizon/memory/context）33 文件 **219 例**；
+  全部实跑通过。`npx tsc --noEmit` 双工程零错；`node scripts/check.mjs --strict` 1279 + 190 文件零违规。
+  顺带修正 `contextIntegrityFixes` 的压缩桩（原用占位摘要验游标写回，与新语义冲突；改可用摘要后
+  仍钉住"游标只写一次、绝不进模型上下文"）。
+- **诚实边界**：本轮是**正确性修复**，未跑真模型长任务，不产生 pass@1/成本增益数字；外部论文数字均为
+  自报未复现；记忆探针仍跑非生产端口（U1-E7 才搬）；共振场仍自评 L0，默认档去留待两端口 A/B。
+- **U1 待办（按影响）**：① 评测加 bootstrap CI/MDE + A/B 交错 + k≥3 + 数据哈希；② SSE 流完整性
+  （缺 finish_reason/[DONE] 必须报错）；③ 推理签名回传（Anthropic/Gemini）；④ cache_creation 成本；
+  ⑤ 工具参数 JSON 修复（不得静默 `{}`）；⑥ 记忆探针搬到生产端口并让 `OMNI_MEMORY_FORGETTING` 生效或删除。

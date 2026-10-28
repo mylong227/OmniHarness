@@ -25,6 +25,24 @@ const SUMMARY_TEMPLATE = [
 /** 摘要生成器。 */
 export class CompactionSummarizer {
   /**
+   * 摘要**不可用**时的占位文本（无模型 / 模型失败 / 远程摘要失败共用）。
+   *
+   * 这个字符串只能用于「本次请求」的兜底占位，**绝不能被当成正式摘要写进压缩游标**：
+   * 游标一旦写入，后续每步（`tryReuseState` 前缀命中即零 LLM 复用）都会把 7 字占位
+   * 当作折叠历史的全部内容——一次 429 就能让长会话永久失忆。
+   */
+  public static readonly PLACEHOLDER = '[历史已省略]';
+
+  /**
+   * 摘要是否不可用（空串或占位）。调用方据此拒绝把游标写回事件日志。
+   * @param text 摘要文本。
+   * @returns 不可用返回 true。
+   */
+  public static isUnusable(text: string): boolean {
+    const trimmed = text.trim();
+    return trimmed === '' || trimmed === CompactionSummarizer.PLACEHOLDER;
+  }
+  /**
    * @param model 摘要模型（undefined ⇒ 占位摘要）。
    * @param remoteSummarizer 服务端摘要回调（优先，失败降级本地）。
    */
@@ -55,7 +73,7 @@ export class CompactionSummarizer {
       }
     }
     if (this.model === undefined) {
-      return '[历史已省略]';
+      return CompactionSummarizer.PLACEHOLDER;
     }
     try {
       const output = await this.model.generate({
@@ -83,7 +101,7 @@ export class CompactionSummarizer {
         reasoningEffort: ReasoningBudget.auxiliary('compactor', undefined),
         maxOutputTokens: 3_000,
       });
-      return output.text ?? '[历史已省略]';
+      return output.text ?? CompactionSummarizer.PLACEHOLDER;
     } catch (error) {
       // 2026-10-03 修：此处曾是纯静默 catch——严格端点（Anthropic/llama.cpp）对畸形摘要请求
       // 回 400 时，整次压缩名义成功、实际拿到零信息占位摘要，事后完全不可归因。留 warn。
@@ -91,7 +109,7 @@ export class CompactionSummarizer {
         error: error instanceof Error ? error.message : String(error),
         headMessages: head.length,
       });
-      return '[历史已省略]';
+      return CompactionSummarizer.PLACEHOLDER;
     }
   }
 

@@ -54,8 +54,17 @@ export class MemoryExtractor implements MemoryExtractorPort {
   /** 适配器标识：用于端口注册与诊断日志归组（固定值 'memory-extractor'）。 */
   public readonly name = 'memory-extractor';
 
-  /** 已蒸馏事件数（游标），避免跨回合重复。 */
-  private cursor = 0;
+  /** 游标跟踪的会话数上限（超出淘汰最早活跃者；512 个游标仅几 KB）。 */
+  private static readonly MAX_TRACKED_SESSIONS = 512;
+
+  /**
+   * 已蒸馏事件数游标（**按会话分桶**，避免跨会话共享）。
+   *
+   * 2026-10-28 修：此前是单实例全局 `cursor`，而组合根只建一个 `MemoryExtractor`、`TurnRunner`
+   * 每回合传的是**当前会话**的全量事件。后果：会话 A 蒸馏到第 5 条后，新会话 B 只有 2 条事件
+   * ⇒ `events.slice(5)` 为空，B 永远不蒸馏且无日志（短会话长期记不住）。
+   */
+  private readonly cursors = new Map<string, number>();
 
   /**
    * @param model 用于阶段一抽取的模型端口。
@@ -84,9 +93,8 @@ export class MemoryExtractor implements MemoryExtractorPort {
    * @returns 本次新增事实数。
    */
   public async consolidate(events: readonly SessionEvent[], sessionId: string): Promise<number> {
-    const fresh = events.slice(this.cursor);
+    const fresh = this.takeFresh(events, sessionId);
     if (fresh.length === 0) {
-      this.cursor = events.length;
       return 0;
     }
     const includeToolOutput = this.opts.includeToolOutput === true;
@@ -158,8 +166,47 @@ export class MemoryExtractor implements MemoryExtractorPort {
         added += 1;
       }
     }
-    this.cursor = events.length;
+    this.setCursor(sessionId, events.length);
     return added;
+  }
+
+  /**
+   * 取本会话尚未蒸馏的事件增量。
+   *
+   * 回卷/压缩会让事件数组变短：游标超过长度时按 0 重放（去重由阶段二负责），
+   * 而不是 `slice(过大值)` 得到空数组、把新事件一起跳过。
+   * @param events 会话事件全量序列。
+   * @param sessionId 会话 id（游标按会话分桶）。
+   * @returns 尚未处理的事件切片。
+   */
+  private takeFresh(events: readonly SessionEvent[], sessionId: string): readonly SessionEvent[] {
+    const cursor = Math.min(this.cursors.get(sessionId) ?? 0, events.length);
+    const fresh = events.slice(cursor);
+    if (fresh.length === 0) {
+      this.setCursor(sessionId, events.length);
+    }
+    return fresh;
+  }
+
+  /**
+   * 写入某会话的蒸馏游标；超出跟踪上限时淘汰最早登记的会话。
+   *
+   * 为什么要上限：会话数随使用无限增长，`Map<sessionId, cursor>` 若无界就是一条缓慢泄漏。
+   * 512 个会话的游标只占几 KB，淘汰后重放由阶段二去重兜底（最多多一次模型调用）。
+   * @param sessionId 会话 id。
+   * @param cursor 已处理的事件条数。
+   * @returns 无返回值。
+   */
+  private setCursor(sessionId: string, cursor: number): void {
+    // 先删再设：让 Map 的插入序反映「最近活跃」，淘汰时删的才是真正最旧的。
+    this.cursors.delete(sessionId);
+    this.cursors.set(sessionId, cursor);
+    if (this.cursors.size > MemoryExtractor.MAX_TRACKED_SESSIONS) {
+      const oldest = this.cursors.keys().next().value;
+      if (oldest !== undefined) {
+        this.cursors.delete(oldest);
+      }
+    }
   }
 
   /** 阶段一：LLM 从回合文本抽取可跨会话复用的持久事实。

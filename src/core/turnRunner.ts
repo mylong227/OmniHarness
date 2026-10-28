@@ -536,8 +536,12 @@ export class TurnRunner {
   /**
    * 取完成闸门的核验结果（含「何时才该问」的前置条件）。
    *
-   * `turn-end` 型闸门会在**回合末尾现跑一次验证命令**，因此必须限定「本回合确实改过文件」——
-   * 否则纯问答回合也会平白跑一次测试。`status` 型只是读已有结论（零开销），任何时机都可问。
+   * `turn-end` 型闸门会在**回合末尾现跑一次验证命令**，因此必须限定「本回合可能改过文件」——
+   * 否则纯问答回合也会平白跑一次测试。判定用**两个**信号（2026-10-28 修）：
+   *  - `changedCount > 0`：有可精确记账的写入；
+   *  - `isValid === false`：出现过无法逐文件归因的写（shell 重定向/脚本/依赖安装…），
+   *    `invalidate()` 会把 `changedCount` 清成 0——只看计数等于「shell 改过文件也跳过验证」。
+   * `status` 型只是读已有结论（零开销），任何时机都可问。
    * @param sessionId 会话 id。
    * @returns 失败摘要；不应问、或验证通过/无法验证时为 undefined。
    */
@@ -546,7 +550,10 @@ export class TurnRunner {
     if (gate === undefined) {
       return undefined;
     }
-    if (gate.kind === 'turn-end' && (this.turnDiff?.changedCount ?? 0) === 0) {
+    const tracked = this.turnDiff;
+    const mayHaveChanged =
+      (tracked?.changedCount ?? 0) > 0 || (tracked !== undefined && tracked.isValid === false);
+    if (gate.kind === 'turn-end' && !mayHaveChanged) {
       return undefined;
     }
     return await gate.verify(sessionId);

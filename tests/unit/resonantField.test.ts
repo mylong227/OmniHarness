@@ -27,12 +27,16 @@ class MemLongTermMemory implements LongTermMemoryPort {
   public get(id: string): MemoryFact | undefined {
     return this.facts.find((f) => f.id === id);
   }
-  public update(id: string, patch: { importance?: number; text?: string }): boolean {
+  public update(
+    id: string,
+    patch: { importance?: number; text?: string; expiresAt?: string },
+  ): boolean {
     const f = this.facts.find((x) => x.id === id) as
-      { importance?: number; text?: string } | undefined;
+      { importance?: number; text?: string; expiresAt?: string } | undefined;
     if (f === undefined) return false;
     if (patch.importance !== undefined) f.importance = patch.importance;
     if (patch.text !== undefined) f.text = patch.text;
+    if (patch.expiresAt !== undefined) f.expiresAt = patch.expiresAt;
     return true;
   }
   public delete(id: string): boolean {
@@ -148,6 +152,23 @@ test('⑥ 生产包装器召回也应用 untrusted 降权（不是只有 FileLon
   assert.deepStrictEqual(
     engine.recall('同一段记忆内容', 2).map((f) => f.id),
     ['t', 'u'],
+  );
+});
+
+test('⑧ 同槽位值冲突不被黏附吞掉：新值落盘 + 旧值失效（2026-10-28）', () => {
+  const now = Date.now();
+  const mem = new MemLongTermMemory();
+  const engine = new ResonantFieldEngine(mem, { adhesionThreshold: 0.3, clock: () => now });
+  engine.remember(fact('生产部署端口是 58217'));
+  engine.remember(fact('生产部署端口是 58218'));
+  assert.strictEqual(mem.count, 2, '同槽位的不同取值必须落盘，不能被黏附吞掉');
+  const old = mem.all().find((f) => f.text.includes('58217'));
+  assert.ok(old !== undefined);
+  assert.ok(old.expiresAt !== undefined, '旧值应被置为失效');
+  assert.deepStrictEqual(
+    engine.recall('生产部署端口', 5).map((f) => f.text),
+    ['生产部署端口是 58218'],
+    '召回不得再返回旧值',
   );
 });
 

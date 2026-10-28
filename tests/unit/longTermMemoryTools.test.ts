@@ -70,4 +70,59 @@ describe('RememberTool / RecallTool', () => {
     const r = await new RecallTool(store).handle({ id: 'c4', name: 'recall', arguments: {} }, ctx);
     assert.strictEqual(r.ok, false);
   });
+
+  it('recall 输出保留 trust / expiresAt（2026-10-28）', async () => {
+    const store = stubStore();
+    store.remember({
+      id: 'u1',
+      text: '未验证事实',
+      importance: 3,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      sessionId: 'other',
+      source: 'consolidated',
+      trust: 'untrusted',
+      expiresAt: '2030-01-01T00:00:00.000Z',
+    });
+    const r = await new RecallTool(store).handle(
+      { id: 'c5', name: 'recall', arguments: { query: '未验证' } },
+      ctx,
+    );
+    assert.strictEqual(r.ok, true);
+    const output = r.output as string;
+    assert.match(output, /"trust": "untrusted"/u, '模型必须看得到未验证来源');
+    assert.match(output, /"expiresAt": "2030-01-01/u, '失效时刻应随命中返回');
+  });
+
+  it('remember 更正同槽位旧值：新值落盘、旧值失效（2026-10-28）', async () => {
+    const store = stubStore();
+    const tool = new RememberTool(store);
+    await tool.handle(
+      { id: 'c6', name: 'remember', arguments: { fact: '生产部署端口是 58217' } },
+      ctx,
+    );
+    const r = await tool.handle(
+      { id: 'c7', name: 'remember', arguments: { fact: '生产部署端口是 58218' } },
+      ctx,
+    );
+    assert.strictEqual(r.ok, true);
+    assert.match(r.output as string, /"stored": true/u);
+    assert.strictEqual(store.count, 2, '更正必须真的落盘');
+    const old = store.all().find((fact) => fact.text.includes('58217'));
+    assert.ok(old !== undefined);
+    assert.ok(old.expiresAt !== undefined, '旧值应被置为失效（不删除）');
+  });
+
+  it('重复 remember 不再谎报 stored:true（2026-10-28）', async () => {
+    const store = stubStore();
+    const tool = new RememberTool(store);
+    await tool.handle({ id: 'c8', name: 'remember', arguments: { fact: '同一事实' } }, ctx);
+    const again = await tool.handle(
+      { id: 'c9', name: 'remember', arguments: { fact: '  同一事实  ' } },
+      ctx,
+    );
+    assert.strictEqual(again.ok, true);
+    assert.match(again.output as string, /"stored": false/u);
+    assert.match(again.output as string, /"duplicateOf"/u);
+    assert.strictEqual(store.count, 1);
+  });
 });
