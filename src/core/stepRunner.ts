@@ -134,7 +134,7 @@ export class StepRunner {
       // 投影层已支持「assistant 文本 + assistant(tool_calls)」相邻（`appendAssistant` 会先 flush），
       // 故先记录文本、再执行工具，事件顺序仍是 text → tool_call(s) → tool_result(s)。
       if (output.text !== undefined && output.text !== '') {
-        this.deps.recorder.assistant(output.text, output.reasoning);
+        this.deps.recorder.assistant(output.text, output.reasoning, output.reasoningSignature);
       }
       this.lastToolCalls = output.toolCalls.map((c) => ({
         id: c.id,
@@ -150,7 +150,7 @@ export class StepRunner {
     if (output.text !== undefined) {
       // 把模型同一回合的推理内容（DeepSeek v4 reasoning 模式输出）一并塞进 assistant 事件，
       // 不依赖 reasoning/assistant 事件流时序——避免下轮 HTTP 400（#OBS-5）。
-      this.deps.recorder.assistant(output.text, output.reasoning);
+      this.deps.recorder.assistant(output.text, output.reasoning, output.reasoningSignature);
       return 'text';
     }
     return 'empty';
@@ -207,7 +207,7 @@ export class StepRunner {
       }
       const text = output.text;
       if (text === undefined || text.trim() === '') return undefined;
-      this.deps.recorder.assistant(text, output.reasoning);
+      this.deps.recorder.assistant(text, output.reasoning, output.reasoningSignature);
       return text;
     } catch (error) {
       // 兜底收尾失败必须**留痕**：吞掉异常后本回合会以「没有任何输出」结束，用户与事后排障都

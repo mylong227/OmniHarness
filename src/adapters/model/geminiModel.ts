@@ -323,7 +323,14 @@ export class GeminiModel implements ModelPort {
       }
       for (const call of message.toolCalls ?? []) {
         parts.push({
-          functionCall: { id: call.id, name: call.name, args: call.arguments },
+          functionCall: {
+            id: call.id,
+            name: call.name,
+            args: call.arguments,
+            ...(call.thoughtSignature !== undefined && call.thoughtSignature !== ''
+              ? { thoughtSignature: call.thoughtSignature }
+              : {}),
+          },
         });
       }
       return parts;

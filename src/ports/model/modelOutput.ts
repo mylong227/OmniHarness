@@ -4,6 +4,11 @@ import type { ModelUsage } from './modelUsage.ts';
 /** 模型输出：推理 / 文本 / 工具调用。 */
 export interface ModelOutput {
   readonly reasoning?: string | undefined;
+  /**
+   * 思考块签名（Anthropic `signature_delta`）：续接 thinking 块必须原样回传。
+   * 未上报时缺省（旧适配器/端点不受影响）。
+   */
+  readonly reasoningSignature?: string | undefined;
   readonly text?: string | undefined;
   readonly toolCalls?: readonly ModelToolCallRef[] | undefined;
   /** 本次调用的 token 用量（成本计量 / 硬预算熔断依据，#S29）。未上报时为 undefined。 */

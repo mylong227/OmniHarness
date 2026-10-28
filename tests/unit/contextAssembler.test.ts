@@ -127,6 +127,21 @@ test('上下文投影：reasoning 挂到本回合 assistant(tool_calls) 消息�
   assert.strictEqual(assistantMsg?.toolCalls?.length, 1);
 });
 
+test('上下文投影：tool_call 的 thoughtSignature 带到 assistant(tool_calls)（E2）', () => {
+  const assembler = new ContextAssembler();
+  const messages = assembler.build([
+    event('tool_call', {
+      callId: 'c1',
+      name: 'shell',
+      args: { command: 'ls' },
+      thoughtSignature: 'ts-1',
+    }),
+    event('tool_result', { callId: 'c1', ok: true, output: 'ok' }),
+  ]);
+  const assistantMsg = messages.find((m) => m.role === 'assistant');
+  assert.strictEqual(assistantMsg?.toolCalls?.[0]?.thoughtSignature, 'ts-1');
+});
+
 test('上下文投影：reasoning 挂到纯文本 assistant 消息', () => {
   const assembler = new ContextAssembler();
   const messages = assembler.build([

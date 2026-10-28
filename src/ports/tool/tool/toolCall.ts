@@ -10,4 +10,6 @@ export interface ToolCall {
    * 空参数执行 `write_file`/`shell` 比"拒绝"危险得多——这是 fail-closed 的落点。
    */
   readonly parseError?: string | undefined;
+  /** Gemini `thoughtSignature`：调用携带的思考签名，落事件并供下一轮回传。 */
+  readonly thoughtSignature?: string | undefined;
 }

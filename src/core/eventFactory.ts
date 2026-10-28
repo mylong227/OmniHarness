@@ -60,12 +60,21 @@ export class EventFactory implements EventFactoryPort {
    * @param sessionId 事件归属的会话 ID。
    * @param content 助手回复文本。
    * @param reasoning 可选思考链文本（非空才写入 payload.reasoning）。
+   * @param signature 可选思考块签名（Anthropic；非空才写入 payload.reasoningSignature）。
    * @returns 结构完整的 assistant 事件。
    */
-  public assistant(sessionId: string, content: string, reasoning?: string): SessionEvent {
+  public assistant(
+    sessionId: string,
+    content: string,
+    reasoning?: string,
+    signature?: string,
+  ): SessionEvent {
     const payload: Record<string, unknown> = { content };
     if (reasoning !== undefined && reasoning !== '') {
       payload['reasoning'] = reasoning;
+    }
+    if (signature !== undefined && signature !== '') {
+      payload['reasoningSignature'] = signature;
     }
     return this.base(sessionId, 'assistant', payload);
   }
@@ -86,6 +95,7 @@ export class EventFactory implements EventFactoryPort {
    * @param callId 调用 ID（与对应 tool_result 配对）。
    * @param name 被调用工具名。
    * @param args 工具入参（原始 JSON 对象）。
+   * @param thoughtSignature 可选思考签名（Gemini，下一轮原样回传）。
    * @returns 结构完整的 tool_call 事件。
    */
   public toolCall(
@@ -93,8 +103,14 @@ export class EventFactory implements EventFactoryPort {
     callId: string,
     name: string,
     args: Record<string, unknown>,
+    thoughtSignature?: string,
   ): SessionEvent {
-    return this.base(sessionId, 'tool_call', { callId, name, args });
+    return this.base(sessionId, 'tool_call', {
+      callId,
+      name,
+      args,
+      ...(thoughtSignature !== undefined && thoughtSignature !== '' ? { thoughtSignature } : {}),
+    });
   }
 
   /**

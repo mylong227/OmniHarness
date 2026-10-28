@@ -5942,3 +5942,23 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   `CORE_CAPABILITY_UPGRADE_2026-10-28.md` §6.9。
 - **仍剩余**：E2 推理签名（需真 provider 抓帧）、E6/S3 任务集扩容、A5 workflow 隔离/超时/回滚、
   A7 技能懒加载/信任、A8 steering、A9 符号级指标、S2 前端长函数。**不把未做写成已做**。
+
+## 123. 2026-10-29 E2 推理签名闭环：Anthropic thinking signature + Gemini thoughtSignature
+
+- **缺陷**：多轮「思考 + 工具」时签名不回传——Anthropic 的 `signature_delta` 只被丢弃、Gemini 的
+  `functionCall.thoughtSignature` 从不读取；协议要求原样回传，否则 400/降质。
+- **修法（全链路）**：
+  - `ModelOutput.reasoningSignature` / `ModelMessage.reasoningSignature` / `ModelToolCallRef.thoughtSignature`；
+  - Anthropic：流式收 `signature_delta`、非流式解析 `thinking` 块；`toWireContent` 在助手消息
+    带签名时输出 `[thinking{thinking,signature}, text]`；事件 payload 带 `reasoningSignature`，
+    `ContextAssembler` 投影回 `ModelMessage`；
+  - Gemini：`functionCall.thoughtSignature` → `ModelToolCallRef` → `tool_call` 事件 payload →
+    投影回 `assistant.toolCalls` → 下一轮 `functionCall.thoughtSignature` 原样回传；
+  - 体量：`AnthropicThinking` / `AnthropicUsage` 抽成独立类，`AnthropicModel` 回落到阈值内。
+- **判据**：`modelAdapters.test.ts` 30 例（含 signature_delta 与 wire `thinking` 块）、
+  `geminiModel.test.ts` 23 例（含 thoughtSignature 解析 + 回传）、
+  `contextAssembler.test.ts` 投影签名；`tsc --noEmit` 零错；`check.mjs --strict` 零违规。
+- **边界**：wire 形状按官方文档与 mock 帧钉住，**未用真 provider 复测**（本机无多厂商 key/
+  配额）；真实端点若字段名不同，适配器会以现有 fail-closed 路径报错而不是静默降质。
+- **剩余**：E6/S3 任务集、A5 workflow 隔离/超时/回滚、A7 技能懒加载/信任、A8 steering、
+  A9 符号级指标、S2 前端长函数。

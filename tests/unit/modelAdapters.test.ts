@@ -179,6 +179,7 @@ test('Anthropic：流式增量必须还原工具调用与思考文本（2026-10-
     'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"path\\":\\"a.ts\\","}}\n\n',
     'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\\"offset\\":1}"}}\n\n',
     'data: {"type":"content_block_delta","index":1,"delta":{"type":"thinking_delta","thinking":"先想一想"}}\n\n',
+    'data: {"type":"content_block_delta","index":1,"delta":{"type":"signature_delta","signature":"sig-abc"}}\n\n',
     'data: {"type":"message_delta","delta":{"stop_reason":"tool_use"}}\n\n',
   ].join('');
   const toolDeltas: string[] = [];
@@ -194,8 +195,53 @@ test('Anthropic：流式增量必须还原工具调用与思考文本（2026-10-
     { id: 'toolu_1', name: 'read_file', arguments: { path: 'a.ts', offset: 1 } },
   ]);
   assert.strictEqual(output.reasoning, '先想一想');
+  assert.strictEqual(output.reasoningSignature, 'sig-abc', '思考块签名必须回传（E2）');
   assert.strictEqual(output.finishReason, 'tool_use');
   assert.ok(toolDeltas.length >= 2, '工具参数增量必须实时推给 UI');
+});
+
+test('Anthropic：带签名的思考块必须作为 thinking 块回传（E2）', async () => {
+  const model = new AnthropicModel({
+    baseUrl: 'https://api.anthropic.com',
+    apiKey: 'sk',
+    model: 'claude-3',
+  });
+  let captured: { messages?: { role?: string; content?: unknown }[] } = {};
+  await withFetch(
+    async (_url, init) => {
+      captured = JSON.parse(String(init.body)) as typeof captured;
+      return new Response(
+        streamOf(
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"ok"}}\n\n' +
+            'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"}}\n\n',
+        ),
+        { status: 200 },
+      );
+    },
+    () =>
+      model.stream(
+        {
+          ...request,
+          messages: [
+            {
+              role: 'assistant',
+              content: '答案',
+              reasoningContent: '想法',
+              reasoningSignature: 'sig-abc',
+            },
+            { role: 'user', content: '继续' },
+          ],
+        },
+        { onText: () => undefined },
+      ),
+  );
+  const assistant = captured.messages?.find((message) => message.role === 'assistant');
+  assert.ok(Array.isArray(assistant?.content), '带签名的助手消息必须序列化为 content 块');
+  assert.deepStrictEqual(assistant.content[0], {
+    type: 'thinking',
+    thinking: '想法',
+    signature: 'sig-abc',
+  });
 });
 
 test('OpenAI 兼容：流式文本增量回调', async () => {

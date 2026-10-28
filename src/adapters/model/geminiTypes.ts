@@ -43,6 +43,8 @@ export interface GeminiFunctionCall {
   readonly name?: string;
   /** 参数（对象；兼容端点可能给 JSON 字符串）。 */
   readonly args?: unknown;
+  /** 思考签名（多轮思考 + 工具必须原样回传）。 */
+  readonly thoughtSignature?: string;
 }
 
 /** Gemini 函数结果。 */

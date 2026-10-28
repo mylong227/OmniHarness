@@ -158,7 +158,7 @@ export class StepToolExecutor {
     const reason =
       'SEC-03 来源追踪：该写类工具参数包含外部不可信工具输出片段，已拒绝（OMNI_PROVENANCE_GUARD=enforce）。';
     log.warn('tool.provenance.blocked', { tool: call.name, callId: call.id });
-    this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+    this.deps.recorder.toolCall(call.id, call.name, call.arguments, call.thoughtSignature);
     this.deps.recorder.toolResult(call.id, false, undefined, reason);
     return true;
   }
@@ -186,7 +186,7 @@ export class StepToolExecutor {
     if (call.parseError !== undefined) {
       const reason = `工具参数解析失败，已拒绝执行：${call.parseError}。请重新发起该工具调用并给出合法 JSON 参数。`;
       log.warn('tool.parse_error', { tool: call.name, callId: call.id });
-      this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+      this.deps.recorder.toolCall(call.id, call.name, call.arguments, call.thoughtSignature);
       this.deps.recorder.toolResult(call.id, false, undefined, reason);
       return false;
     }
@@ -199,12 +199,12 @@ export class StepToolExecutor {
       log.warn('tool.denied', { tool: call.name, callId: call.id, error: denied.error });
       // 先记录 toolCall 事件：被拒工具若只留 tool_result（无对应 tool_call），ContextAssembler
       // 会产出 tool_call_id 悬空的 tool 消息，发给模型时触发 HTTP 400。补 toolCall 使配对合法。
-      this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+      this.deps.recorder.toolCall(call.id, call.name, call.arguments, call.thoughtSignature);
       this.deps.recorder.toolResult(denied.callId, false, undefined, denied.error);
       return false;
     }
     log.info('tool.call', { tool: call.name, callId: call.id });
-    this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+    this.deps.recorder.toolCall(call.id, call.name, call.arguments, call.thoughtSignature);
     // 工具级资源域闸（2026-10-28，BLOCKERS §5）：门禁**之后**取锁（等审批绝不持锁）、
     // pre 钩子**之前**——钩子语义是"执行前拦截/审计"，应在互斥窗口内。取锁失败（会话取消）
     // 走与门禁拒绝相同的配对兜底：补 tool_result，绝不留孤儿 tool_call。

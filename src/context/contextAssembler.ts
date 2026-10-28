@@ -254,6 +254,12 @@ export class ContextAssembler {
       payloadReasoning !== undefined && payloadReasoning !== ''
         ? payloadReasoning
         : this.pendingReasoning;
+    // 思考块签名（Anthropic）：与 reasoning 一起回传，续接 thinking 块。
+    const payloadSignature =
+      typeof (event as { payload?: { reasoningSignature?: unknown } }).payload
+        ?.reasoningSignature === 'string'
+        ? (event as { payload: { reasoningSignature: string } }).payload.reasoningSignature
+        : undefined;
     // 思考模式一致性：一旦此前出现过 reasoning，本消息也必须带 reasoning_content
     // （真实推理文本或空串占位），缺失会触发 DeepSeek HTTP 400（"must be passed back"）。
     if (reasoning !== undefined && reasoning !== '') {
@@ -264,6 +270,9 @@ export class ContextAssembler {
       role: 'assistant',
       content: this.contentOf(event),
       ...(reasoningContent !== undefined ? { reasoningContent } : {}),
+      ...(payloadSignature !== undefined && payloadSignature !== ''
+        ? { reasoningSignature: payloadSignature }
+        : {}),
     });
     this.pendingReasoning = undefined;
   }
@@ -445,8 +454,16 @@ export class ContextAssembler {
       callId: string;
       name: string;
       args?: Record<string, unknown>;
+      thoughtSignature?: string;
     };
-    return { id: payload.callId, name: payload.name, arguments: payload.args ?? {} };
+    return {
+      id: payload.callId,
+      name: payload.name,
+      arguments: payload.args ?? {},
+      ...(typeof payload.thoughtSignature === 'string' && payload.thoughtSignature !== ''
+        ? { thoughtSignature: payload.thoughtSignature }
+        : {}),
+    };
   }
 
   /** 从 tool_result 事件提取关联的工具调用 id（EventFactory 落地为 {callId}）。 */

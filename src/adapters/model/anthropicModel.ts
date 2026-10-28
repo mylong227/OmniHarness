@@ -19,6 +19,12 @@ import { PromptCacheUsageReader } from './promptCacheUsageReader.ts';
 import { ModelRequestGuard } from './modelRequestGuard.ts';
 import { RequestStallGuard } from './requestStallGuard.ts';
 import { ModelHttpErrors } from './modelHttpErrors.ts';
+import { AnthropicThinking } from './anthropicThinking.ts';
+import {
+  AnthropicUsage,
+  type AnthropicUsageState,
+  type AnthropicUsageWire,
+} from './anthropicUsage.ts';
 import { sseParser } from './sseParser.ts';
 import { ModelResponseFormats } from './modelResponseFormats.ts';
 import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
@@ -139,7 +145,10 @@ export class AnthropicModel implements ModelPort {
       guard?.touch();
       this.handleEvent(event.data, callbacks, chunks, toolBlocks, usageState, reasoningChunks);
     });
-    const usage = this.usageOf(usageState);
+    const usage = AnthropicUsage.toModelUsage(
+      usageState,
+      this.promptCache.readAnthropic(usageState),
+    );
     const finishReason =
       typeof usageState.stop_reason === 'string' ? usageState.stop_reason : undefined;
     // 2026-10-21 修（P0）：此前只返回 text/usage，累了一路的 `toolBlocks` 被整段丢弃 ⇒
@@ -149,6 +158,9 @@ export class AnthropicModel implements ModelPort {
     const output: ModelOutput = {
       text: `${chunks.join('')}${streamed.structuredText}`,
       ...(reasoning !== '' ? { reasoning } : {}),
+      ...(usageState.signature !== undefined && usageState.signature !== ''
+        ? { reasoningSignature: usageState.signature }
+        : {}),
       ...(streamed.toolCalls.length > 0 ? { toolCalls: streamed.toolCalls } : {}),
       ...(usage !== undefined ? { usage } : {}),
       ...(finishReason !== undefined ? { finishReason } : {}),
@@ -343,6 +355,9 @@ export class AnthropicModel implements ModelPort {
    *          图像以 url 或 base64 source 表达，非图片文件降级为文本说明。
    */
   private toWireContent(message: ModelMessage): string | AnthropicWireBlock[] {
+    const thinkingBlocks =
+      message.role === 'assistant' ? AnthropicThinking.wireBlocks(message) : undefined;
+    if (thinkingBlocks !== undefined) return thinkingBlocks;
     const images = message.images;
     const imageFiles = (message.files ?? []).filter((f) => f.mediaType.startsWith('image/'));
     const textFiles = (message.files ?? []).filter((f) => !f.mediaType.startsWith('image/'));
@@ -451,9 +466,16 @@ export class AnthropicModel implements ModelPort {
         name: block.name,
         arguments: block.input as Record<string, unknown>,
       }));
-    const usage = this.usageOf(body.usage);
+    const usage = AnthropicUsage.toModelUsage(
+      body.usage,
+      this.promptCache.readAnthropic(body.usage),
+    );
+    // 扩展思考：thinking 块只入 reasoning（不进正文），signature 供下一轮原样回传。
+    const thinking = AnthropicThinking.parse(body.content);
     const output: {
       text?: string;
+      reasoning?: string;
+      reasoningSignature?: string;
       toolCalls?: readonly ModelToolCallRef[];
       usage?: ModelUsage;
       finishReason?: string;
@@ -468,6 +490,12 @@ export class AnthropicModel implements ModelPort {
     if (mergedText !== '') {
       output.text = mergedText;
     }
+    if (thinking.thinking !== undefined) {
+      output.reasoning = thinking.thinking;
+    }
+    if (thinking.signature !== undefined) {
+      output.reasoningSignature = thinking.signature;
+    }
     if (toolCalls.length > 0) {
       output.toolCalls = toolCalls;
     }
@@ -475,38 +503,6 @@ export class AnthropicModel implements ModelPort {
       output.usage = usage;
     }
     return output;
-  }
-
-  /**
-   * 由原始 usage 合成统一用量。
-   *
-   * 口径说明（对齐 OpenAI 兼容端点的 `prompt_tokens` 语义）：Anthropic 的 `input_tokens`
-   * **不含**缓存读取与缓存写入部分，故 promptTokens = input + cache_creation + cache_read，
-   * 否则跨厂商比较「输入规模」时 Anthropic 会系统性偏低。命中量单列 cachedPromptTokens，
-   * 使 `cached / prompt` 的缓存命中率在三个厂商间可比。
-   *
-   * @param raw 原始 usage（流式为离线累积的 State，非流式为响应体 usage）
-   * @returns 统一用量；三段 input 全缺时为 undefined（不臆造 0）
-   */
-  private usageOf(
-    raw: AnthropicUsageState | AnthropicUsageWire | undefined,
-  ): ModelUsage | undefined {
-    if (raw === undefined) return undefined;
-    const input = typeof raw.input_tokens === 'number' ? raw.input_tokens : undefined;
-    const cacheCreate =
-      typeof raw.cache_creation_input_tokens === 'number' ? raw.cache_creation_input_tokens : 0;
-    const cached = this.promptCache.readAnthropic(raw);
-    if (input === undefined && cached === undefined && cacheCreate === 0) return undefined;
-    const promptTokens = (input ?? 0) + cacheCreate + (cached ?? 0);
-    const completionTokens = typeof raw.output_tokens === 'number' ? raw.output_tokens : 0;
-    return {
-      promptTokens,
-      completionTokens,
-      totalTokens: promptTokens + completionTokens,
-      ...(cached === undefined ? {} : { cachedPromptTokens: cached }),
-      // 缓存写入单独计价（5 分钟 ephemeral = 1.25× 输入价）；混在 promptTokens 里会少记。
-      ...(cacheCreate > 0 ? { cacheCreationPromptTokens: cacheCreate } : {}),
-    };
   }
 
   /** 处理流式事件。
@@ -545,7 +541,7 @@ export class AnthropicModel implements ModelPort {
         json.error?.message ?? '',
       );
     }
-    this.observeUsage(json, usageState);
+    AnthropicUsage.observe(json, usageState);
     // LR-01：`message_delta` 的 stop_reason 是流式结束原因（max_tokens = 截断）。
     if (json.type === 'message_delta' && typeof json.delta?.stop_reason === 'string') {
       usageState.stop_reason = ModelFinishReasons.normalize(json.delta.stop_reason);
@@ -585,58 +581,21 @@ export class AnthropicModel implements ModelPort {
     // 扩展思考（thinking）：只收集、不进正文；随输出 `reasoning` 回传，UI/日志可见。
     // Anthropic 的 signature 也需回传才能续接 thinking 块，但当前端口没有签名字段，
     // 故这里只保留文本（工具轮里的思考块回传属后续能力，见端口 ModelMessage.reasoningContent）。
+    if (json.type === 'content_block_delta' && json.delta?.type === 'signature_delta') {
+      const signature = json.delta.signature ?? '';
+      if (signature !== '') usageState.signature = signature;
+      return;
+    }
     if (json.type === 'content_block_delta' && json.delta?.type === 'thinking_delta') {
       const thinking = json.delta.thinking ?? '';
       if (thinking !== '') reasoningChunks.push(thinking);
     }
   }
-
-  /**
-   * 从流式事件累积用量：`message_start`（input / cache 两段）与 `message_delta`（output，增量覆盖）。
-   * 只做**覆盖写**不做累加——Anthropic 的 output_tokens 是累计值，累加会翻倍。
-   * @param event 单个流式事件（最小子集类型）
-   * @param state 跨事件累积的用量状态（原地更新）
-   
-   * @returns 无返回值。
-   */
-  private observeUsage(event: AnthropicStreamEvent, state: AnthropicUsageState): void {
-    const start = event.message?.usage;
-    if (start !== undefined) {
-      state.input_tokens = start.input_tokens ?? state.input_tokens;
-      state.cache_creation_input_tokens =
-        start.cache_creation_input_tokens ?? state.cache_creation_input_tokens;
-      state.cache_read_input_tokens =
-        start.cache_read_input_tokens ?? state.cache_read_input_tokens;
-    }
-    const delta = event.usage;
-    if (delta !== undefined) {
-      state.output_tokens = delta.output_tokens ?? state.output_tokens;
-      state.input_tokens = delta.input_tokens ?? state.input_tokens;
-    }
-  }
-}
-
-/** 流式用量累积状态（字段与 wire 同形，便于直接复用 usageOf 的窄化逻辑）。 */
-interface AnthropicUsageState {
-  input_tokens?: number | undefined;
-  output_tokens?: number | undefined;
-  cache_creation_input_tokens?: number | undefined;
-  cache_read_input_tokens?: number | undefined;
-  /** 流式结束原因（`message_delta.delta.stop_reason`；LR-01）。 */
-  stop_reason?: string | undefined;
-}
-
-/** wire 层 usage（非流式响应体与流式 message_start 同形）。 */
-interface AnthropicUsageWire {
-  readonly input_tokens?: number | undefined;
-  readonly output_tokens?: number | undefined;
-  readonly cache_creation_input_tokens?: number | undefined;
-  readonly cache_read_input_tokens?: number | undefined;
 }
 
 /** Anthropic 响应类型。 */
 interface AnthropicResponse {
-  readonly content: readonly (TextBlock | ToolUseBlock)[];
+  readonly content: readonly (TextBlock | ToolUseBlock | ThinkingBlock)[];
   /** 结束原因（`max_tokens` = 输出被截断；LR-01）。 */
   readonly stop_reason?: string | null;
   /** token 用量（#S29；`input_tokens` 不含缓存两段，见 usageOf 的口径说明）。 */
@@ -657,6 +616,13 @@ interface ToolUseBlock {
   readonly input: unknown;
 }
 
+/** 思考块（扩展思考；signature 必须原样回传才能续接）。 */
+interface ThinkingBlock {
+  readonly type: 'thinking';
+  readonly thinking: string;
+  readonly signature?: string;
+}
+
 /** 流式事件（最小子集）。 */
 interface AnthropicStreamEvent {
   readonly type: string;
@@ -666,6 +632,7 @@ interface AnthropicStreamEvent {
     text?: string;
     partial_json?: string;
     thinking?: string;
+    signature?: string;
     stop_reason?: string | null;
   };
   readonly content_block?: { type: string; id?: string; name?: string; input?: unknown };

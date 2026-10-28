@@ -76,10 +76,11 @@ export class SessionRecorder {
    * 记录助手消息。
    * @param content 助手回复文本（模型最终输出）。
    * @param reasoning 可选思考过程文本，与回复一并落事件流。
+   * @param signature 可选思考块签名（Anthropic），供下一轮原样回传。
    * @returns 落盘并广播后的 assistant 事件。
    */
-  public assistant(content: string, reasoning?: string): SessionEvent {
-    return this.record(eventFactory.assistant(this.sid, content, reasoning));
+  public assistant(content: string, reasoning?: string, signature?: string): SessionEvent {
+    return this.record(eventFactory.assistant(this.sid, content, reasoning, signature));
   }
 
   /**
@@ -123,10 +124,16 @@ export class SessionRecorder {
    * @param callId 调用 ID，与后续 tool_result 事件配对。
    * @param name 被调用工具名。
    * @param args 工具入参（原始 JSON 对象）。
+   * @param thoughtSignature 可选思考签名（Gemini，下一轮原样回传）。
    * @returns 落盘并广播后的 tool_call 事件。
    */
-  public toolCall(callId: string, name: string, args: Record<string, unknown>): SessionEvent {
-    return this.record(eventFactory.toolCall(this.sid, callId, name, args));
+  public toolCall(
+    callId: string,
+    name: string,
+    args: Record<string, unknown>,
+    thoughtSignature?: string,
+  ): SessionEvent {
+    return this.record(eventFactory.toolCall(this.sid, callId, name, args, thoughtSignature));
   }
 
   /**

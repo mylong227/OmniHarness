@@ -29,4 +29,9 @@ export interface ModelMessage {
    * 缺失即 HTTP 400（"The `reasoning_content` in the thinking mode must be passed back"）。
    */
   readonly reasoningContent?: string | undefined;
+  /**
+   * 思考块签名（Anthropic）：与 `reasoningContent` 配对，回传时组成 `thinking` 块。
+   * 缺失时只回传文本（旧行为）。
+   */
+  readonly reasoningSignature?: string | undefined;
 }

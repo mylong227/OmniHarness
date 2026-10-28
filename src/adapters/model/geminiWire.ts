@@ -150,6 +150,9 @@ export class GeminiWire {
       name,
       arguments: parsed.arguments,
       ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
+      ...(typeof call.thoughtSignature === 'string' && call.thoughtSignature !== ''
+        ? { thoughtSignature: call.thoughtSignature }
+        : {}),
     };
   }
 

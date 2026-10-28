@@ -634,3 +634,52 @@ test('结构化输出：json-schema → responseMimeType + responseJsonSchema', 
     properties: { ok: { type: 'boolean' } },
   });
 });
+
+test('思考签名：functionCall.thoughtSignature 解析并在下一轮原样回传（E2）', async () => {
+  const model = new GeminiModel(BASE_CONFIG);
+  const sse =
+    'data: {"candidates":[{"content":{"parts":[{"functionCall":{"id":"call_sig","name":"shell","args":{"command":"ls"},"thoughtSignature":"ts-123"}}]},"finishReason":"STOP"}]}\n\n';
+  const output = await withFetch(
+    async () => new Response(streamOf(sse), { status: 200 }),
+    () => model.stream(REQUEST, { onText: () => undefined }),
+  );
+  assert.strictEqual(output.toolCalls?.[0]?.thoughtSignature, 'ts-123');
+
+  let captured: Record<string, unknown> = {};
+  await withFetch(
+    async (_url, init) => {
+      captured = JSON.parse(String(init.body)) as Record<string, unknown>;
+      return jsonResponse({
+        candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: 'STOP' }],
+      });
+    },
+    () =>
+      model.generate({
+        ...REQUEST,
+        messages: [
+          {
+            role: 'assistant',
+            content: '',
+            toolCalls: [
+              {
+                id: 'call_sig',
+                name: 'shell',
+                arguments: { command: 'ls' },
+                thoughtSignature: 'ts-123',
+              },
+            ],
+          },
+          { role: 'tool', content: 'ok', toolCallId: 'call_sig' },
+          { role: 'user', content: '继续' },
+        ],
+      }),
+  );
+  const contents = captured['contents'] as
+    { role?: string; parts?: { functionCall?: { thoughtSignature?: string } }[] }[] | undefined;
+  const assistant = contents?.find((entry) => entry.role === 'model');
+  assert.strictEqual(
+    assistant?.parts?.[0]?.functionCall?.thoughtSignature,
+    'ts-123',
+    '下一轮请求必须原样回传 thoughtSignature',
+  );
+});
