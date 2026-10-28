@@ -6184,3 +6184,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   `e2e` + `controllerBindings` 7 例；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **55** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 6 个函数，剩余 55。
+
+## 147. 2026-10-29 S2 继续清偿：两个流式卡片
+
+- **改动**：
+  - `ReasoningBlock` 104 → <80：流式思考视图抽 `ReasoningLive()`；
+  - `ToolCallCard` 96 → <80：错误/产物/详情区抽 `ToolCallDetails()`，产物解析抽 `artifactOf()`。
+- **判据**：`e2e` + `streamStability` + `streamStableSplit` 6 例全绿；`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **53** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 8 个函数，剩余 53。

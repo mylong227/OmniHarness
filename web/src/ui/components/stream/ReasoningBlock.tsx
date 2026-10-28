@@ -56,6 +56,44 @@ function readDuration(eventId: string): number | null {
 }
 
 /**
+ * 流式思考视图（平铺、无边框、浅色生长末段）。
+ * @param props 内容、已用秒数与字数。
+ * @returns 流式节点。
+ */
+function ReasoningLive(props: { content: string; elapsed: number }): ReactElement {
+  const { content, elapsed } = props;
+  const nl = content.lastIndexOf('\n');
+  const settled = nl >= 0 ? content.slice(0, nl) : '';
+  const tail = nl >= 0 ? content.slice(nl + 1) : content;
+  return (
+    <div className="ev reasoning live" spellCheck="false">
+      <div className="reason-live-head">
+        <span className="reason-spinner" aria-hidden="true">
+          {icon('thinking', { size: 15 })}
+        </span>
+        <span className="reason-live-label">{t('思考中')}</span>
+        <span className="reason-dots" aria-hidden="true">
+          <i></i>
+          <i></i>
+          <i></i>
+        </span>
+        <span className="reason-live-timer">{formatDuration(elapsed)}</span>
+        <span className="reason-live-count">{t('{n} 字', { n: content.length })}</span>
+      </div>
+      <div className="reason-live-body" aria-hidden="true">
+        {settled}
+        {settled !== '' ? '\n' : ''}
+        <span className="reason-live-tail">{tail}</span>
+        <span className="reason-caret"></span>
+      </div>
+      <div className="reason-live-status" role="status" aria-live="polite" aria-atomic="true">
+        {announceText(content.length)}
+      </div>
+    </div>
+  );
+}
+
+/**
  * 思考过程组件。
  * @param props 组件入参
  * @returns 思考过程节点
@@ -91,36 +129,7 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
 
   // —— 流式态：实时「思考中」平铺（无边框，正文色流式文本 + 浅色生长末段） ——
   if (live) {
-    // 末段拆分：最后一个换行之后的片段是「正在生长」的部分——更浅斜体（本实现口径）。
-    const nl = content.lastIndexOf('\n');
-    const settled = nl >= 0 ? content.slice(0, nl) : '';
-    const tail = nl >= 0 ? content.slice(nl + 1) : content;
-    return (
-      <div className="ev reasoning live" spellCheck="false">
-        <div className="reason-live-head">
-          <span className="reason-spinner" aria-hidden="true">
-            {icon('thinking', { size: 15 })}
-          </span>
-          <span className="reason-live-label">{t('思考中')}</span>
-          <span className="reason-dots" aria-hidden="true">
-            <i></i>
-            <i></i>
-            <i></i>
-          </span>
-          <span className="reason-live-timer">{formatDuration(elapsed)}</span>
-          <span className="reason-live-count">{t('{n} 字', { n: content.length })}</span>
-        </div>
-        <div className="reason-live-body" aria-hidden="true">
-          {settled}
-          {settled !== '' ? '\n' : ''}
-          <span className="reason-live-tail">{tail}</span>
-          <span className="reason-caret"></span>
-        </div>
-        <div className="reason-live-status" role="status" aria-live="polite" aria-atomic="true">
-          {announceText(content.length)}
-        </div>
-      </div>
-    );
+    return <ReasoningLive content={content} elapsed={elapsed} />;
   }
 
   // —— 收尾态：折叠摘要（有已录时长则一并显示），点击展开全文 ——
