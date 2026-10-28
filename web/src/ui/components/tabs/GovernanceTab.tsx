@@ -62,6 +62,89 @@ type GovernanceHistory =
   | { readonly available: false; readonly reason: string };
 
 /**
+ * 晋升台账行列表。
+ * @param props 行数组。
+ * @returns 列表或空提示。
+ */
+function GovernanceRows(props: { rows: readonly GovernanceRow[] }): ReactElement {
+  if (props.rows.length === 0) {
+    return <p className="hint">{t('台账为空：还没有晋升记录（进化默认关，属预期状态）。')}</p>;
+  }
+  return (
+    <ul className="governance-rows">
+      {props.rows.map((row) => (
+        <li key={row.seq} className={row.verified ? 'row' : 'row err'}>
+          <span className="seq">#{row.seq}</span>
+          <span className="action">{row.action}</span>
+          {row.name === undefined ? null : (
+            <span className="name">
+              {row.name}
+              {row.source === undefined ? '' : ` ← ${row.source}`}
+            </span>
+          )}
+          <span className={row.verified ? 'ok' : 'err'}>
+            {icon(row.verified ? 'check' : 'x', { size: 12 })}
+          </span>
+          {row.reason === undefined ? null : <span className="reason">{row.reason}</span>}
+          <span className="hash" title={`prev ${row.prev}`}>
+            {row.hash.slice(0, 12)}…
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * 可回滚快照列表。
+ * @param props 快照数组。
+ * @returns 区块节点。
+ */
+function RollbackTargets(props: {
+  targets: readonly { seq: number; ts: string; skillCount: number }[];
+}): ReactElement {
+  return (
+    <section className="rollback-targets">
+      <strong>{t('可回滚快照')}</strong>
+      {props.targets.length === 0 ? (
+        <p className="hint">{t('（无）')}</p>
+      ) : (
+        <ul>
+          {props.targets.map((target) => (
+            <li key={target.seq}>
+              {t('#{seq}（{count} 技能，{ts}）', {
+                seq: target.seq,
+                count: target.skillCount,
+                ts: target.ts,
+              })}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="hint">
+        {t('回滚是治理动作，需显式确认：`omniharness evolution rollback --seq <N> --yes`')}
+      </p>
+    </section>
+  );
+}
+
+/**
+ * 治理读取失败提示。
+ * @param props 错误文案与重试回调。
+ * @returns 提示节点。
+ */
+function GovernanceError(props: { message: string; onRetry: () => void }): ReactElement {
+  return (
+    <div className="governance-tab">
+      <p className="err">{t('读取治理数据失败：{msg}', { msg: props.message })}</p>
+      <button type="button" onClick={props.onRetry}>
+        {t('重试')}
+      </button>
+    </div>
+  );
+}
+
+/**
  * 治理面板：晋升台账逐行复核 + 回滚锚点。
  * @returns 治理面板节点
  */
@@ -92,14 +175,7 @@ export function GovernanceTab(): ReactElement {
 
   if (loading) return <div className="governance-tab">{t('载入晋升台账…')}</div>;
   if (error !== null) {
-    return (
-      <div className="governance-tab">
-        <p className="err">{t('读取治理数据失败：{msg}', { msg: error })}</p>
-        <button type="button" onClick={() => void refresh()}>
-          {t('重试')}
-        </button>
-      </div>
-    );
+    return <GovernanceError message={error} onRetry={() => void refresh()} />;
   }
   if (data === null) return <div className="governance-tab">{t('暂无治理数据。')}</div>;
   if (!data.available) {
@@ -142,52 +218,8 @@ export function GovernanceTab(): ReactElement {
           {t('刷新')}
         </button>
       </header>
-      {rows.length === 0 ? (
-        <p className="hint">{t('台账为空：还没有晋升记录（进化默认关，属预期状态）。')}</p>
-      ) : (
-        <ul className="governance-rows">
-          {rows.map((row) => (
-            <li key={row.seq} className={row.verified ? 'row' : 'row err'}>
-              <span className="seq">#{row.seq}</span>
-              <span className="action">{row.action}</span>
-              {row.name === undefined ? null : (
-                <span className="name">
-                  {row.name}
-                  {row.source === undefined ? '' : ` ← ${row.source}`}
-                </span>
-              )}
-              <span className={row.verified ? 'ok' : 'err'}>
-                {icon(row.verified ? 'check' : 'x', { size: 12 })}
-              </span>
-              {row.reason === undefined ? null : <span className="reason">{row.reason}</span>}
-              <span className="hash" title={`prev ${row.prev}`}>
-                {row.hash.slice(0, 12)}…
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <section className="rollback-targets">
-        <strong>{t('可回滚快照')}</strong>
-        {rollbackTargets.length === 0 ? (
-          <p className="hint">{t('（无）')}</p>
-        ) : (
-          <ul>
-            {rollbackTargets.map((target) => (
-              <li key={target.seq}>
-                {t('#{seq}（{count} 技能，{ts}）', {
-                  seq: target.seq,
-                  count: target.skillCount,
-                  ts: target.ts,
-                })}
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="hint">
-          {t('回滚是治理动作，需显式确认：`omniharness evolution rollback --seq <N> --yes`')}
-        </p>
-      </section>
+      <GovernanceRows rows={rows} />
+      <RollbackTargets targets={rollbackTargets} />
     </div>
   );
 }

@@ -6222,3 +6222,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`activityTab` 1 例全绿；`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **45** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 16 个函数，剩余 45。
+
+## 151. 2026-10-29 S2 继续清偿：Governance / Permission 两个面板
+
+- **改动**：
+  - `GovernanceTab` 126 → <80：台账行/回滚快照/错误态抽 `GovernanceRows` / `RollbackTargets` / `GovernanceError`；
+  - `PermissionTab` 154 → <80：规则行/说明/操作/列表抽 `RuleRow` / `RulesHeader` / `RuleActions` / `RuleList`。
+- **判据**：`permissionTab` 5 例全绿；`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **43** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 18 个函数，剩余 43。

@@ -80,6 +80,157 @@ export function toWireRules(rules: readonly EditableRule[]): Record<string, unkn
   }));
 }
 
+/**
+ * 单条权限规则编辑行。
+ * @param props 规则、下标与回调。
+ * @returns 行节点。
+ */
+function RuleRow(props: {
+  rule: EditableRule;
+  index: number;
+  onPatch: (index: number, patch: Partial<EditableRule>) => void;
+  onRemove: (index: number) => void;
+}): ReactElement {
+  const { rule, index, onPatch, onRemove } = props;
+  return (
+    <li className="rule-row">
+      <select
+        value={rule.decision}
+        aria-label={t('裁决')}
+        onChange={(e: { target: { value: string } }) =>
+          onPatch(index, { decision: e.target.value as EditableRule['decision'] })
+        }
+      >
+        {DECISIONS.map((d) => (
+          <option key={d} value={d}>
+            {d}
+          </option>
+        ))}
+      </select>
+      <input
+        type="text"
+        value={rule.toolName}
+        aria-label={t('工具名')}
+        placeholder={t('toolName（留空＝任意工具）')}
+        onChange={(e: { target: { value: string } }) => onPatch(index, { toolName: e.target.value })}
+      />
+      <input
+        type="text"
+        value={rule.commandPrefix}
+        aria-label="commandPrefix"
+        placeholder="commandPrefix"
+        onChange={(e: { target: { value: string } }) =>
+          onPatch(index, { commandPrefix: e.target.value })
+        }
+      />
+      <input
+        type="text"
+        value={rule.commandGlob}
+        aria-label="commandGlob"
+        placeholder="commandGlob"
+        onChange={(e: { target: { value: string } }) =>
+          onPatch(index, { commandGlob: e.target.value })
+        }
+      />
+      <button type="button" className="btn ghost" onClick={() => onRemove(index)}>
+        {t('删除')}
+      </button>
+    </li>
+  );
+}
+
+/**
+ * 规则区说明与状态提示。
+ * @param props 错误/成功提示与空规则标记。
+ * @returns 说明节点。
+ */
+function RulesHeader(props: {
+  error: string | null;
+  notice: string | null;
+  empty: boolean;
+}): ReactElement {
+  return (
+    <>
+      <div className="detail-h">{t('参数级权限规则')}</div>
+      <p className="panel-note">
+        {t('多条规则同时命中时 ')}
+        <strong>{t('deny 优先')}</strong>
+        {t('（聚合顺序 deny → ask → allow），不是"后写的覆盖先写的"。')}
+      </p>
+      <p className="panel-note">
+        {t('合法裁决：')}
+        {DECISIONS.join(' | ')}
+        {t('；合法字段：')}
+        {RULE_FIELDS.join(' / ')}
+        {t('（`decision` 必填 —— 缺它的规则会被服务端拒绝，因为它会被运行期静默忽略）。')}
+      </p>
+      {props.error !== null ? <p className="err">{t('保存失败：{msg}', { msg: props.error })}</p> : null}
+      {props.notice !== null ? <p className="ok">{props.notice}</p> : null}
+      {props.empty ? <p className="panel-note">{t('当前没有任何规则（全部走默认裁决）。')}</p> : null}
+    </>
+  );
+}
+
+/**
+ * 规则区底部操作。
+ * @param props 脏标记与新增/重载/保存回调。
+ * @returns 操作节点。
+ */
+function RuleActions(props: {
+  dirty: boolean;
+  onAdd: () => void;
+  onReload: () => void;
+  onSave: () => void;
+}): ReactElement {
+  return (
+    <div className="pane-actions">
+      <button type="button" className="btn" onClick={props.onAdd}>
+        {t('新增规则')}
+      </button>
+      <span className="flex-spacer"></span>
+      <button type="button" className="btn" onClick={props.onReload}>
+        {t('重新载入')}
+      </button>
+      <button type="button" className="btn primary" disabled={!props.dirty} onClick={props.onSave}>
+        {t('保存')}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 权限规则列表。
+ * @param props 规则、字段修改与删除回调。
+ * @returns 列表节点。
+ */
+function RuleList(props: {
+  rules: EditableRule[];
+  onPatch: (index: number, patch: Partial<EditableRule>) => void;
+  onRemove: (index: number) => void;
+}): ReactElement {
+  return (
+    <ul className="rule-list">
+      {props.rules.map((rule, index) => (
+        <RuleRow
+          key={`rule-${String(index)}`}
+          rule={rule}
+          index={index}
+          onPatch={props.onPatch}
+          onRemove={props.onRemove}
+        />
+      ))}
+    </ul>
+  );
+}
+
+/** 新增规则的初始值。 */
+const EMPTY_RULE: EditableRule = {
+  decision: 'ask',
+  toolName: '',
+  commandPrefix: '',
+  commandGlob: '',
+};
+
 /** 权限编辑器：规则列表 + 增删改 + 保存。 */
 export function PermissionTab(): ReactElement {
   const { api } = useApp();
@@ -134,103 +285,28 @@ export function PermissionTab(): ReactElement {
   if (loading) return <div className="permission-tab">{t('载入权限规则…')}</div>;
 
   const dirty = saved === null || JSON.stringify(saved) !== JSON.stringify(rules);
+  const addRule = (): void => setRules([...rules, EMPTY_RULE]);
 
   return (
     <div className="permission-tab">
       <div className="detail-section">
-        <div className="detail-h">{t('参数级权限规则')}</div>
-        <p className="panel-note">
-          {t('多条规则同时命中时 ')}
-          <strong>{t('deny 优先')}</strong>
-          {t('（聚合顺序 deny → ask → allow），不是"后写的覆盖先写的"。')}
-        </p>
-        <p className="panel-note">
-          {t('合法裁决：')}
-          {DECISIONS.join(' | ')}
-          {t('；合法字段：')}
-          {RULE_FIELDS.join(' / ')}
-          {t('（`decision` 必填 —— 缺它的规则会被服务端拒绝，因为它会被运行期静默忽略）。')}
-        </p>
-        {error !== null ? <p className="err">{t('保存失败：{msg}', { msg: error })}</p> : null}
-        {notice !== null ? <p className="ok">{notice}</p> : null}
-        {rules.length === 0 ? <p className="panel-note">{t('当前没有任何规则（全部走默认裁决）。')}</p> : null}
-        <ul className="rule-list">
-          {rules.map((rule, index) => (
-            <li className="rule-row" key={`rule-${String(index)}`}>
-              <select
-                value={rule.decision}
-                aria-label={t('裁决')}
-                onChange={(e: { target: { value: string } }) =>
-                  patchRule(index, { decision: e.target.value as EditableRule['decision'] })
-                }
-              >
-                {DECISIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={rule.toolName}
-                aria-label={t('工具名')}
-                placeholder={t('toolName（留空＝任意工具）')}
-                onChange={(e: { target: { value: string } }) =>
-                  patchRule(index, { toolName: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                value={rule.commandPrefix}
-                aria-label="commandPrefix"
-                placeholder="commandPrefix"
-                onChange={(e: { target: { value: string } }) =>
-                  patchRule(index, { commandPrefix: e.target.value })
-                }
-              />
-              <input
-                type="text"
-                value={rule.commandGlob}
-                aria-label="commandGlob"
-                placeholder="commandGlob"
-                onChange={(e: { target: { value: string } }) =>
-                  patchRule(index, { commandGlob: e.target.value })
-                }
-              />
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => {
-                  setRules(rules.filter((_unused, i) => i !== index));
-                  setNotice(null);
-                }}
-              >
-                {t('删除')}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="pane-actions">
-          <button
-            type="button"
-            className="btn"
-            onClick={() =>
-              setRules([
-                ...rules,
-                { decision: 'ask', toolName: '', commandPrefix: '', commandGlob: '' },
-              ])
-            }
-          >
-            {t('新增规则')}
-          </button>
-          <span className="flex-spacer"></span>
-          <button type="button" className="btn" onClick={() => void load()}>
-            {t('重新载入')}
-          </button>
-          <button type="button" className="btn primary" disabled={!dirty} onClick={() => void save()}>
-            {t('保存')}
-          </button>
-        </div>
+        <RulesHeader error={error} notice={notice} empty={rules.length === 0} />
+        <RuleList
+          rules={rules}
+          onPatch={(i, patch) => {
+            patchRule(i, patch);
+          }}
+          onRemove={(i) => {
+            setRules(rules.filter((_unused, at) => at !== i));
+            setNotice(null);
+          }}
+        />
+        <RuleActions
+          dirty={dirty}
+          onAdd={addRule}
+          onReload={() => void load()}
+          onSave={() => void save()}
+        />
       </div>
     </div>
   );
