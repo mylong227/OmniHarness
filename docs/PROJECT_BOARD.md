@@ -6019,3 +6019,11 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`eval:long --self-check` **21 passed / 0 failed**（全量任务集，非只跑新增）。
 - **边界**：任务集 20 → 21，距 40+ 仍远；剩余条目需逐个写，不用模板灌水冒充覆盖面。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。
+
+## 129. 2026-10-29 E6/S3 任务集 +1：`matrix-rotate`
+
+- **新增任务**：`matrix-rotate`（rotate / transpose / spiralOrder），fixture + 权威 verifier +
+  参考解/README + 任务 JSON；覆盖空矩阵、非方阵、原地修改约束。
+- **自检**：`eval:long --self-check --only=matrix-rotate` 通过；任务集 **22**。
+- **边界**：22/40+；逐个编写，不用模板灌水。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。

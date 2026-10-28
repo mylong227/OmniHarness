@@ -1,0 +1,9 @@
+{
+  "id": "matrix-rotate",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：rotate(matrix)、transpose(matrix)、spiralOrder(matrix)。\n\n逐条验收要求：\n- rotate：二维矩阵顺时针旋转 90°，返回新矩阵（不要原地改入参）。\n- transpose：行列互换，支持非方阵；空矩阵返回 []。\n- spiralOrder：从左上开始螺旋遍历，返回一维数组；空矩阵返回 []。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "matrix-rotate",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}
