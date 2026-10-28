@@ -65,6 +65,58 @@ const INIT_BROWSE: BrowseState = {
 };
 
 /**
+ * 目录浏览数据源（盘符/目录加载 + 代际防串）。
+ * @param api RPC 客户端。
+ * @returns 浏览态、加载态与 loadDir。
+ */
+function useFileBrowser(api: ApiClient): {
+  browse: BrowseState;
+  load: LoadState;
+  loadDir: (path?: string) => Promise<void>;
+} {
+  const [browse, setBrowse] = React.useState<BrowseState>(INIT_BROWSE);
+  const [load, setLoad] = React.useState<LoadState>({ loading: false, error: null });
+  const loadSeq = React.useRef<number>(0);
+  const loadDir = async (path?: string): Promise<void> => {
+    const seq = ++loadSeq.current;
+    setLoad({ loading: true, error: null });
+    try {
+      const r: BrowseResult = await api.browseFs(path, true);
+      if (seq !== loadSeq.current) return;
+      if (r.level === 'drives') {
+        setBrowse({
+          roots: Array.isArray(r.roots) ? r.roots : [],
+          home: typeof r.home === 'string' ? r.home : '',
+          cur: null,
+          dirs: [],
+          files: [],
+          parent: undefined,
+        });
+      } else if (r.level === 'dir' && Array.isArray(r.dirs)) {
+        setBrowse((prev) => ({
+          ...prev,
+          cur: r.path,
+          dirs: r.dirs,
+          files: Array.isArray(r.files) ? r.files : [],
+          parent: r.parent,
+        }));
+      } else {
+        setLoad((prev) => ({ ...prev, error: t('文件列表返回格式异常（fs.browse）') }));
+      }
+    } catch (e) {
+      if (seq !== loadSeq.current) return;
+      setLoad((prev) => ({ ...prev, error: (e as Error).message }));
+    } finally {
+      if (seq === loadSeq.current) setLoad((prev) => ({ ...prev, loading: false }));
+    }
+  };
+  React.useEffect(() => {
+    void loadDir();
+  }, []);
+  return { browse, load, loadDir };
+}
+
+/**
  * 文件名排序（中文按拼音、忽略大小写）。
  * @param files 原始文件列表
  * @returns 排序后的新数组（不改原数组）
@@ -183,70 +235,76 @@ function renderDirBody(
 }
 
 /**
+ * 选择器主体（路径栏 + 列表 + 动作）。
+ * @param props 浏览态、选中集与回调。
+ * @returns 主体节点。
+ */
+function FilePickerBody(props: {
+  browse: BrowseState;
+  cur: string | null;
+  loading: boolean;
+  error: string | null;
+  selected: Set<string>;
+  selectedCount: number;
+  navigate: (path: string) => void;
+  toggleFile: (path: string) => void;
+  onCancel: () => void;
+  confirm: () => void;
+}): ReactElement {
+  return (
+    <>
+      <div className="fp-pathbar">
+        {props.cur === null ? (
+          <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
+        ) : (
+          <span className="fp-crumb" title={props.cur}>
+            {props.cur}
+          </span>
+        )}
+        <span className="fp-selected-count">
+          {props.selectedCount > 0 ? t('已选 {count} 个', { count: props.selectedCount }) : ''}
+        </span>
+      </div>
+      <div className="fp-list">
+        {props.loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
+        {!props.loading && props.error !== null ? <div className="fp-err">{props.error}</div> : null}
+        {!props.loading && props.error === null && props.cur === null
+          ? renderDrives(props.browse, props.navigate)
+          : null}
+        {!props.loading && props.error === null && props.cur !== null
+          ? renderDirBody(props.browse, props.selected, props.navigate, props.toggleFile)
+          : null}
+      </div>
+      <div className="fp-actions">
+        <button className="fp-btn" onClick={props.onCancel}>
+          {t('取消')}
+        </button>
+        <button
+          className="fp-btn fp-primary"
+          disabled={props.selectedCount === 0}
+          onClick={props.confirm}
+        >
+          {props.selectedCount > 0
+            ? t('添加 {count} 个文件', { count: props.selectedCount })
+            : t('添加文件')}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/**
  * 文件选择器：列盘符 / 目录 → 多选文件 → 确认回传绝对路径列表。
  * @param props 组件入参
  * @returns 文件选择弹窗节点
  */
 export function FilePicker(props: FilePickerProps): ReactElement {
   const { api, onCancel, onPick } = props;
-  const [browse, setBrowse] = React.useState<BrowseState>(INIT_BROWSE);
-  const [load, setLoad] = React.useState<LoadState>({ loading: false, error: null });
+  const { browse, load, loadDir } = useFileBrowser(api);
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
   /** 模态焦点：收拢 / 归还 opener / Tab 陷阱（见 useModalFocus）。 */
   const modal = useModalFocus();
-  /** 目录加载请求代际（晚到的旧目录响应据此丢弃）。 */
-  const loadSeq = React.useRef<number>(0);
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
-
-  /**
-   * 浏览目录（含文件）：不传 path 时列盘符层。
-   *
-   * 形状校验的理由与 `FolderPicker.loadDir` 逐字相同（见该处注释）：形状不对时若把 `undefined`
-   * 灌进 `dirs` / `files`，渲染期读 `.length` 会抛错并被错误边界接住 ⇒ **整棵工作台卸载**。
-   * 这里显式校验，把故障停在选择器这一层。
-   * @param path 目标目录（缺省列盘符）
-   * @returns 异步完成
-   */
-  const loadDir = async (path?: string): Promise<void> => {
-    // 目录切换的请求代际：点完 A 立刻点 B 时，A 的慢响应不得把当前目录改回 A
-    // （此前无条件 setBrowse，用户在慢盘上会看到「点了 B 却回到 A」）。
-    const seq = ++loadSeq.current;
-    setLoad({ loading: true, error: null });
-    try {
-      const r: BrowseResult = await api.browseFs(path, true);
-      if (seq !== loadSeq.current) return;
-      if (r.level === 'drives') {
-        setBrowse({
-          roots: Array.isArray(r.roots) ? r.roots : [],
-          home: typeof r.home === 'string' ? r.home : '',
-          cur: null,
-          dirs: [],
-          files: [],
-          parent: undefined,
-        });
-      } else if (r.level === 'dir' && Array.isArray(r.dirs)) {
-        setBrowse((prev) => ({
-          ...prev,
-          cur: r.path,
-          dirs: r.dirs,
-          files: Array.isArray(r.files) ? r.files : [],
-          parent: r.parent,
-        }));
-      } else {
-        setLoad((prev) => ({ ...prev, error: t('文件列表返回格式异常（fs.browse）') }));
-      }
-    } catch (e) {
-      if (seq !== loadSeq.current) return;
-      setLoad((prev) => ({ ...prev, error: (e as Error).message }));
-    } finally {
-      if (seq === loadSeq.current) setLoad((prev) => ({ ...prev, loading: false }));
-    }
-  };
-
-  // 挂载即列盘符层（[] 有意：只在进入选择器时拉一次，api 由 props 注入且会话内稳定）。
-  React.useEffect(() => {
-    void loadDir();
-  }, []);
 
   // Esc 关闭（依赖写全：onCancel 变化即重挂，handler 恒为最新闭包）。
   React.useEffect(() => {
@@ -301,42 +359,18 @@ export function FilePicker(props: FilePickerProps): ReactElement {
           </button>
         </div>
 
-        <div className="fp-pathbar">
-          {cur === null ? (
-            <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
-          ) : (
-            <span className="fp-crumb" title={cur}>
-              {cur}
-            </span>
-          )}
-          <span className="fp-selected-count">
-            {selectedCount > 0 ? t('已选 {count} 个', { count: selectedCount }) : ''}
-          </span>
-        </div>
-
-        <div className="fp-list">
-          {loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
-          {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
-          {!loading && error === null && cur === null ? renderDrives(browse, navigate) : null}
-          {!loading && error === null && cur !== null
-            ? renderDirBody(browse, selected, navigate, toggleFile)
-            : null}
-        </div>
-
-        <div className="fp-actions">
-          <button className="fp-btn" onClick={onCancel}>
-            {t('取消')}
-          </button>
-          <button
-            className="fp-btn fp-primary"
-            disabled={selectedCount === 0}
-            onClick={confirm}
-          >
-            {selectedCount > 0
-              ? t('添加 {count} 个文件', { count: selectedCount })
-              : t('添加文件')}
-          </button>
-        </div>
+        <FilePickerBody
+          browse={browse}
+          cur={cur}
+          loading={loading}
+          error={error}
+          selected={selected}
+          selectedCount={selectedCount}
+          navigate={navigate}
+          toggleFile={toggleFile}
+          onCancel={onCancel}
+          confirm={confirm}
+        />
       </div>
     </div>
   );

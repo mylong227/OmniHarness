@@ -6277,3 +6277,10 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **35** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 26 个函数，剩余 35。
+
+## 157. 2026-10-29 S2 清偿 FilePicker（154 → <80）
+
+- **改动**：目录浏览状态/代际防串抽 `useFileBrowser()`；路径栏 + 列表 + 动作抽 `FilePickerBody()`。
+- **判据**：`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **34** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 27 个函数，剩余 34。
