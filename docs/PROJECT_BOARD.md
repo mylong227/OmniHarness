@@ -5989,3 +5989,14 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   需先把会话运行表抽成独立类）。
 - **剩余**：E6/S3 任务集、A5 隔离/回滚、A7 技能懒加载/信任、A8 入口接线、A9 符号级指标、
   S2 前端长函数。
+
+## 126. 2026-10-29 A9 符号级召回指标：`recallHitrate --lens=symbol`
+
+- **缺陷**：探针只测「查询 → 文件」的 hitRate，符号级劣化不可见（`recallHitrate.mjs` 头注释自述）。
+- **修法**：新增 `symbol` 镜头——从 `src/` 真实导出声明（class/function/const/interface/type/enum）
+  推导「符号名 → 唯一定义文件」，过滤同名多定义，按名字排序取 120 条；复用同一 BM25/hitRate/CI 口径。
+- **实测**：`--lens=symbol --fileK=24` ⇒ **120 条符号，hitRate 100% CI[100,100]**。
+  这是**上限基线**（查询就是符号名），用途是**回归**：索引/语料一旦漏掉符号定义会立刻掉下来，
+  不作为「语义检索能力」的区分度证据（已写进诚实边界）。
+- **判据**：`probesInRepo.test.ts` 9 例全绿（用法块 ↔ 旋钮交叉核对、--json、缺产物退出 2）。
+- **剩余**：E6/S3 任务集、A5 隔离/回滚、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。

@@ -10,7 +10,9 @@
  * 2026-10-24 起支持两条镜头：
  * - `bm25`（默认，离线、免模型、确定性）——保护回退路径；
  * - `hybrid`（真嵌入 + RRF，生产 agent 默认路径）——保护**默认路径**；
- * - `both` 同一进程跑两条并输出 Δ，CI 仍按各自配对样本计算。
+ * - `both` 同一进程跑两条并输出 Δ，CI 仍按各自配对样本计算；
+ * - `symbol`（2026-10-29，A9）符号级镜头：查询 = 导出符号名，GT = 唯一定义该符号的文件，
+ *   度量「按符号定位定义文件」的 hitRate@K（文件级 GT 的符号化补充，不是语义理解）。
  *
  * ## 口径（与 `tests/unit/retrievalBaseline.test.ts` 同源）
  *
@@ -34,6 +36,7 @@
  * node tools/probes/recallHitrate.mjs --lens=both --strict   # 双镜头 + fallback/回归断言
  * node tools/probes/recallHitrate.mjs --lens=hybrid --rerank=1 --json=out.json
  * node tools/probes/recallHitrate.mjs --lens=hybrid --preset=minilm
+ * node tools/probes/recallHitrate.mjs --lens=symbol             # 符号级 hitRate@K（A9）
  * ```
  *
  * ## 诚实边界
@@ -70,8 +73,8 @@ if (!Number.isInteger(FILE_K) || FILE_K <= 0) {
   console.error('✗ --fileK 必须是正整数（例：--fileK=14）');
   process.exit(2);
 }
-if (!['bm25', 'hybrid', 'both'].includes(LENS)) {
-  console.error('✗ --lens 只能是 bm25 / hybrid / both');
+if (!['bm25', 'hybrid', 'both', 'symbol'].includes(LENS)) {
+  console.error('✗ --lens 只能是 bm25 / hybrid / both / symbol');
   process.exit(2);
 }
 
@@ -127,12 +130,42 @@ function groundTruth(anchor) {
   return set;
 }
 
+/**
+ * 符号级用例（A9）：从 `src/` 真实导出声明推导「符号名 → 唯一定义文件」。
+ * 只取**单文件定义**（同名多处定义会歧义，直接跳过），按名字排序取前 120 条。
+ * @returns {{i:number, core:boolean, q:string, gt:Set<string>}[]} 符号用例。
+ */
+function symbolCases() {
+  const re =
+    /^export\s+(?:abstract\s+)?(?:class|function|const|interface|type|enum)\s+([A-Za-z_$][\w$]*)/gmu;
+  const byName = new Map();
+  for (const [rel, text] of corpus.fileText) {
+    for (const match of text.matchAll(re)) {
+      const name = match[1];
+      if (name === undefined) continue;
+      const files = byName.get(name) ?? new Set();
+      files.add(rel);
+      byName.set(name, files);
+    }
+  }
+  return [...byName.entries()]
+    .filter(([, files]) => files.size === 1)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .slice(0, 120)
+    .map(([name, files], i) => ({ i, core: false, q: name, gt: files }));
+}
+
 const CASES = [];
-for (let i = 0; i < RECALL_QUERIES.length; i += 1) {
-  const { q, anchor } = RECALL_QUERIES[i];
-  const gt = groundTruth(anchor);
-  if (gt.size === 0) throw new Error(`锚点不存在（GT=0）：query="${q}" anchor="${anchor}"`);
-  CASES.push({ i, core: i < CORE_COUNT, q, gt });
+if (LENS === 'symbol') {
+  CASES.push(...symbolCases());
+  if (CASES.length === 0) throw new Error('符号级镜头未找到任何唯一导出符号');
+} else {
+  for (let i = 0; i < RECALL_QUERIES.length; i += 1) {
+    const { q, anchor } = RECALL_QUERIES[i];
+    const gt = groundTruth(anchor);
+    if (gt.size === 0) throw new Error(`锚点不存在（GT=0）：query="${q}" anchor="${anchor}"`);
+    CASES.push({ i, core: i < CORE_COUNT, q, gt });
+  }
 }
 
 /** BM25 镜头（离线、无模型）。 */
@@ -274,7 +307,7 @@ if (LENS !== 'hybrid') {
 
 let hybrid;
 let fallbacks = 0;
-if (LENS !== 'bm25') {
+if (LENS === 'hybrid' || LENS === 'both') {
   const result = await hybridRows();
   hybrid = summarize(result.rows);
   fallbacks = result.fallbacks;
@@ -304,7 +337,8 @@ if (bm25 !== undefined && hybrid !== undefined) {
     `  Δ hybrid-bm25: all ${(delta * 100).toFixed(1)}pp  core ${(report.delta.core * 100).toFixed(1)}pp  ext ${(report.delta.ext * 100).toFixed(1)}pp`,
   );
 }
-if (LENS !== 'bm25') console.log(`  语义回落次数: ${fallbacks}（>0 说明数字含水分）`);
+if (LENS === 'hybrid' || LENS === 'both')
+  console.log(`  语义回落次数: ${fallbacks}（>0 说明数字含水分）`);
 for (const m of report.misses ?? []) {
   console.log(`  MISS ${m.core ? 'core' : 'ext '} #${m.i} bestRank=${m.bestRank} :: ${m.q}`);
 }
@@ -314,9 +348,11 @@ if (JSON_OUT !== '') {
 }
 
 if (STRICT) {
-  if (LENS !== 'bm25' && fallbacks > 0) {
-    console.error(`✗ strict: semanticFallbacks=${fallbacks}（>0 即质量回落，不允许）`);
-    process.exit(3);
+  if (LENS === 'hybrid' || LENS === 'both') {
+    if (fallbacks > 0) {
+      console.error(`✗ strict: semanticFallbacks=${fallbacks}（>0 即质量回落，不允许）`);
+      process.exit(3);
+    }
   }
   if (bm25 !== undefined && hybrid !== undefined) {
     if (hybrid.all.hitRate < bm25.all.hitRate - 0.05) {
