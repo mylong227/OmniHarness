@@ -6086,3 +6086,10 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`eval:long --self-check` **25 passed / 0 failed**；任务集 25。
 - **边界**：25/40+；逐个编写，不灌水。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A8 Web UI、S2 前端长函数。
+
+## 136. 2026-10-29 E6/S3 任务集 25 → 26：`binary-search`
+
+- **新增任务**：`binary-search`（lowerBound / upperBound / searchRange），要求对数复杂度。
+- **自检**：`--only=binary-search` 通过；任务集 **26**；`longTask.test.ts` 计数同步 26。
+- **边界**：26/40+。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A8 Web UI、S2 前端长函数。
