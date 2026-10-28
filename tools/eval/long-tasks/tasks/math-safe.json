@@ -1,0 +1,9 @@
+{
+  "id": "math-safe",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：clamp(value, min, max)、lerp(start, end, ratio)、roundTo(value, digits)。\n\n逐条验收要求：\n- clamp：把数值夹到 [min, max]；min > max 时也要有确定行为（取 max）。\n- lerp：线性插值 start + (end-start)*ratio。\n- roundTo：按小数位四舍五入；digits 可为负数（如 -2 表示百位）。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "math-safe",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}

@@ -6079,3 +6079,10 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   `selectForPrompt` 后 loader 只调 1 次、`render` 含正文；`skillStackAssembler` 4 例回归。
 - **信任档**：`Skill.trust = bundled/workspace`，工作区技能仍受 `allowWorkspaceSkills` 闸。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A8 Web UI、S2 前端长函数。
+
+## 135. 2026-10-29 E6/S3 任务集 23 → 25：`text-wrap` + `math-safe`
+
+- **新增任务**：`text-wrap`（wrapText / truncateMiddle / countWords）、`math-safe`（clamp / lerp / roundTo）。
+- **自检**：`eval:long --self-check` **25 passed / 0 failed**；任务集 25。
+- **边界**：25/40+；逐个编写，不灌水。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A8 Web UI、S2 前端长函数。
