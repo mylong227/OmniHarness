@@ -6268,3 +6268,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **36** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 25 个函数，剩余 36。
+
+## 156. 2026-10-29 S2 清偿 RightPanel（198 → <80）
+
+- **改动**：`RightPanel` 的标签栏/文件标签/网页标签/路径栏/面板体/键盘/派生状态抽成
+  `PanelTabs` / `FileTab` / `WebTab` / `PathBar` / `PanelBody` / `handleTabKey` / `deriveTabs` /
+  `isPreviewable` / `panelTexts` / `labelledByOf`。
+- **判据**：`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **35** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 26 个函数，剩余 35。

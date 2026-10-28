@@ -150,6 +150,256 @@ function WebTab(props: {
 }
 
 /**
+ * 右栏标签栏（文件标签 + 网页标签 + 打开网页按钮）。
+ * @param props 标签数据与回调。
+ * @returns 标签栏节点。
+ */
+function PanelTabs(props: {
+  openFiles: readonly FileView[];
+  browserOpen: boolean;
+  browserActive: boolean;
+  activeIdx: number;
+  webTitle: string;
+  tabCount: number;
+  onShowFile: (title: string) => void;
+  onCloseFile: (title: string) => void;
+  onShowBrowser?: (() => void) | undefined;
+  onCloseBrowser?: (() => void) | undefined;
+  onOpenBrowser?: (() => void) | undefined;
+  onTabKey: (e: React.KeyboardEvent, index: number) => void;
+}): ReactElement {
+  const {
+    openFiles,
+    browserOpen,
+    browserActive,
+    activeIdx,
+    webTitle,
+    tabCount,
+    onShowFile,
+    onCloseFile,
+    onShowBrowser,
+    onCloseBrowser,
+    onOpenBrowser,
+    onTabKey,
+  } = props;
+  return (
+    <div className="tabs rv-tabs">
+      {tabCount === 0 ? null : (
+        <div
+          className="rv-tablist"
+          role="tablist"
+          aria-label={browserOpen ? t('文件与网页') : t('文件')}
+        >
+          {openFiles.map((f, i) => (
+            <FileTab
+              key={f.title}
+              file={f}
+              index={i}
+              active={!browserActive && i === activeIdx}
+              onShow={onShowFile}
+              onClose={onCloseFile}
+              onKey={onTabKey}
+            />
+          ))}
+          {browserOpen ? (
+            <WebTab
+              title={webTitle}
+              index={openFiles.length}
+              active={browserActive}
+              onShow={() => onShowBrowser?.()}
+              onClose={() => onCloseBrowser?.()}
+              onKey={onTabKey}
+            />
+          ) : null}
+        </div>
+      )}
+      <span className="flex-spacer" aria-hidden="true"></span>
+      {browserOpen || onOpenBrowser === undefined ? null : (
+        <button
+          className="iconbtn rv-web-open"
+          type="button"
+          title={t('在右侧打开网页')}
+          aria-label={t('在右侧打开网页')}
+          onClick={onOpenBrowser}
+        >
+          {icon('globe', { size: 16 })}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 文件路径栏。
+ * @param props 路径、预览能力与文件。
+ * @returns 路径栏节点。
+ */
+function PathBar(props: {
+  pathText: string;
+  previewable: boolean;
+  activeFile: FileView;
+  onPreview?: ((path: string) => Promise<void> | void) | undefined;
+}): ReactElement {
+  return (
+    <div className="rv-pathbar">
+      <span className="rv-path" title={props.pathText}>
+        {props.pathText}
+      </span>
+      <span className="flex-spacer" aria-hidden="true"></span>
+      {props.previewable ? (
+        <button
+          className="rv-preview"
+          type="button"
+          title={t('在浏览器中预览')}
+          onClick={() => {
+            if (props.onPreview !== undefined) void props.onPreview(props.activeFile.title);
+          }}
+        >
+          {icon('globe', { size: 12 })} {t('预览')}
+        </button>
+      ) : null}
+      {props.activeFile.lang !== '' ? <span className="rv-lang">{props.activeFile.lang}</span> : null}
+      <span className="rv-meta">{props.activeFile.meta}</span>
+    </div>
+  );
+}
+
+/**
+ * 右栏内容面板。
+ * @param props 内容与无障碍标注。
+ * @returns 面板节点。
+ */
+function PanelBody(props: {
+  labelledBy: string | undefined;
+  children: React.ReactNode;
+}): ReactElement {
+  return (
+    <div
+      className="pane active panel-surface"
+      id={PANE_ID}
+      role="tabpanel"
+      aria-labelledby={props.labelledBy}
+      tabIndex={-1}
+    >
+      {props.children}
+    </div>
+  );
+}
+
+/**
+ * 标签键盘行为：左右移动、Delete/Backspace 关闭。
+ * @param e 键盘事件。
+ * @param index 当前标签下标。
+ * @param ctx 标签上下文。
+ * @returns 无。
+ */
+function handleTabKey(
+  e: React.KeyboardEvent,
+  index: number,
+  ctx: {
+    tabCount: number;
+    fileCount: number;
+    files: readonly FileView[];
+    closeBrowser: () => void;
+    closeFile: (title: string) => void;
+    showBrowser: () => void;
+    showFile: (title: string) => void;
+  },
+): void {
+  if (ctx.tabCount === 0) return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    if (index === ctx.fileCount) {
+      ctx.closeBrowser();
+      return;
+    }
+    const current = ctx.files[index];
+    if (current !== undefined) ctx.closeFile(current.title);
+    return;
+  }
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+  e.preventDefault();
+  const step = e.key === 'ArrowRight' ? 1 : -1;
+  const next = (index + step + ctx.tabCount) % ctx.tabCount;
+  if (next === ctx.fileCount) {
+    ctx.showBrowser();
+    return;
+  }
+  const file = ctx.files[next];
+  if (file !== undefined) ctx.showFile(file.title);
+}
+
+/**
+ * 判断当前文件能否在浏览器中预览。
+ * @param file 当前文件。
+ * @param onPreview 预览回调。
+ * @returns 可预览为 true。
+ */
+function isPreviewable(
+  file: FileView | undefined,
+  onPreview: ((path: string) => Promise<void> | void) | undefined,
+): boolean {
+  return (
+    file !== undefined &&
+    onPreview !== undefined &&
+    FileKindClassifier.isWebPage(file.lang === '' ? file.title : file.lang)
+  );
+}
+
+/**
+ * 右栏文本（路径与网页标题）。
+ * @param activeFile 当前文件。
+ * @param browser 网页状态。
+ * @returns 路径文本与网页标签标题。
+ */
+function panelTexts(
+  activeFile: FileView | undefined,
+  browser: { title?: string | undefined } | undefined,
+): { pathText: string; webTitle: string } {
+  return {
+    pathText: activeFile !== undefined ? activeFile.title : '',
+    webTitle: browser?.title !== undefined && browser.title !== '' ? browser.title : t('网页'),
+  };
+}
+
+/**
+ * 面板的 aria-labelledby。
+ * @param browserActive 网页是否激活。
+ * @param activeIdx 文件下标。
+ * @param openFiles 已打开文件。
+ * @returns 标签 id 或 undefined。
+ */
+function labelledByOf(
+  browserActive: boolean,
+  activeIdx: number,
+  openFiles: readonly FileView[],
+): string | undefined {
+  if (browserActive) return WEB_TAB_ID;
+  return activeIdx >= 0 && openFiles[activeIdx] !== undefined
+    ? tabIdOf(openFiles[activeIdx]!, activeIdx)
+    : undefined;
+}
+
+/**
+ * 推导当前文件 / 标签数量。
+ * @param openFiles 已打开文件。
+ * @param activeFileTitle 当前文件标题。
+ * @param browserActive 网页标签是否激活。
+ * @param browserOpen 网页标签是否存在。
+ * @returns 激活下标、激活文件与标签总数。
+ */
+function deriveTabs(
+  openFiles: readonly FileView[],
+  activeFileTitle: string | null | undefined,
+  browserActive: boolean,
+  browserOpen: boolean,
+): { activeIdx: number; activeFile: FileView | undefined; tabCount: number } {
+  const activeIdx = browserActive ? -1 : openFiles.findIndex((f) => f.title === activeFileTitle);
+  const activeFile = activeIdx >= 0 ? openFiles[activeIdx] : undefined;
+  return { activeIdx, activeFile, tabCount: openFiles.length + (browserOpen ? 1 : 0) };
+}
+
+/**
  * 右栏容器：文件标签 / 网页标签 + 路径栏 + 内容区。
  * @param props 组件入参
  * @returns 右栏节点
@@ -172,9 +422,12 @@ export function RightPanel(props: RightPanelProps): ReactElement {
   } = props;
   const browserOpen = browser?.open === true;
   const browserActive = browserOpen && browser.active === true;
-  const activeIdx = browserActive ? -1 : openFiles.findIndex((f) => f.title === activeFileTitle);
-  const activeFile = activeIdx >= 0 ? openFiles[activeIdx] : undefined;
-  const tabCount = openFiles.length + (browserOpen ? 1 : 0);
+  const { activeIdx, activeFile, tabCount } = deriveTabs(
+    openFiles,
+    activeFileTitle,
+    browserActive,
+    browserOpen,
+  );
 
   /**
    * 标签键盘行为：左右方向键在全部标签（文件 + 网页）间移动并激活；
@@ -183,124 +436,47 @@ export function RightPanel(props: RightPanelProps): ReactElement {
    * @param i 当前标签下标（等于 openFiles.length 表示网页标签）
    * @returns 无
    */
-  const onTabKey = (e: React.KeyboardEvent, i: number): void => {
-    if (tabCount === 0) return;
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      if (i === openFiles.length) {
-        onCloseBrowser?.();
-        return;
-      }
-      const current = openFiles[i];
-      if (current !== undefined) onCloseFile(current.title);
-      return;
-    }
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    const step = e.key === 'ArrowRight' ? 1 : -1;
-    const next = (i + step + tabCount) % tabCount;
-    if (next === openFiles.length) {
-      onShowBrowser?.();
-      return;
-    }
-    const file = openFiles[next];
-    if (file !== undefined) onShowFile(file.title);
-  };
+  const onTabKey = (e: React.KeyboardEvent, i: number): void =>
+    handleTabKey(e, i, {
+      tabCount,
+      fileCount: openFiles.length,
+      files: openFiles,
+      closeBrowser: () => onCloseBrowser?.(),
+      closeFile: onCloseFile,
+      showBrowser: () => onShowBrowser?.(),
+      showFile: onShowFile,
+    });
 
-  // 没有打开任何文件 / 网页时不渲染假标签（用户要求「把文件标签删除」）：只留工具按钮。
-  const pathText = activeFile !== undefined ? activeFile.title : '';
-  const webTitle =
-    browser?.title !== undefined && browser.title !== ''
-      ? browser.title
-      : t('网页');
-  const previewable =
-    activeFile !== undefined &&
-    onPreviewFile !== undefined &&
-    FileKindClassifier.isWebPage(activeFile.lang === '' ? activeFile.title : activeFile.lang);
+  const { pathText, webTitle } = panelTexts(activeFile, browser);
+  const previewable = isPreviewable(activeFile, onPreviewFile);
 
   return (
     <div className={'col right' + (open ? ' open' : '')} style={style}>
-      <div className="tabs rv-tabs">
-        {/* tablist 只包标签：「全部面板」/ 打开网页按钮不是 tab，放在列表外。 */}
-        {tabCount === 0 ? null : (
-          <div
-            className="rv-tablist"
-            role="tablist"
-            aria-label={browserOpen ? t('文件与网页') : t('文件')}
-          >
-            {openFiles.map((f, i) => (
-              <FileTab
-                key={f.title}
-                file={f}
-                index={i}
-                active={!browserActive && i === activeIdx}
-                onShow={onShowFile}
-                onClose={onCloseFile}
-                onKey={onTabKey}
-              />
-            ))}
-            {browserOpen ? (
-              <WebTab
-                title={webTitle}
-                index={openFiles.length}
-                active={browserActive}
-                onShow={() => onShowBrowser?.()}
-                onClose={() => onCloseBrowser?.()}
-                onKey={onTabKey}
-              />
-            ) : null}
-          </div>
-        )}
-        <span className="flex-spacer" aria-hidden="true"></span>
-        {browserOpen || onOpenBrowser === undefined ? null : (
-          <button
-            className="iconbtn rv-web-open"
-            type="button"
-            title={t('在右侧打开网页')}
-            aria-label={t('在右侧打开网页')}
-            onClick={onOpenBrowser}
-          >
-            {icon('globe', { size: 16 })}
-          </button>
-        )}
-      </div>
+      <PanelTabs
+        openFiles={openFiles}
+        browserOpen={browserOpen}
+        browserActive={browserActive}
+        activeIdx={activeIdx}
+        webTitle={webTitle}
+        tabCount={tabCount}
+        onShowFile={onShowFile}
+        onCloseFile={onCloseFile}
+        {...(onShowBrowser !== undefined ? { onShowBrowser } : {})}
+        {...(onCloseBrowser !== undefined ? { onCloseBrowser } : {})}
+        {...(onOpenBrowser !== undefined ? { onOpenBrowser } : {})}
+        onTabKey={onTabKey}
+      />
       {activeFile === undefined || browserActive ? null : (
-        <div className="rv-pathbar">
-          <span className="rv-path" title={pathText}>
-            {pathText}
-          </span>
-          <span className="flex-spacer" aria-hidden="true"></span>
-          {previewable ? (
-            <button
-              className="rv-preview"
-              type="button"
-              title={t('在浏览器中预览')}
-              onClick={() => {
-                if (onPreviewFile !== undefined) void onPreviewFile(activeFile.title);
-              }}
-            >
-              {icon('globe', { size: 12 })} {t('预览')}
-            </button>
-          ) : null}
-          {activeFile.lang !== '' ? <span className="rv-lang">{activeFile.lang}</span> : null}
-          <span className="rv-meta">{activeFile.meta}</span>
-        </div>
+        <PathBar
+          pathText={pathText}
+          previewable={previewable}
+          activeFile={activeFile}
+          {...(onPreviewFile !== undefined ? { onPreview: onPreviewFile } : {})}
+        />
       )}
-      <div
-        className="pane active panel-surface"
-        id={PANE_ID}
-        role="tabpanel"
-        aria-labelledby={
-          browserActive
-            ? WEB_TAB_ID
-            : activeIdx >= 0 && openFiles[activeIdx] !== undefined
-              ? tabIdOf(openFiles[activeIdx]!, activeIdx)
-              : undefined
-        }
-        tabIndex={-1}
-      >
+      <PanelBody labelledBy={labelledByOf(browserActive, activeIdx, openFiles)}>
         {browserActive && browserContent !== undefined ? browserContent : children}
-      </div>
+      </PanelBody>
     </div>
   );
 }
