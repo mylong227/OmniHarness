@@ -63,4 +63,6 @@ export interface SubagentResult {
    * 二次宣告完成会被放行）。父级据此保留怀疑，而不是把"它说做完了"当成已验证事实继续传播。
    */
   readonly verificationState?: VerificationState | undefined;
+  /** 子代理本回合累计模型 token 用量（父级据此聚合派生成本；缺省＝模型未上报）。 */
+  readonly usageTokens?: number | undefined;
 }

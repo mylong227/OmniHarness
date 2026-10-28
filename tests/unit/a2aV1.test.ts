@@ -104,3 +104,35 @@ test('INT-03：A2A v1.0 agent/getCard 返回配置的 AgentCard', async () => {
   const result = (await response) as { result?: { name?: string } };
   assert.strictEqual(result.result?.name, 'omni');
 });
+
+test('INT-03：A2A 幂等——同 messageId 重发不重建任务、不重跑 handler（2026-10-28）', async () => {
+  const { client, server } = pair();
+  let runs = 0;
+  const counting: TaskHandler = {
+    async handle(req) {
+      runs += 1;
+      return { ok: true, output: `v1:${req.task}`, steps: 1, durationMs: 1 };
+    },
+  };
+  const a2a = new A2aServer(server);
+  a2a.setTaskHandler(counting);
+  const received: RpcMessage[] = [];
+  client.onMessage((message) => received.push(message));
+  const waitFor = async (n: number): Promise<void> => {
+    for (let i = 0; i < 200 && received.length < n; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  };
+  const message = { messageId: 'm-idem', parts: [{ type: 'text' as const, text: 'hello' }] };
+  client.send({ jsonrpc: '2.0', id: 1, method: 'message/send', params: { message } } as RpcMessage);
+  await waitFor(1);
+  client.send({ jsonrpc: '2.0', id: 2, method: 'message/send', params: { message } } as RpcMessage);
+  await waitFor(2);
+
+  const results = received.map(
+    (entry) => (entry as { result?: { id?: string; status?: { state?: string } } }).result ?? {},
+  );
+  assert.strictEqual(runs, 1, '同一 messageId 只能执行一次');
+  assert.strictEqual(results[0]?.id, results[1]?.id, '两次返回必须是同一个任务');
+  assert.strictEqual(results[1]?.status?.state, 'completed');
+});

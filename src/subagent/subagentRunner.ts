@@ -27,6 +27,12 @@ export class SubagentRunner {
     SUBAGENT_TOOL_NAME,
     'run_workflow',
     'run_goal',
+    // 2026-10-28：`run_plan` 会按 todo 计划起真 Agent 回合，是同一递归的第三个入口；
+    // 此前漏剔 ⇒ 子代 → run_plan → Agent 可无限派生，`maxDepth=2` 形同虚设。
+    'run_plan',
+    // `delegate`（worker 委派）与 `a2a_delegate`（对等 agent）同样能再起执行回合。
+    'delegate',
+    'a2a_delegate',
   ]);
 
   public constructor(
@@ -80,6 +86,8 @@ export class SubagentRunner {
       events: outcome.events.length > 0 ? outcome.events : bridge.events(),
       truncated: outcome.truncated === true,
       aborted: outcome.aborted === true,
+      // 派生成本可见：父级/遥测可把子代 token 计入总账（缺省不臆造 0）。
+      ...(outcome.usageTokens !== undefined ? { usageTokens: outcome.usageTokens } : {}),
       // G3-V2：验证状态一并回传（`unverified` 不得被父级读成"已验证通过"）。
       ...(outcome.verificationState !== undefined
         ? { verificationState: outcome.verificationState }

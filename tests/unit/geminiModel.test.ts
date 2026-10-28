@@ -564,10 +564,18 @@ test('非法工具参数 JSON：按 ToolArgumentParser 语义回退空对象且�
       }),
     () => model.generate(REQUEST),
   );
-  assert.deepStrictEqual(output.toolCalls, [
-    { id: 'bad', name: 'shell', arguments: {} },
-    { id: 'array', name: 'shell', arguments: {} },
-  ]);
+  const calls = output.toolCalls ?? [];
+  assert.deepStrictEqual(
+    calls.map((call) => ({ id: call.id, name: call.name, arguments: call.arguments })),
+    [
+      { id: 'bad', name: 'shell', arguments: {} },
+      { id: 'array', name: 'shell', arguments: {} },
+    ],
+  );
+  assert.ok(
+    calls.every((call) => typeof call.parseError === 'string'),
+    '不可修复的参数必须带 parseError，交给执行器 fail-closed',
+  );
 });
 
 test('图片：裸 base64 走 inlineData；http(s) 不可内联时降级为文本说明', async () => {

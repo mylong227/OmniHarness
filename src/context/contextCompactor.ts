@@ -711,6 +711,7 @@ export class ContextCompactor {
       readonly role: string;
       readonly content: string;
       readonly toolCallId: string | undefined;
+      readonly toolCallsKey: string;
       readonly length: number;
       readonly value: number;
     }
@@ -720,15 +721,20 @@ export class ContextCompactor {
   public static headFingerprint(messages: readonly ModelMessage[]): string {
     let h = 5381;
     for (const m of messages) {
+      const toolCallsKey = m.toolCalls === undefined ? '' : JSON.stringify(m.toolCalls);
       const cached = ContextCompactor.fingerprintSegments.get(m);
       let segment = cached;
       if (
         segment === undefined ||
         segment.role !== m.role ||
         segment.content !== m.content ||
-        segment.toolCallId !== m.toolCallId
+        segment.toolCallId !== m.toolCallId ||
+        segment.toolCallsKey !== toolCallsKey
       ) {
-        const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}`;
+        // 2026-10-28：toolCalls 必须进指纹——只改工具入参（文本不变）时旧指纹会命中，
+        // 复用一份「按旧参数折叠」的摘要，模型会按旧参数继续。args 用 JSON 序列化，
+        // 消息构造方保证键序稳定（与 `headFingerprint` 的跨进程一致性前提相同）。
+        const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}\u0000${toolCallsKey}`;
         let value = 0;
         for (let i = 0; i < s.length; i++) {
           value = (Math.imul(value, 33) + s.charCodeAt(i)) | 0;
@@ -737,6 +743,7 @@ export class ContextCompactor {
           role: m.role,
           content: m.content,
           toolCallId: m.toolCallId,
+          toolCallsKey,
           length: s.length,
           value,
         };

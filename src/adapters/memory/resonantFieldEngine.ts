@@ -29,6 +29,7 @@ import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
 import { TimeDecay, type ScoredFact } from './timeDecay.ts';
 import { ResonantFieldMath } from './resonantFieldMath.ts';
 import { MemoryValueSlot } from './memoryValueSlot.ts';
+import { SpacingEffect } from './spacingEffect.ts';
 
 /** 共振簇：质心 + 成员事实 id（含是否已被抽象代表取代）。 */
 interface Cluster {
@@ -83,6 +84,8 @@ export class ResonantFieldEngine
   private readonly clock: () => number;
   /** 不可信来源事实的召回得分惩罚（0..1）。 */
   private readonly untrustedPenalty: number;
+  /** 是否启用间隔效应/遗忘曲线（生产端口必须与 `FileLongTermMemory` 同口径）。 */
+  private readonly spacing: boolean;
 
   /**
    * @param base 被包装的底层长期记忆端口（标准读写与落盘全部委托给它）。
@@ -99,6 +102,7 @@ export class ResonantFieldEngine
     this.halfLifeDays = opts.halfLifeDays ?? 90;
     this.clock = opts.clock ?? Date.now;
     this.untrustedPenalty = ResonantFieldMath.clamp(opts.untrustedPenalty ?? 0.5, 0, 1);
+    this.spacing = opts.spacing ?? process.env['OMNI_MEMORY_FORGETTING'] === '1';
     this.seed();
   }
 
@@ -309,13 +313,6 @@ export class ResonantFieldEngine
       this.clusters.delete(smallId);
       collapsed++;
     }
-    return { nodes: this.clusters.size, collapsed, fibers: this.computeFibers() };
-  }
-
-  /** 统计当前纤维边数：两两簇质心共振≥边阈值即计一条。
-   * @returns 满足阈值的簇对（纤维边）总数。
-   */
-  private computeFibers(): number {
     const ids = [...this.clusters.keys()];
     let fibers = 0;
     for (let i = 0; i < ids.length; i++) {
@@ -325,7 +322,7 @@ export class ResonantFieldEngine
         if (EigenSpectrum.resonance(a.centroid, b.centroid) >= this.edgeThreshold) fibers++;
       }
     }
-    return fibers;
+    return { nodes: this.clusters.size, collapsed, fibers };
   }
 
   // ── 调谐（autoRun） ──
@@ -370,6 +367,30 @@ export class ResonantFieldEngine
         score: boost !== undefined && boost > hit.score ? boost : hit.score,
       };
     });
+    // 2026-10-28：间隔效应必须在**生产封包**上生效。此前只有 FileLongTermMemory 接线，
+    // 而默认装配 recall 被本类覆盖 ⇒ `OMNI_MEMORY_FORGETTING=1` 是空开关。
+    if (this.spacing) {
+      const { ranked, reinforcements } = SpacingEffect.rankWithSpacing(
+        items,
+        nowMs,
+        k,
+        this.untrustedPenalty,
+      );
+      const at = new Date(nowMs).toISOString();
+      for (const entry of reinforcements) {
+        const fact = this.base.get(entry.id);
+        if (fact === undefined) continue;
+        this.base.update(entry.id, {
+          lastRecallAt: at,
+          recallCount: (fact.recallCount ?? 0) + 1,
+          stabilityDays: SpacingEffect.reinforcedStability(
+            SpacingEffect.stabilityOf(fact),
+            entry.retention,
+          ),
+        });
+      }
+      return ranked;
+    }
     return TimeDecay.rankWithDecay(items, nowMs, this.halfLifeDays, k, this.untrustedPenalty);
   }
 

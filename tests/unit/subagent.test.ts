@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { afterAll, describe, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -54,7 +54,10 @@ class ObservableModel implements ModelPort {
       if (this.fail) {
         throw new Error('模型不可用（测试注入）');
       }
-      return { text: '子任务完成' };
+      return {
+        text: '子任务完成',
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+      };
     } finally {
       this.active -= 1;
     }
@@ -137,6 +140,13 @@ function makeTools(): RegistryToolPort {
     ok: true,
     output: 'spawned',
   }));
+  for (const name of ['run_plan', 'run_workflow', 'run_goal', 'delegate', 'a2a_delegate']) {
+    registry.register({ name, description: '递归入口', parameters: blank }, async (call) => ({
+      callId: call.id,
+      ok: true,
+      output: 'recursed',
+    }));
+  }
   return registry;
 }
 
@@ -257,8 +267,21 @@ describe('SubagentRunner', () => {
     assert.notStrictEqual(result.sessionId, 'parent', '子代应有独立 sessionId');
     const visible = model.frames[0] ?? [];
     assert.ok(!visible.includes('subagent'), `子代不应看到 subagent，实际: ${visible.join(',')}`);
+    for (const recursion of ['run_plan', 'run_workflow', 'run_goal', 'delegate', 'a2a_delegate']) {
+      assert.ok(
+        !visible.includes(recursion),
+        `子代不应看到间接递归入口 ${recursion}，实际: ${visible.join(',')}`,
+      );
+    }
     assert.ok(visible.includes('echo'));
     assert.ok(visible.includes('shell'));
+  });
+
+  it('子代 token 用量回传（父级可聚合派生成本）', async () => {
+    const model = new ObservableModel();
+    const runner = new SubagentRunner(makePorts(model, new RecordingEvents(), makeTools()), 8);
+    const result = await runner.run({ task: '做点事', parentSessionId: 'parent', depth: 1 });
+    assert.strictEqual(result.usageTokens, 15);
   });
 
   it('指定白名单时子代只看到授权工具', async () => {

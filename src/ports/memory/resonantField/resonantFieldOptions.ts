@@ -14,4 +14,10 @@ export interface ResonantFieldOptions {
   readonly clock?: (() => number) | undefined;
   /** 不可信来源事实的召回得分惩罚（0..1；默认 0.5，与 FileLongTermMemory 一致）。 */
   readonly untrustedPenalty?: number | undefined;
+  /**
+   * 间隔效应/遗忘曲线（默认取 `OMNI_MEMORY_FORGETTING=1`）。
+   *
+   * 生产端口是共振场封包：若不在这里接线，`OMNI_MEMORY_FORGETTING` 在默认装配下是空开关。
+   */
+  readonly spacing?: boolean | undefined;
 }

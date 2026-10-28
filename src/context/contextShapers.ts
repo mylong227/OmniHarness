@@ -5,6 +5,14 @@ import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
 export interface ContextShaperOptions {
   /** 单条工具结果超过该字符数时做头尾裁剪（默认 24,000）。 */
   readonly maxToolChars?: number;
+  /**
+   * 单条 user/assistant 消息超过该字符数时做头尾裁剪（默认 48,000）。
+   *
+   * 为什么需要：只裁工具结果时，一条 1 MB 的粘贴日志/大段用户输入会**恒超窗**，
+   * 压缩器也救不回来（它只折叠历史，不裁当前消息）⇒ 上游 400、回合硬崩。
+   * 阈值取 ~12k token：足够容纳正常长指令，又不会把窗口吃光。
+   */
+  readonly maxMessageChars?: number;
   /** 何时开始剪旧工具轮：总字符 / (窗口 token × 4) 超过该比例（默认 0.6）。 */
   readonly snipAtRatio?: number;
   /** 至少保留最近多少条工具结果（默认 6）。 */
@@ -25,6 +33,8 @@ export interface ContextShaperOptions {
 export interface ContextShaperReport {
   /** 被头尾裁剪的工具结果条数。 */
   readonly trimmedToolResults: number;
+  /** 被头尾裁剪的 user/assistant 超大消息条数。 */
+  readonly trimmedMessages: number;
   /** 被剪掉的旧工具结果条数。 */
   readonly snippedToolResults: number;
   /** 裁剪前后字符数。 */
@@ -46,6 +56,9 @@ export class ContextShapers {
   /** 默认单条工具结果裁剪阈值（字符）。 */
   public static readonly DEFAULT_MAX_TOOL_CHARS = 24_000;
 
+  /** 默认单条 user/assistant 超大消息裁剪阈值（字符，约 12k token）。 */
+  public static readonly DEFAULT_MAX_MESSAGE_CHARS = 48_000;
+
   /** 默认开始剪旧工具轮的比例。 */
   public static readonly DEFAULT_SNIP_AT_RATIO = 0.6;
 
@@ -64,10 +77,15 @@ export class ContextShapers {
   ): { readonly messages: readonly ModelMessage[]; readonly report: ContextShaperReport } {
     const beforeChars = ContextShapers.charsOf(messages);
     const aggressive = options.aggressive === true;
+    // 先裁 user/assistant 的超大单条消息，再裁工具结果：后者是常态、前者是兜底。
+    const oversized = ContextShapers.trimOversizedMessages(
+      messages,
+      options.maxMessageChars ?? ContextShapers.DEFAULT_MAX_MESSAGE_CHARS,
+    );
     // 2026-10-21：头尾裁剪对所有超长工具结果生效（确定性）。只裁最新一条会让旧消息在
     // 下一步恢复全文，token 省不下来且前缀缓存从该点断裂——这是实测的「每步回滚」缺陷。
     const trimmed = ContextShapers.trimToolResults(
-      messages,
+      oversized.messages,
       options.maxToolChars ?? ContextShapers.DEFAULT_MAX_TOOL_CHARS,
     );
     const snipped = aggressive
@@ -82,11 +100,42 @@ export class ContextShapers {
       messages: snipped.messages,
       report: {
         trimmedToolResults: trimmed.count,
+        trimmedMessages: oversized.count,
         snippedToolResults: snipped.count,
         beforeChars,
         afterChars: ContextShapers.charsOf(snipped.messages),
       },
     };
+  }
+
+  /**
+   * 第零层：单条 user/assistant 超大消息头尾裁剪。
+   *
+   * 工具结果有外溢器兜底，但 user/assistant 没有——一条 1 MB 的粘贴内容会恒超窗。
+   * 保留头 60% + 尾 30%，中段替换为可检索的裁剪标记（确定性，跨步不变）。
+   * @param messages 消息列表。
+   * @param maxChars 单条阈值。
+   * @returns 裁剪后的消息与条数。
+   */
+  private static trimOversizedMessages(
+    messages: readonly ModelMessage[],
+    maxChars: number,
+  ): { readonly messages: readonly ModelMessage[]; readonly count: number } {
+    let count = 0;
+    const out = messages.map((message) => {
+      if (message.role !== 'user' && message.role !== 'assistant') return message;
+      if (message.content.length <= maxChars) return message;
+      count += 1;
+      const head = message.content.slice(0, Math.floor(maxChars * 0.6));
+      const tail = message.content.slice(-Math.floor(maxChars * 0.3));
+      return {
+        ...message,
+        content: `${head}\n…（单条消息过长，中段已裁剪 ${String(
+          message.content.length - head.length - tail.length,
+        )} 字符；如需全文请重新读取源文件/分段发送）…\n${tail}`,
+      };
+    });
+    return { messages: out, count };
   }
 
   /**

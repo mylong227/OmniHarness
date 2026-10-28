@@ -128,15 +128,40 @@ export const DEFAULT_ROUTE_PRICING: Record<string, RoutePrice> = {
   o3: { inputPer1M: 10, outputPer1M: 40, cachedInputPer1M: 2.5 },
   'deepseek-chat': { inputPer1M: 0.27, outputPer1M: 1.1, cachedInputPer1M: 0.07 },
   'deepseek-reasoner': { inputPer1M: 0.55, outputPer1M: 2.19, cachedInputPer1M: 0.14 },
-  'claude-3-5-sonnet': { inputPer1M: 3, outputPer1M: 15, cachedInputPer1M: 0.3 },
-  'claude-3-haiku': { inputPer1M: 0.25, outputPer1M: 1.25, cachedInputPer1M: 0.03 },
-  'claude-3-opus': { inputPer1M: 15, outputPer1M: 75, cachedInputPer1M: 1.5 },
+  'claude-3-5-sonnet': {
+    inputPer1M: 3,
+    outputPer1M: 15,
+    cachedInputPer1M: 0.3,
+    cacheWriteInputPer1M: 3.75,
+  },
+  'claude-3-haiku': {
+    inputPer1M: 0.25,
+    outputPer1M: 1.25,
+    cachedInputPer1M: 0.03,
+    cacheWriteInputPer1M: 0.3125,
+  },
+  'claude-3-opus': {
+    inputPer1M: 15,
+    outputPer1M: 75,
+    cachedInputPer1M: 1.5,
+    cacheWriteInputPer1M: 18.75,
+  },
   // 出货默认的 Anthropic 两档（`defaults/providers.json` 的 anthropic 预设 models 列表）：
   // 与表内同档 3.x 行**同价**（同一公开价目档位），故不再单列新数字。
   // 缺这两行时 `claude-sonnet-4-20250514` 既不精确命中也不前缀命中 ⇒ 落兜底价 1.0/3.0，
   // 把 3/15 的真实单价低估 3×/5×（实测，2026-10-11）。
-  'claude-sonnet-4': { inputPer1M: 3, outputPer1M: 15, cachedInputPer1M: 0.3 },
-  'claude-opus-4': { inputPer1M: 15, outputPer1M: 75, cachedInputPer1M: 1.5 },
+  'claude-sonnet-4': {
+    inputPer1M: 3,
+    outputPer1M: 15,
+    cachedInputPer1M: 0.3,
+    cacheWriteInputPer1M: 3.75,
+  },
+  'claude-opus-4': {
+    inputPer1M: 15,
+    outputPer1M: 75,
+    cachedInputPer1M: 1.5,
+    cacheWriteInputPer1M: 18.75,
+  },
   // ── 2026-10-11：出货默认族里此前"只有登记、没有价目"的批次，按**公开价目**填入真实单价 ──
   // 来源与核对方式见 PRICE_SOURCES（固定到 blob SHA，可复核）；无来源的三个族仍留在
   // UNPRICED_DEFAULT_FAMILIES 并写明"查过什么、为什么仍不猜"。
@@ -166,7 +191,12 @@ export const DEFAULT_ROUTE_PRICING: Record<string, RoutePrice> = {
   'gemini-2.5-flash': { inputPer1M: 0.3, outputPer1M: 2.5, cachedInputPer1M: 0.03 },
   'gemini-2.5-flash-lite': { inputPer1M: 0.1, outputPer1M: 0.4, cachedInputPer1M: 0.01 },
   // Anthropic 3.5 Haiku（与表内 claude-3-haiku **不同价**，故必须单列）
-  'claude-3-5-haiku': { inputPer1M: 0.8, outputPer1M: 4, cachedInputPer1M: 0.08 },
+  'claude-3-5-haiku': {
+    inputPer1M: 0.8,
+    outputPer1M: 4,
+    cachedInputPer1M: 0.08,
+    cacheWriteInputPer1M: 1.0,
+  },
   // OpenAI GPT-4.1（与表内 gpt-4o 不同价）
   'gpt-4.1': { inputPer1M: 2, outputPer1M: 8, cachedInputPer1M: 0.5 },
   // ── 2026-10-15：Moonshot 出货预设迁移到**现役**型号后的定价（原 5 个型号已被厂商下线）──

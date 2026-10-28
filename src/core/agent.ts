@@ -587,6 +587,8 @@ export class Agent implements AgentPort {
       aborted: outcome.aborted,
       // G3-V2：验证状态如实透传（`unverified` 不得被上层读成"验证通过"）。
       verificationState: outcome.verificationState,
+      // 2026-10-28：子代 token 用量必须回传，否则父级看不到派生成本（audit A4）。
+      usageTokens: outcome.usageTokens,
     };
   }
 

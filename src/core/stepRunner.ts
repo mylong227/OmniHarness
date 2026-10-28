@@ -129,6 +129,13 @@ export class StepRunner {
       this.deps.recorder.usage(output.usage, this.lastModelName, this.lastContext);
     }
     if (output.toolCalls !== undefined && output.toolCalls.length > 0) {
+      // 2026-10-28：同一 step 既有文本又有工具调用时，**文本不能丢**。模型的计划/判断
+      // （"先改 A 再跑测试"）是后续压缩与复盘的关键；旧实现直接进 tool 分支，文本从未落事件流。
+      // 投影层已支持「assistant 文本 + assistant(tool_calls)」相邻（`appendAssistant` 会先 flush），
+      // 故先记录文本、再执行工具，事件顺序仍是 text → tool_call(s) → tool_result(s)。
+      if (output.text !== undefined && output.text !== '') {
+        this.deps.recorder.assistant(output.text, output.reasoning);
+      }
       this.lastToolCalls = output.toolCalls.map((c) => ({
         id: c.id,
         name: c.name,

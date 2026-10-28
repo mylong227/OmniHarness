@@ -29,4 +29,6 @@ export interface AgentResult {
    * "未核验通过"收尾（语义见 `ports/runtime/completionGate/verificationState.ts`）。
    */
   readonly verificationState?: VerificationState | undefined;
+  /** 本回合累计模型 token 用量（模型未上报 usage 时为 0/缺省）。 */
+  readonly usageTokens?: number | undefined;
 }

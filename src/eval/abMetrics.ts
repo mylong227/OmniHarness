@@ -24,6 +24,8 @@ export interface AbSummary {
   readonly runs: number;
   /** 成功次数。 */
   readonly successes: number;
+  /** pass@1：单次尝试成功率（successes / runs；0 次运行时为 0）。 */
+  readonly passAt1: number;
   /** pass@k：至少一次成功。 */
   readonly passAtK: boolean;
   /** pass^k：k 次全部成功。 */
@@ -44,6 +46,16 @@ export interface PairedDelta {
   readonly successDelta: number;
   /** B/A 的 token 总量比（A 为 0 时为 null）。 */
   readonly tokenRatio: number | null;
+  /**
+   * 成功率差的配对 bootstrap 95% 置信区间（2000 次重采样，固定种子 ⇒ 可复算）。
+   * n < 3 时退化为 `[successDelta, successDelta]`（样本太少，不假装有区间）。
+   */
+  readonly successDeltaCi95: readonly [number, number];
+  /**
+   * 80% 区间的半宽（bootstrap 的 q90−q10 再除 2），作为「可检测效应」的近似。
+   * 这是**观测数据驱动**的近似，不是正式功效分析；n 小或全同向时可能为 0。
+   */
+  readonly mde80: number;
 }
 
 /**
@@ -62,6 +74,7 @@ export class AbMetrics {
     return {
       runs: runs.length,
       successes,
+      passAt1: runs.length > 0 ? successes / runs.length : 0,
       passAtK: successes > 0,
       passAllK: runs.length > 0 && successes === runs.length,
       tokens,
@@ -79,12 +92,19 @@ export class AbMetrics {
   public static paired(a: readonly AbRun[], b: readonly AbRun[]): PairedDelta {
     const n = Math.min(a.length, b.length);
     if (n === 0) {
-      return { n: 0, successDelta: 0, tokenRatio: null };
+      return {
+        n: 0,
+        successDelta: 0,
+        tokenRatio: null,
+        successDeltaCi95: [0, 0],
+        mde80: 0,
+      };
     }
     let aOk = 0;
     let bOk = 0;
     let aTokens = 0;
     let bTokens = 0;
+    const diffs: number[] = [];
     for (let i = 0; i < n; i += 1) {
       const left = a[i] as AbRun;
       const right = b[i] as AbRun;
@@ -92,11 +112,48 @@ export class AbMetrics {
       if (right.ok) bOk += 1;
       aTokens += left.tokens;
       bTokens += right.tokens;
+      diffs.push((right.ok ? 1 : 0) - (left.ok ? 1 : 0));
     }
+    const successDelta = (bOk - aOk) / n;
+    const [ciLow, ciHigh, q10, q90] = AbMetrics.bootstrap(diffs);
     return {
       n,
-      successDelta: (bOk - aOk) / n,
+      successDelta,
       tokenRatio: aTokens > 0 ? bTokens / aTokens : null,
+      successDeltaCi95: n < 3 ? [successDelta, successDelta] : [ciLow, ciHigh],
+      mde80: n < 3 ? 1 : (q90 - q10) / 2,
     };
+  }
+
+  /**
+   * 配对差的 percentile bootstrap（固定种子，确定性可复算）。
+   *
+   * 为什么不用正态近似：通过率是 0/1 小样本，正态区间会越界到 [0,1] 外；
+   * percentile bootstrap 只需重采样均值，且能在报告里用同一段数据复跑出同一区间。
+   * @param diffs 每个配对的 0/1 差值（B−A）。
+   * @returns `[ci95Low, ci95High, q10, q90]`。
+   */
+  private static bootstrap(diffs: readonly number[]): [number, number, number, number] {
+    const n = diffs.length;
+    if (n === 0) return [0, 0, 0, 0];
+    // LCG：固定种子 + 数据规模参与，避免 Math.random 让报告不可复算。
+    let seed = (0x9e3779b9 ^ Math.imul(n, 2654435761)) >>> 0;
+    const random = (): number => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 0x1_0000_0000;
+    };
+    const samples: number[] = [];
+    const resamples = 2_000;
+    for (let r = 0; r < resamples; r += 1) {
+      let sum = 0;
+      for (let i = 0; i < n; i += 1) {
+        sum += diffs[Math.floor(random() * n)] as number;
+      }
+      samples.push(sum / n);
+    }
+    samples.sort((x, y) => x - y);
+    const at = (p: number): number =>
+      samples[Math.min(samples.length - 1, Math.max(0, Math.floor(p * samples.length)))] as number;
+    return [at(0.025), at(0.975), at(0.1), at(0.9)];
   }
 }

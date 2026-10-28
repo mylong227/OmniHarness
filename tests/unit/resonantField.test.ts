@@ -29,14 +29,32 @@ class MemLongTermMemory implements LongTermMemoryPort {
   }
   public update(
     id: string,
-    patch: { importance?: number; text?: string; expiresAt?: string },
+    patch: {
+      importance?: number;
+      text?: string;
+      expiresAt?: string;
+      lastRecallAt?: string;
+      recallCount?: number;
+      stabilityDays?: number;
+    },
   ): boolean {
     const f = this.facts.find((x) => x.id === id) as
-      { importance?: number; text?: string; expiresAt?: string } | undefined;
+      | {
+          importance?: number;
+          text?: string;
+          expiresAt?: string;
+          lastRecallAt?: string;
+          recallCount?: number;
+          stabilityDays?: number;
+        }
+      | undefined;
     if (f === undefined) return false;
     if (patch.importance !== undefined) f.importance = patch.importance;
     if (patch.text !== undefined) f.text = patch.text;
     if (patch.expiresAt !== undefined) f.expiresAt = patch.expiresAt;
+    if (patch.lastRecallAt !== undefined) f.lastRecallAt = patch.lastRecallAt;
+    if (patch.recallCount !== undefined) f.recallCount = patch.recallCount;
+    if (patch.stabilityDays !== undefined) f.stabilityDays = patch.stabilityDays;
     return true;
   }
   public delete(id: string): boolean {
@@ -153,6 +171,20 @@ test('⑥ 生产包装器召回也应用 untrusted 降权（不是只有 FileLon
     engine.recall('同一段记忆内容', 2).map((f) => f.id),
     ['t', 'u'],
   );
+});
+
+test('⑨ 间隔效应急开关在生产端口生效（2026-10-28）', () => {
+  const now = Date.parse('2026-10-28T00:00:00.000Z');
+  const mem = new MemLongTermMemory();
+  const engine = new ResonantFieldEngine(mem, { clock: () => now, spacing: true });
+  const stored = { ...fact('生产部署端口是 58217'), createdAt: '2025-01-01T00:00:00.000Z' };
+  engine.remember(stored);
+  engine.recall('生产部署端口', 5);
+  const after = mem.get(stored.id);
+  assert.ok(after !== undefined);
+  assert.strictEqual(after.recallCount, 1, '召回必须写回强化次数（否则开关是空的）');
+  assert.ok(after.lastRecallAt !== undefined);
+  assert.ok((after.stabilityDays ?? 0) > 0);
 });
 
 test('⑧ 同槽位值冲突不被黏附吞掉：新值落盘 + 旧值失效（2026-10-28）', () => {

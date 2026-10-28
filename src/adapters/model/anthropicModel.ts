@@ -180,12 +180,17 @@ export class AnthropicModel implements ModelPort {
     const toolCalls: ModelToolCallRef[] = [];
     for (const block of blocks) {
       if (block.id === undefined || block.name === undefined) continue;
-      const args = ToolArgumentParser.parse(block.partial);
+      const parsed = ToolArgumentParser.parseDetailed(block.partial);
       if (forcedName !== undefined && block.name === forcedName) {
-        structuredText += JSON.stringify(args);
+        structuredText += JSON.stringify(parsed.arguments);
         continue;
       }
-      toolCalls.push({ id: block.id, name: block.name, arguments: args });
+      toolCalls.push({
+        id: block.id,
+        name: block.name,
+        arguments: parsed.arguments,
+        ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
+      });
     }
     return { toolCalls, structuredText };
   }
@@ -494,14 +499,14 @@ export class AnthropicModel implements ModelPort {
     if (input === undefined && cached === undefined && cacheCreate === 0) return undefined;
     const promptTokens = (input ?? 0) + cacheCreate + (cached ?? 0);
     const completionTokens = typeof raw.output_tokens === 'number' ? raw.output_tokens : 0;
-    return cached === undefined
-      ? { promptTokens, completionTokens, totalTokens: promptTokens + completionTokens }
-      : {
-          promptTokens,
-          completionTokens,
-          totalTokens: promptTokens + completionTokens,
-          cachedPromptTokens: cached,
-        };
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      ...(cached === undefined ? {} : { cachedPromptTokens: cached }),
+      // 缓存写入单独计价（5 分钟 ephemeral = 1.25× 输入价）；混在 promptTokens 里会少记。
+      ...(cacheCreate > 0 ? { cacheCreationPromptTokens: cacheCreate } : {}),
+    };
   }
 
   /** 处理流式事件。

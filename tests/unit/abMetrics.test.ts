@@ -59,10 +59,44 @@ test('paired：成功率差与 token 比按下标对齐', () => {
 
 test('paired：长度不等时取较短者，A 为 0 token 时比值为 null', () => {
   const delta = AbMetrics.paired([], [{ ok: true, tokens: 1, wallMs: 1 }]);
-  assert.deepStrictEqual(delta, { n: 0, successDelta: 0, tokenRatio: null });
+  assert.deepStrictEqual(delta, {
+    n: 0,
+    successDelta: 0,
+    tokenRatio: null,
+    successDeltaCi95: [0, 0],
+    mde80: 0,
+  });
   const zero = AbMetrics.paired(
     [{ ok: true, tokens: 0, wallMs: 1 }],
     [{ ok: true, tokens: 10, wallMs: 1 }],
   );
   assert.strictEqual(zero.tokenRatio, null);
+});
+
+test('paired：给出配对 bootstrap CI 与 MDE 近似，且可复算', () => {
+  const a: AbRun[] = Array.from({ length: 20 }, (_, i) => ({
+    ok: i < 10,
+    tokens: 100,
+    wallMs: 1,
+  }));
+  const b: AbRun[] = Array.from({ length: 20 }, (_, i) => ({
+    ok: i < 12,
+    tokens: 100,
+    wallMs: 1,
+  }));
+  const first = AbMetrics.paired(a, b);
+  const second = AbMetrics.paired(a, b);
+  assert.strictEqual(first.successDelta, 0.1);
+  assert.ok(first.successDeltaCi95[0] <= 0.1 && first.successDeltaCi95[1] >= 0.1);
+  assert.ok(first.mde80 > 0, '有噪声时 MDE 应为正');
+  assert.deepStrictEqual(second, first, '固定种子 ⇒ 同数据必须同区间');
+});
+
+test('paired：样本 <3 不假装有区间', () => {
+  const delta = AbMetrics.paired(
+    [{ ok: true, tokens: 1, wallMs: 1 }],
+    [{ ok: false, tokens: 1, wallMs: 1 }],
+  );
+  assert.deepStrictEqual(delta.successDeltaCi95, [-1, -1]);
+  assert.strictEqual(delta.mde80, 1);
 });

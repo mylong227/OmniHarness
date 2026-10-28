@@ -9,11 +9,12 @@ import assert from 'node:assert/strict';
 import { ContextCompactor } from '../../src/context/contextCompactor.ts';
 import type { ModelMessage } from '../../src/ports/model/modelMessage.ts';
 
-/** 旧实现（参考口径）。 */
+/** 旧实现（参考口径；2026-10-28 起含 toolCalls）。 */
 function reference(messages: readonly ModelMessage[]): string {
   let h = 5381;
   for (const m of messages) {
-    const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}`;
+    const toolCallsKey = m.toolCalls === undefined ? '' : JSON.stringify(m.toolCalls);
+    const s = `${m.role}\u0000${m.content}\u0000${m.toolCallId ?? ''}\u0000${toolCallsKey}`;
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   }
   return (h >>> 0).toString(16);
@@ -54,4 +55,47 @@ test('headFingerprint：大前缀 warm 调用保持正确（缓存折叠）', ()
   const second = ContextCompactor.headFingerprint(messages);
   assert.strictEqual(second, first);
   assert.strictEqual(second, reference(messages));
+});
+
+test('headFingerprint：toolCalls 的入参必须进指纹（只改 args 也要变）', () => {
+  const base = {
+    role: 'assistant',
+    content: '',
+    toolCalls: [{ id: 'a', name: 'read_file', arguments: { path: 'a.ts' } }],
+  } as ModelMessage;
+  const same = {
+    role: 'assistant',
+    content: '',
+    toolCalls: [{ id: 'a', name: 'read_file', arguments: { path: 'a.ts' } }],
+  } as ModelMessage;
+  const changed = {
+    role: 'assistant',
+    content: '',
+    toolCalls: [{ id: 'a', name: 'read_file', arguments: { path: 'b.ts' } }],
+  } as ModelMessage;
+  assert.strictEqual(
+    ContextCompactor.headFingerprint([base]),
+    ContextCompactor.headFingerprint([same]),
+  );
+  assert.notStrictEqual(
+    ContextCompactor.headFingerprint([base]),
+    ContextCompactor.headFingerprint([changed]),
+    '只改工具入参时指纹必须变，否则会复用按旧参数折叠的摘要',
+  );
+  assert.strictEqual(ContextCompactor.headFingerprint([changed]), reference([changed]));
+});
+
+test('headFingerprint：同一消息对象原地改 toolCalls 后必须重算', () => {
+  const message = {
+    role: 'assistant',
+    content: '',
+    toolCalls: [{ id: 'a', name: 'read_file', arguments: { path: 'a.ts' } }],
+  } as ModelMessage & {
+    toolCalls: { id: string; name: string; arguments: Record<string, unknown> }[];
+  };
+  const first = ContextCompactor.headFingerprint([message]);
+  message.toolCalls[0]!.arguments['path'] = 'b.ts';
+  const second = ContextCompactor.headFingerprint([message]);
+  assert.notStrictEqual(first, second);
+  assert.strictEqual(second, reference([message]));
 });

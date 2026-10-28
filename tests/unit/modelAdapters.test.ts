@@ -647,6 +647,41 @@ test('OpenAI 兼容：流式「中途静默」被空闲超时中止（流式关�
   assert.strictEqual(err.retryable, true);
 });
 
+test('OpenAI 兼容：EOF 无 finish_reason/[DONE] ⇒ 报流不完整（不可重试）', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+  });
+  const body = 'data: {"choices":[{"delta":{"content":"半截"}}]}\n\n';
+  const err: unknown = await withFetch(
+    () => Promise.resolve(new Response(streamOf(body), { status: 200 })),
+    () => model.stream(request, { onText: () => {} }),
+  ).then(
+    () => undefined,
+    (e: unknown) => e,
+  );
+  assert.ok(err instanceof ModelCallError, `应抛 ModelCallError，实际 ${String(err)}`);
+  assert.match(err.message, /不完整/u);
+  assert.strictEqual(err.retryable, false, '已投递增量后不得重试（避免重复前缀/二次副作用）');
+});
+
+test('OpenAI 兼容：有 [DONE] 时即使没有 finish_reason 也算完整', async () => {
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+  });
+  const body = ['data: {"choices":[{"delta":{"content":"完整"}}]}\n\n', 'data: [DONE]\n\n'].join(
+    '',
+  );
+  const output = await withFetch(
+    () => Promise.resolve(new Response(streamOf(body), { status: 200 })),
+    () => model.stream(request, { onText: () => {} }),
+  );
+  assert.strictEqual(output.text, '完整');
+});
+
 test('OpenAI 兼容：流式慢但有进展不被误杀（空闲语义 ≠ 总时限）', async () => {
   const model = new OpenAiCompatibleModel({
     baseUrl: 'https://api.deepseek.com',

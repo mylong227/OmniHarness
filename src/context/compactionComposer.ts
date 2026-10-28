@@ -35,10 +35,10 @@ export class CompactionComposer {
     let final: readonly ModelMessage[] = [...prefix, ...tail];
     let dropped = 0;
     while (final.length > prefix.length + 1 && estimator.estimateMessages(final) > budget) {
-      const before = final.length;
-      const rest = final.slice(prefix.length);
-      final = [...prefix, ...ToolRoundSanitizer.sanitizeToolRounds(rest.slice(1))];
-      dropped += before - final.length;
+      const step = CompactionComposer.dropOldestTurn(final.slice(prefix.length));
+      if (step.dropped === 0) break;
+      final = [...prefix, ...step.body];
+      dropped += step.dropped;
     }
     if (estimator.estimateMessages(final) > budget) {
       // 只剩 pinned + 摘要 + 最新一条仍超预算：不再牺牲常驻指令与最新事实，如实留痕。
@@ -67,12 +67,13 @@ export class CompactionComposer {
     const sanitized = ToolRoundSanitizer.sanitizeToolRounds(messages);
     const prefixCount = CompactionComposer.leadingSystemCount(sanitized);
     const prefix = sanitized.slice(0, prefixCount);
-    let body = sanitized.slice(prefixCount);
+    let body: readonly ModelMessage[] = sanitized.slice(prefixCount);
     let dropped = 0;
     while (body.length > 1 && estimator.estimateMessages([...prefix, ...body]) > budget) {
-      const before = body.length;
-      body = ToolRoundSanitizer.sanitizeToolRounds(body.slice(1));
-      dropped += before - body.length;
+      const step = CompactionComposer.dropOldestTurn(body);
+      if (step.dropped === 0) break;
+      body = step.body;
+      dropped += step.dropped;
     }
     const current = [...prefix, ...body];
     if (estimator.estimateMessages(current) > budget) {
@@ -82,6 +83,31 @@ export class CompactionComposer {
       });
     }
     return { messages: current, dropped };
+  }
+
+  /**
+   * 从最旧一端丢弃**一整个对话轮**（而不是逐条丢）。
+   *
+   * 逐条丢 + 事后 sanitize 会把一个工具轮从中间切开：实测一次丢掉「user + 整轮工具结果」
+   * 4 条，只剩 pinned + 摘要，模型看不到最新指令/结果。按轮丢的边界：
+   *  - 从 body[0] 开始，找到**下一个 user 消息**（它就是下一轮起点）；
+   *  - 找不到下一个 user（body 全是 assistant/tool）时，只保留最后一条（最新事实）。
+   * @param body 已去前导 system 的消息体。
+   * @returns 丢弃后的消息体与实际丢弃条数。
+   */
+  private static dropOldestTurn(body: readonly ModelMessage[]): {
+    readonly body: readonly ModelMessage[];
+    readonly dropped: number;
+  } {
+    if (body.length <= 1) {
+      return { body, dropped: 0 };
+    }
+    let end = 1;
+    while (end < body.length && body[end]?.role !== 'user') end += 1;
+    // 没有下一轮起点：保留最后一条，避免把「最新事实」一起丢光。
+    if (end >= body.length) end = body.length - 1;
+    const next = ToolRoundSanitizer.sanitizeToolRounds(body.slice(end));
+    return { body: next, dropped: body.length - next.length };
   }
 
   /**

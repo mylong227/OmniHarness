@@ -122,12 +122,20 @@ export class CostBudget implements CostBudgetPort {
       this.unpricedModelNames.add(model);
     }
     const cached = CostBudget.clampCached(usage.cachedPromptTokens, usage.promptTokens);
+    const cacheCreate = CostBudget.clampCached(
+      usage.cacheCreationPromptTokens,
+      usage.promptTokens - cached,
+    );
     this.cachedTokens += cached;
-    const uncached = usage.promptTokens - cached;
+    const uncached = usage.promptTokens - cached - cacheCreate;
     const cachedUnit = price.cachedInputPer1M ?? price.inputPer1M;
+    const cacheWriteUnit = price.cacheWriteInputPer1M ?? price.inputPer1M;
     const outputCost = (usage.completionTokens / 1_000_000) * price.outputPer1M;
     const cost =
-      (uncached / 1_000_000) * price.inputPer1M + (cached / 1_000_000) * cachedUnit + outputCost;
+      (uncached / 1_000_000) * price.inputPer1M +
+      (cached / 1_000_000) * cachedUnit +
+      (cacheCreate / 1_000_000) * cacheWriteUnit +
+      outputCost;
     // 无缓存时的等价成本：仅用于量化「缓存省了多少」，不参与花费累计。
     const noCacheCost = (usage.promptTokens / 1_000_000) * price.inputPer1M + outputCost;
     this.savedUsdValue += Math.max(0, noCacheCost - cost);

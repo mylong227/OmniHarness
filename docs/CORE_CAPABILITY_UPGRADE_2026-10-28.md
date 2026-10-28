@@ -257,48 +257,48 @@ deletion**。论文还提出 User-conditioned Relational Agent Memory（URAM）�
 
 ### 4.1 P0：已经确认、必须修的静默失效
 
-| ID  | 缺口                                                                   | 证据（file:line）                                                               | 影响                                                  | 离线判据                                                        | 状态                             |
-| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------- | -------------------------------- |
-| C1  | 摘要失败把 `[历史已省略]` 写进压缩游标并长期复用                       | `compactionSummarizer.ts:86-95`；`contextCompactor.ts:422-431`                  | 一次 429 ⇒ 后续每步都复用 7 字占位，长会话永久失忆    | 必抛模型 + `force` ⇒ `state===undefined`、`degraded===true`     | **✅ 本轮已修**                  |
-| C2  | 完成闸门以 `changedCount===0` 跳过；shell 写文件会 `invalidate()` 清 0 | `turnRunner.ts:544-553`；`turnDiffHooks.ts:103-106`；`turnDiffTracker.ts:88-92` | `node`/重定向/脚本改过文件后，宣布完成**从不跑验证**  | tracker `isValid:false` + count 0 ⇒ `gate.verify` 被调用        | **✅ 本轮已修**                  |
-| C3  | primer fallback 不过滤 `expiresAt`                                     | `sessionInjector.ts:222-231`                                                    | 已被 supersede 的旧值在每会话开场复活                 | `expiresAt=2020` + importance 5 ⇒ 不出现在 primer               | **✅ 本轮已修**                  |
-| C4  | 蒸馏游标是单实例全局量                                                 | `memoryExtractor.ts:58,87,161`；`memoryStackAssembler.ts:171-178`               | 短会话被长会话游标跳过，**完全不蒸馏且无日志**        | 同实例 A(5 事件) 后 B(2 事件) ⇒ 返回 1 而非 0                   | **✅ 本轮已修**                  |
-| C5  | 共振黏附吞掉同槽位新值，工具仍回 `stored:true`                         | `resonantFieldEngine.ts:134-164`；`rememberTool.ts:73-79`                       | 更正/新值永久丢失，recall 继续返回旧值                | 写 58217 → 58218 ⇒ base 2 条、旧值 `expiresAt`、recall 只回新值 | **✅ 本轮已修**                  |
-| C6  | `recall` 工具丢弃 `trust`/`expiresAt`                                  | `recallTool.ts:60-64`                                                           | 模型看不到"这条记忆来自未验证工具输出"                | 输出 JSON 含 `"trust":"untrusted"`                              | **✅ 本轮已修**                  |
-| C7  | 单条超大 user/assistant 消息不裁（仅 tool >24k 裁）                    | `contextShapers.ts:98-116`；`compactionComposer.ts:37-42`                       | 1MB 消息 ⇒ 恒超窗 ⇒ 400 ⇒ 强压无效 ⇒ 回合硬崩         | 1MB user ⇒ 估算 ≤ 预算或带截断标记                              | 待办（1 人日）                   |
-| C8  | 丢弃 tail 非轮对齐，可一次丢 "user + 整轮工具结果" 4 条                | `compactionComposer.ts:37-42`                                                   | 丢掉最需要的当前工具结果/最新用户指令                 | dropped 按整轮计 + 保留最新非 orphan 消息                       | 待办（1 人日）                   |
-| C9  | 同一步 assistant 文本在 tool_calls 分支被丢                            | `stepRunner.ts:131-147`                                                         | 模型的计划文字不进历史/摘要，压缩后"为什么这么做"消失 | text+toolCalls ⇒ 事件流含该文本                                 | 待办（0.5 人日，需先定投影形态） |
-| C10 | 压缩游标指纹忽略 toolCalls/args                                        | `contextCompactor.ts:715-744`                                                   | 只改参数不改文本时复用旧摘要                          | 只改 args ⇒ 指纹必须变                                          | 待办（0.5 人日）                 |
+| ID  | 缺口                                                                   | 证据（file:line）                                                               | 影响                                                  | 离线判据                                                        | 状态              |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------- | ----------------- |
+| C1  | 摘要失败把 `[历史已省略]` 写进压缩游标并长期复用                       | `compactionSummarizer.ts:86-95`；`contextCompactor.ts:422-431`                  | 一次 429 ⇒ 后续每步都复用 7 字占位，长会话永久失忆    | 必抛模型 + `force` ⇒ `state===undefined`、`degraded===true`     | **✅ 本轮已修**   |
+| C2  | 完成闸门以 `changedCount===0` 跳过；shell 写文件会 `invalidate()` 清 0 | `turnRunner.ts:544-553`；`turnDiffHooks.ts:103-106`；`turnDiffTracker.ts:88-92` | `node`/重定向/脚本改过文件后，宣布完成**从不跑验证**  | tracker `isValid:false` + count 0 ⇒ `gate.verify` 被调用        | **✅ 本轮已修**   |
+| C3  | primer fallback 不过滤 `expiresAt`                                     | `sessionInjector.ts:222-231`                                                    | 已被 supersede 的旧值在每会话开场复活                 | `expiresAt=2020` + importance 5 ⇒ 不出现在 primer               | **✅ 本轮已修**   |
+| C4  | 蒸馏游标是单实例全局量                                                 | `memoryExtractor.ts:58,87,161`；`memoryStackAssembler.ts:171-178`               | 短会话被长会话游标跳过，**完全不蒸馏且无日志**        | 同实例 A(5 事件) 后 B(2 事件) ⇒ 返回 1 而非 0                   | **✅ 本轮已修**   |
+| C5  | 共振黏附吞掉同槽位新值，工具仍回 `stored:true`                         | `resonantFieldEngine.ts:134-164`；`rememberTool.ts:73-79`                       | 更正/新值永久丢失，recall 继续返回旧值                | 写 58217 → 58218 ⇒ base 2 条、旧值 `expiresAt`、recall 只回新值 | **✅ 本轮已修**   |
+| C6  | `recall` 工具丢弃 `trust`/`expiresAt`                                  | `recallTool.ts:60-64`                                                           | 模型看不到"这条记忆来自未验证工具输出"                | 输出 JSON 含 `"trust":"untrusted"`                              | **✅ 本轮已修**   |
+| C7  | 单条超大 user/assistant 消息不裁（仅 tool >24k 裁）                    | `contextShapers.ts:98-116`；`compactionComposer.ts:37-42`                       | 1MB 消息 ⇒ 恒超窗 ⇒ 400 ⇒ 强压无效 ⇒ 回合硬崩         | 1MB user ⇒ 估算 ≤ 预算或带截断标记                              | **✅ 第二批已修** |
+| C8  | 丢弃 tail 非轮对齐，可一次丢 "user + 整轮工具结果" 4 条                | `compactionComposer.ts:37-42`                                                   | 丢掉最需要的当前工具结果/最新用户指令                 | dropped 按整轮计 + 保留最新非 orphan 消息                       | **✅ 第二批已修** |
+| C9  | 同一步 assistant 文本在 tool_calls 分支被丢                            | `stepRunner.ts:131-147`                                                         | 模型的计划文字不进历史/摘要，压缩后"为什么这么做"消失 | text+toolCalls ⇒ 事件流含该文本                                 | **✅ 第二批已修** |
+| C10 | 压缩游标指纹忽略 toolCalls/args                                        | `contextCompactor.ts:715-744`                                                   | 只改参数不改文本时复用旧摘要                          | 只改 args ⇒ 指纹必须变                                          | **✅ 第二批已修** |
 
 ### 4.2 P1：证据、统计与"声明=实现"
 
-| ID  | 缺口                                                                     | 证据                                                                         | 影响                                         | 判据                                                           | 人日 |
-| --- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------- | ---- |
-| E1  | 流截断被当正常完成：EOF 残余缓冲直接 emit，`finishReason` 可能 undefined | `sseParser.ts:60-63`；`openAiCompatibleModel.ts:170`                         | 半截工具参数被执行；重试重复已发前缀         | 无 `finish_reason`/`[DONE]` 的 SSE 必须报错/标 incomplete      | 4    |
-| E2  | Anthropic thinking signature / Gemini thoughtSignature 不回传            | `anthropicModel.ts:580-582`；`geminiModel.ts:515-534`                        | 多轮思考 + 工具丢上下文/降质（协议要求回传） | mock SSE 注入 signature ⇒ 下轮请求原样回传                     | 4    |
-| E3  | `cache_creation` 折进 promptTokens 按普通输入计价                        | `anthropicModel.ts:491-495`；`costBudget.ts:127-130`                         | 缓存写入溢价漏记，硬预算低估                 | mock usage input=100/create=1000 ⇒ 成本含写入价                | 2    |
-| E4  | 非法工具参数回退 `{}`，无 schema 校验/修复重试                           | `toolArgumentParser.ts:22-31`                                                | 空参数执行，静默错操作                       | 喂 `{"a":1` ⇒ 修复或报错，不得 `{}`                            | 4    |
-| E5  | 评测无 CI/MDE/功效、k 默认 1、A/B 串行                                   | `abMetrics.ts:33-47`；`harnessAb.mjs`                                        | 2–10pp 差异不可判显著，时间漂移混淆          | 已知 10pp 效应的合成 run ⇒ 报告含 bootstrap CI/MDE 且 A/B 交错 | 4    |
-| E6  | 任务集 20 个、16 个同模板、无 held-out/digest/外部集                     | `longTaskCatalog.ts:14-15`；`long-tasks/README.md`                           | 分数不可外推，公开任务有污染风险             | 任务元数据（类别/多文件比例/n-gram 重叠）+ 数据哈希            | 10   |
-| E7  | 记忆探针跑非生产端口；生产封包自评 L0 零增益                             | `memoryLiftProbe.mjs:109`；`longMemEval.mjs`；`resonantFieldEngine.ts:17-18` | 80%/100% 与线上无关                          | 同事实集两端口 recall 集合/排序对比                            | 2    |
-| E8  | `OMNI_MEMORY_FORGETTING=1` 在生产端口是空开关                            | `fileLongTermMemory.ts:178-207` 被 `resonantFieldEngine.ts:331-350` 覆盖     | 打开遗忘无效果，指标不可归因                 | 开 env 经生产端口 recall，断言 `recallCount` 变化              | 1    |
-| E9  | ACP 能力声明 > 实现（mcp http/sse、image/audio、cursor）                 | `acpServer.ts:263-269`；`acpProtocol.ts:309-315`                             | 客户端按声明调用会失败                       | initialize 能力矩阵逐项断言                                    | 3    |
-| E10 | AG-UI `STEP_STARTED/FINISHED` 声明但不产生；输入 state 被忽略            | `aguiProtocol.ts:72-86`；`aguiHttpServer.ts:188-189`                         | 事件子集可用，状态恢复缺失                   | 跑一步断言事件序列                                             | 3    |
+| ID    | 缺口                                                                     | 证据                                                                         | 影响                                         | 判据                                                           | 人日        |
+| ----- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------- | ----------- |
+| ✅ E1 | 流截断被当正常完成：EOF 残余缓冲直接 emit，`finishReason` 可能 undefined | `sseParser.ts:60-63`；`openAiCompatibleModel.ts:170`                         | 半截工具参数被执行；重试重复已发前缀         | 无 `finish_reason`/`[DONE]` 的 SSE 必须报错/标 incomplete      | 已修        |
+| E2    | Anthropic thinking signature / Gemini thoughtSignature 不回传            | `anthropicModel.ts:580-582`；`geminiModel.ts:515-534`                        | 多轮思考 + 工具丢上下文/降质（协议要求回传） | mock SSE 注入 signature ⇒ 下轮请求原样回传                     | 4           |
+| ✅ E3 | `cache_creation` 折进 promptTokens 按普通输入计价                        | `anthropicModel.ts:491-495`；`costBudget.ts:127-130`                         | 缓存写入溢价漏记，硬预算低估                 | mock usage input=100/create=1000 ⇒ 成本含写入价                | 已修        |
+| ✅ E4 | 非法工具参数回退 `{}`，无 schema 校验/修复重试                           | `toolArgumentParser.ts:22-31`                                                | 空参数执行，静默错操作                       | 喂 `{"a":1` ⇒ 修复或报错，不得 `{}`                            | 已修        |
+| ◐ E5  | 评测无 CI/MDE/功效、k 默认 1、A/B 串行                                   | `abMetrics.ts:33-47`；`harnessAb.mjs`                                        | 2–10pp 差异不可判显著，时间漂移混淆          | 已知 10pp 效应的合成 run ⇒ 报告含 bootstrap CI/MDE 且 A/B 交错 | CI/MDE 已加 |
+| E6    | 任务集 20 个、16 个同模板、无 held-out/digest/外部集                     | `longTaskCatalog.ts:14-15`；`long-tasks/README.md`                           | 分数不可外推，公开任务有污染风险             | 任务元数据（类别/多文件比例/n-gram 重叠）+ 数据哈希            | 10          |
+| E7    | 记忆探针跑非生产端口；生产封包自评 L0 零增益                             | `memoryLiftProbe.mjs:109`；`longMemEval.mjs`；`resonantFieldEngine.ts:17-18` | 80%/100% 与线上无关                          | 同事实集两端口 recall 集合/排序对比                            | 2           |
+| ✅ E8 | `OMNI_MEMORY_FORGETTING=1` 在生产端口是空开关                            | `fileLongTermMemory.ts:178-207` 被 `resonantFieldEngine.ts:331-350` 覆盖     | 打开遗忘无效果，指标不可归因                 | 开 env 经生产端口 recall，断言 `recallCount` 变化              | 已修        |
+| E9    | ACP 能力声明 > 实现（mcp http/sse、image/audio、cursor）                 | `acpServer.ts:263-269`；`acpProtocol.ts:309-315`                             | 客户端按声明调用会失败                       | initialize 能力矩阵逐项断言                                    | 3           |
+| E10   | AG-UI `STEP_STARTED/FINISHED` 声明但不产生；输入 state 被忽略            | `aguiProtocol.ts:72-86`；`aguiHttpServer.ts:188-189`                         | 事件子集可用，状态恢复缺失                   | 跑一步断言事件序列                                             | 3           |
 
 ### 4.3 P2：能力与体验
 
-| ID  | 缺口                                                                             | 证据                                                      | 影响                                          | 人日 |
-| --- | -------------------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- | ---- |
-| A1  | `run_plan` 未从子代工具视图剔除，可递归派生                                      | `subagentRunner.ts:26-30`；`runPlanTool.ts:66-86`         | `maxDepth` 形同虚设，成本/安全双风险          | 3    |
-| A2  | MCP 桥接工具 `server__tool` 未登记，绕过 planner/ToolIndex；schema 无 token 上限 | `toolExposurePlanner.ts:456-477`；`cliBuildConfig.ts:436` | 工具越多每步越慢越贵，暴露规划器收益被抵消    | 2    |
-| A3  | 工具级重试缺失（只有模型层重试）                                                 | `stepToolExecutor.ts:218-230`；`mcpGateway.ts:331-358`    | 瞬时失败烧整步；副作用工具不敢重试            | 3    |
-| A4  | 子代理步数默认 0=不限，无 token/费用聚合                                         | `subagentTypes.ts:26`                                     | 不收敛子代可烧无限 token，父级看不到          | 2    |
-| A5  | workflow 共享主工作区、无回滚/超时/重试、resume 不保证幂等                       | `workflowRunner.ts:571-624,545-561,177-179`               | 失败留半成品；挂起拖住整层；resume 重复副作用 | 5    |
-| A6  | A2A 同 `messageId` 重发会重建任务并重跑                                          | `a2aV1Methods.ts:99,351`；`a2aTaskStore.ts:90-98`         | 重试导致重复副作用                            | 3    |
-| A7  | 技能发现索引全文，正文懒加载未落地；无信任分级/注册表                            | `skillRetriever.ts:61-71`；`skillActivationPlanner.ts`    | 发现成本随技能增长；第三方技能无信任档        | 4    |
-| A8  | 无会话 fork/树、无回合中 steering                                                | `grep forkSession/branchSession/steer` 零命中             | 用户不能"从这里分叉试另一条路"，长任务交互弱  | 6–8  |
-| A9  | 代码检索只测文件级，无符号级 hit@K                                               | `recallHitrate.mjs:41`；`recallKnobs.ts:52-58`            | 符号级劣化不可见                              | 2    |
-| A10 | 记忆无 token 预算/GC；多进程写同一 jsonl 可能互相覆盖（未验证）                  | `fileLongTermMemory.ts:375-388`；`recallKnobs.ts:52-58`   | 注入成本不可控；并发写丢数据                  | 3    |
+| ID    | 缺口                                                                             | 证据                                                      | 影响                                          | 人日                           |
+| ----- | -------------------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------- | ------------------------------ |
+| ✅ A1 | `run_plan` 未从子代工具视图剔除，可递归派生                                      | `subagentRunner.ts:26-30`；`runPlanTool.ts:66-86`         | `maxDepth` 形同虚设，成本/安全双风险          | 已修                           |
+| A2    | MCP 桥接工具 `server__tool` 未登记，绕过 planner/ToolIndex；schema 无 token 上限 | `toolExposurePlanner.ts:456-477`；`cliBuildConfig.ts:436` | 工具越多每步越慢越贵，暴露规划器收益被抵消    | 2                              |
+| A3    | 工具级重试缺失（只有模型层重试）                                                 | `stepToolExecutor.ts:218-230`；`mcpGateway.ts:331-358`    | 瞬时失败烧整步；副作用工具不敢重试            | 3                              |
+| ◐ A4  | 子代理步数默认 0=不限，无 token/费用聚合                                         | `subagentTypes.ts:26`                                     | 不收敛子代可烧无限 token，父级看不到          | 用量聚合已修；0=不限是既定策略 |
+| A5    | workflow 共享主工作区、无回滚/超时/重试、resume 不保证幂等                       | `workflowRunner.ts:571-624,545-561,177-179`               | 失败留半成品；挂起拖住整层；resume 重复副作用 | 5                              |
+| ✅ A6 | A2A 同 `messageId` 重发会重建任务并重跑                                          | `a2aV1Methods.ts:99,351`；`a2aTaskStore.ts:90-98`         | 重试导致重复副作用                            | 已修                           |
+| A7    | 技能发现索引全文，正文懒加载未落地；无信任分级/注册表                            | `skillRetriever.ts:61-71`；`skillActivationPlanner.ts`    | 发现成本随技能增长；第三方技能无信任档        | 4                              |
+| A8    | 无会话 fork/树、无回合中 steering                                                | `grep forkSession/branchSession/steer` 零命中             | 用户不能"从这里分叉试另一条路"，长任务交互弱  | 6–8                            |
+| A9    | 代码检索只测文件级，无符号级 hit@K                                               | `recallHitrate.mjs:41`；`recallKnobs.ts:52-58`            | 符号级劣化不可见                              | 2                              |
+| A10   | 记忆无 token 预算/GC；多进程写同一 jsonl 可能互相覆盖（未验证）                  | `fileLongTermMemory.ts:375-388`；`recallKnobs.ts:52-58`   | 注入成本不可控；并发写丢数据                  | 3                              |
 
 ### 4.4 P3：减法与卫生
 
@@ -468,6 +468,58 @@ node scripts/check.mjs --strict   # 1278 + 190 文件零违规
 
 ---
 
+### 6.8 第二批（同日续）：上下文完整性 / 流与成本 / 工具韧性
+
+> 这一批的目标是"把静默错误变成显式失败"，仍不产生能力增益声明。
+
+| 项                  | 修法                                                                                                                                                                            | 判据                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **C7 超大消息**     | `ContextShapers` 增加 `maxMessageChars`（默认 48k，约 12k token）：user/assistant 超限时保留头 60% + 尾 30%，中段替换为可检索的裁剪标记；确定性、跨步稳定                       | `contextShapers.test.ts`：200k 消息被裁到 <2k、系统提示不动、重复应用逐字节一致                               |
+| **C8 按轮丢弃**     | `CompactionComposer` 新增 `dropOldestTurn`：以下一个 user 消息为轮边界，整轮丢弃；无下一轮时只保留最后一条                                                                      | `compactionTurnDrop.test.ts`：丢弃 5 条整轮，旧轮 assistant/tool 不残留，latest 保留                          |
+| **C9 文本+工具**    | `StepRunner` 在 toolCalls 分支先记录 `output.text`（投影层已支持 text → tool_calls 相邻），再做工具执行                                                                         | `stepAssistantText.test.ts`：事件序 text < tool_call；下一轮请求同时含文本与 toolCalls                        |
+| **C10 指纹**        | `headFingerprint` 把 `JSON.stringify(toolCalls)` 纳入片段与缓存比较                                                                                                             | `compactorFingerprint.test.ts`：只改 args、甚至原地改 args，指纹都必须变                                      |
+| **E1 流完整性**     | `StreamState.sawDone` + EOF 检查：无 `finish_reason` 且无 `[DONE]` ⇒ 抛**不可重试**的 `ModelCallError`（已投递增量，重试会重复前缀/二次副作用）                                 | `modelAdapters.test.ts`：截断流报"不完整"且 `retryable:false`；有 `[DONE]` 正常完成                           |
+| **E3 缓存写入成本** | `ModelUsage.cacheCreationPromptTokens` + `RoutePrice.cacheWriteInputPer1M`；Anthropic 五条价目按 5 分钟档 1.25× 登记；`CostBudget` 把写入量从普通输入里拆出单独计价             | `costBudget.test.ts`：input=100/create=1000 ⇒ $0.00405（3 + 3.75 单价）                                       |
+| **E4 JSON 修复**    | `ToolArgumentParser.parseDetailed`：围栏/单引号/尾逗号/未闭合字符串与括号的确定性修复；修不好返回 `error`；`ToolCall.parseError` 让执行器在**一切门禁之前**拒绝并补配对失败结果 | `toolArgumentParser.test.ts` 4 例；`stepToolExecutorPairing.test.ts` ⑤：不可修复 ⇒ 工具零执行、失败原因可行动 |
+| **E5 统计功效**     | `AbMetrics.paired` 增加配对 bootstrap 95% CI（2000 次、固定种子）与 `mde80`（q90−q10 半宽）；`AbSummary` 增加 `passAt1`                                                         | `abMetrics.test.ts`：10pp 效应 CI 覆盖点估计、同数据两次结果逐位相同、n<3 不假装有区间                        |
+| **E8 遗忘开关**     | `ResonantFieldEngine` 接入 `SpacingEffect.rankWithSpacing`：召回命中写回 `lastRecallAt`/`recallCount`/`stabilityDays`；`spacing` 可由选项或 env 控制                            | `resonantField.test.ts` ⑨：生产端口开 `spacing` ⇒ `recallCount=1`、稳定度增长                                 |
+| **A1 递归入口**     | `SubagentRunner.RECURSION_TOOLS` 补 `run_plan` / `delegate` / `a2a_delegate`（原有 subagent/run_workflow/run_goal）                                                             | `subagent.test.ts`：子代工具视图对五个间接入口全部不可见                                                      |
+| **A3 工具重试**     | 只读工具（read_file/list_dir/glob/grep/web_fetch/web_search/memory_search/recall）遇瞬态错误重试一次；写类/shell 一次到位                                                       | `stepToolExecutorPairing.test.ts` ⑤：read_file 两次尝试后成功；write_file 只尝试一次并记失败                  |
+| **A4 用量回传**     | `AgentResult.usageTokens` → `SubagentResult.usageTokens`，父级可聚合派生成本（默认 0=不限步数是既定策略，不改）                                                                 | `subagent.test.ts`：子代 `usageTokens=15`                                                                     |
+| **A6 A2A 幂等**     | `message/send` 以 `messageId` 为幂等键：任务已存在则原样返回快照，不重建、不重跑 handler                                                                                        | `a2aV1.test.ts`：同 messageId 发两次，handler 只执行 1 次、返回同一任务                                       |
+
+**本批验证（实跑）**
+
+```text
+npx vitest run --project node tests/unit/contextShapers.test.ts \
+  tests/unit/compactionTurnDrop.test.ts tests/unit/stepAssistantText.test.ts \
+  tests/unit/compactorFingerprint.test.ts tests/unit/modelAdapters.test.ts \
+  tests/unit/costBudget.test.ts tests/unit/toolArgumentParser.test.ts \
+  tests/unit/stepToolExecutorPairing.test.ts tests/unit/abMetrics.test.ts \
+  tests/unit/resonantField.test.ts tests/unit/subagent.test.ts tests/unit/a2aV1.test.ts
+# 全部通过（逐文件计数见看板 §117）
+```
+
+### 6.9 仍未处理项（诚实登记，不假装已解决）
+
+| ID                       | 为什么本轮不做                                                                                                                                   | 前置 / 下一步                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| E2 推理签名回传          | Anthropic `signature_delta` / Gemini `thoughtSignature` 的**真实 wire 形状**需要真 provider 验证；只按记忆改会造出"看起来支持、实际 400"的假能力 | 用真 key 抓一次原始 SSE 帧 → 加字段 → mock 帧判据（4 人日）      |
+| E6 任务集扩容            | 40+ 任务需要逐个写 fixture/verifier/参考解，不能靠模板灌水；本轮只加了统计口径                                                                   | 按"多文件重构/调试/上下文密集/误导性错误"四类各 10 个（10 人日） |
+| E7 记忆探针搬生产端口    | 需要先把探针从 `FileLongTermMemory` 改为经 `MemoryStackAssembler` 注入；改动会牵动探针基线                                                       | 同事实集两端口对照 + 冻结新基线（2 人日）                        |
+| E9 ACP cursor 分页       | 能力声明已对 mcp http/sse、image/audio 显式 `false`；剩余只是 `session/list` 的 cursor 语义                                                      | 加 `nextCursor` + 分页判据（1–2 人日）                           |
+| E10 AG-UI STEP 事件      | 需要在 `aguiHttpServer` 的 run 生命周期里补发 `STEP_STARTED/FINISHED` 并处理 state 恢复                                                          | 先定事件时序契约，再补 e2e（3 人日）                             |
+| A2 MCP 工具纳入 planner  | 桥接工具在 planner 建索引之后注册；要重排组合根顺序并给 schema 加 token 预算                                                                     | 先在 `toolExposurePlanner` 加"后注册工具"入口（2 人日）          |
+| A5 workflow 隔离/回滚    | 需要 worktree 级隔离 + 步骤幂等键 + 超时/重试策略，属结构性改动                                                                                  | 先落 ADR，再按步骤隔离（5 人日）                                 |
+| A7 技能懒加载/信任分级   | 涉及 skill 注册表、注入路径与第三方来源策略，需产品决策                                                                                          | 先做"发现只读元数据"的兼容层（4 人日）                           |
+| A8 会话 fork / steering  | 会话树是持久化格式变更（事件日志/恢复/回滚都要跟着改），不能局部补                                                                               | 先定 fork 语义与存储布局（6–8 人日）                             |
+| A9 符号级召回指标        | 需要给探针加符号级 query 集与 oracle，属评测建设                                                                                                 | 与 E6 一起做（2 人日）                                           |
+| A10 记忆 GC / token 预算 | 需要定"删哪些、何时删"的保守策略；当前先保证不静默丢事实                                                                                         | 先做只读统计 + dry-run（3 人日）                                 |
+| S1 共振场默认档          | 必须先有 E7 的两端口 A/B 数据，不能凭印象翻默认                                                                                                  | E7 完成后按预注册规则裁决                                        |
+| S2/S3                    | 前端 49 个长函数与任务集扩容都是持续清偿项                                                                                                       | 按"改动即拆"与 E6 推进                                           |
+
+---
+
 ## 7. 反泡沫清单（明确不做）
 
 与 [`ARCHITECTURE_UPGRADE_2026-10.md`](ARCHITECTURE_UPGRADE_2026-10.md) §5 一致的项不再重复；
@@ -489,7 +541,8 @@ node scripts/check.mjs --strict   # 1278 + 190 文件零违规
 
 1. **单机单模型**：所有真机结论来自一台 Windows；真模型基线只有 `deepseek-v4-flash`。
    本文不声称跨厂商/跨机器可复现。
-2. **本轮 6 项是正确性修复**：没有跑真模型长任务，不产生 pass@1/成本增益数字。
+2. **两批共 19 项是正确性/证据修复**（A4 为部分：用量已回传，0=不限步数是既定策略）：
+   没有跑真模型长任务，不产生 pass@1/成本增益数字。
 3. **外部数字是检索快照**：44pp、9.2%、11pp、60.6pp 等均为论文自报，未在本机复现；
    引用它们是用于"方向判断"，不是"本仓成绩"。
 4. **探针与生产端口不一致**：记忆 primer 的 80%/100% 仍是非生产端口数字；U1 的 E7

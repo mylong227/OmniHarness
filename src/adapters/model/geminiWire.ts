@@ -8,7 +8,7 @@ import type {
 import { ModelFinishReasons } from '../../util/modelFinishReasons.ts';
 import { log } from '../../util/logger.ts';
 import { ModelHttpErrors } from './modelHttpErrors.ts';
-import { ToolArgumentParser } from './toolArgumentParser.ts';
+import { ToolArgumentParser, type ParsedToolArguments } from './toolArgumentParser.ts';
 import type {
   GeminiErrorPayload,
   GeminiFunctionCall,
@@ -144,7 +144,13 @@ export class GeminiWire {
     counts.set(name, seen + 1);
     const explicitId = typeof call.id === 'string' ? call.id.trim() : '';
     const id = explicitId !== '' ? explicitId : seen === 0 ? name : `${name}#${String(seen + 1)}`;
-    return { id, name, arguments: GeminiWire.argumentsOf(call.args) };
+    const parsed = GeminiWire.argumentsOfDetailed(call.args);
+    return {
+      id,
+      name,
+      arguments: parsed.arguments,
+      ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
+    };
   }
 
   /**
@@ -153,19 +159,31 @@ export class GeminiWire {
    * @returns 参数对象；非法时为空对象（与 ToolArgumentParser 的 fail-closed 语义一致）。
    */
   public static argumentsOf(raw: unknown): Record<string, unknown> {
+    return GeminiWire.argumentsOfDetailed(raw).arguments;
+  }
+
+  /**
+   * 工具参数窄化（带诊断）：字符串 JSON 不可修复时把 `error` 交给调用方 fail-closed。
+   * @param raw wire 层参数（对象 / JSON 字符串 / 缺失）。
+   * @returns 参数对象与可选错误说明。
+   */
+  public static argumentsOfDetailed(raw: unknown): ParsedToolArguments {
     if (raw === undefined || raw === null) {
-      return {};
+      return { arguments: {} };
     }
     if (typeof raw === 'string') {
-      return ToolArgumentParser.parse(raw);
+      return ToolArgumentParser.parseDetailed(raw);
     }
     if (typeof raw === 'object' && !Array.isArray(raw)) {
-      return raw as Record<string, unknown>;
+      return { arguments: raw as Record<string, unknown> };
     }
     log.warn('model.gemini.tool_arguments.invalid', {
       kind: Array.isArray(raw) ? 'array' : typeof raw,
     });
-    return {};
+    return {
+      arguments: {},
+      error: `Gemini 工具参数不是对象（实际 ${Array.isArray(raw) ? 'array' : typeof raw}）`,
+    };
   }
 
   /**

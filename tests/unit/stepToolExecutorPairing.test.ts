@@ -78,6 +78,25 @@ class RecordingTools implements ToolPort {
   }
 }
 
+/**
+ * 前 N 次抛瞬态错误的替身（验证只读工具重试一次、写类不重试）。
+ */
+class FlakyTools implements ToolPort {
+  public readonly name = 'flaky';
+  public attempts = 0;
+  public constructor(private readonly failTimes = 1) {}
+  public list(): readonly ToolDefinition[] {
+    return [];
+  }
+  public async execute(call: ToolCall): Promise<ToolResult> {
+    this.attempts += 1;
+    if (this.attempts <= this.failTimes) {
+      throw new Error('read ECONNRESET');
+    }
+    return { callId: call.id, ok: true, output: 'ok-after-retry' };
+  }
+}
+
 /** 探针夹具：真实 recorder + 可配置工具端口 / 钩子 / native。 */
 interface Fixture {
   readonly deps: StepRunnerDeps;
@@ -207,6 +226,64 @@ test('探针②：投影后的 assistant(tool_calls) 不得留下未被响应的
     [],
     `投影出的 assistant(tool_calls) 有未响应 id：${pending.join(',')}（上游端点会 HTTP 400）`,
   );
+});
+
+test('探针④：参数 JSON 不可修复 ⇒ 拒绝执行并回灌原因（2026-10-28）', async () => {
+  const f = fixture();
+  const tools = f.deps.tools as RecordingTools;
+  const executor = new StepToolExecutor(f.deps);
+  await executor.run(
+    [
+      {
+        id: 'c1',
+        name: 'write_file',
+        arguments: {},
+        parseError: '工具参数不是合法 JSON（长度 12）',
+      },
+    ],
+    ctx,
+  );
+  assert.deepStrictEqual(tools.executed, [], '不可修复的参数绝不能让工具带空参数执行');
+  const result = f.log
+    .byType('tool_result')
+    .find((event) => (event.payload as { callId?: string }).callId === 'c1');
+  assert.ok(result !== undefined, '必须补配对 tool_result');
+  assert.strictEqual((result.payload as { ok: boolean }).ok, false);
+  assert.match(
+    String((result.payload as { error?: string }).error),
+    /参数解析失败/u,
+    '失败原因必须可行动（模型据此重发合法参数）',
+  );
+  assert.ok(
+    payloadsOf<string>(f.log, 'tool_call', 'callId').includes('c1'),
+    '拒绝路径也必须落 tool_call（配对不变量）',
+  );
+});
+
+test('探针⑤：只读工具瞬态失败重试一次；写类绝不重试（2026-10-28）', async () => {
+  const readTools = new FlakyTools(1);
+  const readFixture = fixture({ tools: readTools });
+  await new StepToolExecutor(readFixture.deps).run(
+    [{ id: 'r1', name: 'read_file', arguments: { path: 'a.ts' } }],
+    ctx,
+  );
+  assert.strictEqual(readTools.attempts, 2, '只读工具应重试一次');
+  const readResult = readFixture.log
+    .byType('tool_result')
+    .find((event) => (event.payload as { callId?: string }).callId === 'r1');
+  assert.strictEqual((readResult?.payload as { ok?: boolean }).ok, true, '重试成功后应记成功');
+
+  const writeTools = new FlakyTools(1);
+  const writeFixture = fixture({ tools: writeTools });
+  await new StepToolExecutor(writeFixture.deps).run(
+    [{ id: 'w1', name: 'write_file', arguments: { path: 'a.ts', content: 'x' } }],
+    ctx,
+  );
+  assert.strictEqual(writeTools.attempts, 1, '写类工具重试等于双写，必须一次到位');
+  const writeResult = writeFixture.log
+    .byType('tool_result')
+    .find((event) => (event.payload as { callId?: string }).callId === 'w1');
+  assert.strictEqual((writeResult?.payload as { ok?: boolean }).ok, false);
 });
 
 test('探针③：工具端口在记录 tool_call 后抛错，同样必须补录失败结果', async () => {

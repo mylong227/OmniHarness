@@ -71,6 +71,11 @@ const ROOT_ALLOWLIST: readonly string[] = [
   // 自然规律→机制突破 R&D 登记（2026-10-28 显式登记）：间隔效应（遗忘曲线+间隔重复）落地与
   // 候选池；每项附机制/映射/判据/边界四件套与启动条件。
   'NATURE_INSPIRED_RND_2026-10-27.md',
+  // 核心能力再调研与升级方案（2026-10-28 显式登记）：七子系统 × 2026 开源/论文对照 +
+  // P0–P3 缺口矩阵 + U0–U3 路线；状态以看板为准。
+  'CORE_CAPABILITY_UPGRADE_2026-10-28.md',
+  // 前端 UI 升级规划（2026-10-28 显式登记）：Ant Design 6 全站替换的规划稿，**未实施**。
+  'UI_LIBRARY_UPGRADE_2026-10-28.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',

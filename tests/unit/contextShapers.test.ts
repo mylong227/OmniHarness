@@ -73,3 +73,29 @@ test('CTX-01：小消息不做任何改动', () => {
   assert.strictEqual(out.report.trimmedToolResults, 0);
   assert.strictEqual(out.report.snippedToolResults, 0);
 });
+
+test('CTX-01：单条 user/assistant 超大消息也要裁（否则 1MB 输入恒超窗）', () => {
+  const huge = 'u'.repeat(200_000);
+  const messages: ModelMessage[] = [
+    { role: 'system', content: 'sys' },
+    { role: 'user', content: huge },
+    { role: 'assistant', content: huge },
+  ];
+  const out = ContextShapers.apply(messages, { maxMessageChars: 1000 });
+  assert.strictEqual(out.report.trimmedMessages, 2);
+  assert.strictEqual(out.messages[0]!.content, 'sys', 'system 常驻指令不动');
+  for (const index of [1, 2]) {
+    const content = out.messages[index]!.content;
+    assert.ok(content.length < 2000, `裁剪后应远小于原文（实际 ${content.length}）`);
+    assert.match(content, /单条消息过长/u);
+    assert.ok(content.startsWith('u'), '头部内容保留');
+    assert.ok(content.endsWith('u'), '尾部内容保留');
+  }
+});
+
+test('CTX-01：超大消息裁剪跨次调用稳定（不破坏前缀缓存）', () => {
+  const messages: ModelMessage[] = [{ role: 'user', content: 'v'.repeat(100_000) }];
+  const first = ContextShapers.apply(messages, { maxMessageChars: 500 });
+  const second = ContextShapers.apply(messages, { maxMessageChars: 500 });
+  assert.deepStrictEqual(first.messages, second.messages);
+});

@@ -147,12 +147,22 @@ export class OpenAiCompatibleModel implements ModelPort {
       toolBlocks: [],
       usage: undefined,
       finishReason: undefined,
+      sawDone: false,
     };
     await sseParser.read(streamBody, (event) => {
       // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
       guard?.touch();
       this.handleStreamEvent(event.data, callbacks, state);
     });
+    // 2026-10-28：EOF 不等于「正常完成」。既没 `finish_reason` 也没 `[DONE]` 就结束，
+    // 说明连接被中途切断——半截工具参数会被 `ToolArgumentParser.parse` 当合法 JSON 执行。
+    // fail-closed 且**不可重试**：已向 live sink 投递过增量，重试会让终端出现「前缀+全文」
+    // 重复；若工具已部分执行，重试还会二次副作用。让回合显式失败，由用户决定是否重跑。
+    if (!state.sawDone && state.finishReason === undefined) {
+      throw new ModelCallError('模型流式响应不完整：既无 finish_reason 也无 [DONE]', {
+        retryable: false,
+      });
+    }
     const text = state.chunks.length > 0 ? state.chunks.join('') : undefined;
     const reasoning = state.reasoningChunks.length > 0 ? state.reasoningChunks.join('') : undefined;
     const defined = state.toolBlocks.filter(
@@ -161,11 +171,15 @@ export class OpenAiCompatibleModel implements ModelPort {
     );
     const toolCalls =
       defined.length > 0
-        ? defined.map((b) => ({
-            id: b.id,
-            name: b.name ?? '',
-            arguments: ToolArgumentParser.parse(b.partial),
-          }))
+        ? defined.map((b) => {
+            const parsed = ToolArgumentParser.parseDetailed(b.partial);
+            return {
+              id: b.id,
+              name: b.name ?? '',
+              arguments: parsed.arguments,
+              ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
+            };
+          })
         : undefined;
     return { text, reasoning, toolCalls, usage: state.usage, finishReason: state.finishReason };
   }
@@ -508,10 +522,12 @@ export class OpenAiCompatibleModel implements ModelPort {
    * @returns 统一工具调用引用（id/name/已解析参数对象）。
    */
   private parseToolCall(call: WireToolCall): ModelToolCallRef {
+    const parsed = ToolArgumentParser.parseDetailed(call.function.arguments);
     return {
       id: call.id,
       name: call.function.name,
-      arguments: ToolArgumentParser.parse(call.function.arguments),
+      arguments: parsed.arguments,
+      ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
     };
   }
 
@@ -524,6 +540,7 @@ export class OpenAiCompatibleModel implements ModelPort {
    */
   private handleStreamEvent(data: string, callbacks: StreamCallbacks, state: StreamState): void {
     if (data === '[DONE]') {
+      state.sawDone = true;
       return;
     }
     const json = JSON.parse(data) as ChatCompletionChunk & {
@@ -629,6 +646,8 @@ interface StreamState {
   )[];
   usage: ModelUsage | undefined;
   finishReason: string | undefined;
+  /** 是否收到过 `[DONE]` 终止标记（EOF 完整性判定用）。 */
+  sawDone: boolean;
 }
 
 /** 流式块类型。 */

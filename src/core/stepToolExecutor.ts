@@ -35,6 +35,22 @@ import type { StepRunnerDeps } from './stepTypes.ts';
  *     OpenAI/DeepSeek 兼容端点直接 HTTP 400（wire 层硬要求）。
  */
 export class StepToolExecutor {
+  /**
+   * 可安全重试的**只读**工具（2026-10-28，A3-lite）。
+   *
+   * 只重试「重放无副作用」的读类工具；写类/shell/编排入口一律一次到位——把有副作用的
+   * 调用重试一次，等于给双写开后门。网络瞬态失败最容易命中的正是读类（web_fetch/grep）。
+   */
+  private static readonly RETRYABLE_TOOLS: ReadonlySet<string> = new Set([
+    TOOL_NAMES.readFile,
+    TOOL_NAMES.listDir,
+    TOOL_NAMES.glob,
+    TOOL_NAMES.grep,
+    TOOL_NAMES.webFetch,
+    TOOL_NAMES.webSearch,
+    TOOL_NAMES.memorySearch,
+    TOOL_NAMES.recall,
+  ]);
   /** 工具门禁（审批 + 沙箱 + 计划态 + 监督否决）：native 与 JS 路径共用。 */
   private readonly gate: ToolGatePort;
   /** 工具并行调度器（V2）：读类并行、写类屏障、model-order 提交。 */
@@ -164,6 +180,16 @@ export class StepToolExecutor {
    * @returns 该调用是否成功（门禁拒绝、执行失败、链路异常均为 false）。
    */
   private async runToolCall(call: ToolCall, context: ToolContext): Promise<boolean> {
+    // 2026-10-28：模型给的参数 JSON 不可修复 ⇒ **在一切门禁之前拒绝**，并补配对失败结果。
+    // 空参数继续执行 `write_file`/`shell` 是比"报错"危险得多的失败方向；让模型看到具体原因，
+    // 下一轮自行重发合法参数。这一步不触发审批/沙箱/资源锁，也不产生任何副作用。
+    if (call.parseError !== undefined) {
+      const reason = `工具参数解析失败，已拒绝执行：${call.parseError}。请重新发起该工具调用并给出合法 JSON 参数。`;
+      log.warn('tool.parse_error', { tool: call.name, callId: call.id });
+      this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+      this.deps.recorder.toolResult(call.id, false, undefined, reason);
+      return false;
+    }
     // SEC-03：不可信来源片段进入写类工具参数 ⇒ enforce 时 fail-closed（shadow 只记录）。
     if (this.blockedByProvenance(call)) return false;
     // 审批 + 沙箱门禁（用户配置策略层）：native 与 JS 路径共用同一道门禁，
@@ -203,7 +229,7 @@ export class StepToolExecutor {
       if (nativeOutcome !== undefined) {
         return nativeOutcome;
       }
-      const result = await this.deps.tools.execute(call, context);
+      const result = await this.executeWithRetry(call, context);
       // 先记录真实结果、再跑 post 钩子（2026-10-01 审计，与 native 路径对齐）：
       // 写类/副作用类工具走到这里时**副作用已经落地**（文件已写、命令已跑）；
       // 若 post 钩子抛错走下方 catch，模型会看到「工具执行异常」并以过时假设重试，
@@ -322,6 +348,44 @@ export class StepToolExecutor {
     } catch {
       // 缓存失效失败不影响主流程
     }
+  }
+
+  /**
+   * 执行工具；只读工具遇到瞬态网络/进程错误时重试一次。
+   *
+   * 为什么不重试写类：重放 `write_file`/`shell` 可能双写；宁可让模型看到失败并自行决定。
+   * 重试保持同一 `call.id`，不产生额外的 tool_call/tool_result 配对。
+   * @param call 工具调用。
+   * @param context 工具上下文。
+   * @returns 工具结果（首次成功即返回）。
+   */
+  private async executeWithRetry(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    const attempts = StepToolExecutor.RETRYABLE_TOOLS.has(call.name) ? 2 : 1;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await this.deps.tools.execute(call, context);
+      } catch (error) {
+        lastError = error;
+        if (attempt >= attempts || !StepToolExecutor.isTransient(error)) {
+          throw error;
+        }
+        log.warn('tool.retry.transient', { tool: call.name, callId: call.id, attempt });
+      }
+    }
+    throw lastError;
+  }
+
+  /**
+   * 是否瞬态错误（只用于只读工具的单次重试判据）。
+   * @param error 捕获的异常。
+   * @returns 命中网络/限流类错误码或消息时为 true。
+   */
+  private static isTransient(error: unknown): boolean {
+    const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+    return /ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|EPIPE|socket hang up|timed? ?out|HTTP (?:429|502|503|504)/iu.test(
+      message,
+    );
   }
 
   /**

@@ -5744,13 +5744,12 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   不收起不重弹；显示期间用 MutationObserver 盯住 React 重渲染写回的 `title`（否则原生 + 自绘两套
   气泡同屏）；`PopoverStack.currentPopoverId()` 非空时不冒泡（菜单开着时再弹提示是噪音）。
   键盘/读屏语义不变：`title` 只在**指针悬停期间**被摘下。
-- **展示层（`components/TooltipLayer.tsx` + `minimal.css` 的 `.hover-tip`）**：**扁平纸片**，两套
-  主题**同向**的浅底深字（同日第二轮用户：「白色主题下，应该也是白色的冒泡」）：深色下底
-  `--tip-bg`（近白，暗场里不刺眼）、浅色下纯白 + 1px `--tip-line` 发丝边（白纸在纸白底上要靠
-  边线立住）；**10px 圆角 + 不投影**、最宽 280px、最多 4 行后收口；`aria-hidden`（文字与
-  `title` 同源，读屏不该听第二遍）。配色进 `theme.css` 的 `--tip-bg`/`--tip-fg`/`--tip-line`
-  （唯一配色事实源），不在样式层写死色值。第一版是反相墨块——浅色主题下变成一块黑，被用户当天
-  否掉（「白色主题下也应该是白色的冒泡」），这一版才固定为"两套都是浅底"。
+- **展示层（`components/TooltipLayer.tsx` + `minimal.css` 的 `.hover-tip`）**：**跟随主题的纸片/墨片**
+  ——浅色下纯白 + 1px `--tip-line` 发丝边（白纸在纸白底上要靠边线立住），深色下 `--panel-2` 墨底
+  - 发丝边（同日第三轮用户：「暗色主题冒泡也需要暗色，而不是白色底」）；**10px 圆角 + 不投影**、
+    最宽 280px、最多 4 行后收口；`aria-hidden`（文字与 `title` 同源，读屏不该听第二遍）。配色进
+    `theme.css` 的 `--tip-bg`/`--tip-fg`/`--tip-line`（唯一配色事实源），不在样式层写死色值。
+    一天内被否掉两版：反相墨块（浅色下变黑）→ 两套同向浅底（深色下变白）；最终定为**各随主题**。
 - **落位（`models/HoverTipPlacement.ts`，纯函数）**：上方优先 → 下方回退 → 水平与垂直都夹进 8px
   视口边距，结果取整（亚像素会让圆角与文字发虚）。左栏会话行贴左缘、输入区 chip 贴底边两类真机
   边界单独判据化（jsdom 没有布局，量不出来）。
@@ -5815,3 +5814,74 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **U1 待办（按影响）**：① 评测加 bootstrap CI/MDE + A/B 交错 + k≥3 + 数据哈希；② SSE 流完整性
   （缺 finish_reason/[DONE] 必须报错）；③ 推理签名回传（Anthropic/Gemini）；④ cache_creation 成本；
   ⑤ 工具参数 JSON 修复（不得静默 `{}`）；⑥ 记忆探针搬到生产端口并让 `OMNI_MEMORY_FORGETTING` 生效或删除。
+
+## 117. 2026-10-28 容量从输入区移入控制台「上下文」页（输入区减负）
+
+- **用户报障（截图）**：「容量按钮去掉，将容量面板重新设计规划在面板某处，使得不显得拥挤，也不占地方」。
+- **入口**：输入区容量弹层整块删除（`ContextCapacityPanel.tsx`，286 行），控制行只剩 加号 / 权限 / 模型 / 语音 / 发送。
+  新入口 = 控制台 → Agent 能力 → **上下文**（`PanelRegistry` + `PanelScope` + `ConsoleRegistry` + `Router.VALID_PANES`
+  四处同步登记；`#pane=capacity` 可直接路由）。
+- **重新设计（两卡并排，窄窗叠一列）**：
+  - 左「上下文构成」：大号 `已用/窗口` + 百分比 + 品牌色大条；六类 token 行；卡描述写明「大条分母是窗口、
+    行百分比分母是已用上下文」（两种口径不再混用）；脚注 MCP/系统工具数与缓存命中/分因。
+  - 右「今日余额」：大号剩余百分比 + 重置时刻；逐模型剩余行（耗尽转红）；档位自动识别说明；
+    脚注基础预算与「按本地日内预算、非厂商余额」的来源声明。
+- **取数**：`useCapacityReport` hook —— 挂载即取；`sessionTick` 与 `revision`（App 用 `ContextUsageView.revisionOf`
+  由事件流算出）一到就取；5s 兜底；失败保留上一帧 + 行内「重试」；`key=threadId` 切会话重挂，防串台。
+- **清理**：删 `.cap`/`.cap-pop` 的触发器与弹层样式（components/minimal/base/shell/chat 五层）、
+  `PopoverStack` 的 capacity 身份、`popoverFit` 的容量真机测例；`Composer` 的 `contextRevision`/`toastStable` 同步删除。
+- **判据**：`capacityLiveRefresh` 4 例改为「App 算代数 → CapacityTab → hook」链路 + 输入区无容量入口守卫；
+  `mount` 容量页取数渲染（上下文构成 / 今日余额 / 分类行 / 3.2%）；`router` 放行 `capacity`；
+  控制台导航计数 24 → 25；`i18nCoverage` 补英文词条。
+- **验证**：`web:test` **123 文件 / 640 例全绿**；`runGates` fast 10/10 全绿；`tsc -p web/tsconfig.json` 零错；
+  真机双主题截图目视（两卡不拥挤、输入区少一个控件）。
+
+## 118. 2026-10-28 能力调研第二批：上下文完整性 / 流与成本 / 工具韧性（12 项）
+
+- **批①（上下文，C7–C10）**：① `ContextShapers` 增加单条 user/assistant 上限（默认 48k 字符，
+  头 60%+尾 30%+裁剪标记）——1MB 粘贴不再恒超窗；② `CompactionComposer.dropOldestTurn`
+  按整轮丢弃（以下一个 user 为界），不再切出半截工具轮；③ `StepRunner` 在 toolCalls 分支
+  先记录同一步文本（投影层已支持 text→tool_calls 相邻）；④ `headFingerprint` 把
+  `JSON.stringify(toolCalls)` 纳入片段与缓存比较（原地改 args 也会重算）。
+- **批②（流/成本/工具，E1/E3/E4）**：① OpenAI 兼容流 EOF 若既无 `finish_reason` 也无
+  `[DONE]` ⇒ 抛**不可重试** `ModelCallError`（已投递增量，重试会重复前缀/二次副作用）；
+  ② `ModelUsage.cacheCreationPromptTokens` + `RoutePrice.cacheWriteInputPer1M`（Anthropic 5 分钟档
+  1.25×）+ `CostBudget` 单独计价；③ `ToolArgumentParser.parseDetailed` 做确定性修复
+  （围栏/单引号/尾逗号/未闭合字符串与括号），修不好返回 `error`；`ToolCall.parseError`
+  让执行器在**一切门禁之前**拒绝并补配对失败结果（空参数执行写类工具的反向收口）。
+- **批③（统计/记忆/编排，E5/E8/A1/A3/A4/A6）**：① `AbMetrics.paired` 增加配对 bootstrap
+  95% CI（固定种子、2000 次）与 `mde80`，`AbSummary` 加 `passAt1`；② `ResonantFieldEngine`
+  接入 `SpacingEffect`（召回写回 `lastRecallAt`/`recallCount`/`stabilityDays`）——
+  `OMNI_MEMORY_FORGETTING` 在生产封包上不再是空开关；③ 子代递归入口补
+  `run_plan`/`delegate`/`a2a_delegate`；④ 只读工具瞬态错误重试一次（写类/shell 一次到位）；
+  ⑤ `SubagentResult.usageTokens` 回传父级；⑥ A2A `message/send` 以 `messageId` 幂等
+  （重发返回同一任务，不重跑 handler）。
+- **验证**：新增/修改 12 个测试文件（上下文 3、模型/成本 3、工具 2、评测 1、记忆 1、
+  编排 2）全部实跑通过；全量 `npm run test:fast` **694 文件 / 4283 通过 / 4 skip**；
+  `tsc --noEmit` 双工程零错；`check.mjs --strict` 零违规；`runGates --tier=typed` 通过。
+  具体文件与判据见
+  [`CORE_CAPABILITY_UPGRADE_2026-10-28.md`](CORE_CAPABILITY_UPGRADE_2026-10-28.md) §6.8。
+- **仍未处理（已在文档 §6.9 逐条登记）**：E2 推理签名（需真 provider 抓帧）、E6 任务集扩容、
+  E7 记忆探针搬生产端口、E9 ACP cursor、E10 AG-UI STEP、A2 MCP 工具纳入 planner、
+  A5 workflow 隔离、A7 技能懒加载、A8 会话 fork/steering、A9 符号级指标、A10 记忆 GC、
+  S1 共振场默认档（需 E7 的 A/B 数据）。**不把"未做"写成"已做"**。
+
+## 119. 2026-10-28 容量改挂左栏底部：音频柱小图表 + 向上浮层（用户截图指定位置）
+
+- **用户（截图）**：「容量在这里显示小的柱状图显示，进度，点击可以向上展开，再点就收起来看音频柱状动效」。
+- **位置**：左栏页脚正上方（`SidebarFooter` 里的 `CapacityDock`，与连接/设置同一「底部栈」；图标条态隐藏）。
+- **收起态**（一行）：`上下文` + 六根音频柱（柱高 = 分类占「已用上下文」比例，最低 14%；`scaleY` 呼吸动效，
+  `prefers-reduced-motion` 关闭）+ 总占比 + 3px 进度轨。
+- **展开态**：向上浮层（`left/right:8px` 收在侧栏内，避免横向滚动条；`max-height:min(64vh,540px)`）：
+  上下文构成（大号已用/窗口 + 大条 + 六行 + MCP/系统 + 缓存）+ 今日余额（大号剩余 + 重置 + 模型行 +
+  档位 + 基础预算；来源声明放 `title`）。再点 / 点外部 / Esc 收起；`PopoverStack` 互斥。
+- **取数**：`useCapacityReport(revision, active)` 增 `active` —— 收起态**不跑 5s 轮询**（只在挂载与
+  `sessionTick` 变化时取数），展开才开 5s 兜底；避免常驻小图表每 5s 回放一次事件日志。
+- **形状守卫**：`ContextUsageView.isReport()` —— `context.usage` 回落成 `{}` 时不再构造视图（否则渲染期
+  `rows.map` 抛错、整棵工作台卸载）；控制台详情页同步接入。
+- **a11y**：按钮可见文本（上下文 + 占比）与 `aria-label` 同序——axe `label-content-name-mismatch` 实测抓到过
+  一版「容量」插在中间；详情 `role="dialog"`；Enter/Space 展开、Esc 收起。
+- **判据**：`capacityDock.test.ts` 2 例（6 根柱、点击展开/再点收起、`{}` 降级不崩）；`capacityLiveRefresh`
+  的 hook 签名同步；`a11yAudit` / `chromeCleanup` 单跑通过。
+- **验证**：`web:test` **124 文件 / 642 例全绿**；`runGates` fast 10/10 全绿；真机双主题截图（收起/展开）目视。
+  控制台「上下文」页保留为详情页（不重复入口）。

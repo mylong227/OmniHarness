@@ -433,11 +433,17 @@ export class LlamaCppModel implements ModelPort {
       const name = call.function.name;
       const count = seen.get(name) ?? 0;
       seen.set(name, count + 1);
-      const args =
-        typeof call.function.arguments === 'string'
-          ? ToolArgumentParser.parse(call.function.arguments)
-          : call.function.arguments;
-      return { id: count === 0 ? name : `${name}#${String(count + 1)}`, name, arguments: args };
+      const rawArgs = call.function.arguments;
+      const parsed =
+        typeof rawArgs === 'string' ? ToolArgumentParser.parseDetailed(rawArgs) : undefined;
+      const args: Record<string, unknown> =
+        parsed !== undefined ? parsed.arguments : (rawArgs as Record<string, unknown>);
+      return {
+        id: count === 0 ? name : `${name}#${String(count + 1)}`,
+        name,
+        arguments: args,
+        ...(parsed?.error !== undefined ? { parseError: parsed.error } : {}),
+      };
     });
   }
 
@@ -527,11 +533,17 @@ export class LlamaCppModel implements ModelPort {
       if (entry === undefined) {
         continue;
       }
-      const args =
+      const parsed =
         entry.partial === undefined
-          ? entry.arguments
-          : ToolArgumentParser.parse(entry.partial === '' ? '{}' : entry.partial);
-      out.push({ id: entry.id, name: entry.name, arguments: args });
+          ? undefined
+          : ToolArgumentParser.parseDetailed(entry.partial === '' ? '{}' : entry.partial);
+      const args = parsed?.arguments ?? entry.arguments;
+      out.push({
+        id: entry.id,
+        name: entry.name,
+        arguments: args,
+        ...(parsed?.error !== undefined ? { parseError: parsed.error } : {}),
+      });
     }
     return out;
   }

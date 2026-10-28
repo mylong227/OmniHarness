@@ -96,6 +96,16 @@ export class A2aV1Methods {
     if (parsed.taskId !== undefined) {
       return await this.resume(parsed, parsed.taskId);
     }
+    // 2026-10-28：`messageId` 是 A2A 的幂等键。重发同一 messageId（网络重试/客户端重连）
+    // 不能重建任务并重跑 handler——那会让有副作用的委派执行两次。已存在则原样返回快照。
+    const existing = this.tasks.get(parsed.messageId);
+    if (existing !== undefined) {
+      log.info('a2a.send.idempotent_replay', {
+        taskId: existing.id,
+        state: existing.status.state,
+      });
+      return existing;
+    }
     const task = this.createTask(parsed);
     if (!parsed.returnImmediately) {
       return await this.execute(task, parsed.text, parsed.credential);

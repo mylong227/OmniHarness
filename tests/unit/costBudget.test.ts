@@ -39,6 +39,20 @@ test('record 累计 token 与成本（按定价）', () => {
   assert.strictEqual(budget.exceeded, false);
 });
 
+test('cache_creation 按写入价计费（Anthropic 5 分钟档 = 1.25×）', () => {
+  const budget = new CostBudget(100, RoutePricing.mergeRoutePricing());
+  budget.record('claude-sonnet-4-20250514', {
+    promptTokens: 1_100,
+    completionTokens: 0,
+    totalTokens: 1_100,
+    cachedPromptTokens: 0,
+    cacheCreationPromptTokens: 1_000,
+  });
+  // 100 普通输入 × 3/1M + 1000 缓存写入 × 3.75/1M = 0.0003 + 0.00375。
+  assert.strictEqual(Number(budget.totalCostUsd.toFixed(8)), 0.00405);
+  assert.strictEqual(budget.totalPromptTokens, 1_100, 'promptTokens 口径不变（含写入）');
+});
+
 test('越硬预算即熔断并阻断', () => {
   const budget = new CostBudget(
     1,
