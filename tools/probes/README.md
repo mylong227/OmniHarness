@@ -171,3 +171,13 @@ node tools/probes/rerankDiscriminatorAb.mjs 14
 | 用法                                                 | `node tools/probes/memoryTaskLift.mjs --runs=3 --json=out.json`                                              |
 | 实测参考值（2026-10-20，deepseek-v4-flash，3 次/档） | primer on **2/3**、off **0/3**，lift **+0.67**；on 的第 3 次因事实含“只允许运维查 vault”而拒答，报告保留原文 |
 | 诚实边界                                             | 单模型、3 次采样；不是跑分；off 若能猜对会如实报“无增益”                                                     |
+
+### 11. `memorySpacingLift.mjs` —— 间隔效应增益（合成语料，机制方向性）
+
+| 项                                                          | 内容                                                                                                                                                                        |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 回答什么                                                    | `OMNI_MEMORY_FORGETTING=1`（间隔重复排序）相对关闭的 MRR 配对差与 bootstrap 95% CI（content / recency 两 GT 变体分开判）                                                    |
+| 前置                                                        | 先 `npm run build`（import `dist/src/adapters/memory/**`）                                                                                                                  |
+| 用法                                                        | `node tools/probes/memorySpacingLift.mjs [--facts=240] [--queries=30] [--json=out.json]`                                                                                    |
+| 实测参考值（2026-10-28，240 事实 / 30 查询，seed=20261028） | `content` Δ +0.013 [−0.124, +0.163]（时间噪声下无损伤）；`recency` Δ **+0.238 [0.070, 0.413]**（显著为正）⇒ 预注册裁决 PASS                                                 |
+| 诚实边界                                                    | 合成语料 + 合成 GT：证明**机制方向性**与**时间噪声稳健性**，夹具对机制友好（recency 的 GT 与假设同构），**不能外推为生产增益**；默认仍关，默认开启提案须人工复核 + 全量回归 |

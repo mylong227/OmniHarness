@@ -68,6 +68,9 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'BLOCKERS_2026-10-25.md',
   // 长任务自锁修复（2026-10-26 显式登记）：supervisor 降级导致真实长任务从 3 分钟拖成 3 小时的复盘与修复。
   'LONG_TASK_SUPERVISOR_FIX_2026-10-26.md',
+  // 自然规律→机制突破 R&D 登记（2026-10-28 显式登记）：间隔效应（遗忘曲线+间隔重复）落地与
+  // 候选池；每项附机制/映射/判据/边界四件套与启动条件。
+  'NATURE_INSPIRED_RND_2026-10-27.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',
