@@ -1,5 +1,4 @@
 import type { SessionEvent } from '../ports/runtime/event.ts';
-import type { ToolContext } from '../ports/tool/tool.ts';
 import type { ImageContent, FileAttachment } from '../ports/model/model.ts';
 
 import type { EvolutionController, PromotionVerdict } from '../ports/runtime/evolution.ts';
@@ -10,6 +9,8 @@ import { SessionRecorder } from './sessionRecorder.ts';
 import { RunManifestBuilder } from './runManifestBuilder.ts';
 import { ToolExposurePlanner } from './toolExposurePlanner.ts';
 import { SessionInjector } from './sessionInjector.ts';
+import { SessionRunTable } from './sessionRunTable.ts';
+import { SteeringQueue } from './steering/steeringQueue.ts';
 import { StepRunner } from './stepRunner.ts';
 import { TurnRunner } from './turnRunner.ts';
 import type { TurnOutcome } from './turnRunner.ts';
@@ -89,24 +90,9 @@ export class Agent implements AgentPort {
    * `finally` 里置空 ⇒ ① 先结束的回合会把令牌清掉，导致「停止」按钮**静默失效**；
    * ② 未结束时会话调用取消，取消的是**后启动的那个会话**（停 A 实际停了 B）。
    */
-  private readonly runningSessions = new Map<
-    string,
-    {
-      readonly cancel: CancellationToken;
-      readonly persister: EventPersister;
-      readonly rewinder: (size: number) => Promise<void>;
-      /**
-       * 本会话**内存事实源**的事件快照读取器（零副作用）。
-       *
-       * 为什么必须挂在登记项上（2026-10-09）：`replay()` 读的是 `storage.load`，而落盘是
-       * **write-behind（延迟 200ms、按步 schedule）** ⇒ 回合刚起的头一两秒盘上是空的。
-       * 容量面板正是在"回合进行中"打开看的，于是拿到 `source:'empty'` 的 `0/…` 全零报告
-       * （真机实测：t≈0.8s / 1.6s 两次采样都是 `0/12.8万`，缓存命中显示 `—`）。
-       * 只读消费者要的是"此刻的真实事件流"，那就必须读内存这一份。
-       */
-      readonly events: () => readonly SessionEvent[];
-    }
-  >();
+  private readonly runningSessions = new SessionRunTable();
+  /** 回合中 steering 队列（A8）：只入队，TurnRunner 在步边界消费。 */
+  public readonly steering = new SteeringQueue();
   /**
    * 会话开场注入器（技能 + 可选长期记忆 primer）。
    *
@@ -170,7 +156,7 @@ export class Agent implements AgentPort {
       this.runningSessions.get(sessionId)?.cancel.cancel(reason);
       return;
     }
-    for (const session of this.runningSessions.values()) {
+    for (const session of this.runningSessions.all()) {
       session.cancel.cancel(reason);
     }
   }
@@ -180,7 +166,7 @@ export class Agent implements AgentPort {
    * @returns 会话 id 数组
    */
   public runningSessionIds(): string[] {
-    return [...this.runningSessions.keys()];
+    return this.runningSessions.ids();
   }
 
   /**
@@ -490,7 +476,10 @@ export class Agent implements AgentPort {
       let outcome: TurnOutcome;
       let persistedAt = 0;
       try {
-        outcome = await runner.run(this.contextOf(sessionId));
+        outcome = await runner.run({
+          sessionId,
+          workspaceRoot: this.runtime.config.workspaceRoot,
+        });
       } finally {
         // 长时程进度：只 append 一行摘要（用户提示 / 工具失败 / verify 结论），不写回上下文。
         await this.longHorizon.finish(sessionId, recorder);
@@ -695,16 +684,8 @@ export class Agent implements AgentPort {
       this.runtime.config.todo,
       // 软 token 预算：默认 5M（硬预算配置时取其 80%），只提醒收尾、不截断。
       AgentLimits.softTokenBudget(this.runtime.config.turnTokenBudget),
+      () => this.steering.take(recorder.sessionId()),
     );
-  }
-
-  /**
-   * 构造工具上下文。
-   * @param sessionId 当前会话 ID，随工具调用透传（供工具区分会话/落审计）。
-   * @returns 含会话 ID 与工作区根目录的 ToolContext。
-   */
-  private contextOf(sessionId: string): ToolContext {
-    return { sessionId, workspaceRoot: this.runtime.config.workspaceRoot };
   }
 
   /**

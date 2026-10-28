@@ -6027,3 +6027,15 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`eval:long --self-check --only=matrix-rotate` 通过；任务集 **22**。
 - **边界**：22/40+；逐个编写，不用模板灌水。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。
+
+## 130. 2026-10-29 A8 入口推进：`Agent.steering` 公共队列 + `SessionRunTable` 抽取
+
+- **阻塞复现**：直接给 `Agent` 加 `steer()` 方法后，`auditStandards --delta` 报
+  `[上帝类] 795 行 / 27 方法`（阈值 810 行 / 25 方法），提交被门禁拦下。
+- **修法**：把 `runningSessions` 的匿名 Map 结构抽成 `SessionRunTable`（get/has/set/delete/deleteIf/ids/all），
+  `Agent` 行数与匿名类型一并下降；`steering` 队列以**公共字段** `agent.steering` 暴露（`enqueue`/`take`），
+  不新增方法，避免再触发方法数阈值；`TurnRunner` 在步边界消费不变。
+- **判据**：`turnSteering.test.ts`（步边界、事件序）+ `sessionCancelIsolation.test.ts`（会话表语义回归）
+  4 例全绿；`tsc --noEmit` 零错；`check.mjs --strict` 零违规。
+- **边界**：Web RPC/UI 还没有接线；调用方目前需 `agent.steering.enqueue(sessionId, text)`。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 技能懒加载/信任、A8 Web 入口、S2 前端长函数。
