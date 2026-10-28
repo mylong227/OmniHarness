@@ -6104,3 +6104,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   （该改动来自工作区 UI 批次，但不一起提交会让 HEAD 的 web 类型失配）。
 - **A8 汇总**：fork 既有 + steering 全链路（TurnRunner/Agent/RPC/UI）。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、S2 前端长函数。
+
+## 138. 2026-10-29 A5 worktree 隔离原语：成功应用/失败丢弃
+
+- **实现**：`WorkflowIsolation`（git worktree add → 步骤在隔离根跑 → 成功 `git diff --cached --binary`
+  应用到主工作区；失败 remove）；`WorkflowIsolatedRun.runWorkflow(ports, options, def)` 包一层 runner，
+  `persist:true` 组合直接 fail-closed（日志写在工作区外会丢）。
+- **判据**：`workflowIsolation.test.ts` 2 例——隔离区改动（含新文件）应用回主工作区；discard 不落主工作区。
+- **边界**：尚未接入 `run_workflow` 工具默认路径（需要产品决定"默认隔离还是显式隔离"）。
+- **剩余**：E6/S3 扩容、A5 工具接线、S2 前端长函数。
