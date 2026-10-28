@@ -6130,3 +6130,10 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`eval:long --self-check` **28 passed / 0 failed**；`longTask.test.ts` 计数同步 28。
 - **边界**：28/40+；逐个编写，不灌水。
 - **剩余**：E6/S3 扩容、S2 前端长函数。
+
+## 141. 2026-10-29 E6/S3 任务集 28 → 32：roman / bytes / color-hex / duration
+
+- **新增任务**：`roman`、`bytes`、`color-hex`、`duration`（各 3 个导出函数，含边界与非法输入）。
+- **自检**：`eval:long --self-check` **32 passed / 0 failed**；`longTask.test.ts` 计数同步 32。
+- **边界**：32/40+，还差 8。
+- **剩余**：E6/S3 扩容、S2 前端长函数。

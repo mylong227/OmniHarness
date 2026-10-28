@@ -1,0 +1,9 @@
+{
+  "id": "bytes",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：formatBytes(bytes)、parseBytes(text)、isValidBytes(text)。\n\n逐条验收要求：\n- formatBytes：0 => `0 B`，512 => `512 B`，1024 => `1.0 KB`，1536 => `1.5 KB`；1 KB = 1024 B。\n- parseBytes：支持 B/KB/MB/GB/TB（大小写不敏感），返回整数字节；非法输入抛错。\n- isValidBytes：仅 `数字 + 单位`（如 `1.5 KB`、`512 B`）为 true；纯数字 false。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "bytes",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}
