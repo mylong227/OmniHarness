@@ -6,6 +6,7 @@
 // 而 UI 列表顺序抖动会让「↑↓ 选中 + Enter 打开」变成一场赌博——同输入必须恒同序。
 
 import type { SearchHit } from '../../types/models.ts';
+import { t } from '../i18n/i18n.ts';
 
 /** 一组搜索结果。 */
 export interface SearchGroup {
@@ -70,8 +71,10 @@ export class SearchHitGrouper {
     const out: SearchGroup[] = [];
     const chatsSorted = SearchHitGrouper.sort(chats, query).slice(0, SearchHitGrouper.LIMIT);
     const filesSorted = SearchHitGrouper.sort(files, query).slice(0, SearchHitGrouper.LIMIT);
-    if (chatsSorted.length > 0) out.push({ kind: 'chat', title: '会话', items: chatsSorted });
-    if (filesSorted.length > 0) out.push({ kind: 'file', title: '工作区文件', items: filesSorted });
+    if (chatsSorted.length > 0)
+      out.push({ kind: 'chat', title: t('会话'), items: chatsSorted });
+    if (filesSorted.length > 0)
+      out.push({ kind: 'file', title: t('工作区文件'), items: filesSorted });
     return out;
   }
 

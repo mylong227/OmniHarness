@@ -132,8 +132,8 @@ export const EN_CONSOLE: Record<string, string> = {
     'Command palette, new session, sidebar and right panel toggles, theme switch.',
   查看全部: 'View all',
   关于: 'About',
-  '以上路径是本机默认位置；可用 --workspace / OMNIHARNESS_HOME 覆盖。':
-    'These paths are local defaults; override with --workspace or OMNIHARNESS_HOME.',
+  '以上是默认位置；归属根由服务端 OMNI_HOME 决定（默认 ~/.omniharness），--workspace 只切项目。':
+    'These are the defaults; the user-level root is decided by the server’s OMNI_HOME (default ~/.omniharness), and --workspace only switches the project.',
   产品: 'Product',
   配置文件: 'Config file',
   会话存档: 'Session archive',

@@ -260,7 +260,7 @@ export function renderChangesPatch(ctx: ReviewCtx): ReactElement {
               <button
                 className="hunk-btn danger"
                 disabled={ctx.busyAct !== null}
-                title="丢弃该改动块（git apply -R，不可恢复）"
+                title={t('丢弃该改动块（git apply -R，不可恢复）')}
                 onClick={() => ctx.onRevertHunk(ctx.f.path, DiffHunkSplitter.text(h), idx)}
               >
                 {icon('undo', { size: 12 })} {t('丢弃')}

@@ -175,4 +175,17 @@ export const EN_MISC: Record<string, string> = {
   删除: 'Delete',
   自动化已创建: 'Automation created',
   '删除自动化「{name}」？': 'Delete automation "{name}"?',
+
+  // 系统通知 / 搜索分组 / 外部链接 / 代码块标题（2026-10-28 前端审计：这些此前绕过 t()）
+  需要你的确认: 'Your confirmation is needed',
+  '有一个工具调用等待审批，请回到 OmniHarness 处理。':
+    'A tool call is awaiting approval; return to OmniHarness to handle it.',
+  需要你的回答: 'Your answer is needed',
+  'Agent 正在等待你的回答。': 'The agent is waiting for your answer.',
+  回合完成: 'Turn complete',
+  'Agent 已完成本轮任务。': 'The agent has finished this turn.',
+  外部链接: 'External links',
+  工作区文件: 'Workspace files',
+  '丢弃该改动块（git apply -R，不可恢复）':
+    'Discard this hunk (git apply -R, irreversible)',
 };

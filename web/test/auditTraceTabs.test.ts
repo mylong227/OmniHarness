@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 审计面板 + Trace 自省面板判据（Web 交付项，2026-10-11）。
  *
  * ## 判据要钉死什么（两条都围绕"没有 ≠ 正常"）
@@ -23,6 +23,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { renderFacadeAsync } from './rtlHarness.ts';
 import { allText as facadeAllText } from './domFacade.ts';
+import { renderUi, act, fireEvent, screen } from './rtlHarness.ts';
 
 
 const { AuditTab } = await import('../src/ui/components/tabs/AuditTab.tsx');
@@ -151,4 +152,21 @@ test('⑦ 入口已注册：PANELS 含 audit/trace，Router 认可两个 pane', 
   } finally {
     globalThis.location = saved;
   }
+});
+
+test('⑧ 审计：过滤输入框在刷新期间保持挂载（此前每敲一个字符都被切成"载入…"而失焦）', async () => {
+  const ui = renderUi(AuditTab, { responses: { auditQuery: { ok: true, events: [] } } });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const input = screen.getByPlaceholderText('如 tool_call（留空＝全部）') as HTMLInputElement;
+  fireEvent.change(input, { target: { value: 'tool_call' } });
+  // 此刻刷新已在飞（loading=true）：输入框必须仍挂在文档里，否则用户每敲一个字符就丢焦点。
+  assert.strictEqual(input.isConnected, true, '刷新期间不得卸载过滤输入框');
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.strictEqual(input.isConnected, true, '刷新落地后输入框仍在');
+  assert.strictEqual(input.value, 'tool_call', '刷新不得清空用户输入');
+  assert.strictEqual(ui.root?.getAttribute('aria-busy'), 'false', '落地后必须清掉 busy 标记');
 });

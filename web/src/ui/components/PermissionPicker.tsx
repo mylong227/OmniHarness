@@ -1,5 +1,7 @@
 // 权限档位选择器（替换 Composer 原生的三档下拉）：列出后端 `approval.tiers` 全档，
-// 含「完全访问」的警示徽标与高风险说明。点击外部自动收起。
+// 高危档在菜单里带「完全访问」徽标与风险说明；收起态保持单层 chip（2026-10-27 用户
+// 「不要套两层太占地方」——fullAccess 档名本身就是「完全访问」，不再套同文案徽标）。
+// 点击外部自动收起。
 //
 // 函数组件范式：展开态与档位表各用一个 useState；档位拉取与外部点击监听各由一个
 // 依赖明确的 effect 承接（原实现需手写 componentDidUpdate 比对 prevState）。
@@ -98,6 +100,9 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
   // 进行悬浮冒泡提示即可，不要占地方」）。说明文字取档位表自身的 description——它与后端
   // `ApprovalTierCatalog` 同源，不再另存一份提示表（旧 `ComposerOptions.permissionHint` 已删：
   // 同一句权限说明存三处是这个仓库最容易漂的地方）。
+  // 收起态也**不再追加「完全访问」警示徽标**（2026-10-27 用户：「不要套两层太占地方」）：
+  // fullAccess 档的 label 本身就是「完全访问」，再套一层同文案徽标纯属重复；警示改由
+  // danger 配色（`.composer .dd.perm.danger`）+ 盾牌换警示图标承担，完整风险说明仍在悬浮提示里。
   const baseTitle = title ?? t('AI 权限等级');
   const tip = t('{title}｜{label}：{desc}', { title: baseTitle, label: t(active.label), desc: t(active.description) });
   return (
@@ -110,16 +115,8 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
       aria-label={tip}
       onClick={toggle}
     >
-      <span className="dd-ico">{icon('shield', { size: 14 })}</span>
+      <span className="dd-ico">{icon(fullAccess ? 'alert' : 'shield', { size: 14 })}</span>
       <span className="dd-label">{active.label}</span>
-      {fullAccess ? (
-        <span
-          className="perm-badge"
-          title={t('完全访问：AI 可不受限制地访问你的文件和互联网')}
-        >
-          {icon('alert', { size: 12 })} {t('完全访问')}
-        </span>
-      ) : null}
       <span className="dd-caret">▾</span>
       {open ? (
         <div className="dd-menu wide" onClick={stopBubble}>

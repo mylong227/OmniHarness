@@ -592,6 +592,16 @@ export function StreamView(props: StreamViewProps): ReactElement {
    */
   const [holeBoost, setHoleBoost] = React.useState<number>(0);
 
+  // 切会话：滚动位置与贴底意图都属于上一个会话，必须复位。否则在 A 里上滚后打开 B，
+  // B 会停在旧偏移、且 `stickyRef=false` 让之后的新内容再也不自动贴底（会话时钟已在下面
+  // 按 `switched` 复位，滚动这里此前漏了）。
+  React.useEffect(() => {
+    stickyRef.current = true;
+    programmaticTopRef.current = 0;
+    setScrollTop(0);
+    setHoleBoost(0);
+  }, [threadId]);
+
   // 新事件 / 流式输入 / 流式正文到达后锚定到底部（长会话里用户不必手动追）；兼作挂载即滚动。
   // 同时同步可视高度：首屏拿到 DOM 真实高度后虚拟窗口才准。
   // 依赖含 streamText：长回答逐段变高时，处于底部的用户也能被持续贴底（上滚后 stickyRef=false 即不再拉回）。

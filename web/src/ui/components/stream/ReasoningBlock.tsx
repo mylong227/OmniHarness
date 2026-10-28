@@ -126,7 +126,8 @@ export function ReasoningBlock(props: ReasoningBlockProps): ReactElement {
   // —— 收尾态：折叠摘要（有已录时长则一并显示），点击展开全文 ——
   const durSec = readDuration(ev.id);
   const summary = content.replace(/\s+/g, ' ').trim();
-  const meta = durSec !== null ? `${formatDuration(durSec)} · ${content.length} 字` : `${content.length} 字`;
+  const count = t('{n} 字', { n: content.length });
+  const meta = durSec !== null ? `${formatDuration(durSec)} · ${count}` : count;
   return (
     <div className="ev reasoning">
       <div

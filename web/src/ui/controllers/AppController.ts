@@ -402,8 +402,8 @@ export class AppController {
         case 'approval.request':
           this.host.patch({ approval: params as unknown as ApprovalRequest });
           notifyDesktop({
-            title: '需要你的确认',
-            body: '有一个工具调用等待审批，请回到 OmniHarness 处理。',
+            title: t('需要你的确认'),
+            body: t('有一个工具调用等待审批，请回到 OmniHarness 处理。'),
             ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
           });
           break;
@@ -411,8 +411,8 @@ export class AppController {
           // 提问上行：卡片由该通知驱动（**不**依赖对话流里的 question 事件——事件端口可能不接 Web）。
           this.host.patch({ question: params as unknown as QuestionRequest });
           notifyDesktop({
-            title: '需要你的回答',
-            body: 'Agent 正在等待你的回答。',
+            title: t('需要你的回答'),
+            body: t('Agent 正在等待你的回答。'),
             ...(typeof params['threadId'] === 'string' ? { sessionId: params['threadId'] } : {}),
           });
           break;
@@ -601,9 +601,12 @@ export class AppController {
    * @returns 无
    */
   public showToast(message: string, kind: ToastKind = 'info'): void {
-    this.host.patch({ toastState: { message, kind, visible: true } });
+    // 用自增序号而不是文案比对：同一句话连弹两次时，第一条的定时器会把第二条提前熄灭
+    // （文案相等不代表是同一个 toast）。序号从状态里读，不额外占字段（本类已到成员数上限）。
+    const seq = this.host.getState().toastState.seq + 1;
+    this.host.patch({ toastState: { seq, message, kind, visible: true } });
     window.setTimeout(
-      () => this.host.patch((s) => (s.toastState.message === message ? { ...s, toastState: { ...s.toastState, visible: false } } : {})),
+      () => this.host.patch((s) => (s.toastState.seq === seq ? { ...s, toastState: { ...s.toastState, visible: false } } : {})),
       2200,
     );
   }

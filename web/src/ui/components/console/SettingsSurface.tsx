@@ -389,10 +389,12 @@ export function SettingsSurface(props: SettingsSurfaceProps): ReactElement {
         </ConsoleRow>
       </ConsoleCard>
 
-      <ConsoleCard footer={t('以上路径是本机默认位置；可用 --workspace / OMNIHARNESS_HOME 覆盖。')}>
+      <ConsoleCard
+        footer={t('以上是默认位置；归属根由服务端 OMNI_HOME 决定（默认 ~/.omniharness），--workspace 只切项目。')}
+      >
         <ConsoleInfoRow label={t('产品')} value="OmniHarness" />
-        <ConsoleInfoRow label={t('配置文件')} value="~/.omniharness/omniharness.json" />
-        <ConsoleInfoRow label={t('会话存档')} value="~/.omniharness/sessions/" />
+        <ConsoleInfoRow label={t('配置文件')} value="<OMNI_HOME>/omniharness.json" />
+        <ConsoleInfoRow label={t('会话存档')} value="<OMNI_HOME>/sessions/" />
       </ConsoleCard>
     </>
   );

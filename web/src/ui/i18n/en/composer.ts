@@ -71,6 +71,8 @@ export const EN_COMPOSER: Record<string, string> = {
   '运行失败：{msg}{hint}': 'Run failed: {msg}{hint}',
   '已中止（用户中断）。': 'Aborted (interrupted by user).',
   '正在生成，请先停止后再重生成': 'Still generating; stop the current turn before regenerating',
+  '正在生成，请先停止': 'Still generating; stop the current turn first',
+  '正在收尾上一回合，请稍候': 'The previous turn is still winding down; please wait',
   '没有可重生成的用户消息': 'No user message to regenerate',
   '重生成失败（服务端未回退）：{reason}': 'Regeneration failed (server did not rewind): {reason}',
   '未知原因': 'unknown reason',

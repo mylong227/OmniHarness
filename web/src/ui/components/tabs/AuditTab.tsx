@@ -50,7 +50,9 @@ export function AuditTab(): ReactElement {
     void refresh();
   }, [refresh, sessionTick]);
 
-  if (loading) return <div className="audit-tab">{t('载入审计事件…')}</div>;
+  // 只有**首次**取数（尚无数据）才占整屏：刷新期间保持过滤输入框挂载，否则每敲一个字符
+  // 都会被切成「载入…」而卸载输入框 ⇒ 失焦，多字符过滤实际不可用。
+  if (loading && data === null) return <div className="audit-tab">{t('载入审计事件…')}</div>;
   if (error !== null) {
     return (
       <div className="audit-tab">
@@ -62,7 +64,7 @@ export function AuditTab(): ReactElement {
     );
   }
   return (
-    <div className="audit-tab">
+    <div className="audit-tab" aria-busy={loading ? 'true' : 'false'}>
       <div className="detail-section">
         <div className="detail-h">{t('过滤')}</div>
         <div className="filter-bar">

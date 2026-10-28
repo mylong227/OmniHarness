@@ -5562,3 +5562,56 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   本轮以 409 fail-closed 止血）；② ACP allow-always 持久化与 run() 早退死路径**未修**（审计
   #12，低危，登记待办）；③ 间隔效应是机制级落地，增益数字必须走 §106 预注册流程，不得引用；
   ④ doctor/boost 的 spawnSync 违反自家异步规范（审计 #9）未在本轮收口，登记待办。
+
+## 110. 2026-10-28 收口续：ACP 协议语义（审计 #12 销账）+ 前端审计批（5 高危 / 3 中危 / 1 低危）
+
+- **批⑤（ACP，#12 销账）**：
+  1. **`allow_always` / `reject_always` 此前只对当次生效**：四个选项都当一次性结果，用户选了
+     「总是允许」下一轮同工具**仍然弹窗**（客户端给了承诺却没被执行）。改为**会话级记忆**
+     （`AcpSessionState.alwaysDecisions`，按工具名）：本会话内同工具不再询问；`close()` /
+     连接断开随会话对象一起销毁，**不落盘、不跨会话**（静默持久化自动放行是更大的风险面，
+     刻意不做）。判据：`acp.test.ts` 24/25（allow-always 两轮只弹一次窗；reject-always 直接拒绝）。
+  2. **`run()` 死路径**：传输没有 `onClose`（内存替身 / 自定义传输）时 Promise **永不兑现**，
+     `close()` 也唤不醒它——`void server.run()` 的等待者永久悬挂。改为 `finish()` 单点收尾
+     （关闭位 / 挂起权限 / 活跃会话 / 唤醒 run），`close()` 走同一出口；重复 run 复用同一
+     Promise、close 之后 run 立即返回。判据：`acp.test.ts` 26（close 唤醒挂起 run + 幂等）。
+- **批⑥（前端审计：只读代理精读 `web/src/ui` 174 文件，15 条发现）**——修掉 5 高危 + 3 中危 + 1 低危：
+  1. **`loadThread` 无请求代际护栏（高·竞态）**：快速连点两个会话时先发的响应后到会覆盖后点的
+     会话（视图与 hash 都退回上一个）。加 `loadGeneration`，每个 await 后核对；失败路径同样丢弃
+     陈旧错误（不再把已离开的加载报错弹到新视图）。
+  2. **新建会话后旧回合事件被「认领」（高·串会话）**：`newSession()` 摘视图，但用户一发送
+     `send()` 就重新 `attach()`，护栏失效 ⇒ 旧会话迟到事件占住 `currentThreadId`，新会话自己的
+     事件反因 sid 不匹配被丢弃。加 `abandonedThreadId`（点新建时记下、打开任何会话即清）。
+  3. **审计过滤输入框每敲一个字符就失焦（高）**：`loading` 时整屏换成「载入…」把输入框卸载。
+     改为只在**首次**取数（`data === null`）占整屏，刷新期间保持挂载并以 `aria-busy` 表达。
+  4. **回合进行中 Enter 仍能再发一轮（高）**：发送按钮已换成「停止」但 Enter 走同一入口且无
+     busy 判断 ⇒ `streamPhase('open')` 丢掉未刷出的流式文本、单布尔 `inFlight` 被覆盖。在
+     `send()` 顶部拦下（收尾中/生成中两种文案），`regenerate` 复用同一护栏。
+  5. **切会话不重置滚动（中）**：在 A 里上滚后打开 B，B 停在旧偏移且 `stickyRef=false` 让之后
+     的新内容**再也不自动贴底**。加依赖 `[threadId]` 的复位 effect（sticky / scrollTop / holeBoost）。
+  6. **审批弹窗 Tab 圈定漏「更改权限」（中·可达性）**：从「允许」Tab 直接回「始终允许」，
+     键盘用户**永远到不了**该按钮。改为按实际存在的按钮收口，正反向闭环。
+  7. **toast 用文案判等（低）**：同一句话 2.2 s 内连弹两次时，第一条的定时器把第二条提前熄灭。
+     `ToastState` 加自增 `seq`（从状态读，不新增类字段——AppController 已到成员数上限）。
+  8. **设置页路径文案写错归属根（中）**：写着不存在的 `OMNIHARNESS_HOME` 与已迁移的
+     `~/.omniharness/...`。改为 `OMNI_HOME` 口径（`<OMNI_HOME>/omniharness.json` 等），
+     Vault 的密钥路径同步；用户照文案改配置不会再扑空。
+  9. **i18n 硬编码中文（中）**：系统通知标题/正文（审批/提问/回合完成）、「外部链接」、搜索分组
+     「会话 / 工作区文件」、「{n} 字」、「丢弃该改动块…」title 全部走 `t()` 并补 en 词条。
+- **判据**（全部实跑）：`acp.test.ts` 26/26；web 新增 5 文件
+  （`sessionLoadRace` 2、`toastSequence` 1、`approvalModalFocus` 2、`streamThreadSwitch` 1、
+  `auditTraceTabs` ⑧），另扩 `turnControl`（send 拦截）。
+  `npm run web:test` 全量 **117 文件 / 612 例全绿**（首轮在并行跑 check/eslint 时 `chromeCleanup`
+  的 CDP 就绪超时；**隔离复跑与整轮单独复跑均通过**，属 Chrome 启动竞态而非本轮改动）；
+  `tsc --noEmit` 双工程零错；`node scripts/check.mjs`
+  1278 文件零违规；`auditStandards --delta` 通过（顺手把 toast 序号从新字段改为状态推导，
+  避免把 AppController 推过成员数上限）。
+- **诚实边界（审计里**未修**的项，如实登记）**：
+  ① 播放器类弹层（ModelPicker / AddMenu / PermissionPicker / ContextCapacityPanel）的触发器仍是
+  `div role=button` 且无 `tabIndex`，菜单项也是 `div onClick` ⇒ **纯键盘用户打不开这四个面板**；
+  正确解法是改 `<button>` 并给菜单项补 roving tabindex（涉及 4 个组件与视觉回归，须单独一批）；
+  ② AddMenu 搜索、ChangesTab 展开、FilePicker 目录切换的**在途响应无序号**，慢响应可覆盖新查询；
+  ③ 打开别家项目的会话会隐式切项目，但侧栏项目名/文件树不刷新（需要一条工作区变更广播）；
+  ④ `SettingsModal` / `PanelModal` 已无任何 import（死代码，约 750 行），退役需连同 PanelPicker 的测试；
+  ⑤ FilePicker / FolderPicker 缺少 `role=dialog` / 焦点圈定（键盘焦点留在背后输入框）。
+  以上 5 项已进待办，下一批按「可达性 → 竞态 → 死代码」顺序收口。

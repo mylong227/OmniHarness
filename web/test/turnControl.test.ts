@@ -113,10 +113,12 @@ type AppStateLike = Record<string, unknown>;
  * @param api API 桩
  * @returns 控制器
  */
-function makeController(host: HostStub, api: Pick<ApiStub, 'runTurn'>) {
+function makeController(host: HostStub, api: Pick<ApiStub, 'runTurn'>, toasts: string[] = []) {
   const services = {
     api,
-    toast: () => {},
+    toast: (message: string) => {
+      toasts.push(message);
+    },
     reducers: { appendFinalText: (events: unknown) => events },
     stream: {},
     toastSvc: {},
@@ -519,5 +521,34 @@ test('回合进行中点「新建」：收尾不得把旧会话拽回视图（�
   assert.strictEqual(state.events.length, before, '视图已摘：迟到事件不得写进新视图');
   assert.strictEqual(state.streamText, '', '视图已摘：迟到增量不得进缓冲');
   void ctrl;
+});
+
+test('send：回合进行中再次发送被拦下（不覆盖在飞回合、不丢未刷出的流式文本）', async () => {
+  const { host, state } = makeHost([{ id: 'u1', type: 'user', payload: { content: '第一问' } }]);
+  const api = makeApi();
+  const gate = deferred<{ threadId: string; finalText?: string }>();
+  api.runTurn = (params) => {
+    api.runTurnCalls.push(params);
+    return gate.promise;
+  };
+  const toasts: string[] = [];
+  const ctrl = makeController(host, api, toasts);
+  const running = ctrl.send('第一问', [], []);
+  // 回合进行中累积了半截流式正文（若第二次发送被放行，`streamPhase('open')` 会丢弃它）。
+  host.patch({ streamText: '半截回答' });
+
+  await ctrl.send('第二问', [], []);
+
+  assert.strictEqual(api.runTurnCalls.length, 1, '回合进行中不得再起一轮（Enter 走同一入口）');
+  assert.strictEqual(state.streamText, '半截回答', '被拦下的发送不得清掉在飞回合的流式缓冲');
+  assert.strictEqual(state.busy, true, '仍在飞 ⇒ 忙碌态不得被覆盖');
+  assert.ok(
+    toasts.some((message) => message.includes('正在生成')),
+    `应给出可行动提示，实测 ${JSON.stringify(toasts)}`,
+  );
+
+  gate.resolve({ threadId: 't1' });
+  await running;
+  assert.strictEqual(state.busy, false, '首轮正常收尾后必须退出忙碌态');
 });
 

@@ -31,7 +31,7 @@ export function ExternalLinkCards(props: ExternalLinkCardsProps): ReactElement |
   return (
     <div className="link-cards">
       <div className="link-cards-head">
-        {icon('link', { size: 12 })} 外部链接 · {urls.length}
+        {icon('link', { size: 12 })} {t('外部链接')} · {urls.length}
       </div>
       {urls.map((u) => (
         <div className="link-card" key={u}>

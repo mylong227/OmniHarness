@@ -35,6 +35,17 @@ export class SessionController {
   private readonly stream: TurnStreamBuffer;
   /** 会话数据版本号（`AppState.sessionTick`）的去抖器。 */
   private readonly ticker: SessionTicker;
+  /** `loadThread` 的请求代际（后发请求递增；陈旧响应据此刻弃）。 */
+  private loadGeneration = 0;
+  /**
+   * 点「新建」时被放弃的会话 id（迟到事件不得被认领成当前会话）。
+   *
+   * 为什么需要它：`newSession()` 只摘视图，旧回合仍在飞；用户随即在新会话里发送时
+   * `ComposerController.send()` 会重新 `attach()`，于是「已摘」的护栏失效。此时旧会话的
+   * 收尾事件先到就会把 `currentThreadId` 认领成旧会话，新会话自己的事件反而因 sid 不匹配
+   * 被丢弃（视图串会话 + 新回合过程事件丢失）。
+   */
+  private abandonedThreadId: string | null = null;
 
   /**
    * 构造并绑定对外回调。
@@ -82,6 +93,9 @@ export class SessionController {
     // 不在这里认领，整个回合里 currentThreadId 都是 null ⇒ 容量面板按空会话取数（实测全零）、
     // 回滚 / Trace 也拿不到会话。认领后 currentThreadId 立刻可用，收尾时 res.threadId 再幂等覆盖。
     if (typeof sid === 'string' && sid !== '' && (current === null || current === '')) {
+      // 被「新建」放弃的旧会话：它的迟到事件属于用户已离开的回合，认领它会让视图串回旧会话。
+      if (sid === this.abandonedThreadId) return;
+      this.abandonedThreadId = null;
       this.host.patch({ currentThreadId: sid });
     }
     const p = ev.payload || {};
@@ -223,14 +237,24 @@ export class SessionController {
   public async loadThread(id: string): Promise<void> {
     // S2 真机首屏观测：从点击/深链进入开始计时，加载完成后落一条 Performance measure。
     const startedAt = typeof performance === 'undefined' ? 0 : performance.now();
+    // **请求代际护栏**：快速连点两个会话时，先发的 `getThread` 可能后到并覆盖后点的会话
+    // （视图与 hash 都退回上一个）。与 `loadEarlier` 的 currentThreadId 核对同源，但此处有多个
+    // await，必须按「最后一次请求」判定而不是按当前 id。
+    const generation = ++this.loadGeneration;
+    // 打开任何会话都意味着放弃状态结束：旧会话的迟到事件从此按 id 正常匹配。
+    this.abandonedThreadId = null;
     // 挂到这条会话上（不是摘掉）：刷新 / 深链 / 点会话都要能继续收它的流式事件。
     this.viewAttachment.attach();
     try {
       // 会话**跟着项目走**（2026-10-07 用户：「在 A 项目下的会话，去 B 项目打开，会话会自己串过来」）：
       // 打开前对齐归属项目、必要时先切项目——策略与判据见 `models/SessionProjectBinding`。
       const owner = { api: this.services.api, host: this.host, toast: this.services.toast };
-      if (await SessionProjectBinding.ensure(owner, id)) await this.refreshSessions();
+      const switched = await SessionProjectBinding.ensure(owner, id);
+      if (generation !== this.loadGeneration) return;
+      if (switched) await this.refreshSessions();
+      if (generation !== this.loadGeneration) return;
       const r = await this.services.api.getThread(id, { limit: HISTORY_PAGE_SIZE });
+      if (generation !== this.loadGeneration) return;
       const items = r.items || [];
       // 历史会话的**工具结果**必须从事件里重建：卡片状态只来自实时 `tool_result` 通知，而加载历史时
       // 那些通知早就过去了 ⇒ 否则旧工具卡永远停在「进行中…」（2026-10-07 用户截图「结果卡住了」）。
@@ -261,6 +285,8 @@ export class SessionController {
       this.services.navigate({ threadId: id });
       SessionController.markFirstPage(startedAt, items.length);
     } catch (e) {
+      // 已被更新的请求取代：这条失败属于用户已经离开的加载，不该弹到新视图上。
+      if (generation !== this.loadGeneration) return;
       this.services.toast(t('加载会话失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   }
@@ -353,6 +379,8 @@ export class SessionController {
   public newSession(): void {
     // 立刻摘视图：此后该回合迟到的收尾 / 流式事件都不该回到这个新视图（见 ViewAttachment）。
     this.viewAttachment.detach();
+    // 记下被放弃的会话：新会话里再发送会重新 attach，届时只能靠 id 拦住旧会话的迟到事件。
+    this.abandonedThreadId = this.host.getState().currentThreadId;
     this.host.patch({
       currentThreadId: null,
       events: [],

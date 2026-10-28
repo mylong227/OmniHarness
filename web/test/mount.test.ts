@@ -167,6 +167,25 @@ test('PermissionPicker：档位标签映射 + 说明只走悬浮提示（rules�
   assert.strictEqual(seen.length, 0, '未交互不触发 onPick');
 });
 
+test('PermissionPicker：fullAccess 收起态单层 chip——档位名只出现一次，不套「完全访问」徽标（2026-10-27 用户「不要套两层太占地方」）', () => {
+  const vnode = renderFacade(PermissionPicker, {
+    props: { permission: 'auto', onPick: () => {}, api: API },
+  }).node;
+  // 旧实现在这里渲染 label「完全访问」+ 徽标「⚠ 完全访问」两层同文案；现在警示由 danger
+  // 配色承担，收起态不得再出现 perm-badge。
+  assert.match(String(vnode!.props['className']), /danger/, 'fullAccess 收起态必须带 danger 配色');
+  assert.strictEqual(
+    (allText(vnode).match(/完全访问/g) ?? []).length,
+    1,
+    `收起态「完全访问」只允许出现一次（label 本身），不得再套徽标：${allText(vnode)}`,
+  );
+  assert.strictEqual(
+    collect(vnode, (n) => String(n.props['className'] ?? '').includes('perm-badge')).length,
+    0,
+    '收起态不得渲染 perm-badge 徽标（菜单内的高危档徽标不受此约束）',
+  );
+});
+
 test('TreeNode：文件树节点渲染名称并保留展开回调（零 DOM 依赖）', () => {
   const vnode = renderFacade(TreeNode, {
     props: {

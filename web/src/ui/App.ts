@@ -151,7 +151,7 @@ function initialState(): AppState {
     graphRuns: {},
     busy: false,
     activeTool: null,
-    toastState: { message: '', kind: 'info', visible: false },
+    toastState: { seq: 0, message: '', kind: 'info', visible: false },
     paletteOpen: false,
     sessionsScopeAll: SessionsScope.read() === 'all',
     dialog: { request: null },

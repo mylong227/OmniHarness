@@ -42,6 +42,8 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
   const denyRef = React.useRef<HTMLButtonElement | null>(null);
   /** 「允许」按钮引用（Tab 圈定用）。 */
   const allowRef = React.useRef<HTMLButtonElement | null>(null);
+  /** 「更改权限」按钮引用（Tab 圈定用；此前漏登记 ⇒ 键盘用户永远到不了它）。 */
+  const changePermRef = React.useRef<HTMLButtonElement | null>(null);
   /** 已为其设置过焦点默认值的请求（避免同一请求重复抢焦点）。 */
   const focusedForRef = React.useRef<ApprovalRequest | null>(null);
 
@@ -57,17 +59,19 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
   }, [approval]);
 
   /**
-   * Tab 在三个按钮间循环（简单焦点圈定）。
+   * Tab 在弹窗内可聚焦按钮间循环（简单焦点圈定）。
    * @param e 键盘事件
    */
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key !== 'Tab') return;
+    const list = [alwaysRef.current, denyRef.current, allowRef.current, changePermRef.current].filter(
+      (el): el is HTMLButtonElement => el !== null,
+    );
+    if (list.length === 0) return;
     e.preventDefault();
-    const list = [alwaysRef.current, denyRef.current, allowRef.current];
-    const size = list.length;
-    const active = list.findIndex((el) => el !== null && el === document.activeElement);
+    const active = list.findIndex((el) => el === document.activeElement);
     const from = active < 0 ? (e.shiftKey ? 0 : -1) : active;
-    list[(from + (e.shiftKey ? -1 : 1) + size) % size]?.focus();
+    list[(from + (e.shiftKey ? -1 : 1) + list.length) % list.length]?.focus();
   };
 
   if (!approval) return <div className="overlay" style={HIDDEN}></div>;
@@ -119,7 +123,13 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
         </div>
         {onChangePermission ? (
           <div className="approval-change-perm">
-            <button className="link" onClick={onChangePermission}>
+            <button
+              className="link"
+              ref={(el: HTMLButtonElement | null) => {
+                changePermRef.current = el;
+              }}
+              onClick={onChangePermission}
+            >
               {t('更改权限')}
             </button>
           </div>

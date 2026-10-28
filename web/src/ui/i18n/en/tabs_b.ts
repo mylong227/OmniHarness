@@ -280,8 +280,8 @@ export const EN_TABS_B: Record<string, string> = {
   '只列出名字：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。':
     'Lists names only: the server offers no API to read values back (credentials are for runtime use only after being written).',
   '粘贴凭据值': 'Paste the credential value',
-  '未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 ~/.omniharness/vault.key）':
-    'Not wired: {reason} (if OMNIHARNESS_VAULT=0 was set, remove it and restart serve; the key defaults to ~/.omniharness/vault.key)',
+  '未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 <OMNI_HOME>/vault.key）':
+    'Not wired: {reason} (if OMNIHARNESS_VAULT=0 was set, remove it and restart serve; the key defaults to <OMNI_HOME>/vault.key)',
   '保险库为空（已接线，尚无凭据）。': 'The vault is empty (wired up, no credentials yet).',
   '暂无数据。': 'No data.',
   '写入 / 覆盖': 'Write / Overwrite',

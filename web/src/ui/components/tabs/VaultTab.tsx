@@ -105,7 +105,7 @@ export function VaultTab(): ReactElement {
           // 默认口径下 serve 本身就接线（用户级密钥文件 ~/.omniharness/vault.key），
           // 所以这里最常见的原因是 OMNIHARNESS_VAULT=0 被显式关闭。
           <p className="err">
-            {t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 ~/.omniharness/vault.key）', { reason: data.reason })}
+            {t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 <OMNI_HOME>/vault.key）', { reason: data.reason })}
           </p>
         ) : data !== null && data.ok ? (
           data.names.length === 0 ? (

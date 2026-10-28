@@ -70,6 +70,8 @@ export interface ToastState {
   message: string;
   kind: ToastKind;
   visible: boolean;
+  /** 单调自增序号：定时器只隐藏自己那一条（相同文案连弹两次时不会被提前熄灭）。 */
+  seq: number;
 }
 
 export interface LiveInput {

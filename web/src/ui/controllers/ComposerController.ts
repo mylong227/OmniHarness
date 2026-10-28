@@ -69,6 +69,16 @@ export class ComposerController {
     images: { url?: string; data?: string; mediaType?: string }[],
     files: FileAttachment[],
   ): Promise<void> {
+    // 回合进行中不得再起一轮：Enter 走的是同一个入口（此前只有发送按钮换成「停止」，
+    // Enter 仍会直发）。再发会 `streamPhase('open')` 丢掉上一回合未刷出的流式文本，
+    // 且单布尔 `inFlight` 被覆盖 ⇒ 之后「停止」指向错误的回合。
+    if (this.inFlight) {
+      this.services.toast(
+        this.abortRequested ? t('正在收尾上一回合，请稍候') : t('正在生成，请先停止'),
+        'info',
+      );
+      return;
+    }
     const currentThreadId = this.host.getState().currentThreadId;
     const params: {
       threadId?: string;
@@ -130,8 +140,8 @@ export class ComposerController {
         s.streamText === '' ? {} : { streamText: '', finalizedStreamText: s.streamText },
       );
       notifyDesktop({
-        title: '回合完成',
-        body: 'Agent 已完成本轮任务。',
+        title: t('回合完成'),
+        body: t('Agent 已完成本轮任务。'),
         ...(res.threadId ? { sessionId: res.threadId } : {}),
       });
     } catch (e) {
