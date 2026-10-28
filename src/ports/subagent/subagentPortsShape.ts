@@ -11,6 +11,7 @@ import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts'
 import type { LongTermMemoryPort } from '../memory/longTermMemory.ts';
 import type { PlanPort } from '../runtime/plan.ts';
 import type { SupervisorPort } from '../runtime/supervisor.ts';
+import type { ToolResourceGatePort } from '../runtime/toolResourceGatePort.ts';
 
 /**
  * @beta
@@ -57,6 +58,12 @@ export interface SubagentPortsShape {
    * 导致 safe/locked 模式下子代工具失败既不进健康监控、也不受确定性否决约束。
    */
   readonly supervisor?: SupervisorPort | undefined;
+  /**
+   * 工具级资源域闸（可选，2026-10-28 BLOCKERS §5）：**必须透传父级的进程级单例**——
+   * 子代理与父会话并发调 browser 工具时的跨会话互斥依赖共享锁表；不透传则子代自建
+   * 闸（锁表只对子代有效），跨会话互斥失效。
+   */
+  readonly toolResourceGate?: ToolResourceGatePort | undefined;
   /**
    * 子代系统提示片段（可选，缺省无）。
    *

@@ -624,6 +624,7 @@ export class Agent implements AgentPort {
       approvals: this.runtime.approvals,
       sandbox: this.runtime.sandbox,
       gate: this.runtime.gate,
+      toolResourceGate: this.runtime.toolResourceGate,
       supervisor: this.runtime.supervisor,
       recorder,
       sessionId: recorder.sessionId(),

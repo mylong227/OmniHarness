@@ -8,6 +8,7 @@ import type { SandboxPort } from '../runtime/sandbox.ts';
 import type { ApprovalPort } from '../runtime/approval.ts';
 import type { EscalationPort } from '../runtime/escalation.ts';
 import type { ToolGatePort } from '../runtime/toolGatePort.ts';
+import type { ToolResourceGatePort } from '../runtime/toolResourceGatePort.ts';
 import type { SupervisorPort } from '../runtime/supervisor.ts';
 import type { ToolResultSpillerPort } from '../context/toolResultSpillerPort.ts';
 import type { AttachmentSpillPort } from '../context/attachmentSpillPort.ts';
@@ -60,6 +61,11 @@ export interface OmniHarnessRuntime {
   readonly elevatedSandbox: SandboxPort;
   /** 统一门禁（审批 + 沙箱 + 计划态，#77 计划门禁在此生效）：StepRunner 与 run_code 共用。 */
   readonly gate: ToolGatePort;
+  /**
+   * 工具级资源域闸（2026-10-28，BLOCKERS §5）：跨会话互斥浏览器等宿主资源。
+   * **进程级单例**（全会话共享锁表）由组合根持有；`OMNI_TOOL_DOMAIN_LOCKS=0` 关闭。
+   */
+  readonly toolResourceGate: ToolResourceGatePort;
   /** 航天级监督内核（I-P0-3）：健康监控 + Safe mode 分级降级，运行时装配注入主循环。 */
   readonly supervisor?: SupervisorPort | undefined;
   /** 工具结果外溢器（#74）：超大输出落后端，只留有界预览。 */

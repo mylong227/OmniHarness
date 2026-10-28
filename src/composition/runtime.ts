@@ -3,6 +3,7 @@ import { SsrfGuard, type SsrfOptions } from '../security/ssrfGuard.ts';
 import { NativeBackend } from '../native/nativeBackend.ts';
 import { WorkflowMemoryStore } from '../adapters/memory/workflowMemoryStore.ts';
 import { MUTATING_TOOLS, ToolGate } from '../core/toolGate.ts';
+import { ToolResourceGate } from '../core/toolResourceGate.ts';
 import { SupervisorKernel } from '../supervisor/supervisorKernel.ts';
 import { RbacPolicy } from '../security/rbacPolicy.ts';
 import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
@@ -130,6 +131,7 @@ export class Runtime {
       escalation: config.escalation,
       elevatedSandbox: config.elevatedSandbox,
       gate,
+      toolResourceGate: new ToolResourceGate(),
       supervisor,
       spiller: config.spiller,
       ...(config.attachmentSpiller !== undefined
@@ -162,7 +164,6 @@ export class Runtime {
       completionGateFactory: (ctx) => TurnCompletionGateFactory.of(ctx),
       // VER-06（2026-10-21）：reviewer 默认注入，完成声明且有 diff 时跑一次干净上下文审查。
       // 默认 advisory；`OMNI_REVIEW_BLOCK=1` 阻断；`OMNI_REVIEW=off|0` 关闭；
-      // `OMNI_REVIEW_MODEL` 命中路由 entry 时用独立模型（见 reviewerField）。
       ...Runtime.reviewerField(config),
     } as OmniHarnessRuntime;
     Runtime.attachA2a(runtime, config);
@@ -376,16 +377,7 @@ export class Runtime {
     // 复用既有子代理隔离运行时，避免对等方突发委托拖垮进程或越权调用写类工具。
     const executor = new A2aTaskExecutor(runtime);
     server.setTaskHandler(executor);
-    // 监听失败必须可观测（2026-10-27 审计收口）：此前 `void listen(port)` 把 EADDRINUSE
-    // 变成浮动 rejection——a2a 从未监听而 runtime.a2a 已装配，委托全部打到死端口静默失效。
-    // 现在：拒绝时打 error 并把 transport 从 runtime 摘除（消费方可见 a2a 未就绪）。
-    void serverTransport.listen(a2aPort).catch((error: unknown) => {
-      log.error('a2a.listen.failed', {
-        port: a2aPort,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      runtime.a2a = undefined;
-    });
+    Runtime.listenA2aOrFail(serverTransport, a2aPort, runtime);
     // 委托工具面（2026-10-05 收口）：此前只有「服务端收委托」半边——client 装配进 runtime.a2a
     // 后在生产路径上零调用点，本 agent 没有任何工具能**发起**委托。就地注册 a2a_delegate：
     // 仅当工具端口是本仓 RegistryToolPort（支持注册）时挂上；自定义 ToolPort 的嵌入方可经
@@ -395,6 +387,29 @@ export class Runtime {
       config.tools.register(delegateTool.definition, (call, ctx) => delegateTool.handle(call, ctx));
     }
     runtime.a2a = { server, client, transport: serverTransport };
+  }
+
+  /**
+   * 起 A2A 监听（2026-10-27 审计收口）：监听失败必须可观测——此前 `void listen(port)` 把
+   * EADDRINUSE 变成浮动 rejection：a2a 从未监听而 runtime.a2a 已装配，委托全部打到死端口
+   * 静默失效。拒绝时打 error 并把 runtime.a2a 摘回 undefined（消费方可见 a2a 未就绪）。
+   * @param serverTransport A2A 服务端传输。
+   * @param a2aPort 期望端口。
+   * @param runtime 已装配的运行时（失败时摘除其 a2a 字段）。
+   * @returns 无返回值。
+   */
+  private static listenA2aOrFail(
+    serverTransport: { listen(port: number): Promise<unknown> },
+    a2aPort: number,
+    runtime: OmniHarnessRuntime,
+  ): void {
+    void serverTransport.listen(a2aPort).catch((error: unknown) => {
+      log.error('a2a.listen.failed', {
+        port: a2aPort,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      runtime.a2a = undefined;
+    });
   }
 
   /**

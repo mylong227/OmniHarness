@@ -1,6 +1,9 @@
 import type { ToolContext, ToolCall, ToolResult } from '../ports/tool/tool.ts';
 import { ToolGate, MUTATING_TOOLS, REPO_MAP_INVALIDATING_TOOLS } from './toolGate.ts';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
+import type { ToolResourceGatePort } from '../ports/runtime/toolResourceGatePort.ts';
+import { ToolResourceGate } from './toolResourceGate.ts';
+import { LockError } from '../util/concurrency/lockError.ts';
 import { ToolScheduler } from './loop/toolScheduler.ts';
 import { SandboxDenial } from '../security/sandboxDenial.ts';
 import { PromptInjectionGuard } from '../security/promptInjectionGuard.ts';
@@ -36,6 +39,12 @@ export class StepToolExecutor {
   private readonly gate: ToolGatePort;
   /** 工具并行调度器（V2）：读类并行、写类屏障、model-order 提交。 */
   private readonly scheduler: ToolScheduler;
+  /**
+   * 工具级资源域闸（2026-10-28，BLOCKERS §5）：跨会话互斥浏览器等宿主资源。
+   * 组合根注入进程级单例（全会话共享锁表）；缺省自建仅出现在手动/测试构造形态——
+   * 此时锁表退化为会话内有效，跨会话互斥由组合根装配保证。
+   */
+  private readonly resourceGate: ToolResourceGatePort;
   /** 本回合的不可信来源追踪（SEC-03）：只在开启时生效。 */
   private provenance: ProvenanceTracker | undefined;
   /** 来源追踪模式（off/shadow/enforce；shadow 只记录不拦）。 */
@@ -57,6 +66,7 @@ export class StepToolExecutor {
         deps.elevatedSandbox,
       );
     this.scheduler = new ToolScheduler();
+    this.resourceGate = deps.toolResourceGate ?? new ToolResourceGate();
     // (P4 升档) 注入护栏阈值覆盖：构造时把装配层透传的阈值注入 `ToolOutputTrust` 静态覆盖，
     // 使运行期可调「弱证据灵敏度」。缺省 undefined ⇒ 清覆盖回基线（零行为变更）。
     ToolOutputTrust.setThresholdOverride(deps.promptInjectionGuardThresholds ?? {});
@@ -169,6 +179,11 @@ export class StepToolExecutor {
     }
     log.info('tool.call', { tool: call.name, callId: call.id });
     this.deps.recorder.toolCall(call.id, call.name, call.arguments);
+    // 工具级资源域闸（2026-10-28，BLOCKERS §5）：门禁**之后**取锁（等审批绝不持锁）、
+    // pre 钩子**之前**——钩子语义是"执行前拦截/审计"，应在互斥窗口内。取锁失败（会话取消）
+    // 走与门禁拒绝相同的配对兜底：补 tool_result，绝不留孤儿 tool_call。
+    const acquired = await this.acquireResourceDomains(call, context);
+    if (typeof acquired === 'boolean') return acquired;
     const hookContext = {
       sessionId: context.sessionId,
       toolName: call.name,
@@ -212,6 +227,33 @@ export class StepToolExecutor {
           this.deps.supervisor?.report(call.name, 'failure', text);
         }
       }
+      return false;
+    } finally {
+      // 资源域锁在一切出口（成功/失败/异常）都必须释放；释放幂等，绝不跨工具泄漏持锁窗口。
+      acquired();
+    }
+  }
+
+  /**
+   * 取工具声明的资源域锁（2026-10-28，BLOCKERS §5）。
+   *
+   * @param call 工具调用。
+   * @param context 工具上下文（会话/取消信号）。
+   * @returns 成功 = 幂等释放函数；失败（会话取消）= 已补录配对失败结果并返回 false。
+   */
+  private async acquireResourceDomains(
+    call: ToolCall,
+    context: ToolContext,
+  ): Promise<(() => void) | false> {
+    try {
+      return await this.resourceGate.acquire(call.name, context.sessionId, context.signal);
+    } catch (error) {
+      const reason =
+        error instanceof LockError
+          ? `资源域等待被取消（${call.name}）：${error.message}`
+          : `资源域获取失败（${call.name}）：${error instanceof Error ? error.message : String(error)}`;
+      log.warn('tool.resource.acquire_failed', { tool: call.name, callId: call.id, error: reason });
+      this.deps.recorder.toolResult(call.id, false, undefined, reason);
       return false;
     }
   }

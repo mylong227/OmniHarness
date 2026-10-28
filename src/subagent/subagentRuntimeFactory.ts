@@ -8,6 +8,7 @@ import type { StoragePort } from '../ports/memory/storage.ts';
 import { Container } from '../core/container.ts';
 import { ServiceKeys } from '../composition/serviceKeys.ts';
 import { ToolGate } from '../core/toolGate.ts';
+import { ToolResourceGate } from '../core/toolResourceGate.ts';
 
 import { ToolDiscovery } from '../search/toolDiscovery.ts';
 import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.ts';
@@ -96,6 +97,9 @@ export class SubagentRuntimeFactory {
       ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
       discovery: new ToolDiscovery(),
       retrieval: new Bm25MemoryIndex(),
+      // 资源域闸**必须共享父级的进程级单例**（跨会话互斥依赖共享锁表）；父级未注入的
+      // 手动/测试形态才回退自建（锁表仅子代内部有效，诚实降级）。
+      toolResourceGate: ports.toolResourceGate ?? new ToolResourceGate(),
       gate: new ToolGate(
         ports.approvals,
         ports.sandbox,

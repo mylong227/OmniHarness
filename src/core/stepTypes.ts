@@ -14,6 +14,7 @@ import type { ContextCompactor } from '../context/contextCompactor.ts';
 import type { TokenEstimatorCalibrator } from '../context/tokenEstimatorCalibrator.ts';
 import type { ToolGatePort } from '../ports/runtime/toolGatePort.ts';
 import type { ToolHookRunnerPort } from '../ports/tool/toolHookRunnerPort.ts';
+import type { ToolResourceGatePort } from '../ports/runtime/toolResourceGatePort.ts';
 import type { SessionRecorder } from './sessionRecorder.ts';
 import type { NativeToolRunner } from '../native/nativeBackend.ts';
 import type { ToolDiscoveryPort } from '../ports/tool/toolDiscoveryPort.ts';
@@ -69,6 +70,12 @@ export interface StepRunnerDeps {
    * 但会丢失计划门禁——运行时装配应传入 `runtime.gate`（plan-aware）。
    */
   readonly gate?: ToolGatePort | undefined;
+  /**
+   * 工具级资源域闸（2026-10-28，BLOCKERS §5，可选）：跨会话互斥浏览器等宿主资源。
+   * 运行时装配应传入 `runtime.toolResourceGate`（进程级单例，全会话共享锁表）；
+   * 缺省由 StepToolExecutor 自建——锁表退化为会话内有效，仅测试/嵌入方形态。
+   */
+  readonly toolResourceGate?: ToolResourceGatePort | undefined;
   /** 航天级监督内核（I-P0-3，可选）：工具执行成败上报此端口，驱动健康监控与 Safe mode 分级降级。 */
   readonly supervisor?: SupervisorPort | undefined;
   /**
