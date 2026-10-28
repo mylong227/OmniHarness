@@ -586,15 +586,15 @@ export class WorkflowRunner {
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
       const controller = new AbortController();
       const parent = this.options.signal;
-      const forward = (): void => controller.abort();
-      if (parent?.aborted === true) controller.abort();
+      const forward = (): void => controller.abort(parent?.reason);
+      if (parent?.aborted === true) controller.abort(parent.reason);
       else parent?.addEventListener('abort', forward, { once: true });
       let timedOut = false;
       const timer =
         step.timeoutMs !== undefined && step.timeoutMs > 0
           ? setTimeout(() => {
               timedOut = true;
-              controller.abort();
+              controller.abort('timeout');
             }, step.timeoutMs)
           : undefined;
       try {
