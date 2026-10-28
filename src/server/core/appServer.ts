@@ -132,6 +132,8 @@ export class AppServer extends AppServerVaultHandlers {
     this.handlers.set('threads.get', (params) => this.getThread(params));
     this.handlers.set('threads.rewind', (params) => this.rewindThread(params));
     this.handlers.set('turns.run', (params) => this.runTurn(params));
+    // A8：回合中 steering（下一步边界注入一条用户追加指令；不改当前工具轮）。
+    this.handlers.set('turns.steer', (params) => this.steerTurn(params));
     this.handlers.set('turns.abort', async (params) => {
       // 中断在跑回合：取消令牌贯穿模型请求 fetch（见 agent.cancelCurrentRun），
       // 在飞请求被中止后 turns.run 自然收尾，SSE 已推送的增量事件不受影响。
@@ -584,6 +586,24 @@ export class AppServer extends AppServerVaultHandlers {
     } finally {
       this.activeTurns.delete(threadId);
     }
+  }
+
+  /**
+   * 回合中 steering：把一条用户追加指令入队，TurnRunner 在下一步边界消费。
+   * @param params `{ threadId, text }`。
+   * @returns `{ ok, queued }`；会话未在跑/文本为空时 `ok:false` 且不入队。
+   */
+  protected async steerTurn(params: Record<string, unknown>): Promise<unknown> {
+    const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+    const text = String(params['text'] ?? '');
+    if (threadId === '' || text.trim() === '') {
+      return { ok: false, error: 'threadId 与 text 都必填' };
+    }
+    const agent = this.runtime.agent();
+    if (!agent.runningSessionIds().includes(threadId)) {
+      return { ok: false, error: 'session_not_running', threadId };
+    }
+    return { ok: true, threadId, queued: agent.steering.enqueue(threadId, text) };
   }
 
   /**

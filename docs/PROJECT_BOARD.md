@@ -6051,3 +6051,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   未知技能返回 undefined。`skillMdDiscovery.test.ts` 回归 3 例通过。
 - **边界**：生产注入仍走 `discover()` 全量；真正把 `SessionInjector` 改成先 list 再按需 load 属后续接线。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 注入路径懒加载、A8 Web 入口、S2 前端长函数。
+
+## 132. 2026-10-29 A8 Web RPC 接线：`turns.steer`
+
+- **新增**：`AppServer.registerHandlers` 注册 `turns.steer`，调用 `steerTurn({threadId,text})`：
+  会话未在跑返回 `{ok:false,error:'session_not_running'}`；参数缺失返回 `ok:false`；
+  正常入队 `agent.steering.enqueue(threadId,text)` 并返回 `{ok:true,queued}`。
+- **语义**：入队后由 `TurnRunner` 在**下一步边界**消费，不会插进当前工具轮。
+- **边界**：Web UI 仍无输入入口（需另加按钮/输入框并调用该 RPC）；服务端能力已可用。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 注入路径懒加载、A8 Web UI、S2 前端长函数。
