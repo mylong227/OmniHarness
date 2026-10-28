@@ -6308,3 +6308,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`commandPalette` 7 例全绿；`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **31** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 30 个函数，剩余 31。
+
+## 161. 2026-10-29 S2 清偿 AddMenu（230 → <80）
+
+- **改动**：开合/互斥/键盘抽 `usePopoverMenu()`；搜索防抖抽 `useAddMenuSearch()`；
+  模式编辑抽 `useAddMenuModes()`；菜单项分派抽 `dispatchAddMenuItem()`。
+- **判据**：`staleResponseGuards`（AddMenu 搜索 2 例）+ `popoverKeyboard` 11 例 +
+  `popoverExclusive` 6 例全绿；`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **30** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 31 个函数，剩余 30。

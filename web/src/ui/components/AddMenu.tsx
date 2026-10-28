@@ -13,11 +13,9 @@ import { icon } from '../models/Icon.ts';
 import { useApp } from '../context.ts';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.ts';
 import { PendingModes } from '../models/PendingModes.ts';
-import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { usePopoverMenu } from './usePopoverMenu.ts';
 import { MenuFocusModel } from '../models/MenuFocusModel.ts';
-import { usePopoverEffect } from './usePopoverEffect.ts';
-import { useMenuNavigation } from './useMenuNavigation.ts';
 import { useAddMenuData } from './useAddMenuData.ts';
 import type { SearchHit } from '../../types/models.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
@@ -218,119 +216,36 @@ function AddMenuTrigger(props: AddMenuTriggerProps): ReactElement {
  * @param props 组件入参
  * @returns 菜单节点
  */
-export function AddMenu(props: AddMenuProps): ReactElement {
-  const { threadId, api, onAttach, onToast, onOpenTab, onOpenFile, onLoadThread } = props;
-  const { dialog } = useApp();
-  const [open, setOpen] = React.useState<boolean>(false);
-  /** 打开时取的模式 / 插件 / 智能体（见 useAddMenuData）。 */
-  const data = useAddMenuData({ open, api, threadId });
-  const { goal, planMode, sketchMode, plugins, pluginsLoading, agents, agentsLoading, patchModes } = data;
+/**
+ * 菜单搜索（防抖 + 迟到响应丢弃）。
+ * @param api RPC 客户端。
+ * @param open 是否展开。
+ * @returns 查询、结果与输入回调。
+ */
+function useAddMenuSearch(
+  api: ApiClient,
+  open: boolean,
+): {
+  query: string;
+  files: readonly SearchHit[];
+  chats: readonly SearchHit[];
+  searching: boolean;
+  onQuery: (value: string) => void;
+  clearSearch: () => void;
+} {
   const [query, setQuery] = React.useState<string>('');
   const [files, setFiles] = React.useState<readonly SearchHit[]>([]);
   const [chats, setChats] = React.useState<readonly SearchHit[]>([]);
   const [searching, setSearching] = React.useState<boolean>(false);
-  /** 搜索关键字（用于丢弃迟到响应）。 */
   const searchSeq = React.useRef<number>(0);
-  /** 搜索防抖定时器。 */
   const searchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** 触发器引用（Esc 收起后把焦点还给它）。 */
-  const triggerRef = React.useRef<HTMLDivElement | null>(null);
-
-  /** 收起（释放互斥）并把焦点还给触发器。 */
-  const closeAndReturnFocus = (): void => {
-    releasePopover(POPOVER_ID);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  // 菜单键盘导航（roving tabindex + ↑/↓/Home/End）抽在 hook 里。
-  const menu = useMenuNavigation({
-    onEscape: closeAndReturnFocus,
-    ensureOpen: () => {
-      if (!open) flip();
-    },
-  });
-  // 打开时：挂外部点击监听（互斥登记同 hook），并一次性拉取会话模式 + 插件 + 智能体。
-  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
-
-  // 收起即清防抖（与弹层生命周期无关，故单独一个 effect）。
   React.useEffect(() => {
     if (open || searchTimer.current === null) return;
     clearTimeout(searchTimer.current);
   }, [open]);
-
-
-  /**
-   * 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。
-   * @returns 无
-   */
-  const flip = (): void => {
-    const next = !open;
-    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
-    else releasePopover(POPOVER_ID);
-    setOpen(next);
-  };
-
-  /**
-   * 触发按钮：阻断冒泡后切换展开态（阻断后不会被刚挂的外部点击监听立即关掉）。
-   *
-   * 打开前 claim 一次：`stopPropagation` 让全局 click 关不掉**别人**，
-   * 若不主动顶掉，先开的弹层会继续留在屏幕上并被本菜单压住（用户实测到的重叠）。
-   * @param e 点击事件
-   */
-  const toggle = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-    flip();
-  };
-
-  /**
-   * 切换会话模式（目标 / 计划 / 绘图）。
-   *
-   * **不再直接调 `modes.set`**（2026-10-06 真机报错）：会话是惰性创建的，建会话前 `threadId` 为空，
-   * 直调就弹出「模式切换失败：modes.set 需要 threadId」。改由控制器决策：有会话 ⇒ 立刻落盘；
-   * 没会话 ⇒ **暂存**，等会话一出现自动落盘，并如实告诉用户"发送第一条消息后生效"。
-   * @param patch 模式补丁
-   * @returns 无
-   */
-  const toggleMode = async (patch: {
-    goal?: string;
-    planMode?: boolean;
-    sketchMode?: boolean;
-  }): Promise<void> => {
-    // 先**乐观**更新本地开关：暂存档下没有服务端回执，但用户的点击必须即时可见。
-    patchModes(patch);
-    try {
-      const outcome =
-        props.onApplyMode === undefined
-          ? 'applied'
-          : await props.onApplyMode(patch);
-      if (outcome === 'deferred') onToast(PendingModes.deferredHint(), 'info');
-    } catch (e) {
-      onToast(t('模式切换失败：{msg}', { msg: (e as Error).message }), 'err');
-    }
-  };
-
-  /** 编辑持续目标（经应用内对话框输入）。 @returns 无 */
-  const onGoal = async (): Promise<void> => {
-    const input = await dialog.prompt(t('设置要持续追求的目标（留空清除）：'), goal, {
-      title: t('持续目标'),
-      confirmLabel: t('保存'),
-      placeholder: t('例如：把召回率提到 60%'),
-    });
-    if (input === null) return;
-    void toggleMode({ goal: input.trim() });
-  };
-
-  /**
-   * 搜索框输入：更新关键字并防抖触发 search.all。
-   * @param value 输入值
-   * @returns 无
-   */
   const onQuery = (value: string): void => {
     setQuery(value);
     if (searchTimer.current !== null) clearTimeout(searchTimer.current);
-    // 关键字一变就作废在途请求：删空输入或改字后，旧响应不得再覆盖当前结果
-    // （此前只清防抖定时器，慢请求后到会把「已删空的列表」重新填满旧命中）。
     const seq = ++searchSeq.current;
     if (value.trim() === '') {
       setFiles([]);
@@ -353,51 +268,135 @@ export function AddMenu(props: AddMenuProps): ReactElement {
         });
     }, SEARCH_DEBOUNCE_MS);
   };
+  const clearSearch = (): void => {
+    setFiles([]);
+    setChats([]);
+    setSearching(false);
+  };
+  return { query, files, chats, searching, onQuery, clearSearch };
+}
 
-  /**
-   * 按菜单项 id 分派动作。
-   * @param id 菜单项 id
-   * @returns 无
-   */
-  const onItem = (id: string): void => {
-    if (id === 'attach') {
-      onAttach();
-      setOpen(false);
-      return;
-    }
-    if (id === 'goal') {
-      void onGoal();
-      return;
-    }
-    if (id === 'plan') {
-      void toggleMode({ planMode: !planMode });
-      return;
-    }
-    if (id === 'sketch') {
-      void toggleMode({ sketchMode: !sketchMode });
-      return;
-    }
-    if (id.startsWith('plugin:')) {
-      onOpenTab('plugins');
-      setOpen(false);
-      return;
-    }
-    if (id.startsWith('agent:')) {
-      const agent = agents.find((a) => 'agent:' + a.id === id);
-      onToast(t('已选择智能体：{name}（载入会话后生效）', { name: agent?.name ?? id }));
-      setOpen(false);
-      return;
-    }
-    if (id.startsWith('file:')) {
-      onOpenFile(id.slice('file:'.length));
-      setOpen(false);
-      return;
-    }
-    if (id.startsWith('chat:')) {
-      onLoadThread(id.slice('chat:'.length));
-      setOpen(false);
+/**
+ * 按菜单项 id 分派动作。
+ * @param id 菜单项 id。
+ * @param ctx 回调集合。
+ * @returns 无。
+ */
+function dispatchAddMenuItem(
+  id: string,
+  ctx: {
+    onAttach: () => void;
+    onGoal: () => void;
+    planMode: boolean;
+    sketchMode: boolean;
+    toggleMode: (patch: { planMode?: boolean; sketchMode?: boolean }) => Promise<void>;
+    onOpenTab: (key: string) => void;
+    agents: readonly { id: string; name: string }[];
+    onToast: (msg: string, kind?: 'info' | 'err') => void;
+    onOpenFile: (path: string) => void;
+    onLoadThread: (id: string) => void;
+    close: () => void;
+  },
+): void {
+  if (id === 'attach') {
+    ctx.onAttach();
+    ctx.close();
+  } else if (id === 'goal') ctx.onGoal();
+  else if (id === 'plan') void ctx.toggleMode({ planMode: !ctx.planMode });
+  else if (id === 'sketch') void ctx.toggleMode({ sketchMode: !ctx.sketchMode });
+  else if (id.startsWith('plugin:')) {
+    ctx.onOpenTab('plugins');
+    ctx.close();
+  } else if (id.startsWith('agent:')) {
+    const agent = ctx.agents.find((a) => 'agent:' + a.id === id);
+    ctx.onToast(t('已选择智能体：{name}（载入会话后生效）', { name: agent?.name ?? id }));
+    ctx.close();
+  } else if (id.startsWith('file:')) {
+    ctx.onOpenFile(id.slice('file:'.length));
+    ctx.close();
+  } else if (id.startsWith('chat:')) {
+    ctx.onLoadThread(id.slice('chat:'.length));
+    ctx.close();
+  }
+}
+
+/**
+ * 会话模式编辑（目标 / 计划 / 绘图）。
+ * @param opts 当前值、补丁函数与提示。
+ * @returns 切换与目标编辑动作。
+ */
+function useAddMenuModes(opts: {
+  goal: string;
+  patchModes: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) => void;
+  onApplyMode?: ((patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) => Promise<'applied' | 'deferred'>) | undefined;
+  onToast: (msg: string, kind?: 'info' | 'err') => void;
+  dialog: { prompt: (msg: string, value: string, opts?: Record<string, unknown>) => Promise<string | null> };
+}): {
+  toggleMode: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) => Promise<void>;
+  onGoal: () => Promise<void>;
+} {
+  const { goal, patchModes, onApplyMode, onToast, dialog } = opts;
+  const toggleMode = async (patch: {
+    goal?: string;
+    planMode?: boolean;
+    sketchMode?: boolean;
+  }): Promise<void> => {
+    patchModes(patch);
+    try {
+      const outcome = onApplyMode === undefined ? 'applied' : await onApplyMode(patch);
+      if (outcome === 'deferred') onToast(PendingModes.deferredHint(), 'info');
+    } catch (e) {
+      onToast(t('模式切换失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
+  const onGoal = async (): Promise<void> => {
+    const input = await dialog.prompt(t('设置要持续追求的目标（留空清除）：'), goal, {
+      title: t('持续目标'),
+      confirmLabel: t('保存'),
+      placeholder: t('例如：把召回率提到 60%'),
+    });
+    if (input === null) return;
+    void toggleMode({ goal: input.trim() });
+  };
+  return { toggleMode, onGoal };
+}
+
+/**
+ * 输入区「+」菜单。
+ * @param props 会话、附件与跳转回调。
+ * @returns 菜单节点。
+ */
+export function AddMenu(props: AddMenuProps): ReactElement {
+  const { threadId, api, onAttach, onToast, onOpenTab, onOpenFile, onLoadThread } = props;
+  const { dialog } = useApp();
+  const { open, setOpen, triggerRef, menu, toggle, onTriggerKeyDown } = usePopoverMenu(POPOVER_ID);
+  /** 打开时取的模式 / 插件 / 智能体（见 useAddMenuData）。 */
+  const data = useAddMenuData({ open, api, threadId });
+  const { goal, planMode, sketchMode, plugins, pluginsLoading, agents, agentsLoading, patchModes } = data;
+  const { query, files, chats, searching, onQuery } = useAddMenuSearch(api, open);
+
+  const { toggleMode, onGoal } = useAddMenuModes({
+    goal,
+    patchModes,
+    onApplyMode: props.onApplyMode,
+    onToast,
+    dialog,
+  });
+
+  const onItem = (id: string): void =>
+    dispatchAddMenuItem(id, {
+      onAttach,
+      onGoal: () => void onGoal(),
+      planMode,
+      sketchMode,
+      toggleMode,
+      onOpenTab,
+      agents,
+      onToast,
+      onOpenFile,
+      onLoadThread,
+      close: () => setOpen(false),
+    });
 
   const model = new AddMenuModel({
     goal,
@@ -417,19 +416,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
       open={open}
       onToggle={toggle}
       triggerRef={triggerRef}
-      // div role=button 没有原生激活：Enter/Space 打开或收起，Esc 收起（与外部点击同一条出口）。
-      onKeyDown={(e: React.KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          releasePopover(POPOVER_ID);
-          setOpen(false);
-          return;
-        }
-        if (ActivationKeys.activate(e, flip)) {
-          e.stopPropagation();
-          return;
-        }
-        menu.onTriggerKey(e);
-      }}
+      onKeyDown={onTriggerKeyDown}
     >
       {open ? (
         <AddMenuPopover
