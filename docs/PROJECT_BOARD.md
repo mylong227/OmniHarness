@@ -6300,3 +6300,11 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`questionCard` 3 例全绿；`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **32** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 29 个函数，剩余 32。
+
+## 160. 2026-10-29 S2 清偿 CommandPalette（210 → <80）
+
+- **改动**：状态/ID/滚动抽 `usePaletteState()`；键鼠动作抽 `usePaletteActions()`；
+  搜索框/结果/页脚抽 `CommandSearch` / `CommandResults` / `CommandFooter`。
+- **判据**：`commandPalette` 7 例全绿；`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **31** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 30 个函数，剩余 31。

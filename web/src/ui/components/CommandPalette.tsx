@@ -118,19 +118,192 @@ function keysOf(hint: string): React.ReactNode {
  * @param props 组件入参
  * @returns 面板节点；`open` 为 false 时返回 null
  */
-export function CommandPalette(props: CommandPaletteProps): ReactElement | null {
-  const { open, commands, onClose } = props;
+/** 分组结果（与 CommandPaletteModel.grouped 同形）。 */
+interface PaletteGroup {
+  readonly group: string;
+  readonly items: readonly { readonly item: CommandItem; readonly index: number }[];
+}
+
+/**
+ * 命令面板搜索框。
+ * @param props 查询、引用与回调。
+ * @returns 搜索区节点。
+ */
+function CommandSearch(props: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  query: string;
+  listId: string;
+  helpId: string;
+  activeId: string | undefined;
+  onInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear: () => void;
+}): ReactElement {
+  return (
+    <div className="cmdk-search">
+      <span className="cmdk-search-icon" aria-hidden="true">
+        {icon('search', { size: 15, strokeWidth: 1.9 })}
+      </span>
+      <input
+        ref={props.inputRef}
+        className="cmdk-input"
+        type="text"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls={props.listId}
+        aria-activedescendant={props.activeId}
+        aria-describedby={props.helpId}
+        aria-autocomplete="list"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder={t('搜索命令或面板…')}
+        aria-label={t('命令搜索框')}
+        value={props.query}
+        onChange={props.onInput}
+      />
+      {props.query.length > 0 ? (
+        <button
+          type="button"
+          className="cmdk-clear"
+          aria-label={t('清除搜索')}
+          tabIndex={-1}
+          onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
+          onClick={props.onClear}
+        >
+          {icon('x', { size: 13, strokeWidth: 2 })}
+        </button>
+      ) : (
+        <kbd className="cmdk-esc" aria-hidden="true">
+          Esc
+        </kbd>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 命令结果列表。
+ * @param props 分组、选中态与执行回调。
+ * @returns 列表节点。
+ */
+function CommandResults(props: {
+  listId: string;
+  groups: readonly PaletteGroup[];
+  total: number;
+  query: string;
+  active: number;
+  optionId: (index: number) => string;
+  onActive: (index: number) => void;
+  onRun: (index: number) => void;
+}): ReactElement {
+  return (
+    <div
+      id={props.listId}
+      className="cmdk-list"
+      role={props.total > 0 ? 'listbox' : undefined}
+      aria-label={props.total > 0 ? t('命令列表') : undefined}
+    >
+      {props.total === 0 ? (
+        <div className="cmdk-empty" role="status">
+          <span className="cmdk-empty-icon" aria-hidden="true">
+            {icon('search', { size: 22, strokeWidth: 1.6 })}
+          </span>
+          <span className="cmdk-empty-title">{t('无匹配命令')}</span>
+          <span className="cmdk-empty-hint">{t('换个关键词试试')}</span>
+        </div>
+      ) : (
+        props.groups.map((g) => (
+          <div key={g.group} className="cmdk-group" role="group" aria-label={t(g.group)}>
+            <div className="cmdk-group-title" aria-hidden="true">
+              {t(g.group)}
+            </div>
+            {g.items.map(({ item, index }) => (
+              <div
+                key={item.id}
+                id={props.optionId(index)}
+                role="option"
+                aria-selected={index === props.active ? 'true' : 'false'}
+                className={'cmdk-item' + (index === props.active ? ' active' : '')}
+                onMouseEnter={() => props.onActive(index)}
+                onClick={() => props.onRun(index)}
+              >
+                <span className="cmdk-item-icon" aria-hidden="true">
+                  {icon(iconFor(item), { size: 16 })}
+                </span>
+                <span className="cmdk-label">{highlight(t(item.label), props.query)}</span>
+                {item.hint ? (
+                  <span className="cmdk-hint" aria-hidden="true">
+                    {keysOf(item.hint)}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+/**
+ * 面板页脚与读屏说明。
+ * @param props 命令数与说明 id。
+ * @returns 页脚节点。
+ */
+function CommandFooter(props: { total: number; helpId: string }): ReactElement {
+  return (
+    <>
+      <div className="cmdk-foot">
+        <span className="cmdk-total">{t('{count} 个命令', { count: props.total })}</span>
+        <span className="cmdk-legend" aria-hidden="true">
+          <kbd>↑</kbd>
+          <kbd>↓</kbd>
+          <span>{t('选择')}</span>
+          <span className="cmdk-sep">·</span>
+          <kbd>Enter</kbd>
+          <span>{t('执行')}</span>
+          <span className="cmdk-sep">·</span>
+          <kbd>Esc</kbd>
+          <span>{t('关闭')}</span>
+        </span>
+      </div>
+      <p id={props.helpId} className="cmdk-help">
+        {t('↑↓ 选择，Enter 执行，Esc 关闭')}
+      </p>
+    </>
+  );
+}
+
+/**
+ * 命令面板状态：查询、选中、模型与 id。
+ * @param commands 命令清单。
+ * @param open 是否打开。
+ * @returns 状态与派生数据。
+ */
+function usePaletteState(
+  commands: readonly CommandItem[],
+  open: boolean,
+): {
+  query: string;
+  setQuery: (value: string) => void;
+  active: number;
+  setActive: React.Dispatch<React.SetStateAction<number>>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  model: CommandPaletteModel;
+  listId: string;
+  helpId: string;
+  filtered: readonly CommandItem[];
+  groups: readonly PaletteGroup[];
+  total: number;
+  optionId: (index: number) => string;
+  activeId: string | undefined;
+} {
   const [query, setQuery] = React.useState<string>('');
   const [active, setActive] = React.useState<number>(0);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const model = React.useMemo<CommandPaletteModel>(() => new CommandPaletteModel(commands), [commands]);
-  // 无障碍 id：useId 在 React 19 里可能含「«»」等字符，统一收成药名安全字符。
   const uid = React.useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const listId = 'cmdk-list-' + uid;
   const helpId = listId + '-help';
-
-  // 打开态（含挂载即打开）重置查询 / 选中项并下一帧聚焦（确保元素已进 DOM）；
-  // 关闭或卸载即清定时器，避免关闭后仍抢焦点。
   React.useEffect(() => {
     if (!open) return undefined;
     setQuery('');
@@ -138,38 +311,57 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
     const timer = setTimeout(() => inputRef.current?.focus(), 0);
     return () => clearTimeout(timer);
   }, [open]);
-
-  // 键盘把选中项移出列表可视区时，让它自己滚回来（16 条命令在 52vh 里会越界）。
   React.useEffect(() => {
     if (!open) return;
     document.getElementById(listId + '-opt-' + active)?.scrollIntoView?.({ block: 'nearest' });
   }, [active, listId, open]);
-
-  if (!open) return null;
-
   const filtered = model.filter(query);
-  const groups = model.grouped(query);
+  const groups = model.grouped(query) as readonly PaletteGroup[];
   const total = filtered.length;
   const optionId = (index: number): string => listId + '-opt-' + index;
-  const activeId = total > 0 ? optionId(active) : undefined;
+  return {
+    query,
+    setQuery,
+    active,
+    setActive,
+    inputRef,
+    model,
+    listId,
+    helpId,
+    filtered,
+    groups,
+    total,
+    optionId,
+    activeId: total > 0 ? optionId(active) : undefined,
+  };
+}
 
-  /**
-   * 执行第 index 项命令：先关闭面板再执行，避免执行后残留弹层。
-   * @param index 扁平下标
-   * @returns 无
-   */
+/**
+ * 命令面板键盘与输入动作。
+ * @param opts 状态与回调。
+ * @returns 动作集合。
+ */
+function usePaletteActions(opts: {
+  filtered: readonly CommandItem[];
+  model: CommandPaletteModel;
+  active: number;
+  onClose: () => void;
+  setActive: React.Dispatch<React.SetStateAction<number>>;
+  setQuery: (value: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}): {
+  runAt: (index: number) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  onQueryInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  clearQuery: () => void;
+} {
+  const { filtered, model, active, onClose, setActive, setQuery, inputRef } = opts;
   const runAt = (index: number): void => {
     const item = filtered[index];
     if (!item) return;
     onClose();
     item.run();
   };
-
-  /**
-   * 面板级键盘：Esc 关闭、↑↓ 移动选中、Enter 执行。
-   * @param e 键盘事件
-   * @returns 无
-   */
   const onKeyDown = (e: React.KeyboardEvent): void => {
     const count = filtered.length;
     if (e.key === 'Escape') {
@@ -185,31 +377,40 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
       e.preventDefault();
       runAt(active);
     } else if (e.key === 'Tab') {
-      // 选项不是 tabbable（combobox + aria-activedescendant 模式），Tab 若放行会把焦点
-      // 移到遮罩后的工作台。Esc 是明确的出口，故这里把焦点留在面板内。
       e.preventDefault();
     }
   };
-
-  /**
-   * 查询输入：更新关键字并把选中项归零，避免停留在已被过滤掉的位置。
-   * @param e 输入事件
-   * @returns 无
-   */
   const onQueryInput = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setQuery(e.target.value);
     setActive(0);
   };
-
-  /**
-   * 清空搜索并交还焦点（清除按钮不抢走输入框焦点）。
-   * @returns 无
-   */
   const clearQuery = (): void => {
     setQuery('');
     setActive(0);
     inputRef.current?.focus();
   };
+  return { runAt, onKeyDown, onQueryInput, clearQuery };
+}
+
+/**
+ * 命令面板。
+ * @param props 开合、命令清单与关闭回调。
+ * @returns 面板节点；关闭时为 null。
+ */
+export function CommandPalette(props: CommandPaletteProps): ReactElement | null {
+  const { open, commands, onClose } = props;
+  const state = usePaletteState(commands, open);
+  const { runAt, onKeyDown, onQueryInput, clearQuery } = usePaletteActions({
+    filtered: state.filtered,
+    model: state.model,
+    active: state.active,
+    onClose,
+    setActive: state.setActive,
+    setQuery: state.setQuery,
+    inputRef: state.inputRef,
+  });
+  if (!open) return null;
+  const { query, active, inputRef, listId, helpId, groups, total, optionId, activeId } = state;
 
   return (
     <div className="cmdk-backdrop" onMouseDown={onClose}>
@@ -221,109 +422,28 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
         onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
         onKeyDown={onKeyDown}
       >
-        <div className="cmdk-search">
-          <span className="cmdk-search-icon" aria-hidden="true">
-            {icon('search', { size: 15, strokeWidth: 1.9 })}
-          </span>
-          <input
-            ref={inputRef}
-            className="cmdk-input"
-            type="text"
-            role="combobox"
-            aria-expanded="true"
-            aria-controls={listId}
-            aria-activedescendant={activeId}
-            aria-describedby={helpId}
-            aria-autocomplete="list"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder={t('搜索命令或面板…')}
-            aria-label={t('命令搜索框')}
-            value={query}
-            onChange={onQueryInput}
-          />
-          {query.length > 0 ? (
-            <button
-              type="button"
-              className="cmdk-clear"
-              aria-label={t('清除搜索')}
-              tabIndex={-1}
-              onMouseDown={(e: React.MouseEvent) => e.preventDefault()}
-              onClick={clearQuery}
-            >
-              {icon('x', { size: 13, strokeWidth: 2 })}
-            </button>
-          ) : (
-            <kbd className="cmdk-esc" aria-hidden="true">
-              Esc
-            </kbd>
-          )}
-        </div>
+        <CommandSearch
+          inputRef={inputRef}
+          query={query}
+          listId={listId}
+          helpId={helpId}
+          activeId={activeId}
+          onInput={onQueryInput}
+          onClear={clearQuery}
+        />
 
-        <div
-          id={listId}
-          className="cmdk-list"
-          role={total > 0 ? 'listbox' : undefined}
-          aria-label={total > 0 ? t('命令列表') : undefined}
-        >
-          {total === 0 ? (
-            <div className="cmdk-empty" role="status">
-              <span className="cmdk-empty-icon" aria-hidden="true">
-                {icon('search', { size: 22, strokeWidth: 1.6 })}
-              </span>
-              <span className="cmdk-empty-title">{t('无匹配命令')}</span>
-              <span className="cmdk-empty-hint">{t('换个关键词试试')}</span>
-            </div>
-          ) : (
-            groups.map((g) => (
-              <div key={g.group} className="cmdk-group" role="group" aria-label={t(g.group)}>
-                <div className="cmdk-group-title" aria-hidden="true">
-                  {t(g.group)}
-                </div>
-                {g.items.map(({ item, index }) => (
-                  <div
-                    key={item.id}
-                    id={optionId(index)}
-                    role="option"
-                    aria-selected={index === active ? 'true' : 'false'}
-                    className={'cmdk-item' + (index === active ? ' active' : '')}
-                    onMouseEnter={() => setActive(index)}
-                    onClick={() => runAt(index)}
-                  >
-                    <span className="cmdk-item-icon" aria-hidden="true">
-                      {icon(iconFor(item), { size: 16 })}
-                    </span>
-                    <span className="cmdk-label">{highlight(t(item.label), query)}</span>
-                    {item.hint ? (
-                      <span className="cmdk-hint" aria-hidden="true">
-                        {keysOf(item.hint)}
-                      </span>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ))
-          )}
-        </div>
+        <CommandResults
+          listId={listId}
+          groups={groups as readonly PaletteGroup[]}
+          total={total}
+          query={query}
+          active={active}
+          optionId={optionId}
+          onActive={state.setActive}
+          onRun={runAt}
+        />
 
-        <div className="cmdk-foot">
-          <span className="cmdk-total">{t('{count} 个命令', { count: total })}</span>
-          <span className="cmdk-legend" aria-hidden="true">
-            <kbd>↑</kbd>
-            <kbd>↓</kbd>
-            <span>{t('选择')}</span>
-            <span className="cmdk-sep">·</span>
-            <kbd>Enter</kbd>
-            <span>{t('执行')}</span>
-            <span className="cmdk-sep">·</span>
-            <kbd>Esc</kbd>
-            <span>{t('关闭')}</span>
-          </span>
-        </div>
-        {/* 键帽是视觉简写；读屏用户走这句完整说明（视觉上裁到 1px）。 */}
-        <p id={helpId} className="cmdk-help">
-          {t('↑↓ 选择，Enter 执行，Esc 关闭')}
-        </p>
+        <CommandFooter total={total} helpId={helpId} />
       </div>
     </div>
   );
