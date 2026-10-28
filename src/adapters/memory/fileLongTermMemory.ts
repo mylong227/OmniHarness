@@ -14,6 +14,7 @@ import type {
 } from '../../ports/memory/longTermMemory.ts';
 import { Bm25Index } from '../../search/bm25Index.ts';
 import { TimeDecay, type ScoredFact } from './timeDecay.ts';
+import { SpacingEffect } from './spacingEffect.ts';
 import type { TextCodec } from './aesGcmTextCodec.ts';
 import {
   TemporalFactGraph,
@@ -53,6 +54,13 @@ export class FileLongTermMemory implements LongTermMemoryPort {
   private dirty = false;
   /** 记忆时间图（默认启用；显式关闭时为 undefined，走纯 BM25 旧路径）。 */
   private readonly graph: TemporalFactGraph | undefined;
+  /**
+   * 间隔重复/遗忘曲线（R&D，**默认关**）：`OMNI_MEMORY_FORGETTING=1` 开启。
+   * 开启后召回排序由「全局统一半衰期」升级为「每条独立稳定度 + 召回强化」
+   * （机制与预注册边界见 `SpacingEffect` 类注释与 docs/NATURE_INSPIRED_RND_2026-10-27.md）；
+   * 关闭时与旧行为逐位一致，且不写任何新字段。
+   */
+  private readonly spacing: boolean;
 
   /**
    * @param path JSONL 存储文件路径。
@@ -71,6 +79,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     temporalGraph: boolean = true,
   ) {
     this.graph = temporalGraph ? new TemporalFactGraph() : undefined;
+    this.spacing = process.env['OMNI_MEMORY_FORGETTING'] === '1';
     this.load();
   }
 
@@ -164,6 +173,38 @@ export class FileLongTermMemory implements LongTermMemoryPort {
         items.push({ fact, score });
       }
     }
+    // 间隔重复（R&D，默认关）：开启时排序升级为「每条独立稳定度 + 召回强化」，
+    // 并对命中条目做一次批量强化写回（60 秒防重）；关闭时与旧行为逐位一致。
+    if (this.spacing) {
+      const { ranked, reinforcements } = SpacingEffect.rankWithSpacing(
+        items,
+        nowMs,
+        k,
+        this.untrustedPenalty,
+      );
+      if (reinforcements.length > 0) {
+        const at = new Date(nowMs).toISOString();
+        this.updateMany(
+          reinforcements.map((entry) => {
+            const fact = this.facts.find((f) => f.id === entry.id);
+            const stability = SpacingEffect.reinforcedStability(
+              fact === undefined ? 0 : SpacingEffect.stabilityOf(fact),
+              entry.retention,
+            );
+            const priorCount = fact?.recallCount ?? 0;
+            return {
+              id: entry.id,
+              patch: {
+                lastRecallAt: at,
+                recallCount: priorCount + 1,
+                stabilityDays: stability,
+              },
+            };
+          }),
+        );
+      }
+      return ranked;
+    }
     return TimeDecay.rankWithDecay(items, nowMs, this.halfLifeDays, k, this.untrustedPenalty);
   }
 
@@ -207,6 +248,10 @@ export class FileLongTermMemory implements LongTermMemoryPort {
         : {}),
       // 显式 `expiresAt: undefined` 表示清除失效时间 ⇒ 必须用 `in` 而不是 `!== undefined`。
       ...('expiresAt' in patch ? { expiresAt: patch.expiresAt } : {}),
+      // 间隔重复记账字段（SpacingEffect 强化写回 / 管理 UI 手改）。
+      ...(patch.lastRecallAt !== undefined ? { lastRecallAt: patch.lastRecallAt } : {}),
+      ...(patch.recallCount !== undefined ? { recallCount: patch.recallCount } : {}),
+      ...(patch.stabilityDays !== undefined ? { stabilityDays: patch.stabilityDays } : {}),
     };
     this.facts[idx] = next;
     if (patch.text !== undefined || 'expiresAt' in patch) {
@@ -244,6 +289,14 @@ export class FileLongTermMemory implements LongTermMemoryPort {
           ? { importance: Math.min(5, Math.max(1, Math.round(entry.patch.importance))) }
           : {}),
         ...('expiresAt' in entry.patch ? { expiresAt: entry.patch.expiresAt } : {}),
+        // 间隔重复记账字段（SpacingEffect 强化写回）。
+        ...(entry.patch.lastRecallAt !== undefined
+          ? { lastRecallAt: entry.patch.lastRecallAt }
+          : {}),
+        ...(entry.patch.recallCount !== undefined ? { recallCount: entry.patch.recallCount } : {}),
+        ...(entry.patch.stabilityDays !== undefined
+          ? { stabilityDays: entry.patch.stabilityDays }
+          : {}),
       };
       this.facts[idx] = next;
       if (entry.patch.text !== undefined || 'expiresAt' in entry.patch) {

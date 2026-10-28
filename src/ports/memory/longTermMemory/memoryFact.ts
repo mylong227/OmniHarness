@@ -27,4 +27,17 @@ export interface MemoryFact {
   readonly trust?: 'trusted' | 'untrusted' | undefined;
   /** 失效时间（ISO，可选）：到点后 `recall` 不再召回该事实（fail-closed 丢弃，不自动删除）。 */
   readonly expiresAt?: string | undefined;
+  /**
+   * 上次被召回时间（ISO，可选；间隔重复/遗忘曲线用，`OMNI_MEMORY_FORGETTING=1` 时写）。
+   * 缺省时遗忘曲线以 `createdAt` 为锚（旧行为）。
+   */
+  readonly lastRecallAt?: string | undefined;
+  /** 累计被召回次数（可选；间隔重复的强化次数记账）。 */
+  readonly recallCount?: number | undefined;
+  /**
+   * 记忆稳定度（天，可选）：半衰期按条独立——每次召回按保留率强化
+   * `S' = S × (1 + (1 - R))`（间隔重复的「合意困难」：越接近遗忘时召回，涨得越多）。
+   * 缺省回落 `30 × importance` 天（importance 3 = 90 天，与旧全局半衰期同锚）。
+   */
+  readonly stabilityDays?: number | undefined;
 }
