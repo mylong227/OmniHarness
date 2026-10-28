@@ -6093,3 +6093,14 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`--only=binary-search` 通过；任务集 **26**；`longTask.test.ts` 计数同步 26。
 - **边界**：26/40+。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A8 Web UI、S2 前端长函数。
+
+## 137. 2026-10-29 A8 Web UI 插话闭环：busy 时发送=`↪`
+
+- **实现**：`ApiClient.steerTurn(threadId,text)` → `turns.steer`；`Composer` busy 时在停止键旁显示 `↪`，
+  `handleSend` 在 busy 且无附件时走 `steerBusy()`（清空输入、入队、错误 toast），不走 `turns.run`。
+- **判据**：`web/test/composerSteer.test.ts`——busy + 输入「改方向」+ 点插话 ⇒ `steerTurn` 被调用、
+  输入框清空、`onSend` 不被调用；`web:build` 通过；`check.mjs --strict` 零违规。
+- **提交说明**：`Composer`/`StreamView` 同步移除了输入区容量面板的 `contextRevision` 传参
+  （该改动来自工作区 UI 批次，但不一起提交会让 HEAD 的 web 类型失配）。
+- **A8 汇总**：fork 既有 + steering 全链路（TurnRunner/Agent/RPC/UI）。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、S2 前端长函数。
