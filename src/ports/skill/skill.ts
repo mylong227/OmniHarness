@@ -33,4 +33,9 @@ export interface Skill {
   readonly frozen?: boolean;
   /** 相变固化来源组合（frozen=true 时非空）。 */
   readonly frozenFrom?: readonly string[];
+  /**
+   * 来源信任档（2026-10-29，A7）：`bundled` 出厂内置 / `workspace` 工作区发现。
+   * 工作区技能默认受 `allowWorkspaceSkills` 闸控制；缺省视为 `bundled`（旧技能兼容）。
+   */
+  readonly trust?: 'bundled' | 'workspace' | undefined;
 }

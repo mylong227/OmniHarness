@@ -4,6 +4,16 @@ import type { SkillEntry } from '../ports/skill/skillEntry.ts';
 import { SkillMdCodec } from './skillMdCodec.ts';
 import { log } from '../util/logger.ts';
 
+/** 技能元数据（阶段一发现，不含正文）。 */
+export interface SkillMetadata {
+  readonly name: string;
+  readonly description: string;
+  readonly tags?: readonly string[] | undefined;
+  readonly trust: 'workspace';
+  /** 来源 `SKILL.md` 绝对路径（找不到时为空串）。 */
+  readonly file: string;
+}
+
 /**
  * `SKILL.md` 工作区发现（INT-04，2026-10-21）。
  *
@@ -26,6 +36,60 @@ export class SkillMdDiscovery {
 
   /** 跨工具约定目录（opt-in，避免默认扩大工作区提示注入面）。 */
   private static readonly AGENTS_DIR = join('.agents', 'skills');
+
+  /**
+   * 阶段一：只列元数据（不含正文 instructions）。
+   *
+   * A7 两阶段发现：调用方先用它决定要哪个技能，再 {@link load} 取正文；
+   * 当前生产注入仍用 {@link discover} 全量路径，但发现层已可独立懒加载。
+   * @param workspaceRoot 工作区根。
+   * @returns 元数据数组（含来源文件与 trust 档）。
+   */
+  public static list(workspaceRoot: string): SkillMetadata[] {
+    return SkillMdDiscovery.discover(workspaceRoot).map((skill) => ({
+      name: skill.name,
+      description: skill.description,
+      ...(skill.tags !== undefined ? { tags: skill.tags } : {}),
+      trust: 'workspace',
+      file: SkillMdDiscovery.findFile(workspaceRoot, skill.name) ?? '',
+    }));
+  }
+
+  /**
+   * 阶段二：按名加载正文。
+   * @param workspaceRoot 工作区根。
+   * @param name 技能名。
+   * @returns 完整技能；找不到时 undefined。
+   */
+  public static load(workspaceRoot: string, name: string): SkillEntry | undefined {
+    const file = SkillMdDiscovery.findFile(workspaceRoot, name);
+    if (file === undefined) return undefined;
+    try {
+      return SkillMdCodec.parse(readFileSync(file, 'utf8'), name, 'workspace');
+    } catch (error) {
+      log.warn('skill.discovery.parse_failed', {
+        file,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
+  }
+
+  /**
+   * 找技能文件（按扫描优先级）。
+   * @param workspaceRoot 工作区根。
+   * @param name 技能名。
+   * @returns 绝对路径；不存在时 undefined。
+   */
+  private static findFile(workspaceRoot: string, name: string): string | undefined {
+    const dirs = [...SkillMdDiscovery.DIRS];
+    if (process.env.OMNI_AGENTS_SKILLS === '1') dirs.push(SkillMdDiscovery.AGENTS_DIR);
+    for (const relative of dirs) {
+      const file = join(workspaceRoot, relative, name, 'SKILL.md');
+      if (existsSync(file)) return file;
+    }
+    return undefined;
+  }
 
   /**
    * 发现工作区内的 SKILL.md 技能。

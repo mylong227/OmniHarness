@@ -6039,3 +6039,15 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   4 例全绿；`tsc --noEmit` 零错；`check.mjs --strict` 零违规。
 - **边界**：Web RPC/UI 还没有接线；调用方目前需 `agent.steering.enqueue(sessionId, text)`。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 技能懒加载/信任、A8 Web 入口、S2 前端长函数。
+
+## 131. 2026-10-29 A7 技能发现两阶段化 + 信任档
+
+- **缺陷**：`SkillMdDiscovery.discover()` 一次性返回完整技能（含正文），发现层没有「先元数据、后正文」的接口；
+  `Skill` 也没有来源信任字段。
+- **修法**：`Skill.md` 端口加 `trust: 'bundled' | 'workspace'`；`SkillMdCodec.parse` 带上 trust；
+  发现层新增 `SkillMdDiscovery.list()`（只 name/description/tags/trust/file）与 `load(name)`（按名取正文）。
+  工作区技能标记 `workspace`，仍受既有 `allowWorkspaceSkills` 闸控制。
+- **判据**：`skillLazyDiscovery.test.ts` 2 例——`list()` 结果**不含 `instructions`**、`load()` 取回正文；
+  未知技能返回 undefined。`skillMdDiscovery.test.ts` 回归 3 例通过。
+- **边界**：生产注入仍走 `discover()` 全量；真正把 `SessionInjector` 改成先 list 再按需 load 属后续接线。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 注入路径懒加载、A8 Web 入口、S2 前端长函数。

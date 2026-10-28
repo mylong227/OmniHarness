@@ -10,5 +10,5 @@ import type { Skill } from './skill.ts';
  */
 export type SkillEntry = Pick<
   Skill,
-  'name' | 'description' | 'instructions' | 'tags' | 'resources' | 'exclusive'
+  'name' | 'description' | 'instructions' | 'tags' | 'resources' | 'exclusive' | 'trust'
 >;

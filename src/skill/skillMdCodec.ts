@@ -19,9 +19,13 @@ export class SkillMdCodec {
    * @returns 技能条目。
    * @throws Error frontmatter 缺失/字段非法时抛出（fail-closed）。
    */
-  public static parse(text: string, fallbackName?: string): SkillEntry {
+  public static parse(
+    text: string,
+    fallbackName?: string,
+    trust: 'bundled' | 'workspace' = 'workspace',
+  ): SkillEntry {
     const normalized = text.replace(/^\uFEFF/, '');
-    const viaMatter = SkillMdCodec.fromMatter(normalized, fallbackName);
+    const viaMatter = SkillMdCodec.fromMatter(normalized, fallbackName, trust);
     if (viaMatter !== undefined) return viaMatter;
     if (!normalized.startsWith('---')) {
       throw new Error('SKILL.md 缺少 frontmatter（首行必须是 ---）');
@@ -57,6 +61,7 @@ export class SkillMdCodec {
       name,
       description,
       instructions: body,
+      trust,
       ...(tags.length > 0 ? { tags } : {}),
       ...(resources.length > 0 ? { resources } : {}),
       ...(exclusive ? { exclusive } : {}),
@@ -69,7 +74,11 @@ export class SkillMdCodec {
    * @param fallbackName 缺省技能名。
    * @returns 技能条目或 undefined。
    */
-  private static fromMatter(text: string, fallbackName?: string): SkillEntry | undefined {
+  private static fromMatter(
+    text: string,
+    fallbackName: string | undefined,
+    trust: 'bundled' | 'workspace',
+  ): SkillEntry | undefined {
     const parse = SkillMdCodec.yamlParser();
     if (parse === undefined || !text.startsWith('---')) return undefined;
     const end = text.indexOf('\n---', 3);
@@ -96,6 +105,7 @@ export class SkillMdCodec {
         name,
         description,
         instructions,
+        trust,
         ...(tags.length > 0 ? { tags } : {}),
         ...(resources.length > 0 ? { resources } : {}),
         ...(exclusive ? { exclusive } : {}),
