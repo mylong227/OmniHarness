@@ -353,6 +353,31 @@ type MdBlock =
   | { type: 'quote'; text: string }
   | { type: 'table'; header: string[]; rows: string[][] };
 
+/**
+ * 尝试在指定行解析 Markdown 表格（表头 + 分隔行 + 数据行）。
+ * @param lines 全文行数组。
+ * @param start 起始行下标。
+ * @returns 表格块与下一行下标；不是表格时 null。
+ */
+function tableAt(lines: string[], start: number): { block: MdBlock; next: number } | null {
+  const sepRow = start + 1 < lines.length ? lines[start + 1]!.trim() : '';
+  if (!sepRow.includes('-')) return null;
+  const inner = sepRow.replace(/^\|/, '').replace(/\|$/, '');
+  const cells = inner.split('|');
+  const isSep = cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c.trim()));
+  if (!lines[start]!.trim().startsWith('|') || !isSep) return null;
+  const splitRow = (s: string): string[] =>
+    s.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+  const header = splitRow(lines[start]!);
+  const rows: string[][] = [];
+  let i = start + 2;
+  while (i < lines.length && lines[i]!.trim() !== '') {
+    if (lines[i]!.trim().startsWith('|')) rows.push(splitRow(lines[i]!));
+    i++;
+  }
+  return header.length > 0 ? { block: { type: 'table', header, rows }, next: i } : null;
+}
+
 function parseBlocks(src: string): MdBlock[] {
   const lines = src.replace(/\r\n/g, '\n').split('\n');
   const blocks: MdBlock[] = [];
@@ -405,26 +430,10 @@ function parseBlocks(src: string): MdBlock[] {
       blocks.push({ type: 'quote', text: items.join(' ').trim() });
       continue;
     }
-    // 表格：以 `|` 开头，下一行是纯分隔行（`|---|` / `|:--|`），收集到空行为止（#OBS-15）。
-    const sepRow = i + 1 < lines.length ? lines[i + 1]!.trim() : '';
-    // 分隔行：去掉可选首尾管道后 split('|')，每一段都只含 `-` 与可选 `:` 对齐符。
-    const isSep = ((): boolean => {
-      if (!sepRow.includes('-')) return false;
-      const inner = sepRow.replace(/^\|/, '').replace(/\|$/, '');
-      const cells = inner.split('|');
-      return cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c.trim()));
-    })();
-    if (line.trim().startsWith('|') && isSep) {
-      const splitRow = (s: string): string[] =>
-        s.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
-      const header = splitRow(line);
-      const rows: string[][] = [];
-      i += 2; // 跳过表头行与分隔行
-      while (i < lines.length && lines[i].trim() !== '') {
-        if (lines[i].trim().startsWith('|')) rows.push(splitRow(lines[i]));
-        i++;
-      }
-      if (header.length > 0) blocks.push({ type: 'table', header, rows });
+    const table = tableAt(lines, i);
+    if (table !== null) {
+      blocks.push(table.block);
+      i = table.next;
       continue;
     }
     const paras: string[] = [line];
@@ -436,6 +445,38 @@ function parseBlocks(src: string): MdBlock[] {
     blocks.push({ type: 'paragraph', text: paras.join(' ').trim() });
   }
   return blocks;
+}
+
+/**
+ * 尝试在 `[` 位置解析 Markdown 链接。
+ * @param text 行内文本。
+ * @param start `[` 下标。
+ * @param keyPrefix React key 前缀。
+ * @returns 链接节点与下一位置；不是链接时 null。
+ */
+function inlineLinkAt(
+  text: string,
+  start: number,
+  keyPrefix: string,
+): { node: ReactNode; next: number } | null {
+  const endLabel = text.indexOf(']', start + 1);
+  const endUrl = text.indexOf(')', endLabel + 1);
+  if (endLabel <= start || text[endLabel + 1] !== '(' || endUrl <= endLabel) return null;
+  const label = text.slice(start + 1, endLabel);
+  const url = text.slice(endLabel + 2, endUrl);
+  return {
+    node: React.createElement(
+      'a',
+      {
+        key: `${keyPrefix}-a-${start}`,
+        href: url,
+        'data-file-path': url,
+        className: 'md-link',
+      },
+      ...parseInline(label, `${keyPrefix}-al-${start}`),
+    ),
+    next: endUrl + 1,
+  };
 }
 
 /**
@@ -502,25 +543,11 @@ function parseInline(text: string, keyPrefix: string): ReactNode[] {
       }
     }
     if (text[i] === '[') {
-      const endLabel = text.indexOf(']', i + 1);
-      const endUrl = text.indexOf(')', endLabel + 1);
-      if (endLabel > i && endLabel + 1 < text.length && text[endLabel + 1] === '(' && endUrl > endLabel) {
+      const link = inlineLinkAt(text, i, keyPrefix);
+      if (link !== null) {
         flush(i);
-        const label = text.slice(i + 1, endLabel);
-        const url = text.slice(endLabel + 2, endUrl);
-        out.push(
-          React.createElement(
-            'a',
-            {
-              key: `${keyPrefix}-a-${i}`,
-              href: url,
-              'data-file-path': url,
-              className: 'md-link',
-            },
-            ...parseInline(label, `${keyPrefix}-al-${i}`),
-          ),
-        );
-        i = endUrl + 1;
+        out.push(link.node);
+        i = link.next;
         plainStart = i;
         continue;
       }
@@ -540,6 +567,36 @@ function mdHeadingTag(level: number): 'h3' | 'h4' | 'h5' {
   if (level === 1) return 'h3';
   if (level === 2) return 'h4';
   return 'h5';
+}
+
+/**
+ * 渲染代码块（语言条 + 复制按钮 + pre/code）。
+ * @param block 代码块。
+ * @param key React key。
+ * @returns 代码块元素。
+ */
+function renderCodeBlock(block: Extract<MdBlock, { type: 'code' }>, key: string): ReactElement {
+  const langLabel = block.lang ? block.lang : 'text';
+  const bar = React.createElement(
+    'div',
+    { key: `${key}-bar`, className: 'md-codeblock__bar' },
+    React.createElement('span', { key: `${key}-lang`, className: 'md-codeblock__lang' }, langLabel),
+    React.createElement(
+      'button',
+      { key: `${key}-copy`, type: 'button', className: 'md-codeblock__copy' },
+      t('复制'),
+    ),
+  );
+  const pre = React.createElement(
+    'pre',
+    { key, className: 'md-pre' },
+    React.createElement(
+      'code',
+      { key: `${key}-code`, className: block.lang ? `lang-${block.lang}` : '' },
+      block.text,
+    ),
+  );
+  return React.createElement('div', { key, className: 'md-codeblock' }, bar, pre);
 }
 
 /**
@@ -573,29 +630,8 @@ function renderBlock(b: MdBlock, idx: number): ReactElement {
           React.createElement('li', { key: `${key}-li-${li}` }, ...parseInline(item, `${key}-li-${li}`)),
         ),
       );
-    case 'code': {
-      const langLabel = b.lang ? b.lang : 'text';
-      const bar = React.createElement(
-        'div',
-        { key: `${key}-bar`, className: 'md-codeblock__bar' },
-        React.createElement('span', { key: `${key}-lang`, className: 'md-codeblock__lang' }, langLabel),
-        React.createElement(
-          'button',
-          { key: `${key}-copy`, type: 'button', className: 'md-codeblock__copy' },
-          t('复制'),
-        ),
-      );
-      const pre = React.createElement(
-        'pre',
-        { key, className: 'md-pre' },
-        React.createElement(
-          'code',
-          { key: `${key}-code`, className: b.lang ? `lang-${b.lang}` : '' },
-          b.text,
-        ),
-      );
-      return React.createElement('div', { key, className: 'md-codeblock' }, bar, pre);
-    }
+    case 'code':
+      return renderCodeBlock(b, key);
     case 'quote':
       return React.createElement('blockquote', { key, className: 'md-quote' }, ...parseInline(b.text, key));
     case 'table':

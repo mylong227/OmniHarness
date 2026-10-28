@@ -6164,3 +6164,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **降级方案**：冻结基线「只减不增」继续生效；每个被修改的函数就地拆到 ≤80，禁止新增长函数。
   清零需要单独的「前端拆分」批次（按组件逐个加行为判据），本轮不把 60 处一次性大重构塞进同一个提交。
 - **结论**：S2 **未闭环**，只完成首个函数的清偿；剩余 60 处仍是活跃工作项。
+
+## 145. 2026-10-29 S2 继续清偿：`format.ts` 三个长函数清零
+
+- **改动**：
+  - `parseBlocks`：表格识别抽成 `tableAt()`；
+  - `parseInline`：链接解析抽成 `inlineLinkAt()`；
+  - `renderBlock`：代码块渲染抽成 `renderCodeBlock()`。
+- **判据**：`web/test/format.test.ts` **21 例全绿**；`check.mjs --strict` 不再列出 `format.ts` 任何超基线函数。
+- **剩余规模**：全仓仍报 **57** 处函数体超基线（`check.mjs` 实测），其中前端大组件仍需拆子组件/hooks。
+- **结论**：S2 **未闭环**；已清偿 4 个函数（tokenize + format 三个），剩余 57。
