@@ -5836,7 +5836,7 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **验证**：`web:test` **123 文件 / 640 例全绿**；`runGates` fast 10/10 全绿；`tsc -p web/tsconfig.json` 零错；
   真机双主题截图目视（两卡不拥挤、输入区少一个控件）。
 
-## 118. 2026-10-28 能力调研第二批：上下文完整性 / 流与成本 / 工具韧性（12 项）
+## 118. 2026-10-28 能力调研第二批：上下文完整性 / 流与成本 / 工具韧性（13 项）
 
 - **批①（上下文，C7–C10）**：① `ContextShapers` 增加单条 user/assistant 上限（默认 48k 字符，
   头 60%+尾 30%+裁剪标记）——1MB 粘贴不再恒超窗；② `CompactionComposer.dropOldestTurn`
