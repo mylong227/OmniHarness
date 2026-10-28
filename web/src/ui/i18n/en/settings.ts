@@ -1,4 +1,4 @@
-// en 词条分片：设置弹窗（SettingsModal、ProviderCard、SettingsModel）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
+// en 词条分片：设置页（SettingsSurface、ProviderCard、SettingsModel；旧的 SettingsModal 已于 2026-10-28 删除）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_SETTINGS: Record<string, string> = {
   // 外观栏（语言切换与主题同面板）
   主题: 'Theme',
@@ -106,7 +106,7 @@ export const EN_SETTINGS: Record<string, string> = {
   '未配置 Key：保存 → 检测 → 启用后才会显示可用模型': 'No key configured: save → probe → enable to see available models',
   未知原因: 'unknown reason',
 
-  // 保存与提示（SettingsModel / SettingsModal）
+  // 保存与提示（SettingsModel / SettingsSurface）
   已保存: 'Saved',
   '请输入 API Key': 'Please enter an API key',
   '{name} Key 未修改（输入新值才会覆盖）': '{name} key unchanged (enter a new value to overwrite)',

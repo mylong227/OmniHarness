@@ -239,7 +239,7 @@ export interface SettingsModelDeps {
  * 设置模型：取数 / 落盘 / 回填 / 提示，全部收敛在这里。
  *
  * 生命周期：`load()` 一次 → 用户改动触发 `save()` → 内部 `reload()` 回填 → `subscribe` 通知视图。
- * 不做 React 依赖，视图侧用 `useSyncExternalStore` 订阅（见 SettingsModal）。
+ * 不做 React 依赖，视图侧用 `useSyncExternalStore` 订阅（见 SettingsSurface）。
  */
 export class SettingsModel {
   /** 依赖（服务端客户端、通知回调等）。构造后不变。 */

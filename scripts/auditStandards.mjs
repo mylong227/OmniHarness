@@ -501,6 +501,8 @@ if (process.argv.includes('--delta')) {
       );
     });
   const staged = [];
+  /** 本次暂存里的产品 `.tsx`（组件层）：本门禁的规则集只面向 `.ts`（见下方消息）。 */
+  const skippedTsx = [];
   try {
     const out = await runGit([
       'diff',
@@ -509,10 +511,21 @@ if (process.argv.includes('--delta')) {
       '--diff-filter=ACMR',
       '--',
       '*.ts',
+      '*.tsx',
     ]);
     for (const line of out.split('\n')) {
       const f = line.trim();
-      if (!f || !/\.ts$/.test(f) || f.endsWith('.d.ts')) continue;
+      if (!f) continue;
+      const isProductCode = f.startsWith('src/') || f.startsWith('web/src/');
+      // `.tsx` 只统计、不判定：组件层没有「主类名=文件名」「上帝类」这些类口径，
+      // 直接套 `.ts` 规则会产生大量不可满足的假红（见下方 2026-10-18 的注释）。
+      // 但**必须显式说出来**——此前它被静默跳过，提交信息里显示「无暂存 .ts 文件」，
+      // 让人以为组件层也过了编码标准（2026-10-28 实测：三个 .tsx 改动触发该提示）。
+      if (isProductCode && /\.tsx$/.test(f)) {
+        skippedTsx.push(f);
+        continue;
+      }
+      if (!/\.ts$/.test(f) || f.endsWith('.d.ts')) continue;
       // **作用域必须与完整扫描一致**（`root = 'src'`，见文件头）。
       //
       // 2026-10-18 实测的假红：`web/test/*.ts` 从 `.mjs` 改名而来后，被当成"新文件"套上
@@ -523,7 +536,6 @@ if (process.argv.includes('--delta')) {
       // 标准本来就只管产品代码：完整扫描的 root 是 `src/`。这里改成同一口径——
       // 产品代码 = `src/**`（后端） + `web/src/**`（前端），
       // 排除 `tests/**`、`web/test/**`（判据与夹具/脚手架）、`scripts/**`（工具脚本）。
-      const isProductCode = f.startsWith('src/') || f.startsWith('web/src/');
       if (!isProductCode) continue;
       staged.push(f);
     }
@@ -541,8 +553,21 @@ if (process.argv.includes('--delta')) {
     );
     process.exit(1);
   }
+  /**
+   * 组件层（`.tsx`）跳过提示：口径是「只统计不判定」，但绝不静默。
+   * @returns 无
+   */
+  const noteSkippedTsx = () => {
+    if (skippedTsx.length === 0) return;
+    const head = skippedTsx.slice(0, 3).join('、');
+    const more = skippedTsx.length > 3 ? ` 等 ${String(skippedTsx.length)} 个` : '';
+    console.log(
+      `[delta] 另有 ${String(skippedTsx.length)} 个 .tsx 组件文件未纳入本门禁口径（${head}${more}）；组件层由 web:test / tsc 覆盖。`,
+    );
+  };
   if (staged.length === 0) {
-    console.log('[delta] 无暂存 .ts 文件，增量门禁通过。');
+    if (skippedTsx.length > 0) noteSkippedTsx();
+    else console.log('[delta] 无暂存 .ts 文件，增量门禁通过。');
     process.exit(0);
   }
   // 仓库根：`git diff --name-only` 的输出**恒为仓库根相对路径**，与本进程 cwd 无关
@@ -651,6 +676,7 @@ if (process.argv.includes('--delta')) {
     );
     process.exit(1);
   } else {
+    noteSkippedTsx();
     console.log('✅ 编码标准增量门禁通过：本次提交未新增标准违规。');
     process.exit(0);
   }
