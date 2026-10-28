@@ -5962,3 +5962,17 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   配额）；真实端点若字段名不同，适配器会以现有 fail-closed 路径报错而不是静默降质。
 - **剩余**：E6/S3 任务集、A5 workflow 隔离/超时/回滚、A7 技能懒加载/信任、A8 steering、
   A9 符号级指标、S2 前端长函数。
+
+## 124. 2026-10-29 A5 部分闭环：workflow 步骤超时 + 重试（真取消）
+
+- **缺陷**：`WorkflowRunner.execute` 原先无单步超时、无重试；挂起步骤会永久占住并发槽位，
+  且只能靠父会话取消。
+- **修法**：`WorkflowStep` 增加 `timeoutMs` 与 `maxAttempts`（1..5）。每步独立
+  `AbortController`：父信号转发 + 超时定时器 `abort()`；子代 runtime 拿该信号，超时**真取消**
+  在飞模型请求（不是只 race 一个计时器）；失败后仅在父未取消时重试。结果构造抽到
+  `WorkflowStepResults`（`WorkflowRunner` 回落到体量阈值内）。
+- **判据**：`workflowRunnerLimits.test.ts` 10 例——
+  `timeoutMs=30` + 500ms 慢模型 ⇒ `failed` 且 error 含「超时」；
+  `maxAttempts=2` + 首败模型 ⇒ 成功且模型被调用 2 次。
+- **仍缺**：worktree 级隔离、步骤回滚（属结构性 ADR，未在本批假装完成）。
+- **剩余**：E6/S3 任务集、A5 隔离/回滚、A7 技能懒加载/信任、A8 steering、A9 符号级指标、S2 前端长函数。

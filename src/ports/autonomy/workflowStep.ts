@@ -30,4 +30,14 @@ export interface WorkflowStep {
    * 白名单同一信任模型——策略只对已声明的集合做确定性裁决，不校验运行期是否越界）。
    */
   readonly writes?: readonly string[];
+  /**
+   * 单步墙钟超时（毫秒，可选）：超时即 abort 本步子代的信号并按失败处理。
+   * 只在显式给出时生效（库级默认无超时，不改变既有行为）。
+   */
+  readonly timeoutMs?: number | undefined;
+  /**
+   * 单步最大尝试次数（可选，1..5，默认 1）：失败后重试；父会话已取消时不重试。
+   * 重试会重新跑整步（含模型/工具副作用），只应在幂等步骤上显式开启。
+   */
+  readonly maxAttempts?: number | undefined;
 }

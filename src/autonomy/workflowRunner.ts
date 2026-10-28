@@ -24,6 +24,7 @@ import type {
 } from './workflowTypes.ts';
 import type { WorkflowRunReplay } from './workflowRunLog.ts';
 import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
+import { WorkflowStepResults } from './workflowStepResults.ts';
 import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.ts';
 
 /**
@@ -580,48 +581,55 @@ export class WorkflowRunner {
       step.id,
       (context.attemptBase.get(step.id) ?? 0) + 1,
     );
-    try {
-      const bridge = new SubagentEventBridge();
-      const runtime = subagentRuntimeFactory.build(
-        this.ports,
-        this.toolViewOf(step),
-        bridge,
-        this.ports.maxSteps,
-        // 取消传播：父会话取消 → 本步子代的在飞模型请求一并中止。
-        this.options.signal,
-      );
-      const outcome = await new Agent(runtime).runTask(this.promptFor(step, blackboard));
-      const durationMs = Date.now() - startedAt;
-      this.options.onNodeUpdate?.({
-        id: step.id,
-        status: 'done',
-        steps: outcome.steps,
-        durationMs,
-      });
-      return {
-        id: step.id,
-        ok: true,
-        status: 'done',
-        output: outcome.finalText,
-        steps: outcome.steps,
-        durationMs,
-        // 「步数耗尽」不等于「任务完成」：如实透传，供渲染层与下游注入处标注。
-        truncated: outcome.truncated === true ? true : undefined,
-        aborted: outcome.aborted === true ? true : undefined,
-      };
-    } catch (error) {
-      const durationMs = Date.now() - startedAt;
-      const message = error instanceof Error ? error.message : String(error);
-      this.options.onNodeUpdate?.({ id: step.id, status: 'failed', error: message, durationMs });
-      return {
-        id: step.id,
-        ok: false,
-        status: 'failed',
-        error: message,
-        steps: 0,
-        durationMs,
-      };
+    const attempts = Math.max(1, Math.min(5, Math.floor(step.maxAttempts ?? 1)));
+    let lastError = '步骤未执行';
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      const controller = new AbortController();
+      const parent = this.options.signal;
+      const forward = (): void => controller.abort();
+      if (parent?.aborted === true) controller.abort();
+      else parent?.addEventListener('abort', forward, { once: true });
+      let timedOut = false;
+      const timer =
+        step.timeoutMs !== undefined && step.timeoutMs > 0
+          ? setTimeout(() => {
+              timedOut = true;
+              controller.abort();
+            }, step.timeoutMs)
+          : undefined;
+      try {
+        const bridge = new SubagentEventBridge();
+        const runtime = subagentRuntimeFactory.build(
+          this.ports,
+          this.toolViewOf(step),
+          bridge,
+          this.ports.maxSteps,
+          // 取消传播：父会话取消或本步超时都经同一信号中止子代在飞模型请求。
+          controller.signal,
+        );
+        const outcome = await new Agent(runtime).runTask(this.promptFor(step, blackboard));
+        if (timedOut) {
+          throw new Error(`步骤超时（${String(step.timeoutMs)}ms，已中止）`);
+        }
+        return WorkflowStepResults.done(step, outcome, startedAt, this.options.onNodeUpdate);
+      } catch (error) {
+        lastError = timedOut
+          ? `步骤超时（${String(step.timeoutMs)}ms，已中止）`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+        if (attempt >= attempts || parent?.aborted === true) break;
+        log.warn('workflow.step.retry', {
+          stepId: step.id,
+          attempt,
+          error: lastError,
+        });
+      } finally {
+        if (timer !== undefined) clearTimeout(timer);
+        parent?.removeEventListener('abort', forward);
+      }
     }
+    return WorkflowStepResults.failed(step, lastError, startedAt, this.options.onNodeUpdate);
   }
 
   /**

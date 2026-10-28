@@ -307,3 +307,53 @@ describe('并发闸门 fail-closed（非法上限即拒绝，绝不留永不放�
     );
   });
 });
+
+/** 慢模型：只在收到 abort 时结束（验证超时真的中止了在飞模型请求）。 */
+class SlowModel implements ModelPort {
+  public readonly name = 'slow';
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
+    return await new Promise<ModelOutput>((resolve, reject) => {
+      const timer = setTimeout(() => resolve({ text: 'too late' }), 500);
+      request.signal?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          reject(new Error('aborted'));
+        },
+        { once: true },
+      );
+    });
+  }
+}
+
+/** 首次失败、之后成功的模型（验证 maxAttempts 重试）。 */
+class FlakyModel implements ModelPort {
+  public readonly name = 'flaky';
+  public calls = 0;
+  public async generate(): Promise<ModelOutput> {
+    this.calls += 1;
+    if (this.calls === 1) throw new Error('transient failure');
+    return { text: 'recovered' };
+  }
+}
+
+describe('WorkflowRunner 步骤超时与重试（A5）', () => {
+  it('timeoutMs 超时即 abort 子代信号并按 failed 返回', async () => {
+    const model = new SlowModel();
+    const result = await makeRunner(model).run({
+      steps: [{ id: 'A', prompt: '慢步骤', timeoutMs: 30 }],
+    });
+    assert.strictEqual(result.ok, false);
+    assert.strictEqual(result.steps[0]?.status, 'failed');
+    assert.match(result.steps[0]?.error ?? '', /超时/u);
+  });
+
+  it('maxAttempts=2 时首次失败会重试一次并成功', async () => {
+    const model = new FlakyModel();
+    const result = await makeRunner(model).run({
+      steps: [{ id: 'A', prompt: '重试步骤', maxAttempts: 2 }],
+    });
+    assert.strictEqual(result.ok, true, `应重试后成功：${result.steps[0]?.error ?? ''}`);
+    assert.strictEqual(model.calls, 2, '模型应被调用两次');
+  });
+});
