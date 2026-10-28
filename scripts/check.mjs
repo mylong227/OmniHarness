@@ -12,9 +12,11 @@
 //   3) 依赖许可证合规：仅允许 permissive（拒绝 GPL/AGPL/SSPL/BUSL 等）。
 //   4) 第三方导入须准入：src/** 的第三方裸导入须在 allowlist 内。
 //   5) 核心与端口层零第三方：src/ports/**、src/core/** 禁止第三方导入（阻断）。
-//   6) TS 文件名 camelCase：src/**/*.ts 基名须匹配 ^[a-z][a-zA-Z0-9]*$。
-//   7) 文件行数上限：src 单文件不得 > MAX_FILE_LINES。
-//   8) 函数体行数上限：src 函数/方法/箭头体不得 > MAX_FUNC_LINES（**TypeScript AST 口径**，
+//   6) TS 文件名 camelCase：src/**/*.ts 基名须匹配 ^[a-z][a-zA-Z0-9]*$（**仅服务端**：
+//      前端组件天然是 PascalCase，见 main() 里的说明）。
+//   7) 文件行数上限：src 单文件不得 > MAX_FILE_LINES；web/src 同口径（存量超限走
+//      scripts/checkFileLengthBaseline.json 白名单，只许减不许增）。
+//   8) 函数体行数上限：src / web/src 的函数/方法/箭头体不得 > MAX_FUNC_LINES（**TypeScript AST 口径**，
 //      2026-09-22 前为启发式大括号匹配；存量超限走 scripts/checkFuncBaseline.json 白名单）。
 //   9) 体积预算 / 传递依赖收敛 / 未使用依赖（报告级，--strict 时升级阻断）。
 
@@ -46,6 +48,30 @@ const WEB_SRC = join(ROOT, 'web', 'src');
 // 理由：架构稳定优先于机械拆文件；歧义职责靠「解耦/目录归属/注释」治，不靠切行数。
 const MAX_FILE_LINES = 810;
 const MAX_FUNC_LINES = 80;
+
+// ---- 文件行数存量白名单（2026-10-28 起，前端组件层纳入同一口径）----
+//
+// 为什么需要：`web/src` 曾整体不在体量口径内（2026-10-17 迁移到 Vite 时的注释写着「前端组件
+// 天然单文件数百行、函数很长」，属于**当时的实测误报 180 处**）。但"不计入"不等于没有债务：
+// 组件层于是成了唯一可以无限长大的层。现在改成与后端同一纪律——**存量冻结、只许减不许增**：
+//   · 文件行数 ≤ 基线：报告级（打印，不阻断）；
+//   · 超过基线 / 基线里没有的新超限文件：阻断。
+const FILE_BASELINE_PATH = join(ROOT, 'scripts', 'checkFileLengthBaseline.json');
+
+/**
+ * 读文件行数基线（缺失即空表：后端目前没有超限文件，不需要条目）。
+ * @returns 基线对象（仓库根相对路径 → 允许的最大行数）
+ */
+function loadFileBaseline() {
+  try {
+    return readJson(FILE_BASELINE_PATH);
+  } catch {
+    return {};
+  }
+}
+
+const fileBaseline = loadFileBaseline();
+const fileBaselineHits = [];
 
 // 阻断级（铁律，零容忍）：exit 1。报告级（既有债务，默认仅提示）：`--strict` 时升级为阻断。
 const STRICT = process.argv.includes('--strict');
@@ -386,6 +412,17 @@ function checkFilename(file) {
 
 function checkFileLength(file, src) {
   const lines = src.split('\n').length;
+  const key = baselineKeyOf(file);
+  const allowed = fileBaseline[key];
+  if (typeof allowed === 'number') {
+    if (lines <= allowed) {
+      // 存量债务且未增长：报告级（与函数体基线同一纪律：先冻结既有体量，再分批拆）。
+      fileBaselineHits.push(`${key}: ${lines} 行（基线 ${allowed}）`);
+      return;
+    }
+    add('文件行数上限', file, `${lines} 行 > 基线 ${allowed} 行（存量文件只许减不许增）`);
+    return;
+  }
   if (lines > MAX_FILE_LINES) {
     add('文件行数上限', file, `${lines} 行 > 上限 ${MAX_FILE_LINES}`);
   }
@@ -472,7 +509,9 @@ const funcBaselineHits = [];
  * 只在**引入 AST 口径**或**有意下调白名单**时手工执行一次；产线路径不会写文件。
  */
 function dumpFuncBaseline() {
-  const files = walk(SRC).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
+  const files = [...walk(SRC), ...walk(WEB_SRC)].filter(
+    (f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && !f.endsWith('.d.ts'),
+  );
   const baseline = {};
   for (const f of files) {
     const fns = largeFunctionsOf(f, readFileSync(f, 'utf8'));
@@ -484,6 +523,25 @@ function dumpFuncBaseline() {
   const total = Object.values(baseline).reduce((n, m) => n + Object.keys(m).length, 0);
   console.log(
     `已写 ${relative(ROOT, FUNC_BASELINE_PATH)}：${Object.keys(baseline).length} 个文件 / ${total} 个超限函数`,
+  );
+}
+
+/**
+ * 生成文件行数存量基线：把当前所有超限文件（后端上限 + 前端组件层）写入
+ * `scripts/checkFileLengthBaseline.json`。与函数基线一样只在「引入新口径」时手工执行一次。
+ */
+function dumpFileBaseline() {
+  const files = [...walk(SRC), ...walk(WEB_SRC)].filter(
+    (f) => (f.endsWith('.ts') || f.endsWith('.tsx')) && !f.endsWith('.d.ts'),
+  );
+  const baseline = {};
+  for (const f of files) {
+    const lines = readFileSync(f, 'utf8').split('\n').length;
+    if (lines > MAX_FILE_LINES) baseline[baselineKeyOf(f)] = lines;
+  }
+  writeFileSync(FILE_BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
+  console.log(
+    `已写 ${relative(ROOT, FILE_BASELINE_PATH)}：${Object.keys(baseline).length} 个超限文件`,
   );
 }
 
@@ -510,9 +568,15 @@ function main() {
     dumpFuncBaseline();
     return;
   }
+  if (process.argv.includes('--dump-file-baseline')) {
+    dumpFileBaseline();
+    return;
+  }
   checkDependencyAdmission(); // 1) 依赖准入 / 字段完整 / 许可证 / 落点层
   checkDependencySize(); // 2) 体积预算 / 传递收敛（实测级，缺失 node_modules 时自动跳过）
   const files = walk(SRC).filter((f) => f.endsWith('.ts') && !f.endsWith('.d.ts'));
+  /** 前端扫描到的文件数（`web/src` 同样受体量口径约束）。 */
+  let webFiles = 0;
   for (const f of files) {
     const src = readFileSync(f, 'utf8');
     checkImports(f, src); // 3) 第三方导入准入 + 核心/端口层零第三方
@@ -520,20 +584,28 @@ function main() {
     checkFileLength(f, src);
     checkLargeFunctions(f, src);
   }
-  // 4) 前端**只跑「第三方导入准入」这一条**（2026-10-17 迁移到标准 Vite 项目后新增）。
+  // 4) 前端：第三方导入准入 + **体量口径**（2026-10-28 起）。
   //
-  // 为什么必须单独扫 `web/src`：前端依赖（react / react-dom）现在由
+  // 为什么必须单独扫 `web/src`（导入准入）：前端依赖（react / react-dom）现在由
   // `web/src/ui/deps.ts` 从 npm 导入（不再有 UMD vendor）。只扫 `src/**` 会导致
   // 「未使用的已装依赖」把 react/react-dom 判成"未见导入"⇒ 误红，
   // 而「第三方导入须准入」对前端永不生效 ⇒ 加未登记依赖不会被拦（假绿，更危险）。
   //
-  // 为什么**只**跑 import 准入、不套后三条：`checkFilename` / `checkFileLength` /
-  // `checkLargeFunctions` 是**服务端代码规范**。React 组件天然是 PascalCase 文件名、
-  // 单文件数百行、组件函数很长 —— 直接套过去实测产生 180 处误报，且与"依赖是否登记"无关。
-  // 前端的体量与复杂度约束走 ESLint / review，不在这里重复。
+  // 为什么体量口径以前只覆盖服务端、现在扩展过来：2026-10-17 迁移到 Vite 时的判断是
+  // 「React 组件天然文件长、函数长，直接套会产生 180 处误报」——那批误报是真实的**存量**，
+  // 不是不该管：结果是组件层成了唯一可以无限长大的层（本次实测 2 个文件 >810 行、
+  // 49 个函数体 >80 行，最大 801 行）。现在与后端同一纪律：**存量冻结、只许减不许增**
+  // （`checkFuncBaseline.json` / `checkFileLengthBaseline.json`），新增或增长即阻断。
+  //
+  // 仍**不套** `checkFilename`：组件必须是 PascalCase，与服务端 camelCase 规则天然冲突；
+  // 前端文件名的约定（组件 PascalCase、模型 camelCase、i18n 分片 snake_case）由 review 保证。
   for (const f of walk(WEB_SRC)) {
     if (!(f.endsWith('.ts') || f.endsWith('.tsx')) || f.endsWith('.d.ts')) continue;
-    checkImports(f, readFileSync(f, 'utf8'));
+    const src = readFileSync(f, 'utf8');
+    checkImports(f, src);
+    checkFileLength(f, src);
+    checkLargeFunctions(f, src);
+    webFiles += 1;
   }
   checkUnusedDependencies(); // 4) 未使用的已装依赖（报告级）
 
@@ -542,6 +614,12 @@ function main() {
     for (const line of optionalDepReport) console.log(`  - ${line}`);
   }
 
+  if (fileBaselineHits.length > 0) {
+    console.log(
+      `ℹ️  文件行数**存量白名单**（体量未增长，报告级；超过基线即阻断）：${fileBaselineHits.length} 处`,
+    );
+    for (const line of fileBaselineHits) console.log(`  - ${line}`);
+  }
   if (funcBaselineHits.length > 0) {
     console.log(
       `ℹ️  函数体超限**存量白名单**（体量未增长，报告级；新增或增长即阻断）：${funcBaselineHits.length} 处`,
@@ -557,8 +635,14 @@ function main() {
     console.error('  若确实改了扩展名/目录布局，请同步本脚本的扫描口径（而不是让它空转）。');
     process.exit(1);
   }
+  if (webFiles === 0) {
+    console.error(`✗ 铁律自检在 ${WEB_SRC} 扫到 0 个文件——前端口径同样不能空转，按失败处理。`);
+    process.exit(1);
+  }
   if (violations.length === 0) {
-    console.log(`✅ 铁律自检通过：扫描 ${files.length} 个 TS 文件，零违规。`);
+    console.log(
+      `✅ 铁律自检通过：扫描 ${files.length} 个服务端 TS 文件 + ${webFiles} 个前端文件，零违规。`,
+    );
     process.exit(0);
   }
 

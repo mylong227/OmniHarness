@@ -1,18 +1,18 @@
 {
   "src/adapters/memory/heatEquationAnnealer.ts": {
-    "anneal": 94
+    "anneal": 89
   },
   "src/cli/argParser.ts": {
-    "configDefaults": 140
+    "configDefaults": 130
   },
   "src/cli/cliBuildConfig.ts": {
-    "buildConfig": 131
+    "buildConfig": 129
   },
   "src/cli/cliServerCmds.ts": {
-    "runServe": 132
+    "runServe": 123
   },
   "src/cli/execCli.ts": {
-    "run": 135
+    "run": 85
   },
   "src/composition/runtime.ts": {
     "createRuntime": 113
@@ -23,20 +23,155 @@
   "src/context/contextCompactor.ts": {
     "compact": 97
   },
-  "src/context/contextEngine.ts": {
-    "indexCorpus": 109,
-    "query": 224
-  },
   "src/core/turnRunner.ts": {
-    "run": 96
+    "run": 94
   },
   "src/server/core/appServer.ts": {
     "registerMemoryHandlers": 87
   },
   "src/spark/sparkController.ts": {
-    "cycle": 116
+    "cycle": 112
   },
   "src/spark/sparkCycleTelemetry.ts": {
     "emit": 97
+  },
+  "web/src/ui/App.ts": {
+    "renderBody": 203
+  },
+  "web/src/ui/components/AddMenu.tsx": {
+    "AddMenu": 230
+  },
+  "web/src/ui/components/ApprovalModal.tsx": {
+    "ApprovalModal": 104
+  },
+  "web/src/ui/components/BrowserPane.tsx": {
+    "BrowserPane": 142
+  },
+  "web/src/ui/components/CommandPalette.tsx": {
+    "CommandPalette": 210
+  },
+  "web/src/ui/components/Composer.tsx": {
+    "Composer": 486
+  },
+  "web/src/ui/components/console/ConsoleView.tsx": {
+    "ConsoleView": 243
+  },
+  "web/src/ui/components/console/SettingsSurface.tsx": {
+    "SettingsSurface": 518
+  },
+  "web/src/ui/components/ContextCapacityPanel.tsx": {
+    "ContextCapacityPanel": 221
+  },
+  "web/src/ui/components/DialogHost.tsx": {
+    "DialogHost": 139
+  },
+  "web/src/ui/components/FilePicker.tsx": {
+    "FilePicker": 154
+  },
+  "web/src/ui/components/FolderPicker.tsx": {
+    "FolderPicker": 171
+  },
+  "web/src/ui/components/ModelPicker.tsx": {
+    "ModelPicker": 172
+  },
+  "web/src/ui/components/PermissionPicker.tsx": {
+    "PermissionPicker": 126
+  },
+  "web/src/ui/components/QuestionCard.tsx": {
+    "QuestionCard": 147
+  },
+  "web/src/ui/components/RightPanel.tsx": {
+    "RightPanel": 198
+  },
+  "web/src/ui/components/SessionPanel.tsx": {
+    "SessionPanel": 801
+  },
+  "web/src/ui/components/SessionViews.tsx": {
+    "renderSessionBody": 126
+  },
+  "web/src/ui/components/settings/DesktopSettingsSection.tsx": {
+    "DesktopSettingsSection": 180
+  },
+  "web/src/ui/components/stream/AssistantCard.tsx": {
+    "AssistantCard": 91
+  },
+  "web/src/ui/components/stream/ReasoningBlock.tsx": {
+    "ReasoningBlock": 104
+  },
+  "web/src/ui/components/stream/ToolCallCard.tsx": {
+    "ToolCallCard": 96
+  },
+  "web/src/ui/components/stream/TurnSummaryCard.tsx": {
+    "FileRow": 101,
+    "TurnSummaryCard": 134
+  },
+  "web/src/ui/components/StreamView.tsx": {
+    "renderEventNode": 135,
+    "StreamView": 465
+  },
+  "web/src/ui/components/tabs/ActivityTab.tsx": {
+    "ActivityTab": 114
+  },
+  "web/src/ui/components/tabs/AuditTab.tsx": {
+    "AuditTab": 87
+  },
+  "web/src/ui/components/tabs/AutomationsTab.tsx": {
+    "AutomationsTab": 146
+  },
+  "web/src/ui/components/tabs/ChangesPatchView.tsx": {
+    "renderChangesPatch": 105
+  },
+  "web/src/ui/components/tabs/ChangesTab.tsx": {
+    "ChangesTab": 430
+  },
+  "web/src/ui/components/tabs/DiagnosticsTab.tsx": {
+    "DiagnosticsTab": 118
+  },
+  "web/src/ui/components/tabs/GovernanceTab.tsx": {
+    "GovernanceTab": 126
+  },
+  "web/src/ui/components/tabs/GraphTab.tsx": {
+    "GraphTab": 277
+  },
+  "web/src/ui/components/tabs/MemoryTab.tsx": {
+    "MemoryTab": 190
+  },
+  "web/src/ui/components/tabs/MetricsTab.tsx": {
+    "MetricsTab": 122
+  },
+  "web/src/ui/components/tabs/PermissionTab.tsx": {
+    "PermissionTab": 154
+  },
+  "web/src/ui/components/tabs/PluginsTab.tsx": {
+    "PluginsTab": 132
+  },
+  "web/src/ui/components/tabs/ProfilesTab.tsx": {
+    "ProfilesTab": 203
+  },
+  "web/src/ui/components/tabs/RollbackTab.tsx": {
+    "RollbackTab": 124
+  },
+  "web/src/ui/components/tabs/TraceTab.tsx": {
+    "TraceTab": 110
+  },
+  "web/src/ui/components/tabs/VaultTab.tsx": {
+    "VaultTab": 143
+  },
+  "web/src/ui/controllers/AppController.ts": {
+    "connectStream": 82
+  },
+  "web/src/ui/controllers/ComposerController.ts": {
+    "send": 96
+  },
+  "web/src/ui/format.ts": {
+    "parseBlocks": 84,
+    "parseInline": 86,
+    "renderBlock": 83
+  },
+  "web/src/ui/highlight.ts": {
+    "tokenize": 95
+  },
+  "web/src/ui/markdown.ts": {
+    "getMd": 186
   }
 }

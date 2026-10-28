@@ -164,6 +164,37 @@ const BARE_TODO: string = [
   '',
 ].join('\n');
 
+/**
+ * 组件层正样例：`.tsx`（含真实 JSX）+ 导出函数 JSDoc + 返回类型。
+ *
+ * 用途：证明 `.tsx` 现在**真的被判定**，而且 TSX 能被解析（若按 `ScriptKind.TS` 解析，
+ * JSX 会把 AST 打崩、度量恒零 ⇒ 这条会"绿"得毫无意义）。
+ */
+const CLEAN_TSX: string = [
+  '/**',
+  ' * 探针组件。',
+  ' * @returns 节点',
+  ' */',
+  'export function Probe(): JSX.Element {',
+  '  return <div className="probe" />;',
+  '}',
+  '',
+].join('\n');
+
+/**
+ * 组件层反样例：没有 JSDoc、用了 `any`、留了裸待办注释。
+ *
+ * 用途：证明 `.tsx` 的判定不是"只是不再静默"——命中规则必须真的判红。
+ */
+const DIRTY_TSX: string = [
+  'export function BadProbe(): JSX.Element {',
+  '  const value: any = 1;',
+  '  // TODO: 以后再补真正的实现',
+  '  return <div>{String(value)}</div>;',
+  '}',
+  '',
+].join('\n');
+
 test('§12 文档结构：七条判据 + 机械强制 + 评审口径齐备（文档不算强制，故另有 §12.2 与自证）', () => {
   const doc = read('docs/CODE_STANDARD.md');
   assert.match(doc, /^## 12\. 生产级实现标准（拒绝 demo 式）/m, '缺 §12 章节');
@@ -270,15 +301,13 @@ test('§12.2 口吻区分：反引号包裹的「文档口吻」豁免，裸露�
   assert.match(bare.out, /占位或调试残留/);
 });
 
-test('组件层口径：暂存 .tsx 时增量门禁必须**显式说明未纳入**，不得谎报「无暂存 .ts 文件」', () => {
-  // 2026-10-28 实测：三个 .tsx 改动触发「无暂存 .ts 文件，增量门禁通过」——看起来像过了
-  // 编码标准，实际组件层根本不在口径内。本条钉住「跳过要出声」。
-  const out = runDeltaOn(
-    'export function Probe(): null {\n  return null;\n}\n',
-    'web/src/Probe.tsx',
-  );
-  assert.strictEqual(out.code, 0, `组件层不判定，不该红：${out.out.slice(0, 300)}`);
-  assert.match(out.out, /\.tsx/u, '必须点名 .tsx');
-  assert.match(out.out, /未纳入/u, '必须说明「未纳入本门禁口径」');
-  assert.doesNotMatch(out.out, /无暂存 \.ts 文件/u, '不得再伪装成「没有改动」');
+test('组件层口径：.tsx 与 .ts 同套判定——干净组件放行、含 any/占位残留判红', () => {
+  // 2026-10-28：此前 `.tsx` 被静默跳过（提交时打印「无暂存 .ts 文件」）。现在两者同套度量；
+  // 本判据钉住「真的判了」而不是「只是不再静默」。
+  const clean = runDeltaOn(CLEAN_TSX, 'web/src/Probe.tsx');
+  assert.strictEqual(clean.code, 0, `干净组件不该被拦：${clean.out.slice(0, 400)}`);
+
+  const dirty = runDeltaOn(DIRTY_TSX, 'web/src/BadProbe.tsx');
+  assert.notStrictEqual(dirty.code, 0, '含 TODO/any 的新组件必须被拦下（否则口径只是换了个说法）');
+  assert.match(dirty.out, /占位或调试残留|any/u, '必须点名命中的规则');
 });

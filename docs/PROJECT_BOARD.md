@@ -5693,3 +5693,42 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   14/14；`tsc -p web/tsconfig.json --noEmit` 零错；`check.mjs` 1278 文件零违规。
 - **诚实边界**：`workspaceEpoch` 只驱动侧栏（项目名/面包屑/文件树）；其它面板若也缓存了项目路径，
   需由各自的依赖接入同一条代数（当前审计范围内没有发现第二处）。
+
+## 114. 2026-10-28 三条遗留边界收口：组件层纳入体量口径 + 菜单 roving tabindex + 选择器焦点陷阱
+
+- **① 组件层（`web/src/**`）纳入编码标准（真跑存量 → 定基线）**：
+  - **实测存量**：182 个前端文件里 **2 个文件 >810 行**（`StreamView.tsx` 920、`SessionPanel.tsx` 888）、
+    **49 个函数体 >80 行**（最大 `SessionPanel` 801 行）。2026-10-17 迁移 Vite 时的判断是
+    「React 组件天然长，直接套会产生 180 处误报」——那批是**真实存量**，不是不该管：结果是组件层
+    成了唯一可以无限长大的层。
+  - **口径（与后端同一纪律）**：`check.mjs` 现在对 `web/src` 同时跑「文件行数」与「函数体行数」；
+    存量冻结进 `scripts/checkFuncBaseline.json`（新增 49 条）与新文件
+    `scripts/checkFileLengthBaseline.json`（2 条），**只许减不许增**：超过基线或基线外的新超限即阻断，
+    未增长的存量只打印报告。`--dump-func-baseline` / 新增 `--dump-file-baseline` 可重建。
+  - **仍不套** `checkFilename`：组件是 PascalCase，与后端 camelCase 冲突；前端文件名约定
+    （组件 PascalCase / 模型 camelCase / i18n 分片 snake_case）由 review 保证，已在脚本注释写明。
+  - **判据**：`tests/unit/checkWebStandards.test.ts` 3 例——真跑 `node scripts/check.mjs --strict`
+    必须绿且汇总出现前端文件计数（口径不空转）；两份基线只含真正超限的条目；接线守卫钉住
+    web 循环里确实调了 `checkFileLength` / `checkLargeFunctions` 且没套文件名规则。
+- **② `auditStandards --delta` 真正判定 `.tsx`**：上一批只做到「跳过要出声」；现在 `.tsx` 与 `.ts`
+  同套判定。关键修复：`metricsForSource` 此前硬编码 `ScriptKind.TS`，`.tsx` 里的 JSX 会把 AST 打崩
+  ⇒ 度量恒零（"加进口径"等于没加）。判据：`productionGradeStandard.test.ts` 的组件层用例改为双向
+  ——干净 `.tsx`（含真实 JSX）放行、含 `any`/占位残留的 `.tsx` 判红并点名规则。
+- **③ 菜单 roving tabindex + 方向键（WAI-ARIA 菜单模型）**：新增纯函数 `MenuFocusModel`
+  （↑/↓ 环绕、Home/End、`tabIndexFor`）；模型 / 权限 / 「＋」三个菜单接入：**整个菜单只有一个
+  Tab 落点**，方向键在项间移动、Home/End 跳首尾、Esc 收起并把焦点还给触发器；触发器上按 ↓/↑
+  直接展开并落到首/末项。AddMenu 的禁用项 `tabIndex=-1` 且不参与 `[data-menu-item]` 导航；
+  菜单键处理 `stopPropagation`（菜单是触发器子节点，否则两处 ↑/↓ 会互相打架）。
+- **④ 选择器焦点陷阱 + 归还 opener**：`FilePicker` / `FolderPicker` 复用 `models/focusTrap.ts` 的
+  `trapTab`——Tab/Shift+Tab 在弹窗内绕圈（此前能 Tab 到背后的输入框）；挂载时记下
+  `document.activeElement`，卸载时把焦点还回去（键盘用户关掉弹窗后不会"丢焦点"）。
+  Esc 仍由各自既有通道处理（FilePicker 的窗口监听 / FolderPicker 的 `PickerKeys`：
+  它要区分「新建态退新建」与「浏览态关弹窗」，不能在模态层截走）。
+- **判据**：`web/test/popoverKeyboard.test.ts` 扩到 **12 例**（MenuFocusModel 纯数学、三个菜单的
+  方向键/环绕/roving、选择器的 Tab 陷阱与 opener 归还）；`checkWebStandards.test.ts` 3 例；
+  `productionGradeStandard.test.ts` 7 例。
+- **诚实边界**：jsdom 没有布局，`focusableWithin` 在 jsdom 下恒空 ⇒ 选择器的 Tab 判据只能钉住
+  「被陷阱接管（焦点不跑到背后）」，真正的**逐元素绕圈**由 `focusTrap` 的纯函数判据 + 真机
+  （`smoke:ui`）覆盖；组件层基线是**冻结**不是清偿，49 个超长函数仍待按批拆。
+
+- **顺带把「不能增长」变成了「真的在降」**：五个组件在接入本批功能时被抽职责（useMenuNavigation / useModalFocus / useAddMenuData / useApprovalTiers + ModelPickerLadder / PermissionTierOption / PermissionMenu / PermissionTrigger / AddMenuPopover / AddMenuTrigger），组件体**低于**接入前的基线：AddMenu 257→230、ModelPicker 193→172、PermissionPicker 133→126、FilePicker 159→154、FolderPicker 176→171；基线已按新值重建（只许继续减）。

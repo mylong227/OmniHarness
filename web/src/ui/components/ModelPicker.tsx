@@ -22,6 +22,8 @@ import { icon } from '../models/Icon.ts';
 import { ComposerOptions } from '../models/ComposerOptions.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { MenuFocusModel } from '../models/MenuFocusModel.ts';
+import { useMenuNavigation } from './useMenuNavigation.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -47,6 +49,88 @@ export interface ModelPickerProps {
 }
 
 /**
+ * 推理强度进度条：分段可点选 + 方向键连续调档。
+ *
+ * 从 `ModelPicker` 抽出（2026-10-28）：组件体已逼近 `check.mjs` 的函数体上限，
+ * 而这段是自成一体的子职责（有序量的刻度 + 键盘步进）。
+ * @param props 档位、当前值与回调
+ * @returns 分隔线 + 标题 + 进度条
+ */
+function ModelPickerLadder(props: {
+  readonly ladder: ReturnType<typeof ComposerOptions.ladder>;
+  readonly step: number;
+  readonly currentLabel: string;
+  readonly currentUnsupported: boolean;
+  readonly reasoning: string;
+  readonly onReasoningChange: (value: string) => void;
+}): ReactElement {
+  const { ladder, step, currentLabel, currentUnsupported, reasoning, onReasoningChange } = props;
+  /**
+   * 方向键切档位：进度条是有序量，用户预期左右键能连续调（而不是必须 Tab 到某一段）。
+   * @param e 键盘事件
+   */
+  const onLadderKey = (e: React.KeyboardEvent): void => {
+    if (ladder.length === 0) return;
+    const forward = e.key === 'ArrowRight' || e.key === 'ArrowUp';
+    const backward = e.key === 'ArrowLeft' || e.key === 'ArrowDown';
+    if (!forward && !backward) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const next = Math.min(ladder.length - 1, Math.max(0, step + (forward ? 1 : -1)));
+    const item = ladder[next];
+    if (item !== undefined && item.value !== reasoning) onReasoningChange(item.value);
+  };
+  return (
+    <>
+      <div className="mp-sep" />
+      <div className="mp-head">
+        <span className="mp-head-title">{t('推理强度')}</span>
+        <span className="mp-head-value">
+          {currentLabel}
+          {currentUnsupported ? <span className="mp-warn">{t(' · 该模型不支持')}</span> : null}
+        </span>
+      </div>
+      <div className="mp-ladder" role="radiogroup" aria-label={t('推理强度')} onKeyDown={onLadderKey} tabIndex={0}>
+        {ladder.map((o, i) => {
+          const isCurrent = o.value === reasoning;
+          // 不支持的档位不参与"填充比例"：它只表示"当前值在这"，不代表强度到顶。
+          const on = o.unsupported !== true && i <= step;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              className={
+                'mp-step' +
+                (on ? ' on' : '') +
+                (isCurrent ? ' current' : '') +
+                (o.unsupported === true ? ' unsupported' : '')
+              }
+              role="radio"
+              aria-checked={isCurrent ? 'true' : 'false'}
+              // 每段都可单独点选：进度条同时是"刻度"与"目标"
+              aria-label={
+                o.unsupported === true
+                  ? t('推理强度 {name}（当前值，该模型不支持）', { name: o.label })
+                  : t('推理强度 {name}', { name: o.label })
+              }
+              title={
+                o.unsupported === true
+                  ? t('{name} · 该模型不支持这一档，点选其它档位即可切换', { name: o.label })
+                  : o.label
+              }
+              onClick={() => onReasoningChange(o.value)}
+            >
+              <span className="mp-step-fill" />
+              <span className="mp-step-name">{o.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+/**
  * 组合选择器：模型清单 + 推理强度进度条。
  * @param props 组件入参
  * @returns 弹窗节点
@@ -59,11 +143,33 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
   // 同时登记到互斥控制器：打开本弹层会自动收起其它弹层（见 PopoverStack 头注释）。
   usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
+  /** 触发器引用（Esc 收起后把焦点还给它）。 */
+  const triggerRef = React.useRef<HTMLDivElement | null>(null);
+
+  /** 收起（释放互斥）并把焦点还给触发器。 */
+  const closeAndReturnFocus = (): void => {
+    releasePopover(POPOVER_ID);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  // 菜单键盘导航（roving tabindex + ↑/↓/Home/End）抽在 hook 里：组件体已逼近函数体上限。
+  const menu = useMenuNavigation({
+    onEscape: closeAndReturnFocus,
+    ensureOpen: () => {
+      if (!open) flip();
+    },
+  });
+
   /** 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。 */
   const flip = (): void => {
     const next = !open;
-    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
-    else releasePopover(POPOVER_ID);
+    if (next) {
+      claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
+      menu.setActiveItem(0);
+    } else {
+      releasePopover(POPOVER_ID);
+    }
     setOpen(next);
   };
 
@@ -78,7 +184,7 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
     e.stopPropagation();
   };
 
-  /** 键盘：Esc 收起（与外部点击同一条出口；同时释放互斥登记）；Enter/Space 展开或收起。 */
+  /** 键盘：Esc 收起；Enter/Space 展开或收起；↓/↑ 展开并落到首/末项（见 hook）。 */
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       e.stopPropagation();
@@ -86,7 +192,11 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
       setOpen(false);
       return;
     }
-    if (ActivationKeys.activate(e, flip)) e.stopPropagation();
+    if (ActivationKeys.activate(e, flip)) {
+      e.stopPropagation();
+      return;
+    }
+    menu.onTriggerKey(e);
   };
 
   // 2026-10-17：**筛选框已删除**（用户要求）。理由不只是"多余"——厂商可用模型通常只有个位数
@@ -112,21 +222,6 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
   const reasoningLabel =
     reasoning !== '' && hasLadder ? ComposerOptions.reasoningLabel(reasoning) : '';
 
-  /**
-   * 方向键切档位：进度条是有序量，用户预期左右键能连续调（而不是必须 Tab 到某一段）。
-   * @param e 键盘事件
-   */
-  const onLadderKey = (e: React.KeyboardEvent): void => {
-    if (ladder.length === 0) return;
-    const delta = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0;
-    if (delta === 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const next = Math.min(ladder.length - 1, Math.max(0, step + delta));
-    const item = ladder[next];
-    if (item !== undefined && item.value !== reasoning) onReasoningChange(item.value);
-  };
-
   return (
     <div
       className="mp"
@@ -144,6 +239,9 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
       onClick={toggle}
       onKeyDown={onKeyDown}
       tabIndex={0}
+      ref={(el: HTMLDivElement | null) => {
+        triggerRef.current = el;
+      }}
     >
       <span className="mp-ico">{icon('brain', { size: 14 })}</span>
       {/* 标签 = 模型 +（强度）：两者本来就是同一个决定的两半，把强度也摆在触发按钮上，
@@ -153,7 +251,14 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
       {reasoningLabel !== '' ? <span className="mp-sub">{reasoningLabel}</span> : null}
       <span className="mp-caret">▾</span>
       {open ? (
-        <div className="mp-menu" onClick={stopBubble}>
+        <div
+          className="mp-menu"
+          onClick={stopBubble}
+          onKeyDown={menu.onMenuKeyDown}
+          ref={(el: HTMLDivElement | null) => {
+            menu.menuRef.current = el;
+          }}
+        >
           <div className="mp-head">
             <span className="mp-head-title">{t('模型')}</span>
             {providerLabel !== undefined && providerLabel !== '' ? (
@@ -161,13 +266,15 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
             ) : null}
           </div>
           <div className="mp-list" role="listbox" aria-label={t('可用模型')}>
-            {models.map((m) => (
+            {models.map((m, index) => (
               <div
                 key={m}
                 className={'mp-item' + (m === model ? ' active' : '')}
                 role="option"
                 aria-selected={m === model ? 'true' : 'false'}
-                tabIndex={0}
+                data-menu-item
+                tabIndex={MenuFocusModel.tabIndexFor(index, menu.activeItem)}
+                onFocus={() => menu.setActiveItem(index)}
                 onClick={() => {
                   onModelChange(m);
                   setOpen(false);
@@ -186,61 +293,18 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
           </div>
 
           {hasLadder ? (
-            <>
-              <div className="mp-sep" />
-              <div className="mp-head">
-                <span className="mp-head-title">{t('推理强度')}</span>
-                <span className="mp-head-value">
-                  {currentLabel}
-                  {currentUnsupported ? <span className="mp-warn">{t(' · 该模型不支持')}</span> : null}
-                </span>
-              </div>
-              <div
-                className="mp-ladder"
-                role="radiogroup"
-                aria-label={t('推理强度')}
-                onKeyDown={onLadderKey}
-                tabIndex={0}
-              >
-                {ladder.map((o, i) => {
-                  const isCurrent = o.value === reasoning;
-                  // 不支持的档位不参与"填充比例"：它只表示"当前值在这"，不代表强度到顶。
-                  const on = o.unsupported !== true && i <= step;
-                  return (
-                    <button
-                      key={o.value}
-                      type="button"
-                      className={
-                        'mp-step' +
-                        (on ? ' on' : '') +
-                        (isCurrent ? ' current' : '') +
-                        (o.unsupported === true ? ' unsupported' : '')
-                      }
-                      role="radio"
-                      aria-checked={isCurrent ? 'true' : 'false'}
-                      // 每段都可单独点选：进度条同时是"刻度"与"目标"
-                      aria-label={
-                        o.unsupported === true
-                          ? t('推理强度 {name}（当前值，该模型不支持）', { name: o.label })
-                          : t('推理强度 {name}', { name: o.label })
-                      }
-                      title={
-                        o.unsupported === true
-                          ? t('{name} · 该模型不支持这一档，点选其它档位即可切换', { name: o.label })
-                          : o.label
-                      }
-                      onClick={() => onReasoningChange(o.value)}
-                    >
-                      <span className="mp-step-fill" />
-                      <span className="mp-step-name">{o.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+            <ModelPickerLadder
+              ladder={ladder}
+              step={step}
+              currentLabel={currentLabel}
+              currentUnsupported={currentUnsupported}
+              reasoning={reasoning}
+              onReasoningChange={onReasoningChange}
+            />
           ) : null}
         </div>
       ) : null}
     </div>
   );
 }
+

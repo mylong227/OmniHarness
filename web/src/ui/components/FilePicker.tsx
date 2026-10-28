@@ -13,6 +13,7 @@ import { FileIconResolver } from '../models/FileIconResolver.ts';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
 import { icon } from '../models/Icon.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { useModalFocus } from './useModalFocus.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -191,13 +192,10 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const [browse, setBrowse] = React.useState<BrowseState>(INIT_BROWSE);
   const [load, setLoad] = React.useState<LoadState>({ loading: false, error: null });
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
-  /** 弹窗根节点（打开时把焦点从背后的输入框收进来，Enter 才不会继续发给输入区）。 */
-  const modalRef = React.useRef<HTMLDivElement | null>(null);
+  /** 模态焦点：收拢 / 归还 opener / Tab 陷阱（见 useModalFocus）。 */
+  const modal = useModalFocus();
   /** 目录加载请求代际（晚到的旧目录响应据此丢弃）。 */
   const loadSeq = React.useRef<number>(0);
-  React.useEffect(() => {
-    modalRef.current?.focus();
-  }, []);
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
 
   /**
@@ -293,10 +291,8 @@ export function FilePicker(props: FilePickerProps): ReactElement {
         aria-modal="true"
         aria-label={t('选择附件文件')}
         tabIndex={-1}
-        ref={(el: HTMLDivElement | null) => {
-          modalRef.current = el;
-        }}
-        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        ref={modal.modalRef}
+        onKeyDown={modal.onKeyDown}
       >
         <div className="fp-head">
           <span className="fp-title">{t('选择附件文件')}</span>

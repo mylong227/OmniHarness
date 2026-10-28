@@ -1,4 +1,4 @@
-// 弹层触发器与菜单项的**键盘可达性**判据（2026-10-28 前端审计高危第 4 条）。
+﻿// 弹层触发器与菜单项的**键盘可达性**判据（2026-10-28 前端审计高危第 4 条）。
 //
 // ## 缺陷形态
 //
@@ -25,7 +25,9 @@ const { PermissionPicker } = await import('../src/ui/components/PermissionPicker
 const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
 const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.tsx');
 const { FilePicker } = await import('../src/ui/components/FilePicker.tsx');
+const { FolderPicker } = await import('../src/ui/components/FolderPicker.tsx');
 const { ActivationKeys } = await import('../src/ui/models/ActivationKeys.ts');
+const { MenuFocusModel } = await import('../src/ui/models/MenuFocusModel.ts');
 
 /** act 冲一次微任务（弹层内部会真的发 RPC，Promise.resolve 落地后才有数据）。 */
 async function flush(): Promise<void> {
@@ -79,9 +81,12 @@ test('ModelPicker：触发器可聚焦，Enter 展开，菜单项 Enter 选中',
   fireEvent.keyDown(trigger, { key: 'Enter' });
   const items = [...ui.container.querySelectorAll('.mp-item')] as HTMLElement[];
   assert.strictEqual(items.length, 2, 'Enter 必须展开模型清单');
-  for (const item of items) {
-    assert.strictEqual(item.getAttribute('tabindex'), '0', '菜单项必须可聚焦');
-  }
+  // roving tabindex（WAI-ARIA 菜单）：整个菜单只保留一个 Tab 落点，其余靠方向键。
+  assert.deepStrictEqual(
+    items.map((el) => el.getAttribute('tabindex')),
+    ['0', '-1'],
+    '菜单必须只有一个 Tab 落点',
+  );
   fireEvent.keyDown(items[1]!, { key: 'Enter' });
   assert.deepStrictEqual(picked, ['m2'], '菜单项 Enter 必须选中');
   assert.strictEqual(ui.container.querySelector('.mp-menu'), null, '选中后必须收起');
@@ -102,7 +107,11 @@ test('PermissionPicker：触发器可聚焦，Enter 展开，档位项 Enter 选
   fireEvent.keyDown(trigger, { key: ' ' });
   const items = [...ui.container.querySelectorAll('.dd-item')] as HTMLElement[];
   assert.ok(items.length > 0, 'Space 必须展开档位清单');
-  for (const item of items) assert.strictEqual(item.getAttribute('tabindex'), '0');
+  assert.strictEqual(
+    items.filter((el) => el.getAttribute('tabindex') === '0').length,
+    1,
+    'roving tabindex：只有一个 Tab 落点',
+  );
   fireEvent.keyDown(items[0]!, { key: 'Enter' });
   assert.strictEqual(picked.length, 1, '档位项 Enter 必须选中');
   assert.strictEqual(ui.container.querySelector('.dd-menu'), null, '选中后必须收起');
@@ -220,3 +229,172 @@ test('FilePicker：模态语义齐全，焦点进入弹窗，列表项可聚焦�
   assert.strictEqual(picked.length, 1, '确认必须回传选中文件');
   assert.match(picked[0]![0]!, /a\.txt$/u);
 });
+
+// ---- WAI-ARIA 菜单交互：roving tabindex + 方向键（2026-10-28 批②）----
+
+/** 等一次宏任务（弹层展开后的「下一帧聚焦」走 setTimeout(0)）。 */
+async function nextTick(): Promise<void> {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+}
+
+test('MenuFocusModel：环绕步进与 roving tabindex 的纯数学', () => {
+  assert.strictEqual(MenuFocusModel.resolve('ArrowDown'), 'next');
+  assert.strictEqual(MenuFocusModel.resolve('ArrowUp'), 'prev');
+  assert.strictEqual(MenuFocusModel.resolve('Home'), 'first');
+  assert.strictEqual(MenuFocusModel.resolve('End'), 'last');
+  assert.strictEqual(MenuFocusModel.resolve('a'), null);
+  assert.strictEqual(MenuFocusModel.step(0, 3, false), 1);
+  assert.strictEqual(MenuFocusModel.step(2, 3, false), 0, '末项向下必须环绕到首项');
+  assert.strictEqual(MenuFocusModel.step(0, 3, true), 2, '首项向上必须环绕到末项');
+  assert.strictEqual(MenuFocusModel.step(-1, 3, true), 2);
+  assert.strictEqual(MenuFocusModel.step(0, 0, false), -1, '空列表无落点');
+  assert.strictEqual(MenuFocusModel.edge(3, 'first'), 0);
+  assert.strictEqual(MenuFocusModel.edge(3, 'last'), 2);
+  assert.strictEqual(MenuFocusModel.edge(0, 'last'), -1);
+  assert.strictEqual(MenuFocusModel.tabIndexFor(1, 1), 0);
+  assert.strictEqual(MenuFocusModel.tabIndexFor(0, 1), -1, 'roving：非活动项必须退出 Tab 序列');
+});
+
+test('ModelPicker：↑/↓/Home/End 移动焦点（环绕），Esc 收起并归还焦点', async () => {
+  const ui = renderUi(ModelPicker, {
+    props: {
+      model: 'm1',
+      modelOptions: ['m1', 'm2', 'm3'],
+      reasoning: '',
+      reasoningOptions: [],
+      onModelChange: () => {},
+      onReasoningChange: () => {},
+    },
+  });
+  await flush();
+  const trigger = ui.root as HTMLElement;
+  fireEvent.keyDown(trigger, { key: 'Enter' });
+  const items = [...ui.container.querySelectorAll<HTMLElement>('.mp-item')];
+  assert.strictEqual(items.length, 3);
+  // roving tabindex：只有一个落点。
+  assert.deepStrictEqual(
+    items.map((el) => el.getAttribute('tabindex')),
+    ['0', '-1', '-1'],
+    '只有活动项在 Tab 序列里',
+  );
+  fireEvent.keyDown(ui.container.querySelector('.mp-menu') as HTMLElement, { key: 'ArrowDown' });
+  assert.strictEqual(document.activeElement, items[1], '↓ 必须移到下一项');
+  fireEvent.keyDown(items[1]!, { key: 'End' });
+  assert.strictEqual(document.activeElement, items[2], 'End 必须跳到末项');
+  fireEvent.keyDown(items[2]!, { key: 'ArrowDown' });
+  assert.strictEqual(document.activeElement, items[0], '末项 ↓ 必须环绕到首项');
+  fireEvent.keyDown(items[0]!, { key: 'ArrowUp' });
+  assert.strictEqual(document.activeElement, items[2], '首项 ↑ 必须环绕到末项');
+  fireEvent.keyDown(items[2]!, { key: 'Escape' });
+  assert.strictEqual(ui.container.querySelector('.mp-menu'), null, 'Esc 必须收起菜单');
+  assert.strictEqual(document.activeElement, trigger, 'Esc 必须把焦点还给触发器');
+});
+
+test('PermissionPicker：↓/↑ 在档位间移动，roving tabindex 只有一个落点', async () => {
+  const ui = renderUi(PermissionPicker, {
+    props: { permission: 'ask', onPick: () => {}, api: { approvalTiers: async () => ({ tiers: [] }) } },
+  });
+  await flush();
+  fireEvent.keyDown(ui.root as HTMLElement, { key: 'Enter' });
+  const items = [...ui.container.querySelectorAll<HTMLElement>('.dd-item')];
+  assert.ok(items.length >= 2);
+  assert.strictEqual(items.filter((el) => el.getAttribute('tabindex') === '0').length, 1);
+  fireEvent.keyDown(items[0]!, { key: 'ArrowDown' });
+  assert.strictEqual(document.activeElement, items[1]);
+  fireEvent.keyDown(items[1]!, { key: 'ArrowUp' });
+  assert.strictEqual(document.activeElement, items[0]);
+});
+
+test('AddMenu：↓ 从触发器进入首项、↑ 环绕到末项，禁用项不参与导航', async () => {
+  const ui = renderUi(AddMenu, {
+    props: {
+      threadId: '',
+      api: {
+        modesGet: async () => ({ goal: '', planMode: false, sketchMode: false }),
+        listPlugins: async () => [],
+        agentsList: async () => ({ agents: [] }),
+        searchAll: async () => ({ files: [], chats: [] }),
+      },
+      onAttach: () => {},
+      onToast: () => {},
+      onOpenTab: () => {},
+      onOpenFile: () => {},
+      onLoadThread: () => {},
+    },
+  });
+  await flush();
+  const trigger = ui.root as HTMLElement;
+  // ↓ 直接展开并落到首项（不必先 Enter）。
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  await nextTick();
+  const items = [...ui.container.querySelectorAll<HTMLElement>('[data-menu-item]')];
+  assert.ok(items.length > 0, '菜单必须展开并产生可导航项');
+  assert.strictEqual(document.activeElement, items[0], '↓ 必须落到首项');
+  assert.strictEqual(items.filter((el) => el.getAttribute('tabindex') === '0').length, 1);
+  fireEvent.keyDown(items[0]!, { key: 'ArrowUp' });
+  assert.strictEqual(document.activeElement, items[items.length - 1], '首项 ↑ 必须环绕到末项');
+  const disabled = [...ui.container.querySelectorAll<HTMLElement>('.addmenu-item[aria-disabled="true"]')];
+  for (const el of disabled) {
+    assert.strictEqual(el.getAttribute('tabindex'), '-1', '禁用项不得进入 Tab 序列');
+    assert.strictEqual(el.hasAttribute('data-menu-item'), false, '禁用项不得参与方向键导航');
+  }
+});
+
+// ---- 模态焦点陷阱 + 归还 opener（2026-10-28 批③）----
+
+test('FilePicker：Tab 被陷阱接管（焦点不出弹窗），卸载后焦点归还 opener', async () => {
+  const opener = document.createElement('button');
+  opener.textContent = '打开选择器';
+  document.body.append(opener);
+  opener.focus();
+  try {
+    const ui = renderUi(FilePicker, {
+      props: {
+        api: { browseFs: async () => ({ level: 'dir', path: 'C:/w', dirs: [], files: [], parent: 'C:/' }) },
+        onCancel: () => {},
+        onPick: () => {},
+      },
+    });
+    await flush();
+    const modal = ui.container.querySelector('.fp-modal') as HTMLElement;
+    assert.strictEqual(document.activeElement, modal, '打开时焦点进入弹窗');
+    fireEvent.keyDown(modal, { key: 'Tab' });
+    assert.strictEqual(
+      document.activeElement,
+      modal,
+      'Tab 必须被焦点陷阱接管（jsdom 无布局 ⇒ 兜底聚焦容器；绕圈数学由 focusTrap 纯判据覆盖）',
+    );
+    ui.unmount();
+    assert.strictEqual(document.activeElement, opener, '卸载后必须把焦点还给打开它的控件');
+  } finally {
+    opener.remove();
+  }
+});
+
+test('FolderPicker：Tab 被陷阱接管，卸载后焦点归还 opener', async () => {
+  const opener = document.createElement('button');
+  opener.textContent = '选择项目';
+  document.body.append(opener);
+  opener.focus();
+  try {
+    const ui = renderUi(FolderPicker, {
+      props: {
+        api: { browseFs: async () => ({ level: 'dir', path: 'C:/w', dirs: [], files: [], parent: 'C:/' }) },
+        onCancel: () => {},
+        onPick: () => {},
+      },
+    });
+    await flush();
+    const modal = ui.container.querySelector('.fp-modal') as HTMLElement;
+    assert.strictEqual(document.activeElement, modal);
+    fireEvent.keyDown(modal, { key: 'Tab' });
+    assert.strictEqual(document.activeElement, modal, 'Tab 必须被焦点陷阱接管');
+    ui.unmount();
+    assert.strictEqual(document.activeElement, opener, '卸载后必须归还焦点');
+  } finally {
+    opener.remove();
+  }
+});
+

@@ -15,8 +15,11 @@ import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.ts';
 import { PendingModes } from '../models/PendingModes.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { MenuFocusModel } from '../models/MenuFocusModel.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
-import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.ts';
+import { useMenuNavigation } from './useMenuNavigation.ts';
+import { useAddMenuData } from './useAddMenuData.ts';
+import type { SearchHit } from '../../types/models.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -58,37 +61,154 @@ export interface AddMenuProps {
  * 渲染一个菜单分组（含标题与逐项按钮）。纯展示，无状态。
  * @param section 分组数据
  * @param onItem 点击某项（id）时回调
+ * @param focus 键盘导航状态（roving tabindex 的活动下标 + 本分组的起点）
  * @returns 分组节点
  */
-function renderSection(section: AddMenuSection, onItem: (id: string) => void): ReactElement {
+function renderSection(
+  section: AddMenuSection,
+  onItem: (id: string) => void,
+  focus: { active: number; base: number; setActive: (index: number) => void },
+): ReactElement {
+  let enabledOffset = 0;
   return (
     <div className="addmenu-sec" key={section.id}>
       {section.title ? <div className="addmenu-sec-title">{section.title}</div> : null}
-      {section.items.map((item) => (
-        <div
-          key={item.id}
-          className={'addmenu-item' + (item.active ? ' active' : '') + (item.disabled ? ' disabled' : '')}
-          role="menuitem"
-          aria-disabled={item.disabled === true ? 'true' : 'false'}
-          // div 没有原生激活：菜单项必须自己进 Tab 序列并处理 Enter/Space（否则键盘用户
-          // 只能打开菜单、选不了任何一项）。
-          tabIndex={item.disabled === true ? -1 : 0}
-          onClick={() => {
-            if (!item.disabled) onItem(item.id);
-          }}
-          onKeyDown={(e: React.KeyboardEvent) => {
-            if (item.disabled === true) return;
-            ActivationKeys.activate(e, () => onItem(item.id));
-          }}
-        >
-          <span className="addmenu-item-ico">{icon(item.icon, { size: 16 })}</span>
-          <span className="addmenu-item-body">
-            <span className="addmenu-item-label">{item.label}</span>
-            {item.hint ? <span className="addmenu-item-hint">{item.hint}</span> : null}
-          </span>
-          {item.active ? <span className="addmenu-item-on">●</span> : null}
-        </div>
-      ))}
+      {section.items.map((item) => {
+        const index = focus.base + enabledOffset;
+        if (item.disabled !== true) enabledOffset += 1;
+        return (
+          <div
+            key={item.id}
+            className={'addmenu-item' + (item.active ? ' active' : '') + (item.disabled ? ' disabled' : '')}
+            role="menuitem"
+            aria-disabled={item.disabled === true ? 'true' : 'false'}
+            // div 没有原生激活：菜单项必须自己进 Tab 序列并处理 Enter/Space（否则键盘用户
+            // 只能打开菜单、选不了任何一项）。roving tabindex：只有活动项在 Tab 序列里。
+            {...(item.disabled === true
+              ? {}
+              : { 'data-menu-item': true, onFocus: () => focus.setActive(index) })}
+            tabIndex={item.disabled === true ? -1 : MenuFocusModel.tabIndexFor(index, focus.active)}
+            onClick={() => {
+              if (!item.disabled) onItem(item.id);
+            }}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (item.disabled === true) return;
+              ActivationKeys.activate(e, () => onItem(item.id));
+            }}
+          >
+            <span className="addmenu-item-ico">{icon(item.icon, { size: 16 })}</span>
+            <span className="addmenu-item-body">
+              <span className="addmenu-item-label">{item.label}</span>
+              {item.hint ? <span className="addmenu-item-hint">{item.hint}</span> : null}
+            </span>
+            {item.active ? <span className="addmenu-item-on">●</span> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 弹出层属性。 */
+interface AddMenuPopoverProps {
+  /** 搜索关键字。 */
+  readonly query: string;
+  /** 关键字变更。 */
+  readonly onQuery: (value: string) => void;
+  /** 分组数据（已按当前查询词算出）。 */
+  readonly sections: readonly AddMenuSection[];
+  /** 是否在搜索中。 */
+  readonly searching: boolean;
+  /** 是否要显示「没有匹配」空态（有查询词、不在搜索中、且无命中）。 */
+  readonly empty: boolean;
+  /** 当前活动项（roving tabindex）。 */
+  readonly activeItem: number;
+  /** 同步活动项。 */
+  readonly setActiveItem: (index: number) => void;
+  /** 点击菜单项。 */
+  readonly onItem: (id: string) => void;
+  /** 菜单键盘处理。 */
+  readonly onMenuKeyDown: (e: React.KeyboardEvent) => void;
+  /** 菜单容器 ref。 */
+  readonly menuRef: React.MutableRefObject<HTMLDivElement | null>;
+}
+
+/**
+ * 「＋」的弹出层：搜索框 + 分组列表 + 空/加载提示。
+ * @param props 查询词、分组与键盘接线
+ * @returns 弹出层节点
+ */
+function AddMenuPopover(props: AddMenuPopoverProps): ReactElement {
+  const { query, onQuery, sections, searching, empty, activeItem, setActiveItem, onItem } = props;
+  /** 已启用项在整张菜单里的起始下标（roving tabindex 需要全局序号）。 */
+  let base = 0;
+  return (
+    <div
+      className="addmenu-pop"
+      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      onKeyDown={props.onMenuKeyDown}
+      ref={(el: HTMLDivElement | null) => {
+        props.menuRef.current = el;
+      }}
+    >
+      <div className="addmenu-search">
+        <input
+          className="addmenu-input"
+          placeholder={t('搜索文件或聊天…')}
+          value={query}
+          onChange={(e: React.SyntheticEvent) => onQuery((e.target as HTMLInputElement).value)}
+        />
+      </div>
+      <div className="addmenu-scroll">
+        {sections.map((section) => {
+          const node = renderSection(section, onItem, { active: activeItem, base, setActive: setActiveItem });
+          base += section.items.filter((item) => item.disabled !== true).length;
+          return node;
+        })}
+        {searching ? <div className="addmenu-loading">{t('搜索中…')}</div> : null}
+        {empty ? <div className="addmenu-loading">{t('没有匹配的文件或聊天')}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+/** 触发器外壳属性。 */
+interface AddMenuTriggerProps {
+  /** 展开态。 */
+  readonly open: boolean;
+  /** 点击切换。 */
+  readonly onToggle: (e: React.MouseEvent) => void;
+  /** 键盘。 */
+  readonly onKeyDown: (e: React.KeyboardEvent) => void;
+  /** 触发器 ref（Esc 收起后归还焦点）。 */
+  readonly triggerRef: React.MutableRefObject<HTMLDivElement | null>;
+  /** 展开时的弹出层。 */
+  readonly children: React.ReactNode;
+}
+
+/**
+ * 「＋」触发器：一枚 `role=button` 的图标 + 弹出层。
+ * @param props 触发器属性与弹出层
+ * @returns 触发器节点
+ */
+function AddMenuTrigger(props: AddMenuTriggerProps): ReactElement {
+  const { open, onToggle, onKeyDown, triggerRef, children } = props;
+  return (
+    <div
+      className="addmenu"
+      role="button"
+      aria-haspopup="menu"
+      aria-expanded={open ? 'true' : 'false'}
+      aria-label={t('添加')}
+      onClick={onToggle}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+      ref={(el: HTMLDivElement | null) => {
+        triggerRef.current = el;
+      }}
+    >
+      <span className="addmenu-ico">＋</span>
+      {children}
     </div>
   );
 }
@@ -102,13 +222,9 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   const { threadId, api, onAttach, onToast, onOpenTab, onOpenFile, onLoadThread } = props;
   const { dialog } = useApp();
   const [open, setOpen] = React.useState<boolean>(false);
-  const [goal, setGoal] = React.useState<string>('');
-  const [planMode, setPlanMode] = React.useState<boolean>(false);
-  const [sketchMode, setSketchMode] = React.useState<boolean>(false);
-  const [plugins, setPlugins] = React.useState<readonly PluginManifest[]>([]);
-  const [pluginsLoading, setPluginsLoading] = React.useState<boolean>(true);
-  const [agents, setAgents] = React.useState<readonly AgentCatalogEntry[]>([]);
-  const [agentsLoading, setAgentsLoading] = React.useState<boolean>(true);
+  /** 打开时取的模式 / 插件 / 智能体（见 useAddMenuData）。 */
+  const data = useAddMenuData({ open, api, threadId });
+  const { goal, planMode, sketchMode, plugins, pluginsLoading, agents, agentsLoading, patchModes } = data;
   const [query, setQuery] = React.useState<string>('');
   const [files, setFiles] = React.useState<readonly SearchHit[]>([]);
   const [chats, setChats] = React.useState<readonly SearchHit[]>([]);
@@ -117,47 +233,32 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   const searchSeq = React.useRef<number>(0);
   /** 搜索防抖定时器。 */
   const searchTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 触发器引用（Esc 收起后把焦点还给它）。 */
+  const triggerRef = React.useRef<HTMLDivElement | null>(null);
 
+  /** 收起（释放互斥）并把焦点还给触发器。 */
+  const closeAndReturnFocus = (): void => {
+    releasePopover(POPOVER_ID);
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  // 菜单键盘导航（roving tabindex + ↑/↓/Home/End）抽在 hook 里。
+  const menu = useMenuNavigation({
+    onEscape: closeAndReturnFocus,
+    ensureOpen: () => {
+      if (!open) flip();
+    },
+  });
   // 打开时：挂外部点击监听（互斥登记同 hook），并一次性拉取会话模式 + 插件 + 智能体。
   usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
-  // 打开时取数；收起 / 卸载即清防抖（与弹层生命周期无关，故单独一个 effect）。
+  // 收起即清防抖（与弹层生命周期无关，故单独一个 effect）。
   React.useEffect(() => {
-    if (!open) return undefined;
-    // 没有会话时不发 `modes.get`：模式按会话持久化，此时服务端必然拒（省掉一次注定失败的 RPC）。
-    if (threadId !== '') {
-      void api
-        .modesGet(threadId)
-        .then((m: SessionModes) => {
-          setGoal(m.goal);
-          setPlanMode(m.planMode);
-          setSketchMode(m.sketchMode);
-        })
-        .catch(() => {});
-    }
-    setPluginsLoading(true);
-    api
-      .listPlugins()
-      .then((list) => {
-        // 防御：响应形状不符（旧版服务端没有该方法 ⇒ 回落成 `{}`）时给空列表，而不是把 `undefined`
-        // 塞进 state——那会让 `sections()` 在 `.length`/`.map` 上抛错，React 直接把整块输入区卸载掉
-        // （2026-09-27 在 stub 页实测：点＋后 `.addmenu` 整个消失）。
-        setPlugins(Array.isArray(list) ? list : []);
-        setPluginsLoading(false);
-      })
-      .catch(() => setPluginsLoading(false));
-    setAgentsLoading(true);
-    api
-      .agentsList()
-      .then((r) => {
-        setAgents(Array.isArray(r.agents) ? r.agents : []);
-        setAgentsLoading(false);
-      })
-      .catch(() => setAgentsLoading(false));
-    return () => {
-      if (searchTimer.current !== null) clearTimeout(searchTimer.current);
-    };
-  }, [open, api, threadId]);
+    if (open || searchTimer.current === null) return;
+    clearTimeout(searchTimer.current);
+  }, [open]);
+
 
   /**
    * 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。
@@ -197,9 +298,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
     sketchMode?: boolean;
   }): Promise<void> => {
     // 先**乐观**更新本地开关：暂存档下没有服务端回执，但用户的点击必须即时可见。
-    if (patch.planMode !== undefined) setPlanMode(patch.planMode);
-    if (patch.sketchMode !== undefined) setSketchMode(patch.sketchMode);
-    if (patch.goal !== undefined) setGoal(patch.goal);
+    patchModes(patch);
     try {
       const outcome =
         props.onApplyMode === undefined
@@ -314,13 +413,10 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   });
   const sections = model.sections();
   return (
-    <div
-      className="addmenu"
-      role="button"
-      aria-haspopup="menu"
-      aria-expanded={open ? 'true' : 'false'}
-      aria-label={t('添加')}
-      onClick={toggle}
+    <AddMenuTrigger
+      open={open}
+      onToggle={toggle}
+      triggerRef={triggerRef}
       // div role=button 没有原生激活：Enter/Space 打开或收起，Esc 收起（与外部点击同一条出口）。
       onKeyDown={(e: React.KeyboardEvent) => {
         if (e.key === 'Escape') {
@@ -328,30 +424,27 @@ export function AddMenu(props: AddMenuProps): ReactElement {
           setOpen(false);
           return;
         }
-        if (ActivationKeys.activate(e, flip)) e.stopPropagation();
+        if (ActivationKeys.activate(e, flip)) {
+          e.stopPropagation();
+          return;
+        }
+        menu.onTriggerKey(e);
       }}
-      tabIndex={0}
     >
-      <span className="addmenu-ico">＋</span>
       {open ? (
-        <div className="addmenu-pop" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-          <div className="addmenu-search">
-            <input
-              className="addmenu-input"
-              placeholder={t('搜索文件或聊天…')}
-              value={query}
-              onChange={(e: React.SyntheticEvent) => onQuery((e.target as HTMLInputElement).value)}
-            />
-          </div>
-          <div className="addmenu-scroll">
-            {sections.map((section) => renderSection(section, onItem))}
-            {searching ? <div className="addmenu-loading">{t('搜索中…')}</div> : null}
-            {files.length === 0 && chats.length === 0 && query.trim() !== '' && !searching ? (
-              <div className="addmenu-loading">{t('没有匹配的文件或聊天')}</div>
-            ) : null}
-          </div>
-        </div>
+        <AddMenuPopover
+          query={query}
+          onQuery={onQuery}
+          sections={sections}
+          searching={searching}
+          empty={files.length === 0 && chats.length === 0 && query.trim() !== '' && !searching}
+          activeItem={menu.activeItem}
+          setActiveItem={menu.setActiveItem}
+          onItem={onItem}
+          onMenuKeyDown={menu.onMenuKeyDown}
+          menuRef={menu.menuRef}
+        />
       ) : null}
-    </div>
+    </AddMenuTrigger>
   );
 }

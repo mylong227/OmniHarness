@@ -10,6 +10,7 @@ import { PathJoiner } from '../models/PathJoiner.ts';
 import { PickerKeys } from '../models/PickerKeys.ts';
 import { icon } from '../models/Icon.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { useModalFocus } from './useModalFocus.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -195,11 +196,8 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     newName: '',
     creatingErr: null,
   });
-  /** 弹窗根节点（打开时把焦点从背后的输入框收进来，避免 Enter 继续触发发送）。 */
-  const modalRef = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
-    modalRef.current?.focus();
-  }, []);
+  /** 模态焦点：收拢 / 归还 opener / Tab 陷阱（见 useModalFocus）。 */
+  const modal = useModalFocus();
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
 
   /**
@@ -302,10 +300,8 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
         aria-modal="true"
         aria-label={t('选择项目文件夹')}
         tabIndex={-1}
-        ref={(el: HTMLDivElement | null) => {
-          modalRef.current = el;
-        }}
-        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        ref={modal.modalRef}
+        onKeyDown={modal.onKeyDown}
       >
         <div className="fp-head">
           <span className="fp-title">{t('选择项目文件夹')}</span>
