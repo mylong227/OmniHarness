@@ -6292,3 +6292,11 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **33** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 28 个函数，剩余 33。
+
+## 159. 2026-10-29 S2 清偿 QuestionCard（147 → <80）
+
+- **改动**：草稿更新抽 `toggleDraft` / `editDraft`；倒计时抽 `useCountdown`；
+  列表/页脚抽 `QuestionList` / `QuestionFooter`；提交/跳过抽 `submitAnswers` / `skipAnswers`。
+- **判据**：`questionCard` 3 例全绿；`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **32** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 29 个函数，剩余 32。

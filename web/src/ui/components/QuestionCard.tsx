@@ -123,6 +123,183 @@ function QuestionField(props: {
 }
 
 /**
+ * 更新某题的选择草稿（单选互斥、多选累加，可取消）。
+ * @param prev 现有草稿。
+ * @param itemId 题 id。
+ * @param label 选项标签。
+ * @param multiple 是否多选。
+ * @returns 新草稿表。
+ */
+function toggleDraft(
+  prev: Record<string, Draft>,
+  itemId: string,
+  label: string,
+  multiple: boolean,
+): Record<string, Draft> {
+  const draft = prev[itemId] ?? EMPTY_DRAFT;
+  const selected = multiple
+    ? draft.selected.includes(label)
+      ? draft.selected.filter((item) => item !== label)
+      : [...draft.selected, label]
+    : draft.selected.includes(label)
+      ? []
+      : [label];
+  return { ...prev, [itemId]: { selected, custom: draft.custom } };
+}
+
+/**
+ * 写入某题的自由输入。
+ * @param prev 现有草稿。
+ * @param itemId 题 id。
+ * @param text 输入文本。
+ * @returns 新草稿表。
+ */
+function editDraft(prev: Record<string, Draft>, itemId: string, text: string): Record<string, Draft> {
+  const draft = prev[itemId] ?? EMPTY_DRAFT;
+  return { ...prev, [itemId]: { selected: draft.selected, custom: text } };
+}
+
+/**
+ * 倒计时（归零通知外层收卡）。
+ * @param timeoutMs 超时毫秒（0 表示不限时）。
+ * @param requestId 请求 id。
+ * @param onExpire 到期回调。
+ * @returns 剩余毫秒。
+ */
+function useCountdown(timeoutMs: number | undefined, requestId: string, onExpire: () => void): number {
+  const [remaining, setRemaining] = React.useState(
+    timeoutMs !== undefined && timeoutMs > 0 ? timeoutMs : 0,
+  );
+  React.useEffect(() => {
+    if (remaining <= 0) return undefined;
+    const timer = window.setTimeout(() => {
+      setRemaining(remaining - TICK_MS);
+      if (remaining - TICK_MS <= 0) onExpire();
+    }, TICK_MS);
+    return () => window.clearTimeout(timer);
+  }, [remaining, requestId, onExpire]);
+  return remaining;
+}
+
+/**
+ * 逐题作答区。
+ * @param props 题目、草稿与回调。
+ * @returns 题目列表。
+ */
+function QuestionList(props: {
+  questions: QuestionRequest['questions'];
+  drafts: Record<string, Draft>;
+  busy: boolean;
+  onToggle: (itemId: string, label: string, multiple: boolean) => void;
+  onCustom: (itemId: string, text: string) => void;
+}): ReactElement {
+  return (
+    <div className="qask-body">
+      {props.questions.map((item) => (
+        <QuestionField
+          key={item.id}
+          item={item}
+          draft={props.drafts[item.id] ?? EMPTY_DRAFT}
+          disabled={props.busy}
+          onToggle={(label) => props.onToggle(item.id, label, item.multiSelect === true)}
+          onCustom={(text) => props.onCustom(item.id, text)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 提问卡页脚。
+ * @param props 剩余时间、错误、进度与提交回调。
+ * @returns 页脚节点。
+ */
+function QuestionFooter(props: {
+  remaining: number;
+  error: string | null;
+  busy: boolean;
+  done: number;
+  total: number;
+  onSkip: () => void;
+  onSubmit: () => void;
+}): ReactElement {
+  return (
+    <footer className="qask-foot">
+      <span className="qask-hint">
+        {props.remaining > 0
+          ? t('超时后模型会按「未作答」继续；作答随时可提交。')
+          : t('选择或填写后提交。')}
+      </span>
+      {props.error === null ? null : (
+        <span className="qask-error" role="alert">
+          {props.error}
+        </span>
+      )}
+      <span className="flex-spacer" aria-hidden="true"></span>
+      <button type="button" className="qask-skip" disabled={props.busy} onClick={props.onSkip}>
+        {t('全部跳过')}
+      </button>
+      <button
+        type="button"
+        className="qask-submit"
+        disabled={props.busy || props.done < props.total}
+        onClick={props.onSubmit}
+      >
+        {props.busy ? t('提交中…') : t('提交回答')}
+      </button>
+    </footer>
+  );
+}
+
+/**
+ * 提交当前草稿（要求全部作答）。
+ * @param opts 请求、草稿、提交回调与状态 setter。
+ * @returns 无。
+ */
+async function submitAnswers(opts: {
+  request: QuestionRequest;
+  drafts: Record<string, Draft>;
+  onSubmit: (answers: QuestionAnswerSubmission[]) => Promise<void> | void;
+  setBusy: (value: boolean) => void;
+  setError: (value: string | null) => void;
+}): Promise<void> {
+  const missing = opts.request.questions.findIndex((item) => !answered(opts.drafts[item.id]));
+  if (missing >= 0) {
+    opts.setError(t('第 {n} 题还没作答：请选一项或填写补充说明。', { n: missing + 1 }));
+    return;
+  }
+  opts.setBusy(true);
+  try {
+    await opts.onSubmit(
+      opts.request.questions.map((item) => {
+        const draft = opts.drafts[item.id] ?? EMPTY_DRAFT;
+        return { id: item.id, selected: draft.selected, custom: draft.custom.trim() };
+      }),
+    );
+  } finally {
+    opts.setBusy(false);
+  }
+}
+
+/**
+ * 全部跳过（显式不回答）。
+ * @param opts 请求、提交回调与忙碌 setter。
+ * @returns 无。
+ */
+async function skipAnswers(opts: {
+  request: QuestionRequest;
+  onSubmit: (answers: QuestionAnswerSubmission[]) => Promise<void> | void;
+  setBusy: (value: boolean) => void;
+}): Promise<void> {
+  opts.setBusy(true);
+  try {
+    await opts.onSubmit(opts.request.questions.map((item) => ({ id: item.id, selected: [] })));
+  } finally {
+    opts.setBusy(false);
+  }
+}
+
+/**
  * 可作答的提问卡：逐题给选项与自由输入，全部作答后提交。
  *
  * 为什么「全部作答」才可提交：服务端允许部分作答（未作答的题按空回答回填），但半空白的作答会让模型
@@ -140,22 +317,8 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
   /** 校验/提交错误（就近显示在页脚）。 */
   const [error, setError] = React.useState<string | null>(null);
   /** 剩余等待毫秒（0 = 不限时，不显示倒计时）。 */
-  const [remaining, setRemaining] = React.useState(
-    request.timeoutMs !== undefined && request.timeoutMs > 0 ? request.timeoutMs : 0,
-  );
-  const total = request.questions.length;
+  const remaining = useCountdown(request.timeoutMs, request.requestId, () => onExpire(request.requestId));  const total = request.questions.length;
   const done = request.questions.filter((item) => answered(drafts[item.id])).length;
-
-  // 倒计时：每秒扣一步，归零时通知外层收卡（服务端在同一上限按「未作答」继续）。
-  React.useEffect(() => {
-    if (remaining <= 0) return undefined;
-    const timer = window.setTimeout(() => {
-      setRemaining(remaining - TICK_MS);
-      if (remaining - TICK_MS <= 0) onExpire(request.requestId);
-    }, TICK_MS);
-    return () => window.clearTimeout(timer);
-  }, [remaining, request.requestId, onExpire]);
-
   /**
    * 勾选/取消一个选项（单选互斥且可取消，多选累加）。
    * @param itemId 题 id
@@ -165,17 +328,7 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
    */
   const toggle = (itemId: string, label: string, multiple: boolean): void => {
     setError(null);
-    setDrafts((prev) => {
-      const draft = prev[itemId] ?? EMPTY_DRAFT;
-      const selected = multiple
-        ? draft.selected.includes(label)
-          ? draft.selected.filter((item) => item !== label)
-          : [...draft.selected, label]
-        : draft.selected.includes(label)
-          ? []
-          : [label];
-      return { ...prev, [itemId]: { selected, custom: draft.custom } };
-    });
+    setDrafts((prev) => toggleDraft(prev, itemId, label, multiple));
   };
 
   /**
@@ -186,47 +339,21 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
    */
   const editCustom = (itemId: string, text: string): void => {
     setError(null);
-    setDrafts((prev) => {
-      const draft = prev[itemId] ?? EMPTY_DRAFT;
-      return { ...prev, [itemId]: { selected: draft.selected, custom: text } };
-    });
+    setDrafts((prev) => editDraft(prev, itemId, text));
   };
 
   /**
    * 提交当前草稿（要求全部作答）。
    * @returns 无
    */
-  const submit = async (): Promise<void> => {
-    const missing = request.questions.findIndex((item) => !answered(drafts[item.id]));
-    if (missing >= 0) {
-      setError(t('第 {n} 题还没作答：请选一项或填写补充说明。', { n: missing + 1 }));
-      return;
-    }
-    setBusy(true);
-    try {
-      await onSubmit(
-        request.questions.map((item) => {
-          const draft = drafts[item.id] ?? EMPTY_DRAFT;
-          return { id: item.id, selected: draft.selected, custom: draft.custom.trim() };
-        }),
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
+  const submit = async (): Promise<void> =>
+    submitAnswers({ request, drafts, onSubmit, setBusy, setError });
 
   /**
    * 全部跳过：显式不回答（让模型知道这是「选择不答」，而不是「没看见」）。
    * @returns 无
    */
-  const skipAll = async (): Promise<void> => {
-    setBusy(true);
-    try {
-      await onSubmit(request.questions.map((item) => ({ id: item.id, selected: [] })));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const skipAll = async (): Promise<void> => skipAnswers({ request, onSubmit, setBusy });
 
   return (
     <section className="qask" aria-label={t('待回答的提问')}>
@@ -239,42 +366,22 @@ export function QuestionCard(props: QuestionCardProps): ReactElement {
           <span className="qask-timer">{t('剩余 {n} 秒', { n: String(Math.ceil(remaining / 1000)) })}</span>
         ) : null}
       </header>
-      <div className="qask-body">
-        {request.questions.map((item) => (
-          <QuestionField
-            key={item.id}
-            item={item}
-            draft={drafts[item.id] ?? EMPTY_DRAFT}
-            disabled={busy}
-            onToggle={(label) => toggle(item.id, label, item.multiSelect === true)}
-            onCustom={(text) => editCustom(item.id, text)}
-          />
-        ))}
-      </div>
-      <footer className="qask-foot">
-        <span className="qask-hint">
-          {remaining > 0
-            ? t('超时后模型会按「未作答」继续；作答随时可提交。')
-            : t('选择或填写后提交。')}
-        </span>
-        {error === null ? null : (
-          <span className="qask-error" role="alert">
-            {error}
-          </span>
-        )}
-        <span className="flex-spacer" aria-hidden="true"></span>
-        <button type="button" className="qask-skip" disabled={busy} onClick={() => void skipAll()}>
-          {t('全部跳过')}
-        </button>
-        <button
-          type="button"
-          className="qask-submit"
-          disabled={busy || done < total}
-          onClick={() => void submit()}
-        >
-          {busy ? t('提交中…') : t('提交回答')}
-        </button>
-      </footer>
+      <QuestionList
+        questions={request.questions}
+        drafts={drafts}
+        busy={busy}
+        onToggle={toggle}
+        onCustom={editCustom}
+      />
+      <QuestionFooter
+        remaining={remaining}
+        error={error}
+        busy={busy}
+        done={done}
+        total={total}
+        onSkip={() => void skipAll()}
+        onSubmit={() => void submit()}
+      />
     </section>
   );
 }
