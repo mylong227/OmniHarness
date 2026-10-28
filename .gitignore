@@ -167,6 +167,9 @@ web/styles/polish.css
 # 这里显式写明，一是让"web/dist 是产物"在文件里可查，二是防将来有人把它改成 `/dist/`。
 web/dist/
 
+# W0 PoC 隔离产物（vite.poc.config.ts）：体积实测用，不入库。
+web/dist-poc/
+
 # 旧 UMD 依赖目录（2026-10-17 随 Vite 迁移**整体删除**：react / markdown-it / katex / highlight.js
 # 全部改为 npm import）。
 #

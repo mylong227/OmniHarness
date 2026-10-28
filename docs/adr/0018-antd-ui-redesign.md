@@ -1,7 +1,7 @@
 # 0018 前端组件库：Ant Design 6 全站重做（Ant 骨架 + 纸与墨皮肤）
 
 - 日期：2026-10-28
-- 状态：**提议（待依赖准入与体积预算拍板）**
+- 状态：**已接受（2026-10-28 用户拍板「全面开工」；W0 PoC 实测通过，见 Go 结论）**
 - 关联：[UI_LIBRARY_UPGRADE_2026-10-28.md](../UI_LIBRARY_UPGRADE_2026-10-28.md)（实施规划）
 - 影响面：`web/src/ui/**` 全部视图、`web/styles/**`、前端判据与构建预算
 
@@ -39,13 +39,17 @@
 - **正面**：30+ 组件族一次到位（Table 含 virtual、Tree、Form、DatePicker、Upload、Modal、
   Tooltip、Tabs），状态矩阵与可达性由成熟实现承担；设计系统可收敛为一套 token；后续页面开发
   不再手写按钮/菜单/表单。
-- **负面**：安装树从 7 条 allowlist 条目跳到 +48 个直接依赖 / 49.1MB；入口体积预计 +120–200KB
-  gzip（W0 实测）；`web/styles` 约 9.7k 行旧 CSS 要删；169 处 class 契约与 12 条真 Chrome 选择器
-  要改写；一次性分支周期长（预计 12–17 个工作日）。
+- **负面（W0 实测后更新）**：安装树从 7 条 allowlist 条目跳到 +48 个直接依赖 / 49.1MB；
+  **antd 基座实测 +290KB gzip**（PoC 子集 vendor-antd 289.9KB，超出本 ADR 初稿预估的 120–200KB；
+  全量面板迁移预计最终 310–330KB），预算已按实测重写为「entry + vendor ≤ 630KB gzip」
+  （[UI_LIBRARY_UPGRADE §0.5](../UI_LIBRARY_UPGRADE_2026-10-28.md)）；`web/styles` 约 9.7k 行旧 CSS 要删；
+  169 处 class 契约与 12 条真 Chrome 选择器要改写；一次性分支周期长（预计 12–17 个工作日）。
 - **品牌风险**：antd 默认观感偏"通用企业后台"，与已勾选的"缺品牌记忆点"直接冲突 ⇒ 主题映射与
   品牌层（Ω/靛墨/纸面/图标/空态）是**硬要求**，不是可选项。
-- **回退**：若 W0 PoC 体积/密度不达标，回退 Mantine 9（5 依赖 / 10.1MB），组件映射表与
-  theme/kit 边界可复用，替换面集中在 `ui/theme` + `ui/kit`。
+  **W0 已证实可行**：两主题同走 defaultAlgorithm + 中性面显式覆盖（darkAlgorithm 会强制压暗语义 seed，
+  实测 #a8b4e8 → #929cc8 且四条补救路全堵），主按钮底色与 `--accent` 精确一致，对比度 14 组配对全达标。
+- **回退**：W0 PoC 已达标，Mantine 9（5 依赖 / 10.1MB）回退线收窄为「W1 分块实测超预算 +10%」；
+  组件映射表与 theme/kit 边界可复用，替换面集中在 `ui/theme` + `ui/kit`。
 
 ## 替代方案
 

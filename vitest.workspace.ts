@@ -82,6 +82,9 @@ export default [
       // 探针的行为与"没有 DOM 的宿主"不同（e2e / narrowReflow / popoverFit / shellDensity /
       // monochromeInvariant 等一起红）。环境按**文件**声明，两种判据各用各的宿主。
       environment: 'node',
+      // W1（antd 迁移）新增：jsdom 缺的布局全局（matchMedia / ResizeObserver / requestIdleCallback）
+      // 统一在 setupWeb.ts 里「缺失才补」。setup 对 node 环境判据也无害（那里没有 window，全跳过）。
+      setupFiles: [resolve(ROOT, 'web/test/setupWeb.ts')],
       // 同上：workspace 项目不继承根配置，超时逐项目声明。
       testTimeout: 120000,
       hookTimeout: 60000,

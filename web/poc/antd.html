@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>antd PoC · OmniHarness（W0 隔离入口）</title>
+    <script>
+      // 主题初值从 URL ?theme= 取（截图/判据需要确定性）；缺省 dark，与主应用一致。
+      (function () {
+        var t = new URLSearchParams(location.search).get('theme');
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+      })();
+    </script>
+    <style>
+      /* 构建产物 CSS 注入前先垫一层底色，避免截图时闪白。 */
+      html { background: #17191c; }
+      html[data-theme='light'] { background: #f8f7f4; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="../src/poc/antdPoc.tsx"></script>
+  </body>
+</html>

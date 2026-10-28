@@ -1,0 +1,70 @@
+/* antd PoC 页面专用（不进主应用、不进 web/styles/）：只负责排版容器。
+   颜色一律消费 theme.css 的 token，不写字面 hex（colorSystem 口径）。 */
+
+html,
+body {
+  overflow: auto;
+}
+
+.poc {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  color: var(--text);
+}
+
+.poc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.poc-header h1 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.poc-note {
+  color: var(--dim);
+  font-size: 12.5px;
+  margin: 4px 0 0;
+}
+
+.poc-section {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.poc-section > h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dim);
+  margin: 0 0 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.poc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.poc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 860px) {
+  .poc-grid {
+    grid-template-columns: 1fr;
+  }
+}

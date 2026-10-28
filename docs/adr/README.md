@@ -24,7 +24,7 @@
 | [0015](./0015-desktop-shell.md)              | 桌面壳：Electron + 固定 Node 侧车 + 回环 HTTP 契约         | 已废止 |
 | [0016](./0016-native-desktop-ui.md)          | 原生桌面 UI：Avalonia 主选 / WinUI 3 备选（无 WebView）    | 已废止 |
 | [0017](./0017-electron-official-app.md)      | 桌面客户端：按 Codex 官方 App 的 Electron + React/TS       | 已接受 |
-| [0018](./0018-antd-ui-redesign.md)           | 前端组件库：Ant Design 6 全站重做（Ant 骨架 + 纸与墨皮肤） | 提议   |
+| [0018](./0018-antd-ui-redesign.md)           | 前端组件库：Ant Design 6 全站重做（Ant 骨架 + 纸与墨皮肤） | 已接受 |
 
 ## 何时写新 ADR
 

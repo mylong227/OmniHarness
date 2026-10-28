@@ -28,6 +28,10 @@ import { Toast } from './components/Toast.tsx';
 import { DialogHost } from './components/DialogHost.tsx';
 import { Resizer } from './components/Resizer.tsx';
 
+// antd 运行时装配（W1 起）：全站唯一 ConfigProvider/AntApp 收口在 ThemeProvider。
+// theme 直接取根状态 state.theme（LayoutController 已按 themePref 解析成 dark/light）。
+import { ThemeProvider } from './theme/ThemeProvider.tsx';
+
 import { ToolsTab } from './components/tabs/ToolsTab.tsx';
 import { MetricsTab } from './components/tabs/MetricsTab.tsx';
 import { ChangesTab } from './components/tabs/ChangesTab.tsx';
@@ -561,7 +565,12 @@ export function App(): ReactElement {
   return React.createElement(
     AppContext.Provider,
     { value: controller.getContextValue() },
-    renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath),
+    // W1：整棵视图树包进 ThemeProvider（antd 主题/locale/message 上下文）。
+    // 此时旧组件尚未消费 antd——本层先行接线，是「旧 UI 在 antd 主题下零回归」的验证前提。
+    React.createElement(
+      ThemeProvider,
+      { theme: state.theme, children: renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath) },
+    ),
   );
 }
 

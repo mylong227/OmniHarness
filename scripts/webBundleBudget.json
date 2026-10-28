@@ -1,5 +1,6 @@
 {
-  "jsKb": 300,
+  "firstLoadKb": 630,
+  "entryJsKb": 300,
   "cssKb": 40,
-  "asyncKb": 120
+  "asyncKb": 170
 }

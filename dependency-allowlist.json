@@ -2,7 +2,7 @@
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
-  "updatedAt": "2026-10-21",
+  "updatedAt": "2026-10-28",
   "notes": [
     "必要且更优即可依赖 → 同等能力下优先选择成熟依赖而非自研（D10，2026-09-14 用户拍板；2026-10-02 再次确认并清除「零依赖」残余教义，见 docs/DEPENDENCY_POLICY.md §1.3）；自研仅在依赖不可得/引入伤害架构/性能不达标时保留，保留者一律降格为「资产 + 回退路径」，不构成拒绝更优依赖的理由。",
     "分层隔离不变：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
@@ -235,6 +235,17 @@
       "exitPlan": "消费面只有 src/server/transport/previewServer.ts：若停更，可替换为 serve-handler / send（同为 MIT）或回退到 SafeFs + 手写静态响应（本文件首版实现可从 git 历史取回），调用面不变。",
       "maxInstallKb": 256,
       "maxTransitiveDeps": 3
+    },
+    "antd": {
+      "reason": "全站 UI 升级（ADR-0018 / docs/UI_LIBRARY_UPGRADE_2026-10-28.md，用户拍板）：68 个自研组件 / 14k 行 TSX / 9.7k 行 CSS 在控件状态矩阵（hover/focus/active/loading/disabled）、复杂控件（Table 含 virtual、Tree、Form、DatePicker、Upload）与焦点/键盘/浮层可达性上重复造轮子，每加一个页面都在重写按钮/菜单/表单；antd 是 React 生态组件覆盖最完整的库，自研追平等价物等于重写一个组件库，边际成本不可接受（D10）。",
+      "capability": "30+ 组件族（Button/Menu/Select/Table/Tree/Form/DatePicker/Modal/Tooltip/Tabs/Upload/Progress/Tag/Collapse/Descriptions…）、主题 token 体系与暗色算法、CSS 变量模式、i18n、焦点/键盘/浮层行为、统一动效。业务组件只经 ui/theme（token）与 ui/kit（产品封装）消费，antd 不进入状态层与数据层。",
+      "license": "MIT",
+      "approvedAt": "2026-10-28",
+      "layer": "web/src/ui",
+      "exitPlan": "业务组件只经 ui/theme（token）与 ui/kit（产品封装）消费 antd；若停更，替换目标为 Mantine 9 / Radix Themes 3，替换面 = ui/theme + ui/kit + 可枚举的直接 import 点（codemod），数据层/RPC/状态零改动。保留的自研资产（Markdown/代码高亮、Diff、图表、虚拟会话流、拖拽分栏/排序）不随本依赖进退。",
+      "maxInstallKb": 52000,
+      "maxTransitiveDeps": 60,
+      "budgetOverrideReason": "实测 49.1MB / 48 个直接依赖，双超默认 2MB/20；它是整站 UI 唯一基座、覆盖全部页面，MIT，2026-10-26 仍在发版，peer react>=18 与本仓 React 19.2 兼容。体积超默认的代价由 W0 实测的「入口 + vendor 分块总量」预算另行把关（见 UI_LIBRARY_UPGRADE §10）。"
     }
   },
   "entryTemplate": {

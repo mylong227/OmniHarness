@@ -104,6 +104,12 @@
   --toast-ok-border: #4a5a52;
   --toast-err-border: #6b4a46;
 
+  /* 悬浮提示：**跟随主题**（浅色白纸 / 深色墨片），不做反相块——§117 定稿口径；
+     palette.ts 的 tipBg/tipFg/tipLine 与这里逐值一致（antdTheme.test.ts 比对）。 */
+  --tip-bg: #282c32;
+  --tip-fg: #eceef2;
+  --tip-line: #353b43;
+
   /* 悬浮态：一层几乎不可见的提亮，只在"可点"的东西上出现。 */
   --hover: rgba(236, 238, 242, 0.055);
   --hover-strong: rgba(236, 238, 242, 0.1);
@@ -173,6 +179,12 @@
   --toast-err: #3a1614;
   --toast-ok-border: #8fae9c;
   --toast-err-border: #b08a86;
+
+  /* 悬浮提示：浅色下是**纯白纸片** + 一根发丝边（深色下则是 panel-2 墨片）。
+     纯白与纸面 #f8f7f4 只差 2%，没有边线会糊成一片。 */
+  --tip-bg: #ffffff;
+  --tip-fg: #1a1d21;
+  --tip-line: #d5d6d1;
 
   --hover: rgba(26, 29, 33, 0.045);
   --hover-strong: rgba(26, 29, 33, 0.085);

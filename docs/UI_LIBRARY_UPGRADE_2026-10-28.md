@@ -1,8 +1,10 @@
 # 前端 UI 升级规划：Ant Design 6 · 全站一次替换
 
-> 状态：**规划（未实施）**。配套决策记录：[adr/0018-antd-ui-redesign.md](adr/0018-antd-ui-redesign.md)（提议）。
+> 状态：**实施中（2026-10-28 用户拍板「全面开工」；W0 已完成，见 §0.5；分支 `feat/antd-ui`，
+> 独立 worktree `D:\deepseek\omniharness-antd`——主工作区由并行会话占用，合并前 main 不动）**。
+> 配套决策记录：[adr/0018-antd-ui-redesign.md](adr/0018-antd-ui-redesign.md)（已接受）。
 > 进度与门禁状态只认 [PROJECT_BOARD.md](PROJECT_BOARD.md)；本文件是 2026-10-28 的**规划快照**，
-> 数字在 W0 实测后会更新一次。
+> 数字在 W0 实测后更新一次（§0.5 已更新）。
 
 ## 0. 结论（TL;DR）
 
@@ -17,6 +19,50 @@
 - **估算**：**12–17 个工作日**（按本仓 agent 批次约 10–14 批），其中 W0 PoC 0.5–1 天。
 - **三个必须先拍板的闸**：① 依赖准入（49MB / 48 依赖，超默认 2MB / 20）；② 入口与总 JS 预算；
   ③ 工具提示策略（124 处原生 `title` 全部改 `<Tooltip>`）。
+  —— **均已拍板（2026-10-28 用户「全面开工」+ W0 实测）**：①已登记 allowlist（override 52000KB / 60 依赖）；
+  ②预算按 §0.5 实测重写；③按 §6.3 执行。
+
+## 0.5 W0 实测结论（2026-10-28，**Go**）
+
+> 隔离入口 PoC（`web/poc/antd.html`，产物 `web/dist-poc/`，独立构建 `vite.poc.config.ts`，主产物零影响）。
+> 组件面：Button/Table/Select/Modal/Tree/Form/DatePicker/Tooltip/Tabs/Progress/Tag/Alert/Switch + ThemeProvider + zh_CN。
+
+**体积（gzip 口径，`vite build` 实测）**
+
+| 产物                        | raw      | gzip         | 说明                                               |
+| --------------------------- | -------- | ------------ | -------------------------------------------------- |
+| 基线主入口（无 antd）       | 824.8 KB | 281.9 KB     | 含 react 基座 / markdown-it / highlight.js         |
+| 基线异步块 ×13              | 330.4 KB | 103.7 KB     | katex 77.7 KB 为最大件                             |
+| PoC vendor-react            | 223.6 KB | 69.4 KB      | react + react-dom + scheduler（基线里已含）        |
+| **PoC vendor-antd（子集）** | 893.7 KB | **289.9 KB** | 含 Form/DatePicker/Table(virtual)/Tree/dayjs/zh_CN |
+| PoC 应用码                  | 9.1 KB   | 3.9 KB       | PoC 页本体                                         |
+
+- **增量结论**：antd 基座 ≈ **+290 KB gzip**（超出规划预估的 120–200 KB）；全量面板迁移预计再
+  +20–40 KB（Descriptions/Timeline/Statistic/Upload/AutoComplete/Dropdown/Drawer 等轻组件），
+  最终 vendor-antd ≈ 310–330 KB gzip。**预算重写**（合并闸 §8 第 2 条替换为）：
+  首屏 JS = entry + vendor-react + vendor-antd **≤ 630 KB gzip**；async ≤ 170 KB（现有 104 + antd 面板懒加载余量）；
+  CSS ≤ 40 KB 不变（antd 是 CSS-in-JS 运行时注入，不进静态 CSS；W5 删旧 CSS 后预期降至 ~15 KB）。
+  vendor 分块使发版只失效应用 chunk，vendor 跨版本命中缓存。
+- **口径修正**：`manualChunks` 必须用**函数形态**（object 形态抓不到 react/cjs 重导出，实测产出 0KB 空 chunk）。
+
+**皮肤接线（真机实测，探针 `web/test/antdPocProbe.ts`）**
+
+- `--ant-*` CSS 变量：**默认不注入**；`theme.cssVar: { prefix: 'ant' }` 显式开启后注入 381 个，
+  作用域在 antd App 包裹层（`.ant-app.css-var-*`），不在 `:root`——antd.css 与判据从该作用域取值。
+- **darkAlgorithm 会把语义 seed 强制压暗**（#a8b4e8 → #929cc8），且四条补救路全堵（实测）：
+  显式传 token 无效（seed 层映射）、嵌套 Provider 继承算法、反解 seed 色相漂移、布尔 cssVar 已废。
+  ⇒ **两套主题同走 defaultAlgorithm + 中性面全量显式覆盖**（表面阶梯本来就是我们的 token）；
+  dark 语义 hover/active 用显式 map token 给提亮档（实测显式 map token 会被保留）。
+- **主按钮底色 === palette accent**：dark #a8b4e8 / light #3d4a86 精确命中（colorSystem ③ 契约保持）。
+
+**对比度（WCAG，`web/src/ui/theme/contrast.ts` 计算）**
+
+- dark：正文 on bg 15.16:1、次要 8.23:1、主按钮字 on 靛墨 8.92:1、靛墨强调字 8.69:1、
+  边线 3.41:1（≥3 非文本）——**14 组关键配对全达标**；light 同清单全达标。
+- 样张：`web/archive/antd-poc-{dark,light}-*.png`（密度 controlHeight 32 / fontSize 14 / 圆角 10·14·8，
+  纸面卡片、panel-2 表头、白气泡口径全部成立）。
+
+**Go / No-Go**：**Go**——体积按上述预算重写执行；回退候选 Mantine 9 不再启用（除非 W1 分块实测超预算 +10%）。
 
 ## 1. 现状基线（2026-10-28 实测）
 
@@ -279,12 +325,12 @@ web/styles/
 | 一次性分支长期不同步        | 中 / 高   | 每周从 main rebase；W1 后先合"基础设施"空转批？——不，保持单次合并，但每周跑全量 |
 | 桌面端打包/离线异常         | 低 / 高   | W0 在 Electron 里跑一遍 PoC；无 CSP 限制已确认                                  |
 
-## 10. 需要拍板的三件事
+## 10. 拍板记录（2026-10-28，用户「全面开工」+ W0 实测）
 
-1. **依赖准入**：antd（48 依赖 / 49.1MB）按草案写入 allowlist，预算 override 52000KB / 60 依赖。
-2. **体积预算**：W0 实测后，允许把「入口 900KB」改为「入口 + vendor 分块」的总量预算（预计
-   总 JS +120～200KB gzip）；如不允许，则 W0 直接回退 Mantine 9 或缩小组件面。
-3. **视觉立场**：确认「Ant 骨架 + 纸与墨 v2 皮肤」（推荐）；如果你要的是 antd 默认观感，
-   §4 的 token 映射可以删掉，但「品牌记忆点」这条痛点会反向恶化。
+1. **依赖准入**：✅ antd@6.6.8 精确锁版写入 `dependency-allowlist.json`（override 52000KB / 60 依赖，MIT）。
+2. **体积预算**：✅ 按 W0 实测重写——首屏 JS = entry + vendor ≤ 630 KB gzip、async ≤ 170 KB、
+   CSS ≤ 40 KB（见 §0.5）。实际增量 +290 KB gzip 超出原预估 120–200 KB，用户在拍板②里已授权
+   「以 W0 实测为准」；Mantine 9 回退线保留在「W1 分块实测超预算 +10%」。
+3. **视觉立场**：✅ 「Ant 骨架 + 纸与墨 v2 皮肤」，§4 token 映射全部落地（PoC 样张已复核）。
 
-确认后从 **W0** 开始：建分支、装精确版本、截基线、跑 PoC，产出体积与密度结论再进入 W1。
+执行从 **W0** 开始（已完成）：建分支、装精确版本、截基线、跑 PoC，实测结论见 §0.5，随后进入 W1。

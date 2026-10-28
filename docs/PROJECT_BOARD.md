@@ -6335,3 +6335,52 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **最终验证**：`web:test` 125 文件 / 641 例全绿；`test:fast` 与服务端全量见 `.tmp/node-test-final.log`；
   `runGates --tier=typed` 2/2；`check.mjs --strict` 零违规（长函数为冻结存量，不计违规）。
 - **边界**：本会话**没有**把 S2 标成完成；其余 12 项均已闭环并有判据。
+## 163. 2026-10-28 UI 升级 W0：antd@6.6.8 准入 + PoC **Go**（`feat/antd-ui` worktree）
+
+- **并行会话协调**：主工作区由 §118 会话占用（本轮实测它在我验证期间提交了 §118 并继续写 web 文件，
+  还触发过 top-level-fn 门禁的竞态假红）；本批全部在独立 worktree `D:\deepseek\omniharness-antd`
+  （分支 `feat/antd-ui`）进行，**合并前 main 不动**，每周从 main rebase。
+- **准入**：`antd@6.6.8` 精确锁版进 dependencies；`dependency-allowlist.json` 登记（MIT；
+  override 52000KB / 60 依赖；exitPlan 指向 Mantine 9 / Radix Themes 3，替换面 = ui/theme + ui/kit）；
+  [ADR-0018](adr/0018-antd-ui-redesign.md) 提议 → **已接受**。
+- **PoC（隔离入口）**：`web/poc/antd.html` + `web/src/poc/antdPoc.tsx`，独立构建 `vite.poc.config.ts`
+  → `web/dist-poc/`（主产物零影响）。实测 vendor-antd 子集 **893.7KB / 289.9KB gzip**
+  （超规划预估 120–200KB）；**预算重写**：entry + vendor ≤ 630KB gzip、async ≤ 170KB、CSS ≤ 40KB
+  （antd 为 CSS-in-JS 运行时注入，不进静态 CSS）。`manualChunks` 必须函数形态（object 形态
+  抓不到 react/cjs 重导出，产出 0KB 空 chunk）。
+- **主题落地（`web/src/ui/theme/`）**：`palette.ts`（唯一颜色事实源）/ `antdTheme.ts` / `ThemeProvider.tsx`。
+  实测 **darkAlgorithm 强制压暗语义 seed**（#a8b4e8 → #929cc8），四条补救路全堵（显式 token 无效 /
+  嵌套 Provider 继承算法 / 反解 seed 漂移 / 布尔 cssVar 已废）⇒ **两主题同走 defaultAlgorithm +
+  中性面全量显式覆盖**；dark 语义 hover/active 用显式 map token 提亮。`cssVar` 需显式开启
+  （`{prefix:'ant'}`，布尔形态已被 v6 移除），381 个 `--ant-*` 变量挂在 `.ant-app` 作用域（非 `:root`）。
+- **真机验证（`web/test/antdPocProbe.ts`）**：双主题主按钮底色 === palette accent
+  （#a8b4e8 / #3d4a86，colorSystem ③ 契约保持）；`--ant-color-primary` 变量读取一致；
+  对比度 14 组关键配对两主题全达标（dark 正文 15.16:1、主按钮字 8.92:1、边线 3.41:1）。
+  样张 `web/archive/antd-poc-{dark,light}-*.png`。
+- **基线截图**：visualProbe 补 `--no-seed`（空态档）+ 单态/单面板 try-catch（实测 dropdown 态
+  `.dd` 缺位时 click 抛错会中止整轮）；8 关键界面 × 双主题 × 1280/640 存档 `web/archive/`。
+- **结论**：**Go**。Mantine 9 回退线收窄至「W1 分块实测超预算 +10%」。规划文档 §0.5/§10 已回填实测。
+
+## 164. 2026-10-28 UI 升级 W1：antd 基建接线（theme/kit/分块预算/守卫）——旧 UI 零回归
+
+- **接线**：`App.ts` 整树包进 `ThemeProvider`（theme=state.theme，LayoutController 解析结果）；
+  `main.ts` 挂 `styles/antd.css`（缝合层）；业务组件尚未消费 antd——本层先行，是「旧 UI 在 antd 下零回归」的验证前提。
+- **构建分块**：`vite.config.ts` 加函数形态 `manualChunks`（vendor-react / vendor-antd）。
+  实测：ENTRY 207.9KB gzip（原 281.9，react 基座 77.5KB 拆出）、vendor-antd 96.6KB（当前主图只引
+  ThemeProvider，tree-shaking 全开；PoC 全家桶 290KB 是上界）、**首屏合计 380.1KB gzip（预算 630）**。
+- **预算门禁重写**：`webBundleBudget.json/mjs` 新口径——firstLoadKb 630（entry+vendor 合计闸）、
+  entryJsKb 300、asyncKb 170、cssKb 40；vendor 单列、缺 vendor 文件不硬红（存在性由边界判据管）。
+- **判据四件**：`antdTheme.test.ts`（8 例：字面量扫描 / palette↔theme.css 抽样比对 / defaultAlgorithm
+  契约 / cssVar+hashed / 密度常量 / 两主题对比度 / dark hover 提亮）；`antdBoundary.test.ts`
+  （antd/@ant-design/rc-*/dayjs 只许出现在 web/src/ui/** 与临时 PoC）；`kitComponents.test.tsx`（4 例）；
+  vitest web 项目挂 `setupWeb.ts`（matchMedia/ResizeObserver/requestIdleCallback 缺失才补）。
+- **kit 骨架**：`web/src/ui/kit/` PageHeader / PanelSection / StatusTag / EmptyState（testId 统一透传）；
+  DataTable/FormField/ConfirmButton 等 W2+ 消费时再长（不建死代码）。
+- **W1 实测教训（都进了判据或注释）**：
+  ① **antd App 容器自带 `color: token.colorText`**，插在 body 与 UI 之间——React 主题状态与 CSS
+  data-theme 分叉时（判据直接改 data-theme 即触发）整棵子树被涂错色（a11yAudit 暗色空态
+  .chat-title 1.04:1 假黑）。修复：`.ant-app.ant-app { color: inherit }`，正文色永远以 body 继承源为准。
+  ② worktree 新检出缺 `.workbuddy/` 目录——turnSummaryCard 截图 ENOENT，测试改为 mkdirSync 递归建目录。
+  ③ theme.css 补齐 `--tip-bg/-fg/-line`（§117 定稿值，palette 抽样比对的锚）。
+- **验证**：tsc 双工程零错；web 判据 641 例全绿（含新增 13 例）；fast 门禁 ESLint 预算 0 通过；
+  typed 层通过；`web:budget` 新口径全绿。

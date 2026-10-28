@@ -16,6 +16,7 @@
 // ⚠️ **顺序即级联优先级，不得重排**。判据：`web/test/a11yContrast.test.mjs`
 // （它检查本文件的 import 顺序与 `styles/` 下的文件集合一一对应）。
 import '../styles/theme.css'; // 唯一色彩事实源：token / reset / 原生控件
+import '../styles/antd.css'; // antd 缝合层（W1）：reduced-motion / 表面对齐；组件样式由 CSS-in-JS 注入
 import '../styles/layout.css'; // 三栏骨架
 import '../styles/components.css'; // 可复用组件
 import '../styles/chat.css'; // 对话流基础
