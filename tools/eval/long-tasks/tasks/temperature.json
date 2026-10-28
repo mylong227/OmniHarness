@@ -1,0 +1,9 @@
+{
+  "id": "temperature",
+  "prompt": "你在当前工作区实现 src/index.js 里的 3 个导出函数：cToF(value)、fToC(value)、convertTemperature(value, from, to)。\n\n逐条验收要求：\n- cToF/fToC：摄氏与华氏互转（0C=32F，100C=212F）。\n- convertTemperature：支持 C/F/K（大小写不敏感）；0C=273.15K；未知单位抛错。\n\n约束：\n- 保持 CommonJS 导出（`module.exports`），不得改名或删除导出。\n- 只能使用 Node 内置能力，不新增依赖。\n- **不要修改 verify.mjs**：它是验收器，评测前会被重置。\n- 创建 README.md：每个导出函数名至少出现一次，并给一行用法说明。\n- 完成后运行 `node verify.mjs` 自检，通过后再简短报告改了什么。\n",
+  "repo": "temperature",
+  "verifyCommand": "node verify.mjs",
+  "expectedFiles": ["src/index.js", "README.md"],
+  "timeoutMs": 180000,
+  "maxTokens": 200000
+}

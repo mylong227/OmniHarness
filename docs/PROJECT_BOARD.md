@@ -6137,3 +6137,11 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`eval:long --self-check` **32 passed / 0 failed**；`longTask.test.ts` 计数同步 32。
 - **边界**：32/40+，还差 8。
 - **剩余**：E6/S3 扩容、S2 前端长函数。
+
+## 142. 2026-10-29 E6/S3 任务集 32 → 36：ipv4 / json-pointer / temperature / matrix-multiply
+
+- **新增任务**：`ipv4`、`json-pointer`、`temperature`、`matrix-multiply`（含非法输入与不可变更新边界）。
+- **自检**：`eval:long --self-check` **36 passed / 0 failed**；`longTask.test.ts` 计数同步 36。
+  `matrix-multiply` 首次自检暴露 `isSquare` 判定写成「矩形一致」——已修成「行数=列数」。
+- **边界**：36/40+，还差 4。
+- **剩余**：E6/S3 扩容、S2 前端长函数。
