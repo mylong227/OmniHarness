@@ -108,6 +108,75 @@ function renderTimeline(
 }
 
 /**
+ * 回滚面板顶部操作（名称 + 创建 + 刷新）。
+ * @param props 名称、忙碌态与回调。
+ * @returns 操作区节点。
+ */
+function RollbackForm(props: {
+  label: string;
+  busy: boolean;
+  onLabel: (value: string) => void;
+  onCreate: () => void;
+  onRefresh: () => void;
+}): ReactElement {
+  return (
+    <div className="file-actions">
+      <input
+        className="cmdk-input"
+        style={INPUT_STYLE}
+        placeholder={t('检查点名称（留空自动生成）')}
+        aria-label={t('检查点名称')}
+        value={props.label}
+        onInput={(e: React.SyntheticEvent) => props.onLabel((e.target as HTMLInputElement).value)}
+      />
+      <button className="btn primary" disabled={props.busy} onClick={props.onCreate}>
+        {t('⎘ 创建检查点')}
+      </button>
+      <button className="btn" onClick={props.onRefresh}>
+        {t('↻ 刷新')}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 检查点列表 / 空态 / 错误态。
+ * @param props 列表、加载/错误状态与回滚回调。
+ * @returns 列表节点。
+ */
+function RollbackList(props: {
+  list: CheckpointMeta[];
+  loading: boolean;
+  error: string | null;
+  busy: boolean;
+  onRollback: (label: string) => void;
+}): ReactElement {
+  if (props.loading) return <>{emptyNote(t('读取中…'), { icon: 'rewind' })}</>;
+  if (props.error !== null) {
+    return (
+      <>
+        {emptyNote(t('检查点读取失败：{msg}', { msg: props.error }), {
+          kind: 'err',
+          icon: 'alert',
+        })}
+      </>
+    );
+  }
+  if (props.list.length === 0) {
+    return (
+      <>
+        {emptyState(
+          icon('rewind', { size: 20 }),
+          t('还没有检查点'),
+          t('点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。'),
+        )}
+      </>
+    );
+  }
+  return <>{renderTimeline(CheckpointTimeline.build(props.list, new Date()), props.busy, props.onRollback)}</>;
+}
+
+/**
  * 回滚面板：检查点列表 + 创建 + 一键回滚。
  * @param props 组件入参
  * @returns 回滚面板节点（无会话时为引导文案）
@@ -205,34 +274,20 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
 
   return (
     <div className="review">
-      <div className="file-actions">
-        <input
-          className="cmdk-input"
-          style={INPUT_STYLE}
-          placeholder={t('检查点名称（留空自动生成）')}
-          aria-label={t('检查点名称')}
-          value={label}
-          onInput={(e: React.SyntheticEvent) => setLabel((e.target as HTMLInputElement).value)}
-        />
-        <button className="btn primary" disabled={busy} onClick={() => void create()}>
-          {t('⎘ 创建检查点')}
-        </button>
-        <button className="btn" onClick={() => void refresh(sessionId)}>
-          {t('↻ 刷新')}
-        </button>
-      </div>
-      {loading ? emptyNote(t('读取中…'), { icon: 'rewind' }) : null}
-      {error !== null ? emptyNote(t('检查点读取失败：{msg}', { msg: error }), { kind: 'err', icon: 'alert' }) : null}
-      {!loading && error === null && list.length === 0 ? (
-        emptyState(
-          icon('rewind', { size: 20 }),
-          t('还没有检查点'),
-          t('点「创建检查点」先存一个安全网，之后可一键回滚对话与代码。'),
-        )
-      ) : null}
-      {!loading && list.length > 0
-        ? renderTimeline(CheckpointTimeline.build(list, new Date()), busy, (l) => void rollback(l))
-        : null}
+      <RollbackForm
+        label={label}
+        busy={busy}
+        onLabel={setLabel}
+        onCreate={() => void create()}
+        onRefresh={() => void refresh(sessionId)}
+      />
+      <RollbackList
+        list={list}
+        loading={loading}
+        error={error}
+        busy={busy}
+        onRollback={(target) => void rollback(target)}
+      />
     </div>
   );
 }

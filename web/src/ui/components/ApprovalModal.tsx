@@ -30,6 +30,68 @@ export interface ApprovalModalProps {
 const HIDDEN: Record<string, string> = { display: 'none' };
 
 /**
+ * 审批动作区（始终允许 / 拒绝 / 允许 / 更改权限）。
+ * @param props 按钮引用与回调。
+ * @returns 动作区节点。
+ */
+function ApprovalActions(props: {
+  alwaysRef: React.RefObject<HTMLButtonElement | null>;
+  denyRef: React.RefObject<HTMLButtonElement | null>;
+  allowRef: React.RefObject<HTMLButtonElement | null>;
+  changePermRef: React.RefObject<HTMLButtonElement | null>;
+  onRespond: (decision: 'allow' | 'deny', always: boolean) => void;
+  onChangePermission?: (() => void) | undefined;
+}): ReactElement {
+  const { alwaysRef, denyRef, allowRef, changePermRef, onRespond, onChangePermission } = props;
+  return (
+    <>
+      <div className="actions">
+        <button
+          className="always"
+          ref={(el: HTMLButtonElement | null) => {
+            alwaysRef.current = el;
+          }}
+          onClick={() => onRespond('allow', true)}
+        >
+          {t('始终允许')}
+        </button>
+        <button
+          className="deny"
+          ref={(el: HTMLButtonElement | null) => {
+            denyRef.current = el;
+          }}
+          onClick={() => onRespond('deny', false)}
+        >
+          {t('拒绝')}
+        </button>
+        <button
+          className="allow"
+          ref={(el: HTMLButtonElement | null) => {
+            allowRef.current = el;
+          }}
+          onClick={() => onRespond('allow', false)}
+        >
+          {t('允许')}
+        </button>
+      </div>
+      {onChangePermission ? (
+        <div className="approval-change-perm">
+          <button
+            className="link"
+            ref={(el: HTMLButtonElement | null) => {
+              changePermRef.current = el;
+            }}
+            onClick={onChangePermission}
+          >
+            {t('更改权限')}
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
  * 工具审批弹窗：展示工具名 / 目标 / 参数，并给出「始终允许 / 拒绝 / 允许」三档决策。
  * @param props 组件入参
  * @returns 审批弹窗节点（无待审批时为隐藏遮罩）
@@ -92,48 +154,14 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
         <div className="meta">{t('工具：{name}', { name: toolLabel })}</div>
         <div className="meta">{t('目标：{name}', { name: approval.target || '—' })}</div>
         <pre id="ap-desc">{args}</pre>
-        <div className="actions">
-          <button
-            className="always"
-            ref={(el: HTMLButtonElement | null) => {
-              alwaysRef.current = el;
-            }}
-            onClick={() => onRespond('allow', true)}
-          >
-            {t('始终允许')}
-          </button>
-          <button
-            className="deny"
-            ref={(el: HTMLButtonElement | null) => {
-              denyRef.current = el;
-            }}
-            onClick={() => onRespond('deny', false)}
-          >
-            {t('拒绝')}
-          </button>
-          <button
-            className="allow"
-            ref={(el: HTMLButtonElement | null) => {
-              allowRef.current = el;
-            }}
-            onClick={() => onRespond('allow', false)}
-          >
-            {t('允许')}
-          </button>
-        </div>
-        {onChangePermission ? (
-          <div className="approval-change-perm">
-            <button
-              className="link"
-              ref={(el: HTMLButtonElement | null) => {
-                changePermRef.current = el;
-              }}
-              onClick={onChangePermission}
-            >
-              {t('更改权限')}
-            </button>
-          </div>
-        ) : null}
+        <ApprovalActions
+          alwaysRef={alwaysRef}
+          denyRef={denyRef}
+          allowRef={allowRef}
+          changePermRef={changePermRef}
+          onRespond={onRespond}
+          {...(onChangePermission !== undefined ? { onChangePermission } : {})}
+        />
       </div>
     </div>
   );

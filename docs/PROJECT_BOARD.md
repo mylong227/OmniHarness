@@ -6240,3 +6240,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **41** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 20 个函数，剩余 41。
+
+## 153. 2026-10-29 S2 继续清偿：ApprovalModal；RollbackTab 部分
+
+- **改动**：
+  - `ApprovalModal` 104 → <80：动作区抽 `ApprovalActions()`；
+  - `RollbackTab` 124 → 110：表单/列表抽 `RollbackForm` / `RollbackList`（仍未过 80，下轮继续拆 handlers）。
+- **判据**：`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **40** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 21 个函数，剩余 40（RollbackTab 仍未清零）。
