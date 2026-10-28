@@ -56,6 +56,37 @@ const COPY_BTN: Record<string, string> = {
 };
 
 /**
+ * 助手卡头部：徽标、时间与重新生成入口。
+ * @param props 事件与重新生成回调。
+ * @returns 头部节点。
+ */
+function AssistantHead(props: {
+  ev: ThreadEvent;
+  onRegenerate?: (() => void) | undefined;
+}): ReactElement {
+  const { ev, onRegenerate } = props;
+  return (
+    <div className="head">
+      {badge(ev.type)}
+      <span className="time">{timeOf(ev.timestamp)}</span>
+      {onRegenerate ? (
+        <button
+          className="msg-act"
+          title={t('重新生成')}
+          aria-label={t('重新生成')}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onRegenerate();
+          }}
+        >
+          {t('↻ 重新生成')}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * 助手消息卡：渲染正文（生成中渐进揭示）、附件、外链与复制入口。
  * @param props 组件入参
  * @returns 助手消息节点
@@ -115,23 +146,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
   const p = ev.payload || {};
   return (
     <>
-      <div className="head">
-        {badge(ev.type)}
-        <span className="time">{timeOf(ev.timestamp)}</span>
-        {onRegenerate ? (
-          <button
-            className="msg-act"
-            title={t('重新生成')}
-            aria-label={t('重新生成')}
-            onClick={(e: React.MouseEvent) => {
-              e.stopPropagation();
-              onRegenerate();
-            }}
-          >
-            {t('↻ 重新生成')}
-          </button>
-        ) : null}
-      </div>
+      <AssistantHead ev={ev} onRegenerate={onRegenerate} />
       <div className={'card ' + ev.type}>
         {/* 长内容默认收起为简报卡（2026-10-13 用户反馈：数千字报告整段平铺糊满一屏）。
             仅对**最终卡片**生效：生成中（busy）正文还在长，收起会跟揭示动画打架。 */}

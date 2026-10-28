@@ -58,6 +58,62 @@ function splitPath(path: string): { dir: string; name: string } {
 }
 
 /**
+ * 文件行右侧动作：差异 / 打开 / 下载。
+ * @param props 文件、差异开合态与回调。
+ * @returns 动作区节点。
+ */
+function FileActions(props: {
+  file: TurnSummaryFile;
+  hasDiff: boolean;
+  diffOpen: boolean;
+  onToggleDiff: () => void;
+  onOpenFile?: ((path: string) => Promise<boolean> | boolean | void) | undefined;
+}): ReactElement {
+  const { file, hasDiff, diffOpen, onToggleDiff, onOpenFile } = props;
+  const href = `/files?path=${encodeURIComponent(file.path)}`;
+  const stop = (e: React.MouseEvent): void => e.stopPropagation();
+  return (
+    <span className="ts-actions">
+      {hasDiff && file.group === 'modified' ? (
+        <button
+          type="button"
+          className="ts-act"
+          onClick={(e: React.MouseEvent) => {
+            stop(e);
+            onToggleDiff();
+          }}
+          aria-expanded={diffOpen}
+        >
+          {diffOpen ? t('收起差异') : t('差异')}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className="ts-act ts-act-icon ts-open"
+        onClick={(e: React.MouseEvent) => {
+          stop(e);
+          void onOpenFile?.(file.path);
+        }}
+        title={t('在右侧面板打开')}
+        aria-label={t('在右侧面板打开')}
+      >
+        {icon('eye', { size: 13 })}
+      </button>
+      <a
+        className="ts-act ts-act-icon ts-download"
+        href={href}
+        download={file.name}
+        onClick={stop}
+        title={t('下载到本地')}
+        aria-label={t('下载文件')}
+      >
+        {icon('download', { size: 13 })}
+      </a>
+    </span>
+  );
+}
+
+/**
  * 一行文件的打开 / 下载 / 差异入口。
  * @param props 文件行与开合回调
  * @returns 行节点
@@ -77,13 +133,6 @@ function FileRow(props: {
       : file.kind === 'patch'
         ? t('补丁')
         : t('普通文件');
-  const href = `/files?path=${encodeURIComponent(file.path)}`;
-
-  /**
-   * 阻止行级开合冒泡（按钮 / 链接自己处理点击）。
-   * @param e 点击事件
-   */
-  const stop = (e: React.MouseEvent): void => e.stopPropagation();
 
   /**
    * 行主体：修改类展开差异；生成类直接在右侧打开。
@@ -124,43 +173,13 @@ function FileRow(props: {
             <span className="ts-kind">{kindLabel}</span>
           )}
         </button>
-        <span className="ts-actions">
-          {hasDiff && file.group === 'modified' ? (
-            <button
-              type="button"
-              className="ts-act"
-              onClick={(e: React.MouseEvent) => {
-                stop(e);
-                onToggleDiff();
-              }}
-              aria-expanded={diffOpen}
-            >
-              {diffOpen ? t('收起差异') : t('差异')}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="ts-act ts-act-icon ts-open"
-            onClick={(e: React.MouseEvent) => {
-              stop(e);
-              void onOpenFile?.(file.path);
-            }}
-            title={t('在右侧面板打开')}
-            aria-label={t('在右侧面板打开')}
-          >
-            {icon('eye', { size: 13 })}
-          </button>
-          <a
-            className="ts-act ts-act-icon ts-download"
-            href={href}
-            download={file.name}
-            onClick={stop}
-            title={t('下载到本地')}
-            aria-label={t('下载文件')}
-          >
-            {icon('download', { size: 13 })}
-          </a>
-        </span>
+        <FileActions
+          file={file}
+          hasDiff={hasDiff}
+          diffOpen={diffOpen}
+          onToggleDiff={onToggleDiff}
+          {...(onOpenFile !== undefined ? { onOpenFile } : {})}
+        />
       </div>
       {hasDiff && file.group === 'modified' && diffOpen ? (
         <div className="ts-diff">{diffView(file.diff)}</div>
@@ -182,6 +201,137 @@ function rawDiffOf(events: readonly ThreadEvent[]): string {
     }
   }
   return '';
+}
+
+/**
+ * 结果卡头部：标题、文件计数、耗时与增删合计。
+ * @param props 计数、耗时与增删数。
+ * @returns 头部节点。
+ */
+function SummaryHead(props: {
+  counts: string;
+  duration: string;
+  added: number;
+  deleted: number;
+  open: boolean;
+  onToggle: () => void;
+}): ReactElement {
+  const { counts, duration, added, deleted, open, onToggle } = props;
+  return (
+    <div className="ts-head">
+      <span className="ts-head-icon" aria-hidden="true">{icon('package', { size: 15 })}</span>
+      <span className="ts-title">{t('本轮结果')}</span>
+      <span className="ts-counts">{counts}</span>
+      {duration === '' ? null : (
+        <span className="ts-time" title={t('本轮耗时')}>
+          <span className="ts-time-label">{t('耗时')} </span>
+          {duration}
+        </span>
+      )}
+      {added + deleted > 0 ? (
+        <span className="ts-total">
+          {added > 0 ? <span className="add">+{added}</span> : null}
+          {deleted > 0 ? <span className="del">−{deleted}</span> : null}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        className="ts-toggle"
+        onClick={onToggle}
+        aria-expanded={open}
+        title={open ? t('收起结果') : t('展开结果')}
+      >
+        {open ? '▴' : '▾'}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 无法解析文件段时的原始 diff 兜底卡。
+ * @param props 原始 diff 与耗时。
+ * @returns 兜底卡节点。
+ */
+function FallbackSummary(props: { rawDiff: string; duration: string }): ReactElement {
+  return (
+    <div className="turn-summary" role="group" aria-label={t('本轮结果')}>
+      <div className="ts-head">
+        <span className="ts-head-icon" aria-hidden="true">{icon('package', { size: 15 })}</span>
+        <span className="ts-title">{t('本轮结果')}</span>
+        {props.duration === '' ? null : (
+          <span className="ts-time" title={t('本轮耗时')}>
+            <span className="ts-time-label">{t('耗时')} </span>
+            {props.duration}
+          </span>
+        )}
+      </div>
+      <div className="ts-fallback">{diffView(props.rawDiff)}</div>
+    </div>
+  );
+}
+
+/**
+ * 结果卡文件分组正文。
+ * @param props 可见文件、展开的差异集合与回调。
+ * @returns 正文节点。
+ */
+function SummaryBody(props: {
+  files: readonly TurnSummaryFile[];
+  openDiffs: ReadonlySet<string>;
+  onToggleDiff: (path: string) => void;
+  onOpenFile: (path: string) => Promise<boolean> | boolean | void;
+}): ReactElement {
+  const { files, openDiffs, onToggleDiff, onOpenFile } = props;
+  return (
+    <div className="ts-body">
+      {GROUPS.map(({ group, label }) => {
+        const groupFiles = files.filter((f) => f.group === group);
+        if (groupFiles.length === 0) return null;
+        return (
+          <section className="ts-group" key={group} aria-label={t(label)}>
+            <div className="ts-group-head">
+              <span className="ts-group-name">{t(label)}</span>
+              <span className="ts-group-count">{groupFiles.length}</span>
+            </div>
+            {groupFiles.map((file) => (
+              <FileRow
+                key={file.path}
+                file={file}
+                diffOpen={openDiffs.has(file.path)}
+                onToggleDiff={() => onToggleDiff(file.path)}
+                onOpenFile={onOpenFile}
+              />
+            ))}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * 统计可见文件的分组计数与增删行数。
+ * @param files 可见文件。
+ * @returns 计数文案与增删合计。
+ */
+function countsOf(files: readonly TurnSummaryFile[]): {
+  counts: string;
+  added: number;
+  deleted: number;
+} {
+  const createdCount = files.filter((f) => f.group === 'created').length;
+  const modifiedCount = files.filter((f) => f.group === 'modified').length;
+  const counts =
+    createdCount > 0 && modifiedCount > 0
+      ? t('生成 {c} · 修改 {m}', { c: createdCount, m: modifiedCount })
+      : createdCount > 0
+        ? t('生成 {c} 个文件', { c: createdCount })
+        : t('修改 {m} 个文件', { m: modifiedCount });
+  return {
+    counts,
+    added: files.reduce((n, f) => n + f.added, 0),
+    deleted: files.reduce((n, f) => n + f.deleted, 0),
+  };
 }
 
 /**
@@ -222,21 +372,7 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
   // 解析不出文件段（旧存档 / 非标准 diff）时退回原始 diff，绝不静默吞掉内容。
   if (summary.files.length === 0) {
     if (rawDiff === '') return null;
-    return (
-      <div className="turn-summary" role="group" aria-label={t('本轮结果')}>
-        <div className="ts-head">
-          <span className="ts-head-icon" aria-hidden="true">{icon('package', { size: 15 })}</span>
-          <span className="ts-title">{t('本轮结果')}</span>
-          {duration === '' ? null : (
-            <span className="ts-time" title={t('本轮耗时')}>
-              <span className="ts-time-label">{t('耗时')} </span>
-              {duration}
-            </span>
-          )}
-        </div>
-        <div className="ts-fallback">{diffView(rawDiff)}</div>
-      </div>
-    );
+    return <FallbackSummary rawDiff={rawDiff} duration={duration} />;
   }
 
   // 全部行都被判定为「已不存在」：整张卡退场，不再展示过期产物。
@@ -256,69 +392,25 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
     });
   };
 
-  const createdCount = visibleFiles.filter((f) => f.group === 'created').length;
-  const modifiedCount = visibleFiles.filter((f) => f.group === 'modified').length;
-  const added = visibleFiles.reduce((n, f) => n + f.added, 0);
-  const deleted = visibleFiles.reduce((n, f) => n + f.deleted, 0);
-  const counts =
-    createdCount > 0 && modifiedCount > 0
-      ? t('生成 {c} · 修改 {m}', { c: createdCount, m: modifiedCount })
-      : createdCount > 0
-        ? t('生成 {c} 个文件', { c: createdCount })
-        : t('修改 {m} 个文件', { m: modifiedCount });
+  const { counts, added, deleted } = countsOf(visibleFiles);
 
   return (
     <div className="turn-summary" role="group" aria-label={t('本轮结果')}>
-      <div className="ts-head">
-        <span className="ts-head-icon" aria-hidden="true">{icon('package', { size: 15 })}</span>
-        <span className="ts-title">{t('本轮结果')}</span>
-        <span className="ts-counts">{counts}</span>
-        {duration === '' ? null : (
-          <span className="ts-time" title={t('本轮耗时')}>
-            <span className="ts-time-label">{t('耗时')} </span>
-            {duration}
-          </span>
-        )}
-        {added + deleted > 0 ? (
-          <span className="ts-total">
-            {added > 0 ? <span className="add">+{added}</span> : null}
-            {deleted > 0 ? <span className="del">−{deleted}</span> : null}
-          </span>
-        ) : null}
-        <button
-          type="button"
-          className="ts-toggle"
-          onClick={() => setOpen((prev) => !prev)}
-          aria-expanded={open}
-          title={open ? t('收起结果') : t('展开结果')}
-        >
-          {open ? '▴' : '▾'}
-        </button>
-      </div>
+      <SummaryHead
+        counts={counts}
+        duration={duration}
+        added={added}
+        deleted={deleted}
+        open={open}
+        onToggle={() => setOpen((prev) => !prev)}
+      />
       {open ? (
-        <div className="ts-body">
-          {GROUPS.map(({ group, label }) => {
-            const files = visibleFiles.filter((f) => f.group === group);
-            if (files.length === 0) return null;
-            return (
-              <section className="ts-group" key={group} aria-label={t(label)}>
-                <div className="ts-group-head">
-                  <span className="ts-group-name">{t(label)}</span>
-                  <span className="ts-group-count">{files.length}</span>
-                </div>
-                {files.map((file) => (
-                  <FileRow
-                    key={file.path}
-                    file={file}
-                    diffOpen={openDiffs.has(file.path)}
-                    onToggleDiff={() => toggleDiff(file.path)}
-                    onOpenFile={openFile}
-                  />
-                ))}
-              </section>
-            );
-          })}
-        </div>
+        <SummaryBody
+          files={visibleFiles}
+          openDiffs={openDiffs}
+          onToggleDiff={toggleDiff}
+          onOpenFile={openFile}
+        />
       ) : null}
     </div>
   );

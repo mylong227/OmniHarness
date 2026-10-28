@@ -6193,3 +6193,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`e2e` + `streamStability` + `streamStableSplit` 6 例全绿；`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **53** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 8 个函数，剩余 53。
+
+## 148. 2026-10-29 S2 继续清偿：三个流式卡片函数
+
+- **改动**：
+  - `AssistantCard` 91 → <80：头部抽 `AssistantHead()`；
+  - `TurnSummaryCard.FileRow` 101 → <80：动作区抽 `FileActions()`；
+  - `TurnSummaryCard` 134 → <80：头部抽 `SummaryHead()`、兜底卡抽 `FallbackSummary()`、正文抽 `SummaryBody()`、计数抽 `countsOf()`。
+- **判据**：`turnSummary` + `turnSummaryCard` + `streamStability` 9 例全绿；`tsc -p web` 零错。
+- **剩余规模**：`check.mjs --strict` 仍报 **50** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 11 个函数，剩余 50。
