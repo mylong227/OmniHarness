@@ -159,6 +159,18 @@ export class ApiClient {
     return this.rpc('turns.abort', threadId === undefined ? {} : { threadId });
   }
   /**
+   * 回合中插话（A8）：把一条用户追加指令入队，服务端在下一步边界注入。
+   * @param threadId 目标会话（必须在跑）。
+   * @param text 追加指令（非空）。
+   * @returns `{ok, queued}`；会话未跑时 `ok:false`。
+   */
+  public steerTurn(
+    threadId: string,
+    text: string,
+  ): Promise<{ ok: boolean; queued?: boolean; error?: string }> {
+    return this.rpc('turns.steer', { threadId, text });
+  }
+  /**
    * 读取线程事件；可选分页（取尾部 / 用 `before` 向上补拉）。
    * @param threadId 目标线程
    * @param opts `limit` 页大小、`before` 上一页最早事件 id

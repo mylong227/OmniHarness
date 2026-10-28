@@ -18,7 +18,6 @@ import { FilePicker } from './FilePicker.tsx';
 import { WorkIndicator } from './WorkIndicator.tsx';
 import { AddMenu } from './AddMenu.tsx';
 import { PermissionPicker } from './PermissionPicker.tsx';
-import { ContextCapacityPanel } from './ContextCapacityPanel.tsx';
 import { MentionResolver } from '../models/MentionResolver.ts';
 import { SlashResolver, type SlashToken } from '../models/SlashResolver.ts';
 import { ComposerDraft } from '../models/ComposerDraft.ts';
@@ -107,11 +106,6 @@ export interface ComposerProps {
   busy?: boolean;
   /** 当前正在调用的工具名（无则显示"思考中"）。 */
   activeTool?: string | null;
-  /**
-   * 容量数据代数（`model` 事件条数，由 StreamView 用 `ContextUsageView.revisionOf` 算出）：
-   * 透传给容量面板，做到「新快照一到就取数」而不是干等定时器。
-   */
-  contextRevision?: number;
 }
 
 /** @mention 补全态。 */
@@ -235,9 +229,39 @@ function renderMentionView(mention: MentionState | null, onPick: (p: string) => 
 }
 
 /**
- * 底部输入区：多模态附件、模型 / 推理 / 权限切换、@ 引用补全与语音输入。
- * @param props 组件入参
- * @returns 输入区节点
+ * busy 时把输入作为 steering 入队（A8）。
+ * @param api RPC 客户端。
+ * @param threadId 目标会话；null 表示尚未创建。
+ * @param text 追加指令。
+ * @param ta 输入框（成功后清空）。
+ * @param onToast 轻提示。
+ * @param reset 清空补全态的回收钩子。
+ * @returns 无
+ */
+function steerBusy(
+  api: ApiClient,
+  threadId: string | null,
+  text: string,
+  ta: HTMLTextAreaElement,
+  onToast: ((msg: string, kind?: 'info' | 'err') => void) | undefined,
+  reset: () => void,
+): void {
+  if (threadId === null) {
+    onToast?.('会话尚未创建，无法插话', 'err');
+    return;
+  }
+  ta.value = '';
+  growComposerTextarea(ta);
+  reset();
+  void api.steerTurn(threadId, text).then((result) => {
+    if (result.ok !== true) onToast?.(result.error ?? '插话失败', 'err');
+  });
+}
+
+/**
+ * 输入区组件。
+ * @param props 组件属性。
+ * @returns 输入区节点。
  */
 export function Composer(props: ComposerProps): ReactElement {
   const {
@@ -263,20 +287,10 @@ export function Composer(props: ComposerProps): ReactElement {
     disabled,
     busy,
     activeTool,
-    contextRevision,
   } = props;
   const [attachments, setAttachments] = React.useState<AttachmentDraft[]>([]);
   const [filePickerOpen, setFilePickerOpen] = React.useState<boolean>(false);
   const [pickerErr, setPickerErr] = React.useState<string | null>(null);
-  /**
-   * 稳定引用的轻提示回调：**不要**在 JSX 里写 `(m,k) => onToast?.(m,k)`——
-   * 那会让每次渲染都产生新函数身份，把子组件（如上下文容量面板）里"按依赖取数"的 effect
-   * 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc、界面卡在「加载中…」）。
-   */
-  const toastStable = React.useCallback(
-    (m: string, k?: 'info' | 'err') => onToast?.(m, k),
-    [onToast],
-  );
   const [mention, setMention] = React.useState<MentionState | null>(null);
   /** 文件路径缓存（@mention 数据源，首次触发时拉取一次）。 */
   const [fileCache, setFileCache] = React.useState<string[] | null>(null);
@@ -534,6 +548,14 @@ export function Composer(props: ComposerProps): ReactElement {
     if (!ta) return;
     const prompt = ta.value.trim();
     if (prompt === '' && attachments.length === 0) return;
+    // A8：busy 时发送退化为「插话」——直接入队到服务端，下一步边界生效。
+    if (busy === true && prompt !== '') {
+      steerBusy(api, threadId ?? null, prompt, ta, onToast, () => {
+        setMention(null);
+        setSlash(null);
+      });
+      return;
+    }
     const images: { data?: string; mediaType?: string }[] = [];
     const files: FileAttachment[] = [];
     for (const a of attachments) {
@@ -649,16 +671,8 @@ export function Composer(props: ComposerProps): ReactElement {
             <PermissionPicker permission={permission} onPick={onPermissionChange} api={api} />
           </div>
           <div className="composer-bar-right">
-            <ContextCapacityPanel
-              threadId={threadId ?? ''}
-              api={api}
-              busy={busy === true}
-              // 容量数据代数（model 事件条数）：新快照一到就取数，而不是等 2s 定时器。
-              {...(contextRevision !== undefined ? { revision: contextRevision } : {})}
-              // 用 useCallback 稳定引用：内联箭头会让**每次父渲染都是新函数**，把子组件里"按依赖取数"的
-              // effect 变成"每渲染重拉一次"的放大器（2026-10-06 实测：面板打开 6 秒内 23 次 /rpc）。
-              onToast={toastStable}
-            />
+            {/* 容量入口已于 2026-10-28 移入控制台「上下文」面板（用户：不要挤输入区）。
+                这里只留"要动手"的控件：权限 / 模型 / 语音 / 发送。 */}
             {/* 模型与推理强度合并为一个入口（2026-10-17）：强度不再是输入行里并排的第二个下拉，
                 而是弹窗内的进度条——两者本就是同一个决定的两半，且强度是有序量。
                 原先这里有两个 Dropdown（"推理强度" + "模型"），是输入行最宽的两块 chrome。 */}
@@ -682,16 +696,26 @@ export function Composer(props: ComposerProps): ReactElement {
               </button>
             ) : null}
             {busy === true ? (
-              <button
-                className="stop round"
-                aria-label={t('停止生成')}
-                title={t('停止生成')}
-                onClick={() => {
-                  onStop?.();
-                }}
-              >
-                ■
-              </button>
+              <>
+                <button
+                  className="send round"
+                  aria-label={t('插话')}
+                  title={t('插话（Enter 发送，下一步生效）')}
+                  onClick={handleSend}
+                >
+                  ↪
+                </button>
+                <button
+                  className="stop round"
+                  aria-label={t('停止生成')}
+                  title={t('停止生成')}
+                  onClick={() => {
+                    onStop?.();
+                  }}
+                >
+                  ■
+                </button>
+              </>
             ) : (
               <button
                 className="send round"
