@@ -6010,3 +6010,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   与既有超时/重试判据合计 12 例通过。
 - **边界**：这是 **best-effort 文件回滚**，不是 worktree 级隔离；未声明 `writes` 时开关无效。
 - **剩余**：E6/S3 任务集、A5 worktree 隔离、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。
+
+## 128. 2026-10-29 E6/S3 任务集 +1：`interval-merge`
+
+- **新增任务**：`tools/eval/long-tasks/tasks/interval-merge.json` + fixture（`src/index.js` stub、
+  `verify.mjs`）+ 权威 verifier + 参考解/README。验收 mergeIntervals / insertInterval / totalCovered，
+  含空输入、端点相接、不可变入参等边界。
+- **自检**：`eval:long --self-check` **21 passed / 0 failed**（全量任务集，非只跑新增）。
+- **边界**：任务集 20 → 21，距 40+ 仍远；剩余条目需逐个写，不用模板灌水冒充覆盖面。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 技能懒加载/信任、A8 入口接线、S2 前端长函数。
