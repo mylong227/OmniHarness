@@ -1,6 +1,7 @@
 import type { SkillPort, MoireOptions } from '../ports/runtime/skill.ts';
 import type { MoireMeta } from './skill.ts';
 import type { Skill } from './skill.ts';
+import type { SkillEntry } from './skill.ts';
 import { MoireComposer } from './moireComposer.ts';
 import { SkillRetriever, type SkillRetrieveHit } from './skillRetriever.ts';
 
@@ -67,6 +68,8 @@ export interface SkillSelectOptions {
  */
 export class SkillRegistry implements SkillPort {
   private readonly skills = new Map<string, Skill>();
+  /** 惰性正文加载器（A7：工作区技能先登记元数据，选中时才读正文）。 */
+  private readonly lazy = new Map<string, () => SkillEntry | undefined>();
   /** 相关性检索器（无状态、确定性；`selectForPrompt` 的唯一排序来源）。 */
   private readonly retriever = new SkillRetriever();
   /** 相关性选择预算。 */
@@ -90,6 +93,35 @@ export class SkillRegistry implements SkillPort {
       throw new Error(`技能重复注册: ${skill.name}`);
     }
     this.skills.set(skill.name, skill);
+  }
+
+  /**
+   * 惰性注册（A7）：先用**元数据**参与检索，选中时才调 loader 读正文。
+   * @param meta 元数据（instructions 可为空串）。
+   * @param loader 正文加载器（返回 undefined 表示加载失败）。
+   * @returns 无返回值。
+   */
+  public registerLazy(meta: Skill, loader: () => SkillEntry | undefined): void {
+    if (this.skills.has(meta.name)) {
+      throw new Error(`技能重复注册: ${meta.name}`);
+    }
+    this.skills.set(meta.name, { ...meta, instructions: '' });
+    this.lazy.set(meta.name, loader);
+  }
+
+  /**
+   * 解析正文：惰性条目首次解析后缓存并移除 loader。
+   * @param skill 元数据或完整技能。
+   * @returns 完整技能；加载失败时原样返回元数据。
+   */
+  private resolve(skill: Skill): Skill {
+    const loader = this.lazy.get(skill.name);
+    if (loader === undefined) return skill;
+    const full = loader();
+    if (full === undefined) return skill;
+    this.skills.set(skill.name, full);
+    this.lazy.delete(skill.name);
+    return full;
   }
 
   /** 原地替换既有技能（CRISPR 定点编辑用）：存在则覆盖，不存在则注册。
@@ -143,7 +175,7 @@ export class SkillRegistry implements SkillPort {
   public selectForPrompt(text: string): readonly Skill[] {
     return this.rankForPrompt(text)
       .slice(0, this.selectMax)
-      .map((hit) => hit.skill);
+      .map((hit) => this.resolve(hit.skill));
   }
 
   /**
@@ -191,16 +223,18 @@ export class SkillRegistry implements SkillPort {
 
   /** 按名称取技能。 */
   public get(name: string): Skill | undefined {
-    return this.skills.get(name);
+    const skill = this.skills.get(name);
+    return skill === undefined ? undefined : this.resolve(skill);
   }
 
   /** 渲染技能指令（注入上下文的文本）。若为莫尔组合技能，附涌现元数据。 */
   public render(skill: Skill): string {
-    if (skill.moire) {
-      const m = skill.moire;
-      return `# 技能：${skill.name}（莫尔组合 θ*=${m.twistDeg}° 涌现=${m.emergence.toFixed(3)}）\n${skill.instructions}`;
+    const resolved = this.resolve(skill);
+    if (resolved.moire) {
+      const m = resolved.moire;
+      return `# 技能：${resolved.name}（莫尔组合 θ*=${m.twistDeg}° 涌现=${m.emergence.toFixed(3)}）\n${resolved.instructions}`;
     }
-    return `# 技能：${skill.name}\n${skill.instructions}`;
+    return `# 技能：${resolved.name}\n${resolved.instructions}`;
   }
 
   /**

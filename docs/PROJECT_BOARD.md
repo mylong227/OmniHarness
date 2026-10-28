@@ -6067,3 +6067,15 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **自检**：`--only=deep-merge` 通过；任务集 **23**；`longTask.test.ts` 计数同步 23。
 - **边界**：23/40+，逐个写。
 - **剩余**：E6/S3 扩容、A5 worktree 隔离、A7 注入路径懒加载、A8 Web UI、S2 前端长函数。
+
+## 134. 2026-10-29 A7 注入路径懒加载闭环：`registerLazy` + 元数据检索
+
+- **缺陷**：即使发现层有 `list/load`，生产 `SkillStackAssembler` 仍在装配时 `register()` 全文进 registry；
+  `SkillRetriever` 因此把正文也建进 BM25 索引——发现成本仍随技能正文增长。
+- **修法**：`SkillRegistry.registerLazy(meta, loader)`：先存**空正文元数据**参与检索；
+  `selectForPrompt/get/render` 首次解析时调 loader 读正文、缓存并移除 loader。
+  `SkillStackAssembler` 工作区技能改为 `list()` + `registerLazy(load)`。
+- **判据**：`skillRegistryLazy.test.ts`——register 后 `list()[0].instructions === ''`；
+  `selectForPrompt` 后 loader 只调 1 次、`render` 含正文；`skillStackAssembler` 4 例回归。
+- **信任档**：`Skill.trust = bundled/workspace`，工作区技能仍受 `allowWorkspaceSkills` 闸。
+- **剩余**：E6/S3 扩容、A5 worktree 隔离、A8 Web UI、S2 前端长函数。

@@ -115,10 +115,20 @@ export class SkillStackAssembler {
     // INT-04（2026-10-21）：工作区 SKILL.md 自动发现；显式配置/CLI 同名优先。
     // 2026-10-22：未信任工作区不得自动注入项目技能（否则绕过 workspace trust）。
     if (partial.allowWorkspaceSkills !== false) {
-      for (const skill of SkillMdDiscovery.discover(partial.workspaceRoot)) {
-        if (seen.has(skill.name)) continue;
-        skillRegistry.register(skill);
-        seen.add(skill.name);
+      for (const meta of SkillMdDiscovery.list(partial.workspaceRoot)) {
+        if (seen.has(meta.name)) continue;
+        // A7：先只登记元数据参与检索，选中时才读正文（避免发现即加载全文）。
+        skillRegistry.registerLazy(
+          {
+            name: meta.name,
+            description: meta.description,
+            instructions: '',
+            trust: 'workspace',
+            ...(meta.tags !== undefined ? { tags: meta.tags } : {}),
+          },
+          () => SkillMdDiscovery.load(partial.workspaceRoot, meta.name),
+        );
+        seen.add(meta.name);
       }
     }
     return {
