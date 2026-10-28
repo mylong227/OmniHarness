@@ -6284,3 +6284,11 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **34** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 27 个函数，剩余 34。
+
+## 158. 2026-10-29 S2 清偿 DesktopSettingsSection（180 → <80）
+
+- **改动**：应用信息 / 窗口启动 / 更新 / 诊断四张卡抽成
+  `DesktopInfoCard` / `DesktopWindowCard` / `DesktopUpdateCard` / `DesktopDiagnosticsCard`。
+- **判据**：`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **33** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 28 个函数，剩余 33。
