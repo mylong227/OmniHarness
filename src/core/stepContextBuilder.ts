@@ -37,6 +37,8 @@ const DEGRADE_PAYLOAD_SHAPE = 'degrade' as const;
  * 全部外部读取失败一律 fail-closed（跳过该片段），绝不因上下文增强而阻断主流程。
  */
 export class StepContextBuilder {
+  /** 工具 schema 的软 token 预算（超出时非恒可见工具降为 deferred，可经 tool_search 找回）。 */
+  private static readonly TOOL_SCHEMA_BUDGET_TOKENS = 12_000;
   /** 消息投影器：把事件日志按角色投影为模型消息列表（注入额外 system 片段）。 */
   private readonly assembler: ContextAssembler;
   /**
@@ -434,10 +436,19 @@ export class StepContextBuilder {
       tools: direct.map((tool) => tool.name),
       toolTexts,
     });
-    this.lastDeferredTools = plan.deferred;
-    if (plan.deferred.length === 0) return direct;
+    this.lastDeferredTools = [...plan.deferred];
     const keep = new Set(plan.visible);
-    return direct.filter((tool) => keep.has(tool.name));
+    const matched = direct.filter((tool) => keep.has(tool.name));
+    // 2026-10-29（A2）：类别/检索只判相关性，不判「装不装得下」。MCP/插件工具后注册会让
+    // 可见集无上限增长，这里用 schema token 预算兜住；恒可见工具永不被挤掉。
+    const bounded = ToolExposurePlanner.boundBySchemaBudget(
+      matched,
+      StepContextBuilder.TOOL_SCHEMA_BUDGET_TOKENS,
+    );
+    this.lastDeferredTools = [
+      ...new Set([...this.lastDeferredTools, ...bounded.deferred.map((tool) => tool.name)]),
+    ].sort();
+    return bounded.visible;
   }
 
   /**

@@ -10,6 +10,8 @@ export interface AgUiEventStreamOptions {
   readonly runId: string;
   /** run 开始/恢复时的历史消息（非空才发 MESSAGES_SNAPSHOT）。 */
   readonly messages?: readonly unknown[] | undefined;
+  /** 前端传入的初始状态（非空才在 run 开始时发 STATE_SNAPSHOT）。 */
+  readonly initialState?: Readonly<Record<string, unknown>> | undefined;
 }
 
 /**
@@ -26,13 +28,16 @@ export class AgUiEventStream {
   private readonly mapper: AgUiEventMapper;
   /** run 开始/恢复时的历史消息（可缺省）。 */
   private readonly messages: readonly unknown[] | undefined;
+  /** 前端传入的初始状态（可缺省）。 */
+  private readonly initialState: Readonly<Record<string, unknown>> | undefined;
 
   /**
-   * @param options 线程 / run 标识与可选历史消息。
+   * @param options 线程 / run 标识、可选历史消息与初始状态。
    */
   public constructor(options: AgUiEventStreamOptions) {
     this.mapper = new AgUiEventMapper(options);
     this.messages = options.messages;
+    this.initialState = options.initialState;
   }
 
   /**
@@ -46,16 +51,25 @@ export class AgUiEventStream {
     signal?: AbortSignal,
   ): AsyncIterableIterator<AgUiEvent> {
     yield this.mapper.runStarted();
+    // 2026-10-29：STEP 事件此前只在协议里声明、从不产生；这里以一次 run 为粗粒度 step，
+    // 保证 STARTED/FINISHED 严格成对（取消/错误路径也先 FINISHED 再 RUN_ERROR）。
+    yield this.mapper.step('started', 'run');
     try {
       if (this.isAborted(signal)) {
+        yield this.mapper.step('finished', 'run');
         yield this.mapper.runError('已取消', 'CANCELLED');
         return;
       }
       for (const snapshot of this.mapper.messagesSnapshot(this.messages)) {
         yield snapshot;
       }
+      // 前端传入的 state 不再被忽略：非空时作为首个 STATE_SNAPSHOT 发给客户端（AG-UI 恢复语义）。
+      if (this.initialState !== undefined) {
+        for (const stateEvent of this.mapper.initialState(this.initialState)) yield stateEvent;
+      }
       for await (const event of events) {
         if (this.isAborted(signal)) {
+          yield this.mapper.step('finished', 'run');
           yield this.mapper.runError('已取消', 'CANCELLED');
           return;
         }
@@ -63,11 +77,14 @@ export class AgUiEventStream {
         for (const activity of this.mapper.activities(event)) yield activity;
       }
       if (this.isAborted(signal)) {
+        yield this.mapper.step('finished', 'run');
         yield this.mapper.runError('已取消', 'CANCELLED');
         return;
       }
+      yield this.mapper.step('finished', 'run');
       yield this.mapper.runFinished();
     } catch (error) {
+      yield this.mapper.step('finished', 'run');
       yield this.mapper.runError(
         error instanceof Error ? error.message : String(error),
         'RUN_ERROR',

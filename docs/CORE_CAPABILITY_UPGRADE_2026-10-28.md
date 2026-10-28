@@ -500,23 +500,24 @@ npx vitest run --project node tests/unit/contextShapers.test.ts \
 # 全部通过（逐文件计数见看板 §117）
 ```
 
-### 6.9 仍未处理项（诚实登记，不假装已解决）
+### 6.9 第三批闭环与仍剩余项（2026-10-29）
 
-| ID                       | 为什么本轮不做                                                                                                                                   | 前置 / 下一步                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| E2 推理签名回传          | Anthropic `signature_delta` / Gemini `thoughtSignature` 的**真实 wire 形状**需要真 provider 验证；只按记忆改会造出"看起来支持、实际 400"的假能力 | 用真 key 抓一次原始 SSE 帧 → 加字段 → mock 帧判据（4 人日）      |
-| E6 任务集扩容            | 40+ 任务需要逐个写 fixture/verifier/参考解，不能靠模板灌水；本轮只加了统计口径                                                                   | 按"多文件重构/调试/上下文密集/误导性错误"四类各 10 个（10 人日） |
-| E7 记忆探针搬生产端口    | 需要先把探针从 `FileLongTermMemory` 改为经 `MemoryStackAssembler` 注入；改动会牵动探针基线                                                       | 同事实集两端口对照 + 冻结新基线（2 人日）                        |
-| E9 ACP cursor 分页       | 能力声明已对 mcp http/sse、image/audio 显式 `false`；剩余只是 `session/list` 的 cursor 语义                                                      | 加 `nextCursor` + 分页判据（1–2 人日）                           |
-| E10 AG-UI STEP 事件      | 需要在 `aguiHttpServer` 的 run 生命周期里补发 `STEP_STARTED/FINISHED` 并处理 state 恢复                                                          | 先定事件时序契约，再补 e2e（3 人日）                             |
-| A2 MCP 工具纳入 planner  | 桥接工具在 planner 建索引之后注册；要重排组合根顺序并给 schema 加 token 预算                                                                     | 先在 `toolExposurePlanner` 加"后注册工具"入口（2 人日）          |
-| A5 workflow 隔离/回滚    | 需要 worktree 级隔离 + 步骤幂等键 + 超时/重试策略，属结构性改动                                                                                  | 先落 ADR，再按步骤隔离（5 人日）                                 |
-| A7 技能懒加载/信任分级   | 涉及 skill 注册表、注入路径与第三方来源策略，需产品决策                                                                                          | 先做"发现只读元数据"的兼容层（4 人日）                           |
-| A8 会话 fork / steering  | 会话树是持久化格式变更（事件日志/恢复/回滚都要跟着改），不能局部补                                                                               | 先定 fork 语义与存储布局（6–8 人日）                             |
-| A9 符号级召回指标        | 需要给探针加符号级 query 集与 oracle，属评测建设                                                                                                 | 与 E6 一起做（2 人日）                                           |
-| A10 记忆 GC / token 预算 | 需要定"删哪些、何时删"的保守策略；当前先保证不静默丢事实                                                                                         | 先做只读统计 + dry-run（3 人日）                                 |
-| S1 共振场默认档          | 必须先有 E7 的两端口 A/B 数据，不能凭印象翻默认                                                                                                  | E7 完成后按预注册规则裁决                                        |
-| S2/S3                    | 前端 49 个长函数与任务集扩容都是持续清偿项                                                                                                       | 按"改动即拆"与 E6 推进                                           |
+| ID                      | 状态                  | 证据 / 下一步                                                                                                                                                                                                                                        |
+| ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E7 记忆探针             | ✅ 已闭环             | 三个探针改走生产端口：`memoryLiftProbe` 经 `MemoryStackAssembler.buildMemoryPort`、`longMemEval` 同、`memorySpacingLift` 经 `ResonantFieldEngine`；新增 `--lens=resonant\|base`。实测：base **100%** hitRate@5、resonant **50%**（随机对照无区分力） |
+| E9 ACP cursor           | ✅ 已闭环             | `session/list` 支持 `nextCursor`（页大小 50），未知 cursor fail-closed；判据 `acp.test.ts` 14                                                                                                                                                        |
+| E10 AG-UI STEP/state    | ✅ 已闭环             | run 级 `STEP_STARTED/FINISHED` 成对（取消/错误也配对）；`input.state` 作为首个 `STATE_SNAPSHOT` 下发；判据 `agui.test.ts` 19 例                                                                                                                      |
+| A2 MCP 工具纳入 planner | ✅ 已闭环             | `ToolSearchTool` 按名字签名惰性重建索引（后注册工具可检索）；`ToolExposurePlanner.boundBySchemaBudget` 12k token 软预算，恒可见工具不被挤掉；判据 `toolExposureBudgetBound.test.ts` 3 例                                                             |
+| A10 记忆 GC / 预算      | ✅ 已闭环             | `FileLongTermMemoryOptions{maxFacts=2000, maxRecallTokens=4000}`：超限按「低重要度→更旧」淘汰并原子重写；召回按 token 截断；判据 `fileLongTermMemory.test.ts` 2 例                                                                                   |
+| S1 共振场默认档         | ✅ 已裁决             | 依 E7 两端口数据，`MemoryStackAssembler` 默认改为**裸文件记忆**（resonant 需显式 `enabled:true`）；判据 `memoryStackAssembler.test.ts` 两向                                                                                                          |
+| A8 会话 fork            | ✅ 已存在（审计误报） | `Agent`/CLI 早有 `--fork`（`forkId` → 新 sessionId + hydrate 源历史）；缺的只是**回合中 steering**                                                                                                                                                   |
+| E2 推理签名回传         | 未完成                | Anthropic `signature_delta` / Gemini `thoughtSignature` 的真实 wire 形状需真 provider 抓帧；不做"看起来支持、实际 400"的假实现                                                                                                                       |
+| E6/S3 任务集扩容        | 未完成                | 40+ 任务需逐个写 fixture/verifier/参考解；已加统计口径与 PR 级判据，任务集仍 20                                                                                                                                                                      |
+| A5 workflow 隔离/回滚   | 未完成                | 已有 resume + 运行锁 + 失败下游 blocked；缺 worktree 级隔离、步骤超时/重试与回滚，属结构性改动                                                                                                                                                       |
+| A7 技能懒加载/信任分级  | 未完成                | 发现仍索引全文；需两阶段发现（元数据→正文）与来源信任档                                                                                                                                                                                              |
+| A8 steering             | 未完成                | 回合进行中注入用户消息会打断 `assistant(tool_calls) ↔ tool` 配对，需单独设计                                                                                                                                                                         |
+| A9 符号级召回指标       | 未完成                | 探针只测文件级；需符号级 query 集与 oracle                                                                                                                                                                                                           |
+| S2 前端长函数           | 未完成                | 49 个函数 >80 行、2 文件 >810 行（冻结基线），按"改动即拆"持续清偿                                                                                                                                                                                   |
 
 ---
 

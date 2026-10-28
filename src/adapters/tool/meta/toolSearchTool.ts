@@ -46,7 +46,31 @@ export class ToolSearchTool {
   public constructor(
     private readonly index: ToolIndex,
     private readonly discovery: ToolDiscoveryPort,
+    /**
+     * 工具全集提供者（2026-10-29，A2）：MCP 桥接/插件热加载发生在索引构建之后，
+     * 没有这个缝，`tool_search` 永远搜不到后注册工具。每次调用按名字签名惰性重建。
+     */
+    private readonly toolsProvider?: (() => readonly ToolDefinition[]) | undefined,
   ) {}
+
+  /** 上次建索引时的工具名签名（惰性重建判据）。 */
+  private signature = '';
+
+  /**
+   * 若工具集变化则重建索引（名字升序签名；注册顺序变化也重建，保证可检索）。
+   * @returns 无返回值。
+   */
+  private refreshIndex(): void {
+    if (this.toolsProvider === undefined) return;
+    const tools = this.toolsProvider();
+    const signature = tools
+      .map((tool) => tool.name)
+      .sort()
+      .join('\u0000');
+    if (signature === this.signature) return;
+    this.index.reindex(tools);
+    this.signature = signature;
+  }
 
   /** 执行检索并登记命中 schema 供后续回合装载。
    * @param call 工具调用（实参含 query，可选 limit）。
@@ -62,6 +86,7 @@ export class ToolSearchTool {
       typeof call.arguments['limit'] === 'number'
         ? Math.max(1, Math.floor(call.arguments['limit'] as number))
         : DEFAULT_LIMIT;
+    this.refreshIndex();
     const hits = this.index.search(query, limit);
     this.discovery.add(hits);
     const payload = hits.map((tool) => ({

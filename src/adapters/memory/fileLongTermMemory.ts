@@ -27,6 +27,17 @@ import { log } from '../../util/logger.ts';
 
 /**
  * @beta
+ * 文件长期记忆的可选容量/预算（2026-10-29，A10）。
+ */
+export interface FileLongTermMemoryOptions {
+  /** 事实条数上限（默认 2000；≤0 表示不限制）。超限按「重要度低 → 更旧」淘汰并重写文件。 */
+  readonly maxFacts?: number | undefined;
+  /** 单次召回注入的 token 软预算（默认 4000；≤0 表示不限制，按 `字符数/4` 粗估）。 */
+  readonly maxRecallTokens?: number | undefined;
+}
+
+/**
+ * @beta
  * 文件持久化长期记忆（#S28）：JSONL 落盘于 `<workspace>/.omniharness/longterm/memory.jsonl`，
  * 无第三方依赖、Node 20、Windows 可用。进程重启后自动重载；召回复用无第三方依赖 BM25 内核。
  *
@@ -61,6 +72,10 @@ export class FileLongTermMemory implements LongTermMemoryPort {
    * 关闭时与旧行为逐位一致，且不写任何新字段。
    */
   private readonly spacing: boolean;
+  /** 事实条数上限（0 = 不限）。 */
+  private readonly maxFacts: number;
+  /** 单次召回 token 预算（0 = 不限）。 */
+  private readonly maxRecallTokens: number;
 
   /**
    * @param path JSONL 存储文件路径。
@@ -69,6 +84,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
    * @param clock 时钟函数（毫秒时间戳），测试可注入固定时钟，默认 Date.now。
    * @param untrustedPenalty 不可信来源事实的召回得分惩罚（0..1；默认 0.5，降低记忆投毒权重）。
    * @param temporalGraph 是否启用记忆时间图（P2-1，默认 true）；传 false 可完全回到纯 BM25 行为。
+   * @param options 容量与召回预算（缺省 maxFacts=2000、maxRecallTokens=4000）。
    */
   public constructor(
     private readonly path: string,
@@ -77,9 +93,12 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     private readonly clock: () => number = Date.now,
     private readonly untrustedPenalty: number = 0.5,
     temporalGraph: boolean = true,
+    options: FileLongTermMemoryOptions = {},
   ) {
     this.graph = temporalGraph ? new TemporalFactGraph() : undefined;
     this.spacing = process.env['OMNI_MEMORY_FORGETTING'] === '1';
+    this.maxFacts = Math.max(0, Math.floor(options.maxFacts ?? 2_000));
+    this.maxRecallTokens = Math.max(0, Math.floor(options.maxRecallTokens ?? 4_000));
     this.load();
   }
 
@@ -116,6 +135,7 @@ export class FileLongTermMemory implements LongTermMemoryPort {
     this.facts.push(fact);
     this.dirty = true;
     this.graph?.ingest(fact, this.clock());
+    this.enforceCapacity();
     try {
       mkdirSync(dirname(this.path), { recursive: true });
       appendFileSync(this.path, this.codec.encode(JSON.stringify(fact)) + '\n', 'utf8');
@@ -203,9 +223,52 @@ export class FileLongTermMemory implements LongTermMemoryPort {
           }),
         );
       }
-      return ranked;
+      return this.boundByTokens(ranked);
     }
-    return TimeDecay.rankWithDecay(items, nowMs, this.halfLifeDays, k, this.untrustedPenalty);
+    return this.boundByTokens(
+      TimeDecay.rankWithDecay(items, nowMs, this.halfLifeDays, k, this.untrustedPenalty),
+    );
+  }
+
+  /**
+   * 按条数上限淘汰（2026-10-29，A10）：先淘汰重要度低、再淘汰更旧的；保留项维持原插入序。
+   * 淘汰后原子重写文件，避免 JSONL 无限增长。
+   * @returns 无返回值。
+   */
+  private enforceCapacity(): void {
+    if (this.maxFacts <= 0 || this.facts.length <= this.maxFacts) return;
+    const overflow = this.facts.length - this.maxFacts;
+    const victims = [...this.facts]
+      .sort(
+        (a, b) =>
+          a.importance - b.importance ||
+          Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
+          (a.id < b.id ? -1 : 1),
+      )
+      .slice(0, overflow);
+    const remove = new Set(victims.map((fact) => fact.id));
+    this.facts = this.facts.filter((fact) => !remove.has(fact.id));
+    this.graph?.rebuild(this.facts, this.clock());
+    log.warn('memory.capacity.evicted', { removed: remove.size, maxFacts: this.maxFacts });
+    this.persistAll();
+  }
+
+  /**
+   * 按单次召回 token 预算截断（字符数/4 粗估；首条永不因预算被丢）。
+   * @param facts 已排序的召回结果。
+   * @returns 预算内的事实序列。
+   */
+  private boundByTokens(facts: readonly MemoryFact[]): MemoryFact[] {
+    if (this.maxRecallTokens <= 0) return [...facts];
+    const out: MemoryFact[] = [];
+    let used = 0;
+    for (const fact of facts) {
+      const cost = Math.ceil(fact.text.length / 4);
+      if (out.length > 0 && used + cost > this.maxRecallTokens) break;
+      out.push(fact);
+      used += cost;
+    }
+    return out;
   }
 
   /** 全部事实。

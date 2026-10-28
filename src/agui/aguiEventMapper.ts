@@ -11,6 +11,8 @@ import type {
   AgUiRunErrorEvent,
   AgUiRunFinishedEvent,
   AgUiRunStartedEvent,
+  AgUiStepFinishedEvent,
+  AgUiStepStartedEvent,
   AgUiTextMessageContentEvent,
   AgUiTextMessageEndEvent,
   AgUiTextMessageStartEvent,
@@ -102,6 +104,33 @@ export class AgUiEventMapper {
       timestamp: Date.now(),
       ...(code !== undefined ? { code } : {}),
     };
+  }
+
+  /**
+   * STEP 事件（2026-10-29：此前声明但不产生）。
+   *
+   * 本适配层把「一次 run」作为一个粗粒度 step（`stepName:'run'`），保证 STARTED/FINISHED
+   * 成对出现；更细的步边界需要会话事件带 step 标识，属后续演进。
+   * @param phase `started` 或 `finished`。
+   * @param stepName 步骤名（成对相同）。
+   * @returns 对应的 STEP_STARTED / STEP_FINISHED。
+   */
+  public step(
+    phase: 'started' | 'finished',
+    stepName = 'run',
+  ): AgUiStepStartedEvent | AgUiStepFinishedEvent {
+    return phase === 'started'
+      ? { type: 'STEP_STARTED', stepName, timestamp: Date.now() }
+      : { type: 'STEP_FINISHED', stepName, timestamp: Date.now() };
+  }
+
+  /**
+   * 初始状态事件（AG-UI 恢复语义）：把前端传入的 state 作为首个 STATE_SNAPSHOT 下发。
+   * @param state 前端传入的初始状态。
+   * @returns STATE_SNAPSHOT；空对象时为空数组。
+   */
+  public initialState(state: Readonly<Record<string, unknown>>): readonly AgUiEvent[] {
+    return this.stateMapper.replace(state);
   }
 
   /**

@@ -72,8 +72,12 @@ if (!Number.isInteger(QUERIES) || QUERIES < 5) {
 }
 
 let FileLongTermMemory;
+let ResonantFieldEngine;
 try {
   ({ FileLongTermMemory } = await importDist('adapters', 'memory', 'fileLongTermMemory.js'));
+  // 2026-10-29（E7）：生产端口是共振场封包；直接测裸 FileLongTermMemory 的 spacing
+  // 分支等于测一条线上不存在的路径。
+  ({ ResonantFieldEngine } = await importDist('adapters', 'memory', 'resonantFieldEngine.js'));
 } catch (error) {
   console.error(
     '✗ 缺少编译产物。请先运行 `npm run build`（本探针需要 dist/src/adapters/memory/**）。\n' +
@@ -169,7 +173,8 @@ function buildCorpus(rand, variant) {
  */
 function makeMemory(tag, corpus) {
   const path = join(mkdtempSync(join(tmpdir(), tag)), 'mem.jsonl');
-  const memory = new FileLongTermMemory(path, undefined, 90, () => corpus.now);
+  const base = new FileLongTermMemory(path, undefined, 90, () => corpus.now);
+  const memory = new ResonantFieldEngine(base, { clock: () => corpus.now, spacing: true });
   for (const fact of corpus.facts) {
     memory.remember({ ...fact });
   }

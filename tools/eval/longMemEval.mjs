@@ -3,7 +3,8 @@
  * LongMemEval-S 离线代理评测（`npm run eval:longmem -- --dataset cases.json`）。
  *
  * 输入：`{cases:[{id,question,answer,facts:[{text,trust?}]}]}` 或数组。
- * 用真实 `FileLongTermMemory` 召回 top-k，按答案文本命中算 recall@k / MRR。
+ * 用生产记忆端口（`MemoryStackAssembler.buildMemoryPort`，默认含共振场封包）召回 top-k，
+ * 按答案文本命中算 recall@k / MRR。2026-10-29（E7）：不再直连裸 `FileLongTermMemory`。
  * 这是本地检索代理，不是官方 LongMemEval-S 的模型判分复刻。
  */
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -13,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MODULE = join(ROOT, 'dist', 'src', 'eval', 'longMemEval.js');
-const MEMORY = join(ROOT, 'dist', 'src', 'adapters', 'memory', 'fileLongTermMemory.js');
+const MEMORY = join(ROOT, 'dist', 'src', 'config', 'memoryStackAssembler.js');
 
 function parseArgs(argv) {
   const out = { dataset: undefined, k: 5, trustedOnly: false, json: false };
@@ -47,12 +48,16 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const cases = loadCases(args.dataset);
   const { LongMemEval } = await import(pathToFileURL(MODULE).href);
-  const { FileLongTermMemory } = await import(pathToFileURL(MEMORY).href);
+  const { MemoryStackAssembler } = await import(pathToFileURL(MEMORY).href);
   const dir = mkdtempSync(join(tmpdir(), 'omni-longmem-'));
   const memories = new Map();
   try {
     for (const [index, testCase] of cases.entries()) {
-      const memory = new FileLongTermMemory(join(dir, `${String(index)}.jsonl`));
+      const stack = MemoryStackAssembler.buildMemoryPort({
+        workspaceRoot: dir,
+        longTermMemoryPath: join(dir, `${String(index)}.jsonl`),
+      });
+      const memory = stack.port;
       for (const [factIndex, fact] of (testCase.facts ?? []).entries()) {
         memory.remember({
           id: `${String(index)}-${String(factIndex)}`,

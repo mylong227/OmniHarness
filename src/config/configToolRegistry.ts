@@ -336,7 +336,7 @@ export class ConfigToolRegistry {
     registry.register(reviewer.definition, (call, ctx) => reviewer.handle(call, ctx));
     // #M1 工具语义检索：对全量工具建 BM25 索引，注册 tool_search；命中经 discovery 装载。
     const toolIndex = new ToolIndex(registry.list());
-    const searchTool = new ToolSearchTool(toolIndex, discovery);
+    const searchTool = new ToolSearchTool(toolIndex, discovery, () => registry.list());
     registry.register(searchTool.definition, (call, ctx) => searchTool.handle(call, ctx));
     // #M2 会话检索：memory_search 对会话历史事件做 BM25 检索（事件由记录器索引进 retrieval）。
     const memoryTool = new MemorySearchTool(retrieval);

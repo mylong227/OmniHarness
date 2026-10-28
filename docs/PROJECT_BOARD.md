@@ -5883,5 +5883,62 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   一版「容量」插在中间；详情 `role="dialog"`；Enter/Space 展开、Esc 收起。
 - **判据**：`capacityDock.test.ts` 2 例（6 根柱、点击展开/再点收起、`{}` 降级不崩）；`capacityLiveRefresh`
   的 hook 签名同步；`a11yAudit` / `chromeCleanup` 单跑通过。
+- **配额行排版（同轮第二轮，用户截图）**：窄浮层里「名称 / 条 / 百分比」挤一行会把条压到几十像素
+  （用户：「太短小无力」）⇒ 改为**两行**：名称 + 百分比在上、进度条独占下一行（全宽、10px 高）；
+  上下文分类行同样处理。浮层 `max-height` 随之放宽到 `min(70vh, 600px)`（超高才滚）。
 - **验证**：`web:test` **124 文件 / 642 例全绿**；`runGates` fast 10/10 全绿；真机双主题截图（收起/展开）目视。
   控制台「上下文」页保留为详情页（不重复入口）。
+
+## 120. 2026-10-28 容量入口收口：撤掉控制台「上下文」页，只留左栏小图表
+
+- **用户**：「控制台里「Agent 能力 → 上下文」的详情页仍保留……重复，保留左侧栏即可」。
+- **删掉第二入口**：`CapacityTab.tsx` 删除；`PanelRegistry` / `PanelScope` / `ConsoleRegistry` / `Router.VALID_PANES`
+  四处登记同步移除（`#pane=capacity` 不再是合法路由，回落默认面板）；`App.renderPane` 的 `case 'capacity'` 删除。
+- **连带清死代码**：`ContextUsageView.revisionOf()` 删除（它只服务详情页的"模型事件代数"）；
+  `useCapacityReport` 去掉 `revision` 参数，只保留 `active`（展开才开 5s 兜底）；小图表改用 `useCapacityReport(open)`。
+- **判据**：`capacityLiveRefresh.test.ts` 重写为 3 例（hook 依赖只放语义量 / 5s 只在 active 时建立 / 链路与
+  "输入区、控制台、路由都不得再有第二入口"）；`mount` 删掉容量页取数例（小图表已有 `capacityDock.test.ts` 2 例）；
+  控制台导航计数 25 → 24；`router` 移除 `capacity` 放行断言；`i18nCoverage` 绿。
+- **验证**：`web:test` **124 文件 / 640 例全绿**；`runGates` fast 10/10；真机 `consolePage` / `shellFooter` /
+  `a11yAudit` 通过；入口 `index-*.js` 855.6KB → **851.1KB**（少了一页与一个面板登记）。
+
+## 121. 2026-10-29 容量小图表视觉重做：音频柱 + 分段构成条 + 双列图例
+
+- **用户**：「重新设计简洁灵动美观，现在有点呆」。
+- **收起态（更轻、更有生命感）**：微标签 `上下文` + 六根**归一化**音频柱（最高的一类 = 100%，最低 18%，
+  柱高随分类占比变化并用 `height` 过渡；呼吸动画 2.4s，hover 提速到 1.1s）+ 占比（600 字重、等宽数字）+
+  小箭头（展开时旋转 180°）+ 一条 2px 进度线（贴按钮底缘，不再是独立的一条横杠）。
+- **展开态（少即是多）**：浮层入场 `translateY(6px)+scale(.98)` 160ms，两段内容错峰 45ms 上浮；
+  上下文不再堆六行进度条，改为**一条分段构成条 + 双列图例**（圆点 / 标签 / 百分比），大号 `已用/窗口`
+  与强调色百分比做标题；配额保留「名称+百分比在上、全宽 6px 条在下」，名称与数字降到 11.5px。
+- **同一块数据的三张脸**：音频柱、构成条、图例圆点共用**同一个 accent 不透明度阶梯**
+  （1 / .86 / .74 / .63 / .52 / .42），不引新色相；构成条段间用 1px 面板色分隔，低占比也看得见。
+- **判据**：`capacityDock.test.ts` 2 例（6 根柱、展开/收起、`{}` 降级）与 `a11yAudit`（两主题 0 serious）、
+  `a11yKeyboard` 全绿；`capacityLiveRefresh` 3 例（取数链路与"无第二入口"守卫）不变。
+- **验证**：`tsc -p web` 零错；`web:test` **124 文件 / 640 例全绿**；fast 门禁 10/10；真机双主题截图目视。
+
+## 122. 2026-10-29 能力调研第三批：探针生产端口 / ACP cursor / AG-UI STEP / MCP 工具发现 / 记忆预算 / 共振场降默认
+
+- **E7 探针搬生产端口**：`memoryLiftProbe` 与 `longMemEval` 改经
+  `MemoryStackAssembler.buildMemoryPort`，`memorySpacingLift` 改经 `ResonantFieldEngine`（生产封包）；
+  probe 新增 `--lens=resonant|base`。实测同事实集：**base 100% hitRate@5**（随机对照 37.5%，
+  ΔCI [20,80]pp、折负 0/40）vs **resonant 50%**（随机对照无区分力）⇒ 探针与线上路径终于同源。
+- **S1 共振场默认档（有数据裁决）**：`MemoryStackAssembler` 从「默认开」改为**默认裸文件记忆**，
+  `resonantField.enabled:true` 才封包；`memoryStackAssembler.test.ts` 两向判据。
+  这是减法：默认召回从 50% 回到 100%，且不再让 L0 实验承担生产路径。
+- **E9 ACP cursor**：`session/list` 支持 `nextCursor`（50/页），未知 cursor fail-closed；
+  `acp.test.ts` 14 补「小列表无 nextCursor / 未知 cursor -32602」。
+- **E10 AG-UI STEP/state**：run 级 `STEP_STARTED/FINISHED` 严格成对（取消/错误也先 FINISHED）；
+  `input.state` 非空时作为首个 `STATE_SNAPSHOT` 下发；`agui.test.ts` 19 例。
+- **A2 MCP 工具发现**：`ToolSearchTool` 接 `toolsProvider`，按名字签名惰性重建 `ToolIndex`
+  （后注册的 MCP/插件工具可被 `tool_search` 找到并登记）；`ToolExposurePlanner.boundBySchemaBudget`
+  给可见工具加 **12k token schema 软预算**，`tool_search`/`ask_user`/`spill_read` 恒不被挤掉。
+  判据 `toolExposureBudgetBound.test.ts` 3 例 + `toolExposureRetrieval` 8 例。
+- **A10 记忆容量/预算**：`FileLongTermMemoryOptions{maxFacts=2000, maxRecallTokens=4000}`；
+  超限按「低重要度→更旧」淘汰并原子重写 JSONL，召回按 token 截断；判据 `fileLongTermMemory.test.ts` 2 例。
+- **A8 fork 误报更正**：`Agent.fork` / CLI `--fork` 早已存在（`forkId` → 新 sessionId + hydrate
+  源历史）；审计的 `grep forkSession/branchSession` 没命中它。**steering（回合中注入）仍缺**。
+- **验证**：8 个受影响测试文件 **93 例**全绿；`tsc --noEmit` 零错；probe 实跑数据见
+  `CORE_CAPABILITY_UPGRADE_2026-10-28.md` §6.9。
+- **仍剩余**：E2 推理签名（需真 provider 抓帧）、E6/S3 任务集扩容、A5 workflow 隔离/超时/回滚、
+  A7 技能懒加载/信任、A8 steering、A9 符号级指标、S2 前端长函数。**不把未做写成已做**。

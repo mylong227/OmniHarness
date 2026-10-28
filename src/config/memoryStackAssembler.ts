@@ -46,10 +46,13 @@ export class MemoryStackAssembler {
             })
           : undefined,
       );
-    // 统一基板（U1，默认开启）：把长期记忆封包成单一 ResonantField 引擎，合并 燧-3 共振寻址
-    // 与宇宙网（Burgers 黏附去重 + RG 坍缩 + 纤维召回），消除双重频谱索引；同一实例同时喂给
-    // SparkController 的 resonance 与 web，保证 RG 坍缩与调谐在任务末真实运行。显式 enabled:false 才关。
-    if (partial.resonantField?.enabled !== false) {
+    // 统一基板（U1）**默认关、显式 `resonantField.enabled:true` 才开**（2026-10-29，S1）。
+    //
+    // 翻默认的依据：同事实集两端口探针（`memoryLiftProbe --lens=resonant|base`）实测
+    // resonant hitRate@5 **50%**（随机对照无区分力）vs base **100%**（CI [50,100]pp、
+    // 折负 0/40）；且引擎自评 L0「与词袋冗余、实测零增益」。默认开等于让线上召回退化，
+    // 故改为 opt-in；`sparkInput.resonance/web` 仅在显式开启时存在。
+    if (partial.resonantField?.enabled === true) {
       const field = new ResonantFieldEngine(port, {
         adhesionThreshold: partial.resonantField?.adhesionThreshold,
         bekensteinCap: partial.resonantField?.bekensteinCap,

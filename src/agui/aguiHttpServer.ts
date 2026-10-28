@@ -186,7 +186,17 @@ export class AgUiHttpServer {
     });
     res.flushHeaders();
     const messages = Array.isArray(input.messages) ? input.messages : undefined;
-    const stream = new AgUiEventStream({ threadId, runId, messages });
+    // 2026-10-29：input.state 此前被忽略；非空对象作为首个 STATE_SNAPSHOT 下发（恢复语义）。
+    const initialState =
+      typeof input.state === 'object' && input.state !== null && !Array.isArray(input.state)
+        ? (input.state as Readonly<Record<string, unknown>>)
+        : undefined;
+    const stream = new AgUiEventStream({
+      threadId,
+      runId,
+      messages,
+      ...(initialState !== undefined ? { initialState } : {}),
+    });
     try {
       const events = this.run(input, controller.signal);
       for await (const event of stream.run(events, controller.signal)) {

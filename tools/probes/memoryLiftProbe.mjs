@@ -54,12 +54,14 @@ const importDist = (...segments) =>
   import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
 
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
-const a = probeArgs({ values: { k: '5', json: '' } });
+const a = probeArgs({ values: { k: '5', json: '', lens: 'base' } });
 
-let FileLongTermMemory;
+let MemoryStackAssembler;
 let TokenEstimator;
 try {
-  ({ FileLongTermMemory } = await importDist('adapters', 'memory', 'fileLongTermMemory.js'));
+  // 2026-10-29（E7）：探针必须走**生产端口**（组合根默认会给 FileLongTermMemory 封一层
+  // ResonantFieldEngine）。此前直连裸 FileLongTermMemory，读数与线上路径无关。
+  ({ MemoryStackAssembler } = await importDist('config', 'memoryStackAssembler.js'));
   ({ TokenEstimator } = await importDist('context', 'tokenEstimator.js'));
 } catch (error) {
   console.error(
@@ -71,6 +73,11 @@ try {
 
 const K = Number(a.k);
 const JSON_OUT = String(a.json);
+const LENS = String(a.lens);
+if (LENS !== 'resonant' && LENS !== 'base') {
+  console.error('✗ --lens 只能是 resonant（生产默认封包）或 base（裸 FileLongTermMemory）');
+  process.exit(2);
+}
 if (!Number.isInteger(K) || K <= 0) {
   console.error('✗ --k 必须是正整数（例：--k=5）');
   process.exit(2);
@@ -104,9 +111,16 @@ const QUERIES = [
  * 造记忆库（临时目录，跑完删除）。
  * @returns {{memory: object, cleanup: () => void}} 记忆端口与清理函数。
  */
-function buildStore() {
+function buildStore(lens = 'resonant') {
   const dir = mkdtempSync(join(tmpdir(), 'omni-memory-probe-'));
-  const memory = new FileLongTermMemory(join(dir, 'memory.jsonl'));
+  // 生产装配：与 `MemoryStackAssembler.assembleMemoryStack` 走同一个 buildMemoryPort。
+  const stack = MemoryStackAssembler.buildMemoryPort({
+    workspaceRoot: dir,
+    longTermMemoryPath: join(dir, 'memory.jsonl'),
+    // S1（2026-10-29）：同事实集两端口对照——resonant 是生产默认，base 是裸存储。
+    resonantField: { enabled: LENS !== 'base' },
+  });
+  const memory = stack.port;
   for (const [i, fact] of FACTS.entries()) {
     memory.remember({
       id: `f${String(i)}`,
@@ -218,7 +232,7 @@ function folds(delta) {
   return { neg: out.filter((x) => x < -1e-9).length, total: out.length };
 }
 
-const { memory, cleanup } = buildStore();
+const { memory, cleanup } = buildStore(LENS);
 try {
   const off = measure(memory, 'off');
   const on = measure(memory, 'on');
@@ -237,6 +251,7 @@ try {
 
   const report = {
     probe: 'memoryLiftProbe',
+    lens: LENS,
     caliber: '机制级（注入覆盖率 / 相关性 hitRate@5 / 代价）；**不是** LLM 任务增益，见文件头',
     budget: PRIMER_BUDGET,
     facts: FACTS.length,

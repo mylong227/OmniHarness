@@ -68,6 +68,8 @@ test('2) 事件流顺序：RUN_STARTED → 映射事件 → RUN_FINISHED（含 f
   };
   const out = await drain(stream.run(events()));
   assert.strictEqual(out[0]?.type, 'RUN_STARTED');
+  assert.strictEqual(out[1]?.type, 'STEP_STARTED', 'run 开始后必须发 STEP_STARTED（2026-10-29）');
+  assert.strictEqual(out.at(-2)?.type, 'STEP_FINISHED', '结束前必须发 STEP_FINISHED');
   assert.strictEqual(out.at(-1)?.type, 'RUN_FINISHED');
   const result = (out.at(-1) as { result?: { finalText?: string; steps?: number } }).result;
   assert.strictEqual(result?.finalText, '第一段');
@@ -134,9 +136,11 @@ test('5) HTTP/SSE 端点：POST /agui 按序回写事件并以 RUN_FINISHED 收�
       .map((line) => JSON.parse(line.slice('data: '.length)) as AgUiEvent);
     assert.deepStrictEqual(events.map(typeOf), [
       'RUN_STARTED',
+      'STEP_STARTED',
       'TEXT_MESSAGE_START',
       'TEXT_MESSAGE_CONTENT',
       'TEXT_MESSAGE_END',
+      'STEP_FINISHED',
       'RUN_FINISHED',
     ]);
   } finally {
@@ -260,13 +264,15 @@ test('12) MESSAGES_SNAPSHOT：run 开始时先于映射事件发送；无历史�
   const out = await drain(stream.run(events()));
   assert.deepStrictEqual(out.map(typeOf), [
     'RUN_STARTED',
+    'STEP_STARTED',
     'MESSAGES_SNAPSHOT',
     'TEXT_MESSAGE_START',
     'TEXT_MESSAGE_CONTENT',
     'TEXT_MESSAGE_END',
+    'STEP_FINISHED',
     'RUN_FINISHED',
   ]);
-  assert.deepStrictEqual((out[1] as { messages?: readonly unknown[] }).messages, messages);
+  assert.deepStrictEqual((out[2] as { messages?: readonly unknown[] }).messages, messages);
 
   const emptyStream = new AgUiEventStream({ threadId: 't12b', runId: 'r12b' });
   const emptyEvents = async function* (): AsyncIterable<SessionEvent> {
@@ -274,6 +280,22 @@ test('12) MESSAGES_SNAPSHOT：run 开始时先于映射事件发送；无历史�
   };
   const withoutSnapshot = await drain(emptyStream.run(emptyEvents()));
   assert.ok(!withoutSnapshot.some((event) => event.type === 'MESSAGES_SNAPSHOT'));
+});
+
+test('12b) 输入 state 不再被忽略：run 开始发 STATE_SNAPSHOT（2026-10-29）', async () => {
+  const stream = new AgUiEventStream({
+    threadId: 't12s',
+    runId: 'r12s',
+    initialState: { counter: 3 },
+  });
+  const events = async function* (): AsyncIterable<SessionEvent> {
+    yield eventFactory.assistant('s', 'ok');
+  };
+  const out = await drain(stream.run(events()));
+  const snapshot = out.find((event) => event.type === 'STATE_SNAPSHOT') as
+    { snapshot?: Record<string, unknown> } | undefined;
+  assert.ok(snapshot !== undefined, '非空输入 state 必须下发快照');
+  assert.deepStrictEqual(snapshot.snapshot, { counter: 3 });
 });
 
 test('13) 取消：快照与活动开始之后取消，不再映射后续结果', async () => {
@@ -290,7 +312,8 @@ test('13) 取消：快照与活动开始之后取消，不再映射后续结果'
   };
   const out = await drain(stream.run(events(), controller.signal));
   assert.strictEqual(out[0]?.type, 'RUN_STARTED');
-  assert.strictEqual(out[1]?.type, 'MESSAGES_SNAPSHOT');
+  assert.strictEqual(out[1]?.type, 'STEP_STARTED');
+  assert.strictEqual(out[2]?.type, 'MESSAGES_SNAPSHOT');
   assert.ok(out.some((event) => event.type === 'ACTIVITY_SNAPSHOT'));
   const last = out.at(-1) as { type?: string; code?: string };
   assert.strictEqual(last.type, 'RUN_ERROR');
@@ -325,7 +348,11 @@ test('14) HTTP/SSE：非空 messages 发 MESSAGES_SNAPSHOT，工具活动随流�
       .split('\n')
       .filter((line) => line.startsWith('data: '))
       .map((line) => JSON.parse(line.slice('data: '.length)) as AgUiEvent);
-    assert.deepStrictEqual(events.map(typeOf).slice(0, 2), ['RUN_STARTED', 'MESSAGES_SNAPSHOT']);
+    assert.deepStrictEqual(events.map(typeOf).slice(0, 3), [
+      'RUN_STARTED',
+      'STEP_STARTED',
+      'MESSAGES_SNAPSHOT',
+    ]);
     assert.ok(events.some((event) => event.type === 'ACTIVITY_SNAPSHOT'));
     assert.ok(events.some((event) => event.type === 'ACTIVITY_DELTA'));
     assert.strictEqual(events.at(-1)?.type, 'RUN_FINISHED');

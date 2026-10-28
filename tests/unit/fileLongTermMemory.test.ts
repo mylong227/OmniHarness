@@ -377,4 +377,42 @@ describe('FileLongTermMemory × 记忆时间图（P2-1，生产默认开启）',
     assert.strictEqual(report.after, 1);
     assert.strictEqual(report.active, 1);
   });
+
+  it('容量上限：超限淘汰低重要度/更旧，并原子重写文件（2026-10-29 A10）', () => {
+    const file = tmpFile('cap.jsonl');
+    const m = new FileLongTermMemory(
+      file,
+      { encode: (t) => t, decode: (t) => t },
+      90,
+      Date.now,
+      0.5,
+      true,
+      {
+        maxFacts: 2,
+      },
+    );
+    m.remember(fact({ id: 'low', importance: 1, text: 'low importance fact' }));
+    m.remember(fact({ id: 'high', importance: 5, text: 'high importance fact' }));
+    m.remember(fact({ id: 'new', importance: 4, text: 'new important fact' }));
+    assert.strictEqual(m.count, 2, '超限必须淘汰到上限');
+    assert.strictEqual(m.get('low'), undefined, '低重要度先被淘汰');
+    const raw = readFileSync(file, 'utf8');
+    assert.ok(!raw.includes('low importance fact'), '淘汰后文件必须同步重写');
+  });
+
+  it('召回 token 预算：超预算只保留首条（2026-10-29 A10）', () => {
+    const m = new FileLongTermMemory(
+      tmpFile('recall-budget.jsonl'),
+      { encode: (t) => t, decode: (t) => t },
+      90,
+      Date.now,
+      0.5,
+      true,
+      { maxRecallTokens: 40 },
+    );
+    m.remember(fact({ id: 'a', text: '记忆 '.repeat(30), importance: 5 }));
+    m.remember(fact({ id: 'b', text: '记忆 '.repeat(30), importance: 5 }));
+    const hits = m.recall('记忆', 5);
+    assert.strictEqual(hits.length, 1, '每条约 23 token，预算 40 只能装下一条');
+  });
 });

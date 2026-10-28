@@ -637,6 +637,14 @@ test('14) session/list：返回 sessionId/cwd/标题/时间，支持 cwd 过滤�
   assert.deepStrictEqual(recordResultOf(filtered)['sessions'], []);
   const invalid = await harness.client.request('session/list', { cwd: 'relative/path' });
   assert.strictEqual(errorCodeOf(invalid), -32602);
+  // 2026-10-29：cursor 分页语义——小列表无 nextCursor；未知 cursor fail-closed。
+  assert.strictEqual(
+    recordResultOf(response)['nextCursor'],
+    undefined,
+    '不足一页时不应给 nextCursor',
+  );
+  const badCursor = await harness.client.request('session/list', { cursor: 'does-not-exist' });
+  assert.strictEqual(errorCodeOf(badCursor), -32602, '未知 cursor 必须拒绝，不得静默回第一页');
 });
 
 test('15) session/resume：活跃会话复用 sessionId 继续 prompt（不重建运行时）', async () => {

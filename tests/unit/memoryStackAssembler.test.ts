@@ -69,9 +69,21 @@ function withWorkspace<T>(fn: (root: string) => T): T {
   }
 }
 
-test('MemoryStackAssembler：缺省开统一基板——长期记忆/宇宙网/共振三态同一实例', () => {
+test('MemoryStackAssembler：缺省走基础文件存储（共振场已改为 opt-in，2026-10-29 S1）', () => {
   withWorkspace((root) => {
     const { stack, sparkInput } = MemoryStackAssembler.assembleMemoryStack(base(root), undefined);
+    assert.strictEqual(stack.longTermMemory.name, 'file-longterm');
+    assert.strictEqual(stack.web, undefined);
+    assert.strictEqual(sparkInput.resonance, undefined);
+  });
+});
+
+test('MemoryStackAssembler：显式开统一基板——三态同一实例', () => {
+  withWorkspace((root) => {
+    const { stack, sparkInput } = MemoryStackAssembler.assembleMemoryStack(
+      base(root, { resonantField: { enabled: true } }),
+      undefined,
+    );
     assert.strictEqual(stack.longTermMemory.name, 'resonant-field');
     // 单一状态源：RG 坍缩与调谐必须作用在同一实例上，否则双重频谱索引会各自漂移。
     assert.strictEqual(stack.web, stack.longTermMemory);

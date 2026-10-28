@@ -108,7 +108,30 @@ export class AcpSessionLifecycle {
     this.auth.require();
     const record = AcpValidation.recordOf(params);
     const cwd = AcpValidation.optionalAbsoluteCwd(record);
-    return { sessions: this.registry.list(cwd) };
+    const all = this.registry.list(cwd);
+    // 2026-10-29：cursor 分页（ACP 规范允许 cursor；此前接受却忽略，客户端无法翻页）。
+    // 游标语义 = 上一页最后一条 sessionId；未知游标 fail-closed，不静默回第一页（会让客户端死循环）。
+    const cursor = typeof record['cursor'] === 'string' ? record['cursor'] : undefined;
+    let start = 0;
+    if (cursor !== undefined && cursor !== '') {
+      const index = all.findIndex((session) => session.sessionId === cursor);
+      if (index < 0) {
+        throw new AcpRequestError(
+          `session/list cursor 不存在: ${cursor}`,
+          ACP_ERROR_INVALID_PARAMS,
+        );
+      }
+      start = index + 1;
+    }
+    const pageSize = 50;
+    const page = all.slice(start, start + pageSize);
+    const last = page[page.length - 1];
+    const nextCursor =
+      start + pageSize < all.length && last !== undefined ? last.sessionId : undefined;
+    return {
+      sessions: page,
+      ...(nextCursor !== undefined ? { nextCursor } : {}),
+    };
   }
 
   /**

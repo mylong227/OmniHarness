@@ -492,6 +492,42 @@ export class ToolExposurePlanner {
     };
   }
 
+  /**
+   * 按 **schema token 预算**二次收窄可见集（2026-10-29，A2）。
+   *
+   * 为什么需要：类别/BM25 只回答「相关不相关」，不回答「装不装得下」。MCP 桥接与插件热加载
+   * 会让工具总数无上限增长，若不设 schema 预算，规划器的收益会被"后注册工具恒可见"直接抵消。
+   * 估算用 `字符数/4`（与 token 记账同口径的粗估）；恒可见工具（tool_search/ask_user/spill_read）
+   * 永不被预算挤掉，否则模型连"怎么找回"都不知道。
+   * @param tools 已按相关性筛过的工具（顺序即优先级）。
+   * @param budgetTokens schema 软预算（token；≤0 表示不限制）。
+   * @param alwaysVisible 恒可见工具名（缺省取 {@link ToolExposurePlanner.DEFAULT_ALWAYS_VISIBLE}）。
+   * @returns 预算内可见集与被预算挤出的延迟集。
+   */
+  public static boundBySchemaBudget<T extends { readonly name: string }>(
+    tools: readonly T[],
+    budgetTokens: number,
+    alwaysVisible: readonly string[] = ToolExposurePlanner.DEFAULT_ALWAYS_VISIBLE,
+  ): { readonly visible: readonly T[]; readonly deferred: readonly T[] } {
+    if (budgetTokens <= 0) return { visible: tools, deferred: [] };
+    const always = new Set(alwaysVisible);
+    const visible: T[] = [];
+    const deferred: T[] = [];
+    let used = 0;
+    for (const tool of tools) {
+      const record = tool as T & { description?: string; parameters?: unknown };
+      const text = `${tool.name} ${record.description ?? ''} ${JSON.stringify(record.parameters ?? {})}`;
+      const cost = Math.ceil(text.length / 4);
+      if (!always.has(tool.name) && visible.length > 0 && used + cost > budgetTokens) {
+        deferred.push(tool);
+        continue;
+      }
+      visible.push(tool);
+      used += cost;
+    }
+    return { visible, deferred };
+  }
+
   /** BM25 检索缺省保留名额。 */
   private static readonly DEFAULT_RETRIEVAL_TOP_K = 8;
 

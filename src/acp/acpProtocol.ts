@@ -318,6 +318,8 @@ export interface AcpListSessionsRequest {
 export interface AcpListSessionsResponse {
   /** 会话元数据（按最近活动时间倒序）。 */
   readonly sessions: readonly AcpSessionInfo[];
+  /** 下一页游标（等于本页最后一条 sessionId；无更多页时缺省）。 */
+  readonly nextCursor?: string | undefined;
 }
 
 /** session/prompt 请求。 */
