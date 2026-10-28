@@ -2,7 +2,7 @@
  * 长任务评测契约判据（P0-2，2026-10-24）。
  *
  * 覆盖：任务清单校验 / pass@k 与 pass^k 口径（复用 AbMetrics）/ 无 key 显式 skip /
- * 隔离临时 git 仓库 / transcript 路径 / 验证失败与超时 / 参考解自检（20 个 fixture 真能跑通）。
+ * 隔离临时 git 仓库 / transcript 路径 / 验证失败与超时 / 参考解自检（22 个 fixture 真能跑通）。
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
@@ -86,10 +86,10 @@ test('任务清单：合法通过、缺验收/越界路径/非法时长逐条拒
   );
 });
 
-test('仓库内 20 个任务可加载，且 fixture / verifier / 参考解齐全', () => {
+test('仓库内 22 个任务可加载，且 fixture / verifier / 参考解齐全', () => {
   const specs = LongTaskCatalog.load(TASKS_DIR);
-  assert.strictEqual(specs.length, 20);
-  assert.strictEqual(new Set(specs.map((spec) => spec.id)).size, 20, '任务 id 必须唯一');
+  assert.strictEqual(specs.length, 22);
+  assert.strictEqual(new Set(specs.map((spec) => spec.id)).size, 22, '任务 id 必须唯一');
   for (const spec of specs) {
     assert.ok(existsSync(join(TASKS_DIR, 'fixtures', spec.repo, 'src', 'index.js')), spec.id);
     assert.ok(existsSync(join(TASKS_DIR, 'verifiers', `${spec.id}.mjs`)), spec.id);
@@ -276,7 +276,7 @@ test('token 读取：只累加 model usage，坏行跳过', () => {
   assert.strictEqual(LongTaskSessionUsage.read('/nonexistent', 'sess'), 0);
 });
 
-test('自检：20 个参考解全部通过各自验证器（任务本身可解）', async () => {
+test('自检：22 个参考解全部通过各自验证器（任务本身可解）', async () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-longtask-selfcheck-'));
   try {
     const report = await LongTaskSelfCheck.run({
@@ -285,7 +285,7 @@ test('自检：20 个参考解全部通过各自验证器（任务本身可解�
       rootDir: root,
     });
     assert.strictEqual(report.failed, 0, JSON.stringify(report.items.filter((item) => !item.ok)));
-    assert.strictEqual(report.passed, 20);
+    assert.strictEqual(report.passed, 22);
     assert.strictEqual(report.ok, true);
   } finally {
     rmSync(root, { recursive: true, force: true });
