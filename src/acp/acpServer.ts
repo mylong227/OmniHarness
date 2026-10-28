@@ -104,6 +104,10 @@ export class AcpServer {
   private readonly lifecycle: AcpSessionLifecycle;
   /** 在途的 Client 请求（权限请求 id → 结果）。 */
   private readonly pending = new PendingRequests<number, AcpPermissionOutcome>();
+  /** `run()` 的唤醒回调（`finish()` 兑现一次）。 */
+  private finishRun: (() => void) | undefined;
+  /** `run()` 的等待 Promise（重复 run 复用同一份，避免重复注册 onClose）。 */
+  private runPromise: Promise<void> | undefined;
   /** 会话级可变状态（能力/请求 id/关闭位合并，避免字段数膨胀）。 */
   private readonly state: {
     clientCapabilities: Record<string, unknown>;
@@ -146,20 +150,22 @@ export class AcpServer {
 
   /**
    * 启动服务并等待传输关闭（stdio EOF / 进程断开）。
-   * @returns 传输关闭时 resolve。
+   *
+   * **不悬挂**（审计 #12）：传输没有 `onClose` 时（内存替身 / 自定义传输）不再让
+   * Promise 永远悬着——`close()` 会兑现同一份收尾。run 之后再 close、或 close 之后
+   * 再 run 都立即返回（收尾只做一次）。
+   * @returns 传输关闭或 `close()` 时 resolve。
    */
   public async run(): Promise<void> {
     this.deps.transport.onMessage((message) => void this.onMessage(message));
-    await new Promise<void>((resolve) => {
-      const finish = (): void => {
-        this.state.closed = true;
-        this.pending.settleAll({ outcome: 'cancelled' });
-        this.registry.shutdown((ids) => this.settlePermissions(ids));
-        resolve();
-      };
-      if (this.deps.transport.onClose === undefined) return;
-      this.deps.transport.onClose(finish);
-    });
+    if (this.state.closed) return;
+    if (this.runPromise === undefined) {
+      this.runPromise = new Promise<void>((resolve) => {
+        this.finishRun = resolve;
+      });
+      this.deps.transport.onClose?.(() => this.finish());
+    }
+    await this.runPromise;
   }
 
   /**
@@ -167,10 +173,21 @@ export class AcpServer {
    * @returns 无返回值。
    */
   public close(): void {
+    this.finish();
+    this.deps.transport.close?.();
+  }
+
+  /**
+   * 收尾一次（关闭位 / 挂起权限请求 / 活跃会话 / 唤醒 run()）；重复调用无副作用。
+   * @returns 无返回值。
+   */
+  private finish(): void {
+    const resolve = this.finishRun;
+    this.finishRun = undefined;
     this.state.closed = true;
     this.pending.settleAll({ outcome: 'cancelled' });
     this.registry.shutdown((ids) => this.settlePermissions(ids));
-    this.deps.transport.close?.();
+    resolve?.();
   }
 
   /**
@@ -335,6 +352,7 @@ export class AcpServer {
       cancelRequested: false,
       busy: false,
       updatedAt: new Date().toISOString(),
+      alwaysDecisions: new Map<string, ApprovalDecision>(),
       ...(identity !== undefined ? { identity } : {}),
     };
     this.registry.add(state);
@@ -386,6 +404,9 @@ export class AcpServer {
 
   /**
    * 向 Client 发 session/request_permission 并等待选择（超时/取消一律按拒绝）。
+   *
+   * `allow-always` / `reject-always` 会写入**会话级**记忆（按工具名）：本轮之后同一工具
+   * 不再弹窗（ACP 语义要求；此前四个选项都只对当次生效，审计 #12）。
    * @param sessionId 会话 id。
    * @param request 审批请求（工具名 + 目标）。
    * @returns allow / deny。
@@ -394,6 +415,9 @@ export class AcpServer {
     sessionId: string,
     request: ApprovalRequest,
   ): Promise<ApprovalDecision> {
+    const state = this.registry.get(sessionId);
+    const remembered = state?.alwaysDecisions.get(request.toolName);
+    if (remembered !== undefined) return remembered;
     const id = this.state.nextRequestId++;
     const permission: AcpPermissionRequest = {
       sessionId,
@@ -429,7 +453,11 @@ export class AcpServer {
       );
     });
     this.registry.removePermissionId(sessionId, id);
-    return AcpValidation.decisionOf(outcome);
+    const decision = AcpValidation.decisionOf(outcome);
+    if (state !== undefined && AcpValidation.isAlwaysOption(outcome)) {
+      state.alwaysDecisions.set(request.toolName, decision);
+    }
+    return decision;
   }
 
   /**

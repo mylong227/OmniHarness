@@ -202,6 +202,8 @@ class Harness {
   public lastOptions: AcpSessionOptions | undefined;
   public readonly sessions: FakeAcpSession[] = [];
   public factoryCalls = 0;
+  /** `run()` 的 Promise（close 后必须 resolve；测试据此验证不悬挂）。 */
+  public readonly running: Promise<void>;
 
   public constructor(
     behavior: FakeBehavior,
@@ -227,7 +229,7 @@ class Harness {
       ...(options.requireAuth !== undefined ? { requireAuth: options.requireAuth } : {}),
     });
     // 传输监听在 run() 里注册；测试不等待进程关闭，但必须启动监听。
-    void this.server.run();
+    this.running = this.server.run();
   }
 
   public async newSession(cwd: string): Promise<string> {
@@ -802,4 +804,72 @@ test('23) session/close：挂起的权限请求按 cancelled 收尾，回合不�
   assert.strictEqual(recordResultOf(response)['stopReason'], 'cancelled');
   assert.strictEqual(harness.session?.decision, 'deny');
   assert.ok(request.id > 0);
+});
+
+test('24) allow-always：选中「总是允许」后同一工具不再弹窗（会话级记忆）', async () => {
+  const harness = new Harness({
+    permission: { toolName: 'write_file', target: 'src/always.ts' },
+  });
+  const sessionId = await harness.newSession(tempDir());
+  const first = harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '第一次写' }],
+  });
+  const request = await waitFor(
+    () => harness.client.permissionRequests,
+    () => true,
+  );
+  harness.client.respondPermission(request.id, 'allow-always');
+  const firstResponse = await first;
+  assert.strictEqual(recordResultOf(firstResponse)['stopReason'], 'end_turn');
+  assert.strictEqual(harness.session?.decision, 'allow');
+  assert.strictEqual(harness.client.permissionRequests.length, 1);
+  // 第二轮同工具：不应再发 session/request_permission（此前会再问一次 = 审计 #12）。
+  const secondResponse = await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '第二次写' }],
+  });
+  assert.strictEqual(harness.client.permissionRequests.length, 1);
+  assert.strictEqual(recordResultOf(secondResponse)['stopReason'], 'end_turn');
+  assert.strictEqual(harness.session?.decision, 'allow');
+});
+
+test('25) reject-always：选中「总是拒绝」后同一工具直接拒绝，且不创建新订阅', async () => {
+  const harness = new Harness({
+    permission: { toolName: 'write_file', target: 'src/never.ts' },
+  });
+  const sessionId = await harness.newSession(tempDir());
+  const first = harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '第一次写' }],
+  });
+  const request = await waitFor(
+    () => harness.client.permissionRequests,
+    () => true,
+  );
+  harness.client.respondPermission(request.id, 'reject-always');
+  await first;
+  assert.strictEqual(harness.session?.decision, 'deny');
+  await harness.client.request('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: '第二次写' }],
+  });
+  assert.strictEqual(harness.client.permissionRequests.length, 1, '总是拒绝后应直接拒绝');
+  assert.strictEqual(harness.session?.decision, 'deny');
+});
+
+test('26) run()/close()：无 onClose 的传输不再悬挂，close 兑现 run 且幂等', async () => {
+  const harness = new Harness({});
+  let settled = false;
+  const running = harness.running.then(() => {
+    settled = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.strictEqual(settled, false, '传输未关闭前 run() 不应提前返回');
+  harness.server.close();
+  await running;
+  assert.strictEqual(settled, true, 'close() 必须唤醒挂起的 run()');
+  // 幂等：再次 close 与 close 之后再 run 都立即返回（不重复收尾、不悬挂）。
+  harness.server.close();
+  await harness.server.run();
 });

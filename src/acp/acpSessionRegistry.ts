@@ -1,3 +1,4 @@
+import type { ApprovalDecision } from '../ports/runtime/approval.ts';
 import { AcpEventMapper } from './acpEventMapper.ts';
 import { ACP_ERROR_INVALID_PARAMS } from './acpProtocol.ts';
 import type { AcpAuthIdentity, AcpSessionInfo } from './acpProtocol.ts';
@@ -25,6 +26,14 @@ export interface AcpSessionState {
   title?: string | undefined;
   /** 最近活动时间（ISO 8601）。 */
   updatedAt: string;
+  /**
+   * 会话级「总是允许 / 总是拒绝」记忆（工具名 → 决策）。
+   *
+   * ACP 的 `allow_always` / `reject_always` 语义是「本会话内不再问」——此前服务端
+   * 把四个选项都当一次性结果，选了「总是允许」下一轮同工具仍然弹窗（审计 #12）。
+   * 记忆随会话对象一起销毁（close / 连接断开），不落盘、不跨会话。
+   */
+  readonly alwaysDecisions: Map<string, ApprovalDecision>;
   /** 认证成功后的身份（logout / 重新 authenticate 时更新）。 */
   identity?: AcpAuthIdentity | undefined;
 }

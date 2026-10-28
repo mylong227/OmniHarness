@@ -118,6 +118,18 @@ export class AcpValidation {
   }
 
   /**
+   * 权限结果是否落在「总是允许 / 总是拒绝」选项上（决定是否写入会话级记忆）。
+   * @param outcome 权限结果。
+   * @returns 命中 always 选项为 true。
+   */
+  public static isAlwaysOption(outcome: AcpPermissionOutcome): boolean {
+    return (
+      outcome.outcome === 'selected' &&
+      (outcome.optionId === 'allow-always' || outcome.optionId === 'reject-always')
+    );
+  }
+
+  /**
    * 归一为普通对象（非对象/数组返回空对象）。
    * @param value 待判值。
    * @returns 普通对象。
