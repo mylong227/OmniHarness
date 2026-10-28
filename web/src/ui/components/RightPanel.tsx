@@ -63,6 +63,93 @@ function tabIdOf(file: FileView, index: number): string {
 }
 
 /**
+ * 单个文件标签。
+ * @param props 文件、下标、选中态与回调。
+ * @returns 标签节点。
+ */
+function FileTab(props: {
+  file: FileView;
+  index: number;
+  active: boolean;
+  onShow: (title: string) => void;
+  onClose: (title: string) => void;
+  onKey: (e: React.KeyboardEvent, index: number) => void;
+}): ReactElement {
+  const { file, index, active, onShow, onClose, onKey } = props;
+  return (
+    <div
+      id={tabIdOf(file, index)}
+      className={'tab' + (active ? ' active' : '') + ' closable'}
+      role="tab"
+      aria-selected={active ? 'true' : 'false'}
+      aria-controls={PANE_ID}
+      aria-keyshortcuts="Delete"
+      title={file.title}
+      tabIndex={active ? 0 : -1}
+      onClick={() => onShow(file.title)}
+      onKeyDown={(e: React.KeyboardEvent) => onKey(e, index)}
+    >
+      <span className="tab-label">{file.title.split(/[\\/]/).pop() ?? file.title}</span>
+      <span
+        className="tab-x"
+        aria-hidden="true"
+        title={t('关闭 {name}', { name: file.title })}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          onClose(file.title);
+        }}
+      >
+        ×
+      </span>
+    </div>
+  );
+}
+
+/**
+ * 网页标签（与文件标签同属一个 tablist）。
+ * @param props 标题、选中态与回调。
+ * @returns 标签节点。
+ */
+function WebTab(props: {
+  title: string;
+  active: boolean;
+  onShow: () => void;
+  onClose: () => void;
+  onKey: (e: React.KeyboardEvent, index: number) => void;
+  index: number;
+}): ReactElement {
+  return (
+    <div
+      id={WEB_TAB_ID}
+      className={'tab' + (props.active ? ' active' : '') + ' closable'}
+      role="tab"
+      aria-selected={props.active ? 'true' : 'false'}
+      aria-controls={PANE_ID}
+      aria-keyshortcuts="Delete"
+      title={props.title}
+      tabIndex={props.active ? 0 : -1}
+      onClick={props.onShow}
+      onKeyDown={(e: React.KeyboardEvent) => props.onKey(e, props.index)}
+    >
+      <span className="tab-label">
+        {icon('globe', { size: 12 })} {t('网页')}
+      </span>
+      <span
+        className="tab-x"
+        aria-hidden="true"
+        title={t('关闭网页标签')}
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          props.onClose();
+        }}
+      >
+        ×
+      </span>
+    </div>
+  );
+}
+
+/**
  * 右栏容器：文件标签 / 网页标签 + 路径栏 + 内容区。
  * @param props 组件入参
  * @returns 右栏节点
@@ -120,79 +207,12 @@ export function RightPanel(props: RightPanelProps): ReactElement {
     if (file !== undefined) onShowFile(file.title);
   };
 
-  /** 渲染单个文件标签（关闭「×」为 aria-hidden 指针捷径）。 */
-  const renderTab = (file: FileView, i: number): ReactElement => {
-    const selected = !browserActive && i === activeIdx;
-    return (
-      <div
-        key={file.title}
-        id={tabIdOf(file, i)}
-        className={'tab' + (selected ? ' active' : '') + ' closable'}
-        role="tab"
-        aria-selected={selected ? 'true' : 'false'}
-        aria-controls={PANE_ID}
-        aria-keyshortcuts="Delete"
-        title={file.title}
-        tabIndex={selected ? 0 : -1}
-        onClick={() => onShowFile(file.title)}
-        onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, i)}
-      >
-        <span className="tab-label">{file.title.split(/[\\/]/).pop() ?? file.title}</span>
-        <span
-          className="tab-x"
-          aria-hidden="true"
-          title={t('关闭 {name}', { name: file.title })}
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            onCloseFile(file.title);
-          }}
-        >
-          ×
-        </span>
-      </div>
-    );
-  };
-
-  /** 渲染网页标签（与文件标签同属一个 tablist）。 */
-  const renderWebTab = (): ReactElement | null => {
-    if (!browserOpen) return null;
-    // 标签文案固定为「网页」：打开 HTML 时文件标签与网页标签会同时存在（源码 / 渲染），
-    // 两者同名会让用户分不清哪个是源码；当前地址放在 title 悬浮里。
-    const label = t('网页');
-    const title = browser?.title !== undefined && browser.title !== '' ? browser.title : label;
-    return (
-      <div
-        id={WEB_TAB_ID}
-        className={'tab' + (browserActive ? ' active' : '') + ' closable'}
-        role="tab"
-        aria-selected={browserActive ? 'true' : 'false'}
-        aria-controls={PANE_ID}
-        aria-keyshortcuts="Delete"
-        title={title}
-        tabIndex={browserActive ? 0 : -1}
-        onClick={() => onShowBrowser?.()}
-        onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, openFiles.length)}
-      >
-        <span className="tab-label">
-          {icon('globe', { size: 12 })} {label}
-        </span>
-        <span
-          className="tab-x"
-          aria-hidden="true"
-          title={t('关闭网页标签')}
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            onCloseBrowser?.();
-          }}
-        >
-          ×
-        </span>
-      </div>
-    );
-  };
-
   // 没有打开任何文件 / 网页时不渲染假标签（用户要求「把文件标签删除」）：只留工具按钮。
   const pathText = activeFile !== undefined ? activeFile.title : '';
+  const webTitle =
+    browser?.title !== undefined && browser.title !== ''
+      ? browser.title
+      : t('网页');
   const previewable =
     activeFile !== undefined &&
     onPreviewFile !== undefined &&
@@ -208,8 +228,27 @@ export function RightPanel(props: RightPanelProps): ReactElement {
             role="tablist"
             aria-label={browserOpen ? t('文件与网页') : t('文件')}
           >
-            {openFiles.map((f, i) => renderTab(f, i))}
-            {renderWebTab()}
+            {openFiles.map((f, i) => (
+              <FileTab
+                key={f.title}
+                file={f}
+                index={i}
+                active={!browserActive && i === activeIdx}
+                onShow={onShowFile}
+                onClose={onCloseFile}
+                onKey={onTabKey}
+              />
+            ))}
+            {browserOpen ? (
+              <WebTab
+                title={webTitle}
+                index={openFiles.length}
+                active={browserActive}
+                onShow={() => onShowBrowser?.()}
+                onClose={() => onCloseBrowser?.()}
+                onKey={onTabKey}
+              />
+            ) : null}
           </div>
         )}
         <span className="flex-spacer" aria-hidden="true"></span>

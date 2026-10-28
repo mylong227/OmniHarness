@@ -6259,3 +6259,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`pickerKeys` / `pickerShapeGuard` 8 例 + `sessionRowMeta` / `sessionSearch` 22 例全绿；`tsc -p web` 零错。
 - **剩余规模**：`check.mjs --strict` 仍报 **37** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 24 个函数，剩余 37。
+
+## 155. 2026-10-29 S2 继续清偿：RollbackTab；RightPanel 部分
+
+- **改动**：
+  - `RollbackTab` 124 → <80：状态与创建/回滚动作抽 `useRollback()`；
+  - `RightPanel` 198 → 150：文件/网页标签抽 `FileTab` / `WebTab`（仍未过 80，下轮继续拆工具栏/路径栏）。
+- **判据**：`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **36** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 25 个函数，剩余 36。

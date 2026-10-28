@@ -177,23 +177,31 @@ function RollbackList(props: {
 }
 
 /**
- * 回滚面板：检查点列表 + 创建 + 一键回滚。
- * @param props 组件入参
- * @returns 回滚面板节点（无会话时为引导文案）
+ * 检查点列表与创建/回滚动作（从组件体抽出以压体量）。
+ * @param sessionId 当前会话。
+ * @param onRolledBack 回滚成功回调。
+ * @returns 状态与动作。
  */
-export function RollbackTab(props: RollbackTabProps): ReactElement {
-  const { sessionId, onRolledBack } = props;
+function useRollback(
+  sessionId: string | null,
+  onRolledBack: (sid: string) => void,
+): {
+  list: CheckpointMeta[];
+  loading: boolean;
+  error: string | null;
+  label: string;
+  setLabel: (value: string) => void;
+  busy: boolean;
+  refresh: (sid: string | null) => Promise<void>;
+  create: () => Promise<void>;
+  rollback: (target?: string) => Promise<void>;
+} {
   const { api, toast, dialog, sessionTick } = useApp();
   const [list, setList] = React.useState<CheckpointMeta[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<string | null>(null);
   const [label, setLabel] = React.useState<string>('');
   const [busy, setBusy] = React.useState<boolean>(false);
-
-  /**
-   * 拉取检查点列表；无会话时清空（fail-closed 到空态）。
-   * @param sid 目标会话 id（显式传参，避免依赖渲染快照）
-   */
   const refresh = async (sid: string | null): Promise<void> => {
     if (!sid) {
       setList([]);
@@ -211,13 +219,9 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
       setLoading(false);
     }
   };
-
-  // 挂载装载 + 会话切换即重拉（deps 只有 sessionId）。
   React.useEffect(() => {
     void refresh(sessionId);
   }, [sessionId, sessionTick]);
-
-  /** 创建检查点：名称为空则由 CheckpointNamer 生成，建完刷新列表。 */
   const create = async (): Promise<void> => {
     if (!sessionId) return;
     const name = CheckpointNamer.resolve(label);
@@ -233,11 +237,6 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
       setBusy(false);
     }
   };
-
-  /**
-   * 回滚（先经 DialogService 确认，决策不静默产生）。
-   * @param target 目标检查点标签；缺省回滚到最近一点
-   */
   const rollback = async (target?: string): Promise<void> => {
     if (!sessionId) return;
     const msg = target
@@ -261,6 +260,20 @@ export function RollbackTab(props: RollbackTabProps): ReactElement {
       setBusy(false);
     }
   };
+  return { list, loading, error, label, setLabel, busy, refresh, create, rollback };
+}
+
+/**
+ * 回滚面板：检查点列表 + 创建 + 一键回滚。
+ * @param props 组件入参
+ * @returns 回滚面板节点（无会话时为引导文案）
+ */
+export function RollbackTab(props: RollbackTabProps): ReactElement {
+  const { sessionId, onRolledBack } = props;
+  const { list, loading, error, label, setLabel, busy, refresh, create, rollback } = useRollback(
+    sessionId,
+    onRolledBack,
+  );
 
   if (!sessionId) {
     return (
