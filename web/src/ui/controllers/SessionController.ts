@@ -251,7 +251,12 @@ export class SessionController {
       const owner = { api: this.services.api, host: this.host, toast: this.services.toast };
       const switched = await SessionProjectBinding.ensure(owner, id);
       if (generation !== this.loadGeneration) return;
-      if (switched) await this.refreshSessions();
+      if (switched) {
+        // 项目身份变了：通知界面重取项目清单与文件树（此前只 refreshSessions ⇒ 侧栏项目名、
+        // 面包屑、文件树仍停在旧项目，点旧树里的文件会落到新工作区而失败）。
+        this.host.patch((s) => ({ workspaceEpoch: s.workspaceEpoch + 1 }));
+        await this.refreshSessions();
+      }
       if (generation !== this.loadGeneration) return;
       const r = await this.services.api.getThread(id, { limit: HISTORY_PAGE_SIZE });
       if (generation !== this.loadGeneration) return;
@@ -406,6 +411,8 @@ export class SessionController {
    * @returns 无
    */
   public onWorkspaceSwitched(): void {
+    // 显式切项目同样要通知界面重取项目清单/文件树（与打开别家会话的隐式切换同一出口）。
+    this.host.patch((s) => ({ workspaceEpoch: s.workspaceEpoch + 1 }));
     this.newSession();
     void this.refreshSessions();
   }

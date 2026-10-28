@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const ROOT = process.cwd();
 const AUDIT = resolve(ROOT, 'scripts', 'auditStandards.mjs');
@@ -32,22 +32,28 @@ function read(rel: string): string {
 }
 
 /**
- * 在临时 git 仓库里暂存一个 `src/x.ts` 并跑增量门禁。
+ * 在临时 git 仓库里暂存一个被测文件并跑增量门禁。
  * @param body 文件内容
+ * @param rel 暂存路径（缺省后端产品文件；传 `web/src/x.tsx` 可验证组件层口径）
  * @returns 退出码与输出
  */
-function runDeltaOn(body: string): { readonly code: number; readonly out: string } {
+function runDeltaOn(
+  body: string,
+  rel = 'src/probe.ts',
+): { readonly code: number; readonly out: string } {
   const dir = mkdtempSync(join(tmpdir(), 'omni-pg-'));
   try {
+    // `src/` 必须存在：审计脚本启动时会先扫产品根（即使 --delta 也读它），缺目录直接 ENOENT。
     mkdirSync(join(dir, 'src'), { recursive: true });
-    writeFileSync(join(dir, 'src', 'probe.ts'), body, 'utf8');
+    mkdirSync(join(dir, dirname(rel)), { recursive: true });
+    writeFileSync(join(dir, rel), body, 'utf8');
     const git = (args: readonly string[]): void => {
       execFileSync('git', args, { cwd: dir, stdio: ['ignore', 'ignore', 'ignore'] });
     };
     git(['init']);
     git(['config', 'user.email', 'probe@example.com']);
     git(['config', 'user.name', 'probe']);
-    git(['add', 'src/probe.ts']);
+    git(['add', rel]);
     try {
       const out = execFileSync('node', [AUDIT, '--delta'], {
         cwd: dir,
@@ -262,4 +268,17 @@ test('§12.2 口吻区分：反引号包裹的「文档口吻」豁免，裸露�
   const bare = runDeltaOn(BARE_TODO);
   assert.notStrictEqual(bare.code, 0, '裸露的待办注释必须被拦（否则注释可以随便留 TODO）');
   assert.match(bare.out, /占位或调试残留/);
+});
+
+test('组件层口径：暂存 .tsx 时增量门禁必须**显式说明未纳入**，不得谎报「无暂存 .ts 文件」', () => {
+  // 2026-10-28 实测：三个 .tsx 改动触发「无暂存 .ts 文件，增量门禁通过」——看起来像过了
+  // 编码标准，实际组件层根本不在口径内。本条钉住「跳过要出声」。
+  const out = runDeltaOn(
+    'export function Probe(): null {\n  return null;\n}\n',
+    'web/src/Probe.tsx',
+  );
+  assert.strictEqual(out.code, 0, `组件层不判定，不该红：${out.out.slice(0, 300)}`);
+  assert.match(out.out, /\.tsx/u, '必须点名 .tsx');
+  assert.match(out.out, /未纳入/u, '必须说明「未纳入本门禁口径」');
+  assert.doesNotMatch(out.out, /无暂存 \.ts 文件/u, '不得再伪装成「没有改动」');
 });

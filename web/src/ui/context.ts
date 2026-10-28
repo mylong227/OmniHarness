@@ -18,6 +18,14 @@ export interface AppContextValue {
   sessionId: string | null;
   /** 会话数据版本号：切换会话或回合推进后 +1，面板据此重新拉取自己的数据。 */
   sessionTick: number;
+  /**
+   * 工作区切换代数：**当前项目真的变了**才 +1（打开别家项目的会话会隐式切项目）。
+   *
+   * 为什么不能复用 `sessionTick`：它随每个语义事件都变，拿它重取项目清单等于每回合打一串
+   * `workspace.list`；而"项目身份变了"是一个稀疏、可精确标记的事实（2026-10-28 审计：
+   * 打开别家项目的会话后，侧栏项目名 / 面包屑 / 文件树仍停在旧项目）。
+   */
+  workspaceEpoch?: number;
 }
 
 export const AppContext = React.createContext<AppContextValue | null>(null);

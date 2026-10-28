@@ -5662,3 +5662,30 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
 - **诚实边界**：FilePicker 的守卫是**防御性**的——切目录时列表先被「读取中…」占位，UI 上点不出
   第二个目录，故没有可复现的 UI 竞态（保留守卫防未来代码绕过 loading 门；测试里已注明）。
   ChangesTab 的代际守卫由既有 `diffControl` / `reviewShortcuts` 回归覆盖交互路径，未单独写竞态判据。
+
+## 113. 2026-10-28 收口批：工作区切换同步 + 两个死模态退役 + 增量门禁不再对 .tsx 静默
+
+- **③ 工作区切换的界面同步（审计待办，已销账）**：
+  - **缺陷**：打开别家项目的会话时 `SessionProjectBinding.ensure` 会在服务端 `workspace.switch`
+    （会话跟着项目走），但界面收不到通知——`SessionPanel` 的项目名 / 面包屑 / 文件树来自它自己的
+    一次 `listWorkspaces`，只在挂载与「手动切项目」时更新。侧栏停在旧项目，点旧树里的文件会落到
+    新工作区而失败。
+  - **修法**：新增 `AppState.workspaceEpoch`（**只有项目身份真的变了才 +1**，刻意不复用随事件乱跳的
+    `sessionTick`——拿它重取项目清单等于每回合打一串 `workspace.list`）；控制器在**隐式切项目**
+    （`loadThread` 里 `ensure` 返回 true）与**显式切项目**（`onWorkspaceSwitched`）两个出口 +1；
+    上下文注入 `workspaceEpoch`，`SessionPanel` 把它放进 `listWorkspaces` 的依赖。
+  - **判据**：`web/test/workspaceEpoch.test.ts` 2 例——① 用 `rerender` 换 context 断言
+    「代数变化 ⇒ 再取一次；代数不变 ⇒ 不重复取」；② 控制器两个出口都 +1。
+- **④ 死代码退役（审计待办，已销账）**：`SettingsModal.tsx` + `PanelModal.tsx` 已无任何 import
+  （2026-10-26 控制台重构后由 `SettingsSurface` / 工作台控制台接管），**删除约 750 行**；
+  同步把仍指向它们的三处注释改成现役组件。`PanelPicker` 仍被测试引用，按审计建议另批退役。
+- **增量门禁的 .tsx 盲区（顺手修，2026-10-28 实测触发）**：`auditStandards --delta` 的暂存清单
+  只取 `*.ts`，**组件层 `.tsx` 被静默跳过**——提交时打印「无暂存 .ts 文件，增量门禁通过」，
+  看起来像过了编码标准。现在路径面加上 `*.tsx` 并**显式说明**：「另有 N 个 .tsx 未纳入本门禁口径；
+  组件层由 web:test / tsc 覆盖」。判定口径本身不变（组件层没有「主类名=文件名」这类类口径，
+  直接套 `.ts` 规则会造大量不可满足的假红）。判据：`productionGradeStandard.test.ts` 新增 1 例
+  （在临时仓库里暂存一个组件层 `.tsx` 探针 ⇒ 必须点名 .tsx 且不得谎报「无暂存 .ts 文件」）。
+- **验证**：`npm run web:test` 全量 **120 文件 / 622 例全绿**；`productionGradeStandard` + `caliberSync`
+  14/14；`tsc -p web/tsconfig.json --noEmit` 零错；`check.mjs` 1278 文件零违规。
+- **诚实边界**：`workspaceEpoch` 只驱动侧栏（项目名/面包屑/文件树）；其它面板若也缓存了项目路径，
+  需由各自的依赖接入同一条代数（当前审计范围内没有发现第二处）。`PanelPicker` 及其测试仍待退役。

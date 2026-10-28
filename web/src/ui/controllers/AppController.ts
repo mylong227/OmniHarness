@@ -82,6 +82,13 @@ export interface AppState {
    * 每个 token 增量都触发全部面板重拉（请求风暴）；这里按 300ms 去抖，只表达「数据可能变了」。
    */
   sessionTick: number;
+  /**
+   * 工作区切换代数：**只有项目身份真的变了**才 +1（打开别家项目的会话会隐式 `workspace.switch`）。
+   *
+   * 与 `sessionTick` 的区别：后者随每个语义事件都变，拿它重取项目清单等于每回合打一串
+   * `workspace.list`；这里只表达「当前项目换了」这一个稀疏事实，供侧栏重取项目名与文件树。
+   */
+  workspaceEpoch: number;
   detailEvent: ThreadEvent | null;
   approval: ApprovalRequest | null;
   /**
@@ -633,6 +640,7 @@ export class AppController {
       refreshModelCatalog: () => this.refreshModelCatalog(),
       sessionId: this.host.getState().currentThreadId,
       sessionTick: this.host.getState().sessionTick,
+      workspaceEpoch: this.host.getState().workspaceEpoch,
     };
   }
 

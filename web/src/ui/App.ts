@@ -130,6 +130,7 @@ function initialState(): AppState {
     sessions: [],
     currentThreadId: null,
     sessionTick: 0,
+    workspaceEpoch: 0,
     detailEvent: null,
     approval: null,
     question: null,

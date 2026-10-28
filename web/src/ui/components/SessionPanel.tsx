@@ -106,7 +106,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     open,
     style,
   } = props;
-  const { api, toast } = useApp();
+  const { api, toast, workspaceEpoch } = useApp();
   const [tree, setTree] = React.useState<FsNode[]>([]);
   const [treeLoaded, setTreeLoaded] = React.useState<boolean>(false);
   const [treeError, setTreeError] = React.useState<string | null>(null);
@@ -225,7 +225,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   }
   const search = searchRef.current;
 
-  // 挂载拉取工作区清单（当前路径 + 已添加项目）。
+  // 拉取工作区清单（当前路径 + 已添加项目）：挂载时一次，**项目身份变化时再来一次**
+  // （打开别家项目的会话会隐式切项目；不重取的话侧栏项目名、面包屑、文件树都停在旧项目）。
   React.useEffect(() => {
     api
       .listWorkspaces()
@@ -237,7 +238,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       .catch(() => {
         /* 静默：分组标题退化为通用名 */
       });
-  }, [api, onWorkspaceResolved]);
+  }, [api, onWorkspaceResolved, workspaceEpoch]);
 
   // 工作区变化即重刷文件树（原 componentDidUpdate 的 prevState.wsPath 比对）；alive 防迟到回写。
   React.useEffect(() => {
