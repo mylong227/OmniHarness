@@ -14,6 +14,7 @@ import { useApp } from '../context.ts';
 import { AddMenuModel, type AddMenuSection } from '../models/AddMenuModel.ts';
 import { PendingModes } from '../models/PendingModes.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
 import type { AgentCatalogEntry, PluginManifest, SearchHit, SessionModes } from '../../types/models.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
@@ -67,8 +68,17 @@ function renderSection(section: AddMenuSection, onItem: (id: string) => void): R
         <div
           key={item.id}
           className={'addmenu-item' + (item.active ? ' active' : '') + (item.disabled ? ' disabled' : '')}
+          role="menuitem"
+          aria-disabled={item.disabled === true ? 'true' : 'false'}
+          // div 没有原生激活：菜单项必须自己进 Tab 序列并处理 Enter/Space（否则键盘用户
+          // 只能打开菜单、选不了任何一项）。
+          tabIndex={item.disabled === true ? -1 : 0}
           onClick={() => {
             if (!item.disabled) onItem(item.id);
+          }}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (item.disabled === true) return;
+            ActivationKeys.activate(e, () => onItem(item.id));
           }}
         >
           <span className="addmenu-item-ico">{icon(item.icon, { size: 16 })}</span>
@@ -148,6 +158,17 @@ export function AddMenu(props: AddMenuProps): ReactElement {
   }, [open, api, threadId]);
 
   /**
+   * 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。
+   * @returns 无
+   */
+  const flip = (): void => {
+    const next = !open;
+    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
+    else releasePopover(POPOVER_ID);
+    setOpen(next);
+  };
+
+  /**
    * 触发按钮：阻断冒泡后切换展开态（阻断后不会被刚挂的外部点击监听立即关掉）。
    *
    * 打开前 claim 一次：`stopPropagation` 让全局 click 关不掉**别人**，
@@ -156,10 +177,7 @@ export function AddMenu(props: AddMenuProps): ReactElement {
    */
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
-    const next = !open;
-    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
-    else releasePopover(POPOVER_ID);
-    setOpen(next);
+    flip();
   };
 
   /**
@@ -295,6 +313,16 @@ export function AddMenu(props: AddMenuProps): ReactElement {
       aria-expanded={open ? 'true' : 'false'}
       aria-label={t('添加')}
       onClick={toggle}
+      // div role=button 没有原生激活：Enter/Space 打开或收起，Esc 收起（与外部点击同一条出口）。
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          releasePopover(POPOVER_ID);
+          setOpen(false);
+          return;
+        }
+        if (ActivationKeys.activate(e, flip)) e.stopPropagation();
+      }}
+      tabIndex={0}
     >
       <span className="addmenu-ico">＋</span>
       {open ? (

@@ -13,6 +13,7 @@ import { ContextUsageView } from '../models/ContextUsageView.ts';
 import { QuotaView } from '../models/QuotaView.ts';
 import { icon } from '../models/Icon.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
 import { useApp } from '../context.ts';
 import { t } from '../i18n/i18n.ts';
@@ -145,14 +146,18 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
     };
   }, [open, threadId, busy, tick, revision, sessionTick]);
 
-  /** 触发按钮：阻断冒泡后切换展开态。 */
-  /** 触发按钮：阻断冒泡后切换展开态。 */
-  const toggle = (e: React.MouseEvent): void => {
-    e.stopPropagation();
+  /** 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。 @returns 无 */
+  const flip = (): void => {
     const next = !open;
     if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
     else releasePopover(POPOVER_ID);
     setOpen(next);
+  };
+
+  /** 触发按钮：阻断冒泡后切换展开态。 */
+  const toggle = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    flip();
   };
 
   const view = usage !== undefined ? new ContextUsageView(usage) : undefined;
@@ -172,6 +177,16 @@ export function ContextCapacityPanel(props: ContextCapacityPanelProps): ReactEle
       aria-label={t('上下文容量')}
       title={t('上下文容量与今日余额')}
       onClick={toggle}
+      // div role=button 没有原生激活：Enter/Space 展开或收起，Esc 收起。
+      onKeyDown={(e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          releasePopover(POPOVER_ID);
+          setOpen(false);
+          return;
+        }
+        if (ActivationKeys.activate(e, flip)) e.stopPropagation();
+      }}
+      tabIndex={0}
     >
       <span className="cap-ico">{icon('chart', { size: 14 })}</span>
       <span className="cap-bar">

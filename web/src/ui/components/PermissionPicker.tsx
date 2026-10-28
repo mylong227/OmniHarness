@@ -10,6 +10,7 @@
 import * as React from 'react';
 import { PermissionTierModel } from '../models/PermissionTierModel.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
@@ -62,6 +63,17 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
   usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
   /**
+   * 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。
+   * @returns 无
+   */
+  const flip = (): void => {
+    const next = !open;
+    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
+    else releasePopover(POPOVER_ID);
+    setOpen(next);
+  };
+
+  /**
    * 触发按钮：阻断冒泡后切换展开态。
    *
    * 打开前 claim 一次：`stopPropagation` 让全局 click 关不掉**别人**，
@@ -70,10 +82,7 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
    */
   const toggle = (e: React.MouseEvent): void => {
     e.stopPropagation();
-    const next = !open;
-    if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
-    else releasePopover(POPOVER_ID);
-    setOpen(next);
+    flip();
   };
 
   /**
@@ -114,12 +123,22 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
       aria-expanded={open ? 'true' : 'false'}
       aria-label={tip}
       onClick={toggle}
+      onKeyDown={(e: React.KeyboardEvent) => {
+        // Esc 收起（与外部点击同一条出口）；Enter/Space 展开或收起（div role=button 没有原生激活）。
+        if (e.key === 'Escape') {
+          releasePopover(POPOVER_ID);
+          setOpen(false);
+          return;
+        }
+        if (ActivationKeys.activate(e, flip)) e.stopPropagation();
+      }}
+      tabIndex={0}
     >
       <span className="dd-ico">{icon(fullAccess ? 'alert' : 'shield', { size: 14 })}</span>
       <span className="dd-label">{active.label}</span>
       <span className="dd-caret">▾</span>
       {open ? (
-        <div className="dd-menu wide" onClick={stopBubble}>
+        <div className="dd-menu wide" role="listbox" aria-label={baseTitle} onClick={stopBubble}>
           {model.all().map((tier) => (
             <div
               key={tier.value}
@@ -129,7 +148,13 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
                 (tier.value === permission ? ' active' : '') +
                 (tier.fullAccess ? ' full' : '')
               }
+              role="option"
+              aria-selected={tier.value === permission ? 'true' : 'false'}
+              tabIndex={0}
               onClick={() => pick(tier.value)}
+              onKeyDown={(e: React.KeyboardEvent) => {
+                ActivationKeys.activate(e, () => pick(tier.value));
+              }}
             >
               <div className="perm-row">
                 <span className="perm-name">{t(tier.label)}</span>

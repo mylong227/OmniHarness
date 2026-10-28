@@ -5615,3 +5615,33 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   ④ `SettingsModal` / `PanelModal` 已无任何 import（死代码，约 750 行），退役需连同 PanelPicker 的测试；
   ⑤ FilePicker / FolderPicker 缺少 `role=dialog` / 焦点圈定（键盘焦点留在背后输入框）。
   以上 5 项已进待办，下一批按「可达性 → 竞态 → 死代码」顺序收口。
+
+## 111. 2026-10-28 前端可达性批：四弹层键盘可达 + 选择器模态语义（§110 待办 ①⑤ 销账）
+
+- **缺陷（审计原文）**：输入区四个弹层（模型 / 权限 / 添加 / 上下文容量）的触发器是
+  `div role="button"`、菜单项是 `div onClick`——`role` 只影响读屏播报，**不给**原生
+  Enter/Space 激活、也不让元素进 Tab 序列 ⇒ **纯键盘用户打不开面板，打开了也选不中任何一项**。
+  文件/文件夹选择器是覆盖全屏的模态，却没有 `role="dialog"` / `aria-modal`，打开时也不移焦点
+  ⇒ 焦点留在背后输入框（有文字时 Enter 直接发消息）。
+- **修法**：
+  1. 新增 `ActivationKeys`（`web/src/ui/models/ActivationKeys.ts`）：只判定 Enter / Space
+     （兼容旧 `Spacebar`）并统一 `preventDefault`（Space 不滚页）。**不换 `<button>`**：
+     四个触发器的样式都挂在原标签上，换标签要连带 UA 样式复位，在没有真机视觉回归的前提下
+     属于为语义正确引入视觉风险；`role=button + tabIndex=0 + Enter/Space` 在 WCAG 2.1 下等价可用。
+  2. 四个触发器补 `tabIndex={0}` + Enter/Space 切换（模型/权限/容量另补 Esc 收起）；
+     菜单项补 `tabIndex={0}` + Enter 选中；AddMenu 禁用项 `tabIndex={-1}` 且 Enter 无效；
+     PermissionPicker 的菜单补 `role="listbox"` / `role="option"` + `aria-selected`（与
+     `aria-haspopup="listbox"` 对齐）。
+  3. FilePicker / FolderPicker：`.fp-modal` 补 `role="dialog"` + `aria-modal` + `aria-label`，
+     打开即把焦点移入弹窗（`tabIndex={-1}` + mount effect）；列表项补 `tabIndex={0}` + Enter
+     激活，文件项补 `role="checkbox"` + `aria-checked`。
+- **判据**：新增 `web/test/popoverKeyboard.test.ts` **6 例**（ActivationKeys 纯逻辑、四个弹层
+  的「可聚焦 → Enter 展开 → 项 Enter 选中 → 收起」、FilePicker 的模态语义 + 焦点落点 + 勾选回传）。
+  `npm run web:test` 全量 **118 文件 / 618 例全绿**（含真 Chrome 的 axe WCAG 审计）。
+- **诚实边界**：
+  ① 触发器仍是 `div role=button`（未换 `<button>`），语义由 `role` + 键盘处理承担；
+  ② 菜单**没有** roving tabindex / 方向键——键盘路径是 Tab 逐个走（可用，但不是 WAI-ARIA 菜单的
+  完整交互模型）；
+  ③ 两个选择器还没做**完整焦点圈定**（Tab 仍可跑出弹窗到背后的控件）；焦点圈定要复用
+  `models/focusTrap.ts` 并与 Esc/归还 opener 一起设计，留作下一批；
+  ④ jsdom 无布局：本批判据覆盖「焦点落点 + 按键行为」，视觉与圈定仍由真机（`smoke:ui`）覆盖。

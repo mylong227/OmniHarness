@@ -9,6 +9,7 @@ import * as React from 'react';
 import { PathJoiner } from '../models/PathJoiner.ts';
 import { PickerKeys } from '../models/PickerKeys.ts';
 import { icon } from '../models/Icon.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -70,12 +71,23 @@ function renderDrives(browse: BrowseState, onLoad: (path?: string) => void): Rea
   const { home, roots } = browse;
   return (
     <>
-      <div className="fp-item fp-home" onClick={() => onLoad(home)}>
+      <div
+        className="fp-item fp-home"
+        tabIndex={0}
+        onClick={() => onLoad(home)}
+        onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onLoad(home))}
+      >
         <span className="fp-icon">{icon('home', { size: 15 })}</span>
         <span className="fp-name">{home}{t('（用户目录）')}</span>
       </div>
       {roots.map((r) => (
-        <div key={r} className="fp-item" onClick={() => onLoad(r)}>
+        <div
+          key={r}
+          className="fp-item"
+          tabIndex={0}
+          onClick={() => onLoad(r)}
+          onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onLoad(r))}
+        >
           <span className="fp-icon">{icon('drive', { size: 15 })}</span>
           <span className="fp-name">{r}</span>
         </div>
@@ -96,14 +108,27 @@ function renderDirs(browse: BrowseState, onLoad: (path?: string) => void): React
   return (
     <>
       {parent !== undefined ? (
-        <div className="fp-item fp-up" onClick={() => onLoad(parent)}>
+        <div
+          className="fp-item fp-up"
+          tabIndex={0}
+          onClick={() => onLoad(parent)}
+          onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onLoad(parent))}
+        >
           <span className="fp-icon">{icon('undo', { size: 15 })}</span>
           <span className="fp-name">{t('..（上级目录）')}</span>
         </div>
       ) : null}
       {dirs.length === 0 && parent !== undefined ? <div className="fp-empty">{t('（空目录）')}</div> : null}
       {dirs.map((d) => (
-        <div key={d} className="fp-item" onClick={() => onLoad(PathJoiner.join(cur, d))}>
+        <div
+          key={d}
+          className="fp-item"
+          tabIndex={0}
+          onClick={() => onLoad(PathJoiner.join(cur, d))}
+          onKeyDown={(e: React.KeyboardEvent) =>
+            ActivationKeys.activate(e, () => onLoad(PathJoiner.join(cur, d)))
+          }
+        >
           <span className="fp-icon">{icon('folder', { size: 15 })}</span>
           <span className="fp-name">{d}</span>
         </div>
@@ -170,6 +195,11 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     newName: '',
     creatingErr: null,
   });
+  /** 弹窗根节点（打开时把焦点从背后的输入框收进来，避免 Enter 继续触发发送）。 */
+  const modalRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    modalRef.current?.focus();
+  }, []);
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
 
   /**
@@ -266,7 +296,17 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
 
   return (
     <div className="fp-overlay" onClick={onCancel}>
-      <div className="fp-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+      <div
+        className="fp-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('选择项目文件夹')}
+        tabIndex={-1}
+        ref={(el: HTMLDivElement | null) => {
+          modalRef.current = el;
+        }}
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
         <div className="fp-head">
           <span className="fp-title">{t('选择项目文件夹')}</span>
           <button className="fp-close" title={t('关闭 (Esc)')} onClick={onCancel}>

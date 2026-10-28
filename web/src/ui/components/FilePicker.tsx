@@ -12,6 +12,7 @@ import { PathJoiner } from '../models/PathJoiner.ts';
 import { FileIconResolver } from '../models/FileIconResolver.ts';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
 import { icon } from '../models/Icon.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -83,12 +84,23 @@ function renderDrives(browse: BrowseState, onNavigate: (path: string) => void): 
   const { home, roots } = browse;
   return (
     <>
-      <div className="fp-item fp-home" onClick={() => onNavigate(home)}>
+      <div
+        className="fp-item fp-home"
+        tabIndex={0}
+        onClick={() => onNavigate(home)}
+        onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onNavigate(home))}
+      >
         <span className="fp-icon">{icon('home', { size: 15 })}</span>
         <span className="fp-name">{home}{t('（用户目录）')}</span>
       </div>
       {roots.map((r) => (
-        <div key={r} className="fp-item" onClick={() => onNavigate(r)}>
+        <div
+          key={r}
+          className="fp-item"
+          tabIndex={0}
+          onClick={() => onNavigate(r)}
+          onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onNavigate(r))}
+        >
           <span className="fp-icon">{icon('drive', { size: 15 })}</span>
           <span className="fp-name">{r}</span>
         </div>
@@ -117,7 +129,12 @@ function renderDirBody(
   return (
     <>
       {parent !== undefined ? (
-        <div className="fp-item fp-up" onClick={() => onNavigate(parent)}>
+        <div
+          className="fp-item fp-up"
+          tabIndex={0}
+          onClick={() => onNavigate(parent)}
+          onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onNavigate(parent))}
+        >
           <span className="fp-icon">{icon('undo', { size: 15 })}</span>
           <span className="fp-name">{t('..（上级目录）')}</span>
         </div>
@@ -129,7 +146,11 @@ function renderDirBody(
         <div
           key={'d:' + d}
           className="fp-item fp-dir"
+          tabIndex={0}
           onClick={() => onNavigate(PathJoiner.join(cur, d))}
+          onKeyDown={(e: React.KeyboardEvent) =>
+            ActivationKeys.activate(e, () => onNavigate(PathJoiner.join(cur, d)))
+          }
         >
           <span className="fp-icon">{icon('folder', { size: 15 })}</span>
           <span className="fp-name">{d}</span>
@@ -143,7 +164,11 @@ function renderDirBody(
             key={'f:' + f.name}
             className={'fp-item fp-file' + (sel ? ' selected' : '')}
             title={`${f.name} · ${f.mediaType} · ${FileSizeFormatter.human(f.size)}`}
+            role="checkbox"
+            aria-checked={sel ? 'true' : 'false'}
+            tabIndex={0}
             onClick={() => onToggle(full)}
+            onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onToggle(full))}
           >
             <span className="fp-icon">{icon(FileIconResolver.iconName(f.mediaType), { size: 15 })}</span>
             <span className="fp-name">{f.name}</span>
@@ -166,6 +191,11 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const [browse, setBrowse] = React.useState<BrowseState>(INIT_BROWSE);
   const [load, setLoad] = React.useState<LoadState>({ loading: false, error: null });
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
+  /** 弹窗根节点（打开时把焦点从背后的输入框收进来，Enter 才不会继续发给输入区）。 */
+  const modalRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    modalRef.current?.focus();
+  }, []);
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
 
   /**
@@ -250,7 +280,17 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const selectedCount = selected.size;
   return (
     <div className="fp-overlay" onClick={onCancel}>
-      <div className="fp-modal" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+      <div
+        className="fp-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('选择附件文件')}
+        tabIndex={-1}
+        ref={(el: HTMLDivElement | null) => {
+          modalRef.current = el;
+        }}
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
         <div className="fp-head">
           <span className="fp-title">{t('选择附件文件')}</span>
           <button className="fp-close" title={t('关闭 (Esc)')} onClick={onCancel}>

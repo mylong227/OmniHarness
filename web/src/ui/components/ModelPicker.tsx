@@ -21,6 +21,7 @@ import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import { ComposerOptions } from '../models/ComposerOptions.ts';
 import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -58,13 +59,18 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
   // 同时登记到互斥控制器：打开本弹层会自动收起其它弹层（见 PopoverStack 头注释）。
   usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
 
-  /** 触发按钮：阻断冒泡后切换展开态（阻断后不会立刻被「外部点击」判定关掉）。 */
-  const toggle = (e: React.MouseEvent): void => {
-    e.stopPropagation();
+  /** 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。 */
+  const flip = (): void => {
     const next = !open;
     if (next) claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
     else releasePopover(POPOVER_ID);
     setOpen(next);
+  };
+
+  /** 触发按钮：阻断冒泡后切换展开态（阻断后不会立刻被「外部点击」判定关掉）。 */
+  const toggle = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    flip();
   };
 
   /** 菜单容器：阻断冒泡，避免点击菜单内部被误判为「外部点击」。 */
@@ -72,13 +78,15 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
     e.stopPropagation();
   };
 
-  /** 键盘：Esc 收起（与外部点击同一条出口；同时释放互斥登记）。 */
+  /** 键盘：Esc 收起（与外部点击同一条出口；同时释放互斥登记）；Enter/Space 展开或收起。 */
   const onKeyDown = (e: React.KeyboardEvent): void => {
     if (e.key === 'Escape') {
       e.stopPropagation();
       releasePopover(POPOVER_ID);
       setOpen(false);
+      return;
     }
+    if (ActivationKeys.activate(e, flip)) e.stopPropagation();
   };
 
   // 2026-10-17：**筛选框已删除**（用户要求）。理由不只是"多余"——厂商可用模型通常只有个位数
@@ -135,6 +143,7 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
       }
       onClick={toggle}
       onKeyDown={onKeyDown}
+      tabIndex={0}
     >
       <span className="mp-ico">{icon('brain', { size: 14 })}</span>
       {/* 标签 = 模型 +（强度）：两者本来就是同一个决定的两半，把强度也摆在触发按钮上，
@@ -158,9 +167,16 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
                 className={'mp-item' + (m === model ? ' active' : '')}
                 role="option"
                 aria-selected={m === model ? 'true' : 'false'}
+                tabIndex={0}
                 onClick={() => {
                   onModelChange(m);
                   setOpen(false);
+                }}
+                onKeyDown={(e: React.KeyboardEvent) => {
+                  ActivationKeys.activate(e, () => {
+                    onModelChange(m);
+                    setOpen(false);
+                  });
                 }}
               >
                 <span className="mp-item-name">{m}</span>
