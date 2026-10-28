@@ -12,11 +12,9 @@
 
 import * as React from 'react';
 import { PermissionTierModel } from '../models/PermissionTierModel.ts';
-import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
-import { ActivationKeys } from '../models/ActivationKeys.ts';
 import { MenuFocusModel } from '../models/MenuFocusModel.ts';
-import { usePopoverEffect } from './usePopoverEffect.ts';
-import { useMenuNavigation } from './useMenuNavigation.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { usePopoverMenu } from './usePopoverMenu.ts';
 import { useApprovalTiers } from './useApprovalTiers.ts';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
@@ -205,73 +203,10 @@ function PermissionTrigger(props: PermissionTriggerProps): ReactElement {
  */
 export function PermissionPicker(props: PermissionPickerProps): ReactElement {
   const { permission, onPick, api, title } = props;
-  const [open, setOpen] = React.useState<boolean>(false);
   /** 后端下发的档位（未加载时为 undefined → 用兜底表）。 */
   const tiers = useApprovalTiers(api);
-  /** 触发器引用（Esc 收起后把焦点还给它）。 */
-  const triggerRef = React.useRef<HTMLDivElement | null>(null);
-
-  // 展开期间才挂外部点击监听；收起或卸载即摘除（H3 清理对称）。互斥登记交由同一 hook。
-  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
-
-  /** 收起（释放互斥）并把焦点还给触发器。 */
-  const closeAndReturnFocus = (): void => {
-    releasePopover(POPOVER_ID);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  // 菜单键盘导航（roving tabindex + ↑/↓/Home/End）：与模型菜单同一套实现。
-  const menu = useMenuNavigation({
-    onEscape: closeAndReturnFocus,
-    ensureOpen: () => {
-      if (!open) flip();
-    },
-  });
-
-  /**
-   * 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。
-   * @returns 无
-   */
-  const flip = (): void => {
-    const next = !open;
-    if (next) {
-      claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
-      menu.setActiveItem(0);
-    } else {
-      releasePopover(POPOVER_ID);
-    }
-    setOpen(next);
-  };
-
-  /**
-   * 触发按钮：阻断冒泡后切换展开态。
-   *
-   * 打开前 claim 一次：`stopPropagation` 让全局 click 关不掉**别人**，
-   * 若不主动顶掉，先开的「+」菜单会继续留在屏幕上并被我压住（用户实测到的重叠）。
-   * @param e 点击事件
-   */
-  const toggle = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-    flip();
-  };
-
-  /**
-   * 菜单容器：阻断冒泡，避免点击菜单内部被误判为「外部点击」。
-   * @param e 点击事件
-   */
-  const stopBubble = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-  };
-
-  /**
-   * 选中档位：回调上抛后收起。
-   * @param v 档位值
-   */
-  const pick = (v: string): void => {
-    onPick(v);
-    setOpen(false);
-  };
+  const { open, setOpen, triggerRef, menu, toggle, stopBubble, onTriggerKeyDown } =
+    usePopoverMenu(POPOVER_ID);
 
   const model = new PermissionTierModel(tiers);
   const active = model.active(permission);
@@ -289,19 +224,13 @@ export function PermissionPicker(props: PermissionPickerProps): ReactElement {
     label: t(active.label),
     desc: t(active.description),
   });
-  /** 触发器的键盘处理：Esc 收起；Enter/Space 切换；↑/↓ 展开并落到首/末项。 */
-  const onTriggerKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      releasePopover(POPOVER_ID);
-      setOpen(false);
-      return;
-    }
-    if (ActivationKeys.activate(e, flip)) {
-      e.stopPropagation();
-      return;
-    }
-    menu.onTriggerKey(e);
+  /**
+   * 选中档位：回调上抛后收起。
+   * @param v 档位值
+   */
+  const pick = (v: string): void => {
+    onPick(v);
+    setOpen(false);
   };
   return (
     <PermissionTrigger

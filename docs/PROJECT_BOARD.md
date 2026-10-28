@@ -6249,3 +6249,13 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`tsc -p web` 零错；`web:build` 通过。
 - **剩余规模**：`check.mjs --strict` 仍报 **40** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 21 个函数，剩余 40（RollbackTab 仍未清零）。
+
+## 154. 2026-10-29 S2 继续清偿：SessionViews / PermissionPicker / ModelPicker
+
+- **改动**：
+  - `SessionViews.renderSessionBody` 126 → <80：重命名态/删除确认/操作区抽 `SessionRename` / `SessionConfirm` / `SessionActions`；
+  - `PermissionPicker` 126 → <80：开合/互斥/键盘导航抽共享 `usePopoverMenu()`；
+  - `ModelPicker` 172 → <80：同一 `usePopoverMenu()`，触发器/模型列表抽 `ModelTrigger` / `ModelList`。
+- **判据**：`pickerKeys` / `pickerShapeGuard` 8 例 + `sessionRowMeta` / `sessionSearch` 22 例全绿；`tsc -p web` 零错。
+- **剩余规模**：`check.mjs --strict` 仍报 **37** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 24 个函数，剩余 37。

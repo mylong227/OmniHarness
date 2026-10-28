@@ -20,11 +20,9 @@
 import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import { ComposerOptions } from '../models/ComposerOptions.ts';
-import { claimPopover, releasePopover } from '../models/PopoverStack.ts';
-import { ActivationKeys } from '../models/ActivationKeys.ts';
 import { MenuFocusModel } from '../models/MenuFocusModel.ts';
-import { useMenuNavigation } from './useMenuNavigation.ts';
-import { usePopoverEffect } from './usePopoverEffect.ts';
+import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { usePopoverMenu } from './usePopoverMenu.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 本弹层在互斥控制器里的身份。 */
@@ -131,73 +129,98 @@ function ModelPickerLadder(props: {
 }
 
 /**
+ * 可用模型列表。
+ * @param props 模型清单、当前值、焦点与选择回调。
+ * @returns 列表节点。
+ */
+function ModelList(props: {
+  models: string[];
+  model: string;
+  activeItem: number;
+  onFocusItem: (index: number) => void;
+  onPick: (value: string) => void;
+}): ReactElement {
+  return (
+    <div className="mp-list" role="listbox" aria-label={t('可用模型')}>
+      {props.models.map((m, index) => (
+        <div
+          key={m}
+          className={'mp-item' + (m === props.model ? ' active' : '')}
+          role="option"
+          aria-selected={m === props.model ? 'true' : 'false'}
+          data-menu-item
+          tabIndex={MenuFocusModel.tabIndexFor(index, props.activeItem)}
+          onFocus={() => props.onFocusItem(index)}
+          onClick={() => props.onPick(m)}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            ActivationKeys.activate(e, () => props.onPick(m));
+          }}
+        >
+          <span className="mp-item-name">{m}</span>
+          {m === props.model ? <span className="mp-item-mark">{t('当前')}</span> : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 模型选择触发器（含可访问名与展开态）。
+ * @param props 触发文案、开合态、回调与菜单内容。
+ * @returns 触发器节点。
+ */
+function ModelTrigger(props: {
+  open: boolean;
+  label: string;
+  reasoningLabel: string;
+  providerLabel?: string | undefined;
+  toggle: (e: React.MouseEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  triggerRef: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+}): ReactElement {
+  const { open, label, reasoningLabel, providerLabel, toggle, onKeyDown, triggerRef } = props;
+  return (
+    <div
+      className="mp"
+      title={
+        providerLabel !== undefined && providerLabel !== ''
+          ? t('模型与推理强度 · {name}', { name: providerLabel })
+          : t('模型与推理强度')
+      }
+      role="button"
+      aria-haspopup="listbox"
+      aria-expanded={open ? 'true' : 'false'}
+      aria-label={
+        reasoningLabel !== ''
+          ? t('模型与推理强度 · {name}', { name: `${label} ${reasoningLabel}` })
+          : t('模型与推理强度 · {name}', { name: label })
+      }
+      onClick={toggle}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+      ref={(el: HTMLDivElement | null) => {
+        triggerRef.current = el;
+      }}
+    >
+      <span className="mp-ico">{icon('brain', { size: 14 })}</span>
+      <span className="mp-label">{label}</span>
+      {reasoningLabel !== '' ? <span className="mp-sub">{reasoningLabel}</span> : null}
+      <span className="mp-caret">▾</span>
+      {props.children}
+    </div>
+  );
+}
+
+/**
  * 组合选择器：模型清单 + 推理强度进度条。
  * @param props 组件入参
  * @returns 弹窗节点
  */
 export function ModelPicker(props: ModelPickerProps): ReactElement {
   const { model, modelOptions, reasoning, reasoningOptions, providerLabel, onModelChange, onReasoningChange } = props;
-  const [open, setOpen] = React.useState<boolean>(false);
-
-  // 展开期间才挂外部点击监听；收起或卸载即摘除（与 Dropdown 同一口径）。
-  // 同时登记到互斥控制器：打开本弹层会自动收起其它弹层（见 PopoverStack 头注释）。
-  usePopoverEffect(open, () => setOpen(false), POPOVER_ID);
-
-  /** 触发器引用（Esc 收起后把焦点还给它）。 */
-  const triggerRef = React.useRef<HTMLDivElement | null>(null);
-
-  /** 收起（释放互斥）并把焦点还给触发器。 */
-  const closeAndReturnFocus = (): void => {
-    releasePopover(POPOVER_ID);
-    setOpen(false);
-    triggerRef.current?.focus();
-  };
-
-  // 菜单键盘导航（roving tabindex + ↑/↓/Home/End）抽在 hook 里：组件体已逼近函数体上限。
-  const menu = useMenuNavigation({
-    onEscape: closeAndReturnFocus,
-    ensureOpen: () => {
-      if (!open) flip();
-    },
-  });
-
-  /** 切换展开态（点击与键盘共用；打开时登记互斥，收起时释放）。 */
-  const flip = (): void => {
-    const next = !open;
-    if (next) {
-      claimPopover({ id: POPOVER_ID, close: () => setOpen(false) });
-      menu.setActiveItem(0);
-    } else {
-      releasePopover(POPOVER_ID);
-    }
-    setOpen(next);
-  };
-
-  /** 触发按钮：阻断冒泡后切换展开态（阻断后不会立刻被「外部点击」判定关掉）。 */
-  const toggle = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-    flip();
-  };
-
-  /** 菜单容器：阻断冒泡，避免点击菜单内部被误判为「外部点击」。 */
-  const stopBubble = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-  };
-
-  /** 键盘：Esc 收起；Enter/Space 展开或收起；↓/↑ 展开并落到首/末项（见 hook）。 */
-  const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      releasePopover(POPOVER_ID);
-      setOpen(false);
-      return;
-    }
-    if (ActivationKeys.activate(e, flip)) {
-      e.stopPropagation();
-      return;
-    }
-    menu.onTriggerKey(e);
-  };
+  const { open, setOpen, triggerRef, menu, toggle, stopBubble, onTriggerKeyDown } =
+    usePopoverMenu(POPOVER_ID);
 
   // 2026-10-17：**筛选框已删除**（用户要求）。理由不只是"多余"——厂商可用模型通常只有个位数
   // （夹具 2 个、真实厂商 3–10 个），而筛选框让"打开弹窗"多出一次"要么忽略它、要么先输字"的
@@ -223,33 +246,15 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
     reasoning !== '' && hasLadder ? ComposerOptions.reasoningLabel(reasoning) : '';
 
   return (
-    <div
-      className="mp"
-      title={providerLabel !== undefined && providerLabel !== '' ? t('模型与推理强度 · {name}', { name: providerLabel }) : t('模型与推理强度')}
-      role="button"
-      aria-haspopup="listbox"
-      aria-expanded={open ? 'true' : 'false'}
-      // 可访问名必须包含可见文本（模型名 + 强度），否则 axe 报 label-content-name-mismatch：
-      // 屏幕阅读器用户听到的名字与界面上的字对不上（WCAG 2.5.3）。
-      aria-label={
-        reasoningLabel !== ''
-          ? t('模型与推理强度 · {name}', { name: `${label} ${reasoningLabel}` })
-          : t('模型与推理强度 · {name}', { name: label })
-      }
-      onClick={toggle}
-      onKeyDown={onKeyDown}
-      tabIndex={0}
-      ref={(el: HTMLDivElement | null) => {
-        triggerRef.current = el;
-      }}
+    <ModelTrigger
+      open={open}
+      label={label}
+      reasoningLabel={reasoningLabel}
+      {...(providerLabel !== undefined ? { providerLabel } : {})}
+      toggle={toggle}
+      onKeyDown={onTriggerKeyDown}
+      triggerRef={triggerRef}
     >
-      <span className="mp-ico">{icon('brain', { size: 14 })}</span>
-      {/* 标签 = 模型 +（强度）：两者本来就是同一个决定的两半，把强度也摆在触发按钮上，
-          用户不必为了确认"现在是什么强度"点开弹窗。强度为空（该厂商无档位）时只显示模型，
-          不留多余空格或分隔符 —— 见下方 label 的构造。 */}
-      <span className="mp-label">{label}</span>
-      {reasoningLabel !== '' ? <span className="mp-sub">{reasoningLabel}</span> : null}
-      <span className="mp-caret">▾</span>
       {open ? (
         <div
           className="mp-menu"
@@ -265,32 +270,16 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
               <span className="mp-head-sub">{providerLabel}</span>
             ) : null}
           </div>
-          <div className="mp-list" role="listbox" aria-label={t('可用模型')}>
-            {models.map((m, index) => (
-              <div
-                key={m}
-                className={'mp-item' + (m === model ? ' active' : '')}
-                role="option"
-                aria-selected={m === model ? 'true' : 'false'}
-                data-menu-item
-                tabIndex={MenuFocusModel.tabIndexFor(index, menu.activeItem)}
-                onFocus={() => menu.setActiveItem(index)}
-                onClick={() => {
-                  onModelChange(m);
-                  setOpen(false);
-                }}
-                onKeyDown={(e: React.KeyboardEvent) => {
-                  ActivationKeys.activate(e, () => {
-                    onModelChange(m);
-                    setOpen(false);
-                  });
-                }}
-              >
-                <span className="mp-item-name">{m}</span>
-                {m === model ? <span className="mp-item-mark">{t('当前')}</span> : null}
-              </div>
-            ))}
-          </div>
+          <ModelList
+            models={models}
+            model={model}
+            activeItem={menu.activeItem}
+            onFocusItem={menu.setActiveItem}
+            onPick={(value) => {
+              onModelChange(value);
+              setOpen(false);
+            }}
+          />
 
           {hasLadder ? (
             <ModelPickerLadder
@@ -304,7 +293,7 @@ export function ModelPicker(props: ModelPickerProps): ReactElement {
           ) : null}
         </div>
       ) : null}
-    </div>
+    </ModelTrigger>
   );
 }
 

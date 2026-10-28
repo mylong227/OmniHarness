@@ -82,6 +82,152 @@ export function filterSessions(items: readonly SessionEntry[], query: string): S
 }
 
 /**
+ * 行内重命名态。
+ * @param props 会话与交互上下文。
+ * @returns 重命名节点。
+ */
+function SessionRename(props: { s: SessionEntry; ctx: RowCtx }): ReactElement {
+  const { s, ctx } = props;
+  return (
+    <span className="session-rename">
+      <input
+        className="session-rename-input"
+        value={ctx.renameValue}
+        spellCheck={false}
+        aria-label={t('会话标题')}
+        onChange={(e) => ctx.onRenameInput((e.target as HTMLInputElement).value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') ctx.onCommitRename(s.id);
+          else if (e.key === 'Escape') ctx.onCancelRename();
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        className="session-rename-ok"
+        title={t('确认')}
+        aria-label={t('确认重命名')}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onCommitRename(s.id);
+        }}
+      >
+        ✓
+      </button>
+      <button
+        className="session-rename-cancel"
+        title={t('取消')}
+        aria-label={t('取消重命名')}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onCancelRename();
+        }}
+      >
+        {icon('x', { size: 12 })}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * 行内删除确认态。
+ * @param props 会话与交互上下文。
+ * @returns 确认节点。
+ */
+function SessionConfirm(props: { s: SessionEntry; ctx: RowCtx }): ReactElement {
+  const { s, ctx } = props;
+  return (
+    <span className="session-confirm">
+      <span className="session-confirm-text">{t('删除？')}</span>
+      <button
+        className="session-confirm-ok"
+        title={t('确认删除')}
+        aria-label={t('确认删除会话 {name}', { name: s.label || s.id })}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onCommitDelete(s.id);
+        }}
+      >
+        {t('删除')}
+      </button>
+      <button
+        className="session-confirm-cancel"
+        title={t('取消')}
+        aria-label={t('取消删除')}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onCancelDelete();
+        }}
+      >
+        {t('取消')}
+      </button>
+    </span>
+  );
+}
+
+/**
+ * 常态操作按钮（重命名 / 复制 / 删除 / 归档）。
+ * @param props 会话与交互上下文。
+ * @returns 操作区节点。
+ */
+function SessionActions(props: { s: SessionEntry; ctx: RowCtx }): ReactElement {
+  const { s, ctx } = props;
+  return (
+    <span className="session-actions" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="session-act"
+        title={t('重命名')}
+        aria-label={t('重命名会话 {name}', { name: s.label || s.id })}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onStartRename(s);
+        }}
+      >
+        {icon('pencil', { size: 12 })}
+      </button>
+      <button
+        className="session-act"
+        title={t('复制会话')}
+        aria-label={t('复制会话 {name}', { name: s.label || s.id })}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onFork(s.id);
+        }}
+      >
+        {icon('copy', { size: 12 })}
+      </button>
+      <button
+        className="session-act danger"
+        title={t('删除')}
+        aria-label={t('删除会话 {name}', { name: s.label || s.id })}
+        onClick={(e) => {
+          e.stopPropagation();
+          ctx.onAskDelete(s.id);
+        }}
+      >
+        {icon('trash', { size: 12 })}
+      </button>
+      {ctx.onArchive === undefined ? null : (
+        <button
+          className="session-act"
+          title={s.archived === true ? t('取消归档') : t('归档')}
+          aria-label={
+            s.archived === true
+              ? t('取消归档会话 {name}', { name: s.label || s.id })
+              : t('归档会话 {name}', { name: s.label || s.id })
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            ctx.onArchive?.(s.id, s.archived !== true);
+          }}
+        >
+          {icon(s.archived === true ? 'undo' : 'inbox', { size: 12 })}
+        </button>
+      )}
+    </span>
+  );
+}
+
+/**
  * 渲染单条会话的内部内容：常态显示标签 + 操作按钮（重命名/复制/删除）；
  * 行内重命名态显示输入框；删除确认态显示「删除？」确认条。
  * @param s 会话条目
@@ -89,128 +235,12 @@ export function filterSessions(items: readonly SessionEntry[], query: string): S
  * @returns 渲染节点
  */
 export function renderSessionBody(s: SessionEntry, ctx: RowCtx): ReactElement {
-  if (ctx.renamingId === s.id) {
-    return (
-      <span className="session-rename">
-        <input
-          className="session-rename-input"
-          value={ctx.renameValue}
-          spellCheck={false}
-          aria-label={t('会话标题')}
-          onChange={(e) => ctx.onRenameInput((e.target as HTMLInputElement).value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') ctx.onCommitRename(s.id);
-            else if (e.key === 'Escape') ctx.onCancelRename();
-          }}
-          onClick={(e) => e.stopPropagation()}
-        />
-        <button
-          className="session-rename-ok"
-          title={t('确认')}
-          aria-label={t('确认重命名')}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCommitRename(s.id);
-          }}
-        >
-          ✓
-        </button>
-        <button
-          className="session-rename-cancel"
-          title={t('取消')}
-          aria-label={t('取消重命名')}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCancelRename();
-          }}
-        >
-          {icon('x', { size: 12 })}
-        </button>
-      </span>
-    );
-  }
-  if (ctx.confirmDeleteId === s.id) {
-    return (
-      <span className="session-confirm">
-        <span className="session-confirm-text">{t('删除？')}</span>
-        <button
-          className="session-confirm-ok"
-          title={t('确认删除')}
-          aria-label={t('确认删除会话 {name}', { name: s.label || s.id })}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCommitDelete(s.id);
-          }}
-        >
-          {t('删除')}
-        </button>
-        <button
-          className="session-confirm-cancel"
-          title={t('取消')}
-          aria-label={t('取消删除')}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onCancelDelete();
-          }}
-        >
-          {t('取消')}
-        </button>
-      </span>
-    );
-  }
+  if (ctx.renamingId === s.id) return <SessionRename s={s} ctx={ctx} />;
+  if (ctx.confirmDeleteId === s.id) return <SessionConfirm s={s} ctx={ctx} />;
   return (
     <>
       <span className="session-label">{s.label || s.id}</span>
-      <span className="session-actions" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="session-act"
-          title={t('重命名')}
-          aria-label={t('重命名会话 {name}', { name: s.label || s.id })}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onStartRename(s);
-          }}
-        >
-          {icon('pencil', { size: 12 })}
-        </button>
-        <button
-          className="session-act"
-          title={t('复制会话')}
-          aria-label={t('复制会话 {name}', { name: s.label || s.id })}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onFork(s.id);
-          }}
-        >
-          {icon('copy', { size: 12 })}
-        </button>
-        <button
-          className="session-act danger"
-          title={t('删除')}
-          aria-label={t('删除会话 {name}', { name: s.label || s.id })}
-          onClick={(e) => {
-            e.stopPropagation();
-            ctx.onAskDelete(s.id);
-          }}
-        >
-          {icon('trash', { size: 12 })}
-        </button>
-        {ctx.onArchive === undefined ? null : (
-          <button
-            className="session-act"
-            title={s.archived === true ? t('取消归档') : t('归档')}
-            aria-label={
-              (s.archived === true ? t('取消归档会话 {name}', { name: s.label || s.id }) : t('归档会话 {name}', { name: s.label || s.id }))
-            }
-            onClick={(e) => {
-              e.stopPropagation();
-              ctx.onArchive?.(s.id, s.archived !== true);
-            }}
-          >
-            {icon(s.archived === true ? 'undo' : 'inbox', { size: 12 })}
-          </button>
-        )}
-      </span>
+      <SessionActions s={s} ctx={ctx} />
     </>
   );
 }
