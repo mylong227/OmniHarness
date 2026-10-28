@@ -1,4 +1,4 @@
-﻿# OmniHarness 项目看板（唯一事实源）
+# OmniHarness 项目看板（唯一事实源）
 
 > **本文件是仓内唯一的看板**。旧看板（`TASK_BOARD.md` / `REFACTOR_BOARD_2026-09-12.md` /
 > `UPGRADE_BOARD_2026-09-12.md` 等旧看板已于 2026-10-03 删除，
@@ -5678,7 +5678,11 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
     「代数变化 ⇒ 再取一次；代数不变 ⇒ 不重复取」；② 控制器两个出口都 +1。
 - **④ 死代码退役（审计待办，已销账）**：`SettingsModal.tsx` + `PanelModal.tsx` 已无任何 import
   （2026-10-26 控制台重构后由 `SettingsSurface` / 工作台控制台接管），**删除约 750 行**；
-  同步把仍指向它们的三处注释改成现役组件。`PanelPicker` 仍被测试引用，按审计建议另批退役。
+  同步把仍指向它们的三处注释改成现役组件。
+  **`PanelPicker` 不退役**（复核后修正审计建议）：它的文件头写明是**有意保留**的「未来入口」——
+  2026-10-26 用户要求删掉右栏头那枚 chrome 后，组件留着给命令面板/后续入口复用（40 行、一枚
+  带 `aria-label` 的按钮，由 `a11yKeyboard` / `mount` 的契约判据覆盖）。删掉它等于把「以后别再把
+  入口写回右栏头」这条决定一起删掉。
 - **增量门禁的 .tsx 盲区（顺手修，2026-10-28 实测触发）**：`auditStandards --delta` 的暂存清单
   只取 `*.ts`，**组件层 `.tsx` 被静默跳过**——提交时打印「无暂存 .ts 文件，增量门禁通过」，
   看起来像过了编码标准。现在路径面加上 `*.tsx` 并**显式说明**：「另有 N 个 .tsx 未纳入本门禁口径；
@@ -5688,4 +5692,4 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
 - **验证**：`npm run web:test` 全量 **120 文件 / 622 例全绿**；`productionGradeStandard` + `caliberSync`
   14/14；`tsc -p web/tsconfig.json --noEmit` 零错；`check.mjs` 1278 文件零违规。
 - **诚实边界**：`workspaceEpoch` 只驱动侧栏（项目名/面包屑/文件树）；其它面板若也缓存了项目路径，
-  需由各自的依赖接入同一条代数（当前审计范围内没有发现第二处）。`PanelPicker` 及其测试仍待退役。
+  需由各自的依赖接入同一条代数（当前审计范围内没有发现第二处）。
