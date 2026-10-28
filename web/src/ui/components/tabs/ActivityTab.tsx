@@ -78,6 +78,62 @@ function summarize(event: ThreadEvent): string {
   }
 }
 
+/**
+ * 待处理事项（审批 / 提问）。
+ * @param props 待审批与待作答请求。
+ * @returns 卡片节点；无待办时 null。
+ */
+function PendingActivity(props: {
+  approval: ApprovalRequest | null;
+  question: QuestionRequest | null;
+}): React.ReactElement | null {
+  if (props.approval === null && props.question === null) return null;
+  return (
+    <section className="act-card act-pending" aria-live="polite">
+      <h3 className="act-title">{t('需要你处理')}</h3>
+      {props.approval !== null ? (
+        <p className="act-status">
+          {t('工具调用等待审批：{tool}', { tool: props.approval.toolName ?? t('未知工具') })}
+        </p>
+      ) : null}
+      {props.question !== null ? (
+        <p className="act-status">
+          {t('Agent 正在等待回答：{question}', {
+            question: props.question.questions[0]?.question ?? t('问题'),
+          })}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * 最近活动列表。
+ * @param props 最近事件。
+ * @returns 卡片节点。
+ */
+function RecentActivity(props: { events: ThreadEvent[] }): React.ReactElement {
+  return (
+    <section className="act-card">
+      <h3 className="act-title">{t('最近活动')}</h3>
+      {props.events.length === 0 ? (
+        <p className="act-muted">{t('还没有事件')}</p>
+      ) : (
+        <ol className="act-list">
+          {props.events.map((event) => (
+            <li key={event.id} className="act-item">
+              <span className={'act-kind act-kind-' + event.type}>
+                {t(EVENT_LABEL[event.type] ?? event.type)}
+              </span>
+              <span className="act-text">{summarize(event)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
 /** 活动面板。 */
 export function ActivityTab(props: ActivityTabProps): React.ReactElement {
   const { api, sessionTick } = useApp();
@@ -103,7 +159,6 @@ export function ActivityTab(props: ActivityTabProps): React.ReactElement {
   }, [api, sessionTick]);
 
   const recent = props.events.slice(-12).reverse();
-  const pending = props.approval !== null || props.question !== null;
   const changedFiles = changes?.files?.length ?? 0;
   const added = (changes?.files ?? []).reduce((n, f) => n + (f.additions ?? 0), 0);
   const removed = (changes?.files ?? []).reduce((n, f) => n + (f.deletions ?? 0), 0);
@@ -129,25 +184,7 @@ export function ActivityTab(props: ActivityTabProps): React.ReactElement {
         </div>
       </section>
 
-      {pending ? (
-        <section className="act-card act-pending" aria-live="polite">
-          <h3 className="act-title">{t('需要你处理')}</h3>
-          {props.approval !== null ? (
-            <p className="act-status">
-              {t('工具调用等待审批：{tool}', {
-                tool: props.approval.toolName ?? t('未知工具'),
-              })}
-            </p>
-          ) : null}
-          {props.question !== null ? (
-            <p className="act-status">
-              {t('Agent 正在等待回答：{question}', {
-                question: props.question.questions[0]?.question ?? t('问题'),
-              })}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
+      <PendingActivity approval={props.approval} question={props.question} />
 
       <section className="act-card">
         <h3 className="act-title">{t('变更摘要')}</h3>
@@ -173,23 +210,7 @@ export function ActivityTab(props: ActivityTabProps): React.ReactElement {
         </div>
       </section>
 
-      <section className="act-card">
-        <h3 className="act-title">{t('最近活动')}</h3>
-        {recent.length === 0 ? (
-          <p className="act-muted">{t('还没有事件')}</p>
-        ) : (
-          <ol className="act-list">
-            {recent.map((event) => (
-              <li key={event.id} className="act-item">
-                <span className={'act-kind act-kind-' + event.type}>
-                  {t(EVENT_LABEL[event.type] ?? event.type)}
-                </span>
-                <span className="act-text">{summarize(event)}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
+      <RecentActivity events={recent} />
     </div>
   );
 }

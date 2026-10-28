@@ -6213,3 +6213,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **判据**：`auditTraceTabs` 8 例 + `diagnosticsTab` 6 例全绿；`tsc -p web` 零错。
 - **剩余规模**：`check.mjs --strict` 仍报 **47** 处函数体超基线（含服务端）。
 - **结论**：S2 **未闭环**；已清偿 14 个函数，剩余 47。
+
+## 150. 2026-10-29 S2 继续清偿：Activity / Metrics 两个面板
+
+- **改动**：
+  - `ActivityTab` 114 → <80：待处理/最近活动抽 `PendingActivity` / `RecentActivity`；
+  - `MetricsTab` 122 → <80：Token 表/事件分布抽 `UsageTable` / `EventDistribution`。
+- **判据**：`activityTab` 1 例全绿；`tsc -p web` 零错；`web:build` 通过。
+- **剩余规模**：`check.mjs --strict` 仍报 **45** 处函数体超基线（含服务端）。
+- **结论**：S2 **未闭环**；已清偿 16 个函数，剩余 45。

@@ -33,6 +33,87 @@ interface UsageStats {
 }
 
 /**
+ * Token 消耗表。
+ * @param props 按模型的统计与总量。
+ * @returns 表格卡片。
+ */
+function UsageTable(props: {
+  models: [string, ModelStat][];
+  usage: UsageStats | null;
+}): ReactElement {
+  const { models, usage } = props;
+  return (
+    <section className="act-card">
+      <div className="section-title">{t('Token 消耗统计')}</div>
+      {models.length > 0 ? (
+        <>
+          <table className="usage-table">
+            <thead>
+              <tr>
+                <th>{t('模型')}</th>
+                <th>{t('调用次数')}</th>
+                <th>{t('输入')}</th>
+                <th>{t('输出')}</th>
+                <th>{t('总计')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {models.map(([m, s]) => (
+                <tr key={m}>
+                  <td>{m}</td>
+                  <td>{s.calls}</td>
+                  <td>{NumberFormatter.abbrev(s.prompt)}</td>
+                  <td>{NumberFormatter.abbrev(s.completion)}</td>
+                  <td>{NumberFormatter.abbrev(s.total)}</td>
+                </tr>
+              ))}
+              <tr className="total">
+                <td>{t('合计')}</td>
+                <td>{usage?.total.calls ?? 0}</td>
+                <td>{NumberFormatter.abbrev(usage?.total.prompt ?? 0)}</td>
+                <td>{NumberFormatter.abbrev(usage?.total.completion ?? 0)}</td>
+                <td>{NumberFormatter.abbrev(usage?.total.total ?? 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div className="usage-src">
+            {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
+          </div>
+        </>
+      ) : (
+        <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * 事件类型分布。
+ * @param props 事件计数表。
+ * @returns 分布卡片。
+ */
+function EventDistribution(props: { counts: Readonly<Record<string, number>> }): ReactElement {
+  const keys = Object.keys(props.counts);
+  return (
+    <section className="act-card">
+      <div className="section-title">{t('事件分布')}</div>
+      <div id="metricTypes">
+        {keys.length === 0 ? (
+          <p className="hint">{t('暂无事件记录。')}</p>
+        ) : (
+          keys.sort().map((k) => (
+            <div className="kv" key={k}>
+              <span className="k">{k}</span>
+              <span className="v">{props.counts[k]}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
  * 指标面板：渲染计数卡片、Token 消耗表与事件分布。
  * @returns 指标面板节点
  */
@@ -96,65 +177,8 @@ export function MetricsTab(): ReactElement {
         ))}
       </div>
 
-      <section className="act-card">
-        <div className="section-title">{t('Token 消耗统计')}</div>
-        {models.length > 0 ? (
-          <>
-            <table className="usage-table">
-              <thead>
-                <tr>
-                  <th>{t('模型')}</th>
-                  <th>{t('调用次数')}</th>
-                  <th>{t('输入')}</th>
-                  <th>{t('输出')}</th>
-                  <th>{t('总计')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {models.map(([m, s]) => (
-                  <tr key={m}>
-                    <td>{m}</td>
-                    <td>{s.calls}</td>
-                    <td>{NumberFormatter.abbrev(s.prompt)}</td>
-                    <td>{NumberFormatter.abbrev(s.completion)}</td>
-                    <td>{NumberFormatter.abbrev(s.total)}</td>
-                  </tr>
-                ))}
-                <tr className="total">
-                  <td>{t('合计')}</td>
-                  <td>{usage?.total.calls ?? 0}</td>
-                  <td>{NumberFormatter.abbrev(usage?.total.prompt ?? 0)}</td>
-                  <td>{NumberFormatter.abbrev(usage?.total.completion ?? 0)}</td>
-                  <td>{NumberFormatter.abbrev(usage?.total.total ?? 0)}</td>
-                </tr>
-              </tbody>
-            </table>
-            <div className="usage-src">
-              {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
-            </div>
-          </>
-        ) : (
-          <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
-        )}
-      </section>
-
-      <section className="act-card">
-        <div className="section-title">{t('事件分布')}</div>
-        <div id="metricTypes">
-          {Object.keys(et).length === 0 ? (
-            <p className="hint">{t('暂无事件记录。')}</p>
-          ) : (
-            Object.keys(et)
-              .sort()
-              .map((k) => (
-                <div className="kv" key={k}>
-                  <span className="k">{k}</span>
-                  <span className="v">{et[k]}</span>
-                </div>
-              ))
-          )}
-        </div>
-      </section>
+      <UsageTable models={models} usage={usage} />
+      <EventDistribution counts={et as Readonly<Record<string, number>>} />
     </div>
   );
 }
