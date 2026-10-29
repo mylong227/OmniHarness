@@ -17,6 +17,8 @@
  */
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 解析裸标识符）。
 import * as React from 'react';
+import { Table } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { useApp } from '../../context.ts';
 import { timeOf } from '../../format.ts';
 import type { ReactElement } from 'react';
@@ -32,25 +34,53 @@ interface AuditEventView {
   readonly actor?: string | undefined;
 }
 
+/** 表格行（列值与展示文案同源，避免"表格里一套、导出/读屏另一套"）。 */
+interface AuditRow {
+  readonly key: string;
+  readonly seq: string;
+  readonly time: string;
+  readonly type: string;
+  readonly session: string;
+  readonly actor: string;
+}
+
 /**
- * 审计事件列表。
- * @param props 事件数组。
- * @returns 列表节点。
+ * 审计事件表。
+ *
+ * 2026-10-29（W4 模板）：原来是 `<ul><li>` 的单行拼接——列不可扫读、窄屏换行后字段错位。
+ * 换 antd `Table` 后列对齐、可按列扫读；**纪律不变**：链序号列显式写「（未入链）」，不静默留空。
+ *
+ * @param props 事件数组
+ * @returns 表格节点
  */
-function AuditEventList(props: { events: readonly AuditEventView[] }): ReactElement {
+function AuditEventTable(props: { events: readonly AuditEventView[] }): ReactElement {
+  const rows: AuditRow[] = props.events.map((event, index) => ({
+    key: `${String(index)}-${event.type}-${String(event.seq ?? '')}`,
+    seq: event.seq === undefined ? t('（未入链）') : `#${String(event.seq)}`,
+    time: event.ts === undefined ? t('（无时间戳）') : timeOf(Date.parse(event.ts)),
+    type: event.type,
+    session: event.sessionId === undefined ? '' : t('会话 {id}', { id: event.sessionId }),
+    actor: event.actor ?? '',
+  }));
+  const columns: ColumnsType<AuditRow> = [
+    { title: t('链序号'), dataIndex: 'seq', key: 'seq', width: 96 },
+    { title: t('时间'), dataIndex: 'time', key: 'time', width: 160 },
+    { title: t('类型'), dataIndex: 'type', key: 'type', width: 160 },
+    { title: t('会话'), dataIndex: 'session', key: 'session' },
+    { title: t('执行者'), dataIndex: 'actor', key: 'actor', width: 140 },
+  ];
   return (
     <div className="detail-section">
       <div className="detail-h">{t('事件（{count}）', { count: props.events.length })}</div>
-      <ul>
-        {props.events.map((event, index) => (
-          <li key={`${String(index)}-${event.type}-${String(event.seq ?? '')}`}>
-            {event.seq === undefined ? t('（未入链）') : `#${String(event.seq)}`} ·{' '}
-            {event.ts === undefined ? t('（无时间戳）') : timeOf(Date.parse(event.ts))} · {event.type}
-            {event.sessionId === undefined ? '' : ` · ${t('会话 {id}', { id: event.sessionId })}`}
-            {event.actor === undefined ? '' : ` · ${event.actor}`}
-          </li>
-        ))}
-      </ul>
+      <Table<AuditRow>
+        className="audit-log-table"
+        size="small"
+        bordered={false}
+        pagination={false}
+        columns={columns}
+        dataSource={rows}
+        scroll={{ x: 'max-content' }}
+      />
     </div>
   );
 }
@@ -123,7 +153,7 @@ export function AuditTab(): ReactElement {
         data.events.length === 0 ? (
           <p className="hint">{t('本次查询无匹配事件（审计 sink 已接线）。')}</p>
         ) : (
-          <AuditEventList events={data.events as readonly AuditEventView[]} />
+          <AuditEventTable events={data.events as readonly AuditEventView[]} />
         )
       ) : (
         <p className="hint">{t('暂无审计数据。')}</p>

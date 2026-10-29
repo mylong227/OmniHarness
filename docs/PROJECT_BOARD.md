@@ -6679,3 +6679,24 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   判据：`sessionSearch` 新增 1 例（每行可 Tab、aria-current、Enter 打开、Shift+F10 开菜单）。
 - **验证**：`a11yKeyboard` **15/15**、`sessionSearch` **18/18**、`shellDensity`/`narrowReflow`/`a11yAudit`
   全绿；全量 web 判据见提交信息。
+
+## 178. 2026-10-29 W4 开工：审计面板 → antd Table（面板迁移模板）+ 分块约束
+
+- **改动**：`AuditTab` 的 `<ul><li>` 单行拼接换成 antd `Table`（列：链序号 / 时间 / 类型 / 会话 / 执行者，
+  `size="small"`、`pagination={false}`、`scroll={x:'max-content'}`）。**三条纪律原样保留**：
+  `ok:false` 仍显示「未接线 + 原因」、`ok:true` 且 0 条仍写「无匹配事件」、无 seq 的事件仍显式写
+  「（未入链）」（列值在表格行里同源，不静默留空）。
+- **样式**：新增 `.csl-scroll .audit-log-table` 覆盖（透明底、发丝线、12px），与既有 `.audit-table`
+  原生表格样式**分开命名**，避免两套表互相污染。
+- **预算闸调整（有依据，不是放水）**：Table 让 vendor 从 **232 → 310.7KB gzip**；`vendorKb` 从
+  260 调到 **330**——330 是 UI_LIBRARY_UPGRADE §0.5 对 antd 子集的实测上界，首屏合计仍 524/630。
+- **W4 的真实约束（下一批必须先做）**：`vite.config.ts` 的 `manualChunks` 把**任何** antd import
+  都塞进 vendor（首屏），面板是异步块但它们的 antd 依赖仍进首屏。现在 vendor 只剩 ~19KB 余量，
+  再加 Table/Form/DatePicker 必红。**先做分块改造**：给 manualChunks 一份「壳层实际使用的 antd
+  子路径」白名单（config-provider/app/button/modal/menu/tabs/tree/card/tag/empty/typography/flex/space），
+  其余 antd 模块让它随导入它的异步块走——改动本身要重测 entry/vendor/async 三个桶。
+- **模板结论**：一个只读面板的 Table 化 ≈ 1 个组件 + 1 套 CSS + 既有判据即可通过（`auditTraceTabs` 8/8
+  不动）。剩余 14 个面板里，适合 Table 的是「行式数据」那几个（审计/变更/活动/诊断/指标）；
+  表单类面板要 Form 才值得动——但那必须先完成上面的分块改造，否则预算先崩。
+- **验证**：`auditTraceTabs` 8/8、`cssSourceHygiene` 通过；`web:budget` 全绿（330 新闸）；
+  tsc 零错。

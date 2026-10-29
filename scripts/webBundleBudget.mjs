@@ -19,7 +19,10 @@
  *       - firstLoadKb：entry + vendor 总量（W0 实测后定为 630，含 ~10% 余量）；
  *       - entryJsKb：entry 单独上限（应用码 + markdown-it/highlight，防应用码无节制膨胀）；
  *       - vendorKb：vendor 分块单独上限（react 基座 + antd 基座；2026-10-29 补，
- *         此前只有合计闸，某一半膨胀可被另一半缩小掩盖）；
+ *         此前只有合计闸，某一半膨胀可被另一半缩小掩盖）。**2026-10-29 W4 起定为 330**：
+ *         引入 antd Table 后实测 310.7，330 是 UI_LIBRARY_UPGRADE §0.5 对 antd 子集的实测上界；
+ *         再往 vendor 里加 Table/Form/DatePicker 之前，必须先做「面板级 antd 走异步块」的分块改造
+ *         （见看板 §178），否则这条闸会先红。
  *       - cssKb / asyncKb：不变口径（asyncKb 170 = 原 120 + antd 面板懒加载余量）。
  *
  * ## 用法

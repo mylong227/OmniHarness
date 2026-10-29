@@ -12,6 +12,10 @@ export const EN_TABS_A: Record<string, string> = {
   '未接线：{reason}': 'Not wired: {reason}',
   '本次查询无匹配事件（审计 sink 已接线）。': 'No matching events for this query (audit sink is wired).',
   '事件（{count}）': 'Events ({count})',
+  // 表格列名（2026-10-29 W4：审计事件换 antd Table 后新增）
+  '链序号': 'Chain #',
+  '时间': 'Time',
+  '执行者': 'Actor',
   '（未入链）': '(not chained)',
   '（无时间戳）': '(no timestamp)',
   '会话 {id}': 'Session {id}',

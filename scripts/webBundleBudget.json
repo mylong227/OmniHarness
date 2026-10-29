@@ -1,7 +1,7 @@
 {
   "firstLoadKb": 630,
   "entryJsKb": 300,
-  "vendorKb": 260,
+  "vendorKb": 330,
   "cssKb": 40,
   "asyncKb": 170
 }

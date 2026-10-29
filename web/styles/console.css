@@ -967,6 +967,27 @@
   padding-right: 0;
 }
 
+/* 审计事件表（2026-10-29 W4：antd Table）——沿用发丝线 + 不套第二层卡片。 */
+.csl-scroll .audit-log-table .ant-table {
+  background: transparent;
+  font-size: 12px;
+}
+.csl-scroll .audit-log-table .ant-table-thead > tr > th {
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--faint);
+  font-weight: 500;
+  border-bottom: 1px solid var(--hairline);
+}
+.csl-scroll .audit-log-table .ant-table-tbody > tr > td {
+  padding: 8px 12px;
+  color: var(--dim);
+  border-bottom: 1px solid var(--hairline);
+}
+.csl-scroll .audit-log-table .ant-table-tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+
 /* 厂商卡片（模型页）：卡片内的折叠行 */
 .csl-provider.sp-card-wrap {
   border: 0;
