@@ -56,6 +56,8 @@ const fileOf = (title: string) => ({ title, meta: '测试文件', content: 'x', 
 
 test('RightPanel：文件标签的 tablist/tab/tabpanel 成套，aria-selected 唯一为 true，roving tabindex', () => {
   // 2026-10-19：功能面板移入设置式模态后，右栏标签条只承载文件；Tabs 语义契约不变。
+  // 2026-10-29（W2）：标签条换成 antd Tabs——**判据改为断言关系而不是字面 id**
+  // （rc-tabs 的 id 是内部实现，钉死会把组件库小版本升级变成判据红）。
   const { node } = renderFacade(RightPanel, {
     props: {
       open: true,
@@ -75,7 +77,7 @@ test('RightPanel：文件标签的 tablist/tab/tabpanel 成套，aria-selected �
   assert.strictEqual(tabs.length, 2, '只有已打开的文件标签（功能面板已移入模态）');
   const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
   assert.strictEqual(selected.length, 1, 'aria-selected 必须有且仅有 1 个 true');
-  assert.match(String(selected[0]!.props.id), /^file-tab-/);
+  assert.notStrictEqual(String(selected[0]!.props.id), '', '选中的 tab 必须有 id（面板据此回指）');
   assert.deepStrictEqual(
     tabs.filter((t) => t.props['aria-selected'] !== 'true' && t.props['aria-selected'] !== 'false'),
     [],
@@ -84,12 +86,30 @@ test('RightPanel：文件标签的 tablist/tab/tabpanel 成套，aria-selected �
   assert.strictEqual(selected[0]!.props.tabIndex, '0', '选中标签是唯一 Tab 落点（roving tabindex）');
   assert.strictEqual(tabs.filter((t) => t.props.tabIndex === '-1').length, tabs.length - 1);
 
-  const panel = collect(node, (n) => n.props.role === 'tabpanel');
-  assert.strictEqual(panel.length, 1);
-  assert.strictEqual(panel[0]!.props['aria-labelledby'], selected[0]!.props.id);
+  const panels = collect(
+    node,
+    (n) => n.props.role === 'tabpanel' && n.props['aria-hidden'] !== 'true',
+  );
+  assert.strictEqual(panels.length, 1, '只应有 1 个挂载的 tabpanel（destroyOnHidden）');
+  assert.notStrictEqual(String(panels[0]!.props.id), '', '面板必须有 id（tab 的 aria-controls 指向它）');
+  assert.strictEqual(
+    panels[0]!.props['aria-labelledby'],
+    selected[0]!.props.id,
+    '面板的 aria-labelledby 必须回指当前 tab',
+  );
   assert.strictEqual(byId(node, String(selected[0]!.props.id)).length, 1);
-  assert.strictEqual(new Set(tabs.map((t) => t.props['aria-controls'])).size, 1);
-  assert.strictEqual(allText(panel[0]!), 'file-body');
+  // 2026-10-29（W2）：antd 给每个 tab 各自的 panel id（比旧实现「所有 tab 共用一个面板」更精确），
+  // 但只有当前面板被挂载（destroyOnHidden）⇒ 断言「当前 tab 指向真实存在的面板」。
+  assert.ok(
+    tabs.every((t) => String(t.props['aria-controls'] ?? '') !== ''),
+    '每个 tab 都必须带 aria-controls',
+  );
+  assert.strictEqual(
+    selected[0]!.props['aria-controls'],
+    panels[0]!.props.id,
+    '当前 tab 的 aria-controls 必须指向真实存在的面板',
+  );
+  assert.match(allText(panels[0]!), /file-body/, '面板必须渲染文件内容');
 });
 
 test('RightPanel：激活文件标签；不再渲染「全部面板」入口', () => {
@@ -165,9 +185,10 @@ test('RightPanel：网页标签与文件标签同属一个 tablist（键盘可�
   assert.strictEqual(tabs.length, 2, '文件 + 网页各一枚 tab');
   const selected = tabs.filter((t) => t.props['aria-selected'] === 'true');
   assert.strictEqual(selected.length, 1);
-  assert.match(String(selected[0]!.props.id), /^file-tab-/u);
-  const webTab = tabs.find((t) => t.props.id === 'web-tab');
-  assert.ok(webTab !== undefined, '网页标签的稳定 id 必须存在');
+  const tablist = collect(node, (n) => n.props.role === 'tablist')[0]!;
+  assert.strictEqual(tablist.props['aria-label'], '文件与网页', '有网页标签时 tablist 名字要带上它');
+  const webTab = tabs.find((t) => allText(t).includes('网页'));
+  assert.ok(webTab !== undefined, '网页标签必须与文件标签同属一个 tablist');
   // 激活文件标签上按 →，下一枚就是网页标签。
   fireEvent.keyDown(selected[0]!.el, { key: 'ArrowRight' });
   assert.deepStrictEqual(shown, ['browser']);
@@ -196,9 +217,12 @@ test('RightPanel：网页标签激活时面板 aria-labelledby 指向 web-tab', 
     (n) => n.props.role === 'tab' && n.props['aria-selected'] === 'true',
   );
   assert.strictEqual(selected.length, 1);
-  assert.strictEqual(selected[0]!.props.id, 'web-tab');
-  const panel = collect(node, (n) => n.props.role === 'tabpanel')[0]!;
-  assert.strictEqual(panel.props['aria-labelledby'], 'web-tab');
+  assert.match(allText(selected[0]!), /网页/, '网页标签必须是当前项');
+  const panel = collect(
+    node,
+    (n) => n.props.role === 'tabpanel' && n.props['aria-hidden'] !== 'true',
+  )[0]!;
+  assert.strictEqual(panel.props['aria-labelledby'], selected[0]!.props.id);
   assert.strictEqual(allText(panel), 'web-body', '网页激活时不得再渲染文件内容');
 });
 
@@ -401,12 +425,14 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
     renderFacade(RightPanel, {
       props: {
         open: true,
-        openFiles: [],
-        activeFileTitle: null,
+        // 2026-10-29（W2）：标签条换 antd Tabs 后，没有标签就**没有** tablist/tabpanel
+        //（旧实现的面板是常驻的）。汇总树因此带一个打开的文件，才能覆盖 Tabs 三件套语义。
+        openFiles: [fileOf('a.ts')],
+        activeFileTitle: 'a.ts',
         onShowFile: () => {},
         onCloseFile: () => {},
         onOpenPanels: () => {},
-        children: null,
+        children: 'x',
       },
     }).node,
     renderFacade(SidebarFooter, {
@@ -446,8 +472,9 @@ test('汇总：跨组件渲染树的可访问性属性计数达到下限', () =>
   // 属性「逐个显式给出」的契约由上面各用例分别钉住。
   // 2026-10-18：关闭「×」改成 aria-hidden 的指针捷径（嵌套交互控件会被 axe 判红），
   // 标签自身仍逐个带 roving tabindex（激活项 0、其余 -1）。
-  // 2026-10-19：没有打开文件时右栏不再渲染占位「文件」标签 ⇒ role 数量再少 1。
-  assert.ok(numbered.role >= 6, 'role 数量偏低：' + JSON.stringify(numbered));
+  // 2026-10-29（W2）：标签条换 antd Tabs 且面板不再是常驻节点——汇总树改为「一个打开文件」，
+  // 于是 tablist + tab + tabpanel 三件套齐全：role 5→8、aria-selected 2、roving tabindex 有。
+  assert.ok(numbered.role >= 8, 'role 数量偏低：' + JSON.stringify(numbered));
   // 2026-10-19：页脚主题切换按钮 + 输入区独立回形针按钮已移除（附件入口收进「＋」菜单），
   // aria-label 相应少两枚 ⇒ 阈值 10→8。
   // 2026-10-26：品牌行命令按钮 + 右栏「全部面板」按钮按用户要求删除 ⇒ 再少两枚，阈值 8→6；

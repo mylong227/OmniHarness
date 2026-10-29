@@ -676,15 +676,13 @@
   box-shadow: var(--ring);
   outline: none;
 }
-.session-act,
-.rv-tabs .tab-x {
+.session-act {
   border-radius: var(--r-xs);
   color: var(--faint);
   background: transparent;
   border-color: transparent;
 }
-.session-act:hover,
-.rv-tabs .tab-x:hover {
+.session-act:hover {
   background: var(--hover);
   color: var(--text);
 }
@@ -1647,86 +1645,98 @@
 /* =========================================================================
    7. 右栏面板：标签条 / 卡片 / 徽标 / 指标
    ========================================================================= */
+/* 2026-10-29（W2）：标签条换成 antd `Tabs`（editable-card + destroyOnHidden），
+   保留原来的「扁平静默 + 激活墨条」语言：卡片边框/底色全部抹平，只留文字色与 2px 墨条。
+   结构：`.tabs.rv-tabs` 是右栏整列（flex 列）→ antd root 撑满 → 面板内部自己滚。 */
 .rv-tabs {
   /* 必须不透明：.tabs 是 sticky（layout.css），右栏整列可滚动；透明顶栏会让正文
      从标签底下穿过去（用户截图：文件标题与正文叠在一起）。
      inherit = 与 .col.right 同底色，深浅主题都成立。 */
   background: inherit;
   border-bottom: 1px solid var(--hairline);
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.rv-tabs .ant-tabs-nav {
+  margin: 0;
   padding: 8px 10px 0;
 }
-.rv-tabs .tab {
+/* 底线由 `.rv-tabs` 自己画（antd 默认还会在 nav 上画一条）。 */
+.rv-tabs .ant-tabs-nav::before {
+  border-bottom: 0;
+}
+.rv-tabs .ant-tabs-tab {
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
   border-radius: var(--r-sm) var(--r-sm) 0 0;
   color: var(--dim);
   font-size: var(--fs-sm);
-  position: relative;
   padding: 6px 10px;
+  margin: 0 2px 0 0;
 }
-.rv-tabs .tab:hover {
+.rv-tabs .ant-tabs-tab:hover {
   background: var(--hover);
   color: var(--text);
 }
-.rv-tabs .tab.active {
+.rv-tabs .ant-tabs-tab.ant-tabs-tab-active {
   background: transparent;
-  color: var(--text);
   border-color: transparent;
-  border-bottom-color: transparent;
-  box-shadow: none;
+}
+.rv-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--text);
   font-weight: 550;
 }
-.rv-tabs .tab.active::after {
-  content: '';
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: -1px;
+.rv-tabs .ant-tabs-ink-bar {
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
 }
-
-/* 标签条结构（2026-10-18 a11y 修复）：
-   `tablist` 只包标签本身（aria-required-children）；关闭「×」是标签内的 aria-hidden 装饰，
-   只作指针捷径；键盘关闭走标签聚焦后的 Delete/Backspace（见 RightPanel.onTabKey）。 */
-.rv-tablist {
-  display: flex;
-  gap: 2px;
-  min-width: 0;
-}
-.rv-tabs .tab.closable {
-  padding-right: 24px;
-}
-.rv-tabs .tab-x {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
+.rv-tabs .ant-tabs-tab-remove {
+  margin-inline-start: 6px;
   color: var(--faint);
-  border-radius: var(--r-xs);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
 }
-.rv-tabs .tab-x:hover {
-  background: var(--hover);
+.rv-tabs .ant-tabs-tab-remove:hover {
   color: var(--text);
 }
-@media (max-width: 640px) {
-  .rv-tablist {
-    flex-wrap: wrap;
-  }
+/* 内容面板：撑满剩余高度，滚动交给 `.rv-pane-body`。 */
+.rv-tabs .ant-tabs-content-holder {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  border-top: 0;
+}
+.rv-tabs .ant-tabs-content {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.rv-tabs .ant-tabs-tabpane {
+  height: 100%;
+}
+.rv-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.rv-pane-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 26px 26px;
+}
+.rv-tab-label {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .scope-chip {
   flex: none;

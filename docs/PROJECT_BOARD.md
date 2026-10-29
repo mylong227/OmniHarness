@@ -6489,3 +6489,32 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   （`git grep` 生产代码零引用），但 `tests/unit/contextUsagePanelRefresh.test.ts` 前 3 例仍读它源码；
   该文件其余 6 例是服务端接线（`usageThreadId` / 工作区根对齐），需保留。清理动作 = 删组件 + 裁前 3 例。
 - **下一步**：RightPanel → Tabs 的阻塞已解除（main 现在是唯一真相源），可直接开工，见 §168 草案。
+
+## 170. 2026-10-29 收尾：孤儿容量面板清理（`dda40a8a`）+ 右栏标签换 antd Tabs
+
+- **① 孤儿清理（`dda40a8a`，-351 行）**：`ContextCapacityPanel` 组件删除（生产代码零引用），
+  其源码判据前 3 例裁掉（轮询行为现由 `capacityDock.test.ts` 钉住），保留服务端接线 6 例；
+  仅它使用的死样式（`.cap-bar-big/.cap-bar-fill/.cap-page*`）一并删除，dock 复用的
+  `.cap-rows/.cap-row*/.cap-src` 保留；`checkFuncBaseline.json` 陈旧条目、i18n 注释同步。
+- **② 右栏标签 → antd Tabs（本批）**：
+  - `Tabs type="editable-card" hideAdd size="small" destroyOnHidden`；文件标签 key=文件标题、
+    网页标签 key=`web`；`onChange` 映射 `onShowFile/onShowBrowser`，`onEdit('remove')` 映射关闭；
+    「在右侧打开网页」走 `tabBarExtraContent`。
+  - **面板交给 antd**：`items[].children` = 路径栏 + 文件体（网页标签 = browserContent）。
+    `destroyOnHidden` 保证非当前面板卸载——否则同一份文件内容会被每个标签各挂一份。
+  - **a11y 不再手拼 id**（§168 的预判得到验证）：rc-tabs 的 tab `id` **首帧为空串、第二帧才就绪**，
+    手写 `aria-controls/aria-labelledby` 会被后续渲染覆盖（实测）。改为用 antd 自带的面板关系，
+    只补一件它不管的事：`tablist` 的 `aria-label`（每次提交后幂等重写，nav 重建也不丢）。
+  - **键盘行为保持**：←/→ 仍是「移动并切换」（rc-tabs 默认只移焦点、要 Enter 才切，故自研接管并
+    `stopPropagation`）；Delete/Backspace 关闭**事件所在**的标签（按 items 顺序定位——点击可能先于
+    父组件重渲染到达，用 props 的 `browserActive` 会把刚点上的网页标签误判成文件）。
+  - **判据改关系型**：`a11yKeyboard` 的四处不再钉 `file-tab-*` / `web-tab` 字面 id，改为
+    「tab 有 id、面板 `aria-labelledby` 回指当前 tab、当前 tab 的 `aria-controls` 指向真实存在的面板、
+    每个 tab 显式 `aria-selected`、roving tabindex」。汇总树补一个打开文件（无标签就没有 tablist/tabpanel）。
+  - **CSS**：`.rv-tabs` 从「标签条」变成「右栏整列」——antd root 撑满、内容区 flex、`.rv-pane-body`
+    承接原来的内距与滚动；editable-card 的卡片边框/底色全部抹平，保留文字色 + 2px 墨条；
+    旧的 `.rv-tabs .tab*`/`.rv-tablist`/`.tab-x` 规则（shell.css / minimal.css）删除。
+- **验证**：`a11yKeyboard` 13/13；`shellDensity`/`narrowReflow`/`a11yAudit`/`e2e`/`cssSourceHygiene`
+  全绿；**全量 web 128 文件 / 654 例全绿**；tsc 双工程零错；构建通过。
+- **未做（诚实记录）**：右栏「打开一个文件」的真机截图未留档——探针桩页的文件树是空的，
+  现有 `visualProbe` 也没有该交互态；结构与 a11y 由上述判据覆盖，观感留待下一次截图复核。

@@ -298,29 +298,6 @@
   flex: none;
 }
 .rv-tabs::-webkit-scrollbar { display: none; }
-.rv-tabs .tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  cursor: pointer;
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 200px;
-}
-.rv-tabs .tab .tab-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.rv-tabs .tab .tab-x {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
 
 .rv-pathbar {
   display: flex;
