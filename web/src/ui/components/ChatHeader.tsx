@@ -2,7 +2,11 @@
 // 取代原全局 TopBar 在中栏的位置；移动端抽屉开关（左栏 / 右栏）也收编在这两枚仅窄屏显示的按钮里。
 // 视图切换是组件内局部状态吗——不是：视图由父组件（StreamView）持有，切到「轨迹」要换整个流区。
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
+//
+// W2（2026-10-29）：原生 `title` → antd Tooltip（UI_LIBRARY_UPGRADE §6.3 迁移第一批）。
+// 悬停提示的观感/位置/防溢出交给 antd；可交互元素从此不得依赖原生 title（nativeTitleGuard 判据）。
 
+import { Tooltip } from 'antd';
 import { icon } from '../models/Icon.ts';
 import { PathJoiner } from '../models/PathJoiner.ts';
 import { t } from '../i18n/i18n.ts';
@@ -52,26 +56,29 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
   return (
     <div className="chat-head">
       {onToggleLeft === undefined ? null : (
-        <button
-          className="iconbtn mob-only"
-          title={t('会话侧栏')}
-          aria-label={t('打开会话侧栏')}
-          onClick={onToggleLeft}
-        >
-          {icon('menu', { size: 16 })}
-        </button>
+        <Tooltip title={t('会话侧栏')}>
+          <button
+            className="iconbtn mob-only"
+            aria-label={t('打开会话侧栏')}
+            onClick={onToggleLeft}
+          >
+            {icon('menu', { size: 16 })}
+          </button>
+        </Tooltip>
       )}
       {project === '' ? null : (
-        <span className="chat-project" title={projectPath}>
-          {project}
-          <span className="chat-slash" aria-hidden="true">
-            {' / '}
+        <Tooltip title={projectPath}>
+          <span className="chat-project">
+            {project}
+            <span className="chat-slash" aria-hidden="true">
+              {' / '}
+            </span>
           </span>
-        </span>
+        </Tooltip>
       )}
-      <div className="chat-title" title={title}>
-        {title === '' ? t('新会话') : title}
-      </div>
+      <Tooltip title={title === '' ? undefined : title}>
+        <div className="chat-title">{title === '' ? t('新会话') : title}</div>
+      </Tooltip>
       {props.duration === undefined || props.duration === '' ? null : (
         <span
           className={
@@ -105,18 +112,19 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       </div>
       <span className="flex-spacer" aria-hidden="true"></span>
       {onToggleRight === undefined ? null : (
-        <button
-          // 2026-10-21（用户按截图「按钮去掉换成小箭头形式」）：原来是 `columns` 图标 + `.active`
-          // 的淡色底块，看着像一枚「选中态视图」；它其实是「把右栏推到右边 / 拉回来」的开关，
-          // 故改成与左栏「«」、右栏头「»」同源的**纯字形小箭头**，也不再加 `.active` 底块。
-          className="iconbtn chat-panel-toggle"
-          title={rightCollapsed ? t('展开功能面板（Ctrl/Cmd+Shift+E）') : t('收起功能面板（Ctrl/Cmd+Shift+E）')}
-          aria-label={rightCollapsed ? t('展开功能面板') : t('收起功能面板')}
-          aria-expanded={rightCollapsed ? 'false' : 'true'}
-          onClick={onToggleRight}
-        >
-          {rightCollapsed ? '«' : '»'}
-        </button>
+        <Tooltip title={rightCollapsed ? t('展开功能面板（Ctrl/Cmd+Shift+E）') : t('收起功能面板（Ctrl/Cmd+Shift+E）')}>
+          {/* 2026-10-21（用户按截图「按钮去掉换成小箭头形式」）：原来是 `columns` 图标 + `.active`
+              的淡色底块，看着像一枚「选中态视图」；它其实是「把右栏推到右边 / 拉回来」的开关，
+              故改成与左栏「«」、右栏头「»」同源的**纯字形小箭头**，也不再加 `.active` 底块。 */}
+          <button
+            className="iconbtn chat-panel-toggle"
+            aria-label={rightCollapsed ? t('展开功能面板') : t('收起功能面板')}
+            aria-expanded={rightCollapsed ? 'false' : 'true'}
+            onClick={onToggleRight}
+          >
+            {rightCollapsed ? '«' : '»'}
+          </button>
+        </Tooltip>
       )}
     </div>
   );
