@@ -425,28 +425,12 @@ svg {
 
 /* ---- 中栏对话流 ---- */
 
-/* ---- 右栏标签条（窄窗才显示） ---- */
+/* ---- 右栏标签条容器（标签本体自 2026-10-29 起由 antd Tabs 渲染） ---- */
 .tabs {
   gap: 4px;
   padding: 8px 10px;
   border-bottom-color: var(--hairline);
   background: var(--bg-elev);
-}
-.tab {
-  border-radius: 8px;
-  padding: 6px 4px;
-  font-size: 12px;
-  color: var(--faint);
-}
-.tab:hover {
-  color: var(--text);
-  background: var(--panel);
-}
-.tab.active {
-  background: var(--panel-2);
-  border-color: var(--border-soft);
-  color: var(--text);
-  box-shadow: inset 0 -2px 0 var(--brand);
 }
 
 /* 分栏拖拽条：默认隐形、hover 才显形（原先常驻一条灰线，四栏之间太吵）。 */

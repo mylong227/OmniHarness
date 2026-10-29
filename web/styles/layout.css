@@ -40,9 +40,6 @@
   position:sticky; top:0; z-index:2;
 }
 @media (max-width:880px) { .tabs { display:flex; } }
-.tab {
-  flex:1; text-align:center; cursor:pointer; border:1px solid transparent; min-width:0;
-}
 .pane { display:none; }
 .pane.active { display:block; }
 .tool-item { display:flex; align-items:center; gap:8px; padding:6px 9px; border-radius:8px; cursor:pointer; font-size:13px; }

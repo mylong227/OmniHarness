@@ -70,6 +70,45 @@ function probeResults() {
   const iso = (minutesAgo: number) => new Date(base - minutesAgo * 60000).toISOString();
   return {
     'config.get': { modelAdapter: 'probe', model: 'probe-large', reasoning: 'medium', approval: 'ask', sandbox: 'policy', escalation: 'deny', autoApprove: false, workspace: 'D:\\deepseek\\omniharness', providerKeys: { probe: 'sk-****1234' } },
+    // 侧栏文件树（2026-10-29 起是 antd Tree）：没有这份夹具，截图里「文件」区块永远是
+    // 「文件树不可用」空态——夹具缺失，不是渲染缺陷（与 model.catalog 同一条口径）。
+    'fs.list': {
+      tree: [
+        {
+          name: 'src',
+          path: 'D:\\deepseek\\omniharness\\src',
+          type: 'dir',
+          children: [
+            {
+              name: 'core',
+              path: 'D:\\deepseek\\omniharness\\src\\core',
+              type: 'dir',
+              children: [
+                { name: 'App.ts', path: 'D:\\deepseek\\omniharness\\src\\core\\App.ts', type: 'file' },
+                { name: 'turnRunner.ts', path: 'D:\\deepseek\\omniharness\\src\\core\\turnRunner.ts', type: 'file' },
+              ],
+            },
+            { name: 'cli.ts', path: 'D:\\deepseek\\omniharness\\src\\cli.ts', type: 'file' },
+          ],
+        },
+        {
+          name: 'web',
+          path: 'D:\\deepseek\\omniharness\\web',
+          type: 'dir',
+          children: [
+            {
+              name: 'src',
+              path: 'D:\\deepseek\\omniharness\\web\\src',
+              type: 'dir',
+              children: [
+                { name: 'main.ts', path: 'D:\\deepseek\\omniharness\\web\\src\\main.ts', type: 'file' },
+              ],
+            },
+          ],
+        },
+        { name: 'README.md', path: 'D:\\deepseek\\omniharness\\README.md', type: 'file' },
+      ],
+    },
     // 设置模态的「模型」栏要渲染厂商卡片（ProviderCard）。夹具必须给全 model.catalog 的
     // 业务形状，否则设置态截图里只有"读取厂商目录…"空态——那是夹具缺失，不是渲染缺陷。
     'model.catalog': {

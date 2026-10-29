@@ -543,7 +543,6 @@ select:focus-visible,
 /* 极窄（≤640px）：标签条换行而不是把标签挤成一条线；长 token 强制断行。 */
 @media (max-width: 640px) {
   .tabs { flex-wrap: wrap; }
-  .tab { font-size: 11px; padding: 4px 2px; }
   .review-help .rh-list { grid-template-columns: 1fr; }
   .content, .md-content p, .sr-label, .sr-hint, .cp-label, .ws-project-name { overflow-wrap: anywhere; }
   .session-toolbar, .ws-projects { flex-wrap: wrap; }
