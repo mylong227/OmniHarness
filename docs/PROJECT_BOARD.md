@@ -6442,3 +6442,20 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   审批 `e2e` 1/1（真机走完 发任务→审批→流式→产物）；tsc 零错；重建 `web/dist` 后真机判据复跑。
 - **下一刀**：`RightPanel` 标签 → antd `Tabs`；按用户决定**等对方会话提交后再 rebase**（main 仍 §162，
   其 RightPanel/标签栏正在其未提交改动里）。
+
+## 168. 2026-10-29 下一批前置：RightPanel → antd Tabs 的契约盘点（待 main 前进后实施）
+
+- **现状**：手写 tablist（`.tabs rv-tabs` / `.rv-tablist` / `.tab` / `.tab-x` / `.pane#right-pane`），
+  role=tablist/tab/tabpanel + `aria-selected` + roving tabindex + ←/→ 移动 + Delete/Backspace 关闭；
+  网页标签与文件标签同列（`file-tab-*` / `web-tab` 两套 id）。
+- **判据面**（`a11yKeyboard` 四处）：`aria-selected` 恰好一个 true 且逐个显式；id 前缀
+  `file-tab-` / `web-tab`；面板 `aria-labelledby` 回指当前标签；roving tabindex。
+- **迁移要点（草案）**：
+  ① `Tabs type="editable-card" hideAdd`，items 的 key 用文件标题 / `web`，`onEdit` 关闭；
+  ② Delete/Backspace 关闭**保留自研**（容器 onKeyDown 冒泡），←/→ 交给 antd 并真机复核；
+  ③ **id 不再钉字面**：`rc-tabs` 的 id 是内部实现，判据应改为「`aria-controls` 指向真实存在的
+  tabpanel + `aria-labelledby` 回指标签」，否则组件库升级就变判据红；
+  ④ 面板交给 antd tabpanel（`right-pane` 容器 id 相应调整）；
+  ⑤ CSS 从 `.tab` 规则改为 antd tabs 覆盖（34px 行高、发丝线、激活墨条）。
+- **阻塞**：main 仍 §162，对方 35 个未提交文件（含 `App.ts` / 样式 / 若干判据）。按用户决定
+  **等其提交后 rebase 再开工**；`RightPanel.tsx` 目前不在其改动清单里，预计冲突面仅 `App.ts`/样式/判据。
