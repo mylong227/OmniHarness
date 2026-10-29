@@ -10,7 +10,7 @@ import { PathJoiner } from '../models/PathJoiner.ts';
 import { PickerKeys } from '../models/PickerKeys.ts';
 import { icon } from '../models/Icon.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
-import { useModalFocus } from './useModalFocus.ts';
+import { PickerModal } from './PickerModal.tsx';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -196,8 +196,6 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     newName: '',
     creatingErr: null,
   });
-  /** 模态焦点：收拢 / 归还 opener / Tab 陷阱（见 useModalFocus）。 */
-  const modal = useModalFocus();
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
 
   /**
@@ -293,68 +291,51 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
   };
 
   return (
-    <div className="fp-overlay" onClick={onCancel}>
-      <div
-        className="fp-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('选择项目文件夹')}
-        tabIndex={-1}
-        ref={modal.modalRef}
-        onKeyDown={modal.onKeyDown}
-      >
-        <div className="fp-head">
-          <span className="fp-title">{t('选择项目文件夹')}</span>
-          <button className="fp-close" title={t('关闭 (Esc)')} onClick={onCancel}>
-            {icon('x', { size: 14 })}
-          </button>
-        </div>
-
-        <div className="fp-pathbar">
-          {cur === null ? (
-            <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
-          ) : (
-            <span className="fp-crumb" title={cur}>
-              {cur}
-            </span>
-          )}
-          <button
-            className="fp-new"
-            title={t('在当前目录内新建项目文件夹')}
-            disabled={cur === null || loading}
-            onClick={startCreate}
-          >
-            {t('新建文件夹')}
-          </button>
-        </div>
-
-        <div className="fp-list">
-          {create.creating
-            ? renderCreateBar(create, cur, {
-                onChange: (v) => setCreate((prev) => ({ ...prev, newName: v })),
-                onCreate: () => void createFolder(),
-                onCancel: cancelCreate,
-              })
-            : null}
-          {loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
-          {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
-          {!loading && error === null && cur === null ? renderDrives(browse, (p) => void loadDir(p)) : null}
-          {!loading && error === null && cur !== null ? renderDirs(browse, (p) => void loadDir(p)) : null}
-        </div>
-
-        <div className="fp-actions">
-          <button className="fp-btn" onClick={onCancel}>
-            {t('取消')}
-          </button>
-          <button
-            className="fp-btn fp-primary"
-            disabled={cur === null || loading}
-            onClick={confirm}
-          >
-            {t('选择此文件夹')}
-          </button>
-        </div>
+    <PickerModal title={t('选择项目文件夹')} onCancel={onCancel}>
+      <div className="fp-pathbar">
+        {cur === null ? (
+          <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
+        ) : (
+          <span className="fp-crumb" title={cur}>
+            {cur}
+          </span>
+        )}
+        <button
+          className="fp-new"
+          title={t('在当前目录内新建项目文件夹')}
+          disabled={cur === null || loading}
+          onClick={startCreate}
+        >
+          {t('新建文件夹')}
+        </button>
       </div>
-    </div>
+
+      <div className="fp-list">
+        {create.creating
+          ? renderCreateBar(create, cur, {
+              onChange: (v) => setCreate((prev) => ({ ...prev, newName: v })),
+              onCreate: () => void createFolder(),
+              onCancel: cancelCreate,
+            })
+          : null}
+        {loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
+        {!loading && error !== null ? <div className="fp-err">{error}</div> : null}
+        {!loading && error === null && cur === null ? renderDrives(browse, (p) => void loadDir(p)) : null}
+        {!loading && error === null && cur !== null ? renderDirs(browse, (p) => void loadDir(p)) : null}
+      </div>
+
+      <div className="fp-actions">
+        <button className="fp-btn" onClick={onCancel}>
+          {t('取消')}
+        </button>
+        <button
+          className="fp-btn fp-primary"
+          disabled={cur === null || loading}
+          onClick={confirm}
+        >
+          {t('选择此文件夹')}
+        </button>
+      </div>
+    </PickerModal>
   );
 }

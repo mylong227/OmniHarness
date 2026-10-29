@@ -968,15 +968,11 @@ body {
 }
 
 /* 模态遮罩：用主题底色而不是纯黑，浅色主题下不再是「黑幕」。 */
-.modal,
-.fp-modal {
+.modal {
   border-radius: 16px;
   border-color: var(--border-strong);
   box-shadow: var(--shadow-2);
   padding: 22px 24px;
-}
-.fp-modal {
-  padding: 0;
 }
 /* 审批弹窗的按钮行：三档决策排一行，危险的在左、允许在右，并让「始终允许」靠左收尾，
    不再让「更改权限」单独占一行贴在右下角（位置与视觉重量都对不上）。 */

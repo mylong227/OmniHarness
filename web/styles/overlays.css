@@ -8,8 +8,7 @@
 /* =========================================================================
    7. 浮层与模态：审批 / 应用内对话框 / 文件夹选择器 / 命令面板 / toast
    ========================================================================= */
-[data-theme='light'] .overlay,
-[data-theme='light'] .fp-overlay {
+[data-theme='light'] .overlay {
   background: rgba(0, 0, 0, 0.32);
 }
 .overlay.show {
@@ -24,7 +23,6 @@
   }
 }
 .modal,
-.fp-modal,
 .dlg {
   border-color: var(--border-strong);
   background: var(--bg-elev);

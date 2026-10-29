@@ -416,12 +416,13 @@ const STATES = [
       const opened = await cdp.waitFor("!!document.querySelector('.ws-switch-menu .ws-add')", 400);
       if (!opened) return false;
       await cdp.click('.ws-switch-menu .ws-add');
-      const modal = await cdp.waitFor("!!document.querySelector('.fp-overlay .fp-modal')", 600);
+      // 2026-10-29：选择器浮层换 antd Modal（`.fp-modal` 是 dialog 本体，遮挡在 mask 上）。
+      const modal = await cdp.waitFor("!!document.querySelector('.ant-modal.fp-modal')", 600);
       // 失败时把现场打出来：走不通的是"合成点击的通路"还是"真实渲染"，靠症状猜不出来。
       if (!modal) {
         const why = await cdp.evaluate(`(function(){
           return {
-            overlay: document.querySelectorAll('.fp-overlay').length,
+            overlay: document.querySelectorAll('.ant-modal-mask').length,
             menu: document.querySelectorAll('.ws-switch-menu').length,
             addBtn: document.querySelectorAll('.ws-add').length,
             crash: !!document.querySelector('.crash-panel'),

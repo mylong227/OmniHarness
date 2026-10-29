@@ -246,9 +246,19 @@
 .approval-change-perm .link { background:none; border:none; font:12px/1 inherit; cursor:pointer; padding:0; }
 .approval-change-perm .link:hover { text-decoration:underline; }
 
-/* ---- FolderPicker：内嵌文件夹选择器（+ 添加项目） ---- */
-.fp-overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:60; }
-.fp-modal { border:1px solid var(--border-soft); width:460px; max-width:92vw; max-height:70vh; display:flex; flex-direction:column; }
+/* ---- FolderPicker / FilePicker：内嵌文件夹与文件选择器（2026-10-29 浮层换 antd Modal） ---- */
+/* dialog 本体透明；卡片外观在 .fp-shell，尺寸由 Modal 的 width 决定。 */
+.ant-modal.fp-modal { border: 0; background: transparent; box-shadow: none; padding-bottom: 0; }
+.fp-modal .ant-modal-content { padding: 0; background: transparent; box-shadow: none; border-radius: 0; }
+.fp-shell {
+  display: flex; flex-direction: column;
+  max-height: min(78vh, 720px);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
 .fp-head { display:flex; align-items:center; justify-content:space-between; }
 .fp-title { font-size:14px; font-weight:600; }
 .fp-close { background:none; border:none; color:var(--dim); cursor:pointer; font-size:14px; padding:2px 6px; border-radius:6px; }

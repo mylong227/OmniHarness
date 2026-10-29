@@ -6562,3 +6562,30 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **验证**：`commandPalette` **7/7**（dialog 名称 / 焦点 / ↑↓ / Enter / Esc / 过滤 / 空态 / 清除）；
   真机截图 `web/archive/cmdk-modal-dark-20261029.png`（16 条命令、分组、选中态、页脚图例）；
   全量 web 判据见下条提交信息。
+
+## 173. 2026-10-29 W2：文件 / 目录选择器浮层壳换 antd Modal（`PickerModal`）
+
+- **改动**：新建 `PickerModal`（共享壳）——遮罩、层级、动画、**焦点圈定与归还**交给 antd
+  （`focusable={{ trap: true }}`）；两个选择器的浏览/勾选/新建流程与 `.fp-*` 内容结构原样保留。
+  删除自研 `useModalFocus.ts`（无其他引用）。
+- **不改的部分（有意）**：没有换成 antd `Tree`。当前是「逐级进入目录 + 面包屑 + 同目录多选」的
+  **浏览器模型**，而 `fs.browse` 只回一层（无递归列举）；换成可展开树是**交互改版**（选择语义、
+  面包屑、"上级目录"全变），不属于「换组件库」的迁移范围，需产品另行拍板。
+- **三个实测坑（前两个都会把症状伪装成别的东西）**：
+  ① **断言失败把内存打爆**：`assert.strictEqual(document.activeElement, modal)` 失败时，Node 的
+  assert 会对两个 DOM 节点做 `inspect`——递归遍历 jsdom 的 window 图，50 秒后报
+  `RangeError: Array buffer allocation failed`。**真因是「焦点没进弹窗」**，症状却像渲染循环。
+  定位方法：给用例逐步插桩，卡在断言行才看清。
+  ② **antd 的聚焦要等 transition**：jsdom 里 `onVisibleChanged` 永远不触发 ⇒ 焦点留在 body。
+  壳里补一次「下一帧聚焦 dialog」，真机与 jsdom 都可确定。
+  ③ **直接卸载不归还焦点**：antd 只在关闭动画里归还 opener；组件被整棵卸载时不会。壳里在
+  cleanup 中对称归还（`opener.isConnected` 守卫）。
+- **判据同步**：portal 不在 render 容器 ⇒ `popoverKeyboard` 改从 `document` 查、聚焦断言前
+  `await nextTick()`；Tab 断言改为「焦点不出弹窗」（antd trap 可能把焦点移到关闭按钮，那也合规）；
+  `pickerShapeGuard` 的断言面改为 `document.body` facade；`visualProbe` 的 picker 态选择器改为
+  `.ant-modal.fp-modal`、遮挡计数改 `.ant-modal-mask`。
+- **样式**：卡片外观从 `.fp-modal` 移到 `.fp-shell`；dialog 本体透明无边框；删除 `.fp-overlay`
+  四条规则（components / overlays / minimal 深浅色 / 响应式）与 `.fp-modal` 的旧尺寸规则。
+- **验证**：`popoverKeyboard` 11/11、`pickerShapeGuard` 4/4；真机截图
+  `web/archive/picker-modal-dark-20261029.png`（Modal 卡片 + 路径栏 + fail-closed 错误 + 动作行，
+  dialog 有名字、焦点在弹窗）。

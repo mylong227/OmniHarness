@@ -2012,14 +2012,12 @@
 }
 /* 模态遮罩：深色下压暗、浅色下压灰，不用模糊（模糊是装饰）。 */
 .ovl,
-.fp-overlay,
 .overlay,
 .drawer-backdrop {
   background: rgba(10, 12, 16, 0.62);
   backdrop-filter: none;
 }
 [data-theme='light'] .ovl,
-[data-theme='light'] .fp-overlay,
 [data-theme='light'] .overlay,
 [data-theme='light'] .drawer-backdrop {
   background: rgba(22, 25, 30, 0.28);

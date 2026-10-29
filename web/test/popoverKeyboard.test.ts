@@ -172,20 +172,25 @@ test('FilePicker：模态语义齐全，焦点进入弹窗，列表项可聚焦�
     },
   });
   await flush();
-  const modal = ui.container.querySelector('.fp-modal') as HTMLElement;
+  // 2026-10-29：选择器浮层换 antd Modal（portal 到 body）⇒ 从 document 查；
+  // 聚焦由壳在「下一帧」补（antd 要等 transition，jsdom 永远等不到）⇒ 再等一个宏任务。
+  await nextTick();
+  const modal = document.querySelector('.fp-modal') as HTMLElement;
   assert.strictEqual(modal.getAttribute('role'), 'dialog', '文件选择器是模态：必须有 role=dialog');
   assert.strictEqual(modal.getAttribute('aria-modal'), 'true');
   assert.strictEqual(modal.getAttribute('aria-label'), '选择附件文件');
   assert.strictEqual(document.activeElement, modal, '打开时焦点必须进入弹窗（否则 Enter 仍发给背后输入框）');
-  const file = ui.container.querySelector('.fp-file') as HTMLElement;
+  const file = document.querySelector('.fp-file') as HTMLElement;
   assert.strictEqual(file.getAttribute('tabindex'), '0', '文件项必须可聚焦');
   assert.strictEqual(file.getAttribute('role'), 'checkbox');
   fireEvent.keyDown(file, { key: 'Enter' });
   assert.strictEqual(file.getAttribute('aria-checked'), 'true', 'Enter 必须勾选文件');
-  assert.match(ui.container.querySelector('.fp-selected-count')?.textContent ?? '', /已选 1 个/u);
+  assert.match(document.querySelector('.fp-selected-count')?.textContent ?? '', /已选 1 个/u);
   fireEvent.click(screen.getByText('添加 1 个文件'));
   assert.strictEqual(picked.length, 1, '确认必须回传选中文件');
   assert.match(picked[0]![0]!, /a\.txt$/u);
+  // portal 渲染的 Modal 不会随 render 容器自动清理：显式卸载，避免污染后续用例。
+  ui.unmount();
 });
 
 // ---- WAI-ARIA 菜单交互：roving tabindex + 方向键（2026-10-28 批②）----
@@ -316,13 +321,14 @@ test('FilePicker：Tab 被陷阱接管（焦点不出弹窗），卸载后焦点
       },
     });
     await flush();
-    const modal = ui.container.querySelector('.fp-modal') as HTMLElement;
+    await nextTick();
+    // 2026-10-29：选择器浮层换 antd Modal（portal 到 body）⇒ 从 document 查，不在 render 容器里。
+    const modal = document.querySelector('.fp-modal') as HTMLElement;
     assert.strictEqual(document.activeElement, modal, '打开时焦点进入弹窗');
     fireEvent.keyDown(modal, { key: 'Tab' });
-    assert.strictEqual(
-      document.activeElement,
-      modal,
-      'Tab 必须被焦点陷阱接管（jsdom 无布局 ⇒ 兜底聚焦容器；绕圈数学由 focusTrap 纯判据覆盖）',
+    assert.ok(
+      modal.contains(document.activeElement),
+      'Tab 必须被焦点陷阱接管（焦点不得跑到弹窗外的背后输入框）',
     );
     ui.unmount();
     assert.strictEqual(document.activeElement, opener, '卸载后必须把焦点还给打开它的控件');
@@ -345,10 +351,12 @@ test('FolderPicker：Tab 被陷阱接管，卸载后焦点归还 opener', async 
       },
     });
     await flush();
-    const modal = ui.container.querySelector('.fp-modal') as HTMLElement;
+    await nextTick();
+    // 2026-10-29：选择器浮层换 antd Modal（portal 到 body）⇒ 从 document 查，不在 render 容器里。
+    const modal = document.querySelector('.fp-modal') as HTMLElement;
     assert.strictEqual(document.activeElement, modal);
     fireEvent.keyDown(modal, { key: 'Tab' });
-    assert.strictEqual(document.activeElement, modal, 'Tab 必须被焦点陷阱接管');
+    assert.ok(modal.contains(document.activeElement), 'Tab 必须被焦点陷阱接管');
     ui.unmount();
     assert.strictEqual(document.activeElement, opener, '卸载后必须归还焦点');
   } finally {

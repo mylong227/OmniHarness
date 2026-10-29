@@ -18,7 +18,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import { renderFacadeAsync } from './rtlHarness.ts';
-import { allText, byTag } from './domFacade.ts';
+import { allText, byTag, facadeOf } from './domFacade.ts';
 
 const { FolderPicker } = await import('../src/ui/components/FolderPicker.tsx');
 const { FilePicker } = await import('../src/ui/components/FilePicker.tsx');
@@ -59,7 +59,9 @@ async function renderAfterLoad(
   api: unknown,
 ) {
   const ui = await renderFacadeAsync(Component, { props: { ...props, api } });
-  return ui.node;
+  // 2026-10-29：选择器浮层换 antd Modal（portal 到 body）⇒ 断言面从 render 容器改为 body。
+  void ui;
+  return facadeOf(document.body);
 }
 
 test('FolderPicker：fs.browse 回 {} 时不得抛错，而是显示格式异常（不卸整页）', async () => {

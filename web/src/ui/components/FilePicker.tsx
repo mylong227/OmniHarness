@@ -13,7 +13,7 @@ import { FileIconResolver } from '../models/FileIconResolver.ts';
 import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
 import { icon } from '../models/Icon.ts';
 import { ActivationKeys } from '../models/ActivationKeys.ts';
-import { useModalFocus } from './useModalFocus.ts';
+import { PickerModal } from './PickerModal.tsx';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -302,8 +302,6 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const { api, onCancel, onPick } = props;
   const { browse, load, loadDir } = useFileBrowser(api);
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
-  /** 模态焦点：收拢 / 归还 opener / Tab 陷阱（见 useModalFocus）。 */
-  const modal = useModalFocus();
   const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
 
   // Esc 关闭（依赖写全：onCancel 变化即重挂，handler 恒为最新闭包）。
@@ -342,36 +340,19 @@ export function FilePicker(props: FilePickerProps): ReactElement {
 
   const selectedCount = selected.size;
   return (
-    <div className="fp-overlay" onClick={onCancel}>
-      <div
-        className="fp-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('选择附件文件')}
-        tabIndex={-1}
-        ref={modal.modalRef}
-        onKeyDown={modal.onKeyDown}
-      >
-        <div className="fp-head">
-          <span className="fp-title">{t('选择附件文件')}</span>
-          <button className="fp-close" title={t('关闭 (Esc)')} onClick={onCancel}>
-            {icon('x', { size: 14 })}
-          </button>
-        </div>
-
-        <FilePickerBody
-          browse={browse}
-          cur={cur}
-          loading={loading}
-          error={error}
-          selected={selected}
-          selectedCount={selectedCount}
-          navigate={navigate}
-          toggleFile={toggleFile}
-          onCancel={onCancel}
-          confirm={confirm}
-        />
-      </div>
-    </div>
+    <PickerModal title={t('选择附件文件')} onCancel={onCancel}>
+      <FilePickerBody
+        browse={browse}
+        cur={cur}
+        loading={loading}
+        error={error}
+        selected={selected}
+        selectedCount={selectedCount}
+        navigate={navigate}
+        toggleFile={toggleFile}
+        onCancel={onCancel}
+        confirm={confirm}
+      />
+    </PickerModal>
   );
 }
