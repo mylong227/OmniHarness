@@ -6542,3 +6542,23 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **验证**：settings/控制台 9 个判据文件 **36 例全绿**（含真机 `consolePage`/`panelModalSize`/`a11yAudit`）；
   tsc web 零错；真机截图 `web/archive/general-merged-dark-20261029.png` 确认常规页依次为
   语言 → 主题 → 两栏宽度 → 工作区 → 快捷键 → 产品，左导航 23 项且无「外观」。
+
+## 172. 2026-10-29 W2：命令面板浮层换 antd Modal（combobox/listbox 语义保留自研）
+
+- **改动**：`CommandPalette` 的 `.cmdk-backdrop` + 自绘 dialog 换成 antd `Modal`
+  （`footer=null` / `closable=false` / `mask.closable` / `destroyOnHidden` / width 580 / top 10vh）；
+  ↑↓ / Enter / Esc、`combobox`+`listbox`+`aria-activedescendant`、过滤高亮、空态、清除按钮全部保留自研。
+- **为什么不用 AutoComplete**：它会渲染第二个下拉并接管 `aria-activedescendant`，与
+  「键盘模型保留自研」直接冲突——列表仍是我们的 listbox，输入仍是原生 combobox 角色。
+  规划 §5.1 的该行已据此改写。
+- **两处实测坑**：
+  ① **antd Modal 不转发 `aria-label`**（只认 `title`，而这里不要可见标题）。先写在
+  `useLayoutEffect` 里：jsdom 通过、真机为 `null`——真机上 Modal 的子节点挂载**晚于**
+  布局 effect（jsdom 是同步挂载，测不出来）。改为 **ref 回调**在节点进树时写，真机通过。
+  ② Esc 用 `keyboard={false}` 交给自研模型，避免 Modal 再关一次（否则 `onClose` 调两次）。
+- **样式**：`.cmdk` 从「fixed 居中 + backdrop」改为「Modal content 内填满」；`.cmdk-backdrop`
+  四条规则（components / shell / overlays / minimal 响应式）删除；遮罩色沿用主题 token
+  `colorBgMask`（深浅两档）。
+- **验证**：`commandPalette` **7/7**（dialog 名称 / 焦点 / ↑↓ / Enter / Esc / 过滤 / 空态 / 清除）；
+  真机截图 `web/archive/cmdk-modal-dark-20261029.png`（16 条命令、分组、选中态、页脚图例）；
+  全量 web 判据见下条提交信息。

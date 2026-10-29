@@ -293,11 +293,7 @@
 }
 .fp-item.fp-dir { color:var(--text); }
 
-/* 命令面板（Ctrl/Cmd+P / K） */
-.cmdk-backdrop {
-  position: fixed; inset: 0; z-index: 200;
-  display: flex; align-items: flex-start; justify-content: center;
-}
+/* 命令面板（Ctrl/Cmd+P / K）：浮层壳由 antd Modal 承担（2026-10-29 W2）。 */
 .cmdk {
   width: min(560px, 92vw); color: var(--text);
 }

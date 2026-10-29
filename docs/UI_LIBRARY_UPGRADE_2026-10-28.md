@@ -158,18 +158,18 @@
 
 ### 5.1 壳层与导航
 
-| 现在                                  | 目标                               | 备注                                |
-| ------------------------------------- | ---------------------------------- | ----------------------------------- |
-| `.app` / `.body` / `.col` + `Resizer` | Layout + 自研 grid                 | **保留 Resizer**（antd 无拖拽分栏） |
-| `ChatHeader`                          | Flex / Space / Typography / Button | 标题截断与来源路径保留              |
-| `SidebarHeader`                       | Flex + 自研 Ω 字标                 | 品牌区                              |
-| `SessionPanel` / `SessionViews`       | List + Dropdown + Tree             | 会话行仍是自研虚拟/分组逻辑         |
-| 文件树                                | Tree                               | 拖拽/右键重命名走 Tree API          |
-| 会话拖拽排序                          | **保留自研 pointer 逻辑**          | antd 无 DnD；不为此引 dnd-kit       |
-| `ConsoleView` 左导航                  | Layout.Sider + Menu                | 设置/面板唯一入口                   |
-| 右栏标签                              | Tabs（editable-card）              | 关闭按钮与溢出滚动                  |
-| `CommandPalette`                      | Modal + AutoComplete + List        | 键盘模型（↑↓/Enter/Esc）保留自研    |
-| `Drawer` / backdrop                   | Drawer                             | 移动端左栏                          |
+| 现在                                  | 目标                               | 备注                                                                                                                                               |
+| ------------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.app` / `.body` / `.col` + `Resizer` | Layout + 自研 grid                 | **保留 Resizer**（antd 无拖拽分栏）                                                                                                                |
+| `ChatHeader`                          | Flex / Space / Typography / Button | 标题截断与来源路径保留                                                                                                                             |
+| `SidebarHeader`                       | Flex + 自研 Ω 字标                 | 品牌区                                                                                                                                             |
+| `SessionPanel` / `SessionViews`       | List + Dropdown + Tree             | 会话行仍是自研虚拟/分组逻辑                                                                                                                        |
+| 文件树                                | Tree                               | 拖拽/右键重命名走 Tree API                                                                                                                         |
+| 会话拖拽排序                          | **保留自研 pointer 逻辑**          | antd 无 DnD；不为此引 dnd-kit                                                                                                                      |
+| `ConsoleView` 左导航                  | Layout.Sider + Menu                | 设置/面板唯一入口                                                                                                                                  |
+| 右栏标签                              | Tabs（editable-card）              | 关闭按钮与溢出滚动                                                                                                                                 |
+| `CommandPalette`                      | Modal + 自研 listbox               | 键盘模型（↑↓/Enter/Esc）与 combobox 语义保留自研；AutoComplete 会渲染第二个下拉并抢 `aria-activedescendant`，实测与自研键盘模型冲突（见看板 §172） |
+| `Drawer` / backdrop                   | Drawer                             | 移动端左栏                                                                                                                                         |
 
 ### 5.2 输入区
 

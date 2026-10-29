@@ -3557,35 +3557,24 @@ button:hover,
    颜色：全部走 token；选中 = accent-soft 淡墨底 + 文字转墨，不画彩色左边条。
    投影：命令面板属于「真的浮起来」的浮层，用 shadow-2（见 §8）。
    ========================================================================= */
-.cmdk-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: max(10vh, 64px) 16px 24px;
-  background: rgba(10, 12, 16, 0.62);
-  backdrop-filter: none;
-  animation: cmdk-veil var(--dur-2) var(--ease) both;
+/* 2026-10-29（W2）：浮层改由 antd Modal 承担（遮罩/层级/动画/焦点），
+   `.cmdk` 只负责面板本体。Modal 的 content 要透明无内距，否则会在卡片外多一层白底。 */
+.cmdk-modal .ant-modal-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
 }
-[data-theme='light'] .cmdk-backdrop {
-  background: rgba(22, 25, 30, 0.28);
-}
-@keyframes cmdk-veil {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.cmdk-modal .ant-modal-body {
+  padding: 0;
 }
 
 .cmdk {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(580px, calc(100vw - 32px));
+  /* 宽度由 Modal 的 width（580）与它的窄屏 max-width 决定，这里只填满。 */
+  width: 100%;
   max-height: min(72vh, 680px);
   overflow: hidden;
   color: var(--text);
@@ -3902,13 +3891,9 @@ button:hover,
   border: 0;
 }
 
-/* 窄窗：贴边、去掉鼠标用不上的键帽图例，把宽度让给命令名。 */
+/* 窄窗：去掉鼠标用不上的键帽图例，把宽度让给命令名。 */
 @media (max-width: 560px) {
-  .cmdk-backdrop {
-    padding: 8vh 10px 10px;
-  }
   .cmdk {
-    width: calc(100vw - 20px);
     max-height: 82vh;
   }
   .cmdk-search {

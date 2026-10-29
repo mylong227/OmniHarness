@@ -16,6 +16,7 @@
 // - 补上 combobox / listbox / aria-activedescendant 与选中项自动滚入视野。
 
 import * as React from 'react';
+import { Modal } from 'antd';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CommandPaletteModel } from '../models/CommandPaletteModel.ts';
 import type { CommandItem } from '../models/CommandPaletteModel.ts';
@@ -409,19 +410,39 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
     setQuery: state.setQuery,
     inputRef: state.inputRef,
   });
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+  /**
+   * 挂载即给 dialog 补名字。
+   *
+   * antd Modal 不转发 `aria-label`（它只认 title，而我们不要可见标题），且真机上 Modal 的
+   * 子节点挂载**晚于**布局 effect（jsdom 是同步挂载，所以测不出来）——因此用 ref 回调在
+   * 节点真正进树的那一刻写，而不是在 effect 里猜时机。
+   */
+  const nameDialog = React.useCallback((node: HTMLDivElement | null): void => {
+    rootRef.current = node;
+    if (node !== null) {
+      node.closest('[role="dialog"]')?.setAttribute('aria-label', t('命令面板'));
+    }
+  }, []);
+
   if (!open) return null;
   const { query, active, inputRef, listId, helpId, groups, total, optionId, activeId } = state;
 
   return (
-    <div className="cmdk-backdrop" onMouseDown={onClose}>
-      <div
-        className="cmdk"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('命令面板')}
-        onMouseDown={(e: React.MouseEvent) => e.stopPropagation()}
-        onKeyDown={onKeyDown}
-      >
+    <Modal
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      closable={false}
+      // Esc 交给自研键盘模型（↑↓/Enter/Esc 是一条链路），Modal 不再重复处理。
+      keyboard={false}
+      mask={{ closable: true }}
+      width={580}
+      className="cmdk-modal"
+      style={{ top: 'max(10vh, 64px)' }}
+      destroyOnHidden
+    >
+      <div className="cmdk" ref={nameDialog} onKeyDown={onKeyDown}>
         <CommandSearch
           inputRef={inputRef}
           query={query}
@@ -445,6 +466,6 @@ export function CommandPalette(props: CommandPaletteProps): ReactElement | null 
 
         <CommandFooter total={total} helpId={helpId} />
       </div>
-    </div>
+    </Modal>
   );
 }

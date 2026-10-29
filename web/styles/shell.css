@@ -966,11 +966,6 @@ body {
   padding: 9px 12px;
   font-size: 13px;
 }
-.cmdk-backdrop {
-  background: color-mix(in srgb, var(--bg) 62%, transparent);
-  backdrop-filter: none;
-  padding-top: 14vh;
-}
 
 /* 模态遮罩：用主题底色而不是纯黑，浅色主题下不再是「黑幕」。 */
 .modal,
