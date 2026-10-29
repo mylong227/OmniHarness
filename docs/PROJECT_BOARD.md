@@ -6485,8 +6485,7 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **单一检出**：`git worktree remove D:/deepseek/omniharness-antd --force` 已执行，`git worktree list`
   只剩 `D:/deepseek/omniharness`（其余是 `.tmp` 下的子代理残留 worktree，prunable，与本仓无关）。
   分支 `feat/antd-ui` 保留（已合入，指向 `a0a35e82`）。
-- **已知遗留（不擅自处理，交对方确认）**：`web/src/ui/components/ContextCapacityPanel.tsx` 已成**孤儿**
+- **已知遗留（已于 §170 清理，保留记录）**：`ContextCapacityPanel` 组件（路径已删）当时已成**孤儿**
   （`git grep` 生产代码零引用），但 `tests/unit/contextUsagePanelRefresh.test.ts` 前 3 例仍读它源码；
-  该文件其余 6 例是服务端接线（`usageThreadId` / 工作区根对齐），需保留。清理动作 = 删组件 + 裁前 3 例，
-  等对方确认其容量改造终态后再做。
+  该文件其余 6 例是服务端接线（`usageThreadId` / 工作区根对齐），需保留。清理动作 = 删组件 + 裁前 3 例。
 - **下一步**：RightPanel → Tabs 的阻塞已解除（main 现在是唯一真相源），可直接开工，见 §168 草案。

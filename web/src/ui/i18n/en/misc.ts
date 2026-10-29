@@ -91,7 +91,7 @@ export const EN_MISC: Record<string, string> = {
   '审计': 'Audit',
   '权限': 'Permissions',
   '凭据': 'Credentials',
-  // ContextCapacityPanel.tsx（2026-10-28 起为控制台「上下文」页 + 左栏容量小图表）
+  // CapacityDock.tsx（2026-10-28 起容量只在左栏页脚：音频柱 + 展开浮层）
   '上下文容量': 'Context usage',
   '上下文 {pct}，点击查看详情': 'Context {pct}; click for details',
   '上下文，点击查看详情': 'Context; click for details',

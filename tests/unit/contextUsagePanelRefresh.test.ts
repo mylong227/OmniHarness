@@ -1,22 +1,23 @@
 /**
- * 容量面板「实时刷新 + 空 threadId 回落」判据（2026-10-07 用户两次实测）。
+ * 容量读数「空 threadId 回落 + 不串项目」判据（2026-10-07 用户两次实测）。
  *
  * ## 缺陷形态（用户原话）
  *
- * ① 「不会实时计算显示刷新容量面板上的数据」——面板原先只在「展开 / 换会话 / 忙闲翻转」三个时刻
- *    各取一次数，而容量快照是**回合推进中逐步产生**的 ⇒ 长回合里数字冻住（真机：回合进行中一直
- *    显示 `0/12.8万` 全零）。
- * ② 新会话的 `threadId` 要等 `turns.run` 返回后客户端才知道，而面板在第一回合进行中就已经打开
- *    ⇒ 客户端只能传空串 ⇒ 服务端原样返回全零报告（`source: 'empty'`）。
+ * ① 新会话的 `threadId` 要等 `turns.run` 返回后客户端才知道，而容量读数在第一回合进行中就已经显示
+ *    ⇒ 客户端只能传空串 ⇒ 服务端原样返回全零报告（`source: 'empty'`，真机 `0/12.8万`）。
+ * ② 「应该各自分离不要出现串项目」——回合开始前运行时根未对齐当前项目，工具会去读别的项目的树。
  *
- * ## 判据（源码级接线守卫 + 服务端回落语义）
+ * ## 判据（服务端接线守卫）
  *
- * - 面板：打开且忙时必须注册**固定间隔**的实时轮询，且取数 effect 依赖刷新计数 tick；
- * - 服务端：`context.usage` 的 threadId 必须经 `usageThreadId` 解析，空串时回落到**正在跑的会话**
- *   （`Agent.runningSessionIds()` 末条）。
+ * - `context.usage` 的 threadId 必须经 `usageThreadId` 解析，空串时回落到**正在跑的会话**
+ *   （`Agent.runningSessionIds()` 末条）；
+ * - 回合入口必须把运行时根重基到当前项目，并逐回合留痕两份根。
  *
- * 为什么用源码级判据：① 面板的轮询要靠真实定时器推进，而测试桩的 `setInterval` 恒返回 0
- * （不推进）；② `usageThreadId` 是服务端类的 protected 逻辑，实例化整台 AppServer 代价过大。
+ * 2026-10-29：原先前 3 例断言 `ContextCapacityPanel.tsx` 的轮询源码——该组件已随容量迁到左栏
+ * `CapacityDock` 而成为孤儿并删除，那 3 例一并裁掉（轮询行为现由 `web/test/capacityDock.test.ts`
+ * 按新实现钉住）。
+ *
+ * 为什么用源码级判据：`usageThreadId` 是服务端类的 protected 逻辑，实例化整台 AppServer 代价过大。
  * 本仓同类接线守卫先例：`web/test/streamWindowAnchor.test.mjs`、`tests/unit/knownFlags.test.ts`。
  */
 import { describe, it } from 'vitest';
@@ -27,40 +28,9 @@ import { fileURLToPath } from 'node:url';
 
 /** 仓库根（`dist/tests/unit` → 上溯三级）。 */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const PANEL = join(REPO_ROOT, 'web', 'src', 'ui', 'components', 'ContextCapacityPanel.tsx');
 const HANDLERS = join(REPO_ROOT, 'src', 'server', 'core', 'appServerSurfaceHandlers.ts');
 const APP_SERVER = join(REPO_ROOT, 'src', 'server', 'core', 'appServer.ts');
 const APP_SERVER_BASE = join(REPO_ROOT, 'src', 'server', 'core', 'appServerBase.ts');
-
-describe('容量面板：回合进行中必须实时刷新（用户报「不会实时计算显示刷新」）', () => {
-  const src = readFileSync(PANEL, 'utf8');
-
-  it('打开且忙时注册固定间隔轮询（间隔是显式常量，不写魔法数）', () => {
-    assert.match(src, /const LIVE_REFRESH_MS = \d+;/, '刷新间隔必须是显式常量');
-    assert.match(
-      src,
-      /if \(!open \|\| busy !== true\) return undefined;[\s\S]{0,200}setInterval\(\(\) => setTick\(\(t\) => t \+ 1\), LIVE_REFRESH_MS\)/,
-      '轮询必须在「展开且回合进行中」时注册，且间隔取 LIVE_REFRESH_MS',
-    );
-    assert.match(src, /clearInterval\(timer\)/, '收起 / 卸载必须摘掉定时器（否则留下后台心跳）');
-  });
-
-  it('取数 effect 依赖刷新计数 tick、容量数据代数 revision 与会话版本 sessionTick', () => {
-    // 2026-10-09 追加 `revision`（`model` 事件条数，见 ContextUsageView.revisionOf）：
-    // 容量快照每次模型调用产生一次 ⇒ 代数一到就取数，定时器 `tick` 退化为兜底。
-    // `sessionTick` 是 AppController 的**去抖**会话版本号，用于接住工具/回合事件；
-    // 三者都是刷新信号，缺一个都会让某类事件下数字冻住。
-    assert.match(
-      src,
-      /\}, \[open, threadId, busy, tick, revision, sessionTick\]\);/,
-      '取数必须依赖 tick/revision/sessionTick；只依赖 open/threadId/busy 时轮询与事件驱动都形同虚设',
-    );
-  });
-
-  it('闲时不轮询（`context.usage` 要回放事件日志，闲着轮询是白烧 IO）', () => {
-    assert.match(src, /busy !== true\) return undefined;/, '忙闲判据必须写在轮询 effect 的入口');
-  });
-});
 
 describe('容量面板：空 threadId 回落到正在跑的会话（新会话第一回合也能看到真实数字）', () => {
   const src = readFileSync(HANDLERS, 'utf8');

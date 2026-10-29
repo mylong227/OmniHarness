@@ -1125,12 +1125,10 @@ pre.json {
 }
 
 /* 容量条：品牌色填充 + 语义化耗尽色。 */
-.cap-bar-big,
 .cap-row-bar {
   background: var(--code-bg);
   border-radius: 999px;
 }
-.cap-bar-fill,
 .cap-row-fill {
   background: var(--brand);
   border-radius: 999px;

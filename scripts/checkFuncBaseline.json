@@ -59,9 +59,6 @@
   "web/src/ui/components/console/SettingsSurface.tsx": {
     "SettingsSurface": 518
   },
-  "web/src/ui/components/ContextCapacityPanel.tsx": {
-    "ContextCapacityPanel": 221
-  },
   "web/src/ui/components/DialogHost.tsx": {
     "DialogHost": 139
   },
