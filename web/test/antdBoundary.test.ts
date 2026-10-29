@@ -59,25 +59,3 @@ test('antd 家族只出现在 web/src/ui/**（与临时 PoC）里', () => {
     'UI 基座越界（只允许 web/src/ui/**；PoC 豁免到 W5 收口）：\n' + offenders.join('\n'),
   );
 });
-
-/** 已完成原生 title → antd Tooltip 迁移的组件（§6.3 迁移清单，每迁一批追加；W5 扩到全站 AST 扫描）。 */
-const TITLE_MIGRATED = [
-  'web/src/ui/components/ChatHeader.tsx',
-  'web/src/ui/components/SidebarFooter.tsx',
-];
-
-test('已迁移组件不得再依赖原生 title（§6.3 迁移守卫）', () => {
-  const offenders: string[] = [];
-  for (const rel of TITLE_MIGRATED) {
-    const lines = readFileSync(join(ROOT, rel), 'utf8').split('\n');
-    for (const [i, line] of lines.entries()) {
-      // 行内出现 `title={` 且该行不含 Tooltip ⇒ 原生 title 漏网（应改 <Tooltip title={…}>）。
-      if (/title=\{/.test(line) && !/Tooltip/.test(line)) offenders.push(`${rel}:${i + 1}`);
-    }
-  }
-  assert.deepStrictEqual(
-    offenders,
-    [],
-    '原生 title 迁移漏网（悬停提示改 <Tooltip>，观感与防溢出交给 antd）：\n' + offenders.join('\n'),
-  );
-});

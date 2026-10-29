@@ -6424,3 +6424,21 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   **全站接管原生 `title`** 的路子，与批一的 antd Tooltip 形成两套提示体系。本批因此**保留原生
   `title`**（不把 ConsoleView 加进 `TITLE_MIGRATED`），先把导航骨架换完；两套体系视觉统一
   待对方 HoverTips 落地后再定（antd Tooltip 无 `title` 属性，不会双气泡）。
+
+## 167. 2026-10-29 工具提示口径统一到 `TooltipLayer`（回滚 W2 批一）+ ApprovalModal v6 弃用清理
+
+- **用户拍板（2026-10-29）**：全站悬浮提示**只保留一套**——`HoverTips` + `TooltipLayer` 接管
+  原生 `title`（对方会话在 `DESIGN_SYSTEM.md` 已写入该口径，覆盖 120+ 处）。antd `Tooltip`
+  逐处迁移不再推进。
+- **回滚**：`git revert 9ea15d04`（W2 批一）——ChatHeader 四处（会话侧栏/右栏开关、项目路径、
+  会话标题）与 SidebarFooter 设置钮**恢复原生 `title`**；删除 `antdBoundary` 的
+  `TITLE_MIGRATED` 清单与「已迁移组件不得再有原生 title」守卫。批二（ApprovalModal）/批三
+  （ConsoleView Menu）不受影响，且批三本来就刻意保留了 `title`。
+- **文档口径同步（避免后续会话照旧做）**：规划 §6.3 整节反转为「保留 title + TooltipLayer」，
+  并同步 §1 摘要③、§5.1 映射表、W3/W5 工作包、风险表；ADR-0018 决策 6 加**修订行**（不抹原决定）。
+- **附带清理**：ApprovalModal 的 `maskClosable={false}` → `mask={{ closable: false }}`——
+  antd v6 已弃用前者（实测渲染期打 warning），语义不变：遮罩仍渲染、点不关闭。
+- **验证**：`chatHeaderDuration`/`shellFooter`/`antdBoundary`/`mount` 20/20；`approvalModalFocus` 2/2；
+  审批 `e2e` 1/1（真机走完 发任务→审批→流式→产物）；tsc 零错；重建 `web/dist` 后真机判据复跑。
+- **下一刀**：`RightPanel` 标签 → antd `Tabs`；按用户决定**等对方会话提交后再 rebase**（main 仍 §162，
+  其 RightPanel/标签栏正在其未提交改动里）。

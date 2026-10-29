@@ -8,10 +8,8 @@
 // 所以入口必须回到固定位置。别再按旧注释把它删掉。
 //
 // 「重连中」不显示红色「断开」的口径与原 TopBar 一致（EventSource 自动重连，抖动报红=假故障）。
-// W2（2026-10-29）：设置按钮的原生 `title` → antd Tooltip（§6.3 迁移第一批）。
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
-import { Tooltip } from 'antd';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -42,11 +40,14 @@ export function SidebarFooter(props: SidebarFooterProps): ReactElement {
       </span>
       <span className="flex-spacer" aria-hidden="true"></span>
       {onOpenSettings === undefined ? null : (
-        <Tooltip title={t('设置')}>
-          <button className="iconbtn" aria-label={t('打开设置')} onClick={onOpenSettings}>
-            {icon('gear', { size: 16 })}
-          </button>
-        </Tooltip>
+        <button
+          className="iconbtn"
+          title={t('设置')}
+          aria-label={t('打开设置')}
+          onClick={onOpenSettings}
+        >
+          {icon('gear', { size: 16 })}
+        </button>
       )}
     </div>
   );

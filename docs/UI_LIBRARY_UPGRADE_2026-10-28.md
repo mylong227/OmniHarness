@@ -18,7 +18,7 @@
   169 处 class 契约；12 条真 Chrome 判据；入口 bundle **849KB / 上限 900KB**。
 - **估算**：**12–17 个工作日**（按本仓 agent 批次约 10–14 批），其中 W0 PoC 0.5–1 天。
 - **三个必须先拍板的闸**：① 依赖准入（49MB / 48 依赖，超默认 2MB / 20）；② 入口与总 JS 预算；
-  ③ 工具提示策略（124 处原生 `title` 全部改 `<Tooltip>`）。
+  ③ 工具提示策略（124 处原生 `title`）——**2026-10-29 改为：保留 `title`，由 `TooltipLayer` 全站接管**，见 §6.3。
   —— **均已拍板（2026-10-28 用户「全面开工」+ W0 实测）**：①已登记 allowlist（override 52000KB / 60 依赖）；
   ②预算按 §0.5 实测重写；③按 §6.3 执行。
 
@@ -179,7 +179,7 @@
 | 附件 chip          | Tag closable / Upload                  | 文件选择仍走现有 RPC                  |
 | 权限 / 模型 / 容量 | Dropdown / Select / Popover / Progress | 三个弹层的互斥逻辑保留 `PopoverStack` |
 | 发送 / 停止 / 语音 | Button + Spin                          | 快捷键与禁用态不变                    |
-| 悬浮提示           | Tooltip                                | 见 §7.3                               |
+| 悬浮提示           | 保留原生 `title` + `TooltipLayer` 接管 | 见 §6.3（2026-10-29 口径反转）        |
 
 ### 5.3 会话流（**热路径，谨慎**）
 
@@ -240,15 +240,18 @@ web/styles/
 - i18n：antd 内建文案走 `zhCN`；业务文案继续走现有 `t()`，不把中文散进 antd props。
 - 动效：统一 110–180ms / `cubic-bezier(.16,1,.3,1)`；`prefers-reduced-motion` 全局关。
 
-### 6.3 工具提示（124 处 `title`）
+### 6.3 工具提示（124 处 `title`）——**2026-10-29 口径反转，以 `TooltipLayer` 为准**
 
-- **终态**：antd `Tooltip`，**删除** `HoverTips` / `TooltipLayer` / `.hover-tip`（2026-10-28 那版）。
-- **迁移方式**：`title={x}` → `<Tooltip title={x}><元素/></Tooltip>`；纯文本容器（会话行、路径）
-  保留 Tooltip 的自定义 content（多行 meta）。
-- **例外**：`iframe[title]`、`abbr[title]` 等 **语义/无障碍必需的 title 保留**；新增守卫
-  「可交互元素不得依赖原生 title」。
-- 风险：包装会改变 flex/grid 层级；对 inline 元素统一用 `Tooltip` 的 child 包裹 + `display:contents`
-  不可行（antd 需要可测锚点），逐处确认布局。
+- **终态（2026-10-29 用户拍板）**：保留原生 `title`，由 `HoverTips` + `TooltipLayer` 全站接管
+  （事件委托读 `title` → 扁平纸片气泡、280px 限宽，见 `docs/DESIGN_SYSTEM.md`「悬浮提示」节）。
+  **不做** antd `Tooltip` 逐处迁移；W2 批一已按此回滚（revert `9ea15d04`），
+  `antdBoundary` 的「已迁移组件不得再有原生 title」守卫一并撤除。
+- **为什么不走 antd Tooltip**：① 全站 120+ 处，逐处包装要动 flex/grid 层级（下面「风险」那条正是它）；
+  ② 组件库的 Tooltip 没有「整站统一」的入口——新加一处 `title` 就又漏一处；
+  ③ 用户 2026-10-28 要的是「收窄 + 圆角 + 扁平」，事件委托一层就能覆盖全部，且跟随主题。
+- **例外**：`iframe[title]` / `abbr[title]` 等**语义/无障碍必需的 title 保留**（接管只影响悬停展示：
+  显示期间把 `title` 暂存到 `data-tip`、离开即还原）。
+- 风险（仍成立）：antd `Tooltip` 若在个别弹层内需要，包装会改变 flex/grid 层级，需逐处确认布局。
 
 ### 6.4 测试与门禁改造
 
@@ -287,7 +290,7 @@ web/styles/
 
 ### W3 · 会话流与输入区（3–4 天）
 
-- 流内卡片/折叠/标签、Composer、三个弹层、审批/提问/todo、Toast→message、Tooltip 迁移。
+- 流内卡片/折叠/标签、Composer、三个弹层、审批/提问/todo、Toast→message（工具提示不再迁移，见 §6.3）。
 - **退出判据**：虚拟化渲染上界、滚动无空洞、键盘全链路、审批门户、axe 全绿。
 
 ### W4 · 控制台与全部面板（3–4 天）
@@ -297,7 +300,7 @@ web/styles/
 
 ### W5 · 收口（2–3 天）
 
-- 删除旧样式表（约 9.7k 行）与 `HoverTips/TooltipLayer`；清完 124 处 `title`。
+- 删除旧样式表（约 9.7k 行）；**保留** `HoverTips/TooltipLayer` 与全站 `title`（§6.3 口径）。
 - 641 例判据改写完成；截图复核双主题；`DESIGN_SYSTEM.md` v2；看板记档；合并 `main`。
 - **退出判据**：见 §8。
 
@@ -313,17 +316,17 @@ web/styles/
 
 ## 9. 风险登记册
 
-| 风险                        | 概率/影响 | 缓解                                                                            |
-| --------------------------- | --------- | ------------------------------------------------------------------------------- |
-| 观感变成"通用 antd"         | 高 / 高   | 品牌层 + 主题 token；每屏截图复核；默认蓝/默认圆角列入反目标                    |
-| 密度过松，一屏信息量下降    | 高 / 中   | `controlHeight 32`、表格 small、Menu 34；以现有截图逐屏对比                     |
-| 体积超预算                  | 高 / 中   | W0 实测；`manualChunks` 拆 vendor；重组件（Table/DatePicker）按需               |
-| 169 处 class 契约改写遗漏   | 中 / 高   | 先改测试基座（role/testid），按组件批次迁移；Chrome 判据兜底                    |
-| CSS-in-JS 运行时开销        | 中 / 中   | v6 CSS 变量模式；热路径（虚拟流）不套 antd 组件                                 |
-| antd v6 较新（2026 发布）   | 中 / 中   | 精确锁版本；W0 验证关键组件；读 changelog                                       |
-| 124 处 Tooltip 迁移改变布局 | 中 / 中   | 逐处 review；先语义化 title 再包装；保留例外清单                                |
-| 一次性分支长期不同步        | 中 / 高   | 每周从 main rebase；W1 后先合"基础设施"空转批？——不，保持单次合并，但每周跑全量 |
-| 桌面端打包/离线异常         | 低 / 高   | W0 在 Electron 里跑一遍 PoC；无 CSP 限制已确认                                  |
+| 风险                      | 概率/影响 | 缓解                                                                            |
+| ------------------------- | --------- | ------------------------------------------------------------------------------- |
+| 观感变成"通用 antd"       | 高 / 高   | 品牌层 + 主题 token；每屏截图复核；默认蓝/默认圆角列入反目标                    |
+| 密度过松，一屏信息量下降  | 高 / 中   | `controlHeight 32`、表格 small、Menu 34；以现有截图逐屏对比                     |
+| 体积超预算                | 高 / 中   | W0 实测；`manualChunks` 拆 vendor；重组件（Table/DatePicker）按需               |
+| 169 处 class 契约改写遗漏 | 中 / 高   | 先改测试基座（role/testid），按组件批次迁移；Chrome 判据兜底                    |
+| CSS-in-JS 运行时开销      | 中 / 中   | v6 CSS 变量模式；热路径（虚拟流）不套 antd 组件                                 |
+| antd v6 较新（2026 发布） | 中 / 中   | 精确锁版本；W0 验证关键组件；读 changelog                                       |
+| 触屏/长按无法触发 `title` | 中 / 中   | 提示只做"补齐说明"，关键信息与 aria-label 同源；不把唯一入口放进悬停            |
+| 一次性分支长期不同步      | 中 / 高   | 每周从 main rebase；W1 后先合"基础设施"空转批？——不，保持单次合并，但每周跑全量 |
+| 桌面端打包/离线异常       | 低 / 高   | W0 在 Electron 里跑一遍 PoC；无 CSP 限制已确认                                  |
 
 ## 10. 拍板记录（2026-10-28，用户「全面开工」+ W0 实测）
 

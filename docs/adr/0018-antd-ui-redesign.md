@@ -31,6 +31,9 @@
    antd 等价物，换成库只会更差。
 6. **工具提示终态**：改用 antd `Tooltip`，删除 2026-10-28 的自绘 `HoverTips/TooltipLayer`；
    语义必需的 `iframe/abbr[title]` 例外。
+   **修订（2026-10-29，用户拍板）**：本条**反转**——保留原生 `title` 与 `HoverTips/TooltipLayer`
+   全站接管（理由见 `UI_LIBRARY_UPGRADE_2026-10-28.md` §6.3：120+ 处逐处包装要动布局层级、
+   且新增一处就漏一处）。W2 批一（`9ea15d04`）已按新口径回滚。
 7. **判据同步改造**：169 处 class 契约改 role/testid；新增 `antdTheme.test.ts`（palette 与
    token 一致、对比度 ≥4.5）与体积分块判据；axe、虚拟化、长会话判据保留。
 

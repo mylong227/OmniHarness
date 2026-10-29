@@ -3,7 +3,7 @@
 // a11y（D1）：role="dialog" + aria-modal + aria-labelledby/describedby；打开时把焦点交给
 // 「拒绝」——审批是安全闸门，默认落点应是权限最小的那个选项，而不是最顺手的那个。
 // **刻意不做「Esc = 拒绝」**：静默拒绝会让等待中的模型收到一个用户从未做出的决定
-// （与 D4 的对话框同理，决策不可静默产生）——因此 antd Modal 的 keyboard/maskClosable/closable
+// （与 D4 的对话框同理，决策不可静默产生）——因此 antd Modal 的 keyboard/mask.closable/closable
 // 三条关闭路径全部关死，唯一出口是三枚决策按钮。
 //
 // W2（2026-10-29）：外壳换 antd Modal——遮罩 / 层级 / 开关动画由 antd 承担。
@@ -165,7 +165,8 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
       }
       closable={false}
       keyboard={false}
-      maskClosable={false}
+      // antd v6：`maskClosable` 已弃用，改 `mask.closable`（遮罩仍渲染，只是点不关）。
+      mask={{ closable: false }}
       width={420}
       className="approval-modal"
       destroyOnHidden
