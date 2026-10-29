@@ -6322,18 +6322,20 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 
 - **已闭环（12）**：E2、E6/S3（40 任务）、E7、E9、E10、A2、A5（超时/重试/回滚/worktree 隔离）、
   A7、A8（fork + steering 全链路）、A9、A10、S1。
-- **未闭环（1）**：S2 前端长函数。`node scripts/check.mjs --strict` 实测仍有 **30 处**函数体超基线
-  （含服务端；前端大组件 `SessionPanel` 801、`SettingsSurface` 518、`Composer` 486、`ChangesTab` 430、
-  `ProfilesTab` 203、`ConsoleView` 243 等）。本会话已清偿 **31 个**（逐条见 §143–§161）。
+- **未闭环（1）**：S2 前端长函数。`node scripts/check.mjs --strict` 实测仍有 **31 处**函数体超基线
+  （含服务端；W2/W3 后 `RightPanel` 114、`ApprovalModal` 81 又回到 >80；前端大组件 `SessionPanel` 801、
+  `SettingsSurface` 511、`Composer` 486、`ChangesTab` 430、`ProfilesTab` 203、`ConsoleView` 237 等）。
+  本会话已清偿 **31 个**（逐条见 §143–§161）。
 - **可复现阻塞证据**：
   ```bash
-  node scripts/check.mjs --strict   # 输出 30 条「体 N 行（基线 N）」
+  node scripts/check.mjs --strict   # 输出 31 条「体 N 行（基线 N）」
   ```
   这些不是 1–2 行的抽取：大组件需拆成多子组件/hooks 并补行为判据，单轮无法清零。
 - **降级方案（已生效）**：冻结基线「只减不增」；任何被修改的函数就地拆到 ≤80；清零另开
   「前端拆分」批次，按组件逐个加判据，不与功能改动混提。
-- **最终验证**：`web:test` 125 文件 / 641 例全绿；`test:fast` 与服务端全量见 `.tmp/node-test-final.log`；
-  `runGates --tier=typed` 2/2；`check.mjs --strict` 零违规（长函数为冻结存量，不计违规）。
+- **最终验证（截至 §162 时点）**：`web:test` 125 文件 / 641 例全绿；`test:fast` 与服务端全量见
+  `.tmp/node-test-final.log`；`runGates --tier=typed` 2/2；`check.mjs --strict` 零违规（长函数为冻结存量）。
+  后续合并 antd UI 后全量 web 判据为 128 文件 / 654 例（见 §169）。
 - **边界**：本会话**没有**把 S2 标成完成；其余 12 项均已闭环并有判据。
 
 ## 163. 2026-10-28 UI 升级 W0：antd@6.6.8 准入 + PoC **Go**（`feat/antd-ui` worktree）
