@@ -619,3 +619,64 @@ test('SessionPanel：会话行可聚焦，Enter 打开、Shift+F10 打开同一�
   assert.ok(menu !== undefined, 'Shift+F10 必须打开与右键同一个行菜单');
   assert.match(allText(menu), /打开/);
 });
+
+test('SessionPanel：行菜单方向键 roving（打开即落焦点，↑↓/Home/End 移动，Esc 归还行焦点）', async () => {
+  // 2026-10-29（W5 收口）：role=menu 的 WAI-ARIA 键盘模型——打开后焦点必须已在菜单内
+  // （键盘用户不需要再摸一次 Tab），↑/↓ 循环移动、Home/End 跳首尾，关闭把焦点还给会话行。
+  const handle = await setupPanel();
+  const rows = byClass(handle.tree(), 'session').filter((n) => hasClass(n, 'session'));
+  fireEvent.contextMenu(rows[1]!.el, { clientX: 100, clientY: 180 });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  // rAF 后焦点已落首个菜单项（打开）。
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  assert.strictEqual(
+    (document.activeElement as HTMLElement | null)?.getAttribute('role'),
+    'menuitem',
+    '打开后焦点必须落在首个菜单项',
+  );
+  assert.strictEqual(
+    (document.activeElement as HTMLElement | null)?.textContent,
+    '打开',
+    '首项必须是「打开」',
+  );
+
+  const items = (): HTMLElement[] =>
+    Array.from(document.querySelectorAll<HTMLElement>('.row-menu [role="menuitem"]'));
+  const fire = async (key: string): Promise<void> => {
+    fireEvent.keyDown(window, { key });
+    await act(async () => {
+      await Promise.resolve();
+    });
+  };
+
+  await fire('ArrowDown');
+  assert.ok((document.activeElement?.textContent ?? '').startsWith('配置'), '↓ 移到第二项');
+  await fire('ArrowDown');
+  assert.ok((document.activeElement?.textContent ?? '').startsWith('打开'), '第二项是末项时 ↓ 循环回首项');
+  await fire('ArrowUp');
+  assert.ok((document.activeElement?.textContent ?? '').startsWith('配置'), '↑ 从首项循环到末项');
+  await fire('ArrowUp');
+  assert.ok((document.activeElement?.textContent ?? '').startsWith('打开'), '↑ 回到首项');
+  await fire('End');
+  assert.ok((document.activeElement?.textContent ?? '').startsWith('配置'), 'End 跳末项');
+  await fire('Home');
+  assert.ok((document.activeElement?.textContent ?? '').startsWith('打开'), 'Home 跳首项');
+  assert.ok(items().length >= 2, '菜单至少有打开与配置两项');
+
+  // Esc 关闭并把焦点还给触发它的会话行。
+  fireEvent.keyDown(window, { key: 'Escape' });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.strictEqual(byClass(handle.tree(), 'row-menu').length, 0, 'Esc 必须关闭行菜单');
+  const rowEl = document.querySelector('[data-session-id="s-9"]') as HTMLElement | null;
+  assert.strictEqual(
+    rowEl !== null && document.activeElement === rowEl,
+    true,
+    '关闭后焦点必须还给会话行',
+  );
+});

@@ -28,6 +28,7 @@ import {
 import type { ListCtx, RowCtx } from './SessionViews.tsx';
 import { PathJoiner } from '../models/PathJoiner.ts';
 import { MenuPlacement } from '../models/MenuPlacement.ts';
+import { useRowMenuKeyboard } from './useRowMenuKeyboard.ts';
 import { SessionOrder } from '../models/SessionOrder.ts';
 import { icon } from '../models/Icon.ts';
 import { desktopBridge } from '../../core/desktop/DesktopBridge.ts';
@@ -300,7 +301,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       window.removeEventListener('scroll', close, true);
     };
   }, [menu]);
-
+  useRowMenuKeyboard(menu, menuRef); // W5 收口：行菜单 roving（打开落焦/↑↓/Home/End/归还行焦点）。
   // 贴边翻转：量出菜单真实宽高后把它夹进视口（贴近右下角时向左/向上翻，永不溢出屏幕边缘）。
   // 先隐藏后定位，避免用户看到「先在鼠标处闪一下再跳走」。
   React.useLayoutEffect(() => {
@@ -549,8 +550,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     onCommitDelete: (id: string) => void commitDelete(id),
     onFork: (id: string) => void onFork(id),
     onContextMenu: (id: string, x: number, y: number) => {
-      setMenuConfigOpen(false);
-      setMenu({ id, x, y });
+      setMenuConfigOpen(false); setMenu({ id, x, y });
     },
     ...(props.onArchive !== undefined ? { onArchive: props.onArchive } : {}),
   };
@@ -876,8 +876,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           ) : null}
         </div>
       ) : null}
-      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */}
-      <SidebarFooter
+      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */
+}      <SidebarFooter
         connected={connected ?? true}
         streamState={streamState}
         onOpenSettings={onOpenSettings}

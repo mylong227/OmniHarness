@@ -21,6 +21,40 @@ import { useApp } from '../../context.ts';
 import type { ReactElement } from 'react';
 import type { VaultListResult } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Alert from 'antd/es/alert';
+import Input from 'antd/es/input';
+import Button from 'antd/es/button';
+
+/**
+ * 凭据名表列定义（2026-10-29 W4）：只列名字（纪律①），删除是行尾显式动作。
+ * @param onRemove 删除回调
+ * @returns 列定义
+ */
+function vaultNameColumns(
+  onRemove: (name: string) => void,
+): ColumnsType<{ key: string; name: string }> {
+  return [
+    { title: t('名称'), dataIndex: 'name', key: 'name' },
+    {
+      title: t('操作'),
+      key: 'op',
+      width: 90,
+      render: (_, row) => (
+        <Button size="small" onClick={() => onRemove(row.name)}>
+          {t('删除')}
+        </Button>
+      ),
+    },
+  ];
+}
+
+/** err/notice 提示条（W4：antd Alert，统一卡片间距）。 */
+function VaultNotice(props: { kind: 'error' | 'success'; message: string }): ReactElement {
+  return <Alert className="vault-alert" type={props.kind} showIcon message={props.message} />;
+}
 
 /** 保险库面板。 */
 export function VaultTab(): ReactElement {
@@ -98,29 +132,30 @@ export function VaultTab(): ReactElement {
         <p className="hint">
           {t('只列出名字：服务端不提供读回值的接口（凭据写入后仅供运行时取用）。')}
         </p>
-        {error !== null ? <p className="err">{error}</p> : null}
-        {notice !== null ? <p className="ok">{notice}</p> : null}
+        {error !== null ? <VaultNotice kind="error" message={error} /> : null}
+        {notice !== null ? <VaultNotice kind="success" message={notice} /> : null}
         {data !== null && !data.ok ? (
           // 未接线必须直说 + 给出开启方式（不得渲染成"保险库为空"）。
           // 默认口径下 serve 本身就接线（用户级密钥文件 ~/.omniharness/vault.key），
           // 所以这里最常见的原因是 OMNIHARNESS_VAULT=0 被显式关闭。
-          <p className="err">
-            {t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 <OMNI_HOME>/vault.key）', { reason: data.reason })}
-          </p>
+          <VaultNotice
+            kind="error"
+            message={t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 <OMNI_HOME>/vault.key）', { reason: data.reason })}
+          />
         ) : data !== null && data.ok ? (
           data.names.length === 0 ? (
             <p className="hint">{t('保险库为空（已接线，尚无凭据）。')}</p>
           ) : (
-            <ul className="vault-list">
-              {data.names.map((item) => (
-                <li key={item}>
-                  <span>{item}</span>
-                  <button type="button" className="btn ghost" onClick={() => void remove(item)}>
-                    {t('删除')}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <Table
+              className="vault-table"
+              size="small"
+              bordered={false}
+              pagination={false}
+              columns={vaultNameColumns((n) => void remove(n))}
+              dataSource={data.names.map((n) => ({ key: n, name: n }))}
+              rowKey="key"
+              scroll={{ x: 'max-content' }}
+            />
           )
         ) : (
           <p className="hint">{t('暂无数据。')}</p>
@@ -131,8 +166,7 @@ export function VaultTab(): ReactElement {
         <div className="detail-h">{t('写入 / 覆盖')}</div>
         <label className="field">
           <span>{t('名称')}</span>
-          <input
-            type="text"
+          <Input
             value={name}
             placeholder={t('如 OPENAI_API_KEY')}
             autoComplete="off"
@@ -141,11 +175,11 @@ export function VaultTab(): ReactElement {
         </label>
         <label className="field">
           <span>{t('凭据')}</span>
-          <input
-            type="password"
+          <Input.Password
             value={secret}
             placeholder={t('粘贴凭据值')}
             autoComplete="new-password"
+            visibilityToggle={false}
             onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
           />
         </label>
@@ -153,14 +187,13 @@ export function VaultTab(): ReactElement {
           <span className="panel-note" style={{ margin: 0 }}>
             {t('写入后即清空，不会回显')}
           </span>
-          <button
-            type="button"
-            className="btn primary"
+          <Button
+            type="primary"
             disabled={name.trim() === '' || secret === ''}
             onClick={() => void save()}
           >
             {t('写入')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

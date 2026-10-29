@@ -25,6 +25,9 @@ import {
   type DiffComment,
 } from './ChangesPatchView.tsx';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
 
 /** 变更清单响应。 */
 interface ChangesData {
@@ -46,6 +49,72 @@ const KEY_HELP: readonly { readonly keys: string; readonly desc: string }[] = [
   { keys: 'Enter', desc: '未展开时打开选中文件' },
   { keys: '?', desc: '开合本帮助 · Esc 关闭' },
 ];
+
+/**
+ * 变更文件表（2026-10-29 W4）：清单外壳用 antd Table；patch 视图仍是**自研 diff**（§5.4 映射），
+ * 经 `renderExpanded` 塞进行展开区。行点击 = 展开/收起（expandRowByClick），键盘评审不动
+ * （j/k/Enter 仍走 review-root 的 keydown，选中高亮经 rowClassName 落在行上）。
+ */
+function ChangesFilesTable(props: {
+  files: readonly ChangeFile[];
+  expanded: string | null;
+  selected: number;
+  onOpen: (path: string) => void;
+  renderExpanded: (f: ChangeFile) => ReactElement;
+}): ReactElement {
+  const columns: ColumnsType<ChangeFile> = [
+    {
+      title: t('状态'),
+      key: 'status',
+      width: 72,
+      render: (_, f) => {
+        const badge = statusBadge(f.status);
+        return <span className={'change-badge ' + badge.cls}>{badge.label}</span>;
+      },
+    },
+    {
+      title: t('路径'),
+      dataIndex: 'path',
+      key: 'path',
+      render: (p: string) => <span className="change-path">{p}</span>,
+    },
+    {
+      title: t('增删'),
+      key: 'nums',
+      width: 130,
+      render: (_, f) => (
+        <span className="change-nums">
+          {f.additions > 0 ? <span className="additions">+{f.additions}</span> : null}
+          {f.deletions > 0 ? <span className="deletions">−{f.deletions}</span> : null}
+        </span>
+      ),
+    },
+  ];
+  return (
+    <Table<ChangeFile>
+      className="changes-table"
+      size="small"
+      bordered={false}
+      pagination={false}
+      columns={columns}
+      dataSource={[...props.files]}
+      rowKey="path"
+      rowClassName={(f) => {
+        const idx = props.files.indexOf(f);
+        return (
+          'change-row' + (props.expanded === null && idx === props.selected ? ' selected' : '')
+        );
+      }}
+      expandable={{
+        expandedRowKeys: props.expanded === null ? [] : [props.expanded],
+        onExpand: (_expanded, f) => props.onOpen(f.path),
+        expandRowByClick: true,
+        expandedRowRender: (f) => props.renderExpanded(f),
+      }}
+      scroll={{ x: 'max-content' }}
+    />
+  );
+}
 
 /**
  * 变更审查面板：工作区变更清单 + 块级 stage / 丢弃 + 行内评论 + 键盘评审。
@@ -424,59 +493,38 @@ export function ChangesTab(): ReactElement {
       {files.length === 0 ? (
         <div className="empty">{icon('check', { size: 14 })} {t('没有变更——工作区很干净。改点东西再来看。')}</div>
       ) : (
-        <div className="changes-list">
-          {files.map((f) => {
-            const badge = statusBadge(f.status);
-            const open = expanded === f.path;
-            const fileIdx = files.indexOf(f);
-            const selectedFile = expanded === null && fileIdx === selectedView;
-            return (
-              <div key={f.path} className={'change-item' + (selectedFile ? ' selected' : '')}>
-                <div
-                  className="change-row"
-                  onClick={() => void openPatch(f.path)}
-                  title={t('点击查看变更内容')}
-                >
-                  <span className={'change-badge ' + badge.cls}>{badge.label}</span>
-                  <span className="change-path">{f.path}</span>
-                  <span className="change-nums">
-                    {f.additions > 0 ? <span className="additions">+{f.additions}</span> : null}
-                    {f.deletions > 0 ? <span className="deletions">−{f.deletions}</span> : null}
-                  </span>
-                  <span className="change-caret">{open ? '▾' : '▸'}</span>
-                </div>
-                {open ? (
-                  <div className="change-patch">
-                    {renderChangesPatch({
-                      f,
-                      isGit,
-                      patch,
-                      patchLoading,
-                      fileComments: comments.filter((c) => c.path === f.path),
-                      busyAct,
-                      draft,
-                      draftText,
-                      selected: selectedView,
-                      onSelectHunk: (idx) => setSelected(idx),
-                      onStageFile: stageFile,
-                      onRevertFile: (p) => void revertFile(p),
-                      onStageHunk: stageHunk,
-                      onRevertHunk: (p, h, i) => void revertHunk(p, h, i),
-                      onStartDraft: (a) => {
-                        setDraft(a);
-                        setDraftText('');
-                      },
-                      onDraftText: setDraftText,
-                      onSaveDraft: () => void saveDraft(),
-                      onCancelDraft: () => setDraft(null),
-                      onDeleteComment: (id) => void deleteComment(id),
-                    })}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+        <ChangesFilesTable
+          files={files}
+          expanded={expanded}
+          selected={selectedView}
+          onOpen={(p) => void openPatch(p)}
+          renderExpanded={(f) =>
+            renderChangesPatch({
+              f,
+              isGit,
+              patch,
+              patchLoading,
+              fileComments: comments.filter((c) => c.path === f.path),
+              busyAct,
+              draft,
+              draftText,
+              selected: selectedView,
+              onSelectHunk: (idx) => setSelected(idx),
+              onStageFile: stageFile,
+              onRevertFile: (p) => void revertFile(p),
+              onStageHunk: stageHunk,
+              onRevertHunk: (p, h, i) => void revertHunk(p, h, i),
+              onStartDraft: (a) => {
+                setDraft(a);
+                setDraftText('');
+              },
+              onDraftText: setDraftText,
+              onSaveDraft: () => void saveDraft(),
+              onCancelDraft: () => setDraft(null),
+              onDeleteComment: (id) => void deleteComment(id),
+            })
+          }
+        />
       )}
     </div>
   );

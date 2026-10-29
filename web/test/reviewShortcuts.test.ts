@@ -420,7 +420,9 @@ test('ChangesTab：收起态（未展开文件）j/k 在文件清单上移动，
   assert.strictEqual(selectedHunk(tree()), -1, '未展开时没有改动块可选中');
 
   press(tree(), 'j');
-  const rows = byClass(tree(), 'change-item');
+  // 2026-10-29 W4：文件清单外壳换成 antd Table——行类名是 `ant-table-row change-row`，
+  // 选中态仍由 rowClassName 落 `selected`；选择器跟着结构走，断言内容不变。
+  const rows = byClass(tree(), 'change-row');
   const selectedRows = rows.filter((r) => clsOf(r).includes('selected'));
   assert.strictEqual(selectedRows.length, 1, '文件清单上的选中同样会移动');
   assert.match(allText(selectedRows[0]!), /src\/b\.ts/, '应选中第二个文件');

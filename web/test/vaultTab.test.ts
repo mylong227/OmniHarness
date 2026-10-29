@@ -154,12 +154,16 @@ test('④ 密码框 type=password；空值时写入按钮禁用', async () => {
   const tree = await renderSeeded({ 0: { ok: true, names: [] } });
   const secretInput = collect(tree, (n) => n.props?.type === 'password')[0];
   assert.ok(secretInput !== undefined, '凭据输入框必须是 password 类型（不进可读控件）');
-  const saveBtn = collect(tree, (n) => n.type === 'button' && texts(n).join('') === '写入')[0];
+  // antd Button 可能对两字中文插空格（autoInsertSpace，按 ConfigProvider 装配而定）：
+  // 按钮查找做**空白不敏感**匹配，语义仍是「必须有一个写着写入的按钮」。
+  const isSaveBtn = (n: FacadeNode): boolean =>
+    n.type === 'button' && texts(n).join('').replace(/\s/g, '') === '写入';
+  const saveBtn = collect(tree, isSaveBtn)[0];
   assert.ok(saveBtn !== undefined, '必须有写入按钮');
   assert.strictEqual(saveBtn.props.disabled, true, '空值时写入按钮应禁用（避免空写盘）');
 
   const filled = await renderSeeded({ 0: { ok: true, names: [] }, 4: 'NAME', 5: 'secret-value' });
-  const filledBtn = collect(filled, (n) => n.type === 'button' && texts(n).join('') === '写入')[0];
+  const filledBtn = collect(filled, isSaveBtn)[0];
   // 外观节点按 **DOM 语义**给布尔属性：没有 `disabled` 属性时该键**不存在**（值为 undefined），
   // 而不是 React props 里的 false。判据仍是「可写入」，只是改用存在性表达。
   assert.ok(filledBtn !== undefined, '必须有写入按钮');

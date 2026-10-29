@@ -6737,3 +6737,32 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   **ConsoleView 本体**转为 React.lazy + 空闲预取（预取清单 11→18），加入既有 11 个按需面板；
   入口只留首屏真需要的 ToolsTab（默认 pane）与 FileTab（右栏常挂）。
 - **验证**：`web:test` 128 文件 / **658 例全绿**；`gate:typed` 0 错；`web:budget` 新闸全绿。
+
+## 180. 2026-10-29 W4 铺面板批 2–4 + W5 行菜单 roving（§179 分块改造后的第一批收割）
+
+- **面板 8/15 完成**（§179 解除分块约束后按 §5.4 映射铺开）：
+  - **批 2（行式数据）**：Metrics（计数卡→`Statistic`、用量表→`Table`、事件分布→`Descriptions`）；
+    Governance（台账 ul→`Table`，坏行 `row err` 纪律①保留）；Activity（最近活动→`Table`，
+    `act-kind-*` 配色保留）；Diagnostics（报告键值→`Descriptions`、不合格项→`Table`，纪律②文本原样）。
+  - **批 3/4（重交互 + 小面板）**：Changes（清单外壳→`Table` + `expandRowByClick` 行点击展开，
+    **自研 diff 原样**落在展开区——§5.4「Tree+保留自研 diff」以 Table 外壳落地，键盘评审 j/k/a/r/c
+    与游标模型零改动）；Vault（列表→`Table`、err/notice→`Alert`、输入→`Input/Input.Password`、
+    按钮→`Button`，三条纪律文本原样）；Memory（已存记忆→`Table`）。
+  - 全部面板级 antd **子路径导入**（§179 规则 1），无预算回归（async 193/260，panel-antd 吸收增量）。
+- **全局装配**：ConfigProvider 加 `button={{ autoInsertSpace: false }}`——antd 默认把两字中文按钮
+  渲成「写 入」，纸与墨密度口径不需要，组件判据也按原文找按钮（vaultTab ④ 实测踩中）。
+- **W5 收口：行菜单方向键 roving**（§178 遗留的次优先项）：`.row-menu` 打开即落焦首个菜单项、
+  ↑/↓ 循环移动、Home/End 跳首尾（配置子分组展开/收起自然入列/出列），关闭把焦点还给触发会话行
+  （按 `data-session-id`，与行落点同源）。新增判据 sessionSearch 第 19 例钉死整个键盘模型。
+- **判据适配（3 处，语义不变）**：governanceTab 行选择器（antd 行类名）、reviewShortcuts 选中行
+  选择器（`change-item`→`change-row`）、vaultTab 按钮查找（空白不敏感，防 antd 插空格回归）。
+- **i18n**：新增 16 个 en 词条（表格列名/键值标签）。
+- **W4 剩余清单（如实记档，非本轮砍掉而是尚未轮到）**：
+  ① **表单专项**（需要 ConsoleUI 原生控件 → antd Select/Switch/InputNumber 的统一替换 +
+  SettingsSurface 受控模型改造，牵动全部设置页判据）：SettingsSurface、PermissionTab（313 行
+  规则编辑器）、ProfilesTab；
+  ② Descriptions/Collapse/Timeline 类：TraceTab、DetailTab；
+  ③ Card+Table+Tag+Switch 类：PluginsTab、SkillsTab、AutomationsTab、RollbackTab；
+  ④ 外框类：FilePicker/FolderPicker（Modal+Tree+Input）、GraphTab 工具条、FileTab/BrowserPane 外框。
+- **验证**：`web:test` **659/659 全绿**（128 文件，新增 roving 判据）；`gate:typed` 0 错；
+  `web:budget`：entry 188/240、vendor 267.1/290、CSS 31.3/40、async 193.3/260、首屏 455.1/500。

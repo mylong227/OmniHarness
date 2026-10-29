@@ -41,6 +41,9 @@ export function ThemeProvider(props: ThemeProviderProps): React.ReactElement {
     <ConfigProvider
       locale={zhCN}
       componentSize="middle"
+      // 两字中文按钮不自动插空格（antd 默认把「写入」渲成「写 入」）：纸与墨的密度口径
+      // 不需要它，且组件判据按原文找按钮（vaultTab ④ 等）。
+      button={{ autoInsertSpace: false }}
       theme={antdThemeOf(props.theme)}
     >
       <AntApp>{props.children}</AntApp>

@@ -993,6 +993,8 @@
 .csl-scroll .governance-table .ant-table,
 .csl-scroll .activity-table .ant-table,
 .csl-scroll .metrics-usage-table .ant-table,
+.csl-scroll .vault-table .ant-table,
+.csl-scroll .memory-table .ant-table,
 .csl-scroll .diagnostics-issues .ant-table {
   background: transparent;
   font-size: 12px;
@@ -1000,6 +1002,8 @@
 .csl-scroll .governance-table .ant-table-thead > tr > th,
 .csl-scroll .activity-table .ant-table-thead > tr > th,
 .csl-scroll .metrics-usage-table .ant-table-thead > tr > th,
+.csl-scroll .vault-table .ant-table-thead > tr > th,
+.csl-scroll .memory-table .ant-table-thead > tr > th,
 .csl-scroll .diagnostics-issues .ant-table-thead > tr > th {
   padding: 9px 12px;
   background: transparent;
@@ -1010,6 +1014,8 @@
 .csl-scroll .governance-table .ant-table-tbody > tr > td,
 .csl-scroll .activity-table .ant-table-tbody > tr > td,
 .csl-scroll .metrics-usage-table .ant-table-tbody > tr > td,
+.csl-scroll .vault-table .ant-table-tbody > tr > td,
+.csl-scroll .memory-table .ant-table-tbody > tr > td,
 .csl-scroll .diagnostics-issues .ant-table-tbody > tr > td {
   padding: 8px 12px;
   color: var(--dim);
@@ -1018,8 +1024,14 @@
 .csl-scroll .governance-table .ant-table-tbody > tr:last-child > td,
 .csl-scroll .activity-table .ant-table-tbody > tr:last-child > td,
 .csl-scroll .metrics-usage-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .vault-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .memory-table .ant-table-tbody > tr:last-child > td,
 .csl-scroll .diagnostics-issues .ant-table-tbody > tr:last-child > td {
   border-bottom: 0;
+}
+.csl-scroll .vault-alert {
+  margin: 8px 0;
+  font-size: 12px;
 }
 /* 坏行（治理台账 / 诊断不合格项）必须显眼：文本直接用错误色。 */
 .csl-scroll .governance-table .ant-table-tbody > tr.err > td,
@@ -1047,6 +1059,27 @@
 .csl-scroll .diagnostics-desc .ant-descriptions-item-content {
   color: var(--text);
   font-size: 12px;
+}
+/* 变更文件表（批 4）：卡片壳 + 选中行高亮（行点击 = 展开，自研 diff 落在展开区）。 */
+.csl-scroll .changes-table {
+  background: var(--panel);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.csl-scroll .changes-table .ant-table {
+  background: transparent;
+  font-size: 12px;
+}
+.csl-scroll .changes-table .ant-table-tbody > tr.selected > td,
+.csl-scroll .changes-table .ant-table-tbody > tr.ant-table-row-selected > td {
+  background: var(--hover);
+}
+.csl-scroll .changes-table .ant-table-tbody > tr:hover > td {
+  background: var(--hover);
+}
+.csl-scroll .changes-table .change-path {
+  color: var(--text);
 }
 
 /* 厂商卡片（模型页）：卡片内的折叠行 */

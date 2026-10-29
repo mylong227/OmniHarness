@@ -293,4 +293,8 @@ export const EN_TABS_B: Record<string, string> = {
     'Wrote {name} (the server does not read it back; the value never appears in the UI)',
   '已删除 {name}': 'Deleted {name}',
   '{name} 本来就不存在': '{name} did not exist',
+  // 表格列名（2026-10-29 W4 批 2/3：活动/记忆 antd 化后新增）
+  '摘要': 'Summary',
+  '来源': 'Source',
+  '操作': 'Actions',
 };

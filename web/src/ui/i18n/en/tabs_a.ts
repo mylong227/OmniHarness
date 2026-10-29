@@ -128,4 +128,17 @@ export const EN_TABS_A: Record<string, string> = {
   // FileTab
   '还没有打开文件': 'No file opened yet',
   '在左侧文件树点击文件、或点产物卡片的「打开」，内容会显示在这里。': 'Click a file in the tree on the left, or "Open" on an artifact card; its content will show up here.',
+  // 表格列名与键值标签（2026-10-29 W4 批 2：变更/诊断/治理 antd 化后新增）
+  '状态': 'Status',
+  '路径': 'Path',
+  '增删': 'Added/Removed',
+  'Node / 配置': 'Node / config',
+  '安全档': 'Security profile',
+  '判定依据': 'Basis',
+  '守卫': 'Guards',
+  '动作': 'Action',
+  '条目': 'Entry',
+  '复核': 'Verify',
+  '原因': 'Reason',
+  '哈希': 'Hash',
 };

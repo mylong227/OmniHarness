@@ -11,6 +11,10 @@ import { icon } from '../../models/Icon.ts';
 import { emptyState } from '../../format.ts';
 import type { MemoryFact } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Button from 'antd/es/button';
 
 /** MemoryTab 组件的入参。 */
 export interface MemoryTabProps {
@@ -27,37 +31,72 @@ interface RowActions {
 }
 
 /**
- * 渲染单条记忆行：正文 + 主题 / 来源 / 星级 / 时间 + 操作。
- * @param f 记忆条目
- * @param actions 编辑 / 删除回调
- * @returns 记忆行节点
+ * 已存记忆表（2026-10-29 W4：antd Table；表单区仍是非受控原生控件——编辑回填走 ref 直填，
+ * antd Select 的受控语义与该模式相抵，保持原生待 §5.2 的表单专项）。
+ * @param props 记忆数组与行动作。
+ * @returns 表格节点。
  */
-function renderRow(f: MemoryFact, actions: RowActions): ReactElement {
-  const topic = f.topic ? <span className="badge">{f.topic}</span> : null;
-  const src =
-    f.source === 'consolidated' ? (
-      <span className="badge b-reasoning">{t('蒸馏')}</span>
-    ) : (
-      <span className="badge b-tool_call">{t('手动')}</span>
-    );
+function MemoryTable(props: { facts: MemoryFact[] } & RowActions): ReactElement {
+  const columns: ColumnsType<MemoryFact> = [
+    { title: t('事实'), dataIndex: 'text', key: 'text' },
+    {
+      title: t('主题'),
+      dataIndex: 'topic',
+      key: 'topic',
+      width: 120,
+      render: (topic: string | undefined) =>
+        topic ? <span className="badge">{topic}</span> : null,
+    },
+    {
+      title: t('来源'),
+      key: 'src',
+      width: 80,
+      render: (_, f) =>
+        f.source === 'consolidated' ? (
+          <span className="badge b-reasoning">{t('蒸馏')}</span>
+        ) : (
+          <span className="badge b-tool_call">{t('手动')}</span>
+        ),
+    },
+    {
+      title: t('重要度'),
+      key: 'imp',
+      width: 90,
+      render: (_, f) => <span className="mem-imp">{ImportanceStars.render(f.importance || 0)}</span>,
+    },
+    {
+      title: t('时间'),
+      key: 'time',
+      width: 100,
+      render: (_, f) => <span className="mem-time">{(f.createdAt || '').slice(0, 10)}</span>,
+    },
+    {
+      title: t('操作'),
+      key: 'op',
+      width: 130,
+      render: (_, f) => (
+        <>
+          <Button size="small" onClick={() => props.onEdit(f)}>
+            {t('编辑')}
+          </Button>{' '}
+          <Button size="small" onClick={() => props.onDelete(f.id)}>
+            {t('删除')}
+          </Button>
+        </>
+      ),
+    },
+  ];
   return (
-    <div className="mem-row" key={f.id} data-id={f.id}>
-      <div className="mem-text">{f.text}</div>
-      <div className="mem-meta">
-        {topic}
-        {src}
-        <span className="mem-imp">{ImportanceStars.render(f.importance || 0)}</span>
-        <span className="mem-time">{(f.createdAt || '').slice(0, 10)}</span>
-      </div>
-      <div className="mem-actions">
-        <button className="ghost" onClick={() => actions.onEdit(f)}>
-          {t('编辑')}
-        </button>
-        <button className="ghost" onClick={() => actions.onDelete(f.id)}>
-          {t('删除')}
-        </button>
-      </div>
-    </div>
+    <Table<MemoryFact>
+      className="memory-table"
+      size="small"
+      bordered={false}
+      pagination={false}
+      columns={columns}
+      dataSource={[...props.facts]}
+      rowKey="id"
+      scroll={{ x: 'max-content' }}
+    />
   );
 }
 
@@ -248,9 +287,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
             t('上方填入事实后点「保存」，或在会话中由模型自动沉淀。'),
           )
         ) : (
-          facts.map((f) =>
-            renderRow(f, { onEdit: startEdit, onDelete: (id) => void del(id) }),
-          )
+          <MemoryTable facts={facts} onEdit={startEdit} onDelete={(id) => void del(id)} />
         )}
       </div>
     </div>
