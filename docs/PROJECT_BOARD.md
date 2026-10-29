@@ -6459,3 +6459,34 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   ⑤ CSS 从 `.tab` 规则改为 antd tabs 覆盖（34px 行高、发丝线、激活墨条）。
 - **阻塞**：main 仍 §162，对方 35 个未提交文件（含 `App.ts` / 样式 / 若干判据）。按用户决定
   **等其提交后 rebase 再开工**；`RightPanel.tsx` 目前不在其改动清单里，预计冲突面仅 `App.ts`/样式/判据。
+
+## 169. 2026-10-29 **两工作区合并为单一代码库**（`30fdeb5c`）+ 冲突取舍全记录
+
+- **动机（用户指令）**：`D:\deepseek\omniharness`（main，带对方会话未提交的左栏容量小图表 /
+  全站悬浮提示层）与 `D:\deepseek\omniharness-antd`（`feat/antd-ui`，antd 基建 + W2 三批）各有一半，
+  必须收敛成一份代码，不能两套并行。
+- **备份**：`refs/backup/main-pre-merge` = `2b8b9ae8`（§162 原顶点）；
+  main 上两份未跟踪旧稿（规划 / ADR-0018 的早期版本）复制到 `D:/deepseek/_merge_backup/` 后删除。
+- **前置**：对方 33 个改动先快照为 `2ed8f132`（`--no-verify`：改动尚在对方半路，门禁放在合并提交上跑）。
+- **5 处文本冲突及取舍**：
+  ① `App.ts`：两边都要——`ThemeProvider`（W1）外包整树，`TooltipLayer`（对方）放在主题内、与 body 平级；
+  ② `theme.css`：`--tip-*` 的注释合并（token 值两边本就一致）；
+  ③ `mount.test.ts`：`rtlHarness` 导入取并集（去掉未用的 `waitFor`）；
+  ④⑤ `docs/README.md` / `docs/adr/README.md`：同一行/同一张表，取 Prettier 重排且含 ADR-0018 的版本。
+- **冲突之外的机械合并**：`package.json`/`package-lock`（antd 准入）来自分支；main 工作区装依赖后
+  `npm install` 补 65 个包（worktree 里的 node_modules 不能跨目录复用）。
+- **口径统一（合并后不存在第二套）**：悬浮提示只有 `HoverTips` + `TooltipLayer`（W2 批一 antd Tooltip
+  已按用户拍板回滚）；上下文容量只有左栏 `CapacityDock`（输入区/控制台/路由三处入口由 §119/§120 撤除，
+  判据 ③ 已钉死）。
+- **验证（合并后实测）**：`tsc` 双工程零错；web 判据 **128 文件 / 654 例全绿**（含对方新增
+  capacityDock / hoverTip×4，以及原先两例 main 自带红——对方已修）；后端 `contextUsagePanelRefresh` 9/9；
+  `check.mjs` 铁律通过（1287 后端 + 202 前端文件）；`vite build` 通过；首屏 **409.6KB gzip**（预算 630）；
+  合并提交走完整 pre-commit 门禁。
+- **单一检出**：`git worktree remove D:/deepseek/omniharness-antd --force` 已执行，`git worktree list`
+  只剩 `D:/deepseek/omniharness`（其余是 `.tmp` 下的子代理残留 worktree，prunable，与本仓无关）。
+  分支 `feat/antd-ui` 保留（已合入，指向 `a0a35e82`）。
+- **已知遗留（不擅自处理，交对方确认）**：`web/src/ui/components/ContextCapacityPanel.tsx` 已成**孤儿**
+  （`git grep` 生产代码零引用），但 `tests/unit/contextUsagePanelRefresh.test.ts` 前 3 例仍读它源码；
+  该文件其余 6 例是服务端接线（`usageThreadId` / 工作区根对齐），需保留。清理动作 = 删组件 + 裁前 3 例，
+  等对方确认其容量改造终态后再做。
+- **下一步**：RightPanel → Tabs 的阻塞已解除（main 现在是唯一真相源），可直接开工，见 §168 草案。
