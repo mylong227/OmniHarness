@@ -6414,6 +6414,12 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **验证**：`consoleView` 3/3（新增 aria-current / title / 文案逐字三项断言）、`governanceTab` 4/4、
   `panelModalSize` 真机 24 项逐个切换几何恒定 + scrollTop 归零、`consolePage`、`a11yAudit`（axe 零违规）、
   `narrowReflow`、`cssSourceHygiene` 全绿；首屏 404.8KB gzip（预算 630）。
+- **真机缺陷（截图标红发现，jsdom 看不出来）**：首版在条目上沿用 `font: inherit` → 把 antd
+  `.ant-menu` 根节点的 `line-height: 0` 继承下来，文字行盒高度归零、又被 `overflow: hidden`
+  裁掉，真机表现为「**只剩图标、文案整列消失**」（jsdom 无布局，组件判据全绿）。
+  修复：条目显式 `line-height: normal`。`panelModalSize` 增一条真机判据「文案可见交集 ≥ 12px」，
+  并**移除修复跑过一次正对照**确认必红——首版断言只量 `label` 自身矩形（16px）会假绿，
+  真正裁字的是高度 0 的 `.ant-menu-title-content`，必须量两者交集。
 - **策略分叉记录（待统一）**：main 上对方会话未提交的 `HoverTips` + `TooltipLayer` 走的是
   **全站接管原生 `title`** 的路子，与批一的 antd Tooltip 形成两套提示体系。本批因此**保留原生
   `title`**（不把 ConsoleView 加进 `TITLE_MIGRATED`），先把导航骨架换完；两套体系视觉统一

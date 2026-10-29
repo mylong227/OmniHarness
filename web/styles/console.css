@@ -202,6 +202,10 @@
   color: var(--dim);
   font: inherit;
   font-size: 13px;
+  /* antd 的 `.ant-menu` 根节点自带 `line-height: 0`（它靠条目自己的行高排版）；
+     `font: inherit` 会把这个 0 继承到条目上，文字行盒高度归零后又被 `overflow: hidden`
+     裁掉——真机上表现为「只剩图标、文案消失」。这里显式给回正常行高。 */
+  line-height: normal;
   text-align: left;
   cursor: pointer;
 }
