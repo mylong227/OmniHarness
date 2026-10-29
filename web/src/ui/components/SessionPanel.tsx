@@ -876,8 +876,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
           ) : null}
         </div>
       ) : null}
-      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */
-}      <SidebarFooter
+      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */}
+      <SidebarFooter
         connected={connected ?? true}
         streamState={streamState}
         onOpenSettings={onOpenSettings}
