@@ -6523,3 +6523,22 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   避免入口被写回右栏头），不是误留的死代码，故保留并由 `mount`/`a11yKeyboard` 继续钉它的契约。
 - **④ 预算闸补齐**：`vendorKb` 此前缺省（= 没有单独上限，某一半膨胀可被另一半缩小掩盖）。
   补 260（实测 208.1/260）；首屏合计 421KB gzip / 630，仍宽裕。
+
+## 171. 2026-10-29 删除「外观」页签，主题与两栏宽度并入「常规」（用户按截图要求）
+
+- **用户原话（截图批注）**：「外观页签删除，把外观的内容合并到常规页签里面去去」。
+- **数据层**：`SettingsModel` 的 `SETTINGS_TABS` 去掉 `appearance`（7 → 6 栏），`SettingsTabKey`
+  联合类型同步收窄；`general` 的 hint 改为「界面语言、主题与两栏宽度、工作区与会话范围」。
+- **视图层**：`SettingsSurface` 把原 `renderAppearance` 的两张卡（主题模式三态 / 会话栏与右侧面板
+  宽度）并入 `renderGeneral`，紧跟「界面语言」——语言 + 主题 + 宽度是同一组「界面偏好」，
+  连片放；删除 `renderAppearance` 函数与三元分派分支。
+- **注册表/范围**：`ConsoleRegistry.BASE_SETTINGS_ORDER` 去掉 `appearance`（基础设置组 8 → 7 条）；
+  `ConsoleView.SETTING_SCOPE` 去掉它；`types/models.ts`、i18n 注释里的「外观栏」口径同步改为「常规页」。
+- **判据同步**：`consoleView` 导航 24 → 23（当前项改用 `model`，非当前项 `general`；点选用例改用
+  `general`）、`governanceTab` 24 → 23、`settingsPane` 的 `CUSTOM_RENDERED` 只剩 general/desktop/shortcuts
+  且分栏顺序断言去掉 appearance。
+- **影响面（如实记录）**：`#settings=appearance` 不再是合法分栏（Router 回落默认页）；
+  i18n 的 `外观` 词条保留但不再展示（删词条属另一件事，避免无谓的翻译面波动）。
+- **验证**：settings/控制台 9 个判据文件 **36 例全绿**（含真机 `consolePage`/`panelModalSize`/`a11yAudit`）；
+  tsc web 零错；真机截图 `web/archive/general-merged-dark-20261029.png` 确认常规页依次为
+  语言 → 主题 → 两栏宽度 → 工作区 → 快捷键 → 产品，左导航 23 项且无「外观」。

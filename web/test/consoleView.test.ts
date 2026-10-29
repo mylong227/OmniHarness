@@ -56,11 +56,12 @@ async function renderConsole(active: string, picked: string[], closed: () => voi
 }
 
 test('控制台：左栏没有搜索框，打开时焦点落在当前导航项', async () => {
-  const ui = await renderConsole('appearance', [], () => {});
+  // 2026-10-29：用户按截图要求删除「外观」页签（内容并入常规）⇒ 导航 24 → 23 项。
+  const ui = await renderConsole('model', [], () => {});
   try {
     await waitFor(() => {
-      if (ui.container.querySelectorAll('.sp-nav-item').length !== 24) {
-        throw new Error('左导航没有渲染 24 项');
+      if (ui.container.querySelectorAll('.sp-nav-item').length !== 23) {
+        throw new Error('左导航没有渲染 23 项');
       }
     });
     assert.strictEqual(
@@ -68,7 +69,7 @@ test('控制台：左栏没有搜索框，打开时焦点落在当前导航项',
       null,
       '用户要求去掉搜索框：左栏不得再出现 search 输入',
     );
-    const current = ui.container.querySelector('[data-pane="appearance"]');
+    const current = ui.container.querySelector('[data-pane="model"]');
     // 换 antd Menu 后这些仍是**组件自己**保证的契约（antd 只给 selectedKeys 的视觉态，
     // 不替你标 aria-current，也不替你写 title）。
     assert.strictEqual(current?.getAttribute('aria-current'), 'page', '当前项必须标 aria-current=page');
@@ -82,9 +83,9 @@ test('控制台：左栏没有搜索框，打开时焦点落在当前导航项',
       '条目必须保留原生 title（悬浮说明由现有提示层消费）',
     );
     // visualProbe 按 textContent 精确匹配条目文案（`.trim() === label`）：保持文案干净。
-    assert.strictEqual(current?.textContent?.trim(), '外观', '条目文案必须与注册表 label 逐字一致');
+    assert.strictEqual(current?.textContent?.trim(), '模型与厂商', '条目文案必须与注册表 label 逐字一致');
     await waitFor(() => {
-      const activeItem = ui.container.querySelector('[data-pane="appearance"]');
+      const activeItem = ui.container.querySelector('[data-pane="model"]');
       if (activeItem === null || document.activeElement !== activeItem) {
         throw new Error('焦点没有落到当前导航项');
       }
@@ -100,13 +101,13 @@ test('控制台：点设置条目与面板条目都走 onPick（同一个入口�
   try {
     // antd Menu 的条目是 `<li role="menuitem">`（不再是 button）：按 `data-pane` 定位，
     // 该属性同时是探针/几何判据的契约，比按文案找按钮更贴近要守的东西。
-    const appearance = ui.container.querySelector('[data-pane="appearance"]');
-    assert.ok(appearance !== null, '缺「外观」设置项');
-    fireEvent.click(appearance);
+    const general = ui.container.querySelector('[data-pane="general"]');
+    assert.ok(general !== null, '缺「常规」设置项');
+    fireEvent.click(general);
     const plugins = ui.container.querySelector('[data-pane="plugins"]');
     assert.ok(plugins !== null, '缺「插件」面板项');
     fireEvent.click(plugins);
-    assert.deepEqual(picked, ['appearance', 'plugins']);
+    assert.deepEqual(picked, ['general', 'plugins']);
     assert.match(allText(ui.node), /面板内容/, '面板条目必须把 panelContent 注入右侧');
   } finally {
     ui.unmount();

@@ -50,7 +50,7 @@ export interface Config {
   sandbox?: string;
   escalation?: string;
   autoApprove?: boolean;
-  /** 界面语言（zh/en）：设置「外观」栏切换，随用户级 omniharness.json 持久化。 */
+  /** 界面语言（zh/en）：设置「常规」页切换，随用户级 omniharness.json 持久化。 */
   locale?: string;
   workspace?: string;
   [key: string]: unknown;

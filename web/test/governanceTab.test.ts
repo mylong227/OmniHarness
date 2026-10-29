@@ -168,9 +168,10 @@ test('F2 注册：governance 出现在控制台左导航，Router 认可该 pane
     },
   });
   const items = collect(ui.node, (node) => String(node.props.className).includes('sp-nav-item'));
-  // 24 = 7 个设置页 + 17 个功能面板（PANELS 19 项去掉「文件」与并入权限页的「权限」）。
+  // 23 = 6 个设置页（2026-10-29 起「外观」并入「常规」）+ 17 个功能面板
+  //（PANELS 19 项去掉「文件」与并入权限页的「权限」）。
   // 数字跟着注册表走：改注册表就该同步改这里，而不是让判据只覆盖一部分。
-  assert.strictEqual(items.length, 24, '控制台左导航列出 24 项（设置 + 功能面板）');
+  assert.strictEqual(items.length, 23, '控制台左导航列出 23 项（设置 + 功能面板）');
   assert.ok(!items.some((item) => allText(item) === '文件'), '文件不应出现在控制台里');
   assert.ok(items.some((item) => allText(item) === '治理'), '治理面板必须可从控制台一步到达');
   assert.ok(items.some((item) => allText(item) === '常规'), '设置页必须与功能面板同一份导航');

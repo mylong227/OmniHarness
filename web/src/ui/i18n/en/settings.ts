@@ -1,6 +1,6 @@
 // en 词条分片：设置页（SettingsSurface、ProviderCard、SettingsModel；旧的 SettingsModal 已于 2026-10-28 删除）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_SETTINGS: Record<string, string> = {
-  // 外观栏（语言切换与主题同面板）
+  // 「常规」页的界面偏好（2026-10-29 起外观页并入常规：语言 + 主题 + 两栏宽度同屏）
   主题: 'Theme',
   深色: 'Dark',
   浅色: 'Light',

@@ -22,7 +22,6 @@ import { t } from '../i18n/i18n.ts';
 /** 设置分栏 key。 */
 export type SettingsTabKey =
   | 'general'
-  | 'appearance'
   | 'model'
   | 'runtime'
   | 'permission'
@@ -49,8 +48,7 @@ export interface SettingsTabDef {
  * 应用、面板里才能增删"的两套入口）。
  */
 export const SETTINGS_TABS: readonly SettingsTabDef[] = [
-  { key: 'general', label: '常规', hint: '界面语言、工作区与会话范围', icon: 'sliders' },
-  { key: 'appearance', label: '外观', hint: '主题与界面宽度', icon: 'contrast' },
+  { key: 'general', label: '常规', hint: '界面语言、主题与两栏宽度、工作区与会话范围', icon: 'sliders' },
   {
     key: 'model',
     label: '模型与厂商',

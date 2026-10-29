@@ -62,13 +62,12 @@ export interface ConsoleEntry {
 /**
  * 基础设置组的顺序。
  *
- * 口径：先"界面怎么用"（常规 / 外观），再"模型怎么接"（模型与厂商 / 运行时），
+ * 口径：先"界面怎么用"（常规：语言 / 主题 / 两栏宽度），再"模型怎么接"（模型与厂商 / 运行时），
  * 然后"能做什么"（权限 / 凭据），最后是"本机与键盘"（桌面 / 快捷键）。
  * 凭据（vault）挂在权限之后：两者都是安全边界，但后者是规则、前者是密钥。
  */
 const BASE_SETTINGS_ORDER: readonly (SettingsTabKey | 'vault')[] = [
   'general',
-  'appearance',
   'model',
   'runtime',
   'permission',

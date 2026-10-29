@@ -49,7 +49,6 @@ const ESC = 'Escape';
 /** 设置页的数据范围标签（面板走 PanelScope）。 */
 const SETTING_SCOPE: Readonly<Record<string, 'server' | 'global' | 'session'>> = {
   general: 'global',
-  appearance: 'global',
   model: 'server',
   runtime: 'server',
   permission: 'server',

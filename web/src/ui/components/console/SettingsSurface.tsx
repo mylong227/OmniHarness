@@ -1,4 +1,6 @@
-// 控制台里的「设置页」：常规 / 外观 / 模型与厂商 / 运行时 / 权限 / 桌面 / 键盘快捷键。
+// 控制台里的「设置页」：常规 / 模型与厂商 / 运行时 / 权限 / 桌面 / 键盘快捷键。
+//
+// 2026-10-29（用户按截图要求）：删除「外观」页签，主题与两栏宽度并入「常规」。
 //
 // 状态事实源仍是 `models/SettingsModel.ts`（零 React，可单测）；本文件只负责：
 //   ① 生命周期（首次装载、卸载释放、厂商目录加载）；
@@ -359,49 +361,6 @@ export function SettingsSurface(props: SettingsSurfaceProps): ReactElement {
         </ConsoleRow>
       </ConsoleCard>
 
-      <ConsoleCard
-        footer={t('工作区由启动参数或用户级配置决定，界面内不提供切换——改它等于换一整个项目上下文。')}
-      >
-        <ConsoleInfoRow label={t('当前工作区')} value={props.workspacePath === '' ? '—' : props.workspacePath} />
-        <ConsoleRow
-          label={t('会话列表范围')}
-          hint={t('只影响左栏列表的筛选，不改变会话归属；「全部项目」会显示其它工作区的存档。')}
-        >
-          <ConsoleSegmented
-            ariaLabel={t('会话列表范围')}
-            value={props.sessionScopeAll ? 'all' : 'current'}
-            options={[
-              { value: 'current', label: t('当前项目') },
-              { value: 'all', label: t('全部项目') },
-            ]}
-            onChange={(next) => {
-              if ((next === 'all') !== props.sessionScopeAll) props.onToggleSessionsScope();
-            }}
-          />
-        </ConsoleRow>
-      </ConsoleCard>
-
-      <ConsoleCard>
-        <ConsoleRow label={t('全局快捷键')} hint={t('命令面板、新建会话、左右栏开合、明暗切换。')}>
-          <button className="csl-btn" type="button" onClick={() => props.onNavigate('shortcuts')}>
-            {t('查看全部')}
-          </button>
-        </ConsoleRow>
-      </ConsoleCard>
-
-      <ConsoleCard
-        footer={t('以上是默认位置；归属根由服务端 OMNI_HOME 决定（默认 ~/.omniharness），--workspace 只切项目。')}
-      >
-        <ConsoleInfoRow label={t('产品')} value="OmniHarness" />
-        <ConsoleInfoRow label={t('配置文件')} value="<OMNI_HOME>/omniharness.json" />
-        <ConsoleInfoRow label={t('会话存档')} value="<OMNI_HOME>/sessions/" />
-      </ConsoleCard>
-    </>
-  );
-
-  /** 外观页：主题三态 + 两栏宽度。 */
-  const renderAppearance = (): ReactElement => (
-    <>
       <ConsoleCard>
         <ConsoleRow
           label={t('主题模式')}
@@ -461,6 +420,44 @@ export function SettingsSurface(props: SettingsSurfaceProps): ReactElement {
             }
           />
         </ConsoleRow>
+      </ConsoleCard>
+
+      <ConsoleCard
+        footer={t('工作区由启动参数或用户级配置决定，界面内不提供切换——改它等于换一整个项目上下文。')}
+      >
+        <ConsoleInfoRow label={t('当前工作区')} value={props.workspacePath === '' ? '—' : props.workspacePath} />
+        <ConsoleRow
+          label={t('会话列表范围')}
+          hint={t('只影响左栏列表的筛选，不改变会话归属；「全部项目」会显示其它工作区的存档。')}
+        >
+          <ConsoleSegmented
+            ariaLabel={t('会话列表范围')}
+            value={props.sessionScopeAll ? 'all' : 'current'}
+            options={[
+              { value: 'current', label: t('当前项目') },
+              { value: 'all', label: t('全部项目') },
+            ]}
+            onChange={(next) => {
+              if ((next === 'all') !== props.sessionScopeAll) props.onToggleSessionsScope();
+            }}
+          />
+        </ConsoleRow>
+      </ConsoleCard>
+
+      <ConsoleCard>
+        <ConsoleRow label={t('全局快捷键')} hint={t('命令面板、新建会话、左右栏开合、明暗切换。')}>
+          <button className="csl-btn" type="button" onClick={() => props.onNavigate('shortcuts')}>
+            {t('查看全部')}
+          </button>
+        </ConsoleRow>
+      </ConsoleCard>
+
+      <ConsoleCard
+        footer={t('以上是默认位置；归属根由服务端 OMNI_HOME 决定（默认 ~/.omniharness），--workspace 只切项目。')}
+      >
+        <ConsoleInfoRow label={t('产品')} value="OmniHarness" />
+        <ConsoleInfoRow label={t('配置文件')} value="<OMNI_HOME>/omniharness.json" />
+        <ConsoleInfoRow label={t('会话存档')} value="<OMNI_HOME>/sessions/" />
       </ConsoleCard>
     </>
   );
@@ -623,9 +620,7 @@ export function SettingsSurface(props: SettingsSurfaceProps): ReactElement {
   const body =
     tab === 'general'
       ? renderGeneral()
-      : tab === 'appearance'
-        ? renderAppearance()
-        : tab === 'model'
+      : tab === 'model'
           ? renderModel()
           : tab === 'runtime'
             ? renderRuntime()
