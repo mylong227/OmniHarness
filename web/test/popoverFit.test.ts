@@ -1,19 +1,21 @@
-﻿// 输入区弹层两件事的门禁（真浏览器 + CDP，**一个文件只起一次 Chrome / 一个服务器**）：
+// 输入区弹层两件事的门禁（真浏览器 + CDP，**一个文件只起一次 Chrome / 一个服务器**）：
 //   ① 形状不符时弹层降级展示，而不是把整个工作台卸载（旧版服务端 ⇒ RPC 回落成 `{}`）；
 //   ② 600/800/1280 三档视口下弹层完整可见（不越视口、也不被任何裁切祖先切掉）。
 //
 // ## 缺陷形态（2026-09-27 用户报「页面被截断遮挡」+ 实测取证）
 //
-// `.addmenu-pop` / `.cap-pop` 原先 `position:absolute; left:0; width:300/320px` 挂在**触发器**上
-// （`.addmenu` 30px / `.cap` 107px，位于 `.composer-bar` 里会随 flex 排到右半侧）⇒ 弹层整体向右展开、
-// 右边缘冲出视口（800×900 实测 920 / 826px），再被可滚动列（`.col.center`，`overflow:auto`）裁掉右半边。
+// `.addmenu-pop` 原先 `position:absolute; left:0; width:300px` 挂在**触发器**上
+// （`.addmenu` 30px，位于 `.composer-bar` 里会随 flex 排到右半侧）⇒ 弹层整体向右展开、
+// 右边缘冲出视口（800×900 实测 920px），再被可滚动列（`.col.center`，`overflow:auto`）裁掉右半边。
 // 修法：基准换成整个 `.composer`（恒 ≳570px 宽）并水平居中 + 宽度兜底。
+//
+// 2026-10-28：上下文容量已从输入区移入控制台面板（不再有 `.cap-pop`），本判据只覆盖添加菜单。
 //
 // ## 为什么「只查横向滚动条」不够
 //
 // 实测 `documentElement.scrollWidth` 恒等于视口宽（裁切发生在**列容器**上），故判据必须是
 // 「弹层四边在视口内」+「不被任何 `overflow != visible` 的祖先切掉」。另加一条：形状不符时
-// `setPlugins(undefined)` / `new QuotaView({})` 会在渲染期抛错并**卸载整棵树**（`#root` 清空）。
+// `setPlugins(undefined)` 会在渲染期抛错并**卸载整棵树**（`#root` 清空）。
 //
 // **性能约束**：`npm run web:test` 并行跑 23 个文件，真机 CDP 用例一多就互相争抢（实测「每例各起
 // Chrome」的写法在并行档里被挤过 30s 预算）⇒ 本文件复用**一次 Chrome 启动 + 一个服务器**，多处导航。
@@ -44,7 +46,7 @@ const WIDTHS = [600, 800, 1280];
 /** 视口高度（够弹层 60vh 展开）。 */
 const HEIGHT = 900;
 /** 把结构型响应换成 `{}`（模拟服务端版本不匹配 / 方法不存在时的回落值）。 */
-const EMPTY_METHODS = ['quota.get', 'plugins.list', 'agents.list'];
+const EMPTY_METHODS = ['plugins.list', 'agents.list'];
 
 /** 页面度量脚本返回的纯数据形状（measure 注入的表达式的返回值）。 */
 interface FitMeasure {
@@ -120,14 +122,6 @@ async function openAddMenu(cdp: CdpSession): Promise<FitMeasure | null> {
   return measure(cdp, '.addmenu-pop');
 }
 
-/** 打开「上下文容量面板」并返回其度量。 @param cdp CDP 会话。 @returns 度量。 */
-async function openCapPanel(cdp: CdpSession): Promise<FitMeasure | null> {
-  await cdp.evaluate("(function(){document.querySelector('.cap').click();return true;})()");
-  await cdp.waitFor("!!document.querySelector('.cap-pop')", 400);
-  await new Promise((r) => setTimeout(r, 900));
-  return measure(cdp, '.cap-pop');
-}
-
 test('输入区弹层：三档视口下完整可见 + 形状不符时降级展示（不卸载工作台）', { timeout: 120_000 }, async (t) => {
   const browser = findBrowser();
   if (browser === null) {
@@ -187,11 +181,6 @@ test('输入区弹层：三档视口下完整可见 + 形状不符时降级展�
       await cdp.evaluate("(function(){document.querySelector('.addmenu').click();return true;})()");
       await cdp.waitFor("!document.querySelector('.addmenu-pop')", 200);
 
-      assert.ok(await cdp.evaluate("!!document.querySelector('.cap')"), `${width}px：容量触发器缺失`);
-      assertFits(await openCapPanel(cdp), '上下文容量面板', width);
-      await cdp.evaluate("(function(){document.querySelector('.cap').click();return true;})()");
-      await cdp.waitFor("!document.querySelector('.cap-pop')", 200);
-
       // evaluate 返回 unknown；页面脚本返回纯数据 {sw, iw}（横向溢出检查）。
       const overflow = (await cdp.evaluate(
         '(function(){return {sw: document.documentElement.scrollWidth, iw: window.innerWidth};})()',
@@ -205,7 +194,7 @@ test('输入区弹层：三档视口下完整可见 + 形状不符时降级展�
       }
     }
 
-    // ② 形状不符：两个弹层都降级渲染，`#root` 不得被清空
+    // ② 形状不符：添加菜单降级渲染，`#root` 不得被清空
     await cdp.navigate(`http://127.0.0.1:${server.port}/${DEGRADE_PAGE}`);
     await cdp.waitFor("!!document.querySelector('.composer-input textarea')", 1200);
 
@@ -219,15 +208,6 @@ test('输入区弹层：三档视口下完整可见 + 形状不符时降级展�
     assert.ok(afterAdd.composer, '形状不符不得让输入区整个消失');
     assert.ok(afterAdd.rootLen > 200, `工作台被卸载了（#root=${afterAdd.rootLen}）`);
     await cdp.evaluate("(function(){document.querySelector('.addmenu').click();return true;})()");
-
-    assertFits(await openCapPanel(cdp), '上下文容量面板（降级态）', 800);
-    // evaluate 返回 unknown；页面脚本返回纯数据 {pop, composer, rootLen}（降级检查）。
-    const afterCap = (await cdp.evaluate(
-      "(function(){return {pop: !!document.querySelector('.cap-pop'), composer: !!document.querySelector('.composer'), rootLen: document.getElementById('root').innerHTML.length};})()",
-    )) as { pop: boolean; composer: boolean; rootLen: number };
-    assert.ok(afterCap.pop, '形状不符时容量面板仍应渲染（缺配额数据即降级）');
-    assert.ok(afterCap.composer, '形状不符不得让输入区整个消失');
-    assert.ok(afterCap.rootLen > 200, `工作台被卸载了（#root=${afterCap.rootLen}）`);
   } finally {
     if (cdp !== undefined) cdp.close();
     killChromeTree(proc, userDataDir);

@@ -1,11 +1,13 @@
-﻿// 弹层触发器与菜单项的**键盘可达性**判据（2026-10-28 前端审计高危第 4 条）。
+// 弹层触发器与菜单项的**键盘可达性**判据（2026-10-28 前端审计高危第 4 条）。
 //
 // ## 缺陷形态
 //
-// 四个弹层触发器（模型 / 权限 / 添加 / 上下文容量）与它们的菜单项都是
+// 弹层触发器（模型 / 权限 / 添加）与它们的菜单项都是
 // `div role="button"` / `div role="option"`：`role` 只影响读屏播报，**不给**原生 Enter/Space
 // 激活、也不让元素进入 Tab 序列（没有 `tabIndex`）。结果：纯键盘用户打不开面板；即便用鼠标
 // 打开，Tab 也跳不进菜单项、Enter 选不中任何一项。
+//
+// 2026-10-28：上下文容量从输入区弹层移入控制台页面，这里不再有它的触发器。
 //
 // ## 判据
 //
@@ -23,7 +25,6 @@ import { act, fireEvent, renderUi, screen } from './rtlHarness.ts';
 const { ModelPicker } = await import('../src/ui/components/ModelPicker.tsx');
 const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.tsx');
 const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
-const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.tsx');
 const { FilePicker } = await import('../src/ui/components/FilePicker.tsx');
 const { FolderPicker } = await import('../src/ui/components/FolderPicker.tsx');
 const { ActivationKeys } = await import('../src/ui/models/ActivationKeys.ts');
@@ -151,49 +152,6 @@ test('AddMenu：Enter 展开菜单，首项 Enter 触发附加（onAttach）', a
   }
   fireEvent.keyDown(enabled[0]!, { key: 'Enter' });
   assert.deepStrictEqual(calls, ['attach'], '首项 Enter 必须触发附加');
-});
-
-test('ContextCapacityPanel：触发器可聚焦，Enter 展开 / 再 Enter 收起', async () => {
-  const ui = renderUi(ContextCapacityPanel, {
-    props: {
-      threadId: 't-1',
-      api: {
-        contextUsage: async () => ({
-          threadId: 't-1',
-          windowTokens: 1000,
-          usedTokens: 10,
-          percent: 1,
-          rows: [],
-          mcpToolCount: 0,
-          systemToolCount: 0,
-          source: 'measured',
-          cache: { promptTokens: 0, cachedPromptTokens: 0, calls: 0, hitRate: 0 },
-          collectedAt: '2026-10-18T00:00:00.000Z',
-        }),
-        quotaGet: async () => ({
-          plan: { id: 'free', label: '免费', multiplier: 1, upgraded: false },
-          dailyTokens: 1000,
-          effectiveTokens: 1000,
-          usedTokens: 10,
-          remainingPercent: 99,
-          models: [],
-          dayKey: '2026-10-18',
-          resetAt: '2026-10-19T00:00:00.000Z',
-          source: 'local-budget',
-        }),
-      },
-      onToast: () => {},
-    },
-  });
-  await flush();
-  const trigger = ui.root as HTMLElement;
-  assert.strictEqual(trigger.getAttribute('tabindex'), '0');
-  fireEvent.keyDown(trigger, { key: 'Enter' });
-  await flush();
-  assert.ok(ui.container.querySelector('.cap-pop') !== null, 'Enter 必须展开容量面板');
-  fireEvent.keyDown(trigger, { key: 'Enter' });
-  assert.strictEqual(ui.container.querySelector('.cap-pop'), null, '再按 Enter 必须收起');
-  assert.strictEqual(trigger.getAttribute('aria-expanded'), 'false', '收起后 aria-expanded 必须回到 false');
 });
 
 test('FilePicker：模态语义齐全，焦点进入弹窗，列表项可聚焦并用 Enter 勾选', async () => {

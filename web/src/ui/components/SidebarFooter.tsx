@@ -12,6 +12,7 @@
 
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
+import { CapacityDock } from './CapacityDock.tsx';
 
 /** SidebarFooter 组件的入参。 */
 export interface SidebarFooterProps {
@@ -34,21 +35,26 @@ export function SidebarFooter(props: SidebarFooterProps): ReactElement {
   const label = state === 'open' ? t('已连接') : state === 'connecting' ? t('重连中') : t('断开');
   const pillClass = 'pill' + (state === 'open' ? ' on' : state === 'connecting' ? ' warn' : '');
   return (
-    <div className="side-foot">
-      <span className={pillClass} role="status" aria-live="polite">
-        <span className="dot" aria-hidden="true"></span> {label}
-      </span>
-      <span className="flex-spacer" aria-hidden="true"></span>
-      {onOpenSettings === undefined ? null : (
-        <button
-          className="iconbtn"
-          title={t('设置')}
-          aria-label={t('打开设置')}
-          onClick={onOpenSettings}
-        >
-          {icon('gear', { size: 16 })}
-        </button>
-      )}
+    <div className="side-foot-wrap">
+      {/* 容量小图表（2026-10-28 用户指定位置）：常驻在页脚正上方，收起态只占一行；
+          展开/收起由它自己管，下面是原来的「连接 + 设置」一行。 */}
+      <CapacityDock />
+      <div className="side-foot">
+        <span className={pillClass} role="status" aria-live="polite">
+          <span className="dot" aria-hidden="true"></span> {label}
+        </span>
+        <span className="flex-spacer" aria-hidden="true"></span>
+        {onOpenSettings === undefined ? null : (
+          <button
+            className="iconbtn"
+            title={t('设置')}
+            aria-label={t('打开设置')}
+            onClick={onOpenSettings}
+          >
+            {icon('gear', { size: 16 })}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

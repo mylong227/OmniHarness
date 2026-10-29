@@ -121,24 +121,12 @@
 .addmenu-item-on { font-size:10px; }
 .addmenu-loading { padding:8px; font-size:12px; color:var(--dim); text-align:center; }
 
-/* ---- 上下文容量面板（输入区 📊 弹出） ---- */
-/* 与 .addmenu 同理：不设 position:relative，弹层锚定 `.composer` 并居中（见 chat.css 的 .composer）。 */
-.cap { display:inline-flex; align-items:center; gap:6px; cursor:pointer; user-select:none; border:1px solid var(--border-soft); }
-.cap-ico { font-size:13px; }
-.cap-bar { width:46px; height:5px; overflow:hidden; display:inline-block; }
-.cap-bar-fill { display:block; height:100%; }
-.cap-pct { font-size:12px; color:var(--dim); }
-.cap-pop {
-  position:absolute; bottom:calc(100% + 8px); left:50%; transform:translateX(-50%);
-  width:min(320px, calc(100vw - 24px)); max-height:64vh; overflow:auto; z-index:48;
-  display:flex; flex-direction:column; gap:12px;
-}
-.cap-section { display:flex; flex-direction:column; gap:8px; }
-.cap-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.cap-title { font-size:13px; font-weight:600; color:var(--text); }
-.cap-headline { font-size:12px; color:var(--text); }
+/* ---- 上下文容量（控制台「上下文」页，2026-10-28 从输入区弹层迁来） ----
+   输入区不再有入口：容量是"看一眼"的信息，不该和发送/模型抢同一行。
+   页面由两张 ConsoleCard 并排组成，窄视口自动叠成一列（见文件末尾的媒体查询）。 */
 .cap-src { font-size:10px; color:var(--dim); background:var(--panel-2); border:1px solid var(--border-soft); border-radius:5px; padding:1px 5px; }
 .cap-badge { font-size:10px; color:var(--accent); background:var(--panel-2); border:1px solid var(--accent); border-radius:5px; padding:1px 5px; }
+.cap-bar-fill { display:block; height:100%; }
 .cap-bar-big { height:8px; overflow:hidden; }
 .cap-bar-big .cap-bar-fill { background:var(--accent); }
 .cap-rows { display:flex; flex-direction:column; gap:5px; }
@@ -148,9 +136,7 @@
 .cap-row-fill { display:block; height:100%; }
 .cap-row-pct { width:48px; text-align:right; font-size:12px; color:var(--text); flex-shrink:0; }
 .cap-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--dim); }
-.cap-reset { color:var(--dim); }
 .cap-dim { color:var(--dim); font-size:10px; }
-.cap-quota-head { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; color:var(--text); }
 .cap-empty { font-size:12px; color:var(--dim); padding:4px 0; }
 /* 档位提示行（2026-10-17）：档位改为按模型**自动识别**后，这里不再是三个可点按钮，
    而是"识别成了哪一档 + 依据"的只读说明；要调额度去调基础日预算（上面那行 budgetHint）。
@@ -159,7 +145,115 @@
   border-top:1px solid var(--hairline); }
 .cap-plan-name { color:var(--text); font-size:12px; font-weight:600; }
 .cap-plan-why { color:var(--faint); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
-.cap-loading { font-size:12px; color:var(--dim); text-align:center; }
+
+/* 容量页布局：左"构成"宽、右"余额"窄；卡片本身仍是控制台卡片。 */
+.cap-page { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,0.85fr); gap:16px; align-items:start; }
+.cap-page .csl-card { min-width:0; }
+.cap-page-head { display:flex; align-items:baseline; gap:10px; margin:2px 0 10px; }
+.cap-page-number { font-size:22px; font-weight:600; color:var(--text); letter-spacing:-0.01em; }
+.cap-page-pct { font-size:12.5px; color:var(--dim); }
+.cap-page .cap-bar-big { height:10px; margin-bottom:14px; border-radius:999px; }
+.cap-page .cap-bar-big .cap-bar-fill { border-radius:999px; }
+.cap-page .cap-row-label { width:118px; font-size:12.5px; }
+.cap-page .cap-row-bar { height:7px; }
+.cap-foot--stack { flex-direction:column; align-items:flex-start; gap:2px; }
+.cap-error { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:8px 12px; border:1px solid var(--border-soft); border-radius:var(--r-sm);
+  background:var(--panel-2); font-size:12.5px; color:var(--text); }
+.cap-page-empty { display:flex; flex-direction:column; align-items:flex-start; gap:12px; }
+@media (max-width:1100px) { .cap-page { grid-template-columns:1fr; } }
+
+/* 左栏底部容量小图表（2026-10-28 用户指定位置：「小的柱状图显示，进度，点击向上展开」）。
+   收起态只占一行；柱阵是"音频柱"形状，高度取分类占比，带极轻的呼吸动效。 */
+.cap-dock-wrap { position:relative; flex:0 0 auto; padding:6px 10px 0; }
+/* 图标条态（52px）放不下图表，直接隐藏。 */
+.side.rail .cap-dock-wrap { display:none; }
+/* 收起态：一行音频柱 + 占比 + 极细进度线。标签/箭头降到微标签体量，避免"仪表盘"感。 */
+.cap-dock { display:flex; flex-direction:column; gap:5px; width:100%;
+  padding:7px 8px 6px; border:1px solid transparent; border-radius:var(--r-md);
+  background:transparent; color:var(--dim); cursor:pointer; text-align:left; }
+.cap-dock:hover, .cap-dock[aria-expanded='true'] { background:var(--hover); color:var(--text); }
+.cap-dock:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+.cap-dock-row { display:flex; align-items:center; gap:9px; width:100%; }
+.cap-dock-label { font-size:10.5px; letter-spacing:0.08em; color:var(--faint); }
+.cap-dock-chart { display:flex; align-items:flex-end; gap:3px; width:66px; height:26px; flex:none; }
+.cap-eq-bar { width:8px; border-radius:3px; transform-origin:bottom;
+  transition:height .45s var(--ease-out), opacity .18s var(--ease);
+  animation:cap-eq 2.4s ease-in-out infinite; }
+.cap-dock:hover .cap-eq-bar { animation-duration:1.1s; }
+.cap-dock-pct { margin-left:auto; font-size:12.5px; font-weight:600; color:var(--text);
+  font-variant-numeric:tabular-nums; }
+.cap-dock-chev { font-size:9px; color:var(--faint); transition:transform .18s var(--ease); }
+.cap-dock[aria-expanded='true'] .cap-dock-chev { transform:rotate(180deg); }
+.cap-dock-track { display:block; height:2px; margin:0 1px; border-radius:999px;
+  background:var(--panel-2); overflow:hidden; }
+.cap-dock-track-fill { display:block; height:100%; background:var(--accent); border-radius:999px;
+  transition:width .45s var(--ease-out); }
+@keyframes cap-eq {
+  0%, 100% { transform:scaleY(0.78); }
+  50% { transform:scaleY(1); }
+}
+/* 六段同色相明度阶梯：音频柱 / 分段条 / 图例圆点共用同一组不透明度 = 同一块数据的三张脸。
+   不用 color-mix 往背景里掺（低占比会淡到看不见）；用透明度叠在同一块轨道上，明暗关系稳定。 */
+.cap-eq-bar:nth-child(1), .cap-stack > span:nth-child(1), .cap-dot-1 { background:var(--accent); opacity:1; }
+.cap-eq-bar:nth-child(2), .cap-stack > span:nth-child(2), .cap-dot-2 { background:var(--accent); opacity:0.86; }
+.cap-eq-bar:nth-child(3), .cap-stack > span:nth-child(3), .cap-dot-3 { background:var(--accent); opacity:0.74; }
+.cap-eq-bar:nth-child(4), .cap-stack > span:nth-child(4), .cap-dot-4 { background:var(--accent); opacity:0.63; }
+.cap-eq-bar:nth-child(5), .cap-stack > span:nth-child(5), .cap-dot-5 { background:var(--accent); opacity:0.52; }
+.cap-eq-bar:nth-child(6), .cap-stack > span:nth-child(6), .cap-dot-6 { background:var(--accent); opacity:0.42; }
+@media (prefers-reduced-motion: reduce) {
+  .cap-eq-bar { animation:none; }
+  .cap-dock-chev, .cap-dock-track-fill { transition:none; }
+}
+/* 向上展开的详情浮层：收在侧栏宽度内（left/right 各 8px），否则会被裁掉并挤出横向滚动条。 */
+.cap-dock-pop { position:absolute; bottom:calc(100% + 8px); left:8px; right:8px;
+  max-height:min(70vh, 620px); overflow:auto; z-index:48;
+  display:flex; flex-direction:column; gap:14px; padding:14px;
+  background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--r-lg);
+  box-shadow:var(--shadow-2); transform-origin:bottom center;
+  animation:cap-pop-in .16s var(--ease-out); }
+@keyframes cap-pop-in {
+  from { opacity:0; transform:translateY(6px) scale(.98); }
+  to { opacity:1; transform:none; }
+}
+.cap-dock-sec { display:flex; flex-direction:column; gap:10px;
+  animation:cap-rise .24s var(--ease-out) both; }
+.cap-dock-sec:nth-child(2) { animation-delay:45ms; }
+@keyframes cap-rise {
+  from { opacity:0; transform:translateY(4px); }
+  to { opacity:1; transform:none; }
+}
+.cap-dock-sec + .cap-dock-sec { border-top:1px solid var(--hairline); padding-top:14px; }
+.cap-dock-sec-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.cap-dock-sec-title { font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--faint); }
+.cap-hero { display:flex; align-items:baseline; gap:8px; }
+.cap-hero-num { font-size:22px; font-weight:600; color:var(--text); line-height:1.15;
+  font-variant-numeric:tabular-nums; }
+.cap-hero-accent { font-size:12px; color:var(--accent); font-variant-numeric:tabular-nums; }
+.cap-hero-sub { font-size:11px; color:var(--dim); }
+.cap-stack { display:flex; height:10px; border-radius:999px; overflow:hidden; background:var(--panel-sel); }
+.cap-stack > span { height:100%; min-width:2px; transition:width .45s var(--ease-out); }
+.cap-stack > span + span { box-shadow:inset 1px 0 0 var(--panel); }
+.cap-legend { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; }
+.cap-legend-item { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:5px; min-width:0; }
+.cap-dot { width:8px; height:8px; border-radius:50%; }
+.cap-legend-label { font-size:11.5px; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cap-legend-pct { font-size:11px; color:var(--text); font-variant-numeric:tabular-nums; }
+.cap-meta { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  font-size:10.5px; color:var(--faint); }
+/* 配额行：名称 + 百分比在上、全宽进度条独占下一行（窄浮层里挤一行会把条压到几十像素）。 */
+.cap-dock-pop .cap-rows { gap:8px; }
+.cap-dock-pop .cap-row { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-rows:auto auto;
+  column-gap:8px; row-gap:2px; align-items:center; }
+.cap-dock-pop .cap-row-label { grid-column:1; grid-row:1; width:auto; font-size:11.5px; }
+.cap-dock-pop .cap-row-pct { grid-column:2; grid-row:1; width:auto; font-size:11.5px; }
+.cap-dock-pop .cap-row-bar { grid-column:1 / -1; grid-row:2; height:6px; }
+.cap-dock-pop .cap-plan-note { gap:1px; margin-top:0; padding-top:8px; }
+.cap-dock-pop .cap-plan-name { font-size:11px; font-weight:500; color:var(--dim); }
+.cap-dock-pop .cap-plan-why { font-size:10.5px; color:var(--faint); }
+@media (prefers-reduced-motion: reduce) {
+  .cap-dock-pop, .cap-dock-sec { animation:none; }
+}
 
 /* ---- 审批弹窗：更改权限 ---- */
 .approval-change-perm .link { background:none; border:none; font:12px/1 inherit; cursor:pointer; padding:0; }
@@ -441,12 +535,11 @@ select:focus-visible,
   }
   /* 右侧靠 auto 外边距推到行尾；换行后不再强推，避免把最后一行撑宽。 */
   .composer-bar-right { margin-left: auto; }
-  .composer .cap { max-width: 96px; }
 }
 /* 窄窗（≤880px）：左右栏已切成抽屉，这里收敛固定宽度浮层与内边距。 */
 @media (max-width: 880px) {
   .composer-bar { gap: 6px; }
-  .addmenu-pop, .cap-pop, .mention-pop { max-width: calc(100vw - 24px); }
+  .addmenu-pop, .mention-pop { max-width: calc(100vw - 24px); }
   .dd-menu { max-width: min(340px, calc(100vw - 24px)); }
 }
 /* 极窄（≤640px）：标签条换行而不是把标签挤成一条线；长 token 强制断行。 */

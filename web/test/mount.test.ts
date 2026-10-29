@@ -10,12 +10,11 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { act, fireEvent, renderFacade, waitFor } from './rtlHarness.ts';
+import { act, fireEvent, renderFacade } from './rtlHarness.ts';
 import { allText, byTag, facadeOf, walk } from './domFacade.ts';
 import type { Facade, FacadeNode } from './domFacade.ts';
 
 const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
-const { ContextCapacityPanel } = await import('../src/ui/components/ContextCapacityPanel.tsx');
 const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.tsx');
 const { TreeNode } = await import('../src/ui/components/TreeNode.tsx');
 const { PanelPicker } = await import('../src/ui/components/PanelPicker.tsx');
@@ -95,57 +94,6 @@ test('AddMenu：打开态 aria-expanded 翻转（UI 状态契约）', async () =
   });
   const vnode = facadeOf(ui.container.firstElementChild);
   assert.strictEqual(vnode!.props['aria-expanded'], 'true');
-});
-
-test('ContextCapacityPanel：容量面板 title/aria 契约 + 展开后真的取数并渲染用量', async () => {
-  const usage = {
-    threadId: 't-1',
-    windowTokens: 128000,
-    usedTokens: 4096,
-    percent: 3.2,
-    rows: [{ key: 'system', label: '系统', tokens: 4096, percent: 100 }],
-    mcpToolCount: 2,
-    systemToolCount: 12,
-    source: 'measured' as const,
-    cache: { promptTokens: 4096, cachedPromptTokens: 2048, calls: 3, hitRate: 0.5 },
-    collectedAt: '2026-10-18T00:00:00.000Z',
-  };
-  const quota = {
-    plan: { id: 'free', label: '免费', multiplier: 1, upgraded: false },
-    dailyTokens: 200000,
-    effectiveTokens: 200000,
-    usedTokens: 4096,
-    remainingPercent: 98,
-    models: [],
-    dayKey: '2026-10-18',
-    resetAt: '2026-10-19T00:00:00.000Z',
-    source: 'local-budget' as const,
-  };
-  const props = {
-    threadId: 't-1',
-    api: {
-      async contextUsage() {
-        return usage;
-      },
-      async quotaGet() {
-        return quota;
-      },
-    },
-    onToast: () => {},
-  };
-  const ui = renderFacade(ContextCapacityPanel, { props });
-  assert.strictEqual(ui.node!.props.title, '上下文容量与今日余额');
-  assert.strictEqual(ui.node!.props['aria-label'], '上下文容量');
-  assert.strictEqual(ui.node!.props['aria-expanded'], 'false');
-
-  // 注入真实形状的用量/配额快照：点开面板 ⇒ 真的走 contextUsage/quotaGet ⇒ 渲染百分比与明细。
-  fireEvent.click(ui.node!.el);
-  await waitFor(() => {
-    const text = allText(facadeOf(ui.container.firstElementChild));
-    if (!text.includes('今日余额')) throw new Error('容量面板尚未完成取数');
-  });
-  const text = allText(facadeOf(ui.container.firstElementChild));
-  assert.match(text, /4096/, '必须渲染用量数字');
 });
 
 test('PermissionPicker：档位标签映射 + 说明只走悬浮提示（rules→默认，2026-10-07 用户「不要占地方」）', () => {

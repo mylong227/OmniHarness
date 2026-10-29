@@ -869,7 +869,6 @@ body {
 .dd-menu,
 .ws-switch-menu,
 .addmenu-pop,
-.cap-pop,
 .mention-pop,
 .pp-menu,
 .row-menu,
@@ -1087,7 +1086,6 @@ body {
 /* 浮层与列表容器内的滚动条：不占位、不画轨道——菜单里一条常驻灰杠比「能看见滚动位置」更吵。 */
 .dd-menu,
 .addmenu-scroll,
-.cap-pop,
 .cmdk-list,
 .pp-menu,
 .ws-switch-menu {
@@ -1095,7 +1093,6 @@ body {
 }
 .dd-menu::-webkit-scrollbar,
 .addmenu-scroll::-webkit-scrollbar,
-.cap-pop::-webkit-scrollbar,
 .cmdk-list::-webkit-scrollbar,
 .pp-menu::-webkit-scrollbar,
 .ws-switch-menu::-webkit-scrollbar {

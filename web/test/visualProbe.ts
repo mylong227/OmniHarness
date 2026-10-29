@@ -380,13 +380,6 @@ const STATES = [
     },
   },
   {
-    key: 'capacity',
-    open: async (cdp: CdpSession) => {
-      await cdp.click('.cap');
-      return cdp.evaluate("!!document.querySelector('.cap-pop')");
-    },
-  },
-  {
     key: 'permission',
     open: async (cdp: CdpSession) => {
       await cdp.click('.dd.perm');

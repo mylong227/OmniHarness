@@ -132,10 +132,11 @@ pre.json { border:1px solid var(--border-soft); padding:8px 10px; margin-top:7px
 /* ---------- 输入区（业界常见式悬浮圆角容器） ---------- */
 /* ---------- 底部输入区（本实现风格：切换器 + 附件 + 文本） ---------- */
 .composer {
-  /* 弹层（添加菜单 / 上下文容量）以**整个输入区**为定位基准：它们原先挂在 `.addmenu` / `.cap` 上
-     再用 `left:0` + 固定 300–320px 展开，而这两个触发器在 `.composer-bar` 里会随 flex 排到右半侧
-     ⇒ 弹层右边缘冲出视口（800px 窗口实测到 920px），被可滚动列裁掉右半边（用户报「页面被截断遮挡」）。
-     改为基准 = `.composer` + 弹层居中：输入区恒 ≳570px 宽，任何窗口下都装得下。 */
+  /* 弹层（添加菜单）以**整个输入区**为定位基准：它原先挂在 `.addmenu` 上再用 `left:0` +
+     固定宽度展开，而触发器在 `.composer-bar` 里会随 flex 排到右半侧 ⇒ 弹层右边缘冲出视口
+     （800px 窗口实测到 920px），被可滚动列裁掉右半边（用户报「页面被截断遮挡」）。
+     改为基准 = `.composer` + 弹层居中：输入区恒 ≳570px 宽，任何窗口下都装得下。
+     （上下文容量已于 2026-10-28 移入控制台面板，不再是这里的弹层。） */
   position:relative; border:1px solid var(--border-soft);
   display:flex; flex-direction:column; gap:8px;
 }

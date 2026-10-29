@@ -91,8 +91,10 @@ export const EN_MISC: Record<string, string> = {
   '审计': 'Audit',
   '权限': 'Permissions',
   '凭据': 'Credentials',
-  // ContextCapacityPanel.tsx
+  // ContextCapacityPanel.tsx（2026-10-28 起为控制台「上下文」页 + 左栏容量小图表）
   '上下文容量': 'Context usage',
+  '上下文 {pct}，点击查看详情': 'Context {pct}; click for details',
+  '上下文，点击查看详情': 'Context; click for details',
   '上下文容量与今日余额': "Context usage & today's balance",
   '加载中…': 'Loading…',
   '缓存命中 {text}': 'Cache hit {text}',
@@ -105,6 +107,16 @@ export const EN_MISC: Record<string, string> = {
   '未识别到模型，按缺省档': 'No model detected; using the default plan',
   '（{reason}）': ' ({reason})',
   '容量数据加载失败：{msg}': 'Failed to load context usage: {msg}',
+  '上下文构成': 'Context composition',
+  '顶部大条是「已用 / 窗口」；下面每行的百分比分母是「已用上下文」。':
+    'The big bar is used / window; each row percentage is of the used context.',
+  '上下文已用 {pct}': 'Context used {pct}',
+  '本会话还没有上下文消耗': 'No context consumed in this session yet',
+  '按本地日内 token 预算估算（非厂商账户余额）；档位自动识别，不需要手动切换。':
+    'Estimated from the local daily token budget (not your provider balance); the plan is auto-detected, no manual switching.',
+  '刷新失败：{msg}': 'Refresh failed: {msg}',
+  '配额数据暂不可用': 'Quota data is not available yet',
+  '容量数据暂不可用': 'Context usage is not available yet',
   // TraceView.tsx
   '工具调用轨迹': 'Tool call trace',
   '共 {count} 次工具调用': '{count} tool calls',

@@ -33,7 +33,6 @@ li,
 .time,
 .metric .n,
 .usage-table td,
-.cap-pct,
 .cap-row-pct,
 .change-nums {
   font-variant-numeric: tabular-nums;
@@ -135,7 +134,6 @@ svg {
 .ev-chip-ico svg,
 .fp-icon svg,
 .dd-ico svg,
-.cap-ico svg,
 .addmenu-ico svg,
 .addmenu-item-ico svg,
 .empty.illu .illu-icon svg,
@@ -1056,34 +1054,29 @@ pre.json {
   padding-top: 2px;
 }
 
-/* 切换器（模型 / 推理强度 / 权限 / 添加 / 容量）：统一成同一种"chip 控件"。 */
+/* 切换器（模型 / 推理强度 / 权限 / 添加）：统一成同一种"chip 控件"。 */
 .dd,
-.cap,
 .addmenu-ico {
   background: var(--panel-2);
   border-color: var(--border-soft);
   border-radius: 9px;
 }
-.dd,
-.cap {
+.dd {
   padding: 4px 9px;
   transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
 .dd:hover,
-.cap:hover,
 .addmenu:hover .addmenu-ico {
   background: color-mix(in srgb, var(--panel-2) 60%, var(--panel));
   border-color: var(--border-strong);
 }
-.dd-ico,
-.cap-ico {
+.dd-ico {
   display: inline-flex;
   align-items: center;
   color: var(--faint);
   opacity: 1;
 }
-.dd-ico svg,
-.cap-ico svg {
+.dd-ico svg {
   width: 14px;
   height: 14px;
   stroke-width: 1.7;
@@ -1132,7 +1125,6 @@ pre.json {
 }
 
 /* 容量条：品牌色填充 + 语义化耗尽色。 */
-.cap-bar,
 .cap-bar-big,
 .cap-row-bar {
   background: var(--code-bg);
@@ -1233,10 +1225,11 @@ pre.json {
   padding: 4px 9px;
 }
 
-/* 浮层（下拉 / 添加菜单 / 容量面板 / @mention）：统一浮起层级 + 一致的进场。
+/* 浮层（下拉 / 添加菜单 / @mention）：统一浮起层级 + 一致的进场。
    注意：进场动画分两族——**贴左/贴边的弹层**只能做 translateY（它们没有水平居中变换），
-   **水平居中的弹层**（`.addmenu-pop` / `.cap-pop` 用 `left:50% + translateX(-50%)`）必须把
-   translateX(-50%) 一起写进关键帧，否则动画会把 `left:50%` 变成"从容器左边缘开始"（可见跳位）。 */
+   **水平居中的弹层**（`.addmenu-pop` 用 `left:50% + translateX(-50%)`）必须把
+   translateX(-50%) 一起写进关键帧，否则动画会把 `left:50%` 变成"从容器左边缘开始"（可见跳位）。
+   2026-10-28：容量弹层已移入控制台面板，不再有 `.cap-pop`。 */
 .dd-menu,
 .mention-pop,
 .ws-switch-menu,
@@ -1253,8 +1246,7 @@ pre.json {
     transform: translateY(0);
   }
 }
-.addmenu-pop,
-.cap-pop {
+.addmenu-pop {
   animation: pop-in-center var(--dur-2) var(--ease);
 }
 @keyframes pop-in-center {

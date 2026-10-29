@@ -42,6 +42,7 @@ export const EN_CONSOLE: Record<string, string> = {
   变更: 'Changes',
   文件: 'Files',
   指标: 'Metrics',
+  上下文: 'Context',
   编排: 'Graphs',
   记忆: 'Memory',
   配置集: 'Profiles',
@@ -56,6 +57,8 @@ export const EN_CONSOLE: Record<string, string> = {
   凭据: 'Credentials',
   技能: 'Skills',
   '本会话的审批、变更与最近事件汇总': 'Approvals, changes and recent events in this session',
+  '本会话的上下文构成与今日余额':
+    "This session's context composition and today's balance",
   '可复用技能目录，按名称、描述与标签检索':
     'Reusable skills, searchable by name, description and tags',
   定时与事件触发的自动化任务: 'Scheduled and event-triggered automations',
@@ -83,6 +86,8 @@ export const EN_CONSOLE: Record<string, string> = {
     "File changes in the current workspace (non-git workspaces aggregate this session's events).",
   '本会话的 token 消耗 + 进程级指标；随回合实时刷新。':
     "This session's token usage plus process metrics; refreshed live.",
+  '本会话的上下文构成（含今日额度）；模型事件一到就刷新，5s 兜底。':
+    "This session's context composition (including today's quota); refreshed on model events with a 5s fallback.",
   '工作区的编排图与运行态；运行进度实时推送。':
     'Workspace graphs and run state; progress is pushed live.',
   '长期记忆（跨会话共享；变更事件会实时刷新）。':

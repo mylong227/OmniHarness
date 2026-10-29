@@ -697,6 +697,23 @@
   padding: 8px 10px;
   color: var(--faint);
 }
+/* 页脚栈：容量小图表 + 连接/设置行，整体钉在侧栏底部（2026-10-28）。
+   单条发丝线由外层给，`.side-foot` 自身不再画第二条。 */
+.side-foot-wrap {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  flex: 0 0 auto;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--hairline);
+}
+.side-foot-wrap .side-foot {
+  margin-top: 0;
+  position: static;
+  z-index: auto;
+  border-top: none;
+}
 
 /* =========================================================================
    5. 对话流：助手不套卡片，用户消息一层淡墨底
@@ -1435,26 +1452,20 @@
   background: color-mix(in srgb, var(--err) 12%, transparent);
 }
 
-/* 输入区的 chip（模型 / 推理强度 / 权限档 / 上下文容量）：无框、有 hover。
+/* 输入区的 chip（模型 / 推理强度 / 权限档）：无框、有 hover。
    它们是"可点开的选择器"而不是按钮，靠文案 + 一个 ▾ 表达。
-   `.cap` 是上下文容量的实际类名（components.css 给它画过灰块）。 */
-.composer .chip,
-.composer .cap {
+   2026-10-28：上下文容量已移入控制台面板，输入区不再有容量 chip。 */
+.composer .chip {
   background: transparent;
   border: 1px solid transparent;
   color: var(--dim);
   border-radius: var(--r-sm);
   font-size: var(--fs-sm);
 }
-.composer .chip:hover,
-.composer .cap:hover {
+.composer .chip:hover {
   background: var(--hover);
   color: var(--text);
   border-color: transparent;
-}
-.composer .cap:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 /* 加号（.addmenu）/ 附件 / 语音 三枚圆钮：同一套语言——无框、30px、hover 才落底。
    组件层曾给 `.addmenu-ico` 画了一圈描边，与旁边无框的附件钮不一致（真机截图可见）。 */
@@ -1516,18 +1527,6 @@
   margin-left: auto;
   justify-content: flex-end;
 }
-/* 收缩优先级：容量条先让（它只是读数），模型名最后让（用户要认出当前模型）。
-   模型名保留 ~12ch + 省略号，完整名字在 title / 设置里。 */
-/* ⚠️ 不要给 `.cap` 加 overflow:hidden：`cap-pop` 是它的子节点（绝对定位弹层），
-   裁切会把上下文容量面板切掉一半（真机 600px 视口实测，popoverFit 判据会红）。 */
-.composer .cap {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.composer .cap-bar {
-  flex: 0 1 auto;
-  min-width: 16px;
-}
 .composer .mp {
   flex: 0 1 auto;
   min-width: 92px;
@@ -1536,13 +1535,7 @@
   min-width: 0;
   max-width: 12ch;
 }
-/* 窄窗（≤1150px，通常意味着左右栏都在占宽）：容量块只留图标，把宽度让给模型名。
-   真机实测 1000px 窗、左右栏全开时中栏只有 322px，若不收容量，模型名会被压成 1 个字。 */
 @media (max-width: 1150px) {
-  .composer .cap-bar,
-  .composer .cap-pct {
-    display: none;
-  }
   .composer .mp {
     min-width: 118px;
     padding: 4px 8px;
@@ -1901,13 +1894,11 @@
 }
 
 /* 进度条 / 容量条：轨道 panel-2，填充墨色；超限换成告警色。 */
-.cap-bar,
 .cap-row-bar,
 .progress {
   background: var(--panel-2);
   border-radius: 999px;
 }
-.cap-bar > i,
 .cap-row-fill,
 .progress > i {
   background: var(--accent);
@@ -1930,7 +1921,6 @@
 .pp-menu,
 .ws-switch-menu,
 .addmenu-pop,
-.cap-pop,
 .modal,
 .dlg,
 .row-menu,
@@ -2044,6 +2034,51 @@
 .dlg .dlg-cancel:hover {
   color: var(--text);
   border-color: var(--border);
+}
+
+/* 悬浮提示（全站唯一实现；2026-10-28 用户：「太长太宽」「扁平设计带圆角」，
+   同日第三轮：「暗色主题冒泡也需要暗色」）
+   -------------------------------------------------------------------------
+   原生 `title` 气泡的形状/字号/宽度全由浏览器决定（Windows 下是方角灰板，一句稍长的
+   权限说明就拉成一条横线），CSS 够不着。这里换成一张**跟随主题的纸片/墨片**：
+     浅色：底纯白、字深（同色系里最亮的一档）；深色：底 `--panel-2`、字浅。
+     两套都靠 1px 发丝边 + 表面阶梯立住，不投影（投影是菜单/模态的语言）。
+   宽度上限 280px（中文约 22 字/行），超过 4 行收口：提示是"看一眼"的，不是第二份正文。 */
+.hover-tip {
+  position: fixed;
+  z-index: 300;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border: 1px solid var(--tip-line);
+  border-radius: var(--r-md);
+  background: var(--tip-bg);
+  color: var(--tip-fg);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  box-shadow: none;
+  animation: hover-tip-in 110ms var(--ease-out);
+}
+@keyframes hover-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hover-tip {
+    animation: none;
+  }
 }
 
 /* 审批弹窗（.modal .actions > .always / .deny / .allow）
@@ -2196,18 +2231,6 @@ button:active,
   background: color-mix(in srgb, var(--err) 8%, var(--bg-elev));
   color: var(--text);
   border-color: color-mix(in srgb, var(--err) 40%, var(--border-soft));
-}
-
-.composer .cap-bar,
-.composer .cap-bar-big {
-  border-radius: 999px;
-}
-.composer .cap-bar {
-  background: var(--panel-2);
-}
-.composer .cap-pct {
-  color: var(--faint);
-  font-variant-numeric: tabular-nums;
 }
 
 /* =========================================================================

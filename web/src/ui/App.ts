@@ -26,6 +26,7 @@ import { ApprovalModal } from './components/ApprovalModal.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
 import { Toast } from './components/Toast.tsx';
 import { DialogHost } from './components/DialogHost.tsx';
+import { TooltipLayer } from './components/TooltipLayer.tsx';
 import { Resizer } from './components/Resizer.tsx';
 
 import { ToolsTab } from './components/tabs/ToolsTab.tsx';
@@ -561,6 +562,10 @@ export function App(): ReactElement {
   return React.createElement(
     AppContext.Provider,
     { value: controller.getContextValue() },
+    // 全站悬浮提示层（接管原生 title 气泡：收窄 + 圆角 + 扁平）。
+    // 与 `.app` 平级而不是塞进 renderBody：它是 position:fixed 的覆盖层、不参与三栏布局，
+    // 同时也避免为了挂一行节点去动 renderBody（那里的函数体已有冻结基线）。
+    React.createElement(TooltipLayer, null),
     renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath),
   );
 }

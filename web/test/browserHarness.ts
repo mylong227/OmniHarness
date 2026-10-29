@@ -702,6 +702,29 @@ export class CdpSession {
     await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c.x, y: c.y, button: 'left', clickCount: 1 });
   }
 
+  /**
+   * 把真实鼠标移到元素中心（**悬停**，不按下）。
+   *
+   * 存在的理由：悬浮提示只在真实指针通路下出现（`mouseover` 由 Chrome 的 Input 域
+   * 在 move 时合成），`evaluate` 里 dispatch 一个合成事件测不到"指针真的到了那里"。
+   * @param selector 目标选择器
+   * @returns 无
+   */
+  public async hover(selector: string) {
+    await this.evaluate(
+      `(function(){ var el = document.querySelector(${JSON.stringify(selector)}); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', inline: 'nearest' }); return !!el; })()`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const c = await this._center(selector);
+    if (!c) throw new Error('CDP 悬停目标未找到: ' + selector);
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c.x, y: c.y });
+  }
+
+  /** 把鼠标移到视口左上角空白处（离开所有带提示的元素）。 @returns 无 */
+  public async hoverAway() {
+    await this.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
+  }
+
   /** 聚焦并逐字符键入（真实键盘事件，computer use 风格）。 */
   public async type(selector: string, text: string) {
     await this.click(selector);
