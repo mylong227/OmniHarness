@@ -412,7 +412,7 @@ const STATES = [
         method: 'approval.request',
         params: { requestId: 'probe-r1', toolName: 'shell', target: 'rm -rf ./build', args: { cmd: 'rm -rf ./build' } },
       });
-      return cdp.waitFor("!!document.querySelector('.overlay.show .modal[role=\"dialog\"]')", 400);
+      return cdp.waitFor("!!document.querySelector('.ant-modal[role=\"dialog\"]')", 400);
     },
   },
   {

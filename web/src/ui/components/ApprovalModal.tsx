@@ -2,14 +2,19 @@
 //
 // a11y（D1）：role="dialog" + aria-modal + aria-labelledby/describedby；打开时把焦点交给
 // 「拒绝」——审批是安全闸门，默认落点应是权限最小的那个选项，而不是最顺手的那个。
-// Tab 在框内圈定循环；**刻意不做「Esc = 拒绝」**：静默拒绝会让等待中的模型收到一个用户
-// 从未做出的决定（与 D4 的对话框同理，决策不可静默产生）。
+// **刻意不做「Esc = 拒绝」**：静默拒绝会让等待中的模型收到一个用户从未做出的决定
+// （与 D4 的对话框同理，决策不可静默产生）——因此 antd Modal 的 keyboard/maskClosable/closable
+// 三条关闭路径全部关死，唯一出口是三枚决策按钮。
 //
-// 函数组件范式：三个按钮 ref 与「已聚焦过的请求」标记用 useRef；
-// 原 componentDidMount + componentDidUpdate 的 focusDefault 合为一个依赖 approval 的 effect。
+// W2（2026-10-29）：外壳换 antd Modal——遮罩 / 层级 / 开关动画由 antd 承担。
+// **Tab 圈定仍是自研**（antd v6 的 dialog 没有 trap，实测合成/真实 Tab 都会圈出弹窗）：
+// 经 wrapProps 挂在包裹层（等价原 .overlay 的位置，事件从按钮冒泡上来），循环序与原实现一致
+// [始终允许, 拒绝, 允许, 更改权限]；approvalModalFocus 判据原样作为验收标尺。
+// 「拒绝」保持 danger 非 primary：默认落点在权限最小的选项，视觉上也不该怂恿放行。
 // 纯展示组件：决策通过回调上抛，自身不保存业务状态。
 
 import * as React from 'react';
+import { Button, Modal } from 'antd';
 import { jsonView } from '../format.ts';
 import { icon } from '../models/Icon.ts';
 import { toolVerb } from '../textUtils.ts';
@@ -18,16 +23,13 @@ import { t } from '../i18n/i18n.ts';
 
 /** ApprovalModal 组件的入参。 */
 export interface ApprovalModalProps {
-  /** 待审批请求；为 null 时渲染为隐藏遮罩。 */
+  /** 待审批请求；为 null 时不弹。 */
   approval: ApprovalRequest | null;
   /** 用户决策：允许 / 拒绝 + 是否始终允许。 */
   onRespond: (decision: 'allow' | 'deny', always: boolean) => void;
   /** 点击「更改权限」：让外层打开权限档位选择器（App 置位设置页 / 派发聚焦）。 */
   onChangePermission?: () => void;
 }
-
-/** 隐藏态：React 的 style 必须是对象映射，不能是 CSS 字符串。 */
-const HIDDEN: Record<string, string> = { display: 'none' };
 
 /**
  * 审批动作区（始终允许 / 拒绝 / 允许 / 更改权限）。
@@ -46,7 +48,7 @@ function ApprovalActions(props: {
   return (
     <>
       <div className="actions">
-        <button
+        <Button
           className="always"
           ref={(el: HTMLButtonElement | null) => {
             alwaysRef.current = el;
@@ -54,17 +56,19 @@ function ApprovalActions(props: {
           onClick={() => onRespond('allow', true)}
         >
           {t('始终允许')}
-        </button>
-        <button
+        </Button>
+        <Button
           className="deny"
+          danger
           ref={(el: HTMLButtonElement | null) => {
             denyRef.current = el;
           }}
           onClick={() => onRespond('deny', false)}
         >
           {t('拒绝')}
-        </button>
-        <button
+        </Button>
+        <Button
+          type="primary"
           className="allow"
           ref={(el: HTMLButtonElement | null) => {
             allowRef.current = el;
@@ -72,11 +76,12 @@ function ApprovalActions(props: {
           onClick={() => onRespond('allow', false)}
         >
           {t('允许')}
-        </button>
+        </Button>
       </div>
       {onChangePermission ? (
         <div className="approval-change-perm">
-          <button
+          <Button
+            type="link"
             className="link"
             ref={(el: HTMLButtonElement | null) => {
               changePermRef.current = el;
@@ -84,7 +89,7 @@ function ApprovalActions(props: {
             onClick={onChangePermission}
           >
             {t('更改权限')}
-          </button>
+          </Button>
         </div>
       ) : null}
     </>
@@ -94,17 +99,17 @@ function ApprovalActions(props: {
 /**
  * 工具审批弹窗：展示工具名 / 目标 / 参数，并给出「始终允许 / 拒绝 / 允许」三档决策。
  * @param props 组件入参
- * @returns 审批弹窗节点（无待审批时为隐藏遮罩）
+ * @returns 审批弹窗节点（无待审批时不渲染内容）
  */
 export function ApprovalModal(props: ApprovalModalProps): ReactElement {
   const { approval, onRespond, onChangePermission } = props;
-  /** 「始终允许」按钮引用（Tab 圈定用）。 */
-  const alwaysRef = React.useRef<HTMLButtonElement | null>(null);
-  /** 「拒绝」按钮引用（Tab 圈定 / 默认焦点）。 */
+  /** 「拒绝」按钮引用（默认焦点；安全闸门的落点口径见文件头）。 */
   const denyRef = React.useRef<HTMLButtonElement | null>(null);
-  /** 「允许」按钮引用（Tab 圈定用）。 */
+  /** 「始终允许」按钮引用（antd trap 的 DOM 顺序锚）。 */
+  const alwaysRef = React.useRef<HTMLButtonElement | null>(null);
+  /** 「允许」按钮引用。 */
   const allowRef = React.useRef<HTMLButtonElement | null>(null);
-  /** 「更改权限」按钮引用（Tab 圈定用；此前漏登记 ⇒ 键盘用户永远到不了它）。 */
+  /** 「更改权限」按钮引用（此前漏登记 ⇒ 键盘用户永远到不了它，判据钉死）。 */
   const changePermRef = React.useRef<HTMLButtonElement | null>(null);
   /** 已为其设置过焦点默认值的请求（避免同一请求重复抢焦点）。 */
   const focusedForRef = React.useRef<ApprovalRequest | null>(null);
@@ -121,7 +126,7 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
   }, [approval]);
 
   /**
-   * Tab 在弹窗内可聚焦按钮间循环（简单焦点圈定）。
+   * Tab 在弹窗内可聚焦按钮间循环（简单焦点圈定；antd v6 dialog 无 trap，见文件头）。
    * @param e 键盘事件
    */
   const onKeyDown = (e: React.KeyboardEvent): void => {
@@ -136,33 +141,43 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
     list[(from + (e.shiftKey ? -1 : 1) + list.length) % list.length]?.focus();
   };
 
-  if (!approval) return <div className="overlay" style={HIDDEN}></div>;
-  const args = approval.args != null ? jsonView(approval.args) : '';
-  const toolLabel = approval.toolName ? t(toolVerb(approval.toolName)) : '?';
+  const args = approval?.args != null ? jsonView(approval.args) : '';
+  const toolLabel = approval?.toolName ? t(toolVerb(approval.toolName)) : '?';
   return (
-    <div className="overlay show" onKeyDown={onKeyDown}>
-      <div
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="ap-title"
-        aria-describedby="ap-desc"
-      >
-        <h3 id="ap-title">
+    <Modal
+      open={approval !== null}
+      title={
+        <span id="ap-title">
           {icon('shield-alert', { size: 16 })} {t('工具审批请求')}
-        </h3>
-        <div className="meta">{t('工具：{name}', { name: toolLabel })}</div>
-        <div className="meta">{t('目标：{name}', { name: approval.target || '—' })}</div>
-        <pre id="ap-desc">{args}</pre>
-        <ApprovalActions
-          alwaysRef={alwaysRef}
-          denyRef={denyRef}
-          allowRef={allowRef}
-          changePermRef={changePermRef}
-          onRespond={onRespond}
-          {...(onChangePermission !== undefined ? { onChangePermission } : {})}
-        />
-      </div>
-    </div>
+        </span>
+      }
+      footer={
+        approval === null ? null : (
+          <ApprovalActions
+            alwaysRef={alwaysRef}
+            denyRef={denyRef}
+            allowRef={allowRef}
+            changePermRef={changePermRef}
+            onRespond={onRespond}
+            {...(onChangePermission !== undefined ? { onChangePermission } : {})}
+          />
+        )
+      }
+      closable={false}
+      keyboard={false}
+      maskClosable={false}
+      width={420}
+      className="approval-modal"
+      destroyOnHidden
+      wrapProps={{ onKeyDown }}
+    >
+      <div className="meta">{t('工具：{name}', { name: toolLabel })}</div>
+      <div className="meta">{t('目标：{name}', { name: approval?.target || '—' })}</div>
+      {/* antd Modal 不会把自定义 id 接进 aria-describedby——给参数区一个显式 aria-label，
+          保证读屏仍能念到参数（原 aria-describedby=ap-desc 的等价替代）。 */}
+      <pre id="ap-desc" aria-label={t('工具参数')}>
+        {args}
+      </pre>
+    </Modal>
   );
 }

@@ -22,7 +22,7 @@ const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.tsx')
 
 /** 渲染一个带「更改权限」入口的待审批请求。 */
 async function renderModal() {
-  const ui = renderUi(ApprovalModal, {
+  renderUi(ApprovalModal, {
     props: {
       approval: { requestId: 'r1', toolName: 'write_file', target: 'src/a.ts', args: { path: 'src/a.ts' } },
       onRespond: () => {},
@@ -33,25 +33,29 @@ async function renderModal() {
     await Promise.resolve();
   });
   return {
-    overlay: ui.container.querySelector('.overlay') as HTMLElement,
-    allow: screen.getByText('允许').closest('button') as HTMLButtonElement,
-    always: screen.getByText('始终允许').closest('button') as HTMLButtonElement,
-    changePerm: screen.getByText('更改权限').closest('button') as HTMLButtonElement,
+    // antd Modal 经 Portal 渲染到 document.body；键盘 trap 经 wrapProps 挂在包裹层（keyDown 从
+    // dialog 冒泡上来）。antd 给两字按钮自动插空格（「允 许」），按 role+正则找而不是字面文本。
+    dialog: screen.getByRole('dialog') as HTMLElement,
+    allow: screen.getByRole('button', { name: /^允\s*许$/ }).closest('button') as HTMLButtonElement,
+    always: screen.getByRole('button', { name: '始终允许' }).closest('button') as HTMLButtonElement,
+    changePerm: screen
+      .getByRole('button', { name: '更改权限' })
+      .closest('button') as HTMLButtonElement,
   };
 }
 
 test('Tab 圈定必须包含「更改权限」：允许 → 更改权限 → 始终允许 正向闭环', async () => {
-  const { overlay, allow, always, changePerm } = await renderModal();
+  const { dialog, allow, always, changePerm } = await renderModal();
   act(() => allow.focus());
-  fireEvent.keyDown(overlay, { key: 'Tab' });
+  fireEvent.keyDown(dialog, { key: 'Tab' });
   assert.strictEqual(document.activeElement, changePerm, '「允许」之后必须是「更改权限」');
-  fireEvent.keyDown(overlay, { key: 'Tab' });
+  fireEvent.keyDown(dialog, { key: 'Tab' });
   assert.strictEqual(document.activeElement, always, '「更改权限」之后回到「始终允许」');
 });
 
 test('Shift+Tab 反向同样闭环：始终允许 → 更改权限', async () => {
-  const { overlay, always, changePerm } = await renderModal();
+  const { dialog, always, changePerm } = await renderModal();
   act(() => always.focus());
-  fireEvent.keyDown(overlay, { key: 'Tab', shiftKey: true });
+  fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
   assert.strictEqual(document.activeElement, changePerm, '反向必须也能到「更改权限」');
 });

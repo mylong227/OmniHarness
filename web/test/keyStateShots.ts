@@ -58,10 +58,8 @@ const OPENERS: Record<string, (cdp: CdpSession) => Promise<boolean>> = {
     await cdp.click('.addmenu-ico');
     return cdp.evaluate("!!document.querySelector('.addmenu-pop')");
   },
-  capacity: async (cdp) => {
-    await cdp.click('.cap');
-    return cdp.evaluate("!!document.querySelector('.cap-pop')");
-  },
+  // capacity 态已删除（2026-10-29）：main §119/§120 把容量入口移出输入区（.cap 触发器不存在），
+  // 终态落点（控制台页 vs 左栏小图表）在对方会话的收尾里仍在变化，落定后再补拍。
   permission: async (cdp) => {
     await cdp.click('.dd.perm');
     return cdp.evaluate("!!document.querySelector('.dd-menu.wide')");
@@ -85,7 +83,7 @@ const OPENERS: Record<string, (cdp: CdpSession) => Promise<boolean>> = {
         args: { cmd: 'rm -rf ./build' },
       },
     });
-    return cdp.waitFor("!!document.querySelector('.overlay.show .modal[role=\"dialog\"]')", 400);
+    return cdp.waitFor("!!document.querySelector('.ant-modal[role=\"dialog\"]')", 400);
   },
 };
 
