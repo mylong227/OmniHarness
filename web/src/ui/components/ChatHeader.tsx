@@ -3,6 +3,7 @@
 // 视图切换是组件内局部状态吗——不是：视图由父组件（StreamView）持有，切到「轨迹」要换整个流区。
 // 纯展示组件（函数组件范式）：展示 + 回调，无内部状态、无副作用。
 
+import * as React from 'react';
 import { icon } from '../models/Icon.ts';
 import { PathJoiner } from '../models/PathJoiner.ts';
 import { t } from '../i18n/i18n.ts';
@@ -39,6 +40,66 @@ const VIEWS: readonly { key: ChatViewKind; label: string }[] = [
   { key: 'chat', label: '对话' },
   { key: 'trace', label: '轨迹' },
 ];
+
+/**
+ * 「对话 / 轨迹」视图标签（WAI-ARIA Tabs：tablist / tab + aria-selected + roving tabindex）。
+ *
+ * 键盘模型（APG）：←/→/↑/↓ 环绕切换视图、Home/End 到首尾。视图切换会换整个流区，
+ * 所以是**自动激活**（焦点与选中一起走），不做"先聚焦再 Enter"。
+ *
+ * @param props 当前视图与切换回调
+ * @returns 标签组节点
+ */
+function ViewTabs(props: {
+  view: ChatViewKind;
+  onView: (v: ChatViewKind) => void;
+}): ReactElement {
+  const { view, onView } = props;
+  /** 标签按钮引用：方向键要把焦点送到下一枚。 */
+  const tabRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+
+  /**
+   * @param e 键盘事件
+   * @param index 当前标签下标
+   * @returns 无
+   */
+  const onTabKey = (e: React.KeyboardEvent, index: number): void => {
+    let next = index;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % VIEWS.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      next = (index - 1 + VIEWS.length) % VIEWS.length;
+    } else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = VIEWS.length - 1;
+    else return;
+    e.preventDefault();
+    const target = VIEWS[next];
+    if (target === undefined) return;
+    onView(target.key);
+    tabRefs.current[next]?.focus();
+  };
+
+  return (
+    <div className="chat-tabs" role="tablist" aria-label={t('中栏视图')}>
+      {VIEWS.map((v, index) => (
+        <button
+          key={v.key}
+          ref={(el) => {
+            tabRefs.current[index] = el;
+          }}
+          role="tab"
+          aria-selected={view === v.key ? 'true' : 'false'}
+          // 整组只有一个 Tab 落点（当前项）——WAI-ARIA Tabs 的 roving tabindex。
+          tabIndex={view === v.key ? 0 : -1}
+          className={'chat-tab' + (view === v.key ? ' active' : '')}
+          onClick={() => onView(v.key)}
+          onKeyDown={(e: React.KeyboardEvent) => onTabKey(e, index)}
+        >
+          {t(v.label)}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /**
  * 中栏头：标题行 + 视图标签（WAI-ARIA Tabs 的 tablist / tab + aria-selected）。
@@ -90,19 +151,7 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
         </span>
       ) : null}
       <span className="flex-spacer" aria-hidden="true"></span>
-      <div className="chat-tabs" role="tablist" aria-label={t('中栏视图')}>
-        {VIEWS.map((v) => (
-          <button
-            key={v.key}
-            role="tab"
-            aria-selected={view === v.key ? 'true' : 'false'}
-            className={'chat-tab' + (view === v.key ? ' active' : '')}
-            onClick={() => onView(v.key)}
-          >
-            {t(v.label)}
-          </button>
-        ))}
-      </div>
+      <ViewTabs view={view} onView={onView} />
       <span className="flex-spacer" aria-hidden="true"></span>
       {onToggleRight === undefined ? null : (
         <button

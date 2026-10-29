@@ -29,6 +29,7 @@ const { ApprovalModal } = await import('../src/ui/components/ApprovalModal.tsx')
 const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
 const { SessionPanel } = await import('../src/ui/components/SessionPanel.tsx');
 const { SearchHitGrouper } = await import('../src/ui/models/SearchHitGrouper.ts');
+const { ConsoleSegmented } = await import('../src/ui/components/console/ConsoleUI.tsx');
 
 /**
  * 深度收集满足谓词的节点。
@@ -227,6 +228,66 @@ test('RightPanel：网页标签激活时面板 aria-labelledby 指向 web-tab', 
 });
 
 // ---- 纯图标按钮必须有可读名字 ----
+
+test('ChatHeader：对话/轨迹是单一 Tab 落点，方向键环绕切换（WAI-ARIA Tabs）', () => {  // 2026-10-29（W3 键盘扫描）：两枚 tab 原先**都进 Tab 序列、方向键无效**，不符合 APG。
+  // 现在整组只有一个落点（当前项），←/→/↑/↓ 环绕切换、Home/End 到首尾（自动激活：换整个流区）。
+  const views: string[] = [];
+  const ui = renderFacade(ChatHeader, {
+    props: {
+      title: 't',
+      busy: false,
+      view: 'chat',
+      onView: (v: string) => views.push(v),
+    },
+  });
+  const tabs = (): FacadeNode[] => collect(facadeOf(ui.container.firstElementChild), (n) => n.props.role === 'tab');
+  assert.strictEqual(tabs().length, 2);
+  assert.strictEqual(tabs()[0]!.props.tabIndex, '0', '当前项是唯一 Tab 落点');
+  assert.strictEqual(tabs()[1]!.props.tabIndex, '-1');
+
+  fireEvent.keyDown(tabs()[0]!.el, { key: 'ArrowRight' });
+  assert.deepStrictEqual(views, ['trace'], '右方向键必须切到轨迹');
+  assert.strictEqual(document.activeElement, tabs()[1]!.el, '焦点必须跟着走（受控：选中态等父组件回写）');
+
+  // 受控组件：把 view 换成 trace 后，落点必须跟着当前项走。
+  const trace = renderFacade(ChatHeader, {
+    props: { title: 't', busy: false, view: 'trace', onView: () => {} },
+  });
+  const traceTabs = collect(facadeOf(trace.container.firstElementChild), (n) => n.props.role === 'tab');
+  assert.strictEqual(traceTabs[0]!.props.tabIndex, '-1');
+  assert.strictEqual(traceTabs[1]!.props.tabIndex, '0', '当前项是唯一 Tab 落点');
+});
+
+test('ConsoleSegmented：单选组单一 Tab 落点，方向键切换并环绕', () => {
+  // 2026-10-29（W3 键盘扫描）：设置里的分段控件同样是 `role=radiogroup` + 无方向键。
+  const changes: string[] = [];
+  const ui = renderFacade(ConsoleSegmented, {
+    props: {
+      ariaLabel: '主题',
+      value: 'dark',
+      options: [
+        { value: 'system', label: '跟随系统' },
+        { value: 'dark', label: '深色' },
+        { value: 'light', label: '浅色' },
+      ],
+      onChange: (v: string) => changes.push(v),
+    },
+  });
+  const radios = (): FacadeNode[] =>
+    collect(facadeOf(ui.container.firstElementChild), (n) => n.props.role === 'radio');
+  assert.strictEqual(radios().length, 3);
+  assert.strictEqual(radios()[1]!.props.tabIndex, '0', '当前项是唯一 Tab 落点');
+  assert.strictEqual(radios()[0]!.props.tabIndex, '-1');
+
+  fireEvent.keyDown(radios()[1]!.el, { key: 'ArrowRight' });
+  assert.deepStrictEqual(changes, ['light'], '方向键必须切到下一段');
+  assert.strictEqual(document.activeElement, radios()[2]!.el, '焦点必须跟着走');
+
+  fireEvent.keyDown(radios()[2]!.el, { key: 'ArrowRight' });
+  assert.deepStrictEqual(changes, ['light', 'system'], '末段向右必须环绕到首段');
+  fireEvent.keyDown(radios()[0]!.el, { key: 'End' });
+  assert.deepStrictEqual(changes, ['light', 'system', 'light'], 'End 必须到末段');
+});
 
 test('侧栏品牌行不再有命令/收起按钮（2026-10-26 用户要求）', () => {
   const tree = renderFacade(SidebarHeader, { props: { rail: false } }).node;

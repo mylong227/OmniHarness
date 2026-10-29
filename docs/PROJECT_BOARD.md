@@ -6652,3 +6652,23 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **顺带修掉的夹具错误**：`visualProbe` 的 `fs.list` 长期把字段写成 `kind`（`FsNode` 是 `type`），
   于是文件树在探针里永远空态——和旧 `TreeNode` 判据同一个错误。现已改正，文件树真机留档有效
   （`web/archive/file-tree-dark-20261029.png`）。
+
+## 177. 2026-10-29 W3：全仓键盘模式扫描（role × onKeyDown × tabIndex）与两处补齐
+
+- **扫描口径**：遍历 `web/src/**/*.tsx`，找挂了交互型 ARIA role（radio/checkbox/option/tab/menuitem/
+  listbox/combobox/switch）的文件，再看是否有 `onKeyDown` 与 `tabIndex`。14 处命中，逐条判定：
+- **已补齐（本批）**：
+  1. `ChatHeader` 的「对话/轨迹」：`role=tab/tablist` 但**两枚都能 Tab、方向键无效** →
+     roving tabindex（当前项唯一落点）+ ←→↑↓ 环绕 + Home/End，自动激活（切视图即换整个流区）。
+     判据：`a11yKeyboard` 新增 1 例（受控组件：回调 + 换 props 后落点）。
+  2. `ConsoleSegmented`（设置里的主题/语言分段）：`role=radiogroup` 同样缺口 → 同一套模型。
+     判据：`a11yKeyboard` 新增 1 例（落点 / 切换 / 环绕 / End）。
+- **判定无需改**：`CommandPalette`（combobox + 自研 ↑↓/Enter/Esc）、`AddMenu`/`ModelPicker`/
+  `PermissionPicker`（`MenuFocusModel` roving，`popoverKeyboard` 全绿）、`SearchResults`
+  （option 不聚焦，键盘由输入框的 `aria-activedescendant` 驱动）、`FilePicker`（原生 button checkbox）、
+  `ConsoleView`（antd Menu 自带）、`Composer` 斜杠菜单（textarea 上处理按键）。
+- **真实遗留（需产品决策，不是纯修复）**：会话行右键菜单（`role=menu`）**只能鼠标右键打开**，
+  键盘用户没有任何入口；菜单内也没有方向键/Escape 的焦点模型。修复 = 给会话行加键盘入口
+  （`Shift+F10` 或每行「更多」按钮）+ 菜单 roving/Escape。这会新增交互面（多一枚按钮或新快捷键），
+  按本仓纪律不擅自加，需拍板后再做。
+- **验证**：`a11yKeyboard` **15/15**；全量 web 判据见提交信息。

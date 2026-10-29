@@ -283,26 +283,56 @@ export interface ConsoleSegmentedProps<V extends string> {
 }
 
 /**
- * 分段控件（radiogroup 语义）。
+ * 分段控件（radiogroup 语义，WAI-ARIA 单选组键盘模型）。
  * @param props 组件入参
  * @returns 分段控件节点
  */
 export function ConsoleSegmented<V extends string>(props: ConsoleSegmentedProps<V>): ReactElement {
   const { options, value, onChange, ariaLabel } = props;
+  /** 段按钮引用：方向键要把焦点送到下一段（整组只有一个 Tab 落点）。 */
+  const refs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = options.findIndex((option) => option.value === value);
+
+  /**
+   * ←/→/↑/↓ 环绕、Home/End 到首尾；分段控件是"立即生效"的开关，方向键即选中。
+   * @param e 键盘事件
+   * @param index 当前段下标
+   * @returns 无
+   */
+  const onKeyDown = (e: React.KeyboardEvent, index: number): void => {
+    let next = index;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % options.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      next = (index - 1 + options.length) % options.length;
+    } else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = options.length - 1;
+    else return;
+    e.preventDefault();
+    const target = options[next];
+    if (target === undefined) return;
+    if (target.value !== value) onChange(target.value);
+    refs.current[next]?.focus();
+  };
+
   return (
     <div className="csl-seg" role="radiogroup" aria-label={ariaLabel}>
-      {options.map((option) => {
+      {options.map((option, index) => {
         const on = option.value === value;
         return (
           <button
             key={option.value}
             type="button"
+            ref={(el) => {
+              refs.current[index] = el;
+            }}
             role="radio"
             aria-checked={on ? 'true' : 'false'}
+            tabIndex={on || (selectedIndex < 0 && index === 0) ? 0 : -1}
             className={'csl-seg-item' + (on ? ' on' : '')}
             onClick={() => {
               if (!on) onChange(option.value);
             }}
+            onKeyDown={(e: React.KeyboardEvent) => onKeyDown(e, index)}
           >
             {option.icon === undefined ? null : icon(option.icon, { size: 13 })}
             {option.label}
