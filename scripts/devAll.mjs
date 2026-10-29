@@ -25,13 +25,17 @@
  * 后端改动（`src/**`）**不在**本回路的监听范围内：改完后端要重新 `npm run build` 并重启
  * （serve 是常驻进程，不会自己换掉已加载的 JS）。这是刻意取舍——前端改得频繁，后端改得少。
  *
- * 端口约定：**前端端口通过 `OMNI_FRONTEND_PORT` 环境变量同时告知两边**——
- * `vite.config.ts` 读它作为 dev server 端口；本脚本把它写进 serve 的代理目标
- * （`OMNI_BACKEND_PORT`），这样改端口只需设一个变量。
+ * 端口约定（2026-10-30 收口，看板 §182）：**全部走 `scripts/devConfig.mjs` 唯一事实源**——
+ *   · 默认值：后端 8787 / Vite 5173（devConfig 的 DEV_DEFAULTS，与后端 serveDefaults 互为镜像）；
+ *   · 环境变量：`OMNI_BACKEND_PORT`（后端端口，serve 与 vite 代理同读）、
+ *     `OMNI_UI_PORT`（Vite dev server 端口；旧名 `OMNI_FRONTEND_PORT` 仍认）；
+ *   · 透传的 `--port N`（给 serve）优先级最高：本脚本会把它同步进 `OMNI_BACKEND_PORT`，
+ *     保证 vite 代理指向**实际监听**的端口——此前两边默认值各自写死，环境变量只改一边就断裂。
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveDevAddress } from './devConfig.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const isWin = process.platform === 'win32';
@@ -50,12 +54,31 @@ if (built.status !== 0) {
 }
 
 const serveArgs = process.argv.slice(2);
+// 端口契约（见文件头）：透传的 `--port N` 优先；否则注入 devConfig 解析的后端端口，
+// 并把最终端口写进环境变量——vite 子进程经 vite.config 的 resolveDevAddress 读到**同一个值**。
+const userPort = serveArgs.includes('--port')
+  ? (serveArgs[serveArgs.indexOf('--port') + 1] ?? '')
+  : (serveArgs.find((a) => a.startsWith('--port='))?.slice('--port='.length) ?? '');
+const dev = resolveDevAddress(
+  userPort !== '' ? { ...process.env, OMNI_BACKEND_PORT: userPort } : process.env,
+);
+const finalServeArgs =
+  userPort !== '' ? serveArgs : ['--port', String(dev.backendPort), ...serveArgs];
+process.env.OMNI_BACKEND_PORT = String(dev.backendPort);
+process.env.OMNI_UI_PORT = String(dev.uiPort);
+process.stdout.write(
+  `\n▶ 后端 http://${dev.host}:${String(dev.backendPort)} · Vite http://${dev.host}:${String(dev.uiPort)}（地址来源 scripts/devConfig.mjs）\n`,
+);
 process.stdout.write('\n▶ 后端 serve + Vite dev server（Ctrl+C 停止两者）\n\n');
 const children = [
-  spawn(process.execPath, [join(REPO, 'dist', 'src', 'cli', 'exec.js'), 'serve', ...serveArgs], {
-    cwd: process.cwd(),
-    stdio: 'inherit',
-  }),
+  spawn(
+    process.execPath,
+    [join(REPO, 'dist', 'src', 'cli', 'exec.js'), 'serve', ...finalServeArgs],
+    {
+      cwd: process.cwd(),
+      stdio: 'inherit',
+    },
+  ),
   spawn(npm, ['run', 'web:dev'], npmOpts),
 ];
 

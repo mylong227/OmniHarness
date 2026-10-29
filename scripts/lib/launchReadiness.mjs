@@ -4,6 +4,7 @@
  * ## 为什么要独立成模块
  *
  * `startAll.mjs` 是**入口脚本**（import 即执行「构建 → 起服务」），单测无法 import 它；
+import { resolveDevAddress } from '../devConfig.mjs';
  * 而「等服务真的就绪再打开浏览器」这件事必须**可判**——否则"一键启动"会以三种形态骗人：
  *  1. 构建还没完就打开浏览器 ⇒ **白屏**，用户以为前端坏了（本仓的经典误判）；
  *  2. 端口上其实是**别的进程**（两天前还在跑的旧 serve / 别人的 HTTP 服务）⇒ 打开的是**别人的页面**；
@@ -20,7 +21,7 @@
  * 本常量只是让启动器能在**尚未起服务**时就知道该探哪个端口；两者一致由单测核对
  * （历史上这仓吃够了"同一事实抄两份、抄的时候就漂了"的亏）。
  */
-export const DEFAULT_SERVE_PORT = 8787;
+/* DEFAULT_SERVE_PORT 已收口到 ../devConfig.mjs（resolveDevAddress().backendPort）。 */
 
 /** 就绪轮询的缺省节奏（毫秒）。 */
 export const DEFAULT_POLL_MS = 400;
@@ -48,7 +49,7 @@ export function resolveServePort(args) {
       return normalizePort(item.slice('--port='.length));
     }
   }
-  return DEFAULT_SERVE_PORT;
+  return resolveDevAddress().backendPort;
 }
 
 /**
@@ -74,7 +75,7 @@ function normalizePort(raw) {
  *   而 Windows 上 `localhost` 可能先解析到 `::1` 而连不上）。
  */
 export function readinessUrl(port) {
-  return `http://127.0.0.1:${String(port)}/readyz`;
+  return `http://${resolveDevAddress().host}:${String(port)}/readyz`;
 }
 
 /**
@@ -191,7 +192,7 @@ function defaultSleep(ms) {
  * @returns 一行文案。
  */
 export function describeReadyOutcome(outcome, port) {
-  const addr = `http://127.0.0.1:${String(port)}`;
+  const addr = `http://${resolveDevAddress().host}:${String(port)}`;
   switch (outcome) {
     case 'ready':
       return `✓ 工作台已就绪：${addr}`;

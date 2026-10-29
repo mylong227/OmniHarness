@@ -6796,3 +6796,28 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   （panel-antd 吸收 Select/Input/Switch/Collapse/Tag 增量至 66.3，vendor 不动）。
 - **W4 至此 15/15 面板全部处理完毕**（13 个迁移 + Rollback 时间线/选择器内层 2 个有据保留）。
   W5 剩余：旧样式表删除（9.7k 行）、DESIGN_SYSTEM v2 记档——均为独立大批次，另行开工。
+
+## 182. 2026-10-30 开发回路地址收口：端口/主机字面量清零（用户指令"相类似的都要走配置"）
+
+- **病灶（用户从 vite proxy 块点名）**：`8787`/`5173`/`127.0.0.1` 散落 9 个文件——vite.config（代理
+  目标 + dev server 端口各自写死）、devAll（头注释宣称 `OMNI_FRONTEND_PORT` 双边告知，实际
+  vite.config 根本没读，幽灵契约）、后端 serve 默认端口两处字面量、launchReadiness 自声明
+  "不得自成一源"的镜像常量、就绪探针/测试夹具的回环主机。**设 `OMNI_BACKEND_PORT=9000` 时
+  vite 代理到 9000 而 serve 仍在 8787，开发回路直接断裂**——两边默认值只是碰巧一致。
+- **收口形态**：
+  - `scripts/devConfig.mjs`（+ `.d.mts`）：dev 工具唯一事实源——`DEV_DEFAULTS` + `resolveDevAddress()`
+    解释 `OMNI_BACKEND_PORT` / `OMNI_UI_PORT`（旧名 `OMNI_FRONTEND_PORT` 收编为别名）/
+    `OMNI_DEV_HOST`，产出端口/主机/拼好的 origin（代理目标与就绪探针同源）；
+  - `src/cli/serveDefaults.ts`：后端字面量唯一出处——`DEFAULT_SERVE_PORT` +
+    `resolveServeDefaultPort()`（读同名 `OMNI_BACKEND_PORT`，`--port` 旗标仍最高优先）；
+    cliServerCmds / cliIdentityDaemonCmds 两处 `?? 8787` 全部换装。绑定主机不动：
+    `ServerAuthGuard.DEFAULT_HOST` + `OMNI_SERVE_HOST` 本就是单一事实源；
+  - 消费者全量改接：vite.config（server.port/proxy.target）、devAll（显式注入 `--port` + 把最终
+    端口写回 env 给 vite 子进程，修断幽灵契约）、launchReadiness（探针 URL/回退端口）、
+    startAll（裸 URL 回退）、init-config（示例文本）、realUiScenario/realRunSmoke、
+    browserHarness/e2e 夹具。
+- **判据**：新增 `tests/unit/devAddressContract.test.ts` 三条——①消费者名单（9 文件）剥注释后
+  不得再有 `127.0.0.1`/`:8787`/`5173` 字面量；②devConfig 与 serveDefaults/ServerAuthGuard 的
+  镜像一致性（改默认端口必须两处同改，判据红着提醒）；③关键消费者必须 import devConfig。
+- **验证**：resolveDevAddress 实跑（env 覆盖/默认值）OK；`npm run web:build`/`npm run build` OK；
+  `gate:typed` 0 错；`web:test` 全量绿；node 全量绿；check.mjs --strict 零违规。

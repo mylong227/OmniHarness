@@ -40,6 +40,10 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveDevAddress } from './devConfig.mjs';
+
+/** 回环主机（开发回路唯一事实源 scripts/devConfig.mjs）。 */
+const DEV_HOST = resolveDevAddress().host;
 
 /** 仓库根（本文件在 `scripts/` 下）。 */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -62,7 +66,7 @@ function freePort() {
     const srv = createServer();
     srv.unref();
     srv.on('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
+    srv.listen(0, DEV_HOST, () => {
       const addr = srv.address();
       const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
       srv.close(() => resolvePort(port));
@@ -503,7 +507,7 @@ async function phaseServe(ws) {
   let serverOut = '';
   child.stdout.on('data', (d) => (serverOut += String(d)));
   child.stderr.on('data', (d) => (serverOut += String(d)));
-  const base = `http://127.0.0.1:${String(port)}`;
+  const base = `http://${DEV_HOST}:${String(port)}`;
   const get = async (path) => {
     const sep = path.includes('?') ? '&' : '?';
     const res = await fetch(`${base}${path}${sep}${tokenQuery}`);
@@ -585,7 +589,7 @@ async function phaseServe(ws) {
         'sdk',
         'call',
         '--url',
-        `ws://127.0.0.1:${String(port)}/ws?${tokenQuery}`,
+        `ws://${DEV_HOST}:${String(port)}/ws?${tokenQuery}`,
         '--method',
         'model.catalog',
       ],
@@ -603,7 +607,7 @@ async function phaseServe(ws) {
         'sdk',
         'call',
         '--url',
-        `ws://127.0.0.1:${String(port)}/ws?${tokenQuery}`,
+        `ws://${DEV_HOST}:${String(port)}/ws?${tokenQuery}`,
         '--method',
         'turns.run',
         '--params',

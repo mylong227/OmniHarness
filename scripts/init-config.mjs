@@ -9,6 +9,7 @@
  * 生成的字段全部落在 `configLayer.ts` 的 KNOWN_KEYS 白名单内，可被严格校验通过。
  */
 import { writeFileSync, existsSync } from 'node:fs';
+import { DEV_DEFAULTS } from './devConfig.mjs';
 import { resolve } from 'node:path';
 
 const target = resolve(process.cwd(), 'omniharness.json');
@@ -39,4 +40,6 @@ const config = {
 writeFileSync(target, JSON.stringify(config, null, 2) + '\n', 'utf8');
 console.log(`[init-config] 已生成 ${target}`);
 console.log('[init-config] 请编辑 apiKey / baseUrl / model 后运行：');
-console.log('               node dist/src/cli/exec.js serve --port 8787');
+console.log(
+  `               node dist/src/cli/exec.js serve --port ${String(DEV_DEFAULTS.backendPort)}`,
+);

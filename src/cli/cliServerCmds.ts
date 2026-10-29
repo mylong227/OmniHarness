@@ -42,6 +42,7 @@ import { JoseIdTokenVerifier } from '../adapters/enterprise/joseIdTokenVerifier.
 import { CliArgReader } from './cliArgReader.ts';
 import { ServeWorkspace } from './serveWorkspace.ts';
 import { ServePortConflict } from './servePortConflict.ts';
+import { ServeDefaults } from './serveDefaults.ts';
 import { CliIdentityDaemonCmds } from './cliIdentityDaemonCmds.ts';
 /** 服务端 / 身份 / 后台类子命令。 */
 export class CliServerCmds extends CliIdentityDaemonCmds {
@@ -537,7 +538,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       authToken: serveToken,
       // 右栏网页预览源（独立回环端口）随 workspaceRoot 自动启用（见 HttpServerOptions.preview）。
     });
-    const port = this.flagNumber(serveArgs, '--port') ?? 8787;
+    const port = this.flagNumber(serveArgs, '--port') ?? ServeDefaults.resolveDefaultPort();
     // 桌面模式跳过 serve-*.pid：桌面有自己的单实例与 ready 文件，且 --port 0 时
     // sweep(pathFor(0)) 与 announce(实际端口) 的路径并不一致（见 desktop 方案 P0）。
     const manageInstance = process.env['OMNI_NO_SERVE_INSTANCE'] !== '1';

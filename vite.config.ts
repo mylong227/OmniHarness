@@ -19,9 +19,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
+// 开发回路地址唯一事实源（端口/主机/origin + 环境变量解释都收口在这里）：
+// vite.config 不再自写 `8787`/`5173`/`127.0.0.1` 字面量（结构判据 devAddressContract 钉死）。
+import { resolveDevAddress } from './scripts/devConfig.mjs';
 
-/** 后端 dev 端口：`npm run dev` 先把 serve 起在这个端口，前端代理打过去。 */
-const BACKEND_PORT = Number(process.env.OMNI_BACKEND_PORT ?? 8787);
+/**
+ * 后端 dev 端口与 Vite dev server 端口、回环主机：全部来自 scripts/devConfig.mjs
+ * （`OMNI_BACKEND_PORT` / `OMNI_UI_PORT`|`OMNI_FRONTEND_PORT` / `OMNI_DEV_HOST` 可覆盖）。
+ * 后端 serve 同读 `OMNI_BACKEND_PORT`（src/cli/serveDefaults.ts）——一处设置两边生效。
+ */
+const dev = resolveDevAddress();
 
 export default defineConfig({
   root: resolve(import.meta.dirname, 'web'),
@@ -170,18 +177,18 @@ export default defineConfig({
     keepNames: true,
   },
   server: {
-    port: 5173,
+    port: dev.uiPort,
     strictPort: false,
     // 前后端分离开发：RPC 走 POST /rpc（JSON-RPC 2.0），事件走 GET /events（SSE）。
     // 两者都代理到后端，前端代码里仍用同源相对路径（`/rpc`），无需读环境变量拼地址。
     proxy: {
-      '/rpc': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
-      '/events': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
+      '/rpc': { target: dev.backendOrigin, changeOrigin: false },
+      '/events': { target: dev.backendOrigin, changeOrigin: false },
       // 工作区文件下载 / 预览（GET /files）
-      '/files': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
+      '/files': { target: dev.backendOrigin, changeOrigin: false },
       // 运行时自述（右栏网页标签从 `/healthz.previewPort` 取工作区预览源端口）；
       // 不代理的话 dev 下该请求会落到 Vite 的 404，本地网页预览会显示"未启用"。
-      '/healthz': { target: `http://127.0.0.1:${BACKEND_PORT}`, changeOrigin: false },
+      '/healthz': { target: dev.backendOrigin, changeOrigin: false },
     },
   },
   // 依赖预构建：React 走 npm，不再出现 vendor UMD 全局。

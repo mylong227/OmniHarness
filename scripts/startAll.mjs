@@ -45,6 +45,7 @@ import {
   resolveServePort,
   waitForReady,
 } from './lib/launchReadiness.mjs';
+import { resolveDevAddress } from './devConfig.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SERVE_ENTRY = join(REPO, 'dist', 'src', 'cli', 'exec.js');
@@ -119,7 +120,7 @@ async function openWhenReady(port, uiUrlRef) {
   while (uiUrlRef.value === undefined && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 50));
   }
-  const page = uiUrlRef.value ?? `http://127.0.0.1:${String(port)}`;
+  const page = uiUrlRef.value ?? `http://${resolveDevAddress().host}:${String(port)}`;
   if (uiUrlRef.value === undefined) {
     process.stderr.write(
       '[omniharness] 未捕获到带 token 的 UI URL：若服务端启用了鉴权，直接打开裸地址会 401。' +

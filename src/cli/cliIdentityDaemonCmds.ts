@@ -13,6 +13,7 @@
 import { DaemonController } from '../daemon/daemonController.ts';
 import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.ts';
 import { CliBuildConfig } from './cliBuildConfig.ts';
+import { ServeDefaults } from './serveDefaults.ts';
 import { ArgParser, CliDefaults } from './argParser.ts';
 import { ServerAuthGuard } from '../server/transport/serverAuthGuard.ts';
 import { configFile } from '../config/configFile.ts';
@@ -91,7 +92,7 @@ export class CliIdentityDaemonCmds extends CliBuildConfig {
     }
     // 默认 start：解析 --port 与透传给 serve 的参数。
     const rest = daemonArgs.slice(1);
-    let port = 8787;
+    let port = ServeDefaults.resolveDefaultPort();
     const serveArgs: string[] = [];
     for (let i = 0; i < rest.length; i += 1) {
       if (rest[i] === '--port') {

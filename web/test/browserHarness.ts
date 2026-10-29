@@ -13,6 +13,11 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer as createNetServer } from 'node:net';
+// 回环主机走开发回路唯一事实源（vite 代理 / 就绪探针同源）。
+import { resolveDevAddress } from '../../scripts/devConfig.mjs';
+
+/** 测试夹具监听/连接的回环主机。 */
+const DEV_HOST = resolveDevAddress().host;
 import { requireBrowser } from './browserSwitch.ts';
 import { makeOmniTemp, rmRfRetry } from './omniTemp.ts';
 
@@ -112,7 +117,7 @@ export function serveStatic(root: string, memoryRoutes: Record<string, string>):
     res.end(body);
   });
   return new Promise<StaticServerHandle>((res) => {
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, DEV_HOST, () => {
       res({
         // listen(0, '127.0.0.1') 的成功回调里 address() 必为 AddressInfo（lib 类型是三态联合）。
         port: (server.address() as import('node:net').AddressInfo).port,
@@ -254,7 +259,7 @@ export function stubHtmlCdp() {
 export function getFreePort(): Promise<number> {
   return new Promise<number>((res, rej) => {
     const s = createNetServer();
-    s.listen(0, '127.0.0.1', () => {
+    s.listen(0, DEV_HOST, () => {
       // listen(0) 的成功回调里 address() 必为 AddressInfo（lib 类型是三态联合）。
       const port = (s.address() as import('node:net').AddressInfo).port;
       s.close(() => res(port));
@@ -411,7 +416,7 @@ export async function waitForPageWs(port: number, marker: string, timeoutMs = 30
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
-      const list = await fetch(`http://127.0.0.1:${port}/json`);
+      const list = await fetch(`http://${DEV_HOST}:${port}/json`);
       if (list.ok) {
         const targets = (await list.json()) as { type?: string; url?: unknown; webSocketDebuggerUrl?: string }[];
         const hit =
@@ -839,7 +844,7 @@ export async function openStubSession(
   const server = await serveStatic(WEB_ROOT, { [`/${stub}`]: html });
   const userDataDir = makeOmniTemp('omni-cdp-');
   const cdpPort = await getFreePort();
-  const proc = launchChromeForCdp(browser, `http://127.0.0.1:${server.port}/${stub}`, userDataDir, cdpPort);
+  const proc = launchChromeForCdp(browser, `http://${DEV_HOST}:${server.port}/${stub}`, userDataDir, cdpPort);
   /** 收干净：浏览器整树 + 静态服务 + 临时 profile。 @returns {Promise<void>} 无 */
   const cleanup = async () => {
     killChromeTree(proc, userDataDir);
@@ -857,7 +862,7 @@ export async function openStubSession(
       deviceScaleFactor: 1,
       mobile: false,
     });
-    await cdp.navigate(`http://127.0.0.1:${server.port}/${stub}${hash}`);
+    await cdp.navigate(`http://${DEV_HOST}:${server.port}/${stub}${hash}`);
     await cdp.waitFor(`!!document.querySelector('${waitFor}')`, 2000);
   } catch (err) {
     if (cdp !== undefined) cdp.close();

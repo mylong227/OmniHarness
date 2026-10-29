@@ -51,6 +51,9 @@
  * - 无本机 Chrome/Edge 或 Node < 22 时**显式 skip**（打印原因），绝不伪装通过。
  */
 import { spawn } from 'node:child_process';
+import { resolveDevAddress } from './devConfig.mjs';
+
+const devHost = resolveDevAddress().host;
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -155,7 +158,7 @@ async function startServe(harness, ws, args) {
   return {
     proc,
     port,
-    base: `http://127.0.0.1:${port}`,
+    base: `http://${devHost}:${port}`,
     token,
     authQuery: `token=${encodeURIComponent(token)}`,
     log: () => text,

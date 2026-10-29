@@ -52,6 +52,11 @@ import {
   waitForPageWs,
   CdpSession,
 } from './browserHarness.ts';
+// 回环主机走开发回路唯一事实源（同 browserHarness 的夹具监听）。
+import { resolveDevAddress } from '../../scripts/devConfig.mjs';
+
+/** 回环主机（dumpDom 访问夹具静态服务用）。 */
+const DEV_HOST = resolveDevAddress().host;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(HERE, '..');
@@ -279,7 +284,7 @@ test('UI e2e：发任务 → 审批 → 流式 → 产物（headless 浏览器 +
   const server = await serveStatic(WEB_ROOT, { [`/${STUB_NAME}`]: stubHtml() });
   const userDataDir = makeOmniTemp('omni-e2e-ud-');
   try {
-    const { dom, stderr, status } = await dumpDom(browser, `http://127.0.0.1:${server.port}/${STUB_NAME}`, userDataDir);
+    const { dom, stderr, status } = await dumpDom(browser, `http://${DEV_HOST}:${server.port}/${STUB_NAME}`, userDataDir);
     if (process.env.OMNI_E2E_VERBOSE === '1') {
       console.error(`[e2e] browser=${browser} status=${status} domLen=${dom.length}`);
       console.error(`[e2e] stderr tail:\n${stderr.slice(-1500)}`);
