@@ -6335,6 +6335,7 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **最终验证**：`web:test` 125 文件 / 641 例全绿；`test:fast` 与服务端全量见 `.tmp/node-test-final.log`；
   `runGates --tier=typed` 2/2；`check.mjs --strict` 零违规（长函数为冻结存量，不计违规）。
 - **边界**：本会话**没有**把 S2 标成完成；其余 12 项均已闭环并有判据。
+
 ## 163. 2026-10-28 UI 升级 W0：antd@6.6.8 准入 + PoC **Go**（`feat/antd-ui` worktree）
 
 - **并行会话协调**：主工作区由 §118 会话占用（本轮实测它在我验证期间提交了 §118 并继续写 web 文件，
@@ -6384,3 +6385,36 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   ③ theme.css 补齐 `--tip-bg/-fg/-line`（§117 定稿值，palette 抽样比对的锚）。
 - **验证**：tsc 双工程零错；web 判据 641 例全绿（含新增 13 例）；fast 门禁 ESLint 预算 0 通过；
   typed 层通过；`web:budget` 新口径全绿。
+
+## 165. 2026-10-29 UI 升级 W2 批一/批二：铬件 Tooltip + ApprovalModal → antd Modal
+
+- **批一（`9ea15d04`）**：ChatHeader 四处（会话侧栏/右栏开关、项目路径、会话标题）与 SidebarFooter
+  设置钮的原生 `title` → `<Tooltip>`；DOM 层级不变（Tooltip 原位克隆子节点，flex 几何与 aria 原样）。
+  `antdBoundary` 增「已迁移组件不得再有原生 title」守卫（`TITLE_MIGRATED` 清单，W5 扩全站 AST 扫描）。
+- **批二（`adb0cba9`）**：ApprovalModal 外壳换 antd Modal——焦点默认「拒绝」、Tab 四钮闭环、
+  **三条关闭路径全关死**（`keyboard/maskClosable/closable`，刻意不做 Esc=拒绝）；`.allow/.deny`
+  类与 `.ant-modal` 选择器同步到 e2e / browserHarness / 双探针。
+- **四条可复用结论（都已进注释/判据）**：
+  ① **antd v6 的 dialog 没有 Tab trap**（旧 sentinel 方案已移除）⇒ 自研圈定挂 `wrapProps` 与 antd 共存；
+  ② **antd Button 给两字中文按钮自动插空格**（「允许」→「允 许」）⇒ 判据用 role + 锚定正则，别按字面文本；
+  ③ **Portal 组件对 vnode 走树不可见**（RTL 的 `collect` 走不到 `document.body`）⇒ 相关判据改 DOM 断言；
+  ④ **真机判据吃 `web/dist` 产物**：改完组件不 `vite build` 就复现不了（审批弹窗曾因此"消失"）。
+- **状态**：以上两批连同 W0/W1/规划共 5 个提交，已 rebase 到 main §162；两例 `capacity*` 源码文本
+  判据为 main 顶端自带红（对方 §119/§120 容量改版热区，文件与本分支逐字节一致），登记不越界修。
+
+## 166. 2026-10-29 UI 升级 W2 批三：控制台左导航 → antd Menu（24 项契约原样）
+
+- **改动**：`ConsoleView` 的 `<button class="sp-nav-item">` 列表换 `Menu mode="inline"` +
+  分组 `items`（分组 = `CONSOLE_GROUPS`，选中态 = `selectedKeys`）；antd 接管键盘 ↑↓/Home/End
+  与动效，CSS 只抵消 Menu 默认面底色/右描边/分组标题内边距（`itemHeight 34` 等 token 是 W1 预置的）。
+- **刻意保留的四条契约**（不随组件库漂移，判据逐个钉住）：
+  `data-pane`（探针/几何/焦点定位）、`sp-nav-item` 类（既有选择器与视觉规则）、
+  `on` 类（几何判据的"当前面板"标记）、`aria-current="page"` 与原生 `title`（antd 只给视觉选中态，
+  这两条仍由组件自己写）。焦点复位改为在导航容器里按 `data-pane` 查（Menu 不把 ref 透传到 `li`）。
+- **验证**：`consoleView` 3/3（新增 aria-current / title / 文案逐字三项断言）、`governanceTab` 4/4、
+  `panelModalSize` 真机 24 项逐个切换几何恒定 + scrollTop 归零、`consolePage`、`a11yAudit`（axe 零违规）、
+  `narrowReflow`、`cssSourceHygiene` 全绿；首屏 404.8KB gzip（预算 630）。
+- **策略分叉记录（待统一）**：main 上对方会话未提交的 `HoverTips` + `TooltipLayer` 走的是
+  **全站接管原生 `title`** 的路子，与批一的 antd Tooltip 形成两套提示体系。本批因此**保留原生
+  `title`**（不把 ConsoleView 加进 `TITLE_MIGRATED`），先把导航骨架换完；两套体系视觉统一
+  待对方 HoverTips 落地后再定（antd Tooltip 无 `title` 属性，不会双气泡）。

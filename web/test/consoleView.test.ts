@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import * as React from 'react';
 import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
-import { allText, byTag } from './domFacade.ts';
+import { allText } from './domFacade.ts';
 
 const { ConsoleView } = await import('../src/ui/components/console/ConsoleView.tsx');
 
@@ -68,9 +68,24 @@ test('控制台：左栏没有搜索框，打开时焦点落在当前导航项',
       null,
       '用户要求去掉搜索框：左栏不得再出现 search 输入',
     );
+    const current = ui.container.querySelector('[data-pane="appearance"]');
+    // 换 antd Menu 后这些仍是**组件自己**保证的契约（antd 只给 selectedKeys 的视觉态，
+    // 不替你标 aria-current，也不替你写 title）。
+    assert.strictEqual(current?.getAttribute('aria-current'), 'page', '当前项必须标 aria-current=page');
+    assert.strictEqual(
+      ui.container.querySelector('[data-pane="general"]')?.getAttribute('aria-current'),
+      null,
+      '非当前项不得标 aria-current',
+    );
+    assert.ok(
+      (current?.getAttribute('title') ?? '') !== '',
+      '条目必须保留原生 title（悬浮说明由现有提示层消费）',
+    );
+    // visualProbe 按 textContent 精确匹配条目文案（`.trim() === label`）：保持文案干净。
+    assert.strictEqual(current?.textContent?.trim(), '外观', '条目文案必须与注册表 label 逐字一致');
     await waitFor(() => {
-      const activeButton = ui.container.querySelector('[data-pane="appearance"]');
-      if (activeButton === null || document.activeElement !== activeButton) {
+      const activeItem = ui.container.querySelector('[data-pane="appearance"]');
+      if (activeItem === null || document.activeElement !== activeItem) {
         throw new Error('焦点没有落到当前导航项');
       }
     });
@@ -83,12 +98,14 @@ test('控制台：点设置条目与面板条目都走 onPick（同一个入口�
   const picked: string[] = [];
   const ui = await renderConsole('governance', picked, () => {});
   try {
-    const appearance = byTag(ui.node, 'button').find((b) => allText(b) === '外观');
-    assert.ok(appearance !== undefined, '缺「外观」设置项');
-    fireEvent.click(appearance.el);
-    const plugins = byTag(ui.node, 'button').find((b) => allText(b) === '插件');
-    assert.ok(plugins !== undefined, '缺「插件」面板项');
-    fireEvent.click(plugins.el);
+    // antd Menu 的条目是 `<li role="menuitem">`（不再是 button）：按 `data-pane` 定位，
+    // 该属性同时是探针/几何判据的契约，比按文案找按钮更贴近要守的东西。
+    const appearance = ui.container.querySelector('[data-pane="appearance"]');
+    assert.ok(appearance !== null, '缺「外观」设置项');
+    fireEvent.click(appearance);
+    const plugins = ui.container.querySelector('[data-pane="plugins"]');
+    assert.ok(plugins !== null, '缺「插件」面板项');
+    fireEvent.click(plugins);
     assert.deepEqual(picked, ['appearance', 'plugins']);
     assert.match(allText(ui.node), /面板内容/, '面板条目必须把 panelContent 注入右侧');
   } finally {

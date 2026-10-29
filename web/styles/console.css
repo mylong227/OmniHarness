@@ -165,13 +165,25 @@
   overflow-y: auto;
   scrollbar-gutter: stable;
 }
-.csl-group {
+/* antd Menu 接管导航（W2）：去掉 Menu 的默认面底色与右描边，分组节奏沿用原设计。 */
+.csl-menu.ant-menu {
+  background: transparent;
+  border-inline-end: 0;
+}
+.csl-menu .ant-menu-item-group {
   padding-top: 14px;
 }
-.csl-group:first-child {
+.csl-menu .ant-menu-item-group:first-child {
   padding-top: 6px;
 }
+/* 分组标题由 `.csl-group-label` 承担排版：抵消 antd 的 16px 内边距与固定行高。 */
+.csl-menu .ant-menu-item-group-title {
+  height: auto;
+  padding: 0;
+  line-height: 1.4;
+}
 .csl-group-label {
+  display: block;
   padding: 0 9px 6px;
   color: var(--faint);
   font-size: 10.5px;
@@ -182,7 +194,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
   height: 34px;
   padding: 0 9px;
   background: transparent;
