@@ -4,6 +4,9 @@
 // 函数组件范式：指标与用量各一个 useState；轮询在 effect 内建立、清理函数里销毁，
 // 并用 alive 标志避免卸载后回写（原实现依赖 componentWillUnmount 清定时器）。
 // 数字缩写继续复用 NumberFormatter（零 React，可单测）。
+//
+// 2026-10-29（W4）：计数卡 → antd `Statistic`，Token 消耗表 / 事件分布 → antd `Table` /
+// `Descriptions`（子路径导入，见 vite.config.ts 分块纪律）。数字与口径不变。
 
 import * as React from 'react';
 import { emptyNote } from '../../format.ts';
@@ -11,6 +14,11 @@ import { useApp } from '../../context.ts';
 import { NumberFormatter } from '../../models/NumberFormatter.ts';
 import type { Metrics } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Statistic from 'antd/es/statistic';
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Descriptions from 'antd/es/descriptions';
 
 /** 轮询间隔（ms）。 */
 const POLL_MS = 2000;
@@ -32,6 +40,17 @@ interface UsageStats {
   sessions: { sessionId: string; calls: number; total: number }[];
 }
 
+/** Token 消耗表的行（含合计行；合计行用 rowKey='__total__' 固定在末尾）。 */
+interface UsageRow {
+  readonly key: string;
+  readonly model: string;
+  readonly calls: number;
+  readonly prompt: string;
+  readonly completion: string;
+  readonly total: string;
+  readonly isTotal: boolean;
+}
+
 /**
  * Token 消耗表。
  * @param props 按模型的统计与总量。
@@ -42,53 +61,64 @@ function UsageTable(props: {
   usage: UsageStats | null;
 }): ReactElement {
   const { models, usage } = props;
+  if (models.length === 0) {
+    return (
+      <section className="act-card">
+        <div className="section-title">{t('Token 消耗统计')}</div>
+        <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
+      </section>
+    );
+  }
+  const rows: UsageRow[] = [
+    ...models.map(([m, s]) => ({
+      key: m,
+      model: m,
+      calls: s.calls,
+      prompt: NumberFormatter.abbrev(s.prompt),
+      completion: NumberFormatter.abbrev(s.completion),
+      total: NumberFormatter.abbrev(s.total),
+      isTotal: false,
+    })),
+    {
+      key: '__total__',
+      model: t('合计'),
+      calls: usage?.total.calls ?? 0,
+      prompt: NumberFormatter.abbrev(usage?.total.prompt ?? 0),
+      completion: NumberFormatter.abbrev(usage?.total.completion ?? 0),
+      total: NumberFormatter.abbrev(usage?.total.total ?? 0),
+      isTotal: true,
+    },
+  ];
+  const columns: ColumnsType<UsageRow> = [
+    { title: t('模型'), dataIndex: 'model', key: 'model' },
+    { title: t('调用次数'), dataIndex: 'calls', key: 'calls', width: 110, align: 'right' },
+    { title: t('输入'), dataIndex: 'prompt', key: 'prompt', width: 110, align: 'right' },
+    { title: t('输出'), dataIndex: 'completion', key: 'completion', width: 110, align: 'right' },
+    { title: t('总计'), dataIndex: 'total', key: 'total', width: 110, align: 'right' },
+  ];
   return (
     <section className="act-card">
       <div className="section-title">{t('Token 消耗统计')}</div>
-      {models.length > 0 ? (
-        <>
-          <table className="usage-table">
-            <thead>
-              <tr>
-                <th>{t('模型')}</th>
-                <th>{t('调用次数')}</th>
-                <th>{t('输入')}</th>
-                <th>{t('输出')}</th>
-                <th>{t('总计')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {models.map(([m, s]) => (
-                <tr key={m}>
-                  <td>{m}</td>
-                  <td>{s.calls}</td>
-                  <td>{NumberFormatter.abbrev(s.prompt)}</td>
-                  <td>{NumberFormatter.abbrev(s.completion)}</td>
-                  <td>{NumberFormatter.abbrev(s.total)}</td>
-                </tr>
-              ))}
-              <tr className="total">
-                <td>{t('合计')}</td>
-                <td>{usage?.total.calls ?? 0}</td>
-                <td>{NumberFormatter.abbrev(usage?.total.prompt ?? 0)}</td>
-                <td>{NumberFormatter.abbrev(usage?.total.completion ?? 0)}</td>
-                <td>{NumberFormatter.abbrev(usage?.total.total ?? 0)}</td>
-              </tr>
-            </tbody>
-          </table>
-          <div className="usage-src">
-            {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
-          </div>
-        </>
-      ) : (
-        <div className="usage-src">{t('暂无模型调用记录——跑一轮对话后这里会出现统计。')}</div>
-      )}
+      <Table<UsageRow>
+        className="metrics-usage-table"
+        size="small"
+        bordered={false}
+        pagination={false}
+        columns={columns}
+        dataSource={rows}
+        rowKey="key"
+        rowClassName={(row) => (row.isTotal ? 'metrics-usage-total' : '')}
+        scroll={{ x: 'max-content' }}
+      />
+      <div className="usage-src">
+        {t('数据来源：')}{usage?.source === 'disk' ? t('会话存档（重启不丢）') : t('进程内累计（重启清零）')}
+      </div>
     </section>
   );
 }
 
 /**
- * 事件类型分布。
+ * 事件类型分布（antd Descriptions：一行一类型，值右对齐由 CSS 负责）。
  * @param props 事件计数表。
  * @returns 分布卡片。
  */
@@ -101,12 +131,15 @@ function EventDistribution(props: { counts: Readonly<Record<string, number>> }):
         {keys.length === 0 ? (
           <p className="hint">{t('暂无事件记录。')}</p>
         ) : (
-          keys.sort().map((k) => (
-            <div className="kv" key={k}>
-              <span className="k">{k}</span>
-              <span className="v">{props.counts[k]}</span>
-            </div>
-          ))
+          <Descriptions
+            className="metrics-event-dist"
+            size="small"
+            column={1}
+            colon={false}
+            items={keys
+              .sort()
+              .map((k) => ({ key: k, label: k, children: String(props.counts[k]) }))}
+          />
         )}
       </div>
     </section>
@@ -170,10 +203,13 @@ export function MetricsTab(): ReactElement {
     <div className="csl-stack">
       <div className="metric-grid">
         {cards.map((c) => (
-          <div className="metric" key={c[0]}>
-            <div className="n">{c[1]}</div>
-            <div className="l">{c[0]}</div>
-          </div>
+          <Statistic
+            key={c[0]}
+            className="metric"
+            title={c[0]}
+            value={c[1]}
+            valueStyle={{ fontSize: '20px', lineHeight: 1.2 }}
+          />
         ))}
       </div>
 

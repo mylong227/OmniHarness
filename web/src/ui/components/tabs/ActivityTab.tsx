@@ -8,6 +8,9 @@ import { useApp } from '../../context.ts';
 import type { ApprovalRequest, QuestionRequest, ThreadEvent } from '../../../types/models.ts';
 import type { ToolResultView } from '../../shared.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
 
 /** 活动面板入参。 */
 export interface ActivityTabProps {
@@ -107,28 +110,48 @@ function PendingActivity(props: {
   );
 }
 
+/** 最近活动表的行（与事件一一对应）。 */
+interface ActivityRow {
+  readonly key: string;
+  readonly event: ThreadEvent;
+}
+
 /**
- * 最近活动列表。
+ * 最近活动列表（2026-10-29 W4：antd Table；`act-kind-*` 配色类保留在类型徽标上）。
  * @param props 最近事件。
  * @returns 卡片节点。
  */
 function RecentActivity(props: { events: ThreadEvent[] }): React.ReactElement {
+  const rows: ActivityRow[] = props.events.map((event) => ({ key: event.id, event }));
+  const columns: ColumnsType<ActivityRow> = [
+    {
+      title: t('类型'),
+      key: 'kind',
+      width: 110,
+      render: (_, row) => (
+        <span className={'act-kind act-kind-' + row.event.type}>
+          {t(EVENT_LABEL[row.event.type] ?? row.event.type)}
+        </span>
+      ),
+    },
+    { title: t('摘要'), key: 'text', render: (_, row) => summarize(row.event) },
+  ];
   return (
     <section className="act-card">
       <h3 className="act-title">{t('最近活动')}</h3>
       {props.events.length === 0 ? (
         <p className="act-muted">{t('还没有事件')}</p>
       ) : (
-        <ol className="act-list">
-          {props.events.map((event) => (
-            <li key={event.id} className="act-item">
-              <span className={'act-kind act-kind-' + event.type}>
-                {t(EVENT_LABEL[event.type] ?? event.type)}
-              </span>
-              <span className="act-text">{summarize(event)}</span>
-            </li>
-          ))}
-        </ol>
+        <Table<ActivityRow>
+          className="activity-table"
+          size="small"
+          bordered={false}
+          pagination={false}
+          columns={columns}
+          dataSource={rows}
+          rowKey="key"
+          scroll={{ x: 'max-content' }}
+        />
       )}
     </section>
   );

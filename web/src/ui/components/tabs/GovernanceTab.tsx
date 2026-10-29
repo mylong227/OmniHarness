@@ -26,6 +26,9 @@ import { useApp } from '../../context.ts';
 import { icon } from '../../models/Icon.ts';
 import type { ReactElement } from 'react';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
 
 /** 治理台一行的形状（与服务端 `PromotionHistoryRow` 同形）。 */
 interface GovernanceRow {
@@ -62,36 +65,58 @@ type GovernanceHistory =
   | { readonly available: false; readonly reason: string };
 
 /**
- * 晋升台账行列表。
+ * 晋升台账行列表（2026-10-29 W4：antd Table）。
+ *
+ * 纪律①的落点在 `rowClassName`：坏行（verified:false）带 `row err` 类并**直接显示原因**，
+ * 不让用户自己找哪行坏了；行内容与哈希 title 同源。
  * @param props 行数组。
- * @returns 列表或空提示。
+ * @returns 表格或空提示。
  */
 function GovernanceRows(props: { rows: readonly GovernanceRow[] }): ReactElement {
   if (props.rows.length === 0) {
     return <p className="hint">{t('台账为空：还没有晋升记录（进化默认关，属预期状态）。')}</p>;
   }
+  const columns: ColumnsType<GovernanceRow> = [
+    { title: t('链序号'), dataIndex: 'seq', key: 'seq', width: 80, render: (seq) => `#${String(seq)}` },
+    { title: t('动作'), dataIndex: 'action', key: 'action', width: 110 },
+    {
+      title: t('条目'),
+      key: 'name',
+      render: (_, row) =>
+        row.name === undefined
+          ? ''
+          : `${row.name}${row.source === undefined ? '' : ` ← ${row.source}`}`,
+    },
+    {
+      title: t('复核'),
+      key: 'verified',
+      width: 64,
+      render: (_, row) => icon(row.verified ? 'check' : 'x', { size: 12 }),
+    },
+    { title: t('原因'), dataIndex: 'reason', key: 'reason' },
+    {
+      title: t('哈希'),
+      key: 'hash',
+      width: 130,
+      render: (_, row) => (
+        <span className="hash" title={`prev ${row.prev}`}>
+          {row.hash.slice(0, 12)}…
+        </span>
+      ),
+    },
+  ];
   return (
-    <ul className="governance-rows">
-      {props.rows.map((row) => (
-        <li key={row.seq} className={row.verified ? 'row' : 'row err'}>
-          <span className="seq">#{row.seq}</span>
-          <span className="action">{row.action}</span>
-          {row.name === undefined ? null : (
-            <span className="name">
-              {row.name}
-              {row.source === undefined ? '' : ` ← ${row.source}`}
-            </span>
-          )}
-          <span className={row.verified ? 'ok' : 'err'}>
-            {icon(row.verified ? 'check' : 'x', { size: 12 })}
-          </span>
-          {row.reason === undefined ? null : <span className="reason">{row.reason}</span>}
-          <span className="hash" title={`prev ${row.prev}`}>
-            {row.hash.slice(0, 12)}…
-          </span>
-        </li>
-      ))}
-    </ul>
+    <Table<GovernanceRow>
+      className="governance-table"
+      size="small"
+      bordered={false}
+      pagination={false}
+      columns={columns}
+      dataSource={[...props.rows]}
+      rowKey="seq"
+      rowClassName={(row) => (row.verified ? 'row' : 'row err')}
+      scroll={{ x: 'max-content' }}
+    />
   );
 }
 

@@ -889,7 +889,8 @@
   box-shadow: var(--ring);
 }
 
-/* 指标：六张计数卡改成 3×2 网格（不抢眼，但可扫读） */
+/* 指标：六张计数卡改成 3×2 网格（不抢眼，但可扫读）。
+   2026-10-29 W4 起卡片本体是 antd Statistic（.metric.ant-statistic），数字/标题走 antd 结构。 */
 .csl-scroll.panel-surface .metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -902,16 +903,15 @@
   border: 1px solid var(--border-soft);
   border-radius: var(--r-lg);
 }
-.csl-scroll.panel-surface .metric .n {
-  color: var(--text);
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.csl-scroll.panel-surface .metric .l {
-  margin-top: 3px;
+.csl-scroll.panel-surface .metric .ant-statistic-title {
+  margin: 0 0 3px;
   color: var(--faint);
   font-size: 11px;
+}
+.csl-scroll.panel-surface .metric .ant-statistic-content {
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 /* 表格（用量 / 审计 / 规则）：卡片边界 + 行分隔线 */
@@ -986,6 +986,67 @@
 }
 .csl-scroll .audit-log-table .ant-table-tbody > tr:last-child > td {
   border-bottom: 0;
+}
+
+/* 行式数据面板批（2026-10-29 W4 批 2）：治理 / 活动 / 指标 / 诊断的 antd 表与键值。
+   与 .audit-log-table 同口径：透明底 + 发丝线 + 12px，不套第二层卡片。 */
+.csl-scroll .governance-table .ant-table,
+.csl-scroll .activity-table .ant-table,
+.csl-scroll .metrics-usage-table .ant-table,
+.csl-scroll .diagnostics-issues .ant-table {
+  background: transparent;
+  font-size: 12px;
+}
+.csl-scroll .governance-table .ant-table-thead > tr > th,
+.csl-scroll .activity-table .ant-table-thead > tr > th,
+.csl-scroll .metrics-usage-table .ant-table-thead > tr > th,
+.csl-scroll .diagnostics-issues .ant-table-thead > tr > th {
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--faint);
+  font-weight: 500;
+  border-bottom: 1px solid var(--hairline);
+}
+.csl-scroll .governance-table .ant-table-tbody > tr > td,
+.csl-scroll .activity-table .ant-table-tbody > tr > td,
+.csl-scroll .metrics-usage-table .ant-table-tbody > tr > td,
+.csl-scroll .diagnostics-issues .ant-table-tbody > tr > td {
+  padding: 8px 12px;
+  color: var(--dim);
+  border-bottom: 1px solid var(--hairline);
+}
+.csl-scroll .governance-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .activity-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .metrics-usage-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .diagnostics-issues .ant-table-tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+/* 坏行（治理台账 / 诊断不合格项）必须显眼：文本直接用错误色。 */
+.csl-scroll .governance-table .ant-table-tbody > tr.err > td,
+.csl-scroll .diagnostics-issues .ant-table-tbody > tr.err > td {
+  color: var(--err);
+}
+/* 用量合计行与分布键值 */
+.csl-scroll .metrics-usage-table .ant-table-tbody > tr.metrics-usage-total > td {
+  color: var(--text);
+  font-weight: 600;
+}
+.csl-scroll .metrics-event-dist .ant-descriptions-item-label {
+  color: var(--dim);
+  font-size: 12px;
+}
+.csl-scroll .metrics-event-dist .ant-descriptions-item-content {
+  color: var(--text);
+  font-size: 12px;
+}
+.csl-scroll .diagnostics-desc .ant-descriptions-item-label {
+  min-width: 96px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.csl-scroll .diagnostics-desc .ant-descriptions-item-content {
+  color: var(--text);
+  font-size: 12px;
 }
 
 /* 厂商卡片（模型页）：卡片内的折叠行 */

@@ -100,9 +100,11 @@ test('F2 面板：逐行复核可见（✓/✗ 与原因）+ 汇总 + 回滚锚�
   assert.match(text, /第 2 条自算哈希与记录不符/, '坏行必须直接显示原因');
 
   // 坏行带 err 类（视觉上显眼）。
+  // 2026-10-29 W4：行容器从 ul>li 换成 antd Table——antd 行自带 `ant-table-row` 类 +
+  // rowClassName（'row' / 'row err'），选择器跟着结构走，断言内容不变。
   const rowNodes = collect(
     tree,
-    (node) => clsOf(node).startsWith('row'),
+    (node) => clsOf(node).startsWith('row') || clsOf(node).includes('ant-table-row'),
   );
   assert.ok(rowNodes.length >= 3, `必须渲染出表头与逐行条目，实际 ${String(rowNodes.length)}`);
   assert.ok(

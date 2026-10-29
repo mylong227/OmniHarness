@@ -23,6 +23,10 @@ import { icon } from '../../models/Icon.ts';
 import type { ReactElement } from 'react';
 import type { DoctorReportLike } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Descriptions from 'antd/es/descriptions';
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
 
 /** `daemon.status` 的返回形状。 */
 interface DaemonStatus {
@@ -38,42 +42,81 @@ type DoctorResponse = { readonly ok: true; readonly report: DoctorReportLike } |
 
 /**
  * doctor 报告正文（环境 / 安全档 / 不合格项）。
+ *
+ * 2026-10-29（W4）：键值区 → antd `Descriptions`，不合格项 → antd `Table`（逐条列出，err 行）。
+ * 三条纪律的**文本原样保留**（判据按文本断言）。
  * @param props 报告。
  * @returns 报告节点。
  */
 function DoctorReport({ report }: { report: DoctorReportLike }): ReactElement {
+  const issueRows = report.issues.map((issue, index) => ({
+    key: `${String(index)}-${issue}`,
+    no: index + 1,
+    issue,
+  }));
+  const issueColumns: ColumnsType<{ key: string; no: number; issue: string }> = [
+    { title: '#', dataIndex: 'no', key: 'no', width: 48 },
+    { title: t('问题'), dataIndex: 'issue', key: 'issue' },
+  ];
   return (
     <div>
-      <p>
-        Node {report.nodeVersion} · {t('配置')}{' '}
-        {report.config.valid
-          ? t('合法')
-          : t('非法（{reason}）', { reason: report.config.error ?? t('未知原因') })}
-      </p>
-      <p>
-        {t('隔离档 {level}', { level: report.security.isolationLevel })}
-        {report.security.kernelEnforced ? t('（内核强制）') : t('（**无内核强制**）')} · {t('沙箱档')}{' '}
-        {report.security.sandboxProfile}
-      </p>
-      <p className="hint">{report.security.isolationBasis}</p>
-      <p className="hint">
-        {t('shell 出网受守卫约束：')}
-        {report.security.shellEgressGuarded ? t('是') : t('否')} · {t('插件目录可读：')}
-        {report.pluginsDirReadable ? t('是') : t('否')} · {t('权限清单可读：')}
-        {report.permissionsManifestReadable ? t('是') : t('否')}
-      </p>
+      <Descriptions
+        className="diagnostics-desc"
+        size="small"
+        column={1}
+        colon={false}
+        items={[
+          {
+            key: 'node',
+            label: t('Node / 配置'),
+            children: `${report.nodeVersion} · ${t('配置')} ${
+              report.config.valid
+                ? t('合法')
+                : t('非法（{reason}）', { reason: report.config.error ?? t('未知原因') })
+            }`,
+          },
+          {
+            key: 'security',
+            label: t('安全档'),
+            children: `${t('隔离档 {level}', { level: report.security.isolationLevel })}${
+              report.security.kernelEnforced ? t('（内核强制）') : t('（**无内核强制**）')
+            } · ${t('沙箱档')} ${report.security.sandboxProfile}`,
+          },
+          {
+            key: 'basis',
+            label: t('判定依据'),
+            children: <span className="hint">{report.security.isolationBasis}</span>,
+          },
+          {
+            key: 'guards',
+            label: t('守卫'),
+            children: (
+              <span className="hint">
+                {t('shell 出网受守卫约束：')}
+                {report.security.shellEgressGuarded ? t('是') : t('否')} · {t('插件目录可读：')}
+                {report.pluginsDirReadable ? t('是') : t('否')} · {t('权限清单可读：')}
+                {report.permissionsManifestReadable ? t('是') : t('否')}
+              </span>
+            ),
+          },
+        ]}
+      />
       {report.issues.length === 0 ? (
         <p>{t('无不合格项。')}</p>
       ) : (
         <div>
           <div className="detail-h">{t('不合格项（{count}）', { count: report.issues.length })}</div>
-          <ul>
-            {report.issues.map((issue, index) => (
-              <li key={`${String(index)}-${issue}`} className="err">
-                {issue}
-              </li>
-            ))}
-          </ul>
+          <Table
+            className="diagnostics-issues"
+            size="small"
+            bordered={false}
+            pagination={false}
+            columns={issueColumns}
+            dataSource={issueRows}
+            rowKey="key"
+            rowClassName={() => 'row err'}
+            scroll={{ x: 'max-content' }}
+          />
         </div>
       )}
     </div>
