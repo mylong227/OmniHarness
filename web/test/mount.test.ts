@@ -16,7 +16,7 @@ import type { Facade, FacadeNode } from './domFacade.ts';
 
 const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
 const { PermissionPicker } = await import('../src/ui/components/PermissionPicker.tsx');
-const { TreeNode } = await import('../src/ui/components/TreeNode.tsx');
+const { FileTree } = await import('../src/ui/components/FileTree.tsx');
 const { PanelPicker } = await import('../src/ui/components/PanelPicker.tsx');
 const { Toast } = await import('../src/ui/components/Toast.tsx');
 const { WorkIndicator } = await import('../src/ui/components/WorkIndicator.tsx');
@@ -134,22 +134,43 @@ test('PermissionPicker：fullAccess 收起态单层 chip——档位名只出现
   );
 });
 
-test('TreeNode：文件树节点渲染名称并保留展开回调（零 DOM 依赖）', () => {
-  const vnode = renderFacade(TreeNode, {
+test('FileTree：目录/文件按树渲染，点目录展开、点文件回调打开', () => {
+  // 2026-10-29（W2）：手写递归 TreeNode 换 antd Tree——判据改为**行为**断言
+  //（展开/打开都是组件库接管的真实交互）。注意 antd 会渲染一个 aria-hidden 的量测行，
+  // 所以按 role="treeitem" 找真实条目，而不是按 class。
+  const opened: string[] = [];
+  const ui = renderFacade(FileTree, {
     props: {
-      node: {
-        name: 'src',
-        path: 'src',
-        kind: 'dir',
-        children: [
-          { name: 'a.ts', path: 'src/a.ts', kind: 'file' },
-          { name: 'b.ts', path: 'src/b.ts', kind: 'file' },
-        ],
-      },
-      onOpenFile: () => {},
+      nodes: [
+        {
+          name: 'src',
+          path: 'src',
+          type: 'dir',
+          children: [
+            { name: 'a.ts', path: 'src/a.ts', type: 'file' },
+            { name: 'b.ts', path: 'src/b.ts', type: 'file' },
+          ],
+        },
+      ],
+      onOpenFile: (path: string) => opened.push(path),
     },
-  }).node;
-  assert.match(allText(vnode), /src/, '节点必须渲染名称');
+  });
+  const text = (): string => ui.container.textContent ?? '';
+  const clickRow = (label: string): void => {
+    const item = Array.from(ui.container.querySelectorAll('[role="treeitem"]')).find((el) =>
+      (el.textContent ?? '').includes(label),
+    );
+    assert.ok(item !== undefined, `找不到树行：${label}`);
+    const target = item.querySelector('.ant-tree-node-content-wrapper') as HTMLElement | null;
+    fireEvent.click(target ?? (item as HTMLElement));
+  };
+
+  assert.match(text(), /src/, '根目录名必须渲染');
+  assert.doesNotMatch(text(), /a\.ts/, '未展开时子节点不应渲染（只渲染可见节点）');
+  clickRow('src');
+  assert.match(text(), /a\.ts/, '点击目录必须展开子节点');
+  clickRow('a.ts');
+  assert.deepStrictEqual(opened, ['src/a.ts'], '点击文件必须回传绝对路径');
 });
 
 test('PanelPicker：唯一触发器，点击打开面板模态（不再有下拉菜单）', async () => {

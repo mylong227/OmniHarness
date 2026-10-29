@@ -6589,3 +6589,23 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **验证**：`popoverKeyboard` 11/11、`pickerShapeGuard` 4/4；真机截图
   `web/archive/picker-modal-dark-20261029.png`（Modal 卡片 + 路径栏 + fail-closed 错误 + 动作行，
   dialog 有名字、焦点在弹窗）。
+
+## 174. 2026-10-29 W2：侧栏文件树 → antd Tree（`FileTree`）
+
+- **改动**：手写递归 `TreeNode`（`.node/.label/.children` + 每目录各自 `useState`）换成 `FileTree`
+  ——一个 antd `Tree`：`treeData` 由 `FsNode` 递归映射（`key`=绝对路径、`isLeaf` 由 `type` 决定），
+  展开/收起、键盘导航（↑↓/→←/Home/End）、roving tabindex、可见节点渲染都由组件库承担。
+- **交互保持**：点目录标题仍**切换展开**（`onSelect` 里对目录切 `expandedKeys`），点文件才回调
+  `onOpenFile`（`info.selected` 守卫，避免取消选中也触发打开）。数据源与回调签名不变，
+  `SessionViews.renderTreeView` 只是把 map 换成 `<FileTree nodes tree onOpenFile>`。
+- **判据改造（行为化）**：`mount.test` 的旧用例其实一直没测到真东西——它传 `kind` 而 `FsNode` 用
+  `type`，于是根节点被当成文件、子节点从未渲染。新用例按 `role="treeitem"` 找真实行（antd 会渲染
+  一个 `aria-hidden` 的量测行，按 class 会抓错），断言「未展开不渲染子节点 → 点目录展开 → 点文件
+  回传绝对路径」。
+- **样式**：`.tree .node/.label/.children` 那套自绘结构样式删除，换成 `.tree .ant-tree*` 的密度与
+  墨色覆盖（13px 等宽、行内发丝 hover、选中 accent-soft、缩进 14px）；`theme.css` 的过渡组里
+  去掉 `.tree .node`。
+- **验证**：`mount` 13/13（含新树行为用例）、`workspaceEpoch` 3/3、`cssSourceHygiene` 通过；
+  全量 web 判据见提交信息。
+- **未做（如实记录）**：桩页没有 `fs.tree` 伪造数据，侧栏文件树在真机截图里永远是空态 ⇒ 本次
+  **没有**视觉留档；结构与交互由 jsdom 行为判据覆盖，观感待补桩数据后再复核。

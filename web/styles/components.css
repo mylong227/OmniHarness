@@ -70,15 +70,20 @@
 .task-card .tc-label { display:flex; align-items:center; gap:6px; min-width:0; }
 .task-card .tc-label .session-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* 文件树 */
+/* 文件树（2026-10-29 W2：手写递归节点换 antd Tree，密度与侧栏一致、墨色跟随主题） */
 .tree { font-size:13px; font-family:var(--mono); }
-.tree .node { padding:2px 0; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-radius:5px; }
-.tree .node:hover { color:var(--text); background:var(--hover); }
-.tree .dir > .label::before { content:"▸ "; color:var(--dim); }
-.tree .dir.open > .label::before { content:"▾ "; }
-.tree .file > .label::before { content:"· "; color:var(--dim); }
-.tree .children { margin-left:14px; display:none; }
-.tree .dir.open > .children { display:block; }
+.tree .ant-tree { background:transparent; color:var(--dim); }
+.tree .ant-tree-treenode { padding:1px 0; }
+.tree .ant-tree-node-content-wrapper {
+  padding:1px 4px; border-radius:5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.tree .ant-tree-node-content-wrapper:hover { background:var(--hover); color:var(--text); }
+.tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
+  background:var(--accent-soft); color:var(--text);
+}
+.tree .ant-tree-switcher { color:var(--faint); }
+.tree .ant-tree-indent-unit { width:14px; }
 
 /* ---------- 自定义下拉（Composer 模型/推理强度/权限，替代原生 select 弹层） ---------- */
 .dd { position:relative; display:inline-flex; align-items:center; gap:5px; border:1px solid var(--border-soft); cursor:pointer; user-select:none; }

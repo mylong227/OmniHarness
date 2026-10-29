@@ -5,7 +5,7 @@
 // 与将来任何宿主复用；会话过滤（filterSessions）也在此，供本地即时过滤与单测共用。
 
 import * as React from 'react';
-import { TreeNode } from './TreeNode.tsx';
+import { FileTree } from './FileTree.tsx';
 import { SessionGrouper } from '../models/SessionGrouper.ts';
 import { PathJoiner } from '../models/PathJoiner.ts';
 import { WorkspacePath } from '../models/WorkspacePath.ts';
@@ -596,9 +596,7 @@ export function renderTreeView(
   if (tree.length === 0) return emptyState(icon('folder', { size: 20 }), t('空工作区'), t('这个目录还没有文件。'));
   return (
     <div className="tree">
-      {tree.map((n) => (
-        <TreeNode key={n.path} node={n} onOpenFile={onOpenFile} />
-      ))}
+      <FileTree nodes={tree} onOpenFile={onOpenFile} />
     </div>
   );
 }

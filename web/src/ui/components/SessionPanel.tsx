@@ -3,7 +3,7 @@
 // 面向对象改造：
 // - 服务经 useApp() 取用（替代旧基类访问器），十三份 state 收敛为字段级 useState；
 // - 会话分组逻辑下沉到 SessionGrouper（零 React，可单测）；
-// - 文件树节点拆为 TreeNode 组件（各自管理展开态）；
+// - 文件树换 antd Tree（2026-10-29 W2，见 FileTree.tsx；展开态由组件内部管理）；
 // - 行/卡/组/项目条/文件树的渲染下沉到 SessionViews（零状态纯渲染）。
 //
 // 搜索（A3）：本地即时过滤保留（filterSessions，零请求、输入即出结果）＋服务端 `search.all`
