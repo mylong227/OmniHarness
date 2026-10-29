@@ -20,6 +20,37 @@ import { t } from '../i18n/i18n.ts';
 /** 每组默认展示条数。 */
 export const PAGE = 10;
 
+/**
+ * 会话行的键盘模型（2026-10-29 W3，键盘扫描补项）。
+ *
+ * 行本身是可点 div：此前键盘用户**既进不去、也打不开菜单**（右键菜单只有鼠标入口）。
+ * 这里补三件事，语义与鼠标操作一一对应：
+ *   · Enter / Space → 选中该会话（等价点击）；
+ *   · Shift+F10 / ContextMenu 键 → 在行的左下角打开同一个菜单（右键的键盘等价物）；
+ *   · 行可聚焦（`tabIndex=0`，见调用处），Tab 能走到每一行。
+ *
+ * @param e 键盘事件
+ * @param id 会话 id
+ * @param ctx 行上下文（取 onSelect / onContextMenu）
+ * @returns 无
+ */
+export function onSessionRowKeyDown(
+  e: React.KeyboardEvent<Element>,
+  id: string,
+  ctx: { onSelect: (id: string) => void; onContextMenu?: (id: string, x: number, y: number) => void },
+): void {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    ctx.onSelect(id);
+    return;
+  }
+  if (e.key !== 'ContextMenu' && !(e.shiftKey && e.key === 'F10')) return;
+  if (ctx.onContextMenu === undefined) return;
+  e.preventDefault();
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  ctx.onContextMenu(id, rect.left + 12, rect.bottom);
+}
+
 /** 会话行内交互所需的状态与回调（供模块级渲染函数复用）。 */
 export interface RowCtx {
   /** 正在行内重命名的会话 id（null 表示无）。 */
@@ -290,6 +321,9 @@ export function renderCardsView(ctx: ListCtx, now: number = Date.now()): ReactEl
           }
           title={SessionRowMeta.hoverTitle(s, now)}
           data-session-id={s.id}
+          tabIndex={0}
+          onKeyDown={(e: React.KeyboardEvent) => onSessionRowKeyDown(e, s.id, ctx)}
+          aria-current={s.id === ctx.currentThreadId ? 'true' : undefined}
           draggable={ctx.onDragStart !== undefined}
           onDragStart={() => ctx.onDragStart?.(s.id)}
           onDragEnd={() => ctx.onDragEnd?.()}
@@ -399,6 +433,9 @@ export function renderGroupsView(ctx: ListCtx, now: number = Date.now()): ReactE
                     }}
                     title={SessionRowMeta.hoverTitle(s, now)}
                     data-session-id={s.id}
+                    tabIndex={0}
+                    onKeyDown={(e: React.KeyboardEvent) => onSessionRowKeyDown(e, s.id, ctx)}
+                    aria-current={s.id === ctx.currentThreadId ? 'true' : undefined}
                   >
                     <span className="drag-handle" data-drag-handle="1" title={t('拖拽排序')} aria-hidden="true">⠿</span>
                     {renderSessionBody(s, ctx)}
@@ -476,6 +513,9 @@ export function renderTimeGroupsView(ctx: ListCtx, now: number = Date.now()): Re
                     }}
                     title={SessionRowMeta.hoverTitle(s, now)}
                     data-session-id={s.id}
+                    tabIndex={0}
+                    onKeyDown={(e: React.KeyboardEvent) => onSessionRowKeyDown(e, s.id, ctx)}
+                    aria-current={s.id === ctx.currentThreadId ? 'true' : undefined}
                   >
                     <span className="drag-handle" data-drag-handle="1" title={t('拖拽排序')} aria-hidden="true">⠿</span>
                     {renderSessionBody(s, ctx)}

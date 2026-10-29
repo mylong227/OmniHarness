@@ -290,6 +290,13 @@ svg {
 .session {
   transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
+/* 2026-10-29（W3）：会话行可聚焦（tabIndex=0）——焦点必须看得见。 */
+.session:focus-visible,
+.task-card:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: var(--ring);
+}
 .session.active {
   border-left: none;
 }

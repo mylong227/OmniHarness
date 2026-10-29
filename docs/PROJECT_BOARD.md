@@ -6669,8 +6669,13 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   `PermissionPicker`（`MenuFocusModel` roving，`popoverKeyboard` 全绿）、`SearchResults`
   （option 不聚焦，键盘由输入框的 `aria-activedescendant` 驱动）、`FilePicker`（原生 button checkbox）、
   `ConsoleView`（antd Menu 自带）、`Composer` 斜杠菜单（textarea 上处理按键）。
-- **真实遗留（需产品决策，不是纯修复）**：会话行右键菜单（`role=menu`）**只能鼠标右键打开**，
-  键盘用户没有任何入口；菜单内也没有方向键/Escape 的焦点模型。修复 = 给会话行加键盘入口
-  （`Shift+F10` 或每行「更多」按钮）+ 菜单 roving/Escape。这会新增交互面（多一枚按钮或新快捷键），
-  按本仓纪律不擅自加，需拍板后再做。
-- **验证**：`a11yKeyboard` **15/15**；全量 web 判据见提交信息。
+- **会话行键盘入口（同日补齐，W3 收口）**：行原先是不可聚焦的 div——键盘用户既选不中会话、
+  也打不开行菜单。现在三种行视图（任务卡 / 分组 / 扁平）统一 `tabIndex=0` +
+  Enter/Space 等价点击 + **Shift+F10 / ContextMenu 键**等价右键（坐标取行的左下角，菜单贴着该行），
+  当前会话标 `aria-current`，行获得焦点有 ring（`:focus-visible`）。菜单内 Escape 与外部点击关闭
+  沿用既有实现（菜单项本身是原生 button，Tab/Enter 可用）。
+  **没做**：菜单内的方向键 roving（APG menu 的完整模型）——需要把行菜单抽成独立组件并改
+  SessionPanel 的焦点管理，属另一批；当前 Tab 可达已满足「键盘能完成操作」的底线。
+  判据：`sessionSearch` 新增 1 例（每行可 Tab、aria-current、Enter 打开、Shift+F10 开菜单）。
+- **验证**：`a11yKeyboard` **15/15**、`sessionSearch` **18/18**、`shellDensity`/`narrowReflow`/`a11yAudit`
+  全绿；全量 web 判据见提交信息。

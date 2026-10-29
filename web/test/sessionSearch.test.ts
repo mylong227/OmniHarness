@@ -591,3 +591,31 @@ test('SessionPanel：单点只打开会话；右键「配置集」才弹面板�
   assert.match(allText(sub), /删除/);
   assert.deepStrictEqual(handle.calls.panes, [], '任何行菜单操作都不得打开配置集面板');
 });
+
+test('SessionPanel：会话行可聚焦，Enter 打开、Shift+F10 打开同一个行菜单（键盘等价物）', async () => {
+  // 2026-10-29（W3 键盘扫描）：会话行原先是不可聚焦的 div——键盘用户**既选不中会话、
+  // 也打不开行菜单**。现在每行 tabIndex=0，Enter/Space 等价点击，Shift+F10/ContextMenu
+  // 等价右键（菜单内的 Escape 与外部点击关闭沿用既有实现）。
+  const handle = await setupPanel();
+  const rows = byClass(handle.tree(), 'session').filter((n) => hasClass(n, 'session'));
+  assert.ok(rows.length >= 2, '必须先有会话行');
+  for (const row of rows) {
+    assert.strictEqual(row.props.tabIndex, '0', '每行都必须能 Tab 到');
+  }
+  assert.strictEqual(rows[0]!.props['aria-current'], 'true', '当前会话必须标 aria-current');
+  assert.strictEqual(rows[1]!.props['aria-current'], undefined);
+
+  fireEvent.keyDown(rows[1]!.el, { key: 'Enter' });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.deepStrictEqual(handle.calls.selected, ['s-9'], 'Enter 必须打开该会话');
+
+  fireEvent.keyDown(rows[0]!.el, { key: 'F10', shiftKey: true });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const menu = byClass(handle.tree(), 'row-menu')[0];
+  assert.ok(menu !== undefined, 'Shift+F10 必须打开与右键同一个行菜单');
+  assert.match(allText(menu), /打开/);
+});
