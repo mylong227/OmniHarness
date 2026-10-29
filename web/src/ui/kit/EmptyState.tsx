@@ -3,7 +3,9 @@
 // W4 控制台迁移时统一换成自绘线稿（Ω 空态/加载/错误三件）。
 
 import * as React from 'react';
-import { Empty, Typography } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Empty from 'antd/es/empty';
+import Typography from 'antd/es/typography';
 
 /** EmptyState 入参。 */
 export interface EmptyStateProps {

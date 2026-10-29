@@ -18,7 +18,9 @@
 // 「算法派生」的价值（自动换肤）在本项目不存在需求，契约优先。dark 下的语义 hover/active
 // 用显式 map token 给出提亮档（浅色下 antd 默认压暗方向正确，不需要）。
 
-import { theme as antdThemeAlgorithm, type ThemeConfig } from 'antd';
+// 子路径导入（同 ThemeProvider 的口径）；ThemeConfig 是纯类型导入，esbuild 整句擦除。
+import antdThemeAlgorithm from 'antd/es/theme';
+import type { ThemeConfig } from 'antd';
 import { paletteOf, type Palette, type ThemeName } from './palette.ts';
 
 /** 紧凑 IDE 密度（对照旧 UI：控件 32、表格 small、菜单行 34）。 */

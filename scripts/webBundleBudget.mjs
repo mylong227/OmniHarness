@@ -16,14 +16,19 @@
  *     "把包越拆越大"。async chunk（懒加载面板 / katex）不在首屏，单独记；
  *   · **gzip 后的字节数**是预算口径（与 CI 传输口径一致）；原始字节同时打印，便于定位；
  *   · 预算写在 `scripts/webBundleBudget.json`（数据而非代码：收紧预算 = 改一个数字）：
- *       - firstLoadKb：entry + vendor 总量（W0 实测后定为 630，含 ~10% 余量）；
- *       - entryJsKb：entry 单独上限（应用码 + markdown-it/highlight，防应用码无节制膨胀）；
- *       - vendorKb：vendor 分块单独上限（react 基座 + antd 基座；2026-10-29 补，
- *         此前只有合计闸，某一半膨胀可被另一半缩小掩盖）。**2026-10-29 W4 起定为 330**：
- *         引入 antd Table 后实测 310.7，330 是 UI_LIBRARY_UPGRADE §0.5 对 antd 子集的实测上界；
- *         再往 vendor 里加 Table/Form/DatePicker 之前，必须先做「面板级 antd 走异步块」的分块改造
- *         （见看板 §178），否则这条闸会先红。
- *       - cssKb / asyncKb：不变口径（asyncKb 170 = 原 120 + antd 面板懒加载余量）。
+ *       - firstLoadKb：entry + vendor 总量。**2026-10-29 W4 分块改造（看板 §179）后定为 500**：
+ *         面板级 antd（Table/Menu 等）搬进异步块 panel-antd 后实测 451.7，含 ~10% 余量；
+ *       - entryJsKb：entry 单独上限（应用码 + markdown-it/highlight，防应用码无节制膨胀）。
+ *         **2026-10-29 定为 240**：6 个静态面板与控制台转 lazy 后实测 187.9；
+ *       - vendorKb：vendor 分块单独上限（react 基座 + antd 基座）。**2026-10-29 定为 290**：
+ *         分块改造后 vendor 收敛为「壳层 antd 子集 + 跨族共享副产物（style/locale/context）+
+ *         rc-form/async-validator（form 引擎被 vendor 侧可达）」，实测 263.7；此后 vendor 只在
+ *         壳层新增 antd 组件时增长——面板级组件一律走 panel-antd（见 vite.config.ts）。
+ *         （旧口径 330 是「Table 塞在 vendor 里」时代的上界，随分块改造作废。）
+ *       - cssKb：不变口径（40）。
+ *       - asyncKb：**2026-10-29 定为 260**（旧 170）：panel-antd（Table/Menu 族，实测 54.7）
+ *         与 W4 面板迁移的增量（Form/Descriptions/Collapse/Timeline/Statistic 组件本体）都落在
+ *         异步桶，懒负载是分块改造的**目的**而非回归；闸只防"懒加载变成垃圾场"。
  *
  * ## 用法
  *

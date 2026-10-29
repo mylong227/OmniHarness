@@ -2,7 +2,10 @@
 // 只做 antd 排版原语的组合；业务组件经 kit 消费 antd，不直接散写 Typography。
 
 import * as React from 'react';
-import { Flex, Space, Typography } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Flex from 'antd/es/flex';
+import Space from 'antd/es/space';
+import Typography from 'antd/es/typography';
 
 /** PageHeader 入参。 */
 export interface PageHeaderProps {

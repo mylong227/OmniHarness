@@ -2,7 +2,9 @@
 // Card 的 headerBg/投影已由 antdTheme 的组件 token 钉成纸与墨口径，这里不再写样式。
 
 import * as React from 'react';
-import { Card, Typography } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Card from 'antd/es/card';
+import Typography from 'antd/es/typography';
 
 /** PanelSection 入参。 */
 export interface PanelSectionProps {

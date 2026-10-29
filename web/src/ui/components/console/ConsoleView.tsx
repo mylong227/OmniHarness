@@ -27,7 +27,10 @@
 // （不是 tablist——这里每次只挂载一个页面，用 tab 语义会要求 aria-controls 指向不存在的面板）。
 
 import * as React from 'react';
-import { Menu, type MenuProps } from 'antd';
+// Menu 走子路径（不走 'antd' 桶文件）：本组件是 lazy 块，barrel 导入会把 menu 族钉死在
+// 首屏 vendor（见 vite.config.ts「分块改造」注释）；MenuProps 是纯类型导入，不进产物。
+import Menu from 'antd/es/menu';
+import type { MenuProps } from 'antd';
 import { icon } from '../../models/Icon.ts';
 import { useApp } from '../../context.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -76,6 +79,12 @@ export interface ConsoleViewProps {
   connected: boolean;
   /** SSE 三态（决定「重连中 / 断开」文案）。 */
   streamState?: 'open' | 'connecting' | 'closed';
+  /**
+   * 打开控制台瞬间持有焦点的元素（App 在收起抽屉**之前**捕获）。
+   * 本组件是 lazy 块：挂载时触发器可能已被抽屉收起失焦，「关闭归还焦点」必须以打开瞬间为准。
+   * 命令面板路径不传——此时退回挂载时的 activeElement（与历史行为一致）。
+   */
+  consoleOpenerRef?: React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -168,6 +177,7 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
     workspacePath,
     connected,
     streamState,
+    consoleOpenerRef,
   } = props;
   const { sessionId, sessionTick } = useApp();
 
@@ -198,9 +208,13 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
   }, [open, onClose]);
 
   // 打开时把焦点放到当前导航项，关闭时还给触发按钮。
+  // opener 不能依赖挂载时的 activeElement：本组件是 lazy 块，挂载前浏览器可能已因「收起抽屉」
+  // 把触发器失焦（visibility:hidden），故用 App 在按下瞬间记下的 consoleOpenerRef（无 ref 则退回历史行为）。
   React.useEffect(() => {
     if (!open) return undefined;
-    const opener = document.activeElement as HTMLElement | null;
+    const fromRef = consoleOpenerRef?.current ?? null;
+    if (consoleOpenerRef !== undefined) consoleOpenerRef.current = null;
+    const opener = fromRef ?? (document.activeElement as HTMLElement | null);
     const raf = requestAnimationFrame(() => {
       // 窄屏左栏是抽屉（关闭时 visibility:hidden）：此时不要把焦点送进看不见的导航。
       const narrow =

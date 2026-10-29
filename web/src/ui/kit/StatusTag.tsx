@@ -3,7 +3,8 @@
 // 业务组件不得再自写 Tag color 字符串散点。
 
 import * as React from 'react';
-import { Tag } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Tag from 'antd/es/tag';
 
 /** 支持的状态语义（与 theme.css 的语义族一一对应；neutral = 无色灰标）。 */
 export type StatusKind = 'ok' | 'warn' | 'err' | 'info' | 'neutral';

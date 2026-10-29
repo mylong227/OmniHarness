@@ -68,14 +68,49 @@ export default defineConfig({
      */
     chunkSizeWarningLimit: 1200,
     /**
-     * vendor 分块（2026-10-28 W1，antd 迁移基建）。
+     * vendor 分块（2026-10-28 W1，antd 迁移基建；2026-10-29 W4 分块改造）。
      *
-     * 为什么：antd 基座（vendor-antd ≈ 290–330KB gzip）与 react 基座（≈69KB gzip）必须与应用码
-     * 分开记账——UI_LIBRARY_UPGRADE §0.5 的预算重写就是按「entry + vendor 总量」口径定的，
-     * 且 vendor chunk 跨版本 content-hash 稳定，发版只失效应用 chunk。
+     * 为什么：antd 基座与 react 基座必须与应用码分开记账——UI_LIBRARY_UPGRADE §0.5 的预算
+     * 重写就是按「entry + vendor 总量」口径定的，且 vendor chunk 跨版本 content-hash 稳定，
+     * 发版只失效应用 chunk。
      *
      * 为什么用**函数形态**：object 形态只匹配 'react' 精确 id，抓不到 react/cjs/* 重导出
      * （W0 实测产出 0KB 空 chunk）；按 node_modules 路径前缀分桶才可靠。
+     *
+     * ## 2026-10-29 分块改造（看板 §178 → §179）：antd 默认进 vendor，仅「面板级组件族」放行
+     *
+     * 旧规则把**任何** antd import 都塞进 vendor（首屏）：面板虽是异步块，其 antd 依赖
+     * （Table/Form/DatePicker…）仍全部落在首屏——审计面板接一个 Table 就让 vendor
+     * 232 → 310.7KB，闸只剩 ~19KB，再加两个重组件必红。
+     *
+     * 新规则 = **默认 vendor + 面板族 denylist → 统一异步块 `panel-antd`**（而不是「壳层白名单」）：
+     *   · 默认 vendor 保证共享内核（`_util` / `theme` / `style` / config-provider / locale /
+     *     cssinjs / icons / dayjs）永远在首屏基座里——它们被壳层组件可达，若按字面白名单漏掉
+     *     任何一个，该模块会落进 **entry**（比落 vendor 更糟）；
+     *   · denylist 里的「面板级组件族」返回 `panel-antd`：一个**可预测命名的异步共享块**。
+     *     为什么不返回 undefined（随导入方走）：面板族常被多个异步面板共享（menu 被 ConsoleView
+     *     与 Table 的 FilterDropdown 共用），Rollup 会把共享模块合成**匿名共享块**并按 facade
+     *     模块命名为 `index-*.js`——与 entry 的文件名前缀相撞，预算脚本与单入口判据全被污染
+     *     （2026-10-29 实测）。命名块同时保证：只被异步面板可达 ⇒ 不进 modulepreload（首屏不背），
+     *     且跨面板只下载一次。
+     *
+     * denylist 的**准入纪律**（违反会把面板库打进 entry 或多切一个首屏共享块）：一个族只有当
+     * 「没有任何 vendor 侧（壳层/静态文件）可达的模块导入它」时才能进 denylist。已核实的内部引用：
+     *   · `antd/es/app`（ThemeProvider 静态用）内部引 `message` / `notification`
+     *     ⇒ 这两族**必须留在 vendor**，不可 denylist；
+     *   · `@rc-component/tabs`（Tabs=vendor）的「更多」下拉引 rc-dropdown/rc-menu
+     *     ⇒ 这两个 rc 包**必须留在 vendor**；
+     *   · `antd/es/modal`（vendor）引 `drawer/useFocusable` 与 `skeleton`；Tag/Card 的 style 引
+     *     color-picker 的 ColorPresets（进而引 collapse）⇒ drawer/skeleton/collapse 留在 vendor；
+     *   · menu 内部引 layout/Sider 与 tooltip；tooltip 引 table 的 MeasureRowContext ⇒
+     *     menu/layout/tooltip 进 denylist，MeasureRowContext 由 carve-out 回收 vendor；
+     *   · **跨族小件一律 carve-out 回 vendor**（判定顺序在 denylist 之前）：全部 style/ 目录、
+     *     form 的 context、table 的 MeasureRowContext、各族 locale/ 目录——antd/locale/zh_CN
+     *     与 _util/config-provider 会静态引到它们；
+     *   · Tree（壳层）走 `@rc-component/tree` → `@rc-component/checkbox`/`virtual-list`
+     *     ⇒ 这两个 rc 包不可 denylist（antd/es/checkbox 可以，其 style/ 由 carve-out 回收）。
+     * denylist 漏了某个面板族 = 它静默落 vendor（vendor 闸会红，不破坏正确性）；denylist 错加
+     * 了壳层可达的族 = 它落 entry（vendorFreePipeline 的分块边界判据会红）。两边都有闸。
      *
      * markdown-it / katex / highlight.js 仍留在入口（与迁移前一致）；katex 走异步块不变。
      */
@@ -84,8 +119,47 @@ export default defineConfig({
         manualChunks(id: string) {
           if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
             return 'vendor-react';
-          if (/[\\/]node_modules[\\/](antd|@ant-design|rc-|dayjs)[\\/]/.test(id))
+          // 共享副产物先行回收进 vendor（顺序在 denylist 之前）——antd 跨族引用这些小模块，
+          // 它们被 vendor 侧可达，落 panel-antd 会把该块拖回首屏（详见上方纪律注释）：
+          // style/ 目录（CSS-in-JS，跨族互引）、form 的 context、tooltip 的 UniqueProvider
+          //（config-provider 引用）、table 的 MeasureRowContext、组件族与 rc 包的 locale/ 目录
+          //（antd/locale/zh_CN 静态引到它们，含 lib/ 路径）。
+          if (
+            /[\\/]node_modules[\\/](?:antd[\\/](?:es|lib)[\\/](?:.*[\\/]style[\\/]|form[\\/](?:context|validateMessagesContext)\.js|tooltip[\\/]UniqueProvider[\\/]|table[\\/]TableMeasureRowContext\.js|(?:pagination|calendar|date-picker|time-picker)[\\/]locale[\\/]|locale[\\/])|@rc-component[\\/](?:picker|pagination)[\\/](?:es|lib)[\\/]locale[\\/])/.test(
+              id,
+            )
+          )
             return 'vendor-antd';
+          // 面板级 antd 组件族：不进 vendor，统一进可预测命名的异步共享块 panel-antd。
+          if (
+            /[\\/]node_modules[\\/]antd[\\/]es[\\/](alert|auto-complete|calendar|cascader|checkbox|date-picker|descriptions|dropdown|form|grid|row|col|image|input|input-number|layout|list|mentions|menu|pagination|popconfirm|popover|progress|qr-code|qrcode|radio|rate|result|segmented|select|slider|spin|statistic|steps|switch|table|time-picker|timeline|tooltip|tour|transfer|tree-select|upload)[\\/]/.test(
+              id,
+            )
+          )
+            return 'panel-antd';
+          // 同族的 @rc-component 内部实现：跟上组件族一起走 panel-antd。
+          // 注意**不在列**的 rc 包及其原因：
+          //   · trigger/motion/util/context/portal/checkbox/virtual-list/overflow/dialog——
+          //     被 vendor 侧组件（Modal/Tabs/Tree）可达；
+          //   · dropdown/menu——`@rc-component/tabs` 的「更多」下拉引用；
+          //   · form + async-validator——`antd/es/form/context`（被 _util/config-provider 引用，
+          //     carve 回 vendor）内部整包引用 @rc-component/form，validateUtil 又引 async-validator。
+          // 漏一个都会让 panel-antd 被 vendor 静态可达 → 循环块（panel→vendor→panel）。
+          if (
+            /[\\/]node_modules[\\/]@rc-component[\\/](cascader|image|input|input-number|listy|mentions|mini-decimal|pagination|picker|progress|segmented|select|slider|steps|switch|table|tooltip|tour|tree-select|upload)[\\/]/.test(
+              id,
+            )
+          )
+            return 'panel-antd';
+          // 历史口径三库随 entry（迁移前形态，预算注释与判据按 entry 桶记它们的体积）。
+          if (/[\\/]node_modules[\\/](katex|markdown-it|highlight\.js)[\\/]/.test(id))
+            return undefined;
+          // 其余一切 npm 依赖**一律 vendor**（构造上完备）：antd 生态的第三方跟随包
+          // （scroll-into-view-if-needed / compute-scroll-into-view / throttle-debounce /
+          // babel helpers 等）若不显式归桶，会随导入方漂进 panel-antd，而它们同时被 vendor
+          // 侧引用——这正是 manualChunks 循环块（panel→vendor→panel）的成因（2026-10-29 实测）。
+          // 全部收进 vendor 后，panel-antd 的成员 = 面板 denylist 命中的模块，边界可被静态枚举。
+          if (/[\\/]node_modules[\\/]/.test(id)) return 'vendor-antd';
           return undefined;
         },
       },

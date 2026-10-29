@@ -8,7 +8,8 @@
 // 数据形状 `FsNode` 不变：`key` 用绝对路径（同时是打开文件的参数），`isLeaf` 由 `type` 决定。
 
 import * as React from 'react';
-import { Tree } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Tree from 'antd/es/tree';
 import type { TreeDataNode } from 'antd';
 import type { FsNode } from '../../types/models.ts';
 

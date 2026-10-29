@@ -14,7 +14,9 @@
 // 纯展示组件：决策通过回调上抛，自身不保存业务状态。
 
 import * as React from 'react';
-import { Button, Modal } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Button from 'antd/es/button';
+import Modal from 'antd/es/modal';
 import { jsonView } from '../format.ts';
 import { icon } from '../models/Icon.ts';
 import { toolVerb } from '../textUtils.ts';

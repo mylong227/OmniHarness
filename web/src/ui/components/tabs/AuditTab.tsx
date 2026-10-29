@@ -17,7 +17,9 @@
  */
 // 标准 React 项目写法：`import * as React from 'react'`（Vite 解析裸标识符）。
 import * as React from 'react';
-import { Table } from 'antd';
+// 子路径导入（不走 'antd' 桶文件）：桶文件在 vendor 块里静态 re-export 每个组件族，
+// 面板组件走 barrel 导入会把该族钉死在首屏 vendor（见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
 import type { ColumnsType } from 'antd/es/table';
 import { useApp } from '../../context.ts';
 import { timeOf } from '../../format.ts';

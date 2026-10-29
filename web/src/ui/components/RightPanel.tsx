@@ -15,7 +15,10 @@
 // 键盘关闭走 Delete/Backspace，←/→ 仍是「移动并切换」（与迁移前一致）。
 
 import * as React from 'react';
-import { Tabs, type TabsProps } from 'antd';
+// Tabs 走子路径（不走 barrel，理由见 vite.config.ts「分块改造」注释）；
+// TabsProps 是纯类型导入，esbuild 整句擦除。
+import Tabs from 'antd/es/tabs';
+import type { TabsProps } from 'antd';
 import { FileKindClassifier } from '../models/FileKindClassifier.ts';
 import { icon } from '../models/Icon.ts';
 import type { BrowserView, FileView } from '../shared.ts';

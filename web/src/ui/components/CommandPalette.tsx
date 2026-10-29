@@ -16,7 +16,8 @@
 // - 补上 combobox / listbox / aria-activedescendant 与选中项自动滚入视野。
 
 import * as React from 'react';
-import { Modal } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Modal from 'antd/es/modal';
 // 领域模型下沉到 models/（零 React 依赖，可单测）；此处 re-export 保持调用方 import 路径不变。
 import { CommandPaletteModel } from '../models/CommandPaletteModel.ts';
 import type { CommandItem } from '../models/CommandPaletteModel.ts';

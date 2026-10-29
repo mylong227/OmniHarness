@@ -11,7 +11,8 @@
 //   ② Esc 用 `keyboard={false}`：两个选择器各自已有 window 级 Esc 处理，交给 Modal 会关两次。
 
 import * as React from 'react';
-import { Modal } from 'antd';
+// 子路径导入（不走 barrel，理由见 vite.config.ts「分块改造」注释）。
+import Modal from 'antd/es/modal';
 import { icon } from '../models/Icon.ts';
 import { t } from '../i18n/i18n.ts';
 

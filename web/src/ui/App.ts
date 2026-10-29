@@ -20,7 +20,6 @@ import { SessionPanel } from './components/SessionPanel.tsx';
 import { StreamView } from './components/StreamView.tsx';
 import { RightPanel } from './components/RightPanel.tsx';
 import { BrowserPane } from './components/BrowserPane.tsx';
-import { ConsoleView } from './components/console/ConsoleView.tsx';
 import { isSettingKey } from './models/ConsoleRegistry.ts';
 import { ApprovalModal } from './components/ApprovalModal.tsx';
 import { CommandPalette } from './components/CommandPalette.tsx';
@@ -33,21 +32,24 @@ import { Resizer } from './components/Resizer.tsx';
 // theme 直接取根状态 state.theme（LayoutController 已按 themePref 解析成 dark/light）。
 import { ThemeProvider } from './theme/ThemeProvider.tsx';
 
+// 首屏真需要的两个面板保持静态：ToolsTab 是默认 activePane 的首帧内容；
+// FileTab 是右栏文件视（永远挂载为 RightPanel 的 children）。其余全部走异步块。
 import { ToolsTab } from './components/tabs/ToolsTab.tsx';
-import { MetricsTab } from './components/tabs/MetricsTab.tsx';
-import { ChangesTab } from './components/tabs/ChangesTab.tsx';
-import { PluginsTab } from './components/tabs/PluginsTab.tsx';
 import { FileTab } from './components/tabs/FileTab.tsx';
-import { DetailTab } from './components/tabs/DetailTab.tsx';
-import { TraceTab } from './components/tabs/TraceTab.tsx';
-import { PermissionTab } from './components/tabs/PermissionTab.tsx';
 
-// 「少见面板」按需加载 + **空闲期预取**（2026-10-18 重做）：
+// 功能面板 + 控制台「按需加载 + **空闲期预取**」（2026-10-18 起；2026-10-29 扩到全部面板）：
 // 第一版只做 `React.lazy`，实测首次点开会出现 200–300 ms 的「加载中…」——那比省下的
-// 8.7 KB gzip 更伤体验，于是回退。现在的做法是两件事一起做：
-//   ① lazy：入口不再包含这 8 个面板（首屏解析更小）；
+// 8.7 KB gzip 更伤体验，于是回退为「lazy + 空闲预取」两件事一起做：
+//   ① lazy：入口不包含这些面板（首屏解析更小）；
 //   ② 挂载后空闲期**异步预取**全部 chunk（不阻塞首屏）——用户真正点开时 chunk 已在缓存里，
 //      打开零等待。预取失败也无妨：Suspense fallback 仍在，只是回到"首开等一下"。
+// 2026-10-29（分块改造，看板 §179）把 Metrics/Changes/Plugins/Permission/Trace/Detail 与
+// **ConsoleView 一并转 lazy**，这不只是为了入口瘦身：W4 面板迁移要给它们上 antd
+// Table/Form/Descriptions——**静态面板会把面板级 antd 拖回首屏 entry**（vite.config 的
+// 面板族 denylist 只对异步导入方生效）。控制台默认关闭（settingsOpen=false），与面板同级。
+const ConsoleView = React.lazy(() =>
+  import('./components/console/ConsoleView.tsx').then((m) => ({ default: m.ConsoleView })),
+);
 const GraphTab = React.lazy(() =>
   import('./components/tabs/GraphTab.tsx').then((m) => ({ default: m.GraphTab })),
 );
@@ -81,10 +83,29 @@ const AuditTab = React.lazy(() =>
 const VaultTab = React.lazy(() =>
   import('./components/tabs/VaultTab.tsx').then((m) => ({ default: m.VaultTab })),
 );
+const MetricsTab = React.lazy(() =>
+  import('./components/tabs/MetricsTab.tsx').then((m) => ({ default: m.MetricsTab })),
+);
+const ChangesTab = React.lazy(() =>
+  import('./components/tabs/ChangesTab.tsx').then((m) => ({ default: m.ChangesTab })),
+);
+const PluginsTab = React.lazy(() =>
+  import('./components/tabs/PluginsTab.tsx').then((m) => ({ default: m.PluginsTab })),
+);
+const PermissionTab = React.lazy(() =>
+  import('./components/tabs/PermissionTab.tsx').then((m) => ({ default: m.PermissionTab })),
+);
+const TraceTab = React.lazy(() =>
+  import('./components/tabs/TraceTab.tsx').then((m) => ({ default: m.TraceTab })),
+);
+const DetailTab = React.lazy(() =>
+  import('./components/tabs/DetailTab.tsx').then((m) => ({ default: m.DetailTab })),
+);
 
-/** 空闲期预取上面 11 个按需面板（与 lazy 的 import 一一对应）。 */
+/** 空闲期预取上面 18 个按需块（面板 + 控制台，与 lazy 的 import 一一对应）。 */
 function prefetchLazyPanes(): void {
   const loaders: (() => Promise<unknown>)[] = [
+    () => import('./components/console/ConsoleView.tsx'),
     () => import('./components/tabs/ActivityTab.tsx'),
     () => import('./components/tabs/SkillsTab.tsx'),
     () => import('./components/tabs/AutomationsTab.tsx'),
@@ -96,6 +117,12 @@ function prefetchLazyPanes(): void {
     () => import('./components/tabs/DiagnosticsTab.tsx'),
     () => import('./components/tabs/AuditTab.tsx'),
     () => import('./components/tabs/VaultTab.tsx'),
+    () => import('./components/tabs/MetricsTab.tsx'),
+    () => import('./components/tabs/ChangesTab.tsx'),
+    () => import('./components/tabs/PluginsTab.tsx'),
+    () => import('./components/tabs/PermissionTab.tsx'),
+    () => import('./components/tabs/TraceTab.tsx'),
+    () => import('./components/tabs/DetailTab.tsx'),
   ];
   for (const load of loaders) {
     // 失败静默：真正打开时 Suspense 会再试一次，且 fallback 可读。
@@ -288,19 +315,28 @@ function sessionActiveMsOf(s: AppState): number | undefined {
  * @param recentLocalUrls 会话里出现过的回环地址（网页标签空态的一键入口）
  * @returns 顶层 DOM 树
  */
-function renderBody(
+/**
+ * 装配工作台控制台（设置 + 全部面板共用的全窗口页）。
+ *
+ * 设置按钮与「全部面板」按钮共用同一个控制台，只是落点不同；面板走既有的 Suspense 边界。
+ * @param ctrl 容器控制器
+ * @param s 根状态
+ * @param pane 当前激活面板节点（App 按 activePane 渲染好的）
+ * @param workspacePath 工作区路径（左栏页脚）
+ * @param consoleOpenerRef 打开瞬间焦点来源（见 onOpenSettings）
+ * @returns 控制台节点
+ */
+function consoleViewElement(
   ctrl: AppController,
   s: AppState,
   pane: ReactElement,
-  recentLocalUrls: readonly string[],
   workspacePath: string,
-  onWorkspaceResolved: (path: string) => void,
+  consoleOpenerRef: React.RefObject<HTMLElement | null>,
 ): ReactElement {
-  const consoleOpen = s.settingsOpen || s.panelModalOpen;
-  const consoleView = React.createElement(ConsoleView, {
-    // 设置按钮与「全部面板」按钮共用同一个控制台，只是落点不同。
+  return React.createElement(ConsoleView, {
     open: s.settingsOpen || s.panelModalOpen,
     active: s.settingsOpen ? s.settingsTab : s.activePane,
+    consoleOpenerRef,
     onPick: (key: string) => {
       if (isSettingKey(key)) {
         ctrl.layout.closePanels();
@@ -343,6 +379,19 @@ function renderBody(
     connected: s.connected,
     streamState: s.streamState,
   });
+}
+
+function renderBody(
+  ctrl: AppController,
+  s: AppState,
+  pane: ReactElement,
+  recentLocalUrls: readonly string[],
+  workspacePath: string,
+  onWorkspaceResolved: (path: string) => void,
+  consoleOpenerRef: React.RefObject<HTMLElement | null>,
+): ReactElement {
+  const consoleOpen = s.settingsOpen || s.panelModalOpen;
+  const consoleView = consoleViewElement(ctrl, s, pane, workspacePath, consoleOpenerRef);
 
   return React.createElement(
     'div',
@@ -374,6 +423,9 @@ function renderBody(
         onOpenPane: (key: string) => ctrl.setActivePane(key),
         // 设置固定在左栏页脚（2026-10-17）：它打开工作台控制台，不再从面板列表进入。
         onOpenSettings: () => {
+          // 先记下打开瞬间的焦点（触发按钮），再收抽屉——抽屉一收，visibility:hidden
+          // 会立即使触发器失焦，lazy 的 ConsoleView 挂载时已无法从 activeElement 恢复它。
+          consoleOpenerRef.current = document.activeElement as HTMLElement | null;
           ctrl.layout.closePanels();
           ctrl.settings.open();
         },
@@ -388,7 +440,23 @@ function renderBody(
         onChange: (w: number) => ctrl.layout.onLeftWidthChange(w),
       }),
       consoleOpen
-        ? React.createElement('div', { className: 'col center console-host' }, consoleView)
+        ? React.createElement(
+            'div',
+            { className: 'col center console-host' },
+            // ConsoleView 是 lazy 块，打开控制台的首帧先落到与面板一致的「加载中…」；
+            // 空闲预取通常让这一帧根本不出现。
+            React.createElement(
+              React.Suspense,
+              {
+                fallback: React.createElement(
+                  'div',
+                  { className: 'pane-loading empty note' },
+                  t('加载中…'),
+                ),
+              },
+              consoleView,
+            ),
+          )
         : React.createElement(
             React.Fragment,
             null,
@@ -510,6 +578,9 @@ export function App(): ReactElement {
   stateRef.current = state;
   // 当前项目路径只服务中栏面包屑，放在视图层局部状态：不必进 AppController 的上帝类。
   const [workspacePath, setWorkspacePath] = React.useState('');
+  // 控制台打开瞬间的焦点来源：ConsoleView 是 lazy 块，挂载时浏览器可能已因「收起抽屉」
+  // 把「打开设置」触发器失焦（visibility:hidden 不可聚焦）——归还焦点以打开瞬间为准。
+  const consoleOpenerRef = React.useRef<HTMLElement | null>(null);
 
   // 组合根：控制器只构造一次；host 桥接到稳定 setState + 最新状态 ref。
   const controllerRef = React.useRef<AppController | null>(null);
@@ -575,7 +646,7 @@ export function App(): ReactElement {
         React.Fragment,
         null,
         React.createElement(TooltipLayer, null),
-        renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath),
+        renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath, consoleOpenerRef),
       ),
     }),
   );

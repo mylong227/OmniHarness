@@ -6700,3 +6700,40 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   表单类面板要 Form 才值得动——但那必须先完成上面的分块改造，否则预算先崩。
 - **验证**：`auditTraceTabs` 8/8、`cssSourceHygiene` 通过；`web:budget` 全绿（330 新闸）；
   tsc 零错。
+
+## 179. 2026-10-29 W4 分块改造：面板级 antd 走异步块 `panel-antd`（§178 约束解除）
+
+- **预算结果（三个桶全降）**：首屏（entry+vendor）**524.3 → 451.7 KB gzip**（-72.6）；entry
+  213.6 → **187.9**；vendor 310.7 → **263.7**；新增异步共享块 `panel-antd` = **54.7**（Table/Menu
+  族组件本体）。预算闸随之收紧：firstLoad 630→**500**、entry 300→**240**、vendor 330→**290**、
+  async 170→**260**（懒负载变大是本次改造的目的，闸只防懒加载变垃圾场；各有实测依据）。
+- **三条硬规则（全部实测踩出来的，破一条就红）**：
+  1. **面板组件一律子路径导入**（`import Table from 'antd/es/table'`，禁止 barrel `from 'antd'`）。
+     barrel 的 re-export 边在模块图里恒存在（tree-shaking 只裁代码不裁图边），只要图里有任何一个
+     barrel 值导入，全部 78 个组件族就被静态钉进 vendor——AuditTab 只改自己不解决，最终把壳层 11 个
+     文件的值导入全部转成子路径、barrel 彻底离场才生效。纯类型导入（`import type`）可以留 barrel。
+  2. **manualChunks 用「默认 vendor + 面板族 denylist → 统一命名块 `panel-antd`」**，不是 §178 设想
+     的「壳层白名单 + undefined 随导入方走」：① 白名单漏掉任何共享内核（_util/theme/style）会把它
+     漏进 **entry**（更糟）；② denylist 返回 undefined 时，被多个异步面板共享的族（menu 被
+     ConsoleView 与 Table 的 FilterDropdown 共用）会被 Rollup 合成**匿名共享块**并按 facade 命名为
+     `index-*.js`，撞坏「index- 前缀 = entry」的记账与单入口判据。
+  3. **denylist 准入纪律**（vendor 可达的族/文件必须留 vendor 或 carve 回来，违反 ⇒ vendor 静态引用
+     panel-antd ⇒ **循环块** panel→vendor→panel，Rollup 打裸 `import "./panel-antd-*.js"` 且
+     index.html modulepreload 它 = 面板库回首屏）。已核实并 carve 的跨族引用：全部 style/ 目录、
+     form 的 context+validateMessagesContext（_util/config-provider 引，进而整包引 rc-form 与
+     async-validator ⇒ 这两个 rc 包必须留 vendor）、tooltip 的 UniqueProvider（config-provider 引）、
+     table 的 MeasureRowContext（tooltip 引）、各族 locale/ 目录（antd/locale/zh_CN 引）；drawer/
+     skeleton/collapse 整族留 vendor（Modal/Tag style 引）；rc-dropdown/rc-menu 留 vendor
+     （rc-tabs 的「更多」下拉引）。**探针判据已把这条边界钉死**（见下）。
+- **判据**：`vendorFreePipeline` 新增 4 条分块边界——三块（vendor-react/vendor-antd/panel-antd）各恰
+  1 个、index.html 不得 modulepreload panel-antd、vendor/entry 不得静态导入 panel-antd、面板族指纹
+  （Table 的 `useFilter`/`MeasureRow`，keepNames 保留）不得出现在首屏块、必须在 panel-antd。
+- **行为修复（lazy 化牵出）**：ConsoleView 转 lazy 后，`modalFocusTrap` 的「Esc 归还触发器」红了——
+  `onOpenSettings` 先收抽屉再开控制台，抽屉一收 `visibility:hidden` 立即让触发器失焦；同步挂载时代
+  ConsoleView 的 mount effect 在浏览器重算样式前跑、opener 仍是触发器，lazy 化后挂载晚 ~500ms，
+  opener 已成 body。修复：App 在按下瞬间把 `document.activeElement` 记进 `consoleOpenerRef`
+  （closePanels **之前**）传给 ConsoleView，关闭时按它归还；命令面板路径无 ref，退回历史行为。
+- **lazy 化范围**：原 8 个静态面板中的 7 个（Metrics/Changes/Plugins/Permission/Trace/Detail）与
+  **ConsoleView 本体**转为 React.lazy + 空闲预取（预取清单 11→18），加入既有 11 个按需面板；
+  入口只留首屏真需要的 ToolsTab（默认 pane）与 FileTab（右栏常挂）。
+- **验证**：`web:test` 128 文件 / **658 例全绿**；`gate:typed` 0 错；`web:budget` 新闸全绿。

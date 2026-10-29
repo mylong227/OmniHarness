@@ -16,7 +16,10 @@
 // defaultAlgorithm + 中性面/语义 hover 全量显式（见 antdTheme.ts 文件头）。
 
 import * as React from 'react';
-import { App as AntApp, ConfigProvider } from 'antd';
+// 子路径导入（不走 'antd' 桶文件）：barrel 的 re-export 边会把全部组件族静态钉进
+// vendor 块（tree-shaking 只裁代码不裁图边），见 vite.config.ts「分块改造」注释。
+import AntApp from 'antd/es/app';
+import ConfigProvider from 'antd/es/config-provider';
 import zhCN from 'antd/locale/zh_CN';
 import { antdThemeOf } from './antdTheme.ts';
 import type { ThemeName } from './palette.ts';

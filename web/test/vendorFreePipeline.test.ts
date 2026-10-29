@@ -85,6 +85,42 @@ test('产物里三条渲染管线齐全、KaTeX 样式与字体就位、web/vend
     bundleBytes < 900_000,
     `入口 chunk 体积 ${String(Math.round(bundleBytes / 1024))}KB 超出预算（约 780KB + 余量）`,
   );
+
+  // ---- 分块边界（2026-10-29 W4 分块改造，看板 §179）----
+  //
+  // vite.config 的 manualChunks 把面板级 antd 组件族（Table/Menu/Form/…）收进异步共享块
+  // panel-antd。这里钉四条边界，防两类回归：
+  //   ① 面板库回流首屏：manualChunks 名单漏了族、或有人在静态（壳层）文件里 import 面板族
+  //      ——panel-antd 会被 vendor 静态可达，出现在 index.html 的 modulepreload 里；
+  //   ② 循环块：vendor 与 panel 互相静态引用（Rollup 会打印 Circular chunk 并发裸
+  //      `import "./panel-antd-*.js"`）——构建不失败，但 panel-antd 仍在首屏关键路径上。
+  // 指纹用 keepNames 保留的 Table 内部名（useFilter / MeasureRow）：它们只存在于面板族模块。
+  const vendorReact = jsChunks.filter((c) => /^vendor-react-/.test(c.name));
+  const vendorAntd = jsChunks.filter((c) => /^vendor-antd-/.test(c.name));
+  const panelAntd = jsChunks.filter((c) => /^panel-antd-/.test(c.name));
+  assert.strictEqual(vendorReact.length, 1, 'vendor-react 基座应恰 1 个');
+  assert.strictEqual(vendorAntd.length, 1, 'vendor-antd 基座应恰 1 个');
+  assert.strictEqual(panelAntd.length, 1, 'panel-antd（面板级 antd 异步共享块）应恰 1 个');
+  assert.doesNotMatch(
+    html,
+    /panel-antd-/,
+    'index.html 预加载了 panel-antd：面板库被静态可达（分块边界被打破），首屏背回面板库',
+  );
+  for (const host of [entryText, vendorAntd[0]?.text ?? '']) {
+    assert.doesNotMatch(
+      host,
+      /import[^;\n]{0,80}"\.\/panel-antd-/,
+      'vendor/entry 静态导入 panel-antd：循环块 + 面板库进首屏（看 vite.config.ts 的 denylist 准入纪律）',
+    );
+    assert.doesNotMatch(
+      host,
+      /useFilter|MeasureRow/,
+      '面板族指纹（Table 的 useFilter/MeasureRow）落入首屏块：面板级组件被静态引用了',
+    );
+  }
+  assert.match(panelAntd[0]?.text ?? '', /useFilter/, 'panel-antd 缺 Table 指纹：面板族被搬回 vendor？');
+  assert.match(panelAntd[0]?.text ?? '', /MeasureRow/, 'panel-antd 缺 Table 指纹：面板族被搬回 vendor？');
+
   // vendor 必须已彻底消失，且宿主页不再引用它。
   //
   // 口径说明：不断言"磁盘上不存在 `web/vendor/`"——本机会有外部工具把已删除的
