@@ -44,8 +44,6 @@
 .ev.clickable:hover { box-shadow:none; }
 .ev.clickable:hover .card, .ev.clickable:hover .tool { border-color:transparent; }
 .ev.clickable:hover details.reasoning { border-color:transparent; }
-.detail-head { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-.detail-sum { color:var(--text); font-size:14px; margin-bottom:12px; line-height:1.5; word-break:break-word; }
 .detail-section { margin-top:10px; }
 .detail-h { margin-bottom:6px; text-transform:uppercase; }
 /* 钻取面板：会话消息的「文档视图」（详情以文件的形式排版布局，2026-10-13 用户反馈）。
@@ -198,9 +196,6 @@ pre.json { border:1px solid var(--border-soft); padding:8px 10px; margin-top:7px
 .tc-chevron { width:10px; flex:none; }
 .tc-icon { flex:none; }
 .tc-summary { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-/* WorkBuddy 范式：叙述行动作用正文色 + 正文字体（覆盖 mono/dim），读起来是人话不是日志。 */
-.tc-summary.tc-action { color:var(--text); }
-.process-cluster-body .tc-summary.tc-action { color:var(--text); }
 .tc-line .tool-status { flex:none; }
 .tc-line .time { flex:none; margin-left:2px; }
 .tc-detail { margin-top:6px; display:flex; flex-direction:column; gap:6px; }

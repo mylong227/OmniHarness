@@ -6821,3 +6821,29 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   镜像一致性（改默认端口必须两处同改，判据红着提醒）；③关键消费者必须 import devConfig。
 - **验证**：resolveDevAddress 实跑（env 覆盖/默认值）OK；`npm run web:build`/`npm run build` OK；
   `gate:typed` 0 错；`web:test` 全量绿；node 全量绿；check.mjs --strict 零违规。
+
+## 183. 2026-10-30 W5 收口：旧样式死规则清理 + DESIGN_SYSTEM v2（UI_LIBRARY_UPGRADE 全程收官）
+
+- **旧样式清理（保守口径，宁漏删不误删）**：`scripts/cssDeadRuleScan.mjs`（维护工具，常驻）——
+  类名 token 对 `web/src`+`web/test`+index.html 全库判活；豁免族：`ant-`/`hljs`/`katex`/`md-`
+  （库运行时生成）、`is-*`（JS 切换状态类，TodoDock `is-${status}` 实证）、token 前两段动态拼接
+  （`'act-kind-' + type`）；**多选择器规则按逗号拆分逐个判活**（`.brand .logo, .brand .brand-mark`
+  混合规则不误删活的一半）；选择器带属性选择器/无类名/@keyframes 一律保留。
+  **两个解析器教训（工具自身踩的）**：①注释里可能含花括号（「`.composer textarea:focus{outline:none}`
+  等仍原样保留」），朴素括号计数把边界切进注释 ⇒ esbuild 报 `Unexpected "`、产物注释残骸——
+  必须注释感知配对；②多选择器混排先按逗号拆再 every。
+- **战果**：56 条死规则 / 约 230 行（sp-* 旧设置面板全家、vault-list/mem-_/act-item/auto-actions
+  等本轮面板 Table 化的直接遗骸、btn-install/pc-installed、tc-action 复合、cap-_ 旧容量面板）；
+  复扫 0 死；esbuild 0 警告。CSS 闸 31.3 → **30.8 / 40 KB gzip**（删除以注释/短规则为主，gzip
+  收益有限——诚实记录：旧样式表的大头仍是**活规则**，壳层/流/输入区的几何与行为 CSS 依约保留，
+  "9.7k 行全删"的原始估算已被证伪：W2–W4 换的是组件而非布局层）。
+- **判据地板全部原样通过**：`#sessions.touch-drag` 精确文本、`.session-time` flex 契约、
+  composer 焦点规则、chat.css 锚点、theme.css token 逐值镜像——659/659 全绿。
+- **DESIGN_SYSTEM.md v2**：文档头新增「v2（antd 时代）」节——装配单一收口（ThemeProvider +
+  autoInsertSpace=false）、色彩事实源链（palette.ts → antdTheme → theme.css 逐值镜像）、15/15
+  面板形态表（13 antd + 2 有据保留）、分块三规则与体积五闸、样式表职责 v2（含 cssDeadRuleScan
+  维护口）、v2 验收口径；v1 全文降为「历史基础」（token 与无障碍纪律仍有效）。
+- **验证**：`web:test` 659/659；`gate:typed` 0 错；check.mjs --strict 零违规；预算五闸全绿。
+- **UI_LIBRARY_UPGRADE 全程收官**（W0 基线 → W1 基建 → W2 壳层 → W3 会话流 → W4 面板 15/15 →
+  W5 收口）。遗留为**低优先维护项**：旧 `.csl-*` 原生控件 CSS 死段可在下轮死规则扫描时一并出清
+  （本轮 0 死复扫后已无存量）；选择器内部 Tree 化、8 界面 × 双主题人工截图复核按需另立项。

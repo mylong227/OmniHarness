@@ -137,8 +137,6 @@
 .cap-row-bar { flex:1; height:6px; overflow:hidden; }
 .cap-row-fill { display:block; height:100%; }
 .cap-row-pct { width:48px; text-align:right; font-size:12px; color:var(--text); flex-shrink:0; }
-.cap-foot { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:11px; color:var(--dim); }
-.cap-dim { color:var(--dim); font-size:10px; }
 .cap-empty { font-size:12px; color:var(--dim); padding:4px 0; }
 /* 档位提示行（2026-10-17）：档位改为按模型**自动识别**后，这里不再是三个可点按钮，
    而是"识别成了哪一档 + 依据"的只读说明；要调额度去调基础日预算（上面那行 budgetHint）。
@@ -147,13 +145,9 @@
   border-top:1px solid var(--hairline); }
 .cap-plan-name { color:var(--text); font-size:12px; font-weight:600; }
 .cap-plan-why { color:var(--faint); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
-
-.cap-foot--stack { flex-direction:column; align-items:flex-start; gap:2px; }
 .cap-error { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:8px 12px; border:1px solid var(--border-soft); border-radius:var(--r-sm);
   background:var(--panel-2); font-size:12.5px; color:var(--text); }
-.cap-page-empty { display:flex; flex-direction:column; align-items:flex-start; gap:12px; }
-@media (max-width:1100px) { .cap-page { grid-template-columns:1fr; } }
 
 /* 左栏底部容量小图表（2026-10-28 用户指定位置：「小的柱状图显示，进度，点击向上展开」）。
    收起态只占一行；柱阵是"音频柱"形状，高度取分类占比，带极轻的呼吸动效。 */
