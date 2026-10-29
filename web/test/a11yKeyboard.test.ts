@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { fireEvent, renderFacade, renderFacadeAsync } from './rtlHarness.ts';
+import { act, cleanup, fireEvent, renderFacade, renderFacadeAsync, screen } from './rtlHarness.ts';
 import { allText, byTag, clsOf, facadeOf, walk } from './domFacade.ts';
 import type { Facade, FacadeNode } from './domFacade.ts';
 
@@ -246,7 +246,7 @@ test('侧栏壳组件：纯图标按钮都有 aria-label（不能只靠 title/em
 
 // ---- 模态：dialog 语义成套 ----
 
-test('DialogHost / ApprovalModal 的既有 dialog 语义未被改坏（回归护栏）', () => {
+test('DialogHost / ApprovalModal 的既有 dialog 语义未被改坏（回归护栏）', async () => {
   const base = {
     kind: 'confirm',
     title: '丢弃改动',
@@ -264,15 +264,21 @@ test('DialogHost / ApprovalModal 的既有 dialog 语义未被改坏（回归护
   assert.strictEqual(byId(dlg, d[0]!.props['aria-labelledby']).length, 1);
   assert.strictEqual(byId(dlg, d[0]!.props['aria-describedby']).length, 1);
 
-  const ap = renderFacade(ApprovalModal, {
+  // W2：外壳是 antd Modal（门户到 document.body，vnode 走树看不到 portal）——改在真实 DOM 上断言。
+  // 先清掉上面 DialogHost 的渲染，否则 body 里有两个 role=dialog。
+  cleanup();
+  renderFacade(ApprovalModal, {
     props: {
       approval: { requestId: 'r1', toolName: 'shell', target: 'ls', args: {} },
       onRespond: () => {},
     },
-  }).node;
-  const a = collect(ap, (n) => n.props.role === 'dialog');
-  assert.strictEqual(a.length, 1);
-  assert.strictEqual(a[0]!.props['aria-modal'], 'true');
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const dialogEl = screen.getByRole('dialog');
+  assert.strictEqual(dialogEl.getAttribute('aria-modal'), 'true');
+  cleanup();
 });
 
 // ---- 流式播报：polite + 粗粒度 ----

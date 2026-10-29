@@ -29,6 +29,10 @@ import { DialogHost } from './components/DialogHost.tsx';
 import { TooltipLayer } from './components/TooltipLayer.tsx';
 import { Resizer } from './components/Resizer.tsx';
 
+// antd 运行时装配（W1 起）：全站唯一 ConfigProvider/AntApp 收口在 ThemeProvider。
+// theme 直接取根状态 state.theme（LayoutController 已按 themePref 解析成 dark/light）。
+import { ThemeProvider } from './theme/ThemeProvider.tsx';
+
 import { ToolsTab } from './components/tabs/ToolsTab.tsx';
 import { MetricsTab } from './components/tabs/MetricsTab.tsx';
 import { ChangesTab } from './components/tabs/ChangesTab.tsx';
@@ -562,11 +566,18 @@ export function App(): ReactElement {
   return React.createElement(
     AppContext.Provider,
     { value: controller.getContextValue() },
-    // 全站悬浮提示层（接管原生 title 气泡：收窄 + 圆角 + 扁平）。
-    // 与 `.app` 平级而不是塞进 renderBody：它是 position:fixed 的覆盖层、不参与三栏布局，
-    // 同时也避免为了挂一行节点去动 renderBody（那里的函数体已有冻结基线）。
-    React.createElement(TooltipLayer, null),
-    renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath),
+    // W1：整棵视图树包进 ThemeProvider（antd 主题/locale/message 上下文）。
+    // 2026-10-29 合并：全站悬浮提示层也在主题内——它是 position:fixed 的覆盖层，
+    // 与 `.app` 平级、不参与三栏布局（不塞进 renderBody，那里函数体有冻结基线）。
+    React.createElement(ThemeProvider, {
+      theme: state.theme,
+      children: React.createElement(
+        React.Fragment,
+        null,
+        React.createElement(TooltipLayer, null),
+        renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath),
+      ),
+    }),
   );
 }
 

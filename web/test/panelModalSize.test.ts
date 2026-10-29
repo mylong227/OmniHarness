@@ -86,6 +86,30 @@ test(
       );
       assert.ok(count >= 10, `左导航项过少（${String(count)}），判据覆盖不足`);
 
+      // ── 文案可见性：条目的文字必须真的画出来（不能只剩图标）────────────────
+      // 换 antd Menu 时踩过：`.ant-menu` 根 `line-height: 0` 被 `font: inherit` 继承，
+      // 文字行盒高度归零后又被 `overflow: hidden` 裁掉——jsdom 无布局，只有真机能钉住。
+      //
+      // 口径必须是**可见交集**而不是 label 自身矩形：label 仍是 16px 高的 inline 盒，
+      // 裁它的是上面高度 0 的 `.ant-menu-title-content`（实测正对照：只量 label 会假绿）。
+      const labels = (await cdp.evaluate(`(function(){
+        return [].slice.call(document.querySelectorAll('.panel-modal .sp-nav-item')).map(function(li){
+          var label = li.querySelector('.csl-nav-label');
+          if (label === null) return { key: li.getAttribute('data-pane'), w: 0, visH: 0 };
+          var lr = label.getBoundingClientRect();
+          var clip = label.closest('.ant-menu-title-content') || label.parentElement;
+          var cr = clip.getBoundingClientRect();
+          var visH = Math.min(lr.bottom, cr.bottom) - Math.max(lr.top, cr.top);
+          return { key: li.getAttribute('data-pane'), w: lr.width, visH: visH };
+        });
+      })()`)) as { key: string | null; w: number; visH: number }[];
+      const clipped = labels.filter((item) => item.visH < 12 || item.w <= 0);
+      assert.deepStrictEqual(
+        clipped,
+        [],
+        `导航文案被裁掉（可见高度/宽度归零）：${clipped.map((item) => item.key ?? '?').join(', ')}`,
+      );
+
       // ── A. 逐个面板切换：几何恒定 ─────────────────────────────────────────
       for (let i = 0; i < count; i += 1) {
         const clicked = await cdp.evaluate(

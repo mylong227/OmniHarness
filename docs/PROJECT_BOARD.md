@@ -6335,3 +6335,127 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
 - **最终验证**：`web:test` 125 文件 / 641 例全绿；`test:fast` 与服务端全量见 `.tmp/node-test-final.log`；
   `runGates --tier=typed` 2/2；`check.mjs --strict` 零违规（长函数为冻结存量，不计违规）。
 - **边界**：本会话**没有**把 S2 标成完成；其余 12 项均已闭环并有判据。
+
+## 163. 2026-10-28 UI 升级 W0：antd@6.6.8 准入 + PoC **Go**（`feat/antd-ui` worktree）
+
+- **并行会话协调**：主工作区由 §118 会话占用（本轮实测它在我验证期间提交了 §118 并继续写 web 文件，
+  还触发过 top-level-fn 门禁的竞态假红）；本批全部在独立 worktree `D:\deepseek\omniharness-antd`
+  （分支 `feat/antd-ui`）进行，**合并前 main 不动**，每周从 main rebase。
+- **准入**：`antd@6.6.8` 精确锁版进 dependencies；`dependency-allowlist.json` 登记（MIT；
+  override 52000KB / 60 依赖；exitPlan 指向 Mantine 9 / Radix Themes 3，替换面 = ui/theme + ui/kit）；
+  [ADR-0018](adr/0018-antd-ui-redesign.md) 提议 → **已接受**。
+- **PoC（隔离入口）**：`web/poc/antd.html` + `web/src/poc/antdPoc.tsx`，独立构建 `vite.poc.config.ts`
+  → `web/dist-poc/`（主产物零影响）。实测 vendor-antd 子集 **893.7KB / 289.9KB gzip**
+  （超规划预估 120–200KB）；**预算重写**：entry + vendor ≤ 630KB gzip、async ≤ 170KB、CSS ≤ 40KB
+  （antd 为 CSS-in-JS 运行时注入，不进静态 CSS）。`manualChunks` 必须函数形态（object 形态
+  抓不到 react/cjs 重导出，产出 0KB 空 chunk）。
+- **主题落地（`web/src/ui/theme/`）**：`palette.ts`（唯一颜色事实源）/ `antdTheme.ts` / `ThemeProvider.tsx`。
+  实测 **darkAlgorithm 强制压暗语义 seed**（#a8b4e8 → #929cc8），四条补救路全堵（显式 token 无效 /
+  嵌套 Provider 继承算法 / 反解 seed 漂移 / 布尔 cssVar 已废）⇒ **两主题同走 defaultAlgorithm +
+  中性面全量显式覆盖**；dark 语义 hover/active 用显式 map token 提亮。`cssVar` 需显式开启
+  （`{prefix:'ant'}`，布尔形态已被 v6 移除），381 个 `--ant-*` 变量挂在 `.ant-app` 作用域（非 `:root`）。
+- **真机验证（`web/test/antdPocProbe.ts`）**：双主题主按钮底色 === palette accent
+  （#a8b4e8 / #3d4a86，colorSystem ③ 契约保持）；`--ant-color-primary` 变量读取一致；
+  对比度 14 组关键配对两主题全达标（dark 正文 15.16:1、主按钮字 8.92:1、边线 3.41:1）。
+  样张 `web/archive/antd-poc-{dark,light}-*.png`。
+- **基线截图**：visualProbe 补 `--no-seed`（空态档）+ 单态/单面板 try-catch（实测 dropdown 态
+  `.dd` 缺位时 click 抛错会中止整轮）；8 关键界面 × 双主题 × 1280/640 存档 `web/archive/`。
+- **结论**：**Go**。Mantine 9 回退线收窄至「W1 分块实测超预算 +10%」。规划文档 §0.5/§10 已回填实测。
+
+## 164. 2026-10-28 UI 升级 W1：antd 基建接线（theme/kit/分块预算/守卫）——旧 UI 零回归
+
+- **接线**：`App.ts` 整树包进 `ThemeProvider`（theme=state.theme，LayoutController 解析结果）；
+  `main.ts` 挂 `styles/antd.css`（缝合层）；业务组件尚未消费 antd——本层先行，是「旧 UI 在 antd 下零回归」的验证前提。
+- **构建分块**：`vite.config.ts` 加函数形态 `manualChunks`（vendor-react / vendor-antd）。
+  实测：ENTRY 207.9KB gzip（原 281.9，react 基座 77.5KB 拆出）、vendor-antd 96.6KB（当前主图只引
+  ThemeProvider，tree-shaking 全开；PoC 全家桶 290KB 是上界）、**首屏合计 380.1KB gzip（预算 630）**。
+- **预算门禁重写**：`webBundleBudget.json/mjs` 新口径——firstLoadKb 630（entry+vendor 合计闸）、
+  entryJsKb 300、asyncKb 170、cssKb 40；vendor 单列、缺 vendor 文件不硬红（存在性由边界判据管）。
+- **判据四件**：`antdTheme.test.ts`（8 例：字面量扫描 / palette↔theme.css 抽样比对 / defaultAlgorithm
+  契约 / cssVar+hashed / 密度常量 / 两主题对比度 / dark hover 提亮）；`antdBoundary.test.ts`
+  （antd/@ant-design/rc-*/dayjs 只许出现在 web/src/ui/** 与临时 PoC）；`kitComponents.test.tsx`（4 例）；
+  vitest web 项目挂 `setupWeb.ts`（matchMedia/ResizeObserver/requestIdleCallback 缺失才补）。
+- **kit 骨架**：`web/src/ui/kit/` PageHeader / PanelSection / StatusTag / EmptyState（testId 统一透传）；
+  DataTable/FormField/ConfirmButton 等 W2+ 消费时再长（不建死代码）。
+- **W1 实测教训（都进了判据或注释）**：
+  ① **antd App 容器自带 `color: token.colorText`**，插在 body 与 UI 之间——React 主题状态与 CSS
+  data-theme 分叉时（判据直接改 data-theme 即触发）整棵子树被涂错色（a11yAudit 暗色空态
+  .chat-title 1.04:1 假黑）。修复：`.ant-app.ant-app { color: inherit }`，正文色永远以 body 继承源为准。
+  ② worktree 新检出缺 `.workbuddy/` 目录——turnSummaryCard 截图 ENOENT，测试改为 mkdirSync 递归建目录。
+  ③ theme.css 补齐 `--tip-bg/-fg/-line`（§117 定稿值，palette 抽样比对的锚）。
+- **验证**：tsc 双工程零错；web 判据 641 例全绿（含新增 13 例）；fast 门禁 ESLint 预算 0 通过；
+  typed 层通过；`web:budget` 新口径全绿。
+
+## 165. 2026-10-29 UI 升级 W2 批一/批二：铬件 Tooltip + ApprovalModal → antd Modal
+
+- **批一（`9ea15d04`）**：ChatHeader 四处（会话侧栏/右栏开关、项目路径、会话标题）与 SidebarFooter
+  设置钮的原生 `title` → `<Tooltip>`；DOM 层级不变（Tooltip 原位克隆子节点，flex 几何与 aria 原样）。
+  `antdBoundary` 增「已迁移组件不得再有原生 title」守卫（`TITLE_MIGRATED` 清单，W5 扩全站 AST 扫描）。
+- **批二（`adb0cba9`）**：ApprovalModal 外壳换 antd Modal——焦点默认「拒绝」、Tab 四钮闭环、
+  **三条关闭路径全关死**（`keyboard/maskClosable/closable`，刻意不做 Esc=拒绝）；`.allow/.deny`
+  类与 `.ant-modal` 选择器同步到 e2e / browserHarness / 双探针。
+- **四条可复用结论（都已进注释/判据）**：
+  ① **antd v6 的 dialog 没有 Tab trap**（旧 sentinel 方案已移除）⇒ 自研圈定挂 `wrapProps` 与 antd 共存；
+  ② **antd Button 给两字中文按钮自动插空格**（「允许」→「允 许」）⇒ 判据用 role + 锚定正则，别按字面文本；
+  ③ **Portal 组件对 vnode 走树不可见**（RTL 的 `collect` 走不到 `document.body`）⇒ 相关判据改 DOM 断言；
+  ④ **真机判据吃 `web/dist` 产物**：改完组件不 `vite build` 就复现不了（审批弹窗曾因此"消失"）。
+- **状态**：以上两批连同 W0/W1/规划共 5 个提交，已 rebase 到 main §162；两例 `capacity*` 源码文本
+  判据为 main 顶端自带红（对方 §119/§120 容量改版热区，文件与本分支逐字节一致），登记不越界修。
+
+## 166. 2026-10-29 UI 升级 W2 批三：控制台左导航 → antd Menu（24 项契约原样）
+
+- **改动**：`ConsoleView` 的 `<button class="sp-nav-item">` 列表换 `Menu mode="inline"` +
+  分组 `items`（分组 = `CONSOLE_GROUPS`，选中态 = `selectedKeys`）；antd 接管键盘 ↑↓/Home/End
+  与动效，CSS 只抵消 Menu 默认面底色/右描边/分组标题内边距（`itemHeight 34` 等 token 是 W1 预置的）。
+- **刻意保留的四条契约**（不随组件库漂移，判据逐个钉住）：
+  `data-pane`（探针/几何/焦点定位）、`sp-nav-item` 类（既有选择器与视觉规则）、
+  `on` 类（几何判据的"当前面板"标记）、`aria-current="page"` 与原生 `title`（antd 只给视觉选中态，
+  这两条仍由组件自己写）。焦点复位改为在导航容器里按 `data-pane` 查（Menu 不把 ref 透传到 `li`）。
+- **验证**：`consoleView` 3/3（新增 aria-current / title / 文案逐字三项断言）、`governanceTab` 4/4、
+  `panelModalSize` 真机 24 项逐个切换几何恒定 + scrollTop 归零、`consolePage`、`a11yAudit`（axe 零违规）、
+  `narrowReflow`、`cssSourceHygiene` 全绿；首屏 404.8KB gzip（预算 630）。
+- **真机缺陷（截图标红发现，jsdom 看不出来）**：首版在条目上沿用 `font: inherit` → 把 antd
+  `.ant-menu` 根节点的 `line-height: 0` 继承下来，文字行盒高度归零、又被 `overflow: hidden`
+  裁掉，真机表现为「**只剩图标、文案整列消失**」（jsdom 无布局，组件判据全绿）。
+  修复：条目显式 `line-height: normal`。`panelModalSize` 增一条真机判据「文案可见交集 ≥ 12px」，
+  并**移除修复跑过一次正对照**确认必红——首版断言只量 `label` 自身矩形（16px）会假绿，
+  真正裁字的是高度 0 的 `.ant-menu-title-content`，必须量两者交集。
+- **策略分叉记录（待统一）**：main 上对方会话未提交的 `HoverTips` + `TooltipLayer` 走的是
+  **全站接管原生 `title`** 的路子，与批一的 antd Tooltip 形成两套提示体系。本批因此**保留原生
+  `title`**（不把 ConsoleView 加进 `TITLE_MIGRATED`），先把导航骨架换完；两套体系视觉统一
+  待对方 HoverTips 落地后再定（antd Tooltip 无 `title` 属性，不会双气泡）。
+
+## 167. 2026-10-29 工具提示口径统一到 `TooltipLayer`（回滚 W2 批一）+ ApprovalModal v6 弃用清理
+
+- **用户拍板（2026-10-29）**：全站悬浮提示**只保留一套**——`HoverTips` + `TooltipLayer` 接管
+  原生 `title`（对方会话在 `DESIGN_SYSTEM.md` 已写入该口径，覆盖 120+ 处）。antd `Tooltip`
+  逐处迁移不再推进。
+- **回滚**：`git revert 9ea15d04`（W2 批一）——ChatHeader 四处（会话侧栏/右栏开关、项目路径、
+  会话标题）与 SidebarFooter 设置钮**恢复原生 `title`**；删除 `antdBoundary` 的
+  `TITLE_MIGRATED` 清单与「已迁移组件不得再有原生 title」守卫。批二（ApprovalModal）/批三
+  （ConsoleView Menu）不受影响，且批三本来就刻意保留了 `title`。
+- **文档口径同步（避免后续会话照旧做）**：规划 §6.3 整节反转为「保留 title + TooltipLayer」，
+  并同步 §1 摘要③、§5.1 映射表、W3/W5 工作包、风险表；ADR-0018 决策 6 加**修订行**（不抹原决定）。
+- **附带清理**：ApprovalModal 的 `maskClosable={false}` → `mask={{ closable: false }}`——
+  antd v6 已弃用前者（实测渲染期打 warning），语义不变：遮罩仍渲染、点不关闭。
+- **验证**：`chatHeaderDuration`/`shellFooter`/`antdBoundary`/`mount` 20/20；`approvalModalFocus` 2/2；
+  审批 `e2e` 1/1（真机走完 发任务→审批→流式→产物）；tsc 零错；重建 `web/dist` 后真机判据复跑。
+- **下一刀**：`RightPanel` 标签 → antd `Tabs`；按用户决定**等对方会话提交后再 rebase**（main 仍 §162，
+  其 RightPanel/标签栏正在其未提交改动里）。
+
+## 168. 2026-10-29 下一批前置：RightPanel → antd Tabs 的契约盘点（待 main 前进后实施）
+
+- **现状**：手写 tablist（`.tabs rv-tabs` / `.rv-tablist` / `.tab` / `.tab-x` / `.pane#right-pane`），
+  role=tablist/tab/tabpanel + `aria-selected` + roving tabindex + ←/→ 移动 + Delete/Backspace 关闭；
+  网页标签与文件标签同列（`file-tab-*` / `web-tab` 两套 id）。
+- **判据面**（`a11yKeyboard` 四处）：`aria-selected` 恰好一个 true 且逐个显式；id 前缀
+  `file-tab-` / `web-tab`；面板 `aria-labelledby` 回指当前标签；roving tabindex。
+- **迁移要点（草案）**：
+  ① `Tabs type="editable-card" hideAdd`，items 的 key 用文件标题 / `web`，`onEdit` 关闭；
+  ② Delete/Backspace 关闭**保留自研**（容器 onKeyDown 冒泡），←/→ 交给 antd 并真机复核；
+  ③ **id 不再钉字面**：`rc-tabs` 的 id 是内部实现，判据应改为「`aria-controls` 指向真实存在的
+  tabpanel + `aria-labelledby` 回指标签」，否则组件库升级就变判据红；
+  ④ 面板交给 antd tabpanel（`right-pane` 容器 id 相应调整）；
+  ⑤ CSS 从 `.tab` 规则改为 antd tabs 覆盖（34px 行高、发丝线、激活墨条）。
+- **阻塞**：main 仍 §162，对方 35 个未提交文件（含 `App.ts` / 样式 / 若干判据）。按用户决定
+  **等其提交后 rebase 再开工**；`RightPanel.tsx` 目前不在其改动清单里，预计冲突面仅 `App.ts`/样式/判据。

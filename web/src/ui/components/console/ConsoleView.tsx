@@ -22,10 +22,12 @@
 // ## 无障碍
 //
 // role=region + aria-label；**没有焦点陷阱**（嵌入视图不该把焦点关住）；Esc 关闭；
-// 打开时焦点落到当前导航项，关闭时还给触发按钮；导航用 button + aria-current="page"
+// 打开时焦点落到当前导航项，关闭时还给触发按钮。导航自 2026-10-29（W2）起是 antd Menu：
+// role=menu + roving tabindex（Tab 进菜单、↑↓ 换项），条目上的 `aria-current="page"` 仍逐个自己标
 // （不是 tablist——这里每次只挂载一个页面，用 tab 语义会要求 aria-controls 指向不存在的面板）。
 
 import * as React from 'react';
+import { Menu, type MenuProps } from 'antd';
 import { icon } from '../../models/Icon.ts';
 import { useApp } from '../../context.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -35,6 +37,7 @@ import {
   consoleEntryOf,
   isSettingKey,
   type ConsoleEntry,
+  type ConsoleGroupDef,
 } from '../../models/ConsoleRegistry.ts';
 import { panelScopeOf } from '../../models/PanelScope.ts';
 import { SettingsSurface, type SettingsSurfaceProps } from './SettingsSurface.tsx';
@@ -105,6 +108,51 @@ function scopeClassOf(entry: ConsoleEntry): 'session' | 'workspace' | 'global' |
     : panelScopeOf(entry.key).scope;
 }
 
+/** 一个导航分组及其条目（`CONSOLE_GROUPS` × `CONSOLE_ENTRIES` 的联表结果）。 */
+interface ConsoleNavGroup {
+  /** 分组声明。 */
+  readonly group: ConsoleGroupDef;
+  /** 组内条目（顺序即显示顺序）。 */
+  readonly entries: readonly ConsoleEntry[];
+}
+
+/**
+ * 把分组条目映射成 antd Menu 的 `items`（纯函数；放组件外是因为组件体有 80 行铁律）。
+ *
+ * 四处契约由这里显式写死、不随组件库漂移：
+ *   · `data-pane`：真机探针 / 几何判据 / 焦点判据都按它定位条目；
+ *   · `sp-nav-item` 类：`.panel-modal .sp-nav-item` 的既有选择器与视觉规则；
+ *   · `on` 类：几何判据钉「当前面板」标记（`.panel-modal [data-pane="graph"].on`）；
+ *   · `aria-current` 与原生 `title`：antd 只给视觉选中态，这两条它不代劳。
+ *
+ * @param groups 分组与组内条目
+ * @param activeKey 当前条目 key
+ * @returns Menu items（分组 + 条目）
+ */
+function navItemsOf(groups: readonly ConsoleNavGroup[], activeKey: string): MenuProps['items'] {
+  return groups.map(({ group, entries }) => ({
+    key: `group:${group.key}`,
+    type: 'group',
+    label: <span className="csl-group-label">{t(group.label)}</span>,
+    children: entries.map((item) => {
+      const on = item.key === activeKey;
+      return {
+        key: item.key,
+        title: t(item.hint),
+        className: 'sp-nav-item csl-nav-item' + (on ? ' on' : ''),
+        'data-pane': item.key,
+        'aria-current': on ? 'page' : undefined,
+        icon: (
+          <span className="csl-nav-icon" aria-hidden="true">
+            {icon(item.icon, { size: 15 })}
+          </span>
+        ),
+        label: <span className="csl-nav-label">{t(item.label)}</span>,
+      };
+    }),
+  }));
+}
+
 /**
  * 控制台外壳。
  * @param props 组件入参
@@ -124,13 +172,20 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
   } = props;
   const { sessionId, sessionTick } = useApp();
 
+  // 条目在 hooks 之前解出：打开焦点要用它的 key，而 effect 必须在 `if (!open)` 早退之前。
+  const entry = consoleEntryOf(active);
+  // 切页不抢焦点：effect 只在「打开」这一刻复位焦点，故用 ref 读最新的当前项 key。
+  const currentKeyRef = React.useRef(entry.key);
+  currentKeyRef.current = entry.key;
   const [navOpen, setNavOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   // 打开时的焦点落点：当前导航项（键盘用户接着上下走）。
-  const activeNavRef = React.useRef<HTMLButtonElement | null>(null);
+  // antd Menu 的条目是 `<li role="menuitem" tabindex="-1">`，不把 ref 透传到 li ⇒
+  // 在导航容器里按 `data-pane` 查（该属性是探针 / 几何 / 焦点判据的公共契约）。
+  const navRef = React.useRef<HTMLElement | null>(null);
 
-  // Esc 关闭 + Tab 圈定焦点。挂 window：焦点可能暂时落在框外，容器上的 onKeyDown 收不到。
+  // Esc 关闭。挂 window：焦点可能暂时落在框外，容器上的 onKeyDown 收不到。
   React.useEffect(() => {
     if (!open) return undefined;
     const onKey = (e: KeyboardEvent): void => {
@@ -151,8 +206,10 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
       // 窄屏左栏是抽屉（关闭时 visibility:hidden）：此时不要把焦点送进看不见的导航。
       const narrow =
         typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches;
-      const first =
-        narrow && !navOpen ? rootRef.current : (activeNavRef.current ?? rootRef.current);
+      const current = navRef.current?.querySelector<HTMLElement>(
+        `[data-pane="${currentKeyRef.current}"]`,
+      );
+      const first = narrow && !navOpen ? rootRef.current : (current ?? rootRef.current);
       first?.focus();
     });
     return () => {
@@ -164,7 +221,7 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
   // 移动端抽屉打开后把焦点移到当前导航项（否则焦点留在地面工具栏上）。
   React.useEffect(() => {
     if (!open || !navOpen) return;
-    activeNavRef.current?.focus();
+    navRef.current?.querySelector<HTMLElement>(`[data-pane="${currentKeyRef.current}"]`)?.focus();
   }, [open, navOpen]);
 
   // 切页 / 重开时内容回到顶部：新页面不该继承上一页的滚动位置。
@@ -182,7 +239,6 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
 
   if (!open) return null;
 
-  const entry = consoleEntryOf(active);
   const groups = CONSOLE_GROUPS.map((group) => ({
     group,
     entries: CONSOLE_ENTRIES.filter((item) => item.group === group.key),
@@ -191,6 +247,10 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
   const scope = scopeClassOf(entry);
   const scopeText = scopeTextOf(entry, hasSession);
   const connState = streamState ?? (connected ? 'open' : 'closed');
+
+  // 导航交给 antd Menu（W2）：分组、选中态、↑↓/Home/End 与动效由组件库负责；
+  // `data-pane` / `sp-nav-item` / `on` / `aria-current` 四处契约见 `navItemsOf`。
+  const navItems = navItemsOf(groups, entry.key);
 
   /** 选择条目：移动端顺手收起导航抽屉。 */
   const pick = (key: string): void => {
@@ -229,32 +289,14 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
           {t('返回工作区')}
         </button>
 
-        <nav className="csl-nav" aria-label={t('控制台导航')}>
-          {groups.map(({ group, entries }) => (
-            <div className="csl-group" key={group.key}>
-              <div className="csl-group-label">{t(group.label)}</div>
-              {entries.map((item) => {
-                const on = item.key === entry.key;
-                return (
-                  <button
-                    key={item.key}
-                    ref={on ? activeNavRef : undefined}
-                    type="button"
-                    className={'sp-nav-item csl-nav-item' + (on ? ' on' : '')}
-                    data-pane={item.key}
-                    aria-current={on ? 'page' : undefined}
-                    title={t(item.hint)}
-                    onClick={() => pick(item.key)}
-                  >
-                    <span className="csl-nav-icon" aria-hidden="true">
-                      {icon(item.icon, { size: 15 })}
-                    </span>
-                    <span className="csl-nav-label">{t(item.label)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+        <nav className="csl-nav" aria-label={t('控制台导航')} ref={navRef}>
+          <Menu
+            mode="inline"
+            className="csl-menu"
+            selectedKeys={[entry.key]}
+            onClick={({ key }) => pick(key)}
+            items={navItems}
+          />
         </nav>
 
         <div className="csl-rail-foot">

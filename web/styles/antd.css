@@ -1,0 +1,41 @@
+/* =========================================================================
+  OmniHarness Web UI — antd 缝合层（2026-10-28 W1 起）
+  antd 的组件样式由 CSS-in-JS 运行时注入（不进这份文件也不进产物静态 CSS）；
+  这里只放「antd 与纸与墨」之间的缝合规则。必须紧跟 theme.css 之后加载。
+
+  规则口径：
+  · 颜色一律消费 token / --ant-* 变量（作用域在 .ant-app 包裹层，见 UI_LIBRARY_UPGRADE §0.5），
+    不写字面色值（colorSystem 判据口径不变）。
+  · W2+ 的壳层/自定义表面（diff、markdown、代码、图）也落这里；每段注明归属工作包。
+  ========================================================================= */
+
+/* —— 动效降级：prefers-reduced-motion 全站关（含 antd 的 motion）——
+   UI_LIBRARY_UPGRADE §6.2：统一 110–180ms / cubic-bezier(.16,1,.3,1)；减弱动态时一刀切。 */
+@media (prefers-reduced-motion: reduce) {
+  .ant-app *,
+  .ant-app *::before,
+  .ant-app *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* —— 表面继承：antd 文本控件吃纸与墨的正文字体（token.fontFamily 已对齐，
+   这里兜住 cssinjs 注入顺序导致的继承缺口）。 */
+.ant-app input,
+.ant-app textarea {
+  font-family: inherit;
+}
+
+/* —— 正文色继承源（W1 实测教训）——
+   antd 的 App 容器自带 `color: token.colorText`：它插在 body 与 UI 之间，一旦
+   「React 主题状态」与「CSS 的 data-theme」分叉（判据/探针直接改 data-theme 时），
+   整棵子树会被 antd 用状态侧颜色涂错（实测 a11yAudit 暗色扫描下 .chat-title 变浅色文字）。
+   纸与墨的正文色永远以 body（data-theme 驱动）为继承源；antd 组件自身颜色仍走 token。
+   双类名提高特异性（0,2,0），无论 cssinjs 注入顺序如何都压过 antd 的 :where(.css-var-*) 规则。 */
+.ant-app.ant-app {
+  color: inherit;
+}
+

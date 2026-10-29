@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { act, fireEvent, renderFacade } from './rtlHarness.ts';
+import { act, cleanup, fireEvent, renderFacade, screen } from './rtlHarness.ts';
 import { allText, byTag, facadeOf, walk } from './domFacade.ts';
 import type { Facade, FacadeNode } from './domFacade.ts';
 
@@ -239,23 +239,32 @@ test('WorkIndicator：role=status 播报动作，跳动计时 aria-hidden 防每
   assert.match(allText(vnode), /正在执行命令/);
 });
 
-test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚点存在', () => {
-  const vnode = renderFacade(ApprovalModal, {
+test('ApprovalModal：role=dialog + aria-modal + labelledby/describedby 且锚点存在', async () => {
+  // W2：外壳是 antd Modal（门户到 document.body）——断言改在真实 DOM 上；
+  // labelledby 由 antd 生成（指向它的标题 id），锚点契约改为「labelledby 可解析 + 参数 pre#ap-desc 在」。
+  renderFacade(ApprovalModal, {
     props: {
       approval: { requestId: 'r1', toolName: 'shell', target: 'rm -rf /', args: { cmd: 'rm -rf /' } },
       onRespond: () => {},
     },
-  }).node;
-  const dialogs = collect(vnode, (n) => n.props.role === 'dialog');
-  assert.strictEqual(dialogs.length, 1, '必须产出唯一 role=dialog 的模态框');
-  assert.strictEqual(dialogs[0]!.props['aria-modal'], 'true');
-  assert.strictEqual(dialogs[0]!.props['aria-labelledby'], 'ap-title');
-  assert.strictEqual(dialogs[0]!.props['aria-describedby'], 'ap-desc');
-  assert.strictEqual(collect(vnode, (n) => n.props.id === 'ap-title').length, 1, 'labelledby 必须指向存在的元素');
-  assert.strictEqual(collect(vnode, (n) => n.props.id === 'ap-desc').length, 1, 'describedby 必须指向存在的元素');
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const dialog = screen.getByRole('dialog');
+  assert.strictEqual(dialog.getAttribute('aria-modal'), 'true');
+  const labelledby = dialog.getAttribute('aria-labelledby') ?? '';
+  assert.ok(labelledby !== '', 'dialog 必须带 aria-labelledby');
+  assert.ok(document.getElementById(labelledby) !== null, 'labelledby 必须指向存在的元素');
+  assert.ok(document.getElementById('ap-desc') !== null, '参数锚点 pre#ap-desc 必须存在');
 
-  const idle = renderFacade(ApprovalModal, { props: { approval: null, onRespond: () => {} } }).node;
-  assert.strictEqual(collect(idle, (n) => n.props.role === 'dialog').length, 0, '无请求时不得留可聚焦的对话框');
+  cleanup();
+  renderFacade(ApprovalModal, { props: { approval: null, onRespond: () => {} } });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  assert.strictEqual(screen.queryByRole('dialog'), null, '无请求时不得留可聚焦的对话框');
+  cleanup();
 });
 
 test('DialogHost：confirm 无输入框、prompt 有输入框，两者都有完整 dialog 语义', () => {

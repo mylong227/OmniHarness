@@ -58,6 +58,7 @@ export const EN_COMPOSER: Record<string, string> = {
   '工具审批请求': 'Tool approval request',
   '工具：{name}': 'Tool: {name}',
   '目标：{name}': 'Target: {name}',
+  '工具参数': 'Tool arguments',
   '始终允许': 'Always allow',
   '拒绝': 'Deny',
   '允许': 'Allow',

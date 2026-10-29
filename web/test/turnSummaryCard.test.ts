@@ -4,6 +4,8 @@
 // 直跑：node --test web/test/turnSummaryCard.test.ts（需先 npm run web:build）。
 // 截图落盘路径可用 env OMNI_TURN_SUMMARY_SHOT 覆盖（默认写到 .workbuddy/ 下，不入库）。
 import assert from 'node:assert/strict';
+import { mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { test } from 'vitest';
 import { openStubSession } from './browserHarness.ts';
 
@@ -134,6 +136,8 @@ test('回合结果卡：生成/修改分组 + 增删统计 + 打开/下载/差�
     await new Promise((r) => setTimeout(r, 150));
 
     const shot = process.env.OMNI_TURN_SUMMARY_SHOT || '.workbuddy/turn-summary-card-preview.png';
+    // 落盘目录不假设存在（新 clone / 新 worktree 里 .workbuddy/ 不在，W1 实测 ENOENT）。
+    mkdirSync(dirname(shot), { recursive: true });
     await cdp.screenshot(shot);
   } finally {
     await close();

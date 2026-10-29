@@ -104,8 +104,9 @@
   --toast-ok-border: #4a5a52;
   --toast-err-border: #6b4a46;
 
-  /* 悬浮提示：**跟随主题**（浅色白纸 / 深色墨片），不做反相块——
-     深色下用 panel-2 作底（比页面亮一档）+ 发丝边，浅色下纯白 + 发丝边。 */
+  /* 悬浮提示：**跟随主题**（浅色白纸 / 深色墨片），不做反相块——§117 定稿口径；
+     深色下用 panel-2 作底（比页面亮一档）+ 发丝边，浅色下纯白 + 发丝边。
+     palette.ts 的 tipBg/tipFg/tipLine 与这里逐值一致（antdTheme.test.ts 比对）。 */
   --tip-bg: #282c32;
   --tip-fg: #eceef2;
   --tip-line: #353b43;

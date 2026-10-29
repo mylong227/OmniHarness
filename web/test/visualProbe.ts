@@ -405,7 +405,7 @@ const STATES = [
         method: 'approval.request',
         params: { requestId: 'probe-r1', toolName: 'shell', target: 'rm -rf ./build', args: { cmd: 'rm -rf ./build' } },
       });
-      return cdp.waitFor("!!document.querySelector('.overlay.show .modal[role=\"dialog\"]')", 400);
+      return cdp.waitFor("!!document.querySelector('.ant-modal[role=\"dialog\"]')", 400);
     },
   },
   {
@@ -655,6 +655,9 @@ async function main() {
   const widths = listArg('widths', ['1280', '640']).map(Number);
   // 交互态默认**也**跑（它们在静态截图里是盲区）；用 --no-states 关掉以便快速只看面板。
   const wantStates = !process.argv.includes('--no-states');
+  // --no-seed：stream 面板不注入会话数据，截「空态首屏」（2026-10-28 UI 升级 W0 基线要 8 个关键界面，
+  // 空态是其中之一；其余面板不 seed 会被 RenderErrorBoundary 之外的各种空判据打空，故只对 stream 生效）。
+  const noSeed = process.argv.includes('--no-seed');
   // --states=a,b：只跑指定交互态（调试单个新交互面时不必等全套 40+ 张）。
   const stateArg = process.argv.find((a) => a.startsWith('--states='));
   const stateOnly = stateArg
@@ -740,14 +743,24 @@ async function main() {
           if (key !== 'stream' && !wantPanes.includes(key)) continue;
           await cdp.send('Page.enable');
           await cdp.send('Page.reload', { ignoreCache: true });
-          if (!(await cdp.waitMounted(2400))) {
+          if (!(await cdp.waitMounted(5000))) {
             failures.push(`${theme}/${key}: 重载后未挂载`);
             continue;
           }
-          await seedSession(cdp);
+          if (noSeed && key === 'stream') {
+            // 空态档：不注入会话，保留「连接中/新会话」首屏。
+          } else {
+            await seedSession(cdp);
+          }
           await cdp.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
           if (label) {
-            const clicked = await openPaneByLabel(cdp, label, String(key));
+            let clicked: boolean;
+            try {
+              clicked = await openPaneByLabel(cdp, label, String(key));
+            } catch (err) {
+              failures.push(`${theme}/${key}: 打开面板异常 → ${String((err as Error)?.message ?? err).slice(0, 120)}`);
+              continue;
+            }
             if (!clicked) {
               failures.push(`${theme}/${key}: 打开面板失败 ${label}`);
               continue;
@@ -780,13 +793,24 @@ async function main() {
             if (stateOnly !== null && !stateOnly.includes(st.key)) continue;
             await cdp.send('Page.enable');
             await cdp.send('Page.reload', { ignoreCache: true });
-            if (!(await cdp.waitMounted(2400))) {
+            // W0 基线实测：并行会话高负载下 2400 次轮询会在「vendor 分块加载 + composer 装配」
+            // 完成前耗尽，整批交互态被误判未挂载——放宽到 6000 并在挂载后再给 300ms 装配余量。
+            if (!(await cdp.waitMounted(6000))) {
               failures.push(`${theme}/${st.key}: 重载后未挂载`);
               continue;
             }
+            await new Promise((r) => setTimeout(r, 300));
             await seedSession(cdp, { keepTurnInFlight: st.key === 'streaming' });
             await cdp.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
-            const opened = await st.open(cdp);
+            // 单态失败**不得中止整轮**（W0 基线实测：dropdown 态 .dd 缺位时 click 抛错，
+            // 把后面全部状态连带毁掉）——降级为 failure 记录后继续。
+            let opened: boolean;
+            try {
+              opened = await st.open(cdp);
+            } catch (err) {
+              failures.push(`${theme}/${st.key}: 打开异常 → ${String((err as Error)?.message ?? err).slice(0, 120)}`);
+              continue;
+            }
             if (opened !== true) {
               failures.push(`${theme}/${st.key}: 未能进入该状态`);
               continue;

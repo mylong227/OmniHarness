@@ -67,6 +67,29 @@ export default defineConfig({
      * 一旦依赖或应用代码膨胀越过它，构建会重新警告 —— 那才是需要有人看一眼的时刻。
      */
     chunkSizeWarningLimit: 1200,
+    /**
+     * vendor 分块（2026-10-28 W1，antd 迁移基建）。
+     *
+     * 为什么：antd 基座（vendor-antd ≈ 290–330KB gzip）与 react 基座（≈69KB gzip）必须与应用码
+     * 分开记账——UI_LIBRARY_UPGRADE §0.5 的预算重写就是按「entry + vendor 总量」口径定的，
+     * 且 vendor chunk 跨版本 content-hash 稳定，发版只失效应用 chunk。
+     *
+     * 为什么用**函数形态**：object 形态只匹配 'react' 精确 id，抓不到 react/cjs/* 重导出
+     * （W0 实测产出 0KB 空 chunk）；按 node_modules 路径前缀分桶才可靠。
+     *
+     * markdown-it / katex / highlight.js 仍留在入口（与迁移前一致）；katex 走异步块不变。
+     */
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
+            return 'vendor-react';
+          if (/[\\/]node_modules[\\/](antd|@ant-design|rc-|dayjs)[\\/]/.test(id))
+            return 'vendor-antd';
+          return undefined;
+        },
+      },
+    },
   },
   // esbuild 选项在此层生效（`build.minify` 用的是同一套）。
   esbuild: {
