@@ -18,6 +18,8 @@
  *   · 预算写在 `scripts/webBundleBudget.json`（数据而非代码：收紧预算 = 改一个数字）：
  *       - firstLoadKb：entry + vendor 总量（W0 实测后定为 630，含 ~10% 余量）；
  *       - entryJsKb：entry 单独上限（应用码 + markdown-it/highlight，防应用码无节制膨胀）；
+ *       - vendorKb：vendor 分块单独上限（react 基座 + antd 基座；2026-10-29 补，
+ *         此前只有合计闸，某一半膨胀可被另一半缩小掩盖）；
  *       - cssKb / asyncKb：不变口径（asyncKb 170 = 原 120 + antd 面板懒加载余量）。
  *
  * ## 用法
