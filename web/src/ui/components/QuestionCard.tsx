@@ -48,6 +48,99 @@ function answered(draft: Draft | undefined): boolean {
 }
 
 /**
+ * 一道题的单选/多选组。
+ *
+ * 键盘模型（WAI-ARIA / APG）：单选组整组只有一个 Tab 落点（选中项；都没选时首项），
+ * ←/→/↑/↓ 环绕移动并选中、Home/End 到首尾；多选组保持每项独立 Tab 落点、方向键不拦截
+ * （那是 checkbox group 的约定，抢过来反而破坏读屏的逐项浏览）。
+ *
+ * @param props 题 id、选项、已选标签、是否多选、禁用与勾选回调
+ * @returns 选项组节点；无选项时为 null
+ */
+function QuestionOptions(props: {
+  itemId: string;
+  options: AskQuestionItem['options'];
+  selected: readonly string[];
+  multiple: boolean;
+  disabled: boolean;
+  onToggle: (label: string) => void;
+}): ReactElement | null {
+  const { itemId, options, selected, multiple, disabled, onToggle } = props;
+  const optionRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const list = options ?? [];
+  if (list.length === 0) return null;
+  const selectedIndex = list.findIndex((option) => selected.includes(option.label));
+
+  /**
+   * 单选组的方向键：环绕移动、选中目标项，并把焦点送过去。
+   * @param e 键盘事件
+   * @param index 当前选项下标
+   * @returns 无
+   */
+  const onKeyDown = (e: React.KeyboardEvent, index: number): void => {
+    if (multiple) return;
+    let next = index;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (index + 1) % list.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (index - 1 + list.length) % list.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = list.length - 1;
+    else return;
+    e.preventDefault();
+    const target = list[next];
+    if (target === undefined) return;
+    // 单选：方向键只「选中」，不像点击那样可再次取消（APG 的 radio 语义）。
+    if (!selected.includes(target.label)) onToggle(target.label);
+    optionRefs.current[next]?.focus();
+  };
+
+  return (
+    <div
+      className="qask-options"
+      role={multiple ? 'group' : 'radiogroup'}
+      aria-labelledby={'qask-' + itemId}
+    >
+      {list.map((option, index) => {
+        const checked = selected.includes(option.label);
+        // 单选组：整组只有一个 Tab 落点（选中项；都没选时落在第一项）。多选组保持每项可 Tab。
+        const tabIndex = multiple ? 0 : checked || (selectedIndex < 0 && index === 0) ? 0 : -1;
+        return (
+          <button
+            key={option.label}
+            type="button"
+            ref={(el) => {
+              optionRefs.current[index] = el;
+            }}
+            className={'qask-option' + (checked ? ' is-checked' : '')}
+            role={multiple ? 'checkbox' : 'radio'}
+            aria-checked={checked}
+            tabIndex={tabIndex}
+            disabled={disabled}
+            onClick={() => onToggle(option.label)}
+            onKeyDown={(e: React.KeyboardEvent) => onKeyDown(e, index)}
+          >
+            <span className={'qask-mark' + (multiple ? ' is-box' : '')} aria-hidden="true">
+              {checked ? (
+                multiple ? (
+                  icon('check', { size: 12 })
+                ) : (
+                  <span className="qask-mark-dot" />
+                )
+              ) : null}
+            </span>
+            <span className="qask-option-copy">
+              <span className="qask-option-label">{option.label}</span>
+              {option.description === undefined ? null : (
+                <span className="qask-option-desc">{option.description}</span>
+              )}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * 一道题的作答控件（选项 + 自由输入）。
  * @param props 题目、草稿、是否禁用与两个变更回调
  * @returns 题目节点
@@ -63,6 +156,7 @@ function QuestionField(props: {
   const multiple = item.multiSelect === true;
   const options = item.options ?? [];
   const title = item.header === undefined || item.header === '' ? item.question : item.header;
+
   return (
     <div className="qask-item">
       {item.header === undefined || item.header === '' ? null : (
@@ -71,44 +165,14 @@ function QuestionField(props: {
       <div className="qask-question" id={'qask-' + item.id}>
         {item.question}
       </div>
-      {options.length === 0 ? null : (
-        <div
-          className="qask-options"
-          role={multiple ? 'group' : 'radiogroup'}
-          aria-labelledby={'qask-' + item.id}
-        >
-          {options.map((option) => {
-            const checked = draft.selected.includes(option.label);
-            return (
-              <button
-                key={option.label}
-                type="button"
-                className={'qask-option' + (checked ? ' is-checked' : '')}
-                role={multiple ? 'checkbox' : 'radio'}
-                aria-checked={checked}
-                disabled={disabled}
-                onClick={() => onToggle(option.label)}
-              >
-                <span className={'qask-mark' + (multiple ? ' is-box' : '')} aria-hidden="true">
-                  {checked ? (
-                    multiple ? (
-                      icon('check', { size: 12 })
-                    ) : (
-                      <span className="qask-mark-dot" />
-                    )
-                  ) : null}
-                </span>
-                <span className="qask-option-copy">
-                  <span className="qask-option-label">{option.label}</span>
-                  {option.description === undefined ? null : (
-                    <span className="qask-option-desc">{option.description}</span>
-                  )}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <QuestionOptions
+        itemId={item.id}
+        options={item.options}
+        selected={draft.selected}
+        multiple={multiple}
+        disabled={disabled}
+        onToggle={onToggle}
+      />
       <input
         className="qask-custom"
         type="text"

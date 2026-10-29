@@ -70,43 +70,46 @@ function probeResults() {
   const iso = (minutesAgo: number) => new Date(base - minutesAgo * 60000).toISOString();
   return {
     'config.get': { modelAdapter: 'probe', model: 'probe-large', reasoning: 'medium', approval: 'ask', sandbox: 'policy', escalation: 'deny', autoApprove: false, workspace: 'D:\\deepseek\\omniharness', providerKeys: { probe: 'sk-****1234' } },
-    // 侧栏文件树（2026-10-29 起是 antd Tree）：没有这份夹具，截图里「文件」区块永远是
-    // 「文件树不可用」空态——夹具缺失，不是渲染缺陷（与 model.catalog 同一条口径）。
+    // 侧栏文件树：字段必须是 `type`（`FsNode.type`）。2026-10-29 修：这份夹具长期写成 `kind`，
+    // 于是 `TreeNode`/现在的 `FileTree` 都把它当文件节点、树看起来"没渲染"——夹具字段名错，
+    // 不是渲染缺陷（与 model.catalog 同一条口径）。
     'fs.list': {
       tree: [
         {
           name: 'src',
-          path: 'D:\\deepseek\\omniharness\\src',
+          path: 'src',
           type: 'dir',
           children: [
             {
               name: 'core',
-              path: 'D:\\deepseek\\omniharness\\src\\core',
+              path: 'src/core',
               type: 'dir',
               children: [
-                { name: 'App.ts', path: 'D:\\deepseek\\omniharness\\src\\core\\App.ts', type: 'file' },
-                { name: 'turnRunner.ts', path: 'D:\\deepseek\\omniharness\\src\\core\\turnRunner.ts', type: 'file' },
+                { name: 'App.ts', path: 'src/core/App.ts', type: 'file' },
+                { name: 'turnRunner.ts', path: 'src/core/turnRunner.ts', type: 'file' },
               ],
             },
-            { name: 'cli.ts', path: 'D:\\deepseek\\omniharness\\src\\cli.ts', type: 'file' },
+            { name: 'cli.ts', path: 'src/cli.ts', type: 'file' },
           ],
         },
         {
           name: 'web',
-          path: 'D:\\deepseek\\omniharness\\web',
+          path: 'web',
           type: 'dir',
           children: [
             {
-              name: 'src',
-              path: 'D:\\deepseek\\omniharness\\web\\src',
+              name: 'styles',
+              path: 'web/styles',
               type: 'dir',
               children: [
-                { name: 'main.ts', path: 'D:\\deepseek\\omniharness\\web\\src\\main.ts', type: 'file' },
+                { name: 'polish.css', path: 'web/styles/polish.css', type: 'file' },
+                { name: 'theme.css', path: 'web/styles/theme.css', type: 'file' },
               ],
             },
+            { name: 'index.html', path: 'web/index.html', type: 'file' },
           ],
         },
-        { name: 'README.md', path: 'D:\\deepseek\\omniharness\\README.md', type: 'file' },
+        { name: 'README.md', path: 'README.md', type: 'file' },
       ],
     },
     // 设置模态的「模型」栏要渲染厂商卡片（ProviderCard）。夹具必须给全 model.catalog 的
@@ -160,21 +163,6 @@ function probeResults() {
         'probe-small': { calls: 24, prompt: 60000, completion: 14800, total: 74800 },
       },
       sessions: [],
-    },
-    'fs.list': {
-      tree: [
-        { name: 'web', path: 'web', kind: 'dir', children: [
-          { name: 'styles', path: 'web/styles', kind: 'dir', children: [
-            { name: 'polish.css', path: 'web/styles/polish.css', kind: 'file' },
-            { name: 'theme.css', path: 'web/styles/theme.css', kind: 'file' },
-          ] },
-          { name: 'index.html', path: 'web/index.html', kind: 'file' },
-        ] },
-        { name: 'src', path: 'src', kind: 'dir', children: [
-          { name: 'cli', path: 'src/cli', kind: 'dir', children: [] },
-        ] },
-        { name: 'README.md', path: 'README.md', kind: 'file' },
-      ],
     },
     'plugins.list': {
       plugins: [

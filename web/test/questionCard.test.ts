@@ -174,3 +174,28 @@ test('提问卡：自由输入可独立作答（无选项的题），「全部�
   });
   assert.deepStrictEqual(submitted[1], [{ id: 'why', selected: [] }], '跳过必须提交空选择（而不是不提交）');
 });
+
+test('提问卡：单选组是单一 Tab 落点，方向键/Home/End 环绕并选中（WAI-ARIA 单选组模式）', () => {
+  // 2026-10-29（W3）：选项是 `role="radio"` 的 button，此前**每个都能 Tab 进去、方向键无效**，
+  // 不符合 APG 的单选组模式。现在单选组只有「选中项（都没选时第一项）」在 Tab 序列里，
+  // ←/→/↑/↓ 环绕移动并选中，Home/End 到首尾；多选组保持每项独立 Tab 落点。
+  const { tree } = render();
+  const opts = () => nodesByClass(tree(), 'qask-option');
+  assert.strictEqual(opts()[0]!.props.tabIndex, '0', '都没选时第一项是唯一 Tab 落点');
+  assert.strictEqual(opts()[1]!.props.tabIndex, '-1', '其余单选项退出 Tab 序列');
+  assert.strictEqual(opts()[2]!.props.tabIndex, '0', '多选组每项都可 Tab（不参与 roving）');
+  assert.strictEqual(opts()[3]!.props.tabIndex, '0');
+
+  fireEvent.keyDown(opts()[0]!.el, { key: 'ArrowDown' });
+  assert.strictEqual(opts()[1]!.props['aria-checked'], 'true', '方向键必须选中下一项');
+  assert.strictEqual(opts()[1]!.props.tabIndex, '0');
+  assert.strictEqual(opts()[0]!.props.tabIndex, '-1');
+  assert.strictEqual(document.activeElement, opts()[1]!.el, '焦点必须跟着走');
+
+  fireEvent.keyDown(opts()[1]!.el, { key: 'ArrowDown' });
+  assert.strictEqual(opts()[0]!.props['aria-checked'], 'true', '末项向下必须环绕到首项');
+  fireEvent.keyDown(opts()[0]!.el, { key: 'End' });
+  assert.strictEqual(opts()[1]!.props['aria-checked'], 'true', 'End 必须到末项');
+  fireEvent.keyDown(opts()[1]!.el, { key: 'Home' });
+  assert.strictEqual(opts()[0]!.props['aria-checked'], 'true', 'Home 必须回首项');
+});
