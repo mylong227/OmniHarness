@@ -4,6 +4,9 @@
 // 纯展示组件（函数组件范式）：选中事件由 props 注入，无内部状态、无副作用。
 
 import { badge, jsonView, detailSummary, timeOf, emptyState, renderMarkdown } from '../../format.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Descriptions from 'antd/es/descriptions';
+import Collapse from 'antd/es/collapse';
 import { icon } from '../../models/Icon.ts';
 import type { ThreadEvent } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
@@ -34,11 +37,17 @@ export function DetailTab(props: DetailTabProps): ReactElement {
   const content = (ev.type === 'assistant' || ev.type === 'user') && typeof p.content === 'string' ? p.content : '';
   return (
     <div>
-      <div className="detail-head">
-        {badge(ev.type)}
-        <span className="time">{timeOf(ev.timestamp)}</span>
-      </div>
-      <div className="detail-sum">{detailSummary(ev, p)}</div>
+      <Descriptions
+        className="detail-desc"
+        size="small"
+        column={1}
+        colon={false}
+        items={[
+          { key: 'type', label: t('类型'), children: badge(ev.type) },
+          { key: 'time', label: t('时间'), children: timeOf(ev.timestamp) },
+          { key: 'sum', label: t('摘要'), children: detailSummary(ev, p) },
+        ]}
+      />
       {content === '' ? null : (
         <div className="detail-section">
           <div className="detail-h">{t('全文（文档视图）')}</div>
@@ -46,8 +55,13 @@ export function DetailTab(props: DetailTabProps): ReactElement {
         </div>
       )}
       <div className="detail-section">
-        <div className="detail-h">{t('完整 payload')}</div>
-        {jsonView(p)}
+        {/* payload 默认展开（与迁移前一致），可折叠让正文视图更聚焦。 */}
+        <Collapse
+          className="detail-payload"
+          size="small"
+          defaultActiveKey={['payload']}
+          items={[{ key: 'payload', label: t('完整 payload'), children: jsonView(p) }]}
+        />
       </div>
     </div>
   );

@@ -2,6 +2,11 @@
 import * as React from 'react';
 import { useApp } from '../../context.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Switch from 'antd/es/switch';
+import Button from 'antd/es/button';
 
 /** 自动化任务。 */
 interface AutomationRow {
@@ -93,29 +98,63 @@ function AutomationList(props: {
       ) : props.rows.length === 0 ? (
         <p className="act-muted">{t('还没有自动化任务')}</p>
       ) : (
-        <ul className="act-list">
-          {props.rows.map((row) => (
-            <li key={row.id} className="act-item auto-row">
-              <span className="auto-name">{row.name}</span>
-              <span className="act-kind">{t('每 {n} 分钟', { n: row.intervalMinutes })}</span>
-              <span className="act-kind">{row.enabled ? t('已启用') : t('已停用')}</span>
-              <span className="auto-actions">
-                <button className="ghost" type="button" disabled={props.busy} onClick={() => props.onAct(row, 'toggle')}>
-                  {row.enabled ? t('停用') : t('启用')}
-                </button>
-                <button className="ghost" type="button" disabled={props.busy} onClick={() => props.onAct(row, 'run')}>
-                  {t('立即运行')}
-                </button>
-                <button className="ghost" type="button" disabled={props.busy} onClick={() => props.onAct(row, 'delete')}>
-                  {t('删除')}
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
+        <Table<AutomationRow>
+          className="automations-table"
+          size="small"
+          bordered={false}
+          pagination={false}
+          columns={automationColumns(props.busy, props.onAct)}
+          dataSource={[...props.rows]}
+          rowKey="id"
+          scroll={{ x: 'max-content' }}
+        />
       )}
     </section>
   );
+}
+
+
+/** 任务表列定义（2026-10-30 W4：act-list → antd Table；启停用 antd Switch）。 */
+function automationColumns(
+  busy: boolean,
+  onAct: (row: AutomationRow, action: 'toggle' | 'run' | 'delete') => void,
+): ColumnsType<AutomationRow> {
+  return [
+    { title: t('名称'), dataIndex: 'name', key: 'name', render: (n: string) => <span className="auto-name">{n}</span> },
+    { title: t('间隔'), key: 'interval', width: 110, render: (_, row) => t('每 {n} 分钟', { n: row.intervalMinutes }) },
+    {
+      title: t('状态'),
+      key: 'enabled',
+      width: 130,
+      render: (_, row) => (
+        <>
+          <Switch
+            size="small"
+            checked={row.enabled}
+            disabled={busy}
+            aria-label={t('启停')}
+            onChange={() => onAct(row, 'toggle')}
+          />{' '}
+          {row.enabled ? t('已启用') : t('已停用')}
+        </>
+      ),
+    },
+    {
+      title: t('操作'),
+      key: 'op',
+      width: 170,
+      render: (_, row) => (
+        <>
+          <Button size="small" disabled={busy} onClick={() => onAct(row, 'run')}>
+            {t('立即运行')}
+          </Button>{' '}
+          <Button size="small" danger disabled={busy} onClick={() => onAct(row, 'delete')}>
+            {t('删除')}
+          </Button>
+        </>
+      ),
+    },
+  ];
 }
 
 /**

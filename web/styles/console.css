@@ -995,6 +995,8 @@
 .csl-scroll .metrics-usage-table .ant-table,
 .csl-scroll .vault-table .ant-table,
 .csl-scroll .memory-table .ant-table,
+.csl-scroll .trace-table .ant-table,
+.csl-scroll .skills-table .ant-table,
 .csl-scroll .diagnostics-issues .ant-table {
   background: transparent;
   font-size: 12px;
@@ -1004,6 +1006,8 @@
 .csl-scroll .metrics-usage-table .ant-table-thead > tr > th,
 .csl-scroll .vault-table .ant-table-thead > tr > th,
 .csl-scroll .memory-table .ant-table-thead > tr > th,
+.csl-scroll .trace-table .ant-table-thead > tr > th,
+.csl-scroll .skills-table .ant-table-thead > tr > th,
 .csl-scroll .diagnostics-issues .ant-table-thead > tr > th {
   padding: 9px 12px;
   background: transparent;
@@ -1016,6 +1020,8 @@
 .csl-scroll .metrics-usage-table .ant-table-tbody > tr > td,
 .csl-scroll .vault-table .ant-table-tbody > tr > td,
 .csl-scroll .memory-table .ant-table-tbody > tr > td,
+.csl-scroll .trace-table .ant-table-tbody > tr > td,
+.csl-scroll .skills-table .ant-table-tbody > tr > td,
 .csl-scroll .diagnostics-issues .ant-table-tbody > tr > td {
   padding: 8px 12px;
   color: var(--dim);
@@ -1026,6 +1032,8 @@
 .csl-scroll .metrics-usage-table .ant-table-tbody > tr:last-child > td,
 .csl-scroll .vault-table .ant-table-tbody > tr:last-child > td,
 .csl-scroll .memory-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .trace-table .ant-table-tbody > tr:last-child > td,
+.csl-scroll .skills-table .ant-table-tbody > tr:last-child > td,
 .csl-scroll .diagnostics-issues .ant-table-tbody > tr:last-child > td {
   border-bottom: 0;
 }
@@ -1477,4 +1485,43 @@
   .csl-scroll .pm-section {
     padding: 15px 18px;
   }
+}
+
+/* 钻取面板（2026-10-30 W4 批 A）：键值 Descriptions + payload Collapse，同口径发丝线。 */
+.csl-scroll .detail-desc .ant-descriptions-item-label {
+  min-width: 72px;
+  color: var(--faint);
+  font-size: 12px;
+}
+.csl-scroll .detail-desc .ant-descriptions-item-content {
+  color: var(--text);
+  font-size: 12px;
+}
+.csl-scroll .detail-payload .ant-collapse-header {
+  color: var(--faint);
+  font-size: 12px;
+  background: transparent;
+}
+.csl-scroll .detail-payload .ant-collapse-content {
+  background: transparent;
+  border-color: var(--hairline);
+}
+
+/* 设置原语 antd 化（2026-10-30 W4 表单专项）：密度与等宽修饰沿用纸与墨口径。 */
+.csl-scroll .csl-select.ant-select {
+  min-width: 140px;
+  font-size: 12px;
+}
+.csl-scroll .csl-select .ant-select-selector {
+  border-radius: var(--r-sm);
+}
+.csl-scroll .csl-input.ant-input,
+.csl-scroll .csl-input.ant-input-affix-wrapper {
+  font-size: 12px;
+  border-radius: var(--r-sm);
+}
+.csl-scroll .csl-input--mono.ant-input,
+.csl-scroll .csl-input--mono.ant-input-affix-wrapper,
+.csl-scroll .csl-input--mono input {
+  font-family: var(--mono, monospace);
 }

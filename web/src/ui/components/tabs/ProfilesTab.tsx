@@ -8,6 +8,10 @@ import { useApp } from '../../context.ts';
 import { emptyState } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { Profile, ActivePlugins } from '../../../types/models.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Button from 'antd/es/button';
 import { t } from '../../i18n/i18n.ts';
 
 /** ProfilesTab 组件的入参。 */
@@ -25,32 +29,67 @@ interface RowActions {
 }
 
 /**
- * 渲染单个配置集行：名称 + 描述 + 插件徽标 + 操作。
- * @param p 配置集
- * @param actions 应用 / 删除回调
- * @returns 配置集行节点
+ * 已存配置集表（2026-10-30 W4：mem-row 行 → antd Table）。
+ * @param props 配置集数组与应用 / 删除回调
+ * @returns 表格节点
  */
-function renderRow(p: Profile, actions: RowActions): ReactElement {
-  const plugs = (p.plugins || []).map((n) => (
-    <span className="badge" key={n}>
-      {n}
-    </span>
-  ));
+function ProfilesTable(props: {
+  profiles: Profile[];
+  onApply: (id: string) => void;
+  onDelete: (id: string) => void;
+}): ReactElement {
   return (
-    <div className="mem-row" key={p.id} data-id={p.id}>
-      <div className="mem-text">{p.name}</div>
-      {p.description ? <div className="mem-meta">{p.description}</div> : null}
-      <div className="mem-meta">{plugs}</div>
-      <div className="mem-actions">
-        <button className="ghost" onClick={() => actions.onApply(p.id)}>
-          {t('应用')}
-        </button>
-        <button className="ghost" onClick={() => actions.onDelete(p.id)}>
-          {t('删除')}
-        </button>
-      </div>
-    </div>
+    <Table<Profile>
+      className="profiles-table"
+      size="small"
+      bordered={false}
+      pagination={false}
+      columns={profileColumns({ onApply: props.onApply, onDelete: props.onDelete })}
+      dataSource={[...props.profiles]}
+      rowKey="id"
+      scroll={{ x: 'max-content' }}
+    />
   );
+}
+
+/**
+ * 配置集表列定义（2026-10-30 W4：mem-row 行 → antd Table）。
+ * @param actions 应用 / 删除回调
+ * @returns 列定义
+ */
+function profileColumns(actions: RowActions): ColumnsType<Profile> {
+  return [
+    { title: t('名称'), dataIndex: 'name', key: 'name' },
+    { title: t('描述'), dataIndex: 'description', key: 'description' },
+    {
+      title: t('插件'),
+      key: 'plugins',
+      render: (_, p) => (
+        <>
+          {(p.plugins || []).map((n: string) => (
+            <span className="badge" key={n}>
+              {n}
+            </span>
+          ))}
+        </>
+      ),
+    },
+    {
+      title: t('操作'),
+      key: 'op',
+      width: 150,
+      render: (_, p) => (
+        <>
+          <Button size="small" onClick={() => actions.onApply(p.id)}>
+            {t('应用')}
+          </Button>{' '}
+          <Button size="small" danger onClick={() => actions.onDelete(p.id)}>
+            {t('删除')}
+          </Button>
+        </>
+      ),
+    },
+  ];
 }
 
 /**
@@ -194,10 +233,13 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
       </div>
       <div className="pm-section">
         <div className="pm-title">{t('已存配置集（{count}）', { count: profiles.length })}</div>
-        {profiles.length
-          ? profiles.map((p) =>
-              renderRow(p, { onApply: (id) => void applyProfile(id), onDelete: (id) => void delProfile(id) }),
-            )
+        {profiles.length ? (
+          <ProfilesTable
+            profiles={profiles}
+            onApply={(id) => void applyProfile(id)}
+            onDelete={(id) => void delProfile(id)}
+          />
+        )
           : emptyState(
               icon('package', { size: 20 }),
               t('暂无配置集'),
@@ -209,13 +251,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
         <div className="form">
           <label>
             {t('名称')}
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                nameRef.current = el;
-              }}
-              placeholder={t('如：minimal / web-dev')}
-            />
+            <input type="text" ref={nameRef} placeholder={t('如：minimal / web-dev')} />
           </label>
           <div className="pane-actions">
             <span className="flex-spacer"></span>

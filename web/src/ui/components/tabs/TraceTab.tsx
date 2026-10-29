@@ -23,6 +23,10 @@ import { timeOf } from '../../format.ts';
 import type { ReactElement } from 'react';
 import type { TraceReadResultLike } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Alert from 'antd/es/alert';
 
 /** Trace 面板入参。 */
 export interface TraceTabProps {
@@ -76,7 +80,7 @@ function TraceFilters(props: {
 }
 
 /**
- * Trace 条目列表。
+ * Trace 条目列表（2026-10-30 W4：antd Table——seq/时刻/类别/摘要四列可扫读）。
  * @param props 条目数组。
  * @returns 列表节点。
  */
@@ -86,14 +90,24 @@ function TraceEntries(props: {
   if (props.entries.length === 0) {
     return <p className="hint">{t('本次查询无匹配条目（会话存在但该条件下没有条目）。')}</p>;
   }
+  type Entry = TraceReadResultLike['entries'][number];
+  const columns: ColumnsType<Entry> = [
+    { title: t('链序号'), dataIndex: 'seq', key: 'seq', width: 80, render: (seq) => `#${String(seq)}` },
+    { title: t('时间'), key: 'at', width: 150, render: (_, e) => timeOf(Date.parse(e.at)) },
+    { title: t('类别'), dataIndex: 'kind', key: 'kind', width: 140 },
+    { title: t('摘要'), key: 'summary', render: (_, e) => e.summary },
+  ];
   return (
-    <ul>
-      {props.entries.map((entry) => (
-        <li key={`${String(entry.seq)}-${entry.kind}`}>
-          #{entry.seq} · {timeOf(Date.parse(entry.at))} · {entry.kind} · {entry.summary}
-        </li>
-      ))}
-    </ul>
+    <Table<Entry>
+      className="trace-table"
+      size="small"
+      bordered={false}
+      pagination={false}
+      columns={columns}
+      dataSource={[...props.entries]}
+      rowKey={(e) => `${String(e.seq)}-${e.kind}`}
+      scroll={{ x: 'max-content' }}
+    />
   );
 }
 
@@ -105,7 +119,7 @@ function TraceEntries(props: {
 function TraceError(props: { message: string; onRetry: () => void }): ReactElement {
   return (
     <div className="trace-tab">
-      <p className="err">{t('读取 trace 失败：{msg}', { msg: props.message })}</p>
+      <Alert type="error" showIcon message={t('读取 trace 失败：{msg}', { msg: props.message })} />
       <button type="button" onClick={props.onRetry}>
         {t('重试')}
       </button>

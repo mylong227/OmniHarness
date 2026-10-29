@@ -24,6 +24,10 @@ import * as React from 'react';
 import { useApp } from '../../context.ts';
 import type { ReactElement } from 'react';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Select from 'antd/es/select';
+import Input from 'antd/es/input';
+import Button from 'antd/es/button';
 
 /** 一条可编辑规则（与服务端 `ApprovalRule` 字段同形；`decision` 必填）。 */
 interface EditableRule {
@@ -94,28 +98,21 @@ function RuleRow(props: {
   const { rule, index, onPatch, onRemove } = props;
   return (
     <li className="rule-row">
-      <select
-        value={rule.decision}
+      <Select
+        className="rule-decision"
         aria-label={t('裁决')}
-        onChange={(e: { target: { value: string } }) =>
-          onPatch(index, { decision: e.target.value as EditableRule['decision'] })
-        }
-      >
-        {DECISIONS.map((d) => (
-          <option key={d} value={d}>
-            {d}
-          </option>
-        ))}
-      </select>
-      <input
-        type="text"
+        value={rule.decision}
+        onChange={(next: string) => onPatch(index, { decision: next as EditableRule['decision'] })}
+        options={DECISIONS.map((d) => ({ value: d, label: d }))}
+        popupMatchSelectWidth={false}
+      />
+      <Input
         value={rule.toolName}
         aria-label={t('工具名')}
         placeholder={t('toolName（留空＝任意工具）')}
         onChange={(e: { target: { value: string } }) => onPatch(index, { toolName: e.target.value })}
       />
-      <input
-        type="text"
+      <Input
         value={rule.commandPrefix}
         aria-label="commandPrefix"
         placeholder="commandPrefix"
@@ -123,8 +120,7 @@ function RuleRow(props: {
           onPatch(index, { commandPrefix: e.target.value })
         }
       />
-      <input
-        type="text"
+      <Input
         value={rule.commandGlob}
         aria-label="commandGlob"
         placeholder="commandGlob"
@@ -132,9 +128,9 @@ function RuleRow(props: {
           onPatch(index, { commandGlob: e.target.value })
         }
       />
-      <button type="button" className="btn ghost" onClick={() => onRemove(index)}>
+      <Button size="small" danger onClick={() => onRemove(index)}>
         {t('删除')}
-      </button>
+      </Button>
     </li>
   );
 }

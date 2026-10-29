@@ -26,6 +26,18 @@ import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
 import { allText, byTag, facadeOf } from './domFacade.ts';
 import type { Facade, FacadeNode } from './domFacade.ts';
 
+/** 深度收集满足谓词的外观节点（2026-10-30 W4：按 aria-label 定位 antd 控件内部输入用）。 */
+function collect(vnode: Facade, pred: (n: FacadeNode) => boolean): FacadeNode[] {
+  const out: FacadeNode[] = [];
+  const walk = (n: FacadeNode | null): void => {
+    if (n === null) return;
+    if (pred(n)) out.push(n);
+    for (const c of n.children) if (typeof c !== 'string') walk(c);
+  };
+  walk(vnode);
+  return out;
+}
+
 const { PermissionTab, rulesOf, toWireRules } = await import(
   '../src/ui/components/tabs/PermissionTab.tsx'
 );
@@ -67,7 +79,8 @@ test('① 服务端拒绝 ⇒ 原样显示原因（哪一条 / 哪个字段 / �
   });
   addRule(tree());
   const user = userEvent.setup();
-  const toolInput = byTag(tree(), 'input')[0]!;
+  // 2026-10-30 W4：裁决下拉换 antd Select——其内部也有搜索 <input>，按 aria-label 定位工具名输入框。
+  const toolInput = collect(tree(), (n) => n.props['aria-label'] === '工具名')[0]!;
   await user.type(toolInput.el as HTMLElement, 'shell');
   fireEvent.click(saveButton(tree())!.el);
 
@@ -81,7 +94,9 @@ test('① 服务端拒绝 ⇒ 原样显示原因（哪一条 / 哪个字段 / �
   assert.doesNotMatch(text, /已保存/u, '被拒绝时不得出现"已保存"（纪律②：不做乐观更新）');
   // 纪律②：拒绝后编辑态保留（用户改了一半的内容不得凭空消失）。
   assert.ok(
-    byTag(tree(), 'input').some((n) => n.props.value === 'shell'),
+    collect(tree(), (n) => n.type === 'input' && n.props['aria-label'] === '工具名').some(
+      (n) => n.props.value === 'shell',
+    ),
     '拒绝后已输入的规则内容必须保留',
   );
   assert.strictEqual(saveButton(tree())!.props.disabled, undefined, '仍有未保存改动，保存按钮应可再点');

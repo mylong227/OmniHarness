@@ -6766,3 +6766,33 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   ④ 外框类：FilePicker/FolderPicker（Modal+Tree+Input）、GraphTab 工具条、FileTab/BrowserPane 外框。
 - **验证**：`web:test` **659/659 全绿**（128 文件，新增 roving 判据）；`gate:typed` 0 错；
   `web:budget`：entry 188/240、vendor 267.1/290、CSS 31.3/40、async 193.3/260、首屏 455.1/500。
+
+## 181. 2026-10-30 W4 补齐：剩余面板全量 antd 化（批 A–C，覆盖 §180 清单的 ①②③）
+
+- **批 A（Descriptions/Collapse/Table）**：TraceTab（只读条目 ul → `Table` 四列，错误态 → `Alert`）；
+  DetailTab（头区键值 → `Descriptions`，完整 payload → `Collapse` **默认展开**——可折叠但行为不变）；
+  SkillsTab（技能清单 → `Table`，标签 → `Tag`）。
+- **批 B（Table/Switch/Tag/Button）**：AutomationsTab（任务列表 → `Table`，启停 → `Switch` 带
+  已启用/已停用文案，立即运行/删除 → `Button`）；PluginsTab（安装/卸载 → `Button` primary/danger，
+  已加载徽标 → `Tag`——**卡片形态保留**，市场条目本就该是卡片）；ProfilesTab（配置集行 → `Table`）。
+- **批 C（表单专项落地）**：**ConsoleUI 三个设置原语下沉到 antd**——ConsoleSelect → `Select`、
+  ConsoleInput → `Input`（密码走 `Input.Password`，blur/Enter 提交语义原样）、ConsoleSwitch →
+  `Switch`（role=switch 语义由组件库提供，desktopSettingsSection 的 getAllByRole('switch') 判据
+  原样通过）。所有设置页经 ConsoleUI 拼装 ⇒ **一次换全站生效**。PermissionTab 规则编辑器控件
+  随同换装（裁决 `Select`、字段 `Input`、删除 `Button` danger），状态机与四条纪律零改动。
+- **判据适配（1 处 + 工具）**：permissionTab ① 的输入定位从「input 下标」改为「aria-label」
+  （antd Select 内部也渲染搜索 `<input>`，下标会打错目标）；文件内补一个本地 `collect` 帮手。
+- **诚实记档（有意的保留，非遗漏）**：
+  - RollbackTab 检查点时间线**保留自研**——它已是按天分组的 Timeline 形态（cp-day/cp-badge/
+    latest 标记），换 antd Timeline 是无收益的 CSS/判据翻搅；
+  - FilePicker/FolderPicker **外壳已是 antd（PickerModal/Modal）**，内部键盘列表保留：箭头导航
+    - 代际守卫有 popoverKeyboard/staleResponseGuards 等密集判据，"Modal+Tree+Input" 是重设计而
+      非迁移，若要做应单独立项；
+  - GraphTab 自研图与 FileTab/BrowserPane 外框按 §5.4 原文保留（"保留 iframe 与代码渲染"）；
+  - 旧 `.csl-select/.csl-switch/.csl-input` 原生控件的 CSS 段（23 行）成为死规则，W5 删旧样式表
+    时一并清（本轮只增不删，避免碰 9.7k 行旧样式的同时扩大验证面）。
+- **验证**：`web:test` **659/659 全绿**；`gate:typed` 0 错；check.mjs（含行数铁律）零违规；
+  预算全绿：entry 188/240、vendor 267.1/290、CSS 31.3/40、async 193.3/260、首屏 455.1/500
+  （panel-antd 吸收 Select/Input/Switch/Collapse/Tag 增量至 66.3，vendor 不动）。
+- **W4 至此 15/15 面板全部处理完毕**（13 个迁移 + Rollback 时间线/选择器内层 2 个有据保留）。
+  W5 剩余：旧样式表删除（9.7k 行）、DESIGN_SYSTEM v2 记档——均为独立大批次，另行开工。

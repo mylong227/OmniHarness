@@ -2,6 +2,10 @@
 import * as React from 'react';
 import { useApp } from '../../context.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Table from 'antd/es/table';
+import type { ColumnsType } from 'antd/es/table';
+import Tag from 'antd/es/tag';
 
 /** 技能目录条目。 */
 interface SkillRow {
@@ -9,6 +13,26 @@ interface SkillRow {
   description: string;
   tags: string[];
 }
+
+
+/** 技能目录列定义（2026-10-30 W4：act-list → antd Table，标签用 antd Tag）。 */
+const skillColumns: ColumnsType<SkillRow> = [
+  {
+    title: t('技能'),
+    dataIndex: 'name',
+    key: 'name',
+    width: 200,
+    render: (name: string) => <span className="slash-name">/{name}</span>,
+  },
+  { title: t('描述'), dataIndex: 'description', key: 'description' },
+  {
+    title: t('标签'),
+    dataIndex: 'tags',
+    key: 'tags',
+    width: 200,
+    render: (tags: string[]) => (tags.length === 0 ? null : tags.map((tg) => <Tag key={tg}>{tg}</Tag>)),
+  },
+];
 
 /** 技能面板。 */
 export function SkillsTab(): React.ReactElement {
@@ -60,17 +84,16 @@ export function SkillsTab(): React.ReactElement {
         {shown.length === 0 ? (
           <p className="act-muted">{t('没有匹配的技能')}</p>
         ) : (
-          <ul className="act-list">
-            {shown.map((skill) => (
-              <li key={skill.name} className="act-item auto-skill">
-                <span className="slash-name">/{skill.name}</span>
-                <span className="act-text">{skill.description}</span>
-                {skill.tags.length === 0 ? null : (
-                  <span className="act-kind">{skill.tags.join(' · ')}</span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <Table<SkillRow>
+            className="skills-table"
+            size="small"
+            bordered={false}
+            pagination={false}
+            columns={skillColumns}
+            dataSource={[...shown]}
+            rowKey="name"
+            scroll={{ x: 'max-content' }}
+          />
         )}
       </section>
     </div>

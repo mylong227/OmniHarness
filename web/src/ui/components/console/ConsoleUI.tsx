@@ -11,6 +11,11 @@ import { icon } from '../../models/Icon.ts';
 import type { IconName } from '../../models/Icon.ts';
 import { t } from '../../i18n/i18n.ts';
 import type { SettingsField, SettingsModel } from '../../models/SettingsModel.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+// 2026-10-30（W4 表单专项）：三个设置原语下沉到 antd——所有设置页经本文件拼装，换这里即全站生效。
+import Select from 'antd/es/select';
+import Input from 'antd/es/input';
+import Switch from 'antd/es/switch';
 
 /** 下拉选项。 */
 export interface ConsoleOption {
@@ -157,24 +162,16 @@ export interface ConsoleSelectProps {
 export function ConsoleSelect(props: ConsoleSelectProps): ReactElement {
   const { value, options, onChange, ariaLabel, disabled, width } = props;
   return (
-    <span className="csl-select-wrap" style={width === undefined ? undefined : { width }}>
-      <select
-        className="csl-select"
-        aria-label={ariaLabel}
-        value={value}
-        disabled={disabled === true}
-        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <span className="csl-select-caret" aria-hidden="true">
-        {icon('chevron-down', { size: 12 })}
-      </span>
-    </span>
+    <Select
+      className="csl-select"
+      style={width === undefined ? undefined : { width }}
+      aria-label={ariaLabel}
+      value={value}
+      disabled={disabled === true}
+      options={options.map((option) => ({ value: option.value, label: option.label }))}
+      onChange={(next: string) => onChange(next)}
+      popupMatchSelectWidth={false}
+    />
   );
 }
 
@@ -207,23 +204,21 @@ export interface ConsoleInputProps {
  */
 export function ConsoleInput(props: ConsoleInputProps): ReactElement {
   const { value, onChange, onCommit, ariaLabel, placeholder, type, mono, disabled, width } = props;
-  return (
-    <input
-      className={'csl-input' + (mono === true ? ' csl-input--mono' : '')}
-      style={width === undefined ? undefined : { width }}
-      type={type ?? 'text'}
-      aria-label={ariaLabel}
-      placeholder={placeholder ?? ''}
-      value={value}
-      disabled={disabled === true}
-      autoComplete="off"
-      onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
-      onBlur={() => onCommit?.()}
-      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') onCommit?.();
-      }}
-    />
-  );
+  const shared = {
+    className: 'csl-input' + (mono === true ? ' csl-input--mono' : ''),
+    style: width === undefined ? undefined : { width },
+    'aria-label': ariaLabel,
+    placeholder: placeholder ?? '',
+    value,
+    disabled: disabled === true,
+    autoComplete: 'off',
+    onChange: (e: { target: { value: string } }) => onChange(e.target.value),
+    onBlur: () => onCommit?.(),
+    onPressEnter: () => onCommit?.(),
+  };
+  // 密码域走 Input.Password（type=password 语义保留；等宽修饰一并带上）。
+  if (type === 'password') return <Input.Password {...shared} />;
+  return <Input {...shared} />;
 }
 
 /** 开关。 */
@@ -246,17 +241,13 @@ export interface ConsoleSwitchProps {
 export function ConsoleSwitch(props: ConsoleSwitchProps): ReactElement {
   const { checked, onChange, label, disabled } = props;
   return (
-    <label className={'csl-switch' + (disabled === true ? ' is-disabled' : '')}>
-      <input
-        type="checkbox"
-        role="switch"
-        aria-label={label}
-        checked={checked}
-        disabled={disabled === true}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.checked)}
-      />
-      <span className="csl-switch-track" aria-hidden="true" />
-    </label>
+    <Switch
+      className="csl-switch"
+      aria-label={label}
+      checked={checked}
+      disabled={disabled === true}
+      onChange={(next: boolean) => onChange(next)}
+    />
   );
 }
 

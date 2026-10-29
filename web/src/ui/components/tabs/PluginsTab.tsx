@@ -10,6 +10,9 @@ import { permChip, emptyState } from '../../format.ts';
 import { icon } from '../../models/Icon.ts';
 import type { PluginManifest, PluginSearchEntry } from '../../../types/models.ts';
 import { t } from '../../i18n/i18n.ts';
+// 面板级 antd 一律子路径导入（不走 'antd' 桶文件，理由见 vite.config.ts「分块改造」注释）。
+import Button from 'antd/es/button';
+import Tag from 'antd/es/tag';
 
 /** 搜索输入防抖延迟（ms）。 */
 const DEBOUNCE_MS = 200;
@@ -44,27 +47,17 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
         </span>
         <span className="pc-head-actions">
           {actions.isInstalled ? (
-            <span className={'src-badge ' + (m.loaded ? 'loaded' : 'unloaded')}>
-              {m.loaded ? t('已加载') : t('未加载')}
-            </span>
+            <Tag color={m.loaded ? 'success' : 'default'}>{m.loaded ? t('已加载') : t('未加载')}</Tag>
           ) : null}
           <span className={'src-badge ' + actions.source}>{actions.source}</span>
           {actions.isInstalled ? (
-            <button
-              className="btn-remove"
-              disabled={disabled}
-              onClick={() => actions.onAction('remove', m.name)}
-            >
+            <Button size="small" danger disabled={disabled} onClick={() => actions.onAction('remove', m.name)}>
               {t('卸载')}
-            </button>
+            </Button>
           ) : (
-            <button
-              className="btn-install"
-              disabled={disabled}
-              onClick={() => actions.onAction('install', m.name)}
-            >
+            <Button size="small" type="primary" disabled={disabled} onClick={() => actions.onAction('install', m.name)}>
               {t('安装')}
-            </button>
+            </Button>
           )}
         </span>
       </div>

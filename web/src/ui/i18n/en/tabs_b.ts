@@ -297,4 +297,9 @@ export const EN_TABS_B: Record<string, string> = {
   '摘要': 'Summary',
   '来源': 'Source',
   '操作': 'Actions',
+  // 表格列名（2026-10-30 W4 补齐：自动化/配置集/技能 antd 化后新增）
+  '间隔': 'Interval',
+  '启停': 'Toggle',
+  '描述': 'Description',
+  '标签': 'Tags',
 };
