@@ -14,6 +14,7 @@ import { WorkflowMemoryRecorder } from './workflowMemoryRecorder.ts';
 import { LoopGuard, type LoopDecision } from './loop/loopGuard.ts';
 import { EvidenceLedger } from './evidenceLedger.ts';
 import type { EventPersister } from './loop/eventPersister.ts';
+import { TurnFailureLedger, sharedTurnFailureLedger } from './turnFailureLedger.ts';
 import { log } from '../util/logger.ts';
 
 // 完成闸门契约已下沉到 `ports/runtime/completionGate.ts`（2026-09-27，修架构违规：契约留在 core
@@ -124,6 +125,12 @@ export class TurnRunner {
      * 只在步边界消费，保证不会插进 `assistant(tool_calls) ↔ tool` 中间。
      */
     private readonly steering?: (() => string | undefined) | undefined,
+    /**
+     * 验证失败签名台账（U2-2 VRR-Stop）：跨回合记住本会话最近一次失败签名；
+     * 同签名重复出现时停止注入「再修」、如实记 `failed`。缺省取模块级共享单例
+     * （跨回合存续）；测试可注入独立实例。
+     */
+    private readonly failureLedger: TurnFailureLedger | undefined = sharedTurnFailureLedger,
   ) {
     this.loopGuard = loopGuard;
     this.workflowRecorder =
@@ -412,6 +419,23 @@ export class TurnRunner {
     }
     const digest = claim.gated ? undefined : await this.completionDigest(sessionId);
     if (digest !== undefined && digest !== '') {
+      // U2-2 VRR-Stop：跨回合比对失败签名——与上一轮**完全相同**的失败说明 verify-repair
+      // 已在原地打转（验证器/修复器有噪声时，继续修会破坏本来正确的产物），停止注入「再修」、
+      // 如实以 failed 收尾；不同签名才允许下一轮（先记录再回灌）。
+      const signature = this.failureLedger?.signatureOf(digest) ?? '';
+      if (signature !== '' && this.failureLedger?.sameAsLast(sessionId, signature) === true) {
+        claim.gated = true;
+        claim.verificationState = 'failed';
+        log.warn('turn.completion_gate.vrr_stop', { steps, sessionId });
+        this.recorder.system(
+          '【完成闸门/VRR-Stop】本回合核验再次失败，且失败签名与上一轮**完全相同**：\n' +
+            `${digest}\n` +
+            '停止重复回灌「再修」（继续原地重试大概率无边际增益）。' +
+            '本回合如实记为「核验未通过」；若确有新修复思路，请在下一回合换一个方向，而不是重复同一动作。',
+        );
+        return 'close';
+      }
+      this.failureLedger?.record(sessionId, signature);
       claim.gated = true;
       claim.verificationState = 'failed';
       log.warn('turn.completion_gate.blocked', { steps, sessionId });
