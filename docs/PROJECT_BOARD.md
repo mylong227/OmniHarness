@@ -7256,3 +7256,49 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 只能 env-only；② 浏览器禁用端口表、媒体探测输出上限、A2A 页大小上限（100）等是**协议/安全常量**，
 刻意不配；③ `ops-literal` 里仍有 71 条模型/协议数值（`maxOutputTokens`、推理档位），不属于运维旋钮。
 以上都是「判断后不配」，不是遗漏。
+
+## 197. 2026-10-30 U2 自适应层四项落地 + 基线回归修复（15 例红 → 全绿）
+
+### 197.1 U2 四项（CORE_CAPABILITY_UPGRADE §5-U2 的剩余项，逐项有判据）
+
+| 项                                 | 落点                                                                                                                                                                                                                                                                                                                | 判据                                                              |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **U2-1a 压缩后状态审计**（shadow） | `compactionStateAudit.ts`：从被折叠 head 确定性提取已改文件/验证命令/未完成待办，与最终摘要（含台账）归一化比对；缺失 `warn('compaction.audit.missing')` 并随 `CompactionResult.stateAudit` 上抛，**不改摘要/游标**                                                                                                 | `compactionStateAudit.test.ts` 8 例；压缩既有回归 37 例           |
+| **U2-1b 触发信号组合化**（shadow） | `compactionTriggerSignals.ts`：预算占比/轮数/工具结果占比/重复率四信号 + 组合规则参考判定（阈值显式登记为 REFERENCE，未经两关校准）；与现行阈值**分歧**升 info（`compaction.signals.delta`＝翻默认的对照数据落点），一致 debug。游标复用快路径零开销                                                                | `compactionTriggerSignals.test.ts` 5 例（三支路可达/确定性/除零） |
+| **U2-2 VRR-Stop**                  | `turnFailureLedger.ts`（模块级单例，放 Agent 上会推过上帝类 25→26 实测被拦）：按 sessionId 存最近失败签名（保守归一化：小写+空白折叠）；`TurnRunner.handleCompletionClaim` 跨回合比对——同签名重复 ⇒ 停止回灌「再修」、如实记 `failed`（`turn.completion_gate.vrr_stop` 留痕）；不同签名照常回灌。回合内至多一次不变 | `vrrStop.test.ts` 4 例（同签名止损/异签名放行/归一化/有界 512）   |
+| **U2-4 模型能力探针**              | `modelCapabilityProbe.ts` + CLI `omniharness model probe`：六条受控小请求（基础/工具调用/并行工具/JSON/推理档位/流式）→ capability card；配置链与 goal/workflow 同源 ⇒ 探的就是生产装配端点；`--json` 机器可读；fail/error 退出码 1。零新增旗标（全复用既有登记）                                                   | `modelCapabilityProbe.test.ts` 5 例；mock 实跑 6 项全 pass        |
+
+**诚实边界**：① 状态审计与触发信号都是 **shadow**——只留痕不改变行为，翻默认要等
+`compaction.signals.delta` 的对照数据过两关（D6）；② VRR-Stop 的签名是**保守归一化**
+（误判「不同为相同」才提前止损、误判「相同为不同」只维持现状 ⇒ 安全侧）；③ 能力探针
+**不做缓存探测**（厂商字段+时序，端口级结论不可信；cache_control wire 断言在
+`modelAdapters.test.ts`），reasoning 档位只量「接受」；④ 探针是单端点 capability card，
+U2-4 的「跨端点配对报告」属后续（需要至少两个真实端点）。
+
+### 197.2 基线回归修复：全量测试 15 例红（9 文件）归因三类并清零
+
+接手时全量基线有 15 例失败——**改代码没跑全量门禁**的登记遗漏 + **OMNI_HOME 迁移（§130）
+判据没跟上**，逐例归因后清零（`509958f9`）：
+
+| 类               | 项                                                                                  | 修法                                                                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| A 登记遗漏       | `workspaceTrust`：顶层 `limits` 键未分类（上轮数据化 P1–P11 引入）                  | 归**权威键**：它能放大资源占用（并发/超时/上限），未信任工作区忽略并提示                                                        |
+| A                | `architectureSpec`②：`antd@6.6.8` 未逐字进 SPEC                                     | 补登记（11→12，附准入理由与边界清单指针）                                                                                       |
+| A                | `docsLayout`①：`EDIT_CONCURRENCY_RESEARCH` / `PICKER_REDESIGN` 两文档               | 白名单 + `docs/README.md` 登记                                                                                                  |
+| A                | `requireSwitches`②：`keyStateShots.ts` 的 SKIP 无开关                               | 接 `skipReasonFor`：`OMNI_REQUIRE_BROWSER=1` 时不跳过、逐态记失败进 JSON                                                        |
+| A                | `probesInRepo`×4：`editMergeProbe` 未登记/缺四段头/缺 exit 2/`--list-knobs` 非 JSON | README 第 12 号 + 四段头 + 缺 dist 退出码 2 + 接 `_args.mjs`（`--json=<path>` 落盘）；实跑 14/14 正确                           |
+| B OMNI_HOME 判据 | `vaultKeyDefaults`×3、`servePortConflictE2E`                                        | 子进程/serve 显式设 `OMNI_HOME` 指临时目录；①改钉 `OmniHome.dir()`；⑤补正对照（`vault set` 必须生成 OmniHome 根下 `vault.key`） |
+
+**教训（同 §130 的迁移纪律）**：换归属根这类横切改动，凡是「子进程起 CLI/serve 并断言
+落盘位置」的判据都要同步审一遍——`HOME/USERPROFILE` 指了临时目录但 `OMNI_HOME` 没覆盖，
+本机 setx 的真实家目录就会把判据变成"查错地方"的假绿或假红。
+
+### 197.3 本轮验证
+
+- `tsc --noEmit` 0 错（服务端 + web）；`check.mjs --strict` 零违规（contextCompactor
+  改动即拆：台账静态方法拆至 `compactionToolLedger.ts`，compact() 抽三个私有方法，895→792 行）；
+  `auditStandards --delta` 通过。
+- 全量测试（`npm test`）此前 15 例失败 → 本轮逐项修复后复跑全绿（相关 9 文件 57 例 +
+  新增判据 22 例 + CLI/压缩/闸门回归）。
+- 本轮提交：`22319af2`（U2 压缩自适应）→ `678d10c2`（VRR-Stop）→ `509958f9`（基线修复）→
+  `b10b90f6`（model probe）。
