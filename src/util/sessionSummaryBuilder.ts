@@ -61,15 +61,25 @@ const IDLE_GAP_MS = 5 * 60 * 1000;
  * 落盘侧已持有完整事件数组，直接循环喂入即可。两条路径共用同一段判定。
  */
 export class SessionSummaryBuilder {
+  /** 最近一次 `session_meta` 的归属工作区（没有 meta 的老存档保持 undefined）。 */
   private workspace: string | undefined;
+  /** 最近一次 `model` 事件上报的模型名（会话从未带 model 时为 undefined）。 */
   private model: string | undefined;
+  /** 会话标签：自定义标题优先，否则首条用户消息前 80 字。 */
   private label = '';
+  /** 已累计的用户回合数。 */
   private turns = 0;
+  /** 已见到的最后一条事件时间戳（ISO 串；尚无事件为空串）。 */
   private updatedAt = '';
+  /** 是否出现过 mock 演示会话特征（`model=mock` / 演示标记）。 */
   private mock = false;
+  /** 首条事件的时间（epoch ms；用于 activeMs 的起点，尚无事件为 null）。 */
   private firstTs: number | null = null;
+  /** 上一条事件的时间（epoch ms；供空闲间隔判定，尚无事件为 null）。 */
   private prevTs: number | null = null;
+  /** 累计剔除的空闲毫秒数（从 activeMs 里扣）。 */
   private idleMs = 0;
+  /** 被剔除的空闲间隔个数。 */
   private idleGaps = 0;
 
   /**

@@ -4591,7 +4591,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 ## 59. 2026-10-25 性能升级第二轮：S1 会话旁路摘要
 
-- **新增旁路**：`src/util/sessionSummary.ts`（唯一摘要口径）+ `sessionSummarySidecar.ts`
+- **新增旁路**：`src/util/sessionSummaryBuilder.ts`（唯一摘要口径；2026-10-31 由 sessionSummary.ts 改名对齐主类）+ `sessionSummarySidecar.ts`
   （`<sid>.jsonl.summary.json`，`{version,size,summary}`，tmp+rename 原子写）。
   `SessionScanCache.readSummary` 在旁路 `size` 与当前文件戳一致时**完全不读 `.jsonl`**；
   缺失/过期才逐行解析并异步回写。`JsonlStorage.save` 同步写旁路；回合末追加通道成功时

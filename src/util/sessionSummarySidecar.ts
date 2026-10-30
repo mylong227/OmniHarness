@@ -21,7 +21,7 @@
  */
 
 import { readFile, rename, unlink, writeFile } from 'node:fs/promises';
-import type { SessionSummary } from './sessionSummary.ts';
+import type { SessionSummary } from './sessionSummaryBuilder.ts';
 
 /** 旁路文件格式版本。 */
 const SUMMARY_VERSION = 1;

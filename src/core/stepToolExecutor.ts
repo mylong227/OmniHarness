@@ -15,7 +15,7 @@ import { ToolOutputTrust } from '../security/toolOutputTrust.ts';
 import { ProvenanceTracker } from '../security/provenanceTracker.ts';
 import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { log } from '../util/logger.ts';
-import { SupervisorHealthSignal } from '../supervisor/healthSignal.ts';
+import { SupervisorHealthSignal } from '../supervisor/supervisorHealthSignal.ts';
 import type { StepRunnerDeps } from './stepTypes.ts';
 
 /**

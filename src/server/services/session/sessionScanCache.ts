@@ -25,10 +25,10 @@
 
 import { readFile, stat } from 'node:fs/promises';
 import { SessionFileScanner } from './sessionFileScanner.ts';
-import { SessionSummaryBuilder, type SessionSummary } from '../../../util/sessionSummary.ts';
+import { SessionSummaryBuilder, type SessionSummary } from '../../../util/sessionSummaryBuilder.ts';
 import { readSessionSummary, writeSessionSummary } from '../../../util/sessionSummarySidecar.ts';
 
-export type { SessionSummary } from '../../../util/sessionSummary.ts';
+export type { SessionSummary } from '../../../util/sessionSummaryBuilder.ts';
 
 /** 单个模型的 token 统计。 */
 export interface ModelUsage {

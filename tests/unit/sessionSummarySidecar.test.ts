@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionScanCache } from '../../src/server/services/session/sessionScanCache.ts';
 import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
-import { SessionSummaryBuilder } from '../../src/util/sessionSummary.ts';
+import { SessionSummaryBuilder } from '../../src/util/sessionSummaryBuilder.ts';
 import {
   readSessionSummary,
   sessionSummaryPath,

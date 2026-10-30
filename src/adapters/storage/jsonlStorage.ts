@@ -5,7 +5,7 @@ import type { StoragePort } from '../../ports/memory/storage.ts';
 import { log } from '../../util/logger.ts';
 import { SessionArchiveLayout } from '../../util/sessionArchiveLayout.ts';
 import { SessionFileCodec } from '../../util/sessionFileCodec.ts';
-import { SessionSummaryBuilder } from '../../util/sessionSummary.ts';
+import { SessionSummaryBuilder } from '../../util/sessionSummaryBuilder.ts';
 import { writeSessionSummary } from '../../util/sessionSummarySidecar.ts';
 import { SessionAttachmentSpiller } from './sessionAttachmentSpiller.ts';
 

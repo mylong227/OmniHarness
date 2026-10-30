@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SupervisorHealthSignal } from '../../src/supervisor/healthSignal.ts';
+import { SupervisorHealthSignal } from '../../src/supervisor/supervisorHealthSignal.ts';
 
 test('策略拒绝识别：只认本仓门禁自己的拒绝格式（2026-10-27 收口）', () => {
   for (const text of [
