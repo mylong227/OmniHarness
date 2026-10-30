@@ -35,7 +35,6 @@ import {
 import { SsrfPolicy } from '../security/ssrfPolicy.ts';
 import { EnforcementModeResolver } from '../security/enforcementModeResolver.ts';
 import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.ts';
-import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { WorkerRegistry } from '../worker/workerRegistry.ts';
 import { ExternalCliWorker } from '../worker/externalCliWorker.ts';
 import { RegistryToolPort } from '../adapters/tool/registryToolPort.ts';
@@ -48,6 +47,8 @@ import { DenyApproval } from '../adapters/approval/denyApproval.ts';
 import { RuleApproval } from '../adapters/approval/ruleApproval.ts';
 import { GuardianApproval } from '../adapters/approval/guardianApproval.ts';
 import { PlanApproval } from '../adapters/approval/planApproval.ts';
+import { AskApproval } from '../adapters/approval/askApproval.ts';
+import { BUILTIN_APPROVAL_RULES } from '../adapters/approval/builtinApprovalRules.ts';
 import type { ApprovalRule } from '../adapters/approval/approvalRule.ts';
 import { dangerousCommands } from '../adapters/sandbox/dangerousCommands.ts';
 import { SandboxManager } from '../adapters/sandbox/sandboxManager.ts';
@@ -512,7 +513,7 @@ export class CliBuildConfig extends CliCredentialBuild {
   protected buildApproval(
     args: CliArgs,
     model: ModelPort,
-  ): AutoApproval | DenyApproval | RuleApproval | GuardianApproval | PlanApproval {
+  ): AutoApproval | DenyApproval | RuleApproval | GuardianApproval | PlanApproval | AskApproval {
     if (args.approval === 'deny') {
       return new DenyApproval();
     }
@@ -524,6 +525,13 @@ export class CliBuildConfig extends CliCredentialBuild {
     }
     if (args.approval === 'plan') {
       return new PlanApproval();
+    }
+    if (args.approval === 'ask') {
+      // 请求批准档：本地只读放行，其余按 `--approval-ask` 常量应答（CLI 无逐次交互面；
+      // serve 路径的 ask 档由 AgentRuntimeHost.resolveApprovals 换成上行弹框，不经这里）。
+      // 历史 bug：此处漏了 ask 分支，落盘 approval='ask' 重启后静默落回 AutoApproval 全放行
+      // ——界面显示「请求批准」、实际放行一切，正是「切档不生效」的根源形态。
+      return new AskApproval({ askHandler: async () => args.approvalAsk });
     }
     return new AutoApproval();
   }
@@ -548,11 +556,8 @@ export class CliBuildConfig extends CliCredentialBuild {
    * @returns 内置基线规则 + 配置自定义规则（经 commandGlob 支持参数级约束）的规则审批端口。
    */
   protected buildRuleApproval(args: CliArgs): RuleApproval {
-    const builtin: ApprovalRule[] = [
-      { toolName: TOOL_NAMES.readFile, decision: 'allow' },
-      { toolName: TOOL_NAMES.shell, commandPrefix: 'rm ', decision: 'deny' },
-      { toolName: TOOL_NAMES.shell, commandPrefix: 'del ', decision: 'deny' },
-    ];
+    // 内置基线与 server 侧回退端口（appServerState.RULES_DEFAULT）共用单一真源，禁止另抄一份。
+    const builtin: ApprovalRule[] = [...BUILTIN_APPROVAL_RULES];
     // 自定义规则（A2，来自配置 permission.rules）：与内置合并。聚合语义为 deny 优先，
     // 故顺序不影响裁决；用户可借 commandGlob 表达参数级约束（如拒绝任何含 `curl | sh` 的命令）。
     const custom: ApprovalRule[] = (args.permissionRules ?? []).map((rule) => ({

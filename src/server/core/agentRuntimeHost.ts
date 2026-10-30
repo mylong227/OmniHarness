@@ -11,6 +11,7 @@ import { SubagentPorts } from '../../subagent/subagentPorts.ts';
 
 import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from './appServerState.ts';
 import { PlanApproval } from '../../adapters/approval/planApproval.ts';
+import { AskApproval } from '../../adapters/approval/askApproval.ts';
 import { ServerNoopSupervisor } from './serverNoopSupervisor.ts';
 import type { ResolvedConfig } from '../../ports/config/resolvedConfig.ts';
 import type { SubagentPortsShape } from '../../ports/subagent/subagentPortsShape.ts';
@@ -29,6 +30,15 @@ export interface AgentRuntimeDeps {
   readonly autoApprove: () => boolean;
   /** UI 覆盖的审批档位（无覆盖时 undefined）。 */
   readonly approvalOverride: () => string | undefined;
+  /**
+   * 启动档位（组合根按分层配置解析出的 `args.approval`；缺省 undefined）。
+   *
+   * 为什么必须有它：UI 切档经 config.update **持久化**到用户级 omniharness.json，
+   * 而内存覆盖态重启即空。只看内存覆盖时，重启后生效端口回退到启动时构建的
+   * `config.approvals`——`approval: 'ask'` 落盘后重启会静默变回启动端口（历史上是
+   * AutoApproval 全放行），界面却仍显示「请求批准」。「档位切换不生效」类缺陷的根因即此。
+   */
+  readonly configuredApproval: () => string | undefined;
   /** 审批上行端口工厂。 */
   readonly uplink: () => ApprovalPort;
   /** UI 覆盖的运行时模型（无覆盖时 undefined）。 */
@@ -75,60 +85,91 @@ export class AgentRuntimeHost {
   }
 
   /**
-   * 是否应跳过生产级 SupervisorKernel：仅 `--auto-approve`（对应 UI「工具全部自动放行」）
+   * 生效审批档位（唯一裁决入口，`resolveApprovals` / `bypassSupervisorKernel` 共用）。
+   *
+   * 优先级（高 → 低）：
+   *  1. **内存覆盖**（UI 本次运行内切档，`config.update` 写入）——最 explicit、也最新；
+   *  2. **autoApprove 运行态开关**（`--auto-approve` 或审批弹框里点了「总是允许」）——
+   *     语义是「此后不再问」，必须压过落盘档位，否则点完「总是允许」下一回合又弹框；
+   *  3. **落盘档位**（用户级 omniharness.json 的 `approval`，UI 切档的持久化形态）——
+   *     重启后由它保证「界面显示哪档、实际就是哪档」。
+   *
+   * @returns 生效档位枚举值；三者皆无时 undefined（维持启动语义）。
+   */
+  private effectiveApproval(): string | undefined {
+    return (
+      this.deps.approvalOverride() ??
+      (this.deps.autoApprove() ? 'auto' : this.deps.configuredApproval())
+    );
+  }
+
+  /**
+   * 是否应跳过生产级 SupervisorKernel：仅「完全访问」档（`--auto-approve` 或生效档位 auto）
    * 即跳过（用户已显式选「完全访问」即终局授权，fail-closed safe-mode 拦截写类工具与
    * 该授权矛盾）。上一版曾叠加 `sandbox.name === 'passthrough'`，但生产默认 sandbox 是
    * policySandbox（用户配置文件未显式设 sandbox），导致绕过条件不命中，supervisor
    * 仍拒写文件（2026-09-07 用户截图反馈）。其余配置保持原 SupervisorKernel 不动——本判断
    * 是服务端唯一放宽点，调用方只需把它当 supervisor 覆盖项传入 `createRuntime.create`。
+   *
+   * 生效档位经 {@link effectiveApproval} 取——**落盘的 auto 也算数**（历史 bug：此处只看
+   * 内存覆盖与启动标志，UI 选「完全访问」→ 落盘 → 重启后覆盖态清空，supervisor 重新
+   * fail-closed，「完全访问」档静默降级）。
    * @param config 已解析配置（当前实现仅占位，sandbox 类型由 ToolGate / 升级路径自行处理）
    * @returns 放宽用 no-op 监督内核；不满足条件时 undefined（保持生产内核）
    */
   public bypassSupervisorKernel(config: ResolvedConfig): SupervisorPort | undefined {
-    // 用户终局授权判定：满足任一即视为「完全访问」，绕过 SupervisorKernel 的 fail-closed
-    // 降级（safe/locked 会永久拦截 write_file/shell/apply_patch 等危险工具，与用户授权矛盾）。
-    //   1) 启动标志 --auto-approve
-    //   2) UI 权限档位 approval=auto（「完全访问 / 工具全部自动放行」，经 config.update 写入
-    //      fieldOverrides.approval 并落盘；历史 bug：此处只看 autoApprove，导致用户在 UI 点
-    //      「完全访问」后 supervisor 仍照常拦截——首个危险工具失败即翻 safe 永久封锁写类工具）。
-    void config; // sandbox 类型由 ToolGate / 升级路径自行处理
-    if (!this.deps.autoApprove() && this.deps.approvalOverride() !== 'auto') {
+    // sandbox 类型由 ToolGate / 升级路径自行处理
+    void config;
+    if (this.effectiveApproval() !== 'auto') {
       return undefined;
     }
     return new ServerNoopSupervisor();
   }
 
   /**
-   * 解析审批端口：上行 / 自动放行 / 配置端口三选一，并实时采纳 config.update 的 approval 覆盖。
+   * 解析审批端口：按生效档位裁决，并实时采纳 config.update 的档位切换。
    * 抽出来供 Agent 与图运行共用，避免两处审批逻辑漂移。
+   *
+   * 档位 → 端口对应（与 `ApprovalTierCatalog` 的五档一一对应，缺一即「切档不生效」）：
+   *  - `auto`  → AUTO_ALLOW（完全访问）；
+   *  - `deny`  → DENY_ALL（全部拒绝）；
+   *  - `ask`   → AskApproval，询问回调走上行弹框（请求批准：本地只读自动放行，
+   *              编辑/联网/命令逐次弹框——与档位描述「编辑外部文件和使用互联网时始终询问」一致）；
+   *  - `plan`  → PlanApproval 只读白名单（计划模式）；
+   *  - `rules` → 配置端口本身是 rules（或落盘值就是 rules，含 approvalCache 包装形态）则沿用，
+   *              否则回退 `RULES_DEFAULT`（真规则审批：rm/del 拒绝，其余放行）。
    * @param config 已解析配置（提供其 approvals 端口作默认）
    * @returns 生效的审批端口
    */
   public resolveApprovals(config: ResolvedConfig): ApprovalPort {
-    const useUplink = this.deps.approvalUplink && !this.deps.autoApprove();
-    let approvals: ApprovalPort = useUplink
-      ? this.deps.uplink()
-      : this.deps.autoApprove()
-        ? AUTO_ALLOW
-        : config.approvals;
-    const override = this.deps.approvalOverride();
-    if (override === 'auto') {
-      approvals = AUTO_ALLOW;
-    } else if (override === 'deny') {
-      approvals = DENY_ALL;
-    } else if (override === 'ask') {
-      // 审批档：每次工具调用都经上行端口发 approval.request 等用户确认（UI 弹框）。
-      approvals = this.deps.uplink();
-    } else if (override === 'rules') {
-      // 默认档：优先用启动时构建的 RuleApproval；若原配置是 auto/deny 被临时切过来，
-      // 回退到内置默认 rules 端口，避免仍沿用旧的 AutoApproval/DenyAll。
-      approvals = config.approvals.name === 'rules' ? config.approvals : RULES_DEFAULT;
-    } else if (override === 'plan') {
+    const tier = this.effectiveApproval();
+    if (tier === 'auto') {
+      return AUTO_ALLOW;
+    }
+    if (tier === 'deny') {
+      return DENY_ALL;
+    }
+    if (tier === 'ask') {
+      // 审批档：本地只读放行，其余经上行端口发 approval.request 等用户确认（UI 弹框）。
+      return new AskApproval({ askHandler: (request) => this.deps.uplink().decide(request) });
+    }
+    if (tier === 'plan') {
       // 计划模式（UI「+ → 计划模式」）：只读白名单，写类工具一律 deny（fail-closed）。
       // 与 CLI `--approval plan` 同一实现，保证两条入口语义一致。
-      approvals = new PlanApproval();
+      return new PlanApproval();
     }
-    return approvals;
+    if (tier === 'rules') {
+      // 默认档：优先沿用启动时按 rules 构建的配置端口（保留自定义 permission.rules 与
+      // approvalCache 包装）；配置端口明显不是 rules（auto/deny/plan 等被临时切过来）时，
+      // 回退到与启动路径同规则的内置默认端口，绝不沿用旧的 AutoApproval/DenyAll。
+      const configuredIsRules =
+        config.approvals.name === 'rules' || this.deps.configuredApproval() === 'rules';
+      return configuredIsRules ? config.approvals : RULES_DEFAULT;
+    }
+    // 无任何档位值（或 CLI 专属的 guardian 策略）：维持启动语义——上行开关 / autoApprove /
+    // 配置端口，与既有行为逐字一致。
+    const useUplink = this.deps.approvalUplink && !this.deps.autoApprove();
+    return useUplink ? this.deps.uplink() : config.approvals;
   }
 
   /**
@@ -209,7 +250,7 @@ export class AgentRuntimeHost {
 
   /**
    * 懒初始化子智能体端口集（供图运行复用同一运行时能力）。
-   * @returns 端口集（图运行审批固定 AUTO_ALLOW，见实现内注释）。
+   * @returns 端口集（图运行审批按**生效档位**解析，见实现内注释）。
    */
   public graphPorts(): SubagentPortsShape {
     if (this.portsCache === undefined) {
@@ -217,10 +258,12 @@ export class AgentRuntimeHost {
       const serverConfig: ResolvedConfig = {
         ...config,
         events: this.deps.eventPort(),
-        // 图运行是用户显式触发的「一键编排」：子步骤程序化执行，
-        // 不应走交互式上行审批（否则 headless / 无人应答时永久挂死）。
-        // 用户点击「运行」即视为已授权，固定 AUTO_ALLOW（与 CLI workflow 命令语义一致）。
-        approvals: AUTO_ALLOW,
+        // 图运行的审批与普通回合同一档位裁决（resolveApprovals）：「完全访问」放行一切、
+        // 「全部拒绝」一个工具都不跑。历史实现固定 AUTO_ALLOW，用户切到 deny 档后图运行
+        // 照样产生副作用——正是「切档不生效」的又一条通路。
+        // 「点击运行即视为已授权」的旧口径只在 auto 档下成立；无人值守场景（ask 档弹框
+        // 无人应答）由上行审批的超时 deny 兜底，不会永久挂死。
+        approvals: this.resolveApprovals(config),
       };
       const supervisor = this.bypassSupervisorKernel(serverConfig);
       this.portsCache = SubagentPorts.portsOf(

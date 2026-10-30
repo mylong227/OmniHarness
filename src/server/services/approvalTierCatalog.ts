@@ -8,11 +8,16 @@ import { ArrayAt } from '../../util/arrayAt.ts';
  * 因此 UI 一律通过 `approval.tiers` 取档位；前端只保留一份离线兜底拷贝。
  *
  * 档位与后端解析的对应关系（见 `AgentRuntimeHost.resolveApprovals`）：
- *  - `ask`   → 上行审批端口：每次工具调用都发 `approval.request` 等用户点确认；
  *  - `rules` → 规则审批：只读类工具放行，危险操作（rm/del 等）拒绝，其余按 `--approval-ask`；
+ *  - `ask`   → 请求批准：本地只读工具自动放行，编辑文件 / 执行命令 / 使用互联网
+ *              每次都经上行端口发 `approval.request` 等用户点确认；
  *  - `auto`  → 全部放行（**风险最高**：等同于把工作区与网络交给模型自行处置）；
  *  - `plan`  → 规划模式：只读白名单，写类工具一律拒绝（用于「先出方案」）；
  *  - `deny`  → 全部拒绝：模型可用但任何工具调用都不会被执行（纯对话）。
+ *
+ * 生效档位取值优先级（见 `AgentRuntimeHost.effectiveApproval`）：UI 内存覆盖 >
+ * autoApprove 运行态 > 落盘配置的 `approval` 字段——第三级保证「重启后界面显示哪档、
+ * 实际就是哪档」（落盘档位曾在重启后静默失效，是「切档不生效」类缺陷的根因）。
  */
 
 /** 审批档位的风险级别（UI 据此决定是否显示警示色/徽标）。 */

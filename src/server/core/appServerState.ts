@@ -1,5 +1,7 @@
 import type { ApprovalPort } from '../../ports/runtime/approval.ts';
 import type { EntitlementPort } from '../../ports/license/entitlement.ts';
+import { RuleApproval } from '../../adapters/approval/ruleApproval.ts';
+import { BUILTIN_APPROVAL_RULES } from '../../adapters/approval/builtinApprovalRules.ts';
 
 import type { SkillRegistry } from '../../skill/skillRegistry.ts';
 import type { AutomationStore } from '../services/automationStore.ts';
@@ -45,6 +47,15 @@ export interface AppServerOptions {
   readonly displayConfig?: Record<string, string> | undefined;
   /** 服务端自动审批（免客户端上行；UI 可经 config.update 切换）。 */
   readonly autoApprove?: boolean | undefined;
+  /**
+   * 启动时按分层配置解析出的审批档位（serve/stdio 组合根传 `args.approval`）。
+   *
+   * 作用：UI 切档会落盘，但重启后内存覆盖态为空——生效档位由本字段兜底，
+   * 保证「重启后界面显示哪档、实际就是哪档」。由组合根显式注入而不是服务端
+   * 回读配置文件，是为了单测隔离（回读真实用户级文件会让审批行为随开发机漂移）。
+   * 缺省 undefined：测试/嵌入方不注入时，无 UI 覆盖即沿用 config.approvals 端口。
+   */
+  readonly startupApproval?: string | undefined;
   /** 持久化目标配置文件路径（项目级 omniharness.json；缺省时按工作区推断并创建）。 */
   readonly configPath?: string | undefined;
   /**
@@ -99,11 +110,19 @@ export const AUTO_ALLOW: ApprovalPort = { name: 'auto', decide: () => Promise.re
 /** 始终拒绝的审批端口（approval=deny 时使用）。 */
 export const DENY_ALL: ApprovalPort = { name: 'deny', decide: () => Promise.resolve('deny') };
 
-/** 默认档审批端口（UI 切到 rules 且原配置非 rules 时回退用：放行常规工具，危险操作由沙箱层兜底）。 */
-export const RULES_DEFAULT: ApprovalPort = {
-  name: 'rules',
-  decide: () => Promise.resolve('allow'),
-};
+/**
+ * 默认档审批端口（UI 切到 rules 且配置端口不是 rules 时回退用）。
+ *
+ * 必须是**真规则审批**而不是无条件 allow：档位描述承诺「删除等危险命令仍会拒绝」，
+ * 回退实现曾是一份恒 allow 的端口，配置端口为 auto/deny/cached（approvalCache 开启时
+ * name 是 'cached'）的用户在 UI 点「默认」后 rm/del 拦截悄然失效。规则表与启动路径
+ * （`cliBuildConfig.buildRuleApproval`）共用 `BUILTIN_APPROVAL_RULES`，两处不得漂移；
+ * 未命中规则放行（defaultDecision 'allow'），与「按规则自动放行安全操作」的档位描述一致。
+ */
+export const RULES_DEFAULT: ApprovalPort = new RuleApproval({
+  rules: BUILTIN_APPROVAL_RULES,
+  defaultDecision: 'allow',
+});
 
 /**
  * config.update 允许持久化到配置文件的字段。

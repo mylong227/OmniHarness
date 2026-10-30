@@ -84,7 +84,12 @@ export class AppServerBase {
       ...(options.profile !== undefined ? { profile: options.profile } : {}),
       autoApprove: options.autoApprove ?? false,
       probeProvider: (preset, key) => this.modelCatalog.cacheProbe(preset, key),
-      onChanged: () => this.runtime.invalidateAgent(),
+      // 档位/模型等配置变更同时失效图运行端口集：graphPorts 的审批端口按生效档位
+      // 解析并随缓存烘焙，只失效 Agent 会让「切档后图运行仍用旧档位」再开一条不生效通路。
+      onChanged: () => {
+        this.runtime.invalidateAgent();
+        this.runtime.invalidateGraph();
+      },
     });
     this.sessionArchive = new SessionArchive({
       workspaceRoot,
@@ -127,6 +132,9 @@ export class AppServerBase {
       approvalUplink: options.approvalUplink === true,
       autoApprove: () => this.configStore.autoApprove,
       approvalOverride: () => this.configStore.approvalOverride(),
+      // 启动档位（组合根注入的 args.approval）：重启后内存覆盖态为空，生效档位由它兜底
+      // ——保证「UI 显示哪档、实际就是哪档」跨重启成立。不回读配置文件（单测隔离）。
+      configuredApproval: () => this.options.startupApproval,
       uplink: () => this.events.approvalPort(),
       modelOverride: () =>
         options.modelOverrideEnabled === false ? undefined : this.modelCatalog.resolveOverride(),

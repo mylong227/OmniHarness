@@ -31,6 +31,7 @@ function buildHost(
   over: {
     autoApprove?: boolean;
     approvalOverride?: string;
+    configuredApproval?: string;
     approvalUplink?: boolean;
   } = {},
 ): AgentRuntimeHost {
@@ -42,6 +43,7 @@ function buildHost(
     approvalUplink: over.approvalUplink ?? false,
     autoApprove: () => over.autoApprove ?? false,
     approvalOverride: () => over.approvalOverride,
+    configuredApproval: () => over.configuredApproval,
     uplink: () => uplink,
     modelOverride: () => undefined,
     workspaceRoot: () => tempWorkspace(),
@@ -63,6 +65,13 @@ test('AgentRuntimeHost.bypassSupervisorKernel：autoApprove 时放宽', () => {
 
 test('AgentRuntimeHost.bypassSupervisorKernel：approval=auto 覆盖时放宽（回归守卫）', () => {
   const host = buildHost(buildConfig(), { approvalOverride: 'auto' });
+  assert.ok(host.bypassSupervisorKernel(buildConfig()) instanceof ServerNoopSupervisor);
+});
+
+test('AgentRuntimeHost.bypassSupervisorKernel：落盘 approval=auto（重启后无内存覆盖）也放宽', () => {
+  // 历史 bug 回归：UI 选「完全访问」落盘后重启，内存覆盖态为空，此处只看内存覆盖导致
+  // supervisor 重新 fail-closed，「完全访问」档静默降级。
+  const host = buildHost(buildConfig(), { configuredApproval: 'auto' });
   assert.ok(host.bypassSupervisorKernel(buildConfig()) instanceof ServerNoopSupervisor);
 });
 
@@ -93,11 +102,56 @@ test('AgentRuntimeHost.resolveApprovals：approval=deny → DENY_ALL', async () 
   assert.strictEqual(await port.decide({ sessionId: 's', toolName: 't', target: 'x' }), 'deny');
 });
 
-test('AgentRuntimeHost.resolveApprovals：approval=ask → 走上行端口', async () => {
+test('AgentRuntimeHost.resolveApprovals：approval=deny 落盘（重启后无覆盖）→ DENY_ALL', async () => {
+  const config = buildConfig();
+  const host = buildHost(config, { configuredApproval: 'deny' });
+  assert.strictEqual(host.resolveApprovals(config).name, DENY_ALL.name);
+});
+
+test('AgentRuntimeHost.resolveApprovals：approval=ask → 本地只读放行、其余走上行弹框', async () => {
   const config = buildConfig();
   const host = buildHost(config, { approvalOverride: 'ask' });
   const port = host.resolveApprovals(config);
-  assert.strictEqual(port.name, 'uplink');
+  assert.strictEqual(port.name, 'ask');
+  // 本地只读（与 plan 白名单同源的本地子集）自动放行，不弹框。
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'read_file', target: 'a.ts' }),
+    'allow',
+  );
+  // 编辑 / 联网 / 命令一律询问（上行兜底应答为 deny）。
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'write_file', target: 'a.ts' }),
+    'deny',
+  );
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'web_search', target: 'https://x' }),
+    'deny',
+  );
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'shell', target: 'ls' }),
+    'deny',
+  );
+});
+
+test('AgentRuntimeHost.resolveApprovals：落盘 approval=ask（重启后无覆盖）仍生效', async () => {
+  // 历史 bug 回归：approval='ask' 落盘后重启，内存覆盖态为空，启动端口（AutoApproval）
+  // 被原样沿用 ⇒ 界面显示「请求批准」、实际全放行。
+  const config = buildConfig({ name: 'auto', decide: async () => 'allow' });
+  const host = buildHost(config, { configuredApproval: 'ask' });
+  const port = host.resolveApprovals(config);
+  assert.strictEqual(port.name, 'ask');
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'shell', target: 'ls' }),
+    'deny',
+    'ask 档经上行（兜底 deny），绝不沿用启动端口的全放行',
+  );
+});
+
+test('AgentRuntimeHost.resolveApprovals：autoApprove 压过落盘 ask 档（「总是允许」语义）', () => {
+  // 审批弹框里点「总是允许」= 此后不再问：即便落盘档位是 ask，也不得再弹框。
+  const config = buildConfig({ name: 'auto', decide: async () => 'allow' });
+  const host = buildHost(config, { autoApprove: true, configuredApproval: 'ask' });
+  assert.strictEqual(host.resolveApprovals(config).name, AUTO_ALLOW.name);
 });
 
 test('AgentRuntimeHost.resolveApprovals：approval=rules 按配置回退', () => {
@@ -107,9 +161,52 @@ test('AgentRuntimeHost.resolveApprovals：approval=rules 按配置回退', () =>
     rulesConfig.approvals,
   );
   const customConfig = buildConfig({ name: 'custom', decide: async () => 'allow' });
+  const fallback = buildHost(customConfig, { approvalOverride: 'rules' }).resolveApprovals(
+    customConfig,
+  );
+  assert.strictEqual(fallback, RULES_DEFAULT);
+  assert.strictEqual(fallback.name, 'rules');
+});
+
+test('AgentRuntimeHost.resolveApprovals：落盘 approval=rules + approvalCache 包装端口也沿用配置端口', () => {
+  // CachedApproval 的 name 是 'cached'，不能靠端口名识别 rules——落盘值就是 rules 时
+  // 配置端口必然按 rules 构建（含自定义 permission.rules 与缓存包装），必须沿用而不是回退。
+  const cached = buildConfig({ name: 'cached', decide: async () => 'allow' });
+  const host = buildHost(cached, { configuredApproval: 'rules' });
+  assert.strictEqual(host.resolveApprovals(cached), cached.approvals);
+});
+
+test('AgentRuntimeHost.resolveApprovals：落盘 approval=plan（重启后无覆盖）→ 只读白名单', async () => {
+  const config = buildConfig({ name: 'auto', decide: async () => 'allow' });
+  const host = buildHost(config, { configuredApproval: 'plan' });
+  const port = host.resolveApprovals(config);
+  assert.strictEqual(port.name, 'plan');
   assert.strictEqual(
-    buildHost(customConfig, { approvalOverride: 'rules' }).resolveApprovals(customConfig),
-    RULES_DEFAULT,
+    await port.decide({ sessionId: 's', toolName: 'write_file', target: 'a.ts' }),
+    'deny',
+  );
+});
+
+test('AgentRuntimeHost.resolveApprovals：RULES_DEFAULT 回退端口真的拒绝 rm/del', async () => {
+  // 历史缺陷回归：回退端口曾是恒 allow，UI 点「默认」后 rm/del 审批层拦截悄然消失。
+  const config = buildConfig({ name: 'auto', decide: async () => 'allow' });
+  const host = buildHost(config, { approvalOverride: 'rules' });
+  const port = host.resolveApprovals(config);
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'shell', target: 'rm -rf build' }),
+    'deny',
+  );
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'shell', target: 'del foo.txt' }),
+    'deny',
+  );
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'shell', target: 'npm test' }),
+    'allow',
+  );
+  assert.strictEqual(
+    await port.decide({ sessionId: 's', toolName: 'read_file', target: 'a.ts' }),
+    'allow',
   );
 });
 
@@ -136,6 +233,18 @@ test('AgentRuntimeHost.graphStore / graphPorts：懒构造并缓存，失效后�
   host.invalidateGraph();
   assert.notStrictEqual(host.graphStore(), store);
   assert.notStrictEqual(host.graphPorts(), ports);
+});
+
+test('AgentRuntimeHost.graphPorts：图运行审批随生效档位（deny 档不再固定 AUTO_ALLOW）', async () => {
+  // 历史缺陷回归：图运行端口曾固定 AUTO_ALLOW——「全部拒绝」档下图运行照样产生副作用。
+  const config = buildConfig({ name: 'auto', decide: async () => 'allow' });
+  const host = buildHost(config, { configuredApproval: 'deny' });
+  const ports = host.graphPorts();
+  assert.strictEqual(ports.approvals.name, DENY_ALL.name);
+  assert.strictEqual(
+    await ports.approvals.decide({ sessionId: 's', toolName: 'write_file', target: 'a.ts' }),
+    'deny',
+  );
 });
 
 test('S4：配置失效后「停止」仍能触及退役 Agent（否则 Stop 在 config.update 之后变成空操作）', () => {

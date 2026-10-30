@@ -16,8 +16,13 @@ import type {
  * fail-closed：白名单以外的工具一律 deny，绝不让「漏网」的可变工具静默放行。
  */
 
-/** 规划模式下允许的只读工具名（显式白名单，新增可变工具默认被拒绝）。 */
-const PLAN_ALLOWED_TOOLS = new Set<string>([
+/**
+ * 规划模式下允许的只读工具名（显式白名单，新增可变工具默认被拒绝）。
+ *
+ * 导出而非私有：`AskApproval`（请求批准档）的「本地只读自动放行」集合与它同源——
+ * 两张白名单各写一份必然漂移（同型教训见 tests/unit/planApprovalReadonlyTools.test.ts）。
+ */
+export const PLAN_ALLOWED_TOOLS = new Set<string>([
   TOOL_NAMES.readFile,
   TOOL_NAMES.listDir,
   // 文件检索（只读）：grep/glob 仅在磁盘上匹配，不写任何内容，故与 read_file 同级放行。
