@@ -15,6 +15,7 @@ import { permissionConfigValidator } from './permissionConfigValidator.ts';
 import { ssrfPolicyValidator } from './ssrfPolicyValidator.ts';
 import { providerPresetValidator } from './providerPresetValidator.ts';
 import { mediaConfigValidator } from './mediaConfigValidator.ts';
+import { limitsConfigValidator } from './limitsConfigValidator.ts';
 import { CapabilityConfigValidator } from './capabilityConfigValidator.ts';
 import { RbacConfigValidator } from './rbacConfigValidator.ts';
 import { decisionEngineConfigValidator } from './decisionEngineConfigValidator.ts';
@@ -638,6 +639,9 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([
   'workspaces',
   'permission',
   'ssrfPolicy',
+  // 运维限制段（2026-10-30 数据化）：`limits.http` / `limits.preview` 的超时/连接数/体积上限。
+  // 出厂值在 `defaults/limits.json`；本键只承载用户覆盖。
+  'limits',
   'providerPresets',
   'evolutionRlvr',
   'a2a',
@@ -750,58 +754,49 @@ const FIELD_VALIDATORS: ReadonlyArray<(cfg: FileConfig) => void> = [
   // 此处以箭头注册项接入——抛出统一以 ConfigError 表达，保证 fail-closed 语义一致。
   (cfg: FileConfig): void => {
     const message = permissionConfigValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
   },
   // ssrfPolicy 段（2026-09-22）：SSRF 策略表配置化——元数据主机 / 内网域名后缀 / IPv4 网段。
   // 校验与运行时解析器同源（`resolveSsrfPolicy`），非法条目一律拒绝而非静默丢弃。
   (cfg: FileConfig): void => {
     const message = ssrfPolicyValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
   },
   // providerPresets 段（2026-09-22 第二轮）：厂商目录覆盖——按 id 整条替换内建预设 / 新 id 追加。
   // 校验与运行时求解器同源（`providerPresets.resolve`），非法条目一律拒绝而非静默丢弃。
   (cfg: FileConfig): void => {
     const message = providerPresetValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
+  },
+  // limits 段（2026-10-30 数据化）：与解析器同源校验；未知段/键、非整数、越界一律拒绝启动。
+  (cfg: FileConfig): void => {
+    const message = limitsConfigValidator.validate(cfg);
+    if (message !== undefined) throw new ConfigError(message);
   },
   // media 段（媒体抽帧）：`view_media` 的预算与二进制路径。只拦「写错了」
   // （未知 key / 类型不符 / 枚举越界）；数值范围由 `MediaConfigResolver` 收敛并回显。
   (cfg: FileConfig): void => {
     const message = mediaConfigValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
   },
   // capability 段（Wave B · ADR-0009 统一资产协议）：只拦「写错了」——未知子键 / 类型不符 /
   // 档位枚举越界。**落在安全档位上的静默忽略代价最高**（写了 `isolationDefault` 少个 s 会让人
   // 以为隔离已收紧），故本段与 media 同档严格。
   (cfg: FileConfig): void => {
     const message = CapabilityConfigValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
   },
   // rbac 段（F3 RBAC-lite）：与 capability 同档严格——写错角色名或把 mutating 写成字符串会让人
   // 以为「权限已收紧」，而安全档位上的静默忽略代价最高（同 capability 段的理由）。
   (cfg: FileConfig): void => {
     const message = RbacConfigValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
   },
   // decisionEngine 段（Laya 战略线）：只拦「写错了」（未知 key / 类型 / 模式枚举）。
   // 这一段尤其不能静默忽略：它是本仓「声明未接线」事故的原点——配置写错 = 引擎恒不构造，
   // 而引擎全程 fail-open ⇒ 连一行告警都不会有。
   (cfg: FileConfig): void => {
     const message = decisionEngineConfigValidator.validate(cfg);
-    if (message !== undefined) {
-      throw new ConfigError(message);
-    }
+    if (message !== undefined) throw new ConfigError(message);
   },
 ];

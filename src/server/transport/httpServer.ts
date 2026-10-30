@@ -14,6 +14,11 @@ import { ServerAuthGuard } from './serverAuthGuard.ts';
 import type { Metrics } from '../services/metrics.ts';
 import { log, Logger } from '../../util/logger.ts';
 import { SafeFs } from '../services/safeFs.ts';
+import {
+  runtimeLimits,
+  type ResolvedRuntimeLimits,
+  type RuntimeLimitsConfig,
+} from '../../util/runtimeLimits.ts';
 
 /** HTTP 桥接传输：POST/WS 请求关联响应，通知广播到 SSE/WS 客户端。 */
 
@@ -46,6 +51,13 @@ export interface HttpServerOptions {
    * `cliServerCmds.ts` 已顶在上帝类行数线上，新增代码行会被增量门禁挡下。
    */
   readonly preview?: boolean | undefined;
+  /**
+   * 运维限制段（`omniharness.json` 的 `limits`，2026-10-30 数据化）。
+   *
+   * 缺省为 undefined ⇒ 用 `defaults/limits.json` 的出厂值（与迁移前逐字一致）；
+   * 解析优先级：本段 > 数据里声明的环境变量（如 `OMNI_HTTP_HEADERS_TIMEOUT_MS`）> 出厂值。
+   */
+  readonly limits?: RuntimeLimitsConfig | undefined;
 }
 
 /** 健康检查结果（供容器编排探针消费）。 */
@@ -108,17 +120,13 @@ export class HttpServer {
   /** 静态缓存总字节（粗略，按原始 + 压缩后计）。 */
   private staticBytes = 0;
   /**
-   * 请求体总量上限（字节）：8 MiB。
+   * 生效的运维限制（构造期解析一次，全程只读）。
    *
-   * 依据：本服务的请求体只有 JSON-RPC 帧与 `/attach` 载荷两类，正常量级为 KB；8 MiB 给
-   * 附件类请求留足余量，同时把「不封口的 POST 吃光内存」这条 OOM 路径彻底封死。
+   * 请求体上限 / 收头与请求时限 / 连接数 / 静态缓存上限**不再写死在本类**：
+   * 出厂值在 `defaults/limits.json`，用户经 `omniharness.json` 的 `limits` 段或环境变量覆盖。
+   * 改这些值不应要求改代码重发——它们全是部署环境相关的运维旋钮。
    */
-  public static readonly MAX_BODY_BYTES = 8 * 1024 * 1024;
-
-  /** 静态资源缓存条数上限。 */
-  private static readonly STATIC_CACHE_MAX_ENTRIES = 64;
-  /** 静态资源缓存总字节上限（原始 + 压缩结果）。 */
-  private static readonly STATIC_CACHE_MAX_BYTES = 64 * 1024 * 1024;
+  private readonly limits: ResolvedRuntimeLimits;
 
   /**
    * 浏览器 / undici 明确禁用的端口（WHATWG bad ports 的子集）。
@@ -149,6 +157,9 @@ export class HttpServer {
    */
   public constructor(private readonly options: HttpServerOptions) {
     this.guard = new ServerAuthGuard(options.authToken);
+    // 运维限制（2026-10-30 数据化）：配置 > 环境变量 > defaults/limits.json 出厂值。
+    // 解析失败（坏 env / 越界）在构造期**响亮失败**，绝不带着错口径起服务。
+    this.limits = runtimeLimits.resolve(options.limits);
     // 路由是异步的：浮动 Promise 一旦抛出（例如 readBody 后的解析异常），既不会写出响应，
     // 也会变成 unhandledRejection —— Node 22 默认**终止进程**（2026-09-26 审计 S21）。
     // 这里统一收口：写一次 500（若尚未写出）并记结构化日志，进程不受影响。
@@ -179,9 +190,10 @@ export class HttpServer {
     // - headersTimeout：收齐完整 HTTP 头的时限（慢速头攻击）。
     // - requestTimeout：收齐整段请求的时限；SSE 在 writeHead 后即进入响应阶段，不再受此约束，长连接不受影响。
     // - maxConnections：并发打开连接上限，防 fd 耗尽。
-    this.server.headersTimeout = 30_000;
-    this.server.requestTimeout = 60_000;
-    this.server.maxConnections = 2048;
+    // 三个值自 2026-10-30 起走 `limits.http`（出厂值见 defaults/limits.json，不再写死在代码里）。
+    this.server.headersTimeout = this.limits.http.headersTimeoutMs;
+    this.server.requestTimeout = this.limits.http.requestTimeoutMs;
+    this.server.maxConnections = this.limits.http.maxConnections;
   }
 
   /**
@@ -220,7 +232,7 @@ export class HttpServer {
     if (this.options.preview === false) return;
     const workspaceRoot = this.options.workspaceRoot;
     if (workspaceRoot === undefined) return;
-    const preview = new PreviewServer({ workspaceRoot });
+    const preview = new PreviewServer({ workspaceRoot, limits: this.limits.preview });
     try {
       this.previewPort = await preview.start(0);
       this.previewServer = preview;
@@ -516,7 +528,7 @@ export class HttpServer {
   }
 
   /**
-   * 记住一个静态资源（有界：条数 64 / 总量 64 MB；超限淘汰最旧）。
+   * 记住一个静态资源（有界：条数 / 总量上限见 `limits.http.staticCache*`；超限淘汰最旧）。
    * @param file 文件绝对路径。
    * @param asset 新条目。
    * @returns 无返回值。
@@ -528,8 +540,8 @@ export class HttpServer {
     this.staticCache.set(file, asset);
     this.staticBytes += HttpServer.assetBytes(asset);
     while (
-      this.staticCache.size > HttpServer.STATIC_CACHE_MAX_ENTRIES ||
-      this.staticBytes > HttpServer.STATIC_CACHE_MAX_BYTES
+      this.staticCache.size > this.limits.http.staticCacheMaxEntries ||
+      this.staticBytes > this.limits.http.staticCacheMaxBytes
     ) {
       const oldest = this.staticCache.keys().next();
       if (oldest.done === true) break;
@@ -693,10 +705,10 @@ export class HttpServer {
       let size = 0;
       request.on('data', (chunk: Buffer) => {
         size += chunk.length;
-        if (size > HttpServer.MAX_BODY_BYTES) {
+        if (size > this.limits.http.maxBodyBytes) {
           // 先拒后断：让调用方拿到明确的「请求体过大」，而不是一个连接重置。
           request.destroy();
-          reject(new Error(`请求体超过上限 ${String(HttpServer.MAX_BODY_BYTES)} 字节`));
+          reject(new Error(`请求体超过上限 ${String(this.limits.http.maxBodyBytes)} 字节`));
           return;
         }
         chunks.push(chunk);

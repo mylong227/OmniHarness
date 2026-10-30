@@ -17,6 +17,7 @@ import type { MediaAnalysisConfig } from '../config/mediaConfigResolver.ts';
 import type { CapabilityConfig } from '../ports/config/capabilityConfig.ts';
 import type { RbacConfig } from '../ports/config/rbacConfig.ts';
 import type { DecisionEngineConfig } from '../ports/config/decisionEngineConfig.ts';
+import type { RuntimeLimitsConfig } from '../util/runtimeLimits.ts';
 import { cliHelp } from './cliHelp.ts';
 import { FlagSuggestion } from './flagSuggestion.ts';
 
@@ -47,6 +48,8 @@ export interface CliArgs {
   permissionRules?: readonly PermissionRuleConfig[] | undefined;
   /** SSRF / 出站策略表（来自配置 ssrfPolicy；供 CLI 出站守卫与组合根 A2A 使用）。 */
   ssrfPolicy?: SsrfPolicyConfig | undefined;
+  /** 运维限制段（来自配置 limits；HTTP/预览源超时、连接数、体积上限；缺省 = 用 defaults/limits.json）。 */
+  limits?: RuntimeLimitsConfig | undefined;
   /** 权限规则未命中时的默认裁决（A2，来自配置 permission.defaultDecision；缺省 allow，保持既有零行为变更）。 */
   permissionDefault?: PermissionRuleDecision | undefined;
   /** 沙箱 profile（passthrough 全放行 / policy 默认拦截 / OS 级后端等）。 */
@@ -552,9 +555,9 @@ export class ArgParser {
     // 于是 `args.ssrfPolicy` 恒为 undefined，写在 omniharness.json 里的策略表从未到达
     // 出站守卫与组合根（只有编程 API 路径生效）。接线完整性门禁 I5a 只对 src/cli 做字符串
     // 匹配（`args.ssrfPolicy` 足以命中），因此这条断链长期是绿的——2026-09-22 第二轮实测发现。
-    if (file.ssrfPolicy !== undefined) {
-      result.ssrfPolicy = file.ssrfPolicy;
-    }
+    if (file.ssrfPolicy !== undefined) result.ssrfPolicy = file.ssrfPolicy;
+    // 运维限制段（2026-10-30 数据化）：**不映射 = CLI 通道丢配置**（与 ssrfPolicy 同一条路）。
+    if (file.limits !== undefined) result.limits = file.limits;
     if (file.sandbox !== undefined) {
       result.sandbox = file.sandbox;
     }

@@ -12,6 +12,10 @@
   "maxSteps": 0,
   "longTermMemoryEncryption": false,
   "longTermMemoryKeyFile": ".omniharness/memory.key",
+  "limits": {
+    "http": { "headersTimeoutMs": 30000 },
+    "preview": { "maxConnections": 64 }
+  },
   "mcpServers": {},
   "skills": [
     {

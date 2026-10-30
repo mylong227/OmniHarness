@@ -203,6 +203,10 @@ export class ConfigFactory {
       // 注意：构造点在 `resolveTools(partial, …)`（读 partial），而**消费点读 ResolvedConfig**——
       // 两处都要有，缺一个就会出现「装配了但读不到配置」的半接线形态。
       decisionEngine: partial.decisionEngine,
+      // 运维限制段（2026-10-30 数据化）：HTTP/预览源的超时、连接数、体积上限。
+      // 消费点读 ResolvedConfig（`cliServerCmds` 把它交给 `HttpServer`），未配置时消费方取
+      // `defaults/limits.json` 出厂值 ⇒ 零配置行为与迁移前逐字一致。
+      limits: partial.limits,
     };
   }
 

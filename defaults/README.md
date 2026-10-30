@@ -12,6 +12,7 @@
 | `ssrf.json`      | 云元数据主机 / 内网域名后缀 / IPv4 私有保留网段     | `src/security/ssrfPolicy.ts`（`DEFAULT_SSRF_POLICY`） | `omniharness.json` 的 `ssrfPolicy`                               |
 | `providers.json` | 大模型厂商目录（端点 / 模型 / 推理档位 / CLI 映射） | `src/config/providerPresets.ts`（`ProviderPresets`）  | `omniharness.json` 的 `providerPresets`                          |
 | `endpoints.json` | 适配器兜底端点/模型/凭据 env 名 + 各服务端点地址    | `src/util/endpointDefaults.ts`（`EndpointDefaults`）  | CLI/配置文件显式值 > 该适配器的 env > 本文件（服务端点见 `env`） |
+| `limits.json`    | 运维限制（HTTP / 预览源的超时、连接数、体积上限）   | `src/util/runtimeLimits.ts`（`RuntimeLimits`）        | `omniharness.json` 的 `limits` > 数据里的 `env` > 本文件         |
 | `cliHelp.json`   | `omniharness --help` 的文案（命令与选项说明）       | `src/cli/cliHelp.ts`（`CliHelp`）                     | 无（面向用户的帮助文案；枚举取值在渲染时从 `cliEnums` 派生）     |
 
 四个文件都由 `src/util/builtinDefaults.ts` 按**模块相对路径**读包根下的 `defaults/`（不做 cwd 推断），
@@ -173,6 +174,43 @@
 最典型的例子是 Ollama：`endpoints.json` 的 `llamacpp` 兜底是 `http://localhost:11434`（原生 `/api/chat`），
 而 `providers.json` 的 `ollama` 预设是 `http://localhost:11434/v1`（OpenAI 兼容层）——**两者都对，勿统一**。
 
+## `limits.json`
+
+**运维限制**：HTTP 主服务的收头/请求时限、并发连接数、请求体上限、静态缓存上限，以及工作区网页
+预览源的同名三项。这些值此前写死在 `HttpServer` / `PreviewServer` 的构造函数里，改一次要改代码重发。
+
+```json
+{
+  "http": {
+    "headersTimeoutMs": { "value": 30000, "env": "OMNI_HTTP_HEADERS_TIMEOUT_MS", "notes": "…" },
+    "maxBodyBytes": { "value": 8388608, "env": "OMNI_HTTP_MAX_BODY_BYTES", "notes": "…" }
+  },
+  "preview": {
+    "maxConnections": { "value": 64, "env": "OMNI_PREVIEW_MAX_CONNECTIONS", "notes": "…" }
+  }
+}
+```
+
+| 字段    | 必填 | 说明                                                                |
+| ------- | ---- | ------------------------------------------------------------------- |
+| `value` | 是   | 出厂默认值（正整数，区间由 `RuntimeLimits` 的 `SCHEMA` 定义）       |
+| `env`   | 否   | 可覆盖该项的环境变量名（形如 `OMNI_XXX`；**全局唯一**，重名即拒绝） |
+| `notes` | 否   | 维护说明（为什么是这个值、何时该改）；不参与任何判定                |
+
+**必须给全每段的每个键**（缺键即抛错）：缺一项就等于「默认值悄悄改了」，比启动失败更难查。
+未知段 / 未知键 / 非整数 / 越界 / env 重名也一律在构造期抛错（fail-closed）。
+
+生效优先级：**`omniharness.json` 的 `limits` 段 > 数据里 `env` 字段声明的环境变量 > 本文件的 `value`**。
+只写要覆盖的项即可（逐键覆盖，不是整段替换）：
+
+```json
+{ "limits": { "http": { "headersTimeoutMs": 45000, "maxConnections": 4096 } } }
+```
+
+配置段与数据文件**同源校验**（`limitsConfigValidator` 直接调用 `RuntimeLimits.validateConfig`）：
+未知段/未知键、非整数、越界一律拒绝启动——这些值直接决定「服务会不会被慢速头拖死 / 被大请求体打爆」，
+静默回落默认值是最危险的一种"看起来配了"。
+
 ## `cliHelp.json`
 
 `omniharness --help` 的文案。原先它是 `argParser.printUsage()` 里的一段字符串数组，于是帮助成了 CLI 表面的
@@ -210,3 +248,8 @@ node scripts/check.mjs --strict        # 文件/函数体量等铁律
 `tests/unit/endpointDefaults.test.ts` 里有一条**反硬编码守卫**：它会扫描 `src/**` 的代码行（注释除外），
 若 `api.openai.com` / `api.anthropic.com` / `localhost:11434` / `registry.omniharness.dev` / `api.github.com`
 / `github.com/` / `/json/version` 再次出现在实现里（而不是本目录的数据文件），测试直接失败。
+
+`tests/unit/runtimeLimits.test.ts` 有同形的守卫：`httpServer.ts` 不得再出现 `30_000` / `60_000` / `2048` /
+`8 * 1024 * 1024`，`previewServer.ts` 不得再出现 `15_000` / `30_000` / `maxConnections = 64`——
+这些值只能来自本目录的 `limits.json`。该判据还实构造一个 `HttpServer` 断言连接级参数就是配置值
+（"声明未接线"在结构判据里也会被抓）。

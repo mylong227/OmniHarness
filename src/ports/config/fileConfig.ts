@@ -9,6 +9,7 @@ import type { ProviderPresetConfig } from './providerPresetConfig.ts';
 import type { ModelRouterConfig } from './modelRouterConfig.ts';
 import type { CapabilityConfig } from './capabilityConfig.ts';
 import type { DecisionEngineConfig } from './decisionEngineConfig.ts';
+import type { RuntimeLimitsConfig } from '../../util/runtimeLimits.ts';
 
 /**
  * 配置文件内容（omniharness.json，端口选择）。
@@ -62,6 +63,14 @@ export interface FileConfig {
   readonly permission?: PermissionConfig;
   /** SSRF / 出站策略表（可配置；缺省用内置默认档）。 */
   readonly ssrfPolicy?: SsrfPolicyConfig;
+  /**
+   * 运维限制段（2026-10-30 数据化）：HTTP 传输面与网页预览源的超时 / 连接数 / 体积上限。
+   *
+   * 出厂值与环境变量名在 `defaults/limits.json`（改数据不改代码）；本字段只写**要覆盖的项**，
+   * 优先级为 **本段 > 环境变量 > 数据默认值**。逐项区间校验见 `limitsConfigValidator`
+   * （未知段 / 未知键 / 非整数 / 越界一律拒绝启动，绝不静默用默认值顶替）。
+   */
+  readonly limits?: RuntimeLimitsConfig;
   /**
    * (F3 RBAC-lite) 角色门禁：`{ enabled, role, roles? }`；缺省关（零行为变更）。
    * 严格校验见 `config/rbacConfigValidator`（未知子键 / 类型不符 / 开了却没给角色都拒绝）。

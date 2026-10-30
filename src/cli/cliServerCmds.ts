@@ -474,7 +474,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       app.setPluginsReady(pluginsReady);
       // 起 HTTP 服务并常驻到退出（绑定地址/令牌、端口冲突诊断与按需接管、打印 UI 地址）。
       // 抽成方法的原因：runServe 体量顶到铁律基线（见 applyPluginProfile 的说明）。
-      return await this.runHttpServe(app, bridge, metrics, serveArgs);
+      return await this.runHttpServe(app, bridge, metrics, serveArgs, config);
     } finally {
       // 退出（含 Ctrl-C / SIGTERM / 早期 return）复原全局 fetch 包装并关闭 MCP 网关子进程（补齐 serve 路径不变量）。
       restoreEgress();
@@ -498,6 +498,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     bridge: HttpBridgeTransport,
     metrics: Metrics,
     serveArgs: readonly string[],
+    config: ResolvedConfig,
   ): Promise<number> {
     // 静态根：**优先 `web/dist`（Vite 构建产物），无产物时回落 `web/`（源码目录）**。
     //
@@ -537,6 +538,9 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       host: serveHost,
       authToken: serveToken,
       // 右栏网页预览源（独立回环端口）随 workspaceRoot 自动启用（见 HttpServerOptions.preview）。
+      // 运维限制（2026-10-30 数据化）：配置 limits 段 → 收头/请求时限、连接数、请求体上限；
+      // 未配置时消费方取 defaults/limits.json 出厂值（零配置行为与迁移前逐字一致）。
+      limits: config.limits,
     });
     const port = this.flagNumber(serveArgs, '--port') ?? ServeDefaults.resolveDefaultPort();
     // 桌面模式跳过 serve-*.pid：桌面有自己的单实例与 ready 文件，且 --port 0 时

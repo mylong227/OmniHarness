@@ -38,6 +38,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import sirv, { type RequestHandler } from 'sirv';
 import { SafeFs } from '../services/safeFs.ts';
+import { runtimeLimits, type PreviewLimits } from '../../util/runtimeLimits.ts';
 
 /** 预览源选项。 */
 export interface PreviewServerOptions {
@@ -45,6 +46,11 @@ export interface PreviewServerOptions {
   readonly workspaceRoot: () => string;
   /** 绑定地址（缺省回环 IPv4）。 */
   readonly host?: string | undefined;
+  /**
+   * 连接级限制（收头/请求时限、并发连接数；2026-10-30 数据化）。
+   * 缺省用 `defaults/limits.json` 的 `preview` 段；主服务会把解析后的同一份传进来。
+   */
+  readonly limits?: PreviewLimits | undefined;
 }
 
 /** 单文件上限（字节）：与 SafeFs 的硬上限一致（大产物不会把内存读爆）。 */
@@ -104,9 +110,11 @@ export class PreviewServer {
       });
     });
     // 连接级防护：预览是静态小文件，不需要长连接与慢速头。
-    server.headersTimeout = 15_000;
-    server.requestTimeout = 30_000;
-    server.maxConnections = 64;
+    // 三个值走 `limits.preview`（出厂值见 defaults/limits.json；主服务传入的是**已解析**的那份）。
+    const limits = this.options.limits ?? runtimeLimits.defaults().preview;
+    server.headersTimeout = limits.headersTimeoutMs;
+    server.requestTimeout = limits.requestTimeoutMs;
+    server.maxConnections = limits.maxConnections;
     await new Promise<void>((resolve, reject) => {
       const onError = (error: Error): void => reject(error);
       server.once('error', onError);

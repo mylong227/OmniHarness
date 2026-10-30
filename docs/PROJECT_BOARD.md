@@ -7057,3 +7057,26 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   也不需要新库。**结论：这一片没有"值得引的成熟依赖"，不是"懒得引"。**
 - **验证**：`fileThreeWayMerge` **10/10**、`textThreeWayMerge` 14/14、`textCharacterMerge` 19/19、
   `editFileTool` 6/6；`npm run probe:merge` 14/14；`npm run gate:typed` 通过。
+
+## 186. 2026-10-30 运维旋钮数据化（P1）：HTTP/预览源限制收进 `defaults/limits.json`
+
+- **用户口径**：「清理项目代码中的硬编码，把能配置化的设计成配置化数据管理」。上一片（§182）收的是
+  **地址**（端口/主机/端点）；这一片收的是**运维旋钮**。
+- **取证**：`src/**` 里 148 个「像旋钮」的数字常量散在 66+ 文件；地址类已基本被 `endpoints.json` +
+  反硬编码守卫收干净，绝对路径只剩 `chromeLocator` 的 `%ProgramFiles%` 兜底（合法）。
+- **本片范围（P1）**：`HttpServer` 构造函数里写死的 `headersTimeout 30_000` / `requestTimeout 60_000` /
+  `maxConnections 2048` / `MAX_BODY_BYTES 8 MiB` / 静态缓存 64 条 / 64 MiB，以及 `PreviewServer` 的
+  15s / 30s / 64。全部部署环境相关（慢网络、被扫、大附件都要调），此前只能改代码重发。
+- **形态**：`defaults/limits.json`（出厂值 + `env` 名 + `notes`）→ `RuntimeLimits`（`src/util/runtimeLimits.ts`，
+  构造期 fail-closed 校验）→ `omniharness.json` 的 `limits` 段 → 四段接线
+  （`FileConfig` / `CliArgs` / `CliSubsystemSections` / `ConfigFactory.passthroughSections`）→
+  `HttpServer` / `PreviewServer`。优先级：配置 > 数据声明的 env > 数据默认值。
+- **判据**（`tests/unit/runtimeLimits.test.ts`，9 例）：①出厂值与历史字面量逐项一致（零配置行为不变）；
+  ②env 覆盖与空白语义；③三级优先级与逐键覆盖；④坏 env 点名变量 / 越界拒绝（不静默回落）；
+  ⑤配置段未知段/未知键/非整数/越界；⑥数据缺键/未知键/env 重名构造期抛错；
+  ⑦**真构造 HttpServer** 断言连接级参数就是配置值（含逐键覆盖）；⑧反硬编码守卫（消费者代码行不得再出现旧字面量）；
+  ⑨四段接线。
+- **验证**：`tsc --noEmit` 0 错；`auditConfigWiring` 全绿（1290 文件）；`runtimeLimits` 9/9、
+  `httpServer` 17/17、`previewServer` 等 7 个相关套件 78/78；快速层门禁通过。
+- **边界（诚实）**：本片只落了**传输面**这一类。剩余旋钮（A2A / 浏览器 / LSP / 媒体 / 工具超时）仍散在各模块，
+  且部分已有 `LimitEnv.int('OMNI_X', 默认)` 的 env 钩子——下一片按「同一消费者族」逐批迁，不一次性改 66 个文件。

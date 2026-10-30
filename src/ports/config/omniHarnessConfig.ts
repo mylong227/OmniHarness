@@ -29,6 +29,7 @@ import type { RegimeSignals } from '../genesis/regimeSignals.ts';
 import type { Skill } from '../skill/skill.ts';
 import type { LspServerConfig } from '../tool/lsp.ts';
 import type { ModelRouterConfig } from './modelRouterConfig.ts';
+import type { RuntimeLimitsConfig } from '../../util/runtimeLimits.ts';
 
 /** OmniHarness运行时配置：端口注入即插即用，核心无第三方依赖具体实现。 */
 /**
@@ -343,6 +344,14 @@ export interface OmniHarnessConfig {
    * 缺省用内置默认档（与历史行为逐字一致）；消费方用 `security/ssrfPolicy.resolveSsrfPolicy` 解析。
    */
   readonly ssrfPolicy?: SsrfPolicyConfig | undefined;
+  /**
+   * 运维限制段（2026-10-30 数据化）：HTTP 传输面与网页预览源的超时 / 连接数 / 体积上限。
+   *
+   * 出厂值与环境变量名在 `defaults/limits.json`；消费方用 `util/runtimeLimits.ts` 的
+   * `RuntimeLimits.resolve(config.limits)` 解析（优先级：本段 > 环境变量 > 数据默认值）。
+   * 缺省 = 全默认（零配置行为与迁移前逐字一致）。
+   */
+  readonly limits?: RuntimeLimitsConfig | undefined;
   /**
    * (F3 RBAC-lite) 角色门禁：`{ enabled, role, roles? }`。
    *

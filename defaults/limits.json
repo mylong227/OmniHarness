@@ -1,0 +1,51 @@
+{
+  "http": {
+    "headersTimeoutMs": {
+      "value": 30000,
+      "env": "OMNI_HTTP_HEADERS_TIMEOUT_MS",
+      "notes": "收齐完整 HTTP 头的时限（Slowloris 防护）。2026-09-28 审计定值 30s，迁移前写死在 HttpServer 构造函数里。"
+    },
+    "requestTimeoutMs": {
+      "value": 60000,
+      "env": "OMNI_HTTP_REQUEST_TIMEOUT_MS",
+      "notes": "收齐整段请求的时限；SSE 在 writeHead 后进入响应阶段、不受此约束，故长连接安全。"
+    },
+    "maxConnections": {
+      "value": 2048,
+      "env": "OMNI_HTTP_MAX_CONNECTIONS",
+      "notes": "并发打开连接上限（防 fd 耗尽）。0 = Node 语义的「不限」，本表拒绝——不限等于把 fd 耗尽的口子留着。"
+    },
+    "maxBodyBytes": {
+      "value": 8388608,
+      "env": "OMNI_HTTP_MAX_BODY_BYTES",
+      "notes": "请求体总量上限（8 MiB）。本服务请求体只有 JSON-RPC 帧与 /attach 载荷，属 KB 量级；此上限封死「不封口 POST 吃光内存」。"
+    },
+    "staticCacheMaxEntries": {
+      "value": 64,
+      "env": "OMNI_HTTP_STATIC_CACHE_MAX_ENTRIES",
+      "notes": "静态资源缓存条数上限（2026-10-25 首屏缓存）。哈希资源 + index 都够用。"
+    },
+    "staticCacheMaxBytes": {
+      "value": 67108864,
+      "env": "OMNI_HTTP_STATIC_CACHE_MAX_BYTES",
+      "notes": "静态资源缓存总字节上限（原始 + 压缩结果）。"
+    }
+  },
+  "preview": {
+    "headersTimeoutMs": {
+      "value": 15000,
+      "env": "OMNI_PREVIEW_HEADERS_TIMEOUT_MS",
+      "notes": "工作区网页预览源（独立回环端口）的收头时限：预览只服务静态小文件，不需要长连接。"
+    },
+    "requestTimeoutMs": {
+      "value": 30000,
+      "env": "OMNI_PREVIEW_REQUEST_TIMEOUT_MS",
+      "notes": "预览源的整段请求时限。"
+    },
+    "maxConnections": {
+      "value": 64,
+      "env": "OMNI_PREVIEW_MAX_CONNECTIONS",
+      "notes": "预览源并发连接上限（右栏 iframe 是唯一消费者，64 足够）。"
+    }
+  }
+}
