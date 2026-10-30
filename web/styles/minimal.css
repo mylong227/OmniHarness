@@ -1638,6 +1638,15 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  /* 列容器只能纵排：横向一律拉伸 + 允许收缩，否则宽内容会把整列撑出容器被裁。 */
+  align-items: stretch;
+  min-width: 0;
+  overflow: visible;
+}
+/* antd root 必须撑满列宽并允许收缩（flex 子项默认 min-width:auto 会被宽内容顶开）。 */
+.rv-tabs .ant-tabs {
+  width: 100%;
+  min-width: 0;
 }
 .rv-tabs .ant-tabs-nav {
   margin: 0;
@@ -1705,6 +1714,8 @@
 .rv-pane-body {
   flex: 1;
   min-height: 0;
+  /* 宽内容（长代码行/表格）必须能被内部滚动容器接管，而不是把这一层顶宽后被 overflow:hidden 裁掉。 */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -290,14 +290,9 @@
 
 /* ---------- 右栏：代码查看器 ---------- */
 .col.right { display: flex; flex-direction: column; }
-.rv-tabs {
-  display: flex;
-  align-items: center;
-  overflow-x: auto;
-  scrollbar-width: none;
-  flex: none;
-}
-.rv-tabs::-webkit-scrollbar { display: none; }
+/* 2026-10-30：`.rv-tabs` 自 antd Tabs 迁移后是**右栏整列容器**，旧标签条样式
+   （align-items:center + overflow-x:auto）会让 antd 内容压成内容宽并居中、左右各被裁一截
+   （用户截图：文件正文两侧被切）。列容器只管纵向排布，横向对齐交给默认 stretch。 */
 
 .rv-pathbar {
   display: flex;
@@ -469,6 +464,8 @@
 .file-pane {
   flex: 1;
   min-height: 0;
+  /* 允许被右栏压窄：宽代码行由内部滚动容器接管（否则会把父级顶宽后整块被裁）。 */
+  min-width: 0;
   display: flex;
   flex-direction: column;
   padding: 10px;

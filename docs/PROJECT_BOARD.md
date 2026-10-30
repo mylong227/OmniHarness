@@ -6907,3 +6907,25 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   （可裁剪）。风险登记：超大仓库（depth+懒加载+虚拟滚动）、IME、双源 key 隔离、与侧栏
   FileTree 的契约对齐（共用映射不共用实例）。
 - **状态**：设计定稿未实施——实施时以本文件为唯一依据，另起会话单元执行。
+
+## 179. 2026-10-30 修复：右栏文件正文被两侧裁剪（`.rv-tabs` 旧标签条样式残留）
+
+- **用户报障（截图）**：右侧文件显示区正文左右两侧都被切掉，路径栏也看不见了。
+- **根因（真机实测，不是猜）**：`.rv-tabs` 自 antd `Tabs` 迁移后**已经是右栏整列容器**（flex 列），
+  但 `shell.css` 里还留着旧标签条规则 `display:flex; align-items:center; overflow-x:auto`。
+  `align-items:center` 让 antd root 不拉伸、宽度 = 内容固有宽（实测 **839px**，列只有 420px），
+  于是内容左边界跑到列外（x=971，列从 1180 开始），两侧各溢出 ~210px；`overflow-x:auto` 把溢出
+  变成"可滚但没有可见滚动条"，用户看到的就是**两侧被切**。路径栏同理被推出可视区，所以"消失"。
+- **修复（三处，缺一不可）**：
+  1. 删掉 `shell.css` 里的旧 `.rv-tabs` 块（含 `::-webkit-scrollbar`）；
+  2. `.rv-tabs` 补 `align-items:stretch / min-width:0 / overflow:visible`，并加
+     `.rv-tabs .ant-tabs { width:100%; min-width:0 }`（flex 子项默认 `min-width:auto` 会被宽内容顶开）；
+  3. `.rv-pane-body`、`.file-pane` 补 `min-width:0`，让宽代码行由内部滚动容器接管。
+- **判据（真机 + 正对照）**：新增 `web/test/rightPanelClip.test.ts`——打开桩页的 README.md 后量
+  内容矩形必须落在 `.col.right` 内（±1px）、`.rv-tabs` 与 `.file-md-scroll` 不得横向溢出。
+  **正对照**注入"修复前状态"必须变红。第一次只注 `align-items:center` **没红**——因为修复的另一半
+  （antd root 的 `width:100%`）单独也能顶住；这说明判据必须按完整修复前状态设计，否则是假判据。
+- **留档**：`web/archive/right-panel-clip-fixed-20261030.png`（深色，与用户截图同主题：路径栏回来、
+  正文在卡片内换行、长代码行由代码卡内部横向滚动）。
+- **验证**：`rightPanelClip` 1/1（含正对照）、`a11yKeyboard` 15/15、`cssSourceHygiene`、
+  `shellDensity`、`panelModalSize` 全绿；全量 web 判据见提交信息。
