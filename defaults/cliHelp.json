@@ -66,6 +66,10 @@
       "description": "自主目标循环（#S30，多轮自主推进直到达成或达上限）"
     },
     {
+      "usage": "omniharness model probe [--model-adapter X] [--base-url U] [--api-key K] [--model M] [--json]",
+      "description": "模型能力探针（U2-4）：对配置链装配的模型端口跑受控小请求（工具调用/并行工具/JSON/推理档位/流式），产出能力卡；存在 fail/error 项时退出码 1"
+    },
+    {
       "usage": "omniharness workflow --file workflow.json [--resume-run <runId>]",
       "description": "DAG 工作流编排（#S31，多步依赖并发，前序产出注入后续；步骤可用 when 声明受控条件；运行落盘 <workspace>/.omniharness/graph-runs/，--resume-run 续跑：已完成步骤复用产出、其余重跑）"
     },

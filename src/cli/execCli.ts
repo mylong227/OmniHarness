@@ -98,9 +98,8 @@ export class ExecCli extends CliAgentCmds {
       return this.runNative(argv.slice(1));
     }
     if (argv[0] === 'license') return this.licenseCommand.run(argv.slice(1));
-    if (argv[0] === 'goal') {
-      return this.runGoal(argv.slice(1));
-    }
+    if (argv[0] === 'goal') return this.runGoal(argv.slice(1));
+    if (argv[0] === 'model') return this.runModel(argv.slice(1)); // U2-4 能力探针（见 runModel）
     if (argv[0] === 'workflow') {
       return this.runWorkflow(argv.slice(1));
     }

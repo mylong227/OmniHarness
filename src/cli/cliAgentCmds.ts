@@ -26,6 +26,7 @@ import type { TuiEvent } from '../tui/tuiRenderer.ts';
 import { ArgParser, CliDefaults } from './argParser.ts';
 import { CronerSchedule } from '../adapters/schedule/cronerSchedule.ts';
 import type { CliArgs } from './argParser.ts';
+import { ModelCapabilityProbe } from '../adapters/model/modelCapabilityProbe.ts';
 import { CliNativeCmds } from './cliNativeCmds.ts';
 import {
   ACP_PERMISSION_MODES,
@@ -123,6 +124,36 @@ export class CliAgentCmds extends CliNativeCmds {
    */
   protected summaryOf(result: AgentResult): unknown {
     return { sessionId: result.sessionId, finalText: result.finalText, steps: result.steps };
+  }
+
+  /**
+   * model probe：模型能力探针（U2-4，2026-10-30）。
+   *
+   * 对**当前配置链装配出的模型端口**跑一组受控小请求（基础补全/工具调用/并行工具/JSON/
+   * reasoning 档位/流式），产出 capability card——「声明支持」与「端点真支持」在这里对账。
+   * 配置链与 goal/workflow 同源（`loadDefaults` + `parseArgs` + `buildConfig`），
+   * 故探的就是生产会用的那个端点组合；全部旗标复用既有登记（零新增旗标）。
+   * @param args 子命令参数（首 token 必须是 probe；其余为标准模型旗标 + --json）。
+   * @returns 进程退出码：未知子动作为 2；能力卡无 fail/error 为 0，否则 1。
+   */
+  protected async runModel(args: readonly string[]): Promise<number> {
+    const [sub, ...rest] = args;
+    if (sub !== 'probe') {
+      process.stderr.write(
+        '用法: omniharness model probe [--model-adapter X] [--base-url U] [--api-key K] [--model M] [--json]\n',
+      );
+      return 2;
+    }
+    const json = rest.includes('--json');
+    const cliArgs =
+      ArgParser.parseArgs(
+        ['--prompt', 'model-probe-placeholder', ...rest],
+        this.loadDefaults(args),
+      ) ?? CliDefaults;
+    const config = await this.buildConfig(cliArgs);
+    const card = await ModelCapabilityProbe.run(config.model);
+    process.stdout.write(ModelCapabilityProbe.render(card, json));
+    return card.ok ? 0 : 1;
   }
 
   /**
