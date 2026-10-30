@@ -7331,3 +7331,46 @@ BLOCKERS（外部凭据/证书）、Wave E（纪律性阻塞）、G1/G3/G4/H2（
   desktop 测试全绿、perf:gate 七项预算绿。
 - 全量 `npm test` 终验：**node 709 文件 / 4371 例 + web 131 文件 / 669 例，全部通过**（首次终验 3 例红已归因修复，见 `2831611e`）。本轮提交：`bc89aedc`（会话搬运）→ `af1ddda9`
   （文件名对齐）→ `81d29211`（a2a 加固）→ `55a463ae`（F8/F9 登记）→ `1ba16354`（列表排合成 id）。
+
+## 199. 2026-10-31 收尾轮：全部提交 + 离线自测族全跑 + 两处新发现修复
+
+### 199.1 全部提交
+
+工作区最后一次未收口的批次（并发会话的「请求批准档」）经类型检查与判据验证后提交：
+`18bf035c` feat(approval)——AskApproval（本地只读自动放行 / 其余一律询问 / askHandler
+缺省 fail-closed），白名单从 PLAN_ALLOWED_TOOLS 派生防漂移，CLI + serve 全链接线，
+判据 26 例。至此工作区**零未提交改动**。
+
+### 199.2 离线自测族全跑（BLOCKERS「已可独立复跑」清单的执行记录）
+
+| 项                                                 | 结果                                                              |
+| -------------------------------------------------- | ----------------------------------------------------------------- |
+| `test:integration`（build + web:build + 7 文件）   | **17/17**（首轮 1 红 = UI 基线漂移，见 199.3）                    |
+| `longTasks --self-check`                           | **40/40**（离线）                                                 |
+| `desktop npm test` + `verify:package` + `manifest` | 全过（503.8 MB / 12,522 文件，installer 137.4 MB sha256 在案）    |
+| `probe:merge`                                      | 14/14 正确、0 孤立代理项                                          |
+| `gc --dry-run`（真家目录）                         | 正常产出巡检报告（扫描 4585 / 命中 183 / dry-run 删除 0）         |
+| `runGates.mjs` 完整电池                            | fast 层 10/12 实跑通过（另 2 条为 update-only/环境类）+ typed 2/2 |
+
+**刻意不跑（成本/外发边界）**：`smoke:model` / `smoke:ui` 走真实模型 key（要花钱）、
+安装包 `/S` 静默安装（改系统状态）、DevTools 逐帧火焰图（需人工）——与 BLOCKERS 的
+外部条件登记一致。
+
+### 199.3 两处新发现与修复
+
+1. **UI 结构基线漂移**（`bd28a384`）：test:integration 首跑红——两处差异均为**已提交的
+   有意改动**（§171 删除「外观」页签、选择器重设计后的文件空态文案）但基线没重写；
+   旧文案在源码里已不存在、仅基线残留。按测试内建协议 `OMNI_UI_BASELINE_UPDATE=1`
+   重写，diff 核对恰为该两处；复跑 17/17。
+2. **清理竞态 never-throw**（另一提交）：全量套件两次实测同一竞态穿透 maxRetries=5——
+   旁路摘要**异步**写迟到，Windows `ENOTEMPTY` 把行为断言已通过的测试判红。按仓库先例
+   （tempWorkspace.ts「清理失败不影响退出码」）显式成共享 helper `rmTempBestEffort`
+   （两轮 rmSync + 300ms 宽限，最终放弃交 gc 清扫器兜底），sessionArchive 两夹具 4 个
+   清理点接入。
+
+### 199.4 终验
+
+- 全量 `npm test`：**node 709 文件 / 4371 例 + web 131 文件 / 669 例，全部通过**（exit 0）。
+- 门禁：`check --strict` 零违规、typed 2/2、arch:gate 0 新增、doc-links 0、
+  configWiring / independence / delta 全绿（见前 §198.3 与本轮提交内判据）。
+- 本轮提交：`18bf035c` → `bd28a384`（UI 基线）→ 清理 helper 提交。
