@@ -6869,3 +6869,22 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
      递归化）、保留 PickerModal 外壳与 Esc/焦点归还。**工程量 ≈ 一个独立会话单元**（两组件约
      700 行重写 + 三判据改写），本轮预算内强行开工必然烂尾，故按 §178 纪律落档不开工。
 - **验证**：截图 20/20；`web:test` 全量绿（本提交仅测试基建，无产品码变更）。
+
+## 185. 2026-10-30 真机回归修复：权限页下拉文字不可见（ConsoleSelect antd 化的后续）
+
+- **用户真机截图报障**：权限设置页「审批模式/升级审批」两个下拉显示空白底框、看不到选中值。
+- **根因（真机 DOM+计算样式取证）**：antd v6.6.8 的选中值渲染为 `.ant-select-content` 内的
+  **裸文本节点 + 绝对定位的搜索 `<input class="ant-select-input">`**；theme.css 的「原生控件
+  兜底层」（`input:not([type=checkbox])…`，给裸 input 上边框/内边距）与 antd cssinjs 给搜索
+  输入涂的 `colorBgContainer`（= --panel #fdfcf9，**不透明**）叠加 ⇒ 搜索输入整片盖在文字上方
+  （浅色下白上白）。普通权重修复会被后注入的 cssinjs 级联盖掉 ⇒ 用 `!important` 例外收口
+  （搜索输入只保留可聚焦性：transparent 背景/无边框/零内边距），已在 keyStateShots 新增
+  `consolePerm` 态（开控制台 → 点权限 → 真机截图）取证：选中值 "ask" 正常显示。
+- **判据基建**：`consolePerm` 常驻截图态防复发；`value` 链路（SettingsModel.valueOf →
+  ConsoleSelect）经 jsdom 探针确认无断点。
+- **另一报障（右栏代码视图显示凌乱）——初判与修复状态**：`.code-scroll/.code-gutter/.code-ln`
+  等类在源码中均存活（死规则扫描未删任何代码视图规则），初步排除本轮 CSS 清理所致；
+  复现需要 stub 增加 `files.read`（当前 stub 无此 RPC，右栏代码视图无法在判据环境驱动）。
+  下一步：给 stub 补 files.read → 真机复现 → 按 bug 2 同款「dump 计算样式 → 修 → 截图取证」
+  闭环。**未在本轮盲修**。
+- **验证**：`web:test` 全量绿；`gate:typed` 0 错；consolePerm 截图双主题取证。

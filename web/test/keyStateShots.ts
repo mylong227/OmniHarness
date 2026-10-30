@@ -100,6 +100,17 @@ const OPENERS: Record<string, (cdp: CdpSession) => Promise<boolean>> = {
     return cdp.waitFor("!!document.querySelector('.cmdk-input')", 3000);
   },
   rightpanel: async () => true, // 桌面三栏常驻右栏：FileTab 空态即目标画面
+  // 权限设置页（W5 真机回归修复验证：ConsoleSelect 换 antd 后旧原生 CSS 挤掉文字的修复取证）
+  consolePerm: async (cdp) => {
+    await cdp.evaluate(
+      "(function(){ var b=document.querySelector('button[aria-label=\"打开设置\"], button[aria-label=\"Open settings\"]'); if(b){ b.click(); return true; } return false; })()",
+    );
+    await cdp.waitFor("!!document.querySelector('.csl')", 3000);
+    await cdp.evaluate(
+      "(function(){ var items=document.querySelectorAll('.csl-nav button, .csl-nav a, .csl-nav [role=\"menuitem\"]'); for (var i=0;i<items.length;i++){ if(items[i].textContent.indexOf('权限')>=0){ items[i].click(); return true; } } return false; })()",
+    );
+    return cdp.waitFor("!!document.querySelector('.csl-select.ant-select')", 3000);
+  },
   narrow: async () => true, // 视口由 captureOne 特殊处理（480px + 左栏抽屉态）
 };
 

@@ -1525,3 +1525,57 @@
 .csl-scroll .csl-input--mono input {
   font-family: var(--mono, monospace);
 }
+
+/* 2026-10-30 修复（用户真机截图）：ConsoleUI 原语换 antd 后，旧原生控件规则（height/padding
+   压在 .ant-select/.ant-input 包裹层上）把选择框文字挤不可见。antd 的内边距/行高由组件 token
+   自管，这里只保留纸墨的圆角与等宽语义。 */
+.csl-scroll .csl-select.ant-select {
+  height: auto;
+  padding: 0;
+  min-width: 150px;
+}
+.csl-scroll .csl-select.ant-select .ant-select-selector {
+  padding: 0 11px;
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  border-color: var(--border-soft);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 30px;
+}
+.csl-scroll .csl-select.ant-select .ant-select-selection-item {
+  color: var(--text);
+  line-height: 30px;
+  padding-inline-end: 24px;
+}
+.csl-scroll .csl-select.ant-select .ant-select-arrow {
+  color: var(--faint);
+}
+.csl-scroll .csl-input.ant-input,
+.csl-scroll .csl-input.ant-input-affix-wrapper {
+  height: auto;
+  padding: 4px 11px;
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  border-color: var(--border-soft);
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* 2026-10-30 真机回归修复（用户截图）：antd v6 的选中值是 .ant-select-content 内的
+   裸文本节点 + 搜索 <input class=ant-select-input>；theme.css 的「原生控件兜底层」给所有
+   未带 class 的 input 涂不透明背景 ⇒ 搜索输入盖在文字上方 = 下拉显示空白（浅色下白上白）。
+   搜索输入必须透出底下的文字，只保留可聚焦性。 */
+.csl-scroll .csl-select .ant-select-content {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 30px;
+}
+.csl-scroll .csl-select .ant-select-input {
+  /* !important：antd v6 cssinjs 给搜索输入涂 colorBgContainer（晚注入的同位级联会赢过
+     上面普通权重），实测盖住选中值文本（用户真机截图）。状态类例外，见 DESIGN_SYSTEM v2。 */
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: inherit !important;
+}
