@@ -451,3 +451,50 @@ test('SessionArchive：坏行/空行被静默跳过，不影响其余统计', as
     assert.strictEqual(out.total.total, 4);
   });
 });
+
+test('SessionArchive.list：检查点快照（合成 id）不混进会话列表（主目录与归档目录都排除）', async () => {
+  await withTemp(async (dir) => {
+    writeFileSync(
+      join(dir, 'sess_real_1.jsonl'),
+      [
+        line('session_meta', { workspace: dir }, '2026-09-11T00:00:00.000Z'),
+        line('user', { content: '真实会话' }, '2026-09-11T00:00:01.000Z'),
+      ].join('\n'),
+    );
+    // 检查点快照：合成 id 的文件名（Windows 形态 %3A 编码 / POSIX 字面冒号各一），
+    // 事件拷贝自源会话 ⇒ 带同一份 workspace，会通过作用域过滤混进列表。
+    const snapshot = [
+      line('session_meta', { workspace: dir }, '2026-09-11T00:00:00.000Z'),
+      line('user', { content: 'auto-20 快照' }, '2026-09-11T00:00:02.000Z'),
+    ].join('\n');
+    writeFileSync(join(dir, `checkpoint%3Asess_real_1%3Aauto-20.jsonl`), snapshot);
+    writeFileSync(
+      join(dir, `checkpoint_index%3Asess_real_1.jsonl`),
+      line('system', {}, '2026-09-11T00:00:03.000Z'),
+    );
+    // 归档目录里也放一份（includeArchived=true 时同样必须排除）。
+    mkdirSync(join(dir, 'archive'), { recursive: true });
+    writeFileSync(join(dir, 'archive', 'checkpoint%3Asess_old%3Aauto-5.jsonl'), snapshot);
+
+    const archive = new SessionArchive({
+      workspaceRoot: () => dir,
+      storageLocation: () => dir,
+      configuredStorageDir: () => undefined,
+    });
+    const list = (await archive.list(true, '*')) as {
+      sessions: readonly { sessionId: string }[];
+    };
+    const ids = list.sessions.map((s) => s.sessionId);
+
+    assert.ok(ids.includes('sess_real_1'), '真实会话必须在列');
+    assert.ok(
+      ids.every((id) => !id.includes('checkpoint')),
+      `列表不得混入检查点快照，实际：${JSON.stringify(ids)}`,
+    );
+    // 判定函数本身：POSIX 字面冒号 / Windows 编码两种形态都认。
+    assert.strictEqual(SessionArchive.isSyntheticId('checkpoint:sess_x:auto-5'), true);
+    assert.strictEqual(SessionArchive.isSyntheticId('checkpoint%3Asess_x%3Aauto-5'), true);
+    assert.strictEqual(SessionArchive.isSyntheticId('checkpoint_index%3Asess_x'), true);
+    assert.strictEqual(SessionArchive.isSyntheticId('sess_x'), false);
+  });
+});

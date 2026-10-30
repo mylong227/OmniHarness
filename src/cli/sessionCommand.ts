@@ -11,6 +11,7 @@ import { CliArgReader } from './cliArgReader.ts';
 import { SessionStorageLocation } from '../util/sessionStorageLocation.ts';
 import { SessionTransfer } from './sessionTransfer.ts';
 import { JsonlStorage } from '../adapters/storage/jsonlStorage.ts';
+import { SessionArchive } from '../server/services/session/sessionArchive.ts';
 import { log } from '../util/logger.ts';
 
 /** session 子命令：列出工作区会话日志文件（session list），输出 id / 事件数 / 修改时间摘要。 */
@@ -38,7 +39,12 @@ export class SessionCommand {
       process.cwd(),
       new CliArgReader(args).value('--storage-dir'),
     );
-    const names = (await readdir(dir)).filter((name) => name.endsWith('.jsonl'));
+    // 检查点快照不是会话（合成 id，拷贝了源会话的 session_meta 会混进列表）——与
+    // sessions.list 同一份判定（SessionArchive.isSyntheticId）。
+    const names = (await readdir(dir)).filter(
+      (name) =>
+        name.endsWith('.jsonl') && !SessionArchive.isSyntheticId(name.replace(/\.jsonl$/, '')),
+    );
     if (names.length === 0) {
       process.stdout.write('（无会话文件）\n');
       return 0;

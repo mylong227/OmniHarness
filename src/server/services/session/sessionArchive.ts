@@ -220,12 +220,7 @@ export class SessionArchive {
 
     // 并发解析（异步 IO 并行），结果按原目录序落表（Promise.all 保序）。
     // 目录可能在 stat 与 readdir 之间被删（测试/外部清理）：投成空列表，不抛未处理拒绝。
-    let mainNames: string[] = [];
-    try {
-      mainNames = (await readdir(dir)).filter((name) => name.endsWith('.jsonl'));
-    } catch {
-      mainNames = [];
-    }
+    const mainNames: string[] = await SessionArchive.sessionFileNames(dir);
     const mainRows = await Promise.all(
       mainNames.map((name) => {
         const id = name.replace(/\.jsonl$/, '');
@@ -239,19 +234,12 @@ export class SessionArchive {
     // 连事件流都不解析；「已归档」组按需请求时才读。
     if (includeArchived) {
       const archDir = SessionArchiveLayout.archiveDirOf(dir);
-      let archNames: string[] = [];
-      try {
-        if ((await stat(archDir)).isDirectory()) archNames = await readdir(archDir);
-      } catch {
-        archNames = [];
-      }
+      const archNames: string[] = await SessionArchive.sessionFileNames(archDir);
       const archRows = await Promise.all(
-        archNames
-          .filter((name) => name.endsWith('.jsonl'))
-          .map((name) => {
-            const id = name.replace(/\.jsonl$/, '');
-            return this.buildSession(join(archDir, name), id, true, scope, titles);
-          }),
+        archNames.map((name) => {
+          const id = name.replace(/\.jsonl$/, '');
+          return this.buildSession(join(archDir, name), id, true, scope, titles);
+        }),
       );
       for (const row of archRows) {
         if (row !== undefined && (includeMock || !row.mock)) sessions.push(row);
@@ -601,6 +589,49 @@ export class SessionArchive {
     const hit = await this.scan.readSummary(file);
     if (hit === undefined) return undefined;
     return { parsed: hit.value, mtimeMs: hit.mtimeMs };
+  }
+
+  /**
+   * 枚举目录下的**真实会话**文件（排除检查点快照等合成 id）。
+   *
+   * 检查点快照（合成 id `checkpoint:<sid>:<label>` / 索引 `checkpoint_index:<sid>`）**不是会话**：
+   * 它们的事件拷贝自源会话（含同一份 session_meta），会通过工作区过滤混进列表——
+   * 2026-10-31 实测本机 519 个 .jsonl 里 31 个是 checkpoint。检查点有自己的
+   * `checkpoint.list` RPC 读索引侧车，不经会话列表。
+   * @param directory 存档目录（主目录或 archive/ 子目录）。
+   * @returns `.jsonl` 文件名（目录不可读/被删时回空——list 的既有口径）。
+   */
+  private static async sessionFileNames(directory: string): Promise<string[]> {
+    try {
+      const names = await readdir(directory);
+      return names.filter(
+        (name) =>
+          name.endsWith('.jsonl') && !SessionArchive.isSyntheticId(name.replace(/\.jsonl$/, '')),
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 该 id 是否为**合成 id**（检查点快照 / 检查点索引，非真实会话）。
+   *
+   * 文件名侧的合成 id 已被 `SessionFileCodec` 做 `encodeURIComponent` 转义
+   * （Windows 不允许 `:`）⇒ 判定前先解码：POSIX 上是字面 `checkpoint:`，Windows 上是
+   * `checkpoint%3A`。本方法同时供 CLI `session list` / 导出使用（同一份判定，防漂移）。
+   * @param fileBase 文件基名（不含 `.jsonl`，可能是编码后的形态）。
+   * @returns 合成 id 为 true。
+   */
+  public static isSyntheticId(fileBase: string): boolean {
+    let decoded = fileBase;
+    if (fileBase.includes('%')) {
+      try {
+        decoded = decodeURIComponent(fileBase);
+      } catch {
+        return false;
+      }
+    }
+    return decoded.startsWith('checkpoint:') || decoded.startsWith('checkpoint_index:');
   }
 
   /**
