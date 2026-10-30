@@ -30,8 +30,10 @@ import { TurnCompletionGateFactory } from '../adapters/tool/verify/turnCompletio
 import { ReviewDiffTool } from '../adapters/tool/verify/reviewDiffTool.ts';
 import {
   A2aAgentCardSigner,
+  A2aPushNotifications,
   A2aServer,
   A2aClient,
+  A2aTaskPager,
   HttpA2aTransport,
   HttpA2aServerTransport,
   WsA2aTransport,
@@ -41,6 +43,7 @@ import type { A2aTransport, A2aAgentCard } from '../a2a/a2aProtocol.ts';
 import { ServiceKeys } from './serviceKeys.ts';
 import { SsrfPolicy } from '../security/ssrfPolicy.ts';
 import { log } from '../util/logger.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 
 /**
  * Runtime —— 由本文件原顶层函数归并而来（每个方法对应一个原函数，语义与签名逐字保留）。
@@ -348,12 +351,23 @@ export class Runtime {
     // 传输形态：http（默认，POST /a2a）或 ws（RFC6455，/a2a-ws）。二者实现同一 A2aTransport 端口，
     // 协议与门禁完全共用；缺省 http 保持原行为（零破坏）。
     const wsMode = config.a2a.transport === 'ws';
+    // 运维限制（2026-10-30 数据化）：A2A 的调用/投递超时、分页大小与游标 TTL 走 `limits.a2a`
+    // （defaults/limits.json 出厂值；配置 > env > 数据）。未配置时与迁移前逐字一致。
+    const a2aLimits = runtimeLimits.resolve(config.limits).a2a;
     const serverTransport = wsMode ? new WsA2aServerTransport() : new HttpA2aServerTransport();
-    const server = new A2aServer(serverTransport, config.identity);
+    const server = new A2aServer(serverTransport, config.identity, {
+      pager: new A2aTaskPager({
+        defaultPageSize: a2aLimits.pageSize,
+        ttlMs: a2aLimits.pageTokenTtlMs,
+      }),
+      push: new A2aPushNotifications({ timeoutMs: a2aLimits.webhookTimeoutMs }),
+    });
     const peer =
       config.a2a.peerEndpoint ??
       (wsMode ? `ws://localhost:${a2aPort}/a2a-ws` : `http://localhost:${a2aPort}/a2a`);
-    const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity);
+    const client = new A2aClient(makeA2aTransport(peer, wsMode, config), config.identity, {
+      timeoutMs: a2aLimits.clientTimeoutMs,
+    });
     // A2A v1.0 AgentCard：JSON-RPC `agent/getCard` 与 HTTP `/.well-known/agent-card.json` 同源。
     // URL 必须是**本服务端**端点，不是 `peerEndpoint`（后者是出站委托目标；误用会把调用方导到上游）。
     const card = Runtime.a2aCard(config, wsMode, a2aPort);

@@ -7080,3 +7080,17 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   `httpServer` 17/17、`previewServer` 等 7 个相关套件 78/78；快速层门禁通过。
 - **边界（诚实）**：本片只落了**传输面**这一类。剩余旋钮（A2A / 浏览器 / LSP / 媒体 / 工具超时）仍散在各模块，
   且部分已有 `LimitEnv.int('OMNI_X', 默认)` 的 env 钩子——下一片按「同一消费者族」逐批迁，不一次性改 66 个文件。
+
+## 187. 2026-10-30 运维旋钮数据化（P2）：A2A 调用/投递超时与分页参数
+
+- **范围**：`A2aClient` 的调用超时（写死 `60_000`）、`A2aPushNotifications` 的 webhook 超时（`10_000`）、
+  `A2aTaskPager` 的缺省页大小（`50`）与游标 TTL（`24h`）。协议上限 100 是**规范常量**，刻意不进配置。
+- **形态**：`defaults/limits.json` 新增 `a2a` 段（`clientTimeoutMs` / `webhookTimeoutMs` / `pageSize` /
+  `pageTokenTtlMs`，各带 env 名）；`RuntimeLimits` 增加 `A2aLimits` 与 `resolveA2a`；
+  组合根 `Runtime.attachA2a` 解析一次后注入 client / pager / push（`A2aServerOptions.push` 新增注入点）。
+- **零配置不变**：出厂值与迁移前逐字一致；`RuntimeLimits.defaults()` 仍是叶子类构造的缺省。
+- **判据**（沿用 `runtimeLimits.test.ts`）：①补 A2A 四项出厂值；③补 A2A 逐键覆盖；⑧守卫扩到
+  `a2aClient.ts` / `a2aPushNotifications.ts` / `a2aTaskPager.ts`；⑨接线补 `runtime.ts` 三处消费点。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、A2A 相关 7 套件 36/36；快速层 + 类型层门禁通过。
+- **边界**：A2A 的 `OMNI_A2A_SEND_TIMEOUT_MS` / `OMNI_A2A_READ_TIMEOUT_MS` / `OMNI_A2A_MAX_BODY_BYTES`
+  仍走 `LimitEnv`（已有 env 钩子，未纳入本片）；下一步按「同一消费者族」把它们并进 `limits.a2a.transport`。

@@ -62,6 +62,13 @@ export interface A2aServerOptions {
    */
   readonly pager?: A2aTaskPager;
   /**
+   * push notification 实例（缺省内部 `new A2aPushNotifications()`）。
+   *
+   * 注入它的意义是把 `limits.a2a.webhookTimeoutMs`（`defaults/limits.json`）传进投递路径——
+   * webhook 超时是部署相关的运维旋钮（外网慢时投递更容易超时），不该写死在实现里。
+   */
+  readonly push?: A2aPushNotifications;
+  /**
    * AgentCard JWS 签名器（等价于 {@link A2aServer.setAgentCardSigner}）。
    *
    * **未注入即不签名**：取卡方法与 well-known 只会返回没有 `signatures` 的卡，
@@ -110,8 +117,8 @@ export class A2aServer {
   private signer: A2aAgentCardSigner | undefined;
   /** 任务表（状态机 + 流事件）。 */
   private readonly tasks = new A2aTaskStore();
-  /** push notification 配置与投递。 */
-  private readonly push = new A2aPushNotifications();
+  /** push notification 配置与投递（可注入：组合根按 `limits.a2a.webhookTimeoutMs` 构造）。 */
+  private readonly push: A2aPushNotifications;
   /** v1.0 协议语义实现。 */
   private readonly v1: A2aV1Methods;
 
@@ -125,6 +132,7 @@ export class A2aServer {
     private readonly identity?: AgentIdentityPort,
     options: A2aServerOptions = {},
   ) {
+    this.push = options.push ?? new A2aPushNotifications();
     this.signer = options.cardSigner;
     this.v1 = new A2aV1Methods({
       tasks: this.tasks,

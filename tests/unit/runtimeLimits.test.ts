@@ -79,6 +79,13 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     requestTimeoutMs: 30_000,
     maxConnections: 64,
   });
+  // A2A 段（P2 迁入）：调用超时 60s / webhook 10s / 页大小 50 / 游标 TTL 24h——迁移前逐字写死。
+  assert.deepStrictEqual(defaults.a2a, {
+    clientTimeoutMs: 60_000,
+    webhookTimeoutMs: 10_000,
+    pageSize: 50,
+    pageTokenTtlMs: 24 * 60 * 60 * 1000,
+  });
 });
 
 test('② 环境变量覆盖生效；空白视为未设置', () => {
@@ -111,6 +118,10 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   assert.strictEqual(resolved.http.requestTimeoutMs, 60_000);
   // 配置写了 headersTimeoutMs ⇒ 覆盖出厂 30000。
   assert.strictEqual(resolved.http.headersTimeoutMs, 12_000);
+  // A2A 段同样逐键覆盖（配置 > 出厂），未写的键不动。
+  const a2a = runtimeLimits.resolve({ a2a: { pageSize: 20 } }).a2a;
+  assert.strictEqual(a2a.pageSize, 20);
+  assert.strictEqual(a2a.clientTimeoutMs, 60_000);
 });
 
 test('④ 坏值 fail-closed：坏环境变量点名变量，越界拒绝（不静默回落）', () => {
@@ -234,6 +245,17 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.match(http, /this\.limits\.http\.headersTimeoutMs/u);
   assert.match(http, /this\.limits\.http\.maxBodyBytes/u);
   assert.match(preview, /limits\.headersTimeoutMs/u);
+
+  // A2A 段（P2）：三个消费者各自不得再写死迁移前的字面量。
+  const a2aClient = srcCode('src/a2a/a2aClient.ts');
+  assert.doesNotMatch(a2aClient, /60_000/u, 'a2aClient.ts 的调用超时必须走 limits.a2a');
+  assert.match(a2aClient, /runtimeLimits\.defaults\(\)\.a2a\.clientTimeoutMs/u);
+  const push = srcCode('src/a2a/a2aPushNotifications.ts');
+  assert.doesNotMatch(push, /DEFAULT_WEBHOOK_TIMEOUT_MS/u);
+  assert.match(push, /a2a\.webhookTimeoutMs/u);
+  const pager = srcCode('src/a2a/a2aTaskPager.ts');
+  assert.doesNotMatch(pager, /DEFAULT_PAGE_SIZE|DEFAULT_TTL_MS|24 \* 60 \* 60/u);
+  assert.match(pager, /a2aDefaults\.pageSize/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
@@ -248,4 +270,10 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
     srcCode('src/ports/config/fileConfig.ts'),
     /readonly limits\?: RuntimeLimitsConfig/u,
   );
+  // A2A 消费点：组合根把解析后的 limits 交给 client / pager / push。
+  const runtime = srcCode('src/composition/runtime.ts');
+  assert.match(runtime, /runtimeLimits\.resolve\(config\.limits\)\.a2a/u);
+  assert.match(runtime, /new A2aTaskPager\(\{/u);
+  assert.match(runtime, /new A2aPushNotifications\(\{ timeoutMs/u);
+  assert.match(runtime, /timeoutMs: a2aLimits\.clientTimeoutMs/u);
 });

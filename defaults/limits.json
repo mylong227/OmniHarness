@@ -47,5 +47,27 @@
       "env": "OMNI_PREVIEW_MAX_CONNECTIONS",
       "notes": "预览源并发连接上限（右栏 iframe 是唯一消费者，64 足够）。"
     }
+  },
+  "a2a": {
+    "clientTimeoutMs": {
+      "value": 60000,
+      "env": "OMNI_A2A_CLIENT_TIMEOUT_MS",
+      "notes": "A2A 委托/能力声明的挂起超时：对端不响应时按此收尾，避免委托永久挂着。原写死 60_000。"
+    },
+    "webhookTimeoutMs": {
+      "value": 10000,
+      "env": "OMNI_A2A_WEBHOOK_TIMEOUT_MS",
+      "notes": "push notification 的 webhook 投递超时：投递是尽力而为，超时只记日志、不改变任务状态。原写死 10_000。"
+    },
+    "pageSize": {
+      "value": 50,
+      "env": "OMNI_A2A_PAGE_SIZE",
+      "notes": "tasks/list 的缺省页大小（规范上限 100 是协议常量，不在此表、也不可配）。原写死 50。"
+    },
+    "pageTokenTtlMs": {
+      "value": 86400000,
+      "env": "OMNI_A2A_PAGE_TOKEN_TTL_MS",
+      "notes": "游标有效期（24h）：过期后要求客户端重新列首页，避免无限期可用的旧游标。原写死 24*60*60*1000。"
+    }
   }
 }

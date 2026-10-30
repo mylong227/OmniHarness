@@ -62,20 +62,34 @@ export interface PreviewLimits {
   readonly maxConnections: number;
 }
 
+/** A2A 互操作限制（`limits.a2a`）。 */
+export interface A2aLimits {
+  /** 委托/能力声明的挂起超时（毫秒）。 */
+  readonly clientTimeoutMs: number;
+  /** push notification 的 webhook 投递超时（毫秒）。 */
+  readonly webhookTimeoutMs: number;
+  /** `tasks/list` 缺省页大小（条；协议上限 100 是常量、不在此表）。 */
+  readonly pageSize: number;
+  /** 游标有效期（毫秒）。 */
+  readonly pageTokenTtlMs: number;
+}
+
 /** `omniharness.json` 的 `limits` 段（逐项可选：写了哪项就覆盖哪项）。 */
 export interface RuntimeLimitsConfig {
   readonly http?: Partial<HttpLimits> | undefined;
   readonly preview?: Partial<PreviewLimits> | undefined;
+  readonly a2a?: Partial<A2aLimits> | undefined;
 }
 
 /** 解析后的完整限制表（每段每项都有值）。 */
 export interface ResolvedRuntimeLimits {
   readonly http: HttpLimits;
   readonly preview: PreviewLimits;
+  readonly a2a: A2aLimits;
 }
 
 /** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection = 'http' | 'preview';
+type LimitSection = 'http' | 'preview' | 'a2a';
 
 /** 单段各键的合法区间（闭区间，整数）。 */
 interface LimitBound {
@@ -102,13 +116,19 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
     requestTimeoutMs: { min: 1, max: 86_400_000 },
     maxConnections: { min: 1, max: 100_000 },
   }),
+  a2a: Object.freeze({
+    clientTimeoutMs: { min: 1, max: 86_400_000 },
+    webhookTimeoutMs: { min: 1, max: 600_000 },
+    pageSize: { min: 1, max: 100 },
+    pageTokenTtlMs: { min: 1, max: 2_592_000_000 },
+  }),
 });
 
 /** 一段限制记录的允许 key 全集（数据文件里的字段）。 */
 const ENTRY_KEYS: ReadonlySet<string> = new Set(['value', 'env', 'notes']);
 
 /** 段名全集（按稳定顺序，供报错文案与判据共用）。 */
-const SECTIONS: readonly LimitSection[] = ['http', 'preview'];
+const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a'];
 
 /** 环境变量名的合法形态（避免数据文件里写出 `undefined` 这类永远不会被读到的名字）。 */
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
@@ -140,6 +160,7 @@ export class RuntimeLimits {
     return {
       http: this.resolveHttp(config?.http, env),
       preview: this.resolvePreview(config?.preview, env),
+      a2a: this.resolveA2a(config?.a2a, env),
     };
   }
 
@@ -148,7 +169,11 @@ export class RuntimeLimits {
    * @returns 数据文件里的完整限制表。
    */
   public defaults(): ResolvedRuntimeLimits {
-    return { http: this.resolveHttp(undefined, {}), preview: this.resolvePreview(undefined, {}) };
+    return {
+      http: this.resolveHttp(undefined, {}),
+      preview: this.resolvePreview(undefined, {}),
+      a2a: this.resolveA2a(undefined, {}),
+    };
   }
 
   /**
@@ -232,6 +257,24 @@ export class RuntimeLimits {
       headersTimeoutMs: this.value('preview', 'headersTimeoutMs', overrides?.headersTimeoutMs, env),
       requestTimeoutMs: this.value('preview', 'requestTimeoutMs', overrides?.requestTimeoutMs, env),
       maxConnections: this.value('preview', 'maxConnections', overrides?.maxConnections, env),
+    };
+  }
+
+  /**
+   * 解析 a2a 段。
+   * @param overrides 配置文件覆盖值。
+   * @param env 环境变量表。
+   * @returns 完整 a2a 限制。
+   */
+  private resolveA2a(
+    overrides: Partial<A2aLimits> | undefined,
+    env: Readonly<Record<string, string | undefined>>,
+  ): A2aLimits {
+    return {
+      clientTimeoutMs: this.value('a2a', 'clientTimeoutMs', overrides?.clientTimeoutMs, env),
+      webhookTimeoutMs: this.value('a2a', 'webhookTimeoutMs', overrides?.webhookTimeoutMs, env),
+      pageSize: this.value('a2a', 'pageSize', overrides?.pageSize, env),
+      pageTokenTtlMs: this.value('a2a', 'pageTokenTtlMs', overrides?.pageTokenTtlMs, env),
     };
   }
 

@@ -1,6 +1,7 @@
 import { Id } from '../util/id.ts';
 import { LimitEnv } from '../util/limitEnv.ts';
 import { log } from '../util/logger.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 import { SsrfGuard } from '../security/ssrfGuard.ts';
 import type { SsrfOptions } from '../security/ssrfGuard.ts';
 import type { A2aPushNotificationConfig, A2aStreamResponse } from './a2aProtocol.ts';
@@ -8,14 +9,11 @@ import { A2A_ERROR_TASK_NOT_FOUND } from './a2aProtocol.ts';
 import { A2aProtocolError } from './a2aProtocolError.ts';
 import type { A2aTaskEvent } from './a2aTaskStore.ts';
 
-/** 默认 webhook 超时（毫秒）：通知失败不得拖住任务收尾。 */
-const DEFAULT_WEBHOOK_TIMEOUT_MS = 10_000;
-
 /** PushNotifications 依赖（测试可注入 fetch）。 */
 export interface A2aPushNotificationsOptions {
   /** fetch 实现（缺省 globalThis.fetch）。 */
   readonly fetchImpl?: typeof fetch;
-  /** webhook 超时（毫秒）。 */
+  /** webhook 超时（毫秒；缺省取 `limits.a2a.webhookTimeoutMs`，默认 10s）。 */
   readonly timeoutMs?: number;
   /** SSRF 策略（缺省放行私有网段、始终拦截云元数据）。 */
   readonly ssrf?: SsrfOptions;
@@ -51,7 +49,7 @@ export class A2aPushNotifications {
    */
   public constructor(options: A2aPushNotificationsOptions = {}) {
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
-    this.timeoutMs = options.timeoutMs ?? DEFAULT_WEBHOOK_TIMEOUT_MS;
+    this.timeoutMs = options.timeoutMs ?? runtimeLimits.defaults().a2a.webhookTimeoutMs;
     this.ssrf = options.ssrf ?? SsrfGuard.defaultSsrfOptions();
   }
 

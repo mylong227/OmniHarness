@@ -19,9 +19,18 @@ import type {
 } from './a2aProtocol.ts';
 import { A2A_CAPABILITIES_DECLARE, A2A_TASK_DELEGATE } from './a2aProtocol.ts';
 import { PendingRequests } from '../util/concurrency/pendingRequests.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 
-/** 委托/声明调用超时（ms）。 */
-const DEFAULT_TIMEOUT_MS = 60_000;
+/** 客户端选项。 */
+export interface A2aClientOptions {
+  /**
+   * 单次委托/声明调用的挂起超时（毫秒）。
+   *
+   * 缺省取 `limits.a2a.clientTimeoutMs`（`defaults/limits.json`，60s）；可用
+   * `omniharness.json` 的 `limits.a2a.clientTimeoutMs` 或 `OMNI_A2A_CLIENT_TIMEOUT_MS` 覆盖。
+   */
+  readonly timeoutMs?: number;
+}
 
 /**
  * A2A 客户端：连接一个对端 agent（server）。
@@ -31,15 +40,20 @@ export class A2aClient {
   private nextId = 1;
   /** 挂起请求表：JSON-RPC id → 收尾通道（响应到达或超时时移出，见 util/pendingRequests）。 */
   private readonly pending = new PendingRequests<number | string, unknown>();
+  /** 单次调用的挂起超时（毫秒；2026-10-30 起走 `limits.a2a`，不再写死）。 */
+  private readonly timeoutMs: number;
 
   /**
    * @param transport 底层传输端口（负责实际收发 JSON-RPC 消息）。
    * @param identity 可选的 Agent 身份端口；提供时对声明/委托请求附加签名断言。
+   * @param options 可选的调用超时（缺省取 `limits.a2a.clientTimeoutMs`）。
    */
   public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
+    options: A2aClientOptions = {},
   ) {
+    this.timeoutMs = options.timeoutMs ?? runtimeLimits.defaults().a2a.clientTimeoutMs;
     this.transport.onMessage((m) => this.onMessage(m));
   }
 
@@ -108,7 +122,7 @@ export class A2aClient {
   }
 
   /**
-   * 发起一次 JSON-RPC 调用：登记挂起请求并经传输发送，超时（DEFAULT_TIMEOUT_MS）reject。
+   * 发起一次 JSON-RPC 调用：登记挂起请求并经传输发送，超时（`limits.a2a.clientTimeoutMs`）reject。
    * @param method JSON-RPC 方法名。
    * @param params 方法参数。
    * @returns 对端 result 载荷（由 onMessage 兑现）。
@@ -120,7 +134,7 @@ export class A2aClient {
         id,
         { resolve, reject },
         {
-          ms: DEFAULT_TIMEOUT_MS,
+          ms: this.timeoutMs,
           onTimeout: (handlers) => handlers.reject?.(new Error(`A2A 调用超时: ${method}`)),
         },
       );

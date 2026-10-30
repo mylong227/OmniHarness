@@ -24,15 +24,10 @@ import crypto from 'node:crypto';
 import type { A2aTask } from './a2aProtocol.ts';
 import { A2A_ERROR_INVALID } from './a2aProtocol.ts';
 import { A2aProtocolError } from './a2aProtocolError.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 
-/** 缺省页大小（规范：未指定时最多 50 条）。 */
-const DEFAULT_PAGE_SIZE = 50;
-
-/** 页大小上限（规范：1..100）。 */
+/** 页大小上限（规范 §3.1.4：1..100）。协议常量，不随部署变化——故不进 `limits`。 */
 const MAX_PAGE_SIZE = 100;
-
-/** 游标缺省有效期（24 小时）：过期后要求客户端重列，避免无限期可用的旧游标。 */
-const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** 游标载荷（base64url 编码，HMAC 保护完整性）。 */
 interface A2aPageCursor {
@@ -109,14 +104,16 @@ export class A2aTaskPager {
     this.secret = Buffer.from(
       options.secret ?? (fromEnv !== '' ? fromEnv : crypto.randomBytes(32)),
     );
+    // 缺省页大小 / 游标 TTL 自 2026-10-30 起走 `limits.a2a`（defaults/limits.json 出厂值 50 / 24h）。
+    const a2aDefaults = runtimeLimits.defaults().a2a;
     this.maxPageSize = A2aTaskPager.clampInt(options.maxPageSize, MAX_PAGE_SIZE, 1, MAX_PAGE_SIZE);
     this.defaultPageSize = A2aTaskPager.clampInt(
       options.defaultPageSize,
-      DEFAULT_PAGE_SIZE,
+      a2aDefaults.pageSize,
       1,
       this.maxPageSize,
     );
-    this.ttlMs = Math.max(1, options.ttlMs ?? DEFAULT_TTL_MS);
+    this.ttlMs = Math.max(1, options.ttlMs ?? a2aDefaults.pageTokenTtlMs);
     this.now = options.now ?? Date.now;
   }
 
