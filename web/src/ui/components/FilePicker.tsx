@@ -1,37 +1,29 @@
-// 文件选择器（Composer 附件按钮）：复用 FolderPicker 的 fp-overlay/modal/pathbar/list/actions
-// 样式（全屏暗色遮罩 + 居中卡片 + 面包屑 + 列表 + 底部操作），但选的是文件而非目录，
-// 多选（每行独立勾选）。与 FolderPicker 同源：fs.browse(includeFiles=true) 拉数据，onPick 回调
-// 把选中的绝对路径交回 Composer 走 attach.read 批量读 base64。
+// 文件选择器（附件多选）—— 2026-10-30 重设计 P1（docs/PICKER_REDESIGN_2026-10-30.md）。
 //
-// 函数组件范式：选中集用 useState<Set>（切换时整体替换，保证 React 能感知变化）；
-// 浏览数据 / 加载态分两组 state；排序与各渲染分支下沉为模块级纯函数。
-// 图标 / 体积 / 路径拼接继续复用 models/ 下的零 React 类。
+// 数据源从「逐级 fs.browse 的导航隐喻」换成「一次 fs.list 的整棵工作区树」：
+//   · 空间隐喻：树常驻，展开目录不再换一屏，始终看得见自己在哪、邻居是谁；
+//   · 跨目录多选：勾选集是路径集合，展开/过滤都**不清空**（旧实现进目录即清空）；
+//   · 过滤：已加载树上的客户端过滤（无新增后端接口），过滤后勾选集不丢；
+//   · 刷新：重拉 fs.list，展开键与勾选键都是路径，天然稳定。
+//
+// 未纳入本期：工作区之外的「文件系统…」懒加载子树（P2）、右侧预览窗格（P3）。
+// 保留契约：`PickerModal` 的 Esc 关闭与焦点归还；页脚「0 选择禁用确认」；回传绝对路径数组。
 
 import * as React from 'react';
-import { PathJoiner } from '../models/PathJoiner.ts';
-import { FileIconResolver } from '../models/FileIconResolver.ts';
-import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
-import { icon } from '../models/Icon.ts';
-import { ActivationKeys } from '../models/ActivationKeys.ts';
+import { Tree } from 'antd';
+import type { TreeDataNode } from 'antd';
 import { PickerModal } from './PickerModal.tsx';
+import { icon } from '../models/Icon.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
+import type { FsNode } from '../../types/models.ts';
 import { t } from '../i18n/i18n.ts';
 
-/** 目录中的单个文件条目。 */
-interface FsFile {
-  name: string;
-  size: number;
-  mediaType: string;
-}
-
-/** fs.browse(includeFiles=true) 的两级返回形态。 */
-type BrowseResult =
-  | { level: 'drives'; roots: string[]; home: string }
-  | { level: 'dir'; path: string; parent?: string; dirs: string[]; files?: FsFile[] };
+/** `fs.list` 的默认深度（与侧栏文件树一致；超深目录本期不续接，见设计 §10 风险登记）。 */
+const DEPTH = 3;
 
 /** FilePicker 组件的入参。 */
 export interface FilePickerProps {
-  /** ApiClient（fs.browse 含文件）。 */
+  /** ApiClient（fs.list 取整棵工作区树）。 */
   api: ApiClient;
   /** 取消选择（关闭弹窗）。 */
   onCancel: () => void;
@@ -39,241 +31,194 @@ export interface FilePickerProps {
   onPick: (paths: string[]) => void;
 }
 
-/** 目录浏览数据（一次 load 整体替换）。 */
-interface BrowseState {
-  cur: string | null;
-  dirs: string[];
-  files: FsFile[];
-  parent: string | undefined;
-  roots: string[];
-  home: string;
-}
-
-/** 加载与错误态。 */
-interface LoadState {
+/** 工作区树的数据态。 */
+interface TreeState {
+  tree: FsNode[];
   loading: boolean;
   error: string | null;
 }
 
-const INIT_BROWSE: BrowseState = {
-  cur: null,
-  dirs: [],
-  files: [],
-  parent: undefined,
-  roots: [],
-  home: '',
-};
-
 /**
- * 目录浏览数据源（盘符/目录加载 + 代际防串）。
- * @param api RPC 客户端。
- * @returns 浏览态、加载态与 loadDir。
+ * 拉工作区整树（`fs.list`）：首开一次，刷新按钮再拉一次。
+ *
+ * 与旧的逐目录代际守卫不同：这里只有**一个**请求，不存在"后到的旧目录响应改写列表"的竞态；
+ * 但刷新可以与首次加载重叠，故仍用序号丢弃过期响应（语义变成"最后一次刷新为准"）。
+ *
+ * @param api RPC 客户端
+ * @returns 数据态与 refresh
  */
-function useFileBrowser(api: ApiClient): {
-  browse: BrowseState;
-  load: LoadState;
-  loadDir: (path?: string) => Promise<void>;
-} {
-  const [browse, setBrowse] = React.useState<BrowseState>(INIT_BROWSE);
-  const [load, setLoad] = React.useState<LoadState>({ loading: false, error: null });
-  const loadSeq = React.useRef<number>(0);
-  const loadDir = async (path?: string): Promise<void> => {
-    const seq = ++loadSeq.current;
-    setLoad({ loading: true, error: null });
+function useWorkspaceTree(api: ApiClient): TreeState & { refresh: () => void } {
+  const [state, setState] = React.useState<TreeState>({ tree: [], loading: true, error: null });
+  const seq = React.useRef(0);
+
+  const load = React.useCallback(async (): Promise<void> => {
+    const mine = ++seq.current;
+    setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const r: BrowseResult = await api.browseFs(path, true);
-      if (seq !== loadSeq.current) return;
-      if (r.level === 'drives') {
-        setBrowse({
-          roots: Array.isArray(r.roots) ? r.roots : [],
-          home: typeof r.home === 'string' ? r.home : '',
-          cur: null,
-          dirs: [],
-          files: [],
-          parent: undefined,
-        });
-      } else if (r.level === 'dir' && Array.isArray(r.dirs)) {
-        setBrowse((prev) => ({
-          ...prev,
-          cur: r.path,
-          dirs: r.dirs,
-          files: Array.isArray(r.files) ? r.files : [],
-          parent: r.parent,
-        }));
-      } else {
-        setLoad((prev) => ({ ...prev, error: t('文件列表返回格式异常（fs.browse）') }));
+      const r = await api.listFs(DEPTH);
+      if (mine !== seq.current) return;
+      if (!Array.isArray(r?.tree)) {
+        // fail-closed：形状不合法 ⇒ 当作读取失败，绝不把 undefined 灌进树。
+        setState({ tree: [], loading: false, error: t('文件树返回格式异常（fs.list）') });
+        return;
       }
+      setState({ tree: r.tree, loading: false, error: null });
     } catch (e) {
-      if (seq !== loadSeq.current) return;
-      setLoad((prev) => ({ ...prev, error: (e as Error).message }));
-    } finally {
-      if (seq === loadSeq.current) setLoad((prev) => ({ ...prev, loading: false }));
+      if (mine !== seq.current) return;
+      setState({ tree: [], loading: false, error: (e as Error).message });
     }
-  };
+  }, [api]);
+
   React.useEffect(() => {
-    void loadDir();
-  }, []);
-  return { browse, load, loadDir };
+    void load();
+  }, [load]);
+
+  return { ...state, refresh: () => void load() };
 }
 
 /**
- * 文件名排序（中文按拼音、忽略大小写）。
- * @param files 原始文件列表
- * @returns 排序后的新数组（不改原数组）
+ * 客户端过滤：保留命中节点及其祖先（命中的子树原样保留，便于继续展开）。
+ * @param nodes 原始树
+ * @param query 关键字（小写无关；空串返回原树）
+ * @returns 过滤后的树（新数组，不改原节点）
  */
-function sortFiles(files: FsFile[]): FsFile[] {
-  return [...files].sort((a, b) =>
-    a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }),
-  );
+function filterFs(nodes: readonly FsNode[], query: string): FsNode[] {
+  if (query === '') return [...nodes];
+  const needle = query.toLowerCase();
+  const out: FsNode[] = [];
+  for (const node of nodes) {
+    const children = node.children === undefined ? [] : filterFs(node.children, query);
+    const hit = node.name.toLowerCase().includes(needle);
+    if (!hit && children.length === 0) continue;
+    out.push(children.length > 0 ? { ...node, children } : { ...node });
+  }
+  return out;
 }
 
 /**
- * 渲染盘符层：用户目录置顶 + 各盘符。
- * @param browse 当前浏览数据
- * @param onNavigate 进入指定路径
- * @returns 盘符列表节点
+ * 树的全部目录键（过滤后自动展开用）。
+ * @param nodes 树
+ * @returns 目录路径数组
  */
-function renderDrives(browse: BrowseState, onNavigate: (path: string) => void): ReactElement {
-  const { home, roots } = browse;
-  return (
-    <>
-      <div
-        className="fp-item fp-home"
-        tabIndex={0}
-        onClick={() => onNavigate(home)}
-        onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onNavigate(home))}
-      >
-        <span className="fp-icon">{icon('home', { size: 15 })}</span>
-        <span className="fp-name">{home}{t('（用户目录）')}</span>
-      </div>
-      {roots.map((r) => (
-        <div
-          key={r}
-          className="fp-item"
-          tabIndex={0}
-          onClick={() => onNavigate(r)}
-          onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onNavigate(r))}
-        >
-          <span className="fp-icon">{icon('drive', { size: 15 })}</span>
-          <span className="fp-name">{r}</span>
-        </div>
-      ))}
-    </>
-  );
+function dirKeysOf(nodes: readonly FsNode[]): string[] {
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (node.type !== 'dir') continue;
+    out.push(node.path);
+    if (node.children !== undefined) out.push(...dirKeysOf(node.children));
+  }
+  return out;
 }
 
 /**
- * 渲染目录层：上级目录 + 子目录 + 文件（含勾选态）。
- * @param browse 当前浏览数据
- * @param selected 已选中的绝对路径集
- * @param onNavigate 进入目录
- * @param onToggle 勾选 / 取消勾选文件
- * @returns 列表节点
+ * 文件节点的图标（`FsNode` 不带 mediaType，按扩展名粗判；判错只是图标不准）。
+ * @param name 文件名
+ * @returns 图标名
  */
-function renderDirBody(
-  browse: BrowseState,
-  selected: ReadonlySet<string>,
-  onNavigate: (path: string) => void,
-  onToggle: (fullPath: string) => void,
-): ReactElement {
-  const { cur, dirs, parent } = browse;
-  if (cur === null) return <></>;
-  const files = sortFiles(browse.files);
-  return (
-    <>
-      {parent !== undefined ? (
-        <div
-          className="fp-item fp-up"
-          tabIndex={0}
-          onClick={() => onNavigate(parent)}
-          onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onNavigate(parent))}
-        >
-          <span className="fp-icon">{icon('undo', { size: 15 })}</span>
-          <span className="fp-name">{t('..（上级目录）')}</span>
-        </div>
-      ) : null}
-      {dirs.length === 0 && files.length === 0 && parent !== undefined ? (
-        <div className="fp-empty">{t('（空目录）')}</div>
-      ) : null}
-      {dirs.map((d) => (
-        <div
-          key={'d:' + d}
-          className="fp-item fp-dir"
-          tabIndex={0}
-          onClick={() => onNavigate(PathJoiner.join(cur, d))}
-          onKeyDown={(e: React.KeyboardEvent) =>
-            ActivationKeys.activate(e, () => onNavigate(PathJoiner.join(cur, d)))
-          }
-        >
-          <span className="fp-icon">{icon('folder', { size: 15 })}</span>
-          <span className="fp-name">{d}</span>
-        </div>
-      ))}
-      {files.map((f) => {
-        const full = PathJoiner.join(cur, f.name);
-        const sel = selected.has(full);
-        return (
-          <div
-            key={'f:' + f.name}
-            className={'fp-item fp-file' + (sel ? ' selected' : '')}
-            title={`${f.name} · ${f.mediaType} · ${FileSizeFormatter.human(f.size)}`}
-            role="checkbox"
-            aria-checked={sel ? 'true' : 'false'}
-            tabIndex={0}
-            onClick={() => onToggle(full)}
-            onKeyDown={(e: React.KeyboardEvent) => ActivationKeys.activate(e, () => onToggle(full))}
-          >
-            <span className="fp-icon">{icon(FileIconResolver.iconName(f.mediaType), { size: 15 })}</span>
-            <span className="fp-name">{f.name}</span>
-            <span className="fp-size">{FileSizeFormatter.human(f.size)}</span>
-            <span className="fp-check">{sel ? icon('check', { size: 12 }) : null}</span>
-          </div>
-        );
-      })}
-    </>
-  );
+function fileIconOf(name: string): 'image' | 'file' {
+  return /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(name) ? 'image' : 'file';
 }
 
 /**
- * 选择器主体（路径栏 + 列表 + 动作）。
- * @param props 浏览态、选中集与回调。
- * @returns 主体节点。
+ * `FsNode` → antd TreeDataNode（key = 绝对路径，文件名 + 图标做标题）。
+ * @param node 文件树节点
+ * @returns treeData 节点
+ */
+function toTreeNode(node: FsNode): TreeDataNode {
+  const title = (
+    <span className="fp-node">
+      <span className="fp-node-icon" aria-hidden="true">
+        {icon(node.type === 'dir' ? 'folder' : fileIconOf(node.name), { size: 14 })}
+      </span>
+      <span className="fp-node-name">{node.name}</span>
+    </span>
+  );
+  const children = node.children?.map(toTreeNode);
+  return {
+    key: node.path,
+    title,
+    isLeaf: node.type === 'file',
+    ...(children !== undefined && children.length > 0 ? { children } : {}),
+  };
+}
+
+/**
+ * 收集树里所有**文件**路径（勾选集只允许文件；目录勾选语义留待显式"勾选目录内全部"）。
+ * @param nodes 树
+ * @returns 文件路径数组
+ */
+function fileKeysOf(nodes: readonly FsNode[]): string[] {
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (node.type === 'file') out.push(node.path);
+    else if (node.children !== undefined) out.push(...fileKeysOf(node.children));
+  }
+  return out;
+}
+
+/**
+ * 选择器主体：过滤条 + 树 + 页脚。
+ * @param props 数据态、过滤值、展开/勾选集与回调
+ * @returns 主体节点
  */
 function FilePickerBody(props: {
-  browse: BrowseState;
-  cur: string | null;
-  loading: boolean;
-  error: string | null;
-  selected: Set<string>;
-  selectedCount: number;
-  navigate: (path: string) => void;
-  toggleFile: (path: string) => void;
+  state: TreeState;
+  query: string;
+  expanded: React.Key[];
+  checked: React.Key[];
+  visible: FsNode[];
+  onQuery: (value: string) => void;
+  onExpand: (keys: React.Key[]) => void;
+  onCheck: (keys: React.Key[]) => void;
+  onRefresh: () => void;
   onCancel: () => void;
-  confirm: () => void;
+  onConfirm: () => void;
 }): ReactElement {
+  const { state, query, expanded, checked, visible } = props;
+  const checkedCount = checked.length;
   return (
     <>
-      <div className="fp-pathbar">
-        {props.cur === null ? (
-          <span className="fp-crumb">{t('此电脑（选择盘符）')}</span>
-        ) : (
-          <span className="fp-crumb" title={props.cur}>
-            {props.cur}
-          </span>
-        )}
+      <div className="fp-treebar">
+        {/* 原生 input 而非 antd Input：`antd/es/input` 属于 panel-antd 异步块，
+            在选择器里静态引用会把该块拖回首屏（vendorFreePipeline 实测拦截）。 */}
+        <input
+          className="fp-filter"
+          type="text"
+          value={query}
+          placeholder={t('过滤已加载的文件…')}
+          aria-label={t('过滤文件')}
+          onChange={(e) => props.onQuery(e.target.value)}
+        />
         <span className="fp-selected-count">
-          {props.selectedCount > 0 ? t('已选 {count} 个', { count: props.selectedCount }) : ''}
+          {checkedCount > 0 ? t('已选 {count} 个', { count: checkedCount }) : ''}
         </span>
+        <button type="button" className="fp-btn fp-refresh" onClick={props.onRefresh}>
+          {t('刷新')}
+        </button>
       </div>
-      <div className="fp-list">
-        {props.loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
-        {!props.loading && props.error !== null ? <div className="fp-err">{props.error}</div> : null}
-        {!props.loading && props.error === null && props.cur === null
-          ? renderDrives(props.browse, props.navigate)
-          : null}
-        {!props.loading && props.error === null && props.cur !== null
-          ? renderDirBody(props.browse, props.selected, props.navigate, props.toggleFile)
-          : null}
+      <div className="fp-list fp-tree">
+        {state.loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
+        {!state.loading && state.error !== null ? (
+          <div className="fp-err">{state.error}</div>
+        ) : null}
+        {!state.loading && state.error === null && state.tree.length === 0 ? (
+          <div className="fp-empty">{t('工作区还没有文件')}</div>
+        ) : null}
+        {!state.loading && state.error === null && visible.length > 0 ? (
+          <Tree
+            checkable
+            selectable={false}
+            height={320}
+            treeData={visible.map(toTreeNode)}
+            expandedKeys={expanded}
+            checkedKeys={checked}
+            onExpand={props.onExpand}
+            onCheck={(keys) => props.onCheck(Array.isArray(keys) ? keys : keys.checked)}
+          />
+        ) : null}
+        {!state.loading && state.error === null && visible.length === 0 && state.tree.length > 0 ? (
+          <div className="fp-empty">{t('没有匹配的文件')}</div>
+        ) : null}
       </div>
       <div className="fp-actions">
         <button className="fp-btn" onClick={props.onCancel}>
@@ -281,12 +226,10 @@ function FilePickerBody(props: {
         </button>
         <button
           className="fp-btn fp-primary"
-          disabled={props.selectedCount === 0}
-          onClick={props.confirm}
+          disabled={checkedCount === 0}
+          onClick={props.onConfirm}
         >
-          {props.selectedCount > 0
-            ? t('添加 {count} 个文件', { count: props.selectedCount })
-            : t('添加文件')}
+          {checkedCount > 0 ? t('添加 {count} 个文件', { count: checkedCount }) : t('添加文件')}
         </button>
       </div>
     </>
@@ -294,15 +237,17 @@ function FilePickerBody(props: {
 }
 
 /**
- * 文件选择器：列盘符 / 目录 → 多选文件 → 确认回传绝对路径列表。
+ * 文件选择器：工作区整树 → 勾选文件 → 确认回传绝对路径列表。
  * @param props 组件入参
  * @returns 文件选择弹窗节点
  */
 export function FilePicker(props: FilePickerProps): ReactElement {
   const { api, onCancel, onPick } = props;
-  const { browse, load, loadDir } = useFileBrowser(api);
-  const [selected, setSelected] = React.useState<Set<string>>(() => new Set<string>());
-  const { cur, loading, error } = { cur: browse.cur, loading: load.loading, error: load.error };
+  const state = useWorkspaceTree(api);
+  const [query, setQuery] = React.useState<string>('');
+  const [expanded, setExpanded] = React.useState<React.Key[]>([]);
+  const [checked, setChecked] = React.useState<React.Key[]>([]);
+  const composing = React.useRef(false);
 
   // Esc 关闭（依赖写全：onCancel 变化即重挂，handler 恒为最新闭包）。
   React.useEffect(() => {
@@ -313,46 +258,51 @@ export function FilePicker(props: FilePickerProps): ReactElement {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onCancel]);
 
-  /** 进入目录会清空选中集：跨目录选择语义不清，宁可让用户重新勾。 */
-  const navigate = (path: string): void => {
-    setSelected(new Set<string>());
-    void loadDir(path);
-  };
+  const visible = React.useMemo(() => filterFs(state.tree, query), [state.tree, query]);
+  const filePaths = React.useMemo(() => new Set(fileKeysOf(state.tree)), [state.tree]);
 
-  /**
-   * 勾选 / 取消勾选单个文件（函数式 updater，基于 prev 集合构造新集合）。
-   * @param fullPath 文件绝对路径
-   */
-  const toggleFile = (fullPath: string): void => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(fullPath)) next.delete(fullPath);
-      else next.add(fullPath);
-      return next;
-    });
+  // 过滤变化时把命中路径的目录全部展开（否则过滤命中在折叠里看不见）；
+  // IME 组合期不重算（避免拼音中间态把树展开态抖掉）。
+  React.useEffect(() => {
+    if (composing.current) return;
+    setExpanded(query === '' ? [] : dirKeysOf(visible));
+  }, [query, visible]);
+
+  /** 勾选：只收文件路径（父目录的半选由 antd 自己画）。 */
+  const onCheck = (keys: React.Key[]): void => {
+    setChecked(keys.filter((key) => filePaths.has(String(key))));
   };
 
   /** 确认：至少选一个文件才回传。 */
   const confirm = (): void => {
-    if (selected.size === 0) return;
-    onPick(Array.from(selected));
+    if (checked.length === 0) return;
+    onPick(checked.map(String));
   };
 
-  const selectedCount = selected.size;
   return (
     <PickerModal title={t('选择附件文件')} onCancel={onCancel}>
-      <FilePickerBody
-        browse={browse}
-        cur={cur}
-        loading={loading}
-        error={error}
-        selected={selected}
-        selectedCount={selectedCount}
-        navigate={navigate}
-        toggleFile={toggleFile}
-        onCancel={onCancel}
-        confirm={confirm}
-      />
+      <div
+        onCompositionStart={() => {
+          composing.current = true;
+        }}
+        onCompositionEnd={() => {
+          composing.current = false;
+        }}
+      >
+        <FilePickerBody
+          state={state}
+          query={query}
+          expanded={expanded}
+          checked={checked}
+          visible={visible}
+          onQuery={setQuery}
+          onExpand={setExpanded}
+          onCheck={onCheck}
+          onRefresh={state.refresh}
+          onCancel={onCancel}
+          onConfirm={confirm}
+        />
+      </div>
     </PickerModal>
   );
 }

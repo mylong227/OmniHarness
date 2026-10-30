@@ -288,19 +288,27 @@
 .fp-input { flex:1; border:1px solid var(--border-soft); color:var(--text); padding:6px 10px; outline:none; }
 .fp-input:focus { border-color:var(--brand); }
 
-/* ---- FilePicker 扩展（附件多选，继承 FolderPicker 全部 .fp-* 样式） ---- */
+/* ---- FilePicker 扩展（附件多选） ---- */
+/* 2026-10-30 重设计 P1：数据源换成 fs.list 整树 ⇒ 顶部过滤条 + 树容器 + 节点行。
+   旧的 `.fp-file` 行（逐条 checkbox 自绘）已删——勾选由 antd Tree 的复选框承担。 */
 .fp-selected-count {
-  flex:none; font-size:12px; color:var(--dim); margin-left:auto;
+  flex:none; font-size:12px; color:var(--dim);
   font-variant-numeric:tabular-nums; padding:2px 8px;
   background:var(--panel-2); border:1px solid var(--border-soft); border-radius:6px;
 }
-.fp-item.fp-file { display:grid; grid-template-columns:auto 1fr auto auto; align-items:center; gap:9px; }
-.fp-item.fp-file .fp-size { font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums; flex:none; }
-.fp-item.fp-file .fp-check {
-  width:18px; height:18px; border:1px solid var(--border-soft); color:var(--text); font-size:12px; line-height:16px; text-align:center;
-  flex:none; transition:background .12s ease, border-color .12s ease;
+.fp-treebar { display:flex; align-items:center; gap:8px; padding:0 16px 10px; }
+.fp-filter {
+  flex:1; min-width:0; background:var(--panel); border:1px solid var(--border-soft); border-radius:8px;
+  color:var(--text); padding:7px 10px; font-size:12.5px; outline:none;
 }
-.fp-item.fp-dir { color:var(--text); }
+.fp-filter:focus { border-color:var(--brand); }
+.fp-refresh { flex:none; }
+.fp-tree { min-height:260px; }
+.fp-tree .ant-tree { background:transparent; color:var(--dim); font-size:12.5px; }
+.fp-tree .ant-tree-treenode { padding:1px 0; }
+.fp-node { display:inline-flex; align-items:center; gap:7px; min-width:0; }
+.fp-node-icon { flex:none; display:inline-flex; color:var(--dim); }
+.fp-node-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); }
 
 /* 命令面板（Ctrl/Cmd+P / K）：浮层壳由 antd Modal 承担（2026-10-29 W2）。 */
 .cmdk {

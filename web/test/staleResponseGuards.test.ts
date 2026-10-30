@@ -20,8 +20,9 @@ import { act, fireEvent, renderUi } from './rtlHarness.ts';
 
 const { AddMenu } = await import('../src/ui/components/AddMenu.tsx');
 
-// FilePicker 的目录代际守卫是**防御性**的：切目录时列表会先被「读取中…」占位，
-// UI 上点不出第二个目录，故这里没有可复现的 UI 竞态（守卫仍保留，防未来代码绕过 loading 门）。
+// FilePicker 已不在本判据范围（2026-10-30 重设计 P1）：数据源从「逐目录 fs.browse」换成
+// 「一次 fs.list 整树」，逐目录导航与它的代际守卫一起消失——竞态对象只剩"首次加载 vs 刷新"，
+// 由 useWorkspaceTree 的请求序号保证"最后一次刷新为准"。
 
 /** 可手动兑现的 Promise。 */
 function deferred<T>() {

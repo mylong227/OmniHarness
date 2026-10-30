@@ -6929,3 +6929,28 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   正文在卡片内换行、长代码行由代码卡内部横向滚动）。
 - **验证**：`rightPanelClip` 1/1（含正对照）、`a11yKeyboard` 15/15、`cssSourceHygiene`、
   `shellDensity`、`panelModalSize` 全绿；全量 web 判据见提交信息。
+
+## 180. 2026-10-30 选择器重设计 P1 实施：FilePicker → 工作区整树 + 客户端过滤
+
+- **依据**：`docs/PICKER_REDESIGN_2026-10-30.md`（设计定稿，本提交实施其 §9 的 P1）。
+- **改动**：`FilePicker` 的数据源从「逐级 `fs.browse` 的导航隐喻」换成「一次 `fs.list` 的整棵工作区树」：
+  树常驻（展开不换屏）、跨目录多选（勾选集是路径集合，展开/过滤都不清空）、客户端过滤、
+  刷新重拉且**保留展开键与勾选键**（键 = path）。旧的自绘 `.fp-file` 行与它的勾选样式一并删除；
+  勾选交给 antd Tree 的复选框（`role=checkbox` + `aria-labelledby` 指向 treeitem）。
+- **判据**：新增 `filePickerTree.test.ts` 覆盖设计 §8 的 ①②③④（只用 `fs.list`、跨目录回传、
+  过滤不丢勾选、刷新保留展开/勾选）；改写 `popoverKeyboard` 的 FilePicker 块（模态/焦点/Tab 陷阱保留，
+  勾选断言改为复选框语义）、`pickerShapeGuard`（形状闸改成 `Array.isArray(r.tree)`）、
+  `staleResponseGuards` 的说明（逐目录代际守卫随导航一起消失）。
+- **踩到两条真纪律**：
+  1. **设计稿的「Enter 勾选」与 antd 实测不符**：jsdom 里 treeitem 不可聚焦（焦点在 `role=tree` 的
+     列表上），Enter/Space 不触发勾选；真正的勾选控件是 `.ant-tree-checkbox`。判据按**实测行为**写，
+     不照抄设计稿的键盘假设（真机键盘行为待 keyStateShots 复核后再补断言）。
+  2. **入口侧不能静态引面板级 antd**：过滤框最初用 antd `Input`，`input` 在 `panel-antd` denylist 里，
+     于是 entry → panel-antd 静态可达，`vendorFreePipeline` 当场红（"面板库被静态可达"）。改用原生
+     `<input class="fp-filter">` 后边界恢复。这条与 §178 的分块纪律同源：**面板族组件只能被异步块引用**。
+- **预算**（对方 W4 分块改造后的新闸）：entry 188.3/240、vendor 275.5/290、CSS 30.8/40、首屏 463.8/500。
+- **留档**：`web/archive/filepicker-tree-dark-20261030.png`（深色：过滤条 + 已选计数 + 刷新 + 树 + 页脚）。
+- **未做（设计 §9 的 P2/P3）**：工作区之外的「文件系统…」懒加载子树与 FolderPicker 单选形态；
+  右侧预览窗格。
+- **验证**：`filePickerTree` 3/3、`popoverKeyboard` 14/14、`pickerShapeGuard` 4/4、`vendorFreePipeline`、
+  `i18nCoverage` 全绿；全量 web 130 文件 663 例全绿；tsc 零错。

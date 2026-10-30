@@ -84,11 +84,13 @@ test('FolderPicker：drives 层缺 roots/home 时按空处理（不得把 undefi
   assert.doesNotMatch(allText(tree), /返回格式异常/, '缺 roots/home 属于可缺省字段，应按空处理');
 });
 
-test('FilePicker：dir 层缺 dirs 时不得把 undefined 灌进 state（渲染不抛错）', async () => {
+test('FilePicker：fs.list 回 {} 时不得抛错，而是显示格式异常（不卸整页）', async () => {
+  // 2026-10-30（重设计 P1）：文件选择器的数据源换成 fs.list（整棵工作区树），
+  // 形状校验也随之变为 `Array.isArray(r.tree)`——不合法 ⇒ 选择器内 fail-closed。
   const tree = await renderAfterLoad(
     FilePicker,
-    { onCancel: () => {}, onConfirm: () => {}, workspace: 'D:\\w' },
-    apiWith({ level: 'dir', path: 'D:\\w' }),
+    { onCancel: () => {}, onPick: () => {} },
+    { listFs: async () => ({}) },
   );
   assert.match(allText(tree), /返回格式异常/, 'FilePicker 也必须 fail-closed 到错误文案');
 });

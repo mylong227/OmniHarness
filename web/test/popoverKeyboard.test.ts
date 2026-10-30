@@ -154,17 +154,16 @@ test('AddMenu：Enter 展开菜单，首项 Enter 触发附加（onAttach）', a
   assert.deepStrictEqual(calls, ['attach'], '首项 Enter 必须触发附加');
 });
 
-test('FilePicker：模态语义齐全，焦点进入弹窗，列表项可聚焦并用 Enter 勾选', async () => {
+test('FilePicker：模态语义齐全，焦点进入弹窗，勾选复选框即选中并可确认', async () => {
+  // 2026-10-30（重设计 P1）：列表内核从 fs.browse 逐级浏览换成 fs.list 整树 + antd Tree。
+  // 勾选由树节点的复选框元素承担（role=checkbox + aria-labelledby 指向 treeitem），
+  // 判据按已验证行为写——jsdom 里 treeitem 不可聚焦、Enter/Space 不触发勾选，别照抄假设。
   const picked: string[][] = [];
   const ui = renderUi(FilePicker, {
     props: {
       api: {
-        browseFs: async () => ({
-          level: 'dir',
-          path: 'C:/w',
-          dirs: ['sub'],
-          files: [{ name: 'a.txt', mediaType: 'text/plain', size: 10 }],
-          parent: 'C:/',
+        listFs: async () => ({
+          tree: [{ name: 'a.txt', path: 'a.txt', type: 'file' }],
         }),
       },
       onCancel: () => {},
@@ -180,15 +179,18 @@ test('FilePicker：模态语义齐全，焦点进入弹窗，列表项可聚焦�
   assert.strictEqual(modal.getAttribute('aria-modal'), 'true');
   assert.strictEqual(modal.getAttribute('aria-label'), '选择附件文件');
   assert.strictEqual(document.activeElement, modal, '打开时焦点必须进入弹窗（否则 Enter 仍发给背后输入框）');
-  const file = document.querySelector('.fp-file') as HTMLElement;
-  assert.strictEqual(file.getAttribute('tabindex'), '0', '文件项必须可聚焦');
-  assert.strictEqual(file.getAttribute('role'), 'checkbox');
-  fireEvent.keyDown(file, { key: 'Enter' });
-  assert.strictEqual(file.getAttribute('aria-checked'), 'true', 'Enter 必须勾选文件');
+  const item = document.querySelector('[role="treeitem"]') as HTMLElement;
+  assert.ok(item !== null, '必须渲染文件树节点');
+  assert.strictEqual(item.getAttribute('aria-checked'), 'false');
+  const box = document.querySelector('.ant-tree-checkbox') as HTMLElement;
+  assert.strictEqual(box.getAttribute('role'), 'checkbox', '勾选控件必须是 checkbox 语义');
+  assert.strictEqual(box.getAttribute('aria-labelledby'), item.id, '复选框必须由所属节点命名');
+  fireEvent.click(box);
+  assert.strictEqual(item.getAttribute('aria-checked'), 'true', '勾选后节点 aria-checked 必须为 true');
   assert.match(document.querySelector('.fp-selected-count')?.textContent ?? '', /已选 1 个/u);
   fireEvent.click(screen.getByText('添加 1 个文件'));
   assert.strictEqual(picked.length, 1, '确认必须回传选中文件');
-  assert.match(picked[0]![0]!, /a\.txt$/u);
+  assert.deepStrictEqual(picked[0], ['a.txt']);
   // portal 渲染的 Modal 不会随 render 容器自动清理：显式卸载，避免污染后续用例。
   ui.unmount();
 });
@@ -315,7 +317,7 @@ test('FilePicker：Tab 被陷阱接管（焦点不出弹窗），卸载后焦点
   try {
     const ui = renderUi(FilePicker, {
       props: {
-        api: { browseFs: async () => ({ level: 'dir', path: 'C:/w', dirs: [], files: [], parent: 'C:/' }) },
+        api: { listFs: async () => ({ tree: [{ name: 'a.txt', path: 'a.txt', type: 'file' }] }) },
         onCancel: () => {},
         onPick: () => {},
       },

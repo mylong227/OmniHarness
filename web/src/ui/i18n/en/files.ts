@@ -14,6 +14,12 @@ export const EN_FILES: Record<string, string> = {
   '已选 {count} 个': '{count} selected',
   '添加 {count} 个文件': 'Add {count} files',
   '添加文件': 'Add files',
+  // FilePicker（2026-10-30 重设计 P1：整树 + 客户端过滤）
+  '文件树返回格式异常（fs.list）': 'Unexpected file tree response (fs.list)',
+  '过滤已加载的文件…': 'Filter loaded files…',
+  '过滤文件': 'Filter files',
+  '工作区还没有文件': 'The workspace has no files yet',
+  '没有匹配的文件': 'No matching files',
   // FolderPicker
   '新项目': 'New project',
   '在 {path} 内新建：': 'Create new in {path}:',

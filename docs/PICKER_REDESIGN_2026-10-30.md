@@ -1,8 +1,10 @@
 # 文件/文件夹选择器重设计 —— 设计文档（v1 · 2026-10-30）
 
-> 状态：**设计定稿，未实施**（先设计后代码，本文件是实施前的唯一依据）。
+> 状态：**P1 已实施（2026-10-30）**，P2/P3 未实施。P1 落地记录见看板 §180；
+> 实施与设计的两处偏差已在 §180 记录（antd Tree 的键盘勾选实测形态；过滤框改用原生 input
+> 以不破坏 `panel-antd` 分块边界）。
 > 上游：§5.4 映射「FilePicker/FolderPicker → Modal + Tree + Input + Button」、§184 方案落档。
-> 实施时会取代 `web/src/ui/components/FilePicker.tsx` / `FolderPicker.tsx` 的列表内核；
+> P2 仍会取代 `web/src/ui/components/FolderPicker.tsx` 的列表内核（FilePicker 已换）；
 > `PickerModal`（antd Modal 外壳）与 Esc/焦点归还契约不变。
 
 ---
