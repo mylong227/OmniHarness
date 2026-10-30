@@ -157,3 +157,28 @@ test('MaintenanceRunner：summarize 汇总行把文件级清单并成会话组�
   assert.ok(line.includes('孤儿附件 1'));
   assert.ok(line.includes('2.0 KB'));
 });
+
+test('MaintenanceRunner：limits.maintenance.tmpOlderThanMs 真的生效（阈值高于年龄 ⇒ 不删）', () => {
+  const tmpRoot = mkdtempSync(join(tmpdir(), 'omni-mnt-age-'));
+  try {
+    const staleDir = join(tmpRoot, 'omni-cdp-stale');
+    mkdirSync(staleDir);
+    const twoDaysAgo = new Date(Date.now() - 2 * DAY);
+    utimesSync(staleDir, twoDaysAgo, twoDaysAgo);
+    const base = {
+      tmpRoots: [tmpRoot],
+      home: 'D:\\nonexistent-oh-home',
+      env: {},
+    };
+    // 配置段把阈值抬到 10 天 ⇒ 2 天前的条目留在原地（这是"配置真的被读到"的判据）。
+    const kept = MaintenanceRunner.run({ ...base, limits: { tmpOlderThanMs: 10 * DAY } });
+    assert.strictEqual(kept.tmp[0]?.removed, 0, '阈值 10 天时不得删除 2 天前的条目');
+    assert.strictEqual(existsSync(staleDir), true);
+    // 不带配置 ⇒ 出厂 24h，同一目录必须被删（正对照：上面的 0 不是恒真）。
+    const swept = MaintenanceRunner.run(base);
+    assert.strictEqual(swept.tmp[0]?.removed, 1);
+    assert.strictEqual(existsSync(staleDir), false);
+  } finally {
+    rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});

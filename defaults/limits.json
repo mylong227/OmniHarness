@@ -81,5 +81,27 @@
       "env": "OMNI_WEB_FETCH_MAX_BYTES",
       "notes": "web_fetch 的缺省响应体字节上限（调用参数 max_bytes 仍可逐次覆盖；硬上限 2000000 是安全常量）。"
     }
+  },
+  "maintenance": {
+    "keepNewest": {
+      "value": 50,
+      "notes": "会话保留策略：永远保留最新的 N 组存档（缺省 50；AGENTS.md 的保守口径——50 组以内永不删）。配置段最低 1：从配置把保留数调成 0 等于清空全部会话，属脚枪，故拒绝（env OMNI_GC_KEEP 的旧语义保持不变）。"
+    },
+    "maxAgeDays": {
+      "value": 90,
+      "notes": "会话保留策略：超过该天数的存档可删（缺省 90 天）。env OMNI_GC_MAX_AGE_DAYS 仍生效（写错忽略、回落本值——维护旋钮写错不许让维护停摆）。"
+    },
+    "maxBytes": {
+      "value": 4294967296,
+      "notes": "会话存档总量上限（4 GiB）：超出按最旧优先淘汰。env OMNI_GC_MAX_BYTES 仍生效。"
+    },
+    "tmpOlderThanMs": {
+      "value": 86400000,
+      "notes": "临时目录清扫年龄阈值（24h）：只清本仓前缀（omni-*/omniharness-*）且超龄的条目，扫归属根 tmp/ 与 OS Temp 两个根。"
+    },
+    "intervalHours": {
+      "value": 6,
+      "notes": "serve 常驻期间的周期巡检间隔（小时；启动时也会跑一轮）。env OMNI_MAINTENANCE_INTERVAL_HOURS 仍生效。"
+    }
   }
 }

@@ -82,12 +82,27 @@ export interface ToolsLimits {
   readonly webFetchMaxBytes: number;
 }
 
+/** 维护巡检与保留策略（`limits.maintenance`）。 */
+export interface MaintenanceLimits {
+  /** 会话保留：永远保留最新的 N 组（配置段最低 1）。 */
+  readonly keepNewest: number;
+  /** 会话保留：超过该天数可删。 */
+  readonly maxAgeDays: number;
+  /** 会话存档总量上限（字节，超出按最旧淘汰）。 */
+  readonly maxBytes: number;
+  /** 临时目录清扫年龄阈值（毫秒）。 */
+  readonly tmpOlderThanMs: number;
+  /** serve 周期巡检间隔（小时）。 */
+  readonly intervalHours: number;
+}
+
 /** `omniharness.json` 的 `limits` 段（逐项可选：写了哪项就覆盖哪项）。 */
 export interface RuntimeLimitsConfig {
   readonly http?: Partial<HttpLimits> | undefined;
   readonly preview?: Partial<PreviewLimits> | undefined;
   readonly a2a?: Partial<A2aLimits> | undefined;
   readonly tools?: Partial<ToolsLimits> | undefined;
+  readonly maintenance?: Partial<MaintenanceLimits> | undefined;
 }
 
 /** 解析后的完整限制表（每段每项都有值）。 */
@@ -96,10 +111,11 @@ export interface ResolvedRuntimeLimits {
   readonly preview: PreviewLimits;
   readonly a2a: A2aLimits;
   readonly tools: ToolsLimits;
+  readonly maintenance: MaintenanceLimits;
 }
 
 /** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection = 'http' | 'preview' | 'a2a' | 'tools';
+type LimitSection = 'http' | 'preview' | 'a2a' | 'tools' | 'maintenance';
 
 /** 单段各键的合法区间（闭区间，整数）。 */
 interface LimitBound {
@@ -136,13 +152,21 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
     webFetchTimeoutMs: { min: 1, max: 300_000 },
     webFetchMaxBytes: { min: 1_024, max: 2_000_000 },
   }),
+  maintenance: Object.freeze({
+    // 配置段最低 1：把保留数调成 0 等于清空全部会话（env 旧语义不变，见数据文件 notes）。
+    keepNewest: { min: 1, max: 1_000_000 },
+    maxAgeDays: { min: 1, max: 36_500 },
+    maxBytes: { min: 1_048_576, max: 1_099_511_627_776 },
+    tmpOlderThanMs: { min: 60_000, max: 2_592_000_000 },
+    intervalHours: { min: 1, max: 8_760 },
+  }),
 });
 
 /** 一段限制记录的允许 key 全集（数据文件里的字段）。 */
 const ENTRY_KEYS: ReadonlySet<string> = new Set(['value', 'env', 'notes']);
 
 /** 段名全集（按稳定顺序，供报错文案与判据共用）。 */
-const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a', 'tools'];
+const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a', 'tools', 'maintenance'];
 
 /** 环境变量名的合法形态（避免数据文件里写出 `undefined` 这类永远不会被读到的名字）。 */
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
@@ -176,6 +200,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(config?.preview, env),
       a2a: this.resolveA2a(config?.a2a, env),
       tools: this.resolveTools(config?.tools, env),
+      maintenance: this.resolveMaintenance(config?.maintenance, env),
     };
   }
 
@@ -189,6 +214,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(undefined, {}),
       a2a: this.resolveA2a(undefined, {}),
       tools: this.resolveTools(undefined, {}),
+      maintenance: this.resolveMaintenance(undefined, {}),
     };
   }
 
@@ -312,6 +338,30 @@ export class RuntimeLimits {
         env,
       ),
       webFetchMaxBytes: this.value('tools', 'webFetchMaxBytes', overrides?.webFetchMaxBytes, env),
+    };
+  }
+
+  /**
+   * 解析 maintenance 段。
+   *
+   * **注意**：维护旋钮的 env（`OMNI_GC_KEEP` / `OMNI_GC_MAX_AGE_DAYS` / `OMNI_GC_MAX_BYTES` /
+   * `OMNI_MAINTENANCE_INTERVAL_HOURS`）**刻意不登记在本段**——它们由 `MaintenanceRunner` 按旧语义
+   * 解释（写错忽略并回落默认，维护不许因一个坏环境变量停摆）。本方法只解析「数据默认值 + 配置覆盖」，
+   * 环境变量由调用方在其上叠加（见 `maintenanceRunner.ts` 的层级注释）。
+   * @param overrides 配置文件覆盖值。
+   * @param env 环境变量表（本段数据未声明 env，故实际不参与解析）。
+   * @returns 完整 maintenance 限制。
+   */
+  private resolveMaintenance(
+    overrides: Partial<MaintenanceLimits> | undefined,
+    env: Readonly<Record<string, string | undefined>>,
+  ): MaintenanceLimits {
+    return {
+      keepNewest: this.value('maintenance', 'keepNewest', overrides?.keepNewest, env),
+      maxAgeDays: this.value('maintenance', 'maxAgeDays', overrides?.maxAgeDays, env),
+      maxBytes: this.value('maintenance', 'maxBytes', overrides?.maxBytes, env),
+      tmpOlderThanMs: this.value('maintenance', 'tmpOlderThanMs', overrides?.tmpOlderThanMs, env),
+      intervalHours: this.value('maintenance', 'intervalHours', overrides?.intervalHours, env),
     };
   }
 

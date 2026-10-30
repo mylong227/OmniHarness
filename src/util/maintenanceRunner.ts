@@ -34,6 +34,10 @@ import { TmpSweep, type TmpSweepReport } from './tmpSweep.ts';
 import { SessionArchiveLayout } from './sessionArchiveLayout.ts';
 import { ServeInstance, type ServeInstanceRecord } from '../cli/serveInstance.ts';
 import { SessionStorageLocation } from './sessionStorageLocation.ts';
+import { runtimeLimits, type MaintenanceLimits } from './runtimeLimits.ts';
+
+/** 一天的毫秒数（数据里按"天"表达保留年龄，运行时按毫秒计算）。 */
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 巡检选项（全部可注入；缺省值见各类常量）。 */
 export interface MaintenanceOptions {
@@ -59,6 +63,13 @@ export interface MaintenanceOptions {
   readonly env?: NodeJS.ProcessEnv | undefined;
   /** 判活注入（测试；缺省真探活）。 */
   readonly aliveFn?: ((pid: number) => boolean) | undefined;
+  /**
+   * 运维限制段（`omniharness.json` 的 `limits.maintenance`，2026-10-30 数据化）。
+   *
+   * 层级：**显式选项 > 本段 > 环境变量 > `defaults/limits.json`**。env 仍由本类按旧语义解释
+   * （写错忽略并回落——维护不许因一个坏环境变量停摆），见 {@link MaintenanceRunner.run}。
+   */
+  readonly limits?: Partial<MaintenanceLimits> | undefined;
 }
 
 /** 巡检报告（各子步骤的账目汇总）。 */
@@ -81,8 +92,9 @@ export interface MaintenanceReport {
 
 /** 维护巡检编排器（无状态；serve 启动 / 周期 / CLI `gc` 共用同一实现）。 */
 export class MaintenanceRunner {
-  /** 周期巡检缺省间隔（6 小时）。 */
-  public static readonly DEFAULT_INTERVAL_HOURS = 6;
+  /** 周期巡检缺省间隔（`defaults/limits.json` 的 `maintenance.intervalHours`，出厂 6 小时）。 */
+  public static readonly DEFAULT_INTERVAL_HOURS =
+    runtimeLimits.defaults().maintenance.intervalHours;
 
   /**
    * 从环境变量解析会话 GC 三参数（未设时回落调用方给定值）。
@@ -137,14 +149,11 @@ export class MaintenanceRunner {
       (options.home !== undefined
         ? join(OmniHome.dir(options.home, env), 'sessions')
         : SessionStorageLocation.defaultDir());
-    const gcParams = MaintenanceRunner.gcParamsFromEnv(env, {
-      keepNewest: options.keepNewest ?? SessionGc.DEFAULT_KEEP_NEWEST,
-      maxAgeMs: options.sessionMaxAgeMs ?? SessionGc.DEFAULT_MAX_AGE_MS,
-      maxBytes: options.sessionMaxBytes ?? SessionGc.DEFAULT_MAX_BYTES,
-    });
+    // 保留策略的层级与生效值见 {@link MaintenanceRunner.resolveGcParams}（抽出去是为了让 run 守住 80 行红线）。
+    const gcParams = MaintenanceRunner.resolveGcParams(options, env);
 
     // 每步独立兜错：维护失败绝不外抛（serve 启动路径在调）。
-    const tmp = MaintenanceRunner.sweepTmp(tmpRoots, options, now);
+    const tmp = MaintenanceRunner.sweepTmp(tmpRoots, options, now, gcParams.tmpOlderThanMs);
 
     let pidSwept: ServeInstanceRecord[] = [];
     try {
@@ -189,16 +198,52 @@ export class MaintenanceRunner {
   }
 
   /**
+   * 解析保留策略的生效值（层级：显式选项 > 配置段 > env > 数据默认值）。
+   *
+   * 为什么抽成方法：`run` 已贴着 80 行函数体红线，三层覆盖的条件表达式留在里面会直接越线。
+   * env 仍走 `gcParamsFromEnv`（写错忽略、回落默认——维护不许因一个坏环境变量停摆）；
+   * `limits.maintenance` 则由配置加载层严格校验过。
+   * @param options 巡检选项（读显式覆盖项与 `limits`）。
+   * @param env 环境变量表。
+   * @returns 生效的四项策略值（年龄统一为毫秒）。
+   */
+  private static resolveGcParams(
+    options: MaintenanceOptions,
+    env: NodeJS.ProcessEnv,
+  ): { keepNewest: number; maxAgeMs: number; maxBytes: number; tmpOlderThanMs: number } {
+    const dataLimits = runtimeLimits.defaults().maintenance;
+    const fromEnv = MaintenanceRunner.gcParamsFromEnv(env, {
+      keepNewest: dataLimits.keepNewest,
+      maxAgeMs: dataLimits.maxAgeDays * DAY_MS,
+      maxBytes: dataLimits.maxBytes,
+    });
+    const configLimits = options.limits;
+    return {
+      keepNewest: options.keepNewest ?? configLimits?.keepNewest ?? fromEnv.keepNewest,
+      maxAgeMs:
+        options.sessionMaxAgeMs ??
+        (configLimits?.maxAgeDays !== undefined
+          ? configLimits.maxAgeDays * DAY_MS
+          : fromEnv.maxAgeMs),
+      maxBytes: options.sessionMaxBytes ?? configLimits?.maxBytes ?? fromEnv.maxBytes,
+      tmpOlderThanMs:
+        options.olderThanMs ?? configLimits?.tmpOlderThanMs ?? dataLimits.tmpOlderThanMs,
+    };
+  }
+
+  /**
    * 逐个临时根清扫（单根失败不挡其余根）。
    * @param roots 临时根。
    * @param options 巡检选项。
    * @param now 当前时刻。
+   * @param olderThanMs 生效的年龄阈值（已按「选项 > 配置 > 数据默认」解析）。
    * @returns 各根报告。
    */
   private static sweepTmp(
     roots: readonly string[],
     options: MaintenanceOptions,
     now: number,
+    olderThanMs: number,
   ): TmpSweepReport[] {
     const reports: TmpSweepReport[] = [];
     for (const root of roots) {
@@ -206,7 +251,7 @@ export class MaintenanceRunner {
         reports.push(
           TmpSweep.run({
             tmpDir: root,
-            olderThanMs: options.olderThanMs,
+            olderThanMs,
             dryRun: options.dryRun,
             now,
           }),
@@ -255,10 +300,15 @@ export class MaintenanceRunner {
    *
    * 「真清了东西才打印一行」（避免每次启动刷屏）；全 best-effort——巡检失败绝不挡 serve 起来。
    * @param stderr 进程 stderr（判据注入用；缺省 `process.stderr`）。
+   * @param limits `limits.maintenance`（2026-10-30 数据化；缺省 = env + 数据默认值）。
    * @returns 无返回值。
    */
-  public static startup(stderr: { write: (chunk: string) => void } = process.stderr): void {
-    const maintenance = MaintenanceRunner.run();
+  public static startup(
+    stderr: { write: (chunk: string) => void } = process.stderr,
+    limits?: Partial<MaintenanceLimits>,
+  ): void {
+    const runOptions: MaintenanceOptions = limits !== undefined ? { limits } : {};
+    const maintenance = MaintenanceRunner.run(runOptions);
     if (!maintenance.enabled) return;
     const removed =
       maintenance.tmp.reduce((sum, entry) => sum + entry.removed, 0) +
@@ -268,22 +318,29 @@ export class MaintenanceRunner {
     if (removed > 0) {
       stderr.write(`[omniharness] ${MaintenanceRunner.summarize(maintenance)}\n`);
     }
-    MaintenanceRunner.schedule(() => MaintenanceRunner.run());
+    MaintenanceRunner.schedule(
+      () => MaintenanceRunner.run(runOptions),
+      process.env,
+      limits?.intervalHours,
+    );
   }
 
   /**
    * 周期巡检定时器（serve 常驻期间用；`unref` 不挡进程退出）。
    * @param run 每轮执行体（通常 `() => MaintenanceRunner.run()`）。
    * @param env 环境变量源（`OMNI_MAINTENANCE_INTERVAL_HOURS` 覆盖；测试注入）。
+   * @param intervalHours 配置段覆盖的间隔（`limits.maintenance.intervalHours`；高于 env）。
    * @returns 定时器句柄（serve 退出如需停止可 clearInterval）。
    */
   public static schedule(
     run: () => MaintenanceReport,
     env: NodeJS.ProcessEnv = process.env,
+    intervalHours?: number,
   ): NodeJS.Timeout {
-    const hours = Number(env['OMNI_MAINTENANCE_INTERVAL_HOURS']);
-    const interval =
-      Number.isFinite(hours) && hours > 0 ? hours : MaintenanceRunner.DEFAULT_INTERVAL_HOURS;
+    const fromEnv = Number(env['OMNI_MAINTENANCE_INTERVAL_HOURS']);
+    const fallback =
+      Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : MaintenanceRunner.DEFAULT_INTERVAL_HOURS;
+    const interval = intervalHours ?? fallback;
     const timer = setInterval(run, interval * 60 * 60 * 1000);
     timer.unref?.();
     return timer;

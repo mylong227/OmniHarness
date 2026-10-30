@@ -36,6 +36,7 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs
 import { join } from 'node:path';
 import { SessionStorageLocation } from './sessionStorageLocation.ts';
 import { SessionArchiveLayout } from './sessionArchiveLayout.ts';
+import { runtimeLimits } from './runtimeLimits.ts';
 
 /** GC 选项。 */
 export interface SessionGcOptions {
@@ -87,12 +88,18 @@ interface SessionGroup {
 
 /** 会话存档 GC（纯逻辑 + 受限 IO；serve 启动 / 周期维护 / `gc` 命令共用）。 */
 export class SessionGc {
-  /** 缺省 keepNewest。 */
-  public static readonly DEFAULT_KEEP_NEWEST = 50;
-  /** 缺省年龄阈值（90 天）。 */
-  public static readonly DEFAULT_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
-  /** 缺省总量上限（4 GiB）。 */
-  public static readonly DEFAULT_MAX_BYTES = 4 * 1024 * 1024 * 1024;
+  /**
+   * 缺省 keepNewest（`defaults/limits.json` 的 `maintenance.keepNewest`，出厂 50）。
+   *
+   * 2026-10-30 起不再写死在代码里：保留策略属**运维旋钮**（`limits.maintenance` 可覆盖；
+   * `OMNI_GC_KEEP` 仍按旧语义生效）。
+   */
+  public static readonly DEFAULT_KEEP_NEWEST = runtimeLimits.defaults().maintenance.keepNewest;
+  /** 缺省年龄阈值（`maintenance.maxAgeDays`，出厂 90 天）。 */
+  public static readonly DEFAULT_MAX_AGE_MS =
+    runtimeLimits.defaults().maintenance.maxAgeDays * 24 * 60 * 60 * 1000;
+  /** 缺省总量上限（`maintenance.maxBytes`，出厂 4 GiB）。 */
+  public static readonly DEFAULT_MAX_BYTES = runtimeLimits.defaults().maintenance.maxBytes;
 
   /**
    * 扫描并按保留策略删除。

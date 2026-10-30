@@ -178,8 +178,9 @@
 
 **运维限制**：HTTP 主服务的收头/请求时限、并发连接数、请求体上限、静态缓存上限；工作区网页预览源
 的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期；工具族缺省限额（`web_fetch` 的超时与
-响应体上限）。这些值此前写死在 `HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` /
-`A2aTaskPager` / `WebFetchTool` 里，改一次要改代码重发。
+响应体上限）；维护巡检与会话保留策略（keepNewest / 年龄 / 总量、临时清扫阈值、周期间隔）。这些值此前
+写死在 `HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` / `A2aTaskPager` /
+`WebFetchTool` / `SessionGc` / `TmpSweep` / `MaintenanceRunner` 里，改一次要改代码重发。
 
 ```json
 {
@@ -199,9 +200,21 @@
   "tools": {
     "webFetchTimeoutMs": { "value": 30000, "env": "OMNI_WEB_FETCH_TIMEOUT_MS", "notes": "…" },
     "webFetchMaxBytes": { "value": 200000, "env": "OMNI_WEB_FETCH_MAX_BYTES", "notes": "…" }
+  },
+  "maintenance": {
+    "keepNewest": { "value": 50, "notes": "会话保留条数（配置最低 1：0 = 清空全部，属脚枪）" },
+    "maxAgeDays": { "value": 90, "notes": "会话年龄阈值（天）" },
+    "maxBytes": { "value": 4294967296, "notes": "会话存档总量上限" },
+    "tmpOlderThanMs": { "value": 86400000, "notes": "临时目录清扫阈值" },
+    "intervalHours": { "value": 6, "notes": "serve 周期巡检间隔" }
   }
 }
 ```
+
+> **`maintenance` 段为什么没有 `env`**：这四个环境变量（`OMNI_GC_KEEP` / `OMNI_GC_MAX_AGE_DAYS` /
+> `OMNI_GC_MAX_BYTES` / `OMNI_MAINTENANCE_INTERVAL_HOURS`）由 `MaintenanceRunner` 按**旧语义**解释——
+> 写错就忽略并回落，绝不让维护因一个坏环境变量停摆。本段只承载"出厂值 + 配置覆盖"，环境变量在
+> `MaintenanceRunner` 里叠在配置之下：**显式选项 > 配置段 > env > 本文件**。
 
 | 字段    | 必填 | 说明                                                                |
 | ------- | ---- | ------------------------------------------------------------------- |
@@ -265,7 +278,10 @@ node scripts/check.mjs --strict        # 文件/函数体量等铁律
 `8 * 1024 * 1024`，`previewServer.ts` 不得再出现 `15_000` / `30_000` / `maxConnections = 64`，
 `a2aClient.ts` 不得再出现 `60_000`、`a2aPushNotifications.ts` 不得再出现 `DEFAULT_WEBHOOK_TIMEOUT_MS`、
 `a2aTaskPager.ts` 不得再出现 `DEFAULT_PAGE_SIZE` / `DEFAULT_TTL_MS`、`webFetchTool.ts` 不得再出现
-`DEFAULT_MAX_BYTES` / `DEFAULT_TIMEOUT_MS` / `200_000`——
+`DEFAULT_MAX_BYTES` / `DEFAULT_TIMEOUT_MS` / `200_000`，`sessionGc.ts` 不得再出现 `DEFAULT_KEEP_NEWEST = 50` /
+`90 * 24` / `4 * 1024 * 1024 * 1024`、`tmpSweep.ts` 不得再出现 `DEFAULT_AGE_MS = 24 * 60 * 60 * 1000`、
+`maintenanceRunner.ts` 不得再出现 `DEFAULT_INTERVAL_HOURS = 6`——
 这些值只能来自本目录的 `limits.json`。该判据还实构造一个 `HttpServer` 断言连接级参数就是配置值
 （"声明未接线"在结构判据里也会被抓）；`webFetchTool.test.ts` 另有两例断言 `web_fetch` 的缺省值
-真的来自限额（注入后调用参数与工具说明同时变化）。
+真的来自限额（注入后调用参数与工具说明同时变化）；`maintenanceRunner.test.ts` 有一例断言
+`limits.maintenance.tmpOlderThanMs` 真的改变了清扫结果（阈值 10 天时 2 天前的条目不被删）。

@@ -11,6 +11,7 @@
 import { lstatSync, readdirSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runtimeLimits } from './runtimeLimits.ts';
 
 /** 一条候选条目。 */
 export interface TmpEntry {
@@ -73,8 +74,8 @@ export class TmpSweep {
     'laya-req-',
   ];
 
-  /** 缺省年龄阈值（24h）。 */
-  private static readonly DEFAULT_AGE_MS = 24 * 60 * 60 * 1000;
+  /** 缺省年龄阈值（`defaults/limits.json` 的 `maintenance.tmpOlderThanMs`，出厂 24h）。 */
+  private static readonly DEFAULT_AGE_MS = runtimeLimits.defaults().maintenance.tmpOlderThanMs;
 
   /**
    * 从条目列表中选出可清理项（纯函数，便于判据）。

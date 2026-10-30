@@ -7109,3 +7109,24 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`webFetchTool` 7/7、配置/装配相关 4 套件 29/29；快速层 + 类型层门禁通过。
 - **边界**：`tools` 段目前只有 `web_fetch` 两项。shell 并发/队列、browser 超时、LSP 超时仍写死——
   下一片按同一路径（种子 → 工具/适配器）继续扩段，不改机制。
+
+## 189. 2026-10-30 运维旋钮数据化（P4）：会话保留策略与维护巡检
+
+- **范围**：`SessionGc` 的 keepNewest / 年龄 / 总量（`50` / `90 天` / `4 GiB`）、`TmpSweep` 的 24h 清扫阈值、
+  `MaintenanceRunner` 的 6h 周期。目标里点名的「保留策略」至此收口。
+- **形态**：`defaults/limits.json` 新增 `maintenance` 段；`RuntimeLimits` 增 `MaintenanceLimits`；
+  保留策略类改为从数据取缺省（`SessionGc.DEFAULT_*` / `TmpSweep.DEFAULT_AGE_MS` /
+  `MaintenanceRunner.DEFAULT_INTERVAL_HOURS` 全部派生），`serve` 启动时经
+  `MaintenanceRunner.startup(process.stderr, config.limits?.maintenance)` 下发。
+- **层级（刻意与其它段不同，已写进文档与注释）**：**显式选项 > 配置段 > env > 数据默认值**。
+  `maintenance` 段的四个 env **不在数据里登记**——它们由 `MaintenanceRunner` 按旧语义解释
+  （写错忽略并回落），以保持「维护旋钮写错不许让维护停摆」的既有承诺；配置段则走严格校验。
+- **脚枪闸**：配置段 `keepNewest` 最低 1。env `OMNI_GC_KEEP=0` 的旧行为不变，但从 `omniharness.json`
+  把保留数调成 0（= 清空全部会话）会被拒绝——与 AGENTS.md「保守策略，别顺手更激进」同一条纪律。
+- **判据**：`runtimeLimits.test.ts` ①补 maintenance 缺省值、③补逐键覆盖、⑤补 keepNewest=0 拒绝、
+  ⑧守卫扩到 `sessionGc` / `tmpSweep` / `maintenanceRunner`、⑨接线补 `cliServerCmds`；
+  `maintenanceRunner.test.ts` 新增真跑一例（阈值 10 天 ⇒ 2 天前条目保留；去掉配置 ⇒ 同一目录被删，正对照）。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`maintenanceRunner` 6/6、`sessionGc` 7/7；
+  快速层 + 类型层门禁通过。
+- **边界**：`omniharness gc` 不加载工作区配置，故它只用 env + 数据默认值（`GcCommand` 的既有定位是
+  "不依赖工作区的应急工具"）；需要配置的保留策略在 `serve` 的启动/周期巡检里生效。

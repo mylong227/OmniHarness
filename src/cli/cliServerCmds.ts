@@ -557,7 +557,7 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
       }
     }
     // 启动 + 周期维护巡检（2026-10-26，磁盘爆炸收口）：编排与播报都在 MaintenanceRunner.startup。
-    MaintenanceRunner.startup();
+    MaintenanceRunner.startup(process.stderr, config.limits?.maintenance);
     const binding = await this.startHttpServer(server, port, serveArgs.includes('--take-port'));
     if (binding.ok !== true) {
       return binding.code;

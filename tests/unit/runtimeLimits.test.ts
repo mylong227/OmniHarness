@@ -88,6 +88,14 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
   });
   // 工具段（P3 迁入）：web_fetch 的缺省超时 / 字节上限——迁移前逐字写死在 WebFetchTool。
   assert.deepStrictEqual(defaults.tools, { webFetchTimeoutMs: 30_000, webFetchMaxBytes: 200_000 });
+  // 维护段（P4 迁入）：会话保留 50 / 90 天 / 4 GiB、临时清扫 24h、周期巡检 6h——迁移前写死在实现里。
+  assert.deepStrictEqual(defaults.maintenance, {
+    keepNewest: 50,
+    maxAgeDays: 90,
+    maxBytes: 4_294_967_296,
+    tmpOlderThanMs: 86_400_000,
+    intervalHours: 6,
+  });
 });
 
 test('② 环境变量覆盖生效；空白视为未设置', () => {
@@ -128,6 +136,10 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   const tools = runtimeLimits.resolve({ tools: { webFetchTimeoutMs: 9_000 } }).tools;
   assert.strictEqual(tools.webFetchTimeoutMs, 9_000);
   assert.strictEqual(tools.webFetchMaxBytes, 200_000);
+  // 维护段同样逐键覆盖。
+  const maintenance = runtimeLimits.resolve({ maintenance: { keepNewest: 10 } }).maintenance;
+  assert.strictEqual(maintenance.keepNewest, 10);
+  assert.strictEqual(maintenance.maxAgeDays, 90);
 });
 
 test('④ 坏值 fail-closed：坏环境变量点名变量，越界拒绝（不静默回落）', () => {
@@ -165,6 +177,8 @@ test('⑤ 配置段校验：未知段 / 未知键 / 非整数 / 越界都拒绝'
     String(RuntimeLimits.validateConfig({ preview: { maxConnections: 999_999_999 } })),
     /之间/u,
   );
+  // 维护段的脚枪闸：把保留数调成 0 = 清空全部会话，配置段必须拒绝（env 旧语义不受影响）。
+  assert.match(String(RuntimeLimits.validateConfig({ maintenance: { keepNewest: 0 } })), /之间/u);
   // 正对照：非法输入必须返回**消息**（不是恒 undefined）。
   assert.notStrictEqual(
     RuntimeLimits.validateConfig({ http: { headersTimeoutMs: -1 } }),
@@ -268,6 +282,17 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.doesNotMatch(webFetch, /DEFAULT_MAX_BYTES|DEFAULT_TIMEOUT_MS|200_000/u);
   assert.match(webFetch, /this\.limits\.webFetchTimeoutMs/u);
   assert.match(webFetch, /this\.limits\.webFetchMaxBytes/u);
+
+  // 维护段（P4）：保留策略与清扫阈值不得再写死。
+  const sessionGc = srcCode('src/util/sessionGc.ts');
+  assert.doesNotMatch(sessionGc, /DEFAULT_KEEP_NEWEST = 50|4 \* 1024 \* 1024 \* 1024|90 \* 24/u);
+  assert.match(sessionGc, /maintenance\.keepNewest/u);
+  const tmpSweep = srcCode('src/util/tmpSweep.ts');
+  assert.doesNotMatch(tmpSweep, /DEFAULT_AGE_MS = 24 \* 60 \* 60 \* 1000/u);
+  assert.match(tmpSweep, /maintenance\.tmpOlderThanMs/u);
+  const maintenance = srcCode('src/util/maintenanceRunner.ts');
+  assert.doesNotMatch(maintenance, /DEFAULT_INTERVAL_HOURS = 6/u);
+  assert.match(maintenance, /maintenance\.intervalHours/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
@@ -297,5 +322,10 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   assert.match(
     srcCode('src/config/configToolRegistry.ts'),
     /runtimeLimits\.resolve\(seed\.limits\)\.tools/u,
+  );
+  // 维护段：serve 启动时把配置段交给 MaintenanceRunner（启动巡检 + 周期定时器同一份）。
+  assert.match(
+    srcCode('src/cli/cliServerCmds.ts'),
+    /MaintenanceRunner\.startup\(process\.stderr, config\.limits\?\.maintenance\)/u,
   );
 });
