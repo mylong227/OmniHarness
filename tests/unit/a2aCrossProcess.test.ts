@@ -61,8 +61,11 @@ function waitForReady(stdout: Readable): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     let buffer = '';
     const timer = setTimeout(() => {
-      reject(new Error(`对端进程启动超时（10s）；已收输出：${buffer}`));
-    }, 10_000);
+      // 30s 而非 10s：本判据在全量套件并发跑时，对端（真实 A2aServer 全链）的 node 启动 +
+      // ESM 加载会被同跑的 CPU 抢占拖慢，10s 是已观测的偶发红成因（台账：隔离运行恒绿）。
+      // 阈值只影响失败判定，happy path 不变。
+      reject(new Error(`对端进程启动超时（30s）；已收输出：${buffer}`));
+    }, 30_000);
     stdout.setEncoding('utf8');
     stdout.on('data', (chunk: string) => {
       buffer += chunk;
