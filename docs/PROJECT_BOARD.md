@@ -7302,3 +7302,32 @@ U2-4 的「跨端点配对报告」属后续（需要至少两个真实端点）
   新增判据 22 例 + CLI/压缩/闸门回归）。
 - 本轮提交：`22319af2`（U2 压缩自适应）→ `678d10c2`（VRR-Stop）→ `509958f9`（基线修复）→
   `b10b90f6`（model probe）。
+
+## 198. 2026-10-31 全面盘点收尾：U3 会话搬运 + 真缺陷修复 + 文档漂移清偿
+
+### 198.1 盘点口径与结果
+
+跑全量审计（check --strict / auditStandards 全量 / arch:gate / doc-links / independence /
+perf:gate / web:test / desktop 测试 / audit:hardcodes / auditConfigWiring）+ 逐份扫规划文档
+（CORE_CAPABILITY U0–U3 / USABILITY_AUDIT / BLOCKERS / COMMERCIALIZATION_GAPS）。
+**审计面全绿**；可动项归集为下面五件 + 一件盘点中揪出的真缺陷。不做清单（各有裁决，不重复立项）：
+S2 长函数 31 处存量（改动即拆）、9 个上帝类（冻结）、hardcode 89 条报告（§196 已裁决）、
+BLOCKERS（外部凭据/证书）、Wave E（纪律性阻塞）、G1/G3/G4/H2（非代码项）。
+
+### 198.2 落地五件（逐项带判据）
+
+| #   | 项                                       | 落点                                                                                                                                                                                                     | 判据 / 自测                                                                         |
+| --- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| ①   | **U3 会话导出/导入**（平台互操作第一片） | `sessionTransfer.ts` + `session export/import` 子命令：omni 无损信封（v1）+ Claude Code JSONL 最小文本投影；导入 fail-closed（空文件/未知格式/全行不可映射都抛错）、永远新 sessionId、workspace 归导入方 | `sessionTransfer` 6 例；**真机 e2e**：422 事件 omni 导出→导入→落盘读回、CC 投影回导 |
+| ②   | 文件名↔主类名对齐                        | `healthSignal.ts→supervisorHealthSignal.ts`、`sessionSummary.ts→sessionSummaryBuilder.ts`（改名使其成为 delta 新文件 ⇒ 顺手补 10 个字段注释）                                                            | `auditStandards --maturity` NAME MISMATCH 段消失（2→0）；相关 16 例绿               |
+| ③   | a2a 跨进程偶发红收口                     | `waitForReady` 10s→30s（全量并发下对端 node 启动被抢占是最可能成因）+ 台账从「未归因」改「最可能成因已定位」                                                                                             | 隔离 4/4；只影响失败判定                                                            |
+| ④   | F8/F9 文档漂移修正                       | USABILITY_AUDIT 两段改「✅ 已修」：F8 断点重排 2026-10-11 已落地，本轮 responsiveProbe 真机复测回填（3 档 × 4 抽屉态 overflow=false）；F9 `knownConfigKeys` 单一出口 + 判据早已在                        | doc-links 0；诚实边界句保留原文加更新注                                             |
+| ⑤   | **会话列表混入检查点快照（真缺陷）**     | `SessionArchive.isSyntheticId`（解码 %3A 后判前缀）统一排除：sessions.list 主/归档目录 + CLI `session list`；文件枚举收进 `sessionFileNames`（list 回行数基线）                                          | 判据 +1（16/16）；**真机**：session list 519→488，0 处 checkpoint                   |
+
+### 198.3 本轮验证
+
+- 门禁：`check --strict` 零违规、typed 2/2、arch:gate 0 新增、doc-links 0 死链、
+  auditConfigWiring 全绿、independence 2351 文件零引用、web:test 131 文件 / 669 例全绿、
+  desktop 测试全绿、perf:gate 七项预算绿。
+- 全量 `npm test` 终验（数字见下轮登录）；本轮提交：`bc89aedc`（会话搬运）→ `af1ddda9`
+  （文件名对齐）→ `81d29211`（a2a 加固）→ `55a463ae`（F8/F9 登记）→ `1ba16354`（列表排合成 id）。
