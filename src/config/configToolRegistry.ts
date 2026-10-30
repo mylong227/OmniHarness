@@ -243,11 +243,20 @@ export class ConfigToolRegistry {
     const coordinator = WorkspaceFileCoordinator.of(seed.workspaceRoot);
     const ledger = coordinator.ledger;
     // 多会话并发闸门：总量有界（默认 8 个前台 shell）+ 会话公平（不是 FIFO，避免一个会话
-    // 塞满队列让另一个会话的命令长时间拿不到槽位）。环境变量可调，非法值安全回退。
+    // 塞满队列让另一个会话的命令长时间拿不到槽位）。2026-10-30 数据化：**配置段 > env > 数据默认值**；
+    // env 仍走 `LimitEnv`（写错忽略并回落），配置段则已在加载期严格校验。
+    const shellDefaults = runtimeLimits.defaults().tools;
+    const shellConfigured = seed.limits?.tools;
     const shellGovernor = FairSessionScheduler.shared(`shell:${coordinator.root}`, {
-      limit: LimitEnv.int('OMNI_SHELL_CONCURRENCY', 8),
-      maxQueuePerSession: LimitEnv.int('OMNI_SHELL_QUEUE_PER_SESSION', 64),
-      maxQueueTotal: LimitEnv.int('OMNI_SHELL_QUEUE_TOTAL', 256),
+      limit:
+        shellConfigured?.shellConcurrency ??
+        LimitEnv.int('OMNI_SHELL_CONCURRENCY', shellDefaults.shellConcurrency),
+      maxQueuePerSession:
+        shellConfigured?.shellQueuePerSession ??
+        LimitEnv.int('OMNI_SHELL_QUEUE_PER_SESSION', shellDefaults.shellQueuePerSession),
+      maxQueueTotal:
+        shellConfigured?.shellQueueTotal ??
+        LimitEnv.int('OMNI_SHELL_QUEUE_TOTAL', shellDefaults.shellQueueTotal),
     });
     // 工具族共用同一策略实例：shell / shell_interactive 的裁决口径不漂移。
     const shellPolicy = new ShellCommandPolicy();

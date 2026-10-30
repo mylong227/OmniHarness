@@ -15,12 +15,10 @@ import type { MediaStack } from '../ports/media/mediaStack.ts';
 
 export type { MediaStack } from '../ports/media/mediaStack.ts';
 import { LimitEnv } from '../util/limitEnv.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 
 /** 二进制定位验证超时（毫秒）：`-version` 是毫秒级动作，10s 已是极宽松上界。 */
 const VERIFY_TIMEOUT_MS = 10_000;
-
-/** 单支媒体栈的 ffmpeg 家族进程并发上限（安全闸，非调参旋钮；可由 `OMNI_MEDIA_PROCESS_CONCURRENCY` 覆盖）。 */
-const MAX_CONCURRENT_PROCESSES = LimitEnv.int('OMNI_MEDIA_PROCESS_CONCURRENCY', 4);
 
 /**
  * 媒体抽帧栈装配器（组合根）。
@@ -53,19 +51,26 @@ export class MediaStackAssembler {
    *
    * @param config 媒体配置段（`OmniHarnessConfig.media`，可为 `undefined` = 全默认）。
    * @param env 环境变量表（缺省 `process.env`；`OMNI_FFMPEG_PATH` 等由定位器读取）。
+   * @param processConcurrency 配置段覆盖的 ffmpeg 并发上限（`limits.media.processConcurrency`；
+   *   未配置时由 `OMNI_MEDIA_PROCESS_CONCURRENCY`（宽松）或数据默认值决定）。
    * @returns 已装配的媒体栈（提取路由 + 收敛后的选项）。
    */
   public static assemble(
     config: MediaAnalysisConfig | undefined,
     env: Readonly<Record<string, string | undefined>> = process.env,
+    processConcurrency?: number,
   ): MediaStack {
     const options = MediaConfigResolver.resolve(config, env);
+    // 并发闸的层级（2026-10-30 数据化）：配置段 > env（LimitEnv 宽松解释）> 数据默认值。
+    const concurrency =
+      processConcurrency ??
+      LimitEnv.int(
+        'OMNI_MEDIA_PROCESS_CONCURRENCY',
+        runtimeLimits.defaults().media.processConcurrency,
+      );
     // 并发闸：裸 spawn 对并发无上限，多 agent 并发抽视频会同时拉起任意多个 ffmpeg；
     // 包一层有界执行器，超过上限的请求排队，前面的进程退场后 FIFO 补位。
-    const runner = new BoundedMediaProcessRunner(
-      new SpawnMediaProcessRunner(),
-      MAX_CONCURRENT_PROCESSES,
-    );
+    const runner = new BoundedMediaProcessRunner(new SpawnMediaProcessRunner(), concurrency);
     const locator = new FfmpegLocator({
       configuredFfmpegPath: options.ffmpegPath,
       configuredFfprobePath: options.ffprobePath,

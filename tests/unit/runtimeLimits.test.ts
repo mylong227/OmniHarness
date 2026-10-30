@@ -86,8 +86,16 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     pageSize: 50,
     pageTokenTtlMs: 24 * 60 * 60 * 1000,
   });
-  // 工具段（P3 迁入）：web_fetch 的缺省超时 / 字节上限——迁移前逐字写死在 WebFetchTool。
-  assert.deepStrictEqual(defaults.tools, { webFetchTimeoutMs: 30_000, webFetchMaxBytes: 200_000 });
+  // 工具段（P3 迁入 web_fetch；P7 迁入 shell 并发/队列）：迁移前逐字写死在实现里。
+  assert.deepStrictEqual(defaults.tools, {
+    webFetchTimeoutMs: 30_000,
+    webFetchMaxBytes: 200_000,
+    shellConcurrency: 8,
+    shellQueuePerSession: 64,
+    shellQueueTotal: 256,
+  });
+  // 媒体段（P7 迁入）：ffmpeg 并发上限——迁移前写死在 MediaStackAssembler。
+  assert.deepStrictEqual(defaults.media, { processConcurrency: 4 });
   // 维护段（P4 迁入）：会话保留 50 / 90 天 / 4 GiB、临时清扫 24h、周期巡检 6h——迁移前写死在实现里。
   assert.deepStrictEqual(defaults.maintenance, {
     keepNewest: 50,
@@ -148,9 +156,18 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   assert.strictEqual(a2a.pageSize, 20);
   assert.strictEqual(a2a.clientTimeoutMs, 60_000);
   // 工具段同样逐键覆盖。
-  const tools = runtimeLimits.resolve({ tools: { webFetchTimeoutMs: 9_000 } }).tools;
+  const tools = runtimeLimits.resolve({
+    tools: { webFetchTimeoutMs: 9_000, shellConcurrency: 3 },
+  }).tools;
   assert.strictEqual(tools.webFetchTimeoutMs, 9_000);
   assert.strictEqual(tools.webFetchMaxBytes, 200_000);
+  assert.strictEqual(tools.shellConcurrency, 3);
+  assert.strictEqual(tools.shellQueueTotal, 256);
+  // 媒体段同样逐键覆盖。
+  assert.strictEqual(
+    runtimeLimits.resolve({ media: { processConcurrency: 2 } }).media.processConcurrency,
+    2,
+  );
   // 维护段同样逐键覆盖。
   const maintenance = runtimeLimits.resolve({ maintenance: { keepNewest: 10 } }).maintenance;
   assert.strictEqual(maintenance.keepNewest, 10);
@@ -351,6 +368,15 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
     /IDLE_CLOSE_MS = 180_000/u,
   );
   assert.doesNotMatch(srcCode('src/adapters/tool/browser/browserActTool.ts'), /\?\? 180_000/u);
+
+  // shell 段（P7）：并发/队列的缺省值不得再写死在装配层。
+  const registry = srcCode('src/config/configToolRegistry.ts');
+  assert.doesNotMatch(registry, /LimitEnv\.int\('OMNI_SHELL_CONCURRENCY', 8\)/u);
+  assert.match(registry, /shellDefaults\.shellConcurrency/u);
+  // 媒体段（P7）：并发上限不得再写死。
+  const media = srcCode('src/config/mediaStackAssembler.ts');
+  assert.doesNotMatch(media, /MAX_CONCURRENT_PROCESSES = LimitEnv\.int\([^)]*4\)/u);
+  assert.match(media, /media\.processConcurrency/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
@@ -395,5 +421,12 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   assert.match(
     srcCode('src/config/configToolRegistry.ts'),
     /runtimeLimits\.resolve\(seed\.limits\)\.browser/u,
+  );
+  // shell 段：配置段（原始值，便于与 env 分层）在装配层读取。
+  assert.match(srcCode('src/config/configToolRegistry.ts'), /seed\.limits\?\.tools/u);
+  // 媒体段：装配器接受配置段的并发覆盖（未配置时回落到 env/数据）。
+  assert.match(
+    srcCode('src/config/configBuilder.ts'),
+    /partial\.limits\?\.media\?\.processConcurrency/u,
   );
 });

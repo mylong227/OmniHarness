@@ -80,6 +80,18 @@ export interface ToolsLimits {
   readonly webFetchTimeoutMs: number;
   /** `web_fetch` 的缺省响应体字节上限（调用参数仍可逐次覆盖）。 */
   readonly webFetchMaxBytes: number;
+  /** 前台 shell 并发上限（`FairSessionScheduler` 总槽位）。 */
+  readonly shellConcurrency: number;
+  /** 单会话 shell 排队上限。 */
+  readonly shellQueuePerSession: number;
+  /** 全部会话 shell 排队总上限。 */
+  readonly shellQueueTotal: number;
+}
+
+/** 媒体抽帧限额（`limits.media`）。 */
+export interface MediaLimits {
+  /** ffmpeg/ffprobe 并发进程上限（超出排队，FIFO 补位）。 */
+  readonly processConcurrency: number;
 }
 
 /** 维护巡检与保留策略（`limits.maintenance`）。 */
@@ -128,6 +140,7 @@ export interface RuntimeLimitsConfig {
   readonly preview?: Partial<PreviewLimits> | undefined;
   readonly a2a?: Partial<A2aLimits> | undefined;
   readonly tools?: Partial<ToolsLimits> | undefined;
+  readonly media?: Partial<MediaLimits> | undefined;
   readonly browser?: Partial<BrowserLimits> | undefined;
   readonly lsp?: Partial<LspLimits> | undefined;
   readonly maintenance?: Partial<MaintenanceLimits> | undefined;
@@ -139,13 +152,15 @@ export interface ResolvedRuntimeLimits {
   readonly preview: PreviewLimits;
   readonly a2a: A2aLimits;
   readonly tools: ToolsLimits;
+  readonly media: MediaLimits;
   readonly browser: BrowserLimits;
   readonly lsp: LspLimits;
   readonly maintenance: MaintenanceLimits;
 }
 
 /** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection = 'http' | 'preview' | 'a2a' | 'tools' | 'browser' | 'lsp' | 'maintenance';
+type LimitSection =
+  'http' | 'preview' | 'a2a' | 'tools' | 'media' | 'browser' | 'lsp' | 'maintenance';
 
 /** 单段各键的合法区间（闭区间，整数）。 */
 interface LimitBound {
@@ -181,6 +196,12 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
   tools: Object.freeze({
     webFetchTimeoutMs: { min: 1, max: 300_000 },
     webFetchMaxBytes: { min: 1_024, max: 2_000_000 },
+    shellConcurrency: { min: 1, max: 1_024 },
+    shellQueuePerSession: { min: 1, max: 100_000 },
+    shellQueueTotal: { min: 1, max: 1_000_000 },
+  }),
+  media: Object.freeze({
+    processConcurrency: { min: 1, max: 256 },
   }),
   browser: Object.freeze({
     actionTimeoutMs: { min: 1, max: 600_000 },
@@ -214,6 +235,7 @@ const SECTIONS: readonly LimitSection[] = [
   'preview',
   'a2a',
   'tools',
+  'media',
   'browser',
   'lsp',
   'maintenance',
@@ -251,6 +273,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(config?.preview, env),
       a2a: this.resolveA2a(config?.a2a, env),
       tools: this.resolveTools(config?.tools, env),
+      media: this.resolveMedia(config?.media, env),
       browser: this.resolveBrowser(config?.browser, env),
       lsp: this.resolveLsp(config?.lsp, env),
       maintenance: this.resolveMaintenance(config?.maintenance, env),
@@ -267,6 +290,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(undefined, {}),
       a2a: this.resolveA2a(undefined, {}),
       tools: this.resolveTools(undefined, {}),
+      media: this.resolveMedia(undefined, {}),
       browser: this.resolveBrowser(undefined, {}),
       lsp: this.resolveLsp(undefined, {}),
       maintenance: this.resolveMaintenance(undefined, {}),
@@ -393,6 +417,37 @@ export class RuntimeLimits {
         env,
       ),
       webFetchMaxBytes: this.value('tools', 'webFetchMaxBytes', overrides?.webFetchMaxBytes, env),
+      shellConcurrency: this.value('tools', 'shellConcurrency', overrides?.shellConcurrency, env),
+      shellQueuePerSession: this.value(
+        'tools',
+        'shellQueuePerSession',
+        overrides?.shellQueuePerSession,
+        env,
+      ),
+      shellQueueTotal: this.value('tools', 'shellQueueTotal', overrides?.shellQueueTotal, env),
+    };
+  }
+
+  /**
+   * 解析 media 段（ffmpeg 并发上限）。
+   *
+   * **env 语义**：`OMNI_MEDIA_PROCESS_CONCURRENCY` 仍由调用点的 `LimitEnv` 宽松解释
+   * （写错回落默认），所以本段数据里的 `env` 字段只作**文档性声明**；配置段是严格层。
+   * @param overrides 配置文件覆盖值。
+   * @param env 环境变量表（本段不直接读 env，保留参数与其它段同形）。
+   * @returns 完整 media 限额。
+   */
+  private resolveMedia(
+    overrides: Partial<MediaLimits> | undefined,
+    env: Readonly<Record<string, string | undefined>>,
+  ): MediaLimits {
+    return {
+      processConcurrency: this.value(
+        'media',
+        'processConcurrency',
+        overrides?.processConcurrency,
+        env,
+      ),
     };
   }
 

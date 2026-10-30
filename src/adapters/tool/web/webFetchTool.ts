@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 网页抓取工具（P2-⑬）：`web_fetch`。
  *
  * 为什么需要：仓库原先只有 `web_search`（opt-in、依赖外部搜索实现），**没有直接取网页正文**
@@ -26,6 +26,9 @@ import { HtmlToText } from '../../../util/htmlToText.ts';
 import { PdfTextExtractor } from '../../../util/pdfTextExtractor.ts';
 import { EgressPolicy } from '../../../security/egressPolicy.ts';
 import { runtimeLimits, type ToolsLimits } from '../../../util/runtimeLimits.ts';
+
+/** web_fetch 用到的限额子集（配置段 limits.tools 的投影）。 */
+type WebFetchLimits = Pick<ToolsLimits, 'webFetchTimeoutMs' | 'webFetchMaxBytes'>;
 
 /** 单次抓取的响应体硬上限（字节）：安全常量，**不随部署变化**，故不进 `limits`。 */
 const HARD_MAX_BYTES = 2_000_000;
@@ -61,7 +64,7 @@ export interface WebFetchToolOptions {
    * 现由 `omniharness.json` 的 `limits.tools` 或 `OMNI_WEB_FETCH_*` 覆盖。
    * 调用参数 `max_bytes` / `timeout_ms` 仍是逐次覆盖的最高优先。
    */
-  readonly limits?: ToolsLimits;
+  readonly limits?: WebFetchLimits;
 }
 
 /**
@@ -71,7 +74,7 @@ export class WebFetchTool {
   /** 工具定义（构造期按生效限额生成，参数说明里的"默认值"必须与实际一致）。 */
   public readonly definition: ToolDefinition;
   /** 生效限额（构造期解析一次，全程只读）。 */
-  private readonly limits: ToolsLimits;
+  private readonly limits: WebFetchLimits;
 
   /**
    * @param options 工具选项（可注入抓取实现 / 限额，便于离线单测）。
@@ -302,3 +305,4 @@ export class WebFetchTool {
     return Math.min(Math.floor(requested), hardMax);
   }
 }
+

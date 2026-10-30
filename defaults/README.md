@@ -178,12 +178,14 @@
 
 **运维限制**：HTTP 主服务的收头/请求时限、并发连接数、请求体上限、静态缓存上限；工作区网页预览源
 的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期；工具族缺省限额（`web_fetch` 的超时与
-响应体上限）；浏览器（CDP/Playwright）的动作/加载/CDP/建连/启动/探测/空闲关闭超时；LSP 的请求/诊断等待
-超时；维护巡检与会话保留策略（keepNewest / 年龄 / 总量、临时清扫阈值、周期间隔）。这些值此前写死在
+响应体上限、shell 并发与队列上限）；媒体抽帧的 ffmpeg 并发；浏览器（CDP/Playwright）的动作/加载/CDP/
+建连/启动/探测/空闲关闭超时；LSP 的请求/诊断等待超时；维护巡检与会话保留策略（keepNewest / 年龄 / 总量、
+临时清扫阈值、周期间隔）。这些值此前写死在
 `HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` / `A2aTaskPager` / `WebFetchTool` /
-`CdpClient` / `ChromeProcess` / `BrowserSession` / `PlaywrightBrowserSession` / `BrowserAvailability` /
-`BrowserScreenshotTool` / `BrowserActTool` / `LspProcessAdapter` / `LspJsonRpcConnection` / `SessionGc` /
-`TmpSweep` / `MaintenanceRunner` 里，改一次要改代码重发。
+`FairSessionScheduler` 装配处 / `MediaStackAssembler` / `CdpClient` / `ChromeProcess` / `BrowserSession` /
+`PlaywrightBrowserSession` / `BrowserAvailability` / `BrowserScreenshotTool` / `BrowserActTool` /
+`LspProcessAdapter` / `LspJsonRpcConnection` / `SessionGc` / `TmpSweep` / `MaintenanceRunner` 里，
+改一次要改代码重发。
 
 ```json
 {
@@ -202,7 +204,19 @@
   },
   "tools": {
     "webFetchTimeoutMs": { "value": 30000, "env": "OMNI_WEB_FETCH_TIMEOUT_MS", "notes": "…" },
-    "webFetchMaxBytes": { "value": 200000, "env": "OMNI_WEB_FETCH_MAX_BYTES", "notes": "…" }
+    "webFetchMaxBytes": { "value": 200000, "env": "OMNI_WEB_FETCH_MAX_BYTES", "notes": "…" },
+    "shellConcurrency": {
+      "value": 8,
+      "notes": "前台 shell 并发上限（env 仍由 LimitEnv 宽松解释）"
+    },
+    "shellQueuePerSession": { "value": 64, "notes": "单会话 shell 排队上限" },
+    "shellQueueTotal": { "value": 256, "notes": "全部会话 shell 排队总上限" }
+  },
+  "media": {
+    "processConcurrency": {
+      "value": 4,
+      "notes": "ffmpeg/ffprobe 并发进程上限（env 仍由 LimitEnv 宽松解释）"
+    }
   },
   "browser": {
     "actionTimeoutMs": { "value": 10000, "env": "OMNI_BROWSER_ACTION_TIMEOUT_MS", "notes": "…" },
@@ -235,6 +249,10 @@
 > `OMNI_GC_MAX_BYTES` / `OMNI_MAINTENANCE_INTERVAL_HOURS`）由 `MaintenanceRunner` 按**旧语义**解释——
 > 写错就忽略并回落，绝不让维护因一个坏环境变量停摆。本段只承载"出厂值 + 配置覆盖"，环境变量在
 > `MaintenanceRunner` 里叠在配置之下：**显式选项 > 配置段 > env > 本文件**。
+>
+> **`tools.shell*` 与 `media.processConcurrency` 为什么也没有 `env`**：同一条理由——`OMNI_SHELL_*` 与
+> `OMNI_MEDIA_PROCESS_CONCURRENCY` 由调用点的 `LimitEnv.int` 宽松解释（写错回落），数据只提供默认值，
+> 配置段作为更高优先的严格层：**配置段 > env > 本文件**。把 env 名写进数据会绕过 `LimitEnv` 的宽松语义。
 
 | 字段    | 必填 | 说明                                                                |
 | ------- | ---- | ------------------------------------------------------------------- |

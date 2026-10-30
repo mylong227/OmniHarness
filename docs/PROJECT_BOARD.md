@@ -7162,3 +7162,20 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **边界**：超时的**真实生效**只对「空闲关闭」做了端到端断言；动作/加载/CDP 超时需要真实 Chrome 与慢页面
   才能观测，本片用「解析值 + 透传路径」的结构判据覆盖（`playwrightBrowserSession` 的动作超时已改为
   读 `options.actionTimeoutMs`，不再是常量）。
+
+## 192. 2026-10-30 运维旋钮数据化（P7）：shell 并发/队列与媒体进程并发
+
+- **范围**：`OMNI_SHELL_CONCURRENCY`（8）/ `OMNI_SHELL_QUEUE_PER_SESSION`（64）/ `OMNI_SHELL_QUEUE_TOTAL`（256）
+  的默认值（原先内联在 `FairSessionScheduler` 装配处），以及 `OMNI_MEDIA_PROCESS_CONCURRENCY`（4）的默认值
+  （原先写死在 `MediaStackAssembler` 的模块常量里）。
+- **形态**：`defaults/limits.json` 的 `tools` 段补三项 + 新增 `media` 段；`RuntimeLimits` 增
+  `MediaLimits` / `resolveMedia`；`WebFetchTool` 的 limits 收窄为自身子集（`Pick`），避免其它工具被迫传全量。
+- **env 语义（刻意保留）**：这几个 env **不登记进数据**，仍由调用点的 `LimitEnv.int` 宽松解释（写错回落），
+  数据只供默认值；配置段是更严格的更高层 —— **配置段 > env > 数据默认值**。这与 P4 的 maintenance 段同一口径，
+  已在 `defaults/README` 写明理由。
+- **判据**：`runtimeLimits.test.ts` ①补 tools/media 缺省值、③补逐键覆盖、⑧守卫扩到装配层（shell 的
+  `LimitEnv.int('OMNI_SHELL_CONCURRENCY', 8)` 与媒体的 `MAX_CONCURRENT_PROCESSES = LimitEnv.int(..., 4)`
+  不得再出现）、⑨接线补 `seed.limits?.tools` 与 `partial.limits?.media?.processConcurrency`。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`webFetchTool` 7/7、`configBuilder` 20/20；快速层 + 类型层门禁通过。
+- **仍未并轨**：A2A 的任务桶/推送上限与传输超时、registry 响应上限仍在用 `LimitEnv.int(名字, 字面量)`——
+  它们要么在模块加载期定型（拿不到配置），要么需要给 `A2aServer`/传输构造器加限额注入；下一片处理。

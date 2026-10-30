@@ -80,6 +80,24 @@
       "value": 200000,
       "env": "OMNI_WEB_FETCH_MAX_BYTES",
       "notes": "web_fetch 的缺省响应体字节上限（调用参数 max_bytes 仍可逐次覆盖；硬上限 2000000 是安全常量）。"
+    },
+    "shellConcurrency": {
+      "value": 8,
+      "notes": "前台 shell 并发上限（FairSessionScheduler 的总槽位）。env 仍由 LimitEnv 宽松解释（写错回落本值）。"
+    },
+    "shellQueuePerSession": {
+      "value": 64,
+      "notes": "单会话 shell 排队上限。"
+    },
+    "shellQueueTotal": {
+      "value": 256,
+      "notes": "全部会话 shell 排队总上限。"
+    }
+  },
+  "media": {
+    "processConcurrency": {
+      "value": 4,
+      "notes": "媒体抽帧（ffmpeg/ffprobe）并发进程上限：裸 spawn 无上限，多 agent 并发抽视频会拉满 CPU。env 仍由 LimitEnv 宽松解释。"
     }
   },
   "browser": {
