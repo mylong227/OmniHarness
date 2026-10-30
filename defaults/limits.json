@@ -82,6 +82,43 @@
       "notes": "web_fetch 的缺省响应体字节上限（调用参数 max_bytes 仍可逐次覆盖；硬上限 2000000 是安全常量）。"
     }
   },
+  "browser": {
+    "actionTimeoutMs": {
+      "value": 10000,
+      "env": "OMNI_BROWSER_ACTION_TIMEOUT_MS",
+      "notes": "Playwright 动作（click/fill/wait_for 等）的缺省超时。原写死 10_000。"
+    },
+    "loadTimeoutMs": {
+      "value": 30000,
+      "env": "OMNI_BROWSER_LOAD_TIMEOUT_MS",
+      "notes": "页面加载等待超时（CDP 的 load 事件等待与 Playwright 的 goto）。原写死 30_000。"
+    },
+    "commandTimeoutMs": {
+      "value": 20000,
+      "env": "OMNI_BROWSER_COMMAND_TIMEOUT_MS",
+      "notes": "单条 CDP 命令超时。原写死 20_000。"
+    },
+    "connectTimeoutMs": {
+      "value": 15000,
+      "env": "OMNI_BROWSER_CONNECT_TIMEOUT_MS",
+      "notes": "CDP WebSocket 建连超时。原写死 15_000。"
+    },
+    "launchTimeoutMs": {
+      "value": 30000,
+      "env": "OMNI_BROWSER_LAUNCH_TIMEOUT_MS",
+      "notes": "等浏览器 DevTools 端点就绪的启动超时。原写死 30_000。"
+    },
+    "probeTimeoutMs": {
+      "value": 5000,
+      "env": "OMNI_BROWSER_PROBE_TIMEOUT_MS",
+      "notes": "浏览器可用性探测超时（CDP /json/version 探活）。原写死 5_000。"
+    },
+    "idleCloseMs": {
+      "value": 180000,
+      "env": "OMNI_BROWSER_IDLE_CLOSE_MS",
+      "notes": "browser_screenshot / browser_act 的空闲自动关闭定时器（防常驻浏览器泄漏）。原写死 180_000。"
+    }
+  },
   "lsp": {
     "requestTimeoutMs": {
       "value": 15000,

@@ -19,6 +19,7 @@
 import { ChromeLocator } from './chromeLocator.ts';
 import type { ChromeLocatorOptions, ChromeLookup } from './chromeLocator.ts';
 import { endpointDefaults } from '../../util/endpointDefaults.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 
 /** 浏览器截图不可用的类别（决定给模型的可执行建议）。 */
 export type BrowserUnavailableKind =
@@ -63,8 +64,8 @@ export class BrowserAvailability {
   /** 外部 CDP 端点环境变量名（设置了就优先用它，不再自启浏览器）。 */
   public static readonly ENDPOINT_ENV = 'OMNI_CDP_ENDPOINT';
 
-  /** 端点自检默认超时（毫秒）。 */
-  public static readonly DEFAULT_PROBE_TIMEOUT_MS = 5_000;
+  /** 端点自检默认超时（`defaults/limits.json` 的 `browser.probeTimeoutMs`）。 */
+  public static readonly DEFAULT_PROBE_TIMEOUT_MS = runtimeLimits.defaults().browser.probeTimeoutMs;
 
   private constructor() {}
 

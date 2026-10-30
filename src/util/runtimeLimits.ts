@@ -104,12 +104,31 @@ export interface LspLimits {
   readonly diagnosticsTimeoutMs: number;
 }
 
+/** 浏览器（CDP / Playwright）限额（`limits.browser`）。 */
+export interface BrowserLimits {
+  /** Playwright 动作（click/fill/wait_for 等）的缺省超时（毫秒）。 */
+  readonly actionTimeoutMs: number;
+  /** 页面加载等待超时（毫秒）。 */
+  readonly loadTimeoutMs: number;
+  /** 单条 CDP 命令超时（毫秒）。 */
+  readonly commandTimeoutMs: number;
+  /** CDP WebSocket 建连超时（毫秒）。 */
+  readonly connectTimeoutMs: number;
+  /** 等浏览器 DevTools 端点就绪的启动超时（毫秒）。 */
+  readonly launchTimeoutMs: number;
+  /** 浏览器可用性探测超时（毫秒）。 */
+  readonly probeTimeoutMs: number;
+  /** `browser_screenshot` / `browser_act` 的空闲自动关闭定时器（毫秒）。 */
+  readonly idleCloseMs: number;
+}
+
 /** `omniharness.json` 的 `limits` 段（逐项可选：写了哪项就覆盖哪项）。 */
 export interface RuntimeLimitsConfig {
   readonly http?: Partial<HttpLimits> | undefined;
   readonly preview?: Partial<PreviewLimits> | undefined;
   readonly a2a?: Partial<A2aLimits> | undefined;
   readonly tools?: Partial<ToolsLimits> | undefined;
+  readonly browser?: Partial<BrowserLimits> | undefined;
   readonly lsp?: Partial<LspLimits> | undefined;
   readonly maintenance?: Partial<MaintenanceLimits> | undefined;
 }
@@ -120,12 +139,13 @@ export interface ResolvedRuntimeLimits {
   readonly preview: PreviewLimits;
   readonly a2a: A2aLimits;
   readonly tools: ToolsLimits;
+  readonly browser: BrowserLimits;
   readonly lsp: LspLimits;
   readonly maintenance: MaintenanceLimits;
 }
 
 /** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection = 'http' | 'preview' | 'a2a' | 'tools' | 'lsp' | 'maintenance';
+type LimitSection = 'http' | 'preview' | 'a2a' | 'tools' | 'browser' | 'lsp' | 'maintenance';
 
 /** 单段各键的合法区间（闭区间，整数）。 */
 interface LimitBound {
@@ -162,6 +182,15 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
     webFetchTimeoutMs: { min: 1, max: 300_000 },
     webFetchMaxBytes: { min: 1_024, max: 2_000_000 },
   }),
+  browser: Object.freeze({
+    actionTimeoutMs: { min: 1, max: 600_000 },
+    loadTimeoutMs: { min: 1, max: 600_000 },
+    commandTimeoutMs: { min: 1, max: 600_000 },
+    connectTimeoutMs: { min: 1, max: 600_000 },
+    launchTimeoutMs: { min: 1, max: 600_000 },
+    probeTimeoutMs: { min: 1, max: 600_000 },
+    idleCloseMs: { min: 1_000, max: 86_400_000 },
+  }),
   lsp: Object.freeze({
     requestTimeoutMs: { min: 1, max: 600_000 },
     diagnosticsTimeoutMs: { min: 1, max: 600_000 },
@@ -180,7 +209,15 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
 const ENTRY_KEYS: ReadonlySet<string> = new Set(['value', 'env', 'notes']);
 
 /** 段名全集（按稳定顺序，供报错文案与判据共用）。 */
-const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a', 'tools', 'lsp', 'maintenance'];
+const SECTIONS: readonly LimitSection[] = [
+  'http',
+  'preview',
+  'a2a',
+  'tools',
+  'browser',
+  'lsp',
+  'maintenance',
+];
 
 /** 环境变量名的合法形态（避免数据文件里写出 `undefined` 这类永远不会被读到的名字）。 */
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
@@ -214,6 +251,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(config?.preview, env),
       a2a: this.resolveA2a(config?.a2a, env),
       tools: this.resolveTools(config?.tools, env),
+      browser: this.resolveBrowser(config?.browser, env),
       lsp: this.resolveLsp(config?.lsp, env),
       maintenance: this.resolveMaintenance(config?.maintenance, env),
     };
@@ -229,6 +267,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(undefined, {}),
       a2a: this.resolveA2a(undefined, {}),
       tools: this.resolveTools(undefined, {}),
+      browser: this.resolveBrowser(undefined, {}),
       lsp: this.resolveLsp(undefined, {}),
       maintenance: this.resolveMaintenance(undefined, {}),
     };
@@ -354,6 +393,27 @@ export class RuntimeLimits {
         env,
       ),
       webFetchMaxBytes: this.value('tools', 'webFetchMaxBytes', overrides?.webFetchMaxBytes, env),
+    };
+  }
+
+  /**
+   * 解析 browser 段。
+   * @param overrides 配置文件覆盖值。
+   * @param env 环境变量表。
+   * @returns 完整 browser 限额。
+   */
+  private resolveBrowser(
+    overrides: Partial<BrowserLimits> | undefined,
+    env: Readonly<Record<string, string | undefined>>,
+  ): BrowserLimits {
+    return {
+      actionTimeoutMs: this.value('browser', 'actionTimeoutMs', overrides?.actionTimeoutMs, env),
+      loadTimeoutMs: this.value('browser', 'loadTimeoutMs', overrides?.loadTimeoutMs, env),
+      commandTimeoutMs: this.value('browser', 'commandTimeoutMs', overrides?.commandTimeoutMs, env),
+      connectTimeoutMs: this.value('browser', 'connectTimeoutMs', overrides?.connectTimeoutMs, env),
+      launchTimeoutMs: this.value('browser', 'launchTimeoutMs', overrides?.launchTimeoutMs, env),
+      probeTimeoutMs: this.value('browser', 'probeTimeoutMs', overrides?.probeTimeoutMs, env),
+      idleCloseMs: this.value('browser', 'idleCloseMs', overrides?.idleCloseMs, env),
     };
   }
 

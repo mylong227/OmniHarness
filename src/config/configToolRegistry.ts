@@ -170,8 +170,15 @@ export class ConfigToolRegistry {
       extractor: seed.media.extractor,
       options: seed.media.options,
     });
-    const screenshotTool = new BrowserScreenshotTool(seed.workspaceRoot, undefined, imageResizer);
-    const browserActTool = new BrowserActTool();
+    // 浏览器限额（2026-10-30 数据化）：`limits.browser` 在配置层解析一次，两个浏览器工具共用。
+    const browserLimits = runtimeLimits.resolve(seed.limits).browser;
+    const screenshotTool = new BrowserScreenshotTool(
+      seed.workspaceRoot,
+      undefined,
+      imageResizer,
+      browserLimits,
+    );
+    const browserActTool = new BrowserActTool({ limits: browserLimits });
     const jobTool = new ShellJobTool(jobs);
     const coder = new CodeExecutorTool({
       gate: ConfigToolRegistry.codeExecutorGate(seed),

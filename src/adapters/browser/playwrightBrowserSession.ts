@@ -1,6 +1,7 @@
-import { createRequire } from 'node:module';
+﻿import { createRequire } from 'node:module';
 import { ChromeLocator } from './chromeLocator.ts';
 import { ImageProbe } from '../../util/imageProbe.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 import type { ScreenshotRequest, ScreenshotResult } from './browserSession.ts';
 import type {
   BrowserActionPort,
@@ -63,8 +64,10 @@ interface PlaywrightBrowser {
   close(): Promise<void>;
 }
 
-/** 默认动作超时（毫秒）。 */
-const DEFAULT_TIMEOUT_MS = 10_000;
+/** 默认动作超时（毫秒；`defaults/limits.json` 的 `browser.actionTimeoutMs`）。 */
+const DEFAULT_TIMEOUT_MS = runtimeLimits.defaults().browser.actionTimeoutMs;
+/** 默认页面加载超时（毫秒；`browser.loadTimeoutMs`）。 */
+const DEFAULT_LOAD_TIMEOUT_MS = runtimeLimits.defaults().browser.loadTimeoutMs;
 /** console/network 观测保留条数上限。 */
 const MAX_OBSERVATIONS = 100;
 
@@ -74,6 +77,10 @@ export interface PlaywrightBrowserSessionOptions {
   readonly executablePath?: string | undefined;
   /** 是否 headless（默认 true）。 */
   readonly headless?: boolean | undefined;
+  /** 动作缺省超时（毫秒；缺省取 `limits.browser.actionTimeoutMs`）。 */
+  readonly actionTimeoutMs?: number | undefined;
+  /** 页面加载超时（毫秒；缺省取 `limits.browser.loadTimeoutMs`）。 */
+  readonly loadTimeoutMs?: number | undefined;
 }
 
 /**
@@ -144,7 +151,10 @@ export class PlaywrightBrowserSession implements BrowserActionPort {
   public async screenshot(request: ScreenshotRequest): Promise<ScreenshotResult> {
     const page = await this.ensurePage();
     await page.setViewportSize({ width: request.width, height: request.height });
-    await page.goto(request.url, { waitUntil: 'load', timeout: 30_000 });
+    await page.goto(request.url, {
+      waitUntil: 'load',
+      timeout: this.options.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS,
+    });
     if (request.waitMs > 0) await page.waitForTimeout(request.waitMs);
     const png = await page.screenshot({ fullPage: request.fullPage });
     const info = ImageProbe.probe(png);
@@ -251,7 +261,7 @@ export class PlaywrightBrowserSession implements BrowserActionPort {
       return { ok: false, output: 'goto 需要 http/https/data URL' };
     const response = await page.goto(url, {
       waitUntil: 'domcontentloaded',
-      timeout: request.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      timeout: request.timeoutMs ?? this.options.actionTimeoutMs ?? DEFAULT_TIMEOUT_MS,
     });
     const status = response === null ? 'no-response' : String(response.status());
     return { ok: true, output: `${page.url()} | ${await page.title()} | HTTP ${status}` };
@@ -274,7 +284,7 @@ export class PlaywrightBrowserSession implements BrowserActionPort {
       .locator(request.selector)
       .first()
       .click({
-        timeout: request.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        timeout: request.timeoutMs ?? this.options.actionTimeoutMs ?? DEFAULT_TIMEOUT_MS,
       });
     return { ok: true, output: `clicked ${request.selector}` };
   }
@@ -296,7 +306,7 @@ export class PlaywrightBrowserSession implements BrowserActionPort {
       .locator(request.selector)
       .first()
       .fill(request.text ?? '', {
-        timeout: request.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+        timeout: request.timeoutMs ?? this.options.actionTimeoutMs ?? DEFAULT_TIMEOUT_MS,
       });
     return { ok: true, output: `typed ${String((request.text ?? '').length)} chars` };
   }

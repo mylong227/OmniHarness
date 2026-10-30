@@ -132,3 +132,30 @@ test('ACT-01：注入执行体（测试/显式引擎）时不回退', async () =
   assert.strictEqual(result.ok, false);
   assert.strictEqual(cdpCalls, 0);
 });
+
+test('ACT-01：limits.browser.idleCloseMs 真的驱动空闲自动关闭（默认 3 分钟不会在这个时窗触发）', async () => {
+  let closes = 0;
+  const port: BrowserActionPort & { close(): Promise<void> } = {
+    act: async () => ({ ok: true, output: 'ok' }),
+    close: async () => {
+      closes += 1;
+    },
+  };
+  const tool = new BrowserActTool({
+    playwrightFactory: () => port,
+    limits: {
+      actionTimeoutMs: 10,
+      loadTimeoutMs: 10,
+      commandTimeoutMs: 10,
+      connectTimeoutMs: 10,
+      launchTimeoutMs: 10,
+      probeTimeoutMs: 10,
+      idleCloseMs: 5,
+    },
+  });
+  const result = await tool.handle(call({ action: 'goto', url: 'http://x/' }), context);
+  assert.strictEqual(result.ok, true, result.error);
+  assert.strictEqual(closes, 0, '动作刚结束不应立即关闭');
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.strictEqual(closes, 1, 'limits.browser.idleCloseMs=5 应在 60ms 内关掉空闲会话');
+});

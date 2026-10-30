@@ -14,13 +14,19 @@ import type {
 import { PlaywrightBrowserSession } from '../../browser/playwrightBrowserSession.ts';
 import { BrowserSession } from '../../browser/browserSession.ts';
 import { log } from '../../../util/logger.ts';
+import { runtimeLimits, type BrowserLimits } from '../../../util/runtimeLimits.ts';
+
+/** 缺省空闲关闭毫秒数（`defaults/limits.json` 的 `browser.idleCloseMs`）。 */
+const DEFAULT_IDLE_CLOSE_MS = runtimeLimits.defaults().browser.idleCloseMs;
 
 /** 动作工具选项。 */
 export interface BrowserActToolOptions {
   /** 注入执行体（测试用假实现；缺省懒建真实浏览器会话，默认 Playwright、回退 CDP）。 */
   readonly session?: BrowserActionPort | undefined;
-  /** 空闲关闭毫秒数（默认 180s；每次动作后重置）。 */
+  /** 空闲关闭毫秒数（缺省取 `limits.browser.idleCloseMs`，出厂 180s；每次动作后重置）。 */
   readonly idleCloseMs?: number | undefined;
+  /** 浏览器限额（`limits.browser`；缺省取数据默认值）。 */
+  readonly limits?: BrowserLimits | undefined;
   /** Playwright 浏览器可执行文件（缺省用 ChromeLocator；测试/自定义安装可用）。 */
   readonly browserExecutablePath?: string | undefined;
   /** Playwright 执行体工厂（测试注入；缺省懒建真实会话）。 */
@@ -199,7 +205,16 @@ export class BrowserActTool {
    * @returns 动作端口。
    */
   private cdpPort(): BrowserSession {
-    this.cdp ??= this.options.cdpFactory?.() ?? new BrowserSession();
+    const limits = this.options.limits;
+    this.cdp ??=
+      this.options.cdpFactory?.() ??
+      new BrowserSession({
+        ...(limits?.commandTimeoutMs !== undefined ? { timeoutMs: limits.commandTimeoutMs } : {}),
+        ...(limits?.launchTimeoutMs !== undefined
+          ? { launchTimeoutMs: limits.launchTimeoutMs }
+          : {}),
+        ...(limits?.loadTimeoutMs !== undefined ? { loadTimeoutMs: limits.loadTimeoutMs } : {}),
+      });
     return this.cdp;
   }
 
@@ -212,12 +227,17 @@ export class BrowserActTool {
       return this.options.session;
     }
     if (this.lazy === undefined) {
+      const limits = this.options.limits;
       this.owned =
         this.options.playwrightFactory?.() ??
         new PlaywrightBrowserSession({
           ...(this.options.browserExecutablePath !== undefined
             ? { executablePath: this.options.browserExecutablePath }
             : {}),
+          ...(limits?.actionTimeoutMs !== undefined
+            ? { actionTimeoutMs: limits.actionTimeoutMs }
+            : {}),
+          ...(limits?.loadTimeoutMs !== undefined ? { loadTimeoutMs: limits.loadTimeoutMs } : {}),
         });
       this.lazy = this.owned;
     }
@@ -231,13 +251,16 @@ export class BrowserActTool {
   private touchIdle(): void {
     if (this.options.session !== undefined) return;
     if (this.idleTimer !== undefined) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => {
-      void this.close().catch((error: unknown) => {
-        log.warn('browser.idle.close_failed', {
-          error: error instanceof Error ? error.message : String(error),
+    this.idleTimer = setTimeout(
+      () => {
+        void this.close().catch((error: unknown) => {
+          log.warn('browser.idle.close_failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         });
-      });
-    }, this.options.idleCloseMs ?? 180_000);
+      },
+      this.options.idleCloseMs ?? this.options.limits?.idleCloseMs ?? DEFAULT_IDLE_CLOSE_MS,
+    );
     this.idleTimer.unref?.();
   }
 

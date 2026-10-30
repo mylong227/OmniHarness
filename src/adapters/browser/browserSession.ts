@@ -22,6 +22,7 @@ import { ChromeProcess } from './chromeProcess.ts';
 import type { ChromeLaunchResult, ChromeProcessOptions } from './chromeProcess.ts';
 import { CdpClient } from './cdpClient.ts';
 import { ImageProbe } from '../../util/imageProbe.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 import type {
   BrowserActionPort,
   BrowserActionRequest,
@@ -113,8 +114,8 @@ export interface BrowserSessionOptions {
  * 保留它是因为 CDP 零依赖、启动路径短，且已有成熟判据；新功能优先加在 Playwright 引擎。
  */
 export class BrowserSession implements BrowserActionPort {
-  /** 默认等待加载事件的超时。 */
-  public static readonly DEFAULT_LOAD_TIMEOUT_MS = 30_000;
+  /** 默认等待加载事件的超时（`defaults/limits.json` 的 `browser.loadTimeoutMs`）。 */
+  public static readonly DEFAULT_LOAD_TIMEOUT_MS = runtimeLimits.defaults().browser.loadTimeoutMs;
 
   /** CDP 客户端（首次截图时建立）。 */
   private client: CdpClient | undefined;

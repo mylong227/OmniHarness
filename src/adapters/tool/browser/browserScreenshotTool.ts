@@ -34,6 +34,7 @@ import type { ScreenshotRequest, ScreenshotResult } from '../../browser/browserS
 import { BrowserSession } from '../../browser/browserSession.ts';
 import { PlaywrightBrowserSession } from '../../browser/playwrightBrowserSession.ts';
 import { log } from '../../../util/logger.ts';
+import { runtimeLimits, type BrowserLimits } from '../../../util/runtimeLimits.ts';
 import { BrowserAvailability } from '../../browser/browserAvailability.ts';
 import type {
   BrowserAvailabilityInput,
@@ -134,14 +135,14 @@ export class BrowserScreenshotTool {
   private idleTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
-   * 空闲多久后自动关掉浏览器（毫秒）：3 分钟。
+   * 空闲多久后自动关掉浏览器（毫秒；`defaults/limits.json` 的 `browser.idleCloseMs`，出厂 3 分钟）。
    *
    * 为什么需要：`close()` 原本只在**会话收尾**由组合根调用，而实际装配里没有任何调用点
    *（全仓 grep 只有它自己的定义）⇒ 一次截图之后 headless Chromium **常驻到进程退出**，
    * 每个用截图的工作区都留一个 150–300 MB 的渲染进程。改成「最后一次调用后空闲 3 分钟自动关」，
    * 既保留连续截图复用（不必每次重启浏览器），又不让内存无限挂着。
    */
-  private static readonly IDLE_CLOSE_MS = 180_000;
+  private static readonly IDLE_CLOSE_MS = runtimeLimits.defaults().browser.idleCloseMs;
 
   /**
    * 附件（送模型）长边上限：1600 px。
@@ -160,22 +161,40 @@ export class BrowserScreenshotTool {
    * @param workspaceRoot 工作区根目录（落盘目标必须落在其内）。
    * @param factory 会话工厂（缺省起真实 headless Chromium；测试可注入假实现）。
    * @param resizer 图片缩放端口（缺省不缩放，交付原始 PNG；生产装配注入 sharp 实现）。
+   * @param limits 浏览器限额（`limits.browser`；缺省取数据默认值）。
    */
   public constructor(
     private readonly workspaceRoot: string,
-    private readonly factory: ScreenshotSessionFactory = (): ScreenshotSession =>
-      BrowserScreenshotTool.defaultSession(),
+    factory?: ScreenshotSessionFactory,
     private readonly resizer?: ImageResizerPort,
-  ) {}
+    private readonly limits?: BrowserLimits,
+  ) {
+    this.factory =
+      factory ?? ((): ScreenshotSession => BrowserScreenshotTool.defaultSession(limits));
+  }
+
+  /** 生效的会话工厂（注入优先；缺省按引擎选择真实会话）。 */
+  private readonly factory: ScreenshotSessionFactory;
 
   /**
    * 默认引擎：Playwright（商用可靠性：actionability/自动等待），`OMNI_BROWSER_ENGINE=cdp` 可降级。
+   * @param limits 浏览器限额（决定会话的加载/动作/CDP 超时）。
    * @returns 截图会话。
    */
-  private static defaultSession(): ScreenshotSession {
-    return process.env.OMNI_BROWSER_ENGINE === 'cdp'
-      ? new BrowserSession()
-      : new PlaywrightBrowserSession();
+  private static defaultSession(limits?: BrowserLimits): ScreenshotSession {
+    if (process.env.OMNI_BROWSER_ENGINE === 'cdp') {
+      return new BrowserSession({
+        ...(limits?.commandTimeoutMs !== undefined ? { timeoutMs: limits.commandTimeoutMs } : {}),
+        ...(limits?.launchTimeoutMs !== undefined
+          ? { launchTimeoutMs: limits.launchTimeoutMs }
+          : {}),
+        ...(limits?.loadTimeoutMs !== undefined ? { loadTimeoutMs: limits.loadTimeoutMs } : {}),
+      });
+    }
+    return new PlaywrightBrowserSession({
+      ...(limits?.actionTimeoutMs !== undefined ? { actionTimeoutMs: limits.actionTimeoutMs } : {}),
+      ...(limits?.loadTimeoutMs !== undefined ? { loadTimeoutMs: limits.loadTimeoutMs } : {}),
+    });
   }
 
   /**
@@ -206,7 +225,7 @@ export class BrowserScreenshotTool {
     const timer = setTimeout(() => {
       this.idleTimer = undefined;
       void this.close();
-    }, BrowserScreenshotTool.IDLE_CLOSE_MS);
+    }, this.limits?.idleCloseMs ?? BrowserScreenshotTool.IDLE_CLOSE_MS);
     // 不因这个定时器拖住进程退出（CLI 跑完就该退）。
     (timer as { unref?: () => void }).unref?.();
     this.idleTimer = timer;

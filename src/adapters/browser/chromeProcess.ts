@@ -34,6 +34,7 @@ import { join } from 'node:path';
 import type { Readable } from 'node:stream';
 
 import { ProcessTreeKiller } from '../tool/shell/processTreeKiller.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 
 /** 本类启动的子进程形态：stdin 忽略、stdout/stderr 为管道。 */
 type ChromeChild = ChildProcessByStdio<null, Readable, Readable>;
@@ -97,8 +98,9 @@ const EXIT_GRACE_MS = 2_000;
  * Chromium 子进程句柄：启动一次、用完必须 {@link ChromeProcess.kill}。
  */
 export class ChromeProcess {
-  /** 默认等待端点就绪的超时。 */
-  public static readonly DEFAULT_LAUNCH_TIMEOUT_MS = 30_000;
+  /** 默认等待端点就绪的超时（`defaults/limits.json` 的 `browser.launchTimeoutMs`）。 */
+  public static readonly DEFAULT_LAUNCH_TIMEOUT_MS =
+    runtimeLimits.defaults().browser.launchTimeoutMs;
 
   /** 子进程句柄（启动后才有值）。 */
   private child: ChromeChild | undefined;

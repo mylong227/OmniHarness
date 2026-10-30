@@ -101,6 +101,16 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     requestTimeoutMs: 15_000,
     diagnosticsTimeoutMs: 5_000,
   });
+  // 浏览器段（P6 迁入）：动作/加载/CDP/建连/启动/探测/空闲关闭——迁移前散在 5 个文件里。
+  assert.deepStrictEqual(defaults.browser, {
+    actionTimeoutMs: 10_000,
+    loadTimeoutMs: 30_000,
+    commandTimeoutMs: 20_000,
+    connectTimeoutMs: 15_000,
+    launchTimeoutMs: 30_000,
+    probeTimeoutMs: 5_000,
+    idleCloseMs: 180_000,
+  });
 });
 
 test('② 环境变量覆盖生效；空白视为未设置', () => {
@@ -149,6 +159,10 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   const lsp = runtimeLimits.resolve({ lsp: { requestTimeoutMs: 1_234 } }).lsp;
   assert.strictEqual(lsp.requestTimeoutMs, 1_234);
   assert.strictEqual(lsp.diagnosticsTimeoutMs, 5_000);
+  // 浏览器段同样逐键覆盖。
+  const browser = runtimeLimits.resolve({ browser: { loadTimeoutMs: 45_000 } }).browser;
+  assert.strictEqual(browser.loadTimeoutMs, 45_000);
+  assert.strictEqual(browser.actionTimeoutMs, 10_000);
 });
 
 test('④ 坏值 fail-closed：坏环境变量点名变量，越界拒绝（不静默回落）', () => {
@@ -310,6 +324,33 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   const lspAdapter = srcCode('src/adapters/lsp/lspProcessAdapter.ts');
   assert.doesNotMatch(lspAdapter, /DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5_?000/u);
   assert.match(lspAdapter, /lsp\.diagnosticsTimeoutMs/u);
+
+  // 浏览器段（P6）：五个适配器 + 两个工具的缺省值都不得再写死。
+  assert.doesNotMatch(srcCode('src/adapters/browser/cdpClient.ts'), /DEFAULT_TIMEOUT_MS = 20_000/u);
+  assert.doesNotMatch(
+    srcCode('src/adapters/browser/cdpClient.ts'),
+    /DEFAULT_CONNECT_TIMEOUT_MS = 15_000/u,
+  );
+  assert.doesNotMatch(
+    srcCode('src/adapters/browser/chromeProcess.ts'),
+    /DEFAULT_LAUNCH_TIMEOUT_MS = 30_000/u,
+  );
+  assert.doesNotMatch(
+    srcCode('src/adapters/browser/browserAvailability.ts'),
+    /DEFAULT_PROBE_TIMEOUT_MS = 5_000/u,
+  );
+  assert.doesNotMatch(
+    srcCode('src/adapters/browser/browserSession.ts'),
+    /DEFAULT_LOAD_TIMEOUT_MS = 30_000/u,
+  );
+  const playwright = srcCode('src/adapters/browser/playwrightBrowserSession.ts');
+  assert.doesNotMatch(playwright, /DEFAULT_TIMEOUT_MS = 10_000|timeout: 30_000/u);
+  assert.match(playwright, /browser\.actionTimeoutMs/u);
+  assert.doesNotMatch(
+    srcCode('src/adapters/tool/browser/browserScreenshotTool.ts'),
+    /IDLE_CLOSE_MS = 180_000/u,
+  );
+  assert.doesNotMatch(srcCode('src/adapters/tool/browser/browserActTool.ts'), /\?\? 180_000/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
@@ -349,5 +390,10 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   assert.match(
     srcCode('src/config/configBuilder.ts'),
     /runtimeLimits\.resolve\(partial\.limits\)\.lsp/u,
+  );
+  // 浏览器段：装配层解析一次后交给两个浏览器工具。
+  assert.match(
+    srcCode('src/config/configToolRegistry.ts'),
+    /runtimeLimits\.resolve\(seed\.limits\)\.browser/u,
   );
 });

@@ -7145,3 +7145,20 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`lspProcess` 9/9；快速层 + 类型层门禁通过。
 - **边界**：`limits.lsp` 只在**配置了 `lsp.serverCommand`** 时装配（无服务器则整个 LSP 端口不构造，
   超时自然无从生效）；这与既有 `lspServer` 段同一生命周期。
+
+## 191. 2026-10-30 运维旋钮数据化（P6）：浏览器（CDP / Playwright）七项超时
+
+- **范围**：`CdpClient` 的命令/建连超时（20s / 15s）、`ChromeProcess` 的启动超时（30s）、
+  `BrowserSession` 的加载超时（30s）、`PlaywrightBrowserSession` 的动作/加载超时（10s / 写死的 30s）、
+  `BrowserAvailability` 的探测超时（5s），以及两个浏览器工具的空闲关闭（180s）。
+- **形态**：`defaults/limits.json` 新增 `browser` 段（7 项，各带 env）；`RuntimeLimits` 增 `BrowserLimits`；
+  叶子适配器的静态缺省改为从数据派生；两个工具接受 `limits`（`browser_screenshot` 第 4 个参数、
+  `browser_act` 的 options），在配置层解析一次后把**具体数字**透传给会话（会话不改构造语义）。
+- **判据**：`runtimeLimits.test.ts` ①补 browser 七项缺省值、③补逐键覆盖、⑧守卫扩到 7 个文件、
+  ⑨接线补 `configToolRegistry`；`browserActFallback.test.ts` 新增真跑一例——把
+  `limits.browser.idleCloseMs` 设成 5ms，断言动作后 60ms 内会话真的被自动关闭
+  （默认 180s 不可能在这个时窗触发，所以这不是恒真判据）。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、浏览器相关 5 套件 32/32；快速层 + 类型层门禁通过。
+- **边界**：超时的**真实生效**只对「空闲关闭」做了端到端断言；动作/加载/CDP 超时需要真实 Chrome 与慢页面
+  才能观测，本片用「解析值 + 透传路径」的结构判据覆盖（`playwrightBrowserSession` 的动作超时已改为
+  读 `options.actionTimeoutMs`，不再是常量）。

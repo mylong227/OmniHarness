@@ -18,6 +18,7 @@
 
 import { endpointDefaults } from '../../util/endpointDefaults.ts';
 import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 
 /** 事件监听器。 */
 type EventListener = (params: unknown) => void;
@@ -49,11 +50,12 @@ export interface WebSocketLike {
  * 要么被超时收尾，要么在 socket `error`/`close` 与 {@link close} 时由 `pending.failAll` 一次性拒绝。
  */
 export class CdpClient {
-  /** 默认单条命令超时。 */
-  public static readonly DEFAULT_TIMEOUT_MS = 20_000;
+  /** 默认单条命令超时（`defaults/limits.json` 的 `browser.commandTimeoutMs`）。 */
+  public static readonly DEFAULT_TIMEOUT_MS = runtimeLimits.defaults().browser.commandTimeoutMs;
 
-  /** 默认连接超时。 */
-  public static readonly DEFAULT_CONNECT_TIMEOUT_MS = 15_000;
+  /** 默认连接超时（`browser.connectTimeoutMs`）。 */
+  public static readonly DEFAULT_CONNECT_TIMEOUT_MS =
+    runtimeLimits.defaults().browser.connectTimeoutMs;
 
   /** 在途请求表：CDP id → 收尾通道（超时 / 断开一律收尾，见 util/pendingRequests）。 */
   private readonly pending = new PendingRequests<number, unknown>();
