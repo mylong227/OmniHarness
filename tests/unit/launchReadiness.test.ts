@@ -12,8 +12,8 @@
  * | ② | 用 `/healthz`（恒 200）当就绪判据 | 进程刚起来、核心组件还没齐就开 ⇒ **白屏**，用户以为前端坏了 |
  * | ③ | 等待超时后静默收场 | 双击了却"什么都没发生"，比不提供这个功能更难排查 |
  *
- * 另有两条**漂移**必须钉死：端口缺省值（`serve` 权威实现是 `src/cli/cliServerCmds.ts` 的
- * `--port ?? 8787`，启动器不得自成一源）与「`--open` 绝不能透传给 serve」
+ * 另有两条**漂移**必须钉死：端口缺省值（`serve` 权威实现是 `src/cli/serveDefaults.ts` 的
+ * `ServeDefaults.DEFAULT_SERVE_PORT`/`OMNI_BACKEND_PORT`，启动器不得自成一源）与「`--open` 绝不能透传给 serve」
  * （serve 对未知旗标 fail-closed ⇒ 便利功能会把它自己打死）。
  *
  * 判据全在离线机器上真跑（注入 `probe`/`sleep`/`now`，不联网、不真等待）。
@@ -23,6 +23,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+
+import { ServeDefaults } from '../../src/cli/serveDefaults.ts';
 
 /** 仓库根（判据脚本自身在 `dist/tests/unit/`，而 `scripts/` 不参与编译 ⇒ 按 cwd 解析）。 */
 const REPO_ROOT = process.cwd();
@@ -40,7 +42,10 @@ type ReadyKind = 'down' | 'degraded' | 'ready' | 'guarded' | 'foreign';
 /** 被判据盯着的启动器模块形状。 */
 interface LaunchReadinessModule {
   readonly DEFAULT_SERVE_PORT: number;
-  readonly resolveServePort: (args: readonly string[]) => number;
+  readonly resolveServePort: (
+    args: readonly string[],
+    env?: Record<string, string | undefined>,
+  ) => number;
   readonly readinessUrl: (port: number) => string;
   readonly classifyReadyProbe: (input: ProbeInput) => ReadyKind;
   readonly waitForReady: (options: {
@@ -78,32 +83,43 @@ function startAllSource(): string {
 
 test('① 端口解析：两种写法都认，非法/缺失一律回落缺省（不得猜）', async () => {
   const { resolveServePort, DEFAULT_SERVE_PORT } = await loadModule();
-  assert.strictEqual(resolveServePort(['--port', '9000']), 9000);
-  assert.strictEqual(resolveServePort(['--port=9000']), 9000);
-  assert.strictEqual(resolveServePort([]), DEFAULT_SERVE_PORT);
-  assert.strictEqual(resolveServePort(['--mock']), DEFAULT_SERVE_PORT);
+  // 判据**显式给空环境**：跑测试的机器上若恰好设了 OMNI_BACKEND_PORT，裸 `process.env` 会让
+  // "缺省回落"变成"环境值回落"而假红；环境覆盖本身由下面的正对照单独钉住。
+  const NO_ENV = {};
+  assert.strictEqual(resolveServePort(['--port', '9000'], NO_ENV), 9000);
+  assert.strictEqual(resolveServePort(['--port=9000'], NO_ENV), 9000);
+  assert.strictEqual(resolveServePort([], NO_ENV), DEFAULT_SERVE_PORT);
+  assert.strictEqual(resolveServePort(['--mock'], NO_ENV), DEFAULT_SERVE_PORT);
   // 非法形态：非数字 / 0 / 越界 / 只给了旗标没给值 ⇒ 回落缺省（宁可探错端口并给可读超时提示，
   // 也不在启动器里复刻一套旗标校验——那是第二份真相）。
-  assert.strictEqual(resolveServePort(['--port', 'abc']), DEFAULT_SERVE_PORT);
-  assert.strictEqual(resolveServePort(['--port', '0']), DEFAULT_SERVE_PORT);
-  assert.strictEqual(resolveServePort(['--port=70000']), DEFAULT_SERVE_PORT);
-  assert.strictEqual(resolveServePort(['--port']), DEFAULT_SERVE_PORT);
-  // 正对照：合法值必须**真的**被读出来（否则上面那串"回落缺省"全都在恒真通过）。
-  assert.notStrictEqual(resolveServePort(['--port', '9000']), DEFAULT_SERVE_PORT);
+  assert.strictEqual(resolveServePort(['--port', 'abc'], NO_ENV), DEFAULT_SERVE_PORT);
+  assert.strictEqual(resolveServePort(['--port', '0'], NO_ENV), DEFAULT_SERVE_PORT);
+  assert.strictEqual(resolveServePort(['--port=70000'], NO_ENV), DEFAULT_SERVE_PORT);
+  assert.strictEqual(resolveServePort(['--port'], NO_ENV), DEFAULT_SERVE_PORT);
+  // 正对照一：合法值必须**真的**被读出来（否则上面那串"回落缺省"全都在恒真通过）。
+  assert.notStrictEqual(resolveServePort(['--port', '9000'], NO_ENV), DEFAULT_SERVE_PORT);
+  // 正对照二：`OMNI_BACKEND_PORT` 覆盖必须生效——启动器与 serve 同读这一个变量，
+  // 缺了它，`npm start` 会在 serve 实际监听的端口之外乱探（然后以"超时"收场）。
+  assert.strictEqual(resolveServePort([], { OMNI_BACKEND_PORT: '9123' }), 9123);
+  assert.strictEqual(resolveServePort(['--port', 'abc'], { OMNI_BACKEND_PORT: '9123' }), 9123);
 });
 
 test('② 端口缺省值不得自成一源：必须与 serve 权威实现一致', async () => {
-  const { DEFAULT_SERVE_PORT } = await loadModule();
-  const source = readFileSync(join(REPO_ROOT, 'src', 'cli', 'cliServerCmds.ts'), 'utf8');
-  const found = /--port'\s*\)\s*\?\?\s*(\d+)/u.exec(source);
-  assert.ok(
-    found !== null,
-    '没在 src/cli/cliServerCmds.ts 里找到 `--port` 的缺省值写法（正则需同步）⇒ 本判据已失效，请更新',
-  );
+  const { DEFAULT_SERVE_PORT, resolveServePort } = await loadModule();
+  // 走真实实现而不是正则抠源码：缺省值已收口到 ServeDefaults（`--port` 旗标 > OMNI_BACKEND_PORT
+  // > DEFAULT_SERVE_PORT），启动器那一侧镜像 devConfig.DEV_DEFAULTS——两边漂移就在这里红。
   assert.strictEqual(
     DEFAULT_SERVE_PORT,
-    Number(found[1]),
+    ServeDefaults.DEFAULT_SERVE_PORT,
     '启动器的缺省端口与 serve 的权威缺省值漂移了：改一处必须改两处，或让启动器读同一源头',
+  );
+  // 环境覆盖也必须同口径：`OMNI_BACKEND_PORT` 是"一处设置两边生效"的那个变量，
+  // 只对得上常量、对不上覆盖，就等于设了变量后启动器去探 serve 没监听的端口。
+  const env = { OMNI_BACKEND_PORT: '9123' };
+  assert.strictEqual(
+    resolveServePort([], env),
+    ServeDefaults.resolveDefaultPort(env),
+    '启动器与 serve 对 OMNI_BACKEND_PORT 的解释不一致（谁读谁不读）',
   );
 });
 
