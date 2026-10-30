@@ -85,7 +85,26 @@ const OPENERS: Record<string, (cdp: CdpSession) => Promise<boolean>> = {
     });
     return cdp.waitFor("!!document.querySelector('.ant-modal[role=\"dialog\"]')", 400);
   },
+  // ---- W5 复核补齐（§183 的 8 界面清单余下四态）----
+  // empty：不 seed（captureOne 按 key 跳过 seed），初始空态即目标画面。
+  console: async (cdp) => {
+    await cdp.evaluate(
+      "(function(){ var b=document.querySelector('button[aria-label=\"打开设置\"], button[aria-label=\"Open settings\"]'); if(b){ b.click(); return true; } return false; })()",
+    );
+    return cdp.waitFor("!!document.querySelector('.csl')", 3000);
+  },
+  palette: async (cdp) => {
+    await cdp.evaluate(
+      "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }))",
+    );
+    return cdp.waitFor("!!document.querySelector('.cmdk-input')", 3000);
+  },
+  rightpanel: async () => true, // 桌面三栏常驻右栏：FileTab 空态即目标画面
+  narrow: async () => true, // 视口由 captureOne 特殊处理（480px + 左栏抽屉态）
 };
+
+/** 不做 seed 的状态（空态/右栏空态/窄视口要的就是初始画面）。 */
+const NO_SEED = new Set(['empty', 'rightpanel', 'narrow']);
 
 async function captureOne(
   browser: string,
@@ -108,15 +127,21 @@ async function captureOne(
     const wsUrl = await waitForPageWs(debugPort, '_keyshot-stub.html', 20000);
     cdp = new CdpSession(wsUrl);
     await cdp.startDiagnostics();
+    // narrow：窄视口重排（§7 W0 清单的「窄视口」）——其余态 1280×900。
+    const narrow = key === 'narrow';
     await cdp.send('Emulation.setDeviceMetricsOverride', {
-      width: WIDTH,
+      width: narrow ? 480 : WIDTH,
       height: HEIGHT,
       deviceScaleFactor: 1,
       mobile: false,
     });
     if (!(await cdp.waitMounted(8000))) return { key, theme, ok: false, error: '未挂载' };
     await cdp.evaluate(`document.documentElement.setAttribute('data-theme','${theme}')`);
-    await seed(cdp);
+    if (!NO_SEED.has(key)) await seed(cdp);
+    if (key === 'narrow') {
+      // 窄屏下左栏是抽屉（默认收起）：抽屉态即「窄视口」的目标画面。
+      await new Promise((r) => setTimeout(r, 250));
+    }
     if (key === 'streaming') {
       // 流式态的回合必须保持在飞：seed 已收尾，这里重开一回合供增量落进流式卡片。
       await cdp.evaluate(
