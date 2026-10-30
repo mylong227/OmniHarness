@@ -4,24 +4,29 @@
  * ## 为什么要独立成模块
  *
  * `startAll.mjs` 是**入口脚本**（import 即执行「构建 → 起服务」），单测无法 import 它；
-import { resolveDevAddress } from '../devConfig.mjs';
  * 而「等服务真的就绪再打开浏览器」这件事必须**可判**——否则"一键启动"会以三种形态骗人：
  *  1. 构建还没完就打开浏览器 ⇒ **白屏**，用户以为前端坏了（本仓的经典误判）；
  *  2. 端口上其实是**别的进程**（两天前还在跑的旧 serve / 别人的 HTTP 服务）⇒ 打开的是**别人的页面**；
  *  3. 超时后静默不打开 ⇒ 双击了却"什么都没发生"，比不提供这个功能更糟。
  *
- * 故把纯逻辑抽到这里：**零 I/O、零依赖**，由 `tests/unit/launchReadiness.test.ts` 逐条钉住；
+ * 故把纯逻辑抽到这里：**无网络 I/O、无副作用**（唯一的外部输入是 `scripts/devConfig.mjs`
+ * ——地址唯一事实源），由 `tests/unit/launchReadiness.test.ts` 逐条钉住；
  * 入口脚本只留 I/O（真实 `fetch`、真实 `spawn`）与打印。
  */
+import { DEV_DEFAULTS, resolveDevAddress } from '../devConfig.mjs';
 
 /**
- * `serve` 的缺省端口。
+ * `serve` 的缺省端口（**镜像** `scripts/devConfig.mjs` 的 `DEV_DEFAULTS.backendPort`）。
  *
- * **不得自成一源**：权威实现是 `src/cli/cliServerCmds.ts` 的 `--port ?? 8787`，
- * 本常量只是让启动器能在**尚未起服务**时就知道该探哪个端口；两者一致由单测核对
- * （历史上这仓吃够了"同一事实抄两份、抄的时候就漂了"的亏）。
+ * **不得自成一源**：devConfig 那一侧又镜像 `src/cli/serveDefaults.ts` 的
+ * `ServeDefaults.DEFAULT_SERVE_PORT`，一致性由 `tests/unit/devAddressContract.test.ts` 钉死。
+ *
+ * 这里导出的是**默认值**（与 `OMNI_BACKEND_PORT` 无关，供判据核对"启动器与 serve 的缺省是否漂移"）；
+ * 启动器真正回落的值见 {@link resolveServePort}——它经 `resolveDevAddress(env)` 读
+ * `OMNI_BACKEND_PORT`/`OMNI_DEV_HOST`，与 serve 的 `ServeDefaults.resolveDefaultPort` 同一口径，
+ * 因此"一处设置两边生效"（`npm start` / `npm run dev` / vite 代理）。
  */
-/* DEFAULT_SERVE_PORT 已收口到 ../devConfig.mjs（resolveDevAddress().backendPort）。 */
+export const DEFAULT_SERVE_PORT = DEV_DEFAULTS.backendPort;
 
 /** 就绪轮询的缺省节奏（毫秒）。 */
 export const DEFAULT_POLL_MS = 400;
@@ -33,34 +38,39 @@ export const DEFAULT_TIMEOUT_MS = 180_000;
  * 从透传给 `serve` 的参数里解析监听端口。
  *
  * 支持 `--port 9000` 与 `--port=9000` 两种写法（`serve` 自己两种都吃）；
- * 缺失 / 非数字 / 越界（≤0 或 >65535）一律回落到 {@link DEFAULT_SERVE_PORT}——
+ * 缺失 / 非数字 / 越界（≤0 或 >65535）一律回落到**本机实际生效的缺省端口**——
+ * 即 `resolveDevAddress(env).backendPort`（`OMNI_BACKEND_PORT` 可覆盖，与 serve 的
+ * `ServeDefaults.resolveDefaultPort` 同口径），而不是裸常量 {@link DEFAULT_SERVE_PORT}：
+ * 否则设了环境变量时启动器会去探一个 serve 根本没监听的端口。
  * 宁可探错端口后给出可读超时提示，也不要在启动器里复刻一套旗标校验（那是第二份真相）。
  * @param args 透传给 `serve` 的参数数组。
+ * @param env 环境变量（默认 `process.env`；判据可注入，避免受跑测试的机器影响）。
  * @returns 端口号。
  */
-export function resolveServePort(args) {
+export function resolveServePort(args, env = process.env) {
   const list = Array.isArray(args) ? args : [];
   for (let i = 0; i < list.length; i += 1) {
     const item = list[i];
     if (item === '--port') {
-      return normalizePort(list[i + 1]);
+      return normalizePort(list[i + 1], env);
     }
     if (typeof item === 'string' && item.startsWith('--port=')) {
-      return normalizePort(item.slice('--port='.length));
+      return normalizePort(item.slice('--port='.length), env);
     }
   }
-  return resolveDevAddress().backendPort;
+  return resolveDevAddress(env).backendPort;
 }
 
 /**
  * 把一处端口写法归一为合法端口。
  * @param raw 原始值（可能是 undefined / 空串 / 任意文本）。
+ * @param env 环境变量（决定"缺省端口"是哪个）。
  * @returns 合法端口，或缺省端口。
  */
-function normalizePort(raw) {
+function normalizePort(raw, env = process.env) {
   const value = Number.parseInt(String(raw ?? ''), 10);
   if (!Number.isInteger(value) || value <= 0 || value > 65535) {
-    return DEFAULT_SERVE_PORT;
+    return resolveDevAddress(env).backendPort;
   }
   return value;
 }

@@ -139,7 +139,8 @@
     "smoke:real": "node scripts/realRunSmoke.mjs --phase=all",
     "smoke:model": "node scripts/realModelComplexTest.mjs",
     "smoke:ui": "node scripts/realUiScenario.mjs",
-    "test:frontend": "npm run web:build && vitest run --project web"
+    "test:frontend": "npm run web:build && vitest run --project web",
+    "probe:merge": "node tools/probes/editMergeProbe.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
