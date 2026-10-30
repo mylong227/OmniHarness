@@ -6954,3 +6954,30 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   右侧预览窗格。
 - **验证**：`filePickerTree` 3/3、`popoverKeyboard` 14/14、`pickerShapeGuard` 4/4、`vendorFreePipeline`、
   `i18nCoverage` 全绿；全量 web 130 文件 663 例全绿；tsc 零错。
+
+## 181. 2026-10-30 选择器重设计 P2 实施：双源懒加载子树 + FolderPicker 单树
+
+- **依据**：`docs/PICKER_REDESIGN_2026-10-30.md` §4.2/§4.3/§10，本提交实施其 §9 的 P2。
+- **双源同树**：新增 `models/FsPickerLazy.ts` 作为 key 空间的唯一事实源——
+  工作区节点 key 就是 `fs.list` 给的路径；「文件系统…」子树 key 一律 `fs:` 前缀，
+  `fsPathOf` / `fsKeyOf` / `isFsKey` 三个纯函数共用，两个选择器不再各写一份前缀字面量。
+- **FolderPicker 重写**：从「逐级浏览 + 盘符列表」换成**单树**：工作区树（目录可选、**文件置灰**）
+  - 「文件系统…」懒加载子树（展开一个目录 = 一次 `fs.browse`，结果填**该节点**）；
+    「新建文件夹」保留（在当前选中目录内建，建完即返回）；Esc 语义（新建态先退新建）保留。
+    每节点自带「读取中 / 错误 + 重试 / 空目录」三种占位行——节点级错误不弹全局、不卸整页。
+- **FilePicker 加懒加载子树**：工作区外也能选附件（`fs.browse(path, true)`，文件带体积），
+  勾选闸同时接受工作区文件 key 与懒加载文件 key；确认回传时 `fs:` 前缀被剥掉还原绝对路径。
+- **修掉一个自己写出的真 bug**：`load` 只把结果写进 `nodes[key]`，而父节点每帧现拼 treeData ⇒
+  **展开盘符后它自己的子目录永远挂不上**（只挂了一层）。补 `attachLazy` 递归回填后正常；
+  P2 判据 ② 正是抓这个的（"展开盘符才拉该盘" + 断言子目录出现）。
+- **判据**：新增 `folderPickerTree.test.ts` 4 例（工作区不触发 browse、「文件系统…」展开才加载、
+  节点级形状错误 + 重试成功、单选确认 + 文件置灰）；`filePickerTree` 增第 5 例（工作区外选文件、
+  回传去前缀）；`pickerShapeGuard` 4/4 与 `popoverKeyboard` 保持通过（形状闸现在自然落在节点级）。
+- **预算**：entry 190.1/240、vendor 276/290、CSS 30.9/40、首屏 466.1/500（`vendorFreePipeline` 通过：
+  两个选择器只静态引 antd `Tree`，未把 `panel-antd` 拖回首屏）。
+- **留档**：本轮未截新图（FolderPicker 入口在侧栏项目条，桩页默认「未选择项目」）；
+  结构与交互由 `folderPickerTree` / `filePickerTree` 行为判据覆盖，观感待 keyStateShots 补态。
+- **未做**：P3 预览窗格（设计 §4.1 右栏预览，标注「可裁剪」，非必需）。
+- **验证**：`folderPickerTree` 4/4、`filePickerTree` 4/4、`popoverKeyboard` 11/11、
+  `pickerShapeGuard` 4/4、`vendorFreePipeline`、`i18nCoverage` 全绿；全量 web 131 文件 668 例全绿；
+  tsc 零错；`check.mjs` 铁律通过。

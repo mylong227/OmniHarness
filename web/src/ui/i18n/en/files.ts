@@ -19,6 +19,8 @@ export const EN_FILES: Record<string, string> = {
   '过滤已加载的文件…': 'Filter loaded files…',
   '过滤文件': 'Filter files',
   '工作区还没有文件': 'The workspace has no files yet',
+  '文件系统…': 'File system…',
+  '未选择目录': 'No folder selected',
   '没有匹配的文件': 'No matching files',
   // FolderPicker
   '新项目': 'New project',

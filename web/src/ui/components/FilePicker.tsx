@@ -14,6 +14,8 @@ import { Tree } from 'antd';
 import type { TreeDataNode } from 'antd';
 import { PickerModal } from './PickerModal.tsx';
 import { icon } from '../models/Icon.ts';
+import { FileSizeFormatter } from '../models/FileSizeFormatter.ts';
+import { FS_ROOT, fsKeyOf, fsPathOf, isFsKey } from '../models/FsPickerLazy.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import type { FsNode } from '../../types/models.ts';
 import { t } from '../i18n/i18n.ts';
@@ -156,6 +158,225 @@ function fileKeysOf(nodes: readonly FsNode[]): string[] {
   return out;
 }
 
+/** 懒加载节点状态：children 为 null = 尚未加载。 */
+interface LazyNode {
+  children: TreeDataNode[] | null;
+  /** 该节点下的文件 key（勾选闸用：懒加载目录的 key 也在 checkedKeys 里出现）。 */
+  files: Set<string>;
+  loading: boolean;
+  error: string | null;
+}
+
+/** `fs.browse(includeFiles=true)` 的回包。 */
+type BrowseWithFiles =
+  | { level: 'drives'; roots: string[]; home: string }
+  | {
+      level: 'dir';
+      path: string;
+      dirs: string[];
+      files?: { name: string; size: number; mediaType: string }[];
+    };
+
+/**
+ * 「文件系统…」懒加载子树（工作区之外也能选附件）。
+ *
+ * 节点级状态：每次展开是独立异步任务，A 的迟到响应只会迟到地填 A 节点——
+ * 结构上不存在旧实现的「全局代际号防整列表串台」。
+ *
+ * @param api RPC 客户端
+ * @returns 节点状态表与 load
+ */
+function useLazyFsFiles(api: ApiClient): {
+  nodes: Record<string, LazyNode>;
+  load: (key: string) => Promise<void>;
+} {
+  const [nodes, setNodes] = React.useState<Record<string, LazyNode>>({});
+  const load = async (key: string): Promise<void> => {
+    setNodes((prev) => ({
+      ...prev,
+      [key]: { children: prev[key]?.children ?? null, files: prev[key]?.files ?? new Set(), loading: true, error: null },
+    }));
+    const path = fsPathOf(key) ?? undefined;
+    try {
+      const r: BrowseWithFiles = await api.browseFs(path, true);
+      const [children, files] = resultOf(key, r);
+      setNodes((prev) => ({
+        ...prev,
+        [key]: { children, files, loading: false, error: null },
+      }));
+    } catch (e) {
+      setNodes((prev) => ({
+        ...prev,
+        [key]: {
+          children: prev[key]?.children ?? null,
+          files: prev[key]?.files ?? new Set(),
+          loading: false,
+          error: (e as Error).message,
+        },
+      }));
+    }
+  };
+  return { nodes, load };
+}
+
+/**
+ * 把一次 `fs.browse` 回包映射成懒加载子节点。
+ * @param key 父节点 key
+ * @param r 回包
+ * @returns [子节点, 该层文件 key 集]
+ */
+function resultOf(key: string, r: BrowseWithFiles): [TreeDataNode[], Set<string>] {
+  const files = new Set<string>();
+  if (r.level === 'drives') {
+    const roots = Array.isArray(r.roots) ? r.roots : [];
+    const home = typeof r.home === 'string' ? r.home : '';
+    const children: TreeDataNode[] = roots.map((root) => ({
+      key: fsKeyOf(root),
+      title: lazyTitle('dir', root),
+      isLeaf: false,
+    }));
+    if (home !== '') {
+      children.unshift({
+        key: fsKeyOf(home),
+        title: lazyTitle('dir', `${home}${t('（用户目录）')}`),
+        isLeaf: false,
+      });
+    }
+    return [children, files];
+  }
+  if (r.level !== 'dir' || !Array.isArray(r.dirs)) {
+    throw new Error(t('文件列表返回格式异常（fs.browse）'));
+  }
+  const base = r.path ?? (fsPathOf(key) ?? '');
+  const children: TreeDataNode[] = [
+    ...r.dirs.map((dir) => ({
+      key: fsKeyOf(joinPath(base, dir)),
+      title: lazyTitle('dir', dir),
+      isLeaf: false,
+    })),
+    ...(Array.isArray(r.files) ? r.files : []).map((file) => {
+      const full = fsKeyOf(joinPath(base, file.name));
+      files.add(full);
+      return {
+        key: full,
+        title: lazyTitle('file', file.name, FileSizeFormatter.human(file.size)),
+        isLeaf: true,
+      };
+    }),
+  ];
+  return [children, files];
+}
+
+/**
+ * 拼接路径（懒加载层不信任后端 parent，按 base + name 拼）。
+ * @param base 目录
+ * @param name 名字
+ * @returns 路径
+ */
+function joinPath(base: string, name: string): string {
+  const sep = base.includes('\\') ? '\\' : '/';
+  return base.endsWith(sep) ? base + name : base + sep + name;
+}
+
+/**
+ * 懒加载节点的标题（文件带体积）。
+ * @param kind 目录/文件
+ * @param name 名字
+ * @param size 体积文案（可选）
+ * @returns 标题节点
+ */
+function lazyTitle(kind: 'dir' | 'file', name: string, size?: string): React.ReactNode {
+  return (
+    <span className="fp-node">
+      <span className="fp-node-icon" aria-hidden="true">
+        {icon(kind === 'dir' ? 'folder' : fileIconOf(name), { size: 14 })}
+      </span>
+      <span className="fp-node-name">{name}</span>
+      {size === undefined ? null : <span className="fp-node-size">{size}</span>}
+    </span>
+  );
+}
+
+/**
+ * 懒加载节点的子节点（加载中 / 错误+重试 / 空目录 的占位行）。
+ * @param key 节点 key
+ * @param node 该节点状态
+ * @param onRetry 重试回调
+ * @returns 子节点数组
+ */
+function lazyChildrenOf(
+  key: string,
+  node: LazyNode | undefined,
+  onRetry: (key: string) => void,
+): TreeDataNode[] {
+  if (node === undefined) return [];
+  if (node.error !== null) {
+    return [
+      {
+        key: `${key}#err`,
+        selectable: false,
+        checkable: false,
+        title: (
+          <span className="fp-tree-error">
+            {node.error}
+            <button
+              type="button"
+              className="fp-retry"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRetry(key);
+              }}
+            >
+              {t('重试')}
+            </button>
+          </span>
+        ),
+      },
+    ];
+  }
+  if (node.loading) {
+    return [
+      {
+        key: `${key}#loading`,
+        selectable: false,
+        checkable: false,
+        title: <span className="fp-tree-loading">{t('读取中…')}</span>,
+      },
+    ];
+  }
+  if (node.children !== null && node.children.length === 0) {
+    return [
+      {
+        key: `${key}#empty`,
+        selectable: false,
+        checkable: false,
+        title: <span className="fp-tree-empty">{t('（空目录）')}</span>,
+      },
+    ];
+  }
+  return node.children ?? [];
+}
+
+/**
+ * 把已加载的懒节点子级**递归**挂回树上（父节点每帧现拼，不回填的话深层目录永远挂不上）。
+ * @param nodes 待挂的节点
+ * @param nodesState 节点状态表
+ * @param onRetry 重试回调
+ * @returns 挂好子级的新数组
+ */
+function attachLazy(
+  nodes: TreeDataNode[],
+  nodesState: Record<string, LazyNode>,
+  onRetry: (key: string) => void,
+): TreeDataNode[] {
+  return nodes.map((node) => {
+    const key = String(node.key);
+    const state = nodesState[key];
+    if (!isFsKey(key) || state === undefined) return node;
+    return { ...node, children: attachLazy(lazyChildrenOf(key, state, onRetry), nodesState, onRetry) };
+  });
+}
+
 /**
  * 选择器主体：过滤条 + 树 + 页脚。
  * @param props 数据态、过滤值、展开/勾选集与回调
@@ -167,6 +388,8 @@ function FilePickerBody(props: {
   expanded: React.Key[];
   checked: React.Key[];
   visible: FsNode[];
+  /** 「文件系统…」根节点的子节点（懒加载，工作区外也能选附件）。 */
+  fsNode: TreeDataNode[];
   onQuery: (value: string) => void;
   onExpand: (keys: React.Key[]) => void;
   onCheck: (keys: React.Key[]) => void;
@@ -176,6 +399,20 @@ function FilePickerBody(props: {
 }): ReactElement {
   const { state, query, expanded, checked, visible } = props;
   const checkedCount = checked.length;
+  const fsRoot: TreeDataNode = {
+    key: FS_ROOT,
+    checkable: false,
+    isLeaf: false,
+    title: (
+      <span className="fp-node fp-node-fs">
+        <span className="fp-node-icon" aria-hidden="true">
+          {icon('drive', { size: 14 })}
+        </span>
+        <span className="fp-node-name">{t('文件系统…')}</span>
+      </span>
+    ),
+    children: props.fsNode,
+  };
   return (
     <>
       <div className="fp-treebar">
@@ -204,21 +441,22 @@ function FilePickerBody(props: {
         {!state.loading && state.error === null && state.tree.length === 0 ? (
           <div className="fp-empty">{t('工作区还没有文件')}</div>
         ) : null}
-        {!state.loading && state.error === null && visible.length > 0 ? (
+        {!state.loading && state.error === null && visible.length === 0 && state.tree.length > 0 ? (
+          <div className="fp-empty">{t('没有匹配的文件')}</div>
+        ) : null}
+        {/* 树**始终**渲染：工作区为空或过滤无命中时，「文件系统…」仍要可用。 */}
+        {state.loading ? null : (
           <Tree
             checkable
             selectable={false}
             height={320}
-            treeData={visible.map(toTreeNode)}
+            treeData={[...visible.map(toTreeNode), fsRoot]}
             expandedKeys={expanded}
             checkedKeys={checked}
             onExpand={props.onExpand}
             onCheck={(keys) => props.onCheck(Array.isArray(keys) ? keys : keys.checked)}
           />
-        ) : null}
-        {!state.loading && state.error === null && visible.length === 0 && state.tree.length > 0 ? (
-          <div className="fp-empty">{t('没有匹配的文件')}</div>
-        ) : null}
+        )}
       </div>
       <div className="fp-actions">
         <button className="fp-btn" onClick={props.onCancel}>
@@ -244,8 +482,9 @@ function FilePickerBody(props: {
 export function FilePicker(props: FilePickerProps): ReactElement {
   const { api, onCancel, onPick } = props;
   const state = useWorkspaceTree(api);
+  const lazy = useLazyFsFiles(api);
   const [query, setQuery] = React.useState<string>('');
-  const [expanded, setExpanded] = React.useState<React.Key[]>([]);
+  const [expanded, setExpanded] = React.useState<React.Key[]>([FS_ROOT]);
   const [checked, setChecked] = React.useState<React.Key[]>([]);
   const composing = React.useRef(false);
 
@@ -258,26 +497,55 @@ export function FilePicker(props: FilePickerProps): ReactElement {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onCancel]);
 
+  // 「文件系统…」首开即展开一层（盘符）：工作区外的附件路径一眼可见。
+  React.useEffect(() => {
+    void lazy.load(FS_ROOT);
+  }, []);
+
   const visible = React.useMemo(() => filterFs(state.tree, query), [state.tree, query]);
   const filePaths = React.useMemo(() => new Set(fileKeysOf(state.tree)), [state.tree]);
+  /** 懒加载层已加载出的文件 key（勾选闸用：懒目录的 key 也会出现在 checkedKeys 里）。 */
+  const lazyFiles = React.useMemo(() => {
+    const out = new Set<string>();
+    for (const node of Object.values(lazy.nodes)) for (const key of node.files) out.add(key);
+    return out;
+  }, [lazy.nodes]);
 
-  // 过滤变化时把命中路径的目录全部展开（否则过滤命中在折叠里看不见）；
+  // 过滤变化时把命中路径的目录全部展开（否则过滤命中在折叠里看不见），但**保留懒加载子树的展开态**；
   // IME 组合期不重算（避免拼音中间态把树展开态抖掉）。
   React.useEffect(() => {
     if (composing.current) return;
-    setExpanded(query === '' ? [] : dirKeysOf(visible));
+    setExpanded((prev) => [
+      ...prev.filter((key) => isFsKey(String(key))),
+      ...(query === '' ? [] : dirKeysOf(visible)),
+    ]);
   }, [query, visible]);
 
-  /** 勾选：只收文件路径（父目录的半选由 antd 自己画）。 */
-  const onCheck = (keys: React.Key[]): void => {
-    setChecked(keys.filter((key) => filePaths.has(String(key))));
+  /** 展开：懒加载节点首次展开时触发该节点自己的加载。 */
+  const onExpand = (keys: React.Key[]): void => {
+    setExpanded(keys);
+    for (const key of keys) {
+      const k = String(key);
+      if (isFsKey(k) && lazy.nodes[k] === undefined) void lazy.load(k);
+    }
   };
 
-  /** 确认：至少选一个文件才回传。 */
+  /** 勾选：只收文件 key（工作区路径或懒加载文件），父目录的半选由 antd 自己画。 */
+  const onCheck = (keys: React.Key[]): void => {
+    setChecked(keys.filter((key) => filePaths.has(String(key)) || lazyFiles.has(String(key))));
+  };
+
+  /** 确认：至少选一个文件才回传；懒加载 key 去掉 `fs:` 前缀还原成绝对路径。 */
   const confirm = (): void => {
     if (checked.length === 0) return;
-    onPick(checked.map(String));
+    onPick(checked.map((key) => fsPathOf(String(key)) ?? String(key)));
   };
+
+  const fsNode = attachLazy(
+    lazyChildrenOf(FS_ROOT, lazy.nodes[FS_ROOT], (k) => void lazy.load(k)),
+    lazy.nodes,
+    (k) => void lazy.load(k),
+  );
 
   return (
     <PickerModal title={t('选择附件文件')} onCancel={onCancel}>
@@ -295,8 +563,9 @@ export function FilePicker(props: FilePickerProps): ReactElement {
           expanded={expanded}
           checked={checked}
           visible={visible}
+          fsNode={fsNode}
           onQuery={setQuery}
-          onExpand={setExpanded}
+          onExpand={onExpand}
           onCheck={onCheck}
           onRefresh={state.refresh}
           onCancel={onCancel}

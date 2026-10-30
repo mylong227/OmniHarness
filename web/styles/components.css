@@ -309,6 +309,18 @@
 .fp-node { display:inline-flex; align-items:center; gap:7px; min-width:0; }
 .fp-node-icon { flex:none; display:inline-flex; color:var(--dim); }
 .fp-node-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); }
+/* P2：工作区外懒加载子树（文件体积右对齐、文件置灰、节点级错误 + 重试）。 */
+.fp-node-size { flex:none; font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums; }
+.fp-node-file .fp-node-name { color:var(--dim); }
+.fp-node-fs .fp-node-name { font-family:inherit; }
+.fp-tree-loading,
+.fp-tree-empty { color:var(--dim); font-size:11.5px; }
+.fp-tree-error { display:inline-flex; align-items:center; gap:8px; color:var(--err); font-size:11.5px; }
+.fp-retry {
+  border:1px solid var(--border-soft); background:var(--panel); color:var(--text);
+  padding:1px 8px; border-radius:6px; cursor:pointer; font-size:11px;
+}
+.fp-retry:hover { background:var(--panel-2); }
 
 /* 命令面板（Ctrl/Cmd+P / K）：浮层壳由 antd Modal 承担（2026-10-29 W2）。 */
 .cmdk {

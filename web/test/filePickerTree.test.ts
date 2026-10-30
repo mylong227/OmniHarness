@@ -36,11 +36,19 @@ const TREE = [
  * 渲染选择器并等首次装载落地。
  * @param calls 每次 listFs 调用的记录
  * @param picked 确认回传的记录
+ * @param browseCalls fs.browse 调用记录（P2 起「文件系统…」子树会用到）
+ * @param browse fs.browse 实现
  * @returns render 句柄（含 unmount）
  */
 async function renderPicker(
   calls: { depth?: number }[],
   picked: string[][],
+  browseCalls: (string | undefined)[] = [],
+  browse: (path?: string) => Promise<unknown> = async () => ({
+    level: 'drives',
+    roots: [],
+    home: '',
+  }),
 ): Promise<ReturnType<typeof renderUi>> {
   const ui = renderUi(FilePicker, {
     props: {
@@ -49,9 +57,10 @@ async function renderPicker(
           calls.push({ depth });
           return { tree: TREE };
         },
-        // 工作区内的选择器**不得**再走 fs.browse——调用即判据变红。
-        browseFs: async () => {
-          throw new Error('工作区内不得调用 fs.browse');
+        browseFs: async (path?: string, includeFiles?: boolean) => {
+          browseCalls.push(path);
+          void includeFiles;
+          return browse(path);
         },
       },
       onCancel: () => {},
@@ -87,12 +96,15 @@ async function expandDir(label: string): Promise<void> {
   });
 }
 
-test('① 工作区树只用 fs.list（不触发 fs.browse），② 跨目录勾选回传正确', async () => {
+test('① 工作区树用 fs.list；② 跨目录勾选回传正确', async () => {
   const calls: { depth?: number }[] = [];
   const picked: string[][] = [];
-  const ui = await renderPicker(calls, picked);
+  const browseCalls: (string | undefined)[] = [];
+  const ui = await renderPicker(calls, picked, browseCalls);
   assert.strictEqual(calls.length, 1, '首开必须只拉一次整树');
   assert.strictEqual(calls[0]!.depth, 3, '默认深度 3（与侧栏文件树一致）');
+  // P2 起「文件系统…」子树是**唯一**会调 fs.browse 的地方，且首开只拉盘符层（无参）。
+  assert.deepStrictEqual(browseCalls, [undefined], '工作区节点不得触发 fs.browse（只有盘符层一次）');
 
   fireEvent.click(checkboxOf('a.ts'));
   await expandDir('src');
@@ -169,5 +181,46 @@ test('④ 刷新保留展开态与勾选态（键是 path，刷新后不丢）',
     '刷新后展开态必须保留',
   );
   assert.match(document.querySelector('.fp-selected-count')?.textContent ?? '', /已选 2 个/u);
+  ui.unmount();
+});
+
+test('⑤ P2：工作区外走「文件系统…」懒加载，确认时去掉 fs: 前缀还原绝对路径', async () => {
+  const calls: { depth?: number }[] = [];
+  const picked: string[][] = [];
+  const browseCalls: (string | undefined)[] = [];
+  const ui = await renderPicker(calls, picked, browseCalls, async (path) =>
+    path === undefined
+      ? { level: 'drives', roots: ['C:/'], home: '' }
+      : {
+          level: 'dir',
+          path,
+          dirs: [],
+          files: [{ name: 'out.log', size: 12, mediaType: 'text/plain' }],
+        },
+  );
+  // 懒加载子树只在展开时加载：首开只有盘符层一次。
+  assert.deepStrictEqual(browseCalls, [undefined], '首开只拉盘符层');
+  const drive = Array.from(document.querySelectorAll('[role="treeitem"]')).find((el) =>
+    (el.textContent ?? '').includes('C:/'),
+  );
+  assert.ok(drive !== undefined, '盘符节点必须渲染');
+  const switcher = drive.querySelector('.ant-tree-switcher');
+  assert.ok(switcher instanceof HTMLElement);
+  fireEvent.click(switcher);
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 20));
+  });
+  assert.deepStrictEqual(browseCalls, [undefined, 'C:/'], '展开盘符必须只拉该盘');
+
+  fireEvent.click(checkboxOf('out.log'));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 10));
+  });
+  const confirm = Array.from(document.querySelectorAll('.fp-actions button')).find((b) =>
+    (b.textContent ?? '').includes('添加 1 个文件'),
+  );
+  assert.ok(confirm instanceof HTMLElement, '工作区外勾选也必须可确认');
+  fireEvent.click(confirm);
+  assert.deepStrictEqual(picked, [['C:/out.log']], '回传必须是真实绝对路径，不带 fs: 前缀');
   ui.unmount();
 });
