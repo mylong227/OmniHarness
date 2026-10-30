@@ -76,9 +76,26 @@ export class TextThreeWayMerge {
     if (ours === theirs) return { ok: true, content: ours };
     if (base === ours) return { ok: true, content: theirs };
     if (base === theirs) return { ok: true, content: ours };
+    // 行尾归一（2026-10-30 研究 EDIT_CONCURRENCY_RESEARCH 的必修项）：行切分用 `\n`，CRLF 的 `\r`
+    // 留在行内容里；两侧都动了同一区域时会走字符级细化，而字符级 LCS 把 `\r` 当可丢弃差异匹配掉
+    // ⇒ 整个文件被静默改写成 LF（探针 F/F2 实测）。
+    //
+    // 口径刻意保守：只有 base 的行尾**统一**、且某一侧也**统一**为另一种风格时才归一（视为"非编辑"），
+    // 结果沿用 base 的风格；base 本身混行尾 ⇒ 一律不动（宁可冲突，也不替用户改写形状）。
+    const baseEol = TextThreeWayMerge.eolOf(base);
+    let oursText = ours;
+    let theirsText = theirs;
+    if (baseEol !== 'mixed') {
+      if (TextThreeWayMerge.eolOf(oursText) === (baseEol === 'crlf' ? 'lf' : 'crlf')) {
+        oursText = TextThreeWayMerge.withEol(oursText, baseEol);
+      }
+      if (TextThreeWayMerge.eolOf(theirsText) === (baseEol === 'crlf' ? 'lf' : 'crlf')) {
+        theirsText = TextThreeWayMerge.withEol(theirsText, baseEol);
+      }
+    }
     const baseLines = TextThreeWayMerge.linesOf(base);
-    const oursLines = TextThreeWayMerge.linesOf(ours);
-    const theirsLines = TextThreeWayMerge.linesOf(theirs);
+    const oursLines = TextThreeWayMerge.linesOf(oursText);
+    const theirsLines = TextThreeWayMerge.linesOf(theirsText);
     const cells = (baseLines.length + 1) * (Math.max(oursLines.length, theirsLines.length) + 1);
     if (cells > TextThreeWayMerge.MAX_CELLS) {
       return { ok: false, reason: 'too-large', conflicts: [] };
@@ -94,6 +111,30 @@ export class TextThreeWayMerge {
     );
     if (!merged.ok) return merged;
     return { ok: true, content: merged.lines.join('\n') };
+  }
+
+  /**
+   * 判定文本的行尾风格（只认「整份统一」）。
+   * @param text 文本
+   * @returns `crlf`（只有 \r\n）/ `lf`（只有裸 \n）/ `mixed`（两者都有）
+   */
+  private static eolOf(text: string): 'crlf' | 'lf' | 'mixed' {
+    const crlf = (text.match(/\r\n/gu) ?? []).length;
+    const bareLf = (text.match(/(?<!\r)\n/gu) ?? []).length;
+    if (bareLf === 0) return 'crlf';
+    if (crlf === 0) return 'lf';
+    return 'mixed';
+  }
+
+  /**
+   * 把文本统一成指定行尾。
+   * @param text 文本
+   * @param style 目标风格
+   * @returns 归一后的文本
+   */
+  private static withEol(text: string, style: 'crlf' | 'lf'): string {
+    const unix = text.replace(/\r\n/gu, '\n');
+    return style === 'crlf' ? unix.replace(/\n/gu, '\r\n') : unix;
   }
 
   /**
