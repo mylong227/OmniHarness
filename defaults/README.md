@@ -177,15 +177,15 @@
 ## `limits.json`
 
 **运维限制**：HTTP 主服务的收头/请求时限、并发连接数、请求体上限、静态缓存上限；工作区网页预览源
-的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期；工具族缺省限额（`web_fetch` 的超时与
-响应体上限、shell 并发与队列上限）；媒体抽帧的 ffmpeg 并发；浏览器（CDP/Playwright）的动作/加载/CDP/
-建连/启动/探测/空闲关闭超时；LSP 的请求/诊断等待超时；维护巡检与会话保留策略（keepNewest / 年龄 / 总量、
-临时清扫阈值、周期间隔）。这些值此前写死在
-`HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` / `A2aTaskPager` / `WebFetchTool` /
-`FairSessionScheduler` 装配处 / `MediaStackAssembler` / `CdpClient` / `ChromeProcess` / `BrowserSession` /
-`PlaywrightBrowserSession` / `BrowserAvailability` / `BrowserScreenshotTool` / `BrowserActTool` /
-`LspProcessAdapter` / `LspJsonRpcConnection` / `SessionGc` / `TmpSweep` / `MaintenanceRunner` 里，
-改一次要改代码重发。
+的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期、任务与推送桶上限；工具族缺省限额
+（`web_fetch` 的超时与响应体上限、shell 并发与队列上限）；媒体抽帧的 ffmpeg 并发；浏览器
+（CDP/Playwright）的动作/加载/CDP/建连/启动/探测/空闲关闭超时；LSP 的请求/诊断等待超时；维护巡检与
+会话保留策略（keepNewest / 年龄 / 总量、临时清扫阈值、周期间隔）。这些值此前写死在
+`HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` / `A2aTaskStore` / `A2aTaskPager` /
+`WebFetchTool` / `FairSessionScheduler` 装配处 / `MediaStackAssembler` / `CdpClient` / `ChromeProcess` /
+`BrowserSession` / `PlaywrightBrowserSession` / `BrowserAvailability` / `BrowserScreenshotTool` /
+`BrowserActTool` / `LspProcessAdapter` / `LspJsonRpcConnection` / `SessionGc` / `TmpSweep` /
+`MaintenanceRunner` 里，改一次要改代码重发。
 
 ```json
 {
@@ -200,7 +200,14 @@
     "clientTimeoutMs": { "value": 60000, "env": "OMNI_A2A_CLIENT_TIMEOUT_MS", "notes": "…" },
     "webhookTimeoutMs": { "value": 10000, "env": "OMNI_A2A_WEBHOOK_TIMEOUT_MS", "notes": "…" },
     "pageSize": { "value": 50, "env": "OMNI_A2A_PAGE_SIZE", "notes": "…" },
-    "pageTokenTtlMs": { "value": 86400000, "env": "OMNI_A2A_PAGE_TOKEN_TTL_MS", "notes": "…" }
+    "pageTokenTtlMs": { "value": 86400000, "env": "OMNI_A2A_PAGE_TOKEN_TTL_MS", "notes": "…" },
+    "maxPushConfigsPerTask": {
+      "value": 20,
+      "notes": "单任务 push 配置上限（env 仍由 LimitEnv 宽松解释）"
+    },
+    "maxPushTasks": { "value": 500, "notes": "push 配置桶总数上限" },
+    "maxTasks": { "value": 500, "notes": "A2A 任务记录上限" },
+    "maxArtifactsPerTask": { "value": 200, "notes": "单任务产出上限" }
   },
   "tools": {
     "webFetchTimeoutMs": { "value": 30000, "env": "OMNI_WEB_FETCH_TIMEOUT_MS", "notes": "…" },

@@ -76,3 +76,27 @@ test('终态语义不变：completed/failed/canceled/rejected 为终态', () => 
   assert.strictEqual(A2aTaskStore.isTerminal('working'), false);
   assert.strictEqual(A2aTaskStore.isTerminal('submitted'), false);
 });
+
+test('上限可由构造选项（配置段）覆盖：配置 > env > 数据默认值', () => {
+  process.env['OMNI_A2A_MAX_TASKS'] = '9';
+  try {
+    // 配置段 2 ⇒ 压过 env 的 9。
+    const byConfig = new A2aTaskStore({ maxTasks: 2 });
+    byConfig.create('a');
+    byConfig.create('b');
+    byConfig.create('c');
+    assert.strictEqual(
+      byConfig.get('a'),
+      undefined,
+      '配置 maxTasks=2 必须生效（env 9 不得盖过它）',
+    );
+    // 正对照：不带配置时同一个 env 生效（上限 9，三条都留）。
+    const byEnv = new A2aTaskStore();
+    byEnv.create('a');
+    byEnv.create('b');
+    byEnv.create('c');
+    assert.ok(byEnv.get('a') !== undefined, '未配置时应回落到 env（9）而不是数据默认 500');
+  } finally {
+    delete process.env['OMNI_A2A_MAX_TASKS'];
+  }
+});

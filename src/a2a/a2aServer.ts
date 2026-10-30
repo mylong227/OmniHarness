@@ -1,4 +1,4 @@
-/**
+﻿/**
  * A2A 互操作服务端。
  *
  * 两条协议面并存（共用同一 `TaskHandler`）：
@@ -49,6 +49,7 @@ import { A2aPushNotifications } from './a2aPushNotifications.ts';
 import { A2aV1Methods } from './a2aV1Methods.ts';
 import type { A2aAgentCardSigner } from './a2aAgentCardSigner.ts';
 import type { TaskHandler } from './a2aTaskHandler.ts';
+import type { A2aLimits } from '../util/runtimeLimits.ts';
 
 export type { TaskHandler } from './a2aTaskHandler.ts';
 
@@ -68,6 +69,12 @@ export interface A2aServerOptions {
    * webhook 超时是部署相关的运维旋钮（外网慢时投递更容易超时），不该写死在实现里。
    */
   readonly push?: A2aPushNotifications;
+  /**
+   * 运维限额（`omniharness.json` 的 `limits.a2a` 里与任务表相关的两项，2026-10-30 数据化）。
+   *
+   * 传**原始配置**而不是解析结果：未配置的键要让叶子类回落到 env（`OMNI_A2A_MAX_TASKS` 等，宽松解释）。
+   */
+  readonly limits?: Partial<A2aLimits> | undefined;
   /**
    * AgentCard JWS 签名器（等价于 {@link A2aServer.setAgentCardSigner}）。
    *
@@ -116,7 +123,7 @@ export class A2aServer {
   /** AgentCard JWS 签名器（未设置时取卡返回未签名卡——不伪造签名）。 */
   private signer: A2aAgentCardSigner | undefined;
   /** 任务表（状态机 + 流事件）。 */
-  private readonly tasks = new A2aTaskStore();
+  private readonly tasks: A2aTaskStore;
   /** push notification 配置与投递（可注入：组合根按 `limits.a2a.webhookTimeoutMs` 构造）。 */
   private readonly push: A2aPushNotifications;
   /** v1.0 协议语义实现。 */
@@ -125,13 +132,20 @@ export class A2aServer {
   /**
    * @param transport 底层传输端口（监听入站 JSON-RPC 并回写响应）。
    * @param identity 可选的 Agent 身份端口；提供时对受保护请求强制 fail-closed 验签。
-   * @param options 可选的分页器与 AgentCard 签名器。
+   * @param options 可选的分页器 / 签名器 / push 实例 / 运维限额。
    */
   public constructor(
     private readonly transport: A2aTransport,
     private readonly identity?: AgentIdentityPort,
     options: A2aServerOptions = {},
   ) {
+    // 任务/推送桶上限（2026-10-30 数据化）：配置段（`limits.a2a`）> env（LimitEnv 宽松解释）> 数据默认值。
+    this.tasks = new A2aTaskStore({
+      ...(options.limits?.maxTasks !== undefined ? { maxTasks: options.limits.maxTasks } : {}),
+      ...(options.limits?.maxArtifactsPerTask !== undefined
+        ? { maxArtifactsPerTask: options.limits.maxArtifactsPerTask }
+        : {}),
+    });
     this.push = options.push ?? new A2aPushNotifications();
     this.signer = options.cardSigner;
     this.v1 = new A2aV1Methods({

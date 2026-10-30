@@ -7179,3 +7179,19 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`webFetchTool` 7/7、`configBuilder` 20/20；快速层 + 类型层门禁通过。
 - **仍未并轨**：A2A 的任务桶/推送上限与传输超时、registry 响应上限仍在用 `LimitEnv.int(名字, 字面量)`——
   它们要么在模块加载期定型（拿不到配置），要么需要给 `A2aServer`/传输构造器加限额注入；下一片处理。
+
+## 193. 2026-10-30 运维旋钮数据化（P8）：A2A 任务/推送桶上限
+
+- **范围**：`A2aTaskStore` 的任务总量（500）与单任务产出（200）、`A2aPushNotifications` 的单任务配置（20）
+  与任务桶（500）。四个值此前是 `LimitEnv.int('OMNI_A2A_*', 字面量)` 的字段初始化器。
+- **形态**：`limits.a2a` 补四项（数据无 `env`，env 仍由 `LimitEnv` 宽松解释）；`A2aTaskStore` 新增
+  `A2aTaskStoreOptions`，`A2aPushNotificationsOptions` 补两项；`A2aServerOptions.limits` 接受原始配置段，
+  组合根 `Runtime.attachA2a` 把 `config.limits?.a2a` 与 push 的桶上限传下去。
+- **层级**：**配置段 > env（宽松）> 数据默认值**——与 P4/P7 同一口径，已在 `defaults/README` 说明。
+- **判据**：`runtimeLimits.test.ts` ①补 a2a 四项缺省值、③补逐键覆盖、⑧守卫扩到 `a2aTaskStore` /
+  `a2aPushNotifications`（字段初始化器里的 `LimitEnv` 调用不得再出现）、⑨接线补组合根三处；
+  `a2aTaskStoreBounds.test.ts` 新增真跑一例——`new A2aTaskStore({ maxTasks: 2 })` 在 env=9 时仍然只留 2 条，
+  随后不带配置的同 env 实例保留 3 条（正对照，证明配置真的压过 env）。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、A2A 相关 6 套件 33/33；快速层 + 类型层门禁通过。
+- **仍未并轨**：A2A 传输的 send/read/maxBody（需给两个传输构造器加限额参数）与 registry 响应上限
+  （模块加载期定型）——下一片收尾，或明确登记为 env-only 边界。

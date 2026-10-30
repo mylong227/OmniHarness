@@ -9,6 +9,15 @@ import { A2A_ERROR_TASK_NOT_FOUND } from './a2aProtocol.ts';
 import { A2aProtocolError } from './a2aProtocolError.ts';
 import { LimitEnv } from '../util/limitEnv.ts';
 import { log } from '../util/logger.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
+
+/** 任务表上限选项（2026-10-30 数据化：配置段 > env > 数据默认值）。 */
+export interface A2aTaskStoreOptions {
+  /** 任务记录上限（缺省 `limits.a2a.maxTasks`）。 */
+  readonly maxTasks?: number | undefined;
+  /** 单任务产出上限（缺省 `limits.a2a.maxArtifactsPerTask`）。 */
+  readonly maxArtifactsPerTask?: number | undefined;
+}
 
 /** 一条任务流事件（订阅者与 push 通知共用同一载荷）。 */
 export interface A2aTaskEvent {
@@ -61,16 +70,24 @@ export class A2aTaskStore {
    * （有界内存优先于保留全部状态；每次淘汰都留 warn 轨迹）。与 GraphRunRegistry 的
    * MAX_RUNS 淘汰同口径。
    */
-  private readonly maxTasks: number = LimitEnv.int('OMNI_A2A_MAX_TASKS', 500);
+  private readonly maxTasks: number;
   /** 单任务产出上限（超出丢最旧并告警；防长流任务的 artifacts 无界增长）。 */
-  private readonly maxArtifactsPerTask: number = LimitEnv.int(
-    'OMNI_A2A_MAX_ARTIFACTS_PER_TASK',
-    200,
-  );
+  private readonly maxArtifactsPerTask: number;
   /** 任务记录表（id → 记录）。 */
   private readonly records = new Map<string, A2aTaskRecord>();
   /** 任务事件观察者（push notification 用；缺省不通知）。 */
   private observer: ((event: A2aTaskEvent, task: A2aTask) => void) | undefined;
+
+  /**
+   * @param options 上限覆盖（配置段；未给的键回落到 env / 数据默认值）。
+   */
+  public constructor(options: A2aTaskStoreOptions = {}) {
+    const defaults = runtimeLimits.defaults().a2a;
+    this.maxTasks = options.maxTasks ?? LimitEnv.int('OMNI_A2A_MAX_TASKS', defaults.maxTasks);
+    this.maxArtifactsPerTask =
+      options.maxArtifactsPerTask ??
+      LimitEnv.int('OMNI_A2A_MAX_ARTIFACTS_PER_TASK', defaults.maxArtifactsPerTask);
+  }
 
   /**
    * 设置任务事件观察者（服务端接 push notification）。

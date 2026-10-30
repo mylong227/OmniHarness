@@ -79,12 +79,16 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     requestTimeoutMs: 30_000,
     maxConnections: 64,
   });
-  // A2A 段（P2 迁入）：调用超时 60s / webhook 10s / 页大小 50 / 游标 TTL 24h——迁移前逐字写死。
+  // A2A 段（P2 迁入超时/分页；P8 迁入任务与推送桶上限）：迁移前逐字写死。
   assert.deepStrictEqual(defaults.a2a, {
     clientTimeoutMs: 60_000,
     webhookTimeoutMs: 10_000,
     pageSize: 50,
     pageTokenTtlMs: 24 * 60 * 60 * 1000,
+    maxPushConfigsPerTask: 20,
+    maxPushTasks: 500,
+    maxTasks: 500,
+    maxArtifactsPerTask: 200,
   });
   // 工具段（P3 迁入 web_fetch；P7 迁入 shell 并发/队列）：迁移前逐字写死在实现里。
   assert.deepStrictEqual(defaults.tools, {
@@ -152,9 +156,11 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   // 配置写了 headersTimeoutMs ⇒ 覆盖出厂 30000。
   assert.strictEqual(resolved.http.headersTimeoutMs, 12_000);
   // A2A 段同样逐键覆盖（配置 > 出厂），未写的键不动。
-  const a2a = runtimeLimits.resolve({ a2a: { pageSize: 20 } }).a2a;
+  const a2a = runtimeLimits.resolve({ a2a: { pageSize: 20, maxTasks: 42 } }).a2a;
   assert.strictEqual(a2a.pageSize, 20);
+  assert.strictEqual(a2a.maxTasks, 42);
   assert.strictEqual(a2a.clientTimeoutMs, 60_000);
+  assert.strictEqual(a2a.maxArtifactsPerTask, 200);
   // 工具段同样逐键覆盖。
   const tools = runtimeLimits.resolve({
     tools: { webFetchTimeoutMs: 9_000, shellConcurrency: 3 },
@@ -317,6 +323,17 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.doesNotMatch(pager, /DEFAULT_PAGE_SIZE|DEFAULT_TTL_MS|24 \* 60 \* 60/u);
   assert.match(pager, /a2aDefaults\.pageSize/u);
 
+  // A2A 段（P8）：任务/推送桶上限不得再写死（LimitEnv 只保留 env 名，默认值来自数据）。
+  assert.doesNotMatch(push, /MAX_CONFIGS_PER_TASK = LimitEnv|MAX_TASK_BUCKETS = LimitEnv/u);
+  assert.match(push, /maxPushConfigsPerTask/u);
+  const taskStore = srcCode('src/a2a/a2aTaskStore.ts');
+  assert.doesNotMatch(
+    taskStore,
+    /maxTasks: number = LimitEnv|maxArtifactsPerTask: number = LimitEnv/u,
+  );
+  assert.match(taskStore, /defaults\.maxTasks/u);
+  assert.match(taskStore, /defaults\.maxArtifactsPerTask/u);
+
   // 工具段（P3）：web_fetch 不得再写死缺省超时/字节上限。
   const webFetch = srcCode('src/adapters/tool/web/webFetchTool.ts');
   assert.doesNotMatch(webFetch, /DEFAULT_MAX_BYTES|DEFAULT_TIMEOUT_MS|200_000/u);
@@ -395,7 +412,14 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   const runtime = srcCode('src/composition/runtime.ts');
   assert.match(runtime, /runtimeLimits\.resolve\(config\.limits\)\.a2a/u);
   assert.match(runtime, /new A2aTaskPager\(\{/u);
-  assert.match(runtime, /new A2aPushNotifications\(\{ timeoutMs/u);
+  // 任务/推送桶上限走原始配置（未配置时叶子类回落 env / 数据默认值）。
+  assert.match(runtime, /limits: config\.limits\?\.a2a/u);
+  assert.match(runtime, /maxConfigsPerTask: config\.limits\?\.a2a\?\.maxPushConfigsPerTask/u);
+  assert.match(runtime, /maxTaskBuckets: config\.limits\?\.a2a\?\.maxPushTasks/u);
+  assert.match(
+    runtime,
+    /new A2aPushNotifications\(\{[\s\S]*?timeoutMs: a2aLimits\.webhookTimeoutMs/u,
+  );
   assert.match(runtime, /timeoutMs: a2aLimits\.clientTimeoutMs/u);
   // 工具段：limits 随种子下发到工具装配层，在配置层解析一次后交给 web_fetch。
   assert.match(

@@ -356,11 +356,17 @@ export class Runtime {
     const a2aLimits = runtimeLimits.resolve(config.limits).a2a;
     const serverTransport = wsMode ? new WsA2aServerTransport() : new HttpA2aServerTransport();
     const server = new A2aServer(serverTransport, config.identity, {
+      // 原始配置段（未配置的键由叶子类回落到 env / 数据默认值）。
+      limits: config.limits?.a2a,
       pager: new A2aTaskPager({
         defaultPageSize: a2aLimits.pageSize,
         ttlMs: a2aLimits.pageTokenTtlMs,
       }),
-      push: new A2aPushNotifications({ timeoutMs: a2aLimits.webhookTimeoutMs }),
+      push: new A2aPushNotifications({
+        timeoutMs: a2aLimits.webhookTimeoutMs,
+        maxConfigsPerTask: config.limits?.a2a?.maxPushConfigsPerTask,
+        maxTaskBuckets: config.limits?.a2a?.maxPushTasks,
+      }),
     });
     const peer =
       config.a2a.peerEndpoint ??

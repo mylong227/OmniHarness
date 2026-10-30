@@ -68,6 +68,22 @@
       "value": 86400000,
       "env": "OMNI_A2A_PAGE_TOKEN_TTL_MS",
       "notes": "游标有效期（24h）：过期后要求客户端重新列首页，避免无限期可用的旧游标。原写死 24*60*60*1000。"
+    },
+    "maxPushConfigsPerTask": {
+      "value": 20,
+      "notes": "单任务 push 通知配置条数上限（超出丢最旧）。env OMNI_A2A_MAX_PUSH_CONFIGS_PER_TASK 仍由 LimitEnv 宽松解释。"
+    },
+    "maxPushTasks": {
+      "value": 500,
+      "notes": "push 配置桶（按任务）总数上限。"
+    },
+    "maxTasks": {
+      "value": 500,
+      "notes": "A2A 任务记录上限（超出按终态/最旧淘汰）。"
+    },
+    "maxArtifactsPerTask": {
+      "value": 200,
+      "notes": "单任务产出（artifact）上限（超出丢最旧并告警）。"
     }
   },
   "tools": {

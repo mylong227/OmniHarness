@@ -72,6 +72,14 @@ export interface A2aLimits {
   readonly pageSize: number;
   /** 游标有效期（毫秒）。 */
   readonly pageTokenTtlMs: number;
+  /** 单任务 push 通知配置条数上限。 */
+  readonly maxPushConfigsPerTask: number;
+  /** push 配置桶（按任务）总数上限。 */
+  readonly maxPushTasks: number;
+  /** A2A 任务记录上限。 */
+  readonly maxTasks: number;
+  /** 单任务产出（artifact）上限。 */
+  readonly maxArtifactsPerTask: number;
 }
 
 /** 工具族缺省限额（`limits.tools`）。 */
@@ -192,6 +200,10 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
     webhookTimeoutMs: { min: 1, max: 600_000 },
     pageSize: { min: 1, max: 100 },
     pageTokenTtlMs: { min: 1, max: 2_592_000_000 },
+    maxPushConfigsPerTask: { min: 1, max: 100_000 },
+    maxPushTasks: { min: 1, max: 1_000_000 },
+    maxTasks: { min: 1, max: 1_000_000 },
+    maxArtifactsPerTask: { min: 1, max: 100_000 },
   }),
   tools: Object.freeze({
     webFetchTimeoutMs: { min: 1, max: 300_000 },
@@ -396,6 +408,20 @@ export class RuntimeLimits {
       webhookTimeoutMs: this.value('a2a', 'webhookTimeoutMs', overrides?.webhookTimeoutMs, env),
       pageSize: this.value('a2a', 'pageSize', overrides?.pageSize, env),
       pageTokenTtlMs: this.value('a2a', 'pageTokenTtlMs', overrides?.pageTokenTtlMs, env),
+      maxPushConfigsPerTask: this.value(
+        'a2a',
+        'maxPushConfigsPerTask',
+        overrides?.maxPushConfigsPerTask,
+        env,
+      ),
+      maxPushTasks: this.value('a2a', 'maxPushTasks', overrides?.maxPushTasks, env),
+      maxTasks: this.value('a2a', 'maxTasks', overrides?.maxTasks, env),
+      maxArtifactsPerTask: this.value(
+        'a2a',
+        'maxArtifactsPerTask',
+        overrides?.maxArtifactsPerTask,
+        env,
+      ),
     };
   }
 
