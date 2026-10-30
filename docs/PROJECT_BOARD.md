@@ -7329,5 +7329,5 @@ BLOCKERS（外部凭据/证书）、Wave E（纪律性阻塞）、G1/G3/G4/H2（
 - 门禁：`check --strict` 零违规、typed 2/2、arch:gate 0 新增、doc-links 0 死链、
   auditConfigWiring 全绿、independence 2351 文件零引用、web:test 131 文件 / 669 例全绿、
   desktop 测试全绿、perf:gate 七项预算绿。
-- 全量 `npm test` 终验（数字见下轮登录）；本轮提交：`bc89aedc`（会话搬运）→ `af1ddda9`
+- 全量 `npm test` 终验：**node 709 文件 / 4371 例 + web 131 文件 / 669 例，全部通过**（首次终验 3 例红已归因修复，见 `2831611e`）。本轮提交：`bc89aedc`（会话搬运）→ `af1ddda9`
   （文件名对齐）→ `81d29211`（a2a 加固）→ `55a463ae`（F8/F9 登记）→ `1ba16354`（列表排合成 id）。
