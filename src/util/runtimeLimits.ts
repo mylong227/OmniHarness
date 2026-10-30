@@ -1,4 +1,12 @@
-import { builtinDefaults } from './builtinDefaults.ts';
+﻿import { builtinDefaults } from './builtinDefaults.ts';
+import {
+  LIMIT_ENTRY_KEYS,
+  LIMIT_ENV_NAME,
+  LIMIT_SCHEMA,
+  LIMIT_SECTIONS,
+  type LimitBound,
+  type LimitSection,
+} from './runtimeLimitsSchema.ts';
 
 /**
  * 运维限制（**超时 / 连接数 / 体积上限**）的数据化解析器。
@@ -80,6 +88,12 @@ export interface A2aLimits {
   readonly maxTasks: number;
   /** 单任务产出（artifact）上限。 */
   readonly maxArtifactsPerTask: number;
+  /** 出站 `send` 的空闲超时（毫秒）。 */
+  readonly transportSendTimeoutMs: number;
+  /** 入站读超时（毫秒）。 */
+  readonly transportReadTimeoutMs: number;
+  /** 入站请求体字节上限。 */
+  readonly transportMaxBodyBytes: number;
 }
 
 /** 工具族缺省限额（`limits.tools`）。 */
@@ -166,96 +180,6 @@ export interface ResolvedRuntimeLimits {
   readonly maintenance: MaintenanceLimits;
 }
 
-/** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection =
-  'http' | 'preview' | 'a2a' | 'tools' | 'media' | 'browser' | 'lsp' | 'maintenance';
-
-/** 单段各键的合法区间（闭区间，整数）。 */
-interface LimitBound {
-  readonly min: number;
-  readonly max: number;
-}
-
-/**
- * 结构定义：段 → 键 → 合法区间。
- *
- * 区间是**校验策略**（不是出厂值），故留在代码里；出厂值与 env 名在数据文件里。
- */
-const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>>> = Object.freeze({
-  http: Object.freeze({
-    headersTimeoutMs: { min: 1, max: 86_400_000 },
-    requestTimeoutMs: { min: 1, max: 86_400_000 },
-    maxConnections: { min: 1, max: 1_000_000 },
-    maxBodyBytes: { min: 1_024, max: 1_073_741_824 },
-    staticCacheMaxEntries: { min: 1, max: 100_000 },
-    staticCacheMaxBytes: { min: 1_024, max: 1_073_741_824 },
-  }),
-  preview: Object.freeze({
-    headersTimeoutMs: { min: 1, max: 86_400_000 },
-    requestTimeoutMs: { min: 1, max: 86_400_000 },
-    maxConnections: { min: 1, max: 100_000 },
-  }),
-  a2a: Object.freeze({
-    clientTimeoutMs: { min: 1, max: 86_400_000 },
-    webhookTimeoutMs: { min: 1, max: 600_000 },
-    pageSize: { min: 1, max: 100 },
-    pageTokenTtlMs: { min: 1, max: 2_592_000_000 },
-    maxPushConfigsPerTask: { min: 1, max: 100_000 },
-    maxPushTasks: { min: 1, max: 1_000_000 },
-    maxTasks: { min: 1, max: 1_000_000 },
-    maxArtifactsPerTask: { min: 1, max: 100_000 },
-  }),
-  tools: Object.freeze({
-    webFetchTimeoutMs: { min: 1, max: 300_000 },
-    webFetchMaxBytes: { min: 1_024, max: 2_000_000 },
-    shellConcurrency: { min: 1, max: 1_024 },
-    shellQueuePerSession: { min: 1, max: 100_000 },
-    shellQueueTotal: { min: 1, max: 1_000_000 },
-  }),
-  media: Object.freeze({
-    processConcurrency: { min: 1, max: 256 },
-  }),
-  browser: Object.freeze({
-    actionTimeoutMs: { min: 1, max: 600_000 },
-    loadTimeoutMs: { min: 1, max: 600_000 },
-    commandTimeoutMs: { min: 1, max: 600_000 },
-    connectTimeoutMs: { min: 1, max: 600_000 },
-    launchTimeoutMs: { min: 1, max: 600_000 },
-    probeTimeoutMs: { min: 1, max: 600_000 },
-    idleCloseMs: { min: 1_000, max: 86_400_000 },
-  }),
-  lsp: Object.freeze({
-    requestTimeoutMs: { min: 1, max: 600_000 },
-    diagnosticsTimeoutMs: { min: 1, max: 600_000 },
-  }),
-  maintenance: Object.freeze({
-    // 配置段最低 1：把保留数调成 0 等于清空全部会话（env 旧语义不变，见数据文件 notes）。
-    keepNewest: { min: 1, max: 1_000_000 },
-    maxAgeDays: { min: 1, max: 36_500 },
-    maxBytes: { min: 1_048_576, max: 1_099_511_627_776 },
-    tmpOlderThanMs: { min: 60_000, max: 2_592_000_000 },
-    intervalHours: { min: 1, max: 8_760 },
-  }),
-});
-
-/** 一段限制记录的允许 key 全集（数据文件里的字段）。 */
-const ENTRY_KEYS: ReadonlySet<string> = new Set(['value', 'env', 'notes']);
-
-/** 段名全集（按稳定顺序，供报错文案与判据共用）。 */
-const SECTIONS: readonly LimitSection[] = [
-  'http',
-  'preview',
-  'a2a',
-  'tools',
-  'media',
-  'browser',
-  'lsp',
-  'maintenance',
-];
-
-/** 环境变量名的合法形态（避免数据文件里写出 `undefined` 这类永远不会被读到的名字）。 */
-const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
-
 /** 运维限制的数据化实现（构造期读数据并校验；无状态之外只持不可变表）。 */
 export class RuntimeLimits {
   /** `段.键` → 记录（构造期已逐条校验）。 */
@@ -325,14 +249,14 @@ export class RuntimeLimits {
       return 'limits 应为对象（形如 {"http":{"headersTimeoutMs":45000}}）';
     }
     for (const section of Object.keys(raw)) {
-      if (!(SECTIONS as readonly string[]).includes(section)) {
-        return `limits 含未知段 '${section}'（允许：${SECTIONS.join(' / ')}）`;
+      if (!(LIMIT_SECTIONS as readonly string[]).includes(section)) {
+        return `limits 含未知段 '${section}'（允许：${LIMIT_SECTIONS.join(' / ')}）`;
       }
       const body = raw[section];
       if (!RuntimeLimits.isRecord(body)) {
         return `limits.${section} 应为对象`;
       }
-      const bounds = SCHEMA[section as LimitSection];
+      const bounds = LIMIT_SCHEMA[section as LimitSection];
       for (const [key, value] of Object.entries(body)) {
         if (!Object.prototype.hasOwnProperty.call(bounds, key)) {
           return `limits.${section} 含未知 key '${key}'（允许：${Object.keys(bounds).join(' / ')}）`;
@@ -416,6 +340,24 @@ export class RuntimeLimits {
       ),
       maxPushTasks: this.value('a2a', 'maxPushTasks', overrides?.maxPushTasks, env),
       maxTasks: this.value('a2a', 'maxTasks', overrides?.maxTasks, env),
+      transportSendTimeoutMs: this.value(
+        'a2a',
+        'transportSendTimeoutMs',
+        overrides?.transportSendTimeoutMs,
+        env,
+      ),
+      transportReadTimeoutMs: this.value(
+        'a2a',
+        'transportReadTimeoutMs',
+        overrides?.transportReadTimeoutMs,
+        env,
+      ),
+      transportMaxBodyBytes: this.value(
+        'a2a',
+        'transportMaxBodyBytes',
+        overrides?.transportMaxBodyBytes,
+        env,
+      ),
       maxArtifactsPerTask: this.value(
         'a2a',
         'maxArtifactsPerTask',
@@ -611,7 +553,7 @@ export class RuntimeLimits {
     value: number,
     origin: string,
   ): number {
-    const bounds = SCHEMA[section][key];
+    const bounds = LIMIT_SCHEMA[section][key];
     const message = RuntimeLimits.rangeMessage(origin, value, bounds);
     if (message !== undefined) {
       throw new Error(message);
@@ -656,15 +598,17 @@ export class RuntimeLimits {
     const out = new Map<string, LimitEntry>();
     const envNames = new Set<string>();
     for (const name of Object.keys(raw)) {
-      if (!(SECTIONS as readonly string[]).includes(name)) {
-        throw new Error(`defaults/limits.json 含未知段 '${name}'（允许：${SECTIONS.join(' / ')}）`);
+      if (!(LIMIT_SECTIONS as readonly string[]).includes(name)) {
+        throw new Error(
+          `defaults/limits.json 含未知段 '${name}'（允许：${LIMIT_SECTIONS.join(' / ')}）`,
+        );
       }
       const section = name as LimitSection;
       const body = raw[section];
       if (!RuntimeLimits.isRecord(body)) {
         throw new Error(`defaults/limits.json 的 ${section} 段应为对象`);
       }
-      const bounds = SCHEMA[section];
+      const bounds = LIMIT_SCHEMA[section];
       for (const [key, bound] of Object.entries(bounds)) {
         const where = `defaults/limits.json ${section}.${key}`;
         const record = body[key];
@@ -681,7 +625,7 @@ export class RuntimeLimits {
         }
       }
     }
-    for (const section of SECTIONS) {
+    for (const section of LIMIT_SECTIONS) {
       if (!Object.prototype.hasOwnProperty.call(raw, section)) {
         throw new Error(`defaults/limits.json 缺少 ${section} 段`);
       }
@@ -708,8 +652,10 @@ export class RuntimeLimits {
       throw new Error(`${where} 应为对象（{ value, env?, notes? }）`);
     }
     for (const key of Object.keys(raw)) {
-      if (!ENTRY_KEYS.has(key)) {
-        throw new Error(`${where} 含未知字段 '${key}'（允许：${[...ENTRY_KEYS].join(' / ')}）`);
+      if (!LIMIT_ENTRY_KEYS.has(key)) {
+        throw new Error(
+          `${where} 含未知字段 '${key}'（允许：${[...LIMIT_ENTRY_KEYS].join(' / ')}）`,
+        );
       }
     }
     const message = RuntimeLimits.rangeMessage(`${where}.value`, raw['value'], bounds);
@@ -719,7 +665,7 @@ export class RuntimeLimits {
     const value = raw['value'] as number;
     const env = raw['env'];
     if (env !== undefined) {
-      if (typeof env !== 'string' || !ENV_NAME.test(env)) {
+      if (typeof env !== 'string' || !LIMIT_ENV_NAME.test(env)) {
         throw new Error(
           `${where}.env 应为形如 OMNI_XXX 的环境变量名（收到 ${JSON.stringify(env)}）`,
         );

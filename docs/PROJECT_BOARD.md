@@ -7195,3 +7195,16 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、A2A 相关 6 套件 33/33；快速层 + 类型层门禁通过。
 - **仍未并轨**：A2A 传输的 send/read/maxBody（需给两个传输构造器加限额参数）与 registry 响应上限
   （模块加载期定型）——下一片收尾，或明确登记为 env-only 边界。
+
+## 194. 2026-10-30 运维旋钮数据化（P9）：A2A 传输超时与入站体积
+
+- **范围**：`HttpA2aTransport` 的出站 send 超时（10s）、`HttpA2aServerTransport` 的入站读超时（30s）与
+  请求体上限（1 MiB）。三者此前是静态 `LimitEnv.int('OMNI_A2A_*', 字面量)` 常量。
+- **形态**：`limits.a2a` 补三项（数据无 `env`，env 仍由 `LimitEnv` 宽松解释）；两个传输类改为
+  **实例字段 + 构造参数**（客户端第 3 参、服务端唯一构造参数），组合根把 `config.limits?.a2a` 传进去。
+- **判据**：`runtimeLimits.test.ts` ①补三项缺省值、⑧守卫扩到 `httpA2aTransport.ts`（静态常量不得再出现）、
+  ⑨接线补两个传输构造点；`a2aServerHardening.test.ts` 新增真跑一例——`new HttpA2aServerTransport({ transportMaxBodyBytes: 1024 })`
+  下 2 KiB 请求必须 413（证明配置真的到达入站处理器）。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、A2A 相关 5 套件 26/26；快速层 + 类型层门禁通过。
+- **剩余 env-only**：`registrySourcesShared.ts` 的响应体上限（模块加载期定型、无配置入口）——登记为
+  边界而不是硬塞一个"写了不生效"的配置键。`LimitEnv` 现在只承担「宽松解析 env」单一职责。

@@ -46,3 +46,22 @@ test('A2A HTTP 服务端：未超体积的小请求仍走正常解析（上限�
     close();
   }
 });
+
+test('A2A HTTP 服务端：limits.a2a.transportMaxBodyBytes 真的生效（配置 1 KiB ⇒ 2 KiB 即 413）', async () => {
+  const server = new HttpA2aServerTransport({ transportMaxBodyBytes: 1024 });
+  const port = await server.listen(0);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/a2a`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'x'.repeat(2048),
+    });
+    assert.strictEqual(
+      res.status,
+      413,
+      `配置 1 KiB 上限时 2 KiB 请求必须被拒（实际 ${res.status}）`,
+    );
+  } finally {
+    server.close();
+  }
+});

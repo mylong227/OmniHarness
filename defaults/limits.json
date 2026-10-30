@@ -84,6 +84,18 @@
     "maxArtifactsPerTask": {
       "value": 200,
       "notes": "单任务产出（artifact）上限（超出丢最旧并告警）。"
+    },
+    "transportSendTimeoutMs": {
+      "value": 10000,
+      "notes": "出站 send 的空闲超时（fire-and-forget 也要释放 socket）。env OMNI_A2A_SEND_TIMEOUT_MS 仍由 LimitEnv 宽松解释。"
+    },
+    "transportReadTimeoutMs": {
+      "value": 30000,
+      "notes": "入站读超时：对端慢速/不发数据时必须释放连接。env OMNI_A2A_READ_TIMEOUT_MS。"
+    },
+    "transportMaxBodyBytes": {
+      "value": 1048576,
+      "notes": "入站请求体字节上限（JSON-RPC 委托消息很小，1 MiB 已宽松）。env OMNI_A2A_MAX_BODY_BYTES。"
     }
   },
   "tools": {

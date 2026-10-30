@@ -354,7 +354,9 @@ export class Runtime {
     // 运维限制（2026-10-30 数据化）：A2A 的调用/投递超时、分页大小与游标 TTL 走 `limits.a2a`
     // （defaults/limits.json 出厂值；配置 > env > 数据）。未配置时与迁移前逐字一致。
     const a2aLimits = runtimeLimits.resolve(config.limits).a2a;
-    const serverTransport = wsMode ? new WsA2aServerTransport() : new HttpA2aServerTransport();
+    const serverTransport = wsMode
+      ? new WsA2aServerTransport()
+      : new HttpA2aServerTransport(config.limits?.a2a);
     const server = new A2aServer(serverTransport, config.identity, {
       // 原始配置段（未配置的键由叶子类回落到 env / 数据默认值）。
       limits: config.limits?.a2a,
@@ -514,5 +516,7 @@ const makeA2aTransport = (peer: string, wsMode: boolean, config: ResolvedConfig)
   const ssrf: SsrfOptions = SsrfGuard.ssrfOptionsFor(
     SsrfPolicy.resolveSsrfPolicy(config.ssrfPolicy),
   );
-  return wsMode ? new WsA2aTransport(peer, ssrf) : new HttpA2aTransport(peer, ssrf);
+  return wsMode
+    ? new WsA2aTransport(peer, ssrf)
+    : new HttpA2aTransport(peer, ssrf, config.limits?.a2a);
 };

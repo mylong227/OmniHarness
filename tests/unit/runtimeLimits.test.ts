@@ -89,6 +89,9 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     maxPushTasks: 500,
     maxTasks: 500,
     maxArtifactsPerTask: 200,
+    transportSendTimeoutMs: 10_000,
+    transportReadTimeoutMs: 30_000,
+    transportMaxBodyBytes: 1_048_576,
   });
   // 工具段（P3 迁入 web_fetch；P7 迁入 shell 并发/队列）：迁移前逐字写死在实现里。
   assert.deepStrictEqual(defaults.tools, {
@@ -334,6 +337,16 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.match(taskStore, /defaults\.maxTasks/u);
   assert.match(taskStore, /defaults\.maxArtifactsPerTask/u);
 
+  // A2A 传输（P9）：三个静态 LimitEnv 常量已改为实例字段（env 名仍在，默认值来自数据）。
+  const transport = srcCode('src/a2a/httpA2aTransport.ts');
+  assert.doesNotMatch(
+    transport,
+    /SEND_TIMEOUT_MS = LimitEnv|MAX_BODY_BYTES = LimitEnv|READ_TIMEOUT_MS = LimitEnv/u,
+  );
+  assert.match(transport, /this\.sendTimeoutMs/u);
+  assert.match(transport, /this\.maxBodyBytes/u);
+  assert.match(transport, /this\.readTimeoutMs/u);
+
   // 工具段（P3）：web_fetch 不得再写死缺省超时/字节上限。
   const webFetch = srcCode('src/adapters/tool/web/webFetchTool.ts');
   assert.doesNotMatch(webFetch, /DEFAULT_MAX_BYTES|DEFAULT_TIMEOUT_MS|200_000/u);
@@ -421,6 +434,9 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
     /new A2aPushNotifications\(\{[\s\S]*?timeoutMs: a2aLimits\.webhookTimeoutMs/u,
   );
   assert.match(runtime, /timeoutMs: a2aLimits\.clientTimeoutMs/u);
+  // 传输限额（P9）：两个 HTTP 传输都收到原始配置段。
+  assert.match(runtime, /new HttpA2aServerTransport\(config\.limits\?\.a2a\)/u);
+  assert.match(runtime, /new HttpA2aTransport\(peer, ssrf, config\.limits\?\.a2a\)/u);
   // 工具段：limits 随种子下发到工具装配层，在配置层解析一次后交给 web_fetch。
   assert.match(
     srcCode('src/ports/config/subagentPortSeed.ts'),

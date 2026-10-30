@@ -17,6 +17,7 @@ import { SsrfGuard } from '../security/ssrfGuard.ts';
 import type { SsrfOptions } from '../security/ssrfGuard.ts';
 import { log } from '../util/logger.ts';
 import { LimitEnv } from '../util/limitEnv.ts';
+import { runtimeLimits, type A2aLimits } from '../util/runtimeLimits.ts';
 
 /** 客户端 HTTP 传输：向对端端点发请求，响应经 onMessage 回传。 */
 export class HttpA2aTransport implements A2aTransport {
@@ -26,16 +27,20 @@ export class HttpA2aTransport implements A2aTransport {
   private readonly endpoint: string;
   /** SSRF 策略：默认放行私有网段但拦截云元数据（出厂默认端点即 localhost/a2a）。 */
   private readonly ssrf: SsrfOptions;
-  /** 出站 `send` 的空闲超时（毫秒，可由 `OMNI_A2A_SEND_TIMEOUT_MS` 覆盖）：fire-and-forget 也必须释放 socket。 */
-  private static readonly SEND_TIMEOUT_MS = LimitEnv.int('OMNI_A2A_SEND_TIMEOUT_MS', 10_000);
+  /** 出站 `send` 的空闲超时（毫秒；配置 > env（宽松）> 数据默认值）：fire-and-forget 也必须释放 socket。 */
+  private readonly sendTimeoutMs: number;
 
   /**
    * @param endpoint 对端 `/a2a` 端点。
    * @param ssrf SSRF 策略覆盖；缺省用 {@link defaultSsrfOptions}。
+   * @param limits 运维限额（`limits.a2a`；只读其中的传输超时）。
    */
-  public constructor(endpoint: string, ssrf?: SsrfOptions) {
+  public constructor(endpoint: string, ssrf?: SsrfOptions, limits?: Partial<A2aLimits>) {
     this.endpoint = endpoint;
     this.ssrf = ssrf ?? SsrfGuard.defaultSsrfOptions();
+    this.sendTimeoutMs =
+      limits?.transportSendTimeoutMs ??
+      LimitEnv.int('OMNI_A2A_SEND_TIMEOUT_MS', runtimeLimits.defaults().a2a.transportSendTimeoutMs);
   }
 
   /**
@@ -78,7 +83,7 @@ export class HttpA2aTransport implements A2aTransport {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(message),
-      signal: AbortSignal.timeout(HttpA2aTransport.SEND_TIMEOUT_MS),
+      signal: AbortSignal.timeout(this.sendTimeoutMs),
     })
       .then((r) => r.json())
       .then((resp: unknown) => {
@@ -133,6 +138,23 @@ export class HttpA2aServerTransport implements A2aTransport {
   private card: unknown;
   /** AgentCard 动态提供者（优先于静态 card；用于返回签名卡并与 JSON-RPC 取卡同源）。 */
   private cardProvider: (() => Promise<unknown> | unknown) | undefined;
+  /** 入站请求体字节上限（配置 > env（宽松）> 数据默认值）。 */
+  private readonly maxBodyBytes: number;
+  /** 入站读超时（毫秒）：对端慢速/不发数据时必须释放连接。 */
+  private readonly readTimeoutMs: number;
+
+  /**
+   * @param limits 运维限额（`limits.a2a`；只读其中的入站 body/读超时）。
+   */
+  public constructor(limits?: Partial<A2aLimits>) {
+    const defaults = runtimeLimits.defaults().a2a;
+    this.maxBodyBytes =
+      limits?.transportMaxBodyBytes ??
+      LimitEnv.int('OMNI_A2A_MAX_BODY_BYTES', defaults.transportMaxBodyBytes);
+    this.readTimeoutMs =
+      limits?.transportReadTimeoutMs ??
+      LimitEnv.int('OMNI_A2A_READ_TIMEOUT_MS', defaults.transportReadTimeoutMs);
+  }
 
   /**
    * 设置 AgentCard（与 A2aServer 的 card 同步；well-known 路由只读暴露）。
@@ -191,11 +213,6 @@ export class HttpA2aServerTransport implements A2aTransport {
     // 还原**对端**的原始 id 再回响应：否则对端按自己的 id 关联会匹配不上。
     entry.resolve({ ...message, id: entry.remoteId });
   }
-
-  /** 入站请求体字节上限（fail-closed，可由 `OMNI_A2A_MAX_BODY_BYTES` 覆盖）：JSON-RPC 委托消息体量很小，1 MiB 已是极宽松上界。 */
-  private static readonly MAX_BODY_BYTES = LimitEnv.int('OMNI_A2A_MAX_BODY_BYTES', 1_048_576);
-  /** 入站读超时（毫秒，可由 `OMNI_A2A_READ_TIMEOUT_MS` 覆盖）：对端慢速/不发数据时必须释放连接，不能长期占用。 */
-  private static readonly READ_TIMEOUT_MS = LimitEnv.int('OMNI_A2A_READ_TIMEOUT_MS', 30_000);
 
   /**
    * 在给定端口监听（返回实际端口）。
@@ -312,7 +329,7 @@ export class HttpA2aServerTransport implements A2aTransport {
     let aborted = false;
     // 入站读超时 + 体积上限（fail-closed）：A2A 服务端是网络端口，对端不可信，裸
     // `body += chunk` 既无体积上限也无读超时 ⇒ 超大/慢速请求可耗尽内存或长期占用连接。
-    req.socket.setTimeout(HttpA2aServerTransport.READ_TIMEOUT_MS);
+    req.socket.setTimeout(this.readTimeoutMs);
     req.socket.on('timeout', () => {
       if (!aborted) {
         aborted = true;
@@ -324,7 +341,7 @@ export class HttpA2aServerTransport implements A2aTransport {
         return;
       }
       received += chunk.length;
-      if (received > HttpA2aServerTransport.MAX_BODY_BYTES) {
+      if (received > this.maxBodyBytes) {
         aborted = true;
         res.writeHead(413, { 'content-type': 'text/plain; charset=utf-8' });
         res.end('request body too large');
