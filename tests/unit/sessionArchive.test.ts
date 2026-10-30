@@ -1,9 +1,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
+import { rmTempBestEffort } from '../helpers/bestEffortCleanup.ts';
 import { LocalDay } from '../../src/util/localDay.ts';
 
 // 本文件考的是**扫描 / 排序 / 归档 / 用量**，与工作区作用域无关 —— 故所有 `list` 调用显式传 `'*'`
@@ -16,9 +17,7 @@ async function withTemp<T>(fn: (dir: string) => T | Promise<T>): Promise<T> {
   try {
     return await fn(dir);
   } finally {
-    // 旁路摘要/索引写入是异步的：清理与最后一次写可能擦肩，Windows 上会 ENOTEMPTY；
-    // 有界重试而非硬失败（判据本身已结束，清理不应把绿判红）。
-    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    await rmTempBestEffort(dir);
   }
 }
 

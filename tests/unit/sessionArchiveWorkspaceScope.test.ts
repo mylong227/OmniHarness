@@ -16,10 +16,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
+import { rmTempBestEffort } from '../helpers/bestEffortCleanup.ts';
 
 /** 本工作区路径。 */
 const THIS_WS = process.platform === 'win32' ? 'C:\\tmp\\proj-this' : '/tmp/proj-this';
@@ -86,7 +87,7 @@ test('① 传 workspace：只返回本工作区会话（明确属于别的项目
     assert.deepStrictEqual(got, ['sess_legacy_1', 'sess_this_1']);
     assert.ok(!got.includes('sess_other_1'), '外部项目的会话漏进了本工作区列表');
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    await rmTempBestEffort(dir);
   }
 });
 
@@ -99,7 +100,7 @@ test('② 无归属标记的历史会话必须保留（不能因为归不了因�
       '换个工作区也该看得到无标记的历史会话',
     );
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    await rmTempBestEffort(dir);
   }
 });
 
@@ -117,6 +118,6 @@ test('③ 作用域语义：缺省 = 当前工作区；`*` = 不过滤（跨项�
       '`*` 必须给出全量（sessionExists / search.all 依赖它看跨项目会话）',
     );
   } finally {
-    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    await rmTempBestEffort(dir);
   }
 });
