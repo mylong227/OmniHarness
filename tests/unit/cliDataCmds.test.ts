@@ -63,7 +63,7 @@ test('kv 位置参数回退：set 用 at(1)/at(2)，get 用 at(1)', async () => 
 
 test('未知子命令一律返回退出码 2 并打印用法提示', async () => {
   const cases: ReadonlyArray<readonly [string[], RegExp]> = [
-    [['session', 'bogus'], /用法: omniharness session list/],
+    [['session', 'bogus'], /omniharness session (list|export|import)/],
     [['kv', 'bogus', '--kv-adapter', 'memory'], /用法: omniharness kv get\|set\|del\|list/],
     [['audit', 'bogus'], /用法: omniharness audit export/],
     [['plugin', 'bogus'], /plugin load/],

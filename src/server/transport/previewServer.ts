@@ -115,17 +115,28 @@ export class PreviewServer {
     server.headersTimeout = limits.headersTimeoutMs;
     server.requestTimeout = limits.requestTimeoutMs;
     server.maxConnections = limits.maxConnections;
+    // 端口在 **listen 回调内**读取（监听态保证 address 可用），并在回调外 fail-closed 复核：
+    // 此前回调 resolve 后再读 address()，全量并发负载下实测出现过 address 为 null ⇒
+    // 返回 port=0 ⇒ 调用方拿 `http://127.0.0.1:0` 去 fetch ⇒ undici 的 "bad port"——
+    // 故障点漂到下游难以归因。现在拿不到端口就地抛错（不再带 0 成功返回）。
+    let boundPort = 0;
     await new Promise<void>((resolve, reject) => {
       const onError = (error: Error): void => reject(error);
       server.once('error', onError);
       server.listen(port, this.options.host ?? PreviewServer.DEFAULT_HOST, () => {
         server.removeListener('error', onError);
+        const address = server.address();
+        boundPort = typeof address === 'object' && address !== null ? address.port : port;
         resolve();
       });
     });
-    const address = server.address();
+    if (boundPort === 0) {
+      server.closeAllConnections?.();
+      server.close(() => undefined);
+      throw new Error('预览服务绑定后拿不到监听端口（address=null）——拒绝以 port 0 假装成功');
+    }
     this.server = server;
-    this.boundPort = typeof address === 'object' && address !== null ? address.port : port;
+    this.boundPort = boundPort;
     return this.boundPort;
   }
 
