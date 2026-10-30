@@ -15,11 +15,14 @@ import { LspDiagnosticsCollector } from './lspDiagnosticsCollector.ts';
 import { LspSymbolNormalizer } from './lspSymbolNormalizer.ts';
 import { LspCodeActionNormalizer } from './lspCodeActionNormalizer.ts';
 import { LspResultNormalizer } from './lspResultNormalizer.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 
 /** 适配器可选项。 */
 export interface LspProcessAdapterOptions {
-  /** 等待 `publishDiagnostics` 的毫秒数（默认 {@link LspProcessAdapter.DEFAULT_DIAGNOSTICS_TIMEOUT_MS}）。 */
+  /** 等待 `publishDiagnostics` 的毫秒数（默认取 `limits.lsp.diagnosticsTimeoutMs`，出厂 5000）。 */
   readonly diagnosticsTimeoutMs?: number;
+  /** 单次请求的等待超时（透传给 `LspJsonRpcConnection`；默认取 `limits.lsp.requestTimeoutMs`）。 */
+  readonly requestTimeoutMs?: number;
 }
 
 /**
@@ -55,8 +58,9 @@ export class LspProcessAdapter implements LspPort {
     return this.conn !== undefined && !this.conn.isDead;
   }
 
-  /** 默认等待诊断推送的毫秒数。 */
-  public static readonly DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5000;
+  /** 默认等待诊断推送的毫秒数（`defaults/limits.json` 的 `lsp.diagnosticsTimeoutMs`，出厂 5000）。 */
+  public static readonly DEFAULT_DIAGNOSTICS_TIMEOUT_MS =
+    runtimeLimits.defaults().lsp.diagnosticsTimeoutMs;
 
   /** 当前 JSON-RPC 连接（懒启动后建立；shutdown 或握手失败后回到 undefined）。 */
   private conn: LspJsonRpcConnection | undefined;
@@ -71,15 +75,18 @@ export class LspProcessAdapter implements LspPort {
   private readonly collector = new LspDiagnosticsCollector();
   /** 等待诊断的超时毫秒数。 */
   private readonly diagnosticsTimeoutMs: number;
+  /** 单次请求的等待超时（透传给连接；缺省 `limits.lsp.requestTimeoutMs`）。 */
+  private readonly requestTimeoutMs: number | undefined;
 
   public constructor(
     /** 服务器配置：启动命令/参数、工作区根 URI（LSP initialize 的 rootUri）。 */
     private readonly cfg: LspServerConfig & { readonly rootUri: string },
-    /** 可选项（诊断等待超时）。 */
+    /** 可选项（诊断等待超时 / 请求超时）。 */
     options: LspProcessAdapterOptions = {},
   ) {
     this.diagnosticsTimeoutMs =
       options.diagnosticsTimeoutMs ?? LspProcessAdapter.DEFAULT_DIAGNOSTICS_TIMEOUT_MS;
+    this.requestTimeoutMs = options.requestTimeoutMs;
   }
 
   /**
@@ -310,6 +317,7 @@ export class LspProcessAdapter implements LspPort {
       answerServerRequest: (method) => this.answerServerRequest(method),
       // 订阅服务器推送：诊断是被「推」过来的，不订阅就永远拿不到（原实现整类忽略）。
       onNotification: (method, params) => this.onServerNotification(method, params),
+      ...(this.requestTimeoutMs !== undefined ? { requestTimeoutMs: this.requestTimeoutMs } : {}),
     });
     this.conn = conn;
     conn.start();

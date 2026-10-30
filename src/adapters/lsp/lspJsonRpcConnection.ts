@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
 import { log } from '../../util/logger.ts';
+import { runtimeLimits } from '../../util/runtimeLimits.ts';
 
 /** JSON-RPC 2.0 消息（宽松结构，仅取我们需要的字段）。 */
 interface JsonRpcMessage {
@@ -11,9 +12,6 @@ interface JsonRpcMessage {
   readonly result?: unknown;
   readonly error?: { readonly code: number; readonly message: string };
 }
-
-/** 默认请求超时（ms）：服务器无响应即 fail-closed 上抛，绝不干等。 */
-const DEFAULT_REQUEST_TIMEOUT_MS = 15000;
 
 /** 构造参数：外部命令、启动参数，以及「服务器 → 客户端请求」的应答器与通知订阅。 */
 export interface LspJsonRpcConnectionOptions {
@@ -28,7 +26,7 @@ export interface LspJsonRpcConnectionOptions {
    * 未配置时通知仍照旧被忽略（零行为变更）。
    */
   readonly onNotification?: (method: string, params: unknown) => void;
-  /** 请求超时毫秒数；默认 15000。 */
+  /** 请求超时毫秒数；默认取 `limits.lsp.requestTimeoutMs`（出厂 15000）。 */
   readonly requestTimeoutMs?: number;
 }
 
@@ -127,7 +125,7 @@ export class LspJsonRpcConnection {
         id,
         { resolve, reject },
         {
-          ms: this.options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+          ms: this.options.requestTimeoutMs ?? runtimeLimits.defaults().lsp.requestTimeoutMs,
           onTimeout: (handlers) => handlers.reject?.(new Error(`LSP 请求超时: ${method}`)),
         },
       );

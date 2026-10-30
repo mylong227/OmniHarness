@@ -96,6 +96,11 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     tmpOlderThanMs: 86_400_000,
     intervalHours: 6,
   });
+  // LSP 段（P5 迁入）：请求超时 15s / 诊断等待 5s——迁移前写死在两个适配器里。
+  assert.deepStrictEqual(defaults.lsp, {
+    requestTimeoutMs: 15_000,
+    diagnosticsTimeoutMs: 5_000,
+  });
 });
 
 test('② 环境变量覆盖生效；空白视为未设置', () => {
@@ -140,6 +145,10 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   const maintenance = runtimeLimits.resolve({ maintenance: { keepNewest: 10 } }).maintenance;
   assert.strictEqual(maintenance.keepNewest, 10);
   assert.strictEqual(maintenance.maxAgeDays, 90);
+  // LSP 段同样逐键覆盖。
+  const lsp = runtimeLimits.resolve({ lsp: { requestTimeoutMs: 1_234 } }).lsp;
+  assert.strictEqual(lsp.requestTimeoutMs, 1_234);
+  assert.strictEqual(lsp.diagnosticsTimeoutMs, 5_000);
 });
 
 test('④ 坏值 fail-closed：坏环境变量点名变量，越界拒绝（不静默回落）', () => {
@@ -293,6 +302,14 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   const maintenance = srcCode('src/util/maintenanceRunner.ts');
   assert.doesNotMatch(maintenance, /DEFAULT_INTERVAL_HOURS = 6/u);
   assert.match(maintenance, /maintenance\.intervalHours/u);
+
+  // LSP 段（P5）：请求/诊断超时不得再写死。
+  const conn = srcCode('src/adapters/lsp/lspJsonRpcConnection.ts');
+  assert.doesNotMatch(conn, /DEFAULT_REQUEST_TIMEOUT_MS = 15_?000/u);
+  assert.match(conn, /lsp\.requestTimeoutMs/u);
+  const lspAdapter = srcCode('src/adapters/lsp/lspProcessAdapter.ts');
+  assert.doesNotMatch(lspAdapter, /DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5_?000/u);
+  assert.match(lspAdapter, /lsp\.diagnosticsTimeoutMs/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
@@ -327,5 +344,10 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   assert.match(
     srcCode('src/cli/cliServerCmds.ts'),
     /MaintenanceRunner\.startup\(process\.stderr, config\.limits\?\.maintenance\)/u,
+  );
+  // LSP 段：装配层把请求/诊断超时传给适配器（不是只声明）。
+  assert.match(
+    srcCode('src/config/configBuilder.ts'),
+    /runtimeLimits\.resolve\(partial\.limits\)\.lsp/u,
   );
 });

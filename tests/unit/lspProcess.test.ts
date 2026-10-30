@@ -84,6 +84,22 @@ describe('LspProcessAdapter（进程级 JSON-RPC 接线）', () => {
     assert.strictEqual(locs.length, 1, 'shutdown 后重新请求应重新启动 LSP 并返回结果');
     await a.shutdown();
   });
+
+  test('limits.lsp.requestTimeoutMs 真的生效：1ms 超时下请求 fail-closed（不干等）', async () => {
+    const a = new LspProcessAdapter(
+      {
+        serverCommand: process.execPath,
+        serverArgs: [mockServer],
+        rootUri: LspUri.fileToUri(process.cwd()),
+      },
+      { requestTimeoutMs: 1 },
+    );
+    try {
+      await assert.rejects(() => a.definition('/some/file.ts', 1, 1), /超时/u);
+    } finally {
+      await a.shutdown();
+    }
+  });
 });
 
 describe('LSP 配置接线（buildLsp + defaultTools 注册）', () => {

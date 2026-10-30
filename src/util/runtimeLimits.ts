@@ -96,12 +96,21 @@ export interface MaintenanceLimits {
   readonly intervalHours: number;
 }
 
+/** LSP 代码导航限额（`limits.lsp`）。 */
+export interface LspLimits {
+  /** 单次 LSP 请求的等待超时（毫秒）。 */
+  readonly requestTimeoutMs: number;
+  /** 等待 `publishDiagnostics` 推送的超时（毫秒）。 */
+  readonly diagnosticsTimeoutMs: number;
+}
+
 /** `omniharness.json` 的 `limits` 段（逐项可选：写了哪项就覆盖哪项）。 */
 export interface RuntimeLimitsConfig {
   readonly http?: Partial<HttpLimits> | undefined;
   readonly preview?: Partial<PreviewLimits> | undefined;
   readonly a2a?: Partial<A2aLimits> | undefined;
   readonly tools?: Partial<ToolsLimits> | undefined;
+  readonly lsp?: Partial<LspLimits> | undefined;
   readonly maintenance?: Partial<MaintenanceLimits> | undefined;
 }
 
@@ -111,11 +120,12 @@ export interface ResolvedRuntimeLimits {
   readonly preview: PreviewLimits;
   readonly a2a: A2aLimits;
   readonly tools: ToolsLimits;
+  readonly lsp: LspLimits;
   readonly maintenance: MaintenanceLimits;
 }
 
 /** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection = 'http' | 'preview' | 'a2a' | 'tools' | 'maintenance';
+type LimitSection = 'http' | 'preview' | 'a2a' | 'tools' | 'lsp' | 'maintenance';
 
 /** 单段各键的合法区间（闭区间，整数）。 */
 interface LimitBound {
@@ -152,6 +162,10 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
     webFetchTimeoutMs: { min: 1, max: 300_000 },
     webFetchMaxBytes: { min: 1_024, max: 2_000_000 },
   }),
+  lsp: Object.freeze({
+    requestTimeoutMs: { min: 1, max: 600_000 },
+    diagnosticsTimeoutMs: { min: 1, max: 600_000 },
+  }),
   maintenance: Object.freeze({
     // 配置段最低 1：把保留数调成 0 等于清空全部会话（env 旧语义不变，见数据文件 notes）。
     keepNewest: { min: 1, max: 1_000_000 },
@@ -166,7 +180,7 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
 const ENTRY_KEYS: ReadonlySet<string> = new Set(['value', 'env', 'notes']);
 
 /** 段名全集（按稳定顺序，供报错文案与判据共用）。 */
-const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a', 'tools', 'maintenance'];
+const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a', 'tools', 'lsp', 'maintenance'];
 
 /** 环境变量名的合法形态（避免数据文件里写出 `undefined` 这类永远不会被读到的名字）。 */
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
@@ -200,6 +214,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(config?.preview, env),
       a2a: this.resolveA2a(config?.a2a, env),
       tools: this.resolveTools(config?.tools, env),
+      lsp: this.resolveLsp(config?.lsp, env),
       maintenance: this.resolveMaintenance(config?.maintenance, env),
     };
   }
@@ -214,6 +229,7 @@ export class RuntimeLimits {
       preview: this.resolvePreview(undefined, {}),
       a2a: this.resolveA2a(undefined, {}),
       tools: this.resolveTools(undefined, {}),
+      lsp: this.resolveLsp(undefined, {}),
       maintenance: this.resolveMaintenance(undefined, {}),
     };
   }
@@ -338,6 +354,27 @@ export class RuntimeLimits {
         env,
       ),
       webFetchMaxBytes: this.value('tools', 'webFetchMaxBytes', overrides?.webFetchMaxBytes, env),
+    };
+  }
+
+  /**
+   * 解析 lsp 段。
+   * @param overrides 配置文件覆盖值。
+   * @param env 环境变量表。
+   * @returns 完整 lsp 限额。
+   */
+  private resolveLsp(
+    overrides: Partial<LspLimits> | undefined,
+    env: Readonly<Record<string, string | undefined>>,
+  ): LspLimits {
+    return {
+      requestTimeoutMs: this.value('lsp', 'requestTimeoutMs', overrides?.requestTimeoutMs, env),
+      diagnosticsTimeoutMs: this.value(
+        'lsp',
+        'diagnosticsTimeoutMs',
+        overrides?.diagnosticsTimeoutMs,
+        env,
+      ),
     };
   }
 

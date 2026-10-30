@@ -7130,3 +7130,18 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   快速层 + 类型层门禁通过。
 - **边界**：`omniharness gc` 不加载工作区配置，故它只用 env + 数据默认值（`GcCommand` 的既有定位是
   "不依赖工作区的应急工具"）；需要配置的保留策略在 `serve` 的启动/周期巡检里生效。
+
+## 190. 2026-10-30 运维旋钮数据化（P5）：LSP 请求/诊断超时
+
+- **范围**：`LspJsonRpcConnection` 的请求超时（`15_000`）与 `LspProcessAdapter` 的等待诊断推送超时（`5_000`）。
+  两者此前分别是两个文件里的模块常量/静态常量，改一次要改代码。
+- **形态**：`defaults/limits.json` 新增 `lsp` 段（`requestTimeoutMs` / `diagnosticsTimeoutMs`，各带 env）；
+  `RuntimeLimits` 增 `LspLimits` / `resolveLsp`；`configBuilder.buildLsp` 在装配期解析一次并同时传给
+  适配器（`LspProcessAdapterOptions.requestTimeoutMs` 新增，透传给连接；诊断超时走既有选项）。
+- **判据**：`runtimeLimits.test.ts` ①补 lsp 缺省值、③补逐键覆盖、⑧守卫扩到两个适配器文件、
+  ⑨接线补 `configBuilder.buildLsp`；`lspProcess.test.ts` 新增真跑一例——
+  以 `requestTimeoutMs: 1` 对真实 mock LSP 服务器发起请求，断言 fail-closed（`/超时/`），
+  证明超时值真的到达连接层（不是只把常量挪了位置）。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`lspProcess` 9/9；快速层 + 类型层门禁通过。
+- **边界**：`limits.lsp` 只在**配置了 `lsp.serverCommand`** 时装配（无服务器则整个 LSP 端口不构造，
+  超时自然无从生效）；这与既有 `lspServer` 段同一生命周期。

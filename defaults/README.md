@@ -178,9 +178,10 @@
 
 **运维限制**：HTTP 主服务的收头/请求时限、并发连接数、请求体上限、静态缓存上限；工作区网页预览源
 的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期；工具族缺省限额（`web_fetch` 的超时与
-响应体上限）；维护巡检与会话保留策略（keepNewest / 年龄 / 总量、临时清扫阈值、周期间隔）。这些值此前
-写死在 `HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` / `A2aTaskPager` /
-`WebFetchTool` / `SessionGc` / `TmpSweep` / `MaintenanceRunner` 里，改一次要改代码重发。
+响应体上限）；LSP 的请求/诊断等待超时；维护巡检与会话保留策略（keepNewest / 年龄 / 总量、临时清扫阈值、
+周期间隔）。这些值此前写死在 `HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` /
+`A2aTaskPager` / `WebFetchTool` / `LspProcessAdapter` / `LspJsonRpcConnection` / `SessionGc` / `TmpSweep` /
+`MaintenanceRunner` 里，改一次要改代码重发。
 
 ```json
 {
@@ -200,6 +201,14 @@
   "tools": {
     "webFetchTimeoutMs": { "value": 30000, "env": "OMNI_WEB_FETCH_TIMEOUT_MS", "notes": "…" },
     "webFetchMaxBytes": { "value": 200000, "env": "OMNI_WEB_FETCH_MAX_BYTES", "notes": "…" }
+  },
+  "lsp": {
+    "requestTimeoutMs": { "value": 15000, "env": "OMNI_LSP_REQUEST_TIMEOUT_MS", "notes": "…" },
+    "diagnosticsTimeoutMs": {
+      "value": 5000,
+      "env": "OMNI_LSP_DIAGNOSTICS_TIMEOUT_MS",
+      "notes": "…"
+    }
   },
   "maintenance": {
     "keepNewest": { "value": 50, "notes": "会话保留条数（配置最低 1：0 = 清空全部，属脚枪）" },
@@ -280,8 +289,11 @@ node scripts/check.mjs --strict        # 文件/函数体量等铁律
 `a2aTaskPager.ts` 不得再出现 `DEFAULT_PAGE_SIZE` / `DEFAULT_TTL_MS`、`webFetchTool.ts` 不得再出现
 `DEFAULT_MAX_BYTES` / `DEFAULT_TIMEOUT_MS` / `200_000`，`sessionGc.ts` 不得再出现 `DEFAULT_KEEP_NEWEST = 50` /
 `90 * 24` / `4 * 1024 * 1024 * 1024`、`tmpSweep.ts` 不得再出现 `DEFAULT_AGE_MS = 24 * 60 * 60 * 1000`、
-`maintenanceRunner.ts` 不得再出现 `DEFAULT_INTERVAL_HOURS = 6`——
+`maintenanceRunner.ts` 不得再出现 `DEFAULT_INTERVAL_HOURS = 6`、`lspJsonRpcConnection.ts` 不得再出现
+`DEFAULT_REQUEST_TIMEOUT_MS = 15000`、`lspProcessAdapter.ts` 不得再出现
+`DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5000`——
 这些值只能来自本目录的 `limits.json`。该判据还实构造一个 `HttpServer` 断言连接级参数就是配置值
 （"声明未接线"在结构判据里也会被抓）；`webFetchTool.test.ts` 另有两例断言 `web_fetch` 的缺省值
 真的来自限额（注入后调用参数与工具说明同时变化）；`maintenanceRunner.test.ts` 有一例断言
-`limits.maintenance.tmpOlderThanMs` 真的改变了清扫结果（阈值 10 天时 2 天前的条目不被删）。
+`limits.maintenance.tmpOlderThanMs` 真的改变了清扫结果（阈值 10 天时 2 天前的条目不被删）；
+`lspProcess.test.ts` 有一例用 1ms 请求超时对真实 mock LSP 断言 fail-closed。

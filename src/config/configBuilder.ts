@@ -16,6 +16,7 @@ import { ConfigError } from './configError.ts';
 import { DefaultPromptFragments } from './defaultPromptFragments.ts';
 import type { ModelRouterConfig } from './configFile.ts';
 import { endpointDefaults } from '../util/endpointDefaults.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 import type { SandboxPort } from '../ports/runtime/sandbox.ts';
 import type { EscalationPort } from '../ports/runtime/escalation.ts';
 import type { PlanPort } from '../ports/runtime/plan.ts';
@@ -200,11 +201,19 @@ export class ConfigBuilder {
     if (partial.lspServer === undefined || partial.lspServer.serverCommand.trim() === '') {
       return undefined;
     }
-    return new LspProcessAdapter({
-      serverCommand: partial.lspServer.serverCommand,
-      serverArgs: partial.lspServer.serverArgs,
-      rootUri: partial.lspServer.rootUri ?? LspUri.fileToUri(partial.workspaceRoot),
-    });
+    // 运维限制（2026-10-30 数据化）：请求/诊断超时走 `limits.lsp`（配置 > env > 数据默认值）。
+    const lspLimits = runtimeLimits.resolve(partial.limits).lsp;
+    return new LspProcessAdapter(
+      {
+        serverCommand: partial.lspServer.serverCommand,
+        serverArgs: partial.lspServer.serverArgs,
+        rootUri: partial.lspServer.rootUri ?? LspUri.fileToUri(partial.workspaceRoot),
+      },
+      {
+        requestTimeoutMs: lspLimits.requestTimeoutMs,
+        diagnosticsTimeoutMs: lspLimits.diagnosticsTimeoutMs,
+      },
+    );
   }
 
   /**

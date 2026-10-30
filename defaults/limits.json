@@ -82,6 +82,18 @@
       "notes": "web_fetch 的缺省响应体字节上限（调用参数 max_bytes 仍可逐次覆盖；硬上限 2000000 是安全常量）。"
     }
   },
+  "lsp": {
+    "requestTimeoutMs": {
+      "value": 15000,
+      "env": "OMNI_LSP_REQUEST_TIMEOUT_MS",
+      "notes": "LSP 请求（definition/references/symbols/rename 等）的等待超时：语言服务器无响应即 fail-closed 上抛，绝不干等。原写死 15000。"
+    },
+    "diagnosticsTimeoutMs": {
+      "value": 5000,
+      "env": "OMNI_LSP_DIAGNOSTICS_TIMEOUT_MS",
+      "notes": "等 textDocument/publishDiagnostics 推送的毫秒数：超时如实回报 stale，不把「没等到推送」说成「没有错误」。原写死 5000。"
+    }
+  },
   "maintenance": {
     "keepNewest": {
       "value": 50,
