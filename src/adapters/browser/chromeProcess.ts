@@ -364,7 +364,8 @@ export class ChromeProcess {
         'Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress';
       const raw = execFileSync('powershell', ['-NoProfile', '-Command', script], {
         encoding: 'utf8',
-        timeout: 15_000,
+        // PowerShell CIM 清理探针的本地超时（静态方法无配置入口；看板 §195 边界登记）。
+        timeout: 15_000, // hardcode-exempt
         windowsHide: true,
       }).trim();
       if (raw === '') {

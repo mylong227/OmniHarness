@@ -406,7 +406,8 @@ export class HttpServer {
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
     });
-    response.write('retry: 1000\n\n');
+    // SSE 重连建议值（协议常量，不是运维旋钮）。
+    response.write('retry: 1000\n\n'); // hardcode-exempt
     // EventSource 重连会自动带 Last-Event-ID 头；数值非法（或首次连接）时不重放。
     const raw = request.headers['last-event-id'];
     const lastEventId = typeof raw === 'string' ? Number(raw) : NaN;

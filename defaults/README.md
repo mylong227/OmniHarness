@@ -320,11 +320,17 @@
 npm run typecheck && npm test          # 钉住「默认值与历史逐字一致」「CLI 映射等价」「地址不再出现在 src」
 node scripts/auditConfigWiring.mjs     # 配置字段的「声明→装配→运行时→消费」四段接线
 node scripts/check.mjs --strict        # 文件/函数体量等铁律
+npm run audit:hardcodes                # 硬编码清单（报告型：还剩哪些地址/路径/运维数值，按类列出）
 ```
 
 `tests/unit/endpointDefaults.test.ts` 里有一条**反硬编码守卫**：它会扫描 `src/**` 的代码行（注释除外），
 若 `api.openai.com` / `api.anthropic.com` / `localhost:11434` / `registry.omniharness.dev` / `api.github.com`
 / `github.com/` / `/json/version` 再次出现在实现里（而不是本目录的数据文件），测试直接失败。
+
+`tests/unit/hardcodeAudit.test.ts` 是上面那些「具体字面量守卫」的**一般化版本**：它调用清单脚本，
+断言**已迁移的消费者里一条 ≥1000 的运维数值字面量都没有**（不管是不是旧值），且 `src` 里没有
+`LimitEnv.int('OMNI_X', <数字>)` 这种「env 名 + 内联默认值」的老写法。行内注 `hardcode-exempt`
+可豁免（当前仅 SSE `retry:` 协议值与 PowerShell 清理探针的本地超时两条，见看板 §195）。
 
 `tests/unit/runtimeLimits.test.ts` 有同形的守卫：`httpServer.ts` 不得再出现 `30_000` / `60_000` / `2048` /
 `8 * 1024 * 1024`，`previewServer.ts` 不得再出现 `15_000` / `30_000` / `maxConnections = 64`，

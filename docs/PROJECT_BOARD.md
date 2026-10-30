@@ -7208,3 +7208,23 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、A2A 相关 5 套件 26/26；快速层 + 类型层门禁通过。
 - **剩余 env-only**：`registrySourcesShared.ts` 的响应体上限（模块加载期定型、无配置入口）——登记为
   边界而不是硬塞一个"写了不生效"的配置键。`LimitEnv` 现在只承担「宽松解析 env」单一职责。
+
+## 195. 2026-10-30 硬编码清单工具 + 一般化判据（收尾账本）
+
+- **产物**：`scripts/auditHardcodes.mjs`（`npm run audit:hardcodes`）——扫描 `src/**` 代码行，按
+  `address` / `abs-path` / `ops-literal` / `limit-env` 四类列清单，支持 `--json` / `--category=` / `--root=`。
+  **报告型、不阻断提交**：`ops-literal` 里混着大量协议/模型常量（`maxOutputTokens: 32_768`、推理档位
+  `minimal: 1024`），统一拦会把正常新增代码判红（假红比漏网更糟）；真正的阻断仍由逐类判据承担。
+- **一般化判据**：`tests/unit/hardcodeAudit.test.ts` 直接复用清单脚本的 `collectHardcodes`，
+  断言①分类器有正对照（合成夹具里超时字面量/地址各命中一条，注释与豁免行不算）；
+  ②**已迁移的 22 个消费者文件里不得再出现任何 ≥1000 的运维数值字面量**（不管是不是旧值）；
+  ③`src` 里不得再有 `LimitEnv.int('OMNI_X', <数字>)`（env 默认值必须来自数据）。
+- **豁免机制**：行内注 `hardcode-exempt`。当前只豁免两条**协议/边界**值：
+  SSE `retry:` 重连建议值（协议常量）、`chromeProcess.browserPidsOf` 的 PowerShell CIM 清理探针本地超时
+  （静态方法无配置入口）。两条都在源码里写明理由。
+- **清单暴露的剩余项（诚实登记，未在本轮迁移）**：`address` 20 条，其中真硬编码有
+  `webSearchProviders` 的 Brave/Tavily 端点、`layaEngineConfig` 的 `https://hf-mirror.com`、
+  `geminiModel` 的 `DEFAULT_BASE_URL`——它们属于「厂商/服务端点」，应并入 `defaults/endpoints.json`
+  （下一轮候选）；其余是动态拼 URL（`http://${host}:${port}`）等非硬编码。
+  `abs-path` 只剩 `chromeLocator` 的 `%ProgramFiles%` 兜底（合法，env 优先）。
+- **验证**：`tsc --noEmit` 0 错；`hardcodeAudit` 3/3；快速层 + 类型层门禁通过；`npm run audit:hardcodes` 可复现。
