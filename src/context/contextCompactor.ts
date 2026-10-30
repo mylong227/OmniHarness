@@ -8,6 +8,11 @@ import { ToolRoundSanitizer } from '../util/toolRoundSanitizer.ts';
 import { log } from '../util/logger.ts';
 import { CompactionComposer } from './compactionComposer.ts';
 import { CompactionSummarizer } from './compactionSummarizer.ts';
+import { CompactionStateAudit } from './compactionStateAudit.ts';
+import type { CompactionStateAuditResult } from './compactionStateAudit.ts';
+import { CompactionTriggerSignals } from './compactionTriggerSignals.ts';
+import type { CompactionTriggerSignalsResult } from './compactionTriggerSignals.ts';
+import { CompactionToolLedger } from './compactionToolLedger.ts';
 
 /**
  * 每请求的**固定开销**（不随消息增删变化，但确实占用同一 token 预算）。
@@ -76,6 +81,20 @@ export interface ShrinkReport {
 
 export type { CompactionState } from '../ports/context/compactionState.ts';
 
+/**
+ * 折叠段的摘要产物（`summarizeFolded` 的返回值，供 `finishCompaction` 拼装结果）。
+ */
+interface FoldedSummary {
+  /** 最终摘要文本（含台账；降级时为占位文本）。 */
+  readonly summary: string;
+  /** 摘要是否降级（占位 ⇒ 不写游标、不上抛 state）。 */
+  readonly degraded: boolean;
+  /** U2-1 状态审计结果（降级时不审计）。 */
+  readonly stateAudit: CompactionStateAuditResult | undefined;
+  /** 写回的压缩游标（降级时为 undefined）。 */
+  readonly newState: CompactionState | undefined;
+}
+
 /** 上下文压缩结果。 */
 export interface CompactionResult {
   readonly messages: readonly ModelMessage[];
@@ -92,6 +111,16 @@ export interface CompactionResult {
    * 把占位摘要写进游标等于让后续每一步都复用它，一次 429 就会让长会话永久失忆。
    */
   readonly degraded?: boolean;
+  /**
+   * 压缩后**状态审计**（U2-1，shadow）：四类关键工作状态（已改文件/验证命令/未完成待办/
+   * 结构段）是否仍在摘要或台账里。只上报不改变产物；降级占位摘要不审计（占位无信息可核对）。
+   */
+  readonly stateAudit?: CompactionStateAuditResult;
+  /**
+   * 触发信号（U2-1，shadow）：预算占比 / 轮数 / 工具结果占比 / 重复率 + 组合规则的参考判定。
+   * 仅在真正走到「压或不压」的决策点时给出（游标复用快路径不算）；不改决策，供对照数据消费。
+   */
+  readonly signals?: CompactionTriggerSignalsResult;
 }
 
 /**
@@ -384,6 +413,7 @@ export class ContextCompactor {
       }
     }
     const estimated = this.estimator.estimateMessages(messages);
+    const signals = ContextCompactor.measureSignals(messages, estimated, budget, force);
     if (!force && estimated <= budget) {
       // 未达压缩阈值：不折叠历史，但仍施加无损收缩（逐轮可复现 ⇒ 不破坏前缀缓存）。
       const shrunk = this.shrink(messages);
@@ -391,6 +421,7 @@ export class ContextCompactor {
         messages: shrunk.messages,
         compacted: false,
         ...(shrunk.report !== undefined ? { shrink: shrunk.report } : {}),
+        signals,
       };
     }
     // 强制压缩时把 tail 压到更小（至少保留 2 条最近消息），否则「摘要 + 大 tail」仍可能超窗。
@@ -405,21 +436,59 @@ export class ContextCompactor {
       ? Math.min(this.options.keepRecent, Math.max(2, messages.length - 1))
       : Math.min(this.options.keepRecent, messages.length);
     const headEnd = ContextCompactor.roundAlignedBoundary(messages, messages.length - keepCount);
-    // 切 tail 时边界**必须落在工具轮之外**（2026-10-03 修，轮对齐）：
-    // tail 起点若是 tool 消息（其 assistant(tool_calls) 被折进 head），或起点恰是
-    // assistant(tool_calls)（其 tool 结果留在 tail），都会把一个工具轮从中间切开——
-    // summarize 的请求 = head + user 指令 ⇒ 请求以带 tool_calls 却无响应的 assistant 收尾：
-    // 宽容端点（OpenAI 兼容）会剥掉 tool_calls 留一条空 assistant，摘要模型**看不到被切开的
-    // 那一轮调用**；严格端点（Anthropic / llama.cpp）直接 400，被 summarize 的
-    // `catch → '[历史已省略]'` 吞成零信息占位摘要。工具结果在 agent 转录里占绝对多数，
-    // 旧边界算法（只躲 orphan tool）在良构投影上从不移动，切轮是常态而非边缘。
-    // 算法：边界指到 tool ⇒ 左移穿过全部结果到其 assistant，再把整个轮次让给 tail；
-    // 边界指到 assistant(tool_calls) ⇒ 同样左移一位（结果必在其后）。
+    // 切 tail 时边界**必须落在工具轮之外**（2026-10-03 修，轮对齐）：边界算法见
+    // `roundAlignedBoundary`——tail 起点落在轮中间会让摘要请求以「有 tool_calls 无响应」
+    // 收尾：宽容端点剥掉 tool_calls（摘要看不到那轮调用），严格端点直接 400。
     const tail = this.shrink(ToolRoundSanitizer.sanitizeToolRounds(messages.slice(headEnd)));
     const head = messages.slice(0, headEnd);
     if (head.length === 0 || !ContextCompactor.hasFoldableConversation(head)) {
       return this.compactWithoutHead(messages, head, budget);
     }
+    const folded = await this.summarizeFolded(messages, state, head, headEnd, budget);
+    return this.finishCompaction(folded, tail, pinned, budget, signals);
+  }
+
+  /**
+   * U2-1 触发信号（shadow）：现行阈值决策 + 组合规则参考判定一并留痕。两者**分歧**升为 info
+   * ——那是后续「要不要翻默认」的对照数据落点；一致时 debug，不刷屏。不改任何决策。
+   * @param messages 当前请求消息。
+   * @param estimated 已算好的消息估算 token。
+   * @param budget 生效预算（与决策同口径）。
+   * @param force 是否强制压缩（只进日志，便于区分归因）。
+   * @returns 信号快照（随 CompactionResult.signals 上抛）。
+   */
+  private static measureSignals(
+    messages: readonly ModelMessage[],
+    estimated: number,
+    budget: number,
+    force: boolean,
+  ): CompactionTriggerSignalsResult {
+    const signals = CompactionTriggerSignals.measure(messages, estimated, budget);
+    const thresholdWouldTrigger = estimated > budget;
+    if (signals.combinedWouldTrigger !== thresholdWouldTrigger) {
+      log.info('compaction.signals.delta', { ...signals, thresholdWouldTrigger, force });
+    } else {
+      log.debug('compaction.signals', { ...signals, thresholdWouldTrigger, force });
+    }
+    return signals;
+  }
+
+  /**
+   * 对折叠段生成摘要并落状态（F6 增量种子 / 台账 / U2-1 状态审计 / 游标）。
+   * @param messages 全部消息（增量种子判定要用游标覆盖前缀）。
+   * @param state 上一步写回的压缩游标（可缺省）。
+   * @param head 被折叠的消息段。
+   * @param headEnd 折叠边界（写进游标）。
+   * @param budget 可用消息预算（台账加不加由它定）。
+   * @returns 摘要、降级标记、状态审计与写回游标。
+   */
+  private async summarizeFolded(
+    messages: readonly ModelMessage[],
+    state: CompactionState | undefined,
+    head: readonly ModelMessage[],
+    headEnd: number,
+    budget: number,
+  ): Promise<FoldedSummary> {
     // F6（2026-10-25）：游标覆盖的前缀仍完整时，用「已有摘要 + 新增段」做增量摘要，
     // 而不是把整段 head 再喂一遍。前缀漂移/游标无效时退回全量摘要（正确性优先）。
     const { seed, fresh } = this.resolveSummarySeed(messages, state, head, headEnd);
@@ -429,34 +498,56 @@ export class ContextCompactor {
     const rawSummary = await this.summarizer.summarize(fresh, seed);
     // 占位摘要只能用于本次请求，**不能写进游标**——否则后续每步复用占位，长会话永久失忆。
     const degraded = CompactionSummarizer.isUnusable(rawSummary);
-    const summary = ContextCompactor.withToolLedger(rawSummary, head, budget);
+    const summary = CompactionToolLedger.append(rawSummary, head, budget);
+    // U2-1 状态审计（shadow）：摘要写游标前，确定性核对关键工作状态是否还在（只留痕，不改产物）。
+    const stateAudit = degraded ? undefined : CompactionStateAudit.auditAndLog(summary, head);
     const newState: CompactionState | undefined = degraded
       ? undefined
       : { compactedUpTo: headEnd, headHash: ContextCompactor.headFingerprint(head), summary };
+    return { summary, degraded, stateAudit, newState };
+  }
+
+  /**
+   * 组装压缩结果：摘要 + 最近消息落预算（超了丢旧 tail）、写完成日志、拼返回值。
+   * @param folded 折叠段摘要产物（见 {@link summarizeFolded}）。
+   * @param tail 已收缩的最近消息。
+   * @param pinned 前导 system 段（永不折叠）。
+   * @param budget 可用消息预算。
+   * @param signals 触发信号快照（shadow）。
+   * @returns 压缩结果。
+   */
+  private finishCompaction(
+    folded: FoldedSummary,
+    tail: { readonly messages: readonly ModelMessage[]; readonly report: ShrinkReport | undefined },
+    pinned: readonly ModelMessage[],
+    budget: number,
+    signals: CompactionTriggerSignalsResult,
+  ): CompactionResult {
     // 兜底：摘要 + 最近消息**仍超预算**时，丢弃较旧的 tail 消息（保留摘要与最新一条）。
     // 与游标快路径共用同一方法，保证两条路径结果一致。
     const composed = CompactionComposer.compose(
-      summary,
+      folded.summary,
       tail.messages,
       budget,
       pinned,
       this.estimator,
     );
     const final = composed.messages;
-    const extraDropped = composed.dropped;
     log.info('compaction.done', {
       keepRecent: final.length - 1,
       hadModel: this.model !== undefined,
-      summaryLen: summary.length,
+      summaryLen: folded.summary.length,
       shrunkBytes: tail.report?.savedBytes ?? 0,
-      extraDroppedMessages: extraDropped,
+      extraDroppedMessages: composed.dropped,
     });
     return {
       messages: final,
       compacted: true,
-      summary,
-      ...(newState !== undefined ? { state: newState } : {}),
-      ...(degraded ? { degraded: true } : {}),
+      summary: folded.summary,
+      ...(folded.newState !== undefined ? { state: folded.newState } : {}),
+      ...(folded.degraded ? { degraded: true } : {}),
+      ...(folded.stateAudit !== undefined ? { stateAudit: folded.stateAudit } : {}),
+      signals,
       ...(tail.report !== undefined ? { shrink: tail.report } : {}),
     };
   }
@@ -501,109 +592,6 @@ export class ContextCompactor {
       ...(bounded.dropped > 0 ? { summary: `[最早 ${bounded.dropped} 条历史已省略]` } : {}),
       ...(all.report !== undefined ? { shrink: all.report } : {}),
     };
-  }
-
-  /**
-   * 把**确定性工具台账**追加到模型摘要之后（没有工具调用时原样返回摘要）。
-   *
-   * 为什么需要：摘要由模型生成，长会话里它可能漏掉「已经读过哪些文件、跑过哪些命令」；
-   * 一旦漏掉，模型下一步就会重新探索，形成「压缩 → 失忆 → 重复读」的循环（2026-10-13
-   * `sess_mv88ycm7_1` 对同一文件 `read_file` 34 次）。台账直接由折叠段的 assistant(tool_calls)
-   * 与 tool 结果配对生成，**不依赖摘要质量**，并按「工具 + 目标」聚合计数（×N）——重复本身
-   * 也因此在上下文里可见。
-   *
-   * @param summary 模型摘要。
-   * @param head 被折叠的消息段。
-   * @param budget 可用消息预算（过小则不加台账，避免挤掉 tail）。
-   * @returns 摘要（无工具调用 / 预算过小时逐字不变）。
-   */
-  private static withToolLedger(
-    summary: string,
-    head: readonly ModelMessage[],
-    budget: number,
-  ): string {
-    if (budget < ContextCompactor.LEDGER_MIN_BUDGET_TOKENS) {
-      return summary;
-    }
-    const ledger = ContextCompactor.toolLedger(head);
-    if (ledger.length === 0) {
-      return summary;
-    }
-    return `${summary}\n\n## 已执行工具台账（确定性生成，用于避免重复探索）\n${ledger.join('\n')}`;
-  }
-
-  /**
-   * 台账生效的最小消息预算（token）：低于此值时台账的收益不如「保住最近工具轮」大。
-   * 生产压缩阈值是 0.8×窗口（128k → 102k），远高于此值。
-   */
-  private static readonly LEDGER_MIN_BUDGET_TOKENS = 2000;
-
-  /**
-   * 生成工具台账行（按「工具 + 目标」聚合，最多 40 行）。
-   * @param head 被折叠的消息段。
-   * @returns 台账行数组（按首次出现顺序）。
-   */
-  private static toolLedger(head: readonly ModelMessage[]): string[] {
-    const calls = new Map<string, { readonly name: string; readonly target: string }>();
-    const stats = new Map<
-      string,
-      { readonly name: string; readonly target: string; count: number; fail: number }
-    >();
-    const order: string[] = [];
-    for (const message of head) {
-      if (message.role === 'assistant' && message.toolCalls !== undefined) {
-        for (const call of message.toolCalls) {
-          calls.set(call.id, {
-            name: call.name,
-            target: ContextCompactor.ledgerTarget(call.arguments),
-          });
-        }
-        continue;
-      }
-      if (message.role !== 'tool' || message.toolCallId === undefined) {
-        continue;
-      }
-      const call = calls.get(message.toolCallId);
-      if (call === undefined) {
-        continue;
-      }
-      const key = `${call.name}\u0000${call.target}`;
-      let entry = stats.get(key);
-      if (entry === undefined) {
-        entry = { name: call.name, target: call.target, count: 0, fail: 0 };
-        stats.set(key, entry);
-        order.push(key);
-      }
-      entry.count += 1;
-      if (message.content.startsWith('工具执行失败')) {
-        entry.fail += 1;
-      }
-    }
-    return order.slice(0, 40).map((key) => {
-      const entry = stats.get(key) as {
-        readonly name: string;
-        readonly target: string;
-        count: number;
-        fail: number;
-      };
-      const failed = entry.fail > 0 ? `（失败 ${String(entry.fail)} 次）` : '';
-      const target = entry.target === '' ? '(无参数)' : entry.target;
-      return `- ${entry.name} ${target} ×${String(entry.count)}${failed}`;
-    });
-  }
-
-  /**
-   * 台账里的「目标」：取命令/路径/模式/URL 之一，压成一行并截断。
-   * @param args 工具参数。
-   * @returns 可读目标（无可用字段为空串）。
-   */
-  private static ledgerTarget(args: Record<string, unknown>): string {
-    const raw = args['command'] ?? args['path'] ?? args['pattern'] ?? args['url'] ?? args['query'];
-    if (typeof raw !== 'string') {
-      return '';
-    }
-    const oneLine = raw.replace(/\s+/gu, ' ').trim();
-    return oneLine.length > 80 ? `${oneLine.slice(0, 80)}…` : oneLine;
   }
 
   /**
