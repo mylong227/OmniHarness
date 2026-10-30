@@ -7228,3 +7228,31 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   （下一轮候选）；其余是动态拼 URL（`http://${host}:${port}`）等非硬编码。
   `abs-path` 只剩 `chromeLocator` 的 `%ProgramFiles%` 兜底（合法，env 优先）。
 - **验证**：`tsc --noEmit` 0 错；`hardcodeAudit` 3/3；快速层 + 类型层门禁通过；`npm run audit:hardcodes` 可复现。
+
+## 196. 2026-10-30 端点数据化（P11）：搜索 / 镜像 / 厂商端点收口 + 目标收尾评估
+
+- **范围（P195 清单暴露的 4 处真硬编码）**：`webSearchProviders` 的 Brave / Tavily 搜索端点、
+  `layaEngineConfig` 的 `https://hf-mirror.com`、`geminiModel` 的 Gemini 基址。
+- **形态**：`defaults/endpoints.json` 的 `services` 新增 `webSearchBrave`（env `BRAVE_SEARCH_URL`）、
+  `webSearchTavily`（env `TAVILY_SEARCH_URL`）、`hfMirror`（env `OMNI_HF_ENDPOINT`）、
+  `geminiBase`（env `GEMINI_BASE_URL`）；三处消费者改走 `EndpointDefaults.urlOf(...)`，
+  优先级不变：**配置/显式参数 > env > 数据**（Gemini 的 `config.baseUrl` 仍在最前）。
+- **判据**：`endpointDefaults.test.ts` ⑤的反硬编码守卫加入四个主机名，扫描 `src/**` 代码行（注释除外）——
+  已实测迁移后 0 命中，且换一家搜索/网关只需改数据。
+- **验证**：`tsc --noEmit` 0 错；`endpointDefaults` 6/6、`hardcodeAudit` 3/3；快速层 + 类型层门禁通过；
+  `npm run audit:hardcodes` 的 `address` 只剩动态拼 URL，`abs-path` 只剩 `%ProgramFiles%` 兜底。
+
+### 目标收尾评估（原始指令：清理硬编码、能配置的走配置化数据管理）
+
+| 类别                                 | 落点                                                                                                                | 判据                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 端点 / 地址                          | `defaults/endpoints.json`（适配器 + 9 个服务端点）                                                                  | `endpointDefaults.test.ts` ①–⑥（含反硬编码守卫）                                 |
+| 运维旋钮（超时/上限/并发/分页/传输） | `defaults/limits.json` 8 段 40 项 + `omniharness.json` 的 `limits`                                                  | `runtimeLimits.test.ts` ①–⑨（出厂值逐字一致 / 层级 / fail-closed / 守卫 / 接线） |
+| 保留策略                             | `limits.maintenance`（keepNewest / 年龄 / 总量 / 清扫阈值 / 周期）                                                  | 同上 ①②③⑧ + `maintenanceRunner.test.ts` 真跑                                     |
+| 静态数据表                           | `providers.json` / `ssrf.json` / `cliHelp.json` / `injection-snapshot.json`（既有）+ 本轮 `limits`/`endpoints` 扩展 | 各文件原有判据 + `auditConfigWiring` I6（数据随包发布）                          |
+| 一般化防回潮                         | `scripts/auditHardcodes.mjs` + `hardcodeAudit.test.ts`                                                              | 已迁移的 22 个消费者零 ops 字面量；无 `LimitEnv.int(名字, 数字)`                 |
+
+**诚实边界（未做的事，均已登记）**：① `registrySourcesShared` 的响应上限是模块加载期定型，
+只能 env-only；② 浏览器禁用端口表、媒体探测输出上限、A2A 页大小上限（100）等是**协议/安全常量**，
+刻意不配；③ `ops-literal` 里仍有 71 条模型/协议数值（`maxOutputTokens`、推理档位），不属于运维旋钮。
+以上都是「判断后不配」，不是遗漏。

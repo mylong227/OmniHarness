@@ -167,7 +167,10 @@
 
 现有服务端点：`pluginRegistryIndex`（插件市场索引，env `OMNI_REGISTRY_URL`）、
 `gitRemoteBase`（SWE-bench 克隆远端基址）、`githubApiBase`（GitHub Contents API，env `GITHUB_API_URL`，
-沿用 GitHub Actions 标准名，故 GHE 环境天然生效）、`cdpProbeUrl` / `cdpVersionPath`（浏览器 CDP 自检）。
+沿用 GitHub Actions 标准名，故 GHE 环境天然生效）、`cdpProbeUrl` / `cdpVersionPath`（浏览器 CDP 自检）、
+`webSearchBrave` / `webSearchTavily`（Web 搜索端点，env `BRAVE_SEARCH_URL` / `TAVILY_SEARCH_URL`）、
+`hfMirror`（HuggingFace 镜像，env `OMNI_HF_ENDPOINT`）、`geminiBase`（Gemini 原生 API 基址，env
+`GEMINI_BASE_URL`；配置项 `baseUrl` 仍优先）。
 
 **别把 `endpoints.json` 与 `providers.json` 合并**：厂商预设按**厂商**组织、可被用户整体覆盖；
 适配器兜底按**适配器**组织、是「没选厂商」时的兜底。合并会让「用户覆盖某厂商」意外改掉适配器兜底。

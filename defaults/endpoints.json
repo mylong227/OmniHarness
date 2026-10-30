@@ -77,6 +77,30 @@
       "id": "cdpVersionPath",
       "url": "/json/version",
       "notes": "CDP 版本自检路径：把用户给的外部端点（http/ws）规范成自检 URL 时拼在主机之后。"
+    },
+    {
+      "id": "webSearchBrave",
+      "url": "https://api.search.brave.com/res/v1/web/search",
+      "env": "BRAVE_SEARCH_URL",
+      "notes": "Brave Web Search API 端点（企微/自建代理在此改）。"
+    },
+    {
+      "id": "webSearchTavily",
+      "url": "https://api.tavily.com/search",
+      "env": "TAVILY_SEARCH_URL",
+      "notes": "Tavily Search API 端点。"
+    },
+    {
+      "id": "hfMirror",
+      "url": "https://hf-mirror.com",
+      "env": "OMNI_HF_ENDPOINT",
+      "notes": "HuggingFace 镜像端点（Laya 决策引擎的本地模型下载）。OMNI_HF_ENDPOINT 优先，未设则用本值。"
+    },
+    {
+      "id": "geminiBase",
+      "url": "https://generativelanguage.googleapis.com/v1beta",
+      "env": "GEMINI_BASE_URL",
+      "notes": "Gemini 原生 API 基址（企业网关/代理在此改）。GEMINI_BASE_URL 与配置 baseUrl 仍优先。"
     }
   ]
 }

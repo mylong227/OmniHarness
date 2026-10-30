@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   ModelMessage,
   ModelOutput,
   ModelPort,
@@ -14,6 +14,7 @@ import { ModelRequestGuard } from './modelRequestGuard.ts';
 import type { RequestStallGuard } from './requestStallGuard.ts';
 import { sseParser } from './sseParser.ts';
 import { GeminiWire } from './geminiWire.ts';
+import { endpointDefaults } from '../../util/endpointDefaults.ts';
 import type {
   GeminiContent,
   GeminiResponse,
@@ -25,7 +26,7 @@ import type {
 } from './geminiTypes.ts';
 
 /** Gemini 官方 v1beta 基址（配置缺省时使用；CLI 路径由 `defaults/endpoints.json` 提供同值）。 */
-const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+const DEFAULT_BASE_URL = endpointDefaults.urlOf('geminiBase');
 
 /** 兜底模型（仅在配置与 `GEMINI_MODEL` 都未给出时使用；该模型在价目表内有登记）。 */
 const DEFAULT_MODEL = 'gemini-2.5-flash';

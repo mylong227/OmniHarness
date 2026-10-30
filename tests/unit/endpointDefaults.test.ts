@@ -187,6 +187,11 @@ test('⑤ 反硬编码守卫：这些地址不得再出现在 src 的代码行�
     'https://api.github.com',
     'https://github.com/',
     '/json/version',
+    // P11（2026-10-30）：搜索/镜像/厂商端点也收进本文件后，代码行里不得再出现这些主机。
+    'api.search.brave.com',
+    'api.tavily.com',
+    'hf-mirror.com',
+    'generativelanguage.googleapis.com',
   ];
   const offenders: string[] = [];
   const walk = (dir: string): void => {

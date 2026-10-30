@@ -1,5 +1,6 @@
-import type { WebSearchProvider, WebSearchResult } from '../../../ports/tool/webSearchProvider.ts';
+﻿import type { WebSearchProvider, WebSearchResult } from '../../../ports/tool/webSearchProvider.ts';
 import { WebSearchTool } from './webSearchTool.ts';
+import { endpointDefaults } from '../../../util/endpointDefaults.ts';
 
 /** 搜索请求超时（毫秒）。 */
 const SEARCH_TIMEOUT_MS = 15_000;
@@ -61,7 +62,7 @@ class BraveWebSearch implements WebSearchProvider {
    * @returns 搜索结果。
    */
   public async search(query: string): Promise<readonly WebSearchResult[]> {
-    const url = new URL('https://api.search.brave.com/res/v1/web/search');
+    const url = new URL(endpointDefaults.urlOf('webSearchBrave'));
     url.searchParams.set('q', query);
     url.searchParams.set('count', String(MAX_RESULTS));
     const response = await this.fetchImpl(url, {
@@ -105,7 +106,7 @@ class TavilyWebSearch implements WebSearchProvider {
    * @returns 搜索结果。
    */
   public async search(query: string): Promise<readonly WebSearchResult[]> {
-    const response = await this.fetchImpl('https://api.tavily.com/search', {
+    const response = await this.fetchImpl(endpointDefaults.urlOf('webSearchTavily'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -129,3 +130,4 @@ class TavilyWebSearch implements WebSearchProvider {
     }));
   }
 }
+

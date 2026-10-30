@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Laya 决策引擎的**配置解析与预算快照**（从适配器主类抽出）。
  *
  * ## 为什么独立成文件
@@ -14,6 +14,7 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LayaPaths } from './layaPaths.ts';
+import { endpointDefaults } from '../../util/endpointDefaults.ts';
 
 /** Laya 适配器配置（全部可选；缺省即「零配置可用」）。 */
 export interface LayaDecisionEngineOptions {
@@ -82,7 +83,7 @@ const DEFAULT_IDLE_SHUTDOWN_MS = 600_000;
 const DEFAULT_AVAILABILITY_RETRY_MS = 60_000;
 
 /** 默认 HuggingFace 镜像端点（本机直连 huggingface.co 不可达）。 */
-const DEFAULT_HF_ENDPOINT = 'https://hf-mirror.com';
+const DEFAULT_HF_ENDPOINT = endpointDefaults.urlOf('hfMirror');
 
 /** 默认 checkpoint repo（英文根 checkpoint；仅在线路径生效）。 */
 const DEFAULT_REPO = 'convaiinnovations/laya';
