@@ -214,3 +214,73 @@ test('⑧ apply_patch：补丁与对方改同一行 ⇒ 冲突拒绝', async () 
     assert.strictEqual(await readFile(file, 'utf8'), 'line1-other\nline2\nline3\n');
   });
 });
+
+// ── 行尾保真（B3：2026-10-30 研究 EDIT_CONCURRENCY_RESEARCH 的可选端到端项）──
+// 纯函数层已有判据（textThreeWayMerge ⑪–⑭）；这里走**真实工具路径**，
+// 断言落盘字节仍是 CRLF——这是"合并结果被写回磁盘"的最后一段，纯函数判据覆盖不到。
+
+/**
+ * 断言文件是纯 CRLF（没有任何裸 \n）。
+ * @param file 绝对路径
+ * @returns 无（断言失败即测试失败）
+ */
+async function assertCrlfFile(file: string): Promise<void> {
+  const text = await readFile(file, 'utf8');
+  assert.ok(text.includes('\r\n'), '文件必须保留 CRLF');
+  assert.doesNotMatch(
+    text.replace(/\r\n/gu, ''),
+    /\n/u,
+    `不得出现裸 \\n（混合行尾）：${JSON.stringify(text)}`,
+  );
+}
+
+test('⑨ write_file（真实工具链）：CRLF 文件被另一会话用 LF 改写后，合并落盘仍是 CRLF', async () => {
+  await withTemp(async (dir) => {
+    const file = join(dir, 'a.ts');
+    await writeFile(file, 'line1\r\nline2\r\nline3\r\n', 'utf8');
+    await new ReadFileTool().handle(
+      { id: 'r', name: 'read_file', arguments: { path: 'a.ts' } },
+      ctxOf(dir),
+    );
+    // 另一会话整份以 LF 写回（只改了 line3）。
+    await otherSessionWrites(dir, file, 'line1\nline2\nline3-other\n');
+    const result = await new WriteFileTool(dir).handle(
+      {
+        id: 'w',
+        name: 'write_file',
+        arguments: { path: 'a.ts', content: 'line1-mine\r\nline2\r\nline3\r\n' },
+      },
+      ctxOf(dir),
+    );
+    assert.strictEqual(result.ok, true, result.error ?? '');
+    assert.match(result.output ?? '', /自动三方合并/u);
+    const text = await readFile(file, 'utf8');
+    assert.strictEqual(
+      text,
+      'line1-mine\r\nline2\r\nline3-other\r\n',
+      '两个改动都保留且行尾沿用 base 的 CRLF',
+    );
+    await assertCrlfFile(file);
+  });
+});
+
+test('⑩ edit（真实工具链）：CRLF 文件跨会话编辑，落盘仍是 CRLF', async () => {
+  await withTemp(async (dir) => {
+    const file = join(dir, 'a.ts');
+    await writeFile(file, 'a\r\nb\r\nc\r\n', 'utf8');
+    await new ReadFileTool().handle(
+      { id: 'r', name: 'read_file', arguments: { path: 'a.ts' } },
+      ctxOf(dir),
+    );
+    await otherSessionWrites(dir, file, 'a\nb\nc-other\n');
+    const result = await new EditFileTool(dir).handle(
+      { id: 'e', name: 'edit', arguments: { path: 'a.ts', old_string: 'b', new_string: 'B' } },
+      ctxOf(dir),
+    );
+    assert.strictEqual(result.ok, true, result.error ?? '');
+    assert.match(result.output ?? '', /自动合并/u);
+    const text = await readFile(file, 'utf8');
+    assert.strictEqual(text, 'a\r\nB\r\nc-other\r\n');
+    await assertCrlfFile(file);
+  });
+});

@@ -1,6 +1,6 @@
 # 并发编辑的三方合并：现役边界研究（2026-10-30）
 
-> 状态：**研究完成 + B1 已实施**（2026-10-30）。
+> 状态：**研究完成 + B1/B2/B3 全部实施**（2026-10-30）。
 > 结论：现役 diff3 形状适配本产品；成熟依赖 `node-diff3` 经实测**更差**（同套场景 5 处异常 vs 现役 2 处），
 > 按 D10「更优才引」**不引**；唯一真缺陷（行尾静默改写）已用内联归一闪掉，探针 **14/14 正确**。
 > 探针：`tools/probes/editMergeProbe.mjs`（`npm run probe:merge`，离线、确定性、恒退出 0）。
@@ -109,24 +109,26 @@ base **统一**（全 CRLF 或全 LF）且某一侧也**统一**为另一种风�
 结果自然沿用 base 的行尾；base 本身混行尾 ⇒ 一律不动（宁可冲突，也不替用户改写形状）。
 实现只有两个私有辅助（`eolOf` / `withEol`），**没有引入依赖**（见 §3.5）。
 
-## 6. 落地顺序（B1/B2 已完成，B3 待做）
+## 6. 落地顺序（B1/B2/B3 全部完成）
 
 - ✅ **B1**：`TextThreeWayMerge` 增加行尾归一（`eolOf` / `withEol` 两个私有辅助，约 30 行）；
   `textCharacterMerge` 未动；**未引入依赖**（§3.5 有实测理由）。
 - ✅ **B2**：探针新增 F3（混行尾）并把 F/F2 的期望改为「干净且 CRLF 保留」；单测新增 4 例
   （⑪ CRLF×LF、⑫ 两侧各改一行、⑬ 对称 LF×CRLF、⑭ 混行尾不归一）。
   **变异自证**：把 `baseEol` 强制成 `mixed`（等价关掉归一）⇒ ⑪⑫⑬ 立刻 3 红，⑭ 仍绿；恢复后 14/14。
-- ⬜ **B3（可选）**：真实工具层端到端——两个会话先后写同一 CRLF 文件（不同区域），
-  断言落盘字节仍是 CRLF（走 `write_file` 真实路径，而不是只测纯函数）。
+- ✅ **B3 真实工具层端到端**：复用 `tests/unit/fileThreeWayMerge.test.ts` 既有夹具
+  （`withTemp` / `ctxOf` / `otherSessionWrites`，**不另造测试基建**）新增两例——`write_file` 与 `edit`
+  两条真实路径上，A 读基线、B 整份以 LF 改写、A 写入后**落盘字节仍是 CRLF**
+  （`assertCrlfFile` 断言有 `\r\n` 且无裸 `\n`）。**变异自证**：关掉归一 ⇒ ⑨⑩ 立刻 2 红；恢复后 10/10。
 
 ## 7. 判据（B 的验收口径）
 
 1. `npm run probe:merge`：**14 场景 14 正确**、0 孤立代理项、全部确定性；
 2. `tests/unit/textThreeWayMerge.test.ts` **14/14**（既有 10 例 + 新增 4 例），
-   `textCharacterMerge` 19/19、`editFileTool` 6/6、`fileThreeWayMerge` 8/8 不回归；
+   `textCharacterMerge` 19/19、`editFileTool` 6/6、`fileThreeWayMerge` **10/10**（原 8 + 新增 2）不回归；
 3. 新增：统一 CRLF base + 统一 LF 侧 ⇒ 结果 CRLF；对称方向同理；混行尾 base ⇒ 原样保留；
-4. 真实工具路径落盘字节级仍是 CRLF（**B3 未做**，见 §6）；
-5. 变异自证：关掉归一 ⇒ ⑪⑫⑬ 变红（已执行，见 §6）。
+4. 真实工具路径落盘字节级仍是 CRLF（**B3 已做**，见 §6）；
+5. 变异自证：关掉归一 ⇒ 纯函数 ⑪⑫⑬ 与端到端 ⑨⑩ 都变红（已执行）。
 
 ## 8. 什么时候才需要接 CRDT（触发条件，先写死）
 

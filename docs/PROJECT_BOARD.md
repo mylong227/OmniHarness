@@ -7041,3 +7041,19 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   这证明判据不是恒真，且"混行尾不归一"与"统一行尾要归一"是两条独立断言。
 - **未做**：B3 真实工具层端到端（两会话先后写同一 CRLF 文件、断言落盘字节仍是 CRLF）。
 - **产物**：研究文档 §3.5（依赖对比表）/§6/§7 已同步；`npm run probe:merge` 可复现。
+
+## 185. 2026-10-30 B3 落地：CRLF 保真的真实工具层端到端判据
+
+- **做了什么**：在 `tests/unit/fileThreeWayMerge.test.ts`（已有 `withTemp` / `ctxOf` /
+  `otherSessionWrites` 夹具，**复用不另造**）新增两例真实路径：
+  1. `write_file`：A 读基线（CRLF）→ B 整份以 LF 改写 line3 → A 写 line1 ⇒ 落盘 `line1-mine\r\nline2\r\nline3-other\r\n`；
+  2. `edit`：同形态，A 用 `edit` 改 b ⇒ 落盘 `a\r\nB\r\nc-other\r\n`。
+     两例都用 `assertCrlfFile` 断言「有 CRLF 且无裸 `\n`」，覆盖**合并结果写回磁盘**的最后一段（纯函数判据覆盖不到）。
+- **变异自证**：把 `baseEol` 强制成 `mixed` ⇒ ⑨⑩ **2 红**；恢复后 **10/10**。
+  说明这两条不是恒真判据，而是真的盯着行尾保真。
+- **依赖口径（用户要求"有成熟的就依赖"）**：本片**没有引入任何新依赖**——B1/B2 的行尾归一由
+  `eolOf`/`withEol` 两个纯字符串辅助承担（`\r\n` ↔ `\n` 替换，无算法），而候选的成熟三方合并库
+  `node-diff3` 已实测**更差**（见 §184 / 研究 §3.5）故不引；B3 的测试基建复用仓库既有夹具，
+  也不需要新库。**结论：这一片没有"值得引的成熟依赖"，不是"懒得引"。**
+- **验证**：`fileThreeWayMerge` **10/10**、`textThreeWayMerge` 14/14、`textCharacterMerge` 19/19、
+  `editFileTool` 6/6；`npm run probe:merge` 14/14；`npm run gate:typed` 通过。
