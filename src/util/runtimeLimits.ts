@@ -74,11 +74,20 @@ export interface A2aLimits {
   readonly pageTokenTtlMs: number;
 }
 
+/** 工具族缺省限额（`limits.tools`）。 */
+export interface ToolsLimits {
+  /** `web_fetch` 的缺省抓取超时（毫秒；调用参数仍可逐次覆盖）。 */
+  readonly webFetchTimeoutMs: number;
+  /** `web_fetch` 的缺省响应体字节上限（调用参数仍可逐次覆盖）。 */
+  readonly webFetchMaxBytes: number;
+}
+
 /** `omniharness.json` 的 `limits` 段（逐项可选：写了哪项就覆盖哪项）。 */
 export interface RuntimeLimitsConfig {
   readonly http?: Partial<HttpLimits> | undefined;
   readonly preview?: Partial<PreviewLimits> | undefined;
   readonly a2a?: Partial<A2aLimits> | undefined;
+  readonly tools?: Partial<ToolsLimits> | undefined;
 }
 
 /** 解析后的完整限制表（每段每项都有值）。 */
@@ -86,10 +95,11 @@ export interface ResolvedRuntimeLimits {
   readonly http: HttpLimits;
   readonly preview: PreviewLimits;
   readonly a2a: A2aLimits;
+  readonly tools: ToolsLimits;
 }
 
 /** 限制段名（数据文件顶层键 / 配置段键）。 */
-type LimitSection = 'http' | 'preview' | 'a2a';
+type LimitSection = 'http' | 'preview' | 'a2a' | 'tools';
 
 /** 单段各键的合法区间（闭区间，整数）。 */
 interface LimitBound {
@@ -122,13 +132,17 @@ const SCHEMA: Readonly<Record<LimitSection, Readonly<Record<string, LimitBound>>
     pageSize: { min: 1, max: 100 },
     pageTokenTtlMs: { min: 1, max: 2_592_000_000 },
   }),
+  tools: Object.freeze({
+    webFetchTimeoutMs: { min: 1, max: 300_000 },
+    webFetchMaxBytes: { min: 1_024, max: 2_000_000 },
+  }),
 });
 
 /** 一段限制记录的允许 key 全集（数据文件里的字段）。 */
 const ENTRY_KEYS: ReadonlySet<string> = new Set(['value', 'env', 'notes']);
 
 /** 段名全集（按稳定顺序，供报错文案与判据共用）。 */
-const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a'];
+const SECTIONS: readonly LimitSection[] = ['http', 'preview', 'a2a', 'tools'];
 
 /** 环境变量名的合法形态（避免数据文件里写出 `undefined` 这类永远不会被读到的名字）。 */
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/;
@@ -161,6 +175,7 @@ export class RuntimeLimits {
       http: this.resolveHttp(config?.http, env),
       preview: this.resolvePreview(config?.preview, env),
       a2a: this.resolveA2a(config?.a2a, env),
+      tools: this.resolveTools(config?.tools, env),
     };
   }
 
@@ -173,6 +188,7 @@ export class RuntimeLimits {
       http: this.resolveHttp(undefined, {}),
       preview: this.resolvePreview(undefined, {}),
       a2a: this.resolveA2a(undefined, {}),
+      tools: this.resolveTools(undefined, {}),
     };
   }
 
@@ -275,6 +291,27 @@ export class RuntimeLimits {
       webhookTimeoutMs: this.value('a2a', 'webhookTimeoutMs', overrides?.webhookTimeoutMs, env),
       pageSize: this.value('a2a', 'pageSize', overrides?.pageSize, env),
       pageTokenTtlMs: this.value('a2a', 'pageTokenTtlMs', overrides?.pageTokenTtlMs, env),
+    };
+  }
+
+  /**
+   * 解析 tools 段。
+   * @param overrides 配置文件覆盖值。
+   * @param env 环境变量表。
+   * @returns 完整 tools 限额。
+   */
+  private resolveTools(
+    overrides: Partial<ToolsLimits> | undefined,
+    env: Readonly<Record<string, string | undefined>>,
+  ): ToolsLimits {
+    return {
+      webFetchTimeoutMs: this.value(
+        'tools',
+        'webFetchTimeoutMs',
+        overrides?.webFetchTimeoutMs,
+        env,
+      ),
+      webFetchMaxBytes: this.value('tools', 'webFetchMaxBytes', overrides?.webFetchMaxBytes, env),
     };
   }
 

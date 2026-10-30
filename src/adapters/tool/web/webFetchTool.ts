@@ -25,17 +25,12 @@ import type {
 import { HtmlToText } from '../../../util/htmlToText.ts';
 import { PdfTextExtractor } from '../../../util/pdfTextExtractor.ts';
 import { EgressPolicy } from '../../../security/egressPolicy.ts';
+import { runtimeLimits, type ToolsLimits } from '../../../util/runtimeLimits.ts';
 
-/** 单次抓取的响应体默认上限（字节）。 */
-const DEFAULT_MAX_BYTES = 200_000;
-
-/** 单次抓取的响应体硬上限（字节）。 */
+/** 单次抓取的响应体硬上限（字节）：安全常量，**不随部署变化**，故不进 `limits`。 */
 const HARD_MAX_BYTES = 2_000_000;
 
-/** 默认超时（毫秒）。 */
-const DEFAULT_TIMEOUT_MS = 30_000;
-
-/** 超时上限（毫秒）。 */
+/** 超时硬上限（毫秒）：安全常量，同上。 */
 const MAX_TIMEOUT_MS = 300_000;
 
 /** 抓取到的原始响应。 */
@@ -59,39 +54,52 @@ export interface WebFetchToolOptions {
    * 未注入时使用内置实现（Node 内置 `fetch`）。
    */
   readonly fetchDocument?: (url: string, maxBytes: number, timeoutMs: number) => Promise<FetchedDocument>;
+  /**
+   * 工具级限额（已解析的 `limits.tools`；缺省取 `defaults/limits.json`）。
+   *
+   * 缺省值此前写死在本文件（200_000 / 30_000），改一次要改代码重发；
+   * 现由 `omniharness.json` 的 `limits.tools` 或 `OMNI_WEB_FETCH_*` 覆盖。
+   * 调用参数 `max_bytes` / `timeout_ms` 仍是逐次覆盖的最高优先。
+   */
+  readonly limits?: ToolsLimits;
 }
 
 /**
  * 网页抓取工具（默认注册；内置实现无第三方依赖、零密钥）。
  */
 export class WebFetchTool {
-  /** 工具定义。 */
-  public readonly definition: ToolDefinition = {
-    name: TOOL_NAMES.webFetch,
-    description:
-      '抓取一个 http(s) 网页并返回正文纯文本（自动剥离脚本/样式与标签）。' +
-      '用于读取文档、issue、PR 等在线内容；返回内容会按 max_bytes 截断。',
-    parameters: {
-      type: 'object',
-      properties: {
-        url: { type: 'string', description: '要抓取的 http(s) 地址' },
-        max_bytes: {
-          type: 'number',
-          description: `响应体字节上限（默认 ${DEFAULT_MAX_BYTES}，上限 ${HARD_MAX_BYTES}）`,
-        },
-        timeout_ms: {
-          type: 'number',
-          description: `抓取超时毫秒数（默认 ${DEFAULT_TIMEOUT_MS}，上限 ${MAX_TIMEOUT_MS}）`,
-        },
-      },
-      required: ['url'],
-    },
-  };
+  /** 工具定义（构造期按生效限额生成，参数说明里的"默认值"必须与实际一致）。 */
+  public readonly definition: ToolDefinition;
+  /** 生效限额（构造期解析一次，全程只读）。 */
+  private readonly limits: ToolsLimits;
 
   /**
-   * @param options 工具选项（可注入抓取实现，便于离线单测）。
+   * @param options 工具选项（可注入抓取实现 / 限额，便于离线单测）。
    */
-  public constructor(private readonly options: WebFetchToolOptions = {}) {}
+  public constructor(private readonly options: WebFetchToolOptions = {}) {
+    this.limits = options.limits ?? runtimeLimits.defaults().tools;
+    this.definition = {
+      name: TOOL_NAMES.webFetch,
+      description:
+        '抓取一个 http(s) 网页并返回正文纯文本（自动剥离脚本/样式与标签）。' +
+        '用于读取文档、issue、PR 等在线内容；返回内容会按 max_bytes 截断。',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '要抓取的 http(s) 地址' },
+          max_bytes: {
+            type: 'number',
+            description: `响应体字节上限（默认 ${String(this.limits.webFetchMaxBytes)}，上限 ${String(HARD_MAX_BYTES)}）`,
+          },
+          timeout_ms: {
+            type: 'number',
+            description: `抓取超时毫秒数（默认 ${String(this.limits.webFetchTimeoutMs)}，上限 ${String(MAX_TIMEOUT_MS)}）`,
+          },
+        },
+        required: ['url'],
+      },
+    };
+  }
 
   /**
    * 执行抓取。
@@ -109,10 +117,14 @@ export class WebFetchTool {
         error: `仅支持 http/https URL（收到: "${url}"）`,
       };
     }
-    const maxBytes = WebFetchTool.clamp(call.arguments['max_bytes'], DEFAULT_MAX_BYTES, HARD_MAX_BYTES);
+    const maxBytes = WebFetchTool.clamp(
+      call.arguments['max_bytes'],
+      this.limits.webFetchMaxBytes,
+      HARD_MAX_BYTES,
+    );
     const timeoutMs = WebFetchTool.clamp(
       call.arguments['timeout_ms'],
-      DEFAULT_TIMEOUT_MS,
+      this.limits.webFetchTimeoutMs,
       MAX_TIMEOUT_MS,
     );
     try {

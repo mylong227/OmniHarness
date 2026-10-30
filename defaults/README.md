@@ -7,13 +7,13 @@
 
 ## 文件与消费方
 
-| 文件             | 内容                                                            | 单一来源实现                                          | 覆盖入口                                                         |
-| ---------------- | --------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `ssrf.json`      | 云元数据主机 / 内网域名后缀 / IPv4 私有保留网段                 | `src/security/ssrfPolicy.ts`（`DEFAULT_SSRF_POLICY`） | `omniharness.json` 的 `ssrfPolicy`                               |
-| `providers.json` | 大模型厂商目录（端点 / 模型 / 推理档位 / CLI 映射）             | `src/config/providerPresets.ts`（`ProviderPresets`）  | `omniharness.json` 的 `providerPresets`                          |
-| `endpoints.json` | 适配器兜底端点/模型/凭据 env 名 + 各服务端点地址                | `src/util/endpointDefaults.ts`（`EndpointDefaults`）  | CLI/配置文件显式值 > 该适配器的 env > 本文件（服务端点见 `env`） |
-| `limits.json`    | 运维限制（HTTP/预览源超时·连接数·体积；A2A 调用/投递超时·分页） | `src/util/runtimeLimits.ts`（`RuntimeLimits`）        | `omniharness.json` 的 `limits` > 数据里的 `env` > 本文件         |
-| `cliHelp.json`   | `omniharness --help` 的文案（命令与选项说明）                   | `src/cli/cliHelp.ts`（`CliHelp`）                     | 无（面向用户的帮助文案；枚举取值在渲染时从 `cliEnums` 派生）     |
+| 文件             | 内容                                                | 单一来源实现                                          | 覆盖入口                                                         |
+| ---------------- | --------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
+| `ssrf.json`      | 云元数据主机 / 内网域名后缀 / IPv4 私有保留网段     | `src/security/ssrfPolicy.ts`（`DEFAULT_SSRF_POLICY`） | `omniharness.json` 的 `ssrfPolicy`                               |
+| `providers.json` | 大模型厂商目录（端点 / 模型 / 推理档位 / CLI 映射） | `src/config/providerPresets.ts`（`ProviderPresets`）  | `omniharness.json` 的 `providerPresets`                          |
+| `endpoints.json` | 适配器兜底端点/模型/凭据 env 名 + 各服务端点地址    | `src/util/endpointDefaults.ts`（`EndpointDefaults`）  | CLI/配置文件显式值 > 该适配器的 env > 本文件（服务端点见 `env`） |
+| `limits.json`    | 运维限制（HTTP/预览源/A2A/工具缺省限额）            | `src/util/runtimeLimits.ts`（`RuntimeLimits`）        | `omniharness.json` 的 `limits` > 数据里的 `env` > 本文件         |
+| `cliHelp.json`   | `omniharness --help` 的文案（命令与选项说明）       | `src/cli/cliHelp.ts`（`CliHelp`）                     | 无（面向用户的帮助文案；枚举取值在渲染时从 `cliEnums` 派生）     |
 
 四个文件都由 `src/util/builtinDefaults.ts` 按**模块相对路径**读包根下的 `defaults/`（不做 cwd 推断），
 结果缓存。**文件缺失 / 不可读 / 不是合法 JSON 一律抛错**（fail-closed）：安全默认档读不到时静默退化成空表，
@@ -177,8 +177,9 @@
 ## `limits.json`
 
 **运维限制**：HTTP 主服务的收头/请求时限、并发连接数、请求体上限、静态缓存上限；工作区网页预览源
-的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期。这些值此前写死在
-`HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` / `A2aTaskPager` 里，改一次要改代码重发。
+的同名三项；A2A 互操作的调用/投递超时、缺省页大小与游标有效期；工具族缺省限额（`web_fetch` 的超时与
+响应体上限）。这些值此前写死在 `HttpServer` / `PreviewServer` / `A2aClient` / `A2aPushNotifications` /
+`A2aTaskPager` / `WebFetchTool` 里，改一次要改代码重发。
 
 ```json
 {
@@ -194,6 +195,10 @@
     "webhookTimeoutMs": { "value": 10000, "env": "OMNI_A2A_WEBHOOK_TIMEOUT_MS", "notes": "…" },
     "pageSize": { "value": 50, "env": "OMNI_A2A_PAGE_SIZE", "notes": "…" },
     "pageTokenTtlMs": { "value": 86400000, "env": "OMNI_A2A_PAGE_TOKEN_TTL_MS", "notes": "…" }
+  },
+  "tools": {
+    "webFetchTimeoutMs": { "value": 30000, "env": "OMNI_WEB_FETCH_TIMEOUT_MS", "notes": "…" },
+    "webFetchMaxBytes": { "value": 200000, "env": "OMNI_WEB_FETCH_MAX_BYTES", "notes": "…" }
   }
 }
 ```
@@ -259,6 +264,8 @@ node scripts/check.mjs --strict        # 文件/函数体量等铁律
 `tests/unit/runtimeLimits.test.ts` 有同形的守卫：`httpServer.ts` 不得再出现 `30_000` / `60_000` / `2048` /
 `8 * 1024 * 1024`，`previewServer.ts` 不得再出现 `15_000` / `30_000` / `maxConnections = 64`，
 `a2aClient.ts` 不得再出现 `60_000`、`a2aPushNotifications.ts` 不得再出现 `DEFAULT_WEBHOOK_TIMEOUT_MS`、
-`a2aTaskPager.ts` 不得再出现 `DEFAULT_PAGE_SIZE` / `DEFAULT_TTL_MS`——
+`a2aTaskPager.ts` 不得再出现 `DEFAULT_PAGE_SIZE` / `DEFAULT_TTL_MS`、`webFetchTool.ts` 不得再出现
+`DEFAULT_MAX_BYTES` / `DEFAULT_TIMEOUT_MS` / `200_000`——
 这些值只能来自本目录的 `limits.json`。该判据还实构造一个 `HttpServer` 断言连接级参数就是配置值
-（"声明未接线"在结构判据里也会被抓）。
+（"声明未接线"在结构判据里也会被抓）；`webFetchTool.test.ts` 另有两例断言 `web_fetch` 的缺省值
+真的来自限额（注入后调用参数与工具说明同时变化）。

@@ -131,3 +131,36 @@ test('空响应体给出明确说明；抓取抛错时 ok:false', async () => {
   assert.strictEqual(failed.ok, false);
   assert.ok(failed.error?.includes('抓取失败'));
 });
+test('缺省限额来自 defaults/limits.json（tools 段），且与迁移前逐字一致', async () => {
+  const stub = new StubFetcher({
+    status: 200,
+    contentType: 'text/plain',
+    body: 'x',
+    truncated: false,
+  });
+  const tool = new WebFetchTool({ fetchDocument: stub.fetch.bind(stub) });
+  await tool.handle({ id: 'c', name: 'web_fetch', arguments: { url: 'https://e.com' } }, ctx);
+  assert.deepStrictEqual(stub.last, { url: 'https://e.com', maxBytes: 200_000, timeoutMs: 30_000 });
+});
+
+test('注入 limits 后：缺省值真的生效，参数说明也与生效值一致', async () => {
+  const stub = new StubFetcher({
+    status: 200,
+    contentType: 'text/plain',
+    body: 'x',
+    truncated: false,
+  });
+  const tool = new WebFetchTool({
+    fetchDocument: stub.fetch.bind(stub),
+    limits: { webFetchMaxBytes: 5_000, webFetchTimeoutMs: 1_234 },
+  });
+  await tool.handle({ id: 'c', name: 'web_fetch', arguments: { url: 'https://e.com' } }, ctx);
+  assert.deepStrictEqual(stub.last, { url: 'https://e.com', maxBytes: 5_000, timeoutMs: 1_234 });
+  // 参数说明里的「默认」必须跟生效限额走：否则模型按旧默认传参，等于配置没生效。
+  const properties = tool.definition.parameters['properties'] as Record<
+    string,
+    { description: string }
+  >;
+  assert.match(properties['max_bytes']!.description, /5000/u);
+  assert.match(properties['timeout_ms']!.description, /1234/u);
+});

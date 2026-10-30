@@ -10,6 +10,7 @@
 import type { MediaStack } from '../media/mediaStack.ts';
 import type { SubagentPortsShape } from '../subagent/subagentPortsShape.ts';
 import type { SubagentOptions } from '../subagent/subagentOptions.ts';
+import type { RuntimeLimitsConfig } from '../../util/runtimeLimits.ts';
 
 /** 子智能体端口种子（缺 tools，待注册表构造完成后回填）。 */
 export type SubagentPortSeed = Omit<SubagentPortsShape, 'tools'> & {
@@ -17,6 +18,14 @@ export type SubagentPortSeed = Omit<SubagentPortsShape, 'tools'> & {
   readonly subagent: SubagentOptions;
   /** 自主目标循环默认最大迭代次数（#S30，供 run_goal 工具读取）。 */
   readonly goalMaxIterations: number;
+  /**
+   * 运维限制段（`omniharness.json` 的 `limits`，2026-10-30 数据化）。
+   *
+   * 工具级可配限额（如 `web_fetch` 的缺省超时/字节上限）随种子交给工具装配层：
+   * 配置 → 种子 → 工具，避免每个工具各自 import 配置模块（那会形成 config ↔ adapters 环）。
+   * 缺省 undefined ⇒ 消费者取 `defaults/limits.json` 的出厂值。
+   */
+  readonly limits?: RuntimeLimitsConfig | undefined;
   /**
    * 已装配的媒体抽帧栈（动画 GIF / 视频的逐帧判读）。
    *

@@ -69,5 +69,17 @@
       "env": "OMNI_A2A_PAGE_TOKEN_TTL_MS",
       "notes": "游标有效期（24h）：过期后要求客户端重新列首页，避免无限期可用的旧游标。原写死 24*60*60*1000。"
     }
+  },
+  "tools": {
+    "webFetchTimeoutMs": {
+      "value": 30000,
+      "env": "OMNI_WEB_FETCH_TIMEOUT_MS",
+      "notes": "web_fetch 的缺省抓取超时（调用参数 timeout_ms 仍可逐次覆盖；硬上限 300000 是安全常量，不在此表）。"
+    },
+    "webFetchMaxBytes": {
+      "value": 200000,
+      "env": "OMNI_WEB_FETCH_MAX_BYTES",
+      "notes": "web_fetch 的缺省响应体字节上限（调用参数 max_bytes 仍可逐次覆盖；硬上限 2000000 是安全常量）。"
+    }
   }
 }

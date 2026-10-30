@@ -7094,3 +7094,18 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、A2A 相关 7 套件 36/36；快速层 + 类型层门禁通过。
 - **边界**：A2A 的 `OMNI_A2A_SEND_TIMEOUT_MS` / `OMNI_A2A_READ_TIMEOUT_MS` / `OMNI_A2A_MAX_BODY_BYTES`
   仍走 `LimitEnv`（已有 env 钩子，未纳入本片）；下一步按「同一消费者族」把它们并进 `limits.a2a.transport`。
+
+## 188. 2026-10-30 运维旋钮数据化（P3）：工具级限额随种子下发（web_fetch 先行）
+
+- **范围**：`WebFetchTool` 的缺省抓取超时（`30_000`）与响应体上限（`200_000`）。硬上限
+  （`300_000` / `2_000_000`）是安全常量，**不进配置**——它们约束的是"用户能调多大"，不是部署差异。
+- **形态**：`defaults/limits.json` 新增 `tools` 段；`RuntimeLimits` 增 `ToolsLimits` / `resolveTools`；
+  配置经 `SubagentPortSeed.limits`（新字段，`configBuilder.seedOf` 一行下发）到
+  `configToolRegistry.registerCoreTools`，在**配置层解析一次**后交给 `new WebFetchTool({ limits })`。
+  env 只在一处解释（与 devConfig 同纪律），工具自己不读环境变量。
+- **可见性同步**：工具参数说明里的"默认值"由生效限额生成（构造期），否则模型会按旧默认传参 ⇒ 配置形同失效。
+- **判据**：`runtimeLimits.test.ts` ①补 tools 缺省值、③补逐键覆盖、⑧守卫扩到 `webFetchTool.ts`、⑨接线补种子与装配层；
+  `webFetchTool.test.ts` 新增 2 例——缺省值逐字一致（200000/30000）、注入限额后**调用参数与工具说明同时变化**。
+- **验证**：`tsc --noEmit` 0 错；`runtimeLimits` 9/9、`webFetchTool` 7/7、配置/装配相关 4 套件 29/29；快速层 + 类型层门禁通过。
+- **边界**：`tools` 段目前只有 `web_fetch` 两项。shell 并发/队列、browser 超时、LSP 超时仍写死——
+  下一片按同一路径（种子 → 工具/适配器）继续扩段，不改机制。

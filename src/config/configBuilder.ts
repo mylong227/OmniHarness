@@ -258,6 +258,8 @@ export class ConfigBuilder {
       elevatedSandbox,
       longTermMemory,
       goalMaxIterations: partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS,
+      // 运维限制段随种子下发（工具级可配限额，如 web_fetch 的缺省超时/字节上限）。
+      limits: partial.limits,
       // 计划门禁透传（2026-10-01 审计）：子代工具集在装配期就拿不到父级计划状态的话，
       // `--plan` 只读语义会在 subagent / run_workflow / run_goal 三条委派路径上被绕过。
       plan,

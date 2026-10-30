@@ -21,6 +21,7 @@ import { EditFileTool } from '../adapters/tool/fs/editFileTool.ts';
 import { WorkspaceFileCoordinator } from '../adapters/tool/fs/workspaceFileCoordinator.ts';
 import { FairSessionScheduler } from '../util/concurrency/fairSessionScheduler.ts';
 import { LimitEnv } from '../util/limitEnv.ts';
+import { runtimeLimits } from '../util/runtimeLimits.ts';
 import { GrepTool } from '../adapters/tool/fs/grepTool.ts';
 import { GlobTool } from '../adapters/tool/fs/globTool.ts';
 import { WebFetchTool } from '../adapters/tool/web/webFetchTool.ts';
@@ -155,7 +156,9 @@ export class ConfigToolRegistry {
       ConfigToolRegistry.buildWorkspaceTools(seed, jobs);
     // P2-⑬：web_fetch 自带实现（零密钥，故可默认注册）；view_image 走工具结果附件通道；
     // browser_screenshot 把「看一眼自己做的页面」补上（纯 TS CDP，headless Chrome/Edge）。
-    const fetcher = new WebFetchTool();
+    // 工具级限额（2026-10-30 数据化）：`limits.tools` 经种子下发，在配置层**解析一次**再交给工具，
+    // 避免每个工具各自读环境变量（env 只应在一处解释）。
+    const fetcher = new WebFetchTool({ limits: runtimeLimits.resolve(seed.limits).tools });
     const searchTool = WebSearchProviders.fromEnv();
     const imageResizer = new SharpImageResizer();
     const viewer = new ViewImageTool(seed.workspaceRoot, imageResizer);

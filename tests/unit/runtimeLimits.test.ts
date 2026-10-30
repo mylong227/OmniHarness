@@ -86,6 +86,8 @@ test('① 出厂值与历史字面量逐项一致（零配置行为不变）', (
     pageSize: 50,
     pageTokenTtlMs: 24 * 60 * 60 * 1000,
   });
+  // 工具段（P3 迁入）：web_fetch 的缺省超时 / 字节上限——迁移前逐字写死在 WebFetchTool。
+  assert.deepStrictEqual(defaults.tools, { webFetchTimeoutMs: 30_000, webFetchMaxBytes: 200_000 });
 });
 
 test('② 环境变量覆盖生效；空白视为未设置', () => {
@@ -122,6 +124,10 @@ test('③ 优先级：配置 > 环境变量 > 出厂值；未写的键继续往�
   const a2a = runtimeLimits.resolve({ a2a: { pageSize: 20 } }).a2a;
   assert.strictEqual(a2a.pageSize, 20);
   assert.strictEqual(a2a.clientTimeoutMs, 60_000);
+  // 工具段同样逐键覆盖。
+  const tools = runtimeLimits.resolve({ tools: { webFetchTimeoutMs: 9_000 } }).tools;
+  assert.strictEqual(tools.webFetchTimeoutMs, 9_000);
+  assert.strictEqual(tools.webFetchMaxBytes, 200_000);
 });
 
 test('④ 坏值 fail-closed：坏环境变量点名变量，越界拒绝（不静默回落）', () => {
@@ -256,6 +262,12 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   const pager = srcCode('src/a2a/a2aTaskPager.ts');
   assert.doesNotMatch(pager, /DEFAULT_PAGE_SIZE|DEFAULT_TTL_MS|24 \* 60 \* 60/u);
   assert.match(pager, /a2aDefaults\.pageSize/u);
+
+  // 工具段（P3）：web_fetch 不得再写死缺省超时/字节上限。
+  const webFetch = srcCode('src/adapters/tool/web/webFetchTool.ts');
+  assert.doesNotMatch(webFetch, /DEFAULT_MAX_BYTES|DEFAULT_TIMEOUT_MS|200_000/u);
+  assert.match(webFetch, /this\.limits\.webFetchTimeoutMs/u);
+  assert.match(webFetch, /this\.limits\.webFetchMaxBytes/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
@@ -276,4 +288,14 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   assert.match(runtime, /new A2aTaskPager\(\{/u);
   assert.match(runtime, /new A2aPushNotifications\(\{ timeoutMs/u);
   assert.match(runtime, /timeoutMs: a2aLimits\.clientTimeoutMs/u);
+  // 工具段：limits 随种子下发到工具装配层，在配置层解析一次后交给 web_fetch。
+  assert.match(
+    srcCode('src/ports/config/subagentPortSeed.ts'),
+    /readonly limits\?: RuntimeLimitsConfig/u,
+  );
+  assert.match(srcCode('src/config/configBuilder.ts'), /limits: partial\.limits/u);
+  assert.match(
+    srcCode('src/config/configToolRegistry.ts'),
+    /runtimeLimits\.resolve\(seed\.limits\)\.tools/u,
+  );
 });
