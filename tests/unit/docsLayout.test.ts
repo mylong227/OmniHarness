@@ -76,6 +76,12 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'CORE_CAPABILITY_UPGRADE_2026-10-28.md',
   // 前端 UI 升级规划（2026-10-28 显式登记）：Ant Design 6 全站替换的规划稿，**未实施**。
   'UI_LIBRARY_UPGRADE_2026-10-28.md',
+  // 并发编辑三方合并边界研究（2026-10-30 显式登记）：13 场景确定性探针 + 唯一真缺陷
+  // （CRLF 静默改写）与 B1/B2/B3 落地记录；CRDT 触发条件（§8）是后续决策依据。
+  'EDIT_CONCURRENCY_RESEARCH_2026-10-30.md',
+  // 选择器 Tree 化重设计定稿（2026-10-30 显式登记）：FilePicker/FolderPicker 工作区整树
+  // + 勾选即预览的设计稿与实施边界，P1–P3 已实施（看板 §179–§183）。
+  'PICKER_REDESIGN_2026-10-30.md',
   // 现行纪律
   'CODE_STANDARD.md',
   'DEPENDENCY_POLICY.md',

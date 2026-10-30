@@ -113,6 +113,9 @@ const AUTHORITY_SUMMARIES: Readonly<Record<string, (value: unknown) => string>> 
   modelCircuitBreakerThreshold: (value) => `熔断阈值：${String(value)}`,
   modelCircuitBreakerOpenMs: (value) => `熔断打开时长：${String(value)}`,
   longTermMemoryEncryption: (value) => `长期记忆加密：${String(value)}`,
+  // 运维旋钮段（limits.*：超时/并发/输出上限/保留策略）。项目级能改它 ⇒ 可放大资源占用
+  // （并发调爆、超时无限、清扫关闭），归权威键：未信任工作区忽略并提示，显式信任后生效。
+  limits: () => '运维旋钮段（超时/并发/上限/保留策略，可放大资源占用）',
 };
 
 /** policy floor：即使信任工作区，这些「降权值」也只能由 CLI 显式给出。 */

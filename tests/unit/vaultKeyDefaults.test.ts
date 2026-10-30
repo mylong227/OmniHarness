@@ -12,7 +12,7 @@
  *
  * | # | 判据 | 坏掉的后果 |
  * | --- | --- | --- |
- * | ① | 默认路径 = `~/.omniharness/vault.key`；显式 `--vault-key-file` 优先；来源描述不带密钥内容 | 默认没生效 ⇒ 回到 footgun |
+ * | ① | 默认路径 = OmniHome 根下 `vault.key`（`OMNI_HOME` 是唯一归属旋钮，2026-10-26 起**不再**是 `~/.omniharness`）；显式 `--vault-key-file` 优先；来源描述不带密钥内容 | 默认没生效 ⇒ 回到 footgun |
  * | ② | **跨进程持久化**（真起 CLI 子进程，临时 HOME）：`vault set` 之后**另一个进程** `vault get` 必须取回原值 | 内存随机密钥 ⇒ 密文读不回（本判据修前必红） |
  * | ③ | 正对照：换一个 HOME（换密钥文件）后同一条目**读不到**（fail-closed 报错，不是返回错误明文） | ② 可能恒真 |
  * | ④ | 环境变量优先：换 `OMNIHARNESS_VAULT_KEY` 后读旧密文必须**报错**，同密钥必须能读回 | 静默返回错误明文 = 更危险；或"永远失败"被当成正确 |
@@ -23,11 +23,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { DEFAULT_VAULT_KEY_FILE, VaultKeyDefaults } from '../../src/cli/vaultKeyDefaults.ts';
+import { OmniHome } from '../../src/util/omniHome.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();
@@ -37,7 +38,10 @@ const CLI = join(REPO_ROOT, 'dist/src/cli/exec.js');
 /**
  * 在给定 HOME 下跑一次 CLI（真子进程）。
  * @param args 子命令参数
- * @param home 临时 HOME（同时设 HOME 与 USERPROFILE，两个平台都能生效）
+ * @param home 临时 HOME（同时设 HOME/USERPROFILE/**OMNI_HOME**——归属根的唯一事实源是
+ *   `OmniHome.dir()`：显式注入 > `OMNI_HOME` env > `~/.omniharness`。本机 `OMNI_HOME` 已被
+ *   setx 持久化为真实用户家目录，**不覆盖它**子进程就会把密钥写进真家目录而非临时 HOME，
+ *   判据要么扑空要么假绿。）
  * @param env 额外环境
  * @returns 退出码与输出
  */
@@ -49,7 +53,14 @@ function runCli(
   const res = spawnSync(process.execPath, [CLI, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, USERPROFILE: home, OMNI_REPO_MAP: '0', ...env },
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      OMNI_HOME: home,
+      OMNI_REPO_MAP: '0',
+      ...env,
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   // 合并 stdout+stderr：水合提示与"跳过说明"都写在 **stderr** 上，只收 stdout 会把它们
@@ -57,8 +68,13 @@ function runCli(
   return { code: res.status ?? 1, out: `${res.stdout ?? ''}\n${res.stderr ?? ''}` };
 }
 
-test('① 默认主密钥文件 = ~/.omniharness/vault.key；显式路径优先；来源描述不带密钥', () => {
-  assert.match(DEFAULT_VAULT_KEY_FILE, /\.omniharness[/\\]vault\.key$/u, '默认路径口径');
+test('① 默认主密钥文件 = OmniHome 根下 vault.key；显式路径优先；来源描述不带密钥', () => {
+  assert.strictEqual(
+    DEFAULT_VAULT_KEY_FILE,
+    join(OmniHome.dir(), 'vault.key'),
+    '默认路径必须由 OmniHome 拼出（OMNI_HOME 是唯一归属旋钮，禁止再手写 ~/.omniharness）',
+  );
+  assert.match(DEFAULT_VAULT_KEY_FILE, /vault\.key$/u, '文件名口径');
   assert.strictEqual(
     VaultKeyDefaults.resolveKeyFile(undefined),
     DEFAULT_VAULT_KEY_FILE,
@@ -88,7 +104,7 @@ test('② 跨进程持久化：进程 A `vault set` → 进程 B `vault get` 必
       home,
     );
     assert.strictEqual(set.code, 0, `set 应成功：\n${set.out}`);
-    const keyFile = join(home, '.omniharness', 'vault.key');
+    const keyFile = join(home, 'vault.key');
     assert.ok(existsSync(keyFile), `默认密钥文件未生成：${keyFile}\n${set.out}`);
     assert.ok(readFileSync(keyFile, 'utf8').trim().length > 0, '密钥文件不得为空');
 
@@ -261,6 +277,7 @@ test('⑤ OMNIHARNESS_VAULT=0 ⇒ 关闭；serve 不创建密钥文件（真起�
   assert.strictEqual(VaultKeyDefaults.disabledByEnv({}), false, '未设 ⇒ 默认开启');
 
   // 真起一次 serve（6 秒后杀掉：它常驻，不能用 execFileSync 等它退出——首版就是这么写死自己的）。
+  // OMNI_HOME 必须指到临时目录：否则 serve 会把密钥写进**真家目录**，本判据变成"查错地方"的假绿。
   const home = mkdtempSync(join(tmpdir(), 'omni-vault-off-'));
   try {
     const proc = spawn(process.execPath, [CLI, 'serve', '--workspace', home, '--port', '0'], {
@@ -269,6 +286,7 @@ test('⑤ OMNIHARNESS_VAULT=0 ⇒ 关闭；serve 不创建密钥文件（真起�
         ...process.env,
         HOME: home,
         USERPROFILE: home,
+        OMNI_HOME: home,
         OMNIHARNESS_VAULT: '0',
         OMNI_SEMANTIC_RECALL: '0',
         OMNI_REPO_MAP: '0',
@@ -278,8 +296,9 @@ test('⑤ OMNIHARNESS_VAULT=0 ⇒ 关闭；serve 不创建密钥文件（真起�
     const started = Date.now();
     while (Date.now() - started < 6000) {
       // 等它把启动路径走完（含 buildServeVault）——被关闭时它不会碰密钥文件。
+      // 等待信号：OmniHome 根（= home）里出现任何 serve 落盘（pid/配置/会话目录）。
       execFileSync(process.execPath, ['-e', 'setTimeout(()=>{},200)'], { stdio: 'ignore' });
-      if (existsSync(join(home, '.omniharness'))) {
+      if (existsSync(home) && readdirSync(home).length > 0) {
         break;
       }
     }
@@ -289,12 +308,30 @@ test('⑤ OMNIHARNESS_VAULT=0 ⇒ 关闭；serve 不创建密钥文件（真起�
       /* 已退出 */
     }
     assert.strictEqual(
-      existsSync(join(home, '.omniharness', 'vault.key')),
+      existsSync(join(home, 'vault.key')),
       false,
       'OMNIHARNESS_VAULT=0 时不得创建密钥文件',
     );
   } finally {
     rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+
+  // **正对照**：同一临时 OmniHome 口径下，启用（默认）时密钥文件**必须**被创建。
+  // 密钥文件是「首次使用时生成」（serve 只接线不落盘），故用一次真实 `vault set` 触发生成——
+  // 没有这条，上一条"没创建"可能只是"serve 根本没做任何事"的假绿。
+  const onHome = mkdtempSync(join(tmpdir(), 'omni-vault-on-'));
+  try {
+    const set = runCli(
+      ['vault', 'set', '--name', 'pc', '--value', 'v', '--kv-file', join(onHome, 'kv.json')],
+      onHome,
+    );
+    assert.strictEqual(set.code, 0, `正对照 set 应成功：\n${set.out}`);
+    assert.ok(
+      existsSync(join(onHome, 'vault.key')),
+      '正对照：默认开启时凭据写入必须生成 OmniHome 根下的 vault.key',
+    );
+  } finally {
+    rmSync(onHome, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 
   // 接线断言（附正对照）：serve 侧必须先查开关再构造 vault。

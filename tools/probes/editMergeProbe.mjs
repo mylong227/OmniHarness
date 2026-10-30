@@ -9,23 +9,35 @@
  * 文档长期把「字符级 / OT / CRDT」标为未做——但**没有数字说明现役实现到底在哪些形态上失效**。
  * 本探针就是那份数字：一组确定性场景 × 现役合并器，逐条给出「干净合并 / 冲突 / 放弃」与正确性判定。
  *
- * ## 口径边界（诚实）
+ * ## 前置
  *
- * - 只测 `TextThreeWayMerge.merge`（纯函数、无 IO、无模型），**不测**两个真实会话并发写文件时的
- *   工具层行为（基线读取、哈希闸、落盘顺序）——那是同一研究的下半段，见文档 §4。
- * - 场景是**人工构造的最小形态**，不是真实仓库 diff 的统计分布；它回答「会不会错」，不回答「多常错」。
+ * `npm run build`（探针 import dist 下的编译产物，与单测同一份）；离线可跑：
+ * 无网络、无模型、无 gitignored 目录依赖。
  *
  * ## 用法
  *
  *   npm run build && node tools/probes/editMergeProbe.mjs
- *   node tools/probes/editMergeProbe.mjs --json   # 机器可读
+ *   node tools/probes/editMergeProbe.mjs --json=out.json   # 机器可读结果落盘
  *
- * 退出码恒 0（这是研究探针，不是门禁）；判定表打印到 stdout。
+ * 研究探针（非门禁）：异常场景**打印**但不改变退出码（恒 0）——门禁口径由
+ * `tests/unit/textThreeWayMerge.test.ts` 承担。
+ *
+ * ## 诚实边界
+ *
+ * - 只测 `TextThreeWayMerge.merge`（纯函数、无 IO、无模型），**不测**两个真实会话并发写文件时的
+ *   工具层行为（基线读取、哈希闸、落盘顺序）——那是同一研究的下半段，见文档 §4。
+ * - 场景是**人工构造的最小形态**，不是真实仓库 diff 的统计分布；它回答「会不会错」，不回答「多常错」。
  */
 import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { probeArgs } from './_args.mjs';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..', '..');
+
+// 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）：
+// `--json=<path>`（空值 = 不落盘）；`--list-knobs` 由解析器内置支持。
+const a = probeArgs({ values: { json: '' } });
 
 /**
  * 从编译产物导入（与其它探针同一口径：探针不参与 tsc 编译，必须走 dist）。
@@ -36,7 +48,16 @@ async function loadDist(segments) {
   return import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
 }
 
-const { TextThreeWayMerge } = await loadDist(['util', 'textThreeWayMerge.js']);
+let TextThreeWayMerge;
+try {
+  ({ TextThreeWayMerge } = await loadDist(['util', 'textThreeWayMerge.js']));
+} catch (error) {
+  console.error(
+    '✗ 缺少编译产物。请先运行 `npm run build`。\n' +
+      `  原因：${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exit(2);
+}
 
 /** 判定孤立代理项（字符级 LCS 若按 UTF-16 码元切，会切坏 emoji）。 */
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u;
@@ -232,9 +253,19 @@ function runOne(s) {
 }
 
 const rows = SCENARIOS.map(runOne);
-const json = process.argv.includes('--json');
-if (json) {
-  console.log(JSON.stringify(rows, null, 2));
+const summary = {
+  probe: 'editMergeProbe',
+  scenarios: rows.length,
+  wrong: rows.filter((r) => r.verdict.startsWith('✗')).length,
+  nonDeterministic: rows.filter((r) => !r.deterministic).length,
+  loneSurrogates: rows.filter((r) => r.lone).length,
+  rows,
+};
+if (a.json !== '') {
+  writeFileSync(a.json, JSON.stringify(summary, null, 2));
+  console.log(
+    `已写出 ${a.json}（${String(summary.scenarios)} 场景 / 异常 ${String(summary.wrong)}）`,
+  );
 } else {
   console.log('| 场景 | 期望 | 实际 | 判定 | 确定 | 备注 |');
   console.log('| --- | --- | --- | --- | --- | --- |');

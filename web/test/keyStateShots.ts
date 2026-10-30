@@ -19,6 +19,7 @@ import {
   stubHtmlCdp,
   WEB_ROOT_PATH,
 } from './browserHarness.ts';
+import { skipReasonFor } from './browserSwitch.ts';
 
 const ARCHIVE = join(WEB_ROOT_PATH, 'archive');
 const WIDTH = 1280;
@@ -118,12 +119,16 @@ const OPENERS: Record<string, (cdp: CdpSession) => Promise<boolean>> = {
 const NO_SEED = new Set(['empty', 'rightpanel', 'narrow']);
 
 async function captureOne(
-  browser: string,
+  browser: string | null,
   server: { port: number; close: () => Promise<void> },
   key: string,
   theme: 'dark' | 'light',
   stamp: number,
 ): Promise<ShotOutcome> {
+  // require 模式下允许 null 进来（见入口处 skipReasonFor 口径）：逐态记失败，不静默跳过。
+  if (browser === null) {
+    return { key, theme, ok: false, error: '未找到本机浏览器（OMNI_REQUIRE_BROWSER=1 强制运行）' };
+  }
   const userDataDir = mkdtempSync(join(tmpdir(), 'omni-keyshot-ud-'));
   const debugPort = await getFreePort();
   let cdp: CdpSession | undefined;
@@ -183,8 +188,12 @@ async function captureOne(
 }
 
 const browser = findBrowser();
-if (!browser) {
-  process.stdout.write('SKIP: 未找到浏览器\n');
+// 跳过必须接开关（requireSwitches ②）：普通缺浏览器 ⇒ 显式 SKIP 退出；
+// `OMNI_REQUIRE_BROWSER=1` ⇒ 不跳过——browser 为 null 时 captureOne 逐态记录失败并进 JSON
+// （调用方看 `failed`），而不是静默"看着绿"。
+const skipReason = skipReasonFor(browser !== null);
+if (skipReason !== null) {
+  process.stdout.write(`SKIP: ${skipReason}\n`);
   process.exit(0);
 }
 const server = await serveStatic(WEB_ROOT_PATH, { '/_keyshot-stub.html': stubHtmlCdp() });

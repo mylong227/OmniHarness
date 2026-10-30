@@ -63,12 +63,15 @@ function startServe(
     // 与仓内其它 CLI 子进程同一取舍：本判据只关心端口绑定/接管，不需要检索与 repo-map
     // ⇒ 关掉它们，别给同跑的重文件（embeddingPreload / evolutionCommand）添负载。
     // HOME/USERPROFILE 指向临时目录：① 不把实例记录写进用户家目录；② 顺带隔离用户级配置（更 hermetic）。
+    // OMNI_HOME 必须一并指到 <home>/.omniharness：归属根唯一事实源是 OmniHome.dir()（显式 > OMNI_HOME
+    // > ~/.omniharness），本机 OMNI_HOME 已 setx——不覆盖它，serve 实例记录会写进真家目录，判据必扑空。
     env: {
       ...process.env,
       OMNI_REPO_MAP: '0',
       OMNI_SEMANTIC_RECALL: '0',
       HOME: home,
       USERPROFILE: home,
+      OMNI_HOME: join(home, '.omniharness'),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
