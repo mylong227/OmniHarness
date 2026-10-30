@@ -382,23 +382,22 @@ function attachLazy(
  * @param props 数据态、过滤值、展开/勾选集与回调
  * @returns 主体节点
  */
-function FilePickerBody(props: {
+/**
+ * 树 + 预览两栏。
+ * @param props 数据态、选择态、懒加载子树、预览与回调
+ * @returns 两栏节点
+ */
+function TreeSplit(props: {
   state: TreeState;
-  query: string;
   expanded: React.Key[];
   checked: React.Key[];
   visible: FsNode[];
-  /** 「文件系统…」根节点的子节点（懒加载，工作区外也能选附件）。 */
   fsNode: TreeDataNode[];
-  onQuery: (value: string) => void;
+  preview: PreviewState | null;
   onExpand: (keys: React.Key[]) => void;
-  onCheck: (keys: React.Key[]) => void;
-  onRefresh: () => void;
-  onCancel: () => void;
-  onConfirm: () => void;
+  onCheck: (keys: React.Key[], key: string, checked: boolean) => void;
 }): ReactElement {
-  const { state, query, expanded, checked, visible } = props;
-  const checkedCount = checked.length;
+  const { state, visible } = props;
   const fsRoot: TreeDataNode = {
     key: FS_ROOT,
     checkable: false,
@@ -413,6 +412,66 @@ function FilePickerBody(props: {
     ),
     children: props.fsNode,
   };
+  return (
+    <div className={'fp-split' + (props.preview === null ? '' : ' has-preview')}>
+      <div className="fp-list fp-tree">
+        {state.loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
+        {!state.loading && state.error !== null ? <div className="fp-err">{state.error}</div> : null}
+        {!state.loading && state.error === null && state.tree.length === 0 ? (
+          <div className="fp-empty">{t('工作区还没有文件')}</div>
+        ) : null}
+        {!state.loading && state.error === null && visible.length === 0 && state.tree.length > 0 ? (
+          <div className="fp-empty">{t('没有匹配的文件')}</div>
+        ) : null}
+        {/* 树**始终**渲染：工作区为空或过滤无命中时，「文件系统…」仍要可用。 */}
+        {state.loading ? null : (
+          <Tree
+            checkable
+            selectable={false}
+            height={320}
+            treeData={[...visible.map(toTreeNode), fsRoot]}
+            expandedKeys={props.expanded}
+            checkedKeys={props.checked}
+            onExpand={props.onExpand}
+            onCheck={(keys, info) =>
+              props.onCheck(
+                Array.isArray(keys) ? keys : keys.checked,
+                String(info.node.key),
+                info.checked === true,
+              )
+            }
+          />
+        )}
+      </div>
+      {props.preview === null ? null : (
+        <PreviewPane
+          preview={props.preview}
+          name={props.preview.path.split(/[\\/]/).pop() ?? props.preview.path}
+        />
+      )}
+    </div>
+  );
+}
+
+function FilePickerBody(props: {
+  state: TreeState;
+  query: string;
+  expanded: React.Key[];
+  checked: React.Key[];
+  visible: FsNode[];
+  /** 「文件系统…」根节点的子节点（懒加载，工作区外也能选附件）。 */
+  fsNode: TreeDataNode[];
+  /** 预览窗格（P3；null = 不显示）。 */
+  preview: PreviewState | null;
+  onQuery: (value: string) => void;
+  onExpand: (keys: React.Key[]) => void;
+  onCheck: (keys: React.Key[], key: string, checked: boolean) => void;
+  onRefresh: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}): ReactElement {
+  const { state, query, expanded, checked, visible } = props;
+  const checkedCount = checked.length;
   return (
     <>
       <div className="fp-treebar">
@@ -433,31 +492,16 @@ function FilePickerBody(props: {
           {t('刷新')}
         </button>
       </div>
-      <div className="fp-list fp-tree">
-        {state.loading ? <div className="fp-empty">{t('读取中…')}</div> : null}
-        {!state.loading && state.error !== null ? (
-          <div className="fp-err">{state.error}</div>
-        ) : null}
-        {!state.loading && state.error === null && state.tree.length === 0 ? (
-          <div className="fp-empty">{t('工作区还没有文件')}</div>
-        ) : null}
-        {!state.loading && state.error === null && visible.length === 0 && state.tree.length > 0 ? (
-          <div className="fp-empty">{t('没有匹配的文件')}</div>
-        ) : null}
-        {/* 树**始终**渲染：工作区为空或过滤无命中时，「文件系统…」仍要可用。 */}
-        {state.loading ? null : (
-          <Tree
-            checkable
-            selectable={false}
-            height={320}
-            treeData={[...visible.map(toTreeNode), fsRoot]}
-            expandedKeys={expanded}
-            checkedKeys={checked}
-            onExpand={props.onExpand}
-            onCheck={(keys) => props.onCheck(Array.isArray(keys) ? keys : keys.checked)}
-          />
-        )}
-      </div>
+      <TreeSplit
+        state={state}
+        expanded={expanded}
+        checked={checked}
+        visible={visible}
+        fsNode={props.fsNode}
+        preview={props.preview}
+        onExpand={props.onExpand}
+        onCheck={props.onCheck}
+      />
       <div className="fp-actions">
         <button className="fp-btn" onClick={props.onCancel}>
           {t('取消')}
@@ -474,6 +518,91 @@ function FilePickerBody(props: {
   );
 }
 
+/** 预览窗格状态（P3：勾选/激活即预览，单选语义）。 */
+interface PreviewState {
+  path: string;
+  loading: boolean;
+  text: string | null;
+  binary: boolean;
+  error: string | null;
+}
+
+/**
+ * 文件预览（P3）：读前 40 行；二进制只说明不硬解，错误如实显示。
+ *
+ * 用请求序号丢弃过期响应——快速连点两个文件时，先发的慢响应不得覆盖后选的那个。
+ *
+ * @param api RPC 客户端
+ * @returns 预览态与 show
+ */
+function useFilePreview(api: ApiClient): {
+  preview: PreviewState | null;
+  show: (path: string) => void;
+} {
+  const [preview, setPreview] = React.useState<PreviewState | null>(null);
+  const seq = React.useRef(0);
+  const show = (path: string): void => {
+    const mine = ++seq.current;
+    setPreview({ path, loading: true, text: null, binary: false, error: null });
+    // fail-closed：老桩/未接线后端没有 fs.read 时，预览给明确提示，绝不抛未处理异常
+    //（2026-10-30：其它用例的 api 桩没这个方法，无守卫时会变成 unhandled rejection）。
+    const read = typeof api.readFs === 'function' ? api.readFs.bind(api) : null;
+    if (read === null) {
+      setPreview({
+        path,
+        loading: false,
+        text: null,
+        binary: false,
+        error: t('预览不可用（fs.read 未接线）'),
+      });
+      return;
+    }
+    void read(path)
+      .then((r) => {
+        if (mine !== seq.current) return;
+        if (r.isBinary === true) {
+          setPreview({ path, loading: false, text: null, binary: true, error: null });
+          return;
+        }
+        const text = (r.content ?? '').split('\n').slice(0, 40).join('\n');
+        setPreview({ path, loading: false, text, binary: false, error: null });
+      })
+      .catch((e: Error) => {
+        if (mine !== seq.current) return;
+        setPreview({ path, loading: false, text: null, binary: false, error: e.message });
+      });
+  };
+  return { preview, show };
+}
+
+/**
+ * 预览窗格。
+ * @param props 预览态与文件名
+ * @returns 预览节点
+ */
+function PreviewPane(props: { preview: PreviewState; name: string }): ReactElement {
+  const { preview } = props;
+  return (
+    <aside className="fp-preview" aria-label={t('文件预览')}>
+      <div className="fp-preview-head" title={preview.path}>
+        {props.name}
+      </div>
+      <div className="fp-preview-body">
+        {preview.loading ? <div className="fp-tree-loading">{t('读取中…')}</div> : null}
+        {!preview.loading && preview.error !== null ? (
+          <div className="fp-err">{t('读取预览失败：{msg}', { msg: preview.error })}</div>
+        ) : null}
+        {!preview.loading && preview.binary ? (
+          <div className="fp-tree-empty">{t('二进制文件（不显示内容）')}</div>
+        ) : null}
+        {!preview.loading && preview.text !== null ? (
+          <pre className="fp-preview-text">{preview.text}</pre>
+        ) : null}
+      </div>
+    </aside>
+  );
+}
+
 /**
  * 文件选择器：工作区整树 → 勾选文件 → 确认回传绝对路径列表。
  * @param props 组件入参
@@ -483,6 +612,7 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   const { api, onCancel, onPick } = props;
   const state = useWorkspaceTree(api);
   const lazy = useLazyFsFiles(api);
+  const filePreview = useFilePreview(api);
   const [query, setQuery] = React.useState<string>('');
   const [expanded, setExpanded] = React.useState<React.Key[]>([FS_ROOT]);
   const [checked, setChecked] = React.useState<React.Key[]>([]);
@@ -530,9 +660,10 @@ export function FilePicker(props: FilePickerProps): ReactElement {
     }
   };
 
-  /** 勾选：只收文件 key（工作区路径或懒加载文件），父目录的半选由 antd 自己画。 */
-  const onCheck = (keys: React.Key[]): void => {
-    setChecked(keys.filter((key) => filePaths.has(String(key)) || lazyFiles.has(String(key))));
+  /** 勾选：只收文件 key（工作区路径或懒加载文件），父目录的半选由 antd 自己画；勾上即预览。 */
+  const onCheck = (keys: React.Key[], key: string, checkedNow: boolean): void => {
+    setChecked(keys.filter((k) => filePaths.has(String(k)) || lazyFiles.has(String(k))));
+    if (checkedNow) filePreview.show(fsPathOf(key) ?? key);
   };
 
   /** 确认：至少选一个文件才回传；懒加载 key 去掉 `fs:` 前缀还原成绝对路径。 */
@@ -564,6 +695,7 @@ export function FilePicker(props: FilePickerProps): ReactElement {
           checked={checked}
           visible={visible}
           fsNode={fsNode}
+          preview={filePreview.preview}
           onQuery={setQuery}
           onExpand={onExpand}
           onCheck={onCheck}

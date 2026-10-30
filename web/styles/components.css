@@ -321,6 +321,22 @@
   padding:1px 8px; border-radius:6px; cursor:pointer; font-size:11px;
 }
 .fp-retry:hover { background:var(--panel-2); }
+/* P3：树 + 预览两栏（无预览时单栏，避免空占位）。 */
+.fp-split { display:grid; grid-template-columns:1fr; }
+.fp-split.has-preview { grid-template-columns:minmax(0,1fr) 240px; }
+.fp-preview {
+  border-left:1px solid var(--hairline); padding-left:12px; min-width:0;
+  display:flex; flex-direction:column;
+}
+.fp-preview-head {
+  font-size:11.5px; color:var(--dim); padding:2px 0 6px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.fp-preview-body { flex:1; min-height:0; overflow:auto; }
+.fp-preview-text {
+  margin:0; font-family:var(--mono); font-size:11.5px; line-height:1.55;
+  color:var(--dim); white-space:pre-wrap; word-break:break-word;
+}
 
 /* 命令面板（Ctrl/Cmd+P / K）：浮层壳由 antd Modal 承担（2026-10-29 W2）。 */
 .cmdk {

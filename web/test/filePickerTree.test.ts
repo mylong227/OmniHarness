@@ -184,8 +184,7 @@ test('④ 刷新保留展开态与勾选态（键是 path，刷新后不丢）',
   ui.unmount();
 });
 
-test('⑤ P2：工作区外走「文件系统…」懒加载，确认时去掉 fs: 前缀还原绝对路径', async () => {
-  const calls: { depth?: number }[] = [];
+test('⑤ P2：工作区外走「文件系统…」懒加载，确认时去掉 fs: 前缀还原绝对路径', async () => {  const calls: { depth?: number }[] = [];
   const picked: string[][] = [];
   const browseCalls: (string | undefined)[] = [];
   const ui = await renderPicker(calls, picked, browseCalls, async (path) =>
@@ -222,5 +221,64 @@ test('⑤ P2：工作区外走「文件系统…」懒加载，确认时去掉 f
   assert.ok(confirm instanceof HTMLElement, '工作区外勾选也必须可确认');
   fireEvent.click(confirm);
   assert.deepStrictEqual(picked, [['C:/out.log']], '回传必须是真实绝对路径，不带 fs: 前缀');
+  ui.unmount();
+});
+
+test('⑥ P3：勾选即预览（前 40 行 / 二进制只说明 / 读失败如实报）', async () => {
+  const readCalls: string[] = [];
+  const ui = renderUi(FilePicker, {
+    props: {
+      api: {
+        listFs: async () => ({
+          tree: [
+            { name: 'a.ts', path: 'a.ts', type: 'file' },
+            { name: 'pic.png', path: 'pic.png', type: 'file' },
+          ],
+        }),
+        browseFs: async () => ({ level: 'drives', roots: [], home: '' }),
+        readFs: async (path: string) => {
+          readCalls.push(path);
+          if (path === 'pic.png') return { path, isBinary: true, content: '' };
+          if (path === 'bad.ts') throw new Error('磁盘炸了');
+          const lines = Array.from({ length: 60 }, (_, i) => `line-${String(i + 1)}`);
+          return { path, content: lines.join('\n') };
+        },
+      },
+      onCancel: () => {},
+      onPick: () => {},
+    },
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+  });
+
+  fireEvent.click(checkboxOf('a.ts'));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 20));
+  });
+  assert.deepStrictEqual(readCalls, ['a.ts'], '勾选即触发一次预览读取');
+  const preview = document.querySelector('.fp-preview');
+  assert.ok(preview !== null, '必须有预览窗格');
+  const text = preview.querySelector('.fp-preview-text')?.textContent ?? '';
+  assert.match(text, /line-1\b/u, '预览必须显示正文');
+  assert.match(text, /line-40\b/u, '预览取前 40 行');
+  assert.doesNotMatch(text, /line-41\b/u, '第 41 行起不预览');
+
+  fireEvent.click(checkboxOf('pic.png'));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 20));
+  });
+  assert.match(
+    document.querySelector('.fp-preview')?.textContent ?? '',
+    /二进制文件/u,
+    '二进制只说明、不硬解',
+  );
+
+  fireEvent.click(checkboxOf('a.ts'));
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 20));
+  });
+  // 取消勾选不重新取预览（保留上一次），期间不得多发请求。
+  assert.deepStrictEqual(readCalls, ['a.ts', 'pic.png'], '取消勾选不得再发预览请求');
   ui.unmount();
 });

@@ -21,6 +21,10 @@ export const EN_FILES: Record<string, string> = {
   '工作区还没有文件': 'The workspace has no files yet',
   '文件系统…': 'File system…',
   '未选择目录': 'No folder selected',
+  '文件预览': 'File preview',
+  '读取预览失败：{msg}': 'Failed to load preview: {msg}',
+  '二进制文件（不显示内容）': 'Binary file (content not shown)',
+  '预览不可用（fs.read 未接线）': 'Preview unavailable (fs.read not wired)',
   '没有匹配的文件': 'No matching files',
   // FolderPicker
   '新项目': 'New project',
