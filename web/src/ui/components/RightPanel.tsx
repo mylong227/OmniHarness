@@ -244,6 +244,114 @@ function deriveTabs(
  * @param props 组件入参
  * @returns 右栏节点
  */
+  /**
+   * 标签键盘行为：←/→ 移动并切换（保留迁移前行为——rc-tabs 默认只移焦点、要 Enter 才切）；
+   * Delete/Backspace 关闭**事件所在**的标签（按 items 顺序定位：文件在前、网页在末）。
+   *
+   * 为什么按事件目标而不是 props 判断：点击/按键可能先于父组件重渲染到达，
+   * 用 props 的 `browserActive` 会把「刚点上去的网页标签」误判成文件。
+   *
+   * @param e 键盘事件
+   * @returns 无
+   */
+/**
+ * tablist 的 aria-label 幂等重写（rc-tabs 不给；nav 在主题/尺寸变化时可能重建，写一次会丢，
+ * 故每次提交后都跑）。面板的 id / aria-labelledby / aria-controls 由 rc-tabs 自动给，
+ * 这里**不手写**那三处关系（其 id 首帧为空、后续渲染才就绪，手写会被覆盖）。
+ * @param root 面板根节点引用。
+ * @param label 当前应显示的 aria-label。
+ * @returns 无
+ */
+function useTablistAriaLabel(
+  root: React.RefObject<HTMLDivElement | null>,
+  label: string,
+): void {
+  React.useLayoutEffect(() => {
+    const list = root.current?.querySelector('[role="tablist"]');
+    if (list !== null && list !== undefined) {
+      list.setAttribute('aria-label', label);
+    }
+  });
+}
+
+/**
+ * 文件面板 = 路径栏 + 文件体（路径栏只在有激活文件时出现；网页面板不带路径栏）。
+ * @param props activeFile / onPreviewFile / children（文件体）。
+ * @returns 面板节点。
+ */
+function FilePane(props: {
+  readonly activeFile: FileView | undefined;
+  readonly onPreviewFile: ((path: string) => void) | undefined;
+  readonly children: ReactNode;
+}): ReactElement {
+  const pathText = pathTextOf(props.activeFile);
+  const previewable = isPreviewable(props.activeFile, props.onPreviewFile);
+  return (
+    <div className="rv-pane">
+      {props.activeFile === undefined ? null : (
+        <PathBar
+          pathText={pathText}
+          previewable={previewable}
+          activeFile={props.activeFile}
+          {...(props.onPreviewFile !== undefined ? { onPreview: props.onPreviewFile } : {})}
+        />
+      )}
+      <div className="rv-pane-body">{props.children}</div>
+    </div>
+  );
+}
+
+/**
+ * 标签键盘行为：←/→ 移动并切换（保留 rc-tabs 默认只移焦点的迁移前行为）；Delete/Backspace
+ * 关闭**事件所在**的标签。为什么按事件目标而不是 props 判断：点击/按键可能先于父组件
+ * 重渲染到达，用 props 的 browserActive 会把「刚点上去的网页标签」误判成文件。
+ * @param e 键盘事件。
+ * @param ctx 快照（tabs / 标题表 / 浏览器态 / 回调）。
+ * @returns 无
+ */
+export function tabKeyNav(
+  e: React.KeyboardEvent,
+  ctx: {
+  readonly tabs: readonly HTMLElement[];
+  readonly openFileCount: number;
+  readonly openFileTitles: readonly string[];
+  readonly browserOpen: boolean;
+  readonly browserActive: boolean;
+  readonly activeFileTitle: string | undefined;
+  readonly onCloseFile: (title: string) => void;
+  readonly onCloseBrowser?: (() => void) | undefined;
+  },
+): void {
+  const target = e.target instanceof Element ? e.target.closest('[role="tab"]') : null;
+  const tabs = [...ctx.tabs];
+  const index = target === null ? -1 : tabs.indexOf(target as HTMLElement);
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (index === ctx.openFileCount && ctx.browserOpen) ctx.onCloseBrowser?.();
+    else if (index >= 0 && index < ctx.openFileCount) ctx.onCloseFile(ctx.openFileTitles[index] ?? '');
+    else if (ctx.browserActive) ctx.onCloseBrowser?.();
+    else if (ctx.activeFileTitle !== undefined) ctx.onCloseFile(ctx.activeFileTitle);
+    return;
+  }
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (tabs.length === 0) return;
+  const selected = tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+  const from = index >= 0 ? index : Math.max(selected, 0);
+  const step = e.key === 'ArrowRight' ? 1 : -1;
+  const next = tabs[(from + step + tabs.length) % tabs.length];
+  next?.focus();
+  // 走 rc-tabs 自己的入口（click）：焦点与选中态都由它维护，避免两套状态。
+  next?.click();
+}
+
+/**
+ * 右栏面板：文件 / 网页标签容器（TabBar + FilePane + 键盘行为 + tablist aria-label）。
+ * @param props 组件属性。
+ * @returns 面板节点。
+ */
 export function RightPanel(props: RightPanelProps): ReactElement {
   const {
     open,
@@ -270,68 +378,33 @@ export function RightPanel(props: RightPanelProps): ReactElement {
   );
   const rootRef = React.useRef<HTMLDivElement | null>(null);
 
-  // rc-tabs 不给 tablist 的 aria-label（面板的 id / aria-labelledby / aria-controls 由它自动给，
-  // 因此这里**不再手写**那三处关系——rc-tabs 的 id 首帧为空、后续渲染才就绪，手写会被覆盖）。
-  // 每次提交后幂等重写：nav 在主题/尺寸变化时可能重建，写一次会丢。
-  React.useLayoutEffect(() => {
-    const list = rootRef.current?.querySelector('[role="tablist"]');
-    if (list !== null && list !== undefined) {
-      list.setAttribute('aria-label', browserOpen ? t('文件与网页') : t('文件'));
-    }
-  });
+  // rc-tabs 不给 tablist 的 aria-label（幂等重写抽到 useTablistAriaLabel）。
+  useTablistAriaLabel(rootRef, browserOpen ? t('文件与网页') : t('文件'));
 
   /**
-   * 标签键盘行为：←/→ 移动并切换（保留迁移前行为——rc-tabs 默认只移焦点、要 Enter 才切）；
-   * Delete/Backspace 关闭**事件所在**的标签（按 items 顺序定位：文件在前、网页在末）。
-   *
-   * 为什么按事件目标而不是 props 判断：点击/按键可能先于父组件重渲染到达，
-   * 用 props 的 `browserActive` 会把「刚点上去的网页标签」误判成文件。
-   *
+   * 标签键盘行为（算法抽到顶层 tabKeyNav；快照在此捕获——点击/按键可能先于重渲染到达，
+   * 用 props 的 browserActive 会把刚点上去的网页标签误判成文件，见 tabKeyNav 注释）。
    * @param e 键盘事件
    * @returns 无
    */
   const onKeyDown = (e: React.KeyboardEvent): void => {
-    const target = e.target instanceof Element ? e.target.closest('[role="tab"]') : null;
-    const tabs = Array.from(rootRef.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []);
-    const index = target === null ? -1 : tabs.indexOf(target as HTMLElement);
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      e.stopPropagation();
-      if (index === openFiles.length && browserOpen) onCloseBrowser?.();
-      else if (index >= 0 && index < openFiles.length) onCloseFile(openFiles[index]!.title);
-      else if (browserActive) onCloseBrowser?.();
-      else if (activeFile !== undefined) onCloseFile(activeFile.title);
-      return;
-    }
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (tabs.length === 0) return;
-    const selected = tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
-    const from = index >= 0 ? index : Math.max(selected, 0);
-    const step = e.key === 'ArrowRight' ? 1 : -1;
-    const next = tabs[(from + step + tabs.length) % tabs.length];
-    next?.focus();
-    // 走 rc-tabs 自己的入口（click）：焦点与选中态都由它维护，避免两套状态。
-    next?.click();
+    tabKeyNav(e, {
+      tabs: Array.from(rootRef.current?.querySelectorAll<HTMLElement>('[role="tab"]') ?? []),
+      openFileCount: openFiles.length,
+      openFileTitles: openFiles.map((f) => f.title),
+      browserOpen,
+      browserActive,
+      activeFileTitle: activeFile?.title,
+      onCloseFile,
+      ...(onCloseBrowser !== undefined ? { onCloseBrowser } : {}),
+    });
   };
 
-  const pathText = pathTextOf(activeFile);
-  const previewable = isPreviewable(activeFile, onPreviewFile);
-  // 文件面板 = 路径栏 + 文件体（路径栏只在有激活文件时出现；网页面板不带路径栏）。
-  // 该节点会挂到每个文件标签上，但 `destroyOnHidden` 保证只有当前面板真正挂载。
+  // 文件面板 = 路径栏 + 文件体（装配抽到 FilePane；destroyOnHidden 保证只有当前面板真正挂载）。
   const paneContent = (
-    <div className="rv-pane">
-      {activeFile === undefined ? null : (
-        <PathBar
-          pathText={pathText}
-          previewable={previewable}
-          activeFile={activeFile}
-          {...(onPreviewFile !== undefined ? { onPreview: onPreviewFile } : {})}
-        />
-      )}
-      <div className="rv-pane-body">{children}</div>
-    </div>
+    <FilePane activeFile={activeFile} onPreviewFile={onPreviewFile}>
+      {children}
+    </FilePane>
   );
 
   return (
