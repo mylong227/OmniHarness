@@ -302,7 +302,12 @@ function writeHtmlCache(key: string, html: string): void {
   }
 }
 
-/** 构造并缓存配置好的 markdown-it 实例（含数学插件与代码高亮）。 */
+/**
+ * 构造并缓存配置好的 markdown-it 实例（含数学插件与代码高亮）。
+ *
+ * 插件安装按域拆五个 install 函数（2026-10-31，原 getMd 186 行贴函数上限）：
+ * 数学解析 / 数学渲染 / 链接分流 / 表格类名 / 代码块工具条——本函数只做装配与缓存。
+ */
 function getMd(): MarkdownItInstance {
   if (mdCache !== null) return mdCache;
   const md = libs.markdownit();
@@ -324,6 +329,17 @@ function getMd(): MarkdownItInstance {
     },
   });
 
+  installMathParsers(md);
+  installMathRenderers(md);
+  installLinkRouting(md);
+  installTableClass(md);
+  installFenceToolbar(md);
+
+  mdCache = md;
+  return md;
+}
+/** 行内数学（$...$，避免与货币误匹配）与块级数学（$$...$$）的解析规则。 */
+function installMathParsers(md: MarkdownItInstance): void {
   // ---- 行内数学：$...$（避免与货币 $5 / 5$ 误匹配） ----
   md.inline.ruler.after(
     'escape',
@@ -385,6 +401,11 @@ function getMd(): MarkdownItInstance {
   );
 
 
+
+}
+
+/** 数学渲染：KaTeX 懒加载，未就绪时占位并触发一次异步加载。 */
+function installMathRenderers(md: MarkdownItInstance): void {
   // ---- 渲染：数学交 KaTeX（懒加载；库未到位时先出占位，到位后原地升级） ----
   /** 数学统一入口：库就绪 ⇒ 直接排版；未就绪 ⇒ 占位 + 触发一次异步加载。 */
   const renderMath = (tex: string, display: boolean): string => {
@@ -412,6 +433,11 @@ function getMd(): MarkdownItInstance {
     return renderMath(token.content, true);
   };
 
+
+}
+
+/** 链接按「文件路径 / 外链」分流（保留右侧面板开文件体验）。 */
+function installLinkRouting(md: MarkdownItInstance): void {
   // ---- 链接按「文件路径 / 外链」分流（保留右侧面板开文件体验） ----
   const defaultLinkOpen = (md.renderer.rules.link_open ??
     ((tokens: MdToken[], idx: number, opts: unknown, _env: unknown, self: MdSelf): string =>
@@ -447,6 +473,11 @@ function getMd(): MarkdownItInstance {
     return defaultLinkOpen(tokens, idx, opts, env, self);
   };
 
+
+}
+
+/** 表格补 .md-table 类名（用 core 规则，table_open 不经自定义 renderer 也生效）。 */
+function installTableClass(md: MarkdownItInstance): void {
   // ---- 表格：markdown-it 默认输出裸 <table>，补上 .md-table 才能吃到设计系统
   //      （边框 / 圆角 / 表头底 / 行距）；否则表格在暗色主题里只是一片无边界文本。
   //      用 core 规则而不是 renderer 规则：table_open 不经过自定义 renderer 时也能生效。
@@ -456,6 +487,11 @@ function getMd(): MarkdownItInstance {
     }
   });
 
+
+}
+
+/** 代码块包工具条：语言标签 + 一键复制。 */
+function installFenceToolbar(md: MarkdownItInstance): void {
   // ---- 代码块包工具条：语言标签 + 一键复制 ----
   const defaultFence = (md.renderer.rules.fence ??
     ((tokens: MdToken[], idx: number, opts: unknown, _env: unknown, self: MdSelf): string =>
@@ -485,10 +521,8 @@ function getMd(): MarkdownItInstance {
       '</div>'
     );
   };
-
-  mdCache = md;
-  return md;
 }
+
 
 /**
  * 用成熟依赖管线渲染 Markdown 为受信任 HTML 并包进一个 React 容器。
