@@ -761,7 +761,7 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   text-transform: none;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   gap: 8px;
 }
 .ev .head .time {
@@ -3075,7 +3075,7 @@ textarea,
 }
 .md-content code {
   background: var(--panel-2);
-  border: 1px solid var(--hairline);
+  border: 0;
   border-radius: var(--r-xs);
   font-family: var(--mono);
   font-size: 0.9em;
@@ -3083,13 +3083,14 @@ textarea,
   padding: 0.1em 0.36em;
 }
 /* 引用块：不用左侧竖线，改成轻微墨色圆角底（2026-10-20 用户口径：
-   「类似的竖线全去掉，有竖线排版的文字都加个轻微颜色圆角底区别下」）。 */
+   「类似的竖线全去掉，有竖线排版的文字都加个轻微颜色圆角底区别下」）。
+   2026-11-01「简洁舒适」：8% → 6% 再降一档——引用是辅助信息，底色只该"隐约可辨"。 */
 .md-content blockquote {
   border-left: 0;
   border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--dim);
-  padding: 8px 12px;
+  padding: 6px 12px;
 }
 .md-content hr {
   border-top: 1px solid var(--hairline);

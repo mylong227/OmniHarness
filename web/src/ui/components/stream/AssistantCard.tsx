@@ -46,11 +46,9 @@ export interface AssistantCardProps {
 const COPY_BTN: Record<string, string> = {
   marginTop: '8px',
   background: 'transparent',
-  border: '1px solid var(--border-soft)',
   borderRadius: '6px',
   padding: '1px 7px',
   cursor: 'pointer',
-  color: 'inherit',
   fontSize: '10.5px',
   alignSelf: 'flex-start',
 };

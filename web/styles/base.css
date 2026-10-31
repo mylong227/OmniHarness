@@ -172,20 +172,24 @@ svg {
   gap: 5px;
 }
 
-/* 复制结果按钮：从"内联样式 + emoji"收进 token 体系（hover 才显形，避免常驻抢视线）。 */
+/* 复制结果按钮：从"内联样式 + emoji"收进 token 体系（hover 才显形，避免常驻抢视线）。
+   2026-11-01「简洁舒适」：默认描边转透明——消息卡下挂一排常驻框 chip 太吵，
+   hover / 聚焦才给框与字色，成功态（--done）不受影响。 */
 .copy-btn {
   background: transparent;
-  border: 1px solid var(--border-soft);
+  border: 1px solid transparent;
   border-radius: 7px;
   font-size: 11px;
   font-family: inherit;
   padding: 3px 9px;
   cursor: pointer;
+  color: var(--dim);
   transition: color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
 }
-.copy-btn:hover {
+.copy-btn:hover,
+.copy-btn:focus-visible {
   color: var(--text);
-  border-color: var(--border-strong);
+  border-color: var(--border-soft);
 }
 /* 复制成功态：勾选图标 + 语义绿——「勾选感」必须等于真实写入成功。 */
 .copy-btn--done {
@@ -670,25 +674,21 @@ pre.json {
 .md-content h5 {
   letter-spacing: -0.005em;
 }
+/* 表格（2026-11-01 用户口径「简洁舒适」）：满格框线是正文里最重的视觉噪音——
+   去掉外框与表头底色，只留发丝行分隔（数据表的语言），表头靠字重与字号立住。 */
 .md-content .md-table {
   border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid var(--border-soft);
-  border-radius: 10px;
-  overflow: hidden;
 }
 .md-content .md-table th,
 .md-content .md-table td {
   border: 0;
-  border-bottom: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--hairline);
   padding: 7px 12px;
   font-size: 12.5px;
 }
 .md-content .md-table th {
-  background: var(--panel-2);
   font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--dim);
 }
 .md-content .md-table tr:last-child td {

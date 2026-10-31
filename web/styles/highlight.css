@@ -54,7 +54,6 @@ pre.hljs {
 }
 .md-codeblock__bar {
   background: transparent;
-  border-bottom: 1px solid var(--hairline);
 }
 .hl-code code {
   font-family: inherit;

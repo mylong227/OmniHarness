@@ -213,7 +213,7 @@ details.standalone summary::-webkit-details-marker { display:none; }
    HTML 结构，markdown-it 在块与块之间（以及整篇末尾）本来就会写入换行；若继承 pre-wrap，
    这些换行会各自生成一个匿名行盒 ⇒ 每个块间隙多出一整行空白（实测单段回复高度 46px＝2 行，
    正常应为 1 行 ≈23px）。旧渲染器走结构化元素、不含游离换行，故不受影响。 */
-.md-content > * + * { margin-top:10px; }
+.md-content > * + * { margin-top:12px; }
 .md-content h3 { font-weight:600; color:var(--text); }
 .md-content h4 { font-weight:600; color:var(--text); }
 .md-content h5 { font-weight:600; color:var(--text); }
@@ -247,9 +247,10 @@ details.standalone summary::-webkit-details-marker { display:none; }
 .md-codeblock__copy {
   font-family: inherit; line-height: 1.2;
   background: transparent; color: var(--dim);
-  border: 1px solid var(--border-soft); cursor: pointer;
+  border: 1px solid transparent; cursor: pointer;
 }
-.md-codeblock__copy:hover { color: var(--text); }
+.md-codeblock__copy:hover,
+.md-codeblock__copy:focus-visible { color: var(--text); border-color: var(--border-soft); }
 .md-codeblock__copy--done { color: var(--ok); border-color: var(--ok); }
 /* 复制失败（两条路径都被拒）如实标红，绝不假装成功。 */
 .md-codeblock__copy--fail { color: var(--err); border-color: var(--err); }

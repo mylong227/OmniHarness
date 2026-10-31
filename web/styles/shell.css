@@ -786,7 +786,7 @@ button.mob-only { display: none; }
   margin: 0 0 12px;
 }
 .md-content li {
-  margin: 3px 0;
+  margin: 4px 0;
 }
 .md-content blockquote {
   margin: 12px 0;
@@ -805,7 +805,7 @@ button.mob-only { display: none; }
   color: var(--dim);
 }
 .md-content .md-table {
-  margin: 14px 0;
+  margin: 16px 0;
 }
 
 /* 正文行高：13.5px 在 1.5 下只有 20.3px 行距，长时间阅读偏挤；1.6 是中文正文的舒适线。 */
@@ -830,7 +830,7 @@ body {
   padding: 12px 14px;
 }
 .md-codeblock {
-  margin: 14px 0;
+  margin: 16px 0;
 }
 .md-codeblock__bar {
   padding: 6px 12px;
