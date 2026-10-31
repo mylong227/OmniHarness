@@ -99,6 +99,25 @@ function ApprovalActions(props: {
 }
 
 /**
+ * Tab 在弹窗内可聚焦按钮间循环（简单焦点圈定；antd v6 dialog 无 trap，见文件头）。
+ * @param e 键盘事件
+ * @param refs 可聚焦按钮的引用列表（null 引用被过滤）。
+ * @returns 无
+ */
+function cycleTabFocus(
+  e: React.KeyboardEvent,
+  refs: readonly { current: HTMLButtonElement | null }[],
+): void {
+  if (e.key !== 'Tab') return;
+  const list = refs.map((r) => r.current).filter((el): el is HTMLButtonElement => el !== null);
+  if (list.length === 0) return;
+  e.preventDefault();
+  const active = list.findIndex((el) => el === document.activeElement);
+  const from = active < 0 ? (e.shiftKey ? 0 : -1) : active;
+  list[(from + (e.shiftKey ? -1 : 1) + list.length) % list.length]?.focus();
+}
+
+/**
  * 工具审批弹窗：展示工具名 / 目标 / 参数，并给出「始终允许 / 拒绝 / 允许」三档决策。
  * @param props 组件入参
  * @returns 审批弹窗节点（无待审批时不渲染内容）
@@ -128,19 +147,11 @@ export function ApprovalModal(props: ApprovalModalProps): ReactElement {
   }, [approval]);
 
   /**
-   * Tab 在弹窗内可聚焦按钮间循环（简单焦点圈定；antd v6 dialog 无 trap，见文件头）。
+   * Tab 在弹窗内可聚焦按钮间循环（圈定算法抽到顶层 cycleTabFocus，见其注释）。
    * @param e 键盘事件
    */
   const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key !== 'Tab') return;
-    const list = [alwaysRef.current, denyRef.current, allowRef.current, changePermRef.current].filter(
-      (el): el is HTMLButtonElement => el !== null,
-    );
-    if (list.length === 0) return;
-    e.preventDefault();
-    const active = list.findIndex((el) => el === document.activeElement);
-    const from = active < 0 ? (e.shiftKey ? 0 : -1) : active;
-    list[(from + (e.shiftKey ? -1 : 1) + list.length) % list.length]?.focus();
+    cycleTabFocus(e, [alwaysRef, denyRef, allowRef, changePermRef]);
   };
 
   const args = approval?.args != null ? jsonView(approval.args) : '';
