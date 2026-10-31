@@ -123,6 +123,10 @@ function parseRules(css: string): CssRule[] {
 function parseThemes(rules: CssRule[]): ThemeMap {
   const themes: ThemeMap = { dark: {}, light: {} };
   for (const { selector, decls } of rules) {
+    // 主题色方案块（`[data-theme='dark'][data-scheme='…']`）不是基础表的一部分：
+    // 它们是叠加覆盖，值由 themeSchemes 判据单独把关；混进基础表会把
+    // --accent 覆盖成"最后一个方案"的值，让本门禁悄悄量错对象。
+    if (/data-scheme\s*=\s*['"]?\w+['"]?/.test(selector)) continue;
     const isLight = /data-theme\s*=\s*['"]?light['"]?/.test(selector);
     const isDark = /data-theme\s*=\s*['"]?dark['"]?/.test(selector);
     const target = isLight ? themes.light : isDark || selector === ':root' ? themes.dark : null;

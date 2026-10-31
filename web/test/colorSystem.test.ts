@@ -215,6 +215,9 @@ test('③ 真机：签名色与语义色的解析值真的落在组件上（两�
       tokens[themeName] = {};
       for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
         if (!m[1].includes(themeName)) continue;
+        // 主题色方案块（[data-theme][data-scheme]）不是基础表：值由 themeSchemes 判据把关，
+        // 混进来会把基础 --accent 覆盖成"最后一个方案"的值（本判据就悄悄量错对象了）。
+        if (/data-scheme\s*=\s*['"]?\w+['"]?/.test(m[1])) continue;
         for (const part of m[2].split(';')) {
           const i = part.indexOf(':');
           if (i >= 0 && part.slice(0, i).trim().startsWith('--')) {

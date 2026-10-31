@@ -112,6 +112,7 @@ export const EN_STREAM: Record<string, string> = {
 
   // markdown.ts（与 AssistantCard 共用「复制」，勿重复添加）
   '已复制': 'Copied',
+  '复制失败': 'Copy failed',
 
   // textUtils.ts — describeToolCall
   '写入 {path}': 'Write {path}',

@@ -53,6 +53,7 @@ const SCHEME_OPTIONS: readonly { key: ThemeScheme; label: string }[] = [
   { key: 'plum', label: '绛紫' },
   { key: 'amber', label: '琥珀' },
   { key: 'rose', label: '玫红' },
+  { key: 'graphite', label: '石墨' },
 ];
 
 /**

@@ -1,48 +1,26 @@
 /* =========================================================================
-   OmniHarness Web UI — 语法高亮（单色体系）
+   OmniHarness Web UI — 语法高亮（VS Code 风格分色）
    -------------------------------------------------------------------------
    供 FileTab 右侧面板「编辑器式」预览与 markdown 代码块使用。
 
-   2026-10-17 单色重写：原先 8 个 token 是 8 种色相（红/紫/蓝/橙/青/绿），
-   在一套纯黑白灰界面里，代码块是全站唯一的彩色带——它把「颜色」这件事
-   从界面语言里独立了出去，读代码时的优先级也跟着错位：橙色数字比函数名
-   更抓眼。单色口径下改用**字重 + 字形 + 明度**三档表达层级：
+   2026-10-31 分色重写（用户口径：要 VS Code / 主流编辑器那样的多色高亮，
+   2026-10-17 的单色体系退役）：九个 token 各归各的色相——
 
-     关键字 / 函数     最亮 + 粗体（结构的骨架）
-     字符串            次亮 + 斜体（值，与标识符区分）
-     数字              中间调
-     类型 / 属性       中间调
-     标点              最淡（不该被读到）
-     注释              最淡 + 斜体
+     关键字   蓝（Dark+ #569cd6 / Light+ #0000ff）
+     函数     黄（#dcdcaa / #795e26）
+     字符串   橙红（#ce9178 / #a31515）
+     数字     浅绿（#b5cea8 / #0a7d50）
+     类型     青（#4ec9b0 / #1f6e84）
+     属性     浅蓝（#9cdcfe / #001080）
+     注释     绿 + 斜体（#6a9955 / #027702）
+     标点     中性灰（最淡，不该被读到）
+     正文     中性（与编辑器正文同调）
 
-   三档明度都按 WCAG AA（≥4.5:1）对 --code-bg 与 --panel 取过值，
-   见 docs/DESIGN_SYSTEM.md §5 的对照表。
+   色相字面量的**唯一事实源是 theme.css 的 `--tok-*`**（colorSystem 门禁：
+   theme.css 之外不得出现色相字面量）——本文件只留消费规则；九档全部对
+   --code-bg 过 WCAG AA（≥4.5:1），对照表见 theme.css 内联注释与
+   web/test/highlightColors.test.ts（双主题真机判据）。
    ========================================================================= */
-
-/* ---- Token 明度阶梯（暗色默认，从纯黑往上提） ---- */
-[data-theme='dark'],
-:root {
-  --tok-plain: #ffffff; /* 21.0:1 */
-  --tok-kw: #ffffff; /* 21.0:1 */
-  --tok-fn: #e5e5e5; /* 17.4:1 */
-  --tok-string: #d4d4d4; /* 14.3:1 */
-  --tok-num: #d4d4d4;
-  --tok-type: #bdbdbd; /* 11.3:1 */
-  --tok-prop: #bdbdbd;
-  --tok-punct: #a3a3a3; /* 8.3:1  */
-  --tok-comment: #8a8a8a; /* 6.0:1  */
-}
-[data-theme='light'] {
-  --tok-plain: #0a0a0a; /* 19.7:1 */
-  --tok-kw: #0a0a0a;
-  --tok-fn: #1f1f1f; /* 15.6:1 */
-  --tok-string: #2e2e2e; /* 12.6:1 */
-  --tok-num: #2e2e2e;
-  --tok-type: #454545; /* 9.4:1  */
-  --tok-prop: #454545;
-  --tok-punct: #616161; /* 6.4:1  */
-  --tok-comment: #6b6b6b; /* 5.4:1  */
-}
 
 /* ---- 代码容器：与卡片同一套语言（表面 + 发丝轮廓，无投影无渐变） ---- */
 .hl-code {
@@ -86,18 +64,18 @@ pre.hljs {
   min-height: 1em;
 }
 
-/* ---- Token 类 → 明度 + 字形（类名与 src/ui/highlight.ts 的 CLS 表一一对应） ---- */
+/* ---- Token 类 → 色相 + 字形（类名与 src/ui/highlight.ts 的 CLS 表一一对应）。
+   分色后层级主要靠色相，字形只保留「注释斜体」一处（VS Code 口径）；
+   改类名时两处必须同步——2026-10-17 就因两表名字漂移丢过一半颜色。 ---- */
 .tok-com {
   color: var(--tok-comment);
   font-style: italic;
 }
 .tok-str {
   color: var(--tok-string);
-  font-style: italic;
 }
 .tok-kw {
   color: var(--tok-kw);
-  font-weight: 600;
 }
 .tok-num {
   color: var(--tok-num);
@@ -105,7 +83,6 @@ pre.hljs {
 }
 .tok-fn {
   color: var(--tok-fn);
-  font-weight: 500;
 }
 .tok-type {
   color: var(--tok-type);
@@ -146,7 +123,6 @@ pre.hljs {
 .hljs-regexp,
 .hljs-addition {
   color: var(--tok-string);
-  font-style: italic;
 }
 .hljs-keyword,
 .hljs-selector-tag,
@@ -155,7 +131,6 @@ pre.hljs {
 .hljs-name,
 .hljs-strong {
   color: var(--tok-kw);
-  font-weight: 600;
 }
 .hljs-number,
 .hljs-symbol,

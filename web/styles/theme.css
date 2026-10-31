@@ -53,6 +53,31 @@
   --panel-sel: #343a43;
   --code-bg: #101215;
 
+  /* —— 语法高亮九档（VS Code 风格分色，2026-10-31 用户口径：单色体系退役）——
+     色相字面量只许住在这里（colorSystem 门禁：theme.css 之外不得出现色相字面量），
+     highlight.css 只留消费规则。九档全部对 --code-bg 过 WCAG AA（≥4.5:1，
+     dark 5.6–13.3 / light 4.7–14.0，判据见 web/test/highlightColors.test.ts）。 */
+  --tok-plain: #d4d4d4;
+  --tok-kw: #569cd6;
+  --tok-fn: #dcdcaa;
+  --tok-string: #ce9178;
+  --tok-num: #b5cea8;
+  --tok-type: #4ec9b0;
+  --tok-prop: #9cdcfe;
+  --tok-punct: #9a9a9a;
+  --tok-comment: #6a9955;
+
+  /* —— 磨砂材质（2026-10-31 用户：按钮/浮层/吸顶带透明磨砂质感）——
+     半透明填充 + backdrop blur。只给「内容会从底下经过」的表面（吸顶头 / 浮层 / toast）
+     和按钮；磨砂叠在静止实色卡上看不出差别、纯耗 GPU，所以不给卡片与栏体。
+     两套主题同参数（百分比对各自表面阶梯生效），故只在 :root 定义一次。 */
+  --frost-fill-soft: color-mix(in srgb, var(--bg-elev) 72%, transparent);
+  --frost-fill: color-mix(in srgb, var(--panel) 88%, transparent);
+  --frost-blur: blur(18px) saturate(1.15);
+  --frost-blur-soft: blur(12px) saturate(1.08);
+  --btn-fill: color-mix(in srgb, var(--panel-2) 62%, transparent);
+  --btn-fill-hover: color-mix(in srgb, var(--panel-2) 85%, transparent);
+
   /* —— 描边三档（职责固定，不要混用）——
        --hairline     栏内分隔 / 列表行：只"断开"，不画格子（约 1.1:1）
        --border-soft  容器边缘：卡片、输入卡、浮层（约 1.4:1）
@@ -145,6 +170,17 @@
   --panel-sel: #dde2e7;
   --code-bg: #f4f4f2;
 
+  /* 语法高亮九档（与暗色块同一套色相语言，取 VS Code Light+ 的深墨版本）。 */
+  --tok-plain: #1f1f1f;
+  --tok-kw: #0000ff;
+  --tok-fn: #795e26;
+  --tok-string: #a31515;
+  --tok-num: #0a7d50;
+  --tok-type: #1f6e84;
+  --tok-prop: #001080;
+  --tok-punct: #565656;
+  --tok-comment: #027702;
+
   --hairline: #e4e4e0;
   --border-soft: #d5d6d1;
   --border: #7d838c;
@@ -205,6 +241,109 @@
     monospace;
   --font-mono: var(--mono);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* =========================================================================
+   主题色方案（2026-10-31，用户口径：多套主题色、设置里可切、明暗双主题都要有）
+   -------------------------------------------------------------------------
+   只换**签名色族七枚**（accent / accent-2 / ink-fg + brand / brand-bg / brand-on /
+   user——后四枚是 accent 的别名镜像，必须一起换，否则换肤后品牌元素还挂旧色）。
+   表面阶梯与语义色是全站骨架，不随方案变；--accent-soft / --accent-line / --ring
+   是 var(--accent) 的 color-mix 派生，自动跟随，无需重复定义。
+   值与 palette.ts 的 SCHEMES 逐值一致（themeSchemes 判据静态比对）；
+   基础块（上面两个）= ink 靛墨，`<html>` 无 data-scheme 即 ink。
+   全部 30 对「accent×bg/panel、ink-fg×accent」已按 WCAG AA（≥4.5:1）验算。
+   ========================================================================= */
+[data-theme='dark'][data-scheme='moss'] {
+  --accent: #9ed0b6;
+  --accent-2: #b8dfd0;
+  --ink-fg: #0f1f18;
+  --brand: #9ed0b6;
+  --brand-bg: #9ed0b6;
+  --brand-on: #0f1f18;
+  --user: #9ed0b6;
+}
+[data-theme='light'][data-scheme='moss'] {
+  --accent: #2e6b4f;
+  --accent-2: #245540;
+  --ink-fg: #fdfcf9;
+  --brand: #2e6b4f;
+  --brand-bg: #2e6b4f;
+  --brand-on: #fdfcf9;
+  --user: #2e6b4f;
+}
+[data-theme='dark'][data-scheme='plum'] {
+  --accent: #c9a8e0;
+  --accent-2: #dcc4ee;
+  --ink-fg: #180f20;
+  --brand: #c9a8e0;
+  --brand-bg: #c9a8e0;
+  --brand-on: #180f20;
+  --user: #c9a8e0;
+}
+[data-theme='light'][data-scheme='plum'] {
+  --accent: #6d3a91;
+  --accent-2: #572d75;
+  --ink-fg: #fdfcf9;
+  --brand: #6d3a91;
+  --brand-bg: #6d3a91;
+  --brand-on: #fdfcf9;
+  --user: #6d3a91;
+}
+[data-theme='dark'][data-scheme='amber'] {
+  --accent: #e0bf8f;
+  --accent-2: #ecd2ac;
+  --ink-fg: #1f1608;
+  --brand: #e0bf8f;
+  --brand-bg: #e0bf8f;
+  --brand-on: #1f1608;
+  --user: #e0bf8f;
+}
+[data-theme='light'][data-scheme='amber'] {
+  --accent: #8a5a14;
+  --accent-2: #6e470f;
+  --ink-fg: #fdfcf9;
+  --brand: #8a5a14;
+  --brand-bg: #8a5a14;
+  --brand-on: #fdfcf9;
+  --user: #8a5a14;
+}
+[data-theme='dark'][data-scheme='rose'] {
+  --accent: #e0a3b8;
+  --accent-2: #ecbdd0;
+  --ink-fg: #200f14;
+  --brand: #e0a3b8;
+  --brand-bg: #e0a3b8;
+  --brand-on: #200f14;
+  --user: #e0a3b8;
+}
+[data-theme='light'][data-scheme='rose'] {
+  --accent: #a83a5e;
+  --accent-2: #8a2e4c;
+  --ink-fg: #fdfcf9;
+  --brand: #a83a5e;
+  --brand-bg: #a83a5e;
+  --brand-on: #fdfcf9;
+  --user: #a83a5e;
+}
+/* 石墨（黑白灰）：无色相签名，「纸与墨」最原始的中性观感。 */
+[data-theme='dark'][data-scheme='graphite'] {
+  --accent: #cdd3da;
+  --accent-2: #dee2e8;
+  --ink-fg: #16181c;
+  --brand: #cdd3da;
+  --brand-bg: #cdd3da;
+  --brand-on: #16181c;
+  --user: #cdd3da;
+}
+[data-theme='light'][data-scheme='graphite'] {
+  --accent: #3a3f45;
+  --accent-2: #24282d;
+  --ink-fg: #fdfcf9;
+  --brand: #3a3f45;
+  --brand-bg: #3a3f45;
+  --brand-on: #fdfcf9;
+  --user: #3a3f45;
 }
 
 * {
@@ -272,8 +411,15 @@ button,
    一律吃主题变量；已带 class 的组件（.btn/.ctl-sel/.form 等）specificity 更高。
    ========================================================================= */
 button {
-  background: var(--panel-2);
-  border: 1px solid var(--border-soft);
+  /* iOS 口径（2026-10-31 用户：全站继续 iOS 风）：静止**无边框**——层级靠填充深浅，
+     不靠描边。保留 1px 宽度是为了零布局位移，也让组件各自的 border-color 规则
+     （语义主操作的淡底细边等）照常着色。
+     填充是**半透明磨砂**（--btn-fill）：叠在卡片上是柔和的浮起药丸，透出一点底色。
+     blur 不进全局基——透明图形按钮（.iconbtn 等）会被糊上一层，磨砂 blur 只给
+     内容真正从底下滚过的表面（吸顶头 / 浮层 / toast，见各处 --frost-blur）。
+     hover 靠提高不透明度表达「按下感」；自带 background 的组件按 class 覆盖不受影响。 */
+  background: var(--btn-fill);
+  border: 1px solid transparent;
   color: var(--text);
   padding: 6px 13px;
   cursor: pointer;
@@ -281,13 +427,14 @@ button {
   line-height: 1.45;
 }
 button:hover {
-  border-color: var(--border-strong);
-  background: var(--hover);
+  border-color: transparent;
+  background: var(--btn-fill-hover);
 }
 input:not([type='checkbox']):not([type='radio']):not([type='range']),
 textarea,
 select {
-  border: 1px solid var(--border-soft);
+  /* 同上：填充式字段（fill 由 base.css 的 --code-bg 给），静止无边框。 */
+  border: 1px solid transparent;
   color: var(--text);
   padding: 7px 10px;
   font-size: 13px;
@@ -311,7 +458,8 @@ select optgroup {
 
 /* ghost 次级按钮 */
 .ghost {
-  border: 1px solid var(--border-soft);
+  /* iOS 口径：次级 = 灰填充药丸，不再描边。 */
+  border: 1px solid transparent;
   border-radius: var(--radius);
   padding: 5px 12px;
   cursor: pointer;

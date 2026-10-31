@@ -150,6 +150,15 @@ export const EN_CONSOLE: Record<string, string> = {
     'When following the system, the UI switches to dark at sunset; an explicit choice locks the theme.',
   '当前跟随系统：{theme}': 'Following the system now: {theme}',
   '已锁定为{theme}': 'Locked to {theme}',
+  主题色: 'Accent theme',
+  靛墨: 'Indigo Ink',
+  石墨: 'Graphite',
+  苔青: 'Moss',
+  绛紫: 'Plum',
+  琥珀: 'Amber',
+  玫红: 'Rose',
+  '签名色方案，明暗两套主题各有自己的配色，界面与代码高亮一起换肤。':
+    'Signature color scheme; each ships its own dark and light palette, applied to the UI and code highlighting together.',
   界面宽度: 'UI width',
   '这里与拖动分隔条改的是同一份本机偏好；窄屏（≤880px）下两栏是抽屉，宽度不生效。':
     'This edits the same local preference as dragging the splitter; on narrow screens (≤880px) both sidebars are drawers and width has no effect.',

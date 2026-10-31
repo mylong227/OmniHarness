@@ -89,7 +89,8 @@ select {
 }
 input:not([type='checkbox']):not([type='radio']):not([type='range']):hover,
 textarea:hover {
-  border-color: var(--border-strong);
+  /* iOS 口径（2026-10-31）：hover 不弹描边，填充式字段靠焦点环表达激活。 */
+  border-color: transparent;
 }
 input:focus,
 textarea:focus,
@@ -185,6 +186,14 @@ svg {
 .copy-btn:hover {
   color: var(--text);
   border-color: var(--border-strong);
+}
+/* 复制成功态：勾选图标 + 语义绿——「勾选感」必须等于真实写入成功。 */
+.copy-btn--done {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 38%, transparent);
+}
+.copy-btn--done svg {
+  color: var(--ok);
 }
 
 /* ---- 顶栏：玻璃感 + 品牌标识（原先是"白方块 + 文字"） ---- */
@@ -432,12 +441,18 @@ svg {
 
 /* ---- 中栏对话流 ---- */
 
-/* ---- 右栏标签条容器（标签本体自 2026-10-29 起由 antd Tabs 渲染） ---- */
+/* ---- 右栏标签条容器（标签本体自 2026-10-29 起由 antd Tabs 渲染） ----
+   2026-10-31：W2 之后 `.tabs` 是**右栏整列容器**（antd Tabs 的 nav + 正文都在里面），
+   这里的 padding 会变成正文的四周间隙——nav 自己已有 `.rv-tabs .ant-tabs-nav` 的
+   padding（minimal.css），这层必须为 0，正文间隙统一由 `.rv-pane-body`（2px）给。
+   磨砂：sticky 条吸顶时文件内容从底下滚过，半透明 + blur 透出模糊底物。 */
 .tabs {
   gap: 4px;
-  padding: 8px 10px;
+  padding: 0;
   border-bottom-color: var(--hairline);
-  background: var(--bg-elev);
+  background: var(--frost-fill-soft);
+  backdrop-filter: var(--frost-blur);
+  -webkit-backdrop-filter: var(--frost-blur);
 }
 
 /* 分栏拖拽条：默认隐形、hover 才显形（原先常驻一条灰线，四栏之间太吵）。 */

@@ -22,12 +22,14 @@ import AntApp from 'antd/es/app';
 import ConfigProvider from 'antd/es/config-provider';
 import zhCN from 'antd/locale/zh_CN';
 import { antdThemeOf } from './antdTheme.ts';
-import type { ThemeName } from './palette.ts';
+import type { ThemeName, ThemeScheme } from './palette.ts';
 
 /** ThemeProvider 的入参。 */
 export interface ThemeProviderProps {
   /** 已解析的主题（App 根持有 themePref，解析出 light/dark 后传入）。 */
   theme: ThemeName;
+  /** 主题色方案（App 根持有；缺省 ink，方案只换签名三色）。 */
+  scheme?: ThemeScheme | undefined;
   children: React.ReactNode;
 }
 
@@ -44,7 +46,7 @@ export function ThemeProvider(props: ThemeProviderProps): React.ReactElement {
       // 两字中文按钮不自动插空格（antd 默认把「写入」渲成「写 入」）：纸与墨的密度口径
       // 不需要它，且组件判据按原文找按钮（vaultTab ④ 等）。
       button={{ autoInsertSpace: false }}
-      theme={antdThemeOf(props.theme)}
+      theme={antdThemeOf(props.theme, props.scheme ?? 'ink')}
     >
       <AntApp>{props.children}</AntApp>
     </ConfigProvider>

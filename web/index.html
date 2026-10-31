@@ -45,6 +45,12 @@
               : 'dark'
             : pref;
         document.documentElement.setAttribute('data-theme', mode);
+        // 主题色方案与明暗同一口径：paint 前设好 data-scheme，否则换过肤的用户刷新时
+        // 会先闪一帧默认靛墨。ink 是缺省方案（theme.css 基础块），不写属性。
+        var scheme = localStorage.getItem('omni-theme-scheme');
+        if (['moss', 'plum', 'amber', 'rose', 'graphite'].indexOf(scheme) >= 0) {
+          document.documentElement.setAttribute('data-scheme', scheme);
+        }
       } catch (_) { /* ignore (private mode etc.) */ }
     })();
   </script>

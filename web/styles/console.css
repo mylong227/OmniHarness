@@ -678,10 +678,13 @@
   color: var(--text);
 }
 .csl-seg-item.on {
-  background: var(--panel);
-  border-color: var(--border-soft);
-  color: var(--text);
-  font-weight: 550;
+  /* 选中态必须一眼可辨（2026-10-31 用户截图：原 panel 底贴在 panel 卡上只差 2% 明度，
+     等于没有选中效果）：签名色淡底 + 墨线 + 签名字，吃 --accent-soft/--accent-line
+     的派生口径，五套主题色方案 × 明暗都自动跟随。 */
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+  color: var(--accent);
+  font-weight: 600;
 }
 .csl-seg-item:focus-visible {
   outline: none;

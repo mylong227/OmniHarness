@@ -38,7 +38,11 @@ test('① antdTheme.ts 无主题色字面 hex（黑/白混合锚点除外）', (
 });
 
 test('① palette.ts 与 theme.css 的同名 token 逐值一致（抽样）', () => {
-  const css = readFileSync(join(HERE, '../styles/theme.css'), 'utf8');
+  // 先剥注释再按块解析：注释里的花括号（如文案模板 {theme}）会让块匹配错位。
+  const css = readFileSync(join(HERE, '../styles/theme.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
   // 分段解析：dark 段 = `:root, [data-theme='dark']`（文件头），light 段 = `[data-theme='light']` 之后。
   // 不分段会把 dark 值当成 light 值（同名 token 在两段各定义一次）。
   const lightStart = css.indexOf("[data-theme='light']");
@@ -47,9 +51,19 @@ test('① palette.ts 与 theme.css 的同名 token 逐值一致（抽样）', ()
     dark: new Map<string, string>(),
     light: new Map<string, string>(),
   };
-  for (const m of css.matchAll(/^\s*--([a-z0-9-]+):\s*([^;]+);/gim)) {
-    const section = m.index !== undefined && m.index >= lightStart ? 'light' : 'dark';
-    sections[section].set(m[1], m[2].trim());
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    // 主题色方案块（[data-theme][data-scheme]）不是基础表：值由 themeSchemes 判据把关，
+    // 混进来会把基础 --accent 覆盖成"最后一个方案"的值（判据就悄悄量错对象了）。
+    if (/data-scheme\s*=\s*['"]?\w+['"]?/.test(m[1])) continue;
+    const isLight = /data-theme\s*=\s*['"]?light['"]?/.test(m[1]);
+    const isDark = /data-theme\s*=\s*['"]?dark['"]?/.test(m[1]) || m[1].includes(':root');
+    if (!isLight && !isDark) continue;
+    for (const part of m[2].split(';')) {
+      const i = part.indexOf(':');
+      const key = part.slice(0, i).trim();
+      if (i < 0 || !key.startsWith('--')) continue;
+      (isLight ? sections.light : sections.dark).set(key.slice(2), part.slice(i + 1).trim());
+    }
   }
   const samples: [theme: 'dark' | 'light', varName: string, value: string][] = [
     ['dark', '--bg', DARK.bg],

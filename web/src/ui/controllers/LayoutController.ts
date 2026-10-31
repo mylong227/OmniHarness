@@ -5,12 +5,15 @@ import type { AppHost } from './AppController.ts';
 import { MethodBinder } from './methodBinder.ts';
 import { setLocale as applyLocale, t, type Locale } from '../i18n/i18n.ts';
 import {
+  applyScheme,
   applyTheme,
+  readSchemePreference,
   readThemePreference,
   resolveTheme,
   watchSystemTheme,
   type ThemePreference,
 } from '../models/ThemePreference.ts';
+import type { ThemeScheme } from '../theme/palette.ts';
 
 /** 布局 / 主题偏好控制器。 */
 export class LayoutController {
@@ -44,7 +47,11 @@ export class LayoutController {
     const pref = readThemePreference();
     const theme = applyTheme(pref);
     if (pref === 'system') this.watchSystem();
-    this.host.patch({ theme, themePref: pref });
+    // 主题色方案：读盘 → 应用（写 data-scheme）→ 同步进 React 状态。
+    // 首帧前的属性由 index.html 内联脚本设好，这里只对齐状态。
+    const scheme = readSchemePreference();
+    applyScheme(scheme);
+    this.host.patch({ theme, themePref: pref, scheme });
     try {
       const cachedOptions = localStorage.getItem('omni-model-options');
       const cachedLabel = localStorage.getItem('omni-provider-label');
@@ -89,6 +96,18 @@ export class LayoutController {
    */
   public toggleTheme(): void {
     this.setThemePref(this.host.getState().theme === 'light' ? 'dark' : 'light');
+  }
+
+  /**
+   * 设置主题色方案（靛墨 / 苔青 / 绛紫 / 琥珀 / 玫红）：写 `<html data-scheme>` +
+   * 持久化 + 同步 React 状态。方案与明暗正交——任意方案 × 任意明暗都成立
+   * （palette.ts SCHEMES 每套方案都带 dark / light 两份签名色）。
+   * @param scheme 目标方案
+   * @returns 无
+   */
+  public setSchemePref(scheme: ThemeScheme): void {
+    applyScheme(scheme);
+    this.host.patch({ scheme });
   }
 
   /**

@@ -230,6 +230,15 @@ export function markdownLibsReady(): boolean {
  * 并给按钮一个短暂的「已复制」反馈。命中其它元素则静默跳过（与文件链接点击委托互不干扰）。
  * @param e 冒泡到此容器的点击事件。
  */
+/** 代码块复制按钮的待恢复定时器（按钮 → 定时器）：连点时撤旧定时器、原文只记首次。 */
+const copyRevertTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
+/**
+ * 代码块「一键复制」的事件委托处理：挂在 md-content 容器上，点击命中
+ * `.md-codeblock__copy` 按钮时，取出同块 `<pre><code>` 文本经 ClipboardCopier 写入剪贴板，
+ * 并给按钮一个短暂的「已复制」反馈。命中其它元素则静默跳过（与文件链接点击委托互不干扰）。
+ * @param e 冒泡到此容器的点击事件。
+ */
 export function handleCodeblockCopyClick(e: MouseEvent): void {
   const target = e.target as HTMLElement | null;
   if (!target) return;
@@ -238,14 +247,29 @@ export function handleCodeblockCopyClick(e: MouseEvent): void {
   const block = btn.closest('.md-codeblock');
   const codeEl = block ? (block.querySelector('pre code') ?? block.querySelector('pre')) : null;
   const text = codeEl?.textContent ?? '';
-  void ClipboardCopier.copy(text);
-  const original = btn.textContent ?? t('复制');
-  btn.textContent = t('已复制');
-  btn.classList.add('md-codeblock__copy--done');
-  setTimeout(() => {
-    btn.textContent = original;
-    btn.classList.remove('md-codeblock__copy--done');
-  }, 1400);
+  // 反馈必须与真实写入结果一致（2026-10-31 用户口径）：成功才 ✓，失败如实报
+  // 「复制失败」——降级链路见 ClipboardCopier（Clipboard API → execCommand）。
+  void ClipboardCopier.copy(text).then((ok) => {
+    // 连点（1.4s 反馈窗口内再点）：先撤上一轮还没落地的恢复定时器；原文用 dataset
+    // 只记首次——否则恢复值会把「已复制」当原文，按钮永远回不到「复制」。
+    const pending = copyRevertTimers.get(btn);
+    if (pending !== undefined) clearTimeout(pending);
+    if (btn.dataset.copyLabel === undefined) {
+      btn.dataset.copyLabel = btn.textContent ?? t('复制');
+    }
+    btn.classList.remove('md-codeblock__copy--done', 'md-codeblock__copy--fail');
+    btn.textContent = ok ? '✓ ' + t('已复制') : t('复制失败');
+    btn.classList.add(ok ? 'md-codeblock__copy--done' : 'md-codeblock__copy--fail');
+    copyRevertTimers.set(
+      btn,
+      setTimeout(() => {
+        btn.textContent = btn.dataset.copyLabel ?? t('复制');
+        delete btn.dataset.copyLabel;
+        btn.classList.remove('md-codeblock__copy--done', 'md-codeblock__copy--fail');
+        copyRevertTimers.delete(btn);
+      }, 1400),
+    );
+  });
 }
 
 /** 模块级单例缓存：首次用到时才构造（配置一次、渲染多次）。 */

@@ -21,7 +21,7 @@
 // 子路径导入（同 ThemeProvider 的口径）；ThemeConfig 是纯类型导入，esbuild 整句擦除。
 import antdThemeAlgorithm from 'antd/es/theme';
 import type { ThemeConfig } from 'antd';
-import { paletteOf, type Palette, type ThemeName } from './palette.ts';
+import { SCHEMES, paletteOf, type Palette, type ThemeName, type ThemeScheme } from './palette.ts';
 
 /** 紧凑 IDE 密度（对照旧 UI：控件 32、表格 small、菜单行 34）。 */
 export const DENSITY = {
@@ -201,8 +201,11 @@ function componentTokens(p: Palette): NonNullable<ThemeConfig['components']> {
  * @param theme 主题名
  * @returns 可直接传给 ConfigProvider 的 ThemeConfig
  */
-export function antdThemeOf(theme: ThemeName): ThemeConfig {
-  const p = paletteOf(theme);
+export function antdThemeOf(theme: ThemeName, scheme: ThemeScheme = 'ink'): ThemeConfig {
+  // 方案只换签名三色：surface/border/text 等其余 token 照旧取基础调色板。
+  // ink 即基础值（SCHEMES.ink 与 DARK/LIGHT 同名 token 逐值一致，themeSchemes 判据把关）。
+  const s = SCHEMES[scheme][theme];
+  const p: Palette = { ...paletteOf(theme), accent: s.accent, accent2: s.accent2, inkFg: s.inkFg };
   return {
     // **两套主题同走 default**：seed 即 map，杜绝 darkAlgorithm 的语义压暗（见文件头）。
     algorithm: antdThemeAlgorithm.defaultAlgorithm,

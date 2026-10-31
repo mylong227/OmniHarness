@@ -18,6 +18,8 @@
 // 写入的时机：`applyTheme` 只负责"把偏好应用到 document + 持久化"，解析结果返回给调用方，
 // 由调用方同步进 React 状态（主题必须首帧前生效，React 状态晚一帧可以接受）。
 
+import type { ThemeScheme } from '../theme/palette.ts';
+
 /** 解析后的主题（真正落在 `<html data-theme>` 上的值）。 */
 export type ThemeMode = 'dark' | 'light';
 
@@ -80,5 +82,51 @@ export function watchSystemTheme(onChange: () => void): () => void {
     return () => mq.removeEventListener('change', onChange);
   } catch {
     return () => undefined;
+  }
+}
+
+// ── 主题色方案（2026-10-31）────────────────────────────────────────────────
+// 与明暗偏好同一套机制：localStorage 持久化 + `<html data-scheme>` 生效。
+// 方案类型与色值的事实源在 theme/palette.ts（SCHEMES）；这里只管「读盘 → 写属性 → 持久化」。
+// 缺省（没存过 / 值不认识）= 'ink'，且**不写属性**——theme.css 的基础块就是 ink，
+// `<html>` 上没有 data-scheme 与显式 data-scheme="ink" 渲染等价，首帧脚本也按同一口径。
+
+/** localStorage 键名（与 omni-theme 同族）。 */
+const SCHEME_KEY = 'omni-theme-scheme';
+
+/** 合法的方案值（与 palette.ts 的 ThemeScheme 一致；这里独立列举避免引模块态）。 */
+const SCHEME_VALUES = ['ink', 'moss', 'plum', 'amber', 'rose', 'graphite'] as const;
+
+/**
+ * 读取方案偏好；从未选择或值不认识时返回 `ink`。
+ * @returns 方案 id
+ */
+export function readSchemePreference(): ThemeScheme {
+  try {
+    const raw = localStorage.getItem(SCHEME_KEY);
+    if (raw !== null && (SCHEME_VALUES as readonly string[]).includes(raw)) {
+      return raw as ThemeScheme;
+    }
+  } catch {
+    /* 隐私模式下读取会抛：落到默认 */
+  }
+  return 'ink';
+}
+
+/**
+ * 应用方案：写 `<html data-scheme>` + 持久化。`ink` 不写属性（缺省即 ink，见上）。
+ * @param scheme 方案 id
+ * @returns 无
+ */
+export function applyScheme(scheme: ThemeScheme): void {
+  if (scheme === 'ink') {
+    document.documentElement.removeAttribute('data-scheme');
+  } else {
+    document.documentElement.setAttribute('data-scheme', scheme);
+  }
+  try {
+    localStorage.setItem(SCHEME_KEY, scheme);
+  } catch {
+    /* 写不进去不影响本次生效 */
   }
 }

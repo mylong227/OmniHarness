@@ -785,8 +785,12 @@ export class CdpSession {
 /** 默认站点根（供测试引用）。 */
 export const WEB_ROOT_PATH = WEB_ROOT;
 
-/** 供 skip 用的最小测试上下文（vitest 的 test 上下文结构兼容：本函数只用到 skip）。 */
-interface SkipCapableTestContext {
+/**
+ * 供 skip 用的最小测试上下文（vitest 的 test 上下文结构兼容：本函数只用到 skip）。
+ * 导出给「把 t 转发给 openStubSession 的局部 helper」复用——判据要求 skip 字面量只住在
+ * 本豁免文件里（tests/unit/requireSwitches 的 SKIP_PATTERN 按 `{ skip:` 抓 skip 点）。
+ */
+export interface SkipCapableTestContext {
   skip: (reason?: string) => void;
 }
 

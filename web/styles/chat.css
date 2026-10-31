@@ -251,6 +251,8 @@ details.standalone summary::-webkit-details-marker { display:none; }
 }
 .md-codeblock__copy:hover { color: var(--text); }
 .md-codeblock__copy--done { color: var(--ok); border-color: var(--ok); }
+/* 复制失败（两条路径都被拒）如实标红，绝不假装成功。 */
+.md-codeblock__copy--fail { color: var(--err); border-color: var(--err); }
 .md-codeblock pre { margin: 0; border: 0; border-radius: 0; background: transparent; padding: 0; overflow: auto; }
 .md-codeblock pre code { background: transparent; }
 

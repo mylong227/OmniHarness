@@ -124,3 +124,55 @@ export const LIGHT: Palette = {
 export function paletteOf(theme: ThemeName): Palette {
   return theme === 'light' ? LIGHT : DARK;
 }
+
+/**
+ * 主题色方案（2026-10-31，用户口径：多套主题色、设置里可切、明暗双主题都要有）。
+ *
+ * 方案只换**签名色族三件套**（accent / accent2 / inkFg）——表面阶梯与语义色是全站共用的
+ * 骨架，不随方案变（否则 5 方案 × 2 主题 = 10 份全量调色板，改一处表面色要动十处）。
+ * `ink`（靛墨）是默认方案，值与 DARK / LIGHT 的同名 token 逐值一致——theme.css 的
+ * 基础块就是它，`<html>` 上没有 `data-scheme` 属性即等于 ink。
+ * CSS 侧的同名镜像在 theme.css 的 `[data-theme][data-scheme]` 块，两处由
+ * `themeSchemes.test.ts` 静态比对防漂移。
+ */
+export type ThemeScheme = 'ink' | 'moss' | 'plum' | 'amber' | 'rose' | 'graphite';
+
+/** 一套方案的签名三色（映射到 theme.css 的 --accent / --accent-2 / --ink-fg）。 */
+export interface SchemeColors {
+  /** 签名色：主行动 / 当前项 / 链接 / 焦点。 */
+  accent: string;
+  /** 按下 / hover 的邻档（dark 下是提亮档，light 下是压暗档）。 */
+  accent2: string;
+  /** 实心签名底上的前景字。 */
+  inkFg: string;
+}
+
+/** 五套方案 × 明暗的签名三色（全部对 bg/panel 过 WCAG AA ≥4.5，判据逐对复核）。 */
+export const SCHEMES: Record<ThemeScheme, { dark: SchemeColors; light: SchemeColors }> = {
+  ink: {
+    dark: { accent: '#a8b4e8', accent2: '#c2cbf1', inkFg: '#14161c' },
+    light: { accent: '#3d4a86', accent2: '#2f3a6e', inkFg: '#fdfcf9' },
+  },
+  moss: {
+    dark: { accent: '#9ed0b6', accent2: '#b8dfd0', inkFg: '#0f1f18' },
+    light: { accent: '#2e6b4f', accent2: '#245540', inkFg: '#fdfcf9' },
+  },
+  plum: {
+    dark: { accent: '#c9a8e0', accent2: '#dcc4ee', inkFg: '#180f20' },
+    light: { accent: '#6d3a91', accent2: '#572d75', inkFg: '#fdfcf9' },
+  },
+  amber: {
+    dark: { accent: '#e0bf8f', accent2: '#ecd2ac', inkFg: '#1f1608' },
+    light: { accent: '#8a5a14', accent2: '#6e470f', inkFg: '#fdfcf9' },
+  },
+  rose: {
+    dark: { accent: '#e0a3b8', accent2: '#ecbdd0', inkFg: '#200f14' },
+    light: { accent: '#a83a5e', accent2: '#8a2e4c', inkFg: '#fdfcf9' },
+  },
+  graphite: {
+    // 石墨（黑白灰）：「纸与墨」最原始的中性签名——暗色下是浅灰墨、亮色下是石墨深灰，
+    // 无色相（通道差 0，天然通过 colorSystem 的中性容差）。
+    dark: { accent: '#cdd3da', accent2: '#dee2e8', inkFg: '#16181c' },
+    light: { accent: '#3a3f45', accent2: '#24282d', inkFg: '#fdfcf9' },
+  },
+};

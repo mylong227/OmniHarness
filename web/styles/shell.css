@@ -343,11 +343,14 @@
   background: var(--hover);
 }
 
-/* ---------- 面板内容区：代码查看器要填满高度（用户实测"底下空了一块、没有顶底边"） ---------- */
-.col.right .pane:has(> .file-pane) { display: flex; flex-direction: column; }
-.col.right .pane:has(> .web-pane) { display: flex; flex-direction: column; overflow: hidden; }
+/* ---------- 面板内容区高度链 ----------
+   antd Tabs（v6）迁移后 tabpane（.ant-tabs-tabpane）是普通 block 容器（非 flex），面板根元素
+   靠 height:100% 从 tabpane 接高度（minimal.css 已给 tabpane 高度链）：
+   `.rv-pane`（文件面板）在 minimal.css 已有 height:100%；`.web-pane`（网页面板）同理必须
+   height:100%——只写 flex:1 在 block 父级上失效，iframe 会回落浏览器默认 150px
+   （用户实测「页面只渲染出一条，下面整块空白」，2026-10-31 探针实测 iframe 150 / tabpane 956）。 */
 .web-pane {
-  flex: 1;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -476,7 +479,8 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 10px;
+  /* 不加 padding：四周 2px 的最终间隙由 `.rv-pane-body` 统一给（2026-10-31 用户口径）。 */
+  padding: 0;
   gap: 0;
 }
 /* 代码表面：gutter + 高亮正文装在同一个滚动容器里（两列同流 ⇒ 行号天然同步）。 */
@@ -512,6 +516,16 @@
   border-radius: 0;
   background: transparent;
   max-height: none;
+  /* 正文两轴的滚动都交给外层 `.code-scroll`（gutter 已 sticky left 覆盖横向）：
+     · align-self:flex-start —— 不被 stretch 压到视口高。`.hl-code` 基础样式自带
+       overflow:auto，一旦自身成为滚动容器，内容超高时它会长出**自己的**纵向滚动条，
+       行号 gutter 与正文各自为政（错位），正文还会被顶出视口外。
+     · min-width:max-content —— 宽行把正文撑到内容宽，横向滚动条落在 `.code-scroll`
+       底部（视口内够得着）。`.hl-code` 是 overflow:auto 的 flex 子项，自动最小尺寸为 0，
+       不显式撑它就会自己内部横滚，滚动条沉在几千像素的内容底部。
+     （2026-10-31 用户截图「长行被切 + 上下滚不动」的另一半根因。） */
+  align-self: flex-start;
+  min-width: max-content;
   /* 显示区底部**只留 5px**（2026-10-07 用户截图口径）：原来 10px 在长文档末尾会多出一条空带，
      而 gutter 同步 5px，行号与正文不会错行。 */
   padding: 10px 12px 5px;
@@ -685,9 +699,16 @@ button.mob-only { display: none; }
   border-color: var(--hairline);
 }
 .side-item {
-  margin: 0 8px;
-  padding: 8px 10px;
+  margin: 0 8px 2px;
+  padding: 11px 12px;
   gap: 10px;
+  /* iOS 列表行口径（2026-10-31 用户截图：全局按钮的内发丝环落在导航行上像常驻边框，
+     两行 35px 也挤）：静止**完全无框**（不吃全局毛玻璃三件套），hover 才落 --hover
+     表面，选中是 7% 签名色淡底——层级靠留白与色相，不靠框。 */
+  box-shadow: none;
+  background-image: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* 会话行：hover 用 --panel-2（深色下比 --panel 亮一档），选中＝底 + 品牌左标。 */
@@ -1176,7 +1197,10 @@ input[type='radio'] {
   display: flex;
   align-items: center;
   height: 34px;
-  background: var(--bg);
+  /* 桌面壳无边框窗口（2026-10-31）：标题条吃**侧栏同款材质**——左右栏的 bg-elev 一直
+     通到窗口顶，macOS 式「侧栏延伸进标题条」的连续感；中栏顶部的一条色差是工具条
+     区域的自然分界（ZCode/VS Code 同款形态）。整条仍是拖拽区。 */
+  background: var(--bg-elev);
   -webkit-app-region: drag;
   user-select: none;
 }
