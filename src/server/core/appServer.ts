@@ -371,61 +371,37 @@ export class AppServer extends AppServerVaultHandlers {
       return { count: facts.length, facts: facts.map((f) => ({ ...f })) };
     });
     this.handlers.set('memory.get', async (params) => {
-      const idParam = params['id'];
-      if (typeof idParam !== 'string' || idParam.length === 0) {
-        throw new Error('memory.get 需要 id');
-      }
-      const fact = store().get(idParam);
+      const id = AppServer.memoryId(params, 'memory.get');
+      const fact = store().get(id);
       if (fact === undefined) {
-        throw new Error('未找到记忆: ' + idParam);
+        throw new Error('未找到记忆: ' + id);
       }
       return { ...fact };
     });
     this.handlers.set('memory.add', async (params) => {
-      const text = params['text'];
-      if (typeof text !== 'string' || text.trim() === '') {
-        throw new Error('memory.add 需要非空 text');
-      }
-      const topic = typeof params['topic'] === 'string' ? (params['topic'] as string) : undefined;
-      const rawImp = typeof params['importance'] === 'number' ? params['importance'] : 3;
-      const importance = Math.min(5, Math.max(1, Math.round(rawImp)));
-      const fact: MemoryFact = {
-        id: Id.id('mem'),
-        text: text.trim(),
-        topic,
-        importance,
-        createdAt: new Date().toISOString(),
-        sessionId: 'ui-manual',
-        source: 'tool',
-      };
+      const fact = AppServer.newFactFrom(params);
       store().remember(fact);
       this.options.transport.send(jsonRpc.notify('memory.changed', {}));
       return { ok: true, id: fact.id };
     });
     this.handlers.set('memory.update', async (params) => {
-      const idParam = params['id'];
-      if (typeof idParam !== 'string' || idParam.length === 0) {
-        throw new Error('memory.update 需要 id');
-      }
+      const id = AppServer.memoryId(params, 'memory.update');
       const patch: MemoryFactPatch = {};
       if (typeof params['text'] === 'string') patch.text = params['text'];
       if (typeof params['topic'] === 'string') patch.topic = params['topic'];
       if (typeof params['importance'] === 'number') patch.importance = params['importance'];
-      const ok = store().update(idParam, patch);
+      const ok = store().update(id, patch);
       if (!ok) {
-        throw new Error('未找到记忆: ' + idParam);
+        throw new Error('未找到记忆: ' + id);
       }
       this.options.transport.send(jsonRpc.notify('memory.changed', {}));
       return { ok: true };
     });
     this.handlers.set('memory.delete', async (params) => {
-      const idParam = params['id'];
-      if (typeof idParam !== 'string' || idParam.length === 0) {
-        throw new Error('memory.delete 需要 id');
-      }
-      const ok = store().delete(idParam);
+      const id = AppServer.memoryId(params, 'memory.delete');
+      const ok = store().delete(id);
       if (!ok) {
-        throw new Error('未找到记忆: ' + idParam);
+        throw new Error('未找到记忆: ' + id);
       }
       this.options.transport.send(jsonRpc.notify('memory.changed', {}));
       return { ok: true };
@@ -450,6 +426,44 @@ export class AppServer extends AppServerVaultHandlers {
         })),
       };
     });
+  }
+
+  /**
+   * 从 RPC 参数里取记忆 id（守卫收敛：四个 memory 方法同一段「非空字符串」检查）。
+   * @param params RPC 参数。
+   * @param label 报错前缀（哪个方法）。
+   * @returns 已校验的记忆 id。
+   */
+  private static memoryId(params: Record<string, unknown>, label: string): string {
+    const idParam = params['id'];
+    if (typeof idParam !== 'string' || idParam.length === 0) {
+      throw new Error(`${label} 需要 id`);
+    }
+    return idParam;
+  }
+
+  /**
+   * 从 `memory.add` 参数构造记忆事实（守卫 + 夹紧 importance + 来源标记）。
+   * @param params RPC 参数。
+   * @returns 待落盘的事实。
+   */
+  private static newFactFrom(params: Record<string, unknown>): MemoryFact {
+    const text = params['text'];
+    if (typeof text !== 'string' || text.trim() === '') {
+      throw new Error('memory.add 需要非空 text');
+    }
+    const topic = typeof params['topic'] === 'string' ? (params['topic'] as string) : undefined;
+    const rawImp = typeof params['importance'] === 'number' ? params['importance'] : 3;
+    const importance = Math.min(5, Math.max(1, Math.round(rawImp)));
+    return {
+      id: Id.id('mem'),
+      text: text.trim(),
+      topic,
+      importance,
+      createdAt: new Date().toISOString(),
+      sessionId: 'ui-manual',
+      source: 'tool',
+    };
   }
 
   /**
