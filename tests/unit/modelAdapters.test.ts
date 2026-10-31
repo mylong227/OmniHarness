@@ -529,6 +529,49 @@ test('OpenAI 兼容：thinking + tool_calls + reasoningContent=undefined 强制�
   assert.strictEqual(messages[1]?.['reasoning_content'], '');
 });
 
+test('OpenAI 兼容：thinking + **纯文本** assistant + reasoningContent=undefined 也注入空串（2026-10-31 m5 冒烟根因）', async () => {
+  // 2026-10-31 实测的间歇性 400：thinking 会话里端点对快速应答**偶发返回空串**
+  // reasoning_content → 投影成 undefined → 纯文本（无 tool_calls）assistant 在下轮
+  // 请求里完全不带该字段 → DeepSeek 400 \"must be passed back\"。原 OBS-7 兜底只
+  // 覆盖带 tool_calls 的 assistant，纯文本形态漏网。修后：thinking 下**任何**缺
+  // reasoningContent 的 assistant 都注入空串占位（空串已实测 200）。
+  let captured: Record<string, unknown> | undefined;
+  const model = new OpenAiCompatibleModel({
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: 'sk',
+    model: 'm',
+  });
+  await withFetch(
+    async (_url, init) => {
+      captured = JSON.parse(String(init.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({ choices: [{ message: { role: 'assistant', content: 'ok' } }] }),
+        { status: 200 },
+      );
+    },
+    () =>
+      model.generate({
+        messages: [
+          { role: 'user', content: '任务' },
+          // 关键形态：**纯文本** assistant（无 tool_calls），reasoningContent 缺失
+          { role: 'assistant', content: '我先规划步骤。' },
+          { role: 'user', content: '继续' },
+        ],
+        tools: [],
+        reasoningEffort: 'high',
+      }),
+  );
+  const messages = captured?.['messages'] as Array<Record<string, unknown>>;
+  assert.strictEqual(
+    'reasoning_content' in (messages[1] ?? {}),
+    true,
+    'thinking 下纯文本 assistant 也必须带 reasoning_content 字段（兜底空串）',
+  );
+  assert.strictEqual(messages[1]?.['reasoning_content'], '');
+  // 对照：user 消息不受影响
+  assert.strictEqual('reasoning_content' in (messages[0] ?? {}), false);
+});
+
 test('OpenAI 兼容：thinking 关 + tool_calls + reasoningContent=undefined 不注入 reasoning_content（OpenAI 端点兼容）', async () => {
   // 对照组：thinking 未开启时，reasoningContent 缺就完全不注入该字段——保持与 OpenAI、
   // 以及其他非思考模式端点的兼容性（它们没有 reasoning_content 字段，强加会破坏请求体）。

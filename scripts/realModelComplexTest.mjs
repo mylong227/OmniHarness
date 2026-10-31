@@ -1302,6 +1302,22 @@ async function runCase(spec, runId) {
       prompt: turn.prompt,
       resumedFrom: turn.resumeFrom ?? null,
       exitCode: run.exitCode,
+      // 失败诊断：CLI 自身 stderr/stderr 尾巴（0 调用即退时这是唯一的死因证据）。
+      stderrTail: String(run.stderr ?? '')
+        .trim()
+        .slice(-600),
+      stdoutTail: String(run.stdout ?? '')
+        .trim()
+        .slice(-300),
+      // model.http.error 的完整日志行落盘（body + reqMessages 全量）——诊断 400 死因用。
+      httpErrorLine: (() => {
+        const stderr = String(run.stderr ?? '');
+        const idx = stderr.lastIndexOf('model.http.error');
+        if (idx < 0) return '';
+        const lineStart = stderr.lastIndexOf('\n', idx);
+        const lineEnd = stderr.indexOf('\n', idx);
+        return stderr.slice(lineStart < 0 ? 0 : lineStart + 1, lineEnd < 0 ? undefined : lineEnd);
+      })(),
       durationMs: run.ms,
       steps: parsed?.steps ?? null,
       sessionId: parsed?.sessionId ?? null,
@@ -1343,6 +1359,22 @@ async function runCase(spec, runId) {
       events.cachedPromptTokens,
     )}）/ completion ${String(events.completionTokens)}`,
   );
+  for (const turn of turnRuns) {
+    if (turn.exitCode !== 0 && (turn.stderrTail !== '' || turn.stdoutTail !== '')) {
+      log(
+        `  ⚠️ turn${String(turn.index)} exit=${String(turn.exitCode)}｜stderr 尾巴：${turn.stderrTail || '(空)'}｜stdout 尾巴：${turn.stdoutTail || '(空)'}`,
+      );
+    }
+    if (turn.exitCode !== 0 && turn.httpErrorLine !== '') {
+      const dumpPath = join(RUN_ROOT, runId ?? '', `turn${String(turn.index)}.http-error.json`);
+      try {
+        writeFileSync(dumpPath, turn.httpErrorLine);
+        log(`  ⚠️ turn${String(turn.index)} 模型 HTTP 错误行已落盘：${dumpPath}`);
+      } catch {
+        log(`  ⚠️ turn${String(turn.index)} 模型 HTTP 错误行落盘失败`);
+      }
+    }
+  }
   log(
     failed.length === 0
       ? `  ✅ 判据 ${String(checks.length)}/${String(checks.length)} 全过`

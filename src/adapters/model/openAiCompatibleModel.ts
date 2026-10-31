@@ -388,17 +388,14 @@ export class OpenAiCompatibleModel implements ModelPort {
       // 非思考对话（reasoningContent 为 undefined）则不注入该字段，保持 OpenAI 端点兼容。
       if (message.role === 'assistant' && message.reasoningContent !== undefined) {
         wire.reasoning_content = message.reasoningContent;
-      } else if (
-        thinking &&
-        message.role === 'assistant' &&
-        message.toolCalls !== undefined &&
-        message.toolCalls.length > 0
-      ) {
-        // 兜底（#OBS-7，2026-09-07 实测）：思考模式 + assistant 带 tool_calls 时即使历史里
-        // reasoningContent===undefined（流式未返回 reasoning 段、或消息生成于启用思考前），
-        // 也必须注入 reasoning_content:"" 占位——否则 DeepSeek v4 下轮 HTTP 400。
-        // 上一行是「字段已定义」的常规路径；这一行是「字段未定义但 thinking 已开且带工具」
-        // 的兜底路径，两者互斥，覆盖 reasoningContent 全 3 个分支。
+      } else if (thinking && message.role === 'assistant') {
+        // 兜底（#OBS-7，2026-09-07；2026-10-31 扩到**全部** assistant）：
+        // 思考模式 + 历史里 reasoningContent===undefined 时必须注入 reasoning_content:""
+        // 占位——否则 DeepSeek v4 下轮 HTTP 400。原兜底只覆盖「带 tool_calls」的 assistant，
+        // 漏了**纯文本** assistant：端点对同一次 thinking 会话里的快速应答偶发返回
+        // **空串** reasoning_content（实测 2026-10-31，m5 冒烟 4 秒退出、0 续跑的根因），
+        // 投影成 undefined ⇒ 下轮 400（"must be passed back"）。空串占位对三类形态
+        // （有推理 / 无推理带工具 / 无推理纯文本）统一成立，全部已实测 200。
         wire.reasoning_content = '';
       }
       return wire;
