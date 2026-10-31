@@ -91,33 +91,10 @@ export class ExecCli extends CliAgentCmds {
     if (local !== undefined) {
       return local;
     }
-    if (argv[0] === 'compare') {
-      return this.runCompare(argv.slice(1));
+    const delegated = await this.dispatchSubcommand(argv);
+    if (delegated !== undefined) {
+      return delegated;
     }
-    if (argv[0] === 'native') {
-      return this.runNative(argv.slice(1));
-    }
-    if (argv[0] === 'license') return this.licenseCommand.run(argv.slice(1));
-    if (argv[0] === 'goal') return this.runGoal(argv.slice(1));
-    if (argv[0] === 'model') return this.runModel(argv.slice(1)); // U2-4 能力探针（见 runModel）
-    if (argv[0] === 'workflow') {
-      return this.runWorkflow(argv.slice(1));
-    }
-    if (argv[0] === 'lsp') {
-      return this.runLsp(argv.slice(1));
-    }
-    if (argv[0] === 'routines') {
-      return this.runRoutines(argv.slice(1));
-    }
-    if (argv[0] === 'tui') {
-      return this.runTui(argv.slice(1));
-    }
-    // ACP（Agent Client Protocol）编辑器入口：JSON-RPC over stdio，供 Zed 等宿主驱动。
-    if (argv[0] === 'acp') {
-      return this.runAcp(argv.slice(1));
-    }
-    if (argv[0] === 'evolution') return this.runEvolution(argv.slice(1));
-    if (argv[0] === 'capability') return this.runCapability(argv.slice(1));
     // 检索默认档**只对真正的 agent 路径**生效（2026-10-11 收窄：此前它在 `run()` 开头无条件调用）。
     //
     // **实测边界（别把收益说大）**：挪到这里**不会**让非 agent 子命令变快——`boost probe list`
@@ -164,6 +141,36 @@ export class ExecCli extends CliAgentCmds {
       restoreEgress();
       this.closeGateway();
     }
+  }
+
+  /**
+   * 链顶子命令分发（run 的抽出段）：本地半段不认识、需要 Agent 链能力的命令族。
+   * 表驱动让 run() 只剩「版本 → 本地 → 分发 → agent 路径」四段骨架。
+   * @param argv 原始命令行参数。
+   * @returns 命中子命令的退出码；未命中为 undefined（落到 agent 路径）。
+   */
+  private async dispatchSubcommand(argv: readonly string[]): Promise<number | undefined> {
+    const rest = argv.slice(1);
+    const table: readonly (readonly [
+      string,
+      (r: readonly string[]) => Promise<number> | number,
+    ])[] = [
+      ['compare', (r) => this.runCompare(r)],
+      ['native', (r) => this.runNative(r)],
+      ['license', (r) => this.licenseCommand.run(r)],
+      ['goal', (r) => this.runGoal(r)],
+      ['model', (r) => this.runModel(r)],
+      ['workflow', (r) => this.runWorkflow(r)],
+      ['lsp', (r) => this.runLsp(r)],
+      ['routines', (r) => this.runRoutines(r)],
+      ['tui', (r) => this.runTui(r)],
+      // ACP（Agent Client Protocol）编辑器入口：JSON-RPC over stdio，供 Zed 等宿主驱动。
+      ['acp', (r) => this.runAcp(r)],
+      ['evolution', (r) => this.runEvolution(r)],
+      ['capability', (r) => this.runCapability(r)],
+    ];
+    const hit = table.find(([name]) => argv[0] === name);
+    return hit === undefined ? undefined : await hit[1](rest);
   }
 
   /**
