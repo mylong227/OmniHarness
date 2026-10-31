@@ -12,6 +12,7 @@ export const EN_COMPOSER: Record<string, string> = {
     'Task input: type a task, Enter to send, Shift+Enter for a new line, @ to reference files, / to pick a skill',
   '发消息或创建任务，/ 调用技能，@ 文件或对话':
     'Send a message or create a task, / for skills, @ for files or threads',
+  '继续输入以排队后续修改': 'Keep typing to queue follow-up changes',
   '粘贴 / 拖拽 / 选择文件（项目内文件夹选择器风格）':
     'Paste / drag / pick files (project folder picker style)',
   '附加图片、视频或文件': 'Attach images, videos, or files',

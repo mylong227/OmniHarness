@@ -2,6 +2,12 @@
 export const EN_SHELL: Record<string, string> = {
   // index.html 静态 <title> 的接管文案（AppController.mount / LayoutController.setLocale）
   'OmniHarness 工作台': 'OmniHarness Workbench',
+  // TitlebarStrip.tsx（桌面一体化标题条）
+  '最小化': 'Minimize',
+  '最小化窗口': 'Minimize window',
+  '最大化 / 还原': 'Maximize / restore',
+  '最大化或还原窗口': 'Maximize or restore window',
+  '关闭窗口': 'Close window',
   // AppController.ts
   '审批响应失败：{msg}': 'Failed to submit approval: {msg}',
   '这次提问已经结束（超时或已作答），作答未送达': 'This question has already ended (timed out or answered); the response was not delivered',

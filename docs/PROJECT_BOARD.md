@@ -7390,3 +7390,46 @@ BLOCKERS（外部凭据/证书）、Wave E（纪律性阻塞）、G1/G3/G4/H2（
   快速应答 + 后续轮次」组合——与用例复杂度和端点行为相关，不是脚本并发问题。
 - 验证：modelAdapters 31 例全绿；全量 `npm test` 复跑全绿（数字见 §199.4 口径）；
   typed 门禁 2/2；delta 通过。
+
+## 201. 2026-10-31 参考桌面端标杆的 webUI + 桌面壳形态升级
+
+参考图（ZCode 桌面端截图）对齐一轮：侧栏任务化导航、工作指示器可折叠、停止钮反相实心、
+busy 占位符排队口径、win32 一体化标题条。功能面不动（用户此前裁决保留的 chrome 不回潮）。
+
+### 201.1 webUI（浏览器 + 桌面共用同一份构建）
+
+| #   | 项                                    | 落点                                                                         | 备注                                                                                            |
+| --- | ------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| ①   | 侧栏「新建任务 Ctrl+N」一等按钮       | `SessionPanel`（新会话→新建任务；快捷键提示按平台 ⌘N/Ctrl+N）                | 可访问名**并入** kbd 文案——axe 判 label-content-name-mismatch（aria-hidden 的提示也算可见文本） |
+| ②   | 侧栏导航行「自动化 / 插件市场」       | `SessionPanel`（自动化 → onOpenPane('automations')；插件→插件市场）          | 与面板清单既有 key 对齐，不新增面板                                                             |
+| ③   | 区块头「工作区」→「任务列表」         | `SessionPanel` ssh-label                                                     | 纯文案                                                                                          |
+| ④   | 工作指示器 →「已工作 X分X秒 ▸」可折叠 | `WorkIndicator` 重写：收起只留计时，展开补当前动作（role=status 保留在容器） | `mount.test` 契约同步重写（aria-hidden 3 处；点击展开断言）                                     |
+| ⑤   | busy 占位符「继续输入以排队后续修改」 | `Composer`（busy 三元切换，A8 插话语义同款文案）                             | 空闲态文案不变 ⇒ `uiBaseline.json` 无需回写                                                     |
+| ⑥   | 停止按钮反相实心（text 底 / bg 字）   | `minimal.css .stop.round`                                                    | 两种主题下都是「最重」的一枚按钮                                                                |
+| ⑦   | 中栏头项目段加文件夹图标              | `ChatHeader` + `.chat-project`                                               |                                                                                                 |
+
+### 201.2 桌面壳（win32 一体化标题条，参考实现同款窗口形态）
+
+- `window.ts`：**仅 win32** `titleBarStyle: 'hidden'`（系统边框保留，缩放边缘不受影响；
+  其它平台原生标题栏不变）。
+- `preload.ts`：**纯增量**三方法 `minimizeWindow / toggleMaximizeWindow / closeWindow` +
+  `windowFrame: 'hidden'|'native'` 字段——**API_VERSION 保持 3**（SmokeHarness 钉
+  `bridgeVersion===3`；纯增量不改语义故不 bump，头注释已记口径）。
+- `ipc.ts`：三个 handler 一律 `BrowserWindow.fromWebContents(event.sender)` 反查目标 +
+  `assertTrusted`（不可借道操控别的窗口）；close 走正常 close 事件链（与关闭到托盘、
+  bounds 记忆一致）。
+- web 侧：`DesktopBridge` 可选透传新能力；新组件 `TitlebarStrip`（整条 drag 区 +
+  右端自绘 最小化/最大化/关闭，双击切换最大化）挂 `.app` 首位；浏览器/旧壳渲染 null，
+  `.app.has-titlebar` 才让出 34px 行。`.tb-close:hover` 用 `--err/--on-err`（色彩预算判据
+  禁止结构层出现带色相字面量）。
+
+### 201.3 验证
+
+- 类型：root `tsc --noEmit` + web tsconfig + desktop tsconfig 三处全绿。
+- web：`test:web` 131 文件 / 669 例（1 例 axe 失败=①的可访问名问题 → 修复后复跑通过，
+  a11y 全家 + e2e/e2e-cdp/keyboardShortcuts 5 文件 30 例复跑全绿）；mount 13 例绿。
+- integration：**17/17**（liveUiE2e 的 UI 结构基线原样通过——本轮未动空闲态 pinned 文案）。
+- desktop：25/25 测试 + esbuild 构建 + **真实 Electron smoke 退出码 0**（标题条改动下
+  root 挂载 + 桥握手照常）。
+- 门禁：`check --strict` 零违规（SessionPanel 887 ≤ 基线 888；Composer 函数体回到基线
+  486——占位符一行化）；eslint 全绿；prettier 全绿。

@@ -124,6 +124,9 @@ export function ChatHeader(props: ChatHeaderProps): ReactElement {
       )}
       {project === '' ? null : (
         <span className="chat-project" title={projectPath}>
+          <span className="chat-project-ico" aria-hidden="true">
+            {icon('folder', { size: 14 })}
+          </span>
           {project}
           <span className="chat-slash" aria-hidden="true">
             {' / '}

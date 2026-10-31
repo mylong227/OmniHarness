@@ -55,6 +55,18 @@ export interface DesktopBridge {
   setProgress?(value: number): Promise<void>;
   /** 拖入文件的真实系统路径（新版 preload 才提供；Electron ≥32 已移除 File.path）。 */
   pathForFile?(file: File): string;
+  /**
+   * 壳层标题栏形态（新增 preload 才提供；缺省视为 `native`）。
+   * `hidden` = 壳隐藏了系统标题栏（win32），UI 需要自带拖拽条 + 窗口控制按钮；
+   * 旧版 preload 没有该字段，浏览器里也读不到——两种情况都按「不渲染标题条」处理。
+   */
+  readonly windowFrame?: 'hidden' | 'native';
+  /** 最小化窗口（仅 `windowFrame: 'hidden'` 的壳提供；UI 自绘窗口控制时用）。 */
+  minimizeWindow?(): Promise<void>;
+  /** 最大化 / 还原窗口（同上）。 */
+  toggleMaximizeWindow?(): Promise<void>;
+  /** 关闭窗口（同上；走壳的 close 事件链，与「关闭到托盘」行为一致）。 */
+  closeWindow?(): Promise<void>;
   restartHarness(): Promise<void>;
   /** 在系统文件管理器中打开目录。 */
   revealPath(path: string): Promise<void>;
@@ -113,6 +125,18 @@ export function desktopBridge(): DesktopBridge | null {
       : {}),
     ...(typeof raw['pathForFile'] === 'function'
       ? { pathForFile: (file: File) => (raw['pathForFile'] as (f: File) => string)(file) }
+      : {}),
+    ...(raw['windowFrame'] === 'hidden' || raw['windowFrame'] === 'native'
+      ? { windowFrame: raw['windowFrame'] as 'hidden' | 'native' }
+      : {}),
+    ...(typeof raw['minimizeWindow'] === 'function'
+      ? { minimizeWindow: () => call<void>('minimizeWindow') }
+      : {}),
+    ...(typeof raw['toggleMaximizeWindow'] === 'function'
+      ? { toggleMaximizeWindow: () => call<void>('toggleMaximizeWindow') }
+      : {}),
+    ...(typeof raw['closeWindow'] === 'function'
+      ? { closeWindow: () => call<void>('closeWindow') }
       : {}),
     restartHarness: () => call<void>('restartHarness'),
     revealPath: (path) => call<void>('revealPath', path),

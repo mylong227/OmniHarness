@@ -180,6 +180,9 @@
 }
 /* Codex 式「项目 / 线程」：项目段弱化、线程标题仍是主信息。 */
 .chat-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   max-width: 18ch;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,6 +190,11 @@
   color: var(--faint);
   font-size: var(--fs-xs);
   font-family: var(--mono);
+  flex: none;
+}
+.chat-project .chat-project-ico {
+  display: inline-flex;
+  color: var(--faint);
 }
 .chat-slash {
   color: var(--faint);
@@ -1148,4 +1156,53 @@ input[type='radio'] {
 }
 .empty.note {
   padding: 14px 4px;
+}
+
+/* =========================================================================
+   桌面一体化标题条（win32 隐藏系统标题栏后，参考 ZCode 桌面端窗口形态）
+   -------------------------------------------------------------------------
+   `.titlebar` 整条是拖拽区（-webkit-app-region: drag），右端自绘
+   「最小化 / 最大化 / 关闭」；按钮必须显式 no-drag，否则点不中。
+   浏览器 / 旧版壳：TitlebarStrip 返回 null 且 .app 不带 has-titlebar，
+   这里所有规则都不生效——不会多出一条空气 chrome。
+   ========================================================================= */
+.app.has-titlebar {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.titlebar {
+  display: none;
+}
+.app.has-titlebar .titlebar {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  background: var(--bg);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.titlebar-controls {
+  display: inline-flex;
+  align-items: stretch;
+  height: 100%;
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+}
+.tb-btn {
+  width: 46px;
+  min-width: 46px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+}
+.tb-btn:hover {
+  background: var(--hover-strong);
+  color: var(--text);
+}
+.tb-btn.tb-close:hover {
+  background: var(--err);
+  color: var(--on-err);
 }

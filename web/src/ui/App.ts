@@ -18,6 +18,7 @@ import type { ThemePreference } from './models/ThemePreference.ts';
 import { RenderErrorBoundary } from './components/RenderErrorBoundary.tsx';
 import { SessionPanel } from './components/SessionPanel.tsx';
 import { StreamView } from './components/StreamView.tsx';
+import { TitlebarStrip } from './components/TitlebarStrip.tsx';
 import { RightPanel } from './components/RightPanel.tsx';
 import { BrowserPane } from './components/BrowserPane.tsx';
 import { isSettingKey } from './models/ConsoleRegistry.ts';
@@ -131,6 +132,7 @@ function prefetchLazyPanes(): void {
 }
 import { SessionsScope } from './models/SessionsScope.ts';
 import { LocalDevUrls } from './models/LocalDevUrls.ts';
+import { desktopBridge } from '../core/desktop/DesktopBridge.ts';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
 type AppAction = Partial<AppState> | ((prev: AppState) => Partial<AppState>);
@@ -395,7 +397,12 @@ function renderBody(
 
   return React.createElement(
     'div',
-    { className: 'app' },
+    {
+      className:
+        'app' + (desktopBridge()?.windowFrame === 'hidden' ? ' has-titlebar' : ''),
+    },
+    // 桌面壳（win32 隐藏系统标题栏）的一体化标题条：非桌面/旧壳渲染 null，浏览器无感。
+    React.createElement(TitlebarStrip, null),
     React.createElement(
       'div',
       {

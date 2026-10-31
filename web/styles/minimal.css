@@ -3749,3 +3749,80 @@ button,
   border-color: color-mix(in srgb, var(--err) 42%, transparent);
 }
 
+
+/* =========================================================================
+   「新建任务」快捷键提示（2026-10-31 参考桌面端标杆）：按钮行右侧的弱化 kbd 字样。
+   与按钮内文本同排、贴右；图标条态下整个 span 不渲染（组件层已处理）。
+   ========================================================================= */
+.new-chat .nc-kbd {
+  margin-left: auto;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.02em;
+}
+
+/* 停止按钮（busy 时替代发送）：与参考实现一致的「深色实心圆角方块」——
+   取反相（text 底 / bg 字），两种主题下都是"最重"的那枚按钮，语义是"按下即断"。 */
+.stop.round {
+  background: var(--text);
+  border: 1px solid transparent;
+  color: var(--bg);
+}
+.stop.round:hover {
+  background: var(--text);
+  border-color: transparent;
+  color: var(--bg);
+  opacity: 0.88;
+}
+
+/* 工作状态条（2026-10-31 对齐标杆「已工作 X分X秒 ›」）：一行可折叠的计时行——
+   收起只留「已工作 + 计时 + ▸」，展开补一行当前动作；整行可点（role=status 保留在容器上）。 */
+.work-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+.wi-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: 2px 4px;
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--dim);
+  text-align: left;
+}
+.wi-toggle:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.wi-label {
+  color: var(--dim);
+  font-weight: 550;
+}
+.wi-toggle:hover .wi-label {
+  color: var(--text);
+}
+.wi-time {
+  margin-left: 0;
+  opacity: 1;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.wi-chevron {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.wi-action {
+  padding: 0 4px 2px 30px;
+  color: var(--dim);
+  font-size: var(--fs-sm);
+}

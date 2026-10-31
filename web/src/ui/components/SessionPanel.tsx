@@ -632,7 +632,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
         </span>
         {rail ? null : <span>{t('插件市场')}</span>}
       </button>
-      {/* 顶部：工作区/项目切换器（业界常见式一等入口）。收成图标条时只留这一个按钮。 */}
+      {/* 顶部工作区/项目切换器：收成图标条时只留这一个按钮。 */}
       <div className="ws-switch">
         <button
           className="ws-switch-btn"

@@ -53,6 +53,15 @@ const api = Object.freeze({
   getUpdateStatus: () => ipcRenderer.invoke('omni:getUpdateStatus'),
   /** 拖入文件的真实系统路径（Electron ≥32 移除 File.path 后，跨 contextBridge 的唯一正道）。 */
   pathForFile: (file: File) => webUtils.getPathForFile(file),
+  /**
+   * 壳层标题栏形态：win32 隐藏了系统标题栏（UI 自绘标题条 + 窗口控制），其余平台原生。
+   * 与 minimizeWindow / toggleMaximizeWindow / closeWindow 一样是**纯增量**能力：
+   * 旧版 UI 读不到就按 native 处理，故 API_VERSION 不为此 bump。
+   */
+  windowFrame: process.platform === 'win32' ? ('hidden' as const) : ('native' as const),
+  minimizeWindow: () => ipcRenderer.invoke('omni:win:minimize'),
+  toggleMaximizeWindow: () => ipcRenderer.invoke('omni:win:toggleMaximize'),
+  closeWindow: () => ipcRenderer.invoke('omni:win:close'),
   onUpdateStatus: (listener: (status: UpdateStatus) => void) =>
     subscribe<UpdateStatus>('omni:updateStatus', listener),
   onNotificationClick: (listener: (sessionId: string | undefined) => void) =>

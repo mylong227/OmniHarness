@@ -90,6 +90,10 @@ export function createMainWindow(options: MainWindowOptions): BrowserWindow {
     icon: join(__dirname, 'icon.png'),
     backgroundColor: config.backgroundColor,
     autoHideMenuBar: config.autoHideMenuBar,
+    // win32 隐藏系统标题栏：一体化标题条由 UI 自绘（TitlebarStrip + preload 的
+    // minimizeWindow/toggleMaximizeWindow/closeWindow 三枚 IPC）。系统边框保留——
+    // 缩放边缘不受影响。其它平台维持原生标题栏（UI 读 windowFrame==='native' 不渲染标题条）。
+    ...(process.platform === 'win32' ? { titleBarStyle: 'hidden' as const } : {}),
     webPreferences: {
       sandbox: true,
       contextIsolation: true,

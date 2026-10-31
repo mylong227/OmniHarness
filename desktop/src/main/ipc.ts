@@ -154,6 +154,24 @@ export function registerIpc(deps: IpcDeps): void {
     assertTrusted(event, deps);
     deps.quit();
   });
+  // 窗口控制（win32 隐藏系统标题栏后，UI 自绘标题条的三个动作；其它平台 harmless）：
+  // 目标窗口一律从 sender 反查——不可能借道操控别的窗口；close 走正常 close 事件链，
+  // 与「关闭到托盘」和 bounds 记忆行为保持一致。
+  ipcMain.handle('omni:win:minimize', (event) => {
+    assertTrusted(event, deps);
+    BrowserWindow.fromWebContents(event.sender)?.minimize();
+  });
+  ipcMain.handle('omni:win:toggleMaximize', (event) => {
+    assertTrusted(event, deps);
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win === null || win.isDestroyed()) return;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
+  ipcMain.handle('omni:win:close', (event) => {
+    assertTrusted(event, deps);
+    BrowserWindow.fromWebContents(event.sender)?.close();
+  });
 }
 
 /**

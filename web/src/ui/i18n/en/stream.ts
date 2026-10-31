@@ -46,6 +46,10 @@ export const EN_STREAM: Record<string, string> = {
 
   // ReasoningBlock.tsx
   '正在思考': 'Thinking',
+  // WorkIndicator.tsx（可折叠工作状态条）
+  '已工作': 'Working for',
+  '查看当前动作': 'Show current action',
+  '收起当前动作': 'Hide current action',
   '正在思考（已约 {n} 字）': 'Thinking (~{n} chars so far)',
   '{h}小时{m}分{s}秒': '{h}h {m}m {s}s',
   '{m}分{s}秒': '{m}m {s}s',
