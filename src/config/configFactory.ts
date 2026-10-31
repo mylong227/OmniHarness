@@ -66,16 +66,9 @@ export class ConfigFactory {
    */
   public static build(partial: OmniHarnessConfig): ResolvedConfig {
     const core = CorePortsAssembler.assembleCorePorts(partial);
-    const costBudget = ConfigFactory.buildCostBudget(partial);
-    // P5 自动降档：把预算计量桥成只读端口，注入 core 消费点（守住 `core → adapters` 红线）。
-    // 无预算（costBudgetUsd 未设/非正）时不构造 ⇒ budgetDegrade 恒 undefined，零行为变更。
-    const budgetDegrade: BudgetDegradeSignal | undefined =
-      costBudget !== undefined ? new CostBudgetDegradeAdapter(costBudget) : undefined;
-    const model = ConfigBuilder.buildModel(partial, costBudget);
-    // VER-06：独立审查模型（2026-10-21）。`OMNI_REVIEW_MODEL` 命中 modelRouter entry 时
-    // 单独构造一个 ModelPort，让 reviewer 与主模型**不同源**；未配置/未命中则返回 undefined，
-    // Runtime 回退到主模型（仍保持干净上下文，只是不独立）。
-    const reviewerModel = ConfigFactory.buildReviewerModel(partial);
+    // 预算与模型族：成本预算 → 降档桥 → 模型 → 独立审查模型（装配见 {@link budgetModelParts}）。
+    const { costBudget, budgetDegrade, model, reviewerModel } =
+      ConfigFactory.budgetModelParts(partial);
     const memory = MemoryStackAssembler.assembleMemoryStack(partial, model);
     const skills = SkillStackAssembler.assembleSkillStack(partial);
     const goalMaxIterations = partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS;
@@ -120,6 +113,41 @@ export class ConfigFactory {
       ...(reviewerModel !== undefined ? { reviewerModel } : {}),
       storage: partial.storage,
       ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
+      // 上下文与运行时旗标段（压缩三元组 / 原生记账 / live / 嵌入 / 进化 / SSRF / 遥测）。
+      ...ConfigFactory.contextFlags(partial),
+      // 「声明式原样透传」的可选段（媒体 / RBAC / A2A / 决策引擎）：语义同构，集中一处见注释。
+      // 这些段此前各自被漏透传过（`media` / `a2a` / `decisionEngine` 都真出过事），故显式成组。
+      ...ConfigFactory.passthroughSections(partial),
+      tools: toolStack.tools,
+      // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**却**未被本
+      // 装配字面量透传**；而 `ResolvedConfig extends OmniHarnessConfig` 且该字段可选 ⇒ TS 不报错、
+      // 值被静默丢弃 ⇒ 护栏在生产路径上**永不可达**（第九处「声明未接线」）。
+      // (D1/D2) 生效模式三态：布尔**原样透传**；**字符串必须过白名单校验**：未知取值在此抛错，
+      // 而不是静默回落成 off——与「安全相关枚举必须显式校验」同一纪律。
+      ...ConfigFactory.buildInjectionGuard(partial),
+      runtimeTelemetry: partial.runtimeTelemetry,
+      costBudget,
+      budgetDegrade,
+      goalMaxIterations,
+      lsp,
+      identity,
+      spark,
+      ...core.ports,
+      ...memory.stack,
+      ...skills,
+      // (Wave B · ADR-0009) 资产协议切片：显式透传（理由同 `a2a` / `evolutionRlvr`——漏透传即「声明未接线」）。
+      capabilityStack: toolStack.capabilityStack,
+    };
+  }
+
+  /**
+   * 上下文与运行时旗标段（build 的字面量抽出）：压缩三元组 / 原生记账 / live 组合视图 /
+   * 语义嵌入端口 / 进化段 / SSRF 策略表 / 遥测。逐项保留原注释里的接线教训（漏透传史）。
+   * @param partial 未解析配置。
+   * @returns 可展开进 ResolvedConfig 的分段 partial。
+   */
+  private static contextFlags(partial: OmniHarnessConfig): Partial<ResolvedConfig> {
+    return {
       compactionMaxTokens: partial.compactionMaxTokens,
       compactionKeepRecent: partial.compactionKeepRecent,
       compactionDeterministicShrink: partial.compactionDeterministicShrink,
@@ -136,32 +164,31 @@ export class ConfigFactory {
       // 调用方设了 `evolutionRlvr` 也被静默丢弃 ⇒「默认关、端到端未开」的机械根因；此处显式透传。
       evolutionRlvr: partial.evolutionRlvr,
       ssrfPolicy: partial.ssrfPolicy, // 配置化 SSRF 策略表（消费方：组合根 A2A / CLI 出站守卫）
-      // 「声明式原样透传」的可选段（媒体 / RBAC / A2A / 决策引擎）：语义同构，集中一处见注释。
-      // 这些段此前各自被漏透传过（`media` / `a2a` / `decisionEngine` 都真出过事），故显式成组。
-      ...ConfigFactory.passthroughSections(partial),
-      tools: toolStack.tools,
-      // (P4) 提示注入护栏开关：此前该字段只在 `OmniHarnessConfig` 上**声明**（第 220 行）却**未被本
-      // 装配字面量透传**；而 `ResolvedConfig extends OmniHarnessConfig` 且该字段可选 ⇒ TS 不报错、
-      // 值被静默丢弃，`agent` 读到的 `config.promptInjectionGuard` 恒为 `undefined`
-      // ⇒ `--guard-prompt-injection` 形同虚设、护栏在生产路径上**永不可达**（第九处「声明未接线」，
-      // 与 E2 的 a2a / E3 的 evolutionRlvr 同一形态）。此处显式透传；缺省 `undefined` = 默认关（零行为变更）。
-      // (D1/D2) 生效模式三态：布尔**原样透传**（`true`=enforce / `false`=off——既有断言与零行为变更均保留）；
-      // **字符串必须过白名单校验**：未知取值在此抛错，而不是静默回落成 off——否则「配置写错」会静默
-      // 退化成「护栏失效」，与 `src/cli/cliEnums.ts`「安全相关枚举必须显式校验」同一纪律。
-      ...ConfigFactory.buildInjectionGuard(partial),
-      runtimeTelemetry: partial.runtimeTelemetry,
-      costBudget,
-      budgetDegrade,
-      goalMaxIterations,
-      lsp,
-      identity,
-      spark,
-      ...core.ports,
-      ...memory.stack,
-      ...skills,
-      // (Wave B · ADR-0009) 资产协议切片：显式透传（理由同 `a2a` / `evolutionRlvr`——漏透传即「声明未接线」）。
-      capabilityStack: toolStack.capabilityStack,
     };
+  }
+
+  /**
+   * 预算与模型族装配（build 的头部抽出）：成本预算 → P5 降档桥 → 模型 → 独立审查模型。
+   * @param partial 未解析配置。
+   * @returns 四件套（budgetDegrade 无预算时为 undefined，零行为变更）。
+   */
+  private static budgetModelParts(partial: OmniHarnessConfig): {
+    readonly costBudget: CostBudget | undefined;
+    readonly budgetDegrade: BudgetDegradeSignal | undefined;
+    readonly model: ModelPort;
+    readonly reviewerModel: ModelPort | undefined;
+  } {
+    const costBudget = ConfigFactory.buildCostBudget(partial);
+    // P5 自动降档：把预算计量桥成只读端口，注入 core 消费点（守住 `core → adapters` 红线）。
+    // 无预算（costBudgetUsd 未设/非正）时不构造 ⇒ budgetDegrade 恒 undefined，零行为变更。
+    const budgetDegrade: BudgetDegradeSignal | undefined =
+      costBudget !== undefined ? new CostBudgetDegradeAdapter(costBudget) : undefined;
+    const model = ConfigBuilder.buildModel(partial, costBudget);
+    // VER-06：独立审查模型（2026-10-21）。`OMNI_REVIEW_MODEL` 命中 modelRouter entry 时
+    // 单独构造一个 ModelPort，让 reviewer 与主模型**不同源**；未配置/未命中则返回 undefined，
+    // Runtime 回退到主模型（仍保持干净上下文，只是不独立）。
+    const reviewerModel = ConfigFactory.buildReviewerModel(partial);
+    return { costBudget, budgetDegrade, model, reviewerModel };
   }
 
   /**
