@@ -170,6 +170,33 @@ export class SparkController {
       }
     }
     const engines = this.engines;
+    const legacy = this.legacyCoreReports(engines);
+    const caps = this.capabilityReports(engines);
+    const report = SparkController.assembleReport(legacy, caps);
+    if (report === undefined) {
+      return { ran: false };
+    }
+    // (P4, I-P4-3) 长期运行遥测：每轮 cycle 为每个已启用引擎落盘一条 production 观测，
+    // 携带该引擎 cycle() 已算出的真实指标（而非仅 ran:1）；缺省不采集，零破坏。
+    this.telemetry.emit(report);
+    this.lastReport = report; // 遥测回流（见 regimeFromLastReport）。
+    return report;
+  }
+
+  /**
+   * legacy 核心腿报告（cycle 的抽出段）：调谐 / 冲刷 / 退火 / 宇宙网 / QEC / 免疫 / 信念。
+   * @param engines 燧引擎集。
+   * @returns 各腿报告（未启用的引擎为 undefined）。
+   */
+  private legacyCoreReports(engines: SparkEngineSet): {
+    readonly resonance: SparkCycleReport['resonance'];
+    readonly vortex: SparkCycleReport['vortex'];
+    readonly anneal: SparkCycleReport['anneal'];
+    readonly web: SparkCycleReport['web'];
+    readonly qec: SparkCycleReport['qec'];
+    readonly immune: SparkCycleReport['immune'];
+    readonly belief: SparkCycleReport['belief'];
+  } {
     const resonance = engines.resonance?.tune();
     const vortex = engines.vortex?.flush();
     const anneal = engines.annealer?.anneal();
@@ -188,6 +215,22 @@ export class SparkController {
       ngReport !== undefined || pfReport !== undefined
         ? { naturalGradient: ngReport, particleFilter: pfReport }
         : undefined;
+    return { resonance, vortex, anneal, web, qec, immune, belief };
+  }
+
+  /**
+   * 能力腿报告（cycle 的抽出段）：CRISPR / 相变固化 / 刻蚀 / 元素组合 / 对称破缺 / 禁闭色荷。
+   * @param engines 燧引擎集。
+   * @returns 各腿报告（未启用或缺探针的腿为 undefined）。
+   */
+  private capabilityReports(engines: SparkEngineSet): {
+    readonly crispr: SparkCycleReport['crispr'];
+    readonly crystallizer: SparkCycleReport['crystallizer'];
+    readonly etching: SparkCycleReport['etching'];
+    readonly elementComposer: SparkCycleReport['elementComposer'];
+    readonly symmetry: SparkCycleReport['symmetry'];
+    readonly confinement: SparkCycleReport['confinement'];
+  } {
     // (P2, I-P2-4) CRISPR 精确编辑：任务末批量 flush 编辑队列（队列空则无产出、零破坏）。
     const crispr = engines.crispr?.flush();
     const crisprReport = crispr !== undefined && crispr.length > 0 ? crispr : undefined;
@@ -229,43 +272,41 @@ export class SparkController {
       engines.confinement !== undefined && engines.confinementProbe !== undefined
         ? engines.confinement.expose(engines.confinementProbe())
         : undefined;
-    if (
-      resonance === undefined &&
-      vortex === undefined &&
-      anneal === undefined &&
-      web === undefined &&
-      qec === undefined &&
-      immune === undefined &&
-      belief === undefined &&
-      crisprReport === undefined &&
-      crystallizer === undefined &&
-      etching === undefined &&
-      elementComposer === undefined &&
-      symmetry === undefined &&
-      confinement === undefined
-    ) {
-      return { ran: false };
+    return { crispr: crisprReport, crystallizer, etching, elementComposer, symmetry, confinement };
+  }
+
+  /**
+   * 报告组装（cycle 的抽出段）：两腿全 undefined ⇒ 无活跃能力（undefined，调用方回 `ran:false`）。
+   * @param legacy 核心腿。
+   * @param caps 能力腿。
+   * @returns 完整报告；无任何产出为 undefined。
+   */
+  private static assembleReport(
+    legacy: ReturnType<SparkController['legacyCoreReports']>,
+    caps: ReturnType<SparkController['capabilityReports']>,
+  ): SparkCycleReport | undefined {
+    const all = [
+      legacy.resonance,
+      legacy.vortex,
+      legacy.anneal,
+      legacy.web,
+      legacy.qec,
+      legacy.immune,
+      legacy.belief,
+      caps.crispr,
+      caps.crystallizer,
+      caps.etching,
+      caps.elementComposer,
+      caps.symmetry,
+      caps.confinement,
+    ];
+    if (all.every((v) => v === undefined)) {
+      return undefined;
     }
-    const report: SparkCycleReport = {
+    return {
       ran: true,
-      resonance,
-      vortex,
-      anneal,
-      web,
-      qec,
-      immune,
-      belief,
-      crispr: crisprReport,
-      crystallizer,
-      etching,
-      elementComposer,
-      symmetry,
-      confinement,
+      ...legacy,
+      ...caps,
     };
-    // (P4, I-P4-3) 长期运行遥测：每轮 cycle 为每个已启用引擎落盘一条 production 观测，
-    // 携带该引擎 cycle() 已算出的真实指标（而非仅 ran:1）；缺省不采集，零破坏。
-    this.telemetry.emit(report);
-    this.lastReport = report; // 遥测回流（见 regimeFromLastReport）。
-    return report;
   }
 }
