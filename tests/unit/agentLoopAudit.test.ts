@@ -198,3 +198,79 @@ test('D. 模型抛异常时，已产生的事件仍应落盘（不丢会话历�
     'BUG：模型异常导致事件一条都没持久化，用户重进会话历史全丢',
   );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// E/F. 回合失败留痕（2026-11-01，sess_mvm80p5g_1 复盘）：用户连发 4 条消息全部
+// 零响应，转录里只有 user 事件、没有任何失败原因——排障无从下手。
+// ─────────────────────────────────────────────────────────────────────────────
+test('E. 模型抛异常时，转录里应留一条【回合失败】system 事件（含错误原因）', async () => {
+  const storage = new MemoryStorage();
+  const first = await buildAgent(storage, new MockModel()).runTask('先跑通一轮拿到会话');
+
+  const boom: ModelPort = {
+    name: 'boom',
+    generate: async (): Promise<ModelOutput> => {
+      throw new Error('上游模型 500');
+    },
+  };
+  let threw = false;
+  try {
+    await buildAgent(storage, boom, 4).resume(first.sessionId, '再炸一轮');
+  } catch {
+    threw = true;
+  }
+  assert.ok(threw, '异常仍应向上抛出（调用方的失败判定语义不变）');
+
+  const events = await storage.load(first.sessionId);
+  const noteTexts = events
+    .filter((e) => e.type === 'system')
+    .map((e) => String((e.payload as { content?: string } | undefined)?.content ?? ''));
+  const notes = noteTexts.filter((t) => t.includes('【回合失败】'));
+  assert.strictEqual(notes.length, 1, '失败必须留痕：转录里应恰有一条【回合失败】system 事件');
+  assert.ok(
+    notes[0]?.includes('上游模型 500'),
+    '留痕必须包含错误原因，否则「为什么没有回复」依旧不可解释',
+  );
+});
+
+test('F. 用户主动中止回合时，转录里不得出现【回合失败】（中止不是失败）', async () => {
+  const storage = new MemoryStorage();
+  const first = await buildAgent(storage, new MockModel()).runTask('先跑通一轮拿到会话');
+
+  let started = false;
+  const hanging: ModelPort = {
+    name: 'hanging',
+    generate: async (req: ModelRequest): Promise<ModelOutput> => {
+      started = true;
+      await new Promise<void>((_resolve, reject) => {
+        const abort = () => reject(new Error('请求已中止（模拟 fetch abort）'));
+        if (req.signal?.aborted) {
+          abort();
+          return;
+        }
+        req.signal?.addEventListener('abort', abort, { once: true });
+      });
+      return { text: 'unreachable' };
+    },
+  };
+  const agent = buildAgent(storage, hanging, 4);
+  const run = agent.resume(first.sessionId, '挂起的回合');
+  for (let i = 0; i < 200 && !started; i += 1) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.ok(started, '回合应已进入在飞模型调用，否则取消路径测不到');
+
+  agent.cancelCurrentRun('user', first.sessionId);
+  await run.catch(() => undefined);
+
+  const events = await storage.load(first.sessionId);
+  const notes = events
+    .filter((e) => e.type === 'system')
+    .map((e) => String((e.payload as { content?: string } | undefined)?.content ?? ''))
+    .filter((t) => t.includes('【回合失败】'));
+  assert.strictEqual(
+    notes.length,
+    0,
+    '用户中止不是回合失败，不得写【回合失败】（客户端已有「已中止」收口）',
+  );
+});

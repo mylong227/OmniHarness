@@ -77,6 +77,31 @@ const buildCompletionGate = (
       : undefined;
   return longHorizon.checklistFor(sessionId, inner, lastFailure);
 };
+
+/**
+ * 回合失败留痕（2026-10-24 实测，sess_mvm80p5g_1 复盘）：端点故障/欠费等让回合崩掉时，
+ * 异常原样上抛、finally 只落盘已产生的事件——转录里只剩一条 user 消息、零响应零原因，
+ * 用户看到的就是「发了消息没有任何回应」，事后排障也无从下手。这里把失败原因写进事件流
+ * （并随记录器广播到 SSE），让「为什么没有回复」在会话里永久可见。用户主动中止不是失败
+ * （客户端已有「已中止」收口），不记。模块级函数：Agent 类已到方法数上限，不再加方法。
+ * @param sessionId 会话 ID（日志用）。
+ * @param recorder 会话记录器：写入并广播 system 事件。
+ * @param cancel 会话取消令牌：已取消即用户中止，跳过留痕。
+ * @param error 回合抛出的异常（取消息做留痕文本）。
+ * @returns 无返回值。
+ */
+const noteTurnFailure = (
+  sessionId: string,
+  recorder: SessionRecorder,
+  cancel: CancellationToken,
+  error: unknown,
+): void => {
+  if (cancel.isCancelled) return;
+  const message = error instanceof Error ? error.message : String(error);
+  log.warn('session.turn.failed', { sessionId, error: message });
+  recorder.system(`【回合失败】本回合执行中出错，未产出回复：${message}`);
+};
+
 /**
  * @beta
  * Agent：事件溯源式回合执行器（模型 → 工具 → 审批 → 沙箱 → 回灌 → 收敛）。
@@ -480,6 +505,10 @@ export class Agent implements AgentPort {
           sessionId,
           workspaceRoot: this.runtime.config.workspaceRoot,
         });
+      } catch (error) {
+        // 回合失败必须留痕（语义见 noteTurnFailure）；异常本身仍按原语义向上抛。
+        noteTurnFailure(sessionId, recorder, sessionEntry.cancel, error);
+        throw error;
       } finally {
         // 长时程进度：只 append 一行摘要（用户提示 / 工具失败 / verify 结论），不写回上下文。
         await this.longHorizon.finish(sessionId, recorder);
