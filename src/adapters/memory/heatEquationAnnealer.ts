@@ -7,6 +7,9 @@ import type { MemoryAnnealer, AnnealStepReport } from '../../ports/memory/memory
 import { EigenSpectrum, type Spectrum } from '../../util/eigenspectrum.ts';
 import { ArrayAt } from '../../util/arrayAt.ts';
 
+/** 单条长期记忆事实（`LongTermMemoryPort.all()` 的元素形态）。 */
+type AnnealedFact = Awaited<ReturnType<LongTermMemoryPort['all']>>[number];
+
 /** 退火器选项（全部有保守默认；fail-closed 边界均夹紧）。 */
 export interface HeatAnnealerOptions {
   /** 扩散系数 k（每步边耦合强度）。默认 0.15。 */
@@ -143,7 +146,28 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
     // 预计算每条事实的本征谱（复用燧-3 频率域工具），避免每对重复派生。
     const specs: Spectrum[] = facts.map((f) => EigenSpectrum.eigenSpectrum(f.text, this.bins));
 
-    // 复活腿：上步解离、但被外部更新充能到地板之上的事实 → 回到耦合图（计充能）。
+    const charged = this.reviveCharged(facts);
+    const activeIdx = this.activeIndices(facts);
+    const next = this.diffuse(facts, imp, specs, activeIdx);
+    // 批量写（2026-09-26 审计 S13）：原先在结算循环里**逐条** `memory.update(...)`，
+    // 而 `FileLongTermMemory.update` 每次都整文件重写 + 重加密 ⇒ 一步退火 = 上千次全量落盘，
+    // O(n²) 同步 IO 把事件循环整段钉住。结算只产出补丁，这里一次性落盘。
+    const settled = this.settle(facts, imp, next, activeIdx, charged);
+    this.applyPatches(settled.patches);
+    return this.finishStep(step, n, {
+      drift: settled.drift,
+      charged: settled.charged,
+      decayed: settled.decayed,
+      dissociated: settled.dissociated,
+    });
+  }
+
+  /**
+   * 复活腿：上步解离、但被外部更新充能到地板之上的事实 → 回到耦合图。
+   * @param facts 本步参与的事实（已封顶）。
+   * @returns 本步复活（充能）条数。
+   */
+  private reviveCharged(facts: readonly AnnealedFact[]): number {
     let charged = 0;
     for (const f of facts) {
       if (this.dissociated.has(f.id) && f.importance > FLOOR) {
@@ -151,15 +175,37 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
         charged += 1;
       }
     }
+    return charged;
+  }
 
-    // 参与扩散的活性子集：非解离事实才收发热量（解离事实只剩外部充能一条复活路）。
+  /**
+   * 参与扩散的活性子集下标：非解离事实才收发热量（解离事实只剩外部充能一条复活路）。
+   * @param facts 本步参与的事实。
+   * @returns 活性下标数组。
+   */
+  private activeIndices(facts: readonly AnnealedFact[]): number[] {
     const activeIdx: number[] = [];
-    for (let i = 0; i < n; i++)
+    for (let i = 0; i < facts.length; i++)
       if (!this.dissociated.has(ArrayAt.at(facts, i).id)) activeIdx.push(i);
+    return activeIdx;
+  }
 
+  /**
+   * 扩散（热方程）+ 衰减遗忘（向地板 1 缓慢消退）：活性事实两两共振耦合。
+   * @param facts 本步参与的事实。
+   * @param imp 事实重要度数组（与 facts 对齐）。
+   * @param specs 事实本征谱数组（与 facts 对齐）。
+   * @param activeIdx 活性下标（见 {@link activeIndices}）。
+   * @returns 每条事实的下一步重要度（与 facts 对齐；解离位保持原值）。
+   */
+  private diffuse(
+    facts: readonly AnnealedFact[],
+    imp: readonly number[],
+    specs: readonly Spectrum[],
+    activeIdx: readonly number[],
+  ): number[] {
     const T = this._temperature;
-    const next = new Array<number>(n);
-
+    const next = new Array<number>(facts.length);
     for (const i of activeIdx) {
       const si = ArrayAt.at(specs, i);
       const ii = ArrayAt.at(imp, i);
@@ -171,17 +217,37 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
           coupled += w * (ArrayAt.at(imp, j) - ii);
         }
       }
-      // 扩散（热方程）+ 衰减遗忘（向地板 1 缓慢消退）。
       const v = ii + this.coupling * T * coupled - this.decay * T * Math.max(0, ii - FLOOR);
       next[i] = HeatEquationAnnealer.clamp(v, FLOOR, CEIL);
     }
+    return next;
+  }
 
+  /**
+   * 结算一步的漂移与三态计数，并产出批量落盘补丁。
+   * @param facts 本步参与的事实。
+   * @param imp 结算前重要度。
+   * @param next 扩散后的重要度。
+   * @param activeIdx 活性下标。
+   * @param charged 复活腿已计入的充能数（结算累加其上）。
+   * @returns 计数与补丁（调用方一次性 `applyPatches`）。
+   */
+  private settle(
+    facts: readonly AnnealedFact[],
+    imp: readonly number[],
+    next: readonly number[],
+    activeIdx: readonly number[],
+    charged: number,
+  ): {
+    readonly patches: { id: string; patch: { importance: number } }[];
+    readonly drift: number;
+    readonly charged: number;
+    readonly decayed: number;
+    readonly dissociated: number;
+  } {
     let drift = 0;
     let decayed = 0;
     let dissociatedNow = 0;
-    // 批量写（2026-09-26 审计 S13）：原先在下面这个循环里**逐条** `memory.update(...)`，
-    // 而 `FileLongTermMemory.update` 每次都整文件重写 + 重加密 ⇒ 一步退火 = 上千次全量落盘，
-    // O(n²) 同步 IO 把事件循环整段钉住。这里先把补丁攒起来，循环结束只写一次。
     const patches: { id: string; patch: { importance: number } }[] = [];
     for (const i of activeIdx) {
       const before = ArrayAt.at(imp, i);
@@ -198,8 +264,7 @@ export class HeatEquationAnnealer implements MemoryAnnealer {
       }
       patches.push({ id: ArrayAt.at(facts, i).id, patch: { importance: after } });
     }
-    this.applyPatches(patches);
-    return this.finishStep(step, n, { drift, charged, decayed, dissociated: dissociatedNow });
+    return { patches, drift, charged, decayed, dissociated: dissociatedNow };
   }
 
   /**

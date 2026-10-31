@@ -22,7 +22,6 @@ import { NativeKernel } from '../native/nativeKernel.ts';
 // 调用方零改动，只有真正走到那些方法的命令才付这份成本。
 import { CliSkillFlags } from './cliSkillFlags.ts';
 import { CliSubsystemSections } from './cliSubsystemSections.ts';
-import { CliDecisionEngineFlags } from './cliDecisionEngineFlags.ts';
 import { DefaultPromptFragments } from '../config/defaultPromptFragments.ts';
 
 import { ConsoleLiveView } from '../adapters/live/consoleLiveView.ts';
@@ -33,7 +32,6 @@ import {
   type NetworkEgressOptions,
 } from '../adapters/sandbox/networkEgressGuard.ts';
 import { SsrfPolicy } from '../security/ssrfPolicy.ts';
-import { EnforcementModeResolver } from '../security/enforcementModeResolver.ts';
 import { endpointDefaults, type ResolvedAdapterDefaults } from '../util/endpointDefaults.ts';
 import { WorkerRegistry } from '../worker/workerRegistry.ts';
 import { ExternalCliWorker } from '../worker/externalCliWorker.ts';
@@ -63,6 +61,7 @@ import { ToolLoader } from './toolLoader.ts';
 import { CliArgReader } from './cliArgReader.ts';
 import { CliEventPort } from './cliEventPort.ts';
 import type { CliArgs } from './argParser.ts';
+import { CliConfigSections } from './cliConfigSections.ts';
 import type { ResolvedConfig } from '../ports/config/resolvedConfig.ts';
 import type { ExtraTool } from '../ports/tool/extraTool.ts';
 import type { UserResponder } from '../ports/runtime/userResponder.ts';
@@ -264,40 +263,13 @@ export class CliBuildConfig extends CliCredentialBuild {
       // (#B6) 推理强度：此前该键**只由服务端**透传，CLI 路径缺映射 ⇒ `omniharness.json` 的 `reasoning`
       // 与 `OMNIHARNESS_REASONING` 在 CLI 上被静默丢弃（I5a 抓出的第十处「声明未接线」）。此处补齐。
       reasoning: args.reasoning,
-      // V2.1（A3）：模型重试默认开——生产环境最蠢的单点故障是一次 429 报废整回合。
-      // --no-model-retry 显式关闭；策略（3 次 / 500ms 指数退避 / 尊重 Retry-After）见 RetryingModel。
-      modelRetry: args.modelRetry ?? true,
-      // F3：模型熔断默认开——重试吸收单次调用的瞬时抖动，熔断识别「下游持续不可用」并短路
-      // （冷却期不发起任何网络调用，冷却到期自动半开探测）。--no-model-circuit-breaker 关闭。
-      modelCircuitBreaker: args.modelCircuitBreaker ?? true,
-      ...(args.modelCircuitBreakerThreshold !== undefined
-        ? { modelCircuitBreakerThreshold: args.modelCircuitBreakerThreshold }
-        : {}),
-      ...(args.modelCircuitBreakerOpenMs !== undefined
-        ? { modelCircuitBreakerOpenMs: args.modelCircuitBreakerOpenMs }
-        : {}),
+      // V2.1（A3/B4）：模型重试 / 熔断 / 回合 token 预算 / 成本预算 / 护栏 / 自验证 / 决策引擎
+      // ——「未显式配置 = 缺省关闭/观测档」语义的分段装配，见 {@link budgetGuardSection}。
+      ...CliConfigSections.budgetGuard(args),
       // (U4) RLVR 进化闭环 / (U6) A2A 互操作 / 媒体抽帧（`view_media`）：三段共同的语义是
       // 「**未显式配置就不写 partial** = 零行为变更」，故收在 `CliSubsystemSections` 里
       // （不放在本类：本类方法数已贴上帝类红线，再加一刻即越线）。
       ...CliSubsystemSections.of(args),
-      // V2.1（B4）：回合 token 预算（未设不进 config，维持缺省关闭语义）。
-      ...(args.turnTokenBudget !== undefined && args.turnTokenBudget > 0
-        ? { turnTokenBudget: args.turnTokenBudget }
-        : {}),
-      // (P5) 成本预算：此前 `costBudgetUsd` 仅能编程注入（配置文件与 CLI 均无入口）⇒ 默认部署
-      // 下成本预算恒为关闭、`budget_status` 工具永不注册。此处补齐生产入口；
-      // 未设正数则不写 config = 缺省关闭（零行为变更）。
-      ...(args.costBudgetUsd !== undefined && args.costBudgetUsd > 0
-        ? {
-            costBudgetUsd: args.costBudgetUsd,
-            ...(args.costBudgetOnExceed !== undefined
-              ? { costBudgetOnExceed: args.costBudgetOnExceed }
-              : {}),
-            ...(args.costBudgetSoftRatio !== undefined
-              ? { costBudgetSoftRatio: args.costBudgetSoftRatio }
-              : {}),
-          }
-        : {}),
       // V2.1（A1）：--stream-text 时注入带文本通道的 live 视图（正文 token 级打到 stdout）。
       ...(args.streamText === true
         ? { live: new ConsoleLiveView(process.stderr, process.stdout) }
@@ -319,48 +291,11 @@ export class CliBuildConfig extends CliCredentialBuild {
       compactionMaxTokens:
         args.compactionMax ??
         (args.contextWindow !== undefined ? Math.floor(args.contextWindow * 0.75) : undefined),
-      spillAdapter: args.spillAdapter,
-      spillMaxInlineBytes: args.spillMax,
-      spillPreviewBytes: args.spillPreview,
-      subagentMaxDepth: args.subagentMaxDepth,
-      subagentConcurrency: args.subagentConcurrency,
-      subagentMaxSteps: args.subagentMaxSteps,
-      workers: this.buildWorkers(args),
-      native: args.native,
-      planMode: args.planMode,
-      // (D1) 护栏生效模式：显式 `--guard-prompt-injection-mode` 优先；否则 `--guard-prompt-injection`
-      // 等价 `enforce`（历史语义保留）；两者皆未给 ⇒ **默认 `shadow`**（观测档常开：跑检测、记录、
-      // 但原样放行，零误拦零行为回归，覆盖「默认关丢覆盖面」死结）。显式 `off` 可关回；库级默认
-      // （ConfigFactory）仍 off，单测/嵌入方零行为。归一化见 `EnforcementModeResolver.fromCliArgs`。
-      promptInjectionGuard: EnforcementModeResolver.fromCliArgs(
-        args.guardPromptInjectionMode,
-        args.promptInjectionGuard,
-      ),
-      // （P3→P1-⑨）自验证回环：**默认开启**（以「仓库能推断出测试命令」为前提，由
-      // SelfVerifyPolicy.forWorkspace + SelfVerifyCommandDetector 判定：package.json#scripts.test /
-      // pytest 配置 / Cargo.toml / go.mod / pom.xml / gradle / rspec / Makefile#test；
-      // 无证据的仓库自动不启用）。--no-self-verify 可显式关闭（`args.selfVerify === false`）。
-      // 注意：这里只开关；预算取 SelfVerifyPolicy 默认（保守：120s / 冷却 60s / 每会话 3 次）。
-      // 之所以在**生产入口**默认开而不是改 ConfigFactory：库级默认保持"不装配即零行为"，
-      // 单测与嵌入方不受影响（也避免 harness 跑自己的测试时递归触发 npm test）。
-      selfVerify: args.selfVerify === false ? { enabled: false } : { enabled: true },
-      // （Laya 战略线）决策引擎：**生产入口默认 shadow**（跑、记、不改行为），与
-      // `promptInjectionGuard` / `selfVerify` 同一口径——库级默认仍是 off（不装配零行为），
-      // 只有生产入口给「观测档常开」。`--no-decision-engine` / `--decision-engine off` 关回；
-      // 解释器与权重目录由适配器零配置解析（`LAYA_PYTHON_BIN` → 项目内 venv → `python3`）。
-      // 之所以做成显式默认而不是留在配置文件里：这段此前**没有任何用户面入口**，
-      // 于是项目内 1.7GB 的 venv + 权重在真实运行里零调用（2026-10 实测）。
-      ...(() => {
-        const decisionEngine = CliDecisionEngineFlags.resolve(args);
-        return decisionEngine === undefined ? {} : { decisionEngine };
-      })(),
-      deferredTools: args.deferTools
-        ?.split(',')
-        .map((entry) => entry.trim())
-        .filter((entry) => entry.length > 0),
-      lspServer: this.parseLsp(args.lsp),
-      longTermMemoryEncryption: args.memoryEncrypt === true,
-      longTermMemoryKeyFile: args.memoryKeyFile,
+      // 溢出 / 子代理 / workers / native / planMode / 延迟工具 / LSP / 记忆加密分段。
+      ...CliConfigSections.tooling(args, {
+        workers: this.buildWorkers(args),
+        lspServer: this.parseLsp(args.lsp),
+      }),
       modelRouter: await this.resolveModelRouter(args),
       // 系统提示：编码 Agent 取向（详见 DefaultPromptFragments 的类注释——原文案禁止连续探索、
       // 禁止跑 build/tsc，与「改代码」这一主场景直接冲突）。
