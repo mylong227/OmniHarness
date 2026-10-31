@@ -608,30 +608,24 @@ function PreviewPane(props: { preview: PreviewState; name: string }): ReactEleme
  * @param props 组件入参
  * @returns 文件选择弹窗节点
  */
-export function FilePicker(props: FilePickerProps): ReactElement {
-  const { api, onCancel, onPick } = props;
-  const state = useWorkspaceTree(api);
-  const lazy = useLazyFsFiles(api);
-  const filePreview = useFilePreview(api);
-  const [query, setQuery] = React.useState<string>('');
+/** 选中与展开态（FilePicker 的逻辑段抽出）：过滤、懒文件集、展开联动、勾选预览与确认。 */
+function useFilePickerSelection(
+  state: ReturnType<typeof useWorkspaceTree>,
+  lazy: ReturnType<typeof useLazyFsFiles>,
+  filePreview: ReturnType<typeof useFilePreview>,
+  query: string,
+  composing: React.RefObject<boolean>,
+  onPick: (paths: string[]) => void,
+): {
+  readonly expanded: React.Key[];
+  readonly checked: React.Key[];
+  readonly visible: FsNode[];
+  readonly onExpand: (keys: React.Key[]) => void;
+  readonly onCheck: (keys: React.Key[], key: string, checkedNow: boolean) => void;
+  readonly confirm: () => void;
+} {
   const [expanded, setExpanded] = React.useState<React.Key[]>([FS_ROOT]);
   const [checked, setChecked] = React.useState<React.Key[]>([]);
-  const composing = React.useRef(false);
-
-  // Esc 关闭（依赖写全：onCancel 变化即重挂，handler 恒为最新闭包）。
-  React.useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onCancel();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
-
-  // 「文件系统…」首开即展开一层（盘符）：工作区外的附件路径一眼可见。
-  React.useEffect(() => {
-    void lazy.load(FS_ROOT);
-  }, []);
-
   const visible = React.useMemo(() => filterFs(state.tree, query), [state.tree, query]);
   const filePaths = React.useMemo(() => new Set(fileKeysOf(state.tree)), [state.tree]);
   /** 懒加载层已加载出的文件 key（勾选闸用：懒目录的 key 也会出现在 checkedKeys 里）。 */
@@ -644,7 +638,7 @@ export function FilePicker(props: FilePickerProps): ReactElement {
   // 过滤变化时把命中路径的目录全部展开（否则过滤命中在折叠里看不见），但**保留懒加载子树的展开态**；
   // IME 组合期不重算（避免拼音中间态把树展开态抖掉）。
   React.useEffect(() => {
-    if (composing.current) return;
+    if (composing.current === true) return;
     setExpanded((prev) => [
       ...prev.filter((key) => isFsKey(String(key))),
       ...(query === '' ? [] : dirKeysOf(visible)),
@@ -671,6 +665,46 @@ export function FilePicker(props: FilePickerProps): ReactElement {
     if (checked.length === 0) return;
     onPick(checked.map((key) => fsPathOf(String(key)) ?? String(key)));
   };
+
+  return { expanded, checked, visible, onExpand, onCheck, confirm };
+}
+
+/**
+ * 选择附件文件弹窗（工作区整树 + 懒加载「文件系统…」子树 + 勾选即预览）。
+ * @param props 组件属性。
+ * @returns 弹窗节点。
+ */
+export function FilePicker(props: FilePickerProps): ReactElement {
+  const { api, onCancel, onPick } = props;
+  const state = useWorkspaceTree(api);
+  const lazy = useLazyFsFiles(api);
+  const filePreview = useFilePreview(api);
+  const [query, setQuery] = React.useState<string>('');
+  const composing = React.useRef(false);
+
+  // Esc 关闭（依赖写全：onCancel 变化即重挂，handler 恒为最新闭包）。
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [onCancel]);
+
+  // 「文件系统…」首开即展开一层（盘符）：工作区外的附件路径一眼可见。
+  React.useEffect(() => {
+    void lazy.load(FS_ROOT);
+  }, []);
+
+  // 选中与展开态（逻辑段抽到 useFilePickerSelection：勾选过滤/懒加载展开/勾选预览/确认）。
+  const { expanded, checked, visible, onExpand, onCheck, confirm } = useFilePickerSelection(
+    state,
+    lazy,
+    filePreview,
+    query,
+    composing,
+    onPick,
+  );
 
   const fsNode = attachLazy(
     lazyChildrenOf(FS_ROOT, lazy.nodes[FS_ROOT], (k) => void lazy.load(k)),
