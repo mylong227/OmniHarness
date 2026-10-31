@@ -7374,3 +7374,19 @@ BLOCKERS（外部凭据/证书）、Wave E（纪律性阻塞）、G1/G3/G4/H2（
 - 门禁：`check --strict` 零违规、typed 2/2、arch:gate 0 新增、doc-links 0、
   configWiring / independence / delta 全绿（见前 §198.3 与本轮提交内判据）。
 - 本轮提交：`18bf035c` → `bd28a384`（UI 基线）→ 清理 helper 提交。
+
+## 200. 2026-10-31 smoke 双跑全过 + thinking 纯文本 assistant 400 根因修复
+
+- **smoke:ui 14/14**（真 serve + 真 Chrome + 真模型）：真流式/真工具调用/真落盘/工作区
+  隔离/真 token 计数/命令面板/容量面板不自激，报告 `.omniharness/real-ui-report.json`。
+- **smoke:model 首批 4 例 4 秒退出（零模型调用）→ 根因修复后全批 6/6**（能力 8/8、
+  正确度 48/48、纪律 5/5）。根因链：给冒烟脚本补失败诊断（stderr 尾巴 +
+  `model.http.error` 行落盘）→ DeepSeek 400 `"reasoning_content ... must be passed back"`
+  → 完整 reqMessages 定位漏网形态——**thinking 会话里端点偶发返回空串
+  reasoning_content** ⇒ 纯文本（无 tool_calls）assistant 投影成 undefined ⇒ 原 OBS-7
+  兜底只覆盖带工具的 assistant ⇒ 下轮 400。修法：兜底扩为「thinking 下任何缺
+  reasoningContent 的 assistant 注入空串」（`e3278ad5`，判据 +1）。
+- **单跑必过、整批间歇挂**的解释：是否踩中取决于会话里是否出现「空串 reasoning 的
+  快速应答 + 后续轮次」组合——与用例复杂度和端点行为相关，不是脚本并发问题。
+- 验证：modelAdapters 31 例全绿；全量 `npm test` 复跑全绿（数字见 §199.4 口径）；
+  typed 门禁 2/2；delta 通过。
