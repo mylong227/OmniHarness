@@ -410,7 +410,8 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
-  assert.match(srcCode('src/cli/argParser.ts'), /result\.limits = file\.limits/u);
+  // limits 的 CLI 映射在协作类 argConfigDefaults（2026-10-31 从 argParser 按域拆出）。
+  assert.match(srcCode('src/cli/argConfigDefaults.ts'), /result\.limits = file\.limits/u);
   assert.match(
     srcCode('src/cli/cliSubsystemSections.ts'),
     /args\.limits !== undefined \? \{ limits: args\.limits \}/u,

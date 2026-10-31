@@ -42,9 +42,10 @@ function retrievalScopingViolations(source: string): string[] {
   if (agentAt < 0) return ['找不到 agent 兜底分支（let restoreEgress）'];
   if (callAt > agentAt) return [];
   // 调用点在兜底分支之前 ⇒ 说明它对所有子命令生效（旧行为）。
-  const lastDispatch = source.lastIndexOf("if (argv[0] === '");
+  // 分发已表驱动化（dispatchSubcommand，2026-10-31），锚点换新调用点；语义不变：apply 必须在分发之后。
+  const lastDispatch = source.indexOf('dispatchSubcommand(argv)');
   if (lastDispatch < 0) {
-    return ['找不到子命令分发锚点（if (argv[0] === ...)）⇒ 检查器不能默认合规'];
+    return ['找不到子命令分发锚点（dispatchSubcommand 调用）⇒ 检查器不能默认合规'];
   }
   return callAt > lastDispatch
     ? []
@@ -83,7 +84,10 @@ test('① 生产侧：检索默认档只作用于 agent 路径（附合成坏输
     '把调用挪回开头却检不出来 ⇒ 判据①是恒真断言',
   );
   // 锚点缺失（源码结构变了）必须报“找不到锚点”，不能因为 -1 就默认合规。
-  const noAnchor = source.replaceAll("if (argv[0] === '", 'if (false && "');
+  const noAnchor = source.replace(
+    'dispatchSubcommand(argv)',
+    'dispatchSubcommand(undefined as never)',
+  );
   assert.ok(
     retrievalScopingViolations(noAnchor).some((v) => v.includes('分发锚点')),
     '子命令分发锚点缺失时检查器不得静默判合规',
