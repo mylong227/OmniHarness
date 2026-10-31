@@ -84,45 +84,8 @@ export class Runtime {
       config.rbac?.enabled === true ? config.rbac.role : undefined,
     );
     // U4 RLVR 进化闭环：启用时构造「可验证门禁 + RLVR sample-filter-replay」控制器并赋给 runtime.evolution，
-    // 取代/补充 config.evolution 注入。发现用 skillRegistry 的燧-1 组合，门禁默认 capabilityCoverage 基准，
-    // RLVR 奖励来自候选代码真实编译/测试绿度。缺省关，零破坏；skillRegistry 缺失则回退 config.evolution。
-    // （GEE Kernel v1）`evolutionRlvr.kernel === true` 时改走 EvolutionKernel 七环编排（ADR-0008）：
-    // 信号 → 档案 → 级联 → 门禁 → 台账 → 晋升 → 观测；实现同一 EvolutionController 端口，关掉即回本路径。
-    const evolutionController: EvolutionController | undefined =
-      config.evolutionRlvr?.enabled === true && config.skillRegistry !== undefined
-        ? config.evolutionRlvr.kernel === true
-          ? Runtime.assembleKernelEvolution(config)
-          : RlvrController.createRlvrEvolutionController({
-              skills: config.skillRegistry.list(),
-              compose: (a, b, o) => config.skillRegistry.composeByTwist(a, b, o),
-              model: config.model,
-              maxCandidates: config.evolutionRlvr.maxCandidates,
-              samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,
-              minReward: config.evolutionRlvr.minReward,
-              verifyCommand: config.evolutionRlvr.verifyCommand,
-              verifyCodeFileExtension: config.evolutionRlvr.verifyCodeFileExtension,
-              minGain: config.evolutionRlvr.minGain,
-              autoRun: config.evolutionRlvr.autoRun === true,
-              // 晋升回调接线（2026-10-01 审计）：进化闭环的前六环（发现 / RLVR 可验证奖励 /
-              // fail-closed 门禁 / 退火接受 / 多样性保留 / 覆盖率闸）都是真实现，唯独 `onPromote`
-              // 在生产装配里从未传入 —— 于是「评估通过」之后什么都不发生，闭环断在最后一米，
-              // 只写一行 `evolution.cycle` 日志。此处把晋升真正落进技能注册表，使晋升后的技能
-              // 能被主循环的技能稀疏化器（`agent.ts` 的 SkillSparsifier）选中并注入上下文。
-              onPromote: (candidate) => {
-                const registry = config.skillRegistry;
-                if (registry === undefined) {
-                  return;
-                }
-                // 用 `replace` 而非 `register`：候选在「莫尔转角组合」阶段可能已入册，
-                // 重复 `register` 会抛「技能重复注册」，反把一次合法晋升变成运行时异常。
-                registry.replace(candidate.skill);
-                log.info('evolution.promoted', {
-                  skill: candidate.skill.name,
-                  source: candidate.source,
-                });
-              },
-            }).controller
-        : config.evolution;
+    // 取代/补充 config.evolution 注入（装配细节见 {@link evolutionOf}）。缺省关，零破坏。
+    const evolutionController: EvolutionController | undefined = Runtime.evolutionOf(config);
     const runtime: OmniHarnessRuntime = {
       config,
       model: config.model,
@@ -171,6 +134,53 @@ export class Runtime {
     } as OmniHarnessRuntime;
     Runtime.attachA2a(runtime, config);
     return runtime;
+  }
+
+  /**
+   * 进化控制器装配（createRuntime 的抽出段）：U4 RLVR 闭环（或 GEE Kernel 七环）优先，
+   * 缺省回退 config.evolution 注入。启用前提：evolutionRlvr.enabled 且技能注册表在位。
+   * @param config 已解析配置。
+   * @returns 进化控制器；未启用为 undefined。
+   */
+  private static evolutionOf(
+    config: ResolvedConfig & { supervisor?: SupervisorPort },
+  ): EvolutionController | undefined {
+    if (config.evolutionRlvr?.enabled !== true || config.skillRegistry === undefined) {
+      return config.evolution;
+    }
+    // （GEE Kernel v1）`evolutionRlvr.kernel === true` 时改走 EvolutionKernel 七环编排（ADR-0008）：
+    // 信号 → 档案 → 级联 → 门禁 → 台账 → 晋升 → 观测；实现同一 EvolutionController 端口，关掉即回本路径。
+    if (config.evolutionRlvr.kernel === true) {
+      return Runtime.assembleKernelEvolution(config);
+    }
+    return RlvrController.createRlvrEvolutionController({
+      skills: config.skillRegistry.list(),
+      compose: (a, b, o) => config.skillRegistry.composeByTwist(a, b, o),
+      model: config.model,
+      maxCandidates: config.evolutionRlvr.maxCandidates,
+      samplesPerPrompt: config.evolutionRlvr.samplesPerPrompt,
+      minReward: config.evolutionRlvr.minReward,
+      verifyCommand: config.evolutionRlvr.verifyCommand,
+      verifyCodeFileExtension: config.evolutionRlvr.verifyCodeFileExtension,
+      minGain: config.evolutionRlvr.minGain,
+      autoRun: config.evolutionRlvr.autoRun === true,
+      // 晋升回调接线（2026-10-01 审计）：进化闭环的前六环都是真实现，唯独 `onPromote`
+      // 在生产装配里从未传入 —— 于是「评估通过」之后什么都不发生，闭环断在最后一米。
+      // 此处把晋升真正落进技能注册表，使晋升后的技能能被主循环的技能稀疏化器选中。
+      onPromote: (candidate) => {
+        const registry = config.skillRegistry;
+        if (registry === undefined) {
+          return;
+        }
+        // 用 `replace` 而非 `register`：候选在「莫尔转角组合」阶段可能已入册，
+        // 重复 `register` 会抛「技能重复注册」，反把一次合法晋升变成运行时异常。
+        registry.replace(candidate.skill);
+        log.info('evolution.promoted', {
+          skill: candidate.skill.name,
+          source: candidate.source,
+        });
+      },
+    }).controller;
   }
 
   /**

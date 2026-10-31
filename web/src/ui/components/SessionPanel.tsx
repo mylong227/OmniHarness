@@ -120,9 +120,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const [query, setQuery] = React.useState<string>('');
   /** 顶部工作区切换器是否展开（业界常见式：项目是一等入口，占据左栏最上方）。 */
   const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
-  /** 搜索框是否展开（截图式侧栏不常驻搜索框，由「工作区」头的放大镜唤出）。 */
+  /** 搜索框 / 文件树 / 图标条是否展开（截图式侧栏都不常驻，由区块头或快捷键唤出）。 */
   const [searchOpen, setSearchOpen] = React.useState<boolean>(false);
-  /** 文件树区块是否展开（截图式侧栏不常驻文件树；点「文件」区块标题展开 / 收起）。 */
   const [treeOpen, setTreeOpen] = React.useState<boolean>(false);
   /** 左栏是否收成图标条（业界常见式可折叠侧栏；快捷键 `[`）。 */
   const [rail, setRail] = React.useState<boolean>(false);
@@ -149,13 +148,9 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   };
 
   /**
-   * 触屏 / 指针拖拽入口。
-   *
-   * 两条路径，最终都汇到同一个 `ListCtx.onDropOn`：
-   * ① **拖拽把手**（行首 `⠿`）：任何指针类型**立即**进入拖拽（把手自身 `touch-action:none`，
-   *    触屏也不与滚动冲突）——「短按即可拖」；
-   * ② **行本体**：触屏长按 250ms 才进入（行本体要留给滚动，这是与滚动手势共存的取舍）；鼠标走
-   *    既有的 HTML5 DnD。
+   * 触屏 / 指针拖拽入口。两条路径汇到同一个 `ListCtx.onDropOn`：
+   * ① 拖拽把手（行首 `⠿`）：任何指针类型立即进入拖拽（把手 `touch-action:none`）；
+   * ② 行本体：触屏长按 250ms 才进入（行本体留给滚动）；鼠标走既有 HTML5 DnD。
    * @param e 指针事件
    * @returns 无
    */
@@ -328,16 +323,8 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   const addProject = (): void => setPicking(true);
 
   /**
-   * 选中目录：加入项目列表并立即切换过去（会话归它管，文件树随之刷新）。
-   * @param path 目录路径
-   * @returns 无
-   */
-  /**
    * 把某条会话**归入当前项目**（右键菜单项；服务端只改首行 `session_meta.workspace`）。
-   *
-   * 存在的理由（2026-10-07 用户口径）：历史上有一批会话**没有归属标记**（本机 32 条），按既有口径
-   * 它们不丢弃、但要单列「未归属（未标记项目）」组——本动作就是给用户一个把它们**指认到项目**的入口，
-   * 指认后它们归入当前项目组，侧栏不再有"谁都不认"的行。
+   * 给「没有归属标记」的历史会话一个指认入口，指认后归入当前项目组，侧栏不再有孤儿行。
    * @param sessionId 会话 id
    * @returns 无返回值（成功/失败都只提示，不抛）
    */
@@ -355,6 +342,11 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     }
   };
 
+  /**
+   * 选中目录：加入项目列表并立即切换过去（会话归它管，文件树随之刷新）。
+   * @param path 目录路径
+   * @returns 无
+   */
   const pickProject = async (path: string): Promise<void> => {
     setPicking(false);
     try {
@@ -424,10 +416,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
   };
 
   /**
-   * 把某会话钉到列表最前 / 最后（右键菜单「移到顶部 / 移到底部」）。
-   *
-   * 与拖拽共用同一条通路：`SessionOrder.move` + `props.onReorder` ⇒ 顺序语义、持久化、失败提示
-   * 全都一致（不另开一套）。
+   * 把某会话钉到最前 / 最后（右键菜单；与拖拽共用 `SessionOrder.move` + `onReorder` 一条通路）。
    * @param id 目标会话 id
    * @param edge 'top' 移到最前、'bottom' 移到最后
    * @returns 无
@@ -501,11 +490,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     search.setQuery('');
   };
 
-  /**
-   * 搜索框输入：更新本地过滤关键字并把（防抖后的）远端搜索交给状态机。
-   * @param e 输入事件
-   * @returns 无
-   */
+  /** 搜索框输入：更新本地过滤关键字并把（防抖后的）远端搜索交给状态机。 */
   const onSearchInput = (e: React.SyntheticEvent): void => {
     const value = (e.target as HTMLInputElement).value;
     setQuery(value);
@@ -607,30 +592,45 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
     <div className={'col left side' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
       {/* 品牌头：Ω + 本实现 + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
       <SidebarHeader rail={rail} />
-      {/* 新会话：截图式一等按钮；收成图标条时退化为紧凑图标钮。 */}
+      {/* 新建任务：截图式一等按钮 + 快捷键提示（与 KeyboardShortcuts 的 Ctrl/Cmd+N 同一口径）。 */}
       <button
         className={rail ? 'new-chat compact' : 'new-chat'}
         onClick={onNew}
         title={t('新建会话')}
-        // 可见文本是「新会话」，可访问名必须包含它（WCAG 2.5.3 label-content-name-mismatch）；
-        // 图标条态下文本被隐藏，此时 aria-label 就是唯一可读名字。
-        aria-label={t('新会话')}
+        // 可访问名必须包含全部可见文字（WCAG 2.5.3：aria-hidden 的 kbd 提示也算可见文本）。
+        aria-label={`${t('新建任务')} ${/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘N' : 'Ctrl+N'}`}
       >
         <span className="nc-ico" aria-hidden="true">
           {icon('plus', { size: 15 })}
         </span>
-        {rail ? null : <span>{t('新会话')}</span>}
+        {rail ? null : <span>{t('新建任务')}</span>}
+        {rail ? null : (
+          <span className="nc-kbd" aria-hidden="true">
+            {/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘N' : 'Ctrl+N'}
+          </span>
+        )}
       </button>
-      {/* 插件：截图式侧栏的一等导航项（打开右栏插件面板）。 */}
+      {/* 自动化：截图式侧栏的一等导航项（打开右栏自动化面板）。 */}
+      <button
+        className={'side-item' + (activePane === 'automations' ? ' active' : '')}
+        onClick={() => onOpenPane?.('automations')}
+        aria-label={activePane === 'automations' ? t('自动化（当前页）') : t('自动化')}
+      >
+        <span className="si-ico" aria-hidden="true">
+          {icon('workflow', { size: 16 })}
+        </span>
+        {rail ? null : <span>{t('自动化')}</span>}
+      </button>
+      {/* 插件市场：截图式侧栏的一等导航项（打开右栏插件面板）。 */}
       <button
         className={'side-item' + (activePane === 'plugins' ? ' active' : '')}
         onClick={() => onOpenPane?.('plugins')}
-        aria-label={activePane === 'plugins' ? t('插件（当前页）') : t('插件')}
+        aria-label={activePane === 'plugins' ? t('插件市场（当前页）') : t('插件市场')}
       >
         <span className="si-ico" aria-hidden="true">
           {icon('plug', { size: 16 })}
         </span>
-        {rail ? null : <span>{t('插件')}</span>}
+        {rail ? null : <span>{t('插件市场')}</span>}
       </button>
       {/* 顶部：工作区/项目切换器（业界常见式一等入口）。收成图标条时只留这一个按钮。 */}
       <div className="ws-switch">
@@ -665,7 +665,7 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       </div>
       {/* 工作区区块头：标题 + 图标簇（搜索 / 范围 / 视图 / 新增项目）；图标条态只留搜索。 */}
       <div className="side-sec-head">
-        <span className="ssh-label">{rail ? null : t('工作区')}</span>
+        <span className="ssh-label">{rail ? null : t('任务列表')}</span>
         <span className="flex-spacer" aria-hidden="true"></span>
         <span className="ssh-actions">
           <button
