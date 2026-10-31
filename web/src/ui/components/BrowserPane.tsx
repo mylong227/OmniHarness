@@ -48,6 +48,65 @@ function openExternal(url: string): void {
  * @param props 组件入参
  * @returns 网页面板节点
  */
+/**
+ * 地址栏工具条：重载 / 输入 / 打开 / 新窗口打开。
+ * @param props 地址草稿、就绪态与各回调。
+ * @returns 工具条节点。
+ */
+function AddressBar(props: {
+  readonly address: string;
+  readonly hasUrl: boolean;
+  readonly onReload: () => void;
+  readonly onAddressChange: (value: string) => void;
+  readonly onAddressKey: (e: React.KeyboardEvent) => void;
+  readonly onSubmit: () => void;
+  readonly externalUrl: string;
+}): ReactElement {
+  return (
+    <div className="web-bar">
+      <button
+        className="iconbtn web-reload"
+        type="button"
+        title={t('重新加载')}
+        aria-label={t('重新加载')}
+        disabled={!props.hasUrl}
+        onClick={props.onReload}
+      >
+        {icon('refresh', { size: 15 })}
+      </button>
+      <input
+        className="web-addr"
+        type="text"
+        value={props.address}
+        spellCheck={false}
+        autoComplete="off"
+        aria-label={t('网页地址')}
+        placeholder={t('输入网址或工作区路径，如 http://localhost:5173 或 index.html')}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => props.onAddressChange(e.target.value)}
+        onKeyDown={props.onAddressKey}
+      />
+      <button className="btn web-go" type="button" onClick={props.onSubmit}>
+        {t('打开')}
+      </button>
+      <button
+        className="iconbtn web-external"
+        type="button"
+        title={t('在新窗口打开')}
+        aria-label={t('在新窗口打开')}
+        disabled={!props.hasUrl}
+        onClick={() => openExternal(props.externalUrl)}
+      >
+        {icon('external-link', { size: 15 })}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 网页预览面板（地址栏 + iframe / 空态 + 错误条）。
+ * @param props 组件属性。
+ * @returns 面板节点。
+ */
 export function BrowserPane(props: BrowserPaneProps): ReactElement {
   const { view, recentUrls, onNavigate, onReload } = props;
   /** 地址栏草稿（与 view.url 解耦：用户编辑时不立刻改 iframe）。 */
@@ -89,42 +148,15 @@ export function BrowserPane(props: BrowserPaneProps): ReactElement {
 
   return (
     <div className="web-pane">
-      <div className="web-bar">
-        <button
-          className="iconbtn web-reload"
-          type="button"
-          title={t('重新加载')}
-          aria-label={t('重新加载')}
-          disabled={!hasUrl}
-          onClick={onReload}
-        >
-          {icon('refresh', { size: 15 })}
-        </button>
-        <input
-          className="web-addr"
-          type="text"
-          value={address}
-          spellCheck={false}
-          autoComplete="off"
-          aria-label={t('网页地址')}
-          placeholder={t('输入网址或工作区路径，如 http://localhost:5173 或 index.html')}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAddress(e.target.value)}
-          onKeyDown={onAddressKey}
-        />
-        <button className="btn web-go" type="button" onClick={submit}>
-          {t('打开')}
-        </button>
-        <button
-          className="iconbtn web-external"
-          type="button"
-          title={t('在新窗口打开')}
-          aria-label={t('在新窗口打开')}
-          disabled={!hasUrl}
-          onClick={() => openExternal(view.url)}
-        >
-          {icon('external-link', { size: 15 })}
-        </button>
-      </div>
+      <AddressBar
+        address={address}
+        hasUrl={hasUrl}
+        onReload={onReload}
+        onAddressChange={setAddress}
+        onAddressKey={onAddressKey}
+        onSubmit={submit}
+        externalUrl={view.url}
+      />
       {view.error === '' ? null : (
         <div className="web-error" role="alert">
           {icon('alert', { size: 14 })} {view.error}
@@ -140,53 +172,67 @@ export function BrowserPane(props: BrowserPaneProps): ReactElement {
           referrerPolicy="strict-origin-when-cross-origin"
         />
       ) : (
-        <div className="web-empty">
-          <div className="web-empty-head">
-            {icon('globe', { size: 22 })}
-            <div>
-              <div className="web-empty-title">{t('在右栏浏览网页')}</div>
-              <div className="web-empty-hint">
-                {t('输入网址或工作区里的 HTML 路径，回车即可预览；本地 dev server 启动后把地址粘进来即可。')}
-              </div>
-            </div>
-          </div>
-          {recent.length === 0 ? null : (
-            <div className="web-recent">
-              <div className="web-recent-title">{t('最近出现的本地地址')}</div>
-              {recent.map((url) => (
-                <button
-                  className="web-recent-item"
-                  type="button"
-                  key={url}
-                  title={url}
-                  onClick={() => {
-                    setAddress(url);
-                    void onNavigate(url);
-                  }}
-                >
-                  <span className="web-recent-host">{hostOf(url)}</span>
-                  <span className="web-recent-url">{url}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="web-empty-actions">
-            <button
-              className="btn"
-              type="button"
-              onClick={() => {
-                setAddress('index.html');
-                void onNavigate('index.html');
-              }}
-            >
-              {t('预览工作区首页')}
-            </button>
-          </div>
-          <div className="web-note">
-            {t('部分站点禁止被 iframe 嵌入（X-Frame-Options / CSP），页面空白时请用「在新窗口打开」。')}
+        <BrowserEmpty
+          recent={recent}
+          onNavigate={(url) => {
+            setAddress(url);
+            void onNavigate(url);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * 空态（无 URL）：最近地址列表 + 首页预览入口 + iframe 限制说明。
+ * @param props recent 最近地址；onNavigate 点选后导航（调用方同时回填地址栏）。
+ * @returns 空态节点。
+ */
+function BrowserEmpty(props: {
+  readonly recent: readonly string[];
+  readonly onNavigate: (url: string) => void;
+}): ReactElement {
+  return (
+    <div className="web-empty">
+      <div className="web-empty-head">
+        {icon('globe', { size: 22 })}
+        <div>
+          <div className="web-empty-title">{t('在右栏浏览网页')}</div>
+          <div className="web-empty-hint">
+            {t('输入网址或工作区里的 HTML 路径，回车即可预览；本地 dev server 启动后把地址粘进来即可。')}
           </div>
         </div>
+      </div>
+      {props.recent.length === 0 ? null : (
+        <div className="web-recent">
+          <div className="web-recent-title">{t('最近出现的本地地址')}</div>
+          {props.recent.map((url) => (
+            <button
+              className="web-recent-item"
+              type="button"
+              key={url}
+              title={url}
+              onClick={() => props.onNavigate(url)}
+            >
+              <span className="web-recent-host">{hostOf(url)}</span>
+              <span className="web-recent-url">{url}</span>
+            </button>
+          ))}
+        </div>
       )}
+      <div className="web-empty-actions">
+        <button
+          className="btn"
+          type="button"
+          onClick={() => props.onNavigate('index.html')}
+        >
+          {t('预览工作区首页')}
+        </button>
+      </div>
+      <div className="web-note">
+        {t('部分站点禁止被 iframe 嵌入（X-Frame-Options / CSP），页面空白时请用「在新窗口打开」。')}
+      </div>
     </div>
   );
 }
