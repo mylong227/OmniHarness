@@ -161,35 +161,15 @@ export class TurnRunner {
     const claim: CompletionClaim = { gated: false, reviewed: false, verificationState: 'not-run' };
     // 不限步数（0/undefined/负数都按不限处理）：终止由「模型产出结论 / 预算 / 行为护栏 / 取消」决定。
     while (!(this.maxSteps > 0) || steps < this.maxSteps) {
-      // V2.1：成本预算熔断（B5 补全）——BudgetedModel 抛 BudgetExceededError 时
-      // 不再让整回合硬崩（异常冒泡 → 用户颗粒无收），而是记录事件、跳出循环，
-      // 交由下方 finalize 兜底总结，把已有进展交付给用户。
-      let outcome: StepOutcome;
-      try {
-        outcome = await this.stepRunner.run(context);
-      } catch (err) {
-        if (err instanceof BudgetExceededError) {
-          log.warn('turn.budget_exceeded', { steps, usageTokens });
-          this.recorder.system('【预算熔断】模型调用成本已达硬预算上限，本回合停止步进。');
-          break;
-        }
-        throw err;
-      }
+      const stepped = await this.stepOnce(context, steps, usageTokens);
+      if (stepped.budgetExceeded) break;
       steps += 1;
-      await this.maybeAutoCheckpoint(steps, context.sessionId);
-      // V2.1 token 预算累计（B4）：usage 缺失的模型不计入（绝不臆造）。
-      const stepUsage = this.stepRunner.usageOfLastStep;
-      if (stepUsage !== undefined) {
-        usageTokens += stepUsage.totalTokens;
-      }
-      // V2 增量持久化：每步安排 write-behind 落盘（崩溃最多丢一个批量窗口）。
-      this.persister?.schedule();
-      // 软预算只提醒、硬预算才停止：两步都集中在一个方法里，避免 run() 继续膨胀。
-      const budget = this.applyTokenBudgets(usageTokens, steps, softBudgetNudged);
-      softBudgetNudged = budget.softNudged;
-      if (budget.stop) break;
+      const post = await this.postStep(steps, context, usageTokens, softBudgetNudged);
+      usageTokens = post.usageTokens;
+      softBudgetNudged = post.softBudgetNudged;
+      if (post.stop) break;
       if (this.consumeSteering()) continue;
-      if (outcome === 'tool') {
+      if (stepped.outcome === 'tool') {
         consecutiveEmpty = 0;
         // V2 失控检测：观测本步工具调用，决定 放行/纠偏/熔断。
         if (this.observeLoopGuard()) {
@@ -198,7 +178,7 @@ export class TurnRunner {
         }
         continue;
       }
-      if (outcome === 'text') {
+      if (stepped.outcome === 'text') {
         const action = await this.afterText(claim, context.sessionId, steps, todoReminded);
         if (action !== 'done') {
           todoReminded ||= action === 'nudge';
@@ -210,12 +190,7 @@ export class TurnRunner {
       // 旧行为是一步即 break —— 一轮昂贵的工具探索后只要模型吐个空响应就整轮没结果。
       // 改为有限重试；连续空转达上限则止损（避免把整个步数预算烧在空响应上）。
       consecutiveEmpty += 1;
-      log.warn('turn.empty_step', {
-        step: steps,
-        consecutiveEmpty,
-        maxConsecutiveEmpty: MAX_CONSECUTIVE_EMPTY,
-      });
-      if (consecutiveEmpty >= MAX_CONSECUTIVE_EMPTY) {
+      if (this.emptyStallReached(consecutiveEmpty, steps)) {
         break;
       }
     }
@@ -235,6 +210,71 @@ export class TurnRunner {
     });
     await this.captureWorkflow(workflow.task, workflow.start, outcome);
     return outcome;
+  }
+
+  /**
+   * 步进一次（run 的循环体抽出）：BudgetedModel 抛 BudgetExceededError 时不再让整回合硬崩
+   * （异常冒泡 → 用户颗粒无收），而是记录事件、报告熔断；调用方跳出循环，交由 finalize 兜底。
+   * @param context 工具上下文。
+   * @param steps 当前步号（日志用）。
+   * @param usageTokens 累计用量（日志用）。
+   * @returns 本步产出；budgetExceeded 为 true 时调用方应止损退出。
+   */
+  private async stepOnce(
+    context: ToolContext,
+    steps: number,
+    usageTokens: number,
+  ): Promise<{ outcome: StepOutcome; budgetExceeded: boolean }> {
+    try {
+      return { outcome: await this.stepRunner.run(context), budgetExceeded: false };
+    } catch (err) {
+      if (err instanceof BudgetExceededError) {
+        log.warn('turn.budget_exceeded', { steps, usageTokens });
+        this.recorder.system('【预算熔断】模型调用成本已达硬预算上限，本回合停止步进。');
+        return { outcome: 'empty', budgetExceeded: true };
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * 单步之后的记账段（run 的循环体抽出）：checkpoint / usage 累计 / write-behind / 软硬预算。
+   * @param steps 当前步号。
+   * @param context 工具上下文（checkpoint 用 sessionId）。
+   * @param usageTokens 累计到上一步的用量。
+   * @param softBudgetNudged 软预算提醒是否已用过。
+   * @returns 累计后的用量、软预算提醒态与「是否硬停」。
+   */
+  private async postStep(
+    steps: number,
+    context: ToolContext,
+    usageTokens: number,
+    softBudgetNudged: boolean,
+  ): Promise<{ usageTokens: number; softBudgetNudged: boolean; stop: boolean }> {
+    await this.maybeAutoCheckpoint(steps, context.sessionId);
+    // V2.1 token 预算累计（B4）：usage 缺失的模型不计入（绝不臆造）。
+    const stepUsage = this.stepRunner.usageOfLastStep;
+    const total = stepUsage !== undefined ? usageTokens + stepUsage.totalTokens : usageTokens;
+    // V2 增量持久化：每步安排 write-behind 落盘（崩溃最多丢一个批量窗口）。
+    this.persister?.schedule();
+    // 软预算只提醒、硬预算才停止：两步都集中在一个方法里，避免 run() 继续膨胀。
+    const budget = this.applyTokenBudgets(total, steps, softBudgetNudged);
+    return { usageTokens: total, softBudgetNudged: budget.softNudged, stop: budget.stop };
+  }
+
+  /**
+   * 连续空响应是否已到止损线（run 的循环体抽出）：到线记 warn 并退出循环。
+   * @param consecutiveEmpty 当前连续空步数。
+   * @param steps 当前步号。
+   * @returns 达到止损线为 true。
+   */
+  private emptyStallReached(consecutiveEmpty: number, steps: number): boolean {
+    log.warn('turn.empty_step', {
+      step: steps,
+      consecutiveEmpty,
+      maxConsecutiveEmpty: MAX_CONSECUTIVE_EMPTY,
+    });
+    return consecutiveEmpty >= MAX_CONSECUTIVE_EMPTY;
   }
 
   /**
