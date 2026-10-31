@@ -57,8 +57,95 @@ function VaultNotice(props: { kind: 'error' | 'success'; message: string }): Rea
 }
 
 /** 保险库面板。 */
-export function VaultTab(): ReactElement {
-  const { api } = useApp();
+/** 写入 / 覆盖表单（VaultTab 的抽出段）：名称 + 密文两输入与提交。 */
+function VaultForm(props: {
+  readonly name: string;
+  readonly secret: string;
+  readonly onName: (value: string) => void;
+  readonly onSecret: (value: string) => void;
+  readonly onSave: () => void;
+}): ReactElement {
+  return (
+    <div className="detail-section">
+      <div className="detail-h">{t('写入 / 覆盖')}</div>
+      <label className="field">
+        <span>{t('名称')}</span>
+        <Input
+          value={props.name}
+          placeholder={t('如 OPENAI_API_KEY')}
+          autoComplete="off"
+          onChange={(e: { target: { value: string } }) => props.onName(e.target.value)}
+        />
+      </label>
+      <label className="field">
+        <span>{t('凭据')}</span>
+        <Input.Password
+          value={props.secret}
+          placeholder={t('粘贴凭据值')}
+          autoComplete="new-password"
+          visibilityToggle={false}
+          onChange={(e: { target: { value: string } }) => props.onSecret(e.target.value)}
+        />
+      </label>
+      <div className="pane-actions">
+        <span className="panel-note" style={{ margin: 0 }}>
+          {t('写入后即清空，不会回显')}
+        </span>
+        <Button
+          type="primary"
+          disabled={props.name.trim() === '' || props.secret === ''}
+          onClick={props.onSave}
+        >
+          {t('写入')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+/** 凭据列表（VaultTab 的抽出段）：未接线如实说明 / 空库提示 / 名称表。 */
+function VaultList(props: {
+  readonly data: VaultListResult | null;
+  readonly onRemove: (name: string) => void;
+}): ReactElement {
+  const data = props.data;
+  if (data === null) return <p className="hint">{t('暂无数据。')}</p>;
+  if (!data.ok) {
+    // 未接线必须直说 + 给出开启方式（不得渲染成「保险库为空」）。
+    // 默认口径下 serve 本身就接线（用户级密钥文件），最常见原因是 OMNIHARNESS_VAULT=0 被显式关闭。
+    return (
+      <VaultNotice
+        kind="error"
+        message={t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 <OMNI_HOME>/vault.key）', { reason: data.reason })}
+      />
+    );
+  }
+  if (data.names.length === 0) return <p className="hint">{t('保险库为空（已接线，尚无凭据）。')}</p>;
+  return (
+    <Table
+      className="vault-table"
+      size="small"
+      bordered={false}
+      pagination={false}
+      columns={vaultNameColumns(props.onRemove)}
+      dataSource={data.names.map((n) => ({ key: n, name: n }))}
+      rowKey="key"
+      scroll={{ x: 'max-content' }}
+    />
+  );
+}
+/** 数据与操作（VaultTab 的抽出段）：拉取 / 写入 / 删除 + 错误与提示状态。 */
+function useVaultTab(api: ReturnType<typeof useApp>['api']): {
+  readonly data: VaultListResult | null;
+  readonly error: string | null;
+  readonly notice: string | null;
+  readonly loading: boolean;
+  readonly name: string;
+  readonly secret: string;
+  readonly setName: (value: string) => void;
+  readonly setSecret: (value: string) => void;
+  readonly save: () => Promise<void>;
+  readonly remove: (target: string) => Promise<void>;
+} {
   const [data, setData] = React.useState<VaultListResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -123,6 +210,18 @@ export function VaultTab(): ReactElement {
     [api, refresh],
   );
 
+  return { data, error, notice, loading, name, secret, setName, setSecret, save, remove };
+}
+
+/**
+ * 凭据保险库面板：列表（未接线/空库/名称表三分支）+ 写入表单。
+ * @returns 面板节点（载入中显示占位）。
+ */
+export function VaultTab(): ReactElement {
+  const { api } = useApp();
+
+  const vault = useVaultTab(api);
+  const { data, error, notice, loading, name, secret, setName, setSecret, save, remove } = vault;
   if (loading) return <div className="vault-tab">{t('载入凭据列表…')}</div>;
 
   return (
@@ -134,68 +233,16 @@ export function VaultTab(): ReactElement {
         </p>
         {error !== null ? <VaultNotice kind="error" message={error} /> : null}
         {notice !== null ? <VaultNotice kind="success" message={notice} /> : null}
-        {data !== null && !data.ok ? (
-          // 未接线必须直说 + 给出开启方式（不得渲染成"保险库为空"）。
-          // 默认口径下 serve 本身就接线（用户级密钥文件 ~/.omniharness/vault.key），
-          // 所以这里最常见的原因是 OMNIHARNESS_VAULT=0 被显式关闭。
-          <VaultNotice
-            kind="error"
-            message={t('未接线：{reason}（若设过 OMNIHARNESS_VAULT=0，去掉它后重启 serve；密钥默认来自 <OMNI_HOME>/vault.key）', { reason: data.reason })}
-          />
-        ) : data !== null && data.ok ? (
-          data.names.length === 0 ? (
-            <p className="hint">{t('保险库为空（已接线，尚无凭据）。')}</p>
-          ) : (
-            <Table
-              className="vault-table"
-              size="small"
-              bordered={false}
-              pagination={false}
-              columns={vaultNameColumns((n) => void remove(n))}
-              dataSource={data.names.map((n) => ({ key: n, name: n }))}
-              rowKey="key"
-              scroll={{ x: 'max-content' }}
-            />
-          )
-        ) : (
-          <p className="hint">{t('暂无数据。')}</p>
-        )}
+        <VaultList data={data} onRemove={(n) => void remove(n)} />
       </div>
 
-      <div className="detail-section">
-        <div className="detail-h">{t('写入 / 覆盖')}</div>
-        <label className="field">
-          <span>{t('名称')}</span>
-          <Input
-            value={name}
-            placeholder={t('如 OPENAI_API_KEY')}
-            autoComplete="off"
-            onChange={(e: { target: { value: string } }) => setName(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>{t('凭据')}</span>
-          <Input.Password
-            value={secret}
-            placeholder={t('粘贴凭据值')}
-            autoComplete="new-password"
-            visibilityToggle={false}
-            onChange={(e: { target: { value: string } }) => setSecret(e.target.value)}
-          />
-        </label>
-        <div className="pane-actions">
-          <span className="panel-note" style={{ margin: 0 }}>
-            {t('写入后即清空，不会回显')}
-          </span>
-          <Button
-            type="primary"
-            disabled={name.trim() === '' || secret === ''}
-            onClick={() => void save()}
-          >
-            {t('写入')}
-          </Button>
-        </div>
-      </div>
+      <VaultForm
+        name={name}
+        secret={secret}
+        onName={setName}
+        onSecret={setSecret}
+        onSave={() => void save()}
+      />
     </div>
   );
 }
