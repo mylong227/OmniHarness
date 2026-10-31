@@ -1,14 +1,21 @@
-// 输入框切换器 / 发送相关控制器（C3 拆分，标准 class 方式）。
+﻿// 输入框切换器 / 发送相关控制器（C3 拆分，标准 class 方式）。
 // 承接原 useAppController 中 send / changeModel / changeReasoning / changePermission 回调，
 // 经 AppHost.patch 驱动 App 状态，行为逐字节等价。
 
 import type { AppHost, AppServices } from './AppController.ts';
-import type { FileAttachment, ThreadEvent, TurnRunResult } from '../../types/models.ts';
+import type {
+  FileAttachment,
+  InterjectResult,
+  ThreadEvent,
+  TurnRunResult,
+} from '../../types/models.ts';
 import type { ToolResultView } from '../shared.ts';
 import type { SessionController } from './SessionController.ts';
 import { MethodBinder } from './methodBinder.ts';
 import { t } from '../i18n/i18n.ts';
 import { desktopBridge, notifyDesktop } from '../../core/desktop/DesktopBridge.ts';
+import { ChatQueueController } from './ChatQueueController.ts';
+import type { ImageAttachment } from '../models/ChatMessageQueue.ts';
 
 /** 输入框 / 发送控制器：单一职责，仅供 App 组合使用。 */
 export class ComposerController {
@@ -24,6 +31,8 @@ export class ComposerController {
   private inFlight = false;
   /** 本回合的「已中止」系统提示是否已写过（stop 与 send 收尾二者只写一次）。 */
   private abortNoted = false;
+  /** 队列模式协作件（队列真相 / 暂停态 / 聊天模式偏好，见 ChatQueueController）。 */
+  private readonly queueController: ChatQueueController;
 
   /**
    * 构造并绑定对外回调。
@@ -35,8 +44,28 @@ export class ComposerController {
     this.host = host;
     this.services = services;
     this.sessions = sessions;
+    this.queueController = new ChatQueueController({
+      host: this.host,
+      api: this.services.api,
+      toast: (message, kind) => this.services.toast(message, kind),
+      isBusy: () => this.inFlight,
+      // 续发复用同一个回合执行体（队列只决定"发哪一条"，不自己碰 RPC）。
+      sendQueued: (message) => {
+        void this.runRound(message.prompt, [...message.images], [...message.files]).catch(() => {
+          /* runRound 内部已把失败写进对话流；这里只防未处理 rejection */
+        });
+      },
+    });
     // 一次绑定全部原型方法（这些方法都以裸引用传给输入区子组件）。见 MethodBinder。
     MethodBinder.bindAll(this);
+  }
+
+  /**
+   * 队列模式协作件（App 组装队列坞视图时读取/操作它）。
+   * @returns 队列控制器
+   */
+  public get chatQueue(): ChatQueueController {
+    return this.queueController;
   }
 
   /**
@@ -58,36 +87,72 @@ export class ComposerController {
   }
 
   /**
-   * 发送一轮对话：标注 busy、调用后端、补 finalText 兜底事件、错误写回流 + toast。
+   * 发送入口（聊天模式分流，2026-10-31）：
+   *
+   * - 空闲：若有排队项则先入队并按队列顺序发送（FIFO，保证排队语义一致）；否则直接开跑；
+   * - 在飞 + 队列模式：入队，等当前任务结束后自动逐条发送；
+   * - 在飞 + 插话模式：交给服务端按相关性分流（并入当前回合 / 中断并转新任务）。
    * @param prompt 用户输入
-   * @param images 图片附件
+   * @param images 图片/视频等图像附件
    * @param files 文件附件
    * @returns 无
    */
   public async send(
     prompt: string,
-    images: { url?: string; data?: string; mediaType?: string }[],
+    images: ImageAttachment[],
     files: FileAttachment[],
   ): Promise<void> {
-    // 回合进行中不得再起一轮：Enter 走的是同一个入口（此前只有发送按钮换成「停止」，
-    // Enter 仍会直发）。再发会 `streamPhase('open')` 丢掉上一回合未刷出的流式文本，
-    // 且单布尔 `inFlight` 被覆盖 ⇒ 之后「停止」指向错误的回合。
+    const state = this.host.getState();
     if (this.inFlight) {
-      this.services.toast(
-        this.abortRequested ? t('正在收尾上一回合，请稍候') : t('正在生成，请先停止'),
-        'info',
-      );
+      // 在跑回合里再发：按设置的模式处理（此前一律退化为 steering，队列模式无入口）。
+      if (state.chatMode === 'steer') {
+        await this.interject(prompt, images, files);
+        return;
+      }
+      this.queueController.enqueue(prompt, images, files, false);
       return;
     }
+    // 空闲：已有排队（含「停止」后暂停的）就按队列顺序来，不插队直接开跑。
+    if (this.queueController.hasPending()) {
+      // 新消息 = 用户重新开工：恢复暂停并先发队首（FIFO），本条排到队尾。
+      this.queueController.resume();
+      this.queueController.enqueue(prompt, images, files, false);
+      return;
+    }
+    await this.runRound(prompt, images, files);
+  }
+
+  /**
+   * 跑一个真实回合：标注 busy、调用后端、补 finalText 兜底事件、错误写回流 + toast。
+   *
+   * 与 `send` 拆开的原因：`send` 只做「该不该现在发 / 发哪一条」的路由，`runRound` 才是
+   * 一回合的执行体。队列续发、插话打断都复用同一个执行体，避免两条发送路径行为漂移。
+   * @param prompt 用户输入
+   * @param images 图片附件
+   * @param files 文件附件
+   * @returns 无
+   */
+  private async runRound(
+    prompt: string,
+    images: ImageAttachment[],
+    files: FileAttachment[],
+  ): Promise<void> {
     const currentThreadId = this.host.getState().currentThreadId;
     const params: {
       threadId?: string;
       prompt: string;
-      images?: { url?: string; data?: string; mediaType?: string }[];
+      images?: ImageAttachment[];
       files?: FileAttachment[];
     } = currentThreadId ? { threadId: currentThreadId, prompt } : { prompt };
     if (images.length > 0) params.images = images;
     if (files.length > 0) params.files = files;
+    // 回合进行中不得再起一轮：并发会让 `streamPhase('open')` 丢掉上一回合未刷出的流式文本，
+    // 且单布尔 `inFlight` 被覆盖 ⇒ 之后「停止」指向错误的回合。所有入口都经这里兜底。
+    if (this.inFlight) {
+      this.services.toast(t('正在生成，请稍候再发送'), 'info');
+      this.queueController.enqueue(prompt, images, files, true);
+      return;
+    }
     this.inFlight = true;
     this.abortRequested = false;
     this.abortNoted = false;
@@ -129,7 +194,60 @@ export class ComposerController {
       // 无论正常结束、失败还是中止，都在此清掉忙碌 / 流式残留（中止时补写一次系统提示）。
       this.settleRound(aborted);
       this.abortNoted = false;
+      // 队列模式：本回合结束后立刻续发下一条（暂停态 / 别的会话的项不发）。
+      this.queueController.drain();
     }
+  }
+
+  /**
+   * 插话模式：把在跑回合里的新消息交给服务端分流。
+   *
+   * 相关 ⇒ 服务端入 steering 队列（步边界注入，附件一起带）；无关 ⇒ 服务端立即取消当前回合，
+   * 本条内容插到队首，由 `runRound` 收尾后的队列续发作为新任务发出。
+   * 服务端不可用（旧版本 / 瞬时错误）时回退到旧 steering 通道，最差也只是排队，绝不丢消息。
+   * @param prompt 文本
+   * @param images 图像附件
+   * @param files 文件附件
+   * @returns 无
+   */
+  private async interject(
+    prompt: string,
+    images: ImageAttachment[],
+    files: FileAttachment[],
+  ): Promise<void> {
+    if (prompt.trim() === '' && images.length + files.length === 0) return;
+    const threadId = this.host.getState().currentThreadId;
+    if (threadId === null) {
+      this.queueController.enqueue(prompt, images, files, false);
+      return;
+    }
+    let result: InterjectResult;
+    try {
+      result = await this.services.api.interjectTurn({ threadId, prompt, images, files });
+    } catch {
+      // RPC 不可用：回退到旧 steering（只做并入；失败就排队，等本回合结束后再发）。
+      const steered = await this.services.api
+        .steerTurn(threadId, prompt, images, files)
+        .then((r) => r.ok === true)
+        .catch(() => false);
+      if (steered) this.services.toast(t('已并入当前任务，下一步生效'), 'info');
+      else this.queueController.enqueue(prompt, images, files, false);
+      return;
+    }
+    if (result.ok && result.action === 'steered') {
+      this.services.toast(t('已并入当前任务，下一步生效'), 'info');
+      return;
+    }
+    if (result.ok && result.action === 'interrupted') {
+      // 服务端已取消当前回合：收尾按「用户中断」处理（写系统提示、不报错误），
+      // 本条内容插到队首，等 runRound 的 finally 续发成新任务。
+      this.abortRequested = true;
+      this.queueController.enqueue(prompt, images, files, true);
+      this.services.toast(t('检测到新任务，已中断当前任务并转入新任务'), 'info');
+      return;
+    }
+    // 会话刚好结束（session_not_running）或服务端拒绝：直接排队，由收尾逻辑续发。
+    this.queueController.enqueue(prompt, images, files, false);
   }
 
   /**
@@ -174,10 +292,13 @@ export class ComposerController {
   public stop(): void {
     if (!this.inFlight || this.abortRequested) return;
     this.abortRequested = true;
+    // 「停止」要停的是**这一串**：队列里还有待发项时一并暂停，避免回合收尾时自动续发，
+    // 让用户看到「刚停下又自己跑起来」。恢复入口在队列坞（继续）。
+    const threadId = this.host.getState().currentThreadId;
+    this.queueController.pauseIfPending(threadId);
     this.settleRound(true);
     // 带上当前 threadId：服务端允许多回合并行，不带 id 会退化成「取消全部在跑回合」
     // （2026-09-22 修：此前不带 id，并发会话下会误停别的会话）。
-    const threadId = this.host.getState().currentThreadId;
     void this.services.api
       .abortTurn(threadId ?? undefined)
       .catch(() => {});
@@ -240,7 +361,8 @@ export class ComposerController {
       }
     }
     this.rewindTo(last.index);
-    await this.send(last.text, [], []);
+    // 直接走执行体（不经 send）：此时队列里可能还有排队项，重生成不该被当成"又排一条"。
+    await this.runRound(last.text, [], []);
   }
 
   /**

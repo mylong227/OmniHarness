@@ -1,4 +1,4 @@
-// 应用根组件的「容器」层（C3 拆分，标准 class 方式）：集中持有全部状态、副作用与回调，
+﻿// 应用根组件的「容器」层（C3 拆分，标准 class 方式）：集中持有全部状态、副作用与回调，
 // 供纯视图 App（class 组件）消费。本类为门面 / 组合根——装配 OO 服务层
 // （ApiClient / EventStream / ToastService / AppReducers），按职责拆出子控制器
 // （SessionController / ComposerController / GraphController），自身只负责生命周期接线、
@@ -29,6 +29,7 @@ import type {
 import type { CommandItem } from '../components/CommandPalette.tsx';
 import type { SettingsTabKey } from '../models/SettingsModel.ts';
 import type { ThemePreference } from '../models/ThemePreference.ts';
+import type { ThemeScheme } from '../theme/palette.ts';
 import type { Locale } from '../i18n/i18n.ts';
 import { KeyboardShortcuts } from '../models/KeyboardShortcuts.ts';
 import type { BrowserView, FileView, LiveInput, SessionEntry, ToolResultView, ToastState } from '../shared.ts';
@@ -43,6 +44,8 @@ import { FileController } from './FileController.ts';
 import { BrowserController } from './BrowserController.ts';
 import { SettingsController } from './SettingsController.ts';
 import { ShortcutActions } from './ShortcutActions.ts';
+import type { ChatMode } from '../models/ChatModePreference.ts';
+import type { QueuedMessage } from '../models/ChatMessageQueue.ts';
 import { t } from '../i18n/i18n.ts';
 
 /** 应用根组件的全部 UI 状态（原 useAppController 的各 useState 合集）。 */
@@ -114,6 +117,11 @@ export interface AppState {
    * 偏好为 `system` 时 `theme` 会随系统主题实时变化（见 LayoutController.watchSystem）。
    */
   themePref: ThemePreference;
+  /**
+   * 主题色方案（靛墨 / 苔青 / 绛紫 / 琥珀 / 玫红；落在 `<html data-scheme>` 上）。
+   * 与明暗正交：每套方案在 palette.ts 的 SCHEMES 里都带 dark / light 两份签名色。
+   */
+  scheme: ThemeScheme;
   /** 界面语言（zh=中文 / en=English；本机偏好恢复与切换见 LayoutController / i18n）。 */
   locale: Locale;
   leftOpen: boolean;
@@ -136,6 +144,15 @@ export interface AppState {
   dialog: DialogState;
   /** 本回合已累积的流式正文（`thread.text_delta` 增量拼接）。 */
   streamText: string;
+  /**
+   * 聊天模式（2026-10-31）：`queue`=任务中发送排队 / `steer`=插话或开新任务。
+   * 设置「常规」页可改；首帧取 localStorage 缓存，挂载后以服务端配置回灌。
+   */
+  chatMode: ChatMode;
+  /** 队列模式的待发消息快照（队列坞渲染用；真相在 ComposerController 的队列里）。 */
+  queuedMessages: QueuedMessage[];
+  /** 队列是否因用户点「停止」而暂停（暂停时不会自动续发）。 */
+  queuePaused: boolean;
   /** 已被 assistant 事件收口的流式文本（用于避免最终卡片重复播渐进揭示动画）。 */
   finalizedStreamText: string;
   /** 输入框回填指令（F4「编辑重发」：把末条用户消息填回底部输入框；null 表示无待回填内容）。 */
@@ -327,6 +344,8 @@ export class AppController {
         // 界面语言以**服务端配置为准**回灌（localStorage 只做首帧快速恢复的缓存）：
         // 配置真源是用户级 omniharness.json，跨设备/跨浏览器以它对齐。
         this.children.settings.applyConfigLocale(c.locale);
+        // 聊天模式同一口径：配置里有值才回灌（缺失时保留首帧的本地缓存，不覆盖成缺省）。
+        if (c.chatMode !== undefined) this.children.composer.chatQueue.setMode(c.chatMode, false);
       })
       .catch(() => {});
     this.connectStream();

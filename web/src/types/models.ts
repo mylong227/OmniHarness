@@ -31,6 +31,28 @@ export interface TurnRunResult {
   [key: string]: unknown;
 }
 
+/**
+ * 插话分流结果（`turns.interject`，2026-10-31「插话模式」）。
+ *
+ * - `action === 'steered'`：相关内容已并入当前回合（下一步边界生效），客户端只提示即可；
+ * - `action === 'interrupted'`：判定为无关/打断，服务端已取消当前回合，客户端应把本条内容
+ *   作为**新回合**发送（走 turns.run，附件一起带过去）；
+ * - `ok === false` + `error === 'session_not_running'`：回合刚好结束，无需打断，直接发送即可。
+ */
+export interface InterjectResult {
+  ok: boolean;
+  threadId?: string;
+  /** 服务端采取的动作（`ok:false` 时缺省）。 */
+  action?: 'steered' | 'interrupted';
+  /** steering 是否真的入队（`action==='steered'` 时有意义）。 */
+  queued?: boolean;
+  /** 判定依据（可在 UI 上如实说明「为什么被打断」）。 */
+  reason?: string;
+  /** 词面重合度（0–1，观测用）。 */
+  score?: number;
+  error?: string;
+}
+
 export interface ThreadGetResult {
   items: ThreadEvent[];
   /** 更早是否还有事件（分页响应）。 */
@@ -52,6 +74,8 @@ export interface Config {
   autoApprove?: boolean;
   /** 界面语言（zh/en）：设置「常规」页切换，随用户级 omniharness.json 持久化。 */
   locale?: string;
+  /** 聊天模式（queue=任务中发送排队 / steer=插话；2026-10-31）。 */
+  chatMode?: string;
   workspace?: string;
   [key: string]: unknown;
 }

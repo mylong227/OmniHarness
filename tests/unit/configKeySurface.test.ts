@@ -91,6 +91,17 @@ test('① knownConfigKeys() 是唯一出口，且示例配置逐键合法（新�
   );
 });
 
+test('④ 聊天模式 chatMode 是受支持的枚举配置（queue/steer），其它值 fail-closed', () => {
+  assert.strictEqual(ConfigError.normalizeConfig({ chatMode: 'queue' }).chatMode, 'queue');
+  assert.strictEqual(ConfigError.normalizeConfig({ chatMode: 'steer' }).chatMode, 'steer');
+  assert.ok(ConfigError.knownConfigKeys().includes('chatMode'), 'chatMode 必须在合法键出口里');
+  assert.throws(
+    () => ConfigError.normalizeConfig({ chatMode: 'bogus' }),
+    /chatMode|枚举|不被支持/u,
+    '非法聊天模式必须被配置校验拒绝（否则界面会静默回落到缺省）',
+  );
+});
+
 test('② 未知键报错必须点名非法键 + 列出合法键 + 给总数出口', () => {
   let message = '';
   try {

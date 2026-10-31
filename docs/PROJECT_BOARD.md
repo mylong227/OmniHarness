@@ -7433,3 +7433,59 @@ busy 占位符排队口径、win32 一体化标题条。功能面不动（用户
   root 挂载 + 桥握手照常）。
 - 门禁：`check --strict` 零违规（SessionPanel 887 ≤ 基线 888；Composer 函数体回到基线
   486——占位符一行化）；eslint 全绿；prettier 全绿。
+
+## 202. 2026-10-31 聊天模式：队列 / 插话（用户需求 A/B）
+
+设置「常规」新增**聊天模式**（`chatMode`，`queue`/`steer`，经 `config.update` 落用户级
+`omniharness.json`；localStorage 只做首帧缓存）。两种模式都保留多模态：文字、语音（转写后随文本）、
+图片、视频、GIF、文件、链接。
+
+### 202.1 队列模式（queue）
+
+- 在跑回合里再发消息**只入队**，回合结束由 `ChatQueueController.drain` 按 FIFO 续发；
+  入队时记会话归属，别的会话的项不会被取走（防串台）。
+- 切走再切回会话时补一次续发（`App.ts` 的 `openThread`）：队列按会话归属，滞留项不会自己发；
+  回到该会话即接着发，避免"消息躺在队列里没人动"。
+- 队列坞（`components/ChatQueueDock.tsx`）：收起态只显示**下一条** + 条数 + 模式；
+  点抬头向上展开全部（列表 `max-height:220px` 可滚），逐条可置顶 / 删除，底部可清空；
+  展开态逐条渲染文字、图片/GIF/视频缩略图、文件 chip、外链。
+- 「停止」会**暂停**队列而不是静默续跑（`queuePaused`），队列坞给「继续发送」入口。
+- 队列真相在 `models/ChatMessageQueue.ts`（纯逻辑），`controllers/ChatQueueController.ts`
+  管入队/续发/暂停/模式落盘，`AppState.queuedMessages` 是给视图的快照。
+
+### 202.2 插话模式（steer）
+
+- 在跑回合里再发消息 → `turns.interject`（新增 RPC，与 `turns.steer` 同一队列通道）：
+  服务端用 `core/steering/interjectionClassifier.ts` 的**纯文本启发式**判定
+  （打断词 > 关联词 > 短确认 > 词面重合 > 新话题），返回 `action: steered | interrupted`。
+- 相关：并入当前回合，**附件随 steering 项一起**在步边界作为一条 user 消息注入
+  （`SteeringQueue` 项升级为 `{text, images, files}`，`TurnRunner.consumeSteering` 走 `recorder.user`）。
+- 无关：服务端立即 `cancelAll(threadId)`（同一取消通道 + 连带中止图运行），客户端把本条内容
+  插到队首，回合收尾后作为**新任务**发送（附件不丢）。
+- 回退：`turns.interject` 不可用时客户端回落 `turns.steer`（只并入），再不行就排队——不丢消息。
+
+### 202.3 配置与 UI 落点
+
+| 项                               | 落点                                                                                                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 配置键 `chatMode`（queue/steer） | `ports/config/fileConfig.ts`、`configError` ENUM、`appServerState` PERSISTABLE_KEYS、`workspaceTrust` SAFE_KEYS                                      |
+| 设置卡                           | `components/console/SettingsSurface.tsx` 的 `ChatModeCard`（常规页，分段控件）                                                                       |
+| 状态与分流                       | `AppState.chatMode/queuedMessages/queuePaused`、`ComposerController.send/runRound/interject`、`ChatQueueController`（入队 / 续发 / 暂停 / 模式落盘） |
+| 队列坞与样式                     | `components/ChatQueueDock.tsx`、`stream/StreamEmpty.tsx`（空态从 StreamView 抽出守基线）、`styles/minimal.css`                                       |
+
+### 202.4 验证（本机实测）
+
+- 类型：root `tsc --noEmit` + web `tsc --noEmit` 全绿。
+- 铁律：`node scripts/check.mjs --strict` 零违规；eslint（改动文件）零告警。
+- 判据：
+  - `tests/unit/interjectionClassifier.test.ts`（8 例）+ `turnSteering`（含多模态注入断言）；
+  - `web/test/chatQueue.test.ts`（6 例）、`chatQueueDock.test.tsx`（5 例）、
+    `chatModeRouting.test.ts`（5 例：FIFO 续发 / 停止暂停 / 相关并入 / 无关打断 / 模式落盘）；
+  - **真机（真 Chrome + stub 后端）** `web/test/chatQueueE2e.test.ts` 2 例：队列模式下
+    「回合中再发只入队 → 收尾自动续发 → 坞清空消失」与插话模式下「走 turns.interject、
+    不出现队列坞」；`consolePage.test.ts` 增 1 例：常规页切换聊天模式即时生效 + localStorage。
+  - `appServer.test.ts` 新增 `turns.interject` fail-closed 两例；`configKeySurface` 新增 chatMode 枚举例；
+    `serverConfigStore.test.ts` 新增「chatMode 落用户级配置可回读 + 非法值 fail-closed」。
+- 已知边界：**首回合**若服务端还没推来任何带 sessionId 的事件（客户端尚未认领 threadId），
+  插话没有投递目标，会回落为入队（消息不丢）；真实服务端在回合第一步就会推 user 事件，
+  正常路径不受影响。

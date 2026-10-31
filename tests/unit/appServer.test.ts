@@ -118,6 +118,25 @@ test('app-server：automations 创建/列表/立即运行/删除', async () => {
   }
 });
 
+test('app-server：turns.interject 在会话未运行时如实返回 session_not_running', async () => {
+  const { transport } = buildServer();
+  const response = await transport.receive('turns.interject', {
+    threadId: 'sess_not_running',
+    prompt: '算了，换个任务',
+  });
+  assert.deepStrictEqual((response as { result: unknown }).result, {
+    ok: false,
+    error: 'session_not_running',
+    threadId: 'sess_not_running',
+  });
+});
+
+test('app-server：turns.interject 缺内容时 fail-closed（不中断任何回合）', async () => {
+  const { transport } = buildServer();
+  const response = await transport.receive('turns.interject', { threadId: 's1', prompt: '   ' }, 2);
+  assert.strictEqual((response as { result: { ok: boolean } }).result.ok, false);
+});
+
 test('app-server：threads.create 返回线程并持久化', async () => {
   const { transport } = buildServer();
   const response = await transport.receive('threads.create', { prompt: '建线程' });

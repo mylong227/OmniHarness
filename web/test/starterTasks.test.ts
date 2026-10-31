@@ -1,4 +1,4 @@
-﻿// 空态「快速开始」示例任务的判据（2026-10-08 易用性轮）。
+// 空态「快速开始」示例任务的判据（2026-10-08 易用性轮）。
 //
 // ## 被改的形态（真机截图取证）
 //
@@ -88,7 +88,12 @@ test('③ 文案用客户语言：不得把内部工具名摆到第一屏', () =
 test('④ 接线：点击是「填进输入框」（seedDraft），不是直接发送（onSend）', () => {
   const app = readFileSync(join(WEB_ROOT, 'src', 'ui', 'App.ts'), 'utf8');
   assert.match(app, /onUseStarter:\s*ctrl\.composer\.seedDraft/, 'App 必须把示例接到 seedDraft（填入而非发送）');
-  const view = readFileSync(join(WEB_ROOT, 'src', 'ui', 'components', 'StreamView.tsx'), 'utf8');
+  // 2026-10-31：空态自 StreamView 抽到独立组件 `stream/StreamEmpty.tsx`（函数体基线），
+  // 判据改为读该文件——「空态必须渲染示例清单」的语义不变。
+  const view = readFileSync(
+    join(WEB_ROOT, 'src', 'ui', 'components', 'stream', 'StreamEmpty.tsx'),
+    'utf8',
+  );
   assert.match(view, /StarterTasks\.list\(\)/, '空态必须渲染示例清单');
   // 2026-10-17 更新（i18n 重构）：示例文案也纳入翻译，回调参数从 `t.prompt` 变成
   // `t(task.prompt)`，循环变量也从 `t` 改名 `task`（原名与 i18n 的 `t()` 撞名）。
@@ -100,10 +105,10 @@ test('④ 接线：点击是「填进输入框」（seedDraft），不是直接�
     /onClick=\{\(\) => onUseStarter\(t\(task\.prompt\)\)\}/,
     '点击必须把示例 prompt（经翻译）交给回填回调 onUseStarter',
   );
-  // 关键反向约束：示例按钮**不得**直接调用 onSend（否则第一次点按钮就消耗真实额度）
-  const starterBlock = view.slice(view.indexOf('starter-tasks'), view.indexOf('stream-inner'));
+  // 关键反向约束：示例按钮**不得**直接调用 onSend（否则第一次点按钮就消耗真实额度）。
+  // 该文件只承载空态，整文件扫描即可（原实现切 StreamView 的 starter 块，抽取后无对应切片）。
   assert.ok(
-    !/onSend\s*\(/.test(starterBlock),
+    !/onSend\s*\(/.test(view),
     '示例按钮不得直接 onSend：第一次点按钮就花钱，对客户是惊吓不是引导',
   );
   // 图标必须在 Icon.ts 里登记过（未登记的图标会渲染成空白格）

@@ -110,3 +110,64 @@ test(
     }
   },
 );
+
+test(
+  '常规页「聊天模式」：队列 / 插话二选一，切换即时生效并写本机缓存',
+  { timeout: 120_000 },
+  async (t) => {
+    const page = await openStubSession(t, VIEWPORT);
+    if (page === null) return;
+    try {
+      const cdp = page.cdp;
+      await cdp.evaluate(`(function(){
+        localStorage.removeItem('omni-chat-mode');
+        var b = document.querySelector('.side-foot .iconbtn[aria-label="打开设置"]');
+        if (b === null) return false;
+        b.click();
+        return true;
+      })()`);
+      assert.ok(
+        await cdp.waitFor("!!document.querySelector('.csl-seg[aria-label=\\\"聊天模式\\\"]')", 4000),
+        '常规页没有渲染「聊天模式」分段控件',
+      );
+      const read = `(function(){
+        var seg = document.querySelector('.csl-seg[aria-label="聊天模式"]');
+        var items = [].slice.call(seg.querySelectorAll('button.csl-seg-item'));
+        return {
+          labels: items.map(function(b){ return (b.textContent || '').trim(); }),
+          on: items.filter(function(b){ return b.getAttribute('aria-checked') === 'true'; })
+            .map(function(b){ return (b.textContent || '').trim(); }),
+          stored: localStorage.getItem('omni-chat-mode')
+        };
+      })()`;
+      const before = (await cdp.evaluate(read)) as {
+        labels: string[];
+        on: string[];
+        stored: string | null;
+      };
+      assert.deepStrictEqual(before.labels, ['队列模式', '插话模式']);
+      assert.deepStrictEqual(before.on, ['队列模式'], '缺省应为队列模式');
+      const clicked = await cdp.evaluate(`(function(){
+        var seg = document.querySelector('.csl-seg[aria-label="聊天模式"]');
+        var hit = [].slice.call(seg.querySelectorAll('button.csl-seg-item')).filter(function(b){
+          return (b.textContent || '').trim() === '插话模式';
+        })[0];
+        if (!hit) return false;
+        hit.click();
+        return true;
+      })()`);
+      assert.strictEqual(clicked, true);
+      await new Promise((r) => setTimeout(r, 200));
+      const after = (await cdp.evaluate(read)) as {
+        labels: string[];
+        on: string[];
+        stored: string | null;
+      };
+      assert.deepStrictEqual(after.on, ['插话模式'], '点击后应切到插话模式');
+      assert.strictEqual(after.stored, 'steer', '聊天模式必须写入本机缓存（首帧恢复用）');
+    } finally {
+      await page.close();
+    }
+  },
+);
+

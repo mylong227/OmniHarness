@@ -74,7 +74,12 @@ test('steer：步边界注入，不打断工具配对；下一轮模型能看到
     () => {
       if (steered) return undefined;
       steered = true;
-      return '改方向：先别读 a.ts，去看 b.ts';
+      return {
+        text: '改方向：先别读 a.ts，去看 b.ts',
+        // 2026-10-31：插话可以是多模态（图片/文件随追加指令一起注入）。
+        images: [{ mediaType: 'image/png', data: 'AAAA' }],
+        files: [{ name: 'spec.md', mediaType: 'text/markdown', data: 'BBBB' }],
+      };
     },
   );
   const outcome = await runner.run({ sessionId, workspaceRoot: '/tmp' });
@@ -93,4 +98,12 @@ test('steer：步边界注入，不打断工具配对；下一轮模型能看到
       String((event.payload as { content?: unknown }).content ?? '').includes('改方向'),
   );
   assert.ok(resultAt >= 0 && steerAt > resultAt, 'steering 必须在 tool_result 之后注入');
+  // 多模态：附件与文本记在**同一条** user 事件里（模型下一轮两者都看得到）。
+  const steerEvent = events[steerAt];
+  const payload = (steerEvent?.payload ?? {}) as {
+    images?: { mediaType?: string }[];
+    files?: { name?: string }[];
+  };
+  assert.strictEqual(payload.images?.[0]?.mediaType, 'image/png');
+  assert.strictEqual(payload.files?.[0]?.name, 'spec.md');
 });

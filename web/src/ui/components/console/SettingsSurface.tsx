@@ -1,4 +1,4 @@
-// 控制台里的「设置页」：常规 / 模型与厂商 / 运行时 / 权限 / 桌面 / 键盘快捷键。
+﻿// 控制台里的「设置页」：常规 / 模型与厂商 / 运行时 / 权限 / 桌面 / 键盘快捷键。
 //
 // 2026-10-29（用户按截图要求）：删除「外观」页签，主题与两栏宽度并入「常规」。
 //
@@ -14,6 +14,7 @@ import * as React from 'react';
 import { useApp } from '../../context.ts';
 import { t, type Locale } from '../../i18n/i18n.ts';
 import type { ThemePreference } from '../../models/ThemePreference.ts';
+import type { ThemeScheme } from '../../theme/palette.ts';
 import {
   SettingsModel,
   SETTINGS_FIELDS,
@@ -21,6 +22,7 @@ import {
   type SettingsTabKey,
 } from '../../models/SettingsModel.ts';
 import { KeyboardShortcuts, type ShortcutAction } from '../../models/KeyboardShortcuts.ts';
+import type { ChatMode } from '../../models/ChatModePreference.ts';
 import {
   ConsoleCard,
   ConsoleInfoRow,
@@ -41,8 +43,111 @@ const THEME_PREFS: readonly { key: ThemePreference; icon: 'monitor' | 'moon' | '
     { key: 'light', icon: 'sun', label: '浅色' },
   ];
 
-/** 全局快捷键的展示顺序与说明（组合键文案取 `KeyboardShortcuts.label`，不另抄一份）。 */
-const GLOBAL_SHORTCUTS: readonly { action: ShortcutAction; label: string }[] = [
+/**
+ * 主题色方案五选一（2026-10-31，用户口径）。色值事实源在 theme/palette.ts 的 SCHEMES，
+ * 这里只列 id 与展示名；每套方案在明暗两套主题下各有自己的签名色（自动跟随主题模式）。
+ */
+const SCHEME_OPTIONS: readonly { key: ThemeScheme; label: string }[] = [
+  { key: 'ink', label: '靛墨' },
+  { key: 'moss', label: '苔青' },
+  { key: 'plum', label: '绛紫' },
+  { key: 'amber', label: '琥珀' },
+  { key: 'rose', label: '玫红' },
+];
+
+/**
+ * 外观卡：主题模式（明暗三态）+ 主题色方案（五选一）。
+ * 独立成组件只为把 SettingsSurface 函数体压回行数基线内（check.mjs 铁律），无独立状态。
+ * @param props 主题偏好 / 方案偏好与各自的回调
+ * @returns 两张外观设置卡
+ */
+function ThemeCards(props: {
+  theme: 'dark' | 'light';
+  themePref: ThemePreference;
+  schemePref: ThemeScheme;
+  onThemePrefChange: (pref: ThemePreference) => void;
+  onSchemePrefChange: (scheme: ThemeScheme) => void;
+}): ReactElement {
+  return (
+    <>
+      <ConsoleCard>
+        <ConsoleRow
+          label={t('主题模式')}
+          hint={
+            props.themePref === 'system'
+              ? t('当前跟随系统：{theme}', { theme: props.theme === 'light' ? t('浅色') : t('深色') })
+              : t('已锁定为{theme}', { theme: props.theme === 'light' ? t('浅色') : t('深色') })
+          }
+        >
+          <ConsoleSegmented
+            ariaLabel={t('主题')}
+            value={props.themePref}
+            options={THEME_PREFS.map((pref) => ({
+              value: pref.key,
+              label: t(pref.label),
+              icon: pref.icon,
+            }))}
+            onChange={(next) => props.onThemePrefChange(next)}
+          />
+        </ConsoleRow>
+      </ConsoleCard>
+
+      <ConsoleCard>
+        <ConsoleRow
+          label={t('主题色')}
+          hint={t('签名色方案，明暗两套主题各有自己的配色，界面与代码高亮一起换肤。')}
+        >
+          <ConsoleSegmented
+            ariaLabel={t('主题色')}
+            value={props.schemePref}
+            options={SCHEME_OPTIONS.map((s) => ({ value: s.key, label: t(s.label) }))}
+            onChange={(next) => props.onSchemePrefChange(next)}
+          />
+        </ConsoleRow>
+      </ConsoleCard>
+    </>
+  );
+}
+
+/**
+ * 聊天模式卡（2026-10-31，用户需求 A/B）：队列模式 / 插话模式二选一。
+ *
+ * 独立成组件只为把 SettingsSurface 函数体压回行数基线内（check.mjs 铁律），无独立状态。
+ * @param props 当前模式与切换回调
+ * @returns 聊天模式设置卡
+ */
+function ChatModeCard(props: {
+  mode: ChatMode;
+  onChange: (mode: ChatMode) => void;
+}): ReactElement {
+  return (
+    <ConsoleCard
+      title={t('聊天模式')}
+      description={t(
+        '任务执行中再次发送消息时的处理方式。两种模式都支持文字、语音、图片、视频、GIF、文件与链接。',
+      )}
+    >
+      <ConsoleRow
+        label={t('发送方式')}
+        hint={t(
+          '队列模式：进入排队，当前任务结束后按顺序逐条发送；插话模式：相关内容并入当前任务继续执行，完全无关的内容立即中断并转入新任务。',
+        )}
+      >
+        <ConsoleSegmented
+          ariaLabel={t('聊天模式')}
+          value={props.mode}
+          options={[
+            { value: 'queue', label: t('队列模式'), icon: 'inbox' },
+            { value: 'steer', label: t('插话模式'), icon: 'message' },
+          ]}
+          onChange={(next) => props.onChange(next)}
+        />
+      </ConsoleRow>
+    </ConsoleCard>
+  );
+}
+
+/** 全局快捷键的展示顺序与说明（组合键文案取 `KeyboardShortcuts.label`，不另抄一份）。 */const GLOBAL_SHORTCUTS: readonly { action: ShortcutAction; label: string }[] = [
   { action: 'palette', label: '打开命令面板' },
   { action: 'newSession', label: '新建会话' },
   { action: 'toggleLeft', label: '收起 / 展开会话栏' },
@@ -89,10 +194,18 @@ export interface SettingsSurfaceProps {
   themePref: ThemePreference;
   /** 设置主题偏好。 */
   onThemePrefChange: (pref: ThemePreference) => void;
+  /** 主题色方案（靛墨 / 苔青 / 绛紫 / 琥珀 / 玫红）。 */
+  schemePref: ThemeScheme;
+  /** 切换主题色方案。 */
+  onSchemePrefChange: (scheme: ThemeScheme) => void;
   /** 当前界面语言。 */
   locale: Locale;
   /** 切换界面语言。 */
   onLocaleChange: (locale: Locale) => void;
+  /** 当前聊天模式（队列模式 / 插话模式）。 */
+  chatMode: ChatMode;
+  /** 切换聊天模式（立即生效并写入用户级配置）。 */
+  onChatModeChange: (mode: ChatMode) => void;
   /** 当前工作区（只读展示）。 */
   workspacePath: string;
   /** 左栏会话列表是否显示全部项目。 */
@@ -361,27 +474,15 @@ export function SettingsSurface(props: SettingsSurfaceProps): ReactElement {
         </ConsoleRow>
       </ConsoleCard>
 
-      <ConsoleCard>
-        <ConsoleRow
-          label={t('主题模式')}
-          hint={
-            themePref === 'system'
-              ? t('当前跟随系统：{theme}', { theme: theme === 'light' ? t('浅色') : t('深色') })
-              : t('已锁定为{theme}', { theme: theme === 'light' ? t('浅色') : t('深色') })
-          }
-        >
-          <ConsoleSegmented
-            ariaLabel={t('主题')}
-            value={themePref}
-            options={THEME_PREFS.map((pref) => ({
-              value: pref.key,
-              label: t(pref.label),
-              icon: pref.icon,
-            }))}
-            onChange={(next) => props.onThemePrefChange(next)}
-          />
-        </ConsoleRow>
-      </ConsoleCard>
+      <ThemeCards
+        theme={theme}
+        themePref={themePref}
+        schemePref={props.schemePref}
+        onThemePrefChange={props.onThemePrefChange}
+        onSchemePrefChange={props.onSchemePrefChange}
+      />
+
+      <ChatModeCard mode={props.chatMode} onChange={props.onChatModeChange} />
 
       <ConsoleCard
         footer={t('这里与拖动分隔条改的是同一份本机偏好；窄屏（≤880px）下两栏是抽屉，宽度不生效。')}

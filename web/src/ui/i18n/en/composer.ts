@@ -25,6 +25,54 @@ export const EN_COMPOSER: Record<string, string> = {
   '发送任务': 'Send task',
   '发送（Enter）': 'Send (Enter)',
 
+  // 聊天模式 / 队列坞（2026-10-31，队列 + 插话）
+  '聊天模式': 'Chat mode',
+  '发送方式': 'Send behavior',
+  '队列模式': 'Queue mode',
+  '插话模式': 'Steer mode',
+  '任务进行中：Enter 插话；无关内容会中断并转新任务':
+    'Task running: Enter to steer; unrelated content interrupts and starts a new task',
+  '任务进行中：Enter 加入队列，结束后依次发送':
+    'Task running: Enter to queue; messages are sent in order after it finishes',
+  '加入队列': 'Add to queue',
+  '加入队列（Enter 发送，当前任务结束后依次发出）':
+    'Add to queue (Enter; sent in order after the current task)',
+  '排队消息': 'Queued messages',
+  '收起队列': 'Collapse queue',
+  '展开队列，查看全部 {n} 条': 'Expand queue to view all {n}',
+  '{n} 条排队': '{n} queued',
+  '已暂停': 'Paused',
+  '当前任务结束后发送': 'Sent after the current task',
+  '即将发送': 'Sending next',
+  '附件 {n} 个': '{n} attachments',
+  '还有 {n} 条': '+{n} more',
+  '队列已暂停（你点了停止）。继续后会接着发送。':
+    'Queue paused (you pressed Stop). Resume to continue sending.',
+  '继续发送': 'Resume sending',
+  '排队中的全部消息': 'All queued messages',
+  '置顶（下一条就发它）': 'Move to front (send next)',
+  '置顶第 {n} 条': 'Move item {n} to front',
+  '从队列删除': 'Remove from queue',
+  '删除第 {n} 条': 'Remove item {n}',
+  '按顺序逐条发送；点「停止」会暂停队列。':
+    'Sent one by one in order; pressing Stop pauses the queue.',
+  '清空队列': 'Clear queue',
+  '收起': 'Collapse',
+  '（仅附件，共 {n} 个）': '(attachments only, {n})',
+  '（空消息）': '(empty message)',
+  '正在生成，请稍候再发送': 'Still generating; please wait before sending',
+  '已加入队列（{n} 条待发）': 'Queued ({n} pending)',
+  '已并入当前任务，下一步生效': 'Merged into the current task; applies on the next step',
+  '检测到新任务，已中断当前任务并转入新任务':
+    'Detected a new task; interrupted the current one and switched',
+  '聊天模式已生效，但保存失败（下次启动会回到上次保存的模式）':
+    'Chat mode applied, but saving failed (next launch returns to the last saved mode)',
+  '任务执行中再次发送消息时的处理方式。两种模式都支持文字、语音、图片、视频、GIF、文件与链接。':
+    'How messages sent during a running task are handled. Both modes support text, voice, images, videos, GIFs, files, and links.',
+  '队列模式：进入排队，当前任务结束后按顺序逐条发送；插话模式：相关内容并入当前任务继续执行，完全无关的内容立即中断并转入新任务。':
+    'Queue mode: messages queue and are sent one by one after the current task; Steer mode: related content joins the current task, while unrelated content interrupts and starts a new task immediately.',
+
+
   // components/CommandPalette.tsx
   '命令面板': 'Command palette',
   '搜索命令或面板…': 'Search commands or panels…',

@@ -25,6 +25,7 @@ import type {
   BundleUnpackResult,
   ThreadGetResult,
   TurnRunResult,
+  InterjectResult,
   QuestionAnswerSubmission,
 } from '../types/models.ts';
 import { t } from '../ui/i18n/i18n.ts';
@@ -162,13 +163,34 @@ export class ApiClient {
    * 回合中插话（A8）：把一条用户追加指令入队，服务端在下一步边界注入。
    * @param threadId 目标会话（必须在跑）。
    * @param text 追加指令（非空）。
+   * @param images 可选图片/视频附件（2026-10-31：插话与正常发送同构）。
+   * @param files 可选文件附件。
    * @returns `{ok, queued}`；会话未跑时 `ok:false`。
    */
   public steerTurn(
     threadId: string,
     text: string,
+    images?: { url?: string; data?: string; mediaType?: string }[],
+    files?: FileAttachment[],
   ): Promise<{ ok: boolean; queued?: boolean; error?: string }> {
-    return this.rpc('turns.steer', { threadId, text });
+    const params: Record<string, unknown> = { threadId, text };
+    if (images !== undefined && images.length > 0) params['images'] = images;
+    if (files !== undefined && files.length > 0) params['files'] = files;
+    return this.rpc('turns.steer', params);
+  }
+  /**
+   * 插话模式分流（`turns.interject`，2026-10-31）：服务端按相关性判定，相关则并入当前回合，
+   * 无关则立刻取消当前回合（`action:'interrupted'`），由客户端把内容作为新回合发送。
+   * @param params 目标会话 + 本条消息（文本与附件，与 `turns.run` 同构）。
+   * @returns 分流结果（见 {@link InterjectResult}）。
+   */
+  public interjectTurn(params: {
+    threadId: string;
+    prompt: string;
+    images?: { url?: string; data?: string; mediaType?: string }[];
+    files?: FileAttachment[];
+  }): Promise<InterjectResult> {
+    return this.rpc('turns.interject', params);
   }
   /**
    * 读取线程事件；可选分页（取尾部 / 用 `before` 向上补拉）。

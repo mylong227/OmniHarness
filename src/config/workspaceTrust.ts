@@ -152,6 +152,9 @@ const SAFE_KEYS: ReadonlySet<string> = new Set([
   'maxSteps',
   'contextWindow',
   'locale',
+  // 聊天模式（Web UI 偏好，2026-10-31）：只影响「任务中再发消息怎么处理」，不触碰权限/沙箱，
+  // 属只读语义键；未信任工作区也允许应用，避免切换项目后设置被静默忽略。
+  'chatMode',
   'extends',
 ]);
 

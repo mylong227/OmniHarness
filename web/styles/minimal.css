@@ -415,8 +415,11 @@
 
 .side-sec-head,
 .col-head {
-  background: transparent;
-  backdrop-filter: none;
+  /* 吸顶头磨砂（2026-10-31 用户）：栏内容从底下滚过时透出模糊底物。
+     半透明 bg-elev 叠在同色栏体上，静止时观感与原来一致、滚动时才有磨砂。 */
+  background: var(--frost-fill-soft);
+  backdrop-filter: var(--frost-blur);
+  -webkit-backdrop-filter: var(--frost-blur);
   border-bottom: 1px solid var(--hairline);
   color: var(--faint);
   font-size: var(--fs-micro);
@@ -1430,6 +1433,262 @@
   background: color-mix(in srgb, var(--err) 12%, transparent);
 }
 
+/* =========================================================================
+   X. 排队消息坞（队列模式，2026-10-31）
+   -------------------------------------------------------------------------
+   位置：输入区正上方、工作指示器之下。收起态只有一行（下一条 + 条数 + 模式）；
+   点击抬头向上展开全部排队项（列表自身可滚，最多 220px），不挤压对话流的滚动位置。
+   视觉：与输入区同一套"发丝描边 + 面板底"，不用投影、不用彩色大底——它是一次
+   可忽略的进度提示，不是主行动。展开后每一条都可置顶 / 删除，底部可清空。
+   ========================================================================= */
+.chat-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* 与 `.composer` 的左右外边距对齐（base.css：0 16px；窄屏 components.css：0 8px）。 */
+  margin: 6px 16px 8px;
+  padding: 0;
+}
+@media (max-width: 880px) {
+  .chat-queue {
+    margin: 6px 8px;
+  }
+}
+.cq-head-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.cq-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
+}
+.cq-head:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.cq-head:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+.cq-badge {
+  display: inline-flex;
+  color: var(--accent);
+}
+.cq-mode {
+  color: var(--accent);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.cq-count {
+  color: var(--text);
+}
+.cq-state {
+  color: var(--faint);
+}
+.cq-preview {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-atts-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--dim);
+}
+.cq-caret {
+  display: inline-flex;
+  color: var(--dim);
+  transition: transform var(--dur-1) var(--ease);
+}
+.cq-caret.on {
+  transform: rotate(180deg);
+}
+.cq-more {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.cq-paused {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px dashed color-mix(in srgb, var(--warn) 45%, var(--border-soft));
+  border-radius: var(--r-sm);
+  color: var(--warn);
+  font-size: var(--fs-xs);
+}
+.cq-resume,
+.cq-clear,
+.cq-collapse {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.cq-resume:hover,
+.cq-clear:hover,
+.cq-collapse:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.cq-body {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  overflow: hidden;
+}
+.cq-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 220px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cq-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  background: var(--panel-2);
+}
+.cq-index {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  line-height: 1;
+}
+.cq-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cq-text {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cq-atts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.cq-thumb {
+  width: 56px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--border-soft);
+}
+.cq-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 180px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: var(--dim);
+  font-size: var(--fs-xs);
+}
+.cq-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cq-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-actions {
+  flex: none;
+  display: flex;
+  gap: 2px;
+}
+.cq-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+.cq-actions button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.cq-actions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.cq-pin svg {
+  transform: rotate(90deg);
+}
+.cq-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border-soft);
+}
+.cq-hint {
+  color: var(--faint);
+  font-size: var(--fs-xs);
+}
+
 /* 输入区的 chip（模型 / 推理强度 / 权限档）：无框、有 hover。
    它们是"可点开的选择器"而不是按钮，靠文案 + 一个 ▾ 表达。
    2026-10-28：上下文容量已移入控制台面板，输入区不再有容量 chip。 */
@@ -1643,8 +1902,14 @@
   min-width: 0;
   overflow: visible;
 }
-/* antd root 必须撑满列宽并允许收缩（flex 子项默认 min-width:auto 会被宽内容顶开）。 */
+/* antd root 必须撑满列宽并允许收缩（flex 子项默认 min-width:auto 会被宽内容顶开）；
+   同时必须**限高**（flex:1 + min-height:0）：antd root 是 `.rv-tabs` 列容器的普通 flex 子项，
+   不限高就取内容固有高，内部整条百分比高度链（tabpane 100% → .rv-pane 100% → …）随之失效，
+   `.code-scroll` 变成「内容多高它多高」——自己永远不可滚，溢出又把 `.col.right` 顶成整列溢出
+   （叠加 `.tabs` 的 sticky 后表现为「怎么滚画面都不动」，2026-10-31 用户截图）。 */
 .rv-tabs .ant-tabs {
+  flex: 1;
+  min-height: 0;
   width: 100%;
   min-width: 0;
 }
@@ -1690,16 +1955,18 @@
 .rv-tabs .ant-tabs-tab-remove:hover {
   color: var(--text);
 }
-/* 内容面板：撑满剩余高度，滚动交给 `.rv-pane-body`。 */
-.rv-tabs .ant-tabs-content-holder {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  border-top: 0;
+/* 内容面板：撑满剩余高度，滚动交给 `.rv-pane-body`。
+   高度链（2026-10-31 探针实测）：`.ant-tabs`（补 flex:1/min-height:0 限高，见上）→
+   `.ant-tabs-body-holder`（antd 自带 flex:auto + min-height:0，够用；v6 已无
+   `.ant-tabs-content-holder` 这个节点，旧规则已删）→ `.ant-tabs-body`（antd 只给它
+   position:relative，是 holder 的普通 block 子项、取内容固有高——root 983 / holder 940
+   都已限住时 body 实测 4719，高度链在此断掉）→ `.ant-tabs-content` → tabpane。
+   三层 height:100% 把确定高度一路传给 `.rv-pane`。 */
+.rv-tabs .ant-tabs-body {
+  height: 100%;
 }
 .rv-tabs .ant-tabs-content {
-  flex: 1;
-  min-height: 0;
+  height: 100%;
   width: 100%;
 }
 .rv-tabs .ant-tabs-tabpane {
@@ -1719,7 +1986,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 20px 26px 26px;
+  /* 四周只留 2px 发丝缝（2026-10-31 用户截图口径：原 20/26/26px 在窄右栏里太空旷，
+     内容卡片要几乎顶满面板；左栏 file-pane 不再加 padding，2px 就是最终间隙）。 */
+  padding: 2px;
 }
 .rv-tab-label {
   display: inline-block;
@@ -1920,11 +2189,15 @@
 .dlg,
 .row-menu,
 .mp-menu {
-  background: var(--panel);
+  /* 磨砂浮层（2026-10-31 用户：透明磨砂质感）：半透 panel + backdrop blur——
+     菜单/弹层盖在内容上，透出的底物被真实模糊，是 iOS 材质的核心观感。
+     此前的 backdrop-filter:none 是单色极简时期的取舍，按新口径退场。 */
+  background: var(--frost-fill);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-1);
-  backdrop-filter: none;
+  backdrop-filter: var(--frost-blur);
+  -webkit-backdrop-filter: var(--frost-blur);
 }
 .dd-menu,
 .pp-menu,
@@ -2206,12 +2479,15 @@ button:active,
 
 /* toast：一块漂浮的纸 + 一枚状态色点。
    上一版是"整条反白"，在深色主题里是一条刺眼的亮带；现在它是页面里最靠后的东西，
-   但阴影让它明显浮起（浮层才配投影）。 */
+   但阴影让它明显浮起（浮层才配投影）。2026-10-31：磨砂化——fixed 浮层盖在内容上，
+   半透明 + blur 透出模糊底物（iOS 材质）。 */
 .toast {
-  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elev));
+  background: color-mix(in srgb, var(--accent) 8%, var(--frost-fill));
   color: var(--text);
   border: 1px solid var(--border-soft);
   border-radius: var(--r-md);
+  backdrop-filter: var(--frost-blur);
+  -webkit-backdrop-filter: var(--frost-blur);
   box-shadow: var(--shadow-2);
   font-size: var(--fs-list);
 }
@@ -3689,7 +3965,9 @@ button:hover,
 /* =========================================================================
    2026-10-20 用户：全部按钮带一点「扁平毛玻璃」极简设计
    -------------------------------------------------------------------------
-   只叠一层极淡的文本色渐变 + backdrop blur + 内发丝环：
+   2026-10-31 起**内发丝环退场**（用户口径：全站继续 iOS 风，「底框太明显」——
+   环落在侧栏导航行/透明按钮上就是一圈常驻边框）；极淡的文本色渐变保留，
+   backdrop-filter 在不透明填充上是纯 GPU 开销、无视觉效果，一并去掉。
    · 不换背景色 → 主操作（send/allow）仍保留语义色，不会被洗成灰；
    · 不投影、不做高光渐变方向感 → 保持扁平；
    · 按钮自身的 hover/active/focus 规则权重更高，行为不变。
@@ -3701,9 +3979,6 @@ button,
     color-mix(in srgb, var(--text) 4%, transparent),
     color-mix(in srgb, var(--text) 1%, transparent)
   );
-  backdrop-filter: blur(10px) saturate(1.06);
-  -webkit-backdrop-filter: blur(10px) saturate(1.06);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-soft) 45%, transparent);
 }
 
 /* =========================================================================

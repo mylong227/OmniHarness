@@ -1,4 +1,4 @@
-// 底部输入区（本实现风格）：多模态粘贴/拖拽/选择（图片·视频·文件）+ 模型切换 + 推理强度切换
+﻿// 底部输入区（本实现风格）：多模态粘贴/拖拽/选择（图片·视频·文件）+ 模型切换 + 推理强度切换
 // + AI 权限等级切换 + @mention 文件引用 + 语音输入。
 // 附件随消息经 turns.run 的 images / files 字段送入后端，开关经 config.update 持久化。
 //
@@ -18,6 +18,7 @@ import { FilePicker } from './FilePicker.tsx';
 import { WorkIndicator } from './WorkIndicator.tsx';
 import { AddMenu } from './AddMenu.tsx';
 import { PermissionPicker } from './PermissionPicker.tsx';
+import type { ChatQueueView } from '../models/ChatMessageQueue.ts';
 import { MentionResolver } from '../models/MentionResolver.ts';
 import { SlashResolver, type SlashToken } from '../models/SlashResolver.ts';
 import { ComposerDraft } from '../models/ComposerDraft.ts';
@@ -70,6 +71,11 @@ export interface ComposerProps {
   permission: string;
   /** 当前会话 id（目标 / 计划 / 绘图模式按会话持久化；上下文容量报告维度）。 */
   threadId?: string | null;
+  /**
+   * 队列模式的排队消息坞（2026-10-31）：内含当前聊天模式、排队项与删除/置顶/清空回调。
+   * 缺省（undefined）时不渲染坞——测试与无队列场景无需构造它。
+   */
+  queue?: ChatQueueView;
   /**
    * 输入框回填指令（F4「编辑重发」）：nonce 变化即把 text 写回输入框并聚焦。
    * 组件保持非受控，回填由 effect 直接写 DOM 值（见 ComposerDraft）。
@@ -229,36 +235,6 @@ function renderMentionView(mention: MentionState | null, onPick: (p: string) => 
 }
 
 /**
- * busy 时把输入作为 steering 入队（A8）。
- * @param api RPC 客户端。
- * @param threadId 目标会话；null 表示尚未创建。
- * @param text 追加指令。
- * @param ta 输入框（成功后清空）。
- * @param onToast 轻提示。
- * @param reset 清空补全态的回收钩子。
- * @returns 无
- */
-function steerBusy(
-  api: ApiClient,
-  threadId: string | null,
-  text: string,
-  ta: HTMLTextAreaElement,
-  onToast: ((msg: string, kind?: 'info' | 'err') => void) | undefined,
-  reset: () => void,
-): void {
-  if (threadId === null) {
-    onToast?.('会话尚未创建，无法插话', 'err');
-    return;
-  }
-  ta.value = '';
-  growComposerTextarea(ta);
-  reset();
-  void api.steerTurn(threadId, text).then((result) => {
-    if (result.ok !== true) onToast?.(result.error ?? '插话失败', 'err');
-  });
-}
-
-/**
  * 把附件草稿按图片 / 文件拆入两个出口数组（与 `FileAttachment` 形状同源，就地写避免分配）。
  * @param drafts 附件草稿。
  * @param images 图片出口。
@@ -278,6 +254,40 @@ function splitComposerAttachments(
 }
 
 /**
+ * 输入框占位符（随聊天模式变化：队列=入队，插话=并入/开新任务）。
+ *
+ * 抽成模块级函数是为了守住组件函数体的行数基线（check.mjs），纯文案、无状态。
+ * @param busy 是否有回合在跑
+ * @param mode 当前聊天模式（undefined 时按队列文案）
+ * @returns 已本地化的占位符
+ */
+function placeholderOf(busy: boolean | undefined, mode: 'queue' | 'steer' | undefined): string {
+  if (busy !== true) return t('发消息或创建任务，/ 调用技能，@ 文件或对话');
+  return mode === 'steer'
+    ? t('任务进行中：Enter 插话；无关内容会中断并转新任务')
+    : t('任务进行中：Enter 加入队列，结束后依次发送');
+}
+
+/**
+ * busy 态发送按钮的三件文案（图标 / 可访问名 / 悬浮说明），按聊天模式区分。
+ * @param mode 当前聊天模式（undefined 时按队列）
+ * @returns 按钮属性
+ */
+function busySendOf(mode: 'queue' | 'steer' | undefined): {
+  glyph: string;
+  label: string;
+  title: string;
+} {
+  return mode === 'steer'
+    ? { glyph: '↪', label: t('插话'), title: t('插话（Enter 发送，下一步生效）') }
+    : {
+        glyph: '＋',
+        label: t('加入队列'),
+        title: t('加入队列（Enter 发送，当前任务结束后依次发出）'),
+      };
+}
+
+/**
  * 输入区组件。
  * @param props 组件属性。
  * @returns 输入区节点。
@@ -291,6 +301,7 @@ export function Composer(props: ComposerProps): ReactElement {
     reasoningOptions,
     permission,
     threadId,
+    queue,
     seed,
     onToast,
     onApplyMode,
@@ -572,11 +583,8 @@ export function Composer(props: ComposerProps): ReactElement {
     if (!ta) return;
     const prompt = ta.value.trim();
     if (prompt === '' && attachments.length === 0) return;
-    // A8：busy 时发送退化为「插话」——直接入队到服务端，下一步边界生效。
-    if (busy === true && prompt !== '') {
-      steerBusy(api, threadId ?? null, prompt, ta, onToast, clearComposerSuggest);
-      return;
-    }
+    // 发送路由在 ComposerController：空闲=直接开跑；在飞=按聊天模式排队或插话
+    // （2026-10-31 起两种模式都由控制器统一分流，输入区不再自己判断）。
     const images: { data?: string; mediaType?: string }[] = [];
     const files: FileAttachment[] = [];
     splitComposerAttachments(attachments, images, files);
@@ -640,6 +648,9 @@ export function Composer(props: ComposerProps): ReactElement {
     }
   };
 
+  /** busy 态发送按钮的文案（按聊天模式：入队 / 插话）。 */
+  const busySend = busySendOf(queue?.mode);
+
   return (
     <div
       className="composer"
@@ -659,7 +670,7 @@ export function Composer(props: ComposerProps): ReactElement {
             rows={1}
             ref={taRef}
             aria-label={t('任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件，/ 选择技能')}
-            placeholder={t(busy === true ? '继续输入以排队后续修改' : '发消息或创建任务，/ 调用技能，@ 文件或对话')}
+            placeholder={placeholderOf(busy, queue?.mode)}
             onPaste={onPaste}
             onInput={refreshCompletions}
             onClick={refreshCompletions}
@@ -715,11 +726,11 @@ export function Composer(props: ComposerProps): ReactElement {
               <>
                 <button
                   className="send round"
-                  aria-label={t('插话')}
-                  title={t('插话（Enter 发送，下一步生效）')}
+                  aria-label={busySend.label}
+                  title={busySend.title}
                   onClick={handleSend}
                 >
-                  ↪
+                  {busySend.glyph}
                 </button>
                 <button
                   className="stop round"

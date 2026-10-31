@@ -98,6 +98,17 @@ export interface FileConfig {
    */
   readonly locale?: 'zh' | 'en';
   /**
+   * 聊天模式（Web UI「常规」设置，2026-10-31）：任务执行中再次发送消息时的处理策略。
+   *
+   * - `queue`：排队模式——当前任务结束后按入队顺序逐条发送（不打断在跑回合）；
+   * - `steer`：插话模式——相关/补充/纠正内容并入当前任务上下文（步边界注入），
+   *   完全无关的内容立即中断当前回合、转入新任务。
+   *
+   * 与 locale 同口径：经 `config.update` 落用户级 omniharness.json，浏览器另有
+   * localStorage 缓存做首帧快速恢复（挂载后以服务端配置为准回灌）。
+   */
+  readonly chatMode?: 'queue' | 'steer';
+  /**
    * 模型调用熔断（F3）：下游连续失败达阈值即开路，冷却期内快速失败、冷却后半开探测。
    * 缺省开启（与 `modelRetry` 默认开同口径）；`--no-model-circuit-breaker` 可关闭。
    */

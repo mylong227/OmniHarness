@@ -152,6 +152,9 @@ export const PERSISTABLE_KEYS: readonly string[] = [
   // 界面语言（Web UI 设置「外观」栏）：经 config.update 落用户级 omniharness.json，
   // 枚举校验（zh/en）见 configError.ts 的 ENUM_VALUES.locale。
   'locale',
+  // 聊天模式（Web UI 设置「常规」栏，2026-10-31）：queue=任务中发送排队 / steer=插话。
+  // 枚举校验（queue/steer）见 configError.ts 的 ENUM_VALUES.chatMode。
+  'chatMode',
 ];
 
 /** 图运行中单节点状态。 */

@@ -589,6 +589,8 @@ const ENUM_VALUES: Readonly<Record<string, readonly string[]>> = {
   elevatedSandbox: ['passthrough', 'policy', 'restricted'],
   // 界面语言（Web UI 设置「外观」栏切换，随配置落用户级 omniharness.json）。
   locale: ['zh', 'en'],
+  // 聊天模式（Web UI 设置「常规」栏切换）：queue=任务中发送排队 / steer=插话或开新任务。
+  chatMode: ['queue', 'steer'],
   // P5：成本预算耗尽行为（'fail' 硬阻断 / 'warn' 软预算仅观测）。
   costBudgetOnExceed: ['fail', 'warn'],
 };

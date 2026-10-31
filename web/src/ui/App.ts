@@ -13,7 +13,10 @@ import { AppContext } from './context.ts';
 import { AppController } from './controllers/AppController.ts';
 import type { AppHost, AppState } from './controllers/AppController.ts';
 import { getLocale, initLocale, t, type Locale } from './i18n/i18n.ts';
+import { ChatModePreference, type ChatMode } from './models/ChatModePreference.ts';
+import type { ChatQueueView } from './models/ChatMessageQueue.ts';
 import type { ThemePreference } from './models/ThemePreference.ts';
+import type { ThemeScheme } from './theme/palette.ts';
 
 import { RenderErrorBoundary } from './components/RenderErrorBoundary.tsx';
 import { SessionPanel } from './components/SessionPanel.tsx';
@@ -176,6 +179,9 @@ function initialState(): AppState {
     // 主题偏好初值：`system`（跟随系统）。真正的解析在 LayoutController.initTheme 完成，
     // 首帧前的 data-theme 由 index.html 的内联脚本按 prefers-color-scheme 设好。
     themePref: 'system',
+    // 主题色方案初值：ink（靛墨）。恢复在 LayoutController.initTheme（读 localStorage），
+    // 首帧前的 data-scheme 由 index.html 内联脚本设好（缺省不写属性 = ink）。
+    scheme: 'ink',
     locale: getLocale(),
     leftOpen: false,
     rightOpen: false,
@@ -193,6 +199,9 @@ function initialState(): AppState {
     streamText: '',
     finalizedStreamText: '',
     composerSeed: null,
+    chatMode: ChatModePreference.read(),
+    queuedMessages: [],
+    queuePaused: false,
     historyHasMore: false,
     oldestEventId: null,
     historyLoading: false,
@@ -290,6 +299,22 @@ function renderPane(ctrl: AppController, s: AppState): ReactElement {
 }
 
 /**
+ * 打开会话，并在加载完成后补一次队列续发。
+ *
+ * 队列按会话归属：切走再切回时，属于该会话的排队项不会自己发（drain 的会话匹配会跳过）。
+ * 回到该会话就立刻接着发，避免"消息静静躺在队列里没人动"。加载失败不吞掉队列。
+ * @param ctrl 容器控制器
+ * @param id 会话 id
+ * @returns 无
+ */
+function openThread(ctrl: AppController, id: string): void {
+  void ctrl.sessions
+    .loadThread(id)
+    .then(() => ctrl.composer.chatQueue.drain())
+    .catch(() => {});
+}
+
+/**
  * 当前会话标题：优先自定义标签，未命名会话显示 id 前缀，再退化为空串（中栏头兜底「新会话」）。
  * @param s 当前状态
  * @returns 标题文案
@@ -305,6 +330,31 @@ function sessionTitleOf(s: AppState): string {
 /** 当前会话服务端有效时长（ms；历史会话/新会话可能没有）。 */
 function sessionActiveMsOf(s: AppState): number | undefined {
   return s.sessions.find((x) => x.id === s.currentThreadId)?.activeMs;
+}
+
+/**
+ * 组装队列坞的视图契约（队列模式）。
+ *
+ * 只暴露**当前会话**的排队项（`threadId === null` 的项属于"会话尚未创建"，对所有会话可见），
+ * 避免在 A 会话排的消息出现在 B 会话的坞里造成"要发错地方"的误解。
+ * 操作回调统一走 `ComposerController.chatQueue`（action / resume；真相在控制器，视图不持数组）。
+ * @param ctrl 容器控制器
+ * @param s 根状态
+ * @returns 队列坞视图契约
+ */
+function chatQueueViewOf(ctrl: AppController, s: AppState): ChatQueueView {
+  return {
+    mode: s.chatMode,
+    items: s.queuedMessages.filter(
+      (item) => item.threadId === null || item.threadId === s.currentThreadId,
+    ),
+    paused: s.queuePaused,
+    busy: s.busy,
+    onRemove: (id: string) => ctrl.composer.chatQueue.action('remove', id),
+    onPromote: (id: string) => ctrl.composer.chatQueue.action('promote', id),
+    onClear: () => ctrl.composer.chatQueue.action('clear'),
+    onResume: () => ctrl.composer.chatQueue.resume(),
+  };
 }
 
 /**
@@ -367,8 +417,13 @@ function consoleViewElement(
       theme: s.theme,
       themePref: s.themePref,
       onThemePrefChange: (pref: ThemePreference) => ctrl.layout.setThemePref(pref),
+      schemePref: s.scheme,
+      onSchemePrefChange: (scheme: ThemeScheme) => ctrl.layout.setSchemePref(scheme),
       locale: s.locale,
       onLocaleChange: (l: Locale) => ctrl.settings.setLocale(l),
+      // 聊天模式（2026-10-31）：设置「常规」页与队列坞共用同一份状态与落盘通道。
+      chatMode: s.chatMode,
+      onChatModeChange: (mode: ChatMode) => ctrl.composer.chatQueue.setMode(mode),
       workspacePath,
       sessionScopeAll: s.sessionsScopeAll,
       onToggleSessionsScope: ctrl.sessions.toggleSessionsScope,
@@ -414,7 +469,7 @@ function renderBody(
       React.createElement(SessionPanel, {
         sessions: s.sessions,
         currentThreadId: s.currentThreadId,
-        onSelect: ctrl.sessions.loadThread,
+        onSelect: (id: string) => openThread(ctrl, id),
         onNew: ctrl.sessions.newSession,
         onOpenFile: ctrl.files.openFile,
         onRename: ctrl.sessions.renameSession,
@@ -477,6 +532,8 @@ function renderBody(
               streamText: s.streamText,
               finalizedStreamText: s.finalizedStreamText,
               composerSeed: s.composerSeed,
+              // 队列模式：排队消息坞（空队列时组件自身不渲染任何东西）。
+              queue: chatQueueViewOf(ctrl, s),
               onEventClick: ctrl.sessions.showDetail,
               onOpenFile: ctrl.files.openFile,
               // 助手消息里的回环 URL（dev server 地址）可一键进右栏网页标签。
@@ -498,16 +555,14 @@ function renderBody(
               permission: s.permission,
               threadId: s.currentThreadId,
               onToast: ctrl.showToast,
-              // 编排未跑完时状态栏出现一键续跑（与「编排」面板卡片共用 ctrl.graph.resumeRun）——
-              // 用户不必先学会「全部面板 → 编排」的导航才知道有东西没跑完。
+              // 编排未跑完时状态栏出现一键续跑（与「编排」面板卡片共用 ctrl.graph.resumeRun）。
               graphRuns: s.graphRuns,
               onGraphResume: ctrl.graph.resumeRun,
               onApplyMode: (patch: { goal?: string; planMode?: boolean; sketchMode?: boolean }) =>
                 ctrl.sessions.applyModes(patch),
               onOpenTab: ctrl.openPane,
-              onLoadThread: ctrl.sessions.loadThread,
-              // 空态「快速开始」示例 → 填进输入框（**不是**直接发送：示例是给人改的模板，
-              // 且直接发送会立刻消耗真实额度）。实现与「编辑重发」共用同一条回填通道。
+              onLoadThread: (id: string) => openThread(ctrl, id),
+              // 空态「快速开始」示例 → 填进输入框（不是直接发送：示例是给人改的模板，且会立刻耗额度）。
               onUseStarter: ctrl.composer.seedDraft,
               onModelChange: ctrl.composer.changeModel,
               onReasoningChange: ctrl.composer.changeReasoning,
@@ -648,7 +703,7 @@ export function App(): ReactElement {
     // 2026-10-29 合并：全站悬浮提示层也在主题内——它是 position:fixed 的覆盖层，
     // 与 `.app` 平级、不参与三栏布局（不塞进 renderBody，那里函数体有冻结基线）。
     React.createElement(ThemeProvider, {
-      theme: state.theme,
+      theme: state.theme, scheme: state.scheme,
       children: React.createElement(
         React.Fragment,
         null,

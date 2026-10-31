@@ -44,14 +44,14 @@ export interface AssistantCardProps {
 }
 
 const COPY_BTN: Record<string, string> = {
-  marginTop: '10px',
+  marginTop: '8px',
   background: 'transparent',
-  border: '1px solid var(--border)',
+  border: '1px solid var(--border-soft)',
   borderRadius: '6px',
-  padding: '3px 10px',
+  padding: '1px 7px',
   cursor: 'pointer',
   color: 'inherit',
-  fontSize: '11px',
+  fontSize: '10.5px',
   alignSelf: 'flex-start',
 };
 
@@ -87,6 +87,28 @@ function AssistantHead(props: {
 }
 
 /**
+ * 点击正文中的文件链接：拦截跳转，改在右侧面板打开。
+ *
+ * 抽成模块级函数只为守住组件函数体的行数基线（check.mjs），行为与原先的闭包逐字节一致。
+ * @param e 点击事件
+ * @param onOpenFile 打开文件回调（缺省时不拦截，交给浏览器默认行为）
+ * @returns 无
+ */
+function openFileFromClick(
+  e: React.MouseEvent,
+  onOpenFile: ((p: string) => void) | undefined,
+): void {
+  const target = e.target as HTMLElement | null;
+  if (!target || !onOpenFile) return;
+  const anchor = target.closest('a[data-file-path]') as HTMLElement | null;
+  if (anchor) {
+    e.preventDefault();
+    e.stopPropagation();
+    onOpenFile((anchor as unknown as { dataset: { filePath?: string } }).dataset.filePath || '');
+  }
+}
+
+/**
  * 助手消息卡：渲染正文（生成中渐进揭示）、附件、外链与复制入口。
  * @param props 组件入参
  * @returns 助手消息节点
@@ -108,6 +130,14 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
     revealerRef.current = new TextRevealer((next) => setShown(next), schedule);
   }
 
+  // 复制反馈：成功才亮 ✓（1.4s 后回落）——「勾选感」必须等于**真实写入成功**，
+  // 失败（两条路径都被拒）不放假勾。定时器经 schedule 注入点驱动（单测可替换）。
+  const [copied, setCopied] = React.useState(false);
+  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+  }, []);
+
   // 文本 / busy / animate 任一变化即重启揭示（依赖写全；不比对 prev）。
   // 收折为简报卡时揭示没有输出面，直接不启动（省一轮逐字动画开销）；
   // 展开后的 `renderMarkdown(shown || full)` 有 full 兜底，显示不会缺内容。
@@ -120,27 +150,23 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
   React.useEffect(() => () => revealerRef.current?.stop(), []);
 
   /**
-   * 点击正文中的文件链接：拦截跳转，改在右侧面板打开。
-   * @param e 点击事件
-   */
-  const onContentClick = (e: React.MouseEvent): void => {
-    const target = e.target as HTMLElement | null;
-    if (!target || !onOpenFile) return;
-    const anchor = target.closest('a[data-file-path]') as HTMLElement | null;
-    if (anchor) {
-      e.preventDefault();
-      e.stopPropagation();
-      onOpenFile((anchor as unknown as { dataset: { filePath?: string } }).dataset.filePath || '');
-    }
-  };
-
-  /**
-   * 复制正文（失败静默，由 ClipboardCopier fail-closed 兜底）。
+   * 复制正文：真实写入成功才给 ✓ 反馈（失败保持原样，不假装复制上了）。
    * @param e 点击事件
    */
   const onCopy = (e: React.MouseEvent): void => {
     e.stopPropagation();
-    void ClipboardCopier.copy(full);
+    const fire = (): void => {
+      setCopied(false);
+      copiedTimerRef.current = null;
+    };
+    void ClipboardCopier.copy(full).then((ok) => {
+      if (!ok) return;
+      setCopied(true);
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+      const after = (fn: () => void, ms: number): ReturnType<typeof setTimeout> =>
+        schedule ? schedule(fn, ms) : setTimeout(fn, ms);
+      copiedTimerRef.current = after(fire, 1400);
+    });
   };
 
   const p = ev.payload || {};
@@ -150,7 +176,11 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
       <div className={'card ' + ev.type}>
         {/* 长内容默认收起为简报卡（2026-10-13 用户反馈：数千字报告整段平铺糊满一屏）。
             仅对**最终卡片**生效：生成中（busy）正文还在长，收起会跟揭示动画打架。 */}
-        <div className="content" spellCheck="false" onClick={onContentClick}>
+        <div
+          className="content"
+          spellCheck="false"
+          onClick={(e: React.MouseEvent) => openFileFromClick(e, onOpenFile)}
+        >
           {busy !== true && LongContentCollapser.shouldCollapse(full) ? (
             <CollapsibleDoc content={full} />
           ) : (
@@ -159,8 +189,14 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
         </div>
         <AttachmentChips files={p.files as FileAttachment[] | undefined} />
         <ExternalLinkCards urls={extractUrls(full)} onOpenInPanel={onOpenUrl} />
-        <button className="copy-btn" title={t('复制结果')} style={COPY_BTN} onClick={onCopy}>
-          {icon('copy', { size: 13 })} {t('复制')}
+        <button
+          className={'copy-btn' + (copied ? ' copy-btn--done' : '')}
+          title={t(copied ? '已复制' : '复制结果')}
+          aria-label={t(copied ? '已复制' : '复制结果')}
+          style={COPY_BTN}
+          onClick={onCopy}
+        >
+          {icon(copied ? 'check' : 'copy', { size: 11 })} {t(copied ? '已复制' : '复制')}
         </button>
       </div>
     </>

@@ -523,7 +523,7 @@ test('回合进行中点「新建」：收尾不得把旧会话拽回视图（�
   void ctrl;
 });
 
-test('send：回合进行中再次发送被拦下（不覆盖在飞回合、不丢未刷出的流式文本）', async () => {
+test('send：回合进行中再次发送不覆盖在飞回合（进入队列，收尾后按序续发）', async () => {
   const { host, state } = makeHost([{ id: 'u1', type: 'user', payload: { content: '第一问' } }]);
   const api = makeApi();
   const gate = deferred<{ threadId: string; finalText?: string }>();
@@ -540,15 +540,23 @@ test('send：回合进行中再次发送被拦下（不覆盖在飞回合、不�
   await ctrl.send('第二问', [], []);
 
   assert.strictEqual(api.runTurnCalls.length, 1, '回合进行中不得再起一轮（Enter 走同一入口）');
-  assert.strictEqual(state.streamText, '半截回答', '被拦下的发送不得清掉在飞回合的流式缓冲');
+  assert.strictEqual(state.streamText, '半截回答', '第二次发送不得清掉在飞回合的流式缓冲');
   assert.strictEqual(state.busy, true, '仍在飞 ⇒ 忙碌态不得被覆盖');
+  // 2026-10-31 聊天模式：在跑回合里再发的消息**进入队列**（不再被丢弃/只给一句提示）。
+  const queued = state.queuedMessages as { prompt?: string }[];
+  assert.strictEqual(queued.length, 1, '第二条必须入队');
+  assert.strictEqual(queued[0]?.prompt, '第二问');
   assert.ok(
-    toasts.some((message) => message.includes('正在生成')),
-    `应给出可行动提示，实测 ${JSON.stringify(toasts)}`,
+    toasts.some((message) => message.includes('已加入队列')),
+    `应给出入队提示，实测 ${JSON.stringify(toasts)}`,
   );
 
   gate.resolve({ threadId: 't1' });
   await running;
+  // 队列续发在 finally 里以 `void runRound(...)` 启动，让出一轮宏任务再断言。
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.strictEqual(api.runTurnCalls.length, 2, '收尾后必须按队列续发第二条');
+  assert.strictEqual(api.runTurnCalls[1]?.['prompt'], '第二问');
   assert.strictEqual(state.busy, false, '首轮正常收尾后必须退出忙碌态');
 });
 

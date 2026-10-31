@@ -82,6 +82,29 @@ test('ServerConfigStore.get：apiKey 与 providerKeys 一律打码，原文不�
   });
 });
 
+test('ServerConfigStore.update：chatMode 落用户级配置并可回读；非法值 fail-closed', async () => {
+  await withStore(async (_ws, store, home) => {
+    const savedPath = join(home, '.omniharness', configFile.FILE_NAME);
+    await store.update({ chatMode: 'steer' });
+    assert.strictEqual(
+      (store.get() as { chatMode?: string }).chatMode,
+      'steer',
+      '读回应为插话模式',
+    );
+    assert.strictEqual(
+      configFile.load(savedPath).chatMode,
+      'steer',
+      '聊天模式必须落盘到用户级配置（否则重启回到缺省）',
+    );
+    await assert.rejects(() => store.update({ chatMode: 'bogus' }), /chatMode/u);
+    assert.strictEqual(
+      (store.get() as { chatMode?: string }).chatMode,
+      'steer',
+      '非法值被拒后不得破坏已保存的有效值',
+    );
+  });
+});
+
 test('ServerConfigStore.update：approval / modelAdapter 覆盖可被读取', async () => {
   await withStore(async (_ws, store) => {
     assert.strictEqual(store.approvalOverride(), undefined);

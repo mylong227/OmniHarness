@@ -21,6 +21,7 @@ import { SessionCheckpoints } from '../services/session/sessionCheckpoints.ts';
 import { SessionRewindService } from '../services/session/sessionRewindService.ts';
 import type { SessionRewindOutcome } from '../services/session/sessionRewindService.ts';
 import { ThreadPage } from '../services/session/threadPage.ts';
+import { InterjectionClassifier } from '../../core/steering/interjectionClassifier.ts';
 
 export type { AppServerOptions } from './appServerState.ts';
 
@@ -132,8 +133,9 @@ export class AppServer extends AppServerVaultHandlers {
     this.handlers.set('threads.get', (params) => this.getThread(params));
     this.handlers.set('threads.rewind', (params) => this.rewindThread(params));
     this.handlers.set('turns.run', (params) => this.runTurn(params));
-    // A8：回合中 steering（下一步边界注入一条用户追加指令；不改当前工具轮）。
+    // A8 steering；2026-10-31 插话分流：相关并入当前回合，无关则取消当前回合、客户端转新任务。
     this.handlers.set('turns.steer', (params) => this.steerTurn(params));
+    this.handlers.set('turns.interject', (params) => this.interjectTurn(params));
     this.handlers.set('turns.abort', async (params) => {
       // 中断在跑回合：取消令牌贯穿模型请求 fetch（见 agent.cancelCurrentRun），
       // 在飞请求被中止后 turns.run 自然收尾，SSE 已推送的增量事件不受影响。
@@ -604,20 +606,83 @@ export class AppServer extends AppServerVaultHandlers {
 
   /**
    * 回合中 steering：把一条用户追加指令入队，TurnRunner 在下一步边界消费。
-   * @param params `{ threadId, text }`。
-   * @returns `{ ok, queued }`；会话未在跑/文本为空时 `ok:false` 且不入队。
+   *
+   * 2026-10-31：支持随文本携带 images / files（插话模式下的图片 / 视频 / GIF / 文件补充），
+   * 队列项与 `turns.run` 的多模态入参同构。
+   * @param params `{ threadId, text, images?, files? }`。
+   * @returns `{ ok, queued }`；会话未在跑/内容为空时 `ok:false` 且不入队。
    */
   protected async steerTurn(params: Record<string, unknown>): Promise<unknown> {
     const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
-    const text = String(params['text'] ?? '');
-    if (threadId === '' || text.trim() === '') {
-      return { ok: false, error: 'threadId 与 text 都必填' };
+    const text = String(params['text'] ?? params['prompt'] ?? '');
+    const images = params['images'] as readonly ImageContent[] | undefined;
+    const files = params['files'] as readonly FileAttachment[] | undefined;
+    const hasAttachments = (images?.length ?? 0) + (files?.length ?? 0) > 0;
+    if (threadId === '' || (text.trim() === '' && !hasAttachments)) {
+      return { ok: false, error: 'threadId 与 text（或附件）都必填' };
     }
     const agent = this.runtime.agent();
     if (!agent.runningSessionIds().includes(threadId)) {
       return { ok: false, error: 'session_not_running', threadId };
     }
-    return { ok: true, threadId, queued: agent.steering.enqueue(threadId, text) };
+    const queued = agent.steering.enqueue(threadId, {
+      text,
+      images,
+      files,
+    });
+    return { ok: true, threadId, queued };
+  }
+
+  /**
+   * 插话模式分流（`turns.interject`，2026-10-31）：相关并入 / 无关打断。
+   *
+   * 判定使用 {@link InterjectionClassifier} 的纯文本启发式（毫秒级、零模型调用）；
+   * 判定依据 `reason` 会回传 UI，让「为什么被打断」可解释。无关时服务端直接取消该会话
+   * 在跑回合（与 `turns.abort` 同一取消通道），客户端随后把本条内容作为新回合发送——
+   * 这样"打断"与"开新任务"之间没有竞态窗口，也不会有两条回合同时写同一会话。
+   * @param params `{ threadId, prompt, images?, files? }`。
+   * @returns `{ ok, action: 'steered'|'interrupted', reason, score }`；会话未在跑时 `ok:false`。
+   */
+  protected async interjectTurn(params: Record<string, unknown>): Promise<unknown> {
+    const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+    const prompt = String(params['prompt'] ?? params['text'] ?? '');
+    const images = params['images'] as readonly ImageContent[] | undefined;
+    const files = params['files'] as readonly FileAttachment[] | undefined;
+    const hasAttachments = (images?.length ?? 0) + (files?.length ?? 0) > 0;
+    if (threadId === '' || (prompt.trim() === '' && !hasAttachments)) {
+      return { ok: false, error: 'threadId 与 prompt（或附件）都必填' };
+    }
+    const agent = this.runtime.agent();
+    if (!agent.runningSessionIds().includes(threadId)) {
+      return { ok: false, error: 'session_not_running', threadId };
+    }
+    const context = InterjectionClassifier.contextOf(await agent.eventsOf(threadId));
+    const decision = InterjectionClassifier.classify(prompt, context);
+    if (!decision.related) {
+      this.runtime.cancelAll('user', threadId);
+      // 与 turns.abort 同口径：该会话在跑的图运行也一并中止，避免会话已停、子步还在烧 token。
+      this.graphRuns.abortMatching(threadId);
+      return {
+        ok: true,
+        threadId,
+        action: 'interrupted',
+        reason: decision.reason,
+        score: decision.score,
+      };
+    }
+    const queued = agent.steering.enqueue(threadId, {
+      text: prompt.trim() === '' ? '（用户补充了附件，请结合附件继续）' : prompt,
+      images,
+      files,
+    });
+    return {
+      ok: true,
+      threadId,
+      action: 'steered',
+      queued,
+      reason: decision.reason,
+      score: decision.score,
+    };
   }
 
   /**

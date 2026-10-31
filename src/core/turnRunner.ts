@@ -15,6 +15,7 @@ import { LoopGuard, type LoopDecision } from './loop/loopGuard.ts';
 import { EvidenceLedger } from './evidenceLedger.ts';
 import type { EventPersister } from './loop/eventPersister.ts';
 import { TurnFailureLedger, sharedTurnFailureLedger } from './turnFailureLedger.ts';
+import type { SteeringItem } from './steering/steeringQueue.ts';
 import { log } from '../util/logger.ts';
 
 // 完成闸门契约已下沉到 `ports/runtime/completionGate.ts`（2026-09-27，修架构违规：契约留在 core
@@ -123,8 +124,11 @@ export class TurnRunner {
     /**
      * 回合中 steering 队列（A8，可选）：每步结束后、下一步开始前取一条用户追加指令。
      * 只在步边界消费，保证不会插进 `assistant(tool_calls) ↔ tool` 中间。
+     *
+     * 2026-10-31：返回项升级为 {@link SteeringItem}（文本 + 可选图片/文件附件），
+     * 插话不再是「只能带文字」的降级通道。
      */
-    private readonly steering?: (() => string | undefined) | undefined,
+    private readonly steering?: (() => SteeringItem | undefined) | undefined,
     /**
      * 验证失败签名台账（U2-2 VRR-Stop）：跨回合记住本会话最近一次失败签名；
      * 同签名重复出现时停止注入「再修」、如实记 `failed`。缺省取模块级共享单例
@@ -279,12 +283,15 @@ export class TurnRunner {
 
   /**
    * 步边界消费一条 steering（A8）。
+   *
+   * 文本与附件一起作为**一条** user 消息记录，保证模型下一轮看到的补充内容与
+   * 「用户正常发送」同构（2026-10-31：插话模式支持图片 / 视频 / GIF / 文件）。
    * @returns 是否注入了一条 user 消息（true ⇒ 下一步继续）。
    */
   private consumeSteering(): boolean {
-    const text = this.steering?.();
-    if (text === undefined || text === '') return false;
-    this.recorder.user(text);
+    const item = this.steering?.();
+    if (item === undefined) return false;
+    this.recorder.user(item.text, item.images, item.files);
     return true;
   }
 

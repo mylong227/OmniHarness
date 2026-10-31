@@ -1,4 +1,4 @@
-// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
+﻿// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
 //
 // 事件按类型渲染，工具调用卡片聚合 args 与 result；点击任意事件卡触发钻取。
 // 回合内「过程类」事件（reasoning/tool_call/tool_result）默认折叠成 <details>，
@@ -30,10 +30,11 @@ import {
 } from '../format.ts';
 import { buildDisplayBlocks, toolSubject, toolVerb, type DisplayBlock } from '../textUtils.ts';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.ts';
-import { StarterTasks } from '../models/StarterTasks.ts';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.ts';
 import { StreamModelCache } from '../models/StreamModelCache.ts';
 import { Composer } from './Composer.tsx';
+import { ChatQueueDock } from './ChatQueueDock.tsx';
+import { StreamEmpty } from './stream/StreamEmpty.tsx';
 import { GraphResumeChip } from './GraphResumeChip.tsx';
 import { QuestionCard } from './QuestionCard.tsx';
 import { TodoDock } from './TodoDock.tsx';
@@ -50,6 +51,7 @@ import { NumberFormatter } from '../models/NumberFormatter.ts';
 import { SessionDuration } from '../models/SessionDuration.ts';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.ts';
 import type { ComposerSeed, LiveInput } from '../shared.ts';
+import type { ChatQueueView } from '../models/ChatMessageQueue.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import type { ToolResultView } from '../shared.ts';
 import { t } from '../i18n/i18n.ts';
@@ -74,6 +76,8 @@ export interface StreamViewProps {
   finalizedStreamText?: string;
   /** 输入框回填指令（F4「编辑重发」）：透传给 Composer，把末条用户消息填回输入框。 */
   composerSeed?: ComposerSeed | null;
+  /** 队列模式的排队消息坞（2026-10-31）：空队列时 Composer 不渲染任何东西。 */
+  queue?: ChatQueueView;
   onEventClick: (ev: ThreadEvent) => void;
   /** 点击助手回复中的文件路径链接时，在右侧文件面板打开（而不是跳外链）。 */
   onOpenFile?: (path: string) => Promise<boolean> | boolean | void;
@@ -462,6 +466,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
     streamText,
     finalizedStreamText,
     composerSeed,
+    queue,
     onEventClick,
     onOpenFile,
     onOpenUrl,
@@ -778,35 +783,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
         onScroll={onScroll}
       >
           {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
-            <div className="empty illu starter-empty">
-              <div className="illu-icon">{icon('message', { size: 20 })}</div>
-              <div className="illu-text">{t('等待任务')}</div>
-              <div className="illu-hint">{t('下达任务后，模型推理、工具调用与结果将在此实时呈现。')}</div>
-              {onUseStarter === undefined ? null : (
-                // 「快速开始」：只说"这里会发生什么"是不够的——新客户卡在"第一句话怎么写"。
-                // 四条示例各覆盖一条核心通路（读文件 / 跑命令 / 搜索 / 写代码），点一下填进输入框。
-                <div className="starter-tasks">
-                  <div className="starter-title">{t('试试这些（点一下填进输入框，可改后再发）')}</div>
-                  <div className="starter-list">
-                    {StarterTasks.list().map((task) => (
-                      <button
-                        key={task.label}
-                        type="button"
-                        className="starter-task"
-                        // 悬停给完整任务描述：按钮上的标签是"能力名"，客户要看到真会发出去的那句话。
-                        title={t(task.prompt)}
-                        onClick={() => onUseStarter(t(task.prompt))}
-                      >
-                        <span className="starter-ico" aria-hidden="true">
-                          {icon(task.icon, { size: 14 })}
-                        </span>
-                        <span className="starter-label">{t(task.label)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <StreamEmpty onUseStarter={onUseStarter} />
           ) : (
             <div className="stream-inner">
               {onLoadEarlier !== undefined && historyHasMore === true ? (
@@ -872,6 +849,8 @@ export function StreamView(props: StreamViewProps): ReactElement {
         />
       )}
       <TodoDock items={TodoDockModel.latest(events)} />
+      {/* 队列模式：排队消息坞（空队列时组件自身返回 null）。 */}
+      {queue === undefined ? null : <ChatQueueDock queue={queue} />}
       <Composer
         model={model}
         modelOptions={modelOptions}
@@ -881,6 +860,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
         permission={permission}
         threadId={threadId}
         seed={composerSeed ?? null}
+        queue={queue}
         onToast={onToast}
         onApplyMode={onApplyMode}
         onOpenTab={onOpenTab}

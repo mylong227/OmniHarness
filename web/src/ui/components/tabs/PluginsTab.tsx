@@ -69,11 +69,101 @@ function renderCard(m: PluginManifest, actions: CardActions): ReactElement {
 }
 
 /**
- * 插件市场面板：搜索、安装 / 卸载、重新加载本地 / 内置 / 远程插件。
- * @returns 插件市场节点
+ * 安装 / 卸载：置忙 → 执行 → 提示 → 刷新；失败不吞（toast 上抛，finally 保证解忙）。
+ * @param api 应用 API。
+ * @param kind 操作类型。
+ * @param name 插件名。
+ * @param query 当前搜索词（刷新列表用）。
+ * @param setBusy 忙态 setter。
+ * @param refresh 刷新回调。
+ * @param toast 轻提示。
+ * @returns 完成后 resolve。
  */
-export function PluginsTab(): ReactElement {
-  const { api, toast } = useApp();
+async function doAction(
+  api: ReturnType<typeof useApp>['api'],
+  kind: 'install' | 'remove',
+  name: string,
+  setBusy: (v: string | null) => void,
+  refresh: () => Promise<void>,
+  toast: ReturnType<typeof useApp>['toast'],
+): Promise<void> {
+
+    if (!name) return;
+    setBusy(name);
+    try {
+      if (kind === 'install') await api.installPlugin(name);
+      else await api.removePlugin(name);
+      toast(kind === 'install' ? t('已安装 {name}', { name }) : t('已卸载 {name}', { name }), 'ok');
+      await refresh();
+    } catch (e) {
+      toast(
+        kind === 'install'
+          ? t('安装失败：{msg}', { msg: (e as Error).message })
+          : t('卸载失败：{msg}', { msg: (e as Error).message }),
+        'err',
+      );
+    } finally {
+      setBusy(null);
+    }
+}
+
+/**
+ * 重新加载全部插件。
+ * @param api 应用 API。
+ * @param query 当前搜索词。
+ * @param setBusy 忙态 setter。
+ * @param refresh 刷新回调。
+ * @param toast 轻提示。
+ * @returns 完成后 resolve。
+ */
+async function reload(
+  api: ReturnType<typeof useApp>['api'],
+  setBusy: (v: string | null) => void,
+  refresh: () => Promise<void>,
+  toast: ReturnType<typeof useApp>['toast'],
+): Promise<void> {
+    setBusy('__reload__');
+    try {
+      const res = await api.reloadPlugins();
+      if (res && res.ok && res.loaded && res.loaded.length) {
+        toast(t('已加载 {count} 个插件', { count: res.loaded.length }), 'ok');
+      }
+      await refresh();
+    } catch (e) {
+      toast(t('重新加载失败：{msg}', { msg: (e as Error).message }), 'err');
+    } finally {
+      setBusy(null);
+    }
+}
+
+/**
+ * 搜索输入：更新受控值并重排防抖任务。
+ * @param e 输入事件。
+ * @param setQuery 关键词 setter。
+ * @param scheduleLoad 防抖排定回调。
+ * @returns 无
+ */
+function onQueryInput(
+  e: React.SyntheticEvent,
+  setQuery: (v: string) => void,
+  scheduleLoad: (q: string) => void,
+): void {
+  const v = (e.target as HTMLInputElement).value;
+  setQuery(v);
+  scheduleLoad(v);
+}
+
+/** 数据与操作（PluginsTab 的抽出段）：列表拉取、防抖搜索、安装/卸载/重载。 */
+function usePluginsTab(api: ReturnType<typeof useApp>['api'], toast: ReturnType<typeof useApp>['toast']): {
+  readonly installed: PluginManifest[];
+  readonly available: PluginSearchEntry[];
+  readonly query: string;
+  readonly busy: string | null;
+  readonly load: (q: string) => Promise<void>;
+  readonly reload: () => Promise<void>;
+  readonly doAction: (kind: 'install' | 'remove', name: string) => Promise<void>;
+  readonly onQueryInput: (e: React.SyntheticEvent) => void;
+} {
   const [installed, setInstalled] = React.useState<PluginManifest[]>([]);
   const [available, setAvailable] = React.useState<PluginSearchEntry[]>([]);
   const [query, setQuery] = React.useState<string>('');
@@ -115,57 +205,28 @@ export function PluginsTab(): ReactElement {
     };
   }, []);
 
-  /**
-   * 安装 / 卸载：置忙 → 执行 → 提示 → 刷新；失败不吞（toast 上抛，finally 保证解忙）。
-   * @param kind 操作类型
-   * @param name 插件名
-   */
-  const doAction = async (kind: 'install' | 'remove', name: string): Promise<void> => {
-    if (!name) return;
-    setBusy(name);
-    try {
-      if (kind === 'install') await api.installPlugin(name);
-      else await api.removePlugin(name);
-      toast(kind === 'install' ? t('已安装 {name}', { name }) : t('已卸载 {name}', { name }), 'ok');
-      await load(query);
-    } catch (e) {
-      toast(
-        kind === 'install'
-          ? t('安装失败：{msg}', { msg: (e as Error).message })
-          : t('卸载失败：{msg}', { msg: (e as Error).message }),
-        'err',
-      );
-    } finally {
-      setBusy(null);
-    }
-  };
 
-  /** 重新加载全部插件。 */
-  const reload = async (): Promise<void> => {
-    setBusy('__reload__');
-    try {
-      const res = await api.reloadPlugins();
-      if (res && res.ok && res.loaded && res.loaded.length) {
-        toast(t('已加载 {count} 个插件', { count: res.loaded.length }), 'ok');
-      }
-      await load(query);
-    } catch (e) {
-      toast(t('重新加载失败：{msg}', { msg: (e as Error).message }), 'err');
-    } finally {
-      setBusy(null);
-    }
-  };
 
-  /**
-   * 搜索输入：更新受控值并重排防抖任务。
-   * @param e 输入事件
-   */
-  const onQueryInput = (e: React.SyntheticEvent): void => {
-    const v = (e.target as HTMLInputElement).value;
-    setQuery(v);
-    scheduleLoad(v);
-  };
 
+  return {
+    installed,
+    available,
+    query,
+    busy,
+    load,
+    reload: () => reload(api, setBusy, async () => { await load(query); }, toast),
+    doAction: (kind, name) => doAction(api, kind, name, setBusy, async () => { await load(query); }, toast),
+    onQueryInput: (e) => onQueryInput(e, setQuery, scheduleLoad),
+  };
+}
+/**
+ * 插件市场面板：搜索、安装 / 卸载、重新加载本地 / 内置 / 远程插件。
+ * @returns 插件市场节点
+ */
+export function PluginsTab(): ReactElement {
+  const { api, toast } = useApp();
+  // 数据与操作（逻辑段抽到 usePluginsTab：列表/防抖搜索/安装卸载/重载）。
+  const { installed, available, query, busy, load, reload, doAction, onQueryInput } = usePluginsTab(api, toast);
   const cardActions = (source: string, isInstalled: boolean): CardActions => ({
     source,
     isInstalled,
