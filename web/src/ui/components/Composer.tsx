@@ -259,6 +259,25 @@ function steerBusy(
 }
 
 /**
+ * 把附件草稿按图片 / 文件拆入两个出口数组（与 `FileAttachment` 形状同源，就地写避免分配）。
+ * @param drafts 附件草稿。
+ * @param images 图片出口。
+ * @param files 文件出口。
+ * @returns 无
+ */
+function splitComposerAttachments(
+  drafts: readonly AttachmentDraft[],
+  images: { data?: string; mediaType?: string }[],
+  files: FileAttachment[],
+): void {
+  for (const a of drafts) {
+    const base = { name: a.name, mediaType: a.mediaType, data: a.data };
+    if (a.kind === 'image') images.push(base);
+    else files.push(base);
+  }
+}
+
+/**
  * 输入区组件。
  * @param props 组件属性。
  * @returns 输入区节点。
@@ -295,6 +314,11 @@ export function Composer(props: ComposerProps): ReactElement {
   /** 文件路径缓存（@mention 数据源，首次触发时拉取一次）。 */
   const [fileCache, setFileCache] = React.useState<string[] | null>(null);
   const [slash, setSlash] = React.useState<SlashState | null>(null);
+  /** 收起 @ / `/` 两类补全（发送与插话共用同一收尾）。 */
+  const clearComposerSuggest = (): void => {
+    setMention(null);
+    setSlash(null);
+  };
   /** 技能清单缓存（首次 `/` 时拉取一次）。 */
   const [skillCache, setSkillCache] = React.useState<SkillOption[] | null>(null);
   const [listening, setListening] = React.useState<boolean>(false);
@@ -550,24 +574,16 @@ export function Composer(props: ComposerProps): ReactElement {
     if (prompt === '' && attachments.length === 0) return;
     // A8：busy 时发送退化为「插话」——直接入队到服务端，下一步边界生效。
     if (busy === true && prompt !== '') {
-      steerBusy(api, threadId ?? null, prompt, ta, onToast, () => {
-        setMention(null);
-        setSlash(null);
-      });
+      steerBusy(api, threadId ?? null, prompt, ta, onToast, clearComposerSuggest);
       return;
     }
     const images: { data?: string; mediaType?: string }[] = [];
     const files: FileAttachment[] = [];
-    for (const a of attachments) {
-      const base = { name: a.name, mediaType: a.mediaType, data: a.data };
-      if (a.kind === 'image') images.push(base);
-      else files.push(base);
-    }
+    splitComposerAttachments(attachments, images, files);
     ta.value = '';
     growComposerTextarea(taRef.current);
     setAttachments([]);
-    setMention(null);
-    setSlash(null);
+    clearComposerSuggest();
     onSend(prompt, images, files);
   };
 
@@ -643,7 +659,7 @@ export function Composer(props: ComposerProps): ReactElement {
             rows={1}
             ref={taRef}
             aria-label={t('任务输入框：输入任务，Enter 发送，Shift+Enter 换行，@ 引用文件，/ 选择技能')}
-            placeholder={t('发消息或创建任务，/ 调用技能，@ 文件或对话')}
+            placeholder={t(busy === true ? '继续输入以排队后续修改' : '发消息或创建任务，/ 调用技能，@ 文件或对话')}
             onPaste={onPaste}
             onInput={refreshCompletions}
             onClick={refreshCompletions}

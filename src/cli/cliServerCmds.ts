@@ -21,6 +21,7 @@ import { AutomationStore } from '../server/services/automationStore.ts';
 import type { AuditSink } from '../server/services/auditSink.ts';
 import type { AppServer } from '../server/core/appServer.ts';
 import type { ServerEventBridge } from '../server/core/serverEventBridge.ts';
+import type { AppServerOptions } from '../server/core/appServerState.ts';
 import { DoctorRunner } from './doctorRunner.ts';
 import { ServeInstance } from './serveInstance.ts';
 import { ServeShutdown } from './serveShutdown.ts';
@@ -361,6 +362,70 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
    * @returns 永不 resolve 的 Promise（常驻进程，直至外部终止）。
    */
   protected async runServe(serveArgs: readonly string[]): Promise<number> {
+    // 配置发现与参数合成（预解析 / 工作区定位 / 配置文件查找 / 信任闸 / 分层合并），见 serveBootstrap。
+    const boot = this.serveBootstrap(serveArgs);
+    if (typeof boot === 'number') return boot;
+    const { wsRoot, configPath, loadedFile, args } = boot;
+    const restoreEgress = this.applyNetworkGuard(args);
+    try {
+      // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
+      // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
+      let auth: EnterpriseAuth | undefined;
+      if (new CliArgReader(serveArgs).has('--auth-required')) {
+        const built = this.enterpriseAuthOf(serveArgs);
+        if (typeof built === 'number') return built;
+        auth = built;
+      }
+      const audit = this.createAudit(serveArgs);
+      const upstream = await this.buildServeUpstream(args, auth, audit);
+      const { bridge, metrics, events, config } = upstream;
+      const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
+      const pluginsDir = this.flagValue(serveArgs, '--dir') ?? join(OmniHome.dir(), 'plugins');
+      // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
+      // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
+      const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
+      const { AppServer } = await import('../server/core/appServer.ts');
+      const app = new AppServer(
+        await this.serveAppOptions({
+          args,
+          serveArgs,
+          wsRoot,
+          configPath,
+          pluginsDir,
+          config: { ...config, live },
+          bridge,
+          events,
+          metrics,
+          audit,
+          displayConfig,
+        }),
+      );
+      // 启动优化（D1，2026-10-25）：插件加载 + Profile 应用不再挡在 HTTP listen 之前，
+      // 就绪闸门的登记抽到 registerPluginsReady（runServe 体量顶到铁律基线，见其注释）。
+      this.registerPluginsReady(app, serveArgs, loadedFile, wsRoot);
+      // 起 HTTP 服务并常驻到退出（绑定地址/令牌、端口冲突诊断与按需接管、打印 UI 地址）。
+      // 抽成方法的原因：runServe 体量顶到铁律基线（见 applyPluginProfile 的说明）。
+      return await this.runHttpServe(app, bridge, metrics, serveArgs, config);
+    } finally {
+      // 退出（含 Ctrl-C / SIGTERM / 早期 return）复原全局 fetch 包装并关闭 MCP 网关子进程（补齐 serve 路径不变量）。
+      restoreEgress();
+      this.closeGateway();
+    }
+  }
+
+  /**
+   * serve 的配置发现与参数合成（runServe 的前半段抽出）。
+   * @param serveArgs serve 子命令参数。
+   * @returns 启动四件套；预解析失败为退出码 2。
+   */
+  private serveBootstrap(serveArgs: readonly string[]):
+    | {
+        readonly wsRoot: string;
+        readonly configPath: string;
+        readonly loadedFile: FileConfig;
+        readonly args: CliArgs;
+      }
+    | number {
     // 先预解析一次以定位工作区与配置文件（--workspace/--config 影响查找路径）。
     const preArgs = ArgParser.parseArgs(['--prompt', 'serve', ...serveArgs]);
     if (preArgs === undefined) {
@@ -400,78 +465,63 @@ export class CliServerCmds extends CliIdentityDaemonCmds {
     }
     // 修复「工作区错位」：配置文件里的 workspace 字段是 UI「当前选中工作区」的运行时状态，
     // 历史 bug 里它经 configDefaults 被合并进 args.workspace，劫持了 serve 的 workspaceRoot。
-    // 例如用户曾在 UI 切到 D:\deepseek\_omni_ws，该值落盘后，下次在 omniharness 目录启动 serve
-    // 时 workspaceRoot 却被 _omni_ws 覆盖 → 模型写 examples/... 报「路径越界」。
     // serve 的工作区必须恒等于启动时的真实目录（--workspace 参数 > process.cwd()），
     // 绝不从持久化的「当前工作区」状态反推。
     args.workspace = wsRoot;
     args.allowWorkspaceSkills = serveTrust.state.trusted;
-    const restoreEgress = this.applyNetworkGuard(args);
-    try {
-      // D2 服务端鉴权门禁（opt-in，fail-closed）：开启 --auth-required 后所有 /rpc 与 /ws 调用需有效 Bearer 令牌。
-      // 服务端门禁不发起授权/换码，仅需 issuer（校验 iss 声明）与 jwks_uri；开关经 CliArgReader.has 读取。
-      let auth: EnterpriseAuth | undefined;
-      if (new CliArgReader(serveArgs).has('--auth-required')) {
-        const built = this.enterpriseAuthOf(serveArgs);
-        if (typeof built === 'number') return built;
-        auth = built;
-      }
-      const audit = this.createAudit(serveArgs);
-      const upstream = await this.buildServeUpstream(args, auth, audit);
-      const { bridge, metrics, events, config } = upstream;
-      // serve 模式默认不启用「上行总开关」：默认档走配置的规则审批端口（安全工具自动放行，
-      // 危险工具按规则裁决），避免每次都弹框；「审批」档由 config.update(approval=ask) 经
-      // resolveApprovals 强制上行端口（approvalPort）显式触发弹框，与 uplink 总开关解耦。
-      // 注意：**提问**不在这条总开关之下——提问不是门禁，Web 端必须能作答（见 buildServeUpstream）。
-      const uplink = false;
-      const displayConfig = CliServerCmds.displayConfigOf(loadedFile, args, wsRoot);
-      const pluginsDir = this.flagValue(serveArgs, '--dir') ?? join(OmniHome.dir(), 'plugins');
-      // #B3 web：serve 模式下，把工具参数增量实时广播给 Web UI（WebLiveView 经 bridge 推送），
-      // 同时保留 ConsoleLiveView（TTY 实时刷新）；运行时其余路径不受影响。
-      const live = new CompositeLiveView([new ConsoleLiveView(), new WebLiveView(bridge)]);
-      const { AppServer } = await import('../server/core/appServer.ts');
-      const serveProfile = this.flagValue(serveArgs, '--profile');
-      const app = new AppServer({
-        config: { ...config, live },
-        transport: bridge,
-        // 复用同一份上行桥：`question.respond` 的处理器挂在同一个实例上，否则（各自新建）
-        // 客户端作答会送到一张**没有登记过请求**的挂起表里，答案静默丢失。
-        eventBridge: events,
-        approvalUplink: uplink,
-        metrics,
-        audit,
-        registry: this.createRegistry(serveArgs, pluginsDir),
-        // (F4) 治理台（Pro）与审计中台（Team）按档位可用；无授权 ⇒ core 档并给可读拒因。
-        entitlements: LicenseSource.resolve({ env: process.env }),
-        displayConfig,
-        autoApprove: serveArgs.includes('--auto-approve'),
-        configPath,
-        ...(serveProfile !== undefined ? { profile: serveProfile } : {}),
-        pluginsDir,
-        workspaceRoot: wsRoot,
-        // Web 交付（2026-10-11 修）：**stdio 路径接了 doctor，serve 路径却漏了** ——
-        // 而 Web UI 连的正是 serve，于是真机上诊断面板只会回"未接线"（本地跑 stdio 却一切正常）。
-        // 两条组合根必须注入同一个实现（判据 observabilityRpc.test.ts ⑥ 机械核对两处都在）。
-        doctorReport: (options) => DoctorRunner.runDoctor(options ?? {}),
-        // 凭据保险库（vault.list/set/delete 的后端）：无主密钥来源时不注入，面板如实显示"未接线"。
-        vault: await this.buildServeVault(args),
-        // 自动化任务：用户级文件 + 30s 调度；任务触发即新建一个普通会话。
-        automations: new AutomationStore(join(OmniHome.dir(), 'automations.json')),
-        // 启动档位兜底：UI 切档落盘后重启，内存覆盖态为空时按它还原生效档位
-        // （历史 bug：approval='ask' 落盘重启后静默落回 AutoApproval 全放行）。
-        startupApproval: args.approval,
-      });
-      // 启动优化（D1，2026-10-25）：插件加载 + Profile 应用不再挡在 HTTP listen 之前，
-      // 就绪闸门的登记抽到 registerPluginsReady（runServe 体量顶到铁律基线，见其注释）。
-      this.registerPluginsReady(app, serveArgs, loadedFile, wsRoot);
-      // 起 HTTP 服务并常驻到退出（绑定地址/令牌、端口冲突诊断与按需接管、打印 UI 地址）。
-      // 抽成方法的原因：runServe 体量顶到铁律基线（见 applyPluginProfile 的说明）。
-      return await this.runHttpServe(app, bridge, metrics, serveArgs, config);
-    } finally {
-      // 退出（含 Ctrl-C / SIGTERM / 早期 return）复原全局 fetch 包装并关闭 MCP 网关子进程（补齐 serve 路径不变量）。
-      restoreEgress();
-      this.closeGateway();
-    }
+    return { wsRoot, configPath, loadedFile, args };
+  }
+
+  /**
+   * 组装 AppServer 构造选项（runServe 的字面量段抽出）。
+   * @param deps 启动四件套与已建端口（bridge/events/metrics/audit/displayConfig/config）。
+   * @returns AppServer 构造选项（含 vault/automations 等异步件）。
+   */
+  private async serveAppOptions(deps: {
+    readonly args: CliArgs;
+    readonly serveArgs: readonly string[];
+    readonly wsRoot: string;
+    readonly configPath: string;
+    readonly pluginsDir: string;
+    readonly config: ResolvedConfig;
+    readonly bridge: HttpBridgeTransport;
+    readonly events: ServerEventBridge;
+    readonly metrics: Metrics;
+    readonly audit: AuditSink | undefined;
+    readonly displayConfig: Record<string, string>;
+  }): Promise<AppServerOptions> {
+    const { args, serveArgs, wsRoot, configPath, pluginsDir } = deps;
+    const serveProfile = this.flagValue(serveArgs, '--profile');
+    return {
+      config: deps.config,
+      transport: deps.bridge,
+      // 复用同一份上行桥：`question.respond` 的处理器挂在同一个实例上，否则（各自新建）
+      // 客户端作答会送到一张**没有登记过请求**的挂起表里，答案静默丢失。
+      eventBridge: deps.events,
+      approvalUplink: false,
+      metrics: deps.metrics,
+      audit: deps.audit,
+      registry: this.createRegistry(serveArgs, pluginsDir),
+      // (F4) 治理台（Pro）与审计中台（Team）按档位可用；无授权 ⇒ core 档并给可读拒因。
+      entitlements: LicenseSource.resolve({ env: process.env }),
+      displayConfig: deps.displayConfig,
+      autoApprove: serveArgs.includes('--auto-approve'),
+      configPath,
+      ...(serveProfile !== undefined ? { profile: serveProfile } : {}),
+      pluginsDir,
+      workspaceRoot: wsRoot,
+      // Web 交付（2026-10-11 修）：**stdio 路径接了 doctor，serve 路径却漏了** ——
+      // 而 Web UI 连的正是 serve，于是真机上诊断面板只会回"未接线"（本地跑 stdio 却一切正常）。
+      // 两条组合根必须注入同一个实现（判据 observabilityRpc.test.ts ⑥ 机械核对两处都在）。
+      doctorReport: (options) => DoctorRunner.runDoctor(options ?? {}),
+      // 凭据保险库（vault.list/set/delete 的后端）：无主密钥来源时不注入，面板如实显示"未接线"。
+      vault: await this.buildServeVault(args),
+      // 自动化任务：用户级文件 + 30s 调度；任务触发即新建一个普通会话。
+      automations: new AutomationStore(join(OmniHome.dir(), 'automations.json')),
+      // 启动档位兜底：UI 切档落盘后重启，内存覆盖态为空时按它还原生效档位
+      // （历史 bug：approval='ask' 落盘重启后静默落回 AutoApproval 全放行）。
+      startupApproval: args.approval,
+    };
   }
 
   /**
