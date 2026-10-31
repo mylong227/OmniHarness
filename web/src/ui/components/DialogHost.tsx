@@ -26,6 +26,113 @@ const HIDDEN: Record<string, string> = { display: 'none' };
  * @param props 组件入参
  * @returns 对话框节点（无请求时为隐藏遮罩）
  */
+/**
+ * 请求变化 → 同步输入初值并把焦点交给默认控件（prompt 落输入框全选；
+ * 危险确认落「取消」安全默认，其余落「确认」；元素未挂载时静默跳过）。
+ * @param request 当前弹窗请求（可 null）。
+ * @param text 文本状态 setter。
+ * @param refs 输入框 / 取消 / 确认三引用。
+ * @param seen 已处理请求引用（就地重置）。
+ * @returns 无
+ */
+function syncRequestFocus(
+  request: DialogRequest | null,
+  setText: (value: string) => void,
+  refs: {
+    readonly input: React.RefObject<HTMLInputElement | null>;
+    readonly cancel: React.RefObject<HTMLButtonElement | null>;
+    readonly confirm: React.RefObject<HTMLButtonElement | null>;
+  },
+  seen: React.RefObject<DialogRequest | null>,
+): void {
+  React.useEffect(() => {
+    if (!request) {
+      seen.current = null;
+      return;
+    }
+    if (request === seen.current) return;
+    seen.current = request;
+    setText(request.initial);
+    if (request.kind === 'prompt') {
+      // prompt 落输入框（全选便于覆盖）。
+      refs.input.current?.focus();
+      refs.input.current?.select();
+      return;
+    }
+    // 危险确认落「取消」（安全默认），其余落「确认」。
+    if (request.danger) refs.cancel.current?.focus();
+    else refs.confirm.current?.focus();
+  }, [request]);
+}
+/**
+ * 弹窗键盘与输入的**行为集**（DialogHost 的抽出段）：Tab 圈定焦点、Esc 取消、回车提交。
+ * @param deps kind（决定可聚焦序列）/ 三引用 / 取消与提交回调。
+ * @returns 三个可直接挂在节点上的 handler。
+ */
+function dialogHandlers(deps: {
+  readonly kind: DialogRequest['kind'];
+  readonly refs: {
+    readonly input: React.RefObject<HTMLInputElement | null>;
+    readonly cancel: React.RefObject<HTMLButtonElement | null>;
+    readonly confirm: React.RefObject<HTMLButtonElement | null>;
+  };
+  readonly cancel: () => void;
+  readonly submit: () => void;
+  readonly setText: (value: string) => void;
+}): {
+  readonly onKeyDown: (e: React.KeyboardEvent) => void;
+  readonly onInput: (e: React.SyntheticEvent) => void;
+  readonly onInputKeyDown: (e: React.KeyboardEvent) => void;
+} {
+  /** 可聚焦元素（按 DOM 顺序）：prompt 有输入框，confirm 只有两个按钮。 */
+  const focusables = (): (HTMLElement | null)[] =>
+    deps.kind === 'prompt'
+      ? [deps.refs.input.current, deps.refs.cancel.current, deps.refs.confirm.current]
+      : [deps.refs.cancel.current, deps.refs.confirm.current];
+  /**
+   * 在框内循环移动焦点（简单 Tab 圈定）。
+   * @param backward 是否反向（Shift+Tab）
+   */
+  const cycleFocus = (backward: boolean): void => {
+    const list = focusables();
+    const size = list.length;
+    if (size === 0) return;
+    const active = list.findIndex((el) => el !== null && el === document.activeElement);
+    // 焦点不在框内时：向后从第一个起步，向前从最后一个起步。
+    const from = active < 0 ? (backward ? 0 : -1) : active;
+    const next = (from + (backward ? -1 : 1) + size) % size;
+    list[next]?.focus();
+  };
+  return {
+    /** 框级键盘：Esc 取消、Tab 圈定焦点。 */
+    onKeyDown: (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        deps.cancel();
+        return;
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        cycleFocus(e.shiftKey);
+      }
+    },
+    /** 输入框变更 → 同步文本（受控 value 依赖它）。 */
+    onInput: (e) => deps.setText((e.target as HTMLInputElement | null)?.value ?? ''),
+    /** 输入框回车 → 提交当前文本。 */
+    onInputKeyDown: (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        deps.submit();
+      }
+    },
+  };
+}
+
+/**
+ * 弹窗宿主：alert / confirm / prompt 三态的单例渲染层（焦点策略与键盘行为见顶层 helper）。
+ * @param props 组件属性。
+ * @returns 弹窗节点（无请求时渲染隐藏占位）。
+ */
 export function DialogHost(props: DialogHostProps): ReactElement {
   const { dialog } = props;
   const { dialog: dialogSvc } = useApp();
@@ -41,87 +148,19 @@ export function DialogHost(props: DialogHostProps): ReactElement {
   /** 上一次处理的请求引用：用于识别「新请求到来」以重置输入与焦点。 */
   const seen = React.useRef<DialogRequest | null>(null);
 
-  // 请求变化 → 同步输入初值，随后把焦点交给默认控件（元素尚未挂载时静默跳过）。
-  React.useEffect(() => {
-    if (!request) {
-      seen.current = null;
-      return;
-    }
-    if (request === seen.current) return;
-    seen.current = request;
-    setText(request.initial);
-    if (request.kind === 'prompt') {
-      // prompt 落输入框（全选便于覆盖）。
-      inputRef.current?.focus();
-      inputRef.current?.select();
-      return;
-    }
-    // 危险确认落「取消」（安全默认），其余落「确认」。
-    if (request.danger) cancelRef.current?.focus();
-    else confirmRef.current?.focus();
-  }, [request]);
+  // 请求变化 → 同步输入初值并把焦点交给默认控件（抽到 syncRequestFocus）。
+  syncRequestFocus(request, setText, { input: inputRef, cancel: cancelRef, confirm: confirmRef }, seen);
 
   if (!request) return <div className="overlay" style={HIDDEN}></div>;
 
-  /** 可聚焦元素（按 DOM 顺序）：prompt 有输入框，confirm 只有两个按钮。 */
-  const focusables = (): (HTMLElement | null)[] =>
-    request.kind === 'prompt'
-      ? [inputRef.current, cancelRef.current, confirmRef.current]
-      : [cancelRef.current, confirmRef.current];
-
-  /**
-   * 在框内循环移动焦点（简单 Tab 圈定）。
-   * @param backward 是否反向（Shift+Tab）
-   * @returns 无
-   */
-  const cycleFocus = (backward: boolean): void => {
-    const list = focusables();
-    const size = list.length;
-    if (size === 0) return;
-    const active = list.findIndex((el) => el !== null && el === document.activeElement);
-    // 焦点不在框内时：向后从第一个起步，向前从最后一个起步。
-    const from = active < 0 ? (backward ? 0 : -1) : active;
-    const next = (from + (backward ? -1 : 1) + size) % size;
-    list[next]?.focus();
-  };
-
-  /**
-   * 框级键盘：Esc 取消、Tab 圈定焦点。
-   * @param e 键盘事件
-   * @returns 无
-   */
-  const onKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      dialogSvc.cancel();
-      return;
-    }
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      cycleFocus(e.shiftKey);
-    }
-  };
-
-  /**
-   * 输入框变更 → 同步文本。
-   * @param e 输入事件
-   * @returns 无
-   */
-  const onInput = (e: React.SyntheticEvent): void => {
-    setText((e.target as HTMLInputElement | null)?.value ?? '');
-  };
-
-  /**
-   * 输入框回车 → 提交当前文本。
-   * @param e 键盘事件
-   * @returns 无
-   */
-  const onInputKeyDown = (e: React.KeyboardEvent): void => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      dialogSvc.submit(text);
-    }
-  };
+  // 框级键盘 / 焦点圈定 / 输入提交（算法抽到顶层 dialogHandlers，见其注释）。
+  const { onKeyDown, onInput, onInputKeyDown } = dialogHandlers({
+    kind: request.kind,
+    refs: { input: inputRef, cancel: cancelRef, confirm: confirmRef },
+    cancel: () => dialogSvc.cancel(),
+    submit: () => dialogSvc.submit(text),
+    setText,
+  });
 
   const titleId = 'dlg-title';
   const bodyId = 'dlg-body';
