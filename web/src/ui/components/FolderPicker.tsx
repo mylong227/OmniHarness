@@ -419,10 +419,23 @@ function FolderPickerBody(props: {
  * @param props 组件入参
  * @returns 目录选择弹窗节点
  */
-export function FolderPicker(props: FolderPickerProps): ReactElement {
-  const { api, onCancel, onPick } = props;
-  const ws = useWorkspaceTree(api);
-  const lazy = useLazyFs(api);
+/** 展开/选中/新建三态（FolderPicker 的逻辑段抽出）：懒加载展开、就近取消、建目录即返回。 */
+function useFolderPickerSelection(
+  api: FolderPickerProps['api'],
+  lazy: ReturnType<typeof useLazyFs>,
+  onCancel: () => void,
+  onPick: (path: string) => void,
+): {
+  readonly expanded: React.Key[];
+  readonly setExpanded: (keys: React.Key[]) => void;
+  readonly selected: string | null;
+  readonly create: CreateState;
+  readonly setCreate: React.Dispatch<React.SetStateAction<CreateState>>;
+  readonly onExpand: (keys: React.Key[]) => void;
+  readonly onSelect: (keys: React.Key[]) => void;
+  readonly selectedPath: string | null;
+  readonly createFolder: () => Promise<void>;
+} {
   const [expanded, setExpanded] = React.useState<React.Key[]>([FS_ROOT]);
   const [selected, setSelected] = React.useState<string | null>(null);
   const [create, setCreate] = React.useState<CreateState>({
@@ -495,6 +508,21 @@ export function FolderPicker(props: FolderPickerProps): ReactElement {
     }
   };
 
+  return { expanded, setExpanded, selected, create, setCreate, onExpand, onSelect, selectedPath, createFolder };
+}
+
+/**
+ * 选择项目文件夹弹窗（工作区树 + 懒加载「文件系统…」+ 新建目录）。
+ * @param props 组件属性。
+ * @returns 弹窗节点。
+ */
+export function FolderPicker(props: FolderPickerProps): ReactElement {
+  const { api, onCancel, onPick } = props;
+  const ws = useWorkspaceTree(api);
+  const lazy = useLazyFs(api);
+  // 展开/选中/新建三态（逻辑段抽到 useFolderPickerSelection）。
+  const { expanded, selected, create, setCreate, onExpand, onSelect, selectedPath, createFolder } =
+    useFolderPickerSelection(api, lazy, onCancel, onPick);
   const treeData = attachLazy(
     buildTreeData(ws.tree.map(wsNode), fsRootNode(lazy.nodes[FS_ROOT], (k) => void lazy.load(k))),
     lazy.nodes,
