@@ -33,7 +33,10 @@ class TimedModel implements ModelPort {
     const lastUser = [...request.messages].reverse().find((message) => message.role === 'user');
     const id = (lastUser?.content ?? '?').slice(0, 1);
     const start = Date.now();
-    await new Promise((resolve) => setTimeout(resolve, id === 'A' ? 120 : 10));
+    // A 的慢延迟 400ms（2026-11-01 由 120 上调）：全量并行跑时 worker 被抢占会让
+    // 「B 完成 → C 启动」的 promise 链被推迟 100ms+，120ms 余量被压塌后计时反转
+    // （全量三连红、隔离双连绿的实证）。断言语义不变，只是把余量放大到抢占尺度之上。
+    await new Promise((resolve) => setTimeout(resolve, id === 'A' ? 400 : 10));
     this.events.push({ id, start, end: Date.now() });
     return { text: 'ok' };
   }

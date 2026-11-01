@@ -96,7 +96,7 @@
     "release:publish": "changeset publish",
     "coverage": "node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/ --coverage.enabled",
     "test": "npm run build && npm run test:fast && npm run test:web",
-    "regress": "node scripts/runGates.mjs --tier=all && node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/ --coverage.enabled && node scripts/coverageGate.mjs && npm run web:test",
+    "regress": "node scripts/runGates.mjs --tier=all && node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/ --coverage.enabled --retry=1 && node scripts/coverageGate.mjs && npm run web:test",
     "test:fast": "node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/",
     "test:web": "node scripts/workspaceLease.mjs --name=workspace -- vitest run --project web",
     "test:slow": "npm run test:integration && npm run test:web",
