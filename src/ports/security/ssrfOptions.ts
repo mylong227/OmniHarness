@@ -12,6 +12,15 @@ export interface SsrfOptions {
    * 由组合根从配置解析后注入（`resolveSsrfPolicy(config.ssrfPolicy)`）。
    */
   readonly policy?: ResolvedSsrfPolicy | undefined;
-  /** 是否做 DNS 解析后二次判定（默认 false：解析有网络开销且引入 TOCTOU 窗口）。 */
+  /**
+   * 是否做 DNS 解析后二次判定（**默认 true**，2026-11-01 改判）。
+   *
+   * 原登记的默认关闭理由（解析开销 + TOCTOU）经复核不成立：
+   * - 开销＝每次出站校验一次 getaddrinfo（OS 有缓存），相对其后的 HTTP 请求可忽略；
+   * - TOCTOU 论证与实现自相矛盾——`assertNotSsrf` 校验后调用方 `fetch(url)` 本来就会再解析，
+   *   关闭 DNS 判定并不消除窗口，只是把「域名→内网/云元数据 IP」这整类绕过白白让出去。
+   * 改判后的**残余风险（如实登记，未解决）**：校验与真实请求之间的 DNS rebinding 仍可能
+   * （需在连接层钉住已校验 IP 才能根治），见 PROJECT_BOARD §203。
+   */
   readonly resolveDns?: boolean;
 }

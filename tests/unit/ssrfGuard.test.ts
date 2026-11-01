@@ -200,3 +200,79 @@ describe('SSRF 回归：IPv6 内嵌 IPv4 的等价写法不得绕过', () => {
     assert.strictEqual(SsrfGuard.inspectHost('2001:4860:4860::8888', {}).blocked, false);
   });
 });
+
+// ---- 2026-11-01 改判：resolveDns 默认开启，「域名→危险 IP」不得绕过 ----
+// 原默认关闭的登记理由（开销+TOCTOU）经复核不成立，改判依据见 src/ports/security/ssrfOptions.ts。
+// 判据一律经注入 resolver 离线覆盖，不发真实 DNS 请求。
+describe('SSRF DNS 二次判定（默认开启，2026-11-01 改判）', () => {
+  it('默认档含 resolveDns: true（钉住改判决策，回退即红）', () => {
+    assert.strictEqual(SsrfGuard.defaultSsrfOptions().resolveDns, true);
+  });
+
+  it('域名解析到云元数据 IP 被拦截（默认档下也拦——本轮关闭的绕过面）', async () => {
+    const seen: string[] = [];
+    const guard = new SsrfGuard(async (host) => {
+      seen.push(host);
+      return [{ address: '169.254.169.254', family: 4 }];
+    });
+    await assert.rejects(
+      () => guard.assertNotSsrf('http://evil.example.com/x', SsrfGuard.defaultSsrfOptions()),
+      /解析到 169\.254\.169\.254/,
+    );
+    assert.deepEqual(seen, ['evil.example.com']);
+  });
+
+  it('域名解析到公网 IP 放行（不被过度收紧）', async () => {
+    const guard = new SsrfGuard(async () => [{ address: '93.184.216.34', family: 4 }]);
+    await guard.assertNotSsrf('http://ok.example.com/', SsrfGuard.defaultSsrfOptions());
+  });
+
+  it('严格模式：域名解析到内网 IP 一并拦截', async () => {
+    const guard = new SsrfGuard(async () => [{ address: '10.0.0.5', family: 4 }]);
+    await assert.rejects(
+      () => guard.assertNotSsrf('http://inner.example.com/', { resolveDns: true }),
+      /SSRF 拦截/,
+    );
+  });
+
+  it('多地址任一命中即拦（all 语义）', async () => {
+    const guard = new SsrfGuard(async () => [
+      { address: '93.184.216.34', family: 4 },
+      { address: '169.254.169.254', family: 4 },
+    ]);
+    await assert.rejects(
+      () => guard.assertNotSsrf('http://mixed.example.com/', { resolveDns: true }),
+      /169\.254\.169\.254/,
+    );
+  });
+
+  it('DNS 解析失败按拦截处理（fail-closed）', async () => {
+    const guard = new SsrfGuard(async () => {
+      throw new Error('EAI_AGAIN');
+    });
+    await assert.rejects(
+      () => guard.assertNotSsrf('http://dead.example.com/', { resolveDns: true }),
+      /DNS 解析失败/,
+    );
+  });
+
+  it('IP 字面量不触发 DNS 解析（零网络开销路径不变）', async () => {
+    let calls = 0;
+    const guard = new SsrfGuard(async () => {
+      calls += 1;
+      return [];
+    });
+    await guard.assertNotSsrf('http://127.0.0.1:8790/a2a', SsrfGuard.defaultSsrfOptions());
+    assert.strictEqual(calls, 0, 'IP 字面量不得发起 DNS 解析');
+  });
+
+  it('显式 resolveDns: false 仍可关闭（逃生门保留）', async () => {
+    let calls = 0;
+    const guard = new SsrfGuard(async () => {
+      calls += 1;
+      return [];
+    });
+    await guard.assertNotSsrf('http://skip.example.com/', { resolveDns: false });
+    assert.strictEqual(calls, 0);
+  });
+});

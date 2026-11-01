@@ -12,7 +12,8 @@ import type { SsrfOptions } from '../ports/security/ssrfOptions.ts';
  * `127.0.0.1:8080`（本机管理端口）或内网服务，形成 SSRF。
  *
  * 无第三方依赖实现（依赖准入铁律）：字面量判定用 `node:net.isIP` + 自实现网段比较，
- * DNS 解析用 `node:dns`。未开启 DNS 解析时只做字面判定（同步、零网络开销）。
+ * DNS 解析用 `node:dns`（可经构造器注入替换，判据据此离线覆盖 DNS 路径）。
+ * DNS 二次判定**默认开启**（2026-11-01 改判，原默认关闭的登记理由见 ports/ssrfOptions）。
  *
  * OOP 收口：原模块级常量与纯函数归拢为 `SsrfGuard` 类（常量挂 private static readonly，
  * 判定逻辑为实例方法）；保留 `inspectHost` / `inspectUrl` / `assertNotSsrf` /
@@ -27,6 +28,14 @@ export type SsrfVerdict =
   { readonly blocked: false } | { readonly blocked: true; readonly reason: string };
 
 /**
+ * DNS 解析器端口：`lookup(hostname, { all: true })` 的最小结构面。
+ * 生产缺省绑 `node:dns/promises`；判据注入桩实现以离线覆盖「域名→危险 IP」路径。
+ */
+export type SsrfDnsResolver = (
+  hostname: string,
+) => Promise<readonly { address: string; family: number }[]>;
+
+/**
  * SSRF 防护引擎：云元数据/私有网段/非法字面量判定，fail-closed。
  *
  * 三张策略表（元数据主机 / 内网域名后缀 / IPv4 网段）**不再硬编码在本类**：
@@ -34,6 +43,17 @@ export type SsrfVerdict =
  * 调用方把解析后的策略随 {@link SsrfOptions.policy} 传入（组合根负责解析与注入）。
  */
 export class SsrfGuard {
+  /** DNS 解析实现（构造器注入；缺省绑 `node:dns/promises` 的 `lookup(all:true)`）。 */
+  private readonly resolveDnsEntries: SsrfDnsResolver;
+
+  /**
+   * @param dnsResolver DNS 解析实现；缺省绑 `node:dns/promises` 的 `lookup(all:true)`。
+   * @returns 无返回值。
+   */
+  public constructor(dnsResolver?: SsrfDnsResolver) {
+    this.resolveDnsEntries = dnsResolver ?? ((hostname) => lookup(hostname, { all: true }));
+  }
+
   /**
    * 默认 SSRF 策略。
    *
@@ -43,10 +63,13 @@ export class SsrfGuard {
    * - 但**云元数据地址永远拦截**（`allowMetadata` 不受 `allowPrivate` 影响）：
    *   169.254.169.254 这类端点几乎不存在合法用途，是 SSRF 的首要攻击目标。
    * - 设 `OMNI_SSRF_STRICT=1` 可开启严格模式（连私有网段一并拦截），适用于不可信输入场景。
+   * - `resolveDns: true`（2026-11-01 改判，原登记理由与改判依据见 ports/ssrfOptions）：
+   *   域名目标在字面判定后再解析复核——默认档下据此拦住「域名→云元数据 IP」，
+   *   严格模式下连「域名→内网 IP」一并拦住；残余的 rebinding 风险已在端口层如实登记。
    */
   public defaultOptions(): SsrfOptions {
     const strict = process.env['OMNI_SSRF_STRICT'] === '1';
-    return { allowPrivate: !strict, allowMetadata: false };
+    return { allowPrivate: !strict, allowMetadata: false, resolveDns: true };
   }
 
   /** 纯字面量判定（不发起网络请求）。 */
@@ -140,7 +163,7 @@ export class SsrfGuard {
 
     if (options.resolveDns === true && isIP(url.hostname) === 0) {
       try {
-        const resolved = await lookup(url.hostname, { all: true });
+        const resolved = await this.resolveDnsEntries(url.hostname);
         for (const entry of resolved) {
           const hostVerdict = this.inspectHost(entry.address, options);
           if (hostVerdict.blocked) {
