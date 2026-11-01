@@ -130,7 +130,6 @@ svg {
   flex: none;
 }
 .tc-icon svg,
-.artifact-card .artifact-icon svg,
 .att-ico svg,
 .ev-chip-ico svg,
 .dd-ico svg,
@@ -554,39 +553,6 @@ svg {
   color: var(--dim);
 }
 
-/* 过程簇：折叠头做成"一行小结"，左侧竖发丝线表示从属关系。 */
-.process-cluster > summary {
-  border-radius: 7px;
-  transition: background var(--dur-1) var(--ease);
-}
-.process-cluster > summary:hover {
-  background: var(--panel);
-}
-.process-cluster-body {
-  padding-left: 14px;
-  margin-left: 8px;
-}
-
-/* 思考块：虚线 + 斜体摘要，与"事实性内容"区分。 */
-details.reasoning,
-.reason-body {
-  border-color: var(--border-soft);
-  border-radius: 10px;
-  background: var(--panel);
-}
-.reason-body {
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  color: var(--dim);
-  line-height: 1.65;
-}
-details.reasoning summary {
-  color: var(--dim);
-}
-details.reasoning summary:hover {
-  color: var(--text);
-}
-
 /* 工具错误摘要：用语义 token，浅色主题不再是"白底浅红"。 */
 .tc-error {
   border-left: 2px solid var(--err);
@@ -987,27 +953,7 @@ pre.json {
   text-align: center;
 }
 
-/* 产物卡片 / 外链卡片 */
-.artifact-card {
-  background: var(--panel);
-  padding: 8px 11px;
-  margin-left: 20px;
-}
-.artifact-card .artifact-icon {
-  display: inline-flex;
-  color: var(--faint);
-}
-.artifact-card .artifact-icon svg {
-  width: 15px;
-  height: 15px;
-  stroke-width: 1.6;
-}
-.artifact-card .artifact-open:hover,
-.artifact-card .artifact-download:hover {
-  border-color: var(--brand);
-  color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 10%, transparent);
-}
+/* 外链卡片 */
 .link-card {
   border-radius: 8px;
   padding: 6px 9px;

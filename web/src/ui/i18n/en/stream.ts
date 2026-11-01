@@ -16,12 +16,10 @@ export const EN_STREAM: Record<string, string> = {
   '重连中': 'Reconnecting',
   '断开': 'Disconnected',
 
-  // ArtifactCard.tsx
-  '在右侧面板打开（语法高亮）': 'Open in right panel (syntax highlighted)',
+  // TurnSummaryCard.tsx / 文件入口
   '在右侧面板打开': 'Open in right panel',
   '打开': 'Open',
   '下载到本地': 'Download to local',
-  '下载产物': 'Download artifact',
 
   // AssistantCard.tsx
   '重新生成': 'Regenerate',
@@ -34,17 +32,21 @@ export const EN_STREAM: Record<string, string> = {
   '收起 ▴': 'Collapse ▴',
   '展开全文 ▾': 'Expand full text ▾',
 
-  // ProcessCluster.tsx
-  '过程进行中（自动展开）': 'In progress (auto-expanded)',
-  '点击查看执行过程': 'Click to view execution process',
-  '运行中 — 点击查看步骤': 'Running — click to view steps',
-  '执行过程 — {text}': 'Process — {text}',
-  '执行中 — {action}': 'Running — {action}',
+  // ThinkingTrail.tsx
+  '思考轨迹': 'Thinking trail',
+  '总思考': 'Thinking overview',
+  '思考中': 'Thinking',
+  '思考': 'Think',
+  '说明': 'Note',
+  '说明 {n} 次': 'Noted {n} times',
+  '展开思考过程': 'Expand thinking',
+  '收起思考过程': 'Collapse thinking',
+  '正在梳理思路': 'Gathering thoughts',
   '正在{action}': 'Running: {action}',
   '{n} 个失败': '{n} failed',
   '{n} 步': '{n} steps',
 
-  // ReasoningBlock.tsx
+  // ReasoningStep.tsx
   '正在思考': 'Thinking',
   // WorkIndicator.tsx（可折叠工作状态条）
   '已工作': 'Working for',
@@ -56,8 +58,6 @@ export const EN_STREAM: Record<string, string> = {
   '{s}秒': '{s}s',
   '耗时': 'Time spent',
   '本轮耗时': 'Elapsed this turn',
-  '思考中': 'Thinking',
-  '思考': 'Think',
   '读取': 'Read',
   '运行命令': 'Run',
   '浏览': 'Browse',
@@ -90,10 +90,10 @@ export const EN_STREAM: Record<string, string> = {
 
   // TurnSummaryCard.tsx
   '本轮结果': 'Turn result',
-  '生成的文件': 'Generated files',
   '修改的文件': 'Modified files',
-  '生成 {c} · 修改 {m}': 'Generated {c} · modified {m}',
-  '生成 {c} 个文件': 'Generated {c} files',
+  '新建的文件': 'New files',
+  '修改 {m} · 新建 {c}': 'Modified {m} · new {c}',
+  '新建 {c} 个文件': 'Created {c} files',
   '修改 {m} 个文件': 'Modified {m} files',
   '收起结果': 'Collapse result',
   '展开结果': 'Expand result',

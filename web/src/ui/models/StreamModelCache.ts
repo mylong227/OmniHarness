@@ -1,10 +1,5 @@
 import type { ThreadEvent } from '../../types/models.ts';
-import {
-  buildDisplayBlocks,
-  collectToolCallIds,
-  collectTurnSummaryCalls,
-  type DisplayBlock,
-} from '../textUtils.ts';
+import { buildDisplayBlocks, collectToolCallIds, type DisplayBlock } from '../textUtils.ts';
 import { TurnTiming } from './TurnTiming.ts';
 
 /**
@@ -25,8 +20,6 @@ export interface StreamModel {
   readonly lastAssistantId: string;
   /** 本轮出现过的工具调用 id（判断 tool_result 是否已被调用卡内联）。 */
   readonly toolCallIds: ReadonlySet<string>;
-  /** 已被回合结果卡收编的产物调用 id（这些调用不再单独渲染内联产物卡）。 */
-  readonly summarizedCallIds: ReadonlySet<string>;
   /** 每段对话（user 事件 id）的独立用时（ms；未收口段不入表）。 */
   readonly turnDurations: ReadonlyMap<string, number>;
 }
@@ -106,8 +99,7 @@ export class StreamModelCache {
    * @returns 模型。
    */
   public static build(events: readonly ThreadEvent[], busy: boolean): StreamModel {
-    const summarizedCallIds = collectTurnSummaryCalls(events);
-    const blocks = buildDisplayBlocks(events, busy, summarizedCallIds);
+    const blocks = buildDisplayBlocks(events, busy);
     const keys = blocks.map((b) => (b.kind === 'single' ? b.event.id : b.key));
     let lastUserId = '';
     let lastAssistantId = '';
@@ -128,7 +120,6 @@ export class StreamModelCache {
       lastUserId,
       lastAssistantId,
       toolCallIds,
-      summarizedCallIds,
       turnDurations,
     };
   }

@@ -32,13 +32,11 @@ export interface EventCtx {
   finalizedStreamText: string;
   /** 本回合出现过的工具调用 id（只读：仅用于 `has` 判定）。 */
   toolCallIds: ReadonlySet<string>;
-  /** 已被回合结果卡收编的产物调用 id（这些调用不再内联产物卡）。 */
-  summarizedCallIds: ReadonlySet<string>;
   /** 每段对话（user 事件 id）的独立用时。 */
   turnDurations: ReadonlyMap<string, number>;
   /** 是否正有提问等待作答（对话流里的提问卡据此给出「去下方提问卡作答」的指引）。 */
   questionPending: boolean;
-  /** 回合刚收尾（1.5s 内）：过程簇挂载瞬间的「回闪」高亮。历史加载恒 false。 */
+  /** 回合刚收尾（1.5s 内）：思考轨迹挂载瞬间的「回闪」高亮。历史加载恒 false。 */
   clusterFresh: boolean;
 }
 

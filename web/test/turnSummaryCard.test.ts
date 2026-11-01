@@ -31,7 +31,8 @@ const DIFF = [
 ].join('\n');
 
 test('回合结果卡：生成/修改分组 + 增删统计 + 打开/下载/差异（真浏览器）', async (t) => {
-  const opened = await openStubSession(t, { width: 900, height: 760 });
+  // 1100px：宽于 1024px 断点——「差异」文字按钮在窄屏会让位（行点击仍可打开文件面板）。
+  const opened = await openStubSession(t, { width: 1100, height: 800 });
   if (!opened) return;
   const { cdp, close } = opened;
   try {
@@ -44,6 +45,7 @@ test('回合结果卡：生成/修改分组 + 增删统计 + 打开/下载/差�
         push({ method: 'thread.event', params: { event: { id: 'e' + i, type: type, timestamp: base + i * 1000, payload: payload } } });
       };
       ev('user', { content: '把会话页的结果汇总重做一下' });
+      ev('reasoning', { content: '先把本轮产物收进结果卡，再把思考收成一条轨迹。\\n产物不能散落在过程行里。' });
       ev('tool_call', { callId: 'c1', name: 'write_file', args: { path: 'docs/plan.md' } });
       ev('tool_result', { callId: 'c1', ok: true, output: '已写入 docs/plan.md' });
       ev('tool_call', { callId: 'c2', name: 'apply_patch', args: { path: 'web/src/ui/components/StreamView.tsx' } });
@@ -78,18 +80,18 @@ test('回合结果卡：生成/修改分组 + 增删统计 + 打开/下载/差�
     })()`);
     assert.strictEqual(info.found, true, '应渲染 .turn-summary');
     assert.strictEqual(info.title, '本轮结果');
-    assert.strictEqual(info.counts, '生成 2 · 修改 2');
-    assert.strictEqual(info.time, '耗时 8秒', '本轮耗时必须按 时/分/秒 格式化并汇总进结果卡');
-    assert.deepEqual(info.groups, ['生成的文件', '修改的文件']);
+    assert.strictEqual(info.counts, '修改 2 · 新建 2', '用户口径：修改在前、新建在后');
+    assert.strictEqual(info.time, '耗时 9秒', '本轮耗时必须按 时/分/秒 格式化并汇总进结果卡');
+    assert.deepEqual(info.groups, ['修改的文件', '新建的文件'], '先修改、后新建');
     assert.deepEqual(info.created, ['plan.md', 'turn-summary.png']);
     assert.deepEqual(info.modified, ['StreamView.tsx', 'minimal.css']);
-    assert.deepEqual(info.stats, ['+2', '+2−1', '+1']);
+    assert.deepEqual(info.stats, ['+2−1', '+1', '+2'], '行内增删；图片产物无 diff 只有类型徽标');
     assert.deepEqual(info.kinds, ['图片']);
     assert.deepEqual(info.downloads, [
-      '/files?path=docs%2Fplan.md',
-      '/files?path=web%2Farchive%2Fturn-summary.png',
       '/files?path=web%2Fsrc%2Fui%2Fcomponents%2FStreamView.tsx',
       '/files?path=web%2Fstyles%2Fminimal.css',
+      '/files?path=docs%2Fplan.md',
+      '/files?path=web%2Farchive%2Fturn-summary.png',
     ]);
 
     // 结果卡挂载后必须被自动带进视口：底部圆角/细线封口完整可见（用户报「缺了封口」）。
@@ -117,13 +119,59 @@ test('回合结果卡：生成/修改分组 + 增删统计 + 打开/下载/差�
       '结果卡底部（圆角细线封口）必须完整露出：' + JSON.stringify(geom),
     );
 
-    // 点击第一条「修改的文件」主体：就地展开 diff 正文。
-    await cdp.click('.ts-file.modified .ts-main');
-    await new Promise((r) => setTimeout(r, 200));
+    // 行主体与「打开」一致：点路径在右侧面板打开（不再把行点击当成展开差异）。
+    // 差异改由行尾的「差异」按钮就地展开。
+    await cdp.click('.ts-file.modified .ts-act[aria-expanded]');
+    await new Promise((r) => setTimeout(r, 250));
     const body = await cdp.evaluate(
       `(function(){ var b = document.querySelector('.turn-summary .ts-diff .diff'); return b ? b.querySelectorAll('.add,.del').length : -1; })()`,
     );
     assert.ok(body > 0, '展开后应有行级 diff 着色块，实得 ' + body);
+
+    // 思考轨迹：收尾后折叠成一行「总思考」，点开后按顺序回看每条思考与工具调用，
+    // 单条思考还能再展开全文（2026-11-01 用户口径）。
+    const trail = await cdp.evaluate(`(function(){
+      var t = document.querySelector('.thinking-trail');
+      if (!t) return { found: false };
+      var title = t.querySelector('.tt-title');
+      var head = t.querySelector('.tt-head');
+      return {
+        found: true,
+        title: title ? title.textContent : '',
+        collapsed: !!head && head.getAttribute('aria-expanded') === 'false',
+        steps: t.querySelectorAll('.tt-step').length,
+        sub: (t.querySelector('.tt-sub') || {}).textContent || '',
+      };
+    })()`);
+    assert.strictEqual(trail.found, true, '应渲染思考轨迹');
+    assert.strictEqual(trail.title, '总思考', '收尾后轨迹标题为「总思考」');
+    assert.strictEqual(trail.collapsed, true, '收尾后默认折叠成一行');
+    assert.strictEqual(trail.steps, 0, '折叠时不应展开步骤');
+    assert.ok(trail.sub.indexOf('思考 1 次') >= 0, '折叠行要讲清这一轮做了什么：' + trail.sub);
+
+    await cdp.click('.thinking-trail .tt-head');
+    await new Promise((r) => setTimeout(r, 200));
+    const opened = await cdp.evaluate(`(function(){
+      var t = document.querySelector('.thinking-trail');
+      return {
+        steps: t.querySelectorAll('.tt-step').length,
+        tools: t.querySelectorAll('.tt-event .tool_call').length,
+        error: t.querySelector('.tt-state svg') ? '' : 'no-check-icon',
+      };
+    })()`);
+    assert.strictEqual(opened.steps, 1, '展开后按顺序列出每条思考');
+    assert.strictEqual(opened.tools, 3, '工具调用与思考同处一条时间线（结果回执内联，不重复）');
+    assert.strictEqual(opened.error, '', '完成的思考要有勾选标记');
+
+    await cdp.click('.thinking-trail .tt-step-head');
+    await new Promise((r) => setTimeout(r, 150));
+    const think = await cdp.evaluate(
+      `(function(){ var b = document.querySelector('.thinking-trail .tt-think'); return b ? b.textContent : null; })()`,
+    );
+    assert.ok(
+      typeof think === 'string' && think.indexOf('产物不能散落在过程行里') >= 0,
+      '单条思考点开后能看到完整思考内容',
+    );
 
     // 整体收起 / 再展开。
     await cdp.click('.turn-summary .ts-toggle');

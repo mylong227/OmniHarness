@@ -5,15 +5,14 @@
 //   · 右列对象（路径 / 命令 / 查询）；写类动作末尾给体积与增删行；
 //   · 成功不出徽标，只有运行中 / 失败才出状态；失败原因仍然直显（不折叠）；
 //   · 行可点开 args 与结果，保留钻取入口。
-// 2026-10-19 去噪：去掉行尾时间戳与「成功」徽标、写类产物卡不再无条件内联。
+// 2026-11-01：写类工具**不再内联产物卡**——产物只在回合结果卡里集中展示，
+//   过程行只讲「做了什么」，这样同一个文件不会在思考步骤与结果卡里各出现一次。
 
 import * as React from 'react';
 import { jsonView } from '../../format.ts';
-import { truncate, isArtifactCall, toolMeta, toolSubject, toolVerb } from '../../textUtils.ts';
-import { ArtifactResolver } from '../../models/ArtifactResolver.ts';
+import { truncate, toolMeta, toolSubject, toolVerb } from '../../textUtils.ts';
 import { icon } from '../../models/Icon.ts';
 import type { IconName } from '../../models/Icon.ts';
-import { ArtifactCard } from './ArtifactCard.tsx';
 import type { ThreadEvent } from '../../../types/models.ts';
 import type { ToolResultView } from '../StreamView.tsx';
 import { t } from '../../i18n/i18n.ts';
@@ -28,13 +27,6 @@ export interface ToolCallCardProps {
   onEventClick: (ev: ThreadEvent) => void;
   /** 打开产物文件（在右侧面板预览）。 */
   onOpenFile?: (path: string) => void;
-  /**
-   * 是否渲染内联产物卡（缺省 true）。
-   *
-   * 结果卡出现后，写类调用的产物由回合结果卡统一展示（避免同一文件在过程与结果里各出现一次）；
-   * 运行中 / 没有 turn_diff 的兜底路径才保留内联卡，保证「刚写出来的东西」立刻可见。
-   */
-  showArtifact?: boolean;
 }
 
 /** 工具名 → 图标（未登记的工具回落到扳手）。 */
@@ -58,7 +50,7 @@ const TOOL_ICONS: Readonly<Record<string, IconName>> = {
 };
 
 /**
- * 工具卡片的错误 / 产物 / 展开详情区。
+ * 工具卡片的错误 / 展开详情区。
  * @param props 结果、参数、开合态与回调。
  * @returns 详情区节点。
  */
@@ -67,21 +59,15 @@ function ToolCallDetails(props: {
   args: unknown;
   open: boolean;
   errText: string;
-  artifact: ArtifactInfo | null;
-  showArtifact?: boolean;
-  onOpenFile?: (path: string) => void;
   drill: (e: React.MouseEvent) => void;
 }): ReactElement {
-  const { res, args, open, errText, artifact, showArtifact, onOpenFile, drill } = props;
+  const { res, args, open, errText, drill } = props;
   return (
     <>
       {errText ? (
         <div className="tc-error" title={errText}>
           {icon('alert', { size: 13 })} {truncate(errText, 160)}
         </div>
-      ) : null}
-      {artifact !== null && showArtifact !== false ? (
-        <ArtifactCard info={artifact} onOpen={onOpenFile} />
       ) : null}
       {open ? (
         <div className="tc-detail">
@@ -102,28 +88,13 @@ function ToolCallDetails(props: {
   );
 }
 
-/** 从工具结果解析出的产物信息。 */
-type ArtifactInfo = NonNullable<ReturnType<typeof ArtifactResolver.fromTool>>;
-
-/**
- * 解析写类工具的产物信息。
- * @param ev 工具调用事件。
- * @param res 结果视图。
- * @returns 产物信息；非写类/失败/未返回时 null。
- */
-function artifactOf(ev: ThreadEvent, res: ToolResultView | undefined): ArtifactInfo | null {
-  return res !== undefined && res.ok && isArtifactCall(ev)
-    ? ArtifactResolver.fromTool((ev.payload?.['name'] as string) || 'tool', ev.payload?.['args'], res.text)
-    : null;
-}
-
 /**
  * 工具调用卡片：摘要行 + 可展开的 args / 结果详情，失败时行尾直显错误。
  * @param props 组件入参
  * @returns 工具调用节点
  */
 export function ToolCallCard(props: ToolCallCardProps): ReactElement {
-  const { ev, res, onEventClick, onOpenFile, showArtifact } = props;
+  const { ev, res, onEventClick } = props;
   const [open, setOpen] = React.useState<boolean>(false);
   const p = ev.payload || {};
   const status = res ? (res.ok ? 'ok' : 'err') : 'pending';
@@ -133,9 +104,6 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
   const subject = toolSubject(toolName, p.args);
   const meta = toolMeta(toolName, p.args);
   const errText = res && !res.ok && res.text ? res.text.replace(/^✗\s*/, '') : '';
-  // 产物卡片：只对**写类工具**（write_file / apply_patch / sketch_write）解析。
-  // read_file / lsp_* 只是引用，给它们挂产物卡会让过程流又变成一串文件卡（2026-10-19 去噪）。
-  const artifact = artifactOf(ev, res);
 
   /** 展开 / 收起详情。 */
   const toggle = (): void => setOpen((prev) => !prev);
@@ -189,16 +157,7 @@ export function ToolCallCard(props: ToolCallCardProps): ReactElement {
         {status === 'err' ? <span className="tool-status err">{statusText}</span> : null}
         {status === 'pending' ? <span className="tool-status pending">{statusText}</span> : null}
       </div>
-      <ToolCallDetails
-        res={res}
-        args={p.args}
-        open={open}
-        errText={errText}
-        artifact={artifact}
-        {...(showArtifact !== undefined ? { showArtifact } : {})}
-        {...(onOpenFile !== undefined ? { onOpenFile } : {})}
-        drill={drill}
-      />
+      <ToolCallDetails res={res} args={p.args} open={open} errText={errText} drill={drill} />
     </div>
   );
 }

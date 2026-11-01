@@ -739,14 +739,6 @@ button.mob-only { display: none; }
 /* -------------------------------------------------------------------------
    源文件：web/styles/refine-rhythm.css（已折叠进本文件）
    ------------------------------------------------------------------------- */
-/* 过程簇是「一组工具调用」，组内 2px、组间 10px。 */
-.process-cluster {
-  margin: 10px 0 6px;
-}
-.process-cluster-body .ev {
-  margin-bottom: 2px;
-}
-
 /* Markdown 文档排版：标题上方留白 > 下方；段间距稳定；列表贴住正文。 */
 .md-content h1 {
   font-size: 19px;

@@ -740,16 +740,9 @@
 .ev {
   margin-bottom: 22px;
 }
-/* 过程簇本身就是一条小结，不按普通事件留 22px 的大间隔。 */
-.ev.process-cluster {
+/* 思考轨迹本身就是一条小结，不按普通事件留 22px 的大间隔。 */
+.ev.thinking-trail {
   margin-bottom: 10px;
-}
-/* 思考流式面：一层**很轻**的圆角底，替代原来的左侧竖线。
-   2026-10-20 用户反馈：「去掉竖线，收尾增加圆角，底色区分区域不要太高亮，轻微区分即可」。 */
-.ev.reasoning.live {
-  border-left: 0;
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--panel) 72%, transparent);
 }
 .ev + .ev {
   border-top: none;
@@ -847,58 +840,262 @@
   color: var(--faint);
 }
 
-/* 过程簇（思考 / 工具调用 / 折叠的过程）：机器产物，等宽 + 中间调，不进卡片体系。 */
-/* 过程簇：不再画外框（2026-10-19 用户「背景框去掉，直接融入本身的背景」）。
-   只保留一行小结 + 左侧虚线的从属关系；间距压到与普通行一致。 */
-.process-cluster {
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  margin: 2px 0;
+/* =========================================================================
+   思考轨迹（2026-11-01）
+   -------------------------------------------------------------------------
+   每轮一条，位置固定在本轮末尾（结果卡上方）。运行中是一块**有界滚动**的时间线：
+   头部「思考中 · 此刻在做什么」，正文按顺序列出每条思考与工具调用；收尾后自动折成
+   一行「总思考」。每条思考：状态（转环 / ✓）+ 预览 + 字数耗时，点击就地展开全文。
+   表面只用 panel 浅底 + 发丝线，颜色只给状态（accent / ok / err）。
+   ========================================================================= */
+.thinking-trail {
+  margin: 2px 0 14px;
 }
-.process-cluster > summary {
-  color: var(--dim);
-  font-size: var(--fs-sm);
-  padding: 4px 0;
-  border-radius: 0;
-}
-.process-cluster > summary:hover {
-  color: var(--text);
-  background: transparent;
-}
-.process-cluster-body {
-  border-left: 0;
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--panel) 42%, transparent);
-  padding: 6px 10px;
-  margin: 4px 0 6px;
-}
-/* 过程摘要行：动作 + 失败数 + 步数。运行中只加重颜色，不画框、不换行。 */
-.process-meta {
+.tt-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: none;
-  margin-left: 4px;
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
 }
-.process-fail {
+.tt-head:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+.tt-icon {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+}
+.tt-head.running .tt-icon {
+  color: var(--accent-2);
+}
+.tt-title {
+  flex: none;
+  color: var(--text);
+  font-weight: 600;
+}
+.tt-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tt-meta {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tt-fail {
+  flex: none;
   color: var(--err);
   font-family: var(--mono);
   font-size: var(--fs-micro);
 }
-.process-cluster[data-running] > summary,
-.process-cluster[data-running] .tc-summary {
+/* 折叠箭头：CSS 画的 5px 直角折线（不依赖字体里的 ▾，任何字号都锐利）。
+   收起 = 指向右，展开 = 指向下。 */
+.tt-chev,
+.ts-chev,
+.tt-step-chev {
+  display: inline-block;
+  flex: none;
+  width: 5px;
+  height: 5px;
+  margin: 0 3px 2px 3px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--faint);
+  opacity: 0.8;
+  transform: rotate(-45deg);
+  transition:
+    transform var(--dur-1) var(--ease),
+    color var(--dur-1) var(--ease);
+}
+.tt-chev.open,
+.ts-chev.open,
+.tt-step-chev.open {
+  transform: rotate(45deg);
+}
+.tt-head:hover .tt-chev,
+.ts-toggle:hover .ts-chev,
+.tt-step-head:hover .tt-step-chev {
   color: var(--text);
+  opacity: 1;
 }
-.process-cluster[data-running] > summary {
-  font-weight: 500;
+.tt-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 5px;
+  vertical-align: middle;
 }
-/* 过程摘要恒为一行：动作再多也截断，读的是「干了哪几类事」，细节展开看。 */
-.process-cluster > summary .tc-summary {
+.tt-dots i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+  animation: tt-dot 1.2s ease-in-out infinite;
+}
+.tt-dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.tt-dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+/* 运行中的环：描边环 + 两段高亮弧，转起来就是「还在想」。 */
+.tt-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 1.6px solid color-mix(in srgb, var(--accent-2) 22%, transparent);
+  border-top-color: var(--accent-2);
+  border-right-color: color-mix(in srgb, var(--accent-2) 60%, transparent);
+  border-radius: 50%;
+  animation: tt-spin 0.8s linear infinite;
+}
+/* 时间线本体：高度封顶 + 自带滚动，思考再长也不会把对话顶出屏幕。 */
+.tt-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(44vh, 400px);
+  margin: 4px 0 2px;
+  padding: 5px 10px 6px 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 46%, transparent);
+}
+/* 工具行沿用活动记录样式；轨迹内不再按消息留 22px。 */
+.tt-body .ev {
+  margin-bottom: 0;
+}
+/* 单条思考：一行预览，点开全文。 */
+.tt-step-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tt-step-head:hover {
+  background: var(--hover);
+}
+.tt-state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  color: var(--ok);
+}
+.tt-step.running .tt-state {
+  color: var(--accent-2);
+}
+.tt-step-label {
+  flex: none;
+  width: 3.2em;
+  color: var(--dim);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.tt-step-preview {
+  display: -webkit-box;
+  flex: 1;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--dim);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.tt-step.running .tt-step-preview {
+  color: var(--text);
+}
+.tt-step-meta {
+  flex: none;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.tt-think {
+  max-height: 320px;
+  margin: 2px 0 8px 21px;
+  padding: 8px 12px;
+  overflow: auto;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  color: var(--dim);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* 收尾回闪：轨迹挂载瞬间高亮一次，提示「刚才的过程已收纳在此」。动画无 forwards，播完即回落。 */
+.thinking-trail.cluster-fresh .tt-head {
+  border-radius: var(--r-xs);
+  animation: tt-flash 1.4s ease-out 1;
+}
+@keyframes tt-flash {
+  0% {
+    background: color-mix(in srgb, var(--accent-2) 16%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+@keyframes tt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tt-dot {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+/* 减少动态效果：停掉循环动画，但保留「运行中」的可读信号（实心色环 + 圆点）。 */
+@media (prefers-reduced-motion: reduce) {
+  .tt-spinner,
+  .tt-dots i,
+  .thinking-trail.cluster-fresh .tt-head {
+    animation: none !important;
+  }
+  .tt-spinner {
+    border-color: var(--accent-2);
+  }
 }
 .tc-running {
   display: inline-flex;
@@ -942,10 +1139,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 思考的内容是 prose，不是路径/命令：用界面字体，避免整行像代码。 */
-.ev.reasoning .tc-line .tc-subject {
-  font-family: var(--font-sans);
-}
 .tc-line .tc-meta {
   flex: none;
   color: var(--faint);
@@ -964,11 +1157,12 @@
 }
 
 /* =========================================================================
-   回合结果卡（2026-10-19）
+   回合结果卡（2026-11-01 二次改版）
    -------------------------------------------------------------------------
-   一轮的结果只在这里出现一次：生成的文件 / 修改的文件分两组，行内给出
-   打开、下载、差异三个入口。过程卡只讲「做了什么」，不再散落产物卡。
-   表面用 panel + 发丝线 + 10px 圆角；颜色只用于增删数字与运行状态。
+   一轮的结果只在这里出现一次：修改的文件 / 新建的文件分两组（修改在上、新建在下），
+   行内给出打开、下载、差异三个入口；行点击与修改行一致，都在右侧面板打开。
+   头部是一句结果（标题 + 分组计数 + 增删合计 + 耗时），正文先给组头小计再列文件。
+   表面用 panel + 发丝线 + 10px 圆角；颜色只用于增删数字与完成状态。
    ========================================================================= */
 .turn-summary {
   margin: 2px 0 22px;
@@ -981,14 +1175,21 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 40px;
-  padding: 8px 10px 8px 12px;
+  min-height: 38px;
+  padding: 7px 10px 7px 12px;
   border-bottom: 1px solid var(--hairline);
 }
-.ts-head-icon {
+/* 完成态：一枚极轻的勾，绿色只做信号，不铺面。 */
+.ts-status {
   display: inline-flex;
   flex: none;
-  color: var(--accent);
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid color-mix(in srgb, var(--ok) 42%, transparent);
+  border-radius: 50%;
+  color: var(--ok);
 }
 .ts-title {
   flex: none;
@@ -1081,6 +1282,21 @@
   line-height: 16px;
   text-align: center;
 }
+/* 组内增删小计：让「哪一组改得多」一眼可见，不必逐行加。 */
+.ts-group-stat {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+.ts-group-stat .add {
+  color: var(--ok);
+}
+.ts-group-stat .del {
+  color: var(--err);
+}
 .ts-row {
   display: flex;
   align-items: center;
@@ -1122,15 +1338,19 @@
   font-size: var(--fs-list);
   white-space: nowrap;
 }
+/* 路径窄时先牺牲目录、保住文件名：扫读结果时先认出「改了哪个文件」。
+   目录不参与放大（否则会在文件名前撑出一段空白），只按需收缩并省略。 */
 .ts-dir {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--faint);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ts-name {
-  flex: 0 1 auto;
-  min-width: 0;
+  flex: 0 0 auto;
+  max-width: 100%;
   overflow: hidden;
   color: var(--text);
   text-overflow: ellipsis;
@@ -1164,7 +1384,7 @@
   flex: none;
   align-items: center;
   gap: 2px;
-  opacity: 0.55;
+  opacity: 0.72;
   transition: opacity var(--dur-1) var(--ease);
 }
 .ts-row:hover .ts-actions,
@@ -1209,8 +1429,8 @@
 }
 
 /* 中栏变窄（侧栏都展开 / 窄窗口）时，先让次要信息让位：
-   数量摘要、增删合计、类型徽标、目录与「差异」文字按钮隐藏；耗时保留「耗时 + 数字」；
-   路径保留文件名（目录可省略），打开 / 下载两个图标入口保留，行点击也仍可开合差异。 */
+   数量摘要、增删合计、类型徽标与目录隐藏；耗时保留「耗时 + 数字」；
+   路径保留文件名，「差异」与下载入口保留（行点击仍打开右侧面板）。 */
 @media (max-width: 1024px) {
   .ts-counts,
   .ts-total,
@@ -1218,19 +1438,25 @@
   .ts-dir {
     display: none;
   }
-  .ts-act:not(.ts-act-icon) {
-    display: none;
-  }
 }
 /* 更窄（手机）时，步骤行先让出体积/增删，保留动作标签与路径。 */
 @media (max-width: 640px) {
-  .tc-line .tc-meta {
+  .tc-line .tc-meta,
+  .tt-step-meta {
     display: none;
+  }
+  .tt-step-preview {
+    -webkit-line-clamp: 1;
+  }
+  .tt-body {
+    max-height: 38vh;
+  }
+  .tt-step-label {
+    width: 2.6em;
   }
 }
 .tc-line,
-.tool-status,
-.artifact-card {
+.tool-status {
   font-family: var(--mono);
 }
 .tool-status {
@@ -2047,8 +2273,7 @@
 .change-item,
 .review-help,
 .kv,
-.md-codeblock,
-.artifact-card {
+.md-codeblock {
   border-color: var(--hairline);
   border-radius: var(--r-md);
   box-shadow: none;

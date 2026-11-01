@@ -1,11 +1,11 @@
-﻿// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
+// 中栏：实时事件流 + 工具调用内联结果 + 流式参数占位 + 底部输入框。
 //
 // 事件按类型渲染，工具调用卡片聚合 args 与 result；点击任意事件卡触发钻取。
 // 回合内「过程类」事件（reasoning/tool_call/tool_result）默认折叠成 <details>，
 // summary 显示步数与工具分布；busy 时展开便于观察，结束后收起聚焦结果。
 //
-// 面向对象改造：子组件各自成文件（ToolCallCard / ReasoningBlock / ProcessCluster /
-// AssistantCard / ArtifactCard / AttachmentChips / ExternalLinkCards），
+// 面向对象改造：子组件各自成文件（ToolCallCard / ThinkingTrail / AssistantCard /
+// AttachmentChips / ExternalLinkCards），
 // 本组件只负责「事件 → 可视块」的分派与滚动锚定。
 //
 // 函数组件范式：无内部 state（lastUserId/lastAssistantId 改渲染期局部量，不再写实例字段）；
@@ -34,8 +34,7 @@ import { QuestionCard } from './QuestionCard.tsx';
 import { TodoDock } from './TodoDock.tsx';
 import { TodoDockModel } from '../models/TodoDockModel.ts';
 import { ToolCallCard } from './stream/ToolCallCard.tsx';
-import { ReasoningBlock } from './stream/ReasoningBlock.tsx';
-import { ProcessCluster } from './stream/ProcessCluster.tsx';
+import { ReasoningStep, ThinkingTrail } from './stream/ThinkingTrail.tsx';
 import { AssistantCard } from './stream/AssistantCard.tsx';
 import { UserCard } from './stream/UserCard.tsx';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.tsx';
@@ -243,9 +242,9 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
         />,
       );
     case 'reasoning':
-      // busy 时该 reasoning 事件正在流式增长 ⇒ 渲染实时「正在思考」面板（live）；
-      // 回合结束（busy=false）后它由 ProcessCluster 渲染，ctx.busy 必为 false ⇒ 折叠摘要。
-      return <ReasoningBlock key={ev.id} ev={ev} live={ctx.busy === true} />;
+      // 正常路径由 ThinkingTrail 直接渲染（同一条轨迹里带状态与展开）；
+      // 这里是裸 reasoning 块的兜底（历史/异常切片），保证内容不以 JSON 露出来。
+      return <ReasoningStep key={ev.id} ev={ev} />;
     case 'tool_call': {
       const callId = (p.callId as string) || ev.id;
       return (
@@ -255,8 +254,6 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
           res={ctx.toolResults[callId]}
           onEventClick={ctx.onEventClick}
           onOpenFile={ctx.onOpenFile}
-          // 运行中不内联产物卡（结果卡收尾时统一展示）；已收编的调用同理。
-          showArtifact={ctx.busy !== true && !ctx.summarizedCallIds.has(callId)}
         />
       );
     }
@@ -325,12 +322,14 @@ function renderLiveInputRow(li: LiveInput): ReactElement {
 function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: EventCtx): ReactElement | null {
   if (b.kind === 'process') {
     return (
-      <ProcessCluster
+      <ThinkingTrail
         key={b.key}
-        block={b}
-        onEventClick={ctx.onEventClick}
-        busy={ctx.busy}
-        fresh={ctx.clusterFresh}
+        events={b.events}
+        startedAt={b.startedAt}
+        endedAt={b.endedAt}
+        // busy 是会话级状态：新回合开跑时，历史回合的轨迹不能跟着进入「思考中」。
+        busy={b.current === true && ctx.busy === true}
+        fresh={b.current === true && ctx.clusterFresh}
         renderEvent={(ev) => renderEventNode(ev, ctx)}
       />
     );
@@ -555,7 +554,7 @@ export function StreamView(props: StreamViewProps): ReactElement {
   // 这三项 + 块划分都是 O(事件数)，而**滚动帧也会重渲染**（scrollTop 是 state）⇒ 交给单击缓存复用，
   // 滚动时不再重算（审计 §2.5：每帧全量重算 ≈180 µs@1000 / ≈510 µs@3000 条）。
   const streamModel = STREAM_MODEL_CACHE.get(events, busy === true);
-  const { blocks, keys, lastUserId, lastAssistantId, toolCallIds, summarizedCallIds } = streamModel;
+  const { blocks, keys, lastUserId, lastAssistantId, toolCallIds } = streamModel;
   const turnDurations = streamModel.turnDurations;
   const ctx: EventCtx = {
     toolResults,
@@ -569,7 +568,6 @@ export function StreamView(props: StreamViewProps): ReactElement {
     onRegenerate,
     finalizedStreamText: finalizedStreamText ?? '',
     toolCallIds,
-    summarizedCallIds,
     turnDurations,
     questionPending: question != null,
     clusterFresh,

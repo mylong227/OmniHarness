@@ -140,9 +140,11 @@ test('processSummary 叙述式聚合', () => {
     { type: 'tool_call', id: '4', timestamp: 0, payload: { name: 'read_file', path: 'b' } },
     { type: 'tool_call', id: '5', timestamp: 0, payload: { name: 'apply_patch', path: 'c' } },
     { type: 'tool_call', id: '6', timestamp: 0, payload: { name: 'sketch_write', title: 'd' } },
+    { type: 'assistant', id: '7', timestamp: 0, payload: { content: '我先读一下现有实现。' } },
   ];
   const s = processSummary(events);
   assert.match(s, /思考 1 次/);
+  assert.match(s, /说明 1 次/, '过程旁白计成「说明 N 次」');
   assert.match(s, /写入了 1 个文件/);
   assert.match(s, /修改了 1 个文件/);
   assert.match(s, /生成了 1 张草图/);
@@ -150,7 +152,8 @@ test('processSummary 叙述式聚合', () => {
   assert.match(s, /读取了 1 个文件/);
 });
 
-test('buildDisplayBlocks 非忙碌时折叠过程事件', () => {
+// 2026-11-01 用户二次澄清：读序必须是「对话 → 总思考 → 总结结果（最终答复）→ 结果卡」。
+test('buildDisplayBlocks：思考轨迹在最终答复之前（聊天下方、总结结果上方）', () => {
   const events: ThreadEvent[] = [
     { type: 'user', id: '1', timestamp: 0 },
     { type: 'reasoning', id: '2', timestamp: 0 },
@@ -158,20 +161,90 @@ test('buildDisplayBlocks 非忙碌时折叠过程事件', () => {
     { type: 'assistant', id: '4', timestamp: 0 },
   ];
   const blocks = buildDisplayBlocks(events, false);
-  assert.strictEqual(blocks.length, 3);
-  assert.strictEqual(blocks[1].kind, 'process');
+  assert.deepStrictEqual(
+    blocks.map((b) => (b.kind === 'single' ? 'single:' + b.event.id : b.kind)),
+    ['single:1', 'process', 'single:4'],
+    '用户消息 → 总思考 → 最终答复',
+  );
+  if (blocks[1].kind !== 'process') throw new Error('缺少过程块');
   assert.strictEqual(blocks[1].events.length, 2);
 });
 
-test('buildDisplayBlocks 忙碌时：思考保持实时单块，工具折成一行活动摘要', () => {
+// 2026-11-01 用户截图：一轮里夹着多条「我先看看 / 让我读一下 / 事实核对完毕…」的助手消息，
+// 它们其实是思考的步骤，平铺会把对话撑满 ⇒ 收进轨迹；本轮最后一条（最终答复）留在对话里。
+test('buildDisplayBlocks：中间的助手消息收进思考轨迹，最终答复留在对话里', () => {
+  const events: ThreadEvent[] = [
+    { type: 'user', id: 'u1', timestamp: 1, payload: { content: '调研一下' } },
+    { type: 'assistant', id: 'a1', timestamp: 2, payload: { content: '我先看看工作区里已有的产物。' } },
+    { type: 'reasoning', id: 'r1', timestamp: 3, payload: { content: '读报告' } },
+    { type: 'tool_call', id: 'c1', timestamp: 4, payload: { callId: 'k1', name: 'read_file', args: { path: 'a.md' } } },
+    { type: 'tool_result', id: 'x1', timestamp: 5, payload: { callId: 'k1', ok: true, output: 'ok' } },
+    { type: 'assistant', id: 'a2', timestamp: 6, payload: { content: '让我再核对一下结论。' } },
+    { type: 'tool_call', id: 'c2', timestamp: 7, payload: { callId: 'k2', name: 'shell', args: { cmd: 'npm run build' } } },
+    { type: 'tool_result', id: 'x2', timestamp: 8, payload: { callId: 'k2', ok: true, output: 'ok' } },
+    { type: 'assistant', id: 'a3', timestamp: 9, payload: { content: '最终答复：方案如下。' } },
+  ];
+  const blocks = buildDisplayBlocks(events, false);
+  const process = blocks.find((b) => b.kind === 'process');
+  if (process === undefined || process.kind !== 'process') throw new Error('缺少过程块');
+  assert.deepStrictEqual(
+    process.events.map((e) => e.id),
+    ['a1', 'r1', 'c1', 'x1', 'a2', 'c2', 'x2'],
+    '过程旁白按原顺序与思考/工具同处一条轨迹',
+  );
+  const singles = blocks.flatMap((b) => (b.kind === 'single' ? [b.event.id] : []));
+  assert.deepStrictEqual(singles, ['u1', 'a3'], '只有用户消息与最终答复留在对话里');
+  assert.deepStrictEqual(
+    blocks.map((b) => (b.kind === 'single' ? 'single:' + b.event.id : b.kind)),
+    ['single:u1', 'process', 'single:a3'],
+    '轨迹在最终答复之前',
+  );
+  assert.match(processSummary(process.events), /说明 2 次/, '旁白计成「说明 N 次」');
+});
+
+test('buildDisplayBlocks：没有 user 起点的合成流不折叠助手消息（防误判）', () => {
+  const events: ThreadEvent[] = [
+    { type: 'assistant', id: 'a1', timestamp: 1, payload: { content: '一' } },
+    { type: 'system', id: 's1', timestamp: 2, payload: { content: 'x' } },
+    { type: 'assistant', id: 'a2', timestamp: 3, payload: { content: '二' } },
+  ];
+  const blocks = buildDisplayBlocks(events, false);
+  assert.strictEqual(blocks.filter((b) => b.kind === 'process').length, 0);
+  assert.strictEqual(blocks.filter((b) => b.kind === 'single').length, 3);
+});
+
+test('buildDisplayBlocks：运行中也只有一条轨迹（不存在「思考单块 + 工具簇」两条）', () => {
   const events: ThreadEvent[] = [
     { type: 'reasoning', id: '1', timestamp: 0 },
     { type: 'tool_call', id: '2', timestamp: 0, payload: { name: 'bash' } },
   ];
   const blocks = buildDisplayBlocks(events, true);
-  assert.strictEqual(blocks.length, 2);
-  assert.strictEqual(blocks[0].kind, 'single');
-  assert.strictEqual(blocks[1].kind, 'process', '运行中的工具调用不再一条一行地铺开');
+  assert.strictEqual(blocks.length, 1);
+  assert.strictEqual(blocks[0].kind, 'process');
+  if (blocks[0].kind !== 'process') throw new Error('缺少过程块');
+  assert.strictEqual(blocks[0].events.length, 2, '思考与工具调用同处一条时间线');
+});
+
+test('buildDisplayBlocks：没有 turn_diff 但产出了文件 → 仍补一张结果卡（产物只集中在卡里）', () => {
+  const events: ThreadEvent[] = [
+    { type: 'user', id: 'u1', timestamp: 1 },
+    { type: 'tool_call', id: 'c1', timestamp: 2, payload: { callId: 'k1', name: 'write_file', args: { path: 'docs/x.md' } } },
+    { type: 'tool_result', id: 'r1', timestamp: 3, payload: { callId: 'k1', ok: true, output: '已写入 docs/x.md' } },
+  ];
+  const blocks = buildDisplayBlocks(events, false);
+  const summary = blocks.find((b) => b.kind === 'turn_summary');
+  assert.ok(summary !== undefined, '写类工具产出了文件，就必须有结果卡兜底');
+  const inlineWrites = blocks.filter((b) => b.kind === 'single' && b.event.payload?.name === 'write_file');
+  assert.strictEqual(inlineWrites.length, 0, '产物调用不得再单独成块（文件卡只能出现在结果卡里）');
+  const inTrail = blocks.some(
+    (b) => b.kind === 'process' && b.events.some((e) => e.payload?.name === 'write_file'),
+  );
+  assert.strictEqual(inTrail, true, '写入动作本身仍留在思考轨迹里');
+  // 运行中不补卡：文件还没写完，卡片会反复抖。
+  assert.strictEqual(
+    buildDisplayBlocks(events, true).some((b) => b.kind === 'turn_summary'),
+    false,
+  );
 });
 
 test('extractUrls 去重并剔除末尾标点', () => {
@@ -261,34 +334,7 @@ test('timeAgo 相对时间', () => {
   assert.strictEqual(timeAgo('not-a-date'), '');
 });
 
-// 2026-10-07 用户截图：「结果不应该被收进过程中，应该单独的显示出来」——写文件/打补丁的调用会带出
-// 产物卡（ArtifactCard），那是这一轮的**结果**。在没有 turn_diff 的兜底路径（运行中 / diff 失效）
-// 它仍单独成块；一旦 turn_diff 收口，产物进入「回合结果卡」，过程里不再重复出现。
-test('buildDisplayBlocks：无 turn_diff 时产物调用单独成块（兜底）', () => {
-  const events: ThreadEvent[] = [
-    { id: 'r1', type: 'reasoning', timestamp: 1, payload: { content: '想一下' } },
-    { id: 'c1', type: 'tool_call', timestamp: 2, payload: { callId: 'k1', name: 'read_file', args: { path: 'a.ts' } } },
-    { id: 'x1', type: 'tool_result', timestamp: 3, payload: { callId: 'k1', ok: true, output: 'ok' } },
-    { id: 'c2', type: 'tool_call', timestamp: 4, payload: { callId: 'k2', name: 'write_file', args: { path: 'docs/x.md' } } },
-    { id: 'x2', type: 'tool_result', timestamp: 5, payload: { callId: 'k2', ok: true, output: '已写入' } },
-    { id: 'c3', type: 'tool_call', timestamp: 6, payload: { callId: 'k3', name: 'shell', args: { command: 'ls' } } },
-    { id: 'x3', type: 'tool_result', timestamp: 7, payload: { callId: 'k3', ok: true, output: 'a.ts' } },
-  ];
-  const blocks = buildDisplayBlocks(events, false);
-  const writes = blocks.filter((b) => b.kind === 'single' && b.event.payload?.name === 'write_file');
-  assert.strictEqual(writes.length, 1, 'write_file 必须单独成块（结果不被收进过程）');
-  const inProcess = blocks.some(
-    (b) => b.kind === 'process' && b.events.some((e) => e.payload?.name === 'write_file'),
-  );
-  assert.strictEqual(inProcess, false, 'write_file 不得出现在任何「执行过程」折叠块里');
-  // 其余工具/思考仍照旧聚合（本次只动产物类）
-  const process = blocks.filter((b) => b.kind === 'process');
-  assert.ok(process.length >= 1, '读文件与 shell 仍应聚合为过程块');
-  const names = process.flatMap((b) => b.events.map((e) => e.payload?.name)).filter(Boolean);
-  assert.ok(names.includes('read_file') && names.includes('shell'), '过程块仍含读文件与 shell');
-});
-
-test('buildDisplayBlocks：turn_diff 收口成结果块，产物调用折进过程（不再散落）', () => {
+test('buildDisplayBlocks：turn_diff 收口成结果块，产物调用收进思考轨迹（不再散落）', () => {
   const events: ThreadEvent[] = [
     { id: 'u1', type: 'user', timestamp: 1 },
     { id: 'r1', type: 'reasoning', timestamp: 2, payload: { content: '想一下' } },

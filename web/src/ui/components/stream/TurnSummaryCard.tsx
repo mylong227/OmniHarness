@@ -1,10 +1,11 @@
-// 回合结果卡：一轮结束后，把「生成的文件」与「修改的文件」统一收在一张卡里。
+// 回合结果卡：一轮结束后，把「修改的文件」与「新建的文件」统一收在一张卡里。
 //
-// 为什么要有这张卡（2026-10-19 用户反馈）：
-//   · 旧版把每个写类工具的产物卡散在过程流里，回合末尾又有一张 turn_diff 清单，
-//     同一个文件会在两处重复出现，读完不知道「这一轮到底产出了什么」；
-//   · 现在过程只讲「做了什么」，结果只讲「留下了什么」：生成 / 修改分组、增删合计、
-//     打开 / 下载 / 查看差异都在同一行内完成。
+// 2026-11-01 二次改版（用户口径）：
+//   · 文件集中：产物只出现在这张卡里，思考步骤内不再内联文件卡；行点击与修改行完全同构
+//     （都在右侧面板打开），差异仍可就地展开。
+//   · 顺序：修改的文件在前、新建的文件在后（用户明确「新建的在修改文件下方」）。
+//   · 头部是一句结果：标题 + 「修改 2 · 新建 1」+ 增删合计 + 耗时；正文先给分组小计，
+//     再逐行给路径、增删与入口。卡片默认展开（文件多时收起，避免把结论顶出屏幕）。
 //
 // 数据面全部来自纯模型 models/TurnSummary（turn_diff ∪ 写类工具成功回执，按路径去重），
 // 组件只负责排版与开合状态。
@@ -20,17 +21,20 @@ import { t } from '../../i18n/i18n.ts';
 
 /** TurnSummaryCard 组件的入参。 */
 export interface TurnSummaryCardProps {
-  /** 本轮事件切片（上一轮 turn_diff 之后到本轮 turn_diff，含 turn_diff）。 */
+  /** 本轮事件切片（本轮 user 之后到本轮 turn_diff，含 turn_diff）。 */
   events: readonly ThreadEvent[];
   /** 在右侧面板打开文件；返回 false 表示文件已不存在，行会被移除。 */
   onOpenFile?: (path: string) => Promise<boolean> | boolean | void;
 }
 
-/** 生成 / 修改两组的展示顺序与标题。 */
-const GROUPS: ReadonlyArray<{ readonly group: 'created' | 'modified'; readonly label: string }> = [
-  { group: 'created', label: '生成的文件' },
+/** 展示顺序：修改在前、新建在后（用户口径），组内按路径稳定排序。 */
+const GROUPS: ReadonlyArray<{ readonly group: 'modified' | 'created'; readonly label: string }> = [
   { group: 'modified', label: '修改的文件' },
+  { group: 'created', label: '新建的文件' },
 ];
+
+/** 卡片默认展开的文件数上限：超过就收起，先让结论留在屏内。 */
+const AUTO_OPEN_LIMIT = 10;
 
 /** 图片扩展名（用于给产物行选图标；不引入新的文件类型判定层）。 */
 const IMAGE_RE = /\.(?:png|jpe?g|gif|webp|svg|bmp|avif)$/iu;
@@ -58,7 +62,9 @@ function splitPath(path: string): { dir: string; name: string } {
 }
 
 /**
- * 文件行右侧动作：差异 / 打开 / 下载。
+ * 文件行右侧动作：差异（仅修改类，就地展开）/ 下载。
+ * 「打开」不再单设图标按钮：行主体点击即打开（用户口径「点击在右侧查看」），
+ * 少一枚图标，窄屏下路径能多留一截。
  * @param props 文件、差异开合态与回调。
  * @returns 动作区节点。
  */
@@ -67,9 +73,8 @@ function FileActions(props: {
   hasDiff: boolean;
   diffOpen: boolean;
   onToggleDiff: () => void;
-  onOpenFile?: ((path: string) => Promise<boolean> | boolean | void) | undefined;
 }): ReactElement {
-  const { file, hasDiff, diffOpen, onToggleDiff, onOpenFile } = props;
+  const { file, hasDiff, diffOpen, onToggleDiff } = props;
   const href = `/files?path=${encodeURIComponent(file.path)}`;
   const stop = (e: React.MouseEvent): void => e.stopPropagation();
   return (
@@ -87,18 +92,6 @@ function FileActions(props: {
           {diffOpen ? t('收起差异') : t('差异')}
         </button>
       ) : null}
-      <button
-        type="button"
-        className="ts-act ts-act-icon ts-open"
-        onClick={(e: React.MouseEvent) => {
-          stop(e);
-          void onOpenFile?.(file.path);
-        }}
-        title={t('在右侧面板打开')}
-        aria-label={t('在右侧面板打开')}
-      >
-        {icon('eye', { size: 13 })}
-      </button>
       <a
         className="ts-act ts-act-icon ts-download"
         href={href}
@@ -114,7 +107,7 @@ function FileActions(props: {
 }
 
 /**
- * 一行文件的打开 / 下载 / 差异入口。
+ * 一行文件：路径 + 增删 / 类型 + 入口。行主体统一「在右侧面板打开」（与修改行一致）。
  * @param props 文件行与开合回调
  * @returns 行节点
  */
@@ -134,30 +127,14 @@ function FileRow(props: {
         ? t('补丁')
         : t('普通文件');
 
-  /**
-   * 行主体：修改类展开差异；生成类直接在右侧打开。
-   * @returns 无返回值
-   */
-  const onMain = (): void => {
-    if (hasDiff && file.group === 'modified') onToggleDiff();
-    else void onOpenFile?.(file.path);
-  };
-
   return (
     <div className={'ts-file ' + file.group}>
       <div className="ts-row">
         <button
           type="button"
           className="ts-main"
-          onClick={onMain}
-          aria-expanded={hasDiff && file.group === 'modified' ? diffOpen : undefined}
-          title={
-            hasDiff && file.group === 'modified'
-              ? diffOpen
-                ? t('收起差异')
-                : t('查看差异')
-              : t('在右侧面板打开')
-          }
+          onClick={() => void onOpenFile?.(file.path)}
+          title={t('在右侧面板打开')}
         >
           <span className="ts-ico" aria-hidden="true">{icon(fileIcon(file), { size: 14 })}</span>
           <span className="ts-path" title={file.path}>
@@ -173,13 +150,7 @@ function FileRow(props: {
             <span className="ts-kind">{kindLabel}</span>
           )}
         </button>
-        <FileActions
-          file={file}
-          hasDiff={hasDiff}
-          diffOpen={diffOpen}
-          onToggleDiff={onToggleDiff}
-          {...(onOpenFile !== undefined ? { onOpenFile } : {})}
-        />
+        <FileActions file={file} hasDiff={hasDiff} diffOpen={diffOpen} onToggleDiff={onToggleDiff} />
       </div>
       {hasDiff && file.group === 'modified' && diffOpen ? (
         <div className="ts-diff">{diffView(file.diff)}</div>
@@ -204,7 +175,28 @@ function rawDiffOf(events: readonly ThreadEvent[]): string {
 }
 
 /**
- * 结果卡头部：标题、文件计数、耗时与增删合计。
+ * 一组文件的头部：组名 + 文件数 + 组内增删小计。
+ * @param props 组名、文件数与小计。
+ * @returns 组头节点。
+ */
+function GroupHead(props: { label: string; count: number; added: number; deleted: number }): ReactElement {
+  const { label, count, added, deleted } = props;
+  return (
+    <div className="ts-group-head">
+      <span className="ts-group-name">{t(label)}</span>
+      <span className="ts-group-count">{count}</span>
+      {added + deleted > 0 ? (
+        <span className="ts-group-stat">
+          {added > 0 ? <span className="add">+{added}</span> : null}
+          {deleted > 0 ? <span className="del">−{deleted}</span> : null}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 结果卡头部：标题、文件计数、增删合计、耗时与开合。
  * @param props 计数、耗时与增删数。
  * @returns 头部节点。
  */
@@ -219,29 +211,30 @@ function SummaryHead(props: {
   const { counts, duration, added, deleted, open, onToggle } = props;
   return (
     <div className="ts-head">
-      <span className="ts-head-icon" aria-hidden="true">{icon('package', { size: 15 })}</span>
+      <span className="ts-status" aria-hidden="true">{icon('check', { size: 13 })}</span>
       <span className="ts-title">{t('本轮结果')}</span>
       <span className="ts-counts">{counts}</span>
-      {duration === '' ? null : (
-        <span className="ts-time" title={t('本轮耗时')}>
-          <span className="ts-time-label">{t('耗时')} </span>
-          {duration}
-        </span>
-      )}
       {added + deleted > 0 ? (
         <span className="ts-total">
           {added > 0 ? <span className="add">+{added}</span> : null}
           {deleted > 0 ? <span className="del">−{deleted}</span> : null}
         </span>
       ) : null}
+      {duration === '' ? null : (
+        <span className="ts-time" title={t('本轮耗时')}>
+          <span className="ts-time-label">{t('耗时')} </span>
+          {duration}
+        </span>
+      )}
       <button
         type="button"
         className="ts-toggle"
         onClick={onToggle}
         aria-expanded={open}
+        aria-label={open ? t('收起结果') : t('展开结果')}
         title={open ? t('收起结果') : t('展开结果')}
       >
-        {open ? '▴' : '▾'}
+        <span className={'ts-chev' + (open ? ' open' : '')} aria-hidden="true" />
       </button>
     </div>
   );
@@ -256,7 +249,7 @@ function FallbackSummary(props: { rawDiff: string; duration: string }): ReactEle
   return (
     <div className="turn-summary" role="group" aria-label={t('本轮结果')}>
       <div className="ts-head">
-        <span className="ts-head-icon" aria-hidden="true">{icon('package', { size: 15 })}</span>
+        <span className="ts-status" aria-hidden="true">{icon('check', { size: 13 })}</span>
         <span className="ts-title">{t('本轮结果')}</span>
         {props.duration === '' ? null : (
           <span className="ts-time" title={t('本轮耗时')}>
@@ -271,7 +264,7 @@ function FallbackSummary(props: { rawDiff: string; duration: string }): ReactEle
 }
 
 /**
- * 结果卡文件分组正文。
+ * 结果卡正文：按「修改 → 新建」分组，每组先给组头小计再列文件。
  * @param props 可见文件、展开的差异集合与回调。
  * @returns 正文节点。
  */
@@ -287,12 +280,11 @@ function SummaryBody(props: {
       {GROUPS.map(({ group, label }) => {
         const groupFiles = files.filter((f) => f.group === group);
         if (groupFiles.length === 0) return null;
+        const added = groupFiles.reduce((n, f) => n + f.added, 0);
+        const deleted = groupFiles.reduce((n, f) => n + f.deleted, 0);
         return (
           <section className="ts-group" key={group} aria-label={t(label)}>
-            <div className="ts-group-head">
-              <span className="ts-group-name">{t(label)}</span>
-              <span className="ts-group-count">{groupFiles.length}</span>
-            </div>
+            <GroupHead label={label} count={groupFiles.length} added={added} deleted={deleted} />
             {groupFiles.map((file) => (
               <FileRow
                 key={file.path}
@@ -323,9 +315,9 @@ function countsOf(files: readonly TurnSummaryFile[]): {
   const modifiedCount = files.filter((f) => f.group === 'modified').length;
   const counts =
     createdCount > 0 && modifiedCount > 0
-      ? t('生成 {c} · 修改 {m}', { c: createdCount, m: modifiedCount })
+      ? t('修改 {m} · 新建 {c}', { m: modifiedCount, c: createdCount })
       : createdCount > 0
-        ? t('生成 {c} 个文件', { c: createdCount })
+        ? t('新建 {c} 个文件', { c: createdCount })
         : t('修改 {m} 个文件', { m: modifiedCount });
   return {
     counts,
@@ -365,8 +357,7 @@ export function TurnSummaryCard(props: TurnSummaryCardProps): ReactElement | nul
   };
   // 不足 1s 不显示（避免「耗时 0秒」这种没有信息量的读数）。
   const duration = summary.durationMs >= 1000 ? formatDurationMs(summary.durationMs) : '';
-  // 文件多时先收起（头部仍给出数量与增删合计），避免一次改动几十个文件把结论顶出屏幕。
-  const [open, setOpen] = React.useState<boolean>(() => summary.files.length <= 8);
+  const [open, setOpen] = React.useState<boolean>(() => summary.files.length <= AUTO_OPEN_LIMIT);
   const [openDiffs, setOpenDiffs] = React.useState<ReadonlySet<string>>(new Set());
 
   // 解析不出文件段（旧存档 / 非标准 diff）时退回原始 diff，绝不静默吞掉内容。
