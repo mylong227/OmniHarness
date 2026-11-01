@@ -182,7 +182,11 @@ test('discover：双版本、能力、extensions、缓存字段与 serverInfo', 
   assert.strictEqual(result['cacheScope'], 'public');
   const capabilities = result['capabilities'] as Record<string, unknown>;
   assert.deepStrictEqual(capabilities['extensions'], { 'io.omniharness/demo': { mode: 'test' } });
-  assert.deepStrictEqual(capabilities['resources'], { subscribe: true, listChanged: true });
+  // 批次B（2ecd4476）口径：resources/prompts 只在端口注入时声明——未注入的裸服务端必须
+  // 如实缺省（「声明了能力而 list 永远空表」比缺声明更误导）。注入态的恢复声明在
+  // 「所有结果带 resultType 与 _meta.serverInfo」用例里双向钉住。
+  assert.strictEqual(capabilities['resources'], undefined);
+  assert.strictEqual(capabilities['prompts'], undefined);
 });
 
 test('版本校验：不支持的 protocolVersion → -32022 + supported/requested', async () => {
@@ -221,6 +225,11 @@ test('所有结果带 resultType 与 _meta.serverInfo（列表/读取/模板）'
     get: async (name: string) => `prompt:${name}`,
   };
   const { pair: p } = buildServer({ resources, prompts });
+  // 注入后自动恢复声明（批次B 口径的另一半）：discover 必须如实宣告注入的能力。
+  const discover = resultOf(await request(p, 9, 'server/discover', { _meta: modernMeta() }));
+  const injectedCaps = discover['capabilities'] as Record<string, unknown>;
+  assert.deepStrictEqual(injectedCaps['resources'], { subscribe: true, listChanged: true });
+  assert.deepStrictEqual(injectedCaps['prompts'], { listChanged: true });
   const methods: readonly [string, Record<string, unknown>][] = [
     ['tools/list', {}],
     ['prompts/list', {}],

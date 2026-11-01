@@ -108,6 +108,9 @@ const ROOT_ALLOWLIST: readonly string[] = [
   'integration.md',
   'protocol.md',
   'DOMAIN_SLICE_TEMPLATE.md',
+  // 环境变量全量参考（2026-11-01 显式登记）：由源码 process.env 读点自动编译的全量清单；
+  // 约定新增 OMNI_* 旋钮同步补行，否则文档与代码漂移（docs/README §1 有索引）。
+  'ENV_REFERENCE.md',
 ];
 
 /** 递归列出目录下所有 .md（相对给定根）。 */
