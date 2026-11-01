@@ -135,7 +135,9 @@ for (const theme of ['dark', 'light'] as const) {
         document.head.appendChild(s);
         return true;
       })()`);
-      await cdp.waitFor("!!document.querySelector('.composer-input textarea')", 2000);
+      // 挂载等待给足预算：全量判据并发抢 Chrome 时 2s 偶发不够（实测 ③ 假红根因）；
+      // 条件等待慢机只多花时间，判据总预算 120s 足够。
+      await cdp.waitFor("!!document.querySelector('.composer-input textarea')", 10000);
       // 打开设置（工作台控制台）
       await cdp.evaluate(`(function(){
         var b = document.querySelector('.side-foot button[aria-label=\"打开设置\"]');

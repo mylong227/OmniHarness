@@ -40,6 +40,10 @@ omniharness acp [--acp-permission client|auto]
 只读工具直接放行；`auto` 全部自动放行。提示中的 `resource` 文本会并入 prompt；`image`/`audio`
 因未声明能力而明确拒绝。ACP 的 stdout **只写协议消息**，诊断一律走 stderr。
 
+提问上行（2026-11-01）：`ask_user` 的**单选题**经 `session/request_permission` 由 Client 点选作答
+（`AcpQuestionUplink`，选项 label 即答案，断连/超时按「未作答」fail-soft 继续）；多选题与开放题
+ACP v1 无对应原语，诚实占位空选择——题面本身仍经 `session/update` 对 Client 可见（见下文边界）。
+
 ## 2. A2A v1.0
 
 `--a2a` 启用后（`--a2a-port` / `--a2a-transport http|ws`），HTTP 传输提供 `POST /a2a`（JSON-RPC）
@@ -142,7 +146,9 @@ await server.listen(9001);
 
 ## 4. 未支持 / 边界
 
-- ACP：未实现 `session/delete`、`session/list` 游标分页与 `session_info_update`、Client 提供的 MCP
+- ACP：`ask_user` 的**多选题与开放题无作答回传**（协议无多选/文本输入原语；2026-11-01 起题面
+  经 `session/update` 可见、回答走无人值守占位，单选题已可点选回传）；未实现 `session/delete`、
+  `session/list` 游标分页与 `session_info_update`、Client 提供的 MCP
   server 连接、`fs/*` / `terminal/*` 反向调用、`image`/`audio` prompt、`additionalDirectories` 生效、
   `configOptions` / 会话模式；`plan` 暂不发送 `priority` 之外的计划元数据。`session/load` 只回放文本 /
   工具事件，不回放 `notice` 等实时事件。认证只提供**端口**：CLI 未注入 `AcpAuthenticator` 时

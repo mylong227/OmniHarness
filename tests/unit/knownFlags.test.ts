@@ -20,21 +20,62 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.ts';
 import { KNOWN_EXTRA_FLAGS } from '../../src/cli/cliFlagTable.ts';
 
 const ROOT = process.cwd();
-const CLI_DIR = join(ROOT, 'src', 'cli');
+const SRC_DIR = join(ROOT, 'src');
 const CLI_ENTRY = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
 
-/** `src/cli/**` 下的全部 .ts 源文本。 */
+/**
+ * `src/**` 全域递归的 .ts 源文本（2026-11-01 扫描半径扩展）。
+ *
+ * 为什么扩：判据①此前只扫 `src/cli` 平铺目录，`src/cli` 之外的旗标读取点（如
+ * `src/eval` 旁路解析器、`src/adapters` 里的形状比较）在保护圈外——「登记面之外的
+ * 旁路解析器」正是盘点时要显式化的形态。实验（全 src 扫描）浮出的未登记项只有
+ * eval 7 旗标与 shellChildEnv 的 `--require`，两者都进 {@link EXEMPT_FLAGS} 显式备案。
+ */
 function cliSources(): readonly { readonly name: string; readonly text: string }[] {
-  return readdirSync(CLI_DIR)
-    .filter((n) => n.endsWith('.ts'))
-    .map((n) => ({ name: n, text: readFileSync(join(CLI_DIR, n), 'utf8') }));
+  const out: { readonly name: string; readonly text: string }[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!entry.name.endsWith('.ts') || entry.name.endsWith('.d.ts')) continue;
+      out.push({
+        name: relative(SRC_DIR, full).replaceAll('\\', '/'),
+        text: readFileSync(full, 'utf8'),
+      });
+    }
+  };
+  walk(SRC_DIR);
+  return out;
 }
+
+/**
+ * 旗标豁免表（全 src 扫描半径下的**显式备案**，flag → 理由）：
+ *  - eval 7 旗标：`src/eval/longTaskCatalog.ts` 的自有解析器不经 ArgParser、自带 fail-closed
+ *    （未知参数抛错），只被 tools/eval 驱动脚本调用——登记进认识面反而让它们在任意子命令
+ *    被静默接受，违反 fail-closed；
+ *  - `--require`：Node 运行时旗标（`shellChildEnv.ts` 清洗 NODE_OPTIONS 时剔除宿主 shim 用），
+ *    不是本 CLI 的旗标。
+ * 豁免若腐化（读取点消失）不会红——本表是「已知非 CLI 旗标」的文档，不是白名单放行。
+ */
+const EXEMPT_FLAGS: ReadonlyMap<string, string> = new Map([
+  ['--self-check', 'src/eval 旁路解析器（自带 fail-closed，不经 ArgParser）'],
+  ['--long-horizon', 'src/eval 旁路解析器'],
+  ['--k', 'src/eval 旁路解析器'],
+  ['--tasks', 'src/eval 旁路解析器'],
+  ['--transcripts', 'src/eval 旁路解析器'],
+  ['--timeout-scale', 'src/eval 旁路解析器'],
+  ['--only', 'src/eval 旁路解析器'],
+  ['--require', 'Node 运行时旗标（NODE_OPTIONS 清洗），非 CLI 旗标'],
+]);
 
 /**
  * 抽出源文本里所有"读取器 + 字面旗标名"的读取点。
@@ -67,22 +108,22 @@ function readFlags(text: string): readonly string[] {
  * 的新旗标，旧正则扫不到 ⇒ 漏登记 ⇒ 未知旗标 fail-closed 打死真实功能——与 `--auto-approve`
  * 当年同一类盲区，故把两种形状一并纳入。
  * 每次返回**新**正则（避免 `/g` 共享 `lastIndex` 造成的状态串味），供判据①与③共用。
- *
- * 已知旁路（显式备案，非盲区）：`src/eval/longTaskCatalog.ts` 的自有解析器读 7 个旗标
- * （--self-check/--long-horizon/--k/--tasks/--transcripts/--timeout-scale/--only）——它不经
- * ArgParser、自带 fail-closed（未知参数抛错），且只被 tools/eval 驱动脚本调用，故不要求登记
- * 进 src/cli 的认识面（登记反而会让这些旗标在任意子命令被静默接受，违反 fail-closed）。
+ * 非 CLI 旗标的误伤（eval 旁路解析器 7 旗标、shellChildEnv 的 Node `--require`）由
+ * 判据①旁的 {@link EXEMPT_FLAGS} 豁免表显式备案，不在本正则层处理。
  * @returns 带 `g` 标志的新正则。旗标名落在捕获组 2 / 4 / 6（三个分支各一）。
  */
 function flagReadPattern(): RegExp {
   return /(?:\.has\(|\.value\(|\.values\(|\.includes\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'|[=!]==?\s*'(--[a-z][a-z0-9-]*)'|startsWith\(\s*'(--[a-z][a-z0-9-]*)='/g;
 }
 
-test('① 源码里每个旗标读取点都必须被 isKnownFlag 接受（漏登记 ⇒ 打掉真实功能）', () => {
+test('① 全 src 源码里每个旗标读取点都必须被 isKnownFlag 接受（漏登记 ⇒ 打掉真实功能）', () => {
   const missing: string[] = [];
   for (const { name, text } of cliSources()) {
     for (const flag of readFlags(text)) {
-      if (!CliFlagTable.isKnownFlag(flag)) missing.push(`${name}: ${flag}`);
+      // 豁免表是「已知非 CLI 旗标」的显式备案（见 EXEMPT_FLAGS 注释），不是白名单放行。
+      if (!CliFlagTable.isKnownFlag(flag) && !EXEMPT_FLAGS.has(flag)) {
+        missing.push(`${name}: ${flag}`);
+      }
     }
   }
   assert.deepStrictEqual(
