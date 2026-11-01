@@ -431,6 +431,42 @@
     {
       "spec": "--oidc-issuer URL --oidc-client-id ID --oidc-jwks-uri URI",
       "description": "门禁用 OIDC 配置（需真实 IdP 的 jwks_uri 端点）"
+    },
+    {
+      "spec": "--take-port",
+      "description": "serve：端口被占时接管占用者的 8787（显式要求下）"
+    },
+    {
+      "spec": "--trust-workspace",
+      "description": "跳过工作区信任确认（脚本/CI 场景）"
+    },
+    {
+      "spec": "--dir DIR",
+      "description": "serve 插件目录 / bundle 源目录"
+    },
+    {
+      "spec": "--port N",
+      "description": "mcp auth 回环回调端口"
+    },
+    {
+      "spec": "--limit N",
+      "description": "mcp registry 列表条数上限"
+    },
+    {
+      "spec": "--timeout MS",
+      "description": "sdk call 等待上限（毫秒）"
+    },
+    {
+      "spec": "--verify / --sign-key KEY / --skill NAME / --pack FILE / --trust / --yes",
+      "description": "evolution 子命令族：校验 / 签名私钥 / 技能名 / 包路径 / 信任 / 免确认（见 evolution --help）"
+    },
+    {
+      "spec": "--declare FILE --sandbox-level L --source DIR --loose",
+      "description": "bundle source/grade：能力声明 / 沙箱级别 / 源目录 / 宽松评级"
+    },
+    {
+      "spec": "--seq N --query Q --kind K --iterations N --call-id ID",
+      "description": "schema / native bench 等子命令的细粒度参数（各子命令 --help 展开）"
     }
   ]
 }

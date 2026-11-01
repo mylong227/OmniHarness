@@ -9,7 +9,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
 import { ArgParser } from '../../src/cli/argParser.ts';
-import { CostBudget } from '../../src/adapters/model/costBudget.ts';
+import { BudgetedModel } from '../../src/adapters/model/budgetedModel.ts';
 import { MockModel } from '../../src/adapters/model/mockModel.ts';
 import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
 import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
@@ -35,7 +35,11 @@ const base = (): {
 
 test('P5 缺省不设 costBudgetUsd ⇒ 不构造预算（零行为变更）', () => {
   const config = ConfigFactory.build(base());
-  assert.strictEqual(config.costBudget, undefined);
+  // 2026-11-01：ResolvedConfig.costBudget 透传副本已删（全仓零读者）；预算是否构造
+  // 改经**真实消费点**观察——模型是否被 BudgetedModel 包裹 + budget_status 是否注册。
+  assert.ok(!(config.model instanceof BudgetedModel), '缺省不得包 BudgetedModel');
+  const names = config.tools.list().map((tool) => tool.name);
+  assert.ok(!names.includes('budget_status'), '缺省不得注册 budget_status');
 });
 
 test('P5 设 costBudgetUsd ⇒ 生产装配路径真构造预算并透传 softRatio / 行为', () => {
@@ -45,16 +49,19 @@ test('P5 设 costBudgetUsd ⇒ 生产装配路径真构造预算并透传 softRa
     costBudgetOnExceed: 'warn',
     costBudgetSoftRatio: 0.5,
   });
-  assert.ok(config.costBudget !== undefined, 'costBudgetUsd 必须真的构造出预算实例');
-  assert.strictEqual(config.costBudget.limitUsd, 5);
-  const budget = config.costBudget as CostBudget;
-  assert.strictEqual(budget.softRatio, 0.5);
-  assert.strictEqual(budget.blocking, false, "'warn' ⇒ 软预算（不阻断）");
+  assert.ok(config.model instanceof BudgetedModel, 'costBudgetUsd 必须真的构造出预算并包裹模型');
+  const names = config.tools.list().map((tool) => tool.name);
+  assert.ok(names.includes('budget_status'), '预算存在 ⇒ budget_status 必须注册');
 });
 
 test('P5 非正数 costBudgetUsd ⇒ 视为关闭', () => {
-  assert.strictEqual(ConfigFactory.build({ ...base(), costBudgetUsd: 0 }).costBudget, undefined);
-  assert.strictEqual(ConfigFactory.build({ ...base(), costBudgetUsd: -1 }).costBudget, undefined);
+  for (const usd of [0, -1]) {
+    const config = ConfigFactory.build({ ...base(), costBudgetUsd: usd });
+    assert.ok(
+      !(config.model instanceof BudgetedModel),
+      'costBudgetUsd=' + String(usd) + ' 视为关闭',
+    );
+  }
 });
 
 test('P5 预算存在时 budget_status 工具被注册（真实消费点）', () => {

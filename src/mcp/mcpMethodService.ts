@@ -25,11 +25,18 @@ type McpRequestHandler = (
   context: ParsedMcpRequestContext,
 ) => Promise<unknown>;
 
-/** 服务端能力：三类 listChanged、资源订阅、扩展协商位。 */
+/**
+ * 服务端能力：按**实际注入的后端**声明（2026-11-01 接线收口）。
+ *
+ * 此前无条件声明 resources/prompts，而宿主两处构造（mcpServeRunner / mcpHttpServer）从不
+ * 注入这两个端口 ⇒ 客户端看到的是「声明了能力、list 永远空表」——比不声明更误导（客户端
+ * 会以为宿主有资源/提示可挖）。工具恒声明（内置工具集永远存在）；resources/prompts 只在
+ * 后端端口注入时声明（「工具不存在优于工具撒谎」同型口径；SDK 嵌入方注入后自动恢复声明）。
+ */
 const capabilitiesOf = (options: McpServerOptions): McpCapabilities => ({
   tools: { listChanged: true },
-  resources: { subscribe: true, listChanged: true },
-  prompts: { listChanged: true },
+  ...(options.resources !== undefined ? { resources: { subscribe: true, listChanged: true } } : {}),
+  ...(options.prompts !== undefined ? { prompts: { listChanged: true } } : {}),
   extensions: { ...(options.extensions ?? {}) },
 });
 

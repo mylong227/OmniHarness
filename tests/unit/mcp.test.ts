@@ -97,11 +97,21 @@ test('MCP 协议版本已对齐当前稳定版 2025-06-18（与主流客户端�
   assert.strictEqual(McpProtocol.PROTOCOL_VERSION, '2025-06-18');
 });
 
-test('MCP 服务端：initialize 声明 resources 与 prompts 能力', async () => {
-  const { client } = buildLinked();
-  const info = await client.initialize();
-  assert.ok('resources' in info.capabilities, '应声明 resources 能力');
-  assert.ok('prompts' in info.capabilities, '应声明 prompts 能力');
+test('MCP 服务端：能力按实际注入的后端声明（2026-11-01 接线收口）', async () => {
+  // 未注入：不声明 resources/prompts——「声明了能力、list 永远空表」比不声明更误导。
+  const bare = await buildLinked().client.initialize();
+  assert.ok(!('resources' in bare.capabilities), '未注入资源后端不得声明 resources');
+  assert.ok(!('prompts' in bare.capabilities), '未注入提示后端不得声明 prompts');
+  // 注入后：能力自动恢复声明。
+  const resources: ResourcePort = {
+    name: 'mem',
+    list: async () => [],
+    read: async (uri) => ({ uri, text: '' }),
+  };
+  const prompts: PromptPort = { name: 'p', list: async () => [], get: async () => '提示正文' };
+  const full = await buildLinked({ resources, prompts }).client.initialize();
+  assert.ok('resources' in full.capabilities, '注入后必须声明 resources');
+  assert.ok('prompts' in full.capabilities, '注入后必须声明 prompts');
 });
 
 test('MCP 服务端：未配置后端时 resources/list 与 prompts/list 返回空列表（不伪造）', async () => {

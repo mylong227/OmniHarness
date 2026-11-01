@@ -129,7 +129,10 @@ export class ConfigFactory {
       // 而不是静默回落成 off——与「安全相关枚举必须显式校验」同一纪律。
       ...ConfigFactory.buildInjectionGuard(partial),
       runtimeTelemetry: partial.runtimeTelemetry,
-      costBudget,
+      // selfVerify 透传（2026-11-01 接线收口）：runtime 侧 workflowMemory 沉淀面读
+      // config.selfVerify 判定，而本字面量此前从未透传 ⇒ 沉淀面在工厂路径恒 undefined
+      // （工具面读的是解析后的 policy，两处口径自此都对齐「用户显式开启」）。
+      selfVerify: partial.selfVerify,
       budgetDegrade,
       goalMaxIterations,
       lsp,

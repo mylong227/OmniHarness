@@ -20,7 +20,6 @@ import type { LongTermMemoryPort } from '../memory/longTermMemory.ts';
 import type { RepoMapContextEnginePort } from '../context/repoMapContextEnginePort.ts';
 import type { ScratchpadPort } from '../memory/scratchpad.ts';
 import type { MemoryExtractorPort } from '../memory/memoryExtractor.ts';
-import type { CostBudgetPort } from '../model/costBudgetPort.ts';
 import type { BudgetDegradeSignal } from '../model/budgetDegrade.ts';
 import type { LspPort } from '../tool/lsp.ts';
 import type { AgentIdentityPort } from '../runtime/agentIdentity.ts';
@@ -97,8 +96,6 @@ export interface ResolvedConfig extends OmniHarnessConfig {
   readonly scratchpad: ScratchpadPort;
   /** 长期记忆蒸馏器（#S28，可选）：模型存在且未关 memoryConsolidate 时构造，回合末自动沉淀；否则 undefined（仅支持显式 remember）。 */
   readonly memoryExtractor?: MemoryExtractorPort | undefined;
-  /** 成本预算计量（#S29，可选）：配置 costBudgetUsd 正数时构造，BudgetedModel 与 budget_status 工具共享同一实例（含子代）。 */
-  readonly costBudget?: CostBudgetPort | undefined;
   /**
    * 预算降级信号端口（P5 自动降档，可选）：仅当 `costBudget` 存在时桥接构造，供 `core`
    * 消费点（`StepContextBuilder`）在软阈值越过后收敛检索预算。缺省（无预算）为 undefined

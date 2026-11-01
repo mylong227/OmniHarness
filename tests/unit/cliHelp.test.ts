@@ -18,7 +18,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CliHelp, HELP_ENUM_SOURCES, cliHelp } from '../../src/cli/cliHelp.ts';
-import { FLAG_ENUM_VALUES, FLAG_TABLE, CliFlagTable } from '../../src/cli/cliFlagTable.ts';
+import {
+  FLAG_ENUM_VALUES,
+  FLAG_TABLE,
+  CliFlagTable,
+  KNOWN_EXTRA_FLAGS,
+} from '../../src/cli/cliFlagTable.ts';
 import { STORAGE_ADAPTERS } from '../../src/cli/cliEnums.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
@@ -132,14 +137,18 @@ test('④ 帮助不得宣传不存在的旗标（幽灵文档）', () => {
   //   `--auth-required` —— 由 `serve` 子命令自行扫描（`cliServerCmds.runServe`；
   //   同处一起自解析的 `--oidc-*` 其实在 FLAG_TABLE 里有占位处理器，故不在本清单）。
   // 例外清单若腐化（某旗标已在 FLAG_TABLE，或已不在帮助里）会立刻失败。
+  // 2026-11-01：KNOWN_EXTRA_FLAGS（登记认识面的另一半）也视为「存在」——它由判据③钉住
+  // 「每一项都有真实读取点」，帮助宣传一个 KNOWN_EXTRA 旗标不是幽灵。
   const parsedOutsideFlagTable = new Set(['--config', '--profile', '--auth-required']);
+  const knownExtra = new Set(KNOWN_EXTRA_FLAGS);
   const rendered = cliHelp.render();
   const escape = (flag: string): string => flag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const topLevel = cliHelp
     .documentedFlags()
     .filter((flag) => new RegExp(`^ {2}${escape(flag)}( |$)`, 'm').test(rendered));
   const ghost = topLevel.filter(
-    (flag) => FLAG_TABLE[flag] === undefined && !parsedOutsideFlagTable.has(flag),
+    (flag) =>
+      FLAG_TABLE[flag] === undefined && !parsedOutsideFlagTable.has(flag) && !knownExtra.has(flag),
   );
   assert.deepStrictEqual(
     ghost,

@@ -49,19 +49,33 @@ function cliSources(): readonly { readonly name: string; readonly text: string }
 function readFlags(text: string): readonly string[] {
   const found = new Set<string>();
   for (const m of text.matchAll(flagReadPattern())) {
-    if (m[1] !== undefined) found.add(m[1]);
+    // 三个分支各占一个捕获组（reader 式=1 / 相等比较=2 / 前缀比较=3），取第一个命中的。
+    const flag = m[1] ?? m[2] ?? m[3];
+    if (flag !== undefined) found.add(flag);
   }
   return [...found];
 }
 
 /**
- * 「源码读取旗标」的统一识别式：reader 式（`.has(`/`.value(`/`flagValue(`…）**与** `Array.includes(`。
- * 每次返回**新**正则（避免 `/g` 共享 `lastIndex` 造成的状态串味），供判据①与③共用——
- * 两处各写一份正是上一轮漏掉 `.includes(` 的成因。
- * @returns 带 `g` 标志的新正则。
+ * 「源码读取旗标」的统一识别式：reader 式（`.has(`/`.value(`/`flagValue(`…）、`Array.includes(`、
+ * **相等比较式**（`arg === '--x'` / `arg !== '--x'`，单双引号皆认）与**前缀比较式**
+ * （`startsWith('--x=')`）。
+ *
+ * 2026-11-01 补洞（2026-10-06 `.includes(` 补洞的同型续作）：本机实测 `src/cli` 里存在
+ * 相等/前缀形状的真实读取点——`cliMcpCmds.ts` 的 `arg === '--limit'`、`serveWorkspace.ts` 的
+ * `startsWith('--workspace=')` 等。它们今天恰好都已登记（判据不红），但若有人新增**同形状**
+ * 的新旗标，旧正则扫不到 ⇒ 漏登记 ⇒ 未知旗标 fail-closed 打死真实功能——与 `--auto-approve`
+ * 当年同一类盲区，故把两种形状一并纳入。
+ * 每次返回**新**正则（避免 `/g` 共享 `lastIndex` 造成的状态串味），供判据①与③共用。
+ *
+ * 已知旁路（显式备案，非盲区）：`src/eval/longTaskCatalog.ts` 的自有解析器读 7 个旗标
+ * （--self-check/--long-horizon/--k/--tasks/--transcripts/--timeout-scale/--only）——它不经
+ * ArgParser、自带 fail-closed（未知参数抛错），且只被 tools/eval 驱动脚本调用，故不要求登记
+ * 进 src/cli 的认识面（登记反而会让这些旗标在任意子命令被静默接受，违反 fail-closed）。
+ * @returns 带 `g` 标志的新正则。旗标名落在捕获组 2 / 4 / 6（三个分支各一）。
  */
 function flagReadPattern(): RegExp {
-  return /(?:\.has\(|\.value\(|\.values\(|\.includes\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'/g;
+  return /(?:\.has\(|\.value\(|\.values\(|\.includes\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'|[=!]==?\s*'(--[a-z][a-z0-9-]*)'|startsWith\(\s*'(--[a-z][a-z0-9-]*)='/g;
 }
 
 test('① 源码里每个旗标读取点都必须被 isKnownFlag 接受（漏登记 ⇒ 打掉真实功能）', () => {

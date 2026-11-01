@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 
 /**
  * ProjectInstructions — 宿主类：收拢本模块原顶层内部函数（C7 顶层函数收敛），提供统一命名空间。
@@ -131,15 +132,22 @@ export class ProjectInstructions {
   }
 
   /**
-   * 收集**用户级**候选路径：home 下每个兼容目录 × 每个指令文件名。
+   * 收集**用户级**候选路径：每个兼容目录 × 每个指令文件名。
+   *
+   * `.omniharness` 走 OmniHome（2026-11-01 收口，与 serveWorkspace 同型缺陷）：此前手写
+   * `join(home, '.omniharness')`，OMNI_HOME 搬盘后用户级指令读的是旧盘。显式 `home`
+   * 参数仍优先（测试注入；OmniHome.dir(explicit) 语义不变）；未提供时 OmniHome 自己
+   * 解析（OMNI_HOME > ~/.omniharness），用户级指令随归属根走。`.claude` 是跨工具惯例
+   * 目录，保持在用户家目录下、不随 OMNI_HOME 搬。
    * @param {string | undefined} home - home
    * @returns {string[]} - result
    */
   public static userLevelCandidates(home: string | undefined): string[] {
-    if (home === undefined) return [];
     const out: string[] = [];
-    for (const dir of USER_LEVEL_DIRS) {
-      for (const name of INSTRUCTION_FILE_NAMES) out.push(join(home, dir, name));
+    const omniDir = home !== undefined ? OmniHome.dir(home) : OmniHome.dir();
+    for (const name of INSTRUCTION_FILE_NAMES) out.push(join(omniDir, name));
+    if (home !== undefined) {
+      for (const name of INSTRUCTION_FILE_NAMES) out.push(join(home, '.claude', name));
     }
     return out;
   }
@@ -428,9 +436,6 @@ const INSTRUCTION_FILE_NAMES = ['AGENTS.md', 'CLAUDE.md', 'CLAUDE.local.md'] as 
 
 /** 出现此文件时，同名 AGENTS.md 被整体取代（本实现语义：override 而非合并）。 */
 const AGENTS_OVERRIDE_NAME = 'AGENTS.override.md';
-
-/** 用户级目录（相对 home）：项目自有目录在前，兼容外部工具目录在后。 */
-const USER_LEVEL_DIRS = ['.omniharness', '.claude'] as const;
 
 /** 文件读取器（可注入，测试无需 mock 全局 fs）。 */
 export type InstructionReader = (path: string) => Promise<string>;
