@@ -27,6 +27,8 @@ import type {
   TurnRunResult,
   InterjectResult,
   QuestionAnswerSubmission,
+  ApprovalRequest,
+  QuestionRequest,
 } from '../types/models.ts';
 import { t } from '../ui/i18n/i18n.ts';
 
@@ -500,6 +502,27 @@ export class ApiClient {
     answers: readonly QuestionAnswerSubmission[],
   ): Promise<{ ok: boolean; error?: string }> {
     return this.rpc('question.respond', { requestId, answers });
+  }
+
+  /**
+   * 拉取当前**在途审批**（`approval.pending`，断连恢复用，2026-11-01）。
+   *
+   * `approval.request` 是 live-only 通知（不进 SSE 重放历史）：页面刷新后新连接收不到
+   * 「正在等待审批」这件事。重连后调用本方法即可重建审批卡；服务端有断连宽限期，
+   * 宽限期内复联 ⇒ 挂起仍在。
+   * @returns 在途审批清单（形状与 `approval.request` 通知一致；可能为空）。
+   */
+  public pendingApprovals(): Promise<ApprovalRequest[]> {
+    return this.rpc('approval.pending', {});
+  }
+
+  /**
+   * 拉取当前**在途提问**（`question.pending`，断连恢复用，2026-11-01）。语义同
+   * {@link pendingApprovals}。
+   * @returns 在途提问清单（形状与 `question.request` 通知一致；可能为空；`threadId` 为会话归属）。
+   */
+  public pendingQuestions(): Promise<(QuestionRequest & { threadId?: string | null })[]> {
+    return this.rpc('question.pending', {});
   }
 
   /** 列出某会话的全部检查点（label/时间/事件数/是否含文件快照）。 */

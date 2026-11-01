@@ -26,6 +26,18 @@ import type { WsConnection } from '../../src/server/transport/wsConnection.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+/** 取最后一条指定方法的通知参数（本文件的传输替身没有 questionUplink 那个 helper）。 */
+const lastParams = (
+  transport: RecordingTransport,
+  method: string,
+): Record<string, unknown> | undefined => {
+  const hits = transport.sent.filter(
+    (message) => (message as { method?: string }).method === method,
+  );
+  const last = hits.at(-1) as { params?: Record<string, unknown> } | undefined;
+  return last?.params;
+};
+
 /** 只记录下行消息的假传输（不发网络）。 */
 class RecordingTransport implements Transport {
   /** 已下发的通知（用于断言审批请求确实上行过）。 */
@@ -66,6 +78,38 @@ const REQUEST: ApprovalRequest = {
   toolName: 'shell',
   target: 'rm -rf /tmp/x',
 };
+
+test('①b 审批通知带 threadId 与 args（入参超限截断为预览）；恢复快照同形状', async () => {
+  const transport = new RecordingTransport();
+  const bridge = new ServerEventBridge({ transport, approvalTimeoutMs: 0 });
+  const bigArgs: Record<string, unknown> = { content: 'x'.repeat(20_000) };
+  const pending = bridge.requestApproval({ ...REQUEST, args: bigArgs });
+  const params = lastParams(transport, 'approval.request');
+  assert.ok(params, '应下发 approval.request');
+  assert.strictEqual(
+    params['threadId'],
+    'sess_timeout_probe',
+    '通知必须带 threadId（桌面通知深链此前恒缺）',
+  );
+  const args = params['args'] as { _truncated?: boolean; preview?: string };
+  assert.ok(args && args._truncated === true, '超限入参必须截断');
+  assert.ok((args.preview ?? '').length < 20_000, '预览长度必须受控');
+  assert.strictEqual(bridge.pendingApprovalRequests().length, 1, '在途审批应出现在恢复快照');
+  bridge.respondApproval({ requestId: params?.['requestId'], decision: 'deny' });
+  assert.strictEqual(bridge.pendingApprovalRequests().length, 0, '兑现后快照清空');
+  assert.strictEqual(await pending, 'deny');
+});
+
+test('①c 审批入参不超限时原样下发；断连收尾后快照清空', async () => {
+  const transport = new RecordingTransport();
+  const bridge = new ServerEventBridge({ transport, approvalTimeoutMs: 0 });
+  const pending = bridge.requestApproval({ ...REQUEST, args: { command: 'echo hi' } });
+  const params = lastParams(transport, 'approval.request');
+  assert.deepStrictEqual(params?.['args'], { command: 'echo hi' }, '小入参应原样下发');
+  bridge.denyAllPending('测试断连');
+  assert.strictEqual(bridge.pendingApprovalRequests().length, 0, '断连收尾后快照清空');
+  assert.strictEqual(await pending, 'deny');
+});
 
 test('① 审批上行超时按 deny 兑现（fail-closed，不再永久挂起）', async () => {
   const transport = new RecordingTransport();
@@ -108,8 +152,10 @@ test('③ 正常响应 ⇒ allow，且晚到超时不会二次兑现', async () 
   assert.strictEqual(bridge.pendingApprovalCount(), 0);
 });
 
-test('④ 传输层：SSE/WS 关闭触发一次「全部断开」回调（仅在有→无跃迁时）', async () => {
-  const transport = new HttpBridgeTransport();
+test('④ 传输层：SSE/WS 关闭触发一次「全部断开」回调（仅在有→无跃迁时；宽限期注入 0）', async () => {
+  // 2026-11-01 起默认有 10s 断连宽限期（刷新不饿死挂起提问）；本判据钉的是**跃迁判定**本身，
+  // 注入 graceMs=0 保持旧的立即语义。
+  const transport = new HttpBridgeTransport(undefined, { clientsGoneGraceMs: 0 });
   let gone = 0;
   transport.setOnAllClientsGone(() => {
     gone += 1;
@@ -138,6 +184,31 @@ test('④ 传输层：SSE/WS 关闭触发一次「全部断开」回调（仅在
   assert.strictEqual(gone, 1, '新客户端接入不得触发');
   ws.onClose?.();
   assert.strictEqual(gone, 2, 'WS 关闭同样应触发（集合变空）');
+});
+
+test('④b 传输层：默认宽限期内复联则不触发「全部断开」（刷新不饿死挂起提问）', async () => {
+  const transport = new HttpBridgeTransport(undefined, { clientsGoneGraceMs: 60 });
+  let gone = 0;
+  transport.setOnAllClientsGone(() => {
+    gone += 1;
+  });
+  const mkSse = (): ServerResponse => {
+    const emitter = new EventEmitter() as unknown as ServerResponse;
+    return emitter;
+  };
+  const sse = mkSse();
+  transport.sse.register(sse);
+  sse.emit('close'); // 跃迁到空 → 安排 60ms 后复核
+  const sse2 = mkSse();
+  transport.sse.register(sse2); // 宽限期内复联
+  await sleep(120);
+  assert.strictEqual(gone, 0, '宽限期内复联不得触发 deny 回调');
+  // 复联后的客户端再断开 → 新一轮宽限期 → 仍无客户端 → 触发
+  sse2.emit('close');
+  await sleep(20);
+  assert.strictEqual(gone, 0, '宽限期未到不得触发');
+  await sleep(120);
+  assert.strictEqual(gone, 1, '宽限期耗尽且仍无客户端才触发');
 });
 
 test('⑤ 未支持断连信号的传输不影响既有能力（可选能力，非必需）', () => {

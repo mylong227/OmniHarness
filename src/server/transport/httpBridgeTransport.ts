@@ -11,6 +11,11 @@ export interface HttpBridgeTimeouts {
   readonly normalMs?: number;
   /** 长任务 RPC 的等待上限（毫秒）。 */
   readonly longMs?: number;
+  /**
+   * 「全部客户端断开」宽限期（毫秒，仅供单测注入；生产用类常量 10s）。
+   * `0` = 保持旧的立即触发语义（断连收尾判据用）。
+   */
+  readonly clientsGoneGraceMs?: number;
 }
 
 /** HTTP/WS/SSE 桥接传输：POST /rpc 与 WS 请求-响应共用 pending 表，通知广播给全部 SSE/WS 客户端（实现 {@link Transport}）。 */
@@ -90,15 +95,31 @@ export class HttpBridgeTransport implements Transport {
   private onAllClientsGone: (() => void) | undefined;
   /** 是否曾有过客户端：只在「有 → 无」的跃迁上触发回调，避免启动时空触发。 */
   private hadClients = false;
+  /**
+   * 「全部客户端断开」的**宽限期**（毫秒，2026-11-01）：跃迁发生后延迟触发回调，
+   * 期间任一客户端接入即取消（fire 时复核仍为空才触发）。
+   *
+   * 为什么需要：页面刷新 / 网络抖动会瞬时清空客户端集合，立即 deny 会把「正在等待作答」的
+   * 提问/审批饿死——模型拿到占位答案继续跑，用户刷新回来卡片也没了（实测 sess_mvx7hrh6 同族
+   * 报障的姊妹形态）。宽限期 + `question.pending`/`approval.pending` 恢复 RPC 共同构成断连恢复：
+   * 刷新在宽限期内重连 → 客户端主动拉取挂起上行 → 卡片恢复，作答不丢。
+   */
+  private static readonly ALL_CLIENTS_GONE_GRACE_MS = 10_000;
+  /** 生效宽限期（单测可覆写为 0 = 旧的立即语义）。 */
+  private readonly clientsGoneGraceMs: number;
+  /** 宽限期定时器（期内核复即取消；重复跃迁重置）。 */
+  private clientsGoneTimer: ReturnType<typeof setTimeout> | undefined;
 
   /**
    * 创建桥接传输（可选注入企业鉴权与超时预算）。
    * @param auth 企业鉴权门禁（opt-in；缺省则不做 Bearer 校验）
-   * @param timeouts 超时预算覆写（**仅供单测**把 60s / 30min 缩到毫秒级；生产不传即用类常量）
+   * @param timeouts 超时预算覆写（**仅供单测**把 60s / 30min / 宽限期缩到毫秒级；生产不传即用类常量）
    */
   public constructor(auth?: EnterpriseAuth, timeouts?: HttpBridgeTimeouts) {
     this.auth = auth;
     this.timeouts = timeouts ?? {};
+    this.clientsGoneGraceMs =
+      timeouts?.clientsGoneGraceMs ?? HttpBridgeTransport.ALL_CLIENTS_GONE_GRACE_MS;
   }
 
   /**
@@ -106,12 +127,6 @@ export class HttpBridgeTransport implements Transport {
    * @param method JSON-RPC 方法名
    * @returns 毫秒
    */
-  private budgetFor(method: string): number {
-    return HttpBridgeTransport.LONG_RUNNING_METHODS.has(method)
-      ? (this.timeouts.longMs ?? HttpBridgeTransport.LONG_REQUEST_TIMEOUT_MS)
-      : (this.timeouts.normalMs ?? HttpBridgeTransport.REQUEST_TIMEOUT_MS);
-  }
-
   /**
    * 注册「全部客户端已断开」回调（见 {@link Transport.setOnAllClientsGone}）。
    * @param callback 无参回调
@@ -122,15 +137,34 @@ export class HttpBridgeTransport implements Transport {
   }
 
   /**
-   * 客户端集合变动后调用：从「有客户端」变为「没有客户端」时触发一次回调。
+   * 客户端集合变动后调用：从「有客户端」变为「没有客户端」时**安排**回调（宽限期内复联即取消）。
+   *
+   * 宽限期语义（2026-11-01，默认 10s，可注入覆写；0 = 旧的同步立即语义）：页面刷新 /
+   * 网络抖动会瞬时清空客户端集合，立即 deny 会把「正在等待作答」的提问/审批饿死——模型拿到
+   * 占位答案继续跑，用户刷新回来卡片也没了。宽限期 + `question.pending`/`approval.pending`
+   * 恢复 RPC 共同构成断连恢复。fire 时**复核**仍无客户端才触发；宽限期内新客户端接入不主动
+   * 取消定时器，靠 fire 时复核兜住（接入会把 hadClients 置回 true，下一次跃迁重新走完整周期）。
    * @returns 无返回值。
    */
   private notifyIfAllClientsGone(): void {
     const empty = this.sse.count() === 0 && this.wsClients.size === 0;
-    if (empty && this.hadClients) {
-      this.hadClients = false;
+    if (!empty || !this.hadClients) return;
+    this.hadClients = false;
+    if (this.clientsGoneGraceMs <= 0) {
       this.onAllClientsGone?.();
+      return;
     }
+    if (this.clientsGoneTimer !== undefined) {
+      clearTimeout(this.clientsGoneTimer);
+    }
+    this.clientsGoneTimer = setTimeout(() => {
+      this.clientsGoneTimer = undefined;
+      if (this.sse.count() === 0 && this.wsClients.size === 0) {
+        this.onAllClientsGone?.();
+      }
+    }, this.clientsGoneGraceMs);
+    // 宽限期定时器不承载「兜底」语义（真正的兜底是审批/提问上行超时），unref 不影响正确性。
+    this.clientsGoneTimer.unref?.();
   }
 
   /**
@@ -266,7 +300,10 @@ export class HttpBridgeTransport implements Transport {
     return new Promise<RpcMessage>((resolve, reject) => {
       // 预算**按方法**取：普通 RPC 60s（防悬挂/泄漏），长任务 RPC（turns.run 等同步等 agent 的）30min
       // —— 一刀切 60s 会在回合仍在正常推进时报错（详见 LONG_REQUEST_TIMEOUT_MS 的说明）。
-      const ms = this.budgetFor(message.method);
+      // 等待上限：长任务方法走长预算（实例级覆写供单测缩到毫秒级）。
+      const ms = HttpBridgeTransport.LONG_RUNNING_METHODS.has(message.method)
+        ? (this.timeouts.longMs ?? HttpBridgeTransport.LONG_REQUEST_TIMEOUT_MS)
+        : (this.timeouts.normalMs ?? HttpBridgeTransport.REQUEST_TIMEOUT_MS);
       this.pending.register(
         message.id,
         { resolve, reject },

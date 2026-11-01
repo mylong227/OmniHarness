@@ -221,3 +221,41 @@ test('④ 客户端全部断开 ⇒ 挂起提问立即按 fail-soft 收尾', asy
   assert.strictEqual(bridge.pendingQuestionCount(), 0);
   assert.strictEqual(bridge.denyAllPending('再调一次'), 0, '无挂起时返回 0（幂等）');
 });
+
+test('⑤ 恢复快照：在途提问可经 question.pending 重建（threadId 同行；收尾/兑现即消失）', async () => {
+  const transport = new RecordingTransport();
+  const bridge = new ServerEventBridge({ transport, questionTimeoutMs: 60 });
+  const pending = bridge.questionPort().ask(QUESTIONS, { sessionId: 'sess-r1' });
+  const params = transport.lastParams('question.request');
+  assert.ok(params, '应下发 question.request');
+  assert.strictEqual(params['threadId'], 'sess-r1', '通知必须带 threadId（桌面通知深链字段）');
+  assert.strictEqual(params['sessionId'], 'sess-r1', 'sessionId 保留向后兼容');
+  assert.strictEqual(bridge.pendingQuestionsSnapshot().length, 1, '在途提问应出现在恢复快照');
+  assert.deepStrictEqual(bridge.pendingQuestionsSnapshot()[0]?.threadId, 'sess-r1');
+  bridge.respondQuestion({
+    requestId: params?.['requestId'],
+    answers: [
+      { id: 'q1', selected: ['A'] },
+      { id: 'q2', selected: [] },
+    ],
+  });
+  assert.strictEqual(bridge.pendingQuestionsSnapshot().length, 0, '兑现后快照清空');
+  await pending;
+});
+
+test('⑥ 超时/断连后快照同步清空（恢复 RPC 不得捞到已收尾的提问）', async () => {
+  const transport = new RecordingTransport();
+  const bridge = new ServerEventBridge({ transport, questionTimeoutMs: 30 });
+  const pending = bridge.questionPort().ask(QUESTIONS, { sessionId: 'sess-r2' });
+  assert.strictEqual(bridge.pendingQuestionsSnapshot().length, 1);
+  await sleep(80);
+  await pending; // 超时 fail-soft 兑现
+  assert.strictEqual(bridge.pendingQuestionsSnapshot().length, 0, '超时后快照清空');
+  const transport2 = new RecordingTransport();
+  const bridge2 = new ServerEventBridge({ transport: transport2, questionTimeoutMs: 0 });
+  const pending2 = bridge2.questionPort().ask(QUESTIONS, { sessionId: 'sess-r3' });
+  assert.strictEqual(bridge2.pendingQuestionsSnapshot().length, 1);
+  bridge2.denyAllPending('测试断连');
+  await pending2;
+  assert.strictEqual(bridge2.pendingQuestionsSnapshot().length, 0, '断连收尾后快照清空');
+});

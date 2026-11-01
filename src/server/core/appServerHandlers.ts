@@ -234,4 +234,22 @@ export class AppServerHandlers extends AppServerBase {
   protected async respondQuestion(params: Record<string, unknown>): Promise<unknown> {
     return this.events.respondQuestion(params);
   }
+
+  /**
+   * 挂起上行恢复 RPC（2026-11-01）：`approval.pending` / `question.pending`。
+   *
+   * 为什么需要：`approval.request` / `question.request` 是 live-only 通知（不进 SSE 重放历史），
+   * 页面刷新后新连接收不到「正在等待」这件事；客户端重连后各拉一次即可重建卡片。
+   * 与传输层的断连宽限期配套：宽限期内复联 ⇒ 挂起仍在 ⇒ 恢复查询拿得到。
+   * 放在本层而不是 `appServer.ts`（同族上行收在一个类里，且那边已贴体量闸）。
+   * @returns 无返回值。
+   */
+  protected registerUplinkRecovery(): void {
+    this.handlers.set('approval.pending', () =>
+      Promise.resolve(this.events.pendingApprovalRequests()),
+    );
+    this.handlers.set('question.pending', () =>
+      Promise.resolve(this.events.pendingQuestionsSnapshot()),
+    );
+  }
 }

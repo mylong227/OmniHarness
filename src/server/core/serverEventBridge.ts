@@ -32,6 +32,9 @@ const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
  */
 const DEFAULT_QUESTION_TIMEOUT_MS = 300_000;
 
+/** 审批入参下行的序列化上限（字符）：超出截断为预览（write_file 整文件入参可到百 KB 级）。 */
+const MAX_ARGS_PAYLOAD_CHARS = 8_192;
+
 /** 事件/审批/提问桥依赖。 */
 export interface ServerEventBridgeDeps {
   /** JSON-RPC 传输（通知下行 / 审批与提问上行）。 */
@@ -74,15 +77,26 @@ export class ServerEventBridge {
   private readonly deps: ServerEventBridgeDeps;
   /** 待响应审批挂起表：requestId → 收尾通道（兑现 / 超时 deny / 断连 deny 都会移出）。 */
   private readonly pending = new PendingRequests<string, ApprovalDecision>();
+  /**
+   * 在途审批的原始请求：requestId → 请求（含 sessionId/toolName/target/args）。
+   *
+   * 为什么单开一张表：`approval.pending` 恢复 RPC（2026-11-01）要在客户端重连后重建审批卡，
+   * 挂起表只存 resolver，拿不到原文。
+   */
+  private readonly askedApprovals = new Map<string, ApprovalRequest>();
   /** 待回答提问挂起表：requestId → 收尾通道。 */
   private readonly pendingQuestions = new PendingRequests<string, readonly AskAnswer[]>();
   /**
-   * 待回答提问的问题清单：requestId → 本次提问。
+   * 待回答提问的问题清单：requestId → 本次提问 + 会话 id。
    *
    * 为什么单开一张表：超时与断连两条兜底路径要给模型**这批问题的**占位回答
-   * （`DefaultUserResponder.answersFor(questions)`），而挂起表只存 resolver、拿不到问题原文。
+   * （`DefaultUserResponder.answersFor(questions)`），而挂起表只存 resolver、拿不到问题原文；
+   * 恢复 RPC 还需要 threadId 才能把卡片挂回正确的会话。
    */
-  private readonly askedQuestions = new Map<string, readonly AskQuestion[]>();
+  private readonly askedQuestions = new Map<
+    string,
+    { questions: readonly AskQuestion[]; threadId: string | null }
+  >();
   /** 生效的审批等待上限（毫秒；0 = 不限时）。 */
   private readonly approvalTimeoutMs: number;
   /** 生效的提问等待上限（毫秒；0 = 不限时）。 */
@@ -133,6 +147,7 @@ export class ServerEventBridge {
   public async requestApproval(request: ApprovalRequest): Promise<ApprovalDecision> {
     return new Promise<ApprovalDecision>((resolve) => {
       const requestId = Id.id('apr');
+      this.askedApprovals.set(requestId, request);
       // 超时**按 deny 兑现**（不是 reject）：审批是「没有答复就不放行」，fail-closed 而非报错。
       // 刻意**不 unref**：挂起审批必须真的等到「有响应 / 超时 / 断连」三者之一才算完；
       // 让定时器保持事件循环活跃正是「不许静默丢弃」的语义。实测 unref 会让超时永不触发
@@ -148,6 +163,7 @@ export class ServerEventBridge {
                   toolName: request.toolName,
                   timeoutMs: this.approvalTimeoutMs,
                 });
+                this.askedApprovals.delete(requestId);
                 handlers.resolve('deny');
               },
             }
@@ -156,11 +172,76 @@ export class ServerEventBridge {
       this.deps.transport.send(
         jsonRpc.notify('approval.request', {
           requestId,
+          threadId: request.sessionId,
           toolName: request.toolName,
           target: request.target,
+          // 入参随下行（前端 ApprovalModal 渲染 args；此前一直是死的——服务端从不发该字段）。
+          args: ServerEventBridge.argsPayloadOf(request.args),
         }),
       );
     });
+  }
+
+  /**
+   * 审批入参的下行形状：超过 {@link MAX_ARGS_PAYLOAD_CHARS} 就截断为预览。
+   *
+   * 为什么必须截断：`write_file` / `apply_patch` 的入参可以是整份文件内容，原样下发会让
+   * 审批通知（SSE 帧 + 桌面通知）膨胀到百 KB 级。截断后仍能看出「这是个什么操作」。
+   * @param args 审批请求携带的工具入参（undefined = 请求未携带）。
+   * @returns 原样入参；超限时为 `{ _truncated: true, preview }`。
+   */
+  private static argsPayloadOf(
+    args: Record<string, unknown> | undefined,
+  ): Record<string, unknown> | undefined {
+    if (args === undefined) return undefined;
+    const serialized = JSON.stringify(args);
+    if (serialized.length <= MAX_ARGS_PAYLOAD_CHARS) return args;
+    return {
+      _truncated: true,
+      preview: serialized.slice(0, MAX_ARGS_PAYLOAD_CHARS),
+    };
+  }
+
+  /**
+   * 当前**全部在途审批**（`approval.pending` 恢复 RPC 用，2026-11-01）。
+   *
+   * 为什么需要：`approval.request`/`question.request` 是 live-only 通知，不进 SSE 重放历史——
+   * 页面刷新后新连接收不到「正在等待审批」这件事。客户端重连后主动拉一次即可重建卡片。
+   * @returns 与 `approval.request` 通知同形状的清单（可能为空）。
+   */
+  public pendingApprovalRequests(): readonly {
+    requestId: string;
+    threadId: string | null;
+    toolName: string;
+    target: string;
+    args?: Record<string, unknown> | undefined;
+  }[] {
+    return [...this.askedApprovals.entries()].map(([requestId, request]) => ({
+      requestId,
+      threadId: request.sessionId,
+      toolName: request.toolName,
+      target: request.target,
+      ...(request.args !== undefined
+        ? { args: ServerEventBridge.argsPayloadOf(request.args) }
+        : {}),
+    }));
+  }
+
+  /**
+   * 当前**全部在途提问**（`question.pending` 恢复 RPC 用，2026-11-01）。语义同
+   * {@link pendingApprovalRequests}。
+   * @returns 与 `question.request` 通知同形状的清单（可能为空）。
+   */
+  public pendingQuestionsSnapshot(): readonly {
+    requestId: string;
+    threadId: string | null;
+    questions: readonly AskQuestion[];
+  }[] {
+    return [...this.askedQuestions.entries()].map(([requestId, entry]) => ({
+      requestId,
+      threadId: entry.threadId,
+      questions: entry.questions,
+    }));
   }
 
   /**
@@ -170,6 +251,7 @@ export class ServerEventBridge {
    */
   public respondApproval(params: Record<string, unknown>): unknown {
     const requestId = String(params['requestId'] ?? '');
+    this.askedApprovals.delete(requestId);
     this.pending.settle(requestId, params['decision'] === 'allow' ? 'allow' : 'deny');
     return { ok: true };
   }
@@ -200,7 +282,8 @@ export class ServerEventBridge {
     context?: AskContext,
   ): Promise<readonly AskAnswer[]> {
     const requestId = Id.id('qst');
-    this.askedQuestions.set(requestId, questions);
+    const threadId = context?.sessionId ?? null;
+    this.askedQuestions.set(requestId, { questions, threadId });
     return new Promise<readonly AskAnswer[]>((resolve) => {
       const timeout: PendingTimeout<readonly AskAnswer[]> | undefined =
         this.questionTimeoutMs > 0
@@ -232,7 +315,10 @@ export class ServerEventBridge {
       this.deps.transport.send(
         jsonRpc.notify('question.request', {
           requestId,
-          sessionId: context?.sessionId ?? null,
+          // threadId 与 sessionId 同值并存（2026-11-01）：前端通知契约统一读 threadId（桌面通知深链），
+          // sessionId 字段保留向后兼容。
+          threadId,
+          sessionId: threadId,
           questions,
           timeoutMs: this.questionTimeoutMs,
         }),
@@ -250,11 +336,11 @@ export class ServerEventBridge {
    */
   public respondQuestion(params: Record<string, unknown>): unknown {
     const requestId = String(params['requestId'] ?? '');
-    const questions = this.askedQuestions.get(requestId);
-    if (questions === undefined) {
+    const entry = this.askedQuestions.get(requestId);
+    if (entry === undefined) {
       return { ok: false, error: 'unknown_request' };
     }
-    const parsed = QuestionAnswers.parse(params['answers'], questions);
+    const parsed = QuestionAnswers.parse(params['answers'], entry.questions);
     if (!parsed.ok) {
       log.warn('question.uplink.rejected', { requestId, error: parsed.error });
       return { ok: false, error: parsed.error };
@@ -273,8 +359,10 @@ export class ServerEventBridge {
    */
   public failAllQuestions(reason: string): number {
     let settled = 0;
-    for (const [requestId, questions] of [...this.askedQuestions]) {
-      if (this.pendingQuestions.settle(requestId, DefaultUserResponder.answersFor(questions))) {
+    for (const [requestId, entry] of [...this.askedQuestions]) {
+      if (
+        this.pendingQuestions.settle(requestId, DefaultUserResponder.answersFor(entry.questions))
+      ) {
         settled += 1;
       }
       this.askedQuestions.delete(requestId);
@@ -299,6 +387,7 @@ export class ServerEventBridge {
     if (approvals > 0) {
       log.warn('approval.uplink.disconnected', { reason, pending: approvals });
       this.pending.settleAll('deny');
+      this.askedApprovals.clear();
     }
     return approvals + questions;
   }

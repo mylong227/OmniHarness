@@ -282,6 +282,8 @@ export interface Metrics {
 
 export interface ApprovalRequest {
   requestId: string;
+  /** 审批所属会话 id（2026-11-01 起服务端随通知/恢复 RPC 下发；桌面通知深链用）。 */
+  threadId?: string | null;
   toolName?: string;
   target?: string;
   args?: unknown;
@@ -313,6 +315,8 @@ export interface QuestionRequest {
   requestId: string;
   /** 提问所属会话 id（缺省/ null 表示服务端未声明归属）。 */
   sessionId?: string | null;
+  /** 同 {@link sessionId}（2026-11-01 起通知/恢复 RPC 双字段并存，通知契约统一读 threadId）。 */
+  threadId?: string | null;
   questions: AskQuestionItem[];
   /** 等待上限（毫秒；0 表示不限时）；UI 据此显示倒计时，到点服务端会按「未作答」继续。 */
   timeoutMs?: number;

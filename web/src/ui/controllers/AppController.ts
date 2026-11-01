@@ -455,8 +455,7 @@ export class AppController {
   }
 
   /** 连接 SSE 并把各消息方法路由到对应子控制器。 @returns 无 */
-  public connectStream(): void {
-    const stream = this.services.stream;
+  public connectStream(): void {    const stream = this.services.stream;
     // 连接态三态（2026-09-27 用户报「显示区域会出现显示断开」）：
     //   open       = 已连接（绿）
     //   connecting = 重连中（黄）——EventSource 的瞬时抖动（含每秒自动重连）都会先落到这里
@@ -467,6 +466,28 @@ export class AppController {
     stream.onOpen = () => {
       this.clearStreamGrace();
       this.host.patch({ connected: true, streamState: 'open' });
+      // 断连/刷新恢复（2026-11-01）：approval.request / question.request 是 live-only 通知
+      // （不进 SSE 重放历史），刷新或重连后的新连接收不到「正在等待」这件事；服务端有 10s
+      // 断连宽限期，宽限期内复联 ⇒ 挂起仍在 ⇒ 这里拉得到并重建卡片。已有卡片时不覆盖。
+      this.services.api
+        .pendingApprovals()
+        .then((list) => {
+          const first = list[0];
+          if (first !== undefined) this.host.patch((s) => (s.approval ? {} : { approval: first }));
+        })
+        .catch(() => {});
+      this.services.api
+        .pendingQuestions()
+        .then((list) => {
+          const first = list[0];
+          if (first !== undefined) {
+            const { threadId, ...rest } = first;
+            this.host.patch((s) =>
+              s.question ? {} : { question: { ...rest, sessionId: threadId ?? null } },
+            );
+          }
+        })
+        .catch(() => {});
     };
     stream.onClose = () => {
       this.host.patch({ connected: true, streamState: 'connecting' });

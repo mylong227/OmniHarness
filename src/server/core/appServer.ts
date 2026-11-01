@@ -153,9 +153,9 @@ export class AppServer extends AppServerVaultHandlers {
       };
     });
     this.handlers.set('approval.respond', (params) => this.respondApproval(params));
-    // 提问上行（2026-10-08）：浏览器里的提问卡作答经此送达等待中的 ask_user / plan_present。
-    // 在此之前 Web 端只有「只读提问卡」——用户看得见问题却没有任何提交入口，回合就此卡死。
+    // 提问上行（2026-10-08）：提问卡作答经此送达等待中的 ask_user / plan_present（此前只读卡无法提交）。
     this.handlers.set('question.respond', (params) => this.respondQuestion(params));
+    this.registerUplinkRecovery();
     this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
     this.handlers.set('config.update', (params) => Promise.resolve(this.updateConfig(params)));
     this.handlers.set('model.catalog', () => Promise.resolve(this.modelCatalog.catalog()));

@@ -175,6 +175,9 @@ export class ToolGate implements ToolGatePort {
       toolName: call.name,
       // 多文件补丁必须把**全部**目标展示给审批；只显示首个会让用户以为只改一个文件。
       target: this.targetsOf(call).join(', '),
+      // 工具入参随审批上行（2026-11-01）：让审批弹窗能看到「到底要执行什么」，
+      // 此前只有 toolName+target，用户在盲审（前端 args 渲染分支一直是死的）。载荷由桥截断。
+      args: call.arguments,
     });
     if (approval === 'deny') {
       // 审批策略拒绝：不升级（升级会绕过既定策略，违反最小权限）。
