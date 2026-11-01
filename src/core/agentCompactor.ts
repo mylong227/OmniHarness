@@ -38,6 +38,9 @@ export class AgentCompactor {
       deterministicShrink: runtime.config.compactionDeterministicShrink ?? true,
       // CTX-02：共享同一校准器实例，样本 ≥5 时自动修正 0.8×window 阈值。
       calibrator: calibration,
+      // T3.4 交接便签（2026-11-01）：压缩即重置——折叠摘要自动并入最新便签，
+      // 与 scratchpad 工具（模型写入）构成完整的写入/读回闭环。
+      scratchpad: runtime.config.scratchpad,
       // 显式 `compactionMaxTokens` = 钉死预算 ⇒ 不传窗口；未配置时挂真实窗口（恒为正）。
       ...(runtime.config.compactionMaxTokens === undefined
         ? { contextWindowTokens: AgentCompactor.resolveContextWindow(runtime) }

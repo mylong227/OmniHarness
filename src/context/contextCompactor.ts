@@ -1,6 +1,7 @@
 import type { ModelMessage, ModelPort } from '../ports/model/model.ts';
 import type { ToolDefinition } from '../ports/tool/tool.ts';
 import type { CompactionState } from '../ports/context/compactionState.ts';
+import type { ScratchpadPort } from '../ports/memory/scratchpad.ts';
 import { TokenEstimator, type TokenAccountableMessage } from './tokenEstimator.ts';
 import type { TokenEstimatorCalibrator } from './tokenEstimatorCalibrator.ts';
 import { DeterministicCompressor } from './deterministicCompressor.ts';
@@ -55,6 +56,12 @@ export interface CompactionOptions {
    * 用户显式 `compactionMaxTokens` 钉死的预算不修正）。缺省 undefined ⇒ 阈值行为不变。
    */
   readonly calibrator?: TokenEstimatorCalibrator | undefined;
+  /**
+   * 跨重置便签端口（T3.4 注入点，可选，2026-11-01）：压缩即「上下文重置」——折叠段
+   * 生成摘要时把 scratchpad 最新一条交接便签并进摘要（fail-soft，无便签零开销），
+   * 使「进行到哪/下一步」的工作记忆跨压缩存活。此前便签只有工具入口、没有自动消费点。
+   */
+  readonly scratchpad?: ScratchpadPort | undefined;
 }
 
 /**
@@ -496,9 +503,16 @@ export class ContextCompactor {
     // 台账由折叠段的事件直接生成，是「不依赖摘要质量」的进度基线（长会话防重复探索）。
     // 预算过小时不加台账：宁可少一行确定性信息，也不能把最近的工具轮挤出 tail。
     const rawSummary = await this.summarizer.summarize(fresh, seed);
+    // T3.4 交接便签并进摘要（在台账/预算之前，让预算口径把便签算进去）：这是便签的
+    // 自动消费点——模型经工具写入，压缩时自动读回，工作记忆跨压缩存活。
+    const handoff = this.options.scratchpad?.latest();
+    const withHandoff =
+      handoff !== undefined && handoff.text.trim() !== ''
+        ? rawSummary + '\n\n【交接便签】' + handoff.text
+        : rawSummary;
     // 占位摘要只能用于本次请求，**不能写进游标**——否则后续每步复用占位，长会话永久失忆。
     const degraded = CompactionSummarizer.isUnusable(rawSummary);
-    const summary = CompactionToolLedger.append(rawSummary, head, budget);
+    const summary = CompactionToolLedger.append(withHandoff, head, budget);
     // U2-1 状态审计（shadow）：摘要写游标前，确定性核对关键工作状态是否还在（只留痕，不改产物）。
     const stateAudit = degraded ? undefined : CompactionStateAudit.auditAndLog(summary, head);
     const newState: CompactionState | undefined = degraded

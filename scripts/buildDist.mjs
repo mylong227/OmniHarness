@@ -30,6 +30,7 @@
 import {
   copyFileSync,
   existsSync,
+  readFileSync,
   writeFileSync,
   mkdirSync,
   readdirSync,

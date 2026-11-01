@@ -5,6 +5,25 @@ import { SseFanout } from './sseFanout.ts';
 import { EnterpriseAuth } from '../../enterprise/index.ts';
 import { PendingRequests } from '../../util/concurrency/pendingRequests.ts';
 
+/**
+ * 「全部客户端断开」宽限期解析：显式入参 > env `OMNI_CLIENTS_GONE_GRACE_MS` > 缺省 10s；
+ * 0 = 旧的同步立即语义（刷新会饿死挂起提问，仅供特殊部署显式选择）。
+ * 模块级箭头常量：类方法数已顶上帝类闸，逃生门按口径用箭头常量。
+ */
+const resolveClientsGoneGraceMs = (explicit?: number): number => {
+  if (typeof explicit === 'number' && Number.isFinite(explicit)) {
+    return explicit > 0 ? Math.floor(explicit) : 0;
+  }
+  const raw = process.env['OMNI_CLIENTS_GONE_GRACE_MS'];
+  if (raw !== undefined && raw.trim() !== '') {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) {
+      return parsed > 0 ? Math.floor(parsed) : 0;
+    }
+  }
+  return 10_000;
+};
+
 /** 传输层超时预算覆写（仅供单测注入；生产用类常量）。 */
 export interface HttpBridgeTimeouts {
   /** 普通 RPC 的等待上限（毫秒）。 */
@@ -103,8 +122,8 @@ export class HttpBridgeTransport implements Transport {
    * 提问/审批饿死——模型拿到占位答案继续跑，用户刷新回来卡片也没了（实测 sess_mvx7hrh6 同族
    * 报障的姊妹形态）。宽限期 + `question.pending`/`approval.pending` 恢复 RPC 共同构成断连恢复：
    * 刷新在宽限期内重连 → 客户端主动拉取挂起上行 → 卡片恢复，作答不丢。
+   * 生效值见模块级 `resolveClientsGoneGraceMs`（缺省 10s，env `OMNI_CLIENTS_GONE_GRACE_MS` 可调）。
    */
-  private static readonly ALL_CLIENTS_GONE_GRACE_MS = 10_000;
   /** 生效宽限期（单测可覆写为 0 = 旧的立即语义）。 */
   private readonly clientsGoneGraceMs: number;
   /** 宽限期定时器（期内核复即取消；重复跃迁重置）。 */
@@ -118,8 +137,7 @@ export class HttpBridgeTransport implements Transport {
   public constructor(auth?: EnterpriseAuth, timeouts?: HttpBridgeTimeouts) {
     this.auth = auth;
     this.timeouts = timeouts ?? {};
-    this.clientsGoneGraceMs =
-      timeouts?.clientsGoneGraceMs ?? HttpBridgeTransport.ALL_CLIENTS_GONE_GRACE_MS;
+    this.clientsGoneGraceMs = timeouts?.clientsGoneGraceMs ?? resolveClientsGoneGraceMs();
   }
 
   /**
