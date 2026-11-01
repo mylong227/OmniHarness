@@ -91,6 +91,17 @@ test('⑦ 多步任务必须带规划/执行协议（拆解、单 in_progress、
   assert.ok(text.includes('plan_write'), '必须区分计划模式与普通 todo');
 });
 
+test('⑧ 「等待用户确认」类决策点必须落成 `ask_user`（2026-11-01 实测根因）', () => {
+  // 实测：模型把「等待用户确认 3 个决策点」写成待办后以一句文本结束回合干等，
+  // 从未调用 `ask_user`，Web 确认面板（只渲染 question 事件）永远弹不出来。
+  const text = DefaultPromptFragments.codingAgent().join('\n');
+  assert.match(text, /等待用户确认\/决策/u, '必须点名触发场景（待办/计划里的决策点步骤）');
+  assert.match(text, /必须调用 `ask_user`/u, '必须给出强制口径：落成 ask_user 调用');
+  assert.match(text, /不得用一句文本叙述代替提问/u, '必须禁止文本叙述代替提问后干等');
+  assert.match(text, /默默按默认建议推进/u, '必须禁止默认跳过');
+  assert.match(text, /「按默认建议执行」并说明依据/u, '必须给出替代出口（改写待办并说明依据）');
+});
+
 test('⑥ 子代用「运行环境片段」：含平台与 shell，但不背主会话的整段编码 SOP', () => {
   // 2026-10-06（第六十一轮实测）：子代 `systemPrompt` 曾为 0 token，于是在 cmd.exe 上按 POSIX 试错，
   // 并把「不是内部或外部命令」误判成「隔离 shell 不可用」回传主代理（主代理照抄进最终答复）。

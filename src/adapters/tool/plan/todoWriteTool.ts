@@ -25,7 +25,8 @@ export class TodoWriteTool {
     name: TOOL_NAMES.todoWrite,
     description:
       '维护当前任务的待办清单：每次调用传入完整列表（整表替换，last-write-wins）。' +
-      '用 in_progress 标记正在做的项，completed 标记已完成的项，帮助长任务保持进度可控。',
+      '用 in_progress 标记正在做的项，completed 标记已完成的项，帮助长任务保持进度可控。' +
+      '「等待用户确认/决策」类步骤轮到它时，必须调用 `ask_user` 真正提问（不得以文本叙述代替后干等，也不得默认跳过）。',
     parameters: {
       type: 'object',
       properties: {

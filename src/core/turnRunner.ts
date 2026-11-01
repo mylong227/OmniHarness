@@ -57,6 +57,42 @@ interface CompletionClaim {
  */
 const MAX_CONSECUTIVE_EMPTY = 3;
 
+/**
+ * 「等待用户确认/决策」类待办的识别口径（2026-11-01）：必须出现「用户」维度，
+ * 避免把「等待 CI 确认绿灯」这类技术等待误伤进决策点分流。
+ */
+const USER_DECISION_GATE =
+  /等(待|着)?用户.{0,8}(确认|决策|拍板|定夺|选择)|需要用户.{0,4}(确认|决策|拍板|定夺|选择)/u;
+
+/**
+ * 待办纠偏文案（2026-11-01 实测根因修复）：模型会把「等待用户确认 N 个决策点」写成待办步骤，
+ * 然后以一句文本结束回合干等——从未调用 `ask_user`，而 Web 端确认面板只渲染 `question` 事件，
+ * 于是面板永远弹不出来。故纠偏按内容分流：含决策点的回合**强制要求 `ask_user`**；
+ * 其余维持原「继续执行」口径（原文案不变，判据依赖它）。
+ * @param gates 决策点类未完成待办内容（匹配 {@link USER_DECISION_GATE}）。
+ * @param others 其余未完成待办内容。
+ * @returns 纠偏文本。
+ */
+const todoNudgeText = (gates: readonly string[], others: readonly string[]): string => {
+  const list = (items: readonly string[]): string => items.map((item) => `- ${item}`).join('；');
+  if (gates.length === 0) {
+    return (
+      '【待办未完成】以下待办仍是 pending/in_progress：' +
+      list(others) +
+      '。请继续执行并更新 `todo_write`；若确实无法完成，明确说明阻塞点，不要宣告完成。'
+    );
+  }
+  return (
+    '【待办未完成·用户决策点】推进到「等待用户确认/决策」类步骤时，必须调用 `ask_user` ' +
+    '把决策点抛成结构化问题（带选项与推荐项），等答案作为工具结果回灌后继续——' +
+    '不得用一句文本叙述代替提问后结束回合干等，也不得默默按自己的默认建议推进；' +
+    '若你判断决策点并不阻塞其余步骤，可把该待办改写为「按默认建议执行」并说明依据，再推进其余步骤。' +
+    '决策点待办：' +
+    list(gates) +
+    (others.length === 0 ? '。' : '；其余未完成待办：' + list(others) + '。')
+  );
+};
+
 /** 回合执行器：0..n 步，直到模型输出文本（任务完成）；`maxSteps > 0` 时才额外受步数上限约束。 */
 export class TurnRunner {
   private readonly loopGuard: LoopGuard | undefined;
@@ -433,11 +469,12 @@ export class TurnRunner {
     if (open.length === 0) {
       return 'done';
     }
-    this.recorder.system(
-      '【待办未完成】以下待办仍是 pending/in_progress：' +
-        open.map((item) => `- ${item.content}`).join('；') +
-        '。请继续执行并更新 `todo_write`；若确实无法完成，明确说明阻塞点，不要宣告完成。',
-    );
+    const gates: string[] = [];
+    const others: string[] = [];
+    for (const item of open) {
+      (USER_DECISION_GATE.test(item.content) ? gates : others).push(item.content);
+    }
+    this.recorder.system(todoNudgeText(gates, others));
     return 'nudge';
   }
 

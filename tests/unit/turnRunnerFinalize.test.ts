@@ -219,6 +219,100 @@ test('④ 模型正常收敛：不触发兜底，不额外多调一次模型', a
   );
 });
 
+test('⑥ 「等待用户确认」类待办收尾时，纠偏必须强制 `ask_user`（2026-11-01 实测根因）', async () => {
+  // 实测场景：模型把「等待用户确认 3 个决策点」写成待办，然后以一句文本收尾干等，
+  // 从未调用 `ask_user` → Web 确认面板永远不出现。纠偏文案须按决策点分流并点名 ask_user。
+  const recorder = recorderFor('s-todo-gate');
+  const todo = new MemoryTodo();
+  todo.snapshot(
+    [{ content: '等待用户确认 3 个决策点（存储深度/熔断实现/图表库）', status: 'in_progress' }],
+    's-todo-gate',
+  );
+  const model: ModelPort = { name: 'mock', generate: async () => ({ text: '已完成。' }) };
+  const sr = new StepRunner({
+    model,
+    tools: jsTools,
+    approvals: allowApproval,
+    sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
+    recorder,
+    sessionId: 's-todo-gate',
+  });
+  const tr = new TurnRunner(
+    sr,
+    recorder,
+    5,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    false,
+    todo,
+  );
+  await tr.run({ sessionId: 's-todo-gate', workspaceRoot: '/tmp' });
+  const gateNudge = recorder.allEvents().find((event) => {
+    const payload = event.payload as { readonly content?: unknown };
+    return typeof payload.content === 'string' && payload.content.includes('待办未完成·用户决策点');
+  });
+  assert.ok(gateNudge !== undefined, '决策点类待办应收口到「用户决策点」纠偏');
+  const content = (gateNudge.payload as { readonly content: string }).content;
+  assert.ok(content.includes('`ask_user`'), '纠偏必须点名 ask_user 工具');
+  assert.ok(content.includes('等待用户确认 3 个决策点'), '决策点待办原文必须回显');
+  assert.ok(!content.includes('请继续执行并更新'), '决策点分流不得落到「继续执行」旧口径');
+});
+
+test('⑦ 普通（非决策点）待办仍走原「继续执行」纠偏口径', async () => {
+  const recorder = recorderFor('s-todo-guard-plain');
+  const todo = new MemoryTodo();
+  // 技术性等待（如等 CI 确认）不得误伤进决策点分流：识别口径必须含「用户」维度。
+  todo.snapshot([{ content: '等待 CI 确认绿灯后合入', status: 'pending' }], 's-todo-guard-plain');
+  const model: ModelPort = { name: 'mock', generate: async () => ({ text: '已完成。' }) };
+  const sr = new StepRunner({
+    model,
+    tools: jsTools,
+    approvals: allowApproval,
+    sandbox: sandboxOk,
+    repoMapContext: new RepoMapContextEngine(),
+    recorder,
+    sessionId: 's-todo-guard-plain',
+  });
+  const tr = new TurnRunner(
+    sr,
+    recorder,
+    5,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    0,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    false,
+    todo,
+  );
+  await tr.run({ sessionId: 's-todo-guard-plain', workspaceRoot: '/tmp' });
+  assert.ok(
+    recorder.allEvents().some((event) => {
+      const payload = event.payload as { readonly content?: unknown };
+      return (
+        typeof payload.content === 'string' &&
+        payload.content.includes('【待办未完成】') &&
+        payload.content.includes('请继续执行并更新')
+      );
+    }),
+    '技术性等待应维持原「继续执行」文案（未被决策点分流误伤）',
+  );
+});
+
 test('⑤ 兜底调用失败时 fail-closed：不抛错、不阻断主流程', async () => {
   const recorder = recorderFor('s-obs9-3');
   let calls = 0;
