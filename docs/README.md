@@ -82,6 +82,25 @@
 
 ---
 
+## 4. 快照报告（`reports/`，带日期 = 当时快照，非现行规范）
+
+外部评估与升级轮次的原始记录（2026-10-20 ～ 10-25）。**结论以 [PROJECT_BOARD.md](PROJECT_BOARD.md) 为准**——
+这些快照里未落地的建议只是当时的提案；这里只做发现入口（2026-11-01 全项目评估时归位登记）。
+
+| 报告                                                                                            | 内容                                          |
+| ----------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| [CORE_CAPABILITY_GAP_ANALYSIS](../reports/CORE_CAPABILITY_GAP_ANALYSIS_2026-10-20.md)           | 核心能力短板与提升路径（对比分析）            |
+| [CAPABILITY_UPGRADE_REQUIREMENTS](../reports/CAPABILITY_UPGRADE_REQUIREMENTS_2026-10-20.md)     | 核心能力提升需求矩阵                          |
+| [CAPABILITY_UPGRADE_IMPLEMENTATION](../reports/CAPABILITY_UPGRADE_IMPLEMENTATION_2026-10-20.md) | 核心能力提升落地记录                          |
+| [REMEDIATION](../reports/REMEDIATION_2026-10-21.md)                                             | 缺陷修复与验收记录                            |
+| [REASSESSMENT_2026-10-22](../reports/REASSESSMENT_2026-10-22.md)                                | 再评估：机制完整 → 边界可信/证据可证/分发可达 |
+| [OPTIMIZATION_AUDIT](../reports/OPTIMIZATION_AUDIT_2026-10-23.md)                               | 优化盘点                                      |
+| [IMPLEMENTATION](../reports/IMPLEMENTATION_2026-10-24.md)                                       | 完整实现记录                                  |
+| [REASSESSMENT_2026-10-24](../reports/REASSESSMENT_2026-10-24.md)                                | 独立复审与技术雷达                            |
+| [PERFORMANCE_UPGRADE](../reports/PERFORMANCE_UPGRADE_2026-10-25.md)                             | 全栈性能与能力升级方案                        |
+
+---
+
 ## 文档治理规则（铁律）
 
 1. **一主题一权威**：每个主题只有一份现行文档；新报告写完后，旧版直接删除（不再保留历史存档）。
