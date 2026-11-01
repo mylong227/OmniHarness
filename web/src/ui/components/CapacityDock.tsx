@@ -15,6 +15,7 @@ import { QuotaView } from '../models/QuotaView.ts';
 import { emptyNote } from '../format.ts';
 import { t } from '../i18n/i18n.ts';
 import { useCapacityReport } from './useCapacityReport.ts';
+import { useApp } from '../context.ts';
 import { usePopoverEffect } from './usePopoverEffect.ts';
 import type { QuotaStatus } from '../../types/models.ts';
 
@@ -128,15 +129,22 @@ interface DockQuotaSectionProps {
   readonly status: QuotaStatus;
   /** 配额视图。 */
   readonly view: QuotaView;
+  /** 日预算保存成功后的回调（父级据此重拉配额报告）。 */
+  readonly onSaved: () => void;
 }
 
 /**
- * 详情浮层里的「今日余额」段：大号剩余 + 重置时刻 + 模型行 + 档位说明。
- * @param props 状态与视图
+ * 详情浮层里的「今日余额」段：大号剩余 + 重置时刻 + 模型行 + 档位说明 + 日预算编辑。
+ *
+ * 日预算编辑（2026-11-01 接线收口）：`quota.set` 的服务端能力与 ApiClient 包装一直在，
+ * UI 却从未暴露入口——本段补上最小编辑器（行内数字输入 + 保存/取消），档位仍由模型自动
+ * 识别不可调（服务端显式忽略 plan 字段）。
+ * @param props 状态与视图 + 保存回调
  * @returns 段落节点
  */
 function DockQuotaSection(props: DockQuotaSectionProps): ReactElement {
-  const { status, view } = props;
+  const { status, view, onSaved } = props;
+  const [editing, setEditing] = React.useState(false);
   return (
     <section className="cap-dock-sec">
       <div className="cap-dock-sec-head">
@@ -181,8 +189,84 @@ function DockQuotaSection(props: DockQuotaSectionProps): ReactElement {
       <div className="cap-meta">
         {/* 来源声明放 title：窄浮层里它会把两行撑成四行；完整文案在设置/权限页常驻。 */}
         <span title={view.sourceLabel}>{view.budgetHint}</span>
+        {editing ? (
+          <BudgetEditor
+            current={status.dailyTokens}
+            onSaved={() => {
+              setEditing(false);
+              onSaved();
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <button className="ghost" type="button" onClick={() => setEditing(true)}>
+            {t('调整')}
+          </button>
+        )}
       </div>
     </section>
+  );
+}
+
+/** 日预算编辑器属性。 */
+interface BudgetEditorProps {
+  /** 当前日预算（编辑初值）。 */
+  readonly current: number;
+  /** 保存成功回调（父级关编辑态并重拉报告）。 */
+  readonly onSaved: () => void;
+  /** 取消回调。 */
+  readonly onCancel: () => void;
+}
+
+/**
+ * 日预算行内编辑器：数字输入 + 保存/取消（回车即保存）。
+ *
+ * 校验为非负数字（fail-soft：不合法只 toast 提示，不发请求）；保存经 `quota.set`
+ * 落盘，成功后回调父级刷新报告。抽出成子组件的硬原因是函数体行数闸——不是审美。
+ * @param props 当前值 + 保存/取消回调
+ * @returns 编辑器节点
+ */
+function BudgetEditor(props: BudgetEditorProps): ReactElement {
+  const { api, toast } = useApp();
+  const [draft, setDraft] = React.useState(String(props.current));
+  const [saving, setSaving] = React.useState(false);
+  const save = async (): Promise<void> => {
+    const parsed = Number(draft);
+    if (draft.trim() === '' || !Number.isFinite(parsed) || parsed < 0) {
+      toast(t('日预算需为非负数字'), 'err');
+      return;
+    }
+    setSaving(true);
+    try {
+      await api.quotaSet({ dailyTokens: Math.floor(parsed) });
+      props.onSaved();
+      toast(t('已更新今日预算'), 'ok');
+    } catch (e) {
+      toast(t('调整失败：{msg}', { msg: (e as Error).message }), 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <span className="cap-budget-edit">
+      <input
+        className="cap-budget-input"
+        value={draft}
+        inputMode="numeric"
+        autoFocus
+        aria-label={t('今日 token 预算')}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDraft(e.target.value)}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          if (e.key === 'Enter') void save();
+        }}
+      />
+      <button className="ghost" type="button" disabled={saving} onClick={() => void save()}>
+        {t('保存')}
+      </button>
+      <button className="ghost" type="button" onClick={props.onCancel}>
+        {t('取消')}
+      </button>
+    </span>
   );
 }
 
@@ -231,7 +315,7 @@ function DockBody(props: DockBodyProps): ReactElement {
         </div>
       )}
       {quotaView !== undefined && quotaStatus !== undefined ? (
-        <DockQuotaSection status={quotaStatus} view={quotaView} />
+        <DockQuotaSection status={quotaStatus} view={quotaView} onSaved={reload} />
       ) : null}
     </div>
   );

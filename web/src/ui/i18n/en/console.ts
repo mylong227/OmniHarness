@@ -1,6 +1,12 @@
 // en 词条分片：工作台控制台（ConsoleModal / SettingsSurface / ConsoleUI / DesktopSettingsSection /
 // 控制台注册表）。键 = 中文原文（与 t() 的键逐字一致，含 {name} 占位符）。
 export const EN_CONSOLE: Record<string, string> = {
+  // —— 容量浮层（CapacityDock）——
+  调整: 'Adjust',
+  '今日 token 预算': 'Daily token budget',
+  '日预算需为非负数字': 'Daily budget must be a non-negative number',
+  '已更新今日预算': 'Daily budget updated',
+  '调整失败：{msg}': 'Adjust failed: {msg}',
   // —— 外壳与导航 ——
   工作台控制台: 'Workbench console',
   返回工作区: 'Back to workspace',

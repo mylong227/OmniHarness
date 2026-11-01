@@ -95,3 +95,31 @@ test('② 形状守卫：context.usage 回落成 {} 时不抛错，占比显示 
   });
   assert.match(ui.container.textContent ?? '', /容量数据暂不可用/);
 });
+
+test('⑤ 日预算编辑：quota.set 经 UI 可达（2026-11-01 接线收口——服务端能力+客户端包装一直在，缺的就是入口）', async () => {
+  const ui = renderUi(CapacityDock, {
+    responses: { contextUsage: USAGE, quotaGet: QUOTA, quotaSet: QUOTA },
+  });
+  await waitFor(() => {
+    if (!(ui.container.textContent ?? '').includes('30.8%')) throw new Error('容量占比尚未渲染');
+  });
+  fireEvent.click(ui.container.querySelector('.cap-dock') as Element);
+  await waitFor(() => {
+    if (ui.container.querySelector('.cap-dock-pop') === null) throw new Error('浮层未展开');
+  });
+  // 打开编辑器 → 输入新预算 → 保存 → 必须真的发出 quota.set
+  const adjust = [...ui.container.querySelectorAll('button')].find((b) => b.textContent === '调整');
+  assert.ok(adjust !== undefined, '必须给出「调整」入口');
+  fireEvent.click(adjust);
+  const input = ui.container.querySelector('.cap-budget-input');
+  assert.ok(input !== null, '编辑态必须出现数字输入');
+  fireEvent.change(input, { target: { value: '2000000' } });
+  const save = [...ui.container.querySelectorAll('button')].find((b) => b.textContent === '保存');
+  assert.ok(save !== undefined);
+  fireEvent.click(save);
+  await waitFor(() => {
+    if (!ui.app.calls.some((c) => c.method === 'quotaSet')) throw new Error('quotaSet 未发出');
+  });
+  const call = ui.app.calls.find((c) => c.method === 'quotaSet');
+  assert.deepStrictEqual(call?.args, [{ dailyTokens: 2000000 }], '入参必须是归一后的整数');
+});
