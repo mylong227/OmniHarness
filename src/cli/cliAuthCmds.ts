@@ -11,8 +11,8 @@
  *    可行动提示（此前抛错无人接住，用户看到堆栈）。
  */
 import { existsSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { OmniHome } from '../util/omniHome.ts';
 import crypto from 'node:crypto';
 import { OidcClient, type AuthState, type OidcProviderConfig } from '../enterprise/oidcClient.ts';
 import { OpenIdClientFlow } from '../adapters/enterprise/openIdClientFlow.ts';
@@ -57,7 +57,7 @@ export class CliAuthCmds {
 
   /**
    * auth login 子动作：拉取 IdP discovery、生成 PKCE 与 state、构造授权 URL，
-   * 并把中间态写入 ~/.omni-auth-state.json 供 callback 续跑。
+   * 并把中间态写入 OmniHome 目录（auth-state.json）供 callback 续跑。
    * @param rest login 之后的参数（--issuer / --client-id 必填，--client-secret / --redirect-uri / --scope 可选）。
    * @returns 进程退出码：参数缺失为 2，discovery 拉取失败抛错，成功为 0。
    */
@@ -99,7 +99,7 @@ export class CliAuthCmds {
       codeVerifier: pkce.verifier,
       createdAt: new Date().toISOString(),
     };
-    const statePath = join(homedir(), '.omni-auth-state.json');
+    const statePath = join(OmniHome.dir(), 'auth-state.json');
     OidcClient.writeAuthState(statePath, authState);
     process.stdout.write(
       `请在浏览器打开以下地址完成登录（登录后回调将携带 ?code=...&state=${state}）：\n\n${authUrl}\n\n` +
@@ -130,7 +130,7 @@ export class CliAuthCmds {
       process.stderr.write('auth callback 需 --state（auth login 输出里已给出；防 CSRF 必带）\n');
       return 2;
     }
-    const statePath = join(homedir(), '.omni-auth-state.json');
+    const statePath = join(OmniHome.dir(), 'auth-state.json');
     if (!existsSync(statePath)) {
       process.stderr.write(`未找到中间态文件 ${statePath}，请先执行 auth login\n`);
       return 1;

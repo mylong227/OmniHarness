@@ -38,6 +38,7 @@ import { Ed25519AgentIdentity } from '../adapters/identity/ed25519AgentIdentity.
 import { LspProcessAdapter } from '../adapters/lsp/lspProcessAdapter.ts';
 import { LspUri } from '../adapters/lsp/lspUri.ts';
 import type { UserResponder } from '../ports/runtime/userResponder.ts';
+import type { TodoPort } from '../ports/runtime/todo.ts';
 import { ConsoleUserResponder } from '../adapters/user/consoleUserResponder.ts';
 import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.ts';
 import type { SubagentPortSeed } from '../ports/config/subagentPortSeed.ts';
@@ -252,6 +253,8 @@ export class ConfigBuilder {
     costBudget: CostBudget | undefined,
     plan: PlanPort,
     planMode: boolean,
+    todo?: TodoPort | undefined,
+    userResponder?: UserResponder | undefined,
   ): SubagentPortSeed {
     return {
       model: this.buildModel(partial, costBudget),
@@ -266,6 +269,10 @@ export class ConfigBuilder {
       escalation,
       elevatedSandbox,
       longTermMemory,
+      // todo / responder 透传（2026-11-01 接线收口）：子代「待办未完成」纠偏必须读
+      // `todo_write` 写入的同一端口；responder 透传防子代重建工具集时提问退化为占位答案。
+      todo,
+      userResponder,
       goalMaxIterations: partial.goalMaxIterations ?? DEFAULT_GOAL_MAX_ITERATIONS,
       // 运维限制段随种子下发（工具级可配限额，如 web_fetch 的缺省超时/字节上限）。
       limits: partial.limits,
@@ -360,6 +367,8 @@ export class ConfigBuilder {
     costBudget: CostBudget | undefined,
     plan: PlanPort,
     planMode: boolean,
+    todo?: TodoPort | undefined,
+    userResponder?: UserResponder | undefined,
   ): SubagentPortSeed {
     return configBuilder.seedOf(
       partial,
@@ -374,6 +383,8 @@ export class ConfigBuilder {
       costBudget,
       plan,
       planMode,
+      todo,
+      userResponder,
     );
   }
 

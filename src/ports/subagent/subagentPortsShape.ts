@@ -12,6 +12,8 @@ import type { LongTermMemoryPort } from '../memory/longTermMemory.ts';
 import type { PlanPort } from '../runtime/plan.ts';
 import type { SupervisorPort } from '../runtime/supervisor.ts';
 import type { ToolResourceGatePort } from '../runtime/toolResourceGatePort.ts';
+import type { TodoPort } from '../runtime/todo.ts';
+import type { UserResponder } from '../runtime/userResponder.ts';
 
 /**
  * @beta
@@ -76,4 +78,21 @@ export interface SubagentPortsShape {
    * 子代工具集是裁剪过的，整段 SOP 会指向它没有的工具）。
    */
   readonly fragments?: readonly string[] | undefined;
+  /**
+   * 待办端口（可选，2026-11-01 接线收口）：**必须与 `todo_write` 工具写入的端口同源**。
+   *
+   * 存在理由：TurnRunner 的「待办未完成纠偏」读 `config.todo`，而工具写的是装配期捕获的
+   * 进程级单例（MemoryTodo 按会话分桶）。子代原先自 new 一个空 MemoryTodo ⇒ 子代写完待办
+   * 后，自己循环里的纠偏永远读到空表——「把计划写完当任务做完」的纠偏对所有派生链路静默失效。
+   * 与 `plan` 的透传口径对齐（plan 就是这样透传的）。
+   */
+  readonly todo?: TodoPort | undefined;
+  /**
+   * 用户回答端口（可选，2026-11-01 接线收口）：透传父级的真实 responder。
+   *
+   * 子代**不重建工具**（复用父 registry 实例），`ask_user` 当前实际走父级 responder，本字段
+   * 硬编码静默实现暂无消费者；但一旦有人从子代 config 重建工具集，硬编码的
+   * `DefaultUserResponder` 会让提问立即退化为占位答案。透传父级值，消灭这颗未来雷。
+   */
+  readonly userResponder?: UserResponder | undefined;
 }

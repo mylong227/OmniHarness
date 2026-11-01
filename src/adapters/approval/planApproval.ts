@@ -47,8 +47,12 @@ export const PLAN_ALLOWED_TOOLS = new Set<string>([
   // （视频路径内部会起本机 ffmpeg，但 argv 由实现内部按数字参数拼装、无用户可控的命令串，
   //  属「读取该文件的实现细节」，与 browser_screenshot 落盘 PNG 的性质不同 —— 后者才是写类。）
   TOOL_NAMES.viewMedia,
-  TOOL_NAMES.registry,
   TOOL_NAMES.toolSearch,
+  // 向用户提问（只读、无工作区副作用）：它是「恒可见的澄清通道」（toolExposurePlanner
+  // DEFAULT_ALWAYS_VISIBLE），plan 模式拒绝它会让模型在需要决策点时只能瞎猜或干等——
+  // 2026-11-01 实测（sess_mvx7hrh6）：模型把「等待用户确认 3 个决策点」写成待办后收尾干等，
+  // 确认面板永不弹出；plan 模式再拦 ask_user 等于把唯一的提问通道也堵死。
+  TOOL_NAMES.askUser,
   TOOL_NAMES.policyEval,
   TOOL_NAMES.agentIdentity,
   // LSP 查询（只读）。全族必须齐：漏登记即被 fail-closed 误拒（`lsp_workspace_symbols`

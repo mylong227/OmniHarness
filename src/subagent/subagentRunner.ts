@@ -4,7 +4,7 @@ import { Agent } from '../core/agent.ts';
 import { SubagentEventBridge } from './subagentEventBridge.ts';
 import { subagentRuntimeFactory } from './subagentRuntimeFactory.ts';
 import { ToolSubset } from './toolSubset.ts';
-import { SUBAGENT_TOOL_NAME } from './subagentTypes.ts';
+import { RECURSION_TOOL_NAMES } from '../ports/tool/toolNames.ts';
 
 import type { SubagentRequest, SubagentResult } from './subagentTypes.ts';
 import type { SubagentPortsShape } from '../ports/subagent/subagentPortsShape.ts';
@@ -20,20 +20,11 @@ export class SubagentRunner {
   /**
    * 从子代工具视图中**强制剔除**的递归入口。
    *
-   * `subagent` 是进程内直接递归；`run_workflow` / `run_goal` 各自会起真 Agent 回合，
-   * 是同一递归的间接形态（见 {@link SubagentRunner.toolViewOf} 的注释）。
+   * 单一来源是 `RECURSION_TOOL_NAMES`（2026-11-01 收口：`run_goal` / `run_workflow` 的工具
+   * 视图此前各剔一份更小的集合，口径漂移导致子代仍可经 `run_plan` / `delegate` /
+   * `a2a_delegate` 再派生）；`SUBAGENT_TOOL_NAME` 与 `TOOL_NAMES.subagent` 同值。
    */
-  private static readonly RECURSION_TOOLS: ReadonlySet<string> = new Set([
-    SUBAGENT_TOOL_NAME,
-    'run_workflow',
-    'run_goal',
-    // 2026-10-28：`run_plan` 会按 todo 计划起真 Agent 回合，是同一递归的第三个入口；
-    // 此前漏剔 ⇒ 子代 → run_plan → Agent 可无限派生，`maxDepth=2` 形同虚设。
-    'run_plan',
-    // `delegate`（worker 委派）与 `a2a_delegate`（对等 agent）同样能再起执行回合。
-    'delegate',
-    'a2a_delegate',
-  ]);
+  private static readonly RECURSION_TOOLS: ReadonlySet<string> = RECURSION_TOOL_NAMES;
 
   public constructor(
     private readonly ports: SubagentPortsShape,

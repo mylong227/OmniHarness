@@ -12,6 +12,7 @@ import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { configFile } from '../config/configFile.ts';
+import { OmniHome } from '../util/omniHome.ts';
 import { ArgParser } from './argParser.ts';
 import { CliArgReader } from './cliArgReader.ts';
 import { PortablePath } from '../util/portablePath.ts';
@@ -68,8 +69,12 @@ export class ServeWorkspace {
     if (requested !== undefined && requested !== '') {
       return { root: requested, source: 'flag' };
     }
+    // 用户级配置路径必须走 OmniHome（2026-11-01 收口）：此前手写 `homedir()/.omniharness`，
+    // 与分层加载（configFile 内部走 OmniHome.dir()，认 OMNI_HOME）读的是**两个盘上的两份文件**
+    // ——OMNI_HOME 搬盘后启动横幅回读旧盘、配置层读新盘，正是 OmniHome 注释警告的静默分裂。
+    // `home` 仍用于 `~/…` 展开（那是用户家目录语义，不是 OMNI_HOME 语义），两者职责不同。
     const home = userHomedir ?? homedir();
-    const localPath = join(home, '.omniharness', configFile.FILE_NAME);
+    const localPath = join(OmniHome.dir(userHomedir), configFile.FILE_NAME);
     let local: string | undefined;
     try {
       const configured = configFile.load(localPath).workspace;

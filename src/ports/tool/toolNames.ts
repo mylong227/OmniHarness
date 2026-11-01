@@ -120,8 +120,6 @@ export const TOOL_NAMES = {
   runWorkflow: 'run_workflow',
   /** 按当前 todo 计划执行 DAG（自动并行就绪步骤）。 */
   runPlan: 'run_plan',
-  /** 插件注册表工具族外壳（`RegistryToolPort`）。 */
-  registry: 'registry',
   // ---- LSP 只读查询族（原名常量在 `adapters/lsp/lspToolNames.ts`，现统一指向本表）----
   /** 跳到定义。 */
   lspGoToDefinition: 'lsp_go_to_definition',
@@ -190,4 +188,21 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   TOOL_NAMES.checkpoint,
   // 写长期记忆（跨会话持久 fact）⇒ 有持久副作用。
   TOOL_NAMES.remember,
+]);
+
+/**
+ * 再派生入口（递归防护口径的**单一来源**，2026-11-01 收口）。
+ *
+ * 这些工具每一个都能再起真 Agent 回合（进程内递归 / 工作流 / 目标循环 / todo 计划执行 /
+ * worker 委派 / 对等委托）。此前三处口径漂移：`SubagentRunner` 剔 6 个、`WorkflowRunner` 与
+ * `RunGoalTool` 各只剔 2~3 个 ⇒ 子代仍可经 `run_plan` / `delegate` / `a2a_delegate` 无限派生，
+ * `maxDepth` 形同虚设。三处必须共用本集合，新增派生入口时只改这里。
+ */
+export const RECURSION_TOOL_NAMES: ReadonlySet<string> = new Set<ToolName>([
+  TOOL_NAMES.subagent,
+  TOOL_NAMES.runWorkflow,
+  TOOL_NAMES.runGoal,
+  TOOL_NAMES.runPlan,
+  TOOL_NAMES.delegate,
+  TOOL_NAMES.a2aDelegate,
 ]);

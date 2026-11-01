@@ -89,6 +89,8 @@ export class ConfigFactory {
       costBudget,
       core.ports.plan,
       core.ports.planMode,
+      core.ports.todo,
+      core.ports.userResponder,
     );
     const spark = SparkAssembler.assembleSpark(partial, { vortex: core.vortex, memory, skills });
     const toolStack = ConfigFactory.buildToolStack(

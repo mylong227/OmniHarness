@@ -65,8 +65,10 @@ const READONLY_TOOLS: readonly string[] = [
   'budget_status',
   'policy_eval',
   'agent_identity',
-  'registry',
   'tool_search',
+  // 2026-11-01：ask_user 曾被漏登记——它是恒可见的澄清通道，plan 模式拒绝它
+  // 等于把唯一的提问通道堵死（实测 sess_mvx7hrh6：决策点待办收尾干等、面板永不弹出）。
+  'ask_user',
 ];
 
 test('plan 模式：LSP 工具全族都必须放行（`lsp_workspace_symbols` 曾被漏登记）', async () => {

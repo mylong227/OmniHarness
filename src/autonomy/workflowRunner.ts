@@ -1,4 +1,4 @@
-import { TOOL_NAMES } from '../ports/tool/toolNames.ts';
+import { RECURSION_TOOL_NAMES } from '../ports/tool/toolNames.ts';
 import { WorkflowCycleError } from './workflowCycleError.ts';
 import { WorkflowGuard } from './workflowGuard.ts';
 import { WorkflowRunLog } from './workflowRunLog.ts';
@@ -26,7 +26,6 @@ import type { WorkflowRunReplay } from './workflowRunLog.ts';
 import type { WorkflowStepStatus } from '../ports/autonomy/workflowStepStatus.ts';
 import { WorkflowStepResults } from './workflowStepResults.ts';
 import { WorkflowWriteSnapshot } from './workflowWriteSnapshot.ts';
-import { RUN_WORKFLOW_TOOL_NAME } from './workflowToolNames.ts';
 
 /**
  * @beta
@@ -662,19 +661,15 @@ export class WorkflowRunner {
 
   /**
    * 把工作流步骤投给模型可读的工具视图（隐藏实现细节，仅暴露名称/意图）。
+   *
+   * 递归口径单一来源 `RECURSION_TOOL_NAMES`（2026-11-01 收口）：此前只剔
+   * run_workflow/run_goal/subagent，步骤里仍可经 run_plan/delegate/a2a_delegate 再起执行回合。
    * @param step 工作流步骤
    * @returns 单行摘要文本
    */
   private toolViewOf(step: WorkflowStep): ToolSubset {
     const names = step.tools ?? this.ports.tools.list().map((definition) => definition.name);
-    const allowed = new Set(
-      names.filter(
-        (name) =>
-          name !== RUN_WORKFLOW_TOOL_NAME &&
-          name !== TOOL_NAMES.runGoal &&
-          name !== TOOL_NAMES.subagent,
-      ),
-    );
+    const allowed = new Set(names.filter((name) => !RECURSION_TOOL_NAMES.has(name)));
     return new ToolSubset(this.ports.tools, allowed);
   }
 

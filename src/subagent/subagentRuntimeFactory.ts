@@ -68,8 +68,10 @@ export class SubagentRuntimeFactory {
       spiller: ports.spiller,
       ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
       planMode,
-      userResponder: new DefaultUserResponder(),
-      todo: new MemoryTodo(),
+      // todo/responder 透传（2026-11-01 接线收口）：todo 必须与 `todo_write` 写入的端口同源，
+      // 否则子代自己的「待办未完成」纠偏永远读空表；responder 透传防重建工具集时提问退化为占位答案。
+      userResponder: ports.userResponder ?? new DefaultUserResponder(),
+      todo: ports.todo ?? new MemoryTodo(),
       plan,
       discovery: new ToolDiscovery(),
       retrieval: new Bm25MemoryIndex(),

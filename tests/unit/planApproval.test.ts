@@ -30,7 +30,7 @@ test('plan 模式：只读工具放行（read_file / list_dir / memory_search / 
     'lsp_diagnostics',
     'policy_eval',
     'agent_identity',
-    'registry',
+    'ask_user',
     'tool_search',
   ]) {
     assert.strictEqual(await plan.decide(req(tool)), 'allow', `${tool} 应被 plan 模式放行`);

@@ -30,6 +30,7 @@
 import {
   copyFileSync,
   existsSync,
+  writeFileSync,
   mkdirSync,
   readdirSync,
   renameSync,
@@ -98,6 +99,15 @@ run('伴生资源 → dist.next', process.execPath, [
   join(ROOT, 'scripts', 'copyAssets.mjs'),
   'dist.next',
 ]);
+
+// ---- 1.5 bin 入口补 shebang（POSIX 发布正确性，2026-11-01）----
+// npm 在 POSIX 全局安装时对 bin 符号链接直接 exec；dist 产物由 tsc 直出、首行是普通注释，
+// 没有 shebang 就无法直接执行（Windows cmd-shim 能兜住，POSIX 不能）。注入幂等：已有则跳过。
+const binEntry = join(STAGING, 'src', 'cli', 'exec.js');
+if (existsSync(binEntry) && !readFileSync(binEntry, 'utf8').startsWith('#!')) {
+  const body = readFileSync(binEntry, 'utf8');
+  writeFileSync(binEntry, '#!/usr/bin/env node\n' + body);
+}
 
 // ---- 2. 换入（优先原子换名，失败回滚后退化为覆盖同步） ----
 const hadTarget = existsSync(TARGET);

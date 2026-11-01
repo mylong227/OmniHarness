@@ -12,6 +12,7 @@ import { ToolSubset } from '../../../subagent/toolSubset.ts';
 import { GoalRunner, type GoalRunnerOptions } from '../../../autonomy/goalRunner.ts';
 import { GoalChecker } from '../../../autonomy/goalChecker.ts';
 import { RUN_GOAL_TOOL_NAME } from '../../../autonomy/goalToolNames.ts';
+import { RECURSION_TOOL_NAMES } from '../../../ports/tool/toolNames.ts';
 import type { SubagentPortsShape } from '../../../ports/subagent/subagentPortsShape.ts';
 
 /** 模型面 run_goal 工具：派生一个进程内自主目标循环完成子目标。 */
@@ -107,7 +108,10 @@ export class RunGoalTool {
     return `${head}\n${result.finalText ?? ''}`;
   }
 
-  /** 提取可选的工具白名单（未提供则继承全部工具），并强制剔除 run_goal/subagent 防递归派生。
+  /** 提取可选的工具白名单（未提供则继承全部工具），并强制剔除全部**再派生入口**防递归。
+   *
+   * 口径单一来源 `RECURSION_TOOL_NAMES`（2026-11-01 收口）：此前只剔 run_goal/subagent，
+   * 目标循环里仍可经 run_workflow/run_plan/delegate/a2a_delegate 再起执行回合。
    * @param call 工具调用（实参可能含 tools 数组）。
    * @returns 基于注册表过滤后的受限工具视图。
    */
@@ -118,7 +122,7 @@ export class RunGoalTool {
       : undefined;
     const allowed = new Set(
       (names ?? this.ports.tools.list().map((definition) => definition.name)).filter(
-        (name) => name !== RUN_GOAL_TOOL_NAME && name !== 'subagent',
+        (name) => !RECURSION_TOOL_NAMES.has(name),
       ),
     );
     return new ToolSubset(this.ports.tools, allowed);
