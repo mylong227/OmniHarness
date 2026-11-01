@@ -51,6 +51,8 @@ export class AcpEventMapper {
         return this.todoUpdates(payload);
       case 'plan':
         return this.planUpdates(payload);
+      case 'question':
+        return this.questionUpdates(event, payload);
       default:
         return [];
     }
@@ -96,6 +98,53 @@ export class AcpEventMapper {
   ): readonly AcpSessionUpdate[] {
     const content = AcpEventMapper.textOf(payload);
     return content === '' ? [] : [this.messageChunk('agent_thought_chunk', event.id, content)];
+  }
+
+  /**
+   * question 事件 → agent_message_chunk（`ask_user` 的提问正文，2026-11-01 接线收口）。
+   *
+   * 为什么必须映射：此前 `question` 落 default 被整条丢弃，ACP 客户端（如 Zed）**看不到代理
+   * 问了什么**——ask_user 拿到无人值守占位答案后一闪而过，用户侧完全无感。诚实边界：本映射
+   * 只解决「可见性」；ACP 面尚无作答回传通道（`question.respond` 是 Web 上行），回答仍走
+   * 无人值守占位，待 ACP 提问上行（如 request_permission 映射）另行接线。
+   * @param event 源事件。
+   * @param payload 事件负载（questions 数组）。
+   * @returns ACP 更新序列（questions 为空时为空数组）。
+   */
+  private questionUpdates(
+    event: SessionEvent,
+    payload: Record<string, unknown>,
+  ): readonly AcpSessionUpdate[] {
+    const text = AcpEventMapper.questionsTextOf(payload);
+    return text === '' ? [] : [this.messageChunk('agent_message_chunk', event.id, text)];
+  }
+
+  /**
+   * 把 question 事件的 questions 负载渲染成可读文本（空/形状非法 ⇒ 空串）。
+   * @param payload 事件负载（取 `questions` 数组）。
+   * @returns 逐题编号 + 选项列表的多行文本；无可渲染内容时为空串。
+   */
+  private static questionsTextOf(payload: Record<string, unknown>): string {
+    const raw = payload['questions'];
+    if (!Array.isArray(raw) || raw.length === 0) return '';
+    const lines: string[] = ['【等待你的回答】'];
+    raw.forEach((entry, index) => {
+      if (typeof entry !== 'object' || entry === null) return;
+      const question = entry as Record<string, unknown>;
+      const header = typeof question['header'] === 'string' ? `（${question['header']}）` : '';
+      const text = typeof question['question'] === 'string' ? question['question'] : '';
+      const multi = question['multiSelect'] === true ? '（可多选）' : '';
+      lines.push(`${index + 1}. ${header}${text}${multi}`);
+      const options = question['options'];
+      if (Array.isArray(options)) {
+        for (const option of options) {
+          if (typeof option !== 'object' || option === null) continue;
+          const label = (option as Record<string, unknown>)['label'];
+          if (typeof label === 'string' && label !== '') lines.push(`   · ${label}`);
+        }
+      }
+    });
+    return lines.join('\n');
   }
 
   /**

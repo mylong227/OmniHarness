@@ -14,6 +14,7 @@ import type { SessionEvent } from '../../src/ports/runtime/event.ts';
 import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
 import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
 import { eventFactory } from '../../src/core/eventFactory.ts';
+import { AcpEventMapper } from '../../src/acp/acpEventMapper.ts';
 import { Agent } from '../../src/core/agent.ts';
 import { Runtime } from '../../src/composition/runtime.ts';
 import { ConfigFactory } from '../../src/config/configFactory.ts';
@@ -880,4 +881,31 @@ test('26) run()/close()：无 onClose 的传输不再悬挂，close 兑现 run �
   // 幂等：再次 close 与 close 之后再 run 都立即返回（不重复收尾、不悬挂）。
   harness.server.close();
   await harness.server.run();
+});
+
+test('13) question 事件映射为可见的 agent_message_chunk（此前整条丢弃，ACP 客户端看不到代理问了什么）', () => {
+  const mapper = new AcpEventMapper();
+  const event = eventFactory.question('sess-q', [
+    {
+      id: 'q1',
+      header: '确认',
+      question: '存储用哪一种？',
+      options: [{ label: 'SQLite' }, { label: 'Postgres' }],
+    },
+    { id: 'q2', question: '还要什么？', multiSelect: true, options: [{ label: 'X' }] },
+  ]);
+  const updates = mapper.map(event);
+  assert.strictEqual(updates.length, 1, 'question 应映射为 1 条可见更新');
+  const update = updates[0] as { sessionUpdate: string; content?: { text?: string } };
+  assert.strictEqual(update.sessionUpdate, 'agent_message_chunk');
+  const text = update.content?.text ?? '';
+  assert.ok(text.includes('等待你的回答'), '应带可读的问题清单头');
+  assert.ok(text.includes('存储用哪一种？'), '问题正文必须可见');
+  assert.ok(text.includes('· SQLite'), '选项必须可见');
+  assert.ok(text.includes('（可多选）'), '多选标记必须可见');
+  assert.strictEqual(
+    mapper.map(eventFactory.question('sess-q', { questions: [] })).length,
+    0,
+    '空提问不下发',
+  );
 });

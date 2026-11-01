@@ -104,6 +104,42 @@
     {
       "usage": "omniharness boost audit-surface [--boost-run] [--boost-dir DIR]",
       "description": "输入表面声明的静态取证：入口脚本一变即判声明过期（退出码 3；--boost-run 记新基线）"
+    },
+    {
+      "usage": "omniharness mcp auth [--port N]",
+      "description": "MCP OAuth 回环登录（拿授权码换令牌；中间态落 OmniHome）"
+    },
+    {
+      "usage": "omniharness mcp registry list|call [--limit N]",
+      "description": "查询/调用插件注册表"
+    },
+    {
+      "usage": "omniharness bundle source|grade [--dir D] …",
+      "description": "bundle 源清单与质量评级（见 bundle --help）"
+    },
+    {
+      "usage": "omniharness compare …",
+      "description": "双模型对照评测（离线自测族，见 compare --help）"
+    },
+    {
+      "usage": "omniharness evolution status|history|lineage|rollback|cycle [--yes]",
+      "description": "进化晋升台账：查询 / 血缘 / 回滚 / 促升（回滚需 --yes）"
+    },
+    {
+      "usage": "omniharness capability list|metadata|install [--allow-unsigned]",
+      "description": "能力包安装与元数据（缺签名默认拒绝）"
+    },
+    {
+      "usage": "omniharness license status [--license F] [--license-public-key K]",
+      "description": "授权状态校验"
+    },
+    {
+      "usage": "omniharness schema",
+      "description": "导出 RPC 协议 schema（对外契约单一来源）"
+    },
+    {
+      "usage": "omniharness plugin load|list|search|install|remove [--allow-all]",
+      "description": "插件装载与管理（--allow-all 跳过签名确认）"
     }
   ],
   "optionsTitle": "选项:",
