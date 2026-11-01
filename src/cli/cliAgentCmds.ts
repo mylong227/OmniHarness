@@ -518,7 +518,12 @@ export class CliAgentCmds extends CliNativeCmds {
   ): Promise<AcpSessionRuntime> {
     const config = await this.buildConfig(
       { ...base, workspace: options.cwd, events: 'silent' },
-      { events: options.events },
+      {
+        events: options.events,
+        // 提问上行（2026-11-01）：AcpQuestionUplink 的回答端口必须进配置，否则 ask_user
+        // 落回 DefaultUserResponder（无人值守占位），ACP 客户端点选永远到不了模型。
+        ...(options.userResponder !== undefined ? { userResponder: options.userResponder } : {}),
+      },
     );
     const runtime = Runtime.createRuntime({ ...config, approvals: options.approvals });
     return new AgentAcpSession(new Agent(runtime), options.sessionId);

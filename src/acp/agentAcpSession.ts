@@ -2,6 +2,7 @@ import type { Agent } from '../core/agent.ts';
 import type { SessionEvent } from '../ports/runtime/event.ts';
 import type { EventPort } from '../ports/runtime/eventPort.ts';
 import type { ApprovalPort } from '../ports/runtime/approval.ts';
+import type { UserResponder } from '../ports/runtime/userResponder.ts';
 import type { AcpAuthIdentity } from './acpProtocol.ts';
 
 /** 一轮 prompt 的产出（供 ACP 服务端映射 stopReason）。 */
@@ -49,6 +50,12 @@ export interface AcpSessionOptions {
   readonly events: EventPort;
   /** 审批端口（服务端据此发 session/request_permission）。 */
   readonly approvals: ApprovalPort;
+  /**
+   * 提问回答端口（可选，2026-11-01）：服务端把 `ask_user` 的单选题映射为
+   * request_permission 的 `AcpQuestionUplink` 视图。实现方应把它装配进运行时
+   * （`userResponder`），否则提问退化为无人值守占位答案。
+   */
+  readonly userResponder?: UserResponder | undefined;
   /** Client 声明的能力（透传，供实现方按需降级）。 */
   readonly clientCapabilities?: Readonly<Record<string, unknown>>;
   /** 认证成功后的身份（未认证 / 未启用认证时缺省）。 */

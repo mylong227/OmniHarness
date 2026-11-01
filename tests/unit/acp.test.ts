@@ -909,3 +909,57 @@ test('13) question 事件映射为可见的 agent_message_chunk（此前整条�
     '空提问不下发',
   );
 });
+
+test('14) 提问上行：ask_user 单选题经 request_permission 回传点选；多选/开放题诚实占位', async () => {
+  const harness = new Harness({});
+  const sessionId = await harness.newSession(tempDir());
+  const responder = harness.lastOptions?.userResponder;
+  assert.ok(responder !== undefined, '服务端必须把 AcpQuestionUplink 的回答端口交给会话工厂');
+  const pending = responder.ask(
+    [
+      {
+        id: 'q1',
+        header: '存储',
+        question: '用哪一种数据库？',
+        options: [{ label: 'SQLite' }, { label: 'Postgres' }],
+      },
+      { id: 'q2', question: '还想补充什么？' },
+      {
+        id: 'q3',
+        question: '要多选吗？',
+        multiSelect: true,
+        options: [{ label: 'X' }, { label: 'Y' }],
+      },
+    ],
+    { sessionId },
+  );
+  const request = await waitFor(
+    () => harness.client.permissionRequests,
+    () => true,
+  );
+  assert.match(String(request.params.toolCall.title), /用哪一种数据库/u, '题面必须可见');
+  assert.strictEqual(request.params.options.length, 2, '选项逐条下发');
+  assert.deepStrictEqual(
+    request.params.options.map((option) => option.optionId),
+    ['SQLite', 'Postgres'],
+    'optionId 即选项 label（答案契约闭合）',
+  );
+  harness.client.respondPermission(request.id, 'SQLite');
+  const answers = await pending;
+  assert.deepStrictEqual(answers[0], { id: 'q1', selected: ['SQLite'] }, '点选即答案');
+  assert.deepStrictEqual(
+    answers[1],
+    { id: 'q2', selected: [] },
+    '开放题不伪装成可作答，占位空选择',
+  );
+  assert.deepStrictEqual(
+    answers[2],
+    { id: 'q3', selected: [] },
+    '多选题不经单选原语歪曲，占位空选择',
+  );
+  assert.strictEqual(
+    harness.client.permissionRequests.length,
+    1,
+    '只有单选题发 request_permission',
+  );
+});

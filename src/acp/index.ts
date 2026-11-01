@@ -69,6 +69,7 @@ export type { AcpAuthenticator } from './acpAuthenticator.ts';
 export { AcpAuthentication } from './acpAuthentication.ts';
 export { AcpRequestError } from './acpRequestError.ts';
 export { AcpEventMapper } from './acpEventMapper.ts';
+export { AcpQuestionUplink } from './acpQuestionUplink.ts';
 export { AcpServer, type AcpServerOptions } from './acpServer.ts';
 export { AcpSessionLifecycle, type AcpSessionLifecycleOptions } from './acpSessionLifecycle.ts';
 export { AcpSessionRegistry, type AcpSessionState } from './acpSessionRegistry.ts';

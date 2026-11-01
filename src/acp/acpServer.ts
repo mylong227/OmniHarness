@@ -15,6 +15,7 @@ import { AcpSessionLifecycle } from './acpSessionLifecycle.ts';
 import { AcpSessionRegistry } from './acpSessionRegistry.ts';
 import type { AcpSessionState } from './acpSessionRegistry.ts';
 import { AcpValidation } from './acpValidation.ts';
+import { AcpQuestionUplink } from './acpQuestionUplink.ts';
 import type { AcpTransport } from './acpStdioTransport.ts';
 import type {
   AcpAgentCapabilities,
@@ -341,6 +342,36 @@ export class AcpServer {
       cwd,
       events: this.eventPortFor(sessionId),
       approvals: this.approvalPortFor(sessionId),
+      // 提问上行（2026-11-01）：ask_user 的单选题经 request_permission 由 Client 点选作答。
+      // 协作类复用本服务端的 pending 表 / 请求 id / 取消追踪（注入见 acpQuestionUplink）。
+      userResponder: new AcpQuestionUplink({
+        timeoutMs: this.deps.permissionTimeoutMs,
+        allocateId: () => this.state.nextRequestId++,
+        sendRequest: (id, permission) => {
+          this.deps.transport.send(
+            jsonRpc.request(
+              id,
+              ACP_METHOD_REQUEST_PERMISSION,
+              permission as unknown as Record<string, unknown>,
+            ),
+          );
+        },
+        registerPending: (id, resolve) => {
+          // 与审批上行同一款等待语义：刻意不 unref（挂起必须真的等到响应/超时/断连之一）；
+          // 超时按 cancelled 兑现（fail-soft，与无人值守占位同语义）。
+          const timeout =
+            this.deps.permissionTimeoutMs > 0
+              ? {
+                  ms: this.deps.permissionTimeoutMs,
+                  onTimeout: (handlers: { readonly resolve: (v: AcpPermissionOutcome) => void }) =>
+                    handlers.resolve({ outcome: 'cancelled' }),
+                }
+              : undefined;
+          this.pending.register(id, { resolve }, timeout);
+        },
+        trackPermission: (sid, id) => this.registry.addPermissionId(sid, id),
+        untrackPermission: (sid, id) => this.registry.removePermissionId(sid, id),
+      }).responder(),
       clientCapabilities: this.state.clientCapabilities,
       ...(identity !== undefined ? { identity } : {}),
     });
