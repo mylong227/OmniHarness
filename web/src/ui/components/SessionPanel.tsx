@@ -32,8 +32,7 @@ import { useRowMenuKeyboard } from './useRowMenuKeyboard.ts';
 import { SessionOrder } from '../models/SessionOrder.ts';
 import { icon } from '../models/Icon.ts';
 import { desktopBridge } from '../../core/desktop/DesktopBridge.ts';
-import type { FsNode } from '../../types/models.ts';
-import type { SearchHit } from '../../types/models.ts';
+import type { FsNode, SearchHit } from '../../types/models.ts';
 import type { SessionEntry } from '../shared.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -82,10 +81,11 @@ export interface SessionPanelProps {
 
 /**
  * 左栏会话与工作区面板：会话列表（列表 / 任务卡视图）、搜索（本地 + 远端）、重命名删除分叉、工作区切换。
+ * 2026-11-01 `memo` 包层：SSE 事件 patch 每帧重渲染而本面板数据大多不变——配合 App 侧稳定回调束（usePanelParts），props 身份不变即整棵跳过。
  * @param props 组件入参
  * @returns 左栏节点
  */
-export function SessionPanel(props: SessionPanelProps): ReactElement {
+export const SessionPanel = React.memo(function SessionPanel(props: SessionPanelProps): ReactElement {
   const {
     sessions,
     currentThreadId,
@@ -884,4 +884,4 @@ export function SessionPanel(props: SessionPanelProps): ReactElement {
       />
     </div>
   );
-}
+});

@@ -9,6 +9,8 @@ export const EN_MISC: Record<string, string> = {
   '全局': 'Global',
   '本会话 Token': 'Session tokens',
   '本会话调用': 'Session calls',
+  '指标端点不可用（刷新失败）': 'Metrics endpoint unavailable (refresh failed)',
+  '指标端点不可用：以下为上次成功拉取的快照，端点恢复后自动续新': 'Metrics endpoint unavailable: showing the last successful snapshot; it resumes automatically once the endpoint recovers',
   '数据实时跟随会话（回合推进自动刷新）': 'Live: refreshes as the session progresses',
   // AddMenu.tsx
   '添加': 'Add',

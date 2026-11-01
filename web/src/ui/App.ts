@@ -35,6 +35,8 @@ import { Resizer } from './components/Resizer.tsx';
 // antd 运行时装配（W1 起）：全站唯一 ConfigProvider/AntApp 收口在 ThemeProvider。
 // theme 直接取根状态 state.theme（LayoutController 已按 themePref 解析成 dark/light）。
 import { ThemeProvider } from './theme/ThemeProvider.tsx';
+import { usePanelParts, type PanelHandlers } from './components/usePanelParts.ts';
+import { useRecentLocalUrls } from './components/useRecentLocalUrls.ts';
 
 // 首屏真需要的两个面板保持静态：ToolsTab 是默认 activePane 的首帧内容；
 // FileTab 是右栏文件视（永远挂载为 RightPanel 的 children）。其余全部走异步块。
@@ -134,7 +136,6 @@ function prefetchLazyPanes(): void {
   }
 }
 import { SessionsScope } from './models/SessionsScope.ts';
-import { LocalDevUrls } from './models/LocalDevUrls.ts';
 import { desktopBridge } from '../core/desktop/DesktopBridge.ts';
 
 /** AppHost.patch 的入参形态（局部补丁 / 函数式 updater）。 */
@@ -442,20 +443,22 @@ function consoleViewElement(
  * 左栏会话面板元素：会话/工作区/布局/设置入口的全量回调接线。
  * @param ctrl 应用控制器
  * @param s 应用状态
+ * @param h 稳定回调束（usePanelParts 产物）
+ * @param leftStyle 稳定的左栏宽度样式（usePanelParts 产物）
  * @param onWorkspaceResolved 工作区解析回调（透传面板）
- * @param consoleOpenerRef 设置入口焦点来源记录（打开控制台前记下触发按钮）
- * @returns SessionPanel 元素
+ * @returns SessionPanel 元素（组件自身已 memo 化，身份不变即整棵跳过）
  */
 function sessionPanelElement(
   ctrl: AppController,
   s: AppState,
+  h: PanelHandlers,
+  leftStyle: Record<string, string>,
   onWorkspaceResolved: (path: string) => void,
-  consoleOpenerRef: React.RefObject<HTMLElement | null>,
 ): ReactElement {
   return React.createElement(SessionPanel, {
     sessions: s.sessions,
     currentThreadId: s.currentThreadId,
-    onSelect: (id: string) => openThread(ctrl, id),
+    onSelect: h.onSelect,
     onNew: ctrl.sessions.newSession,
     onOpenFile: ctrl.files.openFile,
     onRename: ctrl.sessions.renameSession,
@@ -463,24 +466,18 @@ function sessionPanelElement(
     onFork: ctrl.sessions.forkSession,
     onArchive: ctrl.sessions.archiveSession,
     onReorder: ctrl.sessions.reorderSessions,
-    onWorkspaceSwitched: () => ctrl.sessions.onWorkspaceSwitched(),
+    onWorkspaceSwitched: h.onWorkspaceSwitched,
     onWorkspaceResolved,
     scopeAll: s.sessionsScopeAll,
-    onToggleScope: () => ctrl.sessions.toggleSessionsScope(),
+    onToggleScope: h.onToggleScope,
     activePane: s.activePane,
-    onOpenPane: (key: string) => ctrl.setActivePane(key),
+    onOpenPane: h.onOpenPane,
     // 设置固定在左栏页脚（2026-10-17）：它打开工作台控制台，不再从面板列表进入。
-    onOpenSettings: () => {
-      // 先记下打开瞬间的焦点（触发按钮），再收抽屉——抽屉一收，visibility:hidden
-      // 会立即使触发器失焦，lazy 的 ConsoleView 挂载时已无法从 activeElement 恢复它。
-      consoleOpenerRef.current = document.activeElement as HTMLElement | null;
-      ctrl.layout.closePanels();
-      ctrl.settings.open();
-    },
+    onOpenSettings: h.onOpenSettings,
     connected: s.connected,
     streamState: s.streamState,
     open: s.leftOpen,
-    style: { width: s.leftWidth + 'px' },
+    style: leftStyle,
   });
 }
 
@@ -598,6 +595,8 @@ function renderBody(
   pane: ReactElement,
   recentLocalUrls: readonly string[],
   workspacePath: string,
+  h: PanelHandlers,
+  leftStyle: Record<string, string>,
   onWorkspaceResolved: (path: string) => void,
   consoleOpenerRef: React.RefObject<HTMLElement | null>,
 ): ReactElement {
@@ -620,7 +619,7 @@ function renderBody(
           (s.rightCollapsed ? ' rcollapsed' : '') +
           (consoleOpen ? ' console-open' : ''),
       },
-      sessionPanelElement(ctrl, s, onWorkspaceResolved, consoleOpenerRef),
+      sessionPanelElement(ctrl, s, h, leftStyle, onWorkspaceResolved),
       React.createElement(Resizer, {
         side: 'left',
         width: s.leftWidth,
@@ -722,30 +721,22 @@ export function App(): ReactElement {
     return () => window.clearTimeout(timer);
   }, []);
 
-  // 会话里出现过的本地开发地址（dev server / 预览链接）：给网页标签空态做一键入口。
-  // 只扫最近若干条（倒序），不在每帧对全量事件做正则——长会话里那是可见的卡顿源。
-  const recentLocalUrls = React.useMemo(() => {
-    const texts: string[] = [];
-    for (let i = state.events.length - 1; i >= 0 && texts.length < 24; i -= 1) {
-      const ev = state.events[i];
-      if (ev !== undefined && ev.type === 'assistant') {
-        texts.push(String(ev.payload?.content ?? ''));
-      }
-    }
-    const results = Object.values(state.toolResults);
-    for (let i = results.length - 1; i >= 0 && texts.length < 36; i -= 1) {
-      texts.push(results[i]?.text ?? '');
-    }
-    return LocalDevUrls.collect(texts, {
-      limit: 6,
-      excludeHostPort: typeof location === 'undefined' ? '' : location.host,
-    });
-  }, [state.events, state.toolResults]);
+  // 会话里出现过的本地开发地址 + 三份渲染期稳定产物（回调束 / 左栏样式 / 上下文值）：
+  // 抽进独立 hook（useRecentLocalUrls / usePanelParts），App() 体量与 App.ts 文件上限都因此
+  // 回到基线内；memo 化的 SessionPanel 与 useApp() 消费者的重渲染收敛语义见 hook 文件头。
+  const recentLocalUrls = useRecentLocalUrls(state.events, state.toolResults);
+  const openThreadId = React.useMemo(() => (id: string) => openThread(controller, id), [controller]);
+  const { panelHandlers, leftStyle, contextValue } = usePanelParts(
+    controller,
+    consoleOpenerRef,
+    state,
+    openThreadId,
+  );
 
   const pane = renderPane(controller, state);
   return React.createElement(
     AppContext.Provider,
-    { value: controller.getContextValue() },
+    { value: contextValue },
     // W1：整棵视图树包进 ThemeProvider（antd 主题/locale/message 上下文）。
     // 2026-10-29 合并：全站悬浮提示层也在主题内——它是 position:fixed 的覆盖层，
     // 与 `.app` 平级、不参与三栏布局（不塞进 renderBody，那里函数体有冻结基线）。
@@ -755,7 +746,7 @@ export function App(): ReactElement {
         React.Fragment,
         null,
         React.createElement(TooltipLayer, null),
-        renderBody(controller, state, pane, recentLocalUrls, workspacePath, setWorkspacePath, consoleOpenerRef),
+        renderBody(controller, state, pane, recentLocalUrls, workspacePath, panelHandlers, leftStyle, setWorkspacePath, consoleOpenerRef),
       ),
     }),
   );

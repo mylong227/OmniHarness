@@ -61,18 +61,26 @@ interface StaticServerHandle {
  * @returns 注入锚点；找不到时 null
  */
 function findPanelAnchor(src: string) {
-  for (const m of src.matchAll(/([A-Za-z_$][\w$]*)\(\s*([A-Za-z_$][\w$]*)\s*,\s*"SessionPanel"\s*\)/g)) {
-    const needle = `function ${m[2]}(`;
-    const fnAt = src.indexOf(needle);
-    if (fnAt < 0) continue;
-    // ⚠️ 必须定位到**函数体的 `{`**，不是参数括号。
-    // 压缩后的签名是 `function Ov(u){`：`needle` 只覆盖到 `(`，若直接在 needle 之后插入，
-    // 会把参数列表切成 `(throw new Error(...)u)` ⇒ bundle 语法错误
-    // （实测症状：注入组 `#root` 长度 0，连错误边界都没机会渲染）。
-    const bodyAt = src.indexOf('{', fnAt + needle.length);
-    if (bodyAt < 0) continue;
-    const insertAt = bodyAt + 1;
-    return { prefix: src.slice(0, insertAt), suffix: src.slice(insertAt) };
+  // keepNames 锚点 = `__name(<组件函数>, "SessionPanel[2]")` 调用（`\d*`：2026-11-01 起
+  // SessionPanel 以 `memo(function SessionPanel(...))` 包层，keepNames 对同名冲突生成
+  // `SessionPanel2` 这类数字后缀，且组件函数**内联**在调用里——旧的「先找 `function 标识符(`
+  // 再找体 `{`」不再成立）。改为从尾部逗号向前做花括号配平：与收尾逗号紧邻的 `}` 是
+  // 函数体的闭括号，配平到的 `{` 即函数体开括号（注入点）。
+  for (const m of src.matchAll(/,\s*"SessionPanel\d*"\s*\)/g)) {
+    const start = m.index ?? -1;
+    let depth = 0;
+    for (let i = start - 1; i >= 0; i -= 1) {
+      const ch = src[i];
+      if (ch === '}') {
+        depth += 1;
+      } else if (ch === '{') {
+        if (depth === 1) {
+          const insertAt = i + 1;
+          return { prefix: src.slice(0, insertAt), suffix: src.slice(insertAt) };
+        }
+        depth -= 1;
+      }
+    }
   }
   return null;
 }

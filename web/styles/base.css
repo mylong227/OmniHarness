@@ -133,7 +133,6 @@ svg {
 .artifact-card .artifact-icon svg,
 .att-ico svg,
 .ev-chip-ico svg,
-.fp-icon svg,
 .dd-ico svg,
 .addmenu-ico svg,
 .addmenu-item-ico svg,
@@ -1196,15 +1195,13 @@ pre.json {
   border-color: var(--border-strong);
 }
 .att-ico,
-.ev-chip-ico,
-.fp-icon {
+.ev-chip-ico {
   display: inline-flex;
   align-items: center;
   color: var(--faint);
 }
 .att-ico svg,
-.ev-chip-ico svg,
-.fp-icon svg {
+.ev-chip-ico svg {
   width: 15px;
   height: 15px;
   stroke-width: 1.6;
@@ -1418,7 +1415,6 @@ pre.json {
   color: var(--err);
   border-color: color-mix(in srgb, var(--err) 34%, var(--border-soft));
 }
-.btn-install,
 .btn-remove {
   border-radius: 8px;
   font-size: 11.5px;

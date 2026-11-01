@@ -150,7 +150,7 @@
 .dlg { width:400px; }
 .dlg .dlg-msg { color:var(--text); line-height:1.6; margin-bottom:14px; word-break:break-word; }
 .dlg .dlg-input { width:100%; margin-bottom:14px; }
-.btn-install, .btn-remove { cursor:pointer; border:1px solid var(--border-soft); background:var(--bg-elev); color:var(--text); }
+.btn-remove { cursor:pointer; border:1px solid var(--border-soft); background:var(--bg-elev); color:var(--text); }
 
 /* ---------- 会话分组（按工作区折叠 + 分页展开 + 隐藏滚动条） ---------- */
 #sessions { max-height:260px; overflow-y:auto; scrollbar-width:none; }
@@ -228,7 +228,6 @@
 .work-indicator {
   display: flex; align-items: center; gap: 8px;
 }
-.wi-text { color: var(--text); }
 .wi-time { margin-left: auto; opacity: .7; }
 
 /* ---- 添加项目 / 项目切换列表 ---- */

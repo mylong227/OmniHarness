@@ -885,7 +885,6 @@ body {
 .addmenu-item,
 .pp-item,
 .row-menu button,
-.fp-item,
 .ws-project {
   min-height: 28px;
   border-radius: 8px;
@@ -1034,10 +1033,6 @@ body {
 }
 .fp-list {
   padding: 6px 12px;
-}
-.fp-item {
-  padding: 8px 10px;
-  font-size: 12.5px;
 }
 .fp-actions {
   padding: 12px 18px 16px;

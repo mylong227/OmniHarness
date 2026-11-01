@@ -45,7 +45,7 @@
   vendor 分块使发版只失效应用 chunk，vendor 跨版本命中缓存。
 - **口径修正**：`manualChunks` 必须用**函数形态**（object 形态抓不到 react/cjs 重导出，实测产出 0KB 空 chunk）。
 
-**皮肤接线（真机实测，探针 `web/test/antdPocProbe.ts`）**
+**皮肤接线（真机实测；当时的探针脚本已随 PoC 隔离入口于 2026-11-01 一并退役删除）**
 
 - `--ant-*` CSS 变量：**默认不注入**；`theme.cssVar: { prefix: 'ant' }` 显式开启后注入 381 个，
   作用域在 antd App 包裹层（`.ant-app.css-var-*`），不在 `:root`——antd.css 与判据从该作用域取值。

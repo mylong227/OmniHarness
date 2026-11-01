@@ -154,23 +154,29 @@ export function MetricsTab(): ReactElement {
   const { api, sessionId, sessionTick } = useApp();
   const [metrics, setMetrics] = React.useState<Metrics | null>(null);
   const [usage, setUsage] = React.useState<UsageStats | null>(null);
+  // 端点健康：最近一次 fetchMetrics 是否失败（成功即清）。轮询失败静默保持上一帧是刻意的
+  // （指标端点不可用不该让面板空白），但用户看着的可能是一份无限陈旧的快照——必须如实提示。
+  const [metricsFailed, setMetricsFailed] = React.useState(false);
 
   // 挂载即拉一次并按 POLL_MS 轮询；卸载即停表且不再回写（清理对称）。
   React.useEffect(() => {
     let alive = true;
-    /** 拉取指标与用量；任一失败保持上一帧（指标端点不可用不该让面板空白）。 */
+    /** 拉取指标与用量；失败保持上一帧＋标记失败（不许让用户对着无限陈旧的快照毫无感知）。 */
     const refresh = async (): Promise<void> => {
       try {
         const m = await api.fetchMetrics();
-        if (alive) setMetrics(m);
+        if (alive) {
+          setMetrics(m);
+          setMetricsFailed(false);
+        }
       } catch {
-        /* 静默：指标端点不可用时保持上一帧 */
+        if (alive) setMetricsFailed(true);
       }
       try {
         const u = await api.usageStats();
         if (alive) setUsage(u);
       } catch {
-        /* 静默：统计 RPC 不可用时保持上一帧 */
+        /* 静默：统计 RPC 不可用时保持上一帧（metrics 是门面数据，它的失败已另行提示） */
       }
     };
     void refresh();
@@ -181,7 +187,9 @@ export function MetricsTab(): ReactElement {
     };
   }, [api, sessionTick]);
 
-  if (!metrics) return emptyNote(t('读取中…'), { kind: 'note' });
+  if (!metrics) {
+    return emptyNote(t(metricsFailed ? '指标端点不可用（刷新失败）' : '读取中…'), { kind: 'note' });
+  }
 
   const et = metrics.eventsByType || {};
   const total = Object.values(et).reduce<number>((a, b) => a + (b as number), 0);
@@ -201,6 +209,9 @@ export function MetricsTab(): ReactElement {
 
   return (
     <div className="csl-stack">
+      {metricsFailed ? (
+        <p className="note">{t('指标端点不可用：以下为上次成功拉取的快照，端点恢复后自动续新')}</p>
+      ) : null}
       <div className="metric-grid">
         {cards.map((c) => (
           <Statistic

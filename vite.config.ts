@@ -51,7 +51,10 @@ export default defineConfig({
     // 优先 `web/dist`，开发态无产物时回落 `web/`）。
     outDir: 'dist',
     emptyOutDir: true,
-    sourcemap: false,
+    // `hidden`（2026-11-01 起）：生成 .map 但**不写 sourceMappingURL 注释**——浏览器不会自动
+    // 加载，devtools 显式打开（或报错上报方持有 map）时才可用；压缩产物的行列号从「不可诊断」
+    // 变成「按需可诊断」。此前 false 的代价是报错只剩 keepNames 函数名（见下），无行列号。
+    sourcemap: 'hidden',
     target: 'es2020',
     // `keepNames`：**保留函数/类名**，代价是少量体积，换来的是可诊断性。
     //

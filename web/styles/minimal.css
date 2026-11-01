@@ -1802,10 +1802,6 @@
   background: transparent;
   color: var(--dim);
 }
-.wi-text {
-  color: var(--text);
-  font-size: var(--fs-sm);
-}
 
 /* 中栏头：标题 + 视图切换。发丝线收尾，不给整条横带加底色。 */
 .chat-head {
@@ -2697,9 +2693,6 @@ button:active,
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-[data-theme='light'] .sp-ovl {
-  background: rgba(22, 25, 30, 0.28);
-}
 .sp {
   display: flex;
   flex-direction: column;
@@ -2718,13 +2711,6 @@ button:active,
   flex: none;
   border-bottom: 1px solid var(--hairline);
   padding: 12px 14px 12px 18px;
-}
-.sp-top-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: var(--fs-ui);
-  font-weight: 600;
 }
 .sp-nav {
   flex: none;
@@ -2888,28 +2874,6 @@ button:active,
   overflow: hidden;
   border: 1px solid var(--hairline);
   border-radius: var(--r-md);
-}
-.sp-card-toggle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  color: var(--dim);
-  font-size: var(--fs-list);
-  font-family: inherit;
-  text-align: left;
-  padding: 8px 10px;
-  cursor: pointer;
-}
-.sp-card-toggle:hover {
-  background: var(--hover);
-  color: var(--text);
-}
-.sp-card-toggle-name {
-  color: inherit;
 }
 .sp-card {
   border-top: 1px solid var(--hairline);
@@ -3339,11 +3303,6 @@ button:hover,
   padding: 20px 26px 26px;
 }
 
-/* 模态内容：单栏阅读宽度，避免长句横贯 900px 屏 */
-.panel-modal-content > * {
-  max-width: 700px;
-  margin-inline: auto;
-}
 /* 插件/配置集这类「列表行」：操作统一右对齐，徽标与正文分层 */
 .panel-surface .pc-head {
   display: flex;

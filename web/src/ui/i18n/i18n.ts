@@ -32,6 +32,11 @@ export function subscribeLocale(fn: () => void): () => void {
   };
 }
 
+/** 把 <html lang> 对齐当前语言（读屏发音跟随 UI 语言；中文用 zh-CN，与 index.html 静态初值一致）。 */
+function syncDocumentLang(l: Locale): void {
+  document.documentElement.lang = l === 'en' ? 'en' : 'zh-CN';
+}
+
 /**
  * 切换语言并持久化（语言变化的重渲染由 App 状态 patch 承接，这里只管模块态与存储）。
  * @param l 目标语言
@@ -39,6 +44,7 @@ export function subscribeLocale(fn: () => void): () => void {
 export function setLocale(l: Locale): void {
   if (l === current) return;
   current = l;
+  syncDocumentLang(l);
   try {
     localStorage.setItem(STORAGE_KEY, l);
   } catch {
@@ -55,6 +61,7 @@ export function initLocale(): void {
   } catch {
     /* 忽略 */
   }
+  syncDocumentLang(current);
 }
 
 /** t() 的插值参数形态。 */
