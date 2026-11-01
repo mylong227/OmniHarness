@@ -6,6 +6,8 @@ import { ToolSearchTool } from '../adapters/tool/meta/toolSearchTool.ts';
 import { MemorySearchTool } from '../adapters/tool/memory/memorySearchTool.ts';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
 import { RememberTool, RecallTool } from '../adapters/tool/memory/longTermMemoryTools.ts';
+import { ScratchpadTool } from '../adapters/tool/memory/scratchpadTool.ts';
+import type { ScratchpadPort } from '../ports/memory/scratchpad.ts';
 import { CheckpointManager } from '../core/checkpointManager.ts';
 import { eventFactory } from '../core/eventFactory.ts';
 import { GitWorkspaceSnapshot } from '../adapters/workspace/gitWorkspaceSnapshot.ts';
@@ -377,6 +379,7 @@ export class ConfigToolRegistry {
     registry: RegistryToolPort,
     seed: SubagentPortSeed,
     longTerm: LongTermMemoryPort | undefined,
+    scratchpad: ScratchpadPort,
     costBudget: CostBudget | undefined,
     lsp: LspPort | undefined,
     identity: AgentIdentityPort | undefined,
@@ -387,6 +390,12 @@ export class ConfigToolRegistry {
       const recallTool = new RecallTool(longTerm);
       registry.register(rememberTool.definition, (call, ctx) => rememberTool.handle(call, ctx));
       registry.register(recallTool.definition, (call, ctx) => recallTool.handle(call, ctx));
+    }
+    // T3.4 工作便签（2026-11-01 接线收口）：write/read/clear 跨上下文重置的交接物——
+    // 存储与配置接线此前均在，唯独没有模型入口；恒注册（FileScratchpad fail-soft，不依赖可选项）。
+    {
+      const scratchpadTool = new ScratchpadTool(scratchpad);
+      registry.register(scratchpadTool.definition, (call) => scratchpadTool.handle(call));
     }
     // #S29 成本预算：budget_status 让模型随时自查花费/剩余/是否已熔断（仅当配置了硬预算）。
     if (costBudget !== undefined) {
@@ -572,6 +581,7 @@ export class ConfigToolRegistry {
       readonly plan: PlanPort;
       readonly userResponder: UserResponder;
       readonly planMode: boolean;
+      readonly scratchpad: ScratchpadPort;
     },
     discovery: ToolDiscoveryPort,
     retrieval: RetrievalPort,
@@ -594,7 +604,15 @@ export class ConfigToolRegistry {
       discovery,
       retrieval,
     );
-    ConfigToolRegistry.registerAuxiliaryTools(registry, seed, longTerm, costBudget, lsp, identity);
+    ConfigToolRegistry.registerAuxiliaryTools(
+      registry,
+      seed,
+      longTerm,
+      planning.scratchpad,
+      costBudget,
+      lsp,
+      identity,
+    );
     // 多候选补丁只在自验证开启时注册：它需要可探测/显式测试命令，否则只会多一个失败面。
     if (selfVerify !== undefined) {
       const candidates = new PatchCandidatesTool(seed.workspaceRoot, {

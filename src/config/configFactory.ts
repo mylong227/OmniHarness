@@ -15,6 +15,7 @@ import type { EmbeddingPort } from '../ports/model/embedding.ts';
 import type { ModelPort } from '../ports/model/model.ts';
 import type { ToolPort } from '../ports/tool/tool.ts';
 import type { LongTermMemoryPort } from '../ports/memory/longTermMemory.ts';
+import type { ScratchpadPort } from '../ports/memory/scratchpad.ts';
 import { DEFAULT_GOAL_MAX_ITERATIONS } from '../autonomy/goalRunner.ts';
 
 import type { LspPort } from '../ports/tool/lsp.ts';
@@ -328,6 +329,7 @@ export class ConfigFactory {
       seed,
       core.ports,
       memory.stack.longTermMemory,
+      memory.stack.scratchpad,
       costBudget,
       lsp,
       identity,
@@ -358,6 +360,7 @@ export class ConfigFactory {
     seed: SubagentPortSeed,
     ports: CorePorts,
     longTermMemory: LongTermMemoryPort,
+    scratchpad: ScratchpadPort,
     costBudget: CostBudget | undefined,
     lsp: LspPort | undefined,
     identity: AgentIdentityPort | undefined,
@@ -404,6 +407,7 @@ export class ConfigFactory {
         plan: ports.plan,
         userResponder: ports.userResponder,
         planMode: ports.planMode,
+        scratchpad,
       },
       ports.discovery,
       ports.retrieval,

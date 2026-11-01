@@ -72,6 +72,8 @@ export const TOOL_NAMES = {
   remember: 'remember',
   /** 读长期记忆。 */
   recall: 'recall',
+  /** 跨上下文重置的工作便签（交接物；T3.4，2026-11-01 接线收口）。 */
+  scratchpad: 'scratchpad',
   /** 长期记忆检索。 */
   memorySearch: 'memory_search',
   /** 写待办清单。 */
@@ -188,6 +190,9 @@ export const MUTATING_TOOL_NAMES: ReadonlySet<ToolName> = new Set<ToolName>([
   TOOL_NAMES.checkpoint,
   // 写长期记忆（跨会话持久 fact）⇒ 有持久副作用。
   TOOL_NAMES.remember,
+  // 工作便签落盘 `.omniharness/scratchpad.json` ⇒ 写工作区状态（write/clear 动作）。
+  // 工具级粒度与 run_code 同型：混合动作按最危险动作归类，read 一并被串行/plan 拦。
+  TOOL_NAMES.scratchpad,
 ]);
 
 /**
