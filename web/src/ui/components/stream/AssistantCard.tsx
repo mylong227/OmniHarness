@@ -107,6 +107,40 @@ function openFileFromClick(
 }
 
 /**
+ * 复制反馈 hook：真实写入成功才亮 ✓（1.4s 后回落）——「勾选感」必须等于**真实写入成功**，
+ * 失败（两条路径都被拒）不放假勾。定时器经 schedule 注入点驱动（单测可替换）。
+ * @param full 要复制的正文全文。
+ * @param schedule 定时器注入点（单测可替换；缺省用全局 setTimeout）。
+ * @returns copied 当前是否处于成功反馈态；onCopy 复制按钮的点击处理。
+ */
+function useCopyFeedback(
+  full: string,
+  schedule?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
+): { copied: boolean; onCopy: (e: React.MouseEvent) => void } {
+  const [copied, setCopied] = React.useState(false);
+  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => {
+    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+  }, []);
+  const onCopy = (e: React.MouseEvent): void => {
+    e.stopPropagation();
+    const fire = (): void => {
+      setCopied(false);
+      copiedTimerRef.current = null;
+    };
+    void ClipboardCopier.copy(full).then((ok) => {
+      if (!ok) return;
+      setCopied(true);
+      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
+      const after = (fn: () => void, ms: number): ReturnType<typeof setTimeout> =>
+        schedule ? schedule(fn, ms) : setTimeout(fn, ms);
+      copiedTimerRef.current = after(fire, 1400);
+    });
+  };
+  return { copied, onCopy };
+}
+
+/**
  * 助手消息卡：渲染正文（生成中渐进揭示）、附件、外链与复制入口。
  * @param props 组件入参
  * @returns 助手消息节点
@@ -128,14 +162,6 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
     revealerRef.current = new TextRevealer((next) => setShown(next), schedule);
   }
 
-  // 复制反馈：成功才亮 ✓（1.4s 后回落）——「勾选感」必须等于**真实写入成功**，
-  // 失败（两条路径都被拒）不放假勾。定时器经 schedule 注入点驱动（单测可替换）。
-  const [copied, setCopied] = React.useState(false);
-  const copiedTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  React.useEffect(() => () => {
-    if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
-  }, []);
-
   // 文本 / busy / animate 任一变化即重启揭示（依赖写全；不比对 prev）。
   // 收折为简报卡时揭示没有输出面，直接不启动（省一轮逐字动画开销）；
   // 展开后的 `renderMarkdown(shown || full)` 有 full 兜底，显示不会缺内容。
@@ -147,25 +173,7 @@ export function AssistantCard(props: AssistantCardProps): ReactElement {
   // 卸载即停止揭示（清理对称）。
   React.useEffect(() => () => revealerRef.current?.stop(), []);
 
-  /**
-   * 复制正文：真实写入成功才给 ✓ 反馈（失败保持原样，不假装复制上了）。
-   * @param e 点击事件
-   */
-  const onCopy = (e: React.MouseEvent): void => {
-    e.stopPropagation();
-    const fire = (): void => {
-      setCopied(false);
-      copiedTimerRef.current = null;
-    };
-    void ClipboardCopier.copy(full).then((ok) => {
-      if (!ok) return;
-      setCopied(true);
-      if (copiedTimerRef.current !== null) clearTimeout(copiedTimerRef.current);
-      const after = (fn: () => void, ms: number): ReturnType<typeof setTimeout> =>
-        schedule ? schedule(fn, ms) : setTimeout(fn, ms);
-      copiedTimerRef.current = after(fire, 1400);
-    });
-  };
+  const { copied, onCopy } = useCopyFeedback(full, schedule);
 
   const p = ev.payload || {};
   return (

@@ -162,6 +162,348 @@ function navItemsOf(groups: readonly ConsoleNavGroup[], activeKey: string): Menu
 }
 
 /**
+ * Esc 关闭控制台。挂 window：焦点可能暂时落在框外，容器上的 onKeyDown 收不到。
+ * @param open 是否打开
+ * @param onClose 关闭回调
+ */
+function useConsoleEscape(open: boolean, onClose: () => void): void {
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === ESC) {
+        onClose();
+        return;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+}
+
+/**
+ * 控制台焦点管理：打开时把焦点放到当前导航项，关闭时还给触发按钮；移动端抽屉展开后同样落焦。
+ * opener 不能依赖挂载时的 activeElement：本组件是 lazy 块，挂载前浏览器可能已因「收起抽屉」
+ * 把触发器失焦（visibility:hidden），故用 App 在按下瞬间记下的 consoleOpenerRef（无 ref 则退回历史行为）。
+ * @param open 是否打开
+ * @param consoleOpenerRef 打开瞬间持有焦点的元素（App 捕获）
+ * @param currentKeyRef 当前条目 key 的最新值（切页不抢焦点）
+ * @param navRef 导航容器（antd Menu 不透传 ref，按 data-pane 查条目）
+ * @param rootRef 根容器（窄屏抽屉态的焦点落点）
+ * @param navOpen 移动端导航抽屉是否展开
+ */
+function useConsoleFocus(
+  open: boolean,
+  consoleOpenerRef: React.RefObject<HTMLElement | null> | undefined,
+  currentKeyRef: React.RefObject<string>,
+  navRef: React.RefObject<HTMLElement | null>,
+  rootRef: React.RefObject<HTMLDivElement | null>,
+  navOpen: boolean,
+): void {
+  // 打开时把焦点放到当前导航项，关闭时还给触发按钮。
+  React.useEffect(() => {
+    if (!open) return undefined;
+    const fromRef = consoleOpenerRef?.current ?? null;
+    if (consoleOpenerRef !== undefined) consoleOpenerRef.current = null;
+    const opener = fromRef ?? (document.activeElement as HTMLElement | null);
+    const raf = requestAnimationFrame(() => {
+      // 窄屏左栏是抽屉（关闭时 visibility:hidden）：此时不要把焦点送进看不见的导航。
+      const narrow =
+        typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches;
+      const current = navRef.current?.querySelector<HTMLElement>(
+        `[data-pane="${currentKeyRef.current}"]`,
+      );
+      const first = narrow && !navOpen ? rootRef.current : (current ?? rootRef.current);
+      first?.focus();
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (opener !== null && opener.isConnected) opener.focus();
+    };
+  }, [open]);
+  // 移动端抽屉打开后把焦点移到当前导航项（否则焦点留在地面工具栏上）。
+  React.useEffect(() => {
+    if (!open || !navOpen) return;
+    navRef.current?.querySelector<HTMLElement>(`[data-pane="${currentKeyRef.current}"]`)?.focus();
+  }, [open, navOpen]);
+}
+
+/**
+ * 左栏导航侧栏：品牌、返回、菜单与工作区/连接页脚。
+ * @param props entry 当前条目；navItems 菜单项；navRef 导航容器；pick 选条目；onClose 关控制台；
+ *   setNavOpen 收起移动端抽屉；workspacePath 工作区路径；connState 连接三态
+ * @returns aside 节点
+ */
+function consoleNavAside(props: {
+  entry: ConsoleEntry;
+  navItems: MenuProps['items'];
+  navRef: React.RefObject<HTMLElement | null>;
+  pick: (key: string) => void;
+  onClose: () => void;
+  setNavOpen: (next: boolean) => void;
+  workspacePath: string;
+  connState: 'open' | 'connecting' | 'closed';
+}): ReactElement {
+  const { entry, navItems, navRef, pick, onClose, setNavOpen, workspacePath, connState } = props;
+  return (
+    <aside className="sp-nav csl-rail">
+      <div className="csl-brand">
+        <BrandMark />
+        <span className="csl-brand-text">
+          <span className="csl-brand-name">OmniHarness</span>
+          <span className="csl-brand-sub">{t('工作台控制台')}</span>
+        </span>
+        <button
+          className="csl-nav-close"
+          type="button"
+          aria-label={t('关闭导航菜单')}
+          onClick={() => setNavOpen(false)}
+        >
+          {icon('x', { size: 14 })}
+        </button>
+      </div>
+
+      <button className="csl-back" type="button" onClick={onClose}>
+        {icon('arrow-left', { size: 14 })}
+        {t('返回工作区')}
+      </button>
+
+      <nav className="csl-nav" aria-label={t('控制台导航')} ref={navRef}>
+        <Menu
+          mode="inline"
+          className="csl-menu"
+          selectedKeys={[entry.key]}
+          onClick={({ key }) => pick(key)}
+          items={navItems}
+        />
+      </nav>
+
+      <div className="csl-rail-foot">
+        <div className="csl-workspace">
+          <span className="csl-avatar" aria-hidden="true">
+            {workspacePath === ''
+              ? 'O'
+              : (workspacePath.split(/[\\/]/).filter(Boolean).pop() ?? 'O')
+                  .slice(0, 1)
+                  .toUpperCase()}
+          </span>
+          <span className="csl-workspace-text">
+            <span className="csl-workspace-name" title={workspacePath}>
+              {workspacePath === ''
+                ? t('未定位工作区')
+                : (workspacePath.split(/[\\/]/).filter(Boolean).pop() ?? workspacePath)}
+            </span>
+            <span className="csl-workspace-sub">{t('本机工作区')}</span>
+          </span>
+        </div>
+        <div className="csl-conn" role="status" aria-live="polite">
+          <span
+            className={
+              'csl-conn-dot' +
+              (connState === 'open' ? ' on' : connState === 'connecting' ? ' warn' : '')
+            }
+            aria-hidden="true"
+          />
+          {connState === 'open'
+            ? t('已连接')
+            : connState === 'connecting'
+              ? t('重连中')
+              : t('断开')}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * 移动端顶栏：菜单开关、当前页标题与关闭。
+ * @param props entry 当前条目；setNavOpen 切换移动端抽屉；onClose 关控制台
+ * @returns 顶栏节点
+ */
+function consoleMobileBar(props: {
+  entry: ConsoleEntry;
+  setNavOpen: (next: boolean | ((prev: boolean) => boolean)) => void;
+  onClose: () => void;
+}): ReactElement {
+  const { entry, setNavOpen, onClose } = props;
+  return (
+    <div className="sp-top csl-mobilebar">
+      <button
+        className="iconbtn csl-menu"
+        type="button"
+        aria-label={t('打开导航菜单')}
+        onClick={() => setNavOpen((prev) => !prev)}
+      >
+        {icon('menu', { size: 16 })}
+      </button>
+      <span className="csl-mobile-title">{t(entry.label)}</span>
+      <span className="flex-spacer" aria-hidden="true" />
+      <button
+        className="iconbtn"
+        type="button"
+        aria-label={t('关闭控制台')}
+        title={t('关闭（Esc）')}
+        onClick={onClose}
+      >
+        {icon('x', { size: 15 })}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * 页头：标题 + 数据范围徽标 + 会话实时点。
+ * @param props entry 当前条目；scope 范围类；scopeText 范围文案；hasSession 是否选中会话；sessionTick 会话轮换信号
+ * @returns 页头节点
+ */
+function consolePageHead(props: {
+  entry: ConsoleEntry;
+  scope: 'session' | 'workspace' | 'global' | 'server';
+  scopeText: string;
+  hasSession: boolean;
+  sessionTick: number;
+}): ReactElement {
+  const { entry, scope, scopeText, hasSession, sessionTick } = props;
+  return (
+    <header className="csl-head">
+      <h1 className="csl-title">{t(entry.label)}</h1>
+      <div className="csl-head-meta">
+        {/* scope chip 仍用 `scope-` 前缀：裸 `session` 会撞上全局会话行样式。 */}
+        <span
+          className={'scope-chip scope-' + scope}
+          title={t(entry.kind === 'panel' ? panelScopeOf(entry.key).hint : entry.hint)}
+        >
+          {scopeText}
+        </span>
+        {entry.kind === 'panel' && scope === 'session' ? (
+          <span
+            key={sessionTick}
+            className={'live-dot' + (hasSession ? ' on' : '')}
+            title={t('数据实时跟随会话（回合推进自动刷新）')}
+            aria-hidden="true"
+          />
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+/** consoleShell 的入参（ConsoleView 组装好的渲染原料）。 */
+interface ConsoleShellProps {
+  rootRef: React.RefObject<HTMLDivElement | null>;
+  contentRef: React.RefObject<HTMLDivElement | null>;
+  navRef: React.RefObject<HTMLElement | null>;
+  navOpen: boolean;
+  setNavOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  entry: ConsoleEntry;
+  navItems: MenuProps['items'];
+  pick: (key: string) => void;
+  onClose: () => void;
+  workspacePath: string;
+  connState: 'open' | 'connecting' | 'closed';
+  scope: 'session' | 'workspace' | 'global' | 'server';
+  scopeText: string;
+  hasSession: boolean;
+  sessionTick: number;
+  settings: Omit<SettingsSurfaceProps, 'tab' | 'onNavigate'>;
+  panelContent?: React.ReactNode;
+}
+
+/**
+ * 控制台两栏外壳：左侧导航侧栏 + 右侧主区（移动端顶栏 / 滚动内容 / 面板）与抽屉遮罩。
+ * @param props ConsoleView 组装好的渲染原料
+ * @returns 根节点
+ */
+function consoleShell(props: ConsoleShellProps): ReactElement {
+  const {
+    rootRef,
+    contentRef,
+    navRef,
+    navOpen,
+    setNavOpen,
+    entry,
+    navItems,
+    pick,
+    onClose,
+    workspacePath,
+    connState,
+    scope,
+    scopeText,
+    hasSession,
+    sessionTick,
+    settings,
+    panelContent,
+  } = props;
+  return (
+    <div
+      ref={rootRef}
+      className={'sp panel-modal csl csl-embedded' + (navOpen ? ' nav-open' : '')}
+      role="region"
+      aria-label={t('工作台控制台')}
+      data-console-view="1"
+      tabIndex={-1}
+    >
+      {consoleNavAside({
+        entry,
+        navItems,
+        navRef,
+        pick,
+        onClose,
+        setNavOpen: (next: boolean) => setNavOpen(next),
+        workspacePath,
+        connState,
+      })}
+
+      <div className="csl-main">
+        {consoleMobileBar({ entry, setNavOpen, onClose })}
+
+        <div ref={contentRef} className="sp-content csl-scroll panel-surface">
+          <div className="csl-page">
+            {consolePageHead({ entry, scope, scopeText, hasSession, sessionTick })}
+
+            {isSettingKey(entry.key) ? (
+              <SettingsSurface tab={entry.key} {...settings} onNavigate={pick} />
+            ) : (
+              <div className="csl-panel">{panelContent}</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {navOpen ? (
+        <div className="csl-scrim" aria-hidden="true" onClick={() => setNavOpen(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 控制台杂项状态效果：切页 / 重开时内容回到顶部；关闭时复位移动端抽屉。
+ * @param open 是否打开
+ * @param active 当前条目 key（切页触发滚动复位）
+ * @param contentRef 滚动容器
+ * @param setNavOpen 移动端抽屉开关
+ */
+function useConsoleViewChrome(
+  open: boolean,
+  active: string,
+  contentRef: React.RefObject<HTMLDivElement | null>,
+  setNavOpen: React.Dispatch<React.SetStateAction<boolean>>,
+): void {
+  // 切页 / 重开时内容回到顶部：新页面不该继承上一页的滚动位置。
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    const el = contentRef.current;
+    if (el !== null) el.scrollTop = 0;
+  }, [open, active]);
+
+  // 关闭时复位移动端抽屉（下次打开是干净状态）。
+  React.useEffect(() => {
+    if (open) return;
+    setNavOpen(false);
+  }, [open]);
+}
+
+/**
  * 控制台外壳。
  * @param props 组件入参
  * @returns 视图节点（未打开时为 null）
@@ -194,61 +536,10 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
   // 在导航容器里按 `data-pane` 查（该属性是探针 / 几何 / 焦点判据的公共契约）。
   const navRef = React.useRef<HTMLElement | null>(null);
 
-  // Esc 关闭。挂 window：焦点可能暂时落在框外，容器上的 onKeyDown 收不到。
-  React.useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === ESC) {
-        onClose();
-        return;
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useConsoleEscape(open, onClose);
+  useConsoleFocus(open, consoleOpenerRef, currentKeyRef, navRef, rootRef, navOpen);
 
-  // 打开时把焦点放到当前导航项，关闭时还给触发按钮。
-  // opener 不能依赖挂载时的 activeElement：本组件是 lazy 块，挂载前浏览器可能已因「收起抽屉」
-  // 把触发器失焦（visibility:hidden），故用 App 在按下瞬间记下的 consoleOpenerRef（无 ref 则退回历史行为）。
-  React.useEffect(() => {
-    if (!open) return undefined;
-    const fromRef = consoleOpenerRef?.current ?? null;
-    if (consoleOpenerRef !== undefined) consoleOpenerRef.current = null;
-    const opener = fromRef ?? (document.activeElement as HTMLElement | null);
-    const raf = requestAnimationFrame(() => {
-      // 窄屏左栏是抽屉（关闭时 visibility:hidden）：此时不要把焦点送进看不见的导航。
-      const narrow =
-        typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches;
-      const current = navRef.current?.querySelector<HTMLElement>(
-        `[data-pane="${currentKeyRef.current}"]`,
-      );
-      const first = narrow && !navOpen ? rootRef.current : (current ?? rootRef.current);
-      first?.focus();
-    });
-    return () => {
-      cancelAnimationFrame(raf);
-      if (opener !== null && opener.isConnected) opener.focus();
-    };
-  }, [open]);
-
-  // 移动端抽屉打开后把焦点移到当前导航项（否则焦点留在地面工具栏上）。
-  React.useEffect(() => {
-    if (!open || !navOpen) return;
-    navRef.current?.querySelector<HTMLElement>(`[data-pane="${currentKeyRef.current}"]`)?.focus();
-  }, [open, navOpen]);
-
-  // 切页 / 重开时内容回到顶部：新页面不该继承上一页的滚动位置。
-  React.useLayoutEffect(() => {
-    if (!open) return;
-    const el = contentRef.current;
-    if (el !== null) el.scrollTop = 0;
-  }, [open, active]);
-
-  // 关闭时复位移动端抽屉（下次打开是干净状态）。
-  React.useEffect(() => {
-    if (open) return;
-    setNavOpen(false);
-  }, [open]);
+  useConsoleViewChrome(open, active, contentRef, setNavOpen);
 
   if (!open) return null;
 
@@ -271,140 +562,23 @@ export function ConsoleView(props: ConsoleViewProps): ReactElement | null {
     setNavOpen(false);
   };
 
-  return (
-    <div
-      ref={rootRef}
-      className={'sp panel-modal csl csl-embedded' + (navOpen ? ' nav-open' : '')}
-      role="region"
-      aria-label={t('工作台控制台')}
-      data-console-view="1"
-      tabIndex={-1}
-    >
-      <aside className="sp-nav csl-rail">
-        <div className="csl-brand">
-          <BrandMark />
-          <span className="csl-brand-text">
-            <span className="csl-brand-name">OmniHarness</span>
-            <span className="csl-brand-sub">{t('工作台控制台')}</span>
-          </span>
-          <button
-            className="csl-nav-close"
-            type="button"
-            aria-label={t('关闭导航菜单')}
-            onClick={() => setNavOpen(false)}
-          >
-            {icon('x', { size: 14 })}
-          </button>
-        </div>
-
-        <button className="csl-back" type="button" onClick={onClose}>
-          {icon('arrow-left', { size: 14 })}
-          {t('返回工作区')}
-        </button>
-
-        <nav className="csl-nav" aria-label={t('控制台导航')} ref={navRef}>
-          <Menu
-            mode="inline"
-            className="csl-menu"
-            selectedKeys={[entry.key]}
-            onClick={({ key }) => pick(key)}
-            items={navItems}
-          />
-        </nav>
-
-        <div className="csl-rail-foot">
-          <div className="csl-workspace">
-            <span className="csl-avatar" aria-hidden="true">
-              {workspacePath === ''
-                ? 'O'
-                : (workspacePath.split(/[\\/]/).filter(Boolean).pop() ?? 'O')
-                    .slice(0, 1)
-                    .toUpperCase()}
-            </span>
-            <span className="csl-workspace-text">
-              <span className="csl-workspace-name" title={workspacePath}>
-                {workspacePath === ''
-                  ? t('未定位工作区')
-                  : (workspacePath.split(/[\\/]/).filter(Boolean).pop() ?? workspacePath)}
-              </span>
-              <span className="csl-workspace-sub">{t('本机工作区')}</span>
-            </span>
-          </div>
-          <div className="csl-conn" role="status" aria-live="polite">
-            <span
-              className={
-                'csl-conn-dot' +
-                (connState === 'open' ? ' on' : connState === 'connecting' ? ' warn' : '')
-              }
-              aria-hidden="true"
-            />
-            {connState === 'open'
-              ? t('已连接')
-              : connState === 'connecting'
-                ? t('重连中')
-                : t('断开')}
-          </div>
-        </div>
-      </aside>
-
-      <div className="csl-main">
-        <div className="sp-top csl-mobilebar">
-          <button
-            className="iconbtn csl-menu"
-            type="button"
-            aria-label={t('打开导航菜单')}
-            onClick={() => setNavOpen((prev) => !prev)}
-          >
-            {icon('menu', { size: 16 })}
-          </button>
-          <span className="csl-mobile-title">{t(entry.label)}</span>
-          <span className="flex-spacer" aria-hidden="true" />
-          <button
-            className="iconbtn"
-            type="button"
-            aria-label={t('关闭控制台')}
-            title={t('关闭（Esc）')}
-            onClick={onClose}
-          >
-            {icon('x', { size: 15 })}
-          </button>
-        </div>
-
-        <div ref={contentRef} className="sp-content csl-scroll panel-surface">
-          <div className="csl-page">
-            <header className="csl-head">
-              <h1 className="csl-title">{t(entry.label)}</h1>
-              <div className="csl-head-meta">
-                {/* scope chip 仍用 `scope-` 前缀：裸 `session` 会撞上全局会话行样式。 */}
-                <span
-                  className={'scope-chip scope-' + scope}
-                  title={t(entry.kind === 'panel' ? panelScopeOf(entry.key).hint : entry.hint)}
-                >
-                  {scopeText}
-                </span>
-                {entry.kind === 'panel' && scope === 'session' ? (
-                  <span
-                    key={sessionTick}
-                    className={'live-dot' + (hasSession ? ' on' : '')}
-                    title={t('数据实时跟随会话（回合推进自动刷新）')}
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </div>
-            </header>
-
-            {isSettingKey(entry.key) ? (
-              <SettingsSurface tab={entry.key} {...settings} onNavigate={pick} />
-            ) : (
-              <div className="csl-panel">{panelContent}</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {navOpen ? (
-        <div className="csl-scrim" aria-hidden="true" onClick={() => setNavOpen(false)} />
-      ) : null}
-    </div>
-  );
+  return consoleShell({
+    rootRef,
+    contentRef,
+    navRef,
+    navOpen,
+    setNavOpen,
+    entry,
+    navItems,
+    pick,
+    onClose,
+    workspacePath,
+    connState,
+    scope,
+    scopeText,
+    hasSession,
+    sessionTick,
+    settings,
+    panelContent,
+  });
 }

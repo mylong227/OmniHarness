@@ -161,32 +161,30 @@ function renderStoredGraph(g: GraphSummary, actions: StoredActions): ReactElemen
 }
 
 /**
- * DAG 编排面板：图的增删改查 + 步骤编辑 + 运行与实时状态。
- * @param props 组件入参
- * @returns 编排面板节点
+ * useGraphDraft 的返回面（草稿态 + 草稿操作）。
  */
-export function GraphTab(props: GraphTabProps): ReactElement {
-  const { graphRuns, onRunStart, onResume } = props;
-  const { api, toast, dialog, sessionTick } = useApp();
-  const [graphs, setGraphs] = React.useState<GraphSummary[]>([]);
+interface GraphDraft {
+  name: string;
+  setName: (v: string) => void;
+  steps: StepDraft[];
+  addStep: () => void;
+  updateStep: (i: number, field: keyof StepDraft, value: string) => void;
+  removeStep: (i: number) => void;
+  collectDef: () => ReturnType<typeof GraphDefBuilder.build>;
+  loadSample: () => void;
+  newGraph: () => void;
+  openGraph: (id: string) => Promise<void>;
+}
+
+/**
+ * 图草稿态与编辑操作：增删改步骤行、构建图定义、载入示例 / 已存图（回填编辑区）。
+ * @param toast 提示服务
+ * @returns 草稿态与操作
+ */
+function useGraphDraft(): GraphDraft {
+  const { api, toast } = useApp();
   const [name, setName] = React.useState<string>('');
   const [steps, setSteps] = React.useState<StepDraft[]>([]);
-
-  /** 拉取已存图列表。 */
-  const load = async (): Promise<void> => {
-    try {
-      const listed = await api.listGraphs();
-      // 同理：非数组（桩/异常响应）按空列表处理，别让 .map 抛错。
-      setGraphs(Array.isArray(listed) ? listed : []);
-    } catch (e) {
-      toast(t('图列表不可用：{msg}', { msg: (e as Error).message }), 'err');
-    }
-  };
-
-  // 挂载拉取图列表（[] 有意：只在进入该页时拉一次）。
-  React.useEffect(() => {
-    void load();
-  }, [sessionTick]);
 
   /** 追加一个空步骤行。 */
   const addStep = (): void => {
@@ -237,6 +235,81 @@ export function GraphTab(props: GraphTabProps): ReactElement {
     setSteps([{ id: '', dep: '', prompt: '' }]);
   };
 
+  /**
+   * 打开已存图到编辑区。
+   * @param id 图 id
+   */
+  const openGraph = async (id: string): Promise<void> => {
+    try {
+      const def = await api.getGraph(id);
+      setName(def.name || id);
+      setSteps(
+        (def.steps || []).map((s) => ({
+          id: s.id,
+          dep: GraphDefBuilder.depText(s.dependsOn),
+          prompt: s.prompt,
+        })),
+      );
+    } catch (e) {
+      toast(t('打开失败：{msg}', { msg: (e as Error).message }), 'err');
+    }
+  };
+
+  return { name, setName, steps, addStep, updateStep, removeStep, collectDef, loadSample, newGraph, openGraph };
+}
+
+/**
+ * 已存图列表数据源：进入该页时拉取一次（sessionTick 变化重拉）。
+ * @param sessionTick 会话轮换信号
+ * @returns graphs 已存图列表；load 重载
+ */
+function useGraphList(sessionTick: number): { graphs: GraphSummary[]; load: () => Promise<void> } {
+  const { api, toast } = useApp();
+  const [graphs, setGraphs] = React.useState<GraphSummary[]>([]);
+
+  /** 拉取已存图列表。 */
+  const load = async (): Promise<void> => {
+    try {
+      const listed = await api.listGraphs();
+      // 同理：非数组（桩/异常响应）按空列表处理，别让 .map 抛错。
+      setGraphs(Array.isArray(listed) ? listed : []);
+    } catch (e) {
+      toast(t('图列表不可用：{msg}', { msg: (e as Error).message }), 'err');
+    }
+  };
+
+  // 挂载拉取图列表（[] 有意：只在进入该页时拉一次）。
+  React.useEffect(() => {
+    void load();
+  }, [sessionTick]);
+
+  return { graphs, load };
+}
+
+/**
+ * useGraphRun 的返回面（保存 / 运行 / 删除）。
+ */
+interface GraphRunActions {
+  save: () => Promise<void>;
+  runDef: () => Promise<void>;
+  runById: (id: string, gname: string) => Promise<void>;
+  delGraph: (id: string) => Promise<void>;
+}
+
+/**
+ * 图动作集：保存草稿、运行草稿 / 已存图（回调 onRunStart 切换到运行视图）、删除（先确认）。
+ * @param collectDef 从草稿构建图定义
+ * @param load 保存 / 删除成功后的列表重载
+ * @param onRunStart 运行已发起（宿主切换视图用）
+ * @returns 四个动作
+ */
+function useGraphRun(
+  collectDef: () => ReturnType<typeof GraphDefBuilder.build>,
+  load: () => Promise<void>,
+  onRunStart: (runId: string, name: string) => void,
+): GraphRunActions {
+  const { api, toast, dialog } = useApp();
+
   /** 保存当前草稿。 */
   const save = async (): Promise<void> => {
     const def = collectDef();
@@ -283,26 +356,6 @@ export function GraphTab(props: GraphTabProps): ReactElement {
   };
 
   /**
-   * 打开已存图到编辑区。
-   * @param id 图 id
-   */
-  const openGraph = async (id: string): Promise<void> => {
-    try {
-      const def = await api.getGraph(id);
-      setName(def.name || id);
-      setSteps(
-        (def.steps || []).map((s) => ({
-          id: s.id,
-          dep: GraphDefBuilder.depText(s.dependsOn),
-          prompt: s.prompt,
-        })),
-      );
-    } catch (e) {
-      toast(t('打开失败：{msg}', { msg: (e as Error).message }), 'err');
-    }
-  };
-
-  /**
    * 删除图（先经 DialogService 确认）。
    * @param id 图 id
    */
@@ -321,46 +374,117 @@ export function GraphTab(props: GraphTabProps): ReactElement {
     }
   };
 
+  return { save, runDef, runById, delGraph };
+}
+
+/**
+ * DAG 编排介绍块（给第一次进来的用户解释三个字段怎么填）。
+ * @returns 介绍块节点
+ */
+function GraphGuide(): ReactElement {
+  return (
+    <div className="graph-guide">
+      <div className="gg-title">{icon('columns', { size: 14 })}{t(' 什么是 DAG 编排？')}</div>
+      <div className="gg-text">
+        {t('把一个大任务拆成多个')}
+        <strong>{t('步骤')}</strong>
+        {t('，每个步骤是一条独立提示词，AI 按依赖关系并行执行：')}
+        <b>{t('步骤 id')}</b>
+        {t(' 是步骤名字（如 ')}
+        <code>plan</code>
+        {t('）；')}
+        <b>{t('依赖')}</b>
+        {t('填它依赖的步骤 id（如')}
+        {' '}
+        <code>plan</code>
+        {t(' 或 ')}
+        <code>a,b</code>
+        {t('）， 依赖全部完成后该步骤才会开始；')}
+        <b>{t('提示词')}</b>
+        {t('是这个步骤要让 AI 做的事。')}
+      </div>
+      <div className="gg-flow">
+        {t('快速上手：点「')}
+        <b>{t('载入示例')}</b>
+        {t('」看结构 → 点「')}
+        <b>{t('运行')}</b>
+        {t('」观察执行 → 改成你的任务 → 「')}
+        <b>{t('保存')}</b>
+        {t('」复用')}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 步骤草稿编辑器：每行 id / 依赖 / 提示词 + 删除，底部追加按钮。
+ * @param props draft 草稿操作面
+ * @returns 编辑器节点
+ */
+function StepEditor(props: { draft: GraphDraft }): ReactElement {
+  const { steps, addStep, updateStep, removeStep } = props.draft;
+  return (
+    <>
+      <div id="stepEditor">
+        {steps.map((s, i) => (
+          <div className="step-row" key={i}>
+            <input
+              className="step-id"
+              placeholder={t('步骤 id')}
+              value={s.id}
+              onInput={(e: React.SyntheticEvent) => updateStep(i, 'id', (e.target as HTMLInputElement).value)}
+            />
+            <input
+              className="step-dep"
+              placeholder={t('依赖(逗号分隔)')}
+              value={s.dep}
+              onInput={(e: React.SyntheticEvent) => updateStep(i, 'dep', (e.target as HTMLInputElement).value)}
+            />
+            <button className="ghost step-del" onClick={() => removeStep(i)}>
+              ×
+            </button>
+            <textarea
+              className="step-prompt"
+              rows={2}
+              placeholder={t('提示词')}
+              value={s.prompt}
+              onInput={(e: React.SyntheticEvent) =>
+                updateStep(i, 'prompt', (e.target as HTMLTextAreaElement).value)
+              }
+            ></textarea>
+          </div>
+        ))}
+      </div>
+      <button className="ghost" onClick={addStep}>
+        {t('+ 添加步骤')}
+      </button>
+    </>
+  );
+}
+
+/**
+ * DAG 编排面板：图的增删改查 + 步骤编辑 + 运行与实时状态。
+ * @param props 组件入参
+ * @returns 编排面板节点
+ */
+export function GraphTab(props: GraphTabProps): ReactElement {
+  const { graphRuns, onRunStart, onResume } = props;
+  const { sessionTick } = useApp();
+  const draft = useGraphDraft();
+  const { graphs, load } = useGraphList(sessionTick);
+  const run = useGraphRun(draft.collectDef, load, onRunStart);
+
   return (
     <div>
-      <div className="graph-guide">
-        <div className="gg-title">{icon('columns', { size: 14 })}{t(' 什么是 DAG 编排？')}</div>
-        <div className="gg-text">
-          {t('把一个大任务拆成多个')}
-          <strong>{t('步骤')}</strong>
-          {t('，每个步骤是一条独立提示词，AI 按依赖关系并行执行：')}
-          <b>{t('步骤 id')}</b>
-          {t(' 是步骤名字（如 ')}
-          <code>plan</code>
-          {t('）；')}
-          <b>{t('依赖')}</b>
-          {t('填它依赖的步骤 id（如')}
-          {' '}
-          <code>plan</code>
-          {t(' 或 ')}
-          <code>a,b</code>
-          {t('）， 依赖全部完成后该步骤才会开始；')}
-          <b>{t('提示词')}</b>
-          {t('是这个步骤要让 AI 做的事。')}
-        </div>
-        <div className="gg-flow">
-          {t('快速上手：点「')}
-          <b>{t('载入示例')}</b>
-          {t('」看结构 → 点「')}
-          <b>{t('运行')}</b>
-          {t('」观察执行 → 改成你的任务 → 「')}
-          <b>{t('保存')}</b>
-          {t('」复用')}
-        </div>
-      </div>
+      <GraphGuide />
       <div className="pm-head">
         <button className="ghost" onClick={() => void load()}>
           {t('刷新')}
         </button>
-        <button className="ghost" onClick={loadSample}>
+        <button className="ghost" onClick={draft.loadSample}>
           {t('载入示例')}
         </button>
-        <button className="ghost" onClick={newGraph}>
+        <button className="ghost" onClick={draft.newGraph}>
           {t('新建')}
         </button>
       </div>
@@ -370,9 +494,9 @@ export function GraphTab(props: GraphTabProps): ReactElement {
           ? emptyState(icon('columns', { size: 20 }), t('暂无已存图'), t('点「载入示例」或「新建」创建一个 DAG 编排。'))
           : graphs.map((g) =>
               renderStoredGraph(g, {
-                onRun: (id, gname) => void runById(id, gname),
-                onOpen: (id) => void openGraph(id),
-                onDelete: (id) => void delGraph(id),
+                onRun: (id, gname) => void run.runById(id, gname),
+                onOpen: (id) => void draft.openGraph(id),
+                onDelete: (id) => void run.delGraph(id),
               }),
             )}
       </div>
@@ -383,51 +507,19 @@ export function GraphTab(props: GraphTabProps): ReactElement {
             {t('图名')}
             <input
               type="text"
-              value={name}
-              onInput={(e: React.SyntheticEvent) => setName((e.target as HTMLInputElement).value)}
+              value={draft.name}
+              onInput={(e: React.SyntheticEvent) => draft.setName((e.target as HTMLInputElement).value)}
               placeholder="my-pipeline"
             />
           </label>
-          <div id="stepEditor">
-            {steps.map((s, i) => (
-              <div className="step-row">
-                <input
-                  className="step-id"
-                  placeholder={t('步骤 id')}
-                  value={s.id}
-                  onInput={(e: React.SyntheticEvent) => updateStep(i, 'id', (e.target as HTMLInputElement).value)}
-                />
-                <input
-                  className="step-dep"
-                  placeholder={t('依赖(逗号分隔)')}
-                  value={s.dep}
-                  onInput={(e: React.SyntheticEvent) => updateStep(i, 'dep', (e.target as HTMLInputElement).value)}
-                />
-                <button className="ghost step-del" onClick={() => removeStep(i)}>
-                  ×
-                </button>
-                <textarea
-                  className="step-prompt"
-                  rows={2}
-                  placeholder={t('提示词')}
-                  value={s.prompt}
-                  onInput={(e: React.SyntheticEvent) =>
-                    updateStep(i, 'prompt', (e.target as HTMLTextAreaElement).value)
-                  }
-                ></textarea>
-              </div>
-            ))}
-          </div>
-          <button className="ghost" onClick={addStep}>
-            {t('+ 添加步骤')}
-          </button>
+          <StepEditor draft={draft} />
         </div>
         <div className="pane-actions">
           <span className="flex-spacer"></span>
-          <button className="btn" onClick={() => void runDef()}>
+          <button className="btn" onClick={() => void run.runDef()}>
             {t('运行')}
           </button>
-          <button className="btn primary" onClick={() => void save()}>
+          <button className="btn primary" onClick={() => void run.save()}>
             {t('保存')}
           </button>
         </div>

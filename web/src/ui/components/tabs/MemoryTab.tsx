@@ -100,29 +100,40 @@ function MemoryTable(props: { facts: MemoryFact[] } & RowActions): ReactElement 
   );
 }
 
+/** 表单引用集（非受控输入：编辑回填与读取都走 ref，避免受控态来回同步）。 */
+interface MemoryFormRefs {
+  text: React.RefObject<HTMLInputElement | null>;
+  topic: React.RefObject<HTMLInputElement | null>;
+  imp: React.RefObject<HTMLSelectElement | null>;
+}
+
+/** useMemoryStore 的返回面（数据 + 数据操作）。 */
+interface MemoryStore {
+  facts: MemoryFact[];
+  count: number;
+  query: string;
+  setQuery: (q: string) => void;
+  load: () => Promise<void>;
+  search: () => Promise<void>;
+}
+
 /**
- * 长期记忆面板：检索、增删改事实记忆。
- * @param props 组件入参
- * @returns 记忆面板节点
+ * 长期记忆数据源：全量列出 / 自然语言检索 / 计数；挂载与 reloadKey、sessionTick 变化时重载。
+ * @param reloadKey 外部重载信号（SSE memory.changed 时自增）。
+ * @returns facts 记忆列表；count 服务端计数；query/setQuery 检索词；load 全量列出；search 检索
  */
-export function MemoryTab(props: MemoryTabProps): ReactElement {
-  const { reloadKey } = props;
-  const { api, toast, dialog, sessionTick } = useApp();
+function useMemoryStore(reloadKey: number): MemoryStore {
+  const { api, toast, sessionTick } = useApp();
   const [facts, setFacts] = React.useState<MemoryFact[]>([]);
   const [count, setCount] = React.useState<number>(0);
   const [query, setQuery] = React.useState<string>('');
-  /** 正在编辑的记忆 id；null 表示新增态。 */
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const textRef = React.useRef<HTMLInputElement | null>(null);
-  const topicRef = React.useRef<HTMLInputElement | null>(null);
-  const impRef = React.useRef<HTMLSelectElement | null>(null);
 
   /** 列出全部记忆。 */
   const load = async (): Promise<void> => {
     try {
       const r = await api.listMemory();
-      // 服务端响应做形状归一：acts 缺失/非数组时按空列表处理。
-      // 2026-10-19：桩数据/异常响应曾让 acts.map is not a function 触发错误边界、卸载整棵树。
+      // 服务端响应做形状归一：facts 缺失/非数组时按空列表处理。
+      // 2026-10-19：桩数据/异常响应曾让 facts.map is not a function 触发错误边界、卸载整棵树。
       setCount(typeof r.count === 'number' ? r.count : 0);
       setFacts(Array.isArray(r.facts) ? r.facts : []);
     } catch (e) {
@@ -150,6 +161,30 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
       toast(t('检索失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
+
+  return { facts, count, query, setQuery, load, search };
+}
+
+/** useMemoryForm 的返回面（编辑态 + 表单操作）。 */
+interface MemoryFormOps {
+  editingId: string | null;
+  startEdit: (f: MemoryFact) => void;
+  reset: () => void;
+  save: () => Promise<void>;
+  del: (id: string) => Promise<void>;
+}
+
+/**
+ * 记忆表单操作面：进入/退出编辑（ref 回填）、保存（按 editingId 决定新增或更新）、
+ * 删除（先经 DialogService 确认，决策不静默产生）。
+ * @param refs 表单三件套的 ref
+ * @param reload 保存/删除成功后的数据重载（通常传 store.load）
+ * @returns editingId 当前编辑的记忆 id（null=新增态）与四个操作
+ */
+function useMemoryForm(refs: MemoryFormRefs, reload: () => Promise<void>): MemoryFormOps {
+  const { api, toast, dialog } = useApp();
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const { text: textRef, topic: topicRef, imp: impRef } = refs;
 
   /**
    * 进入编辑态：把该条记忆回填到表单。
@@ -184,7 +219,7 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
       else await api.addMemory({ text, topic, importance });
       toast(editingId ? t('已更新记忆') : t('已保存记忆'), 'ok');
       reset();
-      await load();
+      await reload();
     } catch (e) {
       toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
@@ -204,11 +239,96 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
     try {
       await api.deleteMemory(id);
       toast(t('已删除'), 'ok');
-      await load();
+      await reload();
     } catch (e) {
       toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
+
+  return { editingId, startEdit, reset, save, del };
+}
+
+/**
+ * 新增 / 编辑记忆表单（非受控三件套 + 动作按钮）。
+ * @param props refs 表单三件套；editingId 编辑态；reset 取消编辑；save 保存
+ * @returns 表单区块节点
+ */
+function MemoryForm(props: {
+  refs: MemoryFormRefs;
+  editingId: string | null;
+  reset: () => void;
+  save: () => Promise<void>;
+}): ReactElement {
+  const { refs, editingId, reset, save } = props;
+  return (
+    <div className="pm-section">
+      <div className="pm-title">{t('新增 / 编辑记忆')}</div>
+      <div className="form">
+        <label>
+          {t('事实')}
+          <input
+            type="text"
+            ref={(el: HTMLInputElement | null) => {
+              refs.text.current = el;
+            }}
+            placeholder={t('如：用户要求所有 TS 文件用 camelCase')}
+          />
+        </label>
+        <label>
+          {t('主题')}
+          <input
+            type="text"
+            ref={(el: HTMLInputElement | null) => {
+              refs.topic.current = el;
+            }}
+            placeholder={t('编码规范 / 项目约定 / 环境')}
+          />
+        </label>
+        <label>
+          {t('重要度')}
+          <select
+            ref={(el: HTMLSelectElement | null) => {
+              refs.imp.current = el;
+            }}
+          >
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>
+              3
+            </option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </label>
+        <div className="pane-actions">
+          <span className="flex-spacer"></span>
+          {editingId ? (
+            <button className="btn" onClick={reset}>
+              {t('取消编辑')}
+            </button>
+          ) : null}
+          <button className="btn primary" onClick={() => void save()}>
+            {editingId ? t('保存修改') : t('保存')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 长期记忆面板：检索、增删改事实记忆。
+ * @param props 组件入参
+ * @returns 记忆面板节点
+ */
+export function MemoryTab(props: MemoryTabProps): ReactElement {
+  const { reloadKey } = props;
+  const store = useMemoryStore(reloadKey);
+  const textRef = React.useRef<HTMLInputElement | null>(null);
+  const topicRef = React.useRef<HTMLInputElement | null>(null);
+  const impRef = React.useRef<HTMLSelectElement | null>(null);
+  const refs: MemoryFormRefs = { text: textRef, topic: topicRef, imp: impRef };
+  const form = useMemoryForm(refs, store.load);
 
   return (
     <div>
@@ -216,78 +336,27 @@ export function MemoryTab(props: MemoryTabProps): ReactElement {
         <input
           type="text"
           placeholder={t('检索长期记忆（自然语言）…')}
-          value={query}
-          onInput={(e: React.SyntheticEvent) => setQuery((e.target as HTMLInputElement).value)}
+          value={store.query}
+          onInput={(e: React.SyntheticEvent) => store.setQuery((e.target as HTMLInputElement).value)}
         />
-        <button className="ghost" onClick={() => void search()}>
+        <button className="ghost" onClick={() => void store.search()}>
           {t('检索')}
         </button>
-        <button className="ghost" onClick={() => void load()}>
+        <button className="ghost" onClick={() => void store.load()}>
           {t('刷新')}
         </button>
       </div>
+      <MemoryForm refs={refs} editingId={form.editingId} reset={form.reset} save={form.save} />
       <div className="pm-section">
-        <div className="pm-title">{t('新增 / 编辑记忆')}</div>
-        <div className="form">
-          <label>
-            {t('事实')}
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                textRef.current = el;
-              }}
-              placeholder={t('如：用户要求所有 TS 文件用 camelCase')}
-            />
-          </label>
-          <label>
-            {t('主题')}
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                topicRef.current = el;
-              }}
-              placeholder={t('编码规范 / 项目约定 / 环境')}
-            />
-          </label>
-          <label>
-            {t('重要度')}
-            <select
-              ref={(el: HTMLSelectElement | null) => {
-                impRef.current = el;
-              }}
-            >
-              <option value="1">1</option>
-              <option value="2">2</option>
-              <option value="3" selected>
-                3
-              </option>
-              <option value="4">4</option>
-              <option value="5">5</option>
-            </select>
-          </label>
-          <div className="pane-actions">
-            <span className="flex-spacer"></span>
-            {editingId ? (
-              <button className="btn" onClick={reset}>
-                {t('取消编辑')}
-              </button>
-            ) : null}
-            <button className="btn primary" onClick={() => void save()}>
-              {editingId ? t('保存修改') : t('保存')}
-            </button>
-          </div>
-        </div>
-      </div>
-      <div className="pm-section">
-        <div className="pm-title">{t('已存记忆（{count}）', { count })}</div>
-        {facts.length === 0 ? (
+        <div className="pm-title">{t('已存记忆（{count}）', { count: store.count })}</div>
+        {store.facts.length === 0 ? (
           emptyState(
             icon('brain', { size: 20 }),
             t('暂无记忆'),
             t('上方填入事实后点「保存」，或在会话中由模型自动沉淀。'),
           )
         ) : (
-          <MemoryTable facts={facts} onEdit={startEdit} onDelete={(id) => void del(id)} />
+          <MemoryTable facts={store.facts} onEdit={form.startEdit} onDelete={(id) => void form.del(id)} />
         )}
       </div>
     </div>

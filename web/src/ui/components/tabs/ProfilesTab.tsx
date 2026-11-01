@@ -92,19 +92,22 @@ function profileColumns(actions: RowActions): ColumnsType<Profile> {
   ];
 }
 
+/** useProfilesStore 的返回面（数据 + 数据操作）。 */
+interface ProfilesStore {
+  profiles: Profile[];
+  active: ActivePlugins;
+  load: () => Promise<void>;
+}
+
 /**
- * 配置集与发布单元面板：保存 / 应用 / 删除配置集，打包与解包 Bundle。
- * @param props 组件入参
- * @returns 配置集面板节点
+ * 配置集数据源：列表 + 当前激活插件集，挂载与 reloadKey、sessionTick 变化时重载。
+ * @param reloadKey 外部重载信号（SSE profile 事件时自增）
+ * @returns profiles 配置集列表；active 当前激活插件集；load 重载
  */
-export function ProfilesTab(props: ProfilesTabProps): ReactElement {
-  const { reloadKey } = props;
-  const { api, toast, dialog, sessionTick } = useApp();
+function useProfilesStore(reloadKey: number): ProfilesStore {
+  const { api, toast, sessionTick } = useApp();
   const [profiles, setProfiles] = React.useState<Profile[]>([]);
   const [active, setActive] = React.useState<ActivePlugins>({ plugins: [] });
-  const nameRef = React.useRef<HTMLInputElement | null>(null);
-  const bundleProfileRef = React.useRef<HTMLInputElement | null>(null);
-  const bundleZipRef = React.useRef<HTMLInputElement | null>(null);
 
   /** 拉取配置集列表与当前激活插件集。 */
   const load = async (): Promise<void> => {
@@ -123,6 +126,29 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
     void load();
   }, [reloadKey, sessionTick]);
 
+  return { profiles, active, load };
+}
+
+/** useProfileActions 的返回面（配置集三动作）。 */
+interface ProfileActions {
+  saveCurrent: () => Promise<void>;
+  applyProfile: (id: string) => Promise<void>;
+  delProfile: (id: string) => Promise<void>;
+}
+
+/**
+ * 配置集动作集：保存当前、应用、删除（先经 DialogService 确认）。
+ * @param refs 表单非受控输入（名称）
+ * @param reload 动作成功后的数据重载（通常传 store.load）
+ * @returns 三个动作
+ */
+function useProfileActions(
+  refs: { name: React.RefObject<HTMLInputElement | null> },
+  reload: () => Promise<void>,
+): ProfileActions {
+  const { api, toast, dialog } = useApp();
+  const { name: nameRef } = refs;
+
   /** 把当前激活插件集存成配置集；名称为空 fail-closed 提示，不发请求。 */
   const saveCurrent = async (): Promise<void> => {
     const name = nameRef.current ? nameRef.current.value.trim() : '';
@@ -139,7 +165,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
       });
       toast(t('已保存配置集：{name}', { name }), 'ok');
       if (nameRef.current) nameRef.current.value = '';
-      await load();
+      await reload();
     } catch (e) {
       toast(t('保存失败：{msg}', { msg: (e as Error).message }), 'err');
     }
@@ -160,7 +186,7 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
         }),
         'ok',
       );
-      await load();
+      await reload();
     } catch (e) {
       toast(t('应用失败：{msg}', { msg: (e as Error).message }), 'err');
     }
@@ -180,11 +206,35 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
     try {
       await api.deleteProfile(id);
       toast(t('已删除'), 'ok');
-      await load();
+      await reload();
     } catch (e) {
       toast(t('删除失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
+
+  return { saveCurrent, applyProfile, delProfile };
+}
+
+/** useBundleActions 的返回面（打包 / 解包）。 */
+interface BundleActions {
+  pack: () => Promise<void>;
+  unpack: () => Promise<void>;
+}
+
+/**
+ * Bundle 发布单元动作集：打包（指定配置集 id，或退化为「当前激活」快照）与解包。
+ * @param refs 表单两处非受控输入（配置集 / zip 路径）
+ * @param active 当前激活插件集（打包退化为「当前激活」快照时用）
+ * @param reload 解包成功后的数据重载（通常传 store.load）
+ * @returns 两个动作
+ */
+function useBundleActions(
+  refs: { bundleProfile: React.RefObject<HTMLInputElement | null>; bundleZip: React.RefObject<HTMLInputElement | null> },
+  active: ActivePlugins,
+  reload: () => Promise<void>,
+): BundleActions {
+  const { api, toast } = useApp();
+  const { bundleProfile: bundleProfileRef, bundleZip: bundleZipRef } = refs;
 
   /** 打包：指定配置集 id，或退化为「当前激活」快照。 */
   const pack = async (): Promise<void> => {
@@ -214,30 +264,96 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
           : t('已解包：安装 {count} 个插件', { count: (r.installed || []).length }),
         'ok',
       );
-      await load();
+      await reload();
     } catch (e) {
       toast(t('解包失败：{msg}', { msg: (e as Error).message }), 'err');
     }
   };
 
+  return { pack, unpack };
+}
+
+/**
+ * Bundle 发布单元区块（打包 / 解包表单）。
+ * @param props refs 表单 ref；pack 打包动作；unpack 解包动作
+ * @returns 区块节点
+ */
+function BundleForm(props: {
+  refs: { bundleProfile: React.RefObject<HTMLInputElement | null>; bundleZip: React.RefObject<HTMLInputElement | null> };
+  pack: () => Promise<void>;
+  unpack: () => Promise<void>;
+}): ReactElement {
+  const { refs, pack, unpack } = props;
+  return (
+    <div className="pm-section">
+      <div className="pm-title">{t('Bundle 发布单元（可 patch 插件叠层）')}</div>
+      <div className="form">
+        <label>
+          {t('配置集（留空=当前激活）')}
+          <input
+            type="text"
+            ref={(el: HTMLInputElement | null) => {
+              refs.bundleProfile.current = el;
+            }}
+            placeholder={t('配置集 id 或名称')}
+          />
+        </label>
+        <div className="row">
+          <button className="ghost" onClick={() => void pack()}>
+            {t('打包 .zip')}
+          </button>
+          <button className="ghost" onClick={() => void unpack()}>
+            {t('解包 .zip')}
+          </button>
+        </div>
+        <label>
+          {t('解包 zip 路径')}
+          <input
+            type="text"
+            ref={(el: HTMLInputElement | null) => {
+              refs.bundleZip.current = el;
+            }}
+            placeholder={t('.zip 绝对路径')}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 配置集与发布单元面板：保存 / 应用 / 删除配置集，打包与解包 Bundle。
+ * @param props 组件入参
+ * @returns 配置集面板节点
+ */
+export function ProfilesTab(props: ProfilesTabProps): ReactElement {
+  const { reloadKey } = props;
+  const store = useProfilesStore(reloadKey);
+  const nameRef = React.useRef<HTMLInputElement | null>(null);
+  const bundleProfileRef = React.useRef<HTMLInputElement | null>(null);
+  const bundleZipRef = React.useRef<HTMLInputElement | null>(null);
+  const refs = { name: nameRef, bundleProfile: bundleProfileRef, bundleZip: bundleZipRef };
+  const actions = useProfileActions({ name: nameRef }, store.load);
+  const bundle = useBundleActions(refs, store.active, store.load);
+
   return (
     <div>
       <div className="pm-head">
-        <button className="ghost" onClick={() => void load()}>
+        <button className="ghost" onClick={() => void store.load()}>
           {t('刷新')}
         </button>
         <span className="dim">
-          {t('运行时插件（{count}）：', { count: active.plugins?.length || 0 })}
-          {active.plugins?.length ? active.plugins.join(', ') : '—'}
+          {t('运行时插件（{count}）：', { count: store.active.plugins?.length || 0 })}
+          {store.active.plugins?.length ? store.active.plugins.join(', ') : '—'}
         </span>
       </div>
       <div className="pm-section">
-        <div className="pm-title">{t('已存配置集（{count}）', { count: profiles.length })}</div>
-        {profiles.length ? (
+        <div className="pm-title">{t('已存配置集（{count}）', { count: store.profiles.length })}</div>
+        {store.profiles.length ? (
           <ProfilesTable
-            profiles={profiles}
-            onApply={(id) => void applyProfile(id)}
-            onDelete={(id) => void delProfile(id)}
+            profiles={store.profiles}
+            onApply={(id) => void actions.applyProfile(id)}
+            onDelete={(id) => void actions.delProfile(id)}
           />
         )
           : emptyState(
@@ -255,45 +371,13 @@ export function ProfilesTab(props: ProfilesTabProps): ReactElement {
           </label>
           <div className="pane-actions">
             <span className="flex-spacer"></span>
-            <button className="btn primary" onClick={() => void saveCurrent()}>
+            <button className="btn primary" onClick={() => void actions.saveCurrent()}>
               {t('保存当前为配置集')}
             </button>
           </div>
         </div>
       </div>
-      <div className="pm-section">
-        <div className="pm-title">{t('Bundle 发布单元（可 patch 插件叠层）')}</div>
-        <div className="form">
-          <label>
-            {t('配置集（留空=当前激活）')}
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                bundleProfileRef.current = el;
-              }}
-              placeholder={t('配置集 id 或名称')}
-            />
-          </label>
-          <div className="row">
-            <button className="ghost" onClick={() => void pack()}>
-              {t('打包 .zip')}
-            </button>
-            <button className="ghost" onClick={() => void unpack()}>
-              {t('解包 .zip')}
-            </button>
-          </div>
-          <label>
-            {t('解包 zip 路径')}
-            <input
-              type="text"
-              ref={(el: HTMLInputElement | null) => {
-                bundleZipRef.current = el;
-              }}
-              placeholder={t('.zip 绝对路径')}
-            />
-          </label>
-        </div>
-      </div>
+      <BundleForm refs={refs} pack={bundle.pack} unpack={bundle.unpack} />
     </div>
   );
 }

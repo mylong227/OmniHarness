@@ -22,12 +22,6 @@ import { icon } from '../models/Icon.ts';
 import { ChatHeader } from './ChatHeader.tsx';
 import type { ChatViewKind } from './ChatHeader.tsx';
 import { TraceView } from './TraceView.tsx';
-import {
-  badge,
-  jsonView,
-  todoView,
-  questionView,
-} from '../format.ts';
 import { buildDisplayBlocks, toolSubject, toolVerb, type DisplayBlock } from '../textUtils.ts';
 import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.ts';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.ts';
@@ -46,8 +40,6 @@ import { AssistantCard } from './stream/AssistantCard.tsx';
 import { UserCard } from './stream/UserCard.tsx';
 import { StreamingAssistantCard } from './stream/StreamingAssistantCard.tsx';
 import { TurnSummaryCard } from './stream/TurnSummaryCard.tsx';
-import { CompactionNote } from '../models/CompactionNote.ts';
-import { NumberFormatter } from '../models/NumberFormatter.ts';
 import { SessionDuration } from '../models/SessionDuration.ts';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.ts';
 import type { ComposerSeed, LiveInput } from '../shared.ts';
@@ -55,6 +47,15 @@ import type { ChatQueueView } from '../models/ChatMessageQueue.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import type { ToolResultView } from '../shared.ts';
 import { t } from '../i18n/i18n.ts';
+import {
+  renderPlanNode,
+  renderQuestionNode,
+  renderStandaloneToolResult,
+  renderSystemNode,
+  renderTodoNode,
+  renderUnknownNode,
+  type EventCtx,
+} from './stream/EventNodeRenderers.tsx';
 
 /** 兼容旧引用路径：本类型已下沉到 shared，此处保留再导出。 */
 export type { ToolResultView };
@@ -182,34 +183,6 @@ export interface StreamViewProps {
   rightCollapsed?: boolean;
 }
 
-/** 单事件渲染所需的上下文（从 props 收拢，供模块级分派函数复用）。 */
-interface EventCtx {
-  toolResults: Record<string, ToolResultView>;
-  onEventClick: (ev: ThreadEvent) => void;
-  onOpenFile?: (path: string) => Promise<boolean> | boolean | void;
-  /** 在右栏网页标签打开本地地址（缺省时不渲染该入口）。 */
-  onOpenUrl?: (url: string) => void;
-  busy?: boolean;
-  /** 最后一条用户消息 id（仅它可编辑重发）。 */
-  lastUserId: string;
-  /** 最后一条助手消息 id（仅它可重新生成）。 */
-  lastAssistantId: string;
-  onEditUser?: () => void;
-  onRegenerate?: () => void;
-  /** 已被 assistant 事件收口的流式文本。 */
-  finalizedStreamText: string;
-  /** 本回合出现过的工具调用 id（只读：仅用于 `has` 判定）。 */
-  toolCallIds: ReadonlySet<string>;
-  /** 已被回合结果卡收编的产物调用 id（这些调用不再内联产物卡）。 */
-  summarizedCallIds: ReadonlySet<string>;
-  /** 每段对话（user 事件 id）的独立用时。 */
-  turnDurations: ReadonlyMap<string, number>;
-  /** 是否正有提问等待作答（对话流里的提问卡据此给出「去下方提问卡作答」的指引）。 */
-  questionPending: boolean;
-  /** 回合刚收尾（1.5s 内）：过程簇挂载瞬间的「回闪」高亮。历史加载恒 false。 */
-  clusterFresh: boolean;
-}
-
 /**
  * 判断一条 assistant 事件的内容是否正是本轮已被流式渲染过的文本。
  *
@@ -290,68 +263,15 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
     case 'tool_result':
       // 已被调用卡内联的结果不再单独渲染；孤儿结果（调用被历史截断）折叠成一行。
       if (ctx.toolCallIds.has((p.callId as string) || '')) return null;
-      return (
-        <details className="ev tool_result standalone" key={ev.id}>
-          <summary className="tc-line dim">
-            <span className="tc-chevron">▸</span>
-            <span className="tc-icon">{icon('undo', { size: 14 })}</span>
-            <span className="tc-summary">{t('工具结果（独立事件）')}</span>
-          </summary>
-          <div className="tc-detail">
-            <div className="tool-output">{JSON.stringify(p)}</div>
-          </div>
-        </details>
-      );
-    case 'system': {
-      const sysContent = (p.content as string) || '';
-      const compaction = CompactionNote.parse(sysContent);
-      if (compaction !== null) {
-        // 压缩游标事件（OMNI_COMPACTION_V1）：摘要动辄数千字，平铺会糊满一屏
-        // （2026-10-13 用户反馈）。收纳成一行简报，点击展开摘要全文；
-        // 点击阻断冒泡——details 的开合不应顺带触发外层的事件钻取。
-        return node(
-          <details
-            className="sysnote-fold"
-            spellCheck="false"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          >
-            <summary className="sysnote-fold__summary">
-              {t('— 上下文已压缩 · 游标 upTo={upTo} · 摘要约 {n} 字 · 点击查看 —', {
-                upTo: String(compaction.upTo),
-                n: NumberFormatter.abbrev(compaction.summary.length),
-              })}
-            </summary>
-            <div className="sysnote-fold__body">{compaction.summary}</div>
-          </details>,
-        );
-      }
-      return node(
-        <div className="sysnote" spellCheck="false">
-          — {sysContent} —
-        </div>,
-      );
-    }
+      return renderStandaloneToolResult(ev, p);
+    case 'system':
+      return renderSystemNode(p, node);
     case 'todo':
-      return node(
-        <>
-          <div className="head">{badge('todo')}</div>
-          {todoView((p.todos as Parameters<typeof todoView>[0]) || [])}
-        </>,
-      );
+      return renderTodoNode(p, node);
     case 'plan':
-      return node(
-        <>
-          <div className="head">{badge('plan')}</div>
-          <div className="card">{jsonView(p)}</div>
-        </>,
-      );
+      return renderPlanNode(p, node);
     case 'question':
-      return node(
-        <>
-          <div className="head">{badge('question')}</div>
-          <div className="card">{questionView((p.questions as unknown) || p, { pending: ctx.questionPending })}</div>
-        </>,
-      );
+      return renderQuestionNode(p, ctx, node);
     case 'turn_diff':
       // 回合结果由 renderBlockNode 的 turn_summary 块整体渲染；这里不会走到，保留 null 兜底。
       return null;
@@ -362,16 +282,7 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
       // 模型用量事件：token 统计在「指标」面板看，对话流里渲染只会是一坨 JSON。
       return null;
     default:
-      return node(
-        <>
-          <div className="head">{badge(ev.type)}</div>
-          <div className="card">
-            <div className="content" spellCheck="false">
-              {JSON.stringify(p)}
-            </div>
-          </div>
-        </>,
-      );
+      return renderUnknownNode(ev, p, node);
   }
 }
 
