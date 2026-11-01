@@ -1,6 +1,6 @@
 {
   "name": "@mylong227/omniharness",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OmniHarness —— 通用 Agent Harness：TypeScript（CLI / Web 前端 / 编排）+ Rust（原生内核）",
   "type": "module",
   "license": "Apache-2.0",
@@ -96,6 +96,7 @@
     "release:publish": "changeset publish",
     "coverage": "node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/ --coverage.enabled",
     "test": "npm run build && npm run test:fast && npm run test:web",
+    "regress": "node scripts/runGates.mjs --tier=all && node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/ --coverage.enabled && node scripts/coverageGate.mjs && npm run web:test",
     "test:fast": "node scripts/workspaceLease.mjs --name=workspace -- vitest run --project node tests/unit/",
     "test:web": "node scripts/workspaceLease.mjs --name=workspace -- vitest run --project web",
     "test:slow": "npm run test:integration && npm run test:web",
