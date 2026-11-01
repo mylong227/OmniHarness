@@ -37,7 +37,7 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
   protected readonly agents: AgentCatalogService;
   /** 工作区 + 会话检索。 */
   protected readonly search: WorkspaceSearchService;
-  /** 上下文窗口目录（`context.usage` 与 `context.window` 共用同一份解析口径）。 */
+  /** 上下文窗口目录（`context.usage` 报告内的窗口口径单一来源）。 */
   protected readonly windows: ContextWindowCatalog;
 
   /**
@@ -123,11 +123,6 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
       if (typeof sketchMode === 'boolean') patch.sketchMode = sketchMode;
       return this.modes.set(threadId, patch);
     });
-    this.handlers.set('modes.clear', async (params) => {
-      const threadId = this.stringParam(params, 'threadId');
-      if (threadId === '') throw new Error('modes.clear 需要 threadId');
-      return this.modes.clear(threadId);
-    });
     // 把会话**归入指定项目**（侧栏右键「归入当前项目」）：只改存档首行 session_meta.workspace；
     // 目标目录先经 configStore 校验存在（fail-closed），运行中的会话由存档的 runningChecker 拒绝。
     this.handlers.set('sessions.setWorkspace', async (params) => {
@@ -149,10 +144,6 @@ export class AppServerSurfaceHandlers extends AppServerHandlers {
       const limit = typeof params['limit'] === 'number' ? (params['limit'] as number) : undefined;
       return this.search.search(query, limit);
     });
-    this.handlers.set('context.window', async () => ({
-      model: this.options.config.model.name,
-      windowTokens: this.windows.of(this.options.config.model.name),
-    }));
   }
 
   /**

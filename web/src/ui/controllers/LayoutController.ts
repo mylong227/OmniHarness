@@ -145,11 +145,6 @@ export class LayoutController {
     this.host.patch((s) => ({ leftOpen: !s.leftOpen, rightOpen: false }));
   }
 
-  /** 打开功能面板模态（右栏「全部面板」按钮 / 命令面板入口）。 @returns 无 */
-  public openPanels(): void {
-    this.host.patch({ panelModalOpen: true });
-  }
-
   /** 关闭功能面板模态。 @returns 无 */
   public closePanels(): void {
     this.host.patch({ panelModalOpen: false });

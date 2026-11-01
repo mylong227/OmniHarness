@@ -82,15 +82,6 @@ export class SettingsController {
   }
 
   /**
-   * 切换控制台内的设置分栏（受控：供"从审批弹窗跳到权限"这类外部驱动）。
-   * @param tab 分栏 key
-   * @returns 无
-   */
-  public setTab(tab: SettingsTabKey): void {
-    this.host.patch({ settingsTab: tab });
-  }
-
-  /**
    * 打开设置并定位到「权限」栏。
    *
    * 原实现是 `openPane('settings')`——打开一个**已经不存在**的面板 key（settings 已从

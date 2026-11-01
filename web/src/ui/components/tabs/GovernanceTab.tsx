@@ -184,7 +184,7 @@ export function GovernanceTab(): ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const r = await api.rpc<GovernanceHistory>('governance.history');
+      const r = await api.governanceHistory<GovernanceHistory>();
       setData(r);
     } catch (e) {
       setError((e as Error).message);

@@ -372,14 +372,6 @@ export class AppServer extends AppServerVaultHandlers {
       const facts = store().all();
       return { count: facts.length, facts: facts.map((f) => ({ ...f })) };
     });
-    this.handlers.set('memory.get', async (params) => {
-      const id = AppServer.memoryId(params, 'memory.get');
-      const fact = store().get(id);
-      if (fact === undefined) {
-        throw new Error('未找到记忆: ' + id);
-      }
-      return { ...fact };
-    });
     this.handlers.set('memory.add', async (params) => {
       const fact = AppServer.newFactFrom(params);
       store().remember(fact);

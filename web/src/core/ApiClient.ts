@@ -761,9 +761,13 @@ export class ApiClient {
   public contextUsage(threadId: string): Promise<import('../types/models.ts').ContextUsageReport> {
     return this.rpc('context.usage', { threadId });
   }
-  /** 当前模型与解析出的上下文窗口大小（容量面板标题用）。 */
-  public contextWindow(): Promise<{ model: string; windowTokens: number }> {
-    return this.rpc('context.window', {});
+  /**
+   * 治理台台账（F2：进化晋升历史 + 回滚锚点视图；组件层统一走本封装，不直发 rpc）。
+   * 返回形状（GovernanceHistory 联合类型）由调用方给出——它依赖组件本地的 GovernanceRow，
+   * 不上提到 models（避免为单个面板污染公共类型面）。
+   */
+  public governanceHistory<T>(): Promise<T> {
+    return this.rpc('governance.history', {});
   }
   /** 今日余额（本地日内预算）× 各模型配额。 */
   public quotaGet(): Promise<import('../types/models.ts').QuotaStatus> {

@@ -18,13 +18,6 @@ export class AppServerHandlers extends AppServerBase {
     const storeOf = () => new PluginProfileStore(workspaceRoot());
 
     this.handlers.set('profile.list', async () => storeOf().list());
-    this.handlers.set('profile.get', async (params) => {
-      const id = params['id'];
-      if (typeof id !== 'string' || id.length === 0) {
-        throw new Error('profile.get 需要 id');
-      }
-      return storeOf().get(id);
-    });
     this.handlers.set('profile.save', async (params) => {
       const profile = params['profile'] as PluginProfile | undefined;
       if (profile === undefined || typeof profile.name !== 'string') {
