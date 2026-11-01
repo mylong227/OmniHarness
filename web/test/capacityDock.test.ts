@@ -123,3 +123,30 @@ test('⑤ 日预算编辑：quota.set 经 UI 可达（2026-11-01 接线收口—
   const call = ui.app.calls.find((c) => c.method === 'quotaSet');
   assert.deepStrictEqual(call?.args, [{ dailyTokens: 2000000 }], '入参必须是归一后的整数');
 });
+
+test('⑥ 日预算 0 值穿透拦截：UI 与服务端同口径拒非正数（2026-11-01 修）', async () => {
+  const toasts: string[] = [];
+  const ui = renderUi(CapacityDock, {
+    responses: { contextUsage: USAGE, quotaGet: QUOTA },
+    onToast: (message: string) => {
+      toasts.push(message);
+    },
+  });
+  await waitFor(() => {
+    if (!(ui.container.textContent ?? '').includes('30.8%')) throw new Error('容量占比尚未渲染');
+  });
+  fireEvent.click(ui.container.querySelector('.cap-dock') as Element);
+  await waitFor(() => {
+    if (ui.container.querySelector('.cap-dock-pop') === null) throw new Error('浮层未展开');
+  });
+  fireEvent.click([...ui.container.querySelectorAll('button')].find((b) => b.textContent === '调整') as Element);
+  fireEvent.change(ui.container.querySelector('.cap-budget-input') as Element, { target: { value: '0' } });
+  fireEvent.click([...ui.container.querySelectorAll('button')].find((b) => b.textContent === '保存') as Element);
+  await waitFor(() => {
+    if (!toasts.some((m) => m.includes('正数'))) throw new Error('校验 toast 未出现');
+  });
+  assert.ok(
+    !ui.app.calls.some((c) => c.method === 'quotaSet'),
+    '非正数不得发出 quota.set（服务端同口径 fail-closed）',
+  );
+});

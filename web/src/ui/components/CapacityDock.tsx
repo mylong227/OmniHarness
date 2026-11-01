@@ -232,8 +232,9 @@ function BudgetEditor(props: BudgetEditorProps): ReactElement {
   const [saving, setSaving] = React.useState(false);
   const save = async (): Promise<void> => {
     const parsed = Number(draft);
-    if (draft.trim() === '' || !Number.isFinite(parsed) || parsed < 0) {
-      toast(t('日预算需为非负数字'), 'err');
+    if (draft.trim() === '' || !Number.isFinite(parsed) || parsed <= 0) {
+      // 与服务端 quotaService.update 同口径：非正数一律拒（0 会把当日预算清成 0）。
+      toast(t('日预算必须是正数（tokens/天）'), 'err');
       return;
     }
     setSaving(true);

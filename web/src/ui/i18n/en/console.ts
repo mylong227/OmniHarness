@@ -4,7 +4,7 @@ export const EN_CONSOLE: Record<string, string> = {
   // —— 容量浮层（CapacityDock）——
   调整: 'Adjust',
   '今日 token 预算': 'Daily token budget',
-  '日预算需为非负数字': 'Daily budget must be a non-negative number',
+  '日预算必须是正数（tokens/天）': 'Daily budget must be a positive number (tokens/day)',
   '已更新今日预算': 'Daily budget updated',
   '调整失败：{msg}': 'Adjust failed: {msg}',
   // —— 外壳与导航 ——

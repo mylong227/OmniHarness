@@ -137,11 +137,18 @@ export class QuotaService {
    * 两条路径互相覆盖。现在唯一可调的是基础日预算。
    * @param params `{ dailyTokens? }`（未提供即不变更）
    * @returns 更新后的状态
-   * @throws 日预算非正数时抛错（fail-closed，经 RPC 原样回给 UI）
+   * @throws 日预算非正数时抛错（fail-closed，经 RPC 原样回给 UI）。
+   *  口径对齐（2026-11-01）：本 JSDoc 一直声称非正数抛错，实现却从未校验——
+   *  `quota.set({ dailyTokens: 0 })` 会静默落盘并把当日预算清成 0。现补上校验，
+   *  UI 编辑器（CapacityDock 的 BudgetEditor）同口径拦截。
    */
   public update(params: { readonly dailyTokens?: number }): QuotaStatus {
     if (params.dailyTokens !== undefined) {
-      this.deps.store.write({ dailyTokens: params.dailyTokens });
+      const daily = params.dailyTokens;
+      if (!Number.isFinite(daily) || daily <= 0) {
+        throw new Error('日预算必须是正数（tokens/天）');
+      }
+      this.deps.store.write({ dailyTokens: daily });
     }
     return this.status();
   }
