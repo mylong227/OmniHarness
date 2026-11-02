@@ -7712,7 +7712,7 @@ ACP v1 已把 elicitation 稳定为协议原语（[官方文档](https://agentcl
 - 门禁：`tsc --noEmit` exit 0；`check.mjs --strict` 零违规；改动文件 ESLint 零告警；New docs 进
   `docs/README` + `llms.txt`，`docLinkCheck` 无新增死链。
 - **全量 `npm run regress` exit 0**：gates 全绿 → 单测 **723 文件 / 4,469 过 + 4 skip** →
-  coverageGate **✓ 聚合 85.8925% ≥ 80%（1326 文件无超容差回退，3 个在漂移容差内）** →
+  coverageGate **✓ 聚合 85.8549% ≥ 80%（1329 文件无超容差回退，4 个在漂移容差内）** →
   `web:test` **145 文件 / 717 例全绿**（含 `webImportResolution` 的 2 例）。
 
 ### 207.5 顺手清掉分层迁移的两处真回归
