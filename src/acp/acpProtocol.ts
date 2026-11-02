@@ -35,6 +35,8 @@ export const ACP_METHOD_SESSION_CANCEL = 'session/cancel';
 export const ACP_METHOD_SESSION_UPDATE = 'session/update';
 /** session/request_permission：Agent → Client 的权限请求（带 id 的请求）。 */
 export const ACP_METHOD_REQUEST_PERMISSION = 'session/request_permission';
+/** elicitation/create：Agent → Client 的结构化提问（ACP v1 稳定原语，带 id 的请求）。 */
+export const ACP_METHOD_ELICITATION_CREATE = 'elicitation/create';
 
 /** 未认证 / 认证失败（`requireAuth` 开启或 `authenticate` 拒绝时使用）。 */
 export const ACP_ERROR_AUTH_REQUIRED = -32000;
@@ -109,6 +111,14 @@ export interface AcpClientCapabilities {
   };
   /** 是否支持全部 terminal/* 方法。 */
   readonly terminal?: boolean;
+  /**
+   * 结构化提问能力（ACP v1 elicitation）。只有 `form` 显式存在且非 null 才表示
+   * 客户端能渲染表单；缺省表示不支持。
+   */
+  readonly elicitation?: {
+    readonly form?: unknown;
+    readonly url?: unknown;
+  };
   /** 前向兼容：未知能力键原样保留。 */
   readonly [key: string]: unknown;
 }
@@ -470,6 +480,38 @@ export type AcpPermissionOutcome =
 export interface AcpPermissionResponse {
   /** 用户决策。 */
   readonly outcome: AcpPermissionOutcome;
+}
+
+/** elicitation/create 的用户动作（accept 表示已提交，decline/cancel 表示未作答）。 */
+export type AcpElicitationAction = 'accept' | 'decline' | 'cancel';
+
+/**
+ * `elicitation/create` 请求（form 模式）。
+ *
+ * schema 只使用 ACP 允许的扁平 JSON Schema：每个字段是 string/array 等原语。
+ * 多选 = `type: 'array'` + `items.enum`；开放题 = `type: 'string'`。
+ */
+export interface AcpElicitationRequest {
+  /** 会话 id（会话作用域）。 */
+  readonly sessionId: string;
+  /** 模式：form（本端只用这一种）。 */
+  readonly mode: 'form';
+  /** 给用户看的说明（题面）。 */
+  readonly message: string;
+  /** 扁平表单 schema。 */
+  readonly requestedSchema: {
+    readonly type: 'object';
+    readonly properties: Record<string, unknown>;
+    readonly required?: readonly string[];
+  };
+}
+
+/** `elicitation/create` 响应：动作 + 可选的表单内容。 */
+export interface AcpElicitationResponse {
+  /** 用户动作。 */
+  readonly action: AcpElicitationAction;
+  /** accept 时的表单内容（键与 requestedSchema.properties 对应）。 */
+  readonly content?: Record<string, unknown> | null;
 }
 
 /** 判断值是否为普通对象。 */

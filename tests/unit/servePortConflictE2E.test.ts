@@ -84,13 +84,17 @@ function startServe(
 
 /**
  * 轮询某端口的 `/healthz`，直到拿到本程序健康体（或超时）。
+ *
+ * 默认 45s（2026-11-02 由 20s 上调）：全量回归并行跑时，serve 首次启动（产物加载 +
+ * 维护巡检 + 凭据库初始化）实测会超过 20s，旧预算造成「隔离绿、全量红」的假失败；
+ * 语义不变，只放宽环境余量。
  * @param port 端口
  * @param timeoutMs 超时
  * @returns 健康体或 null
  */
 async function waitHealth(
   port: number,
-  timeoutMs = 20_000,
+  timeoutMs = 45_000,
 ): Promise<Record<string, unknown> | null> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {

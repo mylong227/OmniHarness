@@ -20,6 +20,7 @@ import type { AcpTransport } from './acpStdioTransport.ts';
 import type {
   AcpAgentCapabilities,
   AcpContentBlock,
+  AcpElicitationResponse,
   AcpImplementation,
   AcpPermissionMode,
   AcpPermissionOutcome,
@@ -34,6 +35,7 @@ import {
   ACP_ERROR_INVALID_REQUEST,
   ACP_ERROR_METHOD_NOT_FOUND,
   ACP_METHOD_AUTHENTICATE,
+  ACP_METHOD_ELICITATION_CREATE,
   ACP_METHOD_INITIALIZE,
   ACP_METHOD_LOGOUT,
   ACP_METHOD_REQUEST_PERMISSION,
@@ -91,7 +93,8 @@ interface NormalizedAcpServerOptions {
  *
  * 覆盖：initialize（版本/能力/认证方式）、authenticate/logout、
  * session/new|load|list|resume|close|prompt、session/cancel、
- * session/update（文本/思考/工具调用/计划）、session/request_permission（权限请求/响应）。
+ * session/update（文本/思考/工具调用/计划）、session/request_permission（权限请求/响应）、
+ * elicitation/create（多选/开放题的表单提问）。
  * 认证与会话生命周期分别见 `AcpAuthentication` / `AcpSessionLifecycle`。
  */
 export class AcpServer {
@@ -105,6 +108,8 @@ export class AcpServer {
   private readonly lifecycle: AcpSessionLifecycle;
   /** 在途的 Client 请求（权限请求 id → 结果）。 */
   private readonly pending = new PendingRequests<number, AcpPermissionOutcome>();
+  /** 在途的 elicitation 请求（id → 表单动作）。 */
+  private readonly elicitations = new PendingRequests<number, AcpElicitationResponse>();
   /** `run()` 的唤醒回调（`finish()` 兑现一次）。 */
   private finishRun: (() => void) | undefined;
   /** `run()` 的等待 Promise（重复 run 复用同一份，避免重复注册 onClose）。 */
@@ -187,6 +192,7 @@ export class AcpServer {
     this.finishRun = undefined;
     this.state.closed = true;
     this.pending.settleAll({ outcome: 'cancelled' });
+    this.elicitations.settleAll({ action: 'cancel' });
     this.registry.shutdown((ids) => this.settlePermissions(ids));
     resolve?.();
   }
@@ -325,6 +331,7 @@ export class AcpServer {
     state.runtime.cancel();
     for (const permissionId of this.registry.permissionIdsOf(sessionId)) {
       this.pending.settle(permissionId, { outcome: 'cancelled' });
+      this.elicitations.settle(permissionId, { action: 'cancel' });
       this.registry.removePermissionId(sessionId, permissionId);
     }
   }
@@ -342,10 +349,14 @@ export class AcpServer {
       cwd,
       events: this.eventPortFor(sessionId),
       approvals: this.approvalPortFor(sessionId),
-      // 提问上行（2026-11-01）：ask_user 的单选题经 request_permission 由 Client 点选作答。
+      // 提问上行（2026-11-01；2026-11-02 补 elicitation）：
+      // 单选经 request_permission；多选/开放题经 elicitation/create（仅 Client 声明 form 时）。
       // 协作类复用本服务端的 pending 表 / 请求 id / 取消追踪（注入见 acpQuestionUplink）。
       userResponder: new AcpQuestionUplink({
         timeoutMs: this.deps.permissionTimeoutMs,
+        supportsElicitationForm: AcpValidation.supportsElicitationForm(
+          this.state.clientCapabilities,
+        ),
         allocateId: () => this.state.nextRequestId++,
         sendRequest: (id, permission) => {
           this.deps.transport.send(
@@ -353,6 +364,15 @@ export class AcpServer {
               id,
               ACP_METHOD_REQUEST_PERMISSION,
               permission as unknown as Record<string, unknown>,
+            ),
+          );
+        },
+        sendElicitation: (id, request) => {
+          this.deps.transport.send(
+            jsonRpc.request(
+              id,
+              ACP_METHOD_ELICITATION_CREATE,
+              request as unknown as Record<string, unknown>,
             ),
           );
         },
@@ -368,6 +388,18 @@ export class AcpServer {
                 }
               : undefined;
           this.pending.register(id, { resolve }, timeout);
+        },
+        registerElicitationPending: (id, resolve) => {
+          const timeout =
+            this.deps.permissionTimeoutMs > 0
+              ? {
+                  ms: this.deps.permissionTimeoutMs,
+                  onTimeout: (handlers: {
+                    readonly resolve: (v: AcpElicitationResponse) => void;
+                  }) => handlers.resolve({ action: 'cancel' }),
+                }
+              : undefined;
+          this.elicitations.register(id, { resolve }, timeout);
         },
         trackPermission: (sid, id) => this.registry.addPermissionId(sid, id),
         untrackPermission: (sid, id) => this.registry.removePermissionId(sid, id),
@@ -492,26 +524,41 @@ export class AcpServer {
   }
 
   /**
-   * 处理 Client 的响应消息：按 id 兑现挂起的权限请求。
+   * 处理 Client 的响应消息：按 id 兑现挂起的权限 / elicitation 请求。
    * @param message 入站响应。
    * @returns 无返回值。
    */
   private onClientResponse(message: RpcMessage): void {
     if (!('id' in message) || typeof message.id !== 'number') return;
-    const handlers = this.pending.take(message.id);
-    if (handlers === undefined) return;
+    const permission = this.pending.take(message.id);
+    if (permission !== undefined) {
+      if ('error' in message) {
+        permission.resolve({ outcome: 'cancelled' });
+        return;
+      }
+      const response = AcpValidation.recordOf((message as { readonly result?: unknown }).result);
+      const outcome = AcpValidation.recordOf(response['outcome']);
+      const optionId = outcome['optionId'];
+      permission.resolve(
+        outcome['outcome'] === 'selected' && typeof optionId === 'string'
+          ? { outcome: 'selected', optionId }
+          : { outcome: 'cancelled' },
+      );
+      return;
+    }
+    const elicitation = this.elicitations.take(message.id);
+    if (elicitation === undefined) return;
     if ('error' in message) {
-      handlers.resolve({ outcome: 'cancelled' });
+      elicitation.resolve({ action: 'cancel' });
       return;
     }
-    const response = AcpValidation.recordOf((message as { readonly result?: unknown }).result);
-    const outcome = AcpValidation.recordOf(response['outcome']);
-    const optionId = outcome['optionId'];
-    if (outcome['outcome'] === 'selected' && typeof optionId === 'string') {
-      handlers.resolve({ outcome: 'selected', optionId });
+    const result = AcpValidation.recordOf((message as { readonly result?: unknown }).result);
+    const action = result['action'];
+    if (action === 'accept' || action === 'decline' || action === 'cancel') {
+      elicitation.resolve({ action, content: AcpValidation.recordOf(result['content']) });
       return;
     }
-    handlers.resolve({ outcome: 'cancelled' });
+    elicitation.resolve({ action: 'cancel' });
   }
 
   /**
@@ -530,7 +577,10 @@ export class AcpServer {
    * @returns 无返回值。
    */
   private settlePermissions(permissionIds: readonly number[]): void {
-    for (const id of permissionIds) this.pending.settle(id, { outcome: 'cancelled' });
+    for (const id of permissionIds) {
+      this.pending.settle(id, { outcome: 'cancelled' });
+      this.elicitations.settle(id, { action: 'cancel' });
+    }
   }
 }
 

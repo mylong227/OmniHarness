@@ -184,8 +184,9 @@ export class FileLock {
    * **吞吐代价（2026-11-01 实测登记，评估结论见 PROJECT_BOARD §203）**：本方法在自旋等待期用
    * `Atomics.wait` 阻塞**整个事件循环**——无竞争回环 ≈52µs/次（可忽略）；竞争时最多阻塞
    * ≈`waitMs`（默认 300ms，实测 349ms 含切片开销）后按 false 降级。工具层一律用
-   * {@link AsyncFileLock}（异步轮询 + 全抖动）规避；同步调用方（sessionSidecars 的读—改—写）
-   * 是**有意保留**的存量选择——进程内 RPC 天然串行、永不竞争，跨进程竞争才触发阻塞且上限有界。
+   * {@link AsyncFileLock}（异步轮询 + 全抖动）规避；`sessionSidecars` 已于 2026-11-02 改为
+   * **单次 `tryAcquire` + 立即乐观降级**（不再走本方法，竞争时零阻塞）。仍调用本方法的同步
+   * 调用方须自行确认 waitMs 可接受。
    * @param fn 临界区函数（入参为 guard）
    * @returns 是否真正在锁内执行了 `fn`
    */

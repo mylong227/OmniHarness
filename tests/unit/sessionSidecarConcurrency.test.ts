@@ -19,6 +19,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { SessionSidecars } from '../../src/server/services/session/sessionSidecars.ts';
+import { FileLock } from '../../src/util/concurrency/fileLock.ts';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {
@@ -86,6 +87,26 @@ test('乐观并发：写前被别的进程改过 ⇒ 重读重算，不覆盖对
       rev: number;
     };
     assert.ok(Number.isFinite(doc.rev) && doc.rev > 0, 'rev 必须是正整数');
+  });
+});
+
+test('竞争时不阻塞事件循环：tryLock 一次即转乐观并发（不再 Atomics.wait 300ms）', () => {
+  withTemp((dir) => {
+    const sc = new SessionSidecars(() => dir);
+    const target = join(dir, 'sessions.archived.json');
+    // 模拟另一个进程正持有锁（同一进程内的 FileLock 也走同一套 owner.json/token 语义）。
+    const holder = new FileLock(target, { waitMs: 0 });
+    assert.strictEqual(holder.tryAcquire(), true, '测试夹具必须真的拿到锁');
+    try {
+      const started = Date.now();
+      sc.writeArchived(['a']);
+      const elapsed = Date.now() - started;
+      // 旧实现会 withLock 自旋到 waitMs（默认 300ms）才降级；新实现应立刻走 rev 重试。
+      assert.ok(elapsed < 150, `竞争时不得阻塞事件循环（实测 ${elapsed}ms）`);
+      assert.deepEqual(sc.readArchived(), ['a'], '乐观并发仍必须写入成功');
+    } finally {
+      holder.release();
+    }
   });
 });
 

@@ -164,8 +164,9 @@ export class SessionSidecars {
    * （不是丢一条）。原子替换保证任何时刻读到的都是「旧的完整版」或「新的完整版」。
    *
    * **并发口径（本版边界①②的修法）**：同一进程内的「读—改—写」全是同步代码（Node 单线程、中间无
-   * `await`）⇒ 天然不可交错；**跨进程**（两个 serve 指向同一存储目录）用 `rev` 做乐观并发：
-   * {@link updateJson} 读到旧 `rev` 才提交，否则重读重算（有界重试）。故并发拖拽不会丢写入。
+   * `await`）⇒ 天然不可交错；**跨进程**（两个 serve 指向同一存储目录）优先用租约锁（单次
+   * `tryAcquire`，**不自旋**，竞争时零事件循环阻塞），抢不到再用 `rev` 乐观并发：{@link updateJson}
+   * 读到旧 `rev` 才提交，否则重读重算（有界重试）。故并发拖拽不会丢写入，也不会卡住 serve 300ms。
    * @param name 文件名
    * @param value 待写入的 JSON 值
    * @returns 无返回值。
@@ -188,8 +189,10 @@ export class SessionSidecars {
   }
 
   /**
-   * 乐观并发的「读—改—写」：读当前文档（含 `rev`）→ 交给纯函数算新值 → 若 `rev` 未变则提交，
-   * 变了就重读重算（最多 {@link UPDATE_RETRIES} 轮）。全同步、进程内不可交错；跨进程靠 `rev` 检测。
+   * 乐观并发的「读—改—写」：先单次 `tryAcquire` 租约锁（拿到则强互斥 + fencing），
+   * 抢不到立刻转 `rev` 乐观重试（读当前文档 → 纯函数算新值 → rev 未变才提交，最多
+   * {@link UPDATE_RETRIES} 轮）。**全程不 `Atomics.wait`**：侧车是低频 UI 状态，不能为跨进程
+   * 互斥阻塞 serve 事件循环 300ms。
    * @param name 文件名
    * @param mutate 纯函数：由「当前文档 + rev」算出新文档
    * @returns 提交成功返回 true；目录未知或重试耗尽返回 false
@@ -201,13 +204,20 @@ export class SessionSidecars {
     // 写盘前用 guard 做 **fencing 核对**：锁若已被接管则抛错并放弃写入（宁可这次改动不落地，
     // 也不覆盖别人的修改 —— 这是 proper-lockfile 系列里 onCompromised 要处理的失败模式）。
     const lock = new FileLock(path);
+    let locked = false;
     try {
-      const ok = lock.withLock((guard) => {
-        const next = mutate(this.readJson(name), SessionSidecars.revOf(this.readJson(name)));
-        guard(); // fencing：锁若已被接管，这里抛错 ⇒ 放弃写入
+      // **不阻塞事件循环**（2026-11-02）：只尝试一次租约锁，抢不到就立刻转乐观并发。
+      // 旧写法 `lock.withLock` 在竞争时用 `Atomics.wait` 最多阻塞 waitMs（默认 300ms，
+      // 实测 349ms）——侧车是低频 UI 状态，不值得为了跨进程互斥卡住整个 serve 事件循环。
+      // 抢到锁仍是强互斥（读—改—写 + fencing）；抢不到则走下面的 rev 乐观重试（有界）。
+      locked = lock.tryAcquire();
+      if (locked) {
+        const current = this.readJson(name);
+        const next = mutate(current, SessionSidecars.revOf(current));
+        lock.assertHeld(); // fencing：锁若已被接管，这里抛错 ⇒ 放弃写入
         this.writeJson(name, next);
-      });
-      if (ok) return true;
+        return true;
+      }
     } catch (err) {
       // 锁被接管（onCompromised 语义）：**放弃这次写入**并留痕，不覆盖别人的修改、不把异常抛给 RPC。
       log.warn('sidecar.write.compromised', {
@@ -215,8 +225,12 @@ export class SessionSidecars {
         error: err instanceof Error ? err.message : String(err),
       });
       return false;
+    } finally {
+      // 只释放自己拿到的锁；`tryAcquire` 失败时 token=0，release 本身就是空操作。
+      if (locked) lock.release();
     }
-    // 第二道防线（锁没拿到，例如别的进程崩在临界区里、且租约还没到期）：退回乐观并发重试。
+    // 第二道防线（锁没拿到，例如别的进程正在写、或崩在临界区里且租约未到期）：
+    // 退回乐观并发重试；rev 变了就重读重算，不覆盖对方。
     for (let attempt = 0; attempt < UPDATE_RETRIES; attempt++) {
       const current = this.readJson(name);
       const rev = SessionSidecars.revOf(current);

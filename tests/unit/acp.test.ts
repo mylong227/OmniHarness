@@ -27,6 +27,8 @@ import {
   type AcpAuthIdentity,
   type AcpAuthRequest,
   type AcpAuthenticator,
+  type AcpElicitationRequest,
+  type AcpElicitationResponse,
   type AcpPermissionRequest,
   type AcpSessionFactory,
   type AcpSessionInfo,
@@ -63,6 +65,11 @@ class AcpClient {
     readonly id: number;
     readonly params: AcpPermissionRequest;
   }[] = [];
+  /** Agent → Client 的 elicitation/create 请求（多选 / 开放题）。 */
+  public readonly elicitationRequests: {
+    readonly id: number;
+    readonly params: AcpElicitationRequest;
+  }[] = [];
   private readonly pending = new Map<number, (message: RpcMessage) => void>();
   private nextId = 1;
 
@@ -91,6 +98,19 @@ class AcpClient {
     } as RpcMessage);
   }
 
+  /**
+   * 响应 elicitation/create（accept / decline / cancel）。
+   * @param id 请求 id。
+   * @param response 用户动作与表单内容。
+   */
+  public respondElicitation(id: number, response: AcpElicitationResponse): void {
+    this.transport.send({
+      jsonrpc: '2.0',
+      id,
+      result: response,
+    } as RpcMessage);
+  }
+
   private onMessage(message: RpcMessage): void {
     if ('method' in message) {
       const params = (message as { readonly params?: Record<string, unknown> }).params ?? {};
@@ -106,6 +126,17 @@ class AcpClient {
         this.permissionRequests.push({
           id: message.id,
           params: params as unknown as AcpPermissionRequest,
+        });
+        return;
+      }
+      if (
+        message.method === 'elicitation/create' &&
+        'id' in message &&
+        typeof message.id === 'number'
+      ) {
+        this.elicitationRequests.push({
+          id: message.id,
+          params: params as unknown as AcpElicitationRequest,
         });
       }
       return;
@@ -910,7 +941,7 @@ test('13) question 事件映射为可见的 agent_message_chunk（此前整条�
   );
 });
 
-test('14) 提问上行：ask_user 单选题经 request_permission 回传点选；多选/开放题诚实占位', async () => {
+test('14) 提问上行：单选经 request_permission；无 elicitation 能力时多选/开放题诚实占位', async () => {
   const harness = new Harness({});
   const sessionId = await harness.newSession(tempDir());
   const responder = harness.lastOptions?.userResponder;
@@ -961,5 +992,111 @@ test('14) 提问上行：ask_user 单选题经 request_permission 回传点选�
     harness.client.permissionRequests.length,
     1,
     '只有单选题发 request_permission',
+  );
+});
+
+test('14b) elicitation.form：多选与开放题经 elicitation/create 作答（不再占位）', async () => {
+  const harness = new Harness({});
+  await harness.client.request('initialize', {
+    protocolVersion: 1,
+    clientCapabilities: { elicitation: { form: {} } },
+  });
+  const sessionId = await harness.newSession(tempDir());
+  const responder = harness.lastOptions?.userResponder;
+  assert.ok(responder !== undefined);
+  const pending = responder.ask(
+    [
+      {
+        id: 'q-multi',
+        question: '要哪些能力？',
+        multiSelect: true,
+        options: [{ label: 'X' }, { label: 'Y' }, { label: 'Z' }],
+      },
+      { id: 'q-open', header: '补充', question: '还想补充什么？' },
+    ],
+    { sessionId },
+  );
+  const multi = await waitFor(
+    () => harness.client.elicitationRequests,
+    (r) => r.params.message.includes('（可多选）'),
+  );
+  assert.strictEqual(multi.params.mode, 'form', '必须是 form 模式');
+  assert.strictEqual(multi.params.sessionId, sessionId, '必须绑定会话');
+  const multiSchema = multi.params.requestedSchema;
+  const multiProp = multiSchema.properties['answer'] as {
+    type?: string;
+    items?: { enum?: readonly string[] };
+  };
+  assert.strictEqual(multiProp.type, 'array', '多选必须是 array');
+  assert.deepStrictEqual(multiProp.items?.enum, ['X', 'Y', 'Z'], 'enum 即选项标签');
+  harness.client.respondElicitation(multi.id, {
+    action: 'accept',
+    content: { answer: ['Y', 'BOGUS'] },
+  });
+  const open = await waitFor(
+    () => harness.client.elicitationRequests,
+    (r) => r.params.message.includes('补充'),
+  );
+  const openProp = open.params.requestedSchema.properties['answer'] as { type?: string };
+  assert.strictEqual(openProp.type, 'string', '开放题必须是 string');
+  harness.client.respondElicitation(open.id, {
+    action: 'accept',
+    content: { answer: '  自由输入  ' },
+  });
+  const answers = await pending;
+  assert.deepStrictEqual(
+    answers[0],
+    { id: 'q-multi', selected: ['Y'] },
+    '多选只接受提供过的标签（伪造值丢弃）',
+  );
+  assert.deepStrictEqual(
+    answers[1],
+    { id: 'q-open', selected: [], custom: '自由输入' },
+    '开放题自由文本进 custom（trim）',
+  );
+  assert.strictEqual(harness.client.permissionRequests.length, 0, '不该再发单选权限请求');
+});
+
+test('14c) elicitation 在途时 session/cancel ⇒ 按未作答收尾', async () => {
+  const harness = new Harness({});
+  await harness.client.request('initialize', {
+    protocolVersion: 1,
+    clientCapabilities: { elicitation: { form: {} } },
+  });
+  const sessionId = await harness.newSession(tempDir());
+  const responder = harness.lastOptions?.userResponder;
+  assert.ok(responder !== undefined);
+  const pending = responder.ask(
+    [{ id: 'q', question: '怎么处理？', multiSelect: true, options: [{ label: 'A' }] }],
+    { sessionId },
+  );
+  const request = await waitFor(
+    () => harness.client.elicitationRequests,
+    () => true,
+  );
+  harness.client.notify('session/cancel', { sessionId });
+  const answers = await pending;
+  assert.deepStrictEqual(answers[0], { id: 'q', selected: [] }, '取消按未作答收尾');
+  assert.strictEqual(request.params.mode, 'form');
+});
+
+test('14d) elicitation 能力口径：空对象 / form:null 都不算支持（不静默发 elicitation）', async () => {
+  const harness = new Harness({});
+  await harness.client.request('initialize', {
+    protocolVersion: 1,
+    clientCapabilities: { elicitation: { form: null } },
+  });
+  const sessionId = await harness.newSession(tempDir());
+  const responder = harness.lastOptions?.userResponder;
+  assert.ok(responder !== undefined);
+  const answers = await responder.ask(
+    [{ id: 'q', question: '要哪些？', multiSelect: true, options: [{ label: 'A' }] }],
+    { sessionId },
+  );
+  assert.deepStrictEqual(answers[0], { id: 'q', selected: [] }, '未声明 form ⇒ 空选择');
+  assert.strictEqual(
+    harness.client.elicitationRequests.length,
+    0,
+    '未声明 form 时不得发 elicitation/create',
   );
 });

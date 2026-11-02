@@ -7531,9 +7531,9 @@ busy 占位符排队口径、win32 一体化标题条。功能面不动（用户
 
 ### 203.5 仍真实遗留（诚实登记，未在本轮范围）
 
-- ACP 多选/开放题不可作答（协议无原语）；scratchpad resume 注入未做；桌面通知 OS 级点击待真桌面——延续 2026-11-01 接线盘点的登记。
+- ACP 多选/开放题不可作答（协议无原语）——**2026-11-02 已用 v1 `elicitation/create` form 模式接入（§206）**；仅对显式声明 `elicitation.form` 的客户端生效，未声明者仍诚实占位。scratchpad resume 注入未做；桌面通知 OS 级点击待真桌面——延续 2026-11-01 接线盘点的登记。
 - **S2 前端长函数：2026-11-02 已清零（§205）**——ChangesTab / Composer / SettingsSurface / StreamView / SessionPanel 五件全部拆薄，函数体基线清空；核心四件（agent/appServer/turnRunner/httpServer）仍贴 750-800 行（未超 810 文件上限，未列入本轮）。
-- `sessionSidecars` 同步 FileLock 的异步化：评估结论（fileLock JSDoc 实测登记）——无竞争 ≈52µs/次可忽略，竞争时阻塞事件循环 ≈waitMs（实测 349ms）后按 false 降级；工具层已走 AsyncFileLock，同步调用方是**有意保留**（进程内 RPC 天然串行不竞争），跨进程竞争才触发且上限有界——异步化改造按需启动（触发条件：多进程 serve 成为主流部署形态）。
+- `sessionSidecars` 同步 FileLock 的异步化：评估结论——无竞争 ≈52µs/次可忽略，竞争时旧 `withLock` 阻塞事件循环 ≈waitMs（实测 349ms）后按 false 降级。**2026-11-02 已改为单次 `tryAcquire` + 立即乐观降级（§206）**：竞争时零 `Atomics.wait`，强锁路径仍有 fencing；工具层继续走 `AsyncFileLock`。
 - CI 配额（私有仓 2000 分/月烧尽、136 run 0 绿）无本机解；`regress` 入口 + 本节留痕即当前信任链的执行位。
 
 ## 204. 2026-11-01 回合总结与思考轨迹重做（对话区）
@@ -7616,8 +7616,50 @@ busy 占位符排队口径、win32 一体化标题条。功能面不动（用户
 
 ### 205.3 仍有意保留的边界（本轮未改，不是遗漏）
 
-- **ACP 多选 / 开放题不可作答**：协议只有单选 `session/request_permission`，没有多选/自由文本原语；当前返回空选择是**有意不伪装**，题面仍经 `agent_message_chunk` 可见。要真正支持须等 ACP 增加原语，或由客户端侧另开文本通道。
-- **`sessionSidecars` 同步 FileLock**：实测无竞争 ≈52µs/次可忽略；竞争时阻塞事件循环 ≈waitMs（实测 349ms）后按 false 降级。工具层已走 `AsyncFileLock`，同步调用方是**有意保留**（进程内 RPC 天然串行）；触发条件（多进程 serve 成为主流部署形态）满足时再异步化。
+- **ACP 多选 / 开放题**：**2026-11-02 已补 `elicitation/create` form 模式（§206）**——声明 `elicitation.form` 的客户端可答多选/开放题；未声明者仍返回空选择（有意不伪装）。
+- **`sessionSidecars` 同步 FileLock**：**2026-11-02 已改为单次 `tryAcquire` + 立即乐观降级（§206）**——竞争时零 `Atomics.wait`；强锁路径仍有 fencing，抢不到则 rev 乐观重试。工具层继续走 `AsyncFileLock`。
 - **CI 配额**：私有仓 2000 分/月烧尽、136 run 0 绿，本机无解；`regress` 入口 + 看板留痕就是当前信任链的执行位。
 - **npm 真实发布**：`npm whoami` 实测 `ENEEDAUTH`，本会话未登录，因此**没有执行发布**；登录后跑 `npm run release:publish`（即 `changeset publish`）即可，0.3.0 的 `npm publish --dry-run` 与四处版本对齐已在 23e8e792 演练过。
 - **覆盖率低覆盖文件、核心四件 750-800 行**：分别留在 §203.4 下一批与 §203.5；不在本轮 S2 范围，不写成已做。
+
+## 206. 2026-11-02 剩余边界续清：ACP elicitation / sessionSidecars 非阻塞 / coverage 首批
+
+### 206.1 ACP 多选与开放题：`elicitation/create`（form）
+
+ACP v1 已把 elicitation 稳定为协议原语（[官方文档](https://agentclientprotocol.com/protocol/v1/elicitation)），此前「协议无原语」的登记**不再成立**。本轮接入：
+
+- **能力门控**：只有 Client 在 initialize 显式声明 `clientCapabilities.elicitation.form`（非 null）才启用；空对象 / `form:null` 一律视为不支持（ACP 与 MCP 口径不同，已在 `AcpValidation.supportsElicitationForm` 注释钉死）。
+- **题型映射**：单选继续 `session/request_permission`；多选 → form 的 `type:'array'` + `items.enum`（选项 label 即 enum，回传值再按 label 过滤，伪造值丢弃）；开放题 → `type:'string'`，文本进 `AskAnswer.custom`（trim，空白等价未作答）。
+- **失败口径**：decline / cancel / 超时 / 断开一律空选择；`session/cancel` 同时收掉在途 elicitation（与权限请求共用 id 追踪）。不发 URL 模式、不请求敏感字段。
+- **改动**：`acpProtocol.ts`（方法名/类型）、`acpValidation.ts`（能力判定）、`acpQuestionUplink.ts`（多选/开放题）、`acpServer.ts`（elicitation pending 表 + 响应分发 + 取消收尾）、`acp/index.ts`。
+- **判据**：`acp.test.ts` **31 例**——新增 14b（form 多选/开放题作答 + 伪造标签过滤）、14c（在途 cancel）、14d（`form:null` 不得发 elicitation）；原 14 保留「无 form 能力仍诚实占位」。
+
+### 206.2 sessionSidecars：不再阻塞事件循环
+
+`SessionSidecars.updateJson` 从 `FileLock.withLock`（竞争时 `Atomics.wait` 最多 300ms）改为**单次 `tryAcquire`**：
+
+- 抢到锁：强互斥 + fencing，与原来一致；
+- 抢不到：**立即**转 `rev` 乐观并发重试（有界 8 轮），不阻塞事件循环；
+- 代价：竞争时不是硬互斥（与原实现的「300ms 后仍降级写」同语义，但不再让整个 serve 卡住）；`rev` 保证不静默覆盖对方。
+
+判据 `sessionSidecarConcurrency.test.ts` **7 例**，新增「外部持有锁时 `writeArchived` <150ms 完成且写入成功」——旧实现会阻塞到 300ms。`fileLock.ts` / `sessionSidecars.ts` 的 JSDoc 同步改口径。
+
+### 206.3 coverage 首批补测（§203.4 下一批的一部分）
+
+- `tests/unit/acpStdioTransport.test.ts`（4 例）：真实 `PassThrough` 流验证换行 JSON-RPC、订阅前缓冲回放、坏行丢弃、send 一行、close 幂等/EOF。实测覆盖率 **3.77% → 94.33%**。
+- `tests/unit/serveTrust.test.ts`（2 例）：`--trust-workspace` → grant、onDecision 回写 state、发现式清单走 stderr。实测覆盖率 **26.66% → 100%**。
+- 顺带：`sessionSidecars` 覆盖率 **86.2% → 95.04%**（新增非阻塞判据覆盖 tryAcquire 分支）。
+- 其余低覆盖文件（serveControl/serveShutdown/pluginWorker/runPlanTool/cliAuthCmds…）仍是登记债；本轮不把它们写成已覆盖。基线已按本轮实测做**只升不降**收紧（8 个文件上调，`acpQuestionUplink` / `browserSession` 保留旧高基线）。
+
+### 206.4 验证
+
+- `tsc --noEmit` exit 0；`check.mjs --strict` 零违规；改动文件 ESLint 零告警。
+- 定向：acp 31、sessionSidecar 7、acpStdioTransport 4、serveTrust 2 全绿。
+- 全量 `npm run regress`：**exit 0**——gates all 绿 → 单测 **716 文件 / 4423 过 + 4 skip** → coverageGate **✓ 聚合 85.7608% ≥ 80%**（1306 文件无超容差回退，2 个在漂移容差内）→ `web:test` **145 文件 / 717 例全绿**。
+- `servePortConflictE2E`：连续三次全量都在「20s 未就绪」处红、隔离每次 1/1 绿（日志显示 serve 仍在启动，不是产品回归）；把 `waitHealth` 默认预算 **20s → 45s**（仅测试环境余量，断言语义不变）后全量 exit 0。这是对看板「未归因偶发族」的一次确定性收口，不是把红改成绿。
+
+### 206.5 仍无本机解的边界
+
+- **CI 配额**：私有仓 2000 分/月烧尽、136 run 0 绿；本机无解，`regress` + 看板留痕仍是当前信任链执行位。
+- **npm 真实发布**：`npm whoami` 仍 `ENEEDAUTH`；登录后 `npm run release:publish` 即可，本轮未发布。
+- **scratchpad resume 注入 / 桌面通知 OS 级点击**：仍按 §203.5 登记，未在本轮改动。

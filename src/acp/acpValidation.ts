@@ -130,6 +130,19 @@ export class AcpValidation {
   }
 
   /**
+   * Client 是否声明了 elicitation form 能力（只有显式 `elicitation.form` 非 null 才算）。
+   *
+   * ACP v1 的口径与 MCP 不同：空 `elicitation: {}` **不**表示 form 可用，必须显式出现 `form`。
+   * @param capabilities initialize 上报的 clientCapabilities。
+   * @returns 支持 form 返回 true。
+   */
+  public static supportsElicitationForm(capabilities: Record<string, unknown>): boolean {
+    const elicitation = AcpValidation.recordOf(capabilities['elicitation']);
+    const form = elicitation['form'];
+    return form !== undefined && form !== null;
+  }
+
+  /**
    * 归一为普通对象（非对象/数组返回空对象）。
    * @param value 待判值。
    * @returns 普通对象。
