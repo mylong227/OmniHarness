@@ -8,8 +8,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { SkillSparsifier } from '../../src/skill/skillSparsifier.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { SkillSparsifier } from '../../src/kernel/skill/skillSparsifier.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 function skill(name: string, tags?: readonly string[]): Skill {
   return {

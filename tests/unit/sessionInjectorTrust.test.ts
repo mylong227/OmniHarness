@@ -3,11 +3,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { SessionInjector } from '../../src/core/sessionInjector.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { SessionInjector } from '../../src/kernel/core/sessionInjector.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 function fact(id: string, text: string, trust: 'trusted' | 'untrusted'): MemoryFact {
   return {

@@ -1,15 +1,15 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BudgetedModel } from '../../src/adapters/model/budgetedModel.ts';
-import { CostBudget } from '../../src/adapters/model/costBudget.ts';
-import { RoutePricing } from '../../src/adapters/model/routePricing.ts';
-import { BudgetExceededError } from '../../src/ports/model/model.ts';
+import { BudgetedModel } from '../../src/kernel/adapters/model/budgetedModel.ts';
+import { CostBudget } from '../../src/kernel/adapters/model/costBudget.ts';
+import { RoutePricing } from '../../src/kernel/adapters/model/routePricing.ts';
+import { BudgetExceededError } from '../../src/contracts/ports/model/model.ts';
 import type {
   ModelPort,
   ModelOutput,
   ModelRequest,
   StreamCallbacks,
-} from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/model/model.ts';
 
 function fakeModel(returns: ModelOutput, calls: { n: number }): ModelPort {
   return {

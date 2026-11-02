@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { deflateSync } from 'node:zlib';
-import { PdfTextExtractor } from '../../src/util/pdfTextExtractor.ts';
+import { PdfTextExtractor } from '../../src/kernel/util/pdfTextExtractor.ts';
 
 /**
  * 造一个最小合法 PDF；内容流用十六进制字符串（自研正则不认 `<...> Tj`，PDF.js 认）。

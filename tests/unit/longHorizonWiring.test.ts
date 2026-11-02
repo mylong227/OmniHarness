@@ -13,15 +13,15 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { Agent } from '../../src/core/agent.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 长时程相关的 4 个环境变量（测试前后恢复，避免污染其它文件）。 */
 const ENV_KEYS = [

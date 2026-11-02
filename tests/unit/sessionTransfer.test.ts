@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
-import { SessionTransfer } from '../../src/cli/sessionTransfer.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { JsonlStorage } from '../../src/kernel/adapters/storage/jsonlStorage.ts';
+import { SessionTransfer } from '../../src/apps/cli/sessionTransfer.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 const WORKSPACE = 'D:\\prov\\ws';
 

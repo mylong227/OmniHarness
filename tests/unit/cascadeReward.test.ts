@@ -13,18 +13,18 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CascadeReward } from '../../src/evolution/cascadeReward.ts';
-import { VerifiableReward } from '../../src/evolution/verifiableReward.ts';
-import { RlvrController } from '../../src/evolution/rlvrController.ts';
+import { CascadeReward } from '../../src/kernel/evolution/cascadeReward.ts';
+import { VerifiableReward } from '../../src/kernel/evolution/verifiableReward.ts';
+import { RlvrController } from '../../src/kernel/evolution/rlvrController.ts';
 import {
   RewardCoverageMeter,
   COVERAGE_THRESHOLD,
-} from '../../src/evolution/rewardCoverageMeter.ts';
-import type { RewardVerdict } from '../../src/evolution/rewardCoverageMeter.ts';
-import type { CodeCandidate } from '../../src/evolution/rlvrLoop.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import { MoireComposer } from '../../src/skill/moireComposer.ts';
+} from '../../src/kernel/evolution/rewardCoverageMeter.ts';
+import type { RewardVerdict } from '../../src/kernel/evolution/rewardCoverageMeter.ts';
+import type { CodeCandidate } from '../../src/kernel/evolution/rlvrLoop.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import { MoireComposer } from '../../src/kernel/skill/moireComposer.ts';
 
 /** 语法合法的候选代码（`node --check` 必绿）。 */
 const GREEN_CODE = 'const add = (a, b) => a + b;\n';

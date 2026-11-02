@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { OtlpMetricsExporter } from '../../src/observability/otlpMetricsExporter.ts';
-import { MetricsCollectingEventPort } from '../../src/observability/metricsCollectingEventPort.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { OtlpMetricsExporter } from '../../src/kernel/observability/otlpMetricsExporter.ts';
+import { MetricsCollectingEventPort } from '../../src/kernel/observability/metricsCollectingEventPort.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 const silent: EventPort = { name: 'silent', emit: () => {} };
 

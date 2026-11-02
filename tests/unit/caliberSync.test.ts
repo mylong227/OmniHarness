@@ -96,7 +96,7 @@ test('⑤ 文档写明"两关"评测口径与"缓存读不相加"，且代码里
   // 对应物 2：缓存读口径在语义约定常量与一致性判据里。
   assert.match(CODE_STANDARD, /缓存读/, '文档未写明缓存读 token 口径');
   assert.match(
-    read('src/observability/genAiSemconv.ts'),
+    read('src/kernel/observability/genAiSemconv.ts'),
     /input_tokens/,
     '语义约定常量里没有 input_tokens ⇒ 文档口径与实现脱节',
   );

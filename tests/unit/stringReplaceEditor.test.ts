@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StringReplaceEditor } from '../../src/adapters/tool/fs/stringReplaceEditor.ts';
+import { StringReplaceEditor } from '../../src/kernel/adapters/tool/fs/stringReplaceEditor.ts';
 
 const editor = new StringReplaceEditor();
 

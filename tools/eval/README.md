@@ -6,7 +6,7 @@ tokens-per-solved 是否真的变了**。它不是榜单跑分器，不引用外
 ## 用法
 
 ```bash
-npm run build                        # 脚本消费 dist/src/eval/abMetrics.js 与 dist/src/cli/exec.js
+npm run build                        # 脚本消费 dist/src/kernel/eval/abMetrics.js 与 dist/src/apps/cli/exec.js
 npm run eval:harness -- --dry-run     # 只打印任务与配置，不调模型
 
 # 配置用 @file 形式（PowerShell/bash 都安全；文件内容是 JSON 对象）
@@ -44,7 +44,7 @@ npm run eval:harness -- --a @a.json --b @b.json --k 3 --out report.json
 
 `longTasks.mjs` + `long-tasks/` 回答「长时程能力是否真的改变长任务表现」：20 个**可机械验收**的
 fixture 仓库，每任务 k 次、每次在独立临时 git 仓库里跑，报告 `pass@1 / pass@k / pass^k /
-tokensPerSolved`（口径复用 `src/eval/abMetrics.ts` 的 `AbMetrics`，不复制公式）。
+tokensPerSolved`（口径复用 `src/kernel/eval/abMetrics.ts` 的 `AbMetrics`，不复制公式）。
 
 先 `npm run build`：
 
@@ -75,7 +75,7 @@ token 来自模型 usage（端点不回传时为 0，不臆造估算）；单次
 
 ## trace → patch 计划（`npm run trace:patch`）
 
-先 `npm run build`（脚本读取 `dist/src/eval/tracePatchPlanner.js`）：
+先 `npm run build`（脚本读取 `dist/src/kernel/eval/tracePatchPlanner.js`）：
 
 ```bash
 npm run trace:patch -- --input signals.json          # markdown

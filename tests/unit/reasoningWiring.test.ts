@@ -11,14 +11,14 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import type { FileConfig } from '../../src/config/configFile.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import type { FileConfig } from '../../src/kernel/config/configFile.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 校验器接受的 7 档推理强度（与 `ENUM_VALUES.reasoning` / 厂商预设清单同口径）。 */

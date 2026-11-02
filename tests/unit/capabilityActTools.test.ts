@@ -1,14 +1,14 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BrowserActTool } from '../../src/adapters/tool/browser/browserActTool.ts';
-import { ReviewDiffTool } from '../../src/adapters/tool/verify/reviewDiffTool.ts';
-import { WebSearchProviders } from '../../src/adapters/tool/web/webSearchProviders.ts';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { BrowserActTool } from '../../src/kernel/adapters/tool/browser/browserActTool.ts';
+import { ReviewDiffTool } from '../../src/kernel/adapters/tool/verify/reviewDiffTool.ts';
+import { WebSearchProviders } from '../../src/kernel/adapters/tool/web/webSearchProviders.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 import type {
   BrowserActionPort,
   BrowserActionRequest,
-} from '../../src/ports/tool/browserAction.ts';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/tool/browserAction.ts';
+import type { ModelOutput, ModelPort } from '../../src/contracts/ports/model/model.ts';
 
 test('ACT-01：browser_act 进入写类工具集（plan/RBAC 会拦）', () => {
   assert.strictEqual(MUTATING_TOOL_NAMES.has(TOOL_NAMES.browserAct), true);

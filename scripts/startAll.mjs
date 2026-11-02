@@ -48,7 +48,7 @@ import {
 import { resolveDevAddress } from './devConfig.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SERVE_ENTRY = join(REPO, 'dist', 'src', 'cli', 'exec.js');
+const SERVE_ENTRY = join(REPO, 'dist', 'src', 'apps', 'cli', 'exec.js');
 
 /**
  * 跑一条 npm 脚本，失败即抛。
@@ -163,7 +163,7 @@ if (!skipBuild) {
 // 只清本仓前缀且超龄，不会碰另一个正在运行的进程；失败只告警，不阻断启动。
 try {
   const { TmpSweep } = await import(
-    pathToFileURL(join(REPO, 'dist', 'src', 'util', 'tmpSweep.js')).href
+    pathToFileURL(join(REPO, 'dist', 'src', 'kernel', 'util', 'tmpSweep.js')).href
   );
   const sweep = TmpSweep.run({ olderThanMs: 7 * 24 * 60 * 60 * 1000 });
   if (sweep.matched.length > 0) {

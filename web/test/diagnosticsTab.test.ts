@@ -27,7 +27,7 @@ import { allText as facadeAllText } from './domFacade.ts';
 
 const { DiagnosticsTab } = await import('../src/ui/components/tabs/DiagnosticsTab.tsx');
 const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
-const { parseHash } = await import('../src/core/Router.ts');
+const { parseHash } = await import('../src/kernel/core/Router.ts');
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。
@@ -74,7 +74,7 @@ async function textWith(daemon: unknown, doctor: unknown) {
 }
 
 test('① ApiClient 的方法名与 RPC 名一致（改错名字 ⇒ 面板永远空着而无人知）', async () => {
-  const source = readFileSync('web/src/core/ApiClient.ts', 'utf8');
+  const source = readFileSync('web/src/kernel/core/ApiClient.ts', 'utf8');
   assert.match(source, /this\.rpc\('daemon\.status'/u, 'daemonStatus 必须调 daemon.status');
   assert.match(source, /this\.rpc\('doctor\.report'/u, 'doctorReport 必须调 doctor.report');
   // 正对照：把方法名换掉必须被本检查的谓词识别（防"只要文件里有这串就算过"）。

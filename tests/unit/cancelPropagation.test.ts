@@ -7,27 +7,27 @@
 //    故编排器层只覆盖「已取消即不派生」的 fail-closed 前置判定）。
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { SubagentTool } from '../../src/adapters/tool/workflow/subagentTool.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { Agent } from '../../src/core/agent.ts';
-import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.ts';
-import { SubagentRunner } from '../../src/subagent/subagentRunner.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
-import type { SubagentRequest } from '../../src/subagent/subagentTypes.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { SubagentTool } from '../../src/kernel/adapters/tool/workflow/subagentTool.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { SubagentOrchestrator } from '../../src/kernel/subagent/subagentOrchestrator.ts';
+import { SubagentRunner } from '../../src/kernel/subagent/subagentRunner.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
+import type { SubagentRequest } from '../../src/kernel/subagent/subagentTypes.ts';
 
 // 关掉 repo-map 注入：本文件只审计取消传播控制流，索引整个仓库既慢又与断言无关。
 process.env.OMNI_REPO_MAP = '0';

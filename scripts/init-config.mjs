@@ -41,5 +41,5 @@ writeFileSync(target, JSON.stringify(config, null, 2) + '\n', 'utf8');
 console.log(`[init-config] 已生成 ${target}`);
 console.log('[init-config] 请编辑 apiKey / baseUrl / model 后运行：');
 console.log(
-  `               node dist/src/cli/exec.js serve --port ${String(DEV_DEFAULTS.backendPort)}`,
+  `               node dist/src/apps/cli/exec.js serve --port ${String(DEV_DEFAULTS.backendPort)}`,
 );

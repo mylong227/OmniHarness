@@ -14,19 +14,19 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { AssetPackCodec } from '../../src/asset/assetPackCodec.ts';
-import { AssetPackInstaller } from '../../src/asset/assetPackInstaller.ts';
-import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.ts';
-import { Zip } from '../../src/plugin/zip.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import type { AssetPackManifest, PackAssetEntry } from '../../src/ports/asset.ts';
-import type { CapabilityRegistryPort, IsolationLevel } from '../../src/ports/capability.ts';
-import type { IsolationPort } from '../../src/ports/runtime/isolation.ts';
+import { AssetPackCodec } from '../../src/kernel/asset/assetPackCodec.ts';
+import { AssetPackInstaller } from '../../src/kernel/asset/assetPackInstaller.ts';
+import { CapabilityRegistry } from '../../src/kernel/capability/capabilityRegistry.ts';
+import { CapabilitySchemaRegistry } from '../../src/kernel/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/kernel/capability/schemas/skillSchema.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import { IsolationLadder } from '../../src/kernel/adapters/isolation/isolationLadder.ts';
+import { Zip } from '../../src/kernel/plugin/zip.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import type { AssetPackManifest, PackAssetEntry } from '../../src/contracts/ports/asset.ts';
+import type { CapabilityRegistryPort, IsolationLevel } from '../../src/contracts/ports/capability.ts';
+import type { IsolationPort } from '../../src/contracts/ports/runtime/isolation.ts';
 
 /** 固定时钟（确定性）。 */
 const FIXED_NOW = (): string => '2026-10-04T00:00:00.000Z';

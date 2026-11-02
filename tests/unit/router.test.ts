@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ModelRouter } from '../../src/adapters/model/modelRouter.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { ModelRouter } from '../../src/kernel/adapters/model/modelRouter.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 始终成功的模型，记录调用次数与 name。 */
 class OkModel implements ModelPort {

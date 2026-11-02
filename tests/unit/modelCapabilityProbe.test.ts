@@ -8,9 +8,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model/model.ts';
-import { ModelCapabilityProbe } from '../../src/adapters/model/modelCapabilityProbe.ts';
-import type { ModelToolCallRef } from '../../src/ports/model/modelToolCallRef.ts';
+import type { ModelPort, ModelRequest, ModelOutput } from '../../src/contracts/ports/model/model.ts';
+import { ModelCapabilityProbe } from '../../src/kernel/adapters/model/modelCapabilityProbe.ts';
+import type { ModelToolCallRef } from '../../src/contracts/ports/model/modelToolCallRef.ts';
 
 /** 按请求特征决定应答的 mock（特征谓词表驱动）。 */
 function scripted(

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 造一个带测试脚本的最小工作区。 */
 function workspace(): string {

@@ -4,8 +4,8 @@ import { spawnSyncAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkspaceChanges } from '../../src/server/services/workspaceChanges.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { WorkspaceChanges } from '../../src/apps/server/services/workspaceChanges.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 const gitAvailable =
   (await spawnSyncAsync('git', ['--version'], { encoding: 'utf8' })).status === 0;

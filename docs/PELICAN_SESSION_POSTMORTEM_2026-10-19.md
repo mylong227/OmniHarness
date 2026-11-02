@@ -85,9 +85,9 @@ deferred(16): apply_patch, checkpoint, edit, glob, grep, list_dir, memory_search
 
 修复位置：
 
-- `src/core/toolExposurePlanner.ts:162` — `files` 类补入创建意向词（创建 / 新建 / 生成 /
+- `src/kernel/core/toolExposurePlanner.ts:162` — `files` 类补入创建意向词（创建 / 新建 / 生成 /
   编写 / 写一个 / 绘制 / html / svg / css / 代码 / 源码 / 页面）。
-- `src/core/stepContextBuilder.ts:162` — 把「本轮未直载的工具」写成一条系统消息，模型不必
+- `src/kernel/core/stepContextBuilder.ts:162` — 把「本轮未直载的工具」写成一条系统消息，模型不必
   等到第 427 秒才想起 `tool_search`。
 
 复算结果：同一任务 `visible 17 → 23`，`write_file` / `read_file` / `edit` / `apply_patch`
@@ -106,7 +106,7 @@ deferred(16): apply_patch, checkpoint, edit, glob, grep, list_dir, memory_search
 只有**整块是纯 CJK** 时才补二元组；`创建一个html` 这种中英混排块既拿不到 `html`，也拿不到
 `创建/内容/绘制` 任何一个中文二元组。而工具描述全是中文，交集恒空——检索路等于没接线。
 
-修复：`src/core/toolExposurePlanner.ts:581` 改为先切「ASCII 连续段 / CJK 连续段」，
+修复：`src/kernel/core/toolExposurePlanner.ts:581` 改为先切「ASCII 连续段 / CJK 连续段」，
 再对 CJK 段补二元组。对纯 CJK / 纯 ASCII 输入与旧实现逐位一致；混排查询现在能补入
 `read_file` / `write_file` / `edit` 等 3 个工具（本次复算）。
 
@@ -118,9 +118,9 @@ deferred(16): apply_patch, checkpoint, edit, glob, grep, list_dir, memory_search
 
 修复：
 
-- `src/core/toolGate.ts:322` — 对解释器内联类拒绝追加可执行建议：写文件用
+- `src/kernel/core/toolGate.ts:322` — 对解释器内联类拒绝追加可执行建议：写文件用
   `write_file/edit/apply_patch`；跑脚本先落 `.js/.py` 再按文件名执行。
-- `src/adapters/tool/code/codeExecutorTool.ts:42` — `run_code` 描述明确「没有 Node 内置模块
+- `src/kernel/adapters/tool/code/codeExecutorTool.ts:42` — `run_code` 描述明确「没有 Node 内置模块
   （require/fs/process 不可用），落盘请 `call('write_file', …)`」，避免第一次 `require` 试错。
 
 ### 2.4 `apply_patch` 两次格式错误
@@ -128,7 +128,7 @@ deferred(16): apply_patch, checkpoint, edit, glob, grep, list_dir, memory_search
 - 556 s：`*** Begin Patch` 自定义头 → `patch 缺少 +++ 目标文件头`
 - 847 s：`@@` 后没写行号区间 → `patch 中 pelican-bike.html 缺少有效 @@ hunk`
 
-两次都只回错误名，模型只能再猜。修复：`src/adapters/tool/fs/applyPatchTool.ts:62` 在解析失败
+两次都只回错误名，模型只能再猜。修复：`src/kernel/adapters/tool/fs/applyPatchTool.ts:62` 在解析失败
 时附 6 行最小可用示例（`---/+++/@@ -1,2 +1,2 @@`）。
 
 ### 2.5 重写循环：修一个局部 = 重新生成整个文件
@@ -137,7 +137,7 @@ deferred(16): apply_patch, checkpoint, edit, glob, grep, list_dir, memory_search
 `write_file` 一次 6.5k–12.5k token，直接对应 2–5 分钟。第一次重写后 `apply_patch` 又失败，
 模型于是选择「更保险」的再重写一次——这就是 314 秒那一跳。
 
-修复：`src/config/defaultPromptFragments.ts:127` 补一句硬规则——**迭代已有文件不要动辄整文件
+修复：`src/kernel/config/defaultPromptFragments.ts:127` 补一句硬规则——**迭代已有文件不要动辄整文件
 重写**（一次就是数千输出 token 与数分钟；还容易把上一轮修好的细节改回去）。
 
 ### 2.6 截图附件被无限重传（成本 / 延迟 / 内存的共同主因）
@@ -153,7 +153,7 @@ prompt 里塞的图越多，上游 prefill/传输越慢。
 
 修复（两层）：
 
-- `src/adapters/tool/browser/browserScreenshotTool.ts:152` + `src/ports/media/imageResizer.ts:36`
+- `src/kernel/adapters/tool/browser/browserScreenshotTool.ts:152` + `src/contracts/ports/media/imageResizer.ts:36`
   — **落盘仍是原图**，送模型的那份压到长边 1600 px、≤500 KiB 的 JPEG。真实测量（本机 sharp）：
 
   | 原图                                       | 压缩后                    | 倍数      |
@@ -161,7 +161,7 @@ prompt 里塞的图越多，上游 prefill/传输越慢。
   | `pelican-final.png` 325,829 B（1200×720）  | 51,107 B JPEG（1200×720） | **6.4×**  |
   | `pelican_zoom1.png` 795,360 B（2400×1400） | 78,808 B JPEG（1600×933） | **10.1×** |
 
-- `src/context/contextAssembler.ts:27` — 附件预算 700k 字符（≈6–7 张压缩图，或 1 张未压缩的
+- `src/kernel/context/contextAssembler.ts:27` — 附件预算 700k 字符（≈6–7 张压缩图，或 1 张未压缩的
   全尺寸 PNG），更旧的附件降级成一行文字并保留文件名；最新一份永远保留。事件日志不动，只改
   模型看到的投影。压缩后 7 张图合计约 0.67M 字符，**整段会话都能保留**；累计上传从 82.4 MiB
   降到约 **14 MiB（≈6 倍）**。若 sharp 不可用（精简安装），淘汰层仍把历史附件压到 ≤0.7M
@@ -172,7 +172,7 @@ prompt 里塞的图越多，上游 prefill/传输越慢。
 `BrowserScreenshotTool.close()` 存在，但**全仓没有任何调用点**（`grep 'screenshotTool.close'`
 为空）。截图一次后，Chrome 会常驻到进程退出，通常 150–300 MB。
 
-修复：`src/adapters/tool/browser/browserScreenshotTool.ts:142` — 最后一次调用后空闲 3 分钟
+修复：`src/kernel/adapters/tool/browser/browserScreenshotTool.ts:142` — 最后一次调用后空闲 3 分钟
 自动 `close()`；定时器 `unref()`，不拖住 CLI 退出。连续截图仍复用同一浏览器。
 
 ### 2.8 其它确诊但本轮未改的问题
@@ -264,16 +264,16 @@ prompt 里塞的图越多，上游 prefill/传输越慢。
 
 | #   | 改动                             | 文件:行                                                                                        | 预期效果                                        |
 | --- | -------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 1   | `files` 类补创建意向词           | `src/core/toolExposurePlanner.ts:162`                                                          | 同类任务不再丢 `write_file`（17→23 个可见工具） |
-| 2   | BM25 混排分词修复                | `src/core/toolExposurePlanner.ts:581`                                                          | 中文+英文查询的检索路从"恒空"恢复               |
-| 3   | 未直载工具清单进上下文           | `src/core/stepContextBuilder.ts:162`                                                           | 模型第一步就知道缺什么，直接 `tool_search`      |
-| 4   | 截图附件压缩（JPEG 1600/500KiB） | `src/adapters/tool/browser/browserScreenshotTool.ts:152`、`src/ports/media/imageResizer.ts:36` | 单图体积 **6–10 倍**下降，落盘原图不变          |
-| 5   | 旧图片附件预算淘汰               | `src/context/contextAssembler.ts:27`                                                           | 历史附件压到 ≤700k 字符（最新一张无条件保留）   |
-| 6   | 浏览器空闲 3 分钟自动关闭        | `src/adapters/tool/browser/browserScreenshotTool.ts:142`                                       | 消除常驻 Chromium 的 150–300 MB                 |
-| 7   | `run_code` 明确无 Node 内置模块  | `src/adapters/tool/code/codeExecutorTool.ts:42`                                                | 少一次 `require` 试错                           |
-| 8   | 沙箱拒绝附替代动作               | `src/core/toolGate.ts:322`                                                                     | `node -e` 被拒后不再换引号重试                  |
-| 9   | `apply_patch` 失败附最小示例     | `src/adapters/tool/fs/applyPatchTool.ts:62`                                                    | 少一到两轮格式猜测                              |
-| 10  | 提示词禁止动辄整文件重写         | `src/config/defaultPromptFragments.ts:127`                                                     | 迭代改局部，省数千输出 token/轮                 |
+| 1   | `files` 类补创建意向词           | `src/kernel/core/toolExposurePlanner.ts:162`                                                          | 同类任务不再丢 `write_file`（17→23 个可见工具） |
+| 2   | BM25 混排分词修复                | `src/kernel/core/toolExposurePlanner.ts:581`                                                          | 中文+英文查询的检索路从"恒空"恢复               |
+| 3   | 未直载工具清单进上下文           | `src/kernel/core/stepContextBuilder.ts:162`                                                           | 模型第一步就知道缺什么，直接 `tool_search`      |
+| 4   | 截图附件压缩（JPEG 1600/500KiB） | `src/kernel/adapters/tool/browser/browserScreenshotTool.ts:152`、`src/contracts/ports/media/imageResizer.ts:36` | 单图体积 **6–10 倍**下降，落盘原图不变          |
+| 5   | 旧图片附件预算淘汰               | `src/kernel/context/contextAssembler.ts:27`                                                           | 历史附件压到 ≤700k 字符（最新一张无条件保留）   |
+| 6   | 浏览器空闲 3 分钟自动关闭        | `src/kernel/adapters/tool/browser/browserScreenshotTool.ts:142`                                       | 消除常驻 Chromium 的 150–300 MB                 |
+| 7   | `run_code` 明确无 Node 内置模块  | `src/kernel/adapters/tool/code/codeExecutorTool.ts:42`                                                | 少一次 `require` 试错                           |
+| 8   | 沙箱拒绝附替代动作               | `src/kernel/core/toolGate.ts:322`                                                                     | `node -e` 被拒后不再换引号重试                  |
+| 9   | `apply_patch` 失败附最小示例     | `src/kernel/adapters/tool/fs/applyPatchTool.ts:62`                                                    | 少一到两轮格式猜测                              |
+| 10  | 提示词禁止动辄整文件重写         | `src/kernel/config/defaultPromptFragments.ts:127`                                                     | 迭代改局部，省数千输出 token/轮                 |
 
 **验证**：`tsc --noEmit` 通过；ESLint（改动文件）通过；相关单测 **77 passed / 8 files**，
 新增 4 条回归判据（创建类任务不丢文件工具、混排检索、附件预算、截图压缩）。

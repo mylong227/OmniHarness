@@ -10,12 +10,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { MemoryTodo } from '../../src/adapters/todo/memoryTodo.ts';
-import { TodoWriteTool } from '../../src/adapters/tool/plan/todoWriteTool.ts';
-import { TodoReadTool } from '../../src/adapters/tool/plan/todoReadTool.ts';
-import type { TodoItem } from '../../src/ports/runtime/todo.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
-import { EventFactory } from '../../src/core/eventFactory.ts';
+import { MemoryTodo } from '../../src/kernel/adapters/todo/memoryTodo.ts';
+import { TodoWriteTool } from '../../src/kernel/adapters/tool/plan/todoWriteTool.ts';
+import { TodoReadTool } from '../../src/kernel/adapters/tool/plan/todoReadTool.ts';
+import type { TodoItem } from '../../src/contracts/ports/runtime/todo.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
+import { EventFactory } from '../../src/kernel/core/eventFactory.ts';
 
 /** 构造工具上下文（只用到 sessionId）。 */
 function ctxOf(sessionId: string): ToolContext {

@@ -20,9 +20,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { IsolationLadder } from '../../src/adapters/isolation/isolationLadder.ts';
-import type { CapabilityRecord } from '../../src/ports/capability.ts';
-import type { IsolationLevel } from '../../src/ports/capability.ts';
+import { IsolationLadder } from '../../src/kernel/adapters/isolation/isolationLadder.ts';
+import type { CapabilityRecord } from '../../src/contracts/ports/capability.ts';
+import type { IsolationLevel } from '../../src/contracts/ports/capability.ts';
 
 /**
  * 造一条资产记录（档位可指定）。

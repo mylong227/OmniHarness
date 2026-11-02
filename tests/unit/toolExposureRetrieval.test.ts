@@ -24,10 +24,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ToolExposurePlanner } from '../../src/core/toolExposurePlanner.ts';
-import type { ToolCategory } from '../../src/core/toolExposurePlanner.ts';
-import { McpServer } from '../../src/mcp/mcpServer.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import { ToolExposurePlanner } from '../../src/kernel/core/toolExposurePlanner.ts';
+import type { ToolCategory } from '../../src/kernel/core/toolExposurePlanner.ts';
+import { McpServer } from '../../src/protocols/mcp/mcpServer.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 最小类别表：`exec` 登记 `shell`；`audit` 登记 `audit_query` 但**关键词与任务文本不相交**。
@@ -206,7 +206,7 @@ test('⑥ tools/list 确定性：MCP 服务端按名字升序列举（与注册�
 test('⑦ 接线：生产路径必须真的把工具文本交给规划器（声明未接线 = 本仓最高频缺陷）', () => {
   // 这一条为什么必要：本判据首版只测规划器本身，规划器全绿、**生产却根本没传 toolTexts**
   // ⇒ BM25 检索路在生产里是死的。判据必须覆盖"调用点是否接线"，否则绿得毫无意义。
-  const src = readFileSync(join(process.cwd(), 'src/core/stepContextBuilder.ts'), 'utf8');
+  const src = readFileSync(join(process.cwd(), 'src/kernel/core/stepContextBuilder.ts'), 'utf8');
   assert.match(
     src,
     /ToolExposurePlanner\.plan\(\{[\s\S]{0,400}?toolTexts/,

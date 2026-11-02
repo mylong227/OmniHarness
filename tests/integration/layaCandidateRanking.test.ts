@@ -8,7 +8,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.ts';
+import { LayaDecisionEngine } from '../../src/kernel/adapters/laya/layaDecisionEngine.ts';
 
 /** 夹具候选：只有 value=3 的补丁会通过测试。 */
 const CANDIDATES = [

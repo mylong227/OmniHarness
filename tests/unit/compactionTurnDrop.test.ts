@@ -6,9 +6,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CompactionComposer } from '../../src/context/compactionComposer.ts';
-import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
-import type { ModelMessage } from '../../src/ports/model/modelMessage.ts';
+import { CompactionComposer } from '../../src/kernel/context/compactionComposer.ts';
+import { TokenEstimator } from '../../src/kernel/context/tokenEstimator.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/modelMessage.ts';
 
 test('dropOldest：按整轮丢弃，绝不留下半截工具轮', () => {
   const estimator = new TokenEstimator();

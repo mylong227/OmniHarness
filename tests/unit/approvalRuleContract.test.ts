@@ -2,12 +2,12 @@ import { strict as assert } from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { test } from 'vitest';
-import type { ApprovalRule } from '../../src/adapters/approval/approvalRule.ts';
-import type { FileConfig } from '../../src/config/configFile.ts';
-import { PermissionConfigValidator } from '../../src/config/permissionConfigValidator.ts';
+import type { ApprovalRule } from '../../src/kernel/adapters/approval/approvalRule.ts';
+import type { FileConfig } from '../../src/kernel/config/configFile.ts';
+import { PermissionConfigValidator } from '../../src/kernel/config/permissionConfigValidator.ts';
 
 /**
- * `src/adapters/approval/approvalRule.ts` 是**纯类型门面**：全文件只有两条 `export type ... from`，
+ * `src/kernel/adapters/approval/approvalRule.ts` 是**纯类型门面**：全文件只有两条 `export type ... from`，
  * 编译产物是 `export {};`（零执行行、零运行时导出）。故本文件不追求行覆盖，改用
  * **编译器级 + 结构级** 判据把契约形状与契约链钉住。
  */
@@ -100,7 +100,7 @@ test('契约形状：必填/封闭/枚举/只读由**类型级正断言**钉住�
 
 test('运行时形态：门面零运行时导出（类型被完全擦除），且检测手法本身非恒真', async () => {
   const facade = await import(
-    new URL('../../src/adapters/approval/approvalRule.ts', import.meta.url).href
+    new URL('../../src/kernel/adapters/approval/approvalRule.ts', import.meta.url).href
   );
   assert.deepEqual(Object.keys(facade).sort(), []);
   assert.strictEqual('ApprovalRule' in facade, false, '接口只存在于类型空间，运行时不得有同名值');
@@ -109,7 +109,7 @@ test('运行时形态：门面零运行时导出（类型被完全擦除），�
   // 正对照：同一检测手法换到「真有运行时导出」的模块上必须能发现东西——
   // 否则上面的空数组可能只是检测方法失灵造成的恒真。
   const control = await import(
-    new URL('../../src/config/permissionConfigValidator.ts', import.meta.url).href
+    new URL('../../src/kernel/config/permissionConfigValidator.ts', import.meta.url).href
   );
   assert.ok(Object.keys(control).includes('PermissionConfigValidator'));
 });
@@ -143,7 +143,7 @@ test('契约链：契约字段全集必须被运行时配置校验器全部接�
 
 test('结构：门面只从 ports/approval 转发两条类型，不自建第二份契约定义', async () => {
   const source = await readFile(
-    resolve(process.cwd(), 'src/adapters/approval/approvalRule.ts'),
+    resolve(process.cwd(), 'src/kernel/adapters/approval/approvalRule.ts'),
     'utf8',
   );
   const exportLines = source

@@ -41,7 +41,7 @@ if (!existsSync(input)) {
   console.error(`✗ 输入不存在：${input}`);
   process.exit(3);
 }
-if (!existsSync(resolve('dist/src/evolution/processRewardDataset.js'))) {
+if (!existsSync(resolve('dist/src/kernel/evolution/processRewardDataset.js'))) {
   console.error('✗ 缺少编译产物：先运行 npm run build');
   process.exit(2);
 }
@@ -50,8 +50,8 @@ if (!Number.isFinite(seed) || !Number.isFinite(epochs) || epochs < 1) {
   process.exit(2);
 }
 
-const { ProcessRewardDataset } = await import('../dist/src/evolution/processRewardDataset.js');
-const { LogisticProcessReward } = await import('../dist/src/evolution/logisticProcessReward.js');
+const { ProcessRewardDataset } = await import('../dist/src/kernel/evolution/processRewardDataset.js');
+const { LogisticProcessReward } = await import('../dist/src/kernel/evolution/logisticProcessReward.js');
 
 const samples = readFileSync(input, 'utf8')
   .split(/\r?\n/u)

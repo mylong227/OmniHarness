@@ -70,7 +70,7 @@ minilm**（`opts.preset ?? DEFAULT_EMBEDDING_PRESET`）——生产语义检索�
 ### 1.2 规模（**计数口径已订正**）
 
 > ⚠️ **口径订正**：历轮用 `Get-Content | Measure-Object -Line` 数行数，该 cmdlet **少计空行**——
-> `src/context/contextEngine.ts` 实测 `(Get-Content).Count` = **646**，而旧口径给 609（单文件少 37 行）。
+> `src/kernel/context/contextEngine.ts` 实测 `(Get-Content).Count` = **646**，而旧口径给 609（单文件少 37 行）。
 > 故历史数字系统性偏低。**正确口径 = 逐文件 `(Get-Content $f).Count` 求和**。
 
 | 区域                             | 文件数 | 行数   |
@@ -115,7 +115,7 @@ Node v22.20.0 / TypeScript 5.9.3。
 
 建 worktree → `finally` 清理；`worktreeOps.ts:74-97` 的 cleanup = `git worktree remove --force`
 **+ `git branch -D`**；`ports/subagent/subagentResult.ts:9-19` 无 diff/sha 字段；
-`WorktreeOps` 全仓仅 2 处引用（无合并路径）；`toolViewOf` 只剔除递归入口，写类工具可用。2. **🔴 P0：`run_workflow` 无隔离却自称隔离**——**✅ 已修（第六轮，看板 §8.1；S3 补同层退化为串行，第三十轮再加写集声明契约）**。`src/autonomy/workflowRunner.ts:206` docstring 写
+`WorktreeOps` 全仓仅 2 处引用（无合并路径）；`toolViewOf` 只剔除递归入口，写类工具可用。2. **🔴 P0：`run_workflow` 无隔离却自称隔离**——**✅ 已修（第六轮，看板 §8.1；S3 补同层退化为串行，第三十轮再加写集声明契约）**。`src/kernel/autonomy/workflowRunner.ts:206` docstring 写
 "构造隔离子智能体"，`:220/:223` 实际传**父级 ports**（无 worktree），同层并发（默认 4）直接写父工作区、
 无冲突检测。两条并发路径的隔离语义**相反**。
 
@@ -462,7 +462,7 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 | S4  | **`maxDepth` 接上 CLI**                    | 目前只有 `--subagent-concurrency`/`--subagent-max-steps`，深度用户改不动  | CLI 参数解析单测                                                                    | 0.5  |
 
 **不建议采纳**：并行写入型子代理（多写者 swarm）（Cognition 两篇一致反对 + C 编译器覆盖事故 + MAST inter-agent misalignment）；
-按 A2A v1.0 全量重写 `src/a2a/**`（单人维护、无第三方消费者；**低成本替代**：把文档/命名从"A2A 互操作"改为"私有 JSON-RPC 委托协议"，
+按 A2A v1.0 全量重写 `src/protocols/a2a/**`（单人维护、无第三方消费者；**低成本替代**：把文档/命名从"A2A 互操作"改为"私有 JSON-RPC 委托协议"，
 消除虚假互操作承诺）；给子代理加"完整上下文 fork"（作者自评在弱主模型上没跑通，且与本仓隔离+重定位存储冲突）。
 
 ### 3.7 可观测性与评测方法学（✅ 已完成）
@@ -507,7 +507,7 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 
 | #   | 提案                                           | 要点                                                                                                                                                                                                                                                         | 判据（离线无 key）                                                                                         | 人日 |
 | --- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ---- |
-| O1  | **最小行为回归守卫**（与 §4 的 G1 同源）       | 复用现有 `src/core/scriptedModel.ts`（确定性、零 key）+ 真实 Agent 主循环，断言**行为不变量而非分数**：工具调用次数与顺序、审批/沙箱是否拒绝、落盘事件条数、`TokenAttribution` 桶和 == 总量；trace 侧注入 `traceIdFactory/spanIdFactory` 做 golden span 快照 | 故意改坏一个工具名，新用例**必红**；`npm test` 必绿                                                        | 1.5  |
+| O1  | **最小行为回归守卫**（与 §4 的 G1 同源）       | 复用现有 `src/kernel/core/scriptedModel.ts`（确定性、零 key）+ 真实 Agent 主循环，断言**行为不变量而非分数**：工具调用次数与顺序、审批/沙箱是否拒绝、落盘事件条数、`TokenAttribution` 桶和 == 总量；trace 侧注入 `traceIdFactory/spanIdFactory` 做 golden span 快照 | 故意改坏一个工具名，新用例**必红**；`npm test` 必绿                                                        | 1.5  |
 | O2  | **OTLP 属性与 semconv 对齐（加字段、不改名）** | 数值属性改 `intValue`/`doubleValue`；**并行**发 `gen_ai.*` 标准键，保留现有键作过渡                                                                                                                                                                          | 新增 `tests/unit/genAiSemconvConformance.test.ts` 钉住属性名与**依据版本号**（上游一变就红，主动发现漂移） | 2    |
 | O3  | **自观测计数器（把"静默丢弃"变成数字）**       | 丢弃批/span、孤儿 `tool_result`、未闭合调用、串会话计数；**只读字段、不发警告、不改业务分支**（照抄本仓 `cacheHitRateCollector` 的"无样本时给 `samples:0`"范式）                                                                                             | 注入必失败的 `fetchImpl` ⇒ 断言 `droppedSpans` 严格递增且 `flush()` **仍不抛错**                           | 1    |
 | O4  | **一次性离线对账脚本**（不进 CI）              | 读落盘事件 → 跑 `TokenAttribution` → 断言 Σ桶 == Σ(prompt+completion)，并单列 `modelCallsWithoutUsage`（固定"缓存读不计入 total"口径）                                                                                                                       | `node scripts/observabilityReconcile.mjs` 退出码（纯离线）                                                 | 1    |
@@ -580,7 +580,7 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
    反例：**无外部反馈的自我精炼会掉分**（
    <https://arxiv.org/abs/2310.01798>），不做早停时每次迭代净为负、**43–62% 初始正确的代码被改坏**。
 4. **✅ 我已复核的本仓 fail-open 漏洞**：`node --test` **零匹配时 exit = 0** 并打印 `# tests 0`（Node v22.20.0 实测），
-   而 `src/adapters/tool/verify/turnEndCompletionGate.ts:78` 的判据只有 `outcome.exitCode !== 0` ⇒
+   而 `src/kernel/adapters/tool/verify/turnEndCompletionGate.ts:78` 的判据只有 `outcome.exitCode !== 0` ⇒
    **"一条测试都没跑"会被判成"验证通过"**。主流工具刻意区分二者：pytest 把"没收集到测试"单列 **exit 5**，
    Jest 需显式 `--passWithNoTests` 才允许空跑通过。（已登记看板 §8.6）
 5. **覆盖率只能当下限**：Inozemtseva & Holmes（ICSE 2014）结论是"高覆盖并不表明测试套件有效"
@@ -655,7 +655,7 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 **发现**
 
 1. **组合根现状是"教科书正确"的**：Seemann 的原始定义即"DI Container 只许出现在 Composition Root"，
-   Pure DI 是合法实现 —— <https://blog.ploeh.dk/2011/07/28/CompositionRoot/>；本仓 `src/core/container.ts` 仅 **56 行**、
+   Pure DI 是合法实现 —— <https://blog.ploeh.dk/2011/07/28/CompositionRoot/>；本仓 `src/kernel/core/container.ts` 仅 **56 行**、
    消费者 **11 个文件**、**无 locator 泄漏**（服务定位器反模式未出现）。
 2. **容器路线的真实代价**：NestJS 强制 `reflect-metadata` peer，且官方明写**接口在编译期被擦除、不能作 DI 令牌**
    （须改 Symbol/抽象类）⇒ 与本仓"端口即 interface"的取向正面冲突。
@@ -679,7 +679,7 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 
 | #   | 提案                                       | 要点                                                                                             | 判据                                                                                                   | 人日 |
 | --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ | ---- |
-| TS1 | **拆掉架构环⑥**（优先于任何 DI 决策）      | 把环内散落的 `SubagentPortsShape` / `OmniHarnessRuntime` / `ResolvedConfig` 抽到 `src/ports/**`  | `node scripts/architectureGate.mjs --strict` 通过且 `CYCLE_WL_MEMBERS` 删掉对应成员                    | 2–4  |
+| TS1 | **拆掉架构环⑥**（优先于任何 DI 决策）      | 把环内散落的 `SubagentPortsShape` / `OmniHarnessRuntime` / `ResolvedConfig` 抽到 `src/contracts/ports/**`  | `node scripts/architectureGate.mjs --strict` 通过且 `CYCLE_WL_MEMBERS` 删掉对应成员                    | 2–4  |
 | TS2 | **`Container.get<T>` 的类型安全原址增强**  | 现为 `value as T`（调用点断言）⇒ 引入泛型令牌 `ServiceKey<T>` 使 `ServiceKeys` 与 `get` 类型对齐 | `architectureGate` + `check` 全绿且 <3 s                                                               | 1–2  |
 | TS3 | **门禁按"是否需要类型"分层，而不是换引擎** | 生态已有的规则继续交给 eslint；自研脚本只管"不需要类型"的部分                                    | 新增一条 typed 规则后：`tsc --noEmit`(17.0s) + typed eslint(23.1s) 之和 ≤45 s 且 `eslint .` 保持 <65 s | 1    |
 
@@ -742,7 +742,7 @@ security boundaries currently**"；OpenHands 无沙箱档自述"full access to y
 
 | #   | 目标                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 要点                                     | 判据                                                                                                                                                                                                                                                                                                                                                                                       | 人日 |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- |
-| G19 | ✅ **已落地**：**删除 LSA 潜语义路**（实测召回持平/精确率腰斩、无外部消费者）——`lsaEngine.ts`(326 行)+其单测+`query` 的 `lsa` 选项/语料 `lsaModel` 字段/`EMPTY_LSA`/`SeedFusion` 第三路全清；其余实验档登记进 `src/context/experimentalPaths.ts`（状态/旋钮/默认/**实测证据**/删除边界），生产路径**开启即告警**。⚠️ **边界评估纠正两处首版误判**：三条图路共用 stage 文件 ⇒ 合并为 `graph-family` 单一边界；`util/eigenspectrum.ts` 有 **9 个非检索消费者** ⇒ 是共享基础设施、**不可**随路删除                                                                                                         | G1 判据护航做"删掉后指标不变"对照        | 删除前后基线对照：plain **56.3% → 56.3%（逐位不变）**、rerank 50.0% → 53.1%（**上升来自语料变小**，不声称算法提升）；判据 6 例（删除完整性/默认关/默认档不建图与谱/**边界闭合+仪器自证与正对照**/清单存活/无残留引用）；**变异**：复活 lsaEngine ⇒ ① 红、边界外引用 seedFusion ⇒ ④ 红                                                                                                      | 3–5  |
+| G19 | ✅ **已落地**：**删除 LSA 潜语义路**（实测召回持平/精确率腰斩、无外部消费者）——`lsaEngine.ts`(326 行)+其单测+`query` 的 `lsa` 选项/语料 `lsaModel` 字段/`EMPTY_LSA`/`SeedFusion` 第三路全清；其余实验档登记进 `src/kernel/context/experimentalPaths.ts`（状态/旋钮/默认/**实测证据**/删除边界），生产路径**开启即告警**。⚠️ **边界评估纠正两处首版误判**：三条图路共用 stage 文件 ⇒ 合并为 `graph-family` 单一边界；`util/eigenspectrum.ts` 有 **9 个非检索消费者** ⇒ 是共享基础设施、**不可**随路删除                                                                                                         | G1 判据护航做"删掉后指标不变"对照        | 删除前后基线对照：plain **56.3% → 56.3%（逐位不变）**、rerank 50.0% → 53.1%（**上升来自语料变小**，不声称算法提升）；判据 6 例（删除完整性/默认关/默认档不建图与谱/**边界闭合+仪器自证与正对照**/清单存活/无残留引用）；**变异**：复活 lsaEngine ⇒ ① 红、边界外引用 seedFusion ⇒ ④ 红                                                                                                      | 3–5  |
 | G20 | ✅ **已落地**：`docs/` 根 **33 → 13 份**（只留 SSOT + 现行纪律 + 用户文档），20 份根级历史 + `library/`(9) + `agent_evolution_research/`(6) 已删除（数字不再代表现状）；重写 `docs/README.md` 与机器可读索引 `llms.txt`；38 个文件的引用改写。**死链基线 96 → 24（净减 72）**。**G20-b 已落地**：`docs/ARCHITECTURE_SPEC.md` 按现状**重写**（结构声明由 `architectureSpec.test.ts` 与代码逐条交叉核对：依赖/端口目录/ADR/门禁标签/两层归属；4 处变异全红）                                                                                                                                              | `check:doc-links` 不新增死链 + SSOT 自洽 | 判据 `docsLayout.test.ts` 6 例（根白名单/横幅完整/索引完整/**现行索引自洽**/不得引用已删除的历史路径/横幅内容）；**变异**：丢野生文档 ⇒ ① 红、抹横幅 ⇒ ② 红、索引指向不存在文件 ⇒ ④ 红                                                                                                                                                                                                     | 2–3  |
 | G21 | ✅ **已落地**：新增 `tools/probes/`（**入库、离线、确定性**）——`recallHitrate.mjs`（生产口径 hitRate@K + 配对 bootstrap CI）与 `rerankDiscriminatorAb.mjs`（判别器受控对照 + 两关统计）由 `.omniharness/` 提升，`toolExposureBudget.mjs` **新写**补第三类（**G21-b 已落地**：接入 `ConfigFactory.build()` 的**真实 schema**，量到 off 全下发 **5,250 token**、plan 命中时省 **68.1%–81.8%**、未命中省 0%）；README 含复现配方 + 实测参考值 + 7 条约定；npm 脚本 `probe:*`。**前缀/工具暴露**两类本就在仓库内（`prefixReuseGuard` / `toolExposurePlanner` 判据），只缺数字形态 ⇒ 报告"或并入 G1"分支成立 | 同一探针在干净克隆上可跑出同数量级结果   | 判据 6 例：README 登记/四段头注释/**可移植（无绝对路径、不依赖 `.omniharness/`）**/缺产物给可执行提示并非零退出/`--json=`/**实跑自证**（真跑一次工具暴露探针并断言结构）；**变异**：改名不登记 ⇒ ① 红、塞绝对路径 ⇒ ③ 红、不再打印数字 ⇒ ⑥ 红。实测：192 查询 all 40.6%[33.9,47.4] / core 68.8%[53.1,84.4]；46 工具 plan 模式 20–46 可见；**全部精排判别器变体"不成立"**（CI 跨 0 或折负） | 1–2  |
 | G22 | ✅ **已落地**：`CODE_STANDARD.md` 新增 **§11 口径（计数 / 评测 / 门禁）**共 16 条（每条带**证据**与**在哪被强制**）；看板 §9 加 9.1 小节指向 §11。计数：行数**逐文件求和**（`Measure-Object -Line` 少计空行：99,799 vs 94,218）/ 上限 810 / 上帝类 `codeLines>500 \|\| methods>25` / 规模数字带口径+范围+日期；评测：**两关才算增益** / 吞吐须标文本长度与批量（26–30 texts/s）/ 缓存读不相加 / 前缀四条件；门禁：字面量断言 / 仪器自证 / 先查变异落地 / 并发墙钟 / 基线只收紧 / 声明即接线 / 可移植                                                                                                    | 门禁脚本不回归                           | `caliberSync.test.ts` 7 例**交叉核对文档与门禁常量**（改 `MAX_FILE_LINES` 或上帝类阈值而不同步文档 ⇒ 红）；**变异**：上限 810→820 ⇒ ② 红、阈值 500→600 ⇒ ③ 红、删 §11 ⇒ ①②③④⑤ 全红                                                                                                                                                                                                         | 0.5  |

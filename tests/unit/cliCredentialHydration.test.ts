@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CliBuildConfig } from '../../src/cli/cliBuildConfig.ts';
-import type { CredentialHydrationArgs } from '../../src/cli/cliBuildConfig.ts';
-import { CryptoVault } from '../../src/adapters/vault/cryptoVault.ts';
-import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.ts';
+import { CliBuildConfig } from '../../src/apps/cli/cliBuildConfig.ts';
+import type { CredentialHydrationArgs } from '../../src/apps/cli/cliBuildConfig.ts';
+import { CryptoVault } from '../../src/kernel/adapters/vault/cryptoVault.ts';
+import { JsonFileKv } from '../../src/kernel/adapters/kv/jsonFileKv.ts';
 
 /** 暴露受保护装配钩子的测试子类（只做可见性提升，不改变任何行为）。 */
 class ProbeBuildConfig extends CliBuildConfig {
@@ -100,7 +100,7 @@ test('装配链：开了水合但无显式密钥来源时走**用户级默认密
       // 既读不到既有密文又凭空写文件。默认密钥文件上线后这个短路就成了半接线——serve 侧按新口径
       // 读写保险库，`--vault-hydrate` 却仍以"缺少主密钥来源"跳过（真跑一遍即可复现）。
       // ⇒ 本判据钉的是"不许再短路"：源码里不得出现那条无条件跳过分支。
-      const source = readFileSync(join(process.cwd(), 'src/cli/cliCredentialBuild.ts'), 'utf8');
+      const source = readFileSync(join(process.cwd(), 'src/apps/cli/cliCredentialBuild.ts'), 'utf8');
       assert.doesNotMatch(
         source,
         /缺少主密钥来源/u,

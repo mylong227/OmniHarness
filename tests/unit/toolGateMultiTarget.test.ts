@@ -9,14 +9,14 @@ import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../src/ports/runtime/approval.ts';
+} from '../../src/contracts/ports/runtime/approval.ts';
 import type {
   SandboxAction,
   SandboxDecision,
   SandboxPort,
-} from '../../src/ports/runtime/sandbox.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
+} from '../../src/contracts/ports/runtime/sandbox.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
 
 /** 记录审批请求并固定放行。 */
 class RecordingApproval implements ApprovalPort {

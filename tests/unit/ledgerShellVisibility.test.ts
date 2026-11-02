@@ -12,7 +12,7 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 
-import { FileContentLedger } from '../../src/adapters/tool/fs/fileContentLedger.ts';
+import { FileContentLedger } from '../../src/kernel/adapters/tool/fs/fileContentLedger.ts';
 
 const ROOT = join('D:', 'ws');
 

@@ -1,7 +1,7 @@
 ﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { EvidenceLedger } from '../../src/core/evidenceLedger.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { EvidenceLedger } from '../../src/kernel/core/evidenceLedger.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 function event(type: string, payload: Record<string, unknown>): SessionEvent {
   return {

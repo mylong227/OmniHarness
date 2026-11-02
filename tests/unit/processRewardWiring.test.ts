@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
-import { ProcessRewardStore } from '../../src/adapters/memory/processRewardStore.ts';
-import type { TestCommandRunner } from '../../src/adapters/tool/verify/testCommandRunner.ts';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
+import { SelfVerifyingToolPort } from '../../src/kernel/adapters/tool/verify/selfVerifyingToolPort.ts';
+import { SelfVerifyPolicy } from '../../src/kernel/adapters/tool/verify/selfVerifyPolicy.ts';
+import { ProcessRewardStore } from '../../src/kernel/adapters/memory/processRewardStore.ts';
+import type { TestCommandRunner } from '../../src/kernel/adapters/tool/verify/testCommandRunner.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 内层端口。 */
 const inner: ToolPort = {

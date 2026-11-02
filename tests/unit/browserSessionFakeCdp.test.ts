@@ -7,15 +7,15 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BrowserSession } from '../../src/adapters/browser/browserSession.ts';
-import type { ChromeProcessLike } from '../../src/adapters/browser/browserSession.ts';
-import { CdpClient } from '../../src/adapters/browser/cdpClient.ts';
-import type { WebSocketLike } from '../../src/adapters/browser/cdpClient.ts';
+import { BrowserSession } from '../../src/kernel/adapters/browser/browserSession.ts';
+import type { ChromeProcessLike } from '../../src/kernel/adapters/browser/browserSession.ts';
+import { CdpClient } from '../../src/kernel/adapters/browser/cdpClient.ts';
+import type { WebSocketLike } from '../../src/kernel/adapters/browser/cdpClient.ts';
 import type {
   ChromeLaunchResult,
   ChromeProcessOptions,
-} from '../../src/adapters/browser/chromeProcess.ts';
-import type { ChromeLookup } from '../../src/adapters/browser/chromeLocator.ts';
+} from '../../src/kernel/adapters/browser/chromeProcess.ts';
+import type { ChromeLookup } from '../../src/kernel/adapters/browser/chromeLocator.ts';
 
 /** 最小合法 PNG（IHDR 报 320×200），用于假 CDP 返回截图数据。 */
 const FAKE_PNG = ((): Buffer => {

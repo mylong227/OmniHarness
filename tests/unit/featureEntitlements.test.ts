@@ -15,9 +15,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { FeatureEntitlements } from '../../src/license/featureEntitlements.ts';
-import { LicenseEngine } from '../../src/license/licenseEngine.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { FeatureEntitlements } from '../../src/apps/license/featureEntitlements.ts';
+import { LicenseEngine } from '../../src/apps/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /** 采集到的一条事件。 */

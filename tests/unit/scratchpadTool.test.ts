@@ -13,9 +13,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ScratchpadTool } from '../../src/adapters/tool/memory/scratchpadTool.ts';
-import { FileScratchpad } from '../../src/adapters/memory/fileScratchpad.ts';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { ScratchpadTool } from '../../src/kernel/adapters/tool/memory/scratchpadTool.ts';
+import { FileScratchpad } from '../../src/kernel/adapters/memory/fileScratchpad.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 每用例一个独立临时工作区（FileScratchpad 落盘 `<root>/.omniharness/scratchpad.json`）。 */
 const makeTool = (): { tool: ScratchpadTool; cleanup: () => void } => {

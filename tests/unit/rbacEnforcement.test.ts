@@ -13,12 +13,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { ToolGate } from '../../src/core/toolGate.ts';
-import { RbacPolicy } from '../../src/security/rbacPolicy.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import { RbacPolicy } from '../../src/kernel/security/rbacPolicy.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 造一个带调用计数的审批端口（默认放行）。

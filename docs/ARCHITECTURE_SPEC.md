@@ -13,7 +13,7 @@
 
 | #   | 铁律                  | 内容                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 强制处                                           |
 | --- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| 1   | **六边形端口-适配器** | `src/ports/**` 只声明契约（接口/类型/常量，**无 class、无第三方裸导入**）；实现住 `src/adapters/**`；编排住 `src/core/**`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `architectureGate` `[3]` / `[3.5]`               |
+| 1   | **六边形端口-适配器** | `src/contracts/ports/**` 只声明契约（接口/类型/常量，**无 class、无第三方裸导入**）；实现住 `src/kernel/adapters/**`；编排住 `src/kernel/core/**`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `architectureGate` `[3]` / `[3.5]`               |
 | 2   | **依赖方向单向**      | `core → adapters` 与 `adapters → core` **均禁止**（白名单为空）；`ports → 实现层` 禁止——实现层 = `src/` 下除 `ports/` 与基础层（`errors/` `util/`）之外的**全部**顶层目录（动态枚举，新目录自动纳入）；存量 **21/21 全部收口、白名单清空**（14 条属"类型早在 ports、端口却绕道实现文件的再导出桶"⇒ 改直连；2 条属 `SsrfPolicy` 只是 `ResolvedSsrfPolicy` 的空扩展；5 条搬类型 + 造端口接口：`TrustTier` / `Worker` 族 + `WorkerRegistryPort` / `SkillRetrieveHit` + `SkillRegistryPort` / `SparkControllerPort` / `RlvrLoopPort` + `CodeCandidate` 族）。**不接受新增冻结项**，再出现即真违规（判据 `architectureGateLayers.test.ts` ④ 用临时探针正对照证明空白名单仍拦得住） | `architectureGate` `[1]` / `[2]` / `[3.5]`       |
 | 3   | **运行时依赖极简**    | 生产运行时依赖 **5 个**（见 §10）；`ports`/`core` 恒第三方-free                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `audit:config-wiring` + `check --strict`         |
 | 4   | **无依赖环**          | Tarjan SCC 检测，**新增环即红、环缩小放行**；现有 6 组环冻结在**成员白名单（25 个成员）**里                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `architectureGate` `[5]`                         |
@@ -23,20 +23,20 @@
 ## 2. 目录归属与依赖方向
 
 ```
-src/ports/**        契约层（31 个子目录 / 376 个 .ts）——纯声明
-src/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
-src/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
-src/composition/**  组合根（Runtime + 装配）
-src/config/**       配置装配（7 个 Assembler + ConfigFactory/ConfigBuilder）
-src/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
-src/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表 + 通用评估器 + 内置两类型；ADR-0009）
-src/asset/**        签名资产包实现（L4：.ohb 编解码 + Ed25519 非对称验签 + 安装流水线；ADR-0011）
-src/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
-src/governance/**   治理服务（晋升历史查询 + 进化系谱出证，H3：证书自带可重算载荷）
-src/license/**      本机授权与功能权益（LicenseEngine / LicenseSource / FeatureEntitlements；无授权 ⇒ core 档）
-src/media/**        媒体处理（GIF 帧栈解码/编码 + ffprobe/ffmpeg 输出解析；sharp 缺失时的回退资产）
-src/sdk/**          SDK 运行时客户端（SdkClient + WebSocket socket 实现，与 `schema` 子命令生成的文本不同）
-src/cli/**  src/server/**  （Web 工作台在 web/**）
+src/contracts/ports/**        契约层（31 个子目录 / 376 个 .ts）——纯声明
+src/kernel/core/**         编排：主循环 / 上下文装配 / 决策 / 容器
+src/kernel/adapters/**     实现：模型 / 工具 / 沙箱 / 记忆 / 检索 / 事件 / MCP / 媒体 …
+src/apps/composition/**  组合根（Runtime + 装配）
+src/kernel/config/**       配置装配（7 个 Assembler + ConfigFactory/ConfigBuilder）
+src/kernel/security/**     审批 / 策略求值 / 注入防护 / 出站守卫
+src/kernel/capability/**   统一资产协议实现（L1：类型注册表 + 绞杀者注册表 + 通用评估器 + 内置两类型；ADR-0009）
+src/kernel/asset/**        签名资产包实现（L4：.ohb 编解码 + Ed25519 非对称验签 + 安装流水线；ADR-0011）
+src/kernel/evolution/**    进化域实现（GEE Kernel v1：信号 → 档案 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 回滚 → 观测；ADR-0008，默认关）
+src/kernel/governance/**   治理服务（晋升历史查询 + 进化系谱出证，H3：证书自带可重算载荷）
+src/apps/license/**      本机授权与功能权益（LicenseEngine / LicenseSource / FeatureEntitlements；无授权 ⇒ core 档）
+src/kernel/media/**        媒体处理（GIF 帧栈解码/编码 + ffprobe/ffmpeg 输出解析；sharp 缺失时的回退资产）
+src/contracts/sdk/**          SDK 运行时客户端（SdkClient + WebSocket socket 实现，与 `schema` 子命令生成的文本不同）
+src/apps/cli/**  src/apps/server/**  （Web 工作台在 web/**）
 ```
 
 **门禁实际输出的规则标签**（本文与之一字不差）：
@@ -110,7 +110,7 @@ Windows 上用 `WRITE_RESTRICTED` 令牌 + 工作区写入 SID 形成**内核强
 **生产路径**：`morph`（camelCase 拆分 + 词形归并，实测唯一有效突破）+ 符号/文件双 BM25 +
 符号→文件融合 + 可选词法精排（`rerank`）+ 工具暴露规划（`ToolExposurePlanner`）。
 
-**实验档**（默认关、可删，清单与**删除边界**见 `src/context/experimentalPaths.ts`，判据
+**实验档**（默认关、可删，清单与**删除边界**见 `src/kernel/context/experimentalPaths.ts`，判据
 `tests/unit/retrievalStackStatus.test.ts`）：图家族三路（代码图 / 层化图 / P5 稀疏引用图）、频域共振路。
 **已删除**：LSA 潜语义路（G19，326 行；实测召回持平 / 精确率腰斩）。
 **口径**：任何"增益"必须过**两关**（配对 bootstrap 95% CI 不跨 0 **且** 留出折同向）——
@@ -200,15 +200,15 @@ Windows 上用 `WRITE_RESTRICTED` 令牌 + 工作区写入 SID 形成**内核强
 
 **② serve 的工作区根解析（新行为）**：`--workspace` > **本机固定项目**（用户级 `omniharness.json` 的
 `workspace`）> **启动目录**；命中哪一级由启动横幅打印（`工作区: …（来源）`）。实现住在
-`src/cli/serveWorkspace.ts` 的类 `ServeWorkspace`（`serveRootOf` / `describeRootSource` / `explicitWorkspaceOf` /
+`src/apps/cli/serveWorkspace.ts` 的类 `ServeWorkspace`（`serveRootOf` / `describeRootSource` / `explicitWorkspaceOf` /
 `announceServeWorkspace`）——**不在** `CliServerCmds.serveRootOf`（该方法已外迁）。"换个目录启动就看到别的项目"
 多半正是命中了第二级，不是 bug。
 
 **③ 本机运行态只落用户级**：`workspace` / `workspaces` **只写用户级配置**，项目级文件里不出现；
-写回时家目录下的路径压成 `~/…` 形式（可移植路径，`src/util/portablePath.ts`，避免把作者的家目录路径带进版本库）。
+写回时家目录下的路径压成 `~/…` 形式（可移植路径，`src/kernel/util/portablePath.ts`，避免把作者的家目录路径带进版本库）。
 `storageDir` 缺省是用户级 `~/.omniharness/sessions`（**不是** `.omniharness/sessions`，也不是相对路径 `sessions`）。
 
-**④ 配置解析容忍 UTF-8 BOM**：`src/config/configFile.ts` 在 parse 前剥掉开头 BOM（`EF BB BF`）——
+**④ 配置解析容忍 UTF-8 BOM**：`src/kernel/config/configFile.ts` 在 parse 前剥掉开头 BOM（`EF BB BF`）——
 BOM 是**编码层**标记而非内容，Windows 上常见写入方都会带它。**剥 BOM 之后其余一切照旧 fail-closed**：
 真正的语法错误仍然报错。⇒ "配置没生效"别先归因到 BOM。
 

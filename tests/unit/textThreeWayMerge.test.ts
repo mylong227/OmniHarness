@@ -6,7 +6,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TextThreeWayMerge } from '../../src/util/textThreeWayMerge.ts';
+import { TextThreeWayMerge } from '../../src/kernel/util/textThreeWayMerge.ts';
 
 test('① 双方改不同位置 ⇒ 干净合并，两个改动都保留', () => {
   const result = TextThreeWayMerge.merge('a\nb\nc\n', 'A\nb\nc\n', 'a\nb\nC\n');

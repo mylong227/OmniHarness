@@ -2,7 +2,7 @@
  * 定向测试收窄单测：把「定向只覆盖 npm」这条缺口钉死。
  *
  * 两条不变量：
- * ① **只接受测试文件**——堆栈帧多数指向被测源码，`src/core/foo.ts` 被透传给运行器会
+ * ① **只接受测试文件**——堆栈帧多数指向被测源码，`src/kernel/core/foo.ts` 被透传给运行器会
  *    判成「没有匹配的测试」而**假失败**；不做定向 ＞ 假定向。
  * ② **只对文档化的收窄参数拼接**（npm `--` / pytest 位置参数 / `cargo --test` /
  *    `mvn -Dtest` / `gradle --tests` / `go test <目录>` / `dotnet --filter`），
@@ -10,7 +10,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TestCommandNarrower } from '../../src/adapters/tool/verify/testCommandNarrower.ts';
+import { TestCommandNarrower } from '../../src/kernel/adapters/tool/verify/testCommandNarrower.ts';
 
 /**
  * 收窄的简写。
@@ -38,7 +38,7 @@ test('isTestPath：只认命名约定，不认「在 tests 目录里就是测试
   ];
   const expectFalse = [
     // 被测源码（堆栈帧最常见形态）——透传会「没有匹配的测试」假失败
-    'src/core/foo.ts',
+    'src/kernel/core/foo.ts',
     'shared/pkg/a.go',
     // tests 目录里的助手/夹具不是测试单元
     'tests/unit/fixtures.ts',
@@ -81,7 +81,7 @@ test('收窄：各运行器用各自文档化的参数', () => {
 
 test('收窄的保守边界：认不出/不适用一律原样返回（宁可全量，不要跑不起来的命令）', () => {
   // 非测试文件 ⇒ 不改写
-  assert.strictEqual(narrow('npm test', ['src/core/foo.ts']), 'npm test');
+  assert.strictEqual(narrow('npm test', ['src/kernel/core/foo.ts']), 'npm test');
   // 空清单 ⇒ 不改写
   assert.strictEqual(narrow('pytest -q', []), 'pytest -q');
   // 不认识的命令形态 ⇒ 不做猜测性拼接
@@ -97,7 +97,7 @@ test('收窄的保守边界：认不出/不适用一律原样返回（宁可全�
 
 test('收窄：源码与测试混合时只取测试文件，并去重、封顶 8 个目标', () => {
   assert.strictEqual(
-    narrow('npm test', ['src/core/foo.ts', 'tests/unit/foo.test.ts', 'src/bar.ts']),
+    narrow('npm test', ['src/kernel/core/foo.ts', 'tests/unit/foo.test.ts', 'src/bar.ts']),
     'npm test -- tests/unit/foo.test.ts',
   );
 

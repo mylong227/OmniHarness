@@ -4,8 +4,8 @@ import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditExporter } from '../../src/server/services/auditExporter.ts';
-import { AuditSink, type AuditEvent } from '../../src/server/services/auditSink.ts';
+import { AuditExporter } from '../../src/apps/server/services/auditExporter.ts';
+import { AuditSink, type AuditEvent } from '../../src/apps/server/services/auditSink.ts';
 
 const sample: AuditEvent[] = [
   {
@@ -109,7 +109,7 @@ test('AuditSink.read：写回并读落盘日志（坏行跳过）', async () => 
 test('CLI：omniharness audit export 按类型过滤并输出 json', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'audit-cli-'));
   const file = join(dir, 'audit.log');
-  const cli = join(process.cwd(), 'dist/src/cli/exec.js');
+  const cli = join(process.cwd(), 'dist/src/apps/cli/exec.js');
   try {
     // 直接写一份 JSONL 审计日志
     const lines = sample.map((e) => JSON.stringify(e)).join('\n') + '\n';
@@ -132,7 +132,7 @@ test('CLI：omniharness audit export 按类型过滤并输出 json', async () =>
 });
 
 test('CLI：audit 子命令无 export 动作时给出用法并返回 2', async () => {
-  const cli = join(process.cwd(), 'dist/src/cli/exec.js');
+  const cli = join(process.cwd(), 'dist/src/apps/cli/exec.js');
   let code = 0;
   try {
     await execFileAsync(process.execPath, [cli, 'audit'], { encoding: 'utf8', stdio: 'pipe' });

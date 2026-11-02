@@ -9,15 +9,15 @@ import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BrowserScreenshotTool } from '../../src/adapters/tool/browser/browserScreenshotTool.ts';
-import { PlaywrightBrowserSession } from '../../src/adapters/browser/playwrightBrowserSession.ts';
-import type { ScreenshotSession } from '../../src/adapters/tool/browser/browserScreenshotTool.ts';
+import { BrowserScreenshotTool } from '../../src/kernel/adapters/tool/browser/browserScreenshotTool.ts';
+import { PlaywrightBrowserSession } from '../../src/kernel/adapters/browser/playwrightBrowserSession.ts';
+import type { ScreenshotSession } from '../../src/kernel/adapters/tool/browser/browserScreenshotTool.ts';
 import type {
   ScreenshotRequest,
   ScreenshotResult,
-} from '../../src/adapters/browser/browserSession.ts';
-import { ChromeLocator } from '../../src/adapters/browser/chromeLocator.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+} from '../../src/kernel/adapters/browser/browserSession.ts';
+import { ChromeLocator } from '../../src/kernel/adapters/browser/chromeLocator.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 最小合法 PNG 字节（IHDR 报 8×4），用于假会话返回。 */
 const FAKE_PNG = ((): Buffer => {

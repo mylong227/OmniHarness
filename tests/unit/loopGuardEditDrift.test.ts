@@ -10,7 +10,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { LoopGuard } from '../../src/core/loop/loopGuard.ts';
+import { LoopGuard } from '../../src/kernel/core/loop/loopGuard.ts';
 
 /** 构造一次 edit 调用。 */
 function edit(path: string, newString: string) {

@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { McpCimd } from '../../src/mcp/mcpCimd.ts';
+import { McpCimd } from '../../src/protocols/mcp/mcpCimd.ts';
 
 test('CIMD：解析并校验 client_id/redirect_uris', async () => {
   const clientId = 'https://client.example/meta.json';

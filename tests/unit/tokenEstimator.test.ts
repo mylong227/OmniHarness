@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
+import { TokenEstimator } from '../../src/kernel/context/tokenEstimator.ts';
 
 test('Token 估算：空文本为 0', () => {
   assert.strictEqual(new TokenEstimator().estimate(''), 0);

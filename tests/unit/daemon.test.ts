@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { DaemonController } from '../../src/daemon/daemonController.ts';
+import { DaemonController } from '../../src/apps/daemon/daemonController.ts';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,7 +15,7 @@ test('DaemonController：默认后台入口是 CLI exec，不是 daemonControlle
   assert.match(
     DaemonController.defaultEntry(),
     /[\\/]cli[\\/]exec\.js$/u,
-    '入口必须是 dist/src/cli/exec.js（历史缺陷：指向 daemonController 自身 ⇒ 永远起不了 serve）',
+    '入口必须是 dist/src/apps/cli/exec.js（历史缺陷：指向 daemonController 自身 ⇒ 永远起不了 serve）',
   );
   assert.doesNotMatch(DaemonController.defaultEntry(), /daemonController/u);
 });

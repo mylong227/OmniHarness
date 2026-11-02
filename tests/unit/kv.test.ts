@@ -3,10 +3,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'vitest';
-import type { KvPort } from '../../src/ports/memory/kv.ts';
-import { JsonFileKv } from '../../src/adapters/kv/jsonFileKv.ts';
-import { MemoryKv } from '../../src/adapters/kv/memoryKv.ts';
-import { SqliteKv } from '../../src/adapters/kv/sqliteKv.ts';
+import type { KvPort } from '../../src/contracts/ports/memory/kv.ts';
+import { JsonFileKv } from '../../src/kernel/adapters/kv/jsonFileKv.ts';
+import { MemoryKv } from '../../src/kernel/adapters/kv/memoryKv.ts';
+import { SqliteKv } from '../../src/kernel/adapters/kv/sqliteKv.ts';
 
 /** 全后端通用的 KV 契约测试。 */
 async function runKvContract(kv: KvPort): Promise<void> {

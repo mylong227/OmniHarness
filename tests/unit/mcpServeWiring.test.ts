@@ -1,7 +1,7 @@
 /**
  * MCP serve 接线单测：`omniharness mcp serve` 默认走官方 SDK 适配器（A1）。
  *
- * 事故口径（2026-09-19 入口可达性审计）：`src/adapters/mcp/sdkMcpServerAdapter.ts` 写了、
+ * 事故口径（2026-09-19 入口可达性审计）：`src/kernel/adapters/mcp/sdkMcpServerAdapter.ts` 写了、
  * 有单测，却没有任何生产接线点——`mcp serve` 只用手写实现。本文件钉住接线后的行为：
  *   ① SDK 可用 → 走 SDK 适配器（工具端口真被交给 SDK 工厂，且带门禁包装）；
  *   ② SDK 不可用 → 回落手写实现，且**如实打印原因**（绝不静默）；
@@ -10,21 +10,21 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { GatedToolPort } from '../../src/adapters/mcp/gatedToolPort.ts';
-import { McpSdkProbe, type McpSdkProbeResult } from '../../src/adapters/mcp/mcpSdkProbe.ts';
-import { McpServeRunner, type McpServeOptions } from '../../src/adapters/mcp/mcpServeRunner.ts';
+import { GatedToolPort } from '../../src/kernel/adapters/mcp/gatedToolPort.ts';
+import { McpSdkProbe, type McpSdkProbeResult } from '../../src/kernel/adapters/mcp/mcpSdkProbe.ts';
+import { McpServeRunner, type McpServeOptions } from '../../src/kernel/adapters/mcp/mcpServeRunner.ts';
 import {
   SdkMcpServerAdapter,
   type SdkServerInfo,
-} from '../../src/adapters/mcp/sdkMcpServerAdapter.ts';
+} from '../../src/kernel/adapters/mcp/sdkMcpServerAdapter.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
-import type { ToolGate } from '../../src/core/toolGate.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
+import type { ToolGate } from '../../src/kernel/core/toolGate.ts';
 
 /** 测试用工具端口：记录调用，供断言「SDK 工具集真到 ToolPort」。 */
 class FakeToolPort implements ToolPort {

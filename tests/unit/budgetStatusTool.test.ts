@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BudgetStatusTool } from '../../src/adapters/tool/meta/budgetStatusTool.ts';
-import { CostBudget } from '../../src/adapters/model/costBudget.ts';
-import { RoutePricing } from '../../src/adapters/model/routePricing.ts';
+import { BudgetStatusTool } from '../../src/kernel/adapters/tool/meta/budgetStatusTool.ts';
+import { CostBudget } from '../../src/kernel/adapters/model/costBudget.ts';
+import { RoutePricing } from '../../src/kernel/adapters/model/routePricing.ts';
 
 test('budget_status 返回当前快照', async () => {
   const budget = new CostBudget(

@@ -12,13 +12,13 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { WorkflowRunner, WorkflowCycleError } from '../../src/autonomy/workflowRunner.ts';
-import type { WorkflowStep } from '../../src/autonomy/workflowTypes.ts';
-import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.ts';
-import type { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
-import { ToolExposurePlanner } from '../../src/core/toolExposurePlanner.ts';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { WorkflowRunner, WorkflowCycleError } from '../../src/kernel/autonomy/workflowRunner.ts';
+import type { WorkflowStep } from '../../src/kernel/autonomy/workflowTypes.ts';
+import { DelegateTool } from '../../src/kernel/adapters/tool/workflow/delegateTool.ts';
+import type { WorkerOrchestrator } from '../../src/kernel/worker/workerOrchestrator.ts';
+import { ToolExposurePlanner } from '../../src/kernel/core/toolExposurePlanner.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 构造工作流步骤（只用到 id / dependsOn 的最小形状）。 */
 function step(id: string, dependsOn: readonly string[] = []): WorkflowStep {

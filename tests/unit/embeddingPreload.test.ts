@@ -16,11 +16,11 @@ import {
   TransformersEmbeddingAdapter,
   type TransformersModuleLoader,
   type TransformersModuleLike,
-} from '../../src/adapters/embedding/transformersEmbeddingAdapter.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+} from '../../src/kernel/adapters/embedding/transformersEmbeddingAdapter.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
 
 /** 假 loader 的观测状态。 */
 interface LoaderState {
@@ -235,7 +235,7 @@ test('L5 ⑦b 装配接线：语义路开启 ⇒ 端口暴露 preload（实现�
     assert.ok(embedding !== undefined, '语义路开启时应有嵌入端口');
     assert.strictEqual(typeof embedding.preload, 'function', '端口应暴露 preload（L5 接线点）');
     // 2026-10 起装配层会在 transformers 适配器外面再包一层 DiskCachedEmbeddingAdapter（向量落盘，
-    // 见 `src/adapters/embedding/diskCachedEmbeddingAdapter.ts`）：它实现同一个 EmbeddingPort，
+    // 见 `src/kernel/adapters/embedding/diskCachedEmbeddingAdapter.ts`）：它实现同一个 EmbeddingPort，
     // 并把 preload 透传给内层。故此处断言「内层可达」而不是「顶层就是 transformers 适配器」——
     // 否则一个纯性能优化会被误读成接线断裂。
     const maybeWrapped = embedding as { readonly inner?: unknown };

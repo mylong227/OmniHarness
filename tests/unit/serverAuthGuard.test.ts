@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { IncomingMessage } from 'node:http';
-import { ServerAuthGuard } from '../../src/server/transport/serverAuthGuard.ts';
+import { ServerAuthGuard } from '../../src/apps/server/transport/serverAuthGuard.ts';
 
 /** 构造最小请求桩：只提供 verify 需要的 url 与可选 authorization / origin 头。 */
 function req(

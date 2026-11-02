@@ -9,13 +9,13 @@
 
 | 文件             | 内容                                                | 单一来源实现                                          | 覆盖入口                                                         |
 | ---------------- | --------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `ssrf.json`      | 云元数据主机 / 内网域名后缀 / IPv4 私有保留网段     | `src/security/ssrfPolicy.ts`（`DEFAULT_SSRF_POLICY`） | `omniharness.json` 的 `ssrfPolicy`                               |
-| `providers.json` | 大模型厂商目录（端点 / 模型 / 推理档位 / CLI 映射） | `src/config/providerPresets.ts`（`ProviderPresets`）  | `omniharness.json` 的 `providerPresets`                          |
-| `endpoints.json` | 适配器兜底端点/模型/凭据 env 名 + 各服务端点地址    | `src/util/endpointDefaults.ts`（`EndpointDefaults`）  | CLI/配置文件显式值 > 该适配器的 env > 本文件（服务端点见 `env`） |
-| `limits.json`    | 运维限制（HTTP/预览源/A2A/工具缺省限额）            | `src/util/runtimeLimits.ts`（`RuntimeLimits`）        | `omniharness.json` 的 `limits` > 数据里的 `env` > 本文件         |
-| `cliHelp.json`   | `omniharness --help` 的文案（命令与选项说明）       | `src/cli/cliHelp.ts`（`CliHelp`）                     | 无（面向用户的帮助文案；枚举取值在渲染时从 `cliEnums` 派生）     |
+| `ssrf.json`      | 云元数据主机 / 内网域名后缀 / IPv4 私有保留网段     | `src/kernel/security/ssrfPolicy.ts`（`DEFAULT_SSRF_POLICY`） | `omniharness.json` 的 `ssrfPolicy`                               |
+| `providers.json` | 大模型厂商目录（端点 / 模型 / 推理档位 / CLI 映射） | `src/kernel/config/providerPresets.ts`（`ProviderPresets`）  | `omniharness.json` 的 `providerPresets`                          |
+| `endpoints.json` | 适配器兜底端点/模型/凭据 env 名 + 各服务端点地址    | `src/kernel/util/endpointDefaults.ts`（`EndpointDefaults`）  | CLI/配置文件显式值 > 该适配器的 env > 本文件（服务端点见 `env`） |
+| `limits.json`    | 运维限制（HTTP/预览源/A2A/工具缺省限额）            | `src/kernel/util/runtimeLimits.ts`（`RuntimeLimits`）        | `omniharness.json` 的 `limits` > 数据里的 `env` > 本文件         |
+| `cliHelp.json`   | `omniharness --help` 的文案（命令与选项说明）       | `src/apps/cli/cliHelp.ts`（`CliHelp`）                     | 无（面向用户的帮助文案；枚举取值在渲染时从 `cliEnums` 派生）     |
 
-四个文件都由 `src/util/builtinDefaults.ts` 按**模块相对路径**读包根下的 `defaults/`（不做 cwd 推断），
+四个文件都由 `src/kernel/util/builtinDefaults.ts` 按**模块相对路径**读包根下的 `defaults/`（不做 cwd 推断），
 结果缓存。**文件缺失 / 不可读 / 不是合法 JSON 一律抛错**（fail-closed）：安全默认档读不到时静默退化成空表，
 等于护栏「看着还在、实际更松」。
 
@@ -309,7 +309,7 @@
 }
 ```
 
-- **占位符**：`{{名字}}` 会在渲染时替换成 `src/cli/cliHelp.ts` 里 `HELP_ENUM_SOURCES` 声明的枚举清单
+- **占位符**：`{{名字}}` 会在渲染时替换成 `src/apps/cli/cliHelp.ts` 里 `HELP_ENUM_SOURCES` 声明的枚举清单
   （值全部来自 `cliEnums` ⇒ 帮助里的取值不可能与校验白名单不一致）。引用未登记的名字**直接抛错**，
   绝不把 `{{x}}` 渲染给用户。可用的名字见 `HELP_ENUM_SOURCES`（`storageAdapters` / `approvals` /
   `sandboxProfiles` / `outputFormats` …）。

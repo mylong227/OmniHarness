@@ -11,15 +11,15 @@ import { randomFillSync } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ViewImageTool } from '../../src/adapters/tool/media/viewImageTool.ts';
-import { SharpImageResizer } from '../../src/adapters/media/sharpImageResizer.ts';
+import { ViewImageTool } from '../../src/kernel/adapters/tool/media/viewImageTool.ts';
+import { SharpImageResizer } from '../../src/kernel/adapters/media/sharpImageResizer.ts';
 import type {
   ImageResizeOutcome,
   ImageResizeRequest,
   ImageResizerPort,
-} from '../../src/ports/media/imageResizer.ts';
+} from '../../src/contracts/ports/media/imageResizer.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** sharp 是否可用（决定第二组用例是否 skip；import 失败即视为不可用）。 */
 const hasSharp: boolean = await import('sharp').then(

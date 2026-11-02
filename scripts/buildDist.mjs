@@ -7,7 +7,7 @@
  * 旧顺序是 `cleanDist dist && tsc && copyAssets`。本机有一个从本仓库 `dist/` 启动的
  * `serve` 在跑时，`cleanDist` 的 `rmSync` 会在**删到一半**（`dist/src/adapters`）抛
  * `ENOTEMPTY`，5 次退避重试后仍失败 ⇒ 留下一个**半删的 dist**：
- * `--version` 还能跑，`doctor` 直接报 `Cannot find module dist/src/core/agent.js`；
+ * `--version` 还能跑，`doctor` 直接报 `Cannot find module dist/src/kernel/core/agent.js`；
  * 而 **tsc 从未开始**（`&&` 短路）。也就是说：一次构建失败把工作树弄成了"比构建前更糟"的状态。
  *
  * ## 新顺序
@@ -104,7 +104,7 @@ run('伴生资源 → dist.next', process.execPath, [
 // ---- 1.5 bin 入口补 shebang（POSIX 发布正确性，2026-11-01）----
 // npm 在 POSIX 全局安装时对 bin 符号链接直接 exec；dist 产物由 tsc 直出、首行是普通注释，
 // 没有 shebang 就无法直接执行（Windows cmd-shim 能兜住，POSIX 不能）。注入幂等：已有则跳过。
-const binEntry = join(STAGING, 'src', 'cli', 'exec.js');
+const binEntry = join(STAGING, 'src', 'apps', 'cli', 'exec.js');
 if (existsSync(binEntry) && !readFileSync(binEntry, 'utf8').startsWith('#!')) {
   const body = readFileSync(binEntry, 'utf8');
   writeFileSync(binEntry, '#!/usr/bin/env node\n' + body);

@@ -7,14 +7,14 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { GeminiModel, type GeminiModelConfig } from '../../src/adapters/model/geminiModel.ts';
-import { ModelCallError } from '../../src/ports/model/model.ts';
-import type { ModelRequest } from '../../src/ports/model/model.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { cliHelp } from '../../src/cli/cliHelp.ts';
-import { ConfigBuilder } from '../../src/config/configBuilder.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import { endpointDefaults } from '../../src/util/endpointDefaults.ts';
+import { GeminiModel, type GeminiModelConfig } from '../../src/kernel/adapters/model/geminiModel.ts';
+import { ModelCallError } from '../../src/contracts/ports/model/model.ts';
+import type { ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { cliHelp } from '../../src/apps/cli/cliHelp.ts';
+import { ConfigBuilder } from '../../src/kernel/config/configBuilder.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { endpointDefaults } from '../../src/kernel/util/endpointDefaults.ts';
 
 /** 默认测试配置（显式给 Key，避免读到本机环境变量）。 */
 const BASE_CONFIG: GeminiModelConfig = {

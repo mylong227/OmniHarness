@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { GoalChecker } from '../../src/autonomy/goalChecker.ts';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
+import { GoalChecker } from '../../src/kernel/autonomy/goalChecker.ts';
+import type { ModelOutput, ModelPort } from '../../src/contracts/ports/model/model.ts';
 
 const neverCalled: ModelPort = {
   name: 'never',

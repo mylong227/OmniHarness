@@ -8,9 +8,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BackgroundJobRegistry } from '../../src/adapters/tool/shell/backgroundJobRegistry.ts';
-import { ShellJobTool } from '../../src/adapters/tool/shell/shellJobTool.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
+import { BackgroundJobRegistry } from '../../src/kernel/adapters/tool/shell/backgroundJobRegistry.ts';
+import { ShellJobTool } from '../../src/kernel/adapters/tool/shell/shellJobTool.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 轮询等待条件成立。

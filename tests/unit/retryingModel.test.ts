@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { RetryingModel, DEFAULT_RETRY_POLICY } from '../../src/adapters/model/retryingModel.ts';
-import { ModelCallError } from '../../src/ports/model/model.ts';
-import type { ModelPort, ModelRequest, ModelOutput } from '../../src/ports/model/model.ts';
+import { RetryingModel, DEFAULT_RETRY_POLICY } from '../../src/kernel/adapters/model/retryingModel.ts';
+import { ModelCallError } from '../../src/contracts/ports/model/model.ts';
+import type { ModelPort, ModelRequest, ModelOutput } from '../../src/contracts/ports/model/model.ts';
 
 /** 可计数、可控抛错的假模型。 */
 class FlakyModel implements ModelPort {

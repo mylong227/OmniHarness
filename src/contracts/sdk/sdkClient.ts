@@ -1,0 +1,166 @@
+import { jsonRpc, type RpcMessage, type RpcResponse } from '../../apps/server/core/jsonRpc.ts';
+import type { SdkSocket } from './webSocketSdkSocket.ts';
+import { PendingRequests } from '../../kernel/util/concurrency/pendingRequests.ts';
+
+/** SDK 客户端选项。 */
+export interface SdkClientOptions {
+  readonly socket: SdkSocket;
+  /** 请求超时（毫秒，默认 30000）。 */
+  readonly timeoutMs?: number;
+}
+
+/** 通知处理器集合。 */
+type EventHandler = (params: Record<string, unknown>) => void;
+
+/** SDK 客户端：请求-响应 + 服务端通知订阅（生成的 SDK 直接接这两个能力）。 */
+export class SdkClient {
+  /** 等待响应的请求表：请求 id → 收尾通道（超时 / 连接关闭都会移出）。 */
+  private readonly pending = new PendingRequests<number, RpcResponse>();
+  /** 通知订阅表：事件名 → 处理器集合。 */
+  private readonly handlers = new Map<string, Set<EventHandler>>();
+  /** 连接就绪 Promise（构造期开始握手，socket open 后 resolve）。 */
+  private readonly opened: Promise<void>;
+  /** 下一个请求 id（自增，用于 JSON-RPC 响应关联）。 */
+  private nextId = 1;
+
+  /**
+   * 创建 SDK 客户端并绑定 socket 生命周期与消息分发。
+   * @param options 客户端选项（socket 与请求超时），同时作为参数属性持有为实例字段
+   */
+  public constructor(private readonly options: SdkClientOptions) {
+    this.opened = this.bindSocket(options.socket);
+  }
+
+  /**
+   * 连接就绪。
+   * @returns socket open 后 resolve；连接出错则 reject。
+   */
+  public ready(): Promise<void> {
+    return this.opened;
+  }
+
+  /**
+   * 发起 RPC 调用。
+   * @param method 服务端 RPC 方法名。
+   * @param params 方法参数对象。
+   * @returns 服务端 result；RPC error 或超时则抛错。
+   */
+  public async call<T>(method: string, params: Record<string, unknown>): Promise<T> {
+    await this.opened;
+    const id = this.nextId;
+    this.nextId += 1;
+    const response = await new Promise<RpcResponse>((resolve, reject) => {
+      this.pending.register(
+        id,
+        { resolve, reject },
+        {
+          ms: this.options.timeoutMs ?? 30000,
+          onTimeout: (handlers) => handlers.reject?.(new Error(`SDK 请求超时: ${method}`)),
+        },
+      );
+      this.options.socket.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+    });
+    if (response.error !== undefined) {
+      throw new Error(`RPC 错误 ${response.error.code}: ${response.error.message}`);
+    }
+    return response.result as T;
+  }
+
+  /**
+   * 订阅服务端通知，返回取消订阅函数。
+   * @param event 通知方法名（如 'memory.changed'）。
+   * @param handler 通知处理器（接收通知 params）。
+   * @returns 取消订阅函数（调用后该处理器不再接收事件）。
+   */
+  public on(event: string, handler: EventHandler): () => void {
+    const handlers = this.handlers.get(event) ?? new Set<EventHandler>();
+    handlers.add(handler);
+    this.handlers.set(event, handlers);
+    return () => {
+      handlers.delete(handler);
+    };
+  }
+
+  /**
+   * 关闭连接（挂起请求立即失败）。
+   * @returns 无返回值。
+   */
+  public close(): void {
+    this.pending.failAll(new Error('SDK 连接已关闭'));
+    this.handlers.clear();
+    this.options.socket.close();
+  }
+
+  /**
+   * 绑定 socket 生命周期与消息。
+   * @param socket 底层 socket（open / error / message / close 四事件）。
+   * @returns 连接就绪 Promise（open 时 resolve，error 时 reject）。
+   */
+  private bindSocket(socket: SdkSocket): Promise<void> {
+    const opened = new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const settle = (error?: unknown): void => {
+        if (settled) return;
+        settled = true;
+        if (error === undefined) resolve();
+        else reject(error instanceof Error ? error : new Error(String(error)));
+      };
+      socket.onOpen(() => settle());
+      // 握手前即失败（如 401 upgrade 被拒）走 onError 自然收尾；但若 socket 先 close 再 error
+      // （或只 close），旧实现从不兑现 `opened` ⇒ 所有 `call()` 都卡在 `await this.opened`
+      // 上永久挂起（2026-09-26 审计 S14）。close 也必须兑现（按失败计）。
+      socket.onError((error) => settle(error));
+      socket.onClose(() => settle(new Error('SDK 连接在就绪前关闭')));
+    });
+    // 未加 catch 时，若没有 in-flight 调用，`opened` 的拒绝会变成 unhandledRejection
+    // （Node 22 默认终止进程）。这里显式吞掉——真正的调用方在 `call()` 里 await 得到同一拒绝。
+    void opened.catch(() => undefined);
+    socket.onMessage((text) => this.handleMessage(text));
+    socket.onClose(() => this.pending.failAll(new Error('SDK 连接已关闭')));
+    return opened;
+  }
+
+  /**
+   * 处理入站消息：响应按 id 关联，通知分发给订阅者。
+   * @param text 原始消息文本（JSON-RPC 帧）。
+   * @returns 无返回值。
+   */
+  private handleMessage(text: string): void {
+    const message = jsonRpc.parse(text);
+    if (message === undefined) {
+      return;
+    }
+    if (this.isResponse(message)) {
+      this.pending.settle(Number(message.id), message);
+      return;
+    }
+    this.dispatch(message);
+  }
+
+  /**
+   * 是否为响应（有 id 无 method）。
+   * @param message 已解析的 RPC 消息。
+   * @returns 是响应返回 true（类型收窄为 RpcResponse）。
+   */
+  private isResponse(message: RpcMessage): message is RpcResponse {
+    return 'id' in message && !('method' in message);
+  }
+
+  /**
+   * 分发通知给订阅者。
+   * @param message 通知消息（含 method 与可选 params）。
+   * @returns 无返回值。
+   */
+  private dispatch(message: RpcMessage): void {
+    if (!('method' in message)) {
+      return;
+    }
+    const handlers = this.handlers.get(message.method);
+    if (handlers === undefined) {
+      return;
+    }
+    for (const handler of handlers) {
+      handler((message.params ?? {}) as Record<string, unknown>);
+    }
+  }
+}

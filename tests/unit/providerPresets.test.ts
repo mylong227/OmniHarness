@@ -22,11 +22,11 @@ import {
   PROVIDER_PRESETS,
   providerPresets,
   type ProviderPreset,
-} from '../../src/config/providerPresets.ts';
-import { providerPresetValidator } from '../../src/config/providerPresetValidator.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import type { FileConfig } from '../../src/config/configFile.ts';
+} from '../../src/kernel/config/providerPresets.ts';
+import { providerPresetValidator } from '../../src/kernel/config/providerPresetValidator.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import type { FileConfig } from '../../src/kernel/config/configFile.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');

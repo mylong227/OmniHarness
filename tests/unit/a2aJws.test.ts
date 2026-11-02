@@ -9,12 +9,12 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import type { JWK } from 'jose';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { A2aAgentCard, A2aTransport } from '../../src/a2a/a2aProtocol.ts';
-import { A2aAgentCardSigner } from '../../src/a2a/a2aAgentCardSigner.ts';
-import { A2aServer } from '../../src/a2a/a2aServer.ts';
-import { HttpA2aServerTransport } from '../../src/a2a/httpA2aTransport.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { A2aAgentCard, A2aTransport } from '../../src/protocols/a2a/a2aProtocol.ts';
+import { A2aAgentCardSigner } from '../../src/protocols/a2a/a2aAgentCardSigner.ts';
+import { A2aServer } from '../../src/protocols/a2a/a2aServer.ts';
+import { HttpA2aServerTransport } from '../../src/protocols/a2a/httpA2aTransport.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
 
 /** 双端内存传输。 */
 class MemoryTransport implements A2aTransport {

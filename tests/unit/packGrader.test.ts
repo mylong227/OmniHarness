@@ -16,9 +16,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { PackGrader } from '../../src/plugin/packGrader.ts';
-import { PackStaticScanner } from '../../src/plugin/packStaticScanner.ts';
-import type { PackCapability } from '../../src/plugin/packStaticScanner.ts';
+import { PackGrader } from '../../src/kernel/plugin/packGrader.ts';
+import { PackStaticScanner } from '../../src/kernel/plugin/packStaticScanner.ts';
+import type { PackCapability } from '../../src/kernel/plugin/packStaticScanner.ts';
 
 /**
  * 造包内文件表。

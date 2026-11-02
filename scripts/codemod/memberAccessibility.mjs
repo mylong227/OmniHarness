@@ -14,11 +14,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import ts from 'typescript';
 
-const HOT_PREFIXES = ['src/adapters/live/'];
+const HOT_PREFIXES = ['src/kernel/adapters/live/'];
 const HOT_FILES = new Set([
-  'src/core/stepRunner.ts',
-  'src/core/turnRunner.ts',
-  'src/ports/toolInputSink.ts',
+  'src/kernel/core/stepRunner.ts',
+  'src/kernel/core/turnRunner.ts',
+  'src/contracts/ports/toolInputSink.ts',
 ]);
 
 const args = process.argv.slice(2);

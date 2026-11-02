@@ -22,9 +22,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowRunLog } from '../../src/autonomy/workflowRunLog.ts';
-import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.ts';
-import type { WorkflowDef } from '../../src/ports/autonomy/workflowDef.ts';
+import { WorkflowRunLog } from '../../src/kernel/autonomy/workflowRunLog.ts';
+import { WorkflowSpecError } from '../../src/kernel/autonomy/workflowSpecError.ts';
+import type { WorkflowDef } from '../../src/contracts/ports/autonomy/workflowDef.ts';
 
 /** 两步工作流（含名字）。 */
 const DEF: WorkflowDef = {

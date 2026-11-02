@@ -24,24 +24,24 @@ import { fileURLToPath } from 'node:url';
 import {
   MOCK_ADAPTER_ID,
   modelAdapterRegistry,
-} from '../../src/adapters/model/modelAdapterRegistry.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
-import { GeminiModel } from '../../src/adapters/model/geminiModel.ts';
-import { MODEL_ADAPTERS } from '../../src/cli/cliEnums.ts';
-import { storageFactory, DEFAULT_SQLITE_FILE } from '../../src/cli/storageFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
-import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.ts';
-import { ConfigError } from '../../src/config/configError.ts';
+} from '../../src/kernel/adapters/model/modelAdapterRegistry.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
+import { AnthropicModel } from '../../src/kernel/adapters/model/anthropicModel.ts';
+import { ResponsesModel } from '../../src/kernel/adapters/model/responsesModel.ts';
+import { LlamaCppModel } from '../../src/kernel/adapters/model/llamaCppModel.ts';
+import { GeminiModel } from '../../src/kernel/adapters/model/geminiModel.ts';
+import { MODEL_ADAPTERS } from '../../src/apps/cli/cliEnums.ts';
+import { storageFactory, DEFAULT_SQLITE_FILE } from '../../src/apps/cli/storageFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { JsonlStorage } from '../../src/kernel/adapters/storage/jsonlStorage.ts';
+import { SqliteStorage } from '../../src/kernel/adapters/storage/sqliteStorage.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
 
-import { ProviderProbe } from '../../src/server/services/providerProbe.ts';
-import { ConfigBuilder } from '../../src/config/configBuilder.ts';
-import { endpointDefaults } from '../../src/util/endpointDefaults.ts';
-import { providerPresets } from '../../src/config/providerPresets.ts';
+import { ProviderProbe } from '../../src/apps/server/services/providerProbe.ts';
+import { ConfigBuilder } from '../../src/kernel/config/configBuilder.ts';
+import { endpointDefaults } from '../../src/kernel/util/endpointDefaults.ts';
+import { providerPresets } from '../../src/kernel/config/providerPresets.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -165,7 +165,7 @@ test('⑤ 构造守卫：模型适配器的 new 只允许出现在注册表里',
   const offenders: string[] = [];
   const pattern =
     /new (?:OpenAiCompatibleModel|AnthropicModel|ResponsesModel|LlamaCppModel|GeminiModel|MockModel)\(/;
-  const allow = new Set(['src/adapters/model/modelAdapterRegistry.ts']);
+  const allow = new Set(['src/kernel/adapters/model/modelAdapterRegistry.ts']);
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir)) {
       const full = join(dir, name);
@@ -208,7 +208,7 @@ test('⑤-2 存储后端构造：会话存储的「后端名 → 实现」只在
       }
       if (!name.endsWith('.ts') || name.endsWith('.d.ts')) continue;
       const rel = relative(repoRoot, full).split(sep).join('/');
-      if (rel === 'src/cli/storageFactory.ts') continue;
+      if (rel === 'src/apps/cli/storageFactory.ts') continue;
       readFileSync(full, 'utf8')
         .split(/\r?\n/)
         .forEach((line, index) => {

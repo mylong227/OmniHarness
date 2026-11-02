@@ -1,11 +1,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BoundedMediaProcessRunner } from '../../src/adapters/media/boundedMediaProcessRunner.ts';
+import { BoundedMediaProcessRunner } from '../../src/kernel/adapters/media/boundedMediaProcessRunner.ts';
 import type {
   MediaProcessOutcome,
   MediaProcessRequest,
   MediaProcessRunner,
-} from '../../src/adapters/media/mediaProcessRunner.ts';
+} from '../../src/kernel/adapters/media/mediaProcessRunner.ts';
 
 /** 记录峰值并发、并在延时后回传固定结果的假执行器。 */
 class FakeRunner implements MediaProcessRunner {

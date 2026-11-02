@@ -17,7 +17,7 @@
  * 且摘要会标注「非基准口径」——用于区分「预算不足导致的超时」与「能力失败」。
  *
  * 判据口径：
- *  - **复用** `src/eval/abMetrics.ts`（dist）的 `AbMetrics`：pass@k / pass^k / tokensPerSolved 不复制公式；
+ *  - **复用** `src/kernel/eval/abMetrics.ts`（dist）的 `AbMetrics`：pass@k / pass^k / tokensPerSolved 不复制公式；
  *  - 每任务每次运行都在**独立临时 git 仓库**里（fixture 复制、git init + commit），互不污染；
  *  - 验收 = CLI 退出 0 + `ok:true` + `verifyCommand` 通过 + `expectedFiles` 齐全；
  *  - `verify.mjs` 在验收前从 `verifiers/` **覆盖写入**，模型对它的修改不算数；
@@ -37,8 +37,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
-const LONG_TASK_MODULE = join(ROOT, 'dist', 'src', 'eval', 'longTaskCatalog.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
+const LONG_TASK_MODULE = join(ROOT, 'dist', 'src', 'kernel', 'eval', 'longTaskCatalog.js');
 const DEFAULT_TASKS_DIR = join(ROOT, 'tools', 'eval', 'long-tasks');
 const MAX_TRANSCRIPT_STDOUT = 200_000;
 

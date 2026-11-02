@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
  * （单跑仅 54s，插桩后每文件预算被并发争用顶穿）⇒ 拆成 `cliDataCmds` / `cliBoostCmds` 两个文件，
  * 本助手随之抽出共用（两文件各自仍在 120s 预算内）。
  */
-export const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');
+export const cliPath = resolve(process.cwd(), 'dist/src/apps/cli/exec.js');
 
 /**
  * 以子进程运行 CLI。

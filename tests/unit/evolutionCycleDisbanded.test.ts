@@ -3,12 +3,12 @@
  *
  * ## 背景
  *
- * `ReplayBuffer` 接口原先声明在实现文件 `src/evolution/rlvrLoop.ts`，而唯一实现
- * `src/evolution/inMemoryReplayBuffer.ts` 必须 `import type` 它 ⇒ 形成 2 成员强连通分量
+ * `ReplayBuffer` 接口原先声明在实现文件 `src/kernel/evolution/rlvrLoop.ts`，而唯一实现
+ * `src/kernel/evolution/inMemoryReplayBuffer.ts` 必须 `import type` 它 ⇒ 形成 2 成员强连通分量
  * （`rlvrLoop ↔ inMemoryReplayBuffer`，架构门禁白名单「环④ 进化回放组」）。
  *
  * 拆解手法与 2026-10-11 `CodeCandidate` 外迁同型：契约搬进
- * `src/ports/runtime/evolution/replayBuffer.ts`，原位置导入 + 再导出（公开 API 面零改动）。
+ * `src/contracts/ports/runtime/evolution/replayBuffer.ts`，原位置导入 + 再导出（公开 API 面零改动）。
  *
  * ## 判据
  *
@@ -41,7 +41,7 @@ function read(rel: string): string {
 }
 
 test('① ReplayBuffer 契约住在 ports，且是纯声明（无第三方、无 class 实现）', () => {
-  const port = read('src/ports/runtime/evolution/replayBuffer.ts');
+  const port = read('src/contracts/ports/runtime/evolution/replayBuffer.ts');
   assert.match(port, /export interface ReplayBuffer/, 'ports 里应有 ReplayBuffer');
   assert.ok(!/\bclass\b/.test(port), 'ports/replayBuffer.ts 不得含 class 实现（端口只声明契约）');
   for (const line of port.split('\n')) {
@@ -64,14 +64,14 @@ test('① ReplayBuffer 契约住在 ports，且是纯声明（无第三方、无
 
 test('② 原位置 rlvrLoop 仍再导出同名类型（公开 API 面不变）', () => {
   assert.match(
-    read('src/evolution/rlvrLoop.ts'),
+    read('src/kernel/evolution/rlvrLoop.ts'),
     /export type \{ ReplayBuffer \} from '\.\.\/ports\/runtime\/evolution\/replayBuffer\.ts'/,
     'rlvrLoop 必须再导出 ReplayBuffer（否则是破坏性 API 变更）',
   );
 });
 
 test('③ 拆环的关键回边不得复活：inMemoryReplayBuffer 不得再 import rlvrLoop', () => {
-  const text = read('src/evolution/inMemoryReplayBuffer.ts');
+  const text = read('src/kernel/evolution/inMemoryReplayBuffer.ts');
   assert.ok(
     !/from '\.\/rlvrLoop\.ts'/.test(text),
     'inMemoryReplayBuffer 又反向 import 了 rlvrLoop ⇒ 进化回放环复活（契约应放 ports）',

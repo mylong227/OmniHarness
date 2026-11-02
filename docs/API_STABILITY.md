@@ -55,11 +55,11 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 > 记为「公开面泄漏测试替身」。**逐条核实：该判断不成立**——三者都是**生产可达**的正式适配器，
 > 不是测试专用件：
 >
-> - `MockModel`：`CliDefaults.modelAdapter` 的默认值（`src/cli/argParser.ts`），且是
+> - `MockModel`：`CliDefaults.modelAdapter` 的默认值（`src/apps/cli/argParser.ts`），且是
 >   `adapters/model/modelAdapterRegistry.ts` 里 `mock` 那一行的实现；
-> - `MemoryStorage`：可选存储后端 `--storage-adapter memory` 的实现（`src/cli/storageFactory.ts`），
->   评测/对比命令也直接使用（`src/cli/cliCompareCmds.ts`）；
-> - `PassthroughSandbox`：沙箱档位 `passthrough` 的注册实现（`src/adapters/sandbox/sandboxManager.ts`
+> - `MemoryStorage`：可选存储后端 `--storage-adapter memory` 的实现（`src/apps/cli/storageFactory.ts`），
+>   评测/对比命令也直接使用（`src/apps/cli/cliCompareCmds.ts`）；
+> - `PassthroughSandbox`：沙箱档位 `passthrough` 的注册实现（`src/kernel/adapters/sandbox/sandboxManager.ts`
 >   的 `register('passthrough', …)`），且 `sandbox` 枚举里就含 `passthrough`。
 >
 > 因此**不对它们做弃用标注**（那等于向用户宣布「默认模型适配器 / 可选沙箱档位将被移除」）。

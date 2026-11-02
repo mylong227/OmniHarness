@@ -1,7 +1,7 @@
 // 判据：QuotaStore（`<workspace>/.omniharness/quota.json`）的落盘契约。
 //
 // 2026-10-17 变更：设置里**不再有 plan**。档位改为按当前模型自动识别
-// （`src/server/services/quotaPlans.ts` 的 `QuotaPlans.forModel`），因此落盘字段只剩
+// （`src/apps/server/services/quotaPlans.ts` 的 `QuotaPlans.forModel`），因此落盘字段只剩
 // `dailyTokens`。本文件相应重写：原先大量「档位非法 ⇒ 回退 free」的用例已失去对象
 // （那个字段不再被读），改为断言**更强的性质**——旧 `plan` 字段必须被忽略、并在下次写盘时消失。
 //
@@ -26,7 +26,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { QuotaStore } from '../../src/server/services/quotaStore.ts';
+import { QuotaStore } from '../../src/apps/server/services/quotaStore.ts';
 
 /** 缺省基础日预算（与 quotaStore.ts 的 DEFAULT_DAILY_TOKENS 对齐，独立写死以免同源同错）。 */
 const DEFAULT_TOKENS = 1_000_000;

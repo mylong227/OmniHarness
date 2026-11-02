@@ -1,10 +1,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TurnDiffTracker } from '../../src/core/turnDiffTracker.ts';
-import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.ts';
-import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
-import type { ToolHookContext } from '../../src/ports/tool/toolHook.ts';
-import type { ToolResult } from '../../src/ports/tool/tool.ts';
+import { TurnDiffTracker } from '../../src/kernel/core/turnDiffTracker.ts';
+import { TurnDiffHooks, TRACKED_WRITE_TOOLS } from '../../src/kernel/adapters/diff/turnDiffHooks.ts';
+import { ToolHookRunner } from '../../src/kernel/core/toolHookRunner.ts';
+import type { ToolHookContext } from '../../src/contracts/ports/tool/toolHook.ts';
+import type { ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 import { mkdtempSync, writeFileSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

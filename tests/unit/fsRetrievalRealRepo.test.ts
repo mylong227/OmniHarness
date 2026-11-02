@@ -24,9 +24,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GrepTool } from '../../src/adapters/tool/fs/grepTool.ts';
-import { GlobTool } from '../../src/adapters/tool/fs/globTool.ts';
-import { WorkspaceFileWalker } from '../../src/util/workspaceFileWalker.ts';
+import { GrepTool } from '../../src/kernel/adapters/tool/fs/grepTool.ts';
+import { GlobTool } from '../../src/kernel/adapters/tool/fs/globTool.ts';
+import { WorkspaceFileWalker } from '../../src/kernel/util/workspaceFileWalker.ts';
 
 /** 仓库根（测试固定从仓库根运行）。 */
 const ROOT = process.cwd();
@@ -58,7 +58,7 @@ test('② 真实仓库：grep（path=src/cli）必须命中真实内容（修复
     {
       id: 'c2',
       name: 'grep',
-      arguments: { pattern: 'KNOWN_EXTRA_FLAGS', path: 'src/cli', glob: '*.ts', max_results: 3 },
+      arguments: { pattern: 'KNOWN_EXTRA_FLAGS', path: 'src/apps/cli', glob: '*.ts', max_results: 3 },
     },
     ctx(ROOT),
   );

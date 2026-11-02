@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
 
 const summarizer: ModelPort = {
   name: 'sum',

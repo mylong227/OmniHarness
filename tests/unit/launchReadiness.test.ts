@@ -12,7 +12,7 @@
  * | ② | 用 `/healthz`（恒 200）当就绪判据 | 进程刚起来、核心组件还没齐就开 ⇒ **白屏**，用户以为前端坏了 |
  * | ③ | 等待超时后静默收场 | 双击了却"什么都没发生"，比不提供这个功能更难排查 |
  *
- * 另有两条**漂移**必须钉死：端口缺省值（`serve` 权威实现是 `src/cli/serveDefaults.ts` 的
+ * 另有两条**漂移**必须钉死：端口缺省值（`serve` 权威实现是 `src/apps/cli/serveDefaults.ts` 的
  * `ServeDefaults.DEFAULT_SERVE_PORT`/`OMNI_BACKEND_PORT`，启动器不得自成一源）与「`--open` 绝不能透传给 serve」
  * （serve 对未知旗标 fail-closed ⇒ 便利功能会把它自己打死）。
  *
@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { ServeDefaults } from '../../src/cli/serveDefaults.ts';
+import { ServeDefaults } from '../../src/apps/cli/serveDefaults.ts';
 
 /** 仓库根（判据脚本自身在 `dist/tests/unit/`，而 `scripts/` 不参与编译 ⇒ 按 cwd 解析）。 */
 const REPO_ROOT = process.cwd();

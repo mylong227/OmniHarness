@@ -8,13 +8,13 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
-import { FileScratchpad } from '../../src/adapters/memory/fileScratchpad.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
+import { FileScratchpad } from '../../src/kernel/adapters/memory/fileScratchpad.ts';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ModelPort, ModelOutput } from '../../src/ports/model/model.ts';
-import type { ModelMessage } from '../../src/ports/model/model.ts';
+import type { ModelPort, ModelOutput } from '../../src/contracts/ports/model/model.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/model.ts';
 
 /** 固定摘要器替身：把折叠段原样回显（避免真模型）。 */
 const echoModel: ModelPort = {

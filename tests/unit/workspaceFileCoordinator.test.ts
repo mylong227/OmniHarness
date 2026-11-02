@@ -15,11 +15,11 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { WorkspaceFileCoordinator } from '../../src/adapters/tool/fs/workspaceFileCoordinator.ts';
-import { ReadFileTool } from '../../src/adapters/tool/fs/readFileTool.ts';
-import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.ts';
-import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
+import { WorkspaceFileCoordinator } from '../../src/kernel/adapters/tool/fs/workspaceFileCoordinator.ts';
+import { ReadFileTool } from '../../src/kernel/adapters/tool/fs/readFileTool.ts';
+import { WriteFileTool } from '../../src/kernel/adapters/tool/fs/writeFileTool.ts';
+import { EditFileTool } from '../../src/kernel/adapters/tool/fs/editFileTool.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 工具上下文（sessionId 决定版本基线归属）。 */
 const ctxOf = (root: string, sessionId = 's1'): ToolContext => ({ sessionId, workspaceRoot: root });

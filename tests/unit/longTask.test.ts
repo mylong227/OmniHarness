@@ -22,8 +22,8 @@ import {
   LongTaskVerify,
   type LongTaskRun,
   type LongTaskSpec,
-} from '../../src/eval/longTaskCatalog.ts';
-import { AbMetrics } from '../../src/eval/abMetrics.ts';
+} from '../../src/kernel/eval/longTaskCatalog.ts';
+import { AbMetrics } from '../../src/kernel/eval/abMetrics.ts';
 
 /** 真实任务集目录（仓库内 fixture）。 */
 const TASKS_DIR = join(process.cwd(), 'tools', 'eval', 'long-tasks');

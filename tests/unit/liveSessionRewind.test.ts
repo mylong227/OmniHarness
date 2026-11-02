@@ -12,19 +12,19 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { EventPersister } from '../../src/core/loop/eventPersister.ts';
-import { CheckpointManager } from '../../src/core/checkpointManager.ts';
-import { LiveSessionRewindRegistry } from '../../src/core/liveSessionRewindRegistry.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { EventPersister } from '../../src/kernel/core/loop/eventPersister.ts';
+import { CheckpointManager } from '../../src/kernel/core/checkpointManager.ts';
+import { LiveSessionRewindRegistry } from '../../src/kernel/core/liveSessionRewindRegistry.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 import type {
   RetrievalDoc,
   RetrievalPort,
   RetrievalHit,
-} from '../../src/ports/intelligence/retrieval.ts';
+} from '../../src/contracts/ports/intelligence/retrieval.ts';
 
 /** 造一条最小合法会话事件。 */
 function evt(id: string, type: SessionEvent['type'], payload: unknown): SessionEvent {

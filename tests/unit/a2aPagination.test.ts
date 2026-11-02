@@ -7,11 +7,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { A2aTask, A2aTransport } from '../../src/a2a/a2aProtocol.ts';
-import { A2aProtocolError } from '../../src/a2a/a2aProtocolError.ts';
-import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.ts';
-import { A2aTaskPager } from '../../src/a2a/a2aTaskPager.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { A2aTask, A2aTransport } from '../../src/protocols/a2a/a2aProtocol.ts';
+import { A2aProtocolError } from '../../src/protocols/a2a/a2aProtocolError.ts';
+import { A2aServer, type TaskHandler } from '../../src/protocols/a2a/a2aServer.ts';
+import { A2aTaskPager } from '../../src/protocols/a2a/a2aTaskPager.ts';
 
 /** 双端内存传输。 */
 class MemoryTransport implements A2aTransport {

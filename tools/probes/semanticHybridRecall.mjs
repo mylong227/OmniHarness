@@ -79,7 +79,7 @@ let DiskCachedEmbeddingAdapter;
 let RECALL_QUERIES;
 let CORE_COUNT;
 try {
-  ({ ContextEngine } = await importDist('src', 'context', 'contextEngine.js'));
+  ({ ContextEngine } = await importDist('src', 'kernel', 'context', 'contextEngine.js'));
   ({ RepoMapContextEngine } = await importDist(
     'src',
     'context',

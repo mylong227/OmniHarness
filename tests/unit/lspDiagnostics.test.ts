@@ -3,10 +3,10 @@ import { test } from 'vitest';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
-import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
-import { LspDiagnosticsTool } from '../../src/adapters/tool/lsp/lspDiagnosticsTool.ts';
-import type { LspPort } from '../../src/ports/tool/lsp.ts';
+import { LspProcessAdapter } from '../../src/kernel/adapters/lsp/lspProcessAdapter.ts';
+import { LspUri } from '../../src/kernel/adapters/lsp/lspUri.ts';
+import { LspDiagnosticsTool } from '../../src/kernel/adapters/tool/lsp/lspDiagnosticsTool.ts';
+import type { LspPort } from '../../src/contracts/ports/tool/lsp.ts';
 
 // mock 服务器为源码级 .mjs（不被 tsc 编译），相对于项目根定位。
 const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');

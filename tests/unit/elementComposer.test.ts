@@ -2,7 +2,7 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ElementComposer } from '../../src/adapters/skill/elementComposer.ts';
+import { ElementComposer } from '../../src/kernel/adapters/skill/elementComposer.ts';
 
 test('① 周期表为有限基元集（默认 10 元素）', () => {
   const c = new ElementComposer();

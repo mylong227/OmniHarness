@@ -1,12 +1,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
 import type {
   ModelMessage,
   ModelOutput,
   ModelPort,
   ModelRequest,
-} from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/model/model.ts';
 
 /** 计数假模型：统计 generate 调用次数（验证游标复用零 LLM 调用）。 */
 function countingModel(text: string) {

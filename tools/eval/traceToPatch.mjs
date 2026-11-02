@@ -10,7 +10,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MODULE = join(ROOT, 'dist', 'src', 'eval', 'tracePatchPlanner.js');
+const MODULE = join(ROOT, 'dist', 'src', 'kernel', 'eval', 'tracePatchPlanner.js');
 
 /** 解析 `--input` / `--json`。 */
 function parseArgs(argv) {

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SkillMdDiscovery } from '../../src/skill/skillMdDiscovery.ts';
+import { SkillMdDiscovery } from '../../src/kernel/skill/skillMdDiscovery.ts';
 
 test('list 不返回正文；load 按名取回完整技能（trust=workspace）', () => {
   const root = mkdtempSync(join(tmpdir(), 'skill-lazy-'));

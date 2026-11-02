@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { WorkflowPriority } from '../../src/autonomy/workflowPriority.ts';
-import type { WorkflowStep } from '../../src/autonomy/workflowTypes.ts';
+import { WorkflowPriority } from '../../src/kernel/autonomy/workflowPriority.ts';
+import type { WorkflowStep } from '../../src/kernel/autonomy/workflowTypes.ts';
 
 /** 造步骤。 */
 function step(id: string, dependsOn?: string[]): WorkflowStep {

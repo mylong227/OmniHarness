@@ -34,7 +34,7 @@
 
 | 已有地基 | 证据 |
 | -------- | ---- |
-| 端口层 | `src/ports/` 411 个文件 / 10,462 行，覆盖 28 个领域 |
+| 端口层 | `src/contracts/ports/` 411 个文件 / 10,462 行，覆盖 28 个领域 |
 | 稳定性分级 + 机器强制 | `src/index.ts`（`@public`/`@beta`）+ `scripts/apiStability.mjs` |
 | 依赖方向门禁 | `arch:gate`（当前：违规 0、ports 纯度 0、依赖环 4 组） |
 | 配置/装配分离 | `src/config` 装配 + `src/composition` 组合根 |

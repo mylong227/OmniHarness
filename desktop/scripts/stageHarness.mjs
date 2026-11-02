@@ -25,7 +25,7 @@ function need(path, label) {
     throw new Error(`缺少 ${label}：${path}（先运行根目录 npm run build / web:build）`);
 }
 
-need(join(repoRoot, 'dist', 'src', 'cli', 'exec.js'), 'dist/src/cli/exec.js');
+need(join(repoRoot, 'dist', 'src', 'apps', 'cli', 'exec.js'), 'dist/src/apps/cli/exec.js');
 need(join(repoRoot, 'web', 'dist', 'index.html'), 'web/dist/index.html');
 need(join(repoRoot, 'native', 'omni_napi.node'), 'native/omni_napi.node');
 

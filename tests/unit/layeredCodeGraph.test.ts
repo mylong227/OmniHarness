@@ -1,5 +1,5 @@
 /**
- * 层化代码图单测（`src/context/layeredCodeGraph.ts`）。
+ * 层化代码图单测（`src/kernel/context/layeredCodeGraph.ts`）。
  *
  * 重点验证三件事：
  * 1. 层坐标抽取（缩进 / 形参个数 / 模块）正确；
@@ -11,9 +11,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CodeGraphIndex } from '../../src/context/codeGraphIndex.ts';
-import { LayeredCodeGraph } from '../../src/context/layeredCodeGraph.ts';
-import type { SymbolNode } from '../../src/context/repoMap/repoMap.ts';
+import { CodeGraphIndex } from '../../src/kernel/context/codeGraphIndex.ts';
+import { LayeredCodeGraph } from '../../src/kernel/context/layeredCodeGraph.ts';
+import type { SymbolNode } from '../../src/kernel/context/repoMap/repoMap.ts';
 
 /** 构造符号节点的测试夹具。 */
 function sym(file: string, line: number, name: string, signature: string): SymbolNode {
@@ -80,7 +80,7 @@ test('arityOf：无参 / 单参 / 多参 / 嵌套泛型不误计', () => {
 test('moduleOf：根目录 / 一级 / 多级目录', () => {
   assert.strictEqual(LayeredCodeGraph.moduleOf('index.ts'), '.');
   assert.strictEqual(LayeredCodeGraph.moduleOf('src/index.ts'), 'src');
-  assert.strictEqual(LayeredCodeGraph.moduleOf('src/context/repoMap.ts'), 'src');
+  assert.strictEqual(LayeredCodeGraph.moduleOf('src/kernel/context/repoMap.ts'), 'src');
 });
 
 test('nodeLayers：导出性、模块与元数被正确填充', () => {

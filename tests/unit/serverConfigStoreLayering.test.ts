@@ -25,9 +25,9 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ServerConfigStore } from '../../src/server/services/serverConfigStore.ts';
-import { ModelCatalogService } from '../../src/server/services/modelCatalogService.ts';
-import { ConfigFile } from '../../src/config/configFile.ts';
+import { ServerConfigStore } from '../../src/apps/server/services/serverConfigStore.ts';
+import { ModelCatalogService } from '../../src/apps/server/services/modelCatalogService.ts';
+import { ConfigFile } from '../../src/kernel/config/configFile.ts';
 
 /** 用户级 Key（假值，绝不发网；只断言"看得见/不回显"）。 */
 const USER_KEY = 'sk-user-layer-deepseek-0001';

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FailureReflectionStore } from '../../src/adapters/memory/failureReflectionStore.ts';
+import { FailureReflectionStore } from '../../src/kernel/adapters/memory/failureReflectionStore.ts';
 
 /** 固定时钟，保证 at 可断言。 */
 const now = (): Date => new Date('2026-10-18T00:00:00.000Z');

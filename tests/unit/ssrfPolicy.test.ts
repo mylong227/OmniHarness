@@ -15,13 +15,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_SSRF_POLICY, SsrfPolicy } from '../../src/security/ssrfPolicy.ts';
-import { SsrfGuard } from '../../src/security/ssrfGuard.ts';
-import { NetworkEgressGuard } from '../../src/adapters/sandbox/networkEgressGuard.ts';
-import { ssrfPolicyValidator } from '../../src/config/ssrfPolicyValidator.ts';
-import { BuiltinDefaults, builtinDefaults } from '../../src/util/builtinDefaults.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import type { FileConfig } from '../../src/config/configFile.ts';
+import { DEFAULT_SSRF_POLICY, SsrfPolicy } from '../../src/kernel/security/ssrfPolicy.ts';
+import { SsrfGuard } from '../../src/kernel/security/ssrfGuard.ts';
+import { NetworkEgressGuard } from '../../src/kernel/adapters/sandbox/networkEgressGuard.ts';
+import { ssrfPolicyValidator } from '../../src/kernel/config/ssrfPolicyValidator.ts';
+import { BuiltinDefaults, builtinDefaults } from '../../src/kernel/util/builtinDefaults.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import type { FileConfig } from '../../src/kernel/config/configFile.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -187,18 +187,18 @@ test('⑤-3 包根定位：以 package.json 为锚，随包/源码两种布局�
   writeFileSync(join(pkg, 'package.json'), '{"name":"x","files":["defaults"]}', 'utf8');
   writeFileSync(join(pkg, 'defaults', 'ssrf.json'), '{}', 'utf8');
   // 随包布局：dist/src/util → 向上 3 级
-  const shipped = join(pkg, 'dist', 'src', 'util');
+  const shipped = join(pkg, 'dist', 'src', 'kernel', 'util');
   mkdirSync(shipped, { recursive: true });
   assert.strictEqual(BuiltinDefaults.locatePackageRoot(shipped), join(pkg, 'defaults'));
   // 源码布局：src/util → 向上 2 级（旧实现写死 ../../.. 时会指到仓库父目录）
-  const source = join(pkg, 'src', 'util');
+  const source = join(pkg, 'src', 'kernel', 'util');
   mkdirSync(source, { recursive: true });
   assert.strictEqual(BuiltinDefaults.locatePackageRoot(source), join(pkg, 'defaults'));
   // 只有 defaults/ 而无 package.json 的祖先不算包根（否则会静默读到别人的数据 = fail-open）
   const orphan = join(root, 'orphan');
   mkdirSync(join(orphan, 'defaults'), { recursive: true });
-  mkdirSync(join(orphan, 'src', 'util'), { recursive: true });
-  assert.throws(() => BuiltinDefaults.locatePackageRoot(join(orphan, 'src', 'util')), /定位包根/);
+  mkdirSync(join(orphan, 'src', 'kernel', 'util'), { recursive: true });
+  assert.throws(() => BuiltinDefaults.locatePackageRoot(join(orphan, 'src', 'kernel', 'util')), /定位包根/);
   // 向上有界：足够深的目录不会无限上溯
   const deep = join(root, 'a', 'b', 'c', 'd', 'e', 'f');
   mkdirSync(deep, { recursive: true });

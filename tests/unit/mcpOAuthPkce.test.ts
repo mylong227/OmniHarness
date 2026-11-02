@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { McpOAuthPkce } from '../../src/mcp/mcpOAuthPkce.ts';
-import { McpOAuthTokenClient } from '../../src/mcp/mcpOAuthTokenClient.ts';
+import { McpOAuthPkce } from '../../src/protocols/mcp/mcpOAuthPkce.ts';
+import { McpOAuthTokenClient } from '../../src/protocols/mcp/mcpOAuthTokenClient.ts';
 
 test('PKCE：RFC 7636 附录 B 向量 + verifier 形态', () => {
   const verifier = 'dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk';

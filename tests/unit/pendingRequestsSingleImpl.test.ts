@@ -23,19 +23,19 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 唯一实现的路径（相对仓库根）。 */
-const SINGLE_IMPL = 'src/util/concurrency/pendingRequests.ts';
+const SINGLE_IMPL = 'src/kernel/util/concurrency/pendingRequests.ts';
 
 /** 必须复用唯一实现的协议客户端（含本轮新收口的沙箱 worker）。 */
 const CLIENTS = [
-  'src/a2a/a2aClient.ts',
-  'src/adapters/browser/cdpClient.ts',
-  'src/adapters/laya/layaWarmWorker.ts',
-  'src/adapters/lsp/lspJsonRpcConnection.ts',
-  'src/adapters/tool/code/codeSandboxWorker.ts',
-  'src/mcp/mcpClient.ts',
-  'src/sdk/sdkClient.ts',
-  'src/server/core/serverEventBridge.ts',
-  'src/server/transport/httpBridgeTransport.ts',
+  'src/protocols/a2a/a2aClient.ts',
+  'src/kernel/adapters/browser/cdpClient.ts',
+  'src/kernel/adapters/laya/layaWarmWorker.ts',
+  'src/kernel/adapters/lsp/lspJsonRpcConnection.ts',
+  'src/kernel/adapters/tool/code/codeSandboxWorker.ts',
+  'src/protocols/mcp/mcpClient.ts',
+  'src/contracts/sdk/sdkClient.ts',
+  'src/apps/server/core/serverEventBridge.ts',
+  'src/apps/server/transport/httpBridgeTransport.ts',
 ] as const;
 
 /** 递归收集 src 下的 .ts（非 .d.ts）。 */
@@ -110,7 +110,7 @@ test('③ 检测器正对照：改造前那段手写 Map 必须被判违规（�
   ].join('\n');
   assert.strictEqual(handRolledPendingTable(before), true, '检测器认不出已知的坏形状 ⇒ 判据②恒真');
   const after = readFileSync(
-    join(REPO_ROOT, 'src/adapters/tool/code/codeSandboxWorker.ts'),
+    join(REPO_ROOT, 'src/kernel/adapters/tool/code/codeSandboxWorker.ts'),
     'utf8',
   );
   assert.strictEqual(handRolledPendingTable(after), false, '沙箱 worker 应已不含手写 Map 表');

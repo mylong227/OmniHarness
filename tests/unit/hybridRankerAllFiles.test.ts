@@ -16,11 +16,11 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.ts';
-import { HybridRanker } from '../../src/context/hybridRanker.ts';
-import { RecallKnobs } from '../../src/context/recallKnobs.ts';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.ts';
+import { ContextEngine, type IndexedCorpus } from '../../src/kernel/context/contextEngine.ts';
+import { HybridRanker } from '../../src/kernel/context/hybridRanker.ts';
+import { RecallKnobs } from '../../src/kernel/context/recallKnobs.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { Embedding, EmbeddingPort } from '../../src/contracts/ports/model/embedding.ts';
 
 /** 夹具：搭建临时语料（与 fileReranker.test.ts 同构）。 */
 class Fixture {

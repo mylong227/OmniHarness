@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { ShellChildEnv } from '../../src/adapters/tool/shell/shellChildEnv.ts';
+import { ShellChildEnv } from '../../src/kernel/adapters/tool/shell/shellChildEnv.ts';
 
 /**
  * 在受控 NODE_OPTIONS 下执行并恢复进程环境（用例不得污染其它判据）。

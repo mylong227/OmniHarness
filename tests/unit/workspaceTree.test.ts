@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkspaceTree } from '../../src/server/services/workspaceTree.ts';
+import { WorkspaceTree } from '../../src/apps/server/services/workspaceTree.ts';
 
 /** 在临时工作区内构造 WorkspaceTree 并执行。 */
 function withWs<T>(fn: (ws: string, tree: WorkspaceTree) => T): T {

@@ -15,12 +15,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { WorkflowRunLock } from '../../src/autonomy/workflowRunLock.ts';
-import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.ts';
+import { WorkflowRunLock } from '../../src/kernel/autonomy/workflowRunLock.ts';
+import { WorkflowSpecError } from '../../src/kernel/autonomy/workflowSpecError.ts';
 
 /** 被测锁模块的绝对 file URL（供子进程 import）。 */
 const LOCK_MODULE_URL = pathToFileURL(
-  join(process.cwd(), 'dist', 'src', 'autonomy', 'workflowRunLock.js'),
+  join(process.cwd(), 'dist', 'src', 'kernel', 'autonomy', 'workflowRunLock.js'),
 ).href;
 
 /**

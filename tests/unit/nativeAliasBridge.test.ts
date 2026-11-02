@@ -14,9 +14,9 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { NativeBackend } from '../../src/native/nativeBackend.ts';
+import { NativeBackend } from '../../src/kernel/native/nativeBackend.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
 
 const native = NativeBackend.tryCreate();
 const skip = RequireEnv.skipUnlessBool(

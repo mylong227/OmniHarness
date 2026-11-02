@@ -25,15 +25,15 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.ts';
-import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.ts';
-import { ListDirTool } from '../../src/adapters/tool/fs/listDirTool.ts';
-import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.ts';
-import { ReadFileTool } from '../../src/adapters/tool/fs/readFileTool.ts';
-import { GlobTool } from '../../src/adapters/tool/fs/globTool.ts';
-import { GrepTool } from '../../src/adapters/tool/fs/grepTool.ts';
-import { ToolWorkspaceRoot } from '../../src/util/toolWorkspaceRoot.ts';
-import { WorktreeOps } from '../../src/subagent/worktreeOps.ts';
+import { WriteFileTool } from '../../src/kernel/adapters/tool/fs/writeFileTool.ts';
+import { EditFileTool } from '../../src/kernel/adapters/tool/fs/editFileTool.ts';
+import { ListDirTool } from '../../src/kernel/adapters/tool/fs/listDirTool.ts';
+import { ApplyPatchTool } from '../../src/kernel/adapters/tool/fs/applyPatchTool.ts';
+import { ReadFileTool } from '../../src/kernel/adapters/tool/fs/readFileTool.ts';
+import { GlobTool } from '../../src/kernel/adapters/tool/fs/globTool.ts';
+import { GrepTool } from '../../src/kernel/adapters/tool/fs/grepTool.ts';
+import { ToolWorkspaceRoot } from '../../src/kernel/util/toolWorkspaceRoot.ts';
+import { WorktreeOps } from '../../src/kernel/subagent/worktreeOps.ts';
 
 /** 建一个临时目录（调用方负责删）。 */
 const tempDir = (prefix: string): string => mkdtempSync(join(tmpdir(), prefix));

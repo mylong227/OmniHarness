@@ -4,10 +4,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { BrowserActTool } from '../../src/adapters/tool/browser/browserActTool.ts';
-import { ChromeLocator } from '../../src/adapters/browser/chromeLocator.ts';
+import { BrowserActTool } from '../../src/kernel/adapters/tool/browser/browserActTool.ts';
+import { ChromeLocator } from '../../src/kernel/adapters/browser/chromeLocator.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** Playwright 是否真的可加载（optionalDependency，可能被 --omit=optional 跳过）。 */
 const playwrightAvailable = ((): boolean => {

@@ -153,9 +153,9 @@
 
 #### F1（最高优先级）repo-map 变更检测：写步 2.4 s 全同步 `[实测]`
 
-- 证据：`src/context/corpusIndexCache.ts:179` 循环内 `readFileSync`；`:409` 在 TTL 过期或失效后
+- 证据：`src/kernel/context/corpusIndexCache.ts:179` 循环内 `readFileSync`；`:409` 在 TTL 过期或失效后
   `contentHashes(root)`（全仓 walk + 读全部文件 + SHA1）；`:412` 紧接着 `statSignature(root)`
-  （又一次全仓 walk + 逐文件 stat）。触发点：`src/core/stepToolExecutor.ts:270-274` 对
+  （又一次全仓 walk + 逐文件 stat）。触发点：`src/kernel/core/stepToolExecutor.ts:270-274` 对
   `MUTATING_TOOLS`（**含 `shell`**）成功即 `invalidate()` → `indexedAt=0` → 下一步跳过 TTL 快路径。
 - 实测（审计机，冷文件缓存）：walk 914 ms｜全仓 `readFileSync` 1,418 ms｜SHA1 97 ms｜
   `statSignature` 803 ms ⇒ dirty 一步 **≈2.4 s**（冷盘 7.8 s）。本机热缓存独立复测：2,219 文件
@@ -177,9 +177,9 @@
 
 #### F2 压缩器 `shrink()` 每步重扫全部消息，零 memo `[实测]`
 
-- 证据：`src/context/contextCompactor.ts:382-390`（**未达阈值也走** `this.shrink(messages)`）；
+- 证据：`src/kernel/context/contextCompactor.ts:382-390`（**未达阈值也走** `this.shrink(messages)`）；
   `:172-181` 逐条 `shrinkLossless` + 两次 `byteLength`；
-  `src/context/deterministicCompressor.ts:79-89,152-157`（split/map/join + `JSON.parse/stringify`）。
+  `src/kernel/context/deterministicCompressor.ts:79-89,152-157`（split/map/join + `JSON.parse/stringify`）。
 - 实测：`shrink()` 单次 **58.2 ms**（1.14 MB / 201 条；collapse 44.9 / minify 10.1 / byteLength 6.8）；
   `compact()` 无游标 **93.9 ms/步**、有游标 **53.2 ms/步**。
 - 影响：30 步回合 1–2.8 s 纯 CPU，且都在请求前抬高 TTFT；随上下文线性 ⇒ 整回合 O(n²)。
@@ -197,7 +197,7 @@
 
 #### F4 OpenAI 流式路径请求体序列化两次 `[实测]`
 
-- 证据：`src/adapters/model/openAiCompatibleModel.ts:124` `buildRequest`（`:233` 已 stringify）
+- 证据：`src/kernel/adapters/model/openAiCompatibleModel.ts:124` `buildRequest`（`:233` 已 stringify）
   → `:125` 又 `bodyOf` → `:127` 再次 stringify 覆盖。
 - 实测：1.16 MB body 单次 10.5 ms、两次 34.0 ms；`sanitizeToolRounds`/`toWireMessages` 同样跑两遍。
 - 修法：`buildRequest(request, guard, overrides?)`，stream 分支只序列化一次。
@@ -205,8 +205,8 @@
 
 #### F5 工具暴露规划器每步重建 33 份 BM25 `[实测]`
 
-- 证据：`src/core/stepContextBuilder.ts:426-436` 每步 `JSON.stringify(tool.parameters)` 重建语料；
-  `src/core/toolExposurePlanner.ts:534-547` 重新分词/df/打分。
+- 证据：`src/kernel/core/stepContextBuilder.ts:426-436` 每步 `JSON.stringify(tool.parameters)` 重建语料；
+  `src/kernel/core/toolExposurePlanner.ts:534-547` 重新分词/df/打分。
 - 实测：**8.44 ms/步**。
 - 修法：`WeakMap<ToolDefinition, tokens>` + 按 `(taskText, 工具名指纹, 注册表版本)` 单槽 memo。
 - 验收：warm ≤0.5 ms/步；工具热插拔后 memo 失效。
@@ -223,21 +223,21 @@
 
 #### F7 SSE 解析 O(n²) `[实测]`
 
-- 证据：`src/adapters/model/sseParser.ts:37-45` 每个 chunk 对**整个 buffer** 重新 `replace` + `split`。
+- 证据：`src/kernel/adapters/model/sseParser.ts:37-45` 每个 chunk 对**整个 buffer** 重新 `replace` + `split`。
 - 实测（单 200 KB 事件）：200 KB chunk 12.5 ms｜8 KB 12.1 ms｜1 KB **61.7 ms**｜256 B **195.4 ms**。
 - 修法：`searchStart` 增量找 `\n\n`，只归一被切出的块并 `slice` 消费；块尾 `\r` 留到下一轮。
 - 验收：同一事件按 1/2/7 字节喂入，输出逐字节相同；1 KB chunk 200 KB 事件 ≤15 ms。
 
 #### F8 `memory_search` 每次全量重建 BM25 `[实测]`
 
-- 证据：`src/adapters/retrieval/bm25MemoryIndex.ts:49-51,100-105`；每条事件都置 dirty。
+- 证据：`src/kernel/adapters/retrieval/bm25MemoryIndex.ts:49-51,100-105`；每条事件都置 dirty。
 - 实测：`tokenize` 1 MB **530.6 ms**、`addDocuments` 1 MB 176.3 ms ⇒ 每次 search ≈0.7 s 同步阻塞。
 - 修法：按 `indexed` 游标 `addDocument` 增量；`refreshAverageLength()` 修正均值；docs 正文截断 4 KB。
 - 验收：1 MB 会话第二次 search ≤5 ms；命中顺序 golden 不变。
 
 #### F9 三份独立 token 记账，breakdown 只为 UI 却每步必算 `[实测]`
 
-- 证据：`src/core/stepRunner.ts:482-487`；`contextBreakdownEstimator.ts:101-106`；
+- 证据：`src/kernel/core/stepRunner.ts:482-487`；`contextBreakdownEstimator.ts:101-106`；
   `contextCompactor.ts:113` 各一套 512 缓存。
 - 实测：`breakdown.estimate` warm **3.34 ms/步**。
 - 修法：单一 `TokenEstimator` 注入 compactor/breakdown/usage；快照改为按需（RPC 读取或每 N 步）。
@@ -255,7 +255,7 @@ query 只算一次、`list()` 按注册表版本缓存。
 
 #### S1 `sessions.list` / `usage.stats`：全量扫描、无分页、无并发闸 `[实测]`
 
-- 证据：`src/server/services/session/sessionArchive.ts:227` `Promise.all` 一次 409 个 `readFile`；
+- 证据：`src/apps/server/services/session/sessionArchive.ts:227` `Promise.all` 一次 409 个 `readFile`；
   `sessionScanCache.ts:188,202` 整档 `readFile` + 逐行 `JSON.parse` 只为算摘要；
   `appServer.ts:213-233` 无 `limit/offset`；`usage()` 同构。
 - 影响：冷 4.72 s、同步 parse 194 ms；活跃会话每追加一次就整档重解析；10k 档不可用。
@@ -266,7 +266,7 @@ query 只算一次、`list()` 按注册表版本缓存。
 
 #### S2 `threads.get` 整档加载 `[代码确证]`
 
-- 证据：`src/core/agent.ts:404-409` → `jsonlStorage.ts:88` 整档 read + 逐行 parse；
+- 证据：`src/kernel/core/agent.ts:404-409` → `jsonlStorage.ts:88` 整档 read + 逐行 parse；
   `httpServer.ts:383-385` 再整段 `JSON.stringify`；无 gzip/分页。
 - 影响：50 MB 图像会话峰值 150–200 MB；TTFB = 全量序列化时间。
 - 修法：`threads.get?before=<id>&limit=200` + `hasMore`；前端先取尾页、向上补拉；
@@ -275,7 +275,7 @@ query 只算一次、`list()` 按注册表版本缓存。
 
 #### S3 SSE 无会话过滤 `[代码确证]`
 
-- 证据：`src/server/transport/sseFanout.ts:112-123` 对整个 `clients` 集合写同一帧；
+- 证据：`src/apps/server/transport/sseFanout.ts:112-123` 对整个 `clients` 集合写同一帧；
   `serverEventBridge.ts:110` 每事件都广播；前端是在 **JSON.parse 之后**才按 sessionId 丢弃。
 - 影响：C 个标签页 = C 份字节；30 张截图的回合单客户端 150 MB。
 - 修法：`GET /events?thread=<id>` 订阅集（`Map<sid, Set<res>>` + 通配）；重放走同一过滤器；
@@ -311,7 +311,7 @@ query 只算一次、`list()` 按注册表版本缓存。
 
 #### S7 审计哈希链每事件同步 append `[代码确证]`
 
-- 证据：`src/server/services/auditSink.ts:143-154` SHA-256 + `appendFileSync`，调用点在
+- 证据：`src/apps/server/services/auditSink.ts:143-154` SHA-256 + `appendFileSync`，调用点在
   每个事件的 `serverEventBridge.ts:109`；启动 `resumeChain()` 整档读。
 - 修法：`createWriteStream` + 200 ms 组批；`audit.head.json` 存 seq/prev；64 MiB 轮转 + 流式 verify；
   `detail` 剥离 base64。
@@ -529,7 +529,7 @@ query 只算一次、`list()` 按注册表版本缓存。
 
 ### 3.2 性能仪表化（Wave 0 的产物）
 
-新增 `src/observability/perfTrace.ts`（或扩展现有 span）：
+新增 `src/kernel/observability/perfTrace.ts`（或扩展现有 span）：
 
 - 后端：`turn.total`、`step.context.build`、`step.tools.plan`、`step.compaction`、
   `step.model.request`、`step.tool.exec`、`repoMap.invalidate`、`repoMap.get`、
@@ -773,16 +773,16 @@ query 只算一次、`list()` 按注册表版本缓存。
 
 | 主题                  | 位置                                                                                                                                                               |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| repo-map 全量复核     | `src/context/corpusIndexCache.ts:168-186,391-434,537-548`；`src/core/stepToolExecutor.ts:263-278`                                                                  |
-| 压缩 shrink/指纹/摘要 | `src/context/contextCompactor.ts:172-181,286,375-429,713-722`；`src/context/deterministicCompressor.ts:79-89,152-157`                                              |
-| 暴露规划              | `src/core/stepContextBuilder.ts:426-436`；`src/core/toolExposurePlanner.ts:449-453,534-547`                                                                        |
-| SSE 解析              | `src/adapters/model/sseParser.ts:24-55`                                                                                                                            |
-| 会话列表/用量         | `src/server/services/session/sessionArchive.ts:105-160,219-257`；`sessionScanCache.ts:163-210`                                                                     |
-| 会话打开              | `src/core/agent.ts:404-409`；`src/adapters/storage/jsonlStorage.ts:88,181-206`                                                                                     |
-| SSE 扇出              | `src/server/transport/sseFanout.ts:6-15,90-173`；`src/server/core/serverEventBridge.ts:109-110`                                                                    |
-| 静态服务              | `src/server/transport/httpServer.ts:394-423`                                                                                                                       |
-| 同步文件 IO           | `src/server/services/safeFs.ts:70-87`；`src/server/services/workspaceChanges.ts:90-98`                                                                             |
-| 审计链                | `src/server/services/auditSink.ts:143-154,297-305`                                                                                                                 |
+| repo-map 全量复核     | `src/kernel/context/corpusIndexCache.ts:168-186,391-434,537-548`；`src/kernel/core/stepToolExecutor.ts:263-278`                                                                  |
+| 压缩 shrink/指纹/摘要 | `src/kernel/context/contextCompactor.ts:172-181,286,375-429,713-722`；`src/kernel/context/deterministicCompressor.ts:79-89,152-157`                                              |
+| 暴露规划              | `src/kernel/core/stepContextBuilder.ts:426-436`；`src/kernel/core/toolExposurePlanner.ts:449-453,534-547`                                                                        |
+| SSE 解析              | `src/kernel/adapters/model/sseParser.ts:24-55`                                                                                                                            |
+| 会话列表/用量         | `src/apps/server/services/session/sessionArchive.ts:105-160,219-257`；`sessionScanCache.ts:163-210`                                                                     |
+| 会话打开              | `src/kernel/core/agent.ts:404-409`；`src/kernel/adapters/storage/jsonlStorage.ts:88,181-206`                                                                                     |
+| SSE 扇出              | `src/apps/server/transport/sseFanout.ts:6-15,90-173`；`src/apps/server/core/serverEventBridge.ts:109-110`                                                                    |
+| 静态服务              | `src/apps/server/transport/httpServer.ts:394-423`                                                                                                                       |
+| 同步文件 IO           | `src/apps/server/services/safeFs.ts:70-87`；`src/apps/server/services/workspaceChanges.ts:90-98`                                                                             |
+| 审计链                | `src/apps/server/services/auditSink.ts:143-154,297-305`                                                                                                                 |
 | 前端流式              | `web/src/ui/components/stream/StreamingAssistantCard.tsx:51`；`web/src/ui/markdown.ts:261-273,448-468`                                                             |
 | 前端状态              | `web/src/ui/App.ts:476,534-537`；`web/src/ui/controllers/AppController.ts:618-627`；`web/src/ui/models/StreamThrottle.ts:47`                                       |
 | 前端布局              | `web/src/ui/components/StreamView.tsx:592-618,683-729`；`web/src/ui/components/Composer.tsx:53-57`                                                                 |

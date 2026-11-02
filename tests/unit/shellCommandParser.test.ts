@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { ShellCommandParser } from '../../src/adapters/tool/shell/shellCommandParser.ts';
+import { ShellCommandParser } from '../../src/kernel/adapters/tool/shell/shellCommandParser.ts';
 
 const parser = new ShellCommandParser();
 

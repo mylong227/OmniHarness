@@ -8,7 +8,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SessionGc } from '../../src/util/sessionGc.ts';
+import { SessionGc } from '../../src/kernel/util/sessionGc.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 

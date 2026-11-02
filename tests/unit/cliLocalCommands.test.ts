@@ -31,7 +31,7 @@ import { join } from 'node:path';
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();
 /** CLI 入口。 */
-const CLI = join(REPO_ROOT, 'dist/src/cli/exec.js');
+const CLI = join(REPO_ROOT, 'dist/src/apps/cli/exec.js');
 
 /**
  * 跑一次 CLI。

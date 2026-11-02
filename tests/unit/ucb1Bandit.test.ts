@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Ucb1Bandit } from '../../src/util/concurrency/ucb1Bandit.ts';
+import { Ucb1Bandit } from '../../src/kernel/util/concurrency/ucb1Bandit.ts';
 
 test('① 冷启动：每个臂先各选一次', () => {
   const bandit = new Ucb1Bandit(3);

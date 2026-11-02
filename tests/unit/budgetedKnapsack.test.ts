@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BudgetedKnapsack } from '../../src/util/budgetedKnapsack.ts';
+import { BudgetedKnapsack } from '../../src/kernel/util/budgetedKnapsack.ts';
 
 test('① 贪心反例：A(15,10)+B(6,6)+C(5,5) 预算 11 ⇒ 选 B+C（价值 11）', () => {
   const result = BudgetedKnapsack.select(

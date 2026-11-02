@@ -3,7 +3,7 @@
 - 日期：2026-10-04
 - 对象：`fastify`（HTTP 框架）+ `ws`（WebSocket）
 - 依据：[ARCHITECTURE_TARGET_2026-10.md](ARCHITECTURE_TARGET_2026-10.md) §5.3、[DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md) §2 六门
-- 被替代资产：`src/server/transport/`（`httpServer.ts` 410 行 / `wsConnection.ts` 369 行 / `httpBridgeTransport.ts` 333 行 / `sseBackpressureGuard.ts` / `serverAuthGuard.ts`）
+- 被替代资产：`src/apps/server/transport/`（`httpServer.ts` 410 行 / `wsConnection.ts` 369 行 / `httpBridgeTransport.ts` 333 行 / `sseBackpressureGuard.ts` / `serverAuthGuard.ts`）
 
 ## 结论：**拆开裁决——`fastify` 拒绝，`ws` 暂不引入但缺陷已修**
 
@@ -32,7 +32,7 @@
 
 ## 三、审计发现（本轮的核心产出）：自研帧层 4 处协议一致性缺陷，已修
 
-对 `src/server/transport/wsConnection.ts` 逐条核对 RFC6455 后确认（修复前行为）：
+对 `src/apps/server/transport/wsConnection.ts` 逐条核对 RFC6455 后确认（修复前行为）：
 
 | #   | 缺陷                                      | 规范依据              | 后果                                                                                     | 本轮处置                                 |
 | --- | ----------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------- |

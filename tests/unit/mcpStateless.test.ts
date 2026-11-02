@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import { McpStatelessClient } from '../../src/mcp/mcpStatelessClient.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import { McpStatelessClient } from '../../src/protocols/mcp/mcpStatelessClient.ts';
 
 class FakeTransport implements Transport {
   public readonly sent: RpcMessage[] = [];

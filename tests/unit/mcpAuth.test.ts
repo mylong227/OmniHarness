@@ -9,11 +9,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { McpAuthProvider } from '../../src/mcp/mcpAuthProvider.ts';
-import { McpAuthTokenStore } from '../../src/mcp/mcpAuthTokenStore.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.ts';
+import { McpAuthProvider } from '../../src/protocols/mcp/mcpAuthProvider.ts';
+import { McpAuthTokenStore } from '../../src/protocols/mcp/mcpAuthTokenStore.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import type { McpServerConfig } from '../../src/contracts/ports/mcp/mcpServerConfig.ts';
 
 /** 最小服务器配置。 */
 function server(auth: McpServerConfig['auth'], headers?: Record<string, string>): McpServerConfig {

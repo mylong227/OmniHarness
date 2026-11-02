@@ -68,7 +68,7 @@ import { fileURLToPath } from 'node:url';
 /** 仓库根（本文件在 `scripts/` 下）。 */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** CLI 入口（构建产物）。 */
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 /** 用例工作区根（gitignored 的运行时目录）。 */
 const RUN_ROOT = join(ROOT, '.omniharness', 'model-test-runs');
 /** 报告落盘位置。 */

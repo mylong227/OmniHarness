@@ -9,7 +9,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ServeInstance } from '../../src/cli/serveInstance.ts';
+import { ServeInstance } from '../../src/apps/cli/serveInstance.ts';
 
 /** announce 所需的记录形状。 */
 interface PidRecord {

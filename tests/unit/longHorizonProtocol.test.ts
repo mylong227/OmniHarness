@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import {
   LongHorizonProtocol,
   type LongHorizonVerifyResult,
-} from '../../src/context/longHorizonProtocol.ts';
+} from '../../src/kernel/context/longHorizonProtocol.ts';
 
 /** 建一个临时工作区（测试结束删）。 */
 function workspace(): string {

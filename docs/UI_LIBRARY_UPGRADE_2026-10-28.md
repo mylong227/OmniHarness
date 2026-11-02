@@ -228,7 +228,7 @@ web/styles/
   删除 `theme.css` 里重复的颜色定义，自定义 CSS 一律消费 antd 生成的 `--ant-*` 变量
   （CSS 变量模式由 ConfigProvider 注入；v6 若默认关闭则在 W0 显式开启并验证变量名稳定）。
 - **antd 只出现在 `web/src/ui/**`**：后端 `src/**` 继续零第三方；新增一条源码守卫，禁止
-  `web/src/core/**` 与 `web/src/types/**` 引用 antd。
+  `web/src/kernel/core/**` 与 `web/src/types/**` 引用 antd。
 - **状态层不动**：AppController / 各子控制器 / RPC / SSE / 虚拟化 / markdown / diff / 图 全部保留；
   这次只换视图层与样式层。
 

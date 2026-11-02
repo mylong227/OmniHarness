@@ -11,19 +11,19 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { RunWorkflowTool } from '../../src/kernel/adapters/tool/workflow/runWorkflowTool.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 /** 收集型事件端口。 */
 class RecordingEvents implements EventPort {

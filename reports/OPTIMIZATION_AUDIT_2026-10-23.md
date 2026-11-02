@@ -69,7 +69,7 @@
 
 **现象与证据**
 
-- 生产路径 `RepoMapContextEngine` 默认启用（`OMNI_REPO_MAP != '0'`，`src/core/agent.ts#L577`），首次组装上下文即建索引。
+- 生产路径 `RepoMapContextEngine` 默认启用（`OMNI_REPO_MAP != '0'`，`src/kernel/core/agent.ts#L577`），首次组装上下文即建索引。
 - 本机实测（`node --expose-gc`，`ContextEngine.indexCorpus('.', {light:true, artifactSink})`）：
 
 | 语料                   | 文件  | 符号   | 建索引 | 堆增量       | RSS      |
@@ -78,8 +78,8 @@
 | `src/`                 | 1,163 | 14,682 | ~2.4 s | **141.2 MB** | —        |
 | `src/`（无 artifacts） | 1,163 | 14,682 | —      | 119.8 MB     | —        |
 
-- 其中 `Bm25Index.documents`（全部文档的 token 字符串数组）占 **53.3 MB**（`src/` 实测：119.7 → 66.4 MB）；`CorpusFileArtifact` 又保存一份 `fileDoc`/`symbolDocs`（`src/context/corpusFileArtifact.ts#L19-L26`）。
-- `CorpusIndexCache` 的 `DEFAULT_MAX_ENTRIES = 4`（`src/context/corpusIndexCache.ts#L52`），按条数淘汰，没有字节预算/空闲淘汰。按本机条目大小推算，4 条全仓索引约 **1.0 GB 堆**；语料上限 32 MB（`src/context/corpusWalker.ts#L91`）时更差。
+- 其中 `Bm25Index.documents`（全部文档的 token 字符串数组）占 **53.3 MB**（`src/` 实测：119.7 → 66.4 MB）；`CorpusFileArtifact` 又保存一份 `fileDoc`/`symbolDocs`（`src/kernel/context/corpusFileArtifact.ts#L19-L26`）。
+- `CorpusIndexCache` 的 `DEFAULT_MAX_ENTRIES = 4`（`src/kernel/context/corpusIndexCache.ts#L52`），按条数淘汰，没有字节预算/空闲淘汰。按本机条目大小推算，4 条全仓索引约 **1.0 GB 堆**；语料上限 32 MB（`src/kernel/context/corpusWalker.ts#L91`）时更差。
 
 **影响**
 
@@ -109,9 +109,9 @@
 
 **现象与证据**
 
-- `GitWorkspaceSnapshot.entryFor` 对所有 dirty 文件 `readFile(..., 'utf8')`（`src/adapters/workspace/gitWorkspaceSnapshot.ts#L99`），`restore` 以 `writeFile(..., 'utf8')` 写回（`#L135`）。
-- `SnapshotFileIo.writeSnapshotFile` 对整份快照 `JSON.stringify`（`src/core/snapshotFileIo.ts#L18`），没有单文件/总量上限；`capture` 把所有条目内容同时留在内存。
-- `CheckpointManager` 没有保留/清理策略（`src/core/checkpointManager.ts#L108` 起）；显式 `checkpoint` 工具与 UI 检查点使用 `GitWorkspaceSnapshot`（`src/config/configToolRegistry.ts#L385`、`src/server/services/session/sessionCheckpoints.ts#L81`）。自动检查点（每 20 步）是纯事件检查点，不带文件快照（`src/core/agent.ts#L118`），所以磁盘大头来自显式/UI 检查点。
+- `GitWorkspaceSnapshot.entryFor` 对所有 dirty 文件 `readFile(..., 'utf8')`（`src/kernel/adapters/workspace/gitWorkspaceSnapshot.ts#L99`），`restore` 以 `writeFile(..., 'utf8')` 写回（`#L135`）。
+- `SnapshotFileIo.writeSnapshotFile` 对整份快照 `JSON.stringify`（`src/kernel/core/snapshotFileIo.ts#L18`），没有单文件/总量上限；`capture` 把所有条目内容同时留在内存。
+- `CheckpointManager` 没有保留/清理策略（`src/kernel/core/checkpointManager.ts#L108` 起）；显式 `checkpoint` 工具与 UI 检查点使用 `GitWorkspaceSnapshot`（`src/kernel/config/configToolRegistry.ts#L385`、`src/apps/server/services/session/sessionCheckpoints.ts#L81`）。自动检查点（每 20 步）是纯事件检查点，不带文件快照（`src/kernel/core/agent.ts#L118`），所以磁盘大头来自显式/UI 检查点。
 - 本机 `.omni-checkpoints` **507.9 MB**；最大单文件 **161.3 MB**（`sess_muw0wyr3_m/cp1.files.json`）。
 
 **二进制损坏实测（本机，使用真实 `GitWorkspaceSnapshot`）**
@@ -142,10 +142,10 @@
 
 **现象与证据**
 
-- `AppendOnlyEventLog` 持有全量事件（`src/core/appendOnlyEventLog.ts#L8`），`SessionRecorder.allEvents()` 每次返回浅拷贝（`src/core/sessionRecorder.ts#L217`）。
-- `SessionAttachmentSpiller` 只在 `JsonlStorage.save/append` 时把大附件移到磁盘，**内存里的 recorder 事件仍是 base64**（`src/context/contextAssembler.ts#L368-L388` 只在投影时按路径水合）。
-- `ContextImageBudget` 只裁剪**发给模型**的投影（`src/context/contextImageBudget.ts#L14`），不裁剪事件日志。
-- `SseFanout` 重放历史上限 256 条（`src/server/transport/sseFanout.ts#L6`），帧里是完整 `thread.event` JSON（`#L78`），没有字节上限。
+- `AppendOnlyEventLog` 持有全量事件（`src/kernel/core/appendOnlyEventLog.ts#L8`），`SessionRecorder.allEvents()` 每次返回浅拷贝（`src/kernel/core/sessionRecorder.ts#L217`）。
+- `SessionAttachmentSpiller` 只在 `JsonlStorage.save/append` 时把大附件移到磁盘，**内存里的 recorder 事件仍是 base64**（`src/kernel/context/contextAssembler.ts#L368-L388` 只在投影时按路径水合）。
+- `ContextImageBudget` 只裁剪**发给模型**的投影（`src/kernel/context/contextImageBudget.ts#L14`），不裁剪事件日志。
+- `SseFanout` 重放历史上限 256 条（`src/apps/server/transport/sseFanout.ts#L6`），帧里是完整 `thread.event` JSON（`#L78`），没有字节上限。
 
 **影响**
 
@@ -164,8 +164,8 @@
 
 ### M4. `FileSpill` / `MemorySpill` 的上限不完整
 
-- `FileSpill` 只限制文件数 512（`src/adapters/spill/fileSpill.ts#L11`），没有总字节上限；单次 shell 输出可能是几十 MB，512 个文件可占数 GB。
-- `MemorySpill` 是 `Map<string,string>`（`src/adapters/spill/memorySpill.ts#L13`），没有 LRU/上限；用户选 `spillAdapter='memory'` 时随会话单调增长。
+- `FileSpill` 只限制文件数 512（`src/kernel/adapters/spill/fileSpill.ts#L11`），没有总字节上限；单次 shell 输出可能是几十 MB，512 个文件可占数 GB。
+- `MemorySpill` 是 `Map<string,string>`（`src/kernel/adapters/spill/memorySpill.ts#L13`），没有 LRU/上限；用户选 `spillAdapter='memory'` 时随会话单调增长。
 
 **建议**：两者都加总字节预算（如 64 MB/32 MB）+ LRU；`MemorySpill` 超限淘汰最旧；判据覆盖「写入超过预算后总量有界」。
 
@@ -173,7 +173,7 @@
 
 ### M5. 每步前缀复用测量会序列化全量上下文
 
-- `StepContextBuilder.measurePrefixReuse` 每步 `messages.map(serializeMessage).join(',')`（`src/core/stepContextBuilder.ts#L285`），并把完整字符串留在 `lastSerialized`；只为产出 `prefixReuse` 遥测。
+- `StepContextBuilder.measurePrefixReuse` 每步 `messages.map(serializeMessage).join(',')`（`src/kernel/core/stepContextBuilder.ts#L285`），并把完整字符串留在 `lastSerialized`；只为产出 `prefixReuse` 遥测。
 - 对 2.5 MB 上下文，每步多一次 2.5 MB 字符串分配 + 比较，GC 压力与 CPU 都是白付；且与「省内存」方向相反。
 
 **建议**：默认关闭（`OMNI_PREFIX_METRICS=1` 才开），或改为增量哈希/只比较新增尾部；保留 `PrefixStability` 的单测。判据：关闭时 `prefixReuse` 显示「未采集」而不是假 0；开启时与旧值一致。
@@ -182,7 +182,7 @@
 
 ### M6. 语料内容签名每 30 秒整仓读盘（CPU/IO，不是常驻内存）
 
-- `CorpusIndexCache.contentHashes` 在 TTL 到期时对**全部文件** `readFileSync` + SHA-1（`src/context/corpusIndexCache.ts#L310-L329`），默认 TTL 30 s（`#L54`）。
+- `CorpusIndexCache.contentHashes` 在 TTL 到期时对**全部文件** `readFileSync` + SHA-1（`src/kernel/context/corpusIndexCache.ts#L310-L329`），默认 TTL 30 s（`#L54`）。
 - 本仓 2032 文件/约 20 MB，每 30 秒读一遍；大仓（32 MB 上限）更明显。
 - 写类工具已经会 `invalidate`（软失效），TTL 只是外部编辑的兜底。
 
@@ -192,8 +192,8 @@
 
 ### M7. 事件日志 `all()` 的浅拷贝与投影缓存
 
-- `AppendOnlyEventLog.all()` 每次 `[...this.events]`（`src/core/appendOnlyEventLog.ts#L154`）；`SessionRecorder.allEvents()`、`ProvenanceTracker.fromEvents`、`deriveQueryText`、`restoreCompactionState` 等每步多次调用。
-- `ContextAssembler` 的投影缓存又保存一份 `events` 引用数组和 `messages` 数组（`src/context/contextAssembler.ts#L133-L141`）。
+- `AppendOnlyEventLog.all()` 每次 `[...this.events]`（`src/kernel/core/appendOnlyEventLog.ts#L154`）；`SessionRecorder.allEvents()`、`ProvenanceTracker.fromEvents`、`deriveQueryText`、`restoreCompactionState` 等每步多次调用。
+- `ContextAssembler` 的投影缓存又保存一份 `events` 引用数组和 `messages` 数组（`src/kernel/context/contextAssembler.ts#L133-L141`）。
 - 单条数组元素是指针，10k 事件也只是 ~80 KB/次；不是主因，但每步多次浅拷贝会制造 GC 噪声。
 
 **建议**：提供只读视图/版本号（调用方不得修改），或让 `allEvents()` 返回 `readonly` 的稳定快照；`ContextAssembler` 缓存只存 `events.length` + 前缀指纹，不存整个数组。优先级 P3。
@@ -208,8 +208,8 @@
 
 - 232 次调用 completion 共 191,793 token；事件里的 reasoning 文本 340,640 字符，assistant 文本 47,642 字符。按 chars/3 粗估，reasoning ≈ 113.5k token，**约占 completion 的 59%**（估算；不同模型 tokenizer 不同）。
 - 鹈鹕会话 `sess_mvf6q61y_e`：completion 92,529，reasoning 201,668 字符，assistant 仅 712 字符，reasoning 占比约 **73%**（粗估）。
-- 代码把 `runtime.config.reasoning` 原样传给每一步（`src/core/agent.ts#L572`、`src/core/stepRunner.ts#L188`）；压缩、记忆、目标、guardian、reviewer 也共用同一档（`src/context/contextCompactor.ts#L658`、`src/adapters/memory/memoryExtractor.ts#L177`、`src/autonomy/goalChecker.ts#L60`、`src/adapters/approval/guardianApproval.ts#L80`、`src/adapters/tool/verify/reviewDiffTool.ts#L94`）。
-- `TaskComplexityClassifier` 已在回合开始计算复杂度（`src/core/agent.ts#L293-L298`），但没有用于推理预算。
+- 代码把 `runtime.config.reasoning` 原样传给每一步（`src/kernel/core/agent.ts#L572`、`src/kernel/core/stepRunner.ts#L188`）；压缩、记忆、目标、guardian、reviewer 也共用同一档（`src/kernel/context/contextCompactor.ts#L658`、`src/kernel/adapters/memory/memoryExtractor.ts#L177`、`src/kernel/autonomy/goalChecker.ts#L60`、`src/kernel/adapters/approval/guardianApproval.ts#L80`、`src/kernel/adapters/tool/verify/reviewDiffTool.ts#L94`）。
+- `TaskComplexityClassifier` 已在回合开始计算复杂度（`src/kernel/core/agent.ts#L293-L298`），但没有用于推理预算。
 
 **建议**
 
@@ -226,10 +226,10 @@
 
 **证据**
 
-- `turnTokenBudget` 默认 0（`src/core/turnRunner.ts#L166` 只在 >0 时生效）；`OMNI_TURN_TOKEN_BUDGET`/`--turn-token-budget` 可设，但默认关。
-- `costBudgetUsd` 未设/≤0 时不构造 `CostBudget`（`src/config/configFactory.ts#L417-L435`）；`budget_status` 工具也只在配置后注册。
-- `maxOutputTokens` 只从 env `OMNI_MAX_OUTPUT_TOKENS` 读（`src/core/agentLimits.ts#L12`），默认不下发。
-- 默认只有 30 min 软提醒 + 8 h 硬熔断（`src/core/agent.ts#L46-L52`）；「一直在做新事情」的回合没有 token 刹车。
+- `turnTokenBudget` 默认 0（`src/kernel/core/turnRunner.ts#L166` 只在 >0 时生效）；`OMNI_TURN_TOKEN_BUDGET`/`--turn-token-budget` 可设，但默认关。
+- `costBudgetUsd` 未设/≤0 时不构造 `CostBudget`（`src/kernel/config/configFactory.ts#L417-L435`）；`budget_status` 工具也只在配置后注册。
+- `maxOutputTokens` 只从 env `OMNI_MAX_OUTPUT_TOKENS` 读（`src/kernel/core/agentLimits.ts#L12`），默认不下发。
+- 默认只有 30 min 软提醒 + 8 h 硬熔断（`src/kernel/core/agent.ts#L46-L52`）；「一直在做新事情」的回合没有 token 刹车。
 
 **建议**
 
@@ -252,7 +252,7 @@
 
 ### C4. 工具 schema 与 `tool_search` 的缓存代价
 
-- `ToolExposurePlanner` 默认 `plan`（`src/core/toolExposurePlanner.ts#L399-L403`），实测 schema 6,167 → 1,325–1,964 token（省 68–78%），这是真实的上下文/注意力收益。
+- `ToolExposurePlanner` 默认 `plan`（`src/kernel/core/toolExposurePlanner.ts#L399-L403`），实测 schema 6,167 → 1,325–1,964 token（省 68–78%），这是真实的上下文/注意力收益。
 - 但 87% 的 prompt 已命中缓存，schema token 的**美元成本**没有 68% 那么夸张；不要把它当主要省钱项。
 - `tool_search` 改变工具表会让前缀缓存整体失效（历史实测 cachedPromptTokens 51,200 → 3,712）；当前用「延迟工具清单」鼓励第一步搜索，方向正确。
 
@@ -262,7 +262,7 @@
 
 ### C5. `repo-map` 的 token 与 `fileK`
 
-- 默认 `fileK=20`（`src/context/repoMap/repoMapContextEngine.ts#L101`），`payloadShape='tiered'` 已把 token 压到约 914/请求（5 条代表性查询平均）。
+- 默认 `fileK=20`（`src/kernel/context/repoMap/repoMapContextEngine.ts#L101`），`payloadShape='tiered'` 已把 token 压到约 914/请求（5 条代表性查询平均）。
 - 提到 30/40 只增加约 87/156 token（+9.5%/+17%），但召回 +6.9/+10.0pp（见 A2）。这是本轮**性价比最高的准确率改动**。
 
 ---
@@ -273,9 +273,9 @@
 
 **链路（本机代码复核）**
 
-1. `CodeInterpreter` 失败时把原因放 `output`（`src/adapters/tool/code/codeInterpreter.ts#L76-L110`）。
-2. `CodeExecutorTool.handle` 返回 `{callId, ok: result.ok, output: result.output}`，**没有 `error`**（`src/adapters/tool/code/codeExecutorTool.ts#L77`）。
-3. `ContextAssembler.toolContentOf` 对 `ok=false` **只读 `error`**（`src/context/contextAssembler.ts#L432-L437`），于是模型看到 `工具执行失败: 未知错误`。
+1. `CodeInterpreter` 失败时把原因放 `output`（`src/kernel/adapters/tool/code/codeInterpreter.ts#L76-L110`）。
+2. `CodeExecutorTool.handle` 返回 `{callId, ok: result.ok, output: result.output}`，**没有 `error`**（`src/kernel/adapters/tool/code/codeExecutorTool.ts#L77`）。
+3. `ContextAssembler.toolContentOf` 对 `ok=false` **只读 `error`**（`src/kernel/context/contextAssembler.ts#L432-L437`），于是模型看到 `工具执行失败: 未知错误`。
 
 **实测**
 
@@ -300,12 +300,12 @@ new ContextAssembler().build([ev]); // → content: "工具执行失败: 未知�
 最小改动示意（两处都做，互为兜底）：
 
 ```ts
-// src/adapters/tool/code/codeExecutorTool.ts:70-78
+// src/kernel/adapters/tool/code/codeExecutorTool.ts:70-78
 return result.ok
   ? { callId: call.id, ok: true, output: result.output }
   : { callId: call.id, ok: false, error: result.output || 'run_code 执行失败' };
 
-// src/context/contextAssembler.ts:432-438
+// src/kernel/context/contextAssembler.ts:432-438
 const detail = payload.error ?? payload.output ?? '未知错误';
 return `工具执行失败: ${detail}`;
 ```
@@ -350,9 +350,9 @@ return `工具执行失败: ${detail}`;
 
 **现状**
 
-- `ContextCompactor` 的 8 段摘要模板 + 确定性工具台账 + pinned system 消息，设计是合理的（`src/context/contextCompactor.ts#L95-L105`、`#L421`、`#L510`）。
+- `ContextCompactor` 的 8 段摘要模板 + 确定性工具台账 + pinned system 消息，设计是合理的（`src/kernel/context/contextCompactor.ts#L95-L105`、`#L421`、`#L510`）。
 - 但看板/长会话报告自己承认：压缩仍是单次摘要为主，缺「压缩后任务保持率」的端到端数字；本轮也没有找到 `compactionRetention` 一类探针。
-- `summarize` 调用没有 `maxOutputTokens`（`src/context/contextCompactor.ts#L651-L664`），摘要模型可以生成很长输出。
+- `summarize` 调用没有 `maxOutputTokens`（`src/kernel/context/contextCompactor.ts#L651-L664`），摘要模型可以生成很长输出。
 
 **建议**
 
@@ -364,7 +364,7 @@ return `工具执行失败: ${detail}`;
 
 ### A5. 自动 reviewer 只看 diff + goal，不看测试结果
 
-- `TurnRunner` 在完成声明时调用 `reviewer.review({diff, goal})`（`src/core/turnRunner.ts#L368-L420`），没有把本回合的验证/测试输出传进去；`ReviewDiffTool` 的 `tests` 参数是给手动 `review_diff` 工具用的（`src/adapters/tool/verify/reviewDiffTool.ts#L55-L63`）。
+- `TurnRunner` 在完成声明时调用 `reviewer.review({diff, goal})`（`src/kernel/core/turnRunner.ts#L368-L420`），没有把本回合的验证/测试输出传进去；`ReviewDiffTool` 的 `tests` 参数是给手动 `review_diff` 工具用的（`src/kernel/adapters/tool/verify/reviewDiffTool.ts#L55-L63`）。
 - 结果是 reviewer 无法判断「diff 看起来对，但测试挂了」。
 
 **建议**：把本回合最近一次 shell/测试的结论（命令、退出码、失败摘要）作为 `tests` 传入 reviewer；仍保持 advisory 默认，避免误杀。判据：reviewer 输入包含测试结果；对「测试失败但 diff 干净」的样本能报出 blocker/major。
@@ -375,9 +375,9 @@ return `工具执行失败: ${detail}`;
 
 | 现象（真实失败）              | 次数 | 现有信息                                        | 建议                                                                                                                                                                                                                                                    |
 | ----------------------------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `grep` 用 `(?i)`              | 3    | `Invalid regular expression: ... Invalid group` | 错误里直接提示「JS 正则不支持内联 `(?i)`，请用 `case_insensitive=true`」；可在 `GrepTool` 前缀解析时归一化 `(?i)`（`src/adapters/tool/fs/grepTool.ts#L121`）                                                                                            |
-| 沙箱拒绝 `node -e` / `del /q` | 2    | `命中危险命令规则: <rule>`                      | 追加「写文件用 write_file/apply_patch；删除请用专用工具/确认」；规则命中时给替代路径（`src/adapters/sandbox/policySandbox.ts#L55`）                                                                                                                     |
-| `read_file`/`list_dir` ENOENT | 2    | `ENOENT ... stat/scandir 'D:\work\...'`         | `list_dir` 目前裸透传 Node 错误（`src/adapters/tool/fs/listDirTool.ts#L48-L50`）；补「当前工作区根 + 用 glob/list_dir 确认」。`read_file` 已有人话文案（`src/adapters/tool/fs/readFileTool.ts#L161-L180`），但真实会话仍有一条原始 ENOENT，需按版本复核 |
+| `grep` 用 `(?i)`              | 3    | `Invalid regular expression: ... Invalid group` | 错误里直接提示「JS 正则不支持内联 `(?i)`，请用 `case_insensitive=true`」；可在 `GrepTool` 前缀解析时归一化 `(?i)`（`src/kernel/adapters/tool/fs/grepTool.ts#L121`）                                                                                            |
+| 沙箱拒绝 `node -e` / `del /q` | 2    | `命中危险命令规则: <rule>`                      | 追加「写文件用 write_file/apply_patch；删除请用专用工具/确认」；规则命中时给替代路径（`src/kernel/adapters/sandbox/policySandbox.ts#L55`）                                                                                                                     |
+| `read_file`/`list_dir` ENOENT | 2    | `ENOENT ... stat/scandir 'D:\work\...'`         | `list_dir` 目前裸透传 Node 错误（`src/kernel/adapters/tool/fs/listDirTool.ts#L48-L50`）；补「当前工作区根 + 用 glob/list_dir 确认」。`read_file` 已有人话文案（`src/kernel/adapters/tool/fs/readFileTool.ts#L161-L180`），但真实会话仍有一条原始 ENOENT，需按版本复核 |
 | `apply_patch` 缺 `+++`/`@@`   | 2    | 已比较清楚                                      | 可附一个最小合法模板；优先级低                                                                                                                                                                                                                          |
 
 这些改动不改变模型能力，只把「模型已经知道的错误」变成「模型能立刻修正的错误」，直接减少重试成本。
@@ -386,7 +386,7 @@ return `工具执行失败: ${detail}`;
 
 ### A7. `read_file` 的 512 KiB 与 2 KiB 预览不匹配（假设，需 A/B）
 
-- `read_file` 本身允许 512 KiB 窗口（`src/adapters/tool/fs/fileLineWindow.ts#L57`），但 `ToolResultSpiller` 默认 >16 KiB 就外溢，只给 2 KiB 预览（`src/config/corePortsAssembler.ts#L95-L96`）。
+- `read_file` 本身允许 512 KiB 窗口（`src/kernel/adapters/tool/fs/fileLineWindow.ts#L57`），但 `ToolResultSpiller` 默认 >16 KiB 就外溢，只给 2 KiB 预览（`src/kernel/config/corePortsAssembler.ts#L95-L96`）。
 - 一个 30 KiB 的源文件（约 800 行）会被压到 2 KiB（约 50 行）+ `spill://` 句柄；模型若不再 `spill_read`，就会基于片段改代码。
 - 这是**假设**：模型可能确实会回读；需要真实任务 A/B。但当前阈值对代码阅读偏激进。
 
@@ -396,7 +396,7 @@ return `工具执行失败: ${detail}`;
 
 ### A8. 工具参数只校验「必填 + 顶层类型」
 
-- `RegistryToolPort.validate` 只检查 `required` 与顶层 `typeof`（`src/adapters/tool/registryToolPort.ts#L111-L128`），不校验 enum/范围/嵌套；`ToolArgumentParser` 遇到非法 JSON 回退 `{}`（`src/adapters/model/toolArgumentParser.ts#L16-L29`），模型只会看到「缺少必填参数」。
+- `RegistryToolPort.validate` 只检查 `required` 与顶层 `typeof`（`src/kernel/adapters/tool/registryToolPort.ts#L111-L128`），不校验 enum/范围/嵌套；`ToolArgumentParser` 遇到非法 JSON 回退 `{}`（`src/kernel/adapters/model/toolArgumentParser.ts#L16-L29`），模型只会看到「缺少必填参数」。
 - 影响有限（工具内部还会校验），但错误信息可以更准确：非法 JSON 时提示「参数 JSON 解析失败」并附前 200 字符，而不是伪装成缺参。
 
 **建议**：低优先；在 `ToolArgumentParser` 返回结构化错误，或让 `RegistryToolPort` 区分「解析失败」与「缺参」。判据：非法 JSON 的失败文案包含 `invalid_json`。
@@ -407,7 +407,7 @@ return `工具执行失败: ${detail}`;
 
 ### Q1. 文档与代码默认值漂移
 
-- `reports/REASSESSMENT_2026-10-22.md` §2.4 写「工具暴露规划默认 `off`（`OMNI_TOOL_EXPOSURE=plan` 才开）」；代码 `modeFromEnv` **默认 `plan`**（`src/core/toolExposurePlanner.ts#L399-L403`）。
+- `reports/REASSESSMENT_2026-10-22.md` §2.4 写「工具暴露规划默认 `off`（`OMNI_TOOL_EXPOSURE=plan` 才开）」；代码 `modeFromEnv` **默认 `plan`**（`src/kernel/core/toolExposurePlanner.ts#L399-L403`）。
 - `docs/LONG_SESSION_QUALITY_2026-10-20.md` 末尾写「时长/token/内存/存档体积四条线全部收口」；本轮的语料索引/检查点/事件日志说明「内存」仍有明显余量。
 - 这类漂移会误导下一轮审计。建议：把「关键默认值」纳入 `auditStandards`/`standard-delta` 的交叉核对（已有类似机制），或至少在本轮更新这两处措辞。
 

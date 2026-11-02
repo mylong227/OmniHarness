@@ -20,11 +20,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { GifDecoder } from '../../src/media/gifDecoder.ts';
-import { MediaSniffer } from '../../src/media/mediaSniffer.ts';
-import { GifFrameCompositor } from '../../src/media/gifFrameCompositor.ts';
-import { GifLzwDecoder } from '../../src/media/gifLzwDecoder.ts';
-import type { GifColorTableRef, GifDecodedFrame, GifImageSpec } from '../../src/media/gifTypes.ts';
+import { GifDecoder } from '../../src/kernel/media/gifDecoder.ts';
+import { MediaSniffer } from '../../src/kernel/media/mediaSniffer.ts';
+import { GifFrameCompositor } from '../../src/kernel/media/gifFrameCompositor.ts';
+import { GifLzwDecoder } from '../../src/kernel/media/gifLzwDecoder.ts';
+import type { GifColorTableRef, GifDecodedFrame, GifImageSpec } from '../../src/kernel/media/gifTypes.ts';
 
 /**
  * 真实 GIF 夹具（本机 ffmpeg 生成，8×8、256 色全局调色板、3 帧红/蓝/绿、921 字节）：

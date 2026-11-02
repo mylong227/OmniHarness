@@ -29,9 +29,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'vitest';
 
-import { HttpBridgeTransport, HttpServer } from '../../src/server/transport/httpServer.ts';
-import type { AppServer } from '../../src/server/core/appServer.ts';
-import { RuntimeLimits, runtimeLimits } from '../../src/util/runtimeLimits.ts';
+import { HttpBridgeTransport, HttpServer } from '../../src/apps/server/transport/httpServer.ts';
+import type { AppServer } from '../../src/apps/server/core/appServer.ts';
+import { RuntimeLimits, runtimeLimits } from '../../src/kernel/util/runtimeLimits.ts';
 
 /** 仓库根（判据在 dist/tests/unit，按 cwd 解析）。 */
 const ROOT = process.cwd();
@@ -292,7 +292,7 @@ test('⑦ 消费者真读：HttpServer 的连接级参数就是解析后的配�
 });
 
 test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码行里', () => {
-  const http = srcCode('src/server/transport/httpServer.ts');
+  const http = srcCode('src/apps/server/transport/httpServer.ts');
   for (const pattern of [
     /30_000/u,
     /60_000/u,
@@ -306,7 +306,7 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
       `httpServer.ts 不得再写死 ${String(pattern)}（应走 limits.http / defaults/limits.json）`,
     );
   }
-  const preview = srcCode('src/server/transport/previewServer.ts');
+  const preview = srcCode('src/apps/server/transport/previewServer.ts');
   for (const pattern of [/15_000/u, /30_000/u, /maxConnections = 64/u]) {
     assert.doesNotMatch(preview, pattern, `previewServer.ts 不得再写死 ${String(pattern)}`);
   }
@@ -316,20 +316,20 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.match(preview, /limits\.headersTimeoutMs/u);
 
   // A2A 段（P2）：三个消费者各自不得再写死迁移前的字面量。
-  const a2aClient = srcCode('src/a2a/a2aClient.ts');
+  const a2aClient = srcCode('src/protocols/a2a/a2aClient.ts');
   assert.doesNotMatch(a2aClient, /60_000/u, 'a2aClient.ts 的调用超时必须走 limits.a2a');
   assert.match(a2aClient, /runtimeLimits\.defaults\(\)\.a2a\.clientTimeoutMs/u);
-  const push = srcCode('src/a2a/a2aPushNotifications.ts');
+  const push = srcCode('src/protocols/a2a/a2aPushNotifications.ts');
   assert.doesNotMatch(push, /DEFAULT_WEBHOOK_TIMEOUT_MS/u);
   assert.match(push, /a2a\.webhookTimeoutMs/u);
-  const pager = srcCode('src/a2a/a2aTaskPager.ts');
+  const pager = srcCode('src/protocols/a2a/a2aTaskPager.ts');
   assert.doesNotMatch(pager, /DEFAULT_PAGE_SIZE|DEFAULT_TTL_MS|24 \* 60 \* 60/u);
   assert.match(pager, /a2aDefaults\.pageSize/u);
 
   // A2A 段（P8）：任务/推送桶上限不得再写死（LimitEnv 只保留 env 名，默认值来自数据）。
   assert.doesNotMatch(push, /MAX_CONFIGS_PER_TASK = LimitEnv|MAX_TASK_BUCKETS = LimitEnv/u);
   assert.match(push, /maxPushConfigsPerTask/u);
-  const taskStore = srcCode('src/a2a/a2aTaskStore.ts');
+  const taskStore = srcCode('src/protocols/a2a/a2aTaskStore.ts');
   assert.doesNotMatch(
     taskStore,
     /maxTasks: number = LimitEnv|maxArtifactsPerTask: number = LimitEnv/u,
@@ -338,7 +338,7 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.match(taskStore, /defaults\.maxArtifactsPerTask/u);
 
   // A2A 传输（P9）：三个静态 LimitEnv 常量已改为实例字段（env 名仍在，默认值来自数据）。
-  const transport = srcCode('src/a2a/httpA2aTransport.ts');
+  const transport = srcCode('src/protocols/a2a/httpA2aTransport.ts');
   assert.doesNotMatch(
     transport,
     /SEND_TIMEOUT_MS = LimitEnv|MAX_BODY_BYTES = LimitEnv|READ_TIMEOUT_MS = LimitEnv/u,
@@ -348,82 +348,82 @@ test('⑧ 反硬编码守卫：这些字面量不得再出现在消费者代码�
   assert.match(transport, /this\.readTimeoutMs/u);
 
   // 工具段（P3）：web_fetch 不得再写死缺省超时/字节上限。
-  const webFetch = srcCode('src/adapters/tool/web/webFetchTool.ts');
+  const webFetch = srcCode('src/kernel/adapters/tool/web/webFetchTool.ts');
   assert.doesNotMatch(webFetch, /DEFAULT_MAX_BYTES|DEFAULT_TIMEOUT_MS|200_000/u);
   assert.match(webFetch, /this\.limits\.webFetchTimeoutMs/u);
   assert.match(webFetch, /this\.limits\.webFetchMaxBytes/u);
 
   // 维护段（P4）：保留策略与清扫阈值不得再写死。
-  const sessionGc = srcCode('src/util/sessionGc.ts');
+  const sessionGc = srcCode('src/kernel/util/sessionGc.ts');
   assert.doesNotMatch(sessionGc, /DEFAULT_KEEP_NEWEST = 50|4 \* 1024 \* 1024 \* 1024|90 \* 24/u);
   assert.match(sessionGc, /maintenance\.keepNewest/u);
-  const tmpSweep = srcCode('src/util/tmpSweep.ts');
+  const tmpSweep = srcCode('src/kernel/util/tmpSweep.ts');
   assert.doesNotMatch(tmpSweep, /DEFAULT_AGE_MS = 24 \* 60 \* 60 \* 1000/u);
   assert.match(tmpSweep, /maintenance\.tmpOlderThanMs/u);
-  const maintenance = srcCode('src/util/maintenanceRunner.ts');
+  const maintenance = srcCode('src/kernel/util/maintenanceRunner.ts');
   assert.doesNotMatch(maintenance, /DEFAULT_INTERVAL_HOURS = 6/u);
   assert.match(maintenance, /maintenance\.intervalHours/u);
 
   // LSP 段（P5）：请求/诊断超时不得再写死。
-  const conn = srcCode('src/adapters/lsp/lspJsonRpcConnection.ts');
+  const conn = srcCode('src/kernel/adapters/lsp/lspJsonRpcConnection.ts');
   assert.doesNotMatch(conn, /DEFAULT_REQUEST_TIMEOUT_MS = 15_?000/u);
   assert.match(conn, /lsp\.requestTimeoutMs/u);
-  const lspAdapter = srcCode('src/adapters/lsp/lspProcessAdapter.ts');
+  const lspAdapter = srcCode('src/kernel/adapters/lsp/lspProcessAdapter.ts');
   assert.doesNotMatch(lspAdapter, /DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 5_?000/u);
   assert.match(lspAdapter, /lsp\.diagnosticsTimeoutMs/u);
 
   // 浏览器段（P6）：五个适配器 + 两个工具的缺省值都不得再写死。
-  assert.doesNotMatch(srcCode('src/adapters/browser/cdpClient.ts'), /DEFAULT_TIMEOUT_MS = 20_000/u);
+  assert.doesNotMatch(srcCode('src/kernel/adapters/browser/cdpClient.ts'), /DEFAULT_TIMEOUT_MS = 20_000/u);
   assert.doesNotMatch(
-    srcCode('src/adapters/browser/cdpClient.ts'),
+    srcCode('src/kernel/adapters/browser/cdpClient.ts'),
     /DEFAULT_CONNECT_TIMEOUT_MS = 15_000/u,
   );
   assert.doesNotMatch(
-    srcCode('src/adapters/browser/chromeProcess.ts'),
+    srcCode('src/kernel/adapters/browser/chromeProcess.ts'),
     /DEFAULT_LAUNCH_TIMEOUT_MS = 30_000/u,
   );
   assert.doesNotMatch(
-    srcCode('src/adapters/browser/browserAvailability.ts'),
+    srcCode('src/kernel/adapters/browser/browserAvailability.ts'),
     /DEFAULT_PROBE_TIMEOUT_MS = 5_000/u,
   );
   assert.doesNotMatch(
-    srcCode('src/adapters/browser/browserSession.ts'),
+    srcCode('src/kernel/adapters/browser/browserSession.ts'),
     /DEFAULT_LOAD_TIMEOUT_MS = 30_000/u,
   );
-  const playwright = srcCode('src/adapters/browser/playwrightBrowserSession.ts');
+  const playwright = srcCode('src/kernel/adapters/browser/playwrightBrowserSession.ts');
   assert.doesNotMatch(playwright, /DEFAULT_TIMEOUT_MS = 10_000|timeout: 30_000/u);
   assert.match(playwright, /browser\.actionTimeoutMs/u);
   assert.doesNotMatch(
-    srcCode('src/adapters/tool/browser/browserScreenshotTool.ts'),
+    srcCode('src/kernel/adapters/tool/browser/browserScreenshotTool.ts'),
     /IDLE_CLOSE_MS = 180_000/u,
   );
-  assert.doesNotMatch(srcCode('src/adapters/tool/browser/browserActTool.ts'), /\?\? 180_000/u);
+  assert.doesNotMatch(srcCode('src/kernel/adapters/tool/browser/browserActTool.ts'), /\?\? 180_000/u);
 
   // shell 段（P7）：并发/队列的缺省值不得再写死在装配层。
-  const registry = srcCode('src/config/configToolRegistry.ts');
+  const registry = srcCode('src/kernel/config/configToolRegistry.ts');
   assert.doesNotMatch(registry, /LimitEnv\.int\('OMNI_SHELL_CONCURRENCY', 8\)/u);
   assert.match(registry, /shellDefaults\.shellConcurrency/u);
   // 媒体段（P7）：并发上限不得再写死。
-  const media = srcCode('src/config/mediaStackAssembler.ts');
+  const media = srcCode('src/kernel/config/mediaStackAssembler.ts');
   assert.doesNotMatch(media, /MAX_CONCURRENT_PROCESSES = LimitEnv\.int\([^)]*4\)/u);
   assert.match(media, /media\.processConcurrency/u);
 });
 
 test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', () => {
   // limits 的 CLI 映射在协作类 argConfigDefaults（2026-10-31 从 argParser 按域拆出）。
-  assert.match(srcCode('src/cli/argConfigDefaults.ts'), /result\.limits = file\.limits/u);
+  assert.match(srcCode('src/apps/cli/argConfigDefaults.ts'), /result\.limits = file\.limits/u);
   assert.match(
-    srcCode('src/cli/cliSubsystemSections.ts'),
+    srcCode('src/apps/cli/cliSubsystemSections.ts'),
     /args\.limits !== undefined \? \{ limits: args\.limits \}/u,
   );
-  assert.match(srcCode('src/config/configFactory.ts'), /limits: partial\.limits/u);
-  assert.match(srcCode('src/cli/cliServerCmds.ts'), /limits: config\.limits/u);
+  assert.match(srcCode('src/kernel/config/configFactory.ts'), /limits: partial\.limits/u);
+  assert.match(srcCode('src/apps/cli/cliServerCmds.ts'), /limits: config\.limits/u);
   assert.match(
-    srcCode('src/ports/config/fileConfig.ts'),
+    srcCode('src/contracts/ports/config/fileConfig.ts'),
     /readonly limits\?: RuntimeLimitsConfig/u,
   );
   // A2A 消费点：组合根把解析后的 limits 交给 client / pager / push。
-  const runtime = srcCode('src/composition/runtime.ts');
+  const runtime = srcCode('src/apps/composition/runtime.ts');
   assert.match(runtime, /runtimeLimits\.resolve\(config\.limits\)\.a2a/u);
   assert.match(runtime, /new A2aTaskPager\(\{/u);
   // 任务/推送桶上限走原始配置（未配置时叶子类回落 env / 数据默认值）。
@@ -440,34 +440,34 @@ test('⑨ 接线：配置文件 → CLI → 装配 → 消费者 四段都在', 
   assert.match(runtime, /new HttpA2aTransport\(peer, ssrf, config\.limits\?\.a2a\)/u);
   // 工具段：limits 随种子下发到工具装配层，在配置层解析一次后交给 web_fetch。
   assert.match(
-    srcCode('src/ports/config/subagentPortSeed.ts'),
+    srcCode('src/contracts/ports/config/subagentPortSeed.ts'),
     /readonly limits\?: RuntimeLimitsConfig/u,
   );
-  assert.match(srcCode('src/config/configBuilder.ts'), /limits: partial\.limits/u);
+  assert.match(srcCode('src/kernel/config/configBuilder.ts'), /limits: partial\.limits/u);
   assert.match(
-    srcCode('src/config/configToolRegistry.ts'),
+    srcCode('src/kernel/config/configToolRegistry.ts'),
     /runtimeLimits\.resolve\(seed\.limits\)\.tools/u,
   );
   // 维护段：serve 启动时把配置段交给 MaintenanceRunner（启动巡检 + 周期定时器同一份）。
   assert.match(
-    srcCode('src/cli/cliServerCmds.ts'),
+    srcCode('src/apps/cli/cliServerCmds.ts'),
     /MaintenanceRunner\.startup\(process\.stderr, config\.limits\?\.maintenance\)/u,
   );
   // LSP 段：装配层把请求/诊断超时传给适配器（不是只声明）。
   assert.match(
-    srcCode('src/config/configBuilder.ts'),
+    srcCode('src/kernel/config/configBuilder.ts'),
     /runtimeLimits\.resolve\(partial\.limits\)\.lsp/u,
   );
   // 浏览器段：装配层解析一次后交给两个浏览器工具。
   assert.match(
-    srcCode('src/config/configToolRegistry.ts'),
+    srcCode('src/kernel/config/configToolRegistry.ts'),
     /runtimeLimits\.resolve\(seed\.limits\)\.browser/u,
   );
   // shell 段：配置段（原始值，便于与 env 分层）在装配层读取。
-  assert.match(srcCode('src/config/configToolRegistry.ts'), /seed\.limits\?\.tools/u);
+  assert.match(srcCode('src/kernel/config/configToolRegistry.ts'), /seed\.limits\?\.tools/u);
   // 媒体段：装配器接受配置段的并发覆盖（未配置时回落到 env/数据）。
   assert.match(
-    srcCode('src/config/configBuilder.ts'),
+    srcCode('src/kernel/config/configBuilder.ts'),
     /partial\.limits\?\.media\?\.processConcurrency/u,
   );
 });

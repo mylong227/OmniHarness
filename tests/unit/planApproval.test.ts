@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
+import { PlanApproval } from '../../src/kernel/adapters/approval/planApproval.ts';
 
 const req = (toolName: string) => ({
   sessionId: 's1',

@@ -1,0 +1,696 @@
+import type {
+  ModelMessage,
+  ModelOutput,
+  ModelPort,
+  ModelRequest,
+  ModelToolCallRef,
+  ModelToolSpec,
+  ModelUsage,
+  StreamCallbacks,
+} from '../../../contracts/ports/model/model.ts';
+import { ModelCallError } from '../../../contracts/ports/model/model.ts';
+import { ModelFinishReasons } from '../../util/modelFinishReasons.ts';
+import { PromptCacheUsageReader } from './promptCacheUsageReader.ts';
+import { ModelHttpErrors } from './modelHttpErrors.ts';
+import { sseParser } from './sseParser.ts';
+import { RequestStallGuard } from './requestStallGuard.ts';
+import {
+  DEFAULT_REQUEST_TIMEOUT_MS,
+  REQUEST_TIMEOUT_ENV_KEY,
+  ModelRequestGuard,
+} from './modelRequestGuard.ts';
+import { log } from '../../util/logger.ts';
+import { ToolRoundSanitizer } from '../../util/toolRoundSanitizer.ts';
+import { ModelResponseFormats } from './modelResponseFormats.ts';
+import { ModelReasoningEfforts } from './modelReasoningEfforts.ts';
+import { ToolArgumentParser } from './toolArgumentParser.ts';
+
+// 空闲超时的库级默认与覆盖环境变量**单一来源**在 `modelRequestGuard`（四个适配器共用）：
+// 这里只做再导出，保持既有公开 API 不变（测试与下游按此名引用）。
+export { DEFAULT_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_ENV_KEY };
+
+/** OpenAI 兼容模型适配器配置。 */
+export interface OpenAiCompatibleConfig {
+  /** 兼容端点根地址（适配器在其后追加 /chat/completions）。 */
+  readonly baseUrl: string;
+  /** Bearer 鉴权用的 API 密钥。 */
+  readonly apiKey: string;
+  /** 模型标识（同时作为端口契约的适配器名）。 */
+  readonly model: string;
+  /**
+   * 单次请求的**空闲**超时（毫秒，可选）：连续静默超过该值即中止并抛可重试错误。
+   * 优先级 本字段 > 环境变量 `OMNI_MODEL_REQUEST_TIMEOUT_MS` > `DEFAULT_REQUEST_TIMEOUT_MS`；
+   * `<=0` 关闭空闲超时（仅保留调用方 `ModelRequest.signal` 的取消能力）。
+   */
+  readonly requestTimeoutMs?: number | undefined;
+}
+
+/** 解析 Retry-After（秒数或 HTTP-date），越界或非法返回 undefined（#M6）。
+ * @param value Retry-After 响应头原文（纯秒数或 HTTP 日期两种格式）。
+ * @returns 折算后的等待毫秒数（上限 60 秒）；格式非法或日期已过期时为 undefined。
+ */
+
+/** OpenAI 兼容 chat/completions 客户端（DeepSeek/OpenAI/任意兼容端点）。 */
+export class OpenAiCompatibleModel implements ModelPort {
+  /** 适配器名（端口契约），取配置的模型标识（config.model）。 */
+  public readonly name: string;
+  /** 生效的请求空闲超时（毫秒，`<=0` 表示关闭）：构造期解析，见 `ModelRequestGuard`。 */
+  public readonly requestTimeoutMs: number;
+  /** 请求空闲超时装配器（四个适配器共用的同一份语义）。 */
+  private readonly guard: ModelRequestGuard;
+  /** 提示缓存命中量读取器（三家字段名不同，读取逻辑集中在 reader，本类只调用）。 */
+  private readonly promptCache = new PromptCacheUsageReader();
+
+  public constructor(
+    /** 适配器配置：兼容端点地址、API 密钥、模型标识与可选请求空闲超时。 */
+    private readonly config: OpenAiCompatibleConfig,
+  ) {
+    this.name = config.model;
+    this.guard = new ModelRequestGuard(config.requestTimeoutMs);
+    this.requestTimeoutMs = this.guard.timeoutMs;
+  }
+
+  /** 生成响应。
+   * @param request 模型请求（消息、工具规格、推理强度与可选取消信号）。
+   * @returns 解析后的统一输出（文本、推理、工具调用与用量）；非 2xx 时抛出结构化 ModelCallError。
+   */
+  public async generate(request: ModelRequest): Promise<ModelOutput> {
+    const guard = this.guardOf(request);
+    try {
+      const response = await fetch(this.endpoint(), this.buildRequest(request, guard));
+      // 响应头到达即算「有进展」：为紧随其后的响应体读取续期（非流式响应体通常紧接响应头）。
+      guard?.touch();
+      if (!response.ok) {
+        throw await this.httpError(response, '模型请求失败', request);
+      }
+      const body = (await response.json()) as ChatCompletionResponse;
+      return this.parseOutput(body);
+    } catch (err) {
+      throw this.stallAwareError(err, guard, '模型请求');
+    } finally {
+      guard?.dispose();
+    }
+  }
+
+  /** 流式生成（SSE）。
+   * @param request 模型请求（消息、工具规格、推理强度与可选取消信号）。
+   * @param callbacks 流式回调集合：文本增量、工具调用参数增量实时推送。
+   * @returns 流结束后的完整输出：文本/推理按增量顺序拼接，工具调用参数按 index 分桶
+   *          渐进累积后一次性解析；末块 usage 回填供成本护栏。响应体缺失时降级为非流式 generate；
+   *          非 2xx 时抛出结构化 ModelCallError。
+   */
+  public async stream(request: ModelRequest, callbacks: StreamCallbacks): Promise<ModelOutput> {
+    const guard = this.guardOf(request);
+    try {
+      return await this.streamRequest(request, callbacks, guard);
+    } catch (err) {
+      throw this.stallAwareError(err, guard, '模型流式请求');
+    } finally {
+      guard?.dispose();
+    }
+  }
+
+  /** 流式生成主体（守卫生命周期由 `stream` 掌管：武装与转发在构造期，释放与超时归类在收尾）。
+   * @param request 模型请求（消息、工具规格、推理强度与可选取消信号）。
+   * @param callbacks 流式回调集合：文本增量、工具调用参数增量实时推送。
+   * @param guard 本次请求的空闲超时守卫（`undefined` = 既无空闲超时也无调用方信号）。
+   * @returns 流结束后的完整输出（文本/推理/工具调用/用量）；响应体缺失时降级为非流式 generate。
+   */
+  private async streamRequest(
+    request: ModelRequest,
+    callbacks: StreamCallbacks,
+    guard: RequestStallGuard | undefined,
+  ): Promise<ModelOutput> {
+    // stream_options.include_usage 让兼容端点（DeepSeek/OpenAI）在末块回传 usage，供成本护栏记账。
+    // 2026-10-25：附加字段并入 buildRequest 的 body 后再序列化——旧实现先 buildRequest
+    // （内部已 stringify 一次）再 bodyOf + stringify 覆盖，1.16 MB 请求体白烧约 23 ms/次。
+    const init = this.buildRequest(request, guard, {
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+    const response = await fetch(this.endpoint(), init);
+    guard?.touch();
+    if (!response.ok) {
+      throw await this.httpError(response, '模型流式请求失败', request);
+    }
+    const streamBody = response.body;
+    if (streamBody === null) {
+      return this.generate(request);
+    }
+    // 累积状态：文本块 + 推理块 + 工具调用块（含末块 usage）。工具调用必须与 generate 路径等价地
+    // 回填进 ModelOutput，否则走流式（默认 runtime.live 常驻）的 agent 永远收不到 tool_calls，
+    // 退化成"只吐文本、不调工具"（#P3 能力评估曾因此全量 steps:1）。
+    // 推理块：DeepSeek v4 思考模式流式返回 reasoning_content，必须收集并回传，否则下轮 HTTP 400。
+    const state: StreamState = {
+      chunks: [],
+      reasoningChunks: [],
+      toolBlocks: [],
+      usage: undefined,
+      finishReason: undefined,
+      sawDone: false,
+    };
+    await sseParser.read(streamBody, (event) => {
+      // 每个 SSE 事件块都算「有进展」：只要流持续吐字，长响应就不会被空闲超时误杀。
+      guard?.touch();
+      this.handleStreamEvent(event.data, callbacks, state);
+    });
+    // 2026-10-28：EOF 不等于「正常完成」。既没 `finish_reason` 也没 `[DONE]` 就结束，
+    // 说明连接被中途切断——半截工具参数会被 `ToolArgumentParser.parse` 当合法 JSON 执行。
+    // fail-closed 且**不可重试**：已向 live sink 投递过增量，重试会让终端出现「前缀+全文」
+    // 重复；若工具已部分执行，重试还会二次副作用。让回合显式失败，由用户决定是否重跑。
+    if (!state.sawDone && state.finishReason === undefined) {
+      throw new ModelCallError('模型流式响应不完整：既无 finish_reason 也无 [DONE]', {
+        retryable: false,
+      });
+    }
+    const text = state.chunks.length > 0 ? state.chunks.join('') : undefined;
+    const reasoning = state.reasoningChunks.length > 0 ? state.reasoningChunks.join('') : undefined;
+    const defined = state.toolBlocks.filter(
+      (b): b is { id: string; name?: string; partial: string } =>
+        b !== undefined && b.id !== undefined,
+    );
+    const toolCalls =
+      defined.length > 0
+        ? defined.map((b) => {
+            const parsed = ToolArgumentParser.parseDetailed(b.partial);
+            return {
+              id: b.id,
+              name: b.name ?? '',
+              arguments: parsed.arguments,
+              ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
+            };
+          })
+        : undefined;
+    return { text, reasoning, toolCalls, usage: state.usage, finishReason: state.finishReason };
+  }
+
+  /** 构造请求端点。
+   * @returns chat/completions 完整 URL（baseUrl 追加标准路径）。
+   */
+  private endpoint(): string {
+    return `${this.config.baseUrl}/chat/completions`;
+  }
+
+  /**
+   * 把非 2xx 响应转结构化错误（#M6）：429/408/409/5xx 标为可重试，其余 4xx 不可重试；
+   * 若响应带 Retry-After 头则解析为毫秒数随错返回，供重试装饰器直接采用。
+   * 非 2xx 时把响应 body 也记录到 error 日志，方便定位 400 真实原因。
+   * @param response fetch 返回的非 2xx 响应。
+   * @param label 错误消息前缀（区分普通生成与流式生成两条路径）。
+   * @param request 原始请求；400 时用于 dump messages 关键字段辅助定位。
+   * @returns 携带 status / retryable / retryAfterMs 的结构化模型调用错误（不抛出，由调用方决定）。
+   */
+  private async httpError(
+    response: Response,
+    label: string,
+    request?: ModelRequest,
+  ): Promise<ModelCallError> {
+    const status = response.status;
+    const retryable =
+      status === 429 || status === 408 || status === 409 || (status >= 500 && status <= 599);
+    const retryAfter = response.headers.get('retry-after');
+    const retryAfterMs =
+      retryAfter === null ? undefined : OpenAiCompatibleModel.parseRetryAfter(retryAfter);
+    const bodyText = await response.text().catch(() => '<unreadable>');
+    // #OBS-6：400 时把请求 messages 的 assistant 段落关键字段一并 dump（含 reasoning_content 是否缺失），
+    // 方便定位「deepseek 思考模式 must be passed back」类问题的实际断点。
+    const dump: Record<string, unknown> = { status, label, body: bodyText.slice(0, 2000) };
+    if (request !== undefined && status === 400) {
+      const summary = request.messages.map((m, i) => {
+        const wire = Object.fromEntries(Object.entries(m));
+        return {
+          i,
+          role: wire['role'],
+          hasContent:
+            typeof wire['content'] === 'string' ? wire['content'].slice(0, 80) : wire['content'],
+          hasReasoning:
+            typeof wire['reasoningContent'] === 'string'
+              ? `len=${(wire['reasoningContent'] as string).length}`
+              : 'NO',
+          toolCalls: Array.isArray(wire['toolCalls']) ? (wire['toolCalls'] as unknown[]).length : 0,
+          toolCallId: wire['toolCallId'],
+        };
+      });
+      dump['reqMessages'] = summary;
+    }
+    log.error('model.http.error', dump);
+    return new ModelCallError(`${label}: HTTP ${status}`, { status, retryable, retryAfterMs });
+  }
+
+  /** 构造请求体。
+   * @param request 模型请求，决定 body 内容。
+   * @param guard 本次请求的空闲超时守卫（可选）；给出时以其组合信号作为 fetch signal，
+   *              缺省则不带 signal（与改造前该分支逐字一致）。
+   * @param bodyOverrides 流式分支的附加字段（`stream` / `stream_options`）；给出时**只序列化一次**。
+   * @returns 可直接交给 fetch 的 RequestInit（POST、鉴权头与 JSON 序列化后的请求体）。
+   */
+  private buildRequest(
+    request: ModelRequest,
+    guard?: RequestStallGuard,
+    bodyOverrides?: Record<string, unknown>,
+  ): RequestInit {
+    const body =
+      bodyOverrides === undefined
+        ? this.bodyOf(request)
+        : { ...this.bodyOf(request), ...bodyOverrides };
+    return {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify(body),
+      // V2：协作式取消——守卫信号已合并「空闲超时」与调用方 request.signal，取消即中断在飞请求。
+      ...(guard !== undefined ? { signal: guard.signal } : {}),
+    };
+  }
+
+  /**
+   * 为单次请求构造空闲超时守卫（委托给共用的 {@link ModelRequestGuard}；语义与其余三个适配器一致）。
+   * @param request 模型请求（其 `signal` 被转发进守卫，取消语义与改造前同）。
+   * @returns 该请求专属的守卫；无需守卫时为 `undefined`。
+   */
+  private guardOf(request: ModelRequest): RequestStallGuard | undefined {
+    return this.guard.open(request);
+  }
+
+  /**
+   * 把「空闲超时」收敛为**可重试**的结构化错误；其余错误原样返回。
+   * 关键区分：`guard.timedOut` 为假即中止来自**调用方取消**（上层意图），必须原样上抛 ——
+   * 改造前 `AbortError` 亦不可重试（`isRetryable` 不匹配），语义不变。
+   * @param err fetch / 解析阶段抛出的原始错误。
+   * @param guard 本次请求的守卫（可为 `undefined`）。
+   * @param label 错误消息前缀（区分普通生成与流式生成两条路径）。
+   * @returns 可重试的 `ModelCallError`（空闲超时）或原始错误。
+   */
+  private stallAwareError(
+    err: unknown,
+    guard: RequestStallGuard | undefined,
+    label: string,
+  ): unknown {
+    return this.guard.wrap(err, guard, label);
+  }
+
+  /** 请求头。
+   * @returns 含 JSON Content-Type 与 Bearer 鉴权的请求头集合。
+   */
+  private headers(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.config.apiKey}`,
+    };
+  }
+
+  /** 请求体。
+   * @param request 模型请求（消息先经工具轮次规整，再转 wire 格式）。
+   * @returns chat/completions 请求体：model/messages，工具非空时附 tools，
+   *          reasoningEffort 非空串时透传 reasoning_effort（空串不发，避免部分端点 400），
+   *          temperature 已设时透传（未设则不发，保留端点默认）。
+   */
+  private bodyOf(request: ModelRequest): Record<string, unknown> {
+    // thinking 模式判定：与下文 reasoning_effort 透传同源——非空字符串即视为已开启。
+    // 该标记会传给 toWireMessages，用于在历史 assistant 消息 reasoningContent 缺失但带
+    // tool_calls 时强制注入 reasoning_content:""，避免 DeepSeek v4 等推理模型下轮 400。
+    const thinking = typeof request.reasoningEffort === 'string' && request.reasoningEffort !== '';
+    // 消息出栈前统一规整：丢弃 orphan tool、丢弃 tool_calls 响应不全的整段 assistant
+    // 回合（#OBS-8 全链路兜底，2026-09-08 二次复现，OpenAI/DeepSeek HTTP 400）。
+    const messages = this.toWireMessages(
+      ToolRoundSanitizer.sanitizeToolRounds(request.messages),
+      thinking,
+    );
+    const body: Record<string, unknown> = {
+      model: this.config.model,
+      messages,
+      ...(request.tools.length > 0 ? { tools: this.toWireTools(request.tools) } : {}),
+    };
+    // 推理强度透传（#B6）：未设或空串一律不发——DeepSeek 等端点对 reasoning_effort:""
+    // 返回 HTTP 400（unknown variant，2026-09-06 实测）。非空时尊重调用方显式意图直接透传：
+    // 是否真的支持由端点决定，适配器不做模型名猜测（此前用 reasoner/thinking/r1 正则门禁
+    // 会误拦用户显式请求，导致"非空 reasoning_effort 透传"失败）。
+    // 推理强度透传（#B6 原语义保留）：映射收在 ModelReasoningEfforts（单一实现），
+    // 不再在本文件里手写条件——否则"哪条通路支持 reasoning"又要各自维护一遍。
+    const reasoning = ModelReasoningEfforts.toOpenAiChat(request.reasoningEffort);
+    if (reasoning !== undefined) {
+      Object.assign(body, reasoning);
+    }
+    // 采样温度透传：仅在显式提供数值时发送（含 0——0 是合法且本次基准最需要的贪婪解码，
+    // 故判据是 `typeof === 'number'` 而非真值判断，否则温度 0 会被静默丢弃）。
+    if (typeof request.temperature === 'number') {
+      body.temperature = request.temperature;
+    }
+    // 单次输出上限（2026-10-20）：显式正整数才发 max_tokens；未设即端点默认。
+    if (
+      typeof request.maxOutputTokens === 'number' &&
+      Number.isFinite(request.maxOutputTokens) &&
+      request.maxOutputTokens > 0
+    ) {
+      body.max_tokens = Math.floor(request.maxOutputTokens);
+    }
+    // 结构化输出（2026-10-11）：OpenAI Chat Completions 的 `response_format`。
+    // 三条落点：json-schema → `{type:'json_schema', json_schema:{name, schema[, strict]}}`；
+    // json-object → `{type:'json_object'}`；text / 缺省 → **不发该字段**（与旧行为逐字一致）。
+    const responseFormat = ModelResponseFormats.toOpenAiChat(request.responseFormat);
+    if (responseFormat !== undefined) {
+      body.response_format = responseFormat;
+    }
+    return body;
+  }
+
+  /** 消息转 wire 格式。
+   * @param messages 已规整的消息列表（orphan tool 与残缺 assistant 回合已被丢弃）。
+   * @param thinking 思考模式标记（reasoningEffort 非空即视为开启）；为 true 时对带工具调用的
+   *                 assistant 消息兜底注入 reasoning_content 空串占位，避免推理模型下轮 400。
+   * @returns OpenAI wire 消息数组（tool_calls 序列化、tool_call_id 回填、reasoning_content 一致性维护）。
+   */
+  private toWireMessages(
+    messages: readonly ModelRequest['messages'][number][],
+    thinking: boolean,
+  ): unknown[] {
+    return messages.map((message) => {
+      const wire: Record<string, unknown> = { role: message.role };
+      const toolCalls = message.role === 'assistant' ? message.toolCalls : undefined;
+      if (toolCalls !== undefined && toolCalls.length > 0) {
+        // assistant 带 tool_calls：OpenAI 要求 arguments 为 JSON 字符串、type 固定 function。
+        wire.tool_calls = toolCalls.map((call) => ({
+          id: call.id,
+          type: 'function',
+          function: { name: call.name, arguments: JSON.stringify(call.arguments ?? {}) },
+        }));
+        // 带 tool_calls 的 assistant 消息 content 字段必须存在（空串时置 null）。
+        wire.content = message.content === '' ? null : message.content;
+      } else {
+        wire.content = this.contentOf(message);
+      }
+      if (message.role === 'tool' && message.toolCallId !== undefined) {
+        wire.tool_call_id = message.toolCallId;
+      }
+      // 思考模式回传：DeepSeek v4 等推理模型硬性要求把上一轮 assistant 的 reasoning_content
+      // 原样回传，缺失即 HTTP 400（"must be passed back"，2026-09-06 实测铁证）。
+      // 字段已定义时（含空串占位）一律输出：上下文组装器会在思考模式激活后给缺推理的
+      // assistant 补空串，维持 reasoning_content 在对话历史中的一致性（空串已验证 200）。
+      // 非思考对话（reasoningContent 为 undefined）则不注入该字段，保持 OpenAI 端点兼容。
+      if (message.role === 'assistant' && message.reasoningContent !== undefined) {
+        wire.reasoning_content = message.reasoningContent;
+      } else if (thinking && message.role === 'assistant') {
+        // 兜底（#OBS-7，2026-09-07；2026-10-31 扩到**全部** assistant）：
+        // 思考模式 + 历史里 reasoningContent===undefined 时必须注入 reasoning_content:""
+        // 占位——否则 DeepSeek v4 下轮 HTTP 400。原兜底只覆盖「带 tool_calls」的 assistant，
+        // 漏了**纯文本** assistant：端点对同一次 thinking 会话里的快速应答偶发返回
+        // **空串** reasoning_content（实测 2026-10-31，m5 冒烟 4 秒退出、0 续跑的根因），
+        // 投影成 undefined ⇒ 下轮 400（"must be passed back"）。空串占位对三类形态
+        // （有推理 / 无推理带工具 / 无推理纯文本）统一成立，全部已实测 200。
+        wire.reasoning_content = '';
+      }
+      return wire;
+    });
+  }
+
+  /**
+   * 消息 content 转换：含图像时构造为 `[text, ...image_url]` 数组（#B1），
+   * 文件附件按类型追加为图像或文本说明（#B5）；纯文本退化为字符串（向后兼容）。
+   * @param message 统一消息（可能携带图像、文件附件）。
+   * @returns 纯文本时返回字符串；含视觉输入时返回 `[text, ...image_url, ...附件说明]` 分段数组。
+   */
+  private contentOf(message: ModelMessage): unknown {
+    const images = message.images;
+    const imageFiles = (message.files ?? []).filter((f) => f.mediaType.startsWith('image/'));
+    const textFiles = (message.files ?? []).filter((f) => !f.mediaType.startsWith('image/'));
+    if (
+      (images === undefined || images.length === 0) &&
+      imageFiles.length === 0 &&
+      textFiles.length === 0
+    ) {
+      return message.content;
+    }
+    const parts: unknown[] = [{ type: 'text', text: message.content }];
+    for (const image of images ?? []) {
+      if (image.url === undefined && image.data === undefined) {
+        // 2026-10-21：附件水合失败（文件被清理/超限）会留下只有 path 的附件；拼
+        // `base64,undefined` 会被端点 400 拒收，且错误离根因很远。显式降级为文本说明。
+        parts.push({ type: 'text', text: '[图片不可用] 文件内容已不可读，请让用户重新附加。' });
+        continue;
+      }
+      parts.push({
+        type: 'image_url',
+        image_url: {
+          url:
+            image.url ??
+            `data:${image.mediaType ?? 'application/octet-stream'};base64,${image.data ?? ''}`,
+        },
+      });
+    }
+    for (const file of imageFiles) {
+      if (file.url === undefined && file.data === undefined) {
+        parts.push({
+          type: 'text',
+          text: `[附件不可用] ${file.name}（${file.mediaType}）：文件内容已不可读，请让用户重新附加。`,
+        });
+        continue;
+      }
+      parts.push({
+        type: 'image_url',
+        image_url: {
+          url: file.url ?? `data:${file.mediaType};base64,${file.data ?? ''}`,
+        },
+      });
+    }
+    // 非图片文件无法作为视觉输入，注入文件名 + MIME 的文本说明保上下文完整。
+    for (const file of textFiles) {
+      parts.push({ type: 'text', text: `[附件] ${file.name}（${file.mediaType}）` });
+    }
+    return parts;
+  }
+
+  /** 工具转 wire 格式。
+   * @param tools 统一工具规格列表。
+   * @returns OpenAI tools 数组，每项为 type=function 且参数嵌套在 function 字段内的声明。
+   */
+  private toWireTools(tools: readonly ModelToolSpec[]): unknown[] {
+    return tools.map((tool) => ({
+      type: 'function',
+      function: { name: tool.name, description: tool.description, parameters: tool.parameters },
+    }));
+  }
+
+  /** 解析响应为统一输出。
+   * @param body wire 层 JSON 响应。
+   * @returns 统一模型输出（取首个 choice 的消息内容；含提示缓存命中量）；无 choice 时返回空对象。
+   */
+  private parseOutput(body: ChatCompletionResponse): ModelOutput {
+    const choice = body.choices[0];
+    if (choice === undefined) {
+      return {};
+    }
+    const message = choice.message;
+    const output: {
+      reasoning?: string;
+      text?: string;
+      toolCalls?: readonly ModelToolCallRef[];
+      usage?: ModelUsage;
+      finishReason?: string;
+    } = {};
+    // LR-01：保留结束原因（`length` 是截断信号，上层据此续写；旧端点缺字段则不写）。
+    if (typeof choice.finish_reason === 'string' && choice.finish_reason !== '') {
+      output.finishReason =
+        ModelFinishReasons.normalize(choice.finish_reason) ?? choice.finish_reason;
+    }
+    if (message.reasoning_content !== undefined && message.reasoning_content !== '') {
+      output.reasoning = message.reasoning_content;
+    }
+    if (message.content !== undefined && message.content !== null && message.content !== '') {
+      output.text = message.content;
+    }
+    if (message.tool_calls !== undefined && message.tool_calls.length > 0) {
+      output.toolCalls = message.tool_calls.map((call) => this.parseToolCall(call));
+    }
+    // #S29 用量：OpenAI 兼容端点返回 usage.prompt_tokens / completion_tokens / total_tokens。
+    // 另取提示缓存命中量（OpenAI `prompt_tokens_details.cached_tokens` 或 DeepSeek
+    // `prompt_cache_hit_tokens`）——缺字段时为 undefined，读者侧据此区分「未知」与「0 命中」。
+    if (body.usage !== undefined) {
+      output.usage = {
+        promptTokens: body.usage.prompt_tokens,
+        completionTokens: body.usage.completion_tokens,
+        totalTokens: body.usage.total_tokens,
+        cachedPromptTokens: this.promptCache.readOpenAiCompatible(body.usage),
+      };
+    }
+    return output;
+  }
+
+  /** 解析单个工具调用。
+   * @param call wire 层工具调用（参数为 JSON 字符串）。
+   * @returns 统一工具调用引用（id/name/已解析参数对象）。
+   */
+  private parseToolCall(call: WireToolCall): ModelToolCallRef {
+    const parsed = ToolArgumentParser.parseDetailed(call.function.arguments);
+    return {
+      id: call.id,
+      name: call.function.name,
+      arguments: parsed.arguments,
+      ...(parsed.error !== undefined ? { parseError: parsed.error } : {}),
+    };
+  }
+
+  /** 处理流式事件。
+   * @param data SSE 已分帧的事件 data 负载（JSON 文本；[DONE] 终止标记直接忽略）。
+   * @param callbacks 流式回调集合：文本增量经 onText、工具参数增量经 onToolInput 推出。
+   * @param state 跨事件共享的累积状态：文本块、推理块、按 index 分桶的工具调用块与末块 usage。
+   
+   * @returns 无返回值。
+   */
+  private handleStreamEvent(data: string, callbacks: StreamCallbacks, state: StreamState): void {
+    if (data === '[DONE]') {
+      state.sawDone = true;
+      return;
+    }
+    const json = JSON.parse(data) as ChatCompletionChunk & {
+      readonly error?: {
+        readonly code?: string;
+        readonly type?: string;
+        readonly message?: string;
+      };
+      readonly usage?: {
+        readonly prompt_tokens: number;
+        readonly completion_tokens: number;
+        readonly total_tokens: number;
+        readonly prompt_tokens_details?: { readonly cached_tokens?: number };
+        readonly prompt_cache_hit_tokens?: number;
+      };
+    };
+    // 末块（choices 为空）常带 usage，回填供成本护栏记账（与 generate 路径一致）。
+    // 注意：中间块常回传 usage:null，必须用 != null 同时排除 null/undefined。
+    if (json.usage != null) {
+      state.usage = {
+        promptTokens: json.usage.prompt_tokens,
+        completionTokens: json.usage.completion_tokens,
+        totalTokens: json.usage.total_tokens,
+        cachedPromptTokens: this.promptCache.readOpenAiCompatible(json.usage),
+      };
+    }
+    const delta = json.choices?.[0]?.delta;
+    const finishReason = json.choices?.[0]?.finish_reason;
+    if (typeof finishReason === 'string' && finishReason !== '') {
+      state.finishReason = ModelFinishReasons.normalize(finishReason) ?? finishReason;
+    }
+    // 流中错误负载（2026-10-03 修，审计 D3）：`{"error":{…}}` 形式的帧此前因取不到
+    // `choices[0].delta` 被静默忽略（error 帧根本没有 choices，直接读 choices[0] 还会
+    // TypeError）。显式上抛结构化错误中断流。
+    if (delta === undefined && typeof json.error === 'object' && json.error !== null) {
+      throw ModelHttpErrors.streamError(
+        'OpenAI 兼容端点',
+        json.error.code ?? json.error.type ?? 'unknown',
+        json.error.message ?? '',
+      );
+    }
+    // #B3 工具调用参数渐进增量（OpenAI 把参数拆成多个 arguments 片段推送）。
+    if (delta?.tool_calls !== undefined) {
+      for (const tc of delta.tool_calls) {
+        const idx = tc.index ?? 0;
+        let block = state.toolBlocks[idx];
+        if (block === undefined) {
+          block = { id: tc.id, name: tc.function?.name, partial: '' };
+          state.toolBlocks[idx] = block;
+        }
+        if (tc.id !== undefined) block.id = tc.id;
+        if (tc.function?.name !== undefined) block.name = tc.function.name;
+        if (tc.function?.arguments !== undefined) block.partial += tc.function.arguments;
+        callbacks.onToolInput?.({ id: block.id, name: block.name, partialJson: block.partial });
+      }
+      // 不 early-return（2026-10-03 修，审计 D7）：部分 OpenAI 兼容实现（Gemini 兼容层、
+      // 部分网关）会在**同一 delta** 里同发 content/reasoning 与 tool_calls，早退会让
+      // 该段文本/推理从输出与落盘正文中消失。
+    }
+    if (delta?.content !== undefined && delta.content !== null && delta.content !== '') {
+      callbacks.onText(delta.content);
+      state.chunks.push(delta.content);
+    }
+    // 思考模式：收集 reasoning_content 增量，下轮回传用（DeepSeek 硬性要求）。
+    if (
+      delta?.reasoning_content !== undefined &&
+      delta.reasoning_content !== null &&
+      delta.reasoning_content !== ''
+    ) {
+      state.reasoningChunks.push(delta.reasoning_content);
+    }
+  }
+  /**
+   * parseRetryAfter — module-level helper moved into OpenAiCompatibleModel.
+   * @param {string} value - value
+   * @returns {number | undefined} - result
+   */
+  private static parseRetryAfter(value: string): number | undefined {
+    const trimmed = value.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const secs = Number(trimmed);
+      if (Number.isFinite(secs)) {
+        return Math.min(60000, secs * 1000);
+      }
+    }
+    const date = Date.parse(trimmed);
+    if (!Number.isNaN(date)) {
+      const delta = date - Date.now();
+      if (delta > 0) {
+        return Math.min(60000, delta);
+      }
+    }
+    return undefined;
+  }
+}
+
+/** 流式累积状态：文本块 + 推理块 + 工具调用块（按 index 分桶）+ 末块 usage。 */
+interface StreamState {
+  chunks: string[];
+  reasoningChunks: string[];
+  toolBlocks: (
+    { id?: string | undefined; name?: string | undefined; partial: string } | undefined
+  )[];
+  usage: ModelUsage | undefined;
+  finishReason: string | undefined;
+  /** 是否收到过 `[DONE]` 终止标记（EOF 完整性判定用）。 */
+  sawDone: boolean;
+}
+
+/** 流式块类型。 */
+interface ChatCompletionChunk {
+  readonly choices: readonly {
+    readonly finish_reason?: string | null;
+    readonly delta?: {
+      content?: string | null;
+      reasoning_content?: string | null;
+      tool_calls?: readonly {
+        index?: number;
+        id?: string;
+        function?: { name?: string; arguments?: string };
+      }[];
+    };
+  }[];
+}
+
+/** wire 层响应类型。 */
+interface ChatCompletionResponse {
+  readonly choices: readonly {
+    readonly finish_reason?: string | null;
+    readonly message: {
+      readonly role: string;
+      readonly content?: string | null;
+      readonly reasoning_content?: string;
+      readonly tool_calls?: readonly WireToolCall[];
+    };
+  }[];
+  /** token 用量（#S29）。 */
+  readonly usage?: {
+    readonly prompt_tokens: number;
+    readonly completion_tokens: number;
+    readonly total_tokens: number;
+    /** OpenAI 系缓存明细（命中量在 cached_tokens）。 */
+    readonly prompt_tokens_details?: { readonly cached_tokens?: number };
+    /** DeepSeek 系缓存命中量（与 OpenAI 明细二选一，视端点而定）。 */
+    readonly prompt_cache_hit_tokens?: number;
+  };
+}
+
+/** wire 层工具调用类型。 */
+interface WireToolCall {
+  readonly id: string;
+  readonly function: {
+    readonly name: string;
+    readonly arguments: string;
+  };
+}

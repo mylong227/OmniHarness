@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { McpToolIntegrity } from '../../src/mcp/mcpToolIntegrity.ts';
-import type { McpToolDescriptor } from '../../src/ports/mcp/mcpProtocolTypes.ts';
+import { McpToolIntegrity } from '../../src/protocols/mcp/mcpToolIntegrity.ts';
+import type { McpToolDescriptor } from '../../src/contracts/ports/mcp/mcpProtocolTypes.ts';
 
 const tool = (name: string, description = `${name} tool`): McpToolDescriptor => ({
   name,

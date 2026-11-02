@@ -17,18 +17,18 @@ import { test } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MUTATING_TOOL_NAMES, TOOL_NAMES, type ToolName } from '../../src/ports/tool/toolNames.ts';
-import { MUTATING_TOOLS } from '../../src/core/toolGate.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES, type ToolName } from '../../src/contracts/ports/tool/toolNames.ts';
+import { MUTATING_TOOLS } from '../../src/kernel/core/toolGate.ts';
 import {
   LSP_STATUS_TOOL_NAME,
   LSP_WORKSPACE_SYMBOLS_TOOL_NAME,
-} from '../../src/adapters/lsp/lspToolNames.ts';
-import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.ts';
-import { RUN_WORKFLOW_TOOL_NAME } from '../../src/autonomy/workflowToolNames.ts';
-import { POLICY_EVAL_TOOL_NAME } from '../../src/adapters/tool/meta/policyEvalTool.ts';
-import { AGENT_IDENTITY_TOOL_NAME } from '../../src/adapters/tool/meta/agentIdentityTool.ts';
-import { MutationTargets } from '../../src/adapters/tool/verify/mutationTargets.ts';
-import { TRACKED_WRITE_TOOLS } from '../../src/adapters/diff/turnDiffHooks.ts';
+} from '../../src/kernel/adapters/lsp/lspToolNames.ts';
+import { RUN_GOAL_TOOL_NAME } from '../../src/kernel/autonomy/goalToolNames.ts';
+import { RUN_WORKFLOW_TOOL_NAME } from '../../src/kernel/autonomy/workflowToolNames.ts';
+import { POLICY_EVAL_TOOL_NAME } from '../../src/kernel/adapters/tool/meta/policyEvalTool.ts';
+import { AGENT_IDENTITY_TOOL_NAME } from '../../src/kernel/adapters/tool/meta/agentIdentityTool.ts';
+import { MutationTargets } from '../../src/kernel/adapters/tool/verify/mutationTargets.ts';
+import { TRACKED_WRITE_TOOLS } from '../../src/kernel/adapters/diff/turnDiffHooks.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -68,15 +68,15 @@ const EXPECTED: Readonly<Record<string, string>> = {
 
 /** 必须走 `TOOL_NAMES.*` 的策划分级模块（工具名硬编码曾在此造成口径漂移）。 */
 const POLICY_MODULES = [
-  'src/core/toolGate.ts',
-  'src/core/toolExposurePlanner.ts',
-  'src/security/toolOutputTrust.ts',
-  'src/adapters/approval/planApproval.ts',
-  'src/adapters/approval/cachedApproval.ts',
-  'src/adapters/diff/turnDiffHooks.ts',
-  'src/adapters/tool/verify/mutationTargets.ts',
-  'src/adapters/model/mockModel.ts',
-  'src/autonomy/workflowRunner.ts',
+  'src/kernel/core/toolGate.ts',
+  'src/kernel/core/toolExposurePlanner.ts',
+  'src/kernel/security/toolOutputTrust.ts',
+  'src/kernel/adapters/approval/planApproval.ts',
+  'src/kernel/adapters/approval/cachedApproval.ts',
+  'src/kernel/adapters/diff/turnDiffHooks.ts',
+  'src/kernel/adapters/tool/verify/mutationTargets.ts',
+  'src/kernel/adapters/model/mockModel.ts',
+  'src/kernel/autonomy/workflowRunner.ts',
 ];
 
 /**
@@ -204,7 +204,7 @@ test('④ 反硬编码守卫（注册面）：工具类不得写 name 字面量'
         });
     }
   };
-  walk(join(repoRoot, 'src', 'adapters', 'tool'));
+  walk(join(repoRoot, 'src', 'kernel', 'adapters', 'tool'));
   assert.deepStrictEqual(
     offenders,
     [],

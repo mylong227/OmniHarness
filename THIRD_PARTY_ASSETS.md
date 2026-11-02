@@ -52,12 +52,12 @@ The repository uses the following resources.
 
   > **2026-10-07 订正（原文曾是错的，留痕以免再犯）**：此处原写「适配器默认 `LAYA_PYTHON_BIN` 指向
   > `third-party/laya-venv/Scripts/python.exe`、`LAYA_MODEL_DIR` 指向 `third-party/laya-model`」——
-  > **只有后半句是真的**：适配器从来没有读过 `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/adapters/laya/` 为空），
+  > **只有后半句是真的**：适配器从来没有读过 `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/kernel/adapters/laya/` 为空），
   > 解释器默认值恒为系统 `python3`（本机 3.14.8，无 laya/torch/transformers）⇒ `isAvailable()` 恒 false、
   > `decide` 恒 fail-open，**而 fail-open 不写任何告警**。加上 `decisionEngine.mode` 从未被任何配置源打开
   > （配置文件与 CLI 都没有入口），结果是这 1.7GB 的 venv + 权重在真实运行里**零调用**。
   > 现在解释器同样零配置可用，解析顺序（显式 → 环境变量 → 项目内 → 兜底）由
-  > `src/adapters/laya/layaPaths.ts` 单点决定，判据在 `tests/unit/layaPaths.test.ts` 与集成测试
+  > `src/kernel/adapters/laya/layaPaths.ts` 单点决定，判据在 `tests/unit/layaPaths.test.ts` 与集成测试
   > `tests/integration/layaBackend.test.ts`（它不再要求手工设环境变量）。
 
 ## Laya 运行时的实际接线（2026-10-07 实测，供排查）

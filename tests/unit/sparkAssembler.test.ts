@@ -4,18 +4,18 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SparkAssembler } from '../../src/config/sparkAssembler.ts';
-import { MemoryStackAssembler } from '../../src/config/memoryStackAssembler.ts';
-import { SkillStackAssembler } from '../../src/config/skillStackAssembler.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { JsonlRuntimeTelemetry } from '../../src/adapters/telemetry/jsonlRuntimeTelemetry.ts';
+import { SparkAssembler } from '../../src/kernel/config/sparkAssembler.ts';
+import { MemoryStackAssembler } from '../../src/kernel/config/memoryStackAssembler.ts';
+import { SkillStackAssembler } from '../../src/kernel/config/skillStackAssembler.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { JsonlRuntimeTelemetry } from '../../src/kernel/adapters/telemetry/jsonlRuntimeTelemetry.ts';
 import {
   VortexRingPacket,
   VortexRingSpillAdapter,
-} from '../../src/adapters/spill/vortexRingSpillAdapter.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+} from '../../src/kernel/adapters/spill/vortexRingSpillAdapter.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
 
 /** 构造最小可解析配置（mock 适配器，无网络）。 */
 function base(root: string, over: Partial<OmniHarnessConfig> = {}): OmniHarnessConfig {

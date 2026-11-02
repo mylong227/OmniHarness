@@ -7,7 +7,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
 
 test('纯视觉创作任务跳过 repo-map', () => {
   assert.strictEqual(

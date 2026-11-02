@@ -25,21 +25,21 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Agent } from '../../src/core/agent.ts';
-import { TurnRunner } from '../../src/core/turnRunner.ts';
-import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
-import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { TurnRunner } from '../../src/kernel/core/turnRunner.ts';
+import { ScriptedModel, type ScriptStep } from '../../src/kernel/core/scriptedModel.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PlanApproval } from '../../src/kernel/adapters/approval/planApproval.ts';
+import { MemoryPlan } from '../../src/kernel/adapters/plan/memoryPlan.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 import { RecordingModel } from '../helpers/recordingModel.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { StepRunner } from '../../src/core/stepRunner.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { StepRunner } from '../../src/kernel/core/stepRunner.ts';
 
 /**
  * 造一个临时工作区。

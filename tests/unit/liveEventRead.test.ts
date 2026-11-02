@@ -25,15 +25,15 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { Agent } from '../../src/core/agent.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 记录型事件端口：数被广播过的事件条数（判"有没有写总线"）。 */
 class RecordingEventPort implements EventPort {

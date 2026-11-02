@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ProvenanceTracker } from '../../src/security/provenanceTracker.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ProvenanceTracker } from '../../src/kernel/security/provenanceTracker.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 function event(type: string, payload: Record<string, unknown>): SessionEvent {
   return { type, payload } as unknown as SessionEvent;

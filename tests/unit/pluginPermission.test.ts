@@ -1,11 +1,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Container } from '../../src/core/container.ts';
-import { PluginManager } from '../../src/plugin/pluginManager.ts';
-import { PermissionGate, PermissionDeniedError } from '../../src/plugin/permissionGate.ts';
-import { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, Permission } from '../../src/plugin/permission.ts';
-import type { Plugin } from '../../src/plugin/plugin.ts';
-import type { PluginPermission } from '../../src/plugin/permission.ts';
+import { Container } from '../../src/kernel/core/container.ts';
+import { PluginManager } from '../../src/kernel/plugin/pluginManager.ts';
+import { PermissionGate, PermissionDeniedError } from '../../src/kernel/plugin/permissionGate.ts';
+import { ALL_PERMISSIONS, DANGEROUS_PERMISSIONS, Permission } from '../../src/kernel/plugin/permission.ts';
+import type { Plugin } from '../../src/kernel/plugin/plugin.ts';
+import type { PluginPermission } from '../../src/kernel/plugin/permission.ts';
 
 /** 构造声明指定权限的插件。 */
 function pluginWith(name: string, permissions?: readonly PluginPermission[]): Plugin {

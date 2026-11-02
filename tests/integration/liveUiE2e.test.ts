@@ -119,7 +119,7 @@ test('真 serve + 真 SPA + 真 Chrome：HTTP 面 + 挂载 + 一条 turns.run �
     server = spawn(
       process.execPath,
       [
-        resolve(process.cwd(), 'dist/src/cli/exec.js'),
+        resolve(process.cwd(), 'dist/src/apps/cli/exec.js'),
         'serve',
         '--port',
         String(port),

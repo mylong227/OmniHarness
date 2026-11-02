@@ -3,7 +3,7 @@
  *
  * ## 被改的形态（客户眼里的"一启动就报错"）
  *
- * `sqliteKv.ts` 顶层曾是 `import { DatabaseSync } from 'node:sqlite'`。`src/adapters/index.ts`
+ * `sqliteKv.ts` 顶层曾是 `import { DatabaseSync } from 'node:sqlite'`。`src/kernel/adapters/index.ts`
  * 这条 barrel 把它**静态**带进 CLI 装配链（`cliServerCmds` → `adapters/index` → `sqliteKv`），
  * 于是**每一条**命令——包括 `doctor` / `session list` / `kv list --kv-adapter memory`——
  * 都会先在 stderr 打一行：
@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ROOT = process.cwd();
-const CLI_ENTRY = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI_ENTRY = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 
 /** 该警告的稳定子串（Node 各小版本前缀 `(node:pid)` 会变，故只匹配文案）。 */
 const WARNING = 'SQLite is an experimental feature';

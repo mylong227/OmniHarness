@@ -98,7 +98,7 @@
 
 这四条在 v1（Electron）调研中已实测，换成原生 UI 仍然成立：
 
-1. **`--experimental-permission` 必须改 `--permission`**：Node 24.22.1 / Electron 44.7（Node 24.21）直接报 `bad option`；`--permission` 在 Node 22.20、24.22.1、Electron 44.7 均可用。位置：`src/plugin/worker/workerSpawnSpecBuilder.ts:48`。
+1. **`--experimental-permission` 必须改 `--permission`**：Node 24.22.1 / Electron 44.7（Node 24.21）直接报 `bad option`；`--permission` 在 Node 22.20、24.22.1、Electron 44.7 均可用。位置：`src/kernel/plugin/worker/workerSpawnSpecBuilder.ts:48`。
 2. **就绪文件**：新增 `OMNI_READY_FILE`，在 `runHttpServe` 绑定成功后原子写 `{protocol,pid,port,workspace,version,apiVersion}`；原生客户端不解析 stdout。
 3. **优雅退出**：新增 `OMNI_CONTROL_STDIO` stdin 控制通道；Windows 上 `child.kill()` 不是可捕获的优雅信号，必须用 stdin `{"type":"shutdown"}` + EOF 兜底 + `taskkill /T /F` 兜底。
 4. **Token 不落盘、不进日志**：桌面生成 32 字节 Token，经 `OMNI_SERVE_TOKEN` 注入；`runHttpServe` 目前仍会打印带 `?token=` 的横幅，需要 `OMNI_NO_UI_URL=1` 抑制；日志再做脱敏。
@@ -112,7 +112,7 @@
 
 | 测试                                                        | 结果                                                                                                                    |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Node 24.22.1 跑 `dist/src/cli/exec.js --version`            | ✅                                                                                                                      |
+| Node 24.22.1 跑 `dist/src/apps/cli/exec.js --version`            | ✅                                                                                                                      |
 | Node 24.22.1 `serve --port 0 --mock`                        | ✅ 随机端口 + Token URL                                                                                                 |
 | Node 24.22.1 加载 `native/omni_napi.node` 并 `ping`         | ✅ `{"native":true,"ok":true,"pong":true}`                                                                              |
 | Node 24.22.1 `--experimental-permission`                    | ❌ `bad option`                                                                                                         |
@@ -803,15 +803,15 @@ v1 已详细论证：UI 复用最好、6–8 周可出 Beta；但主界面是 We
 
 **仓库内依据**：
 
-- `src/cli/cliServerCmds.ts`（`runHttpServe`：webDir、Token、port 0、ServeInstance、UI URL）
-- `src/cli/serveShutdown.ts`、`src/cli/serveInstance.ts`
-- `src/server/transport/httpServer.ts`、`src/server/transport/serverAuthGuard.ts`
-- `src/plugin/worker/workerSpawnSpecBuilder.ts`（`--experimental-permission`、`process.execPath`）
-- `src/daemon/daemonController.ts`、`src/worker/windowsShim.ts`
-- `src/native/nativeKernel.ts`
-- `src/config/configFactory.ts`（`OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE`）
+- `src/apps/cli/cliServerCmds.ts`（`runHttpServe`：webDir、Token、port 0、ServeInstance、UI URL）
+- `src/apps/cli/serveShutdown.ts`、`src/apps/cli/serveInstance.ts`
+- `src/apps/server/transport/httpServer.ts`、`src/apps/server/transport/serverAuthGuard.ts`
+- `src/kernel/plugin/worker/workerSpawnSpecBuilder.ts`（`--experimental-permission`、`process.execPath`）
+- `src/apps/daemon/daemonController.ts`、`src/kernel/worker/windowsShim.ts`
+- `src/kernel/native/nativeKernel.ts`
+- `src/kernel/config/configFactory.ts`（`OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE`）
 - `web/src/**`（26,573 行）、`web/styles/**`（259 KB）、`web/test/**`（99 个测试）
-- `web/src/core/EventStream.ts`、`web/src/core/authToken.ts`
+- `web/src/kernel/core/EventStream.ts`、`web/src/kernel/core/authToken.ts`
 - `package.json`、`web/tsconfig.json`、`vite.config.ts`、`.github/workflows/ci.yml`
 
 ---

@@ -9,7 +9,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MODULE = join(ROOT, 'dist', 'src', 'util', 'tmpSweep.js');
+const MODULE = join(ROOT, 'dist', 'src', 'kernel', 'util', 'tmpSweep.js');
 
 /** 解析 `--key value` 参数。 */
 function parseArgs(argv) {

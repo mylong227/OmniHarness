@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 /** CLI 入口（与 `package.json#bin` 同一份产物）。 */
-const CLI_ENTRY = join(process.cwd(), 'dist', 'src', 'cli', 'exec.js');
+const CLI_ENTRY = join(process.cwd(), 'dist', 'src', 'apps', 'cli', 'exec.js');
 
 /** 单步工作流定义文件内容。 */
 const SPEC = JSON.stringify({

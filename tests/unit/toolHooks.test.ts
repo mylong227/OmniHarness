@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
-import type { ToolHookContext, ToolHooks } from '../../src/ports/tool/toolHook.ts';
-import type { ToolResult } from '../../src/ports/tool/tool.ts';
+import { ToolHookRunner } from '../../src/kernel/core/toolHookRunner.ts';
+import type { ToolHookContext, ToolHooks } from '../../src/contracts/ports/tool/toolHook.ts';
+import type { ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 上下文。 */
 const context: ToolHookContext = { sessionId: 's1', toolName: 'shell', target: 'ls' };

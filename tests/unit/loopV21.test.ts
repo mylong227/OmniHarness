@@ -1,13 +1,13 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { TurnRunner } from '../../src/core/turnRunner.ts';
-import type { StepOutcome } from '../../src/core/stepRunner.ts';
-import type { ModelUsage } from '../../src/ports/model/model.ts';
-import { BudgetExceededError } from '../../src/ports/model/model.ts';
-import { ConsoleLiveView } from '../../src/adapters/live/consoleLiveView.ts';
-import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.ts';
-import type { ToolInputDelta } from '../../src/ports/model/model.ts';
+import { TurnRunner } from '../../src/kernel/core/turnRunner.ts';
+import type { StepOutcome } from '../../src/kernel/core/stepRunner.ts';
+import type { ModelUsage } from '../../src/contracts/ports/model/model.ts';
+import { BudgetExceededError } from '../../src/contracts/ports/model/model.ts';
+import { ConsoleLiveView } from '../../src/kernel/adapters/live/consoleLiveView.ts';
+import { CompositeLiveView } from '../../src/kernel/adapters/live/compositeLiveView.ts';
+import type { ToolInputDelta } from '../../src/contracts/ports/model/model.ts';
 
 /** 假记录器：仅实现 TurnRunner 用到的面。 */
 function fakeRecorder() {

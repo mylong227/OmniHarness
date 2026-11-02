@@ -1,7 +1,7 @@
 /**
  * 间隔效应（Spacing Effect）判据：Ebbinghaus 遗忘曲线 + 间隔重复 → 长期记忆召回。
  *
- * 机制与预注册边界见 `src/adapters/memory/spacingEffect.ts` 类注释与
+ * 机制与预注册边界见 `src/kernel/adapters/memory/spacingEffect.ts` 类注释与
  * `docs/NATURE_INSPIRED_RND_2026-10-27.md` §1。判据全部用**注入固定时钟**（确定性）：
  *  - 纯函数层：S0 锚点、R 单调性、合意困难方向性、稳定度上限；
  *  - 集成层：保持率主导排序、召回强化写回与排序反超（间隔重复闭环）、默认关零扰动。
@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SpacingEffect } from '../../src/adapters/memory/spacingEffect.ts';
-import { FileLongTermMemory } from '../../src/adapters/memory/fileLongTermMemory.ts';
-import type { MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { SpacingEffect } from '../../src/kernel/adapters/memory/spacingEffect.ts';
+import { FileLongTermMemory } from '../../src/kernel/adapters/memory/fileLongTermMemory.ts';
+import type { MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PluginBundler } from '../../src/plugin/pluginBundler.ts';
-import { Zip } from '../../src/plugin/zip.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import type { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
-import type { PluginProfile } from '../../src/plugin/pluginProfileStore.ts';
+import { PluginBundler } from '../../src/kernel/plugin/pluginBundler.ts';
+import { Zip } from '../../src/kernel/plugin/zip.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import type { PluginRegistry } from '../../src/kernel/plugin/pluginRegistry.ts';
+import type { PluginProfile } from '../../src/kernel/plugin/pluginProfileStore.ts';
 
 /** 构造最小 registry stub：所有插件均来自本地目录。 */
 function makeRegistry(pluginPath: string): PluginRegistry {

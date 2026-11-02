@@ -13,8 +13,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MODULE = join(ROOT, 'dist', 'src', 'eval', 'longMemEval.js');
-const MEMORY = join(ROOT, 'dist', 'src', 'config', 'memoryStackAssembler.js');
+const MODULE = join(ROOT, 'dist', 'src', 'kernel', 'eval', 'longMemEval.js');
+const MEMORY = join(ROOT, 'dist', 'src', 'kernel', 'config', 'memoryStackAssembler.js');
 
 function parseArgs(argv) {
   const out = { dataset: undefined, k: 5, trustedOnly: false, json: false };

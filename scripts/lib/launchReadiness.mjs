@@ -18,7 +18,7 @@ import { DEV_DEFAULTS, resolveDevAddress } from '../devConfig.mjs';
 /**
  * `serve` 的缺省端口（**镜像** `scripts/devConfig.mjs` 的 `DEV_DEFAULTS.backendPort`）。
  *
- * **不得自成一源**：devConfig 那一侧又镜像 `src/cli/serveDefaults.ts` 的
+ * **不得自成一源**：devConfig 那一侧又镜像 `src/apps/cli/serveDefaults.ts` 的
  * `ServeDefaults.DEFAULT_SERVE_PORT`，一致性由 `tests/unit/devAddressContract.test.ts` 钉死。
  *
  * 这里导出的是**默认值**（与 `OMNI_BACKEND_PORT` 无关，供判据核对"启动器与 serve 的缺省是否漂移"）；

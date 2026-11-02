@@ -11,9 +11,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { KeyedReadWriteLock } from '../../src/util/concurrency/keyedReadWriteLock.ts';
-import { FairSessionScheduler } from '../../src/util/concurrency/fairSessionScheduler.ts';
-import { WorkspaceFileCoordinator } from '../../src/adapters/tool/fs/workspaceFileCoordinator.ts';
+import { KeyedReadWriteLock } from '../../src/kernel/util/concurrency/keyedReadWriteLock.ts';
+import { FairSessionScheduler } from '../../src/kernel/util/concurrency/fairSessionScheduler.ts';
+import { WorkspaceFileCoordinator } from '../../src/kernel/adapters/tool/fs/workspaceFileCoordinator.ts';
 
 /** 线性同余伪随机（固定种子，跨平台确定）。 */
 class Lcg {

@@ -62,7 +62,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 /** 仓库根（本文件在 `scripts/` 下）。 */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** CLI 入口（构建产物）。 */
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 /**
  * 浏览器测试脚手架（**源码级 `.ts`**，不被 tsc 编译）。
  * 2026-10-27 修：导入约定迁移到真实 `.ts` 后缀后，这里仍指向 `browserHarness.mjs`

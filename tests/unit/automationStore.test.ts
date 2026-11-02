@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'vitest';
-import { AutomationStore } from '../../src/server/services/automationStore.ts';
-import { AutomationScheduler } from '../../src/server/services/automationScheduler.ts';
+import { AutomationStore } from '../../src/apps/server/services/automationStore.ts';
+import { AutomationScheduler } from '../../src/apps/server/services/automationScheduler.ts';
 
 /** 临时存储。 */
 function tempStore(now: () => number) {

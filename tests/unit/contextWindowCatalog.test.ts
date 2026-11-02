@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextWindowCatalog } from '../../src/context/contextWindowCatalog.ts';
+import { ContextWindowCatalog } from '../../src/kernel/context/contextWindowCatalog.ts';
 
 test('CTX-03：Claude 4.6 系列解析为 1M 窗口', () => {
   const catalog = new ContextWindowCatalog();

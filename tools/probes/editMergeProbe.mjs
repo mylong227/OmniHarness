@@ -29,7 +29,7 @@
  * - 场景是**人工构造的最小形态**，不是真实仓库 diff 的统计分布；它回答「会不会错」，不回答「多常错」。
  */
 import { join } from 'node:path';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync , existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { probeArgs } from './_args.mjs';
 
@@ -45,7 +45,7 @@ const a = probeArgs({ values: { json: '' } });
  * @returns 模块
  */
 async function loadDist(segments) {
-  return import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
+  return import(pathToFileURL(resolveDist(...segments)).href);
 }
 
 let TextThreeWayMerge;
@@ -294,4 +294,18 @@ if (a.json !== '') {
       console.log(`  - ${r.id}：${r.verdict} ⇒ ${JSON.stringify(r.content).slice(0, 160)}`);
     }
   }
+}
+
+/**
+ * 2026-11-02 分层后：dist 布局变为 dist/src/<layer>/<module>/...。
+ * 探针按模块名调用（如 importDist('config', 'x.js')），这里按层前缀解析，
+ * 命中不到回落旧布局（保持对旧产物的兼容）。
+ */
+function resolveDist(...segments) {
+  const [head, ...rest] = segments;
+  for (const layer of ['kernel', 'contracts', 'protocols', 'apps']) {
+    const candidate = join(ROOT, 'dist', 'src', layer, head, ...rest);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(ROOT, 'dist', 'src', ...segments);
 }

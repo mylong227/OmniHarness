@@ -12,8 +12,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { MUTATING_TOOLS, REPO_MAP_INVALIDATING_TOOLS } from '../../src/core/toolGate.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { MUTATING_TOOLS, REPO_MAP_INVALIDATING_TOOLS } from '../../src/kernel/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 test('repo-map 硬失效集合只含明确写文件的工具', () => {
   for (const name of [

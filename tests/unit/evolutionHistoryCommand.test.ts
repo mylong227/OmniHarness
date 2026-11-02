@@ -15,8 +15,8 @@ import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { EvolutionCommand } from '../../src/cli/evolutionCommand.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { EvolutionCommand } from '../../src/apps/cli/evolutionCommand.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
 
 /**
  * 采集 stdout/stderr 并跑命令。

@@ -3,10 +3,10 @@ import { afterAll, describe, it } from 'vitest';
 import { mkdtempSync, rmSync, readFileSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FileLongTermMemory } from '../../src/adapters/memory/fileLongTermMemory.ts';
-import { AesGcmTextCodec } from '../../src/adapters/memory/aesGcmTextCodec.ts';
-import { TimeDecay } from '../../src/adapters/memory/timeDecay.ts';
-import type { MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { FileLongTermMemory } from '../../src/kernel/adapters/memory/fileLongTermMemory.ts';
+import { AesGcmTextCodec } from '../../src/kernel/adapters/memory/aesGcmTextCodec.ts';
+import { TimeDecay } from '../../src/kernel/adapters/memory/timeDecay.ts';
+import type { MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 // 临时目录在模块加载期急切创建（不可放进 beforeAll() 钩子）：钩子若在部分运行器/版本下
 // 未执行或失败，dir 会保持空串，tmpFile 退化为相对路径——测试产物（含 .key/.enc）会

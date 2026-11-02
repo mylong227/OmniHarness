@@ -1,8 +1,8 @@
 /** ContextAssembler 增量投影：复用前缀后必须与全量重投影逐条相同（2026-10-21）。 */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextAssembler } from '../../src/context/contextAssembler.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ContextAssembler } from '../../src/kernel/context/contextAssembler.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 function event(
   id: string,

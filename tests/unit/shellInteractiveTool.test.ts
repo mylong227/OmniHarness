@@ -9,15 +9,15 @@
  */
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { ShellInteractiveTool } from '../../src/adapters/tool/shell/shellInteractiveTool.ts';
-import { ShellCommandPolicy } from '../../src/adapters/tool/shell/shellCommandPolicy.ts';
+import { ShellInteractiveTool } from '../../src/kernel/adapters/tool/shell/shellInteractiveTool.ts';
+import { ShellCommandPolicy } from '../../src/kernel/adapters/tool/shell/shellCommandPolicy.ts';
 import {
   ShellInteractiveExecutor,
   type InteractiveRunOptions,
   type InteractiveRunOutcome,
-} from '../../src/adapters/tool/shell/shellInteractiveExecutor.ts';
-import type { PtyProbe } from '../../src/adapters/tool/shell/ptyCapability.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+} from '../../src/kernel/adapters/tool/shell/shellInteractiveExecutor.ts';
+import type { PtyProbe } from '../../src/kernel/adapters/tool/shell/ptyCapability.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 记录调用入参的假执行器（不真 spawn，且可编排退出状态）。 */
 class FakeExecutor extends ShellInteractiveExecutor {

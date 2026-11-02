@@ -9,12 +9,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { McpAuthFlow } from '../../src/mcp/mcpAuthFlow.ts';
-import { McpAuthTokenStore, type McpStoredToken } from '../../src/mcp/mcpAuthTokenStore.ts';
-import { McpAuthProvider } from '../../src/mcp/mcpAuthProvider.ts';
-import { McpCimd } from '../../src/mcp/mcpCimd.ts';
-import { McpOAuthPkce } from '../../src/mcp/mcpOAuthPkce.ts';
-import { McpSecretGuard } from '../../src/mcp/mcpSecretGuard.ts';
+import { McpAuthFlow } from '../../src/protocols/mcp/mcpAuthFlow.ts';
+import { McpAuthTokenStore, type McpStoredToken } from '../../src/protocols/mcp/mcpAuthTokenStore.ts';
+import { McpAuthProvider } from '../../src/protocols/mcp/mcpAuthProvider.ts';
+import { McpCimd } from '../../src/protocols/mcp/mcpCimd.ts';
+import { McpOAuthPkce } from '../../src/protocols/mcp/mcpOAuthPkce.ts';
+import { McpSecretGuard } from '../../src/protocols/mcp/mcpSecretGuard.ts';
 
 /** 令牌端点桩：记录兑换次数，返回固定 token。 */
 interface TokenServer {

@@ -1,4 +1,4 @@
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /**
  * 压测用脚本化模型：按序输出预设结果（驱动 PTC 与长会话）。

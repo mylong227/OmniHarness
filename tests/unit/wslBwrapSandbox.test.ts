@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { WslBwrapSandbox } from '../../src/adapters/sandbox/wslBwrapSandbox.ts';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
-import { ConfigError } from '../../src/config/configError.ts';
+import { WslBwrapSandbox } from '../../src/kernel/adapters/sandbox/wslBwrapSandbox.ts';
+import { SandboxManager } from '../../src/kernel/adapters/sandbox/sandboxManager.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
 
 test('SEC-01：Windows 路径翻译为 WSL 路径', () => {
   assert.strictEqual(WslBwrapSandbox.toLinuxPath('D:\\work\\proj'), '/mnt/d/work/proj');

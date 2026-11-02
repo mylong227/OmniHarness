@@ -1,11 +1,11 @@
-{
+﻿{
   "$schema": "omniharness/dependency-allowlist/1",
   "version": 1,
   "policy": "docs/DEPENDENCY_POLICY.md",
   "updatedAt": "2026-10-28",
   "notes": [
     "必要且更优即可依赖 → 同等能力下优先选择成熟依赖而非自研（D10，2026-09-14 用户拍板；2026-10-02 再次确认并清除「零依赖」残余教义，见 docs/DEPENDENCY_POLICY.md §1.3）；自研仅在依赖不可得/引入伤害架构/性能不达标时保留，保留者一律降格为「资产 + 回退路径」，不构成拒绝更优依赖的理由。",
-    "分层隔离不变：src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层。",
+    "分层隔离不变：src/contracts/ports/** 与 src/kernel/core/** 恒为第三方-free，依赖只能落在适配层。",
     "既有手写实现（BM25 / RFC6455 / Ed25519 / N-API FFI / LCS diff / 手写 MCP）全部保留为资产与回退路径；当成熟第三方被准入后，生产路径应优先切换到第三方实现。"
   ],
   "allowedLicenses": [
@@ -34,15 +34,15 @@
     "maxInstallKb": 2048,
     "maxTransitiveDeps": 20
   },
-  "forbiddenLayers": ["src/ports", "src/core"],
+  "forbiddenLayers": ["src/contracts/ports", "src/kernel/core"],
   "allowlist": {
     "@huggingface/transformers": {
       "reason": "引入本地 ONNX 嵌入模型运行时不自研不可行：自研等价物需训练/维护一个 embedding 模型与 ONNX runtime，边际成本不可接受；本依赖带来质变能力（稠密向量语义召回），补 U3 实验遗留的 BM25 词法盲区（policy vs execPolicy 语义鸿沟）。",
       "capability": "在本地（WASM/WebGPU，免原生编译）运行 sentence-transformers 类嵌入模型，产出 384 维语义向量，供 repo-map 混合检索的语义召回支路使用。",
       "license": "Apache-2.0",
       "approvedAt": "2026-09-05",
-      "layer": "src/adapters/embedding",
-      "exitPlan": "若该包停更，替换为 fastembed-js 或自托管 ONNX runtime，仅需重写 src/adapters/embedding/transformersEmbedding.ts 一个文件；模型权重 Xenova/all-MiniLM-L6-v2 为社区标准、多运行时通用，无锁定。",
+      "layer": "src/kernel/adapters/embedding",
+      "exitPlan": "若该包停更，替换为 fastembed-js 或自托管 ONNX runtime，仅需重写 src/kernel/adapters/embedding/transformersEmbedding.ts 一个文件；模型权重 Xenova/all-MiniLM-L6-v2 为社区标准、多运行时通用，无锁定。",
       "maxInstallKb": 200000,
       "maxTransitiveDeps": 80,
       "budgetOverrideReason": "安装体积远超默认 2MB（含 onnxruntime-web/node、sharp、tokenizers 等传递依赖）；但体积预算为报告级，且铁律 §1.1 允许『自研边际成本显著高于引入、能带来质变能力』时引入。运行时仅模型权重（数据资产，非代码依赖）落本地，不影响冷启动分发体积。 2026-09-12 追加：实测 install 体积约 2.2GB 已超出任何合理预算，但它属于可选增强（见 optional / optionalReason），不再以预算口径阻断。",
@@ -51,18 +51,18 @@
     },
     "@modelcontextprotocol/sdk": {
       "reason": "A1 协议兼容性差距闭合：手写 MCP 实现停留在 2025-06-18 握手式协议，自研追平官方 SDK 的协议协商（2025-11-25 最新 + 五版本向后兼容）、Streamable HTTP 传输、OAuth 2.1 资源服务器语义、Tasks 长任务的边际成本不可接受（D10 择优依赖：官方实现即生态标准）。",
-      "capability": "① 服务端方向（2026-09-14 准入）：经官方 SDK 把 harness 的 ToolPort 工具集暴露为标准 MCP 服务器（registerTool/工具往返/多版本协商），并与官方 Client 双端互通实测。② 客户端方向（2026-10-02 扩展准入）：经官方 Client 连接外部 MCP 服务器（stdio + Streamable HTTP/SSE 远端 url），替代手写 2025-06-18 客户端成为生产首选；手写 src/mcp/* 降级为回退路径。",
+      "capability": "① 服务端方向（2026-09-14 准入）：经官方 SDK 把 harness 的 ToolPort 工具集暴露为标准 MCP 服务器（registerTool/工具往返/多版本协商），并与官方 Client 双端互通实测。② 客户端方向（2026-10-02 扩展准入）：经官方 Client 连接外部 MCP 服务器（stdio + Streamable HTTP/SSE 远端 url），替代手写 2025-06-18 客户端成为生产首选；手写 src/protocols/mcp/* 降级为回退路径。",
       "license": "MIT",
       "approvedAt": "2026-09-14",
-      "layer": "src/adapters/mcp",
-      "exitPlan": "既有手写 src/mcp/*（2025-06-18）完整保留为回退路径；若 SDK 停更，可回退手写实现或换社区分支，仅需调整 src/adapters/mcp/mcpSdkServer.ts 一个文件。",
+      "layer": "src/kernel/adapters/mcp",
+      "exitPlan": "既有手写 src/protocols/mcp/*（2025-06-18）完整保留为回退路径；若 SDK 停更，可回退手写实现或换社区分支，仅需调整 src/kernel/adapters/mcp/mcpSdkServer.ts 一个文件。",
       "maxInstallKb": 16000,
       "maxTransitiveDeps": 60,
       "budgetOverrideReason": "SDK+zod 实测约 15MB（含类型与多传输实现），超出默认 2MB 预算；但换来的是与主流 MCP 客户端生态的完整互通能力（A1 差距闭合），收益远超体积代价。依赖树收敛（直接+传递计 3 项），远低于默认 20 上限。"
     },
     "yaml": {
       "reason": "INT-04 SKILL.md frontmatter：自研解析只认单行 `key: value` 与 `[a,b]` tags，遇到 YAML 数组（`tags:\\n  - a`）、带冒号/引号的值、多行 description 会直接报错。`yaml` 2.x 是 YAML 1.2 参考实现、零依赖、活跃维护；比 `gray-matter`（依赖旧 js-yaml 3.x、传递 5 项）更干净。",
-      "capability": "SKILL.md 的 YAML frontmatter 解析：name/description/tags（数组或字符串）及未来扩展字段；解析失败/缺字段仍 fail-closed。缺失依赖时回退既有单行解析。仅 `src/skill/skillMdCodec.ts` 通过 `createRequire` 同步加载（CLI 导入路径是同步的）。",
+      "capability": "SKILL.md 的 YAML frontmatter 解析：name/description/tags（数组或字符串）及未来扩展字段；解析失败/缺字段仍 fail-closed。缺失依赖时回退既有单行解析。仅 `src/kernel/skill/skillMdCodec.ts` 通过 `createRequire` 同步加载（CLI 导入路径是同步的）。",
       "license": "ISC",
       "approvedAt": "2026-10-20",
       "layer": "src/skill",
@@ -74,7 +74,7 @@
     },
     "@mozilla/readability": {
       "reason": "ACT-03 网页正文：自研 `HtmlToText` 只按标签做正则清洗，导航/侧栏/页脚等噪声与正文一起进上下文；Readability 是 Firefox 阅读模式的正文抽取算法，能按内容密度选主文章。按「自研边际成本显著高于引入」准入。",
-      "capability": "web_fetch 的 HTML 正文抽取：Readability 从 DOM 提主文章文本；缺失/失败/空结果时回退自研 `HtmlToText.convert`。仅 `src/util/htmlToText.ts` 动态 import()。",
+      "capability": "web_fetch 的 HTML 正文抽取：Readability 从 DOM 提主文章文本；缺失/失败/空结果时回退自研 `HtmlToText.convert`。仅 `src/kernel/util/htmlToText.ts` 动态 import()。",
       "license": "Apache-2.0",
       "approvedAt": "2026-10-20",
       "layer": "src/util",
@@ -98,10 +98,10 @@
     },
     "playwright-core": {
       "reason": "ACT-01 浏览器动作：自研 CDP 已能 goto/click/type/ARIA，但缺少 actionability（可见/可点/稳定）、自动等待、iframe/shadow DOM 与更可靠的选择器语义；这些是 Playwright 十年积累的浏览器兼容细节，重写边际成本远高于引依赖。用 `playwright-core` 而非 `playwright`：不带浏览器下载，复用本机 Chrome（`executablePath`）。",
-      "capability": "浏览器动作第二引擎：`OMNI_BROWSER_ENGINE=playwright` 时经 `PlaywrightBrowserSession` 提供 goto/click/type/press/scroll/wait_for/aria_snapshot/console/network；默认仍走自研 CDP，缺失依赖时自动回退。仅 `src/adapters/browser/playwrightBrowserSession.ts` 动态 import()。",
+      "capability": "浏览器动作第二引擎：`OMNI_BROWSER_ENGINE=playwright` 时经 `PlaywrightBrowserSession` 提供 goto/click/type/press/scroll/wait_for/aria_snapshot/console/network；默认仍走自研 CDP，缺失依赖时自动回退。仅 `src/kernel/adapters/browser/playwrightBrowserSession.ts` 动态 import()。",
       "license": "Apache-2.0",
       "approvedAt": "2026-10-20",
-      "layer": "src/adapters/browser",
+      "layer": "src/kernel/adapters/browser",
       "exitPlan": "删除 `PlaywrightBrowserSession` 与工具里的 engine 分支即回退自研 CDP（同端口，调用方零改动）；替换可换 puppeteer-core（体积更小但 actionability 较弱）。",
       "maxInstallKb": 16384,
       "maxTransitiveDeps": 0,
@@ -110,7 +110,7 @@
     },
     "unpdf": {
       "reason": "ACT-03 PDF 文本提取：自研实现只解 FlateDecode + `Tj`/`TJ`，对对象流、CMap/字体编码、加密与真实排版 PDF 会漏或乱码；`unpdf` 基于 PDF.js 的 Node 无 DOM 构建，直接补上文本层解析。按 DEPENDENCY_POLICY「自研边际成本显著高于引入」准入。",
-      "capability": "web_fetch 的 PDF 正文提取：PDF.js 文本层合并页输出；加载失败/缺失时自动回退既有 `PdfTextExtractor.extract` 正则实现。仅 `src/util/pdfTextExtractor.ts` 动态 import()。",
+      "capability": "web_fetch 的 PDF 正文提取：PDF.js 文本层合并页输出；加载失败/缺失时自动回退既有 `PdfTextExtractor.extract` 正则实现。仅 `src/kernel/util/pdfTextExtractor.ts` 动态 import()。",
       "license": "MIT",
       "approvedAt": "2026-10-20",
       "layer": "src/util",
@@ -121,11 +121,11 @@
       "optionalReason": "只在 PDF 分支按需动态 import；`npm i --omit=optional` 时体积为 0，web_fetch 仍走自研 fallback，不产生硬依赖。"
     },
     "zod": {
-      "reason": "官方 MCP SDK 的必需传递依赖（schema 校验层），同时被 src/adapters/mcp 适配器直接使用（JSON Schema 形状 → Zod RawShape 转换），随 SDK 一并准入。",
+      "reason": "官方 MCP SDK 的必需传递依赖（schema 校验层），同时被 src/kernel/adapters/mcp 适配器直接使用（JSON Schema 形状 → Zod RawShape 转换），随 SDK 一并准入。",
       "capability": "运行时 schema 校验与类型推导，为 MCP 工具参数提供端到端校验。",
       "license": "MIT",
       "approvedAt": "2026-09-14",
-      "layer": "src/adapters/mcp",
+      "layer": "src/kernel/adapters/mcp",
       "exitPlan": "随 SDK 退出而退出；适配器可直接消费 JSON Schema。",
       "maxInstallKb": 8000,
       "maxTransitiveDeps": 0,
@@ -133,12 +133,12 @@
     },
     "sharp": {
       "reason": "view_image 的图像缩放是零依赖时代明写的缺口（工具注释自述「压缩需要图像库，与零依赖冲突」）：>5MiB 照片直接拒绝、大图全尺寸进模型上下文烧 token。手搓等价解码/缩放/重编码管线（JPEG/WEBP/EXIF 方向/色彩配置）等于重写 libvips 十年边缘案例，边际成本不可接受（D10 择优依赖）；sharp 已随 @huggingface/transformers 链路 + overrides 锁版本存在于依赖树。",
-      "capability": "view_image 大图收敛：解码（JPEG/WEBP/TIFF/AVIF…）→ EXIF 自动转正 → 长边/字节双预算缩放 → 重编码；经 src/adapters/media/sharpImageResizer.ts 动态 import() 加载，sharp 缺失时自动退化为「不缩放、超限拒绝」历史行为。手搓 GIF/PNG 帧栈（src/media/**）保持回退资产地位不变。",
+      "capability": "view_image 大图收敛：解码（JPEG/WEBP/TIFF/AVIF…）→ EXIF 自动转正 → 长边/字节双预算缩放 → 重编码；经 src/kernel/adapters/media/sharpImageResizer.ts 动态 import() 加载，sharp 缺失时自动退化为「不缩放、超限拒绝」历史行为。手搓 GIF/PNG 帧栈（src/kernel/media/**）保持回退资产地位不变。",
       "license": "Apache-2.0",
       "licenseNote": "npm 包声明 Apache-2.0；libvips 预编译二进制以 LGPL-2.1+ 动态链接形式随包分发，非静态并入本仓产物，符合 LGPL 动态链接条款。",
       "approvedAt": "2026-10-02",
-      "layer": "src/adapters/media",
-      "exitPlan": "若该包停更，替换为 pngjs + gifuct-js + jpeg-js 组合（纯 JS），仅需重写 src/adapters/media/sharpImageResizer.ts 一个文件；端口 ImageResizerPort 不变，调用方零改动。",
+      "layer": "src/kernel/adapters/media",
+      "exitPlan": "若该包停更，替换为 pngjs + gifuct-js + jpeg-js 组合（纯 JS），仅需重写 src/kernel/adapters/media/sharpImageResizer.ts 一个文件；端口 ImageResizerPort 不变，调用方零改动。",
       "maxInstallKb": 40000,
       "maxTransitiveDeps": 10,
       "budgetOverrideReason": "含平台预编译 libvips 二进制约 10–30MB，超默认 2MB 预算；但为 optionalDependencies + 动态 import()（复制 HF 准入先例）：npm i --omit=optional 时体积为 0、能力自动降级，不阻断精简安装路径。",
@@ -146,31 +146,31 @@
       "optionalReason": "仅 view_image 大图收敛这一个增强点使用；缺失时行为完全回退到历史行为，不产生任何硬依赖。"
     },
     "croner": {
-      "reason": "本仓已有的定时/例程扩展（src/daemon/routineScheduler.ts 的 expandField + isDue）是自研 cron 字段匹配：只按 UTC 字段求交集，无法表达时区与夏令时，而「按本地时间每天 9:00 跑」正是例程调度最常见的需求（本机宿主时区为 Asia/Shanghai 时，自研实现与用户预期差 8 小时）。自研等价物需要实现 IANA 时区库 + DST 跳变/重叠规则，边际成本显著高于引入：croner 为纯 JS、零依赖、151 KB，实测 DST 春季跳变（02:30 不存在）正确顺延到 03:30。",
-      "capability": "带 IANA 时区的 cron 求下次触发时刻：支持 5/6 段表达式、显式 timezone 选项、DST 跳变与重叠的正确处理、非法表达式 fail-closed 报错。仅经 src/adapters/schedule/cronerSchedule.ts 暴露给 CronSchedulePort，核心与端口层零第三方。",
+      "reason": "本仓已有的定时/例程扩展（src/apps/daemon/routineScheduler.ts 的 expandField + isDue）是自研 cron 字段匹配：只按 UTC 字段求交集，无法表达时区与夏令时，而「按本地时间每天 9:00 跑」正是例程调度最常见的需求（本机宿主时区为 Asia/Shanghai 时，自研实现与用户预期差 8 小时）。自研等价物需要实现 IANA 时区库 + DST 跳变/重叠规则，边际成本显著高于引入：croner 为纯 JS、零依赖、151 KB，实测 DST 春季跳变（02:30 不存在）正确顺延到 03:30。",
+      "capability": "带 IANA 时区的 cron 求下次触发时刻：支持 5/6 段表达式、显式 timezone 选项、DST 跳变与重叠的正确处理、非法表达式 fail-closed 报错。仅经 src/kernel/adapters/schedule/cronerSchedule.ts 暴露给 CronSchedulePort，核心与端口层零第三方。",
       "license": "MIT",
       "approvedAt": "2026-10-04",
-      "layer": "src/adapters/schedule",
-      "exitPlan": "若该包停更或行为回归，替换路径：① 换 luxon + 自研字段展开（luxon 提供 IANA 时区换算，字段语义需自写约 150 行并自备 DST 判据）；② 直接实现「固定 UTC 偏移的简化调度」并把时区支持标注为不做（诚实降级，功能面缩窄）。两种替换都只改 src/adapters/schedule/cronerSchedule.ts 一个文件——CronSchedulePort 在 src/ports/daemon/cronSchedule.ts，调用方（RoutineScheduler）只依赖端口。",
+      "layer": "src/kernel/adapters/schedule",
+      "exitPlan": "若该包停更或行为回归，替换路径：① 换 luxon + 自研字段展开（luxon 提供 IANA 时区换算，字段语义需自写约 150 行并自备 DST 判据）；② 直接实现「固定 UTC 偏移的简化调度」并把时区支持标注为不做（诚实降级，功能面缩窄）。两种替换都只改 src/kernel/adapters/schedule/cronerSchedule.ts 一个文件——CronSchedulePort 在 src/contracts/ports/daemon/cronSchedule.ts，调用方（RoutineScheduler）只依赖端口。",
       "maxInstallKb": 256,
       "maxTransitiveDeps": 0
     },
     "jose": {
-      "reason": "id_token 校验属「不该手写」的安全关键解析（JWT/JWKS/b64url/签名与时间窗语义）。既有的自研实现（src/enterprise/oidcClient.ts）只支持 RS256、无时钟偏移容忍、aud 为多值时未校验 azp，且其校验逻辑需自行维护——按 D10 §1.1「自研边际成本显著高于引入」准入。jose 为纯 JS、**零传递依赖**、实测 206 KB，只替换校验这一层，自研实现保留为回退资产。",
-      "capability": "JWS 全族算法验签（RS/ES/PS，白名单显式排除 none 与 HS*，挡住算法混淆攻击）、远程 JWKS 缓存与未知 kid 自动重取（密钥轮换不误拒）、clockTolerance 时间窗容忍、标准化的 iss/aud/exp/nbf 校验。仅经 src/adapters/enterprise/joseIdTokenVerifier.ts 实现 IdTokenVerifierPort，核心与端口层零第三方。",
+      "reason": "id_token 校验属「不该手写」的安全关键解析（JWT/JWKS/b64url/签名与时间窗语义）。既有的自研实现（src/apps/enterprise/oidcClient.ts）只支持 RS256、无时钟偏移容忍、aud 为多值时未校验 azp，且其校验逻辑需自行维护——按 D10 §1.1「自研边际成本显著高于引入」准入。jose 为纯 JS、**零传递依赖**、实测 206 KB，只替换校验这一层，自研实现保留为回退资产。",
+      "capability": "JWS 全族算法验签（RS/ES/PS，白名单显式排除 none 与 HS*，挡住算法混淆攻击）、远程 JWKS 缓存与未知 kid 自动重取（密钥轮换不误拒）、clockTolerance 时间窗容忍、标准化的 iss/aud/exp/nbf 校验。仅经 src/kernel/adapters/enterprise/joseIdTokenVerifier.ts 实现 IdTokenVerifierPort，核心与端口层零第三方。",
       "license": "MIT",
       "approvedAt": "2026-10-04",
-      "layer": "src/adapters/enterprise",
-      "exitPlan": "若该包停更或行为回归：删 src/adapters/enterprise/joseIdTokenVerifier.ts，装配切回 LegacyIdTokenVerifier（同 IdTokenVerifierPort，0 个调用点改动）——自研实现本就是保留的回退资产；届时能力面收窄为 RS256 且需自行补 azp/nonce/时钟容忍（判据已把这三条钉死，可直接复用）。",
+      "layer": "src/kernel/adapters/enterprise",
+      "exitPlan": "若该包停更或行为回归：删 src/kernel/adapters/enterprise/joseIdTokenVerifier.ts，装配切回 LegacyIdTokenVerifier（同 IdTokenVerifierPort，0 个调用点改动）——自研实现本就是保留的回退资产；届时能力面收窄为 RS256 且需自行补 azp/nonce/时钟容忍（判据已把这三条钉死，可直接复用）。",
       "maxInstallKb": 512,
       "maxTransitiveDeps": 0
     },
     "openid-client": {
-      "reason": "OIDC 授权码流（discovery/PKCE/换码）属协议管道：自研版（src/enterprise/oidcClient.ts）issuer 不做严格校验、不强制 https、client 认证与令牌响应校验逐条手搓只能靠单测兜底。按 D10「同等能力优先成熟依赖」准入（A.5 第四项，A.5 收口）：openid-client v6.8.8 · MIT · 本包 221 KB + 传递依赖 oauth4webapi 326 KB（jose ^6.2.12 与既有准入同版本共享）⇒ 新增安装 ≈550 KB / 2 个传递依赖，低于默认预算。生产默认切本实现，自研 LegacyOidcFlow 同端口保留为回退资产（差分判据 tests/unit/oidcFlowContract.test.ts：issuer 不一致拒/透传、http 强制、垃圾 id_token 拒/透传）。",
-      "capability": "标准 OIDC/OAuth 授权码流：discovery（issuer 严格匹配 + https 强制）、PKCE S256 全套、授权 URL 构造（state/nonce 自动生成）、authorizationCodeGrant（client 认证方法族 + 内建 ID-token 校验 + state 一致性检查 + 令牌响应校验），经 src/adapters/enterprise/openIdClientFlow.ts 实现 OidcFlowPort，核心与端口层零第三方。",
+      "reason": "OIDC 授权码流（discovery/PKCE/换码）属协议管道：自研版（src/apps/enterprise/oidcClient.ts）issuer 不做严格校验、不强制 https、client 认证与令牌响应校验逐条手搓只能靠单测兜底。按 D10「同等能力优先成熟依赖」准入（A.5 第四项，A.5 收口）：openid-client v6.8.8 · MIT · 本包 221 KB + 传递依赖 oauth4webapi 326 KB（jose ^6.2.12 与既有准入同版本共享）⇒ 新增安装 ≈550 KB / 2 个传递依赖，低于默认预算。生产默认切本实现，自研 LegacyOidcFlow 同端口保留为回退资产（差分判据 tests/unit/oidcFlowContract.test.ts：issuer 不一致拒/透传、http 强制、垃圾 id_token 拒/透传）。",
+      "capability": "标准 OIDC/OAuth 授权码流：discovery（issuer 严格匹配 + https 强制）、PKCE S256 全套、授权 URL 构造（state/nonce 自动生成）、authorizationCodeGrant（client 认证方法族 + 内建 ID-token 校验 + state 一致性检查 + 令牌响应校验），经 src/kernel/adapters/enterprise/openIdClientFlow.ts 实现 OidcFlowPort，核心与端口层零第三方。",
       "license": "MIT",
       "approvedAt": "2026-10-05",
-      "layer": "src/adapters/enterprise",
+      "layer": "src/kernel/adapters/enterprise",
       "exitPlan": "若该包停更或行为回归：CLI 装配点（cliServerCmds auth login/callback）把默认实现 OpenIdClientFlow 换回 LegacyOidcFlow（同 OidcFlowPort，0 个调用点改动）——自研流程族本就是保留的回退资产；届时能力面收窄（无 issuer 严格校验/无内建 ID-token 校验），差分判据已把这些边界钉死可直接复用。",
       "maxInstallKb": 2048,
       "maxTransitiveDeps": 20
@@ -231,8 +231,8 @@
       "capability": "把工作区目录作为静态站点根返回 HTML/CSS/JS/字体等资源：目录回落 index.html/index.htm、clean URL 回落 .html/.htm、Range/HEAD、正确 MIME 与 no-store 缓存头。本仓只在 WorkspacePreviewServer 一个文件内消费；文件解析仍由 SafeFs 做越界 + realpath 守卫，sirv 只发送已确认的文件。",
       "license": "MIT",
       "approvedAt": "2026-10-19",
-      "layer": "src/server/transport",
-      "exitPlan": "消费面只有 src/server/transport/previewServer.ts：若停更，可替换为 serve-handler / send（同为 MIT）或回退到 SafeFs + 手写静态响应（本文件首版实现可从 git 历史取回），调用面不变。",
+      "layer": "src/apps/server/transport",
+      "exitPlan": "消费面只有 src/apps/server/transport/previewServer.ts：若停更，可替换为 serve-handler / send（同为 MIT）或回退到 SafeFs + 手写静态响应（本文件首版实现可从 git 历史取回），调用面不变。",
       "maxInstallKb": 256,
       "maxTransitiveDeps": 3
     },
@@ -253,7 +253,7 @@
     "capability": "带来什么原本没有的能力",
     "license": "MIT",
     "approvedAt": "YYYY-MM-DD",
-    "layer": "src/adapters/xxx",
+    "layer": "src/kernel/adapters/xxx",
     "exitPlan": "若该包废弃，替换路径是什么",
     "maxInstallKb": 2048,
     "maxTransitiveDeps": 20

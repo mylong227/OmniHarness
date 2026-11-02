@@ -12,10 +12,10 @@ my-plugin/
 └── index.js           # 入口（默认；可由 manifest.entry 改）
 ```
 
-## 2. 清单字段（权威声明：`src/ports/plugin/pluginManifest.ts` 的 `PluginManifest`）
+## 2. 清单字段（权威声明：`src/contracts/ports/plugin/pluginManifest.ts` 的 `PluginManifest`）
 
-> **为什么这一行要写清路径**：清单**类型**的权威声明在**端口层** `src/ports/plugin/pluginManifest.ts`
-> （六边形铁律：契约住端口）；`src/plugin/manifest.ts` 里那句 `export type { PluginManifest }` 只是**再导出**
+> **为什么这一行要写清路径**：清单**类型**的权威声明在**端口层** `src/contracts/ports/plugin/pluginManifest.ts`
+> （六边形铁律：契约住端口）；`src/kernel/plugin/manifest.ts` 里那句 `export type { PluginManifest }` 只是**再导出**
 > （它自己只剩 `PluginDescriptor` 与 `Manifest` 权限校验），**不是**声明处——照旧路径去改类型会改错文件。
 
 | 字段          | 必填 | 说明                                                      |
@@ -29,7 +29,7 @@ my-plugin/
 | `entry`       | ⬜   | 入口文件，相对插件目录，默认 `index.js`                   |
 | `source`      | ⬜   | 标记 `bundled` / `local` / `remote`，用于 UI/CLI 展示     |
 
-## 3. 权限白名单（`src/plugin/permission.ts`）
+## 3. 权限白名单（`src/kernel/plugin/permission.ts`）
 
 共 10 项，未声明 = 无能力；超白名单 = 安装/加载即拒（fail-closed）：
 
@@ -104,11 +104,11 @@ export default {
 
 ```bash
 # 方式 A：直接挂单个工具模块（不经插件系统）
-node dist/src/cli/exec.js --prompt "..." --tool ./my-plugin/index.js
+node dist/src/apps/cli/exec.js --prompt "..." --tool ./my-plugin/index.js
 
 # 方式 B：放进插件目录，serve 启动自动加载
 # 默认目录：~/.omniharness/plugins  或  serve --dir ./my-plugins
-node dist/src/cli/exec.js serve --port 8787 --dir ./my-plugins
+node dist/src/apps/cli/exec.js serve --port 8787 --dir ./my-plugins
 
 # 方式 C：市场安装后热加载
 # Web UI 插件市场「安装」→ 点「重新加载」(plugins.reload RPC)
@@ -118,7 +118,7 @@ node dist/src/cli/exec.js serve --port 8787 --dir ./my-plugins
 
 > **隔离阶梯的完整口径**（`core` → `signed`(`node:vm`) → `evolved`(wasm) → OS 沙箱：**档位不可达即拒执行、
 > 不静默降档**，`wasm` 档如实申报未接入）见 [adr/0010-isolation-ladder.md](adr/0010-isolation-ladder.md)
-> 与端口声明 `src/ports/runtime/isolation.ts`——本节只讲插件加载这一格，别在此处另立一套档位说法。
+> 与端口声明 `src/contracts/ports/runtime/isolation.ts`——本节只讲插件加载这一格，别在此处另立一套档位说法。
 
 ## 7. registry / catalog 接入
 

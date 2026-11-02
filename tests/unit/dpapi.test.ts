@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Dpapi } from '../../src/util/dpapi.ts';
-import { DpapiConfig } from '../../src/config/dpapiConfig.ts';
-import { ConfigFile } from '../../src/config/configFile.ts';
+import { Dpapi } from '../../src/kernel/util/dpapi.ts';
+import { DpapiConfig } from '../../src/kernel/config/dpapiConfig.ts';
+import { ConfigFile } from '../../src/kernel/config/configFile.ts';
 
 test('DPAPI：Windows 上加密/解密往返，且密文不含明文（2026-10-21）', async () => {
   if (process.platform !== 'win32') {

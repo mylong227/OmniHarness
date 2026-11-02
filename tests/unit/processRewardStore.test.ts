@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ProcessRewardStore } from '../../src/adapters/memory/processRewardStore.ts';
+import { ProcessRewardStore } from '../../src/kernel/adapters/memory/processRewardStore.ts';
 
 /** 固定时间。 */
 const at = '2026-10-18T00:00:00.000Z';

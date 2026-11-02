@@ -1,7 +1,7 @@
 # 端口契约（PORTS_CONTRACT · P8.3）
 
 > 目的：让**第三方可以实现 OmniHarness 的端口**（嵌入方、扩展者、评测框架），而不必阅读适配器源码。
-> 口径来源：`src/ports/**`（唯一权威）+ `docs/ARCHITECTURE_SPEC.md` §2「目录归属与依赖方向」。
+> 口径来源：`src/contracts/ports/**`（唯一权威）+ `docs/ARCHITECTURE_SPEC.md` §2「目录归属与依赖方向」。
 > 三条硬规则（对实现者同样生效）：
 > ① 端口层零第三方依赖；② 实现须通过对应端口契约测试（如 `tests/unit/oidcFlowContract.test.ts`
 > 就是"两实现逐条过同一契约面 + 差异逐条记录"的范式，`tests/unit/corePortsAssembler.test.ts`
@@ -16,7 +16,7 @@
 | **高级扩展**                 | `agent`、`subagent`、`supervisor`、`confinement`、`policy`、`escalation`、`evolution`、`metacognition`、`immune`、`qec`、`memoryAnnealing`、`insightEtching`、`symmetryBreaking`、`vortexRing`、`cosmicWeb`、`resonantMemory` | 发明层/治理层机制端口，实现须带 `@maturity` 声明与证据（见 §4） |
 | **回调/钩子**                | `toolHook`、`toolInputSink`、`turnDiffTracker`、`eventFactory`、`memoryExtractor`、`sandboxDenial`                                                                                                                            | 供宿主监听与注入；实现不得阻塞主循环                            |
 
-完整接口清单**以 `src/ports/**` 为准**（31 个子目录 / 376 个 `.ts`，抽查日期 2026-10-06；
+完整接口清单**以 `src/contracts/ports/**` 为准**（31 个子目录 / 376 个 `.ts`，抽查日期 2026-10-06；
 不要抄第二份清单——它一定会漂）。拆分后约定：**每个接口独占一个 camelCase 文件**（如 `approvalPort.ts`，
 接口符号仍是 PascalCase `ApprovalPort`），原声明文件退化为纯桶再导出（`export type { X } from './…/X.js'`，
 调用点零改动），桶文件内不残留任何类型声明。文件名小驼峰是为兼容铁律 `check.mjs` 规则6
@@ -61,4 +61,4 @@ await runtime.agent.runTask('hello');
 ```
 
 > 实现方注意：`ModelPort.stream()` 的取消语义以 `AbortSignal` 为准；中途抛错请抛
-> `ModelCallError`（`src/errors/modelCallError.ts`），让重试/预算链路可辨识。
+> `ModelCallError`（`src/contracts/errors/modelCallError.ts`），让重试/预算链路可辨识。

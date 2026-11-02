@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.ts';
+import { OidcClient, EnterpriseAuth, type OidcDiscovery } from '../../src/apps/enterprise/oidcClient.ts';
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf)

@@ -26,13 +26,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { ModelResponseFormats } from '../../src/adapters/model/modelResponseFormats.ts';
-import type { ModelRequest, ModelResponseFormat } from '../../src/ports/model/model.ts';
+import { AnthropicModel } from '../../src/kernel/adapters/model/anthropicModel.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
+import { ResponsesModel } from '../../src/kernel/adapters/model/responsesModel.ts';
+import { LlamaCppModel } from '../../src/kernel/adapters/model/llamaCppModel.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { ModelResponseFormats } from '../../src/kernel/adapters/model/modelResponseFormats.ts';
+import type { ModelRequest, ModelResponseFormat } from '../../src/contracts/ports/model/model.ts';
 
 /** 仓库根（判据在 `dist/tests/unit/`，源码按 cwd 读）。 */
 const REPO_ROOT = process.cwd();
@@ -320,12 +320,12 @@ test('⑥ fail-closed：不合规的格式名在**构造请求体**时即抛（�
 
 test('⑦ 单一实现：上游字段字面量只许出现在映射模块（防各适配器各写一遍）', () => {
   const mapping = readFileSync(
-    join(REPO_ROOT, 'src/adapters/model/modelResponseFormats.ts'),
+    join(REPO_ROOT, 'src/kernel/adapters/model/modelResponseFormats.ts'),
     'utf8',
   );
   assert.match(mapping, /'json_schema'/u, '映射模块必须自己持有 json_schema 字面量');
   for (const file of ['anthropicModel', 'llamaCppModel', 'mockModel']) {
-    const source = readFileSync(join(REPO_ROOT, `src/adapters/model/${file}.ts`), 'utf8');
+    const source = readFileSync(join(REPO_ROOT, `src/kernel/adapters/model/${file}.ts`), 'utf8');
     assert.doesNotMatch(
       source,
       /'json_schema'/u,

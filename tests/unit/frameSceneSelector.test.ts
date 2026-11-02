@@ -18,9 +18,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { FrameSceneSelector } from '../../src/media/frameSceneSelector.ts';
-import type { SceneSelectedFrame } from '../../src/media/frameSceneSelector.ts';
-import type { GifDecodedFrame } from '../../src/ports/media/gifDecodedFrame.ts';
+import { FrameSceneSelector } from '../../src/kernel/media/frameSceneSelector.ts';
+import type { SceneSelectedFrame } from '../../src/kernel/media/frameSceneSelector.ts';
+import type { GifDecodedFrame } from '../../src/contracts/ports/media/gifDecodedFrame.ts';
 
 /** 单个像素的 RGB 三元组（alpha 恒 255，本判据不使用）。 */
 type Rgb = readonly [number, number, number];

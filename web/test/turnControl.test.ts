@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import type { AppHost, AppServices } from '../src/ui/controllers/AppController.ts';
 import type { SessionController } from '../src/ui/controllers/SessionController.ts';
-import type { AppRoute } from '../src/core/Router.ts';
+import type { AppRoute } from '../src/kernel/core/Router.ts';
 
-const { ApiClient } = await import('../src/core/ApiClient.ts');
+const { ApiClient } = await import('../src/kernel/core/ApiClient.ts');
 const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
 /** 测试本地事件形状（ThreadEvent 的最小子集）。 */
@@ -208,7 +208,7 @@ test('stop：在飞回合立即停 UI（清流式与忙碌 + 写已中止）并�
   ctrl.stop();
   assert.strictEqual(api.abortCalls, 1, 'stop 必须调 turns.abort');
   // 2026-09-22：必须带上当前 threadId——服务端允许多回合并行，不带 id 会退化为「取消全部在跑回合」，
-  // 并发会话下等于误停别人的任务（后端按 sessionId 定向取消，见 src/core/agent.ts）。
+  // 并发会话下等于误停别人的任务（后端按 sessionId 定向取消，见 src/kernel/core/agent.ts）。
   assert.deepEqual(
     api.abortArgs,
     ['t1'],

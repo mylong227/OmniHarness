@@ -20,7 +20,7 @@ npm start        # = 构建服务端 + 构建前端 + 起 HTTP 工作台
 > **为什么不是 `npm run build` 就够**：前端是 Vite 构建（`web/src` → `web/dist/assets/*`），
 > 需要 `npm run web:build` 才有产物；只 build 服务端会**白屏**。`npm start` 把两步都做了。
 
-所有命令也可经 `node dist/src/cli/exec.js <子命令>` 运行（`npm i -g` 后可直接用 `omniharness <子命令>`）。
+所有命令也可经 `node dist/src/apps/cli/exec.js <子命令>` 运行（`npm i -g` 后可直接用 `omniharness <子命令>`）。
 
 ---
 
@@ -43,7 +43,7 @@ npm start -- --mock
 **方式 A —— 命令行（临时）**
 
 ```bash
-node dist/src/cli/exec.js --prompt "读取 README.md 并总结" \
+node dist/src/apps/cli/exec.js --prompt "读取 README.md 并总结" \
   --model-adapter openai --base-url https://api.deepseek.com \
   --api-key sk-xxx --model deepseek-v4-flash --workspace .
 ```
@@ -69,7 +69,7 @@ npm start                             # 之后从任何目录启动都读同一�
 ```
 
 也可复制 [`../omniharness.json.example`](../omniharness.json.example) 改名使用。
-配置字段全部落在严格白名单内（[`../src/config/configError.ts`](../src/config/configError.ts) 的 `KNOWN_KEYS`），
+配置字段全部落在严格白名单内（[`../src/kernel/config/configError.ts`](../src/kernel/config/configError.ts) 的 `KNOWN_KEYS`），
 白名单外字段即报错——**不会静默忽略**。
 
 > **凭据纪律**：`apiKey` / `providerKeys` 只放用户级。项目级 `omniharness.json` 里放凭据等于把 Key 提交进仓库。
@@ -77,7 +77,7 @@ npm start                             # 之后从任何目录启动都读同一�
 **headless / CI**
 
 ```bash
-node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rules --escalation deny
+node dist/src/apps/cli/exec.js -p --prompt "..." --output-format json --approval rules --escalation deny
 # → {"ok":true,"sessionId":"...","steps":N,"finalText":"..."}
 ```
 
@@ -90,28 +90,28 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 
 ```bash
 # 真机单次运行
-node dist/src/cli/exec.js --prompt "..." --model-adapter openai --api-key sk-xxx
+node dist/src/apps/cli/exec.js --prompt "..." --model-adapter openai --api-key sk-xxx
 
 # 常驻 app-server（stdio JSON-RPC，给 SDK/编辑器）
-node dist/src/cli/exec.js server
+node dist/src/apps/cli/exec.js server
 
 # 自主目标循环
-node dist/src/cli/exec.js goal "把 src 下 TODO 清理完" --goal-max-iterations 8
+node dist/src/apps/cli/exec.js goal "把 src 下 TODO 清理完" --goal-max-iterations 8
 
 # DAG 工作流（定义文件是 JSON）
-node dist/src/cli/exec.js workflow --file workflow.json
+node dist/src/apps/cli/exec.js workflow --file workflow.json
 
 # 富终端 TUI（需 TTY；demo 为回声演示）
-node dist/src/cli/exec.js tui [demo]
+node dist/src/apps/cli/exec.js tui [demo]
 
 # 环境诊断 / 会话自省 / 审计
-node dist/src/cli/exec.js doctor
-node dist/src/cli/exec.js session list
-node dist/src/cli/exec.js trace read --session ID --limit 50
-node dist/src/cli/exec.js audit export
+node dist/src/apps/cli/exec.js doctor
+node dist/src/apps/cli/exec.js session list
+node dist/src/apps/cli/exec.js trace read --session ID --limit 50
+node dist/src/apps/cli/exec.js audit export
 
 # 原生内核（可选，需 npm run native:build）
-node dist/src/cli/exec.js native info
+node dist/src/apps/cli/exec.js native info
 ```
 
 ---
@@ -133,10 +133,10 @@ curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","id":2,"method":"graph.run","params":{"id":"demo"}}'
 
 # 插件集：一条命令切换编码/研究模式的插件组合
-node dist/src/cli/exec.js serve --plugin-profile coding
+node dist/src/apps/cli/exec.js serve --plugin-profile coding
 
 # 长期记忆加密落盘（AES-256-GCM）
-node dist/src/cli/exec.js serve --memory-encrypt --memory-key-file .omniharness/longterm/memory.key
+node dist/src/apps/cli/exec.js serve --memory-encrypt --memory-key-file .omniharness/longterm/memory.key
 ```
 
 ---

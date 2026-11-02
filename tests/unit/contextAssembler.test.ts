@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextAssembler } from '../../src/context/contextAssembler.ts';
-import { EventFactory } from '../../src/core/eventFactory.ts';
-import type { FileAttachment } from '../../src/ports/model/fileAttachment.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ContextAssembler } from '../../src/kernel/context/contextAssembler.ts';
+import { EventFactory } from '../../src/kernel/core/eventFactory.ts';
+import type { FileAttachment } from '../../src/contracts/ports/model/fileAttachment.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 构造事件。 */
 function event(type: SessionEvent['type'], payload: unknown, id = 'e'): SessionEvent {

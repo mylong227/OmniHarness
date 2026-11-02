@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { IndexedCorpus } from '../../src/context/contextEngine.ts';
-import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { IndexedCorpus } from '../../src/kernel/context/contextEngine.ts';
+import type { Embedding, EmbeddingPort } from '../../src/contracts/ports/model/embedding.ts';
 
 /** 确定性伪嵌入：向量 = 各字符落桶计数。无需真实模型，足以驱动混合检索机制且不崩。 */
 class FakeEmbedding implements EmbeddingPort {

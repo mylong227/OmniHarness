@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StackFrameParser } from '../../src/adapters/tool/verify/stackFrameParser.ts';
+import { StackFrameParser } from '../../src/kernel/adapters/tool/verify/stackFrameParser.ts';
 
 test('Node/Jest 风格：at fn (file:line:col) 解析为 文件:行', () => {
   const raw = ['not ok 1 - 用例', '    at Object.<anonymous> (src/a/b.ts:12:34)'].join('\n');
@@ -11,8 +11,8 @@ test('Node/Jest 风格：at fn (file:line:col) 解析为 文件:行', () => {
 });
 
 test('Node 无括号形态：at file:line:col', () => {
-  const raw = '    at src/util/x.mjs:7:1';
-  assert.deepStrictEqual([...StackFrameParser.locate(raw)], ['src/util/x.mjs:7']);
+  const raw = '    at src/kernel/util/x.mjs:7:1';
+  assert.deepStrictEqual([...StackFrameParser.locate(raw)], ['src/kernel/util/x.mjs:7']);
 });
 
 test('Python traceback：File "x.py", line N 解析为 文件:行', () => {

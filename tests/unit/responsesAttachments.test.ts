@@ -16,8 +16,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
-import type { ModelRequest } from '../../src/ports/model/model.ts';
+import { ResponsesModel } from '../../src/kernel/adapters/model/responsesModel.ts';
+import type { ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 最小合法请求（适配器只要求 messages/tools 存在）。 */
 const REQUEST: ModelRequest = { messages: [{ role: 'user', content: 'hi' }], tools: [] };

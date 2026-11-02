@@ -4,8 +4,8 @@ import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditExporter } from '../../src/server/services/auditExporter.ts';
-import type { AuditEvent } from '../../src/server/services/auditSink.ts';
+import { AuditExporter } from '../../src/apps/server/services/auditExporter.ts';
+import type { AuditEvent } from '../../src/apps/server/services/auditSink.ts';
 
 const sample: AuditEvent[] = [
   {
@@ -53,7 +53,7 @@ test('formatCompliance：合法 JSON 含 summary', () => {
 test('CLI：audit export --compliance 输出合规报告 JSON', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'comp-'));
   const file = join(dir, 'audit.log');
-  const cli = join(process.cwd(), 'dist/src/cli/exec.js');
+  const cli = join(process.cwd(), 'dist/src/apps/cli/exec.js');
   try {
     const lines = sample.map((e) => JSON.stringify(e)).join('\n') + '\n';
     await writeFile(file, lines, 'utf8');

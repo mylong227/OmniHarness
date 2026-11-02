@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import { Bm25MemoryIndex } from '../../src/adapters/retrieval/bm25MemoryIndex.ts';
-import { MemorySearchTool } from '../../src/adapters/tool/memory/memorySearchTool.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { Agent } from '../../src/core/agent.ts';
+import { Bm25MemoryIndex } from '../../src/kernel/adapters/retrieval/bm25MemoryIndex.ts';
+import { MemorySearchTool } from '../../src/kernel/adapters/tool/memory/memorySearchTool.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
 import type {
   RetrievalDoc,
   RetrievalHit,
   RetrievalPort,
-} from '../../src/ports/intelligence/retrieval.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+} from '../../src/contracts/ports/intelligence/retrieval.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 

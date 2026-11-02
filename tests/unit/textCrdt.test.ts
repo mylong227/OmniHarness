@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TextCrdt } from '../../src/util/textCrdt.ts';
+import { TextCrdt } from '../../src/kernel/util/textCrdt.ts';
 
 test('① 同位置并发插入：合并后两端物化一致（顺序由副本 id 决定）', () => {
   const a = new TextCrdt('A');

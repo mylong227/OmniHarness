@@ -3,12 +3,12 @@
 > **本文件是"速查"，权威来源永远是代码与 `--help`**：
 >
 > ```bash
-> node dist/src/cli/exec.js --help              # 子命令用法 + 全部旗标
-> node dist/src/cli/exec.js --dump-config       # 打印生效配置（默认值 + 配置文件合并结果；凭据已打码）后退出
+> node dist/src/apps/cli/exec.js --help              # 子命令用法 + 全部旗标
+> node dist/src/apps/cli/exec.js --dump-config       # 打印生效配置（默认值 + 配置文件合并结果；凭据已打码）后退出
 > ```
 >
-> 命令分发处：[`../src/cli/execCli.ts`](../src/cli/execCli.ts)；旗标认识面（**新增旗标必须登记**）：
-> [`../src/cli/knownFlags.ts`](../src/cli/knownFlags.ts) + [`../src/cli/cliFlagTable.ts`](../src/cli/cliFlagTable.ts)。
+> 命令分发处：[`../src/apps/cli/execCli.ts`](../src/apps/cli/execCli.ts)；旗标认识面（**新增旗标必须登记**）：
+> [`../src/apps/cli/knownFlags.ts`](../src/apps/cli/knownFlags.ts) + [`../src/apps/cli/cliFlagTable.ts`](../src/apps/cli/cliFlagTable.ts)。
 > 一键启动与运行规范见 [`STARTUP.md`](STARTUP.md)。
 
 ---
@@ -17,7 +17,7 @@
 
 | 方式                      | 命令                                                              |
 | ------------------------- | ----------------------------------------------------------------- |
-| 源码运行（本仓开发）      | `node dist/src/cli/exec.js <子命令> [旗标]`（先 `npm run build`） |
+| 源码运行（本仓开发）      | `node dist/src/apps/cli/exec.js <子命令> [旗标]`（先 `npm run build`） |
 | 全局 bin（`npm i -g` 后） | `omniharness <子命令> [旗标]`                                     |
 | 无子命令（默认路径）      | `omniharness exec --prompt "任务"` 或 `omniharness "任务"`        |
 
@@ -161,7 +161,7 @@
 传输：`POST /rpc`（JSON-RPC 2.0，批量也支持）+ `GET /events`（SSE 推送）+ WebSocket 帧层。
 核心方法（`threads.*` / `approval.respond`）见 [`protocol.md`](protocol.md)；
 UI 侧高频方法（`config.get` / `config.update` / `sessions.list{workspace}` / `modes.get` / `modes.set` /
-`plugins.*` / `memory.*` / `graph.*` / `workspace.*` / `fs.*`）以 [`../web/src/core/ApiClient.ts`](../web/src/core/ApiClient.ts) 为准。
+`plugins.*` / `memory.*` / `graph.*` / `workspace.*` / `fs.*`）以 [`../web/src/kernel/core/ApiClient.ts`](../web/src/kernel/core/ApiClient.ts) 为准。
 
 示例：
 
@@ -184,7 +184,7 @@ curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
 ## 4. 新增旗标 = 必须登记（否则会被静默打死）
 
 `ArgParser` 对**不认识的 `-` 开头 token fail-closed**。因此任何新旗标都要出现在
-`src/cli/cliFlagTable.ts`（取值型/开关型）或 `src/cli/knownFlags.ts`（子命令自解析）之一，
+`src/apps/cli/cliFlagTable.ts`（取值型/开关型）或 `src/apps/cli/knownFlags.ts`（子命令自解析）之一，
 否则 `--your-flag` 会以"未知旗标"报错退出——**哪怕代码里真的在读它**。
 
 判据在 [`../tests/unit/knownFlags.test.ts`](../tests/unit/knownFlags.test.ts)：
@@ -221,4 +221,4 @@ curl -s -X POST http://127.0.0.1:8787/rpc -H 'Content-Type: application/json' \
 | `OMNI_SHELL_QUEUE_TOTAL`       | `256` | 全局排队上限；超出即拒绝，避免多会话把进程内存拖垮                  |
 
 > 分配按会话公平（SFQ），不是全局 FIFO：一个会话灌满队列时，另一个会话的命令仍会排在
-> 它的前几条任务之后，而不是排在 100 条之后。代码：`src/util/concurrency/fairSessionScheduler.ts`。
+> 它的前几条任务之后，而不是排在 100 条之后。代码：`src/kernel/util/concurrency/fairSessionScheduler.ts`。

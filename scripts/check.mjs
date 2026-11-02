@@ -1,17 +1,17 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // OmniHarness 项目铁律静态自检（自身无第三方依赖，仅用 node: 内置）。
 // 不依赖任何 npm 包，可被 CI 直接调用：发现违规即退出码 1。
 //
 // 依赖政策（2026-09-05 起，见 docs/DEPENDENCY_POLICY.md）：
 //   **必要即可依赖** —— 能实质提升能力的优质依赖即资产；但必须「准入登记 + 分层隔离」。
-//   src/ports/** 与 src/core/** 恒为第三方-free，依赖只能落在适配层，保证可换、架构不塌。
+//   src/contracts/ports/** 与 src/kernel/core/** 恒为第三方-free，依赖只能落在适配层，保证可换、架构不塌。
 //
 // 校验项：
 //   1) 依赖准入清单：package.json 的 dependencies 每项须登记于 dependency-allowlist.json。
 //   2) 依赖登记字段完整：reason/capability/license/approvedAt/layer 缺一即阻断。
 //   3) 依赖许可证合规：仅允许 permissive（拒绝 GPL/AGPL/SSPL/BUSL 等）。
 //   4) 第三方导入须准入：src/** 的第三方裸导入须在 allowlist 内。
-//   5) 核心与端口层零第三方：src/ports/**、src/core/** 禁止第三方导入（阻断）。
+//   5) 核心与端口层零第三方：src/contracts/ports/**、src/kernel/core/** 禁止第三方导入（阻断）。
 //   6) TS 文件名 camelCase：src/**/*.ts 基名须匹配 ^[a-z][a-zA-Z0-9]*$（**仅服务端**：
 //      前端组件天然是 PascalCase，见 main() 里的说明）。
 //   7) 文件行数上限：src 单文件不得 > MAX_FILE_LINES；web/src 同口径（存量超限走
@@ -33,7 +33,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
  * 为什么需要：Windows 上的编辑器 / PowerShell 的 `Set-Content -Encoding utf8` 会给文件写 BOM，
  * 而 `JSON.parse` 遇到 BOM 抛的是 `SyntaxError: Unexpected token '﻿'` —— 报错既不点明
  * "这是 BOM"、也不点明"哪个文件"，极容易被误判成"JSON 语法写坏了"。本仓配置层
- * （`src/config/configFile.ts`）早已容忍 BOM，门禁脚本这一侧此前没有（2026-10-11 实测踩到：
+ * （`src/kernel/config/configFile.ts`）早已容忍 BOM，门禁脚本这一侧此前没有（2026-10-11 实测踩到：
  * `package.json` 被写入 BOM ⇒ `check.mjs` 直接崩，连带 4 条判据变红）。
  * @param file 文件路径
  * @returns 解析后的 JSON
@@ -161,7 +161,7 @@ const optionalDeps = new Set(
   Object.keys(readJson(join(ROOT, 'package.json')).optionalDependencies ?? {}),
 );
 const allowedLicenses = new Set(allowlistDoc?.allowedLicenses ?? []);
-const forbiddenLayers = (allowlistDoc?.forbiddenLayers ?? ['src/ports', 'src/core']).map((p) =>
+const forbiddenLayers = (allowlistDoc?.forbiddenLayers ?? ['src/contracts/ports', 'src/kernel/core']).map((p) =>
   p.replace(/\/$/, ''),
 );
 const defaultBudgets = allowlistDoc?.defaultBudgets ?? {

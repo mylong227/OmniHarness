@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { KeyedReadWriteLock } from '../../src/util/concurrency/keyedReadWriteLock.ts';
-import { LockError } from '../../src/util/concurrency/lockError.ts';
+import { KeyedReadWriteLock } from '../../src/kernel/util/concurrency/keyedReadWriteLock.ts';
+import { LockError } from '../../src/kernel/util/concurrency/lockError.ts';
 
 /** 让已排队的微任务跑完。 */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));

@@ -15,22 +15,22 @@ import { describe, it } from 'vitest';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import { WorkflowRunner } from '../../src/autonomy/workflowRunner.ts';
-import { WorkflowRunLog } from '../../src/autonomy/workflowRunLog.ts';
-import { WorkflowRunLock } from '../../src/autonomy/workflowRunLock.ts';
-import { WorkflowSpecError } from '../../src/autonomy/workflowSpecError.ts';
-import type { WorkflowDef } from '../../src/ports/autonomy/workflowDef.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import { WorkflowRunner } from '../../src/kernel/autonomy/workflowRunner.ts';
+import { WorkflowRunLog } from '../../src/kernel/autonomy/workflowRunLog.ts';
+import { WorkflowRunLock } from '../../src/kernel/autonomy/workflowRunLock.ts';
+import { WorkflowSpecError } from '../../src/kernel/autonomy/workflowSpecError.ts';
+import type { WorkflowDef } from '../../src/contracts/ports/autonomy/workflowDef.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
 
 /** 可控失败模型：prompt 命中 `failOn` 即抛错；`failOn` 可在两次运行之间改写。 */
 class SwitchableModel implements ModelPort {

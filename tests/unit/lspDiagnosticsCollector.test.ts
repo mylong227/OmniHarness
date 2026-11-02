@@ -6,8 +6,8 @@ import {
   LspDiagnosticsCollector,
   type DiagnosticsTimerHandle,
   type DiagnosticsTimers,
-} from '../../src/adapters/lsp/lspDiagnosticsCollector.ts';
-import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
+} from '../../src/kernel/adapters/lsp/lspDiagnosticsCollector.ts';
+import { LspUri } from '../../src/kernel/adapters/lsp/lspUri.ts';
 
 /**
  * 记录式假定时器。
@@ -323,7 +323,7 @@ test('铁律：awaitPublish 之后定时器仍引用事件循环（不得对它 
 });
 
 test('铁律：除该定时器外无其他句柄时，事件循环必须撑到超时（子进程实测）', () => {
-  const collectorUrl = new URL('../../src/adapters/lsp/lspDiagnosticsCollector.ts', import.meta.url)
+  const collectorUrl = new URL('../../src/kernel/adapters/lsp/lspDiagnosticsCollector.ts', import.meta.url)
     .href;
   const script = [
     `const { LspDiagnosticsCollector } = await import(${JSON.stringify(collectorUrl)});`,

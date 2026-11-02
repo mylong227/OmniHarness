@@ -20,20 +20,20 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Agent } from '../../src/core/agent.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
 import type {
   FileAttachment,
   ModelMessage,
   ModelOutput,
   ModelPort,
   ModelRequest,
-} from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/model/model.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 测试用附件（一份「非图片」通用文件）。 */

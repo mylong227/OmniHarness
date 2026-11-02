@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { RuleApproval } from '../../src/adapters/approval/ruleApproval.ts';
-import type { ApprovalRequest } from '../../src/ports/runtime/approval.ts';
+import { RuleApproval } from '../../src/kernel/adapters/approval/ruleApproval.ts';
+import type { ApprovalRequest } from '../../src/contracts/ports/runtime/approval.ts';
 
 /** 构造审批请求。 */
 function request(toolName: string, target: string): ApprovalRequest {

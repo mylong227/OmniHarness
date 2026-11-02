@@ -16,11 +16,11 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import { ContextEngine, type IndexedCorpus } from '../../src/context/contextEngine.ts';
-import { CorpusIncrementalUpdater } from '../../src/context/corpusIncrementalUpdater.ts';
-import { CorpusFileParser } from '../../src/context/corpusFileParser.ts';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
-import type { CorpusFileArtifact } from '../../src/context/corpusFileArtifact.ts';
+import { ContextEngine, type IndexedCorpus } from '../../src/kernel/context/contextEngine.ts';
+import { CorpusIncrementalUpdater } from '../../src/kernel/context/corpusIncrementalUpdater.ts';
+import { CorpusFileParser } from '../../src/kernel/context/corpusFileParser.ts';
+import { CorpusIndexCache } from '../../src/kernel/context/corpusIndexCache.ts';
+import type { CorpusFileArtifact } from '../../src/kernel/context/corpusFileArtifact.ts';
 
 /** 造一个最小工作区（`ContextEngine` 只认 .ts/.js/.py）。 */
 function workspace(): string {

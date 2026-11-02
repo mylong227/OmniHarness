@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { AsyncChildProcess } from '../../src/util/asyncChildProcess.ts';
+import { AsyncChildProcess } from '../../src/kernel/util/asyncChildProcess.ts';
 
 const NODE = process.execPath;
 

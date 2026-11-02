@@ -13,22 +13,22 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StepToolExecutor } from '../../src/core/stepToolExecutor.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SupervisorKernel } from '../../src/supervisor/supervisorKernel.ts';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
+import { StepToolExecutor } from '../../src/kernel/core/stepToolExecutor.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SupervisorKernel } from '../../src/kernel/supervisor/supervisorKernel.ts';
+import type { StepRunnerDeps } from '../../src/kernel/core/stepTypes.ts';
+import type { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
 
 /** 固定返回某个结果的工具端口（模拟 shell 的非零退出 / 真实异常）。 */
 class FixedResultTools implements ToolPort {

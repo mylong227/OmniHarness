@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { FsExplorer } from '../../src/server/services/fsExplorer.ts';
+import { FsExplorer } from '../../src/apps/server/services/fsExplorer.ts';
 
 /** 在临时目录内执行并在结束后清理（支持异步回调）。 */
 async function withTemp<T>(fn: (dir: string) => Promise<T>): Promise<T> {

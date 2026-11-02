@@ -6,27 +6,27 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import { LineTransport } from '../../src/server/transport/lineTransport.ts';
-import type { McpServerOptions } from '../../src/mcp/mcpServer.ts';
-import { McpServer } from '../../src/mcp/mcpServer.ts';
-import { McpSseResponseTransport } from '../../src/mcp/mcpSseResponseTransport.ts';
-import { McpApprovalInputHandler } from '../../src/mcp/mcpApprovalInputHandler.ts';
-import { McpAskUserInputHandler } from '../../src/mcp/mcpAskUserInputHandler.ts';
-import { McpStatelessClient } from '../../src/mcp/mcpStatelessClient.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import { LineTransport } from '../../src/apps/server/transport/lineTransport.ts';
+import type { McpServerOptions } from '../../src/protocols/mcp/mcpServer.ts';
+import { McpServer } from '../../src/protocols/mcp/mcpServer.ts';
+import { McpSseResponseTransport } from '../../src/protocols/mcp/mcpSseResponseTransport.ts';
+import { McpApprovalInputHandler } from '../../src/protocols/mcp/mcpApprovalInputHandler.ts';
+import { McpAskUserInputHandler } from '../../src/protocols/mcp/mcpAskUserInputHandler.ts';
+import { McpStatelessClient } from '../../src/protocols/mcp/mcpStatelessClient.ts';
 import type {
   McpInputRequiredContext,
   McpInputRequiredDecision,
   McpInputRequiredPort,
-} from '../../src/ports/mcp/mcpInputRequiredPort.ts';
+} from '../../src/contracts/ports/mcp/mcpInputRequiredPort.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements Transport {

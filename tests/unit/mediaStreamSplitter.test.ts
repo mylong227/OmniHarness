@@ -8,10 +8,10 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ImageStreamSplitter } from '../../src/media/imageStreamSplitter.ts';
-import { PngEncoder } from '../../src/media/pngEncoder.ts';
-import { MediaSniffer } from '../../src/media/mediaSniffer.ts';
-import type { RasterImage } from '../../src/media/rasterTypes.ts';
+import { ImageStreamSplitter } from '../../src/kernel/media/imageStreamSplitter.ts';
+import { PngEncoder } from '../../src/kernel/media/pngEncoder.ts';
+import { MediaSniffer } from '../../src/kernel/media/mediaSniffer.ts';
+import type { RasterImage } from '../../src/kernel/media/rasterTypes.ts';
 
 /**
  * 构造纯色栅格。

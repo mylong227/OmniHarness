@@ -1,0 +1,483 @@
+/**
+ * RLVR 进化控制器组合器（U4 升格的实质落点）。
+ *
+ * 把三段原本孤立的能力钉成一条真闭环：
+ *   1. TwistDiscoveryEngine（燧-1 莫尔组合，有界发现候选技能）
+ *   2. FailClosedEvolutionGate（fail-closed 门禁，可注入「可验证奖励」基准）
+ *   3. RlvrLoop（StarPO sample-filter-replay：模型采样代码变体 → 可验证奖励打分 → 绿样本进回放缓冲）
+ *
+ * 关键桥接：U4 两个孤儿模块（`verifiableReward` 的 skill 型奖励 ↔ `RlvrLoop` 的代码型采样）
+ * 通过 `verifiableRewardForCode` 接通——RLVR 的奖励来自「把候选代码写入临时文件后真实编译/测试绿度」，
+ * 而非 LLM 主观评判或结构启发式。过门禁的候选还需 RLVR 阶段产生「绿」样本才晋升（fail-closed 否决）。
+ *
+ * T5 合流（本文件新增）：晋升**不再是门禁直通**——过门禁 + 有绿样本的候选还要过
+ * `PromotionAdmission`（多样性闸 → 退火接受），并受 `RewardCoverageMeter` 的**势函数覆盖率
+ * fail-closed 闸**约束（覆盖率低于阈值即整轮不晋升，见 `honestNote` 的降级口径）；
+ * 每轮把覆盖率体检 / 准入明细 / 失败模式挖掘提案输出为 `evolution.rlvr.*` 观测行。
+ *
+ * 零第三方依赖；模型采样器 fail-closed（生成失败 → 该样本不参与回放）。
+ *
+ * @maturity L1 — RLVR 闭环在；Echo Trap 防护未证
+ * @maturityEvidence tests/unit/evolutionRlvr.test.ts
+ */
+import type { Candidate } from '../../contracts/ports/runtime/evolution.ts';
+import type { ModelPort } from '../../contracts/ports/model/model.ts';
+import type { Skill, MoireOptions } from '../skill/skill.ts';
+import { FailClosedEvolutionGate } from './failClosedEvolutionGate.ts';
+import type { BenchmarkFn } from './failClosedEvolutionGate.ts';
+
+import { Benchmark } from './benchmark.ts';
+
+import { TwistDiscoveryEngine } from './twistDiscoveryEngine.ts';
+import { EvolutionControllerImpl } from './evolutionControllerImpl.ts';
+import type {
+  DiscoveryEngine,
+  EvolutionController,
+  PromotionVerdict,
+} from '../../contracts/ports/runtime/evolution.ts';
+import { RlvrLoop, InMemoryReplayBuffer } from './rlvrLoop.ts';
+import type { RlvrSampler, ReplayBuffer, CodeCandidate, RlvrSampleContext } from './rlvrLoop.ts';
+import { VerifiableReward } from './verifiableReward.ts';
+import { CascadeReward } from './cascadeReward.ts';
+import { RewardCoverageMeter, COVERAGE_THRESHOLD } from './rewardCoverageMeter.ts';
+import type {
+  CoverageMeter,
+  CoverageReportSurface,
+  CoverageSnapshot,
+} from './rewardCoverageMeter.ts';
+import { BucketedCoverageMeter } from './bucketedCoverageMeter.ts';
+import { PromotionAdmission } from './promotionAdmission.ts';
+import type { AdmissionResult } from './promotionAdmission.ts';
+import { log } from '../util/logger.ts';
+import { ArrayAt } from '../util/arrayAt.ts';
+
+/**
+ * RlvrController 相关纯函数工具（C7 收口：原顶层内部函数迁入）。
+ */
+export class RlvrController {
+  /**
+   * 从进化候选抽取 RLVR prompt（描述该技能应实现什么）。
+   * @param c Candidate
+   * @returns string
+   */
+  public static promptForCandidate(c: Candidate): string {
+    const intent = (c.skill.instructions ?? '').slice(0, 240);
+    return `Implement a reusable capability named "${c.skill.name}". Intent: ${intent}`;
+  }
+
+  /** 从代码块/文本抽取首个 ```lang ... ``` 代码，否则返回原文。 */
+  public static extractCodeFence(text: string): string {
+    const m = text.match(/```[^\n]*\n([\s\S]*?)```/);
+    if (m !== null) return ArrayAt.at(m, 1).trim();
+    return text.trim();
+  }
+
+  /** 模型后端 RLVR 采样器：对第 index 个候选调用模型生成代码变体（fail-closed：失败返回伪样本）。 */
+  public static modelRlvrSampler(model: ModelPort, samplesPerPrompt: number): RlvrSampler {
+    return {
+      sample(
+        prompt: string,
+        index: number,
+        context?: RlvrSampleContext,
+      ): CodeCandidate | undefined | Promise<CodeCandidate | undefined> {
+        if (index >= samplesPerPrompt) return undefined;
+        // 工况来源（S5 分桶口径）随产物带走：`BucketedCoverageMeter` 由 `meta.source` 取桶键。
+        const meta: Record<string, unknown> = {
+          prompt,
+          ...(context?.source !== undefined ? { source: context.source } : {}),
+        };
+        return (async (): Promise<CodeCandidate> => {
+          try {
+            const out = await model.generate({
+              messages: [
+                {
+                  role: 'user',
+                  content: `Write code only (no prose, no explanation) implementing:\n${prompt}`,
+                },
+              ],
+              tools: [],
+            });
+            const code = RlvrController.extractCodeFence(out.text ?? '');
+            return {
+              id: `s${index}`,
+              code: code.length > 0 ? code : '// empty generation',
+              meta,
+            };
+          } catch {
+            // fail-closed：生成失败 → 伪样本（reward 0，不进回放），不中止整轮。
+            return { id: `s${index}`, code: '// generation error', meta };
+          }
+        })();
+      },
+    };
+  }
+
+  /**
+   * 构造带「可验证门禁 + RLVR sample-filter-replay + 准入/覆盖率闸」的进化控制器
+   * （U4 真接进进化闭环；T5 起晋升路径经过退火接受与多样性闸）。
+   * @param opts 组合选项
+   * @returns 控制器 / 回放缓冲 / 体检报告读取口
+   */
+  public static createRlvrEvolutionController(opts: RlvrEvolutionOptions): RlvrEvolutionBundle {
+    const buffer: ReplayBuffer = new InMemoryReplayBuffer();
+    const sampler = RlvrController.modelRlvrSampler(opts.model, opts.samplesPerPrompt ?? 8);
+    // 覆盖率口径（S5）：分桶取最差桶（缺省关 = 全局口径，与现状逐行为等价）。
+    const meter: CoverageMeter =
+      opts.bucketedCoverage === true ? new BucketedCoverageMeter() : new RewardCoverageMeter();
+    // 级联评估（S4）：静态预检（纯函数）先于 verifyCommand——不过即短路，省一次子进程全量验证。
+    // 缺省关（现状路径逐行为等价）；Kernel 路径显式开（`cascade: true`）。
+    const verdictFor = VerifiableReward.verifiableVerdictForCode(() => opts.verifyCommand, {
+      codeFileExtension: opts.verifyCodeFileExtension,
+    });
+    const cascade = opts.cascade === true ? new CascadeReward({ inner: verdictFor }) : undefined;
+    const probe =
+      cascade !== undefined
+        ? { verify: (c: CodeCandidate) => cascade.verify(c) }
+        : { verify: verdictFor };
+    const reward = opts.verifyCommand !== undefined ? meter.wrap(probe) : () => Promise.resolve(0);
+    const loop = new RlvrLoop({
+      sampler,
+      reward,
+      buffer,
+      samplesPerPrompt: opts.samplesPerPrompt ?? 8,
+      minReward: opts.minReward,
+    });
+    const discovery =
+      opts.discovery ??
+      new TwistDiscoveryEngine({
+        skills: opts.skills,
+        compose: opts.compose,
+        maxCandidates: opts.maxCandidates ?? 12,
+        fieldSize: opts.fieldSize,
+      });
+    const gate = new FailClosedEvolutionGate({
+      // 默认门禁基准：候选技能是否携带复合（莫尔）结构（moireEnergy）；缺省安全旁路由调用方注入更针对性基准。
+      benchmark:
+        opts.gateBenchmark ??
+        ((c: Candidate) => Benchmark.moireEnergy(c.skill, DEFAULT_MOIRE_FIELD_SIZE)),
+      minGain: opts.minGain,
+    });
+    const admission = opts.admission ?? new PromotionAdmission();
+    const minCoverage = opts.minCoverage ?? COVERAGE_THRESHOLD;
+    // 内层不持晋升回调：只有过了准入与覆盖率闸的候选才由外层触发 onPromote（否则闸只是事后观测）。
+    const inner = new EvolutionControllerImpl({
+      discovery,
+      gate,
+      autoRun: opts.autoRun ?? false,
+      rlvr: { loop, promptFor: RlvrController.promptForCandidate },
+    });
+    const controller = new RlvrEvolutionController({
+      inner,
+      admission,
+      meter,
+      minCoverage,
+      onPromote: opts.onPromote,
+    });
+    log.info('evolution.rlvr.controller.ready', {
+      autoRun: controller.autoRun,
+      minCoverage,
+      verifyCommand: opts.verifyCommand !== undefined,
+      samplesPerPrompt: opts.samplesPerPrompt ?? 8,
+      cascade: cascade !== undefined,
+      bucketedCoverage: opts.bucketedCoverage === true,
+    });
+    return { controller, buffer, report: () => controller.report(), cascade };
+  }
+
+  /**
+   * 默认门禁打分（技能级）：`Benchmark.moireEnergy` @ n=64。
+   *
+   * 单点口径：ring ④ 门禁的默认基准与 ring ⑥ CRISPR 差异测试的「非回退」尺子**同一把**——
+   * 否则「差异测试 = 门禁基准非回退」这句声明会在两个不同空间里各说各话。
+   * @returns 技能 → 基准分（0..1）
+   */
+  public static defaultGateScore(): (skill: Skill) => number {
+    return (skill: Skill): number => Benchmark.moireEnergy(skill, DEFAULT_MOIRE_FIELD_SIZE);
+  }
+}
+
+/** 构造选项。 */
+export interface RlvrEvolutionOptions {
+  /** 候选技能池（供燧-1 组合发现；注入 `discovery` 时仅作回退声明，不参与构造）。 */
+  readonly skills: readonly Skill[];
+  /**
+   * （GEE Kernel v1）发现引擎覆盖注入：缺省照旧内部构造 {@link TwistDiscoveryEngine}
+   * （零行为变更）；Kernel 路径注入「精英重入 + 实读技能源」的复合发现引擎。
+   */
+  readonly discovery?: DiscoveryEngine | undefined;
+  /** 莫尔组合算子（通常注入 skillRegistry.composeByTwist）。 */
+  readonly compose: (a: Skill, b: Skill, opts?: MoireOptions) => Skill;
+  /** 代码采样模型（生成 RLVR 候选代码变体）。 */
+  readonly model: ModelPort;
+  /** 发现预算上限（默认 12）。 */
+  readonly maxCandidates?: number | undefined;
+  /** 每 prompt 采样数（默认 8）。 */
+  readonly samplesPerPrompt?: number | undefined;
+  /** RLVR 最低保留阈值（默认 0：仅保留 reward>0 的绿样本）。 */
+  readonly minReward?: number | undefined;
+  /**
+   * 候选代码验证命令（含 `%CODE_FILE%` 占位符，运行时会替换为临时文件路径）。
+   * 如 `npx tsc --noEmit %CODE_FILE%`。缺省则 RLVR 奖励恒 0（无样本进回放，fail-closed 安全）。
+   */
+  readonly verifyCommand?: string | undefined;
+  /**
+   * 验证临时文件的扩展名（默认 `.ts`，透传 `verifiableVerdictForCode`）。
+   * 必须与验证命令的语言匹配：`node --check %CODE_FILE%` 验证 JS 代码须传 `.js`
+   * （Node 22.18 起才默认解析 `.ts`，扩展名错配会得到与代码质量无关的假红）。
+   */
+  readonly verifyCodeFileExtension?: string | undefined;
+  /** 能力场边长（透传燧-1）。 */
+  readonly fieldSize?: number | undefined;
+  /** 门禁基准（skill 级 0..1；缺省 fail-closed 0 → 无候选晋升，安全旁路）。 */
+  readonly gateBenchmark?: BenchmarkFn | undefined;
+  /** 门禁须超过基线的最小增益（默认 0.05，透传 `FailClosedEvolutionGate`）。 */
+  readonly minGain?: number | undefined;
+  /**
+   * 晋升准入器（多样性闸 + 退火接受 + 失败模式挖掘）。缺省构造保守默认
+   * （`DiversityGuard` 指纹配额 2 / `AnnealedAcceptance` 种子 20260913 / 挖掘阈值 3）。
+   */
+  readonly admission?: PromotionAdmission | undefined;
+  /**
+   * 势函数覆盖率下限（默认 {@link COVERAGE_THRESHOLD} = 0.6）：本轮的 RLVR 判定覆盖率低于
+   * 该线即**整轮不晋升**（fail-closed 保守处理；诚实降级口径见 `honestNote`）。
+   */
+  readonly minCoverage?: number | undefined;
+  /**
+   * （GEE Kernel v1 · S4）级联评估开关（默认 false = 现状逐行为等价）：
+   * 开则 RLVR 奖励先过 `CascadeReward` 零成本静态预检，不过即短路（不 spawn verifyCommand）；
+   * 静态否决记 `static-fail:<规则>` 且 `verifiable=false`——真实命令没跑过，不得冒充验过。
+   */
+  readonly cascade?: boolean | undefined;
+  /**
+   * （GEE Kernel v1 · S5）覆盖率分桶开关（默认 false = 全局口径，逐行为等价）：
+   * 开则覆盖率按工况桶记账、闸取**最差桶**（`BucketedCoverageMeter`）——健康均匀样本集上
+   * 与全局口径同判，拥挤工况不再被平均值掩盖；阈值仍沿用 {@link COVERAGE_THRESHOLD}。
+   */
+  readonly bucketedCoverage?: boolean | undefined;
+  /** 晋升回调。 */
+  readonly onPromote?: ((candidate: Candidate) => void) | undefined;
+  /** 任务末自动进化（默认 false）。 */
+  readonly autoRun?: boolean | undefined;
+}
+
+/** 一轮 RLVR 闭环的体检报告（覆盖率 / 准入 / 提案）。 */
+export interface RlvrCycleReport {
+  /** 本轮门禁裁决的候选总数。 */
+  readonly candidates: number;
+  /** 本轮最终晋升数（已过门禁 + RLVR + 准入 + 覆盖率闸）。 */
+  readonly promoted: number;
+  /** 本轮候选总数 − 晋升数（含门禁/RLVR/准入/覆盖率各级否决）。 */
+  readonly rejected: number;
+  /** 势函数覆盖率（真实可验证判定 / 样本数，0..1）；分桶口径下 = **最差工况桶**覆盖率。 */
+  readonly coverage: number;
+  /** 覆盖率诚实表述（低于阈值时为显式降级措辞；分桶口径下点名最差桶）。 */
+  readonly honestNote: string;
+  /** （S5）最差工况桶键（全局口径下为 undefined）。 */
+  readonly coverageWorstBucket?: string | undefined;
+  /** （S5）逐桶覆盖率明细（全局口径下为 undefined）。 */
+  readonly coverageBuckets?:
+    | readonly {
+        readonly bucket: string;
+        readonly samples: number;
+        readonly coverage: number;
+      }[]
+    | undefined;
+  /** 准入后种群去重率。 */
+  readonly distinctRatio: number;
+  /** 多样性塌缩告警（Echo Trap 风险）。 */
+  readonly collapsed: boolean;
+  /** 准入层当前退火温度（单调不升）。 */
+  readonly temperature: number;
+  /** 准入层累计失败记录数（失败模式挖掘的输入规模）。 */
+  readonly failures: number;
+  /** 失败模式挖掘产出的改进提案摘要（可为空）。 */
+  readonly proposals: readonly string[];
+}
+
+/** 返回包：控制器 + 回放缓冲（供后续策略更新/观测绿样本）+ 体检报告读取口。 */
+export interface RlvrEvolutionBundle {
+  readonly controller: EvolutionController;
+  readonly buffer: ReplayBuffer;
+  /** 最近一轮闭环体检报告；尚未跑过任何一轮时返回 undefined。 */
+  readonly report: () => RlvrCycleReport | undefined;
+  /** （S4）级联评估实例（未开 `cascade` 时为 undefined；`stats()` 供观测短路率）。 */
+  readonly cascade?: CascadeReward | undefined;
+}
+
+/**
+ * 默认门禁基准确的能力场边长。
+ *
+ * **为什么是 64（原为写死的 32，已知缺陷）**：`moireEnergy` 的判据「单技能 ≈0.28 / 组合 ≈0.45+」
+ * 只在 **n=64** 成立——这正是 `moireComposer` 自身的默认场边长（`fieldSize ?? 64`）、两个既有门禁
+ * 测试（`evolutionGate` / `evolutionIntegration`）所用的 N，也是 `benchmark.ts` 文档所载的实测量级。
+ * 写死 32 时组合技能仅 ≈0.041、增益 ≈0.033（< 默认 minGain 0.05）→ **默认门禁恒不通过、RLVR 阶段
+ * 永远到不了**（「端到端未开」的第二块拼图）。此处改为与全局规范尺度一致，而非调整度量本身或阈值。
+ */
+const DEFAULT_MOIRE_FIELD_SIZE = 64;
+
+/**
+ * RLVR 闭环控制器（晋升路径的最后一道闸）：内层跑「发现 → 门禁 → RLVR sample-filter-replay」，
+ * 本类再把放行裁决依次送过 **多样性闸 → 退火接受 → 势函数覆盖率闸**，只有全过者才触发
+ * `onPromote`；每轮输出体检报告（覆盖率 / 准入 / 提案）到 `evolution.rlvr.*` 观测行。
+ *
+ * 为什么必须由本类（而非内层）触发 `onPromote`：内层的晋升回调发生在门禁/RLVR 通过的那一刻，
+ * 若把回调直接交给内层，准入两级闸就只是「事后观测」——本类持回调、内层不持，闸才真正在路径上。
+ *
+ * fail-closed：只做减法（绝不把未过的候选改成晋升）；覆盖率低于阈值即整轮不晋升。
+ */
+export class RlvrEvolutionController implements EvolutionController {
+  /** 任务末自动进化标志（透传内层，真实控制 Agent 是否跑本轮）。 */
+  public readonly autoRun: boolean;
+  /** 内层控制器（发现 → 门禁 → RLVR 阶段）。 */
+  private readonly inner: EvolutionController;
+  /** 晋升准入器（多样性闸 + 退火接受 + 失败挖掘）。 */
+  private readonly admission: PromotionAdmission;
+  /** 覆盖率计量器（包装 RLVR 可验证奖励，逐样本记判据明细；口径全局或分桶）。 */
+  private readonly meter: CoverageMeter;
+  /** 势函数覆盖率下限（低于即整轮不晋升）。 */
+  private readonly minCoverage: number;
+  /** 真实晋升回调（仅准入全过者触发）。 */
+  private readonly onPromote?: ((candidate: Candidate) => void) | undefined;
+  /** 最近一轮体检报告。 */
+  private lastReport: RlvrCycleReport | undefined;
+  /** 上一轮结束时的计量器计数（cycle 用它做**本轮**差分，避免累计覆盖率关死后续晋升）。 */
+  private coverageBaseline: CoverageSnapshot = { samples: 0, verified: 0, buckets: [] };
+
+  /**
+   * @param opts 内层控制器 / 准入器 / 覆盖率计量器（全局或分桶口径）/ 覆盖率下限 / 晋升回调
+   */
+  public constructor(opts: {
+    readonly inner: EvolutionController;
+    readonly admission: PromotionAdmission;
+    readonly meter: CoverageMeter;
+    readonly minCoverage: number;
+    readonly onPromote?: ((candidate: Candidate) => void) | undefined;
+  }) {
+    this.inner = opts.inner;
+    this.admission = opts.admission;
+    this.meter = opts.meter;
+    this.minCoverage = opts.minCoverage;
+    this.onPromote = opts.onPromote;
+    this.autoRun = opts.inner.autoRun;
+  }
+
+  /**
+   * 评估单个候选（转发内层门禁，不涉及准入——准入只在 `cycle()` 的批量晋升路径上）。
+   * @param candidate 待评估候选
+   * @returns 门禁裁决
+   */
+  public evaluate(candidate: Candidate): Promise<PromotionVerdict> {
+    return this.inner.evaluate(candidate);
+  }
+
+  /** 当前预算消耗（转发内层发现引擎）。
+   * @returns 已生成候选数与上限
+   */
+  public budgetUsed(): { readonly generated: number; readonly maxCandidates: number } {
+    return this.inner.budgetUsed();
+  }
+
+  /** 最近一轮体检报告（未跑过为 undefined）。
+   * @returns 体检报告或 undefined
+   */
+  public report(): RlvrCycleReport | undefined {
+    return this.lastReport;
+  }
+
+  /**
+   * 跑一轮闭环：内层裁决 → 多样性闸 → 退火接受 → 覆盖率闸 → 晋升回调 + 体检报告。
+   * @returns 重写后的裁决流（被任一闸否决者 promoted=false 且理由注明闸位）
+   */
+  public async cycle(): Promise<readonly PromotionVerdict[]> {
+    const verdicts = await this.inner.cycle();
+    // 覆盖率按**本轮**差分：meter 是长生命周期对象，直接 report() 会把历史样本算进来，
+    // 一次早期坏批次会永久关死晋升。差分不重置 meter，故 report()/观测仍是累计口径。
+    const coverage = this.meter.reportDelta(this.coverageBaseline);
+    this.coverageBaseline = this.meter.snapshot();
+    const admitted = this.admission.admit(verdicts);
+    const blocked = coverage.coverage < this.minCoverage;
+    const final = blocked ? this.blockByCoverage(admitted.verdicts, coverage) : admitted.verdicts;
+    for (const verdict of final) {
+      if (verdict.promoted) this.onPromote?.(verdict.candidate);
+    }
+    this.lastReport = this.summarize(verdicts, final, admitted, coverage);
+    this.emit(this.lastReport);
+    return final;
+  }
+
+  /**
+   * 覆盖率 fail-closed：覆盖率低于下限即整轮不晋升（诚实降级口径写进否决理由）。
+   * @param verdicts 准入后的裁决流
+   * @param coverage 覆盖率报告
+   * @returns 重写后的裁决流（原本晋升者全部改为未晋升）
+   */
+  private blockByCoverage(
+    verdicts: readonly PromotionVerdict[],
+    coverage: CoverageReportSurface,
+  ): readonly PromotionVerdict[] {
+    return verdicts.map((v) =>
+      v.promoted
+        ? {
+            ...v,
+            promoted: false,
+            reason: `${v.reason}；覆盖率闸否决晋升：${coverage.honestNote}`,
+          }
+        : v,
+    );
+  }
+
+  /**
+   * 汇总本轮体检报告。
+   * @param all 内层原始裁决流
+   * @param final 各级闸之后的裁决流
+   * @param admitted 准入结果
+   * @param coverage 覆盖率报告
+   * @returns 体检报告
+   */
+  private summarize(
+    all: readonly PromotionVerdict[],
+    final: readonly PromotionVerdict[],
+    admitted: AdmissionResult,
+    coverage: CoverageReportSurface,
+  ): RlvrCycleReport {
+    const promoted = final.filter((v) => v.promoted).length;
+    return {
+      candidates: all.length,
+      promoted,
+      rejected: all.length - promoted,
+      coverage: coverage.coverage,
+      honestNote: coverage.honestNote,
+      coverageWorstBucket: coverage.worstBucket,
+      coverageBuckets: coverage.bucketCoverage,
+      distinctRatio: admitted.distinctRatio,
+      collapsed: admitted.collapsed,
+      temperature: this.admission.temperature,
+      failures: this.admission.failureCount,
+      proposals: admitted.proposals.map((p) => p.summary),
+    };
+  }
+
+  /**
+   * 输出本轮体检（观测是尽力而为：任何异常都不连累主任务）。
+   * @param report 体检报告
+   * @returns 无返回值（void）
+   */
+  private emit(report: RlvrCycleReport): void {
+    try {
+      log.info('evolution.rlvr.cycle', { ...report });
+      if (report.coverage < this.minCoverage) {
+        log.warn('evolution.rlvr.coverage.low', {
+          coverage: report.coverage,
+          honestNote: report.honestNote,
+        });
+      }
+      if (report.collapsed) {
+        log.warn('evolution.rlvr.diversity.collapse', {
+          distinctRatio: report.distinctRatio,
+        });
+      }
+    } catch {
+      // 观测失败不影响进化结果（fail-closed 旁路）
+    }
+  }
+}

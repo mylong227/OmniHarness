@@ -10,7 +10,7 @@
  *   node tools/eval/harnessAb.mjs --tasks tasks.json --k 3 --out report.json
  *   node tools/eval/harnessAb.mjs --dry-run
  *
- * 依赖：先 `npm run build`（脚本消费 `dist/src/eval/abMetrics.js` 与 `dist/src/cli/exec.js`）。
+ * 依赖：先 `npm run build`（脚本消费 `dist/src/kernel/eval/abMetrics.js` 与 `dist/src/apps/cli/exec.js`）。
  * 无凭据时输出 `{skipped:true}` 并以 0 退出——绝不用 mock 冒充真实 A/B。
  */
 import { spawnSync } from 'node:child_process';
@@ -20,8 +20,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
-const METRICS = join(ROOT, 'dist', 'src', 'eval', 'abMetrics.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
+const METRICS = join(ROOT, 'dist', 'src', 'kernel', 'eval', 'abMetrics.js');
 
 /** 内置任务：每个都有机械验收（文件存在 + 内容），不是看模型自述。 */
 const DEFAULT_TASKS = [

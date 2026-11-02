@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PatchCandidatesTool } from '../../src/adapters/tool/fs/patchCandidatesTool.ts';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+import { PatchCandidatesTool } from '../../src/kernel/adapters/tool/fs/patchCandidatesTool.ts';
+import { SelfVerifyPolicy } from '../../src/kernel/adapters/tool/verify/selfVerifyPolicy.ts';
 import type {
   ShellRunOptions,
   ShellRunOutcome,
-} from '../../src/adapters/tool/shell/shellProcessRunner.ts';
-import type { DecisionEngine } from '../../src/ports/decision/decisionEngine.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+} from '../../src/kernel/adapters/tool/shell/shellProcessRunner.ts';
+import type { DecisionEngine } from '../../src/contracts/ports/decision/decisionEngine.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 工具测试用固定策略（模型不能自带测试命令）。 */
 const POLICY = SelfVerifyPolicy.from({ command: 'node test.mjs' });

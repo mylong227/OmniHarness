@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CliWorker } from '../../src/worker/cliWorker.ts';
-import { SimpleWorker } from '../../src/worker/simpleWorker.ts';
-import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
-import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
-import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.ts';
+import { CliWorker } from '../../src/kernel/worker/cliWorker.ts';
+import { SimpleWorker } from '../../src/kernel/worker/simpleWorker.ts';
+import { WorkerRegistry } from '../../src/kernel/worker/workerRegistry.ts';
+import { WorkerOrchestrator } from '../../src/kernel/worker/workerOrchestrator.ts';
+import { DelegateTool } from '../../src/kernel/adapters/tool/workflow/delegateTool.ts';
 
 /** 测试上下文。 */
 const context = { sessionId: 's1', workspaceRoot: process.cwd() };

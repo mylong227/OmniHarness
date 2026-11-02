@@ -7,7 +7,7 @@ import { test } from 'vitest';
 import { fireEvent, renderFacadeAsync } from './rtlHarness.ts';
 import { byClass, byTag, facadeOf } from './domFacade.ts';
 import { Composer } from '../src/ui/components/Composer.tsx';
-import type { ApiClient } from '../src/core/ApiClient.ts';
+import type { ApiClient } from '../src/kernel/core/ApiClient.ts';
 import type { ChatQueueView } from '../src/ui/models/ChatMessageQueue.ts';
 import type { FileAttachment } from '../src/types/models.ts';
 

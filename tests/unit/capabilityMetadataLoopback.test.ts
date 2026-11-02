@@ -19,19 +19,19 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CapabilityMetadataTool } from '../../src/adapters/tool/capability/capabilityMetadataTool.ts';
-import { SdkMcpServerAdapter } from '../../src/adapters/mcp/sdkMcpServerAdapter.ts';
-import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.ts';
-import { TOOL_NAMES, MUTATING_TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import type { CapabilityStack } from '../../src/ports/config/capabilityStack.ts';
+import { CapabilityMetadataTool } from '../../src/kernel/adapters/tool/capability/capabilityMetadataTool.ts';
+import { SdkMcpServerAdapter } from '../../src/kernel/adapters/mcp/sdkMcpServerAdapter.ts';
+import { CapabilityStackAssembler } from '../../src/kernel/config/capabilityStackAssembler.ts';
+import { TOOL_NAMES, MUTATING_TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import type { CapabilityStack } from '../../src/contracts/ports/config/capabilityStack.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 把「一个只读工具」包成真实 `ToolPort`（`SdkMcpServerAdapter` 的入参形状）。

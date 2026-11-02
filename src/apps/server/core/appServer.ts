@@ -1,0 +1,795 @@
+import type {
+  LongTermMemoryPort,
+  MemoryFact,
+  MemoryFactPatch,
+} from '../../../contracts/ports/memory/longTermMemory.ts';
+import { WorkflowRunner } from '../../../kernel/autonomy/workflowRunner.ts';
+import { WorkflowRunLog } from '../../../kernel/autonomy/workflowRunLog.ts';
+import type { WorkflowDef } from '../../../kernel/autonomy/workflowTypes.ts';
+import { jsonRpc } from './jsonRpc.ts';
+import type { ImageContent, FileAttachment } from '../../../contracts/ports/model/model.ts';
+import { Id } from '../../../kernel/util/id.ts';
+import { AppServerVaultHandlers } from './appServerVaultHandlers.ts';
+import type { AppServerOptions } from './appServerState.ts';
+import { providerPresets } from '../services/providerPresets.ts';
+import { RepoPathGuard } from '../services/repoPathGuard.ts';
+import { DiffReview } from '../services/diffReview.ts';
+import { DiffCommentStore } from '../services/diffCommentStore.ts';
+import { AutomationScheduler } from '../services/automationScheduler.ts';
+import { AppServerAutomationHandlers } from './appServerAutomationHandlers.ts';
+import { SessionCheckpoints } from '../services/session/sessionCheckpoints.ts';
+import { SessionRewindService } from '../services/session/sessionRewindService.ts';
+import type { SessionRewindOutcome } from '../services/session/sessionRewindService.ts';
+import { ThreadPage } from '../services/session/threadPage.ts';
+import { InterjectionClassifier } from '../../../kernel/core/steering/interjectionClassifier.ts';
+
+export type { AppServerOptions } from './appServerState.ts';
+
+/**
+ * app-server：JSON-RPC 原语（threads/turns/items）+ 事件推送 + 审批上行。
+ *
+ * 叶类，薄门面：只保留「方法调度 + 线程/回合/图/记忆处理器」，把可复用的领域逻辑
+ * 组合为独立服务——`DiffReview`（git 审查）、`DiffCommentStore`（评论持久化）、
+ * `SessionCheckpoints`（会话检查点）、`RepoPathGuard`（路径安全）。服务在构造期装配一次，
+ * 每个 RPC 调用零额外构造开销。
+ */
+export class AppServer extends AppServerVaultHandlers {
+  /** git 差异审查服务：hunk/file 级 stage/revert（changes.* RPC 的后端）。 */
+  private readonly diffReview: DiffReview;
+  /** 差异行级评论存储：评论的增删查持久化。 */
+  private readonly diffComments: DiffCommentStore;
+  /** 会话检查点服务：检查点创建、列表与回滚。 */
+  private readonly checkpoints: SessionCheckpoints;
+  /** 会话回退服务：把持久化事件流截断到指定事件（`threads.rewind` RPC 的后端）。 */
+  private readonly rewinder: SessionRewindService;
+  /** 自动化调度器（仅注入 automations 存储时启用）。 */
+  private readonly automationScheduler?: AutomationScheduler;
+  /** 自动化 RPC 处理器（独立类，避免 AppServer 代码行数增长）。 */
+  private readonly automationHandlers: AppServerAutomationHandlers;
+
+  /**
+   * 装配各领域服务并注册全部 RPC 处理器与传输层监听。
+   * @param options app-server 选项（transport、config、workspaceRoot、audit 等）
+   */
+  public constructor(options: AppServerOptions) {
+    super(options);
+    // 工作区根以 getter 注入：支持运行时 workspace.switch 后服务仍取到最新根。
+    const workspaceRoot = (): string => this.effectiveWorkspace();
+    const guard = new RepoPathGuard(workspaceRoot);
+    this.diffReview = new DiffReview({ workspaceRoot, guard });
+    this.diffComments = new DiffCommentStore({ workspaceRoot, guard });
+    this.checkpoints = new SessionCheckpoints({
+      storage: options.config.storage,
+      workspaceRoot: options.workspaceRoot,
+    });
+    // T4.5 接线：只读 trace 自省的事件源取运行时 agent 的 eventsOf（同一事实源，**真·纯读不写**）。
+    // 2026-10-09 订正：此前接的是 `replay`，而它会**把整段历史重新广播给所有客户端** —— 注释写着
+    // 「纯读不写」、实现却在写事件总线，正是「声明与实现不一致」那一类缺陷。
+    // 存在性判定另走事件日志存档（storage.load 对不存在的会话也回空数组，不足以区分「无此会话」）。
+    this.automationHandlers = new AppServerAutomationHandlers(options.automations, (params) =>
+      this.createThread(params),
+    );
+    this.registerHandlers();
+    if (options.automations !== undefined) {
+      this.automationScheduler = new AutomationScheduler(
+        options.automations,
+        async (automation) => {
+          await this.createThread({ prompt: automation.prompt });
+        },
+      );
+      this.automationScheduler.start();
+    }
+    // 会话回退（`threads.rewind`）：读 / 写都指向**唯一事实源**（storage），
+    // 运行态判定复用 runTurn 维护的 activeTurns（运行中拒绝回退，避免两处写盘互相覆盖）。
+    this.rewinder = new SessionRewindService({
+      events: (sessionId) => this.runtime.agent().eventsOf(sessionId),
+      save: (sessionId, events) => this.options.config.storage.save(sessionId, events),
+      isRunning: (sessionId) => this.activeTurns.has(sessionId),
+    });
+    options.transport.onMessage((message) => void this.handle(message));
+    // 启动时异步探测一次当前 active 厂商（fire-and-forget，不阻塞 listen）。
+    // 解决「页面刷新时模型下拉只有当前选中那一个」#OBS-4：探测拿到真实 /v1/models 后
+    // 注入 probeCache，UI 重新拉 model.catalog 就能列出厂商全部模型。
+    void this.warmActiveProvider();
+  }
+
+  /**
+   * 暖当前 active 厂商的 /v1/models 缓存。失败静默（probeCache 不被覆盖，UI 用兜底清单）。
+   * @returns 探测完成后 resolve，无载荷（结果写入 modelCatalog 的 probeCache）
+   */
+  private async warmActiveProvider(): Promise<void> {
+    try {
+      // 只探测当前 active 厂商（按 baseUrl 严格匹配 → 否则按 modelAdapter 匹配第一个有 key 的预设），
+      // 不全表扫 7 个厂商，避免启动慢、流量浪费。
+      const file = this.configStore.fileConfig();
+      const keys = file.providerKeys ?? {};
+      const topKey = typeof file.apiKey === 'string' ? file.apiKey : undefined;
+      // 生效目录含用户 `providerPresets` 覆盖：自建厂商配了 Key 也应被暖一遍。
+      const presets = providerPresets.resolve(file.providerPresets);
+      const matched =
+        presets.find((p) => typeof file.baseUrl === 'string' && file.baseUrl === p.baseUrl) ??
+        // 注意：必须要求该厂商在 providerKeys 或顶层 apiKey 中有 key，否则探测无意义（无凭据）。
+        presets.find(
+          (p) =>
+            p.adapter === file.modelAdapter && (topKey !== undefined || keys[p.id] !== undefined),
+        );
+      const target = matched?.id;
+      // 没匹配到厂商（纯 mock 或无凭据）就什么都不做，避免无意义探测。
+      if (target === undefined) return;
+      await this.modelCatalog.probe({ provider: target });
+    } catch {
+      // 静默失败：探测走 HTTP，UI 后台再点「检测」按钮也能补。
+    }
+  }
+
+  /**
+   * 注册方法处理。
+   * @returns 无返回值。
+   */
+  protected registerHandlers(): void {
+    this.handlers.set('threads.create', (params) => this.createThread(params));
+    this.handlers.set('threads.continue', (params) => this.continueThread(params));
+    this.handlers.set('threads.fork', (params) => this.forkThread(params));
+    this.handlers.set('threads.get', (params) => this.getThread(params));
+    this.handlers.set('threads.rewind', (params) => this.rewindThread(params));
+    this.handlers.set('turns.run', (params) => this.runTurn(params));
+    // A8 steering；2026-10-31 插话分流：相关并入当前回合，无关则取消当前回合、客户端转新任务。
+    this.handlers.set('turns.steer', (params) => this.steerTurn(params));
+    this.handlers.set('turns.interject', (params) => this.interjectTurn(params));
+    this.handlers.set('turns.abort', async (params) => {
+      // 中断在跑回合：取消令牌贯穿模型请求 fetch（见 agent.cancelCurrentRun），
+      // 在飞请求被中止后 turns.run 自然收尾，SSE 已推送的增量事件不受影响。
+      //
+      // 2026-09-22 修（审计 P1）：此前不带 threadId、一律取消「当前」会话，而服务端允许多回合并行
+      // ⇒ 先结束者清空令牌会让「停止」静默失效，或把**别的会话**取消掉。现按会话定向取消：
+      // 传了 threadId 只停该会话；旧前端不带参数时退化为「取消全部在跑回合」（不静默失效）。
+      const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+      this.runtime.cancelAll('user', threadId === '' ? undefined : threadId);
+      // 连带中止该会话在跑的**图运行**（F13）：图驱动的子步也是真 Agent 回合，会话已停就不该继续烧。
+      return {
+        ok: true,
+        threadId: threadId === '' ? null : threadId,
+        abortedGraphs: this.graphRuns.abortMatching(threadId),
+      };
+    });
+    this.handlers.set('approval.respond', (params) => this.respondApproval(params));
+    // 提问上行（2026-10-08）：提问卡作答经此送达等待中的 ask_user / plan_present（此前只读卡无法提交）。
+    this.handlers.set('question.respond', (params) => this.respondQuestion(params));
+    this.registerUplinkRecovery();
+    this.handlers.set('config.get', () => Promise.resolve(this.configStore.get()));
+    this.handlers.set('config.update', (params) => Promise.resolve(this.updateConfig(params)));
+    this.handlers.set('model.catalog', () => Promise.resolve(this.modelCatalog.catalog()));
+    // 技能选择器（Web 输入框 `/`）：只读名称/描述/标签，不回传完整 instructions。
+    this.handlers.set('skills.list', () =>
+      Promise.resolve({
+        skills: (this.options.skills?.list() ?? []).map((skill) => ({
+          name: skill.name,
+          description: skill.description,
+          tags: skill.tags ?? [],
+        })),
+      }),
+    );
+    this.automationHandlers.register(this.handlers);
+    this.handlers.set('model.probe', (params) => this.modelCatalog.probe(params));
+    this.handlers.set('usage.stats', () => this.sessionArchive.usage());
+    this.handlers.set('workspace.list', () => Promise.resolve(this.configStore.workspaces()));
+    this.handlers.set('workspace.add', (params) =>
+      Promise.resolve(this.configStore.addWorkspace(params['path'])),
+    );
+    this.handlers.set('workspace.switch', (params) =>
+      Promise.resolve(this.switchWorkspace(params['path'])),
+    );
+    this.handlers.set('audit.query', (params) => Promise.resolve(this.queryAuditRpc(params)));
+    // T4.5：只读 trace 自省 RPC（agent 自查「我刚做了什么」，无写方法，不可借道改历史）。
+    this.handlers.set('trace.read', (params) => this.readTraceRpc(params));
+    this.registerObservabilityHandlers();
+    this.registerVaultHandlers();
+    this.registerCheckpointHandlers();
+    this.registerReviewHandlers();
+    this.registerSessionHandlers();
+    this.handlers.set('fs.list', (params) => Promise.resolve(this.workspaceTree.list(params)));
+    this.handlers.set('fs.read', (params) => Promise.resolve(this.workspaceTree.readFile(params)));
+    this.handlers.set('changes.list', (params) =>
+      Promise.resolve(this.workspaceChanges.list(params)),
+    );
+    // fs.* / attach.read 自 2026-10-18 起是**异步 IO**（不再 `*Sync` 堵事件循环）：
+    // handler 直接返回 Promise，不再套 Promise.resolve 这层多余包装。
+    this.handlers.set('fs.browse', (params) => this.fsExplorer.browse(params));
+    this.handlers.set('fs.mkdir', (params) => this.fsExplorer.mkdir(params));
+    this.handlers.set('attach.read', (params) => this.fsExplorer.readAttachments(params));
+    this.registerPluginHandlers();
+    this.registerGraphHandlers();
+    this.registerMemoryHandlers();
+    this.registerProfileHandlers();
+    this.registerBundleHandlers();
+    this.registerSurfaceHandlers();
+    // (F2 治理台) 进化晋升台账的只读视图 + 回滚锚点。
+    this.registerGovernanceHandlers();
+  }
+
+  /**
+   * 会话存档 RPC：列表（带运行态/归档标记）、改名、删除、分叉、归档、拖拽排序。
+   *
+   * 独立成方法的原因：`registerHandlers` 是方法表编排入口，把六个会话方法留在里面会顶到函数体
+   * 行数上限（门禁 `check --strict` 的「函数体行数」闸）；会话这一族本身内聚，抽出来更清晰。
+   * @returns 无返回值。
+   */
+  protected registerSessionHandlers(): void {
+    this.handlers.set('sessions.list', async (params) => {
+      const includeArchived = params['includeArchived'] !== false;
+      // mock/演示会话默认不列出（本机 152 个里 144 个是 mock）；调试时显式传 includeMock:true。
+      const includeMock = params['includeMock'] === true;
+      // 工作区收敛（2026-10-06 第六十二轮真机 UI 跑测）：作用域解析收在 `SessionArchive.list` 里
+      // （缺省 = 当前工作区；`'*'` = 全部），此处**只透传** params。为什么不在本层算：本类已贴着
+      // 「上帝类」的代码行阈值，多出的实现行会被增量门禁拦下（实测过一次）。
+      const r = (await this.sessionArchive.list(
+        includeArchived,
+        params['workspace'],
+        includeMock,
+      )) as {
+        dir: string;
+        sessions: { sessionId: string; running?: boolean }[];
+      };
+      // 真实运行态：runTurn 进入/退出维护 activeTurns，前端不再靠 mtime 猜测。
+      return {
+        dir: r.dir,
+        sessions: r.sessions.map((s) => ({ ...s, running: this.activeTurns.has(s.sessionId) })),
+      };
+    });
+    this.handlers.set('sessions.rename', async (params) =>
+      this.sessionArchive.rename(String(params['sessionId'] ?? ''), String(params['title'] ?? '')),
+    );
+    this.handlers.set('sessions.delete', async (params) => {
+      const id = String(params['sessionId'] ?? '');
+      if (this.activeTurns.has(id)) return { ok: false, error: 'session_running' };
+      return this.sessionArchive.delete(id);
+    });
+    this.handlers.set('sessions.fork', async (params) =>
+      this.sessionArchive.fork(String(params['sessionId'] ?? '')),
+    );
+    // 归档 / 取消归档（只写侧车，不动事件流）：归档会话在 UI 里折叠到「已归档」组。
+    this.handlers.set('sessions.archive', async (params) =>
+      this.sessionArchive.setArchived(
+        String(params['sessionId'] ?? ''),
+        params['archived'] !== false,
+      ),
+    );
+    // 保存左栏拖拽排序（用户指定顺序；未登记的会话仍按 mtime 倒序排在其后）。
+    this.handlers.set('sessions.reorder', async (params) => {
+      const raw = params['ids'];
+      const ids = Array.isArray(raw) ? raw.map((x) => String(x)) : [];
+      return this.sessionArchive.reorder(ids);
+    });
+  }
+
+  /**
+   * 多 Agent 编排 RPC（G-C，多 Agent 图存储）：图增删查 + 运行 + 实时状态。
+   * @returns 无返回值。
+   */
+  protected registerGraphHandlers(): void {
+    this.handlers.set('graph.list', async () => this.runtime.graphStore().list());
+    this.handlers.set('graph.get', async (params) => {
+      const idParam = params['id'];
+      if (typeof idParam !== 'string' || idParam.length === 0) {
+        throw new Error('graph.get 需要 id');
+      }
+      const def = this.runtime.graphStore().get(idParam);
+      if (def === undefined) {
+        throw new Error('未找到图: ' + idParam);
+      }
+      return def;
+    });
+    this.handlers.set('graph.save', async (params) => {
+      const def = params['def'];
+      if (
+        def === undefined ||
+        typeof def !== 'object' ||
+        !Array.isArray((def as Partial<WorkflowDef>).steps)
+      ) {
+        throw new Error('graph.save 需要 def（含 name 与 steps）');
+      }
+      const savedId = this.runtime.graphStore().save(def as WorkflowDef);
+      return { ok: true, id: savedId };
+    });
+    this.handlers.set('graph.delete', async (params) => {
+      const idParam = params['id'];
+      if (typeof idParam !== 'string' || idParam.length === 0) {
+        throw new Error('graph.delete 需要 id');
+      }
+      return { ok: this.runtime.graphStore().delete(idParam) };
+    });
+    this.handlers.set('graph.run', async (params) => this.runGraph(params));
+    // 续跑入口（2026-10-08）：自 `graph.run` 的运行存档读回规格与已完成步骤，交给同一条落地管道。
+    // 规格来自**存档首行**（不取调用方传入的定义）——这样「续跑哪一份定义」没有歧义；
+    // 存档缺失 / 损坏 / 自校验失败一律作为 RPC 错误上抛（fail-closed，绝不新建一次「看着像续跑」的运行）。
+    this.handlers.set('graph.resume', async (params) => {
+      const runId = params['runId'];
+      if (typeof runId !== 'string' || runId.length === 0) {
+        throw new Error('graph.resume 需要 runId（来自上次 graph.run 的返回值）');
+      }
+      const threadId = params['threadId'];
+      const owner = typeof threadId === 'string' && threadId.length > 0 ? threadId : undefined;
+      // 存档根必须与**图运行落盘时用的那一个**同源：`WorkflowRunner` 写的是
+      // `graphPorts().workspaceRoot`（配置根），而 `effectiveWorkspace()` 是「UI 当前工作区」
+      // （可随会话切换）。实测两套根会分叉：用后者读会报「找不到运行日志」，而文件其实就在前者下面。
+      const replay = new WorkflowRunLog(this.runtime.graphPorts().workspaceRoot).read(runId);
+      return this.startGraphRun(replay.header.spec, undefined, owner, runId);
+    });
+    this.handlers.set('graph.status', async (params) => {
+      const runId = params['runId'];
+      if (typeof runId !== 'string') {
+        throw new Error('graph.status 需要 runId');
+      }
+      // 视图塑形下沉到台账（`GraphRunRegistry.describe`）：AppServer 已贴上帝类红线，且「运行态 → UI 视图」
+      // 本就是台账职责。
+      return this.graphRuns.describe(runId);
+    });
+  }
+
+  /**
+   * 会话检查点 / 回滚 RPC：列表 / 创建 / 回滚（对话 + 代码）。
+   * @returns 无返回值。
+   */
+  private registerCheckpointHandlers(): void {
+    this.handlers.set('checkpoint.list', (params) => this.checkpoints.list(params));
+    this.handlers.set('checkpoint.create', (params) => this.checkpoints.create(params));
+    this.handlers.set('checkpoint.rollback', (params) => this.checkpoints.rollback(params));
+  }
+
+  /**
+   * 内联 diff 审查 RPC：hunk/file 级 stage/revert + 行级评论。
+   * @returns 无返回值。
+   */
+  private registerReviewHandlers(): void {
+    this.handlers.set('changes.stageFile', (params) =>
+      Promise.resolve(this.diffReview.stageFile(params)),
+    );
+    this.handlers.set('changes.revertFile', (params) =>
+      Promise.resolve(this.diffReview.revertFile(params)),
+    );
+    this.handlers.set('changes.stageHunk', (params) =>
+      Promise.resolve(this.diffReview.stageHunk(params)),
+    );
+    this.handlers.set('changes.revertHunk', (params) =>
+      Promise.resolve(this.diffReview.revertHunk(params)),
+    );
+    this.handlers.set('changes.comments.list', () => Promise.resolve(this.diffComments.list()));
+    this.handlers.set('changes.comments.add', (params) =>
+      Promise.resolve(this.diffComments.add(params)),
+    );
+    this.handlers.set('changes.comments.delete', (params) =>
+      Promise.resolve(this.diffComments.remove(params)),
+    );
+  }
+
+  /**
+   * 长期记忆管理 RPC（#G-D / 4.3，长期记忆管理）：列表/查看/增/改/删/检索 + 变更实时通知。
+   * @returns 无返回值。
+   */
+  protected registerMemoryHandlers(): void {
+    const store = (): LongTermMemoryPort => this.options.config.longTermMemory;
+    this.handlers.set('memory.list', async () => {
+      const facts = store().all();
+      return { count: facts.length, facts: facts.map((f) => ({ ...f })) };
+    });
+    this.handlers.set('memory.add', async (params) => {
+      const fact = AppServer.newFactFrom(params);
+      store().remember(fact);
+      this.options.transport.send(jsonRpc.notify('memory.changed', {}));
+      return { ok: true, id: fact.id };
+    });
+    this.handlers.set('memory.update', async (params) => {
+      const id = AppServer.memoryId(params, 'memory.update');
+      const patch: MemoryFactPatch = {};
+      if (typeof params['text'] === 'string') patch.text = params['text'];
+      if (typeof params['topic'] === 'string') patch.topic = params['topic'];
+      if (typeof params['importance'] === 'number') patch.importance = params['importance'];
+      const ok = store().update(id, patch);
+      if (!ok) {
+        throw new Error('未找到记忆: ' + id);
+      }
+      this.options.transport.send(jsonRpc.notify('memory.changed', {}));
+      return { ok: true };
+    });
+    this.handlers.set('memory.delete', async (params) => {
+      const id = AppServer.memoryId(params, 'memory.delete');
+      const ok = store().delete(id);
+      if (!ok) {
+        throw new Error('未找到记忆: ' + id);
+      }
+      this.options.transport.send(jsonRpc.notify('memory.changed', {}));
+      return { ok: true };
+    });
+    this.handlers.set('memory.search', async (params) => {
+      const query = params['query'];
+      if (typeof query !== 'string' || query.trim() === '') {
+        throw new Error('memory.search 需要非空 query');
+      }
+      const limit =
+        typeof params['limit'] === 'number'
+          ? Math.max(1, Math.floor(params['limit'] as number))
+          : 5;
+      const hits = store().recall(query, limit);
+      return {
+        count: hits.length,
+        results: hits.map((fact) => ({
+          id: fact.id,
+          topic: fact.topic,
+          text: fact.text,
+          importance: fact.importance,
+        })),
+      };
+    });
+  }
+
+  /**
+   * 从 RPC 参数里取记忆 id（守卫收敛：四个 memory 方法同一段「非空字符串」检查）。
+   * @param params RPC 参数。
+   * @param label 报错前缀（哪个方法）。
+   * @returns 已校验的记忆 id。
+   */
+  private static memoryId(params: Record<string, unknown>, label: string): string {
+    const idParam = params['id'];
+    if (typeof idParam !== 'string' || idParam.length === 0) {
+      throw new Error(`${label} 需要 id`);
+    }
+    return idParam;
+  }
+
+  /**
+   * 从 `memory.add` 参数构造记忆事实（守卫 + 夹紧 importance + 来源标记）。
+   * @param params RPC 参数。
+   * @returns 待落盘的事实。
+   */
+  private static newFactFrom(params: Record<string, unknown>): MemoryFact {
+    const text = params['text'];
+    if (typeof text !== 'string' || text.trim() === '') {
+      throw new Error('memory.add 需要非空 text');
+    }
+    const topic = typeof params['topic'] === 'string' ? (params['topic'] as string) : undefined;
+    const rawImp = typeof params['importance'] === 'number' ? params['importance'] : 3;
+    const importance = Math.min(5, Math.max(1, Math.round(rawImp)));
+    return {
+      id: Id.id('mem'),
+      text: text.trim(),
+      topic,
+      importance,
+      createdAt: new Date().toISOString(),
+      sessionId: 'ui-manual',
+      source: 'tool',
+    };
+  }
+
+  /**
+   * 创建线程（threads.create）：以 prompt 启动一次全新 agent 任务并登记线程映射。
+   * @param params `{ prompt }` — 首条用户消息，缺省为空串
+   * @returns 线程结果（sessionId、本次回合事件等，见 threadResult）
+   */
+  protected async createThread(params: Record<string, unknown>): Promise<unknown> {
+    await this.awaitPlugins();
+    const result = await this.runtime.agent().runTask(String(params['prompt'] ?? ''));
+    this.threads.set(result.sessionId, result.sessionId);
+    return this.threadResult(result);
+  }
+
+  /**
+   * 续跑线程（threads.continue）：在既有 threadId 上追加一条用户消息并继续对话。
+   * @param params `{ threadId, prompt }` — 目标线程与追加消息
+   * @returns 线程结果（sessionId 与本次回合事件）
+   */
+  protected async continueThread(params: Record<string, unknown>): Promise<unknown> {
+    await this.awaitPlugins();
+    const threadId = String(params['threadId'] ?? '');
+    // 与 turns.run 同一把单飞锁：threads.continue 也不能在跑着的会话上再起一回合。
+    if (threadId !== '' && this.activeTurns.has(threadId)) {
+      return { ok: false, error: 'session_running' };
+    }
+    if (threadId !== '') this.activeTurns.add(threadId);
+    try {
+      const result = await this.runtime.agent().resume(threadId, String(params['prompt'] ?? ''));
+      this.threads.set(result.sessionId, result.sessionId);
+      return this.threadResult(result);
+    } finally {
+      if (threadId !== '') this.activeTurns.delete(threadId);
+    }
+  }
+
+  /**
+   * 分叉线程（threads.fork）：复制既有 threadId 的历史后以 prompt 开启新分支。
+   * @param params `{ threadId, prompt }` — 被分叉线程与新分支首条消息
+   * @returns 线程结果（新分支 sessionId 与事件）
+   */
+  protected async forkThread(params: Record<string, unknown>): Promise<unknown> {
+    const result = await this.runtime
+      .agent()
+      .fork(String(params['threadId'] ?? ''), String(params['prompt'] ?? ''));
+    this.threads.set(result.sessionId, result.sessionId);
+    return this.threadResult(result);
+  }
+
+  /**
+   * 获取线程事件（threads.get）：默认返回全部；可选 `limit`/`before` 分页（S2，2026-10-25）。
+   * @param params `{ threadId, limit?, before? }` — 目标线程与可选分页
+   * @returns `{ threadId, items, hasMore?, oldestId?, error? }`
+   */
+  protected async getThread(params: Record<string, unknown>): Promise<unknown> {
+    const threadId = String(params['threadId'] ?? '');
+    // 2026-10-21 修：`replay` 会把整段历史**逐条广播给所有客户端**（同文件 `trace.read`
+    // 早已改为纯读）。打开一个会话却让别的窗口收到它的历史，是跨会话串流 + O(N) 广播。
+    // 这里只读（在跑会话读内存、否则读存档），响应里已带 items，无需广播。
+    const events = await this.runtime.agent().eventsOf(threadId);
+    const rawLimit = params['limit'];
+    const numericLimit =
+      typeof rawLimit === 'number'
+        ? rawLimit
+        : typeof rawLimit === 'string' && rawLimit.trim() !== ''
+          ? Number(rawLimit)
+          : Number.NaN;
+    const limit = Number.isFinite(numericLimit) && numericLimit > 0 ? numericLimit : undefined;
+    const before = typeof params['before'] === 'string' ? params['before'] : undefined;
+    if (limit === undefined) {
+      return { threadId, items: events, hasMore: false };
+    }
+    const page = ThreadPage.slice(events, limit, before);
+    return {
+      threadId,
+      ...page,
+    };
+  }
+
+  /**
+   * 服务端回退线程（threads.rewind）：把持久化事件流截断到指定事件（含），使前端的
+   * 「重生成」是**真回退**而不是「接着旧答案再来一轮」。
+   *
+   * 只做截断，不重跑（重跑仍走 `turns.run`，与既有提交通路一致）；失败一律如实回 `error`
+   * 而不抛错给 RPC 层，便于前端直接把原因显示出来。
+   *
+   * @param params `{ threadId, keepEventId }` — 目标线程与保留到哪条事件（含）
+   * @returns 保留/丢弃条数，或失败原因（见 {@link SessionRewindOutcome}）
+   */
+  protected async rewindThread(params: Record<string, unknown>): Promise<SessionRewindOutcome> {
+    const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+    return this.rewinder.rewind(threadId, String(params['keepEventId'] ?? ''));
+  }
+
+  /**
+   * 运行回合（turns.run）：线程已存在则续跑，否则等价创建新线程。
+   * images 可选，随首条用户消息送入模型（#B1）。
+   * @param params `{ threadId, prompt, images?, files? }` — 目标线程、消息文本与可选附件
+   * @returns 线程结果（sessionId、事件与用量）
+   */
+  protected async runTurn(params: Record<string, unknown>): Promise<unknown> {
+    await this.awaitPlugins();
+    const requestedThreadId = String(params['threadId'] ?? '');
+    // 新会话由服务端预生成 id：否则 `activeTurns` 只能记在空串下，`sessions.delete` /
+    // `sessions.list` 的 running 判定与真实会话 id 对不上（2026-10-21 修）。
+    const threadId = requestedThreadId === '' ? Id.id('sess') : requestedThreadId;
+    // 单飞锁：同一 threadId 的第二个回合直接拒绝。没有它会两个回合各自 hydrate、
+    // 各自在回合末全量覆盖写 ⇒ 后写者静默吃掉先写者的事件历史。
+    if (this.activeTurns.has(threadId)) {
+      return { ok: false, error: 'session_running' };
+    }
+    const prompt = String(params['prompt'] ?? '');
+    const images = params['images'] as readonly ImageContent[] | undefined;
+    const files = params['files'] as readonly FileAttachment[] | undefined;
+    // 不串项目（2026-10-07 用户：「应该各自分离不要出现串项目」）：见 AppServerBase.alignRuntimeWorkspace
+    // —— 工具用运行时根、UI/`fs.*` 用显示根，两者分叉即回合前重基（逐回合留痕见该方法内的日志）。
+    this.alignRuntimeWorkspace(threadId);
+    // 会话模式（UI「+」菜单的目标 / 计划 / 绘图）在此合成前置指令：
+    // 只改本回合的用户消息文本，不动系统提示词（系统提示词被缓存，改它会整体失效）。
+    // 无模式时 compose 原样返回 prompt，行为与旧版逐字节一致。
+    const effective = this.directives.compose(prompt, this.modes.get(threadId));
+    // 真实运行态跟踪：并行任务卡据此显示「运行中」，而非前端猜测。
+    this.activeTurns.add(threadId);
+    try {
+      // 显式给了 threadId 一律走 resume：服务端重启后 `this.threads` 缓存为空，但存档可能
+      // 还在——若按「不在缓存就 runTask」处理，会用同一个 id 覆盖（清空）已有历史。
+      // resume 空存档等价于新建（Agent 会补 session_meta），故两条路径都安全。
+      const result =
+        requestedThreadId !== '' || this.threads.has(threadId)
+          ? await this.runtime.agent().resume(threadId, effective, images, files)
+          : await this.runtime.agent().runTask(effective, images, files, threadId);
+      this.threads.set(result.sessionId, result.sessionId);
+      return this.threadResult(result);
+    } finally {
+      this.activeTurns.delete(threadId);
+    }
+  }
+
+  /**
+   * 回合中 steering：把一条用户追加指令入队，TurnRunner 在下一步边界消费。
+   *
+   * 2026-10-31：支持随文本携带 images / files（插话模式下的图片 / 视频 / GIF / 文件补充），
+   * 队列项与 `turns.run` 的多模态入参同构。
+   * @param params `{ threadId, text, images?, files? }`。
+   * @returns `{ ok, queued }`；会话未在跑/内容为空时 `ok:false` 且不入队。
+   */
+  protected async steerTurn(params: Record<string, unknown>): Promise<unknown> {
+    const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+    const text = String(params['text'] ?? params['prompt'] ?? '');
+    const images = params['images'] as readonly ImageContent[] | undefined;
+    const files = params['files'] as readonly FileAttachment[] | undefined;
+    const hasAttachments = (images?.length ?? 0) + (files?.length ?? 0) > 0;
+    if (threadId === '' || (text.trim() === '' && !hasAttachments)) {
+      return { ok: false, error: 'threadId 与 text（或附件）都必填' };
+    }
+    const agent = this.runtime.agent();
+    if (!agent.runningSessionIds().includes(threadId)) {
+      return { ok: false, error: 'session_not_running', threadId };
+    }
+    const queued = agent.steering.enqueue(threadId, {
+      text,
+      images,
+      files,
+    });
+    return { ok: true, threadId, queued };
+  }
+
+  /**
+   * 插话模式分流（`turns.interject`，2026-10-31）：相关并入 / 无关打断。
+   *
+   * 判定使用 {@link InterjectionClassifier} 的纯文本启发式（毫秒级、零模型调用）；
+   * 判定依据 `reason` 会回传 UI，让「为什么被打断」可解释。无关时服务端直接取消该会话
+   * 在跑回合（与 `turns.abort` 同一取消通道），客户端随后把本条内容作为新回合发送——
+   * 这样"打断"与"开新任务"之间没有竞态窗口，也不会有两条回合同时写同一会话。
+   * @param params `{ threadId, prompt, images?, files? }`。
+   * @returns `{ ok, action: 'steered'|'interrupted', reason, score }`；会话未在跑时 `ok:false`。
+   */
+  protected async interjectTurn(params: Record<string, unknown>): Promise<unknown> {
+    const threadId = String(params['threadId'] ?? params['sessionId'] ?? '');
+    const prompt = String(params['prompt'] ?? params['text'] ?? '');
+    const images = params['images'] as readonly ImageContent[] | undefined;
+    const files = params['files'] as readonly FileAttachment[] | undefined;
+    const hasAttachments = (images?.length ?? 0) + (files?.length ?? 0) > 0;
+    if (threadId === '' || (prompt.trim() === '' && !hasAttachments)) {
+      return { ok: false, error: 'threadId 与 prompt（或附件）都必填' };
+    }
+    const agent = this.runtime.agent();
+    if (!agent.runningSessionIds().includes(threadId)) {
+      return { ok: false, error: 'session_not_running', threadId };
+    }
+    const context = InterjectionClassifier.contextOf(await agent.eventsOf(threadId));
+    const decision = InterjectionClassifier.classify(prompt, context);
+    if (!decision.related) {
+      this.runtime.cancelAll('user', threadId);
+      // 与 turns.abort 同口径：该会话在跑的图运行也一并中止，避免会话已停、子步还在烧 token。
+      this.graphRuns.abortMatching(threadId);
+      return {
+        ok: true,
+        threadId,
+        action: 'interrupted',
+        reason: decision.reason,
+        score: decision.score,
+      };
+    }
+    const queued = agent.steering.enqueue(threadId, {
+      text: prompt.trim() === '' ? '（用户补充了附件，请结合附件继续）' : prompt,
+      images,
+      files,
+    });
+    return {
+      ok: true,
+      threadId,
+      action: 'steered',
+      queued,
+      reason: decision.reason,
+      score: decision.score,
+    };
+  }
+
+  /**
+   * 异步运行图（DAG 编排）：立即返回 runId，节点状态经 graph.progress 通知实时推送，
+   * 结束经 graph.done 通知。运行态存于 graphRuns 供 graph.status 查询。
+   * @param params `{ id?, def? }` — 已存图 id 或内联图定义（含 name 与 steps），二者必居其一
+   * @returns `{ runId, nodeCount }` — 本次运行标识与节点总数
+   */
+  protected runGraph(params: Record<string, unknown>): { runId: string; nodeCount: number } {
+    const store = this.runtime.graphStore();
+    let def: WorkflowDef | undefined;
+    const idParam = typeof params['id'] === 'string' ? params['id'] : undefined;
+    const defArg = params['def'];
+    if (idParam !== undefined) {
+      def = store.get(idParam);
+      if (def === undefined) {
+        throw new Error('未找到图: ' + idParam);
+      }
+    } else if (
+      defArg !== undefined &&
+      typeof defArg === 'object' &&
+      Array.isArray((defArg as Partial<WorkflowDef>).steps)
+    ) {
+      def = defArg as WorkflowDef;
+    } else {
+      throw new Error('graph.run 需要 id（已存图）或 def（内联定义）');
+    }
+    // 空计划必须拒绝：`WorkflowRunner.run([])` 会返回 `ok:true` 且零节点，于是模型收到
+    // 「图跑成功了」却什么都没做（模型面的 `run_workflow` 早有同款守卫，两条入口口径必须一致）。
+    if (def.steps.length === 0) {
+      throw new Error('graph.run 拒绝空计划：steps 至少需要一步');
+    }
+    const owner = typeof params['threadId'] === 'string' ? params['threadId'] : '';
+    return this.startGraphRun(def, idParam, owner === '' ? undefined : owner);
+  }
+
+  /**
+   * 启动一次图运行（`runGraph` 的落地半段：建态、登记、淘汰、装配 `WorkflowRunner` 并接线通知）。
+   * @param def 已解析的图定义（调用方保证 `steps` 非空）。
+   * @param idParam 已存图 id（内联定义时为 undefined）。
+   * @param owner 归属会话 id（用于 `turns.abort` 连带取消；无归属时 undefined）。
+   * @returns `{ runId, nodeCount }`。
+   */
+  private startGraphRun(
+    def: WorkflowDef,
+    idParam: string | undefined,
+    owner: string | undefined,
+    resumeRunId?: string,
+  ): { runId: string; nodeCount: number } {
+    const handle = this.graphRuns.begin(def, idParam, owner, resumeRunId);
+    const { runId, state } = handle;
+    const ports = this.runtime.graphPorts();
+    const runner = new WorkflowRunner(ports, {
+      maxConcurrency: def.maxConcurrency,
+      signal: handle.signal,
+      // 运行存档（2026-10-08）：serve 发起的图运行同样落盘到
+      // `<workspace>/.omniharness/graph-runs/<runId>.jsonl`，并用**台账 runId** 作为存档 id——
+      // 这样 `graph.status`/通知里的 id 与「可续跑的 runId」是同一个，用户不必在两套 id 之间对照。
+      persist: true,
+      runId,
+      onNodeUpdate: (update) => {
+        const node = state.nodes[update.id];
+        if (node !== undefined) {
+          node.status = update.status;
+          node.error = update.error;
+          node.steps = update.steps;
+          node.durationMs = update.durationMs;
+        }
+        this.options.transport.send(jsonRpc.notify('graph.progress', { runId, ...update }));
+      },
+    });
+    // 续跑（`graph.resume`）与首跑走同一条落地管道：唯一的差别是交给 runner 的是 `resume(runId)`
+    // 而不是 `run(def)`——这样进度通知、`graph.done`、台账释放三项行为不会出现两套实现。
+    const started = resumeRunId === undefined ? runner.run(def) : runner.resume(resumeRunId);
+    void started
+      .then((result) => {
+        state.done = true;
+        state.ok = result.ok;
+        state.blackboard = result.blackboard;
+        this.options.transport.send(
+          jsonRpc.notify('graph.done', {
+            runId,
+            ok: result.ok,
+            blackboard: { ...result.blackboard },
+          }),
+        );
+      })
+      .catch((error: unknown) => {
+        state.done = true;
+        state.ok = false;
+        this.options.transport.send(
+          jsonRpc.notify('graph.done', { runId, ok: false, error: this.messageOf(error) }),
+        );
+      })
+      .finally(() => this.graphRuns.release(runId));
+    return { runId, nodeCount: def.steps.length };
+  }
+
+  /**
+   * 优雅收尾：取消全部在跑回合并等待其落盘（最多 5s）。
+   *
+   * 2026-10-21：`serve` 的 SIGINT 收尾此前只 `server.close()`，在飞回合被直接掐断，
+   * EventPersister 的 200ms write-behind 窗口与回合末 flush 都来不及跑。这里先发
+   * `'shutdown'` 取消（模型 fetch 被 abort → 回合走 finally flush + save），再等
+   * runningSessionIds 清空；超时则如实放弃等待（不无限挂住 Ctrl-C）。
+   * @returns 等待结束（无论是否全部收尾）后 resolve。
+   */
+  public async shutdown(): Promise<void> {
+    this.automationScheduler?.stop();
+    const agent = this.runtime.agent();
+    agent.cancelCurrentRun('shutdown');
+    const deadline = Date.now() + 5_000;
+    while (agent.runningSessionIds().length > 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await this.plugins.shutdown();
+  }
+}

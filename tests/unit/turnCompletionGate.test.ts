@@ -13,17 +13,17 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.ts';
-import { TurnRunner, type CompletionGate } from '../../src/core/turnRunner.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { ModelPort, ModelOutput, ModelRequest } from '../../src/ports/model/model.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { TurnDiffTrackerPort } from '../../src/ports/runtime/turnDiffTracker.ts';
+import { StepRunner } from '../../src/kernel/core/stepRunner.ts';
+import { TurnRunner, type CompletionGate } from '../../src/kernel/core/turnRunner.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { ModelPort, ModelOutput, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { TurnDiffTrackerPort } from '../../src/contracts/ports/runtime/turnDiffTracker.ts';
 
 const allowApproval: ApprovalPort = { name: 'allow', decide: async () => 'allow' };
 const sandboxOk: SandboxPort = { name: 'ok', check: async () => ({ allowed: true }) };

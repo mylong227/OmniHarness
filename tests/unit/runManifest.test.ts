@@ -10,9 +10,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { RunManifestBuilder } from '../../src/core/runManifestBuilder.ts';
-import { eventFactory } from '../../src/core/eventFactory.ts';
-import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.ts';
+import { RunManifestBuilder } from '../../src/kernel/core/runManifestBuilder.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
+import { TraceSpanBuilder } from '../../src/kernel/observability/traceSpanBuilder.ts';
 
 const NOW = new Date('2026-10-22T00:00:00.000Z');
 

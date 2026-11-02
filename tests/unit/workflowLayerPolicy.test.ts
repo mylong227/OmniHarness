@@ -9,9 +9,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { WorkflowLayerPolicy } from '../../src/autonomy/workflowLayerPolicy.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import type { WorkflowStep } from '../../src/ports/autonomy/workflowStep.ts';
+import { WorkflowLayerPolicy } from '../../src/kernel/autonomy/workflowLayerPolicy.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import type { WorkflowStep } from '../../src/contracts/ports/autonomy/workflowStep.ts';
 
 /**
  * 造一个最小步骤。

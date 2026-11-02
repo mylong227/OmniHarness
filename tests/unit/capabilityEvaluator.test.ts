@@ -14,10 +14,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CapabilityEvaluator } from '../../src/capability/capabilityEvaluator.ts';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
-import type { CapabilityRecord, CapabilitySchema } from '../../src/ports/capability.ts';
+import { CapabilityEvaluator } from '../../src/kernel/capability/capabilityEvaluator.ts';
+import { CapabilitySchemaRegistry } from '../../src/kernel/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/kernel/capability/schemas/skillSchema.ts';
+import type { CapabilityRecord, CapabilitySchema } from '../../src/contracts/ports/capability.ts';
 
 /**
  * 造一条资产记录。

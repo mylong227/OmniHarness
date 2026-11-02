@@ -23,7 +23,7 @@
  * 取证（一次性探针，未入库）：打印 `CapturingModel` 真正收到的请求体后可见——
  * ① 请求体只有 `{role, content}` 文本，**工具名/调用 id 一次都不出现**（运行时另生成 id，
  *    且本夹具的 `compactionMaxTokens=30` 会把工具轮整体折叠掉）；② **回合末的"记忆抽取器"请求
- *    里带着整段"对话片段"**，其中就含折叠后的旧摘要（哨兵）——见 `src/adapters/memory/memoryExtractor.ts:170`
+ *    里带着整段"对话片段"**，其中就含折叠后的旧摘要（哨兵）——见 `src/kernel/adapters/memory/memoryExtractor.ts:170`
  *    的提示词 `你是从对话中抽取"长期记忆"的抽取器…`。
  *
  * 根因：旧过滤器 `lastTaskBody` 只排除**压缩器**请求（按 `对话历史压缩器`），于是**抽取器请求被当成"任务请求"**；
@@ -37,19 +37,19 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { Agent } from '../../src/core/agent.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { ScriptedModel } from '../../src/core/scriptedModel.ts';
-import type { ScriptStep } from '../../src/core/scriptedModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { ScriptedModel } from '../../src/kernel/core/scriptedModel.ts';
+import type { ScriptStep } from '../../src/kernel/core/scriptedModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 压缩标记（`ContextCompactor` 编码的折叠点前缀）。 */
 const COMPACTION_MARKER = 'OMNI_COMPACTION_V1';
@@ -60,7 +60,7 @@ const COMPACTOR_PROMPT_MARK = '对话历史压缩器';
 /** 摘要哨兵：出现在折叠摘要里 ⇒ "旧摘要还在不在请求里"的观测点。 */
 const SUMMARY_SENTINEL = 'SUMMARY_SENTINEL_ALPHA';
 
-/** 记忆抽取器请求的提示词特征（`src/adapters/memory/memoryExtractor.ts:170` 的开头）。 */
+/** 记忆抽取器请求的提示词特征（`src/kernel/adapters/memory/memoryExtractor.ts:170` 的开头）。 */
 const MEMORY_EXTRACTOR_PROMPT_MARK = '你是从对话中抽取';
 
 /**

@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Logger, type LogLevel } from '../../src/util/logger.ts';
+import { Logger, type LogLevel } from '../../src/kernel/util/logger.ts';
 
 function collector(minLevel: LogLevel = 'debug'): { logger: Logger; lines: string[] } {
   const lines: string[] = [];

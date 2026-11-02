@@ -12,15 +12,15 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import type { ExtraTool, OmniHarnessConfig } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import type { ExtraTool, OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 空转事件端口（本测试只关心装配产物，不关心事件流）。 */

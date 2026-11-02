@@ -12,18 +12,18 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { ConfigError } from '../../src/config/configError.ts';
-import { CapabilityStackAssembler } from '../../src/config/capabilityStackAssembler.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { CliSubsystemSections } from '../../src/cli/cliSubsystemSections.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { CapabilityStackAssembler } from '../../src/kernel/config/capabilityStackAssembler.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { CliSubsystemSections } from '../../src/apps/cli/cliSubsystemSections.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 /**
  * 造最小可用未解析配置。

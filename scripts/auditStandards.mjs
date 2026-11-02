@@ -7,12 +7,12 @@ import { execFile } from 'node:child_process';
 
 const root = 'src';
 const HOT = new Set([
-  'src/core/stepRunner.ts',
-  'src/core/turnRunner.ts',
-  'src/ports/toolInputSink.ts',
+  'src/kernel/core/stepRunner.ts',
+  'src/kernel/core/turnRunner.ts',
+  'src/contracts/ports/toolInputSink.ts',
 ]);
 const isHot = (f) =>
-  f.split(path.sep).join('/').startsWith('src/adapters/live/') ||
+  f.split(path.sep).join('/').startsWith('src/kernel/adapters/live/') ||
   HOT.has(f.split(path.sep).join('/'));
 
 const files = [];

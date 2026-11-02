@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { PluginSignature } from '../../src/plugin/pluginSignature.ts';
-import { PluginBundler, type BundleManifest } from '../../src/plugin/pluginBundler.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import type { PluginManifest } from '../../src/plugin/manifest.ts';
+import { PluginSignature } from '../../src/kernel/plugin/pluginSignature.ts';
+import { PluginBundler, type BundleManifest } from '../../src/kernel/plugin/pluginBundler.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import type { PluginManifest } from '../../src/kernel/plugin/manifest.ts';
 
 function signedManifest(identity: Ed25519AgentIdentity): PluginManifest {
   // 公钥必须在**被签内容**里（与 PluginBundler 的签名顺序一致），否则验签必然失败。

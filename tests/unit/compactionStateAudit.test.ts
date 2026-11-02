@@ -8,8 +8,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CompactionStateAudit } from '../../src/context/compactionStateAudit.ts';
-import type { ModelMessage } from '../../src/ports/model/modelMessage.ts';
+import { CompactionStateAudit } from '../../src/kernel/context/compactionStateAudit.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/modelMessage.ts';
 
 /** 完整 8 段模板骨架（各节内容可换）。 */
 const FULL_SUMMARY = [

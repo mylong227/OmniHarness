@@ -16,7 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 const TASK =
   '在临时工作区里实现一个小功能并验证：先阅读 package.json，创建一个 hello.txt 写入 hello，' +
   '再读取它确认内容，最后报告结果。需要多步完成。';

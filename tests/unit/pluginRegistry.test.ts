@@ -9,9 +9,9 @@ import {
   LocalDirSource,
   PluginRegistry,
   RemoteHttpSource,
-} from '../../src/plugin/pluginRegistry.ts';
-import { Manifest, type PluginManifest } from '../../src/plugin/manifest.ts';
-import { Container } from '../../src/core/container.ts';
+} from '../../src/kernel/plugin/pluginRegistry.ts';
+import { Manifest, type PluginManifest } from '../../src/kernel/plugin/manifest.ts';
+import { Container } from '../../src/kernel/core/container.ts';
 import { ASCII_TMP } from '../../vitest.workspace.ts';
 
 // 同 pluginLoader.test.ts：把 TMP/TEMP **局部**指向仓库内 ASCII 目录，规避 vite 对非 ASCII
@@ -21,9 +21,9 @@ if (process.env['TMP'] !== ASCII_TMP) {
   process.env['TMP'] = ASCII_TMP;
   process.env['TEMP'] = ASCII_TMP;
 }
-import { PermissionDeniedError, PermissionGate } from '../../src/plugin/permissionGate.ts';
-import { PluginManager } from '../../src/plugin/pluginManager.ts';
-import type { Plugin } from '../../src/plugin/plugin.ts';
+import { PermissionDeniedError, PermissionGate } from '../../src/kernel/plugin/permissionGate.ts';
+import { PluginManager } from '../../src/kernel/plugin/pluginManager.ts';
+import type { Plugin } from '../../src/kernel/plugin/plugin.ts';
 
 /** 示范插件源码（安装后须可被 import 加载）。 */
 const SAMPLE_SOURCE = `export default {

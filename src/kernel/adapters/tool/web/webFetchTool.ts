@@ -1,0 +1,308 @@
+﻿/**
+ * 网页抓取工具（P2-⑬）：`web_fetch`。
+ *
+ * 为什么需要：仓库原先只有 `web_search`（opt-in、依赖外部搜索实现），**没有直接取网页正文**
+ * 的能力——模型读到一份文档链接却打不开。本工具补上这条腿。
+ *
+ * 设计取舍（与 `web_search` 的差别，也是它**可以默认注册**的理由）：
+ * - `web_search` 必须注入外部搜索实现，未配置时必然失败 ⇒ 默认不注册（免得模型反复撞墙）；
+ * - `web_fetch` 的默认实现**自带**（Node 内置 `fetch` + 本地 HTML→文本），无需任何密钥或外部服务，
+ *   因此默认注册是安全的：失败是个案的（目标站不可达），不是系统性的。
+ *
+ * 安全与预算：
+ * - 仅允许 `http:` / `https:`（拒绝 `file:` 等本地协议，避免被当作本地文件读取绕过 WorkspaceGuard）；
+ * - 响应体**边读边计数**，超过 `max_bytes` 立即取消读取（不把整个大文件拉进内存）；
+ * - `timeout_ms` 默认 30s 且有上限，避免挂在一个不回的服务器上；
+ * - 非 HTML 内容（JSON / 纯文本）原样返回，不做转换。
+ */
+import { TOOL_NAMES } from '../../../../contracts/ports/tool/toolNames.ts'
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+} from '../../../../contracts/ports/tool/tool.ts';
+import { HtmlToText } from '../../../util/htmlToText.ts';
+import { PdfTextExtractor } from '../../../util/pdfTextExtractor.ts';
+import { EgressPolicy } from '../../../security/egressPolicy.ts';
+import { runtimeLimits, type ToolsLimits } from '../../../util/runtimeLimits.ts';
+
+/** web_fetch 用到的限额子集（配置段 limits.tools 的投影）。 */
+type WebFetchLimits = Pick<ToolsLimits, 'webFetchTimeoutMs' | 'webFetchMaxBytes'>;
+
+/** 单次抓取的响应体硬上限（字节）：安全常量，**不随部署变化**，故不进 `limits`。 */
+const HARD_MAX_BYTES = 2_000_000;
+
+/** 超时硬上限（毫秒）：安全常量，同上。 */
+const MAX_TIMEOUT_MS = 300_000;
+
+/** 抓取到的原始响应。 */
+export interface FetchedDocument {
+  /** HTTP 状态码。 */
+  readonly status: number;
+  /** `content-type` 头（缺省为空串）。 */
+  readonly contentType: string;
+  /** 响应体文本（已按字节上限截断）。 */
+  readonly body: string;
+  /** 是否因超出字节上限被截断。 */
+  readonly truncated: boolean;
+  /** 原始字节（PDF 等二进制正文需要；文本路径可不带）。 */
+  readonly bytes?: Buffer | undefined;
+}
+
+/** 网页抓取工具选项。 */
+export interface WebFetchToolOptions {
+  /**
+   * 抓取实现（可选）：注入后完全替代内置 `fetch`（单测零网络）。
+   * 未注入时使用内置实现（Node 内置 `fetch`）。
+   */
+  readonly fetchDocument?: (url: string, maxBytes: number, timeoutMs: number) => Promise<FetchedDocument>;
+  /**
+   * 工具级限额（已解析的 `limits.tools`；缺省取 `defaults/limits.json`）。
+   *
+   * 缺省值此前写死在本文件（200_000 / 30_000），改一次要改代码重发；
+   * 现由 `omniharness.json` 的 `limits.tools` 或 `OMNI_WEB_FETCH_*` 覆盖。
+   * 调用参数 `max_bytes` / `timeout_ms` 仍是逐次覆盖的最高优先。
+   */
+  readonly limits?: WebFetchLimits;
+}
+
+/**
+ * 网页抓取工具（默认注册；内置实现无第三方依赖、零密钥）。
+ */
+export class WebFetchTool {
+  /** 工具定义（构造期按生效限额生成，参数说明里的"默认值"必须与实际一致）。 */
+  public readonly definition: ToolDefinition;
+  /** 生效限额（构造期解析一次，全程只读）。 */
+  private readonly limits: WebFetchLimits;
+
+  /**
+   * @param options 工具选项（可注入抓取实现 / 限额，便于离线单测）。
+   */
+  public constructor(private readonly options: WebFetchToolOptions = {}) {
+    this.limits = options.limits ?? runtimeLimits.defaults().tools;
+    this.definition = {
+      name: TOOL_NAMES.webFetch,
+      description:
+        '抓取一个 http(s) 网页并返回正文纯文本（自动剥离脚本/样式与标签）。' +
+        '用于读取文档、issue、PR 等在线内容；返回内容会按 max_bytes 截断。',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: '要抓取的 http(s) 地址' },
+          max_bytes: {
+            type: 'number',
+            description: `响应体字节上限（默认 ${String(this.limits.webFetchMaxBytes)}，上限 ${String(HARD_MAX_BYTES)}）`,
+          },
+          timeout_ms: {
+            type: 'number',
+            description: `抓取超时毫秒数（默认 ${String(this.limits.webFetchTimeoutMs)}，上限 ${String(MAX_TIMEOUT_MS)}）`,
+          },
+        },
+        required: ['url'],
+      },
+    };
+  }
+
+  /**
+   * 执行抓取。
+   *
+   * @param call 工具调用（含 url，可选 max_bytes / timeout_ms）。
+   * @param _context 工具上下文（本工具不依赖，保留签名兼容）。
+   * @returns 成功时返回 `状态行 + 正文`；URL 非法 / 非 http(s) / 网络失败时返回 ok:false。
+   */
+  public async handle(call: ToolCall, _context: ToolContext): Promise<ToolResult> {
+    const url = String(call.arguments['url'] ?? '').trim();
+    if (!WebFetchTool.isHttpUrl(url)) {
+      return {
+        callId: call.id,
+        ok: false,
+        error: `仅支持 http/https URL（收到: "${url}"）`,
+      };
+    }
+    const maxBytes = WebFetchTool.clamp(
+      call.arguments['max_bytes'],
+      this.limits.webFetchMaxBytes,
+      HARD_MAX_BYTES,
+    );
+    const timeoutMs = WebFetchTool.clamp(
+      call.arguments['timeout_ms'],
+      this.limits.webFetchTimeoutMs,
+      MAX_TIMEOUT_MS,
+    );
+    try {
+      const fetched = await this.fetch(url, maxBytes, timeoutMs);
+      return { callId: call.id, ok: true, output: WebFetchTool.render(url, fetched) };
+    } catch (error) {
+      return {
+        callId: call.id,
+        ok: false,
+        error: `抓取失败: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * 取文档：优先用注入实现，否则用内置实现。
+   *
+   * @param url 目标地址。
+   * @param maxBytes 响应体字节上限。
+   * @param timeoutMs 超时毫秒数。
+   * @returns 抓取结果。
+   */
+  private fetch(url: string, maxBytes: number, timeoutMs: number): Promise<FetchedDocument> {
+    const verdict = EgressPolicy.check(url);
+    if (verdict.blocked) {
+      return Promise.reject(new Error(`egress 拦截: ${verdict.reason}`));
+    }
+    const injected = this.options.fetchDocument;
+    return injected !== undefined
+      ? injected(url, maxBytes, timeoutMs)
+      : WebFetchTool.fetchWithBuiltin(url, maxBytes, timeoutMs);
+  }
+
+  /**
+   * 内置抓取实现：Node 内置 `fetch` + 边读边限长。
+   *
+   * @param url 目标地址。
+   * @param maxBytes 响应体字节上限。
+   * @param timeoutMs 超时毫秒数。
+   * @returns 抓取结果（body 已按上限截断并标记）。
+   */
+  private static async fetchWithBuiltin(
+    url: string,
+    maxBytes: number,
+    timeoutMs: number,
+  ): Promise<FetchedDocument> {
+    let current = url;
+    let response: Response | undefined;
+    for (let redirect = 0; redirect <= 3; redirect += 1) {
+      const verdict = await EgressPolicy.checkAsync(current);
+      if (verdict.blocked) throw new Error(`egress 拦截: ${verdict.reason}`);
+      response = await globalThis.fetch(current, {
+        // 手动跟随：每一跳都重新过 egress 策略，防止公网 302 把请求带到内网/元数据。
+        redirect: 'manual',
+        headers: { accept: 'text/html,application/json,text/plain,*/*' },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      const location = response.headers.get('location');
+      if (response.status < 300 || response.status >= 400 || location === null) break;
+      current = new URL(location, current).href;
+      if (redirect === 3) throw new Error('egress 拦截: 重定向超过 3 跳');
+    }
+    if (response === undefined) throw new Error('egress 拦截: 无响应');
+    const contentType = response.headers.get('content-type') ?? '';
+    const read = await WebFetchTool.readBounded(response, maxBytes);
+    const lower = contentType.toLowerCase();
+    let body: string;
+    if (lower.includes('pdf')) {
+      // ACT-03：PDF 文本尽力提取；扫描件/复杂编码提取为空时**如实说明**，不把空串当正文。
+      const extracted = await PdfTextExtractor.extractAsync(read.buffer);
+      body =
+        extracted === ''
+          ? '（PDF 文本提取为空：可能是扫描件/图片型 PDF，或使用了不支持的编码；请用浏览器打开查看）'
+          : extracted;
+    } else if (lower.includes('html')) {
+      body = await HtmlToText.convertAsync(read.text);
+    } else {
+      body = read.text;
+    }
+    return {
+      status: response.status,
+      contentType,
+      body,
+      truncated: read.truncated,
+      ...(lower.includes('pdf') ? { bytes: read.buffer } : {}),
+    };
+  }
+
+  /**
+   * 边读边计数地读取响应体（超限即取消读取）。
+   *
+   * @param response fetch 响应。
+   * @param maxBytes 字节上限。
+   * @returns 已读文本与「是否被截断」标记（无 body 时为空）。
+   */
+  private static async readBounded(
+    response: Response,
+    maxBytes: number,
+  ): Promise<{ readonly text: string; readonly truncated: boolean; readonly buffer: Buffer }> {
+    const body = response.body as ReadableStream<Uint8Array> | null;
+    if (body === null) {
+      return { text: '', truncated: false, buffer: Buffer.alloc(0) };
+    }
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    let truncated = false;
+    for (;;) {
+      const step = await reader.read();
+      if (step.done === true) {
+        break;
+      }
+      if (step.value === undefined) {
+        continue;
+      }
+      chunks.push(step.value);
+      total += step.value.byteLength;
+      if (total >= maxBytes) {
+        truncated = true;
+        await reader.cancel();
+        break;
+      }
+    }
+    return {
+      text: Buffer.concat(chunks).toString('utf8').slice(0, maxBytes),
+      truncated,
+      buffer: Buffer.concat(chunks),
+    };
+  }
+
+  /**
+   * 组织返回文本（状态头 + 正文）。
+   *
+   * @param url 目标地址。
+   * @param fetched 抓取结果。
+   * @returns 可读文本。
+   */
+  private static render(url: string, fetched: FetchedDocument): string {
+    const kind = fetched.contentType === '' ? '未知类型' : fetched.contentType;
+    const cut = fetched.truncated ? '，已按上限截断' : '';
+    const head = `[web_fetch] ${url} → HTTP ${String(fetched.status)}（${kind}，${String(fetched.body.length)} 字符${cut}）`;
+    return fetched.body === '' ? `${head}\n（响应体为空）` : `${head}\n${fetched.body}`;
+  }
+
+  /**
+   * 校验 URL 是否为 http(s)。
+   *
+   * @param url 待校验地址。
+   * @returns 合法 http/https 时为 true。
+   */
+  private static isHttpUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 把调用方给的上限钳制到 `[1, hardMax]`；**非正数与非有限值一律回落默认**。
+   *
+   * 为什么把 `<= 0` 也当非法：`timeout_ms: -5` 若按"下限 1"处理会变成 1ms 超时——
+   * 表现为「抓取永远立刻失败」，极难归因（与 `ShellTool.effectiveTimeout` 的取舍一致）。
+   *
+   * @param requested 请求值（未知类型）。
+   * @param fallback 默认值。
+   * @param hardMax 硬上限。
+   * @returns 生效值。
+   */
+  private static clamp(requested: unknown, fallback: number, hardMax: number): number {
+    if (typeof requested !== 'number' || !Number.isFinite(requested) || requested <= 0) {
+      return fallback;
+    }
+    return Math.min(Math.floor(requested), hardMax);
+  }
+}
+

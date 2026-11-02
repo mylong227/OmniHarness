@@ -2,7 +2,7 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ConfinementEngine } from '../../src/adapters/monitoring/confinementEngine.ts';
+import { ConfinementEngine } from '../../src/kernel/adapters/monitoring/confinementEngine.ts';
 
 const singlet = { color: 0, flavor: 0, permission: 0, expiry: 0 };
 

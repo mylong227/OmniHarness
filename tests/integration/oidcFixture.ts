@@ -2,7 +2,7 @@
  * 无第三方依赖本地 OIDC IdP fixture（F4 更优解验证用）。
  *
  * 设计动机：
- * - `src/enterprise/oidcClient.ts` 的 `OidcClient` / `EnterpriseAuth` 是无第三方依赖、fetch 可注入的
+ * - `src/apps/enterprise/oidcClient.ts` 的 `OidcClient` / `EnterpriseAuth` 是无第三方依赖、fetch 可注入的
  *   纯实现，但"真实接入某 IdP"此前被标为外部设施（keycloak 容器 / 可达网络），导致整条
  *   认证门禁无法端到端验证。
  * - 本 fixture 用 `node:crypto` + `node:http` 起一个**合规最小 IdP**：签发**真实 RS256 JWT**

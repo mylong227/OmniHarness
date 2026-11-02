@@ -27,11 +27,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { TokenAttribution } from '../../src/observability/tokenAttribution.ts';
-import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.ts';
-import { OtlpTraceExporter } from '../../src/observability/otlpTraceExporter.ts';
-import type { Span } from '../../src/observability/otlpTraceExporter.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { TokenAttribution } from '../../src/kernel/observability/tokenAttribution.ts';
+import { TraceSpanBuilder } from '../../src/kernel/observability/traceSpanBuilder.ts';
+import { OtlpTraceExporter } from '../../src/kernel/observability/otlpTraceExporter.ts';
+import type { Span } from '../../src/kernel/observability/otlpTraceExporter.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /**
  * 造一条事件。

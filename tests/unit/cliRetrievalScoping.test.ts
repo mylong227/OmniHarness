@@ -70,7 +70,7 @@ function spawnEnvViolations(source: string): string[] {
 }
 
 test('① 生产侧：检索默认档只作用于 agent 路径（附合成坏输入正对照）', () => {
-  const source = read('src/cli/execCli.ts');
+  const source = read('src/apps/cli/execCli.ts');
   assert.deepStrictEqual(retrievalScopingViolations(source), []);
 
   // **正对照**：把调用挪回方法开头（旧行为）必须被判违规。

@@ -12,13 +12,13 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import type { CapabilityRecord } from '../../src/ports/capability.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { CapabilityRegistry } from '../../src/kernel/capability/capabilityRegistry.ts';
+import { CapabilitySchemaRegistry } from '../../src/kernel/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/kernel/capability/schemas/skillSchema.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import type { CapabilityRecord } from '../../src/contracts/ports/capability.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 /**
  * 造一条技能资产记录。

@@ -10,21 +10,21 @@
  *
  * ## 环境变量（全部可选）
  *
- *   · `OMNI_BACKEND_PORT`：后端 serve 端口（后端侧同读它，见 `src/cli/serveDefaults.ts`）；
+ *   · `OMNI_BACKEND_PORT`：后端 serve 端口（后端侧同读它，见 `src/apps/cli/serveDefaults.ts`）；
  *   · `OMNI_UI_PORT`：Vite dev server 端口（别名 `OMNI_FRONTEND_PORT`——devAll 旧文档用名，收编）；
  *   · `OMNI_DEV_HOST`：回环主机（代理目标 / 就绪探针 / 测试夹具监听）。后端自身的绑定地址
  *     仍由 `OMNI_SERVE_HOST`（ServerAuthGuard）管理——那是"产品绑在哪"，这里是"开发工具连哪"。
  *
  * ## 与后端默认值的关系
  *
- * 本文件的 backendPort 默认值**镜像** `src/cli/serveDefaults.ts` 的 `DEFAULT_SERVE_PORT`
+ * 本文件的 backendPort 默认值**镜像** `src/apps/cli/serveDefaults.ts` 的 `DEFAULT_SERVE_PORT`
  * （node 脚本无法 import 后端 TS）。镜像一致性由结构判据钉死：
  * `tests/unit/devAddressContract.test.ts`。改默认端口要两处同改（判据会红着提醒）。
  */
 
 /** 开发回路的默认地址（唯一的字面量出处；后端侧镜像见 serveDefaults.ts）。 */
 export const DEV_DEFAULTS = Object.freeze({
-  /** 后端 serve 默认端口（镜像 `src/cli/serveDefaults.ts` 的 DEFAULT_SERVE_PORT）。 */
+  /** 后端 serve 默认端口（镜像 `src/apps/cli/serveDefaults.ts` 的 DEFAULT_SERVE_PORT）。 */
   backendPort: 8787,
   /** Vite dev server 默认端口。 */
   uiPort: 5173,

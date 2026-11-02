@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { OmniError, ErrorCode } from '../../src/omniError.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import { ModelCallError } from '../../src/ports/model/model.ts';
-import { EgressBlockedError } from '../../src/adapters/sandbox/networkEgressGuard.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { ModelCallError } from '../../src/contracts/ports/model/model.ts';
+import { EgressBlockedError } from '../../src/kernel/adapters/sandbox/networkEgressGuard.ts';
 
 test('OmniError：携带稳定错误码', () => {
   const err = new OmniError(ErrorCode.UNKNOWN, 'boom');

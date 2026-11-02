@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
+import { SessionArchive } from '../../src/apps/server/services/session/sessionArchive.ts';
 import { rmTempBestEffort } from '../helpers/bestEffortCleanup.ts';
 
 /** 本工作区路径。 */

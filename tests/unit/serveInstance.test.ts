@@ -17,8 +17,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ServeInstance } from '../../src/cli/serveInstance.ts';
-import { ServePortConflict } from '../../src/cli/servePortConflict.ts';
+import { ServeInstance } from '../../src/apps/cli/serveInstance.ts';
+import { ServePortConflict } from '../../src/apps/cli/servePortConflict.ts';
 
 /**
  * 造一份记录。

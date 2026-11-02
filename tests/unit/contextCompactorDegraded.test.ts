@@ -9,9 +9,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
-import { CompactionSummarizer } from '../../src/context/compactionSummarizer.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
+import { CompactionSummarizer } from '../../src/kernel/context/compactionSummarizer.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
 
 /** 必抛模型：模拟 429 / 端点故障。 */
 const brokenModel: ModelPort = {

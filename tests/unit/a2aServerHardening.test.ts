@@ -8,7 +8,7 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { HttpA2aServerTransport } from '../../src/a2a/index.ts';
+import { HttpA2aServerTransport } from '../../src/protocols/a2a/index.ts';
 
 /** 拉起一个真实 A2A HTTP 服务端（随机端口）。 */
 async function startServer(): Promise<{ port: number; close: () => void }> {

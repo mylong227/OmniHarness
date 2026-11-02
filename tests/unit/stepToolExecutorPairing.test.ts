@@ -19,28 +19,28 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StepToolExecutor } from '../../src/core/stepToolExecutor.ts';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { ToolHookRunner } from '../../src/core/toolHookRunner.ts';
-import { ContextAssembler } from '../../src/context/contextAssembler.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { NativeToolRunner } from '../../src/native/nativeBackend.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
+import { StepToolExecutor } from '../../src/kernel/core/stepToolExecutor.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { ToolHookRunner } from '../../src/kernel/core/toolHookRunner.ts';
+import { ContextAssembler } from '../../src/kernel/context/contextAssembler.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import type { StepRunnerDeps } from '../../src/kernel/core/stepTypes.ts';
+import type { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { NativeToolRunner } from '../../src/kernel/native/nativeBackend.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ToolHookContext } from '../../src/ports/tool/toolHook.ts';
-import { eventFactory } from '../../src/core/eventFactory.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ToolHookContext } from '../../src/contracts/ports/tool/toolHook.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
 
 /** 记录被真执行的工具调用名的替身端口（可配置某个工具名抛错）。 */
 class RecordingTools implements ToolPort {

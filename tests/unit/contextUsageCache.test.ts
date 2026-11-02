@@ -14,10 +14,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { ContextUsageService } from '../../src/server/services/contextUsageService.ts';
-import type { ContextUsageReport } from '../../src/server/services/contextUsageService.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ToolDefinition } from '../../src/ports/tool/tool.ts';
+import { ContextUsageService } from '../../src/apps/server/services/contextUsageService.ts';
+import type { ContextUsageReport } from '../../src/apps/server/services/contextUsageService.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ToolDefinition } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 构造一条会话事件（只填容量服务会读的字段）。

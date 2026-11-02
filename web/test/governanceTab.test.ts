@@ -23,7 +23,7 @@ import type { FacadeNode } from './domFacade.ts';
 
 const { GovernanceTab } = await import('../src/ui/components/tabs/GovernanceTab.tsx');
 const { ConsoleView } = await import('../src/ui/components/console/ConsoleView.tsx');
-const { parseHash, isValidPane } = await import('../src/core/Router.ts');
+const { parseHash, isValidPane } = await import('../src/kernel/core/Router.ts');
 
 /**
  * 深度收集满足谓词的节点。

@@ -16,10 +16,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { AssetPackCodec } from '../../src/asset/assetPackCodec.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import { Zip } from '../../src/plugin/zip.ts';
-import type { AssetPackManifest } from '../../src/ports/asset.ts';
+import { AssetPackCodec } from '../../src/kernel/asset/assetPackCodec.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import { Zip } from '../../src/kernel/plugin/zip.ts';
+import type { AssetPackManifest } from '../../src/contracts/ports/asset.ts';
 
 /**
  * 造一份未签名清单。

@@ -7,7 +7,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
 
 test('OpenAI 兼容适配器：maxOutputTokens 透传为 max_tokens，未设时不发', async () => {
   const bodies: Record<string, unknown>[] = [];

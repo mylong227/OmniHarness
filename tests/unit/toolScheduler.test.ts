@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ToolScheduler } from '../../src/core/loop/toolScheduler.ts';
-import type { ToolCall, ToolResult } from '../../src/ports/tool/tool.ts';
+import { ToolScheduler } from '../../src/kernel/core/loop/toolScheduler.ts';
+import type { ToolCall, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 function makeCall(id: string, name: string): ToolCall {
   return { id, name, arguments: {} };
@@ -115,7 +115,7 @@ test('ToolScheduler：写类与写类之间也串行（rollback + remember 不�
 });
 
 test('MUTATING_TOOLS 是单一口径：调度器与门禁对同一集合判定', async () => {
-  const { MUTATING_TOOLS } = await import('../../src/core/toolGate.ts');
+  const { MUTATING_TOOLS } = await import('../../src/kernel/core/toolGate.ts');
   const scheduler = new ToolScheduler({ maxParallel: 8 });
   for (const name of MUTATING_TOOLS) {
     const calls = [makeCall('r', 'read_file'), makeCall('w', name)];

@@ -9,8 +9,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { AcpStdioTransport } from '../../src/acp/acpStdioTransport.ts';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import { AcpStdioTransport } from '../../src/protocols/acp/acpStdioTransport.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
 
 /** 造一对内存流与传输。 */
 function setup(): {

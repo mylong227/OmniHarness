@@ -20,10 +20,10 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DoctorRunner } from '../../src/cli/doctorRunner.ts';
-import { NetworkEgressGuard } from '../../src/adapters/sandbox/networkEgressGuard.ts';
-import { SandboxCapabilityTable } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';
-import { ToolOutputTrust } from '../../src/security/toolOutputTrust.ts';
+import { DoctorRunner } from '../../src/apps/cli/doctorRunner.ts';
+import { NetworkEgressGuard } from '../../src/kernel/adapters/sandbox/networkEgressGuard.ts';
+import { SandboxCapabilityTable } from '../../src/kernel/adapters/sandbox/sandboxCapabilityTable.ts';
+import { ToolOutputTrust } from '../../src/kernel/security/toolOutputTrust.ts';
 
 test('① 默认档（policy，纯 TS 策略）必须如实报 L2 且 kernelEnforced=false', () => {
   const root = mkdtempSync(join(tmpdir(), 'omni-sec-'));

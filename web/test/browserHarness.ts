@@ -317,7 +317,7 @@ export function launchChromeForCdp(browser: string, url: string, userDataDir: st
  * 数百毫秒，只在收尾路径。**同步**执行是刻意的：调用方紧接着要删 `--user-data-dir`，异步终止会让
  * 句柄多存活一会儿 ⇒ `rmSync` 撞 EBUSY（此前 e2e 用例一直打印「临时 profile 目录清理失败」即此）。
  *
- * 平台策略与仓内 `src/adapters/tool/shell/processTreeKiller.ts` 同源（那边注释解释同一取舍）；
+ * 平台策略与仓内 `src/kernel/adapters/tool/shell/processTreeKiller.ts` 同源（那边注释解释同一取舍）；
  * 此处**刻意不 import dist**：`web:test` 只跑 `web:build`（CI 的 web job 没有后端构建产物），
  * 依赖 dist 会让浏览器用例在 CI 的 web job 里直接崩掉。
  *

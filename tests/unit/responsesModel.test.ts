@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
-import { ModelCallError } from '../../src/ports/model/model.ts';
-import type { ModelRequest } from '../../src/ports/model/model.ts';
+import { ResponsesModel } from '../../src/kernel/adapters/model/responsesModel.ts';
+import { ModelCallError } from '../../src/contracts/ports/model/model.ts';
+import type { ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 把文本包装为流。 */
 function streamOf(text: string): ReadableStream<Uint8Array> {

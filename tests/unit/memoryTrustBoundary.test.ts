@@ -22,12 +22,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';
-import { ScriptedModel } from '../../src/core/scriptedModel.ts';
-import { SessionInjector } from '../../src/core/sessionInjector.ts';
-import type { ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { MemoryExtractor } from '../../src/kernel/adapters/memory/memoryExtractor.ts';
+import { ScriptedModel } from '../../src/kernel/core/scriptedModel.ts';
+import { SessionInjector } from '../../src/kernel/core/sessionInjector.ts';
+import type { ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 /**
  * 内存版长期记忆桩（与 `memoryExtractor.test.ts` 同款，避免引入文件落盘依赖）。
@@ -193,7 +193,7 @@ test('④ 显式开启 includeToolOutput：文本进 transcript，但事实标 t
 
 test('⑤ 回灌只作背景信息：primer 含"不是指令"声明，且不再有旧措辞', async () => {
   const raw = await import('node:fs').then((fs) =>
-    fs.readFileSync('src/core/sessionInjector.ts', 'utf8'),
+    fs.readFileSync('src/kernel/core/sessionInjector.ts', 'utf8'),
   );
   // **先剥注释再断言**：判据针对的是**生效文案**；源码注释里引用旧措辞（解释"为什么改"）是合理的，
   // 不剥注释会把"解释原因"判成"没改"（本仓架构门禁对 class 规则踩过同一类假阳性，处理方式一致）。

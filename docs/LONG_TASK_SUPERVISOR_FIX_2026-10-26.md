@@ -22,7 +22,7 @@ turn.loopguard.nudge violation=soft-deadline
 
 ## 修复
 
-- 新增 `src/supervisor/supervisorHealthSignal.ts`（2026-10-31 由 healthSignal.ts 改名对齐主类）：识别策略拒绝（`监督内核(safe/locked)`、审批、
+- 新增 `src/kernel/supervisor/supervisorHealthSignal.ts`（2026-10-31 由 healthSignal.ts 改名对齐主类）：识别策略拒绝（`监督内核(safe/locked)`、审批、
   沙箱、`approval/denied/permission/sandbox/policy`、`EPERM`）。
 - `StepToolExecutor.recordToolResult`：策略拒绝**不再上报** supervisor 失败；真实执行失败
   （异常/超时/验收失败）仍上报。

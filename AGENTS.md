@@ -5,7 +5,7 @@
 
 ## 用户级状态归属：`OMNI_HOME` 是唯一搬盘旋钮（2026-10-26 起）
 
-- 归属根的**唯一事实源是 `src/util/omniHome.ts`**：显式注入 > `OMNI_HOME` 环境变量 > `~/.omniharness`。
+- 归属根的**唯一事实源是 `src/kernel/util/omniHome.ts`**：显式注入 > `OMNI_HOME` 环境变量 > `~/.omniharness`。
   **新增任何用户级落盘（pid/配置/会话/令牌/插件目录）一律 `OmniHome.dir()` 拼接，禁止再手写
   `join(homedir(), '.omniharness', …)`**——2026-10-26 收口了 15+ 处分裂写法，别再长出第 16 处。
 - **本机已迁移**：`OMNI_HOME=D:\omniharness-home`（setx 持久化），`~/.omniharness` 已删除。
@@ -27,7 +27,7 @@
   emit 时自动重写回 `.js`，dist 产物仍是标准 ESM；web tsconfig（noEmit）用 `allowImportingTsExtensions`。
 - **别再给 Vite/Vitest 加 `.js → .ts` 回落插件**（`scripts/vitePluginJsToTs.ts` 已删）。
 - **有意保留 `.js` 的三类位置**（不要"顺手统一"掉）：注释/文档里的描述、测试夹具里的假文件名、
-  指向 dist 编译产物或真实 `.js` 文件的**运行时路径字符串**（如 `dist/src/cli/exec.js`）。
+  指向 dist 编译产物或真实 `.js` 文件的**运行时路径字符串**（如 `dist/src/apps/cli/exec.js`）。
 - 断言导入形态的结构判据若仍匹配 `.js` 会**静默退化或假红**——改导入约定时必须同步排查
   `tests/unit/` 里所有对源码做文本断言的判据（本轮实例：`cliStartupBudget` 的变异探针、`crashGuard ⑦`）。
 
@@ -122,17 +122,17 @@
 ## 本机配置与工作区解析
 
 - **工作区根解析链**：`--workspace` > **本机固定项目**（用户级 `~/.omniharness/omniharness.json` 的 `workspace`）
-  > 启动目录；命中哪一级由 serve 横幅打印（实现 `src/cli/serveWorkspace.ts`）——「换个目录启动就看到别的项目」通常不是 bug。
+  > 启动目录；命中哪一级由 serve 横幅打印（实现 `src/apps/cli/serveWorkspace.ts`）——「换个目录启动就看到别的项目」通常不是 bug。
 - **配置分层链**：内置默认 → 用户级 → 项目级 `omniharness.json` → `--profile` → bundle 补丁 → 环境变量 → CLI。
 - `workspace` / `workspaces` **只写用户级**（项目级文件里不该出现）；家目录下的路径写回时压成 `~/…`。
-- 配置文件解析**容忍 UTF-8 BOM**（`src/config/configFile.ts`）——别把「配置没生效」先归因到 BOM。
+- 配置文件解析**容忍 UTF-8 BOM**（`src/kernel/config/configFile.ts`）——别把「配置没生效」先归因到 BOM。
 - **会话存档在 `~/.omniharness/sessions/`（全局）**，归属按 `session_meta.payload.workspace` 标记：
   `sessions.list` 缺省只回当前项目，`workspace:'*'` 才回全部——「别的项目的会话去哪了」先查这条。
 - serve **默认只绑 `127.0.0.1`**：示例 URL 写 `http://127.0.0.1:8787`，别写 `localhost`（解析到 `::1` 时连不上）。
 
 ## CLI 旗标必须登记（否则被静默打死）
 
-- **新增任何 CLI 旗标都要登记进 `src/cli/knownFlags.ts`**。真实教训：`--auto-approve` 是 serve 的真旗标
+- **新增任何 CLI 旗标都要登记进 `src/apps/cli/knownFlags.ts`**。真实教训：`--auto-approve` 是 serve 的真旗标
   （`cliServerCmds.ts` 用 `args.includes('--auto-approve')` 读），却**从未登记**，于是被「未知旗标 fail-closed」打死——
   `serve --auto-approve` 直接报未知旗标退出，而 `--help` 与文档都还写着它（2026-10-06 修）。
   同一轮还揪出 `--version` / `--compliance` / `--allow-all`。

@@ -9,9 +9,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionFileCodec } from '../../src/util/sessionFileCodec.ts';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { SessionFileCodec } from '../../src/kernel/util/sessionFileCodec.ts';
+import { JsonlStorage } from '../../src/kernel/adapters/storage/jsonlStorage.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 test('SessionFileCodec：普通 id 不变，非法字符转义且可逆', () => {
   assert.strictEqual(SessionFileCodec.encode('sess_abc-123'), 'sess_abc-123');

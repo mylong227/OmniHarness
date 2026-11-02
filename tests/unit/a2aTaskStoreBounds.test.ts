@@ -6,7 +6,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { A2aTaskStore } from '../../src/a2a/a2aTaskStore.ts';
+import { A2aTaskStore } from '../../src/protocols/a2a/a2aTaskStore.ts';
 
 test('任务总量上限：超出先淘汰终态任务，非终态保留到最后', () => {
   // 上限在构造期读取 ⇒ 先设 env 再建实例。

@@ -28,7 +28,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ContextEngine } from '../../src/context/contextEngine.ts';
+import { ContextEngine } from '../../src/kernel/context/contextEngine.ts';
 import { RECALL_QUERIES, CORE_RECALL_QUERIES } from '../fixtures/recallQueries.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`，故上溯三级）。 */

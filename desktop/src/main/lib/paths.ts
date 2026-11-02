@@ -14,10 +14,10 @@ export function harnessRoot(): string {
 
 /**
  * Harness CLI 入口。
- * @returns `dist/src/cli/exec.js` 的绝对路径。
+ * @returns `dist/src/apps/cli/exec.js` 的绝对路径。
  */
 export function harnessEntry(): string {
-  return join(harnessRoot(), 'dist', 'src', 'cli', 'exec.js');
+  return join(harnessRoot(), 'dist', 'src', 'apps', 'cli', 'exec.js');
 }
 
 /**

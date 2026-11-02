@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { VectorClock } from '../../src/util/concurrency/vectorClock.ts';
+import { VectorClock } from '../../src/kernel/util/concurrency/vectorClock.ts';
 
 test('① tick 只推进本节点；before/after 可判', () => {
   const a = new VectorClock().tick('A');

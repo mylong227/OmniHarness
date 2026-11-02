@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DiffCommentStore } from '../../src/server/services/diffCommentStore.ts';
-import { RepoPathGuard } from '../../src/server/services/repoPathGuard.ts';
+import { DiffCommentStore } from '../../src/apps/server/services/diffCommentStore.ts';
+import { RepoPathGuard } from '../../src/apps/server/services/repoPathGuard.ts';
 
 function withStore<T>(fn: (ws: string, store: DiffCommentStore) => T): T {
   const ws = mkdtempSync(join(tmpdir(), 'diff-comments-'));

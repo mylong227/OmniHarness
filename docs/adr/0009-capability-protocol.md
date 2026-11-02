@@ -2,7 +2,7 @@
 
 - 日期：2026-10-04
 - 状态：已接受（实施规格见 [../EVOLVIX_SPEC_2026-10.md](../EVOLVIX_SPEC_2026-10.md) §1–§3；波浪路线见 [../ARCHITECTURE_TARGET_2026-10.md](../ARCHITECTURE_TARGET_2026-10.md) §7）
-- 前置：Wave A（[ADR-0008](./0008-governed-evolution-kernel.md)）全绿——台账/回滚已在 `src/evolution/`
+- 前置：Wave A（[ADR-0008](./0008-governed-evolution-kernel.md)）全绿——台账/回滚已在 `src/kernel/evolution/`
 
 ## 背景
 

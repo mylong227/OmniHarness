@@ -1,4 +1,4 @@
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /**
  * 记录型模型装饰器（测试专用）。

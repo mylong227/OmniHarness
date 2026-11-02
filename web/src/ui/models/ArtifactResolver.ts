@@ -32,7 +32,7 @@ interface ArtifactSpec {
 /**
  * 工具名 → 产物规格。
  *
- * 键为内置工具名（与 src/adapters/tool/** 的定义逐一对应）；未登记的工具一律不产卡片。
+ * 键为内置工具名（与 src/kernel/adapters/tool/** 的定义逐一对应）；未登记的工具一律不产卡片。
  * `sketch_write` 的路径由工具内部拼出（时间戳 + slug + 白名单扩展名，模型不传路径），
  * 故其 `pathFields` 为空——改由结果回执文本回读（见 `SKETCH_MARKER`）。
  */

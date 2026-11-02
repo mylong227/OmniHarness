@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ModelRouter } from '../../src/adapters/model/modelRouter.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
+import { ModelRouter } from '../../src/kernel/adapters/model/modelRouter.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
 
 const small: ModelPort = { name: 'small', generate: async () => ({ text: 'small' }) };
 const large: ModelPort = { name: 'large', generate: async () => ({ text: 'large' }) };

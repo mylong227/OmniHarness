@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Sandbox } from '../../src/plugin/sandbox.ts';
-import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
-import { PluginManager } from '../../src/plugin/pluginManager.ts';
-import { Container } from '../../src/core/container.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { PermissionGate } from '../../src/plugin/permissionGate.ts';
-import { ALL_PERMISSIONS } from '../../src/plugin/permission.ts';
+import { Sandbox } from '../../src/kernel/plugin/sandbox.ts';
+import { PluginLoader } from '../../src/kernel/plugin/pluginLoader.ts';
+import { PluginManager } from '../../src/kernel/plugin/pluginManager.ts';
+import { Container } from '../../src/kernel/core/container.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { PermissionGate } from '../../src/kernel/plugin/permissionGate.ts';
+import { ALL_PERMISSIONS } from '../../src/kernel/plugin/permission.ts';
 
 function makeManager(): PluginManager {
   const container = new Container();

@@ -20,12 +20,12 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
-import { ModelReasoningEfforts } from '../../src/adapters/model/modelReasoningEfforts.ts';
-import type { ModelRequest } from '../../src/ports/model/model.ts';
+import { AnthropicModel } from '../../src/kernel/adapters/model/anthropicModel.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
+import { ResponsesModel } from '../../src/kernel/adapters/model/responsesModel.ts';
+import { LlamaCppModel } from '../../src/kernel/adapters/model/llamaCppModel.ts';
+import { ModelReasoningEfforts } from '../../src/kernel/adapters/model/modelReasoningEfforts.ts';
+import type { ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 仓库根（判据在 `dist/tests/unit/`，源码按 cwd 读）。 */
 const REPO_ROOT = process.cwd();
@@ -171,7 +171,7 @@ test('③ Anthropic：thinking 预算按档位映射，且 max_tokens 必须**�
 
 test('③-b 映射表必须覆盖配置枚举的**全部**合法档位（防"合法配置却在适配器抛错"）', () => {
   // 配置侧枚举是唯一事实来源：从 `configError.ts` 逐字读出 `reasoning: [...]` 那一行。
-  const configSource = readFileSync(join(REPO_ROOT, 'src/config/configError.ts'), 'utf8');
+  const configSource = readFileSync(join(REPO_ROOT, 'src/kernel/config/configError.ts'), 'utf8');
   const line = /reasoning:\s*\[([^\]]+)\]/u.exec(configSource)?.[1] ?? '';
   const levels = [...line.matchAll(/'([a-z]+)'/gu)].map((m) => m[1] ?? '');
   assert.ok(
@@ -238,7 +238,7 @@ test('⑤ Ollama：think 为布尔（关档显式 false，未设不发）', asyn
 
 test('⑥ 单一实现：四家字段字面量只许住在 modelReasoningEfforts.ts', () => {
   const mapping = readFileSync(
-    join(REPO_ROOT, 'src/adapters/model/modelReasoningEfforts.ts'),
+    join(REPO_ROOT, 'src/kernel/adapters/model/modelReasoningEfforts.ts'),
     'utf8',
   );
   assert.match(mapping, /reasoning_effort/u, '映射模块必须自己持有 OpenAI 字段名');
@@ -249,7 +249,7 @@ test('⑥ 单一实现：四家字段字面量只许住在 modelReasoningEfforts
     'openAiCompatibleModel',
     'anthropicModel',
   ]) {
-    const source = readFileSync(join(REPO_ROOT, `src/adapters/model/${file}.ts`), 'utf8');
+    const source = readFileSync(join(REPO_ROOT, `src/kernel/adapters/model/${file}.ts`), 'utf8');
     for (const literal of ['reasoning_effort', 'budget_tokens']) {
       assert.ok(
         !source.includes(`'${literal}'`),

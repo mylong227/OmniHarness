@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
-import { TemporalFactGraph } from '../../src/adapters/memory/temporalFactGraph.ts';
-import type { MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { TemporalFactGraph } from '../../src/kernel/adapters/memory/temporalFactGraph.ts';
+import type { MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 // 固定时钟 / 日期（判据不读墙钟：`CODE_STANDARD` §12.1-5「可复现」）。
 const T0 = Date.parse('2026-09-01T00:00:00.000Z');

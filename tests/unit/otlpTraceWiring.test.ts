@@ -10,12 +10,12 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { Span, TraceExporterPort } from '../../src/observability/otlpTraceExporter.ts';
-import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.ts';
-import { TraceCollectingEventPort } from '../../src/observability/traceCollectingEventPort.ts';
-import { TraceExporterAssembly } from '../../src/observability/traceExporterAssembly.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { Span, TraceExporterPort } from '../../src/kernel/observability/otlpTraceExporter.ts';
+import { TraceSpanBuilder } from '../../src/kernel/observability/traceSpanBuilder.ts';
+import { TraceCollectingEventPort } from '../../src/kernel/observability/traceCollectingEventPort.ts';
+import { TraceExporterAssembly } from '../../src/kernel/observability/traceExporterAssembly.ts';
 
 /** 造事件（只填本测试关心的字段）。 */
 const ev = (

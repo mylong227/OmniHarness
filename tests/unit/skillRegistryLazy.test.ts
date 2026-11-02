@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import { SkillMdDiscovery } from '../../src/skill/skillMdDiscovery.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import { SkillMdDiscovery } from '../../src/kernel/skill/skillMdDiscovery.ts';
 
 test('registerLazy：list 不含正文；select 时加载一次并缓存', () => {
   const root = mkdtempSync(join(tmpdir(), 'skill-registry-lazy-'));

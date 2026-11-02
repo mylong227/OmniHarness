@@ -11,12 +11,12 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
-import { PrefixStability } from '../../src/context/prefixStability.ts';
-import { CacheMissAttributionAnalyst } from '../../src/observability/cacheMissAttributionAnalyst.ts';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
-import type { ModelMessage } from '../../src/ports/model/model.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
+import { PrefixStability } from '../../src/kernel/context/prefixStability.ts';
+import { CacheMissAttributionAnalyst } from '../../src/kernel/observability/cacheMissAttributionAnalyst.ts';
+import type { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { StepRunnerDeps } from '../../src/kernel/core/stepTypes.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/model.ts';
 
 /** repo-map 注入内容哨兵（用于定位其在消息列表中的下标）。 */
 const REPOMAP_SENTINEL = '# REPOMAP_TAIL_SENTINEL';

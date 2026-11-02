@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
-import type { ModelRequest, StreamCallbacks, ToolInputDelta } from '../../src/ports/model/model.ts';
+import { AnthropicModel } from '../../src/kernel/adapters/model/anthropicModel.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
+import type { ModelRequest, StreamCallbacks, ToolInputDelta } from '../../src/contracts/ports/model/model.ts';
 
 /** 把文本包装为可读流（SSE 主体）。 */
 function streamOf(text: string): ReadableStream<Uint8Array> {

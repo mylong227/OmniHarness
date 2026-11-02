@@ -7,8 +7,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { ReadonlyTraceReader } from '../../src/adapters/telemetry/readonlyTraceReader.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ReadonlyTraceReader } from '../../src/kernel/adapters/telemetry/readonlyTraceReader.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 function event(type: string, payload: unknown, at: string): SessionEvent {
   return {

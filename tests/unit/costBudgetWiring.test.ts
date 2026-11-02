@@ -7,12 +7,12 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { BudgetedModel } from '../../src/adapters/model/budgetedModel.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { BudgetedModel } from '../../src/kernel/adapters/model/budgetedModel.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /**

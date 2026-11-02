@@ -5,10 +5,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { GcCommand } from '../../src/cli/gcCommand.ts';
-import { ExecLocal } from '../../src/cli/execLocal.ts';
-import { KNOWN_EXTRA_FLAGS } from '../../src/cli/knownFlags.ts';
-import type { MaintenanceOptions, MaintenanceReport } from '../../src/util/maintenanceRunner.ts';
+import { GcCommand } from '../../src/apps/cli/gcCommand.ts';
+import { ExecLocal } from '../../src/apps/cli/execLocal.ts';
+import { KNOWN_EXTRA_FLAGS } from '../../src/apps/cli/knownFlags.ts';
+import type { MaintenanceOptions, MaintenanceReport } from '../../src/kernel/util/maintenanceRunner.ts';
 
 /** 恒返回固定空账报告的假执行体（不碰真机目录）。 */
 function fakeRunner(captured: {

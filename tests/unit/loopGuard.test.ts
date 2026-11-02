@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { LoopGuard } from '../../src/core/loop/loopGuard.ts';
+import { LoopGuard } from '../../src/kernel/core/loop/loopGuard.ts';
 
 function call(name: string, args: Record<string, unknown> = {}) {
   return { name, arguments: args };

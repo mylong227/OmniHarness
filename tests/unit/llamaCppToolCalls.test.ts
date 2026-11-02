@@ -12,13 +12,13 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
+import { LlamaCppModel } from '../../src/kernel/adapters/model/llamaCppModel.ts';
 import type {
   ModelOutput,
   ModelPort,
   ModelRequest,
   StreamCallbacks,
-} from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/model/model.ts';
 
 /** 最小请求（本适配器只读 messages / tools）。 */
 function request(): ModelRequest {

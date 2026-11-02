@@ -30,9 +30,9 @@
   - CI 全历史 gitleaks 扫描。历史上发生过一次真实密钥入库事故（2026-09-08），
     已全史重写并轮换，门禁即那次事故的产物——不要绕过它。
 - **依赖准入**：`dependency-allowlist.json`（许可证白名单 + 分层铁律：
-  `src/ports/**`、`src/core/**` 恒第三方依赖自由）+ CI `npm audit --audit-level=high`。
-- **SSRF 防护**：`src/security/ssrfGuard.ts`（云元数据/私有网段 fail-closed，
-  DNS 二次判定默认开启；残余的 DNS rebinding 风险已在 `src/ports/security/ssrfOptions.ts`
+  `src/contracts/ports/**`、`src/kernel/core/**` 恒第三方依赖自由）+ CI `npm audit --audit-level=high`。
+- **SSRF 防护**：`src/kernel/security/ssrfGuard.ts`（云元数据/私有网段 fail-closed，
+  DNS 二次判定默认开启；残余的 DNS rebinding 风险已在 `src/contracts/ports/security/ssrfOptions.ts`
   如实登记）。
 - **审批 fail-closed**：审批超时按 deny、未知生效模式抛错、信任写盘失败按未信任处理。
 - **架构门禁**：`scripts/runGates.mjs`（fast 10 项 + typed 2 项）在提交与 CI 双侧拦截。

@@ -1,0 +1,179 @@
+import type { ApprovalPort } from '../../../contracts/ports/runtime/approval.ts';
+import type { EntitlementPort } from '../../../contracts/ports/license/entitlement.ts';
+import { RuleApproval } from '../../../kernel/adapters/approval/ruleApproval.ts';
+import { BUILTIN_APPROVAL_RULES } from '../../../kernel/adapters/approval/builtinApprovalRules.ts';
+
+import type { SkillRegistry } from '../../../kernel/skill/skillRegistry.ts';
+import type { AutomationStore } from '../services/automationStore.ts';
+import type { PluginRegistry } from '../../../kernel/plugin/pluginRegistry.ts';
+import type { Transport } from '../transport/lineTransport.ts';
+import type { Metrics } from '../services/metrics.ts';
+import type { AuditSink } from '../services/auditSink.ts';
+import type { DoctorOptions, DoctorReport } from '../../../contracts/ports/observability/doctorReport.ts';
+import type { VaultPort } from '../../../contracts/ports/memory/vault.ts';
+import type { GraphNodeStatus } from '../../../kernel/autonomy/workflowRunner.ts';
+import type { ResolvedConfig } from '../../../contracts/ports/config/resolvedConfig.ts';
+import type { ServerEventBridge } from './serverEventBridge.ts';
+
+/** AppServer 选项。 */
+export interface AppServerOptions {
+  readonly config: ResolvedConfig;
+  readonly transport: Transport;
+  readonly skills?: SkillRegistry | undefined;
+  /** 自动化任务存储（缺省不启用调度；CLI serve 注入用户级文件）。 */
+  readonly automations?: AutomationStore | undefined;
+  readonly approvalUplink?: boolean | undefined;
+  /**
+   * 事件/上行桥（可注入）。
+   *
+   * 为什么允许注入：组合根要在**构造 AppServer 之前**把「提问上行端口」塞进配置
+   * （`userResponder`，工具在 `ConfigFactory.build` 期就捕获了它），而桥本身持有传输。
+   * 缺省时由 AppServerBase 自建（嵌入方与单测零改动）。
+   */
+  readonly eventBridge?: ServerEventBridge | undefined;
+  readonly metrics?: Metrics | undefined;
+  /**
+   * (F4) 功能权益：治理台等商业档能力按此裁决可用性。
+   *
+   * 缺省故意**不**给"全开"——没配授权就是没买，闸门必须如实反映；
+   * 注入真实权益由组合根负责（`LicenseSource.resolve`）。
+   */
+  readonly entitlements?: EntitlementPort | undefined;
+  /** 插件注册表（注入后暴露 plugins.list / plugins.search，供 UI 市场视图）。 */
+  readonly registry?: PluginRegistry | undefined;
+  /** 插件安装目录（注入后启动时自动加载已安装插件进 Agent 工具表；闭环 G-B）。 */
+  readonly pluginsDir?: string | undefined;
+  /** 可读配置摘要（字符串标识，供 UI 设置面板展示；不暴露端口对象）。 */
+  readonly displayConfig?: Record<string, string> | undefined;
+  /** 服务端自动审批（免客户端上行；UI 可经 config.update 切换）。 */
+  readonly autoApprove?: boolean | undefined;
+  /**
+   * 启动时按分层配置解析出的审批档位（serve/stdio 组合根传 `args.approval`）。
+   *
+   * 作用：UI 切档会落盘，但重启后内存覆盖态为空——生效档位由本字段兜底，
+   * 保证「重启后界面显示哪档、实际就是哪档」。由组合根显式注入而不是服务端
+   * 回读配置文件，是为了单测隔离（回读真实用户级文件会让审批行为随开发机漂移）。
+   * 缺省 undefined：测试/嵌入方不注入时，无 UI 覆盖即沿用 config.approvals 端口。
+   */
+  readonly startupApproval?: string | undefined;
+  /** 持久化目标配置文件路径（项目级 omniharness.json；缺省时按工作区推断并创建）。 */
+  readonly configPath?: string | undefined;
+  /**
+   * 启动时选中的配置 profile（`--profile`）。
+   *
+   * 为什么要传给 RPC 面：工作区信任指纹包含 profile；`serve --profile X --trust-workspace`
+   * 后若 UI 读配置时不带 profile，会算出不同指纹而退回 restricted（fail-closed 但不一致）。
+   */
+  readonly profile?: string | undefined;
+  /** 工作区根（检查点文件快照还原用；缺省回退 process.cwd()）。 */
+  readonly workspaceRoot?: string | undefined;
+  /**
+   * 是否允许模型目录覆盖启动模型（读落盘 omniharness.json / UI 覆盖 / 环境凭据构造真适配器）。
+   * 缺省 true（serve 模式依赖此行为热切换真模型）；嵌入方与单测注入 mock 模型时
+   * 必须显式传 false——否则测试会读到开发者本机配置，拿真实凭据打真实 API。
+   */
+  readonly modelOverrideEnabled?: boolean | undefined;
+  /** 结构化审计日志 sink（注入后所有事件落盘 JSONL；未注入则无审计）。 */
+  readonly audit?: AuditSink | undefined;
+  /**
+   * trace 自省的会话存在性判定（可选注入；缺省按存储后端物理形态判定）。
+   *
+   * 需要它的原因：存储端口只有 `load()`，对「不存在的会话」与「零事件会话」一律返回空数组。
+   * 嵌入方（测试 / 自定义存储）可注入精确判定，避免 trace.read 把两者混为一谈。
+   */
+  readonly traceSessionExists?: ((sessionId: string) => Promise<boolean>) | undefined;
+  /**
+   * `doctor` 诊断报告的**注入点**（2026-10-11，Web 交付项）。
+   *
+   * 为什么注入而不是 server 直接 import 实现：`DoctorRunner` 住在 CLI 层，而 `cli → server` 已存在
+   * —— 反向依赖会形成依赖环（架构门禁 `[5]` 新增环即红）。故契约类型进端口层
+   * （`ports/observability/doctorReport.ts`），实现由组合根（`cliServerCmds` 的 serve 路径）注入。
+   *
+   * **未注入时 `doctor.report` 如实报错**（`{ok:false, reason:'doctor 未接线'}`），
+   * 绝不返回空报告冒充"检查通过"——那是本仓反复记录的"看着绿"形态。
+   */
+  readonly doctorReport?:
+    ((options?: DoctorOptions) => DoctorReport | Promise<DoctorReport>) | undefined;
+  /**
+   * 凭据保险库（`vault.list` / `vault.set` / `vault.delete` 的后端；2026-10-11 Web 交付项）。
+   *
+   * 注入而非自建：主密钥来源（`OMNIHARNESS_VAULT_KEY` / 密钥文件）与底层 KV 由组合根决定；
+   * 服务端自建会在**无主密钥**时随机生成内存密钥（既读不到既有密文，还可能凭空落一个新密钥文件）。
+   * 未注入时三条 RPC 一律回 `{ok:false, reason:'vault 未接线…'}`，**不**装作"保险库是空的"。
+   */
+  readonly vault?: VaultPort | undefined;
+}
+
+/** 始终放行的审批端口（autoApprove / approval=auto 时使用）。 */
+export const AUTO_ALLOW: ApprovalPort = { name: 'auto', decide: () => Promise.resolve('allow') };
+
+/** 始终拒绝的审批端口（approval=deny 时使用）。 */
+export const DENY_ALL: ApprovalPort = { name: 'deny', decide: () => Promise.resolve('deny') };
+
+/**
+ * 默认档审批端口（UI 切到 rules 且配置端口不是 rules 时回退用）。
+ *
+ * 必须是**真规则审批**而不是无条件 allow：档位描述承诺「删除等危险命令仍会拒绝」，
+ * 回退实现曾是一份恒 allow 的端口，配置端口为 auto/deny/cached（approvalCache 开启时
+ * name 是 'cached'）的用户在 UI 点「默认」后 rm/del 拦截悄然失效。规则表与启动路径
+ * （`cliBuildConfig.buildRuleApproval`）共用 `BUILTIN_APPROVAL_RULES`，两处不得漂移；
+ * 未命中规则放行（defaultDecision 'allow'），与「按规则自动放行安全操作」的档位描述一致。
+ */
+export const RULES_DEFAULT: ApprovalPort = new RuleApproval({
+  rules: BUILTIN_APPROVAL_RULES,
+  defaultDecision: 'allow',
+});
+
+/**
+ * config.update 允许持久化到配置文件的字段。
+ * 写路径**恒为用户级** ~/.omniharness/omniharness.json（2026-10-13 用户口径："都固定保存到该目录下"
+ * ——曾因落项目级、重启换工作区而「设置被重置」），与手改用户级文件等价；
+ * config.get 回传对 apiKey/providerKeys 一律打码——凭据原文永不返回 UI，防泄露。
+ * workspace/mcpServers 仍不由此通道写入（防篡改工作区与 MCP 面）。
+ */
+export const PERSISTABLE_KEYS: readonly string[] = [
+  'modelAdapter',
+  'model',
+  'baseUrl',
+  'apiKey',
+  'providerKeys',
+  'storageAdapter',
+  'storageDir',
+  'approval',
+  'reasoning',
+  'sandbox',
+  'escalation',
+  'elevatedSandbox',
+  'maxSteps',
+  // A2：参数级权限规则（permission.rules / defaultDecision）。与手改 omniharness.json 等价，
+  // 经 configFile.save → normalizeConfig 严格校验落盘；规则只能收紧（deny）或改默认裁决，
+  // 不放宽 sandbox / approval 轴，故纳管风险与既有的 approval/sandbox 同量级。
+  'permission',
+  // 界面语言（Web UI 设置「外观」栏）：经 config.update 落用户级 omniharness.json，
+  // 枚举校验（zh/en）见 configError.ts 的 ENUM_VALUES.locale。
+  'locale',
+  // 聊天模式（Web UI 设置「常规」栏，2026-10-31）：queue=任务中发送排队 / steer=插话。
+  // 枚举校验（queue/steer）见 configError.ts 的 ENUM_VALUES.chatMode。
+  'chatMode',
+];
+
+/** 图运行中单节点状态。 */
+interface GraphRunNodeState {
+  readonly id: string;
+  status: GraphNodeStatus;
+  error?: string | undefined;
+  steps?: number | undefined;
+  durationMs?: number | undefined;
+}
+
+/** 图运行态（runId → 此结构），graph.status 返回其快照。 */
+export interface GraphRunState {
+  readonly runId: string;
+  readonly defId?: string | undefined;
+  readonly defName?: string | undefined;
+  readonly nodes: Record<string, GraphRunNodeState>;
+  done: boolean;
+  ok?: boolean | undefined;
+  blackboard?: Readonly<Record<string, string>> | undefined;
+  readonly startedAt: number;
+}

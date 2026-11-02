@@ -9,7 +9,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Bm25Index } from '../../src/search/bm25Index.ts';
+import { Bm25Index } from '../../src/kernel/search/bm25Index.ts';
 
 /** 暴力参照实现：逐篇扫描算 tf（即改造前的算法），用作黄金标准。 */
 function bruteForce(

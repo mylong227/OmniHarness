@@ -1,13 +1,13 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.ts';
-import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.ts';
-import { RlvrLoop, InMemoryReplayBuffer } from '../../src/evolution/rlvrLoop.ts';
-import type { CodeCandidate } from '../../src/evolution/rlvrLoop.ts';
-import { RlvrController } from '../../src/evolution/rlvrController.ts';
-import type { Candidate } from '../../src/ports/runtime/evolution.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
+import { EvolutionControllerImpl } from '../../src/kernel/evolution/evolutionControllerImpl.ts';
+import { FailClosedEvolutionGate } from '../../src/kernel/evolution/failClosedEvolutionGate.ts';
+import { RlvrLoop, InMemoryReplayBuffer } from '../../src/kernel/evolution/rlvrLoop.ts';
+import type { CodeCandidate } from '../../src/kernel/evolution/rlvrLoop.ts';
+import { RlvrController } from '../../src/kernel/evolution/rlvrController.ts';
+import type { Candidate } from '../../src/contracts/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
 
 const skill: Skill = { name: 's', description: 'd', instructions: 'do it' };
 const candidate: Candidate = { skill, source: 'twist:a+b' };

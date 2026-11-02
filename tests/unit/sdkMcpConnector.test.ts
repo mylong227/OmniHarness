@@ -32,8 +32,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { SdkMcpConnector } from '../../src/adapters/mcp/sdkMcpConnector.ts';
-import type { McpConnectorPort } from '../../src/ports/mcp/mcpConnectorPort.ts';
+import { SdkMcpConnector } from '../../src/kernel/adapters/mcp/sdkMcpConnector.ts';
+import type { McpConnectorPort } from '../../src/contracts/ports/mcp/mcpConnectorPort.ts';
 
 import {
   FakeTransport,

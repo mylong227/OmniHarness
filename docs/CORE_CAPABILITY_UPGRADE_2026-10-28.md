@@ -593,10 +593,10 @@ npx vitest run --project node tests/unit/contextShapers.test.ts \
 
 **本仓证据**
 
-- `src/context/compactionSummarizer.ts` / `contextCompactor.ts` / `compactionComposer.ts`
-- `src/core/turnRunner.ts` / `stepRunner.ts` / `sessionInjector.ts` / `stepToolExecutor.ts`
-- `src/adapters/memory/resonantFieldEngine.ts` / `memoryExtractor.ts` / `fileLongTermMemory.ts`
-- `src/adapters/tool/memory/recallTool.ts` / `rememberTool.ts`
-- `src/ports/runtime/turnDiffTracker.ts`；`src/adapters/diff/turnDiffHooks.ts`
-- `src/mcp/*`；`src/acp/*`；`src/agui/*`；`src/subagent/*`；`src/eval/*`
+- `src/kernel/context/compactionSummarizer.ts` / `contextCompactor.ts` / `compactionComposer.ts`
+- `src/kernel/core/turnRunner.ts` / `stepRunner.ts` / `sessionInjector.ts` / `stepToolExecutor.ts`
+- `src/kernel/adapters/memory/resonantFieldEngine.ts` / `memoryExtractor.ts` / `fileLongTermMemory.ts`
+- `src/kernel/adapters/tool/memory/recallTool.ts` / `rememberTool.ts`
+- `src/contracts/ports/runtime/turnDiffTracker.ts`；`src/kernel/adapters/diff/turnDiffHooks.ts`
+- `src/protocols/mcp/*`；`src/protocols/acp/*`；`src/protocols/agui/*`；`src/kernel/subagent/*`；`src/kernel/eval/*`
 - `docs/PROJECT_BOARD.md`（唯一事实源）；`docs/ARCHITECTURE_UPGRADE_2026-10.md`（反泡沫）

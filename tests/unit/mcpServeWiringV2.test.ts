@@ -7,14 +7,14 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { ToolDefinition, ToolPort } from '../../src/ports/tool/tool.ts';
-import { McpSdkProbe, type McpSdkProbeResult } from '../../src/adapters/mcp/mcpSdkProbe.ts';
+import type { ToolDefinition, ToolPort } from '../../src/contracts/ports/tool/tool.ts';
+import { McpSdkProbe, type McpSdkProbeResult } from '../../src/kernel/adapters/mcp/mcpSdkProbe.ts';
 import {
   McpServeRunner,
   type McpServeOptions,
   type McpServeResult,
-} from '../../src/adapters/mcp/mcpServeRunner.ts';
-import { SdkMcpServerAdapter } from '../../src/adapters/mcp/sdkMcpServerAdapter.ts';
+} from '../../src/kernel/adapters/mcp/mcpServeRunner.ts';
+import { SdkMcpServerAdapter } from '../../src/kernel/adapters/mcp/sdkMcpServerAdapter.ts';
 
 /** 最小工具端口。 */
 class EmptyTools implements ToolPort {

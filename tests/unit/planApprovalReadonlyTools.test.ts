@@ -2,9 +2,9 @@
  * 探针：plan（计划模式）只读白名单的**完整性**。
  *
  * 被验证的**声称**（三处，互相印证）：
- *  ① `src/adapters/approval/planApproval.ts` 类注释：plan 模式「只允许『只读』类工具
+ *  ① `src/kernel/adapters/approval/planApproval.ts` 类注释：plan 模式「只允许『只读』类工具
  *     （读文件、列目录、检索、规划存储读写、LSP 查询、预算查询等）」；
- *  ② `src/server/services/approvalTierCatalog.ts` 用户可见档位描述：
+ *  ② `src/apps/server/services/approvalTierCatalog.ts` 用户可见档位描述：
  *     plan = 「只读规划：仅放行**读取与检索类**工具，不动工作区」；
  *  ③ `docs/TASK_BOARD.md`（LSP 全局符号搜索条目）明确写着 `lsp_workspace_symbols`
  *     「**我落地注册**（按能力而非端口存在放行）**并进规划模式只读白名单**」。
@@ -20,7 +20,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
+import { PlanApproval } from '../../src/kernel/adapters/approval/planApproval.ts';
 import {
   LSP_GO_TO_DEFINITION_TOOL_NAME,
   LSP_FIND_REFERENCES_TOOL_NAME,
@@ -30,7 +30,7 @@ import {
   LSP_DOCUMENT_SYMBOLS_TOOL_NAME,
   LSP_CODE_ACTION_TOOL_NAME,
   LSP_WORKSPACE_SYMBOLS_TOOL_NAME,
-} from '../../src/adapters/lsp/lspToolNames.ts';
+} from '../../src/kernel/adapters/lsp/lspToolNames.ts';
 
 /** 构造审批请求（plan 审批只读 toolName）。 */
 const req = (toolName: string): { sessionId: string; toolName: string; target: string } => ({

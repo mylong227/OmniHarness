@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { A2aTransport } from '../../src/a2a/a2aProtocol.ts';
-import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { A2aTransport } from '../../src/protocols/a2a/a2aProtocol.ts';
+import { A2aServer, type TaskHandler } from '../../src/protocols/a2a/a2aServer.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
 
 class MemoryTransport implements A2aTransport {
   public peer: MemoryTransport | undefined;

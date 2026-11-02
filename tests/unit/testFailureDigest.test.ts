@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TestFailureDigest } from '../../src/adapters/tool/verify/testFailureDigest.ts';
+import { TestFailureDigest } from '../../src/kernel/adapters/tool/verify/testFailureDigest.ts';
 
 test('从 node --test 风格输出抽出失败行', () => {
   const raw = [

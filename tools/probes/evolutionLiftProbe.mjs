@@ -59,7 +59,7 @@
  * - 适配度是"场相关"这种机械量，不是语义相关；门禁分数用的是本仓既有标尺（非外部基准）；
  * - **未测**：真实模型上的任务成功率、真实遥测驱动的候选分布、晋升后的生产检索行为（后者由单测 J4/J6 覆盖）。
  */
-import { writeFileSync } from 'node:fs';
+import { writeFileSync , existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { probeArgs } from './_args.mjs';
@@ -68,7 +68,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
-  import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
+  import(pathToFileURL(resolveDist(...segments)).href);
 
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
 // `--gate` / `--lift` / `--skills` 此前**能生效但没登记**在用法块里（只读头注释的人以为不存在），
@@ -654,4 +654,18 @@ if (verdict !== 'gain') {
   console.log(
     '→ 按 E2 纪律：**进化保持默认关**，本报告（含负结论）进看板；对外材料不得引用未过两关的增益数字。',
   );
+}
+
+/**
+ * 2026-11-02 分层后：dist 布局变为 dist/src/<layer>/<module>/...。
+ * 探针按模块名调用（如 importDist('config', 'x.js')），这里按层前缀解析，
+ * 命中不到回落旧布局（保持对旧产物的兼容）。
+ */
+function resolveDist(...segments) {
+  const [head, ...rest] = segments;
+  for (const layer of ['kernel', 'contracts', 'protocols', 'apps']) {
+    const candidate = join(ROOT, 'dist', 'src', layer, head, ...rest);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(ROOT, 'dist', 'src', ...segments);
 }

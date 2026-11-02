@@ -16,8 +16,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 /** 固定时钟（确定性）。 */
 const FIXED_NOW = (): string => '2026-10-04T00:00:00.000Z';

@@ -19,8 +19,8 @@ import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FlagSuggestion } from '../../src/cli/flagSuggestion.ts';
-import { CliFlagTable } from '../../src/cli/cliFlagTable.ts';
+import { FlagSuggestion } from '../../src/apps/cli/flagSuggestion.ts';
+import { CliFlagTable } from '../../src/apps/cli/cliFlagTable.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -126,7 +126,7 @@ test('⑥ 架构约束：flagSuggestion 必须是**叶子模块**（不得反向
   // 2026-10-08 实测事故：让 flagSuggestion 自己 import cliFlagTable 取清单，会把架构门禁白名单
   // 环①（argParser ↔ cliEnums ↔ cliFlagTable ↔ cliHelp）从 4 成员**撑到 5 成员** ⇒ 门禁报
   // 「新增环」并中止提交。本判据把"清单由调用方注入"这条约束钉在源码上（门禁的窄化前哨）。
-  const src = readFileSync(join(REPO_ROOT, 'src', 'cli', 'flagSuggestion.ts'), 'utf8');
+  const src = readFileSync(join(REPO_ROOT, 'src', 'apps', 'cli', 'flagSuggestion.ts'), 'utf8');
   // 匹配任意相对导入（含 `.ts`/`.js` 后缀与多行 import）；只认 `.js` 会随导入约定统一为 `.ts`
   // 而静默退化（2026-10-18 审查：旧正则在该文件当前零 import 时恒为 []，加回 .ts 导入也检不出）。
   const fromCli = [...src.matchAll(/from\s+'(\.\/[^']+)'/g)].map((m) => m[1]);
@@ -136,7 +136,7 @@ test('⑥ 架构约束：flagSuggestion 必须是**叶子模块**（不得反向
     `flagSuggestion 不得 import src/cli 下的兄弟模块：${fromCli.join(', ')}`,
   );
   // 反向接线：真的有人在调用点把清单注入进去（否则它变成"永远不给建议"的死代码）
-  const parser = readFileSync(join(REPO_ROOT, 'src', 'cli', 'argParser.ts'), 'utf8');
+  const parser = readFileSync(join(REPO_ROOT, 'src', 'apps', 'cli', 'argParser.ts'), 'utf8');
   assert.match(
     parser,
     /FlagSuggestion\.unknownFlagMessage\(arg, CliFlagTable\.knownFlagNames\(\)\)/,

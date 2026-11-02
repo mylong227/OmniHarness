@@ -26,16 +26,16 @@ import { join } from 'node:path';
 import net from 'node:net';
 import type { Readable } from 'node:stream';
 
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import { A2aClient, HttpA2aTransport, WsA2aTransport } from '../../src/a2a/index.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import { A2aClient, HttpA2aTransport, WsA2aTransport } from '../../src/protocols/a2a/index.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
 
 /** 对端夹具脚本路径（dist/tests/fixtures/a2aPeerProcess.js）。 */
 function fixturePath(): string {

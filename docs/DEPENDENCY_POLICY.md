@@ -18,8 +18,8 @@
 
 ### 1.2 三条不可妥协的底线
 
-1. **分层隔离**：第三方依赖**只能**出现在 `src/adapters/**`、`src/cli/**`、`src/tui/**`、`src/util/**`、`src/search/**`、`src/context/**`。
-   **`src/ports/**` 与 `src/core/**` 恒为第三方-free**——端口与核心只认接口，第三方永远进不来。
+1. **分层隔离**：第三方依赖**只能**出现在 `src/kernel/adapters/**`、`src/apps/cli/**`、`src/apps/tui/**`、`src/kernel/util/**`、`src/kernel/search/**`、`src/kernel/context/**`。
+   **`src/contracts/ports/**` 与 `src/kernel/core/**` 恒为第三方-free**——端口与核心只认接口，第三方永远进不来。
    这条保证：依赖可换、架构不塌。
 2. **准入登记**：任何 `dependencies` 条目、任何第三方裸导入，**必须**先登记进 `dependency-allowlist.json` 并写明理由。未登记 = 阻断（exit 1）。
 3. **许可证洁净**：仅允许 permissive 许可证（见 §2.4）。传染性 / 商用限制许可证一律拒绝。
@@ -30,7 +30,7 @@
 
 1. **「本项目是零依赖项目」——错。** 依赖政策自 2026-09-05 起就是「准入制」，2026-09-14 经 D10 进一步定为「必要且更优即可依赖、同等能力优先成熟第三方」。**当前 `dependencies` 有 5 个**：`@modelcontextprotocol/sdk`（MCP 双端官方 SDK）、`croner`（带 IANA 时区的 cron）、`jose`（id_token 验签）、`openid-client`（OIDC 授权码流）、`zod`（schema 校验）；**`optionalDependencies` 有 2 个**：`@huggingface/transformers`（本地语义嵌入）、`sharp`（view_image 大图收敛）——这是**政策使然**，不是违规。
 2. **「因为零依赖所以不能引 X」——无效论证。** 拒绝一个依赖的唯一合法理由是 §2 的准入标准不满足（无能力增益 / 体积或依赖树超预算且无正当理由 / 许可证不合规 / 无法写出退出计划），**「零依赖」本身不是理由**。
-3. **「手写实现 = 必须保留使用」——错。** 手写实现保留为**回退路径与资产**；成熟第三方准入后，生产路径**已按此切换**：MCP 双端生产首选官方 SDK（`src/adapters/mcp/sdkPreferredMcpConnector.ts` 等，手写 `src/mcp/*` 降级为回退），`view_image` 大图缩放接 sharp（`src/adapters/media/sharpImageResizer.ts` 动态 `import()`，缺包时自动退化为「不缩放、超限拒绝」）。
+3. **「手写实现 = 必须保留使用」——错。** 手写实现保留为**回退路径与资产**；成熟第三方准入后，生产路径**已按此切换**：MCP 双端生产首选官方 SDK（`src/kernel/adapters/mcp/sdkPreferredMcpConnector.ts` 等，手写 `src/protocols/mcp/*` 降级为回退），`view_image` 大图缩放接 sharp（`src/kernel/adapters/media/sharpImageResizer.ts` 动态 `import()`，缺包时自动退化为「不缩放、超限拒绝」）。
 4. 文档与注释中的「纯 TS」「仅 Node 内置」「无外部二进制」等表述描述的是**某实现的技术事实**，不构成任何依赖限制。
 
 ## 2. 准入标准（六项，全部须满足）
@@ -89,7 +89,7 @@
 | 依赖登记字段完整     | **阻断**         | `reason`/`capability`/`license`/`approvedAt`/`layer` 缺一即阻断 |
 | 依赖许可证合规       | **阻断**         | 许可证须在 permissive 集合内                                    |
 | 第三方导入须准入     | **阻断**         | `src/**` 的第三方裸导入须在 allowlist 内                        |
-| 核心与端口层零第三方 | **阻断**         | `src/ports/**`、`src/core/**` 禁止第三方导入                    |
+| 核心与端口层零第三方 | **阻断**         | `src/contracts/ports/**`、`src/kernel/core/**` 禁止第三方导入                    |
 | 依赖体积预算         | 报告（可实测时） | 单包 install 体积 > `maxInstallKb` 告警                         |
 | 传递依赖收敛         | 报告（可实测时） | 传递依赖数 > `maxTransitiveDeps` 告警                           |
 | 未使用的已装依赖     | 报告             | allowlist 已登记但 `src/**` 无导入 → 提示清理                   |

@@ -15,11 +15,11 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ConfigFile } from '../../src/config/configFile.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import { WorkspaceTrust } from '../../src/config/workspaceTrust.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import type { WorkspaceTrustDecision } from '../../src/ports/config/workspaceTrust.ts';
+import { ConfigFile } from '../../src/kernel/config/configFile.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { WorkspaceTrust } from '../../src/kernel/config/workspaceTrust.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import type { WorkspaceTrustDecision } from '../../src/contracts/ports/config/workspaceTrust.ts';
 
 /** 临时家目录 + 用户级配置。 */
 function makeHome(cfg: Record<string, unknown>): string {
@@ -428,9 +428,9 @@ test('分类全覆盖：新增配置键必须显式归入安全或权威，不�
 
 test('接线守卫：serve/exec 的 --trust-workspace 必须真的进入 loadLayered', () => {
   const here = dirname(fileURLToPath(import.meta.url));
-  const serve = readFileSync(join(here, '..', '..', 'src', 'cli', 'cliServerCmds.ts'), 'utf8');
-  const serveTrust = readFileSync(join(here, '..', '..', 'src', 'cli', 'serveTrust.ts'), 'utf8');
-  const agent = readFileSync(join(here, '..', '..', 'src', 'cli', 'cliAgentCmds.ts'), 'utf8');
+  const serve = readFileSync(join(here, '..', '..', 'src', 'apps', 'cli', 'cliServerCmds.ts'), 'utf8');
+  const serveTrust = readFileSync(join(here, '..', '..', 'src', 'apps', 'cli', 'serveTrust.ts'), 'utf8');
+  const agent = readFileSync(join(here, '..', '..', 'src', 'apps', 'cli', 'cliAgentCmds.ts'), 'utf8');
   assert.match(serveTrust, /serveArgs\.includes\('--trust-workspace'\)/u);
   assert.match(serve, /serveTrust\.options/u);
   assert.match(serve, /args\.allowWorkspaceSkills = serveTrust\.state\.trusted/u);

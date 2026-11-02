@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SqliteStorage } from '../../src/adapters/storage/sqliteStorage.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { SqliteStorage } from '../../src/kernel/adapters/storage/sqliteStorage.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 构造事件。 */
 function events(count: number): SessionEvent[] {

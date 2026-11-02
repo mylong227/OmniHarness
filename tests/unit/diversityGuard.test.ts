@@ -7,8 +7,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { DiversityGuard } from '../../src/evolution/diversityGuard.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { DiversityGuard } from '../../src/kernel/evolution/diversityGuard.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 function skill(name: string, instructions: string, tags?: readonly string[]): Skill {
   return { name, instructions, ...(tags ? { tags } : {}) } as Skill;

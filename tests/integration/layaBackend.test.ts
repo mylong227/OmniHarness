@@ -23,13 +23,13 @@ import { afterAll, beforeAll, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { LayaDecisionEngine } from '../../src/adapters/laya/layaDecisionEngine.ts';
-import { LayaPaths } from '../../src/adapters/laya/layaPaths.ts';
-import { DecisionEngineResolver } from '../../src/config/decisionEngineResolver.ts';
-import { CliDecisionEngineFlags } from '../../src/cli/cliDecisionEngineFlags.ts';
-import { CliDefaults } from '../../src/cli/argParser.ts';
+import { LayaDecisionEngine } from '../../src/kernel/adapters/laya/layaDecisionEngine.ts';
+import { LayaPaths } from '../../src/kernel/adapters/laya/layaPaths.ts';
+import { DecisionEngineResolver } from '../../src/kernel/config/decisionEngineResolver.ts';
+import { CliDecisionEngineFlags } from '../../src/apps/cli/cliDecisionEngineFlags.ts';
+import { CliDefaults } from '../../src/apps/cli/argParser.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
 
 /** 项目内解释器（零配置解析：环境变量 → 项目内 venv → 兜底）。 */
 const venvPython = LayaPaths.pythonPath(process.cwd());

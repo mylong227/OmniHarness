@@ -93,7 +93,7 @@ export interface ProviderPreset {
    * 该厂商合法的 reasoning_effort 档位（#B6 扩展，2026-09-08）：
    * - undefined 或 []：UI 退回内置兜底列表（向后兼容）
    * - 非空：Composer「推理强度」下拉按此清单渲染
-   * 后端单一来源：src/config/providerPresets.ts（数据在随包发布的 defaults/providers.json，
+   * 后端单一来源：src/kernel/config/providerPresets.ts（数据在随包发布的 defaults/providers.json，
    * 可由 omniharness.json 的 providerPresets 段按 id 整条覆盖）。
    */
   reasoningEffort?: string[];
@@ -335,7 +335,7 @@ export interface SseEnvelope {
 }
 
 // ---------------- 工作台界面能力（上下文容量 / 配额 / 模式 / 权限 / 检索） ----------------
-// 与后端 src/server/appServerSurfaceHandlers.ts 的 RPC 返回体逐字段对齐。
+// 与后端 src/apps/server/appServerSurfaceHandlers.ts 的 RPC 返回体逐字段对齐。
 
 /** 上下文占用分类键（后端 CONTEXT_CATEGORIES 的键，UI 不自造）。 */
 export type ContextCategoryKey =
@@ -487,7 +487,7 @@ export interface SessionModes {
  *
  * 为什么不直接复用服务端类型：Web 只经 RPC 消费 JSON，且 `web/tsconfig.json` 不跨到 `src/`；
  * 故这里只声明**面板真正会渲染的字段**。字段名与服务端
- * `src/ports/observability/doctorReport.ts` 逐字一致（判据 `web/test/diagnosticsTab.test.mjs`
+ * `src/contracts/ports/observability/doctorReport.ts` 逐字一致（判据 `web/test/diagnosticsTab.test.mjs`
  * 会核对本类型与面板用到的字段名）。
  */
 export interface DoctorReportLike {

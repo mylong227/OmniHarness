@@ -20,13 +20,13 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { PromotionHistoryService } from '../../src/governance/promotionHistoryService.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
+import { PromotionHistoryService } from '../../src/kernel/governance/promotionHistoryService.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
 import type {
   PromotionLedgerEntry,
   PromotionLedgerPort,
-} from '../../src/ports/runtime/evolution.ts';
-import type { Skill } from '../../src/ports/skill/skill.ts';
+} from '../../src/contracts/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/contracts/ports/skill/skill.ts';
 
 /**
  * 造一条技能（快照用）。

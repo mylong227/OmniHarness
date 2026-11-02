@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowMemoryStore } from '../../src/adapters/memory/workflowMemoryStore.ts';
-import { WorkflowMemoryRecorder } from '../../src/core/workflowMemoryRecorder.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { WorkflowMemoryStore } from '../../src/kernel/adapters/memory/workflowMemoryStore.ts';
+import { WorkflowMemoryRecorder } from '../../src/kernel/core/workflowMemoryRecorder.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 造一个 user 事件。 */
 function user(content: string): SessionEvent {

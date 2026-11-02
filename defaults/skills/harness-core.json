@@ -42,7 +42,7 @@
     {
       "name": "omniharness-tool-registration",
       "description": "新增一个模型工具要同时改的三处注册来源，漏一处就会出现「工具存在但模型看不到」或计划模式误拒。",
-      "instructions": "三处来源：工具实现放进 src/adapters/tool 下对应域、名字常量集中登记在 src/ports/tool/toolNames.ts、实例在 configToolRegistry 组合根注册。只写实现而不登记名字常量，计划模式的类别表与只读白名单都无法识别它。新工具若属于只读，还要加入 planApproval 的只读白名单，否则在 plan 模式会被 fail-closed 误拒；若属于写类，必须同时进 toolGate 的 MUTATING_TOOLS 集合。完成后跑 audit:config-wiring 与 audit:maturity（后者要求新模块带成熟度标注与测试证据），并跑一次默认工具清单探针，确认工具数变化被显式登记而不是靠注释写死。",
+      "instructions": "三处来源：工具实现放进 src/kernel/adapters/tool 下对应域、名字常量集中登记在 src/contracts/ports/tool/toolNames.ts、实例在 configToolRegistry 组合根注册。只写实现而不登记名字常量，计划模式的类别表与只读白名单都无法识别它。新工具若属于只读，还要加入 planApproval 的只读白名单，否则在 plan 模式会被 fail-closed 误拒；若属于写类，必须同时进 toolGate 的 MUTATING_TOOLS 集合。完成后跑 audit:config-wiring 与 audit:maturity（后者要求新模块带成熟度标注与测试证据），并跑一次默认工具清单探针，确认工具数变化被显式登记而不是靠注释写死。",
       "tags": ["tools", "registry", "toolNames", "工具注册", "plan-mode", "白名单"]
     },
     {

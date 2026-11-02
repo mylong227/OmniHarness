@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { probeArgs } from './_args.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 const PORT = 58217;
 const FACT = `生产部署端口是 ${PORT}，只允许运维通过 vault 查询。`;
 const QUESTION = '生产部署端口是多少？只回答一个数字，不要解释。';

@@ -48,7 +48,7 @@ let ContextEngine;
 let RECALL_QUERIES;
 let CORE_COUNT;
 try {
-  ({ ContextEngine } = await importDist('src', 'context', 'contextEngine.js'));
+  ({ ContextEngine } = await importDist('src', 'kernel', 'context', 'contextEngine.js'));
   ({ RECALL_QUERIES, CORE_COUNT } = await import(
     pathToFileURL(join(ROOT, 'dist', 'tests', 'fixtures', 'recallQueries.js')).href
   ));

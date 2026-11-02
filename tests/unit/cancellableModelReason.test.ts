@@ -13,7 +13,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CancellableModel } from '../../src/subagent/cancellableModel.ts';
+import { CancellableModel } from '../../src/kernel/subagent/cancellableModel.ts';
 
 /**
  * 造一个"以指定 reason 中止"的 AbortSignal。

@@ -26,7 +26,7 @@
 | 强化（突触增益）     | `S' = S × (1 + (1-R))`，上限 10 年；`lastRecallAt=now`、`recallCount+1` |
 | 遗忘                 | 不删除——R 衰减自然把旧事实压到排序尾部（`expiresAt` 仍是硬失效口径）    |
 
-- 实现：`src/adapters/memory/spacingEffect.ts`（纯函数）+
+- 实现：`src/kernel/adapters/memory/spacingEffect.ts`（纯函数）+
   `fileLongTermMemory.recall` 的排序分支（`OMNI_MEMORY_FORGETTING=1` 开启）。
 - 开启前行为：全局统一半衰期 90 天、不写新字段——**关闭时逐位等于旧行为**（判据钉住）。
 - 与既有 `memoryAnnealing`（热方程扩散重加权）正交：退火改"共振簇共识"，本项改"单条时间动力学"。

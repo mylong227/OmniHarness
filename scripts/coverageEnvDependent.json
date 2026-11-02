@@ -1,40 +1,40 @@
 {
   "reason": "覆盖率**不稳定**的文件（宿主工具链差异，或全量测试**文件集合/交错**变化引起）：对它们按**下限**校验（低于下限才红），而不是按冻结值精确比对——否则会产生无法通过任何代码改动消除的假红。下限取值＝各环境实测最低值再留余量；**只允许登记经实测诊断确认的文件**（不要为了消红而登记）。",
   "files": {
-    "src/adapters/memory/fileLongTermMemory.ts": 76,
-    "src/adapters/memory/insightEtchingEngine.ts": 93,
-    "src/adapters/sandbox/dangerousCommands.ts": 75,
-    "src/adapters/storage/jsonlStorage.ts": 87,
-    "src/adapters/storage/memoryStorage.ts": 82,
-    "src/adapters/storage/sqliteStorage.ts": 76,
-    "src/adapters/tool/code/codeInterpreter.ts": 87,
-    "src/adapters/tool/plan/planPresentTool.ts": 83,
-    "src/adapters/tool/shell/shellInteractiveExecutor.ts": 4,
-    "src/adapters/tool/workflow/subagentTool.ts": 86,
-    "src/adapters/vault/cryptoVault.ts": 89,
-    "src/composition/runtime.ts": 77,
-    "src/context/contextCompactor.ts": 93,
-    "src/context/repoMap/repoMapContextEngine.ts": 73,
-    "src/core/sessionRecorder.ts": 84,
-    "src/core/toolGate.ts": 85,
-    "src/daemon/daemonController.ts": 54,
-    "src/mcp/mcpConnector.ts": 78,
-    "src/plugin/pluginLoader.ts": 70,
-    "src/plugin/pluginManager.ts": 89,
-    "src/plugin/registrySourcesShared.ts": 31,
-    "src/server/services/auditSink.ts": 79,
-    "src/server/services/diffReview.ts": 63,
-    "src/server/services/modelCatalogService.ts": 83,
-    "src/server/transport/wsConnection.ts": 84,
-    "src/subagent/subagentOrchestrator.ts": 74,
-    "src/util/eigenspectrum.ts": 86,
-    "src/worker/cliWorker.ts": 88
+    "src/kernel/adapters/memory/fileLongTermMemory.ts": 76,
+    "src/kernel/adapters/memory/insightEtchingEngine.ts": 93,
+    "src/kernel/adapters/sandbox/dangerousCommands.ts": 75,
+    "src/kernel/adapters/storage/jsonlStorage.ts": 87,
+    "src/kernel/adapters/storage/memoryStorage.ts": 82,
+    "src/kernel/adapters/storage/sqliteStorage.ts": 76,
+    "src/kernel/adapters/tool/code/codeInterpreter.ts": 87,
+    "src/kernel/adapters/tool/plan/planPresentTool.ts": 83,
+    "src/kernel/adapters/tool/shell/shellInteractiveExecutor.ts": 4,
+    "src/kernel/adapters/tool/workflow/subagentTool.ts": 86,
+    "src/kernel/adapters/vault/cryptoVault.ts": 89,
+    "src/apps/composition/runtime.ts": 77,
+    "src/kernel/context/contextCompactor.ts": 93,
+    "src/kernel/context/repoMap/repoMapContextEngine.ts": 73,
+    "src/kernel/core/sessionRecorder.ts": 84,
+    "src/kernel/core/toolGate.ts": 85,
+    "src/apps/daemon/daemonController.ts": 54,
+    "src/protocols/mcp/mcpConnector.ts": 78,
+    "src/kernel/plugin/pluginLoader.ts": 70,
+    "src/kernel/plugin/pluginManager.ts": 89,
+    "src/kernel/plugin/registrySourcesShared.ts": 31,
+    "src/apps/server/services/auditSink.ts": 79,
+    "src/apps/server/services/diffReview.ts": 63,
+    "src/apps/server/services/modelCatalogService.ts": 83,
+    "src/apps/server/transport/wsConnection.ts": 84,
+    "src/kernel/subagent/subagentOrchestrator.ts": 74,
+    "src/kernel/util/eigenspectrum.ts": 86,
+    "src/kernel/worker/cliWorker.ts": 88
   },
   "notes": [
     "bashAppRootMapper.js：2026-09-24 实测。源码自 9dc88d9（2026-09-19）未改动；单独重跑 terminalBench*.test.js 两次结果完全一致（72.85%），说明不是随机抖动，而是**环境差异**：本机 `bash` 是 WindowsApps 的 WSL 存根（执行即报「未安装 WSL」），拿不到 MSYS 根，于是 resolveMsysRoot 的 133-149 段与 claim 的 61-70 段进不去。基线 78.81% 来自当时能探到 bash 的运行。",
     "wsConnection.js：2026-09-24 实测。**源码从未被本次改动触及**，且用 `wsTransport.test.js` 单跑两次结果完全一致（74.64%）。全量测试里的差异由**文件集合**引起：不含新加的 `pendingRequests.test.js` 时恰为基线的 85.14%，含它时为 84.42%（差异是 243-244 两行——一个依赖竞态走向的分支）。即：新增测试文件改变了并发交错，属**度量抖动**而非行为回归，故按下限（84%）校验，且**不**改写冻结基线。",
     "同轮另有 4 个文件**高于**基线（改进方向，门禁不阻断）：browserSession 91.75→92.41、nativeExecutionBackend 85.95→86.49、memoryStackAssembler 96.28→97.87、pluginLoader 83.17→94.06。它们与本条豁免无关，未登记；若日后出现**反向**漂移并确诊为环境/交错相关，需按同一条纪律登记原因后再入本表。",
-    "本轮**直接改写**（不是按下限）的两条冻结值，均经两次全量复现且原因明确——去重把**被覆盖的样板代码删掉**，分母变小导致百分比下降（逻辑搬进了 98.83% 覆盖的 `pendingRequests.js`）：`src/mcp/mcpClient.js` 87.26→85.29、`src/server/transport/httpBridgeTransport.js` 97.66→97.63。判定依据：这两行改动前后两次全量运行数值完全相同，而 wsConnection 会随文件集合变化。",
+    "本轮**直接改写**（不是按下限）的两条冻结值，均经两次全量复现且原因明确——去重把**被覆盖的样板代码删掉**，分母变小导致百分比下降（逻辑搬进了 98.83% 覆盖的 `pendingRequests.js`）：`src/protocols/mcp/mcpClient.js` 87.26→85.29、`src/apps/server/transport/httpBridgeTransport.js` 97.66→97.63。判定依据：这两行改动前后两次全量运行数值完全相同，而 wsConnection 会随文件集合变化。",
     "第十轮补充：上面这类「文件集合/交错」抖动又出现一次（`evalHarness.js` 87.78 ↔ 87.28，源码未改动，去掉新测试文件后精确回到 87.78），说明它**不是个案**而不是「某几个文件的怪癖」。故已在 `coverageGate.mjs` 统一加 **1 点度量漂移容差**（容差内的下浮如实列出但不阻断），并让 `--dump-baseline` 变成**棘轮**（只升不降，`--force` 才可下调）——这样既不必逐个登记，也不会把回归悄悄合法化。本表的 `wsConnection.js` 条目保留为现已由容差覆盖的历史证据；`bashAppRootMapper.js` 仍是**换机器就变**的宿主差异（6 点量级），容差覆盖不了，继续按下限校验。",
     "2026-09-25 凭据分层收口（fba8ae0）后的 providerProbe 基线改写（63.76→57.05，--force 下调）：受控实验定位——providerProbe 的部分分支覆盖此前**来自仓库树 omniharness.json 恰好存在**（含 providerKeys）这一开发机偶然条件；凭据分层迁移删除仓库树个人配置（本就是收口目标）后，这些分支在正常环境下不可达，57.05 连续 4 次全量实测完全一致。实验：放回仓库级配置 → 恢复 63.76 门禁绿；移除 → 57.05 门禁红，可精确复现。此为**旧基线在被个人配置污染的环境下记录**所致，非行为回归——直接改写冻结值（同 mcpClient/httpBridgeTransport 先例）。教训：基线曾依赖「仓库树有真实密钥」这一不应存在的状态。",
     "2026-09-25 补充：pluginLoader.js 反向漂移如期而至（94.06 → 83.17，差 10.89 点）——正是本表 notes 预测的「日后出现反向漂移需按纪律登记」情形。诊断：隔离单跑 pluginLoader.test.js 两次均 83.17（未覆盖 21-22/35-36/63-64/73-74/78-79/91-97 等错误分支），94.06 需特定全量交错才能到达；源码未改动。属文件集合/交错抖动，按下限 82 登记。",
@@ -48,8 +48,8 @@
     "nativeAbsent": {
       "reason": "CI 三平台（GitHub runner，2026-09-25 实测，run 108015218719/738/884）无原生 omni_napi.node：nativeBuild.mjs 为 Windows/mingw 专属，runner 不构建 ⇒ 原生执行链路的用例整体 skip。七文件取各平台实测最低值再留 ~2 点余量登记；有原生环境仍走冻结基线棘轮。",
       "files": {
-        "src/native/nativeBackend.ts": 31,
-        "src/native/nativeKernel.ts": 73
+        "src/kernel/native/nativeBackend.ts": 31,
+        "src/kernel/native/nativeKernel.ts": 73
       }
     },
     "realBash": {
@@ -59,11 +59,11 @@
     "posix": {
       "reason": "POSIX runner（ubuntu/macos，2026-09-25 实测）：平台语义差异导致部分 Windows 校准的分支不可达（fileURLToPath 成功路径、cmd 形态、进程树语义、doctorRunner 提权探测等）。六文件取 ubuntu/macos 实测最低值再留 ~2 点余量登记；win32 仍走冻结基线棘轮。",
       "files": {
-        "src/adapters/lsp/lspUri.ts": 84,
-        "src/adapters/tool/shell/processTreeKiller.ts": 52,
-        "src/adapters/tool/shell/shellInvocation.ts": 91,
-        "src/adapters/tool/shell/shellProcessRunner.ts": 87,
-        "src/cli/doctorRunner.ts": 93
+        "src/kernel/adapters/lsp/lspUri.ts": 84,
+        "src/kernel/adapters/tool/shell/processTreeKiller.ts": 52,
+        "src/kernel/adapters/tool/shell/shellInvocation.ts": 91,
+        "src/kernel/adapters/tool/shell/shellProcessRunner.ts": 87,
+        "src/apps/cli/doctorRunner.ts": 93
       }
     }
   }

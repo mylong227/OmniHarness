@@ -1,17 +1,17 @@
 /** CTX-02：token 校准器接入请求路径与压缩阈值（2026-10-21）。 */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
-import { TokenEstimatorCalibrator } from '../../src/context/tokenEstimatorCalibrator.ts';
-import { StepRunner } from '../../src/core/stepRunner.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
+import { TokenEstimatorCalibrator } from '../../src/kernel/context/tokenEstimatorCalibrator.ts';
+import { StepRunner } from '../../src/kernel/core/stepRunner.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
 
 function feed(calibrator: TokenEstimatorCalibrator, times: number, factor: number): void {
   for (let i = 0; i < times; i += 1) {

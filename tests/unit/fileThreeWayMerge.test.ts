@@ -9,12 +9,12 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ReadFileTool } from '../../src/adapters/tool/fs/readFileTool.ts';
-import { WriteFileTool } from '../../src/adapters/tool/fs/writeFileTool.ts';
-import { EditFileTool } from '../../src/adapters/tool/fs/editFileTool.ts';
-import { ApplyPatchTool } from '../../src/adapters/tool/fs/applyPatchTool.ts';
-import { WorkspaceFileCoordinator } from '../../src/adapters/tool/fs/workspaceFileCoordinator.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
+import { ReadFileTool } from '../../src/kernel/adapters/tool/fs/readFileTool.ts';
+import { WriteFileTool } from '../../src/kernel/adapters/tool/fs/writeFileTool.ts';
+import { EditFileTool } from '../../src/kernel/adapters/tool/fs/editFileTool.ts';
+import { ApplyPatchTool } from '../../src/kernel/adapters/tool/fs/applyPatchTool.ts';
+import { WorkspaceFileCoordinator } from '../../src/kernel/adapters/tool/fs/workspaceFileCoordinator.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 工具上下文（sessionId 决定基线归属）。 */
 const ctxOf = (root: string, sessionId = 'session-A'): ToolContext => ({

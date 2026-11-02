@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ToolIntentPolicy } from '../../src/security/toolIntentPolicy.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import { ToolIntentPolicy } from '../../src/kernel/security/toolIntentPolicy.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
 
 const call = (name: string, args: Record<string, unknown> = {}): ToolCall => ({
   id: 'c1',

@@ -16,12 +16,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CapabilityRegistry } from '../../src/capability/capabilityRegistry.ts';
-import { CapabilitySchemaRegistry } from '../../src/capability/capabilitySchemaRegistry.ts';
-import { SkillSchema } from '../../src/capability/schemas/skillSchema.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import { SkillSparsifier } from '../../src/skill/skillSparsifier.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { CapabilityRegistry } from '../../src/kernel/capability/capabilityRegistry.ts';
+import { CapabilitySchemaRegistry } from '../../src/kernel/capability/capabilitySchemaRegistry.ts';
+import { SkillSchema } from '../../src/kernel/capability/schemas/skillSchema.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import { SkillSparsifier } from '../../src/kernel/skill/skillSparsifier.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 /** 生产注入路径用的预算/豁免口径（与 `SessionInjector` 同值）。 */
 const SPARSE = { maxSkills: 5, minKeepScore: 3 };

@@ -39,7 +39,7 @@
 > `intValue`；一致性判据钉住**字面键名**（首版断言常量导致变异抓不到，已修正）。
 >
 > **第十二轮（P1）｜G25 ✅**：**拆掉架构环⑥**（20 成员 → 消失）。真实成因不是"接口没抽到 ports"——
-> 那三个接口早已在 `src/ports/**`，而是**类型已在 ports、调用点却绕道实现文件导入**；34 处导入改直连后
+> 那三个接口早已在 `src/contracts/ports/**`，而是**类型已在 ports、调用点却绕道实现文件导入**；34 处导入改直连后
 > 环内边 51→32、`CYCLE_WL_MEMBERS` **41→25**，剩 4 成员配置子环如实登记为 G25-b。
 >
 > **第十三轮（P1）｜G26 ✅**：容器引入**泛型服务令牌** `ServiceKey<T>`（端口只给结构契约，类在 core）——
@@ -358,7 +358,7 @@
 > | ------- | ------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | **E1+** | 双源信号（失败→提案 / 成功→工作流模板候选）       | 🟡 **部分** | 失败侧蒸馏器在（`failurePatternMiner` 被 `signalIngestor`/`dormantExecutorActivation` 使用，Wave A）；**成功侧蒸馏器不存在**（`workflow-template` 只有 schema 注册、无候选生产者）；双源端到端与「掐断任一半边 ⇒ 候选恒 0」判据**未做** |
 > | **E2+** | 进化增益自证探针（含 val/test 纪律闸）            | ✅ **本轮** | `tools/probes/evolutionLiftProbe.mjs`（已登记 README，过探针七条判据）                                                                                                                                                                  |
-> | **E3+** | 提案回填（`rlvrLoop` 采样 prompt 加历史失败原因） | ⬜ 未做     | `src/evolution/rlvrLoop.ts` 内**零**失败/原因相关引用                                                                                                                                                                                   |
+> | **E3+** | 提案回填（`rlvrLoop` 采样 prompt 加历史失败原因） | ⬜ 未做     | `src/kernel/evolution/rlvrLoop.ts` 内**零**失败/原因相关引用                                                                                                                                                                                   |
 > | **E4+** | 级联评估（静态短路 + verify 推导按快→慢）         | ✅ 基本具备 | `cascadeReward` + `RlvrController` 的 `cascade: true`（Kernel 路径显式开；J5「静态失败 ⇒ verify 调用 0 次」判据绿）；verify 推导由 `SelfVerifyCommandDetector` 提供                                                                     |
 > | **E5**  | 晋升级回滚                                        | ✅          | Wave A 台账 `rollback(seq)` + 快照；J4「回滚后注册表与快照逐条深相等」判据绿                                                                                                                                                            |
 > | **N1**  | 覆盖度分桶（MAP-Elites 式）                       | ✅          | Wave A `bucketedCoverageMeter`（`CoverageMeter`/`CoverageReportSurface`）                                                                                                                                                               |
@@ -381,7 +381,7 @@
 >
 > **第四十一轮｜阶段 0「插电」全部落地（E1+ / E3+ 补齐）✅**：两片独立提交，阶段 0 的 E1+–E5 + N1/N2 **七项全绿**。
 >
-> ① **E1+ 成功侧蒸馏器**（`src/evolution/successPatternDistiller.ts`）：成功轨迹 ⇒ **工作流模板候选**。
+> ① **E1+ 成功侧蒸馏器**（`src/kernel/evolution/successPatternDistiller.ts`）：成功轨迹 ⇒ **工作流模板候选**。
 > 原先成功半边只喂**固化器**（密度 ⇒ 冻结成**技能**），缺"流程复用"这一路——`workflow-template` 只有 schema 注册、
 > **零候选生产者**。新增蒸馏器补上，并接入 `SignalIngestor`（路由结果新增 `distilled` 计数）+ **内核装配即启用** +
 > **报告暴露 `workflowTemplates`**（接了必须可观测，否则就是「声明未接线」）。
@@ -405,7 +405,7 @@
 >
 > **第四十二轮｜阶段 1 起步：F1 License 引擎 ✅ + F2 治理台数据面 ✅**：两片独立提交。
 >
-> ① **F1 License 引擎**（`src/license/licenseEngine.ts` + CLI `license status`）：
+> ① **F1 License 引擎**（`src/apps/license/licenseEngine.ts` + CLI `license status`）：
 > 先抽出 **`Ed25519PublicKey`** 公共工具（`ssh-ed25519 → SPKI` + 用**别人的**公钥验签；分发层 `AssetPackCodec`
 > 改为委托，其判据保持全绿——同一份密码学解码不再有两份实现）。引擎按 F1 原文的两条硬判据收口：
 > **篡改四类（档位/机器/到期/签名）一律拒**、**过期 ⇒ 降级为核心档而非停摆**（`tier:'core'` + `expired:true` +
@@ -413,7 +413,7 @@
 > 另钉：跨机器拒、未来签发拒（超 24h 容差）、空/垃圾输入 fail-closed、**档位-功能表为唯一判断入口**
 > （未登记功能名一律 false —— 新功能必须先登记档位）、机器指纹不读环境变量（16 位十六进制、同机恒同值）。
 > CLI 出口：`0` 有效 / `1` 降级（并**明写"核心功能照常可用"**与续期路径）/ `2` 用法；**不内置任何公钥**（内置=把"谁能授权"写死在开源代码里）。
-> ② **F2 治理台数据面**（`src/governance/promotionHistoryService.ts` + CLI `evolution history`）：
+> ② **F2 治理台数据面**（`src/kernel/governance/promotionHistoryService.ts` + CLI `evolution history`）：
 > F2 判据是「治理台展示的**每条**晋升记录都能独立复核（数据与证据同源）」。故服务**逐行自行重算**哈希
 > 并检查链式连接（`prev` 是否接上上一条），而不是把台账整链 `verify()` 的结论抄一遍——
 > 判据用**变异自证**钉死：改正文 / 删行 / 改哈希三类**都必须被检出**并指出第几条
@@ -429,7 +429,7 @@
 >
 > **第四十三轮｜F3 RBAC-lite ✅（策略 + 执法 + 配置四段闭环）**：两片独立提交。
 >
-> ① **策略与执法**（`src/ports/security/rolePolicy.ts` + `src/security/rbacPolicy.ts` + `ToolGate`）：
+> ① **策略与执法**（`src/contracts/ports/security/rolePolicy.ts` + `src/kernel/security/rbacPolicy.ts` + `ToolGate`）：
 > 角色门禁作为**第三道门**（与审批「单次是否放行」、沙箱「OS 层能力」正交），裁决序为
 > `supervisor → **角色** → 计划 → 审批 → 沙箱`。三条 fail-closed：**未知角色全拒**（配置打错字不得静默提权）、
 > **未登记工具全拒**（判不了是不是写类时默认不许；`admin` 的 `*` 是显式声明，不等于"允许一切未登记项"）、
@@ -496,7 +496,7 @@
 >
 > **第四十六轮｜H3 进化系谱出证 ✅ —— 至此商业化路线图 ①–⑧ 全部工程项落地**：
 >
-> ① **证书自带可重算载荷**（`src/governance/provenanceIssuer.ts`）：每条资产的证据里带着台账条目
+> ① **证书自带可重算载荷**（`src/kernel/governance/provenanceIssuer.ts`）：每条资产的证据里带着台账条目
 > 的规范化字段（`ts/action/skills/promoted/rollbackTo/prev`）与当时的 `hash`，收证方用**公开**口径
 > （`HashChainPromotionLedger.hashOf`）自己重算并核对 `prev` 是否接得上——
 > **不需要信任签发方、不需要它在线**。这正是"市场里没人能提供"的那一点：系谱不是自述，是可复算的证据。
@@ -911,7 +911,7 @@
 > （`status: null`、零输出），第一版 `npm start` 只打印"失败（退出码 null）"就中止 ⇒ 改为 `shell: true` 并打印真实原因。
 >
 > **② 真旗标被打死（修）**：`serve --auto-approve` —— `--help` 与 README **都写着**、`cliServerCmds.ts:534` 也**真的读它**
-> （`serveArgs.includes('--auto-approve')`），却**从未登记**进 `src/cli/knownFlags.ts` 的"子命令自解析旗标表"。
+> （`serveArgs.includes('--auto-approve')`），却**从未登记**进 `src/apps/cli/knownFlags.ts` 的"子命令自解析旗标表"。
 > 第五十七轮把未知旗标改成 fail-closed 后，它**被当场打死**：`serve --auto-approve` 直接报"未知旗标"退出（实测复现）。
 > **门禁为什么没抓到**：`tests/unit/knownFlags.test.ts` 的扫描正则只认 `.value(`/`.has(` 等 **reader 式**读取，漏了 `Array.includes(`。
 > 已两头修：登记旗标 + 把判据扫描面（①与③）扩到 `Array.includes(`，并新增**实跑正对照**判据⑥（给一个真未知旗标，
@@ -925,7 +925,7 @@
 > - **重写 `README.md`**：从 47KB 的"百科全书"改为**门面 + 精准导航**（一键启动置于最前、配置分层"谁存在哪谁是权威"、
 >   安全默认、门禁与验证层次、诚实清单），把完整命令/旗标表移出为 `docs/CLI_REFERENCE.md`；
 >   修正事实性错误：Node **≥22.14.0**（原写 22.18）、**依赖准入制 5+2**（原写"零依赖"，与 `DEPENDENCY_POLICY` 明文冲突）、
->   删掉已不存在的 `evals/`、`benchmark/`、`assets/`、`src/eval/**`、`src/tools/**` 引用、`storageDir` 改为用户级、
+>   删掉已不存在的 `evals/`、`benchmark/`、`assets/`、`src/kernel/eval/**`、`src/tools/**` 引用、`storageDir` 改为用户级、
 >   分层链补 **bundle 补丁层**、示例地址由 `localhost` 改 `127.0.0.1`（只绑回环）。
 > - **新增 `docs/STARTUP.md`**（本次的"使用规范"）：前置条件 / 为什么必须一键 / 三种启动方式 / **判定起没起来**（横幅两行 + 探活命令）/
 >   停止重启 / 数据与配置落点 / 安全默认对照表 / **Do·Don't 规范** / 故障排查表 / 可复制验收清单。
@@ -993,7 +993,7 @@
 >
 > ② **本机运行态外置**（`ServerConfigStore.persistLocalState`）：`workspace`/`workspaces` 只写**用户级**配置，
 > 项目文件永不出现这两个键（并**自愈剔除**旧版本写进去的脏键）——即用户要的"不随项目上传"。
-> ③ **可移植路径**（新增 `src/util/portablePath.ts`）：固定项目可写 `~/work/proj`、`$HOME/...`、`%USERPROFILE%\...`、
+> ③ **可移植路径**（新增 `src/kernel/util/portablePath.ts`）：固定项目可写 `~/work/proj`、`$HOME/...`、`%USERPROFILE%\...`、
 > 相对家目录等形态，启动时展开成本机真实路径；写回时把家目录下的路径**压成 `~/…`** ⇒
 > "同一套配置换机器/换用户名/换盘符仍落到正确目录"。未知变量不猜（保持字面量，交给存在性检查如实失败）。
 > ④ **永不因配置问题启动不起来**：固定项目路径不存在 ⇒ 回落启动目录 + 横幅说明（"请用 --workspace 指定，或在 UI 里切换项目"）。
@@ -1098,7 +1098,7 @@
 >
 > | #   | 缺陷（实测证据）                                                                                                                                                                                                                                             | 根因                                                                                                                                                                                                                                                | 处置 + 判据                                                                                                                                                                                                                                                                                                                                              |
 > | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | 1   | **子智能体隔离对写类工具失效**：子代理在隔离工作树里 `write_file src/parse.mjs` 报"已写入"，文件却落在**主工作区**；它随后用 `shell`（cwd=隔离树）跑自测**看不到自己刚写的文件**，反复失败直到撞上 12 步上限；而回执仍宣称"**主工作区尚未改动**"（**谎报**） | fs 工具族各用各的根：`read_file`/`glob`/`grep`/`shell` 用运行时 ctx，而 `write_file`/`edit`/`list_dir`/`apply_patch`（及 `view_image`/`view_media`/`browser_screenshot`/`sketch_write`）用**装配期根**——正是第六十轮 ④ 登记的那条"三条解析规则共存" | 新增单一事实源 `src/util/toolWorkspaceRoot.ts`（**运行时 ctx 优先，空串回落装配根**），8 个工具全改走它。判据 `tests/unit/toolWorkspaceRootIsolation.test.ts` ①–③（装配根一个字节都不许变 / 读类工具不许被改回 / 空串回落）；`toolkit.test.ts`、`editFileTool.test.ts`、`patchApplierFuzzy.test.ts` 里三处**把旧行为钉成契约**的 ctx 一并订正            |
+> | 1   | **子智能体隔离对写类工具失效**：子代理在隔离工作树里 `write_file src/parse.mjs` 报"已写入"，文件却落在**主工作区**；它随后用 `shell`（cwd=隔离树）跑自测**看不到自己刚写的文件**，反复失败直到撞上 12 步上限；而回执仍宣称"**主工作区尚未改动**"（**谎报**） | fs 工具族各用各的根：`read_file`/`glob`/`grep`/`shell` 用运行时 ctx，而 `write_file`/`edit`/`list_dir`/`apply_patch`（及 `view_image`/`view_media`/`browser_screenshot`/`sketch_write`）用**装配期根**——正是第六十轮 ④ 登记的那条"三条解析规则共存" | 新增单一事实源 `src/kernel/util/toolWorkspaceRoot.ts`（**运行时 ctx 优先，空串回落装配根**），8 个工具全改走它。判据 `tests/unit/toolWorkspaceRootIsolation.test.ts` ①–③（装配根一个字节都不许变 / 读类工具不许被改回 / 空串回落）；`toolkit.test.ts`、`editFileTool.test.ts`、`patchApplierFuzzy.test.ts` 里三处**把旧行为钉成契约**的 ctx 一并订正            |
 > | 2   | **改动采集把子会话自己的存储当业务改动**：两子代理的 patch 各 **24–32 KB**，改动清单只报「`.omni-storage/sess_xxx.jsonl`」这**一个**文件 ⇒ 主代理收到"有改动 + 一份日志"，真源码改动在哪一无所知                                                             | `collectChanges` 用无条件 `git add -A`，而子会话存储被重定位进隔离树；且**不能只靠用户 `.gitignore`**（本仓只写了 `.omniharness/`）                                                                                                                 | `WorktreeOps.RUNTIME_EXCLUDE`（`.omni-storage`/`.omniharness`/`.omni-worktrees`/`node_modules`）＋ pathspec 排除。判据 `toolWorkspaceRootIsolation.test.ts` ④（真实 git 仓：清单只含源码、patch 不含 `.omni-storage`）。修后实测 patch 从 31 KB 会话日志变回 3.8 KB/9.2 KB **真源码**                                                                    |
 > | 3   | **系统提示从不声明运行平台与 shell 方言**：真模型在 Windows 上连发 `pwd && ls -la && cat package.json`、`ls -la src test`、`… \| tail -n 12; echo ${PIPESTATUS[0]}`——全被 `cmd.exe` 回"不是内部或外部命令"，**白烧 4 次工具调用**才发现要换方言              | 常驻提示里没有任何平台/解释器事实，而训练语料默认 POSIX；本机 `shell` 实为 `cmd.exe /d /s /c`                                                                                                                                                       | `DefaultPromptFragments` 增第四节「运行环境」：平台 + **真 shell**（经 `ShellInvocation.path()` 取同一事实源）+ 禁用词表 + `%ERRORLEVEL%` + **`&&` 而非 `;`**（`node --version; pwd` 实测被整体当成一个参数）。判据 `tests/unit/defaultPromptFragments.test.ts` ①–⑤（含"两平台文案必须不同"，防参数没接进正文）。同一任务带提示后 `m1` 由 12 步降到 8 步 |
 > | 4   | **子代 `systemPrompt` = 0 token**（同一台机上主会话 740→927）：子代**没有任何系统提示** ⇒ 照 POSIX 假设试错，并把"命令不存在"**误判成"隔离环境 shell 不可用"回传主代理**，主代理照抄进了最终答复                                                             | `SubagentRuntimeFactory` 构造子代 `ResolvedConfig` 时**漏了 `fragments`**                                                                                                                                                                           | 端口 `SubagentPortsShape.fragments` + 组合根注入 `DefaultPromptFragments.environmentFragment()`（**只给运行环境段**——子代工具集是裁剪过的，整段 SOP 会指向它没有的工具）+ 工厂透传。判据 `defaultPromptFragments.test.ts` ⑥                                                                                                                              |
@@ -1108,7 +1108,7 @@
 >
 > - **同一任务两次真跑方差极大 ⇒ 单次真跑不得当能力定论**：`m4` 同提示两次分别 **11/14**（修对 4 处、漏 1 处原地排序）与 **3/14**（**零写入**）。后者 16 步 / 33 次工具调用 / 30,457 completion token 全花在环境探测（`list_dir`/`read_file` 各重复三遍、反复试 `pwd`/`ls -la`/`head`/`find`/`node -e`），最终答复**谎称"由于步数上限未能读取 src/ 下的四个源文件"**（实测读了**两遍**）并据此猜 bug（还猜错一处）。⇒ 结论口径必须是"**采样**"；`smoke:model` 报告逐例记 steps/工具/用量正是为此。
 > - **编排落地仍不可靠**：`m2` 三个样本都真的派了子代理（能力证据全过），但**交付不完整却称"已完成"**（样本 1 缺 `index.mjs`+整合测试；样本 2 缺 `parse.mjs`+`index.mjs`；样本 3 只缺 `index.mjs`）。子代理 4 次里 3 次撞 12 步上限（`--subagent-max-steps` 缺省 12）；模型基本不采用回执里明写的 `git apply <patch>` 路径。
-> - **新登记工程项 A（有证据、写明修法与判据，非"以后再说"）**：危险命令黑名单是**字面子串**匹配 ⇒ `node -e` 被拦，而 `node --input-type=module -e "…"` 实测**放行**（同一意图被绕过）。修法：规则须三处同源（`dangerous-commands.json` + Rust `build.rs` + TS）**一起**改成"解释器 + 内联求值旗标"口径（可复用 `src/util/commandCanonicalizer.ts` 做参数归一化），判据 = 三处都命中 `node --input-type=module -e` / `python3 -c` 的变体；只改 TS 会制造新的口径漂移，故本轮不做。
+> - **新登记工程项 A（有证据、写明修法与判据，非"以后再说"）**：危险命令黑名单是**字面子串**匹配 ⇒ `node -e` 被拦，而 `node --input-type=module -e "…"` 实测**放行**（同一意图被绕过）。修法：规则须三处同源（`dangerous-commands.json` + Rust `build.rs` + TS）**一起**改成"解释器 + 内联求值旗标"口径（可复用 `src/kernel/util/commandCanonicalizer.ts` 做参数归一化），判据 = 三处都命中 `node --input-type=module -e` / `python3 -c` 的变体；只改 TS 会制造新的口径漂移，故本轮不做。
 > - **新登记工程项 B**：子代理轨迹**事后不可回溯**——`SubagentEventBridge` 只在内存收集，子代存储又落在隔离树里、随 `cleanup()` 一起消失（本轮把会话日志从 patch 里排除后，"意外副本"也没了）。这与 `subagentTool` 注释"会话 ID 可回溯完整轨迹"、桥注释"保留完整审计轨迹"**不符**。修法：子代结束前把 `bridge.events()` 追加进**父存储**（`StoragePort.append`，只落盘不广播，故仍不污染父观测流），判据 = 跑完一个子代理后按 `--session <子会话 ID>` 能读到其轨迹。
 >
 > ⑤ **诚实边界**：仍是**单一厂商/单一模型**（DeepSeek `deepseek-v4-flash`，reasoning 固定 `high`，未做档位对比；本机到 `api.openai.com` 不可达）；用例样本数 1–3；工作区是**独立临时 git 仓**（`.omniharness/model-test-runs/<runId>/`，gitignored，不碰本仓源码）；`approval=auto`（本跑测验能力与正确度，门禁/审批面仍由 `smoke:real` 覆盖）；未测 `serve`/Web 的真模型回合与真实多厂商互操作。
@@ -1173,7 +1173,7 @@
 >
 > | #   | 缺陷（实测现象）                                                                                                                                                                                                                                                                                                                                                                           | 处置                                                                                                                                                                                                                                                                               |
 > | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | 1   | **会话"写-读默认路径分裂"**：写入方默认 `~/.omniharness/sessions`（`CliDefaults.storageDir`），而 `trace read` 默认**工作区相对** ⇒ 默认跑一次再默认读**必然失败**（实测 `trace 读取失败: 会话未找到或无 trace`）。全仓曾 **4 处**各自声明同一概念。**更有价值的是：`tests/unit/traceCliWiring.test.ts` 的那条判据把这个错误行为钉住了**，标题还写着"与存储层缺省一致"——**判据在保护 bug** | 新增单一事实源 `src/util/sessionStorageLocation.ts`（并提供 `OMNI_SESSIONS_DIR` 一个旋钮同时移动写读两侧）；`argParser` / `traceCommand` / `sessionCommand` 三处改用；**改正那条判据**（改为断言"缺省目录 == 写入方默认"，并在受控目录下做真读）；实测往返成功（5 条事件、exit 0） |
+> | 1   | **会话"写-读默认路径分裂"**：写入方默认 `~/.omniharness/sessions`（`CliDefaults.storageDir`），而 `trace read` 默认**工作区相对** ⇒ 默认跑一次再默认读**必然失败**（实测 `trace 读取失败: 会话未找到或无 trace`）。全仓曾 **4 处**各自声明同一概念。**更有价值的是：`tests/unit/traceCliWiring.test.ts` 的那条判据把这个错误行为钉住了**，标题还写着"与存储层缺省一致"——**判据在保护 bug** | 新增单一事实源 `src/kernel/util/sessionStorageLocation.ts`（并提供 `OMNI_SESSIONS_DIR` 一个旋钮同时移动写读两侧）；`argParser` / `traceCommand` / `sessionCommand` 三处改用；**改正那条判据**（改为断言"缺省目录 == 写入方默认"，并在受控目录下做真读）；实测往返成功（5 条事件、exit 0） |
 > | 2   | **审计旗标在单跑路径"接受却不消费"**：审计 sink 只在 `serve`/`server` 装配（`CliBuildConfig.createAudit` 的两个调用点都在那里），实测"带 `--audit-dir` 跑一次、再 `audit export`"得到 **`[]`**，而用户以为自己有审计链                                                                                                                                                                     | 单跑入口 `assertExecPathSupported` 增加 fail-closed（点明"审计只在 serve 装配"并给出正确用法）；**serve 侧同轮实测审计链非空**（证明是装配位置问题，不是审计坏了）                                                                                                                 |
 > | 3   | 上述三旗标（`--audit-dir/--audit-file/--audit-hmac-key`）此前**既不在 FLAG_TABLE 也不在 VALUE_FLAGS** ⇒ 它们取值为路径/密钥，却会被 `collectPositional` 当成 prompt（`omniharness --audit-dir /tmp/a` 会把 `/tmp/a` 当任务跑）                                                                                                                                                             | 移入 `VALUE_FLAGS`（取值型清单）并从 `KNOWN_EXTRA_FLAGS` 移除（第五十八轮的判据②会拒绝重复登记）                                                                                                                                                                                   |
 >
@@ -1207,7 +1207,7 @@
 > | #   | 上一轮登记的问题                                                                                            | 本轮处置                                                                                                                                                                                                                                                                                                                                                                                               | 判据                                                                                                                                                                                    |
 > | --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | 1   | `checkSecrets` 用 `git grep -I` ⇒ **UTF-16LE 文本（git 判为二进制）完全不被扫描**                           | 改**两层扫描**：文本层 `git grep`（去掉 `-I`，二进制命中记 `Binary file … matches` fail-closed）＋**编码层**对二进制分类文件按 BOM 解码后重扫（UTF-16LE/BE）；汇总行如实打印"文本 / 二进制 / 解码 / 不可解析"四个数                                                                                                                                                                                    | `checkSecretsEncoding.test.ts` 4 例：UTF-16LE 带密钥**必须被拒**（修复前 exit 0）、带豁免标记通过**且报"按编码解码 1"**、UTF-8 正对照被拒、无密钥仓库通过且汇总含扫描面                 |
-> | 2   | `check.mjs` 的第三方导入正则**不匹配 `await import('pkg')`** ⇒ 两条阻断规则对动态导入无法失败               | 正则补 `import\s*\(` 分支；同时加两道去噪（**注释行**不计、**占位说明符**如 `'<pkg>'` 不计）；`--strict` 下负向核验：在 `src/ports/` 放 `import('zod')` ⇒ **当场阻断**（人工核验，命令见下）                                                                                                                                                                                                           | `gateImportRule.test.ts` 4 例：**从源码抽出正则**跑 6 条样例（含深导入 `@scope/pkg/sub.js`）＋两处去噪必须在位＋`architectureGate` 同口径＋实跑真树 exit 0                              |
+> | 2   | `check.mjs` 的第三方导入正则**不匹配 `await import('pkg')`** ⇒ 两条阻断规则对动态导入无法失败               | 正则补 `import\s*\(` 分支；同时加两道去噪（**注释行**不计、**占位说明符**如 `'<pkg>'` 不计）；`--strict` 下负向核验：在 `src/contracts/ports/` 放 `import('zod')` ⇒ **当场阻断**（人工核验，命令见下）                                                                                                                                                                                                           | `gateImportRule.test.ts` 4 例：**从源码抽出正则**跑 6 条样例（含深导入 `@scope/pkg/sub.js`）＋两处去噪必须在位＋`architectureGate` 同口径＋实跑真树 exit 0                              |
 > | 3   | "0 项 = 通过"族：`architectureGate` 不打印文件数、`--maturity` 0 声明仍通过、`apiStability` 0 export 仍通过 | 三处全部**打扫描面 + 设下限**：架构门禁打印"1009 个源文件 ｜ 3273 条相对导入边"且 0 文件即红；成熟度 0 声明即红；`api:check` 对"没解析到任何 export"的桶判失败（实测 exit 1）                                                                                                                                                                                                                          | `apiStability.test.ts` 增 1 例（空桶必须失败）                                                                                                                                          |
 > | 4   | 低流量脚本四处（归因误导 / 谎报 / 死分支 / 死指针）                                                         | ① `nativeBuild`：拷贝失败**先判真因**（产物不存在 ⇒ 直说"cargo 没产出该目标"，不再一律说"文件被锁"）；② `maturityAnnotate`：`--apply` 时如实说"**已写入 N 个文件**，回滚用 git checkout"（原文案在写盘后仍称"未改动任何文件"）；③ `copyAssets`：`throwIfNoError` → `throwIfNoEntry`（真选项名，死分支复活）；④ `auditInterfaces`：删掉指向**不存在**的 `--gate` 的过期指针，改述"本审计当前没有阻断面" | 语法/实跑：`copyAssets` 实跑通过；其余为消息与分支订正                                                                                                                                  |
 > | 5   | `CliArgs.profile` 死声明（从不赋值也从不读取）                                                              | 删除字段并留"**（已删除）**"注释说明缘由（`--profile` 由装配层自行扫描 argv；I4 只扫被赋值的字段，故这类空声明无人报）                                                                                                                                                                                                                                                                                 | tsc 干净 + 接线门禁绿                                                                                                                                                                   |
@@ -1221,7 +1221,7 @@
 >
 > **验证**：clean build **2938 例，0 失败，0 cancelled，4 跳过**（净增 15 例）；门禁电池（fast+typed）
 > **12/12 全绿**。负向核验（人工，只读命令，不进自动化以免向 `src/` 写临时文件与并行判据打架）：
-> `src/ports/**` 下临时新建一个只含 `export const x = import('zod');` 的 `.ts` 文件 ⇒ `check.mjs --strict`
+> `src/contracts/ports/**` 下临时新建一个只含 `export const x = import('zod');` 的 `.ts` 文件 ⇒ `check.mjs --strict`
 > **当场阻断**（`【核心与端口层零第三方】`）、删除该临时文件即恢复绿（临时文件已删，故此处不写其完整路径）。
 >
 > **与上一轮 ④ 的关系**：上一轮的九项**全部销账**；上一轮 ② 里保留的 A8（`architectureGate` 层枚举只认
@@ -1353,7 +1353,7 @@
 >
 > ① **`a2a_delegate` 工具面**（一片提交）：A2A 域的真实形态是「客户端在、工具面缺」——`a2a.enabled` 时组合根已装配 client 进 `runtime.a2a`，但生产路径**零调用点**（README §7.3「客户端待建」过期；第五十三轮可达性盘点曾据旧文误判）。本片补上发起侧：
 >
-> - `A2aDelegateTool`（`src/a2a/`）：模型经 `a2a_delegate` 把**自包含**子任务委托给对等 agent 并回收结果；taskId = `a2a-{uuid}`、`parentSessionId` 取会话 id 供对端审计关联、`tools` 授权子集透传（非字符串成员剔除）；
+> - `A2aDelegateTool`（`src/protocols/a2a/`）：模型经 `a2a_delegate` 把**自包含**子任务委托给对等 agent 并回收结果；taskId = `a2a-{uuid}`、`parentSessionId` 取会话 id 供对端审计关联、`tools` 授权子集透传（非字符串成员剔除）；
 > - **注册在组合根就地完成**（`Runtime.attachA2a`）：client 就绪后 `RegistryToolPort.register`——避免「config 期构造 client / runtime 期重复构造」的时序问题；仅 `a2a.enabled` 时工具存在（不存在 ≠ 撒谎，模型改道 subagent/delegate 真实路径）；自定义 ToolPort 嵌入方可经 `runtime.a2a.client` 自行装配；
 > - 判据净增 4 例（假传输仪器，不发真网络包）：成功转述（含 steps/durationMs）、对端 ok=false 原因进 **error**（ContextAssembler 对失败只渲染 error——原因进 output 等于丢掉，沿 delegate 工具同一教训）、JSON-RPC error 转可读、空任务拒绝且**零请求发出**、tools 透传（含非字符串成员剔除）+ 注册面断言（createRuntime 后工具表出现 `a2a_delegate`，port:0 随机监听、teardown 关 transport）。
 >   连锁订正：README §7.3「客户端待建」→「三件套已建」；§13 诚实边界「A2A 互操作客户端未建」→「真实对端互操作未验证」（协议两端 + 工具面 + mock/跨进程判据在，真实第三方 agent 属外部设施）。
@@ -1381,7 +1381,7 @@
 
 > **第五十三轮｜孤儿清仓 + 闲置资产接线 ✅**：五片提交（`7fac772` 孤儿删除 / `87caa30` 注入自检接 doctor / `0db97f4` TUI 接真实回路 / `9dba6cf` rankVeto 接探针 / `2f3e249` I7 反接线门禁）。用户指令：无用的清理掉，闲置的自研能力用起来，不留浪费代码。
 
-> **盘点方法（先盘点后动手）**：从三个生产入口（`src/index.ts` / `src/indexBeta.ts` / `src/cli/exec.ts`）做 import 图可达性分析（临时脚本，一次性用后即删），1005 个 src 文件中 994 生产可达；对 fanIn=0 / 仅测试可达的 14 个文件逐一做**字符串引用复核**（Worker 路径加载、spawn 等非 import 引用不算孤儿——`codeSandboxWorker.ts` 即此类假阳性，它由 `codeInterpreter.ts:65` 以 `new Worker(new URL(...))` 真加载，`CodeExecutorTool` 在 configToolRegistry 默认注册）。**真孤儿 6 组 ≈1,340 行**：
+> **盘点方法（先盘点后动手）**：从三个生产入口（`src/index.ts` / `src/indexBeta.ts` / `src/apps/cli/exec.ts`）做 import 图可达性分析（临时脚本，一次性用后即删），1005 个 src 文件中 994 生产可达；对 fanIn=0 / 仅测试可达的 14 个文件逐一做**字符串引用复核**（Worker 路径加载、spawn 等非 import 引用不算孤儿——`codeSandboxWorker.ts` 即此类假阳性，它由 `codeInterpreter.ts:65` 以 `new Worker(new URL(...))` 真加载，`CodeExecutorTool` 在 configToolRegistry 默认注册）。**真孤儿 6 组 ≈1,340 行**：
 >
 > | 资产                                                       | 行数 | 裁决                  | 理由                                                                 |
 > | ---------------------------------------------------------- | ---- | --------------------- | -------------------------------------------------------------------- |
@@ -1584,7 +1584,7 @@
 ### 代码规模（2026-10-03 第五轮实测；**计数口径已订正**）
 
 > **口径订正（本轮发现的历史错误）**：此前用 `Get-Content | Measure-Object -Line` 数行数，该 cmdlet
-> **少计空行**——`src/context/contextEngine.ts` 实测 `(Get-Content).Count` = **646** 而行数口径给 609，
+> **少计空行**——`src/kernel/context/contextEngine.ts` 实测 `(Get-Content).Count` = **646** 而行数口径给 609，
 > 单文件就少 37 行。故历轮「91,079 / 92,124 行」等数字系统性偏低（全仓约低 5.6k 行）。
 > **正确口径 = `(Get-Content <file>).Count` 逐文件求和**（等价于 `wc -l` 的「行数」语义）。
 
@@ -1631,7 +1631,7 @@
 > 代价：召回率 / 前缀缓存复用率 / 工具暴露零损伤 / 技能路由三关**从此没有机械判据**，
 > 相关历史数字只能引 git 历史且须标注「脚本已移除、不可复跑」。
 
-依赖政策：`dependency-allowlist.json`（D10：必要且更优即可引入；`src/ports/**` 与 `src/core/**` 恒第三方-free），允许/拒绝许可清单见该文件。
+依赖政策：`dependency-allowlist.json`（D10：必要且更优即可引入；`src/contracts/ports/**` 与 `src/kernel/core/**` 恒第三方-free），允许/拒绝许可清单见该文件。
 
 ### 2.1 修掉的一项**门禁级**性能缺陷（2026-10-03，blocking）
 
@@ -1667,8 +1667,8 @@
    `SessionRecorder.rewindTo`（夹回合起点、重算检索 seq、反注册被撤销文档）+
    `EventPersister.rewindTo`（**先等在飞全量写再强制重写**，长度相等时靠独立 `forceWrite` 判脏）。
    判据：`tests/unit/liveSessionRewind.test.ts` 11 例（含「回滚后照样 schedule 落盘，历史不复活」）。
-   定位：`src/core/checkpointManager.ts` / `src/core/liveSessionRewindRegistry.ts` /
-   `src/core/loop/eventPersister.ts` / `src/core/appendOnlyEventLog.ts` / `src/core/sessionRecorder.ts`。
+   定位：`src/kernel/core/checkpointManager.ts` / `src/kernel/core/liveSessionRewindRegistry.ts` /
+   `src/kernel/core/loop/eventPersister.ts` / `src/kernel/core/appendOnlyEventLog.ts` / `src/kernel/core/sessionRecorder.ts`。
 2. **✅ 已修：TurnDiffHooks 基线跨回合不重置**（原 P2）。基线改为**只在 tracker 里存一份**
    （`hasBaseline` / `recordBaseline`；`noteWrite(path, after)`），钩子不再自持 Map ⇒
    跨回合复用**在结构上不可能**。判据：`tests/unit/turnDiffTracker.test.ts` 新增
@@ -1955,7 +1955,7 @@ npm run rust:test      # cargo test --workspace
 **现象**：同一进程内 `checkpoint` 回滚后，`StepContextBuilder` 的内存压缩游标仍指向**已被截断移除**的折叠点；
 **重启进程反而正常**（新实例会重新恢复），故属"同进程不对、重启对了"这类最难查的形态。
 
-**证据（本机复核）**：`src/core/stepContextBuilder.ts:44,46` 定义 `compactionState` / `stateRestored`；
+**证据（本机复核）**：`src/kernel/core/stepContextBuilder.ts:44,46` 定义 `compactionState` / `stateRestored`；
 `stateRestored = ` 全仓**只有两处**——L46 初始化为 `false`、L102（构造后首次 `buildMessages`）置 `true`，
 **没有任何地方置回 false，也没有 reset()/setter**。而 `SessionRecorder.rewindTo` 会经 `eventsFrom` 把那条
 `OMNI_COMPACTION_V1` 游标事件从日志移除 ⇒ 游标悬空。
@@ -2013,8 +2013,8 @@ sqlite 走 `INSERT OR REPLACE`（**不再 DELETE 全桶**）；`EventPersister.w
 
 | #   | 位置                                                   | 事实                                                                                                                                                                                                                      |
 | --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `src/core/loop/cancellationToken.ts` `toAbortSignal()` | 两处 `controller.abort()` 都**不带 reason** ⇒ `AbortSignal.reason` 退化成通用 `AbortError`(DOMException)。而 `agent.ts:413` 正是把该 signal 交给模型层 ⇒ 下游**拿不到任何结构化原因**。                                   |
-| 2   | `src/subagent/cancellableModel.ts` `reasonOf()`        | 白名单只有 `'user'\|'timeout'\|'shutdown'\|'parent'` ⇒ **`'loop-guard'`（失控熔断）与 `{custom}` 被静默折叠成 `'parent'`**（谎报"父级联"）；且兜底值返回 `'parent'`，与该函数自己 JSDoc 写的"缺省时为 `'user'`"**矛盾**。 |
+| 1   | `src/kernel/core/loop/cancellationToken.ts` `toAbortSignal()` | 两处 `controller.abort()` 都**不带 reason** ⇒ `AbortSignal.reason` 退化成通用 `AbortError`(DOMException)。而 `agent.ts:413` 正是把该 signal 交给模型层 ⇒ 下游**拿不到任何结构化原因**。                                   |
+| 2   | `src/kernel/subagent/cancellableModel.ts` `reasonOf()`        | 白名单只有 `'user'\|'timeout'\|'shutdown'\|'parent'` ⇒ **`'loop-guard'`（失控熔断）与 `{custom}` 被静默折叠成 `'parent'`**（谎报"父级联"）；且兜底值返回 `'parent'`，与该函数自己 JSDoc 写的"缺省时为 `'user'`"**矛盾**。 |
 
 **净后果**：生产路径上 `CancelledError.reason` 几乎恒为 `'parent'`——用户中断、超时、关机、失控熔断
 全都被报成"父令牌级联"，而这正是 `CancelReason` 联合类型存在的理由。
@@ -2067,7 +2067,7 @@ sqlite 走 `INSERT OR REPLACE`（**不再 DELETE 全桶**）；`EventPersister.w
 ⇒ 一旦 glob 落空（改名/构建产物缺失/路径漂移），闸门会给出"验证通过"。
 外部佐证：pytest 把"没收集到测试"单列为 **exit 5**，Jest 需显式 `--passWithNoTests` —— 两个主流工具都刻意区分二者。
 
-**修法（已实施）**：新增 `src/adapters/tool/verify/testCountParser.ts`（`TestCountParser`，识别
+**修法（已实施）**：新增 `src/kernel/adapters/tool/verify/testCountParser.ts`（`TestCountParser`，识别
 node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit=0 时增补第二道判据——
 **显式零测试证据 ⇒ 拦截**，以及**计数里有失败却以 0 退出 ⇒ 以计数为准拦截**。
 判据刻意不过度 fail-closed：拿不到汇总行（日志被 `maxOutputBytes` 截断）或命令不是测试运行器
@@ -2093,18 +2093,18 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
 | #   | 断点                                                                                                                                                                                                                                                                                                                                                           | 证据                                                                                       |
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | 1   | **装配开关从未打开**：`decisionEngine.mode` 默认 `off`，而 `omniharness.json`/示例/用户级配置/`defaults` 里**都没有这个键**；`git log -S decisionEngine -- omniharness.json omniharness.json.example config.example.yaml` 为空（历史上也从未有过）。提交 `cab0c94` 标题写「升 mode 至 enforce」，但该提交**没有改任何配置文件**。                              | `tests/unit/layaWiring.test.ts`（新判据）                                                  |
-| 2   | **解释器默认值错**：适配器 `pythonPath ?? 'python3'`，**从不读** `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/adapters/laya/` 为空）；本机 `python3` = Python 3.14.8（无 laya/torch）。实测 `isAvailable()===false` ⇒ `decide` 恒返回 `{available:false}`。而 `THIRD_PARTY_ASSETS.md` 却宣称「默认指向项目内 venv」——**文档是假的**（已订正并留痕）。 | `node -e "…new LayaDecisionEngine().isAvailable()"` ⇒ false；显式指向 venv ⇒ true（312ms） |
+| 2   | **解释器默认值错**：适配器 `pythonPath ?? 'python3'`，**从不读** `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/kernel/adapters/laya/` 为空）；本机 `python3` = Python 3.14.8（无 laya/torch）。实测 `isAvailable()===false` ⇒ `decide` 恒返回 `{available:false}`。而 `THIRD_PARTY_ASSETS.md` 却宣称「默认指向项目内 venv」——**文档是假的**（已订正并留痕）。 | `node -e "…new LayaDecisionEngine().isAvailable()"` ⇒ false；显式指向 venv ⇒ true（312ms） |
 | 3   | **超时低于冷启耗时**：默认 30s，而单发路径每次重载权重实测**冷启 62.4s / 暖盘 18–19s** ⇒ 真实使用大概率超时并被静默吞掉。                                                                                                                                                                                                                                      | 计时实测（见 §8.7 修复后的对照）                                                           |
 | 4   | **消费面单点且静默**：唯一消费点是自验证回环的 verdict 预判；不可用/超时/失败一律只返回 `undefined`，不告警、不落 trace（trace 也要 `mode≠off`）。                                                                                                                                                                                                             | `verdictTracer.ts` 读取                                                                    |
 
 **修复（零配置可用 + 真正用得起 + 可见）**：
 
-1. **零配置解析**：新增 `src/adapters/laya/layaPaths.ts`——解释器 `decisionEngine.pythonPath` → `LAYA_PYTHON_BIN` →
+1. **零配置解析**：新增 `src/kernel/adapters/laya/layaPaths.ts`——解释器 `decisionEngine.pythonPath` → `LAYA_PYTHON_BIN` →
    项目内 `third-party/laya-venv/Scripts/python.exe` → **平台兜底名**（Windows `python` / 其它 `python3`，2026-10-07 评审订正）；
    权重 `modelDir` → `LAYA_MODEL_DIR` → 项目内 `third-party/laya-model`（**存在才用**）。
    判据 `tests/unit/layaPaths.test.ts`（9 例）。
 2. **热进程复用（把「用不起」变成「用得起」）**：`laya_infer.py --serve`（JSONL over stdio、懒加载、协议 stdout 与库噪声隔离）
-   - `src/adapters/laya/layaWarmWorker.ts`（长驻子进程、按在途请求切换事件循环存活性、
+   - `src/kernel/adapters/laya/layaWarmWorker.ts`（长驻子进程、按在途请求切换事件循环存活性、
      空闲回收、崩溃即在途 fail-open 并自动重启）。实测：端到端探测 **0.58–0.71s**（冷启 1.65s；探测预算 5s）/
      首次含加载 **12.7–24s** / 其后每次 **0.4–1.3s**（对照单发 18–62s）。
      判据 `tests/unit/layaWarmWorker.test.ts`（7 例，用同构协议的 Node 替身进程；含「加载帧永不回来」的解卡判据）。
@@ -2199,7 +2199,7 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
 
 ### 8.7c 2026-10-18：P1 多候选补丁验证（`patch_candidates`）
 
-新增 `src/adapters/tool/fs/patchCandidatesTool.ts`：模型一次提交 2–3 份 unified diff，工具先全部
+新增 `src/kernel/adapters/tool/fs/patchCandidatesTool.ts`：模型一次提交 2–3 份 unified diff，工具先全部
 解析/试算，逐候选临时写入工作区 → 跑**真实测试**（命令来自 `SelfVerifyPolicy`，模型不能自带命令）
 → `finally` 恢复原文件；只把最优候选写回工作区。排序：测试通过 > LaYa `noul` > 改动体量 > 序号；
 全部失败 ⇒ 一个字节都不落盘。
@@ -2258,7 +2258,7 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
 #### ① 成本硬预算的价目表不覆盖自家出货默认模型（fail-open）
 
 - **取证（本机实测）**：`RoutePricing.mergeRoutePricing()` 后对出货默认调 `priceFor`——
-  `deepseek-v4-flash`（`src/cli/argParser.ts:269` 的 CLI 缺省）与 `claude-sonnet-4-20250514`
+  `deepseek-v4-flash`（`src/apps/cli/argParser.ts:269` 的 CLI 缺省）与 `claude-sonnet-4-20250514`
   （`defaults/providers.json` 的 anthropic 预设默认）**双双落兜底价 1.0/3.0**（真实档位分别约 0.27/1.1 与 3/15）。
 - **后果（方向不定，两种都坏）**：Anthropic 档被**低估 3×/5×** ⇒ `--cost-budget-usd` 的熔断点右移
   （**该断不断**）；国产廉价档被高估 ⇒ 熔断过早。而快照里 `spentUsd` 照样精确到小数点后六位，看不出来。
@@ -2305,7 +2305,7 @@ Brier skill=0.820（仅证明仪器可算，**不是**真实模型增益）。
 - **本轮定性（一次性探针打印真实请求体，未入库）**：① 请求体只有 `{role,content}` 文本，
   **工具名/调用 id 一次都不出现**（运行时另生成 id，且本夹具 `compactionMaxTokens=30` 会把工具轮整体折掉）；
   ② **回合末的"记忆抽取器"请求正文就是整段"对话片段"**，其中含折叠后的旧摘要（哨兵）——
-  见 `src/adapters/memory/memoryExtractor.ts:170` 的提示词 `你是从对话中抽取"长期记忆"的抽取器…`。
+  见 `src/kernel/adapters/memory/memoryExtractor.ts:170` 的提示词 `你是从对话中抽取"长期记忆"的抽取器…`。
   ⇒ **根因**：旧过滤器只排除压缩器请求，于是抽取器请求被当成"任务请求"；它是否恰好排在最后取决于时序
   ⇒ 偶发红，**与回滚是否真截断无关**（不是产品缺陷）。
 - **修复**：辅助请求过滤器改为**按标记集合排除**（压缩器 + 记忆抽取器），并加**仪器自证**——
@@ -2403,7 +2403,7 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
 #### ④ `npm run build` 改为"先建暂存再换入"（不再先删 dist）
 
 实测故障：serve 占着 `dist` 时旧顺序在 `cleanDist` **删到一半**抛 `ENOTEMPTY` ⇒ 留"半删的 dist"
-（`--version` 能跑、`doctor` 报 `Cannot find module dist/src/core/agent.js`），而 tsc 从未开始。
+（`--version` 能跑、`doctor` 报 `Cannot find module dist/src/kernel/core/agent.js`），而 tsc 从未开始。
 新脚本 `scripts/buildDist.mjs`：tsc→`dist.next`+资产 → **换入**（优先 rename 真原子；被占用即回滚 +
 退化为覆盖同步）→ 清 `dist.old`。实测：① tsc 失败 ⇒ **dist 完好**、退出码 2；② 成功 ⇒ `✓ 已原子换入 dist`。
 
@@ -2419,7 +2419,7 @@ evolution/ subagent/ mcp/ worker/ native/ a2a/ plugin/` 等层的 `ports→实�
   原文件保留同名再导出（公共 API 面不变）；消费方声明随之改到端口契约。
 
 白名单 **21 → 0**、`--strict` 通过；`architectureGateLayers.test.ts` 新增 **④ 正对照**（临时在
-`src/ports/` 造一条探针禁边 ⇒ 门禁必须当场红并点名，删后恢复绿）——证明"空白名单"不是"没规则"。
+`src/contracts/ports/` 造一条探针禁边 ⇒ 门禁必须当场红并点名，删后恢复绿）——证明"空白名单"不是"没规则"。
 `docs/ARCHITECTURE_SPEC.md` §2 同步为「21/21 收口、不接受新增冻结项」；端口目录 31 → 32（新增 `worker`）。
 
 #### ⑥ CI 接线：把"开关"从文件里接到流水线上（不可满足的三项显式登记）
@@ -2481,7 +2481,7 @@ Windows PowerShell 的 `Set-Content -Encoding utf8` **会写 BOM**，`package.js
 `check.mjs` 的 `JSON.parse` 崩（报错既不点明 BOM、也不点明文件），连带 **4 条判据变红**；
 用 `Substring(1)` 手工剥 BOM 又**多剥了一个字符**（把 `docs/ARCHITECTURE_SPEC.md` 标题的 `#` 吃掉，
 判据①当场红）。处置：① `check.mjs` 新增 `readJson()`（剥 BOM 后 parse）替换全部 6 处 JSON 读取点
-——与 `src/config/configFile.ts` 的既有口径一致；② 剥 BOM 一律用**字节级**判断（读首三字节），
+——与 `src/kernel/config/configFile.ts` 的既有口径一致；② 剥 BOM 一律用**字节级**判断（读首三字节），
 不要用"去掉第一个字符"。
 
 ### 8.11 第 2 轮：配置键出口（F9）+ 缓存命中率分因 + 一条错误登记被推翻
@@ -2767,7 +2767,7 @@ Gemini 2.5 三档（1.25/10-cache 0.125、0.30/2.50-cache 0.03、0.10/0.40-cache
 #### 修法
 
 1. `/healthz` 健康体加 `pid`（跨平台零依赖即可认出"是不是另一个 OmniHarness serve、是哪一个"）。
-2. 新增 `src/cli/servePortConflict.ts`：`probe()` 三分类（`omni`/`foreign`/`free`）、
+2. 新增 `src/apps/cli/servePortConflict.ts`：`probe()` 三分类（`omni`/`foreign`/`free`）、
    `advice()` 给三条出路（换端口 / 停掉该 PID / `--take-port`）、
    `takeOver()` **只在确认自家人 + 正整数 PID 时**终止并等端口释放。分类 **fail-closed**：
    有响应但形状不符（缺 pid / status≠ok / 非 JSON / 4xx）一律 `foreign`。
@@ -2813,7 +2813,7 @@ serve 侧因此**拒绝注入保险库**（注入进去只会显示"能用但永
 与 `--vault-key-file` 同规格）。优先级 **`OMNIHARNESS_VAULT_KEY` > 显式 `--vault-key-file` > 默认密钥文件**；
 彻底关闭（不建任何密钥文件、Web 端如实显示未接线）：**`OMNIHARNESS_VAULT=0`**。
 
-#### 改动（`src/cli/vaultKeyDefaults.ts` 为新文件，纯解析/纯函数）
+#### 改动（`src/apps/cli/vaultKeyDefaults.ts` 为新文件，纯解析/纯函数）
 
 - `VaultKeyDefaults.resolveKeyFile / disabledByEnv / describeSource`：来源解析、关闭开关、人可读描述（**不含密钥内容**）；
 - `cliCredentialBuild.ts`：`buildServeVault` 默认接线且启动横幅如实报来源；`hydrateCredentials` **与 serve 共用同一套解析**；
@@ -3045,7 +3045,7 @@ describe 缺字段不补默认值）；`servePortConflict.test.ts` ⑤ 改为钉
 ⇒ 连 `kv list` 这种纯本地命令也要付 `Agent`/`Runtime`/编排栈的 ESM 解析成本。
 本机实测模块导入（含 ~75ms Node 启动）：`cliDataCmds` ≈ 710ms、`execCli` ≈ 990ms ⇒ 链顶 **~280ms**。
 
-修法用一个 ESM 事实：**继承只向上依赖，加载祖先不会加载后代**。新增 `src/cli/execLocal.ts`
+修法用一个 ESM 事实：**继承只向上依赖，加载祖先不会加载后代**。新增 `src/apps/cli/execLocal.ts`
 （`ExecLocal extends CliDataCmds`）持有 18 个本地命令的分发；`exec.ts` 先加载它，
 只有链顶命令（`compare`/`native`/`goal`/`workflow`/`tui`/`routines`/`lsp`/`evolution`/`capability`/`license`）
 与默认 agent 路径才加载 `execCli.js`。
@@ -3204,7 +3204,7 @@ CliMcpCmds ← CliDataCmds`）**仍是单继承**；按同样手法**再拆一�
   `graphResumeRpc.test.ts`（**serve RPC** `graph.resume`：中断步骤重跑 / attempt 递增 / 规格取自存档首行 / 不新写 run.start / 缺失与不存在 fail-closed）。
 - **复跑**：上述 workflow 判据 + 既有 `workflowRunner`/`workflowRunnerLimits`/`runWorkflowToolContract`/`workflowLayerPolicy` + 旗标判据（`knownFlags`/`cliFlagValueRegistry`）全绿；
   `graphRunPersist`（serve 侧落盘，并行会话补）亦绿。
-- **门禁**：`--tier=typed` 2/2 ✓；`architectureGate` ✓（本轮**自己踩过一次**：把带方法的 `WorkflowStepStatuses` 放进 `src/ports/**` 被判「ports 纯度」违规 ⇒ 已把实现移到 `autonomy/`，端口层只留类型）；
+- **门禁**：`--tier=typed` 2/2 ✓；`architectureGate` ✓（本轮**自己踩过一次**：把带方法的 `WorkflowStepStatuses` 放进 `src/contracts/ports/**` 被判「ports 纯度」违规 ⇒ 已把实现移到 `autonomy/`，端口层只留类型）；
   标准增量门禁 ✓；接线完整性 ✓。
 
 #### 10.3.1 续跑入口的三条缝（本轮补齐）与两个实测坑
@@ -3429,7 +3429,7 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 | 项                                                | 结果                                                                                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `npm run typecheck`（双端 tsc --noEmit）          | 通过                                                                                                                    |
-| `npm run build`（tsc emit）                       | dist 产物 specifier 已重写为 `.js`，`import('./dist/src/a2a/index.js')` 运行时可加载                                    |
+| `npm run build`（tsc emit）                       | dist 产物 specifier 已重写为 `.js`，`import('./dist/src/protocols/a2a/index.js')` 运行时可加载                                    |
 | `node --test dist/tests/unit/*.test.js`           | 3424 tests / **3415 pass / 1 fail**（fail 为 §11 已登记的 shellTool 会话取消，**HEAD 同样红**，环境性存量，与本轮无关） |
 | `npx vitest run`                                  | **82 文件 / 483 例全绿**                                                                                                |
 | `npm run web:build`                               | 单 bundle 1127 KB（低于 1200 KB 告警线）                                                                                |
@@ -3462,7 +3462,7 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 
 **两项结构性分叉（2026-10-17 测试栈统一已收口，留档注销）**：
 
-1. **后端测试栈** ✅ 已迁 vitest：544 个 `tests/unit` + `tests/integration` 判据从 `node:test`/dist 迁 `import { test } from 'vitest'`（含 spawn `dist/` 产物的 46 个判据仍需先 `npm run build`），源码直跑 `import '../../src/x.ts'`。配套：worker 线程经 `src/util/concurrency/workerEntryUrl.ts` + `--experimental-strip-types` 回落 `.ts`；`mcpSdkProbe` 改逐个解析 REQUIRED 子路径取 package.json（主入口 `dist/cjs/index.js` 缺失必抛）；`vitest.workspace.ts` 双项目（node 并行 / web 串行 + react 别名桩）。`npm test` / `test:integration` / `coverage` 脚本已改指 vitest；**`coverage:check` 的 v8 覆盖率改造已收口**——`scripts/coverageGate.mjs` 改消费 `coverage.reporter=json-summary` 的 `coverage-summary.json`（绝对路径键规整为「src 下的 .ts 相对路径」、聚合只统计被执行文件），`coverageEnvDependent.json` 36 个键 `.js`→`.ts` 重定键，三份基线（`coverageBaseline` / `coverageInventoryBaseline` / `coverageEnvDependent`）按 `src/**` 源码口径一次性重测（属迁移重基线，非回归；提交须写明）。
+1. **后端测试栈** ✅ 已迁 vitest：544 个 `tests/unit` + `tests/integration` 判据从 `node:test`/dist 迁 `import { test } from 'vitest'`（含 spawn `dist/` 产物的 46 个判据仍需先 `npm run build`），源码直跑 `import '../../src/x.ts'`。配套：worker 线程经 `src/kernel/util/concurrency/workerEntryUrl.ts` + `--experimental-strip-types` 回落 `.ts`；`mcpSdkProbe` 改逐个解析 REQUIRED 子路径取 package.json（主入口 `dist/cjs/index.js` 缺失必抛）；`vitest.workspace.ts` 双项目（node 并行 / web 串行 + react 别名桩）。`npm test` / `test:integration` / `coverage` 脚本已改指 vitest；**`coverage:check` 的 v8 覆盖率改造已收口**——`scripts/coverageGate.mjs` 改消费 `coverage.reporter=json-summary` 的 `coverage-summary.json`（绝对路径键规整为「src 下的 .ts 相对路径」、聚合只统计被执行文件），`coverageEnvDependent.json` 36 个键 `.js`→`.ts` 重定键，三份基线（`coverageBaseline` / `coverageInventoryBaseline` / `coverageEnvDependent`）按 `src/**` 源码口径一次性重测（属迁移重基线，非回归；提交须写明）。
 2. **web/test 语言** ✅ 93 个 `.mjs` + 11 个辅助文件已转 `.ts` 并纳入 `web/tsconfig.json` strict 类型检查（module 升 ES2022 支持顶层 await）。`vitest.workspace.ts` 的 web 项目 include 指向 `web/test/**/*.test.ts`，react 别名桩同步改名。全仓 `.test.mjs` 引用已 sed 替换。
    > 2026-10-18 二次收口：**react 别名桩已整体删除**（组件判据全量迁 RTL），当前形态见 §15.5。
 
@@ -3530,7 +3530,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | `npx tsc --noEmit -p tsconfig.json` / `-p web/tsconfig.json` | 双端 exit 0                                                                |
 | `npx eslint . --max-warnings=0`                              | 0 问题                                                                     |
 | `node scripts/runGates.mjs`（fast）                          | 通过                                                                       |
-| `npm run build` + `node dist/src/cli/exec.js --version`      | 构建成功、产物可跑                                                         |
+| `npm run build` + `node dist/src/apps/cli/exec.js --version`      | 构建成功、产物可跑                                                         |
 | 产物 ESM 深检：`import('./dist/src/index.js')`               | barrel **140 个导出**加载成功（等于一次性验证整张模块图的 `.ts→.js` 重写） |
 
 > 注：`dist/tests/*.js` 里仍有 6 处 `.ts` 说明符，全部位于**测试夹具字符串**内
@@ -4226,7 +4226,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
   静态响应交给成熟依赖 **`sirv`（MIT，依赖树 3 个包）**：MIME、目录/扩展名回落、Range/HEAD、
   缓存头由它负责；本仓只保留业务边界——路径先过 `SafeFs.safeStat`（词法 + realpath，拦
   symlink/junction，点文件默认拒绝、`.well-known` 例外），再把**具体文件**交给 sirv。
-  `sirv` 已登记进 `dependency-allowlist.json`（`layer: src/server/transport`）。
+  `sirv` 已登记进 `dependency-allowlist.json`（`layer: src/apps/server/transport`）。
   端口经 `/healthz.previewPort` 暴露，前端不猜；注入 `workspaceRoot` 即自动启用。
 - **安全边界（本轮核心取舍）**：不复用主服务同源的 `/files`（它是下载语义，且同源 iframe
   能带着会话调 `/rpc`）。预览走独立源，且 iframe 主机名**故意与 UI 不同**
@@ -4273,7 +4273,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 **本轮落地**：
 
-- 新增 `src/config/workspaceTrust.ts` + `workspaceTrustStore.ts` + `ports/config/workspaceTrust.ts`：
+- 新增 `src/kernel/config/workspaceTrust.ts` + `workspaceTrustStore.ts` + `ports/config/workspaceTrust.ts`：
   restricted 默认、`--trust-workspace` 显式授权、用户级 `~/.omniharness/trust.json` TOFU 指纹、
   policy floor（`approval:auto`/`sandbox:passthrough`/`escalation:auto`/`elevatedSandbox:passthrough` 不能被项目层给出）。
 - 统一归一化：`BOM 剥离`（`util/textBom.ts`，ConfigFile/ProfileLoader/trust/bundle 共用）、
@@ -4306,7 +4306,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - `TraceSpanBuilder`：有 manifest 的会话在 drain 时额外发 `invoke_agent` span（`gen_ai.operation.name`、
   `session.id`、`gen_ai.request.model`、`harness.manifest.*`）；无 manifest 的旧事件流不产该 span，golden trace 不变；
   会话切换时重置 stats/openCalls/manifest，避免把上一会话的 id/起点带过来。
-- `AbMetrics`（`src/eval/abMetrics.ts`）：pass@k / pass^k / tokensPerSolved（无成功或 usage 缺失为 null）/ 下标对齐的 paired Δ；新增 `tests/unit/abMetrics.test.ts`。
+- `AbMetrics`（`src/kernel/eval/abMetrics.ts`）：pass@k / pass^k / tokensPerSolved（无成功或 usage 缺失为 null）/ 下标对齐的 paired Δ；新增 `tests/unit/abMetrics.test.ts`。
 - `tools/eval/harnessAb.mjs` + `tools/eval/README.md` + `npm run eval:harness`：可执行 A/B runner（`--a/--b @file.json`、`--k`、`--tasks`、`--dry-run`），
   任务必须有机械验收 `files`；凭据在报告/日志中打码（含嵌套对象）；无 key 时跳过而不是 mock 冒充。
 
@@ -4357,7 +4357,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 ## 42. 2026-10-22 临时产物卫生（P2 维护项）
 
-- `src/util/tmpSweep.ts`：只清 `os.tmpdir()` 下本仓前缀（`omni-chrome-`/`omni-wt-`/`omni-ab-`/`omni-manifest-`/`omni-trust-`/`laya-req-`）且超龄条目；
+- `src/kernel/util/tmpSweep.ts`：只清 `os.tmpdir()` 下本仓前缀（`omni-chrome-`/`omni-wt-`/`omni-ab-`/`omni-manifest-`/`omni-trust-`/`laya-req-`）且超龄条目；
   符号链接跳过、dry-run 不删、删除失败只记录不崩、扫描后条目消失按已达成处理。
 - `npm run tmp:sweep -- [--apply] [--json] [--older-than-hours N]`（默认 dry-run）；`tools/hygiene/README.md`。
 - `npm start` 构建后自动清一次 **>7 天**条目，失败仅告警不阻断启动。
@@ -4591,7 +4591,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 
 ## 59. 2026-10-25 性能升级第二轮：S1 会话旁路摘要
 
-- **新增旁路**：`src/util/sessionSummaryBuilder.ts`（唯一摘要口径；2026-10-31 由 sessionSummary.ts 改名对齐主类）+ `sessionSummarySidecar.ts`
+- **新增旁路**：`src/kernel/util/sessionSummaryBuilder.ts`（唯一摘要口径；2026-10-31 由 sessionSummary.ts 改名对齐主类）+ `sessionSummarySidecar.ts`
   （`<sid>.jsonl.summary.json`，`{version,size,summary}`，tmp+rename 原子写）。
   `SessionScanCache.readSummary` 在旁路 `size` 与当前文件戳一致时**完全不读 `.jsonl`**；
   缺失/过期才逐行解析并异步回写。`JsonlStorage.save` 同步写旁路；回合末追加通道成功时
@@ -5183,7 +5183,7 @@ badge bg transparent）+ 截图；`vitest web` 86/490 全绿（含 a11y 对比�
 - **模型**：底位级 `l(v)=1+max l(后继)`，就绪集合按 `l(v)` 降序填满并发槽，等任意一个完成即重算
   （列表调度 / HEFT 简化版；Graham 界 `makespan ≤ (2−1/m)·OPT`）。
 - **落地**：
-  - `src/autonomy/workflowPriority.ts`：底位级 + 稳定排序；
+  - `src/kernel/autonomy/workflowPriority.ts`：底位级 + 稳定排序；
   - `WorkflowRunner.scheduleReady` / `classifyReady`：全只读工作流走就绪队列，去掉层屏障；
   - `WorkflowRunnerOptions.scheduling: 'ready' | 'levels'`（缺省 ready）、
     `priority: 'critical-path' | 'spec'`（缺省 critical-path）。
@@ -5323,7 +5323,7 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   Temp 从不自动回收，这条假设不成立）；② 泄漏前缀根本不在 `TmpSweep.DEFAULT_PREFIXES` 名单里
   （枚举式名单追不齐十余个 `omni-*` 变体——枚举即失败模式）；③ **`TmpSweep` 自 2026-10-22 写好后
   没有任何生产调用方**，是永远不跑的死代码；会话存档则连保留策略都没有（本机 879 组会话只增不减）。
-- **归属单一事实源 `src/util/omniHome.ts`**：15+ 处 `join(homedir(), '.omniharness', …)` 全部收口
+- **归属单一事实源 `src/kernel/util/omniHome.ts`**：15+ 处 `join(homedir(), '.omniharness', …)` 全部收口
   （configFile / profileLoader / userLevelConfigStore / workspaceTrustStore / serveInstance /
   daemonController / routineScheduler / mcpAuthTokenStore / vaultKeyDefaults / sessionStorageLocation /
   cliServerCmds / cliBuildConfig / bundleCommand / doctorRunner）。优先级 **显式注入 > `OMNI_HOME`
@@ -5332,7 +5332,7 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
   屋顶，不再散在全体应用共享的 OS Temp。
 - **家族前缀**：`TmpSweep.DEFAULT_PREFIXES` 从 6 个精确枚举改为 `omni-*` / `omniharness-*` / `laya-req-`
   三个家族前缀（本仓命名空间 + 24h 年龄阈值 + 跳符号链接，安全面是既有纪律的真子集）。
-- **自动维护巡检 `src/util/maintenanceRunner.ts`**（serve 启动 + `OMNI_MAINTENANCE_INTERVAL_HOURS`
+- **自动维护巡检 `src/kernel/util/maintenanceRunner.ts`**（serve 启动 + `OMNI_MAINTENANCE_INTERVAL_HOURS`
   周期（缺省 6h，unref）+ `gc` 子命令三方共用同一实现）：TmpSweep（扫归属根 tmp/ + OS Temp 兜底）、
   `ServeInstance.sweepAll`（全量陈旧实例记录——单端口 `sweep` 对临时高位端口永不自愈，本机实测积压
   19 份）、`SessionGc`（keepNewest=50 硬保护 / 90 天年龄淘汰 / 4 GiB 总量封顶，归档目录优先删；
@@ -5411,7 +5411,7 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
      **直载可见、检索永远 count:0**（实测真模型 63 次空转）。修复：全部注册完成后**统一 reindex 一次**
      （`configToolRegistry.defaultTools`）。判据：`defaultToolsInventory.test.ts` 新增「辅助工具可检索」。
   2. **`--dump-config` 明文泄漏 `apiKey`（严重）**：旧实现直接 `JSON.stringify(CliArgs)`，把 DPAPI 解出的
-     key 打进 stdout。修复：新增 `src/cli/dumpRedactor.ts`（递归打码 `apiKey`、`auth` 整块、`env`/`headers`
+     key 打进 stdout。修复：新增 `src/apps/cli/dumpRedactor.ts`（递归打码 `apiKey`、`auth` 整块、`env`/`headers`
      里名字像凭据的条目；非敏感值保留以维持排障价值），`execCli` 走它。判据：`dumpConfigRedaction.test.ts`
      3 例；`smoke:real` 的 dump 检查改为「必须出现 `<redacted>` 且不得有 `sk-…`」。
      **事故记账**：本轮排障时该泄漏被真实复现过一次（探针输出里出现了明文 key）⇒ **那把 key 应视为已暴露，
@@ -5493,7 +5493,7 @@ rightCollapse=false / centerToggle=true`；全量 **112 文件 / 597 例全绿**
 - **k=3（arrays-basic / strings-basic / json-basic，各 3 次）**：pass@1 **0.889**（8/9）、
   pass@k **1.000**、pass^k **0.667**、`tok/solved` **68,053**；唯一失败是 json-basic run2 的
   180 s 超时（`tokens=0`、`wallMs=180030`）。逐次：arrays 3/3、strings 3/3、json 2/3。
-- **新增预算敏感性旋钮 `--timeout-scale`**（`src/eval/longTaskCatalog.ts` + runner）：只放大
+- **新增预算敏感性旋钮 `--timeout-scale`**（`src/kernel/eval/longTaskCatalog.ts` + runner）：只放大
   **单任务超时**，**不改任务规格**；报告记录倍率、人类摘要显式标注「非基准口径」。默认 1×，
   对外报数必须用 1×。
 - **对照实验（2× = 360 s，仅两个此前超时的任务）**：`csv-basic` 与 `json-basic` **均通过**
@@ -6609,7 +6609,7 @@ ref => ref.getAttribute('title')` 并在 onShow 里摘 title；react-tooltip 要
   去掉 `.tree .node`。
 - **验证**：`mount` 13/13（含新树行为用例）、`workspaceEpoch` 3/3、`cssSourceHygiene` 通过；
   全量 web 判据见提交信息。
-- **视觉留档已补（同日）**：`visualProbe` 的夹具加 `fs.list`（小树：src/core/_、web/_、README.md）——
+- **视觉留档已补（同日）**：`visualProbe` 的夹具加 `fs.list`（小树：src/kernel/core/_、web/_、README.md）——
   之前侧栏文件树在真机里永远是空态（夹具缺失，不是渲染缺陷，与 `model.catalog` 同一条口径）。
   真机截图 `web/archive/file-tree-dark-20261029.png` 确认：`▾ src` 展开、缩进层级、选中底、
   开关箭头、13px 等宽都对。
@@ -6808,7 +6808,7 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
   - `scripts/devConfig.mjs`（+ `.d.mts`）：dev 工具唯一事实源——`DEV_DEFAULTS` + `resolveDevAddress()`
     解释 `OMNI_BACKEND_PORT` / `OMNI_UI_PORT`（旧名 `OMNI_FRONTEND_PORT` 收编为别名）/
     `OMNI_DEV_HOST`，产出端口/主机/拼好的 origin（代理目标与就绪探针同源）；
-  - `src/cli/serveDefaults.ts`：后端字面量唯一出处——`DEFAULT_SERVE_PORT` +
+  - `src/apps/cli/serveDefaults.ts`：后端字面量唯一出处——`DEFAULT_SERVE_PORT` +
     `resolveServeDefaultPort()`（读同名 `OMNI_BACKEND_PORT`，`--port` 旗标仍最高优先）；
     cliServerCmds / cliIdentityDaemonCmds 两处 `?? 8787` 全部换装。绑定主机不动：
     `ServerAuthGuard.DEFAULT_HOST` + `OMNI_SERVE_HOST` 本就是单一事实源；
@@ -7067,7 +7067,7 @@ W2 的「壳层与导航」到此收口。逐项交代，避免以后有人把�
 - **本片范围（P1）**：`HttpServer` 构造函数里写死的 `headersTimeout 30_000` / `requestTimeout 60_000` /
   `maxConnections 2048` / `MAX_BODY_BYTES 8 MiB` / 静态缓存 64 条 / 64 MiB，以及 `PreviewServer` 的
   15s / 30s / 64。全部部署环境相关（慢网络、被扫、大附件都要调），此前只能改代码重发。
-- **形态**：`defaults/limits.json`（出厂值 + `env` 名 + `notes`）→ `RuntimeLimits`（`src/util/runtimeLimits.ts`，
+- **形态**：`defaults/limits.json`（出厂值 + `env` 名 + `notes`）→ `RuntimeLimits`（`src/kernel/util/runtimeLimits.ts`，
   构造期 fail-closed 校验）→ `omniharness.json` 的 `limits` 段 → 四段接线
   （`FileConfig` / `CliArgs` / `CliSubsystemSections` / `ConfigFactory.passthroughSections`）→
   `HttpServer` / `PreviewServer`。优先级：配置 > 数据声明的 env > 数据默认值。
@@ -7527,7 +7527,7 @@ busy 占位符排队口径、win32 一体化标题条。功能面不动（用户
 
 **裁决**：按门禁自述的「棘轮 + 每轮复核」口径执行基线重冻——`npm run coverage` 产新鲜 JSON 后 `node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json --dump-baseline --force`（--force 理由即本节：环境漂移 + 聚合上升 + 新文件低覆盖从「永久红灯」转为「登记债 + 棘轮盯防」）。10 个低覆盖文件的测试补齐登记为下一批 coverage 施工项（按 acpStdioTransport → serve 控制族 → pluginWorker 顺序）。
 
-**2026-11-02 补记（重冻已落地，并发会话 826d8a23 随提交带基线）：** `scripts/coverageBaseline.json`（1306 个文件）+ `scripts/coverageEnvDependent.json`（4 个宿主相关下限）已按本机全量 coverage 重冻；`node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json` 实测 **✓ 聚合 85.66% ≥ 80%，1306 个文件无超容差回退**（此前 47 个文件「回退超 2.5 点」的假红全部消失）。`src/context/corpusCollector.ts` 100% 高于基线 95.74%，留待下轮 `--dump-baseline` 收紧（不阻塞）。47 个 <30% 文件由「永久红灯」转为**登记债 + 棘轮盯防**，其中本节点名的 8 个实测为：acpStdioTransport 3.77%、serveControl 14.81%、serveShutdown 13.79%、serveTrust 26.66%、mcpCompositeInputHandler 0%、pluginWorkerMain.mjs 0%、runPlanTool 22.93%、cliAuthCmds 26.72%；测试补齐顺序不变（acpStdioTransport → serve 控制族 → pluginWorker → 其余）。这是「登记债」不是「已覆盖」——下一批仍须按序补测，不得把基线重冻当作测试补齐。
+**2026-11-02 补记（重冻已落地，并发会话 826d8a23 随提交带基线）：** `scripts/coverageBaseline.json`（1306 个文件）+ `scripts/coverageEnvDependent.json`（4 个宿主相关下限）已按本机全量 coverage 重冻；`node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json` 实测 **✓ 聚合 85.66% ≥ 80%，1306 个文件无超容差回退**（此前 47 个文件「回退超 2.5 点」的假红全部消失）。`src/kernel/context/corpusCollector.ts` 100% 高于基线 95.74%，留待下轮 `--dump-baseline` 收紧（不阻塞）。47 个 <30% 文件由「永久红灯」转为**登记债 + 棘轮盯防**，其中本节点名的 8 个实测为：acpStdioTransport 3.77%、serveControl 14.81%、serveShutdown 13.79%、serveTrust 26.66%、mcpCompositeInputHandler 0%、pluginWorkerMain.mjs 0%、runPlanTool 22.93%、cliAuthCmds 26.72%；测试补齐顺序不变（acpStdioTransport → serve 控制族 → pluginWorker → 其余）。这是「登记债」不是「已覆盖」——下一批仍须按序补测，不得把基线重冻当作测试补齐。
 
 ### 203.5 仍真实遗留（诚实登记，未在本轮范围）
 

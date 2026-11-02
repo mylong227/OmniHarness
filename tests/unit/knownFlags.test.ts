@@ -13,7 +13,7 @@
  * | --- | --- |
  * | ① | 源码里任何 `reader.value/has/...('--x')` 式**读取点**都必须被 `isKnownFlag` 接受（防漏登记） |
  * | ② | `KNOWN_EXTRA_FLAGS` 不得与 `FLAG_TABLE` / `VALUE_FLAGS` 重复（防两处各写一份而漂移） |
- * | ③ | `KNOWN_EXTRA_FLAGS` 每一项都必须在 `src/cli/**` 里真的被读取（防白名单腐化成"什么都放行"） |
+ * | ③ | `KNOWN_EXTRA_FLAGS` 每一项都必须在 `src/apps/cli/**` 里真的被读取（防白名单腐化成"什么都放行"） |
  * | ④ | 实跑：未知旗标必须非零退出并给出可读原因（修复前它是静默通过） |
  * | ⑤ | 正对照：`--help` 仍打印用法、已知旗标仍被接受（判据不是"一律拒绝"） |
  */
@@ -22,12 +22,12 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from '../../src/cli/cliFlagTable.ts';
-import { KNOWN_EXTRA_FLAGS } from '../../src/cli/cliFlagTable.ts';
+import { CliFlagTable, FLAG_TABLE, VALUE_FLAGS } from '../../src/apps/cli/cliFlagTable.ts';
+import { KNOWN_EXTRA_FLAGS } from '../../src/apps/cli/cliFlagTable.ts';
 
 const ROOT = process.cwd();
 const SRC_DIR = join(ROOT, 'src');
-const CLI_ENTRY = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI_ENTRY = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 
 /**
  * `src/**` 全域递归的 .ts 源文本（2026-11-01 扫描半径扩展）。
@@ -59,7 +59,7 @@ function cliSources(): readonly { readonly name: string; readonly text: string }
 
 /**
  * 旗标豁免表（全 src 扫描半径下的**显式备案**，flag → 理由）：
- *  - eval 7 旗标：`src/eval/longTaskCatalog.ts` 的自有解析器不经 ArgParser、自带 fail-closed
+ *  - eval 7 旗标：`src/kernel/eval/longTaskCatalog.ts` 的自有解析器不经 ArgParser、自带 fail-closed
  *    （未知参数抛错），只被 tools/eval 驱动脚本调用——登记进认识面反而让它们在任意子命令
  *    被静默接受，违反 fail-closed；
  *  - `--require`：Node 运行时旗标（`shellChildEnv.ts` 清洗 NODE_OPTIONS 时剔除宿主 shim 用），

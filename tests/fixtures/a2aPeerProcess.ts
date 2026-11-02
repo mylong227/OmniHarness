@@ -14,27 +14,27 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
-import type { DelegateRequest, DelegateResult } from '../../src/a2a/index.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import { Agent } from '../../src/core/agent.ts';
-import { SubagentRuntimeFactory } from '../../src/subagent/subagentRuntimeFactory.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
+import type { DelegateRequest, DelegateResult } from '../../src/protocols/a2a/index.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { SubagentRuntimeFactory } from '../../src/kernel/subagent/subagentRuntimeFactory.ts';
 import {
   A2aServer,
   HttpA2aServerTransport,
   WsA2aServerTransport,
   A2A_WS_PATH,
-} from '../../src/a2a/index.ts';
+} from '../../src/protocols/a2a/index.ts';
 
 /** 确定性桩模型：不产出工具调用（子代理一步收敛），文本携带本进程 pid。 */
 const stubModel: ModelPort = {

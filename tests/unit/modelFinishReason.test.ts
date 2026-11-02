@@ -1,7 +1,7 @@
 /** 模型结束原因归一化判据（2026-10-21）。 */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ModelFinishReasons } from '../../src/util/modelFinishReasons.ts';
+import { ModelFinishReasons } from '../../src/kernel/util/modelFinishReasons.ts';
 
 test('normalize：各厂商截断字面量统一为 length', () => {
   for (const raw of [

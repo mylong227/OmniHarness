@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { LinuxBwrapSandbox } from '../../src/adapters/sandbox/linuxBwrapSandbox.ts';
-import { MacOsSeatbeltSandbox } from '../../src/adapters/sandbox/macosSeatbeltSandbox.ts';
+import { LinuxBwrapSandbox } from '../../src/kernel/adapters/sandbox/linuxBwrapSandbox.ts';
+import { MacOsSeatbeltSandbox } from '../../src/kernel/adapters/sandbox/macosSeatbeltSandbox.ts';
 
 const WORKSPACE = '/home/user/workspace';
 

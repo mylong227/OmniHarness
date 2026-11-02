@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { McpAuthTokenStore, type McpStoredToken } from '../../src/mcp/mcpAuthTokenStore.ts';
+import { McpAuthTokenStore, type McpStoredToken } from '../../src/protocols/mcp/mcpAuthTokenStore.ts';
 
 function token(resource: string, accessToken = 'at'): McpStoredToken {
   return {

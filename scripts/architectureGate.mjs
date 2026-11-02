@@ -34,11 +34,16 @@ const files = [];
   }
 })(root);
 
+// 2026-11-02 分层后：`src/` 下多了一层 contracts / kernel / protocols / apps。
+// key 归一化时剥掉该层，于是「core/agent」「ports/x」「adapters/y」这些既有键名、
+// 白名单与规则前缀全部保持原样——门禁语义不因物理分层而改变。
+const LAYER_PREFIX = /^(contracts|kernel|protocols|apps)\//;
 const key = (f) =>
   f
     .split(path.sep)
     .join('/')
     .replace(/^src\//, '')
+    .replace(LAYER_PREFIX, '')
     .replace(/\.ts$/, '');
 
 // ---- 2. 解析相对 import 边（from → to 模块 key） ----
@@ -64,9 +69,9 @@ for (const f of files) {
 const CORE_TO_ADAPTERS_WL = new Set([]);
 // adapters→core（0 条，docs §1.3；runGoalTool→agent 经 AgentFactoryPort 端口注入清零，P1 全部归零）
 const ADAPTERS_TO_CORE_WL = new Set([]);
-// ports 纯度：存量已清零（P1.3 完成——`ports/model.ts` 的 2 个错误类迁至 `src/errors/**`，
+// ports 纯度：存量已清零（P1.3 完成——`ports/model.ts` 的 2 个错误类迁至 `src/contracts/errors/**`，
 // 原路径仅保留 `export ... from` 再导出，公共 API 面不变）。
-// 空集合 = 「新增即红」：此后 src/ports/** 出现任何 class 声明都会阻断提交。
+// 空集合 = 「新增即红」：此后 src/contracts/ports/** 出现任何 class 声明都会阻断提交。
 const PORTS_CLASS_WL = new Set([]);
 // ports→实现层：**新增规则（2026-09-22）**，2026-10-11 把覆盖补全（原只认 6 个硬编码前缀）。
 // 为什么需要：原三条规则只覆盖 core↔adapters 与 ports 的「第三方裸导入 / class 声明」，
@@ -112,14 +117,21 @@ const FOUNDATION_LAYERS = ['errors/', 'util/'];
  * 与 `--strict` 的关系：白名单内 21 条存量边**不**参与 `--strict` 的"白名单必须为空"断言
  * （同依赖环的先例：环的阻断由"新增"承担）——否则本规则要么无法开全枚举、要么 CI 恒红。
  */
-const IMPL_LAYERS = fs
-  .readdirSync(root, { withFileTypes: true })
+// 2026-11-02 分层后：src 下只有 4 个层目录，顶层枚举已失去意义（只会得到
+// contracts/kernel/protocols/apps）。改为**从归一化后的模块键**取一级目录，
+// 这样枚举到的仍是 core/ adapters/ config/ …，与规则前缀、白名单保持同一套名字。
+const IMPL_LAYERS = [
+  ...new Set(
+    files
+      .map(key)
+      .map((k) => k.split('/')[0])
+      .filter(Boolean),
+  ),
+]
   .filter(
-    (e) =>
-      e.isDirectory() &&
-      !['ports', ...FOUNDATION_LAYERS.map((l) => l.replace(/\/$/, ''))].includes(e.name),
+    (name) => !['ports', ...FOUNDATION_LAYERS.map((l) => l.replace(/\/$/, ''))].includes(name),
   )
-  .map((e) => `${e.name}/`)
+  .map((name) => `${name}/`)
   .sort();
 if (IMPL_LAYERS.length === 0) {
   // 空枚举 = 规则空转（本仓"0 项=通过"的同一形态）⇒ 显式失败，绝不静默通过。
@@ -145,7 +157,7 @@ for (const { from, to } of edges) {
 // ---- 4.5 依赖环（新增规则，2026-09-29） ----
 // 为什么需要：上面三条只拦「跨层直连」，拦不住「同层/跨域互引成环」。实测存量 5 组环（41 个模块）,
 // 成因全部是**接口定义散落在实现文件里**——A 为了用 B 的 `interface` 而 import B，B 又反向依赖 A。
-// 把接口抽到基础层（src/ports/**，一接口一文件）即可断环；本规则负责「不许再新增环」。
+// 把接口抽到基础层（src/contracts/ports/**，一接口一文件）即可断环；本规则负责「不许再新增环」。
 //
 // 白名单口径 = **成员集合**，不是「整组完全相等」：环缩小 = 重构有进展 ⇒ 放行；
 // 一旦环里出现白名单之外的模块 ⇒ 判新增环，阻断。这样白名单只减不增，天然配合「冻结-递减」。
@@ -180,10 +192,10 @@ const CYCLE_WL_MEMBERS = new Set([
   'spark/sparkCycleTelemetry',
   'spark/sparkEngineSet',
   // 环⑥（2026-10-03 第十二轮 G25 **已拆解**）：原为 20 成员的「装配-运行时大环」，
-  // 成因之一是「类型已在 src/ports/**、却绕道实现文件导入」——34 处导入改为直连 ports 后该环消失。
+  // 成因之一是「类型已在 src/contracts/ports/**、却绕道实现文件导入」——34 处导入改为直连 ports 后该环消失。
   // 其残留的 4 成员配置子环（configBuilder ↔ configFactory ↔ configToolRegistry/corePortsAssembler）
   // 也已于 **G25-b** 拆解：把 `SubagentPortSeed`（引用了 `MediaStack`）从 `configFactory.ts` 搬到
-  // `src/ports/config/subagentPortSeed.ts`、`MediaStack` 搬到 `src/ports/media/mediaStack.ts`，
+  // `src/contracts/ports/config/subagentPortSeed.ts`、`MediaStack` 搬到 `src/contracts/ports/media/mediaStack.ts`，
   // 于是 configBuilder / configToolRegistry 不再反向 import configFactory ⇒ 依赖方向恢复单向。
   // 环组数实测 6 → 5；本白名单随之**收紧**（删掉这 4 个成员），不留陈旧豁免。
 ]);
@@ -242,7 +254,7 @@ const cycleViolations = findCycleGroups(adjacency).map((g) => ({
 const portsClassViolations = [];
 for (const f of files) {
   const fk = f.split(path.sep).join('/');
-  if (!fk.startsWith('src/ports/')) continue;
+  if (!fk.startsWith('src/contracts/ports/')) continue;
   const fileWl = PORTS_CLASS_WL.has(fk);
   const text = fs.readFileSync(f, 'utf8');
   // 第三方裸导入（node: 内置除外）

@@ -4,7 +4,7 @@
 import type { ChildProcess } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 
-/** 与 src/cli/serveReadyFile.ts 的 ServeReadyInfo 对齐。 */
+/** 与 src/apps/cli/serveReadyFile.ts 的 ServeReadyInfo 对齐。 */
 export interface ReadyInfo {
   readonly protocol: 1;
   readonly pid: number;

@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SessionBaselineStore } from '../../src/adapters/tool/fs/sessionBaselineStore.ts';
+import { SessionBaselineStore } from '../../src/kernel/adapters/tool/fs/sessionBaselineStore.ts';
 
 test('① set/get：按 (路径, 会话) 隔离，互不串基线', () => {
   const store = new SessionBaselineStore();

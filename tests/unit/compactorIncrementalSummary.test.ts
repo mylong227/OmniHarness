@@ -3,13 +3,13 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
 import type {
   ModelMessage,
   ModelOutput,
   ModelPort,
   ModelRequest,
-} from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/model/model.ts';
 
 /** 记录每次摘要请求的模型桩。 */
 class SpyModel implements ModelPort {

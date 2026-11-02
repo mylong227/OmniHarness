@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { HttpA2aServerTransport } from '../../src/a2a/httpA2aTransport.ts';
+import { HttpA2aServerTransport } from '../../src/protocols/a2a/httpA2aTransport.ts';
 
 test('GET /.well-known/agent-card.json 返回已设置的 AgentCard；未设置 404', async () => {
   const transport = new HttpA2aServerTransport();

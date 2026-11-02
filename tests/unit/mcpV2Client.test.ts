@@ -5,10 +5,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import { McpStatelessClient } from '../../src/mcp/mcpStatelessClient.ts';
-import { log } from '../../src/util/logger.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import { McpStatelessClient } from '../../src/protocols/mcp/mcpStatelessClient.ts';
+import { log } from '../../src/kernel/util/logger.ts';
 
 /** 一条脚本化请求。 */
 interface ScriptedRequest {

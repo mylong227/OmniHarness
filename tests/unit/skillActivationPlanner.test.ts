@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SkillActivationPlanner } from '../../src/skill/skillActivationPlanner.ts';
-import type { Skill } from '../../src/ports/skill/skill.ts';
+import { SkillActivationPlanner } from '../../src/kernel/skill/skillActivationPlanner.ts';
+import type { Skill } from '../../src/contracts/ports/skill/skill.ts';
 
 function skill(name: string, tags: readonly string[], instructions = 'do it'): Skill {
   return { name, description: name, instructions, tags };

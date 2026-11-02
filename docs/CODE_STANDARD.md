@@ -71,9 +71,9 @@ export class FileName {
 
 ## 3. 职责划分（六边形架构一致性）
 
-- `src/ports/**` 只放接口与纯类型（第三方-free、值-free）。
-- `src/core/**` 只依赖端口接口，不依赖具体适配器。
-- `src/adapters/**` 实现端口，是唯一允许接触外部 IO/第三方库的层。
+- `src/contracts/ports/**` 只放接口与纯类型（第三方-free、值-free）。
+- `src/kernel/core/**` 只依赖端口接口，不依赖具体适配器。
+- `src/kernel/adapters/**` 实现端口，是唯一允许接触外部 IO/第三方库的层。
 - 组合根（`Container` + `RuntimeFactory`）负责装配，**禁止在业务方法内 `new` 具体适配器**。
 
 ## 4. 可复用 / 可移植 / 解耦

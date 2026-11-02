@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SkillMdDiscovery } from '../../src/skill/skillMdDiscovery.ts';
+import { SkillMdDiscovery } from '../../src/kernel/skill/skillMdDiscovery.ts';
 
 function skill(name: string, description: string): string {
   return `---\nname: ${name}\ndescription: ${description}\n---\n\n按 ${name} 执行。\n`;

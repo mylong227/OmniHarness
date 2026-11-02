@@ -6,7 +6,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { DumpRedactor } from '../../src/cli/dumpRedactor.ts';
+import { DumpRedactor } from '../../src/apps/cli/dumpRedactor.ts';
 
 test('顶层 apiKey 打码，非敏感字段原样保留', () => {
   const out = DumpRedactor.redact({

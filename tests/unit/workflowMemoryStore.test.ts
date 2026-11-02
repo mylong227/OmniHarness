@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowMemoryStore } from '../../src/adapters/memory/workflowMemoryStore.ts';
+import { WorkflowMemoryStore } from '../../src/kernel/adapters/memory/workflowMemoryStore.ts';
 
 /** 固定时钟。 */
 const now = (): Date => new Date('2026-10-18T00:00:00.000Z');

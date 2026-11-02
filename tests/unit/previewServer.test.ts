@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PreviewServer } from '../../src/server/transport/previewServer.ts';
+import { PreviewServer } from '../../src/apps/server/transport/previewServer.ts';
 
 /** 造一个临时站点：根 index.html + 子目录站点 + 各种资源。 */
 function makeSite(): string {

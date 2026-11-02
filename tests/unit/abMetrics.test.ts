@@ -5,7 +5,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { AbMetrics, type AbRun } from '../../src/eval/abMetrics.ts';
+import { AbMetrics, type AbRun } from '../../src/kernel/eval/abMetrics.ts';
 
 test('summarize：pass@k 与 pass^k 不是同一个指标', () => {
   const runs: AbRun[] = [

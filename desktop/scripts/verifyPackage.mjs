@@ -51,7 +51,7 @@ const requirePath = (relative, label) => {
 requirePath('OmniHarness.exe', '主程序');
 requirePath(join('resources', 'app.asar'), 'app.asar');
 requirePath(join('resources', 'desktop.config.json'), '内置桌面配置');
-requirePath(join('resources', 'harness', 'dist', 'src', 'cli', 'exec.js'), 'sidecar 入口');
+requirePath(join('resources', 'harness', 'dist', 'src', 'apps', 'cli', 'exec.js'), 'sidecar 入口');
 
 const locales = join(root, 'locales');
 if (!existsSync(locales)) {

@@ -19,10 +19,10 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { LegacyOidcFlow } from '../../src/enterprise/legacyOidcFlow.ts';
-import { OpenIdClientFlow } from '../../src/adapters/enterprise/openIdClientFlow.ts';
-import type { OidcFlowPort } from '../../src/ports/enterprise/oidcFlow.ts';
-import type { OidcProviderConfig } from '../../src/ports/enterprise/oidcProviderConfig.ts';
+import { LegacyOidcFlow } from '../../src/apps/enterprise/legacyOidcFlow.ts';
+import { OpenIdClientFlow } from '../../src/kernel/adapters/enterprise/openIdClientFlow.ts';
+import type { OidcFlowPort } from '../../src/contracts/ports/enterprise/oidcFlow.ts';
+import type { OidcProviderConfig } from '../../src/contracts/ports/enterprise/oidcProviderConfig.ts';
 
 /** mock IdP 的服务端状态（每个测试用例可改写）。 */
 interface MockIdp {

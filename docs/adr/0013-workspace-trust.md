@@ -3,7 +3,7 @@
 - 日期：2026-10-22
 - 状态：**已实施（2026-10-22）**
 - 关联：[ADR-0003 统一门禁](./0003-unified-gate-fail-closed.md)、[ADR-0006 沙箱诚实降级](./0006-sandbox-honest-degradation.md)、[ADR-0010 信任-隔离阶梯](./0010-isolation-ladder.md)、[ADR-0012 远程插件进程隔离](./0012-plugin-process-isolation.md)
-- 现行实现：[`src/config/workspaceTrust.ts`](../../src/config/workspaceTrust.ts)、[`src/config/workspaceTrustStore.ts`](../../src/config/workspaceTrustStore.ts)、[`src/config/configFile.ts`](../../src/config/configFile.ts)
+- 现行实现：[`src/kernel/config/workspaceTrust.ts`](../../src/kernel/config/workspaceTrust.ts)、[`src/kernel/config/workspaceTrustStore.ts`](../../src/kernel/config/workspaceTrustStore.ts)、[`src/kernel/config/configFile.ts`](../../src/kernel/config/configFile.ts)
 
 ## 背景
 

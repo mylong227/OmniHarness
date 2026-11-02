@@ -7,8 +7,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CompactionTriggerSignals } from '../../src/context/compactionTriggerSignals.ts';
-import type { ModelMessage } from '../../src/ports/model/modelMessage.ts';
+import { CompactionTriggerSignals } from '../../src/kernel/context/compactionTriggerSignals.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/modelMessage.ts';
 
 /** 填充指定字符数的 tool 消息。 */
 function toolOf(id: string, chars: number): ModelMessage {

@@ -6,9 +6,9 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import type { DialogState } from '../src/core/DialogService.ts';
+import type { DialogState } from '../src/kernel/core/DialogService.ts';
 
-const { DialogService } = await import('../src/core/DialogService.ts');
+const { DialogService } = await import('../src/kernel/core/DialogService.ts');
 
 test('未绑定宿主时 confirm 抛错（fail-closed，绝不静默当作取消）', () => {
   const svc = new DialogService();

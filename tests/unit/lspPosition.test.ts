@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { LspPosition } from '../../src/adapters/lsp/lspPosition.ts';
+import { LspPosition } from '../../src/kernel/adapters/lsp/lspPosition.ts';
 
 test('0-based → 1-based：行列同时 +1', () => {
   assert.deepEqual(LspPosition.toOneBased({ line: 0, character: 0 }), { line: 1, character: 1 });

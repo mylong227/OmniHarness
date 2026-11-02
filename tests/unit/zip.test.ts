@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Zip } from '../../src/plugin/zip.ts';
+import { Zip } from '../../src/kernel/plugin/zip.ts';
 
 test('crc32 已知向量', () => {
   // 经典校验向量：ASCII "123456789" 的 CRC32 = 0xCBF43926

@@ -19,30 +19,30 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import { RoutingFrameExtractor } from '../../src/adapters/media/routingFrameExtractor.ts';
-import { GifFrameExtractor } from '../../src/adapters/media/gifFrameExtractor.ts';
-import { FfmpegFrameExtractor } from '../../src/adapters/media/ffmpegFrameExtractor.ts';
-import { MediaStackAssembler } from '../../src/config/mediaStackAssembler.ts';
-import { FrameEncoder } from '../../src/media/frameEncoder.ts';
-import { PngEncoder } from '../../src/media/pngEncoder.ts';
-import { ViewMediaTool } from '../../src/adapters/tool/media/viewMediaTool.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { PlanApproval } from '../../src/kernel/adapters/approval/planApproval.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import { RoutingFrameExtractor } from '../../src/kernel/adapters/media/routingFrameExtractor.ts';
+import { GifFrameExtractor } from '../../src/kernel/adapters/media/gifFrameExtractor.ts';
+import { FfmpegFrameExtractor } from '../../src/kernel/adapters/media/ffmpegFrameExtractor.ts';
+import { MediaStackAssembler } from '../../src/kernel/config/mediaStackAssembler.ts';
+import { FrameEncoder } from '../../src/kernel/media/frameEncoder.ts';
+import { PngEncoder } from '../../src/kernel/media/pngEncoder.ts';
+import { ViewMediaTool } from '../../src/kernel/adapters/tool/media/viewMediaTool.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ModelOutput, ModelPort } from '../../src/ports/model/model.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort } from '../../src/contracts/ports/model/model.ts';
 import type {
   SandboxAction,
   SandboxDecision,
   SandboxPort,
-} from '../../src/ports/runtime/sandbox.ts';
+} from '../../src/contracts/ports/runtime/sandbox.ts';
 
 /** 空转事件端口（本测试只关心装配与裁决，不关心事件流）。 */
 class NullEventPort implements EventPort {

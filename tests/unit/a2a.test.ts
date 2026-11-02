@@ -1,14 +1,14 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { A2aTransport } from '../../src/a2a/a2aProtocol.ts';
-import { A2aClient } from '../../src/a2a/a2aClient.ts';
-import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { A2aTransport } from '../../src/protocols/a2a/a2aProtocol.ts';
+import { A2aClient } from '../../src/protocols/a2a/a2aClient.ts';
+import { A2aServer, type TaskHandler } from '../../src/protocols/a2a/a2aServer.ts';
 import type {
   AgentIdentityPort,
   AgentIdentityClaims,
-} from '../../src/ports/runtime/agentIdentity.ts';
-import type { DelegateRequest, DelegateResult } from '../../src/a2a/a2aProtocol.ts';
+} from '../../src/contracts/ports/runtime/agentIdentity.ts';
+import type { DelegateRequest, DelegateResult } from '../../src/protocols/a2a/a2aProtocol.ts';
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements A2aTransport {

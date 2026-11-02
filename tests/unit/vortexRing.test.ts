@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import type { SpillPort, SpillHandle } from '../../src/ports/memory/spill.ts';
-import { VortexRingPacket } from '../../src/adapters/spill/vortexRingSpillAdapter.ts';
+import type { SpillPort, SpillHandle } from '../../src/contracts/ports/memory/spill.ts';
+import { VortexRingPacket } from '../../src/kernel/adapters/spill/vortexRingSpillAdapter.ts';
 
 /** 测试用内存 Spill 桩。 */
 class MemSpill implements SpillPort {

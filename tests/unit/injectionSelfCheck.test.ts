@@ -12,8 +12,8 @@ import { dirname, join } from 'node:path';
 import {
   InjectionSelfCheck,
   type InjectionSelfCheckSummary,
-} from '../../src/security/injectionSelfCheck.ts';
-import { InjectionMetric, type InjectionCase } from '../../src/security/injectionMetric.ts';
+} from '../../src/kernel/security/injectionSelfCheck.ts';
+import { InjectionMetric, type InjectionCase } from '../../src/kernel/security/injectionMetric.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const snapshotPath = join(here, '../../defaults/injection-snapshot.json');

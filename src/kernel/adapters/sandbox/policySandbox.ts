@@ -1,0 +1,92 @@
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../../contracts/ports/runtime/sandbox.ts';
+import { dangerousCommands } from './dangerousCommands.ts';
+import { WorkspaceGuard } from '../../util/workspaceGuard.ts';
+
+/** 策略沙箱选项。 */
+export interface PolicySandboxOptions {
+  /** 工作区根目录（路径白名单基准，越界即拒绝）。 */
+  readonly workspaceRoot: string;
+  /** 额外危险命令模式（合并进默认黑名单）。 */
+  readonly extraPatterns?: readonly RegExp[];
+}
+
+/** 策略沙箱适配器：危险命令黑名单 + 工作区路径白名单，命中即拒绝（fail-closed）。 */
+export class PolicySandbox implements SandboxPort {
+  /** 适配器名，与端口契约一致：固定为 'policy'。 */
+  public readonly name = 'policy';
+
+  /** 工作区路径守卫（白名单判定委托给它）。 */
+  private readonly guard: WorkspaceGuard;
+  /** 危险命令匹配集（默认黑名单子串短语 + 用户扩展正则）。 */
+  private readonly patterns: readonly (string | RegExp)[];
+
+  /**
+   * @param options 策略沙箱选项（工作区根目录与额外危险模式）。
+   */
+  public constructor(options: PolicySandboxOptions) {
+    this.guard = new WorkspaceGuard(options.workspaceRoot);
+    this.patterns = [...dangerousCommands.defaults(), ...(options.extraPatterns ?? [])];
+  }
+
+  /** 裁决动作。
+   * @param action 待裁决的沙箱动作（命令或路径）。
+   * @returns 决策结果：命令走黑名单、路径走白名单，命中即 fail-closed 拒绝。
+   */
+  public async check(action: SandboxAction): Promise<SandboxDecision> {
+    if (action.kind === 'command') {
+      return this.checkCommand(action.target);
+    }
+    return this.checkPath(action.target);
+  }
+
+  /** 命令门禁：命中危险模式即拒绝。
+   * @param command 待检查的命令串。
+   * @returns 决策结果（命中时附规则来源与 'command' 类别）。
+   */
+  private checkCommand(command: string): SandboxDecision {
+    const normalized = dangerousCommands.normalize(command);
+    for (const pattern of this.patterns) {
+      const hit =
+        typeof pattern === 'string' ? normalized.includes(pattern) : pattern.test(command);
+      if (hit) {
+        const label = typeof pattern === 'string' ? pattern : pattern.source;
+        return {
+          allowed: false,
+          reason: `命中危险命令规则: ${label}${PolicySandbox.guidanceFor(label)}`,
+          category: 'command',
+        };
+      }
+    }
+    return { allowed: true };
+  }
+
+  /**
+   * 给危险命令规则补一句可行动提示（不改变拦截结果，只把「为什么/怎么改」说清）。
+   * @param label 命中的规则文本。
+   * @returns 以「；」开头的提示；无匹配时为空串。
+   */
+  private static guidanceFor(label: string): string {
+    if (
+      /node -e|node -eval|python3? -c|perl -e|ruby -e|php -r|powershell -c|pwsh -c|invoke-expression|-encodedcommand/u.test(
+        label,
+      )
+    ) {
+      return '；写文件/执行脚本请用 write_file/apply_patch 落盘后再执行，不要用解释器 -e/-c 变通';
+    }
+    if (/rm -|del \/|erase \/|rmdir \/|remove-item|find -delete|xargs rm/u.test(label)) {
+      return '；删除请用专用工具并明确目标，避免通配/递归删除';
+    }
+    return '';
+  }
+
+  /** 路径门禁：工作区外即拒绝。
+   * @param target 待检查的路径。
+   * @returns 决策结果（越界时附 'path' 类别）。
+   */
+  private checkPath(target: string): SandboxDecision {
+    if (this.guard.isInside(target)) {
+      return { allowed: true };
+    }
+    return { allowed: false, reason: `路径越界: ${target}`, category: 'path' };
+  }
+}

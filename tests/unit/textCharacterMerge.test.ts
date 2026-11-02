@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TextCharacterMerge } from '../../src/util/textCharacterMerge.ts';
-import { TextThreeWayMerge } from '../../src/util/textThreeWayMerge.ts';
+import { TextCharacterMerge } from '../../src/kernel/util/textCharacterMerge.ts';
+import { TextThreeWayMerge } from '../../src/kernel/util/textThreeWayMerge.ts';
 
 test('① 同一行改不同字符区间 ⇒ 字符级合并', () => {
   const result = TextCharacterMerge.merge(

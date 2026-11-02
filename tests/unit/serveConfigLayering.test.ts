@@ -17,8 +17,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CliServerCmds } from '../../src/cli/cliServerCmds.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
+import { CliServerCmds } from '../../src/apps/cli/cliServerCmds.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
 
 /** 造一个临时家目录，写入用户级 `~/.omniharness/omniharness.json`。 */
 function makeHome(cfg: Record<string, unknown>): string {
@@ -114,7 +114,7 @@ test('serve：接线守卫——runServe 必须走 loadServeConfig（防退回�
   const { dirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const here = dirname(fileURLToPath(import.meta.url));
-  const src = readFileSync(join(here, '..', '..', 'src', 'cli', 'cliServerCmds.ts'), 'utf8');
+  const src = readFileSync(join(here, '..', '..', 'src', 'apps', 'cli', 'cliServerCmds.ts'), 'utf8');
   assert.match(src, /CliServerCmds\.loadServeConfig\(/, 'runServe 必须调用 loadServeConfig');
   assert.ok(
     !/const loadedFile = configFile\.load\(configPath\);/.test(src),

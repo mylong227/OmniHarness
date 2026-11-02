@@ -4,7 +4,7 @@ import { spawnSyncAsync, execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtempSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorktreeOps } from '../../src/subagent/worktreeOps.ts';
+import { WorktreeOps } from '../../src/kernel/subagent/worktreeOps.ts';
 
 /** 探测 git 是否可用。 */
 const gitAvailable = (await spawnSyncAsync('git', ['--version'], { stdio: 'ignore' })).status === 0;

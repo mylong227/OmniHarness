@@ -1,12 +1,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CostBudget } from '../../src/adapters/model/costBudget.ts';
+import { CostBudget } from '../../src/kernel/adapters/model/costBudget.ts';
 import {
   RoutePricing,
   DEFAULT_ROUTE_PRICING,
   DEFAULT_FALLBACK_PRICE,
-} from '../../src/adapters/model/routePricing.ts';
-import { BudgetExceededError } from '../../src/ports/model/model.ts';
+} from '../../src/kernel/adapters/model/routePricing.ts';
+import { BudgetExceededError } from '../../src/contracts/ports/model/model.ts';
 
 test('priceFor: 精确 / 最长前缀 / 兜底', () => {
   const pricing = RoutePricing.mergeRoutePricing();

@@ -1,19 +1,19 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import type { PlanPort, PlanState } from '../../src/ports/runtime/plan.ts';
+import type { PlanPort, PlanState } from '../../src/contracts/ports/runtime/plan.ts';
 import type {
   SandboxAction,
   SandboxDecision,
   SandboxPort,
-} from '../../src/ports/runtime/sandbox.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
-import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { UnsupportedSandbox } from '../../src/adapters/sandbox/unsupportedSandbox.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
+} from '../../src/contracts/ports/runtime/sandbox.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PlanApproval } from '../../src/kernel/adapters/approval/planApproval.ts';
+import { DenyApproval } from '../../src/kernel/adapters/approval/denyApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { UnsupportedSandbox } from '../../src/kernel/adapters/sandbox/unsupportedSandbox.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
 
 /** Mock PlanPort：可注入任意 PlanState 或 null。 */
 class StubPlan implements PlanPort {

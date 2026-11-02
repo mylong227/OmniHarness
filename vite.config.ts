@@ -2,8 +2,8 @@
 //
 // ## 为什么 root 不是仓库根（这条是硬约束，不是偏好）
 //
-// 服务端静态托管把仓库 `web/` 目录当静态根（`src/cli/cliServerCmds.ts` 解析
-// `…/dist/src/cli/../../../web`），且 `package.json#files` 发布的是 `web`。
+// 服务端静态托管把仓库 `web/` 目录当静态根（`src/apps/cli/cliServerCmds.ts` 解析
+// `…/dist/src/apps/cli/../../../web`），且 `package.json#files` 发布的是 `web`。
 // 换句话说：**发布出去后，`web/index.html` + `web/dist/*` 就是运行时的全部**。
 // 若把 root 设为仓库根、产物落到别处，`serve` 会 404 白屏。
 // 把 root 设成 `web/` 后，Vite 的默认行为恰好产出 `web/dist/assets/*` 与 `web/dist/index.html`，
@@ -26,7 +26,7 @@ import { resolveDevAddress } from './scripts/devConfig.mjs';
 /**
  * 后端 dev 端口与 Vite dev server 端口、回环主机：全部来自 scripts/devConfig.mjs
  * （`OMNI_BACKEND_PORT` / `OMNI_UI_PORT`|`OMNI_FRONTEND_PORT` / `OMNI_DEV_HOST` 可覆盖）。
- * 后端 serve 同读 `OMNI_BACKEND_PORT`（src/cli/serveDefaults.ts）——一处设置两边生效。
+ * 后端 serve 同读 `OMNI_BACKEND_PORT`（src/apps/cli/serveDefaults.ts）——一处设置两边生效。
  */
 const dev = resolveDevAddress();
 
@@ -47,7 +47,7 @@ export default defineConfig({
     // 而 `web/index.html` 是**源码入口**——产物覆盖源码后，下一次构建读到的入口就变成
     // 产物引用（`./assets/app.js`），构建随即自引用失败。源码与产物必须分开。
     //
-    // 服务端要托管的正是这个目录（见 `src/cli/cliServerCmds.ts` 的 webDir 解析：
+    // 服务端要托管的正是这个目录（见 `src/apps/cli/cliServerCmds.ts` 的 webDir 解析：
     // 优先 `web/dist`，开发态无产物时回落 `web/`）。
     outDir: 'dist',
     emptyOutDir: true,

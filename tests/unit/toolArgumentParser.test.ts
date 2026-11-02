@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { ToolArgumentParser } from '../../src/adapters/model/toolArgumentParser.ts';
+import { ToolArgumentParser } from '../../src/kernel/adapters/model/toolArgumentParser.ts';
 
 test('合法 JSON 对象原样解析', () => {
   assert.deepEqual(ToolArgumentParser.parse('{"path":"a.ts","n":1}'), { path: 'a.ts', n: 1 });

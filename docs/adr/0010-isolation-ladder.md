@@ -13,7 +13,7 @@ Wave C 要补的是「按档位执行」这件事本身：`core`（进程内）�
 
 仓内已有两件可直接复用的资产：
 
-- `src/plugin/sandbox.ts`：`node:vm` 受限上下文 + **V8 vm timeout（能真正打断同步死循环）**，
+- `src/kernel/plugin/sandbox.ts`：`node:vm` 受限上下文 + **V8 vm timeout（能真正打断同步死循环）**，
   并已如实标注边界（跨过首个 `await` 之后的同步死循环无法就地中止）；
 - `CapabilityRecord.governance.isolation`：资产自己声明的档位。
 

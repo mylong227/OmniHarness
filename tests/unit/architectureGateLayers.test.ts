@@ -122,8 +122,8 @@ test('④ 正对照：临时造一条 ports→实现层 禁边，门禁必须**�
   // 以及进程被硬杀时残留探针让门禁长期红（2026-10-18 测试审计 P1）。
   const dir = mkdtempSync(join(tmpdir(), 'omni-arch-probe-'));
   try {
-    const portDir = join(dir, 'src', 'ports', 'runtime');
-    const workerDir = join(dir, 'src', 'worker');
+    const portDir = join(dir, 'src', 'contracts', 'ports', 'runtime');
+    const workerDir = join(dir, 'src', 'kernel', 'worker');
     mkdirSync(portDir, { recursive: true });
     mkdirSync(workerDir, { recursive: true });
     writeFileSync(

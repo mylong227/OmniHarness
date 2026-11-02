@@ -3,8 +3,8 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SubagentOrchestrator } from '../../src/subagent/subagentOrchestrator.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
+import { SubagentOrchestrator } from '../../src/kernel/subagent/subagentOrchestrator.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
 
 /** 读取 private static 上限（避免测试与实现常量漂移）。 */
 function maxTreeEntries(): number {

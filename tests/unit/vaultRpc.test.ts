@@ -17,14 +17,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { AppServer } from '../../src/server/core/appServer.ts';
-import { AppServerVaultHandlers } from '../../src/server/core/appServerVaultHandlers.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { VaultPort } from '../../src/ports/memory/vault.ts';
+import { AppServer } from '../../src/apps/server/core/appServer.ts';
+import { AppServerVaultHandlers } from '../../src/apps/server/core/appServerVaultHandlers.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { VaultPort } from '../../src/contracts/ports/memory/vault.ts';
 
 /** 仓库根（判据在 `dist/tests/unit/`，源码按 cwd 读）。 */
 const REPO_ROOT = process.cwd();
@@ -220,7 +220,7 @@ test('⑥ 两条组合根都要接线：stdio 与 serve 都注入 doctorReport�
     AppServer.prototype instanceof AppServerVaultHandlers,
     'AppServer 必须经由 AppServerVaultHandlers 层（否则该层是死代码）',
   );
-  const source = readFileSync(join(REPO_ROOT, 'src/cli/cliServerCmds.ts'), 'utf8');
+  const source = readFileSync(join(REPO_ROOT, 'src/apps/cli/cliServerCmds.ts'), 'utf8');
   const injections = [
     ...source.matchAll(/doctorReport:\s*\(options\)\s*=>\s*DoctorRunner\.runDoctor\(/gu),
   ];

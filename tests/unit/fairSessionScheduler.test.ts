@@ -6,8 +6,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { FairSessionScheduler } from '../../src/util/concurrency/fairSessionScheduler.ts';
-import { LockError } from '../../src/util/concurrency/lockError.ts';
+import { FairSessionScheduler } from '../../src/kernel/util/concurrency/fairSessionScheduler.ts';
+import { LockError } from '../../src/kernel/util/concurrency/lockError.ts';
 
 /** 可手动兑现的闸门。 */
 function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {

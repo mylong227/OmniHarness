@@ -9,8 +9,8 @@
 //
 // 场景刻意贴近长会话：300 条消息 / ≈2.5 MB 正文（含工具调用），逐条估算 + 逐轮做
 // 「是否有必要压缩」的预算判断，重复 60 轮（≈ 一次长会话里几十步的稳态）。
-import { TokenEstimator } from '../dist/src/context/tokenEstimator.js';
-import { PrefixStability } from '../dist/src/context/prefixStability.js';
+import { TokenEstimator } from '../dist/src/kernel/context/tokenEstimator.js';
+import { PrefixStability } from '../dist/src/kernel/context/prefixStability.js';
 
 /** 造一条正文。 */
 function body(i, kb) {

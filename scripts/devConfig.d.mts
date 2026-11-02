@@ -3,7 +3,7 @@
  * NodeNext / bundler 解析 `.mjs` 时会找同名 `.d.mts`——见根 tsconfig 的 moduleResolution）。
  */
 
-/** 开发回路的默认地址（唯一的字面量出处；后端侧镜像见 src/cli/serveDefaults.ts）。 */
+/** 开发回路的默认地址（唯一的字面量出处；后端侧镜像见 src/apps/cli/serveDefaults.ts）。 */
 export interface DevDefaults {
   /** 后端 serve 默认端口。 */
   backendPort: number;

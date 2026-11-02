@@ -7,8 +7,8 @@ import { generateKeyPairSync } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SkillManifestSigner } from '../../src/skill/skillManifestSigner.ts';
-import { CliSkillFlags } from '../../src/cli/cliSkillFlags.ts';
+import { SkillManifestSigner } from '../../src/kernel/skill/skillManifestSigner.ts';
+import { CliSkillFlags } from '../../src/apps/cli/cliSkillFlags.ts';
 
 const SKILLS = [
   {

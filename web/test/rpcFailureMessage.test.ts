@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { ApiClient } = await import('../src/core/ApiClient.ts');
+const { ApiClient } = await import('../src/kernel/core/ApiClient.ts');
 const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
 /**

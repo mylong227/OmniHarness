@@ -1,14 +1,14 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CodeInterpreter } from '../../src/adapters/tool/code/codeInterpreter.ts';
-import { CodeExecutorTool } from '../../src/adapters/tool/code/codeExecutorTool.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.ts';
+import { CodeInterpreter } from '../../src/kernel/adapters/tool/code/codeInterpreter.ts';
+import { CodeExecutorTool } from '../../src/kernel/adapters/tool/code/codeExecutorTool.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { DenyApproval } from '../../src/kernel/adapters/approval/denyApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 测试上下文。 */

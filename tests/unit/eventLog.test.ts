@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { eventFactory } from '../../src/core/eventFactory.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
 
 test('事件日志：追加后大小与顺序正确', () => {
   const log = new AppendOnlyEventLog();

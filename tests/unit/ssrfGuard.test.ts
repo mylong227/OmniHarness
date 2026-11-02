@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { SsrfGuard } from '../../src/security/ssrfGuard.ts';
+import { SsrfGuard } from '../../src/kernel/security/ssrfGuard.ts';
 
 describe('SSRF 防护', () => {
   it('云元数据地址一律拦截（默认策略下也不放行）', async () => {
@@ -202,7 +202,7 @@ describe('SSRF 回归：IPv6 内嵌 IPv4 的等价写法不得绕过', () => {
 });
 
 // ---- 2026-11-01 改判：resolveDns 默认开启，「域名→危险 IP」不得绕过 ----
-// 原默认关闭的登记理由（开销+TOCTOU）经复核不成立，改判依据见 src/ports/security/ssrfOptions.ts。
+// 原默认关闭的登记理由（开销+TOCTOU）经复核不成立，改判依据见 src/contracts/ports/security/ssrfOptions.ts。
 // 判据一律经注入 resolver 离线覆盖，不发真实 DNS 请求。
 describe('SSRF DNS 二次判定（默认开启，2026-11-01 改判）', () => {
   it('默认档含 resolveDns: true（钉住改判决策，回退即红）', () => {

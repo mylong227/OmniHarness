@@ -3,7 +3,7 @@
 // 口径：
 //   · `antd` / `@ant-design/*` / `rc-*`（antd 内部件）/ `dayjs`（antd 日期内核）的 import，
 //     只允许出现在 `web/src/ui/**` 与 `web/src/poc/**`（W0 PoC 隔离入口，W5 收口时移除该豁免）；
-//   · `web/src/core/**`、`web/src/types/**` 与后端 `src/**` 恒为第三方-free（架构门禁既有口径，
+//   · `web/src/kernel/core/**`、`web/src/types/**` 与后端 `src/**` 恒为第三方-free（架构门禁既有口径，
 //     这里把「新增的 UI 基座家族」补进同一道防线）；
 //   · `web/test/**` 不在扫描面内（判据夹具可以渲染 antd 组件）。
 

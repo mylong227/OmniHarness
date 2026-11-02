@@ -13,15 +13,15 @@ import assert from 'node:assert/strict';
 import {
   SelfVerifyingToolPort,
   type VerdictObservation,
-} from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+} from '../../src/kernel/adapters/tool/verify/selfVerifyingToolPort.ts';
+import { SelfVerifyPolicy } from '../../src/kernel/adapters/tool/verify/selfVerifyPolicy.ts';
 import type {
   DecisionEngine,
   DecisionRequest,
   DecisionResponse,
-} from '../../src/ports/decision/decisionEngine.ts';
-import type { ToolPort, ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.ts';
-import type { TestCommandRunner } from '../../src/adapters/tool/verify/testCommandRunner.ts';
+} from '../../src/contracts/ports/decision/decisionEngine.ts';
+import type { ToolPort, ToolCall, ToolContext, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
+import type { TestCommandRunner } from '../../src/kernel/adapters/tool/verify/testCommandRunner.ts';
 
 /** 替身决策引擎：noul=0.9。 */
 class StubDecisionEngine implements DecisionEngine {

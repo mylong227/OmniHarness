@@ -4,10 +4,10 @@ import { execSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WindowsNativeSandbox } from '../../src/adapters/sandbox/windowsNativeSandbox.ts';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
-import { ShellTool } from '../../src/adapters/tool/shell/shellTool.ts';
-import { OmniCliLocator } from '../../src/native/omniCliLocator.ts';
+import { WindowsNativeSandbox } from '../../src/kernel/adapters/sandbox/windowsNativeSandbox.ts';
+import { SandboxManager } from '../../src/kernel/adapters/sandbox/sandboxManager.ts';
+import { ShellTool } from '../../src/kernel/adapters/tool/shell/shellTool.ts';
+import { OmniCliLocator } from '../../src/kernel/native/omniCliLocator.ts';
 
 /**
  * `windows-native` profile 的判据：

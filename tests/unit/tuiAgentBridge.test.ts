@@ -10,17 +10,17 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Agent } from '../../src/core/agent.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { TuiAgentBridge } from '../../src/tui/tuiAgentBridge.ts';
-import type { TuiEvent } from '../../src/tui/tuiRenderer.ts';
-import type { TuiTaskRunner } from '../../src/ports/tui/tuiTaskRunner.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { TuiAgentBridge } from '../../src/apps/tui/tuiAgentBridge.ts';
+import type { TuiEvent } from '../../src/apps/tui/tuiRenderer.ts';
+import type { TuiTaskRunner } from '../../src/contracts/ports/tui/tuiTaskRunner.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 收尽一个事件流。 */
 async function drain(it: AsyncIterable<TuiEvent>): Promise<TuiEvent[]> {

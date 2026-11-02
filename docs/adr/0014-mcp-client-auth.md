@@ -3,7 +3,7 @@
 - 日期：2026-10-22
 - 状态：**已实施 token-based auth + RFC 9728 发现 + MRTR + OAuth client credentials（机器对机器）；交互式授权码流未做**
 - 关联：[ADR-0003 统一门禁](./0003-unified-gate-fail-closed.md)、[ADR-0013 工作区信任闸](./0013-workspace-trust.md)
-- 现行实现：[`src/mcp/mcpAuthProvider.ts`](../../src/mcp/mcpAuthProvider.ts)、[`src/mcp/mcpStatelessClient.ts`](../../src/mcp/mcpStatelessClient.ts)、[`src/ports/mcp/mcpAuthConfig.ts`](../../src/ports/mcp/mcpAuthConfig.ts)
+- 现行实现：[`src/protocols/mcp/mcpAuthProvider.ts`](../../src/protocols/mcp/mcpAuthProvider.ts)、[`src/protocols/mcp/mcpStatelessClient.ts`](../../src/protocols/mcp/mcpStatelessClient.ts)、[`src/contracts/ports/mcp/mcpAuthConfig.ts`](../../src/contracts/ports/mcp/mcpAuthConfig.ts)
 
 ## 背景
 

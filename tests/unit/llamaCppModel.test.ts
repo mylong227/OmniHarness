@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
-import { ModelCallError } from '../../src/ports/model/model.ts';
-import type { ModelRequest } from '../../src/ports/model/model.ts';
+import { LlamaCppModel } from '../../src/kernel/adapters/model/llamaCppModel.ts';
+import { ModelCallError } from '../../src/contracts/ports/model/model.ts';
+import type { ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 临时替换 fetch。 */
 async function withFetch<T>(

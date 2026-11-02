@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { McpConnector } from '../../src/mcp/mcpConnector.ts';
+import { McpConnector } from '../../src/protocols/mcp/mcpConnector.ts';
 
 test('SEC-04：MCP 白名单未设置时放行，设置后只放行登记 server', () => {
   assert.strictEqual(McpConnector.isAllowed('a', {}), true);

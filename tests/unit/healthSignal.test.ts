@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SupervisorHealthSignal } from '../../src/supervisor/supervisorHealthSignal.ts';
+import { SupervisorHealthSignal } from '../../src/kernel/supervisor/supervisorHealthSignal.ts';
 
 test('策略拒绝识别：只认本仓门禁自己的拒绝格式（2026-10-27 收口）', () => {
   for (const text of [
@@ -43,7 +43,7 @@ test('命令执行完但非零退出 → 不是健康失败（红测试/无命�
 });
 
 test('shell 工具的非零退出结果携带真实 exitCode（监督判定依赖此字段）', async () => {
-  const { ShellTool } = await import('../../src/adapters/tool/shell/shellTool.ts');
+  const { ShellTool } = await import('../../src/kernel/adapters/tool/shell/shellTool.ts');
   const tool = new ShellTool();
   const result = await tool.handle(
     { id: 'c1', name: 'shell', arguments: { command: 'node -e "process.exit(3)"' } },

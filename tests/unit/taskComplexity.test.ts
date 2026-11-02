@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PlanningDirective,
   TaskComplexityClassifier,
-} from '../../src/core/planning/taskComplexityClassifier.ts';
+} from '../../src/kernel/core/planning/taskComplexityClassifier.ts';
 
 test('复杂度分类：简单问题不触发规划（避免误伤）', () => {
   assert.strictEqual(TaskComplexityClassifier.assess('解释一下这个函数').complex, false);

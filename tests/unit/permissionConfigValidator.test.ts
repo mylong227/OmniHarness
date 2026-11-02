@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import { ConfigError } from '../../src/config/configError.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
 
 describe('permission 段：严格校验（fail-closed）', () => {
   it('合法规则通过（含 commandGlob）', () => {

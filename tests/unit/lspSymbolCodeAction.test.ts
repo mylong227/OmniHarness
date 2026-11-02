@@ -3,12 +3,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { strict as assert } from 'node:assert/strict';
 import { afterAll, describe, test } from 'vitest';
-import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
-import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
-import { LspDocumentSymbolsTool } from '../../src/adapters/tool/lsp/lspDocumentSymbolsTool.ts';
-import { LspCodeActionTool } from '../../src/adapters/tool/lsp/lspCodeActionTool.ts';
-import type { LspPort } from '../../src/ports/tool/lsp.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { LspProcessAdapter } from '../../src/kernel/adapters/lsp/lspProcessAdapter.ts';
+import { LspUri } from '../../src/kernel/adapters/lsp/lspUri.ts';
+import { LspDocumentSymbolsTool } from '../../src/kernel/adapters/tool/lsp/lspDocumentSymbolsTool.ts';
+import { LspCodeActionTool } from '../../src/kernel/adapters/tool/lsp/lspCodeActionTool.ts';
+import type { LspPort } from '../../src/contracts/ports/tool/lsp.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 // 测试从项目根运行，mock 服务器为源码级 .mjs（不被 tsc 编译），故相对于项目根定位。
 const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');

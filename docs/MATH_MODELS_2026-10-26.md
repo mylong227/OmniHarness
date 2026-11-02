@@ -45,8 +45,8 @@ g_i  = 该元组覆盖的秩下界（gap）
 
 ### 1.3 落地
 
-- 代码：`src/util/quantileSketch.ts`
-- 接入：`src/server/services/metrics.ts` 的 `turnQuantiles`；`TurnStats` 新增
+- 代码：`src/kernel/util/quantileSketch.ts`
+- 接入：`src/apps/server/services/metrics.ts` 的 `turnQuantiles`；`TurnStats` 新增
   `p50Ms/p95Ms/p99Ms`；Prometheus 新增
   `omni_turn_duration_quantile_seconds{quantile="0.5|0.95|0.99"}`。
 - 判据：`tests/unit/quantileSketch.test.ts`（4 例）、`tests/unit/metricsQuantiles.test.ts`（2 例）。
@@ -93,8 +93,8 @@ DP:  dp[i][b] = max(dp[i-1][b], dp[i-1][b-w_i] + v_i)
 
 ### 2.3 落地
 
-- 代码：`src/util/budgetedKnapsack.ts`（二维 DP + 回溯；`n·B > 5e6` 时按价值密度贪心回退）
-- 接入：`src/skill/skillActivationPlanner.ts` 的预算选择；去重/独占资源仍是前置硬约束
+- 代码：`src/kernel/util/budgetedKnapsack.ts`（二维 DP + 回溯；`n·B > 5e6` 时按价值密度贪心回退）
+- 接入：`src/kernel/skill/skillActivationPlanner.ts` 的预算选择；去重/独占资源仍是前置硬约束
 - 判据：`tests/unit/budgetedKnapsack.test.ts`（5 例）、
   `tests/unit/skillActivationPlanner.test.ts` 新增「贪心反例」1 例
 
@@ -137,7 +137,7 @@ reward = success ? 1 / (1 + latencySeconds) : 0
 
 ### 3.3 落地
 
-- 代码：`src/util/concurrency/ucb1Bandit.ts`
+- 代码：`src/kernel/util/concurrency/ucb1Bandit.ts`
 - 接入：`RouterStrategy` 新增 `'ucb1'`；`ModelRouter.generate/stream` 计时并记录奖励；
   `routeReason` 输出 `ucb1 chosen=… pulls=… mean=…`
 - 配置：`configBuilder` 合法策略表 + `docs/CLI_REFERENCE.md`
@@ -181,8 +181,8 @@ makespan ≤ (2 − 1/m) · OPT
 
 ### 4.3 落地
 
-- 代码：`src/autonomy/workflowPriority.ts`（底位级 + 稳定排序）、
-  `src/autonomy/workflowRunner.ts` 的 `scheduleReady` / `classifyReady`。
+- 代码：`src/kernel/autonomy/workflowPriority.ts`（底位级 + 稳定排序）、
+  `src/kernel/autonomy/workflowRunner.ts` 的 `scheduleReady` / `classifyReady`。
 - 开关：`WorkflowRunnerOptions.scheduling`（`ready` 缺省 / `levels` 旧行为）、
   `priority`（`critical-path` 缺省 / `spec`）。
 - **安全边界**：只有**全只读**工作流走 `ready`；任一步骤可能写文件时自动回退 `levels`，

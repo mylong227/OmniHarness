@@ -10,9 +10,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ShellTool } from '../../src/adapters/tool/shell/shellTool.ts';
-import type { ShellRunOutcome } from '../../src/adapters/tool/shell/shellProcessRunner.ts';
-import { FairSessionScheduler } from '../../src/util/concurrency/fairSessionScheduler.ts';
+import { ShellTool } from '../../src/kernel/adapters/tool/shell/shellTool.ts';
+import type { ShellRunOutcome } from '../../src/kernel/adapters/tool/shell/shellProcessRunner.ts';
+import { FairSessionScheduler } from '../../src/kernel/util/concurrency/fairSessionScheduler.ts';
 
 /** 成功结果（无输出内容对判据无影响）。 */
 const OK: ShellRunOutcome = {

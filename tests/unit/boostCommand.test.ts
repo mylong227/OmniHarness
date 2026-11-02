@@ -13,9 +13,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { BoostProbes, PROBES_DIR, type BoostProbeRun } from '../../src/cli/boostProbes.ts';
-import { BoostCommand } from '../../src/cli/boostCommand.ts';
-import { BoostGateSurface, GATE_SURFACE } from '../../src/cli/boostGateSurface.ts';
+import { BoostProbes, PROBES_DIR, type BoostProbeRun } from '../../src/apps/cli/boostProbes.ts';
+import { BoostCommand } from '../../src/apps/cli/boostCommand.ts';
+import { BoostGateSurface, GATE_SURFACE } from '../../src/apps/cli/boostGateSurface.ts';
 
 /**
  * 造一个临时仓库根（用完即删）。
@@ -202,7 +202,7 @@ test('④ 纯文档改动：只跑密钥面与死链面，不跑 eslint/tsc（�
 });
 
 test('④ 源码改动：命中 eslint/tsc/top-level-fn/wiring/arch/iron-law/maturity', () => {
-  const d = BoostCommand.decide(REAL_GATES, ['src/core/agent.ts'], 'all');
+  const d = BoostCommand.decide(REAL_GATES, ['src/kernel/core/agent.ts'], 'all');
   for (const id of [
     'eslint',
     'tsc',
@@ -300,7 +300,7 @@ test('④ 取证过的表面必须体现在判定上：web/** 只命中 eslint �
 });
 
 test('④ 新增文件同样触发（"文件还不存在所以不算改动"是漏洞，不是理由）', () => {
-  const d = BoostCommand.decide(REAL_GATES, ['src/cli/brandNewFile.ts'], 'fast');
+  const d = BoostCommand.decide(REAL_GATES, ['src/apps/cli/brandNewFile.ts'], 'fast');
   for (const id of ['iron-law', 'arch', 'top-level-fn', 'eslint', 'standard-delta']) {
     assert.ok(d.selected.includes(id), `新增 .ts 必须触发 ${id}`);
   }

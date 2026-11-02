@@ -5,8 +5,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ThreadPage } from '../../src/server/services/session/threadPage.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ThreadPage } from '../../src/apps/server/services/session/threadPage.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 造 n 条事件（id=e0..eN）。 */
 function events(count: number): SessionEvent[] {

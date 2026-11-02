@@ -1,12 +1,12 @@
 ﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { McpGateway } from '../../src/mcp/mcpGateway.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
-import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.ts';
-import type { McpConnectorPort } from '../../src/ports/mcp/mcpConnectorPort.ts';
-import type { McpToolDescriptor } from '../../src/ports/mcp/mcpProtocolTypes.ts';
+import { McpGateway } from '../../src/protocols/mcp/mcpGateway.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
+import type { McpClientPort } from '../../src/contracts/ports/mcp/mcpClientPort.ts';
+import type { McpConnectorPort } from '../../src/contracts/ports/mcp/mcpConnectorPort.ts';
+import type { McpToolDescriptor } from '../../src/contracts/ports/mcp/mcpProtocolTypes.ts';
 
 const context: ToolContext = { sessionId: 'mcp-life', workspaceRoot: process.cwd() };
 

@@ -3,13 +3,13 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
-import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
+import { SelfVerifyPolicy } from '../../src/kernel/adapters/tool/verify/selfVerifyPolicy.ts';
+import { SelfVerifyingToolPort } from '../../src/kernel/adapters/tool/verify/selfVerifyingToolPort.ts';
 import type {
   TestCommandRunner,
   TestRunOutcome,
-} from '../../src/adapters/tool/verify/testCommandRunner.ts';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
+} from '../../src/kernel/adapters/tool/verify/testCommandRunner.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 内层端口替身（固定返回写成功）。 */
 const innerPort: ToolPort = {
@@ -69,13 +69,13 @@ test('narrowedCommand：收窄到失败测试文件；其它命令/非测试文�
   );
   // 只有被测源码（堆栈帧常见形态）⇒ 不做定向，避免运行器「没有匹配的测试」假失败
   assert.strictEqual(
-    SelfVerifyPolicy.from({ command: 'npm test' }).narrowedCommand(['src/core/foo.ts']),
+    SelfVerifyPolicy.from({ command: 'npm test' }).narrowedCommand(['src/kernel/core/foo.ts']),
     'npm test',
   );
   // 源码与测试混在一起 ⇒ 只取测试文件
   assert.strictEqual(
     SelfVerifyPolicy.from({ command: 'npm test' }).narrowedCommand([
-      'src/core/foo.ts',
+      'src/kernel/core/foo.ts',
       'tests/unit/foo.test.ts',
     ]),
     'npm test -- tests/unit/foo.test.ts',

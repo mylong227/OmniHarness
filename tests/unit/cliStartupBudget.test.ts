@@ -41,7 +41,7 @@ const REPO_ROOT = process.cwd();
 /** 走真 CLI 入口跑一个子命令，返回墙钟毫秒。 */
 function timeCli(args: readonly string[]): number {
   const started = Date.now();
-  const result = spawnSync(process.execPath, [join(REPO_ROOT, 'dist/src/cli/exec.js'), ...args], {
+  const result = spawnSync(process.execPath, [join(REPO_ROOT, 'dist/src/apps/cli/exec.js'), ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: { ...process.env, OMNI_REPO_MAP: '0' },
@@ -81,23 +81,23 @@ test('① 结构：重依赖不得在这些 CLI 层里恢复成顶层值导入�
 
   const checks: readonly { file: string; pattern: RegExp; why: string }[] = [
     {
-      file: 'src/cli/cliBuildConfig.ts',
+      file: 'src/apps/cli/cliBuildConfig.ts',
       // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据正则跟新（否则该条退化为恒真）。
       pattern: /^import \{ ConfigFactory \} from '\.\.\/config\/configFactory\.ts';$/gmu,
       why: 'ConfigFactory 净 ~580ms，而它只在 buildConfig 里用 ⇒ 必须留在方法内动态 import',
     },
     {
-      file: 'src/cli/cliBuildConfig.ts',
+      file: 'src/apps/cli/cliBuildConfig.ts',
       pattern: /^import \{ SdkPreferredMcpConnector \} from .*$/gmu,
       why: 'MCP connector 净 ~480ms，只在桥接 MCP 时用',
     },
     {
-      file: 'src/cli/cliCompareCmds.ts',
+      file: 'src/apps/cli/cliCompareCmds.ts',
       pattern: /^import \{ (Agent|Runtime|ConfigFactory) \} from .*$/gmu,
       why: 'compare 是冷门命令族，Agent+Runtime+ConfigFactory 合计 ~1.2s，不得被整链加载',
     },
     {
-      file: 'src/cli/cliMcpCmds.ts',
+      file: 'src/apps/cli/cliMcpCmds.ts',
       pattern: /^import \{ SdkPreferredMcpConnector \} from .*$/gmu,
       why: '同上（mcp 层），否则每个子命令都付 ~480ms',
     },
@@ -120,7 +120,7 @@ test('① 结构：重依赖不得在这些 CLI 层里恢复成顶层值导入�
 });
 
 test('①-b 结构：`exec.ts` 必须先试链基分发，且**不得静态 import** 链顶（两段加载不得被改回一段）', () => {
-  const execSource = readFileSync(join(REPO_ROOT, 'src/cli/exec.ts'), 'utf8');
+  const execSource = readFileSync(join(REPO_ROOT, 'src/apps/cli/exec.ts'), 'utf8');
   assert.match(
     execSource,
     /import\('\.\/execLocal\.ts'\)/u,
@@ -143,7 +143,7 @@ test('①-b 结构：`exec.ts` 必须先试链基分发，且**不得静态 impo
   );
 
   // `ExecLocal` 必须落在链基半段：它若去 import 链顶（或 Agent/Runtime），两段加载就白做了。
-  const localSource = readFileSync(join(REPO_ROOT, 'src/cli/execLocal.ts'), 'utf8');
+  const localSource = readFileSync(join(REPO_ROOT, 'src/apps/cli/execLocal.ts'), 'utf8');
   assert.match(
     localSource,
     /class ExecLocal extends CliDataCmds/u,

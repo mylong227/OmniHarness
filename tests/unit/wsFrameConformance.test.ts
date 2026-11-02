@@ -1,7 +1,7 @@
 /**
  * Wave D ④（传输栈评估）审计发现：自研 RFC6455 帧层的**一致性判据**。
  *
- * 评估时实测自研实现（`src/server/transport/wsConnection.ts`）只认 opcode `0x1`/`0x8`，因而有四处
+ * 评估时实测自研实现（`src/apps/server/transport/wsConnection.ts`）只认 opcode `0x1`/`0x8`，因而有四处
  * 协议一致性缺陷（详见 `docs/TRANSPORT_STACK_EVALUATION_2026-10.md`）。本文件把修好后的行为**逐条钉死**，
  * 每一条都对应一个曾经真实存在的缺陷——**删掉修复即红**：
  *
@@ -19,8 +19,8 @@ import assert from 'node:assert/strict';
 import { Duplex } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 
-import { WsConnection } from '../../src/server/transport/wsConnection.ts';
-import { WsFrameCodec } from '../../src/server/transport/wsFrameCodec.ts';
+import { WsConnection } from '../../src/apps/server/transport/wsConnection.ts';
+import { WsFrameCodec } from '../../src/apps/server/transport/wsFrameCodec.ts';
 
 /** 假 socket：`inbound` 喂原始字节（可读侧），`written` 收集本端写出的字节（可写侧）。 */
 class FakeSocket extends Duplex {

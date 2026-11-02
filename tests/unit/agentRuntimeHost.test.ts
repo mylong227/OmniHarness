@@ -1,15 +1,15 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AgentRuntimeHost } from '../../src/server/core/agentRuntimeHost.ts';
-import { ServerNoopSupervisor } from '../../src/server/core/serverNoopSupervisor.ts';
-import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/server/core/appServerState.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import type { ResolvedConfig } from '../../src/config/configFactory.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { AgentRuntimeHost } from '../../src/apps/server/core/agentRuntimeHost.ts';
+import { ServerNoopSupervisor } from '../../src/apps/server/core/serverNoopSupervisor.ts';
+import { AUTO_ALLOW, DENY_ALL, RULES_DEFAULT } from '../../src/apps/server/core/appServerState.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import type { ResolvedConfig } from '../../src/kernel/config/configFactory.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 构造生产级解析配置（mock 适配器，无网络）。 */

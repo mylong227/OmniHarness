@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MODULE = join(ROOT, 'dist', 'src', 'skill', 'skillManifestSigner.js');
+const MODULE = join(ROOT, 'dist', 'src', 'kernel', 'skill', 'skillManifestSigner.js');
 
 function argsOf(argv) {
   const out = {};

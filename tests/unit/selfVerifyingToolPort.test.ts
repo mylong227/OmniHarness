@@ -6,16 +6,16 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SelfVerifyingToolPort } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
-import { SelfVerifyPolicy } from '../../src/adapters/tool/verify/selfVerifyPolicy.ts';
+import { SelfVerifyingToolPort } from '../../src/kernel/adapters/tool/verify/selfVerifyingToolPort.ts';
+import { SelfVerifyPolicy } from '../../src/kernel/adapters/tool/verify/selfVerifyPolicy.ts';
 import type {
   TestCommandRunner,
   TestRunOutcome,
-} from '../../src/adapters/tool/verify/testCommandRunner.ts';
-import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/ports/tool/tool.ts';
-import type { DecisionEngine, DecisionResponse } from '../../src/ports/decision/decisionEngine.ts';
-import type { DecisionTrace, DecisionTracePort } from '../../src/ports/decision/decisionTrace.ts';
-import type { VerdictObserver } from '../../src/adapters/tool/verify/selfVerifyingToolPort.ts';
+} from '../../src/kernel/adapters/tool/verify/testCommandRunner.ts';
+import type { ToolCall, ToolContext, ToolPort, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
+import type { DecisionEngine, DecisionResponse } from '../../src/contracts/ports/decision/decisionEngine.ts';
+import type { DecisionTrace, DecisionTracePort } from '../../src/contracts/ports/decision/decisionTrace.ts';
+import type { VerdictObserver } from '../../src/kernel/adapters/tool/verify/selfVerifyingToolPort.ts';
 
 /** 可注入时钟（用于精确控制冷却窗口与预算判定）。 */
 class Clock {

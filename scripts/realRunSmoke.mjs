@@ -48,7 +48,7 @@ const DEV_HOST = resolveDevAddress().host;
 /** 仓库根（本文件在 `scripts/` 下）。 */
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /** CLI 入口（构建产物）。 */
-const CLI = join(ROOT, 'dist', 'src', 'cli', 'exec.js');
+const CLI = join(ROOT, 'dist', 'src', 'apps', 'cli', 'exec.js');
 /** 报告落盘位置（gitignored 的运行时目录）。 */
 const REPORT = join(ROOT, '.omniharness', 'real-run-report.json');
 /** 本次要跑的阶段。 */

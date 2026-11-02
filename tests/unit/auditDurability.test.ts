@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AuditSink } from '../../src/server/services/auditSink.ts';
+import { AuditSink } from '../../src/apps/server/services/auditSink.ts';
 
 test('durable 审计：record → close 后内容与链校验仍通过', () => {
   const dir = mkdtempSync(join(tmpdir(), 'omni-audit-durable-'));

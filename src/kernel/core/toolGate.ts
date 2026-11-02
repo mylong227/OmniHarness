@@ -1,0 +1,367 @@
+import type { ApprovalPort } from '../../contracts/ports/runtime/approval.ts';
+import type { SupervisorPort } from '../../contracts/ports/runtime/supervisor.ts';
+import type { SandboxAction, SandboxDecision, SandboxPort } from '../../contracts/ports/runtime/sandbox.ts';
+import { MUTATING_TOOL_NAMES, TOOL_NAMES } from '../../contracts/ports/tool/toolNames.ts';
+import type { RolePolicyPort } from '../../contracts/ports/security/rolePolicy.ts';
+/**
+ * 提权沙箱默认 fail-closed：未显式注入 elevatedSandbox 时一律拒绝升级，绝不静默全放行
+ * （防御性兜底，防止手动/测试构造 ToolGate 漏注入时把提权重试变成沙箱绕过）。
+ * 此前由 adapters/sandbox/UnsupportedSandbox 提供，现内联以保持 core 层零适配器依赖。
+ */
+const FAIL_CLOSED_ELEVATED_SANDBOX: SandboxPort = {
+  name: 'elevated-fail-closed',
+  async check(_action: SandboxAction): Promise<SandboxDecision> {
+    return {
+      allowed: false,
+      reason: '平台不支持的沙箱后端: 提权沙箱未注入，默认 fail-closed 拒绝升级',
+      category: 'os',
+    };
+  },
+};
+import type { PlanPort } from '../../contracts/ports/runtime/plan.ts';
+import type { ToolCall, ToolResult } from '../../contracts/ports/tool/tool.ts';
+import type { EscalationPort } from '../../contracts/ports/runtime/escalation.ts';
+import type { ToolGatePort } from '../../contracts/ports/runtime/toolGatePort.ts';
+import { ToolIntentPolicy } from '../security/toolIntentPolicy.ts';
+
+/**
+ * @beta
+ * **写类工具（单一口径）**：会改动工作区文件或持久状态、必须在计划模式被拦、在安全模式被否、
+ * 且不得与只读调用并行的工具集合。
+ *
+ * 三处消费者共用本集合，避免历史上「两套口径各说各话」：
+ *  1. `ToolGate`：`plan` 模式下一律拦截（写前须先获批计划）；
+ *  2. 组合根 `SupervisorKernel({ hazardousTools })`：safe/locked 模式下直接否决；
+ *  3. `ToolScheduler`：形成**串行屏障**（读读可并行、写前全静、写后串行）。
+ *
+ * 2026-09-22 补齐（审计 P2）：`rollback`（还原工作区文件与事件流）、`checkpoint`（落盘快照）、
+ * `remember`（写长期记忆）此前**都不在集合内**，于是三者被调度器判为「可并行」——
+ * 实测 `rollback | read_file | remember` 同批并发，与其自身「写类形成屏障」的契约相矛盾，
+ * 也与本集合口径漂移。
+ *
+ * 2026-09-22 第三轮：**集合内容迁至 `ports/tool/toolNames.ts`**（工具名单一来源，用户指令），
+ * 此处保留导出名与 `ReadonlySet<string>` 形态 ⇒ 既有调用点零改动；写类判据见 `MUTATING_TOOL_NAMES`。
+ */
+export const MUTATING_TOOLS: ReadonlySet<string> = new Set<string>(MUTATING_TOOL_NAMES);
+
+/**
+ * @beta
+ * **会让 repo-map 立即复核的工具**（2026-10-25 收窄）。
+ *
+ * 为什么不能直接用 `MUTATING_TOOLS`：后者为了安全（plan 模式/监督内核/串行屏障）宁可多收，
+ * 含 `shell` / `run_code` / 子代理等「可能改盘但无法预知改了哪些文件」的工具。把它们也当成
+ * 「立即可知变更」会触发 `contentHashes()` 的**全仓重读+哈希**（本机 1.0–2.4 s/次），
+ * 而 `shell` 在真实回合里出现频率最高（构建/测试/格式化），实测 20 次 shell 可白烧 ≈24–48 s。
+ *
+ * 新口径：只有**明确会写工作区文件**的工具才硬失效；其余交给 `fs.watch` 的脏标记
+ * （真改盘 → 下一次组装上下文时按内容复核）与 TTL 兜底。watcher 不可用的平台仍在 TTL
+ * 到期时走内容哈希，正确性不变，只是陈旧窗口从「同一回合内」放宽到 TTL。
+ */
+export const REPO_MAP_INVALIDATING_TOOLS: ReadonlySet<string> = new Set<string>([
+  TOOL_NAMES.writeFile,
+  TOOL_NAMES.edit,
+  TOOL_NAMES.applyPatch,
+  TOOL_NAMES.patchCandidates,
+  // 回滚会把工作区文件还原到检查点 ⇒ 必须立即复核。
+  TOOL_NAMES.rollback,
+]);
+
+/**
+ * @beta
+ * 工具门禁：审批 + 沙箱 + 计划态三道门禁统一裁决（fail-closed，任意拒绝即拦截）。
+ */
+export class ToolGate implements ToolGatePort {
+  /** 每动作意图策略（2026-10-24；默认 shadow，不改变既有行为）。 */
+  private readonly intentPolicy = new ToolIntentPolicy();
+
+  public constructor(
+    /** 审批端口：策略层裁决（auto/rules/plan 白名单），deny 不升级直接拒绝。 */
+    private readonly approvals: ApprovalPort,
+    /** 基础沙箱端口：OS 层能力裁决（文件读/写/命令）。 */
+    private readonly sandbox: SandboxPort,
+    /** 计划端口（可选）：plan mode 读取计划状态做写类拦截。 */
+    private readonly plan?: PlanPort,
+    /** 是否处于计划模式：开启时写类工具在计划获批前一律拦截。 */
+    private readonly planMode = false,
+    /** 升级审批端口（#G3/G4）：仅沙箱拒绝时咨询；审批策略拒绝不升级，避免绕过既定策略。 */
+    private readonly escalation?: EscalationPort,
+    /** 提权后的复核沙箱（默认 fail-closed：未显式注入时一律拒绝升级，绝不静默全放行。
+     *  ConfigFactory 实际注入 PolicySandbox 做收紧；本默认仅为防御性兜底，
+     *  防止任何手动构造 ToolGate 漏注入 elevatedSandbox 时把提权重试变成沙箱绕过）。 */
+    private readonly elevatedSandbox: SandboxPort = FAIL_CLOSED_ELEVATED_SANDBOX,
+    /** 航天级监督内核（I-P0-3，可选）：最高优先级确定性否决，置于审批/沙箱/计划门禁之前。 */
+    private readonly supervisor?: SupervisorPort,
+    /**
+     * 角色策略（F3 RBAC-lite，可选）：**第三道门**，与审批（单次是否放行）/沙箱（OS 层能力）正交。
+     * 缺省 undefined ⇒ 完全跳过（零行为变更）。
+     */
+    private readonly rolePolicy?: RolePolicyPort,
+    /** 当前角色名（与 `rolePolicy` 同时给出才生效；缺省 undefined ⇒ 不判角色）。 */
+    private readonly role?: string,
+  ) {}
+
+  /**
+   * 门禁检查：通过返回 undefined，否则返回带具体原因的拒绝结果（可观测性 #OBS-1：plan/审批/沙箱各自的真实拒绝原因透传，便于 UI/日志归因）。
+   * @param call 待裁决的工具调用（名称 + 入参）。
+   * @param sessionId 发起调用的会话 ID（审批/升级审批需要）。
+   * @returns 拒绝时为带原因的失败 ToolResult；放行时为 undefined。
+   */
+  public async gate(call: ToolCall, sessionId: string): Promise<ToolResult | undefined> {
+    // 监督内核：确定性否决，优先级高于审批/沙箱/计划门禁（ML 层置于确定性否决之下）。
+    if (this.supervisor !== undefined) {
+      const verdict = this.supervisor.intercept(call.name);
+      if (verdict !== undefined) {
+        return { callId: call.id, ok: false, error: verdict };
+      }
+    }
+    // 每动作意图授权（正交于审批/沙箱/RBAC）：默认 shadow 只记高风险；enforce 才拒绝。
+    const intent = this.intentPolicy.evaluate(call);
+    if (!intent.allow) {
+      return { callId: call.id, ok: false, error: intent.reason ?? '意图策略拒绝该动作' };
+    }
+    const denialReason = await this.denialReason(call, sessionId);
+    if (denialReason !== undefined) {
+      return { callId: call.id, ok: false, error: denialReason };
+    }
+    return undefined;
+  }
+
+  /**
+   * 角色门禁（F3）：角色不允许即拒，**且不咨询审批/沙箱**。
+   *
+   * 为什么放在审批之前：角色决定的是**能力边界**（这个角色根本有没有这项能力），
+   * 而审批决定的是"这一次要不要人点确认"。先问审批会让"越权调用"走到弹框那一步——
+   * 既不安全（审批可能被自动规则放行）也浪费一次交互。判据断言审批端口**零调用**。
+   * @param call 待裁决的工具调用
+   * @returns 拒绝原因；角色放行（或未配置角色策略）时为 undefined
+   */
+  private roleDenialReason(call: ToolCall): string | undefined {
+    if (this.rolePolicy === undefined || this.role === undefined) return undefined;
+    const verdict = this.rolePolicy.decide(this.role, call);
+    return verdict.allow ? undefined : verdict.reason;
+  }
+
+  /**
+   * 取具体拒绝原因；未拒绝返回 undefined。区分 plan / 审批 / 沙箱三类，便于 UI 归因（G3 可观测性）。
+   * @param call 待裁决的工具调用。
+   * @param sessionId 发起调用的会话 ID。
+   * @returns 拒绝原因文本（含门禁类别）；三道门禁全部放行时为 undefined。
+   */
+  private async denialReason(call: ToolCall, sessionId: string): Promise<string | undefined> {
+    // 角色门禁（F3 RBAC-lite）：**最先判**——角色不允许的工具，连审批都不咨询（判据断言审批零调用）。
+    const roleDenial = this.roleDenialReason(call);
+    if (roleDenial !== undefined) return roleDenial;
+    // 计划门禁（未批准前禁止任何写类工具，哪怕审批/沙箱放行）。
+    // fail-closed（2026-10-03 修）：`planMode=true` 而 `plan` 缺省时，写类工具**一律拒绝**——
+    // 旧条件 `this.plan !== undefined` 让「声明了计划模式却没接计划端口」的手动/测试构造
+    // 形态静默退化为无计划门禁（正是本文件 `FAIL_CLOSED_ELEVATED_SANDBOX` 要防的同型漏洞）。
+    if (this.planMode && MUTATING_TOOLS.has(call.name)) {
+      if (this.plan === undefined) {
+        return (
+          `plan mode 已开启但计划端口未注入：写类工具（${call.name}）fail-closed 拒绝` +
+          '（修复计划端口接线，或关闭 plan mode）'
+        );
+      }
+      const state = this.plan.get();
+      if (state === null) {
+        return `plan mode 未提交计划：写类工具（${call.name}）需先 plan_write 提交计划并 plan_present 经用户批准后才能执行`;
+      }
+      if (state.status !== 'approved') {
+        return `plan mode 未批准：当前计划状态=${state.status}，写类工具（${call.name}）需经用户批准后才能执行`;
+      }
+    }
+    const approval = await this.approvals.decide({
+      sessionId,
+      toolName: call.name,
+      // 多文件补丁必须把**全部**目标展示给审批；只显示首个会让用户以为只改一个文件。
+      target: this.targetsOf(call).join(', '),
+      // 工具入参随审批上行（2026-11-01）：让审批弹窗能看到「到底要执行什么」，
+      // 此前只有 toolName+target，用户在盲审（前端 args 渲染分支一直是死的）。载荷由桥截断。
+      args: call.arguments,
+    });
+    if (approval === 'deny') {
+      // 审批策略拒绝：不升级（升级会绕过既定策略，违反最小权限）。
+      const policyName = this.approvals.name ?? 'approval';
+      return `${policyName} 策略拒绝（${call.name}）：当前审批模式不允许该工具（plan mode 仅放行只读白名单；rules 模式按规则裁决；如需放行请切换 approval=auto 或加 --auto-approve）`;
+    }
+    // 多文件补丁：每个目标都过沙箱，任何一个拒绝即整条补丁拒绝（不能只检查首个）。
+    for (const action of this.sandboxActionsOf(call)) {
+      const decision = await this.sandbox.check(action);
+      if (decision.allowed) {
+        continue;
+      }
+      // G3/G4 核心：沙箱拒绝 → 咨询升级审批，escalate 且 elevatedSandbox 放行则放行。
+      if (await this.tryEscalate(call, sessionId, decision, action)) {
+        continue;
+      }
+      const cat = decision.category ? `[${decision.category}] ` : '';
+      const reason = decision.reason ?? '未提供原因';
+      return `sandbox 拒绝（${call.name}：${action.target}）${cat}${reason}${ToolGate.repairHint(reason)}`;
+    }
+    return undefined;
+  }
+
+  /**
+   * 沙箱拒绝后的升级尝试：escalate 且提权沙箱放行则返回 true（放行），否则保持拒绝。
+   * @param call 被基础沙箱拒绝的工具调用。
+   * @param sessionId 发起调用的会话 ID。
+   * @param decision 基础沙箱的拒绝决定（原因透传给升级审批）。
+   * @returns 升级获批且提权沙箱放行时为 true；否则 false（维持拒绝）。
+   */
+  private async tryEscalate(
+    call: ToolCall,
+    sessionId: string,
+    decision: SandboxDecision,
+    action: SandboxAction = this.sandboxActionOf(call),
+  ): Promise<boolean> {
+    if (this.escalation === undefined) {
+      return false;
+    }
+    const verdict = await this.escalation.decide({
+      sessionId,
+      toolName: call.name,
+      target: this.targetsOf(call).join(', '),
+      reason: decision.reason ?? 'sandbox denied',
+      deniedBy: 'sandbox',
+    });
+    if (verdict !== 'escalate') {
+      return false;
+    }
+    const elevated = await this.elevatedSandbox.check(action);
+    return elevated.allowed;
+  }
+
+  /**
+   * 按工具类型映射沙箱动作（命令/读/写）。
+   * @param call 工具调用（按名称归类到 file_read/file_write/command）。
+   * @returns 对应的沙箱检查动作（含动作目标）。
+   */
+  private sandboxActionOf(call: ToolCall): SandboxAction {
+    if (
+      call.name === TOOL_NAMES.readFile ||
+      call.name === TOOL_NAMES.grep ||
+      call.name === TOOL_NAMES.glob ||
+      // 读图（P2-⑬）与抓网页（P2-⑬）都不写本地文件，按「读」归类。
+      call.name === TOOL_NAMES.viewImage ||
+      // 抽帧读媒体（动画 GIF / 视频）：只读该媒体文件、不落盘（帧走内存附件），故同属「读」。
+      // 漏登记的实际后果：会掉进末尾的 `command` 分支，在限制命令执行的沙箱下被误拒，
+      // 且审批/沙箱展示的目标文案会退化成「当命令看」（与 plan 只读白名单同源的漏登记形态）。
+      call.name === TOOL_NAMES.viewMedia ||
+      call.name === TOOL_NAMES.webFetch
+    ) {
+      return { kind: 'file_read', target: this.targetOf(call) };
+    }
+    if (
+      call.name === TOOL_NAMES.writeFile ||
+      call.name === TOOL_NAMES.edit ||
+      call.name === TOOL_NAMES.applyPatch ||
+      call.name === TOOL_NAMES.workflowMemory
+    ) {
+      return { kind: 'file_write', target: this.targetOf(call) };
+    }
+    if (call.name === TOOL_NAMES.browserScreenshot) {
+      // 落盘 PNG，与 write_file 同属写类；plan 模式应被拦（不进只读白名单）。
+      return { kind: 'file_write', target: this.targetOf(call) };
+    }
+    return { kind: 'command', target: this.targetOf(call) };
+  }
+
+  /**
+   * 提取动作目标（用于审批/沙箱展示与路径裁决）。
+   *
+   * `apply_patch` 的 `path` 官方描述即「可省略，缺省取 `+++` 头」；原实现因此在省略 `path` 时
+   * 把工具名当成路径交给审批/沙箱 ⇒ **基于路径的策略拿不到真实目标**（与自验证旁路同源）。
+   * 这里从补丁头就地取首个目标（纯字符串处理，不引入 adapters 依赖，守住 `core` 零适配器红线）。
+   *
+   * @param call 工具调用。
+   * @returns command / path / url 参数值，或补丁头目标；均缺失时退化为工具名。
+   */
+  private targetOf(call: ToolCall): string {
+    return this.targetsOf(call)[0] ?? call.name;
+  }
+
+  /**
+   * 提取**全部**动作目标（多文件补丁的每一段都要过审批展示与沙箱）。
+   *
+   * `+++` 与 `---` 都参与：删除文件时 `+++` 是 `/dev/null`，真实目标是 `---` 一侧；
+   * 新建文件则相反。两侧都收并去重，兼容 `a/`、`b/` 前缀。
+   * @param call 工具调用
+   * @returns 目标清单（至少一个；无任何线索时为工具名）
+   */
+  private targetsOf(call: ToolCall): string[] {
+    const direct = call.arguments['command'] ?? call.arguments['path'] ?? call.arguments['url'];
+    if (call.name === TOOL_NAMES.workflowMemory) {
+      return ['.omniharness/workflows.jsonl'];
+    }
+    if (call.name === TOOL_NAMES.applyPatch || call.name === TOOL_NAMES.patchCandidates) {
+      const patches = this.patchTextsOf(call);
+      const targets: string[] = [];
+      for (const patch of patches) {
+        for (const line of patch.split(/\r?\n/u)) {
+          const match = /^(?:\+\+\+|---) (.+)$/u.exec(line);
+          if (match === null) continue;
+          const raw = match[1]?.trim() ?? '';
+          if (raw === '' || raw === '/dev/null') continue;
+          const normalized = raw.replace(/^[ab]\//u, '');
+          if (!targets.includes(normalized)) targets.push(normalized);
+        }
+      }
+      if (targets.length > 0) return targets;
+    }
+    if (typeof direct === 'string' && direct !== '') {
+      return [direct];
+    }
+    return [call.name];
+  }
+
+  /**
+   * 取补丁文本（单补丁 / 多候选）。
+   * @param call 工具调用。
+   * @returns 非空补丁文本数组（无则为空）。
+   */
+  private patchTextsOf(call: ToolCall): string[] {
+    if (call.name === TOOL_NAMES.patchCandidates) {
+      const raw = call.arguments['candidates'];
+      return Array.isArray(raw)
+        ? raw.filter((item): item is string => typeof item === 'string')
+        : [];
+    }
+    const patch = call.arguments['patch'];
+    return typeof patch === 'string' ? [patch] : [];
+  }
+
+  /**
+   * 按工具类型映射**全部**沙箱动作：多文件补丁每个目标一条，其余工具一条。
+   * @param call 工具调用
+   * @returns 沙箱动作清单
+   */
+  private sandboxActionsOf(call: ToolCall): SandboxAction[] {
+    if (call.name !== TOOL_NAMES.applyPatch && call.name !== TOOL_NAMES.patchCandidates) {
+      return [this.sandboxActionOf(call)];
+    }
+    return this.targetsOf(call).map((target) => ({ kind: 'file_write', target }));
+  }
+
+  /**
+   * 给「内联解释器」类拒绝补一句**可执行的替代动作**。
+   *
+   * 为什么只对这类规则加提示：`node -e` / `python -c` / `pwsh -c` 被危险命令黑名单拦下时，
+   * 模型看到的只有「命中危险命令规则」，于是它只会换一种引号/编码**再试一次**——2026-10-19
+   * 鹈鹕会话实测连试 5 次（300→424 秒，纯浪费）。这类拒绝的补救动作是确定的：要落文件就用
+   * 文件工具，要跑脚本就先写成文件再按文件名执行。其余拒绝（路径越界、递归删除）不猜意图。
+   *
+   * @param reason 沙箱给出的拒绝原因（`命中危险命令规则: <pattern>`）。
+   * @returns 追加的提示文本（不适用时为空串）。
+   */
+  public static repairHint(reason: string): string {
+    const inline =
+      /node -e|node -eval|python3? -c|perl -e|ruby -e|php -r|powershell -c|powershell -command|pwsh -c|pwsh -command|invoke-expression/u;
+    if (!inline.test(reason)) return '';
+    return (
+      '。补救：① 要**写/改文件**请直接用 `write_file` / `edit` / `apply_patch`（不要用解释器内联代码落盘）；' +
+      '② 确实要跑脚本，先把脚本写成工作区内的 `.js` / `.py` 文件，再用 `node 文件名` / `python 文件名` 执行。'
+    );
+  }
+}
+
+export type { ToolGatePort } from '../../contracts/ports/runtime/toolGatePort.ts';

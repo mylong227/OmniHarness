@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { GraphStore } from '../../src/autonomy/graphStore.ts';
-import type { WorkflowDef } from '../../src/autonomy/workflowTypes.ts';
+import { GraphStore } from '../../src/kernel/autonomy/graphStore.ts';
+import type { WorkflowDef } from '../../src/kernel/autonomy/workflowTypes.ts';
 
 const BIG: WorkflowDef = {
   name: 'oversized',

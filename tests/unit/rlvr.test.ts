@@ -1,14 +1,14 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { Candidate } from '../../src/ports/runtime/evolution.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import { VerifiableReward } from '../../src/evolution/verifiableReward.ts';
+import type { Candidate } from '../../src/contracts/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import { VerifiableReward } from '../../src/kernel/evolution/verifiableReward.ts';
 import {
   RlvrLoop,
   InMemoryReplayBuffer,
   type CodeCandidate,
   type RlvrSampler,
-} from '../../src/evolution/rlvrLoop.ts';
+} from '../../src/kernel/evolution/rlvrLoop.ts';
 
 function stubCandidate(source: string, meta: Record<string, unknown> = {}): Candidate {
   const skill = { name: `s-${source}`, description: 'stub' } as unknown as Skill;

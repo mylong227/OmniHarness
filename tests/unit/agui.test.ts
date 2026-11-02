@@ -5,8 +5,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { eventFactory } from '../../src/core/eventFactory.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 import {
   AgUiEventMapper,
   AgUiEventStream,
@@ -16,7 +16,7 @@ import {
   type AgUiAgentRunner,
   type AgUiEvent,
   type AgUiStateDeltaEvent,
-} from '../../src/agui/index.ts';
+} from '../../src/protocols/agui/index.ts';
 
 async function drain(events: AsyncIterable<AgUiEvent>): Promise<AgUiEvent[]> {
   const out: AgUiEvent[] = [];

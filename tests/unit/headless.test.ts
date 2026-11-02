@@ -4,7 +4,7 @@ import { execFileAsync } from '../helpers/childProcess.ts';
 import { resolve } from 'node:path';
 
 /** CLI 入口路径。 */
-const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');
+const cliPath = resolve(process.cwd(), 'dist/src/apps/cli/exec.js');
 
 /**
  * 子进程环境：**显式关掉** CLI 的语义检索默认档（\`OMNI_SEMANTIC_RECALL=0\`）。

@@ -28,9 +28,9 @@ import { fileURLToPath } from 'node:url';
 
 /** 仓库根（`dist/tests/unit` → 上溯三级）。 */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const HANDLERS = join(REPO_ROOT, 'src', 'server', 'core', 'appServerSurfaceHandlers.ts');
-const APP_SERVER = join(REPO_ROOT, 'src', 'server', 'core', 'appServer.ts');
-const APP_SERVER_BASE = join(REPO_ROOT, 'src', 'server', 'core', 'appServerBase.ts');
+const HANDLERS = join(REPO_ROOT, 'src', 'apps', 'server', 'core', 'appServerSurfaceHandlers.ts');
+const APP_SERVER = join(REPO_ROOT, 'src', 'apps', 'server', 'core', 'appServer.ts');
+const APP_SERVER_BASE = join(REPO_ROOT, 'src', 'apps', 'server', 'core', 'appServerBase.ts');
 
 describe('容量面板：空 threadId 回落到正在跑的会话（新会话第一回合也能看到真实数字）', () => {
   const src = readFileSync(HANDLERS, 'utf8');

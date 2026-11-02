@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { MacOsSeatbeltSandbox } from '../../src/adapters/sandbox/macosSeatbeltSandbox.ts';
-import type { SandboxAction } from '../../src/ports/runtime/sandbox.ts';
+import { MacOsSeatbeltSandbox } from '../../src/kernel/adapters/sandbox/macosSeatbeltSandbox.ts';
+import type { SandboxAction } from '../../src/contracts/ports/runtime/sandbox.ts';
 
 const WS = '/Users/dev/project';
 

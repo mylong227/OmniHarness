@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ProcessRewardDataset } from '../../src/evolution/processRewardDataset.ts';
-import { LogisticProcessReward } from '../../src/evolution/logisticProcessReward.ts';
-import type { StepRewardSample } from '../../src/ports/memory/processReward.ts';
+import { ProcessRewardDataset } from '../../src/kernel/evolution/processRewardDataset.ts';
+import { LogisticProcessReward } from '../../src/kernel/evolution/logisticProcessReward.ts';
+import type { StepRewardSample } from '../../src/contracts/ports/memory/processReward.ts';
 
 /** 造一条样本。 */
 function sample(index: number, noul: number, passed: boolean, session: string): StepRewardSample {

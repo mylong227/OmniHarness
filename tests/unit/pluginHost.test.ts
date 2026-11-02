@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PluginHost } from '../../src/server/services/pluginHost.ts';
-import { PluginHostPermissions } from '../../src/server/services/pluginHostPermissions.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DANGEROUS_PERMISSIONS } from '../../src/plugin/permission.ts';
+import { PluginHost } from '../../src/apps/server/services/pluginHost.ts';
+import { PluginHostPermissions } from '../../src/apps/server/services/pluginHostPermissions.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DANGEROUS_PERMISSIONS } from '../../src/kernel/plugin/permission.ts';
 
 /** 空传输桩。 */
 class NoopTransport implements Transport {

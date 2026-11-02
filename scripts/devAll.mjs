@@ -73,7 +73,7 @@ process.stdout.write('\n▶ 后端 serve + Vite dev server（Ctrl+C 停止两者
 const children = [
   spawn(
     process.execPath,
-    [join(REPO, 'dist', 'src', 'cli', 'exec.js'), 'serve', ...finalServeArgs],
+    [join(REPO, 'dist', 'src', 'apps', 'cli', 'exec.js'), 'serve', ...finalServeArgs],
     {
       cwd: process.cwd(),
       stdio: 'inherit',

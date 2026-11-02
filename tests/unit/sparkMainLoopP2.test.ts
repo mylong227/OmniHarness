@@ -10,16 +10,16 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { SparkController } from '../../src/spark/sparkController.ts';
-import { NaturalGradientBelief } from '../../src/adapters/belief/naturalGradientBelief.ts';
-import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilterBelief.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { ScriptedModel } from '../../src/core/scriptedModel.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { SparkController } from '../../src/kernel/spark/sparkController.ts';
+import { NaturalGradientBelief } from '../../src/kernel/adapters/belief/naturalGradientBelief.ts';
+import { ParticleFilterBelief } from '../../src/kernel/adapters/belief/particleFilterBelief.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { ScriptedModel } from '../../src/kernel/core/scriptedModel.ts';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

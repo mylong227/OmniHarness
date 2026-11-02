@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ConfigRebase } from '../../src/config/configRebase.ts';
-import type { ResolvedConfig } from '../../src/config/configFactory.ts';
+import { ConfigRebase } from '../../src/kernel/config/configRebase.ts';
+import type { ResolvedConfig } from '../../src/kernel/config/configFactory.ts';
 
 /** 造一份「字段齐全」的伪配置：声明式字段 + 三个工作区耦合端口。 */
 const seed = (workspaceRoot: string): ResolvedConfig =>

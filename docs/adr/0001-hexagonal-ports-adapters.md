@@ -13,9 +13,9 @@ OmniHarness 是自研全能 Agent Harness，代码量庞大（500+ TS 文件）�
 
 采用六边形（端口-适配器）架构：
 
-- `src/ports/**` 定义纯接口（端口），**强制零第三方依赖**；
-- `src/adapters/**` 提供具体实现（适配器），可依赖第三方，但须经准入；
-- `src/core/**` 只依赖端口，不含具体实现；
+- `src/contracts/ports/**` 定义纯接口（端口），**强制零第三方依赖**；
+- `src/kernel/adapters/**` 提供具体实现（适配器），可依赖第三方，但须经准入；
+- `src/kernel/core/**` 只依赖端口，不含具体实现；
 - 组合根（`Container` / `RuntimeFactory`）在启动时直接 import 具体适配器完成接线，
   运行时核心代码不再 `new` 适配器。
 

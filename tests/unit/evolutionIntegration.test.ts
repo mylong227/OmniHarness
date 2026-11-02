@@ -10,8 +10,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Skill } from '../../src/skill/skill.ts';
-import { MoireComposer } from '../../src/skill/moireComposer.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import { MoireComposer } from '../../src/kernel/skill/moireComposer.ts';
 
 /** 本文件创建的临时工作区（afterAll 统一清理）。 */
 const dirs: string[] = [];
@@ -24,19 +24,19 @@ function tempWorkspace(tag: string): string {
 afterAll(() => {
   for (const dir of dirs) rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
 });
-import { Benchmark } from '../../src/evolution/benchmark.ts';
-import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.ts';
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
-import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.ts';
-import { Agent } from '../../src/core/agent.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { ScriptedModel } from '../../src/core/scriptedModel.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
+import { Benchmark } from '../../src/kernel/evolution/benchmark.ts';
+import { FailClosedEvolutionGate } from '../../src/kernel/evolution/failClosedEvolutionGate.ts';
+import { TwistDiscoveryEngine } from '../../src/kernel/evolution/twistDiscoveryEngine.ts';
+import { EvolutionControllerImpl } from '../../src/kernel/evolution/evolutionControllerImpl.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { ScriptedModel } from '../../src/kernel/core/scriptedModel.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
 
 const N = 64;
 

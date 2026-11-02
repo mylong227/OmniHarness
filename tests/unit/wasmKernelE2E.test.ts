@@ -19,9 +19,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';
-import { IsolationLadderFactory } from '../../src/adapters/isolation/isolationLadderFactory.ts';
-import type { IsolationRequest } from '../../src/ports/runtime/isolation.ts';
+import { BuiltinWasmRunner } from '../../src/kernel/adapters/isolation/builtinWasmRunner.ts';
+import { IsolationLadderFactory } from '../../src/kernel/adapters/isolation/isolationLadderFactory.ts';
+import type { IsolationRequest } from '../../src/contracts/ports/runtime/isolation.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /**

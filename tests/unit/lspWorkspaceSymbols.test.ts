@@ -14,12 +14,12 @@ import { strict as assert } from 'node:assert/strict';
 import { beforeAll, describe, test } from 'vitest';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { LspProcessAdapter } from '../../src/adapters/lsp/lspProcessAdapter.ts';
-import { LspUri } from '../../src/adapters/lsp/lspUri.ts';
-import { LspSymbolNormalizer } from '../../src/adapters/lsp/lspSymbolNormalizer.ts';
-import { LspWorkspaceSymbolsTool } from '../../src/adapters/tool/lsp/lspWorkspaceSymbolsTool.ts';
-import type { LspPort, LspWorkspaceSymbol } from '../../src/ports/tool/lsp.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { LspProcessAdapter } from '../../src/kernel/adapters/lsp/lspProcessAdapter.ts';
+import { LspUri } from '../../src/kernel/adapters/lsp/lspUri.ts';
+import { LspSymbolNormalizer } from '../../src/kernel/adapters/lsp/lspSymbolNormalizer.ts';
+import { LspWorkspaceSymbolsTool } from '../../src/kernel/adapters/tool/lsp/lspWorkspaceSymbolsTool.ts';
+import type { LspPort, LspWorkspaceSymbol } from '../../src/contracts/ports/tool/lsp.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** mock 服务器（源码级 .mjs，不被 tsc 编译，故相对项目根定位）。 */
 const mockServer = resolve(process.cwd(), 'tests/fixtures/mockLspServer.mjs');

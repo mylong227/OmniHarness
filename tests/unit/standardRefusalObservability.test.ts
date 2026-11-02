@@ -32,13 +32,13 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { RbacPolicy } from '../../src/security/rbacPolicy.ts';
-import { LicenseEngine } from '../../src/license/licenseEngine.ts';
-import { PrivateSkillSource } from '../../src/plugin/privateSkillSource.ts';
-import { PackGrader } from '../../src/plugin/packGrader.ts';
-import { ProvenanceIssuer } from '../../src/governance/provenanceIssuer.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { RbacPolicy } from '../../src/kernel/security/rbacPolicy.ts';
+import { LicenseEngine } from '../../src/apps/license/licenseEngine.ts';
+import { PrivateSkillSource } from '../../src/kernel/plugin/privateSkillSource.ts';
+import { PackGrader } from '../../src/kernel/plugin/packGrader.ts';
+import { ProvenanceIssuer } from '../../src/kernel/governance/provenanceIssuer.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 采集到的一条结构化事件。 */
 interface Captured {
@@ -220,7 +220,7 @@ test('§12.1-4 · 系谱复核：拒绝带 code（与 problems 一一对应）�
 });
 test('§12.1-4 · wasm 运行器：拒绝写共享 logger（用日志采集子进程断言）', () => {
   const script = [
-    "const { BuiltinWasmRunner } = require('./dist/src/adapters/isolation/builtinWasmRunner.js');",
+    "const { BuiltinWasmRunner } = require('./dist/src/kernel/adapters/isolation/builtinWasmRunner.js');",
     'const runner = new BuiltinWasmRunner();',
     "runner.run({ asset: { kind: 'plugin', name: 'x', version: '1', governance: { isolation: 'wasm' } },",
     "  payload: { kind: 'wasm-module', bytes: new Uint8Array([0,97,115,109,1,0,0,0]), entry: 'process', fuel: 1000 },",

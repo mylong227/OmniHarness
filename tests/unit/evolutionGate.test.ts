@@ -7,16 +7,16 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import type { Skill } from '../../src/skill/skill.ts';
-import { MoireComposer } from '../../src/skill/moireComposer.ts';
-import { Benchmark } from '../../src/evolution/benchmark.ts';
-import { FailClosedEvolutionGate } from '../../src/evolution/failClosedEvolutionGate.ts';
-import type { BenchmarkFn } from '../../src/evolution/failClosedEvolutionGate.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import { MoireComposer } from '../../src/kernel/skill/moireComposer.ts';
+import { Benchmark } from '../../src/kernel/evolution/benchmark.ts';
+import { FailClosedEvolutionGate } from '../../src/kernel/evolution/failClosedEvolutionGate.ts';
+import type { BenchmarkFn } from '../../src/kernel/evolution/failClosedEvolutionGate.ts';
 
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
-import { EvolutionControllerImpl } from '../../src/evolution/evolutionControllerImpl.ts';
-import { AuditSink } from '../../src/server/services/auditSink.ts';
-import type { Candidate } from '../../src/ports/runtime/evolution.ts';
+import { TwistDiscoveryEngine } from '../../src/kernel/evolution/twistDiscoveryEngine.ts';
+import { EvolutionControllerImpl } from '../../src/kernel/evolution/evolutionControllerImpl.ts';
+import { AuditSink } from '../../src/apps/server/services/auditSink.ts';
+import type { Candidate } from '../../src/contracts/ports/runtime/evolution.ts';
 
 const N = 64;
 

@@ -135,20 +135,20 @@ export interface CapabilityRecord {
 ## 3. 模块清单（逐文件；新增 18 / 改造 4 / 不动其余）
 
 ```
-src/ports/capability/            # L1 契约（Wave B；ports 恒第三方-free）
+src/contracts/ports/capability/            # L1 契约（Wave B；ports 恒第三方-free）
   capabilitySchema.ts  capabilityRecord.ts  capabilityRegistryPort.ts
   capabilitySchemaRegistryPort.ts  trustTier.ts  isolationLevel.ts
-src/ports/evolution/…            # Wave A 新契约（与既有 6 文件同目录）
+src/contracts/ports/evolution/…            # Wave A 新契约（与既有 6 文件同目录）
   signalSource.ts  candidateArchive.ts  promotionLedger.ts
-src/ports/…（Wave B/C/D）
+src/contracts/ports/…（Wave B/C/D）
   evolution/operator.ts  evolution/evaluator.ts  runtime/isolation.ts  asset/assetPack.ts
-src/capability/                  # L1 实现
+src/kernel/capability/                  # L1 实现
   capabilitySchemaRegistry.ts      # 类型注册表（内存 Map + 签名元数据校验）
   capabilityRegistry.ts            # 统一注册表：内部持有既有 SkillRegistry（绞杀者第一态）
   capabilityEvaluator.ts           # 通用评估器：按类型声明的度量量，诚实分级 verifiable/unverifiable
   schemas/skillSchema.ts           # 首个 CapabilitySchema：委托既有 moireEnergy 基准
   schemas/workflowTemplateSchema.ts # 第二个类型：依赖满足度（证明协议对类型开放，非 skill 专用）
-src/evolution/                   # L2/L3 实现（Wave A 新增件）
+src/kernel/evolution/                   # L2/L3 实现（Wave A 新增件）
   evolutionSignalCollector.ts               # 遥测 production 行 → 失败签名 / 成功密度
   bucketedCandidateArchive.ts      # 分桶精英 + 冻结/复活
   hashChainPromotionLedger.ts      # JSONL + HashChain + 快照引用（.omniharness/evolution/）
@@ -158,7 +158,7 @@ src/evolution/                   # L2/L3 实现（Wave A 新增件）
   signalIngestor.ts                # ring① 路由策略：failure→挖掘器（有界）/ success→固化器
   archiveCurator.ts                # ring② 档案纪律：入档→复活早前冻结者→冻结本轮 + 复核上限退役
   dormantExecutorActivation.ts     # ring⑥ 执行体转正：CRISPR 定点改进 + 固化器越阈冻结（加法式）
-src/adapters/…
+src/kernel/adapters/…
   enterprise/oidcSdkClient.ts      # A.5：openid-client+jose 适配器（自研 oidcClient.ts 转回退资产）
   daemon/cronerSchedule.ts         # A.5：croner 薄适配（自研解析保留）
 crates/omni-wasmrt/              # Wave C：wasmtime 嵌入（经 omni-napi 暴露 IsolationPort 的 wasm 档）

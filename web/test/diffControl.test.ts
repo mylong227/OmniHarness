@@ -14,9 +14,9 @@ import { test } from 'vitest';
 import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
 import { byClass, facadeOf, walk } from './domFacade.ts';
 import type { Facade, FacadeNode } from './domFacade.ts';
-import type { ApiClient as ApiClientClass } from '../src/core/ApiClient.ts';
+import type { ApiClient as ApiClientClass } from '../src/kernel/core/ApiClient.ts';
 
-const { ApiClient } = await import('../src/core/ApiClient.ts');
+const { ApiClient } = await import('../src/kernel/core/ApiClient.ts');
 const { ChangesTab } = await import('../src/ui/components/tabs/ChangesTab.tsx');
 
 /** 捕获一次 RPC 调用（method + params）。 */

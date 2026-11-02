@@ -1,18 +1,18 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
 // StepRunner × 流式路径集成测试（#B3 接线）：验证「live 端口 + model.stream」正确转发
 // 工具参数增量，并在不传 live 或模型不支持 stream 时 fail-closed 退回 generate 路径。
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { ModelPort, ModelOutput, ToolInputDelta } from '../../src/ports/model/model.ts';
-import type { ToolPort, ToolCall } from '../../src/ports/tool/tool.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
-import type { ToolInputSink } from '../../src/ports/tool/toolInputSink.ts';
+import { StepRunner } from '../../src/kernel/core/stepRunner.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { ModelPort, ModelOutput, ToolInputDelta } from '../../src/contracts/ports/model/model.ts';
+import type { ToolPort, ToolCall } from '../../src/contracts/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
+import type { ToolInputSink } from '../../src/contracts/ports/tool/toolInputSink.ts';
 
 function recorderFor(sessionId: string): SessionRecorder {
   return new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);

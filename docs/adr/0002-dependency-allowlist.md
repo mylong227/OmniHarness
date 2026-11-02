@@ -15,7 +15,7 @@
 - `dependency-allowlist.json` 登记每一个被允许的第三方包，条目须含五字段（名称 / 版本范围 / 许可 /
   用途 / 审批人），且仅接受 permissive 许可；
 - `scripts/check.mjs` 提供四道闸门：零第三方裸导入、allowlist 完整性、许可合规、体量门禁；
-- `src/ports/**` 与 `src/core/**` 恒保持第三方-free（不变量，由 CI 持续校验）；
+- `src/contracts/ports/**` 与 `src/kernel/core/**` 恒保持第三方-free（不变量，由 CI 持续校验）；
 - 既有零依赖自研实现（BM25 / RFC6455 / Ed25519 / N-API FFI / LCS diff）全部保留，不因引入依赖而删除。
 
 ## 后果

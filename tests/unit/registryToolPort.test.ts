@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import type { ToolCall, ToolDefinition, ToolResult } from '../../src/ports/tool/tool.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import type { ToolCall, ToolDefinition, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 构造简单测试工具。 */
 function echoTool(): { registry: RegistryToolPort; definition: ToolDefinition } {

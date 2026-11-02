@@ -14,12 +14,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { BuiltinWasmRunner } from '../../src/adapters/isolation/builtinWasmRunner.ts';
+import { BuiltinWasmRunner } from '../../src/kernel/adapters/isolation/builtinWasmRunner.ts';
 import {
   WASM_PAGE_BYTES,
   WasmMemoryLimits,
-} from '../../src/adapters/isolation/wasmMemoryLimits.ts';
-import type { IsolationRequest } from '../../src/ports/runtime/isolation.ts';
+} from '../../src/kernel/adapters/isolation/wasmMemoryLimits.ts';
+import type { IsolationRequest } from '../../src/contracts/ports/runtime/isolation.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /**

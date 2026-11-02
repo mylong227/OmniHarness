@@ -8,8 +8,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { McpAuthFlow } from '../../src/mcp/mcpAuthFlow.ts';
-import { McpAuthTokenStore } from '../../src/mcp/mcpAuthTokenStore.ts';
+import { McpAuthFlow } from '../../src/protocols/mcp/mcpAuthFlow.ts';
+import { McpAuthTokenStore } from '../../src/protocols/mcp/mcpAuthTokenStore.ts';
 
 test('回环授权：回调 code + state → 换令牌 → 写存储', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'mcp-auth-flow-'));

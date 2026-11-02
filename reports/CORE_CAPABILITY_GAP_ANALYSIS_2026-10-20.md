@@ -117,13 +117,13 @@
 
 | 项         | 现状                                                       | 证据                                                                                             |
 | ---------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 默认硬时限 | **60 分钟**                                                | [`agent.ts:40-41`](../src/core/agent.ts#L40-L41)                                                 |
+| 默认硬时限 | **60 分钟**                                                | [`agent.ts:40-41`](../src/kernel/core/agent.ts#L40-L41)                                                 |
 | 输出截断   | 不识别 `finish_reason=length`；全仓无处理                  | 全仓 grep 无命中                                                                                 |
-| 输出上限   | `maxOutputTokens` 未设时不发 `max_tokens`                  | [`stepRunner.ts:228`](../src/core/stepRunner.ts#L228)                                            |
-| 上下文超窗 | 无 `prompt_too_long` / `context_length` 分支；400 不可重试 | 全仓 grep 无命中；[`retryingModel.ts:200-206`](../src/adapters/model/retryingModel.ts#L200-L206) |
-| 过载切换   | 仅 `health-fallback` 显式配置时；默认单适配器              | [`modelRouter.ts:139-185`](../src/adapters/model/modelRouter.ts#L139-L185)                       |
-| 续跑       | `Agent.resume` 有；需手动触发；服务端 `threads.continue`   | [`agent.ts:379-384`](../src/core/agent.ts#L379-L384)                                             |
-| 自动检查点 | `checkpoint` 是手动工具；无每 N 步自动快照                 | [`toolNames.ts`](../src/ports/tool/toolNames.ts)                                                 |
+| 输出上限   | `maxOutputTokens` 未设时不发 `max_tokens`                  | [`stepRunner.ts:228`](../src/kernel/core/stepRunner.ts#L228)                                            |
+| 上下文超窗 | 无 `prompt_too_long` / `context_length` 分支；400 不可重试 | 全仓 grep 无命中；[`retryingModel.ts:200-206`](../src/kernel/adapters/model/retryingModel.ts#L200-L206) |
+| 过载切换   | 仅 `health-fallback` 显式配置时；默认单适配器              | [`modelRouter.ts:139-185`](../src/kernel/adapters/model/modelRouter.ts#L139-L185)                       |
+| 续跑       | `Agent.resume` 有；需手动触发；服务端 `threads.continue`   | [`agent.ts:379-384`](../src/kernel/core/agent.ts#L379-L384)                                             |
+| 自动检查点 | `checkpoint` 是手动工具；无每 N 步自动快照                 | [`toolNames.ts`](../src/contracts/ports/tool/toolNames.ts)                                                 |
 
 **为什么会这样**：这些机制大多是在“分钟级回合”假设下长出来的。`RetryingModel` 解决“同一请求再发一次”，但没有“请求形态要变”的恢复层（更长输出、更短上下文、换模型）。`resume` 解决“进程重启”，但没有“回合内断点”。
 
@@ -205,11 +205,11 @@
 
 | 项          | 现状                                               | 证据                                                                                      |
 | ----------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 压缩层数    | **单层**：0.8×窗口一次摘要 + 最近消息 + 台账       | [`contextCompactor.ts:191-196`](../src/context/contextCompactor.ts#L191-L196)、`:354-363` |
-| token 估算  | `ceil(cjk + other/4)`                              | [`tokenEstimator.ts:215`](../src/context/tokenEstimator.ts#L215)                          |
-| 窗口目录    | `claude-4` 一律 200k；未识别模型 128k              | [`contextWindowCatalog.ts:18-48`](../src/context/contextWindowCatalog.ts#L18-L48)         |
+| 压缩层数    | **单层**：0.8×窗口一次摘要 + 最近消息 + 台账       | [`contextCompactor.ts:191-196`](../src/kernel/context/contextCompactor.ts#L191-L196)、`:354-363` |
+| token 估算  | `ceil(cjk + other/4)`                              | [`tokenEstimator.ts:215`](../src/kernel/context/tokenEstimator.ts#L215)                          |
+| 窗口目录    | `claude-4` 一律 200k；未识别模型 128k              | [`contextWindowCatalog.ts:18-48`](../src/kernel/context/contextWindowCatalog.ts#L18-L48)         |
 | 压缩后质量  | 单测验“压缩发生/游标对/台账在”，不验“任务还能继续” | `contextCompactor.test.ts`                                                                |
-| 记忆 primer | 默认关，`OMNI_MEMORY_PRIMER=1` 才注入              | [`sessionInjector.ts:88-94`](../src/core/sessionInjector.ts#L88-L94)                      |
+| 记忆 primer | 默认关，`OMNI_MEMORY_PRIMER=1` 才注入              | [`sessionInjector.ts:88-94`](../src/kernel/core/sessionInjector.ts#L88-L94)                      |
 
 **已有的亮点**：压缩摘要带**确定性工具台账**（已读文件/已跑命令/失败次数），这是防止“压缩后重新探索”的正确方向；`LONG_SESSION_QUALITY` 也复盘过 pre-fix 的 137 次冗余结果。问题不是“没做”，而是“只有一层 + 没有质量判据”。
 
@@ -278,9 +278,9 @@
 
 | 项     | 现状                                                                                    | 证据                                                                                                |
 | ------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 浏览器 | 只有 `browser_screenshot`（URL/尺寸/等待/整页），无点击/输入/滚动/ARIA                  | [`browserScreenshotTool.ts:90-123`](../src/adapters/tool/browser/browserScreenshotTool.ts#L90-L123) |
-| 搜索   | `web_search` 默认不注册；无内置 provider；需注入 `search` 函数                          | [`configToolRegistry.ts:38`](../src/config/configToolRegistry.ts#L38)                               |
-| 抓取   | `web_fetch` 默认注册，但只是 `fetch + HTML→text`；不执行 JS、无 readability、不解析 PDF | [`webFetchTool.ts`](../src/adapters/tool/web/webFetchTool.ts)                                       |
+| 浏览器 | 只有 `browser_screenshot`（URL/尺寸/等待/整页），无点击/输入/滚动/ARIA                  | [`browserScreenshotTool.ts:90-123`](../src/kernel/adapters/tool/browser/browserScreenshotTool.ts#L90-L123) |
+| 搜索   | `web_search` 默认不注册；无内置 provider；需注入 `search` 函数                          | [`configToolRegistry.ts:38`](../src/kernel/config/configToolRegistry.ts#L38)                               |
+| 抓取   | `web_fetch` 默认注册，但只是 `fetch + HTML→text`；不执行 JS、无 readability、不解析 PDF | [`webFetchTool.ts`](../src/kernel/adapters/tool/web/webFetchTool.ts)                                       |
 | GUI    | 无 mouse/keyboard/screen/window 动作                                                    | 工具表无对应工具                                                                                    |
 
 ### 5.3 参照设计
@@ -344,10 +344,10 @@ readability 提取正文、PDF 文本、JSON 原样；不执行 JS（JS 渲染�
 
 | 项         | 现状                                                  | 证据                                                                                                                                                           |
 | ---------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 完成闸门   | 强：回合结束跑验证；零测试拦截；`unverified` 一等状态 | [`turnEndCompletionGate.ts:100-119`](../src/adapters/tool/verify/turnEndCompletionGate.ts#L100-L119)                                                           |
-| Reviewer   | 只是提示词角色；不是独立进程/工具集                   | [`agentPersonas.ts:1-12`](../src/subagent/agentPersonas.ts#L1-L12)                                                                                             |
-| 目标判定   | `GoalChecker` 用模型 YES/NO                           | [`goalChecker.ts`](../src/autonomy/goalChecker.ts)                                                                                                             |
-| 子代理轨迹 | 内存 bridge；storage 在 worktree 内，cleanup 删除     | [`subagentEventBridge.ts`](../src/subagent/subagentEventBridge.ts)、[`subagentRuntimeFactory.ts:122-135`](../src/subagent/subagentRuntimeFactory.ts#L122-L135) |
+| 完成闸门   | 强：回合结束跑验证；零测试拦截；`unverified` 一等状态 | [`turnEndCompletionGate.ts:100-119`](../src/kernel/adapters/tool/verify/turnEndCompletionGate.ts#L100-L119)                                                           |
+| Reviewer   | 只是提示词角色；不是独立进程/工具集                   | [`agentPersonas.ts:1-12`](../src/kernel/subagent/agentPersonas.ts#L1-L12)                                                                                             |
+| 目标判定   | `GoalChecker` 用模型 YES/NO                           | [`goalChecker.ts`](../src/kernel/autonomy/goalChecker.ts)                                                                                                             |
+| 子代理轨迹 | 内存 bridge；storage 在 worktree 内，cleanup 删除     | [`subagentEventBridge.ts`](../src/kernel/subagent/subagentEventBridge.ts)、[`subagentRuntimeFactory.ts:122-135`](../src/kernel/subagent/subagentRuntimeFactory.ts#L122-L135) |
 
 **已有的亮点**：完成闸门是全仓最接近 C3 的机制；它不是“让模型自评”，而是跑命令、解析 TAP、区分零测试。问题在于：它只覆盖“用户配的那条测试”，不覆盖“diff 里还有什么问题”；reviewer 只是角色，不是机制。
 
@@ -422,9 +422,9 @@ reviewer 可以提出“缺哪个测试”，由主代理或独立 runner 执行
 | 项        | 现状                                          | 证据                                                              |
 | --------- | --------------------------------------------- | ----------------------------------------------------------------- |
 | MCP       | SDK 协议 `2025-11-25`；规范已到 `2026-07-28`  | `node_modules/@modelcontextprotocol/sdk/.../types.js`             |
-| A2A       | 私有 `capabilities.declare` / `task.delegate` | [`a2aProtocol.ts:13-16`](../src/a2a/a2aProtocol.ts#L13-L16)       |
-| Skills    | JSON 内联 `instructions`；无目录/资源/脚本    | [`skill.ts:10-29`](../src/ports/skill/skill.ts#L10-L29)           |
-| AGENTS.md | 已读，支持 `@import`                          | [`projectInstructions.ts`](../src/context/projectInstructions.ts) |
+| A2A       | 私有 `capabilities.declare` / `task.delegate` | [`a2aProtocol.ts:13-16`](../src/protocols/a2a/a2aProtocol.ts#L13-L16)       |
+| Skills    | JSON 内联 `instructions`；无目录/资源/脚本    | [`skill.ts:10-29`](../src/contracts/ports/skill/skill.ts#L10-L29)           |
+| AGENTS.md | 已读，支持 `@import`                          | [`projectInstructions.ts`](../src/kernel/context/projectInstructions.ts) |
 
 ### 7.3 参照设计
 
@@ -470,7 +470,7 @@ reviewer 可以提出“缺哪个测试”，由主代理或独立 runner 执行
 
 ### 8.1 执行隔离仍是 L2
 
-- 默认 `policy` 是 TS 策略；`restricted` 在 Windows 上 restricting-SID 计数为 0；出网守卫只覆盖 `globalThis.fetch`，shell 子进程可绕过（[`networkEgressGuard.ts:39-48`](../src/adapters/sandbox/networkEgressGuard.ts#L39-L48)）。
+- 默认 `policy` 是 TS 策略；`restricted` 在 Windows 上 restricting-SID 计数为 0；出网守卫只覆盖 `globalThis.fetch`，shell 子进程可绕过（[`networkEgressGuard.ts:39-48`](../src/kernel/adapters/sandbox/networkEgressGuard.ts#L39-L48)）。
 - 注入防护 CLI 默认 `shadow`，`ConfigFactory` 仍 `off`；没有数据/控制流分离或能力标签。
 - **提升**：Windows AppContainer + DACL 或 WSL2 + bwrap；OS 级出网；provenance-lite（工具输出 trust 标签 + 写类/出网类参数来源检查）；MCP server 白名单/版本 pin。
 - **验收**：`policy` 档下 `curl` 被拒；AppContainer/WSL2 下读 `~/.ssh` 被拒、工作区可写；ACL 快照前后一致。
@@ -585,19 +585,19 @@ reviewer 可以提出“缺哪个测试”，由主代理或独立 runner 执行
 
 | 论断                             | 证据                                                                                                                                                       | 类型               |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 默认 60 分钟硬熔断               | [`agent.ts:40-41`](../src/core/agent.ts#L40-L41)                                                                                                           | 读码               |
+| 默认 60 分钟硬熔断               | [`agent.ts:40-41`](../src/kernel/core/agent.ts#L40-L41)                                                                                                           | 读码               |
 | 无 `finish_reason` 处理          | 全仓 grep 无命中                                                                                                                                           | 读码               |
 | 无 prompt-too-long 处理          | 全仓 grep 无命中；400 不可重试                                                                                                                             | 读码               |
-| 压缩阈值 0.8×窗口、单次摘要      | [`contextCompactor.ts:191-196`](../src/context/contextCompactor.ts#L191-L196)                                                                              | 读码               |
-| token 估算 `ceil(cjk + other/4)` | [`tokenEstimator.ts:215`](../src/context/tokenEstimator.ts#L215)                                                                                           | 读码               |
-| Claude 4.6 1M 被记成 200k        | [`contextWindowCatalog.ts:25-28`](../src/context/contextWindowCatalog.ts#L25-L28) + Claude Code 论文                                                       | 读码 + 外部        |
-| 浏览器只有截图                   | [`browserScreenshotTool.ts:90-123`](../src/adapters/tool/browser/browserScreenshotTool.ts#L90-L123)                                                        | 读码               |
-| `web_search` 默认不注册          | [`configToolRegistry.ts:38`](../src/config/configToolRegistry.ts#L38)                                                                                      | 读码               |
-| A2A 私有方法                     | [`a2aProtocol.ts:13-16`](../src/a2a/a2aProtocol.ts#L13-L16)                                                                                                | 读码               |
-| 技能是 JSON 内联                 | [`skill.ts:10-29`](../src/ports/skill/skill.ts#L10-L29)                                                                                                    | 读码               |
-| 注入 CLI 默认 shadow             | [`enforcementModeResolver.ts:116-127`](../src/security/enforcementModeResolver.ts#L116-L127)                                                               | 读码               |
-| 出网守卫只覆盖 fetch             | [`networkEgressGuard.ts:39-48`](../src/adapters/sandbox/networkEgressGuard.ts#L39-L48)                                                                     | 读码               |
-| 子代理轨迹不持久                 | [`subagentEventBridge.ts`](../src/subagent/subagentEventBridge.ts) + worktree cleanup                                                                      | 读码               |
+| 压缩阈值 0.8×窗口、单次摘要      | [`contextCompactor.ts:191-196`](../src/kernel/context/contextCompactor.ts#L191-L196)                                                                              | 读码               |
+| token 估算 `ceil(cjk + other/4)` | [`tokenEstimator.ts:215`](../src/kernel/context/tokenEstimator.ts#L215)                                                                                           | 读码               |
+| Claude 4.6 1M 被记成 200k        | [`contextWindowCatalog.ts:25-28`](../src/kernel/context/contextWindowCatalog.ts#L25-L28) + Claude Code 论文                                                       | 读码 + 外部        |
+| 浏览器只有截图                   | [`browserScreenshotTool.ts:90-123`](../src/kernel/adapters/tool/browser/browserScreenshotTool.ts#L90-L123)                                                        | 读码               |
+| `web_search` 默认不注册          | [`configToolRegistry.ts:38`](../src/kernel/config/configToolRegistry.ts#L38)                                                                                      | 读码               |
+| A2A 私有方法                     | [`a2aProtocol.ts:13-16`](../src/protocols/a2a/a2aProtocol.ts#L13-L16)                                                                                                | 读码               |
+| 技能是 JSON 内联                 | [`skill.ts:10-29`](../src/contracts/ports/skill/skill.ts#L10-L29)                                                                                                    | 读码               |
+| 注入 CLI 默认 shadow             | [`enforcementModeResolver.ts:116-127`](../src/kernel/security/enforcementModeResolver.ts#L116-L127)                                                               | 读码               |
+| 出网守卫只覆盖 fetch             | [`networkEgressGuard.ts:39-48`](../src/kernel/adapters/sandbox/networkEgressGuard.ts#L39-L48)                                                                     | 读码               |
+| 子代理轨迹不持久                 | [`subagentEventBridge.ts`](../src/kernel/subagent/subagentEventBridge.ts) + worktree cleanup                                                                      | 读码               |
 | MCP 协议 2025-11-25              | `node_modules/.../types.js`                                                                                                                                | 本机实测           |
 | Claude Code 5 层压缩             | [arXiv:2604.14228](https://arxiv.org/abs/2604.14228)                                                                                                       | 预印本（源码分析） |
 | Claude Code 5 层恢复             | [error-recovery.md](https://github.com/6551Team/claude-code-design-guide/blob/main/architecture/17-%E9%94%99%E8%AF%AF%E6%81%A2%E5%A4%8D/error-recovery.md) | 社区源码分析       |

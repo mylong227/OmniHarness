@@ -1,12 +1,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { emptyCost, Algebra } from '../../src/genesis/algebra.ts';
-import { ModalityPort, type Modality } from '../../src/genesis/modalityPort.ts';
-import { Operator } from '../../src/genesis/operator.ts';
+import { emptyCost, Algebra } from '../../src/kernel/genesis/algebra.ts';
+import { ModalityPort, type Modality } from '../../src/kernel/genesis/modalityPort.ts';
+import { Operator } from '../../src/kernel/genesis/operator.ts';
 
-import { Ledger } from '../../src/genesis/ledger.ts';
-import { type GenesisState, RegimeCost, pruneOperator } from '../../src/genesis/regimeCost.ts';
+import { Ledger } from '../../src/kernel/genesis/ledger.ts';
+import { type GenesisState, RegimeCost, pruneOperator } from '../../src/kernel/genesis/regimeCost.ts';
 
 // ---- 1. Cost 交换幺半群：结合律 / 单位元 ----
 

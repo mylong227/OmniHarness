@@ -8,8 +8,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { configFile } from '../../src/config/configFile.ts';
-import { ConfigError } from '../../src/config/configError.ts';
+import { configFile } from '../../src/kernel/config/configFile.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
 
 function tmpFile(name: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'oh-cfgload-'));

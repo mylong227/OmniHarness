@@ -11,14 +11,14 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { DormantExecutorActivation } from '../../src/evolution/dormantExecutorActivation.ts';
-import { RlvrController } from '../../src/evolution/rlvrController.ts';
-import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.ts';
-import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import type { CrisprEditReport, CrisprEditSpec } from '../../src/ports/runtime/skillEdit.ts';
-import type { ImprovementProposal } from '../../src/evolution/failurePatternMiner.ts';
+import { DormantExecutorActivation } from '../../src/kernel/evolution/dormantExecutorActivation.ts';
+import { RlvrController } from '../../src/kernel/evolution/rlvrController.ts';
+import { CapabilityCrystallizer } from '../../src/kernel/adapters/skill/capabilityCrystallizer.ts';
+import { CRISPRSkillEditor } from '../../src/kernel/adapters/skill/crisprSkillEditor.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import type { CrisprEditReport, CrisprEditSpec } from '../../src/contracts/ports/runtime/skillEdit.ts';
+import type { ImprovementProposal } from '../../src/kernel/evolution/failurePatternMiner.ts';
 
 /** 莫尔基准场边长（与门禁默认同口径）。 */
 const FIELD = 64;

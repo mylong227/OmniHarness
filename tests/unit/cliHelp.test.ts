@@ -17,14 +17,14 @@ import { test } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CliHelp, HELP_ENUM_SOURCES, cliHelp } from '../../src/cli/cliHelp.ts';
+import { CliHelp, HELP_ENUM_SOURCES, cliHelp } from '../../src/apps/cli/cliHelp.ts';
 import {
   FLAG_ENUM_VALUES,
   FLAG_TABLE,
   CliFlagTable,
   KNOWN_EXTRA_FLAGS,
-} from '../../src/cli/cliFlagTable.ts';
-import { STORAGE_ADAPTERS } from '../../src/cli/cliEnums.ts';
+} from '../../src/apps/cli/cliFlagTable.ts';
+import { STORAGE_ADAPTERS } from '../../src/apps/cli/cliEnums.ts';
 
 /** 仓库根（dist/tests/unit → 上溯三级）。 */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');

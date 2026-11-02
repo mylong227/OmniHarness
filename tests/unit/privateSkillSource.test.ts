@@ -24,11 +24,11 @@ import { mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { PrivateSkillSource } from '../../src/plugin/privateSkillSource.ts';
-import { PluginBundler } from '../../src/plugin/pluginBundler.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import { Ed25519PublicKey } from '../../src/util/ed25519PublicKey.ts';
-import type { BundleManifest } from '../../src/plugin/pluginBundler.ts';
+import { PrivateSkillSource } from '../../src/kernel/plugin/privateSkillSource.ts';
+import { PluginBundler } from '../../src/kernel/plugin/pluginBundler.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import { Ed25519PublicKey } from '../../src/kernel/util/ed25519PublicKey.ts';
+import type { BundleManifest } from '../../src/kernel/plugin/pluginBundler.ts';
 
 /** 发布者身份（真密钥）。 */
 const PUBLISHER = new Ed25519AgentIdentity({ agentRuntimeId: 'publisher' });

@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Canonical, PrefixStability, DeterministicCompressor } from '../../src/context/index.ts';
-import type { ContextSegment, PromptSegment } from '../../src/context/index.ts';
+import { Canonical, PrefixStability, DeterministicCompressor } from '../../src/kernel/context/index.ts';
+import type { ContextSegment, PromptSegment } from '../../src/kernel/context/index.ts';
 
 // ---------- canonical ----------
 

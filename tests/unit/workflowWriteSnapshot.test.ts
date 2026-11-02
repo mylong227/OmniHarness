@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowWriteSnapshot } from '../../src/autonomy/workflowWriteSnapshot.ts';
+import { WorkflowWriteSnapshot } from '../../src/kernel/autonomy/workflowWriteSnapshot.ts';
 
 test('capture/restore：恢复旧内容、删除新建文件', () => {
   const root = mkdtempSync(join(tmpdir(), 'wf-snap-'));

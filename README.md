@@ -62,7 +62,7 @@ KaTeX、highlight.js）全部来自 `node_modules`，**本地、零网络依赖*
 > 想完全手敲（等价于 `npm start`）：
 >
 > ```bash
-> npm run build && npm run web:build && node dist/src/cli/exec.js serve --port 8787
+> npm run build && npm run web:build && node dist/src/apps/cli/exec.js serve --port 8787
 > ```
 
 ---
@@ -99,7 +99,7 @@ OmniHarness 是一个**面向真实机器操作的 Agent Harness**。它不是�
 | 形态               | 入口                                                   | 适合                                       |
 | ------------------ | ------------------------------------------------------ | ------------------------------------------ |
 | **Web 工作台**     | `npm start` → 打开横幅里的 `?token=` 地址（默认 8787） | 可视化看轨迹、审批、指标、插件、记忆、编排 |
-| **CLI / headless** | `node dist/src/cli/exec.js <子命令>`                   | 脚本、CI、批处理、可复现跑测               |
+| **CLI / headless** | `node dist/src/apps/cli/exec.js <子命令>`                   | 脚本、CI、批处理、可复现跑测               |
 
 ---
 
@@ -170,7 +170,7 @@ npm start
 ```
 
 `npm start` 依次做：`npm run build`（服务端 → `dist/`）→ `npm run web:build`（前端 → `web/dist/`）→
-`node dist/src/cli/exec.js serve`。启动横幅会打印**工作区与来源**，例如：
+`node dist/src/apps/cli/exec.js serve`。启动横幅会打印**工作区与来源**，例如：
 
 ```
 工作区: D:\work\新项目（来自本机固定项目（~/.omniharness/omniharness.json 的 workspace；用 --workspace 可覆盖））
@@ -194,7 +194,7 @@ npm start -- --mock
 **方式 A —— 命令行（临时，一次性）**
 
 ```bash
-node dist/src/cli/exec.js --prompt "读取 README.md 并总结" \
+node dist/src/apps/cli/exec.js --prompt "读取 README.md 并总结" \
   --model-adapter openai --base-url https://api.deepseek.com \
   --api-key sk-xxx --model deepseek-v4-flash --workspace .
 ```
@@ -215,7 +215,7 @@ npm start
 **headless / CI**
 
 ```bash
-node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rules --escalation deny
+node dist/src/apps/cli/exec.js -p --prompt "..." --output-format json --approval rules --escalation deny
 # → {"ok":true,"sessionId":"...","steps":N,"finalText":"..."}
 ```
 
@@ -247,7 +247,7 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 
 ### 4.1 项目固定在本机（"无论从哪启动都读得到"）
 
-`serve` 的工作区解析链（实现在 [`src/cli/serveWorkspace.ts`](src/cli/serveWorkspace.ts)）：
+`serve` 的工作区解析链（实现在 [`src/apps/cli/serveWorkspace.ts`](src/apps/cli/serveWorkspace.ts)）：
 
 ```
 --workspace  >  本机固定项目（~/.omniharness/omniharness.json 的 workspace）  >  启动目录
@@ -256,7 +256,7 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 - 启动横幅**打印来源**（"来自本机固定项目 / 来自 --workspace / 来自启动目录"）——不做静默换根。
 - 本机固定项目由 **UI 的项目切换**写入（一次点击，之后从任何目录 `npm start` 都进同一个项目）。
 - 支持**可移植路径**写法：`~/work/proj`、`$HOME/work/proj`、`%USERPROFILE%\work\proj`、相对家目录——
-  同一份配置换机器 / 换用户名 / 换盘符仍落到正确目录（见 [`src/util/portablePath.ts`](src/util/portablePath.ts)）。
+  同一份配置换机器 / 换用户名 / 换盘符仍落到正确目录（见 [`src/kernel/util/portablePath.ts`](src/kernel/util/portablePath.ts)）。
 - 固定项目路径**不存在**时：回落启动目录并如实说明，**绝不因配置问题启动不起来**。
 - `serve` 默认只绑 `127.0.0.1`，并生成**一次性本机令牌**（浏览器用 `?token=` 换取 HttpOnly cookie）；
   非回环绑定必须显式设 `OMNI_SERVE_TOKEN`（否则拒绝启动）；企业 OIDC 见 `--auth-required` + `--oidc-*`。
@@ -299,28 +299,28 @@ node dist/src/cli/exec.js -p --prompt "..." --output-format json --approval rule
 
 ```bash
 # 工作台（最常用）
-node dist/src/cli/exec.js serve --port 8787 [--mock] [--auto-approve] [--workspace DIR]
-node dist/src/cli/exec.js server                 # JSON-RPC stdio 常驻（给 SDK/编辑器用）
+node dist/src/apps/cli/exec.js serve --port 8787 [--mock] [--auto-approve] [--workspace DIR]
+node dist/src/apps/cli/exec.js server                 # JSON-RPC stdio 常驻（给 SDK/编辑器用）
 
 # 一次性执行
-node dist/src/cli/exec.js --prompt "任务"          # 默认路径（等价 exec）
-node dist/src/cli/exec.js -p --prompt "任务" --output-format json   # headless/CI
+node dist/src/apps/cli/exec.js --prompt "任务"          # 默认路径（等价 exec）
+node dist/src/apps/cli/exec.js -p --prompt "任务" --output-format json   # headless/CI
 
 # 编排
-node dist/src/cli/exec.js goal "把 src 下 TODO 清理完" --goal-max-iterations 8
-node dist/src/cli/exec.js workflow --file workflow.json
+node dist/src/apps/cli/exec.js goal "把 src 下 TODO 清理完" --goal-max-iterations 8
+node dist/src/apps/cli/exec.js workflow --file workflow.json
 
 # 自省 / 运维
-node dist/src/cli/exec.js doctor                 # 环境诊断
-node dist/src/cli/exec.js session list           # 会话列表
-node dist/src/cli/exec.js trace read --session ID --limit 50
-node dist/src/cli/exec.js audit export [--compliance]
-node dist/src/cli/exec.js daemon start|stop|status
-node dist/src/cli/exec.js --version              # 打印 API_VERSION
+node dist/src/apps/cli/exec.js doctor                 # 环境诊断
+node dist/src/apps/cli/exec.js session list           # 会话列表
+node dist/src/apps/cli/exec.js trace read --session ID --limit 50
+node dist/src/apps/cli/exec.js audit export [--compliance]
+node dist/src/apps/cli/exec.js daemon start|stop|status
+node dist/src/apps/cli/exec.js --version              # 打印 API_VERSION
 ```
 
 完整子命令表（27 个）与全部旗标见 **[`docs/CLI_REFERENCE.md`](docs/CLI_REFERENCE.md)**；
-本机权威来源永远是 `node dist/src/cli/exec.js --help`。
+本机权威来源永远是 `node dist/src/apps/cli/exec.js --help`。
 
 ---
 
@@ -331,7 +331,7 @@ node dist/src/cli/exec.js --version              # 打印 API_VERSION
 | #   | 铁律                                                                                                       | 强制处（机械门禁）                             |
 | --- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | 1   | **分层**：`ports`（契约）→ `core`（用例）→ `adapters`（实现），依赖只能向内                                | `architectureGate [1][2][3]`                   |
-| 2   | **装配单点**：唯一 `new` 具体实现的位置是组合根（`src/composition/`）                                      | `architectureGate [3.5]` + `auditConfigWiring` |
+| 2   | **装配单点**：唯一 `new` 具体实现的位置是组合根（`src/apps/composition/`）                                      | `architectureGate [3.5]` + `auditConfigWiring` |
 | 3   | **fail-closed**：不确定就拒绝；能力不可用就如实报不可用                                                    | 各端口判据 + `tests/unit/**`                   |
 | 4   | **依赖准入**（不是"零依赖"）：`ports`/`core` 恒第三方-free，其余按 D10 准入并登记                          | `dependency-allowlist.json` + `check.mjs`      |
 | 5   | **编码标准**：JSDoc / 显式可见性 / 命名 / 体量阈值（单文件 ≤ 810 行；类 > 500 去注释行或 > 25 方法即违规） | `eslint` + `auditStandards` + `check.mjs`      |
@@ -415,7 +415,7 @@ examples/         插件 / 目录示例
 ### 9.3 一条真实教训（说明门禁在想什么）
 
 `serve --auto-approve` 曾是**文档与 `--help` 都写着、代码里也真的读它**的旗标，却从未登记进
-`src/cli/knownFlags.ts` 的"子命令自解析旗标表"。第五十七轮把"未知旗标"改为 fail-closed 后，
+`src/apps/cli/knownFlags.ts` 的"子命令自解析旗标表"。第五十七轮把"未知旗标"改为 fail-closed 后，
 它被**当场打死**（`serve --auto-approve` 直接报未知旗标退出）。2026-10-06 修好，并补上洞：
 判据原先只扫描 `.value(`/`.has(` 这类**读取器**写法，漏了 `Array.includes('--x')`——
 扫描面补上后**一次又揪出 3 个同类未登记旗标**（`--version`/`--compliance`/`--allow-all`）。

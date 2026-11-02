@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SessionCheckpoints } from '../../src/server/services/session/sessionCheckpoints.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
+import { SessionCheckpoints } from '../../src/apps/server/services/session/sessionCheckpoints.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
 
 function make(): SessionCheckpoints {
   return new SessionCheckpoints({ storage: new MemoryStorage() });

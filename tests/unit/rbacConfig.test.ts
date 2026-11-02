@@ -16,18 +16,18 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigError } from '../../src/config/configError.ts';
-import { RbacConfigValidator } from '../../src/config/rbacConfigValidator.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { RbacPolicy } from '../../src/security/rbacPolicy.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { FileConfig } from '../../src/ports/config/fileConfig.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { RbacConfigValidator } from '../../src/kernel/config/rbacConfigValidator.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { RbacPolicy } from '../../src/kernel/security/rbacPolicy.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { FileConfig } from '../../src/contracts/ports/config/fileConfig.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 把一个文件配置写盘并跑严格校验+构建（模拟真实加载路径）。

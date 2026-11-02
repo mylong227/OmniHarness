@@ -296,27 +296,27 @@ Windows 上杀毒/索引器短暂占用会让 `rename` 返回 `EPERM/EBUSY`；�
 
 | 数学/理论                    | 代码                                                               | 判据                                                                        |
 | ---------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| 读写锁不变量 + 写者优先      | `src/util/concurrency/keyedReadWriteLock.ts`                       | `keyedReadWriteLock.test.ts` ①–⑧                                            |
-| FIFO 信号量                  | `src/util/concurrency/concurrencyLimiter.ts`（既有）               | `concurrencyLimiter.test.ts`                                                |
-| SFQ 公平调度                 | `src/util/concurrency/fairSessionScheduler.ts`                     | `fairSessionScheduler.test.ts` ①–⑧；`shellGovernor.test.ts`                 |
-| CAS / 版本基线（按会话）     | `src/adapters/tool/fs/fileContentLedger.ts`                        | `staleReadGuard.test.ts`；coordinator ③                                     |
-| 基线全文（diff3 的共同祖先） | `src/adapters/tool/fs/sessionBaselineStore.ts`                     | `sessionBaselineStore.test.ts`                                              |
-| 行级 LCS / diff3 三方合并    | `src/util/textThreeWayMerge.ts`                                    | `textThreeWayMerge.test.ts`；`fileThreeWayMerge.test.ts`                    |
-| 字符级 LCS（冲突片段细化）   | `src/util/textCharacterMerge.ts`                                   | `textCharacterMerge.test.ts`；`textThreeWayMerge.test.ts`                   |
-| insert-only OT               | `src/util/textOperationalTransform.ts`                             | `textOperationalTransform.test.ts`（交换律穷举）                            |
-| RGA CRDT（独立原语）         | `src/util/textCrdt.ts`                                             | `textCrdt.test.ts`（并发插入/墓碑/merge 收敛）                              |
-| 向量时钟（因果偏序）         | `src/util/concurrency/vectorClock.ts`                              | `vectorClock.test.ts`（before/after/concurrent/merge 交换幂等）             |
+| 读写锁不变量 + 写者优先      | `src/kernel/util/concurrency/keyedReadWriteLock.ts`                       | `keyedReadWriteLock.test.ts` ①–⑧                                            |
+| FIFO 信号量                  | `src/kernel/util/concurrency/concurrencyLimiter.ts`（既有）               | `concurrencyLimiter.test.ts`                                                |
+| SFQ 公平调度                 | `src/kernel/util/concurrency/fairSessionScheduler.ts`                     | `fairSessionScheduler.test.ts` ①–⑧；`shellGovernor.test.ts`                 |
+| CAS / 版本基线（按会话）     | `src/kernel/adapters/tool/fs/fileContentLedger.ts`                        | `staleReadGuard.test.ts`；coordinator ③                                     |
+| 基线全文（diff3 的共同祖先） | `src/kernel/adapters/tool/fs/sessionBaselineStore.ts`                     | `sessionBaselineStore.test.ts`                                              |
+| 行级 LCS / diff3 三方合并    | `src/kernel/util/textThreeWayMerge.ts`                                    | `textThreeWayMerge.test.ts`；`fileThreeWayMerge.test.ts`                    |
+| 字符级 LCS（冲突片段细化）   | `src/kernel/util/textCharacterMerge.ts`                                   | `textCharacterMerge.test.ts`；`textThreeWayMerge.test.ts`                   |
+| insert-only OT               | `src/kernel/util/textOperationalTransform.ts`                             | `textOperationalTransform.test.ts`（交换律穷举）                            |
+| RGA CRDT（独立原语）         | `src/kernel/util/textCrdt.ts`                                             | `textCrdt.test.ts`（并发插入/墓碑/merge 收敛）                              |
+| 向量时钟（因果偏序）         | `src/kernel/util/concurrency/vectorClock.ts`                              | `vectorClock.test.ts`（before/after/concurrent/merge 交换幂等）             |
 | 共享文件系统分布式租约       | `scripts/workspaceLease.mjs`（build/test 共用）                    | `workspaceLease.test.ts`（真跨进程区间不重叠）                              |
 | 有界模型检查                 | `tests/unit/modelChecking.test.ts`                                 | 读写锁可达状态穷举 + 有序加锁无环 + 正对照                                  |
 | 耐久写（fsync）              | `atomicFileWriter.ts`（durable）：账本 append / AuditSink close    | `atomicFileWriterDurable.test.ts`、`auditDurability.test.ts`                |
-| 冲突文案统一口径             | `src/util/textMergeConflictMessage.ts`                             | 三个写工具的冲突用例                                                        |
-| 跨进程租约 + fencing + 心跳  | `src/util/concurrency/fileLock.ts`、`asyncFileLock.ts`             | `fileLock.test.ts`、`fileLockCrossProcess.test.ts`、`asyncFileLock.test.ts` |
-| 原子 rename + 有界重试       | `src/util/concurrency/atomicFileWriter.ts`                         | coordinator ⑧（并发读者完整版本）                                           |
-| 读单飞（共享在飞 IO）        | `src/adapters/tool/fs/workspaceFileCoordinator.ts`                 | coordinator ⑫                                                               |
+| 冲突文案统一口径             | `src/kernel/util/textMergeConflictMessage.ts`                             | 三个写工具的冲突用例                                                        |
+| 跨进程租约 + fencing + 心跳  | `src/kernel/util/concurrency/fileLock.ts`、`asyncFileLock.ts`             | `fileLock.test.ts`、`fileLockCrossProcess.test.ts`、`asyncFileLock.test.ts` |
+| 原子 rename + 有界重试       | `src/kernel/util/concurrency/atomicFileWriter.ts`                         | coordinator ⑧（并发读者完整版本）                                           |
+| 读单飞（共享在飞 IO）        | `src/kernel/adapters/tool/fs/workspaceFileCoordinator.ts`                 | coordinator ⑫                                                               |
 | 有序加锁（破循环等待）       | `WorkspaceFileCoordinator.withWriteMany`                           | coordinator ⑦                                                               |
-| 内容锚点交换性               | `src/adapters/tool/fs/editFileTool.ts`、`textDiffSummary.ts`       | coordinator ⑤⑥；`editFileTool.test.ts`                                      |
+| 内容锚点交换性               | `src/kernel/adapters/tool/fs/editFileTool.ts`、`textDiffSummary.ts`       | coordinator ⑤⑥；`editFileTool.test.ts`                                      |
 | 随机/性质测试（不变量）      | `tests/unit/concurrencyProperties.test.ts`                         | 200 任务交错 W≤1、SFQ 1:2:3、120 次自增不丢                                 |
-| 两阶段提交 + 回滚            | `src/adapters/tool/fs/applyPatchTool.ts`、`patchCandidatesTool.ts` | `patchCandidates.test.ts`、staleReadGuard ⑤                                 |
+| 两阶段提交 + 回滚            | `src/kernel/adapters/tool/fs/applyPatchTool.ts`、`patchCandidatesTool.ts` | `patchCandidates.test.ts`、staleReadGuard ⑤                                 |
 
 **接入点**：`ConfigToolRegistry.buildWorkspaceTools` 统一装配账本/协调器/shell 闸门——这组工具
 必须共享同一批实例，散落装配最容易漏掉其中一条（2026-10-25 已抽成单一 helper）。

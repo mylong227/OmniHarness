@@ -4,9 +4,9 @@ import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdtemp, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CheckpointManager } from '../../src/core/checkpointManager.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { GitWorkspaceSnapshot } from '../../src/adapters/workspace/gitWorkspaceSnapshot.ts';
+import { CheckpointManager } from '../../src/kernel/core/checkpointManager.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { GitWorkspaceSnapshot } from '../../src/kernel/adapters/workspace/gitWorkspaceSnapshot.ts';
 
 /** 在临时目录初始化 git 仓库并提交一个基线文件。 */
 async function initRepo(): Promise<string> {

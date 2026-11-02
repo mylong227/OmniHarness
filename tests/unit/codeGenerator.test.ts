@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CodeGenerator } from '../../src/schema/codeGenerator.ts';
-import { protocolSchema } from '../../src/schema/protocolSchema.ts';
+import { CodeGenerator } from '../../src/contracts/schema/codeGenerator.ts';
+import { protocolSchema } from '../../src/contracts/schema/protocolSchema.ts';
 
 test('schema：方法集完整（8 个原语，含 threads.rewind / question.respond）', () => {
   assert.strictEqual(protocolSchema.methods.length, 8);

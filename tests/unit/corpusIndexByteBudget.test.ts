@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
+import { CorpusIndexCache } from '../../src/kernel/context/corpusIndexCache.ts';
 
 /** 建一个最小工作区（一个 TS 文件即可被索引）。 */
 async function workspace(name: string): Promise<string> {

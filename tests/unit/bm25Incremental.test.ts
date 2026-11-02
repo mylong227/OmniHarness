@@ -8,7 +8,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Bm25Index } from '../../src/search/bm25Index.ts';
+import { Bm25Index } from '../../src/kernel/search/bm25Index.ts';
 
 /** 造一份可复现的文档集（确定性，无随机源）。 */
 function corpus(): string[][] {

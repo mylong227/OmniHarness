@@ -17,10 +17,10 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { LicenseCommand } from '../../src/cli/licenseCommand.ts';
-import { LicenseEngine } from '../../src/license/licenseEngine.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import type { LicensePayload } from '../../src/license/licenseEngine.ts';
+import { LicenseCommand } from '../../src/apps/cli/licenseCommand.ts';
+import { LicenseEngine } from '../../src/apps/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import type { LicensePayload } from '../../src/apps/license/licenseEngine.ts';
 
 /** 固定"当前时刻"。 */
 const NOW = Date.parse('2026-10-04T00:00:00.000Z');

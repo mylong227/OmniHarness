@@ -50,7 +50,7 @@
     "mcp"
   ],
   "bin": {
-    "omniharness": "dist/src/cli/exec.js"
+    "omniharness": "dist/src/apps/cli/exec.js"
   },
   "scripts": {
     "start": "node scripts/startAll.mjs",
@@ -104,7 +104,7 @@
     "smoke": "npm run build && node dist/tests/smoke.js",
     "stress": "npm run build && node --expose-gc dist/tests/stress.js",
     "ptc-stress": "npm run build && node dist/tests/ptcStress.js",
-    "exec": "npm run build && node dist/src/cli/exec.js",
+    "exec": "npm run build && node dist/src/apps/cli/exec.js",
     "test:wasm": "node tests/wasmE2e.mjs",
     "rust:test": "node scripts/cargo.mjs test --workspace",
     "rust:fmt": "node scripts/cargo.mjs fmt --all",

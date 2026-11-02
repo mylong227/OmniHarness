@@ -117,15 +117,15 @@ LoopGuard 原本只认两类重复：
 
 ### 4.1 实现
 
-- `src/core/loop/loopGuard.ts`
+- `src/kernel/core/loop/loopGuard.ts`
   - 新增 `redundant-result` 违规类型与 `LoopResultObservation`；
   - 维护最近 64 个**成功且 ≥64 字符**的结果指纹（`工具::FNV(内容)`）；
   - 同一指纹出现 ≥4 次 ⇒ 首次 `nudge`，连续触发达 `nudgeLimit` ⇒ `abort`；
   - 触发后清空窗口：否则旧的 4 条重复会在窗口里留很久，模型改好后仍被误杀；
   - `maxRedundantResults=0` 可关闭；`OMNI_LOOPGUARD=0` 的全量关闭路径同步关掉它。
-- `src/core/stepRunner.ts`：新增 `toolResultsOfLastStep`（从事件日志尾部按 callId 对齐，
+- `src/kernel/core/stepRunner.ts`：新增 `toolResultsOfLastStep`（从事件日志尾部按 callId 对齐，
   不侵入审批/沙箱/钩子链路）。
-- `src/core/turnRunner.ts`：把 `results` 一并交给 LoopGuard。
+- `src/kernel/core/turnRunner.ts`：把 `results` 一并交给 LoopGuard。
 
 ### 4.2 回放证据
 
@@ -249,9 +249,9 @@ LoopGuard 原本只认两类重复：
 
 | 改动                            | 文件                                               | 判据                                           |
 | ------------------------------- | -------------------------------------------------- | ---------------------------------------------- |
-| 结果指纹冗余检测 + 全量关闭路径 | `src/core/loop/loopGuard.ts`、`src/core/agent.ts`  | 新增 3 条单测（触发 / 不误伤 / 关闭）          |
-| 结果观测接线                    | `src/core/stepRunner.ts`、`src/core/turnRunner.ts` | `tsc --noEmit` + LoopGuard 回放                |
-| 压缩摘要确定性台账              | `src/context/contextCompactor.ts`                  | 新增 1 条单测（聚合 ×N / 失败计数 / 预算门控） |
+| 结果指纹冗余检测 + 全量关闭路径 | `src/kernel/core/loop/loopGuard.ts`、`src/kernel/core/agent.ts`  | 新增 3 条单测（触发 / 不误伤 / 关闭）          |
+| 结果观测接线                    | `src/kernel/core/stepRunner.ts`、`src/kernel/core/turnRunner.ts` | `tsc --noEmit` + LoopGuard 回放                |
+| 压缩摘要确定性台账              | `src/kernel/context/contextCompactor.ts`                  | 新增 1 条单测（聚合 ×N / 失败计数 / 预算门控） |
 | 会话遥测工具                    | `tools/sessionTelemetry.mjs`                       | 本报告全部数字由它产出                         |
 
 运行结果：

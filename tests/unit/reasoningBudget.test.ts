@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ReasoningBudget } from '../../src/util/reasoningBudget.ts';
+import { ReasoningBudget } from '../../src/kernel/util/reasoningBudget.ts';
 
 test('ReasoningBudget：未配置时简单任务 low、复杂任务 high', () => {
   assert.strictEqual(ReasoningBudget.executor(undefined, false, {}), 'low');

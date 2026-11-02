@@ -4,12 +4,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { CorePortsAssembler } from '../../src/config/corePortsAssembler.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { CorePortsAssembler } from '../../src/kernel/config/corePortsAssembler.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
 
 /** 构造最小可解析配置（mock 适配器，无网络）。 */
 function base(root: string, over: Partial<OmniHarnessConfig> = {}): OmniHarnessConfig {

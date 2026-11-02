@@ -23,19 +23,19 @@ import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { RlvrController } from '../../src/evolution/rlvrController.ts';
-import { VerifiableReward } from '../../src/evolution/verifiableReward.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { MoireComposer } from '../../src/skill/moireComposer.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { RlvrController } from '../../src/kernel/evolution/rlvrController.ts';
+import { VerifiableReward } from '../../src/kernel/evolution/verifiableReward.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { MoireComposer } from '../../src/kernel/skill/moireComposer.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
 
 /**
  * 可验证奖励命令：用「跑本测试的 node 本体」做语法检查，避免依赖 PATH（hermetic）。

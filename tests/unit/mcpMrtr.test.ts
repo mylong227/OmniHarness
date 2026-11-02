@@ -6,9 +6,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import { McpStatelessClient } from '../../src/mcp/mcpStatelessClient.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import { McpStatelessClient } from '../../src/protocols/mcp/mcpStatelessClient.ts';
 
 /** 第一次 tools/call 返回 input_required，第二次返回成功。 */
 class MrtrTransport implements Transport {

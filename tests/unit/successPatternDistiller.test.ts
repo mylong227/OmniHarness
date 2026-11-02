@@ -19,10 +19,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { SuccessPatternDistiller } from '../../src/evolution/successPatternDistiller.ts';
-import { SignalIngestor } from '../../src/evolution/signalIngestor.ts';
-import { WorkflowTemplateSchema } from '../../src/capability/schemas/workflowTemplateSchema.ts';
-import type { EvolutionSignal } from '../../src/ports/runtime/evolution.ts';
+import { SuccessPatternDistiller } from '../../src/kernel/evolution/successPatternDistiller.ts';
+import { SignalIngestor } from '../../src/kernel/evolution/signalIngestor.ts';
+import { WorkflowTemplateSchema } from '../../src/kernel/capability/schemas/workflowTemplateSchema.ts';
+import type { EvolutionSignal } from '../../src/contracts/ports/runtime/evolution.ts';
 
 /**
  * 造一条成功信号。
@@ -88,7 +88,7 @@ test('E1+ 双源红线（对称）：掐断任一半边 ⇒ 对应候选恒 0', 
   const failureOnly = new SignalIngestor({
     distiller: new SuccessPatternDistiller({ frequencyThreshold: 3 }),
   });
-  const f1 = failureOnly.ingest(failures('src/core/agent.ts', 3));
+  const f1 = failureOnly.ingest(failures('src/kernel/core/agent.ts', 3));
   assert.ok(f1.failures >= 3);
   assert.ok(failureOnly.proposals().length > 0, '失败半边必须产出提案');
   assert.deepStrictEqual(
@@ -111,7 +111,7 @@ test('E1+ 双源红线（对称）：掐断任一半边 ⇒ 对应候选恒 0', 
   const both = new SignalIngestor({
     distiller: new SuccessPatternDistiller({ frequencyThreshold: 3 }),
   });
-  both.ingest([...failures('src/core/agent.ts', 3), ...successes(combo, 3)]);
+  both.ingest([...failures('src/kernel/core/agent.ts', 3), ...successes(combo, 3)]);
   assert.ok(both.proposals().length > 0);
   assert.ok(both.workflowTemplateProposals().length > 0);
 });

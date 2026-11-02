@@ -1,23 +1,23 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import { RunGoalTool } from '../../src/adapters/tool/workflow/runGoalTool.ts';
-import { RUN_GOAL_TOOL_NAME } from '../../src/autonomy/goalToolNames.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
-import type { AgentFactoryPort, AgentPort } from '../../src/ports/runtime/agent.ts';
-import type { OmniHarnessRuntime } from '../../src/composition/runtime.ts';
-import { Agent } from '../../src/core/agent.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import { RunGoalTool } from '../../src/kernel/adapters/tool/workflow/runGoalTool.ts';
+import { RUN_GOAL_TOOL_NAME } from '../../src/kernel/autonomy/goalToolNames.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
+import type { AgentFactoryPort, AgentPort } from '../../src/contracts/ports/runtime/agent.ts';
+import type { OmniHarnessRuntime } from '../../src/apps/composition/runtime.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
 
 /**
  * 脚本化模型：区分「目标循环推进」与「达成度判定」两类调用。

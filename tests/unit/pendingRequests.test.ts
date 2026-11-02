@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { PendingRequests } from '../../src/util/concurrency/pendingRequests.ts';
+import { PendingRequests } from '../../src/kernel/util/concurrency/pendingRequests.ts';
 
 /** 造一个可断言的收尾通道（记录收到的 resolve/reject）。 */
 function channels<T>(): {

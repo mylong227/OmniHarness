@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AtomicFileWriter } from '../../src/util/concurrency/atomicFileWriter.ts';
+import { AtomicFileWriter } from '../../src/kernel/util/concurrency/atomicFileWriter.ts';
 
 test('① durable 原子写：内容正确且不残留 .tmp', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'omni-durable-'));

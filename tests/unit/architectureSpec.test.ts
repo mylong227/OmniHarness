@@ -14,7 +14,7 @@
  * | --- | --- |
  * | ① | 文档存在，且带**快照日期**与**行数口径**说明（口径与 `CODE_STANDARD.md` §11.1 同源） |
  * | ② | 文档声明的**运行时依赖**逐条等于 `package.json` 的 `dependencies`（名字 + 版本） |
- * | ③ | 文档声明的**端口子目录**逐条等于磁盘上的 `src/ports/*` 目录 |
+ * | ③ | 文档声明的**端口子目录**逐条等于磁盘上的 `src/contracts/ports/*` 目录 |
  * | ④ | 文档声明的**ADR 列表**逐条等于 `docs/adr/*.md`（除 README） |
  * | ⑤ | 文档里的**架构门禁规则标签**逐条等于 `scripts/architectureGate.mjs` 实际打印的标签 |
  * | ⑥ | 文档里的**门禁 id** 逐条存在于 `scripts/runGates.mjs`（且两层归属一致） |
@@ -69,9 +69,9 @@ test('② 声明的运行时依赖逐条等于 package.json 的 dependencies', (
   );
 });
 
-test('③ 声明的端口子目录逐条等于磁盘上的 src/ports/*', () => {
-  const actual = readdirSync(join(ROOT, 'src', 'ports'))
-    .filter((name) => statSync(join(ROOT, 'src', 'ports', name)).isDirectory())
+test('③ 声明的端口子目录逐条等于磁盘上的 src/contracts/ports/*', () => {
+  const actual = readdirSync(join(ROOT, 'src', 'contracts', 'ports'))
+    .filter((name) => statSync(join(ROOT, 'src', 'contracts', 'ports', name)).isDirectory())
     .sort();
   const row = /端口子目录（(\d+)，与磁盘一致）\*\*：(.+?)。/s.exec(SPEC);
   assert.ok(row !== null, '文档缺"端口子目录"声明行');

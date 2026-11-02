@@ -1,0 +1,465 @@
+import { TOOL_NAMES } from '../../../../contracts/ports/tool/toolNames.ts';
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+} from '../../../../contracts/ports/tool/tool.ts';
+import { OutputDecoder } from '../../../util/outputDecoder.ts';
+import { log } from '../../../util/logger.ts';
+import { ShellCommandPolicy } from './shellCommandPolicy.ts';
+import { ShellChildEnv } from './shellChildEnv.ts';
+import { ShellProcessRunner } from './shellProcessRunner.ts';
+import type { ShellRunOutcome } from './shellProcessRunner.ts';
+import type { BackgroundJobRegistry } from './backgroundJobRegistry.ts';
+import { StackFrameParser } from '../verify/stackFrameParser.ts';
+import type { FileContentLedger } from '../fs/fileContentLedger.ts';
+import type { FairSessionScheduler } from '../../../util/concurrency/fairSessionScheduler.ts';
+import { SHELL_DEFAULT_MAX_TIMEOUT_MS, SHELL_MIN_TIMEOUT_MS } from './shellTimeouts.ts';
+
+/** shell 工具可选项。 */
+export interface ShellToolOptions {
+  /** 单条命令默认超时（毫秒），默认 30_000；调用方可经 `timeout_ms` 按次覆盖。 */
+  readonly timeoutMs?: number;
+  /**
+   * 单条命令超时上限（毫秒），默认 600_000（10 分钟）。
+   * 调用方传入的 `timeout_ms` 会被钳制到 `[MIN_TIMEOUT_MS, maxTimeoutMs]`——
+   * 允许模型为 `tsc` / 全量测试这类长命令申请更多预算，同时防止单次调用把回合挂死。
+   */
+  readonly maxTimeoutMs?: number;
+  /** stdout/stderr 各路上限（字节），默认 1 MiB，超出即终止并报错（防输出风暴）。 */
+  readonly maxBufferBytes?: number;
+  /** 命令文本长度上限（字符），默认 8192。 */
+  readonly maxCommandLength?: number;
+  /**
+   * 命令裁决器（纵深防御，可选）：返回错误说明即拒绝执行。
+   * 与 {@link ShellToolOptions.policy} 并存——本项是**调用方注入**的一次性裁决，
+   * `policy` 是结构化的工具层策略。未配置时本工具不额外裁决此处。
+   */
+  readonly guard?: (command: string, context: ToolContext) => string | undefined;
+  /** 工具层命令策略（默认 audit 模式：解析并记录、不阻断；`enforce` 模式命中即拒）。 */
+  readonly policy?: ShellCommandPolicy;
+  /**
+   * 后台作业注册表（P2-⑫，可选）：注入后 `background=true` 可用。
+   * 未注入时该参数会返回明确失败（不静默退化成前台执行）。
+   */
+  readonly jobs?: BackgroundJobRegistry;
+  /**
+   * 内容账本（S1 陈旧读保护，可选）：命令执行后把「命令文本里提及的已记账文件」失效。
+   * 未注入时零行为变更（与改造前逐字一致）。
+   */
+  readonly ledger?: FileContentLedger | undefined;
+  /**
+   * 进程执行器（可选）：缺省用真实 `ShellProcessRunner`。
+   *
+   * **为什么需要这个缝**：`outcome.consoleFallback === true` 这条分支只在 Windows 受限令牌
+   * 沙箱下、子进程在 DLL 初始化阶段死掉时才出现（2026-10-07 真实事故），正常环境里**不可达**
+   * ⇒ 它上报的「命令实际启动了两次」这条诚实提示无法落判据。注入后即可确定性地验证该上报。
+   */
+  readonly runner?: Pick<ShellProcessRunner, 'run'>;
+  /**
+   * OS 沙箱命令包装（可选）：把原始命令文本包成 `bwrap ... /bin/sh -c '<cmd>'` 等。
+   * 只在策略/审批按**原始命令**裁决之后应用；未注入 = 不进行 OS 包装（纯策略档）。
+   */
+  readonly commandWrapper?: ((command: string, cwd: string) => string) | undefined;
+  /**
+   * 会话公平的 shell 并发闸门（可选）。注入后前台命令/后台启动在**全局上限**内排队，
+   * 且按会话公平分配（一个会话不能塞满队列把别的会话饿死）。
+   * 未注入时保持原有「立即执行」语义（测试/嵌入式调用零行为变更）。
+   */
+  readonly governor?: FairSessionScheduler | undefined;
+}
+
+/**
+ * 内置 shell 工具：在工作区内执行命令。
+ *
+ * A3 之后的**工具层纵深**（不再只是「上层有门禁、本层零纵深」）：
+ * 1. 结构化解析：命令被解析为段/程序/重定向/命令替换（`ShellCommandParser`），不可判定即 fail-closed；
+ * 2. 策略裁决：`ShellCommandPolicy` 按 deny/allow 名单与命令替换开关判定，默认 audit（记录不阻断）；
+ * 3. 显式执行：`ShellProcessRunner` 用 `spawn` 回传**真实退出码/信号/超时/截断**状态。
+ *
+ * 安全边界（勿再夸大为「沙箱内执行」）：
+ * - 命令固定以 `context.workspaceRoot` 为工作目录执行，避免继承进程 cwd 跑到工作区外；
+ * - 审批与 OS 沙箱裁决由上层 `ToolGate`（`stepRunner.gate`）统一负责，本工具的裁决**不替代**它；
+ * - 执行形态仍是 shell 解释器 + 命令文本（管道/重定向是本工具的对外契约）；
+ * - **超时可按次申请但有上限**：默认 30s，模型可用 `timeout_ms` 为构建/测试类长命令申请更多预算，
+ *   由 `maxTimeoutMs`（默认 10 分钟）封顶——既解掉原「30s 硬顶且不可覆盖」对 `tsc`/全量测试的封杀，
+ *   又保留单次调用的最坏耗时上界；
+ * - **失败可定位**（P1-⑩）：非零退出时从输出抽堆栈帧，把 `文件:行` 作为位置候选附在错误文案后；
+ * - **可转后台**（P2-⑫）：`background=true` 交给 `BackgroundJobRegistry`，用 `shell_job` 取输出；
+ * - 若 `workspaceRoot` 为空（调用方未注入），退回进程 cwd 并告警——已知宽松路径，
+ *   收紧它属行为变更，需调用方显式确认后再开启。
+ */
+export class ShellTool {
+  /** 单次调用允许的最小超时（毫秒）：低于此值等同于立即超时，没有意义（与交互式同族共用一口径）。 */
+  public static readonly MIN_TIMEOUT_MS = SHELL_MIN_TIMEOUT_MS;
+
+  /** 单次调用允许的最大超时（毫秒）：默认 10 分钟。 */
+  public static readonly DEFAULT_MAX_TIMEOUT_MS = SHELL_DEFAULT_MAX_TIMEOUT_MS;
+
+  /** 失败摘要中最多回灌的位置候选条数（P1-⑩，防刷屏）。 */
+  private static readonly MAX_FRAME_HINTS = 5;
+
+  /** 运行时依赖（执行器/解码器/公平闸门合并为一个字段，避免类成员膨胀）。 */
+  private readonly runtime: {
+    /** 子进程输出解码器（处理 GBK/UTF-8 等编码容错）。 */
+    readonly decoder: OutputDecoder;
+    /** 子进程执行器（spawn 显式 argv；可经选项注入替身）。 */
+    readonly runner: Pick<ShellProcessRunner, 'run'>;
+    /** 会话公平并发闸门（未注入时命令立即执行）。 */
+    readonly governor: ShellToolOptions['governor'];
+  };
+  /** 工具层命令策略。 */
+  private readonly policy: ShellCommandPolicy;
+  /** 单条命令默认超时（毫秒）。 */
+  private readonly timeoutMs: number;
+  /** 单条命令超时上限（毫秒），约束调用方按次覆盖值。 */
+  private readonly maxTimeoutMs: number;
+  /** stdout/stderr 各路上限（字节）。 */
+  private readonly maxBufferBytes: number;
+  /** 命令文本长度上限（字符）。 */
+  private readonly maxCommandLength: number;
+  /** 可选命令裁决器：返回错误说明即拒绝执行（未配置则不额外裁决）。 */
+  private readonly guard: ShellToolOptions['guard'];
+  /** 后台作业注册表（未注入时 `background=true` 明确失败）。 */
+  private readonly jobs: BackgroundJobRegistry | undefined;
+  /**
+   * 内容账本（S1 陈旧读保护，可选）：命令执行后把「文本里提及的已记账文件」失效。
+   *
+   * 存在理由（2026-09-26 审计 A6）：账本原先只在 read_file 与三个 fs 写工具之间闭环，
+   * **完全不知道 shell 的改动** —— `read_file(a)` → `shell: echo x > a` → `write_file(a)`
+   * 的第三步会拿着陈旧指纹把 shell 的改动静默抹掉。这里只做**保守失效**（宁可少拦不可误拦）。
+   */
+  private readonly ledger: ShellToolOptions['ledger'];
+  /** OS 沙箱命令包装（未注入时为空，命令按原样执行）。 */
+  private readonly commandWrapper: ShellToolOptions['commandWrapper'];
+
+  /**
+   * @param options shell 工具选项（超时/缓冲/长度上限、可选裁决器、策略与后台作业注册表，全有默认）。
+   */
+  public constructor(options: ShellToolOptions = {}) {
+    this.runtime = {
+      decoder: new OutputDecoder(),
+      runner: options.runner ?? new ShellProcessRunner(),
+      governor: options.governor,
+    };
+    this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.maxTimeoutMs = Math.max(
+      ShellTool.MIN_TIMEOUT_MS,
+      options.maxTimeoutMs ?? ShellTool.DEFAULT_MAX_TIMEOUT_MS,
+    );
+    this.maxBufferBytes = options.maxBufferBytes ?? 1024 * 1024;
+    this.maxCommandLength = options.maxCommandLength ?? 8192;
+    this.guard = options.guard;
+    this.policy = options.policy ?? new ShellCommandPolicy();
+    this.jobs = options.jobs;
+    this.ledger = options.ledger;
+    this.commandWrapper = options.commandWrapper;
+  }
+
+  /** 工具定义。 */
+  public readonly definition: ToolDefinition = {
+    name: TOOL_NAMES.shell,
+    description:
+      '在工作区内执行 shell 命令并返回输出（支持管道与重定向）。' +
+      '构建、测试等长命令可用 timeout_ms 申请更长预算（默认 30000，上限 600000 毫秒）；' +
+      '更久的任务用 background=true 转后台，配合 shell_job 取输出。',
+    parameters: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: '要执行的命令' },
+        timeout_ms: {
+          type: 'number',
+          description:
+            '本命令的超时毫秒数（默认 30000，会被钳制到 [1000, 600000]）；' +
+            '跑构建或全量测试时按需调大，避免长命令被误杀。',
+        },
+        background: {
+          type: 'boolean',
+          description:
+            'true 时立即返回并让命令在后台继续运行（输出写入日志文件），' +
+            '之后用 shell_job 查看/终止。适合安装依赖、全量测试等分钟级任务。',
+        },
+        tty: {
+          type: 'boolean',
+          description:
+            'true 时分配伪终端（PTY）执行，让 TUI 程序（vim/htop/交互式安装器）拿到真终端而非管道。' +
+            '经 GNU `script` 实现；Windows 原生无 pseudo-terminal，此时会明确失败（不静默退化为管道）。',
+        },
+      },
+      required: ['command'],
+    },
+  };
+
+  /**
+   * 执行命令（先过会话公平闸门；未注入闸门时直接执行）。
+   *
+   * @param call 工具调用（实参须含 command 字符串，可选 timeout_ms）。
+   * @param context 工具上下文（workspaceRoot、sessionId 等）。
+   * @returns 执行结果；闸门拒绝（排队满/取消）也转成失败结果，不向调用方抛错。
+   */
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    if (this.runtime.governor === undefined) {
+      return this.execute(call, context);
+    }
+    try {
+      return await this.runtime.governor.run(context.sessionId, () => this.execute(call, context), {
+        ...(context.signal !== undefined ? { signal: context.signal } : {}),
+      });
+    } catch (error) {
+      return this.failure(call.id, error);
+    }
+  }
+
+  /**
+   * 命令校验、裁决与真实执行的实体（`handle` 只负责闸门与失败兜底）。
+   *
+   * @param call 工具调用。
+   * @param context 工具上下文。
+   * @returns 执行结果：成功附 stdout/stderr 组合输出；校验失败、被裁决、超时、输出超限或
+   *   命令非零退出时失败（非零退出与超时会**保留已产生的输出**，便于模型自行纠错）。
+   */
+  private async execute(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    const command = String(call.arguments['command'] ?? '').trim();
+    if (command === '') {
+      return this.failure(call.id, '命令为空');
+    }
+    if (command.length > this.maxCommandLength) {
+      return this.failure(call.id, `命令过长（${command.length} > ${this.maxCommandLength} 字符）`);
+    }
+
+    const denied = this.policy.decide(command);
+    if (denied !== undefined) {
+      return this.failure(call.id, denied);
+    }
+
+    const denial = this.guard?.(command, context);
+    if (denial !== undefined) {
+      return this.failure(call.id, denial);
+    }
+
+    const cwd = context.workspaceRoot !== '' ? context.workspaceRoot : undefined;
+    if (cwd === undefined) {
+      log.warn('shell.noWorkspaceRoot', {
+        sessionId: context.sessionId,
+        hint: '未注入 workspaceRoot，命令将继承进程工作目录',
+      });
+    }
+
+    const executable = this.commandWrapper?.(command, cwd ?? process.cwd()) ?? command;
+
+    if (call.arguments['background'] === true) {
+      // 后台命令同样可能改文件（`npm install` / 代码生成器）；账本一并失效，
+      // 否则紧接着的 write_file 会把它的改动静默抹掉（见 `ledger` 字段注释）。
+      this.invalidateLedger(command, context.workspaceRoot);
+      return this.startBackground(call.id, executable);
+    }
+
+    const usePty = call.arguments['tty'] === true;
+    try {
+      const timeoutMs = this.effectiveTimeout(call.arguments['timeout_ms']);
+      const outcome = await this.runtime.runner.run(executable, {
+        cwd,
+        env: ShellChildEnv.clean(),
+        timeoutMs,
+        maxBufferBytes: this.maxBufferBytes,
+        pty: usePty,
+        // 会话取消信号（审计 §1.7）：此前**完全没被消费** ⇒ 取消后命令仍跑到自己的超时
+        // （最长 10 分钟）且只杀直接子进程。透传后由执行器终止整棵树并回 `aborted`。
+        signal: context.signal,
+      });
+      this.invalidateLedger(command, context.workspaceRoot);
+      return this.toResult(call.id, outcome, timeoutMs);
+    } catch (error) {
+      return this.failure(call.id, error);
+    }
+  }
+
+  /**
+   * 把命令文本里提及的已记账文件失效（A6：账本原先对 shell 改动完全不可见）。
+   *
+   * 取舍写明白：失效只让后续写入**不再被陈旧读守卫拦**（等价于改造前行为），
+   * 而代价是「同一条命令顺带改的别的文件」也不会被拦 —— 这是刻意的：**宁可少拦，不可误拦**，
+   * 因为误拦会直接挡住正常编码流程，而漏拦最多退回到改造前的保护水位。
+   * @param command 已执行的命令文本。
+   * @param workspaceRoot 工作区根（用于把相对路径与记账键对上）。
+   * @returns 无返回值。
+   */
+  private invalidateLedger(command: string, workspaceRoot: string): void {
+    if (this.ledger === undefined || workspaceRoot === '') {
+      return;
+    }
+    try {
+      this.ledger.forgetMentionedIn(command, workspaceRoot);
+    } catch {
+      // 账本失效失败不影响命令结果（陈旧读保护是增强，不是主链路）。
+    }
+  }
+
+  /**
+   * 启动后台作业（P2-⑫）。
+   *
+   * 与前台路径的关系：**同样的策略裁决与裁决器已在上游执行过**（见 {@link handle} 的顺序），
+   * 这里只负责把命令交给注册表并回报作业 id——不在后台路径上另做一套裁决，避免出现
+   * 「前台拦、后台放」的旁路。
+   *
+   * @param callId 工具调用 ID。
+   * @param command 已通过校验与裁决的命令文本。
+   * @returns ok:true 并附作业 id 与取输出的用法；未注入注册表时 ok:false（不静默退化为前台）。
+   */
+  private startBackground(callId: string, command: string): ToolResult {
+    if (this.jobs === undefined) {
+      return this.failure(callId, '后台执行未启用（组合根未注入 BackgroundJobRegistry）');
+    }
+    try {
+      const job = this.jobs.start(command, ShellChildEnv.clean());
+      return {
+        callId,
+        ok: true,
+        output:
+          `已在后台启动：${job.id}（pid ${job.pid === undefined ? '?' : String(job.pid)}）。\n` +
+          `用 shell_job {action:"output", id:"${job.id}"} 取输出，{action:"status"} 看是否结束，` +
+          `{action:"kill"} 终止。日志：${job.logFile}`,
+      };
+    } catch (error) {
+      return this.failure(callId, error);
+    }
+  }
+
+  /**
+   * 解析本次调用的生效超时：显式 `timeout_ms` 优先，钳制到 `[MIN_TIMEOUT_MS, maxTimeoutMs]`。
+   *
+   * 非法值（非数字 / NaN / Infinity）一律回落默认超时——绝不把 NaN 透给定时器
+   * （`setTimeout(NaN)` 会退化成 1ms，表现为「命令立刻超时」，极难归因）。
+   *
+   * @param requested 调用方请求的毫秒数（未知类型）。
+   * @returns 生效超时毫秒数。
+   */
+  private effectiveTimeout(requested: unknown): number {
+    if (typeof requested !== 'number' || !Number.isFinite(requested)) {
+      return this.timeoutMs;
+    }
+    return Math.min(Math.max(Math.floor(requested), ShellTool.MIN_TIMEOUT_MS), this.maxTimeoutMs);
+  }
+
+  /**
+   * 把执行结果映射为工具结果：状态优先级 **取消 > 超时 > 截断 > 退出码**。
+   *
+   * 取消排在最前：会话已取消时，即便子进程恰好以别的形态结束，对模型最有用的事实也是「这条命令被取消了」。
+   * @param callId 工具调用 ID。
+   * @param outcome 子进程执行结果。
+   * @param timeoutMs 本次调用生效的超时（用于超时文案，避免报默认值误导）。
+   * @returns 工具结果（取消/非零退出/超时都会保留已产生的输出）。
+   */
+  private toResult(callId: string, outcome: ShellRunOutcome, timeoutMs: number): ToolResult {
+    let output = this.composeOutput(
+      this.runtime.decoder.decode(outcome.stdout),
+      this.runtime.decoder.decode(outcome.stderr),
+    );
+    if (outcome.consoleFallback === true) {
+      // 诚实上报（2026-10-07）：命令**实际启动了两次**——首次带 CREATE_NO_WINDOW 的启动在受限
+      // 令牌沙箱里死在 DLL 初始化（连用户代码都没进），故不可能产生副作用；这里把事实说出来，
+      // 而不是让调用方以为它只跑了一次。
+      log.warn('shell.consoleFallback', {
+        reason:
+          'CREATE_NO_WINDOW 子进程在受限令牌下 DLL 初始化失败（0xC0000142），已改用继承控制台启动',
+      });
+      output = `${output}\n[omniharness] 首次启动在 DLL 初始化阶段失败（0xC0000142），已改用继承控制台的方式重新执行`;
+    }
+    if (outcome.aborted) {
+      return this.exitFailure(callId, '命令被会话取消（已终止整棵进程树）', output);
+    }
+    if (outcome.timedOut) {
+      return this.exitFailure(callId, `命令超时（${timeoutMs}ms）`, output);
+    }
+    if (outcome.overflowed) {
+      return this.exitFailure(
+        callId,
+        `输出超出上限（${this.maxBufferBytes} 字节），已终止命令`,
+        output,
+      );
+    }
+    if (outcome.signal !== null && outcome.exitCode === null) {
+      return this.exitFailure(callId, `命令被信号终止：${outcome.signal}`, output);
+    }
+    if (outcome.exitCode !== 0) {
+      return this.exitFailure(
+        callId,
+        `命令退出码 ${outcome.exitCode ?? 'unknown'}`,
+        output,
+        outcome.exitCode ?? undefined,
+      );
+    }
+    return { callId, ok: true, output };
+  }
+
+  /** 组装 stdout/stderr 输出。
+   * @param stdout 解码后的标准输出。
+   * @param stderr 解码后的标准错误。
+   * @returns 组合文本：stdout 在前，stderr 以 `[stderr]` 前缀追加。
+   */
+  private composeOutput(stdout: string, stderr: string): string {
+    const parts: string[] = [];
+    if (stdout !== '') {
+      parts.push(stdout);
+    }
+    if (stderr !== '') {
+      parts.push(`[stderr] ${stderr}`);
+    }
+    return parts.join('\n');
+  }
+
+  /** 构造失败结果（仅错误文案，无输出）。
+   * @param callId 工具调用 ID。
+   * @param error 抛出的错误（Error 或任意值）。
+   * @returns ok=false 的工具结果（错误消息已提取）。
+   */
+  private failure(callId: string, error: unknown): ToolResult {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { callId, ok: false, error: detail };
+  }
+
+  /**
+   * 构造带输出的失败结果（非零退出/超时/截断路径，保留已产生输出供模型纠错）。
+   *
+   * P1-⑩：命令失败时从输出里抽堆栈帧，把 `文件:行` 作为**位置候选**附在错误文案后——
+   * 模型不必再从 `npm ERR!`/`Traceback`/`panicked at` 的噪声里反推该改哪个文件的哪一行。
+   * 无堆栈帧（或全是 `node_modules`/`node:internal` 噪声）时不附，避免制造假信号。
+   *
+   * @param callId 工具调用 ID。
+   * @param message 失败说明。
+   * @param output 已产生的组合输出。
+   * @param exitCode 子进程的真实退出码（仅「命令执行完」时给；超时/信号/启动失败不给）。
+   * @returns ok=false 的工具结果（有输出时一并带上）。
+   */
+  private exitFailure(
+    callId: string,
+    message: string,
+    output: string,
+    exitCode?: number,
+  ): ToolResult {
+    const hint = this.frameHint(output);
+    const error = hint === '' ? message : `${message}\n${hint}`;
+    return exitCode === undefined
+      ? output === ''
+        ? { callId, ok: false, error }
+        : { callId, ok: false, error, output }
+      : output === ''
+        ? { callId, ok: false, error, exitCode }
+        : { callId, ok: false, error, output, exitCode };
+  }
+
+  /**
+   * 从命令输出解析位置候选（`文件:行`）。
+   *
+   * @param output 命令的组合输出（可能为空）。
+   * @returns `位置候选（文件:行）：a:1、b:2` 形式的单行文本；无候选时返回空串。
+   */
+  private frameHint(output: string): string {
+    if (output === '') {
+      return '';
+    }
+    const locations = StackFrameParser.locate(output, ShellTool.MAX_FRAME_HINTS);
+    return locations.length === 0 ? '' : `位置候选（文件:行）：${locations.join('、')}`;
+  }
+}

@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { ExternalCliWorker } from '../../src/worker/externalCliWorker.ts';
-import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
-import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
+import { ExternalCliWorker } from '../../src/kernel/worker/externalCliWorker.ts';
+import { WorkerRegistry } from '../../src/kernel/worker/workerRegistry.ts';
+import { WorkerOrchestrator } from '../../src/kernel/worker/workerOrchestrator.ts';
 
 /** 夹具：回显 argv 的 Node 脚本。 */
 const FIXTURE = join(process.cwd(), 'tests', 'fixtures', 'echoTask.mjs');

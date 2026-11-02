@@ -27,13 +27,13 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { DEFAULT_VAULT_KEY_FILE, VaultKeyDefaults } from '../../src/cli/vaultKeyDefaults.ts';
-import { OmniHome } from '../../src/util/omniHome.ts';
+import { DEFAULT_VAULT_KEY_FILE, VaultKeyDefaults } from '../../src/apps/cli/vaultKeyDefaults.ts';
+import { OmniHome } from '../../src/kernel/util/omniHome.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();
 /** CLI 入口。 */
-const CLI = join(REPO_ROOT, 'dist/src/cli/exec.js');
+const CLI = join(REPO_ROOT, 'dist/src/apps/cli/exec.js');
 
 /**
  * 在给定 HOME 下跑一次 CLI（真子进程）。
@@ -335,7 +335,7 @@ test('⑤ OMNIHARNESS_VAULT=0 ⇒ 关闭；serve 不创建密钥文件（真起�
   }
 
   // 接线断言（附正对照）：serve 侧必须先查开关再构造 vault。
-  const source = readFileSync(join(REPO_ROOT, 'src/cli/cliCredentialBuild.ts'), 'utf8');
+  const source = readFileSync(join(REPO_ROOT, 'src/apps/cli/cliCredentialBuild.ts'), 'utf8');
   assert.match(
     source,
     /disabledByEnv\(\)[\s\S]{0,200}?return undefined;/u,

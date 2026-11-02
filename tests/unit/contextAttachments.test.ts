@@ -6,9 +6,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextAssembler } from '../../src/context/contextAssembler.ts';
-import { eventFactory } from '../../src/core/eventFactory.ts';
-import type { FileAttachment } from '../../src/ports/model/model.ts';
+import { ContextAssembler } from '../../src/kernel/context/contextAssembler.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
+import type { FileAttachment } from '../../src/contracts/ports/model/model.ts';
 
 /** 一份图片附件。 */
 const image: FileAttachment = { name: 'shot.png', mediaType: 'image/png', data: 'AAAA' };

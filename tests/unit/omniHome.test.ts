@@ -1,7 +1,7 @@
 /**
  * OmniHome 判据：归属根解析的唯一事实源。
  *
- * 钉三条口径（见 src/util/omniHome.ts 注释）：
+ * 钉三条口径（见 src/kernel/util/omniHome.ts 注释）：
  * ① 显式注入 > OMNI_HOME 环境变量 > ~/.omniharness（注入压过环境——判据封闭性不受真机 setx 影响）；
  * ② OMNI_HOME 是「整体搬盘」的唯一旋钮：sessions/tmp 全部跟随；
  * ③ OMNI_TMP_DIR 可单独指定临时根。
@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { OmniHome } from '../../src/util/omniHome.ts';
+import { OmniHome } from '../../src/kernel/util/omniHome.ts';
 
 test('OmniHome：无注入无环境时回落 ~/.omniharness（历史行为逐字节一致）', () => {
   assert.strictEqual(OmniHome.dir(undefined, {}), join(homedir(), '.omniharness'));

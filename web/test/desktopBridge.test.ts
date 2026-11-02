@@ -5,7 +5,7 @@ import {
   type DesktopInfo,
   type DesktopNotifyInput,
   type DesktopUpdateStatus,
-} from '../src/core/desktop/DesktopBridge.ts';
+} from '../src/kernel/core/desktop/DesktopBridge.ts';
 
 interface FakeOmni {
   apiVersion: number;

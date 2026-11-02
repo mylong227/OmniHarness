@@ -2,9 +2,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { CompositeLiveView } from '../../src/adapters/live/compositeLiveView.ts';
-import type { ToolInputSink } from '../../src/ports/tool/toolInputSink.ts';
-import type { ToolInputDelta } from '../../src/ports/model/model.ts';
+import { CompositeLiveView } from '../../src/kernel/adapters/live/compositeLiveView.ts';
+import type { ToolInputSink } from '../../src/contracts/ports/tool/toolInputSink.ts';
+import type { ToolInputDelta } from '../../src/contracts/ports/model/model.ts';
 
 function sinkSpy(name: string): { sink: ToolInputSink; deltas: ToolInputDelta[] } {
   const deltas: ToolInputDelta[] = [];

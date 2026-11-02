@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { EmbeddingPort } from '../../src/ports/model/embedding.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { EmbeddingPort } from '../../src/contracts/ports/model/embedding.ts';
 
 /** 确定性伪嵌入（不依赖模型/网络；只用于接线判据，不用于质量数字）。 */
 const fakeEmbedding = (dim = 8): EmbeddingPort => ({

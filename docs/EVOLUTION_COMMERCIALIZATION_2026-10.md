@@ -13,7 +13,7 @@
    2026 年市场的真实空位：研究侧的自进化（Sakana DGM / AlphaEvolve）**没有治理**；
    企业侧的治理（审计 / 沙箱 / 回滚）**没有自我改进**。本仓是少数两头兼备的基座：
    fail-closed 执行链 + 审计哈希链 + 双回滚（会话+代码）打底，进化闭环的六环骨架已在
-   `src/evolution/` 建成且有单测，但三个生产化关键件处于断开/休眠（§2.2）。
+   `src/kernel/evolution/` 建成且有单测，但三个生产化关键件处于断开/休眠（§2.2）。
 2. **自进化不直接卖钱，它是溢价层与续约机制。** 没有客户为"agent 会自己变强"付钱，
    客户为"变强的过程可解释、可审批、可回滚、可入账"付钱。因此商业主张必须挂在**治理**上卖：
    **"唯一自带可审计自我改进的 agent 基座"**——每次能力晋升都有门禁裁决 + 哈希链证据 + 一键回滚。
@@ -34,7 +34,7 @@
 
 ## 1. 问题定义：本报告说的"自进化"是什么
 
-**工程定义**（与本仓 `src/evolution/` 对齐）——一个六环闭环：
+**工程定义**（与本仓 `src/kernel/evolution/` 对齐）——一个六环闭环：
 
 ```
 信号采集 → 提案生成 → 评估（可验证奖励）→ 晋升准入（fail-closed 门禁）→ 应用落盘 → 回滚兜底
@@ -47,9 +47,9 @@
 
 | 副产品             | 客户语言                           | 对应本仓资产                                                                                       |
 | ------------------ | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **随使用增值**     | "用得越久越懂我们团队/仓库"        | 技能沉淀 + 记忆生命周期 + 进化晋升（`src/skill/`、`src/evolution/`）                               |
-| **变化的可审计性** | "它改了什么？谁批准的？证据在哪？" | 审计哈希链 + fail-closed 晋升门禁（`src/enterprise/`、`src/evolution/failClosedEvolutionGate.ts`） |
-| **变化的可逆性**   | "不满意能一键回去"                 | checkpoint/rewind 双回滚（`src/core/checkpointManager.ts`）                                        |
+| **随使用增值**     | "用得越久越懂我们团队/仓库"        | 技能沉淀 + 记忆生命周期 + 进化晋升（`src/kernel/skill/`、`src/kernel/evolution/`）                               |
+| **变化的可审计性** | "它改了什么？谁批准的？证据在哪？" | 审计哈希链 + fail-closed 晋升门禁（`src/apps/enterprise/`、`src/kernel/evolution/failClosedEvolutionGate.ts`） |
+| **变化的可逆性**   | "不满意能一键回去"                 | checkpoint/rewind 双回滚（`src/kernel/core/checkpointManager.ts`）                                        |
 
 **战略含义**：把自进化包装成能力叙事（"比别的 agent 更聪明"）是与模型厂正面作战——必败；
 包装成治理叙事（"唯一敢在企业环境里开自我改进的基座"）是打信任缺口——正好落在 §3.3
@@ -63,28 +63,28 @@
 
 | 资产                          | 证据路径                                                                            | 商业价值                                                       |
 | ----------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| fail-closed 执行链            | `src/core/`（审批→沙箱→执行→记录）、`src/adapters/approval                          | sandbox`                                                       | 企业采购的入场券；对位 §3.3 信任鸿沟 |
-| 审计哈希链 + 合规导出         | `src/enterprise/`、CLI `audit export --compliance`                                  | 稀缺：多数开源同类没有可验证审计链（README §2.3 自述"超配项"） |
-| 会话+代码双回滚               | `src/core/checkpointManager.ts`（测试最厚的子系统之一）                             | 自进化的安全网；也是对 Claude Code /rewind 的对位              |
-| 插件权限门禁 + VM 隔离        | `src/plugin/permissionGate.ts`、`src/plugin/sandbox.ts`                             | 第三方能力分发的信任前置                                       |
-| 产品外壳四件套                | CLI / Web 工作台 / MCP 双向 / SDK（`src/cli/` `src/server/` `src/mcp/` `src/sdk/`） | 分发面齐全，不必再造壳                                         |
+| fail-closed 执行链            | `src/kernel/core/`（审批→沙箱→执行→记录）、`src/kernel/adapters/approval                          | sandbox`                                                       | 企业采购的入场券；对位 §3.3 信任鸿沟 |
+| 审计哈希链 + 合规导出         | `src/apps/enterprise/`、CLI `audit export --compliance`                                  | 稀缺：多数开源同类没有可验证审计链（README §2.3 自述"超配项"） |
+| 会话+代码双回滚               | `src/kernel/core/checkpointManager.ts`（测试最厚的子系统之一）                             | 自进化的安全网；也是对 Claude Code /rewind 的对位              |
+| 插件权限门禁 + VM 隔离        | `src/kernel/plugin/permissionGate.ts`、`src/kernel/plugin/sandbox.ts`                             | 第三方能力分发的信任前置                                       |
+| 产品外壳四件套                | CLI / Web 工作台 / MCP 双向 / SDK（`src/apps/cli/` `src/apps/server/` `src/protocols/mcp/` `src/contracts/sdk/`） | 分发面齐全，不必再造壳                                         |
 | 零运行时依赖 + 自带身份与凭据 | 2 个运行时依赖；`omniharness.json` 白名单；AES-256-GCM vault                        | 私有化/信创友好（§6.2 国内轨的硬卖点）                         |
-| OIDC SSO（PKCE+JWKS）         | `src/enterprise/oidcClient.ts`                                                      | 企业版第一块砖（但目录里只有它，见 §2.3）                      |
+| OIDC SSO（PKCE+JWKS）         | `src/apps/enterprise/oidcClient.ts`                                                      | 企业版第一块砖（但目录里只有它，见 §2.3）                      |
 
 ### 2.2 自进化子系统：六环逐环体检（胚胎期，骨架真、产线断）
 
 | 环节     | 状态           | 证据                                                                                                                                                   |
 | -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 信号采集 | **断**（孤儿） | `src/evolution/failurePatternMiner.ts` 仅被自身与单测引用，无任何生产调用方；现役"发现"只做技能两两组合（`twistDiscoveryEngine.ts`），不做任务失败归因 |
+| 信号采集 | **断**（孤儿） | `src/kernel/evolution/failurePatternMiner.ts` 仅被自身与单测引用，无任何生产调用方；现役"发现"只做技能两两组合（`twistDiscoveryEngine.ts`），不做任务失败归因 |
 | 提案生成 | 部分可用       | 组合式提案在跑；模型生成变体走 `rlvrLoop.ts`（StarPO 式 sample-filter-replay）                                                                         |
 | 评估     | 可用但默认关   | `verifiableReward.ts`（RLVR：真跑用户 `verifyCommand` 取退出码）；未配 `--rlvr-verify` 时奖励恒 0、全旁路                                              |
 | 晋升准入 | 可用           | `failClosedEvolutionGate.ts` + `promotionAdmission.ts`（多样性闸+退火）+ `rewardCoverageMeter.ts`（覆盖率 fail-closed 闸）                             |
-| 应用     | 已接线         | `src/composition/runtime.ts` L58–93：`onPromote` 真落技能注册表 + `evolution.promoted` 观测行；主循环挂点 `src/core/agent.ts` L355/L564                |
+| 应用     | 已接线         | `src/apps/composition/runtime.ts` L58–93：`onPromote` 真落技能注册表 + `evolution.promoted` 观测行；主循环挂点 `src/kernel/core/agent.ts` L355/L564                |
 | 回滚     | **缺进化级**   | 现有回滚是会话/代码级；技能晋升后无快照还原演练                                                                                                        |
 | 外部证据 | **空白**       | 对外跑分子系统 2026-10-03 已删除；进化增益**从未被量化**（README 自述）；46 引擎默认真正干活的只有 2 个                                                |
 
-**两个休眠执行体**：`src/adapters/skill/crisprSkillEditor.ts`（CRISPR 式技能编辑：语义寻址+定点
-patch+差异测试+回滚）与 `src/adapters/skill/capabilityCrystallizer.ts`（能力结晶化）——机制完整、
+**两个休眠执行体**：`src/kernel/adapters/skill/crisprSkillEditor.ts`（CRISPR 式技能编辑：语义寻址+定点
+patch+差异测试+回滚）与 `src/kernel/adapters/skill/capabilityCrystallizer.ts`（能力结晶化）——机制完整、
 带测试，但生产代码里**没有任何 `queue()` 调用方**（只有测试在调）。机器造好了，没人喂料、默认不插电。
 
 **结论**：自进化子系统当前状态 = **L1（结构同构）**：闭环在、单测锁、但信号源、执行体、
@@ -96,7 +96,7 @@ patch+差异测试+回滚）与 `src/adapters/skill/capabilityCrystallizer.ts`�
 | ---- | ---------------------------------------------------------------------------------- | ------------------ |
 | P0   | 进化闭环三断点（信号源孤儿 / 执行体休眠 / 默认关且需手工 verifyCommand）           | §5 阶段 0（E1–E4） |
 | P0   | 增益不可声称：无任务级对照证据                                                     | §5 阶段 0（E2）    |
-| P1   | 企业四件套缺三件：License 引擎、RBAC/多租户、计费（`src/enterprise/` 仅 2 个文件） | §5 阶段 1–2        |
+| P1   | 企业四件套缺三件：License 引擎、RBAC/多租户、计费（`src/apps/enterprise/` 仅 2 个文件） | §5 阶段 1–2        |
 | P1   | 进化级回滚（晋升快照+还原演练）                                                    | §5 阶段 0（E5）    |
 | P2   | 技能包分发面：bundle（.ohb + HMAC 签名）已具备，缺市场与安全分级                   | §5 阶段 3          |
 | P2   | A2A 客户端未验证；浏览器/computer use 空白（README 诚实清单）——不影响本方案主线    | 不排期             |
@@ -190,7 +190,7 @@ patch+差异测试+回滚）与 `src/adapters/skill/capabilityCrystallizer.ts`�
 | 选项                                             | 机制                                       | 优点                                                          | 缺点                                                                                 | 判定                        |
 | ------------------------------------------------ | ------------------------------------------ | ------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------- |
 | 保持 Apache-2.0 全开源                           | 靠托管/支持收费                            | 分发最大、社区信任最高                                        | 云厂商可白嫖打包                                                                     | ✅ 核心                     |
-| **Apache-2.0 核心 + `src/enterprise/` 商业许可** | 企业功能目录闭源（GitLab/Sentry 同款切法） | 切分清晰；`src/enterprise/` 目录已存在且只有 OIDC——目录即边界 | 需要 CLA；企业目录发展与开源节奏要平衡                                               | ✅ **推荐**（治理包住这里） |
+| **Apache-2.0 核心 + `src/apps/enterprise/` 商业许可** | 企业功能目录闭源（GitLab/Sentry 同款切法） | 切分清晰；`src/apps/enterprise/` 目录已存在且只有 OIDC——目录即边界 | 需要 CLA；企业目录发展与开源节奏要平衡                                               | ✅ **推荐**（治理包住这里） |
 | FSL（两年转 Apache）                             | 防云厂商、社区好感                         | 现代方案                                                      | 转换规则复杂、国内认知度低                                                           | 备选                        |
 | AGPL 全仓                                        | 强 Copyleft                                | 倒逼企业付费                                                  | 与本仓"准入依赖、洁癖纪律"气质冲突；吓退企业用户；反泡沫清单已对 AGPL 外部件亮过红牌 | ❌                          |
 
@@ -231,7 +231,7 @@ patch+差异测试+回滚）与 `src/adapters/skill/capabilityCrystallizer.ts`�
 
 ### 阶段 1「单机商业版」（月 1–6）
 
-- **F1 License 引擎**：机器指纹 + Ed25519 签名验证（复用 `src/adapters/identity` 与 CLI `identity` 能力）；
+- **F1 License 引擎**：机器指纹 + Ed25519 签名验证（复用 `src/kernel/adapters/identity` 与 CLI `identity` 能力）；
   判据：篡改 license ⇒ 拒（红）；过期 ⇒ 降级为核心功能而非停摆（诚实降级档）。
 - **F2 进化治理台**（Web 工作台新 tab，复用 11 tab 框架）：晋升史/审计链可视化/一键回滚入口；
   判据：治理台展示的每条晋升记录都能用 `audit verify` 独立复核通过（数据与证据同源）。
@@ -318,7 +318,7 @@ OpenAI 兼容端点默认可用 → 目标客户：金融/政务/央国企的 ag
 | 进化增益始终不显著                       | 中   | 高   | **商业模式押注治理而非增益**（§0.5）；E2 如实判死 ⇒ 叙事收缩为"可审计的技能沉淀"，价格档同步收缩 |
 | 单人维护产能撞线                         | 高   | 高   | 路线图人日量化 + 反泡沫清单续期 + License 设计给社区留贡献空间（企业目录之外可接 PR）            |
 | 二手市场数字失真（本报告 §3 即可能失真） | 高   | 低   | 所有数字标"弱来源/待复核"；对外材料只引用自证数字（探针可复跑）                                  |
-| 许可证切换引发社区反弹                   | 中   | 中   | 核心永久 Apache-2.0 白纸黑字；企业目录边界从第一天就清晰（`src/enterprise/`）                    |
+| 许可证切换引发社区反弹                   | 中   | 中   | 核心永久 Apache-2.0 白纸黑字；企业目录边界从第一天就清晰（`src/apps/enterprise/`）                    |
 | 企业数据/模型输出版权争议                | 低   | 中   | 晋升产物所有权条款写进 License（技能包归客户）；审计链天然支持争议取证                           |
 | 头部玩家跟进"治理化自进化"叙事           | 中   | 中   | 品类成立是好事；护城河转靠装机量 + 客户资产沉淀 + 合规认证先发                                   |
 

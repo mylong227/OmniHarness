@@ -1,30 +1,30 @@
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import { Bm25Index } from '../../src/search/bm25Index.ts';
-import { ToolIndex } from '../../src/search/toolIndex.ts';
-import { ToolDiscovery } from '../../src/search/toolDiscovery.ts';
-import { ToolSearchTool } from '../../src/adapters/tool/meta/toolSearchTool.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { StepRunner } from '../../src/core/stepRunner.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
+import { Bm25Index } from '../../src/kernel/search/bm25Index.ts';
+import { ToolIndex } from '../../src/kernel/search/toolIndex.ts';
+import { ToolDiscovery } from '../../src/kernel/search/toolDiscovery.ts';
+import { ToolSearchTool } from '../../src/kernel/adapters/tool/meta/toolSearchTool.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { StepRunner } from '../../src/kernel/core/stepRunner.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
 import type {
   ToolCall,
   ToolContext,
   ToolDefinition,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
 import type {
   ModelOutput,
   ModelPort,
   ModelRequest,
   ModelToolSpec,
-} from '../../src/ports/model/model.ts';
+} from '../../src/contracts/ports/model/model.ts';
 
 const ctx: ToolContext = { sessionId: 's1', workspaceRoot: process.cwd() };
 const call = (name: string, args: Record<string, unknown>): ToolCall => ({

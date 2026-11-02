@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextBreakdownEstimator } from '../../src/context/contextBreakdownEstimator.ts';
-import type { ModelMessage } from '../../src/ports/model/model.ts';
+import { ContextBreakdownEstimator } from '../../src/kernel/context/contextBreakdownEstimator.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/model.ts';
 
 const inputOf = (messages: readonly ModelMessage[]) => ({
   messages,

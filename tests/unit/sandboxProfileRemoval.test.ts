@@ -2,11 +2,11 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
-import { SandboxCapabilityTable } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import { SANDBOX_PROFILES } from '../../src/cli/cliEnums.ts';
-import type { SandboxProfile } from '../../src/ports/runtime/sandbox/sandboxProfile.ts';
+import { SandboxManager } from '../../src/kernel/adapters/sandbox/sandboxManager.ts';
+import { SandboxCapabilityTable } from '../../src/kernel/adapters/sandbox/sandboxCapabilityTable.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { SANDBOX_PROFILES } from '../../src/apps/cli/cliEnums.ts';
+import type { SandboxProfile } from '../../src/contracts/ports/runtime/sandbox/sandboxProfile.ts';
 
 /**
  * 移除第三方 Windows ACL 后端后的**回归护栏**（2026-10-24）。
@@ -48,7 +48,7 @@ test('④ 能力表如实区分原生写隔离与 TS 策略层', () => {
 
 test('⑤ 源码与依赖中不再有 windows-acl 实现或第三方沙箱依赖', () => {
   assert.strictEqual(
-    existsSync(join(process.cwd(), 'src', 'adapters', 'sandbox', 'windowsAclSandbox.ts')),
+    existsSync(join(process.cwd(), 'src', 'kernel', 'adapters', 'sandbox', 'windowsAclSandbox.ts')),
     false,
     '已被删除的后端文件不得复活',
   );

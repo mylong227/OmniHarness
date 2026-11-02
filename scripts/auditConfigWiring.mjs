@@ -198,14 +198,14 @@ const SERVER_ONLY_FIELDS = {
     '界面语言由 **Web 层**消费，不是 CLI 装配：config.get 读出 → AppController 的 config 回调里 ' +
     "`if (c.locale === 'zh' || c.locale === 'en') layout.setLocale(c.locale)`（AppController.ts）→ " +
     'i18n 的 t() 据此取词；写回走 config.update({ locale })（SettingsModal 的「外观」栏）。' +
-    'I5a 只扫 src/cli/，扫不到 web/ 下的这条消费链，故按本清单登记（与 workspaces 同性质：' +
+    'I5a 只扫 src/apps/cli/，扫不到 web/ 下的这条消费链，故按本清单登记（与 workspaces 同性质：' +
     '真被消费、只是不在 CLI 层）。若哪天 locale 改由 CLI 消费（例如 `--locale` 旗标），' +
     '请删掉本条 —— 反向检查会因为键仍在清单里而报警。',
   chatMode:
     '聊天模式（queue/steer，2026-10-31）由 **Web 层**消费，不是 CLI 装配：config.get 读出 → ' +
     'AppController.mount 里 `composer.chatQueue.setMode(c.chatMode, false)` 回灌 → ' +
     'ComposerController.send 按模式分流（排队 / 插话），写回走 config.update({ chatMode })（设置「常规」页）。' +
-    'I5a 只扫 src/cli/，扫不到 web/ 下的这条消费链；若哪天改由 CLI 消费，请删掉本条。',
+    'I5a 只扫 src/apps/cli/，扫不到 web/ 下的这条消费链；若哪天改由 CLI 消费，请删掉本条。',
   apiKeyDpapi:
     'Windows DPAPI 密文由 `configFile` 读路径解密为 apiKey（DpapiConfig.open），CLI 只消费解密后的 apiKey；' +
     '该字段是落盘中间态，不是 CLI 旋钮。',
@@ -274,12 +274,12 @@ export function audit(tree, io = {}) {
   const dataFileExists = io.dataFileExists ?? defaultDataFileExists;
   const isPublished = io.publishedDefaults ?? publishedDefaults;
   const violations = [];
-  const factory = tree.get('src/config/configFactory.ts') ?? '';
-  const errText = tree.get('src/config/configError.ts') ?? '';
-  const fileCfgText = tree.get('src/ports/config/fileConfig.ts') ?? '';
-  const ohConfigText = tree.get('src/ports/config/omniHarnessConfig.ts') ?? '';
-  const flagTable = tree.get('src/cli/cliFlagTable.ts') ?? '';
-  const argParser = tree.get('src/cli/argParser.ts') ?? '';
+  const factory = tree.get('src/kernel/config/configFactory.ts') ?? '';
+  const errText = tree.get('src/kernel/config/configError.ts') ?? '';
+  const fileCfgText = tree.get('src/contracts/ports/config/fileConfig.ts') ?? '';
+  const ohConfigText = tree.get('src/contracts/ports/config/omniHarnessConfig.ts') ?? '';
+  const flagTable = tree.get('src/apps/cli/cliFlagTable.ts') ?? '';
+  const argParser = tree.get('src/apps/cli/argParser.ts') ?? '';
 
   // OmniHarnessConfig 已外迁到 ports/config/omniHarnessConfig.ts；兼容仍在 configFactory.ts 的合成自证用例，两处合并取并集。
   const cfgFields = [
@@ -294,14 +294,14 @@ export function audit(tree, io = {}) {
     );
 
   const configTexts = [...tree.entries()]
-    .filter(([p]) => p.startsWith('src/config/'))
+    .filter(([p]) => p.startsWith('src/kernel/config/'))
     .map(([, t]) => t);
   const outsideConfig = [...tree.entries()]
-    .filter(([p]) => p.startsWith('src/') && !p.startsWith('src/config/'))
+    .filter(([p]) => p.startsWith('src/') && !p.startsWith('src/kernel/config/'))
     .map(([, t]) => t);
-  const cliTexts = [...tree.entries()].filter(([p]) => p.startsWith('src/cli/')).map(([, t]) => t);
+  const cliTexts = [...tree.entries()].filter(([p]) => p.startsWith('src/apps/cli/')).map(([, t]) => t);
   const cliOutsideFlagTable = [...tree.entries()]
-    .filter(([p]) => p.startsWith('src/cli/') && p !== 'src/cli/cliFlagTable.ts')
+    .filter(([p]) => p.startsWith('src/apps/cli/') && p !== 'src/apps/cli/cliFlagTable.ts')
     .map(([, t]) => t);
 
   // I1 声明即被读
@@ -338,9 +338,9 @@ export function audit(tree, io = {}) {
   const declared = new Set(cfgFields);
   for (const [p, t] of tree.entries()) {
     if (
-      !p.startsWith('src/config/') &&
-      !p.startsWith('src/ports/config/') &&
-      !p.startsWith('src/cli/')
+      !p.startsWith('src/kernel/config/') &&
+      !p.startsWith('src/contracts/ports/config/') &&
+      !p.startsWith('src/apps/cli/')
     )
       continue;
     for (const m of t.matchAll(/^\s*(?:readonly\s+)?([A-Za-z0-9_]+)\??\s*:/gm)) declared.add(m[1]);
@@ -465,79 +465,79 @@ function selftest() {
   const cfg = (body) =>
     `interface OmniHarnessConfig {\n  readonly real: number;\n${body}}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      real: partial.real,\n    };\n  }\n}\n`;
   const cases = [
-    { id: 'I1', tree: { 'src/config/configFactory.ts': cfg('  readonly ghost: number;\n') } },
+    { id: 'I1', tree: { 'src/kernel/config/configFactory.ts': cfg('  readonly ghost: number;\n') } },
     {
       id: 'I2',
       tree: {
-        'src/config/configFactory.ts': `interface OmniHarnessConfig {\n  readonly ghost: number;\n}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      ghost: partial.ghost,\n    };\n  }\n}\n`,
+        'src/kernel/config/configFactory.ts': `interface OmniHarnessConfig {\n  readonly ghost: number;\n}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      ghost: partial.ghost,\n    };\n  }\n}\n`,
       },
     },
     {
       id: 'I3',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/config/configError.ts':
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/kernel/config/configError.ts':
           "const KNOWN_KEYS: ReadonlySet<string> = new Set<string>([\n  'phantom',\n]);\n",
       },
     },
     {
       id: 'I4',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/cli/cliFlagTable.ts': 'a.ghost = 1;\n',
-        'src/cli/argParser.ts': 'export interface CliArgs {\n  ghost?: number;\n}\n',
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/apps/cli/cliFlagTable.ts': 'a.ghost = 1;\n',
+        'src/apps/cli/argParser.ts': 'export interface CliArgs {\n  ghost?: number;\n}\n',
       },
     },
     {
       id: 'I5a',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/config/configFile.ts':
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/kernel/config/configFile.ts':
           'export interface FileConfig {\n  readonly ghostKey?: number;\n}\n',
-        'src/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
+        'src/apps/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
       },
     },
     {
       id: 'I5b',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/cli/argParser.ts':
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/apps/cli/argParser.ts':
           'export interface CliArgs {\n  mapped?: number;\n}\n  public configDefaults(file: FileConfig): Partial<CliArgs> {\n    const result: Partial<CliArgs> = {};\n    result.mapped = 1;\n    return result;\n  }\n',
-        'src/cli/cliOther.ts': 'export const unused = 1;\n',
+        'src/apps/cli/cliOther.ts': 'export const unused = 1;\n',
       },
     },
     {
       // I7 正向：装配门键既不在 FileConfig/CliArgs 也不在豁免清单 ⇒ 必须报。
       id: 'I7',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/config/memoryStackAssembler.ts':
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/kernel/config/memoryStackAssembler.ts':
           'if (partial.ghostGate?.enabled !== true) return {};\n',
-        'src/config/configFile.ts': 'export interface FileConfig {\n  readonly real?: number;\n}\n',
-        'src/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
+        'src/kernel/config/configFile.ts': 'export interface FileConfig {\n  readonly real?: number;\n}\n',
+        'src/apps/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
       },
     },
     {
       // I7 反向：真实豁免清单里的键（belief）在合成树里已无对应门 ⇒ 登记必须被判失效。
       id: 'I7-stale',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/config/configFile.ts': 'export interface FileConfig {\n  readonly real?: number;\n}\n',
-        'src/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/kernel/config/configFile.ts': 'export interface FileConfig {\n  readonly real?: number;\n}\n',
+        'src/apps/cli/argParser.ts': 'export interface CliArgs {\n  real?: number;\n}\n',
       },
     },
     {
       id: 'I2b',
       tree: {
-        'src/config/configFactory.ts': `interface OmniHarnessConfig {\n  readonly runtimeTelemetry: number;\n}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      runtimeTelemetry: partial.runtimeTelemetry,\n    };\n  }\n}\n`,
+        'src/kernel/config/configFactory.ts': `interface OmniHarnessConfig {\n  readonly runtimeTelemetry: number;\n}\nclass X {\n  public static build(partial: OmniHarnessConfig): ResolvedConfig {\n    return {\n      runtimeTelemetry: partial.runtimeTelemetry,\n    };\n  }\n}\n`,
       },
     },
     {
       // I6 反向用例的另一半在下方：数据名存在但文件缺失 + defaults 未登记，两条都必须报出。
       id: 'I6',
       tree: {
-        'src/config/configFactory.ts': cfg(''),
-        'src/security/ghostDefaults.ts': "const raw = builtinDefaults.json('ghost');\n",
+        'src/kernel/config/configFactory.ts': cfg(''),
+        'src/kernel/security/ghostDefaults.ts': "const raw = builtinDefaults.json('ghost');\n",
       },
       io: { publishedDefaults: () => false, dataFileExists: () => false },
     },
@@ -577,11 +577,11 @@ const tree = readTree(walkTs(join(ROOT, 'src')));
 // （`FileConfig` 字段零引用要靠 I5a 抓；I5a 自己不评估就没人抓了）。
 // 守卫放在**驱动层**而非 `audit()` 内：`audit()` 要保持纯函数以便 `--selftest` 注入合成树。
 const REQUIRED_INPUTS = [
-  'src/config/configFactory.ts',
-  'src/config/configError.ts',
-  'src/ports/config/fileConfig.ts',
-  'src/cli/cliFlagTable.ts',
-  'src/cli/argParser.ts',
+  'src/kernel/config/configFactory.ts',
+  'src/kernel/config/configError.ts',
+  'src/contracts/ports/config/fileConfig.ts',
+  'src/apps/cli/cliFlagTable.ts',
+  'src/apps/cli/argParser.ts',
 ];
 const missingInputs = REQUIRED_INPUTS.filter((p) => !tree.has(p));
 if (missingInputs.length > 0) {

@@ -7,8 +7,8 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { GraphRunRegistry } from '../../src/server/core/graphRunRegistry.ts';
-import type { WorkflowDef } from '../../src/autonomy/workflowTypes.ts';
+import { GraphRunRegistry } from '../../src/apps/server/core/graphRunRegistry.ts';
+import type { WorkflowDef } from '../../src/kernel/autonomy/workflowTypes.ts';
 
 /** 构造一个合法的最小工作流定义（单步）。 */
 function sampleDef(): WorkflowDef {

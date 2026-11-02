@@ -6,7 +6,7 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ParticleFilterBelief } from '../../src/adapters/belief/particleFilterBelief.ts';
+import { ParticleFilterBelief } from '../../src/kernel/adapters/belief/particleFilterBelief.ts';
 
 const TRUE = [1, 2, 3];
 

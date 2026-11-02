@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Metrics } from '../../src/server/services/metrics.ts';
+import { Metrics } from '../../src/apps/server/services/metrics.ts';
 
 test('指标：回合耗时 p50/p95/p99 可见且边界正确', () => {
   const metrics = new Metrics();

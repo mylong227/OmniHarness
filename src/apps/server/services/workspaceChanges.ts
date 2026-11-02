@@ -1,0 +1,335 @@
+import { readFileSync, statSync } from 'node:fs';
+import { resolve } from 'node:path';
+import type { SessionEvent } from '../../../contracts/ports/runtime/event.ts';
+import { AsyncChildProcess } from '../../../kernel/util/asyncChildProcess.ts';
+
+/**
+ * 未跟踪文件预览/统计上限（2 MiB）。
+ *
+ * 2026-10-25：`changes.list` 的未跟踪文件原先**无上限**整读（`readFileSync` + split/map），
+ * 一个 100 MB 的构建产物就能让主线程卡住数百毫秒。超过上限时：patch 返回显式占位文本、
+ * 行数记 0（列表仍显示文件，只是不预览内容）。
+ */
+const MAX_UNTRACKED_BYTES = 2 * 1024 * 1024;
+
+/** 单文件变更统计。 */
+interface ChangeStat {
+  readonly path: string;
+  readonly status: string;
+  readonly additions: number;
+  readonly deletions: number;
+}
+
+/** 工作区变更服务依赖（窄接口注入，便于独立单测）。 */
+export interface WorkspaceChangesDeps {
+  /** 当前生效工作区根。 */
+  readonly workspaceRoot: () => string;
+  /** 已知线程 id 集合（非 git 回退时遍历）。 */
+  readonly threadIds: () => Iterable<string>;
+  /** 回放某线程的全部事件（非 git 回退时读 turn_diff）。 */
+  readonly events: (threadId: string) => Promise<readonly SessionEvent[]>;
+}
+
+/**
+ * 工作区变更清单服务（git 式）：工作区是 git 仓库时用 `git status --porcelain` +
+ * `git diff --numstat HEAD` 产出真实变更清单，并支持单文件 patch（`params.path`）；
+ * 非 git 工作区回退聚合已知线程 `turn_diff` 事件里的 per 文件增删行数。
+ *
+ * 三段实现（`list` / `gitChanges` / `sessionChanges`）在本类内闭环，不触达 Agent 状态。
+ */
+export class WorkspaceChanges {
+  /** 当前生效工作区根（git 命令的 cwd）。 */
+  private readonly workspaceRoot: () => string;
+  /** 已知线程 id 集合（非 git 回退时遍历）。 */
+  private readonly threadIds: () => Iterable<string>;
+  /** 回放某线程的全部事件（非 git 回退时读 turn_diff）。 */
+  private readonly events: (threadId: string) => Promise<readonly SessionEvent[]>;
+
+  /**
+   * @param deps 工作区根 + 线程枚举 + 事件回放
+   */
+  public constructor(deps: WorkspaceChangesDeps) {
+    this.workspaceRoot = deps.workspaceRoot;
+    this.threadIds = deps.threadIds;
+    this.events = deps.events;
+  }
+
+  /**
+   * 工作区变更记录 RPC：git 仓库优先，否则回退会话 turn_diff 聚合。
+   * @param params `{ path?: string }`，传入时返回该文件 patch
+   * @returns git 或 session 来源的变更清单 / 单文件 patch
+   */
+  public async list(params: Record<string, unknown>): Promise<unknown> {
+    const ws = this.workspaceRoot();
+    const fileParam = typeof params['path'] === 'string' ? params['path'] : undefined;
+    const git = await this.gitChanges(ws, fileParam);
+    if (git !== null) return git;
+    return this.sessionChanges(ws, fileParam);
+  }
+
+  /**
+   * git 仓库变更：返回 null 表示不是 git 仓库（或 git 不可用）。
+   * @param ws 工作区根目录。
+   * @param fileParam 单文件路径（传入时返回该文件 patch）。
+   * @returns git 来源的变更清单 / 单文件 patch；非 git 工作区返回 null。
+   */
+  private async gitChanges(ws: string, fileParam: string | undefined): Promise<unknown | null> {
+    if (!(await WorkspaceChanges.isGitWorkTree(ws))) return null;
+    return fileParam !== undefined ? this.gitFilePatch(ws, fileParam) : this.gitFileList(ws);
+  }
+
+  /**
+   * 单文件 patch：已跟踪用 `git diff HEAD`；未跟踪（??）直接读文件构造全 + patch。
+   * @param ws 工作区根目录。
+   * @param fileParam 目标文件相对路径。
+   * @returns `{ source:'git', patch }` — patch 文本（空串表示无差异）。
+   */
+  private async gitFilePatch(ws: string, fileParam: string): Promise<unknown> {
+    const status = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['status', '--porcelain', '--', fileParam],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
+    if (status.stdout.startsWith('??')) {
+      const target = resolve(ws, fileParam);
+      let size = 0;
+      try {
+        size = statSync(target).size;
+      } catch {
+        size = 0;
+      }
+      if (size > MAX_UNTRACKED_BYTES) {
+        return {
+          source: 'git',
+          patch: `--- /dev/null\n+++ ${fileParam}\n+[文件过大（${String(size)} 字节），已跳过预览]`,
+        };
+      }
+      let content = '';
+      try {
+        content = readFileSync(target, 'utf8');
+      } catch {
+        content = '';
+      }
+      const body = content
+        .split('\n')
+        .map((l) => '+' + l)
+        .join('\n');
+      return { source: 'git', patch: `--- /dev/null\n+++ ${fileParam}\n${body}` };
+    }
+    const diff = await AsyncChildProcess.spawnSyncAsync('git', ['diff', 'HEAD', '--', fileParam], {
+      cwd: ws,
+      encoding: 'utf8',
+    });
+    return { source: 'git', patch: diff.status === 0 ? diff.stdout : '' };
+  }
+
+  /**
+   * 整仓变更清单：branch + per 文件增删行数。
+   * @param ws 工作区根目录。
+   * @returns `{ source:'git', branch, files }` — 分支名与变更文件数组。
+   */
+  private async gitFileList(ws: string): Promise<unknown> {
+    const branch = await WorkspaceChanges.gitLine(ws, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const status = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['status', '--porcelain', '-uall'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
+    if (status.status !== 0) return { source: 'git', branch, files: [] };
+    const numstat = await AsyncChildProcess.spawnSyncAsync('git', ['diff', '--numstat', 'HEAD'], {
+      cwd: ws,
+      encoding: 'utf8',
+    });
+    const stats = WorkspaceChanges.parseNumstat(numstat.stdout ?? '');
+    const files: ChangeStat[] = status.stdout
+      .split('\n')
+      .filter((l) => l.trim() !== '')
+      .map((line) => WorkspaceChanges.toChangeStat(line, stats, ws));
+    return { source: 'git', branch, files };
+  }
+
+  /**
+   * 非 git 工作区回退：聚合已知线程 turn_diff 事件，按 unified diff 的 `diff --git`
+   * 分段解析出 per 文件增删行数；`fileParam` 传入时返回该文件的原始 patch 拼接。
+   * @param ws 工作区根目录（当前未参与计算，保留参数以稳定签名）。
+   * @param fileParam 单文件路径（可选）。
+   * @returns session 来源的变更清单或单文件 patch。
+   */
+  private async sessionChanges(ws: string, fileParam: string | undefined): Promise<unknown> {
+    void ws;
+    const sections = new Map<string, string[]>();
+    const stats = new Map<string, { additions: number; deletions: number }>();
+    for (const threadId of this.threadIds()) {
+      let events: readonly SessionEvent[] = [];
+      try {
+        events = await this.events(threadId);
+      } catch {
+        continue;
+      }
+      for (const ev of events) {
+        if (ev.type !== 'turn_diff') continue;
+        WorkspaceChanges.collectTurnDiff(
+          (ev.payload as { diff?: string } | undefined)?.diff ?? '',
+          sections,
+          stats,
+        );
+      }
+    }
+    if (fileParam !== undefined) {
+      return { source: 'session', patch: (sections.get(fileParam) ?? []).join('\n') };
+    }
+    return {
+      source: 'session',
+      files: [...stats.entries()].map(([path, s]) => ({
+        path,
+        status: 'M',
+        additions: s.additions,
+        deletions: s.deletions,
+      })),
+    };
+  }
+
+  /**
+   * 工作区是否为 git 工作树。
+   * @param ws 工作区根目录
+   * @returns 是否为 git 工作树
+   */
+  private static async isGitWorkTree(ws: string): Promise<boolean> {
+    const inside = await AsyncChildProcess.spawnSyncAsync(
+      'git',
+      ['rev-parse', '--is-inside-work-tree'],
+      {
+        cwd: ws,
+        encoding: 'utf8',
+      },
+    );
+    return inside.status === 0 && inside.stdout.trim() === 'true';
+  }
+
+  /**
+   * 运行 git 子命令并返回去除首尾空白的 stdout。
+   * @param cwd 命令工作目录
+   * @param args git 参数
+   * @returns 去除首尾空白的 stdout
+   */
+  private static async gitLine(cwd: string, args: readonly string[]): Promise<string> {
+    const r = await AsyncChildProcess.spawnSyncAsync('git', [...args], { cwd, encoding: 'utf8' });
+    return r.stdout.trim();
+  }
+
+  /**
+   * 解析 `git diff --numstat` 输出为 path → 增删行数。
+   * @param out numstat 原始输出
+   * @returns path → 增删行数 映射
+   */
+  private static parseNumstat(out: string): Map<string, { additions: number; deletions: number }> {
+    const stats = new Map<string, { additions: number; deletions: number }>();
+    for (const line of out.split('\n')) {
+      if (line.trim() === '') continue;
+      const [add, del, ...rest] = line.split('\t');
+      const path = rest.join('\t');
+      if (path === '') continue;
+      stats.set(path, {
+        additions: add === '-' ? 0 : Number(add),
+        deletions: del === '-' ? 0 : Number(del),
+      });
+    }
+    return stats;
+  }
+
+  /**
+   * 把一行 porcelain 输出转为 ChangeStat（补齐 numstat 缺失的增删行数）。
+   * @param line 单行 porcelain 输出
+   * @param stats path → 增删行数 映射
+   * @param ws 工作区根（读未跟踪文件行数用）
+   * @returns 单文件变更统计
+   */
+  private static toChangeStat(
+    line: string,
+    stats: Map<string, { additions: number; deletions: number }>,
+    ws: string,
+  ): ChangeStat {
+    const status = line.slice(0, 2).trim() || 'M';
+    let path = line.slice(3).trim();
+    // 重命名格式 "old -> new"：以新路径为准。
+    if (path.includes(' -> ')) path = path.split(' -> ').pop() ?? path;
+    if (path.startsWith('"') && path.endsWith('"')) path = path.slice(1, -1);
+    const known = stats.get(path);
+    if (known !== undefined) {
+      return { path, status, additions: known.additions, deletions: known.deletions };
+    }
+    if (status === 'A' || status === '??') {
+      // 新增文件：numstat 不含未跟踪，按行数记 +
+      return { path, status, additions: WorkspaceChanges.countLines(ws, path), deletions: 0 };
+    }
+    return { path, status, additions: 0, deletions: 0 };
+  }
+
+  /**
+   * 读取文件行数（读不到/超过预览上限回退 0）。
+   *
+   * 大文件不整读：超过 {@link MAX_UNTRACKED_BYTES} 时列表仍显示该文件，但行数记 0
+   * （比让主线程为一个构建产物卡住数百毫秒更可接受；UI 只把它当统计参考）。
+   * @param ws 工作区根
+   * @param path 相对路径
+   * @returns 文件行数；读不到/过大回退 0
+   */
+  private static countLines(ws: string, path: string): number {
+    const target = resolve(ws, path);
+    try {
+      if (statSync(target).size > MAX_UNTRACKED_BYTES) return 0;
+      return readFileSync(target, 'utf8').split('\n').length;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * 把单段 unified diff 按文件切分累加进 sections / stats。
+   * @param diff 单段 unified diff 文本
+   * @param sections path → 分段文本列表（原地累加）
+   * @param stats path → 增删行数（原地累加）
+   * @returns 无返回值（sections / stats 原地累加）
+   */
+  private static collectTurnDiff(
+    diff: string,
+    sections: Map<string, string[]>,
+    stats: Map<string, { additions: number; deletions: number }>,
+  ): void {
+    let path = '';
+    let body: string[] = [];
+    let add = 0;
+    let del = 0;
+    const flush = (): void => {
+      if (path === '') return;
+      const prev = stats.get(path) ?? { additions: 0, deletions: 0 };
+      stats.set(path, { additions: prev.additions + add, deletions: prev.deletions + del });
+      const list = sections.get(path) ?? [];
+      list.push(body.join('\n'));
+      sections.set(path, list);
+      path = '';
+      body = [];
+      add = 0;
+      del = 0;
+    };
+    for (const line of diff.split('\n')) {
+      if (line.startsWith('diff --git')) {
+        flush();
+      } else if (line.startsWith('+++ ')) {
+        path = line.slice(4).replace(/^b\//, '').trim();
+        body.push(line);
+      } else if (path !== '') {
+        body.push(line);
+        if (line.startsWith('+')) add += 1;
+        else if (line.startsWith('-')) del += 1;
+      }
+    }
+    flush();
+  }
+}

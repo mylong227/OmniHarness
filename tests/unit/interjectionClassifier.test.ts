@@ -6,9 +6,9 @@
 // 这里用真实用户会说的句子钉住两个方向，并覆盖「纯附件补充」这一第三方情形。
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { InterjectionClassifier } from '../../src/core/steering/interjectionClassifier.ts';
-import { SteeringQueue } from '../../src/core/steering/steeringQueue.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event/sessionEvent.ts';
+import { InterjectionClassifier } from '../../src/kernel/core/steering/interjectionClassifier.ts';
+import { SteeringQueue } from '../../src/kernel/core/steering/steeringQueue.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event/sessionEvent.ts';
 
 /**
  * 造一条会话事件（只填判定器会读的字段）。

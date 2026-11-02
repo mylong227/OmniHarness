@@ -1,10 +1,10 @@
 /** `browser_act` 的 Playwright→CDP 回退判据（2026-10-21）。 */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { BrowserActTool } from '../../src/adapters/tool/browser/browserActTool.ts';
-import type { BrowserSession } from '../../src/adapters/browser/browserSession.ts';
-import type { BrowserActionPort } from '../../src/ports/tool/browserAction.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { BrowserActTool } from '../../src/kernel/adapters/tool/browser/browserActTool.ts';
+import type { BrowserSession } from '../../src/kernel/adapters/browser/browserSession.ts';
+import type { BrowserActionPort } from '../../src/contracts/ports/tool/browserAction.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 const context: ToolContext = { sessionId: 's', workspaceRoot: process.cwd() };
 

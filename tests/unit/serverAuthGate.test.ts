@@ -2,10 +2,10 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import type { Duplex } from 'node:stream';
-import { HttpBridgeTransport } from '../../src/server/transport/httpServer.ts';
-import { WsConnection } from '../../src/server/transport/wsConnection.ts';
-import { jsonRpc, type RpcResponse } from '../../src/server/core/jsonRpc.ts';
-import { EnterpriseAuth, type OidcDiscovery } from '../../src/enterprise/oidcClient.ts';
+import { HttpBridgeTransport } from '../../src/apps/server/transport/httpServer.ts';
+import { WsConnection } from '../../src/apps/server/transport/wsConnection.ts';
+import { jsonRpc, type RpcResponse } from '../../src/apps/server/core/jsonRpc.ts';
+import { EnterpriseAuth, type OidcDiscovery } from '../../src/apps/enterprise/oidcClient.ts';
 
 function b64url(buf: Buffer | string): string {
   return Buffer.from(buf)

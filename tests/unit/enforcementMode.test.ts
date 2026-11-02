@@ -1,5 +1,5 @@
 /**
- * 生效模式单测（`src/security/enforcementModeResolver.ts` + `guardFailureResult`）。
+ * 生效模式单测（`src/kernel/security/enforcementModeResolver.ts` + `guardFailureResult`）。
  *
  * 锁死两件事：
  *   ① **三态语义**：`off` 不跑 / `shadow` 跑但不改行为 / `enforce` 跑且生效，且布尔历史写法
@@ -9,9 +9,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { EnforcementModeResolver } from '../../src/security/enforcementModeResolver.ts';
-import { PromptInjectionGuard } from '../../src/security/promptInjectionGuard.ts';
-import type { ToolResult } from '../../src/ports/tool/tool.ts';
+import { EnforcementModeResolver } from '../../src/kernel/security/enforcementModeResolver.ts';
+import { PromptInjectionGuard } from '../../src/kernel/security/promptInjectionGuard.ts';
+import type { ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 const result: ToolResult = { callId: 'c1', ok: true, output: '原文' };
 

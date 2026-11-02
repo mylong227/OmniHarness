@@ -9,7 +9,7 @@
 //
 //   1. **跨模块接口**（crossModule）——该 `interface` / `type` 被「声明所在 src 二级目录之外」
 //      的文件引用。这类接口只能靠「实现文件 → 实现文件」的 import 才能共享，
-//      是依赖环与耦合的根源，应升格为基础模块：`src/ports/<域>/<interfaceName>.ts`
+//      是依赖环与耦合的根源，应升格为基础模块：`src/contracts/ports/<域>/<interfaceName>.ts`
 //      （小驼峰文件名，与铁律 check.mjs 规则6 兼容；接口符号本身仍是 PascalCase），一接口一文件。
 //      （声明所在目录内的引用不算跨模块——那是该功能的内部细节。）
 //
@@ -52,7 +52,7 @@ function readFlag(name) {
 /** 归一化为「正斜杠 + 相对仓库根」的路径，供所有前缀/集合比对复用。 */
 const key = (p) => path.relative(ROOT, p).split(path.sep).join('/');
 
-/** 模块所属的二级目录（`src/adapters/tool/x.ts` → `src/adapters`），用于判定「是否跨模块」。 */
+/** 模块所属的二级目录（`src/kernel/adapters/tool/x.ts` → `src/adapters`），用于判定「是否跨模块」。 */
 const homeOf = (file) => file.split('/').slice(0, 2).join('/');
 
 function walk(dir, out) {
@@ -265,7 +265,7 @@ for (const [file, a] of info) {
 }
 
 // ---- 汇总 ----
-const outsidePorts = rows.filter((r) => !r.file.startsWith('src/ports/'));
+const outsidePorts = rows.filter((r) => !r.file.startsWith('src/contracts/ports/'));
 const cross = outsidePorts.filter((r) => r.cross);
 const mixedFiles = [...info.entries()]
   .filter(([, a]) => a.types.length > 0 && a.impls.length > 0)
@@ -287,7 +287,7 @@ const summary = {
   declaredTypes: rows.length,
   exportedTypes: rows.filter((r) => r.exported).length,
   filePrivateTypes: rows.filter((r) => !r.exported).length,
-  portsTypes: rows.filter((r) => r.file.startsWith('src/ports/')).length,
+  portsTypes: rows.filter((r) => r.file.startsWith('src/contracts/ports/')).length,
   crossModuleTypesOutsidePorts: cross.length,
   crossModuleFilesOutsidePorts: new Set(cross.map((r) => r.file)).size,
   mixedFiles: mixedFiles.length,
@@ -300,9 +300,9 @@ const summary = {
 const DIR_FLAT_LIMIT = 30;
 
 /**
- * 镜像规则的**唯一例外**：`ports` 是契约层、`adapters` 是实现层，**不得**出现 `src/ports/adapters/**`
+ * 镜像规则的**唯一例外**：`ports` 是契约层、`adapters` 是实现层，**不得**出现 `src/contracts/ports/adapters/**`
  * （那会把「实现者」当成一个契约域，与六边形方向矛盾）。适配器声明的跨模块契约按它服务的端口域归位。
- * 未列入本表的适配器子域回退为同名域（`src/adapters/<子域>/x.ts` → `ports/<子域>/`）。
+ * 未列入本表的适配器子域回退为同名域（`src/kernel/adapters/<子域>/x.ts` → `ports/<子域>/`）。
  */
 const ADAPTER_DOMAIN_MAP = {
   approval: 'runtime',
@@ -319,20 +319,20 @@ const ADAPTER_DOMAIN_MAP = {
  * 这是唯一的扩展点：执行中发现新的归组，请加到这里而不是手工改产物。
  */
 const TARGET_OVERRIDES = {
-  'src/adapters/approval/approvalRule.ts#ApprovalRule':
-    'src/ports/runtime/approval/approvalRule.ts',
-  'src/adapters/sandbox/networkEgressGuard.ts#NetworkEgressOptions':
-    'src/ports/runtime/sandbox/networkEgressOptions.ts',
-  'src/adapters/sandbox/sandboxManager.ts#SandboxProfile':
-    'src/ports/runtime/sandbox/sandboxProfile.ts',
-  'src/adapters/sandbox/sandboxCapabilityTable.ts#SandboxCapabilityEntry':
-    'src/ports/runtime/sandbox/sandboxCapabilityEntry.ts',
-  'src/adapters/tool/toolHandler.ts#ToolHandler': 'src/ports/tool/tool/toolHandler.ts',
-  'src/adapters/model/modelRouter.ts#ModelRouterOptions':
-    'src/ports/model/model/modelRouterOptions.ts',
-  'src/adapters/model/modelRouter.ts#RouterStrategy': 'src/ports/model/model/routerStrategy.ts',
-  'src/adapters/media/ffmpegFrameExtractor.ts#VideoFrameFormat':
-    'src/ports/media/mediaTypes/videoFrameFormat.ts',
+  'src/kernel/adapters/approval/approvalRule.ts#ApprovalRule':
+    'src/contracts/ports/runtime/approval/approvalRule.ts',
+  'src/kernel/adapters/sandbox/networkEgressGuard.ts#NetworkEgressOptions':
+    'src/contracts/ports/runtime/sandbox/networkEgressOptions.ts',
+  'src/kernel/adapters/sandbox/sandboxManager.ts#SandboxProfile':
+    'src/contracts/ports/runtime/sandbox/sandboxProfile.ts',
+  'src/kernel/adapters/sandbox/sandboxCapabilityTable.ts#SandboxCapabilityEntry':
+    'src/contracts/ports/runtime/sandbox/sandboxCapabilityEntry.ts',
+  'src/kernel/adapters/tool/toolHandler.ts#ToolHandler': 'src/contracts/ports/tool/tool/toolHandler.ts',
+  'src/kernel/adapters/model/modelRouter.ts#ModelRouterOptions':
+    'src/contracts/ports/model/model/modelRouterOptions.ts',
+  'src/kernel/adapters/model/modelRouter.ts#RouterStrategy': 'src/contracts/ports/model/model/routerStrategy.ts',
+  'src/kernel/adapters/media/ffmpegFrameExtractor.ts#VideoFrameFormat':
+    'src/contracts/ports/media/mediaTypes/videoFrameFormat.ts',
 };
 
 /**
@@ -353,7 +353,7 @@ function migrationTarget(file, name) {
   const seg = file.split('/');
   let domain = seg[1];
   if (domain === 'adapters') domain = ADAPTER_DOMAIN_MAP[seg[2]] ?? seg[2];
-  return `src/ports/${domain}/${toCamel(name)}.ts`;
+  return `src/contracts/ports/${domain}/${toCamel(name)}.ts`;
 }
 
 /** Batch A：ports 内「一个文件多个导出接口」→ 拆到 `<域>/<原文件基名>/<接口名>.ts`，原文件留桶。 */
@@ -365,7 +365,7 @@ const splitPlan = [...info.entries()]
     const base = path.posix.basename(file, '.ts');
     return {
       file,
-      inPorts: file.startsWith('src/ports/'),
+      inPorts: file.startsWith('src/contracts/ports/'),
       count: names.length,
       names: names.slice().sort(),
       targetDir: `${dir}/${base}`,
@@ -373,7 +373,7 @@ const splitPlan = [...info.entries()]
   })
   .sort((a, b) => b.count - a.count || a.file.localeCompare(b.file));
 
-/** Batch B：ports 外的跨模块接口 → 落到 `src/ports/<域>/<接口名>.ts`（一接口一文件）。 */
+/** Batch B：ports 外的跨模块接口 → 落到 `src/contracts/ports/<域>/<接口名>.ts`（一接口一文件）。 */
 const migrationPlan = cross
   .map((r) => ({
     ...r,
@@ -413,7 +413,7 @@ const duplicates = [...byName.entries()]
 
 /** 已合规：只有一个导出接口的 ports 文件（无需拆）。 */
 const portsCompliant = [...info.entries()].filter(
-  ([file, a]) => file.startsWith('src/ports/') && a.types.filter((t) => t.exported).length === 1,
+  ([file, a]) => file.startsWith('src/contracts/ports/') && a.types.filter((t) => t.exported).length === 1,
 ).length;
 
 if (JSON_OUT) {
@@ -443,7 +443,7 @@ if (argv.includes('--queue')) {
   console.log('> 口径见 `docs/archive/INTERFACE_REFACTOR_QUEUE.md`。所有数字为实测。');
   console.log('');
   console.log(
-    `## Batch A — \`src/ports/**\` 内部拆分（${splitPlan.filter((p) => p.inPorts).length} 文件 / ${splitPlan.filter((p) => p.inPorts).reduce((s, p) => s + p.count, 0)} 接口）`,
+    `## Batch A — \`src/contracts/ports/**\` 内部拆分（${splitPlan.filter((p) => p.inPorts).length} 文件 / ${splitPlan.filter((p) => p.inPorts).reduce((s, p) => s + p.count, 0)} 接口）`,
   );
   console.log('');
   console.log('| 序 | 现文件 | 导出接口数 | 目标子目录 | 内容 | 超限？ |');

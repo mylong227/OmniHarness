@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
+import { CorpusIndexCache } from '../../src/kernel/context/corpusIndexCache.ts';
 
 /** 等一会（让 fs.watch 事件与 TTL 生效）。 */
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

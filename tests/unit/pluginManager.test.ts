@@ -1,11 +1,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Container } from '../../src/core/container.ts';
-import { PluginManager } from '../../src/plugin/pluginManager.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import type { Plugin, PluginApplyContext } from '../../src/plugin/plugin.ts';
-import type { ToolDefinition } from '../../src/ports/tool/tool.ts';
-import type { ToolHandler } from '../../src/adapters/tool/toolHandler.ts';
+import { Container } from '../../src/kernel/core/container.ts';
+import { PluginManager } from '../../src/kernel/plugin/pluginManager.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import type { Plugin, PluginApplyContext } from '../../src/kernel/plugin/plugin.ts';
+import type { ToolDefinition } from '../../src/contracts/ports/tool/tool.ts';
+import type { ToolHandler } from '../../src/kernel/adapters/tool/toolHandler.ts';
 
 /** 记录调用序列。 */
 interface Trace {

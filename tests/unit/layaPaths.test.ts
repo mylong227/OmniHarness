@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LayaPaths } from '../../src/adapters/laya/layaPaths.ts';
+import { LayaPaths } from '../../src/kernel/adapters/laya/layaPaths.ts';
 
 /** 解释器环境变量名（与实现同源；测的是行为不是字面量）。 */
 const PYTHON_ENV = 'LAYA_PYTHON_BIN';
@@ -154,7 +154,7 @@ test('modelDir：项目内权重缺失时返回空串（转走在线 Router，�
 test('projectRoot：向上找到最近含 package.json 的祖先', () => {
   const root = makeProject(false, false);
   try {
-    const nested = join(root, 'dist', 'src', 'adapters', 'laya');
+    const nested = join(root, 'dist', 'src', 'kernel', 'adapters', 'laya');
     mkdirSync(nested, { recursive: true });
     assert.strictEqual(LayaPaths.projectRoot(nested), root);
   } finally {

@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { LongMemEval, type LongMemEvalCase } from '../../src/eval/longMemEval.ts';
+import { LongMemEval, type LongMemEvalCase } from '../../src/kernel/eval/longMemEval.ts';
 
 const CASES: LongMemEvalCase[] = [
   {

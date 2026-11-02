@@ -15,35 +15,35 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { RlvrController } from '../../src/evolution/rlvrController.ts';
-import { EvolutionKernel } from '../../src/evolution/evolutionKernel.ts';
-import { EvolutionSignalCollector } from '../../src/evolution/evolutionSignalCollector.ts';
-import { BucketedCandidateArchive } from '../../src/evolution/bucketedCandidateArchive.ts';
-import { EliteReentryDiscovery } from '../../src/evolution/eliteReentryDiscovery.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import { DormantExecutorActivation } from '../../src/evolution/dormantExecutorActivation.ts';
-import { CRISPRSkillEditor } from '../../src/adapters/skill/crisprSkillEditor.ts';
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { MoireComposer } from '../../src/skill/moireComposer.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import { CapabilityCrystallizer } from '../../src/adapters/skill/capabilityCrystallizer.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import type { EvolutionController, PromotionVerdict } from '../../src/ports/runtime/evolution.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { RlvrController } from '../../src/kernel/evolution/rlvrController.ts';
+import { EvolutionKernel } from '../../src/kernel/evolution/evolutionKernel.ts';
+import { EvolutionSignalCollector } from '../../src/kernel/evolution/evolutionSignalCollector.ts';
+import { BucketedCandidateArchive } from '../../src/kernel/evolution/bucketedCandidateArchive.ts';
+import { EliteReentryDiscovery } from '../../src/kernel/evolution/eliteReentryDiscovery.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import { DormantExecutorActivation } from '../../src/kernel/evolution/dormantExecutorActivation.ts';
+import { CRISPRSkillEditor } from '../../src/kernel/adapters/skill/crisprSkillEditor.ts';
+import { TwistDiscoveryEngine } from '../../src/kernel/evolution/twistDiscoveryEngine.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { MoireComposer } from '../../src/kernel/skill/moireComposer.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import { CapabilityCrystallizer } from '../../src/kernel/adapters/skill/capabilityCrystallizer.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import type { EvolutionController, PromotionVerdict } from '../../src/contracts/ports/runtime/evolution.ts';
 import type {
   RuntimeObservation,
   RuntimeTelemetryInput,
   RuntimeTelemetryPort,
   TelemetryChainReport,
-} from '../../src/ports/runtime/runtimeTelemetry.ts';
+} from '../../src/contracts/ports/runtime/runtimeTelemetry.ts';
 
 /** 可验证奖励命令（hermetic：用本测试进程的 node 做 `--check` 语法检查）。 */
 const VERIFY_COMMAND = `"${process.execPath}" --check %CODE_FILE%`;

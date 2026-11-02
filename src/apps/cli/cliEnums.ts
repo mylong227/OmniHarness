@@ -1,0 +1,96 @@
+import type { CliArgs } from './argParser.ts';
+import { MODEL_ADAPTER_IDS } from '../../contracts/ports/model/modelAdapterId.ts';
+
+/**
+ * CLI 枚举参数白名单（与 `CliArgs` 联合类型同源：`satisfies` 保证二者漂移即编译报错）。
+ *
+ * 此前枚举参数一律用 `as CliArgs[...]` 裸强转——拼错的值能穿过类型系统，
+ * 在 `SandboxManager.build()` 落入未知 profile 分支，静默退回直通沙箱（全放行），
+ * 把「参数写错」变成「沙箱失效」。安全相关枚举必须显式校验（fail-closed）。
+ */
+/**
+ * 模型适配器白名单：直接复用端口层的**唯一清单**（`ports/model/modelAdapterId.ts`）——
+ * 名字只声明一次，`satisfies` 仍保留（清单若与 `CliArgs.modelAdapter` 类型不符即编译报错）。
+ */
+export const MODEL_ADAPTERS = MODEL_ADAPTER_IDS satisfies readonly CliArgs['modelAdapter'][];
+export const STORAGE_ADAPTERS = [
+  'memory',
+  'jsonl',
+  'sqlite',
+] as const satisfies readonly CliArgs['storageAdapter'][];
+export const APPROVALS = [
+  'auto',
+  'deny',
+  'rules',
+  'guardian',
+  'plan',
+  'ask',
+] as const satisfies readonly CliArgs['approval'][];
+export const APPROVAL_ASKS = ['allow', 'deny'] as const satisfies readonly CliArgs['approvalAsk'][];
+export const SANDBOX_PROFILES = [
+  'passthrough',
+  'policy',
+  'restricted',
+  'windows-native',
+  'landlock',
+  'seatbelt',
+  'bwrap',
+  'unshare',
+  'wsl-bwrap',
+  // P2-2：容器沙箱（可选档、非默认；需外部 Docker/Podman，缺运行时 fail-closed）。
+  'container',
+] as const satisfies readonly CliArgs['sandbox'][];
+export const ESCALATIONS = [
+  'deny',
+  'ask',
+  'auto',
+] as const satisfies readonly CliArgs['escalation'][];
+export const ELEVATED_SANDBOXES = [
+  'passthrough',
+  'policy',
+  'restricted',
+] as const satisfies readonly CliArgs['elevatedSandbox'][];
+export const EVENT_PORTS = ['console', 'silent'] as const satisfies readonly CliArgs['events'][];
+export const SPILL_ADAPTERS = [
+  'memory',
+  'file',
+] as const satisfies readonly CliArgs['spillAdapter'][];
+/** headless 输出格式（CI 消费需要机器可读，故白名单校验而非裸强转）。 */
+export const OUTPUT_FORMATS = [
+  'text',
+  'json',
+] as const satisfies readonly CliArgs['outputFormat'][];
+/** 保险库密文的底层 KV 后端（与 `vault` 子命令的 `--kv-adapter` 同一组取值）。 */
+export const KV_ADAPTERS = [
+  'memory',
+  'json-file',
+  'sqlite',
+] as const satisfies readonly NonNullable<CliArgs['kvAdapter']>[];
+/** (U6) A2A 传输形态白名单（枚举参数 fail-closed 校验，禁裸强转）。 */
+export const A2A_TRANSPORTS = ['http', 'ws'] as const satisfies readonly NonNullable<
+  CliArgs['a2aTransport']
+>[];
+/** (P5) 成本预算耗尽行为白名单（枚举参数 fail-closed 校验，禁裸强转）。 */
+export const BUDGET_ON_EXCEED = ['fail', 'warn'] as const satisfies readonly NonNullable<
+  CliArgs['costBudgetOnExceed']
+>[];
+/**
+ * (D1) 护栏生效模式白名单。与 `EnforcementModeResolver.MODES` **同源**（`satisfies` 保证漂移即编译报错）：
+ * 安全开关的取值若允许裸强转，一个拼写错误就会静默退化成「不跑」或「不生效」。
+ */
+export const ENFORCEMENT_MODES = [
+  'off',
+  'shadow',
+  'enforce',
+] as const satisfies readonly NonNullable<CliArgs['guardPromptInjectionMode']>[];
+/**
+ * （Laya 战略线）决策引擎生效模式白名单。与 `DecisionEngineConfig['mode']` 同源取值
+ * （`satisfies` 保证漂移即编译报错）：写错档位的语义差别极大——`enforce` 会把 System-1
+ * 预判回灌进工具结果、`shadow` 只观测、`off` 则根本不装配引擎；一个拼写错误不该在
+ * 这三者之间静默漂移。
+ */
+export const DECISION_ENGINE_MODES = [
+  'off',
+  'shadow',
+  'enforce',
+] as const satisfies readonly NonNullable<CliArgs['decisionEngineMode']>[];

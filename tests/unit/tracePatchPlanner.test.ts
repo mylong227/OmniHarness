@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TracePatchPlanner } from '../../src/eval/tracePatchPlanner.ts';
+import { TracePatchPlanner } from '../../src/kernel/eval/tracePatchPlanner.ts';
 
 test('从失败工具结果提取证据/文件/命令，生成四步计划', () => {
   const plan = TracePatchPlanner.plan([
@@ -11,15 +11,15 @@ test('从失败工具结果提取证据/文件/命令，生成四步计划', () 
       tool: 'bash',
       ok: false,
       command: 'npm test -- tests/unit/foo.test.ts',
-      output: 'AssertionError: expected 1\n    at src/core/foo.ts:12:3',
+      output: 'AssertionError: expected 1\n    at src/kernel/core/foo.ts:12:3',
     },
-    { tool: 'edit', ok: true, path: 'src/core/foo.ts' },
+    { tool: 'edit', ok: true, path: 'src/kernel/core/foo.ts' },
   ]);
   assert.deepStrictEqual(
     plan.failures.map((failure) => failure.tool),
     ['bash'],
   );
-  assert.ok(plan.files.includes('src/core/foo.ts'));
+  assert.ok(plan.files.includes('src/kernel/core/foo.ts'));
   assert.deepStrictEqual(plan.commands, ['npm test -- tests/unit/foo.test.ts']);
   assert.deepStrictEqual(
     plan.steps.map((step) => step.id),

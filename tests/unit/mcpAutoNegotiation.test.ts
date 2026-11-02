@@ -2,11 +2,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { ChildProcess } from 'node:child_process';
-import type { RpcMessage } from '../../src/ports/server/rpcMessage.ts';
-import type { Transport } from '../../src/ports/server/transport.ts';
-import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.ts';
-import { mcpConnector } from '../../src/mcp/mcpConnector.ts';
-import { mcpStdioTransport } from '../../src/mcp/mcpStdioTransport.ts';
+import type { RpcMessage } from '../../src/contracts/ports/server/rpcMessage.ts';
+import type { Transport } from '../../src/contracts/ports/server/transport.ts';
+import type { McpServerConfig } from '../../src/contracts/ports/mcp/mcpServerConfig.ts';
+import { mcpConnector } from '../../src/protocols/mcp/mcpConnector.ts';
+import { mcpStdioTransport } from '../../src/protocols/mcp/mcpStdioTransport.ts';
 
 class FallbackTransport implements Transport {
   public readonly methods: string[] = [];

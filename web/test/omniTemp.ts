@@ -13,7 +13,7 @@
  * 1. **删除带锁重试**：`rmRfRetry`——Chrome 进程树杀掉后锁释放有滞后，重试几轮能救回绝大多数；
  * 2. **创建前顺手收尸**：`makeOmniTemp` 每次建目录前先清超龄（>24h）孤儿——正在跑的进程
  *    的目录都很年轻，不会被误删；
- * 3. 生产侧兜底：这些前缀已登记进 `src/util/tmpSweep.ts`，serve 启动/周期与 `gc` 命令也会清。
+ * 3. 生产侧兜底：这些前缀已登记进 `src/kernel/util/tmpSweep.ts`，serve 启动/周期与 `gc` 命令也会清。
  */
 import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';

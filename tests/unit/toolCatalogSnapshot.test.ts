@@ -11,12 +11,12 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
-import type { ToolDefinition } from '../../src/ports/tool/tool.ts';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event/sessionEvent.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
+import type { StepRunnerDeps } from '../../src/kernel/core/stepTypes.ts';
+import type { ToolDefinition } from '../../src/contracts/ports/tool/tool.ts';
+import type { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event/sessionEvent.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 造一个工具定义（描述用于区分「目录里的新定义」与「寄存器里的陈旧副本」）。 */
 const def = (name: string, description: string): ToolDefinition => ({

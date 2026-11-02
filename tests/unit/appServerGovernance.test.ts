@@ -17,18 +17,18 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { AppServer } from '../../src/server/core/appServer.ts';
-import { AppServerGovernanceHandlers } from '../../src/server/core/appServerGovernanceHandlers.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { Skill } from '../../src/ports/skill/skill.ts';
-import { FeatureEntitlements } from '../../src/license/featureEntitlements.ts';
-import { LicenseEngine } from '../../src/license/licenseEngine.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import { AppServer } from '../../src/apps/server/core/appServer.ts';
+import { AppServerGovernanceHandlers } from '../../src/apps/server/core/appServerGovernanceHandlers.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { Skill } from '../../src/contracts/ports/skill/skill.ts';
+import { FeatureEntitlements } from '../../src/apps/license/featureEntitlements.ts';
+import { LicenseEngine } from '../../src/apps/license/licenseEngine.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
 
 /**
  * 造一份**真实签名**的 Pro 授权权益（治理台属 Pro，§6.1）。

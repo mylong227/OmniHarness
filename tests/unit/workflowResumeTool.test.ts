@@ -11,21 +11,21 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { DenyEscalation } from '../../src/adapters/escalation/denyEscalation.ts';
-import { MemorySpill } from '../../src/adapters/spill/memorySpill.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import { RunWorkflowTool } from '../../src/adapters/tool/workflow/runWorkflowTool.ts';
-import { WorkflowRunLog } from '../../src/autonomy/workflowRunLog.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { DenyEscalation } from '../../src/kernel/adapters/escalation/denyEscalation.ts';
+import { MemorySpill } from '../../src/kernel/adapters/spill/memorySpill.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import { RunWorkflowTool } from '../../src/kernel/adapters/tool/workflow/runWorkflowTool.ts';
+import { WorkflowRunLog } from '../../src/kernel/autonomy/workflowRunLog.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
-import type { WorkflowDef } from '../../src/autonomy/workflowTypes.ts';
-import type { SubagentPortsShape } from '../../src/subagent/subagentPorts.ts';
+import type { WorkflowDef } from '../../src/kernel/autonomy/workflowTypes.ts';
+import type { SubagentPortsShape } from '../../src/kernel/subagent/subagentPorts.ts';
 
 /** 回显模型：把最后一条 user 消息原样作为产出（便于断言「续跑复用」而非重跑）。 */
 class EchoModel implements ModelPort {

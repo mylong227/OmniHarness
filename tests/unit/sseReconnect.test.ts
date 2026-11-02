@@ -2,13 +2,13 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { ServerResponse } from 'node:http';
 
-import { HttpBridgeTransport } from '../../src/server/transport/httpBridgeTransport.ts';
-import { SseFanout } from '../../src/server/transport/sseFanout.ts';
-import { jsonRpc } from '../../src/server/core/jsonRpc.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { HttpBridgeTransport } from '../../src/apps/server/transport/httpBridgeTransport.ts';
+import { SseFanout } from '../../src/apps/server/transport/sseFanout.ts';
+import { jsonRpc } from '../../src/apps/server/core/jsonRpc.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 假 SSE 响应：记录写出的帧。 */
 class FakeSse {

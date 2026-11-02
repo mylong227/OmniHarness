@@ -39,7 +39,7 @@ node tools/probes/rerankDiscriminatorAb.mjs 14
 | 项                       | 内容                                                                                                                                                                                                                         |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 回答什么                 | `ToolExposurePlanner` 的 `off` / `plan` 两种模式下，**直载给模型的工具数**与**真实 schema 的估算 token 代价**（G21-b 已接真实 schema）                                                                                       |
-| 输入                     | `src/ports/tool/toolNames.ts`（工具名单一来源，实测 **46** 项）+ 8 条代表性任务文本；schema 取自 `ConfigFactory.build({ workspaceRoot })`（**离线**生产装配入口，默认注册 **33** 个工具）                                    |
+| 输入                     | `src/contracts/ports/tool/toolNames.ts`（工具名单一来源，实测 **46** 项）+ 8 条代表性任务文本；schema 取自 `ConfigFactory.build({ workspaceRoot })`（**离线**生产装配入口，默认注册 **33** 个工具）                                    |
 | 用法                     | `node tools/probes/toolExposureBudget.mjs [--task="…"] [--json=out.json]`                                                                                                                                                    |
 | 实测参考值（2026-10-03） | 工具总数 **46**；`plan` 可见 **20–46**（均值 28.9），**2/8 条任务不命中类别 ⇒ fail-safe 全放行**；**schema token**：off 全下发 **5,250**，plan 命中时 **953–1,677**（省 **3,573–4,297** ⇒ **68.1%–81.8%**），未命中省 **0%** |
 | 诚实边界                 | schema token 由 `TokenEstimator` **估算**（启发式，非真 tokenizer）；只含工具 schema（name/description/parameters），**不含工具结果**；**名字表(46) ⊃ 默认注册集(33)**（条件注册的 LSP/MCP/媒体等不出现）                    |
@@ -177,7 +177,7 @@ node tools/probes/rerankDiscriminatorAb.mjs 14
 | 项                                                          | 内容                                                                                                                                                                        |
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 回答什么                                                    | `OMNI_MEMORY_FORGETTING=1`（间隔重复排序）相对关闭的 MRR 配对差与 bootstrap 95% CI（content / recency 两 GT 变体分开判）                                                    |
-| 前置                                                        | 先 `npm run build`（import `dist/src/adapters/memory/**`）                                                                                                                  |
+| 前置                                                        | 先 `npm run build`（import `dist/src/kernel/adapters/memory/**`）                                                                                                                  |
 | 用法                                                        | `node tools/probes/memorySpacingLift.mjs [--facts=240] [--queries=30] [--json=out.json]`                                                                                    |
 | 实测参考值（2026-10-28，240 事实 / 30 查询，seed=20261028） | `content` Δ +0.013 [−0.124, +0.163]（时间噪声下无损伤）；`recency` Δ **+0.238 [0.070, 0.413]**（显著为正）⇒ 预注册裁决 PASS                                                 |
 | 诚实边界                                                    | 合成语料 + 合成 GT：证明**机制方向性**与**时间噪声稳健性**，夹具对机制友好（recency 的 GT 与假设同构），**不能外推为生产增益**；默认仍关，默认开启提案须人工复核 + 全量回归 |
@@ -187,7 +187,7 @@ node tools/probes/rerankDiscriminatorAb.mjs 14
 | 项         | 内容                                                                                                                                                 |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 回答什么   | 现役 `TextThreeWayMerge`（行级 diff3 + 字符级细化）在 14 个确定性场景上「干净/冲突/放弃」与正确性——含 CRLF/LF 行尾、emoji 代理项、超大文件放弃       |
-| 前置       | 先 `npm run build`（import `dist/src/util/textThreeWayMerge.js`）；离线无网络无模型                                                                  |
+| 前置       | 先 `npm run build`（import `dist/src/kernel/util/textThreeWayMerge.js`）；离线无网络无模型                                                                  |
 | 用法       | `node tools/probes/editMergeProbe.mjs [--json=out.json]`                                                                                             |
 | 实测参考值 | 14/14 正确（2026-10-30，行尾归一落地后）；超限场景如实报 `too-large`；0 孤立代理项、全场景确定性                                                     |
 | 诚实边界   | 只测纯函数合并，**不测**真实会话并发的工具层时序（基线读取/哈希闸/落盘顺序）；场景是人工最小形态，回答「会不会错」，不回答真实 diff 分布的「多常错」 |

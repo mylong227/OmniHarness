@@ -8,9 +8,9 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { QuotaService } from '../../src/server/services/quotaService.ts';
-import type { QuotaStore } from '../../src/server/services/quotaStore.ts';
-import type { SessionArchive } from '../../src/server/services/session/sessionArchive.ts';
+import { QuotaService } from '../../src/apps/server/services/quotaService.ts';
+import type { QuotaStore } from '../../src/apps/server/services/quotaStore.ts';
+import type { SessionArchive } from '../../src/apps/server/services/session/sessionArchive.ts';
 
 /** 记录写入的假存储 + 最小假存档（update 校验不依赖它们的行为）。 */
 const makeService = (): { service: QuotaService; writes: unknown[] } => {

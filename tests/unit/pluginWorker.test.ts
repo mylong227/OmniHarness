@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Container } from '../../src/core/container.ts';
-import { PluginManager } from '../../src/plugin/pluginManager.ts';
-import { PermissionGate } from '../../src/plugin/permissionGate.ts';
-import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
-import { RemotePlugin } from '../../src/plugin/worker/remotePlugin.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
-import { PluginWorkerMetrics } from '../../src/plugin/worker/pluginWorkerMetrics.ts';
+import { Container } from '../../src/kernel/core/container.ts';
+import { PluginManager } from '../../src/kernel/plugin/pluginManager.ts';
+import { PermissionGate } from '../../src/kernel/plugin/permissionGate.ts';
+import { PluginLoader } from '../../src/kernel/plugin/pluginLoader.ts';
+import { RemotePlugin } from '../../src/kernel/plugin/worker/remotePlugin.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
+import { PluginWorkerMetrics } from '../../src/kernel/plugin/worker/pluginWorkerMetrics.ts';
 
 /**
  * 测试用直通式 OS 沙箱：只满足 RemotePlugin 的 wrapArgv 契约，不做真实隔离。

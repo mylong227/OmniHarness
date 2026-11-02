@@ -22,7 +22,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const DIST_ENTRY = resolve('dist/src/observability/tokenAttribution.js');
+const DIST_ENTRY = resolve('dist/src/kernel/observability/tokenAttribution.js');
 
 /** 打印一行并返回该行的文本（便于统一前缀）。 */
 function say(text) {

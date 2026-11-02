@@ -20,12 +20,12 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ServeInstance } from '../../src/cli/serveInstance.ts';
+import { ServeInstance } from '../../src/apps/cli/serveInstance.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();
 /** CLI 入口。 */
-const CLI = join(REPO_ROOT, 'dist/src/cli/exec.js');
+const CLI = join(REPO_ROOT, 'dist/src/apps/cli/exec.js');
 
 /** 一起跑过的子进程（收尾统一清）。 */
 const started: ChildProcess[] = [];

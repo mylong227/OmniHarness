@@ -29,10 +29,10 @@
 
 **改了什么**
 
-- `src/context/longHorizonProtocol.ts`：`.omniharness/tasks/<slug>/{features.json,progress.md,init.sh,init.cmd}`；越界 fail-closed、BOM/坏 JSON 容错、原子写、progress 256KB 截断、`markFeature`/`verify`。
-- `src/core/longHorizonCoordinator.ts` + `AgentTurnSetup.beginLongHorizon` + `Agent`：复杂任务或 `OMNI_LONG_HORIZON=1` 时注入 4 行 primer（任务/完成数/下一步/验证命令）；回合末写 progress；**不把 progress/历史塞回上下文**。
-- `src/core/preCompletionChecklist.ts`：完成闸门外层；lastFailure → 内层闸门 → verifyCommand；未通过只注入一次「先验证再结束」，防死循环。
-- `src/eval/longTaskCatalog.ts` + `tools/eval/longTasks.mjs` + `tools/eval/long-tasks/`：
+- `src/kernel/context/longHorizonProtocol.ts`：`.omniharness/tasks/<slug>/{features.json,progress.md,init.sh,init.cmd}`；越界 fail-closed、BOM/坏 JSON 容错、原子写、progress 256KB 截断、`markFeature`/`verify`。
+- `src/kernel/core/longHorizonCoordinator.ts` + `AgentTurnSetup.beginLongHorizon` + `Agent`：复杂任务或 `OMNI_LONG_HORIZON=1` 时注入 4 行 primer（任务/完成数/下一步/验证命令）；回合末写 progress；**不把 progress/历史塞回上下文**。
+- `src/kernel/core/preCompletionChecklist.ts`：完成闸门外层；lastFailure → 内层闸门 → verifyCommand；未通过只注入一次「先验证再结束」，防死循环。
+- `src/kernel/eval/longTaskCatalog.ts` + `tools/eval/longTasks.mjs` + `tools/eval/long-tasks/`：
   - 20 个机械可验收 fixture（每任务独立临时 git 仓库、verifier 覆盖、expectedFiles）；
   - `pass@1`/`pass@k`/`pass^k`/tokensPerSolved 复用 `AbMetrics`；
   - `--dry-run`/`--self-check`/`--k`/`--only`/`--long-horizon`/`--model`/transcripts；
@@ -74,14 +74,14 @@
 
 ## 5. Per-action 授权 + 工具哈希
 
-- `src/security/toolIntentPolicy.ts`：intent 分类（read/write/delete/exec/network/external/memory/state）+ 破坏性命令识别；`off|shadow|enforce`，默认 **shadow**（只记高风险，不改行为）；enforce 拒绝高风险。
+- `src/kernel/security/toolIntentPolicy.ts`：intent 分类（read/write/delete/exec/network/external/memory/state）+ 破坏性命令识别；`off|shadow|enforce`，默认 **shadow**（只记高风险，不改行为）；enforce 拒绝高风险。
 - 接入 `ToolGate`（监督内核之后、审批之前）。
-- `src/mcp/mcpToolIntegrity.ts` + `McpGateway`：会话内工具清单指纹；同名描述/schema 变化拒绝，纯增删允许。
+- `src/protocols/mcp/mcpToolIntegrity.ts` + `McpGateway`：会话内工具清单指纹；同名描述/schema 变化拒绝，纯增删允许。
 - 判据：intent 4 例、integrity 3 例；MCP 生命周期回归通过。
 
 ## 6. 记忆时间图 / 事实卡（P2-1）
 
-- `src/adapters/memory/temporalFactGraph.ts`：`TemporalFactGraph` 维护 subject/predicate/object + factId + validFrom/validTo + trust；规则抽取（箭头、use/require/prefer/own、系动词、冒号），实体归一化；同一 s+p 新事实关闭旧边；召回按 s/p/o 的 Dice 重合度，过滤 validTo/expiresAt；`consolidate()` 只合并派生索引、不删事实。
+- `src/kernel/adapters/memory/temporalFactGraph.ts`：`TemporalFactGraph` 维护 subject/predicate/object + factId + validFrom/validTo + trust；规则抽取（箭头、use/require/prefer/own、系动词、冒号），实体归一化；同一 s+p 新事实关闭旧边；召回按 s/p/o 的 Dice 重合度，过滤 validTo/expiresAt；`consolidate()` 只合并派生索引、不删事实。
 - `FileLongTermMemory` 默认启用图（第 6 个构造参数 `temporalGraph=true` 可关）；`load/remember/update/updateMany/delete` 同步维护；`recall` 按 factId `max(BM25, 图分)` 合并后仍走 `TimeDecay`；重启从 facts 重建。
 - `ResonantFieldEngine` 默认包装器也探测 `temporalRecall` 并 max 合并，确保生产默认路径真正吃到图信号。
 - 判据：temporalFactGraph 9 例；fileLongTermMemory +5 例（含关图正对照、图不改变排序、重启重建、consolidate 不删事实）；resonantField +1 接线例。
@@ -89,7 +89,7 @@
 
 ## 7. 容器沙箱（P2-2）
 
-- `src/adapters/sandbox/containerSandbox.ts`：`ContainerSandbox`（`name='container'`），Docker/Podman 运行时探测（3s、失败/超时/ENOENT fail-closed）；`check` 对 file_read/file_write 做 workspace 前缀校验，越界 `category:'path'`；`wrapCommand` 生成 `--network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp`、workspace rw bind、POSIX/Windows 引号转义。
+- `src/kernel/adapters/sandbox/containerSandbox.ts`：`ContainerSandbox`（`name='container'`），Docker/Podman 运行时探测（3s、失败/超时/ENOENT fail-closed）；`check` 对 file_read/file_write 做 workspace 前缀校验，越界 `category:'path'`；`wrapCommand` 生成 `--network none --cap-drop ALL --security-opt no-new-privileges --read-only --tmpfs /tmp`、workspace rw bind、POSIX/Windows 引号转义。
 - 接线：`SandboxProfile`/`SANDBOX_PROFILES`/`SandboxManager`/`SandboxCapabilityTable`/`doctor`/`ConfigError`/`adapters/index`/`cliHelp` 全部加 `container`；默认仍是 `policy`。
 - 判据：`containerSandbox` 12 例；相关 sandbox/CLI/doctor 92 passed / 1 skipped。
 - 边界：容器共享宿主内核，不是 microVM；`--read-only` 只保护容器根，workspace 是 rw；默认断网；Windows 依赖 Docker Desktop/WSL2；无运行时即 fail-closed。

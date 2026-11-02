@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SupervisorKernel } from '../../src/supervisor/supervisorKernel.ts';
-import { AuditSink } from '../../src/server/services/auditSink.ts';
+import { SupervisorKernel } from '../../src/kernel/supervisor/supervisorKernel.ts';
+import { AuditSink } from '../../src/apps/server/services/auditSink.ts';
 
 /** 基础选项：危险工具=写类动作集，连续失败 3 次即 locked。 */
 function make(options: ConstructorParameters<typeof SupervisorKernel>[0] = {}) {

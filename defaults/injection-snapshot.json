@@ -1,7 +1,7 @@
 {
   "version": 2,
   "source": "offline-curated (proxy for AgentDojo/InjecAgent; NOT fetched live per D4 network ban in main gate)",
-  "guard": "src/security/promptInjectionGuard.ts#scanForInjection",
+  "guard": "src/kernel/security/promptInjectionGuard.ts#scanForInjection",
   "note": "Curated, hand-authored snapshot to keep an offline signal of promptInjectionGuard recall/false-positive. It is a proxy, not a substitute for the real AgentDojo/InjecAgent benchmark (which requires network + the dataset). Add cases here as the DIRECTIVES taxonomy evolves. v2 (P4): cases may carry `source` (external/file/local/unknown) to drive tier-dependent thresholds; tool-output malicious cases cover indirect prompt injection (II) — two of them (mal-toolout-web-05 / mal-toolout-file-02) are intentionally OUT of reach of the current heuristics to keep the recall figure honest.",
   "cases": [
     {

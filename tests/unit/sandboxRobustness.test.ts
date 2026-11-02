@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { PolicySandbox } from '../../src/adapters/sandbox/policySandbox.ts';
-import { RestrictedSandbox } from '../../src/adapters/sandbox/restrictedSandbox.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { PolicySandbox } from '../../src/kernel/adapters/sandbox/policySandbox.ts';
+import { RestrictedSandbox } from '../../src/kernel/adapters/sandbox/restrictedSandbox.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
 
 const ROOT = process.cwd();
 const boxes = [

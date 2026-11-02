@@ -6,7 +6,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CorpusWatchRegistry } from '../../src/context/corpusWatchRegistry.ts';
+import { CorpusWatchRegistry } from '../../src/kernel/context/corpusWatchRegistry.ts';
 
 const ROOT = process.cwd();
 
@@ -15,7 +15,7 @@ test('变更路径：反斜杠与 ./ 归一化为 POSIX 相对路径', () => {
   watch.markChanged(ROOT, 'src\\context\\corpusIndexCache.ts');
   watch.markChanged(ROOT, './README.md');
   const paths = watch.changedPaths(ROOT);
-  assert.deepEqual([...(paths ?? [])].sort(), ['README.md', 'src/context/corpusIndexCache.ts']);
+  assert.deepEqual([...(paths ?? [])].sort(), ['README.md', 'src/kernel/context/corpusIndexCache.ts']);
   assert.strictEqual(watch.isDirty(ROOT), true);
   watch.clearDirty(ROOT);
   assert.strictEqual(watch.isDirty(ROOT), false);

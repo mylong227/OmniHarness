@@ -1,15 +1,15 @@
 ﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Agent } from '../../src/core/agent.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PlanApproval } from '../../src/adapters/approval/planApproval.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { CheckpointManager } from '../../src/core/checkpointManager.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PlanApproval } from '../../src/kernel/adapters/approval/planApproval.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { CheckpointManager } from '../../src/kernel/core/checkpointManager.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 用固定端口组合构造 Agent（端到端，真实 IO）。 */

@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { McpRegistryClient } from '../../src/mcp/mcpRegistryClient.ts';
+import { McpRegistryClient } from '../../src/protocols/mcp/mcpRegistryClient.ts';
 
 test('registry 搜索：URL/limit 正确，解析 remotes 与 packages', async () => {
   let requested = '';

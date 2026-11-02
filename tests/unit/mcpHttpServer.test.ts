@@ -13,12 +13,12 @@ import type {
   ToolDefinition,
   ToolPort,
   ToolResult,
-} from '../../src/ports/tool/tool.ts';
-import { McpHttpServer, type McpHttpServerOptions } from '../../src/mcp/mcpHttpServer.ts';
-import { McpProtocol } from '../../src/mcp/mcpProtocol.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { CliFlagTable } from '../../src/cli/cliFlagTable.ts';
-import { cliHelp } from '../../src/cli/cliHelp.ts';
+} from '../../src/contracts/ports/tool/tool.ts';
+import { McpHttpServer, type McpHttpServerOptions } from '../../src/protocols/mcp/mcpHttpServer.ts';
+import { McpProtocol } from '../../src/protocols/mcp/mcpProtocol.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { CliFlagTable } from '../../src/apps/cli/cliFlagTable.ts';
+import { cliHelp } from '../../src/apps/cli/cliHelp.ts';
 
 /** 现代协议版本（测试固定值）。 */
 const MODERN = McpProtocol.PROTOCOL_VERSION_V2;

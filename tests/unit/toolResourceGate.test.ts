@@ -7,10 +7,10 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ToolResourceGate } from '../../src/core/toolResourceGate.ts';
-import { LockError } from '../../src/util/concurrency/lockError.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import { TOOL_RESOURCE_DOMAINS } from '../../src/ports/tool/toolResourceDomains.ts';
+import { ToolResourceGate } from '../../src/kernel/core/toolResourceGate.ts';
+import { LockError } from '../../src/kernel/util/concurrency/lockError.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import { TOOL_RESOURCE_DOMAINS } from '../../src/contracts/ports/tool/toolResourceDomains.ts';
 
 test('声明表：浏览器两工具都绑 browser 写域；未声明工具返回空', () => {
   assert.deepStrictEqual(TOOL_RESOURCE_DOMAINS[TOOL_NAMES.browserAct], [

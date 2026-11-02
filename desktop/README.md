@@ -31,7 +31,7 @@ Electron main（受信）
   ├─ BrowserWindow（sandbox/contextIsolation/无 Node）
   │    └─ preload（window.omni 最小桥）
   ├─ HarnessSupervisor
-  │    └─ node.exe dist/src/cli/exec.js serve --port 0 --workspace <ws>
+  │    └─ node.exe dist/src/apps/cli/exec.js serve --port 0 --workspace <ws>
   │         └─ HTTP/SSE 127.0.0.1:<port>（Bearer + HttpOnly Cookie）
   └─ 菜单/日志/工作区/安全守卫
 ```
@@ -86,7 +86,7 @@ npm run dist    # NSIS 安装包（未配置签名）
 - 复制当前 `node.exe`（或 `OMNI_NODE_BIN`）；
 - `npm ci --omit=dev --ignore-scripts` 后删除前端库（React/KaTeX/highlight 已打进 `web/dist`）
   与 ONNX/transformers 重型可选包；
-- 断言 `web/dist/index.html`、`native/omni_napi.node`、`dist/src/cli/exec.js` 存在。
+- 断言 `web/dist/index.html`、`native/omni_napi.node`、`dist/src/apps/cli/exec.js` 存在。
 
 `SKIP_DEPS=1` 可只复制产物（不装依赖），用于快速验证目录布局。
 

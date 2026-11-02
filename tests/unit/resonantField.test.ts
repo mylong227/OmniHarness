@@ -5,9 +5,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { ResonantFieldEngine } from '../../src/adapters/memory/resonantFieldEngine.ts';
-import { EigenSpectrum } from '../../src/util/eigenspectrum.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { ResonantFieldEngine } from '../../src/kernel/adapters/memory/resonantFieldEngine.ts';
+import { EigenSpectrum } from '../../src/kernel/util/eigenspectrum.ts';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

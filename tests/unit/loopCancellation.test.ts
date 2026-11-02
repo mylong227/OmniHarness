@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CancellationToken, CancelledError } from '../../src/core/loop/cancellationToken.ts';
+import { CancellationToken, CancelledError } from '../../src/kernel/core/loop/cancellationToken.ts';
 
 test('取消令牌：cancel 幂等，首次 reason 生效', () => {
   const token = new CancellationToken();

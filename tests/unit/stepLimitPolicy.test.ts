@@ -23,17 +23,17 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { Agent } from '../../src/core/agent.ts';
-import { ScriptedModel, type ScriptStep } from '../../src/core/scriptedModel.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import { CliDefaults } from '../../src/cli/argParser.ts';
-import { DEFAULT_SUBAGENT_MAX_STEPS } from '../../src/subagent/subagentTypes.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { ScriptedModel, type ScriptStep } from '../../src/kernel/core/scriptedModel.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import { CliDefaults } from '../../src/apps/cli/argParser.ts';
+import { DEFAULT_SUBAGENT_MAX_STEPS } from '../../src/kernel/subagent/subagentTypes.ts';
 
 // 本文件只测步进终止语义：关掉 repo-map（索引整仓既慢又与断言无关）。
 process.env.OMNI_REPO_MAP = '0';

@@ -1,10 +1,10 @@
 /**
- * `src/worker/worker.ts`（worker 契约）判据 —— 以及它**唯一可执行的语义**：取消下传。
+ * `src/kernel/worker/worker.ts`（worker 契约）判据 —— 以及它**唯一可执行的语义**：取消下传。
  *
  * ## 先说清楚这个文件是什么（实测，不是推断）
  *
  * `worker.ts` 是**纯类型声明模块**：只有 `export interface WorkerRequest / WorkerResult / Worker`，
- * 没有任何运行时值，编译产物 `dist/src/worker/worker.js` 只有一行 `export {};`（45 字节）。
+ * 没有任何运行时值，编译产物 `dist/src/kernel/worker/worker.js` 只有一行 `export {};`（45 字节）。
  * ⇒ 它的"行覆盖率"**恒无意义**：`node --experimental-test-coverage` 的报表里根本不列出这个文件
  * （没有可执行行可统计）。任何声称"把 worker.ts 覆盖率从 0 提到 N%"的说法都是假报告。
  *
@@ -29,32 +29,32 @@ import { getEventListeners } from 'node:events';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { CliWorker } from '../../src/worker/cliWorker.ts';
-import { WorkerOrchestrator } from '../../src/worker/workerOrchestrator.ts';
-import { WorkerRegistry } from '../../src/worker/workerRegistry.ts';
-import { DelegateTool } from '../../src/adapters/tool/workflow/delegateTool.ts';
-import type { Worker, WorkerRequest, WorkerResult } from '../../src/worker/worker.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { CliWorker } from '../../src/kernel/worker/cliWorker.ts';
+import { WorkerOrchestrator } from '../../src/kernel/worker/workerOrchestrator.ts';
+import { WorkerRegistry } from '../../src/kernel/worker/workerRegistry.ts';
+import { DelegateTool } from '../../src/kernel/adapters/tool/workflow/delegateTool.ts';
+import type { Worker, WorkerRequest, WorkerResult } from '../../src/kernel/worker/worker.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 契约源文件路径（由测试文件位置解析，不依赖 cwd）。
  *
  * 2026-10-11：三个接口已外迁 `ports/worker/worker.ts`（`ports/config/omniHarnessConfig.ts`
- * 需要该契约，而端口不得反向依赖实现文件）⇒ 判据的**检体**随契约走；原 `src/worker/worker.ts`
+ * 需要该契约，而端口不得反向依赖实现文件）⇒ 判据的**检体**随契约走；原 `src/kernel/worker/worker.ts`
  * 变成桶再导出，`CONTRACT_BARREL_*` 继续钉住"公共 API 面没变、仍是纯类型"。
  */
-const CONTRACT_SOURCE = fileURLToPath(new URL('../../src/ports/worker/worker.ts', import.meta.url));
+const CONTRACT_SOURCE = fileURLToPath(new URL('../../src/contracts/ports/worker/worker.ts', import.meta.url));
 /** 契约编译产物路径（2026-10-17 起判据从源码直跑，dist 路径显式指向编译产物）。 */
 const CONTRACT_DIST = fileURLToPath(
-  new URL('../../dist/src/ports/worker/worker.js', import.meta.url),
+  new URL('../../dist/src/contracts/ports/worker/worker.js', import.meta.url),
 );
 /** 原实现层路径（现在是再导出桶）。 */
 const CONTRACT_BARREL_SOURCE = fileURLToPath(
-  new URL('../../src/worker/worker.ts', import.meta.url),
+  new URL('../../src/kernel/worker/worker.ts', import.meta.url),
 );
 /** 原实现层产物（必须仍是 `export {};`）。 */
 const CONTRACT_BARREL_DIST = fileURLToPath(
-  new URL('../../dist/src/worker/worker.js', import.meta.url),
+  new URL('../../dist/src/kernel/worker/worker.js', import.meta.url),
 );
 
 /** 去掉块注释（判据只看声明，避免把文档里的 `{@link X}` 当语法）。 */

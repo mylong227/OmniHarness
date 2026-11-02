@@ -10,10 +10,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
-import { SessionAttachmentSpiller } from '../../src/adapters/storage/sessionAttachmentSpiller.ts';
-import { ContextAssembler } from '../../src/context/contextAssembler.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event/sessionEvent.ts';
+import { JsonlStorage } from '../../src/kernel/adapters/storage/jsonlStorage.ts';
+import { SessionAttachmentSpiller } from '../../src/kernel/adapters/storage/sessionAttachmentSpiller.ts';
+import { ContextAssembler } from '../../src/kernel/context/contextAssembler.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event/sessionEvent.ts';
 
 /** 造一条携带附件的 tool_result。 */
 const eventWith = (data: string): SessionEvent => ({

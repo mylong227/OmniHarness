@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SemanticIndex } from '../../src/context/semanticIndex.ts';
-import type { Embedding, EmbeddingPort } from '../../src/ports/model/embedding.ts';
+import { SemanticIndex } from '../../src/kernel/context/semanticIndex.ts';
+import type { Embedding, EmbeddingPort } from '../../src/contracts/ports/model/embedding.ts';
 
 /**
  * 确定性伪嵌入：把一组同义词映射到共享维度，使余弦相似度能表达「语义同义但字面不同」。

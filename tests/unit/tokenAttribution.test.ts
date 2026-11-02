@@ -6,8 +6,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TokenAttribution, INITIAL_BUCKET } from '../../src/observability/tokenAttribution.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { TokenAttribution, INITIAL_BUCKET } from '../../src/kernel/observability/tokenAttribution.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /**
  * 构造一条事件。

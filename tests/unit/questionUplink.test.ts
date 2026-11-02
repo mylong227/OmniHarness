@@ -11,13 +11,13 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AskUserTool } from '../../src/adapters/tool/plan/askUserTool.ts';
-import { eventFactory } from '../../src/core/eventFactory.ts';
-import { ServerEventBridge } from '../../src/server/core/serverEventBridge.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { AskAnswer, AskQuestion } from '../../src/ports/runtime/userResponder.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { AskUserTool } from '../../src/kernel/adapters/tool/plan/askUserTool.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
+import { ServerEventBridge } from '../../src/apps/server/core/serverEventBridge.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { AskAnswer, AskQuestion } from '../../src/contracts/ports/runtime/userResponder.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 

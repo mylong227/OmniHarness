@@ -1,6 +1,6 @@
 import { test, vi } from 'vitest';
 import assert from 'node:assert/strict';
-import { Retry } from '../../src/util/concurrency/retry.ts';
+import { Retry } from '../../src/kernel/util/concurrency/retry.ts';
 
 test('withRetry：首次成功不重试', async () => {
   let calls = 0;

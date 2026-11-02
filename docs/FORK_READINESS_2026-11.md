@@ -43,7 +43,7 @@
 | 资产                     | 证据                                                                 | 对二开的意义                     |
 | ------------------------ | -------------------------------------------------------------------- | -------------------------------- |
 | 稳定性分级 + 机器强制     | `src/index.ts`（`@public`/`@beta`）+ `src/indexBeta.ts` + `scripts/apiStability.mjs` | 下游能判断「这个 API 敢不敢依赖」 |
-| 端口层                   | `src/ports/`（28 个目录）                                             | 换实现不用改调用方               |
+| 端口层                   | `src/contracts/ports/`（28 个目录）                                             | 换实现不用改调用方               |
 | 插件系统                 | `omni.plugin.json` + 权限白名单 + 8 个示例插件（`examples/plugins/`）   | 最小的二开形态已经能用           |
 | 自定义工具               | `--tool ./myTool.js`（`{definition, handler}` 或 `ToolPort`）        | 不改核心即可加工具               |
 | 双协议入口               | ACP server + MCP server/client + A2A                                  | 能被别的编辑器/agent 编排        |
@@ -62,7 +62,7 @@
 | 5 | **版本口径三处不一致** | `API_VERSION=0.1.0`；包版本 `0.3.0`；`API_STABILITY.md` 还写着 `0.2.0` | 下游无法判断兼容承诺 |
 | 6 | **贡献入口缺失** | 无根 `CONTRIBUTING.md`、无 CoC、无 issue/PR 模板 | 外部输入质量不可控，直接消耗你 10h/周 |
 | 7 | **纪律门槛对外过重** | 90 个 npm scripts、10 条 fast 门禁、函数体 ≤80、文件 ≤810 | 只想改一行 UI 的人被 6 条门禁劝退 |
-| 8 | **合同边界未公开** | `src/enterprise/` 与全仓同为 Apache-2.0，但文档没说清 | 下游担心「哪天变闭源」 |
+| 8 | **合同边界未公开** | `src/apps/enterprise/` 与全仓同为 Apache-2.0，但文档没说清 | 下游担心「哪天变闭源」 |
 | 9 | **第三方资产暗礁** | `NOTICE` 声明含 ComfyBench 衍生材料，需先读 `THIRD_PARTY_ASSETS.md` | fork 后重新分发可能踩上游条款 |
 | 10 | **仓库噪音** | 21 个残留 `omni-sub-wt_*` 分支；`PROJECT_BOARD.md` 7,665 行 | 外人以为这是内部工作区，不是产品 |
 
@@ -151,7 +151,7 @@ apps/         参考实现：CLI、Web、Desktop                    ← 你维�
 
 ### P0-7 许可与商标边界（2 h）
 
-- 明确 **全仓 Apache-2.0**（含 `src/enterprise/`），不存在隐藏闭源区；
+- 明确 **全仓 Apache-2.0**（含 `src/apps/enterprise/`），不存在隐藏闭源区；
 - 加一段商标规则：fork 后**必须改名**，不得使用 OmniHarness 名称/图标做衍生品宣传；
 - `THIRD_PARTY_ASSETS.md` 在 README 里被显式引用（ComfyBench 衍生材料）。
 

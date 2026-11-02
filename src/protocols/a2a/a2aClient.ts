@@ -1,0 +1,144 @@
+/**
+ * A2A 互操作客户端（U6）。
+ *
+ * 通过可插拔 `A2aTransport` 向对端 agent 声明能力、委托任务并回收结果。
+ * 请求/响应经 JSON-RPC id 关联；可选注入 `AgentIdentityPort` 对委托请求签名，
+ * 由对端 fail-closed 验签。
+ *
+ * 无第三方依赖（仅 server/jsonRpc + a2aProtocol）。
+ */
+import type { RpcMessage } from '../../apps/server/core/jsonRpc.ts';
+import { jsonRpc } from '../../apps/server/core/jsonRpc.ts';
+import type { AgentIdentityPort } from '../../contracts/ports/runtime/agentIdentity.ts';
+import type {
+  A2aCapability,
+  A2aCapabilityDeclaration,
+  A2aTransport,
+  DelegateRequest,
+  DelegateResult,
+} from './a2aProtocol.ts';
+import { A2A_CAPABILITIES_DECLARE, A2A_TASK_DELEGATE } from './a2aProtocol.ts';
+import { PendingRequests } from '../../kernel/util/concurrency/pendingRequests.ts';
+import { runtimeLimits } from '../../kernel/util/runtimeLimits.ts';
+
+/** 客户端选项。 */
+export interface A2aClientOptions {
+  /**
+   * 单次委托/声明调用的挂起超时（毫秒）。
+   *
+   * 缺省取 `limits.a2a.clientTimeoutMs`（`defaults/limits.json`，60s）；可用
+   * `omniharness.json` 的 `limits.a2a.clientTimeoutMs` 或 `OMNI_A2A_CLIENT_TIMEOUT_MS` 覆盖。
+   */
+  readonly timeoutMs?: number;
+}
+
+/**
+ * A2A 客户端：连接一个对端 agent（server）。
+ */
+export class A2aClient {
+  /** 下一个 JSON-RPC 请求 id（自增）。 */
+  private nextId = 1;
+  /** 挂起请求表：JSON-RPC id → 收尾通道（响应到达或超时时移出，见 util/pendingRequests）。 */
+  private readonly pending = new PendingRequests<number | string, unknown>();
+  /** 单次调用的挂起超时（毫秒；2026-10-30 起走 `limits.a2a`，不再写死）。 */
+  private readonly timeoutMs: number;
+
+  /**
+   * @param transport 底层传输端口（负责实际收发 JSON-RPC 消息）。
+   * @param identity 可选的 Agent 身份端口；提供时对声明/委托请求附加签名断言。
+   * @param options 可选的调用超时（缺省取 `limits.a2a.clientTimeoutMs`）。
+   */
+  public constructor(
+    private readonly transport: A2aTransport,
+    private readonly identity?: AgentIdentityPort,
+    options: A2aClientOptions = {},
+  ) {
+    this.timeoutMs = options.timeoutMs ?? runtimeLimits.defaults().a2a.clientTimeoutMs;
+    this.transport.onMessage((m) => this.onMessage(m));
+  }
+
+  /**
+   * 向对端声明本端能力（可选签名）。
+   * @param agentId 本端 agent 标识。
+   * @param capabilities 本端可被委托的能力清单。
+   
+   * @returns 无返回值。
+   */
+  public async declareCapabilities(
+    agentId: string,
+    capabilities: readonly A2aCapability[],
+  ): Promise<void> {
+    const decl: A2aCapabilityDeclaration = {
+      agentId,
+      capabilities,
+      ...(this.identity !== undefined
+        ? { assertion: this.identity.authorizationHeader(agentId) }
+        : {}),
+    };
+    await this.call(A2A_CAPABILITIES_DECLARE, decl);
+  }
+
+  /**
+   * 委托一个任务给对端，返回执行结果（fail-closed：验签/超时/异常均抛错）。
+   * @param request 委托请求（taskId / 输入等；注入 identity 时自动附加 assertion）。
+   * @returns 对端执行结果。
+   */
+  public async delegateTask(request: DelegateRequest): Promise<DelegateResult> {
+    const req = { ...request };
+    if (this.identity !== undefined) {
+      req.assertion = this.identity.authorizationHeader(request.taskId);
+    }
+    const result = await this.call(A2A_TASK_DELEGATE, req);
+    return result as DelegateResult;
+  }
+
+  /** 关闭底层传输。
+   * @returns 无返回值。
+   */
+  public close(): void {
+    this.transport.close?.();
+    this.pending.failAll(new Error('A2aClient 已关闭'));
+  }
+
+  /**
+   * 处理传输层入站消息：按 id 匹配挂起请求并兑现/拒绝其 Promise（通知与未知 id 忽略）。
+   * @param message 入站 JSON-RPC 消息。
+   
+   * @returns 无返回值。
+   */
+  private onMessage(message: RpcMessage): void {
+    if (!('id' in message)) return; // 通知，忽略
+    const handlers = this.pending.take(message.id);
+    if (handlers === undefined) return;
+    if ('error' in message && message.error !== undefined) {
+      handlers.reject?.(new Error(`A2A 远端错误 [${message.error.code}] ${message.error.message}`));
+      return;
+    }
+    if ('result' in message) {
+      handlers.resolve(message.result);
+      return;
+    }
+    handlers.reject?.(new Error('A2A 响应缺少 result/error'));
+  }
+
+  /**
+   * 发起一次 JSON-RPC 调用：登记挂起请求并经传输发送，超时（`limits.a2a.clientTimeoutMs`）reject。
+   * @param method JSON-RPC 方法名。
+   * @param params 方法参数。
+   * @returns 对端 result 载荷（由 onMessage 兑现）。
+   */
+  private call(method: string, params: unknown): Promise<unknown> {
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      this.pending.register(
+        id,
+        { resolve, reject },
+        {
+          ms: this.timeoutMs,
+          onTimeout: (handlers) => handlers.reject?.(new Error(`A2A 调用超时: ${method}`)),
+        },
+      );
+      this.transport.send(jsonRpc.request(id, method, params as Record<string, unknown>));
+    });
+  }
+}

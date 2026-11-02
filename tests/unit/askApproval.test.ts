@@ -1,7 +1,7 @@
 import { test, describe } from 'vitest';
 import assert from 'node:assert/strict';
-import { AskApproval } from '../../src/adapters/approval/askApproval.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { AskApproval } from '../../src/kernel/adapters/approval/askApproval.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 请求批准档：本地只读自动放行，其余一律询问（无回调时 fail-closed 拒绝）。 */
 describe('AskApproval', () => {
@@ -76,7 +76,7 @@ describe('AskApproval', () => {
   test('白名单与 plan 档的差异恰好是联网两项（防两表漂移）', async () => {
     // 请求批准档的「使用互联网时始终询问」落点：web_search / web_fetch 必须问，
     // 而计划模式把它们当只读放行——除此之外两张白名单必须完全一致。
-    const { PLAN_ALLOWED_TOOLS } = await import('../../src/adapters/approval/planApproval.ts');
+    const { PLAN_ALLOWED_TOOLS } = await import('../../src/kernel/adapters/approval/planApproval.ts');
     const asked: string[] = [];
     const ask = new AskApproval({
       askHandler: async (request) => {

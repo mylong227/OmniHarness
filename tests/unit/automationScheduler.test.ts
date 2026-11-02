@@ -6,8 +6,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AutomationScheduler } from '../../src/server/services/automationScheduler.ts';
-import type { Automation, AutomationStore } from '../../src/server/services/automationStore.ts';
+import { AutomationScheduler } from '../../src/apps/server/services/automationScheduler.ts';
+import type { Automation, AutomationStore } from '../../src/apps/server/services/automationStore.ts';
 
 /** 内存任务存储桩（只实现调度器消费的两个方法）。 */
 class MemoryAutomationStore {

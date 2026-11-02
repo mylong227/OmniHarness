@@ -1,0 +1,175 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import type { EventPort } from '../../contracts/ports/runtime/eventPort.ts';
+import type { ToolPort } from '../../contracts/ports/tool/tool.ts';
+import type { ModelPort } from '../../contracts/ports/model/model.ts';
+
+import type { StoragePort } from '../../contracts/ports/memory/storage.ts';
+import { Container } from '../core/container.ts';
+import { ServiceKeys } from '../../apps/composition/serviceKeys.ts';
+import { ToolGate } from '../core/toolGate.ts';
+import { ToolResourceGate } from '../core/toolResourceGate.ts';
+
+import { ToolDiscovery } from '../search/toolDiscovery.ts';
+import { Bm25MemoryIndex } from '../adapters/retrieval/bm25MemoryIndex.ts';
+import { SkillRegistry } from '../skill/skillRegistry.ts';
+import { RepoMapEngineProvider } from '../context/repoMap/repoMapEngineProvider.ts';
+import { FileScratchpad } from '../adapters/memory/fileScratchpad.ts';
+import { MemoryTodo } from '../adapters/todo/memoryTodo.ts';
+import { MemoryPlan } from '../adapters/plan/memoryPlan.ts';
+import { DefaultUserResponder } from '../adapters/user/defaultUserResponder.ts';
+import { JsonlStorage } from '../adapters/storage/jsonlStorage.ts';
+import { SessionAttachmentSpiller } from '../adapters/storage/sessionAttachmentSpiller.ts';
+import { SqliteStorage } from '../adapters/storage/sqliteStorage.ts';
+import { CancellableModel } from './cancellableModel.ts';
+import type { ResolvedConfig } from '../../contracts/ports/config/resolvedConfig.ts';
+import type { OmniHarnessRuntime } from '../../contracts/ports/composition/omniHarnessRuntime.ts';
+import type { SubagentPortsShape } from '../../contracts/ports/subagent/subagentPortsShape.ts';
+
+/**
+ * @beta
+ * 子智能体运行时工厂：为单个子代构造隔离的 runtime 视图。
+ *
+ * 与父运行时共享 model/sandbox/approvals（复用连接与策略），
+ * 但换掉 tools（受限子集）、events（内部桥接）、storage（重定位到隔离工作树下），
+ * 并独立设置步数上限，从而使子代自动继承压缩、Spill、FFI 原生后端等全部既有能力，
+ * 同时避免多个子代并发改写共享存储。
+ */
+export class SubagentRuntimeFactory {
+  /** 构造子代 runtime 视图。 */
+  public build(
+    ports: SubagentPortsShape,
+    tools: ToolPort,
+    events: EventPort,
+    maxSteps: number,
+    signal?: AbortSignal,
+  ): OmniHarnessRuntime {
+    const storage = this.rerootStorage(ports.storage, ports.workspaceRoot);
+    const attachmentSpiller = this.attachmentSpillerFor(storage);
+    // 取消传播：父取消 → 在飞请求中止（未注入信号时逐字沿用原模型，零行为变更）。
+    const model =
+      signal === undefined ? ports.model : CancellableModel.cancellableModel(ports.model, signal);
+    // 计划门禁继承（2026-10-01）：子代与父级共用 plan/planMode，否则 --plan 可被委派绕过。
+    const planMode = ports.planMode ?? false;
+    const plan = ports.plan ?? new MemoryPlan();
+    const config: ResolvedConfig = {
+      workspaceRoot: ports.workspaceRoot,
+      maxSteps,
+      goalMaxIterations: ports.goalMaxIterations,
+      model,
+      storage,
+      approvals: ports.approvals,
+      sandbox: ports.sandbox,
+      escalation: ports.escalation,
+      elevatedSandbox: ports.elevatedSandbox,
+      events,
+      tools,
+      spill: ports.spill,
+      spiller: ports.spiller,
+      ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
+      planMode,
+      // todo/responder 透传（2026-11-01 接线收口）：todo 必须与 `todo_write` 写入的端口同源，
+      // 否则子代自己的「待办未完成」纠偏永远读空表；responder 透传防重建工具集时提问退化为占位答案。
+      userResponder: ports.userResponder ?? new DefaultUserResponder(),
+      todo: ports.todo ?? new MemoryTodo(),
+      plan,
+      discovery: new ToolDiscovery(),
+      retrieval: new Bm25MemoryIndex(),
+      longTermMemory: ports.longTermMemory,
+      repoMapContext: RepoMapEngineProvider.engine(),
+      scratchpad: new FileScratchpad(() => ports.workspaceRoot),
+      memoryExtractor: undefined,
+      skillRegistry: new SkillRegistry(),
+      // 子代系统提示（2026-10-06 第六十一轮）：原先整体缺省 ⇒ 子代 `systemPrompt` 实测为 0 token，
+      // 连"自己在什么平台、shell 是 cmd 还是 bash"都不知道，于是按 POSIX 试错并把"命令不存在"
+      // 误判成"隔离 shell 不可用"回传主代理。这里只透传组合根给的**运行环境段**（见端口注释）。
+      fragments: ports.fragments,
+    };
+    return {
+      config,
+      model,
+      tools,
+      storage,
+      events,
+      sandbox: ports.sandbox,
+      approvals: ports.approvals,
+      escalation: ports.escalation,
+      elevatedSandbox: ports.elevatedSandbox,
+      spiller: ports.spiller,
+      ...(attachmentSpiller !== undefined ? { attachmentSpiller } : {}),
+      discovery: new ToolDiscovery(),
+      retrieval: new Bm25MemoryIndex(),
+      // 资源域闸**必须共享父级的进程级单例**（跨会话互斥依赖共享锁表）；父级未注入的
+      // 手动/测试形态才回退自建（锁表仅子代内部有效，诚实降级）。
+      toolResourceGate: ports.toolResourceGate ?? new ToolResourceGate(),
+      gate: new ToolGate(
+        ports.approvals,
+        ports.sandbox,
+        plan,
+        planMode,
+        ports.escalation,
+        ports.elevatedSandbox,
+        // 监督内核继承：父级把它置于审批/沙箱/计划之前做确定性否决；未透传时子代既不受
+        // 确定性否决约束，也不向监督内核上报工具健康信号（safe 模式下的降级依据丢失）。
+        ports.supervisor,
+      ),
+      container: this.containerOf(ports, tools, events, storage, model),
+      native: ports.native,
+      longTermMemory: ports.longTermMemory,
+      memoryExtractor: undefined,
+      supervisor: ports.supervisor,
+      // P5 自动降档：子代理不继承父运行时降级信号（隔离决策、避免子代误收敛检索预算）；
+      // 恒 undefined ⇒ 子代 repo-map 保持既有口径，零行为变更。（诚实边界：降级仅作用于主循环）
+      budgetDegrade: undefined,
+    };
+  }
+
+  /**
+   * 子代附件外置器：必须落在**子代自己的** sessions 根（ContextAssembler 的 attachmentRoot 同源），
+   * 不能复用父 spiller 的 path 前缀，否则模型按 path 水合会找不到文件。
+   * @param storage 子代存储端口。
+   * @returns 外置器；非 JSONL 或无 location 时为 undefined。
+   */
+  private attachmentSpillerFor(storage: StoragePort): SessionAttachmentSpiller | undefined {
+    if (storage.name !== 'jsonl' || storage.location === undefined) return undefined;
+    return new SessionAttachmentSpiller(storage.location);
+  }
+
+  /**
+   * 把存储根重定位到隔离工作树下 `.omni-storage` 子目录，使每个子代存储互不冲突。
+   * 内存存储等无路径后端按实例隔离，直接复用；未知后端 fail-closed 原样返回（不静默共享父存储）。
+   */
+  private rerootStorage(storage: StoragePort, workspaceRoot: string): StoragePort {
+    const dir = join(workspaceRoot, '.omni-storage');
+    mkdirSync(dir, { recursive: true });
+    if (storage instanceof JsonlStorage) {
+      return new JsonlStorage(dir);
+    }
+    if (storage instanceof SqliteStorage) {
+      // 子代自己的事件库文件名（与会话存储的 `omniharness.db` 不同名，故不并到存储工厂的缺省常量里）。
+      return new SqliteStorage(join(dir, 'events.db'));
+    }
+    return storage;
+  }
+
+  /** 子代容器：与父隔离（register 重名即抛错），键名沿用标准 ServiceKeys。 */
+  private containerOf(
+    ports: SubagentPortsShape,
+    tools: ToolPort,
+    events: EventPort,
+    storage: StoragePort,
+    model: ModelPort,
+  ): Container {
+    const container = new Container();
+    container.register(ServiceKeys.model, model);
+    container.register(ServiceKeys.storage, storage);
+    container.register(ServiceKeys.sandbox, ports.sandbox);
+    container.register(ServiceKeys.approvals, ports.approvals);
+    container.register(ServiceKeys.tools, tools);
+    container.register(ServiceKeys.events, events);
+    return container;
+  }
+}
+
+/** 组合根单例：纯无状态工厂，运行时装配一次，全局复用。 */
+export const subagentRuntimeFactory = new SubagentRuntimeFactory();

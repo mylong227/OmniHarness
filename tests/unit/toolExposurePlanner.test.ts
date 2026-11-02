@@ -1,5 +1,5 @@
 /**
- * 工具暴露规划器单测（`src/core/toolExposurePlanner.ts`）。
+ * 工具暴露规划器单测（`src/kernel/core/toolExposurePlanner.ts`）。
  *
  * 锁死三类不变量，缺任一条都可能造成**静默能力损伤**：
  *   ① **fail-safe**：无信号 / 无命中 ⇒ 全部可见（宁多给不少给）；
@@ -10,8 +10,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ToolExposurePlanner, type ToolCategory } from '../../src/core/toolExposurePlanner.ts';
-import { TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
+import { ToolExposurePlanner, type ToolCategory } from '../../src/kernel/core/toolExposurePlanner.ts';
+import { TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
 
 /** 精简类别表：两条类别 + 一个故意不登记的工具，便于断言边界。 */
 const CATEGORIES: readonly ToolCategory[] = [

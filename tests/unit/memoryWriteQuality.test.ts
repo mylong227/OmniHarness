@@ -25,10 +25,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { MemoryExtractor } from '../../src/adapters/memory/memoryExtractor.ts';
-import type { ModelPort } from '../../src/ports/model/model.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
+import { MemoryExtractor } from '../../src/kernel/adapters/memory/memoryExtractor.ts';
+import type { ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
 
 /**
  * 内存版长期记忆桩（与既有记忆测试同款）。

@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ObservationCompressor } from '../../src/context/observationCompressor.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import type { SpillHandle, SpillPort } from '../../src/ports/memory/spill.ts';
+import { ObservationCompressor } from '../../src/kernel/context/observationCompressor.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import type { SpillHandle, SpillPort } from '../../src/contracts/ports/memory/spill.ts';
 
 /** 内存外溢端口（记录全文，验证“压缩只影响预览”）。 */
 class MemorySpill implements SpillPort {

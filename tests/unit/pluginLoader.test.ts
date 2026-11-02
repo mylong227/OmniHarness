@@ -3,15 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { Container } from '../../src/core/container.ts';
-import { ServiceKeys } from '../../src/composition/runtime.ts';
-import { PluginManager } from '../../src/plugin/pluginManager.ts';
-import { PermissionGate } from '../../src/plugin/permissionGate.ts';
-import { ALL_PERMISSIONS } from '../../src/plugin/permission.ts';
-import { PluginLoader } from '../../src/plugin/pluginLoader.ts';
-import { AppServer } from '../../src/server/core/appServer.ts';
-import { PluginRegistry } from '../../src/plugin/pluginRegistry.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { Container } from '../../src/kernel/core/container.ts';
+import { ServiceKeys } from '../../src/apps/composition/runtime.ts';
+import { PluginManager } from '../../src/kernel/plugin/pluginManager.ts';
+import { PermissionGate } from '../../src/kernel/plugin/permissionGate.ts';
+import { ALL_PERMISSIONS } from '../../src/kernel/plugin/permission.ts';
+import { PluginLoader } from '../../src/kernel/plugin/pluginLoader.ts';
+import { AppServer } from '../../src/apps/server/core/appServer.ts';
+import { PluginRegistry } from '../../src/kernel/plugin/pluginRegistry.ts';
 import { ASCII_TMP } from '../../vitest.workspace.ts';
 
 // 本文件验证 remote 路由/重载，不验证 OS 沙箱；沙箱强制由 pluginWorker.test 的专门判据覆盖。
@@ -26,15 +26,15 @@ if (process.env['TMP'] !== ASCII_TMP) {
   process.env['TMP'] = ASCII_TMP;
   process.env['TEMP'] = ASCII_TMP;
 }
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { type RpcMessage } from '../../src/server/core/jsonRpc.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { type RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
 
 /** 在临时目录写一个可加载的工具插件（ESM，注册 ping 工具）。 */
 function writeToolPlugin(dir: string, name: string): void {

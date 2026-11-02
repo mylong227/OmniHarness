@@ -18,8 +18,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionSidecars } from '../../src/server/services/session/sessionSidecars.ts';
-import { FileLock } from '../../src/util/concurrency/fileLock.ts';
+import { SessionSidecars } from '../../src/apps/server/services/session/sessionSidecars.ts';
+import { FileLock } from '../../src/kernel/util/concurrency/fileLock.ts';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => T): T {

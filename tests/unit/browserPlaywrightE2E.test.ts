@@ -5,8 +5,8 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
-import { ChromeLocator } from '../../src/adapters/browser/chromeLocator.ts';
-import { PlaywrightBrowserSession } from '../../src/adapters/browser/playwrightBrowserSession.ts';
+import { ChromeLocator } from '../../src/kernel/adapters/browser/chromeLocator.ts';
+import { PlaywrightBrowserSession } from '../../src/kernel/adapters/browser/playwrightBrowserSession.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /** Playwright 是否真的可加载（optionalDependency，可能被 --omit=optional 跳过）。 */

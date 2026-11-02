@@ -29,7 +29,7 @@ import { renderUi, act, fireEvent, screen } from './rtlHarness.ts';
 const { AuditTab } = await import('../src/ui/components/tabs/AuditTab.tsx');
 const { TraceTab } = await import('../src/ui/components/tabs/TraceTab.tsx');
 const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
-const { parseHash } = await import('../src/core/Router.ts');
+const { parseHash } = await import('../src/kernel/core/Router.ts');
 
 /**
  * 渲染一次组件（函数组件：换组件即清槽位）。

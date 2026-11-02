@@ -60,7 +60,7 @@ let TransformersEmbeddingAdapter;
 let DiskCachedEmbeddingAdapter;
 let CROSS_REPO_CORPORA;
 try {
-  ({ ContextEngine } = await importDist('src', 'context', 'contextEngine.js'));
+  ({ ContextEngine } = await importDist('src', 'kernel', 'context', 'contextEngine.js'));
   ({ RepoMapContextEngine } = await importDist(
     'src',
     'context',

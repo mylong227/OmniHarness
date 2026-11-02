@@ -56,7 +56,7 @@
 
 **证据**
 
-- `src/cli/execCli.ts` 的 `applyCliRetrievalDefaults()` 对 agent 路径设置 `OMNI_SEMANTIC_RECALL ??= '1'`，即 **CLI 默认走混合检索**。
+- `src/apps/cli/execCli.ts` 的 `applyCliRetrievalDefaults()` 对 agent 路径设置 `OMNI_SEMANTIC_RECALL ??= '1'`，即 **CLI 默认走混合检索**。
 - `tools/probes/recallHitrate.mjs` 直接调用 `ContextEngine.query(...)`（纯 BM25），没有注入 `EmbeddingPort`；`probe:recall` 的 44.0% 是**回退路径**的数字。
 - 本轮实跑 `semanticHybridRecall.mjs --fileK=30`：BM25 44.0% → 混合 **59.2%**，`semanticFallbacks=0`。
 - `RepoMapContextEngine` 有 `semanticFallbackTotal()`，但现有 CI 召回门禁不检查它；模型缺失/向量缓存不可写时会**静默退化为 BM25**，指标仍可能绿。
@@ -111,8 +111,8 @@
 
 **证据**
 
-- `src/mcp/mcpProtocol.ts` 已有 `PROTOCOL_VERSION_V2 = '2026-07-28'`、`server/discover`；`mcpStatelessClient` 已处理 `input_required` MRTR。
-- `src/mcp/mcpServer.ts` 只注册 `initialize`、`discover`、`tools/list|call`、`resources/list|read`、`prompts/list|get`，并给结果补 `resultType`；**没有** `subscriptions/listen`、`ttlMs`/`cacheScope`、服务端 MRTR `inputRequests`、`extensions` 能力。
+- `src/protocols/mcp/mcpProtocol.ts` 已有 `PROTOCOL_VERSION_V2 = '2026-07-28'`、`server/discover`；`mcpStatelessClient` 已处理 `input_required` MRTR。
+- `src/protocols/mcp/mcpServer.ts` 只注册 `initialize`、`discover`、`tools/list|call`、`resources/list|read`、`prompts/list|get`，并给结果补 `resultType`；**没有** `subscriptions/listen`、`ttlMs`/`cacheScope`、服务端 MRTR `inputRequests`、`extensions` 能力。
 - 规范 2026-07-28 的核心变化包括：移除协议级 session/initialize；每请求 `_meta` 版本/能力；`server/discover`；`subscriptions/listen`；结果 `resultType`；MRTR；可缓存结果的 `ttlMs`/`cacheScope`；`iss` 校验；`traceparent`/`tracestate`/`baggage` 传播。
 
 **影响**
@@ -136,7 +136,7 @@
 
 **证据**
 
-- `src/a2a/a2aProtocol.ts` 注释明确：`capabilities.declare` / `task.delegate` 是**私有**方法；A2A v1 只实现 `message/send`、`tasks/get`、`agent/getCard` 的最小互操作面。
+- `src/protocols/a2a/a2aProtocol.ts` 注释明确：`capabilities.declare` / `task.delegate` 是**私有**方法；A2A v1 只实现 `message/send`、`tasks/get`、`agent/getCard` 的最小互操作面。
 - A2A 1.0 规范要求完整任务生命周期：`message/stream`、`tasks/cancel`、`tasks/subscribe`、push notification config、认证扩展等。
 - 没有 ACP（Agent Client Protocol）端点；没有 AG-UI 事件协议适配。ACP 是编辑器（Zed 等）与 coding agent 的标准连接；AG-UI 是 agent 与用户界面的开放事件协议。
 

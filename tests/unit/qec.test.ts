@@ -5,8 +5,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import type { LongTermMemoryPort, MemoryFact } from '../../src/ports/memory/longTermMemory.ts';
-import { QECEncoder } from '../../src/adapters/memory/qecEncoder.ts';
+import type { LongTermMemoryPort, MemoryFact } from '../../src/contracts/ports/memory/longTermMemory.ts';
+import { QECEncoder } from '../../src/kernel/adapters/memory/qecEncoder.ts';
 
 class MemLongTermMemory implements LongTermMemoryPort {
   public readonly name = 'mem';

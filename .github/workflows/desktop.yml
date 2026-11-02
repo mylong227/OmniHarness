@@ -5,8 +5,8 @@ on:
     branches: [main]
     paths:
       - 'desktop/**'
-      - 'src/cli/**'
-      - 'src/plugin/worker/**'
+      - 'src/apps/cli/**'
+      - 'src/kernel/plugin/worker/**'
       - 'web/**'
       - 'package.json'
       - 'package-lock.json'
@@ -14,8 +14,8 @@ on:
   pull_request:
     paths:
       - 'desktop/**'
-      - 'src/cli/**'
-      - 'src/plugin/worker/**'
+      - 'src/apps/cli/**'
+      - 'src/kernel/plugin/worker/**'
       - 'web/**'
       - 'package.json'
       - 'package-lock.json'

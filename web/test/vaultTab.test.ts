@@ -25,7 +25,7 @@ import type { FacadeNode } from './domFacade.ts';
 
 import { VaultTab } from '../src/ui/components/tabs/VaultTab.tsx';
 const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
-const { parseHash } = await import('../src/core/Router.ts');
+const { parseHash } = await import('../src/kernel/core/Router.ts');
 
 /**
  * 渲染保险库面板并等一次取数落地。

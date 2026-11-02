@@ -21,8 +21,8 @@ test('read_file：按文件引用展示，kind=file', () => {
 
 test('LSP 三工具：入参用 file 字段，同样产出文件引用卡片', () => {
   for (const name of ['lsp_hover', 'lsp_go_to_definition', 'lsp_find_references']) {
-    const info = ArtifactResolver.fromTool(name, { file: 'src/core/loop.ts', line: 3, character: 1 });
-    assert.deepEqual(info, { name: 'loop.ts', relPath: 'src/core/loop.ts', kind: 'file' }, name);
+    const info = ArtifactResolver.fromTool(name, { file: 'src/kernel/core/loop.ts', line: 3, character: 1 });
+    assert.deepEqual(info, { name: 'loop.ts', relPath: 'src/kernel/core/loop.ts', kind: 'file' }, name);
   }
 });
 

@@ -5,9 +5,9 @@
 
 ## 背景
 
-进化闭环的六环（发现→门禁→RLVR→准入→覆盖率闸→晋升）分散在 `src/evolution/` 的多个类中，
+进化闭环的六环（发现→门禁→RLVR→准入→覆盖率闸→晋升）分散在 `src/kernel/evolution/` 的多个类中，
 由 `RlvrController.createRlvrEvolutionController` 拼装、`Runtime.createRuntime` 装配、
-`Agent.runEvolutionIfEnabled` 触发。机制真实（`src/composition/runtime.ts` 的 onPromote 已接线），
+`Agent.runEvolutionIfEnabled` 触发。机制真实（`src/apps/composition/runtime.ts` 的 onPromote 已接线），
 但有三个结构性问题：
 
 1. **信号源自参考**：`FailurePatternMiner` 由 `PromotionAdmission` 持有，但它的输入只有
@@ -19,7 +19,7 @@
 
 ## 决策
 
-1. 新增 **`EvolutionKernel`**（`src/evolution/evolutionKernel.ts`）作为进化域唯一编排器，
+1. 新增 **`EvolutionKernel`**（`src/kernel/evolution/evolutionKernel.ts`）作为进化域唯一编排器，
    串起「信号采集 → 档案扩展 → 级联评估 → 门禁/准入 → 台账快照 → 晋升 → 观测」。
    **Kernel 实现既有 `EvolutionController` 端口**（`ports/runtime/evolution/`），因此
    `core/agent.ts` 的触发点与 `OmniHarnessRuntime.evolution` 契约零改动——架构升格发生在

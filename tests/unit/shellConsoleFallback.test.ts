@@ -17,10 +17,10 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ShellTool } from '../../src/adapters/tool/shell/shellTool.ts';
-import type { ShellRunOutcome } from '../../src/adapters/tool/shell/shellProcessRunner.ts';
-import type { ShellToolOptions } from '../../src/adapters/tool/shell/shellTool.ts';
-import type { ToolContext } from '../../src/ports/tool/tool.ts';
+import { ShellTool } from '../../src/kernel/adapters/tool/shell/shellTool.ts';
+import type { ShellRunOutcome } from '../../src/kernel/adapters/tool/shell/shellProcessRunner.ts';
+import type { ShellToolOptions } from '../../src/kernel/adapters/tool/shell/shellTool.ts';
+import type { ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 被测命令（不真跑：执行器是替身）。 */
 const CALL = { id: 'c-shell', name: 'shell', arguments: { command: 'echo hi' } };

@@ -7,8 +7,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SessionRewindService } from '../../src/server/services/session/sessionRewindService.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { SessionRewindService } from '../../src/apps/server/services/session/sessionRewindService.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 造事件。 */
 const ev = (id: string, type: SessionEvent['type'] = 'user'): SessionEvent => ({

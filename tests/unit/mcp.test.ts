@@ -1,20 +1,20 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
-import { McpServer } from '../../src/mcp/mcpServer.ts';
-import { McpClient } from '../../src/mcp/mcpClient.ts';
-import { McpGateway } from '../../src/mcp/mcpGateway.ts';
-import { McpProtocol } from '../../src/mcp/mcpProtocol.ts';
-import { mcpToolMapper } from '../../src/mcp/mcpToolMapper.ts';
-import { McpServerCommand } from '../../src/mcp/mcpServerCommand.ts';
-import { RegistryToolPort } from '../../src/adapters/tool/registryToolPort.ts';
-import { DenyApproval } from '../../src/adapters/approval/denyApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
-import type { ResourcePort, PromptPort } from '../../src/mcp/mcpServer.ts';
-import type { ToolCall, ToolContext, ToolResult } from '../../src/ports/tool/tool.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
+import { McpServer } from '../../src/protocols/mcp/mcpServer.ts';
+import { McpClient } from '../../src/protocols/mcp/mcpClient.ts';
+import { McpGateway } from '../../src/protocols/mcp/mcpGateway.ts';
+import { McpProtocol } from '../../src/protocols/mcp/mcpProtocol.ts';
+import { mcpToolMapper } from '../../src/protocols/mcp/mcpToolMapper.ts';
+import { McpServerCommand } from '../../src/protocols/mcp/mcpServerCommand.ts';
+import { RegistryToolPort } from '../../src/kernel/adapters/tool/registryToolPort.ts';
+import { DenyApproval } from '../../src/kernel/adapters/approval/denyApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import type { ResourcePort, PromptPort } from '../../src/protocols/mcp/mcpServer.ts';
+import type { ToolCall, ToolContext, ToolResult } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 双端内存传输（服务端与客户端互联）。 */
 class PairTransport implements Transport {

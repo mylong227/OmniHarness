@@ -1,0 +1,98 @@
+import type { SandboxPort } from '../../../contracts/ports/runtime/sandbox.ts';
+import type { SandboxProfile } from '../../../contracts/ports/runtime/sandbox/sandboxProfile.ts';
+import { PassthroughSandbox } from './passthroughSandbox.ts';
+import { PolicySandbox } from './policySandbox.ts';
+import { RestrictedSandbox } from './restrictedSandbox.ts';
+import { UnsupportedSandbox } from './unsupportedSandbox.ts';
+import { LinuxBwrapSandbox } from './linuxBwrapSandbox.ts';
+import { LinuxUnshareSandbox } from './linuxUnshareSandbox.ts';
+import { LinuxLandlockSandbox } from './linuxLandlockSandbox.ts';
+import { MacOsSeatbeltSandbox } from './macosSeatbeltSandbox.ts';
+import { WslBwrapSandbox } from './wslBwrapSandbox.ts';
+import { WindowsNativeSandbox } from './windowsNativeSandbox.ts';
+import { ContainerSandbox } from './containerSandbox.ts';
+
+export type { SandboxProfile } from '../../../contracts/ports/runtime/sandbox/sandboxProfile.ts';
+
+/**
+ * 沙箱多后端注册表（G4）：按 profile 名选后端，新后端即插即用。
+ *
+ * 映射纪律（审计整改）：profile 名必须**如实对应能力**，不得把 `landlock` 偷偷换成 `bwrap`——
+ * 前者是内核态路径 ACL、后者是用户态命名空间，二者语义不同，谎称一致会让「以为开了 landlock」
+ * 的使用者实际拿到 bwrap 行为。故：
+ * - `bwrap` → LinuxBwrapSandbox（真实的 bwrap 用户态命名空间后端）；
+ * - `unshare` → LinuxUnshareSandbox（真实的 `unshare -rm` 内核命名空间后端）；
+ * - `landlock` → LinuxLandlockSandbox（**严格探测**内核 Landlock 可见性 + 内核版本 +
+ *   `OMNI_LANDLOCK_HELPER` 指向的 helper；任一不成立即 fail-closed，不冒充其它后端，也不谎称已隔离）；
+ * - `seatbelt` → MacOsSeatbeltSandbox（非 macOS 恒 fail-closed）。
+ * - `container` → ContainerSandbox（P2-2 可选档：Docker/Podman + 只读根 + 默认断网 + workspace
+ *   rw 挂载；运行时/镜像缺失即 fail-closed，永不回退 policy，且**不是 microVM**）。
+ *
+ * 「本机到底哪个后端真能跑、依据是什么」由 {@link SandboxCapabilityTable} 统一自述，
+ * 并经 `omniharness doctor` 输出——实现存在但无真机证据这件事从此可见、可复现。
+ */
+export class SandboxManager {
+  /**
+   * OS 级 profile 的执行包装尚未接进 ShellProcessRunner：这些后端当前只做**裁决**，
+   * 命令仍按普通 shell 执行。选择它们不能得到真正的 OS 隔离，故 CLI 必须在启动时拒绝，
+   * 而不是让用户以为“开了 bwrap/landlock 就隔离了”（2026-10-18 审查）。
+   */
+  public static readonly EXECUTION_UNWIRED: ReadonlySet<SandboxProfile> = new Set<SandboxProfile>();
+  /** 后端注册表：profile 名 → 工厂（延迟实例化）。 */
+  private readonly backends = new Map<SandboxProfile, () => SandboxPort>();
+
+  /**
+   * @param workspaceRoot 工作区根目录（传给各策略后端作为路径白名单基准）。
+   */
+  public constructor(private readonly workspaceRoot: string) {
+    this.register('passthrough', () => new PassthroughSandbox());
+    this.register('policy', () => new PolicySandbox({ workspaceRoot: this.workspaceRoot }));
+    this.register('restricted', () => new RestrictedSandbox({ workspaceRoot: this.workspaceRoot }));
+    // 原生 Windows 写隔离：策略面同 restricted，执行面走 omni-cli + WRITE_RESTRICTED。
+    this.register('windows-native', () => new WindowsNativeSandbox(this.workspaceRoot));
+    this.register('landlock', () => new LinuxLandlockSandbox(this.workspaceRoot));
+    this.register('bwrap', () => new LinuxBwrapSandbox(this.workspaceRoot));
+    this.register('unshare', () => new LinuxUnshareSandbox(this.workspaceRoot));
+    this.register('seatbelt', () => new MacOsSeatbeltSandbox(this.workspaceRoot));
+    // SEC-01：Windows 上的 L3 路径（WSL2 + bwrap）；不可达时后端自身 fail-closed。
+    this.register('wsl-bwrap', () => new WslBwrapSandbox(this.workspaceRoot));
+    // P2-2：容器沙箱（可选档、非默认）。Docker/Podman 需外部安装；缺运行时/镜像由后端自身 fail-closed，
+    // 绝不回退 policy 冒充隔离。默认镜像 node:22-alpine，可用 OMNI_CONTAINER_IMAGE 覆盖。
+    this.register('container', () => new ContainerSandbox({ workspaceRoot: this.workspaceRoot }));
+  }
+
+  /** 注册后端（工厂延迟实例化，避免无谓构造）。
+   * @param profile 沙箱 profile 名。
+   * @param factory 后端工厂函数。
+   * @returns 无返回值。
+   */
+  public register(profile: SandboxProfile, factory: () => SandboxPort): void {
+    this.backends.set(profile, factory);
+  }
+
+  /**
+   * 按 profile 构建沙箱端口。
+   *
+   * 未知 profile 返回 `UnsupportedSandbox`（一律拒绝 + `category: 'os'`），
+   * **绝不回退 PassthroughSandbox**——回退直通等于把「拼错 profile 名」静默变成
+   * 「全量放行」，是 fail-open。安全操作宁可拒绝也不放行（项目 fail-closed 铁律）。
+   * @param profile 要构建的沙箱 profile 名。
+   * @returns 对应的沙箱端口；未知 profile 返回 UnsupportedSandbox（fail-closed）。
+   */
+  public build(profile: SandboxProfile): SandboxPort {
+    const factory = this.backends.get(profile);
+    if (factory === undefined) {
+      return new UnsupportedSandbox(profile, `未知沙箱 profile: ${String(profile)}`);
+    }
+    return factory();
+  }
+
+  /**
+   * 该 profile 是否属于“只裁决、未接执行包装”的 OS 级后端。
+   * @param profile 沙箱 profile
+   * @returns 未接执行包装时为 true
+   */
+  public static isExecutionUnwired(profile: string): boolean {
+    return (SandboxManager.EXECUTION_UNWIRED as ReadonlySet<string>).has(profile);
+  }
+}

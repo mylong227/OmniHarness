@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, utimesSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { TmpSweep } from '../../src/util/tmpSweep.ts';
+import { TmpSweep } from '../../src/kernel/util/tmpSweep.ts';
 
 /** 造一个条目并把 mtime 设为指定时间。 */
 function make(root: string, name: string, ageMs: number, directory: boolean): string {

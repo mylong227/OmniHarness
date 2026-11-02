@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ImageProbe } from '../../src/util/imageProbe.ts';
+import { ImageProbe } from '../../src/kernel/util/imageProbe.ts';
 
 /** 构造最小 PNG 头（仅魔数 + IHDR 尺寸，不含真实像素）。 */
 const pngBytes = (width: number, height: number): Buffer => {

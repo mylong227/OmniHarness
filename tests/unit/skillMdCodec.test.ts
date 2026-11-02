@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SkillMdCodec } from '../../src/skill/skillMdCodec.ts';
+import { SkillMdCodec } from '../../src/kernel/skill/skillMdCodec.ts';
 
 test('INT-04：解析 SKILL.md frontmatter 与正文', () => {
   const skill = SkillMdCodec.parse(

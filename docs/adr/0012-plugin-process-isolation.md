@@ -3,7 +3,7 @@
 - 日期：2026-10-21
 - 状态：**核心已实施（2026-10-21）；能力 broker（fs.read/fs.write）/ OS 沙箱强制 / 重启退避 / 指标已补（2026-10-22）**
 - 关联：[ADR-0009 统一资产协议](./0009-capability-protocol.md)、[ADR-0010 信任-隔离阶梯](./0010-isolation-ladder.md)、[ADR-0011 签名资产包](./0011-signed-asset-pack.md)
-- 现行实现：[`src/plugin/worker/`](../../src/plugin/worker/)、[`src/plugin/pluginLoader.ts`](../../src/plugin/pluginLoader.ts)
+- 现行实现：[`src/kernel/plugin/worker/`](../../src/kernel/plugin/worker/)、[`src/kernel/plugin/pluginLoader.ts`](../../src/kernel/plugin/pluginLoader.ts)
 
 ## 背景
 

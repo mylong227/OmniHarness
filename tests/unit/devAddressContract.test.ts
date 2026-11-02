@@ -4,7 +4,7 @@
 // 曾各自写死 `8787`/`5173`/`127.0.0.1`——设 OMNI_BACKEND_PORT 只改 vite 一边时开发回路直接断裂。
 // 收口后的形态：
 //   · dev 工具（vite/devAll/startAll/探针/夹具）→ `scripts/devConfig.mjs`（env 在那里解释一次）；
-//   · 后端 serve 默认端口 → `src/cli/serveDefaults.ts`（`--port` 旗标仍最高优先）；
+//   · 后端 serve 默认端口 → `src/apps/cli/serveDefaults.ts`（`--port` 旗标仍最高优先）；
 //   · 后端绑定主机 → `ServerAuthGuard.DEFAULT_HOST` + `OMNI_SERVE_HOST`（既有事实源）。
 // devConfig 的默认值是 serveDefaults 的**镜像**（node 脚本 import 不了后端 TS）——本判据同时钉住
 // 镜像一致性：改默认端口必须两处同改，否则这里红。
@@ -63,9 +63,9 @@ test('消费者文件里不得再有端口/回环主机字面量（一律走 scr
 
 test('devConfig 的默认值与后端 serveDefaults / ServerAuthGuard 保持一致（镜像一致性）', () => {
   const devConfig = readFileSync(join(ROOT, 'scripts', 'devConfig.mjs'), 'utf8');
-  const serveDefaults = readFileSync(join(ROOT, 'src', 'cli', 'serveDefaults.ts'), 'utf8');
+  const serveDefaults = readFileSync(join(ROOT, 'src', 'apps', 'cli', 'serveDefaults.ts'), 'utf8');
   const authGuard = readFileSync(
-    join(ROOT, 'src', 'server', 'transport', 'serverAuthGuard.ts'),
+    join(ROOT, 'src', 'apps', 'server', 'transport', 'serverAuthGuard.ts'),
     'utf8',
   );
 

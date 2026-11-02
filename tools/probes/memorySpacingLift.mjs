@@ -22,7 +22,7 @@
  *
  * ## 前置
  *
- * 需要编译产物：先 `npm run build`（本探针 import `dist/src/adapters/memory/**`）。
+ * 需要编译产物：先 `npm run build`（本探针 import `dist/src/kernel/adapters/memory/**`）。
  *
  * ## 用法
  *
@@ -38,7 +38,7 @@
  * - 强化是**序列化**发生的（ON 跑 30 条查询的过程本身在写回稳定度）——这正是真实使用形态，
  *   但意味着结果对查询顺序敏感（顺序已冻结进种子，可复现）。
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync , existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -48,7 +48,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
-  import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
+  import(pathToFileURL(resolveDist(...segments)).href);
 
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释：旗标错不该被
 // "缺少编译产物"盖住）。
@@ -80,7 +80,7 @@ try {
   ({ ResonantFieldEngine } = await importDist('adapters', 'memory', 'resonantFieldEngine.js'));
 } catch (error) {
   console.error(
-    '✗ 缺少编译产物。请先运行 `npm run build`（本探针需要 dist/src/adapters/memory/**）。\n' +
+    '✗ 缺少编译产物。请先运行 `npm run build`（本探针需要 dist/src/kernel/adapters/memory/**）。\n' +
       `  原因：${error instanceof Error ? error.message : String(error)}`,
   );
   process.exit(2);
@@ -265,3 +265,17 @@ if (JSON_OUT !== '') {
   writeFileSync(JSON_OUT, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 }
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+
+/**
+ * 2026-11-02 分层后：dist 布局变为 dist/src/<layer>/<module>/...。
+ * 探针按模块名调用（如 importDist('config', 'x.js')），这里按层前缀解析，
+ * 命中不到回落旧布局（保持对旧产物的兼容）。
+ */
+function resolveDist(...segments) {
+  const [head, ...rest] = segments;
+  for (const layer of ['kernel', 'contracts', 'protocols', 'apps']) {
+    const candidate = join(ROOT, 'dist', 'src', layer, head, ...rest);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(ROOT, 'dist', 'src', ...segments);
+}

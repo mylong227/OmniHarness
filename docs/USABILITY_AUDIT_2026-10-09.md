@@ -90,14 +90,14 @@
 - **证据（改动前，实跑）**：
 
   ```bash
-  node dist/src/cli/exec.js --modle foo
+  node dist/src/apps/cli/exec.js --modle foo
   # OmniHarness执行失败: 未知旗标 --modle（本 CLI 不认识它；用 --help 查看全部旗标。…）
   ```
 
   而 `--help` 是 **100+ 行**全量清单——真实使用里最高频的失败不是"用了不存在的功能"，
   而是**手滑打错一个字母**，此时客户要在几百行里找那个正确的名字。
 
-- **修复**：`src/cli/flagSuggestion.ts`（新）。判据口径**宁缺勿滥**：
+- **修复**：`src/apps/cli/flagSuggestion.ts`（新）。判据口径**宁缺勿滥**：
   只猜长旗标；归一化剥掉全部前导 `-`（`-model` ⇒ `--model`）；**首字符必须一致**；
   距离用 **OSA**（`modle → model` 是换位，普通 Levenshtein 距离是 2，会被阈值挡掉）；
   并列最优时**闭嘴**。
@@ -120,11 +120,11 @@
 - **现象（客户视角就是"一启动就报错"）**：
 
   ```bash
-  node dist/src/cli/exec.js doctor        # 或 session list / kv list --kv-adapter memory / …
+  node dist/src/apps/cli/exec.js doctor        # 或 session list / kv list --kv-adapter memory / …
   # (node:22004) ExperimentalWarning: SQLite is an experimental feature and might change at any time
   ```
 
-- **根因**：`src/adapters/kv/sqliteKv.ts` 顶层 **值导入** `node:sqlite`，而 `src/adapters/index.ts`
+- **根因**：`src/kernel/adapters/kv/sqliteKv.ts` 顶层 **值导入** `node:sqlite`，而 `src/kernel/adapters/index.ts`
   这条 barrel 把它**静态**带进 CLI 装配链（`cliServerCmds` → `adapters/index` → `sqliteKv`）。
 - **这是一处"声明与实现不一致"**：同类文件 `sqliteStorage.ts` 早已是 `createRequire` 懒加载，
   而 `kvStoreFactory.ts` 的注释也写着"sqlite 后端**懒加载**"——**文档说了、代码没做**。
@@ -165,7 +165,7 @@
 - **当时的证据**：本工作区每次 CLI 调用都会在 stderr 打印
   `[omniharness] bundle 补丁层忽略非法配置项: k（来自 a-signed.json）`（实测多条），
   而这句话没告诉客户**怎么办**（哪个键合法？改了会怎样？）。
-- **修法**（`src/config/configError.ts`）：`ConfigError.knownConfigKeys()` 成为合法键的
+- **修法**（`src/kernel/config/configError.ts`）：`ConfigError.knownConfigKeys()` 成为合法键的
   **单一公开出口**；未知键报错与 bundle 补丁层告警统一带上
   `可用：a2a / apiKey / …（共 N 项，完整清单见 omniharness.json.example）`——
   即"可行动"形态（点名非法键 + 给出合法键清单 + 指向完整清单文件）。
@@ -182,8 +182,8 @@
 | 2   | F2 默认视图无时间  | 同上（行内紧凑时间，两个分组视图共用）                                    | `web/test/sessionRowMeta.test.ts` ②     |
 | 3   | F3 按钮虚占 86px   | `web/styles/polish.css`（覆盖层；标题 73→183px）                          | `web/test/sessionRowMeta.test.ts` ④     |
 | 4   | F4 空态无引导      | `web/src/ui/models/StarterTasks.ts`（新）+ `ComposerController.seedDraft` | `web/test/starterTasks.test.ts` ①–⑤     |
-| 5   | F5 拼错旗标无建议  | `src/cli/flagSuggestion.ts`（新）+ `argParser` 接线                       | `tests/unit/flagSuggestion.test.ts` ①–⑥ |
-| 6   | F6 sqlite 警告噪声 | `src/adapters/kv/sqliteKv.ts`（真懒加载）                                 | `tests/unit/sqliteLazyLoad.test.ts` ①–③ |
+| 5   | F5 拼错旗标无建议  | `src/apps/cli/flagSuggestion.ts`（新）+ `argParser` 接线                       | `tests/unit/flagSuggestion.test.ts` ①–⑥ |
+| 6   | F6 sqlite 警告噪声 | `src/kernel/adapters/kv/sqliteKv.ts`（真懒加载）                                 | `tests/unit/sqliteLazyLoad.test.ts` ①–③ |
 | 7   | F7 旗标墙          | `defaults/cliHelp.json` + `CliHelp` 渲染                                  | `tests/unit/cliHelp.test.ts` ①⑦         |
 
 ---

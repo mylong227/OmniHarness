@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import { NativeKernel, NativeKernelUnavailableError } from '../../src/native/nativeKernel.ts';
+import { NativeKernel, NativeKernelUnavailableError } from '../../src/kernel/native/nativeKernel.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
 /**

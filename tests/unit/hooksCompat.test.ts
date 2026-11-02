@@ -1,9 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import { GenericHooksMapper } from '../../src/hooksCompat/genericHooksMapper.ts';
-import { ClaudeCodeHooksMapper } from '../../src/hooksCompat/claudeCodeHooksMapper.ts';
-import { HooksCompatAdapter } from '../../src/hooksCompat/hooksCompatAdapter.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import { GenericHooksMapper } from '../../src/apps/hooksCompat/genericHooksMapper.ts';
+import { ClaudeCodeHooksMapper } from '../../src/apps/hooksCompat/claudeCodeHooksMapper.ts';
+import { HooksCompatAdapter } from '../../src/apps/hooksCompat/hooksCompatAdapter.ts';
 
 /** 构造测试事件。 */
 function ev(type: SessionEvent['type'], payload: unknown): SessionEvent {

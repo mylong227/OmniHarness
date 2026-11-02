@@ -46,7 +46,7 @@
  * - 数字随语料变化而变（`src/` 每加文件都会影响召回）⇒ **跨提交比较必须同语料**；
  * - hybrid 的 `semanticFallbacks>0` 表示有查询静默退化为 BM25，数字含水分；`--strict` 会直接失败。
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync , existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { probeArgs } from './_args.mjs';
@@ -55,7 +55,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
-  import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
+  import(pathToFileURL(resolveDist(...segments)).href);
 
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释：旗标错不该被
 // "缺少编译产物"盖住）。`--rerank` 既接受裸开关也接受 `--rerank=1`。
@@ -364,4 +364,18 @@ if (STRICT) {
       process.exit(3);
     }
   }
+}
+
+/**
+ * 2026-11-02 分层后：dist 布局变为 dist/src/<layer>/<module>/...。
+ * 探针按模块名调用（如 importDist('config', 'x.js')），这里按层前缀解析，
+ * 命中不到回落旧布局（保持对旧产物的兼容）。
+ */
+function resolveDist(...segments) {
+  const [head, ...rest] = segments;
+  for (const layer of ['kernel', 'contracts', 'protocols', 'apps']) {
+    const candidate = join(ROOT, 'dist', 'src', layer, head, ...rest);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(ROOT, 'dist', 'src', ...segments);
 }

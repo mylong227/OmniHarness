@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { RequestStallGuard } from '../../src/adapters/model/requestStallGuard.ts';
+import { RequestStallGuard } from '../../src/kernel/adapters/model/requestStallGuard.ts';
 
 /** 等待指定毫秒：守卫的计时断言需要真实时钟（不注入假时钟，避免测不到真实 setTimeout）。 */
 function wait(ms: number): Promise<void> {

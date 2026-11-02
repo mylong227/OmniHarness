@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TokenEstimatorCalibrator } from '../../src/context/tokenEstimatorCalibrator.ts';
+import { TokenEstimatorCalibrator } from '../../src/kernel/context/tokenEstimatorCalibrator.ts';
 
 test('CTX-02：校准报告给出 median/p90 误差与系数', () => {
   const calibrator = new TokenEstimatorCalibrator();

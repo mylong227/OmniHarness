@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert/strict';
 import { test } from 'vitest';
 import { PassThrough, type Writable } from 'node:stream';
-import { TuiRenderer, type TuiEvent } from '../../src/tui/tuiRenderer.ts';
-import { Interactive } from '../../src/tui/interactive.ts';
+import { TuiRenderer, type TuiEvent } from '../../src/apps/tui/tuiRenderer.ts';
+import { Interactive } from '../../src/apps/tui/interactive.ts';
 
 function collect(out: Writable): Promise<string> {
   return new Promise((resolve) => {

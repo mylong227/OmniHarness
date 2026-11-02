@@ -1,0 +1,143 @@
+import type {
+  ToolCall,
+  ToolContext,
+  ToolDefinition,
+  ToolResult,
+} from '../../../../contracts/ports/tool/tool.ts';
+
+import type { AgentFactoryPort } from '../../../../contracts/ports/runtime/agent.ts';
+import { subagentRuntimeFactory } from '../../../subagent/subagentRuntimeFactory.ts';
+import { SubagentEventBridge } from '../../../subagent/subagentEventBridge.ts';
+import { ToolSubset } from '../../../subagent/toolSubset.ts';
+import { GoalRunner, type GoalRunnerOptions } from '../../../autonomy/goalRunner.ts';
+import { GoalChecker } from '../../../autonomy/goalChecker.ts';
+import { RUN_GOAL_TOOL_NAME } from '../../../autonomy/goalToolNames.ts';
+import { RECURSION_TOOL_NAMES } from '../../../../contracts/ports/tool/toolNames.ts';
+import type { SubagentPortsShape } from '../../../../contracts/ports/subagent/subagentPortsShape.ts';
+
+/** 模型面 run_goal 工具：派生一个进程内自主目标循环完成子目标。 */
+export class RunGoalTool {
+  /**
+   * 单次 `run_goal` 的迭代上限（硬夹）。
+   *
+   * 依据（2026-09-26 审计 F5）：每轮迭代都是一次**完整 Agent 回合**（含检索、工具、模型调用），
+   * 原实现只校验「正有限数」，模型可以合法地传 `1e9` ⇒ 等于把无上限的时间与 token 预算交给
+   * 模型的单次工具调用。50 轮远超实际需要（默认 10 已足够完成任务级目标）。
+   */
+  public static readonly MAX_ITERATIONS = 50;
+
+  /** 工具定义。 */
+  public readonly definition: ToolDefinition = {
+    name: RUN_GOAL_TOOL_NAME,
+    description:
+      '派生一个进程内自主目标循环完成子目标：独立会话、受限工具集、不可再派生 run_goal/subagent。适合目标明确、需多轮自主推进才能完成的子任务。',
+    parameters: {
+      type: 'object',
+      properties: {
+        goal: {
+          type: 'string',
+          description: '子目标描述。需自包含——目标循环看不到主会话历史。',
+        },
+        tools: {
+          type: 'array',
+          description:
+            '可选：授权给目标循环的工具名列表；不传则继承除 run_goal/subagent 外的全部工具。',
+        },
+        maxIterations: {
+          type: 'number',
+          description: '可选：最大迭代次数（默认 10）。',
+        },
+      },
+      required: ['goal'],
+    },
+  };
+
+  /**
+   * @param ports 子智能体端口束（工具端口、模型、事件、步数上限等）。
+   * @param options 目标循环选项（最大迭代等，可被调用参数覆盖）。
+   * @param agentFactory 智能体工厂（由目标循环运行时创建 Agent）。
+   */
+  public constructor(
+    private readonly ports: SubagentPortsShape,
+    private readonly options: GoalRunnerOptions = {},
+    private readonly agentFactory: AgentFactoryPort,
+  ) {}
+
+  /** 派生并运行自主目标循环。
+   * @param call 工具调用（实参含 goal，可选 tools/maxIterations）。
+   * @param context 工具上下文（目标循环使用独立会话，但读其 signal：父会话取消信号）。
+   * @returns 执行结果：成功附达成状态与最终文本；缺 goal 实参返回失败。
+   */
+  public async handle(call: ToolCall, context: ToolContext): Promise<ToolResult> {
+    const goal = String(call.arguments['goal'] ?? '').trim();
+    if (goal === '') {
+      return { callId: call.id, ok: false, error: '缺少子目标描述: goal' };
+    }
+    const bridge = new SubagentEventBridge();
+    const runtime = subagentRuntimeFactory.build(
+      this.ports,
+      this.toolViewOf(call),
+      bridge,
+      this.ports.maxSteps,
+      // 取消传播：父会话取消 → 目标循环的在飞模型请求中止。
+      context.signal,
+    );
+    const agent = this.agentFactory.create(runtime);
+    const runner = new GoalRunner(agent, new GoalChecker(this.ports.model), {
+      ...this.options,
+      maxIterations: this.maxIterationsOf(call),
+      // 父取消后不再开启下一轮迭代（每轮都是一次完整回合，不提前收手会继续烧 token）。
+      signal: context.signal,
+    });
+    const result = await runner.run(goal);
+    return { callId: call.id, ok: true, output: this.render(result) };
+  }
+
+  /** 渲染结果为带元信息的文本（子会话 ID 可回溯完整轨迹）。
+   * @param result 目标循环运行结果。
+   * @returns 首行元信息（会话 ID/达成与否/轮数）+ 最终文本。
+   */
+  private render(result: {
+    readonly achieved: boolean;
+    readonly iterations: number;
+    readonly sessionId: string;
+    readonly finalText?: string | undefined;
+  }): string {
+    const verdict = result.achieved ? '已达成' : '未达成';
+    const head = `[目标循环 ${result.sessionId}] ${verdict}｜${result.iterations} 轮`;
+    return `${head}\n${result.finalText ?? ''}`;
+  }
+
+  /** 提取可选的工具白名单（未提供则继承全部工具），并强制剔除全部**再派生入口**防递归。
+   *
+   * 口径单一来源 `RECURSION_TOOL_NAMES`（2026-11-01 收口）：此前只剔 run_goal/subagent，
+   * 目标循环里仍可经 run_workflow/run_plan/delegate/a2a_delegate 再起执行回合。
+   * @param call 工具调用（实参可能含 tools 数组）。
+   * @returns 基于注册表过滤后的受限工具视图。
+   */
+  private toolViewOf(call: ToolCall) {
+    const raw = call.arguments['tools'];
+    const names = Array.isArray(raw)
+      ? raw.filter((entry): entry is string => typeof entry === 'string')
+      : undefined;
+    const allowed = new Set(
+      (names ?? this.ports.tools.list().map((definition) => definition.name)).filter(
+        (name) => !RECURSION_TOOL_NAMES.has(name),
+      ),
+    );
+    return new ToolSubset(this.ports.tools, allowed);
+  }
+
+  /** 提取可选的最大迭代次数（工具参数优先于构造期默认值）。
+   * @param call 工具调用（实参可能含 maxIterations）。
+   * @returns 有效的最大迭代次数；参数非法且未配置默认时为 undefined。
+   */
+  private maxIterationsOf(call: ToolCall): number | undefined {
+    const raw = call.arguments['maxIterations'];
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+      // 上限硬夹（2026-09-26 审计 F5）：见 {@link RunGoalTool.MAX_ITERATIONS} 的说明。
+      return Math.min(Math.floor(raw), RunGoalTool.MAX_ITERATIONS);
+    }
+    return this.options.maxIterations;
+  }
+}

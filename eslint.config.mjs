@@ -135,10 +135,10 @@ export default tseslint.config(
     // 暂缓 explicit-member-accessibility 门禁，避免与其改动冲突；待其收口后删除本覆盖块，
     // 使热区文件同样纳入规范 #1。no-explicit-any 无需豁免（全库 0 处）。
     files: [
-      'src/core/stepRunner.ts',
-      'src/core/turnRunner.ts',
-      'src/ports/toolInputSink.ts',
-      'src/adapters/live/**',
+      'src/kernel/core/stepRunner.ts',
+      'src/kernel/core/turnRunner.ts',
+      'src/contracts/ports/toolInputSink.ts',
+      'src/kernel/adapters/live/**',
     ],
     rules: {
       '@typescript-eslint/explicit-member-accessibility': 'off',

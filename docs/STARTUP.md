@@ -53,7 +53,7 @@ npm start -- --open                    # 就绪后自动打开浏览器（双击
 
 - 源码在 `web/src/`（`.ts` / `.tsx`），宿主页 `web/index.html` 是 Vite 的入口；
 - **`web/dist/**` 由 `npm run web:build`（`vite build`）产出** —— 单页多 chunk（vendor 拆分）；
-- `serve` 的静态资源取自 **`web/dist/`**（`src/cli/cliServerCmds.ts` 优先解析该目录；
+- `serve` 的静态资源取自 **`web/dist/`**（`src/apps/cli/cliServerCmds.ts` 优先解析该目录；
   无产物时回落 `web/`，那时会因缺 `assets/` 而白屏——这正是"忘记构建"的可辨形态）；
 - 开发时用 **Vite dev server + HMR**（`npm run web:dev` / `npm run dev`），
   它把 `/rpc` `/events` `/files` 代理到后端，**访问 5173 而不是后端端口**。
@@ -62,9 +62,9 @@ npm start -- --open                    # 就绪后自动打开浏览器（双击
 
 | 步  | 做什么               | 命令                              | 漏掉的症状                              |
 | --- | -------------------- | --------------------------------- | --------------------------------------- |
-| ①   | 编服务端 → `dist/`   | `npm run build`                   | `node dist/src/cli/exec.js` 找不到      |
+| ①   | 编服务端 → `dist/`   | `npm run build`                   | `node dist/src/apps/cli/exec.js` 找不到      |
 | ②   | 编前端 → `web/dist/` | `npm run web:build`               | **页面能打开但一片空白**（入口 JS 404） |
-| ③   | 起服务               | `node dist/src/cli/exec.js serve` | 没有可访问的地址                        |
+| ③   | 起服务               | `node dist/src/apps/cli/exec.js serve` | 没有可访问的地址                        |
 
 `npm start` 就是把这三步固化成一个入口（实现：[`../scripts/startAll.mjs`](../scripts/startAll.mjs)），
 **任一步失败即中止**（绝不"构建失败还起服务"——那只会让人对着旧产物调 bug）。
@@ -101,7 +101,7 @@ npm start
 等价手敲：
 
 ```bash
-npm run build && npm run web:build && node dist/src/cli/exec.js serve
+npm run build && npm run web:build && node dist/src/apps/cli/exec.js serve
 ```
 
 跳过构建（已经构建过、只想快速重启）：
@@ -125,9 +125,9 @@ npm run dev -- --port 9000      # 参数透传
 ### 3.4 后台常驻（无人值守）
 
 ```bash
-node dist/src/cli/exec.js daemon start     # 后台起 serve（PID 文件管理）
-node dist/src/cli/exec.js daemon status
-node dist/src/cli/exec.js daemon stop
+node dist/src/apps/cli/exec.js daemon start     # 后台起 serve（PID 文件管理）
+node dist/src/apps/cli/exec.js daemon status
+node dist/src/apps/cli/exec.js daemon stop
 ```
 
 ---
@@ -196,7 +196,7 @@ curl -s -X POST http://127.0.0.1:8787/rpc \
 | --------------------------------------- | ------------------------------------------------------------------- |
 | 前台运行（`npm start` / `npm run dev`） | **Ctrl+C**（会连同子进程一起收走）                                  |
 | 双击 `start.cmd`                        | 在窗口里按 **Ctrl+C**，或直接关掉那个窗口                           |
-| 后台常驻                                | `node dist/src/cli/exec.js daemon stop`                             |
+| 后台常驻                                | `node dist/src/apps/cli/exec.js daemon stop`                             |
 | 端口被占用                              | 换端口 `npm start -- --port 9000`；或先找出占用进程再决定是否结束它 |
 | 重启（改了后端）                        | Ctrl+C → `npm start`（构建是增量的，通常十几秒）                    |
 
@@ -220,7 +220,7 @@ curl -s -X POST http://127.0.0.1:8787/rpc \
 **配置分层**（后者覆盖前者）：内置默认 → 用户级 → 项目级 → `--profile` → bundle 补丁 → 环境变量 → CLI 旗标。
 
 **当前项目（`workspace`）只在用户级配置里**，且写回时把家目录下路径压成 `~/…`（可移植写法，见
-[`../src/util/portablePath.ts`](../src/util/portablePath.ts)）——同一份配置换机器/换用户名/换盘符仍能落到正确目录。
+[`../src/kernel/util/portablePath.ts`](../src/kernel/util/portablePath.ts)）——同一份配置换机器/换用户名/换盘符仍能落到正确目录。
 要在别处启动也读到同一个项目：**在 UI 顶栏切一次项目**（这就是"固定在本机"的配置动作），
 或直接编辑 `~/.omniharness/omniharness.json` 的 `workspace`。
 
@@ -270,7 +270,7 @@ curl -s -X POST http://127.0.0.1:8787/rpc \
 | 双击 `start.cmd` 窗口**一闪而过**、连 `[X]` 都没有     | 该文件被检出成了 LF（批处理的 `goto`/标签跳转不稳） | 确认 `.gitattributes` 的 `*.cmd text eol=crlf` 生效后重新检出该文件  |
 | `EADDRINUSE`                                           | 端口被占                                            | `npm start -- --port 9000`                                           |
 | 打开 `localhost:8787` 连不上，但 `127.0.0.1:8787` 正常 | 只绑了回环、`localhost` 解析到 `::1`                | 用 `127.0.0.1`；确需 `localhost` 请显式绑定                          |
-| 启动失败：`未知旗标 --xxx`                             | 旗标拼错，或该旗标未登记（fail-closed）             | `--help` 查正确名；若是新旗标需登记进 `src/cli/knownFlags.ts`        |
+| 启动失败：`未知旗标 --xxx`                             | 旗标拼错，或该旗标未登记（fail-closed）             | `--help` 查正确名；若是新旗标需登记进 `src/apps/cli/knownFlags.ts`        |
 | 启动失败：`配置文件不是合法 JSON`                      | 配置缺逗号/多了尾逗号等真语法错                     | 修配置；**带 BOM 不是问题**（本仓已容忍 BOM）                        |
 | UI 里看到的项目不是你想操作的那个                      | 解析链命中了"本机固定项目"                          | 看启动横幅第一行；用 `--workspace` 覆盖，或在 UI 顶栏切换项目        |
 | 下达任务后无响应                                       | 审批卡住（`rules` 档危险动作等你在 UI 点「允许」）  | 在 UI 点允许；或临时 `--approval auto` / `--auto-approve`            |

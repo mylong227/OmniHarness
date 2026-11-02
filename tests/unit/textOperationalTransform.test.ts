@@ -3,8 +3,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TextOperationalTransform } from '../../src/util/textOperationalTransform.ts';
-import type { TextInsertOperation } from '../../src/util/textOperationalTransform.ts';
+import { TextOperationalTransform } from '../../src/kernel/util/textOperationalTransform.ts';
+import type { TextInsertOperation } from '../../src/kernel/util/textOperationalTransform.ts';
 
 /** 所有合法插入（文本 "abcd" 上位置 0..4，插入 X/Y）。 */
 function operations(length: number): TextInsertOperation[] {

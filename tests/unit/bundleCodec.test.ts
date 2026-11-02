@@ -14,8 +14,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { BundleCodec, BUNDLE_MANIFEST_ENTRY } from '../../src/plugin/bundleCodec.ts';
-import { PluginBundler } from '../../src/plugin/pluginBundler.ts';
+import { BundleCodec, BUNDLE_MANIFEST_ENTRY } from '../../src/kernel/plugin/bundleCodec.ts';
+import { PluginBundler } from '../../src/kernel/plugin/pluginBundler.ts';
 
 /**
  * 手工构造一个 zip-store 包（可控内容，用于畸形包判据）。

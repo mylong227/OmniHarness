@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowIsolation } from '../../src/autonomy/workflowIsolation.ts';
+import { WorkflowIsolation } from '../../src/kernel/autonomy/workflowIsolation.ts';
 
 function initRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'wf-iso-repo-'));

@@ -6,8 +6,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextCompactor } from '../../src/context/contextCompactor.ts';
-import type { ModelMessage } from '../../src/ports/model/modelMessage.ts';
+import { ContextCompactor } from '../../src/kernel/context/contextCompactor.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/modelMessage.ts';
 
 /** 旧实现（参考口径；2026-10-28 起含 toolCalls）。 */
 function reference(messages: readonly ModelMessage[]): string {

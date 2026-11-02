@@ -5,7 +5,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { ImmuneMonitor } from '../../src/adapters/monitoring/immuneMonitor.ts';
+import { ImmuneMonitor } from '../../src/kernel/adapters/monitoring/immuneMonitor.ts';
 
 function trainNormal(m: ImmuneMonitor, base: number[], n = 12): void {
   for (let i = 0; i < n; i++) {

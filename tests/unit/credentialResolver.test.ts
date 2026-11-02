@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CredentialResolver } from '../../src/config/credentialResolver.ts';
-import type { VaultPort } from '../../src/ports/memory/vault.ts';
+import { CredentialResolver } from '../../src/kernel/config/credentialResolver.ts';
+import type { VaultPort } from '../../src/contracts/ports/memory/vault.ts';
 
 /** 内存保险库桩：记录读取次数，可注入失败，用于验证解析链的优先级与 fail-closed 行为。 */
 class StubVault implements VaultPort {

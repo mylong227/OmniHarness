@@ -12,12 +12,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
-import { LlamaCppModel } from '../../src/adapters/model/llamaCppModel.ts';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
-import { ResponsesModel } from '../../src/adapters/model/responsesModel.ts';
-import { ModelCallError } from '../../src/ports/model/model.ts';
-import type { ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
+import { AnthropicModel } from '../../src/kernel/adapters/model/anthropicModel.ts';
+import { LlamaCppModel } from '../../src/kernel/adapters/model/llamaCppModel.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
+import { ResponsesModel } from '../../src/kernel/adapters/model/responsesModel.ts';
+import { ModelCallError } from '../../src/contracts/ports/model/model.ts';
+import type { ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
 
 /** 空闲阈值（毫秒）：取小值让用例快速跑到中止。 */
 const IDLE_MS = 60;

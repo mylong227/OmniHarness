@@ -13,9 +13,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { RbacPolicy } from '../../src/security/rbacPolicy.ts';
-import { TOOL_NAMES, MUTATING_TOOL_NAMES } from '../../src/ports/tool/toolNames.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
+import { RbacPolicy } from '../../src/kernel/security/rbacPolicy.ts';
+import { TOOL_NAMES, MUTATING_TOOL_NAMES } from '../../src/contracts/ports/tool/toolNames.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
 
 /**
  * 造一个工具调用。

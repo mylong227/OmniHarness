@@ -13,7 +13,7 @@
  * 故本探针量的是**机制**——回灌内容本身：
  *  - **注入覆盖率**：多少条查询至少注入了 1 条事实（primer 关时为 0）；
  *  - **相关性（hitRate@5）**：查询**所问的那条事实**是否进了 primer 的 5 个名额
- *    （选择口径与生产一致：`memory.recall(prompt, 5)`，见 `src/core/sessionInjector.ts`）；
+ *    （选择口径与生产一致：`memory.recall(prompt, 5)`，见 `src/kernel/core/sessionInjector.ts`）；
  *  - **代价**：回灌文本的估算 token（`TokenEstimator.estimate`）。
  *
  * **它不能证明**"记忆让任务更成功"——那需要真实模型与任务集。本探针只回答："回灌的内容是否**相关**、
@@ -41,7 +41,7 @@
  * - 相关性用"锚点命中"机械判定（无模型、无标注噪声），因此它测的是**检索机制**，不是"这条事实对不对"；
  * - primer 关时覆盖率恒 0、代价恒 0（这是构造性的，不是测出来的"增益"）。
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync , existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -51,7 +51,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
-  import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
+  import(pathToFileURL(resolveDist(...segments)).href);
 
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
 const a = probeArgs({ values: { k: '5', json: '', lens: 'base' } });
@@ -304,4 +304,18 @@ try {
   }
 } finally {
   cleanup();
+}
+
+/**
+ * 2026-11-02 分层后：dist 布局变为 dist/src/<layer>/<module>/...。
+ * 探针按模块名调用（如 importDist('config', 'x.js')），这里按层前缀解析，
+ * 命中不到回落旧布局（保持对旧产物的兼容）。
+ */
+function resolveDist(...segments) {
+  const [head, ...rest] = segments;
+  for (const layer of ['kernel', 'contracts', 'protocols', 'apps']) {
+    const candidate = join(ROOT, 'dist', 'src', layer, head, ...rest);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(ROOT, 'dist', 'src', ...segments);
 }

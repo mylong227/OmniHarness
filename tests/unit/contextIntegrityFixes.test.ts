@@ -18,18 +18,18 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SemanticIndexCache } from '../../src/context/semanticIndexCache.ts';
-import { RecallKnobs } from '../../src/context/recallKnobs.ts';
-import { ToolResultSpiller } from '../../src/context/toolResultSpiller.ts';
-import { DeterministicCompressor } from '../../src/context/deterministicCompressor.ts';
-import { ContextCompactor, COMPACTION_MARKER } from '../../src/context/contextCompactor.ts';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { ModelMessage, ModelPort } from '../../src/ports/model/model.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { SpillHandle, SpillPort } from '../../src/ports/memory/spill.ts';
+import { SemanticIndexCache } from '../../src/kernel/context/semanticIndexCache.ts';
+import { RecallKnobs } from '../../src/kernel/context/recallKnobs.ts';
+import { ToolResultSpiller } from '../../src/kernel/context/toolResultSpiller.ts';
+import { DeterministicCompressor } from '../../src/kernel/context/deterministicCompressor.ts';
+import { ContextCompactor, COMPACTION_MARKER } from '../../src/kernel/context/contextCompactor.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
+import type { StepRunnerDeps } from '../../src/kernel/core/stepTypes.ts';
+import type { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { ModelMessage, ModelPort } from '../../src/contracts/ports/model/model.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { SpillHandle, SpillPort } from '../../src/contracts/ports/memory/spill.ts';
 
 /**
  * 取私有缓存表（探针需要直接观察键留存，生产代码无公开迭代口）。

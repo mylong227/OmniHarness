@@ -1,7 +1,7 @@
 import { describe, it } from 'vitest';
 import { strict as assert } from 'node:assert';
-import { ToolRoundSanitizer } from '../../src/util/toolRoundSanitizer.ts';
-import type { ModelMessage } from '../../src/ports/model/model.ts';
+import { ToolRoundSanitizer } from '../../src/kernel/util/toolRoundSanitizer.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/model.ts';
 
 const toolCall = (id: string) => ({ id, name: 'x', arguments: {} as Record<string, unknown> });
 

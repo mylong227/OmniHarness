@@ -4,14 +4,14 @@ import type {
   ApprovalDecision,
   ApprovalPort,
   ApprovalRequest,
-} from '../../src/ports/runtime/approval.ts';
+} from '../../src/contracts/ports/runtime/approval.ts';
 import {
   CommandCanonicalizer,
   CMD_SCRIPT_MARKER,
   POWERSHELL_SCRIPT_MARKER,
   SHELL_SCRIPT_MARKER,
-} from '../../src/util/commandCanonicalizer.ts';
-import { CachedApproval } from '../../src/adapters/approval/cachedApproval.ts';
+} from '../../src/kernel/util/commandCanonicalizer.ts';
+import { CachedApproval } from '../../src/kernel/adapters/approval/cachedApproval.ts';
 
 /** 计数审批端口：记录被问次数与最后一次请求，可预置裁决。 */
 class CountingApproval implements ApprovalPort {

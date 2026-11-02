@@ -23,12 +23,12 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** 扫描根（本仓生产源码）。 */
-const ROOTS = ['src/cli', 'src/server'];
+const ROOTS = ['src/apps/cli', 'src/apps/server'];
 
 /** 允许出现 `localhost` 的文件（用户自备端点的口径：我们不去规定别人的服务绑哪个地址）。 */
 const ALLOWED_FILES: ReadonlySet<string> = new Set([
   // 本地模型服务端点（Ollama 等）是**用户自备**的地址，不属本仓服务。
-  'src/cli/cliModelCmds.ts',
+  'src/apps/cli/cliModelCmds.ts',
 ]);
 
 /**
@@ -72,7 +72,7 @@ test('回环地址：本仓服务对外输出的 URL 不得写 localhost（Windo
 });
 
 test('回环地址：服务端默认绑定常量存在且为回环 IPv4（判据依赖它，不能悄悄改）', async () => {
-  const { ServerAuthGuard } = await import('../../src/server/transport/serverAuthGuard.ts');
+  const { ServerAuthGuard } = await import('../../src/apps/server/transport/serverAuthGuard.ts');
   assert.strictEqual(
     ServerAuthGuard.DEFAULT_HOST,
     '127.0.0.1',

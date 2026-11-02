@@ -9,11 +9,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ToolExposurePlanner } from '../../src/core/toolExposurePlanner.ts';
-import { ToolIndex } from '../../src/search/toolIndex.ts';
-import { ToolSearchTool } from '../../src/adapters/tool/meta/toolSearchTool.ts';
-import type { ToolDefinition } from '../../src/ports/tool/tool.ts';
-import type { ToolDiscoveryPort } from '../../src/ports/tool/toolDiscoveryPort.ts';
+import { ToolExposurePlanner } from '../../src/kernel/core/toolExposurePlanner.ts';
+import { ToolIndex } from '../../src/kernel/search/toolIndex.ts';
+import { ToolSearchTool } from '../../src/kernel/adapters/tool/meta/toolSearchTool.ts';
+import type { ToolDefinition } from '../../src/contracts/ports/tool/tool.ts';
+import type { ToolDiscoveryPort } from '../../src/contracts/ports/tool/toolDiscoveryPort.ts';
 
 /** 造一个工具定义。 */
 function tool(name: string, description: string): ToolDefinition {

@@ -6,16 +6,16 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { StepRunner } from '../../src/core/stepRunner.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import { ModelCallError } from '../../src/errors/modelCallError.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/ports/model/model.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
-import type { ToolPort } from '../../src/ports/tool/tool.ts';
+import { StepRunner } from '../../src/kernel/core/stepRunner.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import { ModelCallError } from '../../src/contracts/errors/modelCallError.ts';
+import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
+import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
 
 function recorderFor(sessionId: string): SessionRecorder {
   return new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), sessionId);

@@ -117,7 +117,7 @@ executor 可通过 `DelegateResult.authRequired: A2aAuthChallenge` 声明「继�
 不重写现有 Web 前端 / RPC / SSE，而是提供**库适配层 + 独立 HTTP/SSE 端点**：
 
 ```ts
-import { AgUiHttpServer } from './dist/src/agui/index.js';
+import { AgUiHttpServer } from './dist/src/protocols/agui/index.js';
 const server = new AgUiHttpServer({ run: myRunner }); // myRunner 返回 OmniHarness SessionEvent 流
 await server.listen(9001);
 ```

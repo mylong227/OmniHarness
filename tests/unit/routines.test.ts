@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { RoutineScheduler } from '../../src/daemon/routineScheduler.ts';
-import type { Routine } from '../../src/daemon/routineScheduler.ts';
+import { RoutineScheduler } from '../../src/apps/daemon/routineScheduler.ts';
+import type { Routine } from '../../src/apps/daemon/routineScheduler.ts';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -5,7 +5,7 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { LimitEnv } from '../../src/util/limitEnv.ts';
+import { LimitEnv } from '../../src/kernel/util/limitEnv.ts';
 
 const KEY = 'OMNI_TEST_LIMIT_UNIT';
 

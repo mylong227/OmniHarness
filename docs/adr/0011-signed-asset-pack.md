@@ -9,8 +9,8 @@
 Wave B 让「一切能力成为统一资产」，但资产目前只能在**本进程内**注册。L4 分发层要回答的是
 「别人做的资产怎么安全地进来」。仓内已有两件相关资产：
 
-- `bundle pack/unpack`（`src/plugin/pluginBundler.ts`）：`.ohb` = zip + `bundle.json` + **HMAC-SHA256**（对称密钥来自本地 key file）；
-- `Ed25519AgentIdentity`（`src/adapters/identity/ed25519AgentIdentity.ts`）：`node:crypto` 原生 Ed25519 身份，`sign(payload)` / `verify(payload, sig)` / `publicKeySsh()`。
+- `bundle pack/unpack`（`src/kernel/plugin/pluginBundler.ts`）：`.ohb` = zip + `bundle.json` + **HMAC-SHA256**（对称密钥来自本地 key file）；
+- `Ed25519AgentIdentity`（`src/kernel/adapters/identity/ed25519AgentIdentity.ts`）：`node:crypto` 原生 Ed25519 身份，`sign(payload)` / `verify(payload, sig)` / `publicKeySsh()`。
 
 **HMAC 对称密钥不适合分发**：验签方必须持有同一把密钥，于是「谁能验签」等于「谁能伪造」；
 而且既有 `unpackBundle` 的校验是**条件式**的——只有「清单带签名**且**调用方给了 keyFile」才校验，

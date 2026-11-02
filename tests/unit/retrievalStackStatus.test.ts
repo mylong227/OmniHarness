@@ -4,7 +4,7 @@
  * ## 它锁的是什么
  *
  * 报告 G19 要求把"已被本项目反复证伪却仍在维护"的检索路径**明确标注为实验档、默认关、可删**，
- * 并评估删除边界。标注写在 `src/context/experimentalPaths.ts`，本文件的职责是**让标注不能撒谎**：
+ * 并评估删除边界。标注写在 `src/kernel/context/experimentalPaths.ts`，本文件的职责是**让标注不能撒谎**：
  *
  * | # | 判据 |
  * | --- | --- |
@@ -23,17 +23,17 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
-import { ExperimentalPaths } from '../../src/context/experimentalPaths.ts';
-import { ContextEngine } from '../../src/context/contextEngine.ts';
+import { ExperimentalPaths } from '../../src/kernel/context/experimentalPaths.ts';
+import { ContextEngine } from '../../src/kernel/context/contextEngine.ts';
 
 const ROOT = process.cwd();
 
 /**
- * 遍历 `src/**` 的 `.ts`，建立"文件（**相对仓库根**，如 `src/util/eigenspectrum.ts`） → 引用它的文件"
+ * 遍历 `src/**` 的 `.ts`，建立"文件（**相对仓库根**，如 `src/kernel/util/eigenspectrum.ts`） → 引用它的文件"
  * 边表。
  *
  * 键用相对**仓库根**的路径，与 `ExperimentalPaths.boundaryFiles` 的书写格式一致——首版键用相对
- * `src/` 的路径，于是 `edges.get('src/util/eigenspectrum.ts')` 永远取不到值 ⇒ 边界判据**恒绿**，
+ * `src/` 的路径，于是 `edges.get('src/kernel/util/eigenspectrum.ts')` 永远取不到值 ⇒ 边界判据**恒绿**，
  * 直到变异测试（注入越界引用）没把它染红才发现。故下面还加了"仪器自证"。
  * @returns 反向边表。
  */
@@ -151,7 +151,7 @@ test('⑤ 清单是活的：开启实验档必须打出告警（含 id 与实测
   assert.match(ExperimentalPaths.warningsFor(['not-a-path'])[0]!, /未知检索路径/);
 
   // 生产路径确实调用了它（否则"活清单"就只是文档）。
-  const engineSrc = readFileSync(join(ROOT, 'src/context/repoMap/repoMapContextEngine.ts'), 'utf8');
+  const engineSrc = readFileSync(join(ROOT, 'src/kernel/context/repoMap/repoMapContextEngine.ts'), 'utf8');
   assert.match(
     engineSrc,
     /ExperimentalPaths\.warningsFor/,

@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { FileLineWindow } from '../../src/adapters/tool/fs/fileLineWindow.ts';
+import { FileLineWindow } from '../../src/kernel/adapters/tool/fs/fileLineWindow.ts';
 
 test('FileLineWindow：默认整文件带行号', () => {
   const result = FileLineWindow.slice('a\nb\nc');

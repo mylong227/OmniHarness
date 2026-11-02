@@ -5,7 +5,7 @@ import { test } from 'vitest';
 import { fireEvent, renderFacadeAsync, waitFor } from './rtlHarness.ts';
 import { allText, byClass, byTag, facadeOf } from './domFacade.ts';
 import { Composer } from '../src/ui/components/Composer.tsx';
-import type { ApiClient } from '../src/core/ApiClient.ts';
+import type { ApiClient } from '../src/kernel/core/ApiClient.ts';
 
 /** 只实现 listSkills，其余 RPC 一律空成功。 */
 function fakeApi(): ApiClient {

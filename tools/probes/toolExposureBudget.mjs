@@ -11,7 +11,7 @@
  *
  * ## 口径
  *
- * - **工具数**：`src/ports/tool/toolNames.ts`（工具名单一来源）的名字表；
+ * - **工具数**：`src/contracts/ports/tool/toolNames.ts`（工具名单一来源）的名字表；
  * - **schema token**：由 `ConfigFactory.build({ workspaceRoot })`（**离线可跑的生产装配入口**——不建模型连接、
  *   不读密钥）取**默认配置下真实注册**的工具定义（name + description + parameters），再用
  *   `TokenEstimator.estimate` 估算；token 汇总按"规划器选中的名字 ∩ 已注册定义"计算；
@@ -36,7 +36,7 @@
  * - 只含**工具 schema**（name/description/parameters），**不含工具结果**（运行时的大头另由上下文预算管）；
  * - 任务文本**不命中任何类别**时按 fail-safe **全放行**（节省 0%）——刻意的保守设计，不是缺陷。
  */
-import { writeFileSync } from 'node:fs';
+import { writeFileSync , existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { probeArgs } from './_args.mjs';
@@ -45,7 +45,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** 仓库根（本文件在 `tools/probes/` 下，故上溯两级）。 */
 const ROOT = join(HERE, '..', '..');
 const importDist = (...segments) =>
-  import(pathToFileURL(join(ROOT, 'dist', 'src', ...segments)).href);
+  import(pathToFileURL(resolveDist(...segments)).href);
 
 // 参数解析排在 dist 动态 import **之前**（理由见 `_args.mjs` 头注释）。
 const a = probeArgs({ values: { task: '', json: '' } });
@@ -110,7 +110,7 @@ function schemaTokensOf(definition, estimator) {
  * 用于观察"任务文本命中类别 ⇒ 其余工具被降级"的覆盖面（含**不命中任何类别**的对照：应全放行）。
  */
 const TASKS = [
-  '读一下 src/core/container.ts 并解释依赖注入',
+  '读一下 src/kernel/core/container.ts 并解释依赖注入',
   '搜索仓库里所有的 memoize 实现',
   '把这次会话的结论记进长期记忆',
   '沙箱审批为什么被拒了',
@@ -223,4 +223,18 @@ const JSON_OUT = String(a.json);
 if (JSON_OUT !== '') {
   writeFileSync(JSON_OUT, `${JSON.stringify(report, null, 2)}\n`);
   console.log(`已写出 ${JSON_OUT}`);
+}
+
+/**
+ * 2026-11-02 分层后：dist 布局变为 dist/src/<layer>/<module>/...。
+ * 探针按模块名调用（如 importDist('config', 'x.js')），这里按层前缀解析，
+ * 命中不到回落旧布局（保持对旧产物的兼容）。
+ */
+function resolveDist(...segments) {
+  const [head, ...rest] = segments;
+  for (const layer of ['kernel', 'contracts', 'protocols', 'apps']) {
+    const candidate = join(ROOT, 'dist', 'src', layer, head, ...rest);
+    if (existsSync(candidate)) return candidate;
+  }
+  return join(ROOT, 'dist', 'src', ...segments);
 }

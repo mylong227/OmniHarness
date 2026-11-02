@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { OpenAiCompatibleModel } from '../../src/adapters/model/openAiCompatibleModel.ts';
-import { AnthropicModel } from '../../src/adapters/model/anthropicModel.ts';
-import type { ModelMessage } from '../../src/ports/model/model.ts';
+import { OpenAiCompatibleModel } from '../../src/kernel/adapters/model/openAiCompatibleModel.ts';
+import { AnthropicModel } from '../../src/kernel/adapters/model/anthropicModel.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/model.ts';
 
 /** 捕获下一次 fetch 的请求体，并返回最小可用响应。 */
 function captureFetch(body: unknown): {

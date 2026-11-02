@@ -20,11 +20,11 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ProvenanceIssuer } from '../../src/governance/provenanceIssuer.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import type { ProvenanceCertificate } from '../../src/governance/provenanceIssuer.ts';
-import type { Skill } from '../../src/ports/skill/skill.ts';
+import { ProvenanceIssuer } from '../../src/kernel/governance/provenanceIssuer.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import type { ProvenanceCertificate } from '../../src/kernel/governance/provenanceIssuer.ts';
+import type { Skill } from '../../src/contracts/ports/skill/skill.ts';
 
 /** 签发方身份（真密钥）。 */
 const ISSUER = new Ed25519AgentIdentity({ agentRuntimeId: 'lineage-issuer' });
@@ -60,7 +60,7 @@ test('H3 系谱内容：写出"由哪个失败签名演化而来"与"门禁裁�
   const certificate = new ProvenanceIssuer(ledger).build({
     packName: 'demo-pack',
     issuedAt: '2026-10-04T00:00:00.000Z',
-    assets: [{ name: 'c', failureSignature: 'verify:src/core/agent.ts#timeout' }, { name: 'd' }],
+    assets: [{ name: 'c', failureSignature: 'verify:src/kernel/core/agent.ts#timeout' }, { name: 'd' }],
   });
   assert.strictEqual(certificate.chain.verified, true);
   assert.strictEqual(certificate.chain.entries, 3);
@@ -70,7 +70,7 @@ test('H3 系谱内容：写出"由哪个失败签名演化而来"与"门禁裁�
   assert.strictEqual(c.origin, 'ledger-promotion');
   assert.strictEqual(
     c.failureSignature,
-    'verify:src/core/agent.ts#timeout',
+    'verify:src/kernel/core/agent.ts#timeout',
     '必须写出失败签名来源',
   );
   assert.strictEqual(c.source, 'twist:a+b');

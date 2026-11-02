@@ -17,11 +17,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { EvolutionCommand } from '../../src/cli/evolutionCommand.ts';
-import { HashChainPromotionLedger } from '../../src/evolution/hashChainPromotionLedger.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
-import type { ProvenanceCertificate } from '../../src/governance/provenanceIssuer.ts';
-import type { Skill } from '../../src/ports/skill/skill.ts';
+import { EvolutionCommand } from '../../src/apps/cli/evolutionCommand.ts';
+import { HashChainPromotionLedger } from '../../src/kernel/evolution/hashChainPromotionLedger.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
+import type { ProvenanceCertificate } from '../../src/kernel/governance/provenanceIssuer.ts';
+import type { Skill } from '../../src/contracts/ports/skill/skill.ts';
 
 /**
  * 采集 stdout/stderr 并跑命令。

@@ -3,8 +3,8 @@
 
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { NativeBackend } from '../../src/native/nativeBackend.ts';
-import { TokenEstimator } from '../../src/context/tokenEstimator.ts';
+import { NativeBackend } from '../../src/kernel/native/nativeBackend.ts';
+import { TokenEstimator } from '../../src/kernel/context/tokenEstimator.ts';
 import { RequireEnv } from '../helpers/requireEnv.ts';
 
 const messages = Array.from({ length: 40 }, (_unused, index) => ({

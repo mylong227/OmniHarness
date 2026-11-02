@@ -8,8 +8,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { MaintenanceRunner } from '../../src/util/maintenanceRunner.ts';
-import { ServeInstance } from '../../src/cli/serveInstance.ts';
+import { MaintenanceRunner } from '../../src/kernel/util/maintenanceRunner.ts';
+import { ServeInstance } from '../../src/apps/cli/serveInstance.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 

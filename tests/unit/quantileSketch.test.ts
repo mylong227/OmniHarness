@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { QuantileSketch } from '../../src/util/quantileSketch.ts';
+import { QuantileSketch } from '../../src/kernel/util/quantileSketch.ts';
 
 /** 精确分位数（nearest-rank）。 */
 function exact(values: readonly number[], q: number): number {

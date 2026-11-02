@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { WorkflowMemoryStore } from '../../src/adapters/memory/workflowMemoryStore.ts';
-import { WorkflowMemoryTool } from '../../src/adapters/tool/memory/workflowMemoryTool.ts';
-import type { ToolCall, ToolContext } from '../../src/ports/tool/tool.ts';
+import { WorkflowMemoryStore } from '../../src/kernel/adapters/memory/workflowMemoryStore.ts';
+import { WorkflowMemoryTool } from '../../src/kernel/adapters/tool/memory/workflowMemoryTool.ts';
+import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.ts';
 
 /** 固定上下文。 */
 const ctx = { sessionId: 's1', workspaceRoot: process.cwd() } as ToolContext;

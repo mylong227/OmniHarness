@@ -23,10 +23,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { TraceSpanBuilder } from '../../src/observability/traceSpanBuilder.ts';
-import { GEN_AI_KEYS, LEGACY_KEYS, SEMCONV_VERSION } from '../../src/observability/genAiSemconv.ts';
-import type { Span } from '../../src/observability/otlpTraceExporter.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { TraceSpanBuilder } from '../../src/kernel/observability/traceSpanBuilder.ts';
+import { GEN_AI_KEYS, LEGACY_KEYS, SEMCONV_VERSION } from '../../src/kernel/observability/genAiSemconv.ts';
+import type { Span } from '../../src/kernel/observability/otlpTraceExporter.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /**
  * 造一条事件。

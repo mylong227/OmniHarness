@@ -9,7 +9,7 @@
  * 于是 `configBuilder` / `configToolRegistry` 必须反向 import 它。
  *
  * G25-b 把两个类型搬进 ports：
- * `src/ports/config/subagentPortSeed.ts` + `src/ports/media/mediaStack.ts`。
+ * `src/contracts/ports/config/subagentPortSeed.ts` + `src/contracts/ports/media/mediaStack.ts`。
  *
  * ## 判据
  *
@@ -42,8 +42,8 @@ function read(rel: string): string {
 }
 
 test('① 两个契约类型住在 ports，且是纯声明（无第三方、无 class 实现）', () => {
-  const seed = read('src/ports/config/subagentPortSeed.ts');
-  const stack = read('src/ports/media/mediaStack.ts');
+  const seed = read('src/contracts/ports/config/subagentPortSeed.ts');
+  const stack = read('src/contracts/ports/media/mediaStack.ts');
   assert.match(seed, /export type SubagentPortSeed/, 'ports 里应有 SubagentPortSeed');
   assert.match(stack, /export interface MediaStack/, 'ports 里应有 MediaStack');
   for (const [name, text] of [
@@ -71,19 +71,19 @@ test('① 两个契约类型住在 ports，且是纯声明（无第三方、无 
 test('② 原位置仍再导出同名类型（公开 API 面不变）', () => {
   // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据正则跟新。
   assert.match(
-    read('src/config/configFactory.ts'),
+    read('src/kernel/config/configFactory.ts'),
     /export type \{ SubagentPortSeed \} from '\.\.\/ports\/config\/subagentPortSeed\.ts'/,
     'configFactory 必须再导出 SubagentPortSeed（否则是破坏性 API 变更）',
   );
   assert.match(
-    read('src/config/mediaStackAssembler.ts'),
+    read('src/kernel/config/mediaStackAssembler.ts'),
     /export type \{ MediaStack \} from '\.\.\/ports\/media\/mediaStack\.ts'/,
     'mediaStackAssembler 必须再导出 MediaStack（否则是破坏性 API 变更）',
   );
 });
 
 test('③ 拆环的关键回边不得复活：两个装配文件不得再 import configFactory', () => {
-  for (const rel of ['src/config/configBuilder.ts', 'src/config/configToolRegistry.ts']) {
+  for (const rel of ['src/kernel/config/configBuilder.ts', 'src/kernel/config/configToolRegistry.ts']) {
     const text = read(rel);
     assert.ok(
       !/from '\.\/configFactory\.ts'/.test(text),

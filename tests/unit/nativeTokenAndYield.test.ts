@@ -25,15 +25,15 @@ import assert from 'node:assert/strict';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { NativeTokenAccounting } from '../../src/core/nativeTokenAccounting.ts';
-import { ContextEngine } from '../../src/context/contextEngine.ts';
-import { CorpusIndexCache } from '../../src/context/corpusIndexCache.ts';
+import { NativeTokenAccounting } from '../../src/kernel/core/nativeTokenAccounting.ts';
+import { ContextEngine } from '../../src/kernel/context/contextEngine.ts';
+import { CorpusIndexCache } from '../../src/kernel/context/corpusIndexCache.ts';
 
 /** 仓库根（编译产物在 `dist/tests/unit/`）。 */
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** 用于构建的子树（规模适中：既触发分块，又不让门禁变慢）。 */
-const SUBTREE = join(REPO_ROOT, 'src', 'search');
+const SUBTREE = join(REPO_ROOT, 'src', 'kernel', 'search');
 
 /**
  * 同步忙等（**仅用于验证探针本身看得见阻塞**，不进生产路径）。

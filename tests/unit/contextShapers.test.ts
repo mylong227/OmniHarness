@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ContextShapers } from '../../src/context/contextShapers.ts';
-import type { ModelMessage } from '../../src/ports/model/model.ts';
+import { ContextShapers } from '../../src/kernel/context/contextShapers.ts';
+import type { ModelMessage } from '../../src/contracts/ports/model/model.ts';
 
 test('CTX-01：超长工具结果做头尾裁剪，user/system 不动', () => {
   const long = 'x'.repeat(30_000);

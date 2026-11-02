@@ -10,16 +10,16 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { AppServer } from '../../src/server/core/appServer.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { Transport } from '../../src/server/transport/lineTransport.ts';
+import { AppServer } from '../../src/apps/server/core/appServer.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { Transport } from '../../src/apps/server/transport/lineTransport.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 回退结果形（与 `threads.rewind` 的 result 一致）。 */

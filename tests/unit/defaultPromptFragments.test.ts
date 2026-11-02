@@ -22,8 +22,8 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { DefaultPromptFragments } from '../../src/config/defaultPromptFragments.ts';
-import { ShellInvocation } from '../../src/adapters/tool/shell/shellInvocation.ts';
+import { DefaultPromptFragments } from '../../src/kernel/config/defaultPromptFragments.ts';
+import { ShellInvocation } from '../../src/kernel/adapters/tool/shell/shellInvocation.ts';
 
 /** 取唯一一条提示正文（判据全部针对它）。 */
 const promptOf = (platform: string, shell: string): string => {

@@ -4,11 +4,11 @@ import { execFileAsync } from '../helpers/childProcess.ts';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ArgParser, CliDefaults } from '../../src/cli/argParser.ts';
-import { configFile } from '../../src/config/configFile.ts';
+import { ArgParser, CliDefaults } from '../../src/apps/cli/argParser.ts';
+import { configFile } from '../../src/kernel/config/configFile.ts';
 
 /** CLI 入口路径。 */
-const cliPath = resolve(process.cwd(), 'dist/src/cli/exec.js');
+const cliPath = resolve(process.cwd(), 'dist/src/apps/cli/exec.js');
 
 test('parseArgs：配置文件默认值生效且 CLI 参数优先', () => {
   const fromConfig = ArgParser.parseArgs(['--prompt', 'hi'], {

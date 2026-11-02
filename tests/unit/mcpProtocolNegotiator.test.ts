@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { McpProtocolNegotiator } from '../../src/mcp/mcpProtocolNegotiator.ts';
+import { McpProtocolNegotiator } from '../../src/protocols/mcp/mcpProtocolNegotiator.ts';
 
 test('INT-01：默认 auto 探测，显式值走对应栈', () => {
   assert.strictEqual(McpProtocolNegotiator.select({}), 'auto');

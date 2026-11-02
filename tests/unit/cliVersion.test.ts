@@ -1,6 +1,6 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ExecCli } from '../../src/cli/execCli.ts';
+import { ExecCli } from '../../src/apps/cli/execCli.ts';
 import { API_VERSION } from '../../src/version.ts';
 
 /** 临时劫持 stdout，收集写入内容后恢复（单线程测试环境安全）。 */

@@ -1,7 +1,7 @@
 # OTel 导出评估（Wave A.5 第三项 · B 级「先测后买」）
 
 - 日期：2026-10-04
-- 对象：`@opentelemetry/sdk-trace-base` + `@opentelemetry/otlp-transformer`（替代自研 `src/observability/otlpTraceExporter.ts`，217 行）
+- 对象：`@opentelemetry/sdk-trace-base` + `@opentelemetry/otlp-transformer`（替代自研 `src/kernel/observability/otlpTraceExporter.ts`，217 行）
 - 依据：[ARCHITECTURE_TARGET_2026-10.md](ARCHITECTURE_TARGET_2026-10.md) §5.3（判据①对账一致 / ②golden 哈希不变 / ③体积实测在预算内）、[DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md) §2 六门
 
 ## 结论：**维持自研（不引入）**

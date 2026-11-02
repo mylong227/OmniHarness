@@ -4,10 +4,10 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import type { Skill } from '../../src/skill/skill.ts';
-import { MoireComposer } from '../../src/skill/moireComposer.ts';
-import { TwistDiscoveryEngine } from '../../src/evolution/twistDiscoveryEngine.ts';
-import type { Candidate } from '../../src/ports/runtime/evolution.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import { MoireComposer } from '../../src/kernel/skill/moireComposer.ts';
+import { TwistDiscoveryEngine } from '../../src/kernel/evolution/twistDiscoveryEngine.ts';
+import type { Candidate } from '../../src/contracts/ports/runtime/evolution.ts';
 
 function baseSkill(name: string, topic: string): Skill {
   return {

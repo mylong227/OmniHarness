@@ -4,12 +4,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SkillStackAssembler } from '../../src/config/skillStackAssembler.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import type { Skill } from '../../src/skill/skill.ts';
-import type { OmniHarnessConfig } from '../../src/config/configFactory.ts';
+import { SkillStackAssembler } from '../../src/kernel/config/skillStackAssembler.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
+import type { OmniHarnessConfig } from '../../src/kernel/config/configFactory.ts';
 
 /** 构造最小可解析配置（mock 适配器，无网络）。 */
 function base(over: Partial<OmniHarnessConfig> = {}): OmniHarnessConfig {

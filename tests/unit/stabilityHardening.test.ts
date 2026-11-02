@@ -10,12 +10,12 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { PendingRequests } from '../../src/util/concurrency/pendingRequests.ts';
-import { SdkClient } from '../../src/sdk/sdkClient.ts';
-import type { SdkSocket } from '../../src/sdk/webSocketSdkSocket.ts';
-import { Interactive } from '../../src/tui/interactive.ts';
-import { RoutineScheduler } from '../../src/daemon/routineScheduler.ts';
-import { FileLongTermMemory } from '../../src/adapters/memory/fileLongTermMemory.ts';
+import { PendingRequests } from '../../src/kernel/util/concurrency/pendingRequests.ts';
+import { SdkClient } from '../../src/contracts/sdk/sdkClient.ts';
+import type { SdkSocket } from '../../src/contracts/sdk/webSocketSdkSocket.ts';
+import { Interactive } from '../../src/apps/tui/interactive.ts';
+import { RoutineScheduler } from '../../src/apps/daemon/routineScheduler.ts';
+import { FileLongTermMemory } from '../../src/kernel/adapters/memory/fileLongTermMemory.ts';
 
 /** 等待若干毫秒（超时类断言需要真实时钟）。 */
 function wait(ms: number): Promise<void> {

@@ -26,7 +26,7 @@ import {
   ServePortConflict,
   type PortHolder,
   type ServePortConflictDeps,
-} from '../../src/cli/servePortConflict.ts';
+} from '../../src/apps/cli/servePortConflict.ts';
 
 /** 仓库根。 */
 const REPO_ROOT = process.cwd();
@@ -139,13 +139,13 @@ test('④ takeOver：只对 omni + 正整数 PID 动手；否则 kill 必须**�
 });
 
 test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 --take-port 已登记', () => {
-  const source = readFileSync(join(REPO_ROOT, 'src/cli/cliServerCmds.ts'), 'utf8');
+  const source = readFileSync(join(REPO_ROOT, 'src/apps/cli/cliServerCmds.ts'), 'utf8');
   // 2026-10-21：信号收尾（含 retire）拆到 `serveShutdown.ts`（CliServerCmds 行数门禁），
   // 接线断言必须跟着实现走——否则「实现搬了、判据还在旧文件」会变成一条假红。
-  const shutdownSource = readFileSync(join(REPO_ROOT, 'src/cli/serveShutdown.ts'), 'utf8');
+  const shutdownSource = readFileSync(join(REPO_ROOT, 'src/apps/cli/serveShutdown.ts'), 'utf8');
   // 2026-10-24：实例记录/就绪文件/UI 地址收尾拆到 `serveAnnounce.ts`（CliServerCmds 行数门禁），
   // 接线断言跟实现走；`sweep` 仍在 cliServerCmds（绑定前清扫）。
-  const announceSource = readFileSync(join(REPO_ROOT, 'src/cli/serveAnnounce.ts'), 'utf8');
+  const announceSource = readFileSync(join(REPO_ROOT, 'src/apps/cli/serveAnnounce.ts'), 'utf8');
   assert.match(
     source,
     /catch \(error\)[\s\S]{0,400}?ServePortConflict\.probe\(port\)/u,
@@ -183,7 +183,7 @@ test('⑤ 接线：serve 路径必须实现"失败即诊断/按需接管"，且 
     '删掉退役调用却检不出来 ⇒ 新增的接线断言恒真',
   );
 
-  const flags = readFileSync(join(REPO_ROOT, 'src/cli/knownFlags.ts'), 'utf8');
+  const flags = readFileSync(join(REPO_ROOT, 'src/apps/cli/knownFlags.ts'), 'utf8');
   assert.match(
     flags,
     /'--take-port'/u,

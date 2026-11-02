@@ -1,8 +1,8 @@
 /** 续跑引导：必须带可区分的目标，而不只是工具名（2026-10-21）。 */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ResumeGuidance } from '../../src/core/resumeGuidance.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { ResumeGuidance } from '../../src/kernel/core/resumeGuidance.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 function call(id: string, name: string, args: Record<string, unknown>): SessionEvent {
   return {

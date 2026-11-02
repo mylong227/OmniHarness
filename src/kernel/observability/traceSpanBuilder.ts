@@ -1,0 +1,411 @@
+/**
+ * 会话事件 → OTLP span 的构造器（把事件流投影为可导出的 trace）。
+ *
+ * 为什么要有它：`otlpTraceExporter.ts` 只负责「把 span 发出去」，此前**没有任何地方
+ * 从真实活动里产出 span** ⇒ 导出器有实现、无接线（2026-09-19 入口可达性审计实测）。
+ * 本类补齐产出侧，且保持纯逻辑（无 IO、无全局状态），便于单测与确定性重放。
+ *
+ * 产出三类 span：
+ * - `tool.<name>`：`tool_call` 与同 `callId` 的 `tool_result` 配对，属性含工具名与成败；
+ * - `model.<name>`：`model` 事件（用量）→ 属性含 prompt/completion/total token；
+ * - `session`：`drain()` 时汇总一个会话的调用次数与 token 总量。
+ *
+ * 未闭合的调用（有 call 无 result，例如进程被杀）**不产出 span**：宁可少一条，也不伪造结束时间。
+ */
+import { randomBytes } from 'node:crypto';
+import type { SessionEvent } from '../../contracts/ports/runtime/event.ts';
+import type { OtlpAttributeValue, Span } from './otlpTraceExporter.ts';
+import { GEN_AI_KEYS, GEN_AI_OPERATIONS, LEGACY_KEYS } from './genAiSemconv.ts';
+import type { RunManifest } from '../../contracts/ports/runtime/runManifest.ts';
+
+/** 构造器可选项。 */
+export interface TraceSpanBuilderOptions {
+  /** traceId 生成器（缺省 `randomBytes(16)` 十六进制；测试可注入确定性实现）。 */
+  readonly traceIdFactory?: (() => string) | undefined;
+  /** spanId 生成器（缺省 `randomBytes(8)` 十六进制；测试可注入确定性实现）。 */
+  readonly spanIdFactory?: (() => string) | undefined;
+}
+
+/** 会话累计统计（供汇总 span）。 */
+interface SessionStats {
+  /** 会话 ID。 */
+  sessionId: string;
+  /** 最早事件时间（毫秒）。 */
+  startMs: number;
+  /** 最晚事件时间（毫秒）。 */
+  endMs: number;
+  /** 工具调用条数。 */
+  toolCalls: number;
+  /** 模型调用条数。 */
+  modelCalls: number;
+  /** 累计 token（模型未上报用量时不计，绝不臆造）。 */
+  tokens: number;
+}
+
+/** 尚未闭合的工具调用。 */
+interface OpenCall {
+  /** 工具名。 */
+  readonly name: string;
+  /** 起始时间（毫秒）。 */
+  readonly startMs: number;
+}
+
+/** 会话事件 → span 构造器（无可变全局状态）。 */
+export class TraceSpanBuilder {
+  /** span 缓冲（`drain` 取走后清空，避免长期驻留）。 */
+  private readonly spans: Span[] = [];
+  /** 未闭合的工具调用（按 callId）。 */
+  private readonly openCalls = new Map<string, OpenCall>();
+  /** 当前会话统计。 */
+  private stats: SessionStats | null = null;
+  /** 本会话的运行清单（session_meta 带 manifest 时记录；drain 后清空）。 */
+  private agentManifest: RunManifest | undefined;
+  /** traceId（一次构造器生命周期内稳定，代表进程内这条 trace）。 */
+  private readonly traceId: string;
+  /** spanId 生成器。 */
+  private readonly spanIdFactory: () => string;
+
+  /**
+   * @param options 可选项（id 生成器注入）。
+   */
+  public constructor(options: TraceSpanBuilderOptions = {}) {
+    this.traceId = options.traceIdFactory?.() ?? randomBytes(16).toString('hex');
+    this.spanIdFactory = options.spanIdFactory ?? (() => randomBytes(8).toString('hex'));
+  }
+
+  /**
+   * 消费一条会话事件（就地更新内部状态，无 IO）。
+   *
+   * @param event 会话事件。
+   * @returns 无返回值。
+   */
+  public consume(event: SessionEvent): void {
+    const ts = TraceSpanBuilder.msOf(event.timestamp);
+    this.touch(event.sessionId, ts);
+    switch (event.type) {
+      case 'tool_call':
+        this.consumeToolCall(event, ts);
+        return;
+      case 'tool_result':
+        this.consumeToolResult(event, ts);
+        return;
+      case 'model':
+        this.consumeModel(event, ts);
+        return;
+      case 'session_meta':
+        this.consumeSessionMeta(event);
+        return;
+      default:
+        return;
+    }
+  }
+
+  /**
+   * 取走已构造的 span（含当前会话汇总 span）并清空缓冲。
+   *
+   * @returns span 列表（无内容时为空数组）。
+   */
+  public drain(): readonly Span[] {
+    const stats = this.stats;
+    if (stats !== null && stats.toolCalls + stats.modelCalls > 0) {
+      this.spans.push({
+        traceId: this.traceId,
+        spanId: this.spanIdFactory(),
+        name: 'session',
+        startTimeUnixNano: TraceSpanBuilder.nano(stats.startMs),
+        endTimeUnixNano: TraceSpanBuilder.nano(stats.endMs),
+        attributes: [
+          // 汇总 span 只保留本仓键：semconv 的**会话/对话**键仍在演进（见 genAiSemconv.ts 口径声明第 1 条），
+          // 与其发一个"看起来标准其实是自造"的键，不如不发。
+          TraceSpanBuilder.text(LEGACY_KEYS.sessionId, stats.sessionId),
+          TraceSpanBuilder.number(LEGACY_KEYS.sessionToolCalls, stats.toolCalls),
+          TraceSpanBuilder.number(LEGACY_KEYS.sessionModelCalls, stats.modelCalls),
+          TraceSpanBuilder.number(LEGACY_KEYS.sessionTokens, stats.tokens),
+        ],
+      });
+      // 有 Run Manifest 的会话额外发一条 agent 级 span（OTel GenAI 的 `invoke_agent` 语义）。
+      // 没有 manifest 的旧事件流保持原样（golden trace / 既有判据零变化）。
+      if (this.agentManifest !== undefined) {
+        this.spans.push(this.agentSpanOf(stats, this.agentManifest));
+        this.agentManifest = undefined;
+      }
+      // 窗口语义：汇总 span 报告的是「自上次 drain 起」的增量，故计数清零、起点前移；
+      // 否则第二次 drain 会凭陈旧计数再吐一条汇总（重复上报）。
+      stats.toolCalls = 0;
+      stats.modelCalls = 0;
+      stats.tokens = 0;
+      stats.startMs = stats.endMs;
+    }
+    // 没有有效调用（例如启动即崩溃）时也清掉清单，避免下一次 drain 用陈旧清单伪造 span。
+    this.agentManifest = undefined;
+    const out = [...this.spans];
+    this.spans.length = 0;
+    return out;
+  }
+
+  /**
+   * 是否还有未导出的内容（供装饰器判断是否值得 flush）。
+   *
+   * @returns 有内容时为 true。
+   */
+  public hasPending(): boolean {
+    return this.spans.length > 0 || this.openCalls.size > 0;
+  }
+
+  /**
+   * 处理 `tool_call`：登记未闭合调用。
+   *
+   * @param event 事件。
+   * @param ts 事件时间（毫秒）。
+   * @returns 无返回值。
+   */
+  private consumeToolCall(event: SessionEvent, ts: number): void {
+    const payload = TraceSpanBuilder.recordOf(event.payload);
+    const callId = TraceSpanBuilder.stringOf(payload['callId']);
+    const name = TraceSpanBuilder.stringOf(payload['name']);
+    if (callId === null || name === null) {
+      return;
+    }
+    this.openCalls.set(callId, { name, startMs: ts });
+  }
+
+  /**
+   * 处理 `tool_result`：与未闭合调用配对，产出 `tool.<name>` span。
+   *
+   * @param event 事件。
+   * @param ts 事件时间（毫秒）。
+   * @returns 无返回值。
+   */
+  private consumeToolResult(event: SessionEvent, ts: number): void {
+    const payload = TraceSpanBuilder.recordOf(event.payload);
+    const callId = TraceSpanBuilder.stringOf(payload['callId']);
+    if (callId === null) {
+      return;
+    }
+    const open = this.openCalls.get(callId);
+    if (open === undefined) {
+      // 无对应 call（例如事件流被截断）：不伪造 span。
+      return;
+    }
+    this.openCalls.delete(callId);
+    if (this.stats !== null) {
+      this.stats.toolCalls += 1;
+    }
+    this.spans.push({
+      traceId: this.traceId,
+      spanId: this.spanIdFactory(),
+      name: `tool.${open.name}`,
+      startTimeUnixNano: TraceSpanBuilder.nano(open.startMs),
+      endTimeUnixNano: TraceSpanBuilder.nano(ts),
+      attributes: [
+        // semconv 标准键（G23，并行发；键名/版本锚见 genAiSemconv.ts）。
+        TraceSpanBuilder.text(GEN_AI_KEYS.toolName, open.name),
+        TraceSpanBuilder.text(GEN_AI_KEYS.operationName, GEN_AI_OPERATIONS.executeTool),
+        // 过渡键（保留，不改名）：
+        TraceSpanBuilder.text(LEGACY_KEYS.toolName, open.name),
+        TraceSpanBuilder.text(LEGACY_KEYS.toolOk, payload['ok'] === true ? 'true' : 'false'),
+        TraceSpanBuilder.text(LEGACY_KEYS.sessionId, event.sessionId),
+      ],
+    });
+  }
+
+  /**
+   * 处理 `model`：产出 `model.<name>` span 并累计 token。
+   *
+   * @param event 事件。
+   * @param ts 事件时间（毫秒）。
+   * @returns 无返回值。
+   */
+  private consumeModel(event: SessionEvent, ts: number): void {
+    const payload = TraceSpanBuilder.recordOf(event.payload);
+    const usage = TraceSpanBuilder.recordOf(payload['usage']);
+    const model = TraceSpanBuilder.stringOf(payload['model']) ?? 'unknown';
+    const prompt = TraceSpanBuilder.numberOf(usage['promptTokens']);
+    const completion = TraceSpanBuilder.numberOf(usage['completionTokens']);
+    const total = TraceSpanBuilder.numberOf(usage['totalTokens']);
+    if (this.stats !== null) {
+      this.stats.modelCalls += 1;
+      this.stats.tokens += total;
+    }
+    this.spans.push({
+      traceId: this.traceId,
+      spanId: this.spanIdFactory(),
+      name: `model.${model}`,
+      startTimeUnixNano: TraceSpanBuilder.nano(ts),
+      endTimeUnixNano: TraceSpanBuilder.nano(ts),
+      attributes: [
+        // semconv 标准键（G23，并行发）：操作名 + 请求/响应模型 + 用量。
+        // `input_tokens` 发的是**含缓存读**的输入总量（`cache_read` 是它的子集，绝不与它相加）。
+        TraceSpanBuilder.text(GEN_AI_KEYS.operationName, GEN_AI_OPERATIONS.chat),
+        TraceSpanBuilder.text(GEN_AI_KEYS.requestModel, model),
+        TraceSpanBuilder.text(GEN_AI_KEYS.responseModel, model),
+        TraceSpanBuilder.number(GEN_AI_KEYS.usageInputTokens, prompt),
+        TraceSpanBuilder.number(GEN_AI_KEYS.usageOutputTokens, completion),
+        // 过渡键（保留，不改名）：
+        TraceSpanBuilder.text(LEGACY_KEYS.modelName, model),
+        TraceSpanBuilder.number(LEGACY_KEYS.tokensPrompt, prompt),
+        TraceSpanBuilder.number(LEGACY_KEYS.tokensCompletion, completion),
+        TraceSpanBuilder.number(LEGACY_KEYS.tokensTotal, total),
+        TraceSpanBuilder.text(LEGACY_KEYS.sessionId, event.sessionId),
+      ],
+    });
+  }
+
+  /**
+   * 更新当前会话统计（会话切换时重置：`session_meta` 是新会话首条事件）。
+   *
+   * @param sessionId 事件所属会话。
+   * @param ts 事件时间（毫秒）。
+   * @returns 无返回值。
+   */
+  private touch(sessionId: string, ts: number): void {
+    if (this.stats === null || this.stats.sessionId !== sessionId) {
+      // 会话切换：上一会话的未闭合调用不能与新会话配对，清掉；汇总窗口从新会话首条事件重开。
+      this.openCalls.clear();
+      this.agentManifest = undefined;
+      this.stats = {
+        sessionId,
+        startMs: ts,
+        endMs: ts,
+        toolCalls: 0,
+        modelCalls: 0,
+        tokens: 0,
+      };
+      return;
+    }
+    this.stats.endMs = Math.max(this.stats.endMs, ts);
+  }
+
+  /**
+   * 处理 `session_meta`：记录运行清单（供 drain 生成 `invoke_agent` span）。
+   * @param event 事件。
+   * @returns 无返回值。
+   */
+  private consumeSessionMeta(event: SessionEvent): void {
+    const payload = TraceSpanBuilder.recordOf(event.payload);
+    const manifest = payload['manifest'];
+    if (typeof manifest !== 'object' || manifest === null) {
+      return;
+    }
+    const record = manifest as Record<string, unknown>;
+    if (
+      typeof record['promptHash'] !== 'string' ||
+      typeof record['toolHash'] !== 'string' ||
+      typeof record['model'] !== 'string' ||
+      typeof record['toolCount'] !== 'number' ||
+      !Number.isFinite(record['toolCount']) ||
+      typeof record['planMode'] !== 'boolean' ||
+      (record['exposureMode'] !== 'off' && record['exposureMode'] !== 'plan')
+    ) {
+      return;
+    }
+    this.agentManifest = record as unknown as RunManifest;
+  }
+
+  /**
+   * 构造 agent 级 span（`invoke_agent`）。
+   * @param stats 本窗口统计。
+   * @param manifest 运行清单。
+   * @returns OTLP span。
+   */
+  private agentSpanOf(stats: SessionStats, manifest: RunManifest): Span {
+    return {
+      traceId: this.traceId,
+      spanId: this.spanIdFactory(),
+      name: 'invoke_agent',
+      startTimeUnixNano: TraceSpanBuilder.nano(stats.startMs),
+      endTimeUnixNano: TraceSpanBuilder.nano(stats.endMs),
+      attributes: [
+        TraceSpanBuilder.text(GEN_AI_KEYS.operationName, GEN_AI_OPERATIONS.invokeAgent),
+        TraceSpanBuilder.text(LEGACY_KEYS.sessionId, stats.sessionId),
+        TraceSpanBuilder.text(GEN_AI_KEYS.requestModel, manifest.model),
+        TraceSpanBuilder.text('harness.manifest.prompt_hash', manifest.promptHash),
+        TraceSpanBuilder.text('harness.manifest.tool_hash', manifest.toolHash),
+        TraceSpanBuilder.number('harness.manifest.tool_count', manifest.toolCount),
+        TraceSpanBuilder.text('harness.manifest.plan_mode', String(manifest.planMode)),
+        TraceSpanBuilder.text('harness.manifest.exposure_mode', manifest.exposureMode),
+        TraceSpanBuilder.number(LEGACY_KEYS.sessionToolCalls, stats.toolCalls),
+        TraceSpanBuilder.number(LEGACY_KEYS.sessionModelCalls, stats.modelCalls),
+        TraceSpanBuilder.number(LEGACY_KEYS.sessionTokens, stats.tokens),
+      ],
+    };
+  }
+
+  /**
+   * 时间戳字符串 → 毫秒（无法解析时回落到当前时间，绝不让 NaN 进 span）。
+   *
+   * @param timestamp ISO 时间戳。
+   * @returns 毫秒时间。
+   */
+  private static msOf(timestamp: string): number {
+    const ms = Date.parse(timestamp);
+    return Number.isFinite(ms) ? ms : Date.now();
+  }
+
+  /**
+   * 毫秒 → OTLP 的纳秒字符串。
+   *
+   * @param ms 毫秒时间。
+   * @returns 纳秒字符串。
+   */
+  private static nano(ms: number): string {
+    return String(Math.round(ms * 1e6));
+  }
+
+  /**
+   * 构造字符串属性。
+   *
+   * @param key 属性键。
+   * @param value 属性值。
+   * @returns OTLP 属性。
+   */
+  private static text(key: string, value: string): { key: string; value: OtlpAttributeValue } {
+    return { key, value: { stringValue: value } };
+  }
+
+  /**
+   * 构造**整数**属性（G23：走 `intValue`，不再塞 `stringValue`）。
+   *
+   * 为什么必须改：塞字符串会让标准 GenAI 后端**无法按类型分派**（它们读 `intValue`/`doubleValue`），
+   * 于是本仓 trace 里的 token/计数在那些后端上一律读不出来。
+   *
+   * 形态遵循 proto3 的 JSON 映射：int64 编码为**字符串**。本仓现有数值全是整数（计数 / token），
+   * 故只需整数通道；真有浮点时再加 `doubleValue`（不提前造一个没人用的分支）。
+   * @param key 属性键。
+   * @param value 整数值。
+   * @returns OTLP 属性。
+   */
+  private static number(key: string, value: number): { key: string; value: OtlpAttributeValue } {
+    return { key, value: { intValue: String(Math.trunc(value)) } };
+  }
+
+  /**
+   * 把未知载荷收敛为对象（非对象返回空对象）。
+   *
+   * @param value 原始载荷。
+   * @returns 记录对象。
+   */
+  private static recordOf(value: unknown): Record<string, unknown> {
+    return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
+  }
+
+  /**
+   * 取字符串字段。
+   *
+   * @param value 原始值。
+   * @returns 字符串；非字符串或空串为 null。
+   */
+  private static stringOf(value: unknown): string | null {
+    return typeof value === 'string' && value !== '' ? value : null;
+  }
+
+  /**
+   * 取数值字段。
+   *
+   * @param value 原始值。
+   * @returns 有限数值；否则 0。
+   */
+  private static numberOf(value: unknown): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  }
+}

@@ -1,0 +1,211 @@
+import type { FileConfig } from '../../../kernel/config/configFile.ts';
+import type { ModelPort } from '../../../contracts/ports/model/model.ts';
+import { providerPresets, type ProviderPreset } from './providerPresets.ts';
+import { ProviderProbe } from './providerProbe.ts';
+import { SsrfPolicy } from '../../../kernel/security/ssrfPolicy.ts';
+
+/** 单厂商实测缓存项。 */
+export interface ProviderProbeCacheEntry {
+  readonly ok: boolean;
+  readonly models: readonly string[];
+}
+
+/** 模型目录服务依赖。 */
+export interface ModelCatalogDeps {
+  /** 生效的文件级配置（含 UI 覆盖）。 */
+  readonly fileConfig: () => FileConfig;
+  /** UI 覆盖的 modelAdapter（优先于配置文件）。 */
+  readonly adapterOverride: () => string | undefined;
+}
+
+/**
+ * 模型目录 / 厂商探测服务（#模型接入页）：
+ *   - `probe`：对 providerKeys 中已配 Key 的厂商与/或指定厂商发起真实 `/models` 请求，
+ *     返回实测状态与模型清单，并把结果写入内部 probeCache 供下拉复用。
+ *   - `catalog`：返回预设清单 + 当前厂商与其**真实可用**模型（只回实测清单，不回退预设兜底，
+ *     避免 UI 展示未经检测的假列表）。
+ *   - `resolveOverride`：按 UI 覆盖 / 落盘配置构造运行时模型适配器（Key 缺失 fail-closed）。
+ *
+ * probeCache 由本类独占持有；外部（配置启用厂商时）经 `cacheProbe` 写入，保证单一写入路径。
+ */
+export class ModelCatalogService {
+  /** 生效的文件级配置读取器（providerKeys / modelAdapter / baseUrl / apiKey 的来源）。 */
+  private readonly fileConfig: () => FileConfig;
+  /** UI 覆盖的 modelAdapter 读取器（优先于配置文件；未覆盖时为 undefined）。 */
+  private readonly adapterOverride: () => string | undefined;
+  /**
+   * 探测结果缓存：厂商 id → 实测连通状态与真实模型清单。
+   * 「检测」按钮与「启用此厂商」时填充；model.catalog 用它把 Composer 下拉
+   * 换成当前厂商真实可用的模型（而非预设兜底清单）。
+   */
+  private readonly probeCache = new Map<string, ProviderProbeCacheEntry>();
+
+  /**
+   * 探测缓存条目上限（2026-10-02 补齐：原实现**无上限**）。
+   *
+   * 厂商预设清单本身有界，故历史风险低；但若厂商 id 由配置或未来插件动态引入，
+   * `probe()` 每命中一个新 id 就永久留一条 ⇒ 进程常驻只增不删。取 64 作硬上界，
+   * 淘汰最早插入的一条（Map 保持插入顺序）。淘汰只影响「下拉框少一个缓存的可用模型列表」，
+   * 下次探测会重新填充，**不影响任何正确性**。
+   */
+  private static readonly MAX_PROBE_CACHE = 64;
+
+  /**
+   * @param deps 配置读取器（生效文件配置 + UI 适配器覆盖）
+   */
+  public constructor(deps: ModelCatalogDeps) {
+    this.fileConfig = deps.fileConfig;
+    this.adapterOverride = deps.adapterOverride;
+  }
+
+  /**
+   * 探测厂商连通性：对指定厂商或全部已配 Key 厂商发起真实 /models 请求。
+   * @param params `{ provider?: string }`
+   * @returns `{ providers: ProviderProbeResult[] }`
+   */
+  public async probe(params: Record<string, unknown>): Promise<unknown> {
+    const requested = typeof params['provider'] === 'string' ? params['provider'] : undefined;
+    const file = this.fileConfig();
+    const keys: Record<string, string> = { ...(file.providerKeys ?? {}) };
+    const presets = this.effectivePresets().filter(
+      (p) => requested === undefined || p.id === requested,
+    );
+    const results = [];
+    for (const preset of presets) {
+      let key = keys[preset.id];
+      // 活动厂商走顶层 apiKey（兼容老配置：modelAdapter+apiKey 直配）。
+      if (
+        key === undefined &&
+        preset.needsKey &&
+        file.modelAdapter === preset.adapter &&
+        typeof file.apiKey === 'string'
+      ) {
+        key = file.apiKey;
+      }
+      const probed = await ProviderProbe.probeProvider(
+        preset,
+        key,
+        SsrfPolicy.resolveSsrfPolicy(file.ssrfPolicy),
+      );
+      results.push(probed);
+      this.rememberProbe(preset.id, { ok: probed.ok, models: probed.models });
+    }
+    return { providers: results };
+  }
+
+  /** 写入探测缓存并在超上限时淘汰最早的一条。
+   * @param id 厂商 preset id。
+   * @param entry 探测结果。
+   * @returns 无返回值。
+   */
+  private rememberProbe(id: string, entry: ProviderProbeCacheEntry): void {
+    this.probeCache.set(id, entry);
+    while (this.probeCache.size > ModelCatalogService.MAX_PROBE_CACHE) {
+      const oldest = this.probeCache.keys().next();
+      if (oldest.done === true) {
+        return;
+      }
+      this.probeCache.delete(oldest.value);
+    }
+  }
+
+  /**
+   * 厂商目录 RPC：返回预设清单（无凭据）+ 当前厂商与其可用模型（UI 模型下拉按此过滤）。
+   * 当前厂商判定：baseUrl 精确匹配预设 → 否则按 modelAdapter 匹配的第一个预设。
+   * @returns `{ providers: readonly ProviderPreset[]; active?: {...} }`
+   */
+  public catalog(): unknown {
+    const file = this.fileConfig();
+    const adapter = this.adapterOverride() ?? file.modelAdapter;
+    const providers = this.effectivePresets();
+    const active = this.activePreset(file.baseUrl, adapter, providers);
+    if (active === undefined) {
+      return { providers, active: undefined };
+    }
+    const probed = this.probeCache.get(active.id);
+    const realModels = probed?.ok === true ? probed.models : [];
+    return {
+      providers,
+      active: {
+        id: active.id,
+        label: active.label,
+        defaultModel: active.defaultModel,
+        model: file.model ?? active.defaultModel,
+        // 只返回真实可用模型：有实测缓存用真实清单，否则只保留当前值（不 fallback 到预设兜底）。
+        models: Array.from(new Set([file.model ?? '', ...realModels].filter(Boolean))),
+        // 推理强度档位（#B6 扩展，2026-09-08）：仅当下拉动态档位可用时下发；
+        // undefined 时 UI 退回内置兜底列表（向后兼容）。空数组表示该厂商无 effort 档位。
+        reasoningEffort: active.reasoningEffort,
+      },
+    };
+  }
+
+  /**
+   * UI 覆盖的运行时模型（agent 重建用）：仅当显式设置了 modelAdapter 时生效。
+   * mock 保持启动时模型不动；其余按覆盖字段构造真适配器，Key 缺失 fail-closed 抛可读错误。
+   * @returns 模型端口；mock/llamacpp/未配置时为 undefined
+   */
+  public resolveOverride(): ModelPort | undefined {
+    // 适配器来源：UI 覆盖优先，回退落盘配置（修复「serve 以 mock 启动后，配置文件里
+    // 已启用真模型但运行时仍用 mock」的断裂——磁盘配置此前只在重启时才被读到）。
+    const file = this.fileConfig();
+    const adapter = this.adapterOverride() ?? file.modelAdapter;
+    if (adapter === undefined || adapter === 'mock' || adapter === 'llamacpp') {
+      return undefined;
+    }
+    const preset = this.effectivePresets().filter((p) => p.adapter === adapter)[0];
+    if (preset === undefined) {
+      return undefined;
+    }
+    const apiKey =
+      file.apiKey ??
+      file.providerKeys?.[preset.id] ??
+      (adapter === 'anthropic' ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY);
+    const effectivePreset =
+      file.baseUrl !== undefined ? { ...preset, baseUrl: file.baseUrl } : preset;
+    return ProviderProbe.buildModelForProvider(effectivePreset, apiKey ?? undefined, file.model);
+  }
+
+  /**
+   * 探测单一厂商并把结果写入 probeCache（「启用此厂商」时调用；探测失败不抛错）。
+   * @param preset 目标厂商预设
+   * @param key 该厂商 API Key（免 Key 厂商可为 undefined）
+   * @returns 无返回值。
+   */
+  public async cacheProbe(preset: ProviderPreset, key: string | undefined): Promise<void> {
+    // 启用即实测：探测真实 /models 清单进缓存，Composer 下拉立即显示真实可用模型。
+    // 探测失败不阻断启用（fail-open 到预设清单），错误由下次「检测」刷新。
+    const probed = await ProviderProbe.probeProvider(
+      preset,
+      key,
+      SsrfPolicy.resolveSsrfPolicy(this.fileConfig().ssrfPolicy),
+    );
+    this.probeCache.set(preset.id, { ok: probed.ok, models: probed.models });
+  }
+
+  /**
+   * 生效厂商目录：内建目录（`defaults/providers.json`）+ 配置文件 `providerPresets` 覆盖。
+   * 单一来源在 `config/providerPresets.ts`——UI 必须看到自建/私有化厂商，否则「配了却选不到」。
+   * @returns 生效的厂商预设清单
+   */
+  private effectivePresets(): readonly ProviderPreset[] {
+    return providerPresets.resolve(this.fileConfig().providerPresets);
+  }
+
+  /**
+   * 当前厂商：baseUrl 精确匹配优先，否则 modelAdapter 匹配的第一个预设。
+   * @param baseUrl 当前配置的 baseUrl（与预设精确比对）
+   * @param adapter 当前生效适配器名（UI 覆盖优先，回退配置文件）
+   * @param presets 生效厂商目录（由调用方传入，保证与 `catalog` 用的是同一份）
+   * @returns 匹配到的厂商预设；两者都无匹配时为 undefined
+   */
+  private activePreset(
+    baseUrl: string | undefined,
+    adapter: string | undefined,
+    presets: readonly ProviderPreset[],
+  ): ProviderPreset | undefined {
+    const byUrl = presets.find((p) => baseUrl !== undefined && baseUrl === p.baseUrl);
+    if (byUrl !== undefined) return byUrl;
+    return presets.filter((p) => p.adapter === adapter)[0];
+  }
+}

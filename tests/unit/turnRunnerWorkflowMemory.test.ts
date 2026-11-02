@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { TurnRunner } from '../../src/core/turnRunner.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { WorkflowMemoryStore } from '../../src/adapters/memory/workflowMemoryStore.ts';
-import type { StepRunner } from '../../src/core/stepRunner.ts';
+import { TurnRunner } from '../../src/kernel/core/turnRunner.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { WorkflowMemoryStore } from '../../src/kernel/adapters/memory/workflowMemoryStore.ts';
+import type { StepRunner } from '../../src/kernel/core/stepRunner.ts';
 
 test('TurnRunner：成功回合自动沉淀 workflow，下一回合自动注入参考', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'omni-turn-workflow-'));

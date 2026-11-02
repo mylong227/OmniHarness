@@ -8,16 +8,16 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import { A2aServer, type TaskHandler } from '../../src/a2a/a2aServer.ts';
-import { HttpA2aServerTransport } from '../../src/a2a/httpA2aTransport.ts';
-import { Ed25519AgentIdentity } from '../../src/adapters/identity/ed25519AgentIdentity.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import { A2aServer, type TaskHandler } from '../../src/protocols/a2a/a2aServer.ts';
+import { HttpA2aServerTransport } from '../../src/protocols/a2a/httpA2aTransport.ts';
+import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
 import type {
   A2aTask,
   A2aTransport,
   DelegateRequest,
   DelegateResult,
-} from '../../src/a2a/a2aProtocol.ts';
+} from '../../src/protocols/a2a/a2aProtocol.ts';
 
 /** 双端内存传输。 */
 class MemoryTransport implements A2aTransport {

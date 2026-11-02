@@ -11,12 +11,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { MemoryPlan } from '../../src/adapters/plan/memoryPlan.ts';
-import { PlanWriteTool } from '../../src/adapters/tool/plan/planWriteTool.ts';
-import { ToolGate } from '../../src/core/toolGate.ts';
-import type { ToolCall } from '../../src/ports/tool/tool.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import type { SandboxPort } from '../../src/ports/runtime/sandbox.ts';
+import { MemoryPlan } from '../../src/kernel/adapters/plan/memoryPlan.ts';
+import { PlanWriteTool } from '../../src/kernel/adapters/tool/plan/planWriteTool.ts';
+import { ToolGate } from '../../src/kernel/core/toolGate.ts';
+import type { ToolCall } from '../../src/contracts/ports/tool/tool.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import type { SandboxPort } from '../../src/contracts/ports/runtime/sandbox.ts';
 
 /** 放行一切的工具上下文桩（只用到 sessionId）。 */
 const ctx = { sessionId: 's1', workspaceRoot: process.cwd() } as never;

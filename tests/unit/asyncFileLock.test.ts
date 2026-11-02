@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { AsyncFileLock } from '../../src/util/concurrency/asyncFileLock.ts';
+import { AsyncFileLock } from '../../src/kernel/util/concurrency/asyncFileLock.ts';
 
 /** 在临时目录内执行。 */
 function withTemp<T>(fn: (dir: string) => Promise<T>): Promise<T> {

@@ -11,16 +11,16 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SessionScanCache } from '../../src/server/services/session/sessionScanCache.ts';
-import { JsonlStorage } from '../../src/adapters/storage/jsonlStorage.ts';
-import { SessionSummaryBuilder } from '../../src/util/sessionSummaryBuilder.ts';
+import { SessionScanCache } from '../../src/apps/server/services/session/sessionScanCache.ts';
+import { JsonlStorage } from '../../src/kernel/adapters/storage/jsonlStorage.ts';
+import { SessionSummaryBuilder } from '../../src/kernel/util/sessionSummaryBuilder.ts';
 import {
   readSessionSummary,
   sessionSummaryPath,
   writeSessionSummary,
-} from '../../src/util/sessionSummarySidecar.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { EventType } from '../../src/ports/runtime/event/eventType.ts';
+} from '../../src/kernel/util/sessionSummarySidecar.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { EventType } from '../../src/contracts/ports/runtime/event/eventType.ts';
 
 /** 造一条最小事件。 */
 function event(

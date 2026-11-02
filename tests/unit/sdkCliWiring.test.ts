@@ -1,8 +1,8 @@
 /**
  * SDK 客户端接线单测（`omniharness sdk call` / `sdk ping`）。
  *
- * 事故口径（2026-09-19 入口可达性审计）：`src/sdk/sdkClient.ts`（JSON-RPC 客户端）与
- * `src/sdk/webSocketSdkSocket.ts`（WebSocket 传输）有实现、有单测，却没有任何生产入口。
+ * 事故口径（2026-09-19 入口可达性审计）：`src/contracts/sdk/sdkClient.ts`（JSON-RPC 客户端）与
+ * `src/contracts/sdk/webSocketSdkSocket.ts`（WebSocket 传输）有实现、有单测，却没有任何生产入口。
  * 本文件钉住接线后的行为：
  *   ① CLI 子命令真发 JSON-RPC（方法名/参数/响应打印）；
  *   ② 用法错误（缺 --url / 缺 --method / 未知子动作）以退出码 2 拒绝；
@@ -12,18 +12,18 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
-import { SdkCommand } from '../../src/cli/sdkCommand.ts';
-import type { SdkSocket } from '../../src/sdk/webSocketSdkSocket.ts';
-import { WebSocketSdkSocket } from '../../src/sdk/webSocketSdkSocket.ts';
-import { SdkClient } from '../../src/sdk/sdkClient.ts';
-import { AppServer } from '../../src/server/core/appServer.ts';
-import { HttpBridgeTransport, HttpServer } from '../../src/server/transport/httpServer.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import { AutoApproval } from '../../src/adapters/approval/autoApproval.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import { SdkCommand } from '../../src/apps/cli/sdkCommand.ts';
+import type { SdkSocket } from '../../src/contracts/sdk/webSocketSdkSocket.ts';
+import { WebSocketSdkSocket } from '../../src/contracts/sdk/webSocketSdkSocket.ts';
+import { SdkClient } from '../../src/contracts/sdk/sdkClient.ts';
+import { AppServer } from '../../src/apps/server/core/appServer.ts';
+import { HttpBridgeTransport, HttpServer } from '../../src/apps/server/transport/httpServer.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
 import { tempWorkspace } from '../helpers/tempWorkspace.ts';
 
 /** 假 socket：记录出站帧，并按需回一个 JSON-RPC 响应。 */

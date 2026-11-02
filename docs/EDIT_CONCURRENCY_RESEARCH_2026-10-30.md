@@ -17,10 +17,10 @@
 
 | 事实                                                                            | 位置                                           |
 | ------------------------------------------------------------------------------- | ---------------------------------------------- |
-| 三方合并 = 行级 LCS diff + 区间聚类 + 单簇字符级细化                            | `src/util/textThreeWayMerge.ts`                |
-| 字符级细化：字符 LCS（按 UTF-16 码元），失败仍冲突                              | `src/util/textCharacterMerge.ts`               |
-| 基线全文（共同祖先）：有界 LRU，单条 ≤512 KiB / 全局 ≤16 MiB / ≤4096 条         | `src/adapters/tool/fs/sessionBaselineStore.ts` |
-| 三条写入工具都用它：`write_file` / `edit` / `apply_patch`                       | `src/adapters/tool/fs/*.ts`                    |
+| 三方合并 = 行级 LCS diff + 区间聚类 + 单簇字符级细化                            | `src/kernel/util/textThreeWayMerge.ts`                |
+| 字符级细化：字符 LCS（按 UTF-16 码元），失败仍冲突                              | `src/kernel/util/textCharacterMerge.ts`               |
+| 基线全文（共同祖先）：有界 LRU，单条 ≤512 KiB / 全局 ≤16 MiB / ≤4096 条         | `src/kernel/adapters/tool/fs/sessionBaselineStore.ts` |
+| 三条写入工具都用它：`write_file` / `edit` / `apply_patch`                       | `src/kernel/adapters/tool/fs/*.ts`                    |
 | **无基线 ⇒ fail-closed**（拒绝并要求重读），不静默覆盖                          | `writeFileTool.writeWithin` 的保守路径         |
 | 上限：差分矩阵 2,000,000 单元 ⇒ `too-large`；冲突最多报 8 段；片段最多 600 字符 | `textThreeWayMerge.ts`                         |
 | OT（insert-only）与 CRDT（RGA）**只有原语，无生产接线**                         | `textOperationalTransform.ts` / `textCrdt.ts`  |

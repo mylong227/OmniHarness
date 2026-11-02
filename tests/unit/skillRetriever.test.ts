@@ -1,8 +1,8 @@
 ﻿import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SkillRetriever } from '../../src/skill/skillRetriever.ts';
-import { SkillRegistry } from '../../src/skill/skillRegistry.ts';
-import type { Skill } from '../../src/skill/skill.ts';
+import { SkillRetriever } from '../../src/kernel/skill/skillRetriever.ts';
+import { SkillRegistry } from '../../src/kernel/skill/skillRegistry.ts';
+import type { Skill } from '../../src/kernel/skill/skill.ts';
 
 const skill = (name: string, tags: string[], instructions: string): Skill => ({
   name,

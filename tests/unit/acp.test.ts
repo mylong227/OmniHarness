@@ -9,18 +9,18 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { RpcMessage } from '../../src/server/core/jsonRpc.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { ApprovalPort } from '../../src/ports/runtime/approval.ts';
-import { eventFactory } from '../../src/core/eventFactory.ts';
-import { AcpEventMapper } from '../../src/acp/acpEventMapper.ts';
-import { Agent } from '../../src/core/agent.ts';
-import { Runtime } from '../../src/composition/runtime.ts';
-import { ConfigFactory } from '../../src/config/configFactory.ts';
-import { MockModel } from '../../src/adapters/model/mockModel.ts';
-import { MemoryStorage } from '../../src/adapters/storage/memoryStorage.ts';
-import { PassthroughSandbox } from '../../src/adapters/sandbox/passthroughSandbox.ts';
+import type { RpcMessage } from '../../src/apps/server/core/jsonRpc.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { ApprovalPort } from '../../src/contracts/ports/runtime/approval.ts';
+import { eventFactory } from '../../src/kernel/core/eventFactory.ts';
+import { AcpEventMapper } from '../../src/protocols/acp/acpEventMapper.ts';
+import { Agent } from '../../src/kernel/core/agent.ts';
+import { Runtime } from '../../src/apps/composition/runtime.ts';
+import { ConfigFactory } from '../../src/kernel/config/configFactory.ts';
+import { MockModel } from '../../src/kernel/adapters/model/mockModel.ts';
+import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
+import { PassthroughSandbox } from '../../src/kernel/adapters/sandbox/passthroughSandbox.ts';
 import {
   AcpServer,
   AgentAcpSession,
@@ -37,7 +37,7 @@ import {
   type AcpSessionUpdate,
   type AcpTransport,
   type AcpRunResult,
-} from '../../src/acp/index.ts';
+} from '../../src/protocols/acp/index.ts';
 
 /** 双端内存传输（与 A2A 测试同构）。 */
 class MemoryAcpTransport implements AcpTransport {

@@ -54,7 +54,7 @@
  * 前者随 §21.10「遗留记忆双引擎移除」从 `src/` 删除，GT 变空 ⇒ `recall-query-audit` / `recall-precision` /
  * `headroom-analysis` / `production-defaults-check` 四个脚本**当场 fail-closed**（锚点不存在被误读成检索失败，
  * 正是本仓反复治的假信号）。查询文本**逐字未动**（可比性锚在查询侧），只把 GT 定位子改到同一能力的**迁移目标**
- * （U1 统一基板 `ResonantFieldOptions`，`src/ports/memory/resonantField.ts`）。
+ * （U1 统一基板 `ResonantFieldOptions`，`src/contracts/ports/memory/resonantField.ts`）。
  * 口径变更登记：本条的历史命中/未命中不再跨 2026-09-25 可比（改动前的历史数字见看板 §17/§21.2）。
  */
 export const CORE_RECALL_QUERIES = [
@@ -283,17 +283,17 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'how is drift spotted before a stored copy is overwritten',
     anchor: 'class FileContentLedger',
   },
-  // —— src/adapters/approval（1 条）——
+  // —— src/kernel/adapters/approval（1 条）——
   {
     q: 'how are the escape characters kept out of pattern expansion',
     anchor: 'REGEX_META',
   },
-  // —— src/adapters/embedding（1 条）——
+  // —— src/kernel/adapters/embedding（1 条）——
   {
     q: 'which surface of a third party model package does the wrapper consume',
     anchor: 'interface TransformersModuleLike',
   },
-  // —— src/adapters/memory（7 条）——
+  // —— src/kernel/adapters/memory（7 条）——
   {
     q: 'which stateless helpers sit beside the resonance simulation code',
     anchor: 'class ResonantFieldMath',
@@ -322,7 +322,7 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'a candidate paired with its relevance number before ageing is applied',
     anchor: 'interface ScoredFact',
   },
-  // —— src/adapters/tool（9 条）——
+  // —— src/kernel/adapters/tool（9 条）——
   {
     q: 'how many warning lines are drawn for one file at most',
     anchor: 'MAX_RENDERED_DIAGNOSTICS',
@@ -425,7 +425,7 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'which knob list and share of identical leading bytes are reported',
     anchor: 'interface PrefixStabilityReport',
   },
-  // —— src/context/rankVeto（3 条）——
+  // —— src/kernel/context/rankVeto（3 条）——
   {
     q: 'what the first pass produced alongside the tuning knobs',
     anchor: 'interface RankVetoInput',
@@ -464,7 +464,7 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'what reorders the shortlist after the first pass',
     anchor: 'class FileReranker',
   },
-  // —— src/core/selfChecklist（原 src/eval，2026-10-02 随 SelfChecklist 迁出）——
+  // —— src/kernel/core/selfChecklist（原 src/eval，2026-10-02 随 SelfChecklist 迁出）——
   {
     q: 'the overall outcome of grading against a list of criteria',
     anchor: 'ChecklistVerdict',
@@ -526,7 +526,7 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'how is an extension pulled in by dynamically loading its entry module',
     anchor: 'importPlugin',
   },
-  // —— src/ports/intelligence（10 条）——
+  // —— src/contracts/ports/intelligence（10 条）——
   {
     q: 'what an immutable base unit lists besides its group and tags',
     anchor: 'interface ElementDef',
@@ -567,12 +567,12 @@ export const GROWTH_RECALL_QUERIES = [
     q: 'one observation of how much a skill was leaned on',
     anchor: 'interface UsageSample',
   },
-  // —— src/ports/memory（1 条）——
+  // —— src/contracts/ports/memory（1 条）——
   {
     q: 'which pluggable backend keeps a log of sessions for later reading',
     anchor: 'interface StoragePort',
   },
-  // —— src/ports/model（1 条）——
+  // —— src/contracts/ports/model（1 条）——
   {
     q: 'how do we learn whether the warm up succeeded and how long it took',
     anchor: 'interface EmbeddingPreloadOutcome',

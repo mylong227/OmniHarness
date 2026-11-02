@@ -1,12 +1,12 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { TurnRunner } from '../../src/core/turnRunner.ts';
-import { SessionRecorder } from '../../src/core/sessionRecorder.ts';
-import { AppendOnlyEventLog } from '../../src/core/appendOnlyEventLog.ts';
-import { SilentEventPort } from '../../src/adapters/event/silentEventPort.ts';
-import type { StepRunner } from '../../src/core/stepRunner.ts';
-import type { TurnDiffTrackerPort } from '../../src/ports/runtime/turnDiffTracker.ts';
-import type { ReviewPort } from '../../src/ports/tool/review.ts';
+import { TurnRunner } from '../../src/kernel/core/turnRunner.ts';
+import { SessionRecorder } from '../../src/kernel/core/sessionRecorder.ts';
+import { AppendOnlyEventLog } from '../../src/kernel/core/appendOnlyEventLog.ts';
+import { SilentEventPort } from '../../src/kernel/adapters/event/silentEventPort.ts';
+import type { StepRunner } from '../../src/kernel/core/stepRunner.ts';
+import type { TurnDiffTrackerPort } from '../../src/contracts/ports/runtime/turnDiffTracker.ts';
+import type { ReviewPort } from '../../src/contracts/ports/tool/review.ts';
 
 test('VER-06：默认 advisory 模式不阻断，但把发现写进事件', async () => {
   const recorder = new SessionRecorder(new AppendOnlyEventLog(), new SilentEventPort(), 's2');

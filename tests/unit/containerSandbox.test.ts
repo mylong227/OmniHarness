@@ -15,14 +15,14 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ContainerSandbox } from '../../src/adapters/sandbox/containerSandbox.ts';
-import { SandboxCapabilityTable } from '../../src/adapters/sandbox/sandboxCapabilityTable.ts';
-import { SandboxManager } from '../../src/adapters/sandbox/sandboxManager.ts';
-import { SANDBOX_PROFILES } from '../../src/cli/cliEnums.ts';
-import { ArgParser } from '../../src/cli/argParser.ts';
-import { cliHelp } from '../../src/cli/cliHelp.ts';
-import { ConfigError } from '../../src/config/configError.ts';
-import { PosixShell } from '../../src/util/posixShell.ts';
+import { ContainerSandbox } from '../../src/kernel/adapters/sandbox/containerSandbox.ts';
+import { SandboxCapabilityTable } from '../../src/kernel/adapters/sandbox/sandboxCapabilityTable.ts';
+import { SandboxManager } from '../../src/kernel/adapters/sandbox/sandboxManager.ts';
+import { SANDBOX_PROFILES } from '../../src/apps/cli/cliEnums.ts';
+import { ArgParser } from '../../src/apps/cli/argParser.ts';
+import { cliHelp } from '../../src/apps/cli/cliHelp.ts';
+import { ConfigError } from '../../src/kernel/config/configError.ts';
+import { PosixShell } from '../../src/kernel/util/posixShell.ts';
 
 /** 临时工作区（目录名刻意含空格，覆盖 Windows `-v` 引号场景）。 */
 const roots: string[] = [];

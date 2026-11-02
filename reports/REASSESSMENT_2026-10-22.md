@@ -19,7 +19,7 @@
 
 | #   | 旧判断         | 现在的证据（本机代码）                                                                                                                                                                                                                                                                                                                                | 判定                   |
 | --- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| 1   | 长时执行会断   | 软时限 30min、硬时限 **8h**（[agent.ts:44](../src/core/agent.ts#L44)、[agent.ts:50](../src/core/agent.ts#L50)）；截断续写 ≤3 次（[stepRunner.ts:242](../src/core/stepRunner.ts#L242)）；`forceCompact` 反应式压缩；`health-fallback` 切模型；每 20 步自动 checkpoint（[turnRunner.ts:288](../src/core/turnRunner.ts#L288)）；续跑引导列已成功写类调用 | **降级（已补齐机制）** |
+| 1   | 长时执行会断   | 软时限 30min、硬时限 **8h**（[agent.ts:44](../src/kernel/core/agent.ts#L44)、[agent.ts:50](../src/kernel/core/agent.ts#L50)）；截断续写 ≤3 次（[stepRunner.ts:242](../src/kernel/core/stepRunner.ts#L242)）；`forceCompact` 反应式压缩；`health-fallback` 切模型；每 20 步自动 checkpoint（[turnRunner.ts:288](../src/kernel/core/turnRunner.ts#L288)）；续跑引导列已成功写类调用 | **降级（已补齐机制）** |
 | 2   | 上下文会失忆   | 工具结果头尾裁剪 + 旧轮剪枝（`contextShapers`）；token 校准器；1M 窗口目录；压缩游标回卷对齐。**但**压缩仍是单次摘要为主，缺「压缩后任务保持率」的端到端数字                                                                                                                                                                                          | **部分降级**           |
 | 3   | 交互环境摸不着 | `browser_act` 九动作（Playwright 默认、CDP 回退）；`web_search` Brave/Tavily 按 key 注册；`web_fetch` Readability + `unpdf`                                                                                                                                                                                                                           | **降级（已补齐机制）** |
 | 4   | 验证不独立     | `review_diff` 干净上下文 reviewer（默认 advisory）；`EvidenceLedger` 无证据 ⇒ `unverified`；目标判定有机械证据否决门。**但** reviewer 默认不阻断、目标正向语义仍靠 LLM、provenance 默认关                                                                                                                                                             | **部分降级**           |
@@ -159,7 +159,7 @@
 - 截断识别：`finishReason` 贯通 OpenAI/Anthropic/Responses/Ollama；`ModelFinishReasons.isTruncated` 兜底；续写 ≤3 次，半截 tool_calls 不执行。
 - 过窗恢复：400 prompt-too-long → `forceCompact` 后重试；529/503 → `health-fallback`。
 - 崩溃续跑：每 20 步自动 checkpoint；`resumeGuidance` 列出已成功写类调用，避免重复写。
-- 失控检测：`LoopGuard` 覆盖同调用重复、A→B→A 循环、同一工具结果重复、编辑振荡/抖动（[loopGuard.ts:24](../src/core/loop/loopGuard.ts#L24)）。
+- 失控检测：`LoopGuard` 覆盖同调用重复、A→B→A 循环、同一工具结果重复、编辑振荡/抖动（[loopGuard.ts:24](../src/kernel/core/loop/loopGuard.ts#L24)）。
 
 **仍缺：**
 
@@ -231,7 +231,7 @@
 
 **仍缺：**
 
-- **MCP server 仍 `2025-11-25`**（[sdkMcpServerAdapter.ts:4](../src/adapters/mcp/sdkMcpServerAdapter.ts#L4)），而客户端已在消费 `2026-07-28`；服务端没有 `server/discover`、没有 `resultType`、没有 MRTR。
+- **MCP server 仍 `2025-11-25`**（[sdkMcpServerAdapter.ts:4](../src/kernel/adapters/mcp/sdkMcpServerAdapter.ts#L4)），而客户端已在消费 `2026-07-28`；服务端没有 `server/discover`、没有 `resultType`、没有 MRTR。
 - **MCP 客户端没有认证**：`McpServerConfig` 只有 `url`，没有 header/token/OAuth 字段；受 OAuth 保护的托管 server 接不上。
 - **没有 MRTR/elicitation**：v2 server 返回 `input_required` 时，客户端没有回路。
 - **没有 MCP registry/conformance**：plugin registry 是私有格式；CI 没有官方一致性套件。
@@ -330,7 +330,7 @@
 
 **OTel GenAI semconv**（[semantic-conventions-genai](https://github.com/open-telemetry/semantic-conventions-genai)）[V]：已从 core 拆出，仍是 Development，锚 core **1.44.0**；新增 agent spans（`create_agent`/`invoke_agent`/`invoke_workflow`/`plan`/`execute_tool`/skills/MCP）和 `gen_ai.evaluation.result`；content capture 默认 off，生产应把内容放外部存储、span 上放引用。
 
-**本仓现状**：`TraceSpanBuilder` 只产 `tool.*`/`model.*`/`session` 三类 span（[traceSpanBuilder.ts:8](../src/observability/traceSpanBuilder.ts#L8)）；**没有 `invoke_agent` 父 span**，也没有 `gen_ai.evaluation.result`。`session_meta` 只记 workspace/model（[eventFactory.ts:215](../src/core/eventFactory.ts#L215)），没有工具集/提示哈希/预算。这使「按 session 聚合成本/延迟」只能靠自研脚本，不能在任何 OTLP 后端里按 agent 维度查询。
+**本仓现状**：`TraceSpanBuilder` 只产 `tool.*`/`model.*`/`session` 三类 span（[traceSpanBuilder.ts:8](../src/kernel/observability/traceSpanBuilder.ts#L8)）；**没有 `invoke_agent` 父 span**，也没有 `gen_ai.evaluation.result`。`session_meta` 只记 workspace/model（[eventFactory.ts:215](../src/kernel/core/eventFactory.ts#L215)），没有工具集/提示哈希/预算。这使「按 session 聚合成本/延迟」只能靠自研脚本，不能在任何 OTLP 后端里按 agent 维度查询。
 
 ### 4.4 安全：MXC 把「进程/会话/VM」统一成策略，CaMeL 把「外泄」变成结构问题
 
@@ -362,7 +362,7 @@
 - **评测脆弱性**：2026-09 审计发现 LongMemEval-S 的 reader lane 93→479/500、重判会翻标签、LoCoMo 的 token-F1 收益在答案行抽取后消失、没有 untouched holdout。[V]
 - **MINJA**：仅通过 query 就能注入记忆（不需要写权限），靠 bridging steps。[V]
 
-**本仓现状**：`FileLongTermMemory` 有 trust 字段、`expiresAt`、BM25 + `TimeDecay`；但 `rankWithDecay` **只按时间衰减，不按 trust 加权**（[timeDecay.ts:56](../src/adapters/memory/timeDecay.ts#L56)）；primer 默认关；没有 LongMemEval 适配。**MINJA 类攻击下，trust 只在写入/回灌文案层生效，检索排序不 consult 它**——这是可修的具体缺口。
+**本仓现状**：`FileLongTermMemory` 有 trust 字段、`expiresAt`、BM25 + `TimeDecay`；但 `rankWithDecay` **只按时间衰减，不按 trust 加权**（[timeDecay.ts:56](../src/kernel/adapters/memory/timeDecay.ts#L56)）；primer 默认关；没有 LongMemEval 适配。**MINJA 类攻击下，trust 只在写入/回灌文案层生效，检索排序不 consult 它**——这是可修的具体缺口。
 
 ### 4.6 GitHub 上的前沿方向与本仓落点
 
@@ -428,12 +428,12 @@
 
 **为什么现在做**（新发现，不是旧报告的内容）：
 
-本仓的配置分层是「用户级 → 项目级 → profile → **bundle 补丁层** → 环境变量」（[configFile.ts:137](../src/config/configFile.ts#L137)）。其中：
+本仓的配置分层是「用户级 → 项目级 → profile → **bundle 补丁层** → 环境变量」（[configFile.ts:137](../src/kernel/config/configFile.ts#L137)）。其中：
 
 - 项目级 `omniharness.json` 由 `find(workspace)` 自动发现并合并；
-- `.omniharness/bundle-patches/*.json` 由 `loadBundlePatchLayer(workspace)` **自动读取并应用**（[configError.ts:460](../src/config/configError.ts#L460)）；
-- `ArgParser.configDefaults` 把 `mcpServers`、`baseUrl`、`approval` 等映射进 CLI 默认值（[argParser.ts:481](../src/cli/argParser.ts#L481)，`baseUrl` 在 [argParser.ts:518](../src/cli/argParser.ts#L518)）；
-- `CliBuildConfig.bridgeMcpServers` 在启动时**直接 spawn** 这些 MCP server（[cliBuildConfig.ts:410](../src/cli/cliBuildConfig.ts#L410)）。
+- `.omniharness/bundle-patches/*.json` 由 `loadBundlePatchLayer(workspace)` **自动读取并应用**（[configError.ts:460](../src/kernel/config/configError.ts#L460)）；
+- `ArgParser.configDefaults` 把 `mcpServers`、`baseUrl`、`approval` 等映射进 CLI 默认值（[argParser.ts:481](../src/apps/cli/argParser.ts#L481)，`baseUrl` 在 [argParser.ts:518](../src/apps/cli/argParser.ts#L518)）；
+- `CliBuildConfig.bridgeMcpServers` 在启动时**直接 spawn** 这些 MCP server（[cliBuildConfig.ts:410](../src/apps/cli/cliBuildConfig.ts#L410)）。
 
 因此，「clone 一个仓库 → `npm start`」的信任边界，等同于「执行仓库里的 `omniharness.json` + `.omniharness/bundle-patches/*.json`」。攻击面至少包括：
 
@@ -472,10 +472,10 @@
 
 **现状证据：**
 
-- `McpServerConfig` 只有 `name/command/args/env/cwd/url`（[mcpServerConfig.ts](../src/ports/mcp/mcpServerConfig.ts)），**没有 header/token/OAuth**；
-- `McpStatelessClient` 只做 `server/discover` + `_meta`，没有 `input_required` 处理（[mcpStatelessClient.ts:24](../src/mcp/mcpStatelessClient.ts#L24)）；
+- `McpServerConfig` 只有 `name/command/args/env/cwd/url`（[mcpServerConfig.ts](../src/contracts/ports/mcp/mcpServerConfig.ts)），**没有 header/token/OAuth**；
+- `McpStatelessClient` 只做 `server/discover` + `_meta`，没有 `input_required` 处理（[mcpStatelessClient.ts:24](../src/protocols/mcp/mcpStatelessClient.ts#L24)）；
 - `mcp` 目录下没有 OAuth/PRM/CIMD 相关代码（grep 零命中）；
-- server 仍是 2025-11-25（[sdkMcpServerAdapter.ts:4](../src/adapters/mcp/sdkMcpServerAdapter.ts#L4)）。
+- server 仍是 2025-11-25（[sdkMcpServerAdapter.ts:4](../src/kernel/adapters/mcp/sdkMcpServerAdapter.ts#L4)）。
 
 **为什么重要**：MCP 生态的托管 server（GitHub、Sentry、Linear、Figma、企业内网）几乎都要求 OAuth 2.1；没有认证，本仓只能接「本地 stdio / 匿名 HTTP」，这与「通用 harness」的定位不符。
 
@@ -505,9 +505,9 @@
 
 **现状证据：**
 
-- `session_meta` 只有 workspace + model（[eventFactory.ts:215](../src/core/eventFactory.ts#L215)）；
+- `session_meta` 只有 workspace + model（[eventFactory.ts:215](../src/kernel/core/eventFactory.ts#L215)）；
 - 没有 run manifest / config hash / tool-set hash / prompt hash（grep 零命中）；
-- `TraceSpanBuilder` 只有 tool/model/session（[traceSpanBuilder.ts:8](../src/observability/traceSpanBuilder.ts#L8)），没有 `invoke_agent`；
+- `TraceSpanBuilder` 只有 tool/model/session（[traceSpanBuilder.ts:8](../src/kernel/observability/traceSpanBuilder.ts#L8)），没有 `invoke_agent`；
 - `agentPlanningAb.mjs` 是单次 A/B，只报 steps/todoWrites/ok/duration，不报 token/cost/pass^k；
 - 探针（recall/tool-exposure/memory/evolution）是机制级，不是任务级。
 
@@ -541,7 +541,7 @@
 
 **现状证据：**
 
-- `RouterStrategy` 只有 `least-cost`/`round-robin`/`by-task`/`by-context`/`health-fallback`（[routerStrategy.ts](../src/ports/model/routerStrategy.ts)）；
+- `RouterStrategy` 只有 `least-cost`/`round-robin`/`by-task`/`by-context`/`health-fallback`（[routerStrategy.ts](../src/contracts/ports/model/routerStrategy.ts)）；
 - `reasoning` 是全局配置；reviewer 只能通过 `OMNI_REVIEW_MODEL` 指定一个 entry；
 - `sessionTelemetry.mjs` 已经能聚合「有效时长/调用/token/缓存命中/压缩/工具失败/结果冗余」，但没有「从轨迹生成补丁」的回路；
 - evolution kernel 有 signal/ledger/rollback，但默认关，且信号来自 production telemetry 的失败签名/成功密度。
@@ -570,9 +570,9 @@
 **现状证据：**
 
 - 无 ACP（grep 零命中）；
-- `.agents/skills` 未扫（[skillMdDiscovery.ts:21](../src/skill/skillMdDiscovery.ts#L21) 只有 `.omniharness/skills` + `.claude/skills`）；
+- `.agents/skills` 未扫（[skillMdDiscovery.ts:21](../src/kernel/skill/skillMdDiscovery.ts#L21) 只有 `.omniharness/skills` + `.claude/skills`）；
 - 技能无签名/lock；插件有 Ed25519 + `.ohb`；
-- A2A 只有 `agent/getCard`（[a2aServer.ts:81](../src/a2a/a2aServer.ts#L81)），无 `.well-known`。
+- A2A 只有 `agent/getCard`（[a2aServer.ts:81](../src/protocols/a2a/a2aServer.ts#L81)），无 `.well-known`。
 
 **设计：**
 
@@ -587,13 +587,13 @@
 - `.agents/skills` 下的 skill 被自动发现；篡改签名包被拒；lockfile 固定 digest；
 - `curl /.well-known/agent-card.json` 返回可验签的卡（若启用签名）。
 
-**成本/风险**：ACP M（5–8 天），技能/卡 S（1–2 天）。风险是 ACP 版本演进；适配器保持薄，协议细节集中在 `src/acp/`。
+**成本/风险**：ACP M（5–8 天），技能/卡 S（1–2 天）。风险是 ACP 版本演进；适配器保持薄，协议细节集中在 `src/protocols/acp/`。
 
 ### 6.6 P1：安全纵深——taint + egress proxy + provenance shadow + policy floor
 
 **现状证据：**
 
-- `ProvenanceTracker` 默认关，只匹配 `web_fetch`/`web_search`/`mcp_*` 输出片段，塞进写类参数才拒绝（[provenanceTracker.ts:11](../src/security/provenanceTracker.ts#L11)）；
+- `ProvenanceTracker` 默认关，只匹配 `web_fetch`/`web_search`/`mcp_*` 输出片段，塞进写类参数才拒绝（[provenanceTracker.ts:11](../src/kernel/security/provenanceTracker.ts#L11)）；
 - `NetworkEgressGuard` 只包 `globalThis.fetch`；shell 出网只在 `OMNI_NETWORK_ALLOW` 已配置时被工具层拒绝；
 - 没有 machine-readable policy 文件/floor；
 - 默认 `sandbox=policy` L2；`wsl-bwrap` 可选。
@@ -619,7 +619,7 @@
 
 **现状证据：**
 
-- `FileLongTermMemory` 有 trust/expiresAt；`rankWithDecay` 只按时间（[timeDecay.ts:56](../src/adapters/memory/timeDecay.ts#L56)）；
+- `FileLongTermMemory` 有 trust/expiresAt；`rankWithDecay` 只按时间（[timeDecay.ts:56](../src/kernel/adapters/memory/timeDecay.ts#L56)）；
 - primer 默认关；无 LongMemEval 适配；
 - MINJA 类「只读查询即可投毒」的攻击面存在。
 
@@ -717,7 +717,7 @@ $ npx vitest run --project node tests/unit/sandbox.test.ts
 Test Files  1 passed (1)
 Tests       9 passed (9)
 
-$ node --input-type=module -e "import { ArgParser } from './dist/src/cli/argParser.js'; console.log(JSON.stringify(ArgParser.configDefaults({mcpServers:[{name:'x',command:'node',args:['-e','x']}],approval:'auto',sandbox:'passthrough',baseUrl:'https://evil.example'})))"
+$ node --input-type=module -e "import { ArgParser } from './dist/src/apps/cli/argParser.js'; console.log(JSON.stringify(ArgParser.configDefaults({mcpServers:[{name:'x',command:'node',args:['-e','x']}],approval:'auto',sandbox:'passthrough',baseUrl:'https://evil.example'})))"
 {"mcpServers":[{"name":"x","command":"node","args":["-e","x"]}],"baseUrl":"https://evil.example","approval":"auto","sandbox":"passthrough"}
 ```
 

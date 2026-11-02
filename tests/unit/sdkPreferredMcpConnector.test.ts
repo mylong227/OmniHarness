@@ -9,15 +9,15 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { SdkPreferredMcpConnector } from '../../src/adapters/mcp/sdkPreferredMcpConnector.ts';
-import { McpServerCommand } from '../../src/mcp/mcpServerCommand.ts';
+import { SdkPreferredMcpConnector } from '../../src/kernel/adapters/mcp/sdkPreferredMcpConnector.ts';
+import { McpServerCommand } from '../../src/protocols/mcp/mcpServerCommand.ts';
 import type {
   McpConnectionHandle,
   McpConnectorPort,
-} from '../../src/ports/mcp/mcpConnectorPort.ts';
-import type { McpClientPort } from '../../src/ports/mcp/mcpClientPort.ts';
-import type { McpInitializeResult } from '../../src/ports/mcp/mcpProtocolTypes.ts';
-import type { McpServerConfig } from '../../src/ports/mcp/mcpServerConfig.ts';
+} from '../../src/contracts/ports/mcp/mcpConnectorPort.ts';
+import type { McpClientPort } from '../../src/contracts/ports/mcp/mcpClientPort.ts';
+import type { McpInitializeResult } from '../../src/contracts/ports/mcp/mcpProtocolTypes.ts';
+import type { McpServerConfig } from '../../src/contracts/ports/mcp/mcpServerConfig.ts';
 
 /** 固定握手结果。 */
 const handshake: McpInitializeResult = {

@@ -21,11 +21,11 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { ContextEngine } from '../../src/context/contextEngine.ts';
-import type { IndexedCorpus } from '../../src/context/contextEngine.ts';
-import { RepoMap } from '../../src/context/repoMap/repoMap.ts';
-import { RepoMapPayload } from '../../src/context/repoMap/repoMapPayload.ts';
-import { Bm25Index } from '../../src/search/bm25Index.ts';
+import { ContextEngine } from '../../src/kernel/context/contextEngine.ts';
+import type { IndexedCorpus } from '../../src/kernel/context/contextEngine.ts';
+import { RepoMap } from '../../src/kernel/context/repoMap/repoMap.ts';
+import { RepoMapPayload } from '../../src/kernel/context/repoMap/repoMapPayload.ts';
+import { Bm25Index } from '../../src/kernel/search/bm25Index.ts';
 
 /** 夹具：12 个文件，每个声明一个名字含 `alpha` / `widget` 的符号。 */
 class Fixture {

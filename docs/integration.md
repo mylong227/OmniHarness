@@ -29,8 +29,8 @@ const config = ConfigFactory.build({
 const agent = new Agent(Runtime.createRuntime(config));
 ```
 
-> `Runtime.createRuntime` 是组合根上的**静态工厂**（`src/composition/runtime.ts`），与 CLI 自己走的
-> 装配点一致（`src/cli/execCli.ts` 里就是 `new Agent(Runtime.createRuntime(config))`）——
+> `Runtime.createRuntime` 是组合根上的**静态工厂**（`src/apps/composition/runtime.ts`），与 CLI 自己走的
+> 装配点一致（`src/apps/cli/execCli.ts` 里就是 `new Agent(Runtime.createRuntime(config))`）——
 > 接入方不必自造装配顺序，也不该绕过它去 `new` 具体适配器。
 
 内置备选：`MockModel`（离线）、`OpenAiCompatibleModel`（任意兼容端点）、`AnthropicModel`。

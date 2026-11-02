@@ -4,8 +4,8 @@
 // ③ 发现式清单走 stderr（不得污染 stdout / 不得静默吞掉）。
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { ServeTrust } from '../../src/cli/serveTrust.ts';
-import type { WorkspaceTrustDecision } from '../../src/ports/config/workspaceTrust.ts';
+import { ServeTrust } from '../../src/apps/cli/serveTrust.ts';
+import type { WorkspaceTrustDecision } from '../../src/contracts/ports/config/workspaceTrust.ts';
 
 /** 构造一条最小信任决策。 */
 function decisionOf(mode: 'trusted' | 'restricted'): WorkspaceTrustDecision {

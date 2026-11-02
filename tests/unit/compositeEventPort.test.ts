@@ -7,11 +7,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { CompositeEventPort } from '../../src/adapters/event/compositeEventPort.ts';
-import { CliEventPort } from '../../src/cli/cliEventPort.ts';
-import type { EventPort } from '../../src/ports/runtime/eventPort.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
-import type { CliArgs } from '../../src/cli/argParser.ts';
+import { CompositeEventPort } from '../../src/kernel/adapters/event/compositeEventPort.ts';
+import { CliEventPort } from '../../src/apps/cli/cliEventPort.ts';
+import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
+import type { CliArgs } from '../../src/apps/cli/argParser.ts';
 
 /** 一个事件样本（字段足够表达类型即可）。 */
 const EVENT = {

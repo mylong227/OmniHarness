@@ -17,7 +17,7 @@ tools/eval/long-tasks/
 ## 常用命令
 
 ```bash
-npm run build                                # 跑分器消费 dist/src/eval/longTask.js
+npm run build                                # 跑分器消费 dist/src/kernel/eval/longTask.js
 npm run eval:long -- --dry-run                # 只打印任务与配置，不调模型
 npm run eval:long -- --self-check             # 不调模型：参考解必须通过全部验收器
 npm run eval:long -- --k 3 --model <model> --out report.json
@@ -27,7 +27,7 @@ npm run eval:long -- --only strings-basic,arrays-basic
 
 ## 口径与边界
 
-- `pass@k` / `pass^k` / `tokensPerSolved` **复用** `src/eval/abMetrics.ts` 的 `AbMetrics`；
+- `pass@k` / `pass^k` / `tokensPerSolved` **复用** `src/kernel/eval/abMetrics.ts` 的 `AbMetrics`；
 - `pass@1` 是任务集的总成功次数 / 总运行次数（单次尝试成功率），`pass@k` / `pass^k` 是**任务级占比**；
 - 每任务每次运行都在独立临时 git 仓库里；`verify.mjs` 验收前从 `verifiers/` 覆盖；
 - 无 `OMNIHARNESS_API_KEY` 时显式 `{skipped:true}`，不用 mock 冒充；

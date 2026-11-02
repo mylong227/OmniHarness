@@ -18,11 +18,11 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { StepContextBuilder } from '../../src/core/stepContextBuilder.ts';
-import type { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
-import type { StepRunnerDeps } from '../../src/core/stepTypes.ts';
-import type { BudgetDegradeSignal } from '../../src/ports/model/budgetDegrade.ts';
-import type { EmbeddingPort } from '../../src/ports/model/embedding.ts';
+import { StepContextBuilder } from '../../src/kernel/core/stepContextBuilder.ts';
+import type { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
+import type { StepRunnerDeps } from '../../src/kernel/core/stepTypes.ts';
+import type { BudgetDegradeSignal } from '../../src/contracts/ports/model/budgetDegrade.ts';
+import type { EmbeddingPort } from '../../src/contracts/ports/model/embedding.ts';
 
 /** 一次 repo-map 调用的观测记录。 */
 interface Call {

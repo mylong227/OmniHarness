@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {
   FailurePatternMiner,
   type FailureRecord,
-} from '../../src/evolution/failurePatternMiner.ts';
+} from '../../src/kernel/evolution/failurePatternMiner.ts';
 
 const RECORDS: readonly FailureRecord[] = [
   {
@@ -24,7 +24,7 @@ const RECORDS: readonly FailureRecord[] = [
     message: 'turns.run 事件缺失',
   },
   { kind: 'test:assert', location: 'tests/unit/appServer.test.ts:29', message: '审批上行未接构造' },
-  { kind: 'gate:delta', location: 'src/eval/rewardCoverageMeter.ts', message: '新文件缺 @returns' },
+  { kind: 'gate:delta', location: 'src/kernel/eval/rewardCoverageMeter.ts', message: '新文件缺 @returns' },
   { kind: 'eval:passk', location: 'evals/live/bench.mjs', message: 'Pass@3 落阈值附近随机红' },
 ];
 

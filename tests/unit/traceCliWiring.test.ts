@@ -14,9 +14,9 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { TraceCommand } from '../../src/cli/traceCommand.ts';
-import { SessionStorageLocation } from '../../src/util/sessionStorageLocation.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { TraceCommand } from '../../src/apps/cli/traceCommand.ts';
+import { SessionStorageLocation } from '../../src/kernel/util/sessionStorageLocation.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 造一条会话事件。 */
 const ev = (type: SessionEvent['type'], payload: unknown, at: string): SessionEvent => ({

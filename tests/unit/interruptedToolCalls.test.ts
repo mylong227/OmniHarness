@@ -1,8 +1,8 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 
-import { InterruptedToolCalls } from '../../src/core/interruptedToolCalls.ts';
-import type { SessionEvent } from '../../src/ports/runtime/event.ts';
+import { InterruptedToolCalls } from '../../src/kernel/core/interruptedToolCalls.ts';
+import type { SessionEvent } from '../../src/contracts/ports/runtime/event.ts';
 
 /** 构造最小事件（只需 type/payload，其余字段对判据无意义）。 */
 function event(type: SessionEvent['type'], payload: unknown, id = 'e'): SessionEvent {

@@ -12,12 +12,12 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { Crc32 } from '../../src/media/crc32.ts';
-import { PngEncoder } from '../../src/media/pngEncoder.ts';
-import { PngFilterSelector } from '../../src/media/pngFilterSelector.ts';
-import { RasterScaler } from '../../src/media/rasterScaler.ts';
-import { MediaSniffer } from '../../src/media/mediaSniffer.ts';
-import type { RasterImage } from '../../src/media/rasterTypes.ts';
+import { Crc32 } from '../../src/kernel/media/crc32.ts';
+import { PngEncoder } from '../../src/kernel/media/pngEncoder.ts';
+import { PngFilterSelector } from '../../src/kernel/media/pngFilterSelector.ts';
+import { RasterScaler } from '../../src/kernel/media/rasterScaler.ts';
+import { MediaSniffer } from '../../src/kernel/media/mediaSniffer.ts';
+import type { RasterImage } from '../../src/kernel/media/rasterTypes.ts';
 
 /**
  * 构造一张纯色栅格。

@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CliAuthCmds } from '../../src/cli/cliAuthCmds.ts';
+import { CliAuthCmds } from '../../src/apps/cli/cliAuthCmds.ts';
 
 /** 直跑入口（run 的 login/callback 分发在此之下，判据直接打 callback 参数）。 */
 function makeCmds(): CliAuthCmds {

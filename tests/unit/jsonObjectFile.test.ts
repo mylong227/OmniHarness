@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, test } from 'vitest';
-import { JsonObjectFile } from '../../src/util/jsonObjectFile.ts';
+import { JsonObjectFile } from '../../src/kernel/util/jsonObjectFile.ts';
 
 const dirs: string[] = [];
 

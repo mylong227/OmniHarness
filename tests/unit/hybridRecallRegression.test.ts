@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { EmbeddingPort } from '../../src/ports/model/embedding/embeddingPort.ts';
-import type { Embedding } from '../../src/ports/model/embedding/embedding.ts';
-import { RepoMapContextEngine } from '../../src/context/repoMap/repoMapContextEngine.ts';
+import type { EmbeddingPort } from '../../src/contracts/ports/model/embedding/embeddingPort.ts';
+import type { Embedding } from '../../src/contracts/ports/model/embedding/embedding.ts';
+import { RepoMapContextEngine } from '../../src/kernel/context/repoMap/repoMapContextEngine.ts';
 
 /**
  * 混合检索**生产默认路径**的回归判据（2026-10-24）。

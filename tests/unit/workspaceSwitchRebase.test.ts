@@ -24,11 +24,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AppServerBase } from '../../src/server/core/appServerBase.ts';
+import { AppServerBase } from '../../src/apps/server/core/appServerBase.ts';
 
 /** 仓库根（`dist/tests/unit` → 上溯三级）；源码级判据必须读**源码**而不是编译产物。 */
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const SOURCE = join(REPO_ROOT, 'src', 'server', 'core', 'appServerBase.ts');
+const SOURCE = join(REPO_ROOT, 'src', 'apps', 'server', 'core', 'appServerBase.ts');
 
 describe('切换项目：早退判据必须同时看运行时根（否则跳过重基，工具留在旧树）', () => {
   it('只有「显示根 = 运行时根 = 目标根」才允许早退', () => {

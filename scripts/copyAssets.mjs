@@ -5,7 +5,7 @@
  * ## 为什么需要它
  *
  * `tsc` **只编译 `.ts` → `.js`**，不会把 `.py` / `.json` / `.wasm` 等伴生资源拷进 `dist`。
- * 但部分适配器依赖与编译产物**同目录**的伴生资源（例如 `src/adapters/laya/laya_infer.py`
+ * 但部分适配器依赖与编译产物**同目录**的伴生资源（例如 `src/kernel/adapters/laya/laya_infer.py`
  * 由 `LayaDecisionEngine` 经子进程调用）。而 `package.json` 的 `files` 只含 `dist/src`、
  * 不含 `src` —— 若不镜像，发布包会缺资源，生产/集成测试下适配器找不到脚本（fail-open 退化）。
  *

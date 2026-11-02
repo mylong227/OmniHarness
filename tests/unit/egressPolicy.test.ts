@@ -3,7 +3,7 @@
  */
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { EgressPolicy } from '../../src/security/egressPolicy.ts';
+import { EgressPolicy } from '../../src/kernel/security/egressPolicy.ts';
 
 test('默认拒绝元数据/本机，放行公网', () => {
   assert.strictEqual(
