@@ -72,18 +72,21 @@ test('② 原位置仍再导出同名类型（公开 API 面不变）', () => {
   // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据正则跟新。
   assert.match(
     read('src/kernel/config/configFactory.ts'),
-    /export type \{ SubagentPortSeed \} from '\.\.\/ports\/config\/subagentPortSeed\.ts'/,
+    /export type \{ SubagentPortSeed \} from '(?:\.\.\/)+contracts\/ports\/config\/subagentPortSeed\.ts'/,
     'configFactory 必须再导出 SubagentPortSeed（否则是破坏性 API 变更）',
   );
   assert.match(
     read('src/kernel/config/mediaStackAssembler.ts'),
-    /export type \{ MediaStack \} from '\.\.\/ports\/media\/mediaStack\.ts'/,
+    /export type \{ MediaStack \} from '(?:\.\.\/)+contracts\/ports\/media\/mediaStack\.ts'/,
     'mediaStackAssembler 必须再导出 MediaStack（否则是破坏性 API 变更）',
   );
 });
 
 test('③ 拆环的关键回边不得复活：两个装配文件不得再 import configFactory', () => {
-  for (const rel of ['src/kernel/config/configBuilder.ts', 'src/kernel/config/configToolRegistry.ts']) {
+  for (const rel of [
+    'src/kernel/config/configBuilder.ts',
+    'src/kernel/config/configToolRegistry.ts',
+  ]) {
     const text = read(rel);
     assert.ok(
       !/from '\.\/configFactory\.ts'/.test(text),
@@ -91,7 +94,7 @@ test('③ 拆环的关键回边不得复活：两个装配文件不得再 import
     );
     assert.match(
       text,
-      /from '\.\.\/ports\/config\/subagentPortSeed\.ts'/,
+      /from '(?:\.\.\/)+contracts\/ports\/config\/subagentPortSeed\.ts'/,
       `${rel} 应从 ports 直连 SubagentPortSeed`,
     );
   }

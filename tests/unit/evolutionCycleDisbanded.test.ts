@@ -65,7 +65,7 @@ test('① ReplayBuffer 契约住在 ports，且是纯声明（无第三方、无
 test('② 原位置 rlvrLoop 仍再导出同名类型（公开 API 面不变）', () => {
   assert.match(
     read('src/kernel/evolution/rlvrLoop.ts'),
-    /export type \{ ReplayBuffer \} from '\.\.\/ports\/runtime\/evolution\/replayBuffer\.ts'/,
+    /export type \{ ReplayBuffer \} from '(?:\.\.\/)+contracts\/ports\/runtime\/evolution\/replayBuffer\.ts'/,
     'rlvrLoop 必须再导出 ReplayBuffer（否则是破坏性 API 变更）',
   );
 });
@@ -78,7 +78,7 @@ test('③ 拆环的关键回边不得复活：inMemoryReplayBuffer 不得再 imp
   );
   assert.match(
     text,
-    /from '\.\.\/ports\/runtime\/evolution\/replayBuffer\.ts'/,
+    /from '(?:\.\.\/)+contracts\/ports\/runtime\/evolution\/replayBuffer\.ts'/,
     'inMemoryReplayBuffer 应从 ports 直连 ReplayBuffer',
   );
 });

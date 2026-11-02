@@ -152,8 +152,8 @@ test('结构：门面只从 ports/approval 转发两条类型，不自建第二�
     .filter((line) => line.startsWith('export'));
   assert.deepEqual(exportLines, [
     // 2026-10-17 起源码相对导入写真实后缀 `.ts`（与前端统一），判据跟新。
-    "export type { ApprovalRuleDecision } from '../../ports/approval/approvalRuleDecision.ts';",
-    "export type { ApprovalRule } from '../../ports/approval/approvalRule.ts';",
+    "export type { ApprovalRuleDecision } from '../../../contracts/ports/approval/approvalRuleDecision.ts';",
+    "export type { ApprovalRule } from '../../../contracts/ports/approval/approvalRule.ts';",
   ]);
   // 门面里不得自建 interface / class / 值导出：那会在适配器层长出第二份契约定义（双真源）。
   assert.doesNotMatch(source, /^(export )?(interface|class|const|function|enum)\s/m);

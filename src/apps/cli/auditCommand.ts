@@ -1,37 +1,112 @@
 /**
- * audit 子命令（AuditCommand）——导出落盘审计日志，或生成带哈希链校验的合规报告。
+ * audit 子命令（AuditCommand）——三条能力，共用一个入口：
  *
- * 从原 CliDataCmds 抽出，行为逐字节等价。fail-closed 语义保持不变：哈希链确凿断裂（ok===false）
- * 时告警并以非零码退出；旧格式日志（ok===null，无链字段）仅不可验证、非篡改，正常出具。
+ * 1. `audit export`：导出落盘审计日志，或生成带哈希链校验的合规报告（原有行为，逐字节保持）；
+ * 2. `audit report <file|dir>`：把**任意受支持的会话文件**（OmniHarness JSONL / Claude Code
+ *    transcript / Codex rollout / ACP 转录）转成自包含审计报告（HTML / Markdown / JSON）；
+ * 3. `audit verify <report>`：复核报告哈希链（HTML / Markdown / JSON 都认）。
+ *
+ * 失败语义：用法错误 2；输入/读盘/解析失败 1；`export --compliance` 的链断裂仍为 1（原有语义）；
+ * `verify` 任一份不完整为 1。所有错误都打印可执行的原因，不静默降级。
  */
 
 import { writeFileSync } from 'node:fs';
+import { extname } from 'node:path';
 import { AuditSink, type AuditEvent } from '../server/services/auditSink.ts';
 import {
   AuditExporter,
   type AuditFormat,
   type AuditQuery,
 } from '../server/services/auditExporter.ts';
+import { AuditTool } from '../audit/auditTool.ts';
+import type { AuditOutputFormat, AuditSourceFormat } from '../audit/auditTypes.ts';
 import { CliArgReader } from './cliArgReader.ts';
 
-/** 用法提示。 */
+/** 用法提示（`audit` 三种形态的完整说明）。 */
 const USAGE =
-  '用法: omniharness audit export [--audit-dir DIR | --audit-file PATH] ' +
-  '[--since ISO] [--until ISO] [--type T] [--session S] [--actor A] ' +
-  '[--format json|table|csv] [--out FILE] [--limit N] [--compliance]\n';
+  '用法:\n' +
+  '  omniharness audit export [--audit-dir DIR | --audit-file PATH] [--since ISO] [--until ISO]\n' +
+  '                          [--type T] [--session S] [--actor A] [--format json|table|csv]\n' +
+  '                          [--out FILE] [--limit N] [--compliance]\n' +
+  '  omniharness audit report <FILE|DIR...> [--format html|md|json] [--out PATH]\n' +
+  '                          [--title TEXT] [--source-format omni|claude-code|codex|acp]\n' +
+  '  omniharness audit verify <REPORT...> [--json]\n' +
+  '  omniharness audit <FILE|DIR...>            # report 的简写\n';
+
+/** `report` 的取值型旗标。 */
+const REPORT_VALUE_FLAGS: readonly string[] = ['--format', '--out', '--title', '--source-format'];
+
+/** `verify` 的开关型旗标。 */
+const VERIFY_BOOL_FLAGS: readonly string[] = ['--json'];
+
+/** `export` 的取值型旗标（沿用原有集合）。 */
+const EXPORT_VALUE_FLAGS: readonly string[] = [
+  '--audit-dir',
+  '--audit-file',
+  '--audit-hmac-key',
+  '--since',
+  '--until',
+  '--type',
+  '--session',
+  '--actor',
+  '--format',
+  '--out',
+  '--limit',
+];
+
+/** `export` 的开关型旗标。 */
+const EXPORT_BOOL_FLAGS: readonly string[] = ['--compliance'];
+
+/** 位置参数解析结果。 */
+interface Positionals {
+  /** 非旗标参数（保序）。 */
+  readonly paths: readonly string[];
+  /** 不认识的旗标。 */
+  readonly unknown: readonly string[];
+}
 
 export class AuditCommand {
+  /** 出证工具（报告 / 复核）。 */
+  private readonly tool = new AuditTool();
+
   /**
    * 执行 audit 子命令。
-   * @param args 子命令参数（已去掉 `audit`，首元素为子命令名）。
-   * @returns 进程退出码（0 成功 / 1 链断裂 / 2 用法错误）。
+   * @param args 子命令参数（已去掉 `audit`，首元素为子命令名或输入路径）。
+   * @returns 进程退出码（0 成功 / 1 失败 / 2 用法错误）。
    */
   public async run(args: readonly string[]): Promise<number> {
-    if (args[0] !== 'export') {
+    const first = args[0];
+    if (first === undefined || first.startsWith('-')) {
       process.stdout.write(USAGE);
       return 2;
     }
-    const rest = args.slice(1);
+    if (first === 'export') {
+      return this.runExportMode(args.slice(1));
+    }
+    if (first === 'verify') {
+      return this.runVerifyMode(args.slice(1));
+    }
+    if (first === 'report') {
+      return this.runReportMode(args.slice(1));
+    }
+    // 简写：`audit <file>` 等价 `audit report <file>`。
+    return this.runReportMode(args);
+  }
+
+  /**
+   * `export` 分支（原有实现，逐行为等价）。
+   * @param rest 去掉 `export` 后的参数。
+   * @returns 退出码。
+   */
+  private runExportMode(rest: readonly string[]): number {
+    const parsed = this.positionalsOf(rest, EXPORT_VALUE_FLAGS, EXPORT_BOOL_FLAGS);
+    if (parsed.unknown.length > 0 || parsed.paths.length > 0) {
+      process.stderr.write(
+        `[omniharness] audit export 不认识这些参数：${parsed.unknown.join(' ')}\n`,
+      );
+      process.stdout.write(USAGE);
+      return 2;
+    }
     const reader = new CliArgReader(rest);
     const sink = this.buildSink(reader);
     const query = this.buildQuery(reader);
@@ -40,6 +115,161 @@ export class AuditCommand {
       return this.runCompliance(sink, events, query, reader);
     }
     return this.runExport(events, query, reader);
+  }
+
+  /**
+   * `report` 分支。
+   * @param rest 参数。
+   * @returns 退出码。
+   */
+  private runReportMode(rest: readonly string[]): number {
+    const parsed = this.positionalsOf(rest, REPORT_VALUE_FLAGS, []);
+    if (parsed.unknown.length > 0) {
+      process.stderr.write(
+        `[omniharness] audit report 不认识的旗标：${parsed.unknown.join(' ')}\n`,
+      );
+      process.stdout.write(USAGE);
+      return 2;
+    }
+    if (parsed.paths.length === 0) {
+      process.stdout.write(USAGE);
+      return 2;
+    }
+    const reader = new CliArgReader(rest);
+    const out = reader.value('--out') ?? null;
+    const format = this.resolveFormat(reader.value('--format'), out);
+    if (format === null) {
+      process.stderr.write('[omniharness] --format 只支持 html / md / json\n');
+      return 2;
+    }
+    const sourceFormat = this.resolveSourceFormat(reader.value('--source-format'));
+    if (sourceFormat === 'invalid') {
+      process.stderr.write(
+        '[omniharness] --source-format 只支持 omni / claude-code / codex / acp\n',
+      );
+      return 2;
+    }
+    try {
+      return this.tool.report({
+        inputs: parsed.paths,
+        format,
+        out,
+        title: reader.value('--title') ?? null,
+        ...(sourceFormat === null ? {} : { sourceFormat }),
+      });
+    } catch (error) {
+      process.stderr.write(`[omniharness] 审计报告生成失败：${this.messageOf(error)}\n`);
+      return 1;
+    }
+  }
+
+  /**
+   * `verify` 分支。
+   * @param rest 参数。
+   * @returns 退出码。
+   */
+  private runVerifyMode(rest: readonly string[]): number {
+    const parsed = this.positionalsOf(rest, [], VERIFY_BOOL_FLAGS);
+    if (parsed.unknown.length > 0) {
+      process.stderr.write(
+        `[omniharness] audit verify 不认识的旗标：${parsed.unknown.join(' ')}\n`,
+      );
+      return 2;
+    }
+    if (parsed.paths.length === 0) {
+      process.stdout.write(USAGE);
+      return 2;
+    }
+    try {
+      return this.tool.verify(parsed.paths, rest.includes('--json'));
+    } catch (error) {
+      process.stderr.write(`[omniharness] 审计报告复核失败：${this.messageOf(error)}\n`);
+      return 1;
+    }
+  }
+
+  /**
+   * 解析输出格式：显式 --format 优先，其次按 --out 扩展名推断，缺省 html。
+   * @param raw --format 值。
+   * @param out --out 值。
+   * @returns 格式；非法返回 null。
+   */
+  private resolveFormat(raw: string | undefined, out: string | null): AuditOutputFormat | null {
+    if (raw !== undefined) {
+      return raw === 'html' || raw === 'md' || raw === 'json' ? raw : null;
+    }
+    if (out !== null) {
+      const ext = extname(out).toLowerCase();
+      if (ext === '.md' || ext === '.markdown') {
+        return 'md';
+      }
+      if (ext === '.json') {
+        return 'json';
+      }
+    }
+    return 'html';
+  }
+
+  /**
+   * 解析输入格式覆盖值。
+   * @param raw --source-format 值。
+   * @returns 格式 / null（自动）/ 'invalid'。
+   */
+  private resolveSourceFormat(raw: string | undefined): AuditSourceFormat | null | 'invalid' {
+    if (raw === undefined) {
+      return null;
+    }
+    return raw === 'omni' || raw === 'claude-code' || raw === 'codex' || raw === 'acp'
+      ? raw
+      : 'invalid';
+  }
+
+  /**
+   * 提取位置参数与不认识的旗标。
+   * @param args 参数列表。
+   * @param valueFlags 取值型旗标（其后的 token 不是位置参数）。
+   * @param boolFlags 开关型旗标。
+   * @returns 解析结果。
+   */
+  private positionalsOf(
+    args: readonly string[],
+    valueFlags: readonly string[],
+    boolFlags: readonly string[],
+  ): Positionals {
+    const paths: string[] = [];
+    const unknown: string[] = [];
+    for (let index = 0; index < args.length; index += 1) {
+      const arg = args[index];
+      if (arg === undefined) {
+        continue;
+      }
+      if (!arg.startsWith('-')) {
+        paths.push(arg);
+        continue;
+      }
+      const eq = arg.indexOf('=');
+      const name = eq >= 0 ? arg.slice(0, eq) : arg;
+      if (valueFlags.indexOf(name) >= 0) {
+        if (eq < 0) {
+          index += 1;
+        }
+        continue;
+      }
+      if (boolFlags.indexOf(name) >= 0) {
+        continue;
+      }
+      unknown.push(arg);
+    }
+    return { paths, unknown };
+  }
+
+  /**
+   * 取错误消息文本。
+   * @param error 捕获值。
+   * @returns 文本。
+   */
+  private messageOf(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
   }
 
   /**

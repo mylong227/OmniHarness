@@ -15,11 +15,11 @@
 
 ## 0. 运行方式
 
-| 方式                      | 命令                                                              |
-| ------------------------- | ----------------------------------------------------------------- |
+| 方式                      | 命令                                                                   |
+| ------------------------- | ---------------------------------------------------------------------- |
 | 源码运行（本仓开发）      | `node dist/src/apps/cli/exec.js <子命令> [旗标]`（先 `npm run build`） |
-| 全局 bin（`npm i -g` 后） | `omniharness <子命令> [旗标]`                                     |
-| 无子命令（默认路径）      | `omniharness exec --prompt "任务"` 或 `omniharness "任务"`        |
+| 全局 bin（`npm i -g` 后） | `omniharness <子命令> [旗标]`                                          |
+| 无子命令（默认路径）      | `omniharness exec --prompt "任务"` 或 `omniharness "任务"`             |
 
 ---
 
@@ -67,22 +67,24 @@
 
 ### 数据、凭据与治理
 
-| 子命令                                                                          | 作用                                                                                                                                                   |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `session list`                                                                  | 会话列表（`--storage-dir` 指定存档目录）                                                                                                               |
-| `session export / import`                                                       | 会话导出/导入（U3 平台互操作）：export 默认 omni 无损信封、`--format claude-code` 最小文本投影；import 自动识别格式生成**新会话**                      |     |
-| `trace read --session ID`                                                       | 只读自省会话 trace（冻结条目，不可借道改历史）                                                                                                         |
-| `audit export [--compliance]`                                                   | 审计导出 / 合规报告（含完整性哈希）                                                                                                                    |
-| `kv get\|set\|del\|list`                                                        | 通用键值存储                                                                                                                                           |
-| `vault get\|set\|del\|list`                                                     | 凭据保险库（AES-256-GCM）                                                                                                                              |
-| `identity generate\|show\|sign\|verify`                                         | 密码学身份（Ed25519，零依赖）                                                                                                                          |
-| `license …`                                                                     | 许可证校验与签名资产包（见 ADR-0011）                                                                                                                  |
-| `schema [--out-ts/--out-py/--out-md]`                                           | 单源 schema 导出                                                                                                                                       |
-| `compare`                                                                       | A/B 模型对比                                                                                                                                           |
-| `doctor`                                                                        | 环境诊断（沙箱后端可达性、依赖、配置）；**有问题项即以退出码 1 退出**（0＝`[OK] 未发现健康问题`），便于 `doctor && 下一步` 与 CI 察觉                  |
-| `gc [--dry-run]`                                                                | 手动维护巡检：临时目录 / 陈旧 serve 实例记录 / 会话保留策略（keepNewest 50 / 90 天 / 4 GiB，`OMNI_GC_*` 可调）/ 半截临时文件；`--dry-run` 只报告不删除 |
-| `evolution …`                                                                   | 进化闭环（RLVR / GEE Kernel 编排）                                                                                                                     |
-| `native info\|ping\|tools\|approval\|session-submit\|context\|tool-call\|bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                                                                                                      |
+| 子命令                                                                          | 作用                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `session list`                                                                  | 会话列表（`--storage-dir` 指定存档目录）                                                                                                                           |
+| `session export / import`                                                       | 会话导出/导入（U3 平台互操作）：export 默认 omni 无损信封、`--format claude-code` 最小文本投影；import 自动识别格式生成**新会话**                                  |     |
+| `trace read --session ID`                                                       | 只读自省会话 trace（冻结条目，不可借道改历史）                                                                                                                     |
+| `audit export [--compliance]`                                                   | 审计导出 / 合规报告（含完整性哈希）                                                                                                                                |
+| `audit report <FILE\|DIR...>`                                                   | 会话出证：读 OmniHarness / Claude Code / Codex / ACP 会话，生成自带哈希链的 HTML/Markdown/JSON 报告（`--out` / `--format`；见 [audit/README.md](audit/README.md)） |
+| `audit verify <REPORT...>`                                                      | 复核报告哈希链（任一字节被改动即非零退出；`--json` 输出机读结果）                                                                                                  |
+| `kv get\|set\|del\|list`                                                        | 通用键值存储                                                                                                                                                       |
+| `vault get\|set\|del\|list`                                                     | 凭据保险库（AES-256-GCM）                                                                                                                                          |
+| `identity generate\|show\|sign\|verify`                                         | 密码学身份（Ed25519，零依赖）                                                                                                                                      |
+| `license …`                                                                     | 许可证校验与签名资产包（见 ADR-0011）                                                                                                                              |
+| `schema [--out-ts/--out-py/--out-md]`                                           | 单源 schema 导出                                                                                                                                                   |
+| `compare`                                                                       | A/B 模型对比                                                                                                                                                       |
+| `doctor`                                                                        | 环境诊断（沙箱后端可达性、依赖、配置）；**有问题项即以退出码 1 退出**（0＝`[OK] 未发现健康问题`），便于 `doctor && 下一步` 与 CI 察觉                              |
+| `gc [--dry-run]`                                                                | 手动维护巡检：临时目录 / 陈旧 serve 实例记录 / 会话保留策略（keepNewest 50 / 90 天 / 4 GiB，`OMNI_GC_*` 可调）/ 半截临时文件；`--dry-run` 只报告不删除             |
+| `evolution …`                                                                   | 进化闭环（RLVR / GEE Kernel 编排）                                                                                                                                 |
+| `native info\|ping\|tools\|approval\|session-submit\|context\|tool-call\|bench` | 进程内直调 Rust 内核（需 `npm run native:build`）                                                                                                                  |
 
 > **没有** `eval` 子命令（跑分/对外评测子系统已移除；历史评测数字只在 git 历史与归档文档里）。
 
@@ -161,7 +163,7 @@
 传输：`POST /rpc`（JSON-RPC 2.0，批量也支持）+ `GET /events`（SSE 推送）+ WebSocket 帧层。
 核心方法（`threads.*` / `approval.respond`）见 [`protocol.md`](protocol.md)；
 UI 侧高频方法（`config.get` / `config.update` / `sessions.list{workspace}` / `modes.get` / `modes.set` /
-`plugins.*` / `memory.*` / `graph.*` / `workspace.*` / `fs.*`）以 [`../web/src/kernel/core/ApiClient.ts`](../web/src/kernel/core/ApiClient.ts) 为准。
+`plugins.*` / `memory.*` / `graph.*` / `workspace.*` / `fs.*`）以 [`../web/src/core/ApiClient.ts`](../web/src/core/ApiClient.ts) 为准。
 
 示例：
 

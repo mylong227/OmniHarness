@@ -19,6 +19,10 @@ package-lock.json
 # 日志
 *.log
 
+# 会话夹具（2026-11-03）：JSONL / 单行 JSON 的「一行一个事件」是**格式语义**，
+# Prettier 会把单行信封重排成多行 JSON，随后按行解析的夹具就失效了（提交钩子实测踩到）。
+tests/fixtures/audit/
+
 # 工作区元信息
 .workbuddy/
 

@@ -1,4 +1,4 @@
-﻿// 失败归因契约：RPC 超时/HTTP 异常**不得**退化成一句无归因的「RPC 错误」。
+// 失败归因契约：RPC 超时/HTTP 异常**不得**退化成一句无归因的「RPC 错误」。
 //
 // 复现的缺陷（2026-09-27 用户截图）：
 //   后端 `turns.run` 超过 60s 预算 → 超时 reject 冒泡 → httpServer 兜底写 `500 {"error":"internal"}`
@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
 
-const { ApiClient } = await import('../src/kernel/core/ApiClient.ts');
+const { ApiClient } = await import('../src/core/ApiClient.ts');
 const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
 /**

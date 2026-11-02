@@ -99,7 +99,7 @@ OmniHarness 是一个**面向真实机器操作的 Agent Harness**。它不是�
 | 形态               | 入口                                                   | 适合                                       |
 | ------------------ | ------------------------------------------------------ | ------------------------------------------ |
 | **Web 工作台**     | `npm start` → 打开横幅里的 `?token=` 地址（默认 8787） | 可视化看轨迹、审批、指标、插件、记忆、编排 |
-| **CLI / headless** | `node dist/src/apps/cli/exec.js <子命令>`                   | 脚本、CI、批处理、可复现跑测               |
+| **CLI / headless** | `node dist/src/apps/cli/exec.js <子命令>`              | 脚本、CI、批处理、可复现跑测               |
 
 ---
 
@@ -125,6 +125,9 @@ OmniHarness 是一个**面向真实机器操作的 Agent Harness**。它不是�
 
 - **事件流**：`POST /rpc`（JSON-RPC 2.0）+ `GET /events`（SSE）双通道；`--output` 落 JSONL 可回放（`--replay`）。
 - **审计导出**：`omniharness audit export [--compliance]`（含完整性哈希）。
+- **审计出证**：`omniharness audit <会话文件>` 把一次会话变成**离线可开、自带哈希链**的 HTML/Markdown
+  报告（时间线 / 文件变更 / 审批 / 成本 / 失败点），支持 OmniHarness、Claude Code、Codex、ACP 四种来源；
+  `audit verify <报告>` 复核链完整性，HTML 页面打开即自动复核。见 [`docs/audit/README.md`](docs/audit/README.md)。
 - **只读自省**：`omniharness trace read --session ID`（冻结条目，不可借道改历史）。
 - **指标**：token / 成本 / 步数 / 工具调用数（`/metrics`），可对账。
 
@@ -331,7 +334,7 @@ node dist/src/apps/cli/exec.js --version              # 打印 API_VERSION
 | #   | 铁律                                                                                                       | 强制处（机械门禁）                             |
 | --- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | 1   | **分层**：`ports`（契约）→ `core`（用例）→ `adapters`（实现），依赖只能向内                                | `architectureGate [1][2][3]`                   |
-| 2   | **装配单点**：唯一 `new` 具体实现的位置是组合根（`src/apps/composition/`）                                      | `architectureGate [3.5]` + `auditConfigWiring` |
+| 2   | **装配单点**：唯一 `new` 具体实现的位置是组合根（`src/apps/composition/`）                                 | `architectureGate [3.5]` + `auditConfigWiring` |
 | 3   | **fail-closed**：不确定就拒绝；能力不可用就如实报不可用                                                    | 各端口判据 + `tests/unit/**`                   |
 | 4   | **依赖准入**（不是"零依赖"）：`ports`/`core` 恒第三方-free，其余按 D10 准入并登记                          | `dependency-allowlist.json` + `check.mjs`      |
 | 5   | **编码标准**：JSDoc / 显式可见性 / 命名 / 体量阈值（单文件 ≤ 810 行；类 > 500 去注释行或 > 25 方法即违规） | `eslint` + `auditStandards` + `check.mjs`      |

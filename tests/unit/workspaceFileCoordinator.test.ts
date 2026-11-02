@@ -300,6 +300,7 @@ test('⑨ 真·跨进程：两个 Node 进程各做 5 次读—改—写，10 �
         '..',
         '..',
         'src',
+        'kernel',
         'adapters',
         'tool',
         'fs',

@@ -104,6 +104,11 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   '--session',
   '--limit',
   '--format',
+  // audit report（2026-11-02 审计出证）：报告标题与输入格式覆盖。两者都由
+  // `AuditCommand` 用 `CliArgReader.value` 直读（子命令自行解析），不登记会被
+  // 「未知旗标 fail-closed」打死。
+  '--title',
+  '--source-format',
   '--server',
   '--args',
   '--url',

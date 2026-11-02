@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { test } from 'vitest';
 import type { AppHost, AppServices } from '../src/ui/controllers/AppController.ts';
 import type { SessionController } from '../src/ui/controllers/SessionController.ts';
-import type { AppRoute } from '../src/kernel/core/Router.ts';
+import type { AppRoute } from '../src/core/Router.ts';
 
-const { ApiClient } = await import('../src/kernel/core/ApiClient.ts');
+const { ApiClient } = await import('../src/core/ApiClient.ts');
 const { ComposerController } = await import('../src/ui/controllers/ComposerController.ts');
 
 /** 测试本地事件形状（ThreadEvent 的最小子集）。 */

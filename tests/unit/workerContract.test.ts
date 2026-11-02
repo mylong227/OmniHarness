@@ -43,7 +43,9 @@ import type { ToolCall, ToolContext } from '../../src/contracts/ports/tool/tool.
  * 需要该契约，而端口不得反向依赖实现文件）⇒ 判据的**检体**随契约走；原 `src/kernel/worker/worker.ts`
  * 变成桶再导出，`CONTRACT_BARREL_*` 继续钉住"公共 API 面没变、仍是纯类型"。
  */
-const CONTRACT_SOURCE = fileURLToPath(new URL('../../src/contracts/ports/worker/worker.ts', import.meta.url));
+const CONTRACT_SOURCE = fileURLToPath(
+  new URL('../../src/contracts/ports/worker/worker.ts', import.meta.url),
+);
 /** 契约编译产物路径（2026-10-17 起判据从源码直跑，dist 路径显式指向编译产物）。 */
 const CONTRACT_DIST = fileURLToPath(
   new URL('../../dist/src/contracts/ports/worker/worker.js', import.meta.url),
@@ -249,7 +251,9 @@ test('② 契约模块是纯类型模块：dist 产物恒为 `export {};`（"零
   assert.deepStrictEqual(
     barrelStatements,
     // 2026-10-17 起源码相对导入写真实后缀 `.ts`，判据跟新。
-    ["export type { Worker, WorkerRequest, WorkerResult } from '../ports/worker/worker.ts';"],
+    [
+      "export type { Worker, WorkerRequest, WorkerResult } from '../../contracts/ports/worker/worker.ts';",
+    ],
     '实现层文件必须退化为**单行再导出**（自留第二份声明 = 双真源，值导出 = 公共 API 面变了）',
   );
 });

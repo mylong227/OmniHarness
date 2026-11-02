@@ -4,7 +4,11 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import type { EventPort } from '../../src/contracts/ports/runtime/eventPort.ts';
-import type { ModelOutput, ModelPort, ModelRequest } from '../../src/contracts/ports/model/model.ts';
+import type {
+  ModelOutput,
+  ModelPort,
+  ModelRequest,
+} from '../../src/contracts/ports/model/model.ts';
 import type { ToolPort } from '../../src/contracts/ports/tool/tool.ts';
 import { AutoApproval } from '../../src/kernel/adapters/approval/autoApproval.ts';
 import { MemoryStorage } from '../../src/kernel/adapters/storage/memoryStorage.ts';
@@ -33,10 +37,11 @@ class TimedModel implements ModelPort {
     const lastUser = [...request.messages].reverse().find((message) => message.role === 'user');
     const id = (lastUser?.content ?? '?').slice(0, 1);
     const start = Date.now();
-    // A 的慢延迟 400ms（2026-11-01 由 120 上调）：全量并行跑时 worker 被抢占会让
-    // 「B 完成 → C 启动」的 promise 链被推迟 100ms+，120ms 余量被压塌后计时反转
-    // （全量三连红、隔离双连绿的实证）。断言语义不变，只是把余量放大到抢占尺度之上。
-    await new Promise((resolve) => setTimeout(resolve, id === 'A' ? 400 : 10));
+    // A 的慢延迟 1200ms（2026-11-01 由 120 上调到 400；2026-11-03 再上调到 1200）：
+    // 全量并行跑时 worker 被抢占会让「B 完成 → C 启动」的 promise 链被推迟数百毫秒，
+    // 实测两次全量分别出现「C.start 晚于 A.end 268ms」「恰好相等」——400ms 余量仍被压塌。
+    // 断言语义不变（C 必须先于 A 完成启动），只是把余量放大到抢占尺度之上。
+    await new Promise((resolve) => setTimeout(resolve, id === 'A' ? 1200 : 10));
     this.events.push({ id, start, end: Date.now() });
     return { text: 'ok' };
   }

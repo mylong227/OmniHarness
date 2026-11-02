@@ -358,7 +358,7 @@
 > | ------- | ------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | **E1+** | 双源信号（失败→提案 / 成功→工作流模板候选）       | 🟡 **部分** | 失败侧蒸馏器在（`failurePatternMiner` 被 `signalIngestor`/`dormantExecutorActivation` 使用，Wave A）；**成功侧蒸馏器不存在**（`workflow-template` 只有 schema 注册、无候选生产者）；双源端到端与「掐断任一半边 ⇒ 候选恒 0」判据**未做** |
 > | **E2+** | 进化增益自证探针（含 val/test 纪律闸）            | ✅ **本轮** | `tools/probes/evolutionLiftProbe.mjs`（已登记 README，过探针七条判据）                                                                                                                                                                  |
-> | **E3+** | 提案回填（`rlvrLoop` 采样 prompt 加历史失败原因） | ⬜ 未做     | `src/kernel/evolution/rlvrLoop.ts` 内**零**失败/原因相关引用                                                                                                                                                                                   |
+> | **E3+** | 提案回填（`rlvrLoop` 采样 prompt 加历史失败原因） | ⬜ 未做     | `src/kernel/evolution/rlvrLoop.ts` 内**零**失败/原因相关引用                                                                                                                                                                            |
 > | **E4+** | 级联评估（静态短路 + verify 推导按快→慢）         | ✅ 基本具备 | `cascadeReward` + `RlvrController` 的 `cascade: true`（Kernel 路径显式开；J5「静态失败 ⇒ verify 调用 0 次」判据绿）；verify 推导由 `SelfVerifyCommandDetector` 提供                                                                     |
 > | **E5**  | 晋升级回滚                                        | ✅          | Wave A 台账 `rollback(seq)` + 快照；J4「回滚后注册表与快照逐条深相等」判据绿                                                                                                                                                            |
 > | **N1**  | 覆盖度分桶（MAP-Elites 式）                       | ✅          | Wave A `bucketedCoverageMeter`（`CoverageMeter`/`CoverageReportSurface`）                                                                                                                                                               |
@@ -1098,7 +1098,7 @@
 >
 > | #   | 缺陷（实测证据）                                                                                                                                                                                                                                             | 根因                                                                                                                                                                                                                                                | 处置 + 判据                                                                                                                                                                                                                                                                                                                                              |
 > | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | 1   | **子智能体隔离对写类工具失效**：子代理在隔离工作树里 `write_file src/parse.mjs` 报"已写入"，文件却落在**主工作区**；它随后用 `shell`（cwd=隔离树）跑自测**看不到自己刚写的文件**，反复失败直到撞上 12 步上限；而回执仍宣称"**主工作区尚未改动**"（**谎报**） | fs 工具族各用各的根：`read_file`/`glob`/`grep`/`shell` 用运行时 ctx，而 `write_file`/`edit`/`list_dir`/`apply_patch`（及 `view_image`/`view_media`/`browser_screenshot`/`sketch_write`）用**装配期根**——正是第六十轮 ④ 登记的那条"三条解析规则共存" | 新增单一事实源 `src/kernel/util/toolWorkspaceRoot.ts`（**运行时 ctx 优先，空串回落装配根**），8 个工具全改走它。判据 `tests/unit/toolWorkspaceRootIsolation.test.ts` ①–③（装配根一个字节都不许变 / 读类工具不许被改回 / 空串回落）；`toolkit.test.ts`、`editFileTool.test.ts`、`patchApplierFuzzy.test.ts` 里三处**把旧行为钉成契约**的 ctx 一并订正            |
+> | 1   | **子智能体隔离对写类工具失效**：子代理在隔离工作树里 `write_file src/parse.mjs` 报"已写入"，文件却落在**主工作区**；它随后用 `shell`（cwd=隔离树）跑自测**看不到自己刚写的文件**，反复失败直到撞上 12 步上限；而回执仍宣称"**主工作区尚未改动**"（**谎报**） | fs 工具族各用各的根：`read_file`/`glob`/`grep`/`shell` 用运行时 ctx，而 `write_file`/`edit`/`list_dir`/`apply_patch`（及 `view_image`/`view_media`/`browser_screenshot`/`sketch_write`）用**装配期根**——正是第六十轮 ④ 登记的那条"三条解析规则共存" | 新增单一事实源 `src/kernel/util/toolWorkspaceRoot.ts`（**运行时 ctx 优先，空串回落装配根**），8 个工具全改走它。判据 `tests/unit/toolWorkspaceRootIsolation.test.ts` ①–③（装配根一个字节都不许变 / 读类工具不许被改回 / 空串回落）；`toolkit.test.ts`、`editFileTool.test.ts`、`patchApplierFuzzy.test.ts` 里三处**把旧行为钉成契约**的 ctx 一并订正     |
 > | 2   | **改动采集把子会话自己的存储当业务改动**：两子代理的 patch 各 **24–32 KB**，改动清单只报「`.omni-storage/sess_xxx.jsonl`」这**一个**文件 ⇒ 主代理收到"有改动 + 一份日志"，真源码改动在哪一无所知                                                             | `collectChanges` 用无条件 `git add -A`，而子会话存储被重定位进隔离树；且**不能只靠用户 `.gitignore`**（本仓只写了 `.omniharness/`）                                                                                                                 | `WorktreeOps.RUNTIME_EXCLUDE`（`.omni-storage`/`.omniharness`/`.omni-worktrees`/`node_modules`）＋ pathspec 排除。判据 `toolWorkspaceRootIsolation.test.ts` ④（真实 git 仓：清单只含源码、patch 不含 `.omni-storage`）。修后实测 patch 从 31 KB 会话日志变回 3.8 KB/9.2 KB **真源码**                                                                    |
 > | 3   | **系统提示从不声明运行平台与 shell 方言**：真模型在 Windows 上连发 `pwd && ls -la && cat package.json`、`ls -la src test`、`… \| tail -n 12; echo ${PIPESTATUS[0]}`——全被 `cmd.exe` 回"不是内部或外部命令"，**白烧 4 次工具调用**才发现要换方言              | 常驻提示里没有任何平台/解释器事实，而训练语料默认 POSIX；本机 `shell` 实为 `cmd.exe /d /s /c`                                                                                                                                                       | `DefaultPromptFragments` 增第四节「运行环境」：平台 + **真 shell**（经 `ShellInvocation.path()` 取同一事实源）+ 禁用词表 + `%ERRORLEVEL%` + **`&&` 而非 `;`**（`node --version; pwd` 实测被整体当成一个参数）。判据 `tests/unit/defaultPromptFragments.test.ts` ①–⑤（含"两平台文案必须不同"，防参数没接进正文）。同一任务带提示后 `m1` 由 12 步降到 8 步 |
 > | 4   | **子代 `systemPrompt` = 0 token**（同一台机上主会话 740→927）：子代**没有任何系统提示** ⇒ 照 POSIX 假设试错，并把"命令不存在"**误判成"隔离环境 shell 不可用"回传主代理**，主代理照抄进了最终答复                                                             | `SubagentRuntimeFactory` 构造子代 `ResolvedConfig` 时**漏了 `fragments`**                                                                                                                                                                           | 端口 `SubagentPortsShape.fragments` + 组合根注入 `DefaultPromptFragments.environmentFragment()`（**只给运行环境段**——子代工具集是裁剪过的，整段 SOP 会指向它没有的工具）+ 工厂透传。判据 `defaultPromptFragments.test.ts` ⑥                                                                                                                              |
@@ -1171,11 +1171,11 @@
 >
 > ② **真跑暴露并修复的 3 处缺陷**（在此之前单测 2938 例全绿——它们全都是"装配好的进程"层面的问题）：
 >
-> | #   | 缺陷（实测现象）                                                                                                                                                                                                                                                                                                                                                                           | 处置                                                                                                                                                                                                                                                                               |
-> | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | #   | 缺陷（实测现象）                                                                                                                                                                                                                                                                                                                                                                           | 处置                                                                                                                                                                                                                                                                                      |
+> | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | 1   | **会话"写-读默认路径分裂"**：写入方默认 `~/.omniharness/sessions`（`CliDefaults.storageDir`），而 `trace read` 默认**工作区相对** ⇒ 默认跑一次再默认读**必然失败**（实测 `trace 读取失败: 会话未找到或无 trace`）。全仓曾 **4 处**各自声明同一概念。**更有价值的是：`tests/unit/traceCliWiring.test.ts` 的那条判据把这个错误行为钉住了**，标题还写着"与存储层缺省一致"——**判据在保护 bug** | 新增单一事实源 `src/kernel/util/sessionStorageLocation.ts`（并提供 `OMNI_SESSIONS_DIR` 一个旋钮同时移动写读两侧）；`argParser` / `traceCommand` / `sessionCommand` 三处改用；**改正那条判据**（改为断言"缺省目录 == 写入方默认"，并在受控目录下做真读）；实测往返成功（5 条事件、exit 0） |
-> | 2   | **审计旗标在单跑路径"接受却不消费"**：审计 sink 只在 `serve`/`server` 装配（`CliBuildConfig.createAudit` 的两个调用点都在那里），实测"带 `--audit-dir` 跑一次、再 `audit export`"得到 **`[]`**，而用户以为自己有审计链                                                                                                                                                                     | 单跑入口 `assertExecPathSupported` 增加 fail-closed（点明"审计只在 serve 装配"并给出正确用法）；**serve 侧同轮实测审计链非空**（证明是装配位置问题，不是审计坏了）                                                                                                                 |
-> | 3   | 上述三旗标（`--audit-dir/--audit-file/--audit-hmac-key`）此前**既不在 FLAG_TABLE 也不在 VALUE_FLAGS** ⇒ 它们取值为路径/密钥，却会被 `collectPositional` 当成 prompt（`omniharness --audit-dir /tmp/a` 会把 `/tmp/a` 当任务跑）                                                                                                                                                             | 移入 `VALUE_FLAGS`（取值型清单）并从 `KNOWN_EXTRA_FLAGS` 移除（第五十八轮的判据②会拒绝重复登记）                                                                                                                                                                                   |
+> | 2   | **审计旗标在单跑路径"接受却不消费"**：审计 sink 只在 `serve`/`server` 装配（`CliBuildConfig.createAudit` 的两个调用点都在那里），实测"带 `--audit-dir` 跑一次、再 `audit export`"得到 **`[]`**，而用户以为自己有审计链                                                                                                                                                                     | 单跑入口 `assertExecPathSupported` 增加 fail-closed（点明"审计只在 serve 装配"并给出正确用法）；**serve 侧同轮实测审计链非空**（证明是装配位置问题，不是审计坏了）                                                                                                                        |
+> | 3   | 上述三旗标（`--audit-dir/--audit-file/--audit-hmac-key`）此前**既不在 FLAG_TABLE 也不在 VALUE_FLAGS** ⇒ 它们取值为路径/密钥，却会被 `collectPositional` 当成 prompt（`omniharness --audit-dir /tmp/a` 会把 `/tmp/a` 当任务跑）                                                                                                                                                             | 移入 `VALUE_FLAGS`（取值型清单）并从 `KNOWN_EXTRA_FLAGS` 移除（第五十八轮的判据②会拒绝重复登记）                                                                                                                                                                                          |
 >
 > ③ **过程自查两则**（仪器与门禁都在工作）：
 >
@@ -1207,7 +1207,7 @@
 > | #   | 上一轮登记的问题                                                                                            | 本轮处置                                                                                                                                                                                                                                                                                                                                                                                               | 判据                                                                                                                                                                                    |
 > | --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 > | 1   | `checkSecrets` 用 `git grep -I` ⇒ **UTF-16LE 文本（git 判为二进制）完全不被扫描**                           | 改**两层扫描**：文本层 `git grep`（去掉 `-I`，二进制命中记 `Binary file … matches` fail-closed）＋**编码层**对二进制分类文件按 BOM 解码后重扫（UTF-16LE/BE）；汇总行如实打印"文本 / 二进制 / 解码 / 不可解析"四个数                                                                                                                                                                                    | `checkSecretsEncoding.test.ts` 4 例：UTF-16LE 带密钥**必须被拒**（修复前 exit 0）、带豁免标记通过**且报"按编码解码 1"**、UTF-8 正对照被拒、无密钥仓库通过且汇总含扫描面                 |
-> | 2   | `check.mjs` 的第三方导入正则**不匹配 `await import('pkg')`** ⇒ 两条阻断规则对动态导入无法失败               | 正则补 `import\s*\(` 分支；同时加两道去噪（**注释行**不计、**占位说明符**如 `'<pkg>'` 不计）；`--strict` 下负向核验：在 `src/contracts/ports/` 放 `import('zod')` ⇒ **当场阻断**（人工核验，命令见下）                                                                                                                                                                                                           | `gateImportRule.test.ts` 4 例：**从源码抽出正则**跑 6 条样例（含深导入 `@scope/pkg/sub.js`）＋两处去噪必须在位＋`architectureGate` 同口径＋实跑真树 exit 0                              |
+> | 2   | `check.mjs` 的第三方导入正则**不匹配 `await import('pkg')`** ⇒ 两条阻断规则对动态导入无法失败               | 正则补 `import\s*\(` 分支；同时加两道去噪（**注释行**不计、**占位说明符**如 `'<pkg>'` 不计）；`--strict` 下负向核验：在 `src/contracts/ports/` 放 `import('zod')` ⇒ **当场阻断**（人工核验，命令见下）                                                                                                                                                                                                 | `gateImportRule.test.ts` 4 例：**从源码抽出正则**跑 6 条样例（含深导入 `@scope/pkg/sub.js`）＋两处去噪必须在位＋`architectureGate` 同口径＋实跑真树 exit 0                              |
 > | 3   | "0 项 = 通过"族：`architectureGate` 不打印文件数、`--maturity` 0 声明仍通过、`apiStability` 0 export 仍通过 | 三处全部**打扫描面 + 设下限**：架构门禁打印"1009 个源文件 ｜ 3273 条相对导入边"且 0 文件即红；成熟度 0 声明即红；`api:check` 对"没解析到任何 export"的桶判失败（实测 exit 1）                                                                                                                                                                                                                          | `apiStability.test.ts` 增 1 例（空桶必须失败）                                                                                                                                          |
 > | 4   | 低流量脚本四处（归因误导 / 谎报 / 死分支 / 死指针）                                                         | ① `nativeBuild`：拷贝失败**先判真因**（产物不存在 ⇒ 直说"cargo 没产出该目标"，不再一律说"文件被锁"）；② `maturityAnnotate`：`--apply` 时如实说"**已写入 N 个文件**，回滚用 git checkout"（原文案在写盘后仍称"未改动任何文件"）；③ `copyAssets`：`throwIfNoError` → `throwIfNoEntry`（真选项名，死分支复活）；④ `auditInterfaces`：删掉指向**不存在**的 `--gate` 的过期指针，改述"本审计当前没有阻断面" | 语法/实跑：`copyAssets` 实跑通过；其余为消息与分支订正                                                                                                                                  |
 > | 5   | `CliArgs.profile` 死声明（从不赋值也从不读取）                                                              | 删除字段并留"**（已删除）**"注释说明缘由（`--profile` 由装配层自行扫描 argv；I4 只扫被赋值的字段，故这类空声明无人报）                                                                                                                                                                                                                                                                                 | tsc 干净 + 接线门禁绿                                                                                                                                                                   |
@@ -2011,8 +2011,8 @@ sqlite 走 `INSERT OR REPLACE`（**不再 DELETE 全桶**）；`EventPersister.w
 
 **真正的缺陷在两处（读码 + 实测确认）**：
 
-| #   | 位置                                                   | 事实                                                                                                                                                                                                                      |
-| --- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #   | 位置                                                          | 事实                                                                                                                                                                                                                      |
+| --- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | `src/kernel/core/loop/cancellationToken.ts` `toAbortSignal()` | 两处 `controller.abort()` 都**不带 reason** ⇒ `AbortSignal.reason` 退化成通用 `AbortError`(DOMException)。而 `agent.ts:413` 正是把该 signal 交给模型层 ⇒ 下游**拿不到任何结构化原因**。                                   |
 | 2   | `src/kernel/subagent/cancellableModel.ts` `reasonOf()`        | 白名单只有 `'user'\|'timeout'\|'shutdown'\|'parent'` ⇒ **`'loop-guard'`（失控熔断）与 `{custom}` 被静默折叠成 `'parent'`**（谎报"父级联"）；且兜底值返回 `'parent'`，与该函数自己 JSDoc 写的"缺省时为 `'user'`"**矛盾**。 |
 
@@ -2090,12 +2090,12 @@ node-test / jest / vitest / pytest / go-test 五类汇总行）；闸门在 exit
 
 **四处断点（均为本机实测）**：
 
-| #   | 断点                                                                                                                                                                                                                                                                                                                                                           | 证据                                                                                       |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1   | **装配开关从未打开**：`decisionEngine.mode` 默认 `off`，而 `omniharness.json`/示例/用户级配置/`defaults` 里**都没有这个键**；`git log -S decisionEngine -- omniharness.json omniharness.json.example config.example.yaml` 为空（历史上也从未有过）。提交 `cab0c94` 标题写「升 mode 至 enforce」，但该提交**没有改任何配置文件**。                              | `tests/unit/layaWiring.test.ts`（新判据）                                                  |
+| #   | 断点                                                                                                                                                                                                                                                                                                                                                                  | 证据                                                                                       |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1   | **装配开关从未打开**：`decisionEngine.mode` 默认 `off`，而 `omniharness.json`/示例/用户级配置/`defaults` 里**都没有这个键**；`git log -S decisionEngine -- omniharness.json omniharness.json.example config.example.yaml` 为空（历史上也从未有过）。提交 `cab0c94` 标题写「升 mode 至 enforce」，但该提交**没有改任何配置文件**。                                     | `tests/unit/layaWiring.test.ts`（新判据）                                                  |
 | 2   | **解释器默认值错**：适配器 `pythonPath ?? 'python3'`，**从不读** `LAYA_PYTHON_BIN`（`git log -S LAYA_PYTHON_BIN -- src/kernel/adapters/laya/` 为空）；本机 `python3` = Python 3.14.8（无 laya/torch）。实测 `isAvailable()===false` ⇒ `decide` 恒返回 `{available:false}`。而 `THIRD_PARTY_ASSETS.md` 却宣称「默认指向项目内 venv」——**文档是假的**（已订正并留痕）。 | `node -e "…new LayaDecisionEngine().isAvailable()"` ⇒ false；显式指向 venv ⇒ true（312ms） |
-| 3   | **超时低于冷启耗时**：默认 30s，而单发路径每次重载权重实测**冷启 62.4s / 暖盘 18–19s** ⇒ 真实使用大概率超时并被静默吞掉。                                                                                                                                                                                                                                      | 计时实测（见 §8.7 修复后的对照）                                                           |
-| 4   | **消费面单点且静默**：唯一消费点是自验证回环的 verdict 预判；不可用/超时/失败一律只返回 `undefined`，不告警、不落 trace（trace 也要 `mode≠off`）。                                                                                                                                                                                                             | `verdictTracer.ts` 读取                                                                    |
+| 3   | **超时低于冷启耗时**：默认 30s，而单发路径每次重载权重实测**冷启 62.4s / 暖盘 18–19s** ⇒ 真实使用大概率超时并被静默吞掉。                                                                                                                                                                                                                                             | 计时实测（见 §8.7 修复后的对照）                                                           |
+| 4   | **消费面单点且静默**：唯一消费点是自验证回环的 verdict 预判；不可用/超时/失败一律只返回 `undefined`，不告警、不落 trace（trace 也要 `mode≠off`）。                                                                                                                                                                                                                    | `verdictTracer.ts` 读取                                                                    |
 
 **修复（零配置可用 + 真正用得起 + 可见）**：
 
@@ -3429,7 +3429,7 @@ ESLint 对这些文件的原话是 `File ignored because no matching configurati
 | 项                                                | 结果                                                                                                                    |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `npm run typecheck`（双端 tsc --noEmit）          | 通过                                                                                                                    |
-| `npm run build`（tsc emit）                       | dist 产物 specifier 已重写为 `.js`，`import('./dist/src/protocols/a2a/index.js')` 运行时可加载                                    |
+| `npm run build`（tsc emit）                       | dist 产物 specifier 已重写为 `.js`，`import('./dist/src/protocols/a2a/index.js')` 运行时可加载                          |
 | `node --test dist/tests/unit/*.test.js`           | 3424 tests / **3415 pass / 1 fail**（fail 为 §11 已登记的 shellTool 会话取消，**HEAD 同样红**，环境性存量，与本轮无关） |
 | `npx vitest run`                                  | **82 文件 / 483 例全绿**                                                                                                |
 | `npm run web:build`                               | 单 bundle 1127 KB（低于 1200 KB 告警线）                                                                                |
@@ -3530,7 +3530,7 @@ provider 从 `node --experimental-test-coverage`（c8）换成 `@vitest/coverage
 | `npx tsc --noEmit -p tsconfig.json` / `-p web/tsconfig.json` | 双端 exit 0                                                                |
 | `npx eslint . --max-warnings=0`                              | 0 问题                                                                     |
 | `node scripts/runGates.mjs`（fast）                          | 通过                                                                       |
-| `npm run build` + `node dist/src/apps/cli/exec.js --version`      | 构建成功、产物可跑                                                         |
+| `npm run build` + `node dist/src/apps/cli/exec.js --version` | 构建成功、产物可跑                                                         |
 | 产物 ESM 深检：`import('./dist/src/index.js')`               | barrel **140 个导出**加载成功（等于一次性验证整张模块图的 `.ts→.js` 重写） |
 
 > 注：`dist/tests/*.js` 里仍有 6 处 `.ts` 说明符，全部位于**测试夹具字符串**内
@@ -7663,3 +7663,78 @@ ACP v1 已把 elicitation 稳定为协议原语（[官方文档](https://agentcl
 - **CI 配额**：私有仓 2000 分/月烧尽、136 run 0 绿；本机无解，`regress` + 看板留痕仍是当前信任链执行位。
 - **npm 真实发布**：`npm whoami` 仍 `ENEEDAUTH`；登录后 `npm run release:publish` 即可，本轮未发布。
 - **scratchpad resume 注入 / 桌面通知 OS 级点击**：仍按 §203.5 登记，未在本轮改动。
+
+## 207. 2026-11-02 审计出证落地（R4 单点外化）+ 分层迁移的两处真回归
+
+### 207.1 形态裁决：为什么是 `audit`
+
+按 [`STRATEGY_2026-11-02.md`](STRATEGY_2026-11-02.md) §6 的 R4：不再做「更好的通用 harness」，
+把唯一具备跨工具价值的东西外化成**一条命令、一张可独立复核的报告**。它的工程性质因此被钉死：
+
+- **不接模型、不跑工具、不需要 API key**——只读会话文件，因此维护面只有「解析 + 渲染」；
+- **离线优先**：HTML 零外部资源，浏览器打开即自动复核哈希链；
+- **诚实降级**：认不出的格式明确拒绝（`--source-format` 可强制），不猜、不产出空报告。
+
+交付：`omniharness audit <FILE|DIR...>`（`report` 简写）与 `omniharness audit verify <REPORT...>`，
+原有 `audit export [--compliance]` 逐行为保持。文档 `docs/audit/README.md`，CLI 帮助与
+`docs/CLI_REFERENCE.md` 同步登记；新增旗标 `--title` / `--source-format` 已进 `knownFlags.ts`（判据覆盖）。
+
+### 207.2 四类来源（识别只看结构，不看文件名）
+
+| 来源        | 关键结构                                       | 说明                                                                |
+| ----------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| OmniHarness | `type` + `payload`                             | 兼容会话 JSONL 与 `session export` 的 `omniharness.session.v1` 信封 |
+| Claude Code | `message` 对象 + `uuid`/`sessionId`            | text / thinking / tool_use / tool_result / usage                    |
+| Codex       | `response_item` / `event_msg` / `turn_context` | `event_msg` 与 `response_item` 的重复消息只计一次（判据钉死）       |
+| ACP         | `jsonrpc` / `session/update`                   | 兼容裸帧、`{message}`、`{frame}` 三种捕获形态；审批一问一答         |
+
+### 207.3 报告内容与双层完整性
+
+- **载荷链**：`hash_n = SHA-256(prev_n + "\n" + canonical(record_n))`，规范 JSON 键序稳定；
+  报告正文里的每个摘要数字都能从 `records` 重算（链覆盖它们）。
+- **文件级自指纹**（HTML / Markdown）：`artifact.sha256` = 把该字段换成占位标记后**整份文本**的
+  SHA-256。于是「只改页面上一个显示字符、不动内嵌 JSON」也会被 `audit verify` 判 `artifact`；
+  删掉字段判 `artifact-missing`。JSON 没有展示层，不写该字段。
+- **诚实边界写进文档与页脚**：哈希链证明"报告自发放后未被改动"，**不证明**会话真实、也不证明
+  生成者身份；浏览器按钮只验载荷链，文件级完整性以 CLI 为准。
+- **写类工具过滤**：只有写类工具的参数、`apply_patch` 头与 unified diff 进文件表；读类工具的
+  `path` 参数不再被误记成"改过的文件"（出证场景这属于伪造证据级错误，判据单列）。
+- **结局回填**：`tool_result` 按 `callId` 回填 `tool_call.status`，时间线不再把已失败/已成功的调用
+  一律显示为 PENDING。
+
+### 207.4 本机实测
+
+- 真实会话（`D:\omniharness-home\sessions\sess_mvvo9087_1.jsonl`）：**129 条记录 / 27 次工具调用 /
+  7 次失败 / 4 个文件 / 456,337 token / 6 分 45 秒**；HTML 约 276 KB；`audit verify` exit 0。
+- 篡改正对照（真实 CLI）：只改页面 `<h2>` ⇒ `artifact` 红；改载荷内文 ⇒ `hash` 红并给下标。
+- 判据：`auditCanonical` 6 + `auditReportChain` 6 + `auditParsers` 10 + `auditReport` 10 +
+  `auditVerifierScript` 5 + `auditTool` 7 = **6 文件 / 44 例**；夹具在 `tests/fixtures/audit/`。
+- 门禁：`tsc --noEmit` exit 0；`check.mjs --strict` 零违规；改动文件 ESLint 零告警；New docs 进
+  `docs/README` + `llms.txt`，`docLinkCheck` 无新增死链。
+- **全量 `npm run regress` exit 0**：gates 全绿 → 单测 **723 文件 / 4,469 过 + 4 skip** →
+  coverageGate **✓ 聚合 85.8925% ≥ 80%（1326 文件无超容差回退，3 个在漂移容差内）** →
+  `web:test` **145 文件 / 717 例全绿**（含 `webImportResolution` 的 2 例）。
+
+### 207.5 顺手清掉分层迁移的两处真回归
+
+1. **前端判据路径错层**：迁移脚本把 `web/test/*.ts` 里的 `../src/core/Router.ts` 批量改成了
+   `../src/kernel/core/Router.ts`（`kernel` 是后端层前缀），导致 `web:test` 里 **13 个文件**以
+   "Failed to resolve import" 整文件失败（单测 633 例全绿，所以只看测试名看不出来）。
+   已修 17 个文件；新增静态判据 `tests/unit/webImportResolution.test.ts`（扫 `web/src` + `web/test`
+   的全部相对导入，解析不到真实文件即红，附正对照），这类目录搬家漏改不再依赖"跑到才知道"。
+2. **一次性迁移脚本入库**：`tools/dropOldDirs.mjs` 已随迁移提交入库，另有三个未跟踪脚本
+   （`extractKernel` / `fixTests` / `fixWebPaths`）。四个都是一次性工具，已全部删除。
+3. **就绪调度判据的余量不够**：全量回归两次分别红在「C.start 晚于 A.end 268ms」「恰好相等」，
+   隔离跑稳定绿——与 2026-11-01 把慢兄弟延迟 120→400ms 是同一类问题（worker 被抢占）。
+   本次把 A 的延迟 400→**1200ms**（断言语义不变），隔离三连绿、此后全量绿。这是测试余量修正，
+   不是把红改绿：`levels` 档的「C 必须等 A 完成」断言原样保留。
+
+### 207.6 本轮未做（诚实边界，不是遗漏）
+
+- **签名 / 身份绑定**：哈希链与文件自指纹都是**完整性**，不是来源证明；Ed25519 签名需要密钥分发与
+  信任根，留待下一步（`identity` 已有 Ed25519 能力）。
+- **脱敏**：报告含完整 prompt / 命令 / 输出 / 绝对路径，当前没有遮蔽旋钮；对外发送前需自行评估。
+- **真实厂商格式复核**：本机没有安装 Claude Code / Codex，四类格式的判据基于公开文档构造的夹具；
+  厂商格式漂移时工具会明确报"无法识别"，不会猜着解析。
+- **Web 工作台入口 / npm 发布 / 减法审计 / 文档砍面 / CI 配额**：仍按 §206.5、§203.5 与
+  `STRATEGY` §6.4 的排期，不在本轮范围。

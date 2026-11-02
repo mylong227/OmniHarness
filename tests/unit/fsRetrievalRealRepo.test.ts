@@ -48,7 +48,7 @@ test('① 真实仓库：递归列出 src 下 .ts 必须命中真实文件（修
   );
   assert.match(
     result.output ?? '',
-    /src\/[a-z0-9]+\/[A-Za-z0-9]+\.ts/,
+    /src\/(?:[a-z0-9]+\/)+[A-Za-z0-9]+\.ts/,
     `glob 应命中真实 .ts 文件，实际输出：${(result.output ?? '').slice(0, 200)}`,
   );
 });
@@ -58,14 +58,19 @@ test('② 真实仓库：grep（path=src/cli）必须命中真实内容（修复
     {
       id: 'c2',
       name: 'grep',
-      arguments: { pattern: 'KNOWN_EXTRA_FLAGS', path: 'src/apps/cli', glob: '*.ts', max_results: 3 },
+      arguments: {
+        pattern: 'KNOWN_EXTRA_FLAGS',
+        path: 'src/apps/cli',
+        glob: '*.ts',
+        max_results: 3,
+      },
     },
     ctx(ROOT),
   );
   assert.strictEqual(result.ok, true, `真实仓库上 grep 不该失败：${result.error ?? ''}`);
   assert.match(
     result.output ?? '',
-    /src\/cli\/[A-Za-z]+\.ts:\d+/,
+    /src\/apps\/cli\/[A-Za-z]+\.ts:\d+/,
     `grep 应命中 src/cli 下真实内容，实际输出：${(result.output ?? '').slice(0, 200)}`,
   );
 });

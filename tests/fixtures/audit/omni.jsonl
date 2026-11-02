@@ -1,0 +1,8 @@
+{"id":"evt_1","type":"session_meta","sessionId":"omni-1","timestamp":"2026-11-02T10:00:00.000Z","payload":{"workspace":"/repo","model":"deepseek-v4-flash","manifest":{"workspace":"/repo","model":"deepseek-v4-flash"}},"seq":1}
+{"id":"evt_2","type":"user","sessionId":"omni-1","timestamp":"2026-11-02T10:00:01.000Z","payload":{"content":"把 a.ts 的返回值改成 42"},"seq":2}
+{"id":"evt_3","type":"model","sessionId":"omni-1","timestamp":"2026-11-02T10:00:02.000Z","payload":{"model":"deepseek-v4-flash","usage":{"promptTokens":100,"completionTokens":20,"totalTokens":120,"cachedPromptTokens":50}},"seq":3}
+{"id":"evt_4","type":"assistant","sessionId":"omni-1","timestamp":"2026-11-02T10:00:03.000Z","payload":{"content":"先读文件。"},"seq":4}
+{"id":"evt_5","type":"tool_call","sessionId":"omni-1","timestamp":"2026-11-02T10:00:04.000Z","payload":{"callId":"call_1","name":"write_file","args":{"path":"src/a.ts","content":"export const a = 42;\n"}},"seq":5}
+{"id":"evt_6","type":"tool_result","sessionId":"omni-1","timestamp":"2026-11-02T10:00:05.000Z","payload":{"callId":"call_1","ok":false,"output":"permission denied"},"seq":6}
+{"id":"evt_7","type":"turn_diff","sessionId":"omni-1","timestamp":"2026-11-02T10:00:06.000Z","payload":{"diff":"diff --git a/src/a.ts b/src/a.ts\n--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1,2 +1,2 @@\n-export const a = 41;\n+export const a = 42;\n context\n"},"seq":7}
+{"id":"evt_8","type":"assistant","sessionId":"omni-1","timestamp":"2026-11-02T10:00:07.000Z","payload":{"content":"改好了，但写入被审批拒绝过一次。"},"seq":8}

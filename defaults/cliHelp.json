@@ -277,6 +277,14 @@
       "description": "审计日志导出（json/table/csv）或生成合规报告（含完整性哈希，D2）"
     },
     {
+      "spec": "audit report <FILE|DIR...> [--format html|md|json]",
+      "description": "会话出证：读 OmniHarness / Claude Code / Codex / ACP 会话，生成自带哈希链的报告"
+    },
+    {
+      "spec": "audit verify <REPORT...> [--json]",
+      "description": "复核审计报告哈希链（HTML/Markdown/JSON 均可；任一处被改动即非零退出）"
+    },
+    {
       "spec": "--escalation {{escalations}}",
       "description": "升级审批（默认 deny=fail-closed 不提权；沙箱拒绝时 ask 交互 / auto 自动提权，危险动作仍 abort）"
     },

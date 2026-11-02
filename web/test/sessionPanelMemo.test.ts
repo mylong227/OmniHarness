@@ -28,7 +28,7 @@ import * as React from 'react';
 import { act, render } from './rtlHarness.ts';
 import { AppContext } from '../src/ui/context.ts';
 import type { AppContextValue } from '../src/ui/context.ts';
-import type { ApiClient } from '../src/kernel/core/ApiClient.ts';
+import type { ApiClient } from '../src/core/ApiClient.ts';
 
 const { SessionPanel } = await import('../src/ui/components/SessionPanel.tsx');
 

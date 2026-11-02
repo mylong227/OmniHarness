@@ -42,7 +42,7 @@ const { PermissionTab, rulesOf, toWireRules } = await import(
   '../src/ui/components/tabs/PermissionTab.tsx'
 );
 const { PANELS } = await import('../src/ui/models/PanelRegistry.ts');
-const { parseHash } = await import('../src/kernel/core/Router.ts');
+const { parseHash } = await import('../src/core/Router.ts');
 
 /**
  * 渲染权限面板并等首次 `getConfig` 落地。

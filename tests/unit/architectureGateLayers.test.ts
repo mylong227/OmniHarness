@@ -50,9 +50,12 @@ function runGate(cwd: string = REPO_ROOT): { readonly out: string; readonly code
 
 test('① 实现层必须动态枚举（禁止退回硬编码前缀）', () => {
   const source = read('scripts/architectureGate.mjs');
+  // 2026-11-02 分层后：`src/` 顶层是 contracts/kernel/protocols/apps 四层，
+  // 顶目录枚举已失去意义；门禁改为从**真实文件的归一化模块键**（剥掉层前缀）现算。
+  // 判据不变：层集合必须来自磁盘实况，不得是硬编码数组。
   assert.ok(
-    /readdirSync\(root,\s*\{\s*withFileTypes:\s*true\s*\}\)/.test(source),
-    '实现层必须用 readdirSync 现算（新增目录自动纳入），源码里找不到该调用',
+    /IMPL_LAYERS = \[\s*\.\.\.new Set\(/.test(source),
+    '实现层必须从真实模块键现算（新增模块自动纳入），源码里找不到该派生',
   );
   assert.ok(
     !/\['core\/',\s*'adapters\/',\s*'config\/'/.test(source),
@@ -67,9 +70,16 @@ test('① 实现层必须动态枚举（禁止退回硬编码前缀）', () => {
 
 test('② 门禁打印的层数必须等于磁盘实况（脚本自述不算证据）', () => {
   const foundation = ['errors', 'util'];
-  const expected = readdirSync(join(REPO_ROOT, 'src'), { withFileTypes: true }).filter(
-    (e) => e.isDirectory() && e.name !== 'ports' && !foundation.includes(e.name),
-  ).length;
+  // 磁盘实况 = 各层下的模块目录名去重，再剔除 ports 与基础层。
+  const names = new Set<string>();
+  for (const layer of ['apps', 'contracts', 'kernel', 'protocols']) {
+    for (const e of readdirSync(join(REPO_ROOT, 'src', layer), { withFileTypes: true })) {
+      if (e.isDirectory()) names.add(e.name);
+    }
+  }
+  names.delete('ports');
+  for (const f of foundation) names.delete(f);
+  const expected = names.size;
   assert.ok(expected >= 10, `实现层数量异常（${String(expected)}）⇒ 本判据的基准已失效`);
   const { out } = runGate();
   const m = /\[3\.5\] ports→实现层（[^）]*；(\d+) 个层/.exec(out);

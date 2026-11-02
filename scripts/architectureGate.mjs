@@ -124,6 +124,9 @@ const IMPL_LAYERS = [
   ...new Set(
     files
       .map(key)
+      // 只取「模块目录/文件」形态：src 根下的门面文件（index / version / omniError）
+      // 没有层前缀，键里没有 `/`，不是实现层——把它们算进来会出现 41 vs 37 的假多出。
+      .filter((k) => k.includes('/'))
       .map((k) => k.split('/')[0])
       .filter(Boolean),
   ),

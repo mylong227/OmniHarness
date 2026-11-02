@@ -1,4 +1,4 @@
-﻿// DialogService 契约测试（D4）：替代 window.confirm / window.prompt 的 Promise 语义。
+// DialogService 契约测试（D4）：替代 window.confirm / window.prompt 的 Promise 语义。
 // 零 DOM 依赖：仅验证「请求 → 结算」的状态机与 fail-closed 行为。
 //
 // 为什么单独测服务而不是测组件：决策闸门的正确性在于「用户没选之前不许继续」，
@@ -6,9 +6,9 @@
 
 import assert from 'node:assert/strict';
 import { test } from 'vitest';
-import type { DialogState } from '../src/kernel/core/DialogService.ts';
+import type { DialogState } from '../src/core/DialogService.ts';
 
-const { DialogService } = await import('../src/kernel/core/DialogService.ts');
+const { DialogService } = await import('../src/core/DialogService.ts');
 
 test('未绑定宿主时 confirm 抛错（fail-closed，绝不静默当作取消）', () => {
   const svc = new DialogService();

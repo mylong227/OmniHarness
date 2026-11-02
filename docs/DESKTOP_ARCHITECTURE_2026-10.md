@@ -112,7 +112,7 @@
 
 | 测试                                                        | 结果                                                                                                                    |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Node 24.22.1 跑 `dist/src/apps/cli/exec.js --version`            | ✅                                                                                                                      |
+| Node 24.22.1 跑 `dist/src/apps/cli/exec.js --version`       | ✅                                                                                                                      |
 | Node 24.22.1 `serve --port 0 --mock`                        | ✅ 随机端口 + Token URL                                                                                                 |
 | Node 24.22.1 加载 `native/omni_napi.node` 并 `ping`         | ✅ `{"native":true,"ok":true,"pong":true}`                                                                              |
 | Node 24.22.1 `--experimental-permission`                    | ❌ `bad option`                                                                                                         |
@@ -811,7 +811,7 @@ v1 已详细论证：UI 复用最好、6–8 周可出 Beta；但主界面是 We
 - `src/kernel/native/nativeKernel.ts`
 - `src/kernel/config/configFactory.ts`（`OMNI_EMBEDDING_CACHE_DIR` / `OMNI_VEC_CACHE`）
 - `web/src/**`（26,573 行）、`web/styles/**`（259 KB）、`web/test/**`（99 个测试）
-- `web/src/kernel/core/EventStream.ts`、`web/src/kernel/core/authToken.ts`
+- `web/src/core/EventStream.ts`、`web/src/core/authToken.ts`
 - `package.json`、`web/tsconfig.json`、`vite.config.ts`、`.github/workflows/ci.yml`
 
 ---

@@ -21,6 +21,7 @@ const LOCK_URL = pathToFileURL(
     '..',
     '..',
     'src',
+    'kernel',
     'util',
     'concurrency',
     'fileLock.ts',

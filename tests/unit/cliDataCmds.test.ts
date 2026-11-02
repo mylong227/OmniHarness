@@ -65,7 +65,10 @@ test('未知子命令一律返回退出码 2 并打印用法提示', async () =>
   const cases: ReadonlyArray<readonly [string[], RegExp]> = [
     [['session', 'bogus'], /omniharness session (list|export|import)/],
     [['kv', 'bogus', '--kv-adapter', 'memory'], /用法: omniharness kv get\|set\|del\|list/],
-    [['audit', 'bogus'], /用法: omniharness audit export/],
+    // 2026-11-02：`audit <file>` 现为 `audit report <file>` 的简写（审计出证），
+    // 因此 "audit bogus" 是"文件不存在"（退出码 1），不再是未知子命令。
+    // 未知子命令的用法路径改由 `audit export bogus`（export 不接受位置参数）覆盖。
+    [['audit', 'export', 'bogus'], /用法:[\s\S]*omniharness audit export/],
     [['plugin', 'bogus'], /plugin load/],
     [['profile', 'bogus'], /profile list/],
     [['bundle', 'bogus'], /bundle pack/],

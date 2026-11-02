@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 // busy 时发送的**路由已下沉到 ComposerController**（2026-10-31 聊天模式）：
 // Composer 不再自己发 steering RPC，而是统一上抛 onSend，由控制器按「队列 / 插话」模式
 // 决定入队、并入当前回合还是中断转新任务。这里钉住「输入区不丢消息、不自己判断」这一层。
@@ -7,7 +7,7 @@ import { test } from 'vitest';
 import { fireEvent, renderFacadeAsync } from './rtlHarness.ts';
 import { byClass, byTag, facadeOf } from './domFacade.ts';
 import { Composer } from '../src/ui/components/Composer.tsx';
-import type { ApiClient } from '../src/kernel/core/ApiClient.ts';
+import type { ApiClient } from '../src/core/ApiClient.ts';
 import type { ChatQueueView } from '../src/ui/models/ChatMessageQueue.ts';
 import type { FileAttachment } from '../src/types/models.ts';
 

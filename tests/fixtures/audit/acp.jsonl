@@ -1,0 +1,10 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientInfo":{"name":"demo"}}}
+{"jsonrpc":"2.0","id":2,"method":"session/new","params":{"cwd":"/acp-work","mcpServers":[]}}
+{"jsonrpc":"2.0","id":2,"result":{"sessionId":"acp-1"}}
+{"jsonrpc":"2.0","id":3,"method":"session/prompt","params":{"sessionId":"acp-1","prompt":[{"type":"text","text":"跑测试"}]}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"acp-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"好的，"}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"acp-1","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"我来跑。"}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"acp-1","update":{"sessionUpdate":"tool_call","toolCallId":"t1","title":"修改测试文件","kind":"edit","status":"pending","locations":[{"path":"/acp-work/test.ts"}],"rawInput":{"command":"npm test"}}}}
+{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"acp-1","update":{"sessionUpdate":"tool_call_update","toolCallId":"t1","status":"failed","content":[{"type":"content","content":{"type":"text","text":"1 failing"}}]}}}
+{"jsonrpc":"2.0","id":4,"method":"session/request_permission","params":{"sessionId":"acp-1","toolCall":{"toolCallId":"t1"},"options":[{"optionId":"allow","name":"Allow"}]}}
+{"jsonrpc":"2.0","id":4,"result":{"outcome":{"outcome":"selected","optionId":"allow"}}}
