@@ -7525,12 +7525,14 @@ busy 占位符排队口径、win32 一体化标题条。功能面不动（用户
 
 五轮回归中 coverageGate 对 **47 个文件**报「回退超 2.5 点」——归因为**环境漂移假红**而非真回退：基线冻结于 2026-10-18，此后 14 天高频提交 + 环境面变化（native/omni_napi.node 在场、bash 真 bash），证据是 a2aTaskExecutor −27 点而其判据全绿。同时 **10 个新文件 <30%**（acpStdioTransport 3.8%、serveControl/serveShutdown/serveTrust ~15-27%、mcpCompositeInputHandler/pluginWorker 族 0%、runPlanTool 22.9%、cliAuthCmds 26.7%）是**真债**——它们由前几轮会话提交且从未跑过 coverageGate（CI 配额烧尽、门禁不拦测试的直接后果）。
 
-**裁决**：按门禁自述的「棘轮 + 每轮复核」口径执行基线重冻——`npm run coverage` 产新鲜 JSON 后 `node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json --dump-baseline --force`（--force 理由即本节：环境漂移 + 聚合上升 + 新文件低覆盖从「永久红灯」转为「登记债 + 棘轮盯防」）。10 个低覆盖文件的测试补齐登记为下一批 coverage 施工项（按 acpStdioTransport → serve 控制族 → pluginWorker 顺序）。本节写入时该命令因并发会话正在进行 StreamView 重构（污染树、清 .coverage 目录）暂缓执行——并发收尾后第一时间补跑并把结果登记在本节末尾。
+**裁决**：按门禁自述的「棘轮 + 每轮复核」口径执行基线重冻——`npm run coverage` 产新鲜 JSON 后 `node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json --dump-baseline --force`（--force 理由即本节：环境漂移 + 聚合上升 + 新文件低覆盖从「永久红灯」转为「登记债 + 棘轮盯防」）。10 个低覆盖文件的测试补齐登记为下一批 coverage 施工项（按 acpStdioTransport → serve 控制族 → pluginWorker 顺序）。
+
+**2026-11-02 补记（重冻已落地，并发会话 826d8a23 随提交带基线）：** `scripts/coverageBaseline.json`（1306 个文件）+ `scripts/coverageEnvDependent.json`（4 个宿主相关下限）已按本机全量 coverage 重冻；`node scripts/coverageGate.mjs --from-json .coverage/coverage-summary.json` 实测 **✓ 聚合 85.66% ≥ 80%，1306 个文件无超容差回退**（此前 47 个文件「回退超 2.5 点」的假红全部消失）。`src/context/corpusCollector.ts` 100% 高于基线 95.74%，留待下轮 `--dump-baseline` 收紧（不阻塞）。47 个 <30% 文件由「永久红灯」转为**登记债 + 棘轮盯防**，其中本节点名的 8 个实测为：acpStdioTransport 3.77%、serveControl 14.81%、serveShutdown 13.79%、serveTrust 26.66%、mcpCompositeInputHandler 0%、pluginWorkerMain.mjs 0%、runPlanTool 22.93%、cliAuthCmds 26.72%；测试补齐顺序不变（acpStdioTransport → serve 控制族 → pluginWorker → 其余）。这是「登记债」不是「已覆盖」——下一批仍须按序补测，不得把基线重冻当作测试补齐。
 
 ### 203.5 仍真实遗留（诚实登记，未在本轮范围）
 
 - ACP 多选/开放题不可作答（协议无原语）；scratchpad resume 注入未做；桌面通知 OS 级点击待真桌面——延续 2026-11-01 接线盘点的登记。
-- S2 剩 5 大件长函数（ChangesTab/StreamView/Composer/SettingsSurface/SessionPanel）；核心四件（agent/appServer/turnRunner/httpServer）仍贴 750-800 行。
+- **S2 前端长函数：2026-11-02 已清零（§205）**——ChangesTab / Composer / SettingsSurface / StreamView / SessionPanel 五件全部拆薄，函数体基线清空；核心四件（agent/appServer/turnRunner/httpServer）仍贴 750-800 行（未超 810 文件上限，未列入本轮）。
 - `sessionSidecars` 同步 FileLock 的异步化：评估结论（fileLock JSDoc 实测登记）——无竞争 ≈52µs/次可忽略，竞争时阻塞事件循环 ≈waitMs（实测 349ms）后按 false 降级；工具层已走 AsyncFileLock，同步调用方是**有意保留**（进程内 RPC 天然串行不竞争），跨进程竞争才触发且上限有界——异步化改造按需启动（触发条件：多进程 serve 成为主流部署形态）。
 - CI 配额（私有仓 2000 分/月烧尽、136 run 0 绿）无本机解；`regress` 入口 + 本节留痕即当前信任链的执行位。
 
@@ -7587,3 +7589,35 @@ busy 占位符排队口径、win32 一体化标题条。功能面不动（用户
   需服务端另发一条摘要事件，本轮未做。
 - 思考段落耗时按事件时间戳差计算（reasoning 事件在步末落盘），旧存档无时间戳时不显示。
 - 收尾后轨迹折叠默认收起；`busy` 为会话级状态，旧回合轨迹通过 `current` 标记排除在「思考中」之外。
+
+## 205. 2026-11-02 S2 长函数清零 + 覆盖率重冻登记（regress 全绿收口）
+
+### 205.1 S2 五件全部拆薄（函数体 ≤80）
+
+| 文件                          | 拆前函数体 | 拆后 | 落点                                                                                                                                                                                       |
+| ----------------------------- | ---------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tabs/ChangesTab.tsx`         | 409        | 6    | 状态/动作下沉 `tabs/useChangesReview.ts`（清单 / patch / 评论 / 审查动作 / 键盘五个内聚 hook）；渲染拆 `ChangesPaneHead` / `ReviewHelp` / `ChangesReviewPane`，`ChangesTab` 只做分支与组合 |
+| `Composer.tsx`                | 484        | 52   | `composer/` 九个模块（补全 / 附件 / 语音三 hook + 纯逻辑 + Input/Attachments/SendControls）；`ComposerToolbar` 留在原文件（`shellDensity` 源码断言钉住 `<PermissionPicker`）               |
+| `console/SettingsSurface.tsx` | 499        | 46   | 五个设置页组件 + `useProviderCatalog`（目录 / 草稿 / 探测 / 启用）+ `useSettingsSurfaceModel` + `settingsFields`                                                                           |
+| `StreamView.tsx`              | 437        | 66   | `stream/` 六个模块（Feed/Bottom/StatusBar/LiveRow/sessionClock/model）；滚动引擎 `useStreamScroll` / `useBlockMeasurements` 留在原文件（两条源码守卫钉住 `[threadId]` 复位与空洞加渲）     |
+| `SessionPanel.tsx`            | 800        | 40   | `session/` 七个 hook（search/rename/delete/grouping/workspace/chrome/viewCycle）+ 六个面板部件；`React.memo(function SessionPanel…)` 形态与 `sessionPanelMemo` 契约保持不变                |
+
+**基线清零**：`scripts/checkFuncBaseline.json` 由 **56 文件 / 60 个函数** 清成 `{}`；`scripts/checkFileLengthBaseline.json` 由 2 条清成 `{}`。当前全库函数体均 ≤80、文件均 ≤810（`check --strict` 1305 服务端 + 250 前端文件零违规），因此白名单已无存在理由——**今后任何 >80 行函数 / 超限文件直接红，不再有「存量冻结」豁免**。`tests/unit/checkWebStandards.test.ts` 相应改为「基线可为空；非空时每条必须真的超限」，保留原护栏意图。
+
+**拆分时踩到的源码守卫（后续别踩）**：`streamThreadSwitch` / `streamWindowAnchor` 直接读 `StreamView.tsx` 文本，要求 `[threadId]` 复位 effect 与 `setHoleBoost(HOLE_BOOST_BLOCKS)` 的 `needsAnchorRepair` 条件仍在原文件；`streamWindowAnchor` 用**第一次**出现定位，注释里再写该字面量会让 `lastIndexOf('if (')` 落错。`shellDensity` 要求 `Composer.tsx` 含 `<PermissionPicker`。`sessionOrder` / `sessionTimeGrouping` / `menuPlacement` 也钉住 SessionPanel 的一批锚点字符串——这些块有意留在原文件，拆前先看判据。
+
+### 205.2 验证（本机实测）
+
+- 类型：root `tsc --noEmit` + web `tsc -p web/tsconfig.json --noEmit` 均 exit 0。
+- 铁律：`node scripts/check.mjs --strict` 零违规（无函数体/文件行数白名单命中）；改动 43 个 TS 文件 ESLint 零告警、Prettier 全通过。
+- 定向判据：ChangesTab 14；Composer 23；Settings 11；Stream 26；SessionPanel memo/search/projectActions/a11y 39；SessionPanel 源码接线（sessionOrder/sessionTimeGrouping/menuPlacement/workspaceEpoch/capacityLiveRefresh）25——全绿。
+- **全量 `npm run regress` exit 0**：gates all 绿 → 单测 **714 文件 / 4413 过 + 4 skip** → coverageGate **✓ 聚合 85.6636% ≥ 80%，1306 文件无超容差回退（1 个在漂移容差内）** → `web:test` **145 文件 / 717 例全绿**（含 e2e / renderErrorBoundary / shellDensity / 145 文件真 Chrome 批）。
+- 覆盖率重冻的登记与低覆盖债见 §203.4 补记；本轮没有把「基线重冻」当成「测试补齐」。
+
+### 205.3 仍有意保留的边界（本轮未改，不是遗漏）
+
+- **ACP 多选 / 开放题不可作答**：协议只有单选 `session/request_permission`，没有多选/自由文本原语；当前返回空选择是**有意不伪装**，题面仍经 `agent_message_chunk` 可见。要真正支持须等 ACP 增加原语，或由客户端侧另开文本通道。
+- **`sessionSidecars` 同步 FileLock**：实测无竞争 ≈52µs/次可忽略；竞争时阻塞事件循环 ≈waitMs（实测 349ms）后按 false 降级。工具层已走 `AsyncFileLock`，同步调用方是**有意保留**（进程内 RPC 天然串行）；触发条件（多进程 serve 成为主流部署形态）满足时再异步化。
+- **CI 配额**：私有仓 2000 分/月烧尽、136 run 0 绿，本机无解；`regress` 入口 + 看板留痕就是当前信任链的执行位。
+- **npm 真实发布**：`npm whoami` 实测 `ENEEDAUTH`，本会话未登录，因此**没有执行发布**；登录后跑 `npm run release:publish`（即 `changeset publish`）即可，0.3.0 的 `npm publish --dry-run` 与四处版本对齐已在 23e8e792 演练过。
+- **覆盖率低覆盖文件、核心四件 750-800 行**：分别留在 §203.4 下一批与 §203.5；不在本轮 S2 范围，不写成已做。

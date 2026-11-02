@@ -1,10 +1,18 @@
 // 左栏：会话列表 + 新建会话 + 工作区文件树。
 //
-// 面向对象改造：
-// - 服务经 useApp() 取用（替代旧基类访问器），十三份 state 收敛为字段级 useState；
-// - 会话分组逻辑下沉到 SessionGrouper（零 React，可单测）；
-// - 文件树换 antd Tree（2026-10-29 W2，见 FileTree.tsx；展开态由组件内部管理）；
-// - 行/卡/组/项目条/文件树的渲染下沉到 SessionViews（零状态纯渲染）。
+// 结构（2026-11 S2 长函数拆分后）：
+// - 组件体 = `React.memo` 包层的薄组合：取上下文 → 调 hooks → 交给 SessionPanelBody 画布局；
+// - 会话 / 工作区 / 搜索 / 改名删除 / 分组 的 state 与动作下沉到 `./session/*.ts`（camelCase hook）；
+// - 一等导航 / 项目切换器 / 区块头 / 搜索框 / 文件树区块下沉到同级 PascalCase 组件；
+// - 仍留在这里的三块是**外壳内聚逻辑**：触屏拖拽（pointer + elementFromPoint）、行右键菜单
+//   （锚点 / 贴边翻转 / 配置分组）、列表上下文组装（拖拽落点与行菜单接线）。前两块直接读
+//   `#sessions` 容器坐标与 `.col.left` 容器 class，第三块是两者与三个视图的唯一接线点；且
+//   `web/test/{sessionOrder,sessionTimeGrouping,menuPlacement}.test.ts` 的「接线守卫」按源码
+//   锚点钉住它们——迁走会让判据假红（不是没拆，是与外壳耦合）。
+//
+// 层面改造沿革：服务经 useApp() 取用（替代旧基类访问器）；会话分组逻辑在 SessionGrouper
+// （零 React，可单测）；文件树在 FileTree（展开态由组件内部管理）；行/卡/组/项目条/文件树的
+// 渲染在 SessionViews（零状态纯渲染）。
 //
 // 搜索（A3）：本地即时过滤保留（filterSessions，零请求、输入即出结果）＋服务端 `search.all`
 // （会话 + 工作区文件，分组展示、命中高亮/截断）。关键字为空时**不**打远端；防抖与乱序丢弃
@@ -13,26 +21,29 @@
 import * as React from 'react';
 import { useApp } from '../context.ts';
 import { FolderPicker } from './FolderPicker.tsx';
-import { SidebarHeader } from './SidebarHeader.tsx';
 import { SidebarFooter } from './SidebarFooter.tsx';
-import { SearchResults, SEARCH_LIST_ID } from './SearchResults.tsx';
-import { SessionSearch } from '../models/SessionSearch.ts';
-import type { SearchGroup } from '../models/SearchHitGrouper.ts';
-import {
-  renderCardsView,
-  renderGroupsView,
-  renderProjectsView,
-  renderTimeGroupsView,
-  renderTreeView,
-} from './SessionViews.tsx';
+import { SessionPanelHead } from './SessionPanelHead.tsx';
+import { SessionTreeSection } from './SessionTreeSection.tsx';
+import { renderCardsView, renderGroupsView, renderTimeGroupsView } from './SessionViews.tsx';
 import type { ListCtx, RowCtx } from './SessionViews.tsx';
+import type { SidebarChrome } from './session/sidebarChrome.ts';
+import { useSessionDelete } from './session/useSessionDelete.ts';
+import { useSessionGrouping } from './session/useSessionGrouping.ts';
+import { useSessionRename } from './session/useSessionRename.ts';
+import { useSessionSearch } from './session/useSessionSearch.ts';
+import { useSessionWorkspace } from './session/useSessionWorkspace.ts';
+import type { SessionDeleteApi } from './session/useSessionDelete.ts';
+import type { SessionGrouping } from './session/useSessionGrouping.ts';
+import type { SessionRenameApi } from './session/useSessionRename.ts';
+import type { SessionSearchApi } from './session/useSessionSearch.ts';
+import type { SessionWorkspaceApi } from './session/useSessionWorkspace.ts';
+import { nextPanelView } from './session/viewCycle.ts';
+import type { PanelView } from './session/viewCycle.ts';
 import { PathJoiner } from '../models/PathJoiner.ts';
 import { MenuPlacement } from '../models/MenuPlacement.ts';
 import { useRowMenuKeyboard } from './useRowMenuKeyboard.ts';
 import { SessionOrder } from '../models/SessionOrder.ts';
-import { icon } from '../models/Icon.ts';
-import { desktopBridge } from '../../core/desktop/DesktopBridge.ts';
-import type { FsNode, SearchHit } from '../../types/models.ts';
+import type { ApiClient } from '../../core/ApiClient.ts';
 import type { SessionEntry } from '../shared.ts';
 import { t } from '../i18n/i18n.ts';
 
@@ -86,56 +97,310 @@ export interface SessionPanelProps {
  * @returns 左栏节点
  */
 export const SessionPanel = React.memo(function SessionPanel(props: SessionPanelProps): ReactElement {
-  const {
-    sessions,
-    currentThreadId,
-    onSelect,
-    onNew,
-    onOpenFile,
-    onRename,
-    onDelete,
-    onFork,
-    onWorkspaceSwitched,
-    onWorkspaceResolved,
-    scopeAll,
-    onToggleScope,
-    activePane,
-    onOpenPane,
-    onOpenSettings,
-    connected,
-    streamState,
-    open,
-    style,
-  } = props;
   const { api, toast, workspaceEpoch } = useApp();
-  const [tree, setTree] = React.useState<FsNode[]>([]);
-  const [treeLoaded, setTreeLoaded] = React.useState<boolean>(false);
-  const [treeError, setTreeError] = React.useState<string | null>(null);
-  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
-  const [limits, setLimits] = React.useState<Record<string, number>>({});
-  const [wsPath, setWsPath] = React.useState<string>('');
-  const [projects, setProjects] = React.useState<string[]>([]);
-  const [picking, setPicking] = React.useState<boolean>(false);
+  const menu = useRowMenu();
+  const chrome = useSidebarChrome(menu.close);
+  const workspace = useSessionWorkspace({
+    api,
+    toast,
+    workspaceEpoch,
+    onNew: props.onNew,
+    onWorkspaceResolved: props.onWorkspaceResolved,
+    onWorkspaceSwitched: props.onWorkspaceSwitched,
+    closeWsMenu: chrome.closeWsMenu,
+  });
+  const search = useSessionSearch({
+    api,
+    onSelect: props.onSelect,
+    onOpenFile: props.onOpenFile,
+    onExpand: chrome.expandRail,
+    scheduleSearch: props.scheduleSearch,
+  });
+  const rename = useSessionRename(props.onRename);
+  const remove = useSessionDelete(props.onDelete);
+  const touch = useSessionTouch(props.sessions, props.onReorder);
+  const grouping = useSessionGrouping();
+  return (
+    <SessionPanelBody
+      api={api}
+      panel={props}
+      onArchive={props.onArchive}
+      chrome={chrome}
+      workspace={workspace}
+      search={search}
+      touch={touch}
+      menu={menu}
+      grouping={grouping}
+      rename={rename}
+      remove={remove}
+    />
+  );
+});
+
+/** SessionPanelBody 的入参：面板 props + 各路 hook 的产物（布局层不再取上下文）。 */
+interface SessionPanelBodyProps {
+  readonly api: ApiClient;
+  readonly panel: SessionPanelProps;
+  readonly onArchive: SessionPanelProps['onArchive'];
+  readonly chrome: SidebarChrome;
+  readonly workspace: SessionWorkspaceApi;
+  readonly search: SessionSearchApi;
+  readonly touch: SessionTouch;
+  readonly menu: RowMenuState;
+  readonly grouping: SessionGrouping;
+  readonly rename: SessionRenameApi;
+  readonly remove: SessionDeleteApi;
+}
+
+/**
+ * 左栏布局层：把 hook 产物摊进 DOM（顺序与拆分前逐字一致）。
+ * @param props 面板 props 与各路 hook 产物
+ * @returns 左栏节点
+ */
+function SessionPanelBody(props: SessionPanelBodyProps): ReactElement {
+  const { api, panel, chrome, workspace, search, touch, menu, grouping, rename, remove } = props;
   const [view, setView] = React.useState<'time' | 'ws' | 'cards'>('ws');
-  const [query, setQuery] = React.useState<string>('');
-  /** 顶部工作区切换器是否展开（业界常见式：项目是一等入口，占据左栏最上方）。 */
-  const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
-  /** 搜索框 / 文件树 / 图标条是否展开（截图式侧栏都不常驻，由区块头或快捷键唤出）。 */
-  const [searchOpen, setSearchOpen] = React.useState<boolean>(false);
-  const [treeOpen, setTreeOpen] = React.useState<boolean>(false);
-  /** 左栏是否收成图标条（业界常见式可折叠侧栏；快捷键 `[`）。 */
-  const [rail, setRail] = React.useState<boolean>(false);
-  /** 行右键菜单（会话 id + 视口坐标；null 表示未打开）。 */
-  const [menu, setMenu] = React.useState<{ id: string; x: number; y: number } | null>(null);
-  /** 右键菜单里的「配置」分组是否展开（2026-10-20：会话管理动作收进可展开分组）。 */
-  const [menuConfigOpen, setMenuConfigOpen] = React.useState<boolean>(false);
+  const rowEdit = makeRowEdit(rename, remove);
+  const listCtx = makeListCtx({
+    sessions: panel.sessions,
+    currentThreadId: panel.currentThreadId,
+    query: search.query,
+    wsPath: workspace.wsPath,
+    grouping,
+    rename,
+    remove,
+    onStartRename: rowEdit.startRename,
+    onAskDelete: rowEdit.askDelete,
+    onFork: panel.onFork,
+    onArchive: props.onArchive,
+    onReorder: panel.onReorder,
+    onSelect: panel.onSelect,
+    draggingId: touch.draggingId,
+    setDraggingId: touch.setDraggingId,
+    openMenu: menu.open,
+  });
+  const wsName = workspace.wsPath === '' ? t('未选择项目') : PathJoiner.basename(workspace.wsPath);
+  return (
+    <div className={'col left side' + (panel.open ? ' open' : '') + (chrome.rail ? ' rail' : '')} style={panel.style}>
+      <SessionPanelHead
+        panel={panel}
+        chrome={chrome}
+        workspace={workspace}
+        search={search}
+        wsName={wsName}
+        view={view}
+        onCycleView={() => setView((prev) => nextPanelView(prev))}
+      />
+      <div
+        id="sessions"
+        className={touch.draggingId === null ? undefined : 'touch-drag'}
+        onPointerDown={touch.onPointerDown}
+        onPointerUp={touch.onPointerUp}
+        onPointerCancel={touch.onPointerCancel}
+      >
+        <SessionListView view={view} listCtx={listCtx} />
+      </div>
+      <SessionTreeSection
+        rail={chrome.rail}
+        open={chrome.treeOpen}
+        onToggle={chrome.toggleTree}
+        tree={workspace.tree}
+        loaded={workspace.treeLoaded}
+        error={workspace.treeError}
+        onOpenFile={panel.onOpenFile}
+      />
+      {workspace.picking ? (
+        <FolderPicker api={api} onCancel={workspace.cancelPicker} onPick={(path) => void workspace.pickProject(path)} />
+      ) : null}
+      <SessionRowMenuSlot
+        menu={menu}
+        sessions={panel.sessions}
+        onSelect={panel.onSelect}
+        onFork={panel.onFork}
+        onReorder={panel.onReorder}
+        onStartRename={rowEdit.startRename}
+        onAssign={workspace.assignToCurrentProject}
+        onAskDelete={rowEdit.askDelete}
+      />
+      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */}
+      <SidebarFooter connected={panel.connected ?? true} streamState={panel.streamState} onOpenSettings={panel.onOpenSettings} />
+    </div>
+  );
+}
+
+/**
+ * 会话列表视图：任务卡 / 按工作区分组 / 按时间分组（三态循环）。
+ * @param props 视图与列表上下文
+ * @returns 列表节点
+ */
+function SessionListView(props: { readonly view: PanelView; readonly listCtx: ListCtx }): ReactElement {
+  const { view, listCtx } = props;
+  return view === 'cards'
+    ? renderCardsView(listCtx)
+    : view === 'ws'
+      ? renderGroupsView(listCtx)
+      : renderTimeGroupsView(listCtx);
+}
+
+/** 行菜单锚点（会话 id + 视口坐标）。 */
+interface RowMenuAnchor {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+/** 行右键菜单的状态与动作。 */
+interface RowMenuState {
+  /** 菜单锚点（null 表示未打开）。 */
+  readonly anchor: RowMenuAnchor | null;
   /** 菜单**实际**左上角坐标（由 MenuPlacement 贴边翻转算出；null 表示尚未测量）。 */
-  const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null);
+  readonly pos: { x: number; y: number } | null;
+  /** 右键菜单里的「配置」分组是否展开（2026-10-20：会话管理动作收进可展开分组）。 */
+  readonly configOpen: boolean;
   /** 菜单元素（量它的真实宽高用于翻转判定）。 */
+  readonly menuRef: React.RefObject<HTMLDivElement | null>;
+  /** 在某行坐标处打开菜单。 */
+  readonly open: (id: string, x: number, y: number) => void;
+  /** 关闭菜单。 */
+  readonly close: () => void;
+  /** 展开 / 收起「配置」分组。 */
+  readonly toggleConfig: () => void;
+}
+
+/**
+ * 行右键菜单：锚点 / 展开态 / 贴边翻转 / 点空白与滚动关闭 / WAI-ARIA roving。
+ * @returns 菜单状态与动作
+ */
+function useRowMenu(): RowMenuState {
+  const [anchor, setAnchor] = React.useState<RowMenuAnchor | null>(null);
+  const [configOpen, setConfigOpen] = React.useState<boolean>(false);
+  const [pos, setPos] = React.useState<{ x: number; y: number } | null>(null);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
-  /** 搜索输入框（收成图标条时点 🔍 展开并聚焦它）。 */
-  const searchInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  /** 打开菜单（先收起上次展开的「配置」分组）。 */
+  const open = (id: string, x: number, y: number): void => {
+    setConfigOpen(false);
+    setAnchor({ id, x, y });
+  };
+  const close = React.useCallback((): void => setAnchor(null), []);
+  const toggleConfig = (): void => setConfigOpen((v) => !v);
+
+  // 右键菜单：点空白处 / 滚动即关闭（菜单 fixed 定位，滚动后位置就错了）。
+  React.useEffect(() => {
+    if (anchor === null) return;
+    const onEvent = (e: Event): void => {
+      // 菜单内部点击（如展开「配置」分组）不算“点空白处”，否则分组刚展开就被关掉。
+      const el = menuRef.current;
+      if (el !== null && e.target instanceof Node && el.contains(e.target)) return;
+      setAnchor(null);
+      setConfigOpen(false);
+    };
+    window.addEventListener('click', onEvent);
+    window.addEventListener('scroll', onEvent, true);
+    return () => {
+      window.removeEventListener('click', onEvent);
+      window.removeEventListener('scroll', onEvent, true);
+    };
+  }, [anchor]);
+  useRowMenuKeyboard(anchor, menuRef); // W5 收口：行菜单 roving（打开落焦/↑↓/Home/End/归还行焦点）。
+
+  // 贴边翻转：量出菜单真实宽高后把它夹进视口（贴近右下角时向左/向上翻，永不溢出屏幕边缘）。
+  // 先隐藏后定位，避免用户看到「先在鼠标处闪一下再跳走」。
+  React.useLayoutEffect(() => {
+    if (anchor === null) {
+      setPos(null);
+      return;
+    }
+    const el = menuRef.current;
+    if (el === null) return;
+    // 菜单贴到左栏右侧：右键位置若落在会话行上，菜单不覆盖行，避免下一次点行误触菜单项。
+    const leftCol = el.closest('.col.left');
+    const colRight = leftCol === null ? 0 : leftCol.getBoundingClientRect().right;
+    const anchorX = Math.max(anchor.x, colRight + 6);
+    const p = MenuPlacement.clamp(
+      anchorX,
+      anchor.y,
+      { w: el.offsetWidth, h: el.offsetHeight },
+      { w: window.innerWidth, h: window.innerHeight },
+    );
+    setPos((prev) => (prev !== null && prev.x === p.x && prev.y === p.y ? prev : p));
+  }, [anchor, configOpen]);
+
+  return { anchor, pos, configOpen, menuRef, open, close, toggleConfig };
+}
+
+/**
+ * 左栏外壳开合态 + `[` / Esc 快捷键。
+ * @param closeMenu 关闭行菜单（Esc 用；`useCallback` 稳定身份，监听只挂一次）
+ * @returns 开合态与动作
+ */
+function useSidebarChrome(closeMenu: () => void): SidebarChrome {
+  const [rail, setRail] = React.useState<boolean>(false);
+  const [treeOpen, setTreeOpen] = React.useState<boolean>(false);
+  const [wsMenuOpen, setWsMenuOpen] = React.useState<boolean>(false);
+
+  // 快捷键 `[` 收起/展开左栏；Esc 关掉右键菜单。挂在 window 上（焦点在左栏之外也能用），卸载即摘。
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target !== null &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (e.key === '[' && !typing) {
+        e.preventDefault();
+        setRail((prev) => !prev);
+      }
+      if (e.key === 'Escape') closeMenu();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [closeMenu]);
+
+  /** 图标条态点区块头：展开左栏并展开文件区（否则点了没反应）。 */
+  const toggleTree = (): void => {
+    if (rail) {
+      setRail(false);
+      setTreeOpen(true);
+      return;
+    }
+    setTreeOpen((v) => !v);
+  };
+
+  return {
+    rail,
+    treeOpen,
+    wsMenuOpen,
+    expandRail: (): void => setRail(false),
+    toggleTree,
+    toggleWsMenu: (): void => setWsMenuOpen((v) => !v),
+    closeWsMenu: (): void => setWsMenuOpen(false),
+  };
+}
+
+/** 触屏 / 指针拖拽的返回值。 */
+interface SessionTouch {
   /** 正在被拖动的会话 id（拖拽排序高亮 / 落点判定）。 */
+  readonly draggingId: string | null;
+  readonly onPointerDown: (e: React.PointerEvent) => void;
+  readonly onPointerUp: (e: React.PointerEvent) => void;
+  readonly onPointerCancel: () => void;
+  /** 清掉拖拽高亮。 */
+  readonly setDraggingId: (id: string | null) => void;
+}
+
+/**
+ * 触屏 / 指针拖拽入口。两条路径汇到同一个 `ListCtx.onDropOn`：
+ * ① 拖拽把手（行首 `⠿`）：任何指针类型立即进入拖拽（把手 `touch-action:none`）；
+ * ② 行本体：触屏长按 250ms 才进入（行本体留给滚动）；鼠标走既有 HTML5 DnD。
+ *
+ * 为什么留在 SessionPanel.tsx（而不是 `./session/`）：它直接读 `#sessions` 容器的指针事件与
+ * `.col.left` 的行锚点，且 web/test/sessionOrder.test.ts 按源码锚点（pointerType / 250ms 长按 /
+ * elementFromPoint）钉住实现——迁走会让「触屏拖拽仍走 pointer」的判据假红。
+ * @param sessions 会话清单（拖拽排序的计算输入）
+ * @param onReorder 排序回调（缺省则整块拖拽不生效）
+ * @returns 拖拽态与指针处理器
+ */
+function useSessionTouch(sessions: SessionEntry[], onReorder?: SessionPanelProps['onReorder']): SessionTouch {
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   /** 触屏长按拖拽的在途状态（指针 id + 长按定时器）。 */
   const touchDragRef = React.useRef<{ id: string; timer: number | null } | null>(null);
@@ -147,15 +412,9 @@ export const SessionPanel = React.memo(function SessionPanel(props: SessionPanel
     if (cur !== null) cur.timer = null;
   };
 
-  /**
-   * 触屏 / 指针拖拽入口。两条路径汇到同一个 `ListCtx.onDropOn`：
-   * ① 拖拽把手（行首 `⠿`）：任何指针类型立即进入拖拽（把手 `touch-action:none`）；
-   * ② 行本体：触屏长按 250ms 才进入（行本体留给滚动）；鼠标走既有 HTML5 DnD。
-   * @param e 指针事件
-   * @returns 无
-   */
-  const onSessionsPointerDown = (e: React.PointerEvent): void => {
-    if (props.onReorder === undefined) return;
+  /** 指针按下：把手立即拖，行本体仅触屏长按拖。 @param e 指针事件 @returns 无 */
+  const onPointerDown = (e: React.PointerEvent): void => {
+    if (onReorder === undefined) return;
     const el = e.target as HTMLElement | null;
     if (el === null) return;
     const row = el.closest('[data-session-id]');
@@ -181,7 +440,7 @@ export const SessionPanel = React.memo(function SessionPanel(props: SessionPanel
    * @param e 指针事件
    * @returns 无
    */
-  const onSessionsPointerUp = (e: React.PointerEvent): void => {
+  const onPointerUp = (e: React.PointerEvent): void => {
     const cur = touchDragRef.current;
     clearTouchTimer();
     touchDragRef.current = null;
@@ -191,697 +450,321 @@ export const SessionPanel = React.memo(function SessionPanel(props: SessionPanel
     const toId = row?.getAttribute('data-session-id') ?? null;
     setDraggingId(null);
     if (toId !== null && toId !== cur.id) {
-      void props.onReorder?.(SessionOrder.move(sessions, cur.id, toId));
-    }
-  };
-  const [renamingId, setRenamingId] = React.useState<string | null>(null);
-  const [renameValue, setRenameValue] = React.useState<string>('');
-  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
-  /** 远端搜索的分组结果（空数组表示尚无结果）。 */
-  const [groups, setGroups] = React.useState<readonly SearchGroup[]>([]);
-  /** 远端搜索是否在途。 */
-  const [searching, setSearching] = React.useState<boolean>(false);
-  /** 远端结果的选中序号（↑/↓ 与 Enter 共用）。 */
-  const [hitIndex, setHitIndex] = React.useState<number>(-1);
-
-  // 搜索状态机跨渲染复用；onUpdate 把权威快照搬到 state（渲染用镜像，见 SessionSearch 头注释）。
-  const searchRef = React.useRef<SessionSearch | null>(null);
-  if (searchRef.current === null) {
-    searchRef.current = new SessionSearch({
-      search: (q: string) => api.searchAll(q),
-      onUpdate: () => {
-        const s = searchRef.current;
-        if (s === null) return;
-        setGroups(s.groupList());
-        setSearching(s.isLoading());
-        setHitIndex(s.selectedIndex());
-      },
-      ...(props.scheduleSearch !== undefined ? { schedule: props.scheduleSearch } : {}),
-    });
-  }
-  const search = searchRef.current;
-
-  // 拉取工作区清单（当前路径 + 已添加项目）：挂载时一次，**项目身份变化时再来一次**
-  // （打开别家项目的会话会隐式切项目；不重取的话侧栏项目名、面包屑、文件树都停在旧项目）。
-  React.useEffect(() => {
-    api
-      .listWorkspaces()
-      .then((r) => {
-        setWsPath(r.current);
-        setProjects(r.workspaces);
-        if (typeof r.current === 'string' && r.current !== '') onWorkspaceResolved?.(r.current);
-      })
-      .catch(() => {
-        /* 静默：分组标题退化为通用名 */
-      });
-  }, [api, onWorkspaceResolved, workspaceEpoch]);
-
-  // 工作区变化即重刷文件树（原 componentDidUpdate 的 prevState.wsPath 比对）；alive 防迟到回写。
-  React.useEffect(() => {
-    let alive = true;
-    api
-      .listFs(3)
-      .then((r) => {
-        if (alive) {
-          setTree(r.tree || []);
-          setTreeLoaded(true);
-          setTreeError(null);
-        }
-      })
-      .catch(() => {
-        if (alive) {
-          setTreeError(t('文件树不可用'));
-          setTreeLoaded(true);
-        }
-      });
-    return () => {
-      alive = false;
-    };
-  }, [api, wsPath]);
-
-  // 卸载即丢弃在途防抖（否则定时器会在组件消失后打一次远端搜索）。
-  React.useEffect(() => () => search.dispose(), [search]);
-
-  // 快捷键 `[` 收起/展开左栏；Esc 关掉右键菜单。挂在 window 上（焦点在左栏之外也能用），卸载即摘。
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      const target = e.target as HTMLElement | null;
-      const typing =
-        target !== null &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
-      if (e.key === '[' && !typing) {
-        e.preventDefault();
-        setRail((prev) => !prev);
-      }
-      if (e.key === 'Escape') setMenu(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  // 右键菜单：点空白处 / 滚动即关闭（菜单 fixed 定位，滚动后位置就错了）。
-  React.useEffect(() => {
-    if (menu === null) return;
-    const close = (e: Event): void => {
-      // 菜单内部点击（如展开「配置」分组）不算“点空白处”，否则分组刚展开就被关掉。
-      const el = menuRef.current;
-      if (el !== null && e.target instanceof Node && el.contains(e.target)) return;
-      setMenu(null);
-      setMenuConfigOpen(false);
-    };
-    window.addEventListener('click', close);
-    window.addEventListener('scroll', close, true);
-    return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('scroll', close, true);
-    };
-  }, [menu]);
-  useRowMenuKeyboard(menu, menuRef); // W5 收口：行菜单 roving（打开落焦/↑↓/Home/End/归还行焦点）。
-  // 贴边翻转：量出菜单真实宽高后把它夹进视口（贴近右下角时向左/向上翻，永不溢出屏幕边缘）。
-  // 先隐藏后定位，避免用户看到「先在鼠标处闪一下再跳走」。
-  React.useLayoutEffect(() => {
-    if (menu === null) {
-      setMenuPos(null);
-      return;
-    }
-    const el = menuRef.current;
-    if (el === null) return;
-    // 菜单贴到左栏右侧：右键位置若落在会话行上，菜单不覆盖行，避免下一次点行误触菜单项。
-    const leftCol = el.closest('.col.left');
-    const colRight = leftCol === null ? 0 : leftCol.getBoundingClientRect().right;
-    const anchorX = Math.max(menu.x, colRight + 6);
-    const p = MenuPlacement.clamp(
-      anchorX,
-      menu.y,
-      { w: el.offsetWidth, h: el.offsetHeight },
-      { w: window.innerWidth, h: window.innerHeight },
-    );
-    setMenuPos((prev) => (prev !== null && prev.x === p.x && prev.y === p.y ? prev : p));
-  }, [menu, menuConfigOpen]);
-
-  /** 打开内嵌文件夹选择器。 @returns 无 */
-  const addProject = (): void => setPicking(true);
-
-  /**
-   * 把某条会话**归入当前项目**（右键菜单项；服务端只改首行 `session_meta.workspace`）。
-   * 给「没有归属标记」的历史会话一个指认入口，指认后归入当前项目组，侧栏不再有孤儿行。
-   * @param sessionId 会话 id
-   * @returns 无返回值（成功/失败都只提示，不抛）
-   */
-  const assignToCurrentProject = async (sessionId: string): Promise<void> => {
-    if (wsPath === '') {
-      toast(t('当前项目未知，无法归入'), 'err');
-      return;
-    }
-    try {
-      await api.setSessionWorkspace(sessionId, wsPath);
-      toast(t('已归入当前项目'));
-      onWorkspaceSwitched?.();
-    } catch (e) {
-      toast(t('归入失败：{msg}', { msg: (e as Error).message }), 'err');
+      void onReorder?.(SessionOrder.move(sessions, cur.id, toId));
     }
   };
 
-  /**
-   * 选中目录：加入项目列表并立即切换过去（会话归它管，文件树随之刷新）。
-   * @param path 目录路径
-   * @returns 无
-   */
-  const pickProject = async (path: string): Promise<void> => {
-    setPicking(false);
-    try {
-      const res = await api.addWorkspace(path);
-      setProjects(res.workspaces);
-      await api.switchWorkspace(path);
-      setWsPath(path);
-      setTreeLoaded(false);
-      setTreeError(null);
-      onWorkspaceResolved?.(path);
-      onWorkspaceSwitched?.();
-    } catch (e) {
-      toast(t('添加失败：{msg}', { msg: (e as Error).message }), 'err');
-    }
+  /** 指针取消（滚动 / 系统手势打断）：清定时器与拖拽态。 @returns 无 */
+  const onPointerCancel = (): void => {
+    clearTouchTimer();
+    touchDragRef.current = null;
+    setDraggingId(null);
   };
 
-  /**
-   * 切换项目：服务端重建运行时后刷新文件树；同路径直接短路，不打断用户。
-   * @param path 目录路径
-   * @returns 是否切换成功
-   */
-  const switchProject = async (path: string): Promise<boolean> => {
-    if (path === wsPath) return true;
-    try {
-      await api.switchWorkspace(path);
-      setWsPath(path);
-      setTreeLoaded(false);
-      setTreeError(null);
-      onWorkspaceResolved?.(path);
-      onWorkspaceSwitched?.();
-      return true;
-    } catch (e) {
-      toast(t('切换失败：{msg}', { msg: (e as Error).message }), 'err');
-      return false;
-    }
-  };
+  return { draggingId, onPointerDown, onPointerUp, onPointerCancel, setDraggingId };
+}
 
-  /**
-   * 在指定项目开新线程：跨项目时先切项目，失败则不新建。
-   * @param path 项目路径
-   * @returns 无返回值。
-   */
-  const newThreadInProject = async (path: string): Promise<void> => {
-    setWsMenuOpen(false);
-    if (await switchProject(path)) onNew();
-  };
-
-  /**
-   * 在系统文件管理器中打开项目目录（仅桌面版）。
-   * @param path 项目路径
-   * @returns 无返回值。
-   */
-  const revealProject = (path: string): void => {
-    const bridge = desktopBridge();
-    if (bridge === null) {
-      toast(t('仅桌面版支持打开项目目录'), 'err');
-      return;
-    }
-    void bridge.revealPath(path).catch((e: unknown) => {
-      toast(t('打开项目目录失败：{msg}', { msg: (e as Error).message }), 'err');
-    });
-  };
-
-  /** 切换视图：时间分组 → 按工作区分组 → 并行任务卡（三态循环）。 @returns 无 */
-  const toggleView = (): void => {
-    setView((prev) => (prev === 'time' ? 'ws' : prev === 'ws' ? 'cards' : 'time'));
-  };
-
-  /**
-   * 把某会话钉到最前 / 最后（右键菜单；与拖拽共用 `SessionOrder.move` + `onReorder` 一条通路）。
-   * @param id 目标会话 id
-   * @param edge 'top' 移到最前、'bottom' 移到最后
-   * @returns 无
-   */
+/**
+ * 构造「把某会话钉到最前 / 最后」的动作（右键菜单；与拖拽共用 `SessionOrder.move` + `onReorder` 一条通路）。
+ * @param sessions 会话清单
+ * @param onReorder 排序回调（缺省则不动作）
+ * @returns 钉边动作
+ */
+function makeEdgeMover(
+  sessions: SessionEntry[],
+  onReorder?: SessionPanelProps['onReorder'],
+): (id: string, edge: 'top' | 'bottom') => void {
   const moveToEdge = (id: string, edge: 'top' | 'bottom'): void => {
-    if (props.onReorder === undefined) return;
+    if (onReorder === undefined) return;
     const first = sessions[0];
     const last = sessions[sessions.length - 1];
     const anchor = edge === 'top' ? first : last;
     if (anchor === undefined || anchor.id === id) return;
-    void props.onReorder(SessionOrder.move(sessions, id, anchor.id));
+    void onReorder(SessionOrder.move(sessions, id, anchor.id));
   };
+  return moveToEdge;
+}
 
-  /** 下一个视图的提示文案（同时作为 aria-label）。 @returns 中文字样 */
-  const nextViewTitle = (): string =>
-    view === 'time' ? t('切换到按工作区分组') : view === 'ws' ? t('切换到任务卡视图') : t('切换到时间分组');
-
-  /** 进入行内重命名：预填当前标签，并清掉其他行内态。 */
-  const startRename = (s: SessionEntry): void => {
-    setRenamingId(s.id);
-    setRenameValue(s.label || s.id);
-    setConfirmDeleteId(null);
-  };
-
-  /** 取消行内重命名。 @returns 无 */
-  const cancelRename = (): void => {
-    setRenamingId(null);
-    setRenameValue('');
-  };
-
-  /**
-   * 提交行内重命名（空标题也照常提交，由服务端清除自定义标题）。
-   * @param id 会话 id
-   * @returns 无
-   */
-  const commitRename = async (id: string): Promise<void> => {
-    const title = renameValue;
-    setRenamingId(null);
-    setRenameValue('');
-    await onRename(id, title);
-  };
-
-  /** 进入删除确认态。 */
-  const askDelete = (id: string): void => {
-    setConfirmDeleteId(id);
-    setRenamingId(null);
-  };
-
-  /** 取消删除确认态。 @returns 无 */
-  const cancelDelete = (): void => setConfirmDeleteId(null);
-
-  /**
-   * 提交删除。
-   * @param id 会话 id
-   * @returns 无
-   */
-  const commitDelete = async (id: string): Promise<void> => {
-    setConfirmDeleteId(null);
-    await onDelete(id);
-  };
-
-  /**
-   * 打开一条远端命中：会话跳转 / 文件在右侧面板预览，并清空搜索回到上下文。
-   * @param hit 命中条目
-   * @returns 无
-   */
-  const openHit = (hit: SearchHit): void => {
-    if (hit.kind === 'chat') onSelect(hit.id);
-    else onOpenFile(hit.id);
-    setQuery('');
-    search.setQuery('');
-  };
-
-  /** 搜索框输入：更新本地过滤关键字并把（防抖后的）远端搜索交给状态机。 */
-  const onSearchInput = (e: React.SyntheticEvent): void => {
-    const value = (e.target as HTMLInputElement).value;
-    setQuery(value);
-    search.setQuery(value);
-  };
-
-  /**
-   * 搜索框键盘：↑/↓ 移动选中、Enter 打开、Esc 清空。
-   * @param e 键盘事件
-   * @returns 无
-   */
-  const onSearchKey = (e: React.KeyboardEvent): void => {
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      search.move(e.key === 'ArrowDown' ? 1 : -1);
-      return;
-    }
-    if (e.key === 'Escape') {
-      setQuery('');
-      search.setQuery('');
-      return;
-    }
-    if (e.key === 'Enter') {
-      const hit = search.selected();
-      if (hit !== null) {
-        e.preventDefault();
-        openHit(hit);
-      }
-    }
-  };
-
-  const rowCtx: RowCtx = {
-    renamingId,
-    renameValue,
-    confirmDeleteId,
-    onStartRename: startRename,
-    onRenameInput: setRenameValue,
-    onCommitRename: (id: string) => void commitRename(id),
-    onCancelRename: cancelRename,
-    onAskDelete: askDelete,
-    onCancelDelete: cancelDelete,
-    onCommitDelete: (id: string) => void commitDelete(id),
-    onFork: (id: string) => void onFork(id),
-    onContextMenu: (id: string, x: number, y: number) => {
-      setMenuConfigOpen(false); setMenu({ id, x, y });
+/**
+ * 行内编辑态互斥接线：进入重命名即清删除确认，反之亦然（两者不会同时出现）。
+ * @param rename 行内重命名态
+ * @param remove 删除确认态
+ * @returns 两个互斥入口
+ */
+function makeRowEdit(
+  rename: SessionRenameApi,
+  remove: SessionDeleteApi,
+): { readonly startRename: (s: SessionEntry) => void; readonly askDelete: (id: string) => void } {
+  return {
+    startRename: (s: SessionEntry): void => {
+      remove.cancel();
+      rename.start(s);
     },
-    ...(props.onArchive !== undefined ? { onArchive: props.onArchive } : {}),
+    askDelete: (id: string): void => {
+      rename.cancel();
+      remove.ask(id);
+    },
   };
-  const listCtx: ListCtx = {
+}
+
+/** 组装列表上下文所需的全部成员（SessionViews 逐字段读取，无身份语义）。 */
+interface ListCtxArgs {
+  readonly sessions: SessionEntry[];
+  readonly currentThreadId: string | null;
+  readonly query: string;
+  readonly wsPath: string;
+  readonly grouping: SessionGrouping;
+  readonly rename: SessionRenameApi;
+  readonly remove: SessionDeleteApi;
+  readonly onStartRename: (s: SessionEntry) => void;
+  readonly onAskDelete: (id: string) => void;
+  readonly onFork: (id: string) => void | Promise<void>;
+  readonly onArchive?: SessionPanelProps['onArchive'];
+  readonly onReorder?: SessionPanelProps['onReorder'];
+  readonly onSelect: (id: string) => void;
+  readonly draggingId: string | null;
+  readonly setDraggingId: (id: string | null) => void;
+  readonly openMenu: (id: string, x: number, y: number) => void;
+}
+
+/**
+ * 组装行 / 列表上下文（三个视图与右键菜单共用同一份接线）。
+ * @param a 面板状态与动作
+ * @returns 列表上下文
+ */
+function makeListCtx(a: ListCtxArgs): ListCtx {
+  const { sessions, onReorder } = a;
+  const rowCtx: RowCtx = {
+    renamingId: a.rename.renamingId,
+    renameValue: a.rename.renameValue,
+    confirmDeleteId: a.remove.confirmDeleteId,
+    onStartRename: a.onStartRename,
+    onRenameInput: a.rename.setValue,
+    onCommitRename: (id: string) => void a.rename.commit(id),
+    onCancelRename: a.rename.cancel,
+    onAskDelete: a.onAskDelete,
+    onCancelDelete: a.remove.cancel,
+    onCommitDelete: (id: string) => void a.remove.commit(id),
+    onFork: (id: string) => void a.onFork(id),
+    onContextMenu: (id: string, x: number, y: number) => {
+      a.openMenu(id, x, y);
+    },
+    ...(a.onArchive !== undefined ? { onArchive: a.onArchive } : {}),
+  };
+  return {
     ...rowCtx,
     sessions,
-    currentThreadId,
-    query,
-    wsPath,
-    collapsed,
-    limits,
-    onSelect,
-    onToggleGroup: (key: string, isCollapsed: boolean) => {
-      setCollapsed((prev) => ({ ...prev, [key]: !isCollapsed }));
-    },
-    onShowAll: (key: string, total: number) => {
-      setLimits((prev) => ({ ...prev, [key]: total }));
-    },
-    draggingId,
-    onDragStart: (id: string) => setDraggingId(id),
-    onDragEnd: () => setDraggingId(null),
+    currentThreadId: a.currentThreadId,
+    query: a.query,
+    wsPath: a.wsPath,
+    collapsed: a.grouping.collapsed,
+    limits: a.grouping.limits,
+    onSelect: a.onSelect,
+    onToggleGroup: a.grouping.onToggleGroup,
+    onShowAll: a.grouping.onShowAll,
+    draggingId: a.draggingId,
+    onDragStart: (id: string) => a.setDraggingId(id),
+    onDragEnd: () => a.setDraggingId(null),
     onDropOn: (id: string) => {
-      const from = draggingId;
-      setDraggingId(null);
-      if (from === null || from === id || props.onReorder === undefined) return;
-      void props.onReorder(SessionOrder.move(sessions, from, id));
+      const from = a.draggingId;
+      a.setDraggingId(null);
+      if (from === null || from === id || onReorder === undefined) return;
+      void onReorder(SessionOrder.move(sessions, from, id));
     },
   };
+}
 
-  const listOpen = query.trim() !== '';
-  const wsName = wsPath === '' ? t('未选择项目') : PathJoiner.basename(wsPath);
-  const menuSession = menu === null ? undefined : sessions.find((s) => s.id === menu.id);
+/** SessionRowMenuSlot 组件的入参。 */
+interface SessionRowMenuSlotProps {
+  readonly menu: RowMenuState;
+  readonly sessions: SessionEntry[];
+  readonly onSelect: (id: string) => void;
+  readonly onFork: (id: string) => void | Promise<void>;
+  readonly onReorder?: SessionPanelProps['onReorder'];
+  readonly onStartRename: (s: SessionEntry) => void;
+  readonly onAssign: (id: string) => void | Promise<void>;
+  readonly onAskDelete: (id: string) => void;
+}
 
-  /**
-   * 唤出 / 收起搜索框：收起时清掉本地关键字与在途远端搜索，展开时聚焦输入框。
-   * @returns 无
-   */
-  const toggleSearch = (): void => {
-    const next = !searchOpen;
-    setSearchOpen(next);
-    if (!next) {
-      setQuery('');
-      search.setQuery('');
-      return;
-    }
-    setRail(false);
-    // 宿主无 rAF（node 测试桩）时跳过聚焦即可，不能让「唤出搜索框」本身抛错。
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => searchInputRef.current?.focus());
-    }
-  };
-
+/**
+ * 行菜单槽：按当前锚点找到会话行再渲染菜单（锚点失效时整块不渲染）。
+ * @param props 菜单状态、会话清单与动作
+ * @returns 菜单节点；无锚点或找不到行时为 null
+ */
+function SessionRowMenuSlot(props: SessionRowMenuSlotProps): ReactElement | null {
+  const { menu } = props;
+  const anchor = menu.anchor;
+  const session = anchor === null ? undefined : props.sessions.find((s) => s.id === anchor.id);
+  if (anchor === null || session === undefined) return null;
   return (
-    <div className={'col left side' + (open ? ' open' : '') + (rail ? ' rail' : '')} style={style}>
-      {/* 品牌头：Ω + 本实现 + 命令面板 + 收起（原 TopBar 的品牌行职责收编于此）。 */}
-      <SidebarHeader rail={rail} />
-      {/* 新建任务：截图式一等按钮 + 快捷键提示（与 KeyboardShortcuts 的 Ctrl/Cmd+N 同一口径）。 */}
+    <SessionRowMenu
+      anchor={anchor}
+      pos={menu.pos}
+      configOpen={menu.configOpen}
+      menuRef={menu.menuRef}
+      session={session}
+      onToggleConfig={menu.toggleConfig}
+      onClose={menu.close}
+      onSelect={props.onSelect}
+      onStartRename={props.onStartRename}
+      onFork={props.onFork}
+      moveToEdge={makeEdgeMover(props.sessions, props.onReorder)}
+      onAssign={props.onAssign}
+      onAskDelete={props.onAskDelete}
+    />
+  );
+}
+
+/** SessionRowMenu 组件的入参。 */
+interface SessionRowMenuProps {
+  readonly anchor: RowMenuAnchor;
+  readonly pos: { x: number; y: number } | null;
+  readonly configOpen: boolean;
+  readonly menuRef: React.RefObject<HTMLDivElement | null>;
+  readonly session: SessionEntry;
+  readonly onToggleConfig: () => void;
+  readonly onClose: () => void;
+  readonly onSelect: (id: string) => void;
+  readonly onStartRename: (s: SessionEntry) => void;
+  readonly onFork: (id: string) => void | Promise<void>;
+  readonly moveToEdge: (id: string, edge: 'top' | 'bottom') => void;
+  readonly onAssign: (id: string) => void | Promise<void>;
+  readonly onAskDelete: (id: string) => void;
+}
+
+/**
+ * 行右键菜单：打开 / 配置（管理动作收在可展开子分组里）。
+ * @param props 组件入参
+ * @returns 菜单节点
+ */
+function SessionRowMenu(props: SessionRowMenuProps): ReactElement {
+  const { anchor, pos, configOpen, menuRef, session } = props;
+  return (
+    <div
+      className="row-menu"
+      ref={menuRef}
+      style={{
+        left: (pos?.x ?? anchor.x) + 'px',
+        top: (pos?.y ?? anchor.y) + 'px',
+        visibility: pos === null ? 'hidden' : 'visible',
+      }}
+      role="menu"
+    >
       <button
-        className={rail ? 'new-chat compact' : 'new-chat'}
-        onClick={onNew}
-        title={t('新建会话')}
-        // 可访问名必须包含全部可见文字（WCAG 2.5.3：aria-hidden 的 kbd 提示也算可见文本）。
-        aria-label={`${t('新建任务')} ${/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘N' : 'Ctrl+N'}`}
-      >
-        <span className="nc-ico" aria-hidden="true">
-          {icon('plus', { size: 15 })}
-        </span>
-        {rail ? null : <span>{t('新建任务')}</span>}
-        {rail ? null : (
-          <span className="nc-kbd" aria-hidden="true">
-            {/Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘N' : 'Ctrl+N'}
-          </span>
-        )}
-      </button>
-      {/* 自动化：截图式侧栏的一等导航项（打开右栏自动化面板）。 */}
-      <button
-        className={'side-item' + (activePane === 'automations' ? ' active' : '')}
-        onClick={() => onOpenPane?.('automations')}
-        aria-label={activePane === 'automations' ? t('自动化（当前页）') : t('自动化')}
-      >
-        <span className="si-ico" aria-hidden="true">
-          {icon('workflow', { size: 16 })}
-        </span>
-        {rail ? null : <span>{t('自动化')}</span>}
-      </button>
-      {/* 插件市场：截图式侧栏的一等导航项（打开右栏插件面板）。 */}
-      <button
-        className={'side-item' + (activePane === 'plugins' ? ' active' : '')}
-        onClick={() => onOpenPane?.('plugins')}
-        aria-label={activePane === 'plugins' ? t('插件市场（当前页）') : t('插件市场')}
-      >
-        <span className="si-ico" aria-hidden="true">
-          {icon('plug', { size: 16 })}
-        </span>
-        {rail ? null : <span>{t('插件市场')}</span>}
-      </button>
-      {/* 顶部工作区/项目切换器：收成图标条时只留这一个按钮。 */}
-      <div className="ws-switch">
-        <button
-          className="ws-switch-btn"
-          title={wsPath || t('选择项目')}
-          aria-haspopup="menu"
-          aria-expanded={wsMenuOpen ? 'true' : 'false'}
-          onClick={() => setWsMenuOpen((v) => !v)}
-        >
-          <span className="ws-switch-icon">{icon('folder', { size: 14 })}</span>
-          {rail ? null : <span className="ws-switch-name">{wsName}</span>}
-          {rail ? null : <span className="ws-caret">▾</span>}
-        </button>
-        {wsMenuOpen && !rail ? (
-          <div className="ws-switch-menu" role="menu">
-            {renderProjectsView(projects, wsPath, (p) => {
-              setWsMenuOpen(false);
-              void switchProject(p);
-            }, sessions, (p) => void newThreadInProject(p), revealProject)}
-            <button
-              className="ws-add"
-              onClick={() => {
-                setWsMenuOpen(false);
-                addProject();
-              }}
-            >
-              {t('+ 添加项目')}
-            </button>
-          </div>
-        ) : null}
-      </div>
-      {/* 工作区区块头：标题 + 图标簇（搜索 / 范围 / 视图 / 新增项目）；图标条态只留搜索。 */}
-      <div className="side-sec-head">
-        <span className="ssh-label">{rail ? null : t('任务列表')}</span>
-        <span className="flex-spacer" aria-hidden="true"></span>
-        <span className="ssh-actions">
-          <button
-            className={'ws-add' + (searchOpen ? ' active' : '')}
-            title={searchOpen ? t('收起搜索') : t('搜索会话与文件')}
-            aria-label={searchOpen ? t('收起搜索') : t('搜索会话与文件')}
-            aria-expanded={searchOpen ? 'true' : 'false'}
-            onClick={toggleSearch}
-          >
-            {icon('search', { size: 14 })}
-          </button>
-          {rail ? null : (
-            <>
-              {onToggleScope === undefined ? null : (
-                <button
-                  className={'ws-add' + (scopeAll === true ? ' active' : '')}
-                  title={
-                    scopeAll === true
-                      ? t('当前显示**全部项目**的会话（点击只看本项目）')
-                      : t('当前只显示**本项目**的会话（点击看全部项目）')
-                  }
-                  aria-label={scopeAll === true ? t('切换为只看本项目') : t('切换为看全部项目')}
-                  aria-pressed={scopeAll === true ? 'true' : 'false'}
-                  onClick={onToggleScope}
-                >
-                  {icon('sliders', { size: 14 })}
-                </button>
-              )}
-              <button
-                className="ws-add"
-                title={nextViewTitle()}
-                aria-label={nextViewTitle()}
-                onClick={toggleView}
-              >
-                {icon('columns', { size: 14 })}
-              </button>
-              <button className="ws-add" title={t('添加项目')} aria-label={t('添加项目')} onClick={addProject}>
-                {icon('plus', { size: 14 })}
-              </button>
-            </>
-          )}
-        </span>
-      </div>
-      {searchOpen && !rail ? (
-        <div className="session-toolbar">
-          <input
-            className="session-search"
-            ref={searchInputRef}
-            placeholder={t('搜索会话…')}
-            value={query}
-            spellCheck={false}
-            role="combobox"
-            aria-label={t('搜索会话与文件')}
-            aria-autocomplete="list"
-            aria-expanded={listOpen ? 'true' : 'false'}
-            aria-controls={SEARCH_LIST_ID}
-            aria-activedescendant={hitIndex >= 0 ? 'sr-opt-' + String(hitIndex) : undefined}
-            onChange={onSearchInput}
-            onKeyDown={onSearchKey}
-          />
-        </div>
-      ) : null}
-      <SearchResults
-        groups={groups}
-        selectedIndex={hitIndex}
-        query={query}
-        loading={searching}
-        onPick={openHit}
-      />
-      <div
-        id="sessions"
-        className={draggingId === null ? undefined : 'touch-drag'}
-        onPointerDown={onSessionsPointerDown}
-        onPointerUp={onSessionsPointerUp}
-        onPointerCancel={() => {
-          clearTouchTimer();
-          touchDragRef.current = null;
-          setDraggingId(null);
+        role="menuitem"
+        onClick={() => {
+          props.onClose();
+          props.onSelect(anchor.id);
         }}
       >
-        {view === 'cards'
-          ? renderCardsView(listCtx)
-          : view === 'ws'
-            ? renderGroupsView(listCtx)
-            : renderTimeGroupsView(listCtx)}
-      </div>
-      <div className="col-head">
-        <button
-          className="sec-toggle"
-          aria-expanded={treeOpen ? 'true' : 'false'}
-          onClick={() => {
-            // 收成图标条时，点区块标题的语义是「展开侧栏并进入该区块」（否则点了没反应）。
-            if (rail) {
-              setRail(false);
-              setTreeOpen(true);
-              return;
-            }
-            setTreeOpen((v) => !v);
-          }}
-        >
-          <span className="ws-caret">{treeOpen ? '▾' : '▸'}</span>
-          {rail ? null : <span>{t('文件')}</span>}
-        </button>
-      </div>
-      {treeOpen ? (
-        <div className="section tree">{renderTreeView(tree, treeLoaded, treeError, onOpenFile)}</div>
-      ) : null}
-      {picking ? (
-        <FolderPicker
-          api={api}
-          onCancel={() => setPicking(false)}
-          onPick={(path) => void pickProject(path)}
+        {t('打开')}
+      </button>
+      <button
+        role="menuitem"
+        className="row-menu-config"
+        aria-expanded={configOpen ? 'true' : 'false'}
+        onClick={props.onToggleConfig}
+      >
+        <span>{t('配置')}</span>
+        <span className="row-menu-caret" aria-hidden="true">
+          {configOpen ? '▾' : '▸'}
+        </span>
+      </button>
+      {configOpen ? (
+        <RowMenuConfig
+          session={session}
+          onClose={props.onClose}
+          onStartRename={props.onStartRename}
+          onFork={props.onFork}
+          moveToEdge={props.moveToEdge}
+          onAssign={props.onAssign}
+          onAskDelete={props.onAskDelete}
         />
       ) : null}
-      {menu !== null && menuSession !== undefined ? (
-        <div
-          className="row-menu"
-          ref={menuRef}
-          style={{
-            left: (menuPos?.x ?? menu.x) + 'px',
-            top: (menuPos?.y ?? menu.y) + 'px',
-            visibility: menuPos === null ? 'hidden' : 'visible',
-          }}
-          role="menu"
-        >
-          <button
-            role="menuitem"
-            onClick={() => {
-              setMenu(null);
-              onSelect(menu.id);
-            }}
-          >
-            {t('打开')}
-          </button>
-          <button
-            role="menuitem"
-            className="row-menu-config"
-            aria-expanded={menuConfigOpen ? 'true' : 'false'}
-            onClick={() => setMenuConfigOpen((v) => !v)}
-          >
-            <span>{t('配置')}</span>
-            <span className="row-menu-caret" aria-hidden="true">
-              {menuConfigOpen ? '▾' : '▸'}
-            </span>
-          </button>
-          {menuConfigOpen ? (
-            <div className="row-menu-sub" role="group" aria-label={t('会话配置')}>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  startRename(menuSession);
-                }}
-              >
-                {t('重命名')}
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  void onFork(menu.id);
-                }}
-              >
-                {t('复制为副本')}
-              </button>
-              {/* 排序：不用拖拽也能把会话钉到最前/最后（业界常见式右键菜单的做法）。 */}
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  moveToEdge(menu.id, 'top');
-                }}
-              >
-                {t('移到顶部')}
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  moveToEdge(menu.id, 'bottom');
-                }}
-              >
-                {t('移到底部')}
-              </button>
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setMenu(null);
-                  // 归入当前项目（2026-10-07 用户口径「各自分离不要出现串项目」）：只对**没有归属或归属别家**
-                  // 的会话显示（当前项目自己的会话点了没意义）。改的是存档首行 session_meta 的 workspace
-                  // （归一值），历史事件逐字不动；落盘后刷新列表即可看到它换组。
-                  void assignToCurrentProject(menu.id);
-                }}
-              >
-                {t('归入当前项目')}
-              </button>
-              <button
-                role="menuitem"
-                className="danger"
-                onClick={() => {
-                  setMenu(null);
-                  askDelete(menu.id);
-                }}
-              >
-                {t('删除…')}
-              </button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-      {/* 页脚：连接状态 + 主题（原 TopBar 的状态 / 主题职责收编于此；设置走「全部面板」菜单）。 */}
-      <SidebarFooter
-        connected={connected ?? true}
-        streamState={streamState}
-        onOpenSettings={onOpenSettings}
-      />
     </div>
   );
-});
+}
+
+/** RowMenuConfig 组件的入参。 */
+interface RowMenuConfigProps {
+  readonly session: SessionEntry;
+  readonly onClose: () => void;
+  readonly onStartRename: (s: SessionEntry) => void;
+  readonly onFork: (id: string) => void | Promise<void>;
+  readonly moveToEdge: (id: string, edge: 'top' | 'bottom') => void;
+  readonly onAssign: (id: string) => void | Promise<void>;
+  readonly onAskDelete: (id: string) => void;
+}
+
+/**
+ * 行菜单里的「配置」分组（2026-10-20：会话管理动作收进可展开分组）。
+ *
+ * 排序：不用拖拽也能把会话钉到最前/最后（业界常见式右键菜单的做法）。
+ * 归入当前项目（2026-10-07 用户口径「各自分离不要出现串项目」）：只对**没有归属或归属别家**
+ * 的会话显示（当前项目自己的会话点了没意义）。改的是存档首行 session_meta 的 workspace
+ * （归一值），历史事件逐字不动；落盘后刷新列表即可看到它换组。
+ * @param props 会话与动作
+ * @returns 管理动作分组节点
+ */
+function RowMenuConfig(props: RowMenuConfigProps): ReactElement {
+  const { session } = props;
+  return (
+    <div className="row-menu-sub" role="group" aria-label={t('会话配置')}>
+      <button
+        role="menuitem"
+        onClick={() => {
+          props.onClose();
+          props.onStartRename(session);
+        }}
+      >
+        {t('重命名')}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => {
+          props.onClose();
+          void props.onFork(session.id);
+        }}
+      >
+        {t('复制为副本')}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => {
+          props.onClose();
+          props.moveToEdge(session.id, 'top');
+        }}
+      >
+        {t('移到顶部')}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => {
+          props.onClose();
+          props.moveToEdge(session.id, 'bottom');
+        }}
+      >
+        {t('移到底部')}
+      </button>
+      <button
+        role="menuitem"
+        onClick={() => {
+          props.onClose();
+          void props.onAssign(session.id);
+        }}
+      >
+        {t('归入当前项目')}
+      </button>
+      <button
+        role="menuitem"
+        className="danger"
+        onClick={() => {
+          props.onClose();
+          props.onAskDelete(session.id);
+        }}
+      >
+        {t('删除…')}
+      </button>
+    </div>
+  );
+}

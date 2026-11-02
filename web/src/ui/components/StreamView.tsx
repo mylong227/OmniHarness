@@ -4,13 +4,22 @@
 // 回合内「过程类」事件（reasoning/tool_call/tool_result）默认折叠成 <details>，
 // summary 显示步数与工具分布；busy 时展开便于观察，结束后收起聚焦结果。
 //
-// 面向对象改造：子组件各自成文件（ToolCallCard / ThinkingTrail / AssistantCard /
-// AttachmentChips / ExternalLinkCards），
-// 本组件只负责「事件 → 可视块」的分派与滚动锚定。
+// 组件分层（2026-11-02 S2 长函数清偿；原 `StreamView` 体 437 行）：
+//   · 本文件：props 契约 + 事件分派（renderEventNode / renderBlockNode）+ 滚动锚定接线；
+//   · `stream/StreamFeed`：`.stream` 滚动容器、虚拟窗口内的块铺排、空态；
+//   · `stream/StreamBottom` / `stream/StreamStatusBar`：输入区挂件与状态栏；
+//   · `stream/StreamLiveRow`：流式参数占位行；
+//   · `stream/useSessionClock` / `stream/useStreamModel`：时钟与渲染模型（缓存单例）。
 //
-// 函数组件范式：无内部 state（lastUserId/lastAssistantId 改渲染期局部量，不再写实例字段）；
-// 滚动锚定由依赖 [events, liveInputs] 的 effect 承接（兼作挂载即滚动）；
-// 事件 / 流式行的渲染分派下沉为模块级纯函数（避免组件体膨胀）。
+// **为什么滚动锚定（useStreamScroll / useBlockMeasurements）仍留在本文件**：
+// `web/test/streamThreadSwitch.test.ts` 与 `web/test/streamWindowAnchor.test.ts` 是**源码级
+// 接线守卫**，它们直接读本文件文本，钉住「切会话复位 stickyRef/scrollTop/holeBoost」「空洞修复
+// 只加渲不写回 scrollTop」这两条契约。这两段逻辑一搬走，守卫就失去观测点（会假红），
+// 故在本文件内拆成两个模块级 hook，而不是下沉到独立文件。
+//
+// 函数组件范式：无实例字段（lastUserId/lastAssistantId 来自缓存模型，渲染期局部量）；
+// 滚动锚定由依赖 [events, liveInputs, streamText] 的 effect 承接（兼作挂载即滚动）；
+// 事件 / 流式行的渲染分派为模块级纯函数（避免组件体膨胀）。
 //
 // 长会话虚拟化（StreamWindow）：只渲染可视窗口 + 上下 overscan 的块，未渲染区域用占位高度顶上，
 // 于是 DOM 节点数与总条数**不成正比**（数百条会话依旧只挂几十个块节点）。
@@ -18,34 +27,29 @@
 // 可断言信号：根节点 data-virtual / data-rendered-count / data-total-count / data-event-count。
 
 import * as React from 'react';
-import { icon } from '../models/Icon.ts';
 import { ChatHeader } from './ChatHeader.tsx';
 import type { ChatViewKind } from './ChatHeader.tsx';
 import { TraceView } from './TraceView.tsx';
-import { buildDisplayBlocks, toolSubject, toolVerb, type DisplayBlock } from '../textUtils.ts';
-import { StreamWindow, DEFAULT_ITEM_HEIGHT } from '../models/StreamWindow.ts';
+import type { DisplayBlock } from '../textUtils.ts';
+import { DEFAULT_ITEM_HEIGHT, StreamWindow } from '../models/StreamWindow.ts';
+import type { StreamWindowMetrics } from '../models/StreamWindow.ts';
 import { BlockHeightIndex } from '../models/BlockHeightIndex.ts';
-import { StreamModelCache } from '../models/StreamModelCache.ts';
-import { Composer } from './Composer.tsx';
-import { ChatQueueDock } from './ChatQueueDock.tsx';
-import { StreamEmpty } from './stream/StreamEmpty.tsx';
-import { GraphResumeChip } from './GraphResumeChip.tsx';
-import { QuestionCard } from './QuestionCard.tsx';
-import { TodoDock } from './TodoDock.tsx';
-import { TodoDockModel } from '../models/TodoDockModel.ts';
+import type { StreamModel } from '../models/StreamModelCache.ts';
 import { ToolCallCard } from './stream/ToolCallCard.tsx';
 import { ReasoningStep, ThinkingTrail } from './stream/ThinkingTrail.tsx';
 import { AssistantCard } from './stream/AssistantCard.tsx';
 import { UserCard } from './stream/UserCard.tsx';
-import { StreamingAssistantCard } from './stream/StreamingAssistantCard.tsx';
 import { TurnSummaryCard } from './stream/TurnSummaryCard.tsx';
-import { SessionDuration } from '../models/SessionDuration.ts';
+import { StreamFeed } from './stream/StreamFeed.tsx';
+import { StreamBottom } from './stream/StreamBottom.tsx';
+import { StreamStatusBar } from './stream/StreamStatusBar.tsx';
+import { useSessionClock } from './stream/useSessionClock.ts';
+import { useStreamModel } from './stream/useStreamModel.ts';
 import type { ThreadEvent, FileAttachment, QuestionRequest, QuestionAnswerSubmission, GraphRunState } from '../../types/models.ts';
 import type { ComposerSeed, LiveInput } from '../shared.ts';
 import type { ChatQueueView } from '../models/ChatMessageQueue.ts';
 import type { ApiClient } from '../../core/ApiClient.ts';
 import type { ToolResultView } from '../shared.ts';
-import { t } from '../i18n/i18n.ts';
 import {
   renderPlanNode,
   renderQuestionNode,
@@ -196,24 +200,14 @@ function wasStreamed(p: Record<string, unknown>, finalized: string): boolean {
 }
 
 /**
- * 取一个可视块的稳定 key：过程簇 / 结果卡用块 key，单块用事件 id。
- * 该 key 同时作为「逐块真实高度索引」的维度（见 BlockHeightIndex）。
- * @param b 可视块
- * @returns 块 key
- */
-function blockKeyOf(b: DisplayBlock): string {
-  return b.kind === 'single' ? b.event.id : b.key;
-}
-
-/**
  * 单事件渲染分派。返回 null 表示该类型不在对话流中展示（如 session_meta / model）。
  * @param ev 事件
  * @param ctx 渲染上下文
  * @returns 事件节点；不展示时为 null
  */
-function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
+function renderEventNode(ev: ThreadEvent, ctx: EventCtx): React.ReactElement | null {
   const p = ev.payload || {};
-  const node = (inner: ReactElement): ReactElement => (
+  const node = (inner: React.ReactElement): React.ReactElement => (
     <div className={'ev clickable ' + ev.type} key={ev.id} onClick={() => ctx.onEventClick(ev)}>
       {inner}
     </div>
@@ -284,42 +278,12 @@ function renderEventNode(ev: ThreadEvent, ctx: EventCtx): ReactElement | null {
 }
 
 /**
- * 流式参数占位行：尽力解析 partial JSON 提取人话动作，失败则用缺参兜底描述。
- * @param li 流式输入
- * @returns 占位行节点
- */
-function renderLiveInputRow(li: LiveInput): ReactElement {
-  let partialArgs: unknown = {};
-  try {
-    partialArgs = JSON.parse(li.partial);
-  } catch {
-    partialArgs = {};
-  }
-  // 运行中的当前动作：只占一行（工具行会在 tool_call 事件到达后由过程簇接管）。
-  const subject = toolSubject(li.name, partialArgs);
-  return (
-    <div className="ev live-input" key={li.id}>
-      <div className="tc-line dim">
-        <span className="tc-icon tc-running" aria-hidden="true">
-          {icon('thinking', { size: 14 })}
-        </span>
-        <span className="tc-verb">{t(toolVerb(li.name))}</span>
-        <span className="tc-dot" aria-hidden="true">
-          ·
-        </span>
-        <span className="tc-subject">{subject === '' ? t('准备中…') : subject}</span>
-      </div>
-    </div>
-  );
-}
-
-/**
  * 渲染单个可视块：过程簇或单事件。
  * @param b 可视块
  * @param ctx 渲染上下文
  * @returns 块节点
  */
-function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: EventCtx): ReactElement | null {
+function renderBlockNode(b: DisplayBlock, ctx: EventCtx): React.ReactElement | null {
   if (b.kind === 'process') {
     return (
       <ThinkingTrail
@@ -348,8 +312,6 @@ function renderBlockNode(b: ReturnType<typeof buildDisplayBlocks>[number], ctx: 
 
 /** 虚拟窗口计算器：无状态，全组件共用一个实例（避免每次渲染 new）。 */
 const STREAM_WINDOW = new StreamWindow();
-/** 事件流模型缓存：滚动帧复用同一批派生结果（键＝events 引用 + 长度 + busy）。 */
-const STREAM_MODEL_CACHE = new StreamModelCache();
 
 /**
  * 空洞修复时**两侧各多渲染**的块数：视口装不满（模型高估高度）时把窗口撑大，直到视口被真实内容
@@ -359,156 +321,80 @@ const STREAM_MODEL_CACHE = new StreamModelCache();
  */
 const HOLE_BOOST_BLOCKS = 24;
 
+/** 滚动状态机（`useStreamScroll` 的产物）：虚拟窗口与测量所需的全部读写面。 */
+interface StreamScroll {
+  /** 滚动容器。 */
+  readonly streamRef: React.RefObject<HTMLDivElement | null>;
+  /** 已渲染块的 DOM 登记表（key → 元素）。 */
+  readonly blockElsRef: React.RefObject<Map<string, HTMLElement>>;
+  /** 上一次滚动 / 提交时的贴底状态：仅在底部才自动贴底。 */
+  readonly stickyRef: React.RefObject<boolean>;
+  /** 最近一次由代码写出的 scrollTop（用于区分程序化滚动与用户上滚）。 */
+  readonly programmaticTopRef: React.RefObject<number | null>;
+  /** 逐块真实高度索引（懒初始化，本组件实例独享）。 */
+  readonly indexRef: React.RefObject<BlockHeightIndex | null>;
+  /** 上一帧已提交的 padTop（px），用于测量后的滚动锚定补偿。 */
+  readonly lastPadTopRef: React.RefObject<number>;
+  /** 当前滚动偏移（驱动虚拟窗口计算）。 */
+  readonly scrollTop: number;
+  /** 可视区高度（真实测量值；未测量到 0 时由 StreamWindow 用兜底高度）。 */
+  readonly viewportHeight: number;
+  /** 空洞加渲块数（0 = 未加渲）。 */
+  readonly holeBoost: number;
+  /** 测量回填计数器（索引变化后置位触发一次重渲染）。 */
+  readonly measureTick: number;
+  /** 置空洞加渲（0 → HOLE_BOOST_BLOCKS 的单次迁移）。 */
+  readonly setHoleBoost: React.Dispatch<React.SetStateAction<number>>;
+  /** 测量回填后请求一次重渲染。 */
+  readonly setMeasureTick: React.Dispatch<React.SetStateAction<number>>;
+  /** 滚动处理器（虚拟化的唯一驱动源）。 */
+  readonly onScroll: (e: React.SyntheticEvent) => void;
+}
 
 /**
- * 事件流组件：渲染事件块、流式占位与底部输入区，并锚定滚动到底部。
- * @param props 组件入参
- * @returns 中栏节点
+ * 滚动状态机：贴底意图 / 程序化滚动标记 / 可视高度 / 空洞加渲计数 + 三个接线 effect。
+ *
+ * 留在本文件的原因见文件头（源码级接线守卫直接读本文件）。
+ *
+ * ## 空洞修复为什么是「多渲染」而不是「写回 scrollTop」（holeBoost 的由来）
+ *
+ * 2026-09-27 用户两次报障的最终结论：① 写回会把用户拖到的位置推回去（「滚动被回退」）；
+ * ② 写回发生在布局效应里，可能形成同步更新循环（React #185）。而空洞的**真实成因**是
+ * 「索引高度与真实布局漂移 ⇒ 渲染窗口装不满一屏」，正确解法是**多渲染几块**把视口填满 ——
+ * 用户的滚动位置从头到尾不用改。粘性到用户下次滚动才复位。
+ *
+ * 终止性（为什么不需要旧版的「滚动预算」闸）：`holeBoost` 只做 0 → HOLE_BOOST_BLOCKS 的**单次
+ * 迁移**——已置位后守卫短路、`setHoleBoost(24)` 同值 bail，循环在结构上不可自我续期；且本路径
+ * 从不写 scrollTop（旧 #185 来自已被删除的「写回」变体）。2026-10-07 移除预算闸：真机实测它会在
+ * 长滚动序列里耗尽（每次滚动只补 2 次，而测量引发的多次布局效应都会消耗它），让该修的洞修不了。
+ * @param events 事件数组（贴底 effect 的依赖）
+ * @param liveInputs 流式输入（贴底 effect 的依赖）
+ * @param streamText 流式正文（长回答逐段变高时持续贴底）
+ * @param threadId 当前会话 id（变化即复位滚动状态）
+ * @returns 滚动状态与接线
  */
-export function StreamView(props: StreamViewProps): ReactElement {
-  const {
-    events,
-    historyHasMore,
-    historyLoading,
-    onLoadEarlier,
-    toolResults,
-    liveInputs,
-    streamText,
-    finalizedStreamText,
-    composerSeed,
-    queue,
-    onEventClick,
-    onOpenFile,
-    onOpenUrl,
-    onSend,
-    onStop,
-    onRegenerate,
-    onEditUser,
-    model,
-    modelOptions,
-    providerLabel,
-    reasoning,
-    reasoningOptions,
-    permission,
-    threadId,
-    onToast,
-    onApplyMode,
-    onOpenTab,
-    onLoadThread,
-    onUseStarter,
-    busy,
-    activeTool,
-    question,
-    onAnswerQuestion,
-    onQuestionExpired,
-    api,
-    onModelChange,
-    onReasoningChange,
-    onPermissionChange,
-    disabled,
-    sessionTitle,
-    workspacePath,
-    sessionActiveMs,
-    streamState,
-    adapter,
-    graphRuns,
-    onGraphResume,
-    onToggleLeft,
-    onToggleRight,
-    rightCollapsed,
-  } = props;
-  /** 中栏视图：对话流 / 工具轨迹（头部标签切换；默认对话）。 */
-  const [view, setView] = React.useState<ChatViewKind>('chat');
+function useStreamScroll(
+  events: readonly ThreadEvent[],
+  liveInputs: readonly LiveInput[],
+  streamText: string | undefined,
+  threadId: string | null | undefined,
+): StreamScroll {
   const streamRef = React.useRef<HTMLDivElement | null>(null);
-  /** 上一次滚动 / 提交时的贴底状态：仅在底部才自动贴底，用户上滚后不强制拉回。 */
   const stickyRef = React.useRef<boolean>(true);
-  /**
-   * 最近一次由代码写出的 scrollTop（程序化滚动）。
-   *
-   * 为什么需要它：内容变高后，旧的 `onScroll` 会把「我们为贴底而设的 scrollTop」误判成
-   * 用户主动上滚（此时 scrollTop 仍是旧 max、而新内容已把 scrollHeight 撑大），于是把
-   * `stickyRef` 置 false，结果卡底部就永远滚不到。onScroll 见到值等于这里记录的值时，
-   * 只更新窗口、不改变贴底意图。
-   */
   const programmaticTopRef = React.useRef<number | null>(null);
-  /** 当前滚动偏移（驱动虚拟窗口计算）。 */
   const [scrollTop, setScrollTop] = React.useState<number>(0);
-  /** 可视区高度（真实测量值；未测量到 0 时由 StreamWindow 用兜底高度）。 */
   const [viewportHeight, setViewportHeight] = React.useState<number>(0);
-  /** 逐块真实高度索引：按块 key 记录浏览器实测高度（懒初始化，本组件实例独享）。 */
   const indexRef = React.useRef<BlockHeightIndex | null>(null);
   if (indexRef.current === null) indexRef.current = new BlockHeightIndex({ estimate: DEFAULT_ITEM_HEIGHT });
-  /** 当前已渲染块的 DOM 节点表（key → 元素），供 layout effect 实测高度。 */
   const blockElsRef = React.useRef<Map<string, HTMLElement>>(new Map());
-  /** 上一帧已提交的 padTop（px），用于测量后的滚动锚定补偿。 */
   const lastPadTopRef = React.useRef<number>(0);
-  /** 测量回填计数器：索引变化后置位触发一次重渲染，随后实测稳定即停。 */
   const [measureTick, setMeasureTick] = React.useState<number>(0);
-  /** 回合收尾时刻（busy true→false）：过程簇此刻挂载，给它一次「回闪」高亮，
-   *  提示「刚才的思考/工具过程已收纳在此」。0=无；历史加载不经此路径（恒 0，不闪）。 */
-  const [settledAt, setSettledAt] = React.useState<number>(0);
-  /** 当前会话时钟：每秒 tick 一次；busySince 记录本回合开始（null=未在跑）。 */
-  const [clockNow, setClockNow] = React.useState<number>(() => Date.now());
-  const [busySince, setBusySince] = React.useState<number | undefined>(undefined);
-  /** 本回合开始时服务端已累计时长（busy 期间冻结，避免中途 refresh 把当前回合计两次）。 */
-  const busyBaseRef = React.useRef<number>(0);
-  const sessionActiveMsRef = React.useRef<number | undefined>(sessionActiveMs);
-  sessionActiveMsRef.current = sessionActiveMs;
-  const prevBusyForClockRef = React.useRef<boolean | undefined>(busy);
-  const prevThreadForClockRef = React.useRef<string | null | undefined>(threadId);
-  React.useEffect(() => {
-    const switched = prevThreadForClockRef.current !== threadId;
-    prevThreadForClockRef.current = threadId;
-    if (busy === true) {
-      if (prevBusyForClockRef.current !== true || switched) {
-        busyBaseRef.current =
-          typeof sessionActiveMsRef.current === 'number' && sessionActiveMsRef.current > 0
-            ? sessionActiveMsRef.current
-            : 0;
-        setBusySince(Date.now());
-        setClockNow(Date.now());
-      }
-      const timer = setInterval(() => setClockNow(Date.now()), 1000);
-      prevBusyForClockRef.current = true;
-      return () => clearInterval(timer);
-    }
-    setBusySince(undefined);
-    setClockNow(Date.now());
-    prevBusyForClockRef.current = false;
-    return undefined;
-  }, [busy, threadId]);
-  const sessionClock = SessionDuration.view(
-    busy === true ? busyBaseRef.current : sessionActiveMs,
-    busySince,
-    clockNow,
-    busy === true,
-  );
-  const prevBusyRef = React.useRef<boolean | undefined>(busy);
-  React.useEffect(() => {
-    if (prevBusyRef.current === true && busy !== true) setSettledAt(Date.now());
-    prevBusyRef.current = busy;
-  }, [busy]);
-  // 收尾后 1.5s 内视为「刚收尾」。回闪动画只播一次（CSS animation 无 forwards，
-  // 播完自动回落透明底），类名残留无副作用。
-  const clusterFresh = settledAt !== 0 && busy !== true && Date.now() - settledAt < 1500;
-  /**
-   * 空洞修复的方式：**多渲染块，绝不移动用户的滚动位置**（粘性，直到用户下次滚动才复位）。
-   *
-   * 为什么不是「写回 scrollTop」（2026-09-27 用户两次报障的最终结论）：
-   * ① 写回会把用户拖到的位置推回去（「滚动被回退」）；② 写回发生在布局效应里，可能形成同步更新
-   * 循环（React #185）。而空洞的**真实成因**是「索引高度与真实布局漂移 ⇒ 渲染窗口装不满一屏」，
-   * 正确解法是**多渲染几块**把视口填满 —— 用户的滚动位置从头到尾不用改。
-   *
-   * 终止性（为什么不需要旧版的「滚动预算」闸）：`holeBoost` 只做 0 → HOLE_BOOST_BLOCKS 的**单次
-   * 迁移**——已置位后守卫短路、`setHoleBoost(24)` 同值 bail，循环在结构上不可自我续期；且本路径
-   * 从不写 scrollTop（旧 #185 来自已被删除的「写回」变体）。2026-10-07 移除预算闸：真机实测它会在
-   * 长滚动序列里耗尽（每次滚动只补 2 次，而测量引发的多次布局效应都会消耗它），让该修的洞修不了。
-   */
+  /** 空洞加渲块数：只在视口装不满时做 0 → HOLE_BOOST_BLOCKS 的**单次**迁移（见函数 JSDoc）。 */
   const [holeBoost, setHoleBoost] = React.useState<number>(0);
 
   // 切会话：滚动位置与贴底意图都属于上一个会话，必须复位。否则在 A 里上滚后打开 B，
-  // B 会停在旧偏移、且 `stickyRef=false` 让之后的新内容再也不自动贴底（会话时钟已在下面
-  // 按 `switched` 复位，滚动这里此前漏了）。
+  // B 会停在旧偏移、且 `stickyRef=false` 让之后的新内容再也不自动贴底（会话时钟在
+  // useSessionClock 里按 `switched` 复位，滚动这里此前漏了）。
   React.useEffect(() => {
     stickyRef.current = true;
     programmaticTopRef.current = 0;
@@ -550,58 +436,80 @@ export function StreamView(props: StreamViewProps): ReactElement {
     if (el.clientHeight !== viewportHeight) setViewportHeight(el.clientHeight);
   };
 
-  // 仅最后一条用户 / 助手消息提供编辑 / 重新生成入口；工具调用 id 集合决定 tool_result 是否内联。
-  // 这三项 + 块划分都是 O(事件数)，而**滚动帧也会重渲染**（scrollTop 是 state）⇒ 交给单击缓存复用，
-  // 滚动时不再重算（审计 §2.5：每帧全量重算 ≈180 µs@1000 / ≈510 µs@3000 条）。
-  const streamModel = STREAM_MODEL_CACHE.get(events, busy === true);
-  const { blocks, keys, lastUserId, lastAssistantId, toolCallIds } = streamModel;
-  const turnDurations = streamModel.turnDurations;
-  const ctx: EventCtx = {
-    toolResults,
-    onEventClick,
-    onOpenFile,
-    onOpenUrl,
-    busy,
-    lastUserId,
-    lastAssistantId,
-    onEditUser,
-    onRegenerate,
-    finalizedStreamText: finalizedStreamText ?? '',
-    toolCallIds,
-    turnDurations,
-    questionPending: question != null,
-    clusterFresh,
-  };
-  const streaming = streamText ?? '';
-  // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。
-  const tailCount = liveInputs.length + (streaming !== '' ? 1 : 0);
-  // 真实高度路径：用 BlockHeightIndex 回填的逐块高度算窗口（padTop/padBottom 为前缀偏移）。
-  // 未测到的块由索引回落到估算值，故首屏/长会话顶部与「统一估算」行为一致、不崩。
-  const index = indexRef.current!;
-  const winBase = STREAM_WINDOW.computeWithHeights(
-    keys,
-    (k) => index.get(k),
+  return {
+    streamRef,
+    blockElsRef,
+    stickyRef,
+    programmaticTopRef,
+    indexRef,
+    lastPadTopRef,
     scrollTop,
     viewportHeight,
-  );
-  // 空洞加渲：视口装不满时**只多渲染块**（两侧各 holeBoost 块），绝不移动用户的滚动位置。
-  const win: typeof winBase =
-    holeBoost > 0
-      ? (() => {
-          const start = Math.max(0, winBase.start - holeBoost);
-          const end = Math.min(keys.length, winBase.end + holeBoost);
-          return {
-            start,
-            end,
-            rendered: end - start,
-            padTop: index.prefix(keys, start),
-            padBottom: index.prefix(keys, keys.length) - index.prefix(keys, end),
-            total: winBase.total,
-          };
-        })()
-      : winBase;
-  // 记录本帧已提交的 padTop，供测量后做滚动锚定补偿，避免内容跳动。
-  lastPadTopRef.current = win.padTop;
+    holeBoost,
+    measureTick,
+    setHoleBoost,
+    setMeasureTick,
+    onScroll,
+  };
+}
+
+/**
+ * 计算本帧虚拟窗口：先按逐块真实高度算，再在「空洞加渲」置位时两侧各扩 HOLE_BOOST_BLOCKS 块。
+ * @param keys 全部块 key（与 blocks 同序）
+ * @param index 逐块高度索引
+ * @param scrollTop 当前滚动偏移
+ * @param viewportHeight 可视区高度
+ * @param holeBoost 空洞加渲块数（0 = 不加渲）
+ * @returns 窗口指标（start/end/rendered/padTop/padBottom/total）
+ */
+function computeStreamWindow(
+  keys: readonly string[],
+  index: BlockHeightIndex,
+  scrollTop: number,
+  viewportHeight: number,
+  holeBoost: number,
+): StreamWindowMetrics {
+  const base = STREAM_WINDOW.computeWithHeights(keys, (k) => index.get(k), scrollTop, viewportHeight);
+  if (holeBoost <= 0) return base;
+  const start = Math.max(0, base.start - holeBoost);
+  const end = Math.min(keys.length, base.end + holeBoost);
+  return {
+    start,
+    end,
+    rendered: end - start,
+    padTop: index.prefix(keys, start),
+    padBottom: index.prefix(keys, keys.length) - index.prefix(keys, end),
+    total: base.total,
+  };
+}
+
+/** 逐块测量 + 空洞修复的入参（把十来个状态收成一组，免得 hook 签名长到读不懂）。 */
+interface BlockMeasurementDeps {
+  /** 滚动状态机（refs 与计数都在里面）。 */
+  readonly scroll: StreamScroll;
+  /** 全部块 key（与 blocks 同序）。 */
+  readonly keys: readonly string[];
+  /** 事件数组（高度索引裁剪的失效判据）。 */
+  readonly events: readonly ThreadEvent[];
+  /** 回合是否进行中（裁剪 effect 的失效判据）。 */
+  readonly busy: boolean | undefined;
+  /** 本帧虚拟窗口。 */
+  readonly win: StreamWindowMetrics;
+  /** 全部块数（layout effect 的依赖之一）。 */
+  readonly blockCount: number;
+}
+
+/**
+ * 逐块真实高度回填 + 空洞修复（**只加渲，绝不移动用户的滚动位置**）。
+ *
+ * 留在本文件的原因见文件头：`web/test/streamWindowAnchor.test.ts` 读本文件文本钉住
+ * 「加渲 setter 必须由 `needsAnchorRepair` + 单次迁移守卫触发」。
+ * @param deps 入参（滚动状态 + 模型尺寸）
+ */
+function useBlockMeasurements(deps: BlockMeasurementDeps): void {
+  const { keys, events, busy, win, blockCount } = deps;
+  const { streamRef, blockElsRef, stickyRef, programmaticTopRef, indexRef, holeBoost } = deps.scroll;
+  const { setHoleBoost, measureTick, setMeasureTick } = deps.scroll;
 
   // 事件集合变化时裁剪高度索引：丢弃已不存在的块，防长会话无限增长（index 仅存实测值）。
   React.useEffect(() => {
@@ -658,147 +566,106 @@ export function StreamView(props: StreamViewProps): ReactElement {
         programmaticTopRef.current = el.scrollTop;
       }
     }
-  }, [win.start, win.end, blocks.length, measureTick, holeBoost]);
+  }, [win.start, win.end, blockCount, measureTick, holeBoost]);
+}
 
-  const visibleBlocks = blocks.slice(win.start, win.end);
-  const renderedCount = win.rendered + tailCount;
-  const totalCount = blocks.length + tailCount;
+/**
+ * 组装事件渲染上下文（只读快照）：块渲染函数（renderEventNode / renderBlockNode）只吃它。
+ * @param props StreamView 入参
+ * @param model 事件流模型
+ * @param clusterFresh 是否刚收尾（过程簇回闪）
+ * @returns 渲染上下文
+ */
+function buildEventCtx(props: StreamViewProps, model: StreamModel, clusterFresh: boolean): EventCtx {
+  return {
+    toolResults: props.toolResults,
+    onEventClick: props.onEventClick,
+    onOpenFile: props.onOpenFile,
+    onOpenUrl: props.onOpenUrl,
+    busy: props.busy,
+    lastUserId: model.lastUserId,
+    lastAssistantId: model.lastAssistantId,
+    onEditUser: props.onEditUser,
+    onRegenerate: props.onRegenerate,
+    finalizedStreamText: props.finalizedStreamText ?? '',
+    toolCallIds: model.toolCallIds,
+    turnDurations: model.turnDurations,
+    questionPending: props.question != null,
+    clusterFresh,
+  };
+}
+
+/**
+ * 事件流组件：渲染事件块、流式占位与底部输入区，并锚定滚动到底部。
+ *
+ * 本组件只做**数据编排**（模型 → 窗口 → 各分区），DOM 结构分别由 StreamFeed /
+ * StreamBottom / StreamStatusBar 产出；函数体刻意保持薄（check.mjs 铁律 80 行）。
+ * @param props 组件入参
+ * @returns 中栏节点
+ */
+export function StreamView(props: StreamViewProps): React.ReactElement {
+  /** 中栏视图：对话流 / 工具轨迹（头部标签切换；默认对话）。 */
+  const [view, setView] = React.useState<ChatViewKind>('chat');
+  const scroll = useStreamScroll(props.events, props.liveInputs, props.streamText, props.threadId);
+  const { sessionClock, clusterFresh } = useSessionClock(props.sessionActiveMs, props.busy, props.threadId);
+  const model = useStreamModel(props.events, props.busy === true);
+  const ctx = buildEventCtx(props, model, clusterFresh);
+  const streaming = props.streamText ?? '';
+  // 虚拟化的单位是「可视块」（过程事件已合并成簇），末尾的流式行恒在窗口之外单独渲染。
+  const tailCount = props.liveInputs.length + (streaming !== '' ? 1 : 0);
+  // 真实高度路径：用 BlockHeightIndex 回填的逐块高度算窗口（padTop/padBottom 为前缀偏移）。
+  // 未测到的块由索引回落到估算值，故首屏/长会话顶部与「统一估算」行为一致、不崩。
+  const win = computeStreamWindow(
+    model.keys,
+    scroll.indexRef.current!,
+    scroll.scrollTop,
+    scroll.viewportHeight,
+    scroll.holeBoost,
+  );
+  // 记录本帧已提交的 padTop，供测量后做滚动锚定补偿，避免内容跳动。
+  scroll.lastPadTopRef.current = win.padTop;
+  useBlockMeasurements({
+    scroll,
+    keys: model.keys,
+    events: props.events,
+    busy: props.busy,
+    win,
+    blockCount: model.blocks.length,
+  });
   return (
     <div className="col center">
       <ChatHeader
-        title={sessionTitle ?? ''}
-        projectPath={workspacePath}
-        busy={busy === true}
+        title={props.sessionTitle ?? ''}
+        projectPath={props.workspacePath}
+        busy={props.busy === true}
         duration={sessionClock.visible ? sessionClock.label : ''}
         durationState={sessionClock.state}
         view={view}
         onView={setView}
-        onToggleLeft={onToggleLeft}
-        onToggleRight={onToggleRight}
-        rightCollapsed={rightCollapsed}
+        onToggleLeft={props.onToggleLeft}
+        onToggleRight={props.onToggleRight}
+        rightCollapsed={props.rightCollapsed}
       />
-      <div
-        className={'stream' + (view === 'trace' ? ' view-hidden' : '')}
-        role={view === 'trace' ? undefined : 'log'}
-        aria-live="polite"
-        aria-relevant="additions"
-        aria-label={t('对话事件流')}
-        aria-hidden={view === 'trace' ? 'true' : undefined}
-        data-virtual="1"
-        data-rendered-count={String(renderedCount)}
-        data-total-count={String(totalCount)}
-        data-event-count={String(events.length)}
-        ref={streamRef}
-        onScroll={onScroll}
-      >
-          {events.length === 0 && liveInputs.length === 0 && streaming === '' ? (
-            <StreamEmpty onUseStarter={onUseStarter} />
-          ) : (
-            <div className="stream-inner">
-              {onLoadEarlier !== undefined && historyHasMore === true ? (
-                <div className="stream-load-earlier">
-                  <button
-                    type="button"
-                    className="ghost"
-                    disabled={historyLoading === true}
-                    onClick={onLoadEarlier}
-                  >
-                    {historyLoading === true ? t('加载中…') : t('加载更早的消息')}
-                  </button>
-                </div>
-              ) : null}
-              {win.padTop > 0 ? (
-                <div
-                  key="stream-pad-top"
-                  className="stream-pad"
-                  style={{ height: win.padTop + 'px' }}
-                  aria-hidden="true"
-                />
-              ) : null}
-              {visibleBlocks.map((b) => {
-                const k = blockKeyOf(b);
-                return (
-                  <div
-                    className="sw-block"
-                    data-sw-key={k}
-                    key={'sw-' + k}
-                    ref={(el: HTMLDivElement | null) => {
-                      if (el) blockElsRef.current.set(k, el);
-                      else blockElsRef.current.delete(k);
-                    }}
-                  >
-                    {renderBlockNode(b, ctx)}
-                  </div>
-                );
-              })}
-              {win.padBottom > 0 ? (
-                <div
-                  key="stream-pad-bottom"
-                  className="stream-pad"
-                  style={{ height: win.padBottom + 'px' }}
-                  aria-hidden="true"
-                />
-              ) : null}
-              {liveInputs.map((li) => renderLiveInputRow(li))}
-              {streaming !== '' ? <StreamingAssistantCard key="streaming-assistant" text={streaming} /> : null}
-            </div>
-          )}
-        </div>
+      <StreamFeed
+        stream={props}
+        view={view}
+        win={win}
+        blocks={model.blocks}
+        streaming={streaming}
+        tailCount={tailCount}
+        onScroll={scroll.onScroll}
+        streamRef={scroll.streamRef}
+        blockElsRef={scroll.blockElsRef}
+        renderBlock={(b) => renderBlockNode(b, ctx)}
+      />
       <TraceView
-        events={events}
-        liveInputs={liveInputs}
-        toolResults={toolResults}
+        events={props.events}
+        liveInputs={props.liveInputs}
+        toolResults={props.toolResults}
         hidden={view !== 'trace'}
       />
-      {question == null || onAnswerQuestion === undefined || onQuestionExpired === undefined ? null : (
-        <QuestionCard
-          request={question}
-          onSubmit={onAnswerQuestion}
-          onExpire={onQuestionExpired}
-        />
-      )}
-      <TodoDock items={TodoDockModel.latest(events)} />
-      {/* 队列模式：排队消息坞（空队列时组件自身返回 null）。 */}
-      {queue === undefined ? null : <ChatQueueDock queue={queue} />}
-      <Composer
-        model={model}
-        modelOptions={modelOptions}
-        providerLabel={providerLabel}
-        reasoning={reasoning}
-        reasoningOptions={reasoningOptions}
-        permission={permission}
-        threadId={threadId}
-        seed={composerSeed ?? null}
-        queue={queue}
-        onToast={onToast}
-        onApplyMode={onApplyMode}
-        onOpenTab={onOpenTab}
-        onOpenFile={onOpenFile}
-        onLoadThread={onLoadThread}
-        onModelChange={onModelChange}
-        onReasoningChange={onReasoningChange}
-        onPermissionChange={onPermissionChange}
-        onSend={onSend}
-        disabled={disabled}
-        busy={busy}
-        activeTool={activeTool}
-        api={api}
-        onStop={onStop}
-      />
-      {/* 状态栏：只显示真实可得的口径（适配器摘要 / 会话事件数 / 连接态），不虚构 token 速率。 */}
-      <div className="chat-status">
-        <span className="cs-item">{adapter === undefined || adapter === '' ? '…' : adapter}</span>
-        <span className="flex-spacer" aria-hidden="true"></span>
-        {graphRuns === undefined || onGraphResume === undefined ? null : (
-          <GraphResumeChip runs={graphRuns} onResume={onGraphResume} />
-        )}
-        <span className="cs-item">{t('{n} 条事件', { n: String(events.length) })}</span>
-        {streamState === undefined ? null : (
-          <span className={'cs-item cs-conn ' + streamState}>
-            {streamState === 'open' ? t('已连接') : streamState === 'connecting' ? t('重连中') : t('断开')}
-          </span>
-        )}
-      </div>
+      <StreamBottom {...props} />
+      <StreamStatusBar {...props} />
     </div>
   );
 }

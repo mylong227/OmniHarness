@@ -10,7 +10,8 @@
 // ## 判据
 //
 // ① 真跑 `node scripts/check.mjs --strict`：必须绿，且汇总里真的有前端文件计数（口径非空转）；
-// ② 两份基线都存在且**只含真正超限的条目**（文件基线每项 >810；函数基线含 web 条目）；
+// ② 两份基线都存在且**只含真正超限的条目**——2026-11-02 S2 长函数清零后基线可为空；
+//    非空时文件基线每项必须 >810、函数基线每项 span 必须 >80（空 = 无存量债务）；
 // ③ 接线守卫：`web/src` 的扫描循环里确实调用了文件行数 + 函数体行数两条检查
 //    （否则「纳入了」只是文档里的说法）。
 //
@@ -55,20 +56,27 @@ test('check.mjs --strict：组件层体量口径生效且当前全绿（含前�
   assert.ok(m !== null && Number(m[1]) > 100, `前端文件数异常：${m?.[1] ?? '(未匹配)'}`);
 });
 
-test('基线：文件行数基线只含真正超限的文件，函数基线含前端条目', () => {
+test('基线：只含真正超限的条目（2026-11-02 存量清零后允许为空）', () => {
   const fileBaseline = readJson('scripts/checkFileLengthBaseline.json');
-  const fileEntries = Object.entries(fileBaseline);
-  assert.ok(fileEntries.length > 0, '前端存在超限文件 ⇒ 基线不得为空（否则会被阻断）');
-  for (const [file, lines] of fileEntries) {
+  for (const [file, lines] of Object.entries(fileBaseline)) {
     assert.match(file, /^web\/src\//u, `文件基线条目应来自前端：${file}`);
     assert.ok(
       typeof lines === 'number' && lines > 810,
-      `${file} 的基线 ${String(lines)} 必须 >810`,
+      `${file} 的基线 ${String(lines)} 必须 >810（未超限的条目不得留在基线里）`,
     );
   }
   const funcBaseline = readJson('scripts/checkFuncBaseline.json');
-  const webFiles = Object.keys(funcBaseline).filter((f) => f.startsWith('web/src/'));
-  assert.ok(webFiles.length > 0, '函数基线必须含前端条目（冻结存量，只许减不许增）');
+  for (const [file, spans] of Object.entries(funcBaseline)) {
+    assert.match(file, /\.(ts|tsx)$/u, `函数基线条目必须是 TS 源文件：${file}`);
+    assert.ok(typeof spans === 'object' && spans !== null, `${file} 的基线必须是对象`);
+    for (const [name, span] of Object.entries(spans as Record<string, unknown>)) {
+      assert.ok(
+        typeof span === 'number' && span > 80,
+        `${file}#${name} 的基线 ${String(span)} 必须 >80（未超限的条目不得留在基线里）`,
+      );
+    }
+  }
+  // 空基线是**合法终态**（S2 清零），不是漏配：check.mjs 对空基线等价于「无豁免」。
 });
 
 test('接线：web/src 的扫描循环同时跑「文件行数」与「函数体行数」两条检查', () => {
