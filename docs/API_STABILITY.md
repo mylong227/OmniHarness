@@ -80,9 +80,13 @@ export { LegacyGoalLoop } from './autonomy/legacyGoalLoop.js';
 `src/version.ts` 导出 `API_VERSION`（当前 `0.1.0`），作为合同版本号锚点，随 `@public` API 演进 bump。
 
 > **别把两个版本号混为一谈**：`API_VERSION = 0.1.0` 是**契约版本**（`@public` API 表面的兼容承诺），
-> 而 `package.json` 的 `"version": "0.2.0"` 是**包发布版本**（npm 上的 `@mylong227/omniharness`）。
+> 而 `package.json` 的 `version` 是**包发布版本**（npm 上的 `@mylong227/omniharness`）。
 > 两者**各自演进、可以不同**：包版本会因内部重构、文档、构建调整而走，契约版本只在公开 API 变化时走。
 > 引用"当前版本"时**必须说明是哪一个**——历史上两者被当成同一个数，导致"API 变了但版本号没动"的误判。
+>
+> **不在此处抄写包版本号**（2026-11-02 收紧）：本文档曾把包版本写死为 `0.2.0`，包版本升到 `0.3.0` 后
+> 就成了"文档说 0.2、实际 0.3"的漂移源。包版本**唯一事实源是 `package.json`**；
+> `scripts/maintainability.mjs` 会检查本文档是否再次硬编码过期的包版本。
 
 ## 本地校验
 

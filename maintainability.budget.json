@@ -1,0 +1,14 @@
+{
+  "$comment": "可维护性预算（docs/MAINTAINABILITY_PLAN_2026-11.md §1）。改预算就是改这里，不要改脚本。oversizeBaseline 是存量棘轮：只降不升。",
+  "srcLines": 120000,
+  "moduleLines": 15000,
+  "fileLines": 600,
+  "oversizeBaseline": 29,
+  "publicExports": 40,
+  "betaExports": 20,
+  "npmScripts": 20,
+  "docsRootMd": 12,
+  "moduleReadmes": "all",
+  "fastGateSeconds": 180,
+  "fullSuiteSeconds": 720
+}

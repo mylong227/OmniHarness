@@ -111,6 +111,18 @@ const ROOT_ALLOWLIST: readonly string[] = [
   // 环境变量全量参考（2026-11-01 显式登记）：由源码 process.env 读点自动编译的全量清单；
   // 约定新增 OMNI_* 旋钮同步补行，否则文档与代码漂移（docs/README §1 有索引）。
   'ENV_REFERENCE.md',
+  // 方向研判（2026-11-02 显式登记）：R1–R5 五条路线评分 + 可证伪预测的**决策快照**；
+  // 市场数字为二手来源，状态与进度仍以看板为准。
+  'STRATEGY_2026-11-02.md',
+  // 二开就绪规划（2026-11-02 显式登记）：kernel/contracts/apps 分层、五类扩展点、HOW_TO_FORK 大纲；
+  // 是规划稿，落地状态不进本文件，进看板。
+  'FORK_READINESS_2026-11.md',
+  // 可维护性治理方案（2026-11-02 显式登记）：8 项预算 + 30 项痛点台账 + 20 周消除顺序；
+  // 读数由 `scripts/maintainability.mjs` 产出，预算值在根 `maintainability.budget.json`。
+  'MAINTAINABILITY_PLAN_2026-11.md',
+  // 内核切分方案（2026-11-02 显式登记）：contracts/kernel/protocols/apps 的模块归属表、
+  // 三种切法对比（目录分层 → npm 包 → 独立仓库）与 S0–S5 迁移判据；切分本身不减少代码量。
+  'KERNEL_SPLIT_2026-11.md',
 ];
 
 /** 递归列出目录下所有 .md（相对给定根）。 */
