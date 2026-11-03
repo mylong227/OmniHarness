@@ -7814,7 +7814,7 @@ T1.4 publish 只差维护者 `npm login` → `npm run release:publish`（prepubl
 
 ### 208.5 未做（诚实边界）
 
-- **npm publish**：等维护者 `npm login`（约 5 分钟）→ `npm run release:publish`；
+- **npm publish**：等维护者 `npm login`（约 5 分钟）→ `npm run release:publish`。定版已就绪：`changeset version` 消费两份 changeset → **0.4.0**（CHANGELOG 带提交哈希；desktop/package.json 对齐 0.4.0），提交 4a4bb49a；`npm publish --dry-run` **通过**（prepublishOnly 三段构建全绿，tarball 20.3 MB / 4,211 文件，dist/bin 已含）——登录后裸跑即成。**推送仍被网络挡住**：11-04 凌晨 github.com:443 全路由死窗持续（默认解析 + 4 个备选 IP 均 000），五笔提交滞留本地，恢复后 `git push https://github.com/mylong227/OmniHarness.git main`。
   发布前兜底形态 `npx -y github:mylong227/OmniHarness audit …` 已在 README 写明。
 - **tarball ≤ 5 MB 里程碑（11-16）未达**（现 19.34 MB）：需要产品决策——`web/dist`
   （11.2 MB）与 `docs` 是否随包发行（砍掉即 < 5 MB，但 npm 版 `serve` 没有工作台 UI）。
