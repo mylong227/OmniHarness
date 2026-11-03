@@ -14,6 +14,10 @@ import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+// 真 import（不是读文本）：让 auditBin.ts 进入覆盖率报告（coverageInventory 判据要求
+// 新源文件出现在报告里），同时 ② 对账的就是**真实常量**而不是正则抽出来的字符串。
+import { AUDIT_NODE_REQUIRE, AuditBin } from '../../src/apps/cli/auditBin.ts';
 
 const ROOT = process.cwd();
 const SOURCE = readFileSync(join(ROOT, 'src', 'apps', 'cli', 'auditBin.ts'), 'utf8');
@@ -48,6 +52,59 @@ test('② AUDIT_NODE_REQUIRE 与 package.json engines.node 逐字一致（--help
     engines: { node: string };
   };
   // auditBin 的常量是内联进单文件 bundle 的，必须与包声明同源（判据对账，不靠自觉）。
-  const declared = /AUDIT_NODE_REQUIRE = '([^']+)'/.exec(SOURCE)?.[1];
-  assert.strictEqual(declared, pkg.engines.node);
+  assert.strictEqual(AUDIT_NODE_REQUIRE, pkg.engines.node);
+});
+
+test('③ main()：--version 快速路径 / --help 头部带 Node 门槛 / 正常分派退出码同主 CLI 契约', async () => {
+  const argvBackup = process.argv;
+  const exitBackup = process.exitCode;
+  const writes: string[] = [];
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: unknown): boolean => {
+    writes.push(String(chunk));
+    return true;
+  }) as typeof process.stdout.write;
+  try {
+    // --version：零重模块路径，exit 0。
+    process.argv = ['node', 'audit.mjs', '--version'];
+    await AuditBin.main();
+    assert.strictEqual(process.exitCode, 0);
+    assert.match(writes.join(''), /omniharness audit \d+\.\d+\.\d+/);
+    writes.length = 0;
+
+    // --help：头部先打 Node 门槛行，随后 AuditCommand 的 USAGE（exit 2）。
+    process.argv = ['node', 'audit.mjs', '--help'];
+    await AuditBin.main();
+    assert.strictEqual(process.exitCode, 2);
+    assert.match(writes.join(''), /需要 Node >=22\.14\.0/);
+    assert.match(writes.join(''), /用法:/);
+    writes.length = 0;
+
+    // 正常分派：干净夹具 ⇒ 0；漂移夹具 --strict ⇒ 1（与主 CLI 同一退出码契约）。
+    process.argv = [
+      'node',
+      'audit.mjs',
+      join(process.cwd(), 'tests', 'fixtures', 'audit', 'omni.jsonl'),
+      '--format',
+      'json',
+      '--out',
+      join(tmpdir(), `omni-auditbin-${String(Date.now())}.json`),
+    ];
+    await AuditBin.main();
+    assert.strictEqual(process.exitCode, 0);
+    process.argv = [
+      'node',
+      'audit.mjs',
+      join(process.cwd(), 'tests', 'fixtures', 'audit', 'drift-mixed.jsonl'),
+      '--strict',
+      '--out',
+      tmpdir(),
+    ];
+    await AuditBin.main();
+    assert.strictEqual(process.exitCode, 1);
+  } finally {
+    process.argv = argvBackup;
+    process.exitCode = exitBackup;
+    process.stdout.write = originalWrite;
+  }
 });

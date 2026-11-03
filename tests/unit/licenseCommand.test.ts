@@ -22,7 +22,7 @@ import { LicenseEngine } from '../../src/apps/license/licenseEngine.ts';
 import { Ed25519AgentIdentity } from '../../src/kernel/adapters/identity/ed25519AgentIdentity.ts';
 import type { LicensePayload } from '../../src/apps/license/licenseEngine.ts';
 
-/** 固定"当前时刻"。 */
+/** 固定"当前时刻"（仅供显式构造**过去/未来**日期的用例使用）。 */
 const NOW = Date.parse('2026-10-04T00:00:00.000Z');
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -67,12 +67,15 @@ function writeLicense(overrides: Partial<LicensePayload> = {}): {
   readonly publicKeySsh: string;
 } {
   const licensor = new Ed25519AgentIdentity({ agentRuntimeId: 'licensor' });
+  // 「有效」夹具必须锚定**真实时钟**（2026-11-04 实测时间炸弹：默认锚在冻结的
+  // 2026-10-04 + 30 天 = 2026-11-03 到期，跨过午夜全量 regress 即红——与被测行为无关的
+  // 测试腐烂）。需要"已过期/未生效"的用例用 overrides 显式给相对 NOW 的过去/未来时间。
   const payload: LicensePayload = {
     licenseId: 'lic-cli',
     tier: 'pro',
     machineFingerprint: LicenseEngine.machineFingerprint(),
-    issuedAtMs: NOW - 30 * DAY,
-    expiresAtMs: NOW + 30 * DAY,
+    issuedAtMs: Date.now() - 30 * DAY,
+    expiresAtMs: Date.now() + 30 * DAY,
     ...overrides,
   };
   const text = LicenseEngine.compose(
