@@ -7738,3 +7738,85 @@ ACP v1 已把 elicitation 稳定为协议原语（[官方文档](https://agentcl
   厂商格式漂移时工具会明确报"无法识别"，不会猜着解析。
 - **Web 工作台入口 / npm 发布 / 减法审计 / 文档砍面 / CI 配额**：仍按 §206.5、§203.5 与
   `STRATEGY` §6.4 的排期，不在本轮范围。
+
+---
+
+## §208 audit P0 裂缝清零 + P1 瘦入口（2026-11-03/04，ad1e826e / b1969f24）
+
+按 `docs/audit/PLAN_2026-11.md` 的 P0（裂缝清零，6 h）与 P1 的代码部分（T1.1–T1.3）执行；
+T1.4 publish 只差维护者 `npm login` → `npm run release:publish`（prepublishOnly 已连带 audit bin）。
+
+### 208.1 P0：三裂缝全部闭合（ad1e826e）
+
+1. **死链（裂缝①）**：`docs/audit/ATTESTATION.md` 落地（三列信任表：完整性 / 来源 / 时间；
+   coverage 口径与 verify 失败原因全表）；`auditChain.ts` / `auditTypes.ts` 的注释改指它。
+   `docLinkCheck` 扩面：**71 份 markdown + 1,328 份源码注释**（src-mention 口径——反引号
+   `docs/…` 提及），存量 7 处冻结进基线（共 9 处）；删 ATTESTATION.md ⇒ 双红（门禁 +
+   `srcDocRefs` 判据），恢复 ⇒ 双绿（实测）。
+2. **未识别不可见（裂缝②的可见化半步）**：四 parser 统计 `unrecognized`（坏行 / 非对象 /
+   类型缺失或未知 / ACP 非法帧——ACP 的未知 method 与未知 update 类别此前**整帧静默丢弃**）；
+   报告头新增 `coverage: { recognized, unrecognized }`（HTML 摘要卡 / Markdown 摘要表 /
+   CLI 摘要行三处可见）；未知类型条目仍以 `other` 记录保留（证据不丢）。
+   `--strict`（登记进 `knownFlags`）：任一输入未识别 > 0 ⇒ exit 1，**报告仍生成**。
+   `verify` 新增 `summary` / `coverage` 两种自洽对账（JSON 形态无文件自指纹，这是对账
+   头字段被改的唯一机械防线）。
+3. **退出码契约（T0.3）**：`docs/audit/EXIT_CODES.md` 成文（0/1/2 逐条触发条件 +
+   `--strict` 精确语义 + 判据对应表）。
+
+**验收实测**（真实 CLI + dist/bin 双口径）：`drift-mixed.jsonl`（3 条未知类型混入）⇒
+未识别 3、exit 0；`--strict` ⇒ exit 1 且报告落盘；篡改正对照 ⇒ 改载荷内文 `hash` 红
+（"第 2 条记录"），只改页面文字 `artifact` 红；干净报告 exit 0。bin 与主 CLI 行为逐项一致。
+
+**判据净增 11 例**：auditTool ⑥⑦⑧（strict 双口径 + coverage/summary 篡改）、auditParsers
+⑪⑫（omni 漂移计 3 / ACP 未知帧计 3）、srcDocRefs 3（ATTESTATION 在场 + 旧死链不回流 +
+机制正对照）、knownFlags 补 `.number(` 形状（见 208.4）。
+
+**两处门禁反咬与修复**：① `acpTranscriptParser` 加 `unrecognized` 字段后 **26 方法**顶破
+上帝类闸（字段也计入）——改 parse 局部变量 + `handleFrame`/`handleUpdate` 返回增量
+（claude 23 / omni 24 / codex 15 有余量）；② docLinkCheck 头注写了 `src/**/*.ts` 字面量，
+`*/` 把块注释提前闭合（SyntaxError）——注释里禁写该序列。
+
+### 208.2 P1 瘦入口：npx 一条命令形态就绪（b1969f24）
+
+- `src/apps/cli/auditBin.ts`：只引 `AuditCommand` + `version`（**不引 execCli 装配世界**）；
+  `--help` 顶部打印 Node 门槛（engines.node ≥ 22.14）；`--version` 快速路径。
+- `scripts/buildAuditBin.mjs`：esbuild 单文件 ESM bundle，**实测 72,355 B ≤ 307,200 B** 判据
+  fail-closed；esbuild ^0.25.12 入 devDependencies（dev-only，产物仍零第三方依赖）。
+- `package.json`：`bin.audit` → `dist/bin/audit.mjs`；`files += dist/bin`；
+  `prepublishOnly` 连带 `build:audit-bin`。
+- 判据 `auditBinDeps` 3 例：import 面封闭（禁装配层 9 模块）+ `AUDIT_NODE_REQUIRE` 与
+  `engines.node` 机械对账 + `main()` 三路径直测（--version / --help 头部 / 正常分派
+  0 与 1）。
+- **README「安装」节**：npx 一条命令 + 安装体积对照表。`npm pack` 实测（v0.3.0）：
+  **tarball 19.34 MB / 解压 38.9 MB / 4,211 文件**（dist/src ~3.0 + web/dist ~11.2 +
+  dist/bin 0.07 + docs/defaults/examples 其余）。
+
+### 208.3 全量回归（覆盖 P0+P1，2026-11-04）
+
+- vitest：**725 文件 / 4,480 过 + 4 skip**（首轮 4,478 过 + 1 红，红因见 208.4①；
+  修复后复跑；`--retry=1` 下偶发 pluginWorker worker 崩溃一次，重跑绿）。
+- coverageGate：**✓ 聚合 85.8569% ≥ 80%（1,330 文件无超容差回退，4 个在漂移容差内）**——
+  比 §207 的 85.8549% 微升（auditCommand 11.11% → 56.29%，audit 判据加密的副产品）；
+  auditBin.ts 进报告且 ≥ 30% 新文件线。
+- web:test：**145 文件 / 717 例全绿**（webtest_exit=0）。
+- fast 门禁 10/10 + typed 门禁 2/2 全绿（两轮提交各自过钩子）。
+
+### 208.4 顺手抓出的两处既有问题
+
+1. **license 夹具时间炸弹（真实红）**：`licenseCommand.test.ts` 的"有效 license"夹具锚在
+   冻结的 2026-10-04 + 30 天 = **2026-11-03 到期**——§207 的 regress 在 11-03 跑所以绿，
+   跨过午夜（11-04）全量必红。已修：有效夹具锚定真实时钟（`Date.now() ± 30 天`），
+   过期用例保持显式过去时间（语义不变）。
+2. **knownFlags 判据③扫描面缺 `.number(` 形状**：3c5d7644 分层迁移把 `flagNumber(...)`
+   换成 `reader.number('--boost-timeout-ms')` 后，该读取点逃出扫描面 ⇒ `--boost-timeout-ms`
+   被误报"登记了没人读"（HEAD 上就红，§207 的"全绿"结论因此失真）。已把形状纳入
+   判据①③的正则（全仓唯一读取点恰是已登记项，零副作用）。
+
+### 208.5 未做（诚实边界）
+
+- **npm publish**：等维护者 `npm login`（约 5 分钟）→ `npm run release:publish`；
+  发布前兜底形态 `npx -y github:mylong227/OmniHarness audit …` 已在 README 写明。
+- **tarball ≤ 5 MB 里程碑（11-16）未达**（现 19.34 MB）：需要产品决策——`web/dist`
+  （11.2 MB）与 `docs` 是否随包发行（砍掉即 < 5 MB，但 npm 版 `serve` 没有工作台 UI）。
+  P2 期内裁决；`npm pack` 会跑 `prepare`（全量 tsc）≈ 4 分钟/次，测体积成本高。
+- **P2 demo / 文章**：按排期 11-17 起；用真实会话前先过 P3 脱敏或手工删段（§8 拍板项）。
