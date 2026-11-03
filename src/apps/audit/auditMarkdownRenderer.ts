@@ -36,6 +36,9 @@ export class AuditMarkdownRenderer {
       '| 项目 | 值 |',
       '| ---- | -- |',
       `| 记录 | ${AuditFormatting.number(report.summary.total)} |`,
+      ...(report.coverage === undefined
+        ? []
+        : [`| 未识别 | ${AuditFormatting.number(report.coverage.unrecognized)} |`]),
       `| 工具调用 | ${AuditFormatting.number(report.summary.toolCalls)} |`,
       `| 工具失败 | ${AuditFormatting.number(report.summary.toolFailures)} |`,
       `| 涉及文件 | ${AuditFormatting.number(report.summary.filesChanged)} |`,

@@ -12,11 +12,13 @@ import type {
 } from './auditTypes.ts';
 
 /**
- * 把"解析结果"组装成**自包含报告**：编号 → 上链 → 摘要 → 文件表。
+ * 把"解析结果"组装成**自包含报告**：编号 → 上链 → 摘要 → 文件表 → 覆盖率。
  *
  * 编号由本类统一负责（1 起始、按时间线顺序），解析器不得自带序号——否则四种来源
  * 会各自定义序号口径，复核方对不上。摘要里的每个数字都能从 `records` 重算出来：
- * 报告被改一个数字，链校验就会在同一处失败。
+ * 报告被改一个数字，链校验就会在同一处失败。`coverage.recognized` 同理取
+ * `chained.length`（复核器据此机械对账）；`coverage.unrecognized` 来自解析器的
+ * 明确计数（口径见 `docs/audit/ATTESTATION.md` §3）。
  */
 export class AuditReportBuilder {
   /** 哈希链实现。 */
@@ -54,6 +56,10 @@ export class AuditReportBuilder {
         sha256: source.sha256,
       },
       summary: this.summarize(records, source.result.startedAt, source.result.endedAt),
+      coverage: {
+        recognized: chained.length,
+        unrecognized: source.result.unrecognized,
+      },
       tokens: source.result.tokens,
       files: this.collectFiles(records),
       records: chained,

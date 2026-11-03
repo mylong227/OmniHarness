@@ -1,7 +1,7 @@
 /**
  * 审计出证（audit attestation）的**数据契约**——只放类型，无运行时实现。
  *
- * 设计口径（见 `docs/AUDIT_ATTESTATION.md`）：
+ * 设计口径（见 `docs/audit/ATTESTATION.md`）：
  * - 报告是**自包含**的：时间线 + 文件变更 + 成本 + 哈希链，全部在同一个文件里；
  * - 哈希链覆盖每条规范化记录的**规范 JSON**，因此复核方不需要本仓库即可重算；
  * - 一切"不知道"都写成 `null` / 缺省，**不猜、不补**（与全仓诚实降级口径一致）。
@@ -109,6 +109,17 @@ export interface AuditSummary {
   readonly durationMs: number | null;
 }
 
+/**
+ * 源文件的覆盖率口径（2026-11-03 P0「未识别记录可见化」）：回答复核方的第一个问题
+ * ——「这份报告覆盖了源文件的全部内容吗？」。语义详见 `docs/audit/ATTESTATION.md` §3。
+ */
+export interface AuditCoverage {
+  /** 载入时间线的记录数（= `records.length` = `summary.total`，`verify` 机械对账）。 */
+  readonly recognized: number;
+  /** 解析器明确不认识的来源条目数（坏行 / 非对象 / 类型缺失或未知 / 非法帧）。 */
+  readonly unrecognized: number;
+}
+
 /** 带链字段的一条记录。 */
 export interface AuditChainedRecord {
   /** 前一条的哈希（首条为创世哈希）。 */
@@ -135,6 +146,11 @@ export interface AuditReport {
   readonly title: string;
   readonly source: AuditSourceInfo;
   readonly summary: AuditSummary;
+  /**
+   * 覆盖率口径。可选是为兼容本字段引入前的存量报告（复核器只在字段在场时对账）；
+   * 新构建的报告一律携带。
+   */
+  readonly coverage?: AuditCoverage;
   readonly tokens: AuditTokenUsage | null;
   readonly files: readonly AuditFileChange[];
   readonly records: readonly AuditChainedRecord[];
@@ -157,6 +173,8 @@ export interface AuditParseResult {
   readonly endedAt: string | null;
   readonly records: readonly AuditRecordDraft[];
   readonly tokens: AuditTokenUsage | null;
+  /** 解析器明确不认识的来源条目数（进报告的 `coverage.unrecognized`；口径见 ATTESTATION §3）。 */
+  readonly unrecognized: number;
 }
 
 /** 加载并解析后的一个来源（原始字节哈希 + 解析结果）。 */

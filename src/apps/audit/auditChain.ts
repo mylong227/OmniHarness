@@ -9,7 +9,7 @@ import type { AuditChainedRecord, AuditChainVerification, AuditRecord } from './
  * 这是**完整性检测**，不是签名：
  * - 能检出"报告被改了 / 中间被删了 / 记录被换了顺序"；
  * - 不能证明"报告出自谁之手"——任何拿到报告的人都能重算一条自洽的新链。
- * 需要来源可信时，报告要与调用方的留存副本 / 外部时间戳一起使用（见 `docs/AUDIT_ATTESTATION.md`）。
+ * 需要来源可信时，报告要与调用方的留存副本 / 外部时间戳一起使用（见 `docs/audit/ATTESTATION.md`）。
  *
  * 这里刻意**不加 HMAC**：出证报告是给对方看的，密钥不能随报告一起交付；而审计链的
  * HMAC 模式（`kernel/util/hashChain.ts`，服务于落盘日志防篡改）在"交付给第三方复核"场景下

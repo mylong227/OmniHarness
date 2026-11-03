@@ -95,6 +95,9 @@ export class AuditHtmlRenderer {
     const summary = report.summary;
     const cards = [
       this.card('记录', AuditFormatting.number(summary.total)),
+      ...(report.coverage === undefined
+        ? []
+        : [this.card('未识别', AuditFormatting.number(report.coverage.unrecognized))]),
       this.card('工具调用', AuditFormatting.number(summary.toolCalls)),
       this.card('工具失败', AuditFormatting.number(summary.toolFailures)),
       this.card('涉及文件', AuditFormatting.number(summary.filesChanged)),

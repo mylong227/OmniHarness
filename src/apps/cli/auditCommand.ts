@@ -6,8 +6,10 @@
  *    transcript / Codex rollout / ACP 转录）转成自包含审计报告（HTML / Markdown / JSON）；
  * 3. `audit verify <report>`：复核报告哈希链（HTML / Markdown / JSON 都认）。
  *
- * 失败语义：用法错误 2；输入/读盘/解析失败 1；`export --compliance` 的链断裂仍为 1（原有语义）；
- * `verify` 任一份不完整为 1。所有错误都打印可执行的原因，不静默降级。
+ * 失败语义（正式契约见 `docs/audit/EXIT_CODES.md`）：用法错误 2；输入/读盘/解析失败 1；
+ * `export --compliance` 的链断裂仍为 1（原有语义）；`verify` 任一份不完整为 1；
+ * `report --strict` 在任一输入有未识别条目时为 1（报告仍生成——先留证据再报失败）。
+ * 所有错误都打印可执行的原因，不静默降级。
  */
 
 import { writeFileSync } from 'node:fs';
@@ -30,11 +32,18 @@ const USAGE =
   '                          [--out FILE] [--limit N] [--compliance]\n' +
   '  omniharness audit report <FILE|DIR...> [--format html|md|json] [--out PATH]\n' +
   '                          [--title TEXT] [--source-format omni|claude-code|codex|acp]\n' +
+  '                          [--strict]\n' +
   '  omniharness audit verify <REPORT...> [--json]\n' +
-  '  omniharness audit <FILE|DIR...>            # report 的简写\n';
+  '  omniharness audit <FILE|DIR...>            # report 的简写\n' +
+  '\n' +
+  '  --strict  任一输入存在未识别的来源条目时以退出码 1 失败（缺省只在报告里显示「未识别 N」）。\n' +
+  '  退出码契约见 docs/audit/EXIT_CODES.md。\n';
 
 /** `report` 的取值型旗标。 */
 const REPORT_VALUE_FLAGS: readonly string[] = ['--format', '--out', '--title', '--source-format'];
+
+/** `report` 的开关型旗标。 */
+const REPORT_BOOL_FLAGS: readonly string[] = ['--strict'];
 
 /** `verify` 的开关型旗标。 */
 const VERIFY_BOOL_FLAGS: readonly string[] = ['--json'];
@@ -123,7 +132,7 @@ export class AuditCommand {
    * @returns 退出码。
    */
   private runReportMode(rest: readonly string[]): number {
-    const parsed = this.positionalsOf(rest, REPORT_VALUE_FLAGS, []);
+    const parsed = this.positionalsOf(rest, REPORT_VALUE_FLAGS, REPORT_BOOL_FLAGS);
     if (parsed.unknown.length > 0) {
       process.stderr.write(
         `[omniharness] audit report 不认识的旗标：${parsed.unknown.join(' ')}\n`,
@@ -156,6 +165,7 @@ export class AuditCommand {
         out,
         title: reader.value('--title') ?? null,
         ...(sourceFormat === null ? {} : { sourceFormat }),
+        ...(reader.has('--strict') ? { strict: true } : {}),
       });
     } catch (error) {
       process.stderr.write(`[omniharness] 审计报告生成失败：${this.messageOf(error)}\n`);

@@ -118,6 +118,7 @@ test('⑤ 正文里的 </script> 不得提前闭合载荷 / 页面（转义必�
         },
       ],
       tokens: null,
+      unrecognized: 0,
     },
   };
   const report = new AuditReportBuilder().build(loaded, { generatorVersion: 'test' });
@@ -204,6 +205,7 @@ test('⑨ Markdown 围栏必须避开正文里的反引号（否则载荷被提�
       endedAt: null,
       records: [{ ts: null, kind: 'assistant', title: '代码', text: '```json\n{"x":1}\n```' }],
       tokens: null,
+      unrecognized: 0,
     },
   };
   const report = new AuditReportBuilder().build(loaded, { generatorVersion: 'test' });

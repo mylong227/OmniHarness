@@ -54,13 +54,14 @@ node dist/src/apps/cli/exec.js audit verify audit-reports
 
 ## 3. 报告里有什么
 
-| 区块     | 内容                                                                             | 可复核性                                                  |
-| -------- | -------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 摘要     | 记录数 / 工具调用 / 工具失败 / 文件数 / 审批数 / 耗时 / token                    | 每个数字都能从记录重算                                    |
-| 文件变更 | 路径、触及次数、可得的 `+n/−n`                                                   | 只认写类工具的参数、`apply_patch` 头与 unified diff       |
-| 时间线   | 用户 / 助手 / 思考 / 工具调用 / 工具结果 / 审批 / 系统事件                       | 含 `callId` 与结局；`tool_result` 会回填调用记录的 status |
-| 完整性   | 算法、创世哈希、链头、记录数、输入文件 SHA-256                                   | 浏览器按钮复核载荷链；CLI 追加复核整份文件（含展示层）    |
-| 载荷     | 完整 JSON（HTML 为内嵌 `<script type="application/json">`，Markdown 为文末围栏） | 载荷被改由链检出；展示层被改由文件级自指纹检出            |
+| 区块     | 内容                                                                                        | 可复核性                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 摘要     | 记录数 / 工具调用 / 工具失败 / 文件数 / 审批数 / 耗时 / token                               | 每个数字都能从记录重算                                                                                       |
+| 覆盖率   | `coverage: { recognized, unrecognized }`——载入时间线的记录数 + 解析器明确不认识的来源条目数 | `recognized` 由 verify 机械对账；未识别条目以 `other` 记录保留（口径见 [ATTESTATION.md](ATTESTATION.md) §3） |
+| 文件变更 | 路径、触及次数、可得的 `+n/−n`                                                              | 只认写类工具的参数、`apply_patch` 头与 unified diff                                                          |
+| 时间线   | 用户 / 助手 / 思考 / 工具调用 / 工具结果 / 审批 / 系统事件                                  | 含 `callId` 与结局；`tool_result` 会回填调用记录的 status                                                    |
+| 完整性   | 算法、创世哈希、链头、记录数、输入文件 SHA-256                                              | 浏览器按钮复核载荷链；CLI 追加复核整份文件（含展示层）                                                       |
+| 载荷     | 完整 JSON（HTML 为内嵌 `<script type="application/json">`，Markdown 为文末围栏）            | 载荷被改由链检出；展示层被改由文件级自指纹检出                                                               |
 
 ### 3.1 哈希链算法（第三方可独立实现）
 
@@ -110,6 +111,10 @@ artifact  = SHA-256(整份文件文本，UTF-8)
    对外发送前请自行评估。
 7. **只做单次会话。** 单文件上限 64 MiB、目录上限 2000 个文件、单文件 100k 行；超限即拒绝
    （截断的报告会让复核方误以为"就这些"）。
+8. **未识别条目不静默（2026-11-03 起）。** 解析器不认识的来源条目（坏行 / 类型未知 / 非法帧）
+   计入报告的 `coverage.unrecognized`，未知类型的条目同时以 `other` 记录原样保留；
+   `--strict` 让"有未识别"直接以退出码 1 失败（报告仍生成）。计数口径与边界见
+   [ATTESTATION.md](ATTESTATION.md) §3，退出码见 [EXIT_CODES.md](EXIT_CODES.md)。
 
 ---
 
@@ -127,8 +132,9 @@ artifact  = SHA-256(整份文件文本，UTF-8)
 | CLI                    | `src/apps/cli/auditCommand.ts`（`audit report` / `audit verify`）                                   |
 
 判据：`tests/unit/auditParsers.test.ts`、`auditReport.test.ts`、`auditReportChain.test.ts`、
-`auditCanonical.test.ts`、`auditVerifierScript.test.ts`、`auditTool.test.ts`
-（夹具在 `tests/fixtures/audit/`）。
+`auditCanonical.test.ts`、`auditVerifierScript.test.ts`、`auditTool.test.ts`、`srcDocRefs.test.ts`
+（夹具在 `tests/fixtures/audit/`；`drift-mixed.jsonl` 是"混入 3 条未知类型"的漂移夹具，
+`--strict` 与 `coverage` 的正对照都打它）。
 
 ---
 

@@ -182,3 +182,37 @@ test('⑩ 兼容 session export 信封（单对象 events[]）', () => {
   assert.strictEqual(multiline.sessionId, 'omni-2');
   assert.strictEqual(multiline.records.length, 3);
 });
+
+test('⑪ 未识别条目可见化：omni 漂移夹具计 3、正常夹具计 0（未知类型以 other 保留）', () => {
+  const drift = loader.load(join(FIXTURES, 'drift-mixed.jsonl'));
+  assert.strictEqual(drift.result.format, 'omni');
+  assert.strictEqual(drift.result.unrecognized, 3);
+  // 3 条未知类型仍以 other 记录进入时间线（证据不丢）+ session/user/assistant 各 1。
+  assert.strictEqual(drift.result.records.length, 6);
+  assert.strictEqual(drift.result.records.filter((record) => record.kind === 'other').length, 3);
+  const clean = loader.load(join(FIXTURES, 'omni.jsonl'));
+  assert.strictEqual(clean.result.unrecognized, 0);
+});
+
+test('⑫ 未识别条目可见化：ACP 未知 method / 未知 update 类别 / 坏行都计入', () => {
+  const file = join(tmpdir(), `omni-acp-drift-${String(Date.now())}.jsonl`);
+  writeFileSync(
+    file,
+    [
+      JSON.stringify({ jsonrpc: '2.0', method: 'session/new', params: { cwd: '/repo' } }),
+      JSON.stringify({ jsonrpc: '2.0', method: 'future/method', params: {} }),
+      JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'session/update',
+        params: { update: { sessionUpdate: 'future_chunk', content: { text: 'x' } } },
+      }),
+      JSON.stringify({ jsonrpc: '2.0', method: 'session/prompt', params: { prompt: 'hi' } }),
+      'not json at all',
+    ].join('\n'),
+  );
+  const loaded = loader.load(file);
+  assert.strictEqual(loaded.result.format, 'acp');
+  // future/method + future_chunk + 坏行 = 3（原来三者全部静默丢弃）。
+  assert.strictEqual(loaded.result.unrecognized, 3);
+  assert.strictEqual(loaded.result.records.length, 2);
+});

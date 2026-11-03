@@ -1,0 +1,6 @@
+{"id":"dft_1","type":"session_meta","sessionId":"drift-1","timestamp":"2026-11-02T12:00:00.000Z","payload":{"workspace":"/repo","model":"deepseek-v4-flash"},"seq":1}
+{"id":"dft_2","type":"user","sessionId":"drift-1","timestamp":"2026-11-02T12:00:01.000Z","payload":{"content":"正常请求：把 b.ts 改回来"},"seq":2}
+{"id":"dft_3","type":"vendor_future_event","sessionId":"drift-1","timestamp":"2026-11-02T12:00:02.000Z","payload":{"note":"上游新增的事件类型，当前解析器不认识"},"seq":3}
+{"id":"dft_4","type":"assistant","sessionId":"drift-1","timestamp":"2026-11-02T12:00:03.000Z","payload":{"content":"已处理。"},"seq":4}
+{"id":"dft_5","type":"another_unknown_type","sessionId":"drift-1","timestamp":"2026-11-02T12:00:04.000Z","payload":{"x":1},"seq":5}
+{"id":"dft_6","type":"yet_another","sessionId":"drift-1","timestamp":"2026-11-02T12:00:05.000Z","payload":{"y":2},"seq":6}

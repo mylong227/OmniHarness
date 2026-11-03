@@ -33,6 +33,8 @@ export class OmniSessionParser {
   private sawUsage = false;
   /** 已产出的记录。 */
   private records: AuditRecordDraft[] = [];
+  /** 未识别的来源条目数（口径见 `docs/audit/ATTESTATION.md` §3）。 */
+  private unrecognized = 0;
 
   /**
    * 解析一份 OmniHarness 会话 JSONL。
@@ -43,13 +45,26 @@ export class OmniSessionParser {
   public parse(text: string): AuditParseResult {
     this.reset();
     const envelope = this.envelopeEvents(text);
-    const values = envelope ?? AuditJsonl.parse(text).values;
-    for (const value of values) {
-      const event = AuditJsonl.recordOf(value);
-      if (event === null) {
-        continue;
+    if (envelope === null) {
+      const { values, badLines } = AuditJsonl.parse(text);
+      this.unrecognized += badLines;
+      for (const value of values) {
+        const event = AuditJsonl.recordOf(value);
+        if (event === null) {
+          this.unrecognized += 1;
+          continue;
+        }
+        this.handleEvent(event);
       }
-      this.handleEvent(event);
+    } else {
+      for (const value of envelope) {
+        const event = AuditJsonl.recordOf(value);
+        if (event === null) {
+          this.unrecognized += 1;
+          continue;
+        }
+        this.handleEvent(event);
+      }
     }
     return {
       format: 'omni',
@@ -60,6 +75,7 @@ export class OmniSessionParser {
       endedAt: this.lastTsOf(this.records),
       records: this.records,
       tokens: this.sawUsage ? this.tokensOf() : null,
+      unrecognized: this.unrecognized,
     };
   }
 
@@ -104,6 +120,7 @@ export class OmniSessionParser {
     this.totalTokens = 0;
     this.sawUsage = false;
     this.records = [];
+    this.unrecognized = 0;
   }
 
   /**
@@ -114,6 +131,7 @@ export class OmniSessionParser {
   private handleEvent(event: Record<string, unknown>): void {
     const type = AuditValues.stringField(event, 'type');
     if (type === null) {
+      this.unrecognized += 1;
       return;
     }
     this.sessionId = this.sessionId ?? AuditValues.stringField(event, 'sessionId');
@@ -148,6 +166,9 @@ export class OmniSessionParser {
         this.push('system', '系统消息', this.contentOf(payload), ts);
         break;
       default:
+        // 顶层类型未知（上游新增事件 / 漂移）：计入未识别，同时以 other 记录保留载荷（证据不丢）。
+        // `model` 是已知类型（走上方 case），其 kind 虽为 other 但**不**计入未识别。
+        this.unrecognized += 1;
         this.push('other', type, AuditValues.describe(payload), ts);
         break;
     }

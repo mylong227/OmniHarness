@@ -32,6 +32,8 @@ export class ClaudeCodeParser {
   private sawUsage = false;
   /** 记录累加器。 */
   private records: AuditRecordDraft[] = [];
+  /** 未识别的来源条目数（口径见 `docs/audit/ATTESTATION.md` §3）。 */
+  private unrecognized = 0;
 
   /**
    * 解析一份 Claude Code transcript。
@@ -41,12 +43,15 @@ export class ClaudeCodeParser {
    */
   public parse(text: string): AuditParseResult {
     this.reset();
-    const { values } = AuditJsonl.parse(text);
+    const { values, badLines } = AuditJsonl.parse(text);
+    this.unrecognized = badLines;
     for (const value of values) {
       const line = AuditJsonl.recordOf(value);
-      if (line !== null) {
-        this.handleLine(line);
+      if (line === null) {
+        this.unrecognized += 1;
+        continue;
       }
+      this.handleLine(line);
     }
     return {
       format: 'claude-code',
@@ -57,6 +62,7 @@ export class ClaudeCodeParser {
       endedAt: this.lastTs(),
       records: this.records,
       tokens: this.sawUsage ? this.tokensOf() : null,
+      unrecognized: this.unrecognized,
     };
   }
 
@@ -74,6 +80,7 @@ export class ClaudeCodeParser {
     this.totalTokens = 0;
     this.sawUsage = false;
     this.records = [];
+    this.unrecognized = 0;
   }
 
   /**
@@ -84,6 +91,7 @@ export class ClaudeCodeParser {
   private handleLine(line: Record<string, unknown>): void {
     const type = AuditValues.stringField(line, 'type');
     if (type === null) {
+      this.unrecognized += 1;
       return;
     }
     this.sessionId = this.sessionId ?? AuditValues.stringField(line, 'sessionId');
@@ -109,6 +117,9 @@ export class ClaudeCodeParser {
       this.pushSimple('system', '系统消息', text, ts);
       return;
     }
+    // 顶层类型未知（上游格式漂移）：计入未识别，同时以 other 记录保留原始行（证据不丢）。
+    // 消息内部的未知内容块不计数——它们在 readBlock 里同样以 other 记录可见。
+    this.unrecognized += 1;
     this.pushSimple('other', type, AuditValues.describe(line), ts);
   }
 

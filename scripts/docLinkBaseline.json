@@ -1,4 +1,11 @@
 [
   "mention: docs/PROJECT_BOARD.md -> web/src/poc/antdPoc.tsx",
-  "mention: docs/PROJECT_BOARD.md -> web/test/antdPocProbe.ts"
+  "mention: docs/PROJECT_BOARD.md -> web/test/antdPocProbe.ts",
+  "src-mention: src/kernel/config/configFactory.ts -> docs/THIRD_PARTY_ASSETS.md",
+  "src-mention: src/kernel/context/fileReranker.ts -> docs/archive/POLISH_PLAN.md",
+  "src-mention: src/kernel/context/repoMap/repoMapContextEngine.ts -> docs/archive/RECALL_HEADROOM_SURVEY.md",
+  "src-mention: src/kernel/context/repoMap/repoMapEngineProvider.ts -> docs/archive/SINGLETON_REGISTRY.md",
+  "src-mention: src/kernel/core/liveSessionRewindRegistry.ts -> docs/archive/SINGLETON_REGISTRY.md",
+  "src-mention: src/kernel/core/stepContextBuilder.ts -> docs/TASK_BOARD.md",
+  "src-mention: src/kernel/security/enforcementModeResolver.ts -> docs/TASK_BOARD.md"
 ]

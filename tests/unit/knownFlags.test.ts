@@ -98,22 +98,24 @@ function readFlags(text: string): readonly string[] {
 }
 
 /**
- * 「源码读取旗标」的统一识别式：reader 式（`.has(`/`.value(`/`flagValue(`…）、`Array.includes(`、
- * **相等比较式**（`arg === '--x'` / `arg !== '--x'`，单双引号皆认）与**前缀比较式**
- * （`startsWith('--x=')`）。
+ * 「源码读取旗标」的统一识别式：reader 式（`.has(`/`.value(`/`.values(`/`.number(`…）、
+ * `Array.includes(`、**相等比较式**（`arg === '--x'` / `arg !== '--x'`，单双引号皆认）与
+ * **前缀比较式**（`startsWith('--x=')`）。
  *
- * 2026-11-01 补洞（2026-10-06 `.includes(` 补洞的同型续作）：本机实测 `src/cli` 里存在
- * 相等/前缀形状的真实读取点——`cliMcpCmds.ts` 的 `arg === '--limit'`、`serveWorkspace.ts` 的
- * `startsWith('--workspace=')` 等。它们今天恰好都已登记（判据不红），但若有人新增**同形状**
- * 的新旗标，旧正则扫不到 ⇒ 漏登记 ⇒ 未知旗标 fail-closed 打死真实功能——与 `--auto-approve`
- * 当年同一类盲区，故把两种形状一并纳入。
+ * 2026-10-06 补洞（真实缺陷）：原正则只认 `.has(`/`.value(`/`flagValue(` 这类**读取器**写法，
+ * `serveArgs.includes('--auto-approve')`（真实读取点）完全扫不到 ⇒ 该旗标从未登记且被
+ * fail-closed 打死。
+ * 2026-11-01 补洞：相等/前缀形状（`arg === '--limit'` 等）一并纳入。
+ * 2026-11-03 补洞（本轮实测第三种形状）：分层迁移把 `flagNumber(...)` 换成
+ * `reader.number('--boost-timeout-ms')` 后，`.number(` 不在扫描面 ⇒ 判据③误报
+ * "登记了没人读"（真实读取点就在 `cliDataCmds.ts`）。三种形状自此都覆盖。
  * 每次返回**新**正则（避免 `/g` 共享 `lastIndex` 造成的状态串味），供判据①与③共用。
  * 非 CLI 旗标的误伤（eval 旁路解析器 7 旗标、shellChildEnv 的 Node `--require`）由
  * 判据①旁的 {@link EXEMPT_FLAGS} 豁免表显式备案，不在本正则层处理。
  * @returns 带 `g` 标志的新正则。旗标名落在捕获组 2 / 4 / 6（三个分支各一）。
  */
 function flagReadPattern(): RegExp {
-  return /(?:\.has\(|\.value\(|\.values\(|\.includes\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'|[=!]==?\s*'(--[a-z][a-z0-9-]*)'|startsWith\(\s*'(--[a-z][a-z0-9-]*)='/g;
+  return /(?:\.has\(|\.value\(|\.values\(|\.number\(|\.includes\(|flagValue\(|flagNumber\(|enumOf\(|valueOf\()\s*[^)]*?'(--[a-z][a-z0-9-]*)'|[=!]==?\s*'(--[a-z][a-z0-9-]*)'|startsWith\(\s*'(--[a-z][a-z0-9-]*)='/g;
 }
 
 test('① 全 src 源码里每个旗标读取点都必须被 isKnownFlag 接受（漏登记 ⇒ 打掉真实功能）', () => {
@@ -149,9 +151,9 @@ test('③ KNOWN_EXTRA_FLAGS 每一项都真的被读取（防白名单腐化成"
     .map((s) => s.text)
     .join('\n');
   const unread = [...KNOWN_EXTRA_FLAGS].filter((flag) => {
-    // 只认"出现在读取器/includes 参数位置"的字面量，避免被文档字符串误判为已使用。
+    // 只认"出现在读取器/includes/number 参数位置"的字面量，避免被文档字符串误判为已使用。
     const atReader = new RegExp(
-      `(?:\\.has\\(|\\.value\\(|\\.values\\(|\\.includes\\(|flagValue\\(|flagNumber\\(|enumOf\\(|valueOf\\()[^)]*'${flag}'`,
+      `(?:\\.has\\(|\\.value\\(|\\.values\\(|\\.number\\(|\\.includes\\(|flagValue\\(|flagNumber\\(|enumOf\\(|valueOf\\()[^)]*'${flag}'`,
     );
     return !atReader.test(allText);
   });

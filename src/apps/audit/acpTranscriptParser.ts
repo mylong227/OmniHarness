@@ -41,12 +41,17 @@ export class AcpTranscriptParser {
    */
   public parse(text: string): AuditParseResult {
     this.reset();
-    const { values } = AuditJsonl.parse(text);
+    const { values, badLines } = AuditJsonl.parse(text);
+    // 未识别条目计数用局部变量（实例字段会顶破本类的"上帝类"25 方法上限）：
+    // 坏行逐条 +1；非帧行逐条 +1；帧级/块级由 handleFrame 的返回值（增量）累加。
+    let unrecognized = badLines;
     for (const value of values) {
       const frame = this.frameOf(value);
-      if (frame !== null) {
-        this.handleFrame(frame);
+      if (frame === null) {
+        unrecognized += 1;
+        continue;
       }
+      unrecognized += this.handleFrame(frame);
     }
     this.flushChunk();
     return {
@@ -58,6 +63,7 @@ export class AcpTranscriptParser {
       endedAt: this.lastTs(),
       records: this.records,
       tokens: null,
+      unrecognized,
     };
   }
 
@@ -103,41 +109,41 @@ export class AcpTranscriptParser {
   /**
    * 分发一帧。
    * @param frame JSON-RPC 帧。
-   * @returns 无返回值。
+   * @returns 未识别条目增量（0 = 已识别；1 = method 认不出，原来整帧静默丢弃）。
    */
-  private handleFrame(frame: Record<string, unknown>): void {
+  private handleFrame(frame: Record<string, unknown>): number {
     const params = AuditValues.record(frame['params']);
     const ts = this.tsOf(frame);
     this.readSessionRefs(params);
     const method = AuditValues.stringField(frame, 'method');
     if (method === null) {
       this.handleResponse(frame, ts);
-      return;
+      return 0;
     }
     switch (method) {
       case 'session/update':
-        this.handleUpdate(params, ts);
-        return;
+        return this.handleUpdate(params, ts);
       case 'session/prompt':
         this.flushChunk();
         this.handlePrompt(params, ts);
-        return;
+        return 0;
       case 'session/request_permission':
         this.flushChunk();
         this.handlePermissionRequest(frame, params, ts);
-        return;
+        return 0;
       case 'session/new':
         this.flushChunk();
         this.handleSessionNew(params, ts);
-        return;
+        return 0;
       case 'session/cancel':
         this.push('system', '会话取消', AuditValues.describe(params), ts);
-        return;
+        return 0;
       case 'initialize':
         this.push('session', 'ACP 初始化', AuditValues.describe(params), ts);
-        return;
+        return 0;
       default:
-        return;
+        // method 认不出（协议上游新增 / 捕获器噪音）：计入未识别（原来整帧静默丢弃）。
+        return 1;
     }
   }
 
@@ -158,39 +164,40 @@ export class AcpTranscriptParser {
    * 读取 `session/update` 的增量。
    * @param params 参数对象。
    * @param ts 时间戳。
-   * @returns 无返回值。
+   * @returns 未识别条目增量（0 = 已识别；1 = update 对象缺失或类别认不出，原来整块静默丢弃）。
    */
-  private handleUpdate(params: Record<string, unknown> | null, ts: string | null): void {
+  private handleUpdate(params: Record<string, unknown> | null, ts: string | null): number {
     const update = params === null ? null : AuditValues.record(params['update']);
     if (update === null) {
-      return;
+      return 1;
     }
     const kind = AuditValues.stringField(update, 'sessionUpdate');
     switch (kind) {
       case 'user_message_chunk':
         this.appendChunk('user', update, ts);
-        return;
+        return 0;
       case 'agent_message_chunk':
         this.appendChunk('assistant', update, ts);
-        return;
+        return 0;
       case 'agent_thought_chunk':
         this.appendChunk('reasoning', update, ts);
-        return;
+        return 0;
       case 'tool_call':
         this.flushChunk();
         AcpToolWriter.pushToolCall(this.records, update, ts);
-        return;
+        return 0;
       case 'tool_call_update':
         this.flushChunk();
         AcpToolWriter.pushToolResult(this.records, update, ts);
-        return;
+        return 0;
       case 'plan':
         this.flushChunk();
         this.push('other', '计划', AuditValues.describe(update['entries']), ts);
-        return;
+        return 0;
       default:
+        // update 类别认不出（ACP 上游新增）：计入未识别（原来整块静默丢弃）。
         this.flushChunk();
-        return;
+        return 1;
     }
   }
 

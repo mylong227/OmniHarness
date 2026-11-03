@@ -222,3 +222,92 @@ async function silenceAsync<T>(run: () => Promise<T>): Promise<{ value: T; out: 
     err.mockRestore();
   }
 }
+
+const DRIFT = join(FIXTURES, 'drift-mixed.jsonl');
+
+test('⑥ strict：漂移夹具 ⇒ 1；正常夹具 ⇒ 0；报告仍生成且「未识别 3」可见（CLI 同口径）', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const tool = new AuditTool();
+  // 非 strict：exit 0，但未识别数在 stdout 与 JSON 载荷里都可见。
+  const loose = silence(() =>
+    tool.report({
+      inputs: [DRIFT],
+      format: 'json',
+      out: join(dir, 'loose.json'),
+      title: null,
+    }),
+  );
+  assert.strictEqual(loose.value, 0);
+  assert.match(loose.out, /未识别 3/);
+  assert.match(readFileSync(join(dir, 'loose.json'), 'utf8'), /"unrecognized": 3/);
+  // strict：exit 1，报告照样落盘（先留证据再报失败）。
+  const strict = silence(() =>
+    tool.report({
+      inputs: [DRIFT],
+      format: 'html',
+      out: join(dir, 'strict'),
+      title: null,
+      strict: true,
+    }),
+  );
+  assert.strictEqual(strict.value, 1);
+  assert.match(strict.out, /--strict 判为失败/);
+  assert.ok(existsSync(join(dir, 'strict', 'drift-1.audit.html')));
+  // 正常夹具 + strict：无未识别 ⇒ 0。
+  const clean = silence(() =>
+    tool.report({
+      inputs: [join(FIXTURES, 'omni.jsonl')],
+      format: 'json',
+      out: join(dir, 'clean.json'),
+      title: null,
+      strict: true,
+    }),
+  );
+  assert.strictEqual(clean.value, 0);
+  // CLI 接线：--strict 旗标走 reader.has ⇒ 同一退出码。
+  const cli = new AuditCommand();
+  const command = await silenceAsync(() =>
+    cli.run(['report', DRIFT, '--out', join(dir, 'cli'), '--strict']),
+  );
+  assert.strictEqual(command.value, 1);
+});
+
+test('⑦ 覆盖率自洽：改 coverage.recognized ⇒ verify 判 coverage（退出码 1）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const target = join(dir, 'one.json');
+  silence(() =>
+    new AuditTool().report({
+      inputs: [join(FIXTURES, 'omni.jsonl')],
+      format: 'json',
+      out: target,
+      title: null,
+    }),
+  );
+  const mutated = JSON.parse(readFileSync(target, 'utf8')) as {
+    coverage: { recognized: number; unrecognized: number };
+  };
+  mutated.coverage.recognized += 1;
+  writeFileSync(target, `${JSON.stringify(mutated, null, 2)}\n`);
+  const result = silence(() => new AuditTool().verify([target]));
+  assert.strictEqual(result.value, 1);
+  assert.match(result.out, /coverage/);
+});
+
+test('⑧ 摘要自洽：改 summary.total ⇒ verify 判 summary（退出码 1）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const target = join(dir, 'one.json');
+  silence(() =>
+    new AuditTool().report({
+      inputs: [join(FIXTURES, 'omni.jsonl')],
+      format: 'json',
+      out: target,
+      title: null,
+    }),
+  );
+  const mutated = JSON.parse(readFileSync(target, 'utf8')) as { summary: { total: number } };
+  mutated.summary.total += 1;
+  writeFileSync(target, `${JSON.stringify(mutated, null, 2)}\n`);
+  const result = silence(() => new AuditTool().verify([target]));
+  assert.strictEqual(result.value, 1);
+  assert.match(result.out, /summary/);
+});

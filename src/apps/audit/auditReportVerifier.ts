@@ -6,9 +6,10 @@ import type { AuditChainVerification, AuditOutputFormat, AuditReport } from './a
 /**
  * 报告复核器：重算哈希链 + 核对摘要字段 + 文件级自指纹。
  *
- * 判据口径：**任何一处对不上都失败**，并给出位置与原因（`schema` / `genesis` / `prev` /
- * `hash` / `head` / `count` / `algorithm` / `artifact` / `artifact-missing`）。宁可报
- * "这份报告不可信"，也不做"大概没问题"的模糊结论——出证工具的价值全在这一条上。
+ * 判据口径：**任何一处对不上都失败**，并给出位置与原因（`schema` / `algorithm` / `genesis` /
+ * `prev` / `hash` / `head` / `count` / `summary` / `coverage` / `artifact` / `artifact-missing`）。
+ * 宁可报"这份报告不可信"，也不做"大概没问题"的模糊结论——出证工具的价值全在这一条上。
+ * 失败原因的完整含义见 `docs/audit/ATTESTATION.md` §2。
  */
 export class AuditReportVerifier {
   /** 链实现。 */
@@ -50,6 +51,15 @@ export class AuditReportVerifier {
         brokenAt: report.records.length === 0 ? null : report.records.length - 1,
         reason: 'head',
       };
+    }
+    // 摘要与覆盖率的自洽对账（2026-11-03 P0）：这两个数字声明"等于实际记录数"，
+    // 就必须真的等于——JSON 形态没有文件自指纹，这里是对账它们被改动的唯一机械防线。
+    if (report.summary.total !== report.records.length) {
+      return { ok: false, brokenAt: null, reason: 'summary' };
+    }
+    const coverage = report.coverage;
+    if (coverage !== undefined && coverage.recognized !== report.records.length) {
+      return { ok: false, brokenAt: null, reason: 'coverage' };
     }
     return { ok: true, brokenAt: null, reason: null };
   }

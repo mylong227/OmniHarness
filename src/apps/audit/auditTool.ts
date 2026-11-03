@@ -20,6 +20,11 @@ export interface AuditReportRequest {
   readonly title: string | null;
   /** 强制输入格式（缺省自动识别）。 */
   readonly sourceFormat?: AuditSourceFormat;
+  /**
+   * 严格模式（2026-11-03 P0）：任一输入的未识别条目 > 0 ⇒ 退出码 1。
+   * 报告**仍然逐份生成**——strict 失败不销毁证据。语义详见 `docs/audit/EXIT_CODES.md` §2。
+   */
+  readonly strict?: boolean;
   /** 注入生成时间（判据用）。 */
   readonly generatedAt?: string;
 }
@@ -28,9 +33,9 @@ export interface AuditReportRequest {
  * 「审计出证」用例编排：读 → 解析 → 构建 → 落盘 / 复核。
  *
  * 这一层只做**流程**（不含解析细节、不含渲染细节），因此 CLI、未来的 Web 入口与判据
- * 可以共用同一套行为与退出码：
+ * 可以共用同一套行为与退出码（正式契约见 `docs/audit/EXIT_CODES.md`）：
  * - `0`：全部成功 / 全部链完整；
- * - `1`：有报告链不完整（或复核失败）；
+ * - `1`：有报告链不完整（或复核失败）；`--strict` 下任一输入有未识别条目；
  * - `2`：用法 / 输入错误（由 CLI 层在参数阶段返回）。
  */
 export class AuditTool {
@@ -67,7 +72,7 @@ export class AuditTool {
   /**
    * 生成报告。
    * @param request 请求参数。
-   * @returns 进程退出码（0 成功）。
+   * @returns 进程退出码（0 成功；`strict` 且任一文件有未识别条目时 1）。
    * @throws Error 输入非法 / 格式认不出 / 写盘失败时由调用方捕获。
    */
   public report(request: AuditReportRequest): number {
@@ -80,6 +85,7 @@ export class AuditTool {
       }
     }
     const outIsDir = multiple || this.isDirectory(request.out);
+    let unrecognizedFiles = 0;
     for (const file of files) {
       const loaded = this.loader.load(file, request.sourceFormat);
       const options = {
@@ -91,8 +97,16 @@ export class AuditTool {
       const target = this.targetOf(built, file, request, outIsDir);
       this.store.write(built, request.format, target);
       process.stdout.write(this.summaryLine(target, built));
+      const hits = built.coverage?.unrecognized ?? 0;
+      if (hits > 0) {
+        unrecognizedFiles += 1;
+        process.stdout.write(
+          `  ⚠ 未识别 ${String(hits)} 条来源条目（已以 other 记录保留；详见报告 coverage）` +
+            `${request.strict === true ? '——--strict 判为失败\n' : '\n'}`,
+        );
+      }
     }
-    return 0;
+    return request.strict === true && unrecognizedFiles > 0 ? 1 : 0;
   }
 
   /**
@@ -262,7 +276,8 @@ export class AuditTool {
       `审计报告已生成：${target}\n` +
       `  记录 ${AuditFormatting.number(report.summary.total)} · 工具 ${AuditFormatting.number(report.summary.toolCalls)}` +
       ` · 失败 ${AuditFormatting.number(report.summary.toolFailures)} · 文件 ${AuditFormatting.number(report.summary.filesChanged)}` +
-      ` · token ${tokens} · 链头 ${report.integrity.head.slice(0, 16)}…\n`
+      ` · token ${tokens} · 未识别 ${AuditFormatting.number(report.coverage?.unrecognized ?? 0)}` +
+      ` · 链头 ${report.integrity.head.slice(0, 16)}…\n`
     );
   }
 }

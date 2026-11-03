@@ -12,9 +12,14 @@
  * ## 口径
  *
  * - 扫描范围：仓库根 `*.md` + `docs/**`（**排除** `docs/archive/**`：历史档允许指向已迁走的路径）；
+ * - 2026-11-03（P0 裂缝清零 T0.1）扩面：**src 树下全部 .ts 的注释**也纳入——出证工具最关键的一句
+ *   「这是完整性检测，不是签名」（`auditChain.ts`）曾指向不存在的 `docs/AUDIT_ATTESTATION.md`，
+ *   而 `*.md` 扫描永远看不见 `.ts` 注释里的死链。源码侧只认**反引号包住的 `docs/…` 路径**
+ *   （注释文本里的保守口径，避免把示例代码刷成噪声）；
  * - 只认**相对链接目标**（`[文字](路径)`），跳过 `http(s):` / `mailto:` / 纯锚点 `#...`；
  * - 目标判定：相对链接所在文件所在目录解析；命中即通过（不做大小写/模糊匹配，避免假绿）；
- * - 反引号里的路径**不**作为链接判定（多为示例代码，如 `` `src/foo.ts` ``），避免噪声。
+ * - 反引号里的路径**不**作为链接判定（多为示例代码，如 `` `src/foo.ts` ``），避免噪声——
+ *   但源码注释里的 `docs/…` 反引号提及**算**（见上）。
  *
  * 用法：
  *   node scripts/docLinkCheck.mjs              # 检查（新增死链则 exit 1）
@@ -61,11 +66,63 @@ const BACKTICK_PATH_RE = new RegExp(
 );
 
 /**
- * 逐文件找出解析不到的死链（markdown 链接 + 反引号路径提及）。
+ * 源码注释里反引号包住的 `docs/…` 路径（只认 docs 顶层，不认 src/tests 等——
+ * 后者在注释里几乎都是叙述性提及，扫了全是噪声；docs 引用才是「应该去读的说明」）。
+ */
+const SRC_DOCS_RE =
+  /`(docs\/[A-Za-z0-9_./-]+\.(?:ts|tsx|md|json|mjs|cjs|py|rs|yml|yaml|toml|sh))`/g;
+
+/**
+ * 收集 `src/**` 下的 .ts 源文件（排除 .d.ts；目录排除口径与 markdown 侧一致）。
+ * @param dir 起始目录。
+ * @param out 累加数组。
+ * @returns 文件路径列表。
+ */
+function collectSources(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const full = join(dir, name);
+    if (statSync(full).isDirectory()) {
+      if (['node_modules', 'dist', 'archive', '.git'].includes(name)) continue;
+      collectSources(full, out);
+      continue;
+    }
+    if (name.endsWith('.ts') && !name.endsWith('.d.ts')) out.push(full);
+  }
+  return out;
+}
+
+/**
+ * 判断一行源码是否是**注释文本**（行注释 / JSDoc 续行 / 块注释内部）。
+ *
+ * 刻意保守：只认「整行是注释」的形状（trimmed 以 `//`、`*`、`/*` 开头，或已处于块注释内）。
+ * 字符串字面量里出现 `//`（URL）不影响——那种行不以 `//` 开头；模板字符串里不可能出现
+ * 裸反引号，所以「反引号 docs 路径」不会从字符串里误报。
+ * @param line 原始行。
+ * @param state 跨行状态（`inBlock` 标记块注释是否延续到下一行；本函数会就地更新它）。
+ * @returns 是注释文本则为 true。
+ */
+function isCommentLine(line, state) {
+  const trimmed = line.trim();
+  if (state.inBlock) {
+    if (trimmed.includes('*/')) state.inBlock = false;
+    return true;
+  }
+  if (trimmed.startsWith('//')) return true;
+  if (trimmed.startsWith('/*')) {
+    if (!trimmed.includes('*/')) state.inBlock = true;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 逐文件找出解析不到的死链（markdown 链接 + 反引号路径提及 + 源码注释里的 docs 提及）。
  *
  * 输入缺失/扫描范围塌缩一律**阻断**（2026-10-06 排查修正）：此前用 `.filter(existsSync)`
  * 静默丢文件 ⇒「README 不见了」会表现为"死链减少（已清偿）"而不是失败。
- * @returns `{ dead, scanned }`（scanned = 实际扫描的 markdown 文件数，用于汇总行如实报出）。
+ * 源码侧的 `src/**` 缺失同样阻断（2026-11-03）：src 目录不在 = 判定面塌缩，不等于"零死链"。
+ * @returns `{ dead, scanned, scannedSources }`（scanned = 实际扫描的 markdown 文件数，
+ * scannedSources = 实际扫描的源码文件数，用于汇总行如实报出）。
  */
 function findDeadLinks() {
   const readme = join(ROOT, 'README.md');
@@ -81,6 +138,12 @@ function findDeadLinks() {
     );
     process.exit(1);
   }
+  const srcDir = join(ROOT, 'src');
+  if (!existsSync(srcDir)) {
+    console.error(`✗ 缺少 ${srcDir}：源码注释死链扫描的必需输入，缺了无法判定。`);
+    process.exit(1);
+  }
+  const sources = collectSources(srcDir);
   const files = [readme, ...docs];
   const dead = [];
   for (const file of files) {
@@ -115,17 +178,42 @@ function findDeadLinks() {
       }
     });
   }
-  return { dead, scanned: files.length };
+  // 源码注释（2026-11-03 扩面）：只扫注释行里的反引号 `docs/…` 提及。
+  for (const file of sources) {
+    const relFile = relative(ROOT, file).split(sep).join('/');
+    const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+    const state = { inBlock: false };
+    lines.forEach((line, index) => {
+      if (!isCommentLine(line, state)) return;
+      for (const m of line.matchAll(SRC_DOCS_RE)) {
+        const target = m[1];
+        if (target === undefined) continue;
+        // 与 markdown 侧同口径：文档相对与仓库根相对都不存在才算死链。
+        const docRelative = resolve(dirname(file), target);
+        const rootRelative = resolve(ROOT, target);
+        if (!existsSync(docRelative) && !existsSync(rootRelative)) {
+          dead.push({
+            key: `src-mention: ${relFile} -> ${target}`,
+            file: relFile,
+            line: index + 1,
+            target,
+          });
+        }
+      }
+    });
+  }
+  return { dead, scanned: files.length, scannedSources: sources.length };
 }
 
-const { dead, scanned } = findDeadLinks();
+const { dead, scanned, scannedSources } = findDeadLinks();
 /** 唯一键（同一「文件 → 目标」在多行重复时只记一次；基线按唯一键冻结）。 */
 const uniqueKeys = [...new Set(dead.map((d) => d.key))].sort();
 const occurrenceCount = dead.length;
 
 if (args.includes('--list')) {
   console.log(
-    `扫描 ${scanned} 份 markdown ｜ 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处（link = markdown 链接目标；mention = 反引号路径提及）：`,
+    `扫描 ${scanned} 份 markdown + ${scannedSources} 份源码 ｜ 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处` +
+      `（link = markdown 链接目标；mention = 反引号路径提及；src-mention = 源码注释里的 docs 提及）：`,
   );
   for (const entry of dead) console.log(`  ${entry.file}:${entry.line}  ${entry.key}`);
   process.exit(0);
@@ -147,7 +235,7 @@ const fixed = [...baseline].filter((key) => !uniqueKeys.includes(key));
 const newLinks = added.filter((key) => key.startsWith('link:')).length;
 
 console.log(
-  `[docLinkCheck] 扫描 ${scanned} 份 markdown ｜ 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处` +
+  `[docLinkCheck] 扫描 ${scanned} 份 markdown + ${scannedSources} 份源码 ｜ 死链 ${occurrenceCount} 次出现 / ${uniqueKeys.length} 处` +
     `（基线 ${baseline.size} ｜ 新增 ${added.length}（其中链接 ${newLinks}）｜ 已清偿 ${fixed.length}）`,
 );
 if (fixed.length > 0) {

@@ -109,6 +109,10 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   // 「未知旗标 fail-closed」打死。
   '--title',
   '--source-format',
+  // audit report 的严格模式（2026-11-03 P0「未识别记录可见化」）：`AuditCommand` 用
+  // `reader.has('--strict')` 读取；任一输入有未识别条目 ⇒ 退出码 1（报告仍生成）。
+  // 语义见 docs/audit/EXIT_CODES.md §2。
+  '--strict',
   '--server',
   '--args',
   '--url',

@@ -24,6 +24,8 @@ export class CodexSessionParser {
   private model: string | null = null;
   /** 共享上下文（记录 / 去重 / 成本）。 */
   private context: CodexParseContext = CodexSessionParser.emptyContext();
+  /** 未识别的来源条目数（口径见 `docs/audit/ATTESTATION.md` §3）。 */
+  private unrecognized = 0;
 
   /**
    * 解析一份 Codex rollout。
@@ -33,10 +35,15 @@ export class CodexSessionParser {
    */
   public parse(text: string): AuditParseResult {
     this.reset();
-    const { values } = AuditJsonl.parse(text);
-    const lines = values
-      .map((value) => AuditJsonl.recordOf(value))
-      .filter((line): line is Record<string, unknown> => line !== null);
+    const { values, badLines } = AuditJsonl.parse(text);
+    this.unrecognized = badLines;
+    const parsed = values.map((value) => AuditJsonl.recordOf(value));
+    for (const line of parsed) {
+      if (line === null) {
+        this.unrecognized += 1;
+      }
+    }
+    const lines = parsed.filter((line): line is Record<string, unknown> => line !== null);
     this.context.hasResponseMessages = lines.some((line) => this.isResponseMessage(line));
     for (const line of lines) {
       this.handleLine(line);
@@ -64,6 +71,7 @@ export class CodexSessionParser {
       endedAt: this.lastTs(),
       records: this.context.records,
       tokens: this.context.tokens.sawUsage ? this.tokensOf() : null,
+      unrecognized: this.unrecognized,
     };
   }
 
@@ -76,6 +84,7 @@ export class CodexSessionParser {
     this.workspace = null;
     this.model = null;
     this.context = CodexSessionParser.emptyContext();
+    this.unrecognized = 0;
   }
 
   /**
@@ -114,6 +123,8 @@ export class CodexSessionParser {
     const ts = AuditValues.stringField(line, 'timestamp');
     const payload = AuditValues.record(line['payload']);
     if (type === null || payload === null) {
+      // 类型缺失 / 载荷缺失的行无法按 rollout 口径解释：计入未识别（原来静默丢弃）。
+      this.unrecognized += 1;
       return;
     }
     switch (type) {
@@ -138,6 +149,8 @@ export class CodexSessionParser {
         });
         return;
       default:
+        // 顶层类型未知（上游格式漂移）：计入未识别，同时以 other 记录保留载荷（证据不丢）。
+        this.unrecognized += 1;
         this.context.records.push({
           ts,
           kind: 'other',
