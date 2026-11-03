@@ -67,6 +67,42 @@ KaTeX、highlight.js）全部来自 `node_modules`，**本地、零网络依赖*
 
 ---
 
+## 安装（npm 包 / npx 一条命令）
+
+> 包名 `@mylong227/omniharness`，要求 **Node ≥ 22.14**（`audit --help` 顶部会打印这条门槛与当前版本）。
+> npm 首发待维护者 `npm login`（流程：[docs/audit/PLAN_2026-11.md](docs/audit/PLAN_2026-11.md) P1 T1.4）；
+> 发布前的兜底形态：`npx -y github:mylong227/OmniHarness audit …`。
+
+```bash
+# 审计出证：一条命令，不装全局、不配 API Key、离线可跑（产物是自带哈希链的单文件 HTML）
+npx -y @mylong227/omniharness audit <会话文件.jsonl> --out report.html
+npx -y @mylong227/omniharness audit verify report.html      # exit 0 = 链完整
+
+# 完整 CLI（serve / 会话 / 插件 / …）：
+npm install -g @mylong227/omniharness
+omniharness serve --port 8787
+```
+
+`audit` 是**独立瘦命令**（`bin.audit` → `dist/bin/audit.mjs`：esbuild 单文件 **71 KB**，
+只含零运行时依赖的 audit 应用 + `AuditCommand`，不拖全量 CLI——体积判据
+`scripts/buildAuditBin.mjs` ≤ 300 KB fail-closed）；旗标与退出码与主 CLI 的
+`audit` 子命令完全一致（[docs/audit/EXIT_CODES.md](docs/audit/EXIT_CODES.md)）。
+
+**安装体积对照**（`npm pack` 实测 2026-11-03，v0.3.0；tarball 19.34 MB / 解压 38.9 MB / 4211 文件）：
+
+| 成分                                | 体积     |
+| ----------------------------------- | -------- |
+| `dist/src`（全量 CLI/内核编译产物） | ~3.0 MB  |
+| `web/dist`（工作台前端产物）        | ~11.2 MB |
+| `dist/bin`（audit 瘦命令）          | 0.07 MB  |
+| `docs` + `defaults` + `examples`    | 其余     |
+
+> 里程碑「tarball ≤ 5 MB」（2026-11-16）当前未达；瘦身前需要一个产品决策——`web/dist`
+> 与 `docs` 是否随包发行（砍掉两者即 < 5 MB，但 npm 版 `serve` 将没有工作台 UI）。
+> 决策登记在看板 §208，P2 期内裁决。
+
+---
+
 ## 目录
 
 - [1. 这是什么](#1-这是什么)

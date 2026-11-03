@@ -21,6 +21,7 @@
   },
   "files": [
     "dist/src",
+    "dist/bin",
     "defaults",
     "web/dist",
     "web/index.html",
@@ -50,7 +51,8 @@
     "mcp"
   ],
   "bin": {
-    "omniharness": "dist/src/apps/cli/exec.js"
+    "omniharness": "dist/src/apps/cli/exec.js",
+    "audit": "dist/bin/audit.mjs"
   },
   "scripts": {
     "start": "node scripts/startAll.mjs",
@@ -62,6 +64,7 @@
     "desktop:dist": "npm --prefix desktop run dist",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
     "build": "node scripts/buildDist.mjs",
+    "build:audit-bin": "node scripts/buildAuditBin.mjs",
     "web:build": "vite build",
     "web:dev": "vite",
     "web:watch": "vite build --watch",
@@ -70,7 +73,7 @@
     "perf:gate": "node scripts/perfGate.mjs",
     "web:test": "npm run web:build && npm run test:web",
     "prepare": "tsc",
-    "prepublishOnly": "npm run build && npm run web:build",
+    "prepublishOnly": "npm run build && npm run web:build && npm run build:audit-bin",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
     "check": "node scripts/check.mjs",
     "check:doc-links": "node scripts/docLinkCheck.mjs",
@@ -156,6 +159,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "@vitest/coverage-v8": "^2.1.9",
     "axe-core": "^4.14.0",
+    "esbuild": "^0.25.12",
     "eslint": "^9.39.4",
     "eslint-plugin-unused-imports": "^4.4.1",
     "jsdom": "^25.0.1",
