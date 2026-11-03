@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- b1969f2: **新增独立瘦命令 `audit`**（P1 一条命令）
+
+  - `bin.audit` → `dist/bin/audit.mjs`：esbuild 单文件 bundle（**71 KB**，≤ 300 KB 判据
+    fail-closed），只含零运行时依赖的 audit 应用 + `AuditCommand`，不拖全量 CLI——
+    `npx -y @mylong227/omniharness audit <会话文件> --out report.html` 即可出证。
+  - `audit --help` 顶部打印 Node 版本门槛（engines.node ≥ 22.14）与当前版本；
+    `--version` 打印 `omniharness audit <API_VERSION>`。
+  - 旗标与退出码与主 CLI 的 `audit` 子命令完全一致（同一实现）；`prepublishOnly` 现在
+    连带构建 audit bin（`npm run build:audit-bin`），发布物自带 `dist/bin`。
+  - 结构判据 `tests/unit/auditBinDeps.test.ts`：瘦入口的 import 面封闭（禁装配层模块）+
+    内联 Node 门槛常量与 `engines.node` 机械对账。
+
+- ad1e826: **audit report：未识别条目可见化 + `--strict`**（P0 裂缝清零）
+
+  - 四个会话解析器（OmniHarness / Claude Code / Codex / ACP）统计**未识别条目**（坏行、非对象行、
+    类型缺失或未知、ACP 非法帧——原来全部静默丢弃）；未知类型的条目仍以 `other` 记录保留在时间线。
+  - 报告头新增 `coverage: { recognized, unrecognized }`，HTML 摘要卡 / Markdown 摘要表 / CLI 摘要行
+    都显示「未识别 N」。
+  - 新增 `audit report --strict`：任一输入未识别 > 0 ⇒ 退出码 1（报告仍生成——先留证据再报失败）。
+  - `audit verify` 新增 `summary` / `coverage` 两种自洽对账：摘要与覆盖率里声明"等于记录数"的数字
+    必须真的等于（JSON 形态无文件自指纹，这是对账头字段被改的唯一机械防线）。
+  - 信任模型正式化：`docs/audit/ATTESTATION.md`（三列表：完整性 / 来源 / 时间）；
+    退出码契约成文：`docs/audit/EXIT_CODES.md`；源码注释里的 docs 引用纳入死链门禁（src-mention）。
+
 ## 0.3.0
 
 ### Minor Changes
