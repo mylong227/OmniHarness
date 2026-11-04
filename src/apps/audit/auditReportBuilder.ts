@@ -1,4 +1,5 @@
 import { basename } from 'node:path';
+import { AuditCanonical } from './auditCanonical.ts';
 import { AuditChain } from './auditChain.ts';
 import type {
   AuditChainedRecord,
@@ -40,6 +41,13 @@ export class AuditReportBuilder {
   public build(source: AuditLoadedSource, options: AuditReportOptions): AuditReport {
     const records = this.stamp(source.result.records);
     const chained = this.chain.link(records);
+    const chainHead = this.chain.headOf(chained);
+    // 脱敏摘要绑定链头（T3.2「进入哈希链」）：mode ≠ off 时 head 是链头+摘要的封印，
+    // 删字段/改 mode 都会让复核器的 head 对账失败。off（或无摘要）保持裸链头，兼容存量。
+    const sealed = options.redaction !== undefined && options.redaction.mode !== 'off';
+    const head = sealed
+      ? this.chain.seal(chainHead, AuditCanonical.stringify(options.redaction))
+      : chainHead;
     return {
       schema: 'omniharness.audit.report/v1',
       generatedAt: options.generatedAt ?? new Date().toISOString(),
@@ -60,13 +68,14 @@ export class AuditReportBuilder {
         recognized: chained.length,
         unrecognized: source.result.unrecognized,
       },
+      ...(options.redaction !== undefined ? { redaction: options.redaction } : {}),
       tokens: source.result.tokens,
       files: this.collectFiles(records),
       records: chained,
       integrity: {
         algorithm: 'sha256',
         genesis: AuditChain.GENESIS,
-        head: this.chain.headOf(chained),
+        head,
         count: chained.length,
       },
     };

@@ -120,6 +120,19 @@ export interface AuditCoverage {
   readonly unrecognized: number;
 }
 
+/** `--redact` 的模式（默认 off：证据保真优先，见 `docs/audit/README.md` §4）。 */
+export type AuditRedactMode = 'off' | 'paths' | 'secrets' | 'all';
+
+/** 报告的脱敏摘要（2026-11-04 P3）：`mode` 让读者一眼知道报告是否被处理过。 */
+export interface AuditRedactionInfo {
+  /** 脱敏模式。 */
+  readonly mode: AuditRedactMode;
+  /** 实际应用的规则 id（off 为空表）。 */
+  readonly rules: readonly string[];
+  /** 脱敏标记的出现数（records + `source.path` / `source.workspace`；`verify` 机械对账，改数即 `redaction` 红）。 */
+  readonly hits: number;
+}
+
 /** 带链字段的一条记录。 */
 export interface AuditChainedRecord {
   /** 前一条的哈希（首条为创世哈希）。 */
@@ -134,6 +147,10 @@ export interface AuditChainedRecord {
 export interface AuditIntegrity {
   readonly algorithm: 'sha256';
   readonly genesis: string;
+  /**
+   * 报告头。普通报告 = 末条链哈希；脱敏报告（`redaction.mode ≠ off`）= 链头与
+   * `redaction` 摘要的**封印**（`AuditChain.seal`）——删/改摘要会让复核器的 head 对账失败。
+   */
   readonly head: string;
   readonly count: number;
 }
@@ -151,6 +168,11 @@ export interface AuditReport {
    * 新构建的报告一律携带。
    */
   readonly coverage?: AuditCoverage;
+  /**
+   * 脱敏摘要（2026-11-04 P3）。可选是为兼容存量报告；CLI 构建的新报告一律携带
+   * （缺省 mode off）——"报告有没有被处理过"必须一眼可辨。
+   */
+  readonly redaction?: AuditRedactionInfo;
   readonly tokens: AuditTokenUsage | null;
   readonly files: readonly AuditFileChange[];
   readonly records: readonly AuditChainedRecord[];
@@ -195,6 +217,8 @@ export interface AuditReportOptions {
   readonly generatedAt?: string;
   /** 生成器版本（由调用方给，避免本模块反向依赖 CLI 版本）。 */
   readonly generatorVersion: string;
+  /** 脱敏摘要（由调用方在脱敏后传入；缺省不产出该字段）。 */
+  readonly redaction?: AuditRedactionInfo;
 }
 
 /** 报告输出格式。 */

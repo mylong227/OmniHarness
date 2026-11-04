@@ -21,7 +21,7 @@ import {
   type AuditQuery,
 } from '../server/services/auditExporter.ts';
 import { AuditTool } from '../audit/auditTool.ts';
-import type { AuditOutputFormat, AuditSourceFormat } from '../audit/auditTypes.ts';
+import type { AuditOutputFormat, AuditRedactMode, AuditSourceFormat } from '../audit/auditTypes.ts';
 import { CliArgReader } from './cliArgReader.ts';
 
 /** 用法提示（`audit` 三种形态的完整说明）。 */
@@ -32,15 +32,23 @@ const USAGE =
   '                          [--out FILE] [--limit N] [--compliance]\n' +
   '  omniharness audit report <FILE|DIR...> [--format html|md|json] [--out PATH]\n' +
   '                          [--title TEXT] [--source-format omni|claude-code|codex|acp]\n' +
-  '                          [--strict]\n' +
+  '                          [--strict] [--redact off|paths|secrets|all]\n' +
   '  omniharness audit verify <REPORT...> [--json]\n' +
   '  omniharness audit <FILE|DIR...>            # report 的简写\n' +
   '\n' +
   '  --strict  任一输入存在未识别的来源条目时以退出码 1 失败（缺省只在报告里显示「未识别 N」）。\n' +
+  '  --redact  脱敏模式（缺省 off，证据保真优先）：paths 遮绝对路径（保留末两段+哈希）、\n' +
+  '            secrets 遮密钥（前缀/赋值/高熵）、all 两者；报告顶部显示 mode，verify 对 hits 对账。\n' +
   '  退出码契约见 docs/audit/EXIT_CODES.md。\n';
 
 /** `report` 的取值型旗标。 */
-const REPORT_VALUE_FLAGS: readonly string[] = ['--format', '--out', '--title', '--source-format'];
+const REPORT_VALUE_FLAGS: readonly string[] = [
+  '--format',
+  '--out',
+  '--title',
+  '--source-format',
+  '--redact',
+];
 
 /** `report` 的开关型旗标。 */
 const REPORT_BOOL_FLAGS: readonly string[] = ['--strict'];
@@ -158,6 +166,11 @@ export class AuditCommand {
       );
       return 2;
     }
+    const redact = this.resolveRedact(reader.value('--redact'));
+    if (redact === 'invalid') {
+      process.stderr.write('[omniharness] --redact 只支持 off / paths / secrets / all\n');
+      return 2;
+    }
     try {
       return this.tool.report({
         inputs: parsed.paths,
@@ -166,6 +179,7 @@ export class AuditCommand {
         title: reader.value('--title') ?? null,
         ...(sourceFormat === null ? {} : { sourceFormat }),
         ...(reader.has('--strict') ? { strict: true } : {}),
+        redact,
       });
     } catch (error) {
       process.stderr.write(`[omniharness] 审计报告生成失败：${this.messageOf(error)}\n`);
@@ -232,6 +246,18 @@ export class AuditCommand {
     return raw === 'omni' || raw === 'claude-code' || raw === 'codex' || raw === 'acp'
       ? raw
       : 'invalid';
+  }
+
+  /**
+   * 解析脱敏模式（缺省 off——证据保真优先）。
+   * @param raw --redact 值。
+   * @returns 模式；非法返回 'invalid'。
+   */
+  private resolveRedact(raw: string | undefined): AuditRedactMode | 'invalid' {
+    if (raw === undefined) {
+      return 'off';
+    }
+    return raw === 'off' || raw === 'paths' || raw === 'secrets' || raw === 'all' ? raw : 'invalid';
   }
 
   /**

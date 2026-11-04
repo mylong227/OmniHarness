@@ -1,5 +1,6 @@
 import { AUDIT_VERIFIER_SCRIPT } from './auditVerifierScript.ts';
 import { AuditFormatting } from './auditFormatting.ts';
+import { AuditRedactor } from './auditRedactor.ts';
 import type { AuditChainedRecord, AuditRecord, AuditReport } from './auditTypes.ts';
 
 /**
@@ -98,6 +99,9 @@ export class AuditHtmlRenderer {
       ...(report.coverage === undefined
         ? []
         : [this.card('未识别', AuditFormatting.number(report.coverage.unrecognized))]),
+      ...(report.redaction === undefined
+        ? []
+        : [this.card('脱敏', AuditRedactor.modeLabel(report.redaction))]),
       this.card('工具调用', AuditFormatting.number(summary.toolCalls)),
       this.card('工具失败', AuditFormatting.number(summary.toolFailures)),
       this.card('涉及文件', AuditFormatting.number(summary.filesChanged)),

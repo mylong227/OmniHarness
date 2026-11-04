@@ -1,15 +1,17 @@
 import { createHash } from 'node:crypto';
+import { AuditCanonical } from './auditCanonical.ts';
 import { AuditChain } from './auditChain.ts';
+import { AuditRedactor } from './auditRedactor.ts';
 import { AuditReportStore } from './auditReportStore.ts';
 import type { AuditChainVerification, AuditOutputFormat, AuditReport } from './auditTypes.ts';
 
 /**
- * 报告复核器：重算哈希链 + 核对摘要字段 + 文件级自指纹。
+ * 报告复核器：重算哈希链 + 核对摘要字段 + 文件级自指纹 + 脱敏对账。
  *
  * 判据口径：**任何一处对不上都失败**，并给出位置与原因（`schema` / `algorithm` / `genesis` /
- * `prev` / `hash` / `head` / `count` / `summary` / `coverage` / `artifact` / `artifact-missing`）。
- * 宁可报"这份报告不可信"，也不做"大概没问题"的模糊结论——出证工具的价值全在这一条上。
- * 失败原因的完整含义见 `docs/audit/ATTESTATION.md` §2。
+ * `prev` / `hash` / `head` / `count` / `summary` / `coverage` / `redaction` /
+ * `artifact` / `artifact-missing`）。宁可报"这份报告不可信"，也不做"大概没问题"的模糊
+ * 结论——出证工具的价值全在这一条上。失败原因的完整含义见 `docs/audit/ATTESTATION.md` §2。
  */
 export class AuditReportVerifier {
   /** 链实现。 */
@@ -44,8 +46,30 @@ export class AuditReportVerifier {
     if (report.integrity.count !== report.records.length) {
       return { ok: false, brokenAt: null, reason: 'count' };
     }
-    const head = this.chain.headOf(report.records);
-    if (report.integrity.head !== head) {
+    // 脱敏对账（2026-11-04 P3）：hits 声明"标记有多少处"，就必须真的等于脱敏载体里的
+    // 标记数（records + source.path/workspace——path/workspace 也参与脱敏但不在 records 里）。
+    // off 模式不查——正文里本来讨论脱敏的会话可能自带字面标记，不能当篡改。
+    const redaction = report.redaction;
+    const redacted = redaction !== undefined && redaction.mode !== 'off';
+    if (
+      redacted &&
+      redaction.hits !==
+        AuditRedactor.countMarkers({
+          records: report.records,
+          path: report.source.path,
+          workspace: report.source.workspace,
+        })
+    ) {
+      return { ok: false, brokenAt: null, reason: 'redaction' };
+    }
+    const chainHead = this.chain.headOf(report.records);
+    // 摘要绑定链头（T3.2「进入哈希链」）：mode ≠ off 时 integrity.head 是
+    // `seal(链头, 规范JSON(redaction))`——删掉 redaction 字段、把 mode 改回 off、
+    // 或改 rules，都会在这里对不上（`head` 红）。非脱敏报告仍是裸链头。
+    const expectedHead = redacted
+      ? this.chain.seal(chainHead, AuditCanonical.stringify(redaction))
+      : chainHead;
+    if (report.integrity.head !== expectedHead) {
       return {
         ok: false,
         brokenAt: report.records.length === 0 ? null : report.records.length - 1,

@@ -22,6 +22,9 @@ export class AuditChain {
   /** 链式分隔符（固定值，改动即改变历史哈希；复核器必须用同一值）。 */
   public static readonly SEPARATOR = '\n';
 
+  /** 报告头封印的域标签（把「链头封印」与普通记录链哈希区分开）。 */
+  public static readonly SEAL_LABEL = 'redaction';
+
   /**
    * 给记录编号并上链。
    * @param records 已按时间顺序排列、已带 seq 的规范化记录。
@@ -64,6 +67,25 @@ export class AuditChain {
       prev = item.hash;
     }
     return { ok: true, brokenAt: null, reason: null };
+  }
+
+  /**
+   * 报告头封印：把脱敏摘要绑定进 `integrity.head`（2026-11-04 P3 T3.2）。
+   *
+   * 公式：`SHA-256(链头 + "\n" + "redaction\n" + 规范JSON(redaction))`。
+   *
+   * 脱敏摘要不在 `records` 里，不封印的话「删掉 `redaction` 字段」或「把 mode 改回 off」
+   * 就能绕过 hits 对账——这正是方案要求的「防删了痕迹」。非脱敏报告（无 redaction 或
+   * mode off）仍用裸链头，存量报告不受影响。浏览器内嵌复核器实现了同一公式。
+   * @param head 链头（末条记录哈希；空链为创世哈希）。
+   * @param canonicalRedaction 脱敏摘要的规范 JSON（`AuditCanonical.stringify`）。
+   * @returns 64 位十六进制封印。
+   */
+  public seal(head: string, canonicalRedaction: string): string {
+    return this.hashOf(
+      head,
+      `${AuditChain.SEAL_LABEL}${AuditChain.SEPARATOR}${canonicalRedaction}`,
+    );
   }
 
   /**

@@ -2,11 +2,17 @@ import { readdirSync, statSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { API_VERSION } from '../../version.ts';
 import { AuditFormatting } from './auditFormatting.ts';
+import { AuditRedactor } from './auditRedactor.ts';
 import { AuditReportBuilder } from './auditReportBuilder.ts';
 import { AuditReportStore } from './auditReportStore.ts';
 import { AuditReportVerifier } from './auditReportVerifier.ts';
 import { AuditSourceLoader } from './auditSourceLoader.ts';
-import type { AuditOutputFormat, AuditReport, AuditSourceFormat } from './auditTypes.ts';
+import type {
+  AuditOutputFormat,
+  AuditRedactMode,
+  AuditReport,
+  AuditSourceFormat,
+} from './auditTypes.ts';
 
 /** `audit report` 的请求参数。 */
 export interface AuditReportRequest {
@@ -25,6 +31,11 @@ export interface AuditReportRequest {
    * 报告**仍然逐份生成**——strict 失败不销毁证据。语义详见 `docs/audit/EXIT_CODES.md` §2。
    */
   readonly strict?: boolean;
+  /**
+   * 脱敏模式（2026-11-04 P3，默认 off——证据保真优先）：off/paths/secrets/all。
+   * 规则与边界见 `docs/audit/README.md` §4。
+   */
+  readonly redact?: AuditRedactMode;
   /** 注入生成时间（判据用）。 */
   readonly generatedAt?: string;
 }
@@ -88,12 +99,14 @@ export class AuditTool {
     let unrecognizedFiles = 0;
     for (const file of files) {
       const loaded = this.loader.load(file, request.sourceFormat);
+      const redaction = AuditRedactor.redactSource(loaded, request.redact ?? 'off');
       const options = {
         generatorVersion: API_VERSION,
         ...(request.title !== null && !multiple ? { title: request.title } : {}),
+        redaction: redaction.info,
         ...(request.generatedAt !== undefined ? { generatedAt: request.generatedAt } : {}),
       };
-      const built = this.builder.build(loaded, options);
+      const built = this.builder.build(redaction.source, options);
       const target = this.targetOf(built, file, request, outIsDir);
       this.store.write(built, request.format, target);
       process.stdout.write(this.summaryLine(target, built));
@@ -277,6 +290,7 @@ export class AuditTool {
       `  记录 ${AuditFormatting.number(report.summary.total)} · 工具 ${AuditFormatting.number(report.summary.toolCalls)}` +
       ` · 失败 ${AuditFormatting.number(report.summary.toolFailures)} · 文件 ${AuditFormatting.number(report.summary.filesChanged)}` +
       ` · token ${tokens} · 未识别 ${AuditFormatting.number(report.coverage?.unrecognized ?? 0)}` +
+      ` · 脱敏 ${report.redaction?.mode ?? 'off'}` +
       ` · 链头 ${report.integrity.head.slice(0, 16)}…\n`
     );
   }

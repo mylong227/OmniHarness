@@ -1,4 +1,5 @@
 import { AuditFormatting } from './auditFormatting.ts';
+import { AuditRedactor } from './auditRedactor.ts';
 import type { AuditChainedRecord, AuditReport } from './auditTypes.ts';
 
 /**
@@ -39,6 +40,9 @@ export class AuditMarkdownRenderer {
       ...(report.coverage === undefined
         ? []
         : [`| 未识别 | ${AuditFormatting.number(report.coverage.unrecognized)} |`]),
+      ...(report.redaction === undefined
+        ? []
+        : [`| 脱敏 | ${AuditRedactor.modeLabel(report.redaction)} |`]),
       `| 工具调用 | ${AuditFormatting.number(report.summary.toolCalls)} |`,
       `| 工具失败 | ${AuditFormatting.number(report.summary.toolFailures)} |`,
       `| 涉及文件 | ${AuditFormatting.number(report.summary.filesChanged)} |`,

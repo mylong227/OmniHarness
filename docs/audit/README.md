@@ -54,14 +54,15 @@ node dist/src/apps/cli/exec.js audit verify audit-reports
 
 ## 3. 报告里有什么
 
-| 区块     | 内容                                                                                        | 可复核性                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 摘要     | 记录数 / 工具调用 / 工具失败 / 文件数 / 审批数 / 耗时 / token                               | 每个数字都能从记录重算                                                                                       |
-| 覆盖率   | `coverage: { recognized, unrecognized }`——载入时间线的记录数 + 解析器明确不认识的来源条目数 | `recognized` 由 verify 机械对账；未识别条目以 `other` 记录保留（口径见 [ATTESTATION.md](ATTESTATION.md) §3） |
-| 文件变更 | 路径、触及次数、可得的 `+n/−n`                                                              | 只认写类工具的参数、`apply_patch` 头与 unified diff                                                          |
-| 时间线   | 用户 / 助手 / 思考 / 工具调用 / 工具结果 / 审批 / 系统事件                                  | 含 `callId` 与结局；`tool_result` 会回填调用记录的 status                                                    |
-| 完整性   | 算法、创世哈希、链头、记录数、输入文件 SHA-256                                              | 浏览器按钮复核载荷链；CLI 追加复核整份文件（含展示层）                                                       |
-| 载荷     | 完整 JSON（HTML 为内嵌 `<script type="application/json">`，Markdown 为文末围栏）            | 载荷被改由链检出；展示层被改由文件级自指纹检出                                                               |
+| 区块     | 内容                                                                                          | 可复核性                                                                                                                                       |
+| -------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 摘要     | 记录数 / 工具调用 / 工具失败 / 文件数 / 审批数 / 耗时 / token                                 | 每个数字都能从记录重算                                                                                                                         |
+| 覆盖率   | `coverage: { recognized, unrecognized }`——载入时间线的记录数 + 解析器明确不认识的来源条目数   | `recognized` 由 verify 机械对账；未识别条目以 `other` 记录保留（口径见 [ATTESTATION.md](ATTESTATION.md) §3）                                   |
+| 脱敏     | `redaction: { mode, rules, hits }`（2026-11-04 P3）——报告是否被处理过、用了哪些规则、标记几处 | `hits` 由 verify 按 records+source 里的标记数重算对账（改数即 `redaction` 红）；摘要绑定链头（删/改摘要即 `head` 红）；规则与边界见 §4 第 6 条 |
+| 文件变更 | 路径、触及次数、可得的 `+n/−n`                                                                | 只认写类工具的参数、`apply_patch` 头与 unified diff                                                                                            |
+| 时间线   | 用户 / 助手 / 思考 / 工具调用 / 工具结果 / 审批 / 系统事件                                    | 含 `callId` 与结局；`tool_result` 会回填调用记录的 status                                                                                      |
+| 完整性   | 算法、创世哈希、链头、记录数、输入文件 SHA-256                                                | 浏览器按钮复核载荷链；CLI 追加复核整份文件（含展示层）                                                                                         |
+| 载荷     | 完整 JSON（HTML 为内嵌 `<script type="application/json">`，Markdown 为文末围栏）              | 载荷被改由链检出；展示层被改由文件级自指纹检出                                                                                                 |
 
 ### 3.1 哈希链算法（第三方可独立实现）
 
@@ -107,8 +108,17 @@ artifact  = SHA-256(整份文件文本，UTF-8)
 5. **token 口径随来源。** Omni 取 `model` 事件的 usage；Claude Code 取 `message.usage`
    （`cache_read` 单列，不并入 prompt）；Codex 取 `token_count` 的累计值。
    缺用量时报告写 `null`，不补零。
-6. **报告含敏感内容。** 完整 prompt、命令、工具输出与绝对路径都在里面；当前**没有脱敏旋钮**，
-   对外发送前请自行评估。
+6. **脱敏是尽力而为的遮蔽，不是 DLP（2026-11-04 起）。** `--redact off|paths|secrets|all`
+   （缺省 **off**，证据保真优先）：`paths` 遮绝对路径（保留末两段 + 原值哈希前 8 位——
+   审阅者知道动的是哪个文件，看不到目录结构）；`secrets` 遮密钥（已知前缀 /
+   `*KEY,TOKEN,SECRET*=` 赋值形态——变量名保留值替换 / 长度 ≥24 且香农熵 > 4.3 的高熵串；
+   十六进制哈希数学上限 4.0 **到不了这条线**，git SHA 不误伤）。同一原值**同值同标**
+   （跨记录交叉比对的前提，哈希基于规范化形态）。标记含原值哈希前 8 位——可对账"是不是
+   同一个值"，不可还原原值。`redaction` 摘要**绑定在 `integrity.head` 的封印里**
+   （`SHA-256(链头 + 摘要)`）：删字段 / 改 mode 即 `head` 红，hits 改数即 `redaction` 红。
+   **边界**：不处理图片/二进制内嵌文本；工作区根的标记可能仍
+   显示末两段（可能含用户名/项目名）——要匿名需在导出前处理；`source.sha256` 始终指向
+   原始输入文件，脱敏只是展示层变换。规则实现在 `auditRedactor.ts`。
 7. **只做单次会话。** 单文件上限 64 MiB、目录上限 2000 个文件、单文件 100k 行；超限即拒绝
    （截断的报告会让复核方误以为"就这些"）。
 8. **未识别条目不静默（2026-11-03 起）。** 解析器不认识的来源条目（坏行 / 类型未知 / 非法帧）
@@ -120,21 +130,24 @@ artifact  = SHA-256(整份文件文本，UTF-8)
 
 ## 5. 代码与判据
 
-| 关注点                 | 文件                                                                                                |
-| ---------------------- | --------------------------------------------------------------------------------------------------- |
-| 数据契约               | `src/apps/audit/auditTypes.ts`                                                                      |
-| 规范 JSON / 哈希链     | `auditCanonical.ts` / `auditChain.ts`                                                               |
-| 四种来源解析           | `omniSessionParser.ts` / `claudeCodeParser.ts` / `codexSessionParser.ts` / `acpTranscriptParser.ts` |
-| 识别与加载             | `auditSourceDetector.ts` / `auditSourceLoader.ts`                                                   |
-| 摘要与文件表           | `auditReportBuilder.ts`                                                                             |
-| HTML / Markdown / 落盘 | `auditHtmlRenderer.ts` / `auditMarkdownRenderer.ts` / `auditReportStore.ts`                         |
-| 复核                   | `auditReportVerifier.ts` + 内嵌 `auditVerifierScript.ts`                                            |
-| CLI                    | `src/apps/cli/auditCommand.ts`（`audit report` / `audit verify`）                                   |
+| 关注点                 | 文件                                                                                                                                      |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 数据契约               | `src/apps/audit/auditTypes.ts`                                                                                                            |
+| 规范 JSON / 哈希链     | `auditCanonical.ts` / `auditChain.ts`                                                                                                     |
+| 四种来源解析           | `omniSessionParser.ts` / `claudeCodeParser.ts` / `codexSessionParser.ts` / `acpTranscriptParser.ts`                                       |
+| 识别与加载             | `auditSourceDetector.ts` / `auditSourceLoader.ts`                                                                                         |
+| 摘要与文件表           | `auditReportBuilder.ts`                                                                                                                   |
+| 脱敏（P3）             | `auditRedactor.ts`（三类规则 + 稳定标记 + hits 重算口径）+ `auditRedactionValues.ts`（规范化/哈希/熵）+ `AuditChain.seal`（摘要绑定链头） |
+| HTML / Markdown / 落盘 | `auditHtmlRenderer.ts` / `auditMarkdownRenderer.ts` / `auditReportStore.ts`                                                               |
+| 复核                   | `auditReportVerifier.ts` + 内嵌 `auditVerifierScript.ts`                                                                                  |
+| CLI                    | `src/apps/cli/auditCommand.ts`（`audit report` / `audit verify`）                                                                         |
 
 判据：`tests/unit/auditParsers.test.ts`、`auditReport.test.ts`、`auditReportChain.test.ts`、
-`auditCanonical.test.ts`、`auditVerifierScript.test.ts`、`auditTool.test.ts`、`srcDocRefs.test.ts`
+`auditCanonical.test.ts`、`auditVerifierScript.test.ts`、`auditTool.test.ts`、`srcDocRefs.test.ts`、
+`auditRedactor.test.ts`、`codexLineWriter.test.ts`
 （夹具在 `tests/fixtures/audit/`；`drift-mixed.jsonl` 是"混入 3 条未知类型"的漂移夹具，
-`--strict` 与 `coverage` 的正对照都打它）。
+`--strict` 与 `coverage` 的正对照都打它；`sensitive.jsonl` 是含密钥与绝对路径的脱敏夹具，
+`--redact` 的验收正对照打它）。
 
 ---
 
@@ -142,6 +155,7 @@ artifact  = SHA-256(整份文件文本，UTF-8)
 
 - **报告签名**（Ed25519 / OIDC 身份绑定）：需要密钥分发与信任根，超出单机 MVP；哈希链已覆盖
   "完整性"，签名是下一步（`identity` 模块已有 Ed25519 能力）。
-- **脱敏旋钮**（路径 / 密钥 / 个人信息的规则化遮蔽）：规则错一次就会漏数据，需要独立设计。
 - **Web 工作台入口**：当前只有 CLI；报告本身就是离线 HTML，先验证"有人真的每周看"再加 UI。
 - **npm 发布**：本机 `npm whoami` 未登录，`npx` 形态发布后才有；在此之前按上面的 `node dist/...` 跑。
+- ~~脱敏旋钮~~：**已于 2026-11-04 落地**（`--redact`，见 §3 表格与 §4 第 6 条）——保留此行
+  是为了对照原计划（PLAN_2026-11.md P3）不漂移。

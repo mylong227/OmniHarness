@@ -7733,7 +7733,9 @@ ACP v1 已把 elicitation 稳定为协议原语（[官方文档](https://agentcl
 
 - **签名 / 身份绑定**：哈希链与文件自指纹都是**完整性**，不是来源证明；Ed25519 签名需要密钥分发与
   信任根，留待下一步（`identity` 已有 Ed25519 能力）。
-- **脱敏**：报告含完整 prompt / 命令 / 输出 / 绝对路径，当前没有遮蔽旋钮；对外发送前需自行评估。
+- ~~**脱敏**：报告含完整 prompt / 命令 / 输出 / 绝对路径，当前没有遮蔽旋钮；对外发送前需自行评估。~~
+  **2026-11-04 已落地**：`audit report --redact off|paths|secrets|all`（默认 off），见 §210——
+  保留原文只为对照当轮边界。
 - **真实厂商格式复核**：本机没有安装 Claude Code / Codex，四类格式的判据基于公开文档构造的夹具；
   厂商格式漂移时工具会明确报"无法识别"，不会猜着解析。
 - **Web 工作台入口 / npm 发布 / 减法审计 / 文档砍面 / CI 配额**：仍按 §206.5、§203.5 与
@@ -7819,7 +7821,7 @@ T1.4 publish 只差维护者 `npm login` → `npm run release:publish`（prepubl
 - **tarball ≤ 5 MB 里程碑（11-16）未达**（现 19.34 MB）：需要产品决策——`web/dist`
   （11.2 MB）与 `docs` 是否随包发行（砍掉即 < 5 MB，但 npm 版 `serve` 没有工作台 UI）。
   P2 期内裁决；`npm pack` 会跑 `prepare`（全量 tsc）≈ 4 分钟/次，测体积成本高。
-- **P2 demo / 文章**：按排期 11-17 起；用真实会话前先过 P3 脱敏或手工删段（§8 拍板项）。
+- **P2 demo / 文章**：按排期 11-17 起；用真实会话前先过 `audit report --redact`（P3，§210）或手工删段（§8 拍板项）。
 
 ---
 
@@ -7828,9 +7830,9 @@ T1.4 publish 只差维护者 `npm login` → `npm run release:publish`（prepubl
 三路并行盘点（①看板/方案遗留项清点 ②全仓代码健康扫描 ③本轮新增面自复核）后的第一批打磨。
 **健康结论**：真实 TODO/FIXME 0（9 条标记全为判据字符串与文案）；eslint-disable/@ts-ignore
 全仓 **0**；跟踪树内临时物 0；覆盖率洼地 36 文件**全部有基线冻结**（已知债而非漂移）。
-**遗留 TOP**（无外部阻塞）：P3 脱敏（M）> README 三屏化（S）> 覆盖率补测四站（serveControl
-14.81% / serveShutdown 13.79% / mcpCompositeInputHandler 0% / pluginWorker 族 0%）>
-deadCode.mjs 进门禁（M）> demo 脚本（S，可用合成会话先行）。
+**遗留 TOP**（无外部阻塞）：~~P3 脱敏（M）~~（**2026-11-04 已落地，见 §210**）> README 三屏化（S）>
+覆盖率补测四站（serveControl 14.81% / serveShutdown 13.79% / mcpCompositeInputHandler 0% /
+pluginWorker 族 0%）> deadCode.mjs 进门禁（M）> demo 脚本（S，可用合成会话先行）。
 
 ### 209.1 本批次三处修复（audit 主线一致性）
 
@@ -7860,3 +7862,57 @@ deadCode.mjs 进门禁（M）> demo 脚本（S，可用合成会话先行）。
 - **推送已恢复并完成**：死窗结束后直连一次成功（`0857a518..434ef215`，六笔提交上远端）。
 - 0.4.0 定版 + `npm publish --dry-run` 通过（20.3 MB / 4,211 文件）已在 §208.5 登记；
   publish 仍只差维护者 `npm login` → `npm run release:publish`。
+
+---
+
+## §210 P3 脱敏落地：`audit report --redact`（2026-11-04）
+
+T3.1 / T3.2 / T3.3 全量落地——出证报告从「能看」到「敢发」。**默认 off**（证据保真优先），
+只有显式 `--redact paths|secrets|all` 才处理。方案见 `docs/audit/PLAN_2026-11.md` P3。
+
+### 210.1 T3.1 规则与稳定标记（`auditRedactor.ts`，新增）
+
+- 三类规则：`absolute-paths`（盘符 / UNC / 常见 home 根 → 保留末两段 + 原值哈希前 8 位）、
+  `secret-prefix`（sk-ant- / sk-proj- / ghp_ / gho_ / github_pat_ / xox…- / AKIA / `Bearer`）、
+  `secret-assignment`（`*KEY/TOKEN/SECRET/PASSWORD*=`：**变量名保留、值替换**）；
+  另有高熵兜底：长度 ≥24 且香农熵 > 4.3——16 符号（hex）数学上限 4.0，**git SHA 不误伤**。
+- **同值同标**：哈希与显示基于**规范化形态**（`\`→`/`、折叠斜杠、小写；`Bearer ` 前缀剥离）。
+  判据实测抓到过「一条路径三种标记」（原生 / JSON 转义 / 规范化）的真设计 bug，按规范化收口。
+- `hits` = 脱敏载体（records + `source.path`/`workspace`）里的标记数；规则执行时已有标记用
+  NUL 占位保护，避免高熵兜底把长路径显示段二次替换（嵌套标记会让 hits 与标记数对不上）。
+
+### 210.2 T3.2 旋钮 + 摘要进入哈希链
+
+- `--redact off|paths|secrets|all` 登记 `knownFlags`；非法值 ⇒ 用法错误 **2**；
+  report 摘要行 / HTML 摘要卡 / Markdown 摘要表都显示 mode（读者一眼知道报告是否被处理过）。
+- 报告新增 `redaction: { mode, rules, hits }`；`verify` 按载体标记数机械重算（改数 ⇒ `redaction` 红）。
+- **摘要绑定链头**：mode ≠ off 时 `integrity.head = SHA-256(链头 + "\n" + "redaction\n" + 规范JSON(摘要))`
+  ——删 `redaction` 字段 / 把 mode 改回 off / 改 rules ⇒ `head` 红（方案 T3.2「防删了痕迹」）。
+  非脱敏报告仍是裸链头，存量报告不受影响；浏览器内嵌复核器同口径（hits + 封印）。
+- 脱敏是**展示层变换**：`source.sha256` 始终指向原始输入文件。
+
+### 210.3 T3.3 边界文档
+
+- `docs/audit/README.md` §3 表格 + §4 第 6 条（尽力而为、不是 DLP；不处理图片/二进制；
+  工作区根标记仍可能显示末两段；`source.sha256` 语义）+ §5 代码表 + §6 移除已完成项；
+- `docs/audit/ATTESTATION.md` §2 reason 表（`redaction` / `head` 分工）+ §3 对账口径（含封印公式）；
+- `docs/audit/EXIT_CODES.md` §2（`--redact` 不影响退出码）；`docs/CLI_REFERENCE.md` 两行；
+- changeset `.changeset/audit-redact.md`（minor）。
+
+### 210.4 验收与回归（本机实测，2026-11-04）
+
+- **真实 CLI 验收 32/32**（`node dist/src/apps/cli/exec.js audit …`）：all/paths/secrets/off 四模式；
+  HTML 原文 0 命中（5 个敏感串）；同一路径 3 处**同一个标记**；`hits ==` 载体标记数；
+  改 hits ⇒ 1/`redaction`；删摘要 / mode=off ⇒ 1/`head`；非法值 ⇒ 2；off 报告 head == 末条链哈希。
+- audit 判据 **63 例**（redactor 7 / tool 14 / verifierScript 8 / chain 6 / report 10 / canonical 6 /
+  parsers 12）全绿，含「输入自带字面标记与长高熵路径不被二次改写」。
+- 全量 node 判据：**727 文件 / 4,498 过 + 4 skip**（+1 文件 +12 例）；覆盖率聚合
+  **85.9936% → 86.0281%**（1332 文件，0 个一行未执行）；基线已 `--dump-baseline` 收紧
+  （`auditRedactor` 97.58%、`auditRedactionValues` 94.28% 新入；5 个旧基线保留，棘轮只升不降）。
+  跨进程锁判据在无 retry 的全量跑中出现过 1 次高负载抖动（单跑绿；`--retry=1` 后汇总全绿）。
+- 门禁：fast 10/10 + typed 2/2 = **12/12** 绿。
+
+### 210.5 推送
+
+- `github.com:443` 已恢复（实测 `curl` 200）。滞留的 `eaec590c` 与本轮 P3 提交一并直连推送
+  `https://github.com/mylong227/OmniHarness.git main`（远端此前停在 `434ef215`）。

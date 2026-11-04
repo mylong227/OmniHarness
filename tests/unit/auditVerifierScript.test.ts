@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import { AUDIT_VERIFIER_SCRIPT } from '../../src/apps/audit/auditVerifierScript.ts';
+import { AuditRedactor } from '../../src/apps/audit/auditRedactor.ts';
 import { AuditReportBuilder } from '../../src/apps/audit/auditReportBuilder.ts';
 import { AuditSourceLoader } from '../../src/apps/audit/auditSourceLoader.ts';
 
@@ -123,4 +124,32 @@ test('⑦ 改 coverage.recognized：浏览器脚本必须判「不可信」（�
   const out = runVerifier(JSON.stringify(report));
   assert.strictEqual(out.badge, '不可信');
   assert.match(out.result, /coverage/);
+});
+
+/** 脱敏报告夹具（mode=all ⇒ head 是链头+摘要的封印）。 */
+function redactedReportJson(): string {
+  const loaded = new AuditSourceLoader().load(join(FIXTURES, 'sensitive.jsonl'));
+  const redacted = AuditRedactor.redactSource(loaded, 'all');
+  const report = new AuditReportBuilder().build(redacted.source, {
+    generatorVersion: 'test',
+    generatedAt: '2026-11-04T00:00:00.000Z',
+    redaction: redacted.info,
+  });
+  return JSON.stringify(report);
+}
+
+test('⑧ 脱敏报告：hits 与摘要封印同口径——干净通过；删 redaction ⇒ head；改 hits ⇒ redaction', () => {
+  assert.strictEqual(runVerifier(redactedReportJson()).badge, '链完整');
+
+  const removed = JSON.parse(redactedReportJson()) as Record<string, unknown>;
+  delete removed['redaction'];
+  const removedOut = runVerifier(JSON.stringify(removed));
+  assert.strictEqual(removedOut.badge, '不可信');
+  assert.match(removedOut.result, /head/);
+
+  const tampered = JSON.parse(redactedReportJson()) as { redaction: { hits: number } };
+  tampered.redaction.hits += 1;
+  const tamperedOut = runVerifier(JSON.stringify(tampered));
+  assert.strictEqual(tamperedOut.badge, '不可信');
+  assert.match(tamperedOut.result, /redaction/);
 });

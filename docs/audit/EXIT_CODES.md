@@ -25,6 +25,9 @@
   `codex` 后文件里该解析器仍认不出的条目照常计入 unrecognized（「格式是我指定的」不构成
   豁免）；strict 只看这个数，不看格式是否与自动识别一致；
 - `verify` 没有 strict 形态：复核失败本来就是 1。
+- `--redact` **不影响退出码**：脱敏是展示层变换，off/paths/secrets/all 都照常 0；但对账在
+  `verify` 里——报告声称替换了 N 处（`redaction.hits`），records 与 source 里的脱敏标记
+  就必须正好 N 个（改数即 `redaction` 红，2026-11-04 P3 起）。
 
 ## 3. 判据对应
 
@@ -35,3 +38,8 @@
 | ③③b（篡改载荷 / 只改展示层）                         | verify 失败 1                          |
 | ⑥（strict：漂移夹具 strict ⇒ 1，非 strict ⇒ 0）      | strict 语义                            |
 | ⑦⑧（改 `coverage.recognized` / `summary.total` ⇒ 1） | verify 自洽对账                        |
+| ⑨⑩（--redact=all 出证 / 改 `redaction.hits` ⇒ 1）    | 脱敏与对账                             |
+| ⑪（CLI `--redact` 非法值 ⇒ 2）                       | 用法错误                               |
+
+脱敏规则本身的行为判据在 `tests/unit/auditRedactor.test.ts`（同值同标 / 熵阈值口径 /
+hits 自洽等 6 例）。

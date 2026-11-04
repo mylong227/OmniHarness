@@ -113,6 +113,9 @@ export const KNOWN_EXTRA_FLAGS: ReadonlySet<string> = new Set([
   // `reader.has('--strict')` 读取；任一输入有未识别条目 ⇒ 退出码 1（报告仍生成）。
   // 语义见 docs/audit/EXIT_CODES.md §2。
   '--strict',
+  // audit report 的脱敏模式（2026-11-04 P3）：取值型旗标（off|paths|secrets|all，缺省 off），
+  // `AuditCommand` 用 `reader.value('--redact')` 直读；规则与边界见 docs/audit/README.md §4。
+  '--redact',
   '--server',
   '--args',
   '--url',

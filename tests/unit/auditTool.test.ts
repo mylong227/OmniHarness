@@ -311,3 +311,112 @@ test('⑧ 摘要自洽：改 summary.total ⇒ verify 判 summary（退出码 1�
   assert.strictEqual(result.value, 1);
   assert.match(result.out, /summary/);
 });
+
+const SENSITIVE = join(FIXTURES, 'sensitive.jsonl');
+
+test('⑨ --redact=all：报告原文 0 命中（验收口径）、verify exit 0、HTML 显示脱敏模式', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const tool = new AuditTool();
+  const result = silence(() =>
+    tool.report({
+      inputs: [SENSITIVE],
+      format: 'html',
+      out: join(dir, 'redacted.html'),
+      title: null,
+      redact: 'all',
+    }),
+  );
+  assert.strictEqual(result.value, 0);
+  assert.match(result.out, /脱敏 all/);
+  const html = readFileSync(join(dir, 'redacted.html'), 'utf8');
+  for (const original of [
+    'sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789',
+    'ghp_AbCdEfGhIjKlMnOpQrStUvWxYz1234', // omniharness:fake-secret
+    'C:\Users\alice\secret-proj',
+    'Bearer eyJhbGciOiJIUzI1NiJ9',
+  ]) {
+    assert.ok(!html.includes(original), `报告不得残留原文：${original}`);
+  }
+  assert.match(html, /脱敏/);
+  assert.match(html, /\[REDACTED:(?:paths|secrets):/);
+  assert.strictEqual(silence(() => tool.verify([join(dir, 'redacted.html')])).value, 0);
+});
+
+test('⑩ 篡改 redaction.hits ⇒ verify 判 redaction（退出码 1）；off 模式不查', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const tool = new AuditTool();
+  silence(() =>
+    tool.report({
+      inputs: [SENSITIVE],
+      format: 'json',
+      out: join(dir, 'one.json'),
+      title: null,
+      redact: 'all',
+    }),
+  );
+  const mutated = JSON.parse(readFileSync(join(dir, 'one.json'), 'utf8')) as {
+    redaction: { hits: number };
+  };
+  mutated.redaction.hits += 1;
+  writeFileSync(join(dir, 'one.json'), `${JSON.stringify(mutated, null, 2)}\n`);
+  const result = silence(() => tool.verify([join(dir, 'one.json')]));
+  assert.strictEqual(result.value, 1);
+  assert.match(result.out, /redaction/);
+});
+
+test('⑪ CLI：--redact 非法值 ⇒ 用法错误 2；合法值走通', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const command = new AuditCommand();
+  assert.strictEqual(
+    (
+      await silenceAsync(() =>
+        command.run(['report', SENSITIVE, '--out', dir, '--redact', 'bogus']),
+      )
+    ).value,
+    2,
+  );
+  assert.strictEqual(
+    (
+      await silenceAsync(() =>
+        command.run([
+          'report',
+          SENSITIVE,
+          '--out',
+          join(dir, 'ok.json'),
+          '--format',
+          'json',
+          '--redact',
+          'all',
+        ]),
+      )
+    ).value,
+    0,
+  );
+});
+
+test('⑫ 删 redaction 字段 / 把 mode 改回 off ⇒ head 红（摘要绑定链头，防删痕迹）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'omni-audit-'));
+  const tool = new AuditTool();
+  const build = (name: string): string => {
+    const target = join(dir, name);
+    silence(() =>
+      tool.report({ inputs: [SENSITIVE], format: 'json', out: target, title: null, redact: 'all' }),
+    );
+    return target;
+  };
+  const removed = build('removed.json');
+  const withoutRedaction = JSON.parse(readFileSync(removed, 'utf8')) as Record<string, unknown>;
+  delete withoutRedaction['redaction'];
+  writeFileSync(removed, `${JSON.stringify(withoutRedaction, null, 2)}\n`);
+  const removedResult = silence(() => tool.verify([removed]));
+  assert.strictEqual(removedResult.value, 1);
+  assert.match(removedResult.out, /head/);
+
+  const flipped = build('flipped.json');
+  const offMode = JSON.parse(readFileSync(flipped, 'utf8')) as { redaction: { mode: string } };
+  offMode.redaction.mode = 'off';
+  writeFileSync(flipped, `${JSON.stringify(offMode, null, 2)}\n`);
+  const flippedResult = silence(() => tool.verify([flipped]));
+  assert.strictEqual(flippedResult.value, 1);
+  assert.match(flippedResult.out, /head/);
+});

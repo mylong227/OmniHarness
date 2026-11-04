@@ -24,18 +24,19 @@
 
 `audit verify` 的失败原因（`reason`）与含义——复核方可以按此表核对自己的第三方实现：
 
-| reason             | 含义                                             | 检出对象                                             |
-| ------------------ | ------------------------------------------------ | ---------------------------------------------------- |
-| `schema`           | 载荷不是 `omniharness.audit.report/v1`           | 载荷整体被替换                                       |
-| `algorithm`        | `integrity.algorithm` 不是 `sha256`              | 完整性头被改                                         |
-| `genesis`          | 创世哈希不是 64 个 `0`                           | 链起点被改                                           |
-| `prev` / `hash`    | 第 N 条记录的前驱/本条哈希重算对不上（给出下标） | 记录内文被改 / 记录被换                              |
-| `count`            | `integrity.count` ≠ 实际记录数                   | 「有多少条」被改                                     |
-| `head`             | 链头对不上                                       | 末条记录或链头被改                                   |
-| `summary`          | `summary.total` ≠ 实际记录数                     | 「摘要里的记录数」被改（JSON 形态的主要防线，见 §3） |
-| `coverage`         | `coverage.recognized` ≠ 实际记录数               | 「载入时间线的记录数」被改（同上）                   |
-| `artifact`         | 文件级自指纹对不上（HTML / Markdown）            | **展示层**被改（只改页面文字不动 JSON）              |
-| `artifact-missing` | 自指纹字段缺失或形状非法（HTML / Markdown）      | 「删字段 + 改展示」的绕过尝试                        |
+| reason             | 含义                                                                     | 检出对象                                                    |
+| ------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `schema`           | 载荷不是 `omniharness.audit.report/v1`                                   | 载荷整体被替换                                              |
+| `algorithm`        | `integrity.algorithm` 不是 `sha256`                                      | 完整性头被改                                                |
+| `genesis`          | 创世哈希不是 64 个 `0`                                                   | 链起点被改                                                  |
+| `prev` / `hash`    | 第 N 条记录的前驱/本条哈希重算对不上（给出下标）                         | 记录内文被改 / 记录被换                                     |
+| `count`            | `integrity.count` ≠ 实际记录数                                           | 「有多少条」被改                                            |
+| `head`             | 报告头对不上（普通报告 = 链头；脱敏报告 = 链头+摘要封印）                | 末条记录/链头被改；脱敏报告的摘要被删/被改（2026-11-04 P3） |
+| `summary`          | `summary.total` ≠ 实际记录数                                             | 「摘要里的记录数」被改（JSON 形态的主要防线，见 §3）        |
+| `coverage`         | `coverage.recognized` ≠ 实际记录数                                       | 「载入时间线的记录数」被改（同上）                          |
+| `redaction`        | `redaction.hits` ≠ records+source 里的脱敏标记数（仅 mode ≠ off 时对账） | 「替换了多少处」被改（2026-11-04 P3）                       |
+| `artifact`         | 文件级自指纹对不上（HTML / Markdown）                                    | **展示层**被改（只改页面文字不动 JSON）                     |
+| `artifact-missing` | 自指纹字段缺失或形状非法（HTML / Markdown）                              | 「删字段 + 改展示」的绕过尝试                               |
 
 ---
 
@@ -59,6 +60,20 @@
 （复核方拿不到源文件），在 HTML / Markdown 里由文件级自指纹保护，在 JSON 里与
 `title` / `tokens` / `source` 一样属于「链内数字但无第二来源」——这是 JSON 形态的固有边界，
 不是遗漏。要对 `unrecognized` 追责，请对 HTML 形态复核或同时交付源文件。
+
+**脱敏摘要的对账口径**（2026-11-04 P3）：`redaction.hits` 声明"有多少处脱敏标记"，verify 在
+`mode ≠ off` 时按 records 与 `source.path` / `source.workspace` 里的标记数重算对账
+（`redaction` 红）。`mode = off` 时不查 hits——正文讨论脱敏的会话可能自带字面标记。
+**摘要本身绑定链头**：`mode ≠ off` 时 `integrity.head` 不是裸链头，而是
+
+```text
+seal = SHA-256(链头 + "\n" + "redaction\n" + 规范JSON({ mode, rules, hits }))
+```
+
+删掉 `redaction` 字段、把 `mode` 改回 `off`、或改 `rules`，都会让 `head` 对不上（`head` 红）——
+这是方案 T3.2「进入哈希链、防删了痕迹」的落点；非脱敏报告（`mode = off`）仍是裸链头，
+存量报告不受影响。脱敏是**展示层变换**：`source.sha256` 始终指向原始输入文件（绑定关系不变）；
+标记内含原值哈希前 8 位——可跨记录对账"是不是同一个值"，但不可还原原值。
 
 ---
 
