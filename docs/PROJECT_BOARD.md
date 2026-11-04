@@ -7993,3 +7993,40 @@ T3.1 / T3.2 / T3.3 一次落地；原排期 11-24~12-07，按盘点排序提前�
   决策项挂着）；P0/P1 判据 ✅；regress ✅（726 文件 4,486 过）。
 - 下一批候选：覆盖率四站补测（serveControl/serveShutdown/mcpCompositeInputHandler/pluginWorker）
   或 deadCode.mjs 进门禁（P5 判据化前置）。
+
+---
+
+## §212 P5 前置：死模块门禁 deadCode 进 fast 层（2026-11-04）
+
+「减法不靠人记」（PLAN_2026-11.md P5 的判据化前置）——`scripts/deadCode.mjs` 进
+`scripts/runGates.mjs` 的 fast 层（第 11 条 fast），与 docLinkCheck 同一纪律：
+**存量冻结、新增即红**（`scripts/deadCodeBaseline.json`）。
+
+### 212.1 机制与口径
+
+- **入口从 package.json 机械推导**（单一事实源）：`main` + `exports[*].default` + `bin[*]`
+  的 dist/src/X.js 映射回 src/X.ts（示例形态），外加 `dist/bin/audit.mjs` 的源
+  `src/apps/cli/auditBin.ts`（打包路径不可推导，显式列出）。新增 bin/打包入口时同步维护。
+- **import 图**：src 全部 1,331 个 .ts 的静态 `from`（含 export-from / import type）+ 动态
+  `import()` + 副作用 `import '...'`，相对导入解析到文件；从入口 BFS 得可达集 1,307，
+  **死模块候选 24 个**。
+- 排查过两处误报源后才定基线：① `exports` 值带 `./` 前缀导致 `src/indexBeta.ts` 被误判
+  （入口推导 bug 已修——顺带让 eval 簇 4 文件恢复可达）；② `codeSandboxWorker.ts` 是
+  按路径加载的 worker（import 图盲区），随基线备案。
+
+### 212.2 存量 24 个死模块候选（P5 减法的盘点金矿，删除仍需调用方证据表）
+
+| 簇        | 文件数 | 内容                                                                                                                                     |
+| --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| AGUI 协议 | 8      | `src/protocols/agui/**` 整簇从未挂载（无任何簇外引用，实测）                                                                             |
+| rankVeto  | 4      | `src/kernel/context/rankVeto/**` 无簇外 import（fileReranker 里的提及是注释）                                                            |
+| eval      | 4      | `abMetrics` / `longMemEval` / `longTaskCatalog` / `tracePatchPlanner`                                                                    |
+| CRDT 实验 | 3      | `textCrdt` / `textOperationalTransform` / `vectorClock`                                                                                  |
+| 散件      | 5      | `legacyIdTokenVerifier` / `codeSandboxWorker`（按路径加载，图盲区）/ `plugin/sandbox` / `logisticProcessReward` / `processRewardDataset` |
+
+红绿双验实测：造无调用方探针文件 ⇒ 「新增 1」红；删除 ⇒ 绿。
+
+### 212.3 下一步（P5 排期 12-22 起）
+
+基线是「已知非死」的显式备案，不是删除授权——真正的删除按 P5 纪律走：调用方证据表 +
+单批 ≤5k 行 + 全量 regress。AGUI 簇（8 文件整簇未挂载）是第一候选。

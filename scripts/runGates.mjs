@@ -111,6 +111,15 @@ const GATES = [
     fail: '检测到未接线字段（本仓最高频缺陷形态「声明未接线」），提交中止。',
   },
   {
+    id: 'dead-code',
+    tier: 'fast',
+    label: '死模块门禁（从生产入口不可达的源文件；存量冻结、新增即红）',
+    argv: ['scripts/deadCode.mjs'],
+    fail:
+      '检测到新增「从生产入口不可达」的源文件（死模块）。接上调用方或删除；' +
+      '确属运行时按路径加载等真实使用时，说明理由后 scripts/deadCode.mjs --update 纳入基线。',
+  },
+  {
     id: 'doc-links',
     tier: 'fast',
     label: '文档死链门禁（链接目标指向不存在文件即红；存量已冻结）',
