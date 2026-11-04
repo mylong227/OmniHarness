@@ -8030,3 +8030,31 @@ T3.1 / T3.2 / T3.3 一次落地；原排期 11-24~12-07，按盘点排序提前�
 
 基线是「已知非死」的显式备案，不是删除授权——真正的删除按 P5 纪律走：调用方证据表 +
 单批 ≤5k 行 + 全量 regress。AGUI 簇（8 文件整簇未挂载）是第一候选。
+
+---
+
+## §213 覆盖率四站补测（2026-11-04，§203.4 指定顺位）
+
+### 213.1 实况修正与三站清偿
+
+- **实况修正**：四站里 pluginWorkerSupervisor 实测已 83.5%（§203.4 登记时的「族 0%」
+  实指 `pluginWorkerMain.mjs`——**worker 子进程入口**，判据经 pluginWorker.test.ts 真实
+  驱动它，但覆盖率插桩归因不到子进程 ⇒ 0% 是**插桩边界**而非缺判据，按诚实边界登记，
+  不再当补测欠账）。
+- **三站清偿**（新增 2 判据文件 / 10 例）：
+  - `mcpCompositeInputHandler`（原 **0%**，14 行）：组合器口径四例——按注册顺序评估、
+    第一个非 allow 获胜并**短路**、三种非 allow 裁决原样透传、空列表 ⇒ allow；
+  - `serveControl`（原 14.81%）：OMNI_CONTROL_STDIO 闸 / shutdown 行 ⇒ CONTROL /
+    坏行与未知类型忽略不崩 / 多行一 chunk 逐行 / end ⇒ STDIN_EOF / error ⇒ STDIN_ERROR；
+  - `serveShutdown`（原 13.79%）：SIGINT ⇒ **beforeClose → close 顺序**（反了会掐断落盘）、
+    beforeClose 抛错不阻断关服、closing 守卫二次信号只收一次、SIGTERM 同径、
+    真实实例记录退役（pid 认账口径）。
+- 焦点覆盖率实测：**serveControl 100% / serveShutdown 100% 行覆盖**；三站基线（13.79 /
+  14.81 / 0）待下轮全量 `--dump-baseline` 收紧。
+
+### 213.2 状态
+
+- §203.4 低覆盖登记项清偿：serveControl ✅ / serveShutdown ✅ / mcpCompositeInputHandler ✅ /
+  pluginWorker 族 → 转为插桩边界登记（本节）；`runPlanTool 22.93% + cliAuthCmds 26.72%`
+  是仅剩的低覆盖登记项。
+- vitest 规模：728 文件 / 4,496 过（+2 文件 +10 例，待全量核对）。
