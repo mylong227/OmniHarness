@@ -108,3 +108,19 @@ test('⑤ 源码只导出一个常量（没有可执行的顶层副作用）', (
   assert.strictEqual(exported.length, 1);
   assert.match(source, /export const AUDIT_VERIFIER_SCRIPT/);
 });
+
+test('⑥ 改 summary.total：浏览器脚本必须判「不可信」（2026-11-04 与 CLI verify 同口径）', () => {
+  const report = JSON.parse(reportJson()) as { summary: { total: number } };
+  report.summary.total += 1;
+  const out = runVerifier(JSON.stringify(report));
+  assert.strictEqual(out.badge, '不可信');
+  assert.match(out.result, /summary/);
+});
+
+test('⑦ 改 coverage.recognized：浏览器脚本必须判「不可信」（与 CLI verify 同口径）', () => {
+  const report = JSON.parse(reportJson()) as { coverage: { recognized: number } };
+  report.coverage.recognized += 1;
+  const out = runVerifier(JSON.stringify(report));
+  assert.strictEqual(out.badge, '不可信');
+  assert.match(out.result, /coverage/);
+});

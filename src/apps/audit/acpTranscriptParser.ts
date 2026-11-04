@@ -142,7 +142,9 @@ export class AcpTranscriptParser {
         this.push('session', 'ACP 初始化', AuditValues.describe(params), ts);
         return 0;
       default:
-        // method 认不出（协议上游新增 / 捕获器噪音）：计入未识别（原来整帧静默丢弃）。
+        // method 认不出（协议上游新增 / 捕获器噪音）：以 other 记录**保留原始帧**（证据不丢，
+        // 与 omni/claude/codex 的未知顶层类型同口径），并计入未识别。
+        this.push('other', method, AuditValues.describe(params), ts);
         return 1;
     }
   }
@@ -195,8 +197,10 @@ export class AcpTranscriptParser {
         this.push('other', '计划', AuditValues.describe(update['entries']), ts);
         return 0;
       default:
-        // update 类别认不出（ACP 上游新增）：计入未识别（原来整块静默丢弃）。
+        // update 类别认不出（ACP 上游新增）：以 other 记录**保留原始 update**（证据不丢），
+        // 并计入未识别。
         this.flushChunk();
+        this.push('other', kind ?? 'session/update', AuditValues.describe(update), ts);
         return 1;
     }
   }

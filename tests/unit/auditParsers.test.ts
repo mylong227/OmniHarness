@@ -214,5 +214,8 @@ test('⑫ 未识别条目可见化：ACP 未知 method / 未知 update 类别 / 
   assert.strictEqual(loaded.result.format, 'acp');
   // future/method + future_chunk + 坏行 = 3（原来三者全部静默丢弃）。
   assert.strictEqual(loaded.result.unrecognized, 3);
-  assert.strictEqual(loaded.result.records.length, 2);
+  // 未知 method 与未知 update 类别各以 other 记录保留原始载荷（证据不丢，
+  // 与 omni/claude/codex 的未知顶层类型同口径）：session + user + 2×other = 4。
+  assert.strictEqual(loaded.result.records.length, 4);
+  assert.strictEqual(loaded.result.records.filter((record) => record.kind === 'other').length, 2);
 });

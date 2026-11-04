@@ -124,6 +124,8 @@ export const AUDIT_VERIFIER_SCRIPT: string = [
   '    }',
   "    if (report.integrity.count !== records.length) { return fail(null, 'count'); }",
   "    if (report.integrity.head !== prev) { return fail(null, 'head'); }",
+  "    if (report.summary && typeof report.summary.total === 'number' && report.summary.total !== records.length) { return fail(null, 'summary'); }",
+  "    if (report.coverage && typeof report.coverage.recognized === 'number' && report.coverage.recognized !== records.length) { return fail(null, 'coverage'); }",
   "    setState(true, '✓ 复核通过：' + records.length + ' 条记录、链头 ' + prev.slice(0, 16) + '…；报告自发放起未被改动。');",
   '  }',
   "  var button = document.getElementById('oh-verify');",

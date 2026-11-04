@@ -7820,3 +7820,43 @@ T1.4 publish 只差维护者 `npm login` → `npm run release:publish`（prepubl
   （11.2 MB）与 `docs` 是否随包发行（砍掉即 < 5 MB，但 npm 版 `serve` 没有工作台 UI）。
   P2 期内裁决；`npm pack` 会跑 `prepare`（全量 tsc）≈ 4 分钟/次，测体积成本高。
 - **P2 demo / 文章**：按排期 11-17 起；用真实会话前先过 P3 脱敏或手工删段（§8 拍板项）。
+
+---
+
+## §209 全量盘点后的打磨批次（2026-11-04）
+
+三路并行盘点（①看板/方案遗留项清点 ②全仓代码健康扫描 ③本轮新增面自复核）后的第一批打磨。
+**健康结论**：真实 TODO/FIXME 0（9 条标记全为判据字符串与文案）；eslint-disable/@ts-ignore
+全仓 **0**；跟踪树内临时物 0；覆盖率洼地 36 文件**全部有基线冻结**（已知债而非漂移）。
+**遗留 TOP**（无外部阻塞）：P3 脱敏（M）> README 三屏化（S）> 覆盖率补测四站（serveControl
+14.81% / serveShutdown 13.79% / mcpCompositeInputHandler 0% / pluginWorker 族 0%）>
+deadCode.mjs 进门禁（M）> demo 脚本（S，可用合成会话先行）。
+
+### 209.1 本批次三处修复（audit 主线一致性）
+
+1. **ACP 未知帧证据保留**：未知 method / 未知 `session/update` 类别此前「计数但整帧丢弃」，
+   与 omni/claude/codex 的「未知类型以 other 记录保留」口径不一致——且 CLI 摘要
+   「已以 other 记录保留」对 ACP 是假话。现在以 other 记录保留原始载荷；判据 ⑫ 同步
+   （records 2→4、other 记录 2）。
+2. **页内复核器与 CLI 同口径**：HTML 内嵌复核脚本补 `summary` / `coverage` 自洽对账
+   （2026-11-03 CLI verify 已有）——改摘要记录数或覆盖率数字的报告，浏览器「打开即验」
+   同样判「不可信」；判据 ⑥⑦（改 summary ⇒ /summary/、改 coverage ⇒ /coverage/）。
+3. **codexLineWriter 分支级判据**（盘点发现：audit 应用最大文件 433 行，全 tests 树无
+   文件名级引用，仅夹具间接覆盖 58.62%）：新增 4 例——response_item 全型（message 块数组/
+   reasoning/function_call 三态 output/local_shell_call/custom_tool_call apply_patch 文件表/
+   未知 type）、event_msg 去重双向、token_count 取最后、exec begin/end 的 seenCalls 旁路。
+
+### 209.2 覆盖率基线棘轮收紧（--dump-baseline，只升不降）
+
+- **聚合 85.8569% → 85.9936%**；棘轮保留 3 个旧更高值（cliServerCmds / acpQuestionUplink /
+  acpServer）。
+- `codexLineWriter` **58.62% → 98.27%**；`acpTranscriptParser` 87.73% → 87.82%；
+  `auditCommand` 基线 11.11% → 56.29%（锁住 P0 批次增益）；corpusCollector 本轮实测
+  95.74%（§203.4 记录的 100% 为单轮值，棘轮按实测未动）。
+- vitest：**726 文件 / 4,486 过 + 4 skip**（+1 文件 +6 例）。
+
+### 209.3 发布与推送状态
+
+- **推送已恢复并完成**：死窗结束后直连一次成功（`0857a518..434ef215`，六笔提交上远端）。
+- 0.4.0 定版 + `npm publish --dry-run` 通过（20.3 MB / 4,211 文件）已在 §208.5 登记；
+  publish 仍只差维护者 `npm login` → `npm run release:publish`。
