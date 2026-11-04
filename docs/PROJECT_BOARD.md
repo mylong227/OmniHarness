@@ -8087,3 +8087,27 @@ runPlanTool / cliAuthCmds 补测完成后，**§203.4 登记的 10 个低覆盖�
 | runPlanTool 22.93%          | ✅ 错误路径全清 + 边界登记（本节）                                                        |
 | cliAuthCmds 26.72%          | ✅ 48.27% + 网络路径边界登记（本节）                                                      |
 | corpusCollector 基线收紧    | 挂起：待下轮全量 coverage `--dump-baseline`（周日例行）                                   |
+
+---
+
+## §215 P5 首批减法：AGUI 协议簇删除（2026-11-05，e698d885）
+
+- **范围**：`src/protocols/agui/**` 8 文件（1,646 行）+ 专测 `agui.test.ts`（508 行 / 19 例）
+  = **2,154 行**（单批 ≤5k ✅）。调用方证据表：[subtraction-2026-11-05.md](reports/subtraction-2026-11-05.md)
+  （逐文件 grep 证据 + deadCode 门禁交叉验证 + web/desktop 零引用 + 4 生产入口全不可达）。
+- **回归证明**：全量 `npm run regress` exit 0——vitest **730 文件 / 4,499 过 + 4 skip**、
+  coverageGate **聚合 86.1707%（↑ 自 85.9936%）**、web:test 绿。删除死代码覆盖率即升。
+- **基线同步**：deadCode 24 → **16**；docLink 基线 +2（证据表对已删路径的正当引用，
+  「迁移前路径」场景）；coverage 基线 `--dump-baseline` 收紧（agui 条目清偿、corpusCollector
+  与新四站锁进棘轮）。
+- **三处门禁注册面同步**（加门禁必须三处同步的自洽文化，本次实测第三处才补齐）：
+  ARCHITECTURE_SPEC fast 行 + boostGateSurface 表（dead-code 条目，fs 探针核验声明面）+
+  runGates GATES。
+- **并发会话实况（第二回）**：删除曾被另一会话的 `git checkout` 从工作树复活（暂存区删除
+  仍在、工作树文件回来了）——deadCode 门禁当场红出来（新增 8），这正是该门禁存在的意义；
+  单命令原子「删除→提交」+ pathspec 收窄后固化。两个代理共写一棵工作树，提交前核对 HEAD
+  与状态是生存技能。
+- **恢复方式**：单个原子提交，`git revert e698d885` 整簇可逆（AG-UI 设计 + 19 判据留 git 历史）。
+- PLAN 进度：**P0 ✅ / P1 3.5/4 / P2 2.2/3 / P3 ✅ / P5 首批 ✅（提前约 7 周）**；
+  P4（等外部信号）/ P6（等 D90）按排期。剩余非机械项：tarball 瘦身决策、真实会话配图、
+  文章发布渠道、npm publish（等 login）。
