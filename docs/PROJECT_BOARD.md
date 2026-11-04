@@ -7917,3 +7917,42 @@ T3.1 / T3.2 / T3.3 全量落地——出证报告从「能看」到「敢发」�
 - `github.com:443` 已恢复（实测 `curl` 200）。滞留的 `eaec590c` 与本轮 P3 提交一并直连推送
   `https://github.com/mylong227/OmniHarness.git main`：**`434ef215..e344c792` 成功**，
   远端 `refs/heads/main` 已确认 = `e344c792`（P3 提交）。
+
+---
+
+## §210 P3 脱敏：从「能看」到「敢发」（2026-11-04，PLAN_2026-11.md P3 提前完成）
+
+T3.1 / T3.2 / T3.3 一次落地；原排期 11-24~12-07，按盘点排序提前。
+
+### 210.1 实现（T3.1/T3.2）
+
+- **`src/apps/audit/auditRedactor.ts`**（三类规则 + 稳定标记）：`paths` 绝对路径 → 保留末两段 +
+  原值哈希前 8 位；`secrets` = 已知前缀（sk-ant-/sk-proj-/ghp_/github_pat_/xox…-/AKIA/Bearer）+
+  `*KEY,TOKEN,SECRET,PASSWORD*=` 赋值（**变量名保留、值替换**）+ 高熵兜底（≥24 字符且香农熵
+  > 4.3——16 符号字母表数学上限 4.0，**git SHA 到不了这条线不误伤**，判据 ⑥ 钉死口径）。
+- **同值同标**：标记 = 原值**规范化形态**（`\`→`/`、折叠斜杠、小写）的纯函数——判据初版
+  实测抓到「一条路径三种书写形态 → 三种标记」的设计缺陷，修正后同一语义路径跨载体同标。
+- **接线**：`--redact off|paths|secrets|all`（缺省 off，knownFlags 登记）；报告新增
+  `redaction: { mode, rules, hits }`（HTML 卡 / MD 表 / CLI 摘要行三处可见 mode）；verify
+  对 hits **机械对账**（mode ≠ off 时按 records + source.path/workspace 的标记数重算，
+  改数 ⇒ `redaction` 红——删脱敏痕迹同罪）；`source.sha256` 不脱敏（绑定原始输入不变）。
+- **构建链修复**：`npm run build`（buildDist 整体换新 dist）会把 `dist/bin` 一并清掉、
+  bin.audit 悬空——audit-bin 构建**链进 build 脚本**（standalone 保留），npx 断链陷阱关闭。
+
+### 210.2 验收实测（真实 bin，bundle 78,752 B ≤ 307,200）
+
+- `sensitive.jsonl`（含 sk-ant-/OPENAI_API_KEY=/ghp_/Bearer JWT/绝对路径五类敏感物）：
+  `--redact all` ⇒ exit 0、原文 **0 残留**（sk-ant-api03 / ghp_ / Bearer eyJ / sk-proj-XXX /
+  `C:\Users\alice` 全 0；`secret-proj` 3 处为**文档载明的末两段保留边界**）、HTML 显示
+  `脱敏`、`audit verify` exit 0；`--redact bogus` ⇒ 2。
+- 判据 +9：`auditRedactor.test.ts` 6（off 原样 / paths 同值同标 / secrets 三规则 / all 验收 /
+  跨次稳定 / 熵阈值口径）+ `auditTool.test.ts` ⑨⑩⑪（端到端 0 残留 / 改 hits ⇒ 1 / CLI 用法错）。
+- 文档：ATTESTATION §2 reason 表 + §3 对账口径；EXIT_CODES §2/--redact 语义 + §3 判据表；
+  audit README §3 表格 / §4 第 6 条（边界：非 DLP、不处理图片二进制、工作区根可能含
+  用户名末两段）/ §5 代码与判据 / §6 脱敏项划掉；CLI_REFERENCE 同步。
+
+### 210.3 状态
+
+- PLAN 七包进度：**P0 ✅ / P1 3.5/4（publish 等 login）/ P3 ✅（提前 20 天）/ P2 P4 P5 P6 按排期**。
+- 判据累计：本轮 +9 → 全仓 vitest 待下一轮全量核对（上一轮 726 文件 / 4,486 过）。
+- publish 仍只差维护者 `npm login` → `npm run release:publish`。

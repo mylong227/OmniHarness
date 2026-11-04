@@ -63,7 +63,7 @@
     "desktop:smoke": "npm --prefix desktop run smoke",
     "desktop:dist": "npm --prefix desktop run dist",
     "clean": "node scripts/cleanDist.mjs dist web/dist",
-    "build": "node scripts/buildDist.mjs",
+    "build": "node scripts/buildDist.mjs && node scripts/buildAuditBin.mjs",
     "build:audit-bin": "node scripts/buildAuditBin.mjs",
     "web:build": "vite build",
     "web:dev": "vite",
