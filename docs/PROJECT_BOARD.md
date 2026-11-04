@@ -7915,4 +7915,5 @@ T3.1 / T3.2 / T3.3 全量落地——出证报告从「能看」到「敢发」�
 ### 210.5 推送
 
 - `github.com:443` 已恢复（实测 `curl` 200）。滞留的 `eaec590c` 与本轮 P3 提交一并直连推送
-  `https://github.com/mylong227/OmniHarness.git main`（远端此前停在 `434ef215`）。
+  `https://github.com/mylong227/OmniHarness.git main`：**`434ef215..e344c792` 成功**，
+  远端 `refs/heads/main` 已确认 = `e344c792`（P3 提交）。
