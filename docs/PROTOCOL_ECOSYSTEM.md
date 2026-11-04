@@ -114,6 +114,11 @@ executor 可通过 `DelegateResult.authRequired: A2aAuthChallenge` 声明「继�
 
 ## 3. AG-UI
 
+> ⚠️ **状态（2026-11-05）：本节描述的适配层已整体移除**（P5 减法首批）——它实现后从未
+> 接线到任何生产入口（无 CLI 子命令、无 serve 装配、公共 API 门面不导出，死模块门禁
+> 实测整簇不可达）。调用方证据表：[reports/subtraction-2026-11-05.md](reports/subtraction-2026-11-05.md)；
+> 将来要做 agent ↔ UI 事件层时，`git revert` 该提交即可整簇恢复。下文为历史设计，仅存档。
+
 不重写现有 Web 前端 / RPC / SSE，而是提供**库适配层 + 独立 HTTP/SSE 端点**：
 
 ```ts

@@ -108,6 +108,14 @@ export const GATE_SURFACE: Readonly<Record<string, BoostGateSurface>> = {
     audited: `${SURFACE_AUDIT_DATE}：实测强读取 = package.json + 1038 个 src/**/*.ts（共 1039 条），在声明面内`,
     residual: '',
   },
+  'dead-code': {
+    inputs: ['src/**/*.ts', 'package.json', 'scripts/deadCodeBaseline.json'],
+    enumRoots: ['src'],
+    why: '从生产入口 BFS import 图：读 package.json 推导入口（main/exports/bin），walk(src) 全量源建图，另读死模块基线',
+    audited: `${SURFACE_AUDIT_DATE}：实测强读取 = package.json + 1331 个 src/**/*.ts + 死模块基线，在声明面内`,
+    residual:
+      '**运行时按路径加载**的文件（worker_threads / spawn 的字符串路径）不在 import 图里，会表现为"死"——基线是「已知非死」的显式备案（如 codeSandboxWorker），不是删除授权。',
+  },
   'doc-links': {
     inputs: ['README.md', 'docs/**', 'scripts/docLinkBaseline.json'],
     enumRoots: ['docs'],

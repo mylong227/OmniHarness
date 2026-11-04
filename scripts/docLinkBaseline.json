@@ -1,6 +1,7 @@
 [
   "mention: docs/PROJECT_BOARD.md -> web/src/poc/antdPoc.tsx",
   "mention: docs/PROJECT_BOARD.md -> web/test/antdPocProbe.ts",
+  "mention: docs/reports/subtraction-2026-11-05.md -> tests/unit/agui.test.ts",
   "src-mention: src/kernel/config/configFactory.ts -> docs/THIRD_PARTY_ASSETS.md",
   "src-mention: src/kernel/context/fileReranker.ts -> docs/archive/POLISH_PLAN.md",
   "src-mention: src/kernel/context/repoMap/repoMapContextEngine.ts -> docs/archive/RECALL_HEADROOM_SURVEY.md",
