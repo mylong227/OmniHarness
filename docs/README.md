@@ -61,24 +61,26 @@
 
 ## 2. 参考手册（长期有效的契约与指南）
 
-| 文档                                                 | 内容                                                                                                                  |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [STARTUP.md](STARTUP.md)                             | **一键启动与运行规范**（最快最简单的整体启动方式、探活、停止/重启、故障排查）                                         |
-| [QUICKSTART.md](QUICKSTART.md)                       | 5 分钟跑通（mock → 真模型 → Web 工作台）                                                                              |
-| [CLI_REFERENCE.md](CLI_REFERENCE.md)                 | 子命令与旗标速查（26 个子命令 / 常用旗标 / JSON-RPC 探活）                                                            |
-| [audit/README.md](audit/README.md)                   | **审计出证**：四类会话来源 → 自带哈希链的 HTML/Markdown 报告；复核算法、诚实边界与判据                                |
-| [audit/ATTESTATION.md](audit/ATTESTATION.md)         | **审计出证信任模型**（三列表：完整性 / 来源 / 时间）：能证明什么、不能证明什么、`coverage` 口径与 verify 失败原因全表 |
-| [audit/EXIT_CODES.md](audit/EXIT_CODES.md)           | **audit 退出码契约**：三条路径 0/1/2 逐条触发条件、`--strict` 精确语义、判据对应表                                    |
-| [audit/PLAN_2026-11.md](audit/PLAN_2026-11.md)       | **审计出证 90 天施工方案**（2026-11-03 决策快照）：P0–P6 七包、逐项验收命令与 ≤10 h/周排期                            |
-| [ENV_REFERENCE.md](ENV_REFERENCE.md)                 | 环境变量全量参考（由源码 `process.env` 读点自动编译；新增 OMNI_* 旋钮须同步补行）                                     |
-| [contributing.md](contributing.md)                   | 贡献铁律（一功能一类 / 一函数一职责）                                                                                 |
-| [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md)         | 依赖准入政策（必要且更优即可依赖（D10）；`ports`/`core` 恒第三方-free）                                               |
-| [API_STABILITY.md](API_STABILITY.md)                 | API 稳定性分级契约（`@public` / `@beta` / `@deprecated`）                                                             |
-| [PORTS_CONTRACT.md](PORTS_CONTRACT.md)               | 端口契约：第三方实现 OmniHarness 端口的口径                                                                           |
-| [integration.md](integration.md)                     | 接入指南（实现端口接口 → 注入配置 → 完成）                                                                            |
-| [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md)                   | 插件开发指南                                                                                                          |
-| [protocol.md](protocol.md)                           | 协议文档 2.0（单源 schema 自动生成，勿手改；stdio / HTTP+SSE / WebSocket）                                            |
-| [DOMAIN_SLICE_TEMPLATE.md](DOMAIN_SLICE_TEMPLATE.md) | 新增业务域的 7 步垂直切片模板                                                                                         |
+| 文档                                                 | 内容                                                                                                                                 |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [STARTUP.md](STARTUP.md)                             | **一键启动与运行规范**（最快最简单的整体启动方式、探活、停止/重启、故障排查）                                                        |
+| [QUICKSTART.md](QUICKSTART.md)                       | 5 分钟跑通（mock → 真模型 → Web 工作台）                                                                                             |
+| [CLI_REFERENCE.md](CLI_REFERENCE.md)                 | 子命令与旗标速查（26 个子命令 / 常用旗标 / JSON-RPC 探活）                                                                           |
+| [audit/README.md](audit/README.md)                   | **审计出证**：四类会话来源 → 自带哈希链的 HTML/Markdown 报告；复核算法、诚实边界与判据                                               |
+| [audit/ATTESTATION.md](audit/ATTESTATION.md)         | **审计出证信任模型**（三列表：完整性 / 来源 / 时间）：能证明什么、不能证明什么、`coverage` 口径与 verify 失败原因全表                |
+| [audit/EXIT_CODES.md](audit/EXIT_CODES.md)           | **audit 退出码契约**：三条路径 0/1/2 逐条触发条件、`--strict` 精确语义、判据对应表                                                   |
+| [audit/demo/](audit/demo/demo.sh)                    | **60 秒演示脚本**（demo.sh / demo.ps1）：出证 → 复核绿 → 改一字 → 复核红；实录 [demo-transcript.txt](audit/demo/demo-transcript.txt) |
+| [audit/ARTICLE_2026-11.md](audit/ARTICLE_2026-11.md) | **文章草稿**《你的 agent 到底改了什么？》（中英摘要、真实数字可复核；发布渠道待拍板）                                                |
+| [audit/PLAN_2026-11.md](audit/PLAN_2026-11.md)       | **审计出证 90 天施工方案**（2026-11-03 决策快照）：P0–P6 七包、逐项验收命令与 ≤10 h/周排期                                           |
+| [ENV_REFERENCE.md](ENV_REFERENCE.md)                 | 环境变量全量参考（由源码 `process.env` 读点自动编译；新增 OMNI_* 旋钮须同步补行）                                                    |
+| [contributing.md](contributing.md)                   | 贡献铁律（一功能一类 / 一函数一职责）                                                                                                |
+| [DEPENDENCY_POLICY.md](DEPENDENCY_POLICY.md)         | 依赖准入政策（必要且更优即可依赖（D10）；`ports`/`core` 恒第三方-free）                                                              |
+| [API_STABILITY.md](API_STABILITY.md)                 | API 稳定性分级契约（`@public` / `@beta` / `@deprecated`）                                                                            |
+| [PORTS_CONTRACT.md](PORTS_CONTRACT.md)               | 端口契约：第三方实现 OmniHarness 端口的口径                                                                                          |
+| [integration.md](integration.md)                     | 接入指南（实现端口接口 → 注入配置 → 完成）                                                                                           |
+| [PLUGIN_GUIDE.md](PLUGIN_GUIDE.md)                   | 插件开发指南                                                                                                                         |
+| [protocol.md](protocol.md)                           | 协议文档 2.0（单源 schema 自动生成，勿手改；stdio / HTTP+SSE / WebSocket）                                                           |
+| [DOMAIN_SLICE_TEMPLATE.md](DOMAIN_SLICE_TEMPLATE.md) | 新增业务域的 7 步垂直切片模板                                                                                                        |
 
 ## 3. 架构决策记录（ADR）
 

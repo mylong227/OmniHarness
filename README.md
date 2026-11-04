@@ -12,6 +12,30 @@
   <a href="docs/README.md">文档索引</a>
 </p>
 
+> **60 秒看本仓的对外单点——审计出证**：你的 agent 到底改了什么、谁让它改的、花了多少
+> token，一条命令变成一份**自带哈希链**的单文件 HTML（离线可开，打开即自动复核）：
+>
+> ```bash
+> npx -y @mylong227/omniharness audit <会话文件.jsonl> --out report.html   # 出证（OmniHarness / Claude Code / Codex / ACP 会话都认）
+> npx -y @mylong227/omniharness audit verify report.html                  # 复核：exit 0 = 自生成起未被改动
+> ```
+>
+> 本地 60 秒演示（出证 → 复核绿 → 改报告一个字 → 复核红）：`bash docs/audit/demo/demo.sh`，
+> 实录见 [docs/audit/demo/demo-transcript.txt](docs/audit/demo/demo-transcript.txt)。
+
+<details>
+<summary><b>Honest limits（先看这个，再决定信不信这份报告）</b></summary>
+
+- 哈希链证明「报告自生成后未被改动」，**不证明**会话本身真实、也不证明生成者身份
+  （Ed25519 签名按外部信号后上，见 [docs/audit/PLAN_2026-11.md](docs/audit/PLAN_2026-11.md) P4）；
+- `--redact` 脱敏是尽力而为的遮蔽（缺省 off，证据保真优先），**不是 DLP**；
+- 四类会话格式基于 2026-11 公开快照的夹具，未在真实厂商文件上复核——格式漂移时工具会
+  明确报「无法识别」，不会猜着解析；
+- 退出码契约：[docs/audit/EXIT_CODES.md](docs/audit/EXIT_CODES.md)；全部边界：
+  [docs/audit/README.md](docs/audit/README.md) §4。
+
+</details>
+
 ---
 
 ## 一键启动（最快、最简单）

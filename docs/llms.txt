@@ -31,6 +31,8 @@
 - [审计出证](audit/README.md): `omniharness audit <会话文件>` → 自带哈希链的 HTML 报告（OmniHarness / Claude Code / Codex / ACP 四类来源）+ 复核算法与诚实边界
 - [审计出证信任模型](audit/ATTESTATION.md): 三列信任表（完整性 / 来源 / 时间）——报告能证明什么、不能证明什么、coverage 口径与 verify 失败原因全表
 - [审计出证退出码契约](audit/EXIT_CODES.md): audit 三条路径 0/1/2 的逐条触发条件 + `--strict` 精确语义（未识别 > 0 ⇒ 1，报告仍生成）
+- [审计出证 60 秒演示](audit/demo/demo.sh): demo.sh/demo.ps1 三段（出证 → 复核绿 → 改一字 → 复核红，按退出码契约自检）+ 实录 transcript
+- [文章草稿：你的 agent 到底改了什么？](audit/ARTICLE_2026-11.md): 审计出证的 problem/solution/诚实边界 + 英文摘要（真实数字可复核；发布渠道待拍板）
 - [审计出证 90 天施工方案](audit/PLAN_2026-11.md): P0–P6 七包（裂缝清零 / npx 一条命令 / demo / 脱敏 / 签名 / 减法 / D90 裁决）+ 每包验收命令与 ≤10 h/周排期
 - [一键启动与运行规范](STARTUP.md): `npm start` 一键起（服务端 + 前端 + HTTP UI）/ 起没起来的判定 / 停止重启 / 数据与配置落点 / 故障排查
 

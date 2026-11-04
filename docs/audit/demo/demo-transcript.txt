@@ -1,0 +1,14 @@
+═══ ① 出证：audit <会话文件> --out report.html
+审计报告已生成：C:/Users/芭比咯/AppData/Local/Temp/tmp.2nVPbd4Ul1/demo-report.html
+  记录 8 · 工具 1 · 失败 1 · 文件 1 · token 120 · 未识别 0 · 脱敏 off · 链头 b32b6a93ae6a74fb…
+
+═══ ② 复核：audit verify report.html（应显示「链完整」，exit 0）
+✓ C:/Users/芭比咯/AppData/Local/Temp/tmp.2nVPbd4Ul1/demo-report.html — 链完整（8 条记录，链头 b32b6a93ae6a74fb…）
+✓ ② 通过：报告自生成起未被改动
+
+═══ ③ 篡改：改报告里一个显示字（演示报告 → 伪造报告），verify 必须变红
+✗ C:/Users/芭比咯/AppData/Local/Temp/tmp.2nVPbd4Ul1/demo-report.html — 报告字段：artifact（报告可能被改动，不可作为证据）
+✓ ③ 通过：一个显示字都瞒不过文件级自指纹（exit 1 = 证据失败）
+
+═══ 演示完成：三段行为全部符合退出码契约（docs/audit/EXIT_CODES.md）。
+    报告在 /tmp/tmp.2nVPbd4Ul1/demo-report.html（已被 ③ 改坏——正好看它怎么报红；重新跑 ① 即得干净版）。
