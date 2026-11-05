@@ -184,3 +184,4 @@ web/vendor/
 # 但 docs/ 是受版本控制的，这两个标记文件必须显式忽略，否则每次 pack 都会污染工作树）
 docs/.npmignore
 docs/assets/.npmignore
+docs/audit/demo/.npmignore
