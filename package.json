@@ -1,6 +1,6 @@
 {
   "name": "@mylong227/omniharness",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "OmniHarness —— 通用 Agent Harness：TypeScript（CLI / Web 前端 / 编排）+ Rust（原生内核）",
   "type": "module",
   "license": "Apache-2.0",
@@ -73,6 +73,8 @@
     "perf:gate": "node scripts/perfGate.mjs",
     "web:test": "npm run web:build && npm run test:web",
     "prepare": "tsc",
+    "prepack": "node scripts/npmPackFilter.mjs",
+    "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "npm run build && npm run web:build && npm run build:audit-bin",
     "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json --noEmit",
     "check": "node scripts/check.mjs",

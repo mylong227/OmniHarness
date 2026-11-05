@@ -8111,3 +8111,49 @@ runPlanTool / cliAuthCmds 补测完成后，**§203.4 登记的 10 个低覆盖�
 - PLAN 进度：**P0 ✅ / P1 3.5/4 / P2 2.2/3 / P3 ✅ / P5 首批 ✅（提前约 7 周）**；
   P4（等外部信号）/ P6（等 D90）按排期。剩余非机械项：tarball 瘦身决策、真实会话配图、
   文章发布渠道、npm publish（等 login）。
+
+---
+
+## §216 0.5.0 发布（P3 脱敏 + P5 首批减法）与三项拍板（2026-11-05）
+
+### 216.1 版本与产物就绪
+
+- `changeset version` 消费 `audit-redact`（minor）+ `audit-acp-evidence-verifier-parity`（patch）
+  ⇒ **0.5.0**，CHANGELOG 已生成；`desktop/package.json` 手工对齐 0.5.0（changeset 不管它）。
+- `npm publish --dry-run` **exit 0**：`package size 4.9 MB / unpacked 14.3 MB / 2,808 文件`，
+  `prepublishOnly` 三段构建全绿（`dist/bin/audit.mjs` 78,752 B ≤ 307,200 判据）。
+- **唯一缺口**：本机无 npmjs 凭据（无 `.npmrc`、无 `NPM_TOKEN`，`npm whoami` = `ENEEDAUTH`）。
+  npm 10 的 `npm login` 走 web 授权（打印限时链接后轮询），后台进程的授权链接会随时间过期，
+  过期后回落到 `Username:` 提示并因 stdin 关闭 exit 1 —— 必须由本人在浏览器里完成。
+  发布命令：`npm run release:publish`。
+
+### 216.2 拍板①：tarball 瘦身 —— 不砍 web/dist，剥离"消费者永远不读"的四类文件
+
+实测拆解（0.4.0，4,222 文件 / 19.37 MB）：`docs/assets` 三张 JPEG **12.22 MB**（单张
+`omniharness-overview.jpg` 就 7.64 MB）+ `.map` **11.56 MB / 1,354 个**；真实运行资产
+（js / css / woff2 / 字体）只有 3 MB 级。
+
+- **不砍 `web/dist`**：砍掉即 npm 版 `serve` 没有工作台 UI，功能代价远大于体积收益。
+- 改在打包面剥离：源映射；katex 的 `ttf`/`woff`（`@font-face` 的 `src` 首选是 woff2，
+  另外两种现代浏览器永不请求）；文档大图；内部开发看板 `PROJECT_BOARD.md`。
+- 落点 `scripts/npmPackFilter.mjs` + `prepack` 钩子（对 `npm pack` / `npm publish` 同时生效，
+  且在 `prepublishOnly` 的构建之后执行）；目录里的 `.npmignore` 是构建副产物，不入库。
+- 结果：**19.37 → 4.9 MB（−75%）**，4,222 → 2,808 文件；`npm run pack:dry` 可随时复算。
+- 副作用待办（非阻塞）：三张 JPEG 本身该压（7.64 MB 的架构图对仓库也不健康），
+  压缩后可重新随包发行；`docs/*.md` 里的相对图片链接在 npm 包内会指向缺失文件（GitHub 正常）。
+
+### 216.3 拍板②：demo 配图用真实会话，但必须先过 `--redact all`
+
+- 理由：P3 脱敏是本版主打能力，用合成会话配图等于自证不了「敢发」；而真实会话里的绝对路径
+  与密钥，正好是被遮蔽的对象——图本身就是功能演示。
+- 口径：截图前一律 `audit report --redact all`，并人工复核（工作区根标记可能仍含项目名，
+  边界见 §210）；合成会话（`docs/audit/demo/`）保留为 CI/离线复跑基线，两者并存。
+- 回落：若复核发现无法遮蔽的敏感内容，退回合成会话配图，不因配图推迟文章。
+
+### 216.4 拍板③：文章渠道 —— 掘金首发，V2EX 同周，公众号/dev.to 次周，HN 推迟
+
+- **首发**：掘金（中文长文主阵地，可被搜索索引）+ V2EX「分享创造」（作者在场回帖，早期口碑）。
+- **次周**：公众号（沉淀与转发）、dev.to（英文版，承接海外长尾）。
+- **HN 推迟**到英文版 + 真实使用数据之后：HN 对新项目/新账号冷启动极敏感，首发即投容易沉底，
+  且当天评论压力与「数据出处」追问最强，需要英文版与可复核数字同时就位。
+- 文章草稿：`docs/audit/ARTICLE_2026-11.md`（状态仍为「草稿待发布」，发布动作本身不在本版范围内）。

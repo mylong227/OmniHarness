@@ -179,3 +179,8 @@ web/vendor/
 
 # Windows 文件权限诊断的输出目录（scripts 由 diagnose-windows-sandbox-acl 写入，含回滚脚本）
 .acl-recovery/
+
+# npm 打包过滤器副产物（scripts/npmPackFilter.mjs 写入受控目录；dist/ 与 web/dist/ 已整体忽略，
+# 但 docs/ 是受版本控制的，这两个标记文件必须显式忽略，否则每次 pack 都会污染工作树）
+docs/.npmignore
+docs/assets/.npmignore
