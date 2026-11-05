@@ -8191,3 +8191,19 @@ runPlanTool / cliAuthCmds 补测完成后，**§203.4 登记的 10 个低覆盖�
   短时效凭据"的组合很容易再次错过窗口。
 - 环境事实：本机 Node 22.20.0 低于 npm 12 要求的 22.22.2，npm 12 会 warn 但实测可用；
   临时装法是 `npm i --prefix .tmp/npm12 --no-save npm@12.2.2`，不污染全局。
+
+### 216.7 demo 配图落地（拍板②执行）
+
+- 素材是**真实会话** `sess_mvvo9087_1`（129 记录 / 27 工具调用 / 7 失败 / 6 分 45 秒 /
+  456,337 token），`audit --redact all` 出 272 KB 报告；**泄漏扫描 0 命中**
+  （`D:\` / `C:\` / `sk-` / `ghp_` / `github_pat_` / `AKIA` / `Bearer` / `omniharness-home`）。
+  报告里路径呈 `[REDACTED:paths:…#8e5949ec]`，同值同标，仍可跨记录比对。
+- 四张图 `docs/audit/demo/demo-0{1..4}-*.png`（1440 视口 @2x）：总览 / 完整性 / 文件变更 /
+  时间线，全部由报告页面渲染，未做手工修补。
+- 文章 `docs/audit/ARTICLE_2026-11.md`：状态改为「配图与定稿就绪，待发布」，新增配图段落，
+  数字表补「配图来源」「npm 发布」两行。
+- **打包不变式**：`docs/audit/demo/*.png` 已加入 `npmPackFilter` 排除项 —— tarball 仍
+  **4.71 MB / 2,808 文件**（配图只进仓库，不进 npm 包）。
+- 教训：用 Playwright 的 `clip` 切长表格区域会报
+  `Clipped area is either empty or outside the resulting image`；改用
+  `scrollIntoView` + 截视口才稳定（该报告的时间线有 129 行）。
