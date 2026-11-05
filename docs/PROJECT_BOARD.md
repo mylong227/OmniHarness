@@ -8157,3 +8157,37 @@ runPlanTool / cliAuthCmds 补测完成后，**§203.4 登记的 10 个低覆盖�
 - **HN 推迟**到英文版 + 真实使用数据之后：HN 对新项目/新账号冷启动极敏感，首发即投容易沉底，
   且当天评论压力与「数据出处」追问最强，需要英文版与可复核数字同时就位。
 - 文章草稿：`docs/audit/ARTICLE_2026-11.md`（状态仍为「草稿待发布」，发布动作本身不在本版范围内）。
+
+### 216.5 发布结果（2026-11-05 已上架）
+
+- `@mylong227/omniharness@0.5.0` 已发布：registry 实测 `dist.fileCount = 2,808`、
+  `dist.unpackedSize = 14,254,818 B`（13.6 MiB）、tarball **4.9 MB**（`npm pack` 本地实测 4.70 MB）。
+- git tag `@mylong227/omniharness@0.5.0` 已推到 `mylong227/OmniHarness`。
+- **新包首发的可见性延迟**：publish 成功后会先出现一个 `0.0.0-stage` 占位版本（npm 安全扫描），
+  约 3 分钟后真实版本与 `latest` 才出现；这期间 `npm view @mylong227/omniharness@0.5.0` 报
+  `E404 No match found` 属正常，不要去重发（重发会撞 `EPUBLISHCONFLICT`）。
+- 推送 `github.com:443` 又遇间歇性不可达，用固定 IP 旁路一次通过
+  （`-c http.curloptResolve=github.com:443:140.82.112.3`）。
+
+### 216.6 安全密钥型 2FA 下如何从 CLI 发布（本轮踩坑沉淀，下次直接照做）
+
+- 本账号 2FA 是 **security key（WebAuthn）**、模式 `auth-and-writes`。`--otp` 只接受 TOTP 六位码，
+  而安全密钥不产生数字 ⇒ 不存在"问用户要个码"的解法（本轮来回多轮都是这个根因）。
+- npm 10.9.3：直接 `EOTP`，无任何浏览器入口。npm 12.2.2：会返回并打印 `authUrl` / `doneUrl`，
+  但**进程立刻退出**，因为 `lib/utils/auth.js:10`：
+  `if (!process.stdin.isTTY || !process.stdout.isTTY) throw err`。
+- **可复现解法**：把 npm 12 的 CLI 在**进程内**加载，先伪造 TTY：
+  ```js
+  process.stdin.isTTY = true;
+  process.stdout.isTTY = true;
+  process.argv = [process.argv[0], 'npm', 'publish', '--ignore-scripts'];
+  require('…/npm12/node_modules/npm/bin/npm-cli.js');
+  ```
+  它就会走 `otplease` 的 web 分支 → 打印授权链接 → 轮询 `doneUrl` → 拿到 token 后自动重试 publish。
+  用户只需在浏览器里点一次安全密钥（Windows Hello 指纹/PIN 或 USB key），**不需要任何数字码**。
+- 细节：终端会停在 `Press ENTER to open in the browser...`，但**不必真按**——`doneUrl` 返回 200 后
+  代码里的 `abortController.abort()` 会让这个等待以 `AbortError` 收场，流程继续。
+- 发布时用 `--ignore-scripts` 跳过 `prepublishOnly` 的三段构建（构建已单独跑过）：否则"4 分钟构建 +
+  短时效凭据"的组合很容易再次错过窗口。
+- 环境事实：本机 Node 22.20.0 低于 npm 12 要求的 22.22.2，npm 12 会 warn 但实测可用；
+  临时装法是 `npm i --prefix .tmp/npm12 --no-save npm@12.2.2`，不污染全局。
